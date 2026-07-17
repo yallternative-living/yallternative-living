@@ -111,20 +111,31 @@
      and disconnecting it before making a new one closes that leak. */
   function wireReveal(root, options) {
     var els = root.querySelectorAll(".reveal");
-    if (root.__revealIO) { root.__revealIO.disconnect(); root.__revealIO = null; }
+    if (root.__revealIO) {
+      root.__revealIO.disconnect();
+      root.__revealIO = null;
+    }
     if (!("IntersectionObserver" in window) || !els.length) {
-      els.forEach(function (el) { el.classList.add("in"); });
+      els.forEach(function (el) {
+        el.classList.add("in");
+      });
       return;
     }
-    var io = new IntersectionObserver(function (entries) {
-      entries.forEach(function (entry) {
-        if (entry.isIntersecting) {
-          entry.target.classList.add("in");
-          io.unobserve(entry.target);
-        }
-      });
-    }, options || { threshold: 0.1 });
-    els.forEach(function (el, i) { el.style.setProperty("--i", i % 8); io.observe(el); });
+    var io = new IntersectionObserver(
+      function (entries) {
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("in");
+            io.unobserve(entry.target);
+          }
+        });
+      },
+      options || { threshold: 0.1 }
+    );
+    els.forEach(function (el, i) {
+      el.style.setProperty("--i", i % 8);
+      io.observe(el);
+    });
     root.__revealIO = io;
   }
   wireReveal(document, { threshold: 0.15, rootMargin: "0px 0px -40px 0px" });
@@ -146,7 +157,9 @@
   signupForms.forEach(function (form) {
     form.addEventListener("submit", function (e) {
       var hp = form.querySelector('input[name="footer_website"]');
-      if (hp && hp.value) { e.preventDefault(); }
+      if (hp && hp.value) {
+        e.preventDefault();
+      }
     });
   });
 
@@ -160,7 +173,9 @@
      cleans the flag out of the address bar. */
   if (window.location.search.indexOf("subscribed=1") !== -1) {
     var signupBoxes = document.querySelectorAll(".footer-signup");
-    signupBoxes.forEach(function (box) { box.classList.add("is-subscribed"); });
+    signupBoxes.forEach(function (box) {
+      box.classList.add("is-subscribed");
+    });
     if (window.history && window.history.replaceState) {
       window.history.replaceState({}, "", window.location.pathname + window.location.hash);
     }
@@ -184,7 +199,10 @@
   reviewForms.forEach(function (form) {
     form.addEventListener("submit", function (e) {
       var hp = form.querySelector('input[name="review_website"]');
-      if (hp && hp.value) { e.preventDefault(); return; }
+      if (hp && hp.value) {
+        e.preventDefault();
+        return;
+      }
 
       if (!window.fetch) return; // let the native POST proceed with JS off/unsupported
       e.preventDefault();
@@ -193,16 +211,18 @@
         method: "POST",
         body: new FormData(form),
         headers: { Accept: "application/json" }
-      }).then(function (res) {
-        if (res.ok) {
-          if (wrap) wrap.classList.add("is-submitted");
-          form.reset();
-        } else {
+      })
+        .then(function (res) {
+          if (res.ok) {
+            if (wrap) wrap.classList.add("is-submitted");
+            form.reset();
+          } else {
+            form.submit();
+          }
+        })
+        .catch(function () {
           form.submit();
-        }
-      }).catch(function () {
-        form.submit();
-      });
+        });
     });
   });
 
@@ -219,7 +239,11 @@
 
   /* ---------- shared: escape a value for safe use inside an HTML attribute ---------- */
   function attrEsc(str) {
-    return String(str).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
   }
 
   /* Builds a <picture> element from assets/js/image-manifest.js (generated
@@ -241,11 +265,21 @@
     var manifest = window.YL_IMAGES && window.YL_IMAGES[imagePath];
     var alt = attrEsc(opts.alt || p.name);
     var imgAttrs =
-      ' alt="' + alt + '"' +
-      ' width="' + (opts.width || 600) + '"' +
-      ' height="' + (opts.height || 510) + '"' +
-      ' loading="' + (opts.loading || "lazy") + '"' +
-      ' decoding="' + (opts.decoding || "async") + '"' +
+      ' alt="' +
+      alt +
+      '"' +
+      ' width="' +
+      (opts.width || 600) +
+      '"' +
+      ' height="' +
+      (opts.height || 510) +
+      '"' +
+      ' loading="' +
+      (opts.loading || "lazy") +
+      '"' +
+      ' decoding="' +
+      (opts.decoding || "async") +
+      '"' +
       (opts.fetchpriority ? ' fetchpriority="' + opts.fetchpriority + '"' : "");
 
     var avifVariants = manifest && manifest.variants && manifest.variants.avif;
@@ -258,22 +292,38 @@
       // Fixed small size everywhere (wishlist thumbnail) -- one source
       // per format is enough, no need for a full responsive srcset.
       var sources = "";
-      if (avifVariants && avifVariants.length) sources += '<source type="image/avif" srcset="' + attrEsc(avifVariants[0].file) + '">';
-      if (webpVariants && webpVariants.length) sources += '<source type="image/webp" srcset="' + attrEsc(webpVariants[0].file) + '">';
-      return "<picture>" + sources + '<img src="' + attrEsc(imagePath) + '"' + imgAttrs + "></picture>";
+      if (avifVariants && avifVariants.length)
+        sources += '<source type="image/avif" srcset="' + attrEsc(avifVariants[0].file) + '">';
+      if (webpVariants && webpVariants.length)
+        sources += '<source type="image/webp" srcset="' + attrEsc(webpVariants[0].file) + '">';
+      return (
+        "<picture>" + sources + '<img src="' + attrEsc(imagePath) + '"' + imgAttrs + "></picture>"
+      );
     }
 
     var sizes = opts.sizes || "(max-width: 600px) 100vw, (max-width: 980px) 50vw, 33vw";
     var sourcesFull = "";
     if (avifVariants && avifVariants.length) {
-      var avifSrcset = avifVariants.map(function (v) { return attrEsc(v.file) + " " + v.width + "w"; }).join(", ");
-      sourcesFull += '<source type="image/avif" srcset="' + avifSrcset + '" sizes="' + attrEsc(sizes) + '">';
+      var avifSrcset = avifVariants
+        .map(function (v) {
+          return attrEsc(v.file) + " " + v.width + "w";
+        })
+        .join(", ");
+      sourcesFull +=
+        '<source type="image/avif" srcset="' + avifSrcset + '" sizes="' + attrEsc(sizes) + '">';
     }
     if (webpVariants && webpVariants.length) {
-      var webpSrcset = webpVariants.map(function (v) { return attrEsc(v.file) + " " + v.width + "w"; }).join(", ");
-      sourcesFull += '<source type="image/webp" srcset="' + webpSrcset + '" sizes="' + attrEsc(sizes) + '">';
+      var webpSrcset = webpVariants
+        .map(function (v) {
+          return attrEsc(v.file) + " " + v.width + "w";
+        })
+        .join(", ");
+      sourcesFull +=
+        '<source type="image/webp" srcset="' + webpSrcset + '" sizes="' + attrEsc(sizes) + '">';
     }
-    return "<picture>" + sourcesFull + '<img src="' + attrEsc(imagePath) + '"' + imgAttrs + "></picture>";
+    return (
+      "<picture>" + sourcesFull + '<img src="' + attrEsc(imagePath) + '"' + imgAttrs + "></picture>"
+    );
   }
 
   /* ---------- Shop-card photo gallery ----------
@@ -310,29 +360,55 @@
     if (allImages.length <= 1) {
       return pictureHTML(p, firstSlideOpts);
     }
-    var slides = allImages.map(function (imgPath, i) {
-      if (i === 0) {
-        var o = Object.assign({}, firstSlideOpts, { imagePath: imgPath });
+    var slides = allImages
+      .map(function (imgPath, i) {
+        if (i === 0) {
+          var o = Object.assign({}, firstSlideOpts, { imagePath: imgPath });
+          return (
+            '<div class="card-gallery-slide active" data-idx="0">' + pictureHTML(p, o) + "</div>"
+          );
+        }
         return (
-          '<div class="card-gallery-slide active" data-idx="0">' +
-          pictureHTML(p, o) +
-          "</div>"
+          '<div class="card-gallery-slide" data-idx="' +
+          i +
+          '" data-image="' +
+          attrEsc(imgPath) +
+          '"></div>'
         );
-      }
-      return '<div class="card-gallery-slide" data-idx="' + i + '" data-image="' + attrEsc(imgPath) + '"></div>';
-    }).join("");
-    var dots = allImages.map(function (_, i) {
-      return (
-        '<button type="button" class="card-gallery-dot' + (i === 0 ? " active" : "") + '"' +
-        ' data-idx="' + i + '"' +
-        ' aria-label="View photo ' + (i + 1) + " of " + allImages.length + " for " + attrEsc(p.name) + '"' +
-        ' aria-pressed="' + (i === 0 ? "true" : "false") + '"></button>'
-      );
-    }).join("");
+      })
+      .join("");
+    var dots = allImages
+      .map(function (_, i) {
+        return (
+          '<button type="button" class="card-gallery-dot' +
+          (i === 0 ? " active" : "") +
+          '"' +
+          ' data-idx="' +
+          i +
+          '"' +
+          ' aria-label="View photo ' +
+          (i + 1) +
+          " of " +
+          allImages.length +
+          " for " +
+          attrEsc(p.name) +
+          '"' +
+          ' aria-pressed="' +
+          (i === 0 ? "true" : "false") +
+          '"></button>'
+        );
+      })
+      .join("");
     return (
-      '<div class="card-gallery" data-count="' + allImages.length + '" data-product-id="' + attrEsc(p.id) + '">' +
+      '<div class="card-gallery" data-count="' +
+      allImages.length +
+      '" data-product-id="' +
+      attrEsc(p.id) +
+      '">' +
       slides +
-      '<div class="card-gallery-dots">' + dots + "</div>" +
+      '<div class="card-gallery-dots">' +
+      dots +
+      "</div>" +
       "</div>"
     );
   }
@@ -358,15 +434,23 @@
     // whatever the shopper picks before they click this button.
     var variantAttrs = "";
     if (p.variants && Array.isArray(p.variants.options) && p.variants.options.length) {
-      var optionsStr = p.variants.options.map(function (o) {
-        var delta = o.priceDelta || 0;
-        var sign = delta < 0 ? "-" : "+";
-        return attrEsc(o.label) + "[" + sign + Math.abs(delta).toFixed(2) + "]";
-      }).join("|");
+      var optionsStr = p.variants.options
+        .map(function (o) {
+          var delta = o.priceDelta || 0;
+          var sign = delta < 0 ? "-" : "+";
+          return attrEsc(o.label) + "[" + sign + Math.abs(delta).toFixed(2) + "]";
+        })
+        .join("|");
       variantAttrs =
-        ' data-item-custom1-name="' + attrEsc(p.variants.name) + '"' +
-        ' data-item-custom1-options="' + optionsStr + '"' +
-        ' data-item-custom1-value="' + attrEsc(p.variants.options[0].label) + '"';
+        ' data-item-custom1-name="' +
+        attrEsc(p.variants.name) +
+        '"' +
+        ' data-item-custom1-options="' +
+        optionsStr +
+        '"' +
+        ' data-item-custom1-value="' +
+        attrEsc(p.variants.options[0].label) +
+        '"';
     }
 
     // Real, honest sold-out state: p.stock is a manually-maintained field
@@ -375,7 +459,11 @@
     // When Savanna sets it to 0, the button becomes inert instead of
     // silently accepting an order she can't fulfill.
     if (p.stock === 0) {
-      return '<button type="button" class="btn btn-outline btn-sm' + (extraClass ? " " + extraClass : "") + '" disabled aria-disabled="true">Sold Out</button>';
+      return (
+        '<button type="button" class="btn btn-outline btn-sm' +
+        (extraClass ? " " + extraClass : "") +
+        '" disabled aria-disabled="true">Sold Out</button>'
+      );
     }
 
     // data-item-max-quantity is Snipcart's own documented per-order cap
@@ -383,20 +471,35 @@
     // HTML-only, unlike a live decrementing counter, which requires the
     // Snipcart dashboard's own Inventory feature tied to a real account
     // (see README section 8). Only added when a real count exists.
-    var stockAttrs = typeof p.stock === "number" && p.stock > 0
-      ? ' data-item-max-quantity="' + p.stock + '"'
-      : "";
+    var stockAttrs =
+      typeof p.stock === "number" && p.stock > 0 ? ' data-item-max-quantity="' + p.stock + '"' : "";
 
     return (
-      '<button type="button" class="btn btn-primary btn-sm snipcart-add-item' + (extraClass ? " " + extraClass : "") + '"' +
-      ' data-item-id="' + attrEsc(p.id) + '"' +
-      ' data-item-name="' + attrEsc(p.name) + '"' +
-      ' data-item-price="' + p.price.toFixed(2) + '"' +
+      '<button type="button" class="btn btn-primary btn-sm snipcart-add-item' +
+      (extraClass ? " " + extraClass : "") +
+      '"' +
+      ' data-item-id="' +
+      attrEsc(p.id) +
+      '"' +
+      ' data-item-name="' +
+      attrEsc(p.name) +
+      '"' +
+      ' data-item-price="' +
+      p.price.toFixed(2) +
+      '"' +
       ' data-item-url="/assets/data/snipcart-products.json"' +
-      ' data-item-description="' + attrEsc(p.blurb) + '"' +
-      ' data-item-image="' + attrEsc(p.image) + '"' +
-      ' data-item-categories="' + attrEsc(p.category) + '"' +
-      variantAttrs + stockAttrs + ">" +
+      ' data-item-description="' +
+      attrEsc(p.blurb) +
+      '"' +
+      ' data-item-image="' +
+      attrEsc(p.image) +
+      '"' +
+      ' data-item-categories="' +
+      attrEsc(p.category) +
+      '"' +
+      variantAttrs +
+      stockAttrs +
+      ">" +
       "Add to Cart" +
       "</button>"
     );
@@ -411,7 +514,8 @@
   function stockBadgeHTML(p) {
     if (typeof p.stock !== "number") return "";
     if (p.stock === 0) return '<span class="stock-badge sold-out">Sold out</span>';
-    if (p.stock <= LOW_STOCK_THRESHOLD) return '<span class="stock-badge low-stock">Only ' + p.stock + " left</span>";
+    if (p.stock <= LOW_STOCK_THRESHOLD)
+      return '<span class="stock-badge low-stock">Only ' + p.stock + " left</span>";
     return "";
   }
 
@@ -422,11 +526,22 @@
      for free -- no custom listbox widget needed for something this simple. */
   function variantSelectHTML(p) {
     if (!p.variants || !Array.isArray(p.variants.options) || !p.variants.options.length) return "";
-    var options = p.variants.options.map(function (o) {
-      var delta = o.priceDelta || 0;
-      var priceSuffix = delta ? " (+$" + delta.toFixed(2) + ")" : "";
-      return '<option value="' + attrEsc(o.label) + '" data-delta="' + delta + '">' + attrEsc(o.label) + priceSuffix + "</option>";
-    }).join("");
+    var options = p.variants.options
+      .map(function (o) {
+        var delta = o.priceDelta || 0;
+        var priceSuffix = delta ? " (+$" + delta.toFixed(2) + ")" : "";
+        return (
+          '<option value="' +
+          attrEsc(o.label) +
+          '" data-delta="' +
+          delta +
+          '">' +
+          attrEsc(o.label) +
+          priceSuffix +
+          "</option>"
+        );
+      })
+      .join("");
     return (
       '<label class="variant-select-wrap">' +
       /* Visible, not sr-only -- a bare unlabeled <select> made it easy
@@ -434,8 +549,16 @@
          Size/Scent/Blend choice existed at all. aria-label stays on the
          <select> itself since it's more specific ("Size for Tank Top")
          than the short visible caption alone would convey out of context. */
-      '<span class="variant-select-label">' + attrEsc(p.variants.name) + "</span>" +
-      '<select class="variant-select" data-base-price="' + p.price + '" aria-label="' + attrEsc(p.variants.name) + " for " + attrEsc(p.name) + '">' +
+      '<span class="variant-select-label">' +
+      attrEsc(p.variants.name) +
+      "</span>" +
+      '<select class="variant-select" data-base-price="' +
+      p.price +
+      '" aria-label="' +
+      attrEsc(p.variants.name) +
+      " for " +
+      attrEsc(p.name) +
+      '">' +
       options +
       "</select>" +
       "</label>"
@@ -443,19 +566,25 @@
   }
 
   function getWishlist() {
-    try { return JSON.parse(localStorage.getItem(WISH_KEY)) || []; }
-    catch (e) { return []; }
+    try {
+      return JSON.parse(localStorage.getItem(WISH_KEY)) || [];
+    } catch (e) {
+      return [];
+    }
   }
   function saveWishlist(list) {
     localStorage.setItem(WISH_KEY, JSON.stringify(list));
     updateWishBadge();
     renderWishDrawer();
   }
-  function isWished(id) { return getWishlist().indexOf(id) !== -1; }
+  function isWished(id) {
+    return getWishlist().indexOf(id) !== -1;
+  }
   function toggleWish(id) {
     var list = getWishlist();
     var i = list.indexOf(id);
-    if (i === -1) list.push(id); else list.splice(i, 1);
+    if (i === -1) list.push(id);
+    else list.splice(i, 1);
     saveWishlist(list);
     document.querySelectorAll('.wish-btn[data-id="' + id + '"]').forEach(function (btn) {
       var active = list.indexOf(id) !== -1;
@@ -507,7 +636,10 @@
     backdrop.addEventListener("click", closeWishDrawer);
     document.getElementById("wishClose").addEventListener("click", closeWishDrawer);
     document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape") { closeWishDrawer(); return; }
+      if (e.key === "Escape") {
+        closeWishDrawer();
+        return;
+      }
       // Focus trap: while open, Tab/Shift+Tab should cycle only through
       // the drawer's own controls, not escape into the rest of the page
       // (which a keyboard user would otherwise have to tab all the way
@@ -517,11 +649,14 @@
         'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
       );
       if (!focusable.length) return;
-      var first = focusable[0], last = focusable[focusable.length - 1];
+      var first = focusable[0],
+        last = focusable[focusable.length - 1];
       if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault(); last.focus();
+        e.preventDefault();
+        last.focus();
       } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault(); first.focus();
+        e.preventDefault();
+        first.focus();
       }
     });
   }
@@ -536,7 +671,8 @@
     if (closeBtn) closeBtn.focus();
   }
   function closeWishDrawer() {
-    var b = document.getElementById("wishBackdrop"), d = document.getElementById("wishDrawer");
+    var b = document.getElementById("wishBackdrop"),
+      d = document.getElementById("wishDrawer");
     var wasOpen = !!(d && d.classList.contains("open"));
     if (b) b.classList.remove("open");
     if (d) {
@@ -557,27 +693,44 @@
     if (!body) return;
     var ids = getWishlist();
     var all = (window.YL_PRODUCTS && window.YL_PRODUCTS.products) || [];
-    var items = ids.map(function (id) { return all.find(function (p) { return p.id === id; }); }).filter(Boolean);
+    var items = ids
+      .map(function (id) {
+        return all.find(function (p) {
+          return p.id === id;
+        });
+      })
+      .filter(Boolean);
     if (!items.length) {
-      body.innerHTML = '<div class="wish-empty"><span class="glyph" aria-hidden="true">♡</span>Nothing saved yet — tap the heart on anything in the shop to keep it here.</div>';
+      body.innerHTML =
+        '<div class="wish-empty"><span class="glyph" aria-hidden="true">♡</span>Nothing saved yet — tap the heart on anything in the shop to keep it here.</div>';
       return;
     }
-    body.innerHTML = items.map(function (p) {
-      return (
-        '<div class="wish-item">' +
-        pictureHTML(p, { single: true, width: 64, height: 64 }) +
-        '<div class="wish-item-body">' +
-        "<h4>" + attrEsc(p.name) + "</h4>" +
-        '<span class="price">$' + p.price.toFixed(2) + "</span>" +
-        '<div class="wish-item-actions">' +
-        addToCartHTML(p) +
-        '<button class="wish-remove" type="button" data-id="' + attrEsc(p.id) + '">Remove</button>' +
-        "</div>" +
-        "</div></div>"
-      );
-    }).join("");
+    body.innerHTML = items
+      .map(function (p) {
+        return (
+          '<div class="wish-item">' +
+          pictureHTML(p, { single: true, width: 64, height: 64 }) +
+          '<div class="wish-item-body">' +
+          "<h4>" +
+          attrEsc(p.name) +
+          "</h4>" +
+          '<span class="price">$' +
+          p.price.toFixed(2) +
+          "</span>" +
+          '<div class="wish-item-actions">' +
+          addToCartHTML(p) +
+          '<button class="wish-remove" type="button" data-id="' +
+          attrEsc(p.id) +
+          '">Remove</button>' +
+          "</div>" +
+          "</div></div>"
+        );
+      })
+      .join("");
     body.querySelectorAll(".wish-remove").forEach(function (btn) {
-      btn.addEventListener("click", function () { toggleWish(btn.getAttribute("data-id")); });
+      btn.addEventListener("click", function () {
+        toggleWish(btn.getAttribute("data-id"));
+      });
     });
   }
   document.addEventListener("click", function (e) {
@@ -600,7 +753,9 @@
     if (!imgPath) return;
     var productId = gallery.getAttribute("data-product-id");
     var all = (window.YL_PRODUCTS && window.YL_PRODUCTS.products) || [];
-    var p = all.find(function (pr) { return pr.id === productId; });
+    var p = all.find(function (pr) {
+      return pr.id === productId;
+    });
     if (!p) return;
     slide.innerHTML = pictureHTML(p, { width: 600, height: 510, imagePath: imgPath });
     slide.removeAttribute("data-image");
@@ -637,7 +792,10 @@
     var gallery = dot.closest(".card-gallery");
     if (!gallery) return;
     var idx = dot.getAttribute("data-idx");
-    hydrateGallerySlide(gallery, gallery.querySelector('.card-gallery-slide[data-idx="' + idx + '"]'));
+    hydrateGallerySlide(
+      gallery,
+      gallery.querySelector('.card-gallery-slide[data-idx="' + idx + '"]')
+    );
   }
   document.addEventListener("mouseover", function (e) {
     var dot = e.target.closest(".card-gallery-dot");
@@ -703,8 +861,8 @@
     if (!btn || typeof window.plausible !== "function") return;
     window.plausible("Add to Cart", {
       props: {
-        product: btn.getAttribute("data-item-name") || btn.getAttribute("data-item-id") || "unknown",
-      },
+        product: btn.getAttribute("data-item-name") || btn.getAttribute("data-item-id") || "unknown"
+      }
     });
   });
   /* The one event that actually matters more than "added to cart" is
@@ -719,7 +877,7 @@
     window.Snipcart.events.on("cart.confirmed", function (cart) {
       if (typeof window.plausible !== "function") return;
       window.plausible("Order Completed", {
-        props: { total: cart && typeof cart.total === "number" ? cart.total.toFixed(2) : "unknown" },
+        props: { total: cart && typeof cart.total === "number" ? cart.total.toFixed(2) : "unknown" }
       });
     });
   });
@@ -742,10 +900,19 @@
       // element and already carries its own preload + fetchpriority=high;
       // eagerly loading featured-grid photos too would just compete with
       // it for bandwidth at the moment that matters most.
-      if (featuredGrid) renderCards(featuredGrid, pickFeatured(data.products), { eagerFirst: false });
+      if (featuredGrid)
+        renderCards(featuredGrid, pickFeatured(data.products), { eagerFirst: false });
       if (shopGrid) {
         if (filterRow) {
-          buildFilters(filterRow, data.categories, shopGrid, data.products, sortSelect, shopCount, shopSearch);
+          buildFilters(
+            filterRow,
+            data.categories,
+            shopGrid,
+            data.products,
+            sortSelect,
+            shopCount,
+            shopSearch
+          );
         } else {
           renderCards(shopGrid, data.products);
         }
@@ -760,15 +927,37 @@
      instead of it. "featured" keeps the catalog's own listed order. */
   function sortProducts(list, mode) {
     var arr = list.slice();
-    if (mode === "price-asc") arr.sort(function (a, b) { return a.price - b.price; });
-    else if (mode === "price-desc") arr.sort(function (a, b) { return b.price - a.price; });
-    else if (mode === "name-asc") arr.sort(function (a, b) { return a.name.localeCompare(b.name); });
+    if (mode === "price-asc")
+      arr.sort(function (a, b) {
+        return a.price - b.price;
+      });
+    else if (mode === "price-desc")
+      arr.sort(function (a, b) {
+        return b.price - a.price;
+      });
+    else if (mode === "name-asc")
+      arr.sort(function (a, b) {
+        return a.name.localeCompare(b.name);
+      });
     return arr;
   }
 
   function pickFeatured(products) {
-    var ids = ["frankincense-salve", "shimmer-oil", "beard-salve", "unisex-tshirt", "backroad-soak", "protection-keychain"];
-    return ids.map(function (id) { return products.find(function (p) { return p.id === id; }); }).filter(Boolean);
+    var ids = [
+      "frankincense-salve",
+      "shimmer-oil",
+      "beard-salve",
+      "unisex-tshirt",
+      "backroad-soak",
+      "protection-keychain"
+    ];
+    return ids
+      .map(function (id) {
+        return products.find(function (p) {
+          return p.id === id;
+        });
+      })
+      .filter(Boolean);
   }
 
   /* ---------- Bundles / gift sets (shop.html only) ----------
@@ -779,47 +968,83 @@
      function reads, so the on-page math and the checkout price can never
      disagree. */
   function bundlesHTML(bundles, productsById) {
-    return bundles.map(function (b) {
-      var items = b.productIds.map(function (id) { return productsById[id]; }).filter(Boolean);
-      if (items.length !== b.productIds.length) return ""; // a referenced product went missing -- skip rather than show a broken card
-      var fullPrice = items.reduce(function (sum, p) { return sum + p.price; }, 0);
-      var bundlePrice = Math.round(fullPrice * (1 - (b.discountPercent || 0) / 100) * 100) / 100;
-      var firstImage = items[0].image;
-      var includesList = items.map(function (p) { return "<li>" + attrEsc(p.name) + "</li>"; }).join("");
-      return (
-        '<article class="card bundle-card reveal">' +
-          '<div class="card-media">' + pictureHTML(items[0], { imagePath: firstImage, alt: b.name }) + "</div>" +
-          '<div class="card-body">' +
-            '<span class="card-cat">Gift Set</span>' +
-            "<h3>" + attrEsc(b.name) + "</h3>" +
-            "<p>" + attrEsc(b.blurb) + "</p>" +
-            '<ul class="bundle-includes">' + includesList + "</ul>" +
-            '<div class="card-foot">' +
-              '<div class="card-foot-row">' +
-                '<span class="price">$' + bundlePrice.toFixed(2) + ' <s class="bundle-full-price">$' + fullPrice.toFixed(2) + "</s></span>" +
-                '<button type="button" class="btn btn-primary btn-sm snipcart-add-item"' +
-                  ' data-item-id="bundle-' + attrEsc(b.id) + '"' +
-                  ' data-item-name="' + attrEsc(b.name) + '"' +
-                  ' data-item-price="' + bundlePrice.toFixed(2) + '"' +
-                  ' data-item-url="/assets/data/snipcart-products.json"' +
-                  ' data-item-description="' + attrEsc(b.blurb) + '"' +
-                  ' data-item-image="' + attrEsc(firstImage) + '"' +
-                  ' data-item-categories="bundle">' +
-                  "Add Set to Cart" +
-                "</button>" +
-              "</div>" +
-            "</div>" +
+    return bundles
+      .map(function (b) {
+        var items = b.productIds
+          .map(function (id) {
+            return productsById[id];
+          })
+          .filter(Boolean);
+        if (items.length !== b.productIds.length) return ""; // a referenced product went missing -- skip rather than show a broken card
+        var fullPrice = items.reduce(function (sum, p) {
+          return sum + p.price;
+        }, 0);
+        var bundlePrice = Math.round(fullPrice * (1 - (b.discountPercent || 0) / 100) * 100) / 100;
+        var firstImage = items[0].image;
+        var includesList = items
+          .map(function (p) {
+            return "<li>" + attrEsc(p.name) + "</li>";
+          })
+          .join("");
+        return (
+          '<article class="card bundle-card reveal">' +
+          '<div class="card-media">' +
+          pictureHTML(items[0], { imagePath: firstImage, alt: b.name }) +
           "</div>" +
-        "</article>"
-      );
-    }).join("");
+          '<div class="card-body">' +
+          '<span class="card-cat">Gift Set</span>' +
+          "<h3>" +
+          attrEsc(b.name) +
+          "</h3>" +
+          "<p>" +
+          attrEsc(b.blurb) +
+          "</p>" +
+          '<ul class="bundle-includes">' +
+          includesList +
+          "</ul>" +
+          '<div class="card-foot">' +
+          '<div class="card-foot-row">' +
+          '<span class="price">$' +
+          bundlePrice.toFixed(2) +
+          ' <s class="bundle-full-price">$' +
+          fullPrice.toFixed(2) +
+          "</s></span>" +
+          '<button type="button" class="btn btn-primary btn-sm snipcart-add-item"' +
+          ' data-item-id="bundle-' +
+          attrEsc(b.id) +
+          '"' +
+          ' data-item-name="' +
+          attrEsc(b.name) +
+          '"' +
+          ' data-item-price="' +
+          bundlePrice.toFixed(2) +
+          '"' +
+          ' data-item-url="/assets/data/snipcart-products.json"' +
+          ' data-item-description="' +
+          attrEsc(b.blurb) +
+          '"' +
+          ' data-item-image="' +
+          attrEsc(firstImage) +
+          '"' +
+          ' data-item-categories="bundle">' +
+          "Add Set to Cart" +
+          "</button>" +
+          "</div>" +
+          "</div>" +
+          "</div>" +
+          "</article>"
+        );
+      })
+      .join("");
   }
 
   function renderBundles(data) {
     var bundlesList = document.getElementById("bundlesList");
     if (!bundlesList || !data.bundles || !data.bundles.length) return;
     var productsById = {};
-    data.products.forEach(function (p) { productsById[p.id] = p; });
+    data.products.forEach(function (p) {
+      productsById[p.id] = p;
+    });
     bundlesList.innerHTML = bundlesHTML(data.bundles, productsById);
     wireReveal(bundlesList);
   }
@@ -837,8 +1062,16 @@
     var reviewWord = p.rating.count === 1 ? "review" : "reviews";
     return (
       '<div class="card-rating">' +
-      '<span aria-hidden="true">' + stars + "</span>" +
-      '<span class="sr-only">Rated ' + p.rating.value.toFixed(1) + " out of 5 stars, " + p.rating.count + " " + reviewWord + "</span>" +
+      '<span aria-hidden="true">' +
+      stars +
+      "</span>" +
+      '<span class="sr-only">Rated ' +
+      p.rating.value.toFixed(1) +
+      " out of 5 stars, " +
+      p.rating.count +
+      " " +
+      reviewWord +
+      "</span>" +
       "</div>"
     );
   }
@@ -853,12 +1086,22 @@
   function ingredientsHTML(p) {
     if (!p.ingredients || !p.ingredients.length) return "";
     var label = p.ingredientsLabel || "Ingredients";
-    var items = p.ingredients.map(function (i) { return "<li>" + attrEsc(i) + "</li>"; }).join("");
-    var note = p.ingredientsNote ? '<p class="ingredients-note">' + attrEsc(p.ingredientsNote) + "</p>" : "";
+    var items = p.ingredients
+      .map(function (i) {
+        return "<li>" + attrEsc(i) + "</li>";
+      })
+      .join("");
+    var note = p.ingredientsNote
+      ? '<p class="ingredients-note">' + attrEsc(p.ingredientsNote) + "</p>"
+      : "";
     return (
       '<details class="card-ingredients">' +
-      "<summary>" + attrEsc(label) + "</summary>" +
-      "<ul>" + items + "</ul>" +
+      "<summary>" +
+      attrEsc(label) +
+      "</summary>" +
+      "<ul>" +
+      items +
+      "</ul>" +
       note +
       '<p class="ingredients-caveat">Have a sensitivity or allergy? Double-check this list before use, and message us with any questions.</p>' +
       "</details>"
@@ -867,29 +1110,56 @@
 
   function cardHTML(p, opts) {
     opts = opts || {};
-    var catLabel = { apparel: "Apparel", salves: "Salves & Balms", body: "Body & Skin", soaks: "Soaks", potions: "Potions & Spellwork" }[p.category] || p.category;
+    var catLabel =
+      {
+        apparel: "Apparel",
+        salves: "Salves & Balms",
+        body: "Body & Skin",
+        soaks: "Soaks",
+        potions: "Potions & Spellwork"
+      }[p.category] || p.category;
     var wished = isWished(p.id);
     return (
-      '<article class="card reveal" data-category="' + attrEsc(p.category) + '">' +
-        '<div class="card-media">' +
-          cardGalleryHTML(p, { eager: !!opts.eager }) +
-          '<button class="wish-btn' + (wished ? " active" : "") + '" type="button" data-id="' + attrEsc(p.id) + '" aria-pressed="' + (wished ? "true" : "false") + '" aria-label="Save ' + attrEsc(p.name) + ' for later">' + wishHeartSVG + "</button>" +
-        "</div>" +
-        '<div class="card-body">' +
-          '<span class="card-cat">' + catLabel + "</span>" +
-          "<h3>" + attrEsc(p.name) + "</h3>" +
-          ratingHTML(p) +
-          "<p>" + attrEsc(p.blurb) + "</p>" +
-          ingredientsHTML(p) +
-          stockBadgeHTML(p) +
-          '<div class="card-foot">' +
-            variantSelectHTML(p) +
-            '<div class="card-foot-row">' +
-              '<span class="price">$' + p.price.toFixed(2) + "</span>" +
-              addToCartHTML(p) +
-            "</div>" +
-          "</div>" +
-        "</div>" +
+      '<article class="card reveal" data-category="' +
+      attrEsc(p.category) +
+      '">' +
+      '<div class="card-media">' +
+      cardGalleryHTML(p, { eager: !!opts.eager }) +
+      '<button class="wish-btn' +
+      (wished ? " active" : "") +
+      '" type="button" data-id="' +
+      attrEsc(p.id) +
+      '" aria-pressed="' +
+      (wished ? "true" : "false") +
+      '" aria-label="Save ' +
+      attrEsc(p.name) +
+      ' for later">' +
+      wishHeartSVG +
+      "</button>" +
+      "</div>" +
+      '<div class="card-body">' +
+      '<span class="card-cat">' +
+      catLabel +
+      "</span>" +
+      "<h3>" +
+      attrEsc(p.name) +
+      "</h3>" +
+      ratingHTML(p) +
+      "<p>" +
+      attrEsc(p.blurb) +
+      "</p>" +
+      ingredientsHTML(p) +
+      stockBadgeHTML(p) +
+      '<div class="card-foot">' +
+      variantSelectHTML(p) +
+      '<div class="card-foot-row">' +
+      '<span class="price">$' +
+      p.price.toFixed(2) +
+      "</span>" +
+      addToCartHTML(p) +
+      "</div>" +
+      "</div>" +
+      "</div>" +
       "</article>"
     );
   }
@@ -905,9 +1175,11 @@
   function renderCards(container, products, opts) {
     opts = opts || {};
     var eagerFirst = opts.eagerFirst !== false;
-    container.innerHTML = products.map(function (p, i) {
-      return cardHTML(p, { eager: eagerFirst && i < EAGER_CARD_COUNT });
-    }).join("");
+    container.innerHTML = products
+      .map(function (p, i) {
+        return cardHTML(p, { eager: eagerFirst && i < EAGER_CARD_COUNT });
+      })
+      .join("");
     wireReveal(container);
   }
 
@@ -920,35 +1192,50 @@
   var siteReviewsList = document.getElementById("siteReviewsList");
   if (siteReviewsList) {
     var productsById = {};
-    (window.YL_PRODUCTS && window.YL_PRODUCTS.products || []).forEach(function (p) { productsById[p.id] = p; });
+    ((window.YL_PRODUCTS && window.YL_PRODUCTS.products) || []).forEach(function (p) {
+      productsById[p.id] = p;
+    });
 
     function formatReviewDate(iso) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(iso || "")) return "";
       var d = new Date(iso + "T00:00:00");
-      return isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+      return isNaN(d.getTime())
+        ? ""
+        : d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
     }
 
     var siteReviews = (window.YL_SITE_REVIEWS || []).slice().sort(function (a, b) {
       return (b.date || "").localeCompare(a.date || "");
     });
     if (siteReviews.length) {
-      siteReviewsList.innerHTML = siteReviews.map(function (r) {
-        var product = r.productId && productsById[r.productId];
-        var full = Math.max(0, Math.min(5, Math.round(r.rating)));
-        var stars = "";
-        for (var i = 0; i < 5; i++) stars += i < full ? "★" : "☆";
-        var byline = attrEsc(r.name || "A customer") +
-          (product ? " · " + attrEsc(product.name) : "") +
-          (r.date ? " · " + formatReviewDate(r.date) : "");
-        return (
-          '<div class="quote-card review-card reveal">' +
-          '<span class="stars" aria-hidden="true">' + stars + "</span>" +
-          '<span class="sr-only">Rated ' + r.rating + " out of 5 stars.</span>" +
-          "<p>&ldquo;" + attrEsc(r.text) + "&rdquo;</p>" +
-          "<footer>— " + byline + "</footer>" +
-          "</div>"
-        );
-      }).join("");
+      siteReviewsList.innerHTML = siteReviews
+        .map(function (r) {
+          var product = r.productId && productsById[r.productId];
+          var full = Math.max(0, Math.min(5, Math.round(r.rating)));
+          var stars = "";
+          for (var i = 0; i < 5; i++) stars += i < full ? "★" : "☆";
+          var byline =
+            attrEsc(r.name || "A customer") +
+            (product ? " · " + attrEsc(product.name) : "") +
+            (r.date ? " · " + formatReviewDate(r.date) : "");
+          return (
+            '<div class="quote-card review-card reveal">' +
+            '<span class="stars" aria-hidden="true">' +
+            stars +
+            "</span>" +
+            '<span class="sr-only">Rated ' +
+            r.rating +
+            " out of 5 stars.</span>" +
+            "<p>&ldquo;" +
+            attrEsc(r.text) +
+            "&rdquo;</p>" +
+            "<footer>— " +
+            byline +
+            "</footer>" +
+            "</div>"
+          );
+        })
+        .join("");
       wireReveal(siteReviewsList);
     }
 
@@ -982,14 +1269,14 @@
       } else {
         upcomingEl.innerHTML =
           '<div class="event-empty reveal">' +
-            '<span class="glyph" aria-hidden="true">✦</span>' +
-            "<h3>New Pop-Ups Land Here As Soon As They're Booked</h3>" +
-            '<p>We keep this page current the second a market or Pride date is locked in. In the meantime, ' +
-            'follow along on Instagram or TikTok — that\'s where every table gets announced first.</p>' +
-            '<div class="hero-actions" style="justify-content:center;">' +
-              '<a class="btn btn-primary" href="https://www.instagram.com/yallternativeliving" target="_blank" rel="noopener">Follow on Instagram</a>' +
-              '<a class="btn btn-outline" href="https://www.tiktok.com/@yallternativeliving" target="_blank" rel="noopener">Follow on TikTok</a>' +
-            "</div>" +
+          '<span class="glyph" aria-hidden="true">✦</span>' +
+          "<h3>New Pop-Ups Land Here As Soon As They're Booked</h3>" +
+          "<p>We keep this page current the second a market or Pride date is locked in. In the meantime, " +
+          "follow along on Instagram or TikTok — that's where every table gets announced first.</p>" +
+          '<div class="hero-actions" style="justify-content:center;">' +
+          '<a class="btn btn-primary" href="https://www.instagram.com/yallternativeliving" target="_blank" rel="noopener">Follow on Instagram</a>' +
+          '<a class="btn btn-outline" href="https://www.tiktok.com/@yallternativeliving" target="_blank" rel="noopener">Follow on TikTok</a>' +
+          "</div>" +
           "</div>";
       }
       markReveal(upcomingEl);
@@ -1007,14 +1294,26 @@
   function eventCardHTML(ev) {
     return (
       '<article class="card event-card reveal">' +
-        '<div class="card-body">' +
-          '<span class="card-cat">' + attrEsc(ev.type) + "</span>" +
-          "<h3>" + attrEsc(ev.name) + "</h3>" +
-          '<p class="event-date">' + attrEsc(ev.dateLabel) + "</p>" +
-          "<p>" + (ev.location ? "📍 " + attrEsc(ev.location) : "") + "</p>" +
-          (ev.note ? "<p>" + attrEsc(ev.note) + "</p>" : "") +
-          (ev.url ? '<a class="btn btn-outline btn-sm" href="' + attrEsc(ev.url) + '" target="_blank" rel="noopener">More Info</a>' : "") +
-        "</div>" +
+      '<div class="card-body">' +
+      '<span class="card-cat">' +
+      attrEsc(ev.type) +
+      "</span>" +
+      "<h3>" +
+      attrEsc(ev.name) +
+      "</h3>" +
+      '<p class="event-date">' +
+      attrEsc(ev.dateLabel) +
+      "</p>" +
+      "<p>" +
+      (ev.location ? "📍 " + attrEsc(ev.location) : "") +
+      "</p>" +
+      (ev.note ? "<p>" + attrEsc(ev.note) + "</p>" : "") +
+      (ev.url
+        ? '<a class="btn btn-outline btn-sm" href="' +
+          attrEsc(ev.url) +
+          '" target="_blank" rel="noopener">More Info</a>'
+        : "") +
+      "</div>" +
       "</article>"
     );
   }
@@ -1024,13 +1323,25 @@
   }
 
   function buildFilters(row, categories, grid, allProducts, sortSelect, countEl, searchInput) {
-    var pills = ['<button class="filter-pill active" type="button" data-filter="all" aria-pressed="true">All</button>'].concat(
-      categories.map(function (c) { return '<button class="filter-pill" type="button" data-filter="' + c.id + '" aria-pressed="false">' + c.label + "</button>"; })
+    var pills = [
+      '<button class="filter-pill active" type="button" data-filter="all" aria-pressed="true">All</button>'
+    ].concat(
+      categories.map(function (c) {
+        return (
+          '<button class="filter-pill" type="button" data-filter="' +
+          c.id +
+          '" aria-pressed="false">' +
+          c.label +
+          "</button>"
+        );
+      })
     );
     row.innerHTML = pills.join("");
 
     var catLabel = {};
-    categories.forEach(function (c) { catLabel[c.id] = c.label; });
+    categories.forEach(function (c) {
+      catLabel[c.id] = c.label;
+    });
     var state = { filter: "all", sort: sortSelect ? sortSelect.value : "featured", query: "" };
     // Only the very first render of this grid can plausibly be showing
     // cards that are actually above the fold on initial page load -- every
@@ -1043,23 +1354,40 @@
     // library; a straight .filter() re-runs in well under a millisecond.
     function matchesQuery(p, q) {
       if (!q) return true;
-      var haystack = (p.name + " " + p.blurb + " " + (catLabel[p.category] || p.category)).toLowerCase();
+      var haystack = (
+        p.name +
+        " " +
+        p.blurb +
+        " " +
+        (catLabel[p.category] || p.category)
+      ).toLowerCase();
       return haystack.indexOf(q) !== -1;
     }
 
     function render() {
-      var filtered = state.filter === "all" ? allProducts : allProducts.filter(function (p) { return p.category === state.filter; });
+      var filtered =
+        state.filter === "all"
+          ? allProducts
+          : allProducts.filter(function (p) {
+              return p.category === state.filter;
+            });
       var q = state.query.trim().toLowerCase();
-      filtered = filtered.filter(function (p) { return matchesQuery(p, q); });
+      filtered = filtered.filter(function (p) {
+        return matchesQuery(p, q);
+      });
       var sorted = sortProducts(filtered, state.sort);
       renderCards(grid, sorted, { eagerFirst: isFirstRender });
       isFirstRender = false;
       if (countEl) {
         if (!sorted.length) {
-          countEl.textContent = "No goods match" + (q ? ' "' + state.query.trim() + '"' : " that search") + " -- try a different word or clear the search.";
+          countEl.textContent =
+            "No goods match" +
+            (q ? ' "' + state.query.trim() + '"' : " that search") +
+            " -- try a different word or clear the search.";
         } else {
           var label = state.filter === "all" ? "goods" : catLabel[state.filter] || "goods";
-          countEl.textContent = "Showing " + sorted.length + " of " + allProducts.length + " " + label.toLowerCase();
+          countEl.textContent =
+            "Showing " + sorted.length + " of " + allProducts.length + " " + label.toLowerCase();
         }
       }
     }
@@ -1100,7 +1428,12 @@
 
     // Deep-linking: footer links like shop.html#apparel pre-select that filter.
     var hash = window.location.hash.replace("#", "");
-    if (hash && categories.some(function (c) { return c.id === hash; })) {
+    if (
+      hash &&
+      categories.some(function (c) {
+        return c.id === hash;
+      })
+    ) {
       state.filter = hash;
       row.querySelectorAll(".filter-pill").forEach(function (b) {
         var isActive = b.getAttribute("data-filter") === hash;
@@ -1111,4 +1444,74 @@
 
     render();
   }
+
+  /* ---------- Snipcart load-failure fallback ----------
+     Checkout is a client-side script from cdn.snipcart.com, loaded
+     lazily on the first cart interaction (loadStrategy:
+     "on-user-interaction"). If an aggressive ad/tracker blocker or a
+     CDN outage stops it loading, a shopper could click "Add to Cart"
+     and get nothing -- a silent dead end and a lost sale. This watches
+     for exactly that: on the first cart interaction, it waits a few
+     seconds for window.Snipcart to come alive; if it never does, it
+     reveals a small, dismissible bar pointing at the Etsy shop (a real,
+     always-available second sales channel every product already links
+     to) so the sale isn't simply lost. Purely additive -- it never
+     touches or blocks Snipcart's own behavior, so when Snipcart loads
+     normally (the overwhelming majority of visits) this does nothing at
+     all. */
+  (function snipcartFallback() {
+    var ETSY_SHOP = "https://www.etsy.com/shop/YallternativeLivinCO";
+    var armed = false;
+    var barShown = false;
+
+    function snipcartAlive() {
+      return !!(window.Snipcart || document.querySelector("#snipcart .snipcart-cart, #snipcart[hidden=false]"));
+    }
+
+    function showFallbackBar() {
+      if (barShown) return;
+      barShown = true;
+      var bar = document.createElement("div");
+      bar.className = "cart-fallback";
+      bar.setAttribute("role", "alert");
+      bar.innerHTML =
+        "<p>Checkout didn't load — an ad or tracker blocker can sometimes stop it. " +
+        'You can still grab everything on our <a href="' +
+        ETSY_SHOP +
+        '" target="_blank" rel="noopener">Etsy shop</a>.</p>' +
+        '<button type="button" class="cart-fallback-close" aria-label="Dismiss">&times;</button>';
+      bar.querySelector(".cart-fallback-close").addEventListener("click", function () {
+        bar.remove();
+      });
+      document.body.appendChild(bar);
+    }
+
+    function arm() {
+      if (armed) return;
+      armed = true;
+      var waited = 0;
+      var iv = setInterval(function () {
+        waited += 500;
+        if (snipcartAlive()) {
+          clearInterval(iv);
+          return; // loaded fine -- nothing to do
+        }
+        if (waited >= 8000) {
+          clearInterval(iv);
+          if (!snipcartAlive()) showFallbackBar();
+        }
+      }, 500);
+    }
+
+    // Capture phase so this runs regardless of Snipcart's own handlers;
+    // we never preventDefault, so a working Snipcart proceeds untouched.
+    document.addEventListener(
+      "click",
+      function (e) {
+        var t = e.target;
+        if (t && t.closest && t.closest(".snipcart-add-item, .snipcart-checkout")) arm();
+      },
+      true
+    );
+  })();
 })();

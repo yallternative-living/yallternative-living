@@ -5,1471 +5,1471 @@
    changes or a new one gets added. */
 window.YL_IMAGES = {
   "assets/img/backroad-soak-alt1.jpg": {
-    "key": "assets/img/backroad-soak-alt1.jpg",
-    "width": 2250,
-    "height": 3000,
-    "variants": {
-      "avif": [
+    key: "assets/img/backroad-soak-alt1.jpg",
+    width: 2250,
+    height: 3000,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/backroad-soak-alt1-480.avif"
+          width: 480,
+          file: "assets/img/backroad-soak-alt1-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/backroad-soak-alt1-800.avif"
+          width: 800,
+          file: "assets/img/backroad-soak-alt1-800.avif"
         },
         {
-          "width": 2250,
-          "file": "assets/img/backroad-soak-alt1.avif"
+          width: 2250,
+          file: "assets/img/backroad-soak-alt1.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/backroad-soak-alt1-480.webp"
+          width: 480,
+          file: "assets/img/backroad-soak-alt1-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/backroad-soak-alt1-800.webp"
+          width: 800,
+          file: "assets/img/backroad-soak-alt1-800.webp"
         },
         {
-          "width": 2250,
-          "file": "assets/img/backroad-soak-alt1.webp"
+          width: 2250,
+          file: "assets/img/backroad-soak-alt1.webp"
         }
       ]
     }
   },
   "assets/img/backroad-soak-alt2.jpg": {
-    "key": "assets/img/backroad-soak-alt2.jpg",
-    "width": 3000,
-    "height": 2250,
-    "variants": {
-      "avif": [
+    key: "assets/img/backroad-soak-alt2.jpg",
+    width: 3000,
+    height: 2250,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/backroad-soak-alt2-480.avif"
+          width: 480,
+          file: "assets/img/backroad-soak-alt2-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/backroad-soak-alt2-800.avif"
+          width: 800,
+          file: "assets/img/backroad-soak-alt2-800.avif"
         },
         {
-          "width": 3000,
-          "file": "assets/img/backroad-soak-alt2.avif"
+          width: 3000,
+          file: "assets/img/backroad-soak-alt2.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/backroad-soak-alt2-480.webp"
+          width: 480,
+          file: "assets/img/backroad-soak-alt2-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/backroad-soak-alt2-800.webp"
+          width: 800,
+          file: "assets/img/backroad-soak-alt2-800.webp"
         },
         {
-          "width": 3000,
-          "file": "assets/img/backroad-soak-alt2.webp"
+          width: 3000,
+          file: "assets/img/backroad-soak-alt2.webp"
         }
       ]
     }
   },
   "assets/img/backroad-soak-alt3.jpg": {
-    "key": "assets/img/backroad-soak-alt3.jpg",
-    "width": 1588,
-    "height": 2110,
-    "variants": {
-      "avif": [
+    key: "assets/img/backroad-soak-alt3.jpg",
+    width: 1588,
+    height: 2110,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/backroad-soak-alt3-480.avif"
+          width: 480,
+          file: "assets/img/backroad-soak-alt3-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/backroad-soak-alt3-800.avif"
+          width: 800,
+          file: "assets/img/backroad-soak-alt3-800.avif"
         },
         {
-          "width": 1588,
-          "file": "assets/img/backroad-soak-alt3.avif"
+          width: 1588,
+          file: "assets/img/backroad-soak-alt3.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/backroad-soak-alt3-480.webp"
+          width: 480,
+          file: "assets/img/backroad-soak-alt3-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/backroad-soak-alt3-800.webp"
+          width: 800,
+          file: "assets/img/backroad-soak-alt3-800.webp"
         },
         {
-          "width": 1588,
-          "file": "assets/img/backroad-soak-alt3.webp"
+          width: 1588,
+          file: "assets/img/backroad-soak-alt3.webp"
         }
       ]
     }
   },
   "assets/img/backroad-soak.jpg": {
-    "key": "assets/img/backroad-soak.jpg",
-    "width": 1053,
-    "height": 1400,
-    "variants": {
-      "avif": [
+    key: "assets/img/backroad-soak.jpg",
+    width: 1053,
+    height: 1400,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/backroad-soak-480.avif"
+          width: 480,
+          file: "assets/img/backroad-soak-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/backroad-soak-800.avif"
+          width: 800,
+          file: "assets/img/backroad-soak-800.avif"
         },
         {
-          "width": 1053,
-          "file": "assets/img/backroad-soak.avif"
+          width: 1053,
+          file: "assets/img/backroad-soak.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/backroad-soak-480.webp"
+          width: 480,
+          file: "assets/img/backroad-soak-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/backroad-soak-800.webp"
+          width: 800,
+          file: "assets/img/backroad-soak-800.webp"
         },
         {
-          "width": 1053,
-          "file": "assets/img/backroad-soak.webp"
+          width: 1053,
+          file: "assets/img/backroad-soak.webp"
         }
       ]
     }
   },
   "assets/img/beard-salve-alt1.jpg": {
-    "key": "assets/img/beard-salve-alt1.jpg",
-    "width": 1588,
-    "height": 1017,
-    "variants": {
-      "avif": [
+    key: "assets/img/beard-salve-alt1.jpg",
+    width: 1588,
+    height: 1017,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/beard-salve-alt1-480.avif"
+          width: 480,
+          file: "assets/img/beard-salve-alt1-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/beard-salve-alt1-800.avif"
+          width: 800,
+          file: "assets/img/beard-salve-alt1-800.avif"
         },
         {
-          "width": 1588,
-          "file": "assets/img/beard-salve-alt1.avif"
+          width: 1588,
+          file: "assets/img/beard-salve-alt1.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/beard-salve-alt1-480.webp"
+          width: 480,
+          file: "assets/img/beard-salve-alt1-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/beard-salve-alt1-800.webp"
+          width: 800,
+          file: "assets/img/beard-salve-alt1-800.webp"
         },
         {
-          "width": 1588,
-          "file": "assets/img/beard-salve-alt1.webp"
+          width: 1588,
+          file: "assets/img/beard-salve-alt1.webp"
         }
       ]
     }
   },
   "assets/img/beard-salve.jpg": {
-    "key": "assets/img/beard-salve.jpg",
-    "width": 1400,
-    "height": 933,
-    "variants": {
-      "avif": [
+    key: "assets/img/beard-salve.jpg",
+    width: 1400,
+    height: 933,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/beard-salve-480.avif"
+          width: 480,
+          file: "assets/img/beard-salve-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/beard-salve-800.avif"
+          width: 800,
+          file: "assets/img/beard-salve-800.avif"
         },
         {
-          "width": 1400,
-          "file": "assets/img/beard-salve.avif"
+          width: 1400,
+          file: "assets/img/beard-salve.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/beard-salve-480.webp"
+          width: 480,
+          file: "assets/img/beard-salve-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/beard-salve-800.webp"
+          width: 800,
+          file: "assets/img/beard-salve-800.webp"
         },
         {
-          "width": 1400,
-          "file": "assets/img/beard-salve.webp"
+          width: 1400,
+          file: "assets/img/beard-salve.webp"
         }
       ]
     }
   },
   "assets/img/bug-spray-alt1.jpg": {
-    "key": "assets/img/bug-spray-alt1.jpg",
-    "width": 1588,
-    "height": 2117,
-    "variants": {
-      "avif": [
+    key: "assets/img/bug-spray-alt1.jpg",
+    width: 1588,
+    height: 2117,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/bug-spray-alt1-480.avif"
+          width: 480,
+          file: "assets/img/bug-spray-alt1-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/bug-spray-alt1-800.avif"
+          width: 800,
+          file: "assets/img/bug-spray-alt1-800.avif"
         },
         {
-          "width": 1588,
-          "file": "assets/img/bug-spray-alt1.avif"
+          width: 1588,
+          file: "assets/img/bug-spray-alt1.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/bug-spray-alt1-480.webp"
+          width: 480,
+          file: "assets/img/bug-spray-alt1-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/bug-spray-alt1-800.webp"
+          width: 800,
+          file: "assets/img/bug-spray-alt1-800.webp"
         },
         {
-          "width": 1588,
-          "file": "assets/img/bug-spray-alt1.webp"
+          width: 1588,
+          file: "assets/img/bug-spray-alt1.webp"
         }
       ]
     }
   },
   "assets/img/bug-spray-alt2.jpg": {
-    "key": "assets/img/bug-spray-alt2.jpg",
-    "width": 2250,
-    "height": 3000,
-    "variants": {
-      "avif": [
+    key: "assets/img/bug-spray-alt2.jpg",
+    width: 2250,
+    height: 3000,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/bug-spray-alt2-480.avif"
+          width: 480,
+          file: "assets/img/bug-spray-alt2-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/bug-spray-alt2-800.avif"
+          width: 800,
+          file: "assets/img/bug-spray-alt2-800.avif"
         },
         {
-          "width": 2250,
-          "file": "assets/img/bug-spray-alt2.avif"
+          width: 2250,
+          file: "assets/img/bug-spray-alt2.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/bug-spray-alt2-480.webp"
+          width: 480,
+          file: "assets/img/bug-spray-alt2-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/bug-spray-alt2-800.webp"
+          width: 800,
+          file: "assets/img/bug-spray-alt2-800.webp"
         },
         {
-          "width": 2250,
-          "file": "assets/img/bug-spray-alt2.webp"
+          width: 2250,
+          file: "assets/img/bug-spray-alt2.webp"
         }
       ]
     }
   },
   "assets/img/bug-spray-alt3.jpg": {
-    "key": "assets/img/bug-spray-alt3.jpg",
-    "width": 2999,
-    "height": 2249,
-    "variants": {
-      "avif": [
+    key: "assets/img/bug-spray-alt3.jpg",
+    width: 2999,
+    height: 2249,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/bug-spray-alt3-480.avif"
+          width: 480,
+          file: "assets/img/bug-spray-alt3-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/bug-spray-alt3-800.avif"
+          width: 800,
+          file: "assets/img/bug-spray-alt3-800.avif"
         },
         {
-          "width": 2999,
-          "file": "assets/img/bug-spray-alt3.avif"
+          width: 2999,
+          file: "assets/img/bug-spray-alt3.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/bug-spray-alt3-480.webp"
+          width: 480,
+          file: "assets/img/bug-spray-alt3-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/bug-spray-alt3-800.webp"
+          width: 800,
+          file: "assets/img/bug-spray-alt3-800.webp"
         },
         {
-          "width": 2999,
-          "file": "assets/img/bug-spray-alt3.webp"
+          width: 2999,
+          file: "assets/img/bug-spray-alt3.webp"
         }
       ]
     }
   },
   "assets/img/bug-spray.jpg": {
-    "key": "assets/img/bug-spray.jpg",
-    "width": 1050,
-    "height": 1400,
-    "variants": {
-      "avif": [
+    key: "assets/img/bug-spray.jpg",
+    width: 1050,
+    height: 1400,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/bug-spray-480.avif"
+          width: 480,
+          file: "assets/img/bug-spray-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/bug-spray-800.avif"
+          width: 800,
+          file: "assets/img/bug-spray-800.avif"
         },
         {
-          "width": 1050,
-          "file": "assets/img/bug-spray.avif"
+          width: 1050,
+          file: "assets/img/bug-spray.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/bug-spray-480.webp"
+          width: 480,
+          file: "assets/img/bug-spray-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/bug-spray-800.webp"
+          width: 800,
+          file: "assets/img/bug-spray-800.webp"
         },
         {
-          "width": 1050,
-          "file": "assets/img/bug-spray.webp"
+          width: 1050,
+          file: "assets/img/bug-spray.webp"
         }
       ]
     }
   },
   "assets/img/frankincense-salve-alt1.jpg": {
-    "key": "assets/img/frankincense-salve-alt1.jpg",
-    "width": 2250,
-    "height": 3000,
-    "variants": {
-      "avif": [
+    key: "assets/img/frankincense-salve-alt1.jpg",
+    width: 2250,
+    height: 3000,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/frankincense-salve-alt1-480.avif"
+          width: 480,
+          file: "assets/img/frankincense-salve-alt1-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/frankincense-salve-alt1-800.avif"
+          width: 800,
+          file: "assets/img/frankincense-salve-alt1-800.avif"
         },
         {
-          "width": 2250,
-          "file": "assets/img/frankincense-salve-alt1.avif"
+          width: 2250,
+          file: "assets/img/frankincense-salve-alt1.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/frankincense-salve-alt1-480.webp"
+          width: 480,
+          file: "assets/img/frankincense-salve-alt1-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/frankincense-salve-alt1-800.webp"
+          width: 800,
+          file: "assets/img/frankincense-salve-alt1-800.webp"
         },
         {
-          "width": 2250,
-          "file": "assets/img/frankincense-salve-alt1.webp"
+          width: 2250,
+          file: "assets/img/frankincense-salve-alt1.webp"
         }
       ]
     }
   },
   "assets/img/frankincense-salve-alt2.jpg": {
-    "key": "assets/img/frankincense-salve-alt2.jpg",
-    "width": 3000,
-    "height": 2250,
-    "variants": {
-      "avif": [
+    key: "assets/img/frankincense-salve-alt2.jpg",
+    width: 3000,
+    height: 2250,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/frankincense-salve-alt2-480.avif"
+          width: 480,
+          file: "assets/img/frankincense-salve-alt2-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/frankincense-salve-alt2-800.avif"
+          width: 800,
+          file: "assets/img/frankincense-salve-alt2-800.avif"
         },
         {
-          "width": 3000,
-          "file": "assets/img/frankincense-salve-alt2.avif"
+          width: 3000,
+          file: "assets/img/frankincense-salve-alt2.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/frankincense-salve-alt2-480.webp"
+          width: 480,
+          file: "assets/img/frankincense-salve-alt2-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/frankincense-salve-alt2-800.webp"
+          width: 800,
+          file: "assets/img/frankincense-salve-alt2-800.webp"
         },
         {
-          "width": 3000,
-          "file": "assets/img/frankincense-salve-alt2.webp"
+          width: 3000,
+          file: "assets/img/frankincense-salve-alt2.webp"
         }
       ]
     }
   },
   "assets/img/frankincense-salve-alt3.jpg": {
-    "key": "assets/img/frankincense-salve-alt3.jpg",
-    "width": 2250,
-    "height": 3000,
-    "variants": {
-      "avif": [
+    key: "assets/img/frankincense-salve-alt3.jpg",
+    width: 2250,
+    height: 3000,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/frankincense-salve-alt3-480.avif"
+          width: 480,
+          file: "assets/img/frankincense-salve-alt3-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/frankincense-salve-alt3-800.avif"
+          width: 800,
+          file: "assets/img/frankincense-salve-alt3-800.avif"
         },
         {
-          "width": 2250,
-          "file": "assets/img/frankincense-salve-alt3.avif"
+          width: 2250,
+          file: "assets/img/frankincense-salve-alt3.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/frankincense-salve-alt3-480.webp"
+          width: 480,
+          file: "assets/img/frankincense-salve-alt3-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/frankincense-salve-alt3-800.webp"
+          width: 800,
+          file: "assets/img/frankincense-salve-alt3-800.webp"
         },
         {
-          "width": 2250,
-          "file": "assets/img/frankincense-salve-alt3.webp"
+          width: 2250,
+          file: "assets/img/frankincense-salve-alt3.webp"
         }
       ]
     }
   },
   "assets/img/frankincense-salve.jpg": {
-    "key": "assets/img/frankincense-salve.jpg",
-    "width": 1400,
-    "height": 1050,
-    "variants": {
-      "avif": [
+    key: "assets/img/frankincense-salve.jpg",
+    width: 1400,
+    height: 1050,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/frankincense-salve-480.avif"
+          width: 480,
+          file: "assets/img/frankincense-salve-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/frankincense-salve-800.avif"
+          width: 800,
+          file: "assets/img/frankincense-salve-800.avif"
         },
         {
-          "width": 1400,
-          "file": "assets/img/frankincense-salve.avif"
+          width: 1400,
+          file: "assets/img/frankincense-salve.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/frankincense-salve-480.webp"
+          width: 480,
+          file: "assets/img/frankincense-salve-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/frankincense-salve-800.webp"
+          width: 800,
+          file: "assets/img/frankincense-salve-800.webp"
         },
         {
-          "width": 1400,
-          "file": "assets/img/frankincense-salve.webp"
+          width: 1400,
+          file: "assets/img/frankincense-salve.webp"
         }
       ]
     }
   },
   "assets/img/hand-scrub-alt1.jpg": {
-    "key": "assets/img/hand-scrub-alt1.jpg",
-    "width": 1080,
-    "height": 1440,
-    "variants": {
-      "avif": [
+    key: "assets/img/hand-scrub-alt1.jpg",
+    width: 1080,
+    height: 1440,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/hand-scrub-alt1-480.avif"
+          width: 480,
+          file: "assets/img/hand-scrub-alt1-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/hand-scrub-alt1-800.avif"
+          width: 800,
+          file: "assets/img/hand-scrub-alt1-800.avif"
         },
         {
-          "width": 1080,
-          "file": "assets/img/hand-scrub-alt1.avif"
+          width: 1080,
+          file: "assets/img/hand-scrub-alt1.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/hand-scrub-alt1-480.webp"
+          width: 480,
+          file: "assets/img/hand-scrub-alt1-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/hand-scrub-alt1-800.webp"
+          width: 800,
+          file: "assets/img/hand-scrub-alt1-800.webp"
         },
         {
-          "width": 1080,
-          "file": "assets/img/hand-scrub-alt1.webp"
+          width: 1080,
+          file: "assets/img/hand-scrub-alt1.webp"
         }
       ]
     }
   },
   "assets/img/hand-scrub-alt2.jpg": {
-    "key": "assets/img/hand-scrub-alt2.jpg",
-    "width": 1080,
-    "height": 1440,
-    "variants": {
-      "avif": [
+    key: "assets/img/hand-scrub-alt2.jpg",
+    width: 1080,
+    height: 1440,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/hand-scrub-alt2-480.avif"
+          width: 480,
+          file: "assets/img/hand-scrub-alt2-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/hand-scrub-alt2-800.avif"
+          width: 800,
+          file: "assets/img/hand-scrub-alt2-800.avif"
         },
         {
-          "width": 1080,
-          "file": "assets/img/hand-scrub-alt2.avif"
+          width: 1080,
+          file: "assets/img/hand-scrub-alt2.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/hand-scrub-alt2-480.webp"
+          width: 480,
+          file: "assets/img/hand-scrub-alt2-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/hand-scrub-alt2-800.webp"
+          width: 800,
+          file: "assets/img/hand-scrub-alt2-800.webp"
         },
         {
-          "width": 1080,
-          "file": "assets/img/hand-scrub-alt2.webp"
+          width: 1080,
+          file: "assets/img/hand-scrub-alt2.webp"
         }
       ]
     }
   },
   "assets/img/hand-scrub-alt3.jpg": {
-    "key": "assets/img/hand-scrub-alt3.jpg",
-    "width": 1080,
-    "height": 813,
-    "variants": {
-      "avif": [
+    key: "assets/img/hand-scrub-alt3.jpg",
+    width: 1080,
+    height: 813,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/hand-scrub-alt3-480.avif"
+          width: 480,
+          file: "assets/img/hand-scrub-alt3-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/hand-scrub-alt3-800.avif"
+          width: 800,
+          file: "assets/img/hand-scrub-alt3-800.avif"
         },
         {
-          "width": 1080,
-          "file": "assets/img/hand-scrub-alt3.avif"
+          width: 1080,
+          file: "assets/img/hand-scrub-alt3.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/hand-scrub-alt3-480.webp"
+          width: 480,
+          file: "assets/img/hand-scrub-alt3-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/hand-scrub-alt3-800.webp"
+          width: 800,
+          file: "assets/img/hand-scrub-alt3-800.webp"
         },
         {
-          "width": 1080,
-          "file": "assets/img/hand-scrub-alt3.webp"
+          width: 1080,
+          file: "assets/img/hand-scrub-alt3.webp"
         }
       ]
     }
   },
   "assets/img/hand-scrub.jpg": {
-    "key": "assets/img/hand-scrub.jpg",
-    "width": 1007,
-    "height": 804,
-    "variants": {
-      "avif": [
+    key: "assets/img/hand-scrub.jpg",
+    width: 1007,
+    height: 804,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/hand-scrub-480.avif"
+          width: 480,
+          file: "assets/img/hand-scrub-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/hand-scrub-800.avif"
+          width: 800,
+          file: "assets/img/hand-scrub-800.avif"
         },
         {
-          "width": 1007,
-          "file": "assets/img/hand-scrub.avif"
+          width: 1007,
+          file: "assets/img/hand-scrub.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/hand-scrub-480.webp"
+          width: 480,
+          file: "assets/img/hand-scrub-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/hand-scrub-800.webp"
+          width: 800,
+          file: "assets/img/hand-scrub-800.webp"
         },
         {
-          "width": 1007,
-          "file": "assets/img/hand-scrub.webp"
+          width: 1007,
+          file: "assets/img/hand-scrub.webp"
         }
       ]
     }
   },
   "assets/img/lavender-soak-alt1.jpg": {
-    "key": "assets/img/lavender-soak-alt1.jpg",
-    "width": 1080,
-    "height": 810,
-    "variants": {
-      "avif": [
+    key: "assets/img/lavender-soak-alt1.jpg",
+    width: 1080,
+    height: 810,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/lavender-soak-alt1-480.avif"
+          width: 480,
+          file: "assets/img/lavender-soak-alt1-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/lavender-soak-alt1-800.avif"
+          width: 800,
+          file: "assets/img/lavender-soak-alt1-800.avif"
         },
         {
-          "width": 1080,
-          "file": "assets/img/lavender-soak-alt1.avif"
+          width: 1080,
+          file: "assets/img/lavender-soak-alt1.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/lavender-soak-alt1-480.webp"
+          width: 480,
+          file: "assets/img/lavender-soak-alt1-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/lavender-soak-alt1-800.webp"
+          width: 800,
+          file: "assets/img/lavender-soak-alt1-800.webp"
         },
         {
-          "width": 1080,
-          "file": "assets/img/lavender-soak-alt1.webp"
+          width: 1080,
+          file: "assets/img/lavender-soak-alt1.webp"
         }
       ]
     }
   },
   "assets/img/lavender-soak-alt2.jpg": {
-    "key": "assets/img/lavender-soak-alt2.jpg",
-    "width": 1080,
-    "height": 1440,
-    "variants": {
-      "avif": [
+    key: "assets/img/lavender-soak-alt2.jpg",
+    width: 1080,
+    height: 1440,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/lavender-soak-alt2-480.avif"
+          width: 480,
+          file: "assets/img/lavender-soak-alt2-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/lavender-soak-alt2-800.avif"
+          width: 800,
+          file: "assets/img/lavender-soak-alt2-800.avif"
         },
         {
-          "width": 1080,
-          "file": "assets/img/lavender-soak-alt2.avif"
+          width: 1080,
+          file: "assets/img/lavender-soak-alt2.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/lavender-soak-alt2-480.webp"
+          width: 480,
+          file: "assets/img/lavender-soak-alt2-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/lavender-soak-alt2-800.webp"
+          width: 800,
+          file: "assets/img/lavender-soak-alt2-800.webp"
         },
         {
-          "width": 1080,
-          "file": "assets/img/lavender-soak-alt2.webp"
+          width: 1080,
+          file: "assets/img/lavender-soak-alt2.webp"
         }
       ]
     }
   },
   "assets/img/lavender-soak.jpg": {
-    "key": "assets/img/lavender-soak.jpg",
-    "width": 1112,
-    "height": 1400,
-    "variants": {
-      "avif": [
+    key: "assets/img/lavender-soak.jpg",
+    width: 1112,
+    height: 1400,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/lavender-soak-480.avif"
+          width: 480,
+          file: "assets/img/lavender-soak-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/lavender-soak-800.avif"
+          width: 800,
+          file: "assets/img/lavender-soak-800.avif"
         },
         {
-          "width": 1112,
-          "file": "assets/img/lavender-soak.avif"
+          width: 1112,
+          file: "assets/img/lavender-soak.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/lavender-soak-480.webp"
+          width: 480,
+          file: "assets/img/lavender-soak-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/lavender-soak-800.webp"
+          width: 800,
+          file: "assets/img/lavender-soak-800.webp"
         },
         {
-          "width": 1112,
-          "file": "assets/img/lavender-soak.webp"
+          width: 1112,
+          file: "assets/img/lavender-soak.webp"
         }
       ]
     }
   },
   "assets/img/miracle-balm.jpg": {
-    "key": "assets/img/miracle-balm.jpg",
-    "width": 1400,
-    "height": 933,
-    "variants": {
-      "avif": [
+    key: "assets/img/miracle-balm.jpg",
+    width: 1400,
+    height: 933,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/miracle-balm-480.avif"
+          width: 480,
+          file: "assets/img/miracle-balm-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/miracle-balm-800.avif"
+          width: 800,
+          file: "assets/img/miracle-balm-800.avif"
         },
         {
-          "width": 1400,
-          "file": "assets/img/miracle-balm.avif"
+          width: 1400,
+          file: "assets/img/miracle-balm.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/miracle-balm-480.webp"
+          width: 480,
+          file: "assets/img/miracle-balm-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/miracle-balm-800.webp"
+          width: 800,
+          file: "assets/img/miracle-balm-800.webp"
         },
         {
-          "width": 1400,
-          "file": "assets/img/miracle-balm.webp"
+          width: 1400,
+          file: "assets/img/miracle-balm.webp"
         }
       ]
     }
   },
   "assets/img/protection-keychain-alt1.jpg": {
-    "key": "assets/img/protection-keychain-alt1.jpg",
-    "width": 1588,
-    "height": 2382,
-    "variants": {
-      "avif": [
+    key: "assets/img/protection-keychain-alt1.jpg",
+    width: 1588,
+    height: 2382,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/protection-keychain-alt1-480.avif"
+          width: 480,
+          file: "assets/img/protection-keychain-alt1-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/protection-keychain-alt1-800.avif"
+          width: 800,
+          file: "assets/img/protection-keychain-alt1-800.avif"
         },
         {
-          "width": 1588,
-          "file": "assets/img/protection-keychain-alt1.avif"
+          width: 1588,
+          file: "assets/img/protection-keychain-alt1.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/protection-keychain-alt1-480.webp"
+          width: 480,
+          file: "assets/img/protection-keychain-alt1-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/protection-keychain-alt1-800.webp"
+          width: 800,
+          file: "assets/img/protection-keychain-alt1-800.webp"
         },
         {
-          "width": 1588,
-          "file": "assets/img/protection-keychain-alt1.webp"
+          width: 1588,
+          file: "assets/img/protection-keychain-alt1.webp"
         }
       ]
     }
   },
   "assets/img/protection-keychain-alt2.jpg": {
-    "key": "assets/img/protection-keychain-alt2.jpg",
-    "width": 1588,
-    "height": 1588,
-    "variants": {
-      "avif": [
+    key: "assets/img/protection-keychain-alt2.jpg",
+    width: 1588,
+    height: 1588,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/protection-keychain-alt2-480.avif"
+          width: 480,
+          file: "assets/img/protection-keychain-alt2-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/protection-keychain-alt2-800.avif"
+          width: 800,
+          file: "assets/img/protection-keychain-alt2-800.avif"
         },
         {
-          "width": 1588,
-          "file": "assets/img/protection-keychain-alt2.avif"
+          width: 1588,
+          file: "assets/img/protection-keychain-alt2.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/protection-keychain-alt2-480.webp"
+          width: 480,
+          file: "assets/img/protection-keychain-alt2-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/protection-keychain-alt2-800.webp"
+          width: 800,
+          file: "assets/img/protection-keychain-alt2-800.webp"
         },
         {
-          "width": 1588,
-          "file": "assets/img/protection-keychain-alt2.webp"
+          width: 1588,
+          file: "assets/img/protection-keychain-alt2.webp"
         }
       ]
     }
   },
   "assets/img/protection-keychain.jpg": {
-    "key": "assets/img/protection-keychain.jpg",
-    "width": 933,
-    "height": 1400,
-    "variants": {
-      "avif": [
+    key: "assets/img/protection-keychain.jpg",
+    width: 933,
+    height: 1400,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/protection-keychain-480.avif"
+          width: 480,
+          file: "assets/img/protection-keychain-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/protection-keychain-800.avif"
+          width: 800,
+          file: "assets/img/protection-keychain-800.avif"
         },
         {
-          "width": 933,
-          "file": "assets/img/protection-keychain.avif"
+          width: 933,
+          file: "assets/img/protection-keychain.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/protection-keychain-480.webp"
+          width: 480,
+          file: "assets/img/protection-keychain-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/protection-keychain-800.webp"
+          width: 800,
+          file: "assets/img/protection-keychain-800.webp"
         },
         {
-          "width": 933,
-          "file": "assets/img/protection-keychain.webp"
+          width: 933,
+          file: "assets/img/protection-keychain.webp"
         }
       ]
     }
   },
   "assets/img/shea-butter-alt1.jpg": {
-    "key": "assets/img/shea-butter-alt1.jpg",
-    "width": 1080,
-    "height": 720,
-    "variants": {
-      "avif": [
+    key: "assets/img/shea-butter-alt1.jpg",
+    width: 1080,
+    height: 720,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/shea-butter-alt1-480.avif"
+          width: 480,
+          file: "assets/img/shea-butter-alt1-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/shea-butter-alt1-800.avif"
+          width: 800,
+          file: "assets/img/shea-butter-alt1-800.avif"
         },
         {
-          "width": 1080,
-          "file": "assets/img/shea-butter-alt1.avif"
+          width: 1080,
+          file: "assets/img/shea-butter-alt1.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/shea-butter-alt1-480.webp"
+          width: 480,
+          file: "assets/img/shea-butter-alt1-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/shea-butter-alt1-800.webp"
+          width: 800,
+          file: "assets/img/shea-butter-alt1-800.webp"
         },
         {
-          "width": 1080,
-          "file": "assets/img/shea-butter-alt1.webp"
+          width: 1080,
+          file: "assets/img/shea-butter-alt1.webp"
         }
       ]
     }
   },
   "assets/img/shea-butter-alt2.jpg": {
-    "key": "assets/img/shea-butter-alt2.jpg",
-    "width": 1080,
-    "height": 720,
-    "variants": {
-      "avif": [
+    key: "assets/img/shea-butter-alt2.jpg",
+    width: 1080,
+    height: 720,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/shea-butter-alt2-480.avif"
+          width: 480,
+          file: "assets/img/shea-butter-alt2-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/shea-butter-alt2-800.avif"
+          width: 800,
+          file: "assets/img/shea-butter-alt2-800.avif"
         },
         {
-          "width": 1080,
-          "file": "assets/img/shea-butter-alt2.avif"
+          width: 1080,
+          file: "assets/img/shea-butter-alt2.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/shea-butter-alt2-480.webp"
+          width: 480,
+          file: "assets/img/shea-butter-alt2-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/shea-butter-alt2-800.webp"
+          width: 800,
+          file: "assets/img/shea-butter-alt2-800.webp"
         },
         {
-          "width": 1080,
-          "file": "assets/img/shea-butter-alt2.webp"
+          width: 1080,
+          file: "assets/img/shea-butter-alt2.webp"
         }
       ]
     }
   },
   "assets/img/shea-butter.jpg": {
-    "key": "assets/img/shea-butter.jpg",
-    "width": 1400,
-    "height": 933,
-    "variants": {
-      "avif": [
+    key: "assets/img/shea-butter.jpg",
+    width: 1400,
+    height: 933,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/shea-butter-480.avif"
+          width: 480,
+          file: "assets/img/shea-butter-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/shea-butter-800.avif"
+          width: 800,
+          file: "assets/img/shea-butter-800.avif"
         },
         {
-          "width": 1400,
-          "file": "assets/img/shea-butter.avif"
+          width: 1400,
+          file: "assets/img/shea-butter.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/shea-butter-480.webp"
+          width: 480,
+          file: "assets/img/shea-butter-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/shea-butter-800.webp"
+          width: 800,
+          file: "assets/img/shea-butter-800.webp"
         },
         {
-          "width": 1400,
-          "file": "assets/img/shea-butter.webp"
+          width: 1400,
+          file: "assets/img/shea-butter.webp"
         }
       ]
     }
   },
   "assets/img/shimmer-oil-alt1.jpg": {
-    "key": "assets/img/shimmer-oil-alt1.jpg",
-    "width": 1588,
-    "height": 2252,
-    "variants": {
-      "avif": [
+    key: "assets/img/shimmer-oil-alt1.jpg",
+    width: 1588,
+    height: 2252,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/shimmer-oil-alt1-480.avif"
+          width: 480,
+          file: "assets/img/shimmer-oil-alt1-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/shimmer-oil-alt1-800.avif"
+          width: 800,
+          file: "assets/img/shimmer-oil-alt1-800.avif"
         },
         {
-          "width": 1588,
-          "file": "assets/img/shimmer-oil-alt1.avif"
+          width: 1588,
+          file: "assets/img/shimmer-oil-alt1.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/shimmer-oil-alt1-480.webp"
+          width: 480,
+          file: "assets/img/shimmer-oil-alt1-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/shimmer-oil-alt1-800.webp"
+          width: 800,
+          file: "assets/img/shimmer-oil-alt1-800.webp"
         },
         {
-          "width": 1588,
-          "file": "assets/img/shimmer-oil-alt1.webp"
+          width: 1588,
+          file: "assets/img/shimmer-oil-alt1.webp"
         }
       ]
     }
   },
   "assets/img/shimmer-oil-alt2.jpg": {
-    "key": "assets/img/shimmer-oil-alt2.jpg",
-    "width": 1588,
-    "height": 1588,
-    "variants": {
-      "avif": [
+    key: "assets/img/shimmer-oil-alt2.jpg",
+    width: 1588,
+    height: 1588,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/shimmer-oil-alt2-480.avif"
+          width: 480,
+          file: "assets/img/shimmer-oil-alt2-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/shimmer-oil-alt2-800.avif"
+          width: 800,
+          file: "assets/img/shimmer-oil-alt2-800.avif"
         },
         {
-          "width": 1588,
-          "file": "assets/img/shimmer-oil-alt2.avif"
+          width: 1588,
+          file: "assets/img/shimmer-oil-alt2.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/shimmer-oil-alt2-480.webp"
+          width: 480,
+          file: "assets/img/shimmer-oil-alt2-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/shimmer-oil-alt2-800.webp"
+          width: 800,
+          file: "assets/img/shimmer-oil-alt2-800.webp"
         },
         {
-          "width": 1588,
-          "file": "assets/img/shimmer-oil-alt2.webp"
+          width: 1588,
+          file: "assets/img/shimmer-oil-alt2.webp"
         }
       ]
     }
   },
   "assets/img/shimmer-oil-alt3.jpg": {
-    "key": "assets/img/shimmer-oil-alt3.jpg",
-    "width": 1588,
-    "height": 1191,
-    "variants": {
-      "avif": [
+    key: "assets/img/shimmer-oil-alt3.jpg",
+    width: 1588,
+    height: 1191,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/shimmer-oil-alt3-480.avif"
+          width: 480,
+          file: "assets/img/shimmer-oil-alt3-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/shimmer-oil-alt3-800.avif"
+          width: 800,
+          file: "assets/img/shimmer-oil-alt3-800.avif"
         },
         {
-          "width": 1588,
-          "file": "assets/img/shimmer-oil-alt3.avif"
+          width: 1588,
+          file: "assets/img/shimmer-oil-alt3.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/shimmer-oil-alt3-480.webp"
+          width: 480,
+          file: "assets/img/shimmer-oil-alt3-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/shimmer-oil-alt3-800.webp"
+          width: 800,
+          file: "assets/img/shimmer-oil-alt3-800.webp"
         },
         {
-          "width": 1588,
-          "file": "assets/img/shimmer-oil-alt3.webp"
+          width: 1588,
+          file: "assets/img/shimmer-oil-alt3.webp"
         }
       ]
     }
   },
   "assets/img/shimmer-oil.jpg": {
-    "key": "assets/img/shimmer-oil.jpg",
-    "width": 1400,
-    "height": 1050,
-    "variants": {
-      "avif": [
+    key: "assets/img/shimmer-oil.jpg",
+    width: 1400,
+    height: 1050,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/shimmer-oil-480.avif"
+          width: 480,
+          file: "assets/img/shimmer-oil-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/shimmer-oil-800.avif"
+          width: 800,
+          file: "assets/img/shimmer-oil-800.avif"
         },
         {
-          "width": 1400,
-          "file": "assets/img/shimmer-oil.avif"
+          width: 1400,
+          file: "assets/img/shimmer-oil.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/shimmer-oil-480.webp"
+          width: 480,
+          file: "assets/img/shimmer-oil-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/shimmer-oil-800.webp"
+          width: 800,
+          file: "assets/img/shimmer-oil-800.webp"
         },
         {
-          "width": 1400,
-          "file": "assets/img/shimmer-oil.webp"
+          width: 1400,
+          file: "assets/img/shimmer-oil.webp"
         }
       ]
     }
   },
   "assets/img/sleep-salve-alt1.jpg": {
-    "key": "assets/img/sleep-salve-alt1.jpg",
-    "width": 1588,
-    "height": 1191,
-    "variants": {
-      "avif": [
+    key: "assets/img/sleep-salve-alt1.jpg",
+    width: 1588,
+    height: 1191,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/sleep-salve-alt1-480.avif"
+          width: 480,
+          file: "assets/img/sleep-salve-alt1-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/sleep-salve-alt1-800.avif"
+          width: 800,
+          file: "assets/img/sleep-salve-alt1-800.avif"
         },
         {
-          "width": 1588,
-          "file": "assets/img/sleep-salve-alt1.avif"
+          width: 1588,
+          file: "assets/img/sleep-salve-alt1.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/sleep-salve-alt1-480.webp"
+          width: 480,
+          file: "assets/img/sleep-salve-alt1-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/sleep-salve-alt1-800.webp"
+          width: 800,
+          file: "assets/img/sleep-salve-alt1-800.webp"
         },
         {
-          "width": 1588,
-          "file": "assets/img/sleep-salve-alt1.webp"
+          width: 1588,
+          file: "assets/img/sleep-salve-alt1.webp"
         }
       ]
     }
   },
   "assets/img/sleep-salve.jpg": {
-    "key": "assets/img/sleep-salve.jpg",
-    "width": 1400,
-    "height": 1050,
-    "variants": {
-      "avif": [
+    key: "assets/img/sleep-salve.jpg",
+    width: 1400,
+    height: 1050,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/sleep-salve-480.avif"
+          width: 480,
+          file: "assets/img/sleep-salve-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/sleep-salve-800.avif"
+          width: 800,
+          file: "assets/img/sleep-salve-800.avif"
         },
         {
-          "width": 1400,
-          "file": "assets/img/sleep-salve.avif"
+          width: 1400,
+          file: "assets/img/sleep-salve.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/sleep-salve-480.webp"
+          width: 480,
+          file: "assets/img/sleep-salve-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/sleep-salve-800.webp"
+          width: 800,
+          file: "assets/img/sleep-salve-800.webp"
         },
         {
-          "width": 1400,
-          "file": "assets/img/sleep-salve.webp"
+          width: 1400,
+          file: "assets/img/sleep-salve.webp"
         }
       ]
     }
   },
   "assets/img/tank-top-alt1.jpg": {
-    "key": "assets/img/tank-top-alt1.jpg",
-    "width": 1620,
-    "height": 2160,
-    "variants": {
-      "avif": [
+    key: "assets/img/tank-top-alt1.jpg",
+    width: 1620,
+    height: 2160,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/tank-top-alt1-480.avif"
+          width: 480,
+          file: "assets/img/tank-top-alt1-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/tank-top-alt1-800.avif"
+          width: 800,
+          file: "assets/img/tank-top-alt1-800.avif"
         },
         {
-          "width": 1620,
-          "file": "assets/img/tank-top-alt1.avif"
+          width: 1620,
+          file: "assets/img/tank-top-alt1.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/tank-top-alt1-480.webp"
+          width: 480,
+          file: "assets/img/tank-top-alt1-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/tank-top-alt1-800.webp"
+          width: 800,
+          file: "assets/img/tank-top-alt1-800.webp"
         },
         {
-          "width": 1620,
-          "file": "assets/img/tank-top-alt1.webp"
+          width: 1620,
+          file: "assets/img/tank-top-alt1.webp"
         }
       ]
     }
   },
   "assets/img/tank-top-alt2.jpg": {
-    "key": "assets/img/tank-top-alt2.jpg",
-    "width": 1620,
-    "height": 2160,
-    "variants": {
-      "avif": [
+    key: "assets/img/tank-top-alt2.jpg",
+    width: 1620,
+    height: 2160,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/tank-top-alt2-480.avif"
+          width: 480,
+          file: "assets/img/tank-top-alt2-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/tank-top-alt2-800.avif"
+          width: 800,
+          file: "assets/img/tank-top-alt2-800.avif"
         },
         {
-          "width": 1620,
-          "file": "assets/img/tank-top-alt2.avif"
+          width: 1620,
+          file: "assets/img/tank-top-alt2.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/tank-top-alt2-480.webp"
+          width: 480,
+          file: "assets/img/tank-top-alt2-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/tank-top-alt2-800.webp"
+          width: 800,
+          file: "assets/img/tank-top-alt2-800.webp"
         },
         {
-          "width": 1620,
-          "file": "assets/img/tank-top-alt2.webp"
+          width: 1620,
+          file: "assets/img/tank-top-alt2.webp"
         }
       ]
     }
   },
   "assets/img/tank-top-alt3.jpg": {
-    "key": "assets/img/tank-top-alt3.jpg",
-    "width": 2258,
-    "height": 3000,
-    "variants": {
-      "avif": [
+    key: "assets/img/tank-top-alt3.jpg",
+    width: 2258,
+    height: 3000,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/tank-top-alt3-480.avif"
+          width: 480,
+          file: "assets/img/tank-top-alt3-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/tank-top-alt3-800.avif"
+          width: 800,
+          file: "assets/img/tank-top-alt3-800.avif"
         },
         {
-          "width": 2258,
-          "file": "assets/img/tank-top-alt3.avif"
+          width: 2258,
+          file: "assets/img/tank-top-alt3.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/tank-top-alt3-480.webp"
+          width: 480,
+          file: "assets/img/tank-top-alt3-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/tank-top-alt3-800.webp"
+          width: 800,
+          file: "assets/img/tank-top-alt3-800.webp"
         },
         {
-          "width": 2258,
-          "file": "assets/img/tank-top-alt3.webp"
+          width: 2258,
+          file: "assets/img/tank-top-alt3.webp"
         }
       ]
     }
   },
   "assets/img/tank-top.jpg": {
-    "key": "assets/img/tank-top.jpg",
-    "width": 1050,
-    "height": 1400,
-    "variants": {
-      "avif": [
+    key: "assets/img/tank-top.jpg",
+    width: 1050,
+    height: 1400,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/tank-top-480.avif"
+          width: 480,
+          file: "assets/img/tank-top-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/tank-top-800.avif"
+          width: 800,
+          file: "assets/img/tank-top-800.avif"
         },
         {
-          "width": 1050,
-          "file": "assets/img/tank-top.avif"
+          width: 1050,
+          file: "assets/img/tank-top.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/tank-top-480.webp"
+          width: 480,
+          file: "assets/img/tank-top-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/tank-top-800.webp"
+          width: 800,
+          file: "assets/img/tank-top-800.webp"
         },
         {
-          "width": 1050,
-          "file": "assets/img/tank-top.webp"
+          width: 1050,
+          file: "assets/img/tank-top.webp"
         }
       ]
     }
   },
   "assets/img/unisex-tshirt-alt1.jpg": {
-    "key": "assets/img/unisex-tshirt-alt1.jpg",
-    "width": 2258,
-    "height": 3000,
-    "variants": {
-      "avif": [
+    key: "assets/img/unisex-tshirt-alt1.jpg",
+    width: 2258,
+    height: 3000,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/unisex-tshirt-alt1-480.avif"
+          width: 480,
+          file: "assets/img/unisex-tshirt-alt1-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/unisex-tshirt-alt1-800.avif"
+          width: 800,
+          file: "assets/img/unisex-tshirt-alt1-800.avif"
         },
         {
-          "width": 2258,
-          "file": "assets/img/unisex-tshirt-alt1.avif"
+          width: 2258,
+          file: "assets/img/unisex-tshirt-alt1.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/unisex-tshirt-alt1-480.webp"
+          width: 480,
+          file: "assets/img/unisex-tshirt-alt1-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/unisex-tshirt-alt1-800.webp"
+          width: 800,
+          file: "assets/img/unisex-tshirt-alt1-800.webp"
         },
         {
-          "width": 2258,
-          "file": "assets/img/unisex-tshirt-alt1.webp"
+          width: 2258,
+          file: "assets/img/unisex-tshirt-alt1.webp"
         }
       ]
     }
   },
   "assets/img/unisex-tshirt-alt2.jpg": {
-    "key": "assets/img/unisex-tshirt-alt2.jpg",
-    "width": 1620,
-    "height": 2160,
-    "variants": {
-      "avif": [
+    key: "assets/img/unisex-tshirt-alt2.jpg",
+    width: 1620,
+    height: 2160,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/unisex-tshirt-alt2-480.avif"
+          width: 480,
+          file: "assets/img/unisex-tshirt-alt2-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/unisex-tshirt-alt2-800.avif"
+          width: 800,
+          file: "assets/img/unisex-tshirt-alt2-800.avif"
         },
         {
-          "width": 1620,
-          "file": "assets/img/unisex-tshirt-alt2.avif"
+          width: 1620,
+          file: "assets/img/unisex-tshirt-alt2.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/unisex-tshirt-alt2-480.webp"
+          width: 480,
+          file: "assets/img/unisex-tshirt-alt2-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/unisex-tshirt-alt2-800.webp"
+          width: 800,
+          file: "assets/img/unisex-tshirt-alt2-800.webp"
         },
         {
-          "width": 1620,
-          "file": "assets/img/unisex-tshirt-alt2.webp"
+          width: 1620,
+          file: "assets/img/unisex-tshirt-alt2.webp"
         }
       ]
     }
   },
   "assets/img/unisex-tshirt-alt3.jpg": {
-    "key": "assets/img/unisex-tshirt-alt3.jpg",
-    "width": 1620,
-    "height": 2160,
-    "variants": {
-      "avif": [
+    key: "assets/img/unisex-tshirt-alt3.jpg",
+    width: 1620,
+    height: 2160,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/unisex-tshirt-alt3-480.avif"
+          width: 480,
+          file: "assets/img/unisex-tshirt-alt3-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/unisex-tshirt-alt3-800.avif"
+          width: 800,
+          file: "assets/img/unisex-tshirt-alt3-800.avif"
         },
         {
-          "width": 1620,
-          "file": "assets/img/unisex-tshirt-alt3.avif"
+          width: 1620,
+          file: "assets/img/unisex-tshirt-alt3.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/unisex-tshirt-alt3-480.webp"
+          width: 480,
+          file: "assets/img/unisex-tshirt-alt3-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/unisex-tshirt-alt3-800.webp"
+          width: 800,
+          file: "assets/img/unisex-tshirt-alt3-800.webp"
         },
         {
-          "width": 1620,
-          "file": "assets/img/unisex-tshirt-alt3.webp"
+          width: 1620,
+          file: "assets/img/unisex-tshirt-alt3.webp"
         }
       ]
     }
   },
   "assets/img/unisex-tshirt.jpg": {
-    "key": "assets/img/unisex-tshirt.jpg",
-    "width": 1050,
-    "height": 1400,
-    "variants": {
-      "avif": [
+    key: "assets/img/unisex-tshirt.jpg",
+    width: 1050,
+    height: 1400,
+    variants: {
+      avif: [
         {
-          "width": 480,
-          "file": "assets/img/unisex-tshirt-480.avif"
+          width: 480,
+          file: "assets/img/unisex-tshirt-480.avif"
         },
         {
-          "width": 800,
-          "file": "assets/img/unisex-tshirt-800.avif"
+          width: 800,
+          file: "assets/img/unisex-tshirt-800.avif"
         },
         {
-          "width": 1050,
-          "file": "assets/img/unisex-tshirt.avif"
+          width: 1050,
+          file: "assets/img/unisex-tshirt.avif"
         }
       ],
-      "webp": [
+      webp: [
         {
-          "width": 480,
-          "file": "assets/img/unisex-tshirt-480.webp"
+          width: 480,
+          file: "assets/img/unisex-tshirt-480.webp"
         },
         {
-          "width": 800,
-          "file": "assets/img/unisex-tshirt-800.webp"
+          width: 800,
+          file: "assets/img/unisex-tshirt-800.webp"
         },
         {
-          "width": 1050,
-          "file": "assets/img/unisex-tshirt.webp"
+          width: 1050,
+          file: "assets/img/unisex-tshirt.webp"
         }
       ]
     }

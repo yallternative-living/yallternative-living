@@ -77,11 +77,17 @@ async function optimizeOne(filename) {
     if (w >= srcWidth) continue; // never upscale
 
     var webpOut = base + "-" + w + ".webp";
-    await sharp(srcPath).resize({ width: w }).webp({ quality: WEBP_QUALITY }).toFile(path.join(IMG_DIR, webpOut));
+    await sharp(srcPath)
+      .resize({ width: w })
+      .webp({ quality: WEBP_QUALITY })
+      .toFile(path.join(IMG_DIR, webpOut));
     webpVariants.push({ width: w, file: "assets/img/" + webpOut });
 
     var avifOut = base + "-" + w + ".avif";
-    await sharp(srcPath).resize({ width: w }).avif({ quality: AVIF_QUALITY, effort: AVIF_EFFORT }).toFile(path.join(IMG_DIR, avifOut));
+    await sharp(srcPath)
+      .resize({ width: w })
+      .avif({ quality: AVIF_QUALITY, effort: AVIF_EFFORT })
+      .toFile(path.join(IMG_DIR, avifOut));
     avifVariants.push({ width: w, file: "assets/img/" + avifOut });
   }
 
@@ -92,7 +98,9 @@ async function optimizeOne(filename) {
   webpVariants.push({ width: srcWidth, file: "assets/img/" + fullWebp });
 
   var fullAvif = base + ".avif";
-  await sharp(srcPath).avif({ quality: AVIF_QUALITY, effort: AVIF_EFFORT }).toFile(path.join(IMG_DIR, fullAvif));
+  await sharp(srcPath)
+    .avif({ quality: AVIF_QUALITY, effort: AVIF_EFFORT })
+    .toFile(path.join(IMG_DIR, fullAvif));
   avifVariants.push({ width: srcWidth, file: "assets/img/" + fullAvif });
 
   return {
@@ -118,7 +126,13 @@ function loadExistingManifest() {
   if (!fs.existsSync(MANIFEST_PATH)) return {};
   try {
     var stub = {};
-    (function (window) { eval(fs.readFileSync(MANIFEST_PATH, "utf8")); }.call(null, stub));
+    // `window` below is used inside the eval()'d manifest text
+    // ("window.YL_IMAGES = ..."), not visible to static analysis, so it
+    // looks unused from the linter's view -- it isn't.
+    // eslint-disable-next-line no-unused-vars
+    (function (window) {
+      eval(fs.readFileSync(MANIFEST_PATH, "utf8"));
+    }).call(null, stub);
     return stub.YL_IMAGES || {};
   } catch (e) {
     return {};
@@ -128,7 +142,9 @@ function loadExistingManifest() {
 async function run() {
   var files = fs
     .readdirSync(IMG_DIR)
-    .filter(function (f) { return /\.jpe?g$/i.test(f) && !shouldSkip(f); })
+    .filter(function (f) {
+      return /\.jpe?g$/i.test(f) && !shouldSkip(f);
+    })
     .sort();
 
   if (!files.length) {
@@ -146,7 +162,9 @@ async function run() {
   // interrupted partway never loses previously-finished work.
   var onlyArg = process.argv[2];
   if (onlyArg) {
-    var wanted = onlyArg.split(",").map(function (s) { return s.trim(); });
+    var wanted = onlyArg.split(",").map(function (s) {
+      return s.trim();
+    });
     files = files.filter(function (f) {
       var base = f.replace(/\.jpe?g$/i, "");
       return wanted.indexOf(base) !== -1;
@@ -160,7 +178,7 @@ async function run() {
   var manifest = loadExistingManifest();
   var beforeTotal = 0;
   var avifSmallestTotal = 0; // what an AVIF-capable phone actually downloads
-  var avifFullTotal = 0;     // what an AVIF-capable desktop actually downloads
+  var avifFullTotal = 0; // what an AVIF-capable desktop actually downloads
   var webpSmallestTotal = 0; // same, for the WebP fallback path
 
   for (var i = 0; i < files.length; i++) {
@@ -172,16 +190,35 @@ async function run() {
     var beforeSize = fs.statSync(path.join(IMG_DIR, filename)).size;
     beforeTotal += beforeSize;
 
-    var avifSizes = entry.variants.avif.map(function (v) { return fs.statSync(path.join(ROOT, v.file)).size; });
-    var webpSizes = entry.variants.webp.map(function (v) { return fs.statSync(path.join(ROOT, v.file)).size; });
+    var avifSizes = entry.variants.avif.map(function (v) {
+      return fs.statSync(path.join(ROOT, v.file)).size;
+    });
+    var webpSizes = entry.variants.webp.map(function (v) {
+      return fs.statSync(path.join(ROOT, v.file)).size;
+    });
     avifSmallestTotal += Math.min.apply(null, avifSizes);
     avifFullTotal += avifSizes[avifSizes.length - 1];
     webpSmallestTotal += Math.min.apply(null, webpSizes);
 
     console.log(
-      filename + ": " + Math.round(beforeSize / 1024) + "KB jpg -> " +
-      "avif[" + entry.variants.avif.map(function (v, idx) { return v.width + "w " + Math.round(avifSizes[idx] / 1024) + "KB"; }).join(", ") + "] " +
-      "webp[" + entry.variants.webp.map(function (v, idx) { return v.width + "w " + Math.round(webpSizes[idx] / 1024) + "KB"; }).join(", ") + "]"
+      filename +
+        ": " +
+        Math.round(beforeSize / 1024) +
+        "KB jpg -> " +
+        "avif[" +
+        entry.variants.avif
+          .map(function (v, idx) {
+            return v.width + "w " + Math.round(avifSizes[idx] / 1024) + "KB";
+          })
+          .join(", ") +
+        "] " +
+        "webp[" +
+        entry.variants.webp
+          .map(function (v, idx) {
+            return v.width + "w " + Math.round(webpSizes[idx] / 1024) + "KB";
+          })
+          .join(", ") +
+        "]"
     );
   }
 
@@ -189,23 +226,35 @@ async function run() {
   console.log("wrote assets/js/image-manifest.js (" + files.length + " photos)");
   console.log(
     "A browser only ever downloads ONE variant per image (whichever format+\n" +
-    "size its <picture> pick lands on), never all of them -- so the real\n" +
-    "comparison is against the single original JPG each replaces:"
+      "size its <picture> pick lands on), never all of them -- so the real\n" +
+      "comparison is against the single original JPG each replaces:"
   );
   console.log(
-    "  Phones, AVIF-capable (~96%+ of traffic in 2026): " + Math.round(beforeTotal / 1024) + "KB -> " +
-    Math.round(avifSmallestTotal / 1024) + "KB (" +
-    Math.round((1 - avifSmallestTotal / beforeTotal) * 100) + "% smaller)"
+    "  Phones, AVIF-capable (~96%+ of traffic in 2026): " +
+      Math.round(beforeTotal / 1024) +
+      "KB -> " +
+      Math.round(avifSmallestTotal / 1024) +
+      "KB (" +
+      Math.round((1 - avifSmallestTotal / beforeTotal) * 100) +
+      "% smaller)"
   );
   console.log(
-    "  Desktop, AVIF-capable, full size:                 " + Math.round(beforeTotal / 1024) + "KB -> " +
-    Math.round(avifFullTotal / 1024) + "KB (" +
-    Math.round((1 - avifFullTotal / beforeTotal) * 100) + "% smaller)"
+    "  Desktop, AVIF-capable, full size:                 " +
+      Math.round(beforeTotal / 1024) +
+      "KB -> " +
+      Math.round(avifFullTotal / 1024) +
+      "KB (" +
+      Math.round((1 - avifFullTotal / beforeTotal) * 100) +
+      "% smaller)"
   );
   console.log(
-    "  Phones, WebP fallback (no AVIF support):          " + Math.round(beforeTotal / 1024) + "KB -> " +
-    Math.round(webpSmallestTotal / 1024) + "KB (" +
-    Math.round((1 - webpSmallestTotal / beforeTotal) * 100) + "% smaller)"
+    "  Phones, WebP fallback (no AVIF support):          " +
+      Math.round(beforeTotal / 1024) +
+      "KB -> " +
+      Math.round(webpSmallestTotal / 1024) +
+      "KB (" +
+      Math.round((1 - webpSmallestTotal / beforeTotal) * 100) +
+      "% smaller)"
   );
 }
 

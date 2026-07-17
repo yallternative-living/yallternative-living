@@ -40,5 +40,4 @@ Allow: /
 User-agent: Bingbot
 Allow: /
 
-# Swap in the real domain once the site is deployed:
 Sitemap: https://your-domain-here.com/sitemap.xml

@@ -12,9 +12,14 @@
     "optimize-images": "node scripts/optimize-images.js",
     "build-security-headers": "node scripts/build-security-headers.js",
     "sync-etsy": "node scripts/apply-etsy-snapshot.js",
-    "test": "node scripts/qa-check.js"
+    "test": "node scripts/qa-check.js",
+    "lint": "eslint scripts assets/js",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
-    "sharp": "^0.35.3"
+    "sharp": "^0.35.3",
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.3"
   }
 }

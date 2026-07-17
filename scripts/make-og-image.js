@@ -1,10 +1,11 @@
 /* One-off: generate the 1200x630 social-share (Open Graph) image.
    Branded, typographic, on-palette. Rasterized from SVG via sharp.
    Output: assets/img/og-image.jpg   (run: node scripts/make-og-image.js) */
-const sharp = require('sharp');
-const path = require('path');
+const sharp = require("sharp");
+const path = require("path");
 
-const W = 1200, H = 630;
+const W = 1200,
+  H = 630;
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
   <defs>
     <radialGradient id="glow" cx="50%" cy="30%" r="70%">
@@ -19,7 +20,7 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" 
     </linearGradient>
   </defs>
   <rect width="${W}" height="${H}" fill="url(#glow)"/>
-  <rect x="24" y="24" width="${W-48}" height="${H-48}" rx="18" fill="none" stroke="#8a5c30" stroke-width="2"/>
+  <rect x="24" y="24" width="${W - 48}" height="${H - 48}" rx="18" fill="none" stroke="#8a5c30" stroke-width="2"/>
 
   <!-- crescent moon + spark -->
   <g transform="translate(600 132)">
@@ -39,7 +40,16 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" 
 </svg>`;
 
 sharp(Buffer.from(svg))
-  .jpeg({ quality: 88, chromaSubsampling: '4:4:4' })
-  .toFile(path.join(__dirname, '..', 'assets/img/og-image.jpg'))
-  .then(info => console.log('wrote assets/img/og-image.jpg', info.width + 'x' + info.height, info.size + ' bytes'))
-  .catch(e => { console.error('FAILED', e.message); process.exit(1); });
+  .jpeg({ quality: 88, chromaSubsampling: "4:4:4" })
+  .toFile(path.join(__dirname, "..", "assets/img/og-image.jpg"))
+  .then((info) =>
+    console.log(
+      "wrote assets/img/og-image.jpg",
+      info.width + "x" + info.height,
+      info.size + " bytes"
+    )
+  )
+  .catch((e) => {
+    console.error("FAILED", e.message);
+    process.exit(1);
+  });

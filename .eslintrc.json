@@ -1,0 +1,25 @@
+{
+  "root": true,
+  "extends": "eslint:recommended",
+  "parserOptions": { "ecmaVersion": 2022, "sourceType": "script" },
+  "rules": {
+    "no-unused-vars": "warn",
+    "no-inner-declarations": "off"
+  },
+  "ignorePatterns": [
+    "node_modules/",
+    "assets/js/products-data.js",
+    "assets/js/events-data.js",
+    "assets/js/site-reviews-data.js"
+  ],
+  "overrides": [
+    {
+      "files": ["scripts/**/*.js"],
+      "env": { "node": true, "es2022": true }
+    },
+    {
+      "files": ["assets/js/**/*.js"],
+      "env": { "browser": true, "es2022": true }
+    }
+  ]
+}

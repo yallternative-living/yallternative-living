@@ -44,7 +44,15 @@ var path = require("path");
 var crypto = require("crypto");
 
 var ROOT = path.join(__dirname, "..");
-var PAGES = ["index.html", "shop.html", "about.html", "contact.html", "events.html", "privacy.html", "404.html"];
+var PAGES = [
+  "index.html",
+  "shop.html",
+  "about.html",
+  "contact.html",
+  "events.html",
+  "privacy.html",
+  "404.html"
+];
 
 function extractInlineScripts(html) {
   var out = [];
@@ -68,7 +76,11 @@ function run() {
   var canonical = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   var canonicalScripts = extractInlineScripts(canonical);
   if (canonicalScripts.length < 2) {
-    throw new Error("Expected at least 2 real inline <script> blocks in index.html (theme-init + Snipcart settings) -- found " + canonicalScripts.length + ". Aborting so the CSP doesn't get built from stale assumptions.");
+    throw new Error(
+      "Expected at least 2 real inline <script> blocks in index.html (theme-init + Snipcart settings) -- found " +
+        canonicalScripts.length +
+        ". Aborting so the CSP doesn't get built from stale assumptions."
+    );
   }
 
   // Verify every other page's real inline scripts are byte-identical to
@@ -78,7 +90,9 @@ function run() {
   // shipping a CSP that only covers SOME pages would be worse than
   // failing loudly here.
   var allTexts = {};
-  canonicalScripts.forEach(function (s) { allTexts[sha256Base64(s)] = s; });
+  canonicalScripts.forEach(function (s) {
+    allTexts[sha256Base64(s)] = s;
+  });
 
   PAGES.slice(1).forEach(function (page) {
     var html = fs.readFileSync(path.join(ROOT, page), "utf8");
@@ -86,14 +100,17 @@ function run() {
       var h = sha256Base64(s);
       if (!allTexts[h]) {
         throw new Error(
-          page + " has an inline <script> whose content doesn't match any hash computed from index.html. " +
-          "Either make it identical to the corresponding block in index.html, or update this script to hash it too."
+          page +
+            " has an inline <script> whose content doesn't match any hash computed from index.html. " +
+            "Either make it identical to the corresponding block in index.html, or update this script to hash it too."
         );
       }
     });
   });
 
-  var hashes = Object.keys(allTexts).map(function (h) { return "'sha256-" + h + "'"; });
+  var hashes = Object.keys(allTexts).map(function (h) {
+    return "'sha256-" + h + "'";
+  });
 
   var csp = [
     "default-src 'self'",
@@ -102,7 +119,8 @@ function run() {
     // it's inert until a real Tawk.to property/widget ID replaces the
     // placeholder, but the origin is allowlisted now so turning it on
     // later doesn't also require touching this file.
-    "script-src 'self' https://cdn.snipcart.com https://plausible.io https://embed.tawk.to " + hashes.join(" "),
+    "script-src 'self' https://cdn.snipcart.com https://plausible.io https://embed.tawk.to " +
+      hashes.join(" "),
     "style-src 'self' https://cdn.snipcart.com 'unsafe-inline'", // Snipcart's cart UI injects its own inline styles at runtime; can't pre-hash unknown/dynamic values, so this one directive stays looser on purpose
     "img-src 'self' data: https://cdn.snipcart.com https://*.tawk.to",
     "font-src 'self' https://cdn.snipcart.com",
@@ -157,7 +175,10 @@ function run() {
     ["X-Frame-Options", "DENY"],
     ["X-Content-Type-Options", "nosniff"],
     ["Referrer-Policy", "strict-origin-when-cross-origin"],
-    ["Permissions-Policy", "geolocation=(), microphone=(), camera=(), usb=(), payment=(self \"https://cdn.snipcart.com\")"],
+    [
+      "Permissions-Policy",
+      'geolocation=(), microphone=(), camera=(), usb=(), payment=(self "https://cdn.snipcart.com")'
+    ],
     // HSTS is safe to ship now (only takes effect over real HTTPS, which
     // every realistic static host serves by default) but actually being
     // added to browsers' preload list is a separate, manual step at
@@ -176,7 +197,9 @@ function run() {
   // own complete CSP instead of the main site's.
   var headersFile = "/*\n";
   headersFile += "  Content-Security-Policy: " + csp + "\n";
-  otherHeaders.forEach(function (pair) { headersFile += "  " + pair[0] + ": " + pair[1] + "\n"; });
+  otherHeaders.forEach(function (pair) {
+    headersFile += "  " + pair[0] + ": " + pair[1] + "\n";
+  });
   headersFile += "\n/admin/*\n";
   headersFile += "  Content-Security-Policy: " + adminCsp + "\n";
   fs.writeFileSync(path.join(ROOT, "_headers"), headersFile);
@@ -184,7 +207,9 @@ function run() {
 
   // ---------- vercel.json ----------
   var vercelHeaders = [{ key: "Content-Security-Policy", value: csp }].concat(
-    otherHeaders.map(function (pair) { return { key: pair[0], value: pair[1] }; })
+    otherHeaders.map(function (pair) {
+      return { key: pair[0], value: pair[1] };
+    })
   );
   var vercelJson = {
     // Build command runs before every deploy so a commit that only
@@ -231,58 +256,80 @@ function run() {
     "# scripts/build-site-data.js by hand.\n" +
     "#\n" +
     "# Auto-generated by scripts/build-security-headers.js -- don't hand-edit the\n" +
-    "# [[headers]] for = \"/*\" block below, it'll just get overwritten and could\n" +
+    '# [[headers]] for = "/*" block below, it\'ll just get overwritten and could\n' +
     "# drift out of sync with _headers/vercel.json again. Edit the csp/otherHeaders\n" +
     "# arrays in that script instead, then re-run it.\n\n" +
     "[build]\n" +
-    "  publish = \".\"\n" +
-    "  command = \"node scripts/build-site-data.js && node scripts/build-security-headers.js\"\n\n" +
+    '  publish = "."\n' +
+    '  command = "node scripts/build-site-data.js && node scripts/build-security-headers.js"\n\n' +
     "# Long-lived caching for hashed/never-changing assets. Pages themselves\n" +
     "# (index.html, shop.html, etc.) intentionally aren't cached long here --\n" +
     "# Netlify already serves them with an ETag + must-revalidate by default,\n" +
     "# so browsers re-check on every visit and always get the latest deploy.\n" +
     "[[headers]]\n" +
-    "  for = \"/assets/img/*\"\n" +
+    '  for = "/assets/img/*"\n' +
     "  [headers.values]\n" +
-    "    Cache-Control = \"public, max-age=31536000, immutable\"\n\n" +
+    '    Cache-Control = "public, max-age=31536000, immutable"\n\n' +
     "[[headers]]\n" +
-    "  for = \"/assets/css/*\"\n" +
+    '  for = "/assets/css/*"\n' +
     "  [headers.values]\n" +
-    "    Cache-Control = \"public, max-age=604800\"\n\n" +
+    '    Cache-Control = "public, max-age=604800"\n\n' +
     "[[headers]]\n" +
-    "  for = \"/assets/js/*\"\n" +
+    '  for = "/assets/js/*"\n' +
     "  [headers.values]\n" +
-    "    Cache-Control = \"public, max-age=604800\"\n\n" +
+    '    Cache-Control = "public, max-age=604800"\n\n' +
     "# Baseline security headers on every page -- identical policy to\n" +
     "# _headers and vercel.json (see this script's csp/otherHeaders).\n" +
     "[[headers]]\n" +
-    "  for = \"/*\"\n" +
+    '  for = "/*"\n' +
     "  [headers.values]\n" +
-    otherHeaders.map(function (pair) {
-      return "    " + pair[0] + " = " + JSON.stringify(pair[1]) + "\n";
-    }).join("") +
-    "    Content-Security-Policy = " + JSON.stringify(csp) + "\n\n" +
+    otherHeaders
+      .map(function (pair) {
+        return "    " + pair[0] + " = " + JSON.stringify(pair[1]) + "\n";
+      })
+      .join("") +
+    "    Content-Security-Policy = " +
+    JSON.stringify(csp) +
+    "\n\n" +
     "# Sveltia CMS (product editor, see README section 20) gets its own\n" +
-    "# CSP here -- more specific paths win over \"/*\" on Netlify, so this\n" +
+    '# CSP here -- more specific paths win over "/*" on Netlify, so this\n' +
     "# replaces (not adds to) the baseline CSP above for anything under\n" +
     "# /admin/. See the adminCsp comment in this script for what's in it\n" +
     "# and the honest caveat about it not being verified against a live\n" +
     "# GitHub-backed CMS session yet.\n" +
     "[[headers]]\n" +
-    "  for = \"/admin/*\"\n" +
+    '  for = "/admin/*"\n' +
     "  [headers.values]\n" +
-    "    Content-Security-Policy = " + JSON.stringify(adminCsp) + "\n";
+    "    Content-Security-Policy = " +
+    JSON.stringify(adminCsp) +
+    "\n";
   fs.writeFileSync(path.join(ROOT, "netlify.toml"), netlifyToml);
   console.log("wrote netlify.toml");
 
   console.log("");
-  console.log("CSP covers " + hashes.length + " inline script hash(es) + Snipcart (cdn.snipcart.com) + Plausible (plausible.io).");
-  console.log("IMPORTANT -- this could not be verified against a live checkout in a real browser during");
-  console.log("development (sandboxed dev environment had no way to run one). Before relying on this in");
-  console.log("production: deploy, open the browser console during a real Snipcart checkout, and check for");
-  console.log("any 'Refused to ...' CSP violation messages -- add whatever origin they name (most likely a");
-  console.log("payment gateway iframe domain, once one is configured in the Snipcart dashboard) to frame-src");
-  console.log("and/or connect-src above, then re-run this script... actually just hand-edit the two files,");
+  console.log(
+    "CSP covers " +
+      hashes.length +
+      " inline script hash(es) + Snipcart (cdn.snipcart.com) + Plausible (plausible.io)."
+  );
+  console.log(
+    "IMPORTANT -- this could not be verified against a live checkout in a real browser during"
+  );
+  console.log(
+    "development (sandboxed dev environment had no way to run one). Before relying on this in"
+  );
+  console.log(
+    "production: deploy, open the browser console during a real Snipcart checkout, and check for"
+  );
+  console.log(
+    "any 'Refused to ...' CSP violation messages -- add whatever origin they name (most likely a"
+  );
+  console.log(
+    "payment gateway iframe domain, once one is configured in the Snipcart dashboard) to frame-src"
+  );
+  console.log(
+    "and/or connect-src above, then re-run this script... actually just hand-edit the two files,"
+  );
   console.log("since a manually-added origin isn't something this script's own logic derives.");
 }
 
