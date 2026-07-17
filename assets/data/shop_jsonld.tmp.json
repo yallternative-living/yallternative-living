@@ -1,0 +1,345 @@
+{
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  "name": "Y'allternative Living \u2014 Full Shop Catalog",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "item": {
+        "@type": "Product",
+        "name": "Y'allternative Living Tank Top",
+        "description": "Wear the whole ethos on your chest. Soft, unisex-fit tank with the rainbow stag logo.",
+        "image": "https://your-domain-here.com/assets/img/tank-top.jpg",
+        "url": "https://www.etsy.com/listing/4341507933/yallternative-living-tank-top",
+        "brand": {
+          "@type": "Brand",
+          "name": "Y'allternative Living"
+        },
+        "offers": {
+          "@type": "Offer",
+          "price": "25.00",
+          "priceCurrency": "USD",
+          "url": "https://www.etsy.com/listing/4341507933/yallternative-living-tank-top",
+          "availability": "https://schema.org/InStock",
+          "seller": {
+            "@type": "Organization",
+            "name": "Y'allternative Living"
+          }
+        }
+      }
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "item": {
+        "@type": "Product",
+        "name": "Y'allternative Living Unisex T-Shirt",
+        "description": "The flagship tee. Rainbow stag logo on soft cotton, cut for everybody, built for the black sheep.",
+        "image": "https://your-domain-here.com/assets/img/unisex-tshirt.jpg",
+        "url": "https://www.etsy.com/listing/4341518675/yallternative-living-unisex-t-shirt",
+        "brand": {
+          "@type": "Brand",
+          "name": "Y'allternative Living"
+        },
+        "offers": {
+          "@type": "Offer",
+          "price": "25.00",
+          "priceCurrency": "USD",
+          "url": "https://www.etsy.com/listing/4341518675/yallternative-living-unisex-t-shirt",
+          "availability": "https://schema.org/InStock",
+          "seller": {
+            "@type": "Organization",
+            "name": "Y'allternative Living"
+          }
+        }
+      }
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "item": {
+        "@type": "Product",
+        "name": "Y'all Heal Now Miracle Frankincense Salve",
+        "description": "Calendula, arnica, tea tree, lavender & rosemary team up for scrapes, dry patches and rough days.",
+        "image": "https://your-domain-here.com/assets/img/frankincense-salve.jpg",
+        "url": "https://www.etsy.com/listing/4398130795/yall-heal-now-miracle-frankencise-salve",
+        "brand": {
+          "@type": "Brand",
+          "name": "Y'allternative Living"
+        },
+        "offers": {
+          "@type": "Offer",
+          "price": "16.00",
+          "priceCurrency": "USD",
+          "url": "https://www.etsy.com/listing/4398130795/yall-heal-now-miracle-frankencise-salve",
+          "availability": "https://schema.org/InStock",
+          "seller": {
+            "@type": "Organization",
+            "name": "Y'allternative Living"
+          }
+        }
+      }
+    },
+    {
+      "@type": "ListItem",
+      "position": 4,
+      "item": {
+        "@type": "Product",
+        "name": "Y'allternative Miracle Balm",
+        "description": "Multi-use skin & lip rescue. Unscented and essential-oil-free for the sensitive-skinned among us.",
+        "image": "https://your-domain-here.com/assets/img/miracle-balm.jpg",
+        "url": "https://www.etsy.com/listing/4466572716/yallternative-miracle-balm-multi-use",
+        "brand": {
+          "@type": "Brand",
+          "name": "Y'allternative Living"
+        },
+        "offers": {
+          "@type": "Offer",
+          "price": "8.00",
+          "priceCurrency": "USD",
+          "url": "https://www.etsy.com/listing/4466572716/yallternative-miracle-balm-multi-use",
+          "availability": "https://schema.org/InStock",
+          "seller": {
+            "@type": "Organization",
+            "name": "Y'allternative Living"
+          }
+        }
+      }
+    },
+    {
+      "@type": "ListItem",
+      "position": 5,
+      "item": {
+        "@type": "Product",
+        "name": "Hush Y'all Magnesium Arnica Sleep Salve",
+        "description": "Lavender, cedarwood, frankincense & chamomile rubbed on before bed so your brain will finally hush.",
+        "image": "https://your-domain-here.com/assets/img/sleep-salve.jpg",
+        "url": "https://www.etsy.com/listing/4398125773/hush-yall-magnesium-arnica-sleep-salve",
+        "brand": {
+          "@type": "Brand",
+          "name": "Y'allternative Living"
+        },
+        "offers": {
+          "@type": "Offer",
+          "price": "16.00",
+          "priceCurrency": "USD",
+          "url": "https://www.etsy.com/listing/4398125773/hush-yall-magnesium-arnica-sleep-salve",
+          "availability": "https://schema.org/InStock",
+          "seller": {
+            "@type": "Organization",
+            "name": "Y'allternative Living"
+          }
+        }
+      }
+    },
+    {
+      "@type": "ListItem",
+      "position": 6,
+      "item": {
+        "@type": "Product",
+        "name": "Bourbon Beard Salve",
+        "description": "Vanilla cedarwood beard balm that softens, tames, and smells like a backroad bonfire.",
+        "image": "https://your-domain-here.com/assets/img/beard-salve.jpg",
+        "url": "https://www.etsy.com/listing/4460199621/bourbon-beard-salve-vanilla-cedarwood",
+        "brand": {
+          "@type": "Brand",
+          "name": "Y'allternative Living"
+        },
+        "offers": {
+          "@type": "Offer",
+          "price": "14.00",
+          "priceCurrency": "USD",
+          "url": "https://www.etsy.com/listing/4460199621/bourbon-beard-salve-vanilla-cedarwood",
+          "availability": "https://schema.org/InStock",
+          "seller": {
+            "@type": "Organization",
+            "name": "Y'allternative Living"
+          }
+        }
+      }
+    },
+    {
+      "@type": "ListItem",
+      "position": 7,
+      "item": {
+        "@type": "Product",
+        "name": "Shimmer Body Oil \u2014 Bronze Seduction",
+        "description": "Non-greasy glow oil in a citrus-peach-coconut scent. Y'all means all, and all means glowing.",
+        "image": "https://your-domain-here.com/assets/img/shimmer-oil.jpg",
+        "url": "https://www.etsy.com/listing/4502740269/shimmer-body-oil-glitter-body-oil-non",
+        "brand": {
+          "@type": "Brand",
+          "name": "Y'allternative Living"
+        },
+        "offers": {
+          "@type": "Offer",
+          "price": "19.00",
+          "priceCurrency": "USD",
+          "url": "https://www.etsy.com/listing/4502740269/shimmer-body-oil-glitter-body-oil-non",
+          "availability": "https://schema.org/InStock",
+          "seller": {
+            "@type": "Organization",
+            "name": "Y'allternative Living"
+          }
+        }
+      }
+    },
+    {
+      "@type": "ListItem",
+      "position": 8,
+      "item": {
+        "@type": "Product",
+        "name": "Lavender Shea Body Butter",
+        "description": "Raw African shea whipped for overnight repair. Rich, thick, and made for cracked-heel season.",
+        "image": "https://your-domain-here.com/assets/img/shea-butter.jpg",
+        "url": "https://www.etsy.com/listing/4460110222/lavender-shea-body-butter-raw-african",
+        "brand": {
+          "@type": "Brand",
+          "name": "Y'allternative Living"
+        },
+        "offers": {
+          "@type": "Offer",
+          "price": "15.00",
+          "priceCurrency": "USD",
+          "url": "https://www.etsy.com/listing/4460110222/lavender-shea-body-butter-raw-african",
+          "availability": "https://schema.org/InStock",
+          "seller": {
+            "@type": "Organization",
+            "name": "Y'allternative Living"
+          }
+        }
+      }
+    },
+    {
+      "@type": "ListItem",
+      "position": 9,
+      "item": {
+        "@type": "Product",
+        "name": "Bourbon Vanilla Hand Scrub",
+        "description": "An exfoliating degreaser with pumice & pink salt built for hands that actually work for a living.",
+        "image": "https://your-domain-here.com/assets/img/hand-scrub.jpg",
+        "url": "https://www.etsy.com/listing/4342208406/bourbon-vanilla-hand-scrub-exfoliating",
+        "brand": {
+          "@type": "Brand",
+          "name": "Y'allternative Living"
+        },
+        "offers": {
+          "@type": "Offer",
+          "price": "8.00",
+          "priceCurrency": "USD",
+          "url": "https://www.etsy.com/listing/4342208406/bourbon-vanilla-hand-scrub-exfoliating",
+          "availability": "https://schema.org/InStock",
+          "seller": {
+            "@type": "Organization",
+            "name": "Y'allternative Living"
+          }
+        }
+      }
+    },
+    {
+      "@type": "ListItem",
+      "position": 10,
+      "item": {
+        "@type": "Product",
+        "name": "Lavender Epsom Salt Soak",
+        "description": "Muscle relief with a kick of black pepper. Run the bath, throw in a scoop, take up space.",
+        "image": "https://your-domain-here.com/assets/img/lavender-soak.jpg",
+        "url": "https://www.etsy.com/listing/4345557444/lavender-epsom-salt-soak-muscle-relief",
+        "brand": {
+          "@type": "Brand",
+          "name": "Y'allternative Living"
+        },
+        "offers": {
+          "@type": "Offer",
+          "price": "10.00",
+          "priceCurrency": "USD",
+          "url": "https://www.etsy.com/listing/4345557444/lavender-epsom-salt-soak-muscle-relief",
+          "availability": "https://schema.org/InStock",
+          "seller": {
+            "@type": "Organization",
+            "name": "Y'allternative Living"
+          }
+        }
+      }
+    },
+    {
+      "@type": "ListItem",
+      "position": 11,
+      "item": {
+        "@type": "Product",
+        "name": "Backroad Recovery Epsom Salt Soak",
+        "description": "Peppermint, lavender & black pepper for whatever the backroads (or the day) put you through.",
+        "image": "https://your-domain-here.com/assets/img/backroad-soak.jpg",
+        "url": "https://www.etsy.com/listing/4333988264/backroad-recovery-epsom-salt-muscle-soak",
+        "brand": {
+          "@type": "Brand",
+          "name": "Y'allternative Living"
+        },
+        "offers": {
+          "@type": "Offer",
+          "price": "10.00",
+          "priceCurrency": "USD",
+          "url": "https://www.etsy.com/listing/4333988264/backroad-recovery-epsom-salt-muscle-soak",
+          "availability": "https://schema.org/InStock",
+          "seller": {
+            "@type": "Organization",
+            "name": "Y'allternative Living"
+          }
+        }
+      }
+    },
+    {
+      "@type": "ListItem",
+      "position": 12,
+      "item": {
+        "@type": "Product",
+        "name": "Protection Potion Keychain",
+        "description": "A black lava salt spell jar amulet, ready to ride shotgun on your keys.",
+        "image": "https://your-domain-here.com/assets/img/protection-keychain.jpg",
+        "url": "https://www.etsy.com/listing/4378341348/protection-potion-keychain-black-lava",
+        "brand": {
+          "@type": "Brand",
+          "name": "Y'allternative Living"
+        },
+        "offers": {
+          "@type": "Offer",
+          "price": "6.00",
+          "priceCurrency": "USD",
+          "url": "https://www.etsy.com/listing/4378341348/protection-potion-keychain-black-lava",
+          "availability": "https://schema.org/InStock",
+          "seller": {
+            "@type": "Organization",
+            "name": "Y'allternative Living"
+          }
+        }
+      }
+    },
+    {
+      "@type": "ListItem",
+      "position": 13,
+      "item": {
+        "@type": "Product",
+        "name": "Bug Off B*tch Natural Bug Spray",
+        "description": "An all-natural spray that says what we're all thinking to the mosquitoes out back.",
+        "image": "https://your-domain-here.com/assets/img/bug-spray.jpg",
+        "url": "https://www.etsy.com/listing/4335217388/bug-off-btch-natural-bug-spray",
+        "brand": {
+          "@type": "Brand",
+          "name": "Y'allternative Living"
+        },
+        "offers": {
+          "@type": "Offer",
+          "price": "8.00",
+          "priceCurrency": "USD",
+          "url": "https://www.etsy.com/listing/4335217388/bug-off-btch-natural-bug-spray",
+          "availability": "https://schema.org/InStock",
+          "seller": {
+            "@type": "Organization",
+            "name": "Y'allternative Living"
+          }
+        }
+      }
+    }
+  ]
+}

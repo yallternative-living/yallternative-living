@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark light">
+<meta name="view-transition" content="same-origin">
+<title>Page Not Found — Y'allternative Living</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="assets/img/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="assets/img/favicon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#c65a6d">
+
+<!-- Fonts are self-hosted (assets/fonts/), not loaded from Google Fonts.
+     See assets/css/styles.css for the @font-face rules + rationale. -->
+<link rel="preload" as="font" type="font/woff2" href="assets/fonts/fraunces-normal.woff2" crossorigin>
+<link rel="preload" as="font" type="font/woff2" href="assets/fonts/figtree-normal.woff2" crossorigin>
+<!-- Warm up the two third-party origins this page actually talks to,
+     so the first Add to Cart click (Snipcart, lazy-loaded on interaction)
+     and the analytics beacon (Plausible) don't pay a cold DNS+TLS
+     handshake at the moment they're needed. -->
+<link rel="preconnect" href="https://cdn.snipcart.com" crossorigin>
+<link rel="preconnect" href="https://plausible.io">
+<link rel="stylesheet" href="assets/css/styles.css">
+
+<script>
+  // No-flash theme init: runs before paint, before main.js.
+  (function(){
+    var t = localStorage.getItem('yl-theme');
+    if(!t){ t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'; }
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
+<!-- Privacy-friendly analytics (Plausible: no cookies, no personal data,
+     aggregate traffic counts only -- see https://plausible.io/data-policy).
+     Two things needed before this records anything real:
+       1. A Plausible account with this site's domain added.
+       2. data-domain below swapped from the placeholder to the real
+          production domain once deployed (same DOMAIN this site uses
+          everywhere else -- see scripts/build-site-data.js). -->
+<script defer data-domain="your-domain-here.com" src="https://plausible.io/js/script.js"></script>
+</head>
+<body>
+<script>
+  window.SnipcartSettings = {
+    publicApiKey: "YOUR_SNIPCART_PUBLIC_API_KEY",
+    loadStrategy: "on-user-interaction",
+    modalStyle: "side",
+    /* Let Snipcart auto-open its cart drawer after Add to Cart -- with
+       this suppressed, the only feedback was a small badge tick in a
+       crowded nav cluster, easy to miss and easy to double-add over. */
+  };
+
+  (function(){var c,d;(d=(c=window.SnipcartSettings).version)!=null||(c.version="3.0");var s,S;(S=(s=window.SnipcartSettings).timeoutDuration)!=null||(s.timeoutDuration=2750);var l,p;(p=(l=window.SnipcartSettings).domain)!=null||(l.domain="cdn.snipcart.com");var w,u;(u=(w=window.SnipcartSettings).protocol)!=null||(w.protocol="https");var m,g;(g=(m=window.SnipcartSettings).loadCSS)!=null||(m.loadCSS=!0);var y=window.SnipcartSettings.version.includes("v3.0.0-ci")||window.SnipcartSettings.version!="3.0"&&window.SnipcartSettings.version.localeCompare("3.4.0",void 0,{numeric:!0,sensitivity:"base"})===-1,f=["focus","mouseover","touchmove","scroll","keydown"];window.LoadSnipcart=o;document.readyState==="loading"?document.addEventListener("DOMContentLoaded",r):r();function r(){window.SnipcartSettings.loadStrategy?window.SnipcartSettings.loadStrategy==="on-user-interaction"&&(f.forEach(function(t){return document.addEventListener(t,o)}),setTimeout(o,window.SnipcartSettings.timeoutDuration)):o()}var a=!1;function o(){if(a)return;a=!0;let t=document.getElementsByTagName("head")[0],n=document.querySelector("#snipcart"),i=document.querySelector('src[src^="'.concat(window.SnipcartSettings.protocol,"://").concat(window.SnipcartSettings.domain,'"][src$="snipcart.js"]')),e=document.querySelector('link[href^="'.concat(window.SnipcartSettings.protocol,"://").concat(window.SnipcartSettings.domain,'"][href$="snipcart.css"]'));n||(n=document.createElement("div"),n.id="snipcart",n.setAttribute("hidden","true"),document.body.appendChild(n)),h(n),i||(i=document.createElement("script"),i.src="".concat(window.SnipcartSettings.protocol,"://").concat(window.SnipcartSettings.domain,"/themes/v").concat(window.SnipcartSettings.version,"/default/snipcart.js"),i.async=!0,t.appendChild(i)),!e&&window.SnipcartSettings.loadCSS&&(e=document.createElement("link"),e.rel="stylesheet",e.type="text/css",e.href="".concat(window.SnipcartSettings.protocol,"://").concat(window.SnipcartSettings.domain,"/themes/v").concat(window.SnipcartSettings.version,"/default/snipcart.css"),t.prepend(e)),f.forEach(function(v){return document.removeEventListener(v,o)})}function h(t){!y||(t.dataset.apiKey=window.SnipcartSettings.publicApiKey,window.SnipcartSettings.addProductBehavior&&(t.dataset.configAddProductBehavior=window.SnipcartSettings.addProductBehavior),window.SnipcartSettings.modalStyle&&(t.dataset.configModalStyle=window.SnipcartSettings.modalStyle),window.SnipcartSettings.currency&&(t.dataset.currency=window.SnipcartSettings.currency),window.SnipcartSettings.templatesUrl&&(t.dataset.templatesUrl=window.SnipcartSettings.templatesUrl))}})();
+</script>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header">
+  <nav class="nav">
+    <a class="brand" href="index.html" aria-label="Y'allternative Living home">
+      <img src="assets/img/logo.png" alt="Y'allternative Living logo" width="42" height="42">
+      <span class="brand-word">Y'allternative<small>Living</small></span>
+    </a>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="shop.html">Shop</a></li>
+      <li><a href="events.html">Events</a></li>
+      <li><a href="about.html">Our Story</a></li>
+      <li><a href="contact.html">Contact</a></li>
+    </ul>
+    <div class="nav-cta">
+      <button class="cart-toggle snipcart-checkout" type="button" aria-label="View your cart">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.5 3h2l2.6 12.6a2 2 0 0 0 2 1.6h8.4a2 2 0 0 0 2-1.6L21 8H6"/></svg>
+        <span class="badge snipcart-items-count" aria-live="polite"></span>
+      </button>
+      <button class="theme-toggle" id="themeToggle" role="switch" aria-checked="false" aria-label="Toggle dark and light mode">
+        <span class="knob" aria-hidden="true">🌙</span>
+      </button>
+      <button class="nav-toggle" aria-label="Open menu" aria-expanded="false">☰</button>
+    </div>
+  </nav>
+</header>
+<main id="main">
+
+  <section class="hero" style="min-height:60vh;">
+    <div class="container center">
+      <span class="eyebrow">404</span>
+      <h1>Well, This Trail Went Cold</h1>
+      <p class="lede" style="max-width:60ch;margin:0 auto 28px;">
+        Whatever you were looking for isn't at this address. Maybe it moved,
+        maybe it never existed, maybe a link's just a little rusty.
+      </p>
+      <div class="hero-actions" style="justify-content:center;">
+        <a class="btn btn-primary" href="index.html">Back To Home</a>
+        <a class="btn btn-outline" href="shop.html">Shop The Collection</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="brand" style="margin-bottom:16px;">
+          <img src="assets/img/logo.png" alt="Y'allternative Living logo" width="42" height="42">
+          <span class="brand-word">Y'allternative<small>Living</small></span>
+        </div>
+        <p>Handmade self-care for the black sheep & bold hearts. Queer-owned, Southern-raised, out of Landrum, SC.</p>
+        <div class="social-row">
+          <a href="https://www.instagram.com/yallternativeliving" target="_blank" rel="noopener" aria-label="Instagram">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1"/></svg>
+          </a>
+          <a href="https://www.tiktok.com/@yallternativeliving" target="_blank" rel="noopener" aria-label="TikTok">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15 3c.4 2.3 2 4 4.7 4.2v3c-1.7 0-3.3-.5-4.7-1.4v6.7c0 3.1-2.5 5.5-5.6 5.5S3.8 18.6 3.8 15.5c0-3 2.4-5.5 5.6-5.5.4 0 .8 0 1.1.1v3.1c-.3-.1-.7-.2-1.1-.2-1.3 0-2.4 1.1-2.4 2.5s1.1 2.5 2.4 2.5 2.5-1 2.6-2.4V3H15z"/></svg>
+          </a>
+          <a href="https://www.facebook.com/p/Yallternative-Living-61577943406316/" target="_blank" rel="noopener" aria-label="Facebook">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 8.5h2.5V5H14c-2 0-3.5 1.6-3.5 3.5V11H8v3.5h2.5V21H14v-6.5h2.3l.7-3.5h-3V9c0-.3.2-.5.5-.5z"/></svg>
+          </a>
+          <a href="https://www.etsy.com/shop/YallternativeLivinCO" target="_blank" rel="noopener" aria-label="Etsy shop">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 8l1-4h14l1 4"/><path d="M4 8h16v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8z"/><path d="M9 12a3 3 0 0 0 6 0"/></svg>
+          </a>
+        </div>
+      </div>
+      <div>
+        <h3>Explore</h3>
+        <ul>
+          <li><a href="index.html">Home</a></li>
+          <li><a href="shop.html">Shop All</a></li>
+          <li><a href="events.html">Events &amp; Fairs</a></li>
+          <li><a href="about.html">Our Story</a></li>
+          <li><a href="contact.html">Contact</a></li>
+        </ul>
+      </div>
+      <div>
+        <h3>Shop</h3>
+        <ul>
+          <li><a href="shop.html#apparel">Apparel</a></li>
+          <li><a href="shop.html#salves">Salves &amp; Balms</a></li>
+          <li><a href="shop.html#body">Body &amp; Skin</a></li>
+          <li><a href="shop.html#soaks">Soaks</a></li>
+          <li><a href="shop.html#potions">Potions &amp; Spellwork</a></li>
+        </ul>
+      </div>
+      <div>
+        <h3>Say Hey</h3>
+        <ul>
+          <li><a href="mailto:y.allternative.living@gmail.com">y.allternative.living@gmail.com</a></li>
+          <li><a href="https://www.etsy.com/shop/YallternativeLivinCO" target="_blank" rel="noopener">Etsy shop ↗</a></li>
+          <li>Landrum, SC &middot; Markets &amp; Pride events across Upstate SC and beyond</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- NEWSLETTER SIGNUP -- plain HTML form, real native POST, no JS
+         required to submit it. Provider: Kit (https://kit.com), chosen
+         for its free 10k-subscriber tier and dashboard-configurable
+         post-signup redirect. Replace YOUR_KIT_FORM_ACTION_URL with the
+         real form action URL from your Kit account -- see README. -->
+    <div class="footer-signup reveal" id="footerSignup">
+      <div class="footer-signup-text">
+        <h3>Get The Good Stuff In Your Inbox</h3>
+        <p>New batches, market &amp; Pride dates, and the occasional bad pun, straight from Savanna. No spam, unsubscribe whenever you please.</p>
+      </div>
+      <p class="footer-signup-confirm"><span class="glyph" aria-hidden="true">&#10003;</span> You're on the list, y'all! Keep an eye on your inbox.</p>
+      <form class="footer-signup-form" action="YOUR_KIT_FORM_ACTION_URL" method="post">
+        <div class="form-hp" aria-hidden="true">
+          <label for="footer_website">Leave this field blank</label>
+          <input type="text" id="footer_website" name="footer_website" tabindex="-1" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="footer_email" class="sr-only">Email address</label>
+          <input type="email" id="footer_email" name="email_address" placeholder="you@email.com" required autocomplete="email">
+        </div>
+        <button class="btn btn-primary btn-sm" type="submit">Join The List</button>
+      </form>
+    </div>
+
+    <div class="pride-rule"></div>
+    <p class="footer-disclaimer">Handmade self-care, not medicine — nothing sold here is intended to diagnose, treat, cure, or prevent any condition. Got a real skin or health concern? See an actual doctor, then treat yourself to something that smells nice after.</p>
+    <div class="footer-bottom">
+      <span>&copy; <span id="year"></span> Y'allternative Living. Handmade with grit &amp; glitter. &middot; <a href="privacy.html">Privacy Policy</a></span>
+      <span>Queer-owned &middot; Southern-raised &middot; Alt-inspired</span>
+    </div>
+  </div>
+</footer>
+<script src="assets/js/products-data.js" defer></script>
+<script src="assets/js/image-manifest.js" defer></script>
+<script src="assets/js/main.js" defer></script>
+<!-- Live chat (Tawk.to) -- placeholder, inert until real IDs are set.
+     Free live-chat widget: https://www.tawk.to -- see README section 19.
+     Replace YOUR_TAWKTO_PROPERTY_ID/YOUR_TAWKTO_WIDGET_ID below with the
+     real embed values from your own Tawk.to dashboard (Administration ->
+     Chat Widget). Until then this script 404s quietly and no widget
+     appears -- nothing is broken by leaving it as-is. -->
+<script type="text/javascript">
+var Tawk_API = Tawk_API || {}, Tawk_LoadStart = new Date();
+(function () {
+  var s1 = document.createElement("script"), s0 = document.getElementsByTagName("script")[0];
+  s1.async = true;
+  s1.src = "https://embed.tawk.to/YOUR_TAWKTO_PROPERTY_ID/YOUR_TAWKTO_WIDGET_ID";
+  s1.charset = "UTF-8";
+  s1.setAttribute("crossorigin", "*");
+  s0.parentNode.insertBefore(s1, s0);
+})();
+</script>
+</body>
+</html>

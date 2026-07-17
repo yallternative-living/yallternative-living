@@ -1,0 +1,48 @@
+{
+  "buildCommand": "node scripts/build-site-data.js && node scripts/build-security-headers.js",
+  "outputDirectory": ".",
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' https://cdn.snipcart.com https://plausible.io https://embed.tawk.to 'sha256-Wmlc/Lumj50wOdax6AEbaQv0zXK/9D0NZCQxPTdXDqM=' 'sha256-JX9dyHhuLUyGuU3MZAsZ6iiNfL/coLdMzDMeqn2WHHQ=' 'sha256-tWtj/sC82Z0OMELZsubEGWJdT4bAc+dsnrT3DaK1Mhc='; style-src 'self' https://cdn.snipcart.com 'unsafe-inline'; img-src 'self' data: https://cdn.snipcart.com https://*.tawk.to; font-src 'self' https://cdn.snipcart.com; connect-src 'self' https://*.snipcart.com https://plausible.io https://*.tawk.to wss://*.tawk.to; frame-src https://*.snipcart.com https://*.tawk.to; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://*.snipcart.com https://app.convertkit.com https://app.kit.com https://formspree.io; object-src 'none'"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "geolocation=(), microphone=(), camera=(), usb=(), payment=(self \"https://cdn.snipcart.com\")"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=63072000; includeSubDomains; preload"
+        },
+        {
+          "key": "Cross-Origin-Opener-Policy",
+          "value": "same-origin-allow-popups"
+        }
+      ]
+    },
+    {
+      "source": "/admin/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.githubusercontent.com; font-src 'self'; connect-src 'self' https://unpkg.com https://api.github.com https://*.githubusercontent.com; media-src blob:; frame-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+        }
+      ]
+    }
+  ]
+}

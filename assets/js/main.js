@@ -1,0 +1,1114 @@
+/* ==========================================================
+   Y'ALLTERNATIVE LIVING — shared site behavior
+   Zero dependencies, zero build step. Vanilla JS only so the
+   whole site stays instant on any connection.
+   ========================================================== */
+(function () {
+  "use strict";
+
+  /* ---------- Theme toggle (dark/light, persisted) ---------- */
+  var root = document.documentElement;
+  var toggle = document.getElementById("themeToggle");
+
+  function currentTheme() {
+    var saved = localStorage.getItem("yl-theme");
+    if (saved === "dark" || saved === "light") return saved;
+    return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  }
+
+  function applyTheme(theme) {
+    root.setAttribute("data-theme", theme);
+    if (toggle) toggle.setAttribute("aria-checked", theme === "light" ? "true" : "false");
+  }
+
+  applyTheme(currentTheme());
+
+  if (toggle) {
+    toggle.addEventListener("click", function () {
+      var next = root.getAttribute("data-theme") === "light" ? "dark" : "light";
+      localStorage.setItem("yl-theme", next);
+      applyTheme(next);
+    });
+  }
+
+  /* ---------- Mobile nav ---------- */
+  var navToggle = document.querySelector(".nav-toggle");
+  var navLinks = document.querySelector(".nav-links");
+  if (navToggle && navLinks) {
+    /* Below 880px, .nav-links is visually hidden (opacity/transform)
+       when closed, but it's still `position:fixed` and covers most of
+       the viewport, and being visually hidden doesn't remove its links
+       from the tab order or a screen reader's accessibility tree. A
+       keyboard user tabbing past the hamburger would land on invisible
+       links, and a mobile screen-reader user swiping through the page
+       would hit them too. `inert` removes closed-panel links from both
+       until the panel is actually open. Above 880px the panel is always
+       visible inline, so it should never be inert there. */
+    var navMQ = window.matchMedia("(max-width: 880px)");
+    function syncNavInert() {
+      if (navMQ.matches && !navLinks.classList.contains("open")) {
+        navLinks.setAttribute("inert", "");
+      } else {
+        navLinks.removeAttribute("inert");
+      }
+    }
+    syncNavInert();
+    navMQ.addEventListener("change", syncNavInert);
+
+    function closeNav() {
+      navLinks.classList.remove("open");
+      navToggle.setAttribute("aria-expanded", "false");
+      navToggle.setAttribute("aria-label", "Open menu");
+      navToggle.textContent = "☰";
+      syncNavInert();
+    }
+
+    navToggle.addEventListener("click", function () {
+      var open = navLinks.classList.toggle("open");
+      navToggle.setAttribute("aria-expanded", open ? "true" : "false");
+      navToggle.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+      navToggle.textContent = open ? "✕" : "☰";
+      syncNavInert();
+      /* nav-toggle sits after nav-links in the DOM (it lives inside
+         nav-cta), so a keyboard user who just opened the menu and hits
+         Tab would move into page content, not into the menu they just
+         opened -- there's nothing later in tab order pointing back at
+         it. Moving focus straight into the first link sidesteps the
+         whole DOM-order problem instead of fighting it. */
+      if (open) {
+        var firstLink = navLinks.querySelector("a");
+        if (firstLink) firstLink.focus();
+      }
+    });
+    navLinks.querySelectorAll("a").forEach(function (a) {
+      a.addEventListener("click", closeNav);
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && navLinks.classList.contains("open")) {
+        closeNav();
+        navToggle.focus();
+      }
+    });
+    document.addEventListener("click", function (e) {
+      if (
+        navLinks.classList.contains("open") &&
+        !navLinks.contains(e.target) &&
+        !navToggle.contains(e.target)
+      ) {
+        closeNav();
+      }
+    });
+  }
+
+  /* ---------- Scroll reveal (IntersectionObserver) ----------
+     Shared by the initial page-load pass below, the shop grid
+     (renderCards, re-run on every filter/sort), and the events page
+     (markReveal). A fresh observer used to get created on every single
+     re-render with no way to ever release the previous one -- any
+     `.reveal` element still unobserved at re-render time (scrolled past
+     but not yet intersected) stayed pinned to an abandoned observer
+     instance forever. Stashing the current observer on the root element
+     and disconnecting it before making a new one closes that leak. */
+  function wireReveal(root, options) {
+    var els = root.querySelectorAll(".reveal");
+    if (root.__revealIO) { root.__revealIO.disconnect(); root.__revealIO = null; }
+    if (!("IntersectionObserver" in window) || !els.length) {
+      els.forEach(function (el) { el.classList.add("in"); });
+      return;
+    }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("in");
+          io.unobserve(entry.target);
+        }
+      });
+    }, options || { threshold: 0.1 });
+    els.forEach(function (el, i) { el.style.setProperty("--i", i % 8); io.observe(el); });
+    root.__revealIO = io;
+  }
+  wireReveal(document, { threshold: 0.15, rootMargin: "0px 0px -40px 0px" });
+
+  /* ---------- Footer year ---------- */
+  var yearEl = document.getElementById("year");
+  if (yearEl) yearEl.textContent = new Date().getFullYear();
+
+  /* ---------- Newsletter signup: honeypot guard ----------
+     The hidden "leave this field blank" input in the footer signup
+     form is invisible and untabbable for real visitors, but simple
+     spam bots often fill in every field they find. If it's non-empty
+     on submit we quietly drop that one submission instead of sending
+     it on -- no account, backend, or paid service needed for this.
+     This degrades safely: with JS off, the field just stays blank
+     (real people can't see it to fill it in) and the form still posts
+     normally straight to the email provider. */
+  var signupForms = document.querySelectorAll(".footer-signup-form");
+  signupForms.forEach(function (form) {
+    form.addEventListener("submit", function (e) {
+      var hp = form.querySelector('input[name="footer_website"]');
+      if (hp && hp.value) { e.preventDefault(); }
+    });
+  });
+
+  /* ---------- Newsletter signup: post-redirect confirmation ----------
+     The actual subscribe is a real, un-intercepted POST straight to
+     the email provider (see the form's real action URL once it's set
+     up -- README has the steps). Its dashboard's "redirect after
+     subscribing" setting is configured to send visitors back here
+     with ?subscribed=1 in the URL. This just swaps the footer signup
+     box over to a thank-you state if that flag shows up on load, then
+     cleans the flag out of the address bar. */
+  if (window.location.search.indexOf("subscribed=1") !== -1) {
+    var signupBoxes = document.querySelectorAll(".footer-signup");
+    signupBoxes.forEach(function (box) { box.classList.add("is-subscribed"); });
+    if (window.history && window.history.replaceState) {
+      window.history.replaceState({}, "", window.location.pathname + window.location.hash);
+    }
+  }
+
+  /* ---------- Review form (shop.html): honeypot + AJAX submit ----------
+     Same honeypot pattern as the newsletter form above (shared .form-hp
+     CSS, a differently-named hidden input so the two forms' bot checks
+     stay independent). Submissions post to Formspree (see YOUR_FORMSPREE_
+     FORM_ID in shop.html) which emails every one to Savanna for a manual
+     look -- nothing here publishes a review automatically. See
+     assets/js/site-reviews-data.js for the full moderation workflow.
+
+     Unlike the newsletter form, this one submits via fetch() so the
+     visitor gets an inline "thanks" message without leaving shop.html
+     (Formspree's own default is to redirect to its own confirmation
+     page). If fetch isn't available, or Formspree's AJAX endpoint
+     rejects the request for any reason, it falls back to a plain form
+     submit -- still reaches Savanna's inbox, just via a full page POST. */
+  var reviewForms = document.querySelectorAll(".review-form");
+  reviewForms.forEach(function (form) {
+    form.addEventListener("submit", function (e) {
+      var hp = form.querySelector('input[name="review_website"]');
+      if (hp && hp.value) { e.preventDefault(); return; }
+
+      if (!window.fetch) return; // let the native POST proceed with JS off/unsupported
+      e.preventDefault();
+      var wrap = form.closest(".review-form-wrap");
+      fetch(form.action, {
+        method: "POST",
+        body: new FormData(form),
+        headers: { Accept: "application/json" }
+      }).then(function (res) {
+        if (res.ok) {
+          if (wrap) wrap.classList.add("is-submitted");
+          form.reset();
+        } else {
+          form.submit();
+        }
+      }).catch(function () {
+        form.submit();
+      });
+    });
+  });
+
+  /* ---------- Wishlist / "Saved For Later" (localStorage, no backend) ----------
+     A client-side save list that persists in the shopper's browser --
+     nothing to sign in to, nothing server-side to build. Every saved
+     item's real path to purchase is "Add to Cart" -> Snipcart checkout,
+     right here on the site (see addToCartHTML() above); this doesn't
+     link out to Etsy or anywhere else. */
+  var WISH_KEY = "yl-wishlist";
+  var wishHeartSVG =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">' +
+    '<path d="M12 21s-7.5-4.6-10-9.2C.4 8.4 2 5 5.5 5c2 0 3.4 1.1 4.2 2.4C10.5 6.1 11.9 5 13.9 5 17.4 5 19 8.4 17.4 11.8 15 16.4 12 21 12 21z"/></svg>';
+
+  /* ---------- shared: escape a value for safe use inside an HTML attribute ---------- */
+  function attrEsc(str) {
+    return String(str).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  /* Builds a <picture> element from assets/js/image-manifest.js (generated
+     by scripts/optimize-images.js), serving AVIF first (smallest, ~2026-
+     universal browser support), WebP second for the rare AVIF holdout,
+     and the original JPG last as a fallback for anything that supports
+     neither -- <picture> always uses the first <source> whose type the
+     browser understands, so listing them in that order is what makes the
+     preference order work. If a photo hasn't been run through the
+     optimizer yet (e.g. brand new, script not re-run), this just falls
+     back to a plain <img> -- nothing breaks. */
+  function pictureHTML(p, opts) {
+    opts = opts || {};
+    // imagePath lets a caller render a photo OTHER than the product's
+    // primary p.image -- used by cardGalleryHTML() below to render each
+    // additional gallery photo through the same responsive <picture>
+    // markup/manifest lookup as the hero shot.
+    var imagePath = opts.imagePath || p.image;
+    var manifest = window.YL_IMAGES && window.YL_IMAGES[imagePath];
+    var alt = attrEsc(opts.alt || p.name);
+    var imgAttrs =
+      ' alt="' + alt + '"' +
+      ' width="' + (opts.width || 600) + '"' +
+      ' height="' + (opts.height || 510) + '"' +
+      ' loading="' + (opts.loading || "lazy") + '"' +
+      ' decoding="' + (opts.decoding || "async") + '"' +
+      (opts.fetchpriority ? ' fetchpriority="' + opts.fetchpriority + '"' : "");
+
+    var avifVariants = manifest && manifest.variants && manifest.variants.avif;
+    var webpVariants = manifest && manifest.variants && manifest.variants.webp;
+    if (!avifVariants && !webpVariants) {
+      return '<img src="' + attrEsc(imagePath) + '"' + imgAttrs + ">";
+    }
+
+    if (opts.single) {
+      // Fixed small size everywhere (wishlist thumbnail) -- one source
+      // per format is enough, no need for a full responsive srcset.
+      var sources = "";
+      if (avifVariants && avifVariants.length) sources += '<source type="image/avif" srcset="' + attrEsc(avifVariants[0].file) + '">';
+      if (webpVariants && webpVariants.length) sources += '<source type="image/webp" srcset="' + attrEsc(webpVariants[0].file) + '">';
+      return "<picture>" + sources + '<img src="' + attrEsc(imagePath) + '"' + imgAttrs + "></picture>";
+    }
+
+    var sizes = opts.sizes || "(max-width: 600px) 100vw, (max-width: 980px) 50vw, 33vw";
+    var sourcesFull = "";
+    if (avifVariants && avifVariants.length) {
+      var avifSrcset = avifVariants.map(function (v) { return attrEsc(v.file) + " " + v.width + "w"; }).join(", ");
+      sourcesFull += '<source type="image/avif" srcset="' + avifSrcset + '" sizes="' + attrEsc(sizes) + '">';
+    }
+    if (webpVariants && webpVariants.length) {
+      var webpSrcset = webpVariants.map(function (v) { return attrEsc(v.file) + " " + v.width + "w"; }).join(", ");
+      sourcesFull += '<source type="image/webp" srcset="' + webpSrcset + '" sizes="' + attrEsc(sizes) + '">';
+    }
+    return "<picture>" + sourcesFull + '<img src="' + attrEsc(imagePath) + '"' + imgAttrs + "></picture>";
+  }
+
+  /* ---------- Shop-card photo gallery ----------
+     Most products now have a couple of extra real Etsy listing photos
+     in p.images (in addition to the primary p.image). Products with no
+     extras just render the single <picture> as before -- this only
+     kicks in once there's more than one photo to show. Dots are real
+     <button>s (native keyboard/AT support) sized to a 24x24 hit target
+     per WCAG 2.2's target-size guidance, even though the visible dot
+     itself stays small.
+
+     Only the first (active) slide gets real <picture>/<img> markup up
+     front. The rest are left as empty placeholders carrying the image
+     path in data-image, hydrated into real markup on first interaction
+     (see hydrateGallerySlide below). This matters because these six
+     "extra photo" products are also the homepage's featured picks --
+     native loading="lazy" fires off viewport PROXIMITY, not CSS
+     visibility, so eagerly rendering every alt photo's <img> would
+     silently download 3-4x the bytes for every featured card the
+     moment the homepage loads, even though most visitors never click
+     a dot. */
+  function cardGalleryHTML(p, opts) {
+    opts = opts || {};
+    // eager: true is only ever passed for the first handful of cards on
+    // an initial, unfiltered page load (see renderCards) -- those are the
+    // ones actually above the fold and likely to be the page's real LCP
+    // element, so they should never be loading="lazy" (which hides them
+    // from the browser's preload scanner until JS finishes running).
+    var firstSlideOpts = opts.eager
+      ? { width: 600, height: 510, loading: "eager", fetchpriority: "high" }
+      : { width: 600, height: 510 };
+    var extra = Array.isArray(p.images) ? p.images : [];
+    var allImages = [p.image].concat(extra);
+    if (allImages.length <= 1) {
+      return pictureHTML(p, firstSlideOpts);
+    }
+    var slides = allImages.map(function (imgPath, i) {
+      if (i === 0) {
+        var o = Object.assign({}, firstSlideOpts, { imagePath: imgPath });
+        return (
+          '<div class="card-gallery-slide active" data-idx="0">' +
+          pictureHTML(p, o) +
+          "</div>"
+        );
+      }
+      return '<div class="card-gallery-slide" data-idx="' + i + '" data-image="' + attrEsc(imgPath) + '"></div>';
+    }).join("");
+    var dots = allImages.map(function (_, i) {
+      return (
+        '<button type="button" class="card-gallery-dot' + (i === 0 ? " active" : "") + '"' +
+        ' data-idx="' + i + '"' +
+        ' aria-label="View photo ' + (i + 1) + " of " + allImages.length + " for " + attrEsc(p.name) + '"' +
+        ' aria-pressed="' + (i === 0 ? "true" : "false") + '"></button>'
+      );
+    }).join("");
+    return (
+      '<div class="card-gallery" data-count="' + allImages.length + '" data-product-id="' + attrEsc(p.id) + '">' +
+      slides +
+      '<div class="card-gallery-dots">' + dots + "</div>" +
+      "</div>"
+    );
+  }
+
+  /* ---------- Snipcart "Add to Cart" button builder ----------
+     Every button points data-item-url at the same static JSON manifest
+     (assets/data/snipcart-products.json, auto-generated from
+     products-data.js). That's Snipcart's documented pattern for
+     JS-rendered/SPA-style catalogs: since our product cards are built
+     client-side (not one static HTML page per product), Snipcart's
+     default HTML crawler would find an empty <div> when it tries to
+     validate an order. Pointing every item at one JSON endpoint instead
+     makes order validation actually work. See:
+     https://docs.snipcart.com/v3/setup/order-validation#json-crawler */
+  function addToCartHTML(p, extraClass) {
+    // Real Etsy listings for some products sell more than one size/scent/
+    // blend under a single listing (see p.variants, sourced from actual
+    // listing research). Snipcart's own custom-field mechanism handles
+    // this natively: data-item-customN-options declares every choice and
+    // its price delta, data-item-customN-value is the one currently
+    // selected. variantSelectHTML()'s change handler keeps -value (and
+    // the base data-item-price for delta'd variants) in sync with
+    // whatever the shopper picks before they click this button.
+    var variantAttrs = "";
+    if (p.variants && Array.isArray(p.variants.options) && p.variants.options.length) {
+      var optionsStr = p.variants.options.map(function (o) {
+        var delta = o.priceDelta || 0;
+        var sign = delta < 0 ? "-" : "+";
+        return attrEsc(o.label) + "[" + sign + Math.abs(delta).toFixed(2) + "]";
+      }).join("|");
+      variantAttrs =
+        ' data-item-custom1-name="' + attrEsc(p.variants.name) + '"' +
+        ' data-item-custom1-options="' + optionsStr + '"' +
+        ' data-item-custom1-value="' + attrEsc(p.variants.options[0].label) + '"';
+    }
+
+    // Real, honest sold-out state: p.stock is a manually-maintained field
+    // in products-data.js (never fabricated -- undefined/null means "not
+    // tracked," not "unlimited," and the site never invents a number).
+    // When Savanna sets it to 0, the button becomes inert instead of
+    // silently accepting an order she can't fulfill.
+    if (p.stock === 0) {
+      return '<button type="button" class="btn btn-outline btn-sm' + (extraClass ? " " + extraClass : "") + '" disabled aria-disabled="true">Sold Out</button>';
+    }
+
+    // data-item-max-quantity is Snipcart's own documented per-order cap
+    // (docs.snipcart.com/v2/configuration/product-definition) -- real and
+    // HTML-only, unlike a live decrementing counter, which requires the
+    // Snipcart dashboard's own Inventory feature tied to a real account
+    // (see README section 8). Only added when a real count exists.
+    var stockAttrs = typeof p.stock === "number" && p.stock > 0
+      ? ' data-item-max-quantity="' + p.stock + '"'
+      : "";
+
+    return (
+      '<button type="button" class="btn btn-primary btn-sm snipcart-add-item' + (extraClass ? " " + extraClass : "") + '"' +
+      ' data-item-id="' + attrEsc(p.id) + '"' +
+      ' data-item-name="' + attrEsc(p.name) + '"' +
+      ' data-item-price="' + p.price.toFixed(2) + '"' +
+      ' data-item-url="/assets/data/snipcart-products.json"' +
+      ' data-item-description="' + attrEsc(p.blurb) + '"' +
+      ' data-item-image="' + attrEsc(p.image) + '"' +
+      ' data-item-categories="' + attrEsc(p.category) + '"' +
+      variantAttrs + stockAttrs + ">" +
+      "Add to Cart" +
+      "</button>"
+    );
+  }
+
+  /* Honest low-stock/sold-out badge -- only ever rendered when Savanna has
+     actually set a real p.stock number for that product. LOW_STOCK_THRESHOLD
+     is a common, reasonable urgency-signal convention (roughly the point a
+     shopper should worry it might sell out before they act), not a magic
+     number tied to real analytics. */
+  var LOW_STOCK_THRESHOLD = 5;
+  function stockBadgeHTML(p) {
+    if (typeof p.stock !== "number") return "";
+    if (p.stock === 0) return '<span class="stock-badge sold-out">Sold out</span>';
+    if (p.stock <= LOW_STOCK_THRESHOLD) return '<span class="stock-badge low-stock">Only ' + p.stock + " left</span>";
+    return "";
+  }
+
+  /* ---------- Size/scent/blend picker (only for products that have one) ----------
+     The <option> value doubles as the exact label Snipcart's custom-field
+     value must match; data-delta feeds the price-update math in the
+     change handler below. Real <select> means full keyboard/AT support
+     for free -- no custom listbox widget needed for something this simple. */
+  function variantSelectHTML(p) {
+    if (!p.variants || !Array.isArray(p.variants.options) || !p.variants.options.length) return "";
+    var options = p.variants.options.map(function (o) {
+      var delta = o.priceDelta || 0;
+      var priceSuffix = delta ? " (+$" + delta.toFixed(2) + ")" : "";
+      return '<option value="' + attrEsc(o.label) + '" data-delta="' + delta + '">' + attrEsc(o.label) + priceSuffix + "</option>";
+    }).join("");
+    return (
+      '<label class="variant-select-wrap">' +
+      /* Visible, not sr-only -- a bare unlabeled <select> made it easy
+         for a sighted shopper to add to cart without ever noticing a
+         Size/Scent/Blend choice existed at all. aria-label stays on the
+         <select> itself since it's more specific ("Size for Tank Top")
+         than the short visible caption alone would convey out of context. */
+      '<span class="variant-select-label">' + attrEsc(p.variants.name) + "</span>" +
+      '<select class="variant-select" data-base-price="' + p.price + '" aria-label="' + attrEsc(p.variants.name) + " for " + attrEsc(p.name) + '">' +
+      options +
+      "</select>" +
+      "</label>"
+    );
+  }
+
+  function getWishlist() {
+    try { return JSON.parse(localStorage.getItem(WISH_KEY)) || []; }
+    catch (e) { return []; }
+  }
+  function saveWishlist(list) {
+    localStorage.setItem(WISH_KEY, JSON.stringify(list));
+    updateWishBadge();
+    renderWishDrawer();
+  }
+  function isWished(id) { return getWishlist().indexOf(id) !== -1; }
+  function toggleWish(id) {
+    var list = getWishlist();
+    var i = list.indexOf(id);
+    if (i === -1) list.push(id); else list.splice(i, 1);
+    saveWishlist(list);
+    document.querySelectorAll('.wish-btn[data-id="' + id + '"]').forEach(function (btn) {
+      var active = list.indexOf(id) !== -1;
+      btn.classList.toggle("active", active);
+      btn.setAttribute("aria-pressed", active ? "true" : "false");
+    });
+  }
+  function updateWishBadge() {
+    var badge = document.getElementById("wishCount");
+    if (badge) badge.textContent = getWishlist().length > 0 ? String(getWishlist().length) : "";
+  }
+  function initWishNavButton() {
+    var navCta = document.querySelector(".nav-cta");
+    if (!navCta || document.getElementById("wishToggle")) return;
+    var btn = document.createElement("button");
+    btn.className = "wish-toggle";
+    btn.id = "wishToggle";
+    btn.type = "button";
+    btn.setAttribute("aria-label", "Open your saved items");
+    btn.innerHTML = wishHeartSVG + '<span class="badge" id="wishCount" aria-live="polite"></span>';
+    navCta.insertBefore(btn, navCta.firstChild);
+    btn.addEventListener("click", openWishDrawer);
+    updateWishBadge();
+  }
+  function ensureWishDrawer() {
+    if (document.getElementById("wishDrawer")) return;
+    var backdrop = document.createElement("div");
+    backdrop.className = "wish-backdrop";
+    backdrop.id = "wishBackdrop";
+    var drawer = document.createElement("aside");
+    drawer.className = "wish-drawer";
+    drawer.id = "wishDrawer";
+    drawer.setAttribute("aria-label", "Saved items");
+    /* Same off-canvas-but-still-in-the-DOM issue as the mobile nav below:
+       closed just moves the drawer off-screen via transform, so its
+       close/checkout/remove buttons stay tabbable and screen-reader-
+       visible unless explicitly made inert while closed. */
+    drawer.setAttribute("inert", "");
+    drawer.innerHTML =
+      '<div class="wish-drawer-head"><h3>Saved For Later</h3>' +
+      '<button class="wish-drawer-close" id="wishClose" type="button" aria-label="Close saved items">&times;</button></div>' +
+      '<div class="wish-drawer-body" id="wishBody"></div>' +
+      '<div class="wish-drawer-foot">' +
+      '<button class="btn btn-primary btn-block snipcart-checkout" type="button">View Cart &amp; Checkout</button>' +
+      '<p class="muted">Saved items live in this browser only. Tap "Add to Cart" on anything above, then check out securely right here.</p>' +
+      "</div>";
+    document.body.appendChild(backdrop);
+    document.body.appendChild(drawer);
+    backdrop.addEventListener("click", closeWishDrawer);
+    document.getElementById("wishClose").addEventListener("click", closeWishDrawer);
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") { closeWishDrawer(); return; }
+      // Focus trap: while open, Tab/Shift+Tab should cycle only through
+      // the drawer's own controls, not escape into the rest of the page
+      // (which a keyboard user would otherwise have to tab all the way
+      // through -- header, hero, every product card -- to get back).
+      if (e.key !== "Tab" || !drawer.classList.contains("open")) return;
+      var focusable = drawer.querySelectorAll(
+        'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      if (!focusable.length) return;
+      var first = focusable[0], last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault(); last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault(); first.focus();
+      }
+    });
+  }
+  function openWishDrawer() {
+    ensureWishDrawer();
+    renderWishDrawer();
+    document.getElementById("wishBackdrop").classList.add("open");
+    var d = document.getElementById("wishDrawer");
+    d.classList.add("open");
+    d.removeAttribute("inert");
+    var closeBtn = document.getElementById("wishClose");
+    if (closeBtn) closeBtn.focus();
+  }
+  function closeWishDrawer() {
+    var b = document.getElementById("wishBackdrop"), d = document.getElementById("wishDrawer");
+    var wasOpen = !!(d && d.classList.contains("open"));
+    if (b) b.classList.remove("open");
+    if (d) {
+      d.classList.remove("open");
+      d.setAttribute("inert", "");
+    }
+    // Setting `inert` blurs focus out from under a keyboard user if it was
+    // inside the drawer (e.g. pressing Escape mid-tab) -- send it somewhere
+    // sensible instead of letting it fall back to <body>. Only do this if
+    // the drawer was actually open, since Escape is listened for globally.
+    if (wasOpen) {
+      var trigger = document.getElementById("wishToggle");
+      if (trigger) trigger.focus();
+    }
+  }
+  function renderWishDrawer() {
+    var body = document.getElementById("wishBody");
+    if (!body) return;
+    var ids = getWishlist();
+    var all = (window.YL_PRODUCTS && window.YL_PRODUCTS.products) || [];
+    var items = ids.map(function (id) { return all.find(function (p) { return p.id === id; }); }).filter(Boolean);
+    if (!items.length) {
+      body.innerHTML = '<div class="wish-empty"><span class="glyph" aria-hidden="true">♡</span>Nothing saved yet — tap the heart on anything in the shop to keep it here.</div>';
+      return;
+    }
+    body.innerHTML = items.map(function (p) {
+      return (
+        '<div class="wish-item">' +
+        pictureHTML(p, { single: true, width: 64, height: 64 }) +
+        '<div class="wish-item-body">' +
+        "<h4>" + attrEsc(p.name) + "</h4>" +
+        '<span class="price">$' + p.price.toFixed(2) + "</span>" +
+        '<div class="wish-item-actions">' +
+        addToCartHTML(p) +
+        '<button class="wish-remove" type="button" data-id="' + attrEsc(p.id) + '">Remove</button>' +
+        "</div>" +
+        "</div></div>"
+      );
+    }).join("");
+    body.querySelectorAll(".wish-remove").forEach(function (btn) {
+      btn.addEventListener("click", function () { toggleWish(btn.getAttribute("data-id")); });
+    });
+  }
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest(".wish-btn");
+    if (!btn) return;
+    e.preventDefault();
+    toggleWish(btn.getAttribute("data-id"));
+  });
+  initWishNavButton();
+
+  /* ---------- Shop-card photo gallery: on-demand hydration ----------
+     A slide with a data-image attribute hasn't had its real <picture>
+     built yet (see cardGalleryHTML above). Building it here, the first
+     time it's actually needed, is what keeps the extra photos from
+     costing bandwidth on every page load. Safe to call repeatedly --
+     it's a no-op once the slide's data-image attribute is gone. */
+  function hydrateGallerySlide(gallery, slide) {
+    if (!slide) return;
+    var imgPath = slide.getAttribute("data-image");
+    if (!imgPath) return;
+    var productId = gallery.getAttribute("data-product-id");
+    var all = (window.YL_PRODUCTS && window.YL_PRODUCTS.products) || [];
+    var p = all.find(function (pr) { return pr.id === productId; });
+    if (!p) return;
+    slide.innerHTML = pictureHTML(p, { width: 600, height: 510, imagePath: imgPath });
+    slide.removeAttribute("data-image");
+  }
+
+  /* ---------- Shop-card photo gallery: dot clicks ----------
+     Delegated so it works for cards rendered now, later (re-filtered/
+     re-sorted), or added by any future page -- no per-card listener
+     bookkeeping needed. */
+  document.addEventListener("click", function (e) {
+    var dot = e.target.closest(".card-gallery-dot");
+    if (!dot) return;
+    var gallery = dot.closest(".card-gallery");
+    if (!gallery) return;
+    var idx = dot.getAttribute("data-idx");
+    var targetSlide = gallery.querySelector('.card-gallery-slide[data-idx="' + idx + '"]');
+    hydrateGallerySlide(gallery, targetSlide);
+    gallery.querySelectorAll(".card-gallery-slide").forEach(function (slide) {
+      slide.classList.toggle("active", slide.getAttribute("data-idx") === idx);
+    });
+    gallery.querySelectorAll(".card-gallery-dot").forEach(function (d) {
+      var active = d === dot;
+      d.classList.toggle("active", active);
+      d.setAttribute("aria-pressed", active ? "true" : "false");
+    });
+  });
+
+  /* Pre-hydrate on hover/keyboard-focus (before the click/Enter actually
+     lands) so desktop users seeing the dots up close never see a blank
+     flash -- mouseover/focusin both bubble, unlike mouseenter/focus, so
+     one delegated listener each covers every card. Harmless no-op on
+     touch devices, which just hydrate at click time above. */
+  function prefetchGallerySlide(dot) {
+    var gallery = dot.closest(".card-gallery");
+    if (!gallery) return;
+    var idx = dot.getAttribute("data-idx");
+    hydrateGallerySlide(gallery, gallery.querySelector('.card-gallery-slide[data-idx="' + idx + '"]'));
+  }
+  document.addEventListener("mouseover", function (e) {
+    var dot = e.target.closest(".card-gallery-dot");
+    if (dot) prefetchGallerySlide(dot);
+  });
+  document.addEventListener("focusin", function (e) {
+    var dot = e.target.closest(".card-gallery-dot");
+    if (dot) prefetchGallerySlide(dot);
+  });
+
+  /* ---------- Variant picker: keep price + Add to Cart button in sync ----------
+     Delegated "change" listener (change bubbles, so this covers every
+     card without per-select bookkeeping). Reads the chosen <option>'s
+     data-delta, adds it to the <select>'s own data-base-price, and pushes
+     both the visible price and the Snipcart button's data-item-price /
+     data-item-custom1-value up to date before the shopper can click
+     Add to Cart. */
+  document.addEventListener("change", function (e) {
+    var select = e.target.closest(".variant-select");
+    if (!select) return;
+    var opt = select.options[select.selectedIndex];
+    if (!opt) return;
+    var delta = parseFloat(opt.getAttribute("data-delta")) || 0;
+    var basePrice = parseFloat(select.getAttribute("data-base-price")) || 0;
+    var newPrice = basePrice + delta;
+    var card = select.closest(".card");
+    if (!card) return;
+    // Visible price only -- purely informational, shown to the shopper
+    // before they click Add to Cart.
+    var priceEl = card.querySelector(".card-foot .price");
+    if (priceEl) priceEl.textContent = "$" + newPrice.toFixed(2);
+    var addBtn = card.querySelector(".snipcart-add-item");
+    if (addBtn) {
+      // IMPORTANT: data-item-price must stay at the item's BASE price,
+      // never basePrice + delta. Snipcart's own custom-field mechanism
+      // (data-item-custom1-options, set once in addToCartHTML) already
+      // encodes each option's +/- price modifier and adds it to
+      // data-item-price automatically once that option is selected --
+      // confirmed against Snipcart's documented pricing behavior
+      // ("the final price is the sum of data-item-price and the price
+      // variations of the selected options"). Bumping data-item-price
+      // here too would double-charge the delta on every priced variant
+      // (shea-butter 8oz, hand-scrub 4oz, either soak's 24oz, etc.) --
+      // only data-item-custom1-value (which option is selected) needs
+      // to change here.
+      addBtn.setAttribute("data-item-custom1-value", opt.value);
+    }
+  });
+
+  /* ---------- Conversion tracking (Plausible custom events) ----------
+     Plausible only sees pageviews out of the box -- with no event
+     tracking, there's no way to tell "people are visiting" from "people
+     actually want to buy something." This fires a lightweight custom
+     event on every Add to Cart click with the product name as a prop,
+     so the real, once-deployed dashboard can show which products people
+     are actually trying to buy, not just which pages get looked at.
+     window.plausible is defined by the analytics script tag in <head>;
+     guarded here since it won't exist at all when testing locally over
+     file:// (no network) or for anyone running an ad/tracker blocker --
+     either way this must never throw or block the actual add-to-cart. */
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest(".snipcart-add-item");
+    if (!btn || typeof window.plausible !== "function") return;
+    window.plausible("Add to Cart", {
+      props: {
+        product: btn.getAttribute("data-item-name") || btn.getAttribute("data-item-id") || "unknown",
+      },
+    });
+  });
+  /* The one event that actually matters more than "added to cart" is
+     "paid" -- Snipcart fires cart.confirmed once an order really goes
+     through. Hooking it gives a real completed-order count in Plausible
+     instead of just purchase *intent*. snipcart.ready only fires once
+     the Snipcart script has actually finished loading (it's lazy-loaded
+     on first interaction, see loadStrategy above), so this listens for
+     that first rather than assuming window.Snipcart exists yet. */
+  document.addEventListener("snipcart.ready", function () {
+    if (!window.Snipcart || !window.Snipcart.events) return;
+    window.Snipcart.events.on("cart.confirmed", function (cart) {
+      if (typeof window.plausible !== "function") return;
+      window.plausible("Order Completed", {
+        props: { total: cart && typeof cart.total === "number" ? cart.total.toFixed(2) : "unknown" },
+      });
+    });
+  });
+
+  /* ---------- Shop: render products from products.json + filter/sort ---------- */
+  var shopGrid = document.getElementById("shopGrid");
+  var featuredGrid = document.getElementById("featuredGrid");
+  var filterRow = document.getElementById("filterRow");
+  var sortSelect = document.getElementById("sortSelect");
+  var shopCount = document.getElementById("shopCount");
+  var shopSearch = document.getElementById("shopSearch");
+
+  if (shopGrid || featuredGrid) {
+    // Data ships as a plain <script> global (assets/js/products-data.js),
+    // not a fetch() of JSON -- so the catalog renders instantly whether
+    // the site is opened straight off disk (file://) or from a live host.
+    var data = window.YL_PRODUCTS;
+    if (data) {
+      // Not eager here -- the homepage's own hero image is the real LCP
+      // element and already carries its own preload + fetchpriority=high;
+      // eagerly loading featured-grid photos too would just compete with
+      // it for bandwidth at the moment that matters most.
+      if (featuredGrid) renderCards(featuredGrid, pickFeatured(data.products), { eagerFirst: false });
+      if (shopGrid) {
+        if (filterRow) {
+          buildFilters(filterRow, data.categories, shopGrid, data.products, sortSelect, shopCount, shopSearch);
+        } else {
+          renderCards(shopGrid, data.products);
+        }
+      }
+      renderBundles(data);
+    } else {
+      console.warn("Product data (assets/js/products-data.js) did not load.");
+    }
+  }
+
+  /* Sort is independent of category -- applied after filtering, never
+     instead of it. "featured" keeps the catalog's own listed order. */
+  function sortProducts(list, mode) {
+    var arr = list.slice();
+    if (mode === "price-asc") arr.sort(function (a, b) { return a.price - b.price; });
+    else if (mode === "price-desc") arr.sort(function (a, b) { return b.price - a.price; });
+    else if (mode === "name-asc") arr.sort(function (a, b) { return a.name.localeCompare(b.name); });
+    return arr;
+  }
+
+  function pickFeatured(products) {
+    var ids = ["frankincense-salve", "shimmer-oil", "beard-salve", "unisex-tshirt", "backroad-soak", "protection-keychain"];
+    return ids.map(function (id) { return products.find(function (p) { return p.id === id; }); }).filter(Boolean);
+  }
+
+  /* ---------- Bundles / gift sets (shop.html only) ----------
+     Real component products at a computed discount -- see products-data.js
+     "bundles" array for the full rationale. Each bundle checks out as its
+     own single Snipcart line item (id "bundle-<id>"), priced by
+     scripts/build-site-data.js from the same real product prices this
+     function reads, so the on-page math and the checkout price can never
+     disagree. */
+  function bundlesHTML(bundles, productsById) {
+    return bundles.map(function (b) {
+      var items = b.productIds.map(function (id) { return productsById[id]; }).filter(Boolean);
+      if (items.length !== b.productIds.length) return ""; // a referenced product went missing -- skip rather than show a broken card
+      var fullPrice = items.reduce(function (sum, p) { return sum + p.price; }, 0);
+      var bundlePrice = Math.round(fullPrice * (1 - (b.discountPercent || 0) / 100) * 100) / 100;
+      var firstImage = items[0].image;
+      var includesList = items.map(function (p) { return "<li>" + attrEsc(p.name) + "</li>"; }).join("");
+      return (
+        '<article class="card bundle-card reveal">' +
+          '<div class="card-media">' + pictureHTML(items[0], { imagePath: firstImage, alt: b.name }) + "</div>" +
+          '<div class="card-body">' +
+            '<span class="card-cat">Gift Set</span>' +
+            "<h3>" + attrEsc(b.name) + "</h3>" +
+            "<p>" + attrEsc(b.blurb) + "</p>" +
+            '<ul class="bundle-includes">' + includesList + "</ul>" +
+            '<div class="card-foot">' +
+              '<div class="card-foot-row">' +
+                '<span class="price">$' + bundlePrice.toFixed(2) + ' <s class="bundle-full-price">$' + fullPrice.toFixed(2) + "</s></span>" +
+                '<button type="button" class="btn btn-primary btn-sm snipcart-add-item"' +
+                  ' data-item-id="bundle-' + attrEsc(b.id) + '"' +
+                  ' data-item-name="' + attrEsc(b.name) + '"' +
+                  ' data-item-price="' + bundlePrice.toFixed(2) + '"' +
+                  ' data-item-url="/assets/data/snipcart-products.json"' +
+                  ' data-item-description="' + attrEsc(b.blurb) + '"' +
+                  ' data-item-image="' + attrEsc(firstImage) + '"' +
+                  ' data-item-categories="bundle">' +
+                  "Add Set to Cart" +
+                "</button>" +
+              "</div>" +
+            "</div>" +
+          "</div>" +
+        "</article>"
+      );
+    }).join("");
+  }
+
+  function renderBundles(data) {
+    var bundlesList = document.getElementById("bundlesList");
+    if (!bundlesList || !data.bundles || !data.bundles.length) return;
+    var productsById = {};
+    data.products.forEach(function (p) { productsById[p.id] = p; });
+    bundlesList.innerHTML = bundlesHTML(data.bundles, productsById);
+    wireReveal(bundlesList);
+  }
+
+  /* Only rendered for products carrying real per-listing Etsy review data
+     (products-data.js's p.rating, kept in sync by scripts/apply-etsy-
+     snapshot.js) -- never a fabricated or shop-wide number. Visual stars
+     are aria-hidden with a proper sr-only equivalent, same pattern used
+     for the testimonial stars on index.html and the shop-page trust line. */
+  function ratingHTML(p) {
+    if (!p.rating || !(p.rating.count > 0)) return "";
+    var full = Math.max(0, Math.min(5, Math.round(p.rating.value)));
+    var stars = "";
+    for (var i = 0; i < 5; i++) stars += i < full ? "★" : "☆";
+    var reviewWord = p.rating.count === 1 ? "review" : "reviews";
+    return (
+      '<div class="card-rating">' +
+      '<span aria-hidden="true">' + stars + "</span>" +
+      '<span class="sr-only">Rated ' + p.rating.value.toFixed(1) + " out of 5 stars, " + p.rating.count + " " + reviewWord + "</span>" +
+      "</div>"
+    );
+  }
+
+  /* Real, per-product ingredient/materials lists -- gathered from each
+     listing's own Etsy description (never the generic reused "Materials"
+     tag alone, which turned out to be copy-pasted boilerplate across a
+     few unrelated listings; see products-data.js entries for the
+     product-specific source used instead). Rendered collapsed by
+     default via <details> so it adds real value without bloating every
+     card -- only shoppers who want to check for an allergen expand it. */
+  function ingredientsHTML(p) {
+    if (!p.ingredients || !p.ingredients.length) return "";
+    var label = p.ingredientsLabel || "Ingredients";
+    var items = p.ingredients.map(function (i) { return "<li>" + attrEsc(i) + "</li>"; }).join("");
+    var note = p.ingredientsNote ? '<p class="ingredients-note">' + attrEsc(p.ingredientsNote) + "</p>" : "";
+    return (
+      '<details class="card-ingredients">' +
+      "<summary>" + attrEsc(label) + "</summary>" +
+      "<ul>" + items + "</ul>" +
+      note +
+      '<p class="ingredients-caveat">Have a sensitivity or allergy? Double-check this list before use, and message us with any questions.</p>' +
+      "</details>"
+    );
+  }
+
+  function cardHTML(p, opts) {
+    opts = opts || {};
+    var catLabel = { apparel: "Apparel", salves: "Salves & Balms", body: "Body & Skin", soaks: "Soaks", potions: "Potions & Spellwork" }[p.category] || p.category;
+    var wished = isWished(p.id);
+    return (
+      '<article class="card reveal" data-category="' + attrEsc(p.category) + '">' +
+        '<div class="card-media">' +
+          cardGalleryHTML(p, { eager: !!opts.eager }) +
+          '<button class="wish-btn' + (wished ? " active" : "") + '" type="button" data-id="' + attrEsc(p.id) + '" aria-pressed="' + (wished ? "true" : "false") + '" aria-label="Save ' + attrEsc(p.name) + ' for later">' + wishHeartSVG + "</button>" +
+        "</div>" +
+        '<div class="card-body">' +
+          '<span class="card-cat">' + catLabel + "</span>" +
+          "<h3>" + attrEsc(p.name) + "</h3>" +
+          ratingHTML(p) +
+          "<p>" + attrEsc(p.blurb) + "</p>" +
+          ingredientsHTML(p) +
+          stockBadgeHTML(p) +
+          '<div class="card-foot">' +
+            variantSelectHTML(p) +
+            '<div class="card-foot-row">' +
+              '<span class="price">$' + p.price.toFixed(2) + "</span>" +
+              addToCartHTML(p) +
+            "</div>" +
+          "</div>" +
+        "</div>" +
+      "</article>"
+    );
+  }
+
+  /* First-4-cards-eager applies only when the grid is showing its default,
+     unfiltered order (state.filter === "all" in buildFilters, or the plain
+     renderCards(shopGrid, data.products) call with no filter UI at all) --
+     that's the only time "first N cards" reliably means "the ones actually
+     above the fold on initial load." A filtered/sorted re-render already
+     happened after a deliberate user interaction, well after LCP, so it
+     always renders lazy. */
+  var EAGER_CARD_COUNT = 4;
+  function renderCards(container, products, opts) {
+    opts = opts || {};
+    var eagerFirst = opts.eagerFirst !== false;
+    container.innerHTML = products.map(function (p, i) {
+      return cardHTML(p, { eager: eagerFirst && i < EAGER_CARD_COUNT });
+    }).join("");
+    wireReveal(container);
+  }
+
+  /* ---------- Site-submitted customer reviews (shop.html only) ----------
+     Renders window.YL_SITE_REVIEWS (assets/js/site-reviews-data.js) --
+     hand-curated by Savanna after reading a Formspree submission email,
+     completely separate from products-data.js's Etsy-sourced `rating`
+     field. Guarded by #siteReviewsList existing at all, so this is a
+     no-op on every page except shop.html. */
+  var siteReviewsList = document.getElementById("siteReviewsList");
+  if (siteReviewsList) {
+    var productsById = {};
+    (window.YL_PRODUCTS && window.YL_PRODUCTS.products || []).forEach(function (p) { productsById[p.id] = p; });
+
+    function formatReviewDate(iso) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(iso || "")) return "";
+      var d = new Date(iso + "T00:00:00");
+      return isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+    }
+
+    var siteReviews = (window.YL_SITE_REVIEWS || []).slice().sort(function (a, b) {
+      return (b.date || "").localeCompare(a.date || "");
+    });
+    if (siteReviews.length) {
+      siteReviewsList.innerHTML = siteReviews.map(function (r) {
+        var product = r.productId && productsById[r.productId];
+        var full = Math.max(0, Math.min(5, Math.round(r.rating)));
+        var stars = "";
+        for (var i = 0; i < 5; i++) stars += i < full ? "★" : "☆";
+        var byline = attrEsc(r.name || "A customer") +
+          (product ? " · " + attrEsc(product.name) : "") +
+          (r.date ? " · " + formatReviewDate(r.date) : "");
+        return (
+          '<div class="quote-card review-card reveal">' +
+          '<span class="stars" aria-hidden="true">' + stars + "</span>" +
+          '<span class="sr-only">Rated ' + r.rating + " out of 5 stars.</span>" +
+          "<p>&ldquo;" + attrEsc(r.text) + "&rdquo;</p>" +
+          "<footer>— " + byline + "</footer>" +
+          "</div>"
+        );
+      }).join("");
+      wireReveal(siteReviewsList);
+    }
+
+    // Product picker: a static "General / whole shop" option already
+    // lives in the HTML (so the field still works with JS off, just
+    // without per-product choices); this appends the real catalog.
+    var reviewProductSelect = document.getElementById("review_product");
+    if (reviewProductSelect && window.YL_PRODUCTS && window.YL_PRODUCTS.products) {
+      window.YL_PRODUCTS.products.forEach(function (p) {
+        var opt = document.createElement("option");
+        opt.value = p.id;
+        opt.textContent = p.name;
+        reviewProductSelect.appendChild(opt);
+      });
+    }
+  }
+
+  /* ---------- Events page: render from events-data.js ---------- */
+  var upcomingEl = document.getElementById("upcomingEvents");
+  var pastEl = document.getElementById("pastEvents");
+
+  if (upcomingEl || pastEl) {
+    var events = window.YL_EVENTS || { upcoming: [], past: [] };
+
+    if (upcomingEl) {
+      var upcoming = (events.upcoming || []).slice().sort(function (a, b) {
+        return new Date(a.date) - new Date(b.date);
+      });
+      if (upcoming.length) {
+        upcomingEl.innerHTML = upcoming.map(eventCardHTML).join("");
+      } else {
+        upcomingEl.innerHTML =
+          '<div class="event-empty reveal">' +
+            '<span class="glyph" aria-hidden="true">✦</span>' +
+            "<h3>New Pop-Ups Land Here As Soon As They're Booked</h3>" +
+            '<p>We keep this page current the second a market or Pride date is locked in. In the meantime, ' +
+            'follow along on Instagram or TikTok — that\'s where every table gets announced first.</p>' +
+            '<div class="hero-actions" style="justify-content:center;">' +
+              '<a class="btn btn-primary" href="https://www.instagram.com/yallternativeliving" target="_blank" rel="noopener">Follow on Instagram</a>' +
+              '<a class="btn btn-outline" href="https://www.tiktok.com/@yallternativeliving" target="_blank" rel="noopener">Follow on TikTok</a>' +
+            "</div>" +
+          "</div>";
+      }
+      markReveal(upcomingEl);
+    }
+
+    if (pastEl) {
+      var past = events.past || [];
+      pastEl.innerHTML = past.length
+        ? past.map(eventCardHTML).join("")
+        : '<p class="muted center">No past pop-ups logged yet — check back soon.</p>';
+      markReveal(pastEl);
+    }
+  }
+
+  function eventCardHTML(ev) {
+    return (
+      '<article class="card event-card reveal">' +
+        '<div class="card-body">' +
+          '<span class="card-cat">' + attrEsc(ev.type) + "</span>" +
+          "<h3>" + attrEsc(ev.name) + "</h3>" +
+          '<p class="event-date">' + attrEsc(ev.dateLabel) + "</p>" +
+          "<p>" + (ev.location ? "📍 " + attrEsc(ev.location) : "") + "</p>" +
+          (ev.note ? "<p>" + attrEsc(ev.note) + "</p>" : "") +
+          (ev.url ? '<a class="btn btn-outline btn-sm" href="' + attrEsc(ev.url) + '" target="_blank" rel="noopener">More Info</a>' : "") +
+        "</div>" +
+      "</article>"
+    );
+  }
+
+  function markReveal(container) {
+    wireReveal(container);
+  }
+
+  function buildFilters(row, categories, grid, allProducts, sortSelect, countEl, searchInput) {
+    var pills = ['<button class="filter-pill active" type="button" data-filter="all" aria-pressed="true">All</button>'].concat(
+      categories.map(function (c) { return '<button class="filter-pill" type="button" data-filter="' + c.id + '" aria-pressed="false">' + c.label + "</button>"; })
+    );
+    row.innerHTML = pills.join("");
+
+    var catLabel = {};
+    categories.forEach(function (c) { catLabel[c.id] = c.label; });
+    var state = { filter: "all", sort: sortSelect ? sortSelect.value : "featured", query: "" };
+    // Only the very first render of this grid can plausibly be showing
+    // cards that are actually above the fold on initial page load -- every
+    // render after that was triggered by a deliberate filter/sort click,
+    // well after LCP, so it should always load lazily.
+    var isFirstRender = true;
+
+    // Plain client-side substring search across name/blurb/category label --
+    // 13 products is nowhere near enough to need a search index or a
+    // library; a straight .filter() re-runs in well under a millisecond.
+    function matchesQuery(p, q) {
+      if (!q) return true;
+      var haystack = (p.name + " " + p.blurb + " " + (catLabel[p.category] || p.category)).toLowerCase();
+      return haystack.indexOf(q) !== -1;
+    }
+
+    function render() {
+      var filtered = state.filter === "all" ? allProducts : allProducts.filter(function (p) { return p.category === state.filter; });
+      var q = state.query.trim().toLowerCase();
+      filtered = filtered.filter(function (p) { return matchesQuery(p, q); });
+      var sorted = sortProducts(filtered, state.sort);
+      renderCards(grid, sorted, { eagerFirst: isFirstRender });
+      isFirstRender = false;
+      if (countEl) {
+        if (!sorted.length) {
+          countEl.textContent = "No goods match" + (q ? ' "' + state.query.trim() + '"' : " that search") + " -- try a different word or clear the search.";
+        } else {
+          var label = state.filter === "all" ? "goods" : catLabel[state.filter] || "goods";
+          countEl.textContent = "Showing " + sorted.length + " of " + allProducts.length + " " + label.toLowerCase();
+        }
+      }
+    }
+
+    row.addEventListener("click", function (e) {
+      var btn = e.target.closest(".filter-pill");
+      if (!btn) return;
+      row.querySelectorAll(".filter-pill").forEach(function (b) {
+        var isActive = b === btn;
+        b.classList.toggle("active", isActive);
+        b.setAttribute("aria-pressed", isActive ? "true" : "false");
+      });
+      state.filter = btn.getAttribute("data-filter");
+      render();
+    });
+
+    if (sortSelect) {
+      sortSelect.addEventListener("change", function () {
+        state.sort = sortSelect.value;
+        render();
+      });
+    }
+
+    if (searchInput) {
+      // Light debounce -- purely a courtesy against re-rendering on every
+      // keystroke of a fast typist; at 13 products it's imperceptible
+      // either way, but it's free and it's the right habit.
+      var debounceTimer;
+      searchInput.addEventListener("input", function () {
+        clearTimeout(debounceTimer);
+        var value = searchInput.value;
+        debounceTimer = setTimeout(function () {
+          state.query = value;
+          render();
+        }, 150);
+      });
+    }
+
+    // Deep-linking: footer links like shop.html#apparel pre-select that filter.
+    var hash = window.location.hash.replace("#", "");
+    if (hash && categories.some(function (c) { return c.id === hash; })) {
+      state.filter = hash;
+      row.querySelectorAll(".filter-pill").forEach(function (b) {
+        var isActive = b.getAttribute("data-filter") === hash;
+        b.classList.toggle("active", isActive);
+        b.setAttribute("aria-pressed", isActive ? "true" : "false");
+      });
+    }
+
+    render();
+  }
+})();

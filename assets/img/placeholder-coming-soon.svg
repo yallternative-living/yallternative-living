@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 933" width="700" height="933" role="img" aria-label="Product photo coming soon">
+  <rect width="700" height="933" fill="#17130f"/>
+  <rect x="18" y="18" width="664" height="897" rx="14" fill="none" stroke="#8a5c30" stroke-width="2" stroke-dasharray="10 8"/>
+  <g fill="none" stroke="#d69b5c" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" transform="translate(350 366)">
+    <rect x="-70" y="-52" width="140" height="104" rx="10"/>
+    <circle cx="0" cy="-2" r="26"/>
+    <path d="M-70 34 L-24 -6 L6 22 L34 -2 L70 30"/>
+    <circle cx="34" cy="-30" r="9" fill="#d69b5c" stroke="none"/>
+  </g>
+  <text x="350" y="512" text-anchor="middle" font-family="Georgia, serif" font-size="40" fill="#f3ead9">Photo coming soon</text>
+  <text x="350" y="556" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="20" letter-spacing="1.5" fill="#cfc0a8">Y&#8217;allternative Living</text>
+  <text x="350" y="612" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="17" fill="#c65a6d">PLACEHOLDER &#183; confirm image, price &amp; stock</text>
+</svg>

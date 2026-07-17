@@ -1,0 +1,275 @@
+[
+  {
+    "id": "tank-top",
+    "name": "Y'allternative Living Tank Top",
+    "price": 25,
+    "url": "/assets/data/snipcart-products.json",
+    "image": "assets/img/tank-top.jpg",
+    "categories": [
+      "apparel"
+    ],
+    "customFields": [
+      {
+        "name": "Size",
+        "options": "M[+0.00]|L[+0.00]|1X[+0.00]",
+        "value": "M"
+      }
+    ]
+  },
+  {
+    "id": "unisex-tshirt",
+    "name": "Y'allternative Living Unisex T-Shirt",
+    "price": 25,
+    "url": "/assets/data/snipcart-products.json",
+    "image": "assets/img/unisex-tshirt.jpg",
+    "categories": [
+      "apparel"
+    ],
+    "customFields": [
+      {
+        "name": "Size",
+        "options": "S[+0.00]|M[+0.00]|L[+0.00]|XL[+0.00]",
+        "value": "S"
+      }
+    ]
+  },
+  {
+    "id": "frankincense-salve",
+    "name": "Y'all Heal Now Miracle Frankincense Salve",
+    "price": 16,
+    "url": "/assets/data/snipcart-products.json",
+    "image": "assets/img/frankincense-salve.jpg",
+    "categories": [
+      "salves"
+    ],
+    "customFields": []
+  },
+  {
+    "id": "miracle-balm",
+    "name": "Y'allternative Miracle Balm",
+    "price": 8,
+    "url": "/assets/data/snipcart-products.json",
+    "image": "assets/img/miracle-balm.jpg",
+    "categories": [
+      "salves"
+    ],
+    "customFields": []
+  },
+  {
+    "id": "sleep-salve",
+    "name": "Hush Y'all Magnesium Arnica Sleep Salve",
+    "price": 16,
+    "url": "/assets/data/snipcart-products.json",
+    "image": "assets/img/sleep-salve.jpg",
+    "categories": [
+      "salves"
+    ],
+    "customFields": []
+  },
+  {
+    "id": "beard-salve",
+    "name": "Bourbon Beard Salve",
+    "price": 14,
+    "url": "/assets/data/snipcart-products.json",
+    "image": "assets/img/beard-salve.jpg",
+    "categories": [
+      "salves"
+    ],
+    "customFields": []
+  },
+  {
+    "id": "shimmer-oil",
+    "name": "Shimmer Body Oil",
+    "price": 19,
+    "url": "/assets/data/snipcart-products.json",
+    "image": "assets/img/shimmer-oil.jpg",
+    "categories": [
+      "body"
+    ],
+    "customFields": [
+      {
+        "name": "Scent",
+        "options": "Seduction[+0.00]|Y'all Means All[+0.00]|Coconut Barefoot & Dangerous[+0.00]",
+        "value": "Seduction"
+      }
+    ]
+  },
+  {
+    "id": "shea-butter",
+    "name": "Lavender Shea Body Butter",
+    "price": 15,
+    "url": "/assets/data/snipcart-products.json",
+    "image": "assets/img/shea-butter.jpg",
+    "categories": [
+      "body"
+    ],
+    "customFields": [
+      {
+        "name": "Size",
+        "options": "4 oz[+0.00]|8 oz[+5.00]",
+        "value": "4 oz"
+      }
+    ]
+  },
+  {
+    "id": "hand-scrub",
+    "name": "Bourbon Vanilla Hand Scrub",
+    "price": 8,
+    "url": "/assets/data/snipcart-products.json",
+    "image": "assets/img/hand-scrub.jpg",
+    "categories": [
+      "body"
+    ],
+    "customFields": [
+      {
+        "name": "Size",
+        "options": "2 oz[+0.00]|4 oz[+4.00]",
+        "value": "2 oz"
+      }
+    ]
+  },
+  {
+    "id": "lavender-soak",
+    "name": "Lavender Epsom Salt Soak",
+    "price": 10,
+    "url": "/assets/data/snipcart-products.json",
+    "image": "assets/img/lavender-soak.jpg",
+    "categories": [
+      "soaks"
+    ],
+    "customFields": [
+      {
+        "name": "Size",
+        "options": "10 oz[+0.00]|24 oz[+8.00]",
+        "value": "10 oz"
+      }
+    ]
+  },
+  {
+    "id": "backroad-soak",
+    "name": "Backroad Recovery Epsom Salt Soak",
+    "price": 10,
+    "url": "/assets/data/snipcart-products.json",
+    "image": "assets/img/backroad-soak.jpg",
+    "categories": [
+      "soaks"
+    ],
+    "customFields": [
+      {
+        "name": "Size",
+        "options": "10 oz[+0.00]|24 oz[+8.00]",
+        "value": "10 oz"
+      }
+    ]
+  },
+  {
+    "id": "protection-keychain",
+    "name": "Protection Potion Keychain",
+    "price": 6,
+    "url": "/assets/data/snipcart-products.json",
+    "image": "assets/img/protection-keychain.jpg",
+    "categories": [
+      "potions"
+    ],
+    "customFields": [
+      {
+        "name": "Blend",
+        "options": "Black Lava & Pink Himalayan Salt (Protection + Self Love)[+0.00]|Black Lava Salt & Rosemary (Protect + Purify)[+0.00]|Black Lava Salt & Myrrh (Protect + Guard)[+0.00]",
+        "value": "Black Lava & Pink Himalayan Salt (Protection + Self Love)"
+      }
+    ]
+  },
+  {
+    "id": "bug-spray",
+    "name": "Bug Off B*tch Natural Bug Spray",
+    "price": 8,
+    "url": "/assets/data/snipcart-products.json",
+    "image": "assets/img/bug-spray.jpg",
+    "categories": [
+      "potions"
+    ],
+    "customFields": []
+  },
+  {
+    "id": "sugar-scrub",
+    "name": "Y'all Means All Sugar Scrub",
+    "price": 12,
+    "url": "/assets/data/snipcart-products.json",
+    "image": "assets/img/placeholder-coming-soon.svg",
+    "categories": [
+      "body"
+    ],
+    "customFields": []
+  },
+  {
+    "id": "whipped-body-butter",
+    "name": "Y'all Means All Rainbow Whipped Body Butter",
+    "price": 15,
+    "url": "/assets/data/snipcart-products.json",
+    "image": "assets/img/placeholder-coming-soon.svg",
+    "categories": [
+      "body"
+    ],
+    "customFields": []
+  },
+  {
+    "id": "bundle-starter-self-care-set",
+    "name": "Self-Care Starter Set",
+    "price": 28.8,
+    "url": "/assets/data/snipcart-products.json",
+    "image": "assets/img/frankincense-salve.jpg",
+    "categories": [
+      "bundle"
+    ]
+  },
+  {
+    "id": "bundle-bourbon-and-grit-set",
+    "name": "Bourbon & Grit Gift Set",
+    "price": 19.8,
+    "url": "/assets/data/snipcart-products.json",
+    "image": "assets/img/beard-salve.jpg",
+    "categories": [
+      "bundle"
+    ]
+  },
+  {
+    "id": "bundle-night-ritual-set",
+    "name": "Night Ritual Set",
+    "price": 27.9,
+    "url": "/assets/data/snipcart-products.json",
+    "image": "assets/img/sleep-salve.jpg",
+    "categories": [
+      "bundle"
+    ]
+  },
+  {
+    "id": "bundle-pride-set",
+    "name": "Y'all Means All Pride Set",
+    "price": 39.6,
+    "url": "/assets/data/snipcart-products.json",
+    "image": "assets/img/unisex-tshirt.jpg",
+    "categories": [
+      "bundle"
+    ]
+  },
+  {
+    "id": "bundle-everyday-armor-kit",
+    "name": "Everyday Armor Kit",
+    "price": 21.6,
+    "url": "/assets/data/snipcart-products.json",
+    "image": "assets/img/protection-keychain.jpg",
+    "categories": [
+      "bundle"
+    ]
+  },
+  {
+    "id": "bundle-gentle-landing-set",
+    "name": "Gentle Landing Set",
+    "price": 20.7,
+    "url": "/assets/data/snipcart-products.json",
+    "image": "assets/img/miracle-balm.jpg",
+    "categories": [
+      "bundle"
+    ]
+  }
+]

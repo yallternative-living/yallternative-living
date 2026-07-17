@@ -1,0 +1,21 @@
+{
+  "_comment": "Schema reference only -- not read by anything. Copy this shape into etsy-snapshot.json (gitignored / regenerated each sync run) before running apply-etsy-snapshot.js.",
+  "fetchedAt": "2026-07-17T00:00:00Z",
+  "complete": true,
+  "_complete_meaning": "true only if every currently-active listing on https://www.etsy.com/shop/YallternativeLivinCO was fetched this pass -- enables safe detection of listings that disappeared. Set false for a partial/spot-check run.",
+  "listings": [
+    {
+      "listingId": "4398130795",
+      "title": "Y'all Heal Now Miracle Frankencise Salve",
+      "price": 16.00,
+      "rating": { "value": 5.0, "count": 5 }
+    },
+    {
+      "listingId": "4341507933",
+      "title": "Y'allternative Living Tank Top",
+      "price": 25.00,
+      "rating": null,
+      "_rating_meaning": "null (not an object) means this listing currently has zero reviews of its own on Etsy -- do not invent a value"
+    }
+  ]
+}

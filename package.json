@@ -1,0 +1,20 @@
+{
+  "name": "yallternative-living-site",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Dev-time build tooling for the Y'allternative Living static site. Nothing here ships to the live site -- the deployed site is still 100% static HTML/CSS/JS with zero runtime dependencies. This just powers a few local maintenance scripts.",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build-data": "node scripts/build-site-data.js",
+    "optimize-images": "node scripts/optimize-images.js",
+    "build-security-headers": "node scripts/build-security-headers.js",
+    "sync-etsy": "node scripts/apply-etsy-snapshot.js",
+    "test": "node scripts/qa-check.js"
+  },
+  "devDependencies": {
+    "sharp": "^0.35.3"
+  }
+}

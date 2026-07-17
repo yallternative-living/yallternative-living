@@ -1,0 +1,582 @@
+{
+  "shop": {
+    "name": "Y'allternative Living",
+    "etsyShopUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
+    "rating": 4.9,
+    "reviewCount": 32,
+    "sales": 105
+  },
+  "categories": [
+    {
+      "id": "apparel",
+      "label": "Apparel"
+    },
+    {
+      "id": "salves",
+      "label": "Salves & Balms"
+    },
+    {
+      "id": "body",
+      "label": "Body & Skin"
+    },
+    {
+      "id": "soaks",
+      "label": "Soaks"
+    },
+    {
+      "id": "potions",
+      "label": "Potions & Spellwork"
+    }
+  ],
+  "products": [
+    {
+      "id": "tank-top",
+      "name": "Y'allternative Living Tank Top",
+      "category": "apparel",
+      "price": 25,
+      "image": "assets/img/tank-top.jpg",
+      "images": [
+        "assets/img/tank-top-alt1.jpg",
+        "assets/img/tank-top-alt2.jpg",
+        "assets/img/tank-top-alt3.jpg"
+      ],
+      "blurb": "Same rainbow stag, same crescent moon, cut for the hottest days of the year. Soft triblend racerback built to be worn hard and washed easy — original artwork, not something pulled off a mass-print catalog.",
+      "variants": {
+        "name": "Size",
+        "options": [
+          {
+            "label": "M",
+            "priceDelta": 0
+          },
+          {
+            "label": "L",
+            "priceDelta": 0
+          },
+          {
+            "label": "1X",
+            "priceDelta": 0
+          }
+        ]
+      },
+      "etsyUrl": "https://www.etsy.com/listing/4341507933/yallternative-living-tank-top"
+    },
+    {
+      "id": "unisex-tshirt",
+      "name": "Y'allternative Living Unisex T-Shirt",
+      "category": "apparel",
+      "price": 25,
+      "image": "assets/img/unisex-tshirt.jpg",
+      "images": [
+        "assets/img/unisex-tshirt-alt1.jpg",
+        "assets/img/unisex-tshirt-alt2.jpg",
+        "assets/img/unisex-tshirt-alt3.jpg"
+      ],
+      "blurb": "The shirt that started the whole shop: a rainbow stag under a crescent moon, screen-printed on soft cotton cut to actually fit everybody. Original artwork, zero mass-production — wear it to the market, wear it to Pride, wear it everywhere in between.",
+      "variants": {
+        "name": "Size",
+        "options": [
+          {
+            "label": "S",
+            "priceDelta": 0
+          },
+          {
+            "label": "M",
+            "priceDelta": 0
+          },
+          {
+            "label": "L",
+            "priceDelta": 0
+          },
+          {
+            "label": "XL",
+            "priceDelta": 0
+          }
+        ]
+      },
+      "etsyUrl": "https://www.etsy.com/listing/4341518675/yallternative-living-unisex-t-shirt"
+    },
+    {
+      "id": "frankincense-salve",
+      "name": "Y'all Heal Now Miracle Frankincense Salve",
+      "category": "salves",
+      "price": 16,
+      "image": "assets/img/frankincense-salve.jpg",
+      "images": [
+        "assets/img/frankincense-salve-alt1.jpg",
+        "assets/img/frankincense-salve-alt2.jpg",
+        "assets/img/frankincense-salve-alt3.jpg"
+      ],
+      "blurb": "One little tin, a whole lot of jobs: dry cuticles, cracked heels, windburn, razor bumps — whatever's rough, this goes on it. Calendula, arnica, and five essential oils in a beeswax-shea base, mixed by hand in a 2 oz tin in Landrum, SC.",
+      "ingredients": [
+        "Beeswax",
+        "Shea Butter",
+        "Coconut Oil",
+        "Avocado Oil",
+        "Arnica",
+        "Calendula",
+        "Vitamin E",
+        "Essential Oils (Lavender, Tea Tree, Frankincense, Rosemary, Chamomile)"
+      ],
+      "rating": {
+        "value": 5,
+        "count": 5
+      },
+      "etsyUrl": "https://www.etsy.com/listing/4398130795/yall-heal-now-miracle-frankencise-salve"
+    },
+    {
+      "id": "miracle-balm",
+      "name": "Y'allternative Miracle Balm",
+      "category": "salves",
+      "price": 8,
+      "image": "assets/img/miracle-balm.jpg",
+      "blurb": "No essential oils, no fragrance, nothing to react to — just a rich little .5 oz balm for lips, cuticles, and anywhere skin needs backup. Gentle enough for the whole family, kids included.",
+      "ingredients": [
+        "Cera Alba (Beeswax)",
+        "Butyrospermum Parkii (Shea) Butter",
+        "Ricinus Communis (Castor) Seed Oil",
+        "Prunus Amygdalus Dulcis (Sweet Almond) Oil",
+        "Calendula Officinalis Flower Infused Oil",
+        "Lanolin",
+        "Tocopherol (Vitamin E)"
+      ],
+      "ingredientsNote": "No essential oils, no added fragrance.",
+      "etsyUrl": "https://www.etsy.com/listing/4466572716/yallternative-miracle-balm-multi-use"
+    },
+    {
+      "id": "sleep-salve",
+      "name": "Hush Y'all Magnesium Arnica Sleep Salve",
+      "category": "salves",
+      "price": 16,
+      "image": "assets/img/sleep-salve.jpg",
+      "images": [
+        "assets/img/sleep-salve-alt1.jpg"
+      ],
+      "blurb": "Rub a little onto your feet or shoulders before bed and let lavender, chamomile, and cedarwood take it from there. Magnesium and arnica in a 2 oz tin, built for overthinkers and night owls who need the day to actually end.",
+      "ingredients": [
+        "Shea Butter",
+        "Coconut Oil",
+        "Magnesium",
+        "Essential Oils (Lavender, Cedarwood, Chamomile, Orange, Frankincense)"
+      ],
+      "rating": {
+        "value": 5,
+        "count": 1
+      },
+      "etsyUrl": "https://www.etsy.com/listing/4398125773/hush-yall-magnesium-arnica-sleep-salve"
+    },
+    {
+      "id": "beard-salve",
+      "name": "Bourbon Beard Salve",
+      "category": "salves",
+      "price": 14,
+      "image": "assets/img/beard-salve.jpg",
+      "images": [
+        "assets/img/beard-salve-alt1.jpg"
+      ],
+      "blurb": "Bourbon & Grit: a 2 oz tin that softens coarse beard hair, calms the itch underneath, and smells like bourbon, vanilla, and cedarwood instead of a drugstore aisle. Light hold, zero grease, genuinely good gift material.",
+      "ingredients": [
+        "Shea Butter",
+        "Coconut Oil",
+        "Sweet Almond Oil",
+        "Beeswax",
+        "Vitamin E",
+        "Fragrance & Essential Oils"
+      ],
+      "etsyUrl": "https://www.etsy.com/listing/4460199621/bourbon-beard-salve-vanilla-cedarwood"
+    },
+    {
+      "id": "shimmer-oil",
+      "name": "Shimmer Body Oil",
+      "category": "body",
+      "price": 19,
+      "image": "assets/img/shimmer-oil.jpg",
+      "images": [
+        "assets/img/shimmer-oil-alt1.jpg",
+        "assets/img/shimmer-oil-alt2.jpg",
+        "assets/img/shimmer-oil-alt3.jpg"
+      ],
+      "blurb": "Cedarwood, sweet orange, and patchouli under a black-gold shimmer that photographs as good as it feels — that's the Seduction blend, one of three scents this comes in. Lightweight, fast-absorbing, and built for festivals, Pride, and anywhere else you plan on shining harder than everyone around you.",
+      "ingredients": [
+        "Fractionated Coconut Oil",
+        "Sweet Almond Oil",
+        "Squalane",
+        "Mica",
+        "Cosmetic Glitter",
+        "Silica Dimethyl Silylate",
+        "Fragrance",
+        "Essential Oils",
+        "Vitamin E"
+      ],
+      "variants": {
+        "name": "Scent",
+        "options": [
+          {
+            "label": "Seduction",
+            "priceDelta": 0
+          },
+          {
+            "label": "Y'all Means All",
+            "priceDelta": 0
+          },
+          {
+            "label": "Coconut Barefoot & Dangerous",
+            "priceDelta": 0
+          }
+        ]
+      },
+      "etsyUrl": "https://www.etsy.com/listing/4502740269/shimmer-body-oil-glitter-body-oil-non"
+    },
+    {
+      "id": "shea-butter",
+      "name": "Lavender Shea Body Butter",
+      "category": "body",
+      "price": 15,
+      "image": "assets/img/shea-butter.jpg",
+      "images": [
+        "assets/img/shea-butter-alt1.jpg",
+        "assets/img/shea-butter-alt2.jpg"
+      ],
+      "blurb": "Deep Shea Rest, whipped thick with raw African shea and a lavender-forward blend underneath. Massage it into damp skin after your shower and let it work on cracked heels and winter-dry patches while you sleep — built as a night ritual, not just a lotion.",
+      "ingredients": [
+        "Shea Butter (Raw African + Refined)",
+        "Mango Butter",
+        "Coconut Oil",
+        "Sweet Almond Oil",
+        "Beeswax",
+        "Cornstarch",
+        "Optiphen (Preservative)",
+        "Essential Oils"
+      ],
+      "variants": {
+        "name": "Size",
+        "options": [
+          {
+            "label": "4 oz",
+            "priceDelta": 0
+          },
+          {
+            "label": "8 oz",
+            "priceDelta": 5
+          }
+        ]
+      },
+      "rating": {
+        "value": 4,
+        "count": 1
+      },
+      "etsyUrl": "https://www.etsy.com/listing/4460110222/lavender-shea-body-butter-raw-african"
+    },
+    {
+      "id": "hand-scrub",
+      "name": "Bourbon Vanilla Hand Scrub",
+      "category": "body",
+      "price": 8,
+      "image": "assets/img/hand-scrub.jpg",
+      "images": [
+        "assets/img/hand-scrub-alt1.jpg",
+        "assets/img/hand-scrub-alt2.jpg",
+        "assets/img/hand-scrub-alt3.jpg"
+      ],
+      "blurb": "Pumice, pink salt, and sugar for the grease and grime; coconut and olive oil so your hands don't pay for it. A 2 oz tin of bourbon-vanilla scrub for hands that work for a living.",
+      "ingredients": [
+        "Pumice",
+        "Himalayan Pink Salt",
+        "Sugar",
+        "Epsom Salt",
+        "Pink Clay",
+        "Coconut Oil",
+        "Olive Oil",
+        "Vitamin E",
+        "Dawn (Dish Soap)",
+        "Bourbon Vanilla Fragrance",
+        "Preservative"
+      ],
+      "variants": {
+        "name": "Size",
+        "options": [
+          {
+            "label": "2 oz",
+            "priceDelta": 0
+          },
+          {
+            "label": "4 oz",
+            "priceDelta": 4
+          }
+        ]
+      },
+      "rating": {
+        "value": 5,
+        "count": 2
+      },
+      "etsyUrl": "https://www.etsy.com/listing/4342208406/bourbon-vanilla-hand-scrub-exfoliating"
+    },
+    {
+      "id": "lavender-soak",
+      "name": "Lavender Epsom Salt Soak",
+      "category": "soaks",
+      "price": 10,
+      "image": "assets/img/lavender-soak.jpg",
+      "images": [
+        "assets/img/lavender-soak-alt1.jpg",
+        "assets/img/lavender-soak-alt2.jpg"
+      ],
+      "blurb": "Relaxation with a side of rebellion: lavender, black pepper, and rosemary dissolved into a 10 oz bag of Epsom salt and baking soda. Run the bath, toss in a scoop, take up all the space you want.",
+      "ingredients": [
+        "Epsom Salt",
+        "Baking Soda",
+        "Cornstarch",
+        "Essential Oils (Lavender, Black Pepper, Rosemary)"
+      ],
+      "variants": {
+        "name": "Size",
+        "options": [
+          {
+            "label": "10 oz",
+            "priceDelta": 0
+          },
+          {
+            "label": "24 oz",
+            "priceDelta": 8
+          }
+        ]
+      },
+      "etsyUrl": "https://www.etsy.com/listing/4345557444/lavender-epsom-salt-soak-muscle-relief"
+    },
+    {
+      "id": "backroad-soak",
+      "name": "Backroad Recovery Epsom Salt Soak",
+      "category": "soaks",
+      "price": 10,
+      "image": "assets/img/backroad-soak.jpg",
+      "images": [
+        "assets/img/backroad-soak-alt1.jpg",
+        "assets/img/backroad-soak-alt2.jpg",
+        "assets/img/backroad-soak-alt3.jpg"
+      ],
+      "blurb": "Peppermint, lavender, black pepper, and ylang ylang for whatever the backroads (or the day) put you through. Stir a scoop into a warm bath, soak 20 to 30 minutes, come out looser than you went in.",
+      "ingredients": [
+        "Epsom Salt",
+        "Baking Soda",
+        "Fractionated Coconut Oil",
+        "Essential Oils (Peppermint, Lavender, Black Pepper, Ylang Ylang)"
+      ],
+      "variants": {
+        "name": "Size",
+        "options": [
+          {
+            "label": "10 oz",
+            "priceDelta": 0
+          },
+          {
+            "label": "24 oz",
+            "priceDelta": 8
+          }
+        ]
+      },
+      "rating": {
+        "value": 5,
+        "count": 3
+      },
+      "etsyUrl": "https://www.etsy.com/listing/4333988264/backroad-recovery-epsom-salt-muscle-soak"
+    },
+    {
+      "id": "protection-keychain",
+      "name": "Protection Potion Keychain",
+      "category": "potions",
+      "price": 6,
+      "image": "assets/img/protection-keychain.jpg",
+      "images": [
+        "assets/img/protection-keychain-alt1.jpg",
+        "assets/img/protection-keychain-alt2.jpg"
+      ],
+      "blurb": "A mini spell jar, wax-sealed and clipped to a sturdy keyring — pick your blend below. Five inches of everyday witchy armor for your keys, bag, or backpack.",
+      "ingredients": [
+        "Black Lava Salt",
+        "Pink Himalayan Salt",
+        "Glass",
+        "Metal",
+        "Wax"
+      ],
+      "ingredientsLabel": "Materials",
+      "ingredientsNote": "Exact salt/herb blend varies by the option you choose above.",
+      "variants": {
+        "name": "Blend",
+        "options": [
+          {
+            "label": "Black Lava & Pink Himalayan Salt (Protection + Self Love)",
+            "priceDelta": 0
+          },
+          {
+            "label": "Black Lava Salt & Rosemary (Protect + Purify)",
+            "priceDelta": 0
+          },
+          {
+            "label": "Black Lava Salt & Myrrh (Protect + Guard)",
+            "priceDelta": 0
+          }
+        ]
+      },
+      "rating": {
+        "value": 5,
+        "count": 1
+      },
+      "etsyUrl": "https://www.etsy.com/listing/4378341348/protection-potion-keychain-black-lava"
+    },
+    {
+      "id": "bug-spray",
+      "name": "Bug Off B*tch Natural Bug Spray",
+      "category": "potions",
+      "price": 8,
+      "image": "assets/img/bug-spray.jpg",
+      "images": [
+        "assets/img/bug-spray-alt1.jpg",
+        "assets/img/bug-spray-alt2.jpg",
+        "assets/img/bug-spray-alt3.jpg"
+      ],
+      "blurb": "Tell the mosquitoes to buzz off — naturally. Citronella, lemongrass, and five other essential oils in a 2 oz amber spray, no DEET, no sticky residue, just Southern summer survival.",
+      "ingredients": [
+        "Alcohol",
+        "Glycerin",
+        "Germall Plus (Preservative)",
+        "Essential Oils (Citronella, Lemongrass, Peppermint, Tea Tree, Lavender, Rosemary)"
+      ],
+      "rating": {
+        "value": 5,
+        "count": 4
+      },
+      "etsyUrl": "https://www.etsy.com/listing/4335217388/bug-off-btch-natural-bug-spray"
+    },
+    {
+      "id": "sugar-scrub",
+      "name": "Y'all Means All Sugar Scrub",
+      "category": "body",
+      "price": 12,
+      "image": "assets/img/placeholder-coming-soon.svg",
+      "blurb": "Rainbow layers of exfoliating sugar scrub that mean exactly what they say — y'all means all. Sloughs off the rough, leaves skin soft and sweet, and looks like a Pride parade in a jar. Glitter-and-grit self-care for the black sheep and bold hearts.",
+      "ingredients": [
+        "Cane Sugar",
+        "Coconut Oil",
+        "Sweet Almond Oil",
+        "Vitamin E",
+        "Skin-Safe Fragrance",
+        "Mica (Color)"
+      ],
+      "ingredientsNote": "Ingredient list is approximate (re-added from a delisted Etsy listing) — confirm against the real recipe before publishing.",
+      "rating": {
+        "value": 5,
+        "count": 1
+      },
+      "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO"
+    },
+    {
+      "id": "whipped-body-butter",
+      "name": "Y'all Means All Rainbow Whipped Body Butter",
+      "category": "body",
+      "price": 15,
+      "image": "assets/img/placeholder-coming-soon.svg",
+      "blurb": "Whipped light and fluffy in a citrus-peach blend, with rainbow swirls that mean all of it — every color, every one of us. Melts in without the grease and keeps skin soft all day. Y'all means all, moisturized.",
+      "ingredients": [
+        "Shea Butter",
+        "Mango Butter",
+        "Coconut Oil",
+        "Sweet Almond Oil",
+        "Cornstarch",
+        "Optiphen (Preservative)",
+        "Citrus Peach Fragrance",
+        "Mica (Color)"
+      ],
+      "ingredientsNote": "Ingredient list is approximate (re-added from a delisted Etsy listing) — confirm against the real recipe before publishing.",
+      "rating": {
+        "value": 5,
+        "count": 1
+      },
+      "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO"
+    }
+  ],
+  "bundles": [
+    {
+      "id": "starter-self-care-set",
+      "name": "Self-Care Starter Set",
+      "productIds": [
+        "frankincense-salve",
+        "hand-scrub",
+        "bug-spray"
+      ],
+      "discountPercent": 10,
+      "blurb": "The whole shop in miniature: the do-everything salve folks keep re-ordering, the bourbon-vanilla scrub that gets your hands actually clean, and the bug spray nobody admits they need until August. Three of our most-reviewed goods, one easy yes."
+    },
+    {
+      "id": "bourbon-and-grit-set",
+      "name": "Bourbon & Grit Gift Set",
+      "productIds": [
+        "beard-salve",
+        "hand-scrub"
+      ],
+      "discountPercent": 10,
+      "blurb": "Scent-matched on purpose. The beard salve softens the scruff; the hand scrub takes the grease off whatever he was working on — both in the same bourbon, vanilla and cedarwood, so it reads as one gift, not two things from two different aisles."
+    },
+    {
+      "id": "night-ritual-set",
+      "name": "Night Ritual Set",
+      "productIds": [
+        "sleep-salve",
+        "shea-butter"
+      ],
+      "discountPercent": 10,
+      "blurb": "A wind-down in two steps: massage the lavender shea butter into damp skin after a shower, then work the magnesium sleep salve into feet and shoulders and let lavender, chamomile and cedarwood take it from there. Built for night owls and overthinkers."
+    },
+    {
+      "id": "pride-set",
+      "name": "Y'all Means All Pride Set",
+      "productIds": [
+        "unisex-tshirt",
+        "shimmer-oil"
+      ],
+      "discountPercent": 10,
+      "blurb": "The flagship rainbow-stag tee plus the shimmer oil built for exactly this — festivals, Pride, and anywhere you plan on shining harder than everyone around you. Pull the 'Y'all Means All' scent and wear the whole thing to the parade. Queer at the root, year-round."
+    },
+    {
+      "id": "everyday-armor-kit",
+      "name": "Everyday Armor Kit",
+      "productIds": [
+        "protection-keychain",
+        "bug-spray",
+        "lavender-soak"
+      ],
+      "discountPercent": 10,
+      "blurb": "Everyday witchy armor, boxed up: a wax-sealed protection spell jar for your keys, the bug spray that tells mosquitoes to buzz off — naturally, and a lavender soak for taking up all the space you want in the tub. Grit and glitter for the black sheep on your list."
+    },
+    {
+      "id": "gentle-landing-set",
+      "name": "Gentle Landing Set",
+      "productIds": [
+        "miracle-balm",
+        "shea-butter"
+      ],
+      "discountPercent": 10,
+      "blurb": "A soft place to land: the unscented, essential-oil-free Miracle Balm for wherever skin needs backup, paired with our raw-shea body butter for everywhere else. For new parents, sensitive skin, and anybody having a rough go."
+    }
+  ],
+  "faq": [
+    {
+      "question": "Where do you ship from?",
+      "answer": "Straight out of Landrum, SC. Processing time isn't the same for every item, so check the product description for the specifics before you order."
+    },
+    {
+      "question": "What's your return policy?",
+      "answer": "Opened salves, scrubs, and soaks are final sale for hygiene reasons — unworn apparel and sealed items can be exchanged. Anything arrive wrong or damaged? Email us and we'll make it right."
+    },
+    {
+      "question": "Do you have unscented or sensitive-skin options?",
+      "answer": "We do. The Y'allternative Miracle Balm is unscented and essential-oil-free, made for skin that side-eyes fragrance."
+    },
+    {
+      "question": "Can I get something custom or in bulk?",
+      "answer": "Yep. Email us or send an Instagram DM with what you're picturing (gifts, market swag, wedding favors, whatever) and we'll figure it out together."
+    },
+    {
+      "question": "Where can I meet you in person?",
+      "answer": "Farmers markets and Pride events around Upstate SC and beyond. Follow our socials so you know exactly where and when we'll be set up next."
+    }
+  ]
+}

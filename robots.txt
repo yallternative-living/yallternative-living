@@ -1,0 +1,44 @@
+User-agent: *
+Allow: /
+
+# Explicit allow list for known AI crawlers (mid-2026). This is a small
+# business marketing/commerce site that WANTS visibility -- being included
+# in AI answers, shopping-agent recommendations, and model training all
+# help, not hurt, so nothing here is blocked. The wildcard rule above
+# already allows everyone; these entries are just explicit so intent is
+# unambiguous to anyone (human or agent) reading this file.
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-SearchBot
+Allow: /
+
+User-agent: Claude-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+# Swap in the real domain once the site is deployed:
+Sitemap: https://your-domain-here.com/sitemap.xml

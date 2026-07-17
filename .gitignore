@@ -1,0 +1,12 @@
+# Dev-time only -- never ships to the deployed site, and never needs
+# to be committed. Installed via `npm install` for scripts/optimize-images.js.
+node_modules/
+package-lock.json
+
+# OS cruft
+.DS_Store
+
+# Stray editor/filesystem lock artifacts -- harmless leftovers, not real
+# source files, sandbox permissions prevented deleting them outright.
+check_tmp.js
+assets/data/.fuse_hidden*

@@ -1,0 +1,13 @@
+{
+  "name": "Y'allternative Living",
+  "short_name": "Y'allternative",
+  "description": "Handmade self-care for the black sheep & bold hearts. Queer-owned, Southern-raised, out of Landrum, SC.",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#17130f",
+  "theme_color": "#c65a6d",
+  "icons": [
+    { "src": "assets/img/favicon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/img/favicon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

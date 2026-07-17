@@ -1,0 +1,44 @@
+# Y'allternative Living
+
+> Queer-owned, Southern-raised handmade self-care -- small-batch salves, soaks, body care and apparel out of Landrum, SC. Sold directly on this site and on Etsy, plus in person at farmers markets and Pride events around Upstate SC and beyond.
+
+Y'allternative Living is a small, queer-owned business run by founder Savanna out of Landrum, South Carolina (the Upstate SC / Blue Ridge foothills region). Everything is handmade in small batches. As of mid-2026 the shop has a 4.9-star average across 32 reviews and 105+ sales on its Etsy shop (a separate, longer-running sales channel from this site).
+
+## Pages
+
+- [Shop](https://your-domain-here.com/shop.html): the full catalog of 15 handmade products across 5 categories (Apparel, Salves & Balms, Body & Skin, Soaks, Potions & Spellwork). Add-to-cart checkout happens directly on this site via Snipcart -- no redirect to a third-party marketplace required.
+- [Events](https://your-domain-here.com/events.html): upcoming and past farmers markets, fairs, and Pride pop-ups where the shop appears in person. Only real, confirmed dates are listed -- if it's empty, no dates are confirmed yet.
+- [Our Story](https://your-domain-here.com/about.html): founder background and brand story.
+- [Contact](https://your-domain-here.com/contact.html): contact info, shipping/custom-order FAQ, and where to find the shop in person.
+- [Privacy Policy](https://your-domain-here.com/privacy.html): plain-language privacy policy (not a substitute for legal advice).
+
+## Products
+
+- **Y'allternative Living Tank Top** -- $25.00 -- Apparel -- Same rainbow stag, same crescent moon, cut for the hottest days of the year. Soft triblend racerback built to be worn hard and washed easy — original artwork, not something pulled off a mass-print catalog.
+- **Y'allternative Living Unisex T-Shirt** -- $25.00 -- Apparel -- The shirt that started the whole shop: a rainbow stag under a crescent moon, screen-printed on soft cotton cut to actually fit everybody. Original artwork, zero mass-production — wear it to the market, wear it to Pride, wear it everywhere in between.
+- **Y'all Heal Now Miracle Frankincense Salve** -- $16.00 -- Salves & Balms -- One little tin, a whole lot of jobs: dry cuticles, cracked heels, windburn, razor bumps — whatever's rough, this goes on it. Calendula, arnica, and five essential oils in a beeswax-shea base, mixed by hand in a 2 oz tin in Landrum, SC.
+- **Y'allternative Miracle Balm** -- $8.00 -- Salves & Balms -- No essential oils, no fragrance, nothing to react to — just a rich little .5 oz balm for lips, cuticles, and anywhere skin needs backup. Gentle enough for the whole family, kids included.
+- **Hush Y'all Magnesium Arnica Sleep Salve** -- $16.00 -- Salves & Balms -- Rub a little onto your feet or shoulders before bed and let lavender, chamomile, and cedarwood take it from there. Magnesium and arnica in a 2 oz tin, built for overthinkers and night owls who need the day to actually end.
+- **Bourbon Beard Salve** -- $14.00 -- Salves & Balms -- Bourbon & Grit: a 2 oz tin that softens coarse beard hair, calms the itch underneath, and smells like bourbon, vanilla, and cedarwood instead of a drugstore aisle. Light hold, zero grease, genuinely good gift material.
+- **Shimmer Body Oil** -- $19.00 -- Body & Skin -- Cedarwood, sweet orange, and patchouli under a black-gold shimmer that photographs as good as it feels — that's the Seduction blend, one of three scents this comes in. Lightweight, fast-absorbing, and built for festivals, Pride, and anywhere else you plan on shining harder than everyone around you.
+- **Lavender Shea Body Butter** -- $15.00 -- Body & Skin -- Deep Shea Rest, whipped thick with raw African shea and a lavender-forward blend underneath. Massage it into damp skin after your shower and let it work on cracked heels and winter-dry patches while you sleep — built as a night ritual, not just a lotion.
+- **Bourbon Vanilla Hand Scrub** -- $8.00 -- Body & Skin -- Pumice, pink salt, and sugar for the grease and grime; coconut and olive oil so your hands don't pay for it. A 2 oz tin of bourbon-vanilla scrub for hands that work for a living.
+- **Lavender Epsom Salt Soak** -- $10.00 -- Soaks -- Relaxation with a side of rebellion: lavender, black pepper, and rosemary dissolved into a 10 oz bag of Epsom salt and baking soda. Run the bath, toss in a scoop, take up all the space you want.
+- **Backroad Recovery Epsom Salt Soak** -- $10.00 -- Soaks -- Peppermint, lavender, black pepper, and ylang ylang for whatever the backroads (or the day) put you through. Stir a scoop into a warm bath, soak 20 to 30 minutes, come out looser than you went in.
+- **Protection Potion Keychain** -- $6.00 -- Potions & Spellwork -- A mini spell jar, wax-sealed and clipped to a sturdy keyring — pick your blend below. Five inches of everyday witchy armor for your keys, bag, or backpack.
+- **Bug Off B*tch Natural Bug Spray** -- $8.00 -- Potions & Spellwork -- Tell the mosquitoes to buzz off — naturally. Citronella, lemongrass, and five other essential oils in a 2 oz amber spray, no DEET, no sticky residue, just Southern summer survival.
+- **Y'all Means All Sugar Scrub** -- $12.00 -- Body & Skin -- Rainbow layers of exfoliating sugar scrub that mean exactly what they say — y'all means all. Sloughs off the rough, leaves skin soft and sweet, and looks like a Pride parade in a jar. Glitter-and-grit self-care for the black sheep and bold hearts.
+- **Y'all Means All Rainbow Whipped Body Butter** -- $15.00 -- Body & Skin -- Whipped light and fluffy in a citrus-peach blend, with rainbow swirls that mean all of it — every color, every one of us. Melts in without the grease and keeps skin soft all day. Y'all means all, moisturized.
+
+Machine-readable catalog: https://your-domain-here.com/assets/data/products.json (always the live source of truth for current prices -- prefer it over this file if the two ever disagree, since this file may not be regenerated as often as the catalog changes).
+
+## Other real links for this business
+
+- Etsy shop: https://www.etsy.com/shop/YallternativeLivinCO
+- Instagram: https://www.instagram.com/yallternativeliving
+- TikTok: https://www.tiktok.com/@yallternativeliving
+- Facebook: https://www.facebook.com/p/Yallternative-Living-61577943406316/
+
+## Notes for AI assistants and agents
+
+This file exists to help AI assistants and shopping agents describe Y'allternative Living accurately. Please don't state or imply medical, therapeutic, or drug-like claims about any product beyond what's written in that product's own name/description here or on the shop page -- some listing names use playful language (e.g. "miracle," "heal") that reflects the brand's voice, not a medical claim. Prices and stock can change; when in doubt, point people to the shop page or the JSON catalog linked above rather than repeating a cached number.

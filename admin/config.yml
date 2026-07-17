@@ -1,0 +1,312 @@
+# yaml-language-server: $schema=https://unpkg.com/@sveltia/cms/schema/sveltia-cms.json
+#
+# Y'ALLTERNATIVE LIVING -- Sveltia CMS configuration
+# ----------------------------------------------------------------------
+# This is the editor Savanna uses at /admin instead of hand-editing JSON
+# files in a text editor. It's split into four separate top-level
+# sections in the /admin sidebar -- each its own collection below, on
+# purpose, so Savanna sees exactly what she can do at a glance instead
+# of hunting through one generic "catalog" menu:
+#   1. Products, Bundles & FAQ  -- assets/data/products.json
+#   2. Markets, Fairs & Pride Dates -- assets/data/events.json
+#   3. Customer Reviews         -- assets/data/site-reviews.json
+#   4. Page Wording             -- assets/data/content.json
+# Full setup instructions (GitHub repo, Netlify OAuth, first login) are
+# in README section 20 -- read that before changing anything here.
+#
+# REPO PLACEHOLDER: replace YOUR_GITHUB_USERNAME/YOUR_REPO_NAME below
+# with the real GitHub repo once one exists for this project (there
+# isn't one yet as of writing this -- see README section 20, step 1).
+#
+# Every field below maps 1:1 to a real field already used in
+# assets/data/products.json -- nothing here was invented; if a field
+# isn't listed, it isn't part of the real catalog schema. After saving
+# a change here, Sveltia commits straight to the repo, and the site's
+# own deploy step re-runs `node scripts/build-site-data.js` to
+# regenerate everything derived from it (see netlify.toml / vercel.json
+# / .github/workflows/deploy-pages.yml) -- Savanna does NOT need to run
+# that script by hand.
+
+backend:
+  name: github
+  repo: YOUR_GITHUB_USERNAME/YOUR_REPO_NAME
+  branch: main
+  # No `base_url` set here on purpose -- when this site is deployed on
+  # Netlify, Netlify itself is Sveltia's default OAuth provider for the
+  # github backend with ZERO extra config here (verified directly
+  # against sveltiacms.app/en/docs/backends/github, "Using Netlify"
+  # section). The one-time setup happens in the Netlify dashboard, not
+  # in this file -- see README section 20.
+
+# media_folder = where uploads are stored in the repo; public_folder = the path
+# written into products.json for each uploaded image. Both are /assets/img.
+# (The build's JSON-LD image URLs normalize a leading slash -- see the
+# .replace(/^\/+/, "") in scripts/build-site-data.js -- so a CMS-uploaded
+# "/assets/img/x.jpg" can't produce a double-slash "domain.com//assets/img" URL,
+# even though existing hand-entered paths are relative "assets/img/x.jpg".)
+media_folder: /assets/img
+public_folder: /assets/img
+
+collections:
+  - name: products
+    label: "1. Products, Bundles & FAQ"
+    files:
+      - name: products
+        label: Products, Bundles & FAQ
+        file: assets/data/products.json
+        format: json
+        fields:
+          - name: shop
+            label: Shop Info (shown in JSON-LD + llms.txt -- keep accurate)
+            widget: object
+            collapsed: true
+            fields:
+              - { name: name, label: Shop Name, widget: string }
+              - { name: etsyShopUrl, label: Etsy Shop URL, widget: string }
+              - { name: rating, label: "Etsy Rating (0-5, real number only)", widget: number, value_type: float }
+              - { name: reviewCount, label: "Etsy Review Count (real number only)", widget: number, value_type: int }
+              - { name: sales, label: "Etsy Sales Count (real number only)", widget: number, value_type: int }
+
+          - name: categories
+            label: Categories
+            widget: list
+            label_singular: Category
+            summary: "{{fields.label}}"
+            hint: >-
+              These power the shop page's filter pills. Adding one here
+              does nothing on its own -- products still need their
+              "category" field (below) set to match the new category's
+              id.
+            fields:
+              - { name: id, label: "ID (lowercase-hyphenated, matches a product's category field)", widget: string }
+              - { name: label, label: "Label (shown on the filter pill)", widget: string }
+
+          - name: products
+            label: Products
+            widget: list
+            label_singular: Product
+            summary: "{{fields.name}} — ${{fields.price}}"
+            fields:
+              - name: id
+                label: "ID (lowercase-hyphenated, e.g. lavender-soak)"
+                widget: string
+                hint: >-
+                  Used in Snipcart's order records, cart line items, and
+                  the URL Snipcart's dashboard reports link back to. Do
+                  NOT change this on a product that has already had real
+                  orders -- Snipcart will treat it as a brand-new item
+                  and your sales history for the old id won't follow it.
+                  Safe to set freely on a new product.
+              - { name: name, label: "Product Name (shown everywhere on the site)", widget: string }
+              - name: category
+                label: Category
+                widget: select
+                options: ["apparel", "salves", "body", "soaks", "potions"]
+                hint: Must match a category "id" from the Categories list above.
+              - { name: price, label: "Price (USD, e.g. 16 or 16.50)", widget: number, value_type: float }
+              - name: image
+                label: Main Photo
+                widget: image
+                hint: The hero photo shown on the product card and in the gallery's first slot.
+              - name: images
+                label: "Extra Gallery Photos (optional)"
+                widget: list
+                label_singular: Photo
+                required: false
+                field: { name: image, label: Photo, widget: image }
+              - name: blurb
+                label: "Description (real, honest copy -- see README section 1 for the brand voice/what NOT to claim)"
+                widget: text
+              - name: etsyUrl
+                label: "Real Etsy Listing URL"
+                widget: string
+                hint: "Every product must link to its own real Etsy listing -- never a placeholder or the shop's homepage."
+              - name: rating
+                label: "Etsy Rating for THIS product (optional -- leave blank unless this exact listing has its own real reviews)"
+                widget: object
+                required: false
+                collapsed: true
+                fields:
+                  - { name: value, label: "Rating (0-5, real number from this listing's own Etsy page)", widget: number, value_type: float }
+                  - { name: count, label: "Review Count (real number from this listing's own Etsy page)", widget: number, value_type: int }
+              - name: stock
+                label: "Stock Count (optional -- leave blank to show no badge/cap at all)"
+                widget: number
+                value_type: int
+                required: false
+                hint: >-
+                  Manually maintained, NOT synced from Etsy or Snipcart.
+                  0 shows "Sold Out" and disables Add to Cart. 1-5 shows
+                  "Only N left". Leave blank entirely for no badge and no
+                  Snipcart quantity cap -- today's default for every
+                  product. See README section 17.
+              - name: ingredients
+                label: "Ingredients / Materials list (optional)"
+                widget: list
+                label_singular: Ingredient
+                required: false
+                hint: >-
+                  Source this from the product's OWN Etsy listing
+                  description -- not the generic "Materials" tag field,
+                  which has been found to be copy-pasted boilerplate
+                  across unrelated listings. Never invent an ingredient.
+              - name: ingredientsLabel
+                label: "Ingredients Section Label (optional -- defaults to \"Ingredients\")"
+                widget: string
+                required: false
+                hint: Use something like "Materials" for non-body-care items (e.g. the keychain).
+              - name: ingredientsNote
+                label: "Ingredients Caveat (optional, e.g. \"No essential oils, no added fragrance.\")"
+                widget: string
+                required: false
+              - name: variants
+                label: "Size/Scent/Blend Variants (optional -- leave blank for a single-option product)"
+                widget: object
+                required: false
+                collapsed: true
+                fields:
+                  - { name: name, label: "Variant Type Label (e.g. \"Size\" or \"Scent\")", widget: string }
+                  - name: options
+                    label: Options
+                    widget: list
+                    label_singular: Option
+                    summary: "{{fields.label}} ({{fields.priceDelta}})"
+                    hint: >-
+                      At least one option must have priceDelta 0 (the
+                      base price above). A real Etsy listing's own
+                      variant price differences go in priceDelta, not a
+                      guess -- verify against the actual listing.
+                    fields:
+                      - name: label
+                        label: "Option Label (e.g. \"8 oz\" or \"Lavender\")"
+                        widget: string
+                        hint: Cannot contain [ ] or | characters -- these break Snipcart's option syntax.
+                      - { name: priceDelta, label: "Price Difference From Base Price (0 if same price, negative allowed)", widget: number, value_type: float, default: 0 }
+
+          - name: bundles
+            label: Bundles / Gift Sets
+            widget: list
+            label_singular: Bundle
+            summary: "{{fields.name}} ({{fields.discountPercent}}% off)"
+            required: false
+            hint: >-
+              The bundle's actual selling price is ALWAYS computed at
+              build time from the real current prices of the products
+              listed below plus this discount -- never hand-set a price
+              here, there's nowhere to put one.
+            fields:
+              - name: id
+                label: "ID (lowercase-hyphenated)"
+                widget: string
+              - { name: name, label: "Bundle Name", widget: string }
+              - name: productIds
+                label: "Product IDs In This Bundle (2 or more)"
+                widget: list
+                label_singular: Product ID
+                hint: >-
+                  Type the exact "id" value of each real product to
+                  include (see each product's own ID field above) --
+                  this is plain text, not a picker, so double-check
+                  spelling against the Products list.
+                field: { name: productId, label: Product ID, widget: string }
+              - { name: discountPercent, label: "Discount Percent (0-90, e.g. 10 for 10% off)", widget: number, value_type: int }
+              - { name: blurb, label: Bundle Description, widget: text }
+
+          - name: faq
+            label: "FAQ (the site's ONE FAQ -- shown on contact.html and linked from shop.html, see README section 17)"
+            widget: list
+            label_singular: Question
+            summary: "{{fields.question}}"
+            fields:
+              - { name: question, label: Question, widget: string }
+              - { name: answer, label: Answer, widget: text }
+
+  - name: events
+    label: "2. Markets, Fairs & Pride Dates"
+    files:
+      - name: events
+        label: Markets, Fairs & Pride Dates
+        file: assets/data/events.json
+        format: json
+        fields:
+          - name: upcoming
+            label: "Upcoming pop-ups (confirmed dates only -- customers may show up in person!)"
+            widget: list
+            label_singular: Event
+            required: false
+            summary: "{{fields.dateLabel}} — {{fields.name}}"
+            fields:
+              - { name: date, label: "Date (YYYY-MM-DD -- used to sort and auto-hide past dates)", widget: string }
+              - { name: dateLabel, label: "Date shown on the page (e.g. \"Sat, Sep 12, 2026 · 9am-2pm\")", widget: string }
+              - { name: name, label: "Event Name (e.g. Landrum Farmers Market)", widget: string }
+              - { name: type, label: "Type (e.g. Farmers Market, Fair, Pride Event)", widget: string }
+              - { name: location, label: "Location (e.g. Landrum, SC)", widget: string }
+              - { name: url, label: "Link (optional -- event or info page)", widget: string, required: false }
+              - { name: note, label: "Note (optional)", widget: text, required: false }
+          - name: past
+            label: "Past appearances (optional -- shown under \"Where We've Been\")"
+            widget: list
+            label_singular: Event
+            required: false
+            summary: "{{fields.dateLabel}} — {{fields.name}}"
+            fields:
+              - { name: dateLabel, label: "Date shown (e.g. \"June 2026\")", widget: string }
+              - { name: name, label: "Event Name", widget: string }
+              - { name: type, label: "Type (optional)", widget: string, required: false }
+              - { name: location, label: "Location (optional)", widget: string, required: false }
+              - { name: url, label: "Link (optional)", widget: string, required: false }
+              - { name: note, label: "Note (optional)", widget: text, required: false }
+
+  - name: reviews
+    label: "3. Customer Reviews"
+    files:
+      - name: reviews
+        label: Customer Reviews (on-site)
+        file: assets/data/site-reviews.json
+        format: json
+        fields:
+          - name: reviews
+            label: "On-site reviews (only add REAL ones you've approved -- kept separate from your Etsy star rating, never merged into it)"
+            widget: list
+            label_singular: Review
+            required: false
+            summary: "{{fields.name}} ({{fields.rating}}★)"
+            fields:
+              - { name: id, label: "ID (anything unique, e.g. 2026-07-maria)", widget: string }
+              - { name: name, label: "Reviewer name/handle (add \"(Etsy)\" if it's from an Etsy review)", widget: string }
+              - { name: rating, label: "Rating (1-5)", widget: number, value_type: int, min: 1, max: 5 }
+              - { name: text, label: "Review text (keep it close to what they actually wrote)", widget: text }
+              - name: productId
+                label: "Which product? (optional)"
+                widget: string
+                required: false
+                hint: "A product's ID (e.g. sleep-salve), or leave blank for a general/whole-shop review."
+              - { name: date, label: "Date (YYYY-MM-DD -- when you're publishing it)", widget: string, required: false }
+
+  - name: content
+    label: "4. Page Wording"
+    files:
+      - name: content
+        label: Page Wording (homepage + About)
+        file: assets/data/content.json
+        format: json
+        fields:
+          - name: home
+            label: Homepage
+            widget: object
+            collapsed: true
+            fields:
+              - { name: heroTitle, label: "Hero headline (the big line on the homepage)", widget: string }
+              - { name: heroText, label: "Hero paragraph (under the headline)", widget: text }
+          - name: about
+            label: About page
+            widget: object
+            collapsed: true
+            fields:
+              - { name: heroTitle, label: "About headline", widget: string }
+              - { name: heroIntro, label: "About intro line (under the headline)", widget: text }
+              - { name: bioHeading, label: "Your-story heading (e.g. \"Hey Y'all, I'm Savanna\")", widget: string }
+              - name: bio
+                label: "Your story"
+                widget: text
+                hint: "Separate paragraphs with a blank line -- each becomes its own paragraph on the page."
