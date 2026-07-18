@@ -1,5 +1,5 @@
 /* ==========================================================
-   Y'ALLTERNATIVE LIVING — shared site behavior
+   Y'ALLTERNATIVE LIVING | shared site behavior
    Zero dependencies, zero build step. Vanilla JS only so the
    whole site stays instant on any connection.
    ========================================================== */
@@ -731,7 +731,7 @@
       .filter(Boolean);
     if (!items.length) {
       body.innerHTML =
-        '<div class="wish-empty"><span class="glyph" aria-hidden="true">♡</span>Nothing saved yet — tap the heart on anything in the shop to keep it here.</div>';
+        '<div class="wish-empty"><span class="glyph" aria-hidden="true">♡</span>Nothing saved yet. Tap the heart on anything in the shop to keep it here.</div>';
       return;
     }
     body.innerHTML = items
@@ -1303,7 +1303,7 @@
             "<p>&ldquo;" +
             attrEsc(r.text) +
             "&rdquo;</p>" +
-            "<footer>— " +
+            "<footer>" +
             byline +
             "</footer>" +
             "</div>"
@@ -1346,10 +1346,10 @@
           '<span class="glyph" aria-hidden="true">✦</span>' +
           "<h3>New Pop-Ups Land Here As Soon As They're Booked</h3>" +
           "<p>We keep this page current the second a market or Pride date is locked in. In the meantime, " +
-          "follow along on Instagram or TikTok — that's where every table gets announced first.</p>" +
+          "follow along on Instagram or TikTok where every table gets announced first.</p>" +
           '<div class="hero-actions" style="justify-content:center;">' +
-          '<a class="btn btn-primary" href="https://www.instagram.com/yallternativeliving" target="_blank" rel="noopener">Follow on Instagram</a>' +
-          '<a class="btn btn-outline" href="https://www.tiktok.com/@yallternativeliving" target="_blank" rel="noopener">Follow on TikTok</a>' +
+          '<a class="btn btn-primary" href="https://www.instagram.com/yallternativeliving" target="_blank" rel="noopener">Instagram ↗</a>' +
+          '<a class="btn btn-outline" href="https://www.tiktok.com/@yallternativeliving" target="_blank" rel="noopener">TikTok ↗</a>' +
           "</div>" +
           "</div>";
       }
@@ -1360,7 +1360,7 @@
       var past = events.past || [];
       pastEl.innerHTML = past.length
         ? past.map(eventCardHTML).join("")
-        : '<p class="muted center">No past pop-ups logged yet — check back soon.</p>';
+        : '<p class="muted center">No past pop-ups logged yet. Check back soon.</p>';
       markReveal(pastEl);
     }
   }
@@ -1568,7 +1568,7 @@
       bar.className = "cart-fallback";
       bar.setAttribute("role", "alert");
       bar.innerHTML =
-        "<p>Checkout didn't load — an ad or tracker blocker can sometimes stop it. " +
+        "<p>Checkout didn't load. An ad or tracker blocker can sometimes stop it. " +
         'You can still grab everything on our <a href="' +
         ETSY_SHOP +
         '" target="_blank" rel="noopener">Etsy shop</a>.</p>' +

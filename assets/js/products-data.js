@@ -62,7 +62,7 @@ window.YL_PRODUCTS = {
         "assets/img/tank-top-alt2.jpg",
         "assets/img/tank-top-alt3.jpg"
       ],
-      "blurb": "Same rainbow stag, same crescent moon, cut for the hottest days of the year. Soft triblend racerback built to be worn hard and washed easy — original artwork, not something pulled off a mass-print catalog.",
+      "blurb": "Same rainbow stag, same crescent moon, cut for the hottest days of the year. Soft triblend racerback built to be worn hard and washed easy. Original artwork, not something pulled off a mass-print catalog.",
       "variants": {
         "name": "Size",
         "options": [
@@ -93,7 +93,7 @@ window.YL_PRODUCTS = {
         "assets/img/unisex-tshirt-alt2.jpg",
         "assets/img/unisex-tshirt-alt3.jpg"
       ],
-      "blurb": "The shirt that started the whole shop: a rainbow stag under a crescent moon, screen-printed on soft cotton cut to actually fit everybody. Original artwork, zero mass-production — wear it to the market, wear it to Pride, wear it everywhere in between.",
+      "blurb": "The shirt that started the whole shop: a rainbow stag under a crescent moon, screen-printed on soft cotton cut to actually fit everybody. Original artwork, zero mass-production. Wear it to the market, wear it to Pride, wear it everywhere in between.",
       "variants": {
         "name": "Size",
         "options": [
@@ -128,7 +128,7 @@ window.YL_PRODUCTS = {
         "assets/img/frankincense-salve-alt2.jpg",
         "assets/img/frankincense-salve-alt3.jpg"
       ],
-      "blurb": "One little tin, a whole lot of jobs: dry cuticles, cracked heels, windburn, razor bumps — whatever's rough, this goes on it. Calendula, arnica, and five essential oils in a beeswax-shea base, mixed by hand in a 2 oz tin in Landrum, SC.",
+      "blurb": "One little tin, a whole lot of jobs: dry cuticles, cracked heels, windburn, razor bumps. Whatever's rough, this goes on it. Calendula, arnica, and five essential oils in a beeswax-shea base, mixed by hand in a 2 oz tin in Landrum, SC.",
       "ingredients": [
         "Beeswax",
         "Shea Butter",
@@ -151,7 +151,7 @@ window.YL_PRODUCTS = {
       "category": "salves",
       "price": 8,
       "image": "assets/img/miracle-balm.jpg",
-      "blurb": "No essential oils, no fragrance, nothing to react to — just a rich little .5 oz balm for lips, cuticles, and anywhere skin needs backup. Gentle enough for the whole family, kids included.",
+      "blurb": "No essential oils, no fragrance, nothing to react to. Just a rich little .5 oz balm for lips, cuticles, and anywhere skin needs backup. Gentle enough for the whole family, kids included.",
       "ingredients": [
         "Cera Alba (Beeswax)",
         "Butyrospermum Parkii (Shea) Butter",
@@ -222,7 +222,7 @@ window.YL_PRODUCTS = {
         "assets/img/shimmer-oil-alt2.jpg",
         "assets/img/shimmer-oil-alt3.jpg"
       ],
-      "blurb": "Cedarwood, sweet orange, and patchouli under a black-gold shimmer that photographs as good as it feels — that's the Seduction blend, one of three scents this comes in. Lightweight, fast-absorbing, and built for festivals, Pride, and anywhere else you plan on shining harder than everyone around you.",
+      "blurb": "Cedarwood, sweet orange, and patchouli under a black-gold shimmer that photographs as good as it feels. That's the Seduction blend, one of three scents this comes in. Lightweight, fast-absorbing, and built for festivals, Pride, and anywhere else you plan on shining harder than everyone around you.",
       "ingredients": [
         "Fractionated Coconut Oil",
         "Sweet Almond Oil",
@@ -263,7 +263,7 @@ window.YL_PRODUCTS = {
         "assets/img/shea-butter-alt1.jpg",
         "assets/img/shea-butter-alt2.jpg"
       ],
-      "blurb": "Deep Shea Rest, whipped thick with raw African shea and a lavender-forward blend underneath. Massage it into damp skin after your shower and let it work on cracked heels and winter-dry patches while you sleep — built as a night ritual, not just a lotion.",
+      "blurb": "Deep Shea Rest, whipped thick with raw African shea and a lavender-forward blend underneath. Massage it into damp skin after your shower and let it work on cracked heels and winter-dry patches while you sleep. Built as a night ritual, not just a lotion.",
       "ingredients": [
         "Shea Butter (Raw African + Refined)",
         "Mango Butter",
@@ -422,7 +422,7 @@ window.YL_PRODUCTS = {
         "assets/img/protection-keychain-alt1.jpg",
         "assets/img/protection-keychain-alt2.jpg"
       ],
-      "blurb": "A mini spell jar, wax-sealed and clipped to a sturdy keyring — pick your blend below. Five inches of everyday witchy armor for your keys, bag, or backpack.",
+      "blurb": "A mini spell jar, wax-sealed and clipped to a sturdy keyring. Pick your blend below. Five inches of everyday witchy armor for your keys, bag, or backpack.",
       "ingredients": [
         "Black Lava Salt",
         "Pink Himalayan Salt",
@@ -466,7 +466,7 @@ window.YL_PRODUCTS = {
         "assets/img/bug-spray-alt2.jpg",
         "assets/img/bug-spray-alt3.jpg"
       ],
-      "blurb": "Tell the mosquitoes to buzz off — naturally. Citronella, lemongrass, and five other essential oils in a 2 oz amber spray, no DEET, no sticky residue, just Southern summer survival.",
+      "blurb": "Tell the mosquitoes to buzz off, naturally. Citronella, lemongrass, and five other essential oils in a 2 oz amber spray, no DEET, no sticky residue, just Southern summer survival.",
       "ingredients": [
         "Alcohol",
         "Glycerin",
@@ -488,7 +488,7 @@ window.YL_PRODUCTS = {
       "category": "body",
       "price": 14,
       "image": "assets/img/placeholder-coming-soon.svg",
-      "blurb": "Rainbow layers of exfoliating sugar scrub that mean exactly what they say — y'all means all. Sloughs off the rough, leaves skin soft and sweet, and looks like a Pride parade in a jar. Glitter-and-grit self-care for the black sheep and bold hearts.",
+      "blurb": "Rainbow layers of exfoliating sugar scrub that mean exactly what they say: y'all means all. Sloughs off the rough, leaves skin soft and sweet, and looks like a Pride parade in a jar. Glitter-and-grit self-care for the black sheep and bold hearts.",
       "ingredients": [
         "Cane Sugar",
         "Coconut Oil",
@@ -497,7 +497,7 @@ window.YL_PRODUCTS = {
         "Skin-Safe Fragrance",
         "Mica (Color)"
       ],
-      "ingredientsNote": "Ingredient list is approximate (re-added from a delisted Etsy listing) — confirm against the real recipe before publishing.",
+      "ingredientsNote": "Ingredient list is approximate (re-added from a delisted Etsy listing). Confirm against the real recipe before publishing.",
       "rating": {
         "value": 5,
         "count": 1
@@ -510,7 +510,7 @@ window.YL_PRODUCTS = {
       "category": "body",
       "price": 18,
       "image": "assets/img/placeholder-coming-soon.svg",
-      "blurb": "Whipped light and fluffy in a citrus-peach blend, with rainbow swirls that mean all of it — every color, every one of us. Melts in without the grease and keeps skin soft all day. Y'all means all, moisturized.",
+      "blurb": "Whipped light and fluffy in a citrus-peach blend, with rainbow swirls that mean all of it: every color, every one of us. Melts in without the grease and keeps skin soft all day. Y'all means all, moisturized.",
       "ingredients": [
         "Shea Butter",
         "Mango Butter",
@@ -521,7 +521,7 @@ window.YL_PRODUCTS = {
         "Citrus Peach Fragrance",
         "Mica (Color)"
       ],
-      "ingredientsNote": "Ingredient list is approximate (re-added from a delisted Etsy listing) — confirm against the real recipe before publishing.",
+      "ingredientsNote": "Ingredient list is approximate (re-added from a delisted Etsy listing). Confirm against the real recipe before publishing.",
       "rating": {
         "value": 5,
         "count": 1
@@ -534,7 +534,7 @@ window.YL_PRODUCTS = {
       "category": "ritual",
       "price": 14,
       "image": "assets/img/placeholder-coming-soon.svg",
-      "blurb": "White sage, cedar, and sweetgrass in a fine mist — two pumps at the doorway after a hard conversation, a house guest who overstayed, or just a Monday that won't quit. Inspired by Appalachian folk tradition, no smoke, no residue, no landlord complaints. Amber glass, small-batch blended in Landrum, SC.",
+      "blurb": "White sage, cedar, and sweetgrass in a fine mist: two pumps at the doorway after a hard conversation, a house guest who overstayed, or just a Monday that won't quit. Inspired by Appalachian folk tradition, no smoke, no residue, no landlord complaints. Amber glass, small-batch blended in Landrum, SC.",
       "ingredients": [
         "Distilled Water",
         "Witch Hazel",
@@ -542,7 +542,7 @@ window.YL_PRODUCTS = {
         "Vegetable Glycerin",
         "Preservative"
       ],
-      "ingredientsNote": "Shake gently before each use. Mist doorways, corners, or yourself — anywhere the energy feels stuck. Safe around pets when dry.",
+      "ingredientsNote": "Shake gently before each use. Mist doorways, corners, or yourself: anywhere the energy feels stuck. Safe around pets when dry.",
       "variants": {
         "name": "Size",
         "options": [
@@ -627,7 +627,7 @@ window.YL_PRODUCTS = {
         "hand-scrub"
       ],
       "discountPercent": 10,
-      "blurb": "Scent-matched on purpose. The beard salve softens the scruff; the hand scrub takes the grease off whatever he was working on — both in the same bourbon, vanilla and cedarwood, so it reads as one gift, not two things from two different aisles."
+      "blurb": "Scent-matched on purpose. The beard salve softens the scruff; the hand scrub takes the grease off whatever he was working on. Both in the same bourbon, vanilla and cedarwood, so it reads as one gift, not two things from two different aisles."
     },
     {
       "id": "night-ritual-set",
@@ -647,7 +647,7 @@ window.YL_PRODUCTS = {
         "shimmer-oil"
       ],
       "discountPercent": 10,
-      "blurb": "The flagship rainbow-stag tee plus the shimmer oil built for exactly this — festivals, Pride, and anywhere you plan on shining harder than everyone around you. Pull the 'Y'all Means All' scent and wear the whole thing to the parade. Queer at the root, year-round."
+      "blurb": "The flagship rainbow-stag tee plus the shimmer oil built for exactly this: festivals, Pride, and anywhere you plan on shining harder than everyone around you. Pull the 'Y'all Means All' scent and wear the whole thing to the parade. Queer at the root, year-round."
     },
     {
       "id": "everyday-armor-kit",
@@ -658,7 +658,7 @@ window.YL_PRODUCTS = {
         "lavender-soak"
       ],
       "discountPercent": 10,
-      "blurb": "Everyday witchy armor, boxed up: a wax-sealed protection spell jar for your keys, the bug spray that tells mosquitoes to buzz off — naturally, and a lavender soak for taking up all the space you want in the tub. Grit and glitter for the black sheep on your list."
+      "blurb": "Everyday witchy armor, boxed up: a wax-sealed protection spell jar for your keys, the bug spray that tells mosquitoes to buzz off, naturally, and a lavender soak for taking up all the space you want in the tub. Grit and glitter for the black sheep on your list."
     },
     {
       "id": "gentle-landing-set",
@@ -681,7 +681,7 @@ window.YL_PRODUCTS = {
         "cleansing-spray"
       ],
       "discountPercent": 15,
-      "blurb": "Can't decide? Try a little of everything. Five of our bestselling products bundled together at 15% off — the salve everybody re-orders, the bourbon-vanilla scrub, a lavender soak, the bug spray that actually works, and our Appalachian clearing mist. A full tour of the shop in one box."
+      "blurb": "Can't decide? Try a little of everything. Five of our bestselling products bundled together at 15% off: the salve everybody re-orders, the bourbon-vanilla scrub, a lavender soak, the bug spray that actually works, and our Appalachian clearing mist. A full tour of the shop in one box."
     }
   ],
   "faq": [
@@ -691,7 +691,7 @@ window.YL_PRODUCTS = {
     },
     {
       "question": "What's your return policy?",
-      "answer": "Opened salves, scrubs, and soaks are final sale for hygiene reasons — unworn apparel and sealed items can be exchanged. Anything arrive wrong or damaged? Email us and we'll make it right."
+      "answer": "Opened salves, scrubs, and soaks are final sale for hygiene reasons. Unworn apparel and sealed items can be exchanged. Anything arrive wrong or damaged? Email us and we'll make it right."
     },
     {
       "question": "Do you have unscented or sensitive-skin options?",

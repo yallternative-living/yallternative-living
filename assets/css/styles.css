@@ -217,7 +217,7 @@ p{ margin:0 0 1em; color: var(--paper-dim); }
   max-width: var(--container);
   margin:0 auto;
   padding:0 24px;
-  container-type: inline-size; /* Component Container Query root */
+  width:100%;
 }
 
 section{

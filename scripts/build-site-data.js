@@ -411,7 +411,7 @@ var itemListElement = PRODUCTS.map(function (p, i) {
 var shopJsonLd = {
   "@context": "https://schema.org",
   "@type": "ItemList",
-  name: "Y'allternative Living — Full Shop Catalog",
+  name: "Y'allternative Living | Full Shop Catalog",
   itemListElement: itemListElement
 };
 var shopHtml = readText("shop.html", "shop page");
