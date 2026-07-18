@@ -415,6 +415,24 @@ var shopJsonLd = {
   itemListElement: itemListElement
 };
 var shopHtml = readText("shop.html", "shop page");
+
+var NUMBER_WORDS = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen", "Twenty"];
+var productCount = CATALOG.products.length;
+var productCountWord = NUMBER_WORDS[productCount] || String(productCount);
+
+shopHtml = shopHtml.replace(/Shop \d+ handmade goods/, "Shop " + productCount + " handmade goods");
+shopHtml = shopHtml.replace(/\b\d+ handmade goods across/g, productCount + " handmade goods across");
+
+var countMarkerRe = /(<!--YL:productCount-->)\d+(<!--\/YL:productCount-->)/;
+if (countMarkerRe.test(shopHtml)) {
+  shopHtml = shopHtml.replace(countMarkerRe, "$1" + productCount + "$2");
+}
+
+var wordMarkerRe = /(<!--YL:productCountWord-->)[A-Za-z]+(<!--\/YL:productCountWord-->)/;
+if (wordMarkerRe.test(shopHtml)) {
+  shopHtml = shopHtml.replace(wordMarkerRe, "$1" + productCountWord + "$2");
+}
+
 var shopBlockRe =
   /<script type="application\/ld\+json">\n\{\n\s*"@context": "https:\/\/schema\.org",\n\s*"@type": "ItemList"[\s\S]*?\n<\/script>/;
 if (!shopBlockRe.test(shopHtml)) {
@@ -442,11 +460,18 @@ var shopFaqLd = {
     };
   })
 };
-var shopFaqScript =
-  '\n  <script type="application/ld+json">\n' +
-  JSON.stringify(shopFaqLd, null, 2).replace(/\n/g, "\n  ") +
-  "\n  </script>\n";
-shopHtml = shopHtml.replace("</head>", shopFaqScript + "</head>");
+var faqLdBlockRe =
+  /<script type="application\/ld\+json">\n\{\n\s*"@context": "https:\/\/schema\.org",\n\s*"@type": "FAQPage"[\s\S]*?\n<\/script>/;
+var newFaqLdBlock =
+  '<script type="application/ld+json">\n' + JSON.stringify(shopFaqLd, null, 2) + "\n</script>";
+
+if (faqLdBlockRe.test(shopHtml)) {
+  shopHtml = shopHtml.replace(faqLdBlockRe, function () {
+    return newFaqLdBlock;
+  });
+} else {
+  shopHtml = shopHtml.replace("</head>", "\n  " + newFaqLdBlock + "\n</head>");
+}
 
 writeFile("shop.html", shopHtml);
 
@@ -470,8 +495,6 @@ var faqJsonLd = {
     };
   })
 };
-var faqLdBlockRe =
-  /<script type="application\/ld\+json">\n\{\n\s*"@context": "https:\/\/schema\.org",\n\s*"@type": "FAQPage"[\s\S]*?\n<\/script>/;
 if (!faqLdBlockRe.test(contactHtml)) {
   throw new Error(
     "Could not find the FAQPage JSON-LD block in contact.html -- aborting so nothing gets corrupted. Check the block still starts with @type: FAQPage."
@@ -495,17 +518,28 @@ var faqVisibleHtml = FAQ.map(function (item, i) {
     "        </div>";
   return i < FAQ.length - 1 ? block + '\n        <hr class="rule">\n' : block;
 }).join("\n");
-var faqMarkerRe = /(<!-- FAQ:START[\s\S]*?-->\n)[\s\S]*?(\n\s*<!-- FAQ:END -->)/;
+var faqMarkerRe = /(<!-- FAQ:START[\s\S]*?-->)[\s\S]*?(<!-- FAQ:END -->)/;
 if (!faqMarkerRe.test(contactHtml)) {
   throw new Error(
     "Could not find the FAQ:START/FAQ:END markers in contact.html's .contact-faq block -- aborting so nothing gets corrupted."
   );
 }
 contactHtml = contactHtml.replace(faqMarkerRe, function (m, start, end) {
-  return start + faqVisibleHtml + end;
+  return start + "\n" + faqVisibleHtml + "\n        " + end;
 });
 
 writeFile("contact.html", contactHtml);
+
+var shopHtmlWithFaq = readText("shop.html", "shop page");
+if (!faqMarkerRe.test(shopHtmlWithFaq)) {
+  throw new Error(
+    "Could not find the FAQ:START/FAQ:END markers in shop.html -- aborting so nothing gets corrupted."
+  );
+}
+shopHtmlWithFaq = shopHtmlWithFaq.replace(faqMarkerRe, function (m, start, end) {
+  return start + "\n" + faqVisibleHtml + "\n        " + end;
+});
+writeFile("shop.html", shopHtmlWithFaq);
 
 /* ---------- Page copy (index.html + about.html) ----------
    The homepage headline/intro and the About story are marker-delimited in
