@@ -1579,5 +1579,154 @@
       },
       true
     );
+
+    })();
+
+  /* ---------- Tag pills HTML ---------- */
+  var TAG_LABELS = {
+    vegan: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4l7 15 7-15"/><path d="M12 19c0-6 6-11 10-11-5 0-10 5-10 11z"/></svg> Vegan',
+    unscented: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/></svg> Unscented',
+    "essential-oil-free": '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg> EO-Free',
+    "sensitive-safe": '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg> Sensitive Safe',
+  };
+  function tagPillsHTML(p) {
+    var tags = p.tags;
+    if (!tags || !tags.length) return "";
+    return (
+      '<div class="tag-pills">' +
+      tags
+        .map(function (t) {
+          return '<span class="tag-pill">' + (TAG_LABELS[t] || t) + "</span>";
+        })
+        .join("") +
+      "</div>"
+    );
+  }
+
+  /* ---------- Announcement bar: free shipping threshold ---------- */
+  (function announcementBar() {
+    var data = window.YL_PRODUCTS;
+    if (!data || !data.shop) return;
+    var threshold = data.shop.freeShippingThreshold;
+    if (!threshold || threshold <= 0) return;
+    var bar = document.createElement("div");
+    bar.className = "announcement-bar";
+    bar.setAttribute("role", "status");
+    bar.textContent =
+      "✦ Free shipping on orders over $" + threshold + " ✦";
+    document.body.insertBefore(bar, document.body.firstChild);
+  })();
+
+  /* ---------- Snipcart cart drawer: shipping progress + cross-sell ---------- */
+  (function snipcartCartEnhancements() {
+    var data = window.YL_PRODUCTS;
+    if (!data || !data.shop) return;
+    var threshold = data.shop.freeShippingThreshold || 0;
+    var products = data.products || [];
+
+    function buildProgressHTML(total) {
+      if (threshold <= 0) return "";
+      var pct = Math.min(100, Math.round((total / threshold) * 100));
+      var remaining = threshold - total;
+      if (remaining <= 0) {
+        return (
+          '<div class="shipping-progress shipping-progress--done">' +
+          "🎉 You've unlocked free shipping!" +
+          "</div>"
+        );
+      }
+      return (
+        '<div class="shipping-progress">' +
+        "You're <strong>$" +
+        remaining.toFixed(2) +
+        "</strong> away from free shipping!" +
+        '<div class="shipping-progress__bar">' +
+        '<div class="shipping-progress__fill" style="width:' +
+        pct +
+        '%"></div>' +
+        "</div>" +
+        "</div>"
+      );
+    }
+
+    function findCrossSellProduct(cartItemIds) {
+      // Pick the cheapest product NOT already in the cart
+      var candidates = products
+        .filter(function (p) {
+          return (
+            cartItemIds.indexOf(p.id) === -1 &&
+            p.inStock !== false
+          );
+        })
+        .sort(function (a, b) {
+          return a.price - b.price;
+        });
+      return candidates.length ? candidates[0] : null;
+    }
+
+    function buildCrossSellHTML(product) {
+      if (!product) return "";
+      var imgSrc = product.image || "assets/img/placeholder-coming-soon.svg";
+      if (window.YL_IMG_MANIFEST && window.YL_IMG_MANIFEST[imgSrc]) {
+        imgSrc = window.YL_IMG_MANIFEST[imgSrc].avif || window.YL_IMG_MANIFEST[imgSrc].webp || imgSrc;
+      }
+      return (
+        '<div class="cart-cross-sell">' +
+        '<div class="cart-cross-sell__heading">Complete your ritual</div>' +
+        '<div class="cart-cross-sell__item">' +
+        '<img class="cart-cross-sell__img" src="' + attrEsc(imgSrc) + '" alt="' + attrEsc(product.name) + '" width="48" height="48" loading="lazy">' +
+        '<div class="cart-cross-sell__info">' +
+        '<div class="cart-cross-sell__name">' + attrEsc(product.name) + '</div>' +
+        '<div class="cart-cross-sell__price">$' + product.price.toFixed(2) + '</div>' +
+        "</div>" +
+        '<button class="cart-cross-sell__add snipcart-add-item"' +
+        ' data-item-id="' + attrEsc(product.id) + '"' +
+        ' data-item-price="' + product.price.toFixed(2) + '"' +
+        ' data-item-url="/assets/data/snipcart-products.json"' +
+        ' data-item-name="' + attrEsc(product.name) + '"' +
+        ' data-item-image="' + attrEsc(imgSrc) + '"' +
+        '>+ Add</button>' +
+        "</div>" +
+        "</div>"
+      );
+    }
+
+    // Wait for Snipcart SDK to load, then hook into state changes
+    document.addEventListener("snipcart.ready", function () {
+      if (!window.Snipcart) return;
+      window.Snipcart.store.subscribe(function () {
+        try {
+          var state = window.Snipcart.store.getState();
+          var cart = state.cart;
+          if (!cart) return;
+          var total = cart.total || 0;
+          var cartItemIds = (cart.items && cart.items.items)
+            ? cart.items.items.map(function (item) { return item.id; })
+            : [];
+
+          // Inject/update progress bar
+          var existing = document.querySelector(".shipping-progress");
+          var snipcartContent = document.querySelector(".snipcart-cart__content");
+          if (snipcartContent) {
+            if (existing) existing.remove();
+            snipcartContent.insertAdjacentHTML("afterbegin", buildProgressHTML(total));
+          }
+
+          // Inject/update cross-sell
+          var existingCS = document.querySelector(".cart-cross-sell");
+          var snipcartFooter = document.querySelector(".snipcart-cart__footer");
+          if (snipcartFooter) {
+            if (existingCS) existingCS.remove();
+            var crossProduct = findCrossSellProduct(cartItemIds);
+            if (crossProduct) {
+              snipcartFooter.insertAdjacentHTML("beforebegin", buildCrossSellHTML(crossProduct));
+            }
+          }
+        } catch (err) {
+          /* Snipcart internal state shape changed -- degrade silently */
+        }
+      });
+    });
   })();
 })();
+
