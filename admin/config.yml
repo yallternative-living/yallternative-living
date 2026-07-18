@@ -216,6 +216,9 @@ collections:
                   - { label: "Unscented", value: "unscented" }
                   - { label: "Essential Oil Free", value: "essential-oil-free" }
                   - { label: "Sensitive Skin Safe", value: "sensitive-safe" }
+                  - { label: "Cruelty-Free", value: "cruelty-free" }
+                  - { label: "Organic Ingredients", value: "organic" }
+                  - { label: "Locally Sourced / Foraged", value: "locally-sourced" }
               - name: inStock
                 label: In Stock
                 widget: boolean
