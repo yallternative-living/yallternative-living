@@ -80,7 +80,8 @@ window.YL_PRODUCTS = {
           }
         ]
       },
-      "etsyUrl": "https://www.etsy.com/listing/4341507933/yallternative-living-tank-top"
+      "etsyUrl": "https://www.etsy.com/listing/4341507933/yallternative-living-tank-top",
+      "tags": []
     },
     {
       "id": "unisex-tshirt",
@@ -115,7 +116,8 @@ window.YL_PRODUCTS = {
           }
         ]
       },
-      "etsyUrl": "https://www.etsy.com/listing/4341518675/yallternative-living-unisex-t-shirt"
+      "etsyUrl": "https://www.etsy.com/listing/4341518675/yallternative-living-unisex-t-shirt",
+      "tags": []
     },
     {
       "id": "frankincense-salve",
@@ -143,7 +145,8 @@ window.YL_PRODUCTS = {
         "value": 5,
         "count": 5
       },
-      "etsyUrl": "https://www.etsy.com/listing/4398130795/yall-heal-now-miracle-frankencise-salve"
+      "etsyUrl": "https://www.etsy.com/listing/4398130795/yall-heal-now-miracle-frankencise-salve",
+      "tags": []
     },
     {
       "id": "miracle-balm",
@@ -153,11 +156,11 @@ window.YL_PRODUCTS = {
       "image": "assets/img/miracle-balm.jpg",
       "blurb": "No essential oils, no fragrance, nothing to react to. Just a rich little .5 oz balm for lips, cuticles, and anywhere skin needs backup. Gentle enough for the whole family, kids included.",
       "ingredients": [
-        "Cera Alba (Beeswax)",
-        "Butyrospermum Parkii (Shea) Butter",
-        "Ricinus Communis (Castor) Seed Oil",
-        "Prunus Amygdalus Dulcis (Sweet Almond) Oil",
-        "Calendula Officinalis Flower Infused Oil",
+        "Cera alba (Beeswax)",
+        "Butyrospermum parkii (Shea) Butter",
+        "Ricinus communis (Castor) Seed Oil",
+        "Prunus amygdalus dulcis (Sweet Almond) Oil",
+        "Calendula officinalis Flower Infused Oil",
         "Lanolin",
         "Tocopherol (Vitamin E)"
       ],
@@ -189,7 +192,10 @@ window.YL_PRODUCTS = {
         "value": 5,
         "count": 1
       },
-      "etsyUrl": "https://www.etsy.com/listing/4398125773/hush-yall-magnesium-arnica-sleep-salve"
+      "etsyUrl": "https://www.etsy.com/listing/4398125773/hush-yall-magnesium-arnica-sleep-salve",
+      "tags": [
+        "vegan"
+      ]
     },
     {
       "id": "beard-salve",
@@ -209,7 +215,8 @@ window.YL_PRODUCTS = {
         "Vitamin E",
         "Fragrance & Essential Oils"
       ],
-      "etsyUrl": "https://www.etsy.com/listing/4460199621/bourbon-beard-salve-vanilla-cedarwood"
+      "etsyUrl": "https://www.etsy.com/listing/4460199621/bourbon-beard-salve-vanilla-cedarwood",
+      "tags": []
     },
     {
       "id": "shimmer-oil",
@@ -251,7 +258,10 @@ window.YL_PRODUCTS = {
           }
         ]
       },
-      "etsyUrl": "https://www.etsy.com/listing/4502740269/shimmer-body-oil-glitter-body-oil-non"
+      "etsyUrl": "https://www.etsy.com/listing/4502740269/shimmer-body-oil-glitter-body-oil-non",
+      "tags": [
+        "vegan"
+      ]
     },
     {
       "id": "shea-butter",
@@ -291,7 +301,8 @@ window.YL_PRODUCTS = {
         "value": 4,
         "count": 1
       },
-      "etsyUrl": "https://www.etsy.com/listing/4460110222/lavender-shea-body-butter-raw-african"
+      "etsyUrl": "https://www.etsy.com/listing/4460110222/lavender-shea-body-butter-raw-african",
+      "tags": []
     },
     {
       "id": "hand-scrub",
@@ -335,7 +346,11 @@ window.YL_PRODUCTS = {
         "value": 5,
         "count": 2
       },
-      "etsyUrl": "https://www.etsy.com/listing/4342208406/bourbon-vanilla-hand-scrub-exfoliating"
+      "etsyUrl": "https://www.etsy.com/listing/4342208406/bourbon-vanilla-hand-scrub-exfoliating",
+      "tags": [
+        "vegan",
+        "essential-oil-free"
+      ]
     },
     {
       "id": "lavender-soak",
@@ -453,12 +468,13 @@ window.YL_PRODUCTS = {
         "value": 5,
         "count": 1
       },
-      "etsyUrl": "https://www.etsy.com/listing/4378341348/protection-potion-keychain-black-lava"
+      "etsyUrl": "https://www.etsy.com/listing/4378341348/protection-potion-keychain-black-lava",
+      "tags": []
     },
     {
       "id": "bug-spray",
       "name": "Bug Off B*tch Natural Bug Spray",
-      "category": "potions",
+      "category": "body",
       "price": 10,
       "image": "assets/img/bug-spray.jpg",
       "images": [
@@ -502,7 +518,11 @@ window.YL_PRODUCTS = {
         "value": 5,
         "count": 1
       },
-      "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO"
+      "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
+      "tags": [
+        "vegan",
+        "essential-oil-free"
+      ]
     },
     {
       "id": "whipped-body-butter",
@@ -526,7 +546,11 @@ window.YL_PRODUCTS = {
         "value": 5,
         "count": 1
       },
-      "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO"
+      "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
+      "tags": [
+        "vegan",
+        "essential-oil-free"
+      ]
     },
     {
       "id": "cleansing-spray",
@@ -556,7 +580,10 @@ window.YL_PRODUCTS = {
           }
         ]
       },
-      "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO"
+      "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
+      "tags": [
+        "vegan"
+      ]
     },
     {
       "id": "bath-tea",
@@ -587,7 +614,11 @@ window.YL_PRODUCTS = {
           }
         ]
       },
-      "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO"
+      "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
+      "tags": [
+        "vegan",
+        "essential-oil-free"
+      ]
     },
     {
       "id": "porch-sweep-spray",
@@ -604,7 +635,10 @@ window.YL_PRODUCTS = {
         "Vegetable Glycerin",
         "Preservative"
       ],
-      "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO"
+      "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
+      "tags": [
+        "vegan"
+      ]
     }
   ],
   "bundles": [
