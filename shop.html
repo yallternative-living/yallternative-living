@@ -64,8 +64,11 @@
 <style>
   .shop-lede{ max-width: 1040px; margin: 0 0 22px; font-size: 1.05rem; }
   .shop-trust{
-    display:inline-flex; align-items:center; gap:.5em; flex-wrap:wrap; justify-content:center;
+    text-align: center; margin-top: 14px;
     font-size:.82rem; letter-spacing:.04em; color: var(--whiskey); font-weight:600;
+  }
+  .shop-trust span[aria-hidden] {
+    display: inline-block; transform: translateY(-1px); margin-right: .3em;
   }
   .shop-cta-actions{ display:flex; flex-direction:column; align-items:center; gap:14px; margin-top:28px; }
   .shop-cta-secondary{ font-size:.88rem; color: var(--paper-dim); }
