@@ -684,13 +684,14 @@ section{
     &:focus-visible { outline: 2px solid var(--whiskey); outline-offset: 2px; border-radius: 2px; }
   }
   
+  &[open] summary { padding-bottom: 4px; }
   &[open] summary::after { transform: rotate(45deg); }
   & ul { margin: 0; padding-left: 1.1em; }
   & li { margin-bottom: 2px; }
 }
 
-.ingredients-note { margin: 6px 0 0; font-style: italic; }
-.ingredients-caveat { margin: 6px 0 0; font-size: .8rem; }
+.ingredients-note { margin: 12px 0 16px; font-style: italic; }
+.ingredients-caveat { margin: 12px 0 16px; font-size: .8rem; }
 
 .trust-badge svg {
   flex-shrink: 0;
