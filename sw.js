@@ -1,4 +1,4 @@
-const CACHE_NAME = 'yallternative-cache-v1';
+const CACHE_NAME = 'yallternative-cache-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -12,6 +12,8 @@ const ASSETS_TO_CACHE = [
   '/assets/js/main.js',
   '/assets/js/products-data.js',
   '/assets/js/events-data.js',
+  '/assets/js/site-reviews-data.js',
+  '/assets/js/image-manifest.js',
   '/site.webmanifest',
   '/favicon.ico',
   '/assets/img/logo.png',

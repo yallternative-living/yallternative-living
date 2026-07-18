@@ -243,11 +243,11 @@ class.
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.5 3h2l2.6 12.6a2 2 0 0 0 2 1.6h8.4a2 2 0 0 0 2-1.6L21 8H6"/></svg>
         <span class="badge snipcart-items-count"></span>
       </button>
-      <button class="theme-toggle" id="themeToggle" role="switch" aria-checked="false" aria-label="Toggle dark and light mode">
+      <button type="button" class="theme-toggle" id="themeToggle" role="switch" aria-checked="false" aria-label="Toggle dark and light mode">
         <span class="knob">🌙</span>
       </button>
       <a class="btn btn-primary btn-sm" href="https://www.etsy.com/shop/YallternativeLivinCO" target="_blank" rel="noopener"><span>Shop</span> Etsy ↗</a>
-      <button class="nav-toggle" aria-label="Open menu" aria-expanded="false">☰</button>
+      <button type="button" class="nav-toggle" aria-label="Open menu" aria-expanded="false">☰</button>
     </div>
   </nav>
 </header>
