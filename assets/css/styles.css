@@ -1591,7 +1591,7 @@ hr.rule{ border:none; border-top:1px solid var(--hide); margin:48px 0; }
 .tag-pill {
   display: inline-flex; gap: 4px; align-items: center; justify-content: center; line-height: 1;
   font-size:.65rem; letter-spacing:.08em; text-transform:uppercase; font-weight:600;
-  color: var(--paper-dim); border:1px solid var(--hide); padding: 4px 10px 2px 6px; border-radius:20px;
+  color: var(--paper-dim); border:1px solid var(--hide); padding: 3px 10px 3px 6px; border-radius:20px;
 }
 
 /* ── Print Styles ─────────────────────────────────────── */
