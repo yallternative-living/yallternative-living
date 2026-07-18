@@ -1,10 +1,11 @@
 name: QA checks
 
-# Runs the site's own automated QA suite (scripts/qa-check.js, "npm test")
-# on every push and pull request -- catches a broken build, a dead link,
-# a malformed variant/rating, or CSP drift between _headers/vercel.json/
-# netlify.toml before it ever reaches a real deploy, instead of relying on
-# someone remembering to run `npm test` by hand first.
+# Runs ESLint, Prettier's format check, and the site's own automated QA
+# suite (scripts/qa-check.js, "npm test") on every push and pull request --
+# catches a broken build, a dead link, a malformed variant/rating, CSP
+# drift between _headers/vercel.json/netlify.toml, or a lint/format issue
+# before it ever reaches a real deploy, instead of relying on someone
+# remembering to run these by hand first.
 #
 # Note: as of the domain still being the "your-domain-here.com" placeholder
 # (see scripts/build-site-data.js), this workflow is EXPECTED to fail on
@@ -28,4 +29,6 @@ jobs:
           node-version: "20"
           cache: "npm"
       - run: npm install
+      - run: npm run lint
+      - run: npm run format:check
       - run: npm test

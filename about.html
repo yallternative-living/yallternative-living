@@ -60,7 +60,6 @@
   /* about.html one-offs, scoped so shared tokens/components stay untouched */
   .about-hero .lede{ max-width: 58ch; margin: 0 auto; }
   .about-founder p:last-of-type{ margin-bottom: 0; }
-  .about-values .grid-4{ margin-top: 8px; }
   .about-community blockquote{
     margin: 24px 0 0; padding-left: 18px; border-left: 3px solid var(--whiskey);
     font-family: var(--font-display); font-size: 1.1rem; color: var(--paper);
@@ -147,7 +146,7 @@
       <button class="theme-toggle" id="themeToggle" role="switch" aria-checked="false" aria-label="Toggle dark and light mode">
         <span class="knob" aria-hidden="true">🌙</span>
       </button>
-      <button class="nav-toggle" aria-label="Open menu" aria-expanded="false">☰</button>
+      <button class="nav-toggle" aria-label="Open menu" aria-expanded="false" aria-controls="navLinks">☰</button>
     </div>
   </nav>
 </header>
@@ -177,48 +176,8 @@
           <p class="eyebrow">Meet Savanna</p>
           <h2><!--YL:about.bioHeading-->Hey Y'all, I'm Savanna<!--/YL:about.bioHeading--></h2>
           <!--YL:about.bio--><p>I'm the hands, the nose, and most days the mouth behind Y'allternative Living. Every salve, soak, and scrub gets mixed, poured, and labeled by hand right in Landrum, SC. No factories, no focus groups -- just me, my kitchen, and an unreasonable number of mason jars.</p>
-          <p>The name isn't just a cute mash-up. Growing up in these foothills, you get handed sweet tea in one hand and a church potluck plate in the other, and if you're anything like me, you spend years thinking you have to pick a side: country or alternative, Southern or strange. Turns out Upstate SC raised a whole quiet army of us -- goth kids working the peach stand, emo kids who still say "y'all," queer folks who never left because this dirt is home too. Y'allternative Living is for every one of us who got tired of choosing.</p>
-          <p>What started as small-batch soaks and salves a little over a year ago, mixed on my stove and poured on my kitchen table, has grown into a whole little apothecary for the black sheep and bold hearts. I'm queer, I'm proud, and I built this so people like me could smell incredible without shrinking to do it. Taking up space and smelling amazing was always the whole mission statement.</p><!--/YL:about.bio-->
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============ VALUES GRID ============ -->
-  <section class="about-values">
-    <div class="container">
-      <div class="section-head">
-        <p class="eyebrow">What We Stand For</p>
-        <h2>Our Values</h2>
-      </div>
-      <div class="grid grid-4 stagger">
-        <div class="value-item reveal">
-          <span class="glyph" aria-hidden="true">♡</span>
-          <div>
-            <h2>Queer-Owned & Proud</h2>
-            <p>This is a queer-owned business, full stop: no asterisks, no hiding it in the fine print, no toning it down for anybody.</p>
-          </div>
-        </div>
-        <div class="value-item reveal">
-          <span class="glyph" aria-hidden="true">⟡</span>
-          <div>
-            <h2>Southern-Raised</h2>
-            <p>Backroads, porch lights, and sweet tea run through every label. We're proud of where we're from, even the parts that raised an eyebrow.</p>
-          </div>
-        </div>
-        <div class="value-item reveal">
-          <span class="glyph" aria-hidden="true">✶</span>
-          <div>
-            <h2>Handmade in Small Batches</h2>
-            <p>Every single batch is mixed, poured, and labeled by hand in Landrum, SC. Nothing here has ever seen a factory floor.</p>
-          </div>
-        </div>
-        <div class="value-item reveal">
-          <span class="glyph" aria-hidden="true">✦</span>
-          <div>
-            <h2>Community-Minded</h2>
-            <p>You'll find our table at farmers markets and Pride events across Upstate SC and beyond, like Upstate Pride's Colors of Pride. Showing up in person is part of the job.</p>
-          </div>
+          <p>The name isn't just a cute mash-up. Growing up in these foothills, you get handed sweet tea in one hand and a church potluck plate in the other, and if you're anything like me, you spend years thinking you have to pick a side: country or alternative, Southern or strange. Turns out Upstate SC raised a whole quiet army of us -- goth kids working the peach stand, emo kids who still say "y'all," queer folks who never left because this dirt is home too. Backroads, porch lights, and sweet tea still run through everything I make here, eyebrow-raising parts included. Y'allternative Living is for every one of us who got tired of choosing.</p>
+          <p>What started as small-batch soaks and salves a little over a year ago, mixed on my stove and poured on my kitchen table, has grown into a whole little apothecary for the black sheep and bold hearts. You'll usually find me in person too, tabling at farmers markets and Pride events across Upstate SC and beyond -- showing up face-to-face is part of the job, not an afterthought. I'm queer, I'm proud, and I built this so people like me could smell incredible without shrinking to do it. Taking up space and smelling amazing was always the whole mission statement.</p><!--/YL:about.bio-->
         </div>
       </div>
     </div>

@@ -486,7 +486,18 @@ var PAIRS = [
   ["rose-text", "ink", 4.5, "rose-text on primary background"],
   ["rose-text", "ink-2", 4.5, "rose-text on card background"],
   ["whiskey", "ink", 4.5, "whiskey accent text on primary background"],
-  ["on-fill", "rose-dim", 4.5, "button text on filled rose button"]
+  ["whiskey", "ink-2", 4.5, "whiskey accent text on card background"],
+  ["on-fill", "rose-dim", 4.5, "button text on filled rose button"],
+  // Reverse of the "whiskey accent text" pair above: whiskey as a solid
+  // FILL with ink as the text sitting on top (the cart badge). Added
+  // after a swarm-audit finding that turned out to be a false positive
+  // for this exact pair once actually computed (~7.7:1 dark / ~5.3:1
+  // light) -- kept here so any future token change that WOULD break it
+  // gets caught automatically instead of relying on manual recheck.
+  ["ink", "whiskey", 4.5, "badge/button text on whiskey fill (e.g. cart badge)"],
+  ["paper-dim", "ink", 4.5, "muted body text on primary background"],
+  ["paper-dim", "ink-2", 4.5, "muted body text on card background"],
+  ["paper-dim", "footer-bg", 4.5, "muted footer text on footer background"]
 ];
 
 [
@@ -1057,28 +1068,41 @@ if (!fs.existsSync(configYmlPath)) {
     fail("admin/config.yml", "media_folder/public_folder aren't both /assets/img");
   }
 
-  // Every real top-level key in products.json needs a corresponding field
-  // defined in config.yml, or the CMS would silently drop/hide that data
-  // the next time someone saves through the editor.
-  if (fs.existsSync(productsJsonPath)) {
+  // Every real top-level key in each CMS-editable JSON file needs a
+  // corresponding field defined in config.yml, or the CMS would silently
+  // drop/hide that data the next time someone saves through the editor.
+  // Originally only checked products.json -- widened to cover all 4 file
+  // collections config.yml actually defines (see the "2. Markets... 3.
+  // Customer Reviews... 4. Page Wording" comment near the top of that
+  // file) after a swarm audit flagged events/reviews/content as unchecked.
+  [
+    "assets/data/products.json",
+    "assets/data/events.json",
+    "assets/data/site-reviews.json",
+    "assets/data/content.json"
+  ].forEach(function (relPath) {
+    var full = path.join(ROOT, relPath);
+    if (!fs.existsSync(full)) return; // already reported missing in section 1 above
     try {
-      var topLevelKeys = Object.keys(JSON.parse(fs.readFileSync(productsJsonPath, "utf8")));
+      var topLevelKeys = Object.keys(JSON.parse(fs.readFileSync(full, "utf8")));
       topLevelKeys.forEach(function (key) {
         var fieldRe = new RegExp("-\\s+name:\\s*" + key + "\\b");
         if (fieldRe.test(configYml))
-          ok("config.yml defines a field for products.json's \"" + key + '" key');
+          ok("config.yml defines a field for " + relPath + "'s \"" + key + '" key');
         else
           fail(
             "admin/config.yml",
             'no "- name: ' +
               key +
-              '" field found -- products.json has this top-level key but the CMS has no field for it'
+              '" field found -- ' +
+              relPath +
+              " has this top-level key but the CMS has no field for it"
           );
       });
     } catch (e) {
-      /* already reported as a failure above */
+      /* already reported as a failure in section 1 ("Source data files") above */
     }
-  }
+  });
 }
 
 /* ---------- 22) Admin CSP (/admin/*) stays in sync across all 3 header

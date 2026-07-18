@@ -503,23 +503,33 @@ injectPageCopy("about.html", "about");
    inside review quote-cards are never touched. The copyright YEAR is
    still filled in live by main.js (getFullYear), so it stays correct
    without any yearly rebuild. */
-var FOOTER_INNER = fs.readFileSync(path.join(ROOT, "assets/data/footer.html"), "utf8").replace(/\s+$/, "");
+var FOOTER_INNER = fs
+  .readFileSync(path.join(ROOT, "assets/data/footer.html"), "utf8")
+  .replace(/\s+$/, "");
 var FOOTER_BLOCK = '<footer class="site-footer">\n' + FOOTER_INNER + "\n</footer>";
 var FOOTER_RE = /<footer class="site-footer">[\s\S]*?<\/footer>/;
-["index.html", "shop.html", "about.html", "contact.html", "events.html", "privacy.html", "404.html"].forEach(
-  function (page) {
-    var filePath = path.join(ROOT, page);
-    if (!fs.existsSync(filePath)) return;
-    var html = fs.readFileSync(filePath, "utf8");
-    if (!FOOTER_RE.test(html)) {
-      throw new Error(
-        "No <footer class=\"site-footer\"> block found in " + page + " -- aborting so nothing gets corrupted."
-      );
-    }
-    var updated = html.replace(FOOTER_RE, FOOTER_BLOCK);
-    if (updated !== html) writeFile(page, updated);
+[
+  "index.html",
+  "shop.html",
+  "about.html",
+  "contact.html",
+  "events.html",
+  "privacy.html",
+  "404.html"
+].forEach(function (page) {
+  var filePath = path.join(ROOT, page);
+  if (!fs.existsSync(filePath)) return;
+  var html = fs.readFileSync(filePath, "utf8");
+  if (!FOOTER_RE.test(html)) {
+    throw new Error(
+      'No <footer class="site-footer"> block found in ' +
+        page +
+        " -- aborting so nothing gets corrupted."
+    );
   }
-);
+  var updated = html.replace(FOOTER_RE, FOOTER_BLOCK);
+  if (updated !== html) writeFile(page, updated);
+});
 
 /* ---------- 5) sitemap.xml ----------
    Page list is intentionally hand-maintained here (there's no router to

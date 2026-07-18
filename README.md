@@ -45,7 +45,7 @@ time the build script runs.
 ```
 site/
   index.html          Home
-  shop.html            Full 13-product catalog with category filters + sort
+  shop.html            Full 15-product catalog with category filters + sort
   events.html          Markets, fairs & Pride pop-ups (upcoming + past)
   about.html           Brand story / founder note
   contact.html         Contact, socials, where to find us in person
@@ -106,6 +106,23 @@ manager. There is now one *optional, dev-time-only* tool (`npm install`
 + `scripts/optimize-images.js`, see section 15) for regenerating
 responsive photo variants -- it never touches how the live site loads,
 it just pre-generates files that get deployed alongside everything else.
+
+**Code style (dev-time only, also optional):** `npm install` also pulls
+in ESLint and Prettier for the hand-written JS in `scripts/` and
+`assets/js/`. Neither is required to edit or deploy the site, but both
+run in CI (`.github/workflows/test.yml`) alongside `npm test`, so a PR
+that introduces a real lint error or an unformatted file will show a
+failing check.
+
+```
+npm run lint            # ESLint, scripts/ + assets/js/
+npm run format           # Prettier, writes fixes in place
+npm run format:check     # Prettier, fails without writing (what CI runs)
+```
+
+Both are scoped to `scripts/**/*.js` and `assets/js/*.js` only --
+HTML, CSS, JSON, and markdown in this project are intentionally left to
+hand-formatting, not Prettier's opinions.
 
 ## 3. Design system (do not hand-roll new colors/fonts — use these)
 
@@ -245,68 +262,39 @@ You never need to hand-add the heart button.
 
 ## 6. Required footer + closing scripts (every page, before `</body>`)
 
+**The footer is single-source now — don't hand-edit it on individual
+pages.** The entire `<footer class="site-footer">...</footer>` block is
+byte-identical across all 7 pages, so it lives in exactly one file,
+`assets/data/footer.html` (everything *inside* the `<footer>` tag —
+the outer tag itself is added by the build). To change anything in the
+footer (a new social link, the real Kit newsletter form URL, a policy
+tweak, an added tracking snippet), edit `assets/data/footer.html` once,
+then run:
+
+```
+npm run build-data
+```
+
+That regenerates `index.html`, `shop.html`, `about.html`, `contact.html`,
+`events.html`, `privacy.html`, and `404.html` by replacing each page's
+existing `<footer class="site-footer">...</footer>` block wholesale with
+the current contents of `assets/data/footer.html`. No per-page marker
+comments are needed — the replacement regex anchors on the
+`site-footer` class, so the small `<footer>` tags inside review
+quote-cards are never touched. The copyright year is still filled in
+live by `main.js` (`getFullYear()`), so it stays correct without a
+yearly rebuild.
+
+If you're adding a brand-new page that doesn't exist yet, add its
+filename to the page list inside `scripts/build-site-data.js`'s
+"4b) shared footer" step so it gets the footer injected too, and make
+sure the page has a `<footer class="site-footer">` placeholder (even an
+empty one) for the build to find and replace.
+
+The two closing `<script>` tags stay hand-written on each page, right
+after the footer, before `</body>`:
+
 ```html
-</main>
-<footer class="site-footer">
-  <div class="container">
-    <div class="footer-grid">
-      <div class="footer-brand">
-        <div class="brand" style="margin-bottom:16px;">
-          <img src="assets/img/logo.jpg" alt="Y'allternative Living logo" width="42" height="42">
-          <span class="brand-word">Y'allternative<small>Living</small></span>
-        </div>
-        <p>Handmade self-care for the black sheep & bold hearts. Queer-owned, Southern-raised, out of Landrum, SC.</p>
-        <div class="social-row">
-          <a href="https://www.instagram.com/yallternativeliving" target="_blank" rel="noopener" aria-label="Instagram">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1"/></svg>
-          </a>
-          <a href="https://www.tiktok.com/@yallternativeliving" target="_blank" rel="noopener" aria-label="TikTok">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15 3c.4 2.3 2 4 4.7 4.2v3c-1.7 0-3.3-.5-4.7-1.4v6.7c0 3.1-2.5 5.5-5.6 5.5S3.8 18.6 3.8 15.5c0-3 2.4-5.5 5.6-5.5.4 0 .8 0 1.1.1v3.1c-.3-.1-.7-.2-1.1-.2-1.3 0-2.4 1.1-2.4 2.5s1.1 2.5 2.4 2.5 2.5-1 2.6-2.4V3H15z"/></svg>
-          </a>
-          <a href="https://www.facebook.com/p/Yallternative-Living-61577943406316/" target="_blank" rel="noopener" aria-label="Facebook">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 8.5h2.5V5H14c-2 0-3.5 1.6-3.5 3.5V11H8v3.5h2.5V21H14v-6.5h2.3l.7-3.5h-3V9c0-.3.2-.5.5-.5z"/></svg>
-          </a>
-          <a href="https://www.etsy.com/shop/YallternativeLivinCO" target="_blank" rel="noopener" aria-label="Etsy shop">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 8l1-4h14l1 4"/><path d="M4 8h16v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8z"/><path d="M9 12a3 3 0 0 0 6 0"/></svg>
-          </a>
-        </div>
-      </div>
-      <div>
-        <h5>Explore</h5>
-        <ul>
-          <li><a href="index.html">Home</a></li>
-          <li><a href="shop.html">Shop All</a></li>
-          <li><a href="events.html">Events &amp; Fairs</a></li>
-          <li><a href="about.html">Our Story</a></li>
-          <li><a href="contact.html">Contact</a></li>
-        </ul>
-      </div>
-      <div>
-        <h5>Shop</h5>
-        <ul>
-          <li><a href="shop.html#apparel">Apparel</a></li>
-          <li><a href="shop.html#salves">Salves &amp; Balms</a></li>
-          <li><a href="shop.html#body">Body &amp; Skin</a></li>
-          <li><a href="shop.html#soaks">Soaks</a></li>
-          <li><a href="shop.html#potions">Potions &amp; Spellwork</a></li>
-        </ul>
-      </div>
-      <div>
-        <h5>Say Hey</h5>
-        <ul>
-          <li><a href="mailto:y.allternative.living@gmail.com">y.allternative.living@gmail.com</a></li>
-          <li><a href="https://www.etsy.com/shop/YallternativeLivinCO" target="_blank" rel="noopener">Etsy shop ↗</a></li>
-          <li>Landrum, SC &middot; Upstate SC farmers markets &amp; Pride events</li>
-        </ul>
-      </div>
-    </div>
-    <div class="pride-rule"></div>
-    <div class="footer-bottom">
-      <span>&copy; <span id="year"></span> Y'allternative Living. Handmade with grit &amp; glitter.</span>
-      <span>Queer-owned &middot; Southern-raised &middot; Alt-inspired</span>
-    </div>
-  </div>
-</footer>
 <script src="assets/js/products-data.js"></script>
 <script src="assets/js/main.js"></script>
 </body>
@@ -314,18 +302,18 @@ You never need to hand-add the heart button.
 ```
 
 Notes:
-- `<main id="main">` opens in the header block above and is closed at
-  the top of the footer block — everything page-specific goes between
-  them.
-- Every internal link is a relative path (`shop.html`, not `/shop.html`)
-  so the site works from a subfolder or `file://` with no server.
-- `id="year"` and the two `<script>` tags are required on every page —
-  that's what powers the theme toggle, mobile nav, scroll reveal, and
-  (on `index.html`/`shop.html`) the product grid.
+- `<main id="main">` opens in the header block above and is closed
+  right before the footer — everything page-specific goes between them.
+- Every internal link inside the footer is a relative path
+  (`shop.html`, not `/shop.html`) so the site works from a subfolder or
+  `file://` with no server.
+- The two `<script>` tags above are required on every page — that's
+  what powers the theme toggle, mobile nav, scroll reveal, and (on
+  `index.html`/`shop.html`) the product grid.
 
 ## 7. Content already researched (use real facts, never placeholders)
 
-13 real products across 5 categories (apparel, salves & balms, body &
+15 real products across 5 categories (apparel, salves & balms, body &
 skin, soaks, potions & spellwork) — full list with prices, blurbs and
 Etsy links in `assets/data/products.json` (the canonical source, editable
 by hand or via `/admin` — see section 20). Two real Etsy review
@@ -487,7 +475,7 @@ into the `past: [ ... ]` array instead (drop the `date`/keep a
 - `LocalBusiness` structured data (JSON-LD) on every page, and
   `BreadcrumbList` structured data on every inner page.
 - A full `Product`/`ItemList` JSON-LD block on `shop.html` covering all
-  13 listings (name, image, price, category, and a direct link to buy)
+  15 listings (name, image, price, category, and a direct link to buy)
   — this is what lets Google show rich product results.
 - `FAQPage` structured data on `contact.html`, generated from the real
   Q&A copy already on that page (not invented separately — if you edit
@@ -534,16 +522,20 @@ a new top-level page):
 node scripts/build-site-data.js
 ```
 
-It regenerates, from `assets/data/products.json` (the canonical source —
-see section 20 for how it's edited) and `assets/js/events-data.js`
-alone: `assets/js/products-data.js`, `assets/data/snipcart-products.json`,
-`shop.html`'s Product/ItemList JSON-LD block, `contact.html`'s FAQPage
-JSON-LD + visible FAQ prose, `sitemap.xml`, and `llms.txt`. It's safe to
-run as many times as you want — it only ever overwrites those six
-generated files, never `products.json` itself, your copy, or your
-photos. This is the SQL-style single-source-of-truth pattern: edit the
-data file once (by hand or via `/admin`), run one script, everything
-downstream updates.
+It regenerates everything derived from the four canonical source files
+in `assets/data/` — `products.json`, `events.json`, `site-reviews.json`,
+and `content.json` (the single source of truth for each — see section
+20 for how they're edited): `assets/js/products-data.js`,
+`events-data.js`, and `site-reviews-data.js`;
+`assets/data/snipcart-products.json`; `shop.html`'s Product/ItemList
+JSON-LD block; `contact.html`'s FAQPage JSON-LD + visible FAQ prose;
+`index.html`/`about.html`'s page copy; every page's shared `<footer>`
+(see section 6); `sitemap.xml`; `robots.txt`; and `llms.txt`. It's safe
+to run as many times as you want — it only ever overwrites those
+generated files, never the four source JSON files themselves, your
+copy, or your photos. This is the SQL-style single-source-of-truth
+pattern: edit a data file once (by hand or via `/admin`), run one
+script, everything downstream updates.
 
 **Why the direction flipped mid-project:** earlier versions of this site
 had it backwards — `products-data.js` was canonical and `products.json`
@@ -559,9 +551,15 @@ There's no live domain yet, so every canonical URL, Open Graph URL, and
 JSON-LD `@id`/`url`/`image` field currently uses the placeholder
 `https://your-domain-here.com`, with the canonical/og:url tags
 commented out entirely (an inactive `<!-- -->` hint, not a fake live
-URL). **Once a real domain exists:** uncomment those two tags and
-find-and-replace `your-domain-here.com` → the real domain, across all
-six HTML files, `sitemap.xml`, and `robots.txt`.
+URL). **Once a real domain exists, going live is a one-line change, not
+a find-and-replace:** open `scripts/build-site-data.js`, find the
+`var DOMAIN = "https://your-domain-here.com";` line near the top, and
+replace it with the real domain. Then run `node scripts/build-site-data.js`
+once — it detects the domain is no longer the placeholder and
+automatically uncomments the canonical/og:url tags, and rewrites
+Plausible's `data-domain` plus every JSON-LD `@id`/`url`/`image`/
+breadcrumb field to the real domain, across all 7 pages, `sitemap.xml`,
+and `robots.txt`, in one pass. No manual per-file editing needed.
 
 ## 11. Updating the site later
 
@@ -580,8 +578,11 @@ six HTML files, `sitemap.xml`, and `robots.txt`.
   12 and section 20.) Skipping this step after a price change means
   Snipcart will reject real orders at the old price, so treat it as a
   required part of editing a product by hand, not an optional extra.
-- **Add/edit an event:** see section 9 above (events aren't currently
-  part of the build script, since they don't feed SEO/commerce files).
+- **Add/edit an event:** either use `/admin` (section 20) or hand-edit
+  `assets/data/events.json` directly, then run
+  `node scripts/build-site-data.js` — this regenerates
+  `assets/js/events-data.js` from it (see section 9 for the event
+  fields themselves).
 - **Change colors/fonts:** edit the CSS custom properties at the top of
   `assets/css/styles.css` — every page updates automatically, in both
   dark and light mode, including the Snipcart cart UI (it reads the
@@ -842,7 +843,7 @@ new accounts (unlike gift cards/live chat below):
 
 **Search.** A plain client-side search box (`#shopSearch`, wired in
 `buildFilters()` in `main.js`) filters the visible grid by name, blurb,
-and category as you type — no search service needed for a 13-product
+and category as you type — no search service needed for a 15-product
 catalog. Combines with the existing category pills and sort, not
 instead of them.
 
@@ -1013,18 +1014,20 @@ current docs at that time.
   `products.json` — so a schema drift or a missed rebuild gets caught
   the same way every other freshness check on this site does.
 
-**What you (Savanna/Steven) still need to do — this is the part that
-needs a real GitHub account and repo, which don't exist yet for this
-project:**
+**What you (Savanna/Steven) still need to do:**
 
-1. **Create a GitHub repo and push this project to it**, if it isn't in
-   one already. (Everything in this project so far has been built and
-   tested locally — there's no GitHub repo wired up yet.) A free GitHub
-   account and a free **private or public repo** both work fine.
-2. **Open `admin/config.yml`** and replace the placeholder
-   `YOUR_GITHUB_USERNAME/YOUR_REPO_NAME` (under `backend: repo:`) with
-   the real `owner/repo-name` of that GitHub repo. Commit that change.
-3. **Set up authentication.** Two real options, in order of how this
+1. **A GitHub repo already exists and `admin/config.yml`'s `backend.repo`
+   already points at it** — no placeholder to replace here anymore.
+   **One important caveat:** that repo currently lives under Steven's
+   personal GitHub account, not Savanna's, since it was created before
+   she had her own. Once Savanna has her own GitHub account (see the
+   account-setup guide), the repo should be transferred to hers (GitHub
+   → repo → Settings → "Transfer ownership") so the business's actual
+   code lives under the business owner's account. After transferring,
+   update `admin/config.yml`'s `backend.repo` to the new
+   `owner/repo-name` and commit that change — `npm test` will flag it if
+   this is ever forgotten (see the "backend.repo" check).
+2. **Set up authentication.** Two real options, in order of how this
    project is already configured:
    - **Using Netlify (the default, zero extra config in `config.yml`).**
      If this site is deployed on Netlify (section 12), Netlify is
@@ -1050,13 +1053,13 @@ project:**
      time you visit it. Simpler to set up, but the token is a
      credential to protect like a password — don't share it, and revoke
      it from GitHub's settings if it's ever exposed.
-4. **Visit `https://<your-real-domain>/admin` and sign in** using
+3. **Visit `https://<your-real-domain>/admin` and sign in** using
    whichever method you set up. You should see forms for Shop Info,
    Categories, Products, Bundles, and FAQ — editing any of them and
    clicking "Save" commits directly to `assets/data/products.json` in
    the GitHub repo, which triggers a normal deploy (section 12) that
    regenerates everything else automatically.
-5. **Test with something low-stakes first** — e.g. edit one product's
+4. **Test with something low-stakes first** — e.g. edit one product's
    `blurb` by a word, save, confirm the live site updates after the
    deploy finishes, then move on to real catalog changes.
 
@@ -1072,7 +1075,7 @@ have during development).
 **Uploaded images get a leading slash; existing ones don't — this is
 harmless.** Sveltia's `public_folder` setting requires a leading `/`
 (`/assets/img`), so any new photo uploaded through `/admin` gets stored
-as `/assets/img/whatever.jpg` in `products.json`, while all 13 existing
+as `/assets/img/whatever.jpg` in `products.json`, while all 15 existing
 product photos use the old, slash-less `assets/img/whatever.jpg` form.
 Both resolve to the exact same file when the browser loads them, and
 `npm test`'s image-path check already accounts for this (it matches the

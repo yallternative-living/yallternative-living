@@ -7,7 +7,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' https://cdn.snipcart.com https://plausible.io https://embed.tawk.to 'sha256-Wmlc/Lumj50wOdax6AEbaQv0zXK/9D0NZCQxPTdXDqM=' 'sha256-JX9dyHhuLUyGuU3MZAsZ6iiNfL/coLdMzDMeqn2WHHQ=' 'sha256-tWtj/sC82Z0OMELZsubEGWJdT4bAc+dsnrT3DaK1Mhc='; style-src 'self' https://cdn.snipcart.com 'unsafe-inline'; img-src 'self' data: https://cdn.snipcart.com https://*.tawk.to; font-src 'self' https://cdn.snipcart.com; connect-src 'self' https://*.snipcart.com https://plausible.io https://*.tawk.to wss://*.tawk.to; frame-src https://*.snipcart.com https://*.tawk.to; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://*.snipcart.com https://app.convertkit.com https://app.kit.com https://formspree.io; object-src 'none'"
+          "value": "default-src 'self'; script-src 'self' https://cdn.snipcart.com https://plausible.io https://embed.tawk.to 'sha256-Wmlc/Lumj50wOdax6AEbaQv0zXK/9D0NZCQxPTdXDqM=' 'sha256-JX9dyHhuLUyGuU3MZAsZ6iiNfL/coLdMzDMeqn2WHHQ=' 'sha256-tWtj/sC82Z0OMELZsubEGWJdT4bAc+dsnrT3DaK1Mhc='; style-src 'self' https://cdn.snipcart.com https://fonts.googleapis.com 'unsafe-inline'; img-src 'self' data: https://cdn.snipcart.com https://*.tawk.to; font-src 'self' https://cdn.snipcart.com https://fonts.gstatic.com; connect-src 'self' https://*.snipcart.com https://plausible.io https://*.tawk.to wss://*.tawk.to; frame-src https://*.snipcart.com https://*.tawk.to; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://*.snipcart.com https://app.convertkit.com https://app.kit.com https://formspree.io; object-src 'none'"
         },
         {
           "key": "X-Frame-Options",

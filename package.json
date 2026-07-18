@@ -14,8 +14,8 @@
     "sync-etsy": "node scripts/apply-etsy-snapshot.js",
     "test": "node scripts/qa-check.js",
     "lint": "eslint scripts assets/js",
-    "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format": "prettier --write \"scripts/**/*.js\" \"assets/js/*.js\"",
+    "format:check": "prettier --check \"scripts/**/*.js\" \"assets/js/*.js\""
   },
   "devDependencies": {
     "sharp": "^0.35.3",

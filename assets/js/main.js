@@ -11,8 +11,18 @@
   var toggle = document.getElementById("themeToggle");
 
   function currentTheme() {
-    var saved = localStorage.getItem("yl-theme");
-    if (saved === "dark" || saved === "light") return saved;
+    // Storage access can throw (Safari private browsing, "block all
+    // cookies," a locked-down webview) -- this runs as the very first
+    // statement in the whole file, so an uncaught throw here used to
+    // kill every other feature on the page (nav, cart, wishlist, shop
+    // rendering, everything). Falling back to matchMedia keeps the
+    // theme correct and lets the rest of the script keep running.
+    try {
+      var saved = localStorage.getItem("yl-theme");
+      if (saved === "dark" || saved === "light") return saved;
+    } catch (e) {
+      /* storage unavailable -- fall through to the media-query default */
+    }
     return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
   }
 
@@ -26,7 +36,11 @@
   if (toggle) {
     toggle.addEventListener("click", function () {
       var next = root.getAttribute("data-theme") === "light" ? "dark" : "light";
-      localStorage.setItem("yl-theme", next);
+      try {
+        localStorage.setItem("yl-theme", next);
+      } catch (e) {
+        /* can't persist -- still flip the theme for this page view */
+      }
       applyTheme(next);
     });
   }
@@ -573,7 +587,12 @@
     }
   }
   function saveWishlist(list) {
-    localStorage.setItem(WISH_KEY, JSON.stringify(list));
+    try {
+      localStorage.setItem(WISH_KEY, JSON.stringify(list));
+    } catch (e) {
+      /* storage unavailable -- badge/drawer below still reflect this
+         session's in-memory state, it just won't persist on reload */
+    }
     updateWishBadge();
     renderWishDrawer();
   }
@@ -604,6 +623,8 @@
     btn.id = "wishToggle";
     btn.type = "button";
     btn.setAttribute("aria-label", "Open your saved items");
+    btn.setAttribute("aria-expanded", "false");
+    btn.setAttribute("aria-controls", "wishDrawer");
     btn.innerHTML = wishHeartSVG + '<span class="badge" id="wishCount" aria-live="polite"></span>';
     navCta.insertBefore(btn, navCta.firstChild);
     btn.addEventListener("click", openWishDrawer);
@@ -663,10 +684,13 @@
   function openWishDrawer() {
     ensureWishDrawer();
     renderWishDrawer();
-    document.getElementById("wishBackdrop").classList.add("open");
+    var backdrop = document.getElementById("wishBackdrop");
+    if (backdrop) backdrop.classList.add("open");
     var d = document.getElementById("wishDrawer");
     d.classList.add("open");
     d.removeAttribute("inert");
+    var wishToggle = document.getElementById("wishToggle");
+    if (wishToggle) wishToggle.setAttribute("aria-expanded", "true");
     var closeBtn = document.getElementById("wishClose");
     if (closeBtn) closeBtn.focus();
   }
@@ -679,6 +703,8 @@
       d.classList.remove("open");
       d.setAttribute("inert", "");
     }
+    var wishToggle = document.getElementById("wishToggle");
+    if (wishToggle) wishToggle.setAttribute("aria-expanded", "false");
     // Setting `inert` blurs focus out from under a keyboard user if it was
     // inside the drawer (e.g. pressing Escape mid-tab) -- send it somewhere
     // sensible instead of letting it fall back to <body>. Only do this if
@@ -757,7 +783,14 @@
       return pr.id === productId;
     });
     if (!p) return;
-    slide.innerHTML = pictureHTML(p, { width: 600, height: 510, imagePath: imgPath });
+    // Differentiate alt text per photo (index > 0) instead of repeating
+    // the product name identically on every slide -- a screen-reader
+    // user stepping through the gallery dots otherwise hears the exact
+    // same announcement for every photo with no way to tell them apart.
+    var idx = parseInt(slide.getAttribute("data-idx"), 10);
+    var total = parseInt(gallery.getAttribute("data-count"), 10);
+    var alt = idx > 0 && total > 1 ? p.name + ", photo " + (idx + 1) + " of " + total : p.name;
+    slide.innerHTML = pictureHTML(p, { width: 600, height: 510, imagePath: imgPath, alt: alt });
     slide.removeAttribute("data-image");
   }
 
@@ -1224,7 +1257,7 @@
             stars +
             "</span>" +
             '<span class="sr-only">Rated ' +
-            r.rating +
+            attrEsc(r.rating) +
             " out of 5 stars.</span>" +
             "<p>&ldquo;" +
             attrEsc(r.text) +
@@ -1329,9 +1362,9 @@
       categories.map(function (c) {
         return (
           '<button class="filter-pill" type="button" data-filter="' +
-          c.id +
+          attrEsc(c.id) +
           '" aria-pressed="false">' +
-          c.label +
+          attrEsc(c.label) +
           "</button>"
         );
       })
@@ -1463,15 +1496,29 @@
     var ETSY_SHOP = "https://www.etsy.com/shop/YallternativeLivinCO";
     var armed = false;
     var barShown = false;
+    var bar = null;
+    var watchIv = null;
 
     function snipcartAlive() {
-      return !!(window.Snipcart || document.querySelector("#snipcart .snipcart-cart, #snipcart[hidden=false]"));
+      // "#snipcart[hidden=false]" (the old second clause here) can never
+      // match -- the hidden attribute reflects as present/absent, never
+      // the literal string "false" -- so window.Snipcart plus a check for
+      // Snipcart's populated cart DOM are the two real signals.
+      return !!(window.Snipcart || document.querySelector("#snipcart .snipcart-cart"));
+    }
+
+    function hideFallbackBar() {
+      if (bar) {
+        bar.remove();
+        bar = null;
+      }
+      barShown = false;
     }
 
     function showFallbackBar() {
       if (barShown) return;
       barShown = true;
-      var bar = document.createElement("div");
+      bar = document.createElement("div");
       bar.className = "cart-fallback";
       bar.setAttribute("role", "alert");
       bar.innerHTML =
@@ -1480,23 +1527,42 @@
         ETSY_SHOP +
         '" target="_blank" rel="noopener">Etsy shop</a>.</p>' +
         '<button type="button" class="cart-fallback-close" aria-label="Dismiss">&times;</button>';
-      bar.querySelector(".cart-fallback-close").addEventListener("click", function () {
-        bar.remove();
-      });
+      bar.querySelector(".cart-fallback-close").addEventListener("click", hideFallbackBar);
       document.body.appendChild(bar);
+
+      // Snipcart can still finish loading late (slow connection, a
+      // retried request) even after we've given up and shown this bar.
+      // Keep a light watch running so it disappears the moment Snipcart
+      // does come alive, instead of leaving a stale "checkout is broken"
+      // message sitting next to a cart that now works fine.
+      var watched = 0;
+      watchIv = setInterval(function () {
+        watched += 2000;
+        if (snipcartAlive()) {
+          clearInterval(watchIv);
+          hideFallbackBar();
+          return;
+        }
+        if (watched >= 120000) clearInterval(watchIv); // stop watching after 2min
+      }, 2000);
     }
 
     function arm() {
       if (armed) return;
       armed = true;
       var waited = 0;
+      // Snipcart's own script starts downloading on this exact same
+      // click -- it gets no head start over this watcher -- so a short
+      // timeout here mostly just flags normal load latency as "broken."
+      // 15s gives slower connections real room before we assume Snipcart
+      // actually failed rather than just being slow.
       var iv = setInterval(function () {
         waited += 500;
         if (snipcartAlive()) {
           clearInterval(iv);
           return; // loaded fine -- nothing to do
         }
-        if (waited >= 8000) {
+        if (waited >= 15000) {
           clearInterval(iv);
           if (!snipcartAlive()) showFallbackBar();
         }

@@ -14,9 +14,11 @@
 # Full setup instructions (GitHub repo, Netlify OAuth, first login) are
 # in README section 20 -- read that before changing anything here.
 #
-# REPO PLACEHOLDER: replace YOUR_GITHUB_USERNAME/YOUR_REPO_NAME below
-# with the real GitHub repo once one exists for this project (there
-# isn't one yet as of writing this -- see README section 20, step 1).
+# backend.repo below now points at the real repo:
+# github.com/StevenMGlenn/yallternative-living. What's still needed
+# before /admin actually logs in: (1) this repo deployed on Netlify or
+# GitHub Pages, (2) GitHub OAuth turned on for that deploy (one Netlify
+# checkbox, or a small auth helper for Pages) -- see README section 20.
 #
 # Every field below maps 1:1 to a real field already used in
 # assets/data/products.json -- nothing here was invented; if a field
@@ -29,7 +31,7 @@
 
 backend:
   name: github
-  repo: YOUR_GITHUB_USERNAME/YOUR_REPO_NAME
+  repo: StevenMGlenn/yallternative-living
   branch: main
   # No `base_url` set here on purpose -- when this site is deployed on
   # Netlify, Netlify itself is Sveltia's default OAuth provider for the

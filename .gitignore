@@ -10,3 +10,4 @@ package-lock.json
 # source files, sandbox permissions prevented deleting them outright.
 check_tmp.js
 assets/data/.fuse_hidden*
+assets/data/shop_jsonld.tmp.json
