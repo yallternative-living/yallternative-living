@@ -68,6 +68,19 @@ collections:
               - { name: rating, label: "Etsy Rating (0-5, real number only)", widget: number, value_type: float }
               - { name: reviewCount, label: "Etsy Review Count (real number only)", widget: number, value_type: int }
               - { name: sales, label: "Etsy Sales Count (real number only)", widget: number, value_type: int }
+              - { name: freeShippingThreshold, label: "Free Shipping Threshold (USD)", widget: number, value_type: int, hint: "Orders at or above this amount get free shipping. Set to 0 to disable." }
+
+          - name: sales
+            label: Category Sales
+            widget: list
+            label_singular: Sale
+            collapsed: true
+            summary: "{{fields.label}}"
+            hint: "Example: { 'category': 'body', 'percentOff': 15, 'label': 'Body Care Sale' }"
+            fields:
+              - { name: category, label: Category ID, widget: string }
+              - { name: percentOff, label: Percent Off, widget: number, value_type: int }
+              - { name: label, label: Sale Label, widget: string }
 
           - name: categories
             label: Categories
@@ -103,9 +116,18 @@ collections:
               - name: category
                 label: Category
                 widget: select
-                options: ["apparel", "salves", "body", "soaks", "potions"]
+                options: ["apparel", "salves", "body", "soaks", "potions", "ritual"]
                 hint: Must match a category "id" from the Categories list above.
               - { name: price, label: "Price (USD, e.g. 16 or 16.50)", widget: number, value_type: float }
+              - name: sale
+                label: "Sale (Optional per-product sale)"
+                widget: object
+                required: false
+                collapsed: true
+                fields:
+                  - { name: price, label: Sale Price, widget: number, value_type: float }
+                  - { name: label, label: Sale Label, widget: string }
+              - { name: originalPrice, label: "Original Price (if on sale, usually auto-computed)", widget: number, value_type: float, required: false }
               - name: image
                 label: Main Photo
                 widget: image
@@ -184,6 +206,22 @@ collections:
                         widget: string
                         hint: Cannot contain [ ] or | characters -- these break Snipcart's option syntax.
                       - { name: priceDelta, label: "Price Difference From Base Price (0 if same price, negative allowed)", widget: number, value_type: float, default: 0 }
+              - name: tags
+                label: Tags (Sensitivity / Allergen)
+                widget: select
+                multiple: true
+                required: false
+                options:
+                  - { label: "Vegan", value: "vegan" }
+                  - { label: "Unscented", value: "unscented" }
+                  - { label: "Essential Oil Free", value: "essential-oil-free" }
+                  - { label: "Sensitive Skin Safe", value: "sensitive-safe" }
+              - name: inStock
+                label: In Stock
+                widget: boolean
+                default: true
+                required: false
+                hint: "Uncheck to show a 'Sold Out' badge and email notification form instead of Add to Cart."
 
           - name: bundles
             label: Bundles / Gift Sets

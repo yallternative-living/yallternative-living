@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Y'allternative">
 <meta name="color-scheme" content="dark light">
 <meta name="view-transition" content="same-origin">
 <title>Shop All Handmade Goods — Y'allternative Living</title>
@@ -12,9 +15,12 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="Shop All Handmade Goods — Y'allternative Living">
 <meta property="og:description" content="15 handmade goods across apparel, salves &amp; balms, body &amp; skin, soaks, and potions &amp; spellwork — small-batch made in Landrum, SC.">
-<meta property="og:image" content="assets/img/og-image.jpg">
+<meta property="og:image" content="https://yallternativeliving.com/assets/img/og-image.jpg">
 <meta property="og:url" content="https://yallternativeliving.com/shop.html">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Shop All Handmade Goods — Y'allternative Living">
+<meta name="twitter:description" content="15 handmade goods across apparel, salves &amp; balms, body &amp; skin, soaks, and potions &amp; spellwork — small-batch made in Landrum, SC.">
+<meta name="twitter:image" content="https://yallternativeliving.com/assets/img/og-image.jpg">
 
 <link rel="icon" href="assets/img/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="icon" href="assets/img/favicon-192.png" sizes="192x192" type="image/png">
@@ -25,14 +31,18 @@
 <!-- Premium modern typography for the brand's southern-alt vibe -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&family=Outfit:wght@300;400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&family=Outfit:wght@300;400;500;600;700&display=swap" media="print" onload="this.media='all'">
+<noscript>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&family=Outfit:wght@300;400;500;600;700&display=swap">
+</noscript>
 <!-- Warm up the two third-party origins this page actually talks to,
      so the first Add to Cart click (Snipcart, lazy-loaded on interaction)
      and the analytics beacon (Plausible) don't pay a cold DNS+TLS
      handshake at the moment they're needed. -->
 <link rel="preconnect" href="https://cdn.snipcart.com" crossorigin>
 <link rel="preconnect" href="https://plausible.io">
-<link rel="stylesheet" href="assets/css/styles.css">
+<link rel="stylesheet" href="assets/css/styles.css?v=7">
 
 <script>
   // No-flash theme init: runs before paint, before main.js.
@@ -313,8 +323,8 @@
         },
         "offers": {
           "@type": "AggregateOffer",
-          "lowPrice": "15.00",
-          "highPrice": "20.00",
+          "lowPrice": "18.00",
+          "highPrice": "23.00",
           "priceCurrency": "USD",
           "offerCount": 2,
           "url": "https://yallternativeliving.com/shop.html",
@@ -352,8 +362,8 @@
         },
         "offers": {
           "@type": "AggregateOffer",
-          "lowPrice": "8.00",
-          "highPrice": "12.00",
+          "lowPrice": "10.00",
+          "highPrice": "14.00",
           "priceCurrency": "USD",
           "offerCount": 2,
           "url": "https://yallternativeliving.com/shop.html",
@@ -462,7 +472,7 @@
         },
         "offers": {
           "@type": "Offer",
-          "price": "6.00",
+          "price": "8.00",
           "priceCurrency": "USD",
           "url": "https://yallternativeliving.com/shop.html",
           "availability": "https://schema.org/InStock",
@@ -499,7 +509,7 @@
         },
         "offers": {
           "@type": "Offer",
-          "price": "8.00",
+          "price": "10.00",
           "priceCurrency": "USD",
           "url": "https://yallternativeliving.com/shop.html",
           "availability": "https://schema.org/InStock",
@@ -531,7 +541,7 @@
         },
         "offers": {
           "@type": "Offer",
-          "price": "12.00",
+          "price": "14.00",
           "priceCurrency": "USD",
           "url": "https://yallternativeliving.com/shop.html",
           "availability": "https://schema.org/InStock",
@@ -563,7 +573,7 @@
         },
         "offers": {
           "@type": "Offer",
-          "price": "15.00",
+          "price": "18.00",
           "priceCurrency": "USD",
           "url": "https://yallternativeliving.com/shop.html",
           "availability": "https://schema.org/InStock",
@@ -576,6 +586,91 @@
           "@type": "AggregateRating",
           "ratingValue": 5,
           "reviewCount": 1
+        }
+      }
+    },
+    {
+      "@type": "ListItem",
+      "position": 16,
+      "item": {
+        "@type": "Product",
+        "name": "Appalachian Rain Clearing Mist",
+        "description": "White sage, cedar, and sweetgrass in a fine mist — two pumps at the doorway after a hard conversation, a house guest who overstayed, or just a Monday that won't quit. Inspired by Appalachian folk tradition, no smoke, no residue, no landlord complaints. Amber glass, small-batch blended in Landrum, SC.",
+        "image": "https://yallternativeliving.com/assets/img/placeholder-coming-soon.svg",
+        "url": "https://yallternativeliving.com/shop.html",
+        "category": "Ritual & Home",
+        "brand": {
+          "@type": "Brand",
+          "name": "Y'allternative Living"
+        },
+        "offers": {
+          "@type": "AggregateOffer",
+          "lowPrice": "14.00",
+          "highPrice": "22.00",
+          "priceCurrency": "USD",
+          "offerCount": 2,
+          "url": "https://yallternativeliving.com/shop.html",
+          "availability": "https://schema.org/InStock",
+          "seller": {
+            "@type": "Organization",
+            "name": "Y'allternative Living"
+          }
+        }
+      }
+    },
+    {
+      "@type": "ListItem",
+      "position": 17,
+      "item": {
+        "@type": "Product",
+        "name": "Moonlit Meadow Bath Tea",
+        "description": "Dried lavender, chamomile, rose petals, and oat straw in a reusable muslin bag. Drop it in a warm bath, let it steep five minutes, soak until the day stops mattering. Gentler on your tub than loose herbs, and the bag's good for two or three rounds before you compost the whole thing.",
+        "image": "https://yallternativeliving.com/assets/img/placeholder-coming-soon.svg",
+        "url": "https://yallternativeliving.com/shop.html",
+        "category": "Ritual & Home",
+        "brand": {
+          "@type": "Brand",
+          "name": "Y'allternative Living"
+        },
+        "offers": {
+          "@type": "AggregateOffer",
+          "lowPrice": "12.00",
+          "highPrice": "24.00",
+          "priceCurrency": "USD",
+          "offerCount": 2,
+          "url": "https://yallternativeliving.com/shop.html",
+          "availability": "https://schema.org/InStock",
+          "seller": {
+            "@type": "Organization",
+            "name": "Y'allternative Living"
+          }
+        }
+      }
+    },
+    {
+      "@type": "ListItem",
+      "position": 18,
+      "item": {
+        "@type": "Product",
+        "name": "Porch Sweep Clearing Mist",
+        "description": "Named for the old Southern habit of sweeping the porch at dusk to clear out the day's trouble. Lemongrass, palo santo, and black tourmaline-infused water in a 4 oz amber bottle. Mist your space after an argument, a bad day, or just because the vibes are off.",
+        "image": "https://yallternativeliving.com/assets/img/placeholder-coming-soon.svg",
+        "url": "https://yallternativeliving.com/shop.html",
+        "category": "Ritual & Home",
+        "brand": {
+          "@type": "Brand",
+          "name": "Y'allternative Living"
+        },
+        "offers": {
+          "@type": "Offer",
+          "price": "16.00",
+          "priceCurrency": "USD",
+          "url": "https://yallternativeliving.com/shop.html",
+          "availability": "https://schema.org/InStock",
+          "seller": {
+            "@type": "Organization",
+            "name": "Y'allternative Living"
+          }
         }
       }
     }
@@ -627,6 +722,104 @@
   ]
 }
 </script>
+
+  <script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Where do you ship from?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Straight out of Landrum, SC. Processing time isn't the same for every item, so check the product description for the specifics before you order."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "What's your return policy?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Opened salves, scrubs, and soaks are final sale for hygiene reasons — unworn apparel and sealed items can be exchanged. Anything arrive wrong or damaged? Email us and we'll make it right."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Do you have unscented or sensitive-skin options?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "We do. The Y'allternative Miracle Balm is unscented and essential-oil-free, made for skin that side-eyes fragrance."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Can I get something custom or in bulk?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yep. Email us or send an Instagram DM with what you're picturing (gifts, market swag, wedding favors, whatever) and we'll figure it out together."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Where can I meet you in person?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Farmers markets and Pride events around Upstate SC and beyond. Follow our socials so you know exactly where and when we'll be set up next."
+        }
+      }
+    ]
+  }
+  </script>
+
+  <script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Where do you ship from?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Straight out of Landrum, SC. Processing time isn't the same for every item, so check the product description for the specifics before you order."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "What's your return policy?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Opened salves, scrubs, and soaks are final sale for hygiene reasons — unworn apparel and sealed items can be exchanged. Anything arrive wrong or damaged? Email us and we'll make it right."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Do you have unscented or sensitive-skin options?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "We do. The Y'allternative Miracle Balm is unscented and essential-oil-free, made for skin that side-eyes fragrance."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Can I get something custom or in bulk?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yep. Email us or send an Instagram DM with what you're picturing (gifts, market swag, wedding favors, whatever) and we'll figure it out together."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Where can I meet you in person?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Farmers markets and Pride events around Upstate SC and beyond. Follow our socials so you know exactly where and when we'll be set up next."
+        }
+      }
+    ]
+  }
+  </script>
 </head>
 <body>
 <script>
@@ -883,6 +1076,7 @@
           <li><a href="shop.html#body">Body &amp; Skin</a></li>
           <li><a href="shop.html#soaks">Soaks</a></li>
           <li><a href="shop.html#potions">Potions &amp; Spellwork</a></li>
+          <li><a href="shop.html#ritual">Ritual &amp; Home</a></li>
         </ul>
       </div>
       <div>
@@ -902,8 +1096,8 @@
          real form action URL from your Kit account -- see README. -->
     <div class="footer-signup reveal" id="footerSignup">
       <div class="footer-signup-text">
-        <h3>Get The Good Stuff In Your Inbox</h3>
-        <p>New batches, market &amp; Pride dates, and the occasional bad pun, straight from Savanna. No spam, unsubscribe whenever you please.</p>
+        <h3>Get 10% Off Your First Order</h3>
+        <p>Drop your email for a welcome code, plus new batch alerts, market dates, and the occasional bad pun. No spam, unsubscribe whenever.</p>
       </div>
       <p class="footer-signup-confirm"><span class="glyph" aria-hidden="true">&#10003;</span> You're on the list, y'all! Keep an eye on your inbox.</p>
       <form class="footer-signup-form" action="YOUR_KIT_FORM_ACTION_URL" method="post">

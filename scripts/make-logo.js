@@ -12,10 +12,21 @@
 const sharp = require("sharp");
 const path = require("path");
 const IMG = path.join(__dirname, "..", "assets/img");
+const fs = require("fs");
 
 (async () => {
+  const logoJpgPath = path.join(IMG, "logo.jpg");
+  if (!fs.existsSync(logoJpgPath)) {
+    console.error(`Error: Source logo file logo.jpg is missing at ${logoJpgPath}`);
+    console.error("Please ensure the source artwork is present in assets/img/.");
+    process.exit(1);
+  }
+  if (!fs.existsSync(IMG)) {
+    fs.mkdirSync(IMG, { recursive: true });
+  }
+
   const T = 236; // whiteness cutoff: min(r,g,b) >= T is background
-  const { data, info } = await sharp(path.join(IMG, "logo.jpg"))
+  const { data, info } = await sharp(logoJpgPath)
     .ensureAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true });

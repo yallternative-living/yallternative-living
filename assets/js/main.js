@@ -656,31 +656,34 @@
     document.body.appendChild(drawer);
     backdrop.addEventListener("click", closeWishDrawer);
     document.getElementById("wishClose").addEventListener("click", closeWishDrawer);
-    document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape") {
-        closeWishDrawer();
-        return;
-      }
-      // Focus trap: while open, Tab/Shift+Tab should cycle only through
-      // the drawer's own controls, not escape into the rest of the page
-      // (which a keyboard user would otherwise have to tab all the way
-      // through -- header, hero, every product card -- to get back).
-      if (e.key !== "Tab" || !drawer.classList.contains("open")) return;
-      var focusable = drawer.querySelectorAll(
-        'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-      );
-      if (!focusable.length) return;
-      var first = focusable[0],
-        last = focusable[focusable.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    });
   }
+
+  document.addEventListener("keydown", function (e) {
+    var drawer = document.getElementById("wishDrawer");
+    if (!drawer) return;
+    if (e.key === "Escape") {
+      closeWishDrawer();
+      return;
+    }
+    // Focus trap: while open, Tab/Shift+Tab should cycle only through
+    // the drawer's own controls, not escape into the rest of the page
+    // (which a keyboard user would otherwise have to tab all the way
+    // through -- header, hero, every product card -- to get back).
+    if (e.key !== "Tab" || !drawer.classList.contains("open")) return;
+    var focusable = drawer.querySelectorAll(
+      'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    if (!focusable.length) return;
+    var first = focusable[0],
+      last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  });
   function openWishDrawer() {
     ensureWishDrawer();
     renderWishDrawer();
@@ -753,17 +756,16 @@
         );
       })
       .join("");
-    body.querySelectorAll(".wish-remove").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        toggleWish(btn.getAttribute("data-id"));
-      });
-    });
   }
   document.addEventListener("click", function (e) {
     var btn = e.target.closest(".wish-btn");
-    if (!btn) return;
-    e.preventDefault();
-    toggleWish(btn.getAttribute("data-id"));
+    var removeBtn = e.target.closest(".wish-remove");
+    if (btn) {
+      e.preventDefault();
+      toggleWish(btn.getAttribute("data-id"));
+    } else if (removeBtn) {
+      toggleWish(removeBtn.getAttribute("data-id"));
+    }
   });
   initWishNavButton();
 
@@ -800,7 +802,19 @@
      bookkeeping needed. */
   document.addEventListener("click", function (e) {
     var dot = e.target.closest(".card-gallery-dot");
-    if (!dot) return;
+    if (!dot) {
+      // If they clicked the product image itself, trigger Add to Cart
+      if (e.target.closest(".wish-btn")) return;
+      var slide = e.target.closest(".card-gallery-slide");
+      if (slide) {
+        var card = slide.closest(".card");
+        if (card) {
+          var addBtn = card.querySelector(".snipcart-add-item");
+          if (addBtn) addBtn.click();
+        }
+      }
+      return;
+    }
     var gallery = dot.closest(".card-gallery");
     if (!gallery) return;
     var idx = dot.getAttribute("data-idx");
@@ -915,6 +929,31 @@
     });
   });
 
+  /* ---------- Tag pills HTML ---------- */
+  var TAG_LABELS = {
+    vegan:
+      '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4l7 15 7-15"/><path d="M12 19c0-6 6-11 10-11-5 0-10 5-10 11z"/></svg>Vegan',
+    unscented:
+      '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/></svg>Unscented',
+    "essential-oil-free":
+      '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg>EO-Free',
+    "sensitive-safe":
+      '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>Sensitive Safe'
+  };
+  function tagPillsHTML(p) {
+    var tags = p.tags;
+    if (!tags || !tags.length) return "";
+    return (
+      '<div class="tag-pills">' +
+      tags
+        .map(function (t) {
+          return '<span class="tag-pill">' + (TAG_LABELS[t] || t) + "</span>";
+        })
+        .join("") +
+      "</div>"
+    );
+  }
+
   /* ---------- Shop: render products from products.json + filter/sort ---------- */
   var shopGrid = document.getElementById("shopGrid");
   var featuredGrid = document.getElementById("featuredGrid");
@@ -1010,7 +1049,8 @@
           .filter(Boolean);
         if (items.length !== b.productIds.length) return ""; // a referenced product went missing -- skip rather than show a broken card
         var fullPrice = items.reduce(function (sum, p) {
-          return sum + p.price;
+          var original = p.originalPrice || p.price;
+          return sum + original;
         }, 0);
         var bundlePrice = Math.round(fullPrice * (1 - (b.discountPercent || 0) / 100) * 100) / 100;
         var firstImage = items[0].image;
@@ -1174,6 +1214,7 @@
       '<span class="card-cat">' +
       catLabel +
       "</span>" +
+      tagPillsHTML(p) +
       "<h3>" +
       attrEsc(p.name) +
       "</h3>" +
@@ -1331,21 +1372,26 @@
       '<span class="card-cat">' +
       attrEsc(ev.type) +
       "</span>" +
-      "<h3>" +
+      '<h3 style="margin-bottom:8px;">' +
       attrEsc(ev.name) +
       "</h3>" +
-      '<p class="event-date">' +
+      '<p class="event-date" style="font-weight:600; color:var(--paper); margin-bottom:4px;">' +
+      "📅 " +
       attrEsc(ev.dateLabel) +
       "</p>" +
-      "<p>" +
+      '<p style="margin-bottom:12px;">' +
       (ev.location ? "📍 " + attrEsc(ev.location) : "") +
       "</p>" +
-      (ev.note ? "<p>" + attrEsc(ev.note) + "</p>" : "") +
-      (ev.url
-        ? '<a class="btn btn-outline btn-sm" href="' +
-          attrEsc(ev.url) +
-          '" target="_blank" rel="noopener">More Info</a>'
+      (ev.note
+        ? '<p style="font-size:0.85rem; color:var(--paper-dim);">' + attrEsc(ev.note) + "</p>"
         : "") +
+      '<div style="margin-top:auto; padding-top:12px;">' +
+      (ev.url
+        ? '<a class="btn btn-primary btn-sm" style="width:100%; text-align:center;" href="' +
+          attrEsc(ev.url) +
+          '" target="_blank" rel="noopener">More Info / RSVP</a>'
+        : "") +
+      "</div>" +
       "</div>" +
       "</article>"
     );
@@ -1579,29 +1625,7 @@
       },
       true
     );
-
-    })();
-
-  /* ---------- Tag pills HTML ---------- */
-  var TAG_LABELS = {
-    vegan: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4l7 15 7-15"/><path d="M12 19c0-6 6-11 10-11-5 0-10 5-10 11z"/></svg>Vegan',
-    unscented: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/></svg>Unscented',
-    "essential-oil-free": '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg>EO-Free',
-    "sensitive-safe": '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>Sensitive Safe',
-  };
-  function tagPillsHTML(p) {
-    var tags = p.tags;
-    if (!tags || !tags.length) return "";
-    return (
-      '<div class="tag-pills">' +
-      tags
-        .map(function (t) {
-          return '<span class="tag-pill">' + (TAG_LABELS[t] || t) + "</span>";
-        })
-        .join("") +
-      "</div>"
-    );
-  }
+  })();
 
   /* ---------- Announcement bar: free shipping threshold ---------- */
   (function announcementBar() {
@@ -1612,8 +1636,7 @@
     var bar = document.createElement("div");
     bar.className = "announcement-bar";
     bar.setAttribute("role", "status");
-    bar.textContent =
-      "✦ Free shipping on orders over $" + threshold + " ✦";
+    bar.textContent = "✦ Free shipping on orders over $" + threshold + " ✦";
     document.body.insertBefore(bar, document.body.firstChild);
   })();
 
@@ -1653,10 +1676,7 @@
       // Pick the cheapest product NOT already in the cart
       var candidates = products
         .filter(function (p) {
-          return (
-            cartItemIds.indexOf(p.id) === -1 &&
-            p.inStock !== false
-          );
+          return cartItemIds.indexOf(p.id) === -1 && p.inStock !== false;
         })
         .sort(function (a, b) {
           return a.price - b.price;
@@ -1668,65 +1688,162 @@
       if (!product) return "";
       var imgSrc = product.image || "assets/img/placeholder-coming-soon.svg";
       if (window.YL_IMG_MANIFEST && window.YL_IMG_MANIFEST[imgSrc]) {
-        imgSrc = window.YL_IMG_MANIFEST[imgSrc].avif || window.YL_IMG_MANIFEST[imgSrc].webp || imgSrc;
+        imgSrc =
+          window.YL_IMG_MANIFEST[imgSrc].avif || window.YL_IMG_MANIFEST[imgSrc].webp || imgSrc;
       }
       return (
         '<div class="cart-cross-sell">' +
         '<div class="cart-cross-sell__heading">Complete your ritual</div>' +
         '<div class="cart-cross-sell__item">' +
-        '<img class="cart-cross-sell__img" src="' + attrEsc(imgSrc) + '" alt="' + attrEsc(product.name) + '" width="48" height="48" loading="lazy">' +
+        '<img class="cart-cross-sell__img" src="' +
+        attrEsc(imgSrc) +
+        '" alt="' +
+        attrEsc(product.name) +
+        '" width="48" height="48" loading="lazy">' +
         '<div class="cart-cross-sell__info">' +
-        '<div class="cart-cross-sell__name">' + attrEsc(product.name) + '</div>' +
-        '<div class="cart-cross-sell__price">$' + product.price.toFixed(2) + '</div>' +
+        '<div class="cart-cross-sell__name">' +
+        attrEsc(product.name) +
+        "</div>" +
+        '<div class="cart-cross-sell__price">$' +
+        product.price.toFixed(2) +
+        "</div>" +
         "</div>" +
         '<button class="cart-cross-sell__add snipcart-add-item"' +
-        ' data-item-id="' + attrEsc(product.id) + '"' +
-        ' data-item-price="' + product.price.toFixed(2) + '"' +
+        ' data-item-id="' +
+        attrEsc(product.id) +
+        '"' +
+        ' data-item-price="' +
+        product.price.toFixed(2) +
+        '"' +
         ' data-item-url="/assets/data/snipcart-products.json"' +
-        ' data-item-name="' + attrEsc(product.name) + '"' +
-        ' data-item-image="' + attrEsc(imgSrc) + '"' +
-        '>+ Add</button>' +
+        ' data-item-name="' +
+        attrEsc(product.name) +
+        '"' +
+        ' data-item-image="' +
+        attrEsc(imgSrc) +
+        '"' +
+        ">+ Add</button>" +
         "</div>" +
         "</div>"
       );
     }
 
-    // Wait for Snipcart SDK to load, then hook into state changes
+    // Wait for Snipcart SDK to load, then hook into state changes and DOM updates
     document.addEventListener("snipcart.ready", function () {
       if (!window.Snipcart) return;
-      window.Snipcart.store.subscribe(function () {
+
+      var snipcartEl = document.getElementById("snipcart");
+      var observer;
+
+      function syncCart() {
+        // Disconnect to avoid infinite recursion when we mutate the DOM
+        if (snipcartEl && observer) {
+          observer.disconnect();
+        }
+
         try {
           var state = window.Snipcart.store.getState();
           var cart = state.cart;
           if (!cart) return;
           var total = cart.total || 0;
-          var cartItemIds = (cart.items && cart.items.items)
-            ? cart.items.items.map(function (item) { return item.id; })
-            : [];
+          var cartItemIds =
+            cart.items && cart.items.items
+              ? cart.items.items.map(function (item) {
+                  return item.id;
+                })
+              : [];
+
+          // Sync badge visibility based on items count
+          var badges = document.querySelectorAll(".snipcart-items-count");
+          var count = cart.items && typeof cart.items.count === "number" ? cart.items.count : 0;
+          badges.forEach(function (badge) {
+            if (count === 0) {
+              badge.style.display = "none";
+            } else {
+              badge.style.display = "flex";
+            }
+          });
 
           // Inject/update progress bar
-          var existing = document.querySelector(".shipping-progress");
           var snipcartContent = document.querySelector(".snipcart-cart__content");
           if (snipcartContent) {
-            if (existing) existing.remove();
-            snipcartContent.insertAdjacentHTML("afterbegin", buildProgressHTML(total));
+            var existing = snipcartContent.querySelector(".shipping-progress");
+            var newProgressHTML = buildProgressHTML(total);
+            if (!existing) {
+              snipcartContent.insertAdjacentHTML("afterbegin", newProgressHTML);
+            } else if (existing.outerHTML !== newProgressHTML) {
+              existing.remove();
+              snipcartContent.insertAdjacentHTML("afterbegin", newProgressHTML);
+            }
           }
 
           // Inject/update cross-sell
-          var existingCS = document.querySelector(".cart-cross-sell");
           var snipcartFooter = document.querySelector(".snipcart-cart__footer");
           if (snipcartFooter) {
-            if (existingCS) existingCS.remove();
+            var existingCS = document.querySelector(".cart-cross-sell");
             var crossProduct = findCrossSellProduct(cartItemIds);
-            if (crossProduct) {
-              snipcartFooter.insertAdjacentHTML("beforebegin", buildCrossSellHTML(crossProduct));
+            var newCSHTML = buildCrossSellHTML(crossProduct);
+
+            if (!newCSHTML) {
+              if (existingCS) existingCS.remove();
+            } else {
+              if (!existingCS) {
+                snipcartFooter.insertAdjacentHTML("beforebegin", newCSHTML);
+              } else {
+                var currentCSProductId = existingCS.querySelector(".cart-cross-sell__add")
+                  ? existingCS.querySelector(".cart-cross-sell__add").getAttribute("data-item-id")
+                  : null;
+                if (currentCSProductId !== crossProduct.id) {
+                  existingCS.remove();
+                  snipcartFooter.insertAdjacentHTML("beforebegin", newCSHTML);
+                }
+              }
             }
           }
         } catch (err) {
           /* Snipcart internal state shape changed -- degrade silently */
+        } finally {
+          // Re-observe after modifications
+          if (snipcartEl && observer) {
+            observer.observe(snipcartEl, { childList: true, subtree: true });
+          }
         }
-      });
+      }
+
+      // Start observing DOM changes inside `#snipcart` (e.g. cart drawer opens, Vue re-renders)
+      if (snipcartEl) {
+        observer = new MutationObserver(syncCart);
+        observer.observe(snipcartEl, { childList: true, subtree: true });
+      }
+
+      // Also subscribe to state changes to ensure we are triggered on every store update
+      window.Snipcart.store.subscribe(syncCart);
+
+      // Run once initially
+      syncCart();
     });
   })();
 })();
 
+if ("serviceWorker" in navigator) {
+  function registerSW() {
+    console.log("Calling navigator.serviceWorker.register...");
+    navigator.serviceWorker
+      .register("/sw.js")
+      .then(() => {
+        console.log("Service Worker successfully registered!");
+      })
+      .catch((err) => {
+        console.error("Service Worker registration failed:", err.toString());
+      });
+  }
+  console.log("Initial document.readyState:", document.readyState);
+  if (document.readyState === "complete") {
+    registerSW();
+  } else {
+    window.addEventListener("load", () => {
+      console.log("Load event fired, registering SW...");
+      registerSW();
+    });
+  }
+}

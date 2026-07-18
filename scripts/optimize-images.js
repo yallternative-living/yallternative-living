@@ -119,6 +119,10 @@ function writeManifest(manifest) {
     "   which files exist. Re-run the script any time a product photo\n" +
     "   changes or a new one gets added. */\n";
   var body = "window.YL_IMAGES = " + JSON.stringify(manifest, null, 2) + ";\n";
+  var dir = path.dirname(MANIFEST_PATH);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
   fs.writeFileSync(MANIFEST_PATH, header + body);
 }
 
@@ -140,6 +144,10 @@ function loadExistingManifest() {
 }
 
 async function run() {
+  if (!fs.existsSync(IMG_DIR)) {
+    console.log("Creating missing image directory: " + IMG_DIR);
+    fs.mkdirSync(IMG_DIR, { recursive: true });
+  }
   var files = fs
     .readdirSync(IMG_DIR)
     .filter(function (f) {

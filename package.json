@@ -18,8 +18,13 @@
     "format:check": "prettier --check \"scripts/**/*.js\" \"assets/js/*.js\""
   },
   "devDependencies": {
-    "sharp": "^0.35.3",
     "eslint": "^8.57.0",
-    "prettier": "^3.3.3"
+    "prettier": "^3.3.3",
+    "sharp": "^0.35.3"
+  },
+  "dependencies": {
+    "get-pixels": "^3.3.3",
+    "html-validator": "^6.0.1",
+    "puppeteer": "^25.3.0"
   }
 }

@@ -4,8 +4,10 @@
     "etsyShopUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
     "rating": 4.9,
     "reviewCount": 32,
-    "sales": 105
+    "sales": 105,
+    "freeShippingThreshold": 40
   },
+  "sales": [],
   "categories": [
     {
       "id": "apparel",
@@ -26,6 +28,10 @@
     {
       "id": "potions",
       "label": "Potions & Spellwork"
+    },
+    {
+      "id": "ritual",
+      "label": "Ritual & Home"
     }
   ],
   "products": [
@@ -140,6 +146,7 @@
         "Tocopherol (Vitamin E)"
       ],
       "ingredientsNote": "No essential oils, no added fragrance.",
+      "tags": ["unscented", "essential-oil-free", "sensitive-safe"],
       "etsyUrl": "https://www.etsy.com/listing/4466572716/yallternative-miracle-balm-multi-use"
     },
     {
@@ -230,7 +237,7 @@
       "id": "shea-butter",
       "name": "Lavender Shea Body Butter",
       "category": "body",
-      "price": 15,
+      "price": 18,
       "image": "assets/img/shea-butter.jpg",
       "images": [
         "assets/img/shea-butter-alt1.jpg",
@@ -270,7 +277,7 @@
       "id": "hand-scrub",
       "name": "Bourbon Vanilla Hand Scrub",
       "category": "body",
-      "price": 8,
+      "price": 10,
       "image": "assets/img/hand-scrub.jpg",
       "images": [
         "assets/img/hand-scrub-alt1.jpg",
@@ -327,6 +334,7 @@
         "Cornstarch",
         "Essential Oils (Lavender, Black Pepper, Rosemary)"
       ],
+      "tags": ["vegan"],
       "variants": {
         "name": "Size",
         "options": [
@@ -360,6 +368,7 @@
         "Fractionated Coconut Oil",
         "Essential Oils (Peppermint, Lavender, Black Pepper, Ylang Ylang)"
       ],
+      "tags": ["vegan"],
       "variants": {
         "name": "Size",
         "options": [
@@ -383,7 +392,7 @@
       "id": "protection-keychain",
       "name": "Protection Potion Keychain",
       "category": "potions",
-      "price": 6,
+      "price": 8,
       "image": "assets/img/protection-keychain.jpg",
       "images": [
         "assets/img/protection-keychain-alt1.jpg",
@@ -426,7 +435,7 @@
       "id": "bug-spray",
       "name": "Bug Off B*tch Natural Bug Spray",
       "category": "potions",
-      "price": 8,
+      "price": 10,
       "image": "assets/img/bug-spray.jpg",
       "images": [
         "assets/img/bug-spray-alt1.jpg",
@@ -440,6 +449,7 @@
         "Germall Plus (Preservative)",
         "Essential Oils (Citronella, Lemongrass, Peppermint, Tea Tree, Lavender, Rosemary)"
       ],
+      "tags": ["vegan"],
       "rating": {
         "value": 5,
         "count": 4
@@ -450,7 +460,7 @@
       "id": "sugar-scrub",
       "name": "Y'all Means All Sugar Scrub",
       "category": "body",
-      "price": 12,
+      "price": 14,
       "image": "assets/img/placeholder-coming-soon.svg",
       "blurb": "Rainbow layers of exfoliating sugar scrub that mean exactly what they say — y'all means all. Sloughs off the rough, leaves skin soft and sweet, and looks like a Pride parade in a jar. Glitter-and-grit self-care for the black sheep and bold hearts.",
       "ingredients": [
@@ -472,7 +482,7 @@
       "id": "whipped-body-butter",
       "name": "Y'all Means All Rainbow Whipped Body Butter",
       "category": "body",
-      "price": 15,
+      "price": 18,
       "image": "assets/img/placeholder-coming-soon.svg",
       "blurb": "Whipped light and fluffy in a citrus-peach blend, with rainbow swirls that mean all of it — every color, every one of us. Melts in without the grease and keeps skin soft all day. Y'all means all, moisturized.",
       "ingredients": [
@@ -491,19 +501,97 @@
         "count": 1
       },
       "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO"
+    },
+    {
+      "id": "cleansing-spray",
+      "name": "Appalachian Rain Clearing Mist",
+      "category": "ritual",
+      "price": 14,
+      "image": "assets/img/placeholder-coming-soon.svg",
+      "blurb": "White sage, cedar, and sweetgrass in a fine mist — two pumps at the doorway after a hard conversation, a house guest who overstayed, or just a Monday that won't quit. Inspired by Appalachian folk tradition, no smoke, no residue, no landlord complaints. Amber glass, small-batch blended in Landrum, SC.",
+      "ingredients": [
+        "Distilled Water",
+        "Witch Hazel",
+        "Essential Oils (White Sage, Cedar, Sweetgrass, Rosemary)",
+        "Vegetable Glycerin",
+        "Preservative"
+      ],
+      "ingredientsNote": "Shake gently before each use. Mist doorways, corners, or yourself — anywhere the energy feels stuck. Safe around pets when dry.",
+      "variants": {
+        "name": "Size",
+        "options": [
+          {
+            "label": "2 oz",
+            "priceDelta": 0
+          },
+          {
+            "label": "4 oz",
+            "priceDelta": 8
+          }
+        ]
+      },
+      "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO"
+    },
+    {
+      "id": "bath-tea",
+      "name": "Moonlit Meadow Bath Tea",
+      "category": "ritual",
+      "price": 12,
+      "image": "assets/img/placeholder-coming-soon.svg",
+      "blurb": "Dried lavender, chamomile, rose petals, and oat straw in a reusable muslin bag. Drop it in a warm bath, let it steep five minutes, soak until the day stops mattering. Gentler on your tub than loose herbs, and the bag's good for two or three rounds before you compost the whole thing.",
+      "ingredients": [
+        "Dried Lavender Buds",
+        "Chamomile Flowers",
+        "Oat Straw",
+        "Rose Petals",
+        "Epsom Salt",
+        "Baking Soda"
+      ],
+      "ingredientsNote": "Comes with a reusable organic cotton muslin bag. Each bag is good for 2–3 soaks. Compost when spent.",
+      "variants": {
+        "name": "Size",
+        "options": [
+          {
+            "label": "Single Soak",
+            "priceDelta": 0
+          },
+          {
+            "label": "3-Pack",
+            "priceDelta": 12
+          }
+        ]
+      },
+      "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO"
+    },
+    {
+      "id": "porch-sweep-spray",
+      "name": "Porch Sweep Clearing Mist",
+      "category": "ritual",
+      "price": 16,
+      "image": "assets/img/placeholder-coming-soon.svg",
+      "blurb": "Named for the old Southern habit of sweeping the porch at dusk to clear out the day's trouble. Lemongrass, palo santo, and black tourmaline-infused water in a 4 oz amber bottle. Mist your space after an argument, a bad day, or just because the vibes are off.",
+      "ingredients": [
+        "Moon Water (Distilled)",
+        "Witch Hazel",
+        "Essential Oils (Lemongrass, Palo Santo, Cedarwood)",
+        "Black Tourmaline Crystal Chips",
+        "Vegetable Glycerin",
+        "Preservative"
+      ],
+      "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO"
     }
   ],
   "bundles": [
     {
       "id": "starter-self-care-set",
-      "name": "Self-Care Starter Set",
+      "name": "Grit & Grace Starter Set",
       "productIds": [
         "frankincense-salve",
         "hand-scrub",
         "bug-spray"
       ],
       "discountPercent": 10,
-      "blurb": "The whole shop in miniature: the do-everything salve folks keep re-ordering, the bourbon-vanilla scrub that gets your hands actually clean, and the bug spray nobody admits they need until August. Three of our most-reviewed goods, one easy yes."
+      "blurb": "The essential trio for anyone navigating life south of the Mason-Dixon: the do-everything salve folks keep re-ordering, the bourbon-vanilla scrub that gets your hands actually clean, and the bug spray nobody admits they need until August. Three of our most-reviewed goods, one easy yes."
     },
     {
       "id": "bourbon-and-grit-set",
@@ -517,13 +605,13 @@
     },
     {
       "id": "night-ritual-set",
-      "name": "Night Ritual Set",
+      "name": "Backwoods Burnout Recovery Kit",
       "productIds": [
         "sleep-salve",
         "shea-butter"
       ],
       "discountPercent": 10,
-      "blurb": "A wind-down in two steps: massage the lavender shea butter into damp skin after a shower, then work the magnesium sleep salve into feet and shoulders and let lavender, chamomile and cedarwood take it from there. Built for night owls and overthinkers."
+      "blurb": "For unwinding after the kind of days that leave you running on fumes: massage the lavender shea butter into damp skin after a shower, then work the magnesium sleep salve into feet and shoulders and let lavender, chamomile and cedarwood take it from there. Built for night owls and overthinkers."
     },
     {
       "id": "pride-set",
@@ -555,6 +643,19 @@
       ],
       "discountPercent": 10,
       "blurb": "A soft place to land: the unscented, essential-oil-free Miracle Balm for wherever skin needs backup, paired with our raw-shea body butter for everywhere else. For new parents, sensitive skin, and anybody having a rough go."
+    },
+    {
+      "id": "discovery-flight",
+      "name": "Discovery Flight",
+      "productIds": [
+        "frankincense-salve",
+        "hand-scrub",
+        "lavender-soak",
+        "bug-spray",
+        "cleansing-spray"
+      ],
+      "discountPercent": 15,
+      "blurb": "Can't decide? Try a little of everything. Five of our bestselling products bundled together at 15% off — the salve everybody re-orders, the bourbon-vanilla scrub, a lavender soak, the bug spray that actually works, and our Appalachian clearing mist. A full tour of the shop in one box."
     }
   ],
   "faq": [

@@ -97,7 +97,7 @@
   {
     "id": "shea-butter",
     "name": "Lavender Shea Body Butter",
-    "price": 15,
+    "price": 18,
     "url": "/assets/data/snipcart-products.json",
     "image": "assets/img/shea-butter.jpg",
     "categories": [
@@ -114,7 +114,7 @@
   {
     "id": "hand-scrub",
     "name": "Bourbon Vanilla Hand Scrub",
-    "price": 8,
+    "price": 10,
     "url": "/assets/data/snipcart-products.json",
     "image": "assets/img/hand-scrub.jpg",
     "categories": [
@@ -165,7 +165,7 @@
   {
     "id": "protection-keychain",
     "name": "Protection Potion Keychain",
-    "price": 6,
+    "price": 8,
     "url": "/assets/data/snipcart-products.json",
     "image": "assets/img/protection-keychain.jpg",
     "categories": [
@@ -182,7 +182,7 @@
   {
     "id": "bug-spray",
     "name": "Bug Off B*tch Natural Bug Spray",
-    "price": 8,
+    "price": 10,
     "url": "/assets/data/snipcart-products.json",
     "image": "assets/img/bug-spray.jpg",
     "categories": [
@@ -193,7 +193,7 @@
   {
     "id": "sugar-scrub",
     "name": "Y'all Means All Sugar Scrub",
-    "price": 12,
+    "price": 14,
     "url": "/assets/data/snipcart-products.json",
     "image": "assets/img/placeholder-coming-soon.svg",
     "categories": [
@@ -204,7 +204,7 @@
   {
     "id": "whipped-body-butter",
     "name": "Y'all Means All Rainbow Whipped Body Butter",
-    "price": 15,
+    "price": 18,
     "url": "/assets/data/snipcart-products.json",
     "image": "assets/img/placeholder-coming-soon.svg",
     "categories": [
@@ -213,9 +213,54 @@
     "customFields": []
   },
   {
+    "id": "cleansing-spray",
+    "name": "Appalachian Rain Clearing Mist",
+    "price": 14,
+    "url": "/assets/data/snipcart-products.json",
+    "image": "assets/img/placeholder-coming-soon.svg",
+    "categories": [
+      "ritual"
+    ],
+    "customFields": [
+      {
+        "name": "Size",
+        "options": "2 oz[+0.00]|4 oz[+8.00]",
+        "value": "2 oz"
+      }
+    ]
+  },
+  {
+    "id": "bath-tea",
+    "name": "Moonlit Meadow Bath Tea",
+    "price": 12,
+    "url": "/assets/data/snipcart-products.json",
+    "image": "assets/img/placeholder-coming-soon.svg",
+    "categories": [
+      "ritual"
+    ],
+    "customFields": [
+      {
+        "name": "Size",
+        "options": "Single Soak[+0.00]|3-Pack[+12.00]",
+        "value": "Single Soak"
+      }
+    ]
+  },
+  {
+    "id": "porch-sweep-spray",
+    "name": "Porch Sweep Clearing Mist",
+    "price": 16,
+    "url": "/assets/data/snipcart-products.json",
+    "image": "assets/img/placeholder-coming-soon.svg",
+    "categories": [
+      "ritual"
+    ],
+    "customFields": []
+  },
+  {
     "id": "bundle-starter-self-care-set",
-    "name": "Self-Care Starter Set",
-    "price": 28.8,
+    "name": "Grit & Grace Starter Set",
+    "price": 32.4,
     "url": "/assets/data/snipcart-products.json",
     "image": "assets/img/frankincense-salve.jpg",
     "categories": [
@@ -225,7 +270,7 @@
   {
     "id": "bundle-bourbon-and-grit-set",
     "name": "Bourbon & Grit Gift Set",
-    "price": 19.8,
+    "price": 21.6,
     "url": "/assets/data/snipcart-products.json",
     "image": "assets/img/beard-salve.jpg",
     "categories": [
@@ -234,8 +279,8 @@
   },
   {
     "id": "bundle-night-ritual-set",
-    "name": "Night Ritual Set",
-    "price": 27.9,
+    "name": "Backwoods Burnout Recovery Kit",
+    "price": 30.6,
     "url": "/assets/data/snipcart-products.json",
     "image": "assets/img/sleep-salve.jpg",
     "categories": [
@@ -255,7 +300,7 @@
   {
     "id": "bundle-everyday-armor-kit",
     "name": "Everyday Armor Kit",
-    "price": 21.6,
+    "price": 25.2,
     "url": "/assets/data/snipcart-products.json",
     "image": "assets/img/protection-keychain.jpg",
     "categories": [
@@ -265,9 +310,19 @@
   {
     "id": "bundle-gentle-landing-set",
     "name": "Gentle Landing Set",
-    "price": 20.7,
+    "price": 23.4,
     "url": "/assets/data/snipcart-products.json",
     "image": "assets/img/miracle-balm.jpg",
+    "categories": [
+      "bundle"
+    ]
+  },
+  {
+    "id": "bundle-discovery-flight",
+    "name": "Discovery Flight",
+    "price": 51,
+    "url": "/assets/data/snipcart-products.json",
+    "image": "assets/img/frankincense-salve.jpg",
     "categories": [
       "bundle"
     ]

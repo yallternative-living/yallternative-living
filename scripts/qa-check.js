@@ -122,11 +122,16 @@ section("Source data files (assets/data/*.json)");
 /* ---------- 2) CSS brace balance ---------- */
 section("CSS brace balance");
 var cssPath = path.join(ROOT, "assets", "css", "styles.css");
-var css = fs.readFileSync(cssPath, "utf8");
-var openCount = (css.match(/\{/g) || []).length;
-var closeCount = (css.match(/\}/g) || []).length;
-if (openCount === closeCount) ok("styles.css: " + openCount + " open / " + closeCount + " close");
-else fail("styles.css brace mismatch", openCount + " open vs " + closeCount + " close");
+var css = "";
+if (!fs.existsSync(cssPath)) {
+  fail("assets/css/styles.css", "missing");
+} else {
+  css = fs.readFileSync(cssPath, "utf8");
+  var openCount = (css.match(/\{/g) || []).length;
+  var closeCount = (css.match(/\}/g) || []).length;
+  if (openCount === closeCount) ok("styles.css: " + openCount + " open / " + closeCount + " close");
+  else fail("styles.css brace mismatch", openCount + " open vs " + closeCount + " close");
+}
 
 /* ---------- 3) JSON-LD validity ---------- */
 section("JSON-LD validity");
@@ -204,14 +209,20 @@ else
 
 /* ---------- 5) image-manifest.js: AVIF + WebP coverage ---------- */
 section("Responsive image manifest (AVIF + WebP coverage)");
-global.window = {};
-try {
-  delete require.cache[require.resolve(path.join(ROOT, "assets/js/image-manifest.js"))];
-} catch (e) {
-  /* not loaded yet, fine */
+var manifestPath = path.join(ROOT, "assets/js/image-manifest.js");
+var manifest = {};
+if (!fs.existsSync(manifestPath)) {
+  fail("assets/js/image-manifest.js", "missing -- run npm run optimize-images");
+} else {
+  global.window = {};
+  try {
+    delete require.cache[require.resolve(manifestPath)];
+  } catch (e) {
+    /* not loaded yet, fine */
+  }
+  require(manifestPath);
+  manifest = global.window.YL_IMAGES || {};
 }
-require(path.join(ROOT, "assets/js/image-manifest.js"));
-var manifest = global.window.YL_IMAGES || {};
 var manifestKeys = Object.keys(manifest);
 if (!manifestKeys.length) fail("image-manifest.js", "no entries found");
 else {
@@ -244,10 +255,21 @@ else {
 
 /* ---------- 6) products-data.js schema sanity ---------- */
 section("Product catalog schema");
-delete require.cache[require.resolve(path.join(ROOT, "assets/js/products-data.js"))];
-require(path.join(ROOT, "assets/js/products-data.js"));
-var PRODUCTS = (global.window.YL_PRODUCTS && global.window.YL_PRODUCTS.products) || [];
-if (!PRODUCTS.length) fail("products-data.js", "no products found");
+var productsDataPath = path.join(ROOT, "assets/js/products-data.js");
+var PRODUCTS = [];
+if (!fs.existsSync(productsDataPath)) {
+  fail("assets/js/products-data.js", "missing -- run npm run build-data");
+} else {
+  try {
+    delete require.cache[require.resolve(productsDataPath)];
+  } catch (e) {
+    /* not loaded yet, fine */
+  }
+  require(productsDataPath);
+  PRODUCTS = (global.window.YL_PRODUCTS && global.window.YL_PRODUCTS.products) || [];
+}
+if (fs.existsSync(productsDataPath) && !PRODUCTS.length)
+  fail("products-data.js", "no products found");
 var REQUIRED_FIELDS = ["id", "name", "category", "price", "image", "blurb", "etsyUrl"];
 PRODUCTS.forEach(function (p) {
   var missing = REQUIRED_FIELDS.filter(function (f) {
@@ -345,6 +367,41 @@ PRODUCTS.forEach(function (p) {
     }
   }
 });
+
+/* ---------- 6a) Sales schema sanity ---------- */
+section("Sales schema sanity");
+try {
+  var RAW_CATALOG = JSON.parse(
+    fs.readFileSync(path.join(ROOT, "assets/data/products.json"), "utf8")
+  );
+  var catIds = (RAW_CATALOG.categories || []).map(function (c) {
+    return c.id;
+  });
+  (RAW_CATALOG.products || []).forEach(function (p) {
+    if (p.sale) {
+      if (typeof p.sale.price !== "number" || p.sale.price >= p.price) {
+        fail(p.id + ": sale.price must be less than price");
+      }
+      if (typeof p.sale.label !== "string" || !p.sale.label.trim()) {
+        fail(p.id + ": sale.label must be a non-empty string");
+      }
+    }
+  });
+  (RAW_CATALOG.sales || []).forEach(function (s, i) {
+    if (catIds.indexOf(s.category) === -1) {
+      fail("Category sale #" + i + ": references invalid category '" + s.category + "'");
+    }
+    if (typeof s.percentOff !== "number" || s.percentOff < 1 || s.percentOff > 99) {
+      fail("Category sale #" + i + ": percentOff must be between 1 and 99");
+    }
+    if (typeof s.label !== "string" || !s.label.trim()) {
+      fail("Category sale #" + i + ": label must be a non-empty string");
+    }
+  });
+  ok("Sales schema is valid");
+} catch (e) {
+  fail("products.json", "could not parse to validate sales: " + e.message);
+}
 
 /* ---------- 6b) Bundles / gift sets schema sanity ---------- */
 section("Bundles / gift sets");
@@ -665,9 +722,19 @@ if (!shopLdMatch) {
    or a bogus rating to the live "Customer Reviews" section, so it gets
    the same shape validation as everything else that reaches the page. */
 section("Site-submitted reviews (site-reviews-data.js)");
-delete require.cache[require.resolve(path.join(ROOT, "assets/js/site-reviews-data.js"))];
-require(path.join(ROOT, "assets/js/site-reviews-data.js"));
-var SITE_REVIEWS = global.window.YL_SITE_REVIEWS || [];
+var siteReviewsPath = path.join(ROOT, "assets/js/site-reviews-data.js");
+var SITE_REVIEWS = [];
+if (!fs.existsSync(siteReviewsPath)) {
+  fail("assets/js/site-reviews-data.js", "missing -- run npm run build-data");
+} else {
+  try {
+    delete require.cache[require.resolve(siteReviewsPath)];
+  } catch (e) {
+    /* not loaded yet, fine */
+  }
+  require(siteReviewsPath);
+  SITE_REVIEWS = global.window.YL_SITE_REVIEWS || [];
+}
 if (!SITE_REVIEWS.length) {
   console.log("  (no site reviews yet -- fine, the site falls back to an empty-state message)");
 } else {
@@ -959,7 +1026,8 @@ if (!BUNDLES.length) {
     });
     if (missing.length) return; // already reported as a failure in section 6b
     var fullPrice = b.productIds.reduce(function (sum, id) {
-      return sum + PRODUCTS_BY_ID_QA[id].price;
+      var original = PRODUCTS_BY_ID_QA[id].originalPrice || PRODUCTS_BY_ID_QA[id].price;
+      return sum + original;
     }, 0);
     var expectedPrice = Math.round(fullPrice * (1 - (b.discountPercent || 0) / 100) * 100) / 100;
     var snipcartEntry = snipcartById["bundle-" + b.id];

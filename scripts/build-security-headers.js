@@ -72,8 +72,18 @@ function sha256Base64(text) {
   return crypto.createHash("sha256").update(text, "utf8").digest("base64");
 }
 
+function readHtml(page) {
+  var filePath = path.join(ROOT, page);
+  try {
+    return fs.readFileSync(filePath, "utf8");
+  } catch (e) {
+    console.error("[build-security-headers] Could not read page " + page + ": " + e.message);
+    process.exit(1);
+  }
+}
+
 function run() {
-  var canonical = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+  var canonical = readHtml("index.html");
   var canonicalScripts = extractInlineScripts(canonical);
   if (canonicalScripts.length < 2) {
     throw new Error(
@@ -95,7 +105,7 @@ function run() {
   });
 
   PAGES.slice(1).forEach(function (page) {
-    var html = fs.readFileSync(path.join(ROOT, page), "utf8");
+    var html = readHtml(page);
     extractInlineScripts(html).forEach(function (s) {
       var h = sha256Base64(s);
       if (!allTexts[h]) {

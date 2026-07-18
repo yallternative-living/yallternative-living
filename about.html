@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Y'allternative">
 <meta name="color-scheme" content="dark light">
 <meta name="view-transition" content="same-origin">
 <title>Our Story — Y'allternative Living</title>
@@ -12,9 +15,12 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="Our Story — Y'allternative Living">
 <meta property="og:description" content="Meet Savanna, the queer, Southern-raised maker behind Y'allternative Living: handmade self-care from Landrum, SC, made for the black sheep and bold hearts.">
-<meta property="og:image" content="assets/img/og-image.jpg">
+<meta property="og:image" content="https://yallternativeliving.com/assets/img/og-image.jpg">
 <meta property="og:url" content="https://yallternativeliving.com/about.html">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Our Story — Y'allternative Living">
+<meta name="twitter:description" content="Meet Savanna, the queer, Southern-raised maker behind Y'allternative Living: handmade self-care from Landrum, SC, made for the black sheep and bold hearts.">
+<meta name="twitter:image" content="https://yallternativeliving.com/assets/img/og-image.jpg">
 
 <link rel="icon" href="assets/img/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="icon" href="assets/img/favicon-192.png" sizes="192x192" type="image/png">
@@ -25,14 +31,18 @@
 <!-- Premium modern typography for the brand's southern-alt vibe -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&family=Outfit:wght@300;400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&family=Outfit:wght@300;400;500;600;700&display=swap" media="print" onload="this.media='all'">
+<noscript>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&family=Outfit:wght@300;400;500;600;700&display=swap">
+</noscript>
 <!-- Warm up the two third-party origins this page actually talks to,
      so the first Add to Cart click (Snipcart, lazy-loaded on interaction)
      and the analytics beacon (Plausible) don't pay a cold DNS+TLS
      handshake at the moment they're needed. -->
 <link rel="preconnect" href="https://cdn.snipcart.com" crossorigin>
 <link rel="preconnect" href="https://plausible.io">
-<link rel="stylesheet" href="assets/css/styles.css">
+<link rel="stylesheet" href="assets/css/styles.css?v=7">
 
 <!-- Preload the founder photo (this page's LCP element). -->
 <link rel="preload" as="image" type="image/avif"
@@ -58,11 +68,13 @@
 <script defer data-domain="yallternativeliving.com" src="https://plausible.io/js/script.js"></script>
 <style>
   /* about.html one-offs, scoped so shared tokens/components stay untouched */
-  .about-hero .lede{ max-width: 58ch; margin: 0 auto; }
+  .about-hero .lede{ max-width: 58ch; margin: 0 auto; line-height: 1.7; }
+  .about-founder p, .about-community p { max-width: 65ch; line-height: 1.7; }
   .about-founder p:last-of-type{ margin-bottom: 0; }
   .about-community blockquote{
-    margin: 24px 0 0; padding-left: 18px; border-left: 3px solid var(--whiskey);
-    font-family: var(--font-display); font-size: 1.1rem; color: var(--paper);
+    margin: 32px 0 0; padding-left: 20px; border-left: 3px solid var(--whiskey);
+    font-family: var(--font-display); font-size: 1.25rem; color: var(--paper);
+    line-height: 1.6; max-width: 60ch;
   }
 </style>
 <script type="application/ld+json">
@@ -257,6 +269,7 @@
           <li><a href="shop.html#body">Body &amp; Skin</a></li>
           <li><a href="shop.html#soaks">Soaks</a></li>
           <li><a href="shop.html#potions">Potions &amp; Spellwork</a></li>
+          <li><a href="shop.html#ritual">Ritual &amp; Home</a></li>
         </ul>
       </div>
       <div>
@@ -276,8 +289,8 @@
          real form action URL from your Kit account -- see README. -->
     <div class="footer-signup reveal" id="footerSignup">
       <div class="footer-signup-text">
-        <h3>Get The Good Stuff In Your Inbox</h3>
-        <p>New batches, market &amp; Pride dates, and the occasional bad pun, straight from Savanna. No spam, unsubscribe whenever you please.</p>
+        <h3>Get 10% Off Your First Order</h3>
+        <p>Drop your email for a welcome code, plus new batch alerts, market dates, and the occasional bad pun. No spam, unsubscribe whenever.</p>
       </div>
       <p class="footer-signup-confirm"><span class="glyph" aria-hidden="true">&#10003;</span> You're on the list, y'all! Keep an eye on your inbox.</p>
       <form class="footer-signup-form" action="YOUR_KIT_FORM_ACTION_URL" method="post">

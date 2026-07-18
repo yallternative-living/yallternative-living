@@ -60,6 +60,11 @@ if (!Array.isArray(snapshot.listings)) {
 }
 
 var dataPath = path.join(ROOT, "assets/js/products-data.js");
+if (!fs.existsSync(dataPath)) {
+  console.error("Error: products-data.js is missing at " + dataPath);
+  console.error("Please run the site data builder first: node scripts/build-site-data.js");
+  process.exit(1);
+}
 
 // Same window-stub trick build-site-data.js uses, so this unmodified
 // browser-global file loads fine under plain Node too.
@@ -182,6 +187,10 @@ if (ratingChanges.length) {
     "   Etsy reviews by scripts/apply-etsy-snapshot.js -- everything else\n" +
     "   here (photos, blurbs, prices, variants) is still hand-maintained. */\n";
   var out = HEADER + "window.YL_PRODUCTS = " + JSON.stringify(CATALOG, null, 2) + ";\n";
+  var dir = path.dirname(dataPath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
   fs.writeFileSync(dataPath, out);
 }
 

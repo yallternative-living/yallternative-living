@@ -3,6 +3,12 @@
    Output: assets/img/og-image.jpg   (run: node scripts/make-og-image.js) */
 const sharp = require("sharp");
 const path = require("path");
+const fs = require("fs");
+
+const IMG_DIR = path.join(__dirname, "..", "assets/img");
+if (!fs.existsSync(IMG_DIR)) {
+  fs.mkdirSync(IMG_DIR, { recursive: true });
+}
 
 const W = 1200,
   H = 630;
@@ -41,7 +47,7 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" 
 
 sharp(Buffer.from(svg))
   .jpeg({ quality: 88, chromaSubsampling: "4:4:4" })
-  .toFile(path.join(__dirname, "..", "assets/img/og-image.jpg"))
+  .toFile(path.join(IMG_DIR, "og-image.jpg"))
   .then((info) =>
     console.log(
       "wrote assets/img/og-image.jpg",

@@ -131,8 +131,24 @@ function escapeHtml(s) {
 }
 
 var PRODUCTS_BY_ID = {};
+var SALES = CATALOG.sales || [];
+var salesByCategory = {};
+SALES.forEach(function (s) {
+  salesByCategory[s.category] = s;
+});
+
 PRODUCTS.forEach(function (p) {
   PRODUCTS_BY_ID[p.id] = p;
+
+  if (p.sale && p.sale.price) {
+    p.originalPrice = p.price;
+    p.price = p.sale.price;
+  } else if (salesByCategory[p.category]) {
+    var catSale = salesByCategory[p.category];
+    p.originalPrice = p.price;
+    p.price = Math.round(p.price * (1 - catSale.percentOff / 100) * 100) / 100;
+    p.sale = { label: catSale.label };
+  }
 });
 
 /* A bundle's real price is always computed from its real component
@@ -146,7 +162,8 @@ function bundlePricing(b) {
   });
   if (missing.length) return null;
   var fullPrice = b.productIds.reduce(function (sum, id) {
-    return sum + PRODUCTS_BY_ID[id].price;
+    var original = PRODUCTS_BY_ID[id].originalPrice || PRODUCTS_BY_ID[id].price;
+    return sum + original;
   }, 0);
   var bundlePrice = Math.round(fullPrice * (1 - (b.discountPercent || 0) / 100) * 100) / 100;
   return { fullPrice: fullPrice, bundlePrice: bundlePrice };
@@ -162,9 +179,29 @@ CATALOG.categories.forEach(function (c) {
   CATEGORY_LABEL[c.id] = c.label;
 });
 
+function readText(relPath, label) {
+  var full = path.join(ROOT, relPath);
+  try {
+    return fs.readFileSync(full, "utf8");
+  } catch (e) {
+    console.error("\n[build] Could not read " + (label || relPath) + ": " + e.message);
+    process.exit(1);
+  }
+}
+
 function writeFile(relPath, contents) {
-  fs.writeFileSync(path.join(ROOT, relPath), contents);
-  console.log("wrote " + relPath);
+  var full = path.join(ROOT, relPath);
+  var dir = path.dirname(full);
+  try {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(full, contents);
+    console.log("wrote " + relPath);
+  } catch (e) {
+    console.error("\n[build] Could not write " + relPath + ": " + e.message);
+    process.exit(1);
+  }
 }
 
 /* ---------- Variant helpers ----------
@@ -377,7 +414,7 @@ var shopJsonLd = {
   name: "Y'allternative Living — Full Shop Catalog",
   itemListElement: itemListElement
 };
-var shopHtml = fs.readFileSync(path.join(ROOT, "shop.html"), "utf8");
+var shopHtml = readText("shop.html", "shop page");
 var shopBlockRe =
   /<script type="application\/ld\+json">\n\{\n\s*"@context": "https:\/\/schema\.org",\n\s*"@type": "ItemList"[\s\S]*?\n<\/script>/;
 if (!shopBlockRe.test(shopHtml)) {
@@ -390,6 +427,27 @@ var newBlock =
 shopHtml = shopHtml.replace(shopBlockRe, function () {
   return newBlock;
 });
+
+var shopFaqLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: FAQ.map(function (item) {
+    return {
+      "@type": "Question",
+      name: item.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: item.answer
+      }
+    };
+  })
+};
+var shopFaqScript =
+  '\n  <script type="application/ld+json">\n' +
+  JSON.stringify(shopFaqLd, null, 2).replace(/\n/g, "\n  ") +
+  "\n  </script>\n";
+shopHtml = shopHtml.replace("</head>", shopFaqScript + "</head>");
+
 writeFile("shop.html", shopHtml);
 
 /* ---------- 4) contact.html FAQ (JSON-LD + visible prose) ----------
@@ -399,7 +457,7 @@ writeFile("shop.html", shopHtml);
    it, so the two can never drift out of sync with each other again
    (they used to be two separate hand-typed copies). shop.html doesn't
    duplicate any of this; it just links to contact.html#faq. */
-var contactHtml = fs.readFileSync(path.join(ROOT, "contact.html"), "utf8");
+var contactHtml = readText("contact.html", "contact page");
 
 var faqJsonLd = {
   "@context": "https://schema.org",
@@ -457,7 +515,7 @@ writeFile("contact.html", contactHtml);
    on blank lines into <p> paragraphs; everything else is a single string. */
 var CONTENT = readJson("assets/data/content.json");
 function injectPageCopy(page, pageKey) {
-  var html = fs.readFileSync(path.join(ROOT, page), "utf8");
+  var html = readText(page, page + " page");
   var section = CONTENT[pageKey] || {};
   Object.keys(section).forEach(function (key) {
     var raw = String(section[key]);
@@ -503,9 +561,7 @@ injectPageCopy("about.html", "about");
    inside review quote-cards are never touched. The copyright YEAR is
    still filled in live by main.js (getFullYear), so it stays correct
    without any yearly rebuild. */
-var FOOTER_INNER = fs
-  .readFileSync(path.join(ROOT, "assets/data/footer.html"), "utf8")
-  .replace(/\s+$/, "");
+var FOOTER_INNER = readText("assets/data/footer.html", "footer template").replace(/\s+$/, "");
 var FOOTER_BLOCK = '<footer class="site-footer">\n' + FOOTER_INNER + "\n</footer>";
 var FOOTER_RE = /<footer class="site-footer">[\s\S]*?<\/footer>/;
 [
@@ -519,7 +575,13 @@ var FOOTER_RE = /<footer class="site-footer">[\s\S]*?<\/footer>/;
 ].forEach(function (page) {
   var filePath = path.join(ROOT, page);
   if (!fs.existsSync(filePath)) return;
-  var html = fs.readFileSync(filePath, "utf8");
+  var html;
+  try {
+    html = fs.readFileSync(filePath, "utf8");
+  } catch (e) {
+    console.error("\n[build] Could not read " + page + ": " + e.message);
+    process.exit(1);
+  }
   if (!FOOTER_RE.test(html)) {
     throw new Error(
       'No <footer class="site-footer"> block found in ' +
