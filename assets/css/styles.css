@@ -272,28 +272,28 @@ section{
      theme-flipping --rose/--paper -- plain --rose + --paper only clears
      ~2.4-3.5:1 here (fails AA 4.5:1 for normal text), worst in light mode
      where --paper flips dark. See README a11y notes for the contrast math. */
-  &-primary{
+  &.btn-primary{
     background: var(--rose-dim);
     color: var(--on-fill);
     box-shadow: var(--shadow);
     &:hover{ background: var(--rose-fill-hover); }
   }
 
-  &-outline{
+  &.btn-outline{
     border-color: var(--whiskey);
     color: var(--paper);
     background:transparent;
     &:hover{ background: var(--whiskey); color: var(--ink); }
   }
 
-  &-ghost{
+  &.btn-ghost{
     color: var(--whiskey);
     padding:14px 6px;
     &:hover{ color: var(--paper); }
   }
 
-  &-sm{ padding:10px 20px; font-size:.82rem; }
-  &-block{ width:100%; }
+  &.btn-sm{ padding:10px 20px; font-size:.82rem; }
+  &.btn-block{ width:100%; }
 }
 
 /* =============== NAV =============== */
@@ -335,7 +335,7 @@ section{
     }
   }
   
-  &-word{
+  & .hero-word{
     font-family: var(--font-display);
     font-size:1.35rem;
     letter-spacing:.03em;
@@ -598,19 +598,19 @@ section{
 .card-gallery{
   position:relative; width:100%; height:100%;
   
-  &-slide{
+  & .card-gallery-slide{
     position:absolute; inset:0; width:100%; height:100%;
     opacity:0; visibility:hidden; transition: opacity .25s ease;
     
     &.active{ opacity:1; visibility:visible; }
   }
   
-  &-dots{
+  & .card-gallery-dots{
     position:absolute; left:0; right:0; bottom:6px;
     display:flex; justify-content:center; gap:2px; z-index:2;
   }
   
-  &-dot{
+  & .card-gallery-dot{
     width:24px; height:24px; /* WCAG 2.5.8 target-size floor; visible dot stays small */
     display:flex; align-items:center; justify-content:center;
     background:transparent; border:none; padding:0; margin:0; cursor:pointer;
@@ -630,7 +630,7 @@ section{
   padding:20px 22px 24px; display:flex; flex-direction:column; gap:8px; flex:1;
   
   & h3{ margin:0; font-family:var(--font-body); font-weight:700; font-size:1.02rem; }
-  & p{ font-size:.88rem; margin:0; flex:1; }
+  & p{ font-size:.88rem; margin:0; }
 }
 
 .card-cat{ font-size:.72rem; text-transform:uppercase; letter-spacing:.14em; color: var(--whiskey); font-weight:700; }
@@ -672,7 +672,7 @@ section{
 /* Collapsed by default (<details> with no [open]) -- real per-product
    ingredient data, but shown on demand so it doesn't compete with the
    price/Add to Cart button for space on every single card. */
-.product-accordion {
+.card-ingredients {
   &:first-of-type { border-top: 1px solid var(--hide); }
   
   & summary {
@@ -702,9 +702,9 @@ section{
 .contact-card .card-body h2{ margin:0; font-family:var(--font-body); font-weight:700; font-size:1.02rem; }
 
 .card-foot{
-  margin-top:10px;
+  margin-top:auto;
   
-  &-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  & .card-foot-row{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; }
 }
 
 .price{ font-family:var(--font-display); font-size:1.15rem; color: var(--paper); }
@@ -924,13 +924,13 @@ section{
     flex-direction:column; align-items:stretch; padding:24px;
   }
   
-  &-text{
+  & .footer-cta-text{
     max-width:60ch; flex:1 1 380px;
     & h3{ margin-bottom:.25em; }
     & p{ margin:0; font-size:.9rem; }
   }
   
-  &-form{
+  & .footer-cta-form{
     display:flex; align-items:flex-end; gap:12px; flex-wrap:wrap; flex:0 0 auto;
     @media (max-width:700px){
       flex-direction:column; align-items:stretch;
@@ -946,7 +946,7 @@ section{
     }
   }
   
-  &-confirm{ display:none; margin:0; font-size:.95rem; color:var(--paper); }
+  & .footer-cta-confirm{ display:none; margin:0; font-size:.95rem; color:var(--paper); }
   
   &.is-subscribed{
     & .footer-signup-text, & .footer-signup-form{ display:none; }
@@ -990,7 +990,7 @@ section{
 .shop-search{
   position:relative; max-width:420px; margin:0 0 20px;
   
-  &-icon{ position:absolute; left:14px; top:50%; transform:translateY(-50%); width:16px; height:16px; color:var(--paper-dim); pointer-events:none; }
+  & .shop-search-icon{ position:absolute; left:14px; top:50%; transform:translateY(-50%); width:16px; height:16px; color:var(--paper-dim); pointer-events:none; }
   & input{
     width:100%; background: var(--ink); border:1px solid var(--hide); color:var(--paper);
     padding:12px 14px 12px 40px; border-radius:30px; font-family:var(--font-body); font-size:.9rem;
