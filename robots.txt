@@ -40,4 +40,4 @@ Allow: /
 User-agent: Bingbot
 Allow: /
 
-Sitemap: https://your-domain-here.com/sitemap.xml
+Sitemap: https://yallternativeliving.com/sitemap.xml

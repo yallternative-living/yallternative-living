@@ -6,11 +6,11 @@ Y'allternative Living is a small, queer-owned business run by founder Savanna ou
 
 ## Pages
 
-- [Shop](https://your-domain-here.com/shop.html): the full catalog of 15 handmade products across 5 categories (Apparel, Salves & Balms, Body & Skin, Soaks, Potions & Spellwork). Add-to-cart checkout happens directly on this site via Snipcart -- no redirect to a third-party marketplace required.
-- [Events](https://your-domain-here.com/events.html): upcoming and past farmers markets, fairs, and Pride pop-ups where the shop appears in person. Only real, confirmed dates are listed -- if it's empty, no dates are confirmed yet.
-- [Our Story](https://your-domain-here.com/about.html): founder background and brand story.
-- [Contact](https://your-domain-here.com/contact.html): contact info, shipping/custom-order FAQ, and where to find the shop in person.
-- [Privacy Policy](https://your-domain-here.com/privacy.html): plain-language privacy policy (not a substitute for legal advice).
+- [Shop](https://yallternativeliving.com/shop.html): the full catalog of 15 handmade products across 5 categories (Apparel, Salves & Balms, Body & Skin, Soaks, Potions & Spellwork). Add-to-cart checkout happens directly on this site via Snipcart -- no redirect to a third-party marketplace required.
+- [Events](https://yallternativeliving.com/events.html): upcoming and past farmers markets, fairs, and Pride pop-ups where the shop appears in person. Only real, confirmed dates are listed -- if it's empty, no dates are confirmed yet.
+- [Our Story](https://yallternativeliving.com/about.html): founder background and brand story.
+- [Contact](https://yallternativeliving.com/contact.html): contact info, shipping/custom-order FAQ, and where to find the shop in person.
+- [Privacy Policy](https://yallternativeliving.com/privacy.html): plain-language privacy policy (not a substitute for legal advice).
 
 ## Products
 
@@ -30,7 +30,7 @@ Y'allternative Living is a small, queer-owned business run by founder Savanna ou
 - **Y'all Means All Sugar Scrub** -- $12.00 -- Body & Skin -- Rainbow layers of exfoliating sugar scrub that mean exactly what they say — y'all means all. Sloughs off the rough, leaves skin soft and sweet, and looks like a Pride parade in a jar. Glitter-and-grit self-care for the black sheep and bold hearts.
 - **Y'all Means All Rainbow Whipped Body Butter** -- $15.00 -- Body & Skin -- Whipped light and fluffy in a citrus-peach blend, with rainbow swirls that mean all of it — every color, every one of us. Melts in without the grease and keeps skin soft all day. Y'all means all, moisturized.
 
-Machine-readable catalog: https://your-domain-here.com/assets/data/products.json (always the live source of truth for current prices -- prefer it over this file if the two ever disagree, since this file may not be regenerated as often as the catalog changes).
+Machine-readable catalog: https://yallternativeliving.com/assets/data/products.json (always the live source of truth for current prices -- prefer it over this file if the two ever disagree, since this file may not be regenerated as often as the catalog changes).
 
 ## Other real links for this business
 

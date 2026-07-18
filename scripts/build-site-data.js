@@ -155,7 +155,7 @@ function bundlePricing(b) {
 // There's no live domain yet -- every generated absolute URL below uses this
 // placeholder. Update this ONE constant (and re-run the script) once a real
 // domain exists, instead of hand-editing every file again.
-var DOMAIN = "https://your-domain-here.com";
+var DOMAIN = "https://yallternativeliving.com";
 
 var CATEGORY_LABEL = {};
 CATALOG.categories.forEach(function (c) {
