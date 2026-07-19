@@ -465,7 +465,7 @@ section{
 .hero{
   min-height: 55dvh; /* dynamic viewport height accounts for dynamic browser chrome */
   display:flex; align-items:center;
-  padding: 110px 0 90px;
+  padding: 80px 0 60px;
   background:
     radial-gradient(ellipse at 20% 20%, rgba(181,73,91,.18), transparent 55%),
     radial-gradient(ellipse at 80% 80%, rgba(201,138,75,.14), transparent 55%),
