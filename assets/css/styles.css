@@ -591,7 +591,19 @@ section{
 .value-item{
   display:flex; gap:12px; align-items:flex-start;
   
-  & .glyph{ font-size:1.3rem; color:var(--whiskey); line-height:1; margin-top:2px; }
+  & .glyph{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--whiskey);
+    margin-top: 2px;
+    flex-shrink: 0;
+    
+    & svg {
+      width: 22px;
+      height: 22px;
+    }
+  }
   
   /* h2, not h4 -- these sit directly under the page's single h1 with no
      intervening section heading on index.html, so h4 skipped two levels
