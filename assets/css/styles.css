@@ -483,7 +483,7 @@ section{
 }
 
 .pride-rule{ width:64px; height:4px; border-radius:4px; background:var(--pride); margin:18px 0 26px; }
-.hero-actions{ display:flex; gap:16px; flex-wrap:wrap; margin-top:8px; }
+.hero-actions{ display:flex; gap:16px; flex-wrap:wrap; align-items:center; margin-top:8px; }
 .hero-tags{ display:flex; gap:10px; flex-wrap:wrap; margin-top:28px; }
 
 .tag{
@@ -522,6 +522,10 @@ section{
   & .stars{ color: var(--whiskey); font-size:1rem; letter-spacing:2px; }
   & b{ display:block; font-size:1.05rem; }
   & span{ font-size:.75rem; color:var(--paper-dim); }
+}
+
+.hero-actions .hero-badge{
+  margin: 0;
 }
 
 
