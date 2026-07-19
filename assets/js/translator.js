@@ -9,12 +9,12 @@
   "use strict";
 
   var LANGUAGES = [
-    { code: "en", name: "English", flag: "🇺🇸" },
-    { code: "es", name: "Español", flag: "🇲🇽" },
-    { code: "de", name: "Deutsch", flag: "🇩🇪" },
-    { code: "fr", name: "Français", flag: "🇨🇦" },
-    { code: "ja", name: "日本語", flag: "🇯🇵" },
-    { code: "zh", name: "中文", flag: "🇨🇳" }
+    { code: "en", name: "English" },
+    { code: "es", name: "Español" },
+    { code: "de", name: "Deutsch" },
+    { code: "fr", name: "Français" },
+    { code: "ja", name: "日本語" },
+    { code: "zh", name: "中文" }
   ];
 
   var globeSVG =
@@ -327,7 +327,7 @@
       btn.className = "lang-option" + (lang.code === currentLang ? " active" : "");
       btn.type = "button";
       btn.setAttribute("data-lang", lang.code);
-      btn.innerHTML = '<span class="flag">' + lang.flag + "</span> " + lang.name;
+      btn.textContent = lang.name;
 
       btn.addEventListener("click", async function () {
         var code = btn.getAttribute("data-lang");
