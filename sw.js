@@ -27,7 +27,7 @@ self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        return cache.addAll(ASSETS_TO_CACHE);
+        return cache.addAll(ASSETS_TO_CACHE).catch(err => console.warn('Cache addAll error', err));
       })
       .then(() => self.skipWaiting())
   );
@@ -52,13 +52,17 @@ self.addEventListener('fetch', event => {
   
   // Stale-while-revalidate for local assets
   if (event.request.url.startsWith(self.location.origin)) {
+    const url = new URL(event.request.url);
+    url.search = "";
+    const cleanRequest = new Request(url.toString());
+
     event.respondWith(
-      caches.match(event.request).then(cachedResponse => {
+      caches.match(cleanRequest).then(cachedResponse => {
         const networkFetch = fetch(event.request).then(response => {
           if (response && response.status === 200) {
             const responseClone = response.clone();
             caches.open(CACHE_NAME).then(cache => {
-              cache.put(event.request, responseClone);
+              cache.put(cleanRequest, responseClone);
             });
           }
           return response;

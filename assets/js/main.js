@@ -543,7 +543,7 @@
     var options = p.variants.options
       .map(function (o) {
         var delta = o.priceDelta || 0;
-        var priceSuffix = delta ? " (+$" + delta.toFixed(2) + ")" : "";
+        var priceSuffix = delta ? " (" + (delta < 0 ? "-$" + Math.abs(delta).toFixed(2) : "+$" + delta.toFixed(2)) + ")" : "";
         return (
           '<option value="' +
           attrEsc(o.label) +
@@ -1195,7 +1195,8 @@
         salves: "Salves & Balms",
         body: "Body & Skin",
         soaks: "Soaks",
-        potions: "Potions & Spellwork"
+        potions: "Potions & Spellwork",
+        ritual: "Ritual & Home"
       }[p.category] || p.category;
     var wished = isWished(p.id);
     return (
@@ -1317,6 +1318,8 @@
         })
         .join("");
       wireReveal(siteReviewsList);
+      var emptyMsg = document.getElementById("siteReviewsEmpty");
+      if (emptyMsg) emptyMsg.style.display = "none";
     }
 
     // Product picker: a static "General / whole shop" option already
@@ -1834,27 +1837,20 @@
       syncCart();
     });
   })();
-})();
-
-if ("serviceWorker" in navigator) {
-  function registerSW() {
-    console.log("Calling navigator.serviceWorker.register...");
-    navigator.serviceWorker
-      .register("/sw.js")
-      .then(() => {
-        console.log("Service Worker successfully registered!");
-      })
-      .catch((err) => {
-        console.error("Service Worker registration failed:", err.toString());
-      });
-  }
-  console.log("Initial document.readyState:", document.readyState);
-  if (document.readyState === "complete") {
-    registerSW();
-  } else {
-    window.addEventListener("load", () => {
-      console.log("Load event fired, registering SW...");
+  if ("serviceWorker" in navigator) {
+    function registerSW() {
+      navigator.serviceWorker
+        .register("/sw.js")
+        .catch((err) => {
+          console.error("Service Worker registration failed:", err.toString());
+        });
+    }
+    if (document.readyState === "complete") {
       registerSW();
-    });
+    } else {
+      window.addEventListener("load", () => {
+        registerSW();
+      });
+    }
   }
-}
+})();

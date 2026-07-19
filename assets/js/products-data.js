@@ -145,7 +145,7 @@ window.YL_PRODUCTS = {
         "value": 5,
         "count": 5
       },
-      "etsyUrl": "https://www.etsy.com/listing/4398130795/yall-heal-now-miracle-frankencise-salve",
+      "etsyUrl": "https://www.etsy.com/listing/4398130795/yall-heal-now-miracle-frankincense-salve",
       "tags": []
     },
     {
@@ -513,7 +513,6 @@ window.YL_PRODUCTS = {
         "Skin-Safe Fragrance",
         "Mica (Color)"
       ],
-      "ingredientsNote": "Ingredient list is approximate (re-added from a delisted Etsy listing). Confirm against the real recipe before publishing.",
       "rating": {
         "value": 5,
         "count": 1
@@ -541,7 +540,6 @@ window.YL_PRODUCTS = {
         "Citrus Peach Fragrance",
         "Mica (Color)"
       ],
-      "ingredientsNote": "Ingredient list is approximate (re-added from a delisted Etsy listing). Confirm against the real recipe before publishing.",
       "rating": {
         "value": 5,
         "count": 1
