@@ -103,10 +103,12 @@ async function optimizeOne(filename) {
     .toFile(path.join(IMG_DIR, fullAvif));
   avifVariants.push({ width: srcWidth, file: "assets/img/" + fullAvif });
 
+  var beforeSize = fs.statSync(srcPath).size;
   return {
     key: "assets/img/" + filename,
     width: srcWidth,
     height: srcHeight,
+    size: beforeSize,
     variants: { avif: avifVariants, webp: webpVariants }
   };
 }
@@ -191,11 +193,41 @@ async function run() {
 
   for (var i = 0; i < files.length; i++) {
     var filename = files[i];
-    var entry = await optimizeOne(filename);
+    var fullPath = path.join(IMG_DIR, filename);
+    var currentSize = fs.statSync(fullPath).size;
+    var entry = manifest["assets/img/" + filename];
+
+    if (entry && entry.size === currentSize && entry.variants) {
+      // Check if all variant files actually exist on disk
+      var allExist = true;
+      var checkVariant = function (v) {
+        if (!fs.existsSync(path.join(ROOT, v.file))) allExist = false;
+      };
+      entry.variants.avif.forEach(checkVariant);
+      entry.variants.webp.forEach(checkVariant);
+
+      if (allExist) {
+        console.log(filename + " is already optimized. Skipping.");
+        var beforeSize = entry.size || currentSize;
+        beforeTotal += beforeSize;
+        var avifSizes = entry.variants.avif.map(function (v) {
+          return fs.existsSync(path.join(ROOT, v.file)) ? fs.statSync(path.join(ROOT, v.file)).size : 0;
+        });
+        var webpSizes = entry.variants.webp.map(function (v) {
+          return fs.existsSync(path.join(ROOT, v.file)) ? fs.statSync(path.join(ROOT, v.file)).size : 0;
+        });
+        avifSmallestTotal += Math.min.apply(null, avifSizes);
+        avifFullTotal += avifSizes[avifSizes.length - 1];
+        webpSmallestTotal += Math.min.apply(null, webpSizes);
+        continue;
+      }
+    }
+
+    entry = await optimizeOne(filename);
     manifest[entry.key] = entry;
     writeManifest(manifest); // persist after every photo, not just at the end
 
-    var beforeSize = fs.statSync(path.join(IMG_DIR, filename)).size;
+    var beforeSize = entry.size || currentSize;
     beforeTotal += beforeSize;
 
     var avifSizes = entry.variants.avif.map(function (v) {

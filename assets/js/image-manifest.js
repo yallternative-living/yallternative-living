@@ -8,6 +8,7 @@ window.YL_IMAGES = {
     "key": "assets/img/backroad-soak-alt1.jpg",
     "width": 900,
     "height": 1200,
+    "size": 137890,
     "variants": {
       "avif": [
         {
@@ -43,6 +44,7 @@ window.YL_IMAGES = {
     "key": "assets/img/backroad-soak-alt2.jpg",
     "width": 1200,
     "height": 900,
+    "size": 116832,
     "variants": {
       "avif": [
         {
@@ -78,6 +80,7 @@ window.YL_IMAGES = {
     "key": "assets/img/backroad-soak-alt3.jpg",
     "width": 903,
     "height": 1200,
+    "size": 166883,
     "variants": {
       "avif": [
         {
@@ -113,6 +116,7 @@ window.YL_IMAGES = {
     "key": "assets/img/backroad-soak.jpg",
     "width": 1053,
     "height": 1400,
+    "size": 248943,
     "variants": {
       "avif": [
         {
@@ -148,6 +152,7 @@ window.YL_IMAGES = {
     "key": "assets/img/beard-salve-alt1.jpg",
     "width": 1588,
     "height": 1017,
+    "size": 158878,
     "variants": {
       "avif": [
         {
@@ -183,6 +188,7 @@ window.YL_IMAGES = {
     "key": "assets/img/beard-salve.jpg",
     "width": 1400,
     "height": 933,
+    "size": 259516,
     "variants": {
       "avif": [
         {
@@ -218,6 +224,7 @@ window.YL_IMAGES = {
     "key": "assets/img/bug-spray-alt1.jpg",
     "width": 900,
     "height": 1200,
+    "size": 318285,
     "variants": {
       "avif": [
         {
@@ -253,6 +260,7 @@ window.YL_IMAGES = {
     "key": "assets/img/bug-spray-alt2.jpg",
     "width": 900,
     "height": 1200,
+    "size": 196819,
     "variants": {
       "avif": [
         {
@@ -288,6 +296,7 @@ window.YL_IMAGES = {
     "key": "assets/img/bug-spray-alt3.jpg",
     "width": 1200,
     "height": 899,
+    "size": 144724,
     "variants": {
       "avif": [
         {
@@ -323,6 +332,7 @@ window.YL_IMAGES = {
     "key": "assets/img/bug-spray.jpg",
     "width": 1050,
     "height": 1400,
+    "size": 287205,
     "variants": {
       "avif": [
         {
@@ -358,6 +368,7 @@ window.YL_IMAGES = {
     "key": "assets/img/frankincense-salve-alt1.jpg",
     "width": 900,
     "height": 1200,
+    "size": 204062,
     "variants": {
       "avif": [
         {
@@ -393,6 +404,7 @@ window.YL_IMAGES = {
     "key": "assets/img/frankincense-salve-alt2.jpg",
     "width": 1200,
     "height": 900,
+    "size": 181989,
     "variants": {
       "avif": [
         {
@@ -428,6 +440,7 @@ window.YL_IMAGES = {
     "key": "assets/img/frankincense-salve-alt3.jpg",
     "width": 900,
     "height": 1200,
+    "size": 255669,
     "variants": {
       "avif": [
         {
@@ -463,6 +476,7 @@ window.YL_IMAGES = {
     "key": "assets/img/frankincense-salve.jpg",
     "width": 1400,
     "height": 1050,
+    "size": 265168,
     "variants": {
       "avif": [
         {
@@ -498,6 +512,7 @@ window.YL_IMAGES = {
     "key": "assets/img/hand-scrub-alt1.jpg",
     "width": 1080,
     "height": 1440,
+    "size": 261095,
     "variants": {
       "avif": [
         {
@@ -533,6 +548,7 @@ window.YL_IMAGES = {
     "key": "assets/img/hand-scrub-alt2.jpg",
     "width": 900,
     "height": 1200,
+    "size": 205563,
     "variants": {
       "avif": [
         {
@@ -568,6 +584,7 @@ window.YL_IMAGES = {
     "key": "assets/img/hand-scrub-alt3.jpg",
     "width": 1080,
     "height": 813,
+    "size": 182148,
     "variants": {
       "avif": [
         {
@@ -603,6 +620,7 @@ window.YL_IMAGES = {
     "key": "assets/img/hand-scrub.jpg",
     "width": 1007,
     "height": 804,
+    "size": 65898,
     "variants": {
       "avif": [
         {
@@ -638,6 +656,7 @@ window.YL_IMAGES = {
     "key": "assets/img/lavender-soak-alt1.jpg",
     "width": 1080,
     "height": 810,
+    "size": 131704,
     "variants": {
       "avif": [
         {
@@ -673,6 +692,7 @@ window.YL_IMAGES = {
     "key": "assets/img/lavender-soak-alt2.jpg",
     "width": 1080,
     "height": 1440,
+    "size": 232918,
     "variants": {
       "avif": [
         {
@@ -708,6 +728,7 @@ window.YL_IMAGES = {
     "key": "assets/img/lavender-soak.jpg",
     "width": 953,
     "height": 1200,
+    "size": 255727,
     "variants": {
       "avif": [
         {
@@ -743,6 +764,7 @@ window.YL_IMAGES = {
     "key": "assets/img/miracle-balm.jpg",
     "width": 1400,
     "height": 933,
+    "size": 101400,
     "variants": {
       "avif": [
         {
@@ -778,6 +800,7 @@ window.YL_IMAGES = {
     "key": "assets/img/protection-keychain-alt1.jpg",
     "width": 800,
     "height": 1200,
+    "size": 126236,
     "variants": {
       "avif": [
         {
@@ -805,6 +828,7 @@ window.YL_IMAGES = {
     "key": "assets/img/protection-keychain-alt2.jpg",
     "width": 1588,
     "height": 1588,
+    "size": 170934,
     "variants": {
       "avif": [
         {
@@ -840,6 +864,7 @@ window.YL_IMAGES = {
     "key": "assets/img/protection-keychain.jpg",
     "width": 933,
     "height": 1400,
+    "size": 105570,
     "variants": {
       "avif": [
         {
@@ -875,6 +900,7 @@ window.YL_IMAGES = {
     "key": "assets/img/shea-butter-alt1.jpg",
     "width": 1080,
     "height": 720,
+    "size": 89014,
     "variants": {
       "avif": [
         {
@@ -910,6 +936,7 @@ window.YL_IMAGES = {
     "key": "assets/img/shea-butter-alt2.jpg",
     "width": 1080,
     "height": 720,
+    "size": 79230,
     "variants": {
       "avif": [
         {
@@ -945,6 +972,7 @@ window.YL_IMAGES = {
     "key": "assets/img/shea-butter.jpg",
     "width": 1400,
     "height": 933,
+    "size": 106668,
     "variants": {
       "avif": [
         {
@@ -980,6 +1008,7 @@ window.YL_IMAGES = {
     "key": "assets/img/shimmer-oil-alt1.jpg",
     "width": 846,
     "height": 1200,
+    "size": 177704,
     "variants": {
       "avif": [
         {
@@ -1015,6 +1044,7 @@ window.YL_IMAGES = {
     "key": "assets/img/shimmer-oil-alt2.jpg",
     "width": 1588,
     "height": 1588,
+    "size": 197924,
     "variants": {
       "avif": [
         {
@@ -1050,6 +1080,7 @@ window.YL_IMAGES = {
     "key": "assets/img/shimmer-oil-alt3.jpg",
     "width": 1200,
     "height": 900,
+    "size": 157135,
     "variants": {
       "avif": [
         {
@@ -1085,6 +1116,7 @@ window.YL_IMAGES = {
     "key": "assets/img/shimmer-oil.jpg",
     "width": 1400,
     "height": 1050,
+    "size": 209895,
     "variants": {
       "avif": [
         {
@@ -1120,6 +1152,7 @@ window.YL_IMAGES = {
     "key": "assets/img/sleep-salve-alt1.jpg",
     "width": 1588,
     "height": 1191,
+    "size": 246360,
     "variants": {
       "avif": [
         {
@@ -1155,6 +1188,7 @@ window.YL_IMAGES = {
     "key": "assets/img/sleep-salve.jpg",
     "width": 1400,
     "height": 1050,
+    "size": 210170,
     "variants": {
       "avif": [
         {
@@ -1190,6 +1224,7 @@ window.YL_IMAGES = {
     "key": "assets/img/tank-top-alt1.jpg",
     "width": 1620,
     "height": 2160,
+    "size": 276435,
     "variants": {
       "avif": [
         {
@@ -1225,6 +1260,7 @@ window.YL_IMAGES = {
     "key": "assets/img/tank-top-alt2.jpg",
     "width": 1620,
     "height": 2160,
+    "size": 298266,
     "variants": {
       "avif": [
         {
@@ -1260,6 +1296,7 @@ window.YL_IMAGES = {
     "key": "assets/img/tank-top-alt3.jpg",
     "width": 903,
     "height": 1200,
+    "size": 194302,
     "variants": {
       "avif": [
         {
@@ -1295,6 +1332,7 @@ window.YL_IMAGES = {
     "key": "assets/img/tank-top.jpg",
     "width": 1050,
     "height": 1400,
+    "size": 179984,
     "variants": {
       "avif": [
         {
@@ -1330,6 +1368,7 @@ window.YL_IMAGES = {
     "key": "assets/img/unisex-tshirt-alt1.jpg",
     "width": 903,
     "height": 1200,
+    "size": 225630,
     "variants": {
       "avif": [
         {
@@ -1365,6 +1404,7 @@ window.YL_IMAGES = {
     "key": "assets/img/unisex-tshirt-alt2.jpg",
     "width": 1620,
     "height": 2160,
+    "size": 234918,
     "variants": {
       "avif": [
         {
@@ -1400,6 +1440,7 @@ window.YL_IMAGES = {
     "key": "assets/img/unisex-tshirt-alt3.jpg",
     "width": 900,
     "height": 1200,
+    "size": 155117,
     "variants": {
       "avif": [
         {
@@ -1435,6 +1476,7 @@ window.YL_IMAGES = {
     "key": "assets/img/unisex-tshirt.jpg",
     "width": 1050,
     "height": 1400,
+    "size": 155782,
     "variants": {
       "avif": [
         {
@@ -1470,6 +1512,7 @@ window.YL_IMAGES = {
     "key": "assets/img/apple-touch-icon.png",
     "width": 180,
     "height": 180,
+    "size": 37293,
     "variants": {
       "avif": [
         {
@@ -1489,6 +1532,7 @@ window.YL_IMAGES = {
     "key": "assets/img/gift-card.png",
     "width": 1011,
     "height": 637,
+    "size": 58846,
     "variants": {
       "avif": [
         {
@@ -1524,6 +1568,7 @@ window.YL_IMAGES = {
     "key": "assets/img/market-qr-code.png",
     "width": 500,
     "height": 500,
+    "size": 945,
     "variants": {
       "avif": [
         {
@@ -1551,6 +1596,7 @@ window.YL_IMAGES = {
     "key": "assets/img/og-image.jpg",
     "width": 1200,
     "height": 630,
+    "size": 78925,
     "variants": {
       "avif": [
         {

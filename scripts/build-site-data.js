@@ -724,9 +724,18 @@ var FOOTER_RE = /<footer class="site-footer">[\s\S]*?<\/footer>/;
     );
   }
   
-  // Inject header desktop/mobile logos using class regex
-  html = html.replace(/(<img class="logo-desktop" src=")[^"]*(")/g, '$1' + logoDesktop + '$2');
-  html = html.replace(/(<img class="logo-mobile" src=")[^"]*(")/g, '$1' + logoMobile + '$2');
+  // Inject header desktop/mobile logos using a robust tag parser (supports any attribute ordering, class naming, or quote formatting)
+  html = html.replace(/<img\s+[^>]+>/gi, function (match) {
+    var isLogoDesktop = /\bclass=['"]([^'"]*\s+)?logo-desktop(\s+[^'"]*)?['"]/.test(match);
+    var isLogoMobile = /\bclass=['"]([^'"]*\s+)?logo-mobile(\s+[^'"]*)?['"]/.test(match);
+    if (isLogoDesktop) {
+      return match.replace(/(\bsrc=['"])[^'"]*(['"])/i, '$1' + logoDesktop + '$2');
+    }
+    if (isLogoMobile) {
+      return match.replace(/(\bsrc=['"])[^'"]*(['"])/i, '$1' + logoMobile + '$2');
+    }
+    return match;
+  });
 
   var updated = html.replace(FOOTER_RE, FOOTER_BLOCK);
   if (updated !== html) writeFile(page, updated);
