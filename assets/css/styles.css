@@ -494,9 +494,12 @@ section{
 
 .hero-art{
   position:relative;
+  max-width: 320px;
+  justify-self: end;
   
   @container (max-width: 900px) {
     max-width:420px; margin:0 auto 28px;
+    justify-self: center;
   }
   
   & picture{ display:block; }
