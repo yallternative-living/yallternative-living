@@ -1,8 +1,8 @@
-# 🌿 Y'allternative Living
+# Y'allternative Living
 
 Welcome to the Y'allternative Living website repository! This site is designed to be fast, accessible, and easy to manage without touching any code.
 
-## 🌸 Savanna's Quick-Start Guide
+## Savanna's Quick-Start Guide
 
 ### 1. How to Edit Your Products, Events & FAQs
 We've set up a simple **Website Dashboard** where you can edit the site's content using friendly forms:
