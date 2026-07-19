@@ -91,7 +91,13 @@
   }
 }
 
-:root{
+@font-face {
+  font-family: 'CleanAmpersand';
+  src: local('DM Sans'), local('Helvetica Neue'), local('Arial'), sans-serif;
+  unicode-range: U+0026; /* Match ONLY the & character */
+}
+
+:root {
   /* Fixed (non-theme-flipping) pair for solid rose-filled buttons/badges.
      --paper flips to a DARK color in light mode (right for body text on
      the light page background, wrong for text sitting on top of a
@@ -102,8 +108,8 @@
 
   --pride: linear-gradient(90deg,#e0505a,#e8935a,#e8c65a,#5fae7a,#4f8fc7,#9a6bc9);
 
-  --font-display: 'Gloock', 'Georgia', serif;
-  --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'CleanAmpersand', 'Gloock', 'Georgia', serif;
+  --font-body: 'CleanAmpersand', 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
   --container: 1320px;
   --radius: 8px;
@@ -200,7 +206,8 @@ h1,h2,h3,h4{
 
 h1{ font-size: clamp(2.2rem, 4.4vw, 3.6rem); }
 h2{ font-size: clamp(1.8rem, 3.4vw, 2.6rem); }
-h3{ font-size: 1.3rem; }
+h3{ font-size: clamp(1.1rem, 2.5vw, 1.35rem); }
+h4{ font-size: 1.1rem; }
 p{ margin:0 0 1em; color: var(--paper-dim); }
 
 .eyebrow{
@@ -390,7 +397,7 @@ section{
     }
   }
   
-  @media (max-width: 880px){
+  @media (max-width: 1024px){
     position:fixed; inset:70px 0 0 0; z-index:99;
     background: var(--ink); flex-direction:column; justify-content:flex-start;
     padding: 40px 24px; gap: 26px;
@@ -407,7 +414,7 @@ section{
 .nav-cta{
   display:flex; align-items:center; gap:16px;
   
-  @media (max-width: 880px) {
+  @media (max-width: 1024px) {
     gap:10px;
   }
   @media (max-width: 420px) {
@@ -419,7 +426,7 @@ section{
   display:none; background:none; border:1px solid var(--hide); color:var(--paper);
   width:42px; height:42px; border-radius:var(--radius); cursor:pointer; font-size:1.1rem;
   
-  @media (max-width: 880px) {
+  @media (max-width: 1024px) {
     display:inline-block;
   }
   @media (max-width: 420px) {
@@ -659,7 +666,7 @@ section{
 }
 
 .card-media{
-  position:relative; aspect-ratio: 4/3.4; overflow:hidden; background:#0c0a09; cursor:pointer;
+  position:relative; aspect-ratio: 4/3.4; overflow:hidden; background:var(--ink-2); cursor:pointer;
   
   & picture{ display:block; width:100%; height:100%; }
   & img{
@@ -1291,6 +1298,130 @@ section{
   & .card-body{ gap:6px; }
 }
 
+/* ── Past-events carousel ────────────────────────────── */
+
+/* Wide screens: all cards visible side by side */
+.events-carousel {
+  position: relative;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.events-carousel-inner {
+  display: flex;
+  gap: 24px;
+  width: 100%;
+}
+
+.events-carousel .event-card {
+  flex: 1 1 0;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* Hide carousel controls on wide screens */
+.carousel-arrow,
+.carousel-dots { display: none; }
+
+/* ── Narrow screens: single-card sliding carousel ──── */
+@media (max-width: 768px) {
+  .events-carousel { overflow: hidden; }
+
+  .events-carousel-inner {
+    gap: 0;
+    transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+  }
+
+  .events-carousel .event-card {
+    flex: 0 0 100%;
+    width: 100%;
+    opacity: 0.4;
+    transition: opacity 0.6s ease;
+  }
+
+  .events-carousel .event-card.active {
+    opacity: 1;
+  }
+
+  /* Arrow controls */
+  .carousel-arrow {
+    display: flex;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-60%);
+    background: var(--ink-2);
+    color: var(--paper);
+    border: 1px solid var(--hide);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    font-size: 1.4rem;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 3;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, border-color 0.2s;
+  }
+  .carousel-arrow:hover {
+    background: var(--whiskey);
+    border-color: var(--whiskey);
+    color: var(--ink);
+  }
+  .carousel-prev { left: -4px; }
+  .carousel-next { right: -4px; }
+
+  /* Dot indicators */
+  .carousel-dots {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 16px;
+  }
+  .carousel-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 1.5px solid var(--paper-dim);
+    background: transparent;
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.25s, border-color 0.25s;
+  }
+  .carousel-dot.active {
+    background: var(--whiskey);
+    border-color: var(--whiskey);
+  }
+  .carousel-dot:hover {
+    border-color: var(--paper);
+  }
+}
+
+/* SW update toast */
+.sw-update-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(120%);
+  background: var(--ink-2);
+  color: var(--paper);
+  border: 1px solid var(--hide);
+  border-radius: var(--radius-lg);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.4);
+  z-index: 9999;
+  font-size: 0.9rem;
+  opacity: 0;
+  transition: transform 0.4s cubic-bezier(0.25,1,0.5,1), opacity 0.4s ease;
+}
+.sw-update-toast.visible {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+
 .event-date{ color: var(--whiskey); font-weight:600; font-size:.88rem; margin:0; }
 
 .event-empty{
@@ -1329,7 +1460,7 @@ section{
      of the 820px title column above; the p:not() rule has higher
      specificity so it already wins on max-width) so body copy actually
      uses the open space, consistently across every page-hero. */
-  & .container > *{ max-width:820px; }
+  & .container > *{ max-width:960px; }
   & p:not(.breadcrumb){ max-width:1040px; margin:14px 0 0; font-size:1.05rem; }
 }
 
@@ -1427,63 +1558,6 @@ hr.rule{ border:none; border-top:1px solid var(--hide); margin:48px 0; }
   & h1, & h2, & h3, & h4{ font-family: var(--font-display); }
 }
 
-/* =============== STICKY MOBILE ADD-TO-CART =============== */
-.sticky-cart-bar.visible {
-  transform: translateY(0);
-}
-
-/* =============== BACK-TO-TOP BUTTON =============== */
-.back-to-top {
-  &.visible {
-    opacity: 1;
-    visibility: visible;
-    transform: translateY(0);
-  }
-  
-  &:hover {
-    background: var(--ink-3);
-    color: var(--paper);
-  }
-}
-
-/* =============== IMAGE LIGHTBOX =============== */
-.lightbox {
-  &.open {
-    opacity: 1;
-    visibility: visible;
-  }
-}
-
-.lightbox-close:hover {
-  background: var(--rose-dim);
-}
-
-.lightbox-prev, .lightbox-next {
-  &:hover {
-    background: var(--whiskey-dim);
-  }
-}
-
-.lightbox-content img, .lightbox-content picture {
-  max-width: 100%;
-  max-height: 90dvh; /* dynamic viewport height */
-  object-fit: contain;
-}
-
-.lightbox-dot{
-  &::after {
-    content: "";
-    display: block;
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.5);
-    transition: background 0.2s, transform 0.2s;
-  }
-  &.active::after {
-    background: #fff;
-    transform: scale(1.25);
-  }
-}
 
 /* ---------- Shop Improvements ---------- */
 .shop-trust-strip .stars {
@@ -1498,9 +1572,10 @@ hr.rule{ border:none; border-top:1px solid var(--hide); margin:48px 0; }
 }
 
 .pairing-thumb{
-  &:hover, &:focus {
+  &:hover, &:focus-visible {
     border-color: var(--whiskey);
-    outline: none;
+    outline: 2px solid var(--whiskey);
+    outline-offset: 2px;
   }
   
   & img {
@@ -1536,7 +1611,7 @@ hr.rule{ border:none; border-top:1px solid var(--hide); margin:48px 0; }
   }
   
   & + .site-header {
-    top: 0; /* the announcement bar pushes it down naturally via flow */
+    top: auto; /* Fixes stacking overlap when both are sticky */
   }
 }
 
@@ -1588,8 +1663,8 @@ hr.rule{ border:none; border-top:1px solid var(--hide); margin:48px 0; }
   
   & button {
     padding: .5rem 1rem;
-    background: var(--rose);
-    color: var(--ink);
+    background: var(--rose-dim);
+    color: var(--on-fill);
     border: none;
     border-radius: var(--radius);
     font-weight: 600;
@@ -1735,6 +1810,11 @@ hr.rule{ border:none; border-top:1px solid var(--hide); margin:48px 0; }
   opacity: 0;
   transform: translateY(-8px);
   pointer-events: none;
+  
+  @media (max-width: 480px) {
+    right: -10px;
+    min-width: 130px;
+  }
 
   &.open {
     display: flex;
@@ -1807,4 +1887,176 @@ body > .skiptranslate {
     border: 1px solid #ccc !important;
     page-break-inside: avoid;
   }
+}
+
+/* ── Shop Page Specifics ───────────────────────────── */
+.shop-lede{ max-width: 1040px; margin: 0 0 22px; font-size: 1.05rem; }
+.shop-trust{
+  text-align: center; margin-top: 14px;
+  font-size:.82rem; letter-spacing:.04em; color: var(--whiskey); font-weight:600;
+}
+.shop-trust span[aria-hidden] {
+  display: inline-block; transform: translateY(-1px); margin-right: .3em;
+}
+.shop-cta-actions{ display:flex; flex-direction:column; align-items:center; gap:14px; margin-top:28px; }
+.shop-cta-secondary{ font-size:.88rem; color: var(--paper-dim); }
+.shop-cta-secondary a{ color: var(--whiskey); text-decoration:underline; }
+.shop-cta-secondary a:hover{ color: var(--paper); }
+
+/* ── Gift Card Widget ──────────────────────────────── */
+.gift-card-widget {
+  display: grid;
+  grid-template-columns: 1.2fr 1.8fr;
+  gap: 40px;
+  background: var(--card-bg);
+  border: 1px solid var(--hide);
+  border-radius: var(--radius-large);
+  padding: 40px;
+  max-width: 900px;
+  margin: 30px auto 0;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+}
+.gift-card-preview {
+  aspect-ratio: 1.586; /* Standard credit card ratio */
+  /*YL:shop.giftCardImage*/background: url('../img/gift-card.png') no-repeat center center / cover;/*\/YL:shop.giftCardImage*/
+  border: 1px solid rgba(214, 155, 92, 0.4);
+  border-radius: 16px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  color: #f3ead9;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+}
+.gift-card-preview .card-badge {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: rgba(243, 234, 217, 0.7);
+  font-weight: 600;
+  background: rgba(23, 19, 15, 0.6);
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(214, 155, 92, 0.3);
+}
+.gift-card-preview .card-amount {
+  font-size: 3.2rem;
+  font-weight: 700;
+  line-height: 1;
+  font-family: var(--font-sans);
+  color: #faf5ea;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.4);
+}
+.gift-card-preview .card-footer {
+  font-size: 0.7rem;
+  color: rgba(243, 234, 217, 0.65);
+  background: rgba(23, 19, 15, 0.6);
+  padding: 6px 10px;
+  border-radius: 4px;
+  border: 1px solid rgba(243, 234, 217, 0.1);
+}
+.gift-card-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  text-align: left;
+}
+.gift-card-controls h3 {
+  margin: 0 0 10px;
+  font-size: 1.25rem;
+}
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+}
+.preset-btn {
+  background: var(--bg);
+  border: 1px solid var(--hide);
+  color: var(--paper);
+  border-radius: var(--radius);
+  padding: 12px 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.preset-btn:hover {
+  border-color: var(--whiskey);
+  color: var(--whiskey);
+}
+.preset-btn.active {
+  background: var(--whiskey);
+  border-color: var(--whiskey);
+  color: var(--ink);
+}
+.custom-input-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 5px;
+}
+.custom-input-wrap label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--paper-dim);
+}
+.custom-input-wrap input {
+  padding: 10px 14px;
+  background: var(--bg);
+  border: 1px solid var(--hide);
+  color: var(--paper);
+  border-radius: var(--radius);
+  font-size: 1rem;
+  width: 100%;
+  max-width: 200px;
+}
+.gift-fields-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+.gift-fields-grid .field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+@media (max-width: 768px) {
+  .gift-card-widget {
+    grid-template-columns: 1fr;
+    gap: 30px;
+    padding: 24px;
+  }
+  .preset-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .gift-fields-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Event Card Specifics ──────────────────────────── */
+.event-card .card-body h3 {
+  margin-bottom: 8px;
+}
+.event-date {
+  font-weight: 600;
+  color: var(--paper);
+  margin-bottom: 4px;
+}
+.event-location {
+  margin-bottom: 12px;
+}
+.event-desc {
+  font-size: 0.85rem;
+  color: var(--paper-dim);
+}
+.event-cta {
+  margin-top: auto;
+  padding-top: 12px;
+}
+.btn-block {
+  width: 100%;
+  text-align: center;
 }

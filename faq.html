@@ -8,19 +8,18 @@
 <meta name="apple-mobile-web-app-title" content="Y'allternative">
 <meta name="color-scheme" content="dark light">
 <meta name="view-transition" content="same-origin">
-<title>Terms of Service | Y'allternative Living</title>
-<meta name="robots" content="index, follow">
-<meta name="description" content="The ground rules for shopping Y'allternative Living: handmade product disclaimers, allergy info, intellectual property, liability, and South Carolina governing law.">
-<link rel="canonical" href="https://yallternativeliving.com/terms.html">
+<title>FAQ | Y'allternative Living</title>
+<meta name="description" content="Frequently Asked Questions about shipping, returns, ingredients, custom orders, and local pop-ups. Queer-owned, handmade in small batches.">
+<link rel="canonical" href="https://yallternativeliving.com/faq.html">
 
 <meta property="og:type" content="website">
-<meta property="og:title" content="Terms of Service | Y'allternative Living">
-<meta property="og:description" content="The ground rules for shopping Y'allternative Living: handmade product disclaimers, allergy info, intellectual property, liability, and South Carolina governing law.">
+<meta property="og:title" content="FAQ | Y'allternative Living">
+<meta property="og:description" content="Frequently Asked Questions about shipping, returns, ingredients, custom orders, and local pop-ups. Queer-owned, handmade in small batches.">
 <meta property="og:image" content="https://yallternativeliving.com/assets/img/og-image.jpg">
-<meta property="og:url" content="https://yallternativeliving.com/terms.html">
+<meta property="og:url" content="https://yallternativeliving.com/faq.html">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Terms of Service | Y'allternative Living">
-<meta name="twitter:description" content="The ground rules for shopping Y'allternative Living: handmade product disclaimers, allergy info, intellectual property, liability, and South Carolina governing law.">
+<meta name="twitter:title" content="FAQ | Y'allternative Living">
+<meta name="twitter:description" content="Frequently Asked Questions about shipping, returns, ingredients, custom orders, and local pop-ups. Queer-owned, handmade in small batches.">
 <meta name="twitter:image" content="https://yallternativeliving.com/assets/img/og-image.jpg">
 
 <link rel="icon" href="assets/img/favicon-32.png" sizes="32x32" type="image/png">
@@ -42,6 +41,7 @@
 <link rel="stylesheet" href="assets/css/styles.css?v=2.0">
 
 <script>
+  // No-flash theme init: runs before paint, before main.js.
   (function(){
     var t = localStorage.getItem('yl-theme');
     if(!t){ t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'; }
@@ -49,43 +49,75 @@
   })();
 </script>
 <script defer data-domain="yallternativeliving.com" src="https://plausible.io/js/script.js"></script>
+
 <style>
-  .policy-prose{ max-width: 760px; margin: 0 auto; }
-  .policy-prose h2{ font-size: 1.4rem; margin-top: 0; }
-  .policy-prose ul{ list-style: disc; margin: 0 0 1em; padding-left: 1.3em; }
-  .policy-prose li{ color: var(--paper-dim); margin-bottom: .5em; }
-  .policy-prose .rule{ margin: 36px 0; }
-  .policy-notice{
-    max-width: 760px; margin: 0 auto 8px; padding: 20px 24px;
-    background: var(--ink-2); border: 1px solid var(--hide); border-radius: var(--radius-lg);
-  }
-  .policy-notice p{ margin: 0; font-size: .92rem; }
-  .policy-notice p + p{ margin-top: 10px; }
-  .policy-updated{ font-size: .82rem; color: var(--paper-dim); text-align: center; margin-top: 40px; }
+  /* Page-specific styling for faq.html only. */
+  .contact-faq { max-width:960px; margin: 0 auto; }
+  .contact-faq h3 { font-family:var(--font-body); font-weight:700; font-size:1.05rem; margin-bottom:.4em; }
+  .contact-faq .rule { margin:32px 0; }
 </style>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "LocalBusiness",
-  "@id": "https://yallternativeliving.com/#business",
-  "name": "Y'allternative Living",
-  "description": "Queer-owned, Southern-raised handmade self-care. Small-batch salves, soaks, body care and apparel out of Landrum, SC.",
-  "image": "https://yallternativeliving.com/assets/img/logo.png",
-  "url": "https://yallternativeliving.com/",
-  "email": "y.allternative.living@gmail.com",
-  "address": {
-    "@type": "PostalAddress",
-    "addressLocality": "Landrum",
-    "addressRegion": "SC",
-    "addressCountry": "US"
-  },
-  "sameAs": [
-    "https://www.etsy.com/shop/YallternativeLivinCO",
-    "https://www.facebook.com/p/Yallternative-Living-61577943406316/",
-    "https://www.instagram.com/yallternativeliving",
-    "https://www.tiktok.com/@yallternativeliving"
-  ],
-  "priceRange": "$"
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Where do you ship from?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Straight out of Landrum, SC. Processing time isn't the same for every item, so check the product description for the specifics before you order."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What's your return policy?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Opened salves, scrubs, and soaks are final sale for hygiene reasons. Unworn apparel and sealed items can be exchanged. Anything arrive wrong or damaged? Email us and we'll make it right."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Do you have unscented or sensitive-skin options?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "We do. The Y'allternative Miracle Balm is unscented and essential-oil-free, made for skin that side-eyes fragrance."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I get something custom or in bulk?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yep. Email us or send an Instagram DM with what you're picturing (gifts, market swag, wedding favors, whatever) and we'll figure it out together."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Where can I meet you in person?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Farmers markets and Pride events around Upstate SC and beyond. Check out our events page or follow our socials so you know exactly where and when we'll be set up next."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Do you offer free shipping?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes! We offer free shipping on all orders over $40. It will automatically apply at checkout."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the shelf life of your salves and soaks?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Since our products are all-natural and preservative-free, we recommend using them within 6 to 12 months for the best potency and freshness. Keep them in a cool, dry place away from direct sunlight."
+      }
+    }
+  ]
 }
 </script>
 <script type="application/ld+json">
@@ -102,8 +134,8 @@
     {
       "@type": "ListItem",
       "position": 2,
-      "name": "Terms of Service",
-      "item": "https://yallternativeliving.com/terms.html"
+      "name": "FAQ",
+      "item": "https://yallternativeliving.com/faq.html"
     }
   ]
 }
@@ -114,7 +146,7 @@
   window.SnipcartSettings = {
     publicApiKey: "YOUR_SNIPCART_PUBLIC_API_KEY",
     loadStrategy: "on-user-interaction",
-    modalStyle: "side",
+    modalStyle: "side"
   };
 
   (function(){var c,d;(d=(c=window.SnipcartSettings).version)!=null||(c.version="3.0");var s,S;(S=(s=window.SnipcartSettings).timeoutDuration)!=null||(s.timeoutDuration=2750);var l,p;(p=(l=window.SnipcartSettings).domain)!=null||(l.domain="cdn.snipcart.com");var w,u;(u=(w=window.SnipcartSettings).protocol)!=null||(w.protocol="https");var m,g;(g=(m=window.SnipcartSettings).loadCSS)!=null||(m.loadCSS=!0);var y=window.SnipcartSettings.version.includes("v3.0.0-ci")||window.SnipcartSettings.version!="3.0"&&window.SnipcartSettings.version.localeCompare("3.4.0",void 0,{numeric:!0,sensitivity:"base"})===-1,f=["focus","mouseover","touchmove","scroll","keydown"];window.LoadSnipcart=o;document.readyState==="loading"?document.addEventListener("DOMContentLoaded",r):r();function r(){window.SnipcartSettings.loadStrategy?window.SnipcartSettings.loadStrategy==="on-user-interaction"&&(f.forEach(function(t){return document.addEventListener(t,o)}),setTimeout(o,window.SnipcartSettings.timeoutDuration)):o()}var a=!1;function o(){if(a)return;a=!0;let t=document.getElementsByTagName("head")[0],n=document.querySelector("#snipcart"),i=document.querySelector('src[src^="'.concat(window.SnipcartSettings.protocol,"://").concat(window.SnipcartSettings.domain,'"][src$="snipcart.js"]')),e=document.querySelector('link[href^="'.concat(window.SnipcartSettings.protocol,"://").concat(window.SnipcartSettings.domain,'"][href$="snipcart.css"]'));n||(n=document.createElement("div"),n.id="snipcart",n.setAttribute("hidden","true"),document.body.appendChild(n)),h(n),i||(i=document.createElement("script"),i.src="".concat(window.SnipcartSettings.protocol,"://").concat(window.SnipcartSettings.domain,"/themes/v").concat(window.SnipcartSettings.version,"/default/snipcart.js"),i.async=!0,t.appendChild(i)),!e&&window.SnipcartSettings.loadCSS&&(e=document.createElement("link"),e.rel="stylesheet",e.type="text/css",e.href="".concat(window.SnipcartSettings.protocol,"://").concat(window.SnipcartSettings.domain,"/themes/v").concat(window.SnipcartSettings.version,"/default/snipcart.css"),t.prepend(e)),f.forEach(function(v){return document.removeEventListener(v,o)})}function h(t){!y||(t.dataset.apiKey=window.SnipcartSettings.publicApiKey,window.SnipcartSettings.addProductBehavior&&(t.dataset.configAddProductBehavior=window.SnipcartSettings.addProductBehavior),window.SnipcartSettings.modalStyle&&(t.dataset.configModalStyle=window.SnipcartSettings.modalStyle),window.SnipcartSettings.currency&&(t.dataset.currency=window.SnipcartSettings.currency),window.SnipcartSettings.templatesUrl&&(t.dataset.templatesUrl=window.SnipcartSettings.templatesUrl))}})();
@@ -153,82 +185,60 @@
   <!-- PAGE HERO -->
   <div class="page-hero">
     <div class="container">
-      <p class="breadcrumb"><a href="index.html">Home</a> / Terms of Service</p>
-      <span class="eyebrow">Terms of Service</span>
-      <h1>Terms of Service</h1>
-      <p class="lede">Every shop's got rules, and here are ours. By visiting our site or buying something from us, you agree to the following terms and conditions.</p>
+      <div class="breadcrumb"><a href="index.html">Home</a> / FAQ</div>
+
+      <h1>Frequently Asked Questions</h1>
+      <p class="lede">Got questions about shipping, returns, ingredients, custom orders, or where to find us? We've got answers. Take a look below, and if you still need help, reach out on our contact page.</p>
     </div>
   </div>
 
-  <!-- POLICY BODY -->
-  <section class="section-tight">
+  <!-- FAQ SECTION -->
+  <section>
     <div class="container">
-      <div class="policy-prose">
-
+      <div class="contact-faq">
+        <!-- FAQ:START -->
         <div class="reveal">
-          <h2>1. General Conditions</h2>
-          <p>We reserve the right to refuse service to anyone for any reason at any time. (Generally, if you're respectful, we're good). You understand that your content (not including credit card information), may be transferred unencrypted over networks. Credit card information is always encrypted during transfer over networks via our payment processor, Stripe.</p>
+          <h3>Where do you ship from?</h3>
+          <p>Straight out of Landrum, SC. Processing time isn't the same for every item, so check the product description for the specifics before you order.</p>
         </div>
         <hr class="rule">
 
         <div class="reveal">
-          <h2>2. Handmade Products</h2>
-          <p>The beauty of handmade items is that no two are exactly alike. Because our salves, soaks, and other goods are crafted in small batches, expect slight variations in color, texture, or scent. We make every effort to display colors and images accurately, but we can't guarantee your computer monitor's display of any color will be perfectly accurate.</p>
+          <h3>What's your return policy?</h3>
+          <p>Opened salves, scrubs, and soaks are final sale for hygiene reasons. Unworn apparel and sealed items can be exchanged. Anything arrive wrong or damaged? Email us and we'll make it right.</p>
         </div>
         <hr class="rule">
 
         <div class="reveal">
-          <h2>3. Health &amp; Allergy Disclaimer</h2>
-          <p>Let's get this straight: our products are handmade self-care, <strong>not medicine</strong>. Nothing sold here is intended to diagnose, treat, cure, or prevent any condition.</p>
-          <ul>
-            <li><strong>Check the Ingredients:</strong> We list ingredients for every product. It is your responsibility to read them and know your own allergies.</li>
-            <li><strong>Patch Test:</strong> We highly recommend doing a small patch test on your skin before slathering anything everywhere.</li>
-            <li><strong>Liability:</strong> Y'allternative Living is not liable for any allergic reactions, sensitivities, or adverse effects that result from using our products. If you have a serious skin or health concern, see a doctor.</li>
-          </ul>
+          <h3>Do you have unscented or sensitive-skin options?</h3>
+          <p>We do. The Y'allternative Miracle Balm is unscented and essential-oil-free, made for skin that side-eyes fragrance.</p>
         </div>
         <hr class="rule">
 
         <div class="reveal">
-          <h2>4. Accuracy &amp; Errors</h2>
-          <p>Sometimes we make mistakes. There may be information on our site that contains typographical errors, inaccuracies, or omissions related to product descriptions, pricing, promotions, and availability. We reserve the right to correct any errors and to change or update information or cancel orders if any information on the site is inaccurate at any time without prior notice (including after you have submitted your order).</p>
+          <h3>Can I get something custom or in bulk?</h3>
+          <p>Yep. Email us or send an Instagram DM with what you're picturing (gifts, market swag, wedding favors, whatever) and we'll figure it out together.</p>
         </div>
         <hr class="rule">
 
         <div class="reveal">
-          <h2>5. Intellectual Property</h2>
-          <p>Everything you see on this site—the logo, the photos, the product names, the snarky copy—belongs to Y'allternative Living. Please don't steal, scrape, reproduce, duplicate, or copy any part of our website or products without our express written permission. It's just bad manners.</p>
+          <h3>Where can I meet you in person?</h3>
+          <p>Farmers markets and Pride events around Upstate SC and beyond. Check out our <a href="events.html">events page</a> or follow our socials so you know exactly where and when we'll be set up next.</p>
         </div>
         <hr class="rule">
 
         <div class="reveal">
-          <h2>6. Limitation of Liability</h2>
-          <p>In no case shall Y'allternative Living, our directors, officers, employees, or affiliates be liable for any injury, loss, claim, or any direct, indirect, incidental, punitive, or consequential damages of any kind arising from your use of any of our service or any products procured using the service.</p>
-        </div>
-        <hr class="rule">
-        
-        <div class="reveal">
-          <h2>7. Governing Law</h2>
-          <p>These Terms of Service and any separate agreements whereby we provide you services shall be governed by and construed in accordance with the laws of the State of South Carolina.</p>
+          <h3>Do you offer free shipping?</h3>
+          <p>Yes! We offer free shipping on all orders over $40. It will automatically apply at checkout.</p>
         </div>
         <hr class="rule">
 
         <div class="reveal">
-          <h2>8. Changes To Terms</h2>
-          <p>You can review the most current version of the Terms of Service at any time at this page. We reserve the right to update, change or replace any part of these Terms by posting updates to our website.</p>
-          <p class="policy-updated">Last updated: July 18, 2026</p>
+          <h3>What is the shelf life of your salves and soaks?</h3>
+          <p>Since our products are all-natural and preservative-free, we recommend using them within 6 to 12 months for the best potency and freshness. Keep them in a cool, dry place away from direct sunlight.</p>
         </div>
-
+        <!-- FAQ:END -->
       </div>
-    </div>
-  </section>
-
-  <!-- CLOSING -->
-  <section class="cta-band">
-    <div class="container">
-      <span class="eyebrow">Keep Shopping</span>
-      <h2>Back To The Good Stuff</h2>
-      <p style="max-width:58ch;margin:0 auto 28px;">Questions about any of this? <a href="contact.html">Reach out</a> any time. Otherwise, head on back to <a href="index.html">the homepage</a> or go treat yourself.</p>
-      <a class="btn btn-primary" href="shop.html">Shop The Collection</a>
     </div>
   </section>
 
@@ -325,12 +335,6 @@
 <script src="assets/js/products-data.js?v=2.0" defer></script>
 <script src="assets/js/image-manifest.js?v=2.0" defer></script>
 <script src="assets/js/main.js?v=2.0" defer></script>
-<!-- Live chat (Tawk.to) -- placeholder, inert until real IDs are set.
-     Free live-chat widget: https://www.tawk.to -- see README section 19.
-     Replace YOUR_TAWKTO_PROPERTY_ID/YOUR_TAWKTO_WIDGET_ID below with the
-     real embed values from your own Tawk.to dashboard (Administration ->
-     Chat Widget). Until then this script 404s quietly and no widget
-     appears -- nothing is broken by leaving it as-is. -->
 <script type="text/javascript">
 var Tawk_API = Tawk_API || {}, Tawk_LoadStart = new Date();
 (function () {

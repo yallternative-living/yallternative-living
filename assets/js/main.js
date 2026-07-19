@@ -56,9 +56,9 @@
        keyboard user tabbing past the hamburger would land on invisible
        links, and a mobile screen-reader user swiping through the page
        would hit them too. `inert` removes closed-panel links from both
-       until the panel is actually open. Above 880px the panel is always
+       until the panel is actually open. Above 1024px the panel is always
        visible inline, so it should never be inert there. */
-    var navMQ = window.matchMedia("(max-width: 880px)");
+    var navMQ = window.matchMedia("(max-width: 1024px)");
     function syncNavInert() {
       if (navMQ.matches && !navLinks.classList.contains("open")) {
         navLinks.setAttribute("inert", "");
@@ -472,6 +472,14 @@
     // tracked," not "unlimited," and the site never invents a number).
     // When Savanna sets it to 0, the button becomes inert instead of
     // silently accepting an order she can't fulfill.
+    if (p.comingSoon) {
+      return (
+        '<button type="button" class="btn btn-outline btn-sm' +
+        (extraClass ? " " + extraClass : "") +
+        '" disabled aria-disabled="true">Coming Soon</button>'
+      );
+    }
+
     if (p.stock === 0) {
       return (
         '<button type="button" class="btn btn-outline btn-sm' +
@@ -526,6 +534,7 @@
      number tied to real analytics. */
   var LOW_STOCK_THRESHOLD = 5;
   function stockBadgeHTML(p) {
+    if (p.comingSoon) return '<span class="stock-badge low-stock">Coming Soon</span>';
     if (typeof p.stock !== "number") return "";
     if (p.stock === 0) return '<span class="stock-badge sold-out">Sold out</span>';
     if (p.stock <= LOW_STOCK_THRESHOLD)
@@ -1069,21 +1078,9 @@
   }
 
   function pickFeatured(products) {
-    var ids = [
-      "frankincense-salve",
-      "shimmer-oil",
-      "beard-salve",
-      "unisex-tshirt",
-      "backroad-soak",
-      "protection-keychain"
-    ];
-    return ids
-      .map(function (id) {
-        return products.find(function (p) {
-          return p.id === id;
-        });
-      })
-      .filter(Boolean);
+    return products.filter(function (p) {
+      return p.featured === true;
+    });
   }
 
   /* ---------- Bundles / gift sets (shop.html only) ----------
@@ -1182,7 +1179,7 @@
      are aria-hidden with a proper sr-only equivalent, same pattern used
      for the testimonial stars on index.html and the shop-page trust line. */
   function ratingHTML(p) {
-    if (!p.rating || !(p.rating.count > 0)) return "";
+    if (!p.rating || !(p.rating.count >= 3)) return "";
     var full = Math.max(0, Math.min(5, Math.round(p.rating.value)));
     var stars = "";
     for (var i = 0; i < 5; i++) stars += i < full ? "★" : "☆";
@@ -1283,6 +1280,7 @@
       stockBadgeHTML(p) +
       '<div class="card-foot">' +
       variantSelectHTML(p) +
+      '<p style="font-size: 0.72rem; color: var(--whiskey); margin: 0 0 10px 0; text-align: center; font-weight: 600;">Free shipping over $40</p>' +
       '<div class="card-foot-row">' +
       '<span class="price">$' +
       p.price.toFixed(2) +
@@ -1392,13 +1390,32 @@
 
   if (upcomingEl || pastEl) {
     var events = window.YL_EVENTS || { upcoming: [], past: [] };
+    var rawUpcoming = events.upcoming || [];
+    var rawPast = events.past || [];
+    var todayStr = new Date().toISOString().slice(0, 10);
+
+    var upcoming = [];
+    var past = [];
+
+    // Auto-promote upcoming events in the past to the past array
+    rawUpcoming.forEach(function (ev) {
+      if (ev.date && ev.date < todayStr) {
+        past.push(ev);
+      } else {
+        upcoming.push(ev);
+      }
+    });
+
+    rawPast.forEach(function (ev) {
+      past.push(ev);
+    });
 
     if (upcomingEl) {
-      var upcoming = (events.upcoming || []).slice().sort(function (a, b) {
+      var sortedUpcoming = upcoming.slice().sort(function (a, b) {
         return new Date(a.date) - new Date(b.date);
       });
-      if (upcoming.length) {
-        upcomingEl.innerHTML = upcoming.map(eventCardHTML).join("");
+      if (sortedUpcoming.length) {
+        upcomingEl.innerHTML = sortedUpcoming.map(eventCardHTML).join("");
       } else {
         upcomingEl.innerHTML =
           '<div class="event-empty reveal">' +
@@ -1416,12 +1433,119 @@
     }
 
     if (pastEl) {
-      var past = events.past || [];
-      pastEl.innerHTML = past.length
-        ? past.map(eventCardHTML).join("")
-        : '<p class="muted center">No past pop-ups logged yet. Check back soon.</p>';
+      // Sort past events: most recent first
+      var sortedPast = past.slice().sort(function (a, b) {
+        var dateA = a.date || "1970-01-01";
+        var dateB = b.date || "1970-01-01";
+        return new Date(dateB) - new Date(dateA);
+      });
+
+      // Slice to top 3 most recent appearances
+      var displayPast = sortedPast.slice(0, 3);
+
+      if (displayPast.length) {
+        pastEl.innerHTML = '<div class="events-carousel-inner">' +
+          displayPast.map(function (ev, index) {
+            var cardHtml = eventCardHTML(ev);
+            if (index === 0) {
+              return cardHtml.replace('class="card event-card reveal"', 'class="card event-card active"');
+            } else {
+              return cardHtml.replace('class="card event-card reveal"', 'class="card event-card"');
+            }
+          }).join("") +
+          '</div>' +
+          '<button class="carousel-arrow carousel-prev" aria-label="Previous appearance">&#8249;</button>' +
+          '<button class="carousel-arrow carousel-next" aria-label="Next appearance">&#8250;</button>' +
+          '<div class="carousel-dots">' +
+          displayPast.map(function (_, i) {
+            return '<button class="carousel-dot' + (i === 0 ? ' active' : '') + '" aria-label="Go to slide ' + (i + 1) + '" data-index="' + i + '"></button>';
+          }).join("") +
+          '</div>';
+
+        setupPastEventsRotation(pastEl);
+      } else {
+        pastEl.innerHTML = '<p class="muted center">No past pop-ups logged yet. Check back soon.</p>';
+      }
       markReveal(pastEl);
     }
+  }
+
+  function setupPastEventsRotation(container) {
+    var inner = container.querySelector(".events-carousel-inner");
+    var cards = container.querySelectorAll(".event-card");
+    var dots = container.querySelectorAll(".carousel-dot");
+    if (!inner || cards.length <= 1) return;
+    var currentIndex = 0;
+    var paused = false;
+    var intervalId;
+    var mql = window.matchMedia("(max-width: 768px)");
+
+    function goTo(index) {
+      cards[currentIndex].classList.remove("active");
+      if (dots[currentIndex]) dots[currentIndex].classList.remove("active");
+      currentIndex = ((index % cards.length) + cards.length) % cards.length;
+      cards[currentIndex].classList.add("active");
+      if (dots[currentIndex]) dots[currentIndex].classList.add("active");
+      inner.style.transform = "translateX(-" + (currentIndex * 100) + "%)";
+    }
+
+    function stopAutoplay() {
+      clearInterval(intervalId);
+      intervalId = null;
+    }
+
+    function startAutoplay() {
+      stopAutoplay();
+      intervalId = setInterval(function () {
+        if (!paused) goTo(currentIndex + 1);
+      }, 4000);
+    }
+
+    function enterCarouselMode() {
+      currentIndex = 0;
+      inner.style.transform = "translateX(0)";
+      for (var i = 0; i < cards.length; i++) cards[i].classList.remove("active");
+      cards[0].classList.add("active");
+      for (var j = 0; j < dots.length; j++) dots[j].classList.remove("active");
+      if (dots[0]) dots[0].classList.add("active");
+      startAutoplay();
+    }
+
+    function exitCarouselMode() {
+      stopAutoplay();
+      inner.style.transform = "";
+      for (var i = 0; i < cards.length; i++) cards[i].classList.remove("active");
+    }
+
+    // Respond to viewport changes
+    function onViewportChange() {
+      if (mql.matches) { enterCarouselMode(); }
+      else { exitCarouselMode(); }
+    }
+    mql.addEventListener("change", onViewportChange);
+
+    // Pause on hover / focus
+    container.addEventListener("mouseenter", function () { paused = true; });
+    container.addEventListener("mouseleave", function () { paused = false; });
+    container.addEventListener("focusin",    function () { paused = true; });
+    container.addEventListener("focusout",   function () { paused = false; });
+
+    // Arrow controls
+    var prev = container.querySelector(".carousel-prev");
+    var next = container.querySelector(".carousel-next");
+    if (prev) prev.addEventListener("click", function () { goTo(currentIndex - 1); startAutoplay(); });
+    if (next) next.addEventListener("click", function () { goTo(currentIndex + 1); startAutoplay(); });
+
+    // Dot controls
+    dots.forEach(function (dot) {
+      dot.addEventListener("click", function () {
+        goTo(parseInt(this.getAttribute("data-index"), 10));
+        startAutoplay();
+      });
+    });
+
+    // Initial setup based on current viewport
+    if (mql.matches) { enterCarouselMode(); }
   }
 
   function eventCardHTML(ev) {
@@ -1431,22 +1555,22 @@
       '<span class="card-cat">' +
       attrEsc(ev.type) +
       "</span>" +
-      '<h3 style="margin-bottom:8px;">' +
+      '<h3>' +
       attrEsc(ev.name) +
       "</h3>" +
-      '<p class="event-date" style="font-weight:600; color:var(--paper); margin-bottom:4px;">' +
+      '<p class="event-date"><time datetime="' + (attrEsc(ev.date) || "") + '">' +
       "📅 " +
       attrEsc(ev.dateLabel) +
-      "</p>" +
-      '<p style="margin-bottom:12px;">' +
+      "</time></p>" +
+      '<p class="event-location">' +
       (ev.location ? "📍 " + attrEsc(ev.location) : "") +
       "</p>" +
       (ev.note
-        ? '<p style="font-size:0.85rem; color:var(--paper-dim);">' + attrEsc(ev.note) + "</p>"
+        ? '<p class="event-desc">' + attrEsc(ev.note) + "</p>"
         : "") +
-      '<div style="margin-top:auto; padding-top:12px;">' +
+      '<div class="event-cta">' +
       (ev.url
-        ? '<a class="btn btn-primary btn-sm" style="width:100%; text-align:center;" href="' +
+        ? '<a class="btn btn-primary btn-sm btn-block" href="' +
           attrEsc(ev.url) +
           '" target="_blank" rel="noopener">More Info / RSVP</a>'
         : "") +
@@ -1895,11 +2019,26 @@
     });
   })();
   if ("serviceWorker" in navigator) {
-    let refreshing = false;
+    // Show a non-disruptive toast when a new SW version is ready,
+    // instead of force-reloading mid-session (which can clear form
+    // state and break the visitor's flow).
     navigator.serviceWorker.addEventListener("controllerchange", () => {
-      if (!refreshing) {
-        refreshing = true;
-        window.location.reload();
+      var toast = document.getElementById("sw-update-toast");
+      if (!toast) {
+        toast = document.createElement("div");
+        toast.id = "sw-update-toast";
+        toast.className = "sw-update-toast";
+        toast.innerHTML =
+          '<span>A new version is available!</span>' +
+          '<button onclick="window.location.reload()" class="btn btn-sm btn-primary" style="margin-left:12px;">Update now</button>' +
+          '<button onclick="this.parentElement.remove()" class="btn btn-sm btn-outline" style="margin-left:6px;" aria-label="Dismiss">&times;</button>';
+        document.body.appendChild(toast);
+        // Animate in
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            toast.classList.add("visible");
+          });
+        });
       }
     });
 

@@ -492,14 +492,12 @@ if (faqLdBlockRe.test(shopHtml)) {
 
 writeFile("shop.html", shopHtml);
 
-/* ---------- 4) contact.html FAQ (JSON-LD + visible prose) ----------
+/* ---------- 4) faq.html FAQ (JSON-LD + visible prose) ----------
    The site's ONE FAQ. products-data.js's "faq" array is the only place
    to add/edit/reorder a question -- this generates both the FAQPage
-   JSON-LD and the visible Q&A prose in contact.html's #faq section from
-   it, so the two can never drift out of sync with each other again
-   (they used to be two separate hand-typed copies). shop.html doesn't
-   duplicate any of this; it just links to contact.html#faq. */
-var contactHtml = readText("contact.html", "contact page");
+   JSON-LD and the visible Q&A prose in faq.html's .contact-faq block from
+   it, so the two can never drift out of sync with each other again. */
+var faqHtml = readText("faq.html", "FAQ page");
 
 var faqJsonLd = {
   "@context": "https://schema.org",
@@ -515,14 +513,14 @@ var faqJsonLd = {
     };
   })
 };
-if (!faqLdBlockRe.test(contactHtml)) {
+if (!faqLdBlockRe.test(faqHtml)) {
   throw new Error(
-    "Could not find the FAQPage JSON-LD block in contact.html -- aborting so nothing gets corrupted. Check the block still starts with @type: FAQPage."
+    "Could not find the FAQPage JSON-LD block in faq.html -- aborting so nothing gets corrupted. Check the block still starts with @type: FAQPage."
   );
 }
 newFaqLdBlock =
   '<script type="application/ld+json">\n' + JSON.stringify(faqJsonLd, null, 2) + "\n</script>";
-contactHtml = contactHtml.replace(faqLdBlockRe, function () {
+faqHtml = faqHtml.replace(faqLdBlockRe, function () {
   return newFaqLdBlock;
 });
 
@@ -541,18 +539,85 @@ var faqVisibleHtml = FAQ.map(function (item, i) {
   return i < FAQ.length - 1 ? block + '\n        <hr class="rule">\n' : block;
 }).join("\n");
 var faqMarkerRe = /(<!-- FAQ:START[\s\S]*?-->)[\s\S]*?(<!-- FAQ:END -->)/;
-if (!faqMarkerRe.test(contactHtml)) {
+if (!faqMarkerRe.test(faqHtml)) {
   throw new Error(
-    "Could not find the FAQ:START/FAQ:END markers in contact.html's .contact-faq block -- aborting so nothing gets corrupted."
+    "Could not find the FAQ:START/FAQ:END markers in faq.html's .contact-faq block -- aborting so nothing gets corrupted."
   );
 }
-contactHtml = contactHtml.replace(faqMarkerRe, function (m, start, end) {
+faqHtml = faqHtml.replace(faqMarkerRe, function (m, start, end) {
   return start + "\n" + faqVisibleHtml + "\n        " + end;
 });
 
-writeFile("contact.html", contactHtml);
+writeFile("faq.html", faqHtml);
 
-// shop.html no longer contains a duplicated visible FAQ accordion (now links directly to contact.html#faq)
+/* ---------- 4b) events.html Past Events Pre-population ---------- */
+var eventsHtml = readText("events.html", "events page");
+var eventsJson = readJson("assets/data/events.json");
+
+var rawUpcoming = eventsJson.upcoming || [];
+var rawPast = eventsJson.past || [];
+var buildTodayStr = new Date().toISOString().slice(0, 10);
+
+var upcoming = [];
+var past = [];
+
+rawUpcoming.forEach(function (ev) {
+  if (ev.date && ev.date < buildTodayStr) {
+    past.push(ev);
+  } else {
+    upcoming.push(ev);
+  }
+});
+
+rawPast.forEach(function (ev) {
+  past.push(ev);
+});
+
+var sortedPast = past.slice().sort(function (a, b) {
+  var dateA = a.date || "1970-01-01";
+  var dateB = b.date || "1970-01-01";
+  return new Date(dateB) - new Date(dateA);
+});
+
+var displayPast = sortedPast.slice(0, 3);
+
+var pastEventsHtml = "";
+if (displayPast.length) {
+  pastEventsHtml = '        <div class="events-carousel-inner">\n' +
+    displayPast.map(function (ev, index) {
+      var activeClass = index === 0 ? "active" : "";
+      var cardCat = ev.type ? '              <span class="card-cat">' + escapeHtml(ev.type) + '</span>\n' : '';
+      var cardNote = ev.note ? '              <p class="event-desc">' + escapeHtml(ev.note) + '</p>\n' : '';
+      var cardUrl = ev.url ? '              <div class="event-cta">\n' +
+        '                <a class="btn btn-primary btn-sm btn-block" href="' + escapeHtml(ev.url) + '" target="_blank" rel="noopener">More Info / RSVP</a>\n' +
+        '              </div>\n' : '';
+      return '          <article class="card event-card ' + activeClass + '">\n' +
+        '            <div class="card-body">\n' +
+        cardCat +
+        '              <h3>' + escapeHtml(ev.name) + '</h3>\n' +
+        '              <p class="event-date"><time datetime="' + (ev.date || "") + '">📅 ' + escapeHtml(ev.dateLabel) + '</time></p>\n' +
+        '              <p class="event-location">' + (ev.location ? '📍 ' + escapeHtml(ev.location) : '') + '</p>\n' +
+        cardNote +
+        cardUrl +
+        '            </div>\n' +
+        '          </article>';
+    }).join("\n") +
+    '\n        </div>';
+} else {
+  pastEventsHtml = '        <p class="muted center">No past pop-ups logged yet. Check back soon.</p>';
+}
+
+var pastEventsRe = /(<!-- PAST_EVENTS:START -->)[\s\S]*?(<!-- PAST_EVENTS:END -->)/;
+if (!pastEventsRe.test(eventsHtml)) {
+  throw new Error("Could not find PAST_EVENTS:START/PAST_EVENTS:END markers in events.html");
+}
+eventsHtml = eventsHtml.replace(pastEventsRe, function (m, start, end) {
+  return start + "\n" + pastEventsHtml + "\n        " + end;
+});
+
+writeFile("events.html", eventsHtml);
+
+// shop.html no longer contains a duplicated visible FAQ accordion (now links directly to faq.html)
 
 /* ---------- Page copy (index.html + about.html + contact.html + shop.html) ----------
    The homepage headline/intro, the About story, and page images are marker-delimited
@@ -743,6 +808,7 @@ var FOOTER_RE = /<footer class="site-footer">[\s\S]*?<\/footer>/;
   "about.html",
   "contact.html",
   "events.html",
+  "faq.html",
   "privacy.html",
   "terms.html",
   "policies.html",
@@ -793,6 +859,7 @@ var PAGES = [
   { loc: "events.html", priority: "0.7" },
   { loc: "about.html", priority: "0.7" },
   { loc: "contact.html", priority: "0.6" },
+  { loc: "faq.html", priority: "0.6" },
   { loc: "privacy.html", priority: "0.3" },
   { loc: "terms.html", priority: "0.3" },
   { loc: "policies.html", priority: "0.3" }
@@ -972,5 +1039,27 @@ if (DOMAIN_IS_LIVE) {
     writeFile(page, html);
   });
 }
+
+// Automatically update sw.js CACHE_NAME version on build
+(function updateServiceWorkerVersion() {
+  var swPath = path.join(ROOT, "sw.js");
+  if (fs.existsSync(swPath)) {
+    var swContent = fs.readFileSync(swPath, "utf8");
+    var now = new Date();
+    var pad = function(n) { return (n < 10 ? "0" : "") + n; };
+    var versionString = now.getFullYear() +
+                        pad(now.getMonth() + 1) +
+                        pad(now.getDate()) +
+                        pad(now.getHours()) +
+                        pad(now.getMinutes()) +
+                        pad(now.getSeconds());
+    var updatedContent = swContent.replace(
+      /const CACHE_NAME\s*=\s*['"]yallternative-cache-v[^'"]*['"];/,
+      'const CACHE_NAME = "yallternative-cache-v' + versionString + '";'
+    );
+    fs.writeFileSync(swPath, updatedContent, "utf8");
+    console.log("[build] Automatically updated sw.js CACHE_NAME to version " + versionString);
+  }
+})();
 
 console.log("\nDone. Regenerated derived files + page copy from the JSON sources in assets/data/.");

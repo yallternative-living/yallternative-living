@@ -47,6 +47,7 @@ var PAGES = [
   "about.html",
   "contact.html",
   "events.html",
+  "faq.html",
   "privacy.html",
   "terms.html",
   "policies.html",
@@ -932,7 +933,7 @@ section("Site FAQ (single source, no duplication)");
     else fail(label, problems.join("; "));
   });
 
-  var contactHtml = fs.readFileSync(path.join(ROOT, "contact.html"), "utf8");
+  var faqHtml = fs.readFileSync(path.join(ROOT, "faq.html"), "utf8");
 
   // JSON-LD freshness: rebuild what it SHOULD say from FAQ and compare.
   var expectedLd = {
@@ -949,36 +950,36 @@ section("Site FAQ (single source, no duplication)");
       };
     })
   };
-  var ldMatch = contactHtml.match(
+  var ldMatch = faqHtml.match(
     /<script type="application\/ld\+json">\n(\{\s*\n\s*"@context": "https:\/\/schema\.org",\s*\n\s*"@type": "FAQPage"[\s\S]*?\n)<\/script>/
   );
   if (!ldMatch) {
-    fail("contact.html FAQPage JSON-LD", "block not found -- run npm run build-data");
+    fail("faq.html FAQPage JSON-LD", "block not found -- run npm run build-data");
   } else {
     try {
       var actualLd = JSON.parse(ldMatch[1]);
       if (JSON.stringify(actualLd) === JSON.stringify(expectedLd)) {
         ok(
-          "contact.html FAQPage JSON-LD matches products-data.js's faq array (" +
+          "faq.html FAQPage JSON-LD matches products-data.js's faq array (" +
             FAQ.length +
             " question(s))"
         );
       } else {
         fail(
-          "contact.html FAQPage JSON-LD is stale",
+          "faq.html FAQPage JSON-LD is stale",
           "doesn't match products-data.js's faq array -- run npm run build-data"
         );
       }
     } catch (e) {
-      fail("contact.html FAQPage JSON-LD", "invalid JSON -- " + e.message);
+      fail("faq.html FAQPage JSON-LD", "invalid JSON -- " + e.message);
     }
   }
 
   // Visible prose freshness: pull every <h3>question</h3><p>answer</p>
   // pair out of the FAQ:START/FAQ:END markers and compare to FAQ.
-  var markerMatch = contactHtml.match(/<!-- FAQ:START[\s\S]*?-->\n([\s\S]*?)\n\s*<!-- FAQ:END -->/);
+  var markerMatch = faqHtml.match(/<!-- FAQ:START[\s\S]*?-->\n([\s\S]*?)\n\s*<!-- FAQ:END -->/);
   if (!markerMatch) {
-    fail("contact.html FAQ:START/FAQ:END markers", "not found -- run npm run build-data");
+    fail("faq.html FAQ:START/FAQ:END markers", "not found -- run npm run build-data");
   } else {
     var itemRe = /<h3>([\s\S]*?)<\/h3>\s*<p>([\s\S]*?)<\/p>/g;
     var m,
@@ -990,10 +991,10 @@ section("Site FAQ (single source, no duplication)");
       return { q: escapeHtml(item.question), a: renderedAnswer };
     });
     if (JSON.stringify(visibleItems) === JSON.stringify(expectedItems)) {
-      ok("contact.html visible FAQ prose matches products-data.js's faq array");
+      ok("faq.html visible FAQ prose matches products-data.js's faq array");
     } else {
       fail(
-        "contact.html visible FAQ prose is stale",
+        "faq.html visible FAQ prose is stale",
         "doesn't match products-data.js's faq array -- run npm run build-data"
       );
     }
@@ -1003,14 +1004,14 @@ section("Site FAQ (single source, no duplication)");
   if (/class="faq-accordion"/.test(shopHtml)) {
     fail(
       "shop.html",
-      "still has a .faq-accordion -- the site is only supposed to have one FAQ now (see contact.html#faq); remove the duplicate"
+      "still has a .faq-accordion -- the site is only supposed to have one FAQ now (see faq.html); remove the duplicate"
     );
-  } else if (/href="contact\.html#faq"/.test(shopHtml)) {
-    ok("shop.html links to contact.html#faq instead of duplicating FAQ content");
+  } else if (/href="faq\.html"/.test(shopHtml)) {
+    ok("shop.html links to faq.html instead of duplicating FAQ content");
   } else {
     fail(
       "shop.html",
-      'doesn\'t appear to link to contact.html#faq -- the "check our FAQ before checkout" pointer may have been removed'
+      'doesn\'t appear to link to faq.html -- the "check our FAQ before checkout" pointer may have been removed'
     );
   }
 })();

@@ -57,6 +57,10 @@ window.YL_PRODUCTS = {
         "name": "Size",
         "options": [
           {
+            "label": "S",
+            "priceDelta": 0
+          },
+          {
             "label": "M",
             "priceDelta": 0
           },
@@ -107,7 +111,8 @@ window.YL_PRODUCTS = {
         ]
       },
       "etsyUrl": "https://www.etsy.com/listing/4341518675/yallternative-living-unisex-t-shirt",
-      "tags": []
+      "tags": [],
+      "featured": true
     },
     {
       "id": "frankincense-salve",
@@ -136,7 +141,10 @@ window.YL_PRODUCTS = {
         "count": 5
       },
       "etsyUrl": "https://www.etsy.com/listing/4398130795/yall-heal-now-miracle-frankincense-salve",
-      "tags": []
+      "tags": [
+        "bestseller"
+      ],
+      "featured": true
     },
     {
       "id": "miracle-balm",
@@ -146,16 +154,17 @@ window.YL_PRODUCTS = {
       "image": "assets/img/miracle-balm.jpg",
       "blurb": "No essential oils, no fragrance, nothing to react to. Just a rich little .5 oz balm for lips, cuticles, and anywhere skin needs backup. Gentle enough for the whole family, kids included.",
       "ingredients": [
-        "Cera alba (Beeswax)",
-        "Butyrospermum parkii (Shea) Butter",
-        "Ricinus communis (Castor) Seed Oil",
-        "Prunus amygdalus dulcis (Sweet Almond) Oil",
-        "Calendula officinalis Flower Infused Oil",
+        "Beeswax (Cera alba)",
+        "Shea Butter (Butyrospermum parkii)",
+        "Castor Seed Oil (Ricinus communis)",
+        "Sweet Almond Oil (Prunus amygdalus dulcis)",
+        "Calendula Infused Oil (Calendula officinalis)",
         "Lanolin",
-        "Tocopherol (Vitamin E)"
+        "Vitamin E (Tocopherol)"
       ],
       "ingredientsNote": "No essential oils, no added fragrance.",
       "tags": [
+        "bestseller",
         "unscented",
         "essential-oil-free",
         "sensitive-safe"
@@ -196,7 +205,7 @@ window.YL_PRODUCTS = {
       "images": [
         "assets/img/beard-salve-alt1.jpg"
       ],
-      "blurb": "Bourbon & Grit: a 2 oz tin that softens coarse beard hair, calms the itch underneath, and smells like bourbon, vanilla, and cedarwood instead of a drugstore aisle. Light hold, zero grease, genuinely good gift material.",
+      "blurb": "A 2 oz tin that softens coarse facial hair, calms the itch underneath, and smells like a stiff drink and cedarwood instead of a drugstore aisle. Light hold, zero grease, genuinely good gift material.",
       "ingredients": [
         "Shea Butter",
         "Coconut Oil",
@@ -206,7 +215,8 @@ window.YL_PRODUCTS = {
         "Fragrance & Essential Oils"
       ],
       "etsyUrl": "https://www.etsy.com/listing/4460199621/bourbon-beard-salve-vanilla-cedarwood",
-      "tags": []
+      "tags": [],
+      "featured": true
     },
     {
       "id": "shimmer-oil",
@@ -251,7 +261,8 @@ window.YL_PRODUCTS = {
       "etsyUrl": "https://www.etsy.com/listing/4502740269/shimmer-body-oil-glitter-body-oil-non",
       "tags": [
         "vegan"
-      ]
+      ],
+      "featured": true
     },
     {
       "id": "shea-butter",
@@ -305,7 +316,7 @@ window.YL_PRODUCTS = {
         "assets/img/hand-scrub-alt2.jpg",
         "assets/img/hand-scrub-alt3.jpg"
       ],
-      "blurb": "Pumice, pink salt, and sugar for the grease and grime; coconut and olive oil so your hands don't pay for it. A 2 oz tin of bourbon-vanilla scrub for hands that work for a living.",
+      "blurb": "Pumice, pink salt, and sugar for the grease and grime; coconut and olive oil so your hands don't pay for it. A 2 oz tin built for hands that work for a living.",
       "ingredients": [
         "Pumice",
         "Himalayan Pink Salt",
@@ -415,7 +426,8 @@ window.YL_PRODUCTS = {
         "value": 5,
         "count": 3
       },
-      "etsyUrl": "https://www.etsy.com/listing/4333988264/backroad-recovery-epsom-salt-muscle-soak"
+      "etsyUrl": "https://www.etsy.com/listing/4333988264/backroad-recovery-epsom-salt-muscle-soak",
+      "featured": true
     },
     {
       "id": "protection-keychain",
@@ -459,7 +471,8 @@ window.YL_PRODUCTS = {
         "count": 1
       },
       "etsyUrl": "https://www.etsy.com/listing/4378341348/protection-potion-keychain-black-lava",
-      "tags": []
+      "tags": [],
+      "featured": true
     },
     {
       "id": "bug-spray",
@@ -493,8 +506,9 @@ window.YL_PRODUCTS = {
       "name": "Y'all Means All Sugar Scrub",
       "category": "body",
       "price": 14,
+      "comingSoon": true,
       "image": "assets/img/placeholder-coming-soon.svg",
-      "blurb": "Rainbow layers of exfoliating sugar scrub that mean exactly what they say: y'all means all. Sloughs off the rough, leaves skin soft and sweet, and looks like a Pride parade in a jar. Glitter-and-grit self-care for the black sheep and bold hearts.",
+      "blurb": "Rainbow layers of sweet exfoliant that slough off the rough, leave skin soft, and look like a Pride parade in a jar. Glitter-and-grit self-care that means exactly what it says: everybody's welcome.",
       "ingredients": [
         "Cane Sugar",
         "Coconut Oil",
@@ -518,8 +532,9 @@ window.YL_PRODUCTS = {
       "name": "Y'all Means All Rainbow Whipped Body Butter",
       "category": "body",
       "price": 18,
+      "comingSoon": true,
       "image": "assets/img/placeholder-coming-soon.svg",
-      "blurb": "Whipped light and fluffy in a citrus-peach blend, with rainbow swirls that mean all of it: every color, every one of us. Melts in without the grease and keeps skin soft all day. Y'all means all, moisturized.",
+      "blurb": "Whipped light and fluffy in a citrus-peach blend, with rainbow swirls that mean all of it: every color, every one of us. Melts in without the grease and keeps skin soft all day. Everybody's welcome, moisturized.",
       "ingredients": [
         "Shea Butter",
         "Mango Butter",
@@ -545,6 +560,7 @@ window.YL_PRODUCTS = {
       "name": "Appalachian Rain Clearing Mist",
       "category": "ritual",
       "price": 14,
+      "comingSoon": true,
       "image": "assets/img/placeholder-coming-soon.svg",
       "blurb": "White sage, cedar, and sweetgrass in a fine mist: two pumps at the doorway after a hard conversation, a house guest who overstayed, or just a Monday that won't quit. Inspired by Appalachian folk tradition, no smoke, no residue, no landlord complaints. Amber glass, small-batch blended in Landrum, SC.",
       "ingredients": [
@@ -578,6 +594,7 @@ window.YL_PRODUCTS = {
       "name": "Moonlit Meadow Bath Tea",
       "category": "ritual",
       "price": 12,
+      "comingSoon": true,
       "image": "assets/img/placeholder-coming-soon.svg",
       "blurb": "Dried lavender, chamomile, rose petals, and oat straw in a reusable muslin bag. Drop it in a warm bath, let it steep five minutes, soak until the day stops mattering. Gentler on your tub than loose herbs, and the bag's good for two or three rounds before you compost the whole thing.",
       "ingredients": [
@@ -613,6 +630,7 @@ window.YL_PRODUCTS = {
       "name": "Porch Sweep Clearing Mist",
       "category": "ritual",
       "price": 16,
+      "comingSoon": true,
       "image": "assets/img/placeholder-coming-soon.svg",
       "blurb": "Named for the old Southern habit of sweeping the porch at dusk to clear out the day's trouble. Lemongrass, palo santo, and black tourmaline-infused water in a 4 oz amber bottle. Mist your space after an argument, a bad day, or just because the vibes are off.",
       "ingredients": [
@@ -680,7 +698,7 @@ window.YL_PRODUCTS = {
         "lavender-soak"
       ],
       "discountPercent": 10,
-      "blurb": "Everyday witchy armor, boxed up: a wax-sealed protection spell jar for your keys, the bug spray that tells mosquitoes to buzz off, naturally, and a lavender soak for taking up all the space you want in the tub. Grit and glitter for the black sheep on your list."
+      "blurb": "Everyday witchy armor, boxed up: a wax-sealed protection spell jar for your keys, the bug spray that tells mosquitoes to buzz off, naturally, and a lavender soak for taking up all the space you want in the tub. Grit and glitter for the ones who need it."
     },
     {
       "id": "gentle-landing-set",
@@ -699,11 +717,10 @@ window.YL_PRODUCTS = {
         "frankincense-salve",
         "hand-scrub",
         "lavender-soak",
-        "bug-spray",
-        "cleansing-spray"
+        "bug-spray"
       ],
       "discountPercent": 15,
-      "blurb": "Can't decide? Try a little of everything. Five of our bestselling products bundled together at 15% off: the salve everybody re-orders, the bourbon-vanilla scrub, a lavender soak, the bug spray that actually works, and our Appalachian clearing mist. A full tour of the shop in one box."
+      "blurb": "Can't decide? Try a little of everything. Four of our bestselling products bundled together at 15% off: the salve everybody re-orders, the bourbon-vanilla scrub, a lavender soak, and the bug spray that actually works. A full tour of the shop in one box."
     }
   ],
   "faq": [
@@ -726,6 +743,14 @@ window.YL_PRODUCTS = {
     {
       "question": "Where can I meet you in person?",
       "answer": "Farmers markets and Pride events around Upstate SC and beyond. Check out our [events page](events.html) or follow our socials so you know exactly where and when we'll be set up next."
+    },
+    {
+      "question": "Do you offer free shipping?",
+      "answer": "Yes! We offer free shipping on all orders over $40. It will automatically apply at checkout."
+    },
+    {
+      "question": "What is the shelf life of your salves and soaks?",
+      "answer": "Since our products are all-natural and preservative-free, we recommend using them within 6 to 12 months for the best potency and freshness. Keep them in a cool, dry place away from direct sunlight."
     }
   ]
 };

@@ -113,6 +113,12 @@ collections:
                   and your sales history for the old id won't follow it.
                   Safe to set freely on a new product.
               - { name: name, label: "Product Name (shown everywhere on the site)", widget: string }
+              - name: featured
+                label: Featured Product
+                widget: boolean
+                default: false
+                required: false
+                hint: "Check this box to feature this product on the homepage grid."
               - name: category
                 label: Category
                 widget: select

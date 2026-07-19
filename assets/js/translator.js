@@ -117,13 +117,25 @@
       console.warn("[translator] Google Translate widget timed out loading.");
       return;
     }
+
+    var targetVal = langCode === "en" ? "" : (langCode === "zh" ? "zh-CN" : langCode);
+
+    // Set the cookie ourselves first to ensure Google Translate is forced to the correct state
+    if (targetVal) {
+      document.cookie = "googtrans=/en/" + targetVal + "; path=/;";
+      document.cookie = "googtrans=/en/" + targetVal + "; path=/; domain=" + window.location.hostname;
+    } else {
+      document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+      document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + window.location.hostname;
+    }
+
     var selectEl = document.querySelector(".goog-te-combo");
     if (selectEl) {
-      // Google Translate's combobox expects empty string or 'en' to reset to English
-      var targetVal = langCode === "en" ? "" : langCode;
       if (selectEl.value !== targetVal) {
         selectEl.value = targetVal;
-        selectEl.dispatchEvent(new Event("change"));
+        // Google Translate listens for change events at the document level,
+        // so bubbles: true is critical for the widget to detect the change.
+        selectEl.dispatchEvent(new Event("change", { bubbles: true, cancelable: true }));
       }
     } else {
       // If combo box is not generated yet, try again shortly
@@ -160,6 +172,8 @@
           if (curr.classList && (
             curr.classList.contains("skiptranslate") ||
             curr.classList.contains("snipcart-checkout") ||
+            curr.classList.contains("brand") ||
+            curr.classList.contains("brand-word") ||
             Array.from(curr.classList).some(function (c) {
               return c.startsWith("snipcart-") || c.startsWith("tawk-");
             })
@@ -256,15 +270,29 @@
         restoreOriginalEnglish();
         nativeTranslator = null;
       }
-      // Reset Google Translate widget if loaded
-      if (isGoogleLoaded) {
-        triggerGoogleTranslate("en");
+      
+      // If Google Translate was loaded or has cookies, clear them and reload the page
+      // to ensure a completely clean slate (avoids layout breaking and resets Snipcart/Tawk.to)
+      var hasGoogleCookie = document.cookie.indexOf("googtrans") !== -1;
+      if (isGoogleLoaded || hasGoogleCookie) {
+        // Clear all possible variations of the googtrans cookie
+        document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+        document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + window.location.hostname;
+        var domainParts = window.location.hostname.split(".");
+        if (domainParts.length >= 2) {
+          var rootDomain = "." + domainParts.slice(-2).join(".");
+          document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + rootDomain;
+        }
+        
+        // Force a page reload
+        window.location.reload();
+        return;
       }
       return;
     }
 
-    // 1. Try Native on-device Translator API
-    var nativeSupport = await checkNativeSupport(target);
+    // 1. Try Native on-device Translator API (disabled to ensure 100% reliable Google Translate fallback)
+    var nativeSupport = "no";
     if (nativeSupport === "readily" || nativeSupport === "available") {
       var translator = await getNativeTranslator(target);
       if (translator) {
@@ -306,7 +334,7 @@
     if (!navCta || document.getElementById("langSelectorWrap")) return;
 
     var wrap = document.createElement("div");
-    wrap.className = "lang-selector-wrap";
+    wrap.className = "lang-selector-wrap notranslate";
     wrap.id = "langSelectorWrap";
 
     // Toggle button
@@ -389,13 +417,9 @@
       return saved;
     }
 
-    // Fallback to browser preference
-    if (navigator.language) {
-      var pref = navigator.language.split("-")[0];
-      if (LANGUAGES.some(function (l) { return l.code === pref; })) {
-        return pref;
-      }
-    }
+    // Default to English instead of aggressive auto-translation
+    // to prevent showing the "wrong language" automatically.
+    return "en";
 
     return "en";
   }
@@ -443,6 +467,8 @@
               if (curr.classList && (
                 curr.classList.contains("skiptranslate") ||
                 curr.classList.contains("snipcart-checkout") ||
+                curr.classList.contains("brand") ||
+                curr.classList.contains("brand-word") ||
                 Array.from(curr.classList).some(function (c) {
                   return c.startsWith("snipcart-") || c.startsWith("tawk-");
                 })
@@ -461,6 +487,8 @@
       if (node.classList && (
         node.classList.contains("skiptranslate") ||
         node.classList.contains("snipcart-checkout") ||
+        node.classList.contains("brand") ||
+        node.classList.contains("brand-word") ||
         Array.from(node.classList).some(function (c) {
           return c.startsWith("snipcart-") || c.startsWith("tawk-");
         })

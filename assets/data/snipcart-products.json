@@ -11,8 +11,8 @@
     "customFields": [
       {
         "name": "Size",
-        "options": "M[+0.00]|L[+0.00]|1X[+0.00]",
-        "value": "M"
+        "options": "S[+0.00]|M[+0.00]|L[+0.00]|1X[+0.00]",
+        "value": "S"
       }
     ]
   },
@@ -320,7 +320,7 @@
   {
     "id": "bundle-discovery-flight",
     "name": "Discovery Flight",
-    "price": 51,
+    "price": 39.1,
     "url": "/assets/data/snipcart-products.json",
     "image": "assets/img/frankincense-salve.jpg",
     "categories": [
