@@ -11,3 +11,9 @@ package-lock.json
 check_tmp.js
 assets/data/.fuse_hidden*
 assets/data/shop_jsonld.tmp.json
+
+# Local reports
+audit_report.md
+scripts/etsy-sync-report.md
+*audit-report.md
+*audit_report.md
