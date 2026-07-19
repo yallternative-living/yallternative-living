@@ -477,8 +477,8 @@ section{
     min-height:auto; padding:48px 0 64px;
   }
   
-  & h1{ margin-bottom:.35em; }
-  & .lede{ font-size:1.15rem; max-width:78ch; }
+  & h1{ margin-bottom:.5em; }
+  & .lede{ font-size:1.15rem; max-width:78ch; margin-bottom: 22px; }
 }
 
 .hero-grid{
@@ -529,7 +529,7 @@ section{
   align-items: center;
   flex-wrap: wrap;
   margin-top: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
   
   @media (max-width:900px) {
     flex-direction: column;
