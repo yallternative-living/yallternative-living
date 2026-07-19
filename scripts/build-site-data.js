@@ -604,33 +604,20 @@ function injectPageCopy(page, pageKey) {
 
       if (reHtml.test(html)) {
         html = html.replace(reHtml, function (match, open, close) {
-          // Parse original attributes from the template tag
+          // Parse sizes attribute from the original block
           var sizesMatch = match.match(/sizes="([^"]*)"/i) || match.match(/sizes='([^']*)'/i);
           var sizes = sizesMatch ? sizesMatch[1] : "";
 
+          // Extract the original <img> tag exactly as written
           var imgTagMatch = match.match(/<img\s+[^>]+>/i);
           var imgTag = imgTagMatch ? imgTagMatch[0] : "";
 
-          var altMatch = imgTag.match(/alt="([^"]*)"/i) || imgTag.match(/alt='([^']*)'/i);
-          var alt = altMatch ? altMatch[1] : "";
-
-          var classNameMatch = imgTag.match(/class="([^"]*)"/i) || imgTag.match(/class='([^']*)'/i);
-          var className = classNameMatch ? classNameMatch[1] : "";
-
-          var widthMatch = imgTag.match(/width="([^"]*)"/i) || imgTag.match(/width='([^']*)'/i);
-          var width = widthMatch ? widthMatch[1] : "";
-
-          var heightMatch = imgTag.match(/height="([^"]*)"/i) || imgTag.match(/height='([^']*)'/i);
-          var height = heightMatch ? heightMatch[1] : "";
-
-          var loadingMatch = imgTag.match(/loading="([^"]*)"/i) || imgTag.match(/loading='([^']*)'/i);
-          var loading = loadingMatch ? loadingMatch[1] : "";
-
-          var fetchpriorityMatch = imgTag.match(/fetchpriority="([^"]*)"/i) || imgTag.match(/fetchpriority='([^']*)'/i);
-          var fetchpriority = fetchpriorityMatch ? fetchpriorityMatch[1] : "";
-
-          var decodingMatch = imgTag.match(/decoding="([^"]*)"/i) || imgTag.match(/decoding='([^']*)'/i);
-          var decoding = decodingMatch ? decodingMatch[1] : "";
+          // Replace ONLY the src attribute of the <img> tag, leaving all other custom/native attributes untouched
+          if (imgTag) {
+            imgTag = imgTag.replace(/(\bsrc=['"])[^'"]*(['"])/i, '$1' + imgPath + '$2');
+          } else {
+            imgTag = '<img src="' + imgPath + '">';
+          }
 
           var isPicture = /<picture/i.test(match);
           var innerTag = "";
@@ -657,33 +644,18 @@ function injectPageCopy(page, pageKey) {
               if (sizes) innerTag += " sizes=\"" + sizes + "\"";
               innerTag += ">";
             }
-            innerTag += "\n            <img src=\"" + imgPath + "\"";
-            if (alt) innerTag += " alt=\"" + alt + "\"";
-            if (className) innerTag += " class=\"" + className + "\"";
-            if (width) innerTag += " width=\"" + width + "\"";
-            if (height) innerTag += " height=\"" + height + "\"";
-            if (loading) innerTag += " loading=\"" + loading + "\"";
-            if (fetchpriority) innerTag += " fetchpriority=\"" + fetchpriority + "\"";
-            if (decoding) innerTag += " decoding=\"" + decoding + "\"";
-            innerTag += ">";
+            innerTag += "\n            " + imgTag;
             innerTag += "\n          </picture>";
           } else {
-            innerTag = "<img src=\"" + imgPath + "\"";
-            if (alt) innerTag += " alt=\"" + alt + "\"";
-            if (className) innerTag += " class=\"" + className + "\"";
-            if (width) innerTag += " width=\"" + width + "\"";
-            if (height) innerTag += " height=\"" + height + "\"";
-            if (loading) innerTag += " loading=\"" + loading + "\"";
-            if (fetchpriority) innerTag += " fetchpriority=\"" + fetchpriority + "\"";
-            if (decoding) innerTag += " decoding=\"" + decoding + "\"";
-            innerTag += ">";
+            innerTag = imgTag;
           }
 
           return open + "\n          " + innerTag + "\n          " + close;
         });
       } else if (reCss.test(html)) {
         html = html.replace(reCss, function (match, open, close) {
-          return open + "background: url('" + imgPath + "') no-repeat center center / cover;" + close;
+          // Replace ONLY the url() property inside the CSS block, preserving other background attributes (e.g. no-repeat center center / cover)
+          return match.replace(/url\(['"]?[^'")]+['"]?\)/i, "url('" + imgPath + "')");
         });
       }
     } else {

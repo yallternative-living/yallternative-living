@@ -170,7 +170,11 @@ async function run() {
   // Every run merges into whatever manifest already exists (and writes
   // it after EACH photo, not just at the end) so a batch that gets
   // interrupted partway never loses previously-finished work.
-  var onlyArg = process.argv[2];
+  var force = process.argv.indexOf("--force") !== -1 || process.argv.indexOf("-f") !== -1;
+  var args = process.argv.slice(2).filter(function (arg) {
+    return !arg.startsWith("-");
+  });
+  var onlyArg = args.join(",");
   if (onlyArg) {
     var wanted = onlyArg.split(",").map(function (s) {
       return s.trim();
@@ -180,7 +184,7 @@ async function run() {
       return wanted.indexOf(base) !== -1;
     });
     if (!files.length) {
-      console.log("No matching .jpg files for: " + onlyArg);
+      console.log("No matching files for: " + onlyArg);
       return;
     }
   }
@@ -197,7 +201,7 @@ async function run() {
     var currentSize = fs.statSync(fullPath).size;
     var entry = manifest["assets/img/" + filename];
 
-    if (entry && entry.size === currentSize && entry.variants) {
+    if (!force && entry && entry.size === currentSize && entry.variants) {
       // Check if all variant files actually exist on disk
       var allExist = true;
       var checkVariant = function (v) {
