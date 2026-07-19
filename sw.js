@@ -72,8 +72,8 @@ self.addEventListener('activate', event => {
 
 /**
  * Event listener for service worker 'fetch' phase.
- * Implements a stale-while-revalidate strategy for same-origin requests,
- * stripping query parameters to avoid key misses.
+ * Implements a stale-while-revalidate strategy for same-origin requests.
+ * Strips query parameters from the cache key to avoid mismatching.
  *
  * @param {!FetchEvent} event The fetch event object.
  */
@@ -96,11 +96,21 @@ self.addEventListener('fetch', event => {
             });
           }
           return response;
-        }).catch(() => {
-          // Ignore network errors
         });
         
-        return cachedResponse || networkFetch;
+        if (cachedResponse) {
+          // If we have a cached response, return it immediately and run the
+          // network fetch in the background to update the cache.
+          networkFetch.catch(() => {
+            // Ignore background network errors when cache is available.
+          });
+          return cachedResponse;
+        }
+        
+        // If not in cache, return the network fetch promise directly so
+        // that network errors propagate naturally to the browser instead of
+        // returning undefined (which causes a service worker ERR_FAILED crash).
+        return networkFetch;
       })
     );
   }
