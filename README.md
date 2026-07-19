@@ -31,4 +31,4 @@ Here is the quick checklist of what you'll need to set up:
 
 ## 🛠️ For Developers
 
-If you are a developer looking to modify the code, add new features, or understand how the build scripts and CSS architecture work, please read the **[Development & Architecture Guide](DEVELOPMENT.md)**.
+If you are a developer looking to modify the code, add new features, or understand how the build scripts and CSS architecture work, please read the **[Development & Architecture Guide](docs/DEVELOPMENT.md)**.
