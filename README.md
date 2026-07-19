@@ -6,29 +6,29 @@ Etsy and at Upstate SC farmers markets / Pride events.
 
 ## 🌸 Savanna's Quick-Start Guide
 
-Welcome to your website! Since you aren't a computer expert, this quick-start guide is written to help you manage your shop easily and connect your payment/email tools to get ready to launch.
+Hey Savanna! Welcome to your website. I put this quick guide together at the top of the README to make it super easy for you to manage the shop, update content, and get everything hooked up for launch without having to dig through a bunch of code.
 
 ### 1. How to Edit Your Products, Events & FAQs (No Code Required)
-We set up a simple **Website Dashboard** where you can edit the site's content using friendly forms (no typing code or editing JSON files):
-* **Where to go:** `https://<your-deployed-domain>/admin` (this link will work once your site is live)
+I've set up a simple **Website Dashboard** where you can edit the site's content using friendly forms (so you never have to touch a text editor or type any code):
+* **Where to go:** `https://<your-deployed-domain>/admin` (this link will work once the site is live)
 * **What you can do here:**
-  * **Products:** Add new items, change prices, update descriptions, ingredients, or inventory.
-  * **Markets & Events:** Add upcoming popup market dates or move past dates to "recent appearances".
+  * **Products:** Add new items, change prices, update descriptions, ingredients, or inventory levels.
+  * **Markets & Events:** Add upcoming market dates or move past dates to "recent appearances."
   * **FAQ List:** Change the customer questions and answers.
   * **Shop Info:** Edit the shop description or banner texts.
-* **How it works:** When you edit something and click **Save**, the system automatically sends the updates to the website. The live site will rebuild and update itself in about a minute or two.
-* **For technical setup instructions (if Steven is helping):** See [Section 20 (CMS Auth Setup)](#20-product-editor-sveltia-cms-at-admin-explained).
+* **How it works:** When you make changes and click **Save**, the system automatically sends the updates to the website. The live site will rebuild and update itself in about a minute or two.
+* **For technical setup (if you want me to walk you through it):** See [Section 20 (CMS Auth Setup)](#20-product-editor-sveltia-cms-at-admin-explained).
 
 ### 2. Checklist to Launch Your Store (Linking Your Tools)
-To start taking credit card payments, sending newsletters, or moderating customer reviews, you just need to create accounts on these external platforms and link them to the site:
-1. **[ ] Customer Checkout & Credit Cards (Snipcart):** Connects Stripe to your website so customers can add items to a cart and check out directly. (Setup steps are in [Section 8](#8-the-shopping-system-explained)).
-2. **[ ] Email Newsletters (Kit):** Collects customer email addresses from the signup box in the footer so you can send them updates. (Setup steps are in [Section 13](#13-newsletter-signup-explained)).
-3. **[ ] Customer Reviews (Formspree):** Sends new customer reviews submitted on the site directly to your email inbox so you can approve them before they show up on the site. (Setup steps are in [Section 16](#16-on-site-review-submissions-explained)).
-4. **[ ] Digital Gift Cards (Gift Up! - Optional):** Lets you sell digital gift cards and manage redemptions. (Setup steps are in [Section 18](#18-digital-gift-cards-explained)).
-5. **[ ] Customer Live Chat (Tawk.to - Optional):** Adds a small chat bubble to the bottom of the pages so customers can ask you questions. (Setup steps are in [Section 19](#19-live-chat-explained)).
+To start taking payments, sending newsletters, or moderating reviews directly on the site, you'll need to create accounts on these external platforms and link them to the site:
+1. **[ ] Customer Checkout & Credit Cards (Snipcart):** Connects Stripe to your website so customers can add items to a cart and check out directly. (I've outlined the setup steps in [Section 8](#8-the-shopping-system-explained)).
+2. **[ ] Email Newsletters (Kit):** Collects customer email addresses from the signup box in the footer so you can send them updates. (Setup steps in [Section 13](#13-newsletter-signup-explained)).
+3. **[ ] Customer Reviews (Formspree):** Sends new customer reviews submitted on the site directly to your email inbox so you can approve them before they show up on the site. (Setup steps in [Section 16](#16-on-site-review-submissions-explained)).
+4. **[ ] Digital Gift Cards (Gift Up! - Optional):** Lets you sell digital gift cards and manage redemptions. (Setup steps in [Section 18](#18-digital-gift-cards-explained)).
+5. **[ ] Customer Live Chat (Tawk.to - Optional):** Adds a small chat bubble to the bottom of the pages so customers can ask you questions. (Setup steps in [Section 19](#19-live-chat-explained)).
 
 ### 3. Setting Up Your Website Name (Domain Name)
-When you buy your own custom web address (like `yallternativeliving.com`), we have a setup ready to point your site to it. Ask Steven to update the domain settings (steps in [Section 10](#10-seo--ai-agent-optimization-already-in-place)) when you're ready to launch!
+When you're ready to buy your own custom web address (like `yallternativeliving.com`), just let me know. I've already wired up a script that will automatically update the entire site to use your new address in one click. You or I can follow the steps in [Section 10](#10-seo--ai-agent-optimization-already-in-place) to run it!
 
 ---
 
