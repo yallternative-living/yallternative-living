@@ -83,9 +83,7 @@ npm test
   (`Y'all Means All Sugar Scrub`, `Rainbow Whipped Body Butter`). Swap in real
   photos the same way, and double-check their price and ingredients while you're
   there.
-- **A real photo of you** for the "Meet Savanna" / homepage spots: drop it in
-  `assets/img/` and it can replace the current placeholder — ask your developer
-  to wire it into `about.html` and `index.html`.
+- **Static page photos (About bio photo, homepage hero, logos, etc.):** You can replace these directly in `/admin` under **Page Wording**. Upload the new photo in the editor, and the site's build script will automatically wire it in, optimize it, and generate the responsive breakpoints.
 
 ---
 
@@ -94,12 +92,7 @@ npm test
 Honest heads-up — the catalog is owner-friendly; a few things still live in the
 page files:
 
-- **Privacy-policy wording** — the privacy policy text is in `privacy.html`, not
-  the `/admin` editor. (The homepage headline/intro and your About story ARE now
-  editable in `/admin` under "Page Wording"; only the legal policy page isn't.)
-
-These are easy edits for anyone comfortable in a text editor, and they could be
-added to the `/admin` editor later if you want to manage them yourself too.
+- **Legal policies** — the privacy, terms, and shipping policy pages are in `privacy.html`, `terms.html`, and `policies.html`. These are not editable in `/admin` and still require a developer edit to keep the formatting robust. (The homepage headline/intro, About story, contact photo, and site logos ARE now editable in `/admin` under "Page Wording".)
 
 ---
 
@@ -116,6 +109,4 @@ added to the `/admin` editor later if you want to manage them yourself too.
 | Add a market/Pride date | `/admin` → Markets, or `events.json` | Auto (CMS) / `npm run build-data` |
 | Reword homepage headline / About story | `/admin` → Page Wording, or `content.json` | Auto (CMS) / `npm run build-data` |
 
-**Rule of thumb:** products, prices, bundles, FAQ, photos, and market dates =
-you, via `/admin`. Page stories (About / homepage / policies) = a quick
-developer edit (for now).
+**Rule of thumb:** products, prices, bundles, FAQ, photos, market dates, site logos, and page wording (About / homepage / contact text) = you, via `/admin`. Only the legal policies and underlying layout structures = a quick developer edit.
