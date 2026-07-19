@@ -251,9 +251,6 @@
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">' +
     '<path d="M12 21s-7.5-4.6-10-9.2C.4 8.4 2 5 5.5 5c2 0 3.4 1.1 4.2 2.4C10.5 6.1 11.9 5 13.9 5 17.4 5 19 8.4 17.4 11.8 15 16.4 12 21 12 21z"/></svg>';
 
-  // ⚡ Bolt: Cache wishlist in memory to avoid expensive JSON.parse and localStorage reads on every product render
-  var cachedWishlist = null;
-
   /* ---------- shared: escape a value for safe use inside an HTML attribute ---------- */
   function attrEsc(str) {
     return String(str)
@@ -583,17 +580,13 @@
   }
 
   function getWishlist() {
-    if (cachedWishlist) return cachedWishlist;
     try {
-      cachedWishlist = JSON.parse(localStorage.getItem(WISH_KEY)) || [];
-      return cachedWishlist;
+      return JSON.parse(localStorage.getItem(WISH_KEY)) || [];
     } catch (e) {
-      cachedWishlist = [];
-      return cachedWishlist;
+      return [];
     }
   }
   function saveWishlist(list) {
-    cachedWishlist = list;
     try {
       localStorage.setItem(WISH_KEY, JSON.stringify(list));
     } catch (e) {
@@ -1444,20 +1437,16 @@
     // Plain client-side substring search across name/blurb/category label --
     // 13 products is nowhere near enough to need a search index or a
     // library; a straight .filter() re-runs in well under a millisecond.
-    // ⚡ Bolt: Pre-calculate the search haystack strings on initialization instead of repeatedly during input
-    allProducts.forEach(function (p) {
-      p._searchHaystack = (
+    function matchesQuery(p, q) {
+      if (!q) return true;
+      var haystack = (
         p.name +
         " " +
         p.blurb +
         " " +
         (catLabel[p.category] || p.category)
       ).toLowerCase();
-    });
-
-    function matchesQuery(p, q) {
-      if (!q) return true;
-      return p._searchHaystack.indexOf(q) !== -1;
+      return haystack.indexOf(q) !== -1;
     }
 
     function render() {
@@ -1664,11 +1653,6 @@
     var threshold = data.shop.freeShippingThreshold || 0;
     var products = data.products || [];
 
-    // ⚡ Bolt: Pre-sort the cross-sell products list once during init instead of on every cart render
-    var sortedCrossSellCandidates = products.slice().sort(function (a, b) {
-      return a.price - b.price;
-    });
-
     function buildProgressHTML(total) {
       if (threshold <= 0) return "";
       var pct = Math.min(100, Math.round((total / threshold) * 100));
@@ -1696,14 +1680,14 @@
 
     function findCrossSellProduct(cartItemIds) {
       // Pick the cheapest product NOT already in the cart
-      // ⚡ Bolt: Iterating over the pre-sorted list avoids O(n log n) sorting on every cart state change
-      for (var i = 0; i < sortedCrossSellCandidates.length; i++) {
-        var p = sortedCrossSellCandidates[i];
-        if (cartItemIds.indexOf(p.id) === -1 && p.inStock !== false) {
-          return p;
-        }
-      }
-      return null;
+      var candidates = products
+        .filter(function (p) {
+          return cartItemIds.indexOf(p.id) === -1 && p.inStock !== false;
+        })
+        .sort(function (a, b) {
+          return a.price - b.price;
+        });
+      return candidates.length ? candidates[0] : null;
     }
 
     function buildCrossSellHTML(product) {
@@ -1756,14 +1740,8 @@
 
       var snipcartEl = document.getElementById("snipcart");
       var observer;
-      // ⚡ Bolt: Cache static DOM elements outside the render loop
-      var badges = document.querySelectorAll(".snipcart-items-count");
 
-      // ⚡ Bolt: Throttle cart sync with requestAnimationFrame to prevent layout thrashing
-      var syncPending = false;
-
-      function doSyncCart() {
-        syncPending = false;
+      function syncCart() {
         // Disconnect to avoid infinite recursion when we mutate the DOM
         if (snipcartEl && observer) {
           observer.disconnect();
@@ -1782,6 +1760,7 @@
               : [];
 
           // Sync badge visibility based on items count
+          var badges = document.querySelectorAll(".snipcart-items-count");
           var count = cart.items && typeof cart.items.count === "number" ? cart.items.count : 0;
           badges.forEach(function (badge) {
             if (count === 0) {
@@ -1791,8 +1770,8 @@
             }
           });
 
-          // ⚡ Bolt: Scope querySelectors to snipcartEl instead of the entire document
-          var snipcartContent = snipcartEl.querySelector(".snipcart-cart__content");
+          // Inject/update progress bar
+          var snipcartContent = document.querySelector(".snipcart-cart__content");
           if (snipcartContent) {
             var existing = snipcartContent.querySelector(".shipping-progress");
             var newProgressHTML = buildProgressHTML(total);
@@ -1805,9 +1784,9 @@
           }
 
           // Inject/update cross-sell
-          var snipcartFooter = snipcartEl.querySelector(".snipcart-cart__footer");
+          var snipcartFooter = document.querySelector(".snipcart-cart__footer");
           if (snipcartFooter) {
-            var existingCS = snipcartEl.querySelector(".cart-cross-sell");
+            var existingCS = document.querySelector(".cart-cross-sell");
             var crossProduct = findCrossSellProduct(cartItemIds);
             var newCSHTML = buildCrossSellHTML(crossProduct);
 
@@ -1834,13 +1813,6 @@
           if (snipcartEl && observer) {
             observer.observe(snipcartEl, { childList: true, subtree: true });
           }
-        }
-      }
-
-      function syncCart() {
-        if (!syncPending) {
-          syncPending = true;
-          requestAnimationFrame(doSyncCart);
         }
       }
 
