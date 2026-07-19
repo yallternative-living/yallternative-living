@@ -5,7 +5,7 @@
  */
 
 /** @const {string} Cache name key, updated on assets release. */
-const CACHE_NAME = "yallternative-cache-v14";
+const CACHE_NAME = "yallternative-cache-v15";
 
 /** @const {!Array<string>} Array of absolute URLs to be cached on installation. */
 const ASSETS_TO_CACHE = [
@@ -23,6 +23,8 @@ const ASSETS_TO_CACHE = [
   '/assets/js/events-data.js',
   '/assets/js/site-reviews-data.js',
   '/assets/js/image-manifest.js',
+  '/assets/js/translator.js',
+  '/assets/js/gift-card.js',
   '/site.webmanifest',
   '/favicon.ico',
   '/assets/img/logo.png',
