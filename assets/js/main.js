@@ -225,18 +225,53 @@
     }
   }
 
-  // Smooth scroll helper for Gift Cards - auto focus recipient email after jump
-  document.addEventListener("click", function (e) {
-    var target = e.target.closest('a[href="#gift-cards"]');
-    if (target) {
-      setTimeout(function () {
-        var emailInput = document.getElementById("giftRecipientEmail");
-        if (emailInput) {
-          emailInput.focus();
-        }
-      }, 500);
+  // Gift Card Modal controller (SOTA 2026 Native Dialog Pattern)
+  var giftModal = document.getElementById("giftCardModal");
+  if (giftModal) {
+    // 1. Open modal via CTA buttons
+    document.addEventListener("click", function (e) {
+      var target = e.target.closest('a[href="#gift-cards"]');
+      if (target) {
+        e.preventDefault();
+        giftModal.showModal();
+        // Focus recipient email after modal transition starts
+        setTimeout(function () {
+          var emailInput = document.getElementById("giftRecipientEmail");
+          if (emailInput) emailInput.focus();
+        }, 50);
+      }
+    });
+
+    // 2. Close modal via close button
+    var closeBtn = document.getElementById("closeGiftModalBtn");
+    if (closeBtn) {
+      closeBtn.addEventListener("click", function () {
+        giftModal.close();
+      });
     }
-  });
+
+    // 3. Fallback light-dismiss for older browsers that lack native closedby support
+    if (!('closedBy' in HTMLDialogElement.prototype)) {
+      giftModal.addEventListener('click', function (event) {
+        if (event.target !== giftModal) return;
+        var rect = giftModal.getBoundingClientRect();
+        var isDialogContent = (
+          rect.top <= event.clientY &&
+          event.clientY <= rect.top + rect.height &&
+          rect.left <= event.clientX &&
+          event.clientX <= rect.left + rect.width
+        );
+        if (!isDialogContent) {
+          giftModal.close();
+        }
+      });
+    }
+
+    // 4. Automatically open if hash matches on load
+    if (window.location.hash === "#gift-cards") {
+      giftModal.showModal();
+    }
+  }
 
   /* ---------- Review form (shop.html): honeypot + AJAX submit ----------
      Same honeypot pattern as the newsletter form above (shared .form-hp

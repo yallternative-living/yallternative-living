@@ -68,5 +68,13 @@
       e.preventDefault();
       return;
     }
+
+    // Validation passed. Close modal after brief delay so Snipcart registers event.
+    var modal = document.getElementById("giftCardModal");
+    if (modal) {
+      setTimeout(function() {
+        modal.close();
+      }, 150);
+    }
   });
 })();

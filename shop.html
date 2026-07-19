@@ -874,7 +874,7 @@
         </div>
       </div>
       <p class="shop-count" id="shopCount" aria-live="polite"></p>
-      <p class="shop-policy-note">Ships from Landrum, SC (US only for now). Opened salves, scrubs, and soaks are final sale for hygiene reasons. Unworn apparel and sealed items can be exchanged. Anything arrive wrong or damaged? <a href="contact.html">Email us</a> and we'll make it right.</p>
+      <p class="shop-policy-note">Ships from Landrum, SC (US only for now). Opened salves, scrubs, and soaks are final sale for hygiene reasons. Unworn apparel and sealed items can be exchanged. Anything arrive wrong or damaged? <a href="contact.html" target="_blank" rel="noopener">Email us</a> and we'll make it right.</p>
       <!-- Visually-hidden: the product cards below render as h3 (see
            cardHTML() in main.js), and with no visible section title here
            they'd otherwise sit directly under the page's h1 -- a skipped
@@ -910,96 +910,92 @@
        Once Savanna has a Gift Up! account, replace the placeholder
        below with her real embed snippet from the Gift Up! dashboard --
        don't hand-type it, copy it exactly like the Snipcart snippet. -->
-  <section id="gift-cards" class="section-tight gift-cards-section">
+  <dialog id="giftCardModal" class="gift-modal" closedby="any" aria-labelledby="giftCardModalTitle">
     <div id="giftUpContainer" style="display:none !important;"><!-- YOUR_GIFTUP_EMBED_CODE --></div>
+    <button type="button" class="gift-modal-close" id="closeGiftModalBtn" aria-label="Close dialog">&times;</button>
 
-    <div class="container">
-      <div class="section-head">
-
-        <h2>Digital Gift Cards</h2>
-        <p class="muted">Can't decide what they'd love? Let them pick. Delivered by email, ready to use on anything in the shop.</p>
-      </div>
-      
-      <div class="gift-card-widget">
-        <!-- Visual Preview Card -->
-        <div class="gift-card-preview">
-          <div style="display: flex; justify-content: flex-end; align-items: flex-start; width: 100%;">
-            <span class="card-badge">Gift Card</span>
+    <div class="gift-modal-header">
+      <h2 id="giftCardModalTitle">Digital Gift Cards</h2>
+      <p class="muted" style="margin-top: 4px;">Can't decide what they'd love? Let them pick. Delivered by email, ready to use on anything in the shop.</p>
+    </div>
+    
+    <div class="gift-card-widget">
+      <!-- Visual Preview Card -->
+      <div class="gift-card-preview">
+        <div style="display: flex; justify-content: flex-end; align-items: flex-start; width: 100%;">
+          <span class="card-badge">Gift Card</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; width: 100%; margin-top: auto;">
+          <div class="card-footer" style="text-align: left; line-height: 1.3;">
+            Delivered instantly by email<br>No expiration date
           </div>
-          <div style="display: flex; justify-content: space-between; align-items: flex-end; width: 100%; margin-top: auto;">
-            <div class="card-footer" style="text-align: left; line-height: 1.3;">
-              Delivered instantly by email<br>No expiration date
-            </div>
-            <div class="card-amount" id="giftCardAmountDisplay" style="margin: 0;" aria-live="polite">$25</div>
+          <div class="card-amount" id="giftCardAmountDisplay" style="margin: 0;" aria-live="polite">$25</div>
+        </div>
+      </div>
+
+      <!-- Form controls -->
+      <div class="gift-card-controls">
+        <div>
+          <h3>Select Card Amount</h3>
+          <div class="preset-grid">
+            <button type="button" class="preset-btn active" aria-label="Select $25 gift card amount" data-amount="25">$25</button>
+            <button type="button" class="preset-btn" aria-label="Select $50 gift card amount" data-amount="50">$50</button>
+            <button type="button" class="preset-btn" aria-label="Select $100 gift card amount" data-amount="100">$100</button>
+            <button type="button" class="preset-btn" aria-label="Select $200 gift card amount" data-amount="200">$200</button>
+            <button type="button" class="preset-btn" aria-label="Enter custom gift card amount" id="customPresetBtn">Custom</button>
+          </div>
+          
+          <div class="custom-input-wrap" id="customAmountGroup" style="display: none;">
+            <label for="customGiftAmount">Custom Amount (snaps to nearest $5)</label>
+            <input type="number" id="customGiftAmount" min="10" max="500" value="25" step="5">
           </div>
         </div>
 
-        <!-- Form controls -->
-        <div class="gift-card-controls">
-          <div>
-            <h3>Select Card Amount</h3>
-            <div class="preset-grid">
-              <button type="button" class="preset-btn active" aria-label="Select $25 gift card amount" data-amount="25">$25</button>
-              <button type="button" class="preset-btn" aria-label="Select $50 gift card amount" data-amount="50">$50</button>
-              <button type="button" class="preset-btn" aria-label="Select $100 gift card amount" data-amount="100">$100</button>
-              <button type="button" class="preset-btn" aria-label="Select $200 gift card amount" data-amount="200">$200</button>
-              <button type="button" class="preset-btn" aria-label="Enter custom gift card amount" id="customPresetBtn">Custom</button>
-            </div>
-            
-            <div class="custom-input-wrap" id="customAmountGroup" style="display: none;">
-              <label for="customGiftAmount">Custom Amount (snaps to nearest $5)</label>
-              <input type="number" id="customGiftAmount" min="10" max="500" value="25" step="5">
-            </div>
-          </div>
-
-          <div class="gift-fields-grid">
-            <div class="field">
-              <label for="giftRecipientEmail">Recipient Email</label>
-              <input type="email" id="giftRecipientEmail" placeholder="friend@example.com" required>
-            </div>
-            <div class="field">
-              <label for="giftSenderName">Sender Name</label>
-              <input type="text" id="giftSenderName" placeholder="Your Name" required>
-            </div>
-          </div>
-
+        <div class="gift-fields-grid">
           <div class="field">
-            <label for="giftMessage">Personal Message (Optional)</label>
-            <textarea id="giftMessage" rows="2" placeholder="Write a nice message..."></textarea>
+            <label for="giftRecipientEmail">Recipient Email</label>
+            <input type="email" id="giftRecipientEmail" placeholder="friend@example.com" required>
           </div>
+          <div class="field">
+            <label for="giftSenderName">Sender Name</label>
+            <input type="text" id="giftSenderName" placeholder="Your Name" required>
+          </div>
+        </div>
 
-          <div class="gift-card-actions">
-            <button class="btn btn-primary btn-block snipcart-add-item"
-              id="addGiftCardBtn"
-              data-item-id="yallternative-gift-card"
-              data-item-name="Digital Gift Card"
-              data-item-price="10.00"
-              data-item-url="/assets/data/snipcart-products.json"
-              data-item-image="assets/img/gift-card.png"
-              data-item-description="Digital Gift Card"
-              data-item-custom1-name="Amount"
-              data-item-custom1-options="Preset $10[+0.00]|Preset $15[+5.00]|Preset $20[+10.00]|Preset $25[+15.00]|Preset $30[+20.00]|Preset $35[+25.00]|Preset $40[+30.00]|Preset $45[+35.00]|Preset $50[+40.00]|Preset $55[+45.00]|Preset $60[+50.00]|Preset $65[+55.00]|Preset $70[+60.00]|Preset $75[+65.00]|Preset $80[+70.00]|Preset $85[+75.00]|Preset $90[+80.00]|Preset $95[+85.00]|Preset $100[+90.00]|Preset $150[+140.00]|Preset $200[+190.00]|Preset $250[+240.00]|Preset $500[+490.00]"
-              data-item-custom1-value="Preset $25"
-              data-item-custom2-name="Recipient Email"
-              data-item-custom2-required="true"
-              data-item-custom2-value=""
-              data-item-custom3-name="Sender Name"
-              data-item-custom3-required="true"
-              data-item-custom3-value=""
-              data-item-custom4-name="Message"
-              data-item-custom4-required="false"
-              data-item-custom4-value=""
-              style="margin:0; flex:1;">
-              Add Gift Card to Cart
-            </button>
-            <a href="#shopSearch" class="btn btn-outline" style="flex:0 0 auto; display:flex; align-items:center; justify-content:center; white-space:nowrap;">Back to Shop</a>
-          </div>
+        <div class="field">
+          <label for="giftMessage">Personal Message (Optional)</label>
+          <textarea id="giftMessage" rows="2" placeholder="Write a nice message..."></textarea>
+        </div>
+
+        <div class="gift-card-actions">
+          <button class="btn btn-primary btn-block snipcart-add-item"
+            id="addGiftCardBtn"
+            data-item-id="yallternative-gift-card"
+            data-item-name="Digital Gift Card"
+            data-item-price="10.00"
+            data-item-url="/assets/data/snipcart-products.json"
+            data-item-image="assets/img/gift-card.png"
+            data-item-description="Digital Gift Card"
+            data-item-custom1-name="Amount"
+            data-item-custom1-options="Preset $10[+0.00]|Preset $15[+5.00]|Preset $20[+10.00]|Preset $25[+15.00]|Preset $30[+20.00]|Preset $35[+25.00]|Preset $40[+30.00]|Preset $45[+35.00]|Preset $50[+40.00]|Preset $55[+45.00]|Preset $60[+50.00]|Preset $65[+55.00]|Preset $70[+60.00]|Preset $75[+65.00]|Preset $80[+70.00]|Preset $85[+75.00]|Preset $90[+80.00]|Preset $95[+85.00]|Preset $100[+90.00]|Preset $150[+140.00]|Preset $200[+190.00]|Preset $250[+240.00]|Preset $500[+490.00]"
+            data-item-custom1-value="Preset $25"
+            data-item-custom2-name="Recipient Email"
+            data-item-custom2-required="true"
+            data-item-custom2-value=""
+            data-item-custom3-name="Sender Name"
+            data-item-custom3-required="true"
+            data-item-custom3-value=""
+            data-item-custom4-name="Message"
+            data-item-custom4-required="false"
+            data-item-custom4-value=""
+            style="margin:0; width:100%;">
+            Add Gift Card to Cart
+          </button>
         </div>
       </div>
     </div>
-
-    <script src="assets/js/gift-card.js" defer></script>
-  </section>
+  </dialog>
+  <script src="assets/js/gift-card.js" defer></script>
 
   <!-- QUICK FAQ LINK -- the site has exactly one FAQ (see contact.html's
        #faq section, generated from products-data.js's CATALOG.faq). This
@@ -1177,7 +1173,7 @@
     <div class="pride-rule"></div>
     <p class="footer-disclaimer">Handmade self-care, not medicine. Nothing sold here is intended to diagnose, treat, cure, or prevent any condition. Got a real skin or health concern? See an actual doctor, then treat yourself to something that smells nice after.</p>
     <div class="footer-bottom">
-      <span>&copy; <span id="year"></span> Y'allternative Living. Handmade with grit &amp; glitter. &middot; <a href="policies.html">Shipping &amp; Returns</a> &middot; <a href="terms.html">Terms of Service</a> &middot; <a href="privacy.html">Privacy Policy</a></span>
+      <span>&copy; <span id="year"></span> Y'allternative Living. Handmade with grit &amp; glitter. &middot; <a href="policies.html" target="_blank" rel="noopener">Shipping &amp; Returns</a> &middot; <a href="terms.html" target="_blank" rel="noopener">Terms of Service</a> &middot; <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a></span>
       <span>Queer-owned &middot; Southern-raised &middot; Alt-inspired</span>
     </div>
   </div>

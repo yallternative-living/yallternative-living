@@ -1012,7 +1012,7 @@ section{
   }
   
   & .footer-signup-text{
-    max-width:60ch; flex:1 1 380px;
+    max-width:100%; flex:1 1 380px;
     & h3{ margin-bottom:.25em; }
     & p{ margin:0; font-size:.9rem; }
   }
@@ -1902,6 +1902,92 @@ body > .skiptranslate {
 .shop-cta-secondary{ font-size:.88rem; color: var(--paper-dim); }
 .shop-cta-secondary a{ color: var(--whiskey); text-decoration:underline; }
 .shop-cta-secondary a:hover{ color: var(--paper); }
+
+/* ── Gift Card Modal (SOTA 2026 Native Dialog Styling) ── */
+dialog.gift-modal {
+  background: var(--ink-2);
+  border: 1px solid var(--hide);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 900px;
+  padding: 40px 48px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  color: var(--paper);
+  overflow-y: auto;
+  max-height: 90vh;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.96);
+  margin: 0;
+  opacity: 0;
+  transition: opacity 0.3s ease, transform 0.3s ease, display 0.3s allow-discrete;
+}
+dialog.gift-modal[open] {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+@starting-style {
+  dialog.gift-modal[open] {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.96);
+  }
+}
+
+dialog.gift-modal::backdrop {
+  background: rgba(10, 8, 7, 0.85);
+  backdrop-filter: blur(8px);
+  opacity: 0;
+  transition: opacity 0.3s ease, display 0.3s allow-discrete;
+}
+dialog.gift-modal[open]::backdrop {
+  opacity: 1;
+}
+@starting-style {
+  dialog.gift-modal[open]::backdrop {
+    opacity: 0;
+  }
+}
+
+.gift-modal-close {
+  position: absolute;
+  top: 24px;
+  right: 28px;
+  background: none;
+  border: none;
+  color: var(--paper-dim);
+  font-size: 2.2rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px;
+  transition: color 0.2s ease;
+  z-index: 5;
+}
+.gift-modal-close:hover {
+  color: var(--whiskey);
+}
+
+.gift-modal-header {
+  margin-bottom: 24px;
+}
+.gift-modal-header h2 {
+  font-size: 2rem;
+  margin: 0;
+  color: var(--paper);
+}
+.gift-modal-header p {
+  color: var(--paper-dim);
+  font-size: 0.9rem;
+  margin: 4px 0 0 0;
+}
+
+dialog.gift-modal .gift-card-widget {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  box-shadow: none;
+}
 
 /* ── Gift Card Widget ──────────────────────────────── */
 .gift-card-widget {
