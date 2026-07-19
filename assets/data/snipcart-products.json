@@ -258,6 +258,16 @@
     "customFields": []
   },
   {
+    "id": "digital-gift-card",
+    "name": "Digital Gift Card",
+    "price": 25,
+    "url": "/assets/data/snipcart-products.json",
+    "categories": [
+      "gift-cards"
+    ],
+    "customFields": []
+  },
+  {
     "id": "bundle-starter-self-care-set",
     "name": "Grit & Grace Starter Set",
     "price": 32.4,

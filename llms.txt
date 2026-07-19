@@ -6,7 +6,7 @@ Y'allternative Living is a small, queer-owned business run by founder Savanna ou
 
 ## Pages
 
-- [Shop](https://yallternativeliving.com/shop.html): the full catalog of 18 handmade products across 6 categories (Apparel, Salves & Balms, Body & Skin, Soaks, Potions & Spellwork, Ritual & Home). Add-to-cart checkout happens directly on this site via Snipcart -- no redirect to a third-party marketplace required.
+- [Shop](https://yallternativeliving.com/shop.html): the full catalog of 19 handmade products across 7 categories (Apparel, Salves & Balms, Body & Skin, Soaks, Potions & Spellwork, Ritual & Home, Gift Cards). Add-to-cart checkout happens directly on this site via Snipcart -- no redirect to a third-party marketplace required.
 - [Events](https://yallternativeliving.com/events.html): upcoming and past farmers markets, fairs, and Pride pop-ups where the shop appears in person. Only real, confirmed dates are listed -- if it's empty, no dates are confirmed yet.
 - [Our Story](https://yallternativeliving.com/about.html): founder background and brand story.
 - [Contact](https://yallternativeliving.com/contact.html): contact info, shipping/custom-order FAQ, and where to find the shop in person.
@@ -34,6 +34,7 @@ Y'allternative Living is a small, queer-owned business run by founder Savanna ou
 - **Appalachian Rain Clearing Mist** -- $14.00 -- Ritual & Home -- White sage, cedar, and sweetgrass in a fine mist: two pumps at the doorway after a hard conversation, a house guest who overstayed, or just a Monday that won't quit. Inspired by Appalachian folk tradition, no smoke, no residue, no landlord complaints. Amber glass, small-batch blended in Landrum, SC.
 - **Moonlit Meadow Bath Tea** -- $12.00 -- Ritual & Home -- Dried lavender, chamomile, rose petals, and oat straw in a reusable muslin bag. Drop it in a warm bath, let it steep five minutes, soak until the day stops mattering. Gentler on your tub than loose herbs, and the bag's good for two or three rounds before you compost the whole thing.
 - **Porch Sweep Clearing Mist** -- $16.00 -- Ritual & Home -- Named for the old Southern habit of sweeping the porch at dusk to clear out the day's trouble. Lemongrass, palo santo, and black tourmaline-infused water in a 4 oz amber bottle. Mist your space after an argument, a bad day, or just because the vibes are off.
+- **Digital Gift Card** -- $25.00 -- Gift Cards -- Can't decide what they'd love? Let them pick. Delivered instantly by email, ready to use on anything in the shop.
 
 Machine-readable catalog: https://yallternativeliving.com/assets/data/products.json (always the live source of truth for current prices -- prefer it over this file if the two ever disagree, since this file may not be regenerated as often as the catalog changes).
 

@@ -438,6 +438,14 @@
      makes order validation actually work. See:
      https://docs.snipcart.com/v3/setup/order-validation#json-crawler */
   function addToCartHTML(p, extraClass) {
+    if (p.id === "digital-gift-card") {
+      return (
+        '<a href="#gift-cards" class="btn btn-secondary btn-sm' +
+        (extraClass ? " " + extraClass : "") +
+        '">Configure Card</a>'
+      );
+    }
+
     // Real Etsy listings for some products sell more than one size/scent/
     // blend under a single listing (see p.variants, sourced from actual
     // listing research). Snipcart's own custom-field mechanism handles
@@ -1241,7 +1249,8 @@
         body: "Body & Skin",
         soaks: "Soaks",
         potions: "Potions & Spellwork",
-        ritual: "Ritual & Home"
+        ritual: "Ritual & Home",
+        "gift-cards": "Gift Cards"
       }[p.category] || p.category;
     var wished = isWished(p.id);
     return (

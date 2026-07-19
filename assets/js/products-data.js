@@ -38,6 +38,10 @@ window.YL_PRODUCTS = {
     {
       "id": "ritual",
       "label": "Ritual & Home"
+    },
+    {
+      "id": "gift-cards",
+      "label": "Gift Cards"
     }
   ],
   "products": [
@@ -645,6 +649,40 @@ window.YL_PRODUCTS = {
       "tags": [
         "vegan"
       ]
+    },
+    {
+      "id": "digital-gift-card",
+      "name": "Digital Gift Card",
+      "price": 25,
+      "category": "gift-cards",
+      "tags": [
+        "Gift",
+        "Instant Delivery"
+      ],
+      "blurb": "Can't decide what they'd love? Let them pick. Delivered instantly by email, ready to use on anything in the shop.",
+      "description": "The perfect gift for the black sheep & bold hearts. Choose any amount from $25 to $200. No expiration date, delivered straight to their inbox.",
+      "images": [
+        "assets/img/gift-card.png"
+      ],
+      "variants": [
+        {
+          "name": "$25.00",
+          "price": 25
+        },
+        {
+          "name": "$50.00",
+          "price": 50
+        },
+        {
+          "name": "$100.00",
+          "price": 100
+        },
+        {
+          "name": "$200.00",
+          "price": 200
+        }
+      ],
+      "featured": true
     }
   ],
   "bundles": [
