@@ -956,7 +956,7 @@ section{
    opacity:.85 blended --paper-dim toward the light-theme footer background
    just barely over the AA floor (~4.52:1), too close for comfort. Plain
    --paper-dim alone clears it with real margin in both themes. */
-.footer-disclaimer{ font-size:.72rem; color:var(--paper-dim); margin:0 0 16px; max-width:90ch; }
+.footer-disclaimer{ font-size:.72rem; color:var(--paper-dim); margin:0 0 16px; max-width:100%; }
 
 .footer-bottom{
   border-top:1px solid var(--hide); padding-top:24px;
