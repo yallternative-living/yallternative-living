@@ -1245,6 +1245,87 @@ try {
   fail("admin CSP sync check", e.message);
 }
 
+/* ---------- 23) Sveltia CMS static image integrations ---------- */
+section("Sveltia CMS static image integrations");
+try {
+  var contentData = JSON.parse(fs.readFileSync(path.join(ROOT, "assets/data/content.json"), "utf8"));
+  var manifestData = {};
+  try {
+    var manifestText = fs.readFileSync(path.join(ROOT, "assets/js/image-manifest.js"), "utf8");
+    var jsonText = manifestText.substring(manifestText.indexOf("{"), manifestText.lastIndexOf("}") + 1);
+    manifestData = JSON.parse(jsonText);
+  } catch (e) {}
+
+  var imageKeys = [
+    { section: "site", key: "logoDesktop", required: true },
+    { section: "site", key: "logoMobile", required: true },
+    { section: "home", key: "heroImage", required: true },
+    { section: "home", key: "featureImage", required: true },
+    { section: "about", key: "bioImage", required: true },
+    { section: "about", key: "secondaryImage", required: true },
+    { section: "contact", key: "image", required: true },
+    { section: "shop", key: "giftCardImage", required: true }
+  ];
+
+  imageKeys.forEach(function (spec) {
+    var val = contentData[spec.section] && contentData[spec.section][spec.key];
+    if (!val) {
+      fail("content.json missing key " + spec.section + "." + spec.key);
+      return;
+    }
+    var cleanPath = val.replace(/^\/+/, "");
+    var fullPath = path.join(ROOT, cleanPath);
+    if (!fs.existsSync(fullPath)) {
+      fail("CMS static image " + spec.section + "." + spec.key + " points to non-existent file: " + cleanPath);
+    } else {
+      ok("CMS static image " + spec.section + "." + spec.key + " exists: " + cleanPath);
+    }
+
+    if (spec.key !== "logoDesktop" && spec.key !== "logoMobile") {
+      if (!manifestData[cleanPath]) {
+        fail("CMS static image " + spec.section + "." + spec.key + " (" + cleanPath + ") is missing from image-manifest.js");
+      } else {
+        ok("CMS static image " + spec.section + "." + spec.key + " is optimized in manifest");
+      }
+    }
+  });
+
+  var pageWrappers = [
+    { page: "index.html", marker: "YL:home.heroImage" },
+    { page: "index.html", marker: "YL:home.featureImage" },
+    { page: "about.html", marker: "YL:about.bioImage" },
+    { page: "about.html", marker: "YL:about.secondaryImage" },
+    { page: "contact.html", marker: "YL:contact.image" },
+    { page: "shop.html", marker: "YL:shop.giftCardImage", isCss: true },
+    { page: "assets/data/footer.html", marker: "YL:site.logoDesktop" }
+  ];
+
+  pageWrappers.forEach(function (spec) {
+    var full = path.join(ROOT, spec.page);
+    if (!fs.existsSync(full)) return;
+    var html = fs.readFileSync(full, "utf8");
+    if (spec.isCss) {
+      var re = new RegExp("\\/\\*" + spec.marker.replace(".", "\\.") + "\\*\\/");
+      if (!re.test(html)) {
+        fail(spec.page + " is missing CSS wrapper comment for " + spec.marker);
+      } else {
+        ok(spec.page + " has CSS wrapper comment for " + spec.marker);
+      }
+    } else {
+      var m = spec.marker.replace(".", "\\.");
+      var reOpen = new RegExp("<!--" + m + "-->");
+      var reClose = new RegExp("<!--/" + m + "-->");
+      if (!reOpen.test(html) || !reClose.test(html)) {
+        fail(spec.page + " is missing HTML wrapper comment for " + spec.marker);
+      } else {
+        ok(spec.page + " has HTML wrapper comments for " + spec.marker);
+      }
+    }
+  });
+} catch (e) {
+  fail("Sveltia CMS static images checks failed", e.message);
+}
+
 /* ---------- Summary ---------- */
 console.log("\n" + "=".repeat(50));
 console.log(passCount + " checks passed, " + failures.length + " failed.");
