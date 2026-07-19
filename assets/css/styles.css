@@ -626,7 +626,7 @@ section{
    its intro above a symmetric grid, which is the templated look we're
    deliberately avoiding here. */
 .section-head{
-  max-width:720px; margin:0 0 48px; text-align:left;
+  max-width:960px; margin:0 0 48px; text-align:left;
   
   & .eyebrow{ justify-content:flex-start; margin-bottom:14px; }
   
@@ -851,7 +851,7 @@ section{
    header) -- this used to be centered, which was an inconsistency, not
    a deliberate exception like .cta-band or .reviews-empty are. */
 .reviews-head{
-  text-align:left; max-width:720px; margin:0 0 32px;
+  text-align:left; max-width:960px; margin:0 0 32px;
   
   & .muted a{
     color:var(--whiskey); text-decoration:underline;
