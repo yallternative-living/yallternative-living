@@ -15,19 +15,17 @@ We've set up a simple **Website Dashboard** where you can edit the site's conten
 * **How it works:** When you make changes and click **Save**, the system automatically sends the updates to the website. The live site will rebuild and update itself in about a minute or two.
 
 ### 2. Checklist to Launch Your Store
-To start taking payments, sending newsletters, or moderating reviews, follow the step-by-step guide in the **[Launch & Handoff Guide](savanna_handoff_guide.md)**. 
+To start taking payments, sending newsletters, or moderating reviews, follow the step-by-step guide in the **[Launch & Handoff Guide](savanna_handoff_guide.md)** or your Google Doc. 
 
 Here is the quick checklist of what you'll need to set up:
-1. **[ ] Hosting & Domain (Netlify)**
-2. **[ ] Customer Checkout & Credit Cards (Snipcart)**
-3. **[ ] Email Newsletters (Kit)**
-4. **[ ] Contact Form & Customer Reviews (Formspree)**
-5. **[ ] Digital Gift Cards (Gift Up! - Optional)**
-6. **[ ] Customer Live Chat (Tawk.to - Optional)**
-7. **[ ] Store Management (Sveltia CMS)**
-
-### 3. Setting Up Your Website Name (Domain Name)
-When you're ready to buy your own custom web address (like `yallternativeliving.com`), Netlify will guide you through connecting it. It only takes a few clicks in their dashboard.
+1. **[ ] Accept Your GitHub Invitation**
+2. **[ ] Hosting & Domain (Netlify & Porkbun)**
+3. **[ ] Customer Checkout & Credit Cards (Snipcart & Stripe)**
+4. **[ ] Email Newsletters (Kit)**
+5. **[ ] Contact Form & Customer Reviews (Formspree)**
+6. **[ ] Digital Gift Cards (Gift Up! - Optional)**
+7. **[ ] Customer Live Chat (Tawk.to - Optional)**
+8. **[ ] Store Management (Sveltia CMS)**
 
 ---
 
