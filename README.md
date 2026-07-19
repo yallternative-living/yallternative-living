@@ -8,7 +8,7 @@ Welcome to the Y'allternative Living website repository! This site is designed t
 We've set up a simple **Website Dashboard** where you can edit the site's content using friendly forms:
 * **Where to go:** `https://yallternativeliving.com/admin` (this link will work once the site is live)
 * **What you can do here:**
-  * **Products:** Add new items, change prices, update descriptions, ingredients, or inventory levels.
+  * **Products:** Add new items, change prices, update descriptions, ingredients, or inventory levels. *(Note: Your Etsy star ratings and review counts are automatically fetched and synced from Etsy every night at 4:00 AM Eastern).*
   * **Markets & Events:** Add upcoming market dates or move past dates to "recent appearances."
   * **FAQ List:** Change the customer questions and answers.
   * **Shop Info:** Edit the shop description or banner texts.
