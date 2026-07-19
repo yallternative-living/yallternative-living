@@ -348,7 +348,7 @@ section{
   
   & .brand-word{
     font-family: var(--font-display);
-    font-size:1.85rem;
+    font-size:1.5rem;
     letter-spacing:.03em;
     line-height:1.1;
     font-variation-settings:"opsz" 40, "wght" 420;
