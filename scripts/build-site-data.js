@@ -430,7 +430,7 @@ var NUMBER_WORDS = [
   "Twenty"
 ];
 var productCount = CATALOG.products.filter(function (p) {
-  return p.image && p.image.indexOf("placeholder") === -1;
+  return p.image && p.image.indexOf("placeholder") === -1 && p.id !== "digital-gift-card";
 }).length;
 var productCountWord = NUMBER_WORDS[productCount] || String(productCount);
 

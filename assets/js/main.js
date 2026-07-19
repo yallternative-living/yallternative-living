@@ -1768,7 +1768,10 @@
       isFirstRender = false;
       var eyebrowProductCount = document.getElementById("eyebrowProductCount");
       if (eyebrowProductCount) {
-        eyebrowProductCount.textContent = sorted.length;
+        var activeHandmade = allProducts.filter(function (p) {
+          return !p.comingSoon && p.id !== "digital-gift-card";
+        }).length;
+        eyebrowProductCount.textContent = activeHandmade;
       }
       if (countEl) {
         if (!sorted.length) {
