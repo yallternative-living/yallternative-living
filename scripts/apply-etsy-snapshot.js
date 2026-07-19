@@ -73,6 +73,13 @@ require(dataPath);
 var CATALOG = global.window.YL_PRODUCTS;
 var PRODUCTS = CATALOG.products;
 
+/**
+ * Extracts the numeric listing ID from an Etsy URL.
+ * Supports both standard URLs with slugs and bare listing ID URLs.
+ *
+ * @param {string} url The full Etsy listing URL.
+ * @return {?string} The listing ID string, or null if no match is found.
+ */
 function listingIdFromUrl(url) {
   // Trailing slash after the ID is optional -- every etsyUrl in
   // products-data.js currently includes a slug (".../listing/123/slug"),
@@ -87,6 +94,14 @@ function listingIdFromUrl(url) {
 // A malformed or corrupted snapshot entry (bad scrape, hand-edited by
 // mistake) shouldn't be able to write garbage into products-data.js and,
 // from there, straight into the site's aggregateRating JSON-LD.
+/**
+ * Validates whether a rating object gathered from a snapshot is well-formed.
+ * A valid rating must have a numeric value between 0 and 5, and a non-negative
+ * integer review count.
+ *
+ * @param {*} r The rating object to validate.
+ * @return {boolean} True if the rating object is valid, false otherwise.
+ */
 function isValidRating(r) {
   return (
     !!r &&

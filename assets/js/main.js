@@ -581,6 +581,12 @@
     );
   }
 
+  /**
+   * Retrieves the current wishlist array from localStorage.
+   * Falls back to an empty array if storage is unavailable or corrupted.
+   *
+   * @return {!Array<string>} An array of product ID strings.
+   */
   function getWishlist() {
     try {
       return JSON.parse(localStorage.getItem(WISH_KEY)) || [];
@@ -588,6 +594,12 @@
       return [];
     }
   }
+
+  /**
+   * Saves the current wishlist array to localStorage and updates UI.
+   *
+   * @param {!Array<string>} list An array of product ID strings.
+   */
   function saveWishlist(list) {
     try {
       localStorage.setItem(WISH_KEY, JSON.stringify(list));
@@ -598,9 +610,23 @@
     updateWishBadge();
     renderWishDrawer();
   }
+
+  /**
+   * Checks if a product ID is currently present in the wishlist.
+   *
+   * @param {string} id The product ID string.
+   * @return {boolean} True if the product is in the wishlist, false otherwise.
+   */
   function isWished(id) {
     return getWishlist().indexOf(id) !== -1;
   }
+
+  /**
+   * Toggles the presence of a product ID in the wishlist and updates UI states.
+   * Also updates the aria-label of the wishlist buttons for screen readers.
+   *
+   * @param {string} id The product ID string.
+   */
   function toggleWish(id) {
     var list = getWishlist();
     var i = list.indexOf(id);
@@ -627,6 +653,10 @@
       }
     });
   }
+
+  /**
+   * Updates the text content of the header wishlist count badge.
+   */
   function updateWishBadge() {
     var badge = document.getElementById("wishCount");
     if (badge) badge.textContent = getWishlist().length > 0 ? String(getWishlist().length) : "";

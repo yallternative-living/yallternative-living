@@ -1,4 +1,13 @@
+/**
+ * @fileoverview Service Worker for Y'allternative Living website.
+ * Provides caching of static assets and stale-while-revalidate strategy
+ * for offline capabilities.
+ */
+
+/** @const {string} Cache name key, updated on assets release. */
 const CACHE_NAME = "yallternative-cache-v10";
+
+/** @const {!Array<string>} Array of absolute URLs to be cached on installation. */
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -23,16 +32,30 @@ const ASSETS_TO_CACHE = [
   '/assets/img/apple-touch-icon.png'
 ];
 
+/**
+ * Event listener for service worker 'install' phase.
+ * Opens the cache and adds all required static assets to it.
+ *
+ * @param {!ExtendableEvent} event The install event object.
+ */
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        return cache.addAll(ASSETS_TO_CACHE).catch(err => console.warn('Cache addAll error', err));
+        return cache.addAll(ASSETS_TO_CACHE).catch(err => {
+          console.warn('Cache addAll error during service worker install:', err);
+        });
       })
       .then(() => self.skipWaiting())
   );
 });
 
+/**
+ * Event listener for service worker 'activate' phase.
+ * Deletes old caches that do not match the current CACHE_NAME.
+ *
+ * @param {!ExtendableEvent} event The activate event object.
+ */
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(cacheNames => {
@@ -47,6 +70,13 @@ self.addEventListener('activate', event => {
   );
 });
 
+/**
+ * Event listener for service worker 'fetch' phase.
+ * Implements a stale-while-revalidate strategy for same-origin requests,
+ * stripping query parameters to avoid key misses.
+ *
+ * @param {!FetchEvent} event The fetch event object.
+ */
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   
