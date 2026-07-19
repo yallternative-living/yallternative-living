@@ -6,28 +6,25 @@ Etsy and at Upstate SC farmers markets / Pride events.
 
 ## 🌸 Savanna's Quick-Start Dashboard
 
-Welcome to your website! Now that you have access to the repository, here is a quick guide to help you manage the shop, update content, and get ready to go live.
+Welcome to your website! This dashboard is your starting point for managing the store and going live.
 
-### 1. How to Edit the Website (No Code Required)
-The site is equipped with a no-code **Product and Content Editor (Sveltia CMS)**. You can manage almost everything without editing code:
-* **Admin URL:** `https://<your-deployed-domain>/admin` (or via local development)
-* **What you can edit here:**
-  * Add, update, or remove products and their details (prices, descriptions, ingredients, stock).
-  * Add or move upcoming and past markets/events.
-  * Edit the Frequently Asked Questions (FAQ) questions and answers.
-  * Update basic shop details and homepage banners.
-* **How it works:** When you click "Save" in the admin dashboard, the editor automatically commits changes directly to your GitHub repository, which triggers a fresh build and deploy. (See [Section 20](#20-product-editor-sveltia-cms-at-admin-explained) for details on setting up login credentials).
+### 1. No-Code Content Editor (Sveltia CMS)
+Manage products, events, and FAQs without touching code:
+* **Admin Link:** `https://<your-domain>/admin` (accessible once deployed)
+* **What you can edit:** Products (prices, descriptions, ingredients), upcoming/past markets, and the FAQ list.
+* **How it saves:** Saving in the editor commits directly to GitHub, triggering an automatic deploy.
+* **Setup details:** See [Section 20 (CMS Auth Setup)](#20-product-editor-sveltia-cms-at-admin-explained).
 
-### 2. Live Store Setup Checklist
-To start accepting payments, gathering reviews, and interacting with customers directly on the site, you need to set up free accounts on a few services and add your keys:
-1. **Payments & Checkout (Snipcart):** Connects your bank/Stripe to let users buy directly. (See [Section 8](#8-the-shopping-system-explained) for setup details).
-2. **Email Newsletter (Kit):** Collects subscriber emails from the footer signup box. (See [Section 13](#13-newsletter-signup-explained) for setup details).
-3. **Customer Reviews (Formspree):** Sends site-submitted customer reviews to your email for moderation before they show up on the site. (See [Section 16](#16-on-site-review-submissions-explained) for setup details).
-4. **Digital Gift Cards (Gift Up! - Optional):** Handles design, delivery, and redemption of digital gift cards. (See [Section 18](#18-digital-gift-cards-explained) for setup details).
-5. **Live Customer Chat (Tawk.to - Optional):** Adds a live chat bubble to your pages. (See [Section 19](#19-live-chat-explained) for setup details).
+### 2. Going-Live Checklist (Setup External Accounts)
+Before launching, you'll need to create accounts for these services and configure their keys:
+1. **[ ] Checkout & Payments:** Set up **[Snipcart](https://snipcart.com)**. Details in [Section 8](#8-the-shopping-system-explained).
+2. **[ ] Newsletter Emails:** Set up **[Kit](https://kit.com)**. Details in [Section 13](#13-newsletter-signup-explained).
+3. **[ ] Customer Reviews:** Set up **[Formspree](https://formspree.io)**. Details in [Section 16](#16-on-site-review-submissions-explained).
+4. **[ ] Gift Cards (Optional):** Set up **[Gift Up!](https://www.giftup.com)**. Details in [Section 18](#18-digital-gift-cards-explained).
+5. **[ ] Live Chat (Optional):** Set up **[Tawk.to](https://www.tawk.to)**. Details in [Section 19](#19-live-chat-explained).
 
-### 3. Going Live (Domain Setup)
-When you've registered your custom domain (e.g., `yallternativeliving.com`), pointing the site to it is a single-step build task. See [Section 10](#10-seo--ai-agent-optimization-already-in-place) for details on updating the domain configuration.
+### 3. Connect Your Domain
+When you are ready to point the site to your custom domain (e.g., `yallternativeliving.com`), see [Section 10](#10-seo--ai-agent-optimization-already-in-place) for the single-step configuration to map everything automatically.
 
 ---
 
