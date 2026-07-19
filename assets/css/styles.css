@@ -471,10 +471,10 @@ section{
 }
 
 .hero-grid{
-  display:grid; grid-template-columns: 1.1fr .9fr; gap:48px; align-items:center;
+  display:grid; grid-template-columns: 1.3fr .7fr; gap:48px; align-items:center;
   
   @container (max-width: 1050px) {
-    grid-template-columns: 1fr 1fr; gap:40px;
+    grid-template-columns: 1.2fr .8fr; gap:40px;
   }
   
   @container (max-width: 900px) {
