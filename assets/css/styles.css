@@ -2006,7 +2006,7 @@ dialog.gift-modal .gift-card-widget {
 }
 .gift-card-preview {
   aspect-ratio: 1.586; /* Standard credit card ratio */
-  /*YL:shop.giftCardImage*/background: url('../img/gift-card.png') no-repeat center center / cover;/*\/YL:shop.giftCardImage*/
+  background: url('../img/gift-card.png') no-repeat center center / cover;
   border: 1px solid rgba(214, 155, 92, 0.4);
   border-radius: 16px;
   padding: 24px;

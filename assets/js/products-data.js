@@ -659,29 +659,33 @@ window.YL_PRODUCTS = {
         "Gift",
         "Instant Delivery"
       ],
+      "image": "assets/img/gift-card.png",
       "blurb": "Can't decide what they'd love? Let them pick. Delivered instantly by email, ready to use on anything in the shop.",
       "description": "The perfect gift for the black sheep & bold hearts. Choose any amount from $25 to $200. No expiration date, delivered straight to their inbox.",
       "images": [
         "assets/img/gift-card.png"
       ],
-      "variants": [
-        {
-          "name": "$25.00",
-          "price": 25
-        },
-        {
-          "name": "$50.00",
-          "price": 50
-        },
-        {
-          "name": "$100.00",
-          "price": 100
-        },
-        {
-          "name": "$200.00",
-          "price": 200
-        }
-      ],
+      "variants": {
+        "name": "Amount",
+        "options": [
+          {
+            "label": "$25",
+            "priceDelta": 0
+          },
+          {
+            "label": "$50",
+            "priceDelta": 25
+          },
+          {
+            "label": "$100",
+            "priceDelta": 75
+          },
+          {
+            "label": "$200",
+            "priceDelta": 175
+          }
+        ]
+      },
       "featured": true
     }
   ],

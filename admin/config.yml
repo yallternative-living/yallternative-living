@@ -167,9 +167,10 @@ collections:
                 label: "Description (real, honest copy -- see README section 1 for the brand voice/what NOT to claim)"
                 widget: text
               - name: etsyUrl
-                label: "Real Etsy Listing URL"
+                label: "Real Etsy Listing URL (optional)"
                 widget: string
-                hint: "Every product must link to its own real Etsy listing -- never a placeholder or the shop's homepage."
+                required: false
+                hint: "Etsy listing URL -- optional (e.g. leave blank for digital gift cards or site-only items)."
               - name: rating
                 label: "Etsy Rating for THIS product (optional -- leave blank unless this exact listing has its own real reviews)"
                 widget: object

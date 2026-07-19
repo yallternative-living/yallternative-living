@@ -280,7 +280,7 @@ if (!fs.existsSync(productsDataPath)) {
 }
 if (fs.existsSync(productsDataPath) && !PRODUCTS.length)
   fail("products-data.js", "no products found");
-var REQUIRED_FIELDS = ["id", "name", "category", "price", "image", "blurb", "etsyUrl"];
+var REQUIRED_FIELDS = ["id", "name", "category", "price", "image", "blurb"];
 PRODUCTS.forEach(function (p) {
   var missing = REQUIRED_FIELDS.filter(function (f) {
     return p[f] === undefined || p[f] === null || p[f] === "";

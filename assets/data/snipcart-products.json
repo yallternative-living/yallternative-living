@@ -262,10 +262,17 @@
     "name": "Digital Gift Card",
     "price": 25,
     "url": "/assets/data/snipcart-products.json",
+    "image": "assets/img/gift-card.png",
     "categories": [
       "gift-cards"
     ],
-    "customFields": []
+    "customFields": [
+      {
+        "name": "Amount",
+        "options": "$25[+0.00]|$50[+25.00]|$100[+75.00]|$200[+175.00]",
+        "value": "$25"
+      }
+    ]
   },
   {
     "id": "bundle-starter-self-care-set",
