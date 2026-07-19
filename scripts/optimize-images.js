@@ -216,10 +216,14 @@ async function run() {
         beforeSize = entry.size || currentSize;
         beforeTotal += beforeSize;
         avifSizes = entry.variants.avif.map(function (v) {
-          return fs.existsSync(path.join(ROOT, v.file)) ? fs.statSync(path.join(ROOT, v.file)).size : 0;
+          return fs.existsSync(path.join(ROOT, v.file))
+            ? fs.statSync(path.join(ROOT, v.file)).size
+            : 0;
         });
         webpSizes = entry.variants.webp.map(function (v) {
-          return fs.existsSync(path.join(ROOT, v.file)) ? fs.statSync(path.join(ROOT, v.file)).size : 0;
+          return fs.existsSync(path.join(ROOT, v.file))
+            ? fs.statSync(path.join(ROOT, v.file)).size
+            : 0;
         });
         avifSmallestTotal += Math.min.apply(null, avifSizes);
         avifFullTotal += avifSizes[avifSizes.length - 1];

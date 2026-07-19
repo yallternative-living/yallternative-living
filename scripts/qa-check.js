@@ -191,11 +191,14 @@ var imgRefs = new Set();
     PAGES.map(function (p) {
       return path.join(ROOT, p);
     }),
-    ["assets/js/products-data.js", "assets/js/image-manifest.js", "assets/data/products.json", "assets/data/content.json"].map(
-      function (p) {
-        return path.join(ROOT, p);
-      }
-    )
+    [
+      "assets/js/products-data.js",
+      "assets/js/image-manifest.js",
+      "assets/data/products.json",
+      "assets/data/content.json"
+    ].map(function (p) {
+      return path.join(ROOT, p);
+    })
   )
   .forEach(function (f) {
     if (!fs.existsSync(f)) return;
@@ -1248,15 +1251,10 @@ try {
 /* ---------- 23) Sveltia CMS static image integrations ---------- */
 section("Sveltia CMS static image integrations");
 try {
-  var contentData = JSON.parse(fs.readFileSync(path.join(ROOT, "assets/data/content.json"), "utf8"));
-  var manifestData = {};
-  try {
-    var manifestText = fs.readFileSync(path.join(ROOT, "assets/js/image-manifest.js"), "utf8");
-    var jsonText = manifestText.substring(manifestText.indexOf("{"), manifestText.lastIndexOf("}") + 1);
-    manifestData = JSON.parse(jsonText);
-  } catch (e) {
-    manifestData = {};
-  }
+  var contentData = JSON.parse(
+    fs.readFileSync(path.join(ROOT, "assets/data/content.json"), "utf8")
+  );
+  var manifestData = global.window.YL_IMAGES || {};
 
   var imageKeys = [
     { section: "site", key: "logoDesktop", required: true },
@@ -1278,14 +1276,29 @@ try {
     var cleanPath = val.replace(/^\/+/, "");
     var fullPath = path.join(ROOT, cleanPath);
     if (!fs.existsSync(fullPath)) {
-      fail("CMS static image " + spec.section + "." + spec.key + " points to non-existent file: " + cleanPath);
+      fail(
+        "CMS static image " +
+          spec.section +
+          "." +
+          spec.key +
+          " points to non-existent file: " +
+          cleanPath
+      );
     } else {
       ok("CMS static image " + spec.section + "." + spec.key + " exists: " + cleanPath);
     }
 
     if (spec.key !== "logoDesktop" && spec.key !== "logoMobile") {
       if (!manifestData[cleanPath]) {
-        fail("CMS static image " + spec.section + "." + spec.key + " (" + cleanPath + ") is missing from image-manifest.js");
+        fail(
+          "CMS static image " +
+            spec.section +
+            "." +
+            spec.key +
+            " (" +
+            cleanPath +
+            ") is missing from image-manifest.js"
+        );
       } else {
         ok("CMS static image " + spec.section + "." + spec.key + " is optimized in manifest");
       }

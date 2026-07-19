@@ -579,7 +579,10 @@ writeFile("shop.html", shopHtmlWithFaq);
 var MANIFEST = {};
 try {
   var manifestText = fs.readFileSync(path.join(ROOT, "assets/js/image-manifest.js"), "utf8");
-  var jsonText = manifestText.substring(manifestText.indexOf("{"), manifestText.lastIndexOf("}") + 1);
+  var jsonText = manifestText.substring(
+    manifestText.indexOf("{"),
+    manifestText.lastIndexOf("}") + 1
+  );
   MANIFEST = JSON.parse(jsonText);
 } catch (e) {
   // Silent fallback if it doesn't exist yet
@@ -592,15 +595,33 @@ function injectPageCopy(page, pageKey) {
   var section = CONTENT[pageKey] || {};
   Object.keys(section).forEach(function (key) {
     var raw = String(section[key]);
-    var isImage = ["heroImage", "featureImage", "bioImage", "secondaryImage", "image", "giftCardImage", "logoDesktop", "logoMobile"].indexOf(key) !== -1;
+    var isImage =
+      [
+        "heroImage",
+        "featureImage",
+        "bioImage",
+        "secondaryImage",
+        "image",
+        "giftCardImage",
+        "logoDesktop",
+        "logoMobile"
+      ].indexOf(key) !== -1;
     var m = "YL:" + pageKey + "\\." + key;
 
     if (isImage) {
       var imgPath = raw.replace(/^\/+/, "");
       var entry = MANIFEST[imgPath];
-      
+
       var reHtml = new RegExp("(<!--" + m + "-->)[\\s\\S]*?(<!--/" + m + "-->)");
-      var reCss = new RegExp("(\\/\\*" + m + "\\*\\/)[\\s\\S]*?(\\/\\*(?:\\\\|\\/)?YL:" + pageKey + "\\." + key + "\\*\\/)");
+      var reCss = new RegExp(
+        "(\\/\\*" +
+          m +
+          "\\*\\/)[\\s\\S]*?(\\/\\*(?:\\\\|\\/)?YL:" +
+          pageKey +
+          "\\." +
+          key +
+          "\\*\\/)"
+      );
 
       if (reHtml.test(html)) {
         html = html.replace(reHtml, function (match, open, close) {
@@ -614,7 +635,7 @@ function injectPageCopy(page, pageKey) {
 
           // Replace ONLY the src attribute of the <img> tag, leaving all other custom/native attributes untouched
           if (imgTag) {
-            imgTag = imgTag.replace(/(\bsrc=['"])[^'"]*(['"])/i, '$1' + imgPath + '$2');
+            imgTag = imgTag.replace(/(\bsrc=['"])[^'"]*(['"])/i, "$1" + imgPath + "$2");
           } else {
             imgTag = '<img src="' + imgPath + '">';
           }
@@ -626,8 +647,16 @@ function injectPageCopy(page, pageKey) {
             var avifSrcset = "";
             var webpSrcset = "";
             if (entry && entry.variants) {
-              avifSrcset = entry.variants.avif.map(function (v) { return v.file + " " + v.width + "w"; }).join(", ");
-              webpSrcset = entry.variants.webp.map(function (v) { return v.file + " " + v.width + "w"; }).join(", ");
+              avifSrcset = entry.variants.avif
+                .map(function (v) {
+                  return v.file + " " + v.width + "w";
+                })
+                .join(", ");
+              webpSrcset = entry.variants.webp
+                .map(function (v) {
+                  return v.file + " " + v.width + "w";
+                })
+                .join(", ");
             } else {
               avifSrcset = imgPath;
               webpSrcset = imgPath;
@@ -635,13 +664,13 @@ function injectPageCopy(page, pageKey) {
 
             innerTag = "<picture>";
             if (avifSrcset) {
-              innerTag += "\n            <source type=\"image/avif\" srcset=\"" + avifSrcset + "\"";
-              if (sizes) innerTag += " sizes=\"" + sizes + "\"";
+              innerTag += '\n            <source type="image/avif" srcset="' + avifSrcset + '"';
+              if (sizes) innerTag += ' sizes="' + sizes + '"';
               innerTag += ">";
             }
             if (webpSrcset) {
-              innerTag += "\n            <source type=\"image/webp\" srcset=\"" + webpSrcset + "\"";
-              if (sizes) innerTag += " sizes=\"" + sizes + "\"";
+              innerTag += '\n            <source type="image/webp" srcset="' + webpSrcset + '"';
+              if (sizes) innerTag += ' sizes="' + sizes + '"';
               innerTag += ">";
             }
             innerTag += "\n            " + imgTag;
@@ -748,16 +777,16 @@ var FOOTER_RE = /<footer class="site-footer">[\s\S]*?<\/footer>/;
         " -- aborting so nothing gets corrupted."
     );
   }
-  
+
   // Inject header desktop/mobile logos using a robust tag parser (supports any attribute ordering, class naming, or quote formatting)
   html = html.replace(/<img\s+[^>]+>/gi, function (match) {
     var isLogoDesktop = /\bclass=['"]([^'"]*\s+)?logo-desktop(\s+[^'"]*)?['"]/.test(match);
     var isLogoMobile = /\bclass=['"]([^'"]*\s+)?logo-mobile(\s+[^'"]*)?['"]/.test(match);
     if (isLogoDesktop) {
-      return match.replace(/(\bsrc=['"])[^'"]*(['"])/i, '$1' + logoDesktop + '$2');
+      return match.replace(/(\bsrc=['"])[^'"]*(['"])/i, "$1" + logoDesktop + "$2");
     }
     if (isLogoMobile) {
-      return match.replace(/(\bsrc=['"])[^'"]*(['"])/i, '$1' + logoMobile + '$2');
+      return match.replace(/(\bsrc=['"])[^'"]*(['"])/i, "$1" + logoMobile + "$2");
     }
     return match;
   });
