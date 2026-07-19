@@ -1653,6 +1653,11 @@
     var threshold = data.shop.freeShippingThreshold || 0;
     var products = data.products || [];
 
+    // ⚡ Bolt: Pre-sort the cross-sell products list once during init instead of on every cart render
+    var sortedCrossSellCandidates = products.slice().sort(function (a, b) {
+      return a.price - b.price;
+    });
+
     function buildProgressHTML(total) {
       if (threshold <= 0) return "";
       var pct = Math.min(100, Math.round((total / threshold) * 100));
@@ -1680,14 +1685,14 @@
 
     function findCrossSellProduct(cartItemIds) {
       // Pick the cheapest product NOT already in the cart
-      var candidates = products
-        .filter(function (p) {
-          return cartItemIds.indexOf(p.id) === -1 && p.inStock !== false;
-        })
-        .sort(function (a, b) {
-          return a.price - b.price;
-        });
-      return candidates.length ? candidates[0] : null;
+      // ⚡ Bolt: Iterating over the pre-sorted list avoids O(n log n) sorting on every cart state change
+      for (var i = 0; i < sortedCrossSellCandidates.length; i++) {
+        var p = sortedCrossSellCandidates[i];
+        if (cartItemIds.indexOf(p.id) === -1 && p.inStock !== false) {
+          return p;
+        }
+      }
+      return null;
     }
 
     function buildCrossSellHTML(product) {
@@ -1770,8 +1775,8 @@
             }
           });
 
-          // Inject/update progress bar
-          var snipcartContent = document.querySelector(".snipcart-cart__content");
+          // ⚡ Bolt: Scope querySelectors to snipcartEl instead of the entire document
+          var snipcartContent = snipcartEl.querySelector(".snipcart-cart__content");
           if (snipcartContent) {
             var existing = snipcartContent.querySelector(".shipping-progress");
             var newProgressHTML = buildProgressHTML(total);
@@ -1784,9 +1789,9 @@
           }
 
           // Inject/update cross-sell
-          var snipcartFooter = document.querySelector(".snipcart-cart__footer");
+          var snipcartFooter = snipcartEl.querySelector(".snipcart-cart__footer");
           if (snipcartFooter) {
-            var existingCS = document.querySelector(".cart-cross-sell");
+            var existingCS = snipcartEl.querySelector(".cart-cross-sell");
             var crossProduct = findCrossSellProduct(cartItemIds);
             var newCSHTML = buildCrossSellHTML(crossProduct);
 
