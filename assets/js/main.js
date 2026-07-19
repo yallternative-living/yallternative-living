@@ -1915,5 +1915,13 @@
         registerSW();
       });
     }
+
+    /* ---------- Load translator ---------- */
+    (function () {
+      var s = document.createElement("script");
+      s.src = "assets/js/translator.js?v=2.0";
+      s.defer = true;
+      document.body.appendChild(s);
+    })();
   }
 })();

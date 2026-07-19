@@ -5,7 +5,7 @@
  */
 
 /** @const {string} Cache name key, updated on assets release. */
-const CACHE_NAME = "yallternative-cache-v13";
+const CACHE_NAME = "yallternative-cache-v14";
 
 /** @const {!Array<string>} Array of absolute URLs to be cached on installation. */
 const ASSETS_TO_CACHE = [
@@ -86,12 +86,13 @@ self.addEventListener('fetch', event => {
     url.search = "";
     const cleanRequest = new Request(url.toString());
 
-    // Determine if the request is an HTML page navigation
+    // Determine if the request is an HTML page navigation or a code asset (JS, CSS)
     const isNavigation = event.request.mode === 'navigate' || 
                          (event.request.headers.get('accept') && event.request.headers.get('accept').includes('text/html'));
+    const isCodeAsset = url.pathname.endsWith('.js') || url.pathname.endsWith('.css');
 
-    if (isNavigation) {
-      // Network-First strategy for HTML pages: prefer live server data when online,
+    if (isNavigation || isCodeAsset) {
+      // Network-First strategy for HTML and code assets: prefer live server data when online,
       // fall back to cache only when offline or connection is lost.
       event.respondWith(
         fetch(event.request)
@@ -109,7 +110,7 @@ self.addEventListener('fetch', event => {
           })
       );
     } else {
-      // Stale-While-Revalidate strategy for static assets (JS, CSS, images):
+      // Stale-While-Revalidate strategy for other static assets (images, fonts, etc.):
       // serve instantly from cache, update cache from network in background.
       event.respondWith(
         caches.match(cleanRequest).then(cachedResponse => {

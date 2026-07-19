@@ -1677,6 +1677,123 @@ hr.rule{ border:none; border-top:1px solid var(--hide); margin:48px 0; }
   color: var(--paper-dim); border:1px solid var(--hide); padding: 3px 10px 3px 6px; border-radius:20px;
 }
 
+
+/* ── Language Selector & Translation ──────────────────── */
+.lang-selector-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+.lang-toggle {
+  position: relative;
+  background: none;
+  border: 1px solid var(--hide);
+  color: var(--paper);
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition: border-color .2s ease, background-color .2s ease;
+  padding: 0;
+  
+  &:hover, &:focus-visible {
+    border-color: var(--whiskey);
+    background-color: var(--ink-3);
+  }
+
+  @media (max-width: 420px) {
+    width: 34px;
+    height: 34px;
+  }
+
+  & svg {
+    width: 19px;
+    height: 19px;
+  }
+}
+
+.lang-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: rgba(30, 24, 21, 0.85); /* transparent ink-2 matching */
+  border: 1px solid var(--hide);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 6px 0;
+  min-width: 150px;
+  z-index: 200;
+  display: none;
+  flex-direction: column;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+
+  &.open {
+    display: flex;
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+}
+
+:root[data-theme="light"] .lang-dropdown {
+  background: rgba(241, 233, 216, 0.85); /* transparent ink-2 in light mode */
+}
+
+.lang-option {
+  background: none;
+  border: none;
+  color: var(--paper-dim);
+  padding: 8px 16px;
+  text-align: left;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background .2s ease, color .2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+
+  &:hover, &:focus-visible {
+    background: var(--ink-3);
+    color: var(--paper);
+  }
+
+  &.active {
+    color: var(--whiskey);
+    font-weight: 700;
+  }
+}
+
+/* Hide standard Google Translate widget elements */
+.skiptranslate,
+#google_translate_element,
+iframe.skiptranslate,
+.goog-te-banner-frame,
+#goog-gt-tt {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+body {
+  top: 0 !important;
+  position: static !important;
+}
+
+/* Fix for Google Translate injecting style elements that add body padding */
+body > .skiptranslate {
+  display: none !important;
+}
+
 /* ── Print Styles ─────────────────────────────────────── */
 @media print {
   .site-header, .site-footer, .nav-cta, .hero-actions, .filter-row, .btn, .cart-toggle {

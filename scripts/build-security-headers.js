@@ -129,17 +129,17 @@ function run() {
     // it's inert until a real Tawk.to property/widget ID replaces the
     // placeholder, but the origin is allowlisted now so turning it on
     // later doesn't also require touching this file.
-    "script-src 'self' https://cdn.snipcart.com https://plausible.io https://embed.tawk.to " +
+    "script-src 'self' https://cdn.snipcart.com https://plausible.io https://embed.tawk.to https://translate.google.com https://translate.googleapis.com " +
       hashes.join(" "),
     // fonts.googleapis.com: every page's <link> tags pull Cormorant Garamond
     // + Outfit from Google Fonts (see the top-of-file comment in styles.css)
     // -- that stylesheet request needs style-src, and the actual font files
     // it points at come from fonts.gstatic.com, which needs font-src below.
-    "style-src 'self' https://cdn.snipcart.com https://fonts.googleapis.com 'unsafe-inline'", // Snipcart's cart UI injects its own inline styles at runtime; can't pre-hash unknown/dynamic values, so this one directive stays looser on purpose
-    "img-src 'self' data: https://cdn.snipcart.com https://*.tawk.to",
+    "style-src 'self' https://cdn.snipcart.com https://fonts.googleapis.com https://translate.googleapis.com 'unsafe-inline'", // Snipcart's cart UI injects its own inline styles at runtime; can't pre-hash unknown/dynamic values, so this one directive stays looser on purpose
+    "img-src 'self' data: https://cdn.snipcart.com https://*.tawk.to https://translate.google.com https://translate.googleapis.com https://www.google.com",
     "font-src 'self' https://cdn.snipcart.com https://fonts.gstatic.com",
-    "connect-src 'self' https://*.snipcart.com https://plausible.io https://*.tawk.to wss://*.tawk.to",
-    "frame-src https://*.snipcart.com https://*.tawk.to",
+    "connect-src 'self' https://*.snipcart.com https://plausible.io https://*.tawk.to wss://*.tawk.to https://translate.googleapis.com",
+    "frame-src https://*.snipcart.com https://*.tawk.to https://translate.google.com",
     "frame-ancestors 'none'",
     "base-uri 'self'",
     // 'self' covers the review-submission form once it posts to a same-site
