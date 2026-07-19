@@ -837,6 +837,7 @@ section{
   text-align:center;
   
   & h2{ margin-bottom:.3em; }
+  & p{ max-width:72ch; margin:0 auto 28px; }
 }
 
 /* =============== CUSTOMER REVIEWS (site-submitted, shop.html) ===============
