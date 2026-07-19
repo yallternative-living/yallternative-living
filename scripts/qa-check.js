@@ -1254,7 +1254,9 @@ try {
     var manifestText = fs.readFileSync(path.join(ROOT, "assets/js/image-manifest.js"), "utf8");
     var jsonText = manifestText.substring(manifestText.indexOf("{"), manifestText.lastIndexOf("}") + 1);
     manifestData = JSON.parse(jsonText);
-  } catch (e) {}
+  } catch (e) {
+    manifestData = {};
+  }
 
   var imageKeys = [
     { section: "site", key: "logoDesktop", required: true },

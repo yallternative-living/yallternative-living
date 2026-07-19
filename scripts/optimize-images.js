@@ -194,6 +194,7 @@ async function run() {
   var avifSmallestTotal = 0; // what an AVIF-capable phone actually downloads
   var avifFullTotal = 0; // what an AVIF-capable desktop actually downloads
   var webpSmallestTotal = 0; // same, for the WebP fallback path
+  var beforeSize, avifSizes, webpSizes;
 
   for (var i = 0; i < files.length; i++) {
     var filename = files[i];
@@ -212,12 +213,12 @@ async function run() {
 
       if (allExist) {
         console.log(filename + " is already optimized. Skipping.");
-        var beforeSize = entry.size || currentSize;
+        beforeSize = entry.size || currentSize;
         beforeTotal += beforeSize;
-        var avifSizes = entry.variants.avif.map(function (v) {
+        avifSizes = entry.variants.avif.map(function (v) {
           return fs.existsSync(path.join(ROOT, v.file)) ? fs.statSync(path.join(ROOT, v.file)).size : 0;
         });
-        var webpSizes = entry.variants.webp.map(function (v) {
+        webpSizes = entry.variants.webp.map(function (v) {
           return fs.existsSync(path.join(ROOT, v.file)) ? fs.statSync(path.join(ROOT, v.file)).size : 0;
         });
         avifSmallestTotal += Math.min.apply(null, avifSizes);
@@ -231,13 +232,13 @@ async function run() {
     manifest[entry.key] = entry;
     writeManifest(manifest); // persist after every photo, not just at the end
 
-    var beforeSize = entry.size || currentSize;
+    beforeSize = entry.size || currentSize;
     beforeTotal += beforeSize;
 
-    var avifSizes = entry.variants.avif.map(function (v) {
+    avifSizes = entry.variants.avif.map(function (v) {
       return fs.statSync(path.join(ROOT, v.file)).size;
     });
-    var webpSizes = entry.variants.webp.map(function (v) {
+    webpSizes = entry.variants.webp.map(function (v) {
       return fs.statSync(path.join(ROOT, v.file)).size;
     });
     avifSmallestTotal += Math.min.apply(null, avifSizes);

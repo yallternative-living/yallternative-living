@@ -593,12 +593,12 @@ function injectPageCopy(page, pageKey) {
   Object.keys(section).forEach(function (key) {
     var raw = String(section[key]);
     var isImage = ["heroImage", "featureImage", "bioImage", "secondaryImage", "image", "giftCardImage", "logoDesktop", "logoMobile"].indexOf(key) !== -1;
+    var m = "YL:" + pageKey + "\\." + key;
 
     if (isImage) {
       var imgPath = raw.replace(/^\/+/, "");
       var entry = MANIFEST[imgPath];
       
-      var m = "YL:" + pageKey + "\\." + key;
       var reHtml = new RegExp("(<!--" + m + "-->)[\\s\\S]*?(<!--/" + m + "-->)");
       var reCss = new RegExp("(\\/\\*" + m + "\\*\\/)[\\s\\S]*?(\\/\\*(?:\\\\|\\/)?YL:" + pageKey + "\\." + key + "\\*\\/)");
 
@@ -653,7 +653,7 @@ function injectPageCopy(page, pageKey) {
           return open + "\n          " + innerTag + "\n          " + close;
         });
       } else if (reCss.test(html)) {
-        html = html.replace(reCss, function (match, open, close) {
+        html = html.replace(reCss, function (match) {
           // Replace ONLY the url() property inside the CSS block, preserving other background attributes (e.g. no-repeat center center / cover)
           return match.replace(/url\(['"]?[^'")]+['"]?\)/i, "url('" + imgPath + "')");
         });
@@ -668,7 +668,6 @@ function injectPageCopy(page, pageKey) {
               })
               .join("\n          ")
           : escapeHtml(raw);
-      var m = "YL:" + pageKey + "\\." + key;
       var re = new RegExp("(<!--" + m + "-->)[\\s\\S]*?(<!--/" + m + "-->)");
       if (!re.test(html))
         throw new Error(
