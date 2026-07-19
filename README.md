@@ -6,7 +6,7 @@ Welcome to the Y'allternative Living website repository! This site is designed t
 
 ### 1. How to Edit Your Products, Events & FAQs
 We've set up a simple **Website Dashboard** where you can edit the site's content using friendly forms:
-* **Where to go:** `https://<your-deployed-domain>/admin` (this link will work once the site is live)
+* **Where to go:** `https://yallternativeliving.com/admin` (this link will work once the site is live)
 * **What you can do here:**
   * **Products:** Add new items, change prices, update descriptions, ingredients, or inventory levels.
   * **Markets & Events:** Add upcoming market dates or move past dates to "recent appearances."
