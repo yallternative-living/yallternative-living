@@ -518,11 +518,7 @@ section{
   & span{ font-size:.75rem; color:var(--paper-dim); }
 }
 
-.hero-art .hero-badge{
-  position:absolute; bottom:-22px; left:-22px; margin:0;
-  
-  @media (max-width:900px){ left:0; bottom:-18px; }
-}
+
 
 /* =============== VALUE STRIP =============== */
 .value-strip{
