@@ -185,7 +185,7 @@ body{
 /* native, JS-free page transitions (Chrome/Edge 2025+, no-op elsewhere) */
 @view-transition{ navigation: auto; }
 
-img{ max-width:100%; display:block; }
+img{ max-width:100%; height:auto; display:block; }
 a{ color: inherit; text-decoration:none; }
 ul{ list-style:none; margin:0; padding:0; }
 
