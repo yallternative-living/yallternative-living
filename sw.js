@@ -1,4 +1,4 @@
-const CACHE_NAME = "yallternative-cache-v8";
+const CACHE_NAME = "yallternative-cache-v10";
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -55,14 +55,15 @@ self.addEventListener('fetch', event => {
     event.respondWith(
       caches.match(event.request).then(cachedResponse => {
         const networkFetch = fetch(event.request).then(response => {
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then(cache => {
-            cache.put(event.request, responseClone);
-          });
+          if (response && response.status === 200) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then(cache => {
+              cache.put(event.request, responseClone);
+            });
+          }
           return response;
         }).catch(() => {
-          // If network fails and no cache, maybe return offline page?
-          // Not needed here since we cache all html.
+          // Ignore network errors
         });
         
         return cachedResponse || networkFetch;
