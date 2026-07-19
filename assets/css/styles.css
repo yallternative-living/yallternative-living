@@ -102,8 +102,8 @@
 
   --pride: linear-gradient(90deg,#e0505a,#e8935a,#e8c65a,#5fae7a,#4f8fc7,#9a6bc9);
 
-  --font-display: 'Cormorant Garamond', 'Georgia', serif;
-  --font-body: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'Gloock', 'Georgia', serif;
+  --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
   --container: 1320px;
   --radius: 8px;
@@ -328,11 +328,22 @@ section{
     gap:8px;
   }
   
-  & img{
-    width:48px; height:48px;
-    @media (max-width: 420px) {
-      width:40px; height:40px;
-    }
+  & img.logo-desktop {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+  }
+  
+  & img.logo-mobile {
+    display: none;
+    width: auto;
+    height: 48px;
+    border-radius: 6px;
+  }
+  
+  @media (max-width: 420px) {
+    & img.logo-desktop { display: none; }
+    & img.logo-mobile { display: block; height: 40px; }
   }
   
   & .hero-word{

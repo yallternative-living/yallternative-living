@@ -737,7 +737,7 @@ window.YL_PRODUCTS = {
     },
     {
       "question": "Where can I meet you in person?",
-      "answer": "Farmers markets and Pride events around Upstate SC and beyond. Follow our socials so you know exactly where and when we'll be set up next."
+      "answer": "Farmers markets and Pride events around Upstate SC and beyond. Check out our [events page](events.html) or follow our socials so you know exactly where and when we'll be set up next."
     }
   ]
 };

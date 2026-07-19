@@ -416,12 +416,37 @@ var shopJsonLd = {
 };
 var shopHtml = readText("shop.html", "shop page");
 
-var NUMBER_WORDS = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen", "Twenty"];
+var NUMBER_WORDS = [
+  "Zero",
+  "One",
+  "Two",
+  "Three",
+  "Four",
+  "Five",
+  "Six",
+  "Seven",
+  "Eight",
+  "Nine",
+  "Ten",
+  "Eleven",
+  "Twelve",
+  "Thirteen",
+  "Fourteen",
+  "Fifteen",
+  "Sixteen",
+  "Seventeen",
+  "Eighteen",
+  "Nineteen",
+  "Twenty"
+];
 var productCount = CATALOG.products.length;
 var productCountWord = NUMBER_WORDS[productCount] || String(productCount);
 
 shopHtml = shopHtml.replace(/Shop \d+ handmade goods/, "Shop " + productCount + " handmade goods");
-shopHtml = shopHtml.replace(/\b\d+ handmade goods across/g, productCount + " handmade goods across");
+shopHtml = shopHtml.replace(
+  /\b\d+ handmade goods across/g,
+  productCount + " handmade goods across"
+);
 
 var countMarkerRe = /(<!--YL:productCount-->)\d+(<!--\/YL:productCount-->)/;
 if (countMarkerRe.test(shopHtml)) {
@@ -455,7 +480,7 @@ var shopFaqLd = {
       name: item.question,
       acceptedAnswer: {
         "@type": "Answer",
-        text: item.answer
+        text: item.answer.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
       }
     };
   })
@@ -491,7 +516,10 @@ var faqJsonLd = {
     return {
       "@type": "Question",
       name: item.question,
-      acceptedAnswer: { "@type": "Answer", text: item.answer }
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: item.answer.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+      }
     };
   })
 };
@@ -500,20 +528,22 @@ if (!faqLdBlockRe.test(contactHtml)) {
     "Could not find the FAQPage JSON-LD block in contact.html -- aborting so nothing gets corrupted. Check the block still starts with @type: FAQPage."
   );
 }
-var newFaqLdBlock =
+newFaqLdBlock =
   '<script type="application/ld+json">\n' + JSON.stringify(faqJsonLd, null, 2) + "\n</script>";
 contactHtml = contactHtml.replace(faqLdBlockRe, function () {
   return newFaqLdBlock;
 });
 
 var faqVisibleHtml = FAQ.map(function (item, i) {
+  var escAnswer = escapeHtml(item.answer);
+  var renderedAnswer = escAnswer.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
   var block =
     '        <div class="reveal">\n' +
     "          <h3>" +
     escapeHtml(item.question) +
     "</h3>\n" +
     "          <p>" +
-    escapeHtml(item.answer) +
+    renderedAnswer +
     "</p>\n" +
     "        </div>";
   return i < FAQ.length - 1 ? block + '\n        <hr class="rule">\n' : block;
@@ -605,6 +635,8 @@ var FOOTER_RE = /<footer class="site-footer">[\s\S]*?<\/footer>/;
   "contact.html",
   "events.html",
   "privacy.html",
+  "terms.html",
+  "policies.html",
   "404.html"
 ].forEach(function (page) {
   var filePath = path.join(ROOT, page);
@@ -638,7 +670,9 @@ var PAGES = [
   { loc: "events.html", priority: "0.7" },
   { loc: "about.html", priority: "0.7" },
   { loc: "contact.html", priority: "0.6" },
-  { loc: "privacy.html", priority: "0.3" }
+  { loc: "privacy.html", priority: "0.3" },
+  { loc: "terms.html", priority: "0.3" },
+  { loc: "policies.html", priority: "0.3" }
 ];
 var today = new Date().toISOString().slice(0, 10);
 var sitemapXml =
@@ -747,7 +781,13 @@ var llmsTxt =
   "/contact.html): contact info, shipping/custom-order FAQ, and where to find the shop in person.\n" +
   "- [Privacy Policy](" +
   DOMAIN +
-  "/privacy.html): plain-language privacy policy (not a substitute for legal advice).\n\n" +
+  "/privacy.html): plain-language privacy policy (not a substitute for legal advice).\n" +
+  "- [Terms of Service](" +
+  DOMAIN +
+  "/terms.html): terms of service including health/allergy disclaimers, intellectual property, limitation of liability, and governing law (South Carolina).\n" +
+  "- [Shipping & Returns](" +
+  DOMAIN +
+  "/policies.html): shipping policy (processing times, lost packages, address responsibility) and exchange policy (exchanges within 14 days for eligible items, final sale on opened body care).\n\n" +
   "## Products\n\n" +
   productLines +
   "\n\n" +

@@ -8,18 +8,19 @@
 <meta name="apple-mobile-web-app-title" content="Y'allternative">
 <meta name="color-scheme" content="dark light">
 <meta name="view-transition" content="same-origin">
-<title>Contact | Y'allternative Living</title>
-<meta name="description" content="Reach Y'allternative Living for custom orders, wholesale, or just to say hey. Email, Instagram DMs & socials. Handmade self-care out of Landrum, SC.">
-<link rel="canonical" href="https://yallternativeliving.com/contact.html">
+<title>Shipping &amp; Returns | Y'allternative Living</title>
+<meta name="robots" content="index, follow">
+<meta name="description" content="How Y'allternative Living ships your handmade goods, what's eligible for exchange, and what to do if something arrives damaged. Clear, no-nonsense policies.">
+<link rel="canonical" href="https://yallternativeliving.com/policies.html">
 
 <meta property="og:type" content="website">
-<meta property="og:title" content="Contact | Y'allternative Living">
-<meta property="og:description" content="Reach Y'allternative Living for custom orders, wholesale, or just to say hey. Email, Instagram DMs & socials. Handmade self-care out of Landrum, SC.">
+<meta property="og:title" content="Shipping &amp; Returns | Y'allternative Living">
+<meta property="og:description" content="How Y'allternative Living ships your handmade goods, what's eligible for exchange, and what to do if something arrives damaged. Clear, no-nonsense policies.">
 <meta property="og:image" content="https://yallternativeliving.com/assets/img/og-image.jpg">
-<meta property="og:url" content="https://yallternativeliving.com/contact.html">
+<meta property="og:url" content="https://yallternativeliving.com/policies.html">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Contact | Y'allternative Living">
-<meta name="twitter:description" content="Reach Y'allternative Living for custom orders, wholesale, or just to say hey. Email, Instagram DMs & socials. Handmade self-care out of Landrum, SC.">
+<meta name="twitter:title" content="Shipping &amp; Returns | Y'allternative Living">
+<meta name="twitter:description" content="How Y'allternative Living ships your handmade goods, what's eligible for exchange, and what to do if something arrives damaged. Clear, no-nonsense policies.">
 <meta name="twitter:image" content="https://yallternativeliving.com/assets/img/og-image.jpg">
 
 <link rel="icon" href="assets/img/favicon-32.png" sizes="32x32" type="image/png">
@@ -36,66 +37,31 @@
 <noscript>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=DM+Sans:wght@400;500;700&display=swap">
 </noscript>
-<!-- Warm up the two third-party origins this page actually talks to,
-     so the first Add to Cart click (Snipcart, lazy-loaded on interaction)
-     and the analytics beacon (Plausible) don't pay a cold DNS+TLS
-     handshake at the moment they're needed. -->
 <link rel="preconnect" href="https://cdn.snipcart.com" crossorigin>
 <link rel="preconnect" href="https://plausible.io">
 <link rel="stylesheet" href="assets/css/styles.css">
 
 <script>
-  // No-flash theme init: runs before paint, before main.js.
   (function(){
     var t = localStorage.getItem('yl-theme');
     if(!t){ t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'; }
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
-<!-- Privacy-friendly analytics (Plausible: no cookies, no personal data,
-     aggregate traffic counts only -- see https://plausible.io/data-policy).
-     Two things needed before this records anything real:
-       1. A Plausible account with this site's domain added.
-       2. data-domain below swapped from the placeholder to the real
-          production domain once deployed (same DOMAIN this site uses
-          everywhere else -- see scripts/build-site-data.js). -->
 <script defer data-domain="yallternativeliving.com" src="https://plausible.io/js/script.js"></script>
-
 <style>
-  /* Page-specific styling for contact.html only. */
-  .contact-icon{
-    width:54px; height:54px; border-radius:50%;
-    display:flex; align-items:center; justify-content:center;
-    font-size:1.5rem; color:var(--whiskey);
-    background:var(--ink-3); border:1px solid var(--hide);
-    margin-bottom:6px;
-    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.3s ease;
+  .policy-prose{ max-width: 760px; margin: 0 auto; }
+  .policy-prose h2{ font-size: 1.4rem; margin-top: 0; }
+  .policy-prose ul{ list-style: disc; margin: 0 0 1em; padding-left: 1.3em; }
+  .policy-prose li{ color: var(--paper-dim); margin-bottom: .5em; }
+  .policy-prose .rule{ margin: 36px 0; }
+  .policy-notice{
+    max-width: 760px; margin: 0 auto 8px; padding: 20px 24px;
+    background: var(--ink-2); border: 1px solid var(--hide); border-radius: var(--radius-lg);
   }
-  .contact-card:hover .contact-icon {
-    transform: scale(1.1) rotate(5deg);
-    background: var(--ink);
-    border-color: var(--whiskey-dim);
-  }
-  .contact-card .card-body{ align-items:flex-start; }
-  .contact-btn-row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:6px; }
-  .contact-faq{ max-width:760px; }
-  .contact-faq h3{ font-family:var(--font-body); font-weight:700; font-size:1.05rem; margin-bottom:.4em; }
-  .contact-faq .rule{ margin:32px 0; }
-
-  /* Contact split layout (replaces inline styles) */
-  .contact-split{ align-items: flex-start; gap: 80px; }
-  .contact-form-col{ width:100%; max-width:600px; }
-  .contact-form-col h2{ margin-bottom:12px; }
-  .contact-form-col .contact-form-desc{ margin-bottom:40px; color:var(--paper-dim); }
-  .contact-info-block{ margin-bottom:40px; }
-  .contact-info-block h3{ font-size:1.1rem; margin-bottom:12px; font-weight:600; }
-  .contact-socials-block{ margin-bottom:56px; }
-  .contact-socials-block h3{ font-size:1.1rem; margin-bottom:16px; font-weight:600; }
-  .contact-info-col h2{ margin-bottom:32px; }
-  .contact-find-us h2{ margin-bottom:24px; }
-  .contact-find-us .img-frame{ margin-bottom:32px; }
-  .contact-find-us img{ height:300px; object-fit:cover; width:100%; }
-  .contact-email-link{ color:var(--whiskey); text-decoration:underline; }
+  .policy-notice p{ margin: 0; font-size: .92rem; }
+  .policy-notice p + p{ margin-top: 10px; }
+  .policy-updated{ font-size: .82rem; color: var(--paper-dim); text-align: center; margin-top: 40px; }
 </style>
 <script type="application/ld+json">
 {
@@ -136,56 +102,8 @@
     {
       "@type": "ListItem",
       "position": 2,
-      "name": "Contact",
-      "item": "https://yallternativeliving.com/contact.html"
-    }
-  ]
-}
-</script>
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  "mainEntity": [
-    {
-      "@type": "Question",
-      "name": "Where do you ship from?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Straight out of Landrum, SC. Processing time isn't the same for every item, so check the product description for the specifics before you order."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "What's your return policy?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Opened salves, scrubs, and soaks are final sale for hygiene reasons. Unworn apparel and sealed items can be exchanged. Anything arrive wrong or damaged? Email us and we'll make it right."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Do you have unscented or sensitive-skin options?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "We do. The Y'allternative Miracle Balm is unscented and essential-oil-free, made for skin that side-eyes fragrance."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Can I get something custom or in bulk?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Yep. Email us or send an Instagram DM with what you're picturing (gifts, market swag, wedding favors, whatever) and we'll figure it out together."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Where can I meet you in person?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Farmers markets and Pride events around Upstate SC and beyond. Check out our events page or follow our socials so you know exactly where and when we'll be set up next."
-      }
+      "name": "Shipping & Returns",
+      "item": "https://yallternativeliving.com/policies.html"
     }
   ]
 }
@@ -197,9 +115,6 @@
     publicApiKey: "YOUR_SNIPCART_PUBLIC_API_KEY",
     loadStrategy: "on-user-interaction",
     modalStyle: "side",
-    /* Let Snipcart auto-open its cart drawer after Add to Cart -- with
-       this suppressed, the only feedback was a small badge tick in a
-       crowded nav cluster, easy to miss and easy to double-add over. */
   };
 
   (function(){var c,d;(d=(c=window.SnipcartSettings).version)!=null||(c.version="3.0");var s,S;(S=(s=window.SnipcartSettings).timeoutDuration)!=null||(s.timeoutDuration=2750);var l,p;(p=(l=window.SnipcartSettings).domain)!=null||(l.domain="cdn.snipcart.com");var w,u;(u=(w=window.SnipcartSettings).protocol)!=null||(w.protocol="https");var m,g;(g=(m=window.SnipcartSettings).loadCSS)!=null||(m.loadCSS=!0);var y=window.SnipcartSettings.version.includes("v3.0.0-ci")||window.SnipcartSettings.version!="3.0"&&window.SnipcartSettings.version.localeCompare("3.4.0",void 0,{numeric:!0,sensitivity:"base"})===-1,f=["focus","mouseover","touchmove","scroll","keydown"];window.LoadSnipcart=o;document.readyState==="loading"?document.addEventListener("DOMContentLoaded",r):r();function r(){window.SnipcartSettings.loadStrategy?window.SnipcartSettings.loadStrategy==="on-user-interaction"&&(f.forEach(function(t){return document.addEventListener(t,o)}),setTimeout(o,window.SnipcartSettings.timeoutDuration)):o()}var a=!1;function o(){if(a)return;a=!0;let t=document.getElementsByTagName("head")[0],n=document.querySelector("#snipcart"),i=document.querySelector('src[src^="'.concat(window.SnipcartSettings.protocol,"://").concat(window.SnipcartSettings.domain,'"][src$="snipcart.js"]')),e=document.querySelector('link[href^="'.concat(window.SnipcartSettings.protocol,"://").concat(window.SnipcartSettings.domain,'"][href$="snipcart.css"]'));n||(n=document.createElement("div"),n.id="snipcart",n.setAttribute("hidden","true"),document.body.appendChild(n)),h(n),i||(i=document.createElement("script"),i.src="".concat(window.SnipcartSettings.protocol,"://").concat(window.SnipcartSettings.domain,"/themes/v").concat(window.SnipcartSettings.version,"/default/snipcart.js"),i.async=!0,t.appendChild(i)),!e&&window.SnipcartSettings.loadCSS&&(e=document.createElement("link"),e.rel="stylesheet",e.type="text/css",e.href="".concat(window.SnipcartSettings.protocol,"://").concat(window.SnipcartSettings.domain,"/themes/v").concat(window.SnipcartSettings.version,"/default/snipcart.css"),t.prepend(e)),f.forEach(function(v){return document.removeEventListener(v,o)})}function h(t){!y||(t.dataset.apiKey=window.SnipcartSettings.publicApiKey,window.SnipcartSettings.addProductBehavior&&(t.dataset.configAddProductBehavior=window.SnipcartSettings.addProductBehavior),window.SnipcartSettings.modalStyle&&(t.dataset.configModalStyle=window.SnipcartSettings.modalStyle),window.SnipcartSettings.currency&&(t.dataset.currency=window.SnipcartSettings.currency),window.SnipcartSettings.templatesUrl&&(t.dataset.templatesUrl=window.SnipcartSettings.templatesUrl))}})();
@@ -217,7 +132,7 @@
       <li><a href="shop.html">Shop</a></li>
       <li><a href="events.html">Events</a></li>
       <li><a href="about.html">Our Story</a></li>
-      <li><a href="contact.html" class="active" aria-current="page">Contact</a></li>
+      <li><a href="contact.html">Contact</a></li>
     </ul>
     <div class="nav-cta">
       <button class="cart-toggle snipcart-checkout" type="button" aria-label="View your cart">
@@ -238,128 +153,51 @@
   <!-- PAGE HERO -->
   <div class="page-hero">
     <div class="container">
-      <div class="breadcrumb"><a href="index.html">Home</a> / Contact</div>
-
-      <h1>Let's Talk, Y'all</h1>
-      <p class="lede">Got a custom order brewing, a wholesale question, or just want to tell us your dog's name? We're all ears. Pick whichever door's easiest and come on in.</p>
+      <p class="breadcrumb"><a href="index.html">Home</a> / Shipping &amp; Returns</p>
+      <span class="eyebrow">Policies</span>
+      <h1>Shipping &amp; Returns</h1>
+      <p class="lede">How we get our goods to you, and what happens if things go wrong. Straightforward answers, no nonsense.</p>
     </div>
   </div>
 
-  <!-- CONTACT SPLIT LAYOUT -->
-  <section>
-    <div class="container two-col contact-split">
-      
-      <!-- LEFT: Form -->
-      <div class="reveal contact-form-col">
-        <h2>Send a Message</h2>
-        <p class="contact-form-desc">Use the form below for custom orders, wholesale inquiries, or support. We typically respond within 24-48 hours.</p>
-        
-        <form action="https://formspree.io/f/YOUR_FORM_ID" method="POST" class="contact-form">
-          <div class="field">
-            <label for="name">Name</label>
-            <input type="text" id="name" name="name" required>
-          </div>
-          <div class="field">
-            <label for="email">Email</label>
-            <input type="email" id="email" name="_replyto" required>
-          </div>
-          <div class="field">
-            <label for="message">Message</label>
-            <textarea id="message" name="message" rows="5" required></textarea>
-          </div>
-          <button type="submit" class="btn btn-primary btn-block">Send Message</button>
-        </form>
-      </div>
-
-      <!-- RIGHT: Info -->
-      <div class="reveal contact-info-col">
-
-        <h2>Direct &amp; Socials</h2>
-        
-        <div class="contact-info-block">
-          <h3>Email</h3>
-          <p><a href="mailto:y.allternative.living@gmail.com" class="contact-email-link">y.allternative.living@gmail.com</a></p>
-        </div>
-
-        <div class="contact-socials-block">
-          <h3>Social Media</h3>
-          <div class="contact-btn-row">
-            <a class="btn btn-outline btn-sm" href="https://www.instagram.com/yallternativeliving" target="_blank" rel="noopener">Instagram ↗</a>
-            <a class="btn btn-outline btn-sm" href="https://www.tiktok.com/@yallternativeliving" target="_blank" rel="noopener">TikTok ↗</a>
-          </div>
-        </div>
-
-        <div class="contact-find-us">
-
-          <h2>Find Us In Person</h2>
-          <div class="img-frame">
-            <picture>
-              <source type="image/webp" srcset="assets/img/backroad-soak-480.webp 480w, assets/img/backroad-soak-800.webp 800w, assets/img/backroad-soak.webp 1053w" sizes="(max-width: 880px) 90vw, 44vw">
-              <img src="assets/img/backroad-soak.jpg" alt="Y'allternative Living soak product out on a backroad tailgate" width="600" height="798" loading="lazy" decoding="async">
-            </picture>
-          </div>
-          <p>We're based in Landrum, SC, tucked in the Upstate. You'll find us somewhere between a farmers market and a Pride event across the Upstate and beyond.</p>
-          <p>Follow <strong>@yallternativeliving</strong> on socials for our latest market dates.</p>
-        </div>
-      </div>
-
-    </div>
-  </section>
-  
-  <!-- FAQ -- the site's ONE FAQ. Both this visible block and the
-       FAQPage JSON-LD above are generated by scripts/build-site-data.js
-       from the "faq" array in assets/js/products-data.js -- that array
-       is the only place to edit a question or answer. shop.html links
-       here (#faq) instead of keeping its own separate copy. -->
-  <section id="faq">
+  <!-- POLICY BODY -->
+  <section class="section-tight">
     <div class="container">
-      <div class="section-head">
+      <div class="policy-prose">
 
-        <h2>A Few Questions</h2>
-      </div>
-      <div class="contact-faq">
-        <!-- FAQ:START -- generated from products-data.js's CATALOG.faq.
-             Don't hand-edit between these markers; it'll just get
-             overwritten on the next npm run build-data. -->
         <div class="reveal">
-          <h3>Where do you ship from?</h3>
-          <p>Straight out of Landrum, SC. Processing time isn't the same for every item, so check the product description for the specifics before you order.</p>
+          <h2>Shipping Policy</h2>
+          <p><strong>Processing Times:</strong> All of our products are handmade in small batches. Order processing times vary by product, so please check the specific product description for the most accurate timeline. We work as fast as we can, but quality takes time.</p>
+          <p><strong>Lost or Stolen Packages:</strong> Once we hand your package over to the carrier (usually USPS or UPS), it is quite literally out of our hands. We are not responsible for packages that are lost in transit, delayed by the carrier, or stolen after delivery. If you have an issue with delivery, please contact the carrier directly with your tracking number.</p>
+          <p><strong>Incorrect Addresses:</strong> It is your responsibility to ensure the shipping address you provide at checkout is correct. We are not liable for packages sent to old, incomplete, or misspelled addresses. If a package is returned to us due to an incorrect address, you will be responsible for the cost of re-shipping it.</p>
         </div>
         <hr class="rule">
 
         <div class="reveal">
-          <h3>What's your return policy?</h3>
-          <p>Opened salves, scrubs, and soaks are final sale for hygiene reasons. Unworn apparel and sealed items can be exchanged. Anything arrive wrong or damaged? Email us and we'll make it right.</p>
+          <h2>Return &amp; Exchange Policy</h2>
+          <p><strong>Final Sale Items:</strong> For health and hygiene reasons, all opened or used salves, scrubs, balms, and soaks are <strong>final sale</strong>. We cannot accept returns on body care items once the seal is broken.</p>
+          <p><strong>Eligible Exchanges:</strong> Unworn apparel and completely sealed, unopened products can be exchanged within 14 days of delivery. To start an exchange, email us at <a href="mailto:y.allternative.living@gmail.com">y.allternative.living@gmail.com</a> with your order number.</p>
+          <p><strong>Exchange Shipping Costs:</strong> Unless we made a mistake with your order (e.g., sent the wrong item), the customer is responsible for all shipping costs on exchanges.</p>
+          <p><strong>Damages and Issues:</strong> Did your order arrive broken, damaged, or completely wrong? That's on us. Email us within 7 days of receiving the order with photos of the damaged item and packaging, and we'll make it right with a replacement or refund.</p>
+          <p><strong>Refund Timeline:</strong> If a refund is issued (for damaged or incorrect orders), it will typically be processed within 5–10 business days after we confirm the issue. Refunds go back to the original payment method.</p>
         </div>
         <hr class="rule">
 
         <div class="reveal">
-          <h3>Do you have unscented or sensitive-skin options?</h3>
-          <p>We do. The Y'allternative Miracle Balm is unscented and essential-oil-free, made for skin that side-eyes fragrance.</p>
+          <h2>Questions?</h2>
+          <p>If you're not sure about a policy, just ask. Email us at <a href="mailto:y.allternative.living@gmail.com">y.allternative.living@gmail.com</a> or DM us on Instagram, and we'll sort it out.</p>
         </div>
-        <hr class="rule">
 
-        <div class="reveal">
-          <h3>Can I get something custom or in bulk?</h3>
-          <p>Yep. Email us or send an Instagram DM with what you're picturing (gifts, market swag, wedding favors, whatever) and we'll figure it out together.</p>
-        </div>
-        <hr class="rule">
-
-        <div class="reveal">
-          <h3>Where can I meet you in person?</h3>
-          <p>Farmers markets and Pride events around Upstate SC and beyond. Check out our <a href="events.html">events page</a> or follow our socials so you know exactly where and when we'll be set up next.</p>
-        </div>
-        <!-- FAQ:END -->
       </div>
     </div>
   </section>
 
-  <!-- CLOSING CTA -->
+  <!-- CLOSING -->
   <section class="cta-band">
     <div class="container">
-
-      <h2>Can't Wait To Hear From You</h2>
-      <p style="max-width:68ch;margin:0 auto 28px;">While you wait on us to write back, go on and treat yourself: salves, soaks, and scents for the black sheep & bold hearts are just a click away.</p>
+      <span class="eyebrow">Keep Shopping</span>
+      <h2>Back To The Good Stuff</h2>
+      <p style="max-width:58ch;margin:0 auto 28px;">Questions about any of this? <a href="contact.html">Reach out</a> any time. Otherwise, head on back to <a href="index.html">the homepage</a> or go treat yourself.</p>
       <a class="btn btn-primary" href="shop.html">Shop The Collection</a>
     </div>
   </section>

@@ -32,10 +32,10 @@
 <!-- Premium modern typography for the brand's southern-alt vibe -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&family=Outfit:wght@300;400;500;600;700&display=swap">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&family=Outfit:wght@300;400;500;600;700&display=swap" media="print" onload="this.media='all'">
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Gloock&family=DM+Sans:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=DM+Sans:wght@400;500;700&display=swap" media="print" onload="this.media='all'">
 <noscript>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&family=Outfit:wght@300;400;500;600;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=DM+Sans:wght@400;500;700&display=swap">
 </noscript>
 <!-- Warm up the two third-party origins this page actually talks to,
      so the first Add to Cart click (Snipcart, lazy-loaded on interaction)
@@ -139,8 +139,9 @@
 <header class="site-header">
   <nav class="nav">
     <a class="brand" href="index.html" aria-label="Y'allternative Living home">
-      <img src="assets/img/logo.png" alt="Y'allternative Living logo" width="42" height="42">
-      <span class="brand-word">Y'allternative<small>Living</small></span>
+      <img class="logo-desktop" src="assets/img/logo.png" alt="Y'allternative Living icon" width="48" height="48">
+      <img class="logo-mobile" src="assets/img/logo.jpg" alt="Y'allternative Living logo" height="48" width="48">
+      <span class="brand-word">Y'allternative Living</span>
     </a>
     <ul class="nav-links" id="navLinks">
       <li><a href="index.html">Home</a></li>
@@ -151,13 +152,15 @@
     </ul>
     <div class="nav-cta">
       <button class="cart-toggle snipcart-checkout" type="button" aria-label="View your cart">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.5 3h2l2.6 12.6a2 2 0 0 0 2 1.6h8.4a2 2 0 0 0 2-1.6L21 8H6"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="icon-cart"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
         <span class="badge snipcart-items-count" aria-live="polite"></span>
       </button>
       <button type="button" class="theme-toggle" id="themeToggle" role="switch" aria-checked="false" aria-label="Toggle dark and light mode">
-        <span class="knob" aria-hidden="true">🌙</span>
+        <span class="knob" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-moon"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-sun"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span>
       </button>
-      <button type="button" class="nav-toggle" aria-label="Open menu" aria-expanded="false" aria-controls="navLinks">☰</button>
+      <button type="button" class="nav-toggle" aria-label="Open menu" aria-expanded="false" aria-controls="navLinks">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-menu"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+      </button>
     </div>
   </nav>
 </header>
@@ -167,20 +170,12 @@
   <div class="page-hero">
     <div class="container">
       <p class="breadcrumb"><a href="index.html">Home</a> / Privacy Policy</p>
-      <span class="eyebrow">The Fine Print, Sweetened</span>
+      <span class="eyebrow">Privacy Policy</span>
       <h1>Privacy Policy</h1>
       <p class="lede">We don't like small print any more than you do, so here's what actually happens with your information when you spend time on this site: no jargon, no funny business.</p>
     </div>
   </div>
 
-  <!-- NOT LEGAL ADVICE NOTICE -->
-  <section class="section-tight" style="padding-bottom:0;">
-    <div class="container">
-      <div class="policy-notice reveal">
-        <p><strong>Heads up:</strong> this is a plain-language privacy policy written for a small, handmade-goods business, not a document drafted by a lawyer, and not legal advice. It's meant to tell you honestly what this site does and doesn't do with your information. For ironclad legal compliance certainty, have an actual attorney review it.</p>
-      </div>
-    </div>
-  </section>
 
   <!-- POLICY BODY -->
   <section class="section-tight">
@@ -225,7 +220,7 @@
 
         <div class="reveal">
           <h2>Fonts</h2>
-          <p>This site's typefaces are hosted on our own server, not Google Fonts or any other third party. Loading a page doesn't send a request (or your IP address) anywhere else just to render text.</p>
+          <p>This site loads its typefaces from Google Fonts. That means your browser sends a request to Google's servers when a page loads, which may include your IP address. Google's privacy policy for this service is available at <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">policies.google.com/privacy</a>. No other font-related third parties are involved.</p>
         </div>
         <hr class="rule">
 
@@ -267,7 +262,7 @@
   <!-- CLOSING -->
   <section class="cta-band">
     <div class="container">
-      <span class="eyebrow">That's Everything</span>
+      <span class="eyebrow">Keep Shopping</span>
       <h2>Back To The Good Stuff</h2>
       <p style="max-width:58ch;margin:0 auto 28px;">Questions about any of this? <a href="contact.html">Reach out</a> any time. Otherwise, head on back to <a href="index.html">the homepage</a> or go treat yourself.</p>
       <a class="btn btn-primary" href="shop.html">Shop The Collection</a>
@@ -280,10 +275,11 @@
     <div class="footer-grid">
       <div class="footer-brand">
         <div class="brand" style="margin-bottom:16px;">
-          <img src="assets/img/logo.png" alt="Y'allternative Living logo" width="42" height="42">
+          <img class="logo-desktop" src="assets/img/logo.png" alt="Y'allternative Living icon" width="48" height="48">
+      <img class="logo-mobile" src="assets/img/logo.jpg" alt="Y'allternative Living logo" height="48">
           <span class="brand-word">Y'allternative<small>Living</small></span>
         </div>
-        <p>Handmade self-care for the black sheep & bold hearts. Queer-owned, Southern-raised, out of Landrum, SC.</p>
+        <p>Handmade self-care for the black sheep &amp; bold hearts. Queer-owned, Southern-raised, out of Landrum, SC.</p>
         <div class="social-row">
           <a href="https://www.instagram.com/yallternativeliving" target="_blank" rel="noopener" aria-label="Instagram">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1"/></svg>
@@ -357,7 +353,7 @@
     <div class="pride-rule"></div>
     <p class="footer-disclaimer">Handmade self-care, not medicine. Nothing sold here is intended to diagnose, treat, cure, or prevent any condition. Got a real skin or health concern? See an actual doctor, then treat yourself to something that smells nice after.</p>
     <div class="footer-bottom">
-      <span>&copy; <span id="year"></span> Y'allternative Living. Handmade with grit &amp; glitter. &middot; <a href="privacy.html">Privacy Policy</a></span>
+      <span>&copy; <span id="year"></span> Y'allternative Living. Handmade with grit &amp; glitter. &middot; <a href="policies.html">Shipping &amp; Returns</a> &middot; <a href="terms.html">Terms of Service</a> &middot; <a href="privacy.html">Privacy Policy</a></span>
       <span>Queer-owned &middot; Southern-raised &middot; Alt-inspired</span>
     </div>
   </div>

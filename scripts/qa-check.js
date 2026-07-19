@@ -36,6 +36,10 @@ var fs = require("fs");
 var path = require("path");
 var { execSync } = require("child_process");
 
+function escapeHtml(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 var ROOT = path.join(__dirname, "..");
 var PAGES = [
   "index.html",
@@ -44,6 +48,8 @@ var PAGES = [
   "contact.html",
   "events.html",
   "privacy.html",
+  "terms.html",
+  "policies.html",
   "404.html"
 ];
 
@@ -933,7 +939,10 @@ section("Site FAQ (single source, no duplication)");
       return {
         "@type": "Question",
         name: item.question,
-        acceptedAnswer: { "@type": "Answer", text: item.answer }
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: item.answer.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+        }
       };
     })
   };
@@ -973,7 +982,9 @@ section("Site FAQ (single source, no duplication)");
       visibleItems = [];
     while ((m = itemRe.exec(markerMatch[1]))) visibleItems.push({ q: m[1].trim(), a: m[2].trim() });
     var expectedItems = FAQ.map(function (item) {
-      return { q: item.question, a: item.answer };
+      var escAnswer = escapeHtml(item.answer);
+      var renderedAnswer = escAnswer.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+      return { q: escapeHtml(item.question), a: renderedAnswer };
     });
     if (JSON.stringify(visibleItems) === JSON.stringify(expectedItems)) {
       ok("contact.html visible FAQ prose matches products-data.js's faq array");
