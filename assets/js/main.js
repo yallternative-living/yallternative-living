@@ -1895,6 +1895,14 @@
     });
   })();
   if ("serviceWorker" in navigator) {
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (!refreshing) {
+        refreshing = true;
+        window.location.reload();
+      }
+    });
+
     function registerSW() {
       navigator.serviceWorker.register("/sw.js").catch((err) => {
         console.error("Service Worker registration failed:", err.toString());

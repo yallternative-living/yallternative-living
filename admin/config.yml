@@ -284,7 +284,7 @@ collections:
             required: false
             summary: "{{fields.dateLabel}} — {{fields.name}}"
             fields:
-              - { name: date, label: "Event Date", widget: datetime, format: "YYYY-MM-DD", date_format: "YYYY-MM-DD", time_format: false, hint: "Select the date of the event (used to automatically sort and hide past events)." }
+              - { name: date, label: "Event Date", widget: datetime, format: "YYYY-MM-DD", date_format: "MM/DD/YYYY", time_format: false, hint: "Select the date of the event (used to automatically sort and hide past events)." }
               - { name: dateLabel, label: "Date shown on the page (e.g. \"Sat, Sep 12, 2026 · 9am-2pm\")", widget: string }
               - { name: name, label: "Event Name (e.g. Landrum Farmers Market)", widget: string }
               - { name: type, label: "Type (e.g. Farmers Market, Fair, Pride Event)", widget: string }
@@ -329,7 +329,7 @@ collections:
                 widget: string
                 required: false
                 hint: "A product's ID (e.g. sleep-salve), or leave blank for a general/whole-shop review."
-              - { name: date, label: "Publish Date", widget: datetime, format: "YYYY-MM-DD", date_format: "YYYY-MM-DD", time_format: false, required: false, hint: "Select the date the review was written/published." }
+              - { name: date, label: "Publish Date", widget: datetime, format: "YYYY-MM-DD", date_format: "MM/DD/YYYY", time_format: false, required: false, hint: "Select the date the review was written/published." }
 
   - name: content
     label: "4. Page Wording"
