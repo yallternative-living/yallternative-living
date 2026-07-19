@@ -354,7 +354,7 @@ section{
     font-variation-settings:"opsz" 40, "wght" 420;
     
     @media (max-width: 420px) {
-      font-size:1.25rem;
+      font-size:1.15rem;
     }
     
     /* "Living" now inherits the same styling as "Y'allternative" per the user's request, appearing on the same line with a small left margin acting as a space. */
@@ -368,10 +368,6 @@ section{
       color:inherit;
       font-weight:inherit;
       font-variation-settings:inherit;
-      
-      @media (max-width: 420px) {
-        font-size:.7rem;
-      }
     }
   }
 }
@@ -475,10 +471,10 @@ section{
 }
 
 .hero-grid{
-  display:grid; grid-template-columns: 1.25fr .75fr; gap:48px; align-items:center;
+  display:grid; grid-template-columns: 1.1fr .9fr; gap:48px; align-items:center;
   
   @container (max-width: 1050px) {
-    grid-template-columns: 1.1fr .9fr; gap:40px;
+    grid-template-columns: 1fr 1fr; gap:40px;
   }
   
   @container (max-width: 900px) {
