@@ -968,28 +968,32 @@
             <textarea id="giftMessage" rows="2" placeholder="Write a nice message..."></textarea>
           </div>
 
-          <button class="btn btn-primary btn-block snipcart-add-item"
-            id="addGiftCardBtn"
-            data-item-id="yallternative-gift-card"
-            data-item-name="Digital Gift Card"
-            data-item-price="10.00"
-            data-item-url="/assets/data/snipcart-products.json"
-            data-item-image="assets/img/gift-card.png"
-            data-item-description="Digital Gift Card"
-            data-item-custom1-name="Amount"
-            data-item-custom1-options="Preset $10[+0.00]|Preset $15[+5.00]|Preset $20[+10.00]|Preset $25[+15.00]|Preset $30[+20.00]|Preset $35[+25.00]|Preset $40[+30.00]|Preset $45[+35.00]|Preset $50[+40.00]|Preset $55[+45.00]|Preset $60[+50.00]|Preset $65[+55.00]|Preset $70[+60.00]|Preset $75[+65.00]|Preset $80[+70.00]|Preset $85[+75.00]|Preset $90[+80.00]|Preset $95[+85.00]|Preset $100[+90.00]|Preset $150[+140.00]|Preset $200[+190.00]|Preset $250[+240.00]|Preset $500[+490.00]"
-            data-item-custom1-value="Preset $25"
-            data-item-custom2-name="Recipient Email"
-            data-item-custom2-required="true"
-            data-item-custom2-value=""
-            data-item-custom3-name="Sender Name"
-            data-item-custom3-required="true"
-            data-item-custom3-value=""
-            data-item-custom4-name="Message"
-            data-item-custom4-required="false"
-            data-item-custom4-value="">
-            Add Gift Card to Cart
-          </button>
+          <div class="gift-card-actions">
+            <button class="btn btn-primary btn-block snipcart-add-item"
+              id="addGiftCardBtn"
+              data-item-id="yallternative-gift-card"
+              data-item-name="Digital Gift Card"
+              data-item-price="10.00"
+              data-item-url="/assets/data/snipcart-products.json"
+              data-item-image="assets/img/gift-card.png"
+              data-item-description="Digital Gift Card"
+              data-item-custom1-name="Amount"
+              data-item-custom1-options="Preset $10[+0.00]|Preset $15[+5.00]|Preset $20[+10.00]|Preset $25[+15.00]|Preset $30[+20.00]|Preset $35[+25.00]|Preset $40[+30.00]|Preset $45[+35.00]|Preset $50[+40.00]|Preset $55[+45.00]|Preset $60[+50.00]|Preset $65[+55.00]|Preset $70[+60.00]|Preset $75[+65.00]|Preset $80[+70.00]|Preset $85[+75.00]|Preset $90[+80.00]|Preset $95[+85.00]|Preset $100[+90.00]|Preset $150[+140.00]|Preset $200[+190.00]|Preset $250[+240.00]|Preset $500[+490.00]"
+              data-item-custom1-value="Preset $25"
+              data-item-custom2-name="Recipient Email"
+              data-item-custom2-required="true"
+              data-item-custom2-value=""
+              data-item-custom3-name="Sender Name"
+              data-item-custom3-required="true"
+              data-item-custom3-value=""
+              data-item-custom4-name="Message"
+              data-item-custom4-required="false"
+              data-item-custom4-value=""
+              style="margin:0; flex:1;">
+              Add Gift Card to Cart
+            </button>
+            <a href="#shopSearch" class="btn btn-outline" style="flex:0 0 auto; display:flex; align-items:center; justify-content:center; white-space:nowrap;">Back to Shop</a>
+          </div>
         </div>
       </div>
     </div>
@@ -1008,7 +1012,7 @@
       <div class="section-head">
 
         <h2>Got Questions?</h2>
-        <p class="muted">Shipping, returns, custom orders, unscented options. <a href="faq.html">check our FAQ</a> before you check out.</p>
+        <p class="muted">Shipping, returns, custom orders, unscented options. <a href="faq.html" target="_blank" rel="noopener">check our FAQ</a> before you check out.</p>
       </div>
     </div>
   </section>

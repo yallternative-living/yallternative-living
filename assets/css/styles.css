@@ -2036,6 +2036,17 @@ body > .skiptranslate {
   }
 }
 
+.gift-card-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+@media (max-width: 600px) {
+  .gift-card-actions {
+    flex-direction: column;
+  }
+}
+
 /* ── Event Card Specifics ──────────────────────────── */
 .event-card .card-body h3 {
   margin-bottom: 8px;

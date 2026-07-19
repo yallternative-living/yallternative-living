@@ -173,7 +173,37 @@
       var hp = form.querySelector('input[name="footer_website"]');
       if (hp && hp.value) {
         e.preventDefault();
+        return;
       }
+
+      // Check if this is local testing / placeholder action URL
+      if (form.action.indexOf("YOUR_KIT_FORM_ACTION_URL") !== -1) {
+        e.preventDefault();
+        var box = form.closest(".footer-signup");
+        if (box) box.classList.add("is-subscribed");
+        return;
+      }
+
+      // Submit via AJAX (fetch) to prevent page reload/redirect
+      e.preventDefault();
+      var button = form.querySelector('button[type="submit"]');
+      var originalText = button.textContent;
+      button.disabled = true;
+      button.textContent = "Joining...";
+
+      fetch(form.action, {
+        method: "POST",
+        body: new FormData(form),
+        mode: "no-cors"
+      })
+        .then(function () {
+          var box = form.closest(".footer-signup");
+          if (box) box.classList.add("is-subscribed");
+        })
+        .catch(function () {
+          // Fallback to standard form submit in case of network issues
+          form.submit();
+        });
     });
   });
 
@@ -194,6 +224,19 @@
       window.history.replaceState({}, "", window.location.pathname + window.location.hash);
     }
   }
+
+  // Smooth scroll helper for Gift Cards - auto focus recipient email after jump
+  document.addEventListener("click", function (e) {
+    var target = e.target.closest('a[href="#gift-cards"]');
+    if (target) {
+      setTimeout(function () {
+        var emailInput = document.getElementById("giftRecipientEmail");
+        if (emailInput) {
+          emailInput.focus();
+        }
+      }, 500);
+    }
+  });
 
   /* ---------- Review form (shop.html): honeypot + AJAX submit ----------
      Same honeypot pattern as the newsletter form above (shared .form-hp
@@ -1449,33 +1492,66 @@
         return new Date(dateB) - new Date(dateA);
       });
 
-      // Slice to top 3 most recent appearances
-      var displayPast = sortedPast.slice(0, 3);
+      function renderPastEventsCarousel() {
+        // Slice to top 3 most recent appearances
+        var displayPast = sortedPast.slice(0, 3);
 
-      if (displayPast.length) {
-        pastEl.innerHTML = '<div class="events-carousel-inner">' +
-          displayPast.map(function (ev, index) {
-            var cardHtml = eventCardHTML(ev);
-            if (index === 0) {
-              return cardHtml.replace('class="card event-card reveal"', 'class="card event-card active"');
-            } else {
-              return cardHtml.replace('class="card event-card reveal"', 'class="card event-card"');
-            }
-          }).join("") +
-          '</div>' +
-          '<button class="carousel-arrow carousel-prev" aria-label="Previous appearance">&#8249;</button>' +
-          '<button class="carousel-arrow carousel-next" aria-label="Next appearance">&#8250;</button>' +
-          '<div class="carousel-dots">' +
-          displayPast.map(function (_, i) {
-            return '<button class="carousel-dot' + (i === 0 ? ' active' : '') + '" aria-label="Go to slide ' + (i + 1) + '" data-index="' + i + '"></button>';
-          }).join("") +
-          '</div>';
+        if (displayPast.length) {
+          pastEl.innerHTML = '<div class="events-carousel-inner">' +
+            displayPast.map(function (ev, index) {
+              var cardHtml = eventCardHTML(ev);
+              if (index === 0) {
+                return cardHtml.replace('class="card event-card reveal"', 'class="card event-card active"');
+              } else {
+                return cardHtml.replace('class="card event-card reveal"', 'class="card event-card"');
+              }
+            }).join("") +
+            '</div>' +
+            '<button class="carousel-arrow carousel-prev" aria-label="Previous appearance">&#8249;</button>' +
+            '<button class="carousel-arrow carousel-next" aria-label="Next appearance">&#8250;</button>' +
+            '<div class="carousel-dots">' +
+            displayPast.map(function (_, i) {
+              return '<button class="carousel-dot' + (i === 0 ? ' active' : '') + '" aria-label="Go to slide ' + (i + 1) + '" data-index="' + i + '"></button>';
+            }).join("") +
+            '</div>';
 
-        setupPastEventsRotation(pastEl);
-      } else {
-        pastEl.innerHTML = '<p class="muted center">No past pop-ups logged yet. Check back soon.</p>';
+          if (sortedPast.length > 3) {
+            var btnContainer = document.createElement("div");
+            btnContainer.className = "past-events-footer";
+            btnContainer.style.textAlign = "center";
+            btnContainer.style.marginTop = "32px";
+            btnContainer.innerHTML = '<button class="btn btn-outline btn-sm" id="toggleAllPastEvents">See All Past Pop-ups (' + sortedPast.length + ')</button>';
+            pastEl.appendChild(btnContainer);
+
+            btnContainer.querySelector("#toggleAllPastEvents").addEventListener("click", function () {
+              // Destroy carousel layout and replace with full grid
+              pastEl.innerHTML = '<div class="grid grid-3">' +
+                sortedPast.map(function (ev) {
+                  return eventCardHTML(ev);
+                }).join("") +
+                '</div>' +
+                '<div class="past-events-footer" style="text-align:center; margin-top:32px;">' +
+                '<button class="btn btn-outline btn-sm" id="toggleAllPastEvents">Show Carousel</button>' +
+                '</div>';
+
+              // Bind event to go back to carousel
+              pastEl.querySelector("#toggleAllPastEvents").addEventListener("click", function () {
+                renderPastEventsCarousel();
+              });
+
+              // Wire up scroll reveal for the new grid cards
+              wireReveal(pastEl);
+            });
+          }
+
+          setupPastEventsRotation(pastEl);
+        } else {
+          pastEl.innerHTML = '<p class="muted center">No past pop-ups logged yet. Check back soon.</p>';
+        }
+        markReveal(pastEl);
       }
-      markReveal(pastEl);
+
+      renderPastEventsCarousel();
     }
   }
 
@@ -1490,6 +1566,7 @@
     var mql = window.matchMedia("(max-width: 768px)");
 
     function goTo(index) {
+      if (!container.querySelector(".events-carousel-inner")) return;
       cards[currentIndex].classList.remove("active");
       if (dots[currentIndex]) dots[currentIndex].classList.remove("active");
       currentIndex = ((index % cards.length) + cards.length) % cards.length;
@@ -1506,6 +1583,11 @@
     function startAutoplay() {
       stopAutoplay();
       intervalId = setInterval(function () {
+        // Self-clean if the carousel was destroyed (e.g. toggled to grid)
+        if (!container.querySelector(".events-carousel-inner")) {
+          stopAutoplay();
+          return;
+        }
         if (!paused) goTo(currentIndex + 1);
       }, 4000);
     }
