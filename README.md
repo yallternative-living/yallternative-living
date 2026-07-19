@@ -4,6 +4,33 @@ A fast, dependency-free, static website for **Y'allternative Living**
 (Landrum, SC) — handmade salves, soaks, body care and apparel, sold on
 Etsy and at Upstate SC farmers markets / Pride events.
 
+## 🌸 Savanna's Quick-Start Dashboard
+
+Welcome to your website! Now that you have access to the repository, here is a quick guide to help you manage the shop, update content, and get ready to go live.
+
+### 1. How to Edit the Website (No Code Required)
+The site is equipped with a no-code **Product and Content Editor (Sveltia CMS)**. You can manage almost everything without editing code:
+* **Admin URL:** `https://<your-deployed-domain>/admin` (or via local development)
+* **What you can edit here:**
+  * Add, update, or remove products and their details (prices, descriptions, ingredients, stock).
+  * Add or move upcoming and past markets/events.
+  * Edit the Frequently Asked Questions (FAQ) questions and answers.
+  * Update basic shop details and homepage banners.
+* **How it works:** When you click "Save" in the admin dashboard, the editor automatically commits changes directly to your GitHub repository, which triggers a fresh build and deploy. (See [Section 20](#20-product-editor-sveltia-cms-at-admin-explained) for details on setting up login credentials).
+
+### 2. Live Store Setup Checklist
+To start accepting payments, gathering reviews, and interacting with customers directly on the site, you need to set up free accounts on a few services and add your keys:
+1. **Payments & Checkout (Snipcart):** Connects your bank/Stripe to let users buy directly. (See [Section 8](#8-the-shopping-system-explained) for setup details).
+2. **Email Newsletter (Kit):** Collects subscriber emails from the footer signup box. (See [Section 13](#13-newsletter-signup-explained) for setup details).
+3. **Customer Reviews (Formspree):** Sends site-submitted customer reviews to your email for moderation before they show up on the site. (See [Section 16](#16-on-site-review-submissions-explained) for setup details).
+4. **Digital Gift Cards (Gift Up! - Optional):** Handles design, delivery, and redemption of digital gift cards. (See [Section 18](#18-digital-gift-cards-explained) for setup details).
+5. **Live Customer Chat (Tawk.to - Optional):** Adds a live chat bubble to your pages. (See [Section 19](#19-live-chat-explained) for setup details).
+
+### 3. Going Live (Domain Setup)
+When you've registered your custom domain (e.g., `yallternativeliving.com`), pointing the site to it is a single-step build task. See [Section 10](#10-seo--ai-agent-optimization-already-in-place) for details on updating the domain configuration.
+
+---
+
 This file is both **maintenance documentation** for whoever edits the
 site later, and the **build spec** every page in the site follows, so
 keep it in sync if you change the design system.
@@ -1016,17 +1043,7 @@ current docs at that time.
 
 **What you (Savanna/Steven) still need to do:**
 
-1. **A GitHub repo already exists and `admin/config.yml`'s `backend.repo`
-   already points at it** — no placeholder to replace here anymore.
-   **One important caveat:** that repo currently lives under Steven's
-   personal GitHub account, not Savanna's, since it was created before
-   she had her own. Once Savanna has her own GitHub account (see the
-   account-setup guide), the repo should be transferred to hers (GitHub
-   → repo → Settings → "Transfer ownership") so the business's actual
-   code lives under the business owner's account. After transferring,
-   update `admin/config.yml`'s `backend.repo` to the new
-   `owner/repo-name` and commit that change — `npm test` will flag it if
-   this is ever forgotten (see the "backend.repo" check).
+1. **GitHub Repository Access:** The repository currently lives under Steven's personal GitHub account, and Savanna now has access as a collaborator. If you ever choose to transfer the repository directly to Savanna's own GitHub account in the future (GitHub → repo → Settings → "Transfer ownership"), make sure to update `admin/config.yml`'s `backend.repo` to the new `owner/repo-name` and commit the change (otherwise Sveltia CMS won't be able to save edits, and `npm test` will flag the mismatch).
 2. **Set up authentication.** Two real options, in order of how this
    project is already configured:
    - **Using Netlify (the default, zero extra config in `config.yml`).**
