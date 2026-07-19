@@ -21,11 +21,13 @@ I've set up a simple **Website Dashboard** where you can edit the site's content
 
 ### 2. Checklist to Launch Your Store (Linking Your Tools)
 To start taking payments, sending newsletters, or moderating reviews directly on the site, you'll need to create accounts on these external platforms and link them to the site:
-1. **[ ] Customer Checkout & Credit Cards (Snipcart):** Connects Stripe to your website so customers can add items to a cart and check out directly. (I've outlined the setup steps in [Section 8](#8-the-shopping-system-explained)).
-2. **[ ] Email Newsletters (Kit):** Collects customer email addresses from the signup box in the footer so you can send them updates. (Setup steps in [Section 13](#13-newsletter-signup-explained)).
-3. **[ ] Customer Reviews (Formspree):** Sends new customer reviews submitted on the site directly to your email inbox so you can approve them before they show up on the site. (Setup steps in [Section 16](#16-on-site-review-submissions-explained)).
-4. **[ ] Digital Gift Cards (Gift Up! - Optional):** Lets you sell digital gift cards and manage redemptions. (Setup steps in [Section 18](#18-digital-gift-cards-explained)).
-5. **[ ] Customer Live Chat (Tawk.to - Optional):** Adds a small chat bubble to the bottom of the pages so customers can ask you questions. (Setup steps in [Section 19](#19-live-chat-explained)).
+1. **[ ] Hosting & Domain (Netlify):** Connect your GitHub account to host the site for free and point your custom domain. (Setup steps in [Section 12](#12-deployment)).
+2. **[ ] Customer Checkout & Credit Cards (Snipcart):** Connects Stripe to your website so customers can add items to a cart and check out directly. (Setup steps in [Section 8](#8-the-shopping-system-explained)).
+3. **[ ] Email Newsletters (Kit):** Collects customer email addresses from the signup box in the footer so you can send them updates. (Setup steps in [Section 13](#13-newsletter-signup-explained)).
+4. **[ ] Contact Form & Customer Reviews (Formspree):** Create two separate forms to send contact page messages and new customer reviews directly to your email inbox. (Setup steps in [Section 16](#16-on-site-review-submissions-explained)).
+5. **[ ] Digital Gift Cards (Gift Up! - Optional):** Lets you sell digital gift cards and manage redemptions. (Setup steps in [Section 18](#18-digital-gift-cards-explained)).
+6. **[ ] Customer Live Chat (Tawk.to - Optional):** Adds a small chat bubble to the bottom of the pages so customers can ask you questions. (Setup steps in [Section 19](#19-live-chat-explained)).
+7. **[ ] Store Management (Sveltia CMS):** Log in to your secure admin panel using your GitHub account to manage products and content. (Setup steps in [Section 20](#20-product-editor-sveltia-cms-at-admin-explained)).
 
 ### 3. Setting Up Your Website Name (Domain Name)
 When you're ready to buy your own custom web address (like `yallternativeliving.com`), just let me know. I've already wired up a script that will automatically update the entire site to use your new address in one click. You or I can follow the steps in [Section 10](#10-seo--ai-agent-optimization-already-in-place) to run it!
