@@ -1031,7 +1031,7 @@
             <div class="card-footer" style="text-align: left; line-height: 1.3;">
               Delivered instantly by email<br>No expiration date
             </div>
-            <div class="card-amount" id="giftCardAmountDisplay" style="margin: 0;">$25</div>
+            <div class="card-amount" id="giftCardAmountDisplay" style="margin: 0;" aria-live="polite">$25</div>
           </div>
         </div>
 
@@ -1040,11 +1040,11 @@
           <div>
             <h3>Select Card Amount</h3>
             <div class="preset-grid">
-              <button type="button" class="preset-btn active" data-amount="25">$25</button>
-              <button type="button" class="preset-btn" data-amount="50">$50</button>
-              <button type="button" class="preset-btn" data-amount="100">$100</button>
-              <button type="button" class="preset-btn" data-amount="200">$200</button>
-              <button type="button" class="preset-btn" id="customPresetBtn">Custom</button>
+              <button type="button" class="preset-btn active" aria-label="Select $25 gift card amount" data-amount="25">$25</button>
+              <button type="button" class="preset-btn" aria-label="Select $50 gift card amount" data-amount="50">$50</button>
+              <button type="button" class="preset-btn" aria-label="Select $100 gift card amount" data-amount="100">$100</button>
+              <button type="button" class="preset-btn" aria-label="Select $200 gift card amount" data-amount="200">$200</button>
+              <button type="button" class="preset-btn" aria-label="Enter custom gift card amount" id="customPresetBtn">Custom</button>
             </div>
             
             <div class="custom-input-wrap" id="customAmountGroup" style="display: none;">
