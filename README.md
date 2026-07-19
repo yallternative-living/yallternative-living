@@ -4,27 +4,31 @@ A fast, dependency-free, static website for **Y'allternative Living**
 (Landrum, SC) — handmade salves, soaks, body care and apparel, sold on
 Etsy and at Upstate SC farmers markets / Pride events.
 
-## 🌸 Savanna's Quick-Start Dashboard
+## 🌸 Savanna's Quick-Start Guide
 
-Welcome to your website! This dashboard is your starting point for managing the store and going live.
+Welcome to your website! Since you aren't a computer expert, this quick-start guide is written to help you manage your shop easily and connect your payment/email tools to get ready to launch.
 
-### 1. No-Code Content Editor (Sveltia CMS)
-Manage products, events, and FAQs without touching code:
-* **Admin Link:** `https://<your-domain>/admin` (accessible once deployed)
-* **What you can edit:** Products (prices, descriptions, ingredients), upcoming/past markets, and the FAQ list.
-* **How it saves:** Saving in the editor commits directly to GitHub, triggering an automatic deploy.
-* **Setup details:** See [Section 20 (CMS Auth Setup)](#20-product-editor-sveltia-cms-at-admin-explained).
+### 1. How to Edit Your Products, Events & FAQs (No Code Required)
+We set up a simple **Website Dashboard** where you can edit the site's content using friendly forms (no typing code or editing JSON files):
+* **Where to go:** `https://<your-deployed-domain>/admin` (this link will work once your site is live)
+* **What you can do here:**
+  * **Products:** Add new items, change prices, update descriptions, ingredients, or inventory.
+  * **Markets & Events:** Add upcoming popup market dates or move past dates to "recent appearances".
+  * **FAQ List:** Change the customer questions and answers.
+  * **Shop Info:** Edit the shop description or banner texts.
+* **How it works:** When you edit something and click **Save**, the system automatically sends the updates to the website. The live site will rebuild and update itself in about a minute or two.
+* **For technical setup instructions (if Steven is helping):** See [Section 20 (CMS Auth Setup)](#20-product-editor-sveltia-cms-at-admin-explained).
 
-### 2. Going-Live Checklist (Setup External Accounts)
-Before launching, you'll need to create accounts for these services and configure their keys:
-1. **[ ] Checkout & Payments:** Set up **[Snipcart](https://snipcart.com)**. Details in [Section 8](#8-the-shopping-system-explained).
-2. **[ ] Newsletter Emails:** Set up **[Kit](https://kit.com)**. Details in [Section 13](#13-newsletter-signup-explained).
-3. **[ ] Customer Reviews:** Set up **[Formspree](https://formspree.io)**. Details in [Section 16](#16-on-site-review-submissions-explained).
-4. **[ ] Gift Cards (Optional):** Set up **[Gift Up!](https://www.giftup.com)**. Details in [Section 18](#18-digital-gift-cards-explained).
-5. **[ ] Live Chat (Optional):** Set up **[Tawk.to](https://www.tawk.to)**. Details in [Section 19](#19-live-chat-explained).
+### 2. Checklist to Launch Your Store (Linking Your Tools)
+To start taking credit card payments, sending newsletters, or moderating customer reviews, you just need to create accounts on these external platforms and link them to the site:
+1. **[ ] Customer Checkout & Credit Cards (Snipcart):** Connects Stripe to your website so customers can add items to a cart and check out directly. (Setup steps are in [Section 8](#8-the-shopping-system-explained)).
+2. **[ ] Email Newsletters (Kit):** Collects customer email addresses from the signup box in the footer so you can send them updates. (Setup steps are in [Section 13](#13-newsletter-signup-explained)).
+3. **[ ] Customer Reviews (Formspree):** Sends new customer reviews submitted on the site directly to your email inbox so you can approve them before they show up on the site. (Setup steps are in [Section 16](#16-on-site-review-submissions-explained)).
+4. **[ ] Digital Gift Cards (Gift Up! - Optional):** Lets you sell digital gift cards and manage redemptions. (Setup steps are in [Section 18](#18-digital-gift-cards-explained)).
+5. **[ ] Customer Live Chat (Tawk.to - Optional):** Adds a small chat bubble to the bottom of the pages so customers can ask you questions. (Setup steps are in [Section 19](#19-live-chat-explained)).
 
-### 3. Connect Your Domain
-When you are ready to point the site to your custom domain (e.g., `yallternativeliving.com`), see [Section 10](#10-seo--ai-agent-optimization-already-in-place) for the single-step configuration to map everything automatically.
+### 3. Setting Up Your Website Name (Domain Name)
+When you buy your own custom web address (like `yallternativeliving.com`), we have a setup ready to point your site to it. Ask Steven to update the domain settings (steps in [Section 10](#10-seo--ai-agent-optimization-already-in-place)) when you're ready to launch!
 
 ---
 
