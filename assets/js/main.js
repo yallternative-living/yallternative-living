@@ -543,7 +543,9 @@
     var options = p.variants.options
       .map(function (o) {
         var delta = o.priceDelta || 0;
-        var priceSuffix = delta ? " (" + (delta < 0 ? "-$" + Math.abs(delta).toFixed(2) : "+$" + delta.toFixed(2)) + ")" : "";
+        var priceSuffix = delta
+          ? " (" + (delta < 0 ? "-$" + Math.abs(delta).toFixed(2) : "+$" + delta.toFixed(2)) + ")"
+          : "";
         return (
           '<option value="' +
           attrEsc(o.label) +
@@ -1860,11 +1862,9 @@
   })();
   if ("serviceWorker" in navigator) {
     function registerSW() {
-      navigator.serviceWorker
-        .register("/sw.js")
-        .catch((err) => {
-          console.error("Service Worker registration failed:", err.toString());
-        });
+      navigator.serviceWorker.register("/sw.js").catch((err) => {
+        console.error("Service Worker registration failed:", err.toString());
+      });
     }
     if (document.readyState === "complete") {
       registerSW();
