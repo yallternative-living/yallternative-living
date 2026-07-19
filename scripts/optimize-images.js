@@ -54,7 +54,7 @@ var AVIF_EFFORT = 2;
 
 // Small/UI images that don't need the responsive treatment --
 // they're already tiny and used at a fixed, small size everywhere.
-var SKIP_EXACT = ["logo.jpg"];
+var SKIP_EXACT = ["logo.jpg", "logo.png"];
 
 function shouldSkip(filename) {
   if (SKIP_EXACT.indexOf(filename) !== -1) return true;
@@ -63,7 +63,7 @@ function shouldSkip(filename) {
 }
 
 async function optimizeOne(filename) {
-  var base = filename.replace(/\.jpe?g$/i, "");
+  var base = filename.replace(/\.(jpe?g|png)$/i, "");
   var srcPath = path.join(IMG_DIR, filename);
   var meta = await sharp(srcPath).metadata();
   var srcWidth = meta.width || 1200;
@@ -151,7 +151,7 @@ async function run() {
   var files = fs
     .readdirSync(IMG_DIR)
     .filter(function (f) {
-      return /\.jpe?g$/i.test(f) && !shouldSkip(f);
+      return /\.(jpe?g|png)$/i.test(f) && !shouldSkip(f);
     })
     .sort();
 
@@ -174,7 +174,7 @@ async function run() {
       return s.trim();
     });
     files = files.filter(function (f) {
-      var base = f.replace(/\.jpe?g$/i, "");
+      var base = f.replace(/\.(jpe?g|png)$/i, "");
       return wanted.indexOf(base) !== -1;
     });
     if (!files.length) {

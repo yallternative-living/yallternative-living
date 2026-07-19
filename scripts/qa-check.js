@@ -104,7 +104,7 @@ section("Source data files (assets/data/*.json)");
   { file: "assets/data/products.json", keys: ["products"] },
   { file: "assets/data/events.json", keys: ["upcoming", "past"] },
   { file: "assets/data/site-reviews.json", keys: ["reviews"] },
-  { file: "assets/data/content.json", keys: ["home", "about"] }
+  { file: "assets/data/content.json", keys: ["site", "home", "about", "contact", "shop"] }
 ].forEach(function (spec) {
   var full = path.join(ROOT, spec.file);
   if (!fs.existsSync(full)) {
@@ -171,7 +171,7 @@ PAGES.forEach(function (page) {
   refs.forEach(function (r) {
     var m = r.match(/"([^"]+)"$/);
     if (!m) return;
-    var target = m[1];
+    var target = m[1].replace(/<!--[\s\S]*?-->/g, "");
     if (/^(https?:|mailto:|tel:|#|data:|\/\/)/.test(target)) return;
     var clean = target.split("#")[0].split("?")[0];
     if (!clean) return;
@@ -191,7 +191,7 @@ var imgRefs = new Set();
     PAGES.map(function (p) {
       return path.join(ROOT, p);
     }),
-    ["assets/js/products-data.js", "assets/js/image-manifest.js", "assets/data/products.json"].map(
+    ["assets/js/products-data.js", "assets/js/image-manifest.js", "assets/data/products.json", "assets/data/content.json"].map(
       function (p) {
         return path.join(ROOT, p);
       }

@@ -334,6 +334,14 @@ collections:
         file: assets/data/content.json
         format: json
         fields:
+          - name: site
+            label: Global Site Assets (Logos)
+            widget: object
+            collapsed: true
+            fields:
+              - { name: logoDesktop, label: "Desktop Logo (suggested 48x48 PNG)", widget: image }
+              - { name: logoMobile, label: "Mobile Logo (suggested 48x48 JPG/PNG)", widget: image }
+
           - name: home
             label: Homepage
             widget: object
@@ -341,6 +349,9 @@ collections:
             fields:
               - { name: heroTitle, label: "Hero headline (the big line on the homepage)", widget: string }
               - { name: heroText, label: "Hero paragraph (under the headline)", widget: text }
+              - { name: heroImage, label: "Hero Image (unisex-tshirt)", widget: image }
+              - { name: featureImage, label: "Feature Image (shea-butter)", widget: image }
+
           - name: about
             label: About page
             widget: object
@@ -353,3 +364,19 @@ collections:
                 label: "Your story"
                 widget: text
                 hint: "Separate paragraphs with a blank line -- each becomes its own paragraph on the page."
+              - { name: bioImage, label: "Bio Image (unisex-tshirt)", widget: image }
+              - { name: secondaryImage, label: "Secondary Image (beard-salve)", widget: image }
+
+          - name: contact
+            label: Contact page
+            widget: object
+            collapsed: true
+            fields:
+              - { name: image, label: "Feature Image (backroad-soak)", widget: image }
+
+          - name: shop
+            label: Shop page
+            widget: object
+            collapsed: true
+            fields:
+              - { name: giftCardImage, label: "Gift Card Background", widget: image }
