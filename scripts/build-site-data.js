@@ -596,44 +596,94 @@ function injectPageCopy(page, pageKey) {
 
     if (isImage) {
       var imgPath = raw.replace(/^\/+/, "");
-      
-      // Inject fallback src
-      var mSrc = "YL:src:" + pageKey + "\\." + key;
-      var reSrc = new RegExp("(<!--" + mSrc + "-->)[\\s\\S]*?(<!--/" + mSrc + "-->)");
-      if (reSrc.test(html)) {
-        html = html.replace(reSrc, function(match, open, close) {
-          return open + imgPath + close;
-        });
-      }
-
-      // Check manifest for responsive sources
       var entry = MANIFEST[imgPath];
-      var avifSrcset = "";
-      var webpSrcset = "";
-      if (entry && entry.variants) {
-        avifSrcset = entry.variants.avif.map(function(v) { return v.file + " " + v.width + "w"; }).join(", ");
-        webpSrcset = entry.variants.webp.map(function(v) { return v.file + " " + v.width + "w"; }).join(", ");
-      } else {
-        // Fallback to original image if no responsive sizes exist
-        avifSrcset = imgPath;
-        webpSrcset = imgPath;
-      }
+      
+      var m = "YL:" + pageKey + "\\." + key;
+      var reHtml = new RegExp("(<!--" + m + "-->)[\\s\\S]*?(<!--/" + m + "-->)");
+      var reCss = new RegExp("(\\/\\*" + m + "\\*\\/)[\\s\\S]*?(\\/\\*(?:\\\\|\\/)?YL:" + pageKey + "\\." + key + "\\*\\/)");
 
-      // Inject avif srcset
-      var mAvif = "YL:srcset-avif:" + pageKey + "\\." + key;
-      var reAvif = new RegExp("(<!--" + mAvif + "-->)[\\s\\S]*?(<!--/" + mAvif + "-->)");
-      if (reAvif.test(html)) {
-        html = html.replace(reAvif, function(match, open, close) {
-          return open + avifSrcset + close;
+      if (reHtml.test(html)) {
+        html = html.replace(reHtml, function (match, open, close) {
+          // Parse original attributes from the template tag
+          var sizesMatch = match.match(/sizes="([^"]*)"/i) || match.match(/sizes='([^']*)'/i);
+          var sizes = sizesMatch ? sizesMatch[1] : "";
+
+          var imgTagMatch = match.match(/<img\s+[^>]+>/i);
+          var imgTag = imgTagMatch ? imgTagMatch[0] : "";
+
+          var altMatch = imgTag.match(/alt="([^"]*)"/i) || imgTag.match(/alt='([^']*)'/i);
+          var alt = altMatch ? altMatch[1] : "";
+
+          var classNameMatch = imgTag.match(/class="([^"]*)"/i) || imgTag.match(/class='([^']*)'/i);
+          var className = classNameMatch ? classNameMatch[1] : "";
+
+          var widthMatch = imgTag.match(/width="([^"]*)"/i) || imgTag.match(/width='([^']*)'/i);
+          var width = widthMatch ? widthMatch[1] : "";
+
+          var heightMatch = imgTag.match(/height="([^"]*)"/i) || imgTag.match(/height='([^']*)'/i);
+          var height = heightMatch ? heightMatch[1] : "";
+
+          var loadingMatch = imgTag.match(/loading="([^"]*)"/i) || imgTag.match(/loading='([^']*)'/i);
+          var loading = loadingMatch ? loadingMatch[1] : "";
+
+          var fetchpriorityMatch = imgTag.match(/fetchpriority="([^"]*)"/i) || imgTag.match(/fetchpriority='([^']*)'/i);
+          var fetchpriority = fetchpriorityMatch ? fetchpriorityMatch[1] : "";
+
+          var decodingMatch = imgTag.match(/decoding="([^"]*)"/i) || imgTag.match(/decoding='([^']*)'/i);
+          var decoding = decodingMatch ? decodingMatch[1] : "";
+
+          var isPicture = /<picture/i.test(match);
+          var innerTag = "";
+
+          if (isPicture) {
+            var avifSrcset = "";
+            var webpSrcset = "";
+            if (entry && entry.variants) {
+              avifSrcset = entry.variants.avif.map(function (v) { return v.file + " " + v.width + "w"; }).join(", ");
+              webpSrcset = entry.variants.webp.map(function (v) { return v.file + " " + v.width + "w"; }).join(", ");
+            } else {
+              avifSrcset = imgPath;
+              webpSrcset = imgPath;
+            }
+
+            innerTag = "<picture>";
+            if (avifSrcset) {
+              innerTag += "\n            <source type=\"image/avif\" srcset=\"" + avifSrcset + "\"";
+              if (sizes) innerTag += " sizes=\"" + sizes + "\"";
+              innerTag += ">";
+            }
+            if (webpSrcset) {
+              innerTag += "\n            <source type=\"image/webp\" srcset=\"" + webpSrcset + "\"";
+              if (sizes) innerTag += " sizes=\"" + sizes + "\"";
+              innerTag += ">";
+            }
+            innerTag += "\n            <img src=\"" + imgPath + "\"";
+            if (alt) innerTag += " alt=\"" + alt + "\"";
+            if (className) innerTag += " class=\"" + className + "\"";
+            if (width) innerTag += " width=\"" + width + "\"";
+            if (height) innerTag += " height=\"" + height + "\"";
+            if (loading) innerTag += " loading=\"" + loading + "\"";
+            if (fetchpriority) innerTag += " fetchpriority=\"" + fetchpriority + "\"";
+            if (decoding) innerTag += " decoding=\"" + decoding + "\"";
+            innerTag += ">";
+            innerTag += "\n          </picture>";
+          } else {
+            innerTag = "<img src=\"" + imgPath + "\"";
+            if (alt) innerTag += " alt=\"" + alt + "\"";
+            if (className) innerTag += " class=\"" + className + "\"";
+            if (width) innerTag += " width=\"" + width + "\"";
+            if (height) innerTag += " height=\"" + height + "\"";
+            if (loading) innerTag += " loading=\"" + loading + "\"";
+            if (fetchpriority) innerTag += " fetchpriority=\"" + fetchpriority + "\"";
+            if (decoding) innerTag += " decoding=\"" + decoding + "\"";
+            innerTag += ">";
+          }
+
+          return open + "\n          " + innerTag + "\n          " + close;
         });
-      }
-
-      // Inject webp srcset
-      var mWebp = "YL:srcset-webp:" + pageKey + "\\." + key;
-      var reWebp = new RegExp("(<!--" + mWebp + "-->)[\\s\\S]*?(<!--/" + mWebp + "-->)");
-      if (reWebp.test(html)) {
-        html = html.replace(reWebp, function(match, open, close) {
-          return open + webpSrcset + close;
+      } else if (reCss.test(html)) {
+        html = html.replace(reCss, function (match, open, close) {
+          return open + "background: url('" + imgPath + "') no-repeat center center / cover;" + close;
         });
       }
     } else {
@@ -690,9 +740,13 @@ logoMobile = logoMobile.replace(/^\/+/, "");
 
 var FOOTER_INNER = readText("assets/data/footer.html", "footer template").replace(/\s+$/, "");
 
-// Inject logo path into footer template
-var reFooterLogo = /<!--YL:src:site\.logoDesktop-->[\s\S]*?<!--\/YL:src:site\.logoDesktop-->/;
-FOOTER_INNER = FOOTER_INNER.replace(reFooterLogo, logoDesktop);
+// Inject logo path into footer template using outer comment tag
+var reFooterLogo = /(<!--YL:site\.logoDesktop-->)[\s\S]*?(<!--\/YL:site\.logoDesktop-->)/;
+FOOTER_INNER = FOOTER_INNER.replace(reFooterLogo, function (match, open, close) {
+  var altMatch = match.match(/alt="([^"]*)"/i) || match.match(/alt='([^']*)'/i);
+  var alt = altMatch ? altMatch[1] : "Y'allternative Living logo";
+  return open + '<img src="' + logoDesktop + '" alt="' + alt + '" width="42" height="42">' + close;
+});
 
 var FOOTER_BLOCK = '<footer class="site-footer">\n' + FOOTER_INNER + "\n</footer>";
 var FOOTER_RE = /<footer class="site-footer">[\s\S]*?<\/footer>/;
