@@ -609,6 +609,20 @@
       var active = list.indexOf(id) !== -1;
       btn.classList.toggle("active", active);
       btn.setAttribute("aria-pressed", active ? "true" : "false");
+      var oldLabel = btn.getAttribute("aria-label");
+      if (oldLabel) {
+        if (active) {
+          btn.setAttribute(
+            "aria-label",
+            oldLabel.replace("Save ", "Remove ").replace(" for later", " from saved items")
+          );
+        } else {
+          btn.setAttribute(
+            "aria-label",
+            oldLabel.replace("Remove ", "Save ").replace(" from saved items", " for later")
+          );
+        }
+      }
     });
   }
   function updateWishBadge() {
@@ -748,7 +762,9 @@
           "</span>" +
           '<div class="wish-item-actions">' +
           addToCartHTML(p) +
-          '<button class="wish-remove" type="button" data-id="' +
+          '<button class="wish-remove" type="button" aria-label="Remove ' +
+          attrEsc(p.name) +
+          ' from saved items" data-id="' +
           attrEsc(p.id) +
           '">Remove</button>' +
           "</div>" +
@@ -1210,9 +1226,11 @@
       attrEsc(p.id) +
       '" aria-pressed="' +
       (wished ? "true" : "false") +
-      '" aria-label="Save ' +
-      attrEsc(p.name) +
-      ' for later">' +
+      '" aria-label="' +
+      (wished
+        ? "Remove " + attrEsc(p.name) + " from saved items"
+        : "Save " + attrEsc(p.name) + " for later") +
+      '">' +
       wishHeartSVG +
       "</button>" +
       "</div>" +
@@ -1720,6 +1738,9 @@
         "</div>" +
         "</div>" +
         '<button class="cart-cross-sell__add snipcart-add-item"' +
+        ' aria-label="Add ' +
+        attrEsc(product.name) +
+        ' to cart"' +
         ' data-item-id="' +
         attrEsc(product.id) +
         '"' +
