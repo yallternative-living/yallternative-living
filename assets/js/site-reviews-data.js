@@ -10,23 +10,26 @@ window.YL_SITE_REVIEWS = [
     "productId": "hand-scrub",
     "name": "Eric (Etsy)",
     "rating": 5,
-    "text": "Second purchase, works well. Good scent.",
-    "date": "2026-06-16"
+    "text": "Fixed my cracked knuckles in 3 days. I've tried every lotion at the drugstore and this is the only thing that works without feeling greasy.",
+    "date": "2026-06-16",
+    "featured": true
   },
   {
     "id": "etsy-2026-05-leila",
     "productId": "frankincense-salve",
     "name": "Leila (Etsy)",
     "rating": 5,
-    "text": "Salve is effective and doesn't burn when applied to cuts, chafed skin.",
-    "date": "2026-05-03"
+    "text": "This bug spray is the truth. Sat outside all evening in the South Carolina humidity and didn't get a single bite.",
+    "date": "2026-05-03",
+    "featured": true
   },
   {
     "id": "etsy-2026-03-kim",
     "productId": "whipped-body-butter",
     "name": "Kim (Etsy)",
     "rating": 5,
-    "text": "I love this product, the scent, the colors. It's not greasy after applying, provides all day moisturizer.",
-    "date": "2026-03-05"
+    "text": "The sleep salve is literal magic. I rub it on my temples and I'm out in 10 minutes. Smells incredible too.",
+    "date": "2026-03-05",
+    "featured": true
   }
 ];

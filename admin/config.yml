@@ -119,6 +119,18 @@ collections:
                 default: false
                 required: false
                 hint: "Check this box to feature this product on the homepage grid."
+              - name: bestseller
+                label: Bestseller Product
+                widget: boolean
+                default: false
+                required: false
+                hint: "Check this box to highlight this item with a 'Bestseller' badge in the catalog."
+              - name: comingSoon
+                label: Coming Soon Product
+                widget: boolean
+                default: false
+                required: false
+                hint: "Check this box to show a 'Coming Soon' badge and hide the purchase options."
               - name: category
                 label: Category
                 widget: select
@@ -129,6 +141,7 @@ collections:
                   - { label: "Soaks", value: "soaks" }
                   - { label: "Potions & Spellwork", value: "potions" }
                   - { label: "Ritual & Home", value: "ritual" }
+                  - { label: "Gift Cards", value: "gift-cards" }
                 hint: Choose the shop category this product belongs to.
               - { name: price, label: "Price (USD, e.g. 16 or 16.50)", widget: number, value_type: float }
               - name: sale
@@ -336,6 +349,7 @@ collections:
                 required: false
                 hint: "A product's ID (e.g. sleep-salve), or leave blank for a general/whole-shop review."
               - { name: date, label: "Publish Date", widget: datetime, format: "YYYY-MM-DD", date_format: "MM/DD/YYYY", time_format: false, required: false, hint: "Select the date the review was written/published." }
+              - { name: featured, label: "Feature on homepage?", widget: boolean, default: false, required: false, hint: "Check this to highlight this review on the homepage testimonials grid." }
 
   - name: content
     label: "4. Page Wording"

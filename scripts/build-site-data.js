@@ -769,6 +769,37 @@ function injectPageCopy(page, pageKey) {
 }
 
 injectPageCopy("index.html", "home");
+
+// Build dynamic homepage testimonials from site-reviews.json
+function buildHomepageTestimonials() {
+  var html = readText("index.html", "index.html page");
+  var siteReviews = readJson("assets/data/site-reviews.json").reviews || [];
+  
+  // Filter for featured reviews
+  var featured = siteReviews.filter(function (r) { return r.featured; });
+  if (featured.length === 0) {
+    featured = siteReviews.slice(0, 3);
+  }
+  
+  var cardsHtml = '<div class="grid grid-3">\n';
+  featured.forEach(function (r) {
+    var stars = Array(Math.round(r.rating || 5) + 1).join("★");
+    cardsHtml += '        <div class="quote-card reveal">\n';
+    cardsHtml += '          <span class="stars" aria-hidden="true">' + stars + '</span><span class="sr-only">Rated ' + r.rating + ' out of 5 stars.</span>\n';
+    cardsHtml += '          <p>"' + escapeHtml(r.text) + '"</p>\n';
+    cardsHtml += '          <footer>' + escapeHtml(r.name) + '</footer>\n';
+    cardsHtml += '        </div>\n';
+  });
+  cardsHtml += '      </div>';
+
+  var re = /<!--YL:home\.testimonials-->[\s\S]*?<!--\/YL:home\.testimonials-->/;
+  if (re.test(html)) {
+    html = html.replace(re, "<!--YL:home.testimonials-->\n      " + cardsHtml + "\n      <!--/YL:home.testimonials-->");
+    writeFile("index.html", html);
+  }
+}
+buildHomepageTestimonials();
+
 injectPageCopy("about.html", "about");
 injectPageCopy("contact.html", "contact");
 injectPageCopy("shop.html", "shop");
