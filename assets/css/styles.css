@@ -494,15 +494,21 @@ section{
 
 .hero-art{
   position:relative;
-  max-width: 320px;
   justify-self: end;
   
   @container (max-width: 900px) {
-    max-width:420px; margin:0 auto 28px;
+    margin:0 auto 28px;
     justify-self: center;
   }
   
-  & picture{ display:block; }
+  & picture{
+    display:block;
+    max-width: 320px;
+    
+    @container (max-width: 900px) {
+      max-width: 420px;
+    }
+  }
   & img{ border-radius: var(--radius-lg); box-shadow: var(--shadow); border:1px solid var(--hide); }
 }
 
