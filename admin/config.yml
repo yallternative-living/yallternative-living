@@ -116,8 +116,14 @@ collections:
               - name: category
                 label: Category
                 widget: select
-                options: ["apparel", "salves", "body", "soaks", "potions", "ritual"]
-                hint: Must match a category "id" from the Categories list above.
+                options:
+                  - { label: "Apparel", value: "apparel" }
+                  - { label: "Salves & Balms", value: "salves" }
+                  - { label: "Body & Skin", value: "body" }
+                  - { label: "Soaks", value: "soaks" }
+                  - { label: "Potions & Spellwork", value: "potions" }
+                  - { label: "Ritual & Home", value: "ritual" }
+                hint: Choose the shop category this product belongs to.
               - { name: price, label: "Price (USD, e.g. 16 or 16.50)", widget: number, value_type: float }
               - name: sale
                 label: "Sale (Optional per-product sale)"
@@ -137,7 +143,7 @@ collections:
                 widget: list
                 label_singular: Photo
                 required: false
-                field: { name: image, label: Photo, widget: image }
+                field: { label: Photo, widget: image }
               - name: blurb
                 label: "Description (real, honest copy -- see README section 1 for the brand voice/what NOT to claim)"
                 widget: text
@@ -154,16 +160,15 @@ collections:
                   - { name: value, label: "Rating (0-5, real number from this listing's own Etsy page)", widget: number, value_type: float }
                   - { name: count, label: "Review Count (real number from this listing's own Etsy page)", widget: number, value_type: int }
               - name: stock
-                label: "Stock Count (optional -- leave blank to show no badge/cap at all)"
+                label: "Stock Count (leave blank for unlimited stock)"
                 widget: number
                 value_type: int
                 required: false
                 hint: >-
-                  Manually maintained, NOT synced from Etsy or Snipcart.
-                  0 shows "Sold Out" and disables Add to Cart. 1-5 shows
-                  "Only N left". Leave blank entirely for no badge and no
-                  Snipcart quantity cap -- today's default for every
-                  product. See README section 17.
+                  Leave blank for unlimited/made-to-order stock.
+                  Set to 0 to show "Sold Out" and disable checkout.
+                  Set to a number 1-5 to show a warning badge (e.g. "Only 3 left").
+                  (Note: This is manually updated and does not auto-sync with Etsy).
               - name: ingredients
                 label: "Ingredients / Materials list (optional)"
                 widget: list
@@ -279,7 +284,7 @@ collections:
             required: false
             summary: "{{fields.dateLabel}} — {{fields.name}}"
             fields:
-              - { name: date, label: "Date (YYYY-MM-DD -- used to sort and auto-hide past dates)", widget: string }
+              - { name: date, label: "Event Date", widget: datetime, format: "YYYY-MM-DD", date_format: "YYYY-MM-DD", time_format: false, hint: "Select the date of the event (used to automatically sort and hide past events)." }
               - { name: dateLabel, label: "Date shown on the page (e.g. \"Sat, Sep 12, 2026 · 9am-2pm\")", widget: string }
               - { name: name, label: "Event Name (e.g. Landrum Farmers Market)", widget: string }
               - { name: type, label: "Type (e.g. Farmers Market, Fair, Pride Event)", widget: string }
@@ -324,7 +329,7 @@ collections:
                 widget: string
                 required: false
                 hint: "A product's ID (e.g. sleep-salve), or leave blank for a general/whole-shop review."
-              - { name: date, label: "Date (YYYY-MM-DD -- when you're publishing it)", widget: string, required: false }
+              - { name: date, label: "Publish Date", widget: datetime, format: "YYYY-MM-DD", date_format: "YYYY-MM-DD", time_format: false, required: false, hint: "Select the date the review was written/published." }
 
   - name: content
     label: "4. Page Wording"

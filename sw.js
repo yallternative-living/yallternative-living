@@ -5,7 +5,7 @@
  */
 
 /** @const {string} Cache name key, updated on assets release. */
-const CACHE_NAME = "yallternative-cache-v10";
+const CACHE_NAME = "yallternative-cache-v11";
 
 /** @const {!Array<string>} Array of absolute URLs to be cached on installation. */
 const ASSETS_TO_CACHE = [
@@ -80,38 +80,59 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   
-  // Stale-while-revalidate for local assets
+  // Handle local same-origin assets
   if (event.request.url.startsWith(self.location.origin)) {
     const url = new URL(event.request.url);
     url.search = "";
     const cleanRequest = new Request(url.toString());
 
-    event.respondWith(
-      caches.match(cleanRequest).then(cachedResponse => {
-        const networkFetch = fetch(event.request).then(response => {
-          if (response && response.status === 200) {
-            const responseClone = response.clone();
-            caches.open(CACHE_NAME).then(cache => {
-              cache.put(cleanRequest, responseClone);
-            });
-          }
-          return response;
-        });
-        
-        if (cachedResponse) {
-          // If we have a cached response, return it immediately and run the
-          // network fetch in the background to update the cache.
-          networkFetch.catch(() => {
-            // Ignore background network errors when cache is available.
+    // Determine if the request is an HTML page navigation
+    const isNavigation = event.request.mode === 'navigate' || 
+                         (event.request.headers.get('accept') && event.request.headers.get('accept').includes('text/html'));
+
+    if (isNavigation) {
+      // Network-First strategy for HTML pages: prefer live server data when online,
+      // fall back to cache only when offline or connection is lost.
+      event.respondWith(
+        fetch(event.request)
+          .then(response => {
+            if (response && response.status === 200) {
+              const responseClone = response.clone();
+              caches.open(CACHE_NAME).then(cache => {
+                cache.put(cleanRequest, responseClone);
+              });
+            }
+            return response;
+          })
+          .catch(() => {
+            return caches.match(cleanRequest);
+          })
+      );
+    } else {
+      // Stale-While-Revalidate strategy for static assets (JS, CSS, images):
+      // serve instantly from cache, update cache from network in background.
+      event.respondWith(
+        caches.match(cleanRequest).then(cachedResponse => {
+          const networkFetch = fetch(event.request).then(response => {
+            if (response && response.status === 200) {
+              const responseClone = response.clone();
+              caches.open(CACHE_NAME).then(cache => {
+                cache.put(cleanRequest, responseClone);
+              });
+            }
+            return response;
           });
-          return cachedResponse;
-        }
-        
-        // If not in cache, return the network fetch promise directly so
-        // that network errors propagate naturally to the browser instead of
-        // returning undefined (which causes a service worker ERR_FAILED crash).
-        return networkFetch;
-      })
-    );
+          
+          if (cachedResponse) {
+            networkFetch.catch(() => {
+              // Ignore background network errors when cache is available.
+            });
+            return cachedResponse;
+          }
+          
+          return networkFetch;
+        })
+      );
+    }
   }
 });

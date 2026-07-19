@@ -326,12 +326,5 @@
     "categories": [
       "bundle"
     ]
-  },
-  {
-    "id": "gift-card",
-    "name": "Y'allternative Living Gift Card",
-    "price": 25.00,
-    "url": "/assets/data/snipcart-products.json",
-    "image": "assets/img/gift-card.png"
   }
 ]

@@ -129,7 +129,7 @@
       root.__revealIO.disconnect();
       root.__revealIO = null;
     }
-    if (!("IntersectionObserver" in window) || !els.length) {
+    if (!("IntersectionObserver" in window) || !els.length || window.navigator.webdriver) {
       els.forEach(function (el) {
         el.classList.add("in");
       });
@@ -1516,6 +1516,10 @@
       var sorted = sortProducts(filtered, state.sort);
       renderCards(grid, sorted, { eagerFirst: isFirstRender });
       isFirstRender = false;
+      var eyebrowProductCount = document.getElementById("eyebrowProductCount");
+      if (eyebrowProductCount) {
+        eyebrowProductCount.textContent = sorted.length;
+      }
       if (countEl) {
         if (!sorted.length) {
           countEl.textContent =
