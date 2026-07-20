@@ -5,6 +5,8 @@
  * @const {!Object}
  */
 window.YL_JOURNAL = {
+  "title": "Apothecary Journal",
+  "lede": "Stories, science, and small-batch updates straight from the kitchen.",
   "posts": [
     {
       "id": "magnesium-salve-benefits",

@@ -852,6 +852,39 @@ injectPageCopy("about.html", "about");
 injectPageCopy("contact.html", "contact");
 injectPageCopy("shop.html", "shop");
 
+// Dynamically inject Journal title/subheading from journal.json
+function injectJournalCopy() {
+  var journalPath = path.join(ROOT, "assets/data/journal.json");
+  if (!fs.existsSync(journalPath)) return;
+  var journal = JSON.parse(fs.readFileSync(journalPath, "utf8"));
+  
+  var pagePath = path.join(ROOT, "journal.html");
+  if (!fs.existsSync(pagePath)) return;
+  var html = fs.readFileSync(pagePath, "utf8");
+  var updated = html;
+
+  var title = escapeHtml(journal.title || "Apothecary Journal");
+  var lede = escapeHtml(journal.lede || "Stories, science, and small-batch updates straight from the kitchen.");
+
+  // Replace Title
+  var reTitle = /(<!--YL:journal\.heroTitle-->)[\s\S]*?(<!--\/YL:journal\.heroTitle-->)/g;
+  if (reTitle.test(updated)) {
+    updated = updated.replace(reTitle, "$1" + title + "$2");
+  }
+
+  // Replace Lede
+  var reLede = /(<!--YL:journal\.heroText-->)[\s\S]*?(<!--\/YL:journal\.heroText-->)/g;
+  if (reLede.test(updated)) {
+    updated = updated.replace(reLede, "$1" + lede + "$2");
+  }
+
+  if (updated !== html) {
+    writeFile("journal.html", updated);
+    console.log("[build] Injected configurations into journal.html");
+  }
+}
+injectJournalCopy();
+
 /* ---------- 4b) shared footer (single source -> all pages) ----------
    The <footer class="site-footer"> block is byte-identical on every
    page, so it lives in ONE file now: assets/data/footer.html. Editing

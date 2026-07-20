@@ -360,6 +360,8 @@ collections:
         file: assets/data/journal.json
         format: json
         fields:
+          - { name: title, label: "Journal Page Title (e.g. Apothecary Journal)", widget: string }
+          - { name: lede, label: "Journal Page Subheading (e.g. Stories, science, and small-batch updates...)", widget: text }
           - name: posts
             label: Journal Posts
             widget: list
