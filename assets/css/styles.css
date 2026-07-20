@@ -1976,7 +1976,7 @@ dialog.gift-modal[open]::backdrop {
   right: 28px;
   background: none;
   border: none;
-  color: var(--paper-dim);
+  color: var(--paper);
   font-size: 2.2rem;
   line-height: 1;
   cursor: pointer;
@@ -2002,20 +2002,16 @@ dialog.gift-modal[open]::backdrop {
   margin: 4px 0 0 0;
 }
 
-dialog.gift-modal .gift-card-widget {
-  background: none;
-  border: none;
-  padding: 0;
-  margin: 0;
-  box-shadow: none;
+::placeholder {
+  color: var(--paper-dim);
+  opacity: 1;
 }
-
 /* ── Gift Card Widget ──────────────────────────────── */
 .gift-card-widget {
   display: grid;
   grid-template-columns: 1.2fr 1.8fr;
   gap: 40px;
-  background: var(--card-bg);
+  background: var(--ink);
   border: 1px solid var(--hide);
   border-radius: var(--radius-large);
   padding: 40px;
@@ -2085,6 +2081,10 @@ dialog.gift-modal .gift-card-widget {
 .gift-card-controls h3 {
   margin: 0 0 10px;
   font-size: 1.25rem;
+}
+.gift-card-widget .field input,
+.gift-card-widget .field textarea {
+  background: var(--ink-2);
 }
 .preset-grid {
   display: grid;
