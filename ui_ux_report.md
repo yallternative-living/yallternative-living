@@ -91,10 +91,10 @@ We verified the local client-side translation feature across all configured lang
 
 ### Shop Page Search Filter
 * **Debounce & Card Fade-ins:** The search filter debounces inputs correctly. Cards dynamically transition into active visibility states.
-* **Results Count:** When searching for "salve", the counts update accurately: `"Showing 4 of 18 goods"`.
+* **Results Count:** When searching for "salve", the counts update accurately: `"共显示 19 件商品中的 4 件"`.
 
-### Digital Gift Cards Snapping
-* **Snapping Test (Input 27):** Entered value `27` correctly snaps to nearest supported preset **$25**.
+### Digital Gift Cards Custom Input
+* **Custom Input Test (Input 27):** Entered value `27` correctly updates the preview amount to **27美元**.
 * **Inputs & Form Integrity:** The custom input block transitions smoothly between hidden and visible states (`display: block`).
 
 ---

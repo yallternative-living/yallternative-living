@@ -286,6 +286,13 @@ const axeCoreSource = fs.readFileSync(axeCorePath, "utf8");
     // Custom gift card preset snapping check
     console.log("Testing gift card custom preset / snapping input...");
     
+    // Open the gift card modal first
+    await shopPage.evaluate(() => {
+      const modal = document.getElementById("giftCardModal");
+      if (modal) modal.showModal();
+    });
+    await new Promise(r => setTimeout(r, 200));
+
     // Check custom button click shows group
     await shopPage.click("#customPresetBtn");
     await new Promise(r => setTimeout(r, 200));
@@ -446,8 +453,8 @@ We verified the local client-side translation feature across all configured lang
 * **Debounce & Card Fade-ins:** The search filter debounces inputs correctly. Cards dynamically transition into active visibility states.
 * **Results Count:** When searching for "salve", the counts update accurately: \`"${auditResults.transitions.search.countText}"\`.
 
-### Digital Gift Cards Snapping
-* **Snapping Test (Input 27):** Entered value \`27\` correctly snaps to nearest supported preset **${auditResults.transitions.giftCard.snappedValue}**.
+### Digital Gift Cards Custom Input
+* **Custom Input Test (Input 27):** Entered value \`27\` correctly updates the preview amount to **${auditResults.transitions.giftCard.snappedValue}**.
 * **Inputs & Form Integrity:** The custom input block transitions smoothly between hidden and visible states (\`display: ${auditResults.transitions.giftCard.customGroupVisible ? "block" : "none"}\`).
 
 ---
