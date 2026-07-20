@@ -342,14 +342,12 @@ section{
   & img.logo-desktop {
     width: 48px;
     height: 48px;
-    border-radius: 50%;
   }
   
   & img.logo-mobile {
     display: none;
     width: auto;
     height: 48px;
-    border-radius: 6px;
   }
   
   @media (max-width: 420px) {
