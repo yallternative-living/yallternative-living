@@ -1839,6 +1839,25 @@
       });
     });
 
+    // Touch swipe gesture controls for mobile users
+    var touchStartX = 0;
+    var touchEndX = 0;
+    inner.addEventListener("touchstart", function (e) {
+      touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+    inner.addEventListener("touchend", function (e) {
+      touchEndX = e.changedTouches[0].screenX;
+      var diff = touchEndX - touchStartX;
+      if (Math.abs(diff) > 50) { // threshold of 50px
+        if (diff < 0) {
+          goTo(currentIndex + 1); // swipe left
+        } else {
+          goTo(currentIndex - 1); // swipe right
+        }
+        startAutoplay();
+      }
+    }, { passive: true });
+
     // Initial setup based on current viewport
     if (mql.matches) { enterCarouselMode(); }
   }
