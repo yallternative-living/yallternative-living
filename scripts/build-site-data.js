@@ -1108,6 +1108,9 @@ if (DOMAIN_IS_LIVE) {
     // Replace HTML comment templates: <!--YL:site.KEY-->...<!--/YL:site.KEY-->
     updated = updated.replace(/<!--YL:site\.([a-zA-Z0-9]+)-->([\s\S]*?)<!--\/YL:site\.\1-->/g, function (match, key) {
       if (key === "giftUpId") return match; // Handled separately below
+      if (key === "logoDesktop" && site[key]) {
+        return "<!--YL:site.logoDesktop-->\n          <img class=\"logo-desktop\" src=\"" + site[key] + "\" alt=\"Y'allternative Living icon\" width=\"48\" height=\"48\">\n<!--/YL:site.logoDesktop-->";
+      }
       if (site[key] !== undefined) {
         return "<!--YL:site." + key + "-->" + site[key] + "<!--/YL:site." + key + "-->";
       }
