@@ -1,34 +1,48 @@
-# Y'allternative Living
+# Y'allternative Living 🦇🌿
 
-Welcome to the Y'allternative Living website repository! This site is designed to be fast, accessible, and easy to manage without touching any code.
+Welcome to the digital home of Y'allternative Living! This repository holds the entire source code and content for your custom-built storefront.
 
-## Savanna's Quick-Start Guide
+We've designed this site from the ground up to be lightning-fast, highly accessible, and incredibly easy for you to manage—all without needing to touch a single line of code. By avoiding traditional platforms like Shopify, you own your storefront completely, with zero monthly platform subscription fees.
 
-### 1. How to Edit Your Products, Events & FAQs
-We've set up a simple **Website Dashboard** where you can edit the site's content using friendly forms:
-* **Where to go:** `https://yallternativeliving.com/admin` (this link will work once the site is live)
-* **What you can do here:**
-  * **Products:** Add new items, change prices, update descriptions, ingredients, or inventory levels. *(Note: Your Etsy star ratings and review counts are automatically fetched and synced from Etsy every night at 4:00 AM Eastern).*
-  * **Markets & Events:** Add upcoming market dates or move past dates to "recent appearances."
-  * **FAQ List:** Change the customer questions and answers.
-  * **Shop Info:** Edit the shop description or banner texts.
-* **How it works:** When you make changes and click **Save**, the system automatically sends the updates to the website. The live site will rebuild and update itself in about a minute or two.
+---
 
-### 2. Checklist to Launch Your Store
-To start taking payments, sending newsletters, or moderating reviews, follow the step-by-step guide in the **[Launch & Development Guide](docs/DEVELOPMENT.md)** or reference **[Savanna's Site Editing Guide](docs/EDITING-GUIDE.md)**.
+## 👩‍🌾 Savanna's Quick-Start Guide
 
-Here is the quick checklist of what you'll need to set up:
-1. **[ ] Accept Your GitHub Invitation**
-2. **[ ] Hosting & Domain (Netlify & Porkbun)**
-3. **[ ] Customer Checkout & Credit Cards (Snipcart & Stripe)**
-4. **[ ] Email Newsletters (Kit)**
-5. **[ ] Contact Form & Customer Reviews (Formspree)**
+### 1. The Website Dashboard (Sveltia CMS)
+We've set up a simple **Website Dashboard** where you can edit the site's content using friendly, point-and-click forms. 
+
+* **Where to go:** `https://yallternativeliving.com/admin` *(this link will be active once your site is officially live)*
+* **What you can manage here:**
+  * **Products & Bundles:** Add new items, update prices, change descriptions, edit ingredients, or manage your digital gift cards. 
+  * **Markets & Events:** Add upcoming market dates (they'll automatically appear on the Events page) or archive past dates.
+  * **FAQ List:** Keep your customer questions and answers up to date.
+  * **Shop Content:** Swap out the homepage hero image, edit your bio, or update shop policies.
+  * **Etsy Sync:** *Note: Your Etsy star ratings and review counts are automatically fetched and synced from Etsy every night at 4:00 AM Eastern!*
+
+* **How it works:** Whenever you make changes and click **Save**, the system automatically sends the updates to the website. The live site will rebuild and reflect your changes in about 1-2 minutes.
+
+### 2. Launch Checklist
+To start taking payments, sending newsletters, or moderating reviews, follow the step-by-step guide in the **[Launch & Development Guide](docs/DEVELOPMENT.md)** or reference **[Savanna's Site Editing Guide](docs/EDITING-GUIDE.md)** for a deeper dive into content management.
+
+Here is a quick checklist of the external accounts you'll need to set up for launch:
+1. **[ ] Accept Your GitHub Invitation** (To own this repository)
+2. **[ ] Hosting & Domain (Netlify & Porkbun)** (To keep the site online)
+3. **[ ] Customer Checkout & Credit Cards (Snipcart & Stripe)** (To get paid)
+4. **[ ] Email Newsletters (Kit)** (To capture emails)
+5. **[ ] Contact Form & Customer Reviews (Formspree)** (To receive messages)
 6. **[ ] Digital Gift Cards (Snipcart default / Gift Up! - Optional)**
 7. **[ ] Customer Live Chat (Tawk.to - Optional)**
 8. **[ ] Store Management (Sveltia CMS)**
 
 ---
 
+## 📚 Helpful Resources
+
+- **[Savanna's Site Editing Guide (EDITING-GUIDE.md)](docs/EDITING-GUIDE.md)**: A detailed walkthrough of how to use the CMS, manage images, handle coming-soon products, and more.
+- **[Development Guide (DEVELOPMENT.md)](docs/DEVELOPMENT.md)**: The technical blueprint of the site. Useful if you ever hire a developer to add new features or redesign components.
+
+---
+
 ## 🛠️ For Developers
 
-If you are a developer looking to modify the code, add new features, or understand how the build scripts and CSS architecture work, please read the **[Development & Architecture Guide](docs/DEVELOPMENT.md)**.
+If you are a developer looking to modify the code, add new features, or understand how the custom build scripts, vanilla JS, and CSS architecture work, please read the **[Development & Architecture Guide](docs/DEVELOPMENT.md)** before making pull requests.
