@@ -18,7 +18,7 @@
 # Note: GitHub Pages doesn't support custom response headers, so the
 # CSP/security headers this project ships (see scripts/build-security-
 # headers.js) only take effect on Netlify or Vercel -- the site still
-# works fine on Pages, just without those extra headers. See README
+# works fine on Pages, just without those extra headers. See DEVELOPMENT.md
 # section 12.
 name: Deploy to GitHub Pages
 
