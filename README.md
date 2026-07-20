@@ -2,14 +2,14 @@
 
 Welcome to the digital home of Y'allternative Living! This repository holds the entire source code and content for your custom-built storefront.
 
-We've designed this site from the ground up to be lightning-fast, highly accessible, and incredibly easy for you to manage—all without needing to touch a single line of code. By avoiding traditional platforms like Shopify, you own your storefront completely, with zero monthly platform subscription fees.
+I've designed this site from the ground up to be lightning-fast, highly accessible, and incredibly easy for you to manage—all without needing to touch a single line of code. By avoiding traditional platforms like Shopify, you own your storefront completely, with zero monthly platform subscription fees.
 
 ---
 
 ## 👩‍🌾 Savanna's Quick-Start Guide
 
 ### 1. The Website Dashboard (Sveltia CMS)
-We've set up a simple **Website Dashboard** where you can edit the site's content using friendly, point-and-click forms. 
+I've set up a simple **Website Dashboard** where you can edit the site's content using friendly, point-and-click forms. 
 
 * **Where to go:** `https://yallternativeliving.com/admin` *(this link will be active once your site is officially live)*
 * **What you can manage here:**
