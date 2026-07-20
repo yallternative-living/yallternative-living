@@ -1,4 +1,4 @@
-# Y'allternative Living 🦇🌿
+# Y'allternative Living
 
 Welcome to the digital home of Y'allternative Living! This repository holds the entire source code and content for your custom-built storefront.
 
@@ -6,7 +6,7 @@ I've designed this site from the ground up to be lightning-fast, highly accessib
 
 ---
 
-## 👩‍🌾 Savanna's Quick-Start Guide
+## Savanna's Quick-Start Guide
 
 *(Note: I bumped your catalog prices up slightly from Etsy to match current market rates. You can always change them in the dashboard.)*
 
@@ -39,13 +39,7 @@ Here is a quick checklist of the external accounts you'll need to set up for lau
 
 ---
 
-## 📚 Helpful Resources
+## Helpful Resources
 
 - **[Savanna's Site Editing Guide (EDITING-GUIDE.md)](docs/EDITING-GUIDE.md)**: A detailed walkthrough of how to use the CMS, manage images, handle coming-soon products, and more.
 - **[Development Guide (DEVELOPMENT.md)](docs/DEVELOPMENT.md)**: The technical blueprint of the site. Useful if you ever hire a developer to add new features or redesign components.
-
----
-
-## 🛠️ For Developers
-
-If you are a developer looking to modify the code, add new features, or understand how the custom build scripts, vanilla JS, and CSS architecture work, please read the **[Development & Architecture Guide](docs/DEVELOPMENT.md)** before making pull requests.
