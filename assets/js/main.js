@@ -1305,9 +1305,11 @@
       }
       renderBundles(data);
 
-      // Asynchronously fetch live inventory levels from Netlify Function to update stock levels dynamically
       fetch('/.netlify/functions/inventory')
-        .then(function (res) { return res.json(); })
+        .then(function (res) {
+          if (!res.ok) throw new Error("Status " + res.status);
+          return res.json();
+        })
         .then(function (stockData) {
           if (!stockData || typeof stockData !== 'object' || Object.keys(stockData).length === 0) return;
           var hasChanges = false;
