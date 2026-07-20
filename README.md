@@ -20,6 +20,7 @@ I've set up a simple **Website Dashboard** where you can edit the site's content
   * **Customer Reviews:** Add and manage on-site reviews (separate from your Etsy reviews) to feature on the homepage.
   * **FAQ List:** Keep your customer questions and answers up to date.
   * **Shop Content:** Swap out the homepage hero image, edit your bio, or update shop policies.
+  * **Site Configurations:** Paste your API keys (Snipcart), form IDs (Formspree), and widget IDs (Tawk.to, Kit) directly into the dashboard—no editing code required!
   * **Etsy Sync:** *Note: Your Etsy star ratings and review counts are automatically fetched and synced from Etsy every night at 4:00 AM Eastern!*
 
 * **How it works:** Whenever you make changes and click **Save**, the system automatically sends the updates to the website. The live site will rebuild and reflect your changes in about 1-2 minutes.
