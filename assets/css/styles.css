@@ -1073,6 +1073,11 @@ section{
   }
 }
 
+.contact-form-col.is-submitted {
+  & .contact-form, & .contact-form-desc { display:none; }
+  & .contact-form-confirm { display:flex !important; }
+}
+
 /* =============== SEARCH (shop page) =============== */
 .shop-search{
   position:relative; max-width:420px; margin:0 0 20px;

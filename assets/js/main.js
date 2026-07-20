@@ -323,6 +323,35 @@
     });
   });
 
+  /* ---------- Contact form submit handler (AJAX via Formspree) ---------- */
+  var contactForms = document.querySelectorAll(".contact-form");
+  contactForms.forEach(function (form) {
+    form.addEventListener("submit", function (e) {
+      if (form.action.indexOf("YOUR_FORM_ID") !== -1) {
+        return;
+      }
+      if (!window.fetch) return;
+      e.preventDefault();
+      var col = form.closest(".contact-form-col");
+      fetch(form.action, {
+        method: "POST",
+        body: new FormData(form),
+        headers: { Accept: "application/json" }
+      })
+        .then(function (res) {
+          if (res.ok) {
+            if (col) col.classList.add("is-submitted");
+            form.reset();
+          } else {
+            form.submit();
+          }
+        })
+        .catch(function () {
+          form.submit();
+        });
+    });
+  });
+
   /* ---------- Wishlist / "Saved For Later" (localStorage, no backend) ----------
      A client-side save list that persists in the shopper's browser --
      nothing to sign in to, nothing server-side to build. Every saved
