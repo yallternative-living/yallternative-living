@@ -815,7 +815,7 @@
 <body>
 <script>
   window.SnipcartSettings = {
-    publicApiKey: "YOUR_SNIPCART_PUBLIC_API_KEY",
+    publicApiKey: /*YL:site.snipcartApiKey*/ "YOUR_SNIPCART_PUBLIC_API_KEY" /*/YL:site.snipcartApiKey*/,
     loadStrategy: "on-user-interaction",
     modalStyle: "side",
     /* Let Snipcart auto-open its cart drawer after Add to Cart -- with
@@ -929,7 +929,7 @@
        below with her real embed snippet from the Gift Up! dashboard --
        don't hand-type it, copy it exactly like the Snipcart snippet. -->
   <dialog id="giftCardModal" class="gift-modal" closedby="any" aria-labelledby="giftCardModalTitle">
-    <div id="giftUpContainer" style="display:none !important;"><!-- YOUR_GIFTUP_EMBED_CODE --></div>
+    <div id="giftUpContainer" style="display:none !important;"><!--YL:site.giftUpId-->YOUR_GIFTUP_ID<!--/YL:site.giftUpId--></div>
     <button type="button" class="gift-modal-close" id="closeGiftModalBtn" aria-label="Close dialog">&times;</button>
 
     <div class="gift-modal-header">
@@ -1057,7 +1057,7 @@
       <div class="review-form-wrap">
         <h3>Write A Review</h3>
         <p class="review-form-confirm"><span class="glyph" aria-hidden="true" style="display:inline-flex;vertical-align:text-bottom;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-check"><polyline points="20 6 9 17 4 12"/></svg></span> Thanks, y'all! Your review's been sent in. Savanna reads every one before it's posted, so it might take a few days to show up.</p>
-        <form class="review-form" id="reviewForm" action="YOUR_FORMSPREE_FORM_ID" method="post">
+        <form class="review-form" id="reviewForm" action="https://formspree.io/f/<!--YL:site.formspreeReviewId-->YOUR_FORMSPREE_FORM_ID<!--/YL:site.formspreeReviewId-->" method="post">
           <div class="form-hp" aria-hidden="true">
             <label for="review_website">Leave this field blank</label>
             <input type="text" id="review_website" name="review_website" tabindex="-1" autocomplete="off">
@@ -1169,7 +1169,7 @@
         <p>Drop your email for a welcome code, plus new batch alerts, market dates, and the occasional bad pun. No spam, unsubscribe whenever.</p>
       </div>
       <p class="footer-signup-confirm"><span class="glyph" aria-hidden="true">&#10003;</span> You're on the list, y'all! Keep an eye on your inbox.</p>
-      <form class="footer-signup-form" action="YOUR_KIT_FORM_ACTION_URL" method="post">
+      <form class="footer-signup-form" action="<!--YL:site.kitFormAction-->YOUR_KIT_FORM_ACTION_URL<!--/YL:site.kitFormAction-->" method="post">
         <div class="form-hp" aria-hidden="true">
           <label for="footer_website">Leave this field blank</label>
           <input type="text" id="footer_website" name="footer_website" tabindex="-1" autocomplete="off">
@@ -1205,7 +1205,7 @@ var Tawk_API = Tawk_API || {}, Tawk_LoadStart = new Date();
 (function () {
   var s1 = document.createElement("script"), s0 = document.getElementsByTagName("script")[0];
   s1.async = true;
-  s1.src = "https://embed.tawk.to/YOUR_TAWKTO_PROPERTY_ID/YOUR_TAWKTO_WIDGET_ID";
+  s1.src = "https://embed.tawk.to/" + /*YL:site.tawkToPropertyId*/ "YOUR_TAWKTO_PROPERTY_ID" /*/YL:site.tawkToPropertyId*/ + "/" + /*YL:site.tawkToWidgetId*/ "YOUR_TAWKTO_WIDGET_ID" /*/YL:site.tawkToWidgetId*/;
   s1.charset = "UTF-8";
   s1.setAttribute("crossorigin", "*");
   s0.parentNode.insertBefore(s1, s0);
