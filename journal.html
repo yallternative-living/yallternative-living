@@ -51,29 +51,15 @@
 <script defer data-domain="yallternativeliving.com" src="https://plausible.io/js/script.js"></script>
 
 <style>
-  /* Journal styling */
-  .journal-list { margin-top: 40px; }
-  .journal-card {
-    background: var(--paper-light);
-    border: 1px solid var(--paper-border);
-    border-radius: 4px;
-    padding: 24px;
-    margin-bottom: 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-  .journal-card h3 { margin: 0; font-size: 1.5rem; }
-  .journal-card .meta { font-size: 0.85rem; color: var(--paper-dim); }
-  .journal-card .excerpt { line-height: 1.6; }
-  
-  .journal-detail { max-width: 800px; margin: 40px auto 0; }
+  /* Journal reader view styling (detail page) */
+  .journal-detail { max-width: 800px; margin: 20px auto 0; }
   .journal-detail h1 { font-family: var(--font-display); font-size: 2.5rem; margin-bottom: 8px; }
   .journal-detail .meta { font-size: 0.9rem; color: var(--paper-dim); margin-bottom: 24px; }
-  .journal-detail img { width: 100%; height: auto; max-height: 400px; object-fit: cover; border-radius: 4px; margin-bottom: 32px; }
+  .journal-detail img { width: 100%; height: auto; max-height: 450px; object-fit: cover; border-radius: var(--radius-lg); margin-bottom: 32px; border: 1px solid var(--hide); }
   .journal-detail .content { line-height: 1.8; font-size: 1.1rem; }
   .journal-detail .content p { margin-bottom: 1.5em; }
-  .journal-detail .back-link { margin-bottom: 24px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+  .journal-detail .back-link { margin-bottom: 24px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600; color: var(--whiskey); }
+  .journal-detail .back-link:hover { color: var(--paper); }
 </style>
 </head>
 <body>
@@ -114,7 +100,17 @@
 </header>
 
 <main id="main">
-  <section class="section">
+
+  <!-- PAGE HERO -->
+  <div class="page-hero">
+    <div class="container">
+      <p class="breadcrumb"><a href="index.html">Home</a> / Journal</p>
+      <h1>Apothecary Journal</h1>
+      <p class="lede">Stories, science, and small-batch updates straight from the kitchen.</p>
+    </div>
+  </div>
+
+  <section class="section-tight">
     <div class="container" id="journalApp">
       <!-- Loaded dynamically via main.js -->
     </div>

@@ -2576,25 +2576,30 @@
           return;
         }
 
-        var headerHtml = '<div class="section-head reveal">' +
-          '  <span class="eyebrow">Apothecary Journal</span>' +
-          '  <h2>Behind The Pours &amp; Poetry</h2>' +
-          '  <p>Stories, science, and small-batch updates straight from the kitchen.</p>' +
-          '</div>';
-
-        var listHtml = '<div class="journal-list">' +
+        var listHtml = '<div class="grid grid-3 stagger">' +
           journalPosts.map(function(post) {
-            return '<div class="journal-card reveal">' +
-              (post.image ? '  <img src="' + attrEsc(post.image) + '" alt="' + attrEsc(post.title) + '" style="max-height:200px; object-fit:cover; border-radius:4px; margin-bottom:12px;">' : '') +
+            return '<article class="card reveal">' +
+              (post.image ? 
+                '<div class="card-media">' +
+                '  <picture>' +
+                '    <img src="' + attrEsc(post.image) + '" alt="' + attrEsc(post.title) + '" loading="lazy" width="400" height="300" style="object-fit:cover; width:100%; height:100%;">' +
+                '  </picture>' +
+                '</div>' : '') +
+              '<div class="card-body">' +
+              '  <span class="card-cat">Published ' + attrEsc(post.date) + '</span>' +
               '  <h3><a href="#post-' + attrEsc(post.id) + '">' + attrEsc(post.title) + '</a></h3>' +
-              '  <div class="meta">Published on ' + attrEsc(post.date) + '</div>' +
-              '  <p class="excerpt">' + attrEsc(post.excerpt) + '</p>' +
-              '  <div><a href="#post-' + attrEsc(post.id) + '" class="btn btn-outline btn-sm">Read Post →</a></div>' +
-              '</div>';
+              '  <p>' + attrEsc(post.excerpt) + '</p>' +
+              '  <div class="card-foot">' +
+              '    <div class="card-foot-row">' +
+              '      <a href="#post-' + attrEsc(post.id) + '" class="btn btn-outline btn-sm">Read Post →</a>' +
+              '    </div>' +
+              '  </div>' +
+              '</div>' +
+              '</article>';
           }).join("") +
           '</div>';
 
-        journalApp.innerHTML = headerHtml + listHtml;
+        journalApp.innerHTML = listHtml;
         wireReveal(journalApp);
       }
 
