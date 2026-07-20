@@ -946,6 +946,98 @@
     slide.removeAttribute("data-image");
   }
 
+  /* ---------- Premium 2026 Lightbox Modal ---------- */
+  (function initLightbox() {
+    var dialog = document.createElement("dialog");
+    dialog.id = "imageLightboxModal";
+    dialog.className = "lightbox-modal";
+    dialog.setAttribute("closedby", "any");
+    dialog.innerHTML =
+      '<button type="button" class="lightbox-close" aria-label="Close lightbox">&times;</button>' +
+      '<div class="lightbox-content">' +
+      '  <button type="button" class="lightbox-prev" aria-label="Previous image">&#10094;</button>' +
+      '  <img id="lightboxImage" src="" alt="Enlarged product image">' +
+      '  <button type="button" class="lightbox-next" aria-label="Next image">&#10095;</button>' +
+      '</div>' +
+      '<div class="lightbox-dots" id="lightboxDots"></div>';
+    document.body.appendChild(dialog);
+
+    var currentImages = [];
+    var currentIndex = 0;
+    var imgEl = dialog.querySelector("#lightboxImage");
+    var dotsContainer = dialog.querySelector("#lightboxDots");
+
+    function showImage(idx) {
+      if (idx < 0) idx = currentImages.length - 1;
+      if (idx >= currentImages.length) idx = 0;
+      currentIndex = idx;
+      imgEl.src = currentImages[currentIndex];
+      
+      // Update dots
+      var dots = dotsContainer.querySelectorAll(".lightbox-dot");
+      dots.forEach(function (dot, i) {
+        dot.classList.toggle("active", i === currentIndex);
+      });
+    }
+
+    dialog.querySelector(".lightbox-close").addEventListener("click", function () {
+      dialog.close();
+    });
+
+    dialog.querySelector(".lightbox-prev").addEventListener("click", function (e) {
+      e.stopPropagation();
+      showImage(currentIndex - 1);
+    });
+
+    dialog.querySelector(".lightbox-next").addEventListener("click", function (e) {
+      e.stopPropagation();
+      showImage(currentIndex + 1);
+    });
+
+    // Close when clicking the backdrop
+    dialog.addEventListener("click", function (e) {
+      var rect = dialog.getBoundingClientRect();
+      var isInDialog =
+        e.clientX >= rect.left &&
+        e.clientX <= rect.right &&
+        e.clientY >= rect.top &&
+        e.clientY <= rect.bottom;
+      if (!isInDialog) {
+        dialog.close();
+      }
+    });
+
+    window.openLightbox = function (images, startSrc) {
+      currentImages = images || [];
+      var startIdx = currentImages.indexOf(startSrc);
+      if (startIdx === -1) startIdx = 0;
+
+      // Build dots
+      dotsContainer.innerHTML = "";
+      if (currentImages.length > 1) {
+        currentImages.forEach(function (_, i) {
+          var dot = document.createElement("button");
+          dot.type = "button";
+          dot.className = "lightbox-dot";
+          dot.setAttribute("aria-label", "Go to image " + (i + 1));
+          dot.addEventListener("click", function (e) {
+            e.stopPropagation();
+            showImage(i);
+          });
+          dotsContainer.appendChild(dot);
+        });
+        dialog.querySelector(".lightbox-prev").style.display = "flex";
+        dialog.querySelector(".lightbox-next").style.display = "flex";
+      } else {
+        dialog.querySelector(".lightbox-prev").style.display = "none";
+        dialog.querySelector(".lightbox-next").style.display = "none";
+      }
+
+      showImage(startIdx);
+      dialog.showModal();
+    };
+  })();
+
   /* ---------- Shop-card photo gallery: dot clicks ----------
      Delegated so it works for cards rendered now, later (re-filtered/
      re-sorted), or added by any future page -- no per-card listener
@@ -953,14 +1045,23 @@
   document.addEventListener("click", function (e) {
     var dot = e.target.closest(".card-gallery-dot");
     if (!dot) {
-      // If they clicked the product image itself, trigger Add to Cart
       if (e.target.closest(".wish-btn")) return;
       var slide = e.target.closest(".card-gallery-slide");
       if (slide) {
         var card = slide.closest(".card");
         if (card) {
-          var addBtn = card.querySelector(".snipcart-add-item");
-          if (addBtn) addBtn.click();
+          var prodId = card.getAttribute("data-id");
+          if (prodId === "yallternative-gift-card") {
+            return;
+          }
+          var allItems = ((window.YL_PRODUCTS && window.YL_PRODUCTS.products) || [])
+            .concat((window.YL_PRODUCTS && window.YL_PRODUCTS.bundles) || []);
+          var item = allItems.find(function (i) { return i.id === prodId; });
+          if (item && item.images && item.images.length) {
+            var activeImg = slide.querySelector("img");
+            var src = activeImg ? activeImg.getAttribute("src") : item.images[0];
+            window.openLightbox(item.images, src);
+          }
         }
       }
       return;
