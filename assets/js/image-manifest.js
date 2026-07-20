@@ -1531,9 +1531,9 @@ window.YL_IMAGES = {
   },
   "assets/img/gift-card.png": {
     "key": "assets/img/gift-card.png",
-    "width": 1011,
-    "height": 637,
-    "size": 58846,
+    "width": 1024,
+    "height": 1024,
+    "size": 921600,
     "variants": {
       "avif": [
         {
@@ -1545,7 +1545,7 @@ window.YL_IMAGES = {
           "file": "assets/img/gift-card-800.avif"
         },
         {
-          "width": 1011,
+          "width": 1024,
           "file": "assets/img/gift-card.avif"
         }
       ],
@@ -1559,7 +1559,7 @@ window.YL_IMAGES = {
           "file": "assets/img/gift-card-800.webp"
         },
         {
-          "width": 1011,
+          "width": 1024,
           "file": "assets/img/gift-card.webp"
         }
       ]

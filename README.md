@@ -15,7 +15,7 @@ We've set up a simple **Website Dashboard** where you can edit the site's conten
 * **How it works:** When you make changes and click **Save**, the system automatically sends the updates to the website. The live site will rebuild and update itself in about a minute or two.
 
 ### 2. Checklist to Launch Your Store
-To start taking payments, sending newsletters, or moderating reviews, follow the step-by-step guide in the **[Launch & Handoff Guide](savanna_handoff_guide.md)** or your Google Doc. 
+To start taking payments, sending newsletters, or moderating reviews, follow the step-by-step guide in the **[Launch & Development Guide](docs/DEVELOPMENT.md)** or reference **[Savanna's Site Editing Guide](docs/EDITING-GUIDE.md)**.
 
 Here is the quick checklist of what you'll need to set up:
 1. **[ ] Accept Your GitHub Invitation**
