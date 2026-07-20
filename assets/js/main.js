@@ -1457,14 +1457,42 @@
       .join("");
   }
 
-  function renderBundles(data) {
+  function renderBundles(data, query) {
     var bundlesList = document.getElementById("bundlesList");
-    if (!bundlesList || !data.bundles || !data.bundles.length) return;
+    var bundlesSection = document.querySelector(".bundles-section");
+    if (!bundlesList) return;
+    if (!data.bundles || !data.bundles.length) {
+      if (bundlesSection) bundlesSection.style.display = "none";
+      return;
+    }
     var productsById = {};
     data.products.forEach(function (p) {
       productsById[p.id] = p;
     });
-    bundlesList.innerHTML = bundlesHTML(data.bundles, productsById);
+    var q = (query || "").trim().toLowerCase();
+    var filteredBundles = data.bundles.filter(function (b) {
+      if (!q) return true;
+      var haystack = (
+        b.name +
+        " " +
+        b.blurb +
+        " " +
+        b.productIds
+          .map(function (id) {
+            return productsById[id] ? productsById[id].name : "";
+          })
+          .join(" ")
+      ).toLowerCase();
+      return haystack.indexOf(q) !== -1;
+    });
+
+    if (!filteredBundles.length) {
+      if (bundlesSection) bundlesSection.style.display = "none";
+      return;
+    }
+
+    if (bundlesSection) bundlesSection.style.display = "";
+    bundlesList.innerHTML = bundlesHTML(filteredBundles, productsById);
     wireReveal(bundlesList);
   }
 
@@ -1983,37 +2011,88 @@
     }
 
     function render() {
-      var filtered =
-        state.filter === "all"
-          ? allProducts
-          : allProducts.filter(function (p) {
-              return p.category === state.filter;
-            });
-      var q = state.query.trim().toLowerCase();
-      filtered = filtered.filter(function (p) {
-        return matchesQuery(p, q);
+      var productsById = {};
+      allProducts.forEach(function (p) {
+        productsById[p.id] = p;
       });
-      var sorted = sortProducts(filtered, state.sort);
-      renderCards(grid, sorted, { eagerFirst: isFirstRender });
-      isFirstRender = false;
+
+      var q = state.query.trim().toLowerCase();
+      var bundlesSection = document.querySelector(".bundles-section");
+
+      if (state.filter === "gift-sets") {
+        var filteredBundles = (window.YL_PRODUCTS.bundles || []).filter(function (b) {
+          if (!q) return true;
+          var haystack = (
+            b.name +
+            " " +
+            b.blurb +
+            " " +
+            b.productIds
+              .map(function (id) {
+                return productsById[id] ? productsById[id].name : "";
+              })
+              .join(" ")
+          ).toLowerCase();
+          return haystack.indexOf(q) !== -1;
+        });
+
+        grid.innerHTML = bundlesHTML(filteredBundles, productsById);
+        wireReveal(grid);
+
+        if (bundlesSection) bundlesSection.style.display = "none";
+
+        if (countEl) {
+          if (!filteredBundles.length) {
+            countEl.textContent =
+              "No gift sets match" +
+              (q ? ' "' + state.query.trim() + '"' : " that search") +
+              " -- try a different word or clear the search.";
+          } else {
+            countEl.textContent =
+              "Showing " + filteredBundles.length + " of " + window.YL_PRODUCTS.bundles.length + " gift sets";
+          }
+        }
+      } else {
+        var filtered =
+          state.filter === "all"
+            ? allProducts
+            : allProducts.filter(function (p) {
+                return p.category === state.filter;
+              });
+
+        filtered = filtered.filter(function (p) {
+          return matchesQuery(p, q);
+        });
+
+        var sorted = sortProducts(filtered, state.sort);
+        renderCards(grid, sorted, { eagerFirst: isFirstRender });
+        isFirstRender = false;
+
+        if (state.filter === "all") {
+          renderBundles(window.YL_PRODUCTS, q);
+        } else {
+          if (bundlesSection) bundlesSection.style.display = "none";
+        }
+
+        if (countEl) {
+          if (!sorted.length) {
+            countEl.textContent =
+              "No goods match" +
+              (q ? ' "' + state.query.trim() + '"' : " that search") +
+              " -- try a different word or clear the search.";
+          } else {
+            var label = state.filter === "all" ? "goods" : catLabel[state.filter] || "goods";
+            countEl.textContent =
+              "Showing " + sorted.length + " of " + allProducts.length + " " + label.toLowerCase();
+          }
+        }
+      }
       var eyebrowProductCount = document.getElementById("eyebrowProductCount");
       if (eyebrowProductCount) {
         var activeHandmade = allProducts.filter(function (p) {
           return !p.comingSoon && p.id !== "yallternative-gift-card";
         }).length;
         eyebrowProductCount.textContent = activeHandmade;
-      }
-      if (countEl) {
-        if (!sorted.length) {
-          countEl.textContent =
-            "No goods match" +
-            (q ? ' "' + state.query.trim() + '"' : " that search") +
-            " -- try a different word or clear the search.";
-        } else {
-          var label = state.filter === "all" ? "goods" : catLabel[state.filter] || "goods";
-          countEl.textContent =
-            "Showing " + sorted.length + " of " + allProducts.length + " " + label.toLowerCase();
-        }
       }
     }
 

@@ -40,6 +40,10 @@ window.YL_PRODUCTS = {
       "label": "Ritual & Home"
     },
     {
+      "id": "gift-sets",
+      "label": "Gift Sets"
+    },
+    {
       "id": "gift-cards",
       "label": "Gift Cards"
     }

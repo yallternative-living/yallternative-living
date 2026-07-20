@@ -6,7 +6,7 @@ Y'allternative Living is a small, queer-owned business run by founder Savanna ou
 
 ## Pages
 
-- [Shop](https://yallternativeliving.com/shop.html): the full catalog of 19 handmade products across 7 categories (Apparel, Salves & Balms, Body & Skin, Soaks, Potions & Spellwork, Ritual & Home, Gift Cards). Add-to-cart checkout happens directly on this site via Snipcart -- no redirect to a third-party marketplace required.
+- [Shop](https://yallternativeliving.com/shop.html): the full catalog of 19 handmade products across 8 categories (Apparel, Salves & Balms, Body & Skin, Soaks, Potions & Spellwork, Ritual & Home, Gift Sets, Gift Cards). Add-to-cart checkout happens directly on this site via Snipcart -- no redirect to a third-party marketplace required.
 - [Events](https://yallternativeliving.com/events.html): upcoming and past farmers markets, fairs, and Pride pop-ups where the shop appears in person. Only real, confirmed dates are listed -- if it's empty, no dates are confirmed yet.
 - [Our Story](https://yallternativeliving.com/about.html): founder background and brand story.
 - [Contact](https://yallternativeliving.com/contact.html): contact info, shipping/custom-order FAQ, and where to find the shop in person.
