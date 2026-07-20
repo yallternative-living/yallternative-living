@@ -15,6 +15,7 @@ We've set up a simple **Website Dashboard** where you can edit the site's conten
 * **What you can manage here:**
   * **Products & Bundles:** Add new items, update prices, change descriptions, edit ingredients, or manage your digital gift cards. 
   * **Markets & Events:** Add upcoming market dates (they'll automatically appear on the Events page) or archive past dates.
+  * **Customer Reviews:** Add and manage on-site reviews (separate from your Etsy reviews) to feature on the homepage.
   * **FAQ List:** Keep your customer questions and answers up to date.
   * **Shop Content:** Swap out the homepage hero image, edit your bio, or update shop policies.
   * **Etsy Sync:** *Note: Your Etsy star ratings and review counts are automatically fetched and synced from Etsy every night at 4:00 AM Eastern!*
