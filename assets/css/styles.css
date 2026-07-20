@@ -334,6 +334,7 @@ section{
   backdrop-filter: blur(16px);
   border-bottom: 1px solid color-mix(in oklch, var(--hide) 40%, transparent);
   transition: background 0.3s ease, backdrop-filter 0.3s ease, padding 0.3s ease;
+  padding-top: env(safe-area-inset-top, 0px);
 }
 
 .nav{
@@ -1239,7 +1240,7 @@ section{
 .wish-toggle{
   position:relative; background:none; border:1px solid var(--hide); color:var(--paper);
   width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-  cursor:pointer; flex:0 0 auto;
+  cursor:pointer; flex:0 0 auto; padding:0 !important; box-sizing:border-box !important; line-height:1 !important;
   
   @media (max-width: 420px) {
     width:34px; height:34px; flex-shrink:0;
@@ -1261,7 +1262,7 @@ section{
 .cart-toggle{
   position:relative; background:none; border:1px solid var(--hide); color:var(--paper);
   width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-  cursor:pointer; flex:0 0 auto;
+  cursor:pointer; flex:0 0 auto; padding:0 !important; box-sizing:border-box !important; line-height:1 !important;
   
   @media (max-width: 420px) {
     width:34px; height:34px; flex-shrink:0;
@@ -1292,7 +1293,9 @@ section{
 }
 
 .wish-drawer-head{
-  display:flex; align-items:center; justify-content:space-between; padding:22px 24px; border-bottom:1px solid var(--hide);
+  display:flex; align-items:center; justify-content:space-between; 
+  padding: calc(22px + env(safe-area-inset-top, 0px)) 24px 22px; 
+  border-bottom:1px solid var(--hide);
   & h3{ margin:0; font-family:var(--font-body); font-weight:700; font-size:1.1rem; }
 }
 
@@ -1549,6 +1552,8 @@ hr.rule{ border:none; border-top:1px solid var(--hide); margin:48px 0; }
    Reference: https://docs.snipcart.com/v3/setup/theming */
 #snipcart{
   font-family: var(--font-body);
+  position: relative;
+  z-index: 9999;
 
   --color-default: var(--paper);
   --color-alt: var(--paper-dim);
@@ -1602,6 +1607,11 @@ hr.rule{ border:none; border-top:1px solid var(--hide); margin:48px 0; }
   --shadow-default: var(--shadow);
   
   & h1, & h2, & h3, & h4{ font-family: var(--font-display); }
+
+  /* Apply safe-area inset to the cart header for mobile notches */
+  .snipcart-cart-header {
+    padding-top: calc(16px + env(safe-area-inset-top, 0px)) !important;
+  }
 }
 
 
@@ -1646,7 +1656,7 @@ hr.rule{ border:none; border-top:1px solid var(--hide); margin:48px 0; }
   text-transform: uppercase;
   position: sticky;
   top: 0;
-  z-index: 1001;
+  z-index: 101;
   font-family: var(--font-body);
   line-height: 1.2;
   
