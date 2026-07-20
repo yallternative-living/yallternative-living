@@ -634,6 +634,7 @@
      change handler below. Real <select> means full keyboard/AT support
      for free -- no custom listbox widget needed for something this simple. */
   function variantSelectHTML(p) {
+    if (p.id === "digital-gift-card") return "";
     if (!p.variants || !Array.isArray(p.variants.options) || !p.variants.options.length) return "";
     var options = p.variants.options
       .map(function (o) {
