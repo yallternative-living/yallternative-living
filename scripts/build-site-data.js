@@ -688,7 +688,6 @@ try {
   // Silent fallback if it doesn't exist yet or is malformed
 }
 
-var CONTENT = readJson("assets/data/content.json");
 
 function injectPageCopy(page, pageKey) {
   var html = readText(page, page + " page");
