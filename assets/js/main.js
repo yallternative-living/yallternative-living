@@ -1035,6 +1035,35 @@
       }
     });
 
+    // Keyboard navigation (Arrow keys)
+    dialog.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        showImage(currentIndex - 1);
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        showImage(currentIndex + 1);
+      }
+    });
+
+    // Mobile touch swipe gestures
+    var touchStartX = 0;
+    var touchEndX = 0;
+    dialog.addEventListener("touchstart", function (e) {
+      touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+    dialog.addEventListener("touchend", function (e) {
+      touchEndX = e.changedTouches[0].screenX;
+      var diff = touchEndX - touchStartX;
+      if (Math.abs(diff) > 50) {
+        if (diff < 0) {
+          showImage(currentIndex + 1);
+        } else {
+          showImage(currentIndex - 1);
+        }
+      }
+    }, { passive: true });
+
     window.openLightbox = function (images, startSrc) {
       currentImages = images || [];
       var startIdx = currentImages.indexOf(startSrc);
