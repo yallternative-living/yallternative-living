@@ -93,24 +93,22 @@
     return googleInitPromise;
   }
 
-  // Trigger Google Translate widget to translate in-place without page reload
+  // Trigger Google Translate widget to translate in-place without page reload.
+  // If the in-place trigger fails (common on first load), we set the cookie
+  // and reload so the translation is picked up from the fresh page load.
   function triggerGoogleTranslate(langCode, retries) {
     retries = retries || 0;
     if (retries > 50) {
-      console.warn("[translator] Google Translate widget timed out loading.");
+      // In-place retries exhausted — force reload with cookie set
+      console.warn("[translator] Google Translate widget timed out; reloading.");
+      window.location.reload();
       return;
     }
 
     var targetVal = langCode === "en" ? "" : (langCode === "zh" ? "zh-CN" : langCode);
 
-    // Set the cookie ourselves first to ensure Google Translate is forced to the correct state
-    if (targetVal) {
-      document.cookie = "googtrans=/en/" + targetVal + "; path=/;";
-      document.cookie = "googtrans=/en/" + targetVal + "; path=/; domain=" + window.location.hostname;
-    } else {
-      document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-      document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + window.location.hostname;
-    }
+    // Set the cookie first so a reload will pick up the right language
+    setGoogTransCookie(targetVal);
 
     var selectEl = document.querySelector(".goog-te-combo");
     if (selectEl) {
@@ -125,11 +123,34 @@
         }
         selectEl.dispatchEvent(event);
       }
+
+      // Verify translation took effect; if not, reload the page
+      if (targetVal) {
+        setTimeout(function () {
+          var html = document.documentElement;
+          var translated = html.classList.contains("translated-ltr") ||
+                           html.classList.contains("translated-rtl");
+          if (!translated) {
+            window.location.reload();
+          }
+        }, 800);
+      }
     } else {
       // If combo box is not generated yet, try again shortly
       setTimeout(function () {
         triggerGoogleTranslate(langCode, retries + 1);
       }, 100);
+    }
+  }
+
+  // Set or clear the googtrans cookie across all required domain scopes
+  function setGoogTransCookie(targetVal) {
+    if (targetVal) {
+      document.cookie = "googtrans=/en/" + targetVal + "; path=/;";
+      document.cookie = "googtrans=/en/" + targetVal + "; path=/; domain=" + window.location.hostname;
+    } else {
+      document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+      document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + window.location.hostname;
     }
   }
 
@@ -262,8 +283,7 @@
       var hasGoogleCookie = document.cookie.indexOf("googtrans") !== -1;
       if (isGoogleLoaded || hasGoogleCookie) {
         // Clear all possible variations of the googtrans cookie
-        document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-        document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + window.location.hostname;
+        setGoogTransCookie("");
         var domainParts = window.location.hostname.split(".");
         if (domainParts.length >= 2) {
           var rootDomain = "." + domainParts.slice(-2).join(".");
@@ -273,6 +293,15 @@
         // Trigger in-place reversion
         if (isGoogleLoaded) {
           triggerGoogleTranslate("en");
+          // Verify the page actually reverted; reload if not
+          setTimeout(function () {
+            var html = document.documentElement;
+            var stillTranslated = html.classList.contains("translated-ltr") ||
+                                  html.classList.contains("translated-rtl");
+            if (stillTranslated) {
+              window.location.reload();
+            }
+          }, 800);
         }
       }
       return;
