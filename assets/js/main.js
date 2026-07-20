@@ -367,7 +367,7 @@
   var WISH_KEY = "yl-wishlist";
   var wishHeartSVG =
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">' +
-    '<path d="M12 21s-7.5-4.6-10-9.2C.4 8.4 2 5 5.5 5c2 0 3.4 1.1 4.2 2.4C10.5 6.1 11.9 5 13.9 5 17.4 5 19 8.4 17.4 11.8 15 16.4 12 21 12 21z"/></svg>';
+    '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>';
 
   /* ---------- shared: escape a value for safe use inside an HTML attribute ---------- */
   function attrEsc(str) {
