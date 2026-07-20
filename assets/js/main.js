@@ -2036,6 +2036,11 @@
           render();
         }, 150);
       });
+      searchInput.addEventListener("search", function () {
+        clearTimeout(debounceTimer);
+        state.query = searchInput.value;
+        render();
+      });
     }
 
     // Deep-linking: footer links like shop.html#apparel pre-select that filter.
