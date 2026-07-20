@@ -2040,19 +2040,27 @@
       // Light debounce -- purely a courtesy against re-rendering on every
       // keystroke of a fast typist; at 13 products it's imperceptible
       // either way, but it's free and it's the right habit.
-        var debounceTimer;
-        var lastTrackedQuery = "";
-        searchInput.addEventListener("input", function () {
-          clearTimeout(debounceTimer);
-          var value = searchInput.value;
-          debounceTimer = setTimeout(function () {
-            state.query = value;
-            if (value.trim().length > 0 && value !== lastTrackedQuery && typeof window.plausible === "function") {
-              window.plausible("Site Search", { props: { query: value } });
-              lastTrackedQuery = value;
-            }
-            render();
-          }, 150);
+      var debounceTimer;
+      var analyticsTimer;
+      var lastTrackedQuery = "";
+      searchInput.addEventListener("input", function () {
+        clearTimeout(debounceTimer);
+        clearTimeout(analyticsTimer);
+        var value = searchInput.value;
+        
+        // Fast debounce for UI updates
+        debounceTimer = setTimeout(function () {
+          state.query = value;
+          render();
+        }, 150);
+
+        // Slow debounce for analytics (wait until they finish typing)
+        analyticsTimer = setTimeout(function () {
+          if (value.trim().length > 2 && value !== lastTrackedQuery && typeof window.plausible === "function") {
+            window.plausible("Site Search", { props: { query: value.trim() } });
+            lastTrackedQuery = value;
+          }
+        }, 1500);
       });
       searchInput.addEventListener("search", function () {
         clearTimeout(debounceTimer);

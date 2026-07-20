@@ -116,9 +116,14 @@
     if (selectEl) {
       if (selectEl.value !== targetVal) {
         selectEl.value = targetVal;
-        // Google Translate listens for change events at the document level,
-        // so bubbles: true is critical for the widget to detect the change.
-        selectEl.dispatchEvent(new Event("change", { bubbles: true, cancelable: true }));
+        var event;
+        if (typeof Event === "function") {
+          event = new Event("change", { bubbles: true, cancelable: true });
+        } else {
+          event = document.createEvent("HTMLEvents");
+          event.initEvent("change", true, true);
+        }
+        selectEl.dispatchEvent(event);
       }
     } else {
       // If combo box is not generated yet, try again shortly
@@ -254,8 +259,6 @@
         nativeTranslator = null;
       }
       
-      // If Google Translate was loaded or has cookies, clear them and reload the page
-      // to ensure a completely clean slate (avoids layout breaking and resets Snipcart/Tawk.to)
       var hasGoogleCookie = document.cookie.indexOf("googtrans") !== -1;
       if (isGoogleLoaded || hasGoogleCookie) {
         // Clear all possible variations of the googtrans cookie
@@ -267,9 +270,10 @@
           document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + rootDomain;
         }
         
-        // Force a page reload
-        window.location.reload();
-        return;
+        // Trigger in-place reversion
+        if (isGoogleLoaded) {
+          triggerGoogleTranslate("en");
+        }
       }
       return;
     }
