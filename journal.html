@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Y'allternative">
+<meta name="color-scheme" content="dark light">
+<meta name="view-transition" content="same-origin">
+<title>Apothecary Journal | Y'allternative Living</title>
+<meta name="description" content="Read the latest news, batch alerts, herbal science, and stories from Landrum, SC.">
+<link rel="canonical" href="https://yallternativeliving.com/journal.html">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="Apothecary Journal | Y'allternative Living">
+<meta property="og:description" content="Read the latest news, batch alerts, herbal science, and stories from Landrum, SC.">
+<meta property="og:image" content="https://yallternativeliving.com/assets/img/og-image.jpg">
+<meta property="og:url" content="https://yallternativeliving.com/journal.html">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Apothecary Journal | Y'allternative Living">
+<meta name="twitter:description" content="Read the latest news, batch alerts, herbal science, and stories from Landrum, SC.">
+<meta name="twitter:image" content="https://yallternativeliving.com/assets/img/og-image.jpg">
+
+<link rel="icon" href="assets/img/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="assets/img/favicon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#c65a6d">
+
+<!-- Premium modern typography for the brand's southern-alt vibe -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Gloock&family=DM+Sans:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=DM+Sans:wght@400;500;700&display=swap" media="print" onload="this.media='all'">
+<noscript>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=DM+Sans:wght@400;500;700&display=swap">
+</noscript>
+<link rel="preconnect" href="https://cdn.snipcart.com" crossorigin>
+<link rel="preconnect" href="https://plausible.io">
+<link rel="stylesheet" href="assets/css/styles.css?v=2.0">
+
+<script>
+  // No-flash theme init: runs before paint, before main.js.
+  (function(){
+    var t = localStorage.getItem('yl-theme');
+    if(!t){ t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'; }
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
+<script defer data-domain="yallternativeliving.com" src="https://plausible.io/js/script.js"></script>
+
+<style>
+  /* Journal styling */
+  .journal-list { margin-top: 40px; }
+  .journal-card {
+    background: var(--paper-light);
+    border: 1px solid var(--paper-border);
+    border-radius: 4px;
+    padding: 24px;
+    margin-bottom: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .journal-card h3 { margin: 0; font-size: 1.5rem; }
+  .journal-card .meta { font-size: 0.85rem; color: var(--paper-dim); }
+  .journal-card .excerpt { line-height: 1.6; }
+  
+  .journal-detail { max-width: 800px; margin: 40px auto 0; }
+  .journal-detail h1 { font-family: var(--font-display); font-size: 2.5rem; margin-bottom: 8px; }
+  .journal-detail .meta { font-size: 0.9rem; color: var(--paper-dim); margin-bottom: 24px; }
+  .journal-detail img { width: 100%; height: auto; max-height: 400px; object-fit: cover; border-radius: 4px; margin-bottom: 32px; }
+  .journal-detail .content { line-height: 1.8; font-size: 1.1rem; }
+  .journal-detail .content p { margin-bottom: 1.5em; }
+  .journal-detail .back-link { margin-bottom: 24px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+</style>
+</head>
+<body>
+<script>
+  window.SnipcartSettings = {
+    publicApiKey: "YOUR_SNIPCART_PUBLIC_API_KEY",
+    loadStrategy: "on-user-interaction",
+    modalStyle: "side",
+  };
+</script>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header">
+  <nav class="nav">
+    <a class="brand" href="index.html" aria-label="Y'allternative Living home">
+      <img class="logo-desktop" src="assets/img/logo.png" alt="Y'allternative Living icon" width="48" height="48">
+      <img class="logo-mobile" src="assets/img/logo.jpg" alt="Y'allternative Living logo" height="48" width="48">
+      <span class="brand-word">Y'allternative<small>Living</small></span>
+    </a>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="shop.html">Shop</a></li>
+      <li><a href="events.html">Events</a></li>
+      <li><a href="about.html">Our Story</a></li>
+      <li><a href="contact.html">Contact</a></li>
+      <!--YL:nav.journal--><!--/YL:nav.journal-->
+    </ul>
+    <div class="nav-cta">
+      <button class="cart-toggle snipcart-checkout" type="button" aria-label="View your cart">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.5 3h2l2.6 12.6a2 2 0 0 0 2 1.6h8.4a2 2 0 0 0 2-1.6L21 8H6"/></svg>
+        <span class="badge snipcart-items-count" aria-live="polite"></span>
+      </button>
+      <button type="button" class="theme-toggle" id="themeToggle" role="switch" aria-checked="false" aria-label="Toggle dark and light mode">
+        <span class="knob" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-moon"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-sun"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span>
+      </button>
+      <button type="button" class="nav-toggle" aria-label="Open menu" aria-expanded="false" aria-controls="navLinks">☰</button>
+    </div>
+  </nav>
+</header>
+
+<main id="main">
+  <section class="section">
+    <div class="container" id="journalApp">
+      <!-- Loaded dynamically via main.js -->
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <!--YL:footer-->
+  <!--/YL:footer-->
+</footer>
+
+<script src="assets/js/products-data.js?v=2.0" defer></script>
+<script src="assets/js/journal-data.js?v=2.0" defer></script>
+<script src="assets/js/image-manifest.js?v=2.0" defer></script>
+<script src="assets/js/main.js?v=2.0" defer></script>
+<!-- Live chat (Tawk.to) -- placeholder, inert until real IDs are set.
+     Free live-chat widget: https://www.tawk.to -- see DEVELOPMENT.md section 19.
+     Replace YOUR_TAWKTO_PROPERTY_ID/YOUR_TAWKTO_WIDGET_ID below with the
+     real embed values from your own Tawk.to dashboard (Administration ->
+     Chat Widget). Until then this script 404s quietly and no widget
+     appears -- nothing is broken by leaving it as-is. -->
+<script type="text/javascript">
+var Tawk_API = Tawk_API || {}, Tawk_LoadStart = new Date();
+(function () {
+  var s1 = document.createElement("script"), s0 = document.getElementsByTagName("script")[0];
+  s1.async = true;
+  s1.src = "https://embed.tawk.to/" + /*YL:site.tawkToPropertyId*/ "YOUR_TAWKTO_PROPERTY_ID" /*/YL:site.tawkToPropertyId*/ + "/" + /*YL:site.tawkToWidgetId*/ "YOUR_TAWKTO_WIDGET_ID" /*/YL:site.tawkToWidgetId*/;
+  s1.charset = "UTF-8";
+  s1.setAttribute("crossorigin", "*");
+  s0.parentNode.insertBefore(s1, s0);
+})();
+</script>
+</body>
+</html>

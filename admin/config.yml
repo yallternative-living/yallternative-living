@@ -352,6 +352,48 @@ collections:
               - { name: date, label: "Publish Date", widget: datetime, format: "YYYY-MM-DD", date_format: "MM/DD/YYYY", time_format: false, required: false, hint: "Select the date the review was written/published." }
               - { name: featured, label: "Feature on homepage?", widget: boolean, default: false, required: false, hint: "Check this to highlight this review on the homepage testimonials grid." }
 
+  - name: journal
+    label: "3b. Apothecary Journal (Blog)"
+    files:
+      - name: journal
+        label: Apothecary Journal
+        file: assets/data/journal.json
+        format: json
+        fields:
+          - name: posts
+            label: Journal Posts
+            widget: list
+            label_singular: Post
+            required: false
+            summary: "{{fields.title}} ({{fields.date}})"
+            fields:
+              - { name: id, label: "ID (lowercase-hyphenated, e.g. magnesium-arnica-sleep)", widget: string }
+              - { name: title, label: "Title", widget: string }
+              - { name: date, label: "Publish Date", widget: datetime, format: "YYYY-MM-DD", date_format: "MM/DD/YYYY", time_format: false }
+              - { name: image, label: "Featured Image", widget: image, required: false }
+              - { name: excerpt, label: "Excerpt (short text shown in list)", widget: text }
+              - { name: content, label: "Content (full post text)", widget: text }
+
+  - name: social_feed
+    label: "3c. Social Media Feed"
+    files:
+      - name: social_feed
+        label: Social Media Feed
+        file: assets/data/social-feed.json
+        format: json
+        fields:
+          - name: posts
+            label: Social Feed Posts
+            widget: list
+            label_singular: Social Post
+            required: false
+            summary: "{{fields.caption}}"
+            fields:
+              - { name: id, label: "ID (anything unique)", widget: string }
+              - { name: image, label: "Post Image", widget: image }
+              - { name: caption, label: "Caption", widget: text }
+              - { name: url, label: "Original Post Link (optional)", widget: string, required: false }
+
   - name: content
     label: "4. Page Wording"
     files:
@@ -374,6 +416,8 @@ collections:
               - { name: formspreeContactId, label: "Formspree Contact Form ID", widget: string, required: false, hint: "Your Formspree ID for the contact page form." }
               - { name: formspreeReviewId, label: "Formspree Review Form ID", widget: string, required: false, hint: "Your Formspree ID for customers to write product reviews." }
               - { name: giftUpId, label: "Gift Up! ID (Optional)", widget: string, required: false, hint: "Your Gift Up! account ID if using external digital gift cards." }
+              - { name: enableJournal, label: "Enable Apothecary Journal (Blog)", widget: boolean, default: false, required: false, hint: "Toggle the Apothecary Journal/Blog section on the site." }
+              - { name: enableSocialFeed, label: "Enable Social Media Feed", widget: boolean, default: false, required: false, hint: "Toggle the Instagram/TikTok social feed on the homepage." }
 
           - name: home
             label: Homepage

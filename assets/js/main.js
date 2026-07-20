@@ -2442,6 +2442,122 @@
       });
     }
 
+    /* ---------- 2026 SOTA Deep-linking & Popularity Features ---------- */
+    
+    // 1. Deep-linking to open product lightbox on load
+    if (window.location.hash) {
+      var possibleProdId = window.location.hash.replace("#", "");
+      var allItems = ((window.YL_PRODUCTS && window.YL_PRODUCTS.products) || [])
+        .concat((window.YL_PRODUCTS && window.YL_PRODUCTS.bundles) || []);
+      var matchedItem = allItems.find(function (i) { return i.id === possibleProdId; });
+      if (matchedItem) {
+        setTimeout(function() {
+          if (typeof window.openLightbox === "function") {
+            window.openLightbox(matchedItem.images || [matchedItem.image], matchedItem.image);
+          }
+        }, 400);
+      }
+    }
+
+    // 2. Render Social Feed if enabled
+    var socialFeedGrid = document.getElementById("socialFeedGrid");
+    var homeSocialFeedSection = document.getElementById("homeSocialFeed");
+    var enableSocialFeed = /*YL:site.enableSocialFeed*/ false /*/YL:site.enableSocialFeed*/;
+    var enableJournal = /*YL:site.enableJournal*/ false /*/YL:site.enableJournal*/;
+
+    if (enableSocialFeed && socialFeedGrid && homeSocialFeedSection && window.YL_SOCIAL_FEED) {
+      var socialPosts = window.YL_SOCIAL_FEED.posts || [];
+      if (socialPosts.length > 0) {
+        homeSocialFeedSection.style.display = "block";
+        socialFeedGrid.innerHTML = socialPosts.map(function(post) {
+          return '<a href="' + attrEsc(post.url || "#") + '" target="_blank" rel="noopener" class="card social-card reveal">' +
+            '  <div class="card-img-wrap">' +
+            '    <img src="' + attrEsc(post.image) + '" alt="Social Media Post" loading="lazy">' +
+            '  </div>' +
+            '  <div class="card-content">' +
+            '    <p class="social-caption">' + attrEsc(post.caption) + '</p>' +
+            '  </div>' +
+            '</a>';
+        }).join("");
+        wireReveal(socialFeedGrid);
+      }
+    }
+
+    // 3. Render Journal (Blog) Page
+    var journalApp = document.getElementById("journalApp");
+    if (journalApp && window.YL_JOURNAL) {
+      var journalPosts = window.YL_JOURNAL.posts || [];
+      
+      function renderJournalList() {
+        if (!enableJournal || journalPosts.length === 0) {
+          journalApp.innerHTML = '<div class="section-head reveal">' +
+            '  <h2>Journal Coming Soon</h2>' +
+            '  <p>Savanna is stirring up some stories. Check back soon for herbal folklore, batch updates, and behind-the-scenes thoughts.</p>' +
+            '</div>';
+          return;
+        }
+
+        var headerHtml = '<div class="section-head reveal">' +
+          '  <span class="eyebrow">Apothecary Journal</span>' +
+          '  <h2>Behind The Pours &amp; Poetry</h2>' +
+          '  <p>Stories, science, and small-batch updates straight from the kitchen.</p>' +
+          '</div>';
+
+        var listHtml = '<div class="journal-list">' +
+          journalPosts.map(function(post) {
+            return '<div class="journal-card reveal">' +
+              (post.image ? '  <img src="' + attrEsc(post.image) + '" alt="' + attrEsc(post.title) + '" style="max-height:200px; object-fit:cover; border-radius:4px; margin-bottom:12px;">' : '') +
+              '  <h3><a href="#post-' + attrEsc(post.id) + '">' + attrEsc(post.title) + '</a></h3>' +
+              '  <div class="meta">Published on ' + attrEsc(post.date) + '</div>' +
+              '  <p class="excerpt">' + attrEsc(post.excerpt) + '</p>' +
+              '  <div><a href="#post-' + attrEsc(post.id) + '" class="btn btn-outline btn-sm">Read Post →</a></div>' +
+              '</div>';
+          }).join("") +
+          '</div>';
+
+        journalApp.innerHTML = headerHtml + listHtml;
+        wireReveal(journalApp);
+      }
+
+      function renderJournalDetail(postId) {
+        var post = journalPosts.find(function(p) { return p.id === postId; });
+        if (!post) {
+          renderJournalList();
+          return;
+        }
+
+        var paragraphs = post.content.split('\n\n').map(function(p) {
+          return '<p>' + attrEsc(p) + '</p>';
+        }).join("");
+
+        journalApp.innerHTML = '<div class="journal-detail">' +
+          '  <div class="back-link reveal" id="journalBackBtn">← Back to Journal</div>' +
+          '  <h1 class="reveal">' + attrEsc(post.title) + '</h1>' +
+          '  <div class="meta reveal">Published on ' + attrEsc(post.date) + '</div>' +
+          (post.image ? '  <img class="reveal" src="' + attrEsc(post.image) + '" alt="' + attrEsc(post.title) + '">' : '') +
+          '  <div class="content reveal">' + paragraphs + '</div>' +
+          '</div>';
+
+        document.getElementById("journalBackBtn").addEventListener("click", function() {
+          window.location.hash = "";
+        });
+        wireReveal(journalApp);
+      }
+
+      function routeJournal() {
+        var hash = window.location.hash || "";
+        if (hash.indexOf("#post-") === 0) {
+          var postId = hash.replace("#post-", "");
+          renderJournalDetail(postId);
+        } else {
+          renderJournalList();
+        }
+      }
+
+      window.addEventListener("hashchange", routeJournal);
+      routeJournal();
+    }
+
     /* ---------- Load translator ---------- */
     (function () {
       var s = document.createElement("script");

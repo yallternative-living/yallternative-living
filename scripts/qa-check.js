@@ -51,7 +51,8 @@ var PAGES = [
   "privacy.html",
   "terms.html",
   "policies.html",
-  "404.html"
+  "404.html",
+  "journal.html"
 ];
 
 var failures = [];

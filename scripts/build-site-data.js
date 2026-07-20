@@ -125,6 +125,10 @@ var EVENTS = readJson("assets/data/events.json");
 // below. These are NEVER folded into aggregateRating JSON-LD (reserved for
 // genuine Etsy-verified ratings only).
 var SITE_REVIEWS = readJson("assets/data/site-reviews.json").reviews || [];
+var JOURNAL = readJson("assets/data/journal.json");
+var SOCIAL_FEED = readJson("assets/data/social-feed.json");
+var CONTENT = readJson("assets/data/content.json");
+var SITE_CONFIG = CONTENT.site || {};
 
 function escapeHtml(s) {
   return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -297,6 +301,30 @@ var reviewsDataJs =
   JSON.stringify(SITE_REVIEWS, null, 2) +
   ";\n";
 writeFile("assets/js/site-reviews-data.js", reviewsDataJs);
+
+var journalDataJs =
+  "/**\n" +
+  " * @fileoverview Auto-generated Apothecary Journal data.\n" +
+  " * Wrap of assets/data/journal.json into a global variable YL_JOURNAL.\n" +
+  " * Do not hand-edit this file.\n" +
+  " * @const {!Object}\n" +
+  " */\n" +
+  "window.YL_JOURNAL = " +
+  JSON.stringify(JOURNAL, null, 2) +
+  ";\n";
+writeFile("assets/js/journal-data.js", journalDataJs);
+
+var socialFeedDataJs =
+  "/**\n" +
+  " * @fileoverview Auto-generated Social Feed data.\n" +
+  " * Wrap of assets/data/social-feed.json into a global variable YL_SOCIAL_FEED.\n" +
+  " * Do not hand-edit this file.\n" +
+  " * @const {!Object}\n" +
+  " */\n" +
+  "window.YL_SOCIAL_FEED = " +
+  JSON.stringify(SOCIAL_FEED, null, 2) +
+  ";\n";
+writeFile("assets/js/social-feed-data.js", socialFeedDataJs);
 
 /* ---------- 2) assets/data/snipcart-products.json ----------
    Snipcart's order-validation JSON crawler pattern for JS-rendered
@@ -915,6 +943,9 @@ var PAGES = [
   { loc: "terms.html", priority: "0.3" },
   { loc: "policies.html", priority: "0.3" }
 ];
+if (SITE_CONFIG.enableJournal) {
+  PAGES.push({ loc: "journal.html", priority: "0.7" });
+}
 var today = new Date().toISOString().slice(0, 10);
 var sitemapXml =
   '<?xml version="1.0" encoding="UTF-8"?>\n' +
@@ -1097,13 +1128,24 @@ if (DOMAIN_IS_LIVE) {
   var site = content.site || {};
   var ALL_HTML_PAGES = PAGES.map(function (p) {
     return p.loc;
-  }).concat(["404.html", "assets/data/footer.html"]);
+  }).concat(["404.html", "journal.html", "assets/data/footer.html"]);
 
   ALL_HTML_PAGES.forEach(function (page) {
     var filePath = path.join(ROOT, page);
     if (!fs.existsSync(filePath)) return;
     var html = fs.readFileSync(filePath, "utf8");
     var updated = html;
+
+    // Inject the Journal nav link if enabled
+    if (site.enableJournal) {
+      updated = updated.replace(/<!--YL:nav\.journal-->([\s\S]*?)<!--\/YL:nav\.journal-->/g, function() {
+        var isActive = page === "journal.html";
+        var activeClass = isActive ? ' class="active" aria-current="page"' : '';
+        return '<!--YL:nav.journal--><li><a' + activeClass + ' href="journal.html">Journal</a></li><!--/YL:nav.journal-->';
+      });
+    } else {
+      updated = updated.replace(/<!--YL:nav\.journal-->([\s\S]*?)<!--\/YL:nav\.journal-->/g, '<!--YL:nav.journal--><!--/YL:nav.journal-->');
+    }
 
     // Replace HTML comment templates: <!--YL:site.KEY-->...<!--/YL:site.KEY-->
     updated = updated.replace(/<!--YL:site\.([a-zA-Z0-9]+)-->([\s\S]*?)<!--\/YL:site\.\1-->/g, function (match, key) {
@@ -1174,6 +1216,53 @@ if (DOMAIN_IS_LIVE) {
     fs.writeFileSync(swPath, updatedContent, "utf8");
     console.log("[build] Automatically updated sw.js CACHE_NAME to version " + versionString);
   }
+})();
+
+// Automatically generate individual product OpenGraph HTML pages
+(function generateProductOgPages() {
+  PRODUCTS.forEach(function(product) {
+    var pTitle = escapeHtml(product.name) + " | Y'allternative Living";
+    var pDesc = escapeHtml(product.blurb || "");
+    var pUrl = DOMAIN + "/products/" + product.id + ".html";
+    var pImage = DOMAIN + "/" + product.image;
+    
+    var html = '<!DOCTYPE html>\n' +
+      '<html lang="en">\n' +
+      '<head>\n' +
+      '  <meta charset="UTF-8">\n' +
+      '  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
+      '  <title>' + pTitle + '</title>\n' +
+      '  <meta name="description" content="' + pDesc + '">\n' +
+      '  <!-- OpenGraph -->\n' +
+      '  <meta property="og:type" content="product">\n' +
+      '  <meta property="og:title" content="' + pTitle + '">\n' +
+      '  <meta property="og:description" content="' + pDesc + '">\n' +
+      '  <meta property="og:image" content="' + pImage + '">\n' +
+      '  <meta property="og:url" content="' + pUrl + '">\n' +
+      '  <meta property="og:site_name" content="Y\'allternative Living">\n' +
+      '  <!-- Twitter -->\n' +
+      '  <meta name="twitter:card" content="summary_large_image">\n' +
+      '  <meta name="twitter:title" content="' + pTitle + '">\n' +
+      '  <meta name="twitter:description" content="' + pDesc + '">\n' +
+      '  <meta name="twitter:image" content="' + pImage + '">\n' +
+      '  <!-- E-commerce OG -->\n' +
+      '  <meta property="product:price:amount" content="' + product.price.toFixed(2) + '">\n' +
+      '  <meta property="product:price:currency" content="USD">\n' +
+      '  <meta property="product:availability" content="' + (product.comingSoon ? "preorder" : "in stock") + '">\n' +
+      '  <!-- Redirect to shop with product deep-link -->\n' +
+      '  <script>\n' +
+      '    window.location.replace("../shop.html#" + ' + JSON.stringify(product.id) + ');\n' +
+      '  </script>\n' +
+      '</head>\n' +
+      '<body style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;text-align:center;padding:50px;background:#fcfaf7;color:#353230;">\n' +
+      '  <h1>' + pTitle + '</h1>\n' +
+      '  <p>Redirecting you to the shop...</p>\n' +
+      '  <p><a href="../shop.html#' + product.id + '">Click here if you aren\'t redirected automatically</a></p>\n' +
+      '</body>\n' +
+      '</html>\n';
+      
+    writeFile("products/" + product.id + ".html", html);
+  });
 })();
 
 console.log("\nDone. Regenerated derived files + page copy from the JSON sources in assets/data/.");

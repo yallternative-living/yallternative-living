@@ -8,7 +8,9 @@
     "tawkToWidgetId": "YOUR_TAWKTO_WIDGET_ID",
     "formspreeContactId": "YOUR_FORM_ID",
     "formspreeReviewId": "YOUR_FORMSPREE_FORM_ID",
-    "giftUpId": "YOUR_GIFTUP_ID"
+    "giftUpId": "YOUR_GIFTUP_ID",
+    "enableJournal": false,
+    "enableSocialFeed": false
   },
   "home": {
     "heroTitle": "Self-Care For The Black Sheep & Bold Hearts",
