@@ -1246,6 +1246,37 @@
         }
       }
       renderBundles(data);
+
+      // Asynchronously fetch live inventory levels from Netlify Function to update stock levels dynamically
+      fetch('/.netlify/functions/inventory')
+        .then(function (res) { return res.json(); })
+        .then(function (stockData) {
+          if (!stockData || typeof stockData !== 'object' || Object.keys(stockData).length === 0) return;
+          var hasChanges = false;
+          data.products.forEach(function (p) {
+            if (stockData[p.id] !== undefined) {
+              var newStock = Number(stockData[p.id]);
+              if (p.stock !== newStock) {
+                p.stock = newStock;
+                hasChanges = true;
+              }
+            }
+          });
+          if (hasChanges) {
+            console.log('[inventory] Live stock levels updated. Re-rendering.');
+            if (sortSelect) {
+              sortSelect.dispatchEvent(new Event('change'));
+            } else if (shopGrid && !filterRow) {
+              renderCards(shopGrid, data.products);
+            }
+            if (featuredGrid) {
+              renderCards(featuredGrid, pickFeatured(data.products), { eagerFirst: false });
+            }
+          }
+        })
+        .catch(function (err) {
+          console.warn('[inventory] Could not fetch live stock levels:', err);
+        });
     } else {
       console.warn("Product data (assets/js/products-data.js) did not load.");
     }
