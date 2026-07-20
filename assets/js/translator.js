@@ -39,23 +39,6 @@
     }
   }
 
-  // Check if a language pair is natively supported on-device
-  async function checkNativeSupport(target) {
-    if (!chromeTranslationNamespace) return "no";
-    try {
-      var options = { sourceLanguage: "en", targetLanguage: target };
-      if (typeof chromeTranslationNamespace.canTranslate === "function") {
-        return await chromeTranslationNamespace.canTranslate(options);
-      }
-      if (typeof chromeTranslationNamespace.availability === "function") {
-        return await chromeTranslationNamespace.availability(options);
-      }
-    } catch (e) {
-      console.warn("[translator] Native support check failed:", e);
-    }
-    return "no";
-  }
-
   // Instantiate native translator
   async function getNativeTranslator(target) {
     if (!chromeTranslationNamespace) return null;
@@ -419,8 +402,6 @@
 
     // Default to English instead of aggressive auto-translation
     // to prevent showing the "wrong language" automatically.
-    return "en";
-
     return "en";
   }
 

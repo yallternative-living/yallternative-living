@@ -187,7 +187,6 @@
       // Submit via AJAX (fetch) to prevent page reload/redirect
       e.preventDefault();
       var button = form.querySelector('button[type="submit"]');
-      var originalText = button.textContent;
       button.disabled = true;
       button.textContent = "Joining...";
 

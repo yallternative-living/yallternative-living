@@ -1,3 +1,4 @@
+/* global document, window, axe */
 const puppeteer = require("puppeteer");
 const fs = require("fs");
 const path = require("path");
@@ -345,11 +346,9 @@ Accessibility scans were performed using **axe-core** against WCAG 2.2 AA guidel
 | :--- | :---: | :---: | :---: |
 `;
 
-  let zeroCritical = true;
   for (const pageName of PAGES) {
     const a11y = auditResults.pages[pageName].a11y;
     const isPass = a11y.criticalCount === 0 ? "✅ Pass" : "❌ Fail";
-    if (a11y.criticalCount > 0) zeroCritical = false;
     md += `| [${pageName}](file:///Users/steven/Documents/GitHub/yallternative-living/${pageName}) | ${a11y.violationsCount} | ${a11y.criticalCount} | ${isPass} |\n`;
   }
 
