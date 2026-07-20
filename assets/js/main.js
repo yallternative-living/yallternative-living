@@ -238,7 +238,7 @@
       var target = e.target.closest('a[href="#gift-cards"]');
       if (!target) {
         var card = e.target.closest('.card[data-id="yallternative-gift-card"]');
-        if (card && !e.target.closest('.wish-btn') && !e.target.closest('.card-gallery-dot')) {
+        if (card && !e.target.closest(".wish-btn") && !e.target.closest(".card-gallery-dot")) {
           target = card;
         }
       }
@@ -262,16 +262,15 @@
     }
 
     // 3. Fallback light-dismiss for older browsers that lack native closedby support
-    if (!('closedBy' in HTMLDialogElement.prototype)) {
-      giftModal.addEventListener('click', function (event) {
+    if (!("closedBy" in HTMLDialogElement.prototype)) {
+      giftModal.addEventListener("click", function (event) {
         if (event.target !== giftModal) return;
         var rect = giftModal.getBoundingClientRect();
-        var isDialogContent = (
+        var isDialogContent =
           rect.top <= event.clientY &&
           event.clientY <= rect.top + rect.height &&
           rect.left <= event.clientX &&
-          event.clientX <= rect.left + rect.width
-        );
+          event.clientX <= rect.left + rect.width;
         if (!isDialogContent) {
           giftModal.close();
         }
@@ -992,7 +991,7 @@
       '  <button type="button" class="lightbox-prev" aria-label="Previous image">&#10094;</button>' +
       '  <img id="lightboxImage" src="" alt="Enlarged product image">' +
       '  <button type="button" class="lightbox-next" aria-label="Next image">&#10095;</button>' +
-      '</div>' +
+      "</div>" +
       '<div class="lightbox-dots" id="lightboxDots"></div>';
     document.body.appendChild(dialog);
 
@@ -1006,7 +1005,7 @@
       if (idx >= currentImages.length) idx = 0;
       currentIndex = idx;
       imgEl.src = currentImages[currentIndex];
-      
+
       // Update dots
       var dots = dotsContainer.querySelectorAll(".lightbox-dot");
       dots.forEach(function (dot, i) {
@@ -1055,20 +1054,28 @@
     // Mobile touch swipe gestures
     var touchStartX = 0;
     var touchEndX = 0;
-    dialog.addEventListener("touchstart", function (e) {
-      touchStartX = e.changedTouches[0].screenX;
-    }, { passive: true });
-    dialog.addEventListener("touchend", function (e) {
-      touchEndX = e.changedTouches[0].screenX;
-      var diff = touchEndX - touchStartX;
-      if (Math.abs(diff) > 50) {
-        if (diff < 0) {
-          showImage(currentIndex + 1);
-        } else {
-          showImage(currentIndex - 1);
+    dialog.addEventListener(
+      "touchstart",
+      function (e) {
+        touchStartX = e.changedTouches[0].screenX;
+      },
+      { passive: true }
+    );
+    dialog.addEventListener(
+      "touchend",
+      function (e) {
+        touchEndX = e.changedTouches[0].screenX;
+        var diff = touchEndX - touchStartX;
+        if (Math.abs(diff) > 50) {
+          if (diff < 0) {
+            showImage(currentIndex + 1);
+          } else {
+            showImage(currentIndex - 1);
+          }
         }
-      }
-    }, { passive: true });
+      },
+      { passive: true }
+    );
 
     window.openLightbox = function (images, startSrc) {
       currentImages = images || [];
@@ -1117,9 +1124,12 @@
           if (prodId === "yallternative-gift-card") {
             return;
           }
-          var allItems = ((window.YL_PRODUCTS && window.YL_PRODUCTS.products) || [])
-            .concat((window.YL_PRODUCTS && window.YL_PRODUCTS.bundles) || []);
-          var item = allItems.find(function (i) { return i.id === prodId; });
+          var allItems = ((window.YL_PRODUCTS && window.YL_PRODUCTS.products) || []).concat(
+            (window.YL_PRODUCTS && window.YL_PRODUCTS.bundles) || []
+          );
+          var item = allItems.find(function (i) {
+            return i.id === prodId;
+          });
           if (item && item.images && item.images.length) {
             var activeImg = slide.querySelector("img");
             var src = activeImg ? activeImg.getAttribute("src") : item.images[0];
@@ -1316,13 +1326,14 @@
       }
       renderBundles(data);
 
-      fetch('/.netlify/functions/inventory')
+      fetch("/.netlify/functions/inventory")
         .then(function (res) {
           if (!res.ok) throw new Error("Status " + res.status);
           return res.json();
         })
         .then(function (stockData) {
-          if (!stockData || typeof stockData !== 'object' || Object.keys(stockData).length === 0) return;
+          if (!stockData || typeof stockData !== "object" || Object.keys(stockData).length === 0)
+            return;
           var hasChanges = false;
           data.products.forEach(function (p) {
             if (stockData[p.id] !== undefined) {
@@ -1334,9 +1345,9 @@
             }
           });
           if (hasChanges) {
-            console.log('[inventory] Live stock levels updated. Re-rendering.');
+            console.log("[inventory] Live stock levels updated. Re-rendering.");
             if (sortSelect) {
-              sortSelect.dispatchEvent(new Event('change'));
+              sortSelect.dispatchEvent(new Event("change"));
             } else if (shopGrid && !filterRow) {
               renderCards(shopGrid, data.products);
             }
@@ -1346,7 +1357,7 @@
           }
         })
         .catch(function (err) {
-          console.warn('[inventory] Could not fetch live stock levels:', err);
+          console.warn("[inventory] Could not fetch live stock levels:", err);
         });
     } else {
       console.warn("Product data (assets/js/products-data.js) did not load.");
@@ -1606,7 +1617,9 @@
       stockBadgeHTML(p) +
       '<div class="card-foot">' +
       variantSelectHTML(p) +
-      (p.id !== "yallternative-gift-card" ? '<p style="font-size: 0.72rem; color: var(--whiskey); margin: 0 0 10px 0; text-align: center; font-weight: 600;">Free shipping over $40</p>' : '') +
+      (p.id !== "yallternative-gift-card"
+        ? '<p style="font-size: 0.72rem; color: var(--whiskey); margin: 0 0 10px 0; text-align: center; font-weight: 600;">Free shipping over $40</p>'
+        : "") +
       '<div class="card-foot-row">' +
       '<span class="price">$' +
       p.price.toFixed(2) +
@@ -1771,56 +1784,84 @@
         var displayPast = sortedPast.slice(0, 3);
 
         if (displayPast.length) {
-          pastEl.innerHTML = '<div class="events-carousel-inner">' +
-            displayPast.map(function (ev, index) {
-              var cardHtml = eventCardHTML(ev);
-              if (index === 0) {
-                return cardHtml.replace('class="card event-card reveal"', 'class="card event-card active"');
-              } else {
-                return cardHtml.replace('class="card event-card reveal"', 'class="card event-card"');
-              }
-            }).join("") +
-            '</div>' +
+          pastEl.innerHTML =
+            '<div class="events-carousel-inner">' +
+            displayPast
+              .map(function (ev, index) {
+                var cardHtml = eventCardHTML(ev);
+                if (index === 0) {
+                  return cardHtml.replace(
+                    'class="card event-card reveal"',
+                    'class="card event-card active"'
+                  );
+                } else {
+                  return cardHtml.replace(
+                    'class="card event-card reveal"',
+                    'class="card event-card"'
+                  );
+                }
+              })
+              .join("") +
+            "</div>" +
             '<button class="carousel-arrow carousel-prev" aria-label="Previous appearance">&#8249;</button>' +
             '<button class="carousel-arrow carousel-next" aria-label="Next appearance">&#8250;</button>' +
             '<div class="carousel-dots">' +
-            displayPast.map(function (_, i) {
-              return '<button class="carousel-dot' + (i === 0 ? ' active' : '') + '" aria-label="Go to slide ' + (i + 1) + '" data-index="' + i + '"></button>';
-            }).join("") +
-            '</div>';
+            displayPast
+              .map(function (_, i) {
+                return (
+                  '<button class="carousel-dot' +
+                  (i === 0 ? " active" : "") +
+                  '" aria-label="Go to slide ' +
+                  (i + 1) +
+                  '" data-index="' +
+                  i +
+                  '"></button>'
+                );
+              })
+              .join("") +
+            "</div>";
 
           if (sortedPast.length > 3) {
             var btnContainer = document.createElement("div");
             btnContainer.className = "past-events-footer";
             btnContainer.style.textAlign = "center";
             btnContainer.style.marginTop = "32px";
-            btnContainer.innerHTML = '<button class="btn btn-outline btn-sm" id="toggleAllPastEvents">See All Past Pop-ups (' + sortedPast.length + ')</button>';
+            btnContainer.innerHTML =
+              '<button class="btn btn-outline btn-sm" id="toggleAllPastEvents">See All Past Pop-ups (' +
+              sortedPast.length +
+              ")</button>";
             pastEl.appendChild(btnContainer);
 
-            btnContainer.querySelector("#toggleAllPastEvents").addEventListener("click", function () {
-              // Destroy carousel layout and replace with full grid
-              pastEl.innerHTML = '<div class="grid grid-3">' +
-                sortedPast.map(function (ev) {
-                  return eventCardHTML(ev);
-                }).join("") +
-                '</div>' +
-                '<div class="past-events-footer" style="text-align:center; margin-top:32px;">' +
-                '<button class="btn btn-outline btn-sm" id="toggleAllPastEvents">Show Carousel</button>' +
-                '</div>';
+            btnContainer
+              .querySelector("#toggleAllPastEvents")
+              .addEventListener("click", function () {
+                // Destroy carousel layout and replace with full grid
+                pastEl.innerHTML =
+                  '<div class="grid grid-3">' +
+                  sortedPast
+                    .map(function (ev) {
+                      return eventCardHTML(ev);
+                    })
+                    .join("") +
+                  "</div>" +
+                  '<div class="past-events-footer" style="text-align:center; margin-top:32px;">' +
+                  '<button class="btn btn-outline btn-sm" id="toggleAllPastEvents">Show Carousel</button>' +
+                  "</div>";
 
-              // Bind event to go back to carousel
-              pastEl.querySelector("#toggleAllPastEvents").addEventListener("click", function () {
-                renderPastEventsCarousel();
+                // Bind event to go back to carousel
+                pastEl.querySelector("#toggleAllPastEvents").addEventListener("click", function () {
+                  renderPastEventsCarousel();
+                });
+
+                // Wire up scroll reveal for the new grid cards
+                wireReveal(pastEl);
               });
-
-              // Wire up scroll reveal for the new grid cards
-              wireReveal(pastEl);
-            });
           }
 
           setupPastEventsRotation(pastEl);
         } else {
-          pastEl.innerHTML = '<p class="muted center">No past pop-ups logged yet. Check back soon.</p>';
+          pastEl.innerHTML =
+            '<p class="muted center">No past pop-ups logged yet. Check back soon.</p>';
         }
         markReveal(pastEl);
       }
@@ -1846,7 +1887,7 @@
       currentIndex = ((index % cards.length) + cards.length) % cards.length;
       cards[currentIndex].classList.add("active");
       if (dots[currentIndex]) dots[currentIndex].classList.add("active");
-      inner.style.transform = "translateX(-" + (currentIndex * 100) + "%)";
+      inner.style.transform = "translateX(-" + currentIndex * 100 + "%)";
     }
 
     function stopAutoplay() {
@@ -1884,22 +1925,41 @@
 
     // Respond to viewport changes
     function onViewportChange() {
-      if (mql.matches) { enterCarouselMode(); }
-      else { exitCarouselMode(); }
+      if (mql.matches) {
+        enterCarouselMode();
+      } else {
+        exitCarouselMode();
+      }
     }
     mql.addEventListener("change", onViewportChange);
 
     // Pause on hover / focus
-    container.addEventListener("mouseenter", function () { paused = true; });
-    container.addEventListener("mouseleave", function () { paused = false; });
-    container.addEventListener("focusin",    function () { paused = true; });
-    container.addEventListener("focusout",   function () { paused = false; });
+    container.addEventListener("mouseenter", function () {
+      paused = true;
+    });
+    container.addEventListener("mouseleave", function () {
+      paused = false;
+    });
+    container.addEventListener("focusin", function () {
+      paused = true;
+    });
+    container.addEventListener("focusout", function () {
+      paused = false;
+    });
 
     // Arrow controls
     var prev = container.querySelector(".carousel-prev");
     var next = container.querySelector(".carousel-next");
-    if (prev) prev.addEventListener("click", function () { goTo(currentIndex - 1); startAutoplay(); });
-    if (next) next.addEventListener("click", function () { goTo(currentIndex + 1); startAutoplay(); });
+    if (prev)
+      prev.addEventListener("click", function () {
+        goTo(currentIndex - 1);
+        startAutoplay();
+      });
+    if (next)
+      next.addEventListener("click", function () {
+        goTo(currentIndex + 1);
+        startAutoplay();
+      });
 
     // Dot controls
     dots.forEach(function (dot) {
@@ -1912,24 +1972,35 @@
     // Touch swipe gesture controls for mobile users
     var touchStartX = 0;
     var touchEndX = 0;
-    inner.addEventListener("touchstart", function (e) {
-      touchStartX = e.changedTouches[0].screenX;
-    }, { passive: true });
-    inner.addEventListener("touchend", function (e) {
-      touchEndX = e.changedTouches[0].screenX;
-      var diff = touchEndX - touchStartX;
-      if (Math.abs(diff) > 50) { // threshold of 50px
-        if (diff < 0) {
-          goTo(currentIndex + 1); // swipe left
-        } else {
-          goTo(currentIndex - 1); // swipe right
+    inner.addEventListener(
+      "touchstart",
+      function (e) {
+        touchStartX = e.changedTouches[0].screenX;
+      },
+      { passive: true }
+    );
+    inner.addEventListener(
+      "touchend",
+      function (e) {
+        touchEndX = e.changedTouches[0].screenX;
+        var diff = touchEndX - touchStartX;
+        if (Math.abs(diff) > 50) {
+          // threshold of 50px
+          if (diff < 0) {
+            goTo(currentIndex + 1); // swipe left
+          } else {
+            goTo(currentIndex - 1); // swipe right
+          }
+          startAutoplay();
         }
-        startAutoplay();
-      }
-    }, { passive: true });
+      },
+      { passive: true }
+    );
 
     // Initial setup based on current viewport
-    if (mql.matches) { enterCarouselMode(); }
+    if (mql.matches) {
+      enterCarouselMode();
+    }
   }
 
   function eventCardHTML(ev) {
@@ -1939,19 +2010,19 @@
       '<span class="card-cat">' +
       attrEsc(ev.type) +
       "</span>" +
-      '<h3>' +
+      "<h3>" +
       attrEsc(ev.name) +
       "</h3>" +
-      '<p class="event-date"><time datetime="' + (attrEsc(ev.date) || "") + '">' +
+      '<p class="event-date"><time datetime="' +
+      (attrEsc(ev.date) || "") +
+      '">' +
       "📅 " +
       attrEsc(ev.dateLabel) +
       "</time></p>" +
       '<p class="event-location">' +
       (ev.location ? "📍 " + attrEsc(ev.location) : "") +
       "</p>" +
-      (ev.note
-        ? '<p class="event-desc">' + attrEsc(ev.note) + "</p>"
-        : "") +
+      (ev.note ? '<p class="event-desc">' + attrEsc(ev.note) + "</p>" : "") +
       '<div class="event-cta">' +
       (ev.url
         ? '<a class="btn btn-primary btn-sm btn-block" href="' +
@@ -2049,7 +2120,11 @@
               " -- try a different word or clear the search.";
           } else {
             countEl.textContent =
-              "Showing " + filteredBundles.length + " of " + window.YL_PRODUCTS.bundles.length + " gift sets";
+              "Showing " +
+              filteredBundles.length +
+              " of " +
+              window.YL_PRODUCTS.bundles.length +
+              " gift sets";
           }
         }
       } else {
@@ -2126,7 +2201,7 @@
         clearTimeout(debounceTimer);
         clearTimeout(analyticsTimer);
         var value = searchInput.value;
-        
+
         // Fast debounce for UI updates
         debounceTimer = setTimeout(function () {
           state.query = value;
@@ -2135,7 +2210,11 @@
 
         // Slow debounce for analytics (wait until they finish typing)
         analyticsTimer = setTimeout(function () {
-          if (value.trim().length > 2 && value !== lastTrackedQuery && typeof window.plausible === "function") {
+          if (
+            value.trim().length > 2 &&
+            value !== lastTrackedQuery &&
+            typeof window.plausible === "function"
+          ) {
             window.plausible("Site Search", { props: { query: value.trim() } });
             lastTrackedQuery = value;
           }
@@ -2152,7 +2231,11 @@
           e.preventDefault();
           // For WebMCP agents: respond immediately with the filtered state
           if (e.agentInvoked && typeof e.respondWith === "function") {
-             e.respondWith(Promise.resolve("Search complete. The shop catalog is now filtered to show matching products."));
+            e.respondWith(
+              Promise.resolve(
+                "Search complete. The shop catalog is now filtered to show matching products."
+              )
+            );
           }
         });
       }
@@ -2495,7 +2578,7 @@
         toast.id = "sw-update-toast";
         toast.className = "sw-update-toast";
         toast.innerHTML =
-          '<span>A new version is available!</span>' +
+          "<span>A new version is available!</span>" +
           '<button onclick="window.location.reload()" class="btn btn-sm btn-primary" style="margin-left:12px;">Update now</button>' +
           '<button onclick="this.parentElement.remove()" class="btn btn-sm btn-outline" style="margin-left:6px;" aria-label="Dismiss">&times;</button>';
         document.body.appendChild(toast);
@@ -2522,15 +2605,18 @@
     }
 
     /* ---------- 2026 SOTA Deep-linking & Popularity Features ---------- */
-    
+
     // 1. Deep-linking to open product lightbox on load
     if (window.location.hash) {
       var possibleProdId = window.location.hash.replace("#", "");
-      var allItems = ((window.YL_PRODUCTS && window.YL_PRODUCTS.products) || [])
-        .concat((window.YL_PRODUCTS && window.YL_PRODUCTS.bundles) || []);
-      var matchedItem = allItems.find(function (i) { return i.id === possibleProdId; });
+      var allItems = ((window.YL_PRODUCTS && window.YL_PRODUCTS.products) || []).concat(
+        (window.YL_PRODUCTS && window.YL_PRODUCTS.bundles) || []
+      );
+      var matchedItem = allItems.find(function (i) {
+        return i.id === possibleProdId;
+      });
       if (matchedItem) {
-        setTimeout(function() {
+        setTimeout(function () {
           if (typeof window.openLightbox === "function") {
             window.openLightbox(matchedItem.images || [matchedItem.image], matchedItem.image);
           }
@@ -2541,23 +2627,33 @@
     // 2. Render Social Feed if enabled
     var socialFeedGrid = document.getElementById("socialFeedGrid");
     var homeSocialFeedSection = document.getElementById("homeSocialFeed");
-    var enableSocialFeed = /*YL:site.enableSocialFeed*/ false /*/YL:site.enableSocialFeed*/;
-    var enableJournal = /*YL:site.enableJournal*/ false /*/YL:site.enableJournal*/;
+    var enableSocialFeed = /*YL:site.enableSocialFeed*/ false; /*/YL:site.enableSocialFeed*/
+    var enableJournal = /*YL:site.enableJournal*/ false; /*/YL:site.enableJournal*/
 
     if (enableSocialFeed && socialFeedGrid && homeSocialFeedSection && window.YL_SOCIAL_FEED) {
       var socialPosts = window.YL_SOCIAL_FEED.posts || [];
       if (socialPosts.length > 0) {
         homeSocialFeedSection.style.display = "block";
-        socialFeedGrid.innerHTML = socialPosts.map(function(post) {
-          return '<a href="' + attrEsc(post.url || "#") + '" target="_blank" rel="noopener" class="card social-card reveal">' +
-            '  <div class="card-img-wrap">' +
-            '    <img src="' + attrEsc(post.image) + '" alt="Social Media Post" loading="lazy">' +
-            '  </div>' +
-            '  <div class="card-content">' +
-            '    <p class="social-caption">' + attrEsc(post.caption) + '</p>' +
-            '  </div>' +
-            '</a>';
-        }).join("");
+        socialFeedGrid.innerHTML = socialPosts
+          .map(function (post) {
+            return (
+              '<a href="' +
+              attrEsc(post.url || "#") +
+              '" target="_blank" rel="noopener" class="card social-card reveal">' +
+              '  <div class="card-img-wrap">' +
+              '    <img src="' +
+              attrEsc(post.image) +
+              '" alt="Social Media Post" loading="lazy">' +
+              "  </div>" +
+              '  <div class="card-content">' +
+              '    <p class="social-caption">' +
+              attrEsc(post.caption) +
+              "</p>" +
+              "  </div>" +
+              "</a>"
+            );
+          })
+          .join("");
         wireReveal(socialFeedGrid);
       }
     }
@@ -2566,63 +2662,102 @@
     var journalApp = document.getElementById("journalApp");
     if (journalApp && window.YL_JOURNAL) {
       var journalPosts = window.YL_JOURNAL.posts || [];
-      
+
       function renderJournalList() {
         if (!enableJournal || journalPosts.length === 0) {
-          journalApp.innerHTML = '<div class="section-head reveal">' +
-            '  <h2>Journal Coming Soon</h2>' +
-            '  <p>Savanna is stirring up some stories. Check back soon for herbal folklore, batch updates, and behind-the-scenes thoughts.</p>' +
-            '</div>';
+          journalApp.innerHTML =
+            '<div class="section-head reveal">' +
+            "  <h2>Journal Coming Soon</h2>" +
+            "  <p>Savanna is stirring up some stories. Check back soon for herbal folklore, batch updates, and behind-the-scenes thoughts.</p>" +
+            "</div>";
           return;
         }
 
-        var listHtml = '<div class="grid grid-3 stagger">' +
-          journalPosts.map(function(post) {
-            return '<article class="card reveal">' +
-              (post.image ? 
-                '<div class="card-media">' +
-                '  <picture>' +
-                '    <img src="' + attrEsc(post.image) + '" alt="' + attrEsc(post.title) + '" loading="lazy" width="400" height="300" style="object-fit:cover; width:100%; height:100%;">' +
-                '  </picture>' +
-                '</div>' : '') +
-              '<div class="card-body">' +
-              '  <span class="card-cat">Published ' + attrEsc(post.date) + '</span>' +
-              '  <h3><a href="#post-' + attrEsc(post.id) + '">' + attrEsc(post.title) + '</a></h3>' +
-              '  <p>' + attrEsc(post.excerpt) + '</p>' +
-              '  <div class="card-foot">' +
-              '    <div class="card-foot-row">' +
-              '      <a href="#post-' + attrEsc(post.id) + '" class="btn btn-outline btn-sm">Read Post →</a>' +
-              '    </div>' +
-              '  </div>' +
-              '</div>' +
-              '</article>';
-          }).join("") +
-          '</div>';
+        var listHtml =
+          '<div class="grid grid-3 stagger">' +
+          journalPosts
+            .map(function (post) {
+              return (
+                '<article class="card reveal">' +
+                (post.image
+                  ? '<div class="card-media">' +
+                    "  <picture>" +
+                    '    <img src="' +
+                    attrEsc(post.image) +
+                    '" alt="' +
+                    attrEsc(post.title) +
+                    '" loading="lazy" width="400" height="300" style="object-fit:cover; width:100%; height:100%;">' +
+                    "  </picture>" +
+                    "</div>"
+                  : "") +
+                '<div class="card-body">' +
+                '  <span class="card-cat">Published ' +
+                attrEsc(post.date) +
+                "</span>" +
+                '  <h3><a href="#post-' +
+                attrEsc(post.id) +
+                '">' +
+                attrEsc(post.title) +
+                "</a></h3>" +
+                "  <p>" +
+                attrEsc(post.excerpt) +
+                "</p>" +
+                '  <div class="card-foot">' +
+                '    <div class="card-foot-row">' +
+                '      <a href="#post-' +
+                attrEsc(post.id) +
+                '" class="btn btn-outline btn-sm">Read Post →</a>' +
+                "    </div>" +
+                "  </div>" +
+                "</div>" +
+                "</article>"
+              );
+            })
+            .join("") +
+          "</div>";
 
         journalApp.innerHTML = listHtml;
         wireReveal(journalApp);
       }
 
       function renderJournalDetail(postId) {
-        var post = journalPosts.find(function(p) { return p.id === postId; });
+        var post = journalPosts.find(function (p) {
+          return p.id === postId;
+        });
         if (!post) {
           renderJournalList();
           return;
         }
 
-        var paragraphs = post.content.split('\n\n').map(function(p) {
-          return '<p>' + attrEsc(p) + '</p>';
-        }).join("");
+        var paragraphs = post.content
+          .split("\n\n")
+          .map(function (p) {
+            return "<p>" + attrEsc(p) + "</p>";
+          })
+          .join("");
 
-        journalApp.innerHTML = '<div class="journal-detail">' +
+        journalApp.innerHTML =
+          '<div class="journal-detail">' +
           '  <div class="back-link reveal" id="journalBackBtn">← Back to Journal</div>' +
-          '  <h1 class="reveal">' + attrEsc(post.title) + '</h1>' +
-          '  <div class="meta reveal">Published on ' + attrEsc(post.date) + '</div>' +
-          (post.image ? '  <img class="reveal" src="' + attrEsc(post.image) + '" alt="' + attrEsc(post.title) + '">' : '') +
-          '  <div class="content reveal">' + paragraphs + '</div>' +
-          '</div>';
+          '  <h1 class="reveal">' +
+          attrEsc(post.title) +
+          "</h1>" +
+          '  <div class="meta reveal">Published on ' +
+          attrEsc(post.date) +
+          "</div>" +
+          (post.image
+            ? '  <img class="reveal" src="' +
+              attrEsc(post.image) +
+              '" alt="' +
+              attrEsc(post.title) +
+              '">'
+            : "") +
+          '  <div class="content reveal">' +
+          paragraphs +
+          "</div>" +
+          "</div>";
 
-        document.getElementById("journalBackBtn").addEventListener("click", function() {
+        document.getElementById("journalBackBtn").addEventListener("click", function () {
           window.location.hash = "";
         });
         wireReveal(journalApp);

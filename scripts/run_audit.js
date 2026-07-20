@@ -22,7 +22,8 @@ const VIEWPORTS = [
 
 const LANGUAGES = ["en", "es", "de", "fr", "ja", "zh"];
 
-const SCREENSHOT_DIR = "/Users/steven/.gemini/antigravity/brain/98155866-a9ab-40dd-8002-0343e6645304";
+const SCREENSHOT_DIR =
+  "/Users/steven/.gemini/antigravity/brain/98155866-a9ab-40dd-8002-0343e6645304";
 fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
 
 const axeCorePath = require.resolve("axe-core/axe.min.js");
@@ -53,15 +54,27 @@ const axeCoreSource = fs.readFileSync(axeCorePath, "utf8");
       };
 
       const page = await browser.newPage();
-      
+
       // Inject Mock translation API with a realistic dictionary for nav links
       await page.evaluateOnNewDocument(() => {
         const DICTIONARY = {
-          "Home": { es: "Inicio", de: "Startseite", fr: "Accueil", ja: "ホーム", zh: "首页" },
-          "Shop": { es: "Tienda", de: "Shop", fr: "Boutique", ja: "ショップ", zh: "商店" },
-          "Events": { es: "Eventos", de: "Events", fr: "Événements", ja: "イベント", zh: "活动" },
-          "Our Story": { es: "Nuestra historia", de: "Unsere Geschichte", fr: "Notre histoire", ja: "ストーリー", zh: "关于我们" },
-          "Contact": { es: "Contacto", de: "Kontakt", fr: "Contact", ja: "お問い合わせ", zh: "联系我们" }
+          Home: { es: "Inicio", de: "Startseite", fr: "Accueil", ja: "ホーム", zh: "首页" },
+          Shop: { es: "Tienda", de: "Shop", fr: "Boutique", ja: "ショップ", zh: "商店" },
+          Events: { es: "Eventos", de: "Events", fr: "Événements", ja: "イベント", zh: "活动" },
+          "Our Story": {
+            es: "Nuestra historia",
+            de: "Unsere Geschichte",
+            fr: "Notre histoire",
+            ja: "ストーリー",
+            zh: "关于我们"
+          },
+          Contact: {
+            es: "Contacto",
+            de: "Kontakt",
+            fr: "Contact",
+            ja: "お問い合わせ",
+            zh: "联系我们"
+          }
         };
 
         window.translation = {
@@ -72,12 +85,12 @@ const axeCoreSource = fs.readFileSync(axeCorePath, "utf8");
               translate: async (text) => {
                 if (!text || !text.trim()) return text;
                 const clean = text.trim();
-                
+
                 // Exact dictionary match
                 if (DICTIONARY[clean] && DICTIONARY[clean][target]) {
                   return DICTIONARY[clean][target];
                 }
-                
+
                 // Generic prefix to simulate language styling & moderate length increase
                 if (target === "en") return text;
                 if (target === "es") return `[ES] ${text}o`;
@@ -114,22 +127,26 @@ const axeCoreSource = fs.readFileSync(axeCorePath, "utf8");
       });
 
       // Filter critical issues
-      const criticalViolations = a11yResult.violations.filter(v => v.impact === "critical" || v.impact === "serious");
+      const criticalViolations = a11yResult.violations.filter(
+        (v) => v.impact === "critical" || v.impact === "serious"
+      );
       auditResults.pages[pageName].a11y = {
         violationsCount: a11yResult.violations.length,
         criticalCount: criticalViolations.length,
-        violations: a11yResult.violations.map(v => ({
+        violations: a11yResult.violations.map((v) => ({
           id: v.id,
           impact: v.impact,
           description: v.description,
           help: v.help,
           helpUrl: v.helpUrl,
-          nodes: v.nodes.map(n => n.target.join(", "))
+          nodes: v.nodes.map((n) => n.target.join(", "))
         }))
       };
 
       if (criticalViolations.length > 0) {
-        console.log(`❌ Found ${criticalViolations.length} critical/serious accessibility violations!`);
+        console.log(
+          `❌ Found ${criticalViolations.length} critical/serious accessibility violations!`
+        );
       } else {
         console.log("✅ Zero critical accessibility violations found.");
       }
@@ -149,12 +166,15 @@ const axeCoreSource = fs.readFileSync(axeCorePath, "utf8");
           const toggle = document.getElementById("themeToggle");
           if (toggle) toggle.setAttribute("aria-checked", "true");
         });
-        await new Promise(r => setTimeout(r, 300)); // wait for theme transition
+        await new Promise((r) => setTimeout(r, 300)); // wait for theme transition
 
         // Take light mode screenshot
-        const lightShotPath = path.join(SCREENSHOT_DIR, `${pageName.replace(".html", "")}_${vp.name}_light.png`);
+        const lightShotPath = path.join(
+          SCREENSHOT_DIR,
+          `${pageName.replace(".html", "")}_${vp.name}_light.png`
+        );
         await page.screenshot({ path: lightShotPath, fullPage: true });
-        
+
         // Check horizontal overflow
         const lightOverflow = await page.evaluate(() => {
           return document.documentElement.scrollWidth > window.innerWidth;
@@ -167,10 +187,13 @@ const axeCoreSource = fs.readFileSync(axeCorePath, "utf8");
           const toggle = document.getElementById("themeToggle");
           if (toggle) toggle.setAttribute("aria-checked", "false");
         });
-        await new Promise(r => setTimeout(r, 300)); // wait for theme transition
+        await new Promise((r) => setTimeout(r, 300)); // wait for theme transition
 
         // Take dark mode screenshot
-        const darkShotPath = path.join(SCREENSHOT_DIR, `${pageName.replace(".html", "")}_${vp.name}_dark.png`);
+        const darkShotPath = path.join(
+          SCREENSHOT_DIR,
+          `${pageName.replace(".html", "")}_${vp.name}_dark.png`
+        );
         await page.screenshot({ path: darkShotPath, fullPage: true });
 
         // Check horizontal overflow
@@ -188,13 +211,13 @@ const axeCoreSource = fs.readFileSync(axeCorePath, "utf8");
 
         for (const lang of LANGUAGES) {
           console.log(`Translating to: ${lang}`);
-          
+
           // Open language dropdown and click target language button
           await page.evaluate(async (targetLang) => {
             const toggleBtn = document.querySelector(".lang-toggle");
             if (toggleBtn) {
               toggleBtn.click();
-              await new Promise(r => setTimeout(r, 50));
+              await new Promise((r) => setTimeout(r, 50));
             }
             const optionBtn = document.querySelector(`.lang-option[data-lang="${targetLang}"]`);
             if (optionBtn) {
@@ -206,10 +229,13 @@ const axeCoreSource = fs.readFileSync(axeCorePath, "utf8");
             }
           }, lang);
 
-          await new Promise(r => setTimeout(r, 1000)); // wait for DOM translation updates
+          await new Promise((r) => setTimeout(r, 1000)); // wait for DOM translation updates
 
           // Take screenshot of the translated page
-          const langShotPath = path.join(SCREENSHOT_DIR, `${pageName.replace(".html", "")}_translation_${lang}.png`);
+          const langShotPath = path.join(
+            SCREENSHOT_DIR,
+            `${pageName.replace(".html", "")}_translation_${lang}.png`
+          );
           await page.screenshot({ path: langShotPath, fullPage: false });
 
           // Test visual integrity and alignment
@@ -218,7 +244,7 @@ const axeCoreSource = fs.readFileSync(axeCorePath, "utf8");
             const navBrand = document.querySelector(".brand");
             let navMisaligned = false;
             let headerHeight = 0;
-            
+
             if (navLinks && navBrand) {
               const header = document.querySelector(".site-header");
               headerHeight = header ? header.offsetHeight : 0;
@@ -233,7 +259,9 @@ const axeCoreSource = fs.readFileSync(axeCorePath, "utf8");
           });
 
           auditResults.translations[pageName][lang] = integrity;
-          console.log(`Translation integrity for ${lang}: Overflow=${integrity.overflow}, NavMisaligned=${integrity.navMisaligned}, HeaderHeight=${integrity.headerHeight}`);
+          console.log(
+            `Translation integrity for ${lang}: Overflow=${integrity.overflow}, NavMisaligned=${integrity.navMisaligned}, HeaderHeight=${integrity.headerHeight}`
+          );
         }
       }
 
@@ -251,9 +279,9 @@ const axeCoreSource = fs.readFileSync(axeCorePath, "utf8");
       const themeToggle = document.getElementById("themeToggle");
       const searchInput = document.getElementById("shopSearch");
       const presetBtn = document.querySelector(".preset-btn");
-      
-      const getTransition = (el) => el ? window.getComputedStyle(el).transition : "none";
-      
+
+      const getTransition = (el) => (el ? window.getComputedStyle(el).transition : "none");
+
       return {
         themeToggle: getTransition(themeToggle),
         searchInput: getTransition(searchInput),
@@ -267,17 +295,19 @@ const axeCoreSource = fs.readFileSync(axeCorePath, "utf8");
     console.log("Testing search filtration transition...");
     await shopPage.focus("#shopSearch");
     await shopPage.type("#shopSearch", "salve");
-    
+
     // Check if debounce waits and cards transition correctly
-    await new Promise(r => setTimeout(r, 400));
-    
+    await new Promise((r) => setTimeout(r, 400));
+
     const searchTransitionResult = await shopPage.evaluate(() => {
       const cards = document.querySelectorAll("#shopGrid .card");
       let allFadedIn = true;
-      cards.forEach(c => {
+      cards.forEach((c) => {
         if (!c.classList.contains("in")) allFadedIn = false;
       });
-      const countText = document.getElementById("shopCount") ? document.getElementById("shopCount").textContent : "";
+      const countText = document.getElementById("shopCount")
+        ? document.getElementById("shopCount").textContent
+        : "";
       return { countText, allFadedIn };
     });
     auditResults.transitions.search = searchTransitionResult;
@@ -285,17 +315,17 @@ const axeCoreSource = fs.readFileSync(axeCorePath, "utf8");
 
     // Custom gift card preset snapping check
     console.log("Testing gift card custom preset / snapping input...");
-    
+
     // Open the gift card modal first
     await shopPage.evaluate(() => {
       const modal = document.getElementById("giftCardModal");
       if (modal) modal.showModal();
     });
-    await new Promise(r => setTimeout(r, 200));
+    await new Promise((r) => setTimeout(r, 200));
 
     // Check custom button click shows group
     await shopPage.click("#customPresetBtn");
-    await new Promise(r => setTimeout(r, 200));
+    await new Promise((r) => setTimeout(r, 200));
 
     const customGroupVisible = await shopPage.evaluate(() => {
       const group = document.getElementById("customAmountGroup");
@@ -311,7 +341,7 @@ const axeCoreSource = fs.readFileSync(axeCorePath, "utf8");
     await shopPage.evaluate(() => {
       document.getElementById("customGiftAmount").dispatchEvent(new Event("change"));
     });
-    await new Promise(r => setTimeout(r, 200));
+    await new Promise((r) => setTimeout(r, 200));
 
     const snappingResult = await shopPage.evaluate(() => {
       const display = document.getElementById("giftCardAmountDisplay").textContent;
@@ -324,10 +354,11 @@ const axeCoreSource = fs.readFileSync(axeCorePath, "utf8");
       snappedValue: snappingResult.display,
       inputValue: snappingResult.inputValue
     };
-    console.log(`Gift card custom snapping input test: groupVisible=${customGroupVisible}, displayedVal=${snappingResult.display}, inputVal=${snappingResult.inputValue}`);
+    console.log(
+      `Gift card custom snapping input test: groupVisible=${customGroupVisible}, displayedVal=${snappingResult.display}, inputVal=${snappingResult.inputValue}`
+    );
 
     await shopPage.close();
-
   } catch (err) {
     console.error("Audit failure during execution:", err);
     auditResults.failures.push(`Execution error: ${err.message}`);
@@ -366,12 +397,14 @@ Accessibility scans were performed using **axe-core** against WCAG 2.2 AA guidel
   let hasA11yIssues = false;
   for (const pageName of PAGES) {
     const a11y = auditResults.pages[pageName].a11y;
-    const criticals = a11y.violations.filter(v => v.impact === "critical" || v.impact === "serious");
+    const criticals = a11y.violations.filter(
+      (v) => v.impact === "critical" || v.impact === "serious"
+    );
     if (criticals.length > 0) {
       hasA11yIssues = true;
       md += `\n#### ${pageName} A11y Violations:
 `;
-      criticals.forEach(c => {
+      criticals.forEach((c) => {
         md += `- **[${c.impact.toUpperCase()}] ${c.id}**: ${c.help}  
   *Description:* ${c.description}  
   *Target Nodes:* \`${c.nodes.join(", ")}\`  
@@ -403,10 +436,10 @@ Each page was evaluated under **Desktop (1200x800)**, **Tablet (768x1024)**, and
       const vData = page.viewports[vp.name];
       const lightOverflow = vData.light.overflow ? "❌ Overflow" : "✅ No Overflow";
       const darkOverflow = vData.dark.overflow ? "❌ Overflow" : "✅ No Overflow";
-      
+
       const lightShot = `[${baseName}_${vp.name}_light.png](file://${SCREENSHOT_DIR}/${baseName}_${vp.name}_light.png)`;
       const darkShot = `[${baseName}_${vp.name}_dark.png](file://${SCREENSHOT_DIR}/${baseName}_${vp.name}_dark.png)`;
-      
+
       md += `| **${pageName}** | ${vp.name.toUpperCase()} (${vp.width}x${vp.height}) | ${lightOverflow} | ${darkOverflow} | ${lightShot}<br>${darkShot} |\n`;
     }
   }
@@ -422,7 +455,14 @@ We verified the local client-side translation feature across all configured lang
 | :--- | :--- | :---: | :---: | :---: | :--- |
 `;
 
-  const langNames = { en: "English", es: "Español", de: "Deutsch", fr: "Français", ja: "日本語", zh: "中文" };
+  const langNames = {
+    en: "English",
+    es: "Español",
+    de: "Deutsch",
+    fr: "Français",
+    ja: "日本語",
+    zh: "中文"
+  };
   for (const pageName of ["index.html", "shop.html"]) {
     const tData = auditResults.translations[pageName];
     for (const lang of LANGUAGES) {

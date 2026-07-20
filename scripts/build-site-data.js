@@ -392,7 +392,10 @@ var itemListElement = PRODUCTS.map(function (p, i) {
           price: range.low.toFixed(2),
           priceCurrency: "USD",
           url: DOMAIN + "/shop.html",
-          availability: p.image && p.image.indexOf("placeholder") !== -1 ? "https://schema.org/PreOrder" : "https://schema.org/InStock",
+          availability:
+            p.image && p.image.indexOf("placeholder") !== -1
+              ? "https://schema.org/PreOrder"
+              : "https://schema.org/InStock",
           seller: { "@type": "Organization", name: "Y'allternative Living" }
         }
       : {
@@ -402,7 +405,10 @@ var itemListElement = PRODUCTS.map(function (p, i) {
           priceCurrency: "USD",
           offerCount: p.variants.options.length,
           url: DOMAIN + "/shop.html",
-          availability: p.image && p.image.indexOf("placeholder") !== -1 ? "https://schema.org/PreOrder" : "https://schema.org/InStock",
+          availability:
+            p.image && p.image.indexOf("placeholder") !== -1
+              ? "https://schema.org/PreOrder"
+              : "https://schema.org/InStock",
           seller: { "@type": "Organization", name: "Y'allternative Living" }
         };
   var productLd = {
@@ -449,9 +455,13 @@ for (var val = 10; val <= 500; val++) {
   giftCardOptionsList.push("Preset $" + val + "[+" + delta.toFixed(2) + "]");
 }
 var giftCardOptionsStr = giftCardOptionsList.join("|");
-var optionsPlaceholderRe = /data-item-custom1-options="Preset \$10\[\+0\.00\].*?Preset \$500\[\+490\.00\]"/;
+var optionsPlaceholderRe =
+  /data-item-custom1-options="Preset \$10\[\+0\.00\].*?Preset \$500\[\+490\.00\]"/;
 if (optionsPlaceholderRe.test(shopHtml)) {
-  shopHtml = shopHtml.replace(optionsPlaceholderRe, 'data-item-custom1-options="' + giftCardOptionsStr + '"');
+  shopHtml = shopHtml.replace(
+    optionsPlaceholderRe,
+    'data-item-custom1-options="' + giftCardOptionsStr + '"'
+  );
 }
 
 var NUMBER_WORDS = [
@@ -631,28 +641,52 @@ var displayPast = sortedPast.slice(0, 3);
 
 var pastEventsHtml = "";
 if (displayPast.length) {
-  pastEventsHtml = '        <div class="events-carousel-inner">\n' +
-    displayPast.map(function (ev, index) {
-      var activeClass = index === 0 ? "active" : "";
-      var cardCat = ev.type ? '              <span class="card-cat">' + escapeHtml(ev.type) + '</span>\n' : '';
-      var cardNote = ev.note ? '              <p class="event-desc">' + escapeHtml(ev.note) + '</p>\n' : '';
-      var cardUrl = ev.url ? '              <div class="event-cta">\n' +
-        '                <a class="btn btn-primary btn-sm btn-block" href="' + escapeHtml(ev.url) + '" target="_blank" rel="noopener">More Info / RSVP</a>\n' +
-        '              </div>\n' : '';
-      return '          <article class="card event-card ' + activeClass + '">\n' +
-        '            <div class="card-body">\n' +
-        cardCat +
-        '              <h3>' + escapeHtml(ev.name) + '</h3>\n' +
-        '              <p class="event-date"><time datetime="' + (ev.date || "") + '">📅 ' + escapeHtml(ev.dateLabel) + '</time></p>\n' +
-        '              <p class="event-location">' + (ev.location ? '📍 ' + escapeHtml(ev.location) : '') + '</p>\n' +
-        cardNote +
-        cardUrl +
-        '            </div>\n' +
-        '          </article>';
-    }).join("\n") +
-    '\n        </div>';
+  pastEventsHtml =
+    '        <div class="events-carousel-inner">\n' +
+    displayPast
+      .map(function (ev, index) {
+        var activeClass = index === 0 ? "active" : "";
+        var cardCat = ev.type
+          ? '              <span class="card-cat">' + escapeHtml(ev.type) + "</span>\n"
+          : "";
+        var cardNote = ev.note
+          ? '              <p class="event-desc">' + escapeHtml(ev.note) + "</p>\n"
+          : "";
+        var cardUrl = ev.url
+          ? '              <div class="event-cta">\n' +
+            '                <a class="btn btn-primary btn-sm btn-block" href="' +
+            escapeHtml(ev.url) +
+            '" target="_blank" rel="noopener">More Info / RSVP</a>\n' +
+            "              </div>\n"
+          : "";
+        return (
+          '          <article class="card event-card ' +
+          activeClass +
+          '">\n' +
+          '            <div class="card-body">\n' +
+          cardCat +
+          "              <h3>" +
+          escapeHtml(ev.name) +
+          "</h3>\n" +
+          '              <p class="event-date"><time datetime="' +
+          (ev.date || "") +
+          '">📅 ' +
+          escapeHtml(ev.dateLabel) +
+          "</time></p>\n" +
+          '              <p class="event-location">' +
+          (ev.location ? "📍 " + escapeHtml(ev.location) : "") +
+          "</p>\n" +
+          cardNote +
+          cardUrl +
+          "            </div>\n" +
+          "          </article>"
+        );
+      })
+      .join("\n") +
+    "\n        </div>";
 } else {
-  pastEventsHtml = '        <p class="muted center">No past pop-ups logged yet. Check back soon.</p>';
+  pastEventsHtml =
+    '        <p class="muted center">No past pop-ups logged yet. Check back soon.</p>';
 }
 
 var pastEventsRe = /(<!-- PAST_EVENTS:START -->)[\s\S]*?(<!-- PAST_EVENTS:END -->)/;
@@ -687,7 +721,6 @@ try {
 } catch (e) {
   // Silent fallback if it doesn't exist yet or is malformed
 }
-
 
 function injectPageCopy(page, pageKey) {
   var html = readText(page, page + " page");
@@ -821,27 +854,37 @@ injectPageCopy("index.html", "home");
 function buildHomepageTestimonials() {
   var html = readText("index.html", "index.html page");
   var siteReviews = readJson("assets/data/site-reviews.json").reviews || [];
-  
+
   // Filter for featured reviews
-  var featured = siteReviews.filter(function (r) { return r.featured; });
+  var featured = siteReviews.filter(function (r) {
+    return r.featured;
+  });
   if (featured.length === 0) {
     featured = siteReviews.slice(0, 3);
   }
-  
+
   var cardsHtml = '<div class="grid grid-3">\n';
   featured.forEach(function (r) {
     var stars = Array(Math.round(r.rating || 5) + 1).join("★");
     cardsHtml += '        <div class="quote-card reveal">\n';
-    cardsHtml += '          <span class="stars" aria-hidden="true">' + stars + '</span><span class="sr-only">Rated ' + r.rating + ' out of 5 stars.</span>\n';
+    cardsHtml +=
+      '          <span class="stars" aria-hidden="true">' +
+      stars +
+      '</span><span class="sr-only">Rated ' +
+      r.rating +
+      " out of 5 stars.</span>\n";
     cardsHtml += '          <p>"' + escapeHtml(r.text) + '"</p>\n';
-    cardsHtml += '          <footer>' + escapeHtml(r.name) + '</footer>\n';
-    cardsHtml += '        </div>\n';
+    cardsHtml += "          <footer>" + escapeHtml(r.name) + "</footer>\n";
+    cardsHtml += "        </div>\n";
   });
-  cardsHtml += '      </div>';
+  cardsHtml += "      </div>";
 
   var re = /<!--YL:home\.testimonials-->[\s\S]*?<!--\/YL:home\.testimonials-->/;
   if (re.test(html)) {
-    html = html.replace(re, "<!--YL:home.testimonials-->\n      " + cardsHtml + "\n      <!--/YL:home.testimonials-->");
+    html = html.replace(
+      re,
+      "<!--YL:home.testimonials-->\n      " + cardsHtml + "\n      <!--/YL:home.testimonials-->"
+    );
     writeFile("index.html", html);
   }
 }
@@ -856,14 +899,16 @@ function injectJournalCopy() {
   var journalPath = path.join(ROOT, "assets/data/journal.json");
   if (!fs.existsSync(journalPath)) return;
   var journal = JSON.parse(fs.readFileSync(journalPath, "utf8"));
-  
+
   var pagePath = path.join(ROOT, "journal.html");
   if (!fs.existsSync(pagePath)) return;
   var html = fs.readFileSync(pagePath, "utf8");
   var updated = html;
 
   var title = escapeHtml(journal.title || "Apothecary Journal");
-  var lede = escapeHtml(journal.lede || "Stories, science, and small-batch updates straight from the kitchen.");
+  var lede = escapeHtml(
+    journal.lede || "Stories, science, and small-batch updates straight from the kitchen."
+  );
 
   // Replace Title
   var reTitle = /(<!--YL:journal\.heroTitle-->)[\s\S]*?(<!--\/YL:journal\.heroTitle-->)/g;
@@ -1170,56 +1215,82 @@ if (DOMAIN_IS_LIVE) {
 
     // Inject the Journal nav link if enabled
     if (site.enableJournal) {
-      updated = updated.replace(/<!--YL:nav\.journal-->([\s\S]*?)<!--\/YL:nav\.journal-->/g, function() {
-        var isActive = page === "journal.html";
-        var activeClass = isActive ? ' class="active" aria-current="page"' : '';
-        return '<!--YL:nav.journal--><li><a' + activeClass + ' href="journal.html">Journal</a></li><!--/YL:nav.journal-->';
-      });
+      updated = updated.replace(
+        /<!--YL:nav\.journal-->([\s\S]*?)<!--\/YL:nav\.journal-->/g,
+        function () {
+          var isActive = page === "journal.html";
+          var activeClass = isActive ? ' class="active" aria-current="page"' : "";
+          return (
+            "<!--YL:nav.journal--><li><a" +
+            activeClass +
+            ' href="journal.html">Journal</a></li><!--/YL:nav.journal-->'
+          );
+        }
+      );
     } else {
-      updated = updated.replace(/<!--YL:nav\.journal-->([\s\S]*?)<!--\/YL:nav\.journal-->/g, '<!--YL:nav.journal--><!--/YL:nav.journal-->');
+      updated = updated.replace(
+        /<!--YL:nav\.journal-->([\s\S]*?)<!--\/YL:nav\.journal-->/g,
+        "<!--YL:nav.journal--><!--/YL:nav.journal-->"
+      );
     }
 
     // Replace HTML comment templates: <!--YL:site.KEY-->...<!--/YL:site.KEY-->
-    updated = updated.replace(/<!--YL:site\.([a-zA-Z0-9]+)-->([\s\S]*?)<!--\/YL:site\.\1-->/g, function (match, key) {
-      if (key === "giftUpId") return match; // Handled separately below
-      if (key === "logoDesktop" && site[key]) {
-        return "<!--YL:site.logoDesktop-->\n          <img class=\"logo-desktop\" src=\"" + site[key] + "\" alt=\"Y'allternative Living icon\" width=\"48\" height=\"48\">\n<!--/YL:site.logoDesktop-->";
+    updated = updated.replace(
+      /<!--YL:site\.([a-zA-Z0-9]+)-->([\s\S]*?)<!--\/YL:site\.\1-->/g,
+      function (match, key) {
+        if (key === "giftUpId") return match; // Handled separately below
+        if (key === "logoDesktop" && site[key]) {
+          return (
+            '<!--YL:site.logoDesktop-->\n          <img class="logo-desktop" src="' +
+            site[key] +
+            '" alt="Y\'allternative Living icon" width="48" height="48">\n<!--/YL:site.logoDesktop-->'
+          );
+        }
+        if (site[key] !== undefined) {
+          return "<!--YL:site." + key + "-->" + site[key] + "<!--/YL:site." + key + "-->";
+        }
+        return match;
       }
-      if (site[key] !== undefined) {
-        return "<!--YL:site." + key + "-->" + site[key] + "<!--/YL:site." + key + "-->";
-      }
-      return match;
-    });
+    );
 
     // Special handling for Gift Up! ID to generate full HTML script embed
-    updated = updated.replace(/<!--YL:site\.giftUpId-->([\s\S]*?)<!--\/YL:site\.giftUpId-->/g, function (match) {
-      if (site.giftUpId !== undefined) {
-        var val = site.giftUpId.trim();
-        if (val && val !== "YOUR_GIFTUP_ID") {
-          var embed = '\n<div class="gift-up-target" data-site-id="' + val + '"></div>\n' +
-                      '<script>\n' +
-                      '  (function (g, i, f, t, u, p) {\n' +
-                      '    t = g.createElement(i);\n' +
-                      '    t.async = 1;\n' +
-                      '    t.src = "https://giftup.app/dist/commerce-v1.js";\n' +
-                      '    u = g.getElementsByTagName(i)[0];\n' +
-                      '    u.parentNode.insertBefore(t, u);\n' +
-                      '  })(document, "script");\n' +
-                      '</script>\n';
-          return "<!--YL:site.giftUpId-->" + embed + "<!--/YL:site.giftUpId-->";
+    updated = updated.replace(
+      /<!--YL:site\.giftUpId-->([\s\S]*?)<!--\/YL:site\.giftUpId-->/g,
+      function (match) {
+        if (site.giftUpId !== undefined) {
+          var val = site.giftUpId.trim();
+          if (val && val !== "YOUR_GIFTUP_ID") {
+            var embed =
+              '\n<div class="gift-up-target" data-site-id="' +
+              val +
+              '"></div>\n' +
+              "<script>\n" +
+              "  (function (g, i, f, t, u, p) {\n" +
+              "    t = g.createElement(i);\n" +
+              "    t.async = 1;\n" +
+              '    t.src = "https://giftup.app/dist/commerce-v1.js";\n' +
+              "    u = g.getElementsByTagName(i)[0];\n" +
+              "    u.parentNode.insertBefore(t, u);\n" +
+              '  })(document, "script");\n' +
+              "</script>\n";
+            return "<!--YL:site.giftUpId-->" + embed + "<!--/YL:site.giftUpId-->";
+          }
+          return "<!--YL:site.giftUpId-->YOUR_GIFTUP_ID<!--/YL:site.giftUpId-->";
         }
-        return "<!--YL:site.giftUpId-->YOUR_GIFTUP_ID<!--/YL:site.giftUpId-->";
+        return match;
       }
-      return match;
-    });
+    );
 
     // Replace JS comment templates: /*YL:site.KEY*/.../*/YL:site.KEY*/
-    updated = updated.replace(/\/\*YL:site\.([a-zA-Z0-9]+)\*\/([\s\S]*?)\/\*\/YL:site\.\1\*\//g, function (match, key) {
-      if (site[key] !== undefined) {
-        return "/*YL:site." + key + "*/ \"" + site[key] + "\" /*/YL:site." + key + "*/";
+    updated = updated.replace(
+      /\/\*YL:site\.([a-zA-Z0-9]+)\*\/([\s\S]*?)\/\*\/YL:site\.\1\*\//g,
+      function (match, key) {
+        if (site[key] !== undefined) {
+          return "/*YL:site." + key + '*/ "' + site[key] + '" /*/YL:site.' + key + "*/";
+        }
+        return match;
       }
-      return match;
-    });
+    );
 
     if (updated !== html) {
       writeFile(page, updated);
@@ -1234,13 +1305,16 @@ if (DOMAIN_IS_LIVE) {
   if (fs.existsSync(swPath)) {
     var swContent = fs.readFileSync(swPath, "utf8");
     var now = new Date();
-    var pad = function(n) { return (n < 10 ? "0" : "") + n; };
-    var versionString = now.getFullYear() +
-                        pad(now.getMonth() + 1) +
-                        pad(now.getDate()) +
-                        pad(now.getHours()) +
-                        pad(now.getMinutes()) +
-                        pad(now.getSeconds());
+    var pad = function (n) {
+      return (n < 10 ? "0" : "") + n;
+    };
+    var versionString =
+      now.getFullYear() +
+      pad(now.getMonth() + 1) +
+      pad(now.getDate()) +
+      pad(now.getHours()) +
+      pad(now.getMinutes()) +
+      pad(now.getSeconds());
     var updatedContent = swContent.replace(
       /const CACHE_NAME\s*=\s*['"]yallternative-cache-v[^'"]*['"];/,
       'const CACHE_NAME = "yallternative-cache-v' + versionString + '";'
@@ -1252,47 +1326,76 @@ if (DOMAIN_IS_LIVE) {
 
 // Automatically generate individual product OpenGraph HTML pages
 (function generateProductOgPages() {
-  PRODUCTS.forEach(function(product) {
+  PRODUCTS.forEach(function (product) {
     var pTitle = escapeHtml(product.name) + " | Y'allternative Living";
     var pDesc = escapeHtml(product.blurb || "");
     var pUrl = DOMAIN + "/products/" + product.id + ".html";
     var pImage = DOMAIN + "/" + product.image;
-    
-    var html = '<!DOCTYPE html>\n' +
+
+    var html =
+      "<!DOCTYPE html>\n" +
       '<html lang="en">\n' +
-      '<head>\n' +
+      "<head>\n" +
       '  <meta charset="UTF-8">\n' +
       '  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
-      '  <title>' + pTitle + '</title>\n' +
-      '  <meta name="description" content="' + pDesc + '">\n' +
-      '  <!-- OpenGraph -->\n' +
+      "  <title>" +
+      pTitle +
+      "</title>\n" +
+      '  <meta name="description" content="' +
+      pDesc +
+      '">\n' +
+      "  <!-- OpenGraph -->\n" +
       '  <meta property="og:type" content="product">\n' +
-      '  <meta property="og:title" content="' + pTitle + '">\n' +
-      '  <meta property="og:description" content="' + pDesc + '">\n' +
-      '  <meta property="og:image" content="' + pImage + '">\n' +
-      '  <meta property="og:url" content="' + pUrl + '">\n' +
+      '  <meta property="og:title" content="' +
+      pTitle +
+      '">\n' +
+      '  <meta property="og:description" content="' +
+      pDesc +
+      '">\n' +
+      '  <meta property="og:image" content="' +
+      pImage +
+      '">\n' +
+      '  <meta property="og:url" content="' +
+      pUrl +
+      '">\n' +
       '  <meta property="og:site_name" content="Y\'allternative Living">\n' +
-      '  <!-- Twitter -->\n' +
+      "  <!-- Twitter -->\n" +
       '  <meta name="twitter:card" content="summary_large_image">\n' +
-      '  <meta name="twitter:title" content="' + pTitle + '">\n' +
-      '  <meta name="twitter:description" content="' + pDesc + '">\n' +
-      '  <meta name="twitter:image" content="' + pImage + '">\n' +
-      '  <!-- E-commerce OG -->\n' +
-      '  <meta property="product:price:amount" content="' + product.price.toFixed(2) + '">\n' +
+      '  <meta name="twitter:title" content="' +
+      pTitle +
+      '">\n' +
+      '  <meta name="twitter:description" content="' +
+      pDesc +
+      '">\n' +
+      '  <meta name="twitter:image" content="' +
+      pImage +
+      '">\n' +
+      "  <!-- E-commerce OG -->\n" +
+      '  <meta property="product:price:amount" content="' +
+      product.price.toFixed(2) +
+      '">\n' +
       '  <meta property="product:price:currency" content="USD">\n' +
-      '  <meta property="product:availability" content="' + (product.comingSoon ? "preorder" : "in stock") + '">\n' +
-      '  <!-- Redirect to shop with product deep-link -->\n' +
-      '  <script>\n' +
-      '    window.location.replace("../shop.html#" + ' + JSON.stringify(product.id) + ');\n' +
-      '  </script>\n' +
-      '</head>\n' +
+      '  <meta property="product:availability" content="' +
+      (product.comingSoon ? "preorder" : "in stock") +
+      '">\n' +
+      "  <!-- Redirect to shop with product deep-link -->\n" +
+      "  <script>\n" +
+      '    window.location.replace("../shop.html#" + ' +
+      JSON.stringify(product.id) +
+      ");\n" +
+      "  </script>\n" +
+      "</head>\n" +
       '<body style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;text-align:center;padding:50px;background:#fcfaf7;color:#353230;">\n' +
-      '  <h1>' + pTitle + '</h1>\n' +
-      '  <p>Redirecting you to the shop...</p>\n' +
-      '  <p><a href="../shop.html#' + product.id + '">Click here if you aren\'t redirected automatically</a></p>\n' +
-      '</body>\n' +
-      '</html>\n';
-      
+      "  <h1>" +
+      pTitle +
+      "</h1>\n" +
+      "  <p>Redirecting you to the shop...</p>\n" +
+      '  <p><a href="../shop.html#' +
+      product.id +
+      "\">Click here if you aren't redirected automatically</a></p>\n" +
+      "</body>\n" +
+      "</html>\n";
+
     writeFile("products/" + product.id + ".html", html);
   });
 })();

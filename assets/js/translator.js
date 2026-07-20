@@ -105,7 +105,7 @@
       return;
     }
 
-    var targetVal = langCode === "en" ? "" : (langCode === "zh" ? "zh-CN" : langCode);
+    var targetVal = langCode === "en" ? "" : langCode === "zh" ? "zh-CN" : langCode;
 
     // Set the cookie first so a reload will pick up the right language
     setGoogTransCookie(targetVal);
@@ -128,8 +128,8 @@
       if (targetVal) {
         setTimeout(function () {
           var html = document.documentElement;
-          var translated = html.classList.contains("translated-ltr") ||
-                           html.classList.contains("translated-rtl");
+          var translated =
+            html.classList.contains("translated-ltr") || html.classList.contains("translated-rtl");
           if (!translated) {
             window.location.reload();
           }
@@ -147,10 +147,13 @@
   function setGoogTransCookie(targetVal) {
     if (targetVal) {
       document.cookie = "googtrans=/en/" + targetVal + "; path=/;";
-      document.cookie = "googtrans=/en/" + targetVal + "; path=/; domain=" + window.location.hostname;
+      document.cookie =
+        "googtrans=/en/" + targetVal + "; path=/; domain=" + window.location.hostname;
     } else {
       document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-      document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + window.location.hostname;
+      document.cookie =
+        "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" +
+        window.location.hostname;
     }
   }
 
@@ -178,15 +181,16 @@
           if (curr.id === "snipcart" || curr.id === "tawk-chat-container") {
             return NodeFilter.FILTER_REJECT;
           }
-          if (curr.classList && (
-            curr.classList.contains("skiptranslate") ||
-            curr.classList.contains("snipcart-checkout") ||
-            curr.classList.contains("brand") ||
-            curr.classList.contains("brand-word") ||
-            Array.from(curr.classList).some(function (c) {
-              return c.startsWith("snipcart-") || c.startsWith("tawk-");
-            })
-          )) {
+          if (
+            curr.classList &&
+            (curr.classList.contains("skiptranslate") ||
+              curr.classList.contains("snipcart-checkout") ||
+              curr.classList.contains("brand") ||
+              curr.classList.contains("brand-word") ||
+              Array.from(curr.classList).some(function (c) {
+                return c.startsWith("snipcart-") || c.startsWith("tawk-");
+              }))
+          ) {
             return NodeFilter.FILTER_REJECT;
           }
           curr = curr.parentNode;
@@ -234,7 +238,8 @@
     // Translate Placeholders
     var inputs = document.querySelectorAll("input[placeholder], textarea[placeholder]");
     inputs.forEach(async function (input) {
-      var original = input.__originalPlaceholder !== undefined ? input.__originalPlaceholder : input.placeholder;
+      var original =
+        input.__originalPlaceholder !== undefined ? input.__originalPlaceholder : input.placeholder;
       if (input.__originalPlaceholder === undefined) {
         input.__originalPlaceholder = input.placeholder;
       }
@@ -279,7 +284,7 @@
         restoreOriginalEnglish();
         nativeTranslator = null;
       }
-      
+
       var hasGoogleCookie = document.cookie.indexOf("googtrans") !== -1;
       if (isGoogleLoaded || hasGoogleCookie) {
         // Clear all possible variations of the googtrans cookie
@@ -287,17 +292,19 @@
         var domainParts = window.location.hostname.split(".");
         if (domainParts.length >= 2) {
           var rootDomain = "." + domainParts.slice(-2).join(".");
-          document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + rootDomain;
+          document.cookie =
+            "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + rootDomain;
         }
-        
+
         // Trigger in-place reversion
         if (isGoogleLoaded) {
           triggerGoogleTranslate("en");
           // Verify the page actually reverted; reload if not
           setTimeout(function () {
             var html = document.documentElement;
-            var stillTranslated = html.classList.contains("translated-ltr") ||
-                                  html.classList.contains("translated-rtl");
+            var stillTranslated =
+              html.classList.contains("translated-ltr") ||
+              html.classList.contains("translated-rtl");
             if (stillTranslated) {
               window.location.reload();
             }
@@ -368,7 +375,8 @@
     toggleBtn.type = "button";
     toggleBtn.setAttribute("aria-label", "Select language");
     toggleBtn.setAttribute("aria-expanded", "false");
-    toggleBtn.innerHTML = globeSVG + '<span class="lang-current-code">' + currentLang.toUpperCase() + '</span>';
+    toggleBtn.innerHTML =
+      globeSVG + '<span class="lang-current-code">' + currentLang.toUpperCase() + "</span>";
 
     // Dropdown list
     var dropdown = document.createElement("div");
@@ -438,7 +446,12 @@
       // ignore
     }
 
-    if (saved && LANGUAGES.some(function (l) { return l.code === saved; })) {
+    if (
+      saved &&
+      LANGUAGES.some(function (l) {
+        return l.code === saved;
+      })
+    ) {
       return saved;
     }
 
@@ -452,7 +465,7 @@
     if (observer || typeof MutationObserver === "undefined") return;
     observer = new MutationObserver(function (mutations) {
       if (!nativeTranslator) return;
-      
+
       var nodesToTranslate = [];
       mutations.forEach(function (mutation) {
         if (mutation.type === "childList") {
@@ -479,7 +492,13 @@
         var parent = node.parentNode;
         if (parent) {
           var tag = parent.tagName.toLowerCase();
-          if (tag !== "script" && tag !== "style" && tag !== "noscript" && tag !== "code" && tag !== "pre") {
+          if (
+            tag !== "script" &&
+            tag !== "style" &&
+            tag !== "noscript" &&
+            tag !== "code" &&
+            tag !== "pre"
+          ) {
             var curr = parent;
             var skip = false;
             while (curr) {
@@ -487,15 +506,16 @@
                 skip = true;
                 break;
               }
-              if (curr.classList && (
-                curr.classList.contains("skiptranslate") ||
-                curr.classList.contains("snipcart-checkout") ||
-                curr.classList.contains("brand") ||
-                curr.classList.contains("brand-word") ||
-                Array.from(curr.classList).some(function (c) {
-                  return c.startsWith("snipcart-") || c.startsWith("tawk-");
-                })
-              )) {
+              if (
+                curr.classList &&
+                (curr.classList.contains("skiptranslate") ||
+                  curr.classList.contains("snipcart-checkout") ||
+                  curr.classList.contains("brand") ||
+                  curr.classList.contains("brand-word") ||
+                  Array.from(curr.classList).some(function (c) {
+                    return c.startsWith("snipcart-") || c.startsWith("tawk-");
+                  }))
+              ) {
                 skip = true;
                 break;
               }
@@ -507,16 +527,18 @@
       }
     } else if (node.nodeType === Node.ELEMENT_NODE) {
       if (node.id === "snipcart" || node.id === "tawk-chat-container") return;
-      if (node.classList && (
-        node.classList.contains("skiptranslate") ||
-        node.classList.contains("snipcart-checkout") ||
-        node.classList.contains("brand") ||
-        node.classList.contains("brand-word") ||
-        Array.from(node.classList).some(function (c) {
-          return c.startsWith("snipcart-") || c.startsWith("tawk-");
-        })
-      )) return;
-      
+      if (
+        node.classList &&
+        (node.classList.contains("skiptranslate") ||
+          node.classList.contains("snipcart-checkout") ||
+          node.classList.contains("brand") ||
+          node.classList.contains("brand-word") ||
+          Array.from(node.classList).some(function (c) {
+            return c.startsWith("snipcart-") || c.startsWith("tawk-");
+          }))
+      )
+        return;
+
       node.childNodes.forEach(function (child) {
         findTextNodes(child, list);
       });
