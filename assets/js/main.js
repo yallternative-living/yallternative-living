@@ -41,6 +41,9 @@
       } catch (e) {
         /* can't persist -- still flip the theme for this page view */
       }
+      if (typeof window.plausible === "function") {
+        window.plausible("Theme Toggled", { props: { theme: next } });
+      }
       applyTheme(next);
     });
   }
@@ -219,6 +222,9 @@
     signupBoxes.forEach(function (box) {
       box.classList.add("is-subscribed");
     });
+    if (typeof window.plausible === "function") {
+      window.plausible("Newsletter Signup");
+    }
     if (window.history && window.history.replaceState) {
       window.history.replaceState({}, "", window.location.pathname + window.location.hash);
     }
@@ -1231,8 +1237,13 @@
     if (!window.Snipcart || !window.Snipcart.events) return;
     window.Snipcart.events.on("cart.confirmed", function (cart) {
       if (typeof window.plausible !== "function") return;
-      window.plausible("Order Completed", {
-        props: { total: cart && typeof cart.total === "number" ? cart.total.toFixed(2) : "unknown" }
+      window.plausible("Purchase", {
+        props: {
+          revenue: {
+            currency: cart.currency || "USD",
+            amount: cart.total || 0
+          }
+        }
       });
     });
   });
@@ -2029,14 +2040,19 @@
       // Light debounce -- purely a courtesy against re-rendering on every
       // keystroke of a fast typist; at 13 products it's imperceptible
       // either way, but it's free and it's the right habit.
-      var debounceTimer;
-      searchInput.addEventListener("input", function () {
-        clearTimeout(debounceTimer);
-        var value = searchInput.value;
-        debounceTimer = setTimeout(function () {
-          state.query = value;
-          render();
-        }, 150);
+        var debounceTimer;
+        var lastTrackedQuery = "";
+        searchInput.addEventListener("input", function () {
+          clearTimeout(debounceTimer);
+          var value = searchInput.value;
+          debounceTimer = setTimeout(function () {
+            state.query = value;
+            if (value.trim().length > 0 && value !== lastTrackedQuery && typeof window.plausible === "function") {
+              window.plausible("Site Search", { props: { query: value } });
+              lastTrackedQuery = value;
+            }
+            render();
+          }, 150);
       });
       searchInput.addEventListener("search", function () {
         clearTimeout(debounceTimer);

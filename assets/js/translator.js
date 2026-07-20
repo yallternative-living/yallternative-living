@@ -313,6 +313,10 @@
       // ignore
     }
 
+    if (currentLang && currentLang !== langCode && typeof window.plausible === "function") {
+      window.plausible("Language Changed", { props: { language: langCode } });
+    }
+
     currentLang = langCode;
   }
 
