@@ -915,6 +915,19 @@ account at all.
 
 **Optional third-party fulfillment (Gift Up!).** Since a static site cannot track balances securely on its own, the system is prepared to hand off to **[Gift Up!](https://www.giftup.com)** (a purpose-built gift card platform) once Savanna is ready. If a Gift Up! embed code is pasted inside `#giftUpContainer` in `shop.html`, the custom Snipcart configurator form is bypassed, and the Gift Up! checkout widget is loaded instead.
 
+### Snipcart vs. Gift Up! Comparison
+
+For digital gift card sales and redemptions, you can choose between keeping Snipcart (the default out-of-the-box setup) or integrating Gift Up! (automated third-party). Refer to the comparison below to decide which option fits the shop best:
+
+| Feature | Snipcart Checkout (Default) | Gift Up! Checkout (Optional Embed) |
+| :--- | :--- | :--- |
+| **How it Works** | Bought as a digital product directly in the main store grid and checkout. | Bypasses the Snipcart checkout; loads an iframe popup widget directly from Gift Up!. |
+| **Fulfillment** | **Manual**: Savanna reads the checkout order (sender name, recipient email, amount) and manually creates a matching coupon code in the Snipcart dashboard, then emails it to the buyer. | **Automatic**: Gift Up! automatically generates the code, tracks the balance, and emails a beautiful, ready-to-print digital gift card to the recipient instantly. |
+| **Redemption** | Customers enter the manually generated coupon code inside Snipcart's standard checkout cart. | Gift Up! integrates with Snipcart to auto-validate codes during checkout, or they can be scanned/inputted at in-person events via the Gift Up! mobile app. |
+| **Cart Integration** | **Unified**: Customers can add a gift card and physical products (like a beard salve) to the same cart and check out once. | **Separated**: Gift cards must be purchased in a separate transaction from physical items. |
+| **Fees** | Standard Snipcart transaction fees (2% on standard tiers) + credit card processing. | Gift Up!'s transaction fees (usually around 3.49% on free accounts) *on top* of standard payment processing. |
+| **Setup Overhead** | None; it is already fully coded, tested, and operational. | Requires setting up a Gift Up! account, configuring branding templates, and copying the embed snippet into `shop.html`. |
+
 **What you (Savanna) still need to do (if you choose to use Gift Up!):**
 
 1. [Sign up for a free Gift Up! account](https://giftup.app/account/register)
