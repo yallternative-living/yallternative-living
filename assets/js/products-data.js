@@ -656,12 +656,11 @@ window.YL_PRODUCTS = {
       "price": 10,
       "category": "gift-cards",
       "tags": [
-        "Gift",
         "Instant Delivery"
       ],
       "image": "assets/img/gift-card.png",
       "blurb": "Can't decide what they'd love? Let them pick. Delivered instantly by email, ready to use on anything in the shop.",
-      "description": "The perfect gift for the black sheep & bold hearts. Choose any amount from $25 to $200. No expiration date, delivered straight to their inbox.",
+      "description": "The perfect gift for the black sheep & bold hearts. Choose any amount from $10 to $500. No expiration date, delivered straight to their inbox.",
       "images": [
         "assets/img/gift-card.png"
       ],

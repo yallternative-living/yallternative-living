@@ -1376,7 +1376,7 @@
       stockBadgeHTML(p) +
       '<div class="card-foot">' +
       variantSelectHTML(p) +
-      '<p style="font-size: 0.72rem; color: var(--whiskey); margin: 0 0 10px 0; text-align: center; font-weight: 600;">Free shipping over $40</p>' +
+      (p.id !== "yallternative-gift-card" ? '<p style="font-size: 0.72rem; color: var(--whiskey); margin: 0 0 10px 0; text-align: center; font-weight: 600;">Free shipping over $40</p>' : '') +
       '<div class="card-foot-row">' +
       '<span class="price">$' +
       p.price.toFixed(2) +
