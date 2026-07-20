@@ -11,7 +11,7 @@
 
    assets/data/products.json is plain JSON on purpose: it's the file
    Savanna's product editor (Sveltia CMS, see admin/config.yml and
-   README section 20) commits to directly, and a CMS can't write into
+   DEVELOPMENT.md section 20) commits to directly, and a CMS can't write into
    a hand-rolled JS file with a `window.YL_PRODUCTS = ...` wrapper
    around it. (Until mid-2026 this direction was reversed -- products-
    data.js was upstream and this script generated products.json FROM
@@ -26,7 +26,7 @@
    - add/edit a page and want it in the sitemap
    This ALSO now runs automatically as part of every real deploy (see
    netlify.toml / vercel.json / .github/workflows/deploy-pages.yml) --
-   see README section 20 for why that became necessary once a CMS
+   see DEVELOPMENT.md section 20 for why that became necessary once a CMS
    commit could update products.json without a human remembering to
    run this script by hand first.
 
@@ -61,7 +61,7 @@
 
    It never touches product PHOTOS -- those still need to be uploaded
    separately (the CMS's Image field handles this for CMS-added
-   products; see README section 20). Safe to run as many times as you
+   products; see DEVELOPMENT.md section 20). Safe to run as many times as you
    want.
    ========================================================== */
 "use strict";
@@ -300,7 +300,7 @@ writeFile("assets/js/site-reviews-data.js", reviewsDataJs);
 
 /* ---------- 2) assets/data/snipcart-products.json ----------
    Snipcart's order-validation JSON crawler pattern for JS-rendered
-   catalogs -- see README section 8 for why this file needs to exist. */
+   catalogs -- see DEVELOPMENT.md section 8 for why this file needs to exist. */
 var snipcartManifest = PRODUCTS.map(function (p) {
   return {
     id: p.id,

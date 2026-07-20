@@ -125,7 +125,7 @@ function run() {
   var csp = [
     "default-src 'self'",
     // embed.tawk.to: the live-chat widget script (see the placeholder
-    // snippet near </body> on every page, task/README section 19) --
+    // snippet near </body> on every page, task/DEVELOPMENT.md section 19) --
     // it's inert until a real Tawk.to property/widget ID replaces the
     // placeholder, but the origin is allowlisted now so turning it on
     // later doesn't also require touching this file.
@@ -166,7 +166,7 @@ function run() {
   // client-side widget with no way to fetch its per-backend output
   // statically) -- so treat this the same as the Snipcart-payment-gateway
   // and Gift Up! caveats elsewhere in this project: once a real GitHub
-  // repo + OAuth setup exists (see README section 20), open the browser
+  // repo + OAuth setup exists (see DEVELOPMENT.md section 20), open the browser
   // console while using /admin and watch for "Refused to connect/load..."
   // CSP errors, then add whatever origin they name here and re-run this
   // script.
@@ -230,7 +230,7 @@ function run() {
     // changed assets/data/products.json (e.g. one made by the Sveltia
     // CMS at /admin) still ships with a freshly-regenerated products-
     // data.js, shop.html/contact.html JSON-LD, sitemap.xml, and llms.txt
-    // -- see README section 20 and the big comment atop
+    // -- see DEVELOPMENT.md section 20 and the big comment atop
     // scripts/build-site-data.js for why this became required once the
     // CMS could write to products.json without a human remembering to
     // run that script by hand first. No npm install needed first: this
@@ -263,7 +263,7 @@ function run() {
   var netlifyToml =
     "# Netlify config for this static site. A real build command now runs\n" +
     "# before every deploy (see [build] below) -- it used to be truly zero-\n" +
-    "# build, but the Sveltia CMS at /admin (README section 20) commits\n" +
+    "# build, but the Sveltia CMS at /admin (DEVELOPMENT.md section 20) commits\n" +
     "# straight to assets/data/products.json, and that needs to be turned\n" +
     "# back into products-data.js/shop.html/contact.html/sitemap.xml/\n" +
     "# llms.txt on every deploy, not just when a human remembers to run\n" +
@@ -305,7 +305,7 @@ function run() {
     "    Content-Security-Policy = " +
     JSON.stringify(csp) +
     "\n\n" +
-    "# Sveltia CMS (product editor, see README section 20) gets its own\n" +
+    "# Sveltia CMS (product editor, see DEVELOPMENT.md section 20) gets its own\n" +
     '# CSP here -- more specific paths win over "/*" on Netlify, so this\n' +
     "# replaces (not adds to) the baseline CSP above for anything under\n" +
     "# /admin/. See the adminCsp comment in this script for what's in it\n" +

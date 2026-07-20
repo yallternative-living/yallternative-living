@@ -30,13 +30,13 @@ live within a couple of minutes.
 ### One-time setup before `/admin` works (a developer does this once)
 
 The editor is already built; it just needs three things that are part of
-launching the site (see **README section 20** for the click-by-click):
+launching the site (see **DEVELOPMENT.md section 20** for the click-by-click):
 
 1. Put this project in a **GitHub repo** (replace the placeholder in
    `admin/config.yml`: `YOUR_GITHUB_USERNAME/YOUR_REPO_NAME`).
 2. **Deploy** the site (Netlify or GitHub Pages — both are already configured).
 3. Turn on **login** (on Netlify, its GitHub OAuth needs one checkbox; on GitHub
-   Pages you point it at a small auth helper). README section 20 has the steps.
+   Pages you point it at a small auth helper). DEVELOPMENT.md section 20 has the steps.
 
 Until those are done, use the "edit the file" way below.
 

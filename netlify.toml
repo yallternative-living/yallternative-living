@@ -1,6 +1,6 @@
 # Netlify config for this static site. A real build command now runs
 # before every deploy (see [build] below) -- it used to be truly zero-
-# build, but the Sveltia CMS at /admin (README section 20) commits
+# build, but the Sveltia CMS at /admin (DEVELOPMENT.md section 20) commits
 # straight to assets/data/products.json, and that needs to be turned
 # back into products-data.js/shop.html/contact.html/sitemap.xml/
 # llms.txt on every deploy, not just when a human remembers to run
@@ -47,7 +47,7 @@
     Cross-Origin-Opener-Policy = "same-origin-allow-popups"
     Content-Security-Policy = "default-src 'self'; script-src 'self' https://cdn.snipcart.com https://plausible.io https://embed.tawk.to https://translate.google.com https://translate.googleapis.com 'sha256-Wmlc/Lumj50wOdax6AEbaQv0zXK/9D0NZCQxPTdXDqM=' 'sha256-JX9dyHhuLUyGuU3MZAsZ6iiNfL/coLdMzDMeqn2WHHQ=' 'sha256-tWtj/sC82Z0OMELZsubEGWJdT4bAc+dsnrT3DaK1Mhc='; style-src 'self' https://cdn.snipcart.com https://fonts.googleapis.com https://translate.googleapis.com 'unsafe-inline'; img-src 'self' data: https://cdn.snipcart.com https://*.tawk.to https://translate.google.com https://translate.googleapis.com https://www.google.com; font-src 'self' https://cdn.snipcart.com https://fonts.gstatic.com; connect-src 'self' https://*.snipcart.com https://plausible.io https://*.tawk.to wss://*.tawk.to https://translate.googleapis.com; frame-src https://*.snipcart.com https://*.tawk.to https://translate.google.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://*.snipcart.com https://app.convertkit.com https://app.kit.com https://formspree.io; object-src 'none'"
 
-# Sveltia CMS (product editor, see README section 20) gets its own
+# Sveltia CMS (product editor, see DEVELOPMENT.md section 20) gets its own
 # CSP here -- more specific paths win over "/*" on Netlify, so this
 # replaces (not adds to) the baseline CSP above for anything under
 # /admin/. See the adminCsp comment in this script for what's in it

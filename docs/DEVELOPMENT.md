@@ -1007,7 +1007,7 @@ dependencies (Decap/Netlify Identity's own deprecation is exactly the
 kind of thing that can happen to a pre-1.0 tool too) — worth knowing
 before treating `/admin` as a permanent, unchanging fixture. If a future
 breaking release ever changes `config.yml`'s field syntax, that file
-(and this README section) would need a re-check against Sveltia's
+(and this DEVELOPMENT.md section) would need a re-check against Sveltia's
 current docs at that time.
 
 **What's already built and wired in (nothing left for me to do here):**

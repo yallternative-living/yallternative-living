@@ -12,13 +12,13 @@
 #   3. Customer Reviews         -- assets/data/site-reviews.json
 #   4. Page Wording             -- assets/data/content.json
 # Full setup instructions (GitHub repo, Netlify OAuth, first login) are
-# in README section 20 -- read that before changing anything here.
+# in DEVELOPMENT.md section 20 -- read that before changing anything here.
 #
 # backend.repo below now points at the real repo:
 # github.com/StevenMGlenn/yallternative-living. What's still needed
 # before /admin actually logs in: (1) this repo deployed on Netlify or
 # GitHub Pages, (2) GitHub OAuth turned on for that deploy (one Netlify
-# checkbox, or a small auth helper for Pages) -- see README section 20.
+# checkbox, or a small auth helper for Pages) -- see DEVELOPMENT.md section 20.
 #
 # Every field below maps 1:1 to a real field already used in
 # assets/data/products.json -- nothing here was invented; if a field
@@ -38,7 +38,7 @@ backend:
   # github backend with ZERO extra config here (verified directly
   # against sveltiacms.app/en/docs/backends/github, "Using Netlify"
   # section). The one-time setup happens in the Netlify dashboard, not
-  # in this file -- see README section 20.
+  # in this file -- see DEVELOPMENT.md section 20.
 
 # media_folder = where uploads are stored in the repo; public_folder = the path
 # written into products.json for each uploaded image. Both are /assets/img.
@@ -164,7 +164,7 @@ collections:
                 required: false
                 field: { label: Photo, widget: image }
               - name: blurb
-                label: "Description (real, honest copy -- see README section 1 for the brand voice/what NOT to claim)"
+                label: "Description (real, honest copy -- see DEVELOPMENT.md section 1 for the brand voice/what NOT to claim)"
                 widget: text
               - name: etsyUrl
                 label: "Real Etsy Listing URL (optional)"
@@ -281,7 +281,7 @@ collections:
               - { name: blurb, label: Bundle Description, widget: text }
 
           - name: faq
-            label: "FAQ (the site's ONE FAQ -- shown on contact.html and linked from shop.html, see README section 17)"
+            label: "FAQ (the site's ONE FAQ -- shown on contact.html and linked from shop.html, see DEVELOPMENT.md section 17)"
             widget: list
             label_singular: Question
             summary: "{{fields.question}}"

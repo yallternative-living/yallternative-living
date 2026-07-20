@@ -2,7 +2,7 @@
 #
 # Runs `node scripts/build-site-data.js` first so a commit that only
 # changed assets/data/products.json (e.g. one made through the Sveltia
-# CMS at /admin -- see README section 20) still ships with a freshly
+# CMS at /admin -- see DEVELOPMENT.md section 20) still ships with a freshly
 # regenerated products-data.js, shop.html/contact.html JSON-LD,
 # sitemap.xml, and llms.txt, exactly like the Netlify/Vercel build
 # commands in netlify.toml/vercel.json do. No `npm install` step is

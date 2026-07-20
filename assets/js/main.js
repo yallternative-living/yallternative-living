@@ -583,7 +583,7 @@
     // (docs.snipcart.com/v2/configuration/product-definition) -- real and
     // HTML-only, unlike a live decrementing counter, which requires the
     // Snipcart dashboard's own Inventory feature tied to a real account
-    // (see README section 8). Only added when a real count exists.
+    // (see DEVELOPMENT.md section 8). Only added when a real count exists.
     var stockAttrs =
       typeof p.stock === "number" && p.stock > 0 ? ' data-item-max-quantity="' + p.stock + '"' : "";
 

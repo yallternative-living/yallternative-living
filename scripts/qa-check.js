@@ -293,7 +293,7 @@ PRODUCTS.forEach(function (p) {
 
   // These optional fields use a truthy/non-empty check rather than a
   // strict `!== undefined` -- the Sveltia CMS admin (see admin/config.yml,
-  // README section 20) writes an untouched optional object field as
+  // DEVELOPMENT.md section 20) writes an untouched optional object field as
   // `null` and an untouched optional list field as `[]`, not as an
   // omitted key, once a product has been saved through the CMS even
   // once. Treat "present but empty/null" the same as "omitted" so a
@@ -727,7 +727,7 @@ if (!shopLdMatch) {
 
 /* ---------- 12) Site-submitted reviews (site-reviews-data.js) ----------
    These are hand-added by Savanna after reading a Formspree submission
-   email (see that file's header comment + README section 16) -- nothing
+   email (see that file's header comment + DEVELOPMENT.md section 16) -- nothing
    here auto-publishes, but a typo'd entry could still ship broken markup
    or a bogus rating to the live "Customer Reviews" section, so it gets
    the same shape validation as everything else that reaches the page. */
@@ -878,7 +878,7 @@ if (/id="giftUpContainer"/.test(shopHtml)) {
   ok("shop.html has #giftUpContainer");
   if (/YOUR_GIFTUP_EMBED_CODE/.test(shopHtml)) {
     console.log(
-      "  (still the placeholder -- expected until Savanna has a real Gift Up! account, see README section 18)"
+      "  (still the placeholder -- expected until Savanna has a real Gift Up! account, see DEVELOPMENT.md section 18)"
     );
   } else {
     ok(
@@ -1121,12 +1121,12 @@ if (!fs.existsSync(configYmlPath)) {
   else
     fail(
       "admin/config.yml",
-      'backend.name isn\'t "github" -- expected the GitHub backend (see README section 20)'
+      'backend.name isn\'t "github" -- expected the GitHub backend (see DEVELOPMENT.md section 20)'
     );
 
   if (/repo:\s*YOUR_GITHUB_USERNAME\/YOUR_REPO_NAME/.test(configYml)) {
     console.log(
-      "  (repo is still the YOUR_GITHUB_USERNAME/YOUR_REPO_NAME placeholder -- expected until a real GitHub repo exists, see README section 20)"
+      "  (repo is still the YOUR_GITHUB_USERNAME/YOUR_REPO_NAME placeholder -- expected until a real GitHub repo exists, see DEVELOPMENT.md section 20)"
     );
   } else if (/repo:\s*[\w.-]+\/[\w.-]+/.test(configYml)) {
     ok("backend.repo has been set to a real-looking owner/repo");

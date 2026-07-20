@@ -26,14 +26,13 @@ We've set up a simple **Website Dashboard** where you can edit the site's conten
 To start taking payments, sending newsletters, or moderating reviews, follow the step-by-step guide in the **[Launch & Development Guide](docs/DEVELOPMENT.md)** or reference **[Savanna's Site Editing Guide](docs/EDITING-GUIDE.md)** for a deeper dive into content management.
 
 Here is a quick checklist of the external accounts you'll need to set up for launch:
-1. **[ ] Accept Your GitHub Invitation** (To own this repository)
-2. **[ ] Hosting & Domain (Netlify & Porkbun)** (To keep the site online)
-3. **[ ] Customer Checkout & Credit Cards (Snipcart & Stripe)** (To get paid)
-4. **[ ] Email Newsletters (Kit)** (To capture emails)
-5. **[ ] Contact Form & Customer Reviews (Formspree)** (To receive messages)
-6. **[ ] Digital Gift Cards (Snipcart default / Gift Up! - Optional)**
-7. **[ ] Customer Live Chat (Tawk.to - Optional)**
-8. **[ ] Store Management (Sveltia CMS)**
+1. **[ ] Hosting & Domain (Netlify & Porkbun)** (To keep the site online)
+2. **[ ] Customer Checkout & Credit Cards (Snipcart & Stripe)** (To get paid)
+3. **[ ] Email Newsletters (Kit)** (To capture emails)
+4. **[ ] Contact Form & Customer Reviews (Formspree)** (To receive messages)
+5. **[ ] Digital Gift Cards (Snipcart default / Gift Up! - Optional)**
+6. **[ ] Customer Live Chat (Tawk.to - Optional)**
+7. **[ ] Store Management (Sveltia CMS)**
 
 ---
 
