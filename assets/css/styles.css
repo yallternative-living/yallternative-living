@@ -432,7 +432,7 @@ section{
   @media (max-width: 1024px){
     position:fixed; inset:70px 0 0 0; z-index:99;
     background: var(--ink); flex-direction:column; justify-content:flex-start;
-    padding: 40px 24px; gap: 26px;
+    padding: 40px 24px calc(40px + env(safe-area-inset-bottom, 0px)); gap: 26px;
     transform: translateY(-12px); opacity:0; pointer-events:none;
     transition: transform .25s ease, opacity .2s ease;
     
@@ -1008,7 +1008,7 @@ section{
   /* Below .wish-backdrop/.wish-drawer (198/199) so it can't cover the
      wishlist drawer's checkout button if both are open at once; still
      above the sticky nav (100) and mobile nav-links (99) so it's visible. */
-  position:fixed; left:16px; right:16px; bottom:16px; z-index:150;
+  position:fixed; left:16px; right:16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index:150;
   max-width:640px; margin:0 auto;
   display:flex; align-items:flex-start; gap:12px;
   background:var(--ink-2); color:var(--paper);
@@ -1338,7 +1338,8 @@ section{
 }
 
 .wish-drawer-foot{
-  padding:18px 24px; border-top:1px solid var(--hide);
+  padding: 18px 24px calc(18px + env(safe-area-inset-bottom, 0px)); 
+  border-top:1px solid var(--hide);
   & p{ font-size:.78rem; margin:10px 0 0; }
 }
 
