@@ -400,9 +400,12 @@ section{
     }
   }
 }
-
 .nav-links{
-  display:flex; align-items:center; gap:34px;
+  display:flex; align-items:center; gap:24px;
+  
+  @media (max-width: 1200px) {
+    gap: 14px;
+  }
   
   & a{
     font-size:.86rem; letter-spacing:.06em; text-transform:uppercase; font-weight:600;
@@ -414,7 +417,6 @@ section{
       background: var(--pride);
     }
   }
-  
   @media (max-width: 1024px){
     position:fixed; inset:70px 0 0 0; z-index:99;
     background: var(--ink); flex-direction:column; justify-content:flex-start;
