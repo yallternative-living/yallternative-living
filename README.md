@@ -23,7 +23,7 @@ Here is the quick checklist of what you'll need to set up:
 3. **[ ] Customer Checkout & Credit Cards (Snipcart & Stripe)**
 4. **[ ] Email Newsletters (Kit)**
 5. **[ ] Contact Form & Customer Reviews (Formspree)**
-6. **[ ] Digital Gift Cards (Gift Up! - Optional)**
+6. **[ ] Digital Gift Cards (Snipcart default / Gift Up! - Optional)**
 7. **[ ] Customer Live Chat (Tawk.to - Optional)**
 8. **[ ] Store Management (Sveltia CMS)**
 
