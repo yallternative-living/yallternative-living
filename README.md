@@ -8,7 +8,7 @@ I've designed this site from the ground up to be lightning-fast, highly accessib
 
 ## 👩‍🌾 Savanna's Quick-Start Guide
 
-*(P.S. A quick note on pricing: You might notice that the prices in your catalog are slightly higher than what you had on Etsy. I went ahead and bumped them up a bit to bring them closer in line with current market rates for premium apothecary products! You can always adjust them in the dashboard if you need to.)*
+*(Note: I bumped your catalog prices up slightly from Etsy to match current market rates. You can always change them in the dashboard.)*
 
 ### 1. The Website Dashboard (Sveltia CMS)
 I've set up a simple **Website Dashboard** where you can edit the site's content using friendly, point-and-click forms. 
