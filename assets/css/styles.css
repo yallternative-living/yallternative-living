@@ -2012,7 +2012,7 @@ dialog.gift-modal .gift-card-widget {
   padding: 24px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-end;
   color: #f3ead9;
   position: relative;
   overflow: hidden;
@@ -2025,23 +2025,19 @@ dialog.gift-modal .gift-card-widget {
   width: 100%;
 }
 .gift-card-preview .card-badge {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   text-transform: uppercase;
-  letter-spacing: 1.5px;
-  color: rgba(243, 234, 217, 0.7);
-  font-weight: 600;
-  background: rgba(23, 19, 15, 0.6);
-  padding: 4px 8px;
-  border-radius: 4px;
-  border: 1px solid rgba(214, 155, 92, 0.3);
+  letter-spacing: 2px;
+  color: var(--whiskey);
+  font-weight: 700;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
 }
 .gift-card-preview .card-amount {
-  font-size: 3.2rem;
+  font-size: 1.8rem;
   font-weight: 700;
-  line-height: 1;
-  font-family: var(--font-sans);
-  color: #faf5ea;
-  text-shadow: 0 2px 10px rgba(0,0,0,0.4);
+  font-family: var(--font-display);
+  color: var(--whiskey);
+  text-shadow: 0 1px 4px rgba(0,0,0,0.8);
   margin: 0;
 }
 .gift-card-preview .card-footer {

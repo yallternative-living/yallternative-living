@@ -651,9 +651,9 @@ window.YL_PRODUCTS = {
       ]
     },
     {
-      "id": "digital-gift-card",
+      "id": "yallternative-gift-card",
       "name": "Digital Gift Card",
-      "price": 25,
+      "price": 10,
       "category": "gift-cards",
       "tags": [
         "Gift",
@@ -669,20 +669,24 @@ window.YL_PRODUCTS = {
         "name": "Amount",
         "options": [
           {
-            "label": "$25",
+            "label": "$10",
             "priceDelta": 0
           },
           {
+            "label": "$25",
+            "priceDelta": 15
+          },
+          {
             "label": "$50",
-            "priceDelta": 25
+            "priceDelta": 40
           },
           {
             "label": "$100",
-            "priceDelta": 75
+            "priceDelta": 90
           },
           {
             "label": "$200",
-            "priceDelta": 175
+            "priceDelta": 190
           }
         ]
       },

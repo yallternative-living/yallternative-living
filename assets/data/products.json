@@ -645,9 +645,9 @@
       ]
     },
     {
-      "id": "digital-gift-card",
+      "id": "yallternative-gift-card",
       "name": "Digital Gift Card",
-      "price": 25.00,
+      "price": 10.00,
       "category": "gift-cards",
       "tags": ["Gift", "Instant Delivery"],
       "image": "assets/img/gift-card.png",
@@ -659,10 +659,11 @@
       "variants": {
         "name": "Amount",
         "options": [
-          { "label": "$25", "priceDelta": 0 },
-          { "label": "$50", "priceDelta": 25 },
-          { "label": "$100", "priceDelta": 75 },
-          { "label": "$200", "priceDelta": 175 }
+          { "label": "$10", "priceDelta": 0 },
+          { "label": "$25", "priceDelta": 15 },
+          { "label": "$50", "priceDelta": 40 },
+          { "label": "$100", "priceDelta": 90 },
+          { "label": "$200", "priceDelta": 190 }
         ]
       },
       "featured": true

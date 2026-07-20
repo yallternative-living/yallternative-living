@@ -228,9 +228,15 @@
   // Gift Card Modal controller (SOTA 2026 Native Dialog Pattern)
   var giftModal = document.getElementById("giftCardModal");
   if (giftModal) {
-    // 1. Open modal via CTA buttons
+    // 1. Open modal via CTA buttons or by clicking the gift card product card itself
     document.addEventListener("click", function (e) {
       var target = e.target.closest('a[href="#gift-cards"]');
+      if (!target) {
+        var card = e.target.closest('.card[data-id="yallternative-gift-card"]');
+        if (card && !e.target.closest('.wish-btn') && !e.target.closest('.card-gallery-dot')) {
+          target = card;
+        }
+      }
       if (target) {
         e.preventDefault();
         giftModal.showModal();
@@ -516,7 +522,7 @@
      makes order validation actually work. See:
      https://docs.snipcart.com/v3/setup/order-validation#json-crawler */
   function addToCartHTML(p, extraClass) {
-    if (p.id === "digital-gift-card") {
+    if (p.id === "yallternative-gift-card") {
       return (
         '<a href="#gift-cards" class="btn btn-secondary btn-sm' +
         (extraClass ? " " + extraClass : "") +
@@ -634,7 +640,7 @@
      change handler below. Real <select> means full keyboard/AT support
      for free -- no custom listbox widget needed for something this simple. */
   function variantSelectHTML(p) {
-    if (p.id === "digital-gift-card") return "";
+    if (p.id === "yallternative-gift-card") return "";
     if (!p.variants || !Array.isArray(p.variants.options) || !p.variants.options.length) return "";
     var options = p.variants.options
       .map(function (o) {
@@ -1333,7 +1339,9 @@
       }[p.category] || p.category;
     var wished = isWished(p.id);
     return (
-      '<article class="card reveal" data-category="' +
+      '<article class="card reveal" data-id="' +
+      attrEsc(p.id) +
+      '" data-category="' +
       attrEsc(p.category) +
       '">' +
       '<div class="card-media">' +
@@ -1770,7 +1778,7 @@
       var eyebrowProductCount = document.getElementById("eyebrowProductCount");
       if (eyebrowProductCount) {
         var activeHandmade = allProducts.filter(function (p) {
-          return !p.comingSoon && p.id !== "digital-gift-card";
+          return !p.comingSoon && p.id !== "yallternative-gift-card";
         }).length;
         eyebrowProductCount.textContent = activeHandmade;
       }

@@ -11,16 +11,14 @@
 
   if (!presetBtns.length || !addGiftCardBtn) return;
 
-  var SUPPORTED_AMOUNTS = [10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100, 150, 200, 250, 500];
-
   function updateGiftCardAmount(amount) {
-    var closest = SUPPORTED_AMOUNTS.reduce(function(prev, curr) {
-      return (Math.abs(curr - amount) < Math.abs(prev - amount) ? curr : prev);
-    });
+    var finalAmount = amount;
+    if (finalAmount < 10) finalAmount = 10;
+    if (finalAmount > 500) finalAmount = 500;
     
-    giftCardAmountDisplay.textContent = '$' + closest;
-    customGiftAmount.value = closest;
-    addGiftCardBtn.setAttribute('data-item-custom1-value', 'Preset $' + closest);
+    giftCardAmountDisplay.textContent = '$' + finalAmount;
+    customGiftAmount.value = finalAmount;
+    addGiftCardBtn.setAttribute('data-item-custom1-value', 'Preset $' + finalAmount);
   }
 
   presetBtns.forEach(function(btn) {
@@ -38,10 +36,22 @@
     });
   });
 
+  customGiftAmount.addEventListener('input', function() {
+    var val = parseInt(customGiftAmount.value, 10);
+    if (!isNaN(val)) {
+      var clamped = val;
+      if (clamped < 10) clamped = 10;
+      if (clamped > 500) clamped = 500;
+      giftCardAmountDisplay.textContent = '$' + clamped;
+      addGiftCardBtn.setAttribute('data-item-custom1-value', 'Preset $' + clamped);
+    }
+  });
+
   customGiftAmount.addEventListener('change', function() {
     var val = parseInt(customGiftAmount.value, 10) || 25;
     if (val < 10) val = 10;
     if (val > 500) val = 500;
+    customGiftAmount.value = val;
     updateGiftCardAmount(val);
   });
 

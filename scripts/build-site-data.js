@@ -222,6 +222,14 @@ function variantPriceRange(p) {
   return { low: Math.min.apply(null, prices), high: Math.max.apply(null, prices) };
 }
 function snipcartCustomFields(p) {
+  if (p.id === "yallternative-gift-card") {
+    var options = [];
+    for (var val = 10; val <= 500; val++) {
+      var delta = val - 10;
+      options.push("Preset $" + val + "[+" + delta.toFixed(2) + "]");
+    }
+    return [{ name: "Amount", options: options.join("|"), value: "Preset $25" }];
+  }
   if (!p.variants || !Array.isArray(p.variants.options) || !p.variants.options.length) return [];
   // Snipcart's documented custom-field format: "Label[+delta]|Label[+delta]",
   // delta relative to the button's base data-item-price. See:
@@ -406,6 +414,18 @@ var shopJsonLd = {
 };
 var shopHtml = readText("shop.html", "shop page");
 
+// Generate and inject the full $10 to $500 options string for the Gift Card button
+var giftCardOptionsList = [];
+for (var val = 10; val <= 500; val++) {
+  var delta = val - 10;
+  giftCardOptionsList.push("Preset $" + val + "[+" + delta.toFixed(2) + "]");
+}
+var giftCardOptionsStr = giftCardOptionsList.join("|");
+var optionsPlaceholderRe = /data-item-custom1-options="Preset \$10\[\+0\.00\].*?Preset \$500\[\+490\.00\]"/;
+if (optionsPlaceholderRe.test(shopHtml)) {
+  shopHtml = shopHtml.replace(optionsPlaceholderRe, 'data-item-custom1-options="' + giftCardOptionsStr + '"');
+}
+
 var NUMBER_WORDS = [
   "Zero",
   "One",
@@ -430,7 +450,7 @@ var NUMBER_WORDS = [
   "Twenty"
 ];
 var productCount = CATALOG.products.filter(function (p) {
-  return p.image && p.image.indexOf("placeholder") === -1 && p.id !== "digital-gift-card";
+  return p.image && p.image.indexOf("placeholder") === -1 && p.id !== "yallternative-gift-card";
 }).length;
 var productCountWord = NUMBER_WORDS[productCount] || String(productCount);
 
