@@ -22,12 +22,12 @@
   --ink:            #17130f;   /* elevated near-black, not pure #000 */
   --ink-2:          #1e1815;   /* raised panel */
   --ink-3:          #262019;   /* card / border fill */
-  --hide:           #332821;   /* leather brown, borders */
+  --hide:           #4a3a2e;   /* border / rule (raised contrast) */
   --paper:          #f3ead9;   /* warm off-white text */
   --paper-dim:      #cfc0a8;   /* muted body text on dark */
   --whiskey:        #d69b5c;   /* amber accent */
   --whiskey-dim:    #8a5c30;
-  --rose:           #c65a6d;   /* dusty rose / wine accent */
+  --rose:           #c65a6d;   /* dusty rose / wine accent (NOT for text!) */
   --rose-dim:       #7d3140;
   /* --rose is a bit too close in luminance to our dark surfaces to clear
      4.5:1 as body/UI TEXT (only ~3.9-4.5:1 against ink/ink-2/ink-3) --
@@ -35,6 +35,12 @@
      link-hover, etc.) so it reads clearly against dark backgrounds. */
   --rose-text:      #d17b8a;
   --sage:           #7c8f6e;   /* faded sage, secondary accent */
+  
+  /* Semantic Tokens */
+  --error:          #e65c5c;
+  --success:        #5ca86c;
+  --focus-ring:     var(--whiskey);
+  
   --shadow: 0 12px 30px -12px rgba(0,0,0,.55);
   /* Fully opaque -- a frosted/translucent header let the hero's radial
      glow bleed through and blur behind the logo, which read as a muddy
@@ -50,7 +56,7 @@
   --ink:            #faf5ea;   /* warm paper background */
   --ink-2:          #f1e9d8;   /* raised panel */
   --ink-3:          #ece2cd;   /* card fill */
-  --hide:           #ddccae;   /* border / rule */
+  --hide:           #c4a880;   /* border / rule (raised contrast) */
   --paper:          #221a14;   /* near-black warm text */
   --paper-dim:      #5b4d3d;   /* muted body text on light */
   /* #a8631f (the original "darkened for AA contrast" amber) still fell
@@ -59,10 +65,16 @@
      which clears 4.5:1 against both --ink and --ink-2 at those sizes. */
   --whiskey:        #93571b;
   --whiskey-dim:    #7a4816;
-  --rose:           #9c2f45;   /* wine accent, darkened for contrast */
+  --rose:           #9c2f45;   /* wine accent, darkened for contrast (NOT for text!) */
   --rose-dim:       #7d3140;
   --rose-text:      var(--rose); /* already >=4.5:1 as text in light mode */
   --sage:           #4f6a45;
+  
+  /* Semantic Tokens */
+  --error:          #d13b3b;
+  --success:        #3b8248;
+  --focus-ring:     var(--whiskey);
+  
   --shadow: 0 12px 26px -14px rgba(60,40,20,.28);
   --nav-bg: rgb(250,245,234);
   --footer-bg:      #ece2cd;   /* a touch deeper than --ink for depth */
@@ -288,6 +300,14 @@ section{
     color: var(--on-fill);
     box-shadow: var(--shadow);
     &:hover{ background: var(--rose-fill-hover); }
+  }
+
+  &.btn-whiskey{
+    background: var(--whiskey);
+    color: var(--ink);
+    box-shadow: var(--shadow);
+    border-color: var(--whiskey);
+    &:hover{ background: var(--whiskey-dim); color: var(--on-fill); }
   }
 
   &.btn-outline{
