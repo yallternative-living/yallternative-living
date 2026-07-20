@@ -79,8 +79,8 @@ npm test
   That makes the fast, modern versions of the image the site serves. (If you
   upload a photo through `/admin` it will show up, but run this command — or ask
   your developer to add it to the deploy — so it's fully optimized.)
-- **Two products are on a "Photo coming soon" placeholder** right now
-  (`Y'all Means All Sugar Scrub`, `Rainbow Whipped Body Butter`). Swap in real
+- **Five products are on a "Photo coming soon" placeholder** right now
+  (`Y'all Means All Sugar Scrub`, `Y'all Means All Rainbow Whipped Body Butter`, `Appalachian Rain Clearing Mist`, `Moonlit Meadow Bath Tea`, and `Porch Sweep Clearing Mist`). Swap in real
   photos the same way, and double-check their price and ingredients while you're
   there.
 - **Static page photos (About bio photo, homepage hero, logos, etc.):** You can replace these directly in `/admin` under **Page Wording**. Upload the new photo in the editor, and the site's build script will automatically wire it in, optimize it, and generate the responsive breakpoints.

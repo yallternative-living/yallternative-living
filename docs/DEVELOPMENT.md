@@ -907,27 +907,15 @@ Snipcart account, its dashboard's own **Inventory management** feature
 section 8, item B.6 — this field is a simpler stopgap that needs no
 account at all.
 
+**Product Image Lightbox.** Clicking on any non-gift card product image (on the home page or shop page grids) opens a premium glassmorphic lightbox modal (`#imageLightboxModal`). It displays an enlarged view of the product photo and includes interactive next/prev control arrows + gallery navigation indicator dots to cycle through the alternative images in that product's gallery. The modal uses the modern HTML5 `<dialog>` API with keyboard accessibility support (dismisses instantly on hitting `Esc` or clicking the backdrop overlay).
+
 ## 18. Digital gift cards, explained
 
-**Deliberately not a custom-built feature.** A real, redeemable
-stored-value gift card needs a balance tracked and checked somewhere
-safe at the moment of redemption — that fundamentally requires either a
-database or a specialized service, which a zero-backend static site
-can't provide safely on its own. Building a fake version (e.g. a
-plain discount code relabeled as a "gift card") would be dishonest about
-what the customer is actually buying, so this uses a real, purpose-built
-third-party service instead, the same reasoning already applied to
-Snipcart (checkout), Kit (email), and Formspree (reviews).
+**Custom Snipcart-integrated checkout by default.** The Digital Gift Card is fully integrated as a featured item inside the catalog (`products.json`). When a user clicks "Configure Card" on the shop grid, it triggers a state-of-the-art native `<dialog id="giftCardModal">` modal. This modal allows customers to choose preset amounts ($10, $25, $50, $100, $200) or enter a custom amount (from $10 to $500). They can fill out custom purchase fields (Recipient Email, Sender Name, and an optional Message) and add the gift card directly to the Snipcart cart.
 
-**[Gift Up!](https://www.giftup.com)** is the option this is built
-around: no monthly or setup fee, a "5 minute install into any website"
-embeddable checkout widget, and it fully handles payment, branded
-card design/delivery (email, schedulable), and redemption — including a
-free app for redeeming a gift card in person at a market table. A
-placeholder container (`#giftUpContainer` on `shop.html`) is ready for
-the real embed.
+**Optional third-party fulfillment (Gift Up!).** Since a static site cannot track balances securely on its own, the system is prepared to hand off to **[Gift Up!](https://www.giftup.com)** (a purpose-built gift card platform) once Savanna is ready. If a Gift Up! embed code is pasted inside `#giftUpContainer` in `shop.html`, the custom Snipcart configurator form is bypassed, and the Gift Up! checkout widget is loaded instead.
 
-**What you (Savanna) still need to do:**
+**What you (Savanna) still need to do (if you choose to use Gift Up!):**
 
 1. [Sign up for a free Gift Up! account](https://giftup.app/account/register)
    and set up your branded gift card design.
