@@ -874,11 +874,11 @@
 
   <section class="section-tight">
     <div class="container">
-      <div class="shop-search">
+      <form id="shopSearchForm" class="shop-search" toolname="search-products" tooldescription="Search the shop catalog for products, apparel, or salves" toolautosubmit>
         <label for="shopSearch" class="sr-only">Search products</label>
         <svg class="shop-search-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
         <input type="search" id="shopSearch" placeholder="Search salves, soaks, apparel..." autocomplete="off">
-      </div>
+      </form>
       <div class="shop-toolbar">
         <div id="filterRow" class="filter-row"></div>
         <div class="shop-sort">
@@ -1057,11 +1057,14 @@
       <div class="review-form-wrap">
         <h3>Write A Review</h3>
         <p class="review-form-confirm"><span class="glyph" aria-hidden="true" style="display:inline-flex;vertical-align:text-bottom;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-check"><polyline points="20 6 9 17 4 12"/></svg></span> Thanks, y'all! Your review's been sent in. Savanna reads every one before it's posted, so it might take a few days to show up.</p>
-        <form class="review-form" id="reviewForm" action="https://formspree.io/f/<!--YL:site.formspreeReviewId-->YOUR_FORMSPREE_FORM_ID<!--/YL:site.formspreeReviewId-->" method="post">
+        <form class="review-form" id="reviewForm" action="https://formspree.io/f/<!--YL:site.formspreeReviewId-->YOUR_FORMSPREE_FORM_ID<!--/YL:site.formspreeReviewId-->" method="post" toolname="submit-product-review" tooldescription="Submit a review and rating for a specific product.">
           <div class="form-hp" aria-hidden="true">
             <label for="review_website">Leave this field blank</label>
             <input type="text" id="review_website" name="review_website" tabindex="-1" autocomplete="off">
           </div>
+          <input type="hidden" name="productId" id="reviewProductId">
+          <input type="hidden" name="productName" id="reviewProductName">
+          
           <div class="field">
             <label for="review_name">Name</label>
             <input type="text" id="review_name" name="name" placeholder="First name or handle" required autocomplete="name">
@@ -1078,7 +1081,7 @@
           </div>
           <div class="field">
             <label for="review_rating">Rating</label>
-            <select id="review_rating" name="rating" required>
+            <select id="review_rating" name="rating" required toolparamdescription="Rate the product on a scale of 1 to 5 stars, where 5 is best.">
               <option value="">Select a rating</option>
               <option value="5">★★★★★ (5: loved it)</option>
               <option value="4">★★★★☆ (4: really good)</option>

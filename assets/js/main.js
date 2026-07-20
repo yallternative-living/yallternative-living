@@ -2067,6 +2067,16 @@
         state.query = searchInput.value;
         render();
       });
+      var searchForm = document.getElementById("shopSearchForm");
+      if (searchForm) {
+        searchForm.addEventListener("submit", function (e) {
+          e.preventDefault();
+          // For WebMCP agents: respond immediately with the filtered state
+          if (e.agentInvoked && typeof e.respondWith === "function") {
+             e.respondWith(Promise.resolve("Search complete. The shop catalog is now filtered to show matching products."));
+          }
+        });
+      }
     }
 
     // Deep-linking: footer links like shop.html#apparel pre-select that filter.
