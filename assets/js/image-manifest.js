@@ -1532,8 +1532,8 @@ window.YL_IMAGES = {
   "assets/img/gift-card.png": {
     "key": "assets/img/gift-card.png",
     "width": 1024,
-    "height": 1024,
-    "size": 921600,
+    "height": 646,
+    "size": 86966,
     "variants": {
       "avif": [
         {
