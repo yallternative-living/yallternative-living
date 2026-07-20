@@ -301,6 +301,11 @@
       }
     });
 
+    var indicator = document.querySelector(".lang-current-code");
+    if (indicator) {
+      indicator.textContent = langCode.toUpperCase();
+    }
+
     // Update localStorage
     try {
       localStorage.setItem("yl-lang", langCode);
@@ -326,7 +331,7 @@
     toggleBtn.type = "button";
     toggleBtn.setAttribute("aria-label", "Select language");
     toggleBtn.setAttribute("aria-expanded", "false");
-    toggleBtn.innerHTML = globeSVG;
+    toggleBtn.innerHTML = globeSVG + '<span class="lang-current-code">' + currentLang.toUpperCase() + '</span>';
 
     // Dropdown list
     var dropdown = document.createElement("div");

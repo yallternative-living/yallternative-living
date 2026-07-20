@@ -1769,16 +1769,19 @@ hr.rule{ border:none; border-top:1px solid var(--hide); margin:48px 0; }
   background: none;
   border: 1px solid var(--hide);
   color: var(--paper);
-  width: 42px;
   height: 42px;
-  border-radius: 50%;
+  border-radius: 21px;
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 6px;
   cursor: pointer;
   flex: 0 0 auto;
   transition: border-color .2s ease, background-color .2s ease;
-  padding: 0;
+  padding: 0 10px 0 8px;
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
   
   &:hover, &:focus-visible {
     border-color: var(--whiskey);
@@ -1786,13 +1789,19 @@ hr.rule{ border:none; border-top:1px solid var(--hide); margin:48px 0; }
   }
 
   @media (max-width: 420px) {
-    width: 34px;
     height: 34px;
+    padding: 0 8px 0 6px;
+    gap: 4px;
+    font-size: 0.68rem;
   }
 
   & svg {
-    width: 19px;
-    height: 19px;
+    width: 17px;
+    height: 17px;
+  }
+
+  & .lang-current-code {
+    transform: translateY(-0.5px);
   }
 }
 
