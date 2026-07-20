@@ -876,7 +876,7 @@ if (Object.keys(tawkTexts).length === PAGES.length && tawkUnique.length === 1) {
 section("Gift Up! gift-card container present (shop.html)");
 if (/id="giftUpContainer"/.test(shopHtml)) {
   ok("shop.html has #giftUpContainer");
-  if (/YOUR_GIFTUP_EMBED_CODE/.test(shopHtml)) {
+  if (/YOUR_GIFTUP_ID/.test(shopHtml) || /YL:site.giftUpId/.test(shopHtml)) {
     console.log(
       "  (still the placeholder -- expected until Savanna has a real Gift Up! account, see DEVELOPMENT.md section 18)"
     );

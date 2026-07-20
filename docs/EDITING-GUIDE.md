@@ -92,7 +92,7 @@ npm test
 Honest heads-up — the catalog is owner-friendly; a few things still live in the
 page files:
 
-- **Legal policies** — the privacy, terms, and shipping policy pages are in `privacy.html`, `terms.html`, and `policies.html`. These are not editable in `/admin` and still require a developer edit to keep the formatting robust. (The homepage headline/intro, About story, contact photo, and site logos ARE now editable in `/admin` under "Page Wording".)
+- **Legal policies** — the privacy, terms, and shipping policy pages are in `privacy.html`, `terms.html`, and `policies.html`. These are not editable in `/admin` and still require a developer edit to keep the formatting robust. (The homepage headline/intro, About story, contact photo, site logos, and integration settings/API keys ARE now editable in `/admin` under "Page Wording".)
 
 ---
 
@@ -109,4 +109,4 @@ page files:
 | Add a market/Pride date | `/admin` → Markets, or `events.json` | Auto (CMS) / `npm run build-data` |
 | Reword homepage headline / About story | `/admin` → Page Wording, or `content.json` | Auto (CMS) / `npm run build-data` |
 
-**Rule of thumb:** products, prices, bundles, FAQ, photos, market dates, site logos, and page wording (About / homepage / contact text) = you, via `/admin`. Only the legal policies and underlying layout structures = a quick developer edit.
+**Rule of thumb:** products, prices, bundles, FAQ, photos, market dates, site logos, integration API keys, and page wording (About / homepage / contact text) = you, via `/admin`. Only the legal policies and underlying layout structures = a quick developer edit.

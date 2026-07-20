@@ -1091,6 +1091,66 @@ if (DOMAIN_IS_LIVE) {
   });
 }
 
+// Propagate global site configurations from content.json to all HTML files
+(function injectGlobalConfigurations() {
+  var content = readJson("assets/data/content.json");
+  var site = content.site || {};
+  var ALL_HTML_PAGES = PAGES.map(function (p) {
+    return p.loc;
+  }).concat(["404.html", "assets/data/footer.html"]);
+
+  ALL_HTML_PAGES.forEach(function (page) {
+    var filePath = path.join(ROOT, page);
+    if (!fs.existsSync(filePath)) return;
+    var html = fs.readFileSync(filePath, "utf8");
+    var updated = html;
+
+    // Replace HTML comment templates: <!--YL:site.KEY-->...<!--/YL:site.KEY-->
+    updated = updated.replace(/<!--YL:site\.([a-zA-Z0-9]+)-->([\s\S]*?)<!--\/YL:site\.\1-->/g, function (match, key) {
+      if (key === "giftUpId") return match; // Handled separately below
+      if (site[key] !== undefined) {
+        return "<!--YL:site." + key + "-->" + site[key] + "<!--/YL:site." + key + "-->";
+      }
+      return match;
+    });
+
+    // Special handling for Gift Up! ID to generate full HTML script embed
+    updated = updated.replace(/<!--YL:site\.giftUpId-->([\s\S]*?)<!--\/YL:site\.giftUpId-->/g, function (match) {
+      if (site.giftUpId !== undefined) {
+        var val = site.giftUpId.trim();
+        if (val && val !== "YOUR_GIFTUP_ID") {
+          var embed = '\n<div class="gift-up-target" data-site-id="' + val + '"></div>\n' +
+                      '<script>\n' +
+                      '  (function (g, i, f, t, u, p) {\n' +
+                      '    t = g.createElement(i);\n' +
+                      '    t.async = 1;\n' +
+                      '    t.src = "https://giftup.app/dist/commerce-v1.js";\n' +
+                      '    u = g.getElementsByTagName(i)[0];\n' +
+                      '    u.parentNode.insertBefore(t, u);\n' +
+                      '  })(document, "script");\n' +
+                      '</script>\n';
+          return "<!--YL:site.giftUpId-->" + embed + "<!--/YL:site.giftUpId-->";
+        }
+        return "<!--YL:site.giftUpId-->YOUR_GIFTUP_ID<!--/YL:site.giftUpId-->";
+      }
+      return match;
+    });
+
+    // Replace JS comment templates: /*YL:site.KEY*/.../*/YL:site.KEY*/
+    updated = updated.replace(/\/\*YL:site\.([a-zA-Z0-9]+)\*\/([\s\S]*?)\/\*\/YL:site\.\1\*\//g, function (match, key) {
+      if (site[key] !== undefined) {
+        return "/*YL:site." + key + "*/ \"" + site[key] + "\" /*/YL:site." + key + "*/";
+      }
+      return match;
+    });
+
+    if (updated !== html) {
+      writeFile(page, updated);
+      console.log("[build] Injected configurations into " + page);
+    }
+  });
+})();
+
 // Automatically update sw.js CACHE_NAME version on build
 (function updateServiceWorkerVersion() {
   var swPath = path.join(ROOT, "sw.js");

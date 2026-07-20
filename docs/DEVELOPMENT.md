@@ -444,12 +444,10 @@ touches a real card until you flip that switch.
 
 7. Grab your **public API key** from
    [Store configuration → Domains & URLs / API Keys](https://app.snipcart.com/dashboard/account/credentials).
-8. Replace every `YOUR_SNIPCART_PUBLIC_API_KEY` placeholder (one per
-   HTML page — search-and-replace across all seven files) with that
-   real key.
+8. Enter your key in the Website Dashboard (`/admin` → Page Wording → Global Site Assets & Configurations → Snipcart Public API Key) or in `assets/data/content.json` under `site.snipcartApiKey`. The build script will automatically propagate it to all pages.
 9. Under **Store configuration → Domains & URLs**, register your real
-   domain once you have one, so Snipcart's order-validation crawler is
-   allowed to hit it.
+    domain once you have one, so Snipcart's order-validation crawler is
+    allowed to hit it.
 
 **D. Growth features (optional, but worth doing — see
 `website-gap-analysis.md`)**
@@ -716,8 +714,7 @@ since it requires creating an account:**
 4. Grab the form's real HTML embed code from Kit's "Embed" tab and copy
    just its `<form action="...">` URL (looks like
    `https://app.kit.com/forms/1234567/subscriptions`).
-5. Replace every `YOUR_KIT_FORM_ACTION_URL` placeholder (one per HTML
-   page — search-and-replace across all seven files) with that real URL.
+5. Enter the form action URL in the Website Dashboard (`/admin` → Page Wording → Global Site Assets & Configurations → Kit Form Action URL) or in `assets/data/content.json` under `site.kitFormAction`. The build script will automatically propagate it to all pages.
 6. Test a real signup once deployed: submit the form, confirm you land
    back on the site with the "you're on the list" message, and check
    that the email actually lands in your Kit subscriber list.
@@ -843,12 +840,12 @@ since it requires creating an account:**
    create a new form.
 2. Grab that form's action URL from Formspree's dashboard (looks like
    `https://formspree.io/f/abcd1234`).
-3. Replace `YOUR_FORMSPREE_FORM_ID` in `shop.html`'s review form with
-   that real URL.
-4. Test a real submission once deployed: submit the form, confirm the
+3. Enter the Formspree Form ID (just the `abcd1234` part at the end) in the Website Dashboard (`/admin` → Page Wording → Global Site Assets & Configurations → Formspree Review Form ID) or in `assets/data/content.json` under `site.formspreeReviewId`.
+4. (And similarly for the contact form: create a contact form in Formspree, grab its ID, and enter it in the dashboard under Formspree Contact Form ID or in `assets/data/content.json` under `site.formspreeContactId`.)
+5. Test a real submission once deployed: submit the form, confirm the
    inline "thanks" message appears, and check that the email actually
    lands in your inbox.
-5. When you want to publish a review, add it to
+6. When you want to publish a review, add it to
    `assets/js/site-reviews-data.js` by hand (or ask for help in a Claude
    session) — see that file's comment for the exact format — then
    refresh the page (or redeploy). No other file changes needed.
@@ -966,10 +963,7 @@ so turning it on later needs no header changes.
 1. [Sign up for a free Tawk.to account](https://www.tawk.to).
 2. From Administration → Chat Widget, copy your real embed script —
    it has your real property ID and widget ID baked into the `src` URL.
-3. Replace the placeholder `<script>` block near `</body>` with that
-   real one — same "every page" pattern as the other scripts (do it on
-   all seven `.html` files, or ask me to script the swap once you have
-   the real IDs).
+3. Enter the property ID and widget ID in the Website Dashboard (`/admin` → Page Wording → Global Site Assets & Configurations → Tawk.to Property ID / Widget ID) or in `assets/data/content.json` under `site.tawkToPropertyId` and `site.tawkToWidgetId`.
 4. Set your availability hours in the Tawk.to dashboard so it shows
    "offline" (with a leave-a-message form) outside them, rather than
    looking staffed 24/7 when no one's actually watching it.

@@ -1,7 +1,14 @@
 {
   "site": {
     "logoDesktop": "assets/img/logo.png",
-    "logoMobile": "assets/img/logo.jpg"
+    "logoMobile": "assets/img/logo.jpg",
+    "snipcartApiKey": "YOUR_SNIPCART_PUBLIC_API_KEY",
+    "kitFormAction": "YOUR_KIT_FORM_ACTION_URL",
+    "tawkToPropertyId": "YOUR_TAWKTO_PROPERTY_ID",
+    "tawkToWidgetId": "YOUR_TAWKTO_WIDGET_ID",
+    "formspreeContactId": "YOUR_FORM_ID",
+    "formspreeReviewId": "YOUR_FORMSPREE_FORM_ID",
+    "giftUpId": "YOUR_GIFTUP_ID"
   },
   "home": {
     "heroTitle": "Self-Care For The Black Sheep & Bold Hearts",

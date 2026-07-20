@@ -361,12 +361,19 @@ collections:
         format: json
         fields:
           - name: site
-            label: Global Site Assets (Logos)
+            label: Global Site Assets & Configurations
             widget: object
             collapsed: true
             fields:
               - { name: logoDesktop, label: "Desktop Logo (suggested 48x48 PNG)", widget: image }
               - { name: logoMobile, label: "Mobile Logo (suggested 48x48 JPG/PNG)", widget: image }
+              - { name: snipcartApiKey, label: "Snipcart Public API Key", widget: string, required: false, hint: "Paste your Snipcart Public API Key here to enable checkout." }
+              - { name: kitFormAction, label: "Kit (ConvertKit) Form Action URL", widget: string, required: false, hint: "Paste your Kit newsletter form action URL here." }
+              - { name: tawkToPropertyId, label: "Tawk.to Property ID", widget: string, required: false, hint: "For live chat support." }
+              - { name: tawkToWidgetId, label: "Tawk.to Widget ID", widget: string, required: false, hint: "For live chat support." }
+              - { name: formspreeContactId, label: "Formspree Contact Form ID", widget: string, required: false, hint: "Your Formspree ID for the contact page form." }
+              - { name: formspreeReviewId, label: "Formspree Review Form ID", widget: string, required: false, hint: "Your Formspree ID for customers to write product reviews." }
+              - { name: giftUpId, label: "Gift Up! ID (Optional)", widget: string, required: false, hint: "Your Gift Up! account ID if using external digital gift cards." }
 
           - name: home
             label: Homepage
