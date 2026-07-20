@@ -9,7 +9,7 @@
     "formspreeContactId": "YOUR_FORM_ID",
     "formspreeReviewId": "YOUR_FORMSPREE_FORM_ID",
     "giftUpId": "YOUR_GIFTUP_ID",
-    "enableJournal": true,
+    "enableJournal": false,
     "enableSocialFeed": false
   },
   "home": {
