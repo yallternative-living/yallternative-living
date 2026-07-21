@@ -332,15 +332,14 @@
   var contactForms = document.querySelectorAll(".contact-form");
   contactForms.forEach(function (form) {
     form.addEventListener("submit", function (e) {
+      var col = form.closest(".contact-form-col");
       if (form.action.indexOf("YOUR_FORM_ID") !== -1) {
         e.preventDefault();
-        var col = form.closest(".contact-form-col");
         if (col) col.classList.add("is-submitted");
         return;
       }
       if (!window.fetch) return;
       e.preventDefault();
-      var col = form.closest(".contact-form-col");
       fetch(form.action, {
         method: "POST",
         body: new FormData(form),
