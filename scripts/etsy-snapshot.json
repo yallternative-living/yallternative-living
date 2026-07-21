@@ -1,84 +1,107 @@
 {
-  "fetchedAt": "2026-07-17T16:43:41Z",
+  "_comment": "Schema reference only -- not read by anything. Copy this shape into etsy-snapshot.json (gitignored / regenerated each sync run) before running apply-etsy-snapshot.js.",
+  "fetchedAt": "2026-07-20T08:02:11.850Z",
   "complete": true,
+  "_complete_meaning": "true only if every currently-active listing on https://www.etsy.com/shop/YallternativeLivinCO was fetched this pass -- enables safe detection of listings that disappeared. Set false for a partial/spot-check run.",
   "listings": [
     {
       "listingId": "4341507933",
       "title": "Y'allternative Living Tank Top",
-      "price": 25.00,
+      "price": 25,
       "rating": null
     },
     {
       "listingId": "4341518675",
-      "title": "Y'allternative Living Unisex T Shirt",
-      "price": 25.00,
+      "title": "Y'allternative Living Unisex T-Shirt",
+      "price": 25,
       "rating": null
     },
     {
-      "listingId": "4378341348",
-      "title": "Protection Potion Keychain: Black Lava Salt Spell Jar Amulet",
-      "price": 6.00,
-      "rating": { "value": 5.0, "count": 1 }
-    },
-    {
       "listingId": "4398130795",
-      "title": "Y'all Heal Now Miracle Frankencise Salve with Calendula, Arnica, Tea Tree, Lavender and Rosemary",
-      "price": 16.00,
-      "rating": { "value": 5.0, "count": 5 }
+      "title": "Y'all Heal Now Miracle Frankincense Salve",
+      "price": 16,
+      "rating": {
+        "value": 5,
+        "count": 6
+      }
     },
     {
       "listingId": "4466572716",
-      "title": "Y'allternative Miracle Balm — Multi-Use Skin & Lip Rescue (Unscented • Essential Oil Free)",
-      "price": 8.00,
+      "title": "Y'allternative Miracle Balm",
+      "price": 8,
       "rating": null
     },
     {
       "listingId": "4398125773",
-      "title": "Hush Y'all Magnesium Arnica Sleep Salve with Lavender, Cedarwood, Frankencise, and Chamomile",
-      "price": 16.00,
-      "rating": { "value": 5.0, "count": 1 }
+      "title": "Hush Y'all Magnesium Arnica Sleep Salve",
+      "price": 16,
+      "rating": {
+        "value": 5,
+        "count": 1
+      }
     },
     {
       "listingId": "4460199621",
-      "title": "Bourbon Beard Salve – Vanilla Cedarwood Beard Balm for Men – Natural Beard Conditioner – Softens & Tames – Handmade Grooming Gift",
-      "price": 14.00,
+      "title": "Bourbon Beard Salve",
+      "price": 14,
       "rating": null
     },
     {
       "listingId": "4502740269",
-      "title": "Shimmer Body Oil- Glitter Body Oil-Non Greasy Glow Oil- Bronze Seduction-Y'all Means All Citrus Peach- Coconut",
-      "price": 19.00,
+      "title": "Shimmer Body Oil",
+      "price": 19,
       "rating": null
     },
     {
       "listingId": "4460110222",
-      "title": "Lavender Shea Body Butter – Raw African Shea, Night Repair",
-      "price": 15.00,
-      "rating": { "value": 4.0, "count": 1 }
+      "title": "Lavender Shea Body Butter",
+      "price": 18,
+      "rating": {
+        "value": 4,
+        "count": 1
+      }
     },
     {
       "listingId": "4342208406",
-      "title": "Bourbon Vanilla Hand Scrub: Exfoliating Degreaser with Pumice & Pink Salt",
-      "price": 8.00,
-      "rating": { "value": 5.0, "count": 2 }
+      "title": "Bourbon Vanilla Hand Scrub",
+      "price": 10,
+      "rating": {
+        "value": 5,
+        "count": 2
+      }
     },
     {
       "listingId": "4345557444",
-      "title": "Lavender Epsom Salt Soak: Muscle Relief with Black Pepper",
-      "price": 10.00,
+      "title": "Lavender Epsom Salt Soak",
+      "price": 10,
       "rating": null
     },
     {
       "listingId": "4333988264",
-      "title": "Backroad Recovery Epsom Salt Muscle Soak Peppermint, Lavender,Black Pepper",
-      "price": 10.00,
-      "rating": { "value": 5.0, "count": 3 }
+      "title": "Backroad Recovery Epsom Salt Soak",
+      "price": 10,
+      "rating": {
+        "value": 5,
+        "count": 3
+      }
+    },
+    {
+      "listingId": "4378341348",
+      "title": "Protection Potion Keychain",
+      "price": 8,
+      "rating": {
+        "value": 5,
+        "count": 1
+      }
     },
     {
       "listingId": "4335217388",
       "title": "Bug Off B*tch Natural Bug Spray",
-      "price": 8.00,
-      "rating": { "value": 5.0, "count": 4 }
+      "price": 10,
+      "rating": {
+        "value": 5,
+        "count": 4
+      }
     }
   ]
 }

@@ -146,7 +146,7 @@ window.YL_PRODUCTS = {
       ],
       "rating": {
         "value": 5,
-        "count": 5
+        "count": 6
       },
       "etsyUrl": "https://www.etsy.com/listing/4398130795/yall-heal-now-miracle-frankincense-salve",
       "tags": [

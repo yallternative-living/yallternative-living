@@ -59,18 +59,13 @@ if (!Array.isArray(snapshot.listings)) {
   process.exit(1);
 }
 
-var dataPath = path.join(ROOT, "assets/js/products-data.js");
+var dataPath = path.join(ROOT, "assets/data/products.json");
 if (!fs.existsSync(dataPath)) {
-  console.error("Error: products-data.js is missing at " + dataPath);
-  console.error("Please run the site data builder first: node scripts/build-site-data.js");
+  console.error("Error: products.json is missing at " + dataPath);
   process.exit(1);
 }
 
-// Same window-stub trick build-site-data.js uses, so this unmodified
-// browser-global file loads fine under plain Node too.
-global.window = {};
-require(dataPath);
-var CATALOG = global.window.YL_PRODUCTS;
+var CATALOG = JSON.parse(fs.readFileSync(dataPath, "utf8"));
 var PRODUCTS = CATALOG.products;
 
 /**
@@ -192,16 +187,9 @@ if (snapshot.complete) {
   });
 }
 
-// ---- write products-data.js back out only if something actually changed ----
+// ---- write products.json back out only if something actually changed ----
 if (ratingChanges.length) {
-  var HEADER =
-    "/* Auto-mirrors assets/data/products.json as a global,\n" +
-    "   so the site works instantly off file:// with zero\n" +
-    "   network/CORS issues, and just as fast once hosted.\n" +
-    "   NOTE: ratings in this file are kept in sync with real per-listing\n" +
-    "   Etsy reviews by scripts/apply-etsy-snapshot.js -- everything else\n" +
-    "   here (photos, blurbs, prices, variants) is still hand-maintained. */\n";
-  var out = HEADER + "window.YL_PRODUCTS = " + JSON.stringify(CATALOG, null, 2) + ";\n";
+  var out = JSON.stringify(CATALOG, null, 2) + "\n";
   var dir = path.dirname(dataPath);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
@@ -280,5 +268,5 @@ console.log(
 );
 console.log("Full report: scripts/etsy-sync-report.md");
 if (ratingChanges.length) {
-  console.log("\nproducts-data.js changed -- now run: node scripts/build-site-data.js && npm test");
+  console.log("\nproducts.json changed -- now run: node scripts/build-site-data.js && npm test");
 }

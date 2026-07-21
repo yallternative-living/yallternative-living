@@ -140,7 +140,7 @@
       ],
       "rating": {
         "value": 5,
-        "count": 5
+        "count": 6
       },
       "etsyUrl": "https://www.etsy.com/listing/4398130795/yall-heal-now-miracle-frankincense-salve",
       "tags": [
@@ -607,7 +607,7 @@
         "Epsom Salt",
         "Baking Soda"
       ],
-      "ingredientsNote": "Comes with a reusable organic cotton muslin bag. Each bag is good for 2\u20133 soaks. Compost when spent.",
+      "ingredientsNote": "Comes with a reusable organic cotton muslin bag. Each bag is good for 2–3 soaks. Compost when spent.",
       "variants": {
         "name": "Size",
         "options": [
@@ -651,9 +651,11 @@
     {
       "id": "yallternative-gift-card",
       "name": "Digital Gift Card",
-      "price": 10.00,
+      "price": 10,
       "category": "gift-cards",
-      "tags": ["Instant Delivery"],
+      "tags": [
+        "Instant Delivery"
+      ],
       "image": "assets/img/gift-card.png",
       "blurb": "Can't decide what they'd love? Let them pick. Delivered by email, ready to use on anything in the shop.",
       "description": "The perfect gift for the black sheep & bold hearts. Choose any amount from $10 to $500. No expiration date, delivered straight to their inbox.",
@@ -661,11 +663,26 @@
       "variants": {
         "name": "Amount",
         "options": [
-          { "label": "$10", "priceDelta": 0 },
-          { "label": "$25", "priceDelta": 15 },
-          { "label": "$50", "priceDelta": 40 },
-          { "label": "$100", "priceDelta": 90 },
-          { "label": "$200", "priceDelta": 190 }
+          {
+            "label": "$10",
+            "priceDelta": 0
+          },
+          {
+            "label": "$25",
+            "priceDelta": 15
+          },
+          {
+            "label": "$50",
+            "priceDelta": 40
+          },
+          {
+            "label": "$100",
+            "priceDelta": 90
+          },
+          {
+            "label": "$200",
+            "priceDelta": 190
+          }
         ]
       },
       "featured": true
