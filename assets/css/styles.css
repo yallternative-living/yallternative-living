@@ -512,7 +512,9 @@ section{
     & .icon-moon { display: block; }
     
     :root[data-theme="light"] & {
-      transform: translateX(22px); background: var(--rose);
+      transform: translateX(22px);
+      background: #e58e26;
+      color: #ffffff;
       & .icon-sun { display: block; }
       & .icon-moon { display: none; }
       
@@ -523,7 +525,9 @@ section{
     
     @media (prefers-color-scheme: light){
       :root:not([data-theme="dark"]):not([data-theme="light"]) & {
-        transform: translateX(22px); background: var(--rose);
+        transform: translateX(22px);
+        background: #e58e26;
+        color: #ffffff;
         & .icon-sun { display: block; }
         & .icon-moon { display: none; }
         
