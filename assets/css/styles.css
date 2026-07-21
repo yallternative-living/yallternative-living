@@ -339,55 +339,66 @@ section{
 
 .nav{
   display:flex; align-items:center; justify-content:space-between;
-  flex-wrap:wrap; row-gap:8px;
+  flex-wrap:nowrap; gap:12px;
   padding: 14px 24px;
   max-width: var(--container); margin:0 auto;
   
-  @media (max-width: 420px){
-    /* On the narrowest phones, the header has to fit logo + wordmark,
-       wishlist, cart, theme toggle, and the hamburger all in one row.
-       Add those up at full size and it's still tight on a 360-375px
-       screen, so everything shrinks a notch and gaps tighten. Targets
-       ~360px and up -- the realistic small-phone floor in 2026. */
-    padding:12px 16px;
+  @media (max-width: 1024px){
+    padding: 12px 20px; gap:10px;
+  }
+  @media (max-width: 600px){
+    padding: 10px 14px; gap:8px;
+  }
+  @media (max-width: 380px){
+    padding: 8px 10px; gap:6px;
   }
 }
 
 .brand{
   display:flex; align-items:center; gap:12px;
+  flex-shrink:1; min-width:0;
   
-  @media (max-width: 420px) {
+  @media (max-width: 768px) {
     gap:8px;
   }
   
   & img.logo-desktop {
-    width: 48px;
-    height: 48px;
+    width: 44px;
+    height: 44px;
+    flex-shrink:0;
   }
   
   & img.logo-mobile {
     display: none;
     width: auto;
-    height: 48px;
+    height: 44px;
+    flex-shrink:0;
   }
   
-  @media (max-width: 420px) {
+  @media (max-width: 600px) {
     & img.logo-desktop { display: none; }
-    & img.logo-mobile { display: block; height: 40px; }
+    & img.logo-mobile { display: block; height: 36px; width: 36px; }
   }
   
   & .brand-word{
     font-family: var(--font-display);
-    font-size:1.5rem;
+    font-size:1.4rem;
     letter-spacing:.03em;
     line-height:1.1;
+    white-space:nowrap;
     font-variation-settings:"opsz" 40, "wght" 420;
     
-    @media (max-width: 420px) {
-      font-size:1.15rem;
+    @media (max-width: 768px) {
+      font-size:1.2rem;
+    }
+    @media (max-width: 480px) {
+      font-size:1.05rem;
+    }
+    @media (max-width: 360px) {
+      font-size:0.95rem;
     }
     
-    /* "Living" now inherits the same styling as "Y'allternative" per the user's request, appearing on the same line with a small left margin acting as a space. */
+    /* "Living" inherits the same styling as "Y'allternative" appearing on the same line with a small left margin acting as a space. */
     & small{
       display:inline;
       margin-left:0.25em;
@@ -444,42 +455,51 @@ section{
 }
 
 .nav-cta{
-  display:flex; align-items:center; gap:16px;
+  display:flex; align-items:center; gap:12px;
+  flex-shrink:0;
   
   @media (max-width: 1024px) {
-    gap:10px;
+    gap:8px;
   }
-  @media (max-width: 420px) {
+  @media (max-width: 600px) {
     gap:6px;
+  }
+  @media (max-width: 380px) {
+    gap:4px;
   }
 }
 
 .nav-toggle{
   display:none; background:none; border:1px solid var(--hide); color:var(--paper);
-  width:42px; height:42px; border-radius:var(--radius); cursor:pointer; font-size:1.1rem;
+  width:40px; height:40px; border-radius:var(--radius); cursor:pointer; font-size:1.1rem;
+  align-items:center; justify-content:center; flex-shrink:0;
   
   @media (max-width: 1024px) {
-    display:inline-block;
+    display:inline-flex;
   }
-  @media (max-width: 420px) {
-    width:34px; height:34px; flex-shrink:0;
+  @media (max-width: 600px) {
+    width:36px; height:36px;
   }
 }
 
 /* light/dark theme toggle switch */
 .theme-toggle{
-  position:relative; width:52px; height:30px; border-radius:30px;
+  position:relative; width:50px; height:28px; border-radius:28px;
   border:1px solid var(--hide); background: var(--ink-3); cursor:pointer;
-  flex:0 0 auto; padding:0;
+  flex-shrink:0; padding:0;
   
-  @media (max-width: 420px) {
-    flex-shrink:0;
+  @media (max-width: 600px) {
+    width:44px; height:24px;
   }
 
   & .knob{
-    position:absolute; top:2px; left:2px; width:24px; height:24px; border-radius:50%;
+    position:absolute; top:2px; left:2px; width:22px; height:22px; border-radius:50%;
     background: var(--whiskey); display:flex; align-items:center; justify-content:center;
     font-size:.7rem; transition: transform .25s ease, background .25s ease;
+    
+    @media (max-width: 600px) {
+      width:18px; height:18px; top:2px; left:2px;
+    }
     
     & .icon-sun { display: none; }
     & .icon-moon { display: block; }
@@ -488,6 +508,10 @@ section{
       transform: translateX(22px); background: var(--rose);
       & .icon-sun { display: block; }
       & .icon-moon { display: none; }
+      
+      @media (max-width: 600px) {
+        transform: translateX(20px);
+      }
     }
     
     @media (prefers-color-scheme: light){
@@ -495,6 +519,10 @@ section{
         transform: translateX(22px); background: var(--rose);
         & .icon-sun { display: block; }
         & .icon-moon { display: none; }
+        
+        @media (max-width: 600px) {
+          transform: translateX(20px);
+        }
       }
     }
   }
@@ -1840,11 +1868,15 @@ hr.rule{ border:none; border-top:1px solid var(--hide); margin:48px 0; }
     background-color: var(--ink-3);
   }
 
-  @media (max-width: 420px) {
-    height: 34px;
-    padding: 0 8px 0 6px;
-    gap: 4px;
+  @media (max-width: 600px) {
+    height: 36px;
+    padding: 0 7px 0 6px;
+    gap: 3px;
     font-size: 0.68rem;
+  }
+  @media (max-width: 380px) {
+    padding: 0 8px;
+    & .lang-current-code { display: none; }
   }
 
   & svg {
