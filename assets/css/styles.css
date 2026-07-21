@@ -347,10 +347,12 @@ section{
     padding: 12px 20px; gap:10px;
   }
   @media (max-width: 600px){
-    padding: 10px 14px; gap:8px;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 10px 16px; gap:10px;
   }
   @media (max-width: 380px){
-    padding: 8px 10px; gap:6px;
+    padding: 8px 12px; gap:8px;
   }
 }
 
@@ -360,6 +362,10 @@ section{
   
   @media (max-width: 768px) {
     gap:8px;
+  }
+  @media (max-width: 600px) {
+    width: 100%;
+    justify-content: flex-start;
   }
   
   & img.logo-desktop {
@@ -377,7 +383,7 @@ section{
   
   @media (max-width: 600px) {
     & img.logo-desktop { display: none; }
-    & img.logo-mobile { display: block; height: 36px; width: 36px; }
+    & img.logo-mobile { display: block; height: 38px; width: 38px; }
   }
   
   & .brand-word{
@@ -389,13 +395,13 @@ section{
     font-variation-settings:"opsz" 40, "wght" 420;
     
     @media (max-width: 768px) {
-      font-size:1.2rem;
+      font-size:1.25rem;
     }
     @media (max-width: 480px) {
-      font-size:1.05rem;
+      font-size:1.15rem;
     }
     @media (max-width: 360px) {
-      font-size:0.95rem;
+      font-size:1.05rem;
     }
     
     /* "Living" inherits the same styling as "Y'allternative" appearing on the same line with a small left margin acting as a space. */
@@ -441,7 +447,7 @@ section{
   }
   
   @media (max-width: 1024px){
-    position:fixed; inset:70px 0 0 0; z-index:99;
+    position:fixed; inset:90px 0 0 0; z-index:99;
     background: var(--ink); flex-direction:column; justify-content:flex-start;
     padding: 40px 24px calc(40px + env(safe-area-inset-bottom, 0px)); gap: 26px;
     transform: translateY(-12px); opacity:0; pointer-events:none;
@@ -462,10 +468,8 @@ section{
     gap:8px;
   }
   @media (max-width: 600px) {
-    gap:6px;
-  }
-  @media (max-width: 380px) {
-    gap:4px;
+    width: 100%;
+    justify-content: space-between;
   }
 }
 
