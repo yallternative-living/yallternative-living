@@ -1763,8 +1763,8 @@
           "<p>We keep this page current the second a market or Pride date is locked in. In the meantime, " +
           "follow along on Instagram or TikTok where every table gets announced first.</p>" +
           '<div class="hero-actions" style="justify-content:center;">' +
-          '<a class="btn btn-primary" href="https://www.instagram.com/yallternativeliving" target="_blank" rel="noopener">Instagram ↗</a>' +
-          '<a class="btn btn-outline" href="https://www.tiktok.com/@yallternativeliving" target="_blank" rel="noopener">TikTok ↗</a>' +
+          '<a class="btn btn-primary" href="https://www.instagram.com/yallternativeliving" target="_blank" rel="noopener">Instagram ↗<span class="sr-only">(opens in new tab)</span></a>' +
+          '<a class="btn btn-outline" href="https://www.tiktok.com/@yallternativeliving" target="_blank" rel="noopener">TikTok ↗<span class="sr-only">(opens in new tab)</span></a>' +
           "</div>" +
           "</div>";
       }
@@ -2027,7 +2027,7 @@
       (ev.url
         ? '<a class="btn btn-primary btn-sm btn-block" href="' +
           attrEsc(ev.url) +
-          '" target="_blank" rel="noopener">More Info / RSVP</a>'
+          '" target="_blank" rel="noopener">More Info / RSVP<span class="sr-only">(opens in new tab)</span></a>'
         : "") +
       "</div>" +
       "</div>" +
@@ -2307,7 +2307,7 @@
         "<p>Checkout didn't load. An ad or tracker blocker can sometimes stop it. " +
         'You can still grab everything on our <a href="' +
         ETSY_SHOP +
-        '" target="_blank" rel="noopener">Etsy shop</a>.</p>' +
+        '" target="_blank" rel="noopener">Etsy shop<span class="sr-only">(opens in new tab)</span></a>.</p>' +
         '<button type="button" class="cart-fallback-close" aria-label="Dismiss">&times;</button>';
       bar.querySelector(".cart-fallback-close").addEventListener("click", hideFallbackBar);
       document.body.appendChild(bar);
@@ -2603,186 +2603,187 @@
         registerSW();
       });
     }
+  }
 
-    /* ---------- 2026 SOTA Deep-linking & Popularity Features ---------- */
+  /* ---------- 2026 SOTA Deep-linking & Popularity Features ---------- */
 
-    // 1. Deep-linking to open product lightbox on load
-    if (window.location.hash) {
-      var possibleProdId = window.location.hash.replace("#", "");
-      var allItems = ((window.YL_PRODUCTS && window.YL_PRODUCTS.products) || []).concat(
-        (window.YL_PRODUCTS && window.YL_PRODUCTS.bundles) || []
-      );
-      var matchedItem = allItems.find(function (i) {
-        return i.id === possibleProdId;
-      });
-      if (matchedItem) {
-        setTimeout(function () {
-          if (typeof window.openLightbox === "function") {
-            window.openLightbox(matchedItem.images || [matchedItem.image], matchedItem.image);
-          }
-        }, 400);
-      }
+  // 1. Deep-linking to open product lightbox on load
+  if (window.location.hash) {
+    var possibleProdId = window.location.hash.replace("#", "");
+    var allItems = ((window.YL_PRODUCTS && window.YL_PRODUCTS.products) || []).concat(
+      (window.YL_PRODUCTS && window.YL_PRODUCTS.bundles) || []
+    );
+    var matchedItem = allItems.find(function (i) {
+      return i.id === possibleProdId;
+    });
+    if (matchedItem) {
+      setTimeout(function () {
+        if (typeof window.openLightbox === "function") {
+          window.openLightbox(matchedItem.images || [matchedItem.image], matchedItem.image);
+        }
+      }, 400);
     }
+  }
 
-    // 2. Render Social Feed if enabled
-    var socialFeedGrid = document.getElementById("socialFeedGrid");
-    var homeSocialFeedSection = document.getElementById("homeSocialFeed");
-    var enableSocialFeed = /*YL:site.enableSocialFeed*/ false; /*/YL:site.enableSocialFeed*/
-    var enableJournal = /*YL:site.enableJournal*/ false; /*/YL:site.enableJournal*/
+  // 2. Render Social Feed if enabled
+  var socialFeedGrid = document.getElementById("socialFeedGrid");
+  var homeSocialFeedSection = document.getElementById("homeSocialFeed");
+  var enableSocialFeed = /*YL:site.enableSocialFeed*/ false; /*/YL:site.enableSocialFeed*/
+  var enableJournal = /*YL:site.enableJournal*/ false; /*/YL:site.enableJournal*/
 
-    if (enableSocialFeed && socialFeedGrid && homeSocialFeedSection && window.YL_SOCIAL_FEED) {
-      var socialPosts = window.YL_SOCIAL_FEED.posts || [];
-      if (socialPosts.length > 0) {
-        homeSocialFeedSection.style.display = "block";
-        socialFeedGrid.innerHTML = socialPosts
+  if (enableSocialFeed && socialFeedGrid && homeSocialFeedSection && window.YL_SOCIAL_FEED) {
+    var socialPosts = window.YL_SOCIAL_FEED.posts || [];
+    if (socialPosts.length > 0) {
+      homeSocialFeedSection.style.display = "block";
+      socialFeedGrid.innerHTML = socialPosts
+        .map(function (post) {
+          return (
+            '<a href="' +
+            attrEsc(post.url || "#") +
+            '" target="_blank" rel="noopener" class="card social-card reveal">' +
+            '  <div class="card-img-wrap">' +
+            '    <img src="' +
+            attrEsc(post.image) +
+            '" alt="Social Media Post" loading="lazy">' +
+            "  </div>" +
+            '  <div class="card-content">' +
+            '    <p class="social-caption">' +
+            attrEsc(post.caption) +
+            "</p>" +
+            '    <span class="sr-only">(opens in new tab)</span>' +
+            "  </div>" +
+            "</a>"
+          );
+        })
+        .join("");
+      wireReveal(socialFeedGrid);
+    }
+  }
+
+  // 3. Render Journal (Blog) Page
+  var journalApp = document.getElementById("journalApp");
+  if (journalApp && window.YL_JOURNAL) {
+    var journalPosts = window.YL_JOURNAL.posts || [];
+
+    function renderJournalList() {
+      if (!enableJournal || journalPosts.length === 0) {
+        journalApp.innerHTML =
+          '<div class="section-head reveal">' +
+          "  <h2>Journal Coming Soon</h2>" +
+          "  <p>Savanna is stirring up some stories. Check back soon for herbal folklore, batch updates, and behind-the-scenes thoughts.</p>" +
+          "</div>";
+        return;
+      }
+
+      var listHtml =
+        '<div class="grid grid-3 stagger">' +
+        journalPosts
           .map(function (post) {
             return (
-              '<a href="' +
-              attrEsc(post.url || "#") +
-              '" target="_blank" rel="noopener" class="card social-card reveal">' +
-              '  <div class="card-img-wrap">' +
-              '    <img src="' +
-              attrEsc(post.image) +
-              '" alt="Social Media Post" loading="lazy">' +
-              "  </div>" +
-              '  <div class="card-content">' +
-              '    <p class="social-caption">' +
-              attrEsc(post.caption) +
+              '<article class="card reveal">' +
+              (post.image
+                ? '<div class="card-media">' +
+                  "  <picture>" +
+                  '    <img src="' +
+                  attrEsc(post.image) +
+                  '" alt="' +
+                  attrEsc(post.title) +
+                  '" loading="lazy" width="400" height="300" style="object-fit:cover; width:100%; height:100%;">' +
+                  "  </picture>" +
+                  "</div>"
+                : "") +
+              '<div class="card-body">' +
+              '  <span class="card-cat">Published ' +
+              attrEsc(post.date) +
+              "</span>" +
+              '  <h3><a href="#post-' +
+              attrEsc(post.id) +
+              '">' +
+              attrEsc(post.title) +
+              "</a></h3>" +
+              "  <p>" +
+              attrEsc(post.excerpt) +
               "</p>" +
+              '  <div class="card-foot">' +
+              '    <div class="card-foot-row">' +
+              '      <a href="#post-' +
+              attrEsc(post.id) +
+              '" class="btn btn-outline btn-sm">Read Post →</a>' +
+              "    </div>" +
               "  </div>" +
-              "</a>"
+              "</div>" +
+              "</article>"
             );
           })
-          .join("");
-        wireReveal(socialFeedGrid);
+          .join("") +
+        "</div>";
+
+      journalApp.innerHTML = listHtml;
+      wireReveal(journalApp);
+    }
+
+    function renderJournalDetail(postId) {
+      var post = journalPosts.find(function (p) {
+        return p.id === postId;
+      });
+      if (!post) {
+        renderJournalList();
+        return;
+      }
+
+      var paragraphs = post.content
+        .split("\n\n")
+        .map(function (p) {
+          return "<p>" + attrEsc(p) + "</p>";
+        })
+        .join("");
+
+      journalApp.innerHTML =
+        '<div class="journal-detail">' +
+        '  <div class="back-link reveal" id="journalBackBtn">← Back to Journal</div>' +
+        '  <h2 class="reveal">' +
+        attrEsc(post.title) +
+        "</h2>" +
+        '  <div class="meta reveal">Published on ' +
+        attrEsc(post.date) +
+        "</div>" +
+        (post.image
+          ? '  <img class="reveal" src="' +
+            attrEsc(post.image) +
+            '" alt="' +
+            attrEsc(post.title) +
+            '">'
+          : "") +
+        '  <div class="content reveal">' +
+        paragraphs +
+        "</div>" +
+        "</div>";
+
+      document.getElementById("journalBackBtn").addEventListener("click", function () {
+        window.location.hash = "";
+      });
+      wireReveal(journalApp);
+    }
+
+    function routeJournal() {
+      var hash = window.location.hash || "";
+      if (hash.indexOf("#post-") === 0) {
+        var postId = hash.replace("#post-", "");
+        renderJournalDetail(postId);
+      } else {
+        renderJournalList();
       }
     }
 
-    // 3. Render Journal (Blog) Page
-    var journalApp = document.getElementById("journalApp");
-    if (journalApp && window.YL_JOURNAL) {
-      var journalPosts = window.YL_JOURNAL.posts || [];
-
-      function renderJournalList() {
-        if (!enableJournal || journalPosts.length === 0) {
-          journalApp.innerHTML =
-            '<div class="section-head reveal">' +
-            "  <h2>Journal Coming Soon</h2>" +
-            "  <p>Savanna is stirring up some stories. Check back soon for herbal folklore, batch updates, and behind-the-scenes thoughts.</p>" +
-            "</div>";
-          return;
-        }
-
-        var listHtml =
-          '<div class="grid grid-3 stagger">' +
-          journalPosts
-            .map(function (post) {
-              return (
-                '<article class="card reveal">' +
-                (post.image
-                  ? '<div class="card-media">' +
-                    "  <picture>" +
-                    '    <img src="' +
-                    attrEsc(post.image) +
-                    '" alt="' +
-                    attrEsc(post.title) +
-                    '" loading="lazy" width="400" height="300" style="object-fit:cover; width:100%; height:100%;">' +
-                    "  </picture>" +
-                    "</div>"
-                  : "") +
-                '<div class="card-body">' +
-                '  <span class="card-cat">Published ' +
-                attrEsc(post.date) +
-                "</span>" +
-                '  <h3><a href="#post-' +
-                attrEsc(post.id) +
-                '">' +
-                attrEsc(post.title) +
-                "</a></h3>" +
-                "  <p>" +
-                attrEsc(post.excerpt) +
-                "</p>" +
-                '  <div class="card-foot">' +
-                '    <div class="card-foot-row">' +
-                '      <a href="#post-' +
-                attrEsc(post.id) +
-                '" class="btn btn-outline btn-sm">Read Post →</a>' +
-                "    </div>" +
-                "  </div>" +
-                "</div>" +
-                "</article>"
-              );
-            })
-            .join("") +
-          "</div>";
-
-        journalApp.innerHTML = listHtml;
-        wireReveal(journalApp);
-      }
-
-      function renderJournalDetail(postId) {
-        var post = journalPosts.find(function (p) {
-          return p.id === postId;
-        });
-        if (!post) {
-          renderJournalList();
-          return;
-        }
-
-        var paragraphs = post.content
-          .split("\n\n")
-          .map(function (p) {
-            return "<p>" + attrEsc(p) + "</p>";
-          })
-          .join("");
-
-        journalApp.innerHTML =
-          '<div class="journal-detail">' +
-          '  <div class="back-link reveal" id="journalBackBtn">← Back to Journal</div>' +
-          '  <h1 class="reveal">' +
-          attrEsc(post.title) +
-          "</h1>" +
-          '  <div class="meta reveal">Published on ' +
-          attrEsc(post.date) +
-          "</div>" +
-          (post.image
-            ? '  <img class="reveal" src="' +
-              attrEsc(post.image) +
-              '" alt="' +
-              attrEsc(post.title) +
-              '">'
-            : "") +
-          '  <div class="content reveal">' +
-          paragraphs +
-          "</div>" +
-          "</div>";
-
-        document.getElementById("journalBackBtn").addEventListener("click", function () {
-          window.location.hash = "";
-        });
-        wireReveal(journalApp);
-      }
-
-      function routeJournal() {
-        var hash = window.location.hash || "";
-        if (hash.indexOf("#post-") === 0) {
-          var postId = hash.replace("#post-", "");
-          renderJournalDetail(postId);
-        } else {
-          renderJournalList();
-        }
-      }
-
-      window.addEventListener("hashchange", routeJournal);
-      routeJournal();
-    }
-
-    /* ---------- Load translator ---------- */
-    (function () {
-      var s = document.createElement("script");
-      s.src = "assets/js/translator.js?v=2.0";
-      s.defer = true;
-      document.body.appendChild(s);
-    })();
+    window.addEventListener("hashchange", routeJournal);
+    routeJournal();
   }
+
+  /* ---------- Load translator ---------- */
+  (function () {
+    var s = document.createElement("script");
+    s.src = "assets/js/translator.js?v=2.0";
+    s.defer = true;
+    document.body.appendChild(s);
+  })();
 })();

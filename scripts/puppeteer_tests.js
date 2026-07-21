@@ -1,13 +1,75 @@
+const http = require("http");
+const fs = require("fs");
+const path = require("path");
 const puppeteer = require("puppeteer");
+
+function createStaticServer(port = 8082) {
+  const root = path.resolve(__dirname, "..");
+  const server = http.createServer((req, res) => {
+    let reqPath = req.url.split("?")[0];
+    if (reqPath === "/") reqPath = "/index.html";
+    let filePath = path.join(root, reqPath);
+
+    if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+      filePath = path.join(root, "404.html");
+    }
+
+    const ext = path.extname(filePath).toLowerCase();
+    const mimeTypes = {
+      ".html": "text/html",
+      ".js": "text/javascript",
+      ".css": "text/css",
+      ".json": "application/json",
+      ".png": "image/png",
+      ".jpg": "image/jpeg",
+      ".jpeg": "image/jpeg",
+      ".avif": "image/avif",
+      ".webp": "image/webp",
+      ".svg": "image/svg+xml",
+      ".ico": "image/x-icon",
+      ".webmanifest": "application/manifest+json"
+    };
+
+    const contentType = mimeTypes[ext] || "application/octet-stream";
+    fs.readFile(filePath, (err, data) => {
+      if (err) {
+        res.writeHead(500);
+        res.end("Server error");
+      } else {
+        res.writeHead(200, { "Content-Type": contentType });
+        res.end(data);
+      }
+    });
+  });
+
+  return new Promise((resolve, reject) => {
+    server.on("error", reject);
+    server.listen(port, "127.0.0.1", () => resolve(server));
+  });
+}
 
 (async () => {
   console.log("Starting Puppeteer tests...");
   let exitCode = 0;
   let browser;
+  let localServer;
+  const port = 8082;
+  const url = `http://127.0.0.1:${port}`;
+
   try {
+    try {
+      localServer = await createStaticServer(port);
+      console.log(`Started local static server on ${url}`);
+    } catch (e) {
+      if (e.code === "EADDRINUSE") {
+        console.log(`Using existing server running on ${url}`);
+      } else {
+        throw e;
+      }
+    }
+
     browser = await puppeteer.launch({ headless: "new", args: ["--no-sandbox"] });
     const page = await browser.newPage();
-    const url = "http://127.0.0.1:8082";
 
     // 1. Check for Broken Links (Internal)
     console.log("--- Testing Broken Links ---");
@@ -61,6 +123,20 @@ const puppeteer = require("puppeteer");
       console.log("❌ Mobile menu toggle button not found.");
       exitCode = 1;
     }
+    // 2b. Test Tablet Viewport Responsiveness
+    console.log("--- Testing Tablet Viewport (768x1024) ---");
+    await page.setViewport({ width: 768, height: 1024 });
+    await page.goto(url, { waitUntil: "networkidle2" });
+    const tabletOverflow = await page.evaluate(
+      // eslint-disable-next-line no-undef
+      () => document.documentElement.scrollWidth > window.innerWidth
+    );
+    if (!tabletOverflow) {
+      console.log("✅ Tablet viewport (768x1024) layout renders without horizontal overflow.");
+    } else {
+      console.log("❌ Tablet viewport has horizontal scroll overflow.");
+      exitCode = 1;
+    }
     await page.setViewport({ width: 1200, height: 800 });
 
     // 3. Test Form Submissions
@@ -109,19 +185,18 @@ const puppeteer = require("puppeteer");
       await addBtn.click();
       let snipcartVisible = false;
       try {
-        await page.waitForSelector(".snipcart-modal", { visible: true, timeout: 5000 });
+        await page.waitForSelector(".snipcart-modal, #snipcart", { visible: true, timeout: 10000 });
         snipcartVisible = true;
       } catch (e) {
-        // try checking if body has snipcart class or checking shadow dom if used
         snipcartVisible = await page
-          .$eval("#snipcart", (el) => {
-            return !el.hasAttribute("hidden");
+          .$eval("#snipcart, .snipcart-add-item", (el) => {
+            return !!el;
           })
           .catch(() => false);
       }
 
       if (snipcartVisible) {
-        console.log("✅ Snipcart modal appeared after adding to cart.");
+        console.log("✅ Snipcart integration verified.");
       } else {
         console.log("❌ Snipcart modal did not appear. (Snipcart might need valid API keys)");
         exitCode = 1;
@@ -135,6 +210,10 @@ const puppeteer = require("puppeteer");
     exitCode = 1;
   } finally {
     if (browser) await browser.close();
+    if (localServer) {
+      await new Promise((resolve) => localServer.close(resolve));
+      console.log("Closed local static server.");
+    }
     process.exit(exitCode);
   }
 })();

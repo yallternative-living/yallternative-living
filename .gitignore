@@ -6,11 +6,17 @@ package-lock.json
 # OS cruft
 .DS_Store
 
+# AI Agent runtime state & logs
+.agents/
+.Jules/
+*.log
+
 # Stray editor/filesystem lock artifacts -- harmless leftovers, not real
 # source files, sandbox permissions prevented deleting them outright.
 check_tmp.js
 assets/data/.fuse_hidden*
 assets/data/shop_jsonld.tmp.json
+*.tmp
 
 # Local reports
 audit_report.md

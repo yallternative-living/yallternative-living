@@ -893,7 +893,7 @@
         </div>
       </div>
       <p class="shop-count" id="shopCount" aria-live="polite"></p>
-      <p class="shop-policy-note">Ships from Landrum, SC (US only for now). Opened salves, scrubs, and soaks are final sale for hygiene reasons. Unworn apparel and sealed items can be exchanged. Anything arrive wrong or damaged? <a href="contact.html" target="_blank" rel="noopener">Email us</a> and we'll make it right.</p>
+      <p class="shop-policy-note">Ships from Landrum, SC (US only for now). Opened salves, scrubs, and soaks are final sale for hygiene reasons. Unworn apparel and sealed items can be exchanged. Anything arrive wrong or damaged? <a href="contact.html">Email us</a> and we'll make it right.</p>
       <!-- Visually-hidden: the product cards below render as h3 (see
            cardHTML() in main.js), and with no visible section title here
            they'd otherwise sit directly under the page's h1 -- a skipped
@@ -952,11 +952,11 @@
         <div>
           <h3>Select Card Amount</h3>
           <div class="preset-grid">
-            <button type="button" class="preset-btn active" aria-label="Select $25 gift card amount" data-amount="25">$25</button>
-            <button type="button" class="preset-btn" aria-label="Select $50 gift card amount" data-amount="50">$50</button>
-            <button type="button" class="preset-btn" aria-label="Select $100 gift card amount" data-amount="100">$100</button>
-            <button type="button" class="preset-btn" aria-label="Select $200 gift card amount" data-amount="200">$200</button>
-            <button type="button" class="preset-btn" aria-label="Enter custom gift card amount" id="customPresetBtn">Custom</button>
+            <button type="button" class="preset-btn active" aria-pressed="true" aria-label="Select $25 gift card amount" data-amount="25">$25</button>
+            <button type="button" class="preset-btn" aria-pressed="false" aria-label="Select $50 gift card amount" data-amount="50">$50</button>
+            <button type="button" class="preset-btn" aria-pressed="false" aria-label="Select $100 gift card amount" data-amount="100">$100</button>
+            <button type="button" class="preset-btn" aria-pressed="false" aria-label="Select $200 gift card amount" data-amount="200">$200</button>
+            <button type="button" class="preset-btn" aria-pressed="false" aria-label="Enter custom gift card amount" id="customPresetBtn">Custom</button>
           </div>
           
           <div class="custom-input-wrap" id="customAmountGroup" style="display: none;">
@@ -1021,7 +1021,7 @@
       <div class="section-head">
 
         <h2>Got Questions?</h2>
-        <p class="muted">Shipping, returns, custom orders, unscented options. <a href="faq.html" target="_blank" rel="noopener">check our FAQ</a> before you check out.</p>
+        <p class="muted">Shipping, returns, custom orders, unscented options. <a href="faq.html">check our FAQ</a> before you check out.</p>
       </div>
     </div>
   </section>
@@ -1049,7 +1049,7 @@
       <div class="reviews-head">
 
         <h2>Customer Reviews</h2>
-        <p class="muted">Left right here on the site, alongside our <a href="https://www.etsy.com/shop/YallternativeLivinCO" target="_blank" rel="noopener">Etsy reviews</a>. Every submission gets a real read-through before it's posted.</p>
+        <p class="muted">Left right here on the site, alongside our <a href="https://www.etsy.com/shop/YallternativeLivinCO" target="_blank" rel="noopener">Etsy reviews<span class="sr-only">(opens in new tab)</span></a>. Every submission gets a real read-through before it's posted.</p>
       </div>
 
       <div id="siteReviewsList" class="grid grid-3 reviews-list"></div>
@@ -1061,7 +1061,7 @@
         <form class="review-form" id="reviewForm" action="https://formspree.io/f/<!--YL:site.formspreeReviewId-->YOUR_FORMSPREE_FORM_ID<!--/YL:site.formspreeReviewId-->" method="post" toolname="submit-product-review" tooldescription="Submit a review and rating for a specific product.">
           <div class="form-hp" aria-hidden="true">
             <label for="review_website">Leave this field blank</label>
-            <input type="text" id="review_website" name="review_website" tabindex="-1" autocomplete="off">
+            <input type="text" id="review_website" name="review_website" tabindex="-1" autocomplete="off" aria-hidden="true">
           </div>
           <input type="hidden" name="productId" id="reviewProductId">
           <input type="hidden" name="productName" id="reviewProductName">
@@ -1110,7 +1110,7 @@
       <div class="footer-brand">
         <div class="brand">
 <!--YL:site.logoDesktop-->
-          <img class="logo-desktop" src="assets/img/logo.png" alt="Y'allternative Living icon" width="48" height="48">
+          <img class="logo-desktop" src="/assets/img/logo.png" alt="Y'allternative Living icon" width="48" height="48">
 <!--/YL:site.logoDesktop-->
           <span class="brand-word">Y'allternative<small>Living</small></span>
         </div>
@@ -1119,45 +1119,45 @@
       <div>
         <h3>Explore</h3>
         <ul>
-          <li><a href="index.html">Home</a></li>
-          <li><a href="shop.html">Shop All</a></li>
-          <li><a href="events.html">Events &amp; Fairs</a></li>
-          <li><a href="about.html">Our Story</a></li>
-          <li><a href="faq.html">FAQ</a></li>
-          <li><a href="contact.html">Contact</a></li>
+          <li><a href="/index.html">Home</a></li>
+          <li><a href="/shop.html">Shop All</a></li>
+          <li><a href="/events.html">Events &amp; Fairs</a></li>
+          <li><a href="/about.html">Our Story</a></li>
+          <li><a href="/faq.html">FAQ</a></li>
+          <li><a href="/contact.html">Contact</a></li>
         </ul>
       </div>
       <div>
         <h3>Shop</h3>
         <ul>
-          <li><a href="shop.html#apparel">Apparel</a></li>
-          <li><a href="shop.html#salves">Salves &amp; Balms</a></li>
-          <li><a href="shop.html#body">Body &amp; Skin</a></li>
-          <li><a href="shop.html#soaks">Soaks</a></li>
-          <li><a href="shop.html#potions">Potions &amp; Spellwork</a></li>
-          <li><a href="shop.html#ritual">Ritual &amp; Home</a></li>
-          <li><a href="shop.html#gift-cards">Digital Gift Cards</a></li>
+          <li><a href="/shop.html#apparel">Apparel</a></li>
+          <li><a href="/shop.html#salves">Salves &amp; Balms</a></li>
+          <li><a href="/shop.html#body">Body &amp; Skin</a></li>
+          <li><a href="/shop.html#soaks">Soaks</a></li>
+          <li><a href="/shop.html#potions">Potions &amp; Spellwork</a></li>
+          <li><a href="/shop.html#ritual">Ritual &amp; Home</a></li>
+          <li><a href="/shop.html#gift-cards">Digital Gift Cards</a></li>
         </ul>
       </div>
       <div>
         <h3>Say Hey</h3>
         <ul>
           <li><a href="mailto:y.allternative.living@gmail.com">y.allternative.living@gmail.com</a></li>
-          <li><a href="https://www.etsy.com/shop/YallternativeLivinCO" target="_blank" rel="noopener">Etsy shop ↗</a></li>
+          <li><a href="https://www.etsy.com/shop/YallternativeLivinCO" target="_blank" rel="noopener">Etsy shop ↗<span class="sr-only">(opens in new tab)</span></a></li>
           <li>Based in Landrum, SC</li>
           <li>Find us at markets &amp; Pride events in the Upstate &amp; beyond</li>
         </ul>
         <div class="social-row">
-          <a href="https://www.instagram.com/yallternativeliving" target="_blank" rel="noopener" aria-label="Instagram">
+          <a href="https://www.instagram.com/yallternativeliving" target="_blank" rel="noopener" aria-label="Instagram (opens in new tab)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1"/></svg>
           </a>
-          <a href="https://www.tiktok.com/@yallternativeliving" target="_blank" rel="noopener" aria-label="TikTok">
+          <a href="https://www.tiktok.com/@yallternativeliving" target="_blank" rel="noopener" aria-label="TikTok (opens in new tab)">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15 3c.4 2.3 2 4 4.7 4.2v3c-1.7 0-3.3-.5-4.7-1.4v6.7c0 3.1-2.5 5.5-5.6 5.5S3.8 18.6 3.8 15.5c0-3 2.4-5.5 5.6-5.5.4 0 .8 0 1.1.1v3.1c-.3-.1-.7-.2-1.1-.2-1.3 0-2.4 1.1-2.4 2.5s1.1 2.5 2.4 2.5 2.5-1 2.6-2.4V3H15z"/></svg>
           </a>
-          <a href="https://www.facebook.com/p/Yallternative-Living-61577943406316/" target="_blank" rel="noopener" aria-label="Facebook">
+          <a href="https://www.facebook.com/p/Yallternative-Living-61577943406316/" target="_blank" rel="noopener" aria-label="Facebook (opens in new tab)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 8.5h2.5V5H14c-2 0-3.5 1.6-3.5 3.5V11H8v3.5h2.5V21H14v-6.5h2.3l.7-3.5h-3V9c0-.3.2-.5.5-.5z"/></svg>
           </a>
-          <a href="https://www.etsy.com/shop/YallternativeLivinCO" target="_blank" rel="noopener" aria-label="Etsy shop">
+          <a href="https://www.etsy.com/shop/YallternativeLivinCO" target="_blank" rel="noopener" aria-label="Etsy shop (opens in new tab)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 8l1-4h14l1 4"/><path d="M4 8h16v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8z"/><path d="M9 12a3 3 0 0 0 6 0"/></svg>
           </a>
         </div>
@@ -1178,7 +1178,7 @@
       <form class="footer-signup-form" action="<!--YL:site.kitFormAction-->YOUR_KIT_FORM_ACTION_URL<!--/YL:site.kitFormAction-->" method="post" toolname="subscribe-newsletter" tooldescription="Subscribe to the Y'allternative Living newsletter for updates and discounts.">
         <div class="form-hp" aria-hidden="true">
           <label for="footer_website">Leave this field blank</label>
-          <input type="text" id="footer_website" name="footer_website" tabindex="-1" autocomplete="off">
+          <input type="text" id="footer_website" name="footer_website" tabindex="-1" autocomplete="off" aria-hidden="true">
         </div>
         <div class="field">
           <label for="footer_email" class="sr-only">Email address</label>
@@ -1191,7 +1191,7 @@
 
     <p class="footer-disclaimer">Handmade self-care, not medicine. Nothing sold here is intended to diagnose, treat, cure, or prevent any condition. Got a real skin or health concern? See an actual doctor, then treat yourself to something that smells nice after.</p>
     <div class="footer-bottom">
-      <span>&copy; <span id="year"></span> Y'allternative Living. Handmade with grit &amp; glitter. &middot; <a href="policies.html" target="_blank" rel="noopener">Shipping &amp; Returns</a> &middot; <a href="terms.html" target="_blank" rel="noopener">Terms of Service</a> &middot; <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a></span>
+      <span>&copy; <span id="year"></span> Y'allternative Living. Handmade with grit &amp; glitter. &middot; <a href="/policies.html">Shipping &amp; Returns</a> &middot; <a href="/terms.html">Terms of Service</a> &middot; <a href="/privacy.html">Privacy Policy</a></span>
       <span>Queer-owned &middot; Southern-raised &middot; Alt-inspired</span>
     </div>
   </div>

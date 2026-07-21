@@ -8,7 +8,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "build-data": "node scripts/build-site-data.js",
+    "build-data": "node scripts/build-site-data.js && npm run format",
     "optimize-images": "node scripts/optimize-images.js",
     "build-security-headers": "node scripts/build-security-headers.js",
     "sync-etsy": "node scripts/apply-etsy-snapshot.js",

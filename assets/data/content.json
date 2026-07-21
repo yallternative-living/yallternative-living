@@ -1,6 +1,6 @@
 {
   "site": {
-    "logoDesktop": "assets/img/logo.png",
+    "logoDesktop": "/assets/img/logo.png",
     "logoMobile": "assets/img/logo.jpg",
     "snipcartApiKey": "YOUR_SNIPCART_PUBLIC_API_KEY",
     "kitFormAction": "YOUR_KIT_FORM_ACTION_URL",

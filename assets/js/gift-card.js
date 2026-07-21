@@ -25,8 +25,10 @@
     btn.addEventListener("click", function () {
       presetBtns.forEach(function (b) {
         b.classList.remove("active");
+        b.setAttribute("aria-pressed", "false");
       });
       btn.classList.add("active");
+      btn.setAttribute("aria-pressed", "true");
 
       if (btn.id === "customPresetBtn") {
         customAmountGroup.style.display = "block";

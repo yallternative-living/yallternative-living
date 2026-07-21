@@ -587,9 +587,9 @@ var faqVisibleHtml = FAQ.map(function (item, i) {
   var renderedAnswer = escAnswer.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
   var block =
     '        <div class="reveal">\n' +
-    "          <h3>" +
+    "          <h2>" +
     escapeHtml(item.question) +
-    "</h3>\n" +
+    "</h2>\n" +
     "          <p>" +
     renderedAnswer +
     "</p>\n" +
@@ -656,7 +656,7 @@ if (displayPast.length) {
           ? '              <div class="event-cta">\n' +
             '                <a class="btn btn-primary btn-sm btn-block" href="' +
             escapeHtml(ev.url) +
-            '" target="_blank" rel="noopener">More Info / RSVP</a>\n' +
+            '" target="_blank" rel="noopener">More Info / RSVP<span class="sr-only">(opens in new tab)</span></a>\n' +
             "              </div>\n"
           : "";
         return (
@@ -953,7 +953,15 @@ var reFooterLogo = /(<!--YL:site\.logoDesktop-->)[\s\S]*?(<!--\/YL:site\.logoDes
 FOOTER_INNER = FOOTER_INNER.replace(reFooterLogo, function (match, open, close) {
   var altMatch = match.match(/alt="([^"]*)"/i) || match.match(/alt='([^']*)'/i);
   var alt = altMatch ? altMatch[1] : "Y'allternative Living logo";
-  return open + '<img src="' + logoDesktop + '" alt="' + alt + '" width="42" height="42">' + close;
+  return (
+    open +
+    '<img class="logo-desktop" src="/' +
+    logoDesktop +
+    '" alt="' +
+    alt +
+    '" width="48" height="48">' +
+    close
+  );
 });
 
 var FOOTER_BLOCK = '<footer class="site-footer">\n' + FOOTER_INNER + "\n</footer>";
@@ -968,7 +976,8 @@ var FOOTER_RE = /<footer class="site-footer">[\s\S]*?<\/footer>/;
   "privacy.html",
   "terms.html",
   "policies.html",
-  "404.html"
+  "404.html",
+  "journal.html"
 ].forEach(function (page) {
   var filePath = path.join(ROOT, page);
   if (!fs.existsSync(filePath)) return;

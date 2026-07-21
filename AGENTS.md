@@ -1,0 +1,75 @@
+# Y'allternative Living — AI Agent Guidance & Operating Protocol (AGENTS.md)
+
+This document provides project context, tech stack rules, data-flow pipelines, security constraints, and automated verification protocols for **all AI agents** (single-agent CLI sessions, IDE assistants like Cursor/Aider/Devin, and multi-agent teams) working in the **Y'allternative Living** repository.
+
+---
+
+## 1. Project Context & Brand Identity
+
+- **Brand**: Y'allternative Living (Landrum, SC) — Queer-owned, Southern-raised, Alt-inspired small-batch handmade self-care, salves, soaks, body care, and apparel.
+- **Voice**: Warm, funny, irreverent, proudly Southern & proudly queer. Goth meets Southern. Never mean or mocking.
+- **Architecture**: 100% static HTML/CSS/JS with zero runtime framework dependencies. Fast, mobile-first, offline-capable via `sw.js`.
+- **Integrations**: Snipcart (checkout), Formspree (contact & review submissions), Plausible (analytics), Kit/ConvertKit (newsletter), Tawk.to (live chat), Sveltia CMS (`/admin`).
+
+---
+
+## 2. Core Architectural Principles & Invariants
+
+1. **Single Source of Truth (`assets/data/`)**:
+   - Primary data sources: `assets/data/products.json`, `assets/data/events.json`, `assets/data/content.json`, `assets/data/site-reviews.json`.
+   - **DO NOT** edit derived JS files (`assets/js/products-data.js`, `assets/js/events-data.js`, etc.) or product HTML files in `products/` directly. Edit the JSON source files in `assets/data/` and run `npm run build-data`.
+
+2. **HTML Comment Markers**:
+   - Dynamic copy uses HTML comment wrappers (e.g., `<!--YL:productCount-->13<!--/YL:productCount-->`).
+   - Keep markers intact so `scripts/build-site-data.js` can replace inner text automatically.
+
+3. **Security Headers Synchronization**:
+   - Security headers and Content Security Policy (CSP) policies in `_headers`, `netlify.toml`, and `vercel.json` **must remain byte-identical**.
+   - If CSP or security rules change, update via `npm run build-security-headers`.
+
+4. **Self-Contained Integration Testing**:
+   - `scripts/puppeteer_tests.js` automatically manages its own local HTTP static server lifecycle on port `8082`.
+   - Never assume an external HTTP server is already running when triggering integration tests.
+
+5. **No Superficial Fixes**:
+   - Never comment out failing QA assertions, swallow errors silently, or use arbitrary dummy fallbacks to force a passing test.
+
+---
+
+## 3. Maintenance Scripts & Verification Pipeline
+
+Every AI agent MUST execute and pass all quality gates before finalizing changes:
+
+| Step | Command | Script Source | Purpose & Action |
+| :---: | :--- | :--- | :--- |
+| **1** | `npm run build-data` | `node scripts/build-site-data.js` | Compiles JSON files into derived JS data objects, updates static HTML comment markers, generates `products/*.html`, `sitemap.xml`, `robots.txt`, and `llms.txt`. |
+| **2** | `npm run optimize-images` | `node scripts/optimize-images.js` | *(Optional when adding new images)* Generates responsive AVIF/WebP image variants via Sharp and updates `assets/js/image-manifest.js`. |
+| **3** | `npm run build-security-headers` | `node scripts/build-security-headers.js` | Syncs CSP rules across `_headers`, `netlify.toml`, and `vercel.json`. |
+| **4** | `npm run test` | `node scripts/qa-check.js` | Executes 250+ static quality assertions (JSON-LD validation, Snipcart pricing, CSP coverage, FAQ match, rating calculations, comment traps). |
+| **5** | `npm run lint` | `eslint scripts assets/js` | Enforces JavaScript quality and syntax standards. |
+| **6** | `npm run format:check` | `prettier --check` | Validates formatting across scripts and client JS files. |
+| **7** | `npm run test:integration` | `node scripts/puppeteer_tests.js` | Runs automated headless browser tests across Desktop (1200x800), **Tablet (768x1024)**, and Mobile (375x667) viewports (link integrity, menu drawer, form intercept, Snipcart checkout flow). |
+
+---
+
+## 4. Multi-Agent & Subagent System Architecture
+
+When executing in a multi-agent mode (e.g. `/teamwork-preview` or `/browser`), agent roles and workflow boundaries are structured as follows:
+
+```mermaid
+graph TD
+    User["User / Agent"] --> Sentinel["Project Sentinel"]
+    User --> Orchestrator["Project Orchestrator"]
+    Orchestrator --> Explorers["Explorers"]
+    Orchestrator --> Workers["Workers"]
+    Orchestrator --> Reviewers["Reviewers"]
+    Orchestrator --> Auditor["Auditor / Challenger"]
+    User --> BrowserAuditor["Browser Subagent (Visual & Interaction QA)"]
+```
+
+- **Project Sentinel**: Tracks requirements, logs liveness, and manages audit trails in `.agents/`.
+- **Project Orchestrator**: Decomposes milestones (R1, R2, R3) and coordinates subagents.
+- **Explorers**: Read-only research, file inspection, link checking, and structural audit.
+- **Workers**: Code modification, script fixes, and feature implementation.
+- **Reviewers & Auditor**: Objective peer review of diffs against acceptance criteria.
+- **Browser Auditor**: Puppeteer/Chrome automation testing across Desktop (1280x800), **Tablet (768x1024)**, and Mobile (375x812) viewports, verifying DOM interaction, grid reflow, and recording visual proof.

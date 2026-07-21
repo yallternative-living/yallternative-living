@@ -976,13 +976,13 @@ section("Site FAQ (single source, no duplication)");
     }
   }
 
-  // Visible prose freshness: pull every <h3>question</h3><p>answer</p>
+  // Visible prose freshness: pull every <h2>question</h2><p>answer</p>
   // pair out of the FAQ:START/FAQ:END markers and compare to FAQ.
   var markerMatch = faqHtml.match(/<!-- FAQ:START[\s\S]*?-->\n([\s\S]*?)\n\s*<!-- FAQ:END -->/);
   if (!markerMatch) {
     fail("faq.html FAQ:START/FAQ:END markers", "not found -- run npm run build-data");
   } else {
-    var itemRe = /<h3>([\s\S]*?)<\/h3>\s*<p>([\s\S]*?)<\/p>/g;
+    var itemRe = /<h2>([\s\S]*?)<\/h2>\s*<p>([\s\S]*?)<\/p>/g;
     var m,
       visibleItems = [];
     while ((m = itemRe.exec(markerMatch[1]))) visibleItems.push({ q: m[1].trim(), a: m[2].trim() });
