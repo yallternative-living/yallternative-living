@@ -1,8 +1,22 @@
+/**
+ * @fileoverview Automated Headless Browser Integration Test Suite for Y'allternative Living.
+ *
+ * Automatically manages a local static HTTP server lifecycle on port 8082, then executes
+ * multi-viewport integration tests across Desktop (1200x800), Tablet (768x1024), and
+ * Mobile (375x667) viewports. Validates internal link integrity, responsive navigation
+ * drawer toggling, newsletter form submission interception, and Snipcart checkout flow.
+ */
+
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const puppeteer = require("puppeteer");
 
+/**
+ * Creates and starts a lightweight local static HTTP server for test execution.
+ * @param {number} [port=8082] Port number to listen on.
+ * @return {Promise<http.Server>} Resolves with the running HTTP server instance.
+ */
 function createStaticServer(port = 8082) {
   const root = path.resolve(__dirname, "..");
   const server = http.createServer((req, res) => {
