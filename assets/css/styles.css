@@ -344,15 +344,12 @@ section{
   max-width: var(--container); margin:0 auto;
   
   @media (max-width: 1024px){
-    flex-direction: column;
-    align-items: stretch;
-    padding: 12px 20px; gap:10px;
+    padding: 12px 20px; gap:12px;
   }
   @media (max-width: 600px){
-    padding: 10px 16px; gap:10px;
-  }
-  @media (max-width: 380px){
-    padding: 8px 12px; gap:8px;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 14px; gap:8px;
   }
 }
 
@@ -360,10 +357,10 @@ section{
   display:flex; align-items:center; gap:12px;
   flex-shrink:1; min-width:0;
   
-  @media (max-width: 1024px) {
+  @media (max-width: 600px) {
     width: 100%;
-    justify-content: flex-start;
-    gap: 10px;
+    justify-content: center;
+    gap: 8px;
   }
   
   & img.logo-desktop {
@@ -381,7 +378,7 @@ section{
   
   @media (max-width: 600px) {
     & img.logo-desktop { display: none; }
-    & img.logo-mobile { display: block; height: 38px; width: 38px; }
+    & img.logo-mobile { display: block; height: 36px; width: 36px; }
   }
   
   & .brand-word{
@@ -396,10 +393,10 @@ section{
       font-size:1.25rem;
     }
     @media (max-width: 480px) {
-      font-size:1.15rem;
+      font-size:1.1rem;
     }
     @media (max-width: 360px) {
-      font-size:1.05rem;
+      font-size:1.0rem;
     }
     
     /* "Living" inherits the same styling as "Y'allternative" appearing on the same line with a small left margin acting as a space. */
@@ -445,7 +442,7 @@ section{
   }
   
   @media (max-width: 1024px){
-    position:fixed; inset:102px 0 0 0; z-index:99;
+    position:fixed; inset:96px 0 0 0; z-index:99;
     background: var(--ink); flex-direction:column; justify-content:flex-start;
     padding: 40px 24px calc(40px + env(safe-area-inset-bottom, 0px)); gap: 26px;
     transform: translateY(-12px); opacity:0; pointer-events:none;
@@ -459,14 +456,13 @@ section{
 }
 
 .nav-cta{
-  display:flex; align-items:center; gap:12px;
+  display:flex; align-items:center; gap:10px;
   flex-shrink:0;
   
-  @media (max-width: 1024px) {
-    width: 100% !important;
-    display: flex !important;
-    justify-content: space-between !important;
-    align-items: center !important;
+  @media (max-width: 600px) {
+    width: 100%;
+    justify-content: center;
+    gap: 8px;
   }
 
   & > * {
