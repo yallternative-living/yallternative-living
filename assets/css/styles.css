@@ -463,8 +463,14 @@ section{
   flex-shrink:0;
   
   @media (max-width: 1024px) {
-    width: 100%;
-    justify-content: space-between;
+    width: 100% !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+  }
+
+  & > * {
+    flex-shrink: 0;
   }
 }
 
