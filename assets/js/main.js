@@ -333,6 +333,9 @@
   contactForms.forEach(function (form) {
     form.addEventListener("submit", function (e) {
       if (form.action.indexOf("YOUR_FORM_ID") !== -1) {
+        e.preventDefault();
+        var col = form.closest(".contact-form-col");
+        if (col) col.classList.add("is-submitted");
         return;
       }
       if (!window.fetch) return;
