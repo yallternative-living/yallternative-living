@@ -193,8 +193,8 @@
     <div class="container">
       <div class="breadcrumb"><a href="index.html">Home</a> / Contact</div>
 
-      <h1>Let's Talk, Y'all</h1>
-      <p class="lede">Got a custom order brewing, a wholesale question, or just want to tell us your dog's name? We're all ears. Pick whichever door's easiest and come on in.</p>
+      <h1><!--YL:contact.heroTitle-->Let's Talk, Y'all<!--/YL:contact.heroTitle--></h1>
+      <p class="lede"><!--YL:contact.heroIntro-->Got a custom order brewing, a wholesale question, or just want to tell us your dog's name? We're all ears. Pick whichever door's easiest and come on in.<!--/YL:contact.heroIntro--></p>
     </div>
   </div>
 
@@ -217,15 +217,15 @@
         <form action="https://formspree.io/f/<!--YL:site.formspreeContactId-->YOUR_FORM_ID<!--/YL:site.formspreeContactId-->" method="POST" class="contact-form" toolname="send-contact-message" tooldescription="Send a direct message to Savanna at Y'allternative Living regarding orders, custom requests, or general inquiries.">
           <div class="field">
             <label for="name">Name</label>
-            <input type="text" id="name" name="name" required>
+            <input type="text" id="name" name="name" placeholder="<!--YL:contact.namePlaceholder-->Your name or handle<!--/YL:contact.namePlaceholder-->" required>
           </div>
           <div class="field">
             <label for="email">Email</label>
-            <input type="email" id="email" name="_replyto" required>
+            <input type="email" id="email" name="_replyto" placeholder="<!--YL:contact.emailPlaceholder-->your.email@domain.com<!--/YL:contact.emailPlaceholder-->" required>
           </div>
           <div class="field">
             <label for="message">Message</label>
-            <textarea id="message" name="message" rows="5" required></textarea>
+            <textarea id="message" name="message" rows="5" placeholder="<!--YL:contact.messagePlaceholder-->Got a custom salve blend in mind, need 50 favors for your gay wedding, or checking market stock before Saturday?<!--/YL:contact.messagePlaceholder-->" required></textarea>
           </div>
           <button type="submit" class="btn btn-primary btn-block">Send Message</button>
         </form>
@@ -238,7 +238,7 @@
         
         <div class="contact-info-block">
           <h3>Email</h3>
-          <p><a href="mailto:y.allternative.living@gmail.com" class="contact-email-link">y.allternative.living@gmail.com</a></p>
+          <p><a href="mailto:<!--YL:contact.email-->y.allternative.living@gmail.com<!--/YL:contact.email-->" class="contact-email-link"><!--YL:contact.email-->y.allternative.living@gmail.com<!--/YL:contact.email--></a></p>
         </div>
 
         <div class="contact-socials-block">

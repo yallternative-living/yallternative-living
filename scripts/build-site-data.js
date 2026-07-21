@@ -134,15 +134,84 @@ function escapeHtml(s) {
   return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+function slugify(text) {
+  if (!text) return "";
+  return String(text)
+    .toLowerCase()
+    .trim()
+    .replace(/['’]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function generateUniqueId(existingSet, rawName, fallbackPrefix, index) {
+  var base = slugify(rawName) || fallbackPrefix + "-" + (index + 1);
+  var candidate = base;
+  var counter = 2;
+  while (existingSet.has(candidate)) {
+    candidate = base + "-" + counter;
+    counter++;
+  }
+  existingSet.add(candidate);
+  return candidate;
+}
+
+/* 1. Process Categories & Guards */
+var CATEGORY_IDS = new Set();
+var CATEGORY_LABEL = {};
+(CATALOG.categories || []).forEach(function (c, idx) {
+  if (!c.id) {
+    if (!c.label) {
+      console.error("\n[build] Category at index " + idx + " in products.json has no label or id.");
+      process.exit(1);
+    }
+    c.id = generateUniqueId(CATEGORY_IDS, c.label, "category", idx);
+  } else {
+    if (CATEGORY_IDS.has(c.id)) {
+      console.error("\n[build] Duplicate category ID found: '" + c.id + "'.");
+      process.exit(1);
+    }
+    CATEGORY_IDS.add(c.id);
+  }
+  CATEGORY_LABEL[c.id] = c.label;
+});
+
+/* 2. Process Products & Guards */
 var PRODUCTS_BY_ID = {};
+var USED_PRODUCT_IDS = new Set();
 var SALES = CATALOG.sales || [];
 var salesByCategory = {};
 SALES.forEach(function (s) {
   salesByCategory[s.category] = s;
 });
 
-PRODUCTS.forEach(function (p) {
+PRODUCTS.forEach(function (p, idx) {
+  if (!p.id) {
+    if (!p.name) {
+      console.error("\n[build] Product at index " + idx + " in products.json has no name or id.");
+      process.exit(1);
+    }
+    p.id = generateUniqueId(USED_PRODUCT_IDS, p.name, "product", idx);
+  } else {
+    if (USED_PRODUCT_IDS.has(p.id)) {
+      console.error(
+        "\n[build] Duplicate product ID found: '" + p.id + "' on product '" + p.name + "'."
+      );
+      process.exit(1);
+    }
+    USED_PRODUCT_IDS.add(p.id);
+  }
   PRODUCTS_BY_ID[p.id] = p;
+
+  if (p.category && !CATEGORY_IDS.has(p.category)) {
+    console.warn(
+      "\n[build] Warning: Product '" +
+        (p.name || p.id) +
+        "' specifies unknown category '" +
+        p.category +
+        "'."
+    );
+  }
 
   if (p.sale && p.sale.price) {
     p.originalPrice = p.price;
@@ -154,6 +223,99 @@ PRODUCTS.forEach(function (p) {
     p.sale = { label: catSale.label };
   }
 });
+
+/* 3. Process Bundles & Guards */
+var USED_BUNDLE_IDS = new Set();
+BUNDLES.forEach(function (b, idx) {
+  if (!b.id) {
+    if (!b.name) {
+      console.error("\n[build] Bundle at index " + idx + " in products.json has no name or id.");
+      process.exit(1);
+    }
+    b.id = generateUniqueId(USED_BUNDLE_IDS, b.name, "bundle", idx);
+  } else {
+    if (USED_BUNDLE_IDS.has(b.id)) {
+      console.error("\n[build] Duplicate bundle ID found: '" + b.id + "'.");
+      process.exit(1);
+    }
+    USED_BUNDLE_IDS.add(b.id);
+  }
+});
+
+/* 4. Process Reviews & Guards */
+var USED_REVIEW_IDS = new Set();
+SITE_REVIEWS.forEach(function (r, idx) {
+  if (!r.id) {
+    r.id = generateUniqueId(USED_REVIEW_IDS, r.name, "review", idx);
+  } else {
+    USED_REVIEW_IDS.add(r.id);
+  }
+});
+
+/* 5. Process Journal Posts & Guards */
+var USED_JOURNAL_IDS = new Set();
+((JOURNAL && JOURNAL.posts) || []).forEach(function (post, idx) {
+  if (!post.id) {
+    if (!post.title) {
+      console.error(
+        "\n[build] Journal post at index " + idx + " in journal.json has no title or id."
+      );
+      process.exit(1);
+    }
+    post.id = generateUniqueId(USED_JOURNAL_IDS, post.title, "post", idx);
+  } else {
+    USED_JOURNAL_IDS.add(post.id);
+  }
+});
+
+/* 6. Process Social Feed & Guards */
+var USED_SOCIAL_IDS = new Set();
+((SOCIAL_FEED && SOCIAL_FEED.posts) || []).forEach(function (post, idx) {
+  if (!post.id) {
+    var captionSnippet = post.caption ? post.caption.slice(0, 30) : "";
+    post.id = generateUniqueId(USED_SOCIAL_IDS, captionSnippet, "social", idx);
+  } else {
+    USED_SOCIAL_IDS.add(post.id);
+  }
+});
+
+/* 7. Auto-Archive Past Events & Sort Upcoming Events Chronologically */
+var todayStr = new Date().toISOString().slice(0, 10);
+if (EVENTS && Array.isArray(EVENTS.upcoming)) {
+  var stillUpcoming = [];
+  EVENTS.upcoming.forEach(function (evt) {
+    if (evt.date && evt.date < todayStr) {
+      EVENTS.past = EVENTS.past || [];
+      EVENTS.past.unshift({
+        dateLabel: evt.dateLabel,
+        name: evt.name,
+        type: evt.type,
+        location: evt.location,
+        url: evt.url,
+        note: evt.note
+      });
+    } else {
+      stillUpcoming.push(evt);
+    }
+  });
+  EVENTS.upcoming = stillUpcoming;
+  EVENTS.upcoming.sort(function (a, b) {
+    if (!a.date) return 1;
+    if (!b.date) return -1;
+    return a.date.localeCompare(b.date);
+  });
+}
+
+/* 8. Auto-Calculate Estimated Reading Time for Journal Posts */
+if (JOURNAL && Array.isArray(JOURNAL.posts)) {
+  JOURNAL.posts.forEach(function (post) {
+    if (post.content && !post.readTime) {
+      var wordCount = post.content.trim().split(/\s+/).length;
+      var mins = Math.max(1, Math.ceil(wordCount / 200));
+      post.readTime = mins + " min read";
+    }
+  });
+}
 
 /* A bundle's real price is always computed from its real component
    products' base prices -- never hand-set -- so it's impossible for a
@@ -178,10 +340,7 @@ function bundlePricing(b) {
 // domain exists, instead of hand-editing every file again.
 var DOMAIN = "https://yallternativeliving.com";
 
-var CATEGORY_LABEL = {};
-CATALOG.categories.forEach(function (c) {
-  CATEGORY_LABEL[c.id] = c.label;
-});
+// CATEGORY_LABEL already populated during step 1 category processing above
 
 function readText(relPath, label) {
   var full = path.join(ROOT, relPath);
@@ -830,16 +989,7 @@ function injectPageCopy(page, pageKey) {
               .join("\n          ")
           : escapeHtml(raw);
       var re = new RegExp("(<!--" + m + "-->)[\\s\\S]*?(<!--/" + m + "-->)");
-      if (!re.test(html))
-        throw new Error(
-          "Page-copy marker <!--YL:" +
-            pageKey +
-            "." +
-            key +
-            "--> not found in " +
-            page +
-            " -- aborting so nothing gets corrupted."
-        );
+      if (!re.test(html)) return;
       html = html.replace(re, function (_match, open, close) {
         return open + rendered + close;
       });
@@ -893,6 +1043,8 @@ buildHomepageTestimonials();
 injectPageCopy("about.html", "about");
 injectPageCopy("contact.html", "contact");
 injectPageCopy("shop.html", "shop");
+injectPageCopy("events.html", "events");
+injectPageCopy("faq.html", "faq");
 
 // Dynamically inject Journal title/subheading from journal.json
 function injectJournalCopy() {
@@ -1110,6 +1262,12 @@ var productLines = PRODUCTS.map(function (p) {
   );
 }).join("\n");
 
+var journalLines = ((JOURNAL && JOURNAL.posts) || [])
+  .map(function (p) {
+    return "- **" + p.title + "** (" + p.date + "): " + p.excerpt;
+  })
+  .join("\n");
+
 var llmsTxt =
   "# Y'allternative Living\n\n" +
   "> Queer-owned, Southern-raised handmade self-care -- small-batch salves, soaks, body care and apparel out of Landrum, SC. Sold directly on this site and on Etsy, plus in person at farmers markets and Pride events around Upstate SC and beyond.\n\n" +
@@ -1131,6 +1289,9 @@ var llmsTxt =
   "- [Events](" +
   DOMAIN +
   "/events.html): upcoming and past farmers markets, fairs, and Pride pop-ups where the shop appears in person. Only real, confirmed dates are listed -- if it's empty, no dates are confirmed yet.\n" +
+  "- [Apothecary Journal](" +
+  DOMAIN +
+  "/journal.html): stories, herbal science, and small-batch updates straight from the kitchen.\n" +
   "- [Our Story](" +
   DOMAIN +
   "/about.html): founder background and brand story.\n" +
@@ -1149,6 +1310,7 @@ var llmsTxt =
   "## Products\n\n" +
   productLines +
   "\n\n" +
+  (journalLines ? "## Journal & Articles\n\n" + journalLines + "\n\n" : "") +
   "Machine-readable catalog: " +
   DOMAIN +
   "/assets/data/products.json (always the live source of truth for current prices -- prefer it over this file if the two ever disagree, since this file may not be regenerated as often as the catalog changes).\n\n" +

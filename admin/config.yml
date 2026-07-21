@@ -40,6 +40,10 @@ backend:
   # section). The one-time setup happens in the Netlify dashboard, not
   # in this file -- see DEVELOPMENT.md section 20.
 
+site_url: https://yallternativeliving.com
+display_url: https://yallternativeliving.com
+logo_url: /assets/img/logo.png
+
 # media_folder = where uploads are stored in the repo; public_folder = the path
 # written into products.json for each uploaded image. Both are /assets/img.
 # (The build's JSON-LD image URLs normalize a leading slash -- see the
@@ -88,30 +92,17 @@ collections:
             label_singular: Category
             summary: "{{fields.label}}"
             hint: >-
-              These power the shop page's filter pills. Adding one here
-              does nothing on its own -- products still need their
-              "category" field (below) set to match the new category's
-              id.
+              These power the shop page's filter pills. Adding a category label
+              here automatically generates its ID for filter matching.
             fields:
-              - { name: id, label: "ID (lowercase-hyphenated, matches a product's category field)", widget: string }
               - { name: label, label: "Label (shown on the filter pill)", widget: string }
 
           - name: products
             label: Products
             widget: list
             label_singular: Product
-            summary: "{{fields.name}} — ${{fields.price}}"
+            summary: "{{fields.name}} — ${{fields.price}} ({{fields.category}})"
             fields:
-              - name: id
-                label: "ID (lowercase-hyphenated, e.g. lavender-soak)"
-                widget: string
-                hint: >-
-                  Used in Snipcart's order records, cart line items, and
-                  the URL Snipcart's dashboard reports link back to. Do
-                  NOT change this on a product that has already had real
-                  orders -- Snipcart will treat it as a brand-new item
-                  and your sales history for the old id won't follow it.
-                  Safe to set freely on a new product.
               - { name: name, label: "Product Name (shown everywhere on the site)", widget: string }
               - name: featured
                 label: Featured Product
@@ -143,7 +134,7 @@ collections:
                   - { label: "Ritual & Home", value: "ritual" }
                   - { label: "Gift Cards", value: "gift-cards" }
                 hint: Choose the shop category this product belongs to.
-              - { name: price, label: "Price (USD, e.g. 16 or 16.50)", widget: number, value_type: float }
+              - { name: price, label: "Price (USD, e.g. 16 or 16.50)", widget: number, value_type: float, min: 0, step: 0.01 }
               - name: sale
                 label: "Sale (Optional per-product sale)"
                 widget: object
@@ -183,6 +174,7 @@ collections:
                 label: "Stock Count (leave blank for unlimited stock)"
                 widget: number
                 value_type: int
+                min: 0
                 required: false
                 hint: >-
                   Leave blank for unlimited/made-to-order stock.
@@ -255,7 +247,7 @@ collections:
             label: Bundles / Gift Sets
             widget: list
             label_singular: Bundle
-            summary: "{{fields.name}} ({{fields.discountPercent}}% off)"
+            summary: "{{fields.name}} — {{fields.discountPercent}}% off"
             required: false
             hint: >-
               The bundle's actual selling price is ALWAYS computed at
@@ -263,9 +255,6 @@ collections:
               listed below plus this discount -- never hand-set a price
               here, there's nowhere to put one.
             fields:
-              - name: id
-                label: "ID (lowercase-hyphenated)"
-                widget: string
               - { name: name, label: "Bundle Name", widget: string }
               - name: productIds
                 label: "Product IDs In This Bundle (2 or more)"
@@ -277,7 +266,7 @@ collections:
                   this is plain text, not a picker, so double-check
                   spelling against the Products list.
                 field: { name: productId, label: Product ID, widget: string }
-              - { name: discountPercent, label: "Discount Percent (0-90, e.g. 10 for 10% off)", widget: number, value_type: int }
+              - { name: discountPercent, label: "Discount Percent (0-90, e.g. 10 for 10% off)", widget: number, value_type: int, min: 0, max: 90 }
               - { name: blurb, label: Bundle Description, widget: text }
 
           - name: faq
@@ -302,7 +291,7 @@ collections:
             widget: list
             label_singular: Event
             required: false
-            summary: "{{fields.dateLabel}} — {{fields.name}}"
+            summary: "{{fields.dateLabel}} — {{fields.name}} ({{fields.location}})"
             fields:
               - { name: date, label: "Event Date", widget: datetime, format: "YYYY-MM-DD", date_format: "MM/DD/YYYY", time_format: false, hint: "Select the date of the event (used to automatically sort and hide past events)." }
               - { name: dateLabel, label: "Date shown on the page (e.g. \"Sat, Sep 12, 2026 · 9am-2pm\")", widget: string }
@@ -316,7 +305,7 @@ collections:
             widget: list
             label_singular: Event
             required: false
-            summary: "{{fields.dateLabel}} — {{fields.name}}"
+            summary: "{{fields.dateLabel}} — {{fields.name}} ({{fields.location}})"
             fields:
               - { name: dateLabel, label: "Date shown (e.g. \"June 2026\")", widget: string }
               - { name: name, label: "Event Name", widget: string }
@@ -338,9 +327,8 @@ collections:
             widget: list
             label_singular: Review
             required: false
-            summary: "{{fields.name}} ({{fields.rating}}★)"
+            summary: "{{fields.name}} — {{fields.rating}}★"
             fields:
-              - { name: id, label: "ID (anything unique, e.g. 2026-07-maria)", widget: string }
               - { name: name, label: "Reviewer name/handle (add \"(Etsy)\" if it's from an Etsy review)", widget: string }
               - { name: rating, label: "Rating (1-5)", widget: number, value_type: int, min: 1, max: 5 }
               - { name: text, label: "Review text (keep it close to what they actually wrote)", widget: text }
@@ -353,15 +341,19 @@ collections:
               - { name: featured, label: "Feature on homepage?", widget: boolean, default: false, required: false, hint: "Check this to highlight this review on the homepage testimonials grid." }
 
   - name: journal
-    label: "3b. Apothecary Journal (Blog)"
+    label: "4. Apothecary Journal (Blog)"
     files:
       - name: journal
         label: Apothecary Journal
         file: assets/data/journal.json
         format: json
         fields:
-          - { name: title, label: "Journal Page Title (e.g. Apothecary Journal)", widget: string }
-          - { name: lede, label: "Journal Page Subheading (e.g. Stories, science, and small-batch updates...)", widget: text }
+          - name: title
+            label: "Journal Page Title (e.g. Apothecary Journal)"
+            widget: string
+          - name: lede
+            label: "Journal Page Subheading (e.g. Stories, science, and small-batch updates...)"
+            widget: text
           - name: posts
             label: Journal Posts
             widget: list
@@ -369,7 +361,6 @@ collections:
             required: false
             summary: "{{fields.title}} ({{fields.date}})"
             fields:
-              - { name: id, label: "ID (lowercase-hyphenated, e.g. magnesium-arnica-sleep)", widget: string }
               - { name: title, label: "Title", widget: string }
               - { name: date, label: "Publish Date", widget: datetime, format: "YYYY-MM-DD", date_format: "MM/DD/YYYY", time_format: false }
               - { name: image, label: "Featured Image", widget: image, required: false }
@@ -377,7 +368,7 @@ collections:
               - { name: content, label: "Content (full post text)", widget: text }
 
   - name: social_feed
-    label: "3c. Social Media Feed"
+    label: "5. Social Media Feed"
     files:
       - name: social_feed
         label: Social Media Feed
@@ -391,13 +382,12 @@ collections:
             required: false
             summary: "{{fields.caption}}"
             fields:
-              - { name: id, label: "ID (anything unique)", widget: string }
               - { name: image, label: "Post Image", widget: image }
               - { name: caption, label: "Caption", widget: text }
               - { name: url, label: "Original Post Link (optional)", widget: string, required: false }
 
   - name: content
-    label: "4. Page Wording"
+    label: "6. Page Headlines & Wording"
     files:
       - name: content
         label: Page Wording (homepage + About)
@@ -411,6 +401,9 @@ collections:
             fields:
               - { name: logoDesktop, label: "Desktop Logo (suggested 48x48 PNG)", widget: image }
               - { name: logoMobile, label: "Mobile Logo (suggested 48x48 JPG/PNG)", widget: image }
+              - { name: footerTagline, label: "Footer Tagline", widget: text, required: false }
+              - { name: newsletterTitle, label: "Newsletter Headline", widget: string, required: false }
+              - { name: newsletterSubtext, label: "Newsletter Subheading", widget: text, required: false }
               - { name: snipcartApiKey, label: "Snipcart Public API Key", widget: string, required: false, hint: "Paste your Snipcart Public API Key here to enable checkout." }
               - { name: kitFormAction, label: "Kit (ConvertKit) Form Action URL", widget: string, required: false, hint: "Paste your Kit newsletter form action URL here." }
               - { name: tawkToPropertyId, label: "Tawk.to Property ID", widget: string, required: false, hint: "For live chat support." }
@@ -426,6 +419,7 @@ collections:
             widget: object
             collapsed: true
             fields:
+              - { name: promoBanner, label: "Promo Banner Text (top bar)", widget: string, required: false }
               - { name: heroTitle, label: "Hero headline (the big line on the homepage)", widget: string }
               - { name: heroText, label: "Hero paragraph (under the headline)", widget: text }
               - { name: heroImage, label: "Hero Image (unisex-tshirt)", widget: image }
@@ -446,16 +440,40 @@ collections:
               - { name: bioImage, label: "Bio Image (unisex-tshirt)", widget: image }
               - { name: secondaryImage, label: "Secondary Image (beard-salve)", widget: image }
 
-          - name: contact
-            label: Contact page
-            widget: object
-            collapsed: true
-            fields:
-              - { name: image, label: "Feature Image (backroad-soak)", widget: image }
-
           - name: shop
             label: Shop page
             widget: object
             collapsed: true
             fields:
+              - { name: heroTitle, label: "Shop Headline", widget: string, required: false }
+              - { name: heroIntro, label: "Shop Subheading", widget: text, required: false }
               - { name: giftCardImage, label: "Gift Card Background", widget: image }
+
+          - name: events
+            label: Events page
+            widget: object
+            collapsed: true
+            fields:
+              - { name: heroTitle, label: "Events Headline", widget: string, required: false }
+              - { name: heroIntro, label: "Events Subheading", widget: text, required: false }
+
+          - name: contact
+            label: Contact page
+            widget: object
+            collapsed: true
+            fields:
+              - { name: heroTitle, label: "Contact Headline", widget: string, required: false }
+              - { name: heroIntro, label: "Contact Subheading", widget: text, required: false }
+              - { name: image, label: "Feature Image (backroad-soak)", widget: image }
+              - { name: email, label: "Direct Email Address", widget: string, required: false }
+              - { name: namePlaceholder, label: "Name Form Input Placeholder", widget: string, required: false }
+              - { name: emailPlaceholder, label: "Email Form Input Placeholder", widget: string, required: false }
+              - { name: messagePlaceholder, label: "Message Form Input Placeholder", widget: text, required: false }
+
+          - name: faq
+            label: FAQ page
+            widget: object
+            collapsed: true
+            fields:
+              - { name: heroTitle, label: "FAQ Headline", widget: string, required: false }
+              - { name: heroIntro, label: "FAQ Subheading", widget: text, required: false }

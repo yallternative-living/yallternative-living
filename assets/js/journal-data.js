@@ -16,7 +16,8 @@ window.YL_JOURNAL = {
       excerpt:
         "Struggling to turn your brain off or dealing with sore muscles? Here is the science (and folklore) behind why this duo works.",
       content:
-        "We've all been there: staring at the ceiling, mentally sorting through every conversation we've had since 2012, while your legs feel restless and your shoulders are up around your ears. Modern life is noisy, and muscle tension is real. \n\nThat's where magnesium and arnica come in. Magnesium is a mineral that plays a huge role in muscle relaxation and regulating the nervous system. When applied topically, it sinks straight in where you need it most. Combined with arnica—a mountain herb used for centuries to soothe bruising, aches, and swelling—it creates a powerful recovery balm. \n\nTo use it, just massage a small amount into your temples, the back of your neck, or sore muscles before bed. The act of massaging it in helps relax the muscles, while the lavender and chamomile scents cue your brain that it's time to rest. Sweet dreams, y'all!"
+        "We've all been there: staring at the ceiling, mentally sorting through every conversation we've had since 2012, while your legs feel restless and your shoulders are up around your ears. Modern life is noisy, and muscle tension is real. \n\nThat's where magnesium and arnica come in. Magnesium is a mineral that plays a huge role in muscle relaxation and regulating the nervous system. When applied topically, it sinks straight in where you need it most. Combined with arnica—a mountain herb used for centuries to soothe bruising, aches, and swelling—it creates a powerful recovery balm. \n\nTo use it, just massage a small amount into your temples, the back of your neck, or sore muscles before bed. The act of massaging it in helps relax the muscles, while the lavender and chamomile scents cue your brain that it's time to rest. Sweet dreams, y'all!",
+      readTime: "1 min read"
     },
     {
       id: "small-batch-difference",
@@ -26,7 +27,8 @@ window.YL_JOURNAL = {
       excerpt:
         "Is 'small batch' just a trendy buzzword, or does it actually make a difference for your skin? Let's talk about shelf life and real ingredients.",
       content:
-        "If you look at the ingredients of a drugstore lotion, the first five are usually water, mineral oils, and a bunch of parabens and synthetic stabilizers designed to make it last on a warehouse shelf for three years. \n\nWhen we say 'small batch,' we mean that Savanna literally measures, stirs, and pours a few dozen jars at a time in her kitchen. Because we sell out quickly and make fresh batches every week, we don't have to load our skin products with harsh chemical preservatives. We use real, active plant oils, raw shea butter, and organic botanicals that actually feed your skin. \n\nIt means you get fresher, more potent self-care, and you're supporting a real person, not a corporate lab. Keep it real, y'all."
+        "If you look at the ingredients of a drugstore lotion, the first five are usually water, mineral oils, and a bunch of parabens and synthetic stabilizers designed to make it last on a warehouse shelf for three years. \n\nWhen we say 'small batch,' we mean that Savanna literally measures, stirs, and pours a few dozen jars at a time in her kitchen. Because we sell out quickly and make fresh batches every week, we don't have to load our skin products with harsh chemical preservatives. We use real, active plant oils, raw shea butter, and organic botanicals that actually feed your skin. \n\nIt means you get fresher, more potent self-care, and you're supporting a real person, not a corporate lab. Keep it real, y'all.",
+      readTime: "1 min read"
     }
   ]
 };

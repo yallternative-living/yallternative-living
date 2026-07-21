@@ -11,17 +11,12 @@ and prices work. Nothing here touches money or checkout — that's Snipcart.
 Once the site is live, go to **yourdomain.com/admin** and log in with GitHub.
 You'll get a form-based editor (no code) for everything in your catalog:
 
-- **Products** — add a new one, edit a name, description, price, ingredients,
-  variants (sizes/scents), or upload a photo.
-- **Bundles / gift sets** — build a set by picking products and a discount.
-- **FAQ** — the shipping/returns questions shown at checkout and on Contact.
-- **Shop info** — your Etsy rating, review count, and sales number.
-- **Markets, fairs & Pride dates** — add or edit where you'll be in person; the
-  Events page updates itself and old dates drop off automatically.
-- **Customer reviews** — publish a review a customer sent you. (These stay
-  separate from your Etsy star rating, so nothing is ever misrepresented.)
-- **Homepage headline & your About story** — reword the big homepage line and
-  its intro, and the "Meet Savanna" story, under **Page Wording** in the editor.
+- **1. Products, Bundles & FAQ** — Add a new product, edit pricing, descriptions, ingredients, size variants, upload photos, manage bundles/gift sets, or update FAQ answers. Item IDs are automatically generated for you.
+- **2. Markets, Fairs & Pride Dates** — Add or edit market appearances. Upcoming dates display chronologically and past dates automatically archive under "Where We've Been".
+- **3. Customer Reviews** — Publish on-site customer reviews and choose which ones feature on the homepage testimonials grid.
+- **4. Apothecary Journal (Blog)** — Write and publish stories, kitchen updates, and announcements.
+- **5. Social Media Feed** — Curate and toggle Instagram/TikTok post previews on the homepage.
+- **6. Page Headlines & Wording** — Edit section headlines, hero paragraphs, contact form placeholders, direct email link, and global site settings (API keys, tracking, live chat).
 
 When you hit **Save**, it records the change and the site rebuilds and
 re-publishes itself automatically — you don't run anything. Changes usually go

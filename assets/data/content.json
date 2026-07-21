@@ -10,9 +10,13 @@
     "formspreeReviewId": "YOUR_FORMSPREE_FORM_ID",
     "giftUpId": "YOUR_GIFTUP_ID",
     "enableJournal": false,
-    "enableSocialFeed": false
+    "enableSocialFeed": false,
+    "footerTagline": "Southern-raised, alt-inspired self-care, salves, soaks, body care, and apparel. Queer-owned and small-batch brewed in Landrum, SC.",
+    "newsletterTitle": "Join The Inner Circle",
+    "newsletterSubtext": "Get market announcements, secret drop dates, and 10% off your first order."
   },
   "home": {
+    "promoBanner": "Free shipping on orders over $40 ✦ Small-batch, handmade with love in Landrum, SC",
     "heroTitle": "Self-Care For The Black Sheep & Bold Hearts",
     "heroText": "For anybody who's ever been told they're a little too much: taking up space and smelling amazing was always the plan.",
     "heroImage": "assets/img/unisex-tshirt.jpg",
@@ -26,10 +30,26 @@
     "bioImage": "assets/img/unisex-tshirt.jpg",
     "secondaryImage": "assets/img/beard-salve.jpg"
   },
-  "contact": {
-    "image": "assets/img/backroad-soak.jpg"
-  },
   "shop": {
+    "heroTitle": "The Full Collection, Y'all",
+    "heroIntro": "Salves, soaks, body care & apparel brewed in Landrum, SC.",
     "giftCardImage": "assets/img/gift-card.png"
+  },
+  "events": {
+    "heroTitle": "Catch Us In Person",
+    "heroIntro": "Pop-ups, fairs & Pride dates across the Carolinas and beyond."
+  },
+  "contact": {
+    "heroTitle": "Let's Talk, Y'all",
+    "heroIntro": "Got a custom order brewing, a wholesale question, or just want to tell us your dog's name? We're all ears. Pick whichever door's easiest and come on in.",
+    "image": "assets/img/backroad-soak.jpg",
+    "email": "y.allternative.living@gmail.com",
+    "namePlaceholder": "Your name or handle",
+    "emailPlaceholder": "your.email@domain.com",
+    "messagePlaceholder": "Got a custom salve blend in mind, need 50 favors for your gay wedding, or checking market stock before Saturday?"
+  },
+  "faq": {
+    "heroTitle": "Frequently Asked Questions",
+    "heroIntro": "Everything you need to know about shipping, sensitive skin, ingredients, and custom orders."
   }
 }

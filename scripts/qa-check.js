@@ -1163,14 +1163,16 @@ if (!fs.existsSync(configYmlPath)) {
     "assets/data/products.json",
     "assets/data/events.json",
     "assets/data/site-reviews.json",
-    "assets/data/content.json"
+    "assets/data/content.json",
+    "assets/data/journal.json",
+    "assets/data/social-feed.json"
   ].forEach(function (relPath) {
     var full = path.join(ROOT, relPath);
     if (!fs.existsSync(full)) return; // already reported missing in section 1 above
     try {
       var topLevelKeys = Object.keys(JSON.parse(fs.readFileSync(full, "utf8")));
       topLevelKeys.forEach(function (key) {
-        var fieldRe = new RegExp("-\\s+name:\\s*" + key + "\\b");
+        var fieldRe = new RegExp("-\\s*\\{?\\s*name:\\s*" + key + "\\b");
         if (fieldRe.test(configYml))
           ok("config.yml defines a field for " + relPath + "'s \"" + key + '" key');
         else
