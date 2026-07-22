@@ -1,15 +1,33 @@
 const { Resend } = require('resend');
+const crypto = require('crypto');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const SNIPCART_SECRET = process.env.SNIPCART_SECRET_API_KEY;
 
 function generateRandomCode() {
+  // crypto.randomInt (CSPRNG) instead of Math.random -- these codes are
+  // redeemable money (a single-use discount worth up to $500), so they
+  // must not come from a predictable PRNG.
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let result = 'YALL-';
   for (let i = 0; i < 8; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
+    result += chars.charAt(crypto.randomInt(chars.length));
   }
   return result;
+}
+
+// Escape user-supplied text before interpolating it into the email HTML.
+// Sender Name / Message come straight from checkout custom fields, so
+// without this a buyer could inject arbitrary HTML (links, fake buttons,
+// hidden text) into an email that lands in someone ELSE's inbox from
+// gifts@yallternativeliving.com -- a ready-made phishing vector.
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 exports.handler = async (event) => {
@@ -59,13 +77,18 @@ exports.handler = async (event) => {
     for (const card of giftCards) {
       // Extract custom fields securely
       const getField = (name) => {
-        const field = card.customFields.find(f => f.name === name);
+        const field = (card.customFields || []).find(f => f.name === name);
         return field ? field.value : '';
       };
 
       const recipientEmail = getField('Recipient Email');
       const senderName = getField('Sender Name');
-      const personalMessage = getField('Personal Message (Optional)');
+      // The buy button in shop.html names this field "Message"
+      // (data-item-custom4-name) -- the old lookup for
+      // 'Personal Message (Optional)' never matched, so the buyer's
+      // note was silently dropped from every gift email. Check the
+      // real name first, keep the old one as a fallback.
+      const personalMessage = getField('Message') || getField('Personal Message (Optional)');
       const amount = card.unitPrice; // The price they paid for the card is the balance
 
       if (!recipientEmail) {
@@ -78,7 +101,7 @@ exports.handler = async (event) => {
 
       // 6. Create the Discount in Snipcart
       const discountPayload = {
-        name: `Gift Card from ${senderName || 'a friend'}`,
+        name: `Gift Card from ${(senderName || 'a friend').slice(0, 80)}`,
         code: uniqueCode,
         type: 'FixedAmount',
         amount: amount,
@@ -107,9 +130,9 @@ exports.handler = async (event) => {
             <img src="https://yallternativeliving.com/assets/img/logo.png" alt="Y'allternative Living Logo" style="max-width: 200px;" />
           </div>
           <h1 style="color: #d69b5c; text-align: center;">You've received a gift!</h1>
-          <p style="font-size: 18px;"><strong>${senderName || 'Someone special'}</strong> sent you a $${amount.toFixed(2)} gift card to Y'allternative Living.</p>
+          <p style="font-size: 18px;"><strong>${escapeHtml(senderName) || 'Someone special'}</strong> sent you a $${amount.toFixed(2)} gift card to Y'allternative Living.</p>
           
-          ${personalMessage ? `<div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; font-style: italic; margin: 20px 0;">"${personalMessage}"</div>` : ''}
+          ${personalMessage ? `<div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; font-style: italic; margin: 20px 0;">"${escapeHtml(personalMessage)}"</div>` : ''}
           
           <div style="text-align: center; background: #fff; color: #000; padding: 20px; border-radius: 8px; margin: 30px 0;">
             <p style="margin: 0; text-transform: uppercase; letter-spacing: 2px; font-size: 14px; color: #666;">Your Gift Code</p>

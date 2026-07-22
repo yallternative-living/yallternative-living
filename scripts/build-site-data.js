@@ -352,6 +352,21 @@ function readText(relPath, label) {
   }
 }
 
+// The YL:key injection markers are HTML comments. Inside element text (and
+// CSS /* */ context) they're invisible and are kept so the build can re-run
+// idempotently. But when a templated value lands inside a real HTML ATTRIBUTE
+// value (placeholder="...", href="mailto:...", action="..."), an HTML comment
+// is NOT a comment -- it renders as literal text ("<!--YL:contact.name...-->")
+// in the field, or breaks a mailto:/action URL. Strip the markers that sit
+// inside a double-quoted attribute value, keeping the value itself. Element-
+// text markers (between tags) are left untouched so re-injection still works.
+function stripMarkersInsideAttributes(html) {
+  return html.replace(/(=")([^"]*)(")/g, function (m, pre, val, post) {
+    if (val.indexOf("<!--YL:") === -1 && val.indexOf("<!--/YL:") === -1) return m;
+    return pre + val.replace(/<!--\/?YL:[^>]*?-->/g, "") + post;
+  });
+}
+
 function writeFile(relPath, contents) {
   var full = path.join(ROOT, relPath);
   var dir = path.dirname(full);
@@ -875,10 +890,25 @@ try {
       manifestText.indexOf("{", markerIdx),
       manifestText.lastIndexOf("}") + 1
     );
+    // image-manifest.js is a JS object literal with UNQUOTED keys
+    // (key:, width:, variants:, ...), which is not valid JSON. The old
+    // JSON.parse here always threw and was swallowed by the catch below,
+    // leaving MANIFEST empty -- so every content.json page-copy image
+    // (homepage hero/feature, About bio/secondary, Contact photo, gift
+    // card bg) was emitted with NO <picture> sources and served the full
+    // raw JPEG. Quote the bare identifier keys first so it parses.
+    jsonText = jsonText.replace(
+      /([{,]\s*)([A-Za-z_][A-Za-z0-9_]*)\s*:/g,
+      '$1"$2":'
+    );
     MANIFEST = JSON.parse(jsonText);
   }
 } catch (e) {
-  // Silent fallback if it doesn't exist yet or is malformed
+  // Surface a real parse failure instead of silently shipping unoptimized
+  // page-copy images; a genuinely missing manifest still leaves MANIFEST {}.
+  if (fs.existsSync(path.join(ROOT, "assets/js/image-manifest.js"))) {
+    console.warn("[build] WARNING: could not parse image-manifest.js -- page-copy images will not get responsive sources:", e.message);
+  }
 }
 
 function injectPageCopy(page, pageKey) {
@@ -949,8 +979,14 @@ function injectPageCopy(page, pageKey) {
                 })
                 .join(", ");
             } else {
-              avifSrcset = imgPath;
-              webpSrcset = imgPath;
+              // No optimized variants in the image manifest for this file.
+              // Leave both srcsets empty so no <source> tags are emitted --
+              // the old fallback put the original file (often a .jpg) inside
+              // <source type="image/avif">/<source type="image/webp">, which
+              // mislabels the format and makes browsers pick a "modern" source
+              // that's really the unoptimized original.
+              avifSrcset = "";
+              webpSrcset = "";
             }
 
             innerTag = "<picture>";
@@ -1192,11 +1228,17 @@ var sitemapXml =
   "     inside that script once a real domain exists, then re-run. -->\n" +
   '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
   PAGES.map(function (p) {
+    // Emit the homepage as the bare root URL, not /index.html -- the page's
+    // own canonical/OG tags point at DOMAIN + "/", so listing /index.html
+    // here would make search engines see two competing duplicate URLs.
+    // (PAGES keeps the real "index.html" filename because it's reused below
+    // to read the actual files for canonical-tag injection.)
+    var locPath = p.loc === "index.html" ? "" : p.loc;
     return (
       "  <url><loc>" +
       DOMAIN +
       "/" +
-      p.loc +
+      locPath +
       "</loc><lastmod>" +
       today +
       "</lastmod><priority>" +
@@ -1499,7 +1541,9 @@ if (DOMAIN_IS_LIVE) {
 (function generateProductOgPages() {
   PRODUCTS.forEach(function (product) {
     var pTitle = escapeHtml(product.name) + " | Y'allternative Living";
-    var pDesc = escapeHtml(product.blurb || "");
+    // Prefer the hand-written SEO `description` field (present in
+    // products.json) over the shop-card blurb; fall back to the blurb.
+    var pDesc = escapeHtml(product.description || product.blurb || "");
     var pUrl = DOMAIN + "/products/" + product.id + ".html";
     var pImage = DOMAIN + "/" + product.image;
 
@@ -1568,6 +1612,31 @@ if (DOMAIN_IS_LIVE) {
       "</html>\n";
 
     writeFile("products/" + product.id + ".html", html);
+  });
+})();
+
+/* ---------- Final pass: clean injection markers out of attribute values ----
+   Runs AFTER every injection/config pass so it can't strip a marker some
+   later pass still needs. Any YL:key comment marker that ended up inside a
+   quoted HTML attribute value (placeholder="...", href="mailto:...",
+   action="...") is removed here, leaving the injected value. Element-text
+   markers (between tags) are left in place so the build stays re-runnable. */
+(function cleanAttributeMarkers() {
+  var htmlPages = PAGES.map(function (p) {
+    return p.loc;
+  }).concat(["404.html", "journal.html"]);
+  PRODUCTS.forEach(function (product) {
+    htmlPages.push("products/" + product.id + ".html");
+  });
+  htmlPages.forEach(function (page) {
+    var full = path.join(ROOT, page);
+    if (!fs.existsSync(full) || fs.statSync(full).isDirectory()) return;
+    var html = fs.readFileSync(full, "utf8");
+    var cleaned = stripMarkersInsideAttributes(html);
+    if (cleaned !== html) {
+      fs.writeFileSync(full, cleaned);
+      console.log("cleaned attribute markers in " + page);
+    }
   });
 })();
 

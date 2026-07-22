@@ -1347,7 +1347,6 @@
             }
           });
           if (hasChanges) {
-            console.log("[inventory] Live stock levels updated. Re-rendering.");
             if (sortSelect) {
               sortSelect.dispatchEvent(new Event("change"));
             } else if (shopGrid && !filterRow) {

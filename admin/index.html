@@ -13,6 +13,11 @@
          link is a common copy-paste mistake from older Netlify/Decap CMS
          setups) and no type="module" on the script tag. See README
          section 20 before touching this file or config.yml. -->
-    <script src="https://unpkg.com/@sveltia/cms@0.33.0/dist/sveltia-cms.js"></script>
+    <!-- Pinned to an exact version on purpose (no ^/latest) so a bad
+         upstream release can't silently break /admin. 0.33.0 was ~140
+         releases behind current; bumped 2026-07-22. When updating, check
+         https://github.com/sveltia/sveltia-cms/releases and bump the
+         version here deliberately. -->
+    <script src="https://unpkg.com/@sveltia/cms@0.172.4/dist/sveltia-cms.js"></script>
   </body>
 </html>

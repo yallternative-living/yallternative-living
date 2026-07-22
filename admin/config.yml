@@ -15,7 +15,7 @@
 # in DEVELOPMENT.md section 20 -- read that before changing anything here.
 #
 # backend.repo below now points at the real repo:
-# github.com/StevenMGlenn/yallternative-living. What's still needed
+# github.com/yallternative-living/yallternative-living. What's still needed
 # before /admin actually logs in: (1) this repo deployed on Netlify or
 # GitHub Pages, (2) GitHub OAuth turned on for that deploy (one Netlify
 # checkbox, or a small auth helper for Pages) -- see DEVELOPMENT.md section 20.
@@ -31,7 +31,11 @@
 
 backend:
   name: github
-  repo: StevenMGlenn/yallternative-living
+  # Must match the repo the site actually pushes to -- `git remote -v`
+  # says github.com/yallternative-living/yallternative-living (the old
+  # StevenMGlenn/yallternative-living value here pointed at a repo that
+  # doesn't exist anymore, which would make every /admin login fail).
+  repo: yallternative-living/yallternative-living
   branch: main
   # No `base_url` set here on purpose -- when this site is deployed on
   # Netlify, Netlify itself is Sveltia's default OAuth provider for the
@@ -103,7 +107,27 @@ collections:
             label_singular: Product
             summary: "{{fields.name}} — ${{fields.price}} ({{fields.category}})"
             fields:
+              # `id` and `description` exist in products.json but were not
+              # declared here -- a CMS save writes only declared fields, so
+              # both would have been silently stripped from the file the
+              # first time Savanna hit Save. `id` is also the Snipcart
+              # product ID and the wishlist/review/bundle reference key, so
+              # it must never change once a product has been sold.
+              - name: id
+                label: "Product ID (advanced -- leave blank for new products, NEVER change on existing ones)"
+                widget: string
+                required: false
+                hint: >-
+                  Auto-generated from the product name by the build if left
+                  blank. Once a product is live this ID is what Snipcart,
+                  bundles, reviews, and customer wishlists point at --
+                  changing it breaks all of those, so don't.
               - { name: name, label: "Product Name (shown everywhere on the site)", widget: string }
+              - name: description
+                label: "SEO / Share Description (used for the product page's meta description and link previews)"
+                widget: text
+                required: false
+                hint: "Falls back to the shop-card description below if left blank."
               - name: featured
                 label: Featured Product
                 widget: boolean
@@ -153,7 +177,9 @@ collections:
                 widget: list
                 label_singular: Photo
                 required: false
-                field: { label: Photo, widget: image }
+                # The subfield needs a `name` -- without it this field fails
+                # Sveltia's config schema and the photo list won't render.
+                field: { name: photo, label: Photo, widget: image }
               - name: blurb
                 label: "Description (real, honest copy -- see DEVELOPMENT.md section 1 for the brand voice/what NOT to claim)"
                 widget: text
@@ -181,10 +207,11 @@ collections:
                   Set to 0 to show "Sold Out" and disable checkout.
                   Set to a number 1-5 to show a warning badge (e.g. "Only 3 left").
                   (Note: This is manually updated and does not auto-sync with Etsy).
+              # NOTE: no label_singular here -- a plain string list (no
+              # subfields) doesn't accept it per Sveltia's config schema.
               - name: ingredients
                 label: "Ingredients / Materials list (optional)"
                 widget: list
-                label_singular: Ingredient
                 required: false
                 hint: >-
                   Source this from the product's OWN Etsy listing
@@ -255,6 +282,10 @@ collections:
               listed below plus this discount -- never hand-set a price
               here, there's nowhere to put one.
             fields:
+              # Same as products: `id` exists in the data file, so it must be
+              # declared here or a CMS save strips it (it's the Snipcart ID
+              # and wishlist key for the bundle).
+              - { name: id, label: "Bundle ID (advanced -- leave blank for new bundles, never change on existing ones)", widget: string, required: false }
               - { name: name, label: "Bundle Name", widget: string }
               - name: productIds
                 label: "Product IDs In This Bundle (2 or more)"
@@ -307,6 +338,9 @@ collections:
             required: false
             summary: "{{fields.dateLabel}} — {{fields.name}} ({{fields.location}})"
             fields:
+              # Past events in events.json also carry a `date` -- declared
+              # here so a CMS save doesn't strip it from existing entries.
+              - { name: date, label: "Event Date (optional -- used for sorting)", widget: datetime, format: "YYYY-MM-DD", date_format: "MM/DD/YYYY", time_format: false, required: false }
               - { name: dateLabel, label: "Date shown (e.g. \"June 2026\")", widget: string }
               - { name: name, label: "Event Name", widget: string }
               - { name: type, label: "Type (optional)", widget: string, required: false }
@@ -329,6 +363,9 @@ collections:
             required: false
             summary: "{{fields.name}} — {{fields.rating}}★"
             fields:
+              # `id` exists on saved reviews -- declared so a CMS save
+              # doesn't strip it. Auto-generated by the build if blank.
+              - { name: id, label: "Review ID (leave blank -- auto-generated)", widget: string, required: false }
               - { name: name, label: "Reviewer name/handle (add \"(Etsy)\" if it's from an Etsy review)", widget: string }
               - { name: rating, label: "Rating (1-5)", widget: number, value_type: int, min: 1, max: 5 }
               - { name: text, label: "Review text (keep it close to what they actually wrote)", widget: text }
@@ -361,6 +398,7 @@ collections:
             required: false
             summary: "{{fields.title}} ({{fields.date}})"
             fields:
+              - { name: id, label: "Post ID (leave blank -- auto-generated from the title)", widget: string, required: false }
               - { name: title, label: "Title", widget: string }
               - { name: date, label: "Publish Date", widget: datetime, format: "YYYY-MM-DD", date_format: "MM/DD/YYYY", time_format: false }
               - { name: image, label: "Featured Image", widget: image, required: false }
@@ -382,6 +420,7 @@ collections:
             required: false
             summary: "{{fields.caption}}"
             fields:
+              - { name: id, label: "Post ID (leave blank -- auto-generated)", widget: string, required: false }
               - { name: image, label: "Post Image", widget: image }
               - { name: caption, label: "Caption", widget: text }
               - { name: url, label: "Original Post Link (optional)", widget: string, required: false }
