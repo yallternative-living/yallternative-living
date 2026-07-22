@@ -897,17 +897,17 @@ try {
     // (homepage hero/feature, About bio/secondary, Contact photo, gift
     // card bg) was emitted with NO <picture> sources and served the full
     // raw JPEG. Quote the bare identifier keys first so it parses.
-    jsonText = jsonText.replace(
-      /([{,]\s*)([A-Za-z_][A-Za-z0-9_]*)\s*:/g,
-      '$1"$2":'
-    );
+    jsonText = jsonText.replace(/([{,]\s*)([A-Za-z_][A-Za-z0-9_]*)\s*:/g, '$1"$2":');
     MANIFEST = JSON.parse(jsonText);
   }
 } catch (e) {
   // Surface a real parse failure instead of silently shipping unoptimized
   // page-copy images; a genuinely missing manifest still leaves MANIFEST {}.
   if (fs.existsSync(path.join(ROOT, "assets/js/image-manifest.js"))) {
-    console.warn("[build] WARNING: could not parse image-manifest.js -- page-copy images will not get responsive sources:", e.message);
+    console.warn(
+      "[build] WARNING: could not parse image-manifest.js -- page-copy images will not get responsive sources:",
+      e.message
+    );
   }
 }
 
