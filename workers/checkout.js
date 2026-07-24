@@ -196,6 +196,9 @@ export default {
       const catalog = await loadCatalog(env, ctx);
 
       const metadata = {}; // Stripe session-level metadata (gift recipient/sender/message)
+      if (body && body.pickupMarket) {
+        metadata.pickup_market = truncate(body.pickupMarket, 250);
+      }
       let giftLineIndex = 0;
 
       const lineItems = items.map((item) => {
@@ -268,8 +271,9 @@ export default {
       const hasPhysicalItems = physicalSubtotalCents > 0;
       const freeShippingThresholdCents = 4000; // $40.00
       const flatShippingRateCents = 1000; // $10.00
+      const isPickup = body && Boolean(body.pickupMarket);
       const shippingCents =
-        hasPhysicalItems && physicalSubtotalCents < freeShippingThresholdCents
+        hasPhysicalItems && physicalSubtotalCents < freeShippingThresholdCents && !isPickup
           ? flatShippingRateCents
           : 0;
 

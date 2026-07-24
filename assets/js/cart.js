@@ -109,8 +109,8 @@
   // them to the Stripe session as metadata -- never as anything that
   // affects price (price for gift cards is derived server-side from the
   // "Preset $NN" variant label alone, see workers/checkout.js).
-  function toCheckoutPayload(items) {
-    return {
+  function toCheckoutPayload(items, pickupMarket) {
+    var payload = {
       items: (items || []).map(function (it) {
         var o = { id: it.id, qty: it.qty };
         if (it.variantLabel) o.variant = it.variantLabel;
@@ -122,6 +122,10 @@
         return o;
       })
     };
+    if (pickupMarket) {
+      payload.pickupMarket = pickupMarket;
+    }
+    return payload;
   }
 
   // Expose the pure helpers to Node for testing without touching the DOM layer.
@@ -251,51 +255,46 @@
     }
   }
 
+  function physicalSubtotal(items) {
+    return (items || []).reduce(function (sum, it) {
+      if (it.id === GIFT_CARD_ID) return sum;
+      return sum + unitPrice(it) * it.qty;
+    }, 0);
+  }
+
   function render() {
-    if (!itemsEl) return;
+    ensureDrawer();
     if (!state.items.length) {
       itemsEl.innerHTML = '<p class="yl-cart-empty">Your cart is empty.</p>';
       footEl.innerHTML = "";
       updateBadges();
       return;
     }
+
     itemsEl.innerHTML = state.items
       .map(function (it) {
         var key = lineKey(it);
         var line = unitPrice(it) * it.qty;
-        var variant = it.variantLabel
-          ? '<span class="yl-cart-variant">' +
-            escapeHtml(it.variantName || "") +
-            ": " +
-            escapeHtml(it.variantLabel) +
-            "</span>"
-          : "";
-        var giftTo =
-          it.id === GIFT_CARD_ID && it.giftRecipientEmail
-            ? '<span class="yl-cart-variant yl-cart-gift-to">To: ' +
-              escapeHtml(it.giftRecipientEmail) +
-              "</span>"
-            : "";
+        var variantText = it.variantLabel ? " (" + escapeHtml(it.variantLabel) + ")" : "";
         return (
-          '<div class="yl-cart-line">' +
-          '<img class="yl-cart-thumb" src="' +
+          '<div class="yl-cart-line yl-cart-item">' +
+          '<img src="' +
           escapeAttr(it.image || "") +
-          '" alt="" width="56" height="56" loading="lazy">' +
-          '<div class="yl-cart-info">' +
-          '<span class="yl-cart-name">' +
+          '" alt="" width="48" height="48" loading="lazy">' +
+          '<div class="yl-cart-details">' +
+          '<strong>' +
           escapeHtml(it.name) +
-          "</span>" +
-          variant +
-          giftTo +
-          '<span class="yl-cart-price">' +
+          variantText +
+          "</strong>" +
+          '<span>' +
           money(unitPrice(it)) +
           "</span>" +
           "</div>" +
           '<div class="yl-cart-qty">' +
           '<button type="button" data-cart-action="dec" data-key="' +
           escapeAttr(key) +
-          '" aria-label="Decrease quantity">&minus;</button>' +
-          '<span aria-live="polite">' +
+          '" aria-label="Decrease quantity">-</button>' +
+          '<span>' +
           it.qty +
           "</span>" +
           '<button type="button" data-cart-action="inc" data-key="' +
@@ -316,13 +315,16 @@
       .join("");
 
     var sub = subtotal(state.items);
+    var physSub = physicalSubtotal(state.items);
     var threshold = freeShipThreshold();
-    var remaining = Math.max(0, threshold - sub);
-    var shipMsg =
-      remaining > 0
+    var remaining = Math.max(0, threshold - physSub);
+
+    var shipMsg = state.isPickup
+      ? "📍 Local SC Market Pick-up Selected ($0 Shipping)"
+      : remaining > 0
         ? "Add " + money(remaining) + " for free shipping"
         : "You've unlocked free shipping!";
-    var pct = Math.min(100, Math.round((sub / threshold) * 100));
+    var pct = state.isPickup ? 100 : Math.min(100, Math.round((physSub / threshold) * 100));
 
     var earnedPoints = Math.floor(sub);
     var pointsMsg =
@@ -339,9 +341,42 @@
       pointsMsg +
       "</span></div>";
 
+    var pickupHTML = "";
+    if (!root.YL_CONTENT || !root.YL_CONTENT.site || root.YL_CONTENT.site.enableLocalPickup !== false) {
+      var upcomingEvts = (root.YL_EVENTS && Array.isArray(root.YL_EVENTS.upcoming)) ? root.YL_EVENTS.upcoming : [];
+      var optionsHTML = upcomingEvts.map(function (evt) {
+        var label = (evt.name || "Pop-up Market") + " — " + (evt.dateLabel || "") + " (" + (evt.location || "Landrum, SC") + ")";
+        return '<option value="' + escapeAttr(label) + '"' + (state.pickupMarket === label ? " selected" : "") + ">" + escapeHtml(label) + "</option>";
+      }).join("");
+
+      if (!optionsHTML) {
+        optionsHTML = '<option value="Landrum SC Farmers Market (Saturdays 9am-12pm)">Landrum SC Farmers Market (Saturdays 9am-12pm)</option>';
+      }
+
+      if (!state.pickupMarket && upcomingEvts[0]) {
+        var defaultEvt = upcomingEvts[0];
+        state.pickupMarket = (defaultEvt.name || "Pop-up Market") + " — " + (defaultEvt.dateLabel || "") + " (" + (defaultEvt.location || "Landrum, SC") + ")";
+      }
+
+      pickupHTML =
+        '<div class="yl-cart-pickup-wrap" style="margin: 10px 0; padding: 10px; background: var(--paper-dim); border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 0.85rem;">' +
+        '  <label style="display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer; color: var(--whiskey); margin: 0;">' +
+        '    <input type="checkbox" id="yl-cart-pickup-checkbox" style="accent-color: var(--whiskey); cursor: pointer;"' + (state.isPickup ? ' checked' : '') + '>' +
+        '    <span>📍 Local SC Market Pick-up (Free)</span>' +
+        '  </label>' +
+        '  <div id="yl-cart-pickup-select-container" style="margin-top: 8px;' + (state.isPickup ? ' display: block;' : ' display: none;') + '">' +
+        '    <label for="yl-cart-pickup-select" style="font-size: 0.78rem; color: var(--paper-muted); display: block; margin-bottom: 4px;">Choose Upcoming Market Location:</label>' +
+        '    <select id="yl-cart-pickup-select" style="width: 100%; padding: 6px 8px; font-size: 0.82rem; background: var(--paper); color: var(--paper-bright); border: 1px solid var(--border-color); border-radius: 4px;">' +
+        optionsHTML +
+        '    </select>' +
+        '  </div>' +
+        '</div>';
+    }
+
     footEl.innerHTML =
       upsellHTML() +
       pointsHTML +
+      pickupHTML +
       '<div class="yl-cart-ship">' +
       '<div class="yl-cart-ship-msg">' +
       shipMsg +
@@ -354,9 +389,33 @@
       money(sub) +
       "</strong></div>" +
       '<button type="button" class="btn btn-primary btn-block yl-cart-checkout">Checkout</button>' +
-      '<p class="yl-cart-note">Shipping &amp; taxes calculated at checkout.</p>';
+      '<p class="yl-cart-note">Promo codes, gift cards &amp; taxes applied at checkout.</p>';
 
     footEl.querySelector(".yl-cart-checkout").addEventListener("click", checkout);
+
+    var pickupCb = footEl.querySelector("#yl-cart-pickup-checkbox");
+    var pickupSelect = footEl.querySelector("#yl-cart-pickup-select");
+    var pickupContainer = footEl.querySelector("#yl-cart-pickup-select-container");
+
+    if (pickupCb) {
+      pickupCb.addEventListener("change", function () {
+        state.isPickup = pickupCb.checked;
+        if (pickupContainer) {
+          pickupContainer.style.display = state.isPickup ? "block" : "none";
+        }
+        if (pickupSelect) {
+          state.pickupMarket = pickupSelect.value;
+        }
+        render();
+      });
+    }
+
+    if (pickupSelect) {
+      pickupSelect.addEventListener("change", function () {
+        state.pickupMarket = pickupSelect.value;
+      });
+    }
+
     var upsellRow = footEl.querySelector(".yl-cart-upsell");
     if (upsellRow) {
       upsellRow.addEventListener("click", function (e) {
@@ -509,7 +568,7 @@
     fetch(CHECKOUT_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(toCheckoutPayload(state.items))
+      body: JSON.stringify(toCheckoutPayload(state.items, state.isPickup ? state.pickupMarket : null))
     })
       .then(function (r) {
         return r.json();
