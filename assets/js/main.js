@@ -1637,6 +1637,30 @@
   function renderCards(container, products, opts) {
     opts = opts || {};
     var eagerFirst = opts.eagerFirst !== false;
+    if (!products || !products.length) {
+      container.innerHTML =
+        '<div class="yl-no-results" style="grid-column: 1 / -1; text-align: center; padding: 3rem 1.5rem; background: var(--paper-dim); border: 1px dashed var(--border-color); border-radius: var(--radius-md); margin: 1rem 0;">' +
+        '  <span style="font-size: 2.5rem; display: block; margin-bottom: 0.5rem;">🖤</span>' +
+        '  <h3 style="font-family: var(--font-heading); margin-bottom: 0.5rem; color: var(--whiskey);">No Apothecary Items Found</h3>' +
+        '  <p style="color: var(--paper-muted); max-width: 420px; margin: 0 auto 1.25rem; font-size: 0.9rem;">We couldn\'t find any salves, soaks, or goods matching your search or active filter.</p>' +
+        '  <button type="button" class="btn btn-outline btn-sm" id="resetFiltersBtn">Reset Filters & Search</button>' +
+        "</div>";
+      var resetBtn = container.querySelector("#resetFiltersBtn");
+      if (resetBtn) {
+        resetBtn.addEventListener("click", function () {
+          var searchInput = document.getElementById("shopSearch");
+          if (searchInput) {
+            searchInput.value = "";
+            searchInput.dispatchEvent(new Event("input"));
+          }
+          var allPill = document.querySelector('.cat-pill[data-category="all"]');
+          if (allPill) {
+            allPill.click();
+          }
+        });
+      }
+      return;
+    }
     container.innerHTML = products
       .map(function (p, i) {
         return cardHTML(p, { eager: eagerFirst && i < EAGER_CARD_COUNT });
