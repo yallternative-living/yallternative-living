@@ -29,17 +29,27 @@ I've set up a simple **Website Dashboard** where you can edit the site's content
 To start taking payments, sending newsletters, or moderating reviews, follow the step-by-step guide in the **[Launch & Development Guide](docs/DEVELOPMENT.md)** or reference **[Savanna's Site Editing Guide](docs/EDITING-GUIDE.md)** for a deeper dive into content management.
 
 Here is a quick checklist of the external accounts you'll need to set up for launch:
-1. **[ ] Hosting & Domain (Netlify & Porkbun)** (To keep the site online)
-2. **[ ] Customer Checkout & Credit Cards (Stripe)** (To get paid)
-3. **[ ] Email Newsletters (Kit)** (To capture emails)
-4. **[ ] Contact Form & Customer Reviews (Formspree)** (To receive messages)
-5. **[ ] Digital Gift Cards (built-in via Stripe / Gift Up! - Optional)**
+1. **[ ] Hosting & Domain (Netlify/Vercel & Porkbun)** (To keep the site online)
+2. **[ ] Customer Checkout & Credit Cards (Stripe)** (On-site cart + Stripe Checkout Worker in `workers/checkout.js`)
+3. **[ ] Email Newsletters (Kit / ConvertKit)** (To capture emails)
+4. **[ ] Contact Form & Customer Reviews (Formspree / Resend Worker)** (To receive messages)
+5. **[ ] Digital Gift Cards (Stripe Coupons & Promotion Codes via `netlify/functions/fulfill-gift-card.js`)**
 6. **[ ] Customer Live Chat (Tawk.to - Optional)**
 7. **[ ] Store Management (Sveltia CMS)**
+
+---
+
+## Technical Architecture & Testing
+
+- **Architecture**: 100% static HTML/CSS/JS frontend with zero runtime framework dependencies. Fast, mobile-first, and offline-capable via `sw.js`.
+- **Checkout & Cart**: On-site drawer cart (`assets/js/cart.js`) backed by server-side Cloudflare Workers (`workers/checkout.js`) for price-tampering security.
+- **Automated Verification**: Run `npm test` to execute **270+ static QA assertions** (JSON-LD validation, CSP byte-sync, live WCAG contrast, variant parsing) and `npm run test:integration` for headless Puppeteer browser testing across viewports.
 
 ---
 
 ## Helpful Resources
 
 - **[Savanna's Site Editing Guide (EDITING-GUIDE.md)](docs/EDITING-GUIDE.md)**: A detailed walkthrough of how to use the CMS, manage images, handle coming-soon products, and more.
-- **[Development Guide (DEVELOPMENT.md)](docs/DEVELOPMENT.md)**: The technical blueprint of the site. Useful if you ever hire a developer to add new features or redesign components.
+- **[Development Guide (DEVELOPMENT.md)](docs/DEVELOPMENT.md)**: The technical blueprint of the site.
+- **[Stripe Migration Guide (STRIPE-MIGRATION.md)](docs/STRIPE-MIGRATION.md)**: Step-by-step migration guide for Stripe Checkout and gift card fulfillment.
+- **[Self-Hosting Fonts Guide (SELF-HOSTING-FONTS.md)](docs/SELF-HOSTING-FONTS.md)**: Guide for self-hosting typography assets.
