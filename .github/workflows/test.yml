@@ -13,21 +13,45 @@ name: QA checks
 # set and `npm run build-data` is re-run -- that's the check doing its job,
 # not a broken pipeline.
 
+# Minutes-saving notes (added to stop this workflow burning Actions minutes):
+#   * paths-ignore: doc-only commits (*.md, docs/) don't trigger a run.
+#   * concurrency: a newer push cancels the older in-progress run instead of
+#     letting both finish.
+#   * PUPPETEER_SKIP_DOWNLOAD: this job runs lint/format/qa only -- none of
+#     which need a browser -- so we skip Puppeteer's ~150MB Chromium download,
+#     which was the single biggest chunk of every `npm install` here.
+#   * npm cache: setup-node caches ~/.npm keyed on the lockfile so repeat
+#     installs are near-instant.
+# The biggest lever of all, though, is repo visibility: GitHub Actions is
+# FREE and UNLIMITED on public repos. This is a static marketing site with no
+# real secrets committed (keys are placeholders / GitHub Secrets), so making
+# the repo public removes the minutes cap entirely.
+
 on:
   push:
     branches: [main]
+    paths-ignore: ["**.md", "docs/**"]
   pull_request:
     branches: [main]
+    paths-ignore: ["**.md", "docs/**"]
+
+concurrency:
+  group: qa-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   qa:
     runs-on: ubuntu-latest
+    env:
+      PUPPETEER_SKIP_DOWNLOAD: "true"
+      PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: "true"
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
-      - run: npm install
+          cache: "npm"
+      - run: npm install --no-audit --no-fund
       - run: npm run lint
       - run: npm run format:check
       - run: npm test

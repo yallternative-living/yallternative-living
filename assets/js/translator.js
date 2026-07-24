@@ -178,17 +178,17 @@
         // Avoid translating interactive widgets, checkout elements, or skipped text
         var curr = parent;
         while (curr) {
-          if (curr.id === "snipcart" || curr.id === "tawk-chat-container") {
+          if (curr.id === "yl-cart-drawer" || curr.id === "tawk-chat-container") {
             return NodeFilter.FILTER_REJECT;
           }
           if (
             curr.classList &&
             (curr.classList.contains("skiptranslate") ||
-              curr.classList.contains("snipcart-checkout") ||
+              curr.classList.contains("cart-toggle") ||
               curr.classList.contains("brand") ||
               curr.classList.contains("brand-word") ||
               Array.from(curr.classList).some(function (c) {
-                return c.startsWith("snipcart-") || c.startsWith("tawk-");
+                return c.startsWith("yl-cart") || c.startsWith("tawk-");
               }))
           ) {
             return NodeFilter.FILTER_REJECT;
@@ -502,18 +502,18 @@
             var curr = parent;
             var skip = false;
             while (curr) {
-              if (curr.id === "snipcart" || curr.id === "tawk-chat-container") {
+              if (curr.id === "yl-cart-drawer" || curr.id === "tawk-chat-container") {
                 skip = true;
                 break;
               }
               if (
                 curr.classList &&
                 (curr.classList.contains("skiptranslate") ||
-                  curr.classList.contains("snipcart-checkout") ||
+                  curr.classList.contains("cart-toggle") ||
                   curr.classList.contains("brand") ||
                   curr.classList.contains("brand-word") ||
                   Array.from(curr.classList).some(function (c) {
-                    return c.startsWith("snipcart-") || c.startsWith("tawk-");
+                    return c.startsWith("yl-cart") || c.startsWith("tawk-");
                   }))
               ) {
                 skip = true;
@@ -526,15 +526,15 @@
         }
       }
     } else if (node.nodeType === Node.ELEMENT_NODE) {
-      if (node.id === "snipcart" || node.id === "tawk-chat-container") return;
+      if (node.id === "yl-cart-drawer" || node.id === "tawk-chat-container") return;
       if (
         node.classList &&
         (node.classList.contains("skiptranslate") ||
-          node.classList.contains("snipcart-checkout") ||
+          node.classList.contains("cart-toggle") ||
           node.classList.contains("brand") ||
           node.classList.contains("brand-word") ||
           Array.from(node.classList).some(function (c) {
-            return c.startsWith("snipcart-") || c.startsWith("tawk-");
+            return c.startsWith("yl-cart") || c.startsWith("tawk-");
           }))
       )
         return;

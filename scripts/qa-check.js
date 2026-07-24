@@ -21,8 +21,8 @@
      - products-data.js: every product has the required fields, and
        any variants block is well-formed (options array, numeric
        priceDelta, matches what build-site-data.js expects)
-     - Snipcart custom-field option strings round-trip parse correctly
-       (catches a malformed "Label[+X.XX]" before it ships)
+     - Gift card custom-field option string round-trips parse correctly
+       (catches a malformed "Preset $NN[+X.XX]" before it ships)
      - WCAG contrast math for the site's actual current color tokens,
        parsed live out of styles.css -- not hardcoded historical
        values, so a future palette edit gets re-checked automatically
@@ -52,6 +52,7 @@ var PAGES = [
   "terms.html",
   "policies.html",
   "404.html",
+  "thank-you.html",
   "journal.html"
 ];
 
@@ -365,11 +366,14 @@ PRODUCTS.forEach(function (p) {
         if (typeof o.label !== "string" || !o.label) fail(p.id + ": variant option missing label");
         if (o.priceDelta !== undefined && typeof o.priceDelta !== "number")
           fail(p.id + ": variant option priceDelta must be numeric", o.label);
-        // Snipcart's "Label[+X.XX]" syntax breaks if the label itself
-        // contains a literal "[" or "|" -- catch that before it ships.
+        // main.js builds each product's data-item-custom1-options attribute
+        // as "Label[+X.XX]|Label[+X.XX]|..." (see addToCartHTML() there,
+        // and cart.js's addItemFromButton() which parses it back apart) --
+        // a literal "[", "]", or "|" inside the label itself would break
+        // that round-trip, so catch it here before it ships.
         if (/[[\]|]/.test(o.label))
           fail(
-            p.id + ": variant option label contains [ ] or | (breaks Snipcart's option syntax)",
+            p.id + ": variant option label contains [ ] or | (breaks the custom1-options syntax)",
             o.label
           );
       });
@@ -450,35 +454,37 @@ if (!BUNDLES.length) {
   });
 }
 
-/* ---------- 7) Snipcart custom-field round-trip ---------- */
-section("Snipcart custom-field syntax round-trip");
-var snipcartPath = path.join(ROOT, "assets/data/snipcart-products.json");
-if (fs.existsSync(snipcartPath)) {
-  var snipcartManifest = JSON.parse(fs.readFileSync(snipcartPath, "utf8"));
-  snipcartManifest.forEach(function (p) {
-    (p.customFields || []).forEach(function (cf) {
-      var parts = cf.options.split("|");
-      var parsedOk = parts.every(function (part) {
-        return /^.+\[[+-]\d+\.\d{2}\]$/.test(part);
-      });
-      if (parsedOk)
-        ok(
-          p.id +
-            ': customField "' +
-            cf.name +
-            '" options parse correctly (' +
-            parts.length +
-            " option(s))"
-        );
-      else
-        fail(
-          p.id + ': customField "' + cf.name + "\" options don't match Label[+X.XX] pattern",
-          cf.options
-        );
-    });
+/* ---------- 7) Gift card custom-field round-trip ---------- */
+section("Gift card custom-field syntax round-trip");
+// The gift card is the one product whose price options live directly in
+// static HTML rather than being built at runtime from products.json's
+// variants.options (see build-site-data.js's giftCardOptionsList loop and
+// workers/checkout.js's resolveGiftCardAmountCents(), which parses this
+// same "Preset $NN[+X.XX]" syntax server-side). Check it round-trips here
+// so a bad build-site-data.js edit gets caught before it ships.
+var shopHtmlForGiftCard = fs.readFileSync(path.join(ROOT, "shop.html"), "utf8");
+var giftCardOptionsMatch = shopHtmlForGiftCard.match(/data-item-custom1-options="([^"]+)"/);
+if (giftCardOptionsMatch) {
+  var giftCardParts = giftCardOptionsMatch[1].split("|");
+  var giftCardParsedOk = giftCardParts.every(function (part) {
+    return /^.+\[[+-]\d+\.\d{2}\]$/.test(part);
   });
+  if (giftCardParsedOk)
+    ok(
+      "shop.html gift card: data-item-custom1-options options parse correctly (" +
+        giftCardParts.length +
+        " option(s))"
+    );
+  else
+    fail(
+      'shop.html gift card: data-item-custom1-options don\'t all match "Label[+X.XX]" pattern',
+      giftCardOptionsMatch[1].slice(0, 120) + "…"
+    );
 } else {
-  fail("assets/data/snipcart-products.json", "file missing -- run npm run build-data");
+  fail(
+    "shop.html gift card",
+    "data-item-custom1-options attribute not found -- run npm run build-data"
+  );
 }
 
 /* ---------- 8) WCAG contrast math (parsed live from styles.css) ---------- */
@@ -828,8 +834,7 @@ if (!cspText) {
   fail("CSP domain coverage", "couldn't read _headers -- run npm run build-security-headers first");
 } else {
   var REQUIRED_CSP_SUBSTRINGS = [
-    ["cdn.snipcart.com", "Snipcart (checkout widget)"],
-    ["plausible.io", "Plausible (analytics)"],
+    ["umami.is", "Umami (cookieless analytics + conversion events)"],
     ["app.convertkit.com", "Kit/ConvertKit (footer newsletter form, legacy domain)"],
     ["app.kit.com", "Kit/ConvertKit (footer newsletter form, current domain)"],
     ["formspree.io", "Formspree (review submission form)"],
@@ -845,6 +850,13 @@ if (!cspText) {
           " is wired into the site but not allowlisted -- it'll be silently blocked by the browser"
       );
   });
+  // Regression guard: Snipcart was fully removed in favor of a same-origin
+  // cart + Stripe Checkout (see docs/STRIPE-MIGRATION.md). Stripe's hosted
+  // checkout page is reached via a top-level redirect, not a fetch/frame/
+  // form-action from this origin, so it never needs a CSP entry -- if
+  // "snipcart" ever reappears here, something regressed.
+  if (!/snipcart/i.test(cspText)) ok("CSP has no leftover Snipcart references");
+  else fail("CSP still references Snipcart", "expected Snipcart to be fully removed from the CSP");
 }
 
 /* ---------- 15) Live chat (Tawk.to) placeholder wired consistently ---------- */
@@ -1017,24 +1029,24 @@ section("Site FAQ (single source, no duplication)");
   }
 })();
 
-/* ---------- 19) Bundle pricing in snipcart-products.json matches a
-   fresh recompute from products-data.js (catches stale-build drift) ---------- */
-section("Bundle pricing matches a fresh recompute (build freshness check)");
+/* ---------- 19) Bundle pricing sanity (recomputed straight from
+   products-data.js, no generated artifact to go stale) ----------
+   Bundle price used to live in a separately-generated snipcart-
+   products.json manifest, which could drift out of sync with the real
+   catalog if someone forgot to rebuild. That's gone now: main.js's
+   bundlesHTML() computes each bundle's price live in the browser, every
+   page load, straight from window.YL_PRODUCTS -- so there's no static
+   snapshot left to freshness-check against. What's still worth catching
+   here is a bundle whose discount formula produces a nonsensical price
+   (zero, negative, or not actually cheaper than buying the items apart),
+   which would ship a broken-looking price to the shop page. */
+section("Bundle pricing sanity (recomputed from products-data.js)");
 if (!BUNDLES.length) {
-  console.log("  (no bundles defined -- nothing to freshness-check)");
-} else if (!fs.existsSync(snipcartPath)) {
-  fail(
-    "bundle pricing freshness",
-    "assets/data/snipcart-products.json missing -- run npm run build-data"
-  );
+  console.log("  (no bundles defined -- nothing to sanity-check)");
 } else {
   var PRODUCTS_BY_ID_QA = {};
   PRODUCTS.forEach(function (p) {
     PRODUCTS_BY_ID_QA[p.id] = p;
-  });
-  var snipcartById = {};
-  JSON.parse(fs.readFileSync(snipcartPath, "utf8")).forEach(function (item) {
-    snipcartById[item.id] = item;
   });
   BUNDLES.forEach(function (b) {
     var missing = b.productIds.filter(function (id) {
@@ -1045,26 +1057,23 @@ if (!BUNDLES.length) {
       var original = PRODUCTS_BY_ID_QA[id].originalPrice || PRODUCTS_BY_ID_QA[id].price;
       return sum + original;
     }, 0);
-    var expectedPrice = Math.round(fullPrice * (1 - (b.discountPercent || 0) / 100) * 100) / 100;
-    var snipcartEntry = snipcartById["bundle-" + b.id];
-    if (!snipcartEntry) {
-      fail("bundle-" + b.id + " missing from snipcart-products.json", "run npm run build-data");
-    } else if (Math.abs(snipcartEntry.price - expectedPrice) < 0.001) {
+    var bundlePrice = Math.round(fullPrice * (1 - (b.discountPercent || 0) / 100) * 100) / 100;
+    if (bundlePrice <= 0) {
+      fail("bundle-" + b.id + ": computed price is not positive", "$" + bundlePrice);
+    } else if (bundlePrice >= fullPrice) {
+      fail(
+        "bundle-" + b.id + ": computed price isn't actually a discount off the full price",
+        "$" + bundlePrice.toFixed(2) + " >= $" + fullPrice.toFixed(2)
+      );
+    } else {
       ok(
         "bundle-" +
           b.id +
-          ": snipcart-products.json price ($" +
-          snipcartEntry.price.toFixed(2) +
-          ") matches fresh recompute from products-data.js"
-      );
-    } else {
-      fail(
-        "bundle-" + b.id + " price drift",
-        "snipcart-products.json has $" +
-          snipcartEntry.price +
-          " but products-data.js currently computes $" +
-          expectedPrice.toFixed(2) +
-          " -- run npm run build-data"
+          ": computed price $" +
+          bundlePrice.toFixed(2) +
+          " (full $" +
+          fullPrice.toFixed(2) +
+          ") is sane"
       );
     }
   });

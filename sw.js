@@ -5,7 +5,7 @@
  */
 
 /** @const {string} Cache name key, updated on assets release. */
-const CACHE_NAME = "yallternative-cache-v20260722163108";
+const CACHE_NAME = "yallternative-cache-v20260724125817";
 
 /** @const {!Array<string>} Array of absolute URLs to be cached on installation. */
 const ASSETS_TO_CACHE = [
@@ -21,8 +21,12 @@ const ASSETS_TO_CACHE = [
   '/privacy.html',
   '/404.html',
   '/journal.html',
+  '/thank-you.html',
   '/assets/css/styles.css',
+  '/assets/css/cart.css',
   '/assets/js/main.js',
+  '/assets/js/cart.js',
+  '/assets/js/thank-you.js',
   '/assets/js/products-data.js',
   '/assets/js/events-data.js',
   '/assets/js/site-reviews-data.js',
@@ -64,15 +68,29 @@ self.addEventListener('install', event => {
  */
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
+    (async () => {
+      // Navigation Preload: lets the browser start the network request for a
+      // navigation *in parallel* with the service worker booting up, instead
+      // of waiting for the SW to spin up before the fetch even starts. Pure
+      // win for the network-first HTML path below -- shaves the SW startup
+      // cost off every page load. Safe no-op where unsupported (iOS Safari).
+      if (self.registration.navigationPreload) {
+        try {
+          await self.registration.navigationPreload.enable();
+        } catch (e) {
+          /* not fatal -- fall back to a normal fetch */
+        }
+      }
+      const cacheNames = await caches.keys();
+      await Promise.all(
         cacheNames.map(cacheName => {
           if (cacheName !== CACHE_NAME) {
             return caches.delete(cacheName);
           }
         })
       );
-    }).then(() => self.clients.claim())
+      await self.clients.claim();
+    })()
   );
 });
 
@@ -101,8 +119,15 @@ self.addEventListener('fetch', event => {
       // Network-First strategy for HTML and code assets: prefer live server data when online,
       // fall back to cache only when offline or connection is lost.
       event.respondWith(
-        fetch(event.request)
-          .then(response => {
+        (async () => {
+          try {
+            // For navigations, a preloaded response (started in parallel with
+            // the SW booting -- see 'activate') is already in flight; use it
+            // instead of kicking off a second fetch.
+            let response = isNavigation ? await event.preloadResponse : null;
+            if (!response) {
+              response = await fetch(event.request);
+            }
             if (response && response.status === 200) {
               const responseClone = response.clone();
               caches.open(CACHE_NAME).then(cache => {
@@ -110,10 +135,13 @@ self.addEventListener('fetch', event => {
               });
             }
             return response;
-          })
-          .catch(() => {
-            return caches.match(cleanRequest);
-          })
+          } catch (err) {
+            const cached = await caches.match(cleanRequest);
+            // Last-resort offline fallback for navigations so users get the
+            // branded shell instead of the browser's dinosaur error page.
+            return cached || (isNavigation ? caches.match('/index.html') : Response.error());
+          }
+        })()
       );
     } else {
       // Stale-While-Revalidate strategy for other static assets (images, fonts, etc.):

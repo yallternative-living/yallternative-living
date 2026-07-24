@@ -6,6 +6,28 @@
 (function () {
   "use strict";
 
+  /* ---------- Analytics event adapter ----------
+     The site's conversion events (Add to Cart, Purchase, Newsletter Signup,
+     Site Search) were written against Plausible's window.plausible(name, {props})
+     API. Analytics now runs on Umami -- cookieless, free, no consent banner, and
+     it supports these same custom events. Rather than rewrite every call site,
+     this thin adapter keeps the window.plausible(...) signature and forwards to
+     umami.track(). If Umami's script hasn't loaded yet (it's `defer`) or a user
+     blocks it, window.umami is simply absent and the event is skipped -- it must
+     never throw or block the actual add-to-cart / checkout / search. */
+  if (typeof window.plausible !== "function") {
+    window.plausible = function (name, options) {
+      try {
+        if (window.umami && typeof window.umami.track === "function") {
+          var props = options && options.props ? options.props : undefined;
+          window.umami.track(name, props);
+        }
+      } catch (e) {
+        /* analytics is best-effort -- swallow everything */
+      }
+    };
+  }
+
   /* ---------- Theme toggle (dark/light, persisted) ---------- */
   var root = document.documentElement;
   var toggle = document.getElementById("themeToggle");
@@ -40,9 +62,6 @@
         localStorage.setItem("yl-theme", next);
       } catch (e) {
         /* can't persist -- still flip the theme for this page view */
-      }
-      if (typeof window.plausible === "function") {
-        window.plausible("Theme Toggled", { props: { theme: next } });
       }
       applyTheme(next);
     });
@@ -362,9 +381,9 @@
   /* ---------- Wishlist / "Saved For Later" (localStorage, no backend) ----------
      A client-side save list that persists in the shopper's browser --
      nothing to sign in to, nothing server-side to build. Every saved
-     item's real path to purchase is "Add to Cart" -> Snipcart checkout,
-     right here on the site (see addToCartHTML() above); this doesn't
-     link out to Etsy or anywhere else. */
+     item's real path to purchase is "Add to Cart" -> checkout, right here
+     on the site (see addToCartHTML() above); this doesn't link out to
+     Etsy or anywhere else. */
   var WISH_KEY = "yl-wishlist";
   var wishHeartSVG =
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">' +
@@ -546,16 +565,13 @@
     );
   }
 
-  /* ---------- Snipcart "Add to Cart" button builder ----------
-     Every button points data-item-url at the same static JSON manifest
-     (assets/data/snipcart-products.json, auto-generated from
-     products-data.js). That's Snipcart's documented pattern for
-     JS-rendered/SPA-style catalogs: since our product cards are built
-     client-side (not one static HTML page per product), Snipcart's
-     default HTML crawler would find an empty <div> when it tries to
-     validate an order. Pointing every item at one JSON endpoint instead
-     makes order validation actually work. See:
-     https://docs.snipcart.com/v3/setup/order-validation#json-crawler */
+  /* ---------- "Add to Cart" button builder ----------
+     Emits the data-item-* attributes assets/js/cart.js reads at click time
+     (id, name, price, image, and -- for products with a size/scent/blend
+     choice -- data-item-custom1-name/-options/-value). The cart itself
+     re-validates every price server-side against products.json before
+     Stripe Checkout is ever created (see workers/checkout.js), so nothing
+     here needs to be trusted, just read. */
   function addToCartHTML(p, extraClass) {
     if (p.id === "yallternative-gift-card") {
       return (
@@ -567,12 +583,14 @@
 
     // Real Etsy listings for some products sell more than one size/scent/
     // blend under a single listing (see p.variants, sourced from actual
-    // listing research). Snipcart's own custom-field mechanism handles
-    // this natively: data-item-customN-options declares every choice and
-    // its price delta, data-item-customN-value is the one currently
-    // selected. variantSelectHTML()'s change handler keeps -value (and
-    // the base data-item-price for delta'd variants) in sync with
-    // whatever the shopper picks before they click this button.
+    // listing research). The data-item-customN-* attribute convention
+    // (a holdover naming scheme from this cart's Snipcart-era predecessor,
+    // kept because it already threads through every button and both cart.js
+    // and the checkout Worker read it) declares every choice and its price
+    // delta: data-item-customN-options lists them, data-item-customN-value
+    // is the one currently selected. variantSelectHTML()'s change handler
+    // keeps -value (and the base data-item-price for delta'd variants) in
+    // sync with whatever the shopper picks before they click this button.
     var variantAttrs = "";
     if (p.variants && Array.isArray(p.variants.options) && p.variants.options.length) {
       var optionsStr = p.variants.options
@@ -615,16 +633,15 @@
       );
     }
 
-    // data-item-max-quantity is Snipcart's own documented per-order cap
-    // (docs.snipcart.com/v2/configuration/product-definition) -- real and
-    // HTML-only, unlike a live decrementing counter, which requires the
-    // Snipcart dashboard's own Inventory feature tied to a real account
-    // (see DEVELOPMENT.md section 8). Only added when a real count exists.
+    // data-item-max-quantity is a real, HTML-only per-order cap read by
+    // cart.js (which clamps to the lower of this and its own 99-unit hard
+    // ceiling) -- unlike a live decrementing counter, it doesn't need a
+    // backend to enforce. Only added when a real stock count exists.
     var stockAttrs =
       typeof p.stock === "number" && p.stock > 0 ? ' data-item-max-quantity="' + p.stock + '"' : "";
 
     return (
-      '<button type="button" class="btn btn-primary btn-sm snipcart-add-item' +
+      '<button type="button" class="btn btn-primary btn-sm yl-add-item' +
       (extraClass ? " " + extraClass : "") +
       '"' +
       ' data-item-id="' +
@@ -636,7 +653,6 @@
       ' data-item-price="' +
       p.price.toFixed(2) +
       '"' +
-      ' data-item-url="/assets/data/snipcart-products.json"' +
       ' data-item-description="' +
       attrEsc(p.blurb) +
       '"' +
@@ -670,8 +686,9 @@
   }
 
   /* ---------- Size/scent/blend picker (only for products that have one) ----------
-     The <option> value doubles as the exact label Snipcart's custom-field
-     value must match; data-delta feeds the price-update math in the
+     The <option> value doubles as the exact label the button's
+     data-item-custom1-value must match (see addToCartHTML() and cart.js's
+     deltaForLabel()); data-delta feeds the price-update math in the
      change handler below. Real <select> means full keyboard/AT support
      for free -- no custom listbox widget needed for something this simple. */
   function variantSelectHTML(p) {
@@ -832,7 +849,7 @@
       '<button class="wish-drawer-close" id="wishClose" type="button" aria-label="Close saved items">&times;</button></div>' +
       '<div class="wish-drawer-body" id="wishBody"></div>' +
       '<div class="wish-drawer-foot">' +
-      '<button class="btn btn-primary btn-block snipcart-checkout" type="button">View Cart &amp; Checkout</button>' +
+      '<button class="btn btn-primary btn-block cart-toggle" type="button">View Cart &amp; Checkout</button>' +
       '<p class="muted">Saved items live in this browser only. Tap "Add to Cart" on anything above, then check out securely right here.</p>' +
       "</div>";
     document.body.appendChild(backdrop);
@@ -1183,7 +1200,7 @@
      Delegated "change" listener (change bubbles, so this covers every
      card without per-select bookkeeping). Reads the chosen <option>'s
      data-delta, adds it to the <select>'s own data-base-price, and pushes
-     both the visible price and the Snipcart button's data-item-price /
+     both the visible price and the Add to Cart button's data-item-price /
      data-item-custom1-value up to date before the shopper can click
      Add to Cart. */
   document.addEventListener("change", function (e) {
@@ -1200,37 +1217,35 @@
     // before they click Add to Cart.
     var priceEl = card.querySelector(".card-foot .price");
     if (priceEl) priceEl.textContent = "$" + newPrice.toFixed(2);
-    var addBtn = card.querySelector(".snipcart-add-item");
+    var addBtn = card.querySelector(".yl-add-item");
     if (addBtn) {
       // IMPORTANT: data-item-price must stay at the item's BASE price,
-      // never basePrice + delta. Snipcart's own custom-field mechanism
-      // (data-item-custom1-options, set once in addToCartHTML) already
-      // encodes each option's +/- price modifier and adds it to
-      // data-item-price automatically once that option is selected --
-      // confirmed against Snipcart's documented pricing behavior
-      // ("the final price is the sum of data-item-price and the price
-      // variations of the selected options"). Bumping data-item-price
-      // here too would double-charge the delta on every priced variant
-      // (shea-butter 8oz, hand-scrub 4oz, either soak's 24oz, etc.) --
-      // only data-item-custom1-value (which option is selected) needs
-      // to change here.
+      // never basePrice + delta. cart.js (and, server-side, the price
+      // integrity check in workers/checkout.js) already reads
+      // data-item-custom1-options and adds the selected option's own +/-
+      // delta to the base price -- bumping data-item-price here too would
+      // double-charge the delta on every priced variant (shea-butter 8oz,
+      // hand-scrub 4oz, either soak's 24oz, etc.). Only
+      // data-item-custom1-value (which option is selected) needs to
+      // change here.
       addBtn.setAttribute("data-item-custom1-value", opt.value);
     }
   });
 
-  /* ---------- Conversion tracking (Plausible custom events) ----------
-     Plausible only sees pageviews out of the box -- with no event
+  /* ---------- Conversion tracking (custom events) ----------
+     Analytics only sees pageviews out of the box -- with no event
      tracking, there's no way to tell "people are visiting" from "people
      actually want to buy something." This fires a lightweight custom
      event on every Add to Cart click with the product name as a prop,
      so the real, once-deployed dashboard can show which products people
      are actually trying to buy, not just which pages get looked at.
-     window.plausible is defined by the analytics script tag in <head>;
+     window.plausible here is the analytics adapter defined at the top of
+     this file (it forwards to Umami's umami.track); it always exists, and
      guarded here since it won't exist at all when testing locally over
      file:// (no network) or for anyone running an ad/tracker blocker --
      either way this must never throw or block the actual add-to-cart. */
   document.addEventListener("click", function (e) {
-    var btn = e.target.closest(".snipcart-add-item");
+    var btn = e.target.closest(".yl-add-item");
     if (!btn || typeof window.plausible !== "function") return;
     window.plausible("Add to Cart", {
       props: {
@@ -1239,26 +1254,11 @@
     });
   });
   /* The one event that actually matters more than "added to cart" is
-     "paid" -- Snipcart fires cart.confirmed once an order really goes
-     through. Hooking it gives a real completed-order count in Plausible
-     instead of just purchase *intent*. snipcart.ready only fires once
-     the Snipcart script has actually finished loading (it's lazy-loaded
-     on first interaction, see loadStrategy above), so this listens for
-     that first rather than assuming window.Snipcart exists yet. */
-  document.addEventListener("snipcart.ready", function () {
-    if (!window.Snipcart || !window.Snipcart.events) return;
-    window.Snipcart.events.on("cart.confirmed", function (cart) {
-      if (typeof window.plausible !== "function") return;
-      window.plausible("Purchase", {
-        props: {
-          revenue: {
-            currency: cart.currency || "USD",
-            amount: cart.total || 0
-          }
-        }
-      });
-    });
-  });
+     "paid". That fires from thank-you.html (the Stripe success redirect
+     target, see workers/checkout.js's success_url) rather than from here --
+     unlike Snipcart's in-page cart.confirmed event, Stripe Checkout is a
+     full-page navigation away and back, so there's no in-page event to
+     listen for. See thank-you.html's own inline script. */
 
   /* ---------- Tag pills HTML ---------- */
   var TAG_LABELS = {
@@ -1328,38 +1328,12 @@
       }
       renderBundles(data);
 
-      fetch("/.netlify/functions/inventory")
-        .then(function (res) {
-          if (!res.ok) throw new Error("Status " + res.status);
-          return res.json();
-        })
-        .then(function (stockData) {
-          if (!stockData || typeof stockData !== "object" || Object.keys(stockData).length === 0)
-            return;
-          var hasChanges = false;
-          data.products.forEach(function (p) {
-            if (stockData[p.id] !== undefined) {
-              var newStock = Number(stockData[p.id]);
-              if (p.stock !== newStock) {
-                p.stock = newStock;
-                hasChanges = true;
-              }
-            }
-          });
-          if (hasChanges) {
-            if (sortSelect) {
-              sortSelect.dispatchEvent(new Event("change"));
-            } else if (shopGrid && !filterRow) {
-              renderCards(shopGrid, data.products);
-            }
-            if (featuredGrid) {
-              renderCards(featuredGrid, pickFeatured(data.products), { eagerFirst: false });
-            }
-          }
-        })
-        .catch(function (err) {
-          console.warn("[inventory] Could not fetch live stock levels:", err);
-        });
+      // A live-inventory overlay used to fetch real-time stock levels from
+      // Snipcart's product API here (/.netlify/functions/inventory) and
+      // patch them over the static products.json numbers. That endpoint
+      // went away with Snipcart -- stock is now whatever's set on each
+      // product in assets/data/products.json (editable via the Sveltia CMS
+      // at /admin), refreshed on every deploy like the rest of the catalog.
     } else {
       console.warn("Product data (assets/js/products-data.js) did not load.");
     }
@@ -1393,7 +1367,7 @@
   /* ---------- Bundles / gift sets (shop.html only) ----------
      Real component products at a computed discount -- see products-data.js
      "bundles" array for the full rationale. Each bundle checks out as its
-     own single Snipcart line item (id "bundle-<id>"), priced by
+     own single cart line item (id "bundle-<id>"), priced by
      scripts/build-site-data.js from the same real product prices this
      function reads, so the on-page math and the checkout price can never
      disagree. */
@@ -1440,7 +1414,7 @@
           ' <s class="bundle-full-price">$' +
           fullPrice.toFixed(2) +
           "</s></span>" +
-          '<button type="button" class="btn btn-primary btn-sm snipcart-add-item"' +
+          '<button type="button" class="btn btn-primary btn-sm yl-add-item"' +
           ' data-item-id="bundle-' +
           attrEsc(b.id) +
           '"' +
@@ -1450,7 +1424,6 @@
           ' data-item-price="' +
           bundlePrice.toFixed(2) +
           '"' +
-          ' data-item-url="/assets/data/snipcart-products.json"' +
           ' data-item-description="' +
           attrEsc(b.blurb) +
           '"' +
@@ -2261,108 +2234,14 @@
     render();
   }
 
-  /* ---------- Snipcart load-failure fallback ----------
-     Checkout is a client-side script from cdn.snipcart.com, loaded
-     lazily on the first cart interaction (loadStrategy:
-     "on-user-interaction"). If an aggressive ad/tracker blocker or a
-     CDN outage stops it loading, a shopper could click "Add to Cart"
-     and get nothing -- a silent dead end and a lost sale. This watches
-     for exactly that: on the first cart interaction, it waits a few
-     seconds for window.Snipcart to come alive; if it never does, it
-     reveals a small, dismissible bar pointing at the Etsy shop (a real,
-     always-available second sales channel every product already links
-     to) so the sale isn't simply lost. Purely additive -- it never
-     touches or blocks Snipcart's own behavior, so when Snipcart loads
-     normally (the overwhelming majority of visits) this does nothing at
-     all. */
-  (function snipcartFallback() {
-    var ETSY_SHOP = "https://www.etsy.com/shop/YallternativeLivinCO";
-    var armed = false;
-    var barShown = false;
-    var bar = null;
-    var watchIv = null;
-
-    function snipcartAlive() {
-      // "#snipcart[hidden=false]" (the old second clause here) can never
-      // match -- the hidden attribute reflects as present/absent, never
-      // the literal string "false" -- so window.Snipcart plus a check for
-      // Snipcart's populated cart DOM are the two real signals.
-      return !!(window.Snipcart || document.querySelector("#snipcart .snipcart-cart"));
-    }
-
-    function hideFallbackBar() {
-      if (bar) {
-        bar.remove();
-        bar = null;
-      }
-      barShown = false;
-    }
-
-    function showFallbackBar() {
-      if (barShown) return;
-      barShown = true;
-      bar = document.createElement("div");
-      bar.className = "cart-fallback";
-      bar.setAttribute("role", "alert");
-      bar.innerHTML =
-        "<p>Checkout didn't load. An ad or tracker blocker can sometimes stop it. " +
-        'You can still grab everything on our <a href="' +
-        ETSY_SHOP +
-        '" target="_blank" rel="noopener">Etsy shop<span class="sr-only">(opens in new tab)</span></a>.</p>' +
-        '<button type="button" class="cart-fallback-close" aria-label="Dismiss">&times;</button>';
-      bar.querySelector(".cart-fallback-close").addEventListener("click", hideFallbackBar);
-      document.body.appendChild(bar);
-
-      // Snipcart can still finish loading late (slow connection, a
-      // retried request) even after we've given up and shown this bar.
-      // Keep a light watch running so it disappears the moment Snipcart
-      // does come alive, instead of leaving a stale "checkout is broken"
-      // message sitting next to a cart that now works fine.
-      var watched = 0;
-      watchIv = setInterval(function () {
-        watched += 2000;
-        if (snipcartAlive()) {
-          clearInterval(watchIv);
-          hideFallbackBar();
-          return;
-        }
-        if (watched >= 120000) clearInterval(watchIv); // stop watching after 2min
-      }, 2000);
-    }
-
-    function arm() {
-      if (armed) return;
-      armed = true;
-      var waited = 0;
-      // Snipcart's own script starts downloading on this exact same
-      // click -- it gets no head start over this watcher -- so a short
-      // timeout here mostly just flags normal load latency as "broken."
-      // 15s gives slower connections real room before we assume Snipcart
-      // actually failed rather than just being slow.
-      var iv = setInterval(function () {
-        waited += 500;
-        if (snipcartAlive()) {
-          clearInterval(iv);
-          return; // loaded fine -- nothing to do
-        }
-        if (waited >= 15000) {
-          clearInterval(iv);
-          if (!snipcartAlive()) showFallbackBar();
-        }
-      }, 500);
-    }
-
-    // Capture phase so this runs regardless of Snipcart's own handlers;
-    // we never preventDefault, so a working Snipcart proceeds untouched.
-    document.addEventListener(
-      "click",
-      function (e) {
-        var t = e.target;
-        if (t && t.closest && t.closest(".snipcart-add-item, .snipcart-checkout")) arm();
-      },
-      true
-    );
-  })();
+  /* A Snipcart-specific "checkout script failed to load" fallback used to
+     live here (watching for window.Snipcart, showing an Etsy-link bar if
+     it never appeared). Removed as part of the Stripe migration: cart.js
+     is a same-origin, first-party script bundled with the rest of the
+     site rather than a lazy-loaded third-party CDN script, so that
+     specific failure mode no longer applies. Checkout-request failures
+     (e.g. the /api/checkout Worker being unreachable) are instead handled
+     inline by cart.js's own checkout() -- see its catch block. */
 
   /* ---------- Announcement bar: free shipping threshold ---------- */
   (function announcementBar() {
@@ -2377,197 +2256,13 @@
     document.body.insertBefore(bar, document.body.firstChild);
   })();
 
-  /* ---------- Snipcart cart drawer: shipping progress + cross-sell ---------- */
-  (function snipcartCartEnhancements() {
-    var data = window.YL_PRODUCTS;
-    if (!data || !data.shop) return;
-    var threshold = data.shop.freeShippingThreshold || 0;
-    var products = data.products || [];
-
-    // ⚡ Bolt: Pre-sort the cross-sell products list once during init instead of on every cart render
-    var sortedCrossSellCandidates = products.slice().sort(function (a, b) {
-      return a.price - b.price;
-    });
-
-    function buildProgressHTML(total) {
-      if (threshold <= 0) return "";
-      var pct = Math.min(100, Math.round((total / threshold) * 100));
-      var remaining = threshold - total;
-      if (remaining <= 0) {
-        return (
-          '<div class="shipping-progress shipping-progress--done">' +
-          "🎉 You've unlocked free shipping!" +
-          "</div>"
-        );
-      }
-      return (
-        '<div class="shipping-progress">' +
-        "You're <strong>$" +
-        remaining.toFixed(2) +
-        "</strong> away from free shipping!" +
-        '<div class="shipping-progress__bar">' +
-        '<div class="shipping-progress__fill" style="width:' +
-        pct +
-        '%"></div>' +
-        "</div>" +
-        "</div>"
-      );
-    }
-
-    function findCrossSellProduct(cartItemIds) {
-      // Pick the cheapest product NOT already in the cart
-      // ⚡ Bolt: Iterating over the pre-sorted list avoids O(n log n) sorting on every cart state change
-      for (var i = 0; i < sortedCrossSellCandidates.length; i++) {
-        var p = sortedCrossSellCandidates[i];
-        if (cartItemIds.indexOf(p.id) === -1 && p.inStock !== false) {
-          return p;
-        }
-      }
-      return null;
-    }
-
-    function buildCrossSellHTML(product) {
-      if (!product) return "";
-      var imgSrc = product.image || "assets/img/placeholder-coming-soon.svg";
-      if (window.YL_IMG_MANIFEST && window.YL_IMG_MANIFEST[imgSrc]) {
-        imgSrc =
-          window.YL_IMG_MANIFEST[imgSrc].avif || window.YL_IMG_MANIFEST[imgSrc].webp || imgSrc;
-      }
-      return (
-        '<div class="cart-cross-sell">' +
-        '<div class="cart-cross-sell__heading">Complete your ritual</div>' +
-        '<div class="cart-cross-sell__item">' +
-        '<img class="cart-cross-sell__img" src="' +
-        attrEsc(imgSrc) +
-        '" alt="' +
-        attrEsc(product.name) +
-        '" width="48" height="48" loading="lazy">' +
-        '<div class="cart-cross-sell__info">' +
-        '<div class="cart-cross-sell__name">' +
-        attrEsc(product.name) +
-        "</div>" +
-        '<div class="cart-cross-sell__price">$' +
-        product.price.toFixed(2) +
-        "</div>" +
-        "</div>" +
-        '<button class="cart-cross-sell__add snipcart-add-item"' +
-        ' aria-label="Add ' +
-        attrEsc(product.name) +
-        ' to cart"' +
-        ' data-item-id="' +
-        attrEsc(product.id) +
-        '"' +
-        ' data-item-price="' +
-        product.price.toFixed(2) +
-        '"' +
-        ' data-item-url="/assets/data/snipcart-products.json"' +
-        ' data-item-name="' +
-        attrEsc(product.name) +
-        '"' +
-        ' data-item-image="' +
-        attrEsc(imgSrc) +
-        '"' +
-        ">+ Add</button>" +
-        "</div>" +
-        "</div>"
-      );
-    }
-
-    // Wait for Snipcart SDK to load, then hook into state changes and DOM updates
-    document.addEventListener("snipcart.ready", function () {
-      if (!window.Snipcart) return;
-
-      var snipcartEl = document.getElementById("snipcart");
-      var observer;
-
-      function syncCart() {
-        // Disconnect to avoid infinite recursion when we mutate the DOM
-        if (snipcartEl && observer) {
-          observer.disconnect();
-        }
-
-        try {
-          var state = window.Snipcart.store.getState();
-          var cart = state.cart;
-          if (!cart) return;
-          var total = cart.total || 0;
-          var cartItemIds =
-            cart.items && cart.items.items
-              ? cart.items.items.map(function (item) {
-                  return item.id;
-                })
-              : [];
-
-          // Sync badge visibility based on items count
-          var badges = document.querySelectorAll(".snipcart-items-count");
-          var count = cart.items && typeof cart.items.count === "number" ? cart.items.count : 0;
-          badges.forEach(function (badge) {
-            if (count === 0) {
-              badge.style.display = "none";
-            } else {
-              badge.style.display = "flex";
-            }
-          });
-
-          // ⚡ Bolt: Scope querySelectors to snipcartEl instead of the entire document
-          var snipcartContent = snipcartEl.querySelector(".snipcart-cart__content");
-          if (snipcartContent) {
-            var existing = snipcartContent.querySelector(".shipping-progress");
-            var newProgressHTML = buildProgressHTML(total);
-            if (!existing) {
-              snipcartContent.insertAdjacentHTML("afterbegin", newProgressHTML);
-            } else if (existing.outerHTML !== newProgressHTML) {
-              existing.remove();
-              snipcartContent.insertAdjacentHTML("afterbegin", newProgressHTML);
-            }
-          }
-
-          // Inject/update cross-sell
-          var snipcartFooter = snipcartEl.querySelector(".snipcart-cart__footer");
-          if (snipcartFooter) {
-            var existingCS = snipcartEl.querySelector(".cart-cross-sell");
-            var crossProduct = findCrossSellProduct(cartItemIds);
-            var newCSHTML = buildCrossSellHTML(crossProduct);
-
-            if (!newCSHTML) {
-              if (existingCS) existingCS.remove();
-            } else {
-              if (!existingCS) {
-                snipcartFooter.insertAdjacentHTML("beforebegin", newCSHTML);
-              } else {
-                var currentCSProductId = existingCS.querySelector(".cart-cross-sell__add")
-                  ? existingCS.querySelector(".cart-cross-sell__add").getAttribute("data-item-id")
-                  : null;
-                if (currentCSProductId !== crossProduct.id) {
-                  existingCS.remove();
-                  snipcartFooter.insertAdjacentHTML("beforebegin", newCSHTML);
-                }
-              }
-            }
-          }
-        } catch (err) {
-          /* Snipcart internal state shape changed -- degrade silently */
-        } finally {
-          // Re-observe after modifications
-          if (snipcartEl && observer) {
-            observer.observe(snipcartEl, { childList: true, subtree: true });
-          }
-        }
-      }
-
-      // Start observing DOM changes inside `#snipcart` (e.g. cart drawer opens, Vue re-renders)
-      if (snipcartEl) {
-        observer = new MutationObserver(syncCart);
-        observer.observe(snipcartEl, { childList: true, subtree: true });
-      }
-
-      // Also subscribe to state changes to ensure we are triggered on every store update
-      window.Snipcart.store.subscribe(syncCart);
-
-      // Run once initially
-      syncCart();
-    });
-  })();
+  /* A Snipcart-specific cart-drawer enhancement (injecting a shipping-
+     progress bar and a cross-sell suggestion into Snipcart's own DOM via
+     a MutationObserver on window.Snipcart.store) used to live here.
+     Removed as part of the Stripe migration: assets/js/cart.js now owns
+     the entire drawer and implements both of these natively (see its
+     buildProgressHTML-equivalent shipping meter and upsellHTML()), so
+     there's no external cart DOM left to observe or inject into. */
   if ("serviceWorker" in navigator) {
     // Show a non-disruptive toast when a new SW version is ready,
     // instead of force-reloading mid-session (which can clear form
@@ -2779,6 +2474,72 @@
     window.addEventListener("hashchange", routeJournal);
     routeJournal();
   }
+
+  /* ---------- Speculation Rules (instant navigations) ----------
+     Browser-level speculative prerender/prefetch based on user intent.
+     Injected from JS (not hard-coded in every page's <head>) so it lives
+     in one cached file and applies everywhere automatically.
+
+     Eagerness is "moderate": the browser prerenders a link only after the
+     user hovers/focuses it for ~200ms -- a strong signal of intent, which
+     keeps wasted speculations low on a small catalog. (The report this was
+     drawn from said "conservative" fires on hover; that's wrong --
+     "conservative" only fires on pointerdown. "moderate" is the hover one.)
+
+     Feature-detected so nothing breaks on browsers without support, and it
+     honors Save-Data / reduced-data users by skipping speculation for them.
+     CSP note: inline speculation-rules scripts are allowed via the
+     'inline-speculation-rules' source in script-src (see
+     scripts/build-security-headers.js) -- they do NOT open up general
+     inline script execution. */
+  (function () {
+    try {
+      if (
+        typeof HTMLScriptElement === "undefined" ||
+        typeof HTMLScriptElement.supports !== "function" ||
+        !HTMLScriptElement.supports("speculationrules")
+      ) {
+        return;
+      }
+      // Respect users who've asked the browser to conserve data.
+      var conn = navigator.connection;
+      if (conn && (conn.saveData === true || /(^|-)2g$/.test(conn.effectiveType || ""))) {
+        return;
+      }
+      var rules = {
+        prerender: [
+          {
+            source: "document",
+            where: {
+              and: [
+                { href_matches: "/*" },
+                // Don't prerender cart/checkout, external links, or the
+                // language-translation proxy -- only informational pages.
+                { not: { href_matches: "/*\\?*" } },
+                { not: { selector_matches: "[data-item-add-to-cart]" } },
+                { not: { selector_matches: ".cart-toggle" } },
+                { not: { selector_matches: '[rel~="nofollow"]' } }
+              ]
+            },
+            eagerness: "moderate"
+          }
+        ],
+        prefetch: [
+          {
+            source: "document",
+            where: { href_matches: "/*" },
+            eagerness: "moderate"
+          }
+        ]
+      };
+      var s = document.createElement("script");
+      s.type = "speculationrules";
+      s.textContent = JSON.stringify(rules);
+      document.body.appendChild(s);
+    } catch (e) {
+      /* speculation is a progressive enhancement -- never let it break the page */
+    }
+  })();
 
   /* ---------- Load translator ---------- */
   (function () {

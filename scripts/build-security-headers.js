@@ -23,13 +23,12 @@
    just copy it into whatever your host calls its headers config.
 
    Why a script instead of hand-written files: the CSP's script-src
-   allows exactly two inline <script> blocks (the no-flash theme-init
-   snippet and the Snipcart settings block) by SHA-256 hash rather than
-   the much looser 'unsafe-inline' -- because 'unsafe-inline' defeats
-   most of what CSP is actually for. That means every time either
-   inline script's *exact text* changes (including the day the real
-   Snipcart API key replaces the placeholder), its hash changes too,
-   and this needs to be re-run:
+   allows the site's inline <script> blocks (currently just the
+   no-flash theme-init snippet) by SHA-256 hash rather than the much
+   looser 'unsafe-inline' -- because 'unsafe-inline' defeats most of
+   what CSP is actually for. That means every time an inline script's
+   *exact text* changes, its hash changes too, and this needs to be
+   re-run:
 
      node scripts/build-security-headers.js
 
@@ -51,7 +50,8 @@ var PAGES = [
   "contact.html",
   "events.html",
   "privacy.html",
-  "404.html"
+  "404.html",
+  "thank-you.html"
 ];
 
 function extractInlineScripts(html) {
@@ -85,9 +85,9 @@ function readHtml(page) {
 function run() {
   var canonical = readHtml("index.html");
   var canonicalScripts = extractInlineScripts(canonical);
-  if (canonicalScripts.length < 2) {
+  if (canonicalScripts.length < 1) {
     throw new Error(
-      "Expected at least 2 real inline <script> blocks in index.html (theme-init + Snipcart settings) -- found " +
+      "Expected at least 1 real inline <script> block in index.html (the theme-init snippet) -- found " +
         canonicalScripts.length +
         ". Aborting so the CSP doesn't get built from stale assumptions."
     );
@@ -129,17 +129,29 @@ function run() {
     // it's inert until a real Tawk.to property/widget ID replaces the
     // placeholder, but the origin is allowlisted now so turning it on
     // later doesn't also require touching this file.
-    "script-src 'self' https://cdn.snipcart.com https://plausible.io https://embed.tawk.to https://translate.google.com https://translate.googleapis.com " +
+    // cloud.umami.is: Umami analytics (cookieless page views + the shop's
+    // conversion events -- replaced Plausible). See the analytics tag in every
+    // page's head.
+    // 'inline-speculation-rules': allows the inline speculation-rules block
+    // that main.js injects for instant navigations (prerender/prefetch on
+    // hover). This keyword ONLY permits speculation-rules scripts -- it does
+    // not open up general inline JS execution.
+    "script-src 'self' https://cloud.umami.is https://embed.tawk.to https://translate.google.com https://translate.googleapis.com 'inline-speculation-rules' " +
       hashes.join(" "),
     // fonts.googleapis.com: every page's <link> tags pull Cormorant Garamond
     // + Outfit from Google Fonts (see the top-of-file comment in styles.css)
     // -- that stylesheet request needs style-src, and the actual font files
     // it points at come from fonts.gstatic.com, which needs font-src below.
-    "style-src 'self' https://cdn.snipcart.com https://fonts.googleapis.com https://translate.googleapis.com 'unsafe-inline'", // Snipcart's cart UI injects its own inline styles at runtime; can't pre-hash unknown/dynamic values, so this one directive stays looser on purpose
-    "img-src 'self' data: https://cdn.snipcart.com https://*.tawk.to https://translate.google.com https://translate.googleapis.com https://www.google.com",
-    "font-src 'self' https://cdn.snipcart.com https://fonts.gstatic.com",
-    "connect-src 'self' https://*.snipcart.com https://plausible.io https://*.tawk.to wss://*.tawk.to https://translate.googleapis.com",
-    "frame-src https://*.snipcart.com https://*.tawk.to https://translate.google.com",
+    "style-src 'self' https://fonts.googleapis.com https://translate.googleapis.com 'unsafe-inline'", // main.js/cart.js/gift-card.js/translator.js all set element.style.* directly (display toggles, carousel transforms, etc.); can't pre-hash those, so this directive stays looser on purpose
+    "img-src 'self' data: https://*.tawk.to https://translate.google.com https://translate.googleapis.com https://www.google.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    // Checkout itself never needs an entry here: cart.js POSTs to the
+    // same-origin /api/checkout Worker route (covered by 'self'), then
+    // does a normal top-level `window.location = url` redirect to Stripe's
+    // hosted Checkout page -- full-page navigations aren't governed by
+    // connect-src/frame-src/form-action.
+    "connect-src 'self' https://cloud.umami.is https://*.tawk.to wss://*.tawk.to https://translate.googleapis.com",
+    "frame-src https://*.tawk.to https://translate.google.com",
     "frame-ancestors 'none'",
     "base-uri 'self'",
     // 'self' covers the review-submission form once it posts to a same-site
@@ -147,7 +159,7 @@ function run() {
     // form's real action URL (Kit rebranded from ConvertKit and forms in
     // the wild still resolve to either domain depending on when they were
     // created); formspree.io covers the "Write a Review" form below.
-    "form-action 'self' https://*.snipcart.com https://app.convertkit.com https://app.kit.com https://formspree.io",
+    "form-action 'self' https://app.convertkit.com https://app.kit.com https://formspree.io",
     "object-src 'none'"
   ].join("; ");
 
@@ -164,8 +176,8 @@ function run() {
   // from GitHub's own documented API/asset domains, NOT independently
   // re-verified against that same interactive CSP-builder tool (it's a
   // client-side widget with no way to fetch its per-backend output
-  // statically) -- so treat this the same as the Snipcart-payment-gateway
-  // and Gift Up! caveats elsewhere in this project: once a real GitHub
+  // statically) -- so treat this the same as the Gift Up! caveat
+  // elsewhere in this project: once a real GitHub
   // repo + OAuth setup exists (see DEVELOPMENT.md section 20), open the browser
   // console while using /admin and watch for "Refused to connect/load..."
   // CSP errors, then add whatever origin they name here and re-run this
@@ -189,19 +201,18 @@ function run() {
     ["X-Frame-Options", "DENY"],
     ["X-Content-Type-Options", "nosniff"],
     ["Referrer-Policy", "strict-origin-when-cross-origin"],
-    [
-      "Permissions-Policy",
-      'geolocation=(), microphone=(), camera=(), usb=(), payment=(self "https://cdn.snipcart.com")'
-    ],
+    ["Permissions-Policy", "geolocation=(), microphone=(), camera=(), usb=(), payment=(self)"],
     // HSTS is safe to ship now (only takes effect over real HTTPS, which
     // every realistic static host serves by default) but actually being
     // added to browsers' preload list is a separate, manual step at
     // https://hstspreload.org once the domain is live and stable.
     ["Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload"],
-    // same-origin-allow-popups (not the stricter same-origin) so it
-    // doesn't sever window.opener for any Snipcart checkout step that
-    // opens a payment step in a popup -- still isolates this page's
-    // browsing context group from unrelated cross-origin openers.
+    // same-origin-allow-popups (not the stricter same-origin) so third-party
+    // embeds (Gift Up!, Tawk.to chat) that might open a popup keep a working
+    // window.opener back to this page -- still isolates this page's
+    // browsing context group from unrelated cross-origin openers. Stripe
+    // Checkout itself is a plain top-level redirect, not a popup, so it
+    // doesn't actually need this -- kept as a safety margin for the embeds.
     ["Cross-Origin-Opener-Policy", "same-origin-allow-popups"]
   ];
 
@@ -321,30 +332,27 @@ function run() {
   console.log("wrote netlify.toml");
 
   console.log("");
-  console.log(
-    "CSP covers " +
-      hashes.length +
-      " inline script hash(es) + Snipcart (cdn.snipcart.com) + Plausible (plausible.io)."
-  );
+  console.log("CSP covers " + hashes.length + " inline script hash(es) + Umami (cloud.umami.is).");
   console.log(
     "IMPORTANT -- this could not be verified against a live checkout in a real browser during"
   );
   console.log(
-    "development (sandboxed dev environment had no way to run one). Before relying on this in"
+    "development (sandboxed dev environment had no way to run one against real Stripe keys)."
   );
   console.log(
-    "production: deploy, open the browser console during a real Snipcart checkout, and check for"
+    "Before relying on this in production: deploy, open the browser console during a real"
+  );
+  console.log("checkout (add to cart -> /api/checkout -> redirect to Stripe), and check for any");
+  console.log(
+    "'Refused to ...' CSP violation messages. Note that checkout.stripe.com itself shouldn't"
   );
   console.log(
-    "any 'Refused to ...' CSP violation messages -- add whatever origin they name (most likely a"
+    "need an entry anywhere above -- it's reached via a top-level window.location redirect,"
   );
   console.log(
-    "payment gateway iframe domain, once one is configured in the Snipcart dashboard) to frame-src"
+    "not a fetch/frame/form-action from this origin -- so a violation there would point at"
   );
-  console.log(
-    "and/or connect-src above, then re-run this script... actually just hand-edit the two files,"
-  );
-  console.log("since a manually-added origin isn't something this script's own logic derives.");
+  console.log("something unexpected worth investigating rather than a domain to allowlist.");
 }
 
 run();

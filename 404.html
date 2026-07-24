@@ -33,13 +33,13 @@
 <noscript>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=DM+Sans:wght@400;500;700&display=swap">
 </noscript>
-<!-- Warm up the two third-party origins this page actually talks to,
-     so the first Add to Cart click (Snipcart, lazy-loaded on interaction)
-     and the analytics beacon (Plausible) don't pay a cold DNS+TLS
-     handshake at the moment they're needed. -->
-<link rel="preconnect" href="https://cdn.snipcart.com" crossorigin>
-<link rel="preconnect" href="https://plausible.io">
+<!-- Warm up the analytics origin this page talks to, so the Umami
+     beacon doesn't pay a cold DNS+TLS handshake at the moment it's needed.
+     (Checkout is same-origin now -- assets/js/cart.js posts to /api/checkout
+     on this domain -- so there's no third-party cart origin to warm up.) -->
+<link rel="preconnect" href="https://cloud.umami.is" crossorigin>
 <link rel="stylesheet" href="assets/css/styles.css?v=2.0">
+<link rel="stylesheet" href="assets/css/cart.css">
 
 <script>
   // No-flash theme init: runs before paint, before main.js.
@@ -49,28 +49,16 @@
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
-<!-- Privacy-friendly analytics (Plausible: no cookies, no personal data,
-     aggregate traffic counts only -- see https://plausible.io/data-policy).
-     Two things needed before this records anything real:
-       1. A Plausible account with this site's domain added.
-       2. data-domain below swapped from the placeholder to the real
-          production domain once deployed (same DOMAIN this site uses
-          everywhere else -- see scripts/build-site-data.js). -->
-<script defer data-domain="yallternativeliving.com" src="https://plausible.io/js/script.js"></script>
+<!-- Privacy-friendly analytics (Umami: cookieless, no personal data, no
+     fingerprinting, no cross-site tracking -- and unlike a plain page-view
+     counter it also captures the shop's conversion events: Add to Cart,
+     Purchase, Newsletter Signup, and Site Search. https://umami.is/).
+     No cookie-consent banner required. Before this records anything real:
+       1. Create a free Umami Cloud account (or self-host) and add this site.
+       2. Swap the placeholder data-website-id below for the real one. -->
+<script defer src="https://cloud.umami.is/script.js" data-website-id="YOUR_UMAMI_WEBSITE_ID"></script>
 </head>
 <body>
-<script>
-  window.SnipcartSettings = {
-    publicApiKey: /*YL:site.snipcartApiKey*/ "YOUR_SNIPCART_PUBLIC_API_KEY" /*/YL:site.snipcartApiKey*/,
-    loadStrategy: "on-user-interaction",
-    modalStyle: "side",
-    /* Let Snipcart auto-open its cart drawer after Add to Cart -- with
-       this suppressed, the only feedback was a small badge tick in a
-       crowded nav cluster, easy to miss and easy to double-add over. */
-  };
-
-  (function(){var c,d;(d=(c=window.SnipcartSettings).version)!=null||(c.version="3.0");var s,S;(S=(s=window.SnipcartSettings).timeoutDuration)!=null||(s.timeoutDuration=2750);var l,p;(p=(l=window.SnipcartSettings).domain)!=null||(l.domain="cdn.snipcart.com");var w,u;(u=(w=window.SnipcartSettings).protocol)!=null||(w.protocol="https");var m,g;(g=(m=window.SnipcartSettings).loadCSS)!=null||(m.loadCSS=!0);var y=window.SnipcartSettings.version.includes("v3.0.0-ci")||window.SnipcartSettings.version!="3.0"&&window.SnipcartSettings.version.localeCompare("3.4.0",void 0,{numeric:!0,sensitivity:"base"})===-1,f=["focus","mouseover","touchmove","scroll","keydown"];window.LoadSnipcart=o;document.readyState==="loading"?document.addEventListener("DOMContentLoaded",r):r();function r(){window.SnipcartSettings.loadStrategy?window.SnipcartSettings.loadStrategy==="on-user-interaction"&&(f.forEach(function(t){return document.addEventListener(t,o)}),setTimeout(o,window.SnipcartSettings.timeoutDuration)):o()}var a=!1;function o(){if(a)return;a=!0;let t=document.getElementsByTagName("head")[0],n=document.querySelector("#snipcart"),i=document.querySelector('src[src^="'.concat(window.SnipcartSettings.protocol,"://").concat(window.SnipcartSettings.domain,'"][src$="snipcart.js"]')),e=document.querySelector('link[href^="'.concat(window.SnipcartSettings.protocol,"://").concat(window.SnipcartSettings.domain,'"][href$="snipcart.css"]'));n||(n=document.createElement("div"),n.id="snipcart",n.setAttribute("hidden","true"),document.body.appendChild(n)),h(n),i||(i=document.createElement("script"),i.src="".concat(window.SnipcartSettings.protocol,"://").concat(window.SnipcartSettings.domain,"/themes/v").concat(window.SnipcartSettings.version,"/default/snipcart.js"),i.async=!0,t.appendChild(i)),!e&&window.SnipcartSettings.loadCSS&&(e=document.createElement("link"),e.rel="stylesheet",e.type="text/css",e.href="".concat(window.SnipcartSettings.protocol,"://").concat(window.SnipcartSettings.domain,"/themes/v").concat(window.SnipcartSettings.version,"/default/snipcart.css"),t.prepend(e)),f.forEach(function(v){return document.removeEventListener(v,o)})}function h(t){!y||(t.dataset.apiKey=window.SnipcartSettings.publicApiKey,window.SnipcartSettings.addProductBehavior&&(t.dataset.configAddProductBehavior=window.SnipcartSettings.addProductBehavior),window.SnipcartSettings.modalStyle&&(t.dataset.configModalStyle=window.SnipcartSettings.modalStyle),window.SnipcartSettings.currency&&(t.dataset.currency=window.SnipcartSettings.currency),window.SnipcartSettings.templatesUrl&&(t.dataset.templatesUrl=window.SnipcartSettings.templatesUrl))}})();
-</script>
 <a class="skip-link" href="#main">Skip to content</a>
 <header class="site-header">
   <nav class="nav">
@@ -88,9 +76,9 @@
       <!--YL:nav.journal--><!--/YL:nav.journal-->
     </ul>
     <div class="nav-cta">
-      <button class="cart-toggle snipcart-checkout" type="button" aria-label="View your cart">
+      <button class="cart-toggle" type="button" aria-label="View your cart">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="icon-cart"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
-        <span class="badge snipcart-items-count" aria-live="polite"></span>
+        <span class="badge cart-count" aria-live="polite"></span>
       </button>
       <button type="button" class="theme-toggle" id="themeToggle" role="switch" aria-checked="false" aria-label="Toggle dark and light mode">
         <span class="knob" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-moon"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-sun"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span>
@@ -215,6 +203,7 @@
 <script src="assets/js/products-data.js?v=2.0" defer></script>
 <script src="assets/js/image-manifest.js?v=2.0" defer></script>
 <script src="assets/js/main.js?v=2.0" defer></script>
+<script src="assets/js/cart.js" defer></script>
 <!-- Live chat (Tawk.to) -- placeholder, inert until real IDs are set.
      Free live-chat widget: https://www.tawk.to -- see DEVELOPMENT.md section 19.
      Replace YOUR_TAWKTO_PROPERTY_ID/YOUR_TAWKTO_WIDGET_ID below with the

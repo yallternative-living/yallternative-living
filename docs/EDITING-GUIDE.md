@@ -2,7 +2,8 @@
 
 You do **not** need to be a coder to run this shop. This guide covers the easy
 way (a point-and-click editor) and the "just edit the file" way, plus how photos
-and prices work. Nothing here touches money or checkout — that's Snipcart.
+and prices work. Nothing here touches money or checkout — that's Stripe (see
+`docs/DEVELOPMENT.md` section 8).
 
 ---
 

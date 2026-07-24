@@ -30,10 +30,10 @@ To start taking payments, sending newsletters, or moderating reviews, follow the
 
 Here is a quick checklist of the external accounts you'll need to set up for launch:
 1. **[ ] Hosting & Domain (Netlify & Porkbun)** (To keep the site online)
-2. **[ ] Customer Checkout & Credit Cards (Snipcart & Stripe)** (To get paid)
+2. **[ ] Customer Checkout & Credit Cards (Stripe)** (To get paid)
 3. **[ ] Email Newsletters (Kit)** (To capture emails)
 4. **[ ] Contact Form & Customer Reviews (Formspree)** (To receive messages)
-5. **[ ] Digital Gift Cards (Snipcart default / Gift Up! - Optional)**
+5. **[ ] Digital Gift Cards (built-in via Stripe / Gift Up! - Optional)**
 6. **[ ] Customer Live Chat (Tawk.to - Optional)**
 7. **[ ] Store Management (Sveltia CMS)**
 

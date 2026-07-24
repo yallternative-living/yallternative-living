@@ -83,7 +83,8 @@
       return;
     }
 
-    // Validation passed. Close modal after brief delay so Snipcart registers event.
+    // Validation passed. Close modal after brief delay so the cart (see
+    // assets/js/cart.js, which listens for this same click) registers the add.
     var modal = document.getElementById("giftCardModal");
     if (modal) {
       setTimeout(function () {

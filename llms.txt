@@ -6,7 +6,7 @@ Y'allternative Living is a small, queer-owned business run by founder Savanna ou
 
 ## Pages
 
-- [Shop](https://yallternativeliving.com/shop.html): the full catalog of 19 handmade products across 8 categories (Apparel, Salves & Balms, Body & Skin, Soaks, Potions & Spellwork, Ritual & Home, Gift Sets, Gift Cards). Add-to-cart checkout happens directly on this site via Snipcart -- no redirect to a third-party marketplace required.
+- [Shop](https://yallternativeliving.com/shop.html): the full catalog of 19 handmade products across 8 categories (Apparel, Salves & Balms, Body & Skin, Soaks, Potions & Spellwork, Ritual & Home, Gift Sets, Gift Cards). Add-to-cart checkout happens directly on this site -- no redirect to a third-party marketplace required.
 - [Events](https://yallternativeliving.com/events.html): upcoming and past farmers markets, fairs, and Pride pop-ups where the shop appears in person. Only real, confirmed dates are listed -- if it's empty, no dates are confirmed yet.
 - [Apothecary Journal](https://yallternativeliving.com/journal.html): stories, herbal science, and small-batch updates straight from the kitchen.
 - [Our Story](https://yallternativeliving.com/about.html): founder background and brand story.
@@ -43,6 +43,7 @@ Y'allternative Living is a small, queer-owned business run by founder Savanna ou
 - **What's the Deal with Small Batch Apothecary?** (2026-07-01): Is 'small batch' just a trendy buzzword, or does it actually make a difference for your skin? Let's talk about shelf life and real ingredients.
 
 Machine-readable catalog: https://yallternativeliving.com/assets/data/products.json (always the live source of truth for current prices -- prefer it over this file if the two ever disagree, since this file may not be regenerated as often as the catalog changes).
+Full structured catalog for AI shopping agents (every product, price, and slug): https://yallternativeliving.com/llms-full.txt
 
 ## Other real links for this business
 

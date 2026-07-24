@@ -8,20 +8,20 @@
 <meta name="apple-mobile-web-app-title" content="Y'allternative">
 <meta name="color-scheme" content="dark light">
 <meta name="view-transition" content="same-origin">
-<title>Our Story | Y'allternative Living</title>
-<meta name="description" content="Meet Savanna, the queer, Southern-raised maker behind Y'allternative Living: handmade self-care from Landrum, SC, made for the black sheep and bold hearts.">
-<link rel="canonical" href="https://yallternativeliving.com/about.html">
-
+<title>Thank You | Y'allternative Living</title>
+<!-- Transactional page (a Stripe Checkout redirect target, see
+     workers/checkout.js's success_url) -- not a page anyone should land
+     on from search, so it stays out of the index like 404.html does. -->
+<meta name="robots" content="noindex, nofollow">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Our Story | Y'allternative Living">
-<meta property="og:description" content="Meet Savanna, the queer, Southern-raised maker behind Y'allternative Living: handmade self-care from Landrum, SC, made for the black sheep and bold hearts.">
+<meta property="og:title" content="Thank You | Y'allternative Living">
+<meta property="og:description" content="Thanks for your order from Y'allternative Living -- handmade self-care from Landrum, SC.">
 <meta property="og:image" content="https://yallternativeliving.com/assets/img/og-image.jpg">
-<meta property="og:url" content="https://yallternativeliving.com/about.html">
+<meta property="og:url" content="https://yallternativeliving.com/thank-you.html">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Our Story | Y'allternative Living">
-<meta name="twitter:description" content="Meet Savanna, the queer, Southern-raised maker behind Y'allternative Living: handmade self-care from Landrum, SC, made for the black sheep and bold hearts.">
+<meta name="twitter:title" content="Thank You | Y'allternative Living">
+<meta name="twitter:description" content="Thanks for your order from Y'allternative Living -- handmade self-care from Landrum, SC.">
 <meta name="twitter:image" content="https://yallternativeliving.com/assets/img/og-image.jpg">
-
 <link rel="icon" href="assets/img/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="icon" href="assets/img/favicon-192.png" sizes="192x192" type="image/png">
 <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
@@ -44,12 +44,6 @@
 <link rel="stylesheet" href="assets/css/styles.css?v=2.0">
 <link rel="stylesheet" href="assets/css/cart.css">
 
-<!-- Preload the founder photo (this page's LCP element). -->
-<link rel="preload" as="image" type="image/avif"
-      href="assets/img/unisex-tshirt.avif"
-      imagesrcset="assets/img/unisex-tshirt-480.avif 480w, assets/img/unisex-tshirt-800.avif 800w, assets/img/unisex-tshirt.avif 1050w"
-      imagesizes="(max-width: 880px) 90vw, 44vw">
-
 <script>
   // No-flash theme init: runs before paint, before main.js.
   (function(){
@@ -66,62 +60,6 @@
        1. Create a free Umami Cloud account (or self-host) and add this site.
        2. Swap the placeholder data-website-id below for the real one. -->
 <script defer src="https://cloud.umami.is/script.js" data-website-id="YOUR_UMAMI_WEBSITE_ID"></script>
-<style>
-  /* about.html one-offs, scoped so shared tokens/components stay untouched */
-  .about-hero .lede{ max-width: 90ch; margin: 0 auto; line-height: 1.7; }
-  .about-founder p, .about-community p { max-width: 90ch; line-height: 1.7; }
-  .about-founder p:last-of-type{ margin-bottom: 0; }
-  .about-community blockquote{
-    margin: 32px 0 0; padding-left: 20px; border-left: 3px solid var(--whiskey);
-    font-family: var(--font-display); font-size: 1.25rem; color: var(--paper);
-    line-height: 1.6; max-width: 90ch;
-  }
-</style>
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "LocalBusiness",
-  "@id": "https://yallternativeliving.com/#business",
-  "name": "Y'allternative Living",
-  "description": "Queer-owned, Southern-raised handmade self-care. Small-batch salves, soaks, body care and apparel out of Landrum, SC.",
-  "image": "https://yallternativeliving.com/assets/img/logo.png",
-  "url": "https://yallternativeliving.com/",
-  "email": "y.allternative.living@gmail.com",
-  "address": {
-    "@type": "PostalAddress",
-    "addressLocality": "Landrum",
-    "addressRegion": "SC",
-    "addressCountry": "US"
-  },
-  "sameAs": [
-    "https://www.etsy.com/shop/YallternativeLivinCO",
-    "https://www.facebook.com/p/Yallternative-Living-61577943406316/",
-    "https://www.instagram.com/yallternativeliving",
-    "https://www.tiktok.com/@yallternativeliving"
-  ],
-  "priceRange": "$"
-}
-</script>
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "BreadcrumbList",
-  "itemListElement": [
-    {
-      "@type": "ListItem",
-      "position": 1,
-      "name": "Home",
-      "item": "https://yallternativeliving.com/index.html"
-    },
-    {
-      "@type": "ListItem",
-      "position": 2,
-      "name": "Our Story",
-      "item": "https://yallternativeliving.com/about.html"
-    }
-  ]
-}
-</script>
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
@@ -136,7 +74,7 @@
       <li><a href="index.html">Home</a></li>
       <li><a href="shop.html">Shop</a></li>
       <li><a href="events.html">Events</a></li>
-      <li><a class="active" href="about.html" aria-current="page">Our Story</a></li>
+      <li><a href="about.html">Our Story</a></li>
       <li><a href="contact.html">Contact</a></li>
       <!--YL:nav.journal--><!--/YL:nav.journal-->
     </ul>
@@ -156,73 +94,28 @@
 </header>
 <main id="main">
 
-  <!-- ============ PAGE HERO ============ -->
-  <div class="page-hero about-hero">
-    <div class="container">
-      <p class="breadcrumb"><a href="index.html">Home</a> / Our Story</p>
-
-      <h1><!--YL:about.heroTitle-->Part Goth, Part Grit, All Heart<!--/YL:about.heroTitle--></h1>
-      <p class="lede"><!--YL:about.heroIntro-->This is the part where we're supposed to sound polished and corporate. Instead, here's the truth: just a girl, a stove full of salves, and a whole lot of us who never fit neatly into one box. Come on in.<!--/YL:about.heroIntro--></p>
-    </div>
-  </div>
-
-  <!-- ============ FOUNDER STORY ============ -->
-  <section class="about-founder">
-    <div class="container">
-      <div class="two-col">
-        <div class="img-frame reveal">
-          <!--YL:about.bioImage-->
-          <picture>
-            <source type="image/avif" srcset="assets/img/unisex-tshirt-480.avif 480w, assets/img/unisex-tshirt-800.avif 800w, assets/img/unisex-tshirt.avif 1050w">
-            <source type="image/webp" srcset="assets/img/unisex-tshirt-480.webp 480w, assets/img/unisex-tshirt-800.webp 800w, assets/img/unisex-tshirt.webp 1050w">
-            <img src="assets/img/unisex-tshirt.jpg" alt="Y'allternative Living unisex tee — our signature design" width="600" height="800" fetchpriority="high" decoding="async">
-          </picture>
-          <!--/YL:about.bioImage-->
-        </div>
-        <div class="reveal">
-          <p class="eyebrow">Meet Savanna</p>
-          <h2><!--YL:about.bioHeading-->Hey Y'all, I'm Savanna<!--/YL:about.bioHeading--></h2>
-          <!--YL:about.bio--><p>I'm the hands, the nose, and most days the mouth behind Y'allternative Living. Every salve, soak, and scrub gets mixed, poured, and labeled by hand right in Landrum, SC. No factories, no focus groups. Just me, my kitchen, and an unreasonable number of mason jars.</p>
-          <p>Growing up in these foothills, you get handed sweet tea in one hand and a church potluck plate in the other. If you're anything like me, you spend years thinking you have to pick a side: country or alternative, Southern or strange. Turns out, this dirt raised a whole quiet army of us: goth kids working the peach stand, emo kids who still say "y'all," queer folks who never left because this is home too. Backroads, porch lights, and sweet tea still run through everything I make here—eyebrow-raising parts included. Y'allternative Living is for every one of us who got tired of choosing.</p>
-          <p>What started as small batches of soaks and salves a little over a year ago has grown into a proper apothecary. Showing up face-to-face is part of the job, not an afterthought. I built this so people like us have handmade self-care made with them in mind. Creating honest goods was always the whole mission statement.</p><!--/YL:about.bio-->
-        </div>
+  <section class="hero tight-hero">
+    <div class="container center">
+      <span class="eyebrow">Order Confirmed</span>
+      <h1>Thank You, Y'all!</h1>
+      <p class="lede">
+        Your order is in and headed for the workbench. A confirmation email is on its way
+        from Stripe with your receipt, and we'll follow up once it ships.
+      </p>
+      <p class="lede" id="thankYouAmount" hidden></p>
+      <div class="hero-actions center">
+        <a class="btn btn-primary" href="shop.html">Keep Shopping</a>
+        <a class="btn btn-outline" href="index.html">Back To Home</a>
       </div>
+      <p class="muted" style="margin-top:24px;max-width:520px;margin-left:auto;margin-right:auto;">
+        Questions about your order? Email
+        <a href="mailto:y.allternative.living@gmail.com">y.allternative.living@gmail.com</a>
+        and we'll sort it out.
+      </p>
     </div>
   </section>
 
-  <!-- ============ COMMUNITY / OUT AND ABOUT ============ -->
-  <section class="about-community">
-    <div class="container">
-      <div class="two-col">
-        <div class="reveal">
-
-          <h2>Find Us In The Wild</h2>
-          <p>The internet's great, but this business was built on face-to-face, the kind where you can actually smell the shea butter before you buy it. When the calendar lines up, you'll find our folding table at farmers markets, festivals, and Pride events with a little extra glitter on the display. Taking up space in person matters just as much as taking it up online.</p>
-          <blockquote>Follow <strong>@yallternativeliving</strong> on Instagram and TikTok for the real-time pop-up schedule. That's where we post exactly where the table's landing next.</blockquote>
-        </div>
-        <div class="img-frame reveal">
-          <!--YL:about.secondaryImage-->
-          <picture>
-            <source type="image/avif" srcset="assets/img/beard-salve-480.avif 480w, assets/img/beard-salve-800.avif 800w, assets/img/beard-salve.avif 1400w">
-            <source type="image/webp" srcset="assets/img/beard-salve-480.webp 480w, assets/img/beard-salve-800.webp 800w, assets/img/beard-salve.webp 1400w">
-            <img src="assets/img/beard-salve.jpg" alt="Y'allternative Living beard salve, handmade in Landrum, SC" width="600" height="400" loading="lazy" decoding="async">
-          </picture>
-          <!--/YL:about.secondaryImage-->
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============ CLOSING CTA ============ -->
-  <section class="cta-band">
-    <div class="container">
-
-      <h2>Ready To Treat Yourself?</h2>
-      <p class="lede center">Handmade, small-batch, and mixed for you - not for a demographic. Grab a jar and make yourself at home.</p>
-      <a class="btn btn-primary" href="shop.html">Shop The Collection</a>
-    </div>
-  </section>
-
+  <h2 class="sr-only">Site Navigation</h2>
 </main>
 <footer class="site-footer">
   <div class="container">
@@ -284,31 +177,6 @@
       </div>
     </div>
 
-    <!-- NEWSLETTER SIGNUP -- plain HTML form, real native POST, no JS
-         required to submit it. Provider: Kit (https://kit.com), chosen
-         for its free 10k-subscriber tier and dashboard-configurable
-         post-signup redirect. Replace YOUR_KIT_FORM_ACTION_URL with the
-         real form action URL from your Kit account -- see README. -->
-    <div class="footer-signup reveal" id="footerSignup">
-      <div class="footer-signup-text">
-        <h3>Get 10% Off Your First Order</h3>
-        <p>Drop your email for a welcome code, plus new batch alerts, market dates, and the occasional bad pun. No spam, unsubscribe whenever.</p>
-      </div>
-      <p class="footer-signup-confirm"><span class="glyph" aria-hidden="true">&#10003;</span> You're on the list, y'all! Keep an eye on your inbox.</p>
-      <form class="footer-signup-form" action="YOUR_KIT_FORM_ACTION_URL" method="post" toolname="subscribe-newsletter" tooldescription="Subscribe to the Y'allternative Living newsletter for updates and discounts.">
-        <div class="form-hp" aria-hidden="true">
-          <label for="footer_website">Leave this field blank</label>
-          <input type="text" id="footer_website" name="footer_website" tabindex="-1" autocomplete="off" aria-hidden="true">
-        </div>
-        <div class="field">
-          <label for="footer_email" class="sr-only">Email address</label>
-          <input type="email" id="footer_email" name="email_address" placeholder="you@email.com" required autocomplete="email">
-        </div>
-        <button class="btn btn-primary btn-sm" type="submit">Join The List</button>
-      </form>
-    </div>
-
-
     <p class="footer-disclaimer">Handmade self-care, not medicine. Nothing sold here is intended to diagnose, treat, cure, or prevent any condition. Got a real skin or health concern? See an actual doctor, then treat yourself to something that smells nice after.</p>
     <div class="footer-bottom">
       <span>&copy; <span id="year"></span> Y'allternative Living. Handmade with grit &amp; glitter. &middot; <a href="/policies.html">Shipping &amp; Returns</a> &middot; <a href="/terms.html">Terms of Service</a> &middot; <a href="/privacy.html">Privacy Policy</a></span>
@@ -320,6 +188,7 @@
 <script src="assets/js/image-manifest.js?v=2.0" defer></script>
 <script src="assets/js/main.js?v=2.0" defer></script>
 <script src="assets/js/cart.js" defer></script>
+<script src="assets/js/thank-you.js" defer></script>
 <!-- Live chat (Tawk.to) -- placeholder, inert until real IDs are set.
      Free live-chat widget: https://www.tawk.to -- see DEVELOPMENT.md section 19.
      Replace YOUR_TAWKTO_PROPERTY_ID/YOUR_TAWKTO_WIDGET_ID below with the

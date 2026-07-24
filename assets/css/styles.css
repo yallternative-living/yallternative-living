@@ -442,9 +442,20 @@ section{
   }
   
   @media (max-width: 1024px){
-    position:fixed; inset:100px 0 0 0; z-index:99;
+    /* Explicit height, not `inset:100px 0 0 0`: a `height:auto` flex
+       column here does NOT stretch to fill top->bottom the way a plain
+       block box would -- it collapses to just its own padding (80px),
+       leaving every link past the first rendered with no panel
+       background behind it, floating directly on top of page content.
+       Giving it an explicit height (100dvh accounts for mobile browser
+       chrome; the plain vh line is the fallback for browsers without
+       dvh support) makes it actually fill the viewport below the header. */
+    position:fixed; top:100px; left:0; right:0; z-index:99;
+    height: calc(100vh - 100px);
+    height: calc(100dvh - 100px);
     background: var(--ink); flex-direction:column; justify-content:flex-start;
     padding: 40px 24px calc(40px + env(safe-area-inset-bottom, 0px)); gap: 26px;
+    overflow-y: auto;
     transform: translateY(-12px); opacity:0; pointer-events:none;
     transition: transform .25s ease, opacity .2s ease;
     
@@ -557,6 +568,19 @@ section{
   
   & h1{ margin-bottom:.5em; }
   & .lede{ font-size:1.15rem; max-width:78ch; margin-bottom: 22px; }
+
+  /* Below 900px the hero image drops under the text (see .hero-grid) and
+     .shop-hero-header already centers itself here -- but the headline,
+     paragraph, and CTA buttons were left unstyled, so they stayed
+     left-aligned under a centered eyebrow/rating line, and the two
+     differently-sized buttons stacked into a jagged, uneven-looking
+     left edge. Centering the rest of the block (and the button row)
+     matches the eyebrow and the centered hero image below it, instead
+     of reading as randomly unbalanced. */
+  @media (max-width: 900px) {
+    & h1, & .lede { text-align: center; margin-left: auto; margin-right: auto; }
+    & .hero-actions { justify-content: center; }
+  }
 }
 
 .hero-grid{
@@ -1039,35 +1063,6 @@ section{
   & .pride-rule{ margin:0; }
 }
 
-/* =============== CART LOAD-FAILURE FALLBACK ===============
-   Injected by main.js only if Snipcart fails to load after a cart
-   click (blocker/CDN outage). Fixed bottom bar, dismissible, points at
-   the Etsy shop so the sale isn't lost. Normally never rendered. */
-.cart-fallback{
-  /* Below .wish-backdrop/.wish-drawer (198/199) so it can't cover the
-     wishlist drawer's checkout button if both are open at once; still
-     above the sticky nav (100) and mobile nav-links (99) so it's visible. */
-  position:fixed; left:16px; right:16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index:150;
-  max-width:640px; margin:0 auto;
-  display:flex; align-items:flex-start; gap:12px;
-  background:var(--ink-2); color:var(--paper);
-  border:1px solid var(--hide); border-radius:var(--radius-lg);
-  padding:14px 16px; box-shadow:var(--shadow);
-  
-  & p{ margin:0; font-size:.92rem; line-height:1.45; }
-  & a{
-    color:var(--whiskey); text-decoration:underline;
-    &:hover{ color:var(--paper); }
-  }
-}
-
-.cart-fallback-close{
-  flex:0 0 auto; margin-left:auto; background:none; border:none;
-  color:var(--paper-dim); font-size:1.4rem; line-height:1; cursor:pointer; padding:0 4px;
-  
-  &:hover{ color:var(--paper); }
-}
-
 /* =============== NEWSLETTER SIGNUP (footer strip) ===============
    Plain <form method="post"> straight to the email provider -- no
    fetch(), no preventDefault() on the real subscribe submit, so it
@@ -1083,9 +1078,18 @@ section{
   @media (max-width:700px){
     flex-direction:column; align-items:stretch; padding:24px;
   }
-  
+
   & .footer-signup-text{
     max-width:100%; flex:1 1 380px;
+
+    /* flex-basis:380px above sizes this as a *width* in the desktop row
+       layout. Once .footer-signup goes flex-direction:column below, the
+       same flex-basis controls *height* instead -- pinning this block to
+       380px tall no matter how short its actual text is, and leaving a
+       big dead gap before the email field. Let it size to its content
+       once it's stacked. */
+    @media (max-width:700px){ flex-basis:auto; }
+
     & h3{ margin-bottom:.25em; }
     & p{ margin:0; font-size:.9rem; }
   }
@@ -1193,7 +1197,15 @@ section{
 .filter-pill{
   border:1px solid var(--hide); background:transparent; color:var(--paper-dim);
   padding:9px 20px; border-radius:30px; font-size:.82rem; letter-spacing:.05em;
-  text-transform:uppercase; font-weight:600; cursor:pointer; 
+  text-transform:uppercase; font-weight:600; cursor:pointer;
+  /* .filter-row scrolls horizontally below 600px instead of wrapping --
+     but flex-shrink defaults to 1, so a two-word pill like "Salves &
+     Balms" was getting squeezed narrower than its own text and wrapping
+     to 2 lines, which then stretched every other (single-line) pill in
+     the row to match its height via the row's default align-items:stretch.
+     Keeping pills at their natural width lets the row scroll like it's
+     meant to, instead of the text wrapping. */
+  white-space:nowrap; flex-shrink:0;
   transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
   box-shadow: 0 0 0 rgba(0,0,0,0);
   
@@ -1294,10 +1306,10 @@ section{
   }
 }
 
-/* Cart trigger -- Snipcart hooks into .snipcart-checkout / .snipcart-items-count
-   itself (see https://docs.snipcart.com/v3/setup/cart-summary), we just style
-   the wrapper to match the wishlist heart button next to it. Amber badge
-   (vs. the wishlist's rose one) keeps the two icons easy to tell apart. */
+/* Cart trigger -- cart.js hooks into this .cart-toggle button itself (opens
+   the drawer on click) and keeps its .cart-count badge in sync; this just
+   styles the wrapper to match the wishlist heart button next to it. Amber
+   badge (vs. the wishlist's rose one) keeps the two icons easy to tell apart. */
 .cart-toggle{
   position:relative; background:none; border:1px solid var(--hide); color:var(--paper);
   width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center;
@@ -1582,78 +1594,6 @@ hr.rule{ border:none; border-top:1px solid var(--hide); margin:48px 0; }
   border-radius: var(--radius-lg); overflow:hidden; border:1px solid var(--hide); box-shadow: var(--shadow);
   & picture{ display:block; }
 }
-
-/* =============== SNIPCART THEME OVERRIDE ===============
-   Snipcart exposes its whole cart/checkout UI as CSS custom
-   properties scoped to #snipcart (v3.2+ theming API). We point
-   those at our own design tokens instead of hardcoding colors,
-   so the cart automatically re-skins for dark AND light mode --
-   no separate light/dark override block needed here.
-   Reference: https://docs.snipcart.com/v3/setup/theming */
-#snipcart{
-  font-family: var(--font-body);
-  position: relative;
-  z-index: 9999;
-
-  --color-default: var(--paper);
-  --color-alt: var(--paper-dim);
-  --color-icon: var(--whiskey);
-  --color-success: var(--sage);
-  --color-error: var(--rose-text);
-
-  --color-link: var(--whiskey);
-  --color-link-hover: var(--rose-text);
-  --color-link-active: var(--whiskey);
-  --color-link-focus: var(--whiskey);
-
-  --color-input: var(--paper);
-  --color-input-hover: var(--paper);
-  --color-input-focus: var(--paper);
-  --color-inputLabel: var(--paper-dim);
-  --color-inputLabel-hover: var(--paper);
-  --color-inputLabel-focus: var(--paper);
-  --color-inputIcon: var(--paper-dim);
-  --color-inputIcon-hover: var(--paper);
-  --color-inputPlaceholder: var(--paper-dim);
-
-  --color-buttonPrimary: var(--on-fill);
-  --color-buttonPrimary-hover: var(--on-fill);
-  --color-buttonSecondary: var(--paper);
-  --color-buttonSecondary-hover: var(--paper);
-  --color-buttonDanger: var(--on-fill);
-
-  --borderColor-default: var(--hide);
-  --borderColor-input: var(--hide);
-  --borderColor-input-hover: var(--whiskey);
-  --borderColor-input-focus: var(--whiskey);
-  --borderColor-buttonPrimary: transparent;
-  --borderColor-buttonSecondary: var(--whiskey);
-
-  --bgColor-default: var(--ink-2);
-  --bgColor-alt: var(--ink-3);
-  --bgColor-input: var(--ink-3);
-  --bgColor-input-hover: var(--ink-3);
-  --bgColor-input-focus: var(--ink-3);
-  --bgColor-modal: var(--ink-2);
-  --bgColor-modalVeil: rgba(10,8,6,.6);
-
-  --bgColor-buttonPrimary: var(--rose-dim);
-  --bgColor-buttonPrimary-hover: var(--rose-fill-hover);
-  --bgColor-buttonSecondary: transparent;
-  --bgColor-buttonSecondary-hover: var(--ink-3);
-  --bgColor-buttonDanger: var(--rose-dim);
-  --bgColor-buttonDanger-hover: var(--rose-fill-hover);
-
-  --shadow-default: var(--shadow);
-  
-  & h1, & h2, & h3, & h4{ font-family: var(--font-display); }
-
-  /* Apply safe-area inset to the cart header for mobile notches */
-  .snipcart-cart-header {
-    padding-top: calc(16px + env(safe-area-inset-top, 0px)) !important;
-  }
-}
-
 
 /* ---------- Shop Improvements ---------- */
 .shop-trust-strip .stars {

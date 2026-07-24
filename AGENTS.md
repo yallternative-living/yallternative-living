@@ -9,7 +9,7 @@ This document provides project context, tech stack rules, data-flow pipelines, s
 - **Brand**: Y'allternative Living (Landrum, SC) — Queer-owned, Southern-raised, Alt-inspired small-batch handmade self-care, salves, soaks, body care, and apparel.
 - **Voice**: Warm, funny, irreverent, proudly Southern & proudly queer. Goth meets Southern. Never mean or mocking.
 - **Architecture**: 100% static HTML/CSS/JS with zero runtime framework dependencies. Fast, mobile-first, offline-capable via `sw.js`.
-- **Integrations**: Snipcart (checkout), Formspree (contact & review submissions), Plausible (analytics), Kit/ConvertKit (newsletter), Tawk.to (live chat), Sveltia CMS (`/admin`).
+- **Integrations**: Stripe Checkout via a Cloudflare Worker (`workers/checkout.js`) + on-site cart (`assets/js/cart.js`), Formspree (contact & review submissions), Umami (cookieless analytics + conversion events), Kit/ConvertKit (newsletter), Tawk.to (live chat), Sveltia CMS (`/admin`).
 
 ---
 
@@ -45,10 +45,10 @@ Every AI agent MUST execute and pass all quality gates before finalizing changes
 | **1** | `npm run build-data` | `node scripts/build-site-data.js` | Compiles JSON files into derived JS data objects, updates static HTML comment markers, generates `products/*.html`, `sitemap.xml`, `robots.txt`, and `llms.txt`. |
 | **2** | `npm run optimize-images` | `node scripts/optimize-images.js` | *(Optional when adding new images)* Generates responsive AVIF/WebP image variants via Sharp and updates `assets/js/image-manifest.js`. |
 | **3** | `npm run build-security-headers` | `node scripts/build-security-headers.js` | Syncs CSP rules across `_headers`, `netlify.toml`, and `vercel.json`. |
-| **4** | `npm run test` | `node scripts/qa-check.js` | Executes 250+ static quality assertions (JSON-LD validation, Snipcart pricing, CSP coverage, FAQ match, rating calculations, comment traps). |
+| **4** | `npm run test` | `node scripts/qa-check.js` | Executes 250+ static quality assertions (JSON-LD validation, gift-card/bundle pricing, CSP coverage, FAQ match, rating calculations, comment traps). |
 | **5** | `npm run lint` | `eslint scripts assets/js` | Enforces JavaScript quality and syntax standards. |
 | **6** | `npm run format:check` | `prettier --check` | Validates formatting across scripts and client JS files. |
-| **7** | `npm run test:integration` | `node scripts/puppeteer_tests.js` | Runs automated headless browser tests across Desktop (1200x800), **Tablet (768x1024)**, and Mobile (375x667) viewports (link integrity, menu drawer, form intercept, Snipcart checkout flow). |
+| **7** | `npm run test:integration` | `node scripts/puppeteer_tests.js` | Runs automated headless browser tests across Desktop (1200x800), **Tablet (768x1024)**, and Mobile (375x667) viewports (link integrity, menu drawer, form intercept, on-site cart add-to-cart flow). |
 
 ---
 

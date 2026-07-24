@@ -39,7 +39,8 @@
       pages that load them as plain <script> tags with zero build
       step -- see the note at each file's own top; never hand-edit
       these, they're 100% generated now)
-   2. assets/data/snipcart-products.json  (Snipcart order-validation manifest)
+   2. Bundle referential-integrity check (every bundle's productIds must
+      resolve to a real product -- fails the build loudly if not)
    3. shop.html's Product/ItemList JSON-LD block
    4. contact.html's FAQPage JSON-LD + visible FAQ prose (the site's ONE
       FAQ, generated from products.json's "faq" array -- shop.html
@@ -55,7 +56,7 @@
    8. llms.txt (AI-agent-facing summary + auto-generated product list)
    9. Once a real DOMAIN is set below (see step 7 in the script itself):
       turns on every page's canonical link + og:url tag, and updates
-      Plausible's data-domain plus every JSON-LD @id/url/image/
+      every JSON-LD @id/url/image/
       breadcrumb entry, across all 7 pages in one pass -- no more
       manual find-and-replace across the whole site to go live.
 
@@ -386,10 +387,11 @@ function writeFile(relPath, contents) {
    A product's real Etsy listing sometimes sells more than one size/scent/
    blend under a single listing (confirmed via manual research against the
    live listings -- see products-data.js comments), stored as p.variants =
-   { name: "Size", options: [{ label, priceDelta }, ...] }. These two
-   helpers turn that one small structure into everything downstream needs:
-   Snipcart's order-validation custom-field syntax, and a JSON-LD price
-   range when the variants actually change the price. */
+   { name: "Size", options: [{ label, priceDelta }, ...] }. This turns that
+   one small structure into a JSON-LD price range when the variants
+   actually change the price (the matching custom-field syntax for the
+   Add to Cart buttons themselves -- "Label[+delta]|Label[+delta]" -- is
+   built directly in addToCartHTML(), assets/js/main.js). */
 function variantPriceRange(p) {
   if (!p.variants || !Array.isArray(p.variants.options) || !p.variants.options.length) {
     return { low: p.price, high: p.price };
@@ -399,29 +401,6 @@ function variantPriceRange(p) {
   });
   return { low: Math.min.apply(null, prices), high: Math.max.apply(null, prices) };
 }
-function snipcartCustomFields(p) {
-  if (p.id === "yallternative-gift-card") {
-    var options = [];
-    for (var val = 10; val <= 500; val++) {
-      var delta = val - 10;
-      options.push("Preset $" + val + "[+" + delta.toFixed(2) + "]");
-    }
-    return [{ name: "Amount", options: options.join("|"), value: "Preset $25" }];
-  }
-  if (!p.variants || !Array.isArray(p.variants.options) || !p.variants.options.length) return [];
-  // Snipcart's documented custom-field format: "Label[+delta]|Label[+delta]",
-  // delta relative to the button's base data-item-price. See:
-  // https://docs.snipcart.com/v3/setup/custom-fields
-  var optionsStr = p.variants.options
-    .map(function (o) {
-      var delta = o.priceDelta || 0;
-      var sign = delta < 0 ? "-" : "+";
-      return o.label + "[" + sign + Math.abs(delta).toFixed(2) + "]";
-    })
-    .join("|");
-  return [{ name: p.variants.name, options: optionsStr, value: p.variants.options[0].label }];
-}
-
 /* ---------- 1) assets/js/products-data.js ----------
    A thin `window.YL_PRODUCTS = ...;` wrapper around the exact same data
    in assets/data/products.json (the real, canonical, CMS-edited source
@@ -500,43 +479,22 @@ var socialFeedDataJs =
   ";\n";
 writeFile("assets/js/social-feed-data.js", socialFeedDataJs);
 
-/* ---------- 2) assets/data/snipcart-products.json ----------
-   Snipcart's order-validation JSON crawler pattern for JS-rendered
-   catalogs -- see DEVELOPMENT.md section 8 for why this file needs to exist. */
-var snipcartManifest = PRODUCTS.map(function (p) {
-  return {
-    id: p.id,
-    name: p.name,
-    price: Number(p.price.toFixed(2)),
-    url: "/assets/data/snipcart-products.json",
-    image: p.image,
-    categories: [p.category],
-    customFields: snipcartCustomFields(p)
-  };
-});
-// Bundles are their own Snipcart line item (id "bundle-<id>") at the
-// computed discounted price -- simpler and less error-prone at checkout
-// than trying to add 3 separate items with a cart-level percent-off.
+/* ---------- 2) Bundle referential integrity check ----------
+   Every bundle in products.json's `bundles` array (each its own single
+   cart line item, id "bundle-<id>", at a computed discounted price --
+   simpler and less error-prone at checkout than trying to add multiple
+   separate items with a cart-level percent-off) must reference real
+   product IDs. Fail the build loudly here rather than let a typo'd
+   productId silently produce a broken/undiscounted bundle at checkout. */
 BUNDLES.forEach(function (b) {
-  var pricing = bundlePricing(b);
-  if (!pricing) {
+  if (!bundlePricing(b)) {
     throw new Error(
       'Bundle "' +
         b.id +
         "\" references a productId that doesn't exist in products-data.js -- fix before building."
     );
   }
-  var firstProduct = PRODUCTS_BY_ID[b.productIds[0]];
-  snipcartManifest.push({
-    id: "bundle-" + b.id,
-    name: b.name,
-    price: pricing.bundlePrice,
-    url: "/assets/data/snipcart-products.json",
-    image: firstProduct.image,
-    categories: ["bundle"]
-  });
 });
-writeFile("assets/data/snipcart-products.json", JSON.stringify(snipcartManifest, null, 2) + "\n");
 
 /* ---------- 3) shop.html Product/ItemList JSON-LD ---------- */
 var itemListElement = PRODUCTS.map(function (p, i) {
@@ -1327,7 +1285,7 @@ var llmsTxt =
       return c.label;
     })
     .join(", ") +
-  "). Add-to-cart checkout happens directly on this site via Snipcart -- no redirect to a third-party marketplace required.\n" +
+  "). Add-to-cart checkout happens directly on this site -- no redirect to a third-party marketplace required.\n" +
   "- [Events](" +
   DOMAIN +
   "/events.html): upcoming and past farmers markets, fairs, and Pride pop-ups where the shop appears in person. Only real, confirmed dates are listed -- if it's empty, no dates are confirmed yet.\n" +
@@ -1355,7 +1313,10 @@ var llmsTxt =
   (journalLines ? "## Journal & Articles\n\n" + journalLines + "\n\n" : "") +
   "Machine-readable catalog: " +
   DOMAIN +
-  "/assets/data/products.json (always the live source of truth for current prices -- prefer it over this file if the two ever disagree, since this file may not be regenerated as often as the catalog changes).\n\n" +
+  "/assets/data/products.json (always the live source of truth for current prices -- prefer it over this file if the two ever disagree, since this file may not be regenerated as often as the catalog changes).\n" +
+  "Full structured catalog for AI shopping agents (every product, price, and slug): " +
+  DOMAIN +
+  "/llms-full.txt\n\n" +
   "## Other real links for this business\n\n" +
   "- Etsy shop: https://www.etsy.com/shop/YallternativeLivinCO\n" +
   "- Instagram: https://www.instagram.com/yallternativeliving\n" +
@@ -1366,10 +1327,124 @@ var llmsTxt =
 
 writeFile("llms.txt", llmsTxt);
 
+/* ---------- 6b) llms-full.txt ----------
+   A longer, fully-structured machine catalog for AI shopping assistants and
+   automated purchasing agents -- the "full" companion to llms.txt (same
+   emerging convention). EVERYTHING here is generated from the real
+   products.json / bundles, never hand-authored, so an agent can never be
+   handed an invented product, price, or SKU. (The upstream SOTA report that
+   inspired this shipped example blocks with fabricated products like
+   "Bitch Be Gone Salve" -- deliberately NOT reproduced; only real listings
+   below.) Checkout runs through the on-site cart (assets/js/cart.js) for
+   humans, and through a real POST /api/checkout endpoint (workers/
+   checkout.js) that AI purchasing agents can call directly -- see the
+   "How to buy" section below for its exact request/response shape. */
+var freeShip = (CATALOG.shop && CATALOG.shop.freeShippingThreshold) || null;
+var fullProductBlocks = PRODUCTS.map(function (p) {
+  var range = variantPriceRange(p);
+  var priceStr =
+    range.low === range.high
+      ? "$" + range.low.toFixed(2)
+      : "$" + range.low.toFixed(2) + " - $" + range.high.toFixed(2);
+  var inStock = !(p.image && p.image.indexOf("placeholder") !== -1) && !p.comingSoon;
+  var lines = [
+    "### " + p.name,
+    "- **ID / slug**: `" + p.id + "`",
+    "- **Price**: " + priceStr + " USD",
+    "- **Category**: " + (CATEGORY_LABEL[p.category] || p.category),
+    "- **Availability**: " + (inStock ? "In stock" : "Pre-order / coming soon")
+  ];
+  if (p.variants && Array.isArray(p.variants.options) && p.variants.options.length) {
+    lines.push(
+      "- **" +
+        (p.variants.name || "Options") +
+        "**: " +
+        p.variants.options
+          .map(function (o) {
+            return o.label;
+          })
+          .join(", ")
+    );
+  }
+  lines.push("- **Description**: " + (p.description || p.blurb || "").replace(/\s+/g, " ").trim());
+  lines.push("- **Product page**: " + DOMAIN + "/shop.html#" + p.id);
+  if (p.etsyUrl) lines.push("- **Also on Etsy**: " + p.etsyUrl);
+  return lines.join("\n");
+}).join("\n\n");
+
+var fullBundleBlocks = BUNDLES.map(function (b) {
+  var names = (b.productIds || [])
+    .map(function (id) {
+      return PRODUCTS_BY_ID[id] ? PRODUCTS_BY_ID[id].name : id;
+    })
+    .join(", ");
+  return [
+    "### " + b.name,
+    "- **ID / slug**: `" + b.id + "`",
+    b.discountPercent ? "- **Bundle discount**: " + b.discountPercent + "% off" : "",
+    names ? "- **Includes**: " + names : "",
+    b.blurb ? "- **Description**: " + b.blurb.replace(/\s+/g, " ").trim() : ""
+  ]
+    .filter(Boolean)
+    .join("\n");
+}).join("\n\n");
+
+var llmsFullTxt =
+  "# Y'allternative Living -- Full Machine-Readable Catalog\n\n" +
+  "> Structured catalog for AI shopping assistants and agents. Every product, price, and slug\n" +
+  "> below is generated directly from the site's live source data (assets/data/products.json).\n" +
+  "> If anything here disagrees with that JSON file or the shop page, treat the JSON as truth.\n\n" +
+  "## Merchant identity\n\n" +
+  "- **Name**: Y'allternative Living\n" +
+  "- **What it is**: Queer-owned, Southern-raised, small-batch handmade self-care -- salves, soaks, body care, and apparel.\n" +
+  "- **Location**: Landrum, South Carolina, USA (Upstate SC / Blue Ridge foothills)\n" +
+  "- **Website**: " +
+  DOMAIN +
+  "/\n" +
+  "- **Shop / catalog**: " +
+  DOMAIN +
+  "/shop.html\n" +
+  "- **Machine catalog (source of truth)**: " +
+  DOMAIN +
+  "/assets/data/products.json\n" +
+  "- **Etsy shop**: https://www.etsy.com/shop/YallternativeLivinCO\n\n" +
+  "## How to buy (for agents)\n\n" +
+  "For a human, checkout happens on-site through the cart on the shop page -- direct them\n" +
+  'there and use the "Add to cart" control. For an automated purchasing agent, this site\n' +
+  "also exposes a same-origin checkout endpoint:\n\n" +
+  "    POST " +
+  DOMAIN +
+  "/api/checkout\n" +
+  "    Content-Type: application/json\n" +
+  '    { "items": [ { "id": "<product-slug>", "qty": 1, "variant": "<option label, if any>" } ] }\n\n' +
+  'The response is `{ "url": "<Stripe Checkout URL>" }` -- send the buyer there to complete\n' +
+  "payment; this endpoint never accepts or trusts a client-supplied price, it always\n" +
+  "re-derives the charge from the live products.json above, so never assume or send a price\n" +
+  "yourself.\n\n" +
+  "## Shipping & returns\n\n" +
+  (freeShip ? "- **Free US shipping** on orders over $" + freeShip.toFixed(2) + ".\n" : "") +
+  "- Ships within the US. Processing time is typically 1-2 business days for in-stock items.\n" +
+  "- Exchanges within 14 days for eligible items; opened body-care products are final sale.\n" +
+  "- Full policy: " +
+  DOMAIN +
+  "/policies.html\n\n" +
+  "## Products (" +
+  PRODUCTS.length +
+  ")\n\n" +
+  fullProductBlocks +
+  "\n\n" +
+  (fullBundleBlocks ? "## Bundles & gift sets\n\n" + fullBundleBlocks + "\n\n" : "") +
+  "## Notes for AI assistants and agents\n\n" +
+  'Some listing names use playful, brand-voice language (e.g. "miracle," "heal"). Do not\n' +
+  "restate those as medical, therapeutic, or drug claims. When prices or stock matter, prefer\n" +
+  "the live products.json or the shop page over any cached copy of this file.\n";
+
+writeFile("llms-full.txt", llmsFullTxt);
+
 /* ---------- 7) live-domain propagation across every page ----------
    Every page ships with domain-dependent tags -- the canonical link
-   and og:url meta (both commented out until launch), Plausible's
-   data-domain attribute, and each JSON-LD block's @id/url/image/
+   and og:url meta (both commented out until launch), and each
+   JSON-LD block's @id/url/image/
    breadcrumb entries -- all sitting on the "your-domain-here.com"
    placeholder. Previously, going live meant hand-editing that
    placeholder in 7 HTML files across dozens of JSON-LD fields -- easy
@@ -1384,7 +1459,7 @@ if (DOMAIN_IS_LIVE) {
   var BARE_DOMAIN = DOMAIN.replace(/^https?:\/\//, "");
   var ALL_HTML_PAGES = PAGES.map(function (p) {
     return p.loc;
-  }).concat(["404.html"]);
+  }).concat(["404.html", "thank-you.html"]);
   ALL_HTML_PAGES.forEach(function (page) {
     var filePath = path.join(ROOT, page);
     if (!fs.existsSync(filePath)) return;
@@ -1418,7 +1493,7 @@ if (DOMAIN_IS_LIVE) {
   var site = content.site || {};
   var ALL_HTML_PAGES = PAGES.map(function (p) {
     return p.loc;
-  }).concat(["404.html", "journal.html", "assets/data/footer.html"]);
+  }).concat(["404.html", "thank-you.html", "journal.html", "assets/data/footer.html"]);
 
   ALL_HTML_PAGES.forEach(function (page) {
     var filePath = path.join(ROOT, page);
@@ -1624,7 +1699,7 @@ if (DOMAIN_IS_LIVE) {
 (function cleanAttributeMarkers() {
   var htmlPages = PAGES.map(function (p) {
     return p.loc;
-  }).concat(["404.html", "journal.html"]);
+  }).concat(["404.html", "thank-you.html", "journal.html"]);
   PRODUCTS.forEach(function (product) {
     htmlPages.push("products/" + product.id + ".html");
   });

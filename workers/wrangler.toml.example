@@ -1,0 +1,17 @@
+# Copy to wrangler.toml and fill in. One Worker per [env] keeps secrets separate.
+# Docs: https://developers.cloudflare.com/workers/wrangler/configuration/
+
+name = "yallternative-checkout"
+main = "checkout.js"
+compatibility_date = "2026-01-01"
+
+[vars]
+SITE_ORIGIN = "https://yallternativeliving.com"
+
+# Secrets are NOT set here. Set them with:
+#   npx wrangler secret put STRIPE_SECRET_KEY
+#
+# For the form Worker, deploy separately (name = "yallternative-forms",
+# main = "submit-form.js") with these vars/secrets:
+#   [vars] TO_EMAIL, FROM_EMAIL
+#   secrets: RESEND_API_KEY, TURNSTILE_SECRET_KEY

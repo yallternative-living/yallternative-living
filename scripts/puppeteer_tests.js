@@ -4,7 +4,9 @@
  * Automatically manages a local static HTTP server lifecycle on port 8082, then executes
  * multi-viewport integration tests across Desktop (1200x800), Tablet (768x1024), and
  * Mobile (375x667) viewports. Validates internal link integrity, responsive navigation
- * drawer toggling, newsletter form submission interception, and Snipcart checkout flow.
+ * drawer toggling, newsletter form submission interception, and the on-site cart's
+ * add-to-cart + drawer flow (assets/js/cart.js -- checkout itself hands off to Stripe's
+ * hosted page, which this local static-server test harness can't exercise).
  */
 
 const http = require("http");
@@ -190,29 +192,46 @@ function createStaticServer(port = 8082) {
       exitCode = 1;
     }
 
-    // 4. Test Snipcart E-commerce Cart Flow
-    console.log("--- Testing Snipcart Flow ---");
+    // 4. Test the on-site cart (cart.js) add-to-cart + drawer flow
+    console.log("--- Testing Cart Flow ---");
     await page.goto(`${url}/shop.html`, { waitUntil: "networkidle2" });
-    await page.waitForSelector(".snipcart-add-item", { timeout: 5000 }).catch(() => {});
-    const addBtn = await page.$(".snipcart-add-item");
+    await page.waitForSelector(".yl-add-item", { timeout: 5000 }).catch(() => {});
+    const addBtn = await page.$(".yl-add-item");
     if (addBtn) {
       await addBtn.click();
-      let snipcartVisible = false;
+      let cartLineVisible = false;
       try {
-        await page.waitForSelector(".snipcart-modal, #snipcart", { visible: true, timeout: 10000 });
-        snipcartVisible = true;
+        // addItemFromButton() renders the line item then calls openDrawer()
+        // (see assets/js/cart.js) -- waiting on the rendered line, not just
+        // the popover opening, also proves the add itself actually worked.
+        await page.waitForSelector("#yl-cart-drawer .yl-cart-line", {
+          visible: true,
+          timeout: 10000
+        });
+        cartLineVisible = true;
       } catch (e) {
-        snipcartVisible = await page
-          .$eval("#snipcart, .snipcart-add-item", (el) => {
-            return !!el;
-          })
+        cartLineVisible = false;
+      }
+
+      let badgeUpdated = false;
+      if (cartLineVisible) {
+        badgeUpdated = await page
+          .$eval(
+            ".cart-count",
+            (el) => el.textContent.trim() !== "" && el.textContent.trim() !== "0"
+          )
           .catch(() => false);
       }
 
-      if (snipcartVisible) {
-        console.log("✅ Snipcart integration verified.");
+      if (cartLineVisible && badgeUpdated) {
+        console.log("✅ Cart integration verified (item added, drawer opened, badge updated).");
+      } else if (cartLineVisible) {
+        console.log(
+          "❌ Cart drawer opened with a line item, but the nav badge count didn't update."
+        );
+        exitCode = 1;
       } else {
-        console.log("❌ Snipcart modal did not appear. (Snipcart might need valid API keys)");
+        console.log("❌ Cart drawer/line item did not appear after Add to Cart.");
         exitCode = 1;
       }
     } else {

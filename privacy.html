@@ -10,17 +10,17 @@
 <meta name="view-transition" content="same-origin">
 <title>Privacy Policy | Y'allternative Living</title>
 <meta name="robots" content="index, follow">
-<meta name="description" content="Plain-language privacy info for Y'allternative Living: what happens with your data when you browse, buy via Snipcart, sign up for emails, or shop our Etsy.">
+<meta name="description" content="Plain-language privacy info for Y'allternative Living: what happens with your data when you browse, buy something, sign up for emails, or shop our Etsy.">
 <link rel="canonical" href="https://yallternativeliving.com/privacy.html">
 
 <meta property="og:type" content="website">
 <meta property="og:title" content="Privacy Policy | Y'allternative Living">
-<meta property="og:description" content="Plain-language privacy info for Y'allternative Living: what happens with your data when you browse, buy through Snipcart, sign up for our emails, or shop our Etsy.">
+<meta property="og:description" content="Plain-language privacy info for Y'allternative Living: what happens with your data when you browse, buy something, sign up for our emails, or shop our Etsy.">
 <meta property="og:image" content="https://yallternativeliving.com/assets/img/og-image.jpg">
 <meta property="og:url" content="https://yallternativeliving.com/privacy.html">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Privacy Policy | Y'allternative Living">
-<meta name="twitter:description" content="Plain-language privacy info for Y'allternative Living: what happens with your data when you browse, buy through Snipcart, sign up for our emails, or shop our Etsy.">
+<meta name="twitter:description" content="Plain-language privacy info for Y'allternative Living: what happens with your data when you browse, buy something, sign up for our emails, or shop our Etsy.">
 <meta name="twitter:image" content="https://yallternativeliving.com/assets/img/og-image.jpg">
 
 <link rel="icon" href="assets/img/favicon-32.png" sizes="32x32" type="image/png">
@@ -37,13 +37,13 @@
 <noscript>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=DM+Sans:wght@400;500;700&display=swap">
 </noscript>
-<!-- Warm up the two third-party origins this page actually talks to,
-     so the first Add to Cart click (Snipcart, lazy-loaded on interaction)
-     and the analytics beacon (Plausible) don't pay a cold DNS+TLS
-     handshake at the moment they're needed. -->
-<link rel="preconnect" href="https://cdn.snipcart.com" crossorigin>
-<link rel="preconnect" href="https://plausible.io">
+<!-- Warm up the analytics origin this page talks to, so the Umami
+     beacon doesn't pay a cold DNS+TLS handshake at the moment it's needed.
+     (Checkout is same-origin now -- assets/js/cart.js posts to /api/checkout
+     on this domain -- so there's no third-party cart origin to warm up.) -->
+<link rel="preconnect" href="https://cloud.umami.is" crossorigin>
 <link rel="stylesheet" href="assets/css/styles.css?v=2.0">
+<link rel="stylesheet" href="assets/css/cart.css">
 
 <script>
   // No-flash theme init: runs before paint, before main.js.
@@ -53,14 +53,14 @@
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
-<!-- Privacy-friendly analytics (Plausible: no cookies, no personal data,
-     aggregate traffic counts only -- see https://plausible.io/data-policy).
-     Two things needed before this records anything real:
-       1. A Plausible account with this site's domain added.
-       2. data-domain below swapped from the placeholder to the real
-          production domain once deployed (same DOMAIN this site uses
-          everywhere else -- see scripts/build-site-data.js). -->
-<script defer data-domain="yallternativeliving.com" src="https://plausible.io/js/script.js"></script>
+<!-- Privacy-friendly analytics (Umami: cookieless, no personal data, no
+     fingerprinting, no cross-site tracking -- and unlike a plain page-view
+     counter it also captures the shop's conversion events: Add to Cart,
+     Purchase, Newsletter Signup, and Site Search. https://umami.is/).
+     No cookie-consent banner required. Before this records anything real:
+       1. Create a free Umami Cloud account (or self-host) and add this site.
+       2. Swap the placeholder data-website-id below for the real one. -->
+<script defer src="https://cloud.umami.is/script.js" data-website-id="YOUR_UMAMI_WEBSITE_ID"></script>
 <style>
   /* Page-specific styling for privacy.html only. */
   .policy-prose{ max-width: 760px; margin: 0 auto; }
@@ -123,18 +123,6 @@
 </script>
 </head>
 <body>
-<script>
-  window.SnipcartSettings = {
-    publicApiKey: /*YL:site.snipcartApiKey*/ "YOUR_SNIPCART_PUBLIC_API_KEY" /*/YL:site.snipcartApiKey*/,
-    loadStrategy: "on-user-interaction",
-    modalStyle: "side",
-    /* Let Snipcart auto-open its cart drawer after Add to Cart -- with
-       this suppressed, the only feedback was a small badge tick in a
-       crowded nav cluster, easy to miss and easy to double-add over. */
-  };
-
-  (function(){var c,d;(d=(c=window.SnipcartSettings).version)!=null||(c.version="3.0");var s,S;(S=(s=window.SnipcartSettings).timeoutDuration)!=null||(s.timeoutDuration=2750);var l,p;(p=(l=window.SnipcartSettings).domain)!=null||(l.domain="cdn.snipcart.com");var w,u;(u=(w=window.SnipcartSettings).protocol)!=null||(w.protocol="https");var m,g;(g=(m=window.SnipcartSettings).loadCSS)!=null||(m.loadCSS=!0);var y=window.SnipcartSettings.version.includes("v3.0.0-ci")||window.SnipcartSettings.version!="3.0"&&window.SnipcartSettings.version.localeCompare("3.4.0",void 0,{numeric:!0,sensitivity:"base"})===-1,f=["focus","mouseover","touchmove","scroll","keydown"];window.LoadSnipcart=o;document.readyState==="loading"?document.addEventListener("DOMContentLoaded",r):r();function r(){window.SnipcartSettings.loadStrategy?window.SnipcartSettings.loadStrategy==="on-user-interaction"&&(f.forEach(function(t){return document.addEventListener(t,o)}),setTimeout(o,window.SnipcartSettings.timeoutDuration)):o()}var a=!1;function o(){if(a)return;a=!0;let t=document.getElementsByTagName("head")[0],n=document.querySelector("#snipcart"),i=document.querySelector('src[src^="'.concat(window.SnipcartSettings.protocol,"://").concat(window.SnipcartSettings.domain,'"][src$="snipcart.js"]')),e=document.querySelector('link[href^="'.concat(window.SnipcartSettings.protocol,"://").concat(window.SnipcartSettings.domain,'"][href$="snipcart.css"]'));n||(n=document.createElement("div"),n.id="snipcart",n.setAttribute("hidden","true"),document.body.appendChild(n)),h(n),i||(i=document.createElement("script"),i.src="".concat(window.SnipcartSettings.protocol,"://").concat(window.SnipcartSettings.domain,"/themes/v").concat(window.SnipcartSettings.version,"/default/snipcart.js"),i.async=!0,t.appendChild(i)),!e&&window.SnipcartSettings.loadCSS&&(e=document.createElement("link"),e.rel="stylesheet",e.type="text/css",e.href="".concat(window.SnipcartSettings.protocol,"://").concat(window.SnipcartSettings.domain,"/themes/v").concat(window.SnipcartSettings.version,"/default/snipcart.css"),t.prepend(e)),f.forEach(function(v){return document.removeEventListener(v,o)})}function h(t){!y||(t.dataset.apiKey=window.SnipcartSettings.publicApiKey,window.SnipcartSettings.addProductBehavior&&(t.dataset.configAddProductBehavior=window.SnipcartSettings.addProductBehavior),window.SnipcartSettings.modalStyle&&(t.dataset.configModalStyle=window.SnipcartSettings.modalStyle),window.SnipcartSettings.currency&&(t.dataset.currency=window.SnipcartSettings.currency),window.SnipcartSettings.templatesUrl&&(t.dataset.templatesUrl=window.SnipcartSettings.templatesUrl))}})();
-</script>
 <a class="skip-link" href="#main">Skip to content</a>
 <header class="site-header">
   <nav class="nav">
@@ -152,9 +140,9 @@
       <!--YL:nav.journal--><!--/YL:nav.journal-->
     </ul>
     <div class="nav-cta">
-      <button class="cart-toggle snipcart-checkout" type="button" aria-label="View your cart">
+      <button class="cart-toggle" type="button" aria-label="View your cart">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="icon-cart"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
-        <span class="badge snipcart-items-count" aria-live="polite"></span>
+        <span class="badge cart-count" aria-live="polite"></span>
       </button>
       <button type="button" class="theme-toggle" id="themeToggle" role="switch" aria-checked="false" aria-label="Toggle dark and light mode">
         <span class="knob" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-moon"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-sun"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span>
@@ -202,8 +190,8 @@
 
         <div class="reveal">
           <h2>When You Buy Something</h2>
-          <p>Checkout on this site runs through <a href="https://snipcart.com" target="_blank" rel="noopener">Snipcart<span class="sr-only">(opens in new tab)</span></a>, a third-party cart and checkout provider. Snipcart in turn uses a payment processor (Stripe) to actually handle your payment. That means your name, shipping address, email, and payment details are collected and stored by Snipcart and Stripe, not by us directly. We see your order information so we can make and ship your goods, but the sensitive handling (card numbers, etc.) never touches our own servers because we don't run any.</p>
-          <p>For the full details on how Snipcart and its payment partners handle your data, read <a href="https://snipcart.com/legal/privacy-policy" target="_blank" rel="noopener">Snipcart's own privacy policy<span class="sr-only">(opens in new tab)</span></a>: they're the ones actually storing and processing that information, so they're the most accurate source on it.</p>
+          <p>Your cart lives right here on this site, but payment itself is handled by <a href="https://stripe.com" target="_blank" rel="noopener">Stripe<span class="sr-only">(opens in new tab)</span></a>, a third-party payment processor. When you check out, you're taken to a payment page hosted by Stripe -- your card details are entered there, not on our site, and never pass through or get stored on our servers. That means your name, shipping address, email, and payment details are collected and stored by Stripe, not by us directly. We see your order information so we can make and ship your goods, but the sensitive handling (card numbers, etc.) never touches our own servers because we don't run any.</p>
+          <p>For the full details on how Stripe handles your data, read <a href="https://stripe.com/privacy" target="_blank" rel="noopener">Stripe's own privacy policy<span class="sr-only">(opens in new tab)</span></a>: they're the ones actually storing and processing that information, so they're the most accurate source on it.</p>
         </div>
         <hr class="rule">
 
@@ -227,8 +215,8 @@
 
         <div class="reveal">
           <h2>Cookies &amp; Analytics</h2>
-          <p>We only use strictly necessary data storage to make the site function for you. Specifically, we use local storage to remember your theme preference (dark or light mode) and your wishlist. If you use the translation tool, a functional cookie is set to remember your language choice. We do not use these functional cookies or local storage for tracking or advertising. We run <a href="https://plausible.io/data-policy" target="_blank" rel="noopener">Plausible<span class="sr-only">(opens in new tab)</span></a>, a privacy-first analytics tool, to see basic things like how many people visited. Plausible doesn't use cookies, doesn't collect or store any personal data, and can't track you across other websites. It just counts anonymous, aggregate page views.</p>
-          <p>That said, the third-party services embedded on this site (Snipcart, Stripe during checkout, Google Translate for language tools, and Etsy once you click through) may set their own cookies or use their own tracking as part of how they operate. Those are governed by those companies' own policies.</p>
+          <p>We only use strictly necessary data storage to make the site function for you. Specifically, we use local storage to remember your theme preference (dark or light mode) and your wishlist. If you use the translation tool, a functional cookie is set to remember your language choice. We do not use these functional cookies or local storage for tracking or advertising. We run <a href="https://umami.is/" target="_blank" rel="noopener">Umami<span class="sr-only">(opens in new tab)</span></a>, a privacy-first analytics tool, to see basic things like how many people visited and which products get added to the cart. Umami doesn't use cookies, doesn't collect or store any personal data, doesn't fingerprint your device, and can't track you across other websites. It just counts anonymous, aggregate activity.</p>
+          <p>That said, the third-party services embedded on this site (Stripe during checkout, Google Translate for language tools, and Etsy once you click through) may set their own cookies or use their own tracking as part of how they operate. Those are governed by those companies' own policies.</p>
         </div>
         <hr class="rule">
 
@@ -366,6 +354,7 @@
 <script src="assets/js/products-data.js?v=2.0" defer></script>
 <script src="assets/js/image-manifest.js?v=2.0" defer></script>
 <script src="assets/js/main.js?v=2.0" defer></script>
+<script src="assets/js/cart.js" defer></script>
 <!-- Live chat (Tawk.to) -- placeholder, inert until real IDs are set.
      Free live-chat widget: https://www.tawk.to -- see DEVELOPMENT.md section 19.
      Replace YOUR_TAWKTO_PROPERTY_ID/YOUR_TAWKTO_WIDGET_ID below with the

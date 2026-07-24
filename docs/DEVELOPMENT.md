@@ -22,7 +22,7 @@ I've set up a simple **Website Dashboard** where you can edit the site's content
 ### 2. Checklist to Launch Your Store (Linking Your Tools)
 To start taking payments, sending newsletters, or moderating reviews directly on the site, you'll need to create accounts on these external platforms and link them to the site:
 1. **[ ] Hosting & Domain (Netlify):** Connect your GitHub account to host the site for free and point your custom domain. (Setup steps in [Section 12](#12-deployment)).
-2. **[ ] Customer Checkout & Credit Cards (Snipcart):** Connects Stripe to your website so customers can add items to a cart and check out directly. (Setup steps in [Section 8](#8-the-shopping-system-explained)).
+2. **[ ] Customer Checkout & Credit Cards (Stripe):** Powers the on-site cart's checkout so customers can add items and pay directly. (Setup steps in [Section 8](#8-the-shopping-system-explained)).
 3. **[ ] Email Newsletters (Kit):** Collects customer email addresses from the signup box in the footer so you can send them updates. (Setup steps in [Section 13](#13-newsletter-signup-explained)).
 4. **[ ] Contact Form & Customer Reviews (Formspree):** Create two separate forms to send contact page messages and new customer reviews directly to your email inbox. (Setup steps in [Section 16](#16-on-site-review-submissions-explained)).
 5. **[ ] Digital Gift Cards (Gift Up! - Optional):** Lets you sell digital gift cards and manage redemptions. (Setup steps in [Section 18](#18-digital-gift-cards-explained)).
@@ -81,6 +81,9 @@ site/
   contact.html         Contact, socials, where to find us in person
   privacy.html         Plain-language privacy policy (see section 14)
   404.html             Custom not-found page
+  thank-you.html        Order confirmation page -- Stripe Checkout's
+                         success_url target (section 8)
+  sw.js                 Service worker: offline caching, precache list
   site.webmanifest
   robots.txt           Explicitly allows major AI crawlers too (section 10)
   sitemap.xml          Auto-generated -- see scripts/build-site-data.js
@@ -103,13 +106,25 @@ site/
                                 assets/js/image-manifest.js (section 15)
   package.json          Dev-time only (sharp, for optimize-images.js) --
                          never ships to the live site, see section 15
+  workers/checkout.js   Cloudflare Worker: creates the Stripe Checkout
+                         Session the on-site cart hands off to (section 8) --
+                         needs to be deployed separately, see workers/README.md
+  workers/submit-form.js  Optional Cloudflare Worker alternative to Formspree
+                           (section 16) -- not deployed by default
+  netlify/functions/fulfill-gift-card.js  Stripe webhook: emails a
+                         redeemable code once a gift-card order completes
+                         (section 8/18) -- also needs separate setup
   assets/
     css/styles.css     Single shared stylesheet (design tokens + components,
-                        @font-face rules, the Snipcart cart theme override)
+                        @font-face rules)
+    css/cart.css       On-site cart drawer styling (section 8)
     fonts/*.woff2      Self-hosted Fraunces + Figtree (section 15)
     js/main.js         Shared behavior: theme toggle, mobile nav, scroll
                         reveal, product card + <picture> rendering,
-                        filters/sort, wishlist, Snipcart button builder
+                        filters/sort, wishlist, Add to Cart button builder
+    js/cart.js         The on-site cart engine + drawer (section 8) --
+                        talks to workers/checkout.js, hands off to Stripe
+    js/thank-you.js    Order-confirmation page logic (thank-you.html only)
     js/products-data.js  AUTO-GENERATED from data/products.json -- product
                           catalog as a JS global (window.YL_PRODUCTS).
                           Don't hand-edit (section 20).
@@ -121,9 +136,6 @@ site/
     data/products.json   THE real, canonical catalog (products, bundles,
                          FAQ, shop info) -- edit directly or via /admin
                          (section 20); everything else derives from this
-    data/snipcart-products.json  Order-validation manifest for Snipcart
-                                 (see section 8) — regenerate after any
-                                 price change
     img/*.jpg            Real product photos + logo, pulled from the
                           shop's own Etsy listings
     img/*.webp           Auto-generated responsive variants (section 15)
@@ -235,25 +247,15 @@ themed for **dark (default) and light mode** via `[data-theme]` + a
 
 ## 5. Required scripts + header (right after `<body>`, on every page)
 
-The Snipcart install snippet must come **first**, directly after
-`<body>` (Snipcart's own recommendation), so it's already loading by
-the time a visitor could click an "Add to Cart" button further down
-the page. Then the header. Swap the `class="active"` onto whichever
-nav link matches the current page; the others should have no `active`
-class.
+No inline cart script needed anymore — the on-site cart (`cart.js`) is a
+regular `defer`red script tag alongside the others near the end of the page
+(see section 8), not something that has to load first. `<body>` just opens
+straight into the skip link and header. Swap the `class="active"` onto
+whichever nav link matches the current page; the others should have no
+`active` class.
 
 ```html
 <body>
-<script>
-  window.SnipcartSettings = {
-    publicApiKey: "YOUR_SNIPCART_PUBLIC_API_KEY",
-    loadStrategy: "on-user-interaction",
-    modalStyle: "side",
-    addProductBehavior: "none",
-  };
-  (function(){ /* ... Snipcart's official minified loader -- copy verbatim from
-    https://docs.snipcart.com/v3/setup/installation, do not hand-type it ... */ })();
-</script>
 <a class="skip-link" href="#main">Skip to content</a>
 <header class="site-header">
   <nav class="nav">
@@ -269,9 +271,9 @@ class.
       <li><a href="contact.html">Contact</a></li>
     </ul>
     <div class="nav-cta">
-      <button class="cart-toggle snipcart-checkout" type="button" aria-label="View your cart">
+      <button class="cart-toggle" type="button" aria-label="View your cart">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.5 3h2l2.6 12.6a2 2 0 0 0 2 1.6h8.4a2 2 0 0 0 2-1.6L21 8H6"/></svg>
-        <span class="badge snipcart-items-count"></span>
+        <span class="badge cart-count"></span>
       </button>
       <button type="button" class="theme-toggle" id="themeToggle" role="switch" aria-checked="false" aria-label="Toggle dark and light mode">
         <span class="knob">🌙</span>
@@ -287,8 +289,8 @@ class.
 Note the wishlist heart icon isn't in this markup — it's injected at
 runtime by `main.js` (`initWishNavButton`) as the very first child of
 `.nav-cta`, so on a live page the final left-to-right order is: heart
-(wishlist) → cart (Snipcart) → theme toggle → "Shop Etsy" → hamburger.
-You never need to hand-add the heart button.
+(wishlist) → cart (opens the on-site cart drawer) → theme toggle →
+"Shop Etsy" → hamburger. You never need to hand-add the heart button.
 
 ## 6. Required footer + closing scripts (every page, before `</body>`)
 
@@ -321,12 +323,14 @@ filename to the page list inside `scripts/build-site-data.js`'s
 sure the page has a `<footer class="site-footer">` placeholder (even an
 empty one) for the build to find and replace.
 
-The two closing `<script>` tags stay hand-written on each page, right
+The closing `<script>` tags stay hand-written on each page, right
 after the footer, before `</body>`:
 
 ```html
-<script src="assets/js/products-data.js"></script>
-<script src="assets/js/main.js"></script>
+<script src="assets/js/products-data.js" defer></script>
+<script src="assets/js/image-manifest.js" defer></script>
+<script src="assets/js/main.js" defer></script>
+<script src="assets/js/cart.js" defer></script>
 </body>
 </html>
 ```
@@ -337,9 +341,15 @@ Notes:
 - Every internal link inside the footer is a relative path
   (`shop.html`, not `/shop.html`) so the site works from a subfolder or
   `file://` with no server.
-- The two `<script>` tags above are required on every page — that's
-  what powers the theme toggle, mobile nav, scroll reveal, and (on
-  `index.html`/`shop.html`) the product grid.
+- These `<script>` tags are required on every page — `products-data.js`
+  and `image-manifest.js` are the catalog + responsive-image data,
+  `main.js` powers the theme toggle, mobile nav, scroll reveal, and (on
+  `index.html`/`shop.html`) the product grid, and `cart.js` is what makes
+  the Add to Cart buttons and cart drawer actually work (section 8) —
+  leaving it off a new page means clicking Add to Cart there does nothing.
+  You'll also need `<link rel="stylesheet" href="assets/css/cart.css">` in
+  the `<head>` alongside `styles.css` (section 4) for the drawer to be
+  styled instead of unstyled HTML.
 
 ## 7. Content already researched (use real facts, never placeholders)
 
@@ -356,122 +366,134 @@ Shop stats: **4.9★ average, 32 reviews, 105+ sales, 1 year on Etsy.**
 
 ## 8. The shopping system, explained
 
-The site sells directly — real "Add to Cart" buttons, a real cart, and
-real checkout — without needing a server, using **[Snipcart](https://snipcart.com)**
-(a JS cart + hosted checkout that layers on top of a static site; 2%
-per-transaction fee below $1,000/mo, free forever in test mode, no
-credit card required to try it). Etsy stays visible everywhere as a
-trust signal (reviews, sale count, a direct listing link on every
-product) but is no longer the only way to buy.
+The site sells directly — a real "Add to Cart" button, a real on-site cart,
+and a real checkout — using an **on-site cart the site owns**
+(`assets/js/cart.js`) that hands off to **[Stripe Checkout](https://stripe.com/payments/checkout)**
+(Stripe's own hosted payment page) for the actual card entry. This replaced
+Snipcart (see `docs/STRIPE-MIGRATION.md` for the full history of that switch)
+specifically to drop Snipcart's $20/month minimum — Stripe only charges a
+per-transaction fee (2.9% + 30¢), nothing monthly. Etsy stays visible
+everywhere as a trust signal (reviews, sale count, a direct listing link on
+every product) but is no longer the only way to buy.
 
 **What's already wired in:**
 
-- Every page loads the Snipcart script right after `<body>` (see
-  section 5). It's set to `loadStrategy: "on-user-interaction"` so it
-  doesn't cost anything on first paint — it only fetches once a visitor
-  scrolls, moves the mouse, or taps something.
 - Every product card (`cardHTML()` in `main.js`) renders a primary
-  **"Add to Cart"** button (class `snipcart-add-item`, built by the
+  **"Add to Cart"** button (class `yl-add-item`, built by the
   `addToCartHTML()` helper) plus a small secondary **"or view the
   listing on Etsy ↗"** link underneath, so Etsy stays the credibility
   signal without being the checkout path.
-- A cart icon next to the wishlist heart in the nav (`.cart-toggle`,
-  class `snipcart-checkout`) opens the cart; it shows a live item count
-  via Snipcart's own `snipcart-items-count` class.
+- A cart icon next to the wishlist heart in the nav (`.cart-toggle`) opens
+  the cart drawer; it shows a live item count via the `.cart-count` badge.
+- Clicking Add to Cart opens a slide-out drawer (`cart.js`, styled by
+  `assets/css/cart.css`) showing every line item, a free-shipping progress
+  meter, one-click upsells, and a Checkout button. Everything is stored in
+  the visitor's own browser (`localStorage`) until they check out — no
+  account, no backend, syncs across open tabs.
 - The **"Saved For Later"** wishlist drawer (heart icon on every
   product card; saves to the visitor's own browser via `localStorage`,
-  key `yl-wishlist` — no account, no backend) now has its own "Add to
+  key `yl-wishlist` — separate from the cart) has its own "Add to
   Cart" button per saved item, plus a "View Cart & Checkout" button at
   the bottom, so saving something and buying it later both happen
   without leaving the site.
-- The cart/checkout UI itself is re-skinned to match the site's fonts
-  and dark/light palette via a `#snipcart{ ... }` CSS custom-property
-  block at the bottom of `styles.css` (Snipcart's documented theming
-  API) — it re-themes automatically with the rest of the site, no
-  separate light/dark version needed.
-- Order-integrity note: since the product grid is rendered by
-  JavaScript (not one static HTML page per product), Snipcart's normal
-  page-crawl validation would see an empty `<div>`. Every button's
-  `data-item-url` instead points at a small static file,
-  `assets/data/snipcart-products.json`, which lists every product's
-  real ID and price for Snipcart to check against — this is Snipcart's
-  documented pattern for JS-rendered/SPA catalogs. **Regenerate this
-  file any time you change a price** by running `node
-  scripts/build-site-data.js` from inside `site/` (see section 10 for
-  everything else that one command keeps in sync). If you forget this
-  step after a price change, real orders at the old price will fail
-  Snipcart's validation and get blocked — so treat it as part of "how to
-  edit a product."
+- Clicking Checkout POSTs the cart to a small backend piece (a Cloudflare
+  Worker, `workers/checkout.js`) that re-derives every price from
+  `assets/data/products.json` itself — it never trusts whatever price the
+  browser sent — then redirects to a real Stripe-hosted payment page. Order
+  confirmation happens on `thank-you.html`.
+- Order-integrity note: since prices are re-derived server-side from
+  `assets/data/products.json` on every checkout attempt, there's no
+  separate manifest file to keep in sync (unlike Snipcart's old
+  `snipcart-products.json`) — **any time you change a price** in the
+  Website Dashboard (`/admin`) or by hand-editing `products.json`, the
+  next build (`node scripts/build-site-data.js`) picks it up automatically
+  and the very next checkout charges the new price. Nothing extra to
+  remember.
+- Gift cards are a special case: buying one triggers a second backend piece
+  (`netlify/functions/fulfill-gift-card.js`) that emails the recipient a
+  redeemable code once payment actually completes. See section 18.
+- Shipping: a flat $10 charge applies below a $40 order subtotal, free above
+  it (matches the "Free shipping on orders over $40" banner already on
+  every page). This is a hardcoded starting default in `workers/checkout.js`
+  (look for `freeShippingThresholdCents`/`flatShippingRateCents` near the
+  top) — Snipcart used to own this from its own dashboard; there's no
+  dashboard here, so adjust those two numbers directly in the file if real
+  rates differ, then redeploy the Worker.
+- Taxes: **not currently calculated or charged anywhere.** Snipcart used to
+  offer one-click US sales tax via TaxJar; the Stripe replacement doesn't
+  have an equivalent wired in yet. If tax collection matters for this
+  business (worth checking with whoever handles its taxes), the fix is
+  either Stripe Tax (a paid Stripe add-on that plugs into Checkout Sessions
+  with a couple of added params) or a manual accounting process outside the
+  checkout flow — this needs a real decision, not a default value like
+  shipping got.
 
 **What you (Savanna) still need to do — I can't do this part for you,
-since it requires creating an account and entering real payment/tax
-details.** Snipcart's dashboard has its own built-in setup checklist
-once you're logged in, but here's the complete list of everything
-*this specific site* needs from it, in the order you'd naturally hit
-them. Do all of this in **Test mode** first (Snipcart's dashboard has a
-Test/Live toggle in the header) — nothing here costs anything or
-touches a real card until you flip that switch.
+since it requires creating an account and entering real payment details,
+and none of it could be tested against a real Stripe account in the
+environment this was built in.**
 
-**A. Account & payment**
+**A. Stripe account**
 
-1. [Sign up for a free Snipcart account](https://app.snipcart.com/register)
-   (no credit card required for test mode).
-2. Connect a payment gateway under **Store configuration → Payment
-   gateway** (Stripe is the most common choice and is what this site's
-   CSP files already assume — see `netlify.toml`/`vercel.json`; if you
-   pick PayPal instead, you'll need to add PayPal's domains to the CSP
-   too, in `scripts/build-security-headers.js`).
+1. [Sign up for a Stripe account](https://dashboard.stripe.com/register)
+   (no fee to sign up; you only pay the per-transaction rate once you're
+   live). Stripe starts you in **Test mode** — a toggle in the dashboard —
+   where nothing touches a real card until you flip it.
+2. Under **Developers → API keys**, grab a **secret key**. A *restricted*
+   key limited to Checkout Sessions + Coupons + Promotion Codes write
+   access is safer than the default full-access secret key, if you want to
+   set that up.
 
-**B. Store configuration (one-time setup, before any real orders)**
+**B. Deploy the two backend pieces**
 
-3. **Shipping** — Store configuration → Shipping. Turn it on and set
-   real rates/methods (flat rate is simplest to start). The Etsy
-   listings currently charge around $10 flat for apparel shipped from
-   Landrum, SC — a reasonable starting point, but this is Savanna's
-   call, not something to copy blindly.
-4. **Taxes** — Store configuration → Taxes. Snipcart can auto-calculate
-   US sales tax (TaxJar SmartCalcs) once turned on. This is a real tax
-   compliance matter — worth a quick check with whoever handles the
-   business's taxes, not just a technical toggle.
-5. **Currency** — confirm the store currency is set to USD (Store
-   configuration → General), matching every price on the site and the
-   `priceCurrency: "USD"` already in the JSON-LD.
-6. **Store info / notification email** — Store configuration → General.
-   Set the business name and order-notification email so confirmation
-   emails come from "Y'allternative Living," not a generic default.
+This is the part that's more setup than Snipcart used to be (Snipcart
+needed zero servers; Stripe Checkout needs these two small pieces to create
+sessions and handle gift cards) — but full step-by-step instructions are in
+`workers/README.md`, written for exactly this handoff:
 
-**C. Wire the real key into the site**
+3. Deploy `workers/checkout.js` to Cloudflare Workers (free tier is plenty
+   for a shop this size) with your Stripe secret key and site domain.
+4. Set the three environment variables `fulfill-gift-card.js` needs in
+   Netlify's site settings, then register it as a Stripe webhook endpoint
+   (Developers → Webhooks in the Stripe Dashboard) so gift cards actually
+   get emailed.
 
-7. Grab your **public API key** from
-   [Store configuration → Domains & URLs / API Keys](https://app.snipcart.com/dashboard/account/credentials).
-8. Enter your key in the Website Dashboard (`/admin` → Page Wording → Global Site Assets & Configurations → Snipcart Public API Key) or in `assets/data/content.json` under `site.snipcartApiKey`. The build script will automatically propagate it to all pages.
-9. Under **Store configuration → Domains & URLs**, register your real
-    domain once you have one, so Snipcart's order-validation crawler is
-    allowed to hit it.
+**C. Store details**
+
+5. **Currency** — every price on the site (and the `priceCurrency: "USD"`
+   already in the JSON-LD) assumes USD; nothing to configure on Stripe's
+   side for a US-only shop.
+6. **Notification email** — Stripe's dashboard sends its own payment
+   receipts/notifications automatically once live; check
+   **Settings → Business settings → Public details** for the name/email
+   customers see.
 
 **D. Growth features (optional, but worth doing — see
 `website-gap-analysis.md`)**
 
-10. **First-order discount code** — Manage store → Discounts. A
-    "10% off your first order" code is the natural pairing with the
-    newsletter signup box already on every page.
-11. **Abandoned cart recovery** — Manage store → Abandoned carts.
-    Snipcart can send a short sequence of recovery emails (e.g. at 1
-    hour / 1 day / 3 days) to anyone who added something to cart and
-    left without checking out, optionally with a discount code baked
-    into the last one.
+7. **First-order discount code** — Stripe supports Coupons + Promotion
+   Codes directly (the same mechanism `fulfill-gift-card.js` already uses
+   for gift-card redemption codes) — create one in
+   **Product catalog → Coupons**, and since `workers/checkout.js` already
+   sets `allow_promotion_codes: true`, any code you create there is
+   immediately usable at checkout with no code changes.
+8. **Abandoned cart recovery** — Stripe doesn't have Snipcart's built-in
+   abandoned-cart email sequence. This would need to be built separately
+   (e.g. a scheduled check against `localStorage`-persisted carts isn't
+   possible server-side since carts never leave the browser until checkout
+   — a real abandoned-cart feature would need its own design).
 
-**E. Before flipping to Live**
+**E. Before trusting this with real money**
 
-12. Test a full checkout in Test mode — Test card numbers are in
-    [Snipcart's own docs](https://docs.snipcart.com/v3/); this site's
-    CSP/Permissions-Policy already allow the payment iframe, but doing
-    one real test run and watching the browser console for any
-    "Refused to ..." CSP error is the only way to be sure. If one shows
-    up, it'll name the exact domain to add to `frame-src`/`connect-src`
-    in `scripts/build-security-headers.js`.
-13. Flip the Test/Live toggle once you're confident, and swap the
-    public API key again if Snipcart gives you a separate Live key.
+9. Run a full test-mode purchase end to end — regular product, a product
+   with variants, and a gift card — using
+   [Stripe's test card numbers](https://docs.stripe.com/testing). Confirm
+   the order redirects to `thank-you.html` correctly, and confirm the
+   gift-card webhook actually fires and the email arrives with a working
+   code (this specifically could not be verified in the sandbox this was
+   built in — it's the one piece that genuinely needs a live test).
+10. Only after that: swap in your **live** Stripe secret key on the Worker
+    and re-deploy.
 
 Etsy still fully works as a second sales channel in parallel — nothing
 here removes or blocks the "or view the listing on Etsy" links.
@@ -540,11 +562,10 @@ describe accurately," not "block AI crawlers":
   reading product names like "Miracle" or "Heal" as medical claims.
 
 **Auto-adapt pipeline — the important part:** almost everything above
-that mentions specific products (the shop JSON-LD, the Snipcart
-manifest, `products-data.js`, `llms.txt`'s product list) is **generated,
-not hand-written** by `scripts/build-site-data.js`. Run this one command
-from inside `site/` any time you add, edit, or remove a product (or add
-a new top-level page):
+that mentions specific products (the shop JSON-LD, `products-data.js`,
+`llms.txt`'s product list) is **generated, not hand-written** by
+`scripts/build-site-data.js`. Run this one command from inside `site/`
+any time you add, edit, or remove a product (or add a new top-level page):
 
 ```
 node scripts/build-site-data.js
@@ -554,8 +575,7 @@ It regenerates everything derived from the four canonical source files
 in `assets/data/` — `products.json`, `events.json`, `site-reviews.json`,
 and `content.json` (the single source of truth for each — see section
 20 for how they're edited): `assets/js/products-data.js`,
-`events-data.js`, and `site-reviews-data.js`;
-`assets/data/snipcart-products.json`; `shop.html`'s Product/ItemList
+`events-data.js`, and `site-reviews-data.js`; `shop.html`'s Product/ItemList
 JSON-LD block; `contact.html`'s FAQPage JSON-LD + visible FAQ prose;
 `index.html`/`about.html`'s page copy; every page's shared `<footer>`
 (see section 6); `sitemap.xml`; `robots.txt`; and `llms.txt`. It's safe
@@ -599,13 +619,16 @@ and `robots.txt`, in one pass. No manual per-file editing needed.
   auto-generated and your changes would just get overwritten). Drop a
   new photo in `assets/img/`. If you edited `products.json` by hand,
   then run `node scripts/build-site-data.js` from inside `site/` — this
-  regenerates `products-data.js`, the Snipcart order-validation
-  manifest, `shop.html`'s Product JSON-LD, `sitemap.xml`, and `llms.txt`
-  all in one step (see section 10). (If you used `/admin` instead, the
-  site's own deploy step does this for you automatically — see section
-  12 and section 20.) Skipping this step after a price change means
-  Snipcart will reject real orders at the old price, so treat it as a
-  required part of editing a product by hand, not an optional extra.
+  regenerates `products-data.js`, `shop.html`'s Product JSON-LD,
+  `sitemap.xml`, and `llms.txt` all in one step (see section 10). (If you
+  used `/admin` instead, the site's own deploy step does this for you
+  automatically — see section 12 and section 20.) The checkout Worker
+  (`workers/checkout.js`) re-derives every price straight from the live
+  `products.json` on the deployed site at checkout time, so this isn't
+  quite as strict a requirement as it used to be — but skipping the
+  rebuild still means the shop page itself keeps showing the old price
+  until the next deploy, which is confusing even if checkout would charge
+  correctly. Treat it as a required part of editing a product by hand.
 - **Add/edit an event:** either use `/admin` (section 20) or hand-edit
   `assets/data/events.json` directly, then run
   `node scripts/build-site-data.js` — this regenerates
@@ -613,8 +636,8 @@ and `robots.txt`, in one pass. No manual per-file editing needed.
   fields themselves).
 - **Change colors/fonts:** edit the CSS custom properties at the top of
   `assets/css/styles.css` — every page updates automatically, in both
-  dark and light mode, including the Snipcart cart UI (it reads the
-  same custom properties).
+  dark and light mode, including the on-site cart drawer (`cart.css`
+  reads the same custom properties).
 - **Deploy:** see section 12 below.
 
 ## 12. Deployment
@@ -623,8 +646,8 @@ and `robots.txt`, in one pass. No manual per-file editing needed.
 CMS product editor at `/admin` entered the picture — see section 20): a
 CMS commit only updates `assets/data/products.json`, and everything
 derived from it (`products-data.js`, `shop.html`/`contact.html`'s
-JSON-LD, `sitemap.xml`, `llms.txt`, the Snipcart manifest) needs
-regenerating on every deploy, not just when a human remembers to run
+JSON-LD, `sitemap.xml`, `llms.txt`) needs regenerating on every deploy,
+not just when a human remembers to run
 `node scripts/build-site-data.js` by hand. The good news: it's still
 **zero `npm install`** — both `scripts/build-site-data.js` and
 `scripts/build-security-headers.js` only use Node's built-in `fs`/`path`/
@@ -633,7 +656,10 @@ are already in this folder, all pre-wired with the build command:
 
 - **Netlify** — `netlify.toml` is already configured (the build command
   above, long-cache headers for images/CSS/JS, security headers, and a
-  CSP that already allows Snipcart + Stripe + the `/admin` CMS). Connect
+  CSP that already allows Umami/Tawk/Google Translate + the `/admin`
+  CMS — Stripe itself needs no CSP entry, see section 8). Also where
+  `netlify/functions/fulfill-gift-card.js` deploys from, if you go this
+  route — Netlify auto-detects that folder. Connect
   a GitHub repo for auto-deploys on every push (drag-and-drop onto
   [app.netlify.com/drop](https://app.netlify.com/drop) also still works,
   but skips the build step, so `/admin` edits won't take effect until
@@ -660,6 +686,17 @@ Sveltia CMS backend is GitHub-based (section 20) — if this project isn't
 in a GitHub repo yet, that's the actual first step, before any of the
 above.
 
+**Checkout is a separate deploy from all three of the above, regardless
+which one you pick.** `workers/checkout.js` is a Cloudflare Worker — it
+deploys to Cloudflare, not to Netlify/Vercel/GitHub Pages, even if you
+host the static site itself on one of those. Likewise,
+`netlify/functions/fulfill-gift-card.js` specifically needs a Netlify
+site to auto-deploy from (Netlify's functions convention) — if you host
+the static site on Vercel or GitHub Pages instead, that one function
+would need its own separate Netlify site (or a rewrite for whichever
+host's own functions platform) just to run. See section 8 and
+`workers/README.md` for the actual deploy steps.
+
 Also included:
 
 - **`404.html`** — a custom not-found page (all three hosts above
@@ -667,9 +704,9 @@ Also included:
 - **`.gitignore`** — excludes OS junk files, logs, and local `.env`/
   `.vercel` folders from version control.
 
-**Whichever host you pick, remember to also:** replace the Snipcart
-placeholder API key (section 8) and, once you have a real domain,
-find-and-replace `your-domain-here.com` and uncomment the
+**Whichever host you pick, remember to also:** deploy the checkout Worker
++ gift-card webhook with real Stripe keys (section 8) and, once you have
+a real domain, find-and-replace `your-domain-here.com` and uncomment the
 canonical/og:url tags (section 10).
 
 ## 13. Newsletter signup, explained
@@ -728,14 +765,16 @@ own redirect setting, not by anything hardcoded to a fake key.
 **`privacy.html`** — a plain-language privacy policy, explicitly framed
 as not legal advice, written to accurately reflect what this specific
 site does: theme preference and the "Saved For Later" wishlist live only
-in browser `localStorage` and never touch a server; checkout runs
-through Snipcart/Stripe (linked out to
-[Snipcart's own privacy policy](https://snipcart.com/legal/privacy-policy)
-rather than restating it); the email newsletter signup is described
-generically (no specific provider named, to stay accurate regardless of
-whether Kit is still the provider); Etsy and the current absence of any
-analytics/tracking script are both disclosed honestly (fonts are now
-self-hosted, so there's no Google Fonts request to disclose at all). No
+in browser `localStorage` and never touch a server; the cart lives
+on-site too, but checkout itself happens on a page hosted by
+[Stripe](https://stripe.com) (linked out to
+[Stripe's own privacy policy](https://stripe.com/privacy) rather than
+restating it) — card details are entered there, never on this site's own
+servers; page-view analytics run through [Umami](https://umami.is), a
+cookieless analytics tool (no cookie-consent banner needed as a result);
+the email newsletter signup is described generically (no specific
+provider named, to stay accurate regardless of whether Kit is still the
+provider); Etsy is disclosed honestly as a linked third party. No
 compliance claims (GDPR/CCPA/cookie-consent) are made since none of that
 machinery exists on the site — it just offers to help with rights
 requests case-by-case via email. Uses the same head boilerplate,
@@ -743,8 +782,8 @@ header/footer, and JSON-LD pattern as the other six pages, linked from
 every footer. Last updated 2026-07-16 — **have an actual lawyer review
 this before treating it as a real legal document**, especially if the
 shop starts collecting more customer data than it does today (e.g. if
-Snipcart's dashboard is configured to also handle marketing consent, or
-if analytics gets added later).
+Stripe's dashboard is configured to also handle marketing consent, or if
+a database of customer order history gets added later).
 
 ## 15. Performance: responsive images + self-hosted fonts
 
@@ -878,11 +917,13 @@ generated JSON-LD and prose actually match the current `faq` array, and
 that `shop.html` hasn't quietly grown its own duplicate accordion again.
 
 **Bundles / gift sets.** `assets/data/products.json`'s `bundles` array
-combines real existing products at a discount; `scripts/build-site-
-data.js` computes each bundle's actual price from the current product
-prices (never a hand-set number, so it can't drift), and adds it to
-`snipcart-products.json` as its own line item (id `bundle-<id>`). The
-three bundles shipped today are a **starting point I put together, not
+combines real existing products at a discount. Bundles never carry
+their own `price` field — it's always computed fresh from the current
+component-product prices (never a hand-set number, so it can't drift),
+both in the browser (`main.js`'s `bundlesHTML()`, for display) and again
+server-side in `workers/checkout.js` (for the actual charge, so a
+tampered client price is never trusted — see section 8). The three
+bundles shipped today are a **starting point I put together, not
 a finished merchandising decision** — review the products, the 10%
 discount, and the copy before treating them as final. To add a new
 bundle: use `/admin` (section 20), or copy one of the existing objects
@@ -894,36 +935,37 @@ field per product (see `admin/config.yml`'s hint text, or
 `products-data.js`'s generated header comment) — omit it entirely
 (the default for every product today) and nothing changes; set a real
 number and the product card shows a honest "Only N left"/"Sold out"
-badge and gets Snipcart's real `data-item-max-quantity` cap. This is
-**manually maintained**, not synced from Etsy or from Snipcart
-automatically — I deliberately didn't wire it to the "X left" numbers
-Etsy shows, since that's a separate inventory pool from this site's own
-Snipcart checkout and would be misleading. Once you have a real
-Snipcart account, its dashboard's own **Inventory management** feature
-(Manage store → Products) is the more automatic long-term option — see
-section 8, item B.6 — this field is a simpler stopgap that needs no
-account at all.
+badge and the cart drawer caps quantity at that number
+(`data-item-max-quantity`, enforced by `cart.js`). This is
+**manually maintained**, not synced from Etsy automatically — I
+deliberately didn't wire it to the "X left" numbers Etsy shows, since
+that's a separate inventory pool from this site's own checkout and would
+be misleading. There's no dashboard-driven automatic option here the way
+Snipcart used to offer one — Stripe doesn't have an equivalent built-in
+inventory feature, so this manually-set field is the actual long-term
+mechanism now, not a stopgap.
 
 **Product Image Lightbox.** Clicking on any non-gift card product image (on the home page or shop page grids) opens a premium glassmorphic lightbox modal (`#imageLightboxModal`). It displays an enlarged view of the product photo and includes interactive next/prev control arrows + gallery navigation indicator dots to cycle through the alternative images in that product's gallery. The modal uses the modern HTML5 `<dialog>` API with keyboard accessibility support (dismisses instantly on hitting `Esc` or clicking the backdrop overlay).
 
 ## 18. Digital gift cards, explained
 
-**Custom Snipcart-integrated checkout by default.** The Digital Gift Card is fully integrated as a featured item inside the catalog (`products.json`). When a user clicks "Configure Card" on the shop grid, it triggers a state-of-the-art native `<dialog id="giftCardModal">` modal. This modal allows customers to choose preset amounts ($10, $25, $50, $100, $200) or enter a custom amount (from $10 to $500). They can fill out custom purchase fields (Recipient Email, Sender Name, and an optional Message) and add the gift card directly to the Snipcart cart.
+**Custom Stripe-integrated checkout by default.** The Digital Gift Card is fully integrated as a featured item inside the catalog (`products.json`). When a user clicks "Configure Card" on the shop grid, it triggers a state-of-the-art native `<dialog id="giftCardModal">` modal. This modal allows customers to choose preset amounts ($10, $25, $50, $100, $200) or enter a custom amount (from $10 to $500). They can fill out custom purchase fields (Recipient Email, Sender Name, and an optional Message) and add the gift card directly to the on-site cart, alongside any physical products, checking out in one Stripe session.
 
-**Optional third-party fulfillment (Gift Up!).** Since a static site cannot track balances securely on its own, the system is prepared to hand off to **[Gift Up!](https://www.giftup.com)** (a purpose-built gift card platform) once Savanna is ready. If a Gift Up! embed code is pasted inside `#giftUpContainer` in `shop.html`, the custom Snipcart configurator form is bypassed, and the Gift Up! checkout widget is loaded instead.
+Fulfillment is automatic, not manual: once payment completes, `netlify/functions/fulfill-gift-card.js` (the checkout webhook, see section 8) generates a redemption code, creates a matching single-use Stripe Promotion Code for it, and emails it to the recipient — Savanna doesn't have to read orders and hand-create anything. The recipient later enters that code at checkout (`workers/checkout.js` sets `allow_promotion_codes: true`) to redeem it.
 
-### Snipcart vs. Gift Up! Comparison
+**Optional third-party alternative (Gift Up!).** The system is also prepared to hand off entirely to **[Gift Up!](https://www.giftup.com)** (a purpose-built gift card platform with its own balance tracking, printable cards, and in-person redemption app) if that's ever preferred over the built-in flow. If a Gift Up! embed code is pasted inside `#giftUpContainer` in `shop.html`, the custom gift-card configurator form is bypassed, and the Gift Up! checkout widget is loaded instead.
 
-For digital gift card sales and redemptions, you can choose between keeping Snipcart (the default out-of-the-box setup) or integrating Gift Up! (automated third-party). Refer to the comparison below to decide which option fits the shop best:
+### Built-in (Stripe) vs. Gift Up! comparison
 
-| Feature | Snipcart Checkout (Default) | Gift Up! Checkout (Optional Embed) |
+| Feature | Built-in (Stripe, Default) | Gift Up! Checkout (Optional Embed) |
 | :--- | :--- | :--- |
-| **How it Works** | Bought as a digital product directly in the main store grid and checkout. | Bypasses the Snipcart checkout; loads an iframe popup widget directly from Gift Up!. |
-| **Fulfillment** | **Manual**: Savanna reads the checkout order (sender name, recipient email, amount) and manually creates a matching coupon code in the Snipcart dashboard, then emails it to the buyer. | **Automatic**: Gift Up! automatically generates the code, tracks the balance, and emails a beautiful, ready-to-print digital gift card to the recipient instantly. |
-| **Redemption** | Customers enter the manually generated coupon code inside Snipcart's standard checkout cart. | Gift Up! integrates with Snipcart to auto-validate codes during checkout, or they can be scanned/inputted at in-person events via the Gift Up! mobile app. |
+| **How it Works** | Bought as a digital product directly in the main store grid and checkout. | Bypasses the built-in checkout; loads an iframe popup widget directly from Gift Up!. |
+| **Fulfillment** | **Automatic**: `fulfill-gift-card.js` generates the code and emails it the moment payment completes — no manual step. | **Automatic**: Gift Up! automatically generates the code, tracks the balance, and emails a beautiful, ready-to-print digital gift card to the recipient instantly. |
+| **Redemption** | Customers enter the emailed Stripe Promotion Code at checkout, same cart as everything else. | Gift Up! codes are scanned/validated through Gift Up!'s own system, or inputted at in-person events via the Gift Up! mobile app. |
 | **Cart Integration** | **Unified**: Customers can add a gift card and physical products (like a beard salve) to the same cart and check out once. | **Separated**: Gift cards must be purchased in a separate transaction from physical items. |
-| **Fees** | Standard Snipcart transaction fees (2% on standard tiers) + credit card processing. | Gift Up!'s transaction fees (usually around 3.49% on free accounts) *on top* of standard payment processing. |
-| **Setup Overhead** | None; it is already fully coded, tested, and operational. | Requires setting up a Gift Up! account, configuring branding templates, and copying the embed snippet into `shop.html`. |
+| **Balance tracking** | **None** — a code is single-use and fixed-amount (Stripe Coupon with `max_redemptions: 1`), not a running balance that can be partially spent across multiple orders. | Gift Up! tracks a real running balance, redeemable across multiple partial purchases. |
+| **Fees** | Stripe's standard per-transaction fee only — no separate gift-card platform fee. | Gift Up!'s own transaction fees (usually around 3.49% on free accounts) *on top* of standard payment processing. |
+| **Setup Overhead** | None beyond the checkout Worker + webhook deploy already needed for the rest of the store (section 8). | Requires setting up a Gift Up! account, configuring branding templates, and copying the embed snippet into `shop.html`. |
 
 **What you (Savanna) still need to do (if you choose to use Gift Up!):**
 
@@ -935,8 +977,9 @@ For digital gift card sales and redemptions, you can choose between keeping Snip
    details yourself since those change).
 3. From your Gift Up! dashboard, grab the real embed snippet for your
    store and replace the `YOUR_GIFTUP_EMBED_CODE` placeholder comment
-   inside `#giftUpContainer` in `shop.html` with it — same "copy it
-   exactly, don't hand-type it" rule as the Snipcart snippet.
+   inside `#giftUpContainer` in `shop.html` with it — copy it exactly,
+   don't hand-type it (same rule as any third-party embed snippet, like
+   the Tawk.to one in section 19).
 4. Once you have that real snippet, check the browser console for any
    CSP "Refused to ..." errors and add whatever domain it names to
    `scripts/build-security-headers.js`'s `csp` array (most likely
@@ -969,7 +1012,7 @@ so turning it on later needs no header changes.
    looking staffed 24/7 when no one's actually watching it.
 
 **Before you turn this on, decide whether you actually want it
-staffed** — unlike Snipcart/Kit/Formspree, live chat has an ongoing
+staffed** — unlike Stripe/Kit/Formspree, live chat has an ongoing
 cost (someone has to answer it, or it just becomes an unanswered
 inbox that looks worse than no chat at all). The placeholder ships
 inert on purpose so that decision stays yours, not a default.

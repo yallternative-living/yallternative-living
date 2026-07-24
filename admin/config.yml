@@ -248,7 +248,7 @@ collections:
                       - name: label
                         label: "Option Label (e.g. \"8 oz\" or \"Lavender\")"
                         widget: string
-                        hint: Cannot contain [ ] or | characters -- these break Snipcart's option syntax.
+                        hint: Cannot contain [ ] or | characters -- these break the cart's option-parsing syntax (see assets/js/cart.js).
                       - { name: priceDelta, label: "Price Difference From Base Price (0 if same price, negative allowed)", widget: number, value_type: float, default: 0 }
               - name: tags
                 label: Tags (Sensitivity / Allergen)
@@ -443,7 +443,6 @@ collections:
               - { name: footerTagline, label: "Footer Tagline", widget: text, required: false }
               - { name: newsletterTitle, label: "Newsletter Headline", widget: string, required: false }
               - { name: newsletterSubtext, label: "Newsletter Subheading", widget: text, required: false }
-              - { name: snipcartApiKey, label: "Snipcart Public API Key", widget: string, required: false, hint: "Paste your Snipcart Public API Key here to enable checkout." }
               - { name: kitFormAction, label: "Kit (ConvertKit) Form Action URL", widget: string, required: false, hint: "Paste your Kit newsletter form action URL here." }
               - { name: tawkToPropertyId, label: "Tawk.to Property ID", widget: string, required: false, hint: "For live chat support." }
               - { name: tawkToWidgetId, label: "Tawk.to Widget ID", widget: string, required: false, hint: "For live chat support." }
