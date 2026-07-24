@@ -2947,6 +2947,22 @@
           " intent.";
         var itemImage = match.image || (match.images && match.images[0]) || "assets/img/logo.png";
 
+        var getItemPrice = function (item) {
+          if (typeof item.price === "number") return item.price;
+          if (Array.isArray(item.productIds)) {
+            var fullPrice = item.productIds.reduce(function (sum, id) {
+              var p = catalog.find(function (x) {
+                return x.id === id;
+              });
+              return sum + (p ? p.originalPrice || p.price || 0 : 0);
+            }, 0);
+            return Math.round(fullPrice * (1 - (item.discountPercent || 0) / 100) * 100) / 100;
+          }
+          return 0;
+        };
+
+        var resolvedPrice = getItemPrice(match);
+
         if (results) {
           results.innerHTML =
             '<div class="card quiz-recommended-card reveal" style="max-width: 540px; margin: 0 auto; padding: 1.5rem; text-align: center; border: 2px solid var(--whiskey); background: var(--paper); border-radius: var(--radius-md);">' +
@@ -2967,13 +2983,13 @@
             "</p>" +
             '  <button type="button" class="btn btn-primary btn-block yl-add-item"' +
             '    data-item-id="' +
-            attrEsc(match.id) +
+            attrEsc(match.isBundle ? "bundle-" + match.id : match.id) +
             '"' +
             '    data-item-name="' +
             attrEsc(match.name) +
             '"' +
             '    data-item-price="' +
-            match.price.toFixed(2) +
+            resolvedPrice.toFixed(2) +
             '"' +
             '    data-item-image="' +
             attrEsc(itemImage) +
@@ -2982,7 +2998,7 @@
             attrEsc(match.blurb || "") +
             '">' +
             "    Add Recommendation to Cart ($" +
-            match.price.toFixed(2) +
+            resolvedPrice.toFixed(2) +
             ")" +
             "  </button>" +
             '  <button type="button" class="btn btn-link btn-sm" id="quizRetakeBtn" style="margin-top: 1rem; color: var(--paper-muted);">Take Quiz Again</button>' +
