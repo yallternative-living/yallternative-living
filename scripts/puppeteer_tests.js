@@ -238,6 +238,176 @@ function createStaticServer(port = 8082) {
       console.log("❌ No 'Add to Cart' button found on shop.html.");
       exitCode = 1;
     }
+
+    // 5. Test Countdown Ticker (R1)
+    console.log("--- Testing Countdown Ticker (R1) ---");
+    for (const pageName of ["index.html", "events.html"]) {
+      await page.goto(`${url}/${pageName}`, { waitUntil: "networkidle2" });
+      if (pageName === "index.html") {
+        const ticker = await page.$("#yl-countdown-ticker");
+        if (ticker) {
+          const daysText = await page
+            .$eval("#yl-countdown-days", (el) => el.textContent.trim())
+            .catch(() => null);
+          const secsText = await page
+            .$eval("#yl-countdown-seconds", (el) => el.textContent.trim())
+            .catch(() => null);
+          if (daysText !== null && secsText !== null) {
+            console.log(
+              `✅ Countdown ticker rendering timer values on ${pageName} (${daysText}d ${secsText}s).`
+            );
+          } else {
+            console.log(`❌ Countdown ticker digits missing on ${pageName}.`);
+            exitCode = 1;
+          }
+        } else {
+          console.log(`❌ #yl-countdown-ticker element missing on ${pageName}.`);
+          exitCode = 1;
+        }
+      } else {
+        const banner = await page.$("#eventsCountdownBanner");
+        if (banner) {
+          const bannerText = await page.evaluate((el) => el.textContent.trim(), banner);
+          if (bannerText.length > 0) {
+            console.log(`✅ Events countdown banner rendering on ${pageName}.`);
+          } else {
+            console.log(`❌ Events countdown banner empty on ${pageName}.`);
+            exitCode = 1;
+          }
+        } else {
+          console.log(`❌ #eventsCountdownBanner element missing on ${pageName}.`);
+          exitCode = 1;
+        }
+      }
+    }
+
+    // 6. Test Order Status Modal & Timeline (R2)
+    console.log("--- Testing Order Status Modal (R2) ---");
+    for (const targetPage of ["thank-you.html", "shop.html"]) {
+      await page.goto(`${url}/${targetPage}`, { waitUntil: "networkidle2" });
+      await page
+        .waitForSelector('[data-action="open-order-status"], #openOrderStatusBtn', {
+          timeout: 5000
+        })
+        .catch(() => null);
+      const openBtn = await page.$('[data-action="open-order-status"], #openOrderStatusBtn');
+      if (openBtn) {
+        await page.evaluate((btn) => btn.click(), openBtn);
+        await page.waitForSelector("#order-status-modal", { visible: true, timeout: 5000 });
+
+        const orderInput = await page.$("#order-id-input");
+        if (orderInput) {
+          await orderInput.type("cs_test_123456789");
+          await page.click("#order-lookup-btn");
+          await page.waitForSelector("#order-timeline-container .timeline-step", {
+            visible: true,
+            timeout: 5000
+          });
+          const stepCount = await page.$$eval(
+            "#order-timeline-container .timeline-step",
+            (steps) => steps.length
+          );
+          if (stepCount >= 3) {
+            console.log(`✅ Order timeline rendered ${stepCount} steps on ${targetPage}.`);
+          } else {
+            console.log(
+              `❌ Order timeline rendered insufficient steps (${stepCount}) on ${targetPage}.`
+            );
+            exitCode = 1;
+          }
+        }
+
+        // Test Escape key close
+        await page.keyboard.press("Escape");
+        await new Promise((r) => setTimeout(r, 400));
+        const isClosed = await page.evaluate(() => {
+          /* eslint-disable no-undef */
+          const modal = document.querySelector("#order-status-modal");
+          return !modal || !modal.hasAttribute("open");
+          /* eslint-enable no-undef */
+        });
+        if (isClosed) {
+          console.log(`✅ Order status modal closed via Escape key on ${targetPage}.`);
+        } else {
+          console.log(`❌ Order status modal failed to close via Escape key on ${targetPage}.`);
+          exitCode = 1;
+        }
+      } else {
+        console.log(`❌ Order status trigger button not found on ${targetPage}.`);
+        exitCode = 1;
+      }
+    }
+
+    // 7. Test Alt-Points Loyalty System (R3)
+    console.log("--- Testing Alt-Points Loyalty System (R3) ---");
+    await page.goto(`${url}/shop.html`, { waitUntil: "networkidle2" });
+    const badgeText = await page
+      .$eval(".alt-points-badge", (el) => el.textContent.trim())
+      .catch(() => null);
+    if (badgeText && badgeText.includes("Earn")) {
+      console.log(`✅ Product card displays Alt-Points badge ("${badgeText}").`);
+    } else {
+      console.log(`❌ Alt-Points badge missing or malformed on product card.`);
+      exitCode = 1;
+    }
+
+    const shopAddBtn = await page.$(".card .yl-add-item");
+    if (shopAddBtn) {
+      const itemPrice = await page.evaluate(
+        (btn) => parseFloat(btn.getAttribute("data-item-price")),
+        shopAddBtn
+      );
+      await shopAddBtn.click();
+      await page.waitForSelector("#yl-cart-drawer .yl-cart-line", { visible: true, timeout: 5000 });
+      const pointsText = await page
+        .$eval("#cart-points-count", (el) => el.textContent.trim())
+        .catch(() => null);
+      const expectedPoints = Math.floor(itemPrice);
+      if (pointsText && parseInt(pointsText, 10) === expectedPoints) {
+        console.log(
+          `✅ Cart drawer displays correct Alt-Points total (${pointsText} points for $${itemPrice}).`
+        );
+      } else {
+        console.log(
+          `❌ Cart drawer Alt-Points mismatch (expected ${expectedPoints}, got ${pointsText}).`
+        );
+        exitCode = 1;
+      }
+    }
+
+    // 8. Test Apothecary Quiz Flow (R4)
+    console.log("--- Testing Apothecary Recommendation Quiz (R4) ---");
+    await page.goto(`${url}/shop.html`, { waitUntil: "networkidle2" });
+    const quizSection = await page.$("#apothecary-quiz-section");
+    if (quizSection) {
+      await page.click('#quiz-step-1 input[type="radio"]');
+      await page.click("#quiz-next-btn-1");
+      await new Promise((r) => setTimeout(r, 300));
+
+      await page.click('#quiz-step-2 input[type="radio"]');
+      await page.click("#quiz-next-btn");
+      await new Promise((r) => setTimeout(r, 300));
+
+      await page.click('#quiz-step-3 input[type="radio"]');
+      await page.click("#quiz-submit-btn");
+      await page.waitForSelector("#quiz-results-container .quiz-recommended-card", {
+        visible: true,
+        timeout: 5000
+      });
+
+      const recCard = await page.$(".quiz-recommended-card");
+      if (recCard) {
+        console.log(
+          "✅ Apothecary Quiz completed 3-step flow and rendered prescription recommendation card."
+        );
+      } else {
+        console.log("❌ Apothecary Quiz failed to render recommendation card.");
+        exitCode = 1;
+      }
+    } else {
+      console.log("❌ #apothecary-quiz-section element missing on shop.html.");
+      exitCode = 1;
+    }
   } catch (e) {
     console.error("❌ Unexpected error in Puppeteer tests:", e);
     exitCode = 1;

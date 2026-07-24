@@ -105,6 +105,7 @@
       <p class="lede" id="thankYouAmount" hidden></p>
       <div class="hero-actions center">
         <a class="btn btn-primary" href="shop.html">Keep Shopping</a>
+        <button type="button" class="btn btn-outline" id="openOrderStatusBtn" data-action="open-order-status">Track Order Status</button>
         <a class="btn btn-outline" href="index.html">Back To Home</a>
       </div>
       <p class="muted" style="margin-top:24px;max-width:520px;margin-left:auto;margin-right:auto;">
@@ -114,6 +115,27 @@
       </p>
     </div>
   </section>
+
+  <!-- ORDER STATUS LOOKUP MODAL -->
+  <dialog id="order-status-modal" class="order-status-modal gift-modal" role="dialog" aria-modal="true" aria-labelledby="orderStatusModalTitle">
+    <button type="button" class="gift-modal-close" id="closeOrderStatusModalBtn" data-action="close-order-status" aria-label="Close dialog">&times;</button>
+    
+    <div class="gift-modal-header">
+      <h2 id="orderStatusModalTitle">Look Up Order Status</h2>
+      <p class="muted">Enter your Stripe Session ID (e.g. <code>cs_test_...</code>) or purchase email address to check order status.</p>
+    </div>
+
+    <form id="orderStatusForm" class="order-status-form" novalidate style="margin-top: 1rem;">
+      <div class="field">
+        <label for="order-id-input">Session ID or Email Address</label>
+        <input type="text" id="order-id-input" name="query" placeholder="cs_test_... or customer@example.com" autocomplete="off" required>
+        <span class="field-error" id="orderLookupError" aria-live="assertive" hidden style="color: var(--crimson); font-size: 0.85rem; margin-top: 4px; display: block;"></span>
+      </div>
+      <button type="submit" id="order-lookup-btn" class="btn btn-primary btn-block" style="margin-top: 1rem;">Look Up Order</button>
+    </form>
+
+    <div id="order-timeline-container" class="order-status-results" aria-live="polite" style="margin-top: 1.5rem;" hidden></div>
+  </dialog>
 
   <h2 class="sr-only">Site Navigation</h2>
 </main>

@@ -1452,6 +1452,49 @@ docFiles.forEach(function (rel) {
   else fail(rel, "file empty or missing top-level H1 header");
 });
 
+/* ---------- 28) Feature Expansion R1-R4 integrity ---------- */
+section("Feature Expansion R1-R4 DOM & logic integrity");
+
+var indexHtmlText = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+var eventsHtmlText = fs.readFileSync(path.join(ROOT, "events.html"), "utf8");
+if (/id="yl-countdown-ticker"/.test(indexHtmlText)) {
+  ok("index.html contains #yl-countdown-ticker announcement bar");
+} else {
+  fail("index.html", "missing #yl-countdown-ticker element");
+}
+if (/id="eventsCountdownBanner"/.test(eventsHtmlText)) {
+  ok("events.html contains #eventsCountdownBanner element");
+} else {
+  fail("events.html", "missing #eventsCountdownBanner element");
+}
+
+var thankYouHtmlText = fs.readFileSync(path.join(ROOT, "thank-you.html"), "utf8");
+var shopHtmlText = fs.readFileSync(path.join(ROOT, "shop.html"), "utf8");
+if (
+  /id="order-status-modal"/.test(thankYouHtmlText) &&
+  /id="order-status-modal"/.test(shopHtmlText)
+) {
+  ok("thank-you.html and shop.html contain #order-status-modal dialog");
+} else {
+  fail("order-status-modal", "missing #order-status-modal on thank-you.html or shop.html");
+}
+
+var cartJsText = fs.readFileSync(path.join(ROOT, "assets/js/cart.js"), "utf8");
+if (/cart-points-count/.test(cartJsText)) {
+  ok("cart.js contains #cart-points-count Alt-Points drawer calculations");
+} else {
+  fail("assets/js/cart.js", "missing Alt-Points calculations");
+}
+
+if (
+  /id="apothecary-quiz-section"/.test(shopHtmlText) &&
+  /id="quiz-submit-btn"/.test(shopHtmlText)
+) {
+  ok("shop.html contains #apothecary-quiz-section and #quiz-submit-btn");
+} else {
+  fail("shop.html", "missing #apothecary-quiz-section or #quiz-submit-btn");
+}
+
 /* ---------- Summary ---------- */
 console.log("\n" + "=".repeat(50));
 console.log(passCount + " checks passed, " + failures.length + " failed.");

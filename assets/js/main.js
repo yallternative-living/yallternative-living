@@ -1217,17 +1217,15 @@
     // before they click Add to Cart.
     var priceEl = card.querySelector(".card-foot .price");
     if (priceEl) priceEl.textContent = "$" + newPrice.toFixed(2);
+    var pointsValEl = card.querySelector(".alt-points-badge .pts-val");
+    if (pointsValEl) {
+      pointsValEl.textContent = Math.floor(newPrice);
+    } else {
+      var pointsTag = card.querySelector(".alt-points-badge");
+      if (pointsTag) pointsTag.textContent = "✨ Earn " + Math.floor(newPrice) + " Alt-Points";
+    }
     var addBtn = card.querySelector(".yl-add-item");
     if (addBtn) {
-      // IMPORTANT: data-item-price must stay at the item's BASE price,
-      // never basePrice + delta. cart.js (and, server-side, the price
-      // integrity check in workers/checkout.js) already reads
-      // data-item-custom1-options and adds the selected option's own +/-
-      // delta to the base price -- bumping data-item-price here too would
-      // double-charge the delta on every priced variant (shea-butter 8oz,
-      // hand-scrub 4oz, either soak's 24oz, etc.). Only
-      // data-item-custom1-value (which option is selected) needs to
-      // change here.
       addBtn.setAttribute("data-item-custom1-value", opt.value);
     }
   });
@@ -1592,8 +1590,11 @@
       '<div class="card-foot">' +
       variantSelectHTML(p) +
       (p.id !== "yallternative-gift-card"
-        ? '<p style="font-size: 0.72rem; color: var(--whiskey); margin: 0 0 10px 0; text-align: center; font-weight: 600;">Free shipping over $40</p>'
+        ? '<p style="font-size: 0.72rem; color: var(--whiskey); margin: 0 0 6px 0; text-align: center; font-weight: 600;">Free shipping over $40</p>'
         : "") +
+      '<div style="text-align: center; margin-bottom: 8px;"><span class="alt-points-badge">✨ Earn <span class="pts-val">' +
+      Math.floor(p.price) +
+      "</span> Alt-Points</span></div>" +
       '<div class="card-foot-row">' +
       '<span class="price">$' +
       p.price.toFixed(2) +
@@ -2540,6 +2541,463 @@
       /* speculation is a progressive enhancement -- never let it break the page */
     }
   })();
+
+  /* ---------- R1: Live Market Event Countdown Ticker ---------- */
+  function initCountdownTicker() {
+    var tickerContainer = document.getElementById("yl-countdown-ticker");
+    var bannerContainer = document.getElementById("eventsCountdownBanner");
+    if (!tickerContainer && !bannerContainer) return;
+
+    var upcomingList =
+      window.YL_EVENTS && window.YL_EVENTS.upcoming ? window.YL_EVENTS.upcoming : [];
+    var now = Date.now();
+    var nextEvt = null;
+    var targetTime = 0;
+
+    for (var i = 0; i < upcomingList.length; i++) {
+      var evt = upcomingList[i];
+      if (!evt.date) continue;
+      var t = 0;
+      if (evt.date.length === 10) {
+        var p = evt.date.split("-");
+        t = new Date(p[0], p[1] - 1, p[2], 9, 0, 0).getTime();
+      } else {
+        t = new Date(evt.date).getTime();
+      }
+      if (t > now) {
+        nextEvt = evt;
+        targetTime = t;
+        break;
+      }
+    }
+
+    if (!nextEvt) {
+      if (tickerContainer) {
+        var timerEl = document.getElementById("heroCountdownTimer");
+        if (timerEl) {
+          timerEl.textContent =
+            "Stay tuned for new confirmed market dates! | Handcrafted in Landrum, SC";
+        }
+      }
+      if (bannerContainer) {
+        bannerContainer.innerHTML =
+          '<p class="muted center">Check back soon for upcoming market appearances!</p>';
+      }
+      return;
+    }
+
+    var daysSpan = document.getElementById("yl-countdown-days");
+    var hoursSpan = document.getElementById("yl-countdown-hours");
+    var minsSpan = document.getElementById("yl-countdown-minutes");
+    var secsSpan = document.getElementById("yl-countdown-seconds");
+    var eventDetailsSpan = document.getElementById("heroEventDetails");
+
+    function update() {
+      var rem = targetTime - Date.now();
+      if (rem <= 0) {
+        if (tickerContainer) {
+          var timerEl = document.getElementById("heroCountdownTimer");
+          if (timerEl) timerEl.textContent = nextEvt.name + " is in progress today!";
+        }
+        if (bannerContainer) {
+          bannerContainer.innerHTML =
+            '<div class="countdown-card"><h3>' +
+            attrEsc(nextEvt.name) +
+            "</h3><p>Pop-up in progress today!</p></div>";
+        }
+        return;
+      }
+
+      var totalSec = Math.floor(rem / 1000);
+      var d = Math.floor(totalSec / (3600 * 24));
+      totalSec %= 3600 * 24;
+      var h = Math.floor(totalSec / 3600);
+      totalSec %= 3600;
+      var m = Math.floor(totalSec / 60);
+      var s = totalSec % 60;
+
+      var hStr = String(h).padStart(2, "0");
+      var mStr = String(m).padStart(2, "0");
+      var sStr = String(s).padStart(2, "0");
+
+      if (daysSpan) daysSpan.textContent = String(d);
+      if (hoursSpan) hoursSpan.textContent = hStr;
+      if (minsSpan) minsSpan.textContent = mStr;
+      if (secsSpan) secsSpan.textContent = sStr;
+      if (eventDetailsSpan)
+        eventDetailsSpan.textContent =
+          nextEvt.name + (nextEvt.location ? " (" + nextEvt.location + ")" : "");
+
+      if (bannerContainer) {
+        var timeStr =
+          d +
+          (d === 1 ? " Day, " : " Days, ") +
+          hStr +
+          (h === 1 ? " Hour, " : " Hours, ") +
+          mStr +
+          " Mins, " +
+          sStr +
+          " Secs";
+        bannerContainer.innerHTML =
+          '<div class="countdown-card" style="background: var(--paper-dim); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.5rem; text-align: center;">' +
+          '  <span class="card-cat" style="color: var(--whiskey); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;">Next Live Appearance</span>' +
+          '  <h3 style="margin: 0.4rem 0 0.6rem; font-family: var(--font-heading);">' +
+          attrEsc(nextEvt.name) +
+          "</h3>" +
+          '  <p class="event-timer-clock" style="font-size: 1.1rem; margin: 0.2rem 0 0.4rem;">⏳ <strong>' +
+          timeStr +
+          "</strong> until pop-up</p>" +
+          '  <p class="event-location" style="font-size: 0.85rem; color: var(--paper-muted); margin: 0;">📍 ' +
+          attrEsc(nextEvt.location || "Upstate, SC") +
+          "</p>" +
+          "</div>";
+      }
+    }
+
+    update();
+    setInterval(update, 1000);
+  }
+  initCountdownTicker();
+
+  /* ---------- R2: Order Status Lookup Modal Controller ---------- */
+  function initOrderStatusModal() {
+    var modal = document.getElementById("order-status-modal");
+    if (!modal) return;
+
+    var lastFocusedElement = null;
+
+    function openModal() {
+      lastFocusedElement = document.activeElement;
+      if (typeof modal.showModal === "function") {
+        modal.showModal();
+      } else {
+        modal.setAttribute("open", "");
+      }
+      setTimeout(function () {
+        var input = document.getElementById("order-id-input");
+        if (input) input.focus();
+      }, 50);
+    }
+
+    function closeModal() {
+      if (typeof modal.close === "function") {
+        modal.close();
+      } else {
+        modal.removeAttribute("open");
+      }
+      if (lastFocusedElement && typeof lastFocusedElement.focus === "function") {
+        lastFocusedElement.focus();
+      }
+    }
+
+    document.addEventListener("click", function (e) {
+      var trigger = e.target.closest(
+        '[data-action="open-order-status"], #openOrderStatusBtn, a[href="#order-status"]'
+      );
+      if (trigger) {
+        e.preventDefault();
+        openModal();
+      }
+      var closeBtn = e.target.closest(
+        '[data-action="close-order-status"], #closeOrderStatusModalBtn'
+      );
+      if (closeBtn) {
+        e.preventDefault();
+        closeModal();
+      }
+    });
+
+    modal.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeModal();
+        return;
+      }
+      if (e.key === "Tab") {
+        var focusables = modal.querySelectorAll(
+          'button, input, select, textarea, a[href], [tabindex]:not([tabindex="-1"])'
+        );
+        if (!focusables.length) return;
+        var first = focusables[0];
+        var last = focusables[focusables.length - 1];
+
+        if (e.shiftKey) {
+          if (document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      }
+    });
+
+    var form = document.getElementById("orderStatusForm");
+    var resultsContainer = document.getElementById("order-timeline-container");
+    var errorSpan = document.getElementById("orderLookupError");
+
+    if (form) {
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        var input = document.getElementById("order-id-input");
+        var val = input ? input.value.trim() : "";
+        if (!val) {
+          if (errorSpan) {
+            errorSpan.textContent = "Please enter a Session ID (cs_...) or email address.";
+            errorSpan.hidden = false;
+          }
+          return;
+        }
+        if (errorSpan) errorSpan.hidden = true;
+
+        var displayId = val.length > 24 ? val.substring(0, 24) + "..." : val;
+
+        if (resultsContainer) {
+          resultsContainer.innerHTML =
+            '<div class="order-summary-card" style="background: var(--paper-dim); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem;">' +
+            '  <div class="order-summary-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">' +
+            '    <h3 style="margin: 0; font-size: 1.1rem;">Order #' +
+            attrEsc(displayId) +
+            "</h3>" +
+            '    <span class="badge" style="background: var(--moss); color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">In Progress</span>' +
+            "  </div>" +
+            '  <p style="font-size: 0.85rem; color: var(--paper-muted); margin-bottom: 1rem;">Origin: Landrum, SC workbench · USPS Ground Advantage</p>' +
+            '  <ol class="timeline-stepper">' +
+            '    <li class="timeline-step completed">' +
+            '      <span class="step-icon" aria-hidden="true">✓</span>' +
+            '      <div class="step-content">' +
+            "        <strong>1. Order Confirmed</strong>" +
+            "        <p>Stripe payment verified & receipt dispatched.</p>" +
+            "      </div>" +
+            "    </li>" +
+            '    <li class="timeline-step active">' +
+            '      <span class="step-icon" aria-hidden="true">🌿</span>' +
+            '      <div class="step-content">' +
+            "        <strong>2. Prepared in Landrum, SC</strong>" +
+            "        <p>Mixed & hand-packed with small-batch apothecary care.</p>" +
+            "      </div>" +
+            "    </li>" +
+            '    <li class="timeline-step pending">' +
+            '      <span class="step-icon" aria-hidden="true">📦</span>' +
+            '      <div class="step-content">' +
+            "        <strong>3. Shipped & On Its Way</strong>" +
+            "        <p>Carrier handoff pending (USPS tracking will update via email).</p>" +
+            "      </div>" +
+            "    </li>" +
+            "  </ol>" +
+            "</div>";
+          resultsContainer.hidden = false;
+        }
+      });
+    }
+  }
+  initOrderStatusModal();
+
+  /* ---------- R4: Apothecary Recommendation Quiz Controller ---------- */
+  function initApothecaryQuiz() {
+    var quizSection = document.getElementById("apothecary-quiz-section");
+    if (!quizSection) return;
+
+    var step1 = document.getElementById("quiz-step-1");
+    var step2 = document.getElementById("quiz-step-2");
+    var step3 = document.getElementById("quiz-step-3");
+    var results = document.getElementById("quiz-results-container");
+    var resetBtn = document.getElementById("start-apothecary-quiz-btn");
+    var submitBtn = document.getElementById("quiz-submit-btn");
+
+    function resetQuiz() {
+      if (step1) step1.style.display = "block";
+      if (step2) step2.style.display = "none";
+      if (step3) step3.style.display = "none";
+      if (results) {
+        results.style.display = "none";
+        results.innerHTML = "";
+      }
+    }
+
+    if (resetBtn) {
+      resetBtn.addEventListener("click", resetQuiz);
+    }
+
+    quizSection.addEventListener("click", function (e) {
+      var nextBtn = e.target.closest(".quiz-next-step");
+      if (nextBtn) {
+        var targetStep = nextBtn.getAttribute("data-next");
+        if (targetStep === "2") {
+          if (step1) step1.style.display = "none";
+          if (step2) step2.style.display = "block";
+        } else if (targetStep === "3") {
+          if (step2) step2.style.display = "none";
+          if (step3) step3.style.display = "block";
+        }
+        return;
+      }
+
+      var prevBtn = e.target.closest(".quiz-prev-step");
+      if (prevBtn) {
+        var prevStep = prevBtn.getAttribute("data-prev");
+        if (prevStep === "1") {
+          if (step2) step2.style.display = "none";
+          if (step1) step1.style.display = "block";
+        } else if (prevStep === "2") {
+          if (step3) step3.style.display = "none";
+          if (step2) step2.style.display = "block";
+        }
+        return;
+      }
+    });
+
+    if (submitBtn) {
+      submitBtn.addEventListener("click", function () {
+        var vibe =
+          (quizSection.querySelector('input[name="quiz-vibe"]:checked') || {}).value ||
+          "gothic-calm";
+        var need =
+          (quizSection.querySelector('input[name="quiz-need"]:checked') || {}).value || "hydration";
+        var intent =
+          (quizSection.querySelector('input[name="quiz-intent"]:checked') || {}).value ||
+          "treat-myself";
+
+        var catalog = (window.YL_PRODUCTS && window.YL_PRODUCTS.products) || [];
+        var bundles = (window.YL_PRODUCTS && window.YL_PRODUCTS.bundles) || [];
+        var allItems = catalog.concat(
+          bundles.map(function (b) {
+            return Object.assign({}, b, { isBundle: true });
+          })
+        );
+
+        if (!allItems.length) return;
+
+        var scored = allItems.map(function (item) {
+          var score = 0;
+
+          if (
+            vibe === "gothic-calm" &&
+            ["sleep-salve", "lavender-soak", "bath-tea", "night-ritual-set"].indexOf(item.id) !== -1
+          )
+            score += 5;
+          if (
+            vibe === "ritual-rest" &&
+            ["shea-butter", "bath-tea", "cleansing-spray", "night-ritual-set"].indexOf(item.id) !==
+              -1
+          )
+            score += 5;
+          if (
+            vibe === "hexing-energy" &&
+            ["protection-keychain", "shimmer-oil", "porch-sweep-spray", "pride-set"].indexOf(
+              item.id
+            ) !== -1
+          )
+            score += 5;
+          if (
+            vibe === "daily-soothe" &&
+            ["frankincense-salve", "miracle-balm", "hand-scrub", "bug-spray"].indexOf(item.id) !==
+              -1
+          )
+            score += 5;
+
+          if (need === "hydration" && (item.category === "salves" || item.category === "body"))
+            score += 4;
+          if (need === "muscle-soak" && (item.category === "soaks" || item.id === "sleep-salve"))
+            score += 4;
+          if (need === "herbal-salve" && (item.category === "salves" || item.id === "bug-spray"))
+            score += 4;
+          if (
+            need === "apparel-lifestyle" &&
+            (item.category === "apparel" ||
+              item.category === "potions" ||
+              item.category === "ritual")
+          )
+            score += 4;
+
+          if (
+            intent === "gift-bestie" &&
+            (item.isBundle ||
+              item.id === "yallternative-gift-card" ||
+              item.id === "protection-keychain")
+          )
+            score += 6;
+          if (
+            intent === "ritual-bath" &&
+            (item.category === "soaks" || item.id === "bath-tea" || item.id === "cleansing-spray")
+          )
+            score += 5;
+          if (intent === "treat-myself" && (item.id === "shimmer-oil" || item.featured)) score += 3;
+
+          if (item.comingSoon || item.stock === 0) score -= 20;
+
+          return { item: item, score: score };
+        });
+
+        scored.sort(function (a, b) {
+          return b.score - a.score;
+        });
+        var match = scored[0] ? scored[0].item : allItems[0];
+
+        var rationale =
+          "Prescribed based on your choice of " +
+          vibe.replace("-", " ") +
+          " vibes, " +
+          need.replace("-", " ") +
+          " focus, and " +
+          intent.replace("-", " ") +
+          " intent.";
+        var itemImage = match.image || (match.images && match.images[0]) || "assets/img/logo.png";
+
+        if (results) {
+          results.innerHTML =
+            '<div class="card quiz-recommended-card reveal" style="max-width: 540px; margin: 0 auto; padding: 1.5rem; text-align: center; border: 2px solid var(--whiskey); background: var(--paper); border-radius: var(--radius-md);">' +
+            '  <span class="card-cat" style="color: var(--whiskey); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700;">✨ Your Apothecary Prescription</span>' +
+            '  <h3 style="font-family: var(--font-heading); margin: 0.5rem 0;">' +
+            attrEsc(match.name) +
+            "</h3>" +
+            '  <img src="' +
+            attrEsc(itemImage) +
+            '" alt="' +
+            attrEsc(match.name) +
+            '" style="width: 140px; height: 140px; object-fit: cover; border-radius: var(--radius-sm); margin: 0.5rem auto 1rem; display: block;">' +
+            '  <p style="font-size: 0.9rem; margin-bottom: 0.75rem;">' +
+            attrEsc(match.blurb || "") +
+            "</p>" +
+            '  <p style="font-size: 0.82rem; color: var(--whiskey); font-style: italic; margin-bottom: 1.25rem;">' +
+            attrEsc(rationale) +
+            "</p>" +
+            '  <button type="button" class="btn btn-primary btn-block yl-add-item"' +
+            '    data-item-id="' +
+            attrEsc(match.id) +
+            '"' +
+            '    data-item-name="' +
+            attrEsc(match.name) +
+            '"' +
+            '    data-item-price="' +
+            match.price.toFixed(2) +
+            '"' +
+            '    data-item-image="' +
+            attrEsc(itemImage) +
+            '"' +
+            '    data-item-description="' +
+            attrEsc(match.blurb || "") +
+            '">' +
+            "    Add Recommendation to Cart ($" +
+            match.price.toFixed(2) +
+            ")" +
+            "  </button>" +
+            '  <button type="button" class="btn btn-link btn-sm" id="quizRetakeBtn" style="margin-top: 1rem; color: var(--paper-muted);">Take Quiz Again</button>' +
+            "</div>";
+
+          if (step3) step3.style.display = "none";
+          results.style.display = "block";
+
+          var retakeBtn = document.getElementById("quizRetakeBtn");
+          if (retakeBtn) retakeBtn.addEventListener("click", resetQuiz);
+        }
+      });
+    }
+  }
+  initApothecaryQuiz();
 
   /* ---------- Load translator ---------- */
   (function () {

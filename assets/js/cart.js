@@ -324,8 +324,24 @@
         : "You've unlocked free shipping!";
     var pct = Math.min(100, Math.round((sub / threshold) * 100));
 
+    var earnedPoints = Math.floor(sub);
+    var pointsMsg =
+      earnedPoints > 0
+        ? 'You\'ll earn <strong id="cart-points-count">' +
+          earnedPoints +
+          "</strong> Alt-Point" +
+          (earnedPoints === 1 ? "" : "s") +
+          " with this order!"
+        : "Add items to earn Alt-Points ($1 = 1 point)!";
+    var pointsHTML =
+      '<div class="yl-cart-points" style="font-size:0.85rem; color:var(--whiskey); margin-bottom:8px; text-align:center; font-weight:600;">' +
+      '✨ <span id="cart-points-banner">' +
+      pointsMsg +
+      "</span></div>";
+
     footEl.innerHTML =
       upsellHTML() +
+      pointsHTML +
       '<div class="yl-cart-ship">' +
       '<div class="yl-cart-ship-msg">' +
       shipMsg +

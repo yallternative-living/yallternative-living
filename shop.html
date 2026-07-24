@@ -858,8 +858,113 @@
       </div>
       <h1>The Full Collection, Y'all</h1>
       <p class="shop-lede">All the goods, all the moods. Soft apparel for showing up exactly as yourself, salves &amp; balms for cracked heels and rougher days, body &amp; skin stuff that smells like a good decision, soaks that turn a bathtub into a religious experience, and a potions &amp; spellwork corner for the witchy little accessories you didn't know you needed. The apparel is our own original artwork; every salve, soak, and scrub is mixed, poured, and stirred by hand in small batches right here in Landrum, SC.</p>
-    </div>
   </div>
+
+  <!-- APOTHECARY RECOMMENDATION QUIZ SECTION -->
+  <section class="section-tight apothecary-quiz-section" id="apothecary-quiz-section" aria-labelledby="quizHeading">
+    <div class="container">
+      <div class="quiz-card" style="background: var(--paper-dim); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem; margin-bottom: 2rem;">
+        <div class="quiz-header" style="text-align: center; margin-bottom: 1.5rem;">
+          <span class="eyebrow" style="color: var(--whiskey); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;">Interactive Apothecary</span>
+          <h2 id="quizHeading" style="font-family: var(--font-heading); margin: 0.4rem 0 0.5rem;">Find Your Custom Self-Care Match</h2>
+          <p class="muted" style="margin: 0; font-size: 0.9rem;">Answer 3 quick questions to discover your personalized salve, soak, or potion prescription.</p>
+          <button type="button" id="start-apothecary-quiz-btn" class="btn btn-outline btn-sm" style="margin-top: 1rem;">Reset / Start Quiz</button>
+        </div>
+
+        <div id="quiz-flow" class="quiz-flow">
+          <!-- Step 1 -->
+          <div id="quiz-step-1" class="quiz-step">
+            <h3 style="font-size: 1.1rem; margin-bottom: 1rem;">Step 1 of 3: Choose Your Current Vibe / Mood</h3>
+            <div class="grid grid-2 gap-sm" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem;">
+              <label class="quiz-option-card" style="display: block; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--paper);">
+                <input type="radio" name="quiz-vibe" value="gothic-calm" checked style="margin-right: 0.5rem;">
+                <strong>Southern Gothic Calm</strong>
+                <p style="font-size: 0.8rem; color: var(--paper-muted); margin: 0.25rem 0 0;">Quiet dusk, lavender, sleep &amp; dark cedar</p>
+              </label>
+              <label class="quiz-option-card" style="display: block; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--paper);">
+                <input type="radio" name="quiz-vibe" value="ritual-rest" style="margin-right: 0.5rem;">
+                <strong>Ritual Rest</strong>
+                <p style="font-size: 0.8rem; color: var(--paper-muted); margin: 0.25rem 0 0;">Heavy shea moisture, bath tea &amp; deep unwind</p>
+              </label>
+              <label class="quiz-option-card" style="display: block; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--paper);">
+                <input type="radio" name="quiz-vibe" value="hexing-energy" style="margin-right: 0.5rem;">
+                <strong>Hexing Energy</strong>
+                <p style="font-size: 0.8rem; color: var(--paper-muted); margin: 0.25rem 0 0;">Spellwork accessories, shimmer oil &amp; bold vibes</p>
+              </label>
+              <label class="quiz-option-card" style="display: block; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--paper);">
+                <input type="radio" name="quiz-vibe" value="daily-soothe" style="margin-right: 0.5rem;">
+                <strong>Daily Soothe</strong>
+                <p style="font-size: 0.8rem; color: var(--paper-muted); margin: 0.25rem 0 0;">Everyday miracle balms, scrubs &amp; skin armor</p>
+              </label>
+            </div>
+            <button type="button" id="quiz-next-btn-1" class="btn btn-primary quiz-next-step" data-next="2">Next Step &rarr;</button>
+          </div>
+
+          <!-- Step 2 -->
+          <div id="quiz-step-2" class="quiz-step" style="display: none;">
+            <h3 style="font-size: 1.1rem; margin-bottom: 1rem;">Step 2 of 3: What is Your Primary Skin or Self-Care Need?</h3>
+            <div class="grid grid-2 gap-sm" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem;">
+              <label class="quiz-option-card" style="display: block; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--paper);">
+                <input type="radio" name="quiz-need" value="hydration" checked style="margin-right: 0.5rem;">
+                <strong>Hydration &amp; Deep Moisture</strong>
+                <p style="font-size: 0.8rem; color: var(--paper-muted); margin: 0.25rem 0 0;">Shea butter, body butter &amp; healing balms</p>
+              </label>
+              <label class="quiz-option-card" style="display: block; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--paper);">
+                <input type="radio" name="quiz-need" value="muscle-soak" style="margin-right: 0.5rem;">
+                <strong>Muscle Soak &amp; Tension Relief</strong>
+                <p style="font-size: 0.8rem; color: var(--paper-muted); margin: 0.25rem 0 0;">Epsom salts, sleep salve &amp; tub unwinding</p>
+              </label>
+              <label class="quiz-option-card" style="display: block; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--paper);">
+                <input type="radio" name="quiz-need" value="herbal-salve" style="margin-right: 0.5rem;">
+                <strong>Herbal Salve &amp; Skin Armor</strong>
+                <p style="font-size: 0.8rem; color: var(--paper-muted); margin: 0.25rem 0 0;">Frankincense, beard salve &amp; outdoor protection</p>
+              </label>
+              <label class="quiz-option-card" style="display: block; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--paper);">
+                <input type="radio" name="quiz-need" value="apparel-lifestyle" style="margin-right: 0.5rem;">
+                <strong>Apparel &amp; Accessories</strong>
+                <p style="font-size: 0.8rem; color: var(--paper-muted); margin: 0.25rem 0 0;">Soft t-shirts, keychains &amp; witchy sprays</p>
+              </label>
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+              <button type="button" class="btn btn-outline quiz-prev-step" data-prev="1">&larr; Back</button>
+              <button type="button" id="quiz-next-btn" class="btn btn-primary quiz-next-step" data-next="3">Next Step &rarr;</button>
+            </div>
+          </div>
+
+          <!-- Step 3 -->
+          <div id="quiz-step-3" class="quiz-step" style="display: none;">
+            <h3 style="font-size: 1.1rem; margin-bottom: 1rem;">Step 3 of 3: What is Your Purpose Today?</h3>
+            <div class="grid grid-2 gap-sm" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem;">
+              <label class="quiz-option-card" style="display: block; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--paper);">
+                <input type="radio" name="quiz-intent" value="treat-myself" checked style="margin-right: 0.5rem;">
+                <strong>Treat Myself</strong>
+                <p style="font-size: 0.8rem; color: var(--paper-muted); margin: 0.25rem 0 0;">Indulgent personal self-care ritual</p>
+              </label>
+              <label class="quiz-option-card" style="display: block; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--paper);">
+                <input type="radio" name="quiz-intent" value="gift-bestie" style="margin-right: 0.5rem;">
+                <strong>Gift for a Bestie</strong>
+                <p style="font-size: 0.8rem; color: var(--paper-muted); margin: 0.25rem 0 0;">Thoughtful small-batch gift set or bundle</p>
+              </label>
+              <label class="quiz-option-card" style="display: block; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--paper);">
+                <input type="radio" name="quiz-intent" value="ritual-bath" style="margin-right: 0.5rem;">
+                <strong>Ritual Bath &amp; Unwind</strong>
+                <p style="font-size: 0.8rem; color: var(--paper-muted); margin: 0.25rem 0 0;">Clearing mists, bath salts &amp; soothing soaks</p>
+              </label>
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+              <button type="button" class="btn btn-outline quiz-prev-step" data-prev="2">&larr; Back</button>
+              <button type="button" id="quiz-submit-btn" class="btn btn-primary">Find My Prescription &rarr;</button>
+            </div>
+          </div>
+
+          <!-- Results -->
+          <div id="quiz-results-container" class="quiz-results" style="display: none; text-align: center;">
+            <!-- Dynamically rendered recommendation card -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 
   <section class="section-tight">
     <div class="container">
@@ -870,7 +975,7 @@
       </form>
       <div class="shop-toolbar">
         <div id="filterRow" class="filter-row"></div>
-        <div class="shop-sort">
+        <div class="shop-sort" style="display: flex; gap: 0.5rem; align-items: center;">
           <label for="sortSelect">Sort</label>
           <select id="sortSelect">
             <option value="featured">Featured</option>
@@ -878,6 +983,7 @@
             <option value="price-desc">Price: High to Low</option>
             <option value="name-asc">Name: A to Z</option>
           </select>
+          <button type="button" class="btn btn-outline btn-sm" id="openOrderStatusBtn" data-action="open-order-status">Track Order Status</button>
         </div>
       </div>
       <p class="shop-count" id="shopCount" aria-live="polite"></p>
@@ -1087,8 +1193,26 @@
         </form>
       </div>
     </div>
-  </section>
+  <!-- ORDER STATUS LOOKUP MODAL -->
+  <dialog id="order-status-modal" class="order-status-modal gift-modal" role="dialog" aria-modal="true" aria-labelledby="orderStatusModalTitle">
+    <button type="button" class="gift-modal-close" id="closeOrderStatusModalBtn" data-action="close-order-status" aria-label="Close dialog">&times;</button>
+    
+    <div class="gift-modal-header">
+      <h2 id="orderStatusModalTitle">Look Up Order Status</h2>
+      <p class="muted">Enter your Stripe Session ID (e.g. <code>cs_test_...</code>) or purchase email address to check order status.</p>
+    </div>
 
+    <form id="orderStatusForm" class="order-status-form" novalidate style="margin-top: 1rem;">
+      <div class="field">
+        <label for="order-id-input">Session ID or Email Address</label>
+        <input type="text" id="order-id-input" name="query" placeholder="cs_test_... or customer@example.com" autocomplete="off" required>
+        <span class="field-error" id="orderLookupError" aria-live="assertive" hidden style="color: var(--crimson); font-size: 0.85rem; margin-top: 4px; display: block;"></span>
+      </div>
+      <button type="submit" id="order-lookup-btn" class="btn btn-primary btn-block" style="margin-top: 1rem;">Look Up Order</button>
+    </form>
+
+    <div id="order-timeline-container" class="order-status-results" aria-live="polite" style="margin-top: 1.5rem;" hidden></div>
+  </dialog>
 
 </main>
 <footer class="site-footer">
