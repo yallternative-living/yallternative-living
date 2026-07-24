@@ -2945,10 +2945,22 @@
           " focus, and " +
           intent.replace("-", " ") +
           " intent.";
-        var itemImage = match.image || (match.images && match.images[0]) || "assets/img/logo.png";
+        var firstBundleProduct =
+          match.isBundle &&
+          Array.isArray(match.productIds) &&
+          catalog.find(function (x) {
+            return x.id === match.productIds[0];
+          });
+        var itemImage =
+          match.image ||
+          (match.images && match.images[0]) ||
+          (firstBundleProduct && firstBundleProduct.image) ||
+          "assets/img/logo.png";
 
-        var getItemPrice = function (item) {
+        var getRecPrice = function (item) {
           if (typeof item.price === "number") return item.price;
+          if (typeof item.bundlePrice === "number") return item.bundlePrice;
+          if (typeof item.regularPrice === "number") return item.regularPrice;
           if (Array.isArray(item.productIds)) {
             var fullPrice = item.productIds.reduce(function (sum, id) {
               var p = catalog.find(function (x) {
@@ -2961,7 +2973,10 @@
           return 0;
         };
 
-        var resolvedPrice = getItemPrice(match);
+        var recPrice = getRecPrice(match);
+        if (typeof recPrice !== "number" || isNaN(recPrice)) {
+          recPrice = 0;
+        }
 
         if (results) {
           results.innerHTML =
@@ -2978,9 +2993,12 @@
             '  <p style="font-size: 0.9rem; margin-bottom: 0.75rem;">' +
             attrEsc(match.blurb || "") +
             "</p>" +
-            '  <p style="font-size: 0.82rem; color: var(--whiskey); font-style: italic; margin-bottom: 1.25rem;">' +
+            '  <p style="font-size: 0.82rem; color: var(--whiskey); font-style: italic; margin-bottom: 0.75rem;">' +
             attrEsc(rationale) +
             "</p>" +
+            '  <div style="text-align: center; margin-bottom: 12px;"><span class="alt-points-badge">✨ Earn <span class="pts-val">' +
+            Math.floor(recPrice) +
+            "</span> Alt-Points</span></div>" +
             '  <button type="button" class="btn btn-primary btn-block yl-add-item"' +
             '    data-item-id="' +
             attrEsc(match.isBundle ? "bundle-" + match.id : match.id) +
@@ -2989,7 +3007,7 @@
             attrEsc(match.name) +
             '"' +
             '    data-item-price="' +
-            resolvedPrice.toFixed(2) +
+            recPrice.toFixed(2) +
             '"' +
             '    data-item-image="' +
             attrEsc(itemImage) +
@@ -2998,7 +3016,7 @@
             attrEsc(match.blurb || "") +
             '">' +
             "    Add Recommendation to Cart ($" +
-            resolvedPrice.toFixed(2) +
+            recPrice.toFixed(2) +
             ")" +
             "  </button>" +
             '  <button type="button" class="btn btn-link btn-sm" id="quizRetakeBtn" style="margin-top: 1rem; color: var(--paper-muted);">Take Quiz Again</button>' +
