@@ -1354,6 +1354,91 @@ try {
   fail("Sveltia CMS static images checks failed", e.message);
 }
 
+/* ---------- 24) Service Worker (sw.js) offline cache list ---------- */
+section("Service Worker (sw.js) cache asset resolution");
+var swPath = path.join(ROOT, "sw.js");
+if (!fs.existsSync(swPath)) {
+  fail("sw.js", "missing file");
+} else {
+  var swText = fs.readFileSync(swPath, "utf8");
+  var matchAssets = swText.match(/const ASSETS_TO_CACHE = \[([\s\S]*?)\];/);
+  if (!matchAssets) {
+    fail("sw.js", "ASSETS_TO_CACHE array not found");
+  } else {
+    var rawAssets = matchAssets[1].match(/'([^']+)'/g) || [];
+    var missingSwAssets = [];
+    rawAssets.forEach(function (quoted) {
+      var assetPath = quoted.slice(1, -1);
+      if (assetPath === "/") assetPath = "/index.html";
+      var clean = assetPath.replace(/^\/+/, "");
+      var full = path.join(ROOT, clean);
+      if (!fs.existsSync(full)) missingSwAssets.push(assetPath);
+    });
+    if (!missingSwAssets.length) {
+      ok("sw.js: all " + rawAssets.length + " cached assets exist on disk");
+    } else {
+      missingSwAssets.forEach(function (ma) {
+        fail("sw.js cached asset missing on disk", ma);
+      });
+    }
+  }
+}
+
+/* ---------- 25) Cloudflare Worker scripts (workers/*.js) structural sanity ---------- */
+section("Cloudflare Workers code integrity (workers/*.js)");
+var checkoutWorkerPath = path.join(ROOT, "workers/checkout.js");
+if (!fs.existsSync(checkoutWorkerPath)) {
+  fail("workers/checkout.js", "missing file");
+} else {
+  var checkoutText = fs.readFileSync(checkoutWorkerPath, "utf8");
+  if (/export default\s*\{/.test(checkoutText)) ok("workers/checkout.js: exports default worker object");
+  else fail("workers/checkout.js", "missing export default");
+  if (/Stripe-Version/.test(checkoutText)) ok("workers/checkout.js: includes Stripe-Version header");
+  else fail("workers/checkout.js", "missing Stripe-Version header");
+  if (/SITE_ORIGIN/.test(checkoutText)) ok("workers/checkout.js: references SITE_ORIGIN in CORS");
+  else fail("workers/checkout.js", "missing SITE_ORIGIN reference");
+}
+
+var submitWorkerPath = path.join(ROOT, "workers/submit-form.js");
+if (!fs.existsSync(submitWorkerPath)) {
+  fail("workers/submit-form.js", "missing file");
+} else {
+  var submitText = fs.readFileSync(submitWorkerPath, "utf8");
+  if (/export default\s*\{/.test(submitText)) ok("workers/submit-form.js: exports default worker object");
+  else fail("workers/submit-form.js", "missing export default");
+  if (/emailRegex/.test(submitText)) ok("workers/submit-form.js: validates email format with regex");
+  else fail("workers/submit-form.js", "missing email format validation");
+}
+
+/* ---------- 26) Netlify Functions (netlify/functions/*.js) integrity ---------- */
+section("Netlify Functions code integrity (netlify/functions/*.js)");
+var giftCardFuncPath = path.join(ROOT, "netlify/functions/fulfill-gift-card.js");
+if (!fs.existsSync(giftCardFuncPath)) {
+  fail("netlify/functions/fulfill-gift-card.js", "missing file");
+} else {
+  var giftCardFuncText = fs.readFileSync(giftCardFuncPath, "utf8");
+  if (/exports\.handler\s*=/.test(giftCardFuncText)) ok("fulfill-gift-card.js: exports handler function");
+  else fail("netlify/functions/fulfill-gift-card.js", "missing exports.handler");
+  if (/crypto\.randomInt/.test(giftCardFuncText)) ok("fulfill-gift-card.js: uses crypto.randomInt CSPRNG");
+  else fail("netlify/functions/fulfill-gift-card.js", "missing crypto.randomInt CSPRNG");
+  if (/X-Entity-Ref-ID/.test(giftCardFuncText)) ok("fulfill-gift-card.js: sets Resend X-Entity-Ref-ID header");
+  else fail("netlify/functions/fulfill-gift-card.js", "missing Resend idempotency header");
+}
+
+/* ---------- 27) Project documentation files integrity (docs/*.md) ---------- */
+section("Project documentation integrity (docs/*.md)");
+var docFiles = ["docs/DEVELOPMENT.md", "docs/EDITING-GUIDE.md", "docs/SELF-HOSTING-FONTS.md", "docs/STRIPE-MIGRATION.md"];
+docFiles.forEach(function (rel) {
+  var full = path.join(ROOT, rel);
+  if (!fs.existsSync(full)) {
+    fail(rel, "missing file");
+    return;
+  }
+  var text = fs.readFileSync(full, "utf8");
+  if (text.trim().length > 100 && /^#\s+/m.test(text)) ok(rel + ": non-empty markdown doc with H1 heading");
+  else fail(rel, "file empty or missing top-level H1 header");
+});
+
 /* ---------- Summary ---------- */
 console.log("\n" + "=".repeat(50));
 console.log(passCount + " checks passed, " + failures.length + " failed.");
