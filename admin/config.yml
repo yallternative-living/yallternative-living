@@ -458,7 +458,11 @@ collections:
               - { name: enableLocalPickup, label: "Enable Local SC Pickup Option", widget: boolean, default: true, required: false, hint: "Offer a free Local Market Pickup option in the cart drawer." }
               - { name: enableCountdownTicker, label: "Enable Next Market Event Countdown", widget: boolean, default: true, required: false, hint: "Show live event countdown ticker in the hero bar and events page." }
               - { name: enableOrderStatusLookup, label: "Enable Order Status Lookup Modal", widget: boolean, default: true, required: false, hint: "Allow customers to track order progress via Stripe Session ID." }
-              - { name: enableLoyaltyPoints, label: "Enable Alt-Points Loyalty Calculator", widget: boolean, default: true, required: false, hint: "Display earned Alt-Points on product cards and in the cart drawer." }
+              - { name: enableLoyaltyPoints, label: "Enable Loyalty Program Calculator", widget: boolean, default: true, required: false, hint: "Display earned loyalty points on product cards and in the cart drawer." }
+              - { name: loyaltyPointsName, label: "Loyalty Currency Name (Plural)", widget: string, default: "Alt-Points", required: false, hint: "e.g. Alt-Points, Grit Points, Coven Bucks" }
+              - { name: loyaltyPointsSingular, label: "Loyalty Currency Name (Singular)", widget: string, default: "Alt-Point", required: false, hint: "e.g. Alt-Point, Grit Point, Coven Buck" }
+              - { name: loyaltyPointsPerDollar, label: "Points Earned Per $1 Spent", widget: number, default: 1, value_type: int, required: false }
+              - { name: loyaltyBadgeEmoji, label: "Loyalty Badge Emoji", widget: string, default: "✨", required: false }
               - { name: enableApothecaryQuiz, label: "Enable Apothecary Recommendation Quiz", widget: boolean, default: true, required: false, hint: "Show the 3-step Apothecary Product Recommendation Quiz on shop.html." }
 
           - name: home

@@ -1538,8 +1538,29 @@
     );
   }
 
+  function getLoyaltyConfig() {
+    var site = (window.YL_CONTENT && window.YL_CONTENT.site) || {};
+    return {
+      name: site.loyaltyPointsName || "Alt-Points",
+      singular: site.loyaltyPointsSingular || "Alt-Point",
+      rate: Number(site.loyaltyPointsPerDollar) > 0 ? Number(site.loyaltyPointsPerDollar) : 1,
+      emoji: site.loyaltyBadgeEmoji || "✨",
+      enabled: site.enableLoyaltyPoints !== false
+    };
+  }
+
   function cardHTML(p, opts) {
     opts = opts || {};
+    var loyalty = getLoyaltyConfig();
+    var pointsBadgeHTML = loyalty.enabled
+      ? '<div style="text-align: center; margin-bottom: 8px;"><span class="alt-points-badge">' +
+        attrEsc(loyalty.emoji) +
+        ' Earn <span class="pts-val">' +
+        Math.floor(p.price * loyalty.rate) +
+        "</span> " +
+        attrEsc(loyalty.name) +
+        "</span></div>"
+      : "";
     var catLabel =
       {
         apparel: "Apparel",
@@ -1592,9 +1613,7 @@
       (p.id !== "yallternative-gift-card"
         ? '<p style="font-size: 0.72rem; color: var(--whiskey); margin: 0 0 6px 0; text-align: center; font-weight: 600;">Free shipping over $40</p>'
         : "") +
-      '<div style="text-align: center; margin-bottom: 8px;"><span class="alt-points-badge">✨ Earn <span class="pts-val">' +
-      Math.floor(p.price) +
-      "</span> Alt-Points</span></div>" +
+      pointsBadgeHTML +
       '<div class="card-foot-row">' +
       '<span class="price">$' +
       p.price.toFixed(2) +

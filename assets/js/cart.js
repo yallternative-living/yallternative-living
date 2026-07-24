@@ -262,6 +262,17 @@
     }, 0);
   }
 
+  function getLoyaltyConfig() {
+    var site = (root.YL_CONTENT && root.YL_CONTENT.site) || {};
+    return {
+      name: site.loyaltyPointsName || "Alt-Points",
+      singular: site.loyaltyPointsSingular || "Alt-Point",
+      rate: Number(site.loyaltyPointsPerDollar) > 0 ? Number(site.loyaltyPointsPerDollar) : 1,
+      emoji: site.loyaltyBadgeEmoji || "✨",
+      enabled: site.enableLoyaltyPoints !== false
+    };
+  }
+
   function render() {
     ensureDrawer();
     if (!state.items.length) {
@@ -326,20 +337,29 @@
         : "You've unlocked free shipping!";
     var pct = state.isPickup ? 100 : Math.min(100, Math.round((physSub / threshold) * 100));
 
-    var earnedPoints = Math.floor(sub);
+    var loyalty = getLoyaltyConfig();
+    var earnedPoints = Math.floor(sub * loyalty.rate);
     var pointsMsg =
       earnedPoints > 0
         ? 'You\'ll earn <strong id="cart-points-count">' +
           earnedPoints +
-          "</strong> Alt-Point" +
-          (earnedPoints === 1 ? "" : "s") +
+          "</strong> " +
+          (earnedPoints === 1 ? escapeHtml(loyalty.singular) : escapeHtml(loyalty.name)) +
           " with this order!"
-        : "Add items to earn Alt-Points ($1 = 1 point)!";
-    var pointsHTML =
-      '<div class="yl-cart-points" style="font-size:0.85rem; color:var(--whiskey); margin-bottom:8px; text-align:center; font-weight:600;">' +
-      '✨ <span id="cart-points-banner">' +
-      pointsMsg +
-      "</span></div>";
+        : "Add items to earn " +
+          escapeHtml(loyalty.name) +
+          " ($1 = " +
+          loyalty.rate +
+          " point" +
+          (loyalty.rate === 1 ? "" : "s") +
+          ")!";
+    var pointsHTML = loyalty.enabled
+      ? '<div class="yl-cart-points" style="font-size:0.85rem; color:var(--whiskey); margin-bottom:8px; text-align:center; font-weight:600;">' +
+        escapeHtml(loyalty.emoji) +
+        ' <span id="cart-points-banner">' +
+        pointsMsg +
+        "</span></div>"
+      : "";
 
     var pickupHTML = "";
     if (
