@@ -451,6 +451,15 @@ collections:
               - { name: giftUpId, label: "Gift Up! ID (Optional)", widget: string, required: false, hint: "Your Gift Up! account ID if using external digital gift cards." }
               - { name: enableJournal, label: "Enable Apothecary Journal (Blog)", widget: boolean, default: false, required: false, hint: "Toggle the Apothecary Journal/Blog section on the site." }
               - { name: enableSocialFeed, label: "Enable Social Media Feed", widget: boolean, default: false, required: false, hint: "Toggle the Instagram/TikTok social feed on the homepage." }
+              - { name: enableRestockAlerts, label: "Enable Restock Alert Modals", widget: boolean, default: true, required: false, hint: "Allow customers to sign up for email notifications when items are sold out." }
+              - { name: enableIngredientsModal, label: "Enable Ingredients Sourcing Modal", widget: boolean, default: true, required: false, hint: "Show the interactive Botanical Ingredients & Sourcing modal on product cards." }
+              - { name: enableCustomBoxBuilder, label: "Enable Custom Pick & Mix Box Builder", widget: boolean, default: true, required: false, hint: "Show the interactive custom gift box constructor on the shop page." }
+              - { name: enableScentFilter, label: "Enable Fragrance / Scent Filter", widget: boolean, default: true, required: false, hint: "Allow shoppers to filter products by scent profiles." }
+              - { name: enableLocalPickup, label: "Enable Local SC Pickup Option", widget: boolean, default: true, required: false, hint: "Offer a free Local Market Pickup option in the cart drawer." }
+              - { name: enableCountdownTicker, label: "Enable Next Market Event Countdown", widget: boolean, default: true, required: false, hint: "Show live event countdown ticker in the hero bar and events page." }
+              - { name: enableOrderStatusLookup, label: "Enable Order Status Lookup Modal", widget: boolean, default: true, required: false, hint: "Allow customers to track order progress via Stripe Session ID." }
+              - { name: enableLoyaltyPoints, label: "Enable Alt-Points Loyalty Calculator", widget: boolean, default: true, required: false, hint: "Display earned Alt-Points on product cards and in the cart drawer." }
+              - { name: enableApothecaryQuiz, label: "Enable Apothecary Recommendation Quiz", widget: boolean, default: true, required: false, hint: "Show the 3-step Apothecary Product Recommendation Quiz on shop.html." }
 
           - name: home
             label: Homepage
