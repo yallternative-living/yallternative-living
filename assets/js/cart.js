@@ -282,11 +282,11 @@
           escapeAttr(it.image || "") +
           '" alt="" width="48" height="48" loading="lazy">' +
           '<div class="yl-cart-details">' +
-          '<strong>' +
+          "<strong>" +
           escapeHtml(it.name) +
           variantText +
           "</strong>" +
-          '<span>' +
+          "<span>" +
           money(unitPrice(it)) +
           "</span>" +
           "</div>" +
@@ -294,7 +294,7 @@
           '<button type="button" data-cart-action="dec" data-key="' +
           escapeAttr(key) +
           '" aria-label="Decrease quantity">-</button>' +
-          '<span>' +
+          "<span>" +
           it.qty +
           "</span>" +
           '<button type="button" data-cart-action="inc" data-key="' +
@@ -342,35 +342,67 @@
       "</span></div>";
 
     var pickupHTML = "";
-    if (!root.YL_CONTENT || !root.YL_CONTENT.site || root.YL_CONTENT.site.enableLocalPickup !== false) {
-      var upcomingEvts = (root.YL_EVENTS && Array.isArray(root.YL_EVENTS.upcoming)) ? root.YL_EVENTS.upcoming : [];
-      var optionsHTML = upcomingEvts.map(function (evt) {
-        var label = (evt.name || "Pop-up Market") + " — " + (evt.dateLabel || "") + " (" + (evt.location || "Landrum, SC") + ")";
-        return '<option value="' + escapeAttr(label) + '"' + (state.pickupMarket === label ? " selected" : "") + ">" + escapeHtml(label) + "</option>";
-      }).join("");
+    if (
+      !root.YL_CONTENT ||
+      !root.YL_CONTENT.site ||
+      root.YL_CONTENT.site.enableLocalPickup !== false
+    ) {
+      var upcomingEvts =
+        root.YL_EVENTS && Array.isArray(root.YL_EVENTS.upcoming) ? root.YL_EVENTS.upcoming : [];
+      var optionsHTML = upcomingEvts
+        .map(function (evt) {
+          var label =
+            (evt.name || "Pop-up Market") +
+            " — " +
+            (evt.dateLabel || "") +
+            " (" +
+            (evt.location || "Landrum, SC") +
+            ")";
+          return (
+            '<option value="' +
+            escapeAttr(label) +
+            '"' +
+            (state.pickupMarket === label ? " selected" : "") +
+            ">" +
+            escapeHtml(label) +
+            "</option>"
+          );
+        })
+        .join("");
 
       if (!optionsHTML) {
-        optionsHTML = '<option value="Landrum SC Farmers Market (Saturdays 9am-12pm)">Landrum SC Farmers Market (Saturdays 9am-12pm)</option>';
+        optionsHTML =
+          '<option value="Landrum SC Farmers Market (Saturdays 9am-12pm)">Landrum SC Farmers Market (Saturdays 9am-12pm)</option>';
       }
 
       if (!state.pickupMarket && upcomingEvts[0]) {
         var defaultEvt = upcomingEvts[0];
-        state.pickupMarket = (defaultEvt.name || "Pop-up Market") + " — " + (defaultEvt.dateLabel || "") + " (" + (defaultEvt.location || "Landrum, SC") + ")";
+        state.pickupMarket =
+          (defaultEvt.name || "Pop-up Market") +
+          " — " +
+          (defaultEvt.dateLabel || "") +
+          " (" +
+          (defaultEvt.location || "Landrum, SC") +
+          ")";
       }
 
       pickupHTML =
         '<div class="yl-cart-pickup-wrap" style="margin: 10px 0; padding: 10px; background: var(--paper-dim); border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 0.85rem;">' +
         '  <label style="display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer; color: var(--whiskey); margin: 0;">' +
-        '    <input type="checkbox" id="yl-cart-pickup-checkbox" style="accent-color: var(--whiskey); cursor: pointer;"' + (state.isPickup ? ' checked' : '') + '>' +
-        '    <span>📍 Local SC Market Pick-up (Free)</span>' +
-        '  </label>' +
-        '  <div id="yl-cart-pickup-select-container" style="margin-top: 8px;' + (state.isPickup ? ' display: block;' : ' display: none;') + '">' +
+        '    <input type="checkbox" id="yl-cart-pickup-checkbox" style="accent-color: var(--whiskey); cursor: pointer;"' +
+        (state.isPickup ? " checked" : "") +
+        ">" +
+        "    <span>📍 Local SC Market Pick-up (Free)</span>" +
+        "  </label>" +
+        '  <div id="yl-cart-pickup-select-container" style="margin-top: 8px;' +
+        (state.isPickup ? " display: block;" : " display: none;") +
+        '">' +
         '    <label for="yl-cart-pickup-select" style="font-size: 0.78rem; color: var(--paper-muted); display: block; margin-bottom: 4px;">Choose Upcoming Market Location:</label>' +
         '    <select id="yl-cart-pickup-select" style="width: 100%; padding: 6px 8px; font-size: 0.82rem; background: var(--paper); color: var(--paper-bright); border: 1px solid var(--border-color); border-radius: 4px;">' +
         optionsHTML +
-        '    </select>' +
-        '  </div>' +
-        '</div>';
+        "    </select>" +
+        "  </div>" +
+        "</div>";
     }
 
     footEl.innerHTML =
@@ -568,7 +600,9 @@
     fetch(CHECKOUT_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(toCheckoutPayload(state.items, state.isPickup ? state.pickupMarket : null))
+      body: JSON.stringify(
+        toCheckoutPayload(state.items, state.isPickup ? state.pickupMarket : null)
+      )
     })
       .then(function (r) {
         return r.json();
