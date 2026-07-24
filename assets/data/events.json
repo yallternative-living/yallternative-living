@@ -1,5 +1,15 @@
 {
-  "upcoming": [],
+  "upcoming": [
+    {
+      "date": "2026-10-17T09:00:00-04:00",
+      "dateLabel": "October 17, 2026",
+      "name": "Autumn Apothecary Faire",
+      "type": "Artisan Fair",
+      "location": "Landrum, SC",
+      "url": "https://yallternativeliving.com",
+      "note": "Pop-up market table with handmade salves, soaks & soaps."
+    }
+  ],
   "past": [
     {
       "date": "2026-06-20",

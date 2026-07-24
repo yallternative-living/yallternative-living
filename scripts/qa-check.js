@@ -1391,9 +1391,11 @@ if (!fs.existsSync(checkoutWorkerPath)) {
   fail("workers/checkout.js", "missing file");
 } else {
   var checkoutText = fs.readFileSync(checkoutWorkerPath, "utf8");
-  if (/export default\s*\{/.test(checkoutText)) ok("workers/checkout.js: exports default worker object");
+  if (/export default\s*\{/.test(checkoutText))
+    ok("workers/checkout.js: exports default worker object");
   else fail("workers/checkout.js", "missing export default");
-  if (/Stripe-Version/.test(checkoutText)) ok("workers/checkout.js: includes Stripe-Version header");
+  if (/Stripe-Version/.test(checkoutText))
+    ok("workers/checkout.js: includes Stripe-Version header");
   else fail("workers/checkout.js", "missing Stripe-Version header");
   if (/SITE_ORIGIN/.test(checkoutText)) ok("workers/checkout.js: references SITE_ORIGIN in CORS");
   else fail("workers/checkout.js", "missing SITE_ORIGIN reference");
@@ -1404,9 +1406,11 @@ if (!fs.existsSync(submitWorkerPath)) {
   fail("workers/submit-form.js", "missing file");
 } else {
   var submitText = fs.readFileSync(submitWorkerPath, "utf8");
-  if (/export default\s*\{/.test(submitText)) ok("workers/submit-form.js: exports default worker object");
+  if (/export default\s*\{/.test(submitText))
+    ok("workers/submit-form.js: exports default worker object");
   else fail("workers/submit-form.js", "missing export default");
-  if (/emailRegex/.test(submitText)) ok("workers/submit-form.js: validates email format with regex");
+  if (/emailRegex/.test(submitText))
+    ok("workers/submit-form.js: validates email format with regex");
   else fail("workers/submit-form.js", "missing email format validation");
 }
 
@@ -1417,17 +1421,25 @@ if (!fs.existsSync(giftCardFuncPath)) {
   fail("netlify/functions/fulfill-gift-card.js", "missing file");
 } else {
   var giftCardFuncText = fs.readFileSync(giftCardFuncPath, "utf8");
-  if (/exports\.handler\s*=/.test(giftCardFuncText)) ok("fulfill-gift-card.js: exports handler function");
+  if (/exports\.handler\s*=/.test(giftCardFuncText))
+    ok("fulfill-gift-card.js: exports handler function");
   else fail("netlify/functions/fulfill-gift-card.js", "missing exports.handler");
-  if (/crypto\.randomInt/.test(giftCardFuncText)) ok("fulfill-gift-card.js: uses crypto.randomInt CSPRNG");
+  if (/crypto\.randomInt/.test(giftCardFuncText))
+    ok("fulfill-gift-card.js: uses crypto.randomInt CSPRNG");
   else fail("netlify/functions/fulfill-gift-card.js", "missing crypto.randomInt CSPRNG");
-  if (/X-Entity-Ref-ID/.test(giftCardFuncText)) ok("fulfill-gift-card.js: sets Resend X-Entity-Ref-ID header");
+  if (/X-Entity-Ref-ID/.test(giftCardFuncText))
+    ok("fulfill-gift-card.js: sets Resend X-Entity-Ref-ID header");
   else fail("netlify/functions/fulfill-gift-card.js", "missing Resend idempotency header");
 }
 
 /* ---------- 27) Project documentation files integrity (docs/*.md) ---------- */
 section("Project documentation integrity (docs/*.md)");
-var docFiles = ["docs/DEVELOPMENT.md", "docs/EDITING-GUIDE.md", "docs/SELF-HOSTING-FONTS.md", "docs/STRIPE-MIGRATION.md"];
+var docFiles = [
+  "docs/DEVELOPMENT.md",
+  "docs/EDITING-GUIDE.md",
+  "docs/SELF-HOSTING-FONTS.md",
+  "docs/STRIPE-MIGRATION.md"
+];
 docFiles.forEach(function (rel) {
   var full = path.join(ROOT, rel);
   if (!fs.existsSync(full)) {
@@ -1435,7 +1447,8 @@ docFiles.forEach(function (rel) {
     return;
   }
   var text = fs.readFileSync(full, "utf8");
-  if (text.trim().length > 100 && /^#\s+/m.test(text)) ok(rel + ": non-empty markdown doc with H1 heading");
+  if (text.trim().length > 100 && /^#\s+/m.test(text))
+    ok(rel + ": non-empty markdown doc with H1 heading");
   else fail(rel, "file empty or missing top-level H1 header");
 });
 
