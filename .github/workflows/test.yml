@@ -1,7 +1,7 @@
 name: QA checks
 
 # Runs ESLint, Prettier's format check, and the site's own automated QA
-# suite (scripts/qa-check.js, "npm test") on every push and pull request --
+# suite (scripts/qa-check.js, "pnpm test") on every push and pull request --
 # catches a broken build, a dead link, a malformed variant/rating, CSP
 # drift between _headers/vercel.json/netlify.toml, or a lint/format issue
 # before it ever reaches a real deploy, instead of relying on someone
@@ -47,11 +47,14 @@ jobs:
       PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: "true"
     steps:
       - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 8
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
-          cache: "npm"
-      - run: npm install --no-audit --no-fund
-      - run: npm run lint
-      - run: npm run format:check
-      - run: npm test
+          cache: "pnpm"
+      - run: npm i -g pnpm && pnpm install --ignore-scripts
+      - run: pnpm run lint
+      - run: pnpm run format:check
+      - run: pnpm test

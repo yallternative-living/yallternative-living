@@ -1,9 +1,9 @@
-/**
- * @fileoverview Auto-generated shop products catalog source of truth.
- * Wrap of assets/data/products.json into a global variable YL_PRODUCTS.
- * Do not hand-edit this file.
- * @const {!Object}
- */
+/* Auto-mirrors assets/data/products.json as a global,
+   so the site works instantly off file:// with zero
+   network/CORS issues, and just as fast once hosted.
+   NOTE: ratings in this file are kept in sync with real per-listing
+   Etsy reviews by scripts/apply-etsy-snapshot.js -- everything else
+   here (photos, blurbs, prices, variants) is still hand-maintained. */
 window.YL_PRODUCTS = {
   "shop": {
     "name": "Y'allternative Living",
@@ -83,7 +83,11 @@ window.YL_PRODUCTS = {
         ]
       },
       "etsyUrl": "https://www.etsy.com/listing/4341507933/yallternative-living-tank-top",
-      "tags": []
+      "tags": [],
+      "rating": {
+        "value": 5,
+        "count": 1
+      }
     },
     {
       "id": "unisex-tshirt",
@@ -120,7 +124,11 @@ window.YL_PRODUCTS = {
       },
       "etsyUrl": "https://www.etsy.com/listing/4341518675/yallternative-living-unisex-t-shirt",
       "tags": [],
-      "featured": true
+      "featured": true,
+      "rating": {
+        "value": 5,
+        "count": 1
+      }
     },
     {
       "id": "frankincense-salve",
@@ -146,7 +154,7 @@ window.YL_PRODUCTS = {
       ],
       "rating": {
         "value": 5,
-        "count": 5
+        "count": 6
       },
       "etsyUrl": "https://www.etsy.com/listing/4398130795/yall-heal-now-miracle-frankincense-salve",
       "tags": [
@@ -177,7 +185,11 @@ window.YL_PRODUCTS = {
         "essential-oil-free",
         "sensitive-safe"
       ],
-      "etsyUrl": "https://www.etsy.com/listing/4466572716/yallternative-miracle-balm-multi-use"
+      "etsyUrl": "https://www.etsy.com/listing/4466572716/yallternative-miracle-balm-multi-use",
+      "rating": {
+        "value": 5,
+        "count": 1
+      }
     },
     {
       "id": "sleep-salve",
@@ -197,7 +209,7 @@ window.YL_PRODUCTS = {
       ],
       "rating": {
         "value": 5,
-        "count": 1
+        "count": 2
       },
       "etsyUrl": "https://www.etsy.com/listing/4398125773/hush-yall-magnesium-arnica-sleep-salve",
       "tags": [
@@ -224,7 +236,11 @@ window.YL_PRODUCTS = {
       ],
       "etsyUrl": "https://www.etsy.com/listing/4460199621/bourbon-beard-salve-vanilla-cedarwood",
       "tags": [],
-      "featured": true
+      "featured": true,
+      "rating": {
+        "value": 5,
+        "count": 1
+      }
     },
     {
       "id": "shimmer-oil",
@@ -270,7 +286,11 @@ window.YL_PRODUCTS = {
       "tags": [
         "vegan"
       ],
-      "featured": true
+      "featured": true,
+      "rating": {
+        "value": 5,
+        "count": 1
+      }
     },
     {
       "id": "shea-butter",
@@ -308,7 +328,7 @@ window.YL_PRODUCTS = {
       },
       "rating": {
         "value": 4,
-        "count": 1
+        "count": 2
       },
       "etsyUrl": "https://www.etsy.com/listing/4460110222/lavender-shea-body-butter-raw-african",
       "tags": []
@@ -353,7 +373,7 @@ window.YL_PRODUCTS = {
       },
       "rating": {
         "value": 5,
-        "count": 2
+        "count": 3
       },
       "etsyUrl": "https://www.etsy.com/listing/4342208406/bourbon-vanilla-hand-scrub-exfoliating",
       "tags": [
@@ -394,7 +414,11 @@ window.YL_PRODUCTS = {
           }
         ]
       },
-      "etsyUrl": "https://www.etsy.com/listing/4345557444/lavender-epsom-salt-soak-muscle-relief"
+      "etsyUrl": "https://www.etsy.com/listing/4345557444/lavender-epsom-salt-soak-muscle-relief",
+      "rating": {
+        "value": 5,
+        "count": 1
+      }
     },
     {
       "id": "backroad-soak",
@@ -432,7 +456,7 @@ window.YL_PRODUCTS = {
       },
       "rating": {
         "value": 5,
-        "count": 3
+        "count": 4
       },
       "etsyUrl": "https://www.etsy.com/listing/4333988264/backroad-recovery-epsom-salt-muscle-soak",
       "featured": true
@@ -476,7 +500,7 @@ window.YL_PRODUCTS = {
       },
       "rating": {
         "value": 5,
-        "count": 1
+        "count": 2
       },
       "etsyUrl": "https://www.etsy.com/listing/4378341348/protection-potion-keychain-black-lava",
       "tags": [],
@@ -505,7 +529,7 @@ window.YL_PRODUCTS = {
       ],
       "rating": {
         "value": 5,
-        "count": 4
+        "count": 5
       },
       "etsyUrl": "https://www.etsy.com/listing/4335217388/bug-off-btch-natural-bug-spray"
     },
