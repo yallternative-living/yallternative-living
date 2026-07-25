@@ -434,37 +434,37 @@ collections:
         format: json
         fields:
           - name: site
-            label: Global Site Assets & Configurations
+            label: "⚙️ Site Settings & Integrations"
             widget: object
             collapsed: true
             fields:
-              - { name: logoDesktop, label: "Desktop Logo (suggested 48x48 PNG)", widget: image }
-              - { name: logoMobile, label: "Mobile Logo (suggested 48x48 JPG/PNG)", widget: image }
-              - { name: footerTagline, label: "Footer Tagline", widget: text, required: false }
+              - { name: logoDesktop, label: "Desktop Logo Image", widget: image }
+              - { name: logoMobile, label: "Mobile Logo Image", widget: image }
+              - { name: footerTagline, label: "Footer Message", widget: text, required: false }
               - { name: newsletterTitle, label: "Newsletter Headline", widget: string, required: false }
-              - { name: newsletterSubtext, label: "Newsletter Subheading", widget: text, required: false }
-              - { name: kitFormAction, label: "Kit (ConvertKit) Form Action URL", widget: string, required: false, hint: "Paste your Kit newsletter form action URL here." }
-              - { name: tawkToPropertyId, label: "Tawk.to Property ID", widget: string, required: false, hint: "For live chat support." }
-              - { name: tawkToWidgetId, label: "Tawk.to Widget ID", widget: string, required: false, hint: "For live chat support." }
-              - { name: formspreeContactId, label: "Formspree Contact Form ID", widget: string, required: false, hint: "Your Formspree ID for the contact page form." }
-              - { name: formspreeReviewId, label: "Formspree Review Form ID", widget: string, required: false, hint: "Your Formspree ID for customers to write product reviews." }
-              - { name: giftUpId, label: "Gift Up! ID (Optional)", widget: string, required: false, hint: "Your Gift Up! account ID if using external digital gift cards." }
-              - { name: umamiWebsiteId, label: "Umami Analytics Website ID (Optional)", widget: string, required: false, hint: "Your Umami cookieless analytics ID for tracking traffic." }
-              - { name: enableJournal, label: "Enable Apothecary Journal (Blog)", widget: boolean, default: false, required: false, hint: "Toggle the Apothecary Journal/Blog section on the site." }
-              - { name: enableSocialFeed, label: "Enable Social Media Feed", widget: boolean, default: false, required: false, hint: "Toggle the Instagram/TikTok social feed on the homepage." }
-              - { name: enableRestockAlerts, label: "Enable Restock Alert Modals", widget: boolean, default: true, required: false, hint: "Allow customers to sign up for email notifications when items are sold out." }
-              - { name: enableIngredientsModal, label: "Enable Ingredients Sourcing Modal", widget: boolean, default: true, required: false, hint: "Show the interactive Botanical Ingredients & Sourcing modal on product cards." }
-              - { name: enableCustomBoxBuilder, label: "Enable Custom Pick & Mix Box Builder", widget: boolean, default: true, required: false, hint: "Show the interactive custom gift box constructor on the shop page." }
-              - { name: enableScentFilter, label: "Enable Fragrance / Scent Filter", widget: boolean, default: true, required: false, hint: "Allow shoppers to filter products by scent profiles." }
-              - { name: enableLocalPickup, label: "Enable Local SC Pickup Option", widget: boolean, default: true, required: false, hint: "Offer a free Local Market Pickup option in the cart drawer." }
-              - { name: enableCountdownTicker, label: "Enable Next Market Event Countdown", widget: boolean, default: true, required: false, hint: "Show live event countdown ticker in the hero bar and events page." }
-              - { name: enableOrderStatusLookup, label: "Enable Order Status Lookup Modal", widget: boolean, default: true, required: false, hint: "Allow customers to track order progress via Stripe Session ID." }
-              - { name: enableLoyaltyPoints, label: "Enable Loyalty Program Calculator", widget: boolean, default: true, required: false, hint: "Display earned loyalty points on product cards and in the cart drawer." }
-              - { name: loyaltyPointsName, label: "Loyalty Currency Name (Plural)", widget: string, default: "Alt-Points", required: false, hint: "e.g. Alt-Points, Grit Points, Coven Bucks" }
-              - { name: loyaltyPointsSingular, label: "Loyalty Currency Name (Singular)", widget: string, default: "Alt-Point", required: false, hint: "e.g. Alt-Point, Grit Point, Coven Buck" }
+              - { name: newsletterSubtext, label: "Newsletter Description", widget: text, required: false }
+              - { name: kitFormAction, label: "Newsletter Form Link (Kit/ConvertKit)", widget: string, required: false, hint: "Paste the form link from your Kit account here." }
+              - { name: tawkToPropertyId, label: "Live Chat Property Code (Tawk.to)", widget: string, required: false, hint: "Optional live chat support ID." }
+              - { name: tawkToWidgetId, label: "Live Chat Widget Code (Tawk.to)", widget: string, required: false, hint: "Optional live chat widget ID." }
+              - { name: formspreeContactId, label: "Contact Form Code (Formspree)", widget: string, required: false, hint: "Your Formspree code for messages sent from the Contact page." }
+              - { name: formspreeReviewId, label: "Customer Reviews Form Code (Formspree)", widget: string, required: false, hint: "Your Formspree code for customer review submissions." }
+              - { name: giftUpId, label: "Gift Card Account Code (Gift Up! - Optional)", widget: string, required: false, hint: "Optional code if using Gift Up! digital gift cards." }
+              - { name: umamiWebsiteId, label: "Website Analytics Code (Umami - Optional)", widget: string, required: false, hint: "Optional code for cookieless website visitor tracking." }
+              - { name: enableJournal, label: "Show Apothecary Journal (Blog)", widget: boolean, default: false, required: false, hint: "Show or hide the blog page." }
+              - { name: enableSocialFeed, label: "Show Social Media Feed", widget: boolean, default: false, required: false, hint: "Show or hide the Instagram/TikTok social feed on the homepage." }
+              - { name: enableRestockAlerts, label: "Show Restock Email Alerts", widget: boolean, default: true, required: false, hint: "Let customers sign up for email alerts when an item sells out." }
+              - { name: enableIngredientsModal, label: "Show Botanical Ingredients Info", widget: boolean, default: true, required: false, hint: "Show the interactive ingredients list on product cards." }
+              - { name: enableCustomBoxBuilder, label: "Show Custom Pick & Mix Box Builder", widget: boolean, default: true, required: false, hint: "Let shoppers build their own custom gift box on the shop page." }
+              - { name: enableScentFilter, label: "Show Scent Profile Filter", widget: boolean, default: true, required: false, hint: "Let shoppers filter products by scent." }
+              - { name: enableLocalPickup, label: "Show Free Local Market Pick-up", widget: boolean, default: true, required: false, hint: "Offer a free local pop-up market pickup option in the cart." }
+              - { name: enableCountdownTicker, label: "Show Event Countdown Ticker", widget: boolean, default: true, required: false, hint: "Display the countdown timer for your next upcoming market or pop-up." }
+              - { name: enableOrderStatusLookup, label: "Show Order Lookup Tool", widget: boolean, default: true, required: false, hint: "Let customers check order progress and shipping status." }
+              - { name: enableLoyaltyPoints, label: "Show Customer Rewards Points", widget: boolean, default: true, required: false, hint: "Show earned points on product price tags and in the cart." }
+              - { name: loyaltyPointsName, label: "Rewards Currency Name (Plural)", widget: string, default: "Alt-Points", required: false, hint: "e.g. Alt-Points, Grit Points, Coven Bucks" }
+              - { name: loyaltyPointsSingular, label: "Rewards Currency Name (Singular)", widget: string, default: "Alt-Point", required: false, hint: "e.g. Alt-Point, Grit Point, Coven Buck" }
               - { name: loyaltyPointsPerDollar, label: "Points Earned Per $1 Spent", widget: number, default: 1, value_type: int, required: false }
-              - { name: loyaltyBadgeEmoji, label: "Loyalty Badge Emoji", widget: string, default: "✨", required: false }
-              - { name: enableApothecaryQuiz, label: "Enable Apothecary Recommendation Quiz", widget: boolean, default: true, required: false, hint: "Show the 3-step Apothecary Product Recommendation Quiz on shop.html." }
+              - { name: loyaltyBadgeEmoji, label: "Rewards Icon Emoji", widget: string, default: "✨", required: false }
+              - { name: enableApothecaryQuiz, label: "Show Apothecary Product Quiz", widget: boolean, default: true, required: false, hint: "Guide shoppers to personalized recommendations on the shop page." }
 
           - name: home
             label: Homepage
