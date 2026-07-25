@@ -8,6 +8,7 @@
     "formspreeContactId": "YOUR_FORM_ID",
     "formspreeReviewId": "YOUR_FORMSPREE_FORM_ID",
     "giftUpId": "YOUR_GIFTUP_ID",
+    "umamiWebsiteId": "YOUR_UMAMI_WEBSITE_ID",
     "enableJournal": false,
     "enableSocialFeed": false,
     "enableRestockAlerts": true,

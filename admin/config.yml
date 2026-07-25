@@ -449,6 +449,7 @@ collections:
               - { name: formspreeContactId, label: "Formspree Contact Form ID", widget: string, required: false, hint: "Your Formspree ID for the contact page form." }
               - { name: formspreeReviewId, label: "Formspree Review Form ID", widget: string, required: false, hint: "Your Formspree ID for customers to write product reviews." }
               - { name: giftUpId, label: "Gift Up! ID (Optional)", widget: string, required: false, hint: "Your Gift Up! account ID if using external digital gift cards." }
+              - { name: umamiWebsiteId, label: "Umami Analytics Website ID (Optional)", widget: string, required: false, hint: "Your Umami cookieless analytics ID for tracking traffic." }
               - { name: enableJournal, label: "Enable Apothecary Journal (Blog)", widget: boolean, default: false, required: false, hint: "Toggle the Apothecary Journal/Blog section on the site." }
               - { name: enableSocialFeed, label: "Enable Social Media Feed", widget: boolean, default: false, required: false, hint: "Toggle the Instagram/TikTok social feed on the homepage." }
               - { name: enableRestockAlerts, label: "Enable Restock Alert Modals", widget: boolean, default: true, required: false, hint: "Allow customers to sign up for email notifications when items are sold out." }
