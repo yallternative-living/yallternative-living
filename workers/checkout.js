@@ -85,12 +85,12 @@ function json(body, status, origin, env) {
 // always match assets/data/products.json (the single source of truth).
 async function loadCatalog(env, ctx) {
   const url = `${env.SITE_ORIGIN}/assets/data/products.json`;
-  const cache = caches.default;
+  const cache = typeof caches !== "undefined" ? caches.default : null;
   const cacheKey = new Request(url);
-  let res = await cache.match(cacheKey);
+  let res = cache ? await cache.match(cacheKey) : null;
   if (!res) {
     res = await fetch(url, { cf: { cacheTtl: 300, cacheEverything: true } });
-    if (res.ok && ctx) {
+    if (res.ok && ctx && cache) {
       const toCache = new Response(res.clone().body, res);
       toCache.headers.set("Cache-Control", "max-age=300");
       ctx.waitUntil(cache.put(cacheKey, toCache));
@@ -122,11 +122,12 @@ function findEntry(catalog, id) {
 // manifest at build time; there's no equivalent static artifact anymore,
 // so it's recomputed here, server-side, on every checkout instead.)
 function resolveBundlePriceDollars(catalog, bundle) {
-  if (!Array.isArray(bundle.productIds) || !bundle.productIds.length) return null;
+  if (!bundle || !Array.isArray(bundle.productIds) || !bundle.productIds.length) return null;
   const products = Array.isArray(catalog.products) ? catalog.products : [];
+  const productMap = new Map(products.map((prod) => [prod.id, prod]));
   let fullPrice = 0;
   for (const id of bundle.productIds) {
-    const p = products.find((prod) => prod.id === id);
+    const p = productMap.get(id);
     if (!p || typeof p.price !== "number") return null; // referential integrity issue -- fail closed
     fullPrice += typeof p.originalPrice === "number" ? p.originalPrice : p.price;
   }
@@ -348,3 +349,12 @@ export default {
     }
   },
 };
+
+export {
+  loadCatalog,
+  findEntry,
+  resolveBundlePriceDollars,
+  resolveUnitAmountCents,
+  resolveGiftCardAmountCents,
+};
+

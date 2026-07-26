@@ -42,7 +42,7 @@
       amountEl.textContent = "$" + amount.toFixed(2);
       amountEl.hidden = false;
     }
-  } catch (e) {
+  } catch {
     /* Never let a query-param hiccup break this page's "thanks!" message. */
   }
 })();

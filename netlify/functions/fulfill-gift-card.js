@@ -47,7 +47,7 @@
 const { Resend } = require('resend');
 const crypto = require('crypto');
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY || 're_test');
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
 
@@ -209,31 +209,32 @@ exports.handler = async (event) => {
       return { statusCode: 200, body: 'No gift cards in this session' };
     }
 
-    for (const n of giftIndexes) {
-      var prefix = 'gift_card_' + n;
-      var amountCents = Number(metadata[prefix + '_amount_cents']);
-      var recipientEmail = metadata[prefix + '_recipient'];
-      var senderName = metadata[prefix + '_sender'];
-      var personalMessage = metadata[prefix + '_message'];
+    await Promise.all(
+      giftIndexes.map(async function (n) {
+        var prefix = 'gift_card_' + n;
+        var amountCents = Number(metadata[prefix + '_amount_cents']);
+        var recipientEmail = metadata[prefix + '_recipient'];
+        var senderName = metadata[prefix + '_sender'];
+        var personalMessage = metadata[prefix + '_message'];
 
-      if (!recipientEmail || !Number.isFinite(amountCents) || amountCents <= 0) {
-        console.error(
-          'Gift card metadata incomplete for session ' + session.id + ', index ' + n
-        );
-        continue;
-      }
+        if (!recipientEmail || !Number.isFinite(amountCents) || amountCents <= 0) {
+          console.error(
+            'Gift card metadata incomplete for session ' + session.id + ', index ' + n
+          );
+          return;
+        }
 
-      var uniqueCode = generateRandomCode();
-      var confirmedCode;
-      try {
-        confirmedCode = await createGiftCardPromotionCode(session.id, n, amountCents, uniqueCode);
-      } catch (err) {
-        console.error('Failed to create promotion code:', err.message);
-        continue; // don't let one bad gift card in a multi-item order block the rest
-      }
+        var uniqueCode = generateRandomCode();
+        var confirmedCode;
+        try {
+          confirmedCode = await createGiftCardPromotionCode(session.id, n, amountCents, uniqueCode);
+        } catch (err) {
+          console.error('Failed to create promotion code:', err.message);
+          return; // don't let one bad gift card in a multi-item order block the rest
+        }
 
-      var amount = amountCents / 100;
-      var emailHtml = `
+        var amount = amountCents / 100;
+        var emailHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #17130f; color: #fff; padding: 40px; border-radius: 12px; border: 2px solid #d69b5c;">
           <div style="text-align: center; margin-bottom: 30px;">
             <img src="https://yallternativeliving.com/assets/img/logo.png" alt="Y'allternative Living Logo" style="max-width: 200px;" />
@@ -255,24 +256,25 @@ exports.handler = async (event) => {
         </div>
       `;
 
-      try {
-        await resend.emails.send({
-          from: 'gifts@yallternativeliving.com',
-          to: recipientEmail,
-          subject: `You received a $${amount.toFixed(2)} Y'allternative Living gift card!`,
-          html: emailHtml,
-          headers: {
-            'X-Entity-Ref-ID': 'gift-email-' + session.id + '-' + n
-          }
-        });
+        try {
+          await resend.emails.send({
+            from: 'gifts@yallternativeliving.com',
+            to: recipientEmail,
+            subject: `You received a $${amount.toFixed(2)} Y'allternative Living gift card!`,
+            html: emailHtml,
+            headers: {
+              'X-Entity-Ref-ID': 'gift-email-' + session.id + '-' + n
+            }
+          });
 
-        console.log(
-          `Successfully generated and sent gift card ${confirmedCode} to ${recipientEmail}`
-        );
-      } catch (emailErr) {
-        console.error(`Failed to send gift card email for code ${confirmedCode}:`, emailErr.message);
-      }
-    }
+          console.log(
+            `Successfully generated and sent gift card ${confirmedCode} to ${recipientEmail}`
+          );
+        } catch (emailErr) {
+          console.error(`Failed to send gift card email for code ${confirmedCode}:`, emailErr.message);
+        }
+      })
+    );
 
     return { statusCode: 200, body: 'Webhook processed successfully' };
   } catch (error) {
@@ -280,3 +282,9 @@ exports.handler = async (event) => {
     return { statusCode: 500, body: 'Internal Server Error' };
   }
 };
+
+exports.generateRandomCode = generateRandomCode;
+exports.escapeHtml = escapeHtml;
+exports.verifyStripeSignature = verifyStripeSignature;
+exports.createGiftCardPromotionCode = createGiftCardPromotionCode;
+

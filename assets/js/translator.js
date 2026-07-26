@@ -349,7 +349,7 @@
     // Update localStorage
     try {
       localStorage.setItem("yl-lang", langCode);
-    } catch (e) {
+    } catch {
       // ignore
     }
 
@@ -442,7 +442,7 @@
     var saved = null;
     try {
       saved = localStorage.getItem("yl-lang");
-    } catch (e) {
+    } catch {
       // ignore
     }
 

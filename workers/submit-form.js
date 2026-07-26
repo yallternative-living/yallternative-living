@@ -146,3 +146,6 @@ export default {
     }
   },
 };
+
+export { escapeHtml };
+

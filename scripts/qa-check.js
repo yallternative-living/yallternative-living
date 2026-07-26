@@ -1495,6 +1495,27 @@ if (
   fail("shop.html", "missing #apothecary-quiz-section or #quiz-submit-btn");
 }
 
+/* ---------- Unit Test Suites ---------- */
+section("Unit Test Suites (cart-engine & backend-functions)");
+try {
+  execSync('node "' + path.join(ROOT, "scripts/cart-engine.test.js") + '"', { stdio: "pipe" });
+  ok("scripts/cart-engine.test.js passed");
+} catch (e) {
+  fail("scripts/cart-engine.test.js", e.stderr ? e.stderr.toString().split("\n")[0] : e.message);
+}
+
+try {
+  execSync('node "' + path.join(ROOT, "scripts/backend-functions.test.js") + '"', {
+    stdio: "pipe"
+  });
+  ok("scripts/backend-functions.test.js passed");
+} catch (e) {
+  fail(
+    "scripts/backend-functions.test.js",
+    e.stderr ? e.stderr.toString().split("\n")[0] : e.message
+  );
+}
+
 /* ---------- Summary ---------- */
 console.log("\n" + "=".repeat(50));
 console.log(passCount + " checks passed, " + failures.length + " failed.");

@@ -72,36 +72,46 @@ async function optimizeOne(filename) {
   var avifVariants = [];
   var webpVariants = [];
 
+  var tasks = [];
+
   for (var i = 0; i < WIDTHS.length; i++) {
     var w = WIDTHS[i];
     if (w >= srcWidth) continue; // never upscale
 
     var webpOut = base + "-" + w + ".webp";
-    await sharp(srcPath)
-      .resize({ width: w })
-      .webp({ quality: WEBP_QUALITY })
-      .toFile(path.join(IMG_DIR, webpOut));
+    tasks.push(
+      sharp(srcPath)
+        .resize({ width: w })
+        .webp({ quality: WEBP_QUALITY })
+        .toFile(path.join(IMG_DIR, webpOut))
+    );
     webpVariants.push({ width: w, file: "assets/img/" + webpOut });
 
     var avifOut = base + "-" + w + ".avif";
-    await sharp(srcPath)
-      .resize({ width: w })
-      .avif({ quality: AVIF_QUALITY, effort: AVIF_EFFORT })
-      .toFile(path.join(IMG_DIR, avifOut));
+    tasks.push(
+      sharp(srcPath)
+        .resize({ width: w })
+        .avif({ quality: AVIF_QUALITY, effort: AVIF_EFFORT })
+        .toFile(path.join(IMG_DIR, avifOut))
+    );
     avifVariants.push({ width: w, file: "assets/img/" + avifOut });
   }
 
   // Full-size variants, always included, always the widest -- this is
   // what large screens / the srcset's biggest candidate use.
   var fullWebp = base + ".webp";
-  await sharp(srcPath).webp({ quality: WEBP_QUALITY }).toFile(path.join(IMG_DIR, fullWebp));
+  tasks.push(sharp(srcPath).webp({ quality: WEBP_QUALITY }).toFile(path.join(IMG_DIR, fullWebp)));
   webpVariants.push({ width: srcWidth, file: "assets/img/" + fullWebp });
 
   var fullAvif = base + ".avif";
-  await sharp(srcPath)
-    .avif({ quality: AVIF_QUALITY, effort: AVIF_EFFORT })
-    .toFile(path.join(IMG_DIR, fullAvif));
+  tasks.push(
+    sharp(srcPath)
+      .avif({ quality: AVIF_QUALITY, effort: AVIF_EFFORT })
+      .toFile(path.join(IMG_DIR, fullAvif))
+  );
   avifVariants.push({ width: srcWidth, file: "assets/img/" + fullAvif });
+
+  await Promise.all(tasks);
 
   var beforeSize = fs.statSync(srcPath).size;
   return {

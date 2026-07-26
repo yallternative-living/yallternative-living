@@ -154,7 +154,7 @@
       var raw = localStorage.getItem(STORAGE_KEY);
       var parsed = raw ? JSON.parse(raw) : null;
       state.items = Array.isArray(parsed) ? parsed : [];
-    } catch (e) {
+    } catch {
       state.items = [];
     }
   }
@@ -162,7 +162,7 @@
   function save() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state.items));
-    } catch (e) {
+    } catch {
       /* storage full / blocked -- cart still works for this page view */
     }
   }
@@ -234,7 +234,7 @@
     if (typeof drawer.showPopover === "function") {
       try {
         drawer.showPopover();
-      } catch (e) {
+      } catch {
         drawer.setAttribute("data-open", "true");
       }
     } else {
@@ -247,7 +247,7 @@
     if (typeof drawer.hidePopover === "function") {
       try {
         drawer.hidePopover();
-      } catch (e) {
+      } catch {
         drawer.removeAttribute("data-open");
       }
     } else {

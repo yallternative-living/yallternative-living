@@ -22,7 +22,7 @@
           var props = options && options.props ? options.props : undefined;
           window.umami.track(name, props);
         }
-      } catch (e) {
+      } catch {
         /* analytics is best-effort -- swallow everything */
       }
     };
@@ -42,7 +42,7 @@
     try {
       var saved = localStorage.getItem("yl-theme");
       if (saved === "dark" || saved === "light") return saved;
-    } catch (e) {
+    } catch {
       /* storage unavailable -- fall through to the media-query default */
     }
     return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
@@ -60,7 +60,7 @@
       var next = root.getAttribute("data-theme") === "light" ? "dark" : "light";
       try {
         localStorage.setItem("yl-theme", next);
-      } catch (e) {
+      } catch {
         /* can't persist -- still flip the theme for this page view */
       }
       applyTheme(next);
@@ -744,7 +744,7 @@
   function getWishlist() {
     try {
       return JSON.parse(localStorage.getItem(WISH_KEY)) || [];
-    } catch (e) {
+    } catch {
       return [];
     }
   }
@@ -757,7 +757,7 @@
   function saveWishlist(list) {
     try {
       localStorage.setItem(WISH_KEY, JSON.stringify(list));
-    } catch (e) {
+    } catch {
       /* storage unavailable -- badge/drawer below still reflect this
          session's in-memory state, it just won't persist on reload */
     }
@@ -2580,7 +2580,7 @@
       s.type = "speculationrules";
       s.textContent = JSON.stringify(rules);
       document.body.appendChild(s);
-    } catch (e) {
+    } catch {
       /* speculation is a progressive enhancement -- never let it break the page */
     }
   })();
