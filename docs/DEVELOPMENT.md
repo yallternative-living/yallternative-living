@@ -450,6 +450,28 @@ every product) but is no longer the only way to buy.
   delivery charges get it right. Stripe Tax is a paid add-on — check
   [current pricing](https://stripe.com/tax/pricing) before flipping it on.
 
+  **Which address the rate comes from:** South Carolina uses
+  destination-based sourcing — the rate follows the point of delivery, not
+  the seller's location, and that includes local county add-ons of 1–3% on
+  top of the 6% state rate. So an order shipped to Charleston is rated at
+  Charleston's combined rate, not Landrum's. This works correctly already:
+  the Worker collects a shipping address whenever the order contains
+  physical goods, and Stripe rates against it. Orders shipped outside SC are
+  rated at 0% unless a registration exists for that state, which is the
+  correct outcome for a business with nexus only in SC.
+
+  *Known edge case — market pickup.* Choosing pickup zeroes the shipping
+  charge but still collects a shipping address, so Stripe rates against the
+  customer's home address when the legal point of delivery is actually the
+  market's county. Where those differ the rate can be off by up to ~2%.
+  There's no clean fix inside Checkout: Stripe's "performance location"
+  feature exists for exactly this, but it's
+  [explicitly unsupported in Checkout](https://docs.stripe.com/tax/calculating)
+  and only available through the standalone Tax API. Fixing it properly
+  would mean moving off Checkout Sessions onto PaymentIntents + the Tax API,
+  which is a large rewrite for a rounding-level difference on pickup orders.
+  Worth revisiting only if in-person pickup becomes a large share of sales.
+
   **Discounts and tax together:** Stripe rates the subtotal *after*
   discounts, which is the right answer for this site's own markdowns — a
   bundle's `discountPercent` and the custom box's 10% are already baked into

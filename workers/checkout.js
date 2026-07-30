@@ -65,6 +65,16 @@
  *   - tags shipping txcd_92010001, since some states tax delivery charges
  *     on taxable orders and some don't -- let Stripe decide per-address.
  *
+ * Which address gets rated: SC is destination-based, so the rate follows
+ * the delivery address (including its county add-on), not this business's
+ * own location. Collecting a shipping address for physical orders is what
+ * makes that work -- Stripe prefers the shipping address over billing.
+ * Caveat: a market-pickup order still collects the buyer's shipping
+ * address, so it's rated there rather than at the market, which is the
+ * actual point of delivery. Stripe's performance-location feature is meant
+ * for this but isn't supported in Checkout Sessions -- see
+ * docs/DEVELOPMENT.md section 8.
+ *
  * Tax vs. discounts: Stripe Tax rates the subtotal AFTER discounts are
  * applied (https://docs.stripe.com/tax/calculating), which is the correct
  * treatment for this site's built-in markdowns -- bundle discountPercent and

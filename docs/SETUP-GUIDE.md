@@ -90,18 +90,30 @@ Stripe key, so it needs to be your account, not mine.
 2. Switch Stripe to **Live Mode** (same toggle) and send me the
    **live** Secret key to swap in.
 
-**D. Sales tax — ask your accountant first**
+**D. Sales tax — you almost certainly need this on**
 
 The site can charge sales tax automatically, but it's switched off until
-you say so. Whether you're required to collect it is a tax question, not
-a website one — worth a quick check with whoever does your taxes.
+you set it up. Worth knowing why it probably shouldn't stay off: South
+Carolina requires any business physically located in the state to collect
+sales tax from its very first sale. There's no "too small to bother"
+exemption — the $100,000 figure you may have read about applies only to
+out-of-state sellers. SC law even names craftspeople selling at shows and
+festivals directly, with its own $20 retail license.
 
-If the answer is yes: in Stripe, go to **Tax → Settings** and set your
-business address, then **Tax → Registrations** and add South Carolina.
-Tell me once that's done and I'll flip the switch on my side. (Stripe's
-**Tax → Monitoring** page will also warn you if sales in another state
-ever grow enough to need a registration there.) Stripe charges a small
-fee for this — check their pricing page before deciding.
+So this likely isn't a "do I need to?" question so much as a "let's make
+sure it's set up right" one. Confirm with whoever does your taxes, then:
+
+1. Get a **SC retail license** if you don't already have one for your
+   market table — [apply on MyDORWAY](https://dor.sc.gov/register).
+2. In Stripe: **Tax → Settings** → set your business address. Then
+   **Tax → Registrations** → add South Carolina.
+3. Tell me it's done and I'll turn it on from my side.
+
+Stripe charges a fee for this. It's worth it here rather than doing the
+math yourself, because SC adds county taxes of 1–3% on top of the 6%
+state rate, so an order shipped across the state needs that specific
+county's rate. Stripe's **Tax → Monitoring** page will also warn you if
+sales into another state ever grow enough to need a registration there.
 
 ---
 
