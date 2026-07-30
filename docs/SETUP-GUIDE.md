@@ -63,10 +63,8 @@ per-transaction fee.
    business details, EIN/tax ID, and bank routing number.
 2. Stay in **Test Mode** for now (top-right toggle).
 3. **Developers → API keys** → copy the **Secret key** (`sk_test_...`).
-   Skip the "Publishable key" — this site never uses it, and skip
-   "Create restricted key" too. A restricted key works, but only with
-   the right boxes ticked; send me the plain Secret key and I'll make a
-   restricted one with the correct permissions.
+   Ignore "Publishable key" and "Create restricted key" — I'll handle
+   the restricted one later.
 4. **Developers → Webhooks → Add endpoint** → paste
    `https://yallternativeliving.com/.netlify/functions/fulfill-gift-card`
    → choose the event `checkout.session.completed` → copy the
@@ -95,37 +93,22 @@ Stripe key, so it needs to be your account, not mine.
 
 **D. Sales tax — you almost certainly need this on**
 
-The site can charge sales tax automatically, but it's switched off until
-you set it up. Worth knowing why it probably shouldn't stay off: South
-Carolina requires any business physically located in the state to collect
-sales tax from its very first sale. There's no "too small to bother"
-exemption — the $100,000 figure you may have read about applies only to
-out-of-state sellers. SC law even names craftspeople selling at shows and
-festivals directly, with its own $20 retail license.
+SC requires any business based in the state to collect sales tax from its
+first sale. No small-seller exemption — the $100,000 figure you may have
+read about is for out-of-state sellers only. So confirm with your
+accountant, but expect a yes.
 
-So this likely isn't a "do I need to?" question so much as a "let's make
-sure it's set up right" one. Confirm with whoever does your taxes, then:
-
-1. Get a **SC retail license** if you don't already have one for your
-   market table — [apply on MyDORWAY](https://dor.sc.gov/register).
-2. In Stripe: **Tax → Settings** → set your business address. Then
+1. Get a **SC retail license** if you don't have one for your market
+   table — [apply on MyDORWAY](https://dor.sc.gov/register).
+2. In Stripe: **Tax → Settings** → your business address, then
    **Tax → Registrations** → add South Carolina.
+3. An hour later, run a test purchase and check for a tax line. If it's
+   still missing the next day, tell me — the site keeps selling untaxed
+   rather than erroring, so problems here stay quiet.
 
-That's it — the site starts charging tax on its own within the hour. You
-don't need to tell me, and nothing needs changing on my side.
-
-Two things to check afterward, since neither announces itself:
-
-- **Confirm it's actually charging.** An hour or so after finishing
-  Step 2, run a test purchase and look for a tax line at checkout. If it
-  isn't there the next day, tell me — the site is built to keep selling
-  without tax rather than break, so a setup problem stays quiet instead
-  of throwing an error.
-- **Fill in the ZIP for any market where people collect orders**
-  (`/admin` → Markets, Fairs & Pride Dates). Tax is based on where the
-  customer actually receives their order, and SC counties charge
-  different amounts — without the ZIP, pickup orders get taxed at the
-  customer's home rate instead, which may be slightly off.
+Then add a **ZIP code** to any market customers collect orders from
+(`/admin` → Markets). Tax follows where the order is picked up, and SC
+counties differ; without it, pickup orders use the buyer's home rate.
 
 Stripe charges a fee for this. It's worth it here rather than doing the
 math yourself, because SC adds county taxes of 1–3% on top of the 6%
@@ -197,9 +180,8 @@ edit at `yallternativeliving.com/admin/` — no code, no file edits.
      Countdown Ticker, Order Lookup, Rewards Points, Apothecary Quiz.
    - **Rewards Points** — rename "Alt-Points," set points per $1, pick
      an icon emoji.
-   - **Markets, Fairs & Pride Dates** — add a **ZIP code** for any market
-     customers can collect orders from, so pickup orders are taxed at the
-     right local rate (see Step 3D).
+   - **Markets, Fairs & Pride Dates** — add a **ZIP code** for pickup
+     markets, so tax is right (Step 3D).
    - **Products & Markets** — prices, descriptions, pop-up dates, FAQ.
 
 ---
@@ -216,8 +198,8 @@ edit at `yallternativeliving.com/admin/` — no code, no file edits.
 6. Formspree Review Form ID: `_____________________`
 7. Formspree Restock Alerts Form ID: `_____________________`
 8. Resend API Key: `_____________________`
-9. Sales tax set up in Stripe (Step 3D)? ☐ Yes ☐ Not yet ☐ Accountant says not needed
-10. Tax line confirmed on a test purchase (Step 3D)? ☐ Yes ☐ Not yet
+9. Sales tax registered in Stripe (Step 3D)? ☐ Yes ☐ Not yet ☐ Not needed
+10. Tax line seen on a test purchase? ☐ Yes ☐ Not yet
 
 **Optional**
 
