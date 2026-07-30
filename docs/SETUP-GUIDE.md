@@ -104,12 +104,6 @@ small-seller exemption). Confirm with your accountant, but expect a yes.
 Also add a **ZIP code** to any pickup market (`/admin` → Markets), so
 those orders tax correctly.
 
-Stripe charges a fee for this. It's worth it here rather than doing the
-math yourself, because SC adds county taxes of 1–3% on top of the 6%
-state rate, so an order shipped across the state needs that specific
-county's rate. Stripe's **Tax → Monitoring** page will also warn you if
-sales into another state ever grow enough to need a registration there.
-
 ---
 
 ## Step 4: Newsletter (Kit)
@@ -174,8 +168,8 @@ edit at `yallternativeliving.com/admin/` — no code, no file edits.
      Countdown Ticker, Order Lookup, Rewards Points, Apothecary Quiz.
    - **Rewards Points** — rename "Alt-Points," set points per $1, pick
      an icon emoji.
-   - **Markets, Fairs & Pride Dates** — add a **ZIP code** for pickup
-     markets, so tax is right (Step 3D).
+   - **Markets, Fairs & Pride Dates** — pickup markets need a ZIP for
+     tax (Step 3D).
    - **Products & Markets** — prices, descriptions, pop-up dates, FAQ.
 
 ---
@@ -192,13 +186,12 @@ edit at `yallternativeliving.com/admin/` — no code, no file edits.
 6. Formspree Review Form ID: `_____________________`
 7. Formspree Restock Alerts Form ID: `_____________________`
 8. Resend API Key: `_____________________`
-9. Sales tax registered in Stripe (Step 3D)? ☐ Yes ☐ Not yet ☐ Not needed
-10. Tax line seen on a test purchase? ☐ Yes ☐ Not yet
+9. Sales tax registered and confirmed on a test purchase (Step 3D)? ☐ Yes ☐ Not yet ☐ Not needed
 
 **Optional**
 
-11. Tawk.to Property ID: `_____________________`
-12. Tawk.to Widget ID: `_____________________`
-13. Umami Website ID: `_____________________`
+10. Tawk.to Property ID: `_____________________`
+11. Tawk.to Widget ID: `_____________________`
+12. Umami Website ID: `_____________________`
 
 *No Stripe Publishable Key is needed anywhere on this site.*
