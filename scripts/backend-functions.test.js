@@ -860,11 +860,9 @@ try {
   );
 
   // With tax off there's no rate to get wrong, so skip the extra API call.
-  r = await captureStripeParams(
-    [{ id: "beard-salve", qty: 1 }],
-    pending,
-    { pickupMarket: marketLabel }
-  );
+  r = await captureStripeParams([{ id: "beard-salve", qty: 1 }], pending, {
+    pickupMarket: marketLabel
+  });
   eq(r.customerParams, null, "tax off: pickup does not create a customer");
   eq(
     r.params.get("shipping_address_collection[allowed_countries][0]"),
