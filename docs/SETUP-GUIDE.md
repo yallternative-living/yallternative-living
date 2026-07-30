@@ -93,22 +93,16 @@ Stripe key, so it needs to be your account, not mine.
 
 **D. Sales tax — you almost certainly need this on**
 
-SC requires any business based in the state to collect sales tax from its
-first sale. No small-seller exemption — the $100,000 figure you may have
-read about is for out-of-state sellers only. So confirm with your
-accountant, but expect a yes.
+SC businesses must collect sales tax from their first sale (no
+small-seller exemption). Confirm with your accountant, but expect a yes.
 
-1. Get a **SC retail license** if you don't have one for your market
-   table — [apply on MyDORWAY](https://dor.sc.gov/register).
-2. In Stripe: **Tax → Settings** → your business address, then
-   **Tax → Registrations** → add South Carolina.
-3. An hour later, run a test purchase and check for a tax line. If it's
-   still missing the next day, tell me — the site keeps selling untaxed
-   rather than erroring, so problems here stay quiet.
+1. Get a **SC retail license** if you don't have one — [MyDORWAY](https://dor.sc.gov/register).
+2. In Stripe: **Tax → Settings** → your address, then **Tax → Registrations** → South Carolina.
+3. An hour later, check for a tax line on a test purchase. Missing the
+   next day? Tell me.
 
-Then add a **ZIP code** to any market customers collect orders from
-(`/admin` → Markets). Tax follows where the order is picked up, and SC
-counties differ; without it, pickup orders use the buyer's home rate.
+Also add a **ZIP code** to any pickup market (`/admin` → Markets), so
+those orders tax correctly.
 
 Stripe charges a fee for this. It's worth it here rather than doing the
 math yourself, because SC adds county taxes of 1–3% on top of the 6%
