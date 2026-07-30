@@ -111,85 +111,146 @@
   padding: 48px 0;
 }
 .yl-cart-line {
-  display: grid;
-  grid-template-columns: 56px 1fr auto auto;
-  grid-template-areas:
-    "img info qty total"
-    "img info qty remove";
-  align-items: center;
-  gap: 4px 12px;
-  padding: 14px 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 0;
   border-bottom: 1px solid var(--hide);
+  position: relative;
 }
 .yl-cart-thumb {
-  grid-area: img;
-  width: 56px;
-  height: 56px;
+  width: 60px;
+  height: 60px;
+  flex-shrink: 0;
   object-fit: cover;
-  border-radius: 8px;
+  border-radius: var(--radius-sm, 8px);
   background: var(--ink-3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
-.yl-cart-info {
-  grid-area: info;
+.yl-cart-details {
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  min-width: 0;
+  gap: 4px;
+}
+.yl-cart-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
 }
 .yl-cart-name {
   font-weight: 600;
-  font-size: 0.92rem;
+  font-size: 0.9rem;
+  line-height: 1.35;
+  color: var(--paper);
+}
+.yl-cart-remove {
+  background: none;
+  border: none;
+  color: var(--paper-dim);
+  padding: 4px;
+  margin: -4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: color 0.2s ease, background 0.2s ease;
+  position: relative;
+  flex-shrink: 0;
+}
+.yl-cart-remove::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+.yl-cart-remove:hover {
+  color: var(--rose);
+  background: oklch(from var(--rose) l c h / 0.15);
 }
 .yl-cart-variant {
   font-size: 0.78rem;
   color: var(--paper-dim);
+  line-height: 1.2;
 }
-.yl-cart-gift-to {
-  font-style: italic;
+.yl-cart-actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 6px;
 }
-.yl-cart-price {
-  font-size: 0.82rem;
-  color: var(--paper-dim);
-}
-.yl-cart-qty {
-  grid-area: qty;
+.yl-cart-qty-pill {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-}
-.yl-cart-qty button {
-  width: 30px;
-  height: 30px;
-  border: 1px solid var(--hide);
   background: var(--ink-3);
-  color: var(--paper);
-  border-radius: 8px;
-  font-size: 1.1rem;
-  line-height: 1;
-  cursor: pointer;
+  border: 1px solid var(--hide);
+  border-radius: 20px;
+  padding: 2px 4px;
+  height: 28px;
 }
-.yl-cart-qty button:hover {
-  border-color: var(--rose);
+.yl-cart-qty-pill button {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--paper);
+  border-radius: 50%;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.yl-cart-qty-pill button::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+.yl-cart-qty-pill button:hover:not(:disabled) {
+  background: oklch(from var(--whiskey) l c h / 0.2);
+  color: var(--whiskey);
+}
+.yl-cart-qty-pill button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.yl-cart-qty-val {
+  font-size: 0.85rem;
+  font-weight: 700;
+  min-width: 20px;
+  text-align: center;
+  color: var(--paper);
+  font-variant-numeric: tabular-nums;
+}
+.yl-cart-price-block {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
 }
 .yl-cart-line-total {
-  grid-area: total;
   font-weight: 700;
-  font-size: 0.92rem;
-  text-align: right;
+  font-size: 0.95rem;
+  color: var(--paper);
+  font-variant-numeric: tabular-nums;
 }
-.yl-cart-remove {
-  grid-area: remove;
-  justify-self: end;
-  background: none;
-  border: none;
+.yl-cart-unit-price {
+  font-size: 0.72rem;
   color: var(--paper-dim);
-  font-size: 1.2rem;
-  line-height: 1;
-  cursor: pointer;
-  padding: 2px 6px;
-}
-.yl-cart-remove:hover {
-  color: var(--rose-text);
 }
 
 /* ---- Footer (upsell + shipping meter + checkout) ---- */
@@ -200,47 +261,72 @@
   background: var(--ink-2);
 }
 .yl-cart-upsell {
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 .yl-cart-upsell-title {
-  margin: 0 0 8px;
-  font-size: 0.78rem;
+  margin: 0 0 6px;
+  font-size: 0.72rem;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
+  font-weight: 700;
   color: var(--paper-dim);
 }
+.yl-cart-upsell-list {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.yl-cart-upsell-list::-webkit-scrollbar {
+  display: none;
+}
 .yl-cart-upsell-item {
+  flex: 0 0 190px;
+  scroll-snap-align: start;
   display: flex;
   align-items: center;
-  gap: 10px;
-  width: 100%;
-  text-align: left;
-  padding: 8px;
-  margin-bottom: 6px;
+  gap: 8px;
+  padding: 6px 8px;
   border: 1px solid var(--hide);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--ink-3);
   color: var(--paper);
   cursor: pointer;
+  text-align: left;
+  transition: border-color 0.2s ease, transform 0.15s ease;
 }
 .yl-cart-upsell-item:hover {
-  border-color: var(--rose);
+  border-color: var(--whiskey);
+  transform: translateY(-1px);
 }
 .yl-cart-upsell-item img {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: 6px;
   object-fit: cover;
+  flex-shrink: 0;
+}
+.yl-cart-upsell-info {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 .yl-cart-upsell-name {
-  flex: 1 1 auto;
-  font-size: 0.82rem;
-  min-width: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--paper);
 }
 .yl-cart-upsell-add {
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 700;
-  color: var(--rose-text);
+  color: var(--whiskey);
   white-space: nowrap;
 }
 

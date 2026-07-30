@@ -1129,7 +1129,7 @@ FOOTER_INNER = FOOTER_INNER.replace(reFooterLogo, function (match, open, close) 
     logoDesktop +
     '" alt="' +
     alt +
-    '" width="48" height="48">' +
+    '" width="48" height="48" loading="lazy" decoding="async">' +
     close
   );
 });
@@ -1609,7 +1609,7 @@ if (DOMAIN_IS_LIVE) {
           return (
             '<!--YL:site.logoDesktop-->\n          <img class="logo-desktop" src="' +
             site[key] +
-            '" alt="Y\'allternative Living icon" width="48" height="48">\n<!--/YL:site.logoDesktop-->'
+            '" alt="Y\'allternative Living icon" width="48" height="48" loading="lazy" decoding="async">\n<!--/YL:site.logoDesktop-->'
           );
         }
         if (site[key] !== undefined) {

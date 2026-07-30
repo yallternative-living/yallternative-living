@@ -116,7 +116,7 @@
 <!--YL:featureStyles--><!--/YL:featureStyles-->
 </head>
 <body>
-<a class="skip-link" href="#main">Skip to content</a>
+<a href="#main-content" class="skip-link">Skip to main content</a>
 <!-- HERO ANNOUNCEMENT BAR WITH CLS PREVENTIVE RESERVATION -->
 <!-- No aria-live here on purpose: the countdown below rewrites its seconds
      field once a second, so a live region made screen readers announce the
@@ -161,7 +161,7 @@
     </div>
   </nav>
 </header>
-<main id="main">
+<main id="main-content">
 
   <!-- HERO -->
   <section class="hero">
@@ -188,7 +188,7 @@
           <picture>
             <source type="image/avif" srcset="assets/img/unisex-tshirt-480.avif 480w, assets/img/unisex-tshirt-800.avif 800w, assets/img/unisex-tshirt.avif 1050w">
             <source type="image/webp" srcset="assets/img/unisex-tshirt-480.webp 480w, assets/img/unisex-tshirt-800.webp 800w, assets/img/unisex-tshirt.webp 1050w">
-            <img src="assets/img/unisex-tshirt.jpg" alt="Y'allternative Living founder wearing the brand's unisex tee" width="600" height="800" fetchpriority="high" decoding="async">
+            <img src="assets/img/unisex-tshirt.jpg" alt="Y'allternative Living founder wearing the brand's unisex tee" width="600" height="800" fetchpriority="high" decoding="async" loading="lazy">
           </picture>
           <!--/YL:home.heroImage-->
       </div>
@@ -360,7 +360,7 @@
       <div class="footer-brand">
         <div class="brand">
 <!--YL:site.logoDesktop-->
-          <img class="logo-desktop" src="/assets/img/logo.png" alt="Y'allternative Living icon" width="48" height="48">
+          <img class="logo-desktop" src="/assets/img/logo.png" alt="Y'allternative Living icon" width="48" height="48" loading="lazy" decoding="async">
 <!--/YL:site.logoDesktop-->
           <span class="brand-word">Y'allternative<small>Living</small></span>
         </div>

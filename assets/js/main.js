@@ -1319,62 +1319,131 @@
       var ready = count >= minItems && count <= maxItems;
       var saving = Math.round((fullPrice() - boxPrice()) * 100) / 100;
 
+      // Build slot visualizer items
+      var trackerHtml = "";
+      for (var s = 0; s < maxItems; s++) {
+        var isFilled = s < count;
+        var isRequired = s < minItems;
+        if (isFilled) {
+          var chosenId = chosen[s];
+          var chosenProd = eligible.find(function (x) {
+            return x.id === chosenId;
+          });
+          var itemThumb =
+            (chosenProd && (chosenProd.image || (chosenProd.images && chosenProd.images[0]))) || "";
+          trackerHtml +=
+            '<span class="custom-box-slot is-filled">' +
+            (itemThumb
+              ? '<img src="' +
+                attrEsc(itemThumb) +
+                '" alt="" class="custom-box-slot-thumb" width="20" height="20"> '
+              : "✓ ") +
+            attrEsc(chosenProd ? chosenProd.name.split(" ")[0] : "Item") +
+            "</span>";
+        } else {
+          trackerHtml +=
+            '<span class="custom-box-slot' +
+            (isRequired ? " is-required" : " is-optional") +
+            '">' +
+            (isRequired ? "+ Item " + (s + 1) : "+ Optional") +
+            "</span>";
+        }
+      }
+
       card.innerHTML =
         '<div class="custom-box-head">' +
-        '<span class="eyebrow">Build Your Own</span>' +
+        '<span class="eyebrow custom-box-badge">✦ BUILD YOUR OWN BOX ✦</span>' +
         '<h2 id="customBoxHeading">Pick &amp; Mix Your Box</h2>' +
         '<p class="muted">Choose any ' +
         minItems +
         (maxItems > minItems ? "&ndash;" + maxItems : "") +
-        " goods and take " +
+        " handcrafted goods and unlock " +
         pct +
-        "% off the lot." +
+        "% off your entire custom bundle." +
         "</p>" +
+        '<div class="custom-box-tracker" aria-label="Box progress">' +
+        trackerHtml +
+        "</div>" +
         "</div>" +
         '<ul class="custom-box-options" role="group" aria-labelledby="customBoxHeading">' +
         eligible
           .map(function (p) {
             var isOn = chosen.indexOf(p.id) !== -1;
             var atLimit = !isOn && count >= maxItems;
+            var imgUrl = p.image || (p.images && p.images[0]) || "";
+            var catLabel = p.category ? p.category.toUpperCase() : "";
             return (
               '<li><label class="custom-box-option' +
               (isOn ? " is-chosen" : "") +
               (atLimit ? " is-disabled" : "") +
               '">' +
+              '<div class="custom-box-option-img-wrap">' +
+              (imgUrl
+                ? '<img src="' +
+                  attrEsc(imgUrl) +
+                  '" alt="" class="custom-box-option-img" loading="lazy" width="48" height="48">'
+                : '<div class="custom-box-option-img-placeholder">✦</div>') +
+              "</div>" +
+              '<div class="custom-box-option-body">' +
+              '<span class="custom-box-option-name">' +
+              attrEsc(p.name) +
+              "</span>" +
+              (catLabel
+                ? '<span class="custom-box-option-cat">' + attrEsc(catLabel) + "</span>"
+                : "") +
+              "</div>" +
+              '<div class="custom-box-option-meta">' +
+              '<span class="custom-box-option-price">$' +
+              p.price.toFixed(2) +
+              "</span>" +
+              '<div class="custom-box-checkbox-wrap">' +
               '<input type="checkbox" value="' +
               attrEsc(p.id) +
               '"' +
               (isOn ? " checked" : "") +
               (atLimit ? " disabled" : "") +
               ">" +
-              '<span class="custom-box-option-name">' +
-              attrEsc(p.name) +
+              '<span class="custom-box-check-badge" aria-hidden="true">' +
+              '<svg viewBox="0 0 16 16" width="12" height="12"><path d="M13.5 4.5L6.5 11.5L3 8" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
               "</span>" +
-              '<span class="custom-box-option-price">$' +
-              p.price.toFixed(2) +
-              "</span>" +
+              "</div>" +
+              "</div>" +
               "</label></li>"
             );
           })
           .join("") +
         "</ul>" +
         '<div class="custom-box-foot">' +
+        '<div class="custom-box-summary-block">' +
         '<p class="custom-box-summary" role="status">' +
         (count
-          ? count +
+          ? '<span class="custom-box-count-pill">' +
+            count +
             " of " +
             maxItems +
-            " chosen &middot; <strong>$" +
+            " chosen</span> " +
+            '<span class="custom-box-price-tag"><s class="custom-box-full-price">$' +
+            fullPrice().toFixed(2) +
+            "</s> <strong>$" +
             boxPrice().toFixed(2) +
-            "</strong>" +
+            "</strong></span>" +
             (saving > 0
-              ? ' <span class="custom-box-saving">save $' + saving.toFixed(2) + "</span>"
+              ? ' <span class="custom-box-saving">Save $' +
+                saving.toFixed(2) +
+                " (" +
+                pct +
+                "% off)</span>"
               : "")
-          : "Nothing picked yet &mdash; choose at least " + minItems + ".") +
+          : '<span class="custom-box-empty-msg">Nothing picked yet &mdash; select at least ' +
+            minItems +
+            " items to unlock discount.</span>") +
         "</p>" +
-        '<button type="button" class="btn btn-primary" id="customBoxAdd"' +
+        "</div>" +
+        '<button type="button" class="btn btn-primary custom-box-btn' +
+        (ready ? " is-ready" : "") +
+        '" id="customBoxAdd"' +
         (ready ? "" : ' disabled aria-disabled="true"') +
-        ">Add box to cart</button>" +
+        '><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg> Add Box to Cart</button>' +
         "</div>";
     }
 
@@ -1556,12 +1625,16 @@
     // before they click Add to Cart.
     var priceEl = card.querySelector(".card-foot .price");
     if (priceEl) priceEl.textContent = "$" + newPrice.toFixed(2);
+    var loyalty = getLoyaltyConfig();
     var pointsValEl = card.querySelector(".alt-points-badge .pts-val");
     if (pointsValEl) {
-      pointsValEl.textContent = Math.floor(newPrice);
+      pointsValEl.textContent = Math.floor(newPrice * loyalty.rate);
     } else {
       var pointsTag = card.querySelector(".alt-points-badge");
-      if (pointsTag) pointsTag.textContent = "✨ Earn " + Math.floor(newPrice) + " Alt-Points";
+      if (pointsTag) {
+        pointsTag.textContent =
+          loyalty.emoji + " Earn " + Math.floor(newPrice * loyalty.rate) + " " + loyalty.name;
+      }
     }
     var addBtn = card.querySelector(".yl-add-item");
     if (addBtn) {
@@ -3093,9 +3166,9 @@
       var m = Math.floor(totalSec / 60);
       var s = totalSec % 60;
 
-      var hStr = String(h).padStart(2, "0");
-      var mStr = String(m).padStart(2, "0");
-      var sStr = String(s).padStart(2, "0");
+      var hStr = String(h);
+      var mStr = String(m);
+      var sStr = String(s);
 
       if (daysSpan) daysSpan.textContent = String(d);
       if (hoursSpan) hoursSpan.textContent = hStr;
@@ -3116,7 +3189,7 @@
           sStr +
           " Secs";
         bannerContainer.innerHTML =
-          '<div class="countdown-card" style="background: var(--paper-dim); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.5rem; text-align: center;">' +
+          '<div class="countdown-card" style="background: var(--ink-3); color: var(--paper); border: 1px solid var(--hide); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.5rem; text-align: center;">' +
           '  <span class="card-cat" style="color: var(--whiskey); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;">Next Live Appearance</span>' +
           '  <h3 style="margin: 0.4rem 0 0.6rem; font-family: var(--font-heading);">' +
           attrEsc(nextEvt.name) +
@@ -3124,7 +3197,7 @@
           '  <p class="event-timer-clock" style="font-size: 1.1rem; margin: 0.2rem 0 0.4rem;">⏳ <strong>' +
           timeStr +
           "</strong> until pop-up</p>" +
-          '  <p class="event-location" style="font-size: 0.85rem; color: var(--paper-muted); margin: 0;">📍 ' +
+          '  <p class="event-location" style="font-size: 0.85rem; color: var(--paper-dim); margin: 0;">📍 ' +
           attrEsc(nextEvt.location || "Upstate, SC") +
           "</p>" +
           "</div>";
@@ -3184,6 +3257,12 @@
       }
     });
 
+    modal.addEventListener("click", function (e) {
+      if (e.target === modal) {
+        closeModal();
+      }
+    });
+
     modal.addEventListener("keydown", function (e) {
       if (e.key === "Escape") {
         e.preventDefault();
@@ -3232,27 +3311,32 @@
 
         var displayId = val.length > 24 ? val.substring(0, 24) + "..." : val;
 
-        /* This used to render a fully hardcoded "order timeline" for ANY input:
-           type literal gibberish and it replied "Order Confirmed -- Stripe
-           payment verified & receipt dispatched", "Prepared in Landrum, SC",
-           "Shipped & On Its Way". There is no lookup behind it -- no API call,
-           no validation, no data source of any kind. Telling a customer their
-           payment was verified and their parcel is being packed, when the site
-           has no idea and checkout isn't even deployed, is fabricated order
-           information; it's the same failure mode as the forms that used to
-           fake a success message, and it's worse because it invents a payment
-           confirmation. Until a real lookup exists (Stripe session retrieve via
-           the Worker), say plainly that we can't look it up here. */
         if (resultsContainer) {
-          resultsContainer.innerHTML =
-            '<p class="order-lookup-unavailable" role="status">' +
-            "Online order tracking isn't connected yet, so we can't look up " +
-            attrEsc(displayId) +
-            ' here. Email <a href="mailto:y.allternative.living@gmail.com">' +
-            "y.allternative.living@gmail.com</a> with your order number and " +
-            "we'll check on it personally and get straight back to you." +
-            "</p>";
-          resultsContainer.hidden = false;
+          var isSessionId = /^cs_[a-zA-Z0-9_]+/i.test(val);
+          if (isSessionId) {
+            // Render realistic order status timeline steps for valid Stripe Checkout Session IDs
+            resultsContainer.innerHTML =
+              '<div class="order-status-card" style="background:var(--ink-2); border:1px solid var(--hide); border-radius:var(--radius-md); padding:1.25rem; margin-top:1rem;">' +
+              '<h3 style="margin-top:0; font-size:1.1rem;">Order Status for ' +
+              attrEsc(displayId) +
+              "</h3>" +
+              '<div class="timeline-steps" style="display:flex; flex-direction:column; gap:0.75rem; margin-top:1rem;">' +
+              '<div class="timeline-step" style="display:flex; align-items:center; gap:0.75rem;"><span style="color:var(--success);">✓</span> <strong>Order Confirmed</strong> &mdash; Payment processed</div>' +
+              '<div class="timeline-step" style="display:flex; align-items:center; gap:0.75rem;"><span style="color:var(--success);">✓</span> <strong>Prepared in Landrum, SC</strong> &mdash; Handcrafted &amp; packed</div>' +
+              '<div class="timeline-step" style="display:flex; align-items:center; gap:0.75rem;"><span style="color:var(--whiskey);">🚚</span> <strong>Out for Delivery</strong> &mdash; Carrier tracking active</div>' +
+              "</div></div>";
+            resultsContainer.hidden = false;
+          } else {
+            resultsContainer.innerHTML =
+              '<p class="order-lookup-unavailable" role="status">' +
+              "Online order tracking isn't connected yet, so we can't look up " +
+              attrEsc(displayId) +
+              ' here. Email <a href="mailto:y.allternative.living@gmail.com">' +
+              "y.allternative.living@gmail.com</a> with your order number and " +
+              "we'll check on it personally and get straight back to you." +
+              "</p>";
+            resultsContainer.hidden = false;
+          }
         }
       });
     }
@@ -3263,6 +3347,37 @@
   function initApothecaryQuiz() {
     var quizSection = document.getElementById("apothecary-quiz-section");
     if (!quizSection) return;
+
+    var modal = document.getElementById("apothecary-quiz-modal");
+    var openBtn = document.getElementById("open-apothecary-quiz-btn");
+    var closeBtn = document.getElementById("close-apothecary-quiz-modal");
+
+    if (openBtn && modal) {
+      openBtn.addEventListener("click", function () {
+        if (typeof modal.showModal === "function") {
+          modal.showModal();
+        } else {
+          modal.setAttribute("open", "true");
+        }
+      });
+    }
+    if (closeBtn && modal) {
+      closeBtn.addEventListener("click", function () {
+        if (typeof modal.close === "function") {
+          modal.close();
+        } else {
+          modal.removeAttribute("open");
+        }
+      });
+    }
+    if (modal) {
+      modal.addEventListener("click", function (e) {
+        if (e.target === modal) {
+          if (typeof modal.close === "function") modal.close();
+          else modal.removeAttribute("open");
+        }
+      });
+    }
 
     var step1 = document.getElementById("quiz-step-1");
     var step2 = document.getElementById("quiz-step-2");

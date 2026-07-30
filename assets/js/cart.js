@@ -228,6 +228,33 @@
 
     drawer.querySelector(".yl-cart-close").addEventListener("click", closeDrawer);
 
+    drawer.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") {
+        closeDrawer();
+        return;
+      }
+      if (e.key === "Tab") {
+        var focusables = drawer.querySelectorAll(
+          'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (!focusables.length) return;
+        var first = focusables[0];
+        var last = focusables[focusables.length - 1];
+
+        if (e.shiftKey) {
+          if (document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      }
+    });
+
     // Event delegation for qty +/- and remove.
     itemsEl.addEventListener("click", function (e) {
       var btn = e.target.closest("[data-cart-action]");
@@ -319,26 +346,32 @@
       .map(function (it) {
         var key = lineKey(it);
         var line = unitPrice(it) * it.qty;
-        var variantText = it.variantLabel ? " (" + escapeHtml(it.variantLabel) + ")" : "";
+        var variantText = it.variantLabel ? escapeHtml(it.variantLabel) : "";
         return (
           '<div class="yl-cart-line yl-cart-item">' +
-          '<img src="' +
+          '<img class="yl-cart-thumb" src="' +
           escapeAttr(it.image || "") +
-          '" alt="" width="48" height="48" loading="lazy">' +
+          '" alt="" width="60" height="60" loading="lazy">' +
           '<div class="yl-cart-details">' +
-          "<strong>" +
+          '<div class="yl-cart-title-row">' +
+          '<span class="yl-cart-name">' +
           escapeHtml(it.name) +
-          variantText +
-          "</strong>" +
-          "<span>" +
-          money(unitPrice(it)) +
           "</span>" +
+          '<button type="button" class="yl-cart-remove" data-cart-action="remove" data-key="' +
+          escapeAttr(key) +
+          '" aria-label="Remove item">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>' +
+          "</button>" +
           "</div>" +
-          '<div class="yl-cart-qty">' +
+          (variantText
+            ? '<span class="yl-cart-variant">Variant: ' + variantText + "</span>"
+            : "") +
+          '<div class="yl-cart-actions-row">' +
+          '<div class="yl-cart-qty-pill">' +
           '<button type="button" data-cart-action="dec" data-key="' +
           escapeAttr(key) +
           '" aria-label="Decrease quantity">-</button>' +
-          "<span>" +
+          '<span class="yl-cart-qty-val">' +
           it.qty +
           "</span>" +
           '<button type="button" data-cart-action="inc" data-key="' +
@@ -347,12 +380,16 @@
           (it.maxQty && it.qty >= it.maxQty ? " disabled" : "") +
           ">+</button>" +
           "</div>" +
+          '<div class="yl-cart-price-block">' +
           '<span class="yl-cart-line-total">' +
           money(line) +
           "</span>" +
-          '<button type="button" class="yl-cart-remove" data-cart-action="remove" data-key="' +
-          escapeAttr(key) +
-          '" aria-label="Remove item">&times;</button>' +
+          (it.qty > 1
+            ? '<span class="yl-cart-unit-price">' + money(unitPrice(it)) + " ea</span>"
+            : "") +
+          "</div>" +
+          "</div>" +
+          "</div>" +
           "</div>"
         );
       })
@@ -549,20 +586,25 @@
           '">' +
           '<img src="' +
           escapeAttr(p.image || "") +
-          '" alt="" width="40" height="40" loading="lazy">' +
+          '" alt="" width="36" height="36" loading="lazy">' +
+          '<div class="yl-cart-upsell-info">' +
           '<span class="yl-cart-upsell-name">' +
           escapeHtml(p.name) +
           "</span>" +
-          '<span class="yl-cart-upsell-add">Add ' +
+          '<span class="yl-cart-upsell-add">+ Add ' +
           money(Number(p.price) || 0) +
           "</span>" +
+          "</div>" +
           "</button>"
         );
       })
       .join("");
     return (
-      '<div class="yl-cart-upsell"><p class="yl-cart-upsell-title">You might also like</p>' +
+      '<div class="yl-cart-upsell">' +
+      '<p class="yl-cart-upsell-title">You Might Also Like</p>' +
+      '<div class="yl-cart-upsell-list">' +
       cards +
+      "</div>" +
       "</div>"
     );
   }
