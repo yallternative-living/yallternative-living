@@ -285,6 +285,20 @@
   color: var(--paper-dim);
 }
 
+/* Inline checkout failure notice -- replaces the old blocking window.alert().
+   See showCheckoutError() in assets/js/cart.js. */
+.yl-cart-error {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--error);
+  border-radius: var(--radius, 8px);
+  background: oklch(from var(--error) l c h / 0.12);
+  color: var(--error);
+  font-size: 0.8rem;
+  line-height: 1.45;
+  text-align: center;
+}
+
 /* Lock body scroll behind the drawer (belt-and-suspenders; the popover
    top layer already blocks interaction, but this stops background scroll). */
 body:has(.yl-cart-drawer:popover-open) {

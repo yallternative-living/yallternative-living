@@ -45,9 +45,45 @@
  * checkout.session.completed) knows how much to put on the redeemable
  * code it emails the recipient -- see that file for the rest of the flow.
  *
+ * Sales tax: OFF by default, opt-in via the STRIPE_TAX_ENABLED var. Stripe
+ * Tax only collects where you hold an active registration, and calling
+ * automatic_tax[enabled]=true before Stripe Tax is activated on the account
+ * (origin address + at least one registration set under Tax -> Registrations
+ * in the Dashboard) makes Stripe reject the whole Checkout Session -- i.e.
+ * hard-wiring it on would break every checkout until that paperwork is done.
+ * Gating it behind a var means the code is ready now and flips on the day
+ * the registration exists, with no redeploy of logic. When on, this Worker:
+ *   - sends automatic_tax[enabled]=true and customer_creation=always (Stripe
+ *     needs a Customer to hang the collected address off of for new buyers),
+ *   - marks every price tax_behavior=exclusive, since displayed prices on
+ *     the site are pre-tax,
+ *   - tags each line with a real product tax code rather than leaning on the
+ *     account default: gift cards txcd_10502000 (multi-purpose gift card --
+ *     not taxed at purchase in most US states, taxed at redemption instead,
+ *     so getting this wrong double-taxes a gift), apparel txcd_30011000,
+ *     everything else txcd_99999999 (general tangible goods),
+ *   - tags shipping txcd_92010001, since some states tax delivery charges
+ *     on taxable orders and some don't -- let Stripe decide per-address.
+ *
+ * Tax vs. discounts: Stripe Tax rates the subtotal AFTER discounts are
+ * applied (https://docs.stripe.com/tax/calculating), which is the correct
+ * treatment for this site's built-in markdowns -- bundle discountPercent and
+ * the custom box's 10% are baked into unit_amount before Stripe ever sees
+ * the line, and a sale price is genuinely a lower price, so tax should
+ * follow it down. One caveat worth knowing: gift cards are redeemed here as
+ * Stripe Promotion Codes (amount_off), so Stripe also treats a redemption as
+ * a discount and rates the reduced amount. Tax law generally treats a gift
+ * card as a payment method instead -- tax the full price, then let the card
+ * pay part of the total. Since these cards are also untaxed at purchase (see
+ * the gift-card tax code above), an order fully covered by one currently
+ * collects no tax at either end. Fixing that properly needs stored-value
+ * balances rather than coupons; see docs/DEVELOPMENT.md section 18.
+ * See docs/DEVELOPMENT.md section 8 for the non-technical version.
+ *
  * Required Worker secrets / vars (wrangler secret put / [vars]):
  *   - STRIPE_SECRET_KEY   (secret)  Stripe restricted or secret key.
  *   - SITE_ORIGIN         (var)     e.g. "https://yallternativeliving.com"
+ *   - STRIPE_TAX_ENABLED  (var)     optional, "true" to turn on Stripe Tax.
  */
 
 const ALLOWED_ORIGINS = [
@@ -58,6 +94,13 @@ const ALLOWED_ORIGINS = [
 const GIFT_CARD_ID = "yallternative-gift-card";
 const GIFT_CARD_MIN = 10;
 const GIFT_CARD_MAX = 500;
+
+// Stripe product tax codes (https://docs.stripe.com/tax/tax-codes).
+// Only consulted when STRIPE_TAX_ENABLED is on -- see the file header.
+const TAX_CODE_GIFT_CARD = "txcd_10502000"; // Gift Card (multi-purpose)
+const TAX_CODE_APPAREL = "txcd_30011000"; // Clothing & Footwear
+const TAX_CODE_GOODS = "txcd_99999999"; // General - Tangible Goods
+const TAX_CODE_SHIPPING = "txcd_92010001"; // Shipping
 
 const MAX_QTY_PER_ITEM = 99;
 const MAX_LINE_ITEMS = 50;
@@ -168,6 +211,56 @@ function truncate(s, max) {
   return String(s || "").slice(0, max);
 }
 
+// Build-your-own box. The shopper picks their own mix, so unlike a bundle
+// there's no fixed catalog entry to price against -- the contents arrive from
+// the client. That makes this the one place a tampered payload could try to
+// invent a cheap "box", so everything is re-validated here against
+// products.json and the shop's own customBox rules:
+//   - the feature must actually be configured,
+//   - every chosen id must be a real product,
+//   - every chosen product must be in an eligible category,
+//   - the count must sit within the configured min/max,
+//   - the price is recomputed from the real product prices, never trusted.
+// Any failure throws, which the caller turns into a 400 -- fail closed.
+const CUSTOM_BOX_ID = "custom-box";
+
+function resolveCustomBoxCents(catalog, productIds) {
+  const cfg = (catalog.shop && catalog.shop.customBox) || null;
+  if (!cfg) throw new Error("Custom boxes are not enabled.");
+  if (!Array.isArray(productIds) || !productIds.length) {
+    throw new Error("Custom box is empty.");
+  }
+
+  const minItems = Number.isFinite(cfg.minItems) ? cfg.minItems : 1;
+  const maxItems = Number.isFinite(cfg.maxItems) ? cfg.maxItems : 12;
+  if (productIds.length < minItems || productIds.length > maxItems) {
+    throw new Error(`A custom box must contain between ${minItems} and ${maxItems} items.`);
+  }
+
+  const eligible = Array.isArray(cfg.eligibleCategories) ? cfg.eligibleCategories : null;
+  const products = Array.isArray(catalog.products) ? catalog.products : [];
+  const productMap = new Map(products.map((p) => [p.id, p]));
+
+  let fullPrice = 0;
+  for (const rawId of productIds) {
+    const p = productMap.get(String(rawId));
+    if (!p || typeof p.price !== "number") {
+      throw new Error(`Product not found in box: ${rawId}`);
+    }
+    if (p.comingSoon) throw new Error(`Not available yet: ${rawId}`);
+    if (eligible && eligible.indexOf(p.category) === -1) {
+      throw new Error(`Not eligible for a custom box: ${rawId}`);
+    }
+    fullPrice += p.price;
+  }
+
+  const pct = Number.isFinite(cfg.discountPercent) ? cfg.discountPercent : 0;
+  // Clamp the discount defensively: a mis-typed 500 in the CMS shouldn't be
+  // able to produce a negative line total.
+  const safePct = Math.min(Math.max(pct, 0), 90);
+  return Math.round(fullPrice * (1 - safePct / 100) * 100);
+}
+
 export default {
   async fetch(request, env, ctx) {
     const origin = request.headers.get("Origin") || "";
@@ -202,7 +295,40 @@ export default {
       }
       let giftLineIndex = 0;
 
+      let boxLineIndex = 0;
+
       const lineItems = items.map((item) => {
+        // Custom boxes have no catalog entry of their own -- priced and
+        // validated entirely from their contents. Handled before findEntry(),
+        // which would (correctly) fail to find "custom-box" in the catalog.
+        if (String(item.id) === CUSTOM_BOX_ID) {
+          const ids = Array.isArray(item.boxProductIds) ? item.boxProductIds : [];
+          const unitAmount = resolveCustomBoxCents(catalog, ids);
+          const parsedBoxQty = parseInt(item.qty, 10);
+          const boxQty =
+            Number.isNaN(parsedBoxQty) || parsedBoxQty < 1
+              ? 1
+              : Math.min(parsedBoxQty, MAX_QTY_PER_ITEM);
+          const products = Array.isArray(catalog.products) ? catalog.products : [];
+          const nameById = new Map(products.map((p) => [p.id, p.name]));
+          const contents = ids.map((id) => nameById.get(String(id)) || id).join(", ");
+          boxLineIndex += 1;
+          // Record the exact contents so the packing slip / fulfilment side
+          // knows what actually goes in the box.
+          metadata[`custom_box_${boxLineIndex}`] = truncate(contents, MAX_GIFT_TEXT_LEN);
+          return {
+            name: `Build-Your-Own Box (${ids.length} items)`,
+            image: null,
+            unitAmount,
+            qty: boxQty,
+            isGiftCard: false,
+            // A box only ever holds physical apothecary goods (the builder
+            // excludes apparel and gift cards), so the general goods code is
+            // always right here -- no need to inspect its contents.
+            taxCode: TAX_CODE_GOODS
+          };
+        }
+
         const entry = findEntry(catalog, String(item.id));
         if (!entry) throw new Error(`Product not found: ${item.id}`);
 
@@ -252,7 +378,16 @@ export default {
           }
         }
 
-        return { name, image, unitAmount, qty, isGiftCard };
+        // Bundles have no category of their own, but every current bundle is
+        // a mix of apothecary goods, so general tangible goods is correct for
+        // them too. Only apparel and gift cards need to differ.
+        const taxCode = isGiftCard
+          ? TAX_CODE_GIFT_CARD
+          : entry.category === "apparel"
+            ? TAX_CODE_APPAREL
+            : TAX_CODE_GOODS;
+
+        return { name, image, unitAmount, qty, isGiftCard, taxCode };
       });
 
       const totalCents = lineItems.reduce((sum, li) => sum + li.unitAmount * li.qty, 0);
@@ -278,6 +413,10 @@ export default {
           ? flatShippingRateCents
           : 0;
 
+      // Opt-in, see the file header. Anything other than the exact string
+      // "true" leaves tax off, so a stray/empty var can't half-enable it.
+      const taxEnabled = String(env.STRIPE_TAX_ENABLED || "").toLowerCase() === "true";
+
       const params = new URLSearchParams();
       params.append("mode", "payment");
       // amount/currency on the success URL are ONLY for a best-effort
@@ -291,7 +430,17 @@ export default {
         `${env.SITE_ORIGIN}/thank-you.html?session_id={CHECKOUT_SESSION_ID}&amount=${((totalCents + shippingCents) / 100).toFixed(2)}&currency=usd`
       );
       params.append("cancel_url", `${env.SITE_ORIGIN}/shop.html`);
-      params.append("billing_address_collection", "auto");
+      // With tax on, an address is what Stripe rates the order against, and
+      // an all-gift-card order collects no shipping address at all -- so the
+      // billing address has to be mandatory or those orders can't be rated.
+      params.append("billing_address_collection", taxEnabled ? "required" : "auto");
+      if (taxEnabled) {
+        params.append("automatic_tax[enabled]", "true");
+        // New buyers have no Stripe Customer yet; Checkout needs one created
+        // to attach the address it collects. Existing-customer flows don't
+        // apply here -- this cart never sends a customer ID.
+        params.append("customer_creation", "always");
+      }
       // Only ask for a shipping address (and charge shipping) when there's
       // actually something physical in the order -- an all-gift-card order
       // has nothing to ship.
@@ -313,6 +462,16 @@ export default {
           "shipping_options[0][shipping_rate_data][display_name]",
           shippingCents === 0 ? "Free shipping" : "Standard shipping"
         );
+        if (taxEnabled) {
+          params.append(
+            "shipping_options[0][shipping_rate_data][tax_behavior]",
+            "exclusive"
+          );
+          params.append(
+            "shipping_options[0][shipping_rate_data][tax_code]",
+            TAX_CODE_SHIPPING
+          );
+        }
       }
       // Lets a gift-card recipient enter the code fulfill-gift-card.js
       // emailed them (a Stripe restricted Promotion Code, single-use,
@@ -328,6 +487,15 @@ export default {
           params.append(`line_items[${i}][price_data][product_data][images][0]`, li.image);
         }
         params.append(`line_items[${i}][price_data][unit_amount]`, String(li.unitAmount));
+        if (taxEnabled) {
+          // "exclusive" = the price above is pre-tax and Stripe adds tax on
+          // top, which is how every price on this site is displayed.
+          params.append(`line_items[${i}][price_data][tax_behavior]`, "exclusive");
+          params.append(
+            `line_items[${i}][price_data][product_data][tax_code]`,
+            li.taxCode
+          );
+        }
         params.append(`line_items[${i}][quantity]`, String(li.qty));
       });
 
@@ -336,7 +504,13 @@ export default {
         headers: {
           Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
           "Content-Type": "application/x-www-form-urlencoded",
-          "Stripe-Version": "2023-10-16",
+          // Pinned explicitly (Stripe's own recommendation) rather than left
+          // to the account's dashboard-configured default, so a change made
+          // in the Stripe Dashboard can never silently alter this request's
+          // behavior. Bump deliberately -- re-check this file's use of
+          // `session.error`/`session.url` still holds -- rather than letting
+          // it drift for years.
+          "Stripe-Version": "2026-06-24.dahlia",
         },
         body: params,
       });
@@ -356,5 +530,6 @@ export {
   resolveBundlePriceDollars,
   resolveUnitAmountCents,
   resolveGiftCardAmountCents,
+  resolveCustomBoxCents,
 };
 

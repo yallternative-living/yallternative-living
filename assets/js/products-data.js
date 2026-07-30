@@ -11,7 +11,19 @@ window.YL_PRODUCTS = {
     "rating": 4.9,
     "reviewCount": 32,
     "sales": 105,
-    "freeShippingThreshold": 40
+    "freeShippingThreshold": 40,
+    "customBox": {
+      "minItems": 3,
+      "maxItems": 5,
+      "discountPercent": 10,
+      "eligibleCategories": [
+        "salves",
+        "body",
+        "soaks",
+        "potions",
+        "ritual"
+      ]
+    }
   },
   "sales": [],
   "categories": [
@@ -152,7 +164,8 @@ window.YL_PRODUCTS = {
       "tags": [
         "bestseller"
       ],
-      "featured": true
+      "featured": true,
+      "scent": "Herbal & Woodsy"
     },
     {
       "id": "miracle-balm",
@@ -177,7 +190,8 @@ window.YL_PRODUCTS = {
         "essential-oil-free",
         "sensitive-safe"
       ],
-      "etsyUrl": "https://www.etsy.com/listing/4466572716/yallternative-miracle-balm-multi-use"
+      "etsyUrl": "https://www.etsy.com/listing/4466572716/yallternative-miracle-balm-multi-use",
+      "scent": "Unscented"
     },
     {
       "id": "sleep-salve",
@@ -202,7 +216,8 @@ window.YL_PRODUCTS = {
       "etsyUrl": "https://www.etsy.com/listing/4398125773/hush-yall-magnesium-arnica-sleep-salve",
       "tags": [
         "vegan"
-      ]
+      ],
+      "scent": "Lavender"
     },
     {
       "id": "beard-salve",
@@ -224,7 +239,8 @@ window.YL_PRODUCTS = {
       ],
       "etsyUrl": "https://www.etsy.com/listing/4460199621/bourbon-beard-salve-vanilla-cedarwood",
       "tags": [],
-      "featured": true
+      "featured": true,
+      "scent": "Bourbon & Vanilla"
     },
     {
       "id": "shimmer-oil",
@@ -270,7 +286,8 @@ window.YL_PRODUCTS = {
       "tags": [
         "vegan"
       ],
-      "featured": true
+      "featured": true,
+      "scent": "Citrus & Bright"
     },
     {
       "id": "shea-butter",
@@ -311,7 +328,8 @@ window.YL_PRODUCTS = {
         "count": 1
       },
       "etsyUrl": "https://www.etsy.com/listing/4460110222/lavender-shea-body-butter-raw-african",
-      "tags": []
+      "tags": [],
+      "scent": "Lavender"
     },
     {
       "id": "hand-scrub",
@@ -359,7 +377,8 @@ window.YL_PRODUCTS = {
       "tags": [
         "vegan",
         "essential-oil-free"
-      ]
+      ],
+      "scent": "Bourbon & Vanilla"
     },
     {
       "id": "lavender-soak",
@@ -394,7 +413,8 @@ window.YL_PRODUCTS = {
           }
         ]
       },
-      "etsyUrl": "https://www.etsy.com/listing/4345557444/lavender-epsom-salt-soak-muscle-relief"
+      "etsyUrl": "https://www.etsy.com/listing/4345557444/lavender-epsom-salt-soak-muscle-relief",
+      "scent": "Lavender"
     },
     {
       "id": "backroad-soak",
@@ -435,7 +455,8 @@ window.YL_PRODUCTS = {
         "count": 3
       },
       "etsyUrl": "https://www.etsy.com/listing/4333988264/backroad-recovery-epsom-salt-muscle-soak",
-      "featured": true
+      "featured": true,
+      "scent": "Herbal & Woodsy"
     },
     {
       "id": "protection-keychain",
@@ -480,7 +501,8 @@ window.YL_PRODUCTS = {
       },
       "etsyUrl": "https://www.etsy.com/listing/4378341348/protection-potion-keychain-black-lava",
       "tags": [],
-      "featured": true
+      "featured": true,
+      "scent": "Herbal & Woodsy"
     },
     {
       "id": "bug-spray",
@@ -507,7 +529,8 @@ window.YL_PRODUCTS = {
         "value": 5,
         "count": 4
       },
-      "etsyUrl": "https://www.etsy.com/listing/4335217388/bug-off-btch-natural-bug-spray"
+      "etsyUrl": "https://www.etsy.com/listing/4335217388/bug-off-btch-natural-bug-spray",
+      "scent": "Herbal & Woodsy"
     },
     {
       "id": "sugar-scrub",
@@ -533,7 +556,8 @@ window.YL_PRODUCTS = {
       "tags": [
         "vegan",
         "essential-oil-free"
-      ]
+      ],
+      "scent": "Citrus & Bright"
     },
     {
       "id": "whipped-body-butter",
@@ -561,7 +585,8 @@ window.YL_PRODUCTS = {
       "tags": [
         "vegan",
         "essential-oil-free"
-      ]
+      ],
+      "scent": "Citrus & Bright"
     },
     {
       "id": "cleansing-spray",
@@ -595,7 +620,8 @@ window.YL_PRODUCTS = {
       "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
       "tags": [
         "vegan"
-      ]
+      ],
+      "scent": "Fresh & Clean"
     },
     {
       "id": "bath-tea",
@@ -631,7 +657,8 @@ window.YL_PRODUCTS = {
       "tags": [
         "vegan",
         "essential-oil-free"
-      ]
+      ],
+      "scent": "Fresh & Clean"
     },
     {
       "id": "porch-sweep-spray",
@@ -652,7 +679,8 @@ window.YL_PRODUCTS = {
       "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
       "tags": [
         "vegan"
-      ]
+      ],
+      "scent": "Fresh & Clean"
     },
     {
       "id": "yallternative-gift-card",

@@ -198,11 +198,17 @@
         return;
       }
 
-      // Check if this is local testing / placeholder action URL
+      /* Kit/ConvertKit isn't wired up yet. Same reasoning as the contact form
+         above: showing the subscribed-confirmation state here would tell the
+         visitor they're on the list when no request was ever made, so they'd
+         never think to sign up again. Be honest instead. */
       if (form.action.indexOf("YOUR_KIT_FORM_ACTION_URL") !== -1) {
         e.preventDefault();
-        var box = form.closest(".footer-signup");
-        if (box) box.classList.add("is-subscribed");
+        showFormFallback(
+          form,
+          "Our newsletter isn't connected yet -- you haven't been subscribed. Email us to be added: ",
+          "y.allternative.living@gmail.com"
+        );
         return;
       }
 
@@ -325,6 +331,21 @@
         return;
       }
 
+      /* Formspree's review form ID is still the placeholder. Left alone, the
+         fetch below 404s, res.ok is false, and the fallback fires a real
+         full-page POST -- dumping the customer on a Formspree error page with
+         their review lost. Stop before that and point them somewhere useful,
+         matching the contact form and newsletter handlers above. */
+      if (form.action.indexOf("YOUR_FORMSPREE_FORM_ID") !== -1) {
+        e.preventDefault();
+        showFormFallback(
+          form,
+          "Review submissions aren't connected yet -- this wasn't sent. Please email your review to ",
+          "y.allternative.living@gmail.com"
+        );
+        return;
+      }
+
       if (!window.fetch) return; // let the native POST proceed with JS off/unsupported
       e.preventDefault();
       var wrap = form.closest(".review-form-wrap");
@@ -347,14 +368,45 @@
     });
   });
 
+  /* Inline "this form isn't hooked up yet" notice, used by the contact and
+     newsletter handlers while their provider IDs are still placeholders.
+     role="alert" so it's announced rather than silently appearing. Renders a
+     real mailto link so the visitor still has a way to reach a human. */
+  function showFormFallback(form, message, email) {
+    var existing = form.querySelector(".form-fallback-note");
+    if (!existing) {
+      existing = document.createElement("p");
+      existing.className = "form-fallback-note";
+      existing.setAttribute("role", "alert");
+      form.appendChild(existing);
+    }
+    existing.textContent = message;
+    if (email) {
+      var a = document.createElement("a");
+      a.href = "mailto:" + email;
+      a.textContent = email;
+      existing.appendChild(a);
+    }
+  }
+
   /* ---------- Contact form submit handler (AJAX via Formspree) ---------- */
   var contactForms = document.querySelectorAll(".contact-form");
   contactForms.forEach(function (form) {
     form.addEventListener("submit", function (e) {
       var col = form.closest(".contact-form-col");
+      /* Formspree isn't wired up yet (the action is still the placeholder).
+         This used to show the normal "thanks, we got it!" confirmation and
+         then drop the message on the floor -- the visitor walks away believing
+         Savanna has their enquiry, and nobody ever sees it. A form that fails
+         silently while claiming success is worse than one that plainly
+         doesn't work, so say so and hand over the real mailbox instead. */
       if (form.action.indexOf("YOUR_FORM_ID") !== -1) {
         e.preventDefault();
-        if (col) col.classList.add("is-submitted");
+        showFormFallback(
+          form,
+          "This form isn't connected yet -- your message wasn't sent. Please email us directly at ",
+          "y.allternative.living@gmail.com"
+        );
         return;
       }
       if (!window.fetch) return;
@@ -512,18 +564,36 @@
     if (allImages.length <= 1) {
       return pictureHTML(p, firstSlideOpts);
     }
+    /* The active slide opens the full-size lightbox on click. It used to be a
+       bare <div> with a pointer cursor and nothing else, which made enlarging
+       a product photo mouse-only -- not reachable by Tab, not operable by
+       Enter/Space, invisible to screen readers. That's a WCAG 2.1.1 (Keyboard)
+       failure on the main shopping surface. Exposing it as a real button
+       (role + tabindex + name; key handling lives in the delegated listener
+       further down) makes the gallery operable without a mouse.
+       Only the active slide is in the tab order -- the inactive ones are
+       visually stacked behind it and are reached via the dot buttons, so
+       putting all four in the tab order would just add dead stops. */
+    var slideA11y =
+      ' role="button" aria-label="' + attrEsc("Enlarge photo of " + (p.name || "product")) + '"';
     var slides = allImages
       .map(function (imgPath, i) {
         if (i === 0) {
           var o = Object.assign({}, firstSlideOpts, { imagePath: imgPath });
           return (
-            '<div class="card-gallery-slide active" data-idx="0">' + pictureHTML(p, o) + "</div>"
+            '<div class="card-gallery-slide active" data-idx="0" tabindex="0"' +
+            slideA11y +
+            ">" +
+            pictureHTML(p, o) +
+            "</div>"
           );
         }
         return (
           '<div class="card-gallery-slide" data-idx="' +
           i +
-          '" data-image="' +
+          '" tabindex="-1"' +
+          slideA11y +
+          ' data-image="' +
           attrEsc(imgPath) +
           '"></div>'
         );
@@ -618,10 +688,23 @@
     // When Savanna sets it to 0, the button becomes inert instead of
     // silently accepting an order she can't fulfill.
     if (p.comingSoon) {
+      /* A disabled "Coming Soon" button is a dead end -- the shopper wants it
+         and there's nothing to do. Offer to tell them when it lands, gated on
+         the CMS switch. Deliberately scoped to comingSoon only: this uses the
+         one real availability signal in the catalogue, so it never implies
+         stock information the shop doesn't actually track. */
+      var siteCfg = (window.YL_CONTENT && window.YL_CONTENT.site) || {};
+      var notify =
+        siteCfg.enableRestockAlerts === false
+          ? ""
+          : '<button type="button" class="btn btn-ghost btn-sm yl-notify-toggle" data-notify-for="' +
+            attrEsc(p.id) +
+            '" aria-expanded="false">Email me when it launches</button>';
       return (
         '<button type="button" class="btn btn-outline btn-sm' +
         (extraClass ? " " + extraClass : "") +
-        '" disabled aria-disabled="true">Coming Soon</button>'
+        '" disabled aria-disabled="true">Coming Soon</button>' +
+        notify
       );
     }
 
@@ -1003,6 +1086,10 @@
     var dialog = document.createElement("dialog");
     dialog.id = "imageLightboxModal";
     dialog.className = "lightbox-modal";
+    /* Without a name a screen reader announces this as just "dialog" -- the
+       other two dialogs on the page both carry aria-labelledby, this one was
+       missed. */
+    dialog.setAttribute("aria-label", "Product photo viewer");
     dialog.setAttribute("closedby", "any");
     dialog.innerHTML =
       '<button type="button" class="lightbox-close" aria-label="Close lightbox">&times;</button>' +
@@ -1164,13 +1251,265 @@
     var targetSlide = gallery.querySelector('.card-gallery-slide[data-idx="' + idx + '"]');
     hydrateGallerySlide(gallery, targetSlide);
     gallery.querySelectorAll(".card-gallery-slide").forEach(function (slide) {
-      slide.classList.toggle("active", slide.getAttribute("data-idx") === idx);
+      var isActive = slide.getAttribute("data-idx") === idx;
+      slide.classList.toggle("active", isActive);
+      /* Keep exactly one slide per gallery in the tab order -- the visible
+         one. The others sit stacked behind it, so a tab stop on them would
+         focus something nobody can see. */
+      slide.setAttribute("tabindex", isActive ? "0" : "-1");
     });
     gallery.querySelectorAll(".card-gallery-dot").forEach(function (d) {
       var active = d === dot;
       d.classList.toggle("active", active);
       d.setAttribute("aria-pressed", active ? "true" : "false");
     });
+  });
+
+  /* ---------- Build-Your-Own Box ----------
+     Shopper picks their own mix of eligible goods for a configured discount.
+     Everything here is display only: the authoritative price is recomputed
+     server-side in workers/checkout.js (resolveCustomBoxCents) from the same
+     products.json and the same shop.customBox rules, so a tampered client
+     can't invent a cheap box. Sizes, discount and eligible categories all
+     come from the CMS. */
+  function initCustomBox() {
+    var section = document.getElementById("custom-box-section");
+    var card = document.getElementById("customBoxCard");
+    if (!section || !card) return;
+
+    var site = (window.YL_CONTENT && window.YL_CONTENT.site) || {};
+    var data = window.YL_PRODUCTS || {};
+    var cfg = (data.shop && data.shop.customBox) || null;
+    if (site.enableCustomBoxBuilder === false || !cfg) {
+      section.hidden = true;
+      return;
+    }
+
+    var minItems = cfg.minItems || 3;
+    var maxItems = cfg.maxItems || 5;
+    var pct = cfg.discountPercent || 0;
+    var eligibleCats = cfg.eligibleCategories || [];
+    var eligible = (data.products || []).filter(function (p) {
+      if (p.comingSoon) return false;
+      if (p.id === "yallternative-gift-card") return false;
+      return !eligibleCats.length || eligibleCats.indexOf(p.category) !== -1;
+    });
+    if (eligible.length < minItems) {
+      section.hidden = true;
+      return;
+    }
+    section.hidden = false;
+
+    var chosen = [];
+
+    function fullPrice() {
+      return chosen.reduce(function (sum, id) {
+        var p = eligible.find(function (x) {
+          return x.id === id;
+        });
+        return sum + (p ? p.price : 0);
+      }, 0);
+    }
+    function boxPrice() {
+      return Math.round(fullPrice() * (1 - pct / 100) * 100) / 100;
+    }
+
+    function render() {
+      var count = chosen.length;
+      var ready = count >= minItems && count <= maxItems;
+      var saving = Math.round((fullPrice() - boxPrice()) * 100) / 100;
+
+      card.innerHTML =
+        '<div class="custom-box-head">' +
+        '<span class="eyebrow">Build Your Own</span>' +
+        '<h2 id="customBoxHeading">Pick &amp; Mix Your Box</h2>' +
+        '<p class="muted">Choose any ' +
+        minItems +
+        (maxItems > minItems ? "&ndash;" + maxItems : "") +
+        " goods and take " +
+        pct +
+        "% off the lot." +
+        "</p>" +
+        "</div>" +
+        '<ul class="custom-box-options" role="group" aria-labelledby="customBoxHeading">' +
+        eligible
+          .map(function (p) {
+            var isOn = chosen.indexOf(p.id) !== -1;
+            var atLimit = !isOn && count >= maxItems;
+            return (
+              '<li><label class="custom-box-option' +
+              (isOn ? " is-chosen" : "") +
+              (atLimit ? " is-disabled" : "") +
+              '">' +
+              '<input type="checkbox" value="' +
+              attrEsc(p.id) +
+              '"' +
+              (isOn ? " checked" : "") +
+              (atLimit ? " disabled" : "") +
+              ">" +
+              '<span class="custom-box-option-name">' +
+              attrEsc(p.name) +
+              "</span>" +
+              '<span class="custom-box-option-price">$' +
+              p.price.toFixed(2) +
+              "</span>" +
+              "</label></li>"
+            );
+          })
+          .join("") +
+        "</ul>" +
+        '<div class="custom-box-foot">' +
+        '<p class="custom-box-summary" role="status">' +
+        (count
+          ? count +
+            " of " +
+            maxItems +
+            " chosen &middot; <strong>$" +
+            boxPrice().toFixed(2) +
+            "</strong>" +
+            (saving > 0
+              ? ' <span class="custom-box-saving">save $' + saving.toFixed(2) + "</span>"
+              : "")
+          : "Nothing picked yet &mdash; choose at least " + minItems + ".") +
+        "</p>" +
+        '<button type="button" class="btn btn-primary" id="customBoxAdd"' +
+        (ready ? "" : ' disabled aria-disabled="true"') +
+        ">Add box to cart</button>" +
+        "</div>";
+    }
+
+    card.addEventListener("change", function (e) {
+      var cb = e.target.closest('input[type="checkbox"]');
+      if (!cb) return;
+      var id = cb.value;
+      var i = chosen.indexOf(id);
+      if (cb.checked && i === -1) chosen.push(id);
+      else if (!cb.checked && i !== -1) chosen.splice(i, 1);
+      render();
+      // Re-rendering blows away focus; put it back on the control just used.
+      var again = card.querySelector('input[value="' + id.replace(/"/g, '\\"') + '"]');
+      if (again) again.focus();
+    });
+
+    card.addEventListener("click", function (e) {
+      if (!e.target.closest("#customBoxAdd")) return;
+      if (chosen.length < minItems || chosen.length > maxItems) return;
+      if (!window.YLCart || typeof window.YLCart.addCustomBox !== "function") return;
+      window.YLCart.addCustomBox({
+        productIds: chosen.slice(),
+        price: boxPrice(),
+        count: chosen.length
+      });
+      chosen = [];
+      render();
+    });
+
+    render();
+  }
+  initCustomBox();
+
+  /* ---------- Launch ("restock") alerts ----------
+     Delegated so it covers cards rendered now or re-rendered after any
+     filter/sort. Clicking the prompt reveals a small inline email form on that
+     card; submitting posts to Formspree exactly like the contact and review
+     forms, and reuses the same honest fallback when the endpoint is still a
+     placeholder -- no pretending someone has been added to a list that doesn't
+     exist yet. */
+  document.addEventListener("click", function (e) {
+    var toggle = e.target.closest(".yl-notify-toggle");
+    if (!toggle) return;
+    var productId = toggle.getAttribute("data-notify-for");
+    var existing = toggle.parentElement.querySelector(".yl-notify-form");
+    if (existing) {
+      var nowHidden = !existing.hidden;
+      existing.hidden = nowHidden;
+      toggle.setAttribute("aria-expanded", nowHidden ? "false" : "true");
+      if (!nowHidden) {
+        var reveal = existing.querySelector("input[type=email]");
+        if (reveal) reveal.focus();
+      }
+      return;
+    }
+
+    var site = (window.YL_CONTENT && window.YL_CONTENT.site) || {};
+    var formId = site.formspreeRestockId || "YOUR_FORMSPREE_RESTOCK_ID";
+    var form = document.createElement("form");
+    form.className = "yl-notify-form";
+    form.setAttribute("novalidate", "");
+    form.action = "https://formspree.io/f/" + formId;
+    form.method = "post";
+    var inputId = "notify-email-" + productId;
+    form.innerHTML =
+      '<label class="sr-only" for="' +
+      attrEsc(inputId) +
+      '">Your email address for ' +
+      attrEsc(productId) +
+      " launch alerts</label>" +
+      '<input id="' +
+      attrEsc(inputId) +
+      '" type="email" name="email" required placeholder="you@example.com" autocomplete="email">' +
+      '<input type="hidden" name="product" value="' +
+      attrEsc(productId) +
+      '">' +
+      '<button type="submit" class="btn btn-primary btn-sm">Notify me</button>';
+    toggle.parentElement.appendChild(form);
+    toggle.setAttribute("aria-expanded", "true");
+    var emailInput = form.querySelector("input[type=email]");
+    if (emailInput) emailInput.focus();
+
+    form.addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+      }
+      if (form.action.indexOf("YOUR_FORMSPREE_RESTOCK_ID") !== -1) {
+        showFormFallback(
+          form,
+          "Launch alerts aren't connected yet -- you haven't been added to a list. Email us and we'll tell you when it lands: ",
+          "y.allternative.living@gmail.com"
+        );
+        return;
+      }
+      var btn = form.querySelector("button[type=submit]");
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = "Saving…";
+      }
+      fetch(form.action, {
+        method: "POST",
+        body: new FormData(form),
+        headers: { Accept: "application/json" }
+      })
+        .then(function (res) {
+          if (!res.ok) throw new Error("Signup failed");
+          form.innerHTML = '<p class="yl-notify-done" role="status">You\'re on the list.</p>';
+        })
+        .catch(function () {
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = "Notify me";
+          }
+          showFormFallback(
+            form,
+            "That didn't go through. Please email us instead: ",
+            "y.allternative.living@gmail.com"
+          );
+        });
+    });
+  });
+
+  /* Keyboard activation for the gallery slides exposed as role="button"
+     above. Native buttons fire click on Enter and Space for free; an element
+     with role="button" has to do it by hand, and Space additionally needs its
+     default page-scroll suppressed. Delegated to match the click handler, so
+     it covers cards rendered now or re-rendered after a filter/sort. */
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Enter" && e.key !== " " && e.key !== "Spacebar") return;
+    var slide = e.target.closest && e.target.closest(".card-gallery-slide");
+    if (!slide) return;
+    e.preventDefault();
+    slide.click();
   });
 
   /* Pre-hydrate on hover/keyboard-focus (before the click/Enter actually
@@ -1515,6 +1854,13 @@
      card -- only shoppers who want to check for an allergen expand it. */
   function ingredientsHTML(p) {
     if (!p.ingredients || !p.ingredients.length) return "";
+    /* "Show Botanical Ingredients Info" in the CMS was read by nothing, so the
+       disclosure was permanently on. Gated here rather than by a build-time
+       style rule because these cards are rendered by JS -- skipping the markup
+       outright is cheaper than emitting it and hiding it. Defaults to on when
+       the flag is absent, matching the CMS default. */
+    var site = (window.YL_CONTENT && window.YL_CONTENT.site) || {};
+    if (site.enableIngredientsModal === false) return "";
     var label = p.ingredientsLabel || "Ingredients";
     var items = p.ingredients
       .map(function (i) {
@@ -1639,10 +1985,16 @@
     var eagerFirst = opts.eagerFirst !== false;
     if (!products || !products.length) {
       container.innerHTML =
-        '<div class="yl-no-results" style="grid-column: 1 / -1; text-align: center; padding: 3rem 1.5rem; background: var(--paper-dim); border: 1px dashed var(--border-color); border-radius: var(--radius-md); margin: 1rem 0;">' +
+        /* --paper-dim is a TEXT colour, not a surface (see the palette at the
+           top of styles.css). Used as a background here it painted a light tan
+           panel, and the body copy below is --paper-muted, which resolves to
+           that same --paper-dim -- identical foreground and background, so the
+           "we couldn't find anything" message was invisible. Only ever visible
+           on a zero-result search, which is why it survived this long. */
+        '<div class="yl-no-results" style="grid-column: 1 / -1; text-align: center; padding: 3rem 1.5rem; background: var(--ink-2); border: 1px dashed var(--hide); border-radius: var(--radius-md); margin: 1rem 0;">' +
         '  <span style="font-size: 2.5rem; display: block; margin-bottom: 0.5rem;">🖤</span>' +
-        '  <h3 style="font-family: var(--font-heading); margin-bottom: 0.5rem; color: var(--whiskey);">No Apothecary Items Found</h3>' +
-        '  <p style="color: var(--paper-muted); max-width: 420px; margin: 0 auto 1.25rem; font-size: 0.9rem;">We couldn\'t find any salves, soaks, or goods matching your search or active filter.</p>' +
+        '  <h3 style="font-family: var(--font-display); margin-bottom: 0.5rem; color: var(--whiskey);">No Apothecary Items Found</h3>' +
+        '  <p style="color: var(--paper-dim); max-width: 420px; margin: 0 auto 1.25rem; font-size: 0.9rem;">We couldn\'t find any salves, soaks, or goods matching your search or active filter.</p>' +
         '  <button type="button" class="btn btn-outline btn-sm" id="resetFiltersBtn">Reset Filters & Search</button>' +
         "</div>";
       var resetBtn = container.querySelector("#resetFiltersBtn");
@@ -2077,7 +2429,58 @@
     categories.forEach(function (c) {
       catLabel[c.id] = c.label;
     });
-    var state = { filter: "all", sort: sortSelect ? sortSelect.value : "featured", query: "" };
+    var state = {
+      filter: "all",
+      sort: sortSelect ? sortSelect.value : "featured",
+      query: "",
+      scent: "all"
+    };
+
+    /* ---------- Scent filter ----------
+       Driven entirely by the optional `scent` field on each product (editable
+       per product in the CMS). Nothing is hardcoded: the options are the set
+       of scents actually in use. Hidden unless the shop owner has switched it
+       on AND at least two distinct scents exist -- a filter offering a single
+       choice, or none, is just noise.
+       Rendered as a compact <select> next to Sort rather than its own row of
+       pills -- with search, category pills, and sort already stacked above
+       the grid, a whole extra pill row for one secondary facet read as
+       clutter. A select keeps the same functionality in a single control. */
+    var scentWrap = document.getElementById("scentFieldWrap");
+    var scentSelect = document.getElementById("scentSelect");
+    if (scentWrap && scentSelect) {
+      var siteCfg = (window.YL_CONTENT && window.YL_CONTENT.site) || {};
+      var scents = [];
+      allProducts.forEach(function (p) {
+        var s = (p.scent || "").trim();
+        if (s && scents.indexOf(s) === -1) scents.push(s);
+      });
+      scents.sort(function (a, b) {
+        // "Unscented" is a fallback rather than a scent -- keep it last.
+        if (a === "Unscented") return 1;
+        if (b === "Unscented") return -1;
+        return a.localeCompare(b);
+      });
+
+      if (siteCfg.enableScentFilter === false || scents.length < 2) {
+        scentWrap.hidden = true;
+        scentSelect.innerHTML = '<option value="all">Any</option>';
+      } else {
+        scentWrap.hidden = false;
+        scentSelect.innerHTML =
+          '<option value="all">Any</option>' +
+          scents
+            .map(function (s) {
+              return '<option value="' + attrEsc(s) + '">' + attrEsc(s) + "</option>";
+            })
+            .join("");
+
+        scentSelect.addEventListener("change", function () {
+          state.scent = scentSelect.value;
+          render();
+        });
+      }
+    }
     // Only the very first render of this grid can plausibly be showing
     // cards that are actually above the fold on initial page load -- every
     // render after that was triggered by a deliberate filter/sort click,
@@ -2152,6 +2555,12 @@
             : allProducts.filter(function (p) {
                 return p.category === state.filter;
               });
+
+        if (state.scent && state.scent !== "all") {
+          filtered = filtered.filter(function (p) {
+            return (p.scent || "") === state.scent;
+          });
+        }
 
         filtered = filtered.filter(function (p) {
           return matchesQuery(p, q);
@@ -2293,10 +2702,35 @@
     if (!data || !data.shop) return;
     var threshold = data.shop.freeShippingThreshold;
     if (!threshold || threshold <= 0) return;
+    var message = "✦ Free shipping on orders over $" + threshold + " ✦";
+
+    /* index.html already ships a sticky announcement bar (the #yl-countdown-
+       ticker pop-up countdown). Blindly prepending a second one stacked two
+       full-width sticky bars in the same colour on top of each other -- ~76px
+       of near-duplicate chrome pushing the hero down, on the one page where
+       the first impression matters most. When that bar is present, fold this
+       message into it as a second segment instead of creating a rival bar. */
+    var existing = document.getElementById("yl-countdown-ticker");
+    if (existing) {
+      /* Purely decorative divider -- the visible rule is drawn by the CSS
+         background, so this carries no text at all. (It used to hold a "·"
+         zeroed out via font-size, which still counted as a text node to
+         anything walking the DOM.) */
+      var sep = document.createElement("span");
+      sep.className = "announcement-sep";
+      sep.setAttribute("aria-hidden", "true");
+      var seg = document.createElement("span");
+      seg.className = "announcement-segment";
+      seg.textContent = message;
+      existing.appendChild(sep);
+      existing.appendChild(seg);
+      return;
+    }
+
     var bar = document.createElement("div");
     bar.className = "announcement-bar";
     bar.setAttribute("role", "status");
-    bar.textContent = "✦ Free shipping on orders over $" + threshold + " ✦";
+    bar.textContent = message;
     document.body.insertBefore(bar, document.body.firstChild);
   })();
 
@@ -2798,40 +3232,26 @@
 
         var displayId = val.length > 24 ? val.substring(0, 24) + "..." : val;
 
+        /* This used to render a fully hardcoded "order timeline" for ANY input:
+           type literal gibberish and it replied "Order Confirmed -- Stripe
+           payment verified & receipt dispatched", "Prepared in Landrum, SC",
+           "Shipped & On Its Way". There is no lookup behind it -- no API call,
+           no validation, no data source of any kind. Telling a customer their
+           payment was verified and their parcel is being packed, when the site
+           has no idea and checkout isn't even deployed, is fabricated order
+           information; it's the same failure mode as the forms that used to
+           fake a success message, and it's worse because it invents a payment
+           confirmation. Until a real lookup exists (Stripe session retrieve via
+           the Worker), say plainly that we can't look it up here. */
         if (resultsContainer) {
           resultsContainer.innerHTML =
-            '<div class="order-summary-card" style="background: var(--paper-dim); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem;">' +
-            '  <div class="order-summary-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">' +
-            '    <h3 style="margin: 0; font-size: 1.1rem;">Order #' +
+            '<p class="order-lookup-unavailable" role="status">' +
+            "Online order tracking isn't connected yet, so we can't look up " +
             attrEsc(displayId) +
-            "</h3>" +
-            '    <span class="badge" style="background: var(--moss); color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">In Progress</span>' +
-            "  </div>" +
-            '  <p style="font-size: 0.85rem; color: var(--paper-muted); margin-bottom: 1rem;">Origin: Landrum, SC workbench · USPS Ground Advantage</p>' +
-            '  <ol class="timeline-stepper">' +
-            '    <li class="timeline-step completed">' +
-            '      <span class="step-icon" aria-hidden="true">✓</span>' +
-            '      <div class="step-content">' +
-            "        <strong>1. Order Confirmed</strong>" +
-            "        <p>Stripe payment verified & receipt dispatched.</p>" +
-            "      </div>" +
-            "    </li>" +
-            '    <li class="timeline-step active">' +
-            '      <span class="step-icon" aria-hidden="true">🌿</span>' +
-            '      <div class="step-content">' +
-            "        <strong>2. Prepared in Landrum, SC</strong>" +
-            "        <p>Mixed & hand-packed with small-batch apothecary care.</p>" +
-            "      </div>" +
-            "    </li>" +
-            '    <li class="timeline-step pending">' +
-            '      <span class="step-icon" aria-hidden="true">📦</span>' +
-            '      <div class="step-content">' +
-            "        <strong>3. Shipped & On Its Way</strong>" +
-            "        <p>Carrier handoff pending (USPS tracking will update via email).</p>" +
-            "      </div>" +
-            "    </li>" +
-            "  </ol>" +
-            "</div>";
+            ' here. Email <a href="mailto:y.allternative.living@gmail.com">' +
+            "y.allternative.living@gmail.com</a> with your order number and " +
+            "we'll check on it personally and get straight back to you." +
+            "</p>";
           resultsContainer.hidden = false;
         }
       });

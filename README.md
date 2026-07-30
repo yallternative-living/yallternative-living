@@ -26,16 +26,17 @@ I've set up a simple **Website Dashboard** where you can edit the site's content
 * **How it works:** Whenever you make changes and click **Save**, the system automatically sends the updates to the website. The live site will rebuild and reflect your changes in about 1-2 minutes.
 
 ### 2. Launch Checklist
-To start taking payments, sending newsletters, or moderating reviews, follow the step-by-step guide in the **[Launch & Development Guide](docs/DEVELOPMENT.md)** or reference **[Savanna's Site Editing Guide](docs/EDITING-GUIDE.md)** for a deeper dive into content management.
+For the click-by-click version of every step below (exact menu paths, a fill-in-the-blank handoff sheet at the end), follow **[docs/SETUP-GUIDE.md](docs/SETUP-GUIDE.md)**. The **[Launch & Development Guide](docs/DEVELOPMENT.md)** has the fuller technical explanation behind each item, and **[Savanna's Site Editing Guide](docs/EDITING-GUIDE.md)** covers day-to-day content management once you're live.
 
 Here is a quick checklist of the external accounts you'll need to set up for launch:
-1. **[ ] Hosting & Domain (Netlify/Vercel & Porkbun)** (To keep the site online)
-2. **[ ] Customer Checkout & Credit Cards (Stripe)** (On-site cart + Stripe Checkout Worker in `workers/checkout.js`)
+1. **[ ] Hosting & Domain (Netlify & Porkbun)** (To keep the site online)
+2. **[ ] Customer Checkout & Credit Cards (Stripe + Cloudflare)** — two accounts, not one, but you sign up for both yourself: Stripe for the payment itself, plus a free Cloudflare account that runs `workers/checkout.js` (you create that account too, then invite me in to do the technical setup inside it — see `workers/README.md`)
 3. **[ ] Email Newsletters (Kit / ConvertKit)** (To capture emails)
-4. **[ ] Contact Form & Customer Reviews (Formspree / Resend Worker)** (To receive messages)
-5. **[ ] Digital Gift Cards (Stripe Coupons & Promotion Codes via `netlify/functions/fulfill-gift-card.js`)**
-6. **[ ] Customer Live Chat (Tawk.to - Optional)**
-7. **[ ] Store Management (Sveltia CMS)**
+4. **[ ] Contact Form, Customer Reviews & Restock Alerts (Formspree)** — three separate forms, not two
+5. **[ ] Gift Card Emails (Resend)** — required for the built-in gift-card system to actually send the redeemable code
+6. ~~Digital Gift Cards — optional upgrade (Gift Up!)~~ — not usable yet (needs a code change first) and hidden from the dashboard, so there's nothing to set up here today; see `docs/DEVELOPMENT.md` section 18
+7. **[ ] Customer Live Chat (Tawk.to - Optional)**
+8. **[ ] Store Management (Sveltia CMS)** — also needs GitHub login turned on in Netlify first (one checkbox, see SETUP-GUIDE.md Step 2C)
 
 ---
 
@@ -43,12 +44,13 @@ Here is a quick checklist of the external accounts you'll need to set up for lau
 
 - **Architecture**: 100% static HTML/CSS/JS frontend with zero runtime framework dependencies. Fast, mobile-first, and offline-capable via `sw.js`.
 - **Checkout & Cart**: On-site drawer cart (`assets/js/cart.js`) backed by server-side Cloudflare Workers (`workers/checkout.js`) for price-tampering security.
-- **Automated Verification**: Run `npm test` to execute **270+ static QA assertions** (JSON-LD validation, CSP byte-sync, live WCAG contrast, variant parsing) and `npm run test:integration` for headless Puppeteer browser testing across viewports.
+- **Automated Verification**: Run `npm test` to execute **300+ static QA assertions** (JSON-LD validation, CSP byte-sync, live WCAG contrast, variant parsing) and `npm run test:integration` for headless Puppeteer browser testing across viewports.
 
 ---
 
 ## Helpful Resources
 
+- **[Setup Guide (SETUP-GUIDE.md)](docs/SETUP-GUIDE.md)**: The click-by-click account-linking guide for launch — exact menu paths for every external service, plus a fill-in-the-blank handoff checklist.
 - **[Savanna's Site Editing Guide (EDITING-GUIDE.md)](docs/EDITING-GUIDE.md)**: A detailed walkthrough of how to use the CMS, manage images, handle coming-soon products, and more.
 - **[Development Guide (DEVELOPMENT.md)](docs/DEVELOPMENT.md)**: The technical blueprint of the site.
 - **[Stripe Migration Guide (STRIPE-MIGRATION.md)](docs/STRIPE-MIGRATION.md)**: Step-by-step migration guide for Stripe Checkout and gift card fulfillment.

@@ -51,16 +51,91 @@ Two ways to do it:
 
 ## Deploying `checkout.js`
 
+Savanna creates the Cloudflare account herself and invites Steven in
+as a Member (see `docs/SETUP-GUIDE.md` Step 3B) -- account ownership
+stays hers, but the actual deploy work below is still Steven's job,
+done from inside her account. So the choice below is purely about
+which method is best for *Steven doing it*, not about avoiding a
+terminal for someone who was never going to run these commands
+regardless.
+
+Given that, **Option B (Wrangler CLI) is the recommended default** for
+this specific file -- it's the long-established, well-tested path, and
+this Worker touches Stripe secret keys and real payments, where
+favoring the most mature deploy method over the newest one is the right
+trade-off. Option A is documented as a legitimate alternative, not a
+downgrade -- reach for it if you'd genuinely rather never run
+`wrangler deploy` again after initial setup, just go in with eyes open
+about its beta status.
+
+### Option B -- Wrangler CLI (recommended: well-tested, long track record)
+
 1. `npm i -g wrangler` and `wrangler login`.
 2. `cp wrangler.toml.example wrangler.toml`, confirm `SITE_ORIGIN`.
 3. `wrangler secret put STRIPE_SECRET_KEY` (use a **restricted** key limited to
    Checkout Sessions + Coupons + Promotion Codes write, since
    `fulfill-gift-card.js` also needs to create those).
-4. `wrangler deploy`.
+4. `wrangler deploy`. Leave `STRIPE_TAX_ENABLED` unset for now -- sales tax
+   is opt-in and must not be switched on until Stripe Tax is activated on
+   the account (origin address + at least one registration), or Stripe
+   rejects every Checkout Session. See DEVELOPMENT.md section 8.
 5. Point a route at it (e.g. `yallternativeliving.com/api/checkout`).
-6. That's the whole client-side contract: `assets/js/cart.js` already POSTs
-   `{ items: [{ id, qty, variant }] }` here and redirects the browser to
-   whatever Checkout URL comes back -- no further client changes needed.
+6. Any future change to `checkout.js` needs step 4 run again by hand --
+   worth knowing going in, since that's the main thing Option A trades
+   away the beta risk to avoid.
+
+### Option A -- Cloudflare Workers Builds (dashboard-only, open beta)
+
+Cloudflare's own git-integration feature (Workers Builds) auto-deploys
+on every push, the same way Netlify already does for the rest of the
+site -- confirmed to exist and to support a subdirectory root (this repo
+isn't a single-Worker repo; `checkout.js` lives under `workers/`) via
+Cloudflare's current docs as of mid-2026. Two things worth knowing
+before picking this over Option B: Cloudflare's own docs still label
+Workers Builds "open beta," not GA, and this exact flow has not been
+run against this project's real Cloudflare/GitHub accounts -- treat it
+as "try this," not a guarantee.
+
+1. Create a real `wrangler.toml` from `wrangler.toml.example` (confirm
+   `SITE_ORIGIN`) and commit it -- this can be done straight in GitHub's
+   web UI, no local checkout needed.
+2. Cloudflare dashboard -> **Workers & Pages -> Create -> Import a
+   repository** (button wording may have shifted -- look for anything
+   offering to connect a GitHub repo) -> authorize GitHub -> select this
+   repo -> set the project root to `workers`.
+3. **Settings -> Variables and Secrets -> Add** -> `STRIPE_SECRET_KEY`,
+   type **Secret** (same restricted-key guidance as Option B step 3).
+4. **Settings -> Domains & Routes -> Add -> Route** ->
+   `yallternativeliving.com/api/checkout`.
+5. Every future push to `checkout.js` redeploys automatically -- no
+   step 4 of Option B (`wrangler deploy`) ever needs to run by hand
+   again.
+
+If anything in Cloudflare's dashboard doesn't match this (menu names
+move around), fall back to Option B.
+
+### A note on "best practice" here
+
+Cloudflare's own best-practices docs are explicit that manual `wrangler
+deploy` from someone's laptop shouldn't be the long-term answer -- some
+form of CI/CD should own it. Their most heavily-documented path for that
+is GitHub Actions + the official `wrangler-action` (a third option, not
+written up here since it needs a hand-authored workflow file and a
+Cloudflare API token stored as a GitHub secret -- more setup than either
+option above, and overkill for a single small Worker). Workers Builds
+(Option A) is Cloudflare's own answer for "I want CI/CD but don't want
+to write a workflow file" -- a real, reasonable choice, just not the
+one with the longest track record, which is why Option B leads above
+for this particular file. Also skipped on purpose given this project's
+size: a separate staging environment with its own routes/secrets
+(Cloudflare's textbook recommendation for production Workers) --
+reasonable to add later if this ever outgrows "one small business's
+checkout endpoint," not worth the extra accounts/complexity today.
+
+Either option: that's the whole client-side contract -- `assets/js/cart.js`
+already POSTs `{ items: [{ id, qty, variant }] }` here and redirects the
+browser to whatever Checkout URL comes back -- no further client changes
+needed.
 
 Security notes already handled in the code: CORS is locked to your origins,
 prices are re-derived from `products.json` (client prices are ignored),

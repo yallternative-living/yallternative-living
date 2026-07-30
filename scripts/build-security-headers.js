@@ -51,7 +51,18 @@ var PAGES = [
   "events.html",
   "privacy.html",
   "404.html",
-  "thank-you.html"
+  "thank-you.html",
+  // Previously missing from this list -- meaning these 4 pages' inline
+  // scripts were never actually checked against the hashes this script
+  // computes. Since the CSP header is identical on every page (see the
+  // "/*" block below), a silently-diverging inline script on any of
+  // these would have shipped a page that's broken under its own CSP
+  // with no warning from this script. Added so every page that ships
+  // an inline <script> is covered by the byte-identical check.
+  "faq.html",
+  "journal.html",
+  "policies.html",
+  "terms.html"
 ];
 
 function extractInlineScripts(html) {

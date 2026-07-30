@@ -1,4 +1,11 @@
-{
+/**
+ * @fileoverview Auto-generated site content/config.
+ * Wrap of assets/data/content.json into a global variable YL_CONTENT.
+ * Do not hand-edit this file -- edit assets/data/content.json (or use
+ * the CMS at /admin) and re-run scripts/build-site-data.js.
+ * @const {!Object}
+ */
+window.YL_CONTENT = {
   "site": {
     "logoDesktop": "/assets/img/logo.png",
     "logoMobile": "assets/img/logo.png",
@@ -66,4 +73,4 @@
     "heroTitle": "Frequently Asked Questions",
     "heroIntro": "Everything you need to know about shipping, sensitive skin, ingredients, and custom orders."
   }
-}
+};

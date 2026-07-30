@@ -133,7 +133,13 @@ async function createGiftCardPromotionCode(sessionId, giftIndex, amountCents, co
     headers: {
       Authorization: 'Bearer ' + STRIPE_SECRET_KEY,
       'Content-Type': 'application/x-www-form-urlencoded',
-      'Idempotency-Key': couponIdempotencyKey
+      'Idempotency-Key': couponIdempotencyKey,
+      // Pinned to match workers/checkout.js -- see the comment there. Without
+      // this header, Stripe silently falls back to whatever default version
+      // is set in the Dashboard, which Stripe's own docs warn against relying
+      // on for exactly this reason (a Dashboard change could alter behavior
+      // here with no corresponding code change).
+      'Stripe-Version': '2026-06-24.dahlia'
     },
     body: new URLSearchParams({
       amount_off: String(amountCents),
@@ -152,7 +158,8 @@ async function createGiftCardPromotionCode(sessionId, giftIndex, amountCents, co
     headers: {
       Authorization: 'Bearer ' + STRIPE_SECRET_KEY,
       'Content-Type': 'application/x-www-form-urlencoded',
-      'Idempotency-Key': promoIdempotencyKey
+      'Idempotency-Key': promoIdempotencyKey,
+      'Stripe-Version': '2026-06-24.dahlia'
     },
     body: new URLSearchParams({
       coupon: coupon.id,

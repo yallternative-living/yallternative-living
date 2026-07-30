@@ -1,7 +1,10 @@
 {
   "root": true,
   "extends": "eslint:recommended",
-  "parserOptions": { "ecmaVersion": 2022, "sourceType": "script" },
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "script"
+  },
   "rules": {
     "no-unused-vars": "warn",
     "no-inner-declarations": "off"
@@ -10,16 +13,52 @@
     "node_modules/",
     "assets/js/products-data.js",
     "assets/js/events-data.js",
-    "assets/js/site-reviews-data.js"
+    "assets/js/site-reviews-data.js",
+    "assets/js/content-data.js",
+    "assets/js/journal-data.js",
+    "assets/js/social-feed-data.js",
+    "assets/js/image-manifest.js"
   ],
   "overrides": [
     {
-      "files": ["scripts/**/*.js"],
-      "env": { "node": true, "es2022": true }
+      "files": [
+        "scripts/**/*.js"
+      ],
+      "env": {
+        "node": true,
+        "es2022": true
+      }
     },
     {
-      "files": ["assets/js/**/*.js"],
-      "env": { "browser": true, "es2022": true }
+      "files": [
+        "assets/js/**/*.js"
+      ],
+      "env": {
+        "browser": true,
+        "es2022": true
+      }
+    },
+    {
+      "files": [
+        "workers/**/*.js"
+      ],
+      "parserOptions": {
+        "sourceType": "module"
+      },
+      "env": {
+        "worker": true,
+        "browser": true,
+        "es2022": true
+      }
+    },
+    {
+      "files": [
+        "netlify/functions/**/*.js"
+      ],
+      "env": {
+        "node": true,
+        "es2022": true
+      }
     }
   ]
 }

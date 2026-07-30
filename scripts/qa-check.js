@@ -1516,6 +1516,154 @@ try {
   );
 }
 
+/* ---------- Feature switches are actually wired ----------
+   Every boolean in content.json's `site` block is a switch shown to Savanna
+   in /admin. Nine of them once did nothing at all: three were switches for
+   features that had never been built, and the rest were read from a
+   window.YL_CONTENT global that no page ever emitted. A dashboard toggle that
+   silently does nothing is worse than no toggle, so assert that each one is
+   referenced by something that can actually act on it. */
+section("Every CMS feature switch is wired to real code");
+(function checkFeatureFlagsWired() {
+  var contentJson = JSON.parse(
+    fs.readFileSync(path.join(ROOT, "assets/data/content.json"), "utf8")
+  );
+  var siteCfg = contentJson.site || {};
+  var haystack = ["assets/js/main.js", "assets/js/cart.js", "scripts/build-site-data.js"]
+    .map(function (f) {
+      var full = path.join(ROOT, f);
+      return fs.existsSync(full) ? fs.readFileSync(full, "utf8") : "";
+    })
+    .join("\n");
+
+  var flags = Object.keys(siteCfg).filter(function (k) {
+    return k.indexOf("enable") === 0 && typeof siteCfg[k] === "boolean";
+  });
+  if (!flags.length) {
+    fail("feature switches", "no enable* booleans found in content.json");
+  }
+  flags.forEach(function (flag) {
+    if (haystack.indexOf(flag) !== -1) ok(flag + ": referenced by site code");
+    else
+      fail(
+        flag + " is a dead switch",
+        "exposed in the CMS but never read by main.js, cart.js or the build -- " +
+          "either wire it up or remove it from admin/config.yml"
+      );
+  });
+
+  // The reverse: the CMS must not offer switches that content.json doesn't have.
+  var cmsPath = path.join(ROOT, "admin/config.yml");
+  if (fs.existsSync(cmsPath)) {
+    var cms = fs.readFileSync(cmsPath, "utf8");
+    var cmsFlags = (cms.match(/name:\s*(enable[A-Za-z0-9]+)/g) || []).map(function (m) {
+      return m.replace(/name:\s*/, "");
+    });
+    var orphans = cmsFlags.filter(function (f) {
+      return !(f in siteCfg);
+    });
+    if (!orphans.length) ok("no CMS switches missing from content.json");
+    else fail("CMS switches with no config", orphans.join(", "));
+  }
+})();
+
+/* ---------- HTML container-tag balance (regression guard) ----------
+   Real bug this caught: shop.html's <div class="page-hero"> was never
+   closed, so it wrapped the ENTIRE page instead of just the intro. That
+   silently pulled every section on the page under the
+   `.page-hero .container > * { max-width: 960px }` rule, capping the quiz,
+   product grid and reviews at 960px and pinning them left -- the hero
+   element measured 12,137px of a 12,937px page. <section id="reviews"> was
+   unclosed too.
+
+   Nothing caught it: browsers auto-correct unbalanced nesting rather than
+   erroring, so the page still "worked" and only looked subtly wrong. This
+   walks a tag stack over every page and fails on any container element that
+   is never closed, closed out of order, or closed without being opened.
+
+   Script/style bodies and comments are blanked out first (newlines kept so
+   reported line numbers stay accurate) -- otherwise a "<div>" inside a JS
+   string or a commented-out block counts as a real tag, which is exactly
+   the false positive that made a naive open-vs-close count useless here. */
+section("HTML container-tag balance (no unclosed/mismatched elements)");
+(function checkTagBalance() {
+  var VOID = [
+    "area",
+    "base",
+    "br",
+    "col",
+    "embed",
+    "hr",
+    "img",
+    "input",
+    "link",
+    "meta",
+    "source",
+    "track",
+    "wbr"
+  ];
+  var TRACK = [
+    "div",
+    "section",
+    "main",
+    "header",
+    "footer",
+    "form",
+    "dialog",
+    "article",
+    "nav",
+    "ul",
+    "ol",
+    "li",
+    "picture",
+    "table",
+    "figure"
+  ];
+  var blank = function (s) {
+    return s.replace(/[^\n]/g, " ");
+  };
+  PAGES.forEach(function (page) {
+    var full = path.join(ROOT, page);
+    if (!fs.existsSync(full)) return;
+    var raw = fs
+      .readFileSync(full, "utf8")
+      .replace(/<script[\s\S]*?<\/script>/gi, blank)
+      .replace(/<style[\s\S]*?<\/style>/gi, blank)
+      .replace(/<!--[\s\S]*?-->/g, blank);
+    var stack = [];
+    var problems = [];
+    var re = /<(\/?)([a-zA-Z][a-zA-Z0-9-]*)([^>]*)>/g;
+    var m;
+    while ((m = re.exec(raw)) !== null) {
+      var closing = m[1] === "/";
+      var tag = m[2].toLowerCase();
+      var attrs = m[3] || "";
+      if (TRACK.indexOf(tag) === -1) continue;
+      if (VOID.indexOf(tag) !== -1 || attrs.trim().slice(-1) === "/") continue;
+      var line = raw.slice(0, m.index).split("\n").length;
+      if (!closing) {
+        stack.push({ tag: tag, line: line });
+        continue;
+      }
+      var i = stack.length - 1;
+      while (i >= 0 && stack[i].tag !== tag) i--;
+      if (i === -1) {
+        problems.push("stray </" + tag + "> at line " + line);
+        continue;
+      }
+      for (var j = stack.length - 1; j > i; j--) {
+        problems.push("<" + stack[j].tag + "> opened at line " + stack[j].line + " never closed");
+      }
+      stack.length = i;
+    }
+    stack.forEach(function (s) {
+      problems.push("<" + s.tag + "> opened at line " + s.line + " never closed");
+    });
+    if (!problems.length) ok(page + ": container tags balanced");
+    else fail(page + ": unbalanced HTML", problems.slice(0, 3).join("; "));
+  });
+})();
+
 /* ---------- Summary ---------- */
 console.log("\n" + "=".repeat(50));
 console.log(passCount + " checks passed, " + failures.length + " failed.");

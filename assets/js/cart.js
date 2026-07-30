@@ -35,6 +35,12 @@
     if (item.id === GIFT_CARD_ID) {
       return item.id + "|" + (item.lineId || item.variantLabel || "");
     }
+    /* Two custom boxes with different contents are different lines, so key on
+       the contents. Same shape of problem as gift cards, where two cards for
+       different recipients mustn't merge into a quantity of 2. */
+    if (item.id === "custom-box") {
+      return item.id + "|" + (item.boxProductIds || []).join(",");
+    }
     return item.id + "|" + (item.variantLabel || "");
   }
 
@@ -114,6 +120,13 @@
       items: (items || []).map(function (it) {
         var o = { id: it.id, qty: it.qty };
         if (it.variantLabel) o.variant = it.variantLabel;
+        /* A build-your-own box carries its contents rather than a variant --
+           the Worker re-prices it from these ids against products.json and the
+           shop's customBox rules, so the amount the client thinks it costs is
+           never trusted (see resolveCustomBoxCents in workers/checkout.js). */
+        if (it.id === "custom-box" && Array.isArray(it.boxProductIds)) {
+          o.boxProductIds = it.boxProductIds.slice();
+        }
         if (it.id === GIFT_CARD_ID) {
           if (it.giftRecipientEmail) o.giftRecipientEmail = it.giftRecipientEmail;
           if (it.giftSenderName) o.giftSenderName = it.giftSenderName;
@@ -196,6 +209,11 @@
     drawer.className = "yl-cart-drawer";
     drawer.setAttribute("popover", "auto");
     drawer.setAttribute("role", "dialog");
+    /* popover="auto" is modal to pointer/Escape but doesn't set modal
+       semantics for assistive tech the way <dialog>.showModal() does, so state
+       it explicitly -- otherwise a screen reader keeps offering the page
+       behind the drawer as if it were still available. */
+    drawer.setAttribute("aria-modal", "true");
     drawer.setAttribute("aria-label", "Your cart");
     drawer.innerHTML =
       '<div class="yl-cart-head">' +
@@ -239,6 +257,21 @@
       }
     } else {
       drawer.setAttribute("data-open", "true");
+    }
+    /* popover="auto" shows the drawer but leaves focus on whatever opened it
+       (unlike <dialog>.showModal(), which moves focus in for you). Without
+       this, a keyboard user hits Enter on the cart button, the drawer appears,
+       and their focus is still out on the header -- the next Tab continues
+       through the page behind the drawer instead of into it, and a screen
+       reader never announces that anything opened. Move focus to the close
+       button, which is both the first control and the escape hatch. */
+    var closeBtn = drawer.querySelector(".yl-cart-close");
+    if (closeBtn) {
+      try {
+        closeBtn.focus({ preventScroll: true });
+      } catch {
+        closeBtn.focus();
+      }
     }
   }
 
@@ -407,7 +440,12 @@
       }
 
       pickupHTML =
-        '<div class="yl-cart-pickup-wrap" style="margin: 10px 0; padding: 10px; background: var(--paper-dim); border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 0.85rem;">' +
+        /* --paper-dim is a TEXT colour in this design system, not a surface
+           (see the palette at the top of assets/css/styles.css: --ink* are
+           backgrounds, --paper* are foregrounds). Using it as a background
+           here painted a light tan panel behind light --paper/--whiskey text,
+           landing around 1.4:1. --ink-3 is the real card-fill token. */
+        '<div class="yl-cart-pickup-wrap" style="margin: 10px 0; padding: 10px; background: var(--ink-3); border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 0.85rem;">' +
         '  <label style="display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer; color: var(--whiskey); margin: 0;">' +
         '    <input type="checkbox" id="yl-cart-pickup-checkbox" style="accent-color: var(--whiskey); cursor: pointer;"' +
         (state.isPickup ? " checked" : "") +
@@ -640,7 +678,16 @@
           btn.textContent = "Checkout";
         }
         announce("Checkout error: " + err.message);
-        window.alert("Sorry -- checkout isn't available right now. Please try again in a moment.");
+        /* This used to be a window.alert(). A native dialog is the wrong
+           control here: it's unstyled, it blocks the whole page until it's
+           dismissed, and it fires at the single worst moment -- the click that
+           was meant to take someone's money. It also throws away the drawer
+           context, so the customer loses sight of the cart they just built.
+           Show the failure inline under the button instead, where the cart
+           stays visible and they can simply click Checkout again. */
+        showCheckoutError(
+          "Sorry -- checkout isn't available right now. Please try again in a moment."
+        );
       });
   }
 
@@ -662,6 +709,24 @@
 
   function announce(msg) {
     if (liveEl) liveEl.textContent = msg;
+  }
+
+  /* Inline, dismissible checkout failure notice rendered into the drawer
+     footer (replaces the old blocking window.alert -- see checkout()'s catch).
+     role="alert" so assistive tech still gets it immediately without a native
+     dialog. Re-render of the footer clears it naturally. */
+  function showCheckoutError(msg) {
+    if (!footEl) return;
+    var existing = footEl.querySelector(".yl-cart-error");
+    if (!existing) {
+      existing = document.createElement("p");
+      existing.className = "yl-cart-error";
+      existing.setAttribute("role", "alert");
+      var note = footEl.querySelector(".yl-cart-note");
+      if (note) footEl.insertBefore(existing, note);
+      else footEl.appendChild(existing);
+    }
+    existing.textContent = msg;
   }
 
   function escapeHtml(s) {
@@ -715,11 +780,35 @@
     });
   }
 
+  /* Add a build-your-own box built by main.js's initCustomBox(). The price
+     passed in is for display in the drawer only -- workers/checkout.js
+     recomputes it from boxProductIds before charging anything, so a tampered
+     value here can't change what the customer actually pays. */
+  function addCustomBox(box) {
+    if (!box || !Array.isArray(box.productIds) || !box.productIds.length) return;
+    ensureDrawer();
+    state.items = addToList(state.items, {
+      id: "custom-box",
+      name: "Build-Your-Own Box (" + box.productIds.length + " items)",
+      price: box.price,
+      image: null,
+      variantLabel: "",
+      variantDelta: 0,
+      boxProductIds: box.productIds.slice(),
+      qty: 1
+    });
+    save();
+    render();
+    openDrawer();
+    announce("Custom box added to cart.");
+  }
+
   root.YLCart = {
     init: init,
     open: openDrawer,
     close: closeDrawer,
     clear: clear,
+    addCustomBox: addCustomBox,
     count: function () {
       return totalCount(state.items);
     },

@@ -20,14 +20,15 @@ I've set up a simple **Website Dashboard** where you can edit the site's content
 * **For technical setup (if you want me to walk you through it):** See [Section 20 (CMS Auth Setup)](#20-product-editor-sveltia-cms-at-admin-explained).
 
 ### 2. Checklist to Launch Your Store (Linking Your Tools)
-To start taking payments, sending newsletters, or moderating reviews directly on the site, you'll need to create accounts on these external platforms and link them to the site:
+To start taking payments, sending newsletters, or moderating reviews directly on the site, you'll need to create accounts on these external platforms and link them to the site. **For the click-by-click version of every step below (exact menu paths, a fill-in-the-blank handoff sheet at the end), see [docs/SETUP-GUIDE.md](SETUP-GUIDE.md)** — this list is just the summary.
 1. **[ ] Hosting & Domain (Netlify):** Connect your GitHub account to host the site for free and point your custom domain. (Setup steps in [Section 12](#12-deployment)).
-2. **[ ] Customer Checkout & Credit Cards (Stripe):** Powers the on-site cart's checkout so customers can add items and pay directly. (Setup steps in [Section 8](#8-the-shopping-system-explained)).
+2. **[ ] Customer Checkout & Credit Cards (Stripe + Cloudflare):** Two accounts, not one — but you create both yourself, same as everything else on this list. **(a)** Sign up for Stripe and grab a secret key — same as any account here. **(b)** Sign up for Cloudflare too, then invite me in as a Member. That key doesn't do anything by itself: it has to be installed on a small piece of backend code (`workers/checkout.js`) that also has to be *deployed* inside your Cloudflare account using a command-line tool called Wrangler — that part is genuinely my job, not a form to fill out. Ask me to run it once you've invited me in. (Full steps in [Section 8](#8-the-shopping-system-explained) and `workers/README.md`.)
 3. **[ ] Email Newsletters (Kit):** Collects customer email addresses from the signup box in the footer so you can send them updates. (Setup steps in [Section 13](#13-newsletter-signup-explained)).
-4. **[ ] Contact Form & Customer Reviews (Formspree):** Create two separate forms to send contact page messages and new customer reviews directly to your email inbox. (Setup steps in [Section 16](#16-on-site-review-submissions-explained)).
-5. **[ ] Digital Gift Cards (Gift Up! - Optional):** Lets you sell digital gift cards and manage redemptions. (Setup steps in [Section 18](#18-digital-gift-cards-explained)).
-6. **[ ] Customer Live Chat (Tawk.to - Optional):** Adds a small chat bubble to the bottom of the pages so customers can ask you questions. (Setup steps in [Section 19](#19-live-chat-explained)).
-7. **[ ] Store Management (Sveltia CMS):** Log in to your secure admin panel using your GitHub account to manage products and content. (Setup steps in [Section 20](#20-product-editor-sveltia-cms-at-admin-explained)).
+4. **[ ] Contact Form, Customer Reviews & Restock Alerts (Formspree):** Create three separate forms — contact messages, new customer reviews, and "email me when it's back" signups from sold-out products — each sent directly to your email inbox. (Setup steps in [Section 16](#16-on-site-review-submissions-explained)).
+5. **[ ] Gift Card Emails (Resend):** Required for the built-in gift-card system (item 2's checkout Worker uses it) to actually email a redeemable code once someone buys one — not optional unless you replace gift cards entirely with item 6. (Setup steps in `workers/README.md`.)
+6. ~~Digital Gift Cards — optional upgrade (Gift Up!)~~ **Not usable yet — nothing to do here.** A possible future paid alternative to item 5's built-in system, but the code that would actually switch to it was never finished, so its CMS field is hidden (`widget: hidden` in `admin/config.yml`) rather than shown-but-unusable. See [Section 18](#18-digital-gift-cards-explained) for the honest status check.
+7. **[ ] Customer Live Chat (Tawk.to - Optional):** Adds a small chat bubble to the bottom of the pages so customers can ask you questions. (Setup steps in [Section 19](#19-live-chat-explained)).
+8. **[ ] Store Management (Sveltia CMS):** Log in to your secure admin panel using your GitHub account to manage products and content — requires turning on GitHub login in Netlify first, one checkbox, see [Section 20](#20-product-editor-sveltia-cms-at-admin-explained).
 
 ### 3. Setting Up Your Website Name (Domain Name)
 When you're ready to buy your own custom web address (like `yallternativeliving.com`), just let me know. I've already wired up a script that will automatically update the entire site to use your new address in one click. You or I can follow the steps in [Section 10](#10-seo--ai-agent-optimization-already-in-place) to run it!
@@ -411,7 +412,9 @@ every product) but is no longer the only way to buy.
   remember.
 - Gift cards are a special case: buying one triggers a second backend piece
   (`netlify/functions/fulfill-gift-card.js`) that emails the recipient a
-  redeemable code once payment actually completes. See section 18.
+  redeemable code once payment actually completes, using
+  **[Resend](https://resend.com)** to actually send that email (a separate
+  free account/API key from Stripe -- see Part B below). See section 18.
 - Shipping: a flat $10 charge applies below a $40 order subtotal, free above
   it (matches the "Free shipping on orders over $40" banner already on
   every page). This is a hardcoded starting default in `workers/checkout.js`
@@ -419,14 +422,40 @@ every product) but is no longer the only way to buy.
   top) — Snipcart used to own this from its own dashboard; there's no
   dashboard here, so adjust those two numbers directly in the file if real
   rates differ, then redeploy the Worker.
-- Taxes: **not currently calculated or charged anywhere.** Snipcart used to
-  offer one-click US sales tax via TaxJar; the Stripe replacement doesn't
-  have an equivalent wired in yet. If tax collection matters for this
-  business (worth checking with whoever handles its taxes), the fix is
-  either Stripe Tax (a paid Stripe add-on that plugs into Checkout Sessions
-  with a couple of added params) or a manual accounting process outside the
-  checkout flow — this needs a real decision, not a default value like
-  shipping got.
+- Taxes: **built, but switched off until someone turns it on.**
+  `workers/checkout.js` supports Stripe Tax behind a `STRIPE_TAX_ENABLED`
+  Worker variable, and ships with it off. Why off by default and not just
+  always on: Stripe Tax only collects where you hold an active registration,
+  and calling it before Stripe Tax is activated on the account makes Stripe
+  **reject the entire Checkout Session** — so a premature "on" doesn't
+  quietly skip the tax line, it breaks every purchase. Turning it on is
+  therefore a two-part job, and the paperwork half has to come first:
+
+  1. **In the Stripe Dashboard** (Savanna, or whoever handles the business's
+     taxes): set a head-office address under Tax → Settings, then add a
+     registration under Tax → Registrations for South Carolina — and any
+     other state where enough sales accumulate to create an obligation.
+     Stripe's Tax → Monitoring page watches those thresholds for you.
+     Whether a registration is required at all is a real tax question, not a
+     technical one, and worth asking an accountant rather than guessing.
+  2. **Then, in Cloudflare** (Steven): set the Worker variable
+     `STRIPE_TAX_ENABLED = "true"` and redeploy. Nothing else changes.
+
+  Once on, the Worker sends `automatic_tax[enabled]=true`, creates a Customer
+  so Stripe has an address to rate against, marks every price
+  tax-exclusive (site prices are pre-tax), and tags each line with a real
+  product tax code instead of leaning on the account default: gift cards
+  `txcd_10502000`, apparel `txcd_30011000`, everything else
+  `txcd_99999999`, with shipping tagged `txcd_92010001` so states that tax
+  delivery charges get it right. Stripe Tax is a paid add-on — check
+  [current pricing](https://stripe.com/tax/pricing) before flipping it on.
+
+  **Discounts and tax together:** Stripe rates the subtotal *after*
+  discounts, which is the right answer for this site's own markdowns — a
+  bundle's `discountPercent` and the custom box's 10% are already baked into
+  the price sent to Stripe, and a sale price is a genuinely lower price, so
+  tax should follow it down. The imperfect case is gift cards: see
+  [Section 18](#18-digital-gift-cards-explained).
 
 **What you (Savanna) still need to do — I can't do this part for you,
 since it requires creating an account and entering real payment details,
@@ -453,10 +482,14 @@ sessions and handle gift cards) — but full step-by-step instructions are in
 
 3. Deploy `workers/checkout.js` to Cloudflare Workers (free tier is plenty
    for a shop this size) with your Stripe secret key and site domain.
-4. Set the three environment variables `fulfill-gift-card.js` needs in
-   Netlify's site settings, then register it as a Stripe webhook endpoint
-   (Developers → Webhooks in the Stripe Dashboard) so gift cards actually
-   get emailed.
+4. Sign up for a free **[Resend](https://resend.com)** account and grab an
+   API key -- this is what actually sends the gift-card email, and it's
+   easy to miss since it's not a Stripe or Netlify product. Set the three
+   environment variables `fulfill-gift-card.js` needs in Netlify's site
+   settings (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and
+   `RESEND_API_KEY`), then register the function as a Stripe webhook
+   endpoint (Developers → Webhooks in the Stripe Dashboard) so gift cards
+   actually get emailed.
 
 **C. Store details**
 
@@ -953,13 +986,48 @@ mechanism now, not a stopgap.
 
 Fulfillment is automatic, not manual: once payment completes, `netlify/functions/fulfill-gift-card.js` (the checkout webhook, see section 8) generates a redemption code, creates a matching single-use Stripe Promotion Code for it, and emails it to the recipient — Savanna doesn't have to read orders and hand-create anything. The recipient later enters that code at checkout (`workers/checkout.js` sets `allow_promotion_codes: true`) to redeem it.
 
-**Optional third-party alternative (Gift Up!).** The system is also prepared to hand off entirely to **[Gift Up!](https://www.giftup.com)** (a purpose-built gift card platform with its own balance tracking, printable cards, and in-person redemption app) if that's ever preferred over the built-in flow. If a Gift Up! embed code is pasted inside `#giftUpContainer` in `shop.html`, the custom gift-card configurator form is bypassed, and the Gift Up! checkout widget is loaded instead.
+**Gift cards and sales tax — a known gap, only relevant once tax is on.**
+This site redeems a gift card as a Stripe Promotion Code (an `amount_off`
+coupon), which means Stripe classifies a redemption as a *discount* and
+rates the reduced amount. Tax law generally treats a gift card as a *payment
+method* instead: tax the full price, then let the card pay part of the total
+including that tax. Combined with the fact that gift cards are correctly
+untaxed at purchase (tax code `txcd_10502000`), an order paid entirely with
+a gift card currently collects no sales tax at either end — purchase or
+redemption. Nobody is over-charged; the shortfall would land on Savanna at
+filing time.
+
+Scale matters here before anyone panics: this only bites once
+`STRIPE_TAX_ENABLED` is on (see section 8), and only in proportion to how
+much of the shop's revenue actually moves through gift cards. Three options,
+cheapest first:
+
+1. **Accept and reconcile.** Stripe's tax reports show the gift-card orders;
+   account for the difference manually at filing time. Fine at low volume,
+   and it costs nothing.
+2. **Tax gift cards at purchase** — change `TAX_CODE_GIFT_CARD` in
+   `workers/checkout.js` to `txcd_99999999`. This collects roughly the right
+   *total* tax, just at the wrong moment and from the buyer rather than the
+   recipient. Most states specifically prohibit taxing a gift-card sale, so
+   check before choosing this.
+3. **Replace coupons with real stored-value balances**, so a redemption is
+   applied after tax rather than before. Correct, and much more work — it
+   means either a balance-tracking backend or a platform that provides one
+   (which is exactly what the Gift Up! note below is about).
+
+**Optional third-party alternative (Gift Up!) — half-built, not usable yet.** The idea: hand off entirely to **[Gift Up!](https://www.giftup.com)** (a purpose-built gift card platform with its own balance tracking, printable cards, and in-person redemption app -- relevant since this business also sells at farmers markets and Pride events, where the built-in Stripe flow has no in-person path at all) if that's ever preferred over the built-in flow.
+
+**Honest status check:** only half of this actually works. `scripts/build-site-data.js` *does* generate a real, functional Gift Up! widget embed when a real `giftUpId` is set (verified in the code). But nothing checks `giftUpId` anywhere in `main.js` or `cart.js` -- the built-in "Configure Card" button and `#giftCardModal` are generated unconditionally (`addToCartHTML()`), with no bypass logic at all. So pasting a real Gift Up! ID today would show **both** gift-card systems live on the same page, not a clean swap. Because of that, the `giftUpId` field is **hidden in the CMS** (`widget: hidden` in `admin/config.yml`) rather than shown-but-unusable -- the key is still declared so the CMS round-trips its value instead of dropping it on save, but Savanna can't set it by accident. Unhide it (`widget: string`) only after the bypass below exists.
 
 ### Built-in (Stripe) vs. Gift Up! comparison
 
-| Feature | Built-in (Stripe, Default) | Gift Up! Checkout (Optional Embed) |
+This table describes the *intended* end state once the bypass logic
+above gets built — not what happens if you paste a Gift Up! ID today
+(see the honest status check above: right now, both would run at once).
+
+| Feature | Built-in (Stripe, Default) | Gift Up! Checkout (Not yet wired) |
 | :--- | :--- | :--- |
-| **How it Works** | Bought as a digital product directly in the main store grid and checkout. | Bypasses the built-in checkout; loads an iframe popup widget directly from Gift Up!. |
+| **How it Works** | Bought as a digital product directly in the main store grid and checkout. | *(Once built)* would bypass the built-in checkout and load a widget from Gift Up!. |
 | **Fulfillment** | **Automatic**: `fulfill-gift-card.js` generates the code and emails it the moment payment completes — no manual step. | **Automatic**: Gift Up! automatically generates the code, tracks the balance, and emails a beautiful, ready-to-print digital gift card to the recipient instantly. |
 | **Redemption** | Customers enter the emailed Stripe Promotion Code at checkout, same cart as everything else. | Gift Up! codes are scanned/validated through Gift Up!'s own system, or inputted at in-person events via the Gift Up! mobile app. |
 | **Cart Integration** | **Unified**: Customers can add a gift card and physical products (like a beard salve) to the same cart and check out once. | **Separated**: Gift cards must be purchased in a separate transaction from physical items. |
@@ -967,26 +1035,24 @@ Fulfillment is automatic, not manual: once payment completes, `netlify/functions
 | **Fees** | Stripe's standard per-transaction fee only — no separate gift-card platform fee. | Gift Up!'s own transaction fees (usually around 3.49% on free accounts) *on top* of standard payment processing. |
 | **Setup Overhead** | None beyond the checkout Worker + webhook deploy already needed for the rest of the store (section 8). | Requires setting up a Gift Up! account, configuring branding templates, and copying the embed snippet into `shop.html`. |
 
-**What you (Savanna) still need to do (if you choose to use Gift Up!):**
+**If Gift Up! is ever wanted, in this order:**
 
+0. **Steven builds the bypass first** — teach `addToCartHTML()` /
+   `giftCardModal` in `main.js` to check `window.YL_CONTENT.site.giftUpId`
+   and skip rendering the built-in "Configure Card" button when it's set
+   to a real value. Nothing below matters until this exists; skip
+   straight to it, this isn't a Savanna step.
 1. [Sign up for a free Gift Up! account](https://giftup.app/account/register)
    and set up your branded gift card design.
 2. Check [Gift Up!'s current pricing](https://www.giftup.com/pricing)
-   for their per-transaction fee before going live (their site
-   advertises no monthly/setup fee, but confirm the transaction-fee
-   details yourself since those change).
-3. From your Gift Up! dashboard, grab the real embed snippet for your
-   store and replace the `YOUR_GIFTUP_EMBED_CODE` placeholder comment
-   inside `#giftUpContainer` in `shop.html` with it — copy it exactly,
-   don't hand-type it (same rule as any third-party embed snippet, like
-   the Tawk.to one in section 19).
-4. Once you have that real snippet, check the browser console for any
-   CSP "Refused to ..." errors and add whatever domain it names to
-   `scripts/build-security-headers.js`'s `csp` array (most likely
-   `giftup.app` and/or a CDN it loads from) — re-run that script after.
-5. Until steps 1–4 are done, the section just shows an honest "email us"
-   fallback instead of a broken or fake gift-card box — nothing to fix
-   there, that's the intended default state.
+   for their per-transaction fee before going live.
+3. Unhide the field (`admin/config.yml`, `giftUpId`: `widget: hidden` →
+   `widget: string`), then grab the real embed snippet from your Gift
+   Up! dashboard and enter the account code in `/admin` — copy it
+   exactly, don't hand-type it.
+4. Check the browser console for any CSP "Refused to ..." errors and
+   add whatever domain it names to `scripts/build-security-headers.js`,
+   then re-run that script.
 
 ## 19. Live chat, explained
 

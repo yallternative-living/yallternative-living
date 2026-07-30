@@ -13,6 +13,8 @@
 #   4. Page Wording             -- assets/data/content.json
 # Full setup instructions (GitHub repo, Netlify OAuth, first login) are
 # in DEVELOPMENT.md section 20 -- read that before changing anything here.
+# For the click-by-click version of that same setup, see docs/SETUP-GUIDE.md
+# Step 2C.
 #
 # backend.repo below now points at the real repo:
 # github.com/yallternative-living/yallternative-living. What's still needed
@@ -77,6 +79,21 @@ collections:
               - { name: reviewCount, label: "Etsy Review Count (real number only)", widget: number, value_type: int }
               - { name: sales, label: "Etsy Sales Count (real number only)", widget: number, value_type: int }
               - { name: freeShippingThreshold, label: "Free Shipping Threshold (USD)", widget: number, value_type: int, hint: "Orders at or above this amount get free shipping. Set to 0 to disable." }
+              - name: customBox
+                label: "Build-Your-Own Box"
+                widget: object
+                required: false
+                collapsed: true
+                hint: "Settings for the pick-your-own bundle on the shop page. The box price is always worked out from the real prices of whatever the shopper picks, minus the discount below."
+                fields:
+                  - { name: minItems, label: "Minimum items in a box", widget: number, value_type: int, default: 3 }
+                  - { name: maxItems, label: "Maximum items in a box", widget: number, value_type: int, default: 5 }
+                  - { name: discountPercent, label: "Discount (%)", widget: number, value_type: int, default: 10, hint: "Percent off the combined price of the chosen items." }
+                  - name: eligibleCategories
+                    label: "Categories shoppers can pick from"
+                    widget: list
+                    default: ["salves", "body", "soaks", "potions", "ritual"]
+                    hint: "Category codes, e.g. salves, body, soaks, potions, ritual. Apparel and gift cards are usually left out."
 
           - name: sales
             label: Category Sales
@@ -227,6 +244,11 @@ collections:
                 label: "Ingredients Caveat (optional, e.g. \"No essential oils, no added fragrance.\")"
                 widget: string
                 required: false
+              - name: scent
+                label: "Scent Profile (optional)"
+                widget: string
+                required: false
+                hint: "One short scent name, e.g. Lavender, Bourbon Vanilla, Frankincense, or Unscented. Products sharing a name get grouped together in the shop's scent filter. Leave blank if it doesn't apply."
               - name: variants
                 label: "Size/Scent/Blend Variants (optional -- leave blank for a single-option product)"
                 widget: object
@@ -448,14 +470,22 @@ collections:
               - { name: tawkToWidgetId, label: "Live Chat Widget Code (Tawk.to)", widget: string, required: false, hint: "Optional live chat widget ID." }
               - { name: formspreeContactId, label: "Contact Form Code (Formspree)", widget: string, required: false, hint: "Your Formspree code for messages sent from the Contact page." }
               - { name: formspreeReviewId, label: "Customer Reviews Form Code (Formspree)", widget: string, required: false, hint: "Your Formspree code for customer review submissions." }
-              - { name: giftUpId, label: "Gift Card Account Code (Gift Up! - Optional)", widget: string, required: false, hint: "Optional code if using Gift Up! digital gift cards." }
+              - { name: formspreeRestockId, label: "Launch Alert Signup Code (Formspree)", widget: string, required: false, hint: "Your Formspree code for 'email me when it launches' signups." }
+              # Hidden on purpose (widget: hidden = stored, but no UI control).
+              # Gift Up! is only half-built: setting a real ID generates a
+              # working Gift Up! widget, but nothing hides the built-in
+              # gift-card button, so both would render at once. The field
+              # stays declared so the CMS round-trips the value instead of
+              # dropping it on save -- unhide it (widget: string) only after
+              # the bypass in main.js exists. See DEVELOPMENT.md section 18.
+              - { name: giftUpId, label: "Gift Card Account Code (Gift Up!)", widget: hidden, required: false }
               - { name: umamiWebsiteId, label: "Website Analytics Code (Umami - Optional)", widget: string, required: false, hint: "Optional code for cookieless website visitor tracking." }
               - { name: enableJournal, label: "Show Apothecary Journal (Blog)", widget: boolean, default: false, required: false, hint: "Show or hide the blog page." }
               - { name: enableSocialFeed, label: "Show Social Media Feed", widget: boolean, default: false, required: false, hint: "Show or hide the Instagram/TikTok social feed on the homepage." }
-              - { name: enableRestockAlerts, label: "Show Restock Email Alerts", widget: boolean, default: true, required: false, hint: "Let customers sign up for email alerts when an item sells out." }
+              - { name: enableRestockAlerts, label: "Show 'Email Me When It Launches' Signup", widget: boolean, default: true, required: false, hint: "Adds an email signup to any product marked Coming Soon, so shoppers can be told when it lands." }
+              - { name: enableCustomBoxBuilder, label: "Show Build-Your-Own Box", widget: boolean, default: true, required: false, hint: "Let shoppers pick their own mix of goods for a discounted bundle. Sizes and discount are set under Shop Settings." }
+              - { name: enableScentFilter, label: "Show Scent Filter", widget: boolean, default: true, required: false, hint: "Adds scent buttons to the shop filters. Only appears once at least two products have a Scent set on them." }
               - { name: enableIngredientsModal, label: "Show Botanical Ingredients Info", widget: boolean, default: true, required: false, hint: "Show the interactive ingredients list on product cards." }
-              - { name: enableCustomBoxBuilder, label: "Show Custom Pick & Mix Box Builder", widget: boolean, default: true, required: false, hint: "Let shoppers build their own custom gift box on the shop page." }
-              - { name: enableScentFilter, label: "Show Scent Profile Filter", widget: boolean, default: true, required: false, hint: "Let shoppers filter products by scent." }
               - { name: enableLocalPickup, label: "Show Free Local Market Pick-up", widget: boolean, default: true, required: false, hint: "Offer a free local pop-up market pickup option in the cart." }
               - { name: enableCountdownTicker, label: "Show Event Countdown Ticker", widget: boolean, default: true, required: false, hint: "Display the countdown timer for your next upcoming market or pop-up." }
               - { name: enableOrderStatusLookup, label: "Show Order Lookup Tool", widget: boolean, default: true, required: false, hint: "Let customers check order progress and shipping status." }

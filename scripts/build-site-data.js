@@ -455,6 +455,30 @@ var reviewsDataJs =
   ";\n";
 writeFile("assets/js/site-reviews-data.js", reviewsDataJs);
 
+/* ---------- assets/js/content-data.js ----------
+   window.YL_CONTENT wrapper around assets/data/content.json.
+
+   assets/js/cart.js and assets/js/main.js already read
+   window.YL_CONTENT.site to decide whether loyalty points and local market
+   pick-up are switched on -- but nothing ever emitted that global, so those
+   reads always saw undefined. Both gates are written defensively as
+   `site.enableX !== false`, which means undefined evaluated to TRUE and the
+   features were permanently on: flipping either toggle in the CMS did
+   nothing at all. Emitting the file makes those two switches real, and gives
+   any future runtime flag a single place to come from. */
+var contentDataJs =
+  "/**\n" +
+  " * @fileoverview Auto-generated site content/config.\n" +
+  " * Wrap of assets/data/content.json into a global variable YL_CONTENT.\n" +
+  " * Do not hand-edit this file -- edit assets/data/content.json (or use\n" +
+  " * the CMS at /admin) and re-run scripts/build-site-data.js.\n" +
+  " * @const {!Object}\n" +
+  " */\n" +
+  "window.YL_CONTENT = " +
+  JSON.stringify(CONTENT, null, 2) +
+  ";\n";
+writeFile("assets/js/content-data.js", contentDataJs);
+
 var journalDataJs =
   "/**\n" +
   " * @fileoverview Auto-generated Apothecary Journal data.\n" +
@@ -1501,6 +1525,59 @@ if (DOMAIN_IS_LIVE) {
     var html = fs.readFileSync(filePath, "utf8");
     var updated = html;
 
+    /* ---------- feature gates ----------
+       The quiz, countdown ticker and order-lookup tool all shipped hardcoded
+       on while their CMS switches were read by nothing, so toggling one in the
+       dashboard did nothing at all.
+
+       Gating is done by injecting a <style> block into the <head> rather than
+       deleting the markup: stripping the elements would be a one-way door --
+       once the block is gone from the built file, flipping the switch back on
+       has nothing left to restore (unlike the journal nav link, which the
+       build regenerates from scratch). display:none also takes the element out
+       of the accessibility tree, so it's genuinely hidden, not just invisible,
+       and the rule lands in <head> so nothing flashes before it applies. */
+    var FEATURE_SELECTORS = {
+      enableApothecaryQuiz: "#apothecary-quiz-section",
+      enableCountdownTicker: "#yl-countdown-ticker",
+      enableOrderStatusLookup: "#order-status-modal, #openOrderStatusBtn"
+    };
+    updated = updated.replace(
+      /<!--YL:featureStyles-->([\s\S]*?)<!--\/YL:featureStyles-->/g,
+      function () {
+        var off = Object.keys(FEATURE_SELECTORS).filter(function (k) {
+          return site[k] === false;
+        });
+        if (!off.length) return "<!--YL:featureStyles--><!--/YL:featureStyles-->";
+        var css = off
+          .map(function (k) {
+            return FEATURE_SELECTORS[k] + "{display:none !important}";
+          })
+          .join("");
+        return (
+          "<!--YL:featureStyles--><style>/* feature switches off in /admin */" +
+          css +
+          "</style><!--/YL:featureStyles-->"
+        );
+      }
+    );
+
+    /* Keep journal.html out of the search index while the Journal is switched
+       off. With enableJournal false the page still deploys and is still a live,
+       fetchable URL, but nothing links to it and it's left out of sitemap.xml --
+       an orphan page with a self-referential canonical, which is exactly the
+       kind of thin/duplicate URL that's better explicitly noindexed than left
+       ambiguous. Flipping the flag on removes the tag in the same pass. */
+    if (page === "journal.html") {
+      updated = updated.replace(
+        /<!--YL:journal\.robots-->([\s\S]*?)<!--\/YL:journal\.robots-->/g,
+        function () {
+          var tag = site.enableJournal ? "" : '<meta name="robots" content="noindex, follow">';
+          return "<!--YL:journal.robots-->" + tag + "<!--/YL:journal.robots-->";
+        }
+      );
+    }
+
     // Inject the Journal nav link if enabled
     if (site.enableJournal) {
       updated = updated.replace(
@@ -1527,6 +1604,7 @@ if (DOMAIN_IS_LIVE) {
       /<!--YL:site\.([a-zA-Z0-9]+)-->([\s\S]*?)<!--\/YL:site\.\1-->/g,
       function (match, key) {
         if (key === "giftUpId") return match; // Handled separately below
+        if (key === "umamiWebsiteId") return match; // Handled separately below
         if (key === "logoDesktop" && site[key]) {
           return (
             '<!--YL:site.logoDesktop-->\n          <img class="logo-desktop" src="' +
@@ -1538,6 +1616,33 @@ if (DOMAIN_IS_LIVE) {
           return "<!--YL:site." + key + "-->" + site[key] + "<!--/YL:site." + key + "-->";
         }
         return match;
+      }
+    );
+
+    /* Special handling for the Umami analytics tag.
+       umamiWebsiteId was added to content.json + the Sveltia CMS, but no page
+       ever referenced it -- so typing a real ID into the dashboard silently did
+       nothing while all 12 pages kept the hardcoded "YOUR_UMAMI_WEBSITE_ID"
+       forever, loading cloud.umami.is/script.js on every view to report against
+       an ID that doesn't exist. This wires the value through for real, and
+       drops the tag entirely while the ID is still the placeholder, so a
+       not-yet-configured site makes no analytics request at all.
+       Note: the disabled state emits nothing between the markers rather than
+       commenting the tag out -- an HTML comment containing a literal script tag
+       would trip build-security-headers.js's regex scanner (see qa-check.js
+       section 13). */
+    updated = updated.replace(
+      /<!--YL:site\.umamiWebsiteId-->([\s\S]*?)<!--\/YL:site\.umamiWebsiteId-->/g,
+      function (match) {
+        if (site.umamiWebsiteId === undefined) return match;
+        var val = String(site.umamiWebsiteId).trim();
+        var isReal = val && val !== "YOUR_UMAMI_WEBSITE_ID";
+        var body = isReal
+          ? '<script defer src="https://cloud.umami.is/script.js" data-website-id="' +
+            val +
+            '"></script>'
+          : "";
+        return "<!--YL:site.umamiWebsiteId-->" + body + "<!--/YL:site.umamiWebsiteId-->";
       }
     );
 
@@ -1634,6 +1739,19 @@ if (DOMAIN_IS_LIVE) {
       '  <meta name="description" content="' +
       pDesc +
       '">\n' +
+      /* These 19 files exist only so a shared/pasted product link renders a
+         rich preview -- a human hitting one is immediately JS-redirected to the
+         real listing on shop.html. Without a canonical they're 19 indexable
+         URLs whose content duplicates shop.html and which aren't in
+         sitemap.xml, competing with the page actually meant to rank. Point
+         every one at shop.html so the ranking signals consolidate there.
+         (Canonical deliberately omits the #id fragment -- search engines drop
+         fragments from canonical URLs, so shop.html is the real target.)
+         Social scrapers read the og:* tags below regardless of this tag, so
+         previews are unaffected. */
+      '  <link rel="canonical" href="' +
+      DOMAIN +
+      '/shop.html">\n' +
       "  <!-- OpenGraph -->\n" +
       '  <meta property="og:type" content="product">\n' +
       '  <meta property="og:title" content="' +

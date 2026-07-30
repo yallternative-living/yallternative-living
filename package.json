@@ -14,7 +14,7 @@
     "sync-etsy": "node scripts/apply-etsy-snapshot.js",
     "test": "node scripts/qa-check.js",
     "test:integration": "node scripts/puppeteer_tests.js",
-    "lint": "eslint scripts assets/js",
+    "lint": "eslint scripts assets/js workers netlify",
     "format": "prettier --write \"scripts/**/*.js\" \"assets/js/*.js\"",
     "format:check": "prettier --check \"scripts/**/*.js\" \"assets/js/*.js\""
   },

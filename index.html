@@ -32,7 +32,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Gloock&family=DM+Sans:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=DM+Sans:wght@400;500;700&display=swap" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=DM+Sans:wght@400;500;700&display=swap" media="print" id="gfontsStylesheet">
+<script>document.getElementById("gfontsStylesheet").addEventListener("load",function(){this.media="all";});</script>
 <noscript>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=DM+Sans:wght@400;500;700&display=swap">
 </noscript>
@@ -67,7 +68,7 @@
      No cookie-consent banner required. Before this records anything real:
        1. Create a free Umami Cloud account (or self-host) and add this site.
        2. Swap the placeholder data-website-id below for the real one. -->
-<script defer src="https://cloud.umami.is/script.js" data-website-id="YOUR_UMAMI_WEBSITE_ID"></script>
+<!--YL:site.umamiWebsiteId--><!--/YL:site.umamiWebsiteId-->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -105,11 +106,24 @@
   }]
 }
 </script>
+<noscript>
+  <!-- YL:noscript-reveal -- .reveal starts at opacity:0 and is only un-hidden by
+       main.js's IntersectionObserver. With JS disabled nothing ever adds .in,
+       so every revealed section stays invisible and the page renders blank.
+       Neutralise the hidden state when scripting is off. -->
+  <style>.reveal{opacity:1!important;transform:none!important}</style>
+</noscript>
+<!--YL:featureStyles--><!--/YL:featureStyles-->
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
 <!-- HERO ANNOUNCEMENT BAR WITH CLS PREVENTIVE RESERVATION -->
-<div class="announcement-bar" id="yl-countdown-ticker" aria-live="polite">
+<!-- No aria-live here on purpose: the countdown below rewrites its seconds
+     field once a second, so a live region made screen readers announce the
+     whole "79 days, 11 hours, 54 mins, 09 secs" string every single second,
+     forever, drowning out the rest of the page. The text stays readable on
+     demand; it just no longer interrupts. -->
+<div class="announcement-bar" id="yl-countdown-ticker">
   <span class="announcement-content" id="heroAnnouncementContent">
     <span class="ticker-badge">⚡ NEXT POP-UP:</span>
     <span class="ticker-timer" id="heroCountdownTimer">
@@ -432,6 +446,7 @@
     </div>
   </div>
 </footer>
+<script src="assets/js/content-data.js?v=2.0" defer></script>
 <script src="assets/js/products-data.js?v=2.0" defer></script>
 <script src="assets/js/events-data.js?v=2.0" defer></script>
 <script src="assets/js/site-reviews-data.js?v=2.0" defer></script>
@@ -448,9 +463,18 @@
 <script type="text/javascript">
 var Tawk_API = Tawk_API || {}, Tawk_LoadStart = new Date();
 (function () {
+  /* Both IDs are injected from content.json by scripts/build-site-data.js.
+     Until Savanna sets real ones, they're still the "YOUR_..." placeholders --
+     in that state this used to build a live embed.tawk.to URL out of them and
+     request it on every single page load, which 404s and buys nothing. Bail
+     out instead, so the widget stays genuinely inert until it's configured. */
+  var propertyId = /*YL:site.tawkToPropertyId*/ "YOUR_TAWKTO_PROPERTY_ID" /*/YL:site.tawkToPropertyId*/;
+  var widgetId = /*YL:site.tawkToWidgetId*/ "YOUR_TAWKTO_WIDGET_ID" /*/YL:site.tawkToWidgetId*/;
+  if (!propertyId || !widgetId) return;
+  if (propertyId.indexOf("YOUR_") === 0 || widgetId.indexOf("YOUR_") === 0) return;
   var s1 = document.createElement("script"), s0 = document.getElementsByTagName("script")[0];
   s1.async = true;
-  s1.src = "https://embed.tawk.to/" + /*YL:site.tawkToPropertyId*/ "YOUR_TAWKTO_PROPERTY_ID" /*/YL:site.tawkToPropertyId*/ + "/" + /*YL:site.tawkToWidgetId*/ "YOUR_TAWKTO_WIDGET_ID" /*/YL:site.tawkToWidgetId*/;
+  s1.src = "https://embed.tawk.to/" + propertyId + "/" + widgetId;
   s1.charset = "UTF-8";
   s1.setAttribute("crossorigin", "*");
   s0.parentNode.insertBefore(s1, s0);

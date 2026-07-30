@@ -126,6 +126,32 @@
   --container: 1320px;
   --radius: 8px;
   --radius-lg: 16px;
+
+  /* Compatibility aliases.
+     Later feature work (the Apothecary Quiz in shop.html, plus a few rules
+     further down this file) was written against these four names, but they
+     were never actually defined anywhere -- 39 references in total, every one
+     of them resolving to nothing. An undefined var() in a shorthand makes the
+     whole declaration invalid, so `border: 1px solid var(--border-color)`
+     silently fell back to a currentColor border and the radii to square
+     corners. Defined here as aliases of the real tokens rather than
+     find-and-replaced at each call site, so they stay theme-aware: --hide and
+     --paper-dim are both re-declared per theme, and var() resolves at use
+     time, so these follow dark/light automatically. */
+  --border-color: var(--hide);
+  --paper-muted: var(--paper-dim);
+  --radius-sm: 6px;
+  --radius-md: var(--radius);
+  --radius-large: var(--radius-lg);
+  --bg: var(--ink);
+  --crimson: var(--error);
+  --font-heading: var(--font-display);
+  /* Order-status timeline "step complete" green. Was only ever referenced as
+     var(--moss), never declared -- two of its three uses had no fallback, so
+     the active step lost its border and focus ring entirely. Value taken from
+     the one call site that did carry a fallback, so nothing changes visually
+     where it already worked. */
+  --moss: #4a6b5d;
 }
 
 /* Prevent CSS Grid blowout bug in Chrome/Safari */
@@ -1150,6 +1176,138 @@ section{
   }
 }
 
+/* ── Build-Your-Own Box ───────────────────────────────── */
+.custom-box-card {
+  background: var(--ink-2);
+  border: 1px solid var(--hide);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  box-shadow: var(--shadow);
+}
+
+.custom-box-head {
+  text-align: center;
+  margin-bottom: 1.25rem;
+
+  & h2 { font-family: var(--font-display); margin: .4rem 0 .5rem; }
+}
+
+.custom-box-options {
+  list-style: none;
+  margin: 0 0 1.25rem;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: .6rem;
+}
+
+.custom-box-option {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: .7rem .8rem;
+  background: oklch(from var(--ink-3) calc(l + 0.02) c h);
+  border: 1px solid var(--hide);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+
+  &:hover, &:focus-within {
+    border-color: var(--whiskey);
+    background: oklch(from var(--ink-3) calc(l + 0.06) c h);
+  }
+
+  &.is-chosen {
+    border-color: var(--whiskey);
+    box-shadow: inset 0 0 0 1px var(--whiskey);
+    background: oklch(from var(--whiskey) l c h / .1);
+  }
+
+  /* Greyed out once the box is full -- still announced as disabled, not
+     just visually muted. */
+  &.is-disabled { opacity: .5; cursor: not-allowed; }
+}
+
+.custom-box-option-name { flex: 1 1 auto; font-weight: 600; font-size: .9rem; }
+.custom-box-option-price { color: var(--paper-dim); font-size: .85rem; font-variant-numeric: tabular-nums; }
+
+.custom-box-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  border-top: 1px solid var(--hide);
+  padding-top: 1rem;
+}
+
+.custom-box-summary { margin: 0; font-size: .95rem; }
+.custom-box-saving { color: var(--success); font-weight: 700; }
+
+/* Launch-alert signup revealed under a Coming Soon product's button. */
+.yl-notify-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  width: 100%;
+
+  & input[type="email"] {
+    flex: 1 1 150px;
+    min-width: 0;
+    padding: 8px 10px;
+    font-size: .82rem;
+    font-family: var(--font-body);
+    color: var(--paper);
+    background: var(--ink-3);
+    border: 1px solid var(--hide);
+    border-radius: var(--radius);
+  }
+
+  & .btn { flex: 0 0 auto; }
+}
+
+.yl-notify-done {
+  margin: 8px 0 0;
+  font-size: .82rem;
+  color: var(--success);
+  font-weight: 600;
+}
+
+/* Order-tracking-unavailable notice. Same reasoning as .form-fallback-note
+   below: state plainly that the lookup isn't wired up rather than inventing
+   an order status. */
+.order-lookup-unavailable {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--hide);
+  border-radius: var(--radius);
+  background: var(--ink-3);
+  color: var(--paper);
+  font-size: .88rem;
+  line-height: 1.55;
+
+  & a { color: var(--whiskey); font-weight: 600; }
+}
+
+/* "This form isn't connected yet" notice -- see showFormFallback() in
+   assets/js/main.js. Deliberately styled as a warning, not a success. */
+.form-fallback-note {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--error);
+  border-radius: var(--radius);
+  background: oklch(from var(--error) l c h / .12);
+  color: var(--paper);
+  font-size: .85rem;
+  line-height: 1.5;
+
+  & a {
+    color: var(--rose-text);
+    font-weight: 600;
+  }
+}
+
 .contact-form-col.is-submitted {
   & .contact-form, & .contact-form-desc { display:none; }
   & .contact-form-confirm { display:flex !important; }
@@ -1230,11 +1388,21 @@ section{
 
 .shop-sort{
   display:flex; align-items:center; gap:10px; flex-shrink:0;
-  
+
   @media (max-width:700px){
     width:100%;
+    /* Label + select + "Track Order Status" were locked on one line here, so
+       below ~360px the button ran past the container and its text was clipped
+       to "k Order St". Let the row wrap instead. */
+    flex-wrap:wrap;
   }
-  
+
+  /* On the narrowest phones give the button its own full-width line rather
+     than a cramped remainder beside the select. */
+  @media (max-width:420px){
+    & > .btn{ width:100%; }
+  }
+
   & label{ font-size:.72rem; letter-spacing:.12em; text-transform:uppercase; color:var(--paper-dim); font-weight:600; }
   
   & select{
@@ -1642,7 +1810,39 @@ hr.rule{ border:none; border-top:1px solid var(--hide); margin:48px 0; }
   min-height: 38px;
   box-sizing: border-box;
   font-variant-numeric: tabular-nums;
-  
+  flex-wrap: wrap;
+  gap: 0 1.5rem;
+  text-align: center;
+
+  /* Divider between the countdown and the free-shipping message that main.js
+     folds into this same bar (rather than stacking a second one). A middot got
+     visually lost against ~95 characters of countdown, so this is a proper
+     vertical rule with real breathing room on each side -- the two messages
+     read as two distinct concepts rather than one run-on sentence.
+     The element itself is aria-hidden, so this is purely decorative. */
+  & .announcement-sep {
+    width: 1px;
+    align-self: stretch;
+    margin: .15rem .35rem;
+    background: currentColor;
+    opacity: .35;
+  }
+
+  /* The countdown string alone is long ("79 days, 11 hours, 15 mins, 05 secs
+     until Autumn Apothecary Faire (Landrum, SC)"), so below roughly a laptop
+     width the two segments wrap to two or three lines -- a taller bar than the
+     two stacked ones this replaced. Drop the free-shipping half instead and
+     keep the bar to a single line; the same message still appears on the
+     product cards and live in the cart drawer's shipping meter, so nothing is
+     actually lost. .announcement-segment only exists on pages where the two
+     bars merged, so the standalone bar on every other page is untouched. */
+  @media (max-width: 1100px) {
+    & .announcement-sep,
+    & .announcement-segment {
+      display: none;
+    }
+  }
+
   & a {
     color: inherit;
     text-decoration: underline;
@@ -2409,7 +2609,10 @@ dialog.gift-modal[open]::backdrop {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: var(--paper-dim, #2a2421);
+  /* The #2a2421 fallback shows the intent was a dark chip -- but --paper-dim
+     is defined, so the fallback never applied and this rendered light tan
+     under amber text instead. --ink-3 is the correct dark card fill. */
+  background: var(--ink-3, #2a2421);
   color: var(--whiskey, #d4a359);
   display: flex;
   align-items: center;
@@ -2463,12 +2666,31 @@ dialog.gift-modal[open]::backdrop {
 .quiz-option-card {
   transition: border-color 0.2s, background 0.2s, transform 0.2s;
   cursor: pointer;
+  /* --ink, --ink-2 and --ink-3 sit within a few percent lightness of each
+     other, so page / panel / card all read as one flat brown slab and the
+     options stop looking like discrete choices. Lift the card off the panel
+     and give it a border with actual presence. */
+  background: oklch(from var(--ink-3) calc(l + 0.02) c h) !important;
+  border-color: var(--hide) !important;
 }
+
 .quiz-option-card:hover,
 .quiz-option-card:focus-within {
   border-color: var(--whiskey) !important;
-  background: var(--paper-dim) !important;
+  /* Hover must go LIGHTER than the resting fill to read as raised. An earlier
+     pass used --ink-2 here, which is actually darker than the --ink-3 card
+     (#1e1815 vs #262019), so hovering made the card recede instead. */
+  background: oklch(from var(--ink-3) calc(l + 0.06) c h) !important;
   transform: translateY(-2px);
+}
+
+/* The chosen option was distinguishable only by the small native radio dot.
+   Give the whole card a selected state so the current answer is obvious at a
+   glance -- and don't rely on colour alone: the border also thickens. */
+.quiz-option-card:has(input:checked) {
+  border-color: var(--whiskey) !important;
+  box-shadow: inset 0 0 0 1px var(--whiskey);
+  background: oklch(from var(--whiskey) l c h / 0.1) !important;
 }
 
 .quiz-progress-bar {

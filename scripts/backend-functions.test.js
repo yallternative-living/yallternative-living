@@ -33,6 +33,25 @@ function eq(actual, expected, label) {
   }
 }
 
+/* Synchronous sibling of throwsAsync, for helpers that throw immediately
+   (resolveCustomBoxCents validates and prices in one synchronous pass). */
+function throws(fn, expectedSubstr, label) {
+  try {
+    fn();
+    failed++;
+    console.error(`  ✗ ${label} (expected throw, but function succeeded)`);
+  } catch (err) {
+    if (!expectedSubstr || err.message.includes(expectedSubstr)) {
+      passed++;
+    } else {
+      failed++;
+      console.error(
+        `  ✗ ${label}\n      expected error containing "${expectedSubstr}"\n      got message "${err.message}"`
+      );
+    }
+  }
+}
+
 async function throwsAsync(fn, expectedSubstr, label) {
   try {
     await fn();
@@ -274,6 +293,82 @@ try {
     "resolveBundlePriceDollars returns null for empty bundle"
   );
 
+  /* resolveCustomBoxCents -- build-your-own box.
+     The contents come from the client, so these cases are the security
+     boundary: every one of them must fail closed rather than produce a
+     cheap box. */
+  const boxCatalog = {
+    shop: {
+      customBox: {
+        minItems: 2,
+        maxItems: 3,
+        discountPercent: 10,
+        eligibleCategories: ["salves", "soaks"]
+      }
+    },
+    products: [
+      { id: "salve-a", price: 10.0, category: "salves" },
+      { id: "salve-b", price: 20.0, category: "salves" },
+      { id: "soak-a", price: 30.0, category: "soaks" },
+      { id: "tee", price: 25.0, category: "apparel" },
+      { id: "future-salve", price: 15.0, category: "salves", comingSoon: true }
+    ]
+  };
+
+  // 10 + 20 = 30, less 10% = 27.00 -> 2700 cents
+  eq(
+    checkout.resolveCustomBoxCents(boxCatalog, ["salve-a", "salve-b"]),
+    2700,
+    "resolveCustomBoxCents prices a valid box from real product prices"
+  );
+  throws(
+    () => checkout.resolveCustomBoxCents(boxCatalog, ["salve-a"]),
+    "between",
+    "resolveCustomBoxCents rejects a box below minItems"
+  );
+  throws(
+    () => checkout.resolveCustomBoxCents(boxCatalog, ["salve-a", "salve-b", "soak-a", "salve-a"]),
+    "between",
+    "resolveCustomBoxCents rejects a box above maxItems"
+  );
+  throws(
+    () => checkout.resolveCustomBoxCents(boxCatalog, ["salve-a", "tee"]),
+    "Not eligible",
+    "resolveCustomBoxCents rejects an ineligible category"
+  );
+  throws(
+    () => checkout.resolveCustomBoxCents(boxCatalog, ["salve-a", "made-up-id"]),
+    "not found",
+    "resolveCustomBoxCents rejects an unknown product id"
+  );
+  throws(
+    () => checkout.resolveCustomBoxCents(boxCatalog, ["salve-a", "future-salve"]),
+    "Not available yet",
+    "resolveCustomBoxCents rejects a coming-soon product"
+  );
+  throws(
+    () => checkout.resolveCustomBoxCents({ products: [] }, ["salve-a", "salve-b"]),
+    "not enabled",
+    "resolveCustomBoxCents fails closed when customBox is unconfigured"
+  );
+  throws(
+    () => checkout.resolveCustomBoxCents(boxCatalog, []),
+    "empty",
+    "resolveCustomBoxCents rejects an empty box"
+  );
+  // A mistyped discount in the CMS must not be able to produce a negative line.
+  eq(
+    checkout.resolveCustomBoxCents(
+      {
+        shop: { customBox: { minItems: 1, maxItems: 3, discountPercent: 500 } },
+        products: [{ id: "salve-a", price: 10.0, category: "salves" }]
+      },
+      ["salve-a"]
+    ),
+    100,
+    "resolveCustomBoxCents clamps an absurd discount to 90%"
+  );
+
   // resolveUnitAmountCents
   eq(
     checkout.resolveUnitAmountCents(mockCatalog, mockCatalog.products[0], null, false),
@@ -383,6 +478,163 @@ try {
   req = new Request("https://yallternativeliving.com/submit", { method: "POST", body: formData });
   res = await submitForm.default.fetch(req, env);
   eq(res.status, 500, "submitFormWorker returns 500 when Resend delivery fails");
+
+  global.fetch = globalFetch;
+
+  /* ==========================================================
+     6. checkout.js Stripe Tax wiring (STRIPE_TAX_ENABLED)
+     Drives the real fetch handler with a stubbed catalog + Stripe endpoint
+     and inspects the form body actually posted to Stripe. The tax path can
+     never be exercised against live Stripe from CI, so asserting on the
+     outgoing request is the only way to catch a regression here before it
+     reaches a real card. Every assertion below maps to a rule in the
+     "Sales tax" block of workers/checkout.js's header comment.
+     ========================================================== */
+  const taxCatalog = {
+    products: [
+      { id: "beard-salve", price: 16.0, category: "salves" },
+      { id: "unisex-tshirt", price: 25.0, category: "apparel" },
+      { id: "yallternative-gift-card", price: 25.0, category: "gift-cards" }
+    ],
+    bundles: [],
+    shop: {
+      customBox: {
+        minItems: 3,
+        maxItems: 5,
+        discountPercent: 10,
+        eligibleCategories: ["salves", "body", "soaks", "potions", "ritual"]
+      }
+    }
+  };
+
+  // Runs one checkout and hands back the params Stripe would have received.
+  async function captureStripeParams(items, extraEnv) {
+    let captured = null;
+    global.fetch = async (url, opts) => {
+      if (String(url).includes("products.json")) {
+        return { ok: true, clone: () => ({ body: null }), json: async () => taxCatalog };
+      }
+      captured = new URLSearchParams(opts.body);
+      return { ok: true, json: async () => ({ url: "https://checkout.stripe.com/c/test" }) };
+    };
+    const req = new Request("https://yallternativeliving.com/api/checkout", {
+      method: "POST",
+      headers: { Origin: "https://yallternativeliving.com", "Content-Type": "application/json" },
+      body: JSON.stringify({ items })
+    });
+    await checkout.default.fetch(
+      req,
+      {
+        SITE_ORIGIN: "https://yallternativeliving.com",
+        STRIPE_SECRET_KEY: "sk_test_x",
+        ...extraEnv
+      },
+      null
+    );
+    global.fetch = globalFetch;
+    return captured;
+  }
+
+  // Off by default: no tax params at all, so an un-activated Stripe Tax
+  // account can't have its Checkout Sessions rejected.
+  let p = await captureStripeParams([{ id: "beard-salve", qty: 1 }], {});
+  eq(p.get("automatic_tax[enabled]"), null, "tax off by default: no automatic_tax");
+  eq(p.get("customer_creation"), null, "tax off by default: no customer_creation");
+  eq(p.get("billing_address_collection"), "auto", "tax off by default: billing stays auto");
+  eq(
+    p.get("line_items[0][price_data][product_data][tax_code]"),
+    null,
+    "tax off by default: no tax_code on line items"
+  );
+
+  // Anything other than the literal "true" must leave tax off.
+  p = await captureStripeParams([{ id: "beard-salve", qty: 1 }], { STRIPE_TAX_ENABLED: "" });
+  eq(p.get("automatic_tax[enabled]"), null, "empty STRIPE_TAX_ENABLED leaves tax off");
+  p = await captureStripeParams([{ id: "beard-salve", qty: 1 }], { STRIPE_TAX_ENABLED: "yes" });
+  eq(p.get("automatic_tax[enabled]"), null, '"yes" does not enable tax');
+  p = await captureStripeParams([{ id: "beard-salve", qty: 1 }], { STRIPE_TAX_ENABLED: "TRUE" });
+  eq(p.get("automatic_tax[enabled]"), "true", '"TRUE" enables tax (case-insensitive)');
+
+  // On: physical order.
+  p = await captureStripeParams(
+    [{ id: "beard-salve", qty: 2 }],
+    { STRIPE_TAX_ENABLED: "true" }
+  );
+  eq(p.get("automatic_tax[enabled]"), "true", "tax on: automatic_tax enabled");
+  eq(p.get("customer_creation"), "always", "tax on: customer_creation always");
+  eq(p.get("billing_address_collection"), "required", "tax on: billing address required");
+  eq(
+    p.get("line_items[0][price_data][tax_behavior]"),
+    "exclusive",
+    "tax on: prices are tax-exclusive"
+  );
+  eq(
+    p.get("line_items[0][price_data][product_data][tax_code]"),
+    "txcd_99999999",
+    "tax on: salve gets general tangible goods code"
+  );
+  eq(
+    p.get("shipping_options[0][shipping_rate_data][tax_code]"),
+    "txcd_92010001",
+    "tax on: shipping carries the shipping tax code"
+  );
+  eq(
+    p.get("shipping_options[0][shipping_rate_data][tax_behavior]"),
+    "exclusive",
+    "tax on: shipping is tax-exclusive"
+  );
+
+  // Apparel gets its own code -- states that exempt clothing rely on it.
+  p = await captureStripeParams(
+    [{ id: "unisex-tshirt", qty: 1, variant: "M" }],
+    { STRIPE_TAX_ENABLED: "true" }
+  );
+  eq(
+    p.get("line_items[0][price_data][product_data][tax_code]"),
+    "txcd_30011000",
+    "tax on: apparel gets the clothing tax code"
+  );
+
+  // Gift cards must NOT be taxed at purchase -- they're taxed on redemption.
+  // Using the goods code here would tax the same money twice.
+  p = await captureStripeParams(
+    [{ id: "yallternative-gift-card", qty: 1, variant: "Preset $50" }],
+    { STRIPE_TAX_ENABLED: "true" }
+  );
+  eq(
+    p.get("line_items[0][price_data][product_data][tax_code]"),
+    "txcd_10502000",
+    "tax on: gift card gets the gift-card tax code"
+  );
+  eq(
+    p.get("shipping_options[0][shipping_rate_data][tax_code]"),
+    null,
+    "tax on: all-gift-card order has no shipping line to tax"
+  );
+  eq(
+    p.get("billing_address_collection"),
+    "required",
+    "tax on: gift-card-only order still collects an address to rate against"
+  );
+
+  // A custom box is always apothecary goods (apparel/gift cards aren't
+  // eligible categories), so it takes the general goods code.
+  p = await captureStripeParams(
+    [{ id: "custom-box", qty: 1, boxProductIds: ["beard-salve", "beard-salve", "beard-salve"] }],
+    { STRIPE_TAX_ENABLED: "true" }
+  );
+  eq(
+    p.get("line_items[0][price_data][product_data][tax_code]"),
+    "txcd_99999999",
+    "tax on: custom box gets general tangible goods code"
+  );
+
+  // Gift-card redemption codes stay enabled with tax on. Stripe applies the
+  // discount to the subtotal first and then rates the reduced amount (see
+  // https://docs.stripe.com/tax/calculating -- "Stripe Tax calculates tax
+  // after applying discounts"), so this combination is well-defined; see
+  // DEVELOPMENT.md section 18 for what that means for gift cards.
+  eq(p.get("allow_promotion_codes"), "true", "tax on: promotion codes still allowed");
 
   global.fetch = globalFetch;
 

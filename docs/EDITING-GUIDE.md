@@ -3,7 +3,8 @@
 You do **not** need to be a coder to run this shop. This guide covers the easy
 way (a point-and-click editor) and the "just edit the file" way, plus how photos
 and prices work. Nothing here touches money or checkout — that's Stripe (see
-`docs/DEVELOPMENT.md` section 8).
+`docs/DEVELOPMENT.md` section 8, or `docs/SETUP-GUIDE.md` for the click-by-click
+version of linking every external account).
 
 ---
 
@@ -12,33 +13,33 @@ and prices work. Nothing here touches money or checkout — that's Stripe (see
 Once the site is live, go to **yourdomain.com/admin** and log in with GitHub.
 You'll get a form-based editor (no code) for everything in your catalog:
 
-- **1. Products, Bundles & FAQ** — Add a new product, edit pricing, descriptions, ingredients, size variants, upload photos, manage bundles/gift sets, or update FAQ answers. Item IDs are automatically generated for you.
+- **1. Products, Bundles & FAQ** — Add a new product, edit pricing, descriptions, ingredients, scent, size variants, upload photos, manage bundles/gift sets, or update FAQ answers. Item IDs are automatically generated for you.
 - **2. Markets, Fairs & Pride Dates** — Add or edit market appearances. Upcoming dates display chronologically and past dates automatically archive under "Where We've Been".
 - **3. Customer Reviews** — Publish on-site customer reviews and choose which ones feature on the homepage testimonials grid.
 - **4. Apothecary Journal (Blog)** — Write and publish stories, kitchen updates, and announcements.
 - **5. Social Media Feed** — Curate and toggle Instagram/TikTok post previews on the homepage.
-- **6. Page Headlines & Wording** — Edit section headlines, hero paragraphs, contact form placeholders, direct email link, and global site settings (API keys, tracking, live chat).
+- **6. Page Headlines & Wording** — Edit section headlines, hero paragraphs, contact form placeholders, direct email link, global site settings (API keys, tracking, live chat), and turn individual features on/off (Restock Alerts, Custom Box Builder, Scent Filter, Rewards Points, Apothecary Quiz, and more — see `docs/SETUP-GUIDE.md` Step 9 for the full list).
 
 When you hit **Save**, it records the change and the site rebuilds and
 re-publishes itself automatically — you don't run anything. Changes usually go
 live within a couple of minutes.
 
-### One-time setup before `/admin` works (a developer does this once)
+### One-time setup before `/admin` works (Steven does this once)
 
-The editor is already built; it just needs three things that are part of
-launching the site (see **DEVELOPMENT.md section 20** for the click-by-click):
+The repo is already set to the real GitHub project (`admin/config.yml`'s
+`backend.repo`) — nothing to change there. What's left is part of launching
+the site itself (see **docs/SETUP-GUIDE.md** Steps 1–2 for the click-by-click,
+or **DEVELOPMENT.md section 20** for the full technical explanation):
 
-1. Put this project in a **GitHub repo** (replace the placeholder in
-   `admin/config.yml`: `YOUR_GITHUB_USERNAME/YOUR_REPO_NAME`).
-2. **Deploy** the site (Netlify or GitHub Pages — both are already configured).
-3. Turn on **login** (on Netlify, its GitHub OAuth needs one checkbox; on GitHub
-   Pages you point it at a small auth helper). DEVELOPMENT.md section 20 has the steps.
+1. **Deploy** the site (Netlify or GitHub Pages — both are already configured).
+2. Turn on **login** (on Netlify, its GitHub OAuth needs one checkbox; on GitHub
+   Pages you point it at a small auth helper).
 
-Until those are done, use the "edit the file" way below.
+Until both are done, use the "edit the file" way below.
 
 ---
 
-## The "edit the file" way (a developer, or a brave owner)
+## The "edit the file" way (Steven, or a brave owner)
 
 Everything in the catalog lives in **one file**:
 `assets/data/products.json`. It's plain, readable text. To change a price, find
@@ -74,21 +75,25 @@ npm test
 
   That makes the fast, modern versions of the image the site serves. (If you
   upload a photo through `/admin` it will show up, but run this command — or ask
-  your developer to add it to the deploy — so it's fully optimized.)
+  Steven to add it to the deploy — so it's fully optimized.)
 - **Five products are on a "Photo coming soon" placeholder** right now
   (`Y'all Means All Sugar Scrub`, `Y'all Means All Rainbow Whipped Body Butter`, `Appalachian Rain Clearing Mist`, `Moonlit Meadow Bath Tea`, and `Porch Sweep Clearing Mist`). Swap in real
   photos the same way, and double-check their price and ingredients while you're
-  there.
+  there. These same five are marked `comingSoon: true` in `/admin`, which is
+  what shows an "Email me when it launches" signup instead of Add to Cart on
+  the shop page — once a product actually has real photos and is ready to
+  sell, switch its Coming Soon toggle off in `/admin` and it goes back to a
+  normal, buyable listing automatically.
 - **Static page photos (About bio photo, homepage hero, logos, etc.):** You can replace these directly in `/admin` under **Page Wording**. Upload the new photo in the editor, and the site's build script will automatically wire it in, optimize it, and generate the responsive breakpoints.
 
 ---
 
-## What the editor does *not* cover (still needs a developer)
+## What the editor does *not* cover (still needs Steven)
 
 Honest heads-up — the catalog is owner-friendly; a few things still live in the
 page files:
 
-- **Legal policies** — the privacy, terms, and shipping policy pages are in `privacy.html`, `terms.html`, and `policies.html`. These are not editable in `/admin` and still require a developer edit to keep the formatting robust. (The homepage headline/intro, About story, contact photo, site logos, and integration settings/API keys ARE now editable in `/admin` under "Page Wording".)
+- **Legal policies** — the privacy, terms, and shipping policy pages are in `privacy.html`, `terms.html`, and `policies.html`. These are not editable in `/admin` and still require a quick edit from Steven to keep the formatting robust. (The homepage headline/intro, About story, contact photo, site logos, and integration settings/API keys ARE now editable in `/admin` under "Page Wording".)
 
 ---
 
@@ -105,4 +110,4 @@ page files:
 | Add a market/Pride date | `/admin` → Markets, or `events.json` | Auto (CMS) / `npm run build-data` |
 | Reword homepage headline / About story | `/admin` → Page Wording, or `content.json` | Auto (CMS) / `npm run build-data` |
 
-**Rule of thumb:** products, prices, bundles, FAQ, photos, market dates, site logos, integration API keys, and page wording (About / homepage / contact text) = you, via `/admin`. Only the legal policies and underlying layout structures = a quick developer edit.
+**Rule of thumb:** products, prices, bundles, FAQ, photos, market dates, site logos, integration API keys, and page wording (About / homepage / contact text) = you, via `/admin`. Only the legal policies and underlying layout structures = a quick edit from Steven.
