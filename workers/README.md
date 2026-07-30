@@ -72,13 +72,16 @@ about its beta status.
 
 1. `npm i -g wrangler` and `wrangler login`.
 2. `cp wrangler.toml.example wrangler.toml`, confirm `SITE_ORIGIN`.
-3. `wrangler secret put STRIPE_SECRET_KEY` (use a **restricted** key limited to
-   Checkout Sessions + Coupons + Promotion Codes write, since
-   `fulfill-gift-card.js` also needs to create those).
-4. `wrangler deploy`. Leave `STRIPE_TAX_ENABLED` unset for now -- sales tax
-   is opt-in and must not be switched on until Stripe Tax is activated on
-   the account (origin address + at least one registration), or Stripe
-   rejects every Checkout Session. See DEVELOPMENT.md section 8.
+3. `wrangler secret put STRIPE_SECRET_KEY` (use a **restricted** key with
+   Checkout Sessions + Coupons + Promotion Codes **write**, since
+   `fulfill-gift-card.js` creates those, plus Customers write and Tax
+   Settings **read** -- the Worker pins pickup orders to a market address
+   via a Customer, and reads Tax Settings to know when to start charging
+   sales tax. Without Tax read it just never enables tax; nothing breaks
+   loudly, so it's an easy one to miss).
+4. `wrangler deploy`. Leave `STRIPE_TAX_ENABLED` unset -- tax turns itself
+   on once Stripe Tax is activated in the Dashboard. See DEVELOPMENT.md
+   section 8.
 5. Point a route at it (e.g. `yallternativeliving.com/api/checkout`).
 6. Any future change to `checkout.js` needs step 4 run again by hand --
    worth knowing going in, since that's the main thing Option A trades

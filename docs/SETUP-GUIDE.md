@@ -107,7 +107,9 @@ sure it's set up right" one. Confirm with whoever does your taxes, then:
    market table — [apply on MyDORWAY](https://dor.sc.gov/register).
 2. In Stripe: **Tax → Settings** → set your business address. Then
    **Tax → Registrations** → add South Carolina.
-3. Tell me it's done and I'll turn it on from my side.
+
+That's it — the site starts charging tax on its own within the hour. You
+don't need to tell me, and nothing needs changing on my side.
 
 Stripe charges a fee for this. It's worth it here rather than doing the
 math yourself, because SC adds county taxes of 1–3% on top of the 6%

@@ -422,24 +422,35 @@ every product) but is no longer the only way to buy.
   top) — Snipcart used to own this from its own dashboard; there's no
   dashboard here, so adjust those two numbers directly in the file if real
   rates differ, then redeploy the Worker.
-- Taxes: **built, but switched off until someone turns it on.**
-  `workers/checkout.js` supports Stripe Tax behind a `STRIPE_TAX_ENABLED`
-  Worker variable, and ships with it off. Why off by default and not just
-  always on: Stripe Tax only collects where you hold an active registration,
-  and calling it before Stripe Tax is activated on the account makes Stripe
-  **reject the entire Checkout Session** — so a premature "on" doesn't
-  quietly skip the tax line, it breaks every purchase. Turning it on is
-  therefore a two-part job, and the paperwork half has to come first:
+- Taxes: **built, and switches itself on.** There's nothing to deploy and
+  nobody to notify. `workers/checkout.js` asks Stripe once an hour whether
+  Tax is ready on the account (`GET /v1/tax/settings` → `status: "active"`,
+  cached per site+mode) and starts sending `automatic_tax` the moment it is.
+  So the only step is the paperwork:
 
-  1. **In the Stripe Dashboard** (Savanna, or whoever handles the business's
-     taxes): set a head-office address under Tax → Settings, then add a
-     registration under Tax → Registrations for South Carolina — and any
-     other state where enough sales accumulate to create an obligation.
-     Stripe's Tax → Monitoring page watches those thresholds for you.
-     Whether a registration is required at all is a real tax question, not a
-     technical one, and worth asking an accountant rather than guessing.
-  2. **Then, in Cloudflare** (Steven): set the Worker variable
-     `STRIPE_TAX_ENABLED = "true"` and redeploy. Nothing else changes.
+  **In the Stripe Dashboard** (Savanna, or whoever handles the business's
+  taxes): set a head-office address under Tax → Settings, then add a
+  registration under Tax → Registrations for South Carolina — and any other
+  state where enough sales accumulate to create an obligation. Stripe's
+  Tax → Monitoring page watches those thresholds for you. Whether a
+  registration is required at all is a tax question, not a technical one;
+  for an in-state SC business the answer is almost certainly yes (see
+  `docs/SETUP-GUIDE.md` Step 3D), but confirm rather than assume.
+
+  Why the probe exists instead of just always sending `automatic_tax`:
+  calling it while Tax is still `pending` makes Stripe **reject the entire
+  Checkout Session**. A premature "on" doesn't quietly skip the tax line, it
+  breaks every purchase. Everything uncertain therefore resolves to *off* —
+  probe unreachable, key lacking Tax read scope, unexpected response. An
+  order that should have charged tax is a bookkeeping problem; an order
+  Stripe refuses to create is a lost sale.
+
+  The `STRIPE_TAX_ENABLED` Worker variable overrides the probe if needed:
+  `"true"` forces tax on (skips the probe), `"false"` or `"off"` is a kill
+  switch for stopping collection faster than a Dashboard change allows.
+  Omit it for the automatic behaviour. Note the probe needs the Stripe key
+  to carry **Tax Settings read** access — a restricted key without it fails
+  closed, which looks like "tax never turns on."
 
   Once on, the Worker sends `automatic_tax[enabled]=true`, creates a Customer
   so Stripe has an address to rate against, marks every price

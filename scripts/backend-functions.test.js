@@ -533,9 +533,20 @@ try {
   async function captureStripeParams(items, extraEnv, body) {
     let captured = null;
     let customerParams = null;
-    const opts2 = { eventsOk: true, customerOk: true, ...(extraEnv || {})._stub };
+    const opts2 = {
+      eventsOk: true,
+      customerOk: true,
+      // Mirrors an account that has finished Stripe Tax setup. Individual
+      // tests flip this to "pending" or make the probe fail outright.
+      taxSettings: { ok: true, status: "active" },
+      ...(extraEnv || {})._stub
+    };
     global.fetch = async (url, opts) => {
       const u = String(url);
+      if (u.includes("/v1/tax/settings")) {
+        if (!opts2.taxSettings.ok) return { ok: false };
+        return { ok: true, json: async () => ({ status: opts2.taxSettings.status }) };
+      }
       if (u.includes("products.json")) {
         return { ok: true, clone: () => ({ body: null }), json: async () => taxCatalog };
       }
@@ -575,25 +586,81 @@ try {
   const captureParams = async (items, extraEnv, body) =>
     (await captureStripeParams(items, extraEnv, body)).params;
 
-  // Off by default: no tax params at all, so an un-activated Stripe Tax
-  // account can't have its Checkout Sessions rejected.
-  let p = await captureParams([{ id: "beard-salve", qty: 1 }], {});
-  eq(p.get("automatic_tax[enabled]"), null, "tax off by default: no automatic_tax");
-  eq(p.get("customer_creation"), null, "tax off by default: no customer_creation");
-  eq(p.get("billing_address_collection"), "auto", "tax off by default: billing stays auto");
+  // Tax switches itself on/off from the account's own Stripe Tax status, so
+  // finishing registration in the Dashboard is the whole switch. The
+  // critical direction is the failure one: anything uncertain must resolve
+  // to OFF, because sending automatic_tax while Tax is `pending` makes
+  // Stripe reject the session outright -- a lost sale, not a missing line.
+  const pending = { _stub: { taxSettings: { ok: true, status: "pending" } } };
+  const probeDown = { _stub: { taxSettings: { ok: false } } };
+
+  let p = await captureParams([{ id: "beard-salve", qty: 1 }], pending);
+  eq(p.get("automatic_tax[enabled]"), null, "Tax pending: no automatic_tax");
+  eq(p.get("customer_creation"), null, "Tax pending: no customer_creation");
+  eq(p.get("billing_address_collection"), "auto", "Tax pending: billing stays auto");
   eq(
     p.get("line_items[0][price_data][product_data][tax_code]"),
     null,
-    "tax off by default: no tax_code on line items"
+    "Tax pending: no tax_code on line items"
   );
 
-  // Anything other than the literal "true" must leave tax off.
-  p = await captureParams([{ id: "beard-salve", qty: 1 }], { STRIPE_TAX_ENABLED: "" });
-  eq(p.get("automatic_tax[enabled]"), null, "empty STRIPE_TAX_ENABLED leaves tax off");
-  p = await captureParams([{ id: "beard-salve", qty: 1 }], { STRIPE_TAX_ENABLED: "yes" });
-  eq(p.get("automatic_tax[enabled]"), null, '"yes" does not enable tax');
-  p = await captureParams([{ id: "beard-salve", qty: 1 }], { STRIPE_TAX_ENABLED: "TRUE" });
-  eq(p.get("automatic_tax[enabled]"), "true", '"TRUE" enables tax (case-insensitive)');
+  p = await captureParams([{ id: "beard-salve", qty: 1 }], probeDown);
+  eq(p.get("automatic_tax[enabled]"), null, "Tax probe unreachable: fails closed");
+
+  // Active account, no env var set at all -- this is the whole point.
+  p = await captureParams([{ id: "beard-salve", qty: 1 }], {});
+  eq(
+    p.get("automatic_tax[enabled]"),
+    "true",
+    "Tax active: enables itself with no env var and no redeploy"
+  );
+
+  // Overrides win over the probe in both directions.
+  p = await captureParams([{ id: "beard-salve", qty: 1 }], {
+    STRIPE_TAX_ENABLED: "false"
+  });
+  eq(p.get("automatic_tax[enabled]"), null, '"false" is a kill switch even when Tax is active');
+  p = await captureParams([{ id: "beard-salve", qty: 1 }], {
+    STRIPE_TAX_ENABLED: "off"
+  });
+  eq(p.get("automatic_tax[enabled]"), null, '"off" also disables');
+  p = await captureParams([{ id: "beard-salve", qty: 1 }], {
+    STRIPE_TAX_ENABLED: "TRUE",
+    ...pending
+  });
+  eq(
+    p.get("automatic_tax[enabled]"),
+    "true",
+    '"TRUE" forces tax on without probing (case-insensitive)'
+  );
+  // An unrecognised value must not be read as "on" -- it falls back to auto.
+  p = await captureParams([{ id: "beard-salve", qty: 1 }], {
+    STRIPE_TAX_ENABLED: "yes",
+    ...pending
+  });
+  eq(p.get("automatic_tax[enabled]"), null, '"yes" is not treated as on; falls back to auto');
+  p = await captureParams([{ id: "beard-salve", qty: 1 }], { STRIPE_TAX_ENABLED: "auto" });
+  eq(p.get("automatic_tax[enabled]"), "true", '"auto" probes and enables when active');
+
+  // The probe must never leak the API key into a cache key or elsewhere.
+  {
+    let taxProbeAuth = null;
+    const savedFetch = global.fetch;
+    global.fetch = async (url, opts) => {
+      if (String(url).includes("/v1/tax/settings")) {
+        taxProbeAuth = opts.headers.Authorization;
+        return { ok: true, json: async () => ({ status: "active" }) };
+      }
+      return { ok: false };
+    };
+    const active = await checkout.isTaxEnabled(
+      { STRIPE_SECRET_KEY: "sk_test_x", SITE_ORIGIN: "https://yallternativeliving.com" },
+      null
+    );
+    global.fetch = savedFetch;
+    eq(active, true, "isTaxEnabled reports active straight from Stripe");
+    eq(taxProbeAuth, "Bearer sk_test_x", "isTaxEnabled authenticates the probe");
+  }
 
   // On: physical order.
   p = await captureParams([{ id: "beard-salve", qty: 2 }], { STRIPE_TAX_ENABLED: "true" });
@@ -793,7 +860,11 @@ try {
   );
 
   // With tax off there's no rate to get wrong, so skip the extra API call.
-  r = await captureStripeParams([{ id: "beard-salve", qty: 1 }], {}, { pickupMarket: marketLabel });
+  r = await captureStripeParams(
+    [{ id: "beard-salve", qty: 1 }],
+    pending,
+    { pickupMarket: marketLabel }
+  );
   eq(r.customerParams, null, "tax off: pickup does not create a customer");
   eq(
     r.params.get("shipping_address_collection[allowed_countries][0]"),

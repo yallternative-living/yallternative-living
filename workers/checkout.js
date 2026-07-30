@@ -45,14 +45,15 @@
  * checkout.session.completed) knows how much to put on the redeemable
  * code it emails the recipient -- see that file for the rest of the flow.
  *
- * Sales tax: OFF by default, opt-in via the STRIPE_TAX_ENABLED var. Stripe
- * Tax only collects where you hold an active registration, and calling
- * automatic_tax[enabled]=true before Stripe Tax is activated on the account
- * (origin address + at least one registration set under Tax -> Registrations
- * in the Dashboard) makes Stripe reject the whole Checkout Session -- i.e.
- * hard-wiring it on would break every checkout until that paperwork is done.
- * Gating it behind a var means the code is ready now and flips on the day
- * the registration exists, with no redeploy of logic. When on, this Worker:
+ * Sales tax: self-enabling. The Worker asks Stripe once an hour whether Tax
+ * is ready on the account (GET /v1/tax/settings, status "active") and turns
+ * automatic_tax on as soon as it is -- so finishing the registration in the
+ * Stripe Dashboard is the entire switch, with no code change or redeploy.
+ * See isTaxEnabled below, including the STRIPE_TAX_ENABLED override for
+ * forcing it on/off. It can't simply be sent unconditionally: calling
+ * automatic_tax[enabled]=true while Tax is still `pending` makes Stripe
+ * reject the whole Checkout Session, so an always-on version would break
+ * every purchase until that paperwork is done. When on, this Worker:
  *   - sends automatic_tax[enabled]=true and customer_creation=always (Stripe
  *     needs a Customer to hang the collected address off of for new buyers),
  *   - marks every price tax_behavior=exclusive, since displayed prices on
@@ -91,9 +92,13 @@
  * See docs/DEVELOPMENT.md section 8 for the non-technical version.
  *
  * Required Worker secrets / vars (wrangler secret put / [vars]):
- *   - STRIPE_SECRET_KEY   (secret)  Stripe restricted or secret key.
+ *   - STRIPE_SECRET_KEY   (secret)  Stripe restricted or secret key. Needs
+ *                                   Tax Settings *read* if you want tax to
+ *                                   switch itself on; without that scope the
+ *                                   probe just fails closed (tax stays off).
  *   - SITE_ORIGIN         (var)     e.g. "https://yallternativeliving.com"
- *   - STRIPE_TAX_ENABLED  (var)     optional, "true" to turn on Stripe Tax.
+ *   - STRIPE_TAX_ENABLED  (var)     optional override: "true" forces tax on,
+ *                                   "false" forces it off. Omit for auto.
  */
 
 const ALLOWED_ORIGINS = [
@@ -178,6 +183,88 @@ async function loadEvents(env, ctx) {
   }
   if (!res.ok) throw new Error("Could not load events");
   return res.json();
+}
+
+/**
+ * Decide whether to send automatic_tax on this Checkout Session.
+ *
+ * Default is "auto": ask Stripe whether Tax is actually ready
+ * (GET /v1/tax/settings -> status "active" means the account has the
+ * required info to calculate), and turn tax on the moment it is. That means
+ * Savanna finishing her registration in the Stripe Dashboard is the whole
+ * switch -- no code change, no redeploy, nobody to notify. It also handles
+ * test vs. live correctly for free, since Tax settings are per-mode and the
+ * answer follows whichever key this Worker is using.
+ *
+ * Why not simply always send automatic_tax and let Stripe sort it out:
+ * calling it while Tax is still `pending` makes Stripe reject the entire
+ * Checkout Session, so an unconditional version breaks every purchase until
+ * the paperwork is done. Hence the probe.
+ *
+ * Env override (`STRIPE_TAX_ENABLED`):
+ *   unset / "auto"  -> probe Stripe (default)
+ *   "true"          -> force on, skip the probe
+ *   "false" / "off" -> force off; kill switch if tax ever needs stopping
+ *                      faster than a Dashboard change can be made
+ *
+ * Anything unrecognised falls back to "auto" rather than guessing.
+ *
+ * The probe is cached for an hour and keyed per site+mode, so this is not a
+ * per-checkout API call. Any failure -- network, bad key, unexpected shape
+ * -- resolves to false, which is the safe direction: an order that should
+ * have charged tax is a bookkeeping problem, an order Stripe refuses to
+ * create is a lost sale.
+ */
+async function isTaxEnabled(env, ctx) {
+  const override = String(env.STRIPE_TAX_ENABLED || "auto").toLowerCase();
+  if (override === "true") return true;
+  if (override === "false" || override === "off") return false;
+
+  const mode = String(env.STRIPE_SECRET_KEY || "").includes("_live_") ? "live" : "test";
+  const cache = typeof caches !== "undefined" ? caches.default : null;
+  // Synthetic key: never contains the API key, only site + mode.
+  const cacheKey = new Request(
+    `${env.SITE_ORIGIN}/__internal/tax-status?mode=${mode}`
+  );
+
+  if (cache) {
+    const hit = await cache.match(cacheKey);
+    if (hit) {
+      try {
+        const cached = await hit.json();
+        return Boolean(cached.active);
+      } catch (e) {
+        // Fall through and re-probe on an unreadable cache entry.
+      }
+    }
+  }
+
+  let active = false;
+  try {
+    const res = await fetch("https://api.stripe.com/v1/tax/settings", {
+      headers: {
+        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+        "Stripe-Version": STRIPE_API_VERSION,
+      },
+    });
+    if (res.ok) {
+      const settings = await res.json();
+      active = settings && settings.status === "active";
+    }
+  } catch (e) {
+    active = false;
+  }
+
+  if (cache && ctx) {
+    const toCache = new Response(JSON.stringify({ active }), {
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "max-age=3600",
+      },
+    });
+    ctx.waitUntil(cache.put(cacheKey, toCache));
+  }
+  return active;
 }
 
 // Rebuild the exact <option> label cart.js renders for a market, so a
@@ -526,9 +613,7 @@ export default {
           ? flatShippingRateCents
           : 0;
 
-      // Opt-in, see the file header. Anything other than the exact string
-      // "true" leaves tax off, so a stray/empty var can't half-enable it.
-      const taxEnabled = String(env.STRIPE_TAX_ENABLED || "").toLowerCase() === "true";
+      const taxEnabled = await isTaxEnabled(env, ctx);
 
       const params = new URLSearchParams();
       params.append("mode", "payment");
@@ -672,6 +757,7 @@ export default {
 };
 
 export {
+  isTaxEnabled,
   loadCatalog,
   loadEvents,
   findEntry,
