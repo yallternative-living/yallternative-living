@@ -460,17 +460,32 @@ every product) but is no longer the only way to buy.
   rated at 0% unless a registration exists for that state, which is the
   correct outcome for a business with nexus only in SC.
 
-  *Known edge case — market pickup.* Choosing pickup zeroes the shipping
-  charge but still collects a shipping address, so Stripe rates against the
-  customer's home address when the legal point of delivery is actually the
-  market's county. Where those differ the rate can be off by up to ~2%.
-  There's no clean fix inside Checkout: Stripe's "performance location"
-  feature exists for exactly this, but it's
-  [explicitly unsupported in Checkout](https://docs.stripe.com/tax/calculating)
-  and only available through the standalone Tax API. Fixing it properly
-  would mean moving off Checkout Sessions onto PaymentIntents + the Tax API,
-  which is a large rewrite for a rounding-level difference on pickup orders.
-  Worth revisiting only if in-person pickup becomes a large share of sales.
+  *Market pickup is handled too.* A pickup order is delivered at the market,
+  so that county's rate applies — not the buyer's home county. Stripe's
+  purpose-built feature for this (performance locations) isn't supported by
+  Checkout Sessions, so the Worker takes the route that is: it creates a
+  Stripe Customer already carrying the market's address, passes that
+  `customer` to the session, and skips collecting a shipping address
+  (a collected one always wins over the Customer's). `customer_update
+  [address]=never` stops the billing address from displacing it afterward.
+
+  For this to work, the market needs a **ZIP code** filled in under
+  *Markets, Fairs & Pride Dates* in the CMS — Stripe needs country, state,
+  and a 5-digit ZIP to resolve a US jurisdiction. The state is read off the
+  end of the `location` string (`"Flat Rock, NC"` → `NC`), so out-of-state
+  markets work without a separate field.
+
+  Every failure here degrades to the ordinary buyer-address flow rather than
+  blocking a sale: no ZIP recorded, a `pickupMarket` label that doesn't match
+  the calendar, `events.json` unreachable, or the Customer create failing.
+  The label is re-derived server-side from `events.json` and compared, never
+  trusted — the same rule prices follow — so a forged label can't pin an
+  order to a cheaper jurisdiction. All of these paths are covered in
+  `scripts/backend-functions.test.js`.
+
+  One coupling to know about: `pickupLabelFor()` in `workers/checkout.js`
+  must stay byte-identical to the `<option>` label cart.js builds for the
+  pickup dropdown. Change one and change the other; the test suite pins both.
 
   **Discounts and tax together:** Stripe rates the subtotal *after*
   discounts, which is the right answer for this site's own markdowns — a

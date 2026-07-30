@@ -69,11 +69,11 @@
  * the delivery address (including its county add-on), not this business's
  * own location. Collecting a shipping address for physical orders is what
  * makes that work -- Stripe prefers the shipping address over billing.
- * Caveat: a market-pickup order still collects the buyer's shipping
- * address, so it's rated there rather than at the market, which is the
- * actual point of delivery. Stripe's performance-location feature is meant
- * for this but isn't supported in Checkout Sessions -- see
- * docs/DEVELOPMENT.md section 8.
+ * Market pickups are rated at the market instead, since that's where the
+ * buyer actually takes possession -- handled by pinning a Customer that
+ * carries the market address and skipping shipping-address collection (see
+ * resolvePickupAddress/createPickupCustomer). Needs a ZIP on the market in
+ * events.json; without one it falls back to the buyer's address.
  *
  * Tax vs. discounts: Stripe Tax rates the subtotal AFTER discounts are
  * applied (https://docs.stripe.com/tax/calculating), which is the correct
@@ -100,6 +100,13 @@ const ALLOWED_ORIGINS = [
   "https://yallternativeliving.com",
   "https://www.yallternativeliving.com",
 ];
+
+// Pinned explicitly (Stripe's own recommendation) rather than left to the
+// account's dashboard-configured default, so a change made in the Stripe
+// Dashboard can never silently alter these requests' behavior. Bump
+// deliberately -- re-check this file's use of `session.error`/`session.url`
+// still holds -- rather than letting it drift for years.
+const STRIPE_API_VERSION = "2026-06-24.dahlia";
 
 const GIFT_CARD_ID = "yallternative-gift-card";
 const GIFT_CARD_MIN = 10;
@@ -151,6 +158,102 @@ async function loadCatalog(env, ctx) {
   }
   if (!res.ok) throw new Error("Could not load product catalog");
   return res.json();
+}
+
+// Same fetch+cache treatment for the market calendar. Only needed when a
+// pickup order has to be taxed at the market rather than the buyer's home
+// address, so failures here are non-fatal -- see resolvePickupAddress.
+async function loadEvents(env, ctx) {
+  const url = `${env.SITE_ORIGIN}/assets/data/events.json`;
+  const cache = typeof caches !== "undefined" ? caches.default : null;
+  const cacheKey = new Request(url);
+  let res = cache ? await cache.match(cacheKey) : null;
+  if (!res) {
+    res = await fetch(url, { cf: { cacheTtl: 300, cacheEverything: true } });
+    if (res.ok && ctx && cache) {
+      const toCache = new Response(res.clone().body, res);
+      toCache.headers.set("Cache-Control", "max-age=300");
+      ctx.waitUntil(cache.put(cacheKey, toCache));
+    }
+  }
+  if (!res.ok) throw new Error("Could not load events");
+  return res.json();
+}
+
+// Rebuild the exact <option> label cart.js renders for a market, so a
+// client-sent pickupMarket string can be matched against the real calendar
+// instead of being trusted. Must stay byte-identical to the label built in
+// cart.js's pickup <select> -- if that format changes, change it here too
+// (the backend test suite pins both).
+function pickupLabelFor(evt) {
+  return (
+    (evt.name || "Pop-up Market") +
+    " — " +
+    (evt.dateLabel || "") +
+    " (" +
+    (evt.location || "Landrum, SC") +
+    ")"
+  );
+}
+
+/**
+ * Work out where a pickup order is actually delivered, for tax purposes.
+ *
+ * South Carolina (like most states) sources sales tax to the point of
+ * delivery, and for a market pickup that's the market -- not wherever the
+ * buyer happens to live. Counties add 1-3% on top of the 6% state rate, so
+ * rating a Landrum pickup at a Charleston home address is simply the wrong
+ * number.
+ *
+ * The market label arrives from the client, so it's re-derived from
+ * events.json here rather than trusted -- same rule as prices. A caller who
+ * invents a label, or picks a market with no ZIP recorded, gets null back
+ * and the checkout quietly falls back to collecting a shipping address,
+ * which is the pre-existing behaviour. Returning null is always safe.
+ *
+ * Stripe needs country + state + 5-digit ZIP to resolve a US jurisdiction;
+ * the state is read off the tail of the "City, ST" location string, since
+ * markets aren't always in SC (past events include Flat Rock, NC).
+ */
+function resolvePickupAddress(events, pickupMarket) {
+  if (!events || !pickupMarket) return null;
+  const upcoming = Array.isArray(events.upcoming) ? events.upcoming : [];
+  const evt = upcoming.find((e) => pickupLabelFor(e) === pickupMarket);
+  if (!evt) return null;
+
+  const zip = String(evt.zip || "").trim();
+  if (!/^\d{5}$/.test(zip)) return null;
+
+  const stateMatch = String(evt.location || "").match(/,\s*([A-Za-z]{2})\s*$/);
+  const state = stateMatch ? stateMatch[1].toUpperCase() : "SC";
+
+  return { state, postal_code: zip, country: "US" };
+}
+
+// Stripe rates an order against a Customer's saved shipping address when the
+// session itself doesn't collect one, which is the only way to pin a pickup
+// order to the market inside Checkout. (Stripe's purpose-built feature for
+// this, performance locations, is not supported by Checkout Sessions.)
+async function createPickupCustomer(env, address, marketLabel) {
+  const params = new URLSearchParams();
+  params.append("shipping[name]", truncate(marketLabel, 250));
+  params.append("shipping[address][state]", address.state);
+  params.append("shipping[address][postal_code]", address.postal_code);
+  params.append("shipping[address][country]", address.country);
+  params.append("metadata[pickup_market]", truncate(marketLabel, 250));
+
+  const res = await fetch("https://api.stripe.com/v1/customers", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+      "Stripe-Version": STRIPE_API_VERSION,
+    },
+    body: params.toString(),
+  });
+  if (!res.ok) return null;
+  const customer = await res.json();
+  return customer && customer.id ? customer.id : null;
 }
 
 // Bundle buttons render data-item-id="bundle-<id>" (see main.js's
@@ -440,21 +543,61 @@ export default {
         `${env.SITE_ORIGIN}/thank-you.html?session_id={CHECKOUT_SESSION_ID}&amount=${((totalCents + shippingCents) / 100).toFixed(2)}&currency=usd`
       );
       params.append("cancel_url", `${env.SITE_ORIGIN}/shop.html`);
+
+      // A pickup order is delivered at the market, so that's where it has to
+      // be taxed -- see resolvePickupAddress. Pinning it means handing Stripe
+      // a Customer that already carries the market address and NOT collecting
+      // a shipping address, since a collected one always wins. Everything
+      // here degrades to the normal flow if anything is missing: no ZIP on
+      // the market, an unrecognised label, events.json unreachable, or the
+      // customer create failing. Only attempted when tax is actually on --
+      // with tax off there's no rate to get wrong, so it'd be a pointless
+      // extra API call on every pickup checkout.
+      let pickupCustomerId = null;
+      if (taxEnabled && isPickup && hasPhysicalItems) {
+        try {
+          const events = await loadEvents(env, ctx);
+          const pickupAddress = resolvePickupAddress(events, body.pickupMarket);
+          if (pickupAddress) {
+            pickupCustomerId = await createPickupCustomer(
+              env,
+              pickupAddress,
+              body.pickupMarket
+            );
+          }
+        } catch (e) {
+          // Non-fatal by design: a market calendar that won't load must never
+          // block a sale. Falls through to buyer-address rating below.
+          pickupCustomerId = null;
+        }
+      }
+      const pinnedToMarket = Boolean(pickupCustomerId);
+
       // With tax on, an address is what Stripe rates the order against, and
       // an all-gift-card order collects no shipping address at all -- so the
       // billing address has to be mandatory or those orders can't be rated.
       params.append("billing_address_collection", taxEnabled ? "required" : "auto");
       if (taxEnabled) {
         params.append("automatic_tax[enabled]", "true");
-        // New buyers have no Stripe Customer yet; Checkout needs one created
-        // to attach the address it collects. Existing-customer flows don't
-        // apply here -- this cart never sends a customer ID.
-        params.append("customer_creation", "always");
+        if (pinnedToMarket) {
+          params.append("customer", pickupCustomerId);
+          // Stop Checkout writing the buyer's billing address onto the
+          // Customer, which would otherwise displace the market address we
+          // just pinned and put us back where we started.
+          params.append("customer_update[address]", "never");
+        } else {
+          // New buyers have no Stripe Customer yet; Checkout needs one
+          // created to attach the address it collects. Mutually exclusive
+          // with passing `customer` above.
+          params.append("customer_creation", "always");
+        }
       }
       // Only ask for a shipping address (and charge shipping) when there's
       // actually something physical in the order -- an all-gift-card order
-      // has nothing to ship.
-      if (hasPhysicalItems) {
+      // has nothing to ship. Pickup orders pinned to a market skip the
+      // address form too: they aren't being shipped anywhere, and a collected
+      // shipping address would override the market address for tax.
+      if (hasPhysicalItems && !pinnedToMarket) {
         params.append("shipping_address_collection[allowed_countries][0]", "US");
         params.append(
           "shipping_options[0][shipping_rate_data][type]",
@@ -514,13 +657,7 @@ export default {
         headers: {
           Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
           "Content-Type": "application/x-www-form-urlencoded",
-          // Pinned explicitly (Stripe's own recommendation) rather than left
-          // to the account's dashboard-configured default, so a change made
-          // in the Stripe Dashboard can never silently alter this request's
-          // behavior. Bump deliberately -- re-check this file's use of
-          // `session.error`/`session.url` still holds -- rather than letting
-          // it drift for years.
-          "Stripe-Version": "2026-06-24.dahlia",
+          "Stripe-Version": STRIPE_API_VERSION,
         },
         body: params,
       });
@@ -536,7 +673,10 @@ export default {
 
 export {
   loadCatalog,
+  loadEvents,
   findEntry,
+  pickupLabelFor,
+  resolvePickupAddress,
   resolveBundlePriceDollars,
   resolveUnitAmountCents,
   resolveGiftCardAmountCents,

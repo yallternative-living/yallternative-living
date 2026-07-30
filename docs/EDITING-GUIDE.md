@@ -14,7 +14,7 @@ Once the site is live, go to **yourdomain.com/admin** and log in with GitHub.
 You'll get a form-based editor (no code) for everything in your catalog:
 
 - **1. Products, Bundles & FAQ** — Add a new product, edit pricing, descriptions, ingredients, scent, size variants, upload photos, manage bundles/gift sets, or update FAQ answers. Item IDs are automatically generated for you.
-- **2. Markets, Fairs & Pride Dates** — Add or edit market appearances. Upcoming dates display chronologically and past dates automatically archive under "Where We've Been".
+- **2. Markets, Fairs & Pride Dates** — Add or edit market appearances. Upcoming dates display chronologically and past dates automatically archive under "Where We've Been". *Fill in the **ZIP code** for any market where customers can pick up an online order: sales tax is based on where they actually collect it, and each county charges slightly differently, so the ZIP is what gets the amount right.*
 - **3. Customer Reviews** — Publish on-site customer reviews and choose which ones feature on the homepage testimonials grid.
 - **4. Apothecary Journal (Blog)** — Write and publish stories, kitchen updates, and announcements.
 - **5. Social Media Feed** — Curate and toggle Instagram/TikTok post previews on the homepage.

@@ -12,6 +12,7 @@ window.YL_EVENTS = {
       "name": "Autumn Apothecary Faire",
       "type": "Artisan Fair",
       "location": "Landrum, SC",
+      "zip": "29356",
       "url": "https://yallternativeliving.com",
       "note": "Pop-up market table with handmade salves, soaks & soaps."
     }

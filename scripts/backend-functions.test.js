@@ -507,12 +507,46 @@ try {
     }
   };
 
-  // Runs one checkout and hands back the params Stripe would have received.
-  async function captureStripeParams(items, extraEnv) {
+  const taxEvents = {
+    upcoming: [
+      {
+        dateLabel: "October 17, 2026",
+        name: "Autumn Apothecary Faire",
+        location: "Landrum, SC",
+        zip: "29356"
+      },
+      // Deliberately ZIP-less: must fall back rather than guess a rate.
+      { dateLabel: "November 2, 2026", name: "No Zip Market", location: "Greer, SC" },
+      // Out of state, to prove the state isn't hardcoded to SC.
+      {
+        dateLabel: "December 1, 2026",
+        name: "Flat Rock Fair",
+        location: "Flat Rock, NC",
+        zip: "28731"
+      }
+    ],
+    past: []
+  };
+
+  // Runs one checkout and hands back the params Stripe would have received,
+  // plus anything posted to /v1/customers along the way.
+  async function captureStripeParams(items, extraEnv, body) {
     let captured = null;
+    let customerParams = null;
+    const opts2 = { eventsOk: true, customerOk: true, ...(extraEnv || {})._stub };
     global.fetch = async (url, opts) => {
-      if (String(url).includes("products.json")) {
+      const u = String(url);
+      if (u.includes("products.json")) {
         return { ok: true, clone: () => ({ body: null }), json: async () => taxCatalog };
+      }
+      if (u.includes("events.json")) {
+        if (!opts2.eventsOk) return { ok: false };
+        return { ok: true, clone: () => ({ body: null }), json: async () => taxEvents };
+      }
+      if (u.includes("/v1/customers")) {
+        customerParams = new URLSearchParams(opts.body);
+        if (!opts2.customerOk) return { ok: false };
+        return { ok: true, json: async () => ({ id: "cus_test123" }) };
       }
       captured = new URLSearchParams(opts.body);
       return { ok: true, json: async () => ({ url: "https://checkout.stripe.com/c/test" }) };
@@ -520,24 +554,30 @@ try {
     const req = new Request("https://yallternativeliving.com/api/checkout", {
       method: "POST",
       headers: { Origin: "https://yallternativeliving.com", "Content-Type": "application/json" },
-      body: JSON.stringify({ items })
+      body: JSON.stringify({ items, ...(body || {}) })
     });
+    const cleanEnv = { ...extraEnv };
+    delete cleanEnv._stub;
     await checkout.default.fetch(
       req,
       {
         SITE_ORIGIN: "https://yallternativeliving.com",
         STRIPE_SECRET_KEY: "sk_test_x",
-        ...extraEnv
+        ...cleanEnv
       },
       null
     );
     global.fetch = globalFetch;
-    return captured;
+    return { params: captured, customerParams };
   }
+
+  // Most assertions only care about the Checkout Session body.
+  const captureParams = async (items, extraEnv, body) =>
+    (await captureStripeParams(items, extraEnv, body)).params;
 
   // Off by default: no tax params at all, so an un-activated Stripe Tax
   // account can't have its Checkout Sessions rejected.
-  let p = await captureStripeParams([{ id: "beard-salve", qty: 1 }], {});
+  let p = await captureParams([{ id: "beard-salve", qty: 1 }], {});
   eq(p.get("automatic_tax[enabled]"), null, "tax off by default: no automatic_tax");
   eq(p.get("customer_creation"), null, "tax off by default: no customer_creation");
   eq(p.get("billing_address_collection"), "auto", "tax off by default: billing stays auto");
@@ -548,18 +588,15 @@ try {
   );
 
   // Anything other than the literal "true" must leave tax off.
-  p = await captureStripeParams([{ id: "beard-salve", qty: 1 }], { STRIPE_TAX_ENABLED: "" });
+  p = await captureParams([{ id: "beard-salve", qty: 1 }], { STRIPE_TAX_ENABLED: "" });
   eq(p.get("automatic_tax[enabled]"), null, "empty STRIPE_TAX_ENABLED leaves tax off");
-  p = await captureStripeParams([{ id: "beard-salve", qty: 1 }], { STRIPE_TAX_ENABLED: "yes" });
+  p = await captureParams([{ id: "beard-salve", qty: 1 }], { STRIPE_TAX_ENABLED: "yes" });
   eq(p.get("automatic_tax[enabled]"), null, '"yes" does not enable tax');
-  p = await captureStripeParams([{ id: "beard-salve", qty: 1 }], { STRIPE_TAX_ENABLED: "TRUE" });
+  p = await captureParams([{ id: "beard-salve", qty: 1 }], { STRIPE_TAX_ENABLED: "TRUE" });
   eq(p.get("automatic_tax[enabled]"), "true", '"TRUE" enables tax (case-insensitive)');
 
   // On: physical order.
-  p = await captureStripeParams(
-    [{ id: "beard-salve", qty: 2 }],
-    { STRIPE_TAX_ENABLED: "true" }
-  );
+  p = await captureParams([{ id: "beard-salve", qty: 2 }], { STRIPE_TAX_ENABLED: "true" });
   eq(p.get("automatic_tax[enabled]"), "true", "tax on: automatic_tax enabled");
   eq(p.get("customer_creation"), "always", "tax on: customer_creation always");
   eq(p.get("billing_address_collection"), "required", "tax on: billing address required");
@@ -585,10 +622,9 @@ try {
   );
 
   // Apparel gets its own code -- states that exempt clothing rely on it.
-  p = await captureStripeParams(
-    [{ id: "unisex-tshirt", qty: 1, variant: "M" }],
-    { STRIPE_TAX_ENABLED: "true" }
-  );
+  p = await captureParams([{ id: "unisex-tshirt", qty: 1, variant: "M" }], {
+    STRIPE_TAX_ENABLED: "true"
+  });
   eq(
     p.get("line_items[0][price_data][product_data][tax_code]"),
     "txcd_30011000",
@@ -597,10 +633,9 @@ try {
 
   // Gift cards must NOT be taxed at purchase -- they're taxed on redemption.
   // Using the goods code here would tax the same money twice.
-  p = await captureStripeParams(
-    [{ id: "yallternative-gift-card", qty: 1, variant: "Preset $50" }],
-    { STRIPE_TAX_ENABLED: "true" }
-  );
+  p = await captureParams([{ id: "yallternative-gift-card", qty: 1, variant: "Preset $50" }], {
+    STRIPE_TAX_ENABLED: "true"
+  });
   eq(
     p.get("line_items[0][price_data][product_data][tax_code]"),
     "txcd_10502000",
@@ -619,7 +654,7 @@ try {
 
   // A custom box is always apothecary goods (apparel/gift cards aren't
   // eligible categories), so it takes the general goods code.
-  p = await captureStripeParams(
+  p = await captureParams(
     [{ id: "custom-box", qty: 1, boxProductIds: ["beard-salve", "beard-salve", "beard-salve"] }],
     { STRIPE_TAX_ENABLED: "true" }
   );
@@ -635,6 +670,144 @@ try {
   // after applying discounts"), so this combination is well-defined; see
   // DEVELOPMENT.md section 18 for what that means for gift cards.
   eq(p.get("allow_promotion_codes"), "true", "tax on: promotion codes still allowed");
+
+  /* ==========================================================
+     7. Market pickup is taxed where the order is collected
+     SC (like most states) sources tax to the point of delivery, so a market
+     pickup belongs to the market's county, not the buyer's home county --
+     a difference of up to ~2%. These assertions cover the happy path and,
+     more importantly, every way it can degrade: all of them must fall back
+     to the ordinary buyer-address flow rather than fail a sale.
+     ========================================================== */
+  const marketLabel = "Autumn Apothecary Faire — October 17, 2026 (Landrum, SC)";
+
+  // The label sent by the client is re-derived from events.json, never
+  // trusted -- same rule prices follow.
+  eq(
+    checkout.pickupLabelFor(taxEvents.upcoming[0]),
+    marketLabel,
+    "pickupLabelFor rebuilds the exact label cart.js renders"
+  );
+  eq(
+    checkout.resolvePickupAddress(taxEvents, marketLabel),
+    { state: "SC", postal_code: "29356", country: "US" },
+    "resolvePickupAddress finds the market address"
+  );
+  eq(
+    checkout.resolvePickupAddress(taxEvents, "Made Up Market — (Nowhere, SC)"),
+    null,
+    "resolvePickupAddress rejects a label not on the calendar"
+  );
+  eq(
+    checkout.resolvePickupAddress(taxEvents, "No Zip Market — November 2, 2026 (Greer, SC)"),
+    null,
+    "resolvePickupAddress returns null when the market has no ZIP"
+  );
+  eq(
+    checkout.resolvePickupAddress(taxEvents, "Flat Rock Fair — December 1, 2026 (Flat Rock, NC)"),
+    { state: "NC", postal_code: "28731", country: "US" },
+    "resolvePickupAddress reads the state off the location, not hardcoded SC"
+  );
+  eq(checkout.resolvePickupAddress(taxEvents, null), null, "resolvePickupAddress null-safe");
+  eq(
+    checkout.resolvePickupAddress(null, marketLabel),
+    null,
+    "resolvePickupAddress handles no events"
+  );
+
+  // Happy path: Customer carries the market address, and no shipping address
+  // is collected -- a collected one would override it.
+  let r = await captureStripeParams(
+    [{ id: "beard-salve", qty: 1 }],
+    { STRIPE_TAX_ENABLED: "true" },
+    { pickupMarket: marketLabel }
+  );
+  eq(
+    r.customerParams.get("shipping[address][postal_code]"),
+    "29356",
+    "pickup: customer gets market ZIP"
+  );
+  eq(r.customerParams.get("shipping[address][state]"), "SC", "pickup: customer gets market state");
+  eq(r.customerParams.get("shipping[address][country]"), "US", "pickup: customer address is US");
+  eq(r.params.get("customer"), "cus_test123", "pickup: session uses the pinned customer");
+  eq(r.params.get("customer_creation"), null, "pickup: no customer_creation alongside customer");
+  eq(
+    r.params.get("customer_update[address]"),
+    "never",
+    "pickup: billing address must not overwrite the pinned market address"
+  );
+  eq(
+    r.params.get("shipping_address_collection[allowed_countries][0]"),
+    null,
+    "pickup: no shipping address collected (it would win over the market)"
+  );
+  eq(r.params.get("automatic_tax[enabled]"), "true", "pickup: tax still enabled");
+
+  // Market with no ZIP recorded -> ordinary flow, no guessed rate.
+  r = await captureStripeParams(
+    [{ id: "beard-salve", qty: 1 }],
+    { STRIPE_TAX_ENABLED: "true" },
+    { pickupMarket: "No Zip Market — November 2, 2026 (Greer, SC)" }
+  );
+  eq(r.customerParams, null, "pickup without a ZIP: no customer created");
+  eq(r.params.get("customer_creation"), "always", "pickup without a ZIP: normal customer flow");
+  eq(
+    r.params.get("shipping_address_collection[allowed_countries][0]"),
+    "US",
+    "pickup without a ZIP: falls back to collecting an address"
+  );
+
+  // events.json unreachable must never block a sale.
+  r = await captureStripeParams(
+    [{ id: "beard-salve", qty: 1 }],
+    { STRIPE_TAX_ENABLED: "true", _stub: { eventsOk: false } },
+    { pickupMarket: marketLabel }
+  );
+  eq(r.params.get("customer"), null, "events.json down: no pinned customer");
+  eq(
+    r.params.get("shipping_address_collection[allowed_countries][0]"),
+    "US",
+    "events.json down: checkout still completes via the normal flow"
+  );
+
+  // Customer creation failing must also degrade, not throw.
+  r = await captureStripeParams(
+    [{ id: "beard-salve", qty: 1 }],
+    { STRIPE_TAX_ENABLED: "true", _stub: { customerOk: false } },
+    { pickupMarket: marketLabel }
+  );
+  eq(r.params.get("customer"), null, "customer create fails: no pinned customer");
+  eq(r.params.get("customer_creation"), "always", "customer create fails: normal flow resumes");
+
+  // A forged label can't smuggle in a cheaper jurisdiction.
+  r = await captureStripeParams(
+    [{ id: "beard-salve", qty: 1 }],
+    { STRIPE_TAX_ENABLED: "true" },
+    { pickupMarket: "Fake Market — (Portland, OR)" }
+  );
+  eq(r.customerParams, null, "forged pickup label: no customer created");
+  eq(
+    r.params.get("shipping_address_collection[allowed_countries][0]"),
+    "US",
+    "forged pickup label: falls back to the buyer's real address"
+  );
+
+  // With tax off there's no rate to get wrong, so skip the extra API call.
+  r = await captureStripeParams([{ id: "beard-salve", qty: 1 }], {}, { pickupMarket: marketLabel });
+  eq(r.customerParams, null, "tax off: pickup does not create a customer");
+  eq(
+    r.params.get("shipping_address_collection[allowed_countries][0]"),
+    "US",
+    "tax off: pickup behaviour unchanged"
+  );
+
+  // Pickup still records which market, for the packing list.
+  r = await captureStripeParams(
+    [{ id: "beard-salve", qty: 1 }],
+    { STRIPE_TAX_ENABLED: "true" },
+    { pickupMarket: marketLabel }
+  );
+  eq(r.params.get("metadata[pickup_market]"), marketLabel, "pickup: market recorded in metadata");
 
   global.fetch = globalFetch;
 
