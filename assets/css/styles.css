@@ -316,7 +316,23 @@ section{
   }
 
   &:active{ transform: translateY(0) scale(0.98); }
-  
+
+  /* No disabled state existed anywhere on .btn -- three call sites
+     (cart.js, main.js x2, including the box builder's "Add box to
+     cart") set the native `disabled` attribute, which blocks clicks
+     and :hover but leaves every color/shadow/gradient rule fully
+     intact. Result: a bright, apparently-clickable button that
+     silently does nothing. This is what actually read as "janky" in
+     the box builder -- not the option cards -- since that button
+     toggles disabled on every checkbox change. */
+  &:disabled, &[aria-disabled="true"] {
+    opacity: .45;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+    &:hover { transform: none; &::after { opacity: 0; } }
+  }
+
   /* background/text use the fixed --rose-dim/--on-fill pair, not the
      theme-flipping --rose/--paper -- plain --rose + --paper only clears
      ~2.4-3.5:1 here (fails AA 4.5:1 for normal text), worst in light mode
@@ -1226,10 +1242,33 @@ section{
   /* Greyed out once the box is full -- still announced as disabled, not
      just visually muted. */
   &.is-disabled { opacity: .5; cursor: not-allowed; }
+
+  /* Left unstyled before, this was a bare native checkbox (default OS
+     rendering, ~13px, black/blue) sitting inside an otherwise fully
+     themed card -- the one clashing element on an otherwise custom
+     control. Matches the accent-color already used on the pickup
+     checkbox in cart.js so the whole site treats checkboxes the same
+     way. Sized up a little too: at native size it read as an
+     afterthought next to the name/price text; the is-chosen highlight
+     already carries most of the "selected" signal, but the checkbox
+     needs to hold its own visual weight next to it, not disappear. */
+  & input[type="checkbox"] {
+    flex-shrink: 0;
+    width: 1.15rem;
+    height: 1.15rem;
+    accent-color: var(--whiskey);
+    cursor: inherit;
+  }
 }
 
 .custom-box-option-name { flex: 1 1 auto; font-weight: 600; font-size: .9rem; }
-.custom-box-option-price { color: var(--paper-dim); font-size: .85rem; font-variant-numeric: tabular-nums; }
+.custom-box-option-price {
+  flex-shrink: 0;
+  white-space: nowrap;
+  color: var(--paper-dim);
+  font-size: .85rem;
+  font-variant-numeric: tabular-nums;
+}
 
 .custom-box-foot {
   display: flex;
