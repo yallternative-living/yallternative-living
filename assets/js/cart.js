@@ -363,9 +363,7 @@
           '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>' +
           "</button>" +
           "</div>" +
-          (variantText
-            ? '<span class="yl-cart-variant">Variant: ' + variantText + "</span>"
-            : "") +
+          (variantText ? '<span class="yl-cart-variant">Variant: ' + variantText + "</span>" : "") +
           '<div class="yl-cart-actions-row">' +
           '<div class="yl-cart-qty-pill">' +
           '<button type="button" data-cart-action="dec" data-key="' +
@@ -609,12 +607,41 @@
     );
   }
 
+  var cartProductMapCache = null;
+
+  function getCartProductMap() {
+    if (!cartProductMapCache && root.YL_PRODUCTS) {
+      cartProductMapCache = new Map();
+      var products = root.YL_PRODUCTS.products || [];
+      var bundles = root.YL_PRODUCTS.bundles || [];
+
+      products.forEach(function (p) {
+        if (p && p.id) {
+          cartProductMapCache.set(p.id, p);
+        }
+      });
+      bundles.forEach(function (b) {
+        if (b && b.id) {
+          cartProductMapCache.set(b.id, b);
+          cartProductMapCache.set("bundle-" + b.id, b);
+        }
+      });
+    }
+    return cartProductMapCache || new Map();
+  }
+
   function addUpsell(id) {
-    var catalog =
-      root.YL_PRODUCTS && Array.isArray(root.YL_PRODUCTS.products) ? root.YL_PRODUCTS.products : [];
-    var p = catalog.find(function (x) {
-      return x.id === id;
-    });
+    var pMap = getCartProductMap();
+    var p = pMap.get(id);
+    if (!p) {
+      var catalog =
+        root.YL_PRODUCTS && Array.isArray(root.YL_PRODUCTS.products)
+          ? root.YL_PRODUCTS.products
+          : [];
+      p = catalog.find(function (x) {
+        return x.id === id;
+      });
+    }
     if (!p) return;
     state.items = addToList(state.items, {
       id: p.id,
@@ -775,10 +802,13 @@
     return String(s == null ? "" : s)
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;")
+      .replace(/`/g, "&#96;");
   }
   function escapeAttr(s) {
-    return escapeHtml(s).replace(/"/g, "&quot;");
+    return escapeHtml(s);
   }
 
   /* ---------------- Init / wiring ---------------- */

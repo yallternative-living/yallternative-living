@@ -3,6 +3,7 @@
    Zero dependencies, zero build step. Vanilla JS only so the
    whole site stays instant on any connection.
    ========================================================== */
+/* global module */
 (function () {
   "use strict";
 
@@ -15,7 +16,7 @@
      umami.track(). If Umami's script hasn't loaded yet (it's `defer`) or a user
      blocks it, window.umami is simply absent and the event is skipped -- it must
      never throw or block the actual add-to-cart / checkout / search. */
-  if (typeof window.plausible !== "function") {
+  if (typeof window !== "undefined" && typeof window.plausible !== "function") {
     window.plausible = function (name, options) {
       try {
         if (window.umami && typeof window.umami.track === "function") {
@@ -28,11 +29,13 @@
     };
   }
 
-  /* ---------- Theme toggle (dark/light, persisted) ---------- */
+  /* ---------- Theme toggle (dark/light, persisted with in-memory cache) ---------- */
   var root = document.documentElement;
   var toggle = document.getElementById("themeToggle");
+  var cachedTheme = null;
 
   function currentTheme() {
+    if (cachedTheme !== null) return cachedTheme;
     // Storage access can throw (Safari private browsing, "block all
     // cookies," a locked-down webview) -- this runs as the very first
     // statement in the whole file, so an uncaught throw here used to
@@ -41,14 +44,19 @@
     // theme correct and lets the rest of the script keep running.
     try {
       var saved = localStorage.getItem("yl-theme");
-      if (saved === "dark" || saved === "light") return saved;
+      if (saved === "dark" || saved === "light") {
+        cachedTheme = saved;
+        return saved;
+      }
     } catch {
       /* storage unavailable -- fall through to the media-query default */
     }
-    return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+    cachedTheme = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+    return cachedTheme;
   }
 
   function applyTheme(theme) {
+    cachedTheme = theme;
     root.setAttribute("data-theme", theme);
     if (toggle) toggle.setAttribute("aria-checked", theme === "light" ? "true" : "false");
   }
@@ -57,7 +65,7 @@
 
   if (toggle) {
     toggle.addEventListener("click", function () {
-      var next = root.getAttribute("data-theme") === "light" ? "dark" : "light";
+      var next = currentTheme() === "light" ? "dark" : "light";
       try {
         localStorage.setItem("yl-theme", next);
       } catch {
@@ -136,45 +144,54 @@
     });
   }
 
-  /* ---------- Scroll reveal (IntersectionObserver) ----------
-     Shared by the initial page-load pass below, the shop grid
-     (renderCards, re-run on every filter/sort), and the events page
-     (markReveal). A fresh observer used to get created on every single
-     re-render with no way to ever release the previous one -- any
-     `.reveal` element still unobserved at re-render time (scrolled past
-     but not yet intersected) stayed pinned to an abandoned observer
-     instance forever. Stashing the current observer on the root element
-     and disconnecting it before making a new one closes that leak. */
-  function wireReveal(root, options) {
-    var els = root.querySelectorAll(".reveal");
-    if (root.__revealIO) {
-      root.__revealIO.disconnect();
-      root.__revealIO = null;
+  /* ---------- Scroll reveal (IntersectionObserver Singleton) ----------
+     Shared by initial page load, shop grid, events page, and filter updates.
+     Uses a module-level singleton IntersectionObserver instance (sharedRevealIO)
+     to eliminate observer allocation churn on every re-render or search pass. */
+  var sharedRevealIO = null;
+
+  function getRevealObserver() {
+    if (!sharedRevealIO && "IntersectionObserver" in window && !window.navigator.webdriver) {
+      sharedRevealIO = new IntersectionObserver(
+        function (entries) {
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) {
+              entry.target.classList.add("in");
+              if (sharedRevealIO) {
+                sharedRevealIO.unobserve(entry.target);
+              }
+            }
+          });
+        },
+        { threshold: 0.15, rootMargin: "0px 0px -40px 0px" }
+      );
     }
-    if (!("IntersectionObserver" in window) || !els.length || window.navigator.webdriver) {
+    return sharedRevealIO;
+  }
+
+  function wireReveal(root) {
+    root = root || document;
+    var els = root.querySelectorAll(".reveal:not(.in)");
+    if (!els.length) return;
+    if (!("IntersectionObserver" in window) || window.navigator.webdriver) {
       els.forEach(function (el) {
         el.classList.add("in");
       });
       return;
     }
-    var io = new IntersectionObserver(
-      function (entries) {
-        entries.forEach(function (entry) {
-          if (entry.isIntersecting) {
-            entry.target.classList.add("in");
-            io.unobserve(entry.target);
-          }
-        });
-      },
-      options || { threshold: 0.1 }
-    );
+    var io = getRevealObserver();
+    if (!io) {
+      els.forEach(function (el) {
+        el.classList.add("in");
+      });
+      return;
+    }
     els.forEach(function (el, i) {
       el.style.setProperty("--i", i % 8);
       io.observe(el);
     });
-    root.__revealIO = io;
   }
-  wireReveal(document, { threshold: 0.15, rootMargin: "0px 0px -40px 0px" });
+  wireReveal(document);
 
   /* ---------- Footer year ---------- */
   var yearEl = document.getElementById("year");
@@ -443,11 +460,25 @@
 
   /* ---------- shared: escape a value for safe use inside an HTML attribute ---------- */
   function attrEsc(str) {
+    if (str == null) return "";
     return String(str)
       .replace(/&/g, "&amp;")
-      .replace(/"/g, "&quot;")
       .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;")
+      .replace(/`/g, "&#96;");
+  }
+
+  /* ---------- shared: only allow http(s)/relative links into href= ----------
+     attrEsc() alone stops attribute-breakout but not a same-quote-safe
+     `javascript:` URL, which still executes on click. Used for event/social
+     post URLs that come from CMS-editable JSON (events.json, social feed). */
+  function safeUrl(url) {
+    if (!url) return "";
+    var trimmed = String(url).trim();
+    if (/^(https?:)?\/\//i.test(trimmed) || /^\//.test(trimmed)) return trimmed;
+    return "";
   }
 
   /* Builds a <picture> element from assets/js/image-manifest.js (generated
@@ -818,18 +849,51 @@
     );
   }
 
+  /* ---------- Global Product Map Index (O(1) lookups) ---------- */
+  var productMapCache = null;
+
+  function getProductMap() {
+    if (!productMapCache && window.YL_PRODUCTS) {
+      productMapCache = new Map();
+      var products = window.YL_PRODUCTS.products || [];
+      var bundles = window.YL_PRODUCTS.bundles || [];
+
+      products.forEach(function (p) {
+        if (p && p.id) {
+          productMapCache.set(p.id, p);
+        }
+      });
+      bundles.forEach(function (b) {
+        if (b && b.id) {
+          productMapCache.set(b.id, b);
+          productMapCache.set("bundle-" + b.id, b);
+        }
+      });
+    }
+    return productMapCache || new Map();
+  }
+
+  /* ---------- Wishlist / "Saved For Later" (localStorage + in-memory cache) ---------- */
+  var wishCache = null;
+  var wishSet = null;
+
   /**
-   * Retrieves the current wishlist array from localStorage.
-   * Falls back to an empty array if storage is unavailable or corrupted.
+   * Retrieves the current wishlist array from in-memory cache / localStorage.
    *
    * @return {!Array<string>} An array of product ID strings.
    */
   function getWishlist() {
-    try {
-      return JSON.parse(localStorage.getItem(WISH_KEY)) || [];
-    } catch {
-      return [];
+    if (wishCache === null) {
+      try {
+        var raw = localStorage.getItem(WISH_KEY);
+        wishCache = raw ? JSON.parse(raw) : [];
+        if (!Array.isArray(wishCache)) wishCache = [];
+      } catch {
+        wishCache = [];
+      }
+      wishSet = new Set(wishCache);
     }
+    return wishCache;
   }
 
   /**
@@ -838,8 +902,10 @@
    * @param {!Array<string>} list An array of product ID strings.
    */
   function saveWishlist(list) {
+    wishCache = Array.isArray(list) ? list : [];
+    wishSet = new Set(wishCache);
     try {
-      localStorage.setItem(WISH_KEY, JSON.stringify(list));
+      localStorage.setItem(WISH_KEY, JSON.stringify(wishCache));
     } catch {
       /* storage unavailable -- badge/drawer below still reflect this
          session's in-memory state, it just won't persist on reload */
@@ -849,29 +915,26 @@
   }
 
   /**
-   * Checks if a product ID is currently present in the wishlist.
+   * Checks if a product ID is currently present in the wishlist via O(1) Set lookup.
    *
    * @param {string} id The product ID string.
    * @return {boolean} True if the product is in the wishlist, false otherwise.
    */
   function isWished(id) {
-    return getWishlist().indexOf(id) !== -1;
+    if (wishSet === null) {
+      getWishlist();
+    }
+    return wishSet.has(id);
   }
 
-  /**
-   * Toggles the presence of a product ID in the wishlist and updates UI states.
-   * Also updates the aria-label of the wishlist buttons for screen readers.
-   *
-   * @param {string} id The product ID string.
-   */
-  function toggleWish(id) {
-    var list = getWishlist();
-    var i = list.indexOf(id);
-    if (i === -1) list.push(id);
-    else list.splice(i, 1);
-    saveWishlist(list);
-    document.querySelectorAll('.wish-btn[data-id="' + id + '"]').forEach(function (btn) {
-      var active = list.indexOf(id) !== -1;
+  function syncWishButtons(id) {
+    var buttons = id
+      ? document.querySelectorAll('.wish-btn[data-id="' + id + '"]')
+      : document.querySelectorAll(".wish-btn[data-id]");
+
+    buttons.forEach(function (btn) {
+      var itemID = btn.getAttribute("data-id");
+      var active = isWished(itemID);
       btn.classList.toggle("active", active);
       btn.setAttribute("aria-pressed", active ? "true" : "false");
       var oldLabel = btn.getAttribute("aria-label");
@@ -892,12 +955,41 @@
   }
 
   /**
+   * Toggles the presence of a product ID in the wishlist and updates UI states.
+   *
+   * @param {string} id The product ID string.
+   */
+  function toggleWish(id) {
+    var list = getWishlist().slice();
+    var i = list.indexOf(id);
+    if (i === -1) list.push(id);
+    else list.splice(i, 1);
+    saveWishlist(list);
+    syncWishButtons(id);
+  }
+
+  /**
    * Updates the text content of the header wishlist count badge.
    */
   function updateWishBadge() {
     var badge = document.getElementById("wishCount");
-    if (badge) badge.textContent = getWishlist().length > 0 ? String(getWishlist().length) : "";
+    var count = getWishlist().length;
+    if (badge) badge.textContent = count > 0 ? String(count) : "";
   }
+
+  /* Cross-tab state synchronization for Wishlist & Theme */
+  window.addEventListener("storage", function (e) {
+    if (e.key === WISH_KEY) {
+      wishCache = null;
+      wishSet = null;
+      getWishlist();
+      updateWishBadge();
+      renderWishDrawer();
+      syncWishButtons();
+    } else if (e.key === "yl-theme" && (e.newValue === "dark" || e.newValue === "light")) {
+      applyTheme(e.newValue);
+    }
+  });
   function initWishNavButton() {
     var navCta = document.querySelector(".nav-cta");
     if (!navCta || document.getElementById("wishToggle")) return;
@@ -1004,12 +1096,10 @@
     var body = document.getElementById("wishBody");
     if (!body) return;
     var ids = getWishlist();
-    var all = (window.YL_PRODUCTS && window.YL_PRODUCTS.products) || [];
+    var pMap = getProductMap();
     var items = ids
       .map(function (id) {
-        return all.find(function (p) {
-          return p.id === id;
-        });
+        return pMap.get(id);
       })
       .filter(Boolean);
     if (!items.length) {
@@ -1065,10 +1155,7 @@
     var imgPath = slide.getAttribute("data-image");
     if (!imgPath) return;
     var productId = gallery.getAttribute("data-product-id");
-    var all = (window.YL_PRODUCTS && window.YL_PRODUCTS.products) || [];
-    var p = all.find(function (pr) {
-      return pr.id === productId;
-    });
+    var p = getProductMap().get(productId);
     if (!p) return;
     // Differentiate alt text per photo (index > 0) instead of repeating
     // the product name identically on every slide -- a screen-reader
@@ -1230,12 +1317,7 @@
           if (prodId === "yallternative-gift-card") {
             return;
           }
-          var allItems = ((window.YL_PRODUCTS && window.YL_PRODUCTS.products) || []).concat(
-            (window.YL_PRODUCTS && window.YL_PRODUCTS.bundles) || []
-          );
-          var item = allItems.find(function (i) {
-            return i.id === prodId;
-          });
+          var item = getProductMap().get(prodId);
           if (item && item.images && item.images.length) {
             var activeImg = slide.querySelector("img");
             var src = activeImg ? activeImg.getAttribute("src") : item.images[0];
@@ -1301,12 +1383,15 @@
     section.hidden = false;
 
     var chosen = [];
+    var eligibleMap = new Map(
+      eligible.map(function (x) {
+        return [x.id, x];
+      })
+    );
 
     function fullPrice() {
       return chosen.reduce(function (sum, id) {
-        var p = eligible.find(function (x) {
-          return x.id === id;
-        });
+        var p = eligibleMap.get(id);
         return sum + (p ? p.price : 0);
       }, 0);
     }
@@ -1318,6 +1403,7 @@
       var count = chosen.length;
       var ready = count >= minItems && count <= maxItems;
       var saving = Math.round((fullPrice() - boxPrice()) * 100) / 100;
+      var chosenSet = new Set(chosen);
 
       // Build slot visualizer items
       var trackerHtml = "";
@@ -1326,9 +1412,7 @@
         var isRequired = s < minItems;
         if (isFilled) {
           var chosenId = chosen[s];
-          var chosenProd = eligible.find(function (x) {
-            return x.id === chosenId;
-          });
+          var chosenProd = eligibleMap.get(chosenId);
           var itemThumb =
             (chosenProd && (chosenProd.image || (chosenProd.images && chosenProd.images[0]))) || "";
           trackerHtml +=
@@ -1368,7 +1452,7 @@
         '<ul class="custom-box-options" role="group" aria-labelledby="customBoxHeading">' +
         eligible
           .map(function (p) {
-            var isOn = chosen.indexOf(p.id) !== -1;
+            var isOn = chosenSet.has(p.id);
             var atLimit = !isOn && count >= maxItems;
             var imgUrl = p.image || (p.images && p.images[0]) || "";
             var catLabel = p.category ? p.category.toUpperCase() : "";
@@ -1782,11 +1866,15 @@
      function reads, so the on-page math and the checkout price can never
      disagree. */
   function bundlesHTML(bundles, productsById) {
+    var pMap = getProductMap();
     return bundles
       .map(function (b) {
         var items = b.productIds
           .map(function (id) {
-            return productsById[id];
+            if (productsById && typeof productsById.get === "function") {
+              return productsById.get(id);
+            }
+            return productsById && productsById[id] ? productsById[id] : pMap.get(id);
           })
           .filter(Boolean);
         if (items.length !== b.productIds.length) return ""; // a referenced product went missing -- skip rather than show a broken card
@@ -1860,10 +1948,7 @@
       if (bundlesSection) bundlesSection.style.display = "none";
       return;
     }
-    var productsById = {};
-    data.products.forEach(function (p) {
-      productsById[p.id] = p;
-    });
+    var pMap = getProductMap();
     var q = (query || "").trim().toLowerCase();
     var filteredBundles = data.bundles.filter(function (b) {
       if (!q) return true;
@@ -1874,7 +1959,8 @@
         " " +
         b.productIds
           .map(function (id) {
-            return productsById[id] ? productsById[id].name : "";
+            var p = pMap.get(id);
+            return p ? p.name : "";
           })
           .join(" ")
       ).toLowerCase();
@@ -1885,9 +1971,8 @@
       if (bundlesSection) bundlesSection.style.display = "none";
       return;
     }
-
     if (bundlesSection) bundlesSection.style.display = "";
-    bundlesList.innerHTML = bundlesHTML(filteredBundles, productsById);
+    bundlesList.innerHTML = bundlesHTML(filteredBundles, pMap);
     wireReveal(bundlesList);
   }
 
@@ -2467,9 +2552,9 @@
       "</p>" +
       (ev.note ? '<p class="event-desc">' + attrEsc(ev.note) + "</p>" : "") +
       '<div class="event-cta">' +
-      (ev.url
+      (safeUrl(ev.url)
         ? '<a class="btn btn-primary btn-sm btn-block" href="' +
-          attrEsc(ev.url) +
+          attrEsc(safeUrl(ev.url)) +
           '" target="_blank" rel="noopener">More Info / RSVP<span class="sr-only">(opens in new tab)</span></a>'
         : "") +
       "</div>" +
@@ -2576,11 +2661,7 @@
     }
 
     function render() {
-      var productsById = {};
-      allProducts.forEach(function (p) {
-        productsById[p.id] = p;
-      });
-
+      var pMap = getProductMap();
       var q = state.query.trim().toLowerCase();
       var bundlesSection = document.querySelector(".bundles-section");
 
@@ -2594,14 +2675,15 @@
             " " +
             b.productIds
               .map(function (id) {
-                return productsById[id] ? productsById[id].name : "";
+                var p = pMap.get(id);
+                return p ? p.name : "";
               })
               .join(" ")
           ).toLowerCase();
           return haystack.indexOf(q) !== -1;
         });
 
-        grid.innerHTML = bundlesHTML(filteredBundles, productsById);
+        grid.innerHTML = bundlesHTML(filteredBundles, pMap);
         wireReveal(grid);
 
         if (bundlesSection) bundlesSection.style.display = "none";
@@ -2886,7 +2968,7 @@
         .map(function (post) {
           return (
             '<a href="' +
-            attrEsc(post.url || "#") +
+            attrEsc(safeUrl(post.url) || "#") +
             '" target="_blank" rel="noopener" class="card social-card reveal">' +
             '  <div class="card-img-wrap">' +
             '    <img src="' +
@@ -3449,33 +3531,38 @@
 
         if (!allItems.length) return;
 
+        var gothicCalmSet = new Set([
+          "sleep-salve",
+          "lavender-soak",
+          "bath-tea",
+          "night-ritual-set"
+        ]);
+        var ritualRestSet = new Set([
+          "shea-butter",
+          "bath-tea",
+          "cleansing-spray",
+          "night-ritual-set"
+        ]);
+        var hexingEnergySet = new Set([
+          "protection-keychain",
+          "shimmer-oil",
+          "porch-sweep-spray",
+          "pride-set"
+        ]);
+        var dailySootheSet = new Set([
+          "frankincense-salve",
+          "miracle-balm",
+          "hand-scrub",
+          "bug-spray"
+        ]);
+
         var scored = allItems.map(function (item) {
           var score = 0;
 
-          if (
-            vibe === "gothic-calm" &&
-            ["sleep-salve", "lavender-soak", "bath-tea", "night-ritual-set"].indexOf(item.id) !== -1
-          )
-            score += 5;
-          if (
-            vibe === "ritual-rest" &&
-            ["shea-butter", "bath-tea", "cleansing-spray", "night-ritual-set"].indexOf(item.id) !==
-              -1
-          )
-            score += 5;
-          if (
-            vibe === "hexing-energy" &&
-            ["protection-keychain", "shimmer-oil", "porch-sweep-spray", "pride-set"].indexOf(
-              item.id
-            ) !== -1
-          )
-            score += 5;
-          if (
-            vibe === "daily-soothe" &&
-            ["frankincense-salve", "miracle-balm", "hand-scrub", "bug-spray"].indexOf(item.id) !==
-              -1
-          )
-            score += 5;
+          if (vibe === "gothic-calm" && gothicCalmSet.has(item.id)) score += 5;
+          if (vibe === "ritual-rest" && ritualRestSet.has(item.id)) score += 5;
+          if (vibe === "hexing-energy" && hexingEnergySet.has(item.id)) score += 5;
+          if (vibe === "daily-soothe" && dailySootheSet.has(item.id)) score += 5;
 
           if (need === "hydration" && (item.category === "salves" || item.category === "body"))
             score += 4;
@@ -3523,12 +3610,9 @@
           " focus, and " +
           intent.replace("-", " ") +
           " intent.";
+        var pMap = getProductMap();
         var firstBundleProduct =
-          match.isBundle &&
-          Array.isArray(match.productIds) &&
-          catalog.find(function (x) {
-            return x.id === match.productIds[0];
-          });
+          match.isBundle && Array.isArray(match.productIds) && pMap.get(match.productIds[0]);
         var itemImage =
           match.image ||
           (match.images && match.images[0]) ||
@@ -3541,9 +3625,7 @@
           if (typeof item.regularPrice === "number") return item.regularPrice;
           if (Array.isArray(item.productIds)) {
             var fullPrice = item.productIds.reduce(function (sum, id) {
-              var p = catalog.find(function (x) {
-                return x.id === id;
-              });
+              var p = pMap.get(id);
               return sum + (p ? p.originalPrice || p.price || 0 : 0);
             }, 0);
             return Math.round(fullPrice * (1 - (item.discountPercent || 0) / 100) * 100) / 100;
@@ -3613,9 +3695,32 @@
 
   /* ---------- Load translator ---------- */
   (function () {
+    if (typeof document === "undefined") return;
     var s = document.createElement("script");
     s.src = "assets/js/translator.js?v=2.0";
     s.defer = true;
     document.body.appendChild(s);
   })();
+
+  /* ---------- Node.js / Unit Test Export ---------- */
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = {
+      getWishlist: getWishlist,
+      saveWishlist: saveWishlist,
+      attrEsc: attrEsc,
+      safeUrl: safeUrl,
+      addToCartHTML: addToCartHTML,
+      applyTheme: applyTheme,
+      pickFeatured: pickFeatured,
+      toggleWish: toggleWish,
+      currentTheme: currentTheme,
+      renderWishDrawer: renderWishDrawer,
+      _resetState: function () {
+        wishCache = null;
+        wishSet = null;
+        cachedTheme = null;
+        productMapCache = null;
+      }
+    };
+  }
 })();

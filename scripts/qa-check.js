@@ -36,8 +36,18 @@ var fs = require("fs");
 var path = require("path");
 var { execSync } = require("child_process");
 
+/* Mirrors escapeHtml() in scripts/build-site-data.js -- this check
+   independently re-derives the expected FAQ HTML and diffs it against
+   what build-data actually wrote, so the two escaping implementations
+   must stay in lockstep or every FAQ answer with an apostrophe "fails". */
 function escapeHtml(s) {
-  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+    .replace(/`/g, "&#96;");
 }
 
 var ROOT = path.join(__dirname, "..");
@@ -1496,7 +1506,7 @@ if (
 }
 
 /* ---------- Unit Test Suites ---------- */
-section("Unit Test Suites (cart-engine & backend-functions)");
+section("Unit Test Suites (cart-engine, backend-functions, main, build-site-data)");
 try {
   execSync('node "' + path.join(ROOT, "scripts/cart-engine.test.js") + '"', { stdio: "pipe" });
   ok("scripts/cart-engine.test.js passed");
@@ -1512,6 +1522,25 @@ try {
 } catch (e) {
   fail(
     "scripts/backend-functions.test.js",
+    e.stderr ? e.stderr.toString().split("\n")[0] : e.message
+  );
+}
+
+try {
+  execSync('node "' + path.join(ROOT, "scripts/main.test.js") + '"', { stdio: "pipe" });
+  ok("scripts/main.test.js passed");
+} catch (e) {
+  fail("scripts/main.test.js", e.stderr ? e.stderr.toString().split("\n")[0] : e.message);
+}
+
+try {
+  execSync('node "' + path.join(ROOT, "scripts/build-site-data.test.js") + '"', {
+    stdio: "pipe"
+  });
+  ok("scripts/build-site-data.test.js passed");
+} catch (e) {
+  fail(
+    "scripts/build-site-data.test.js",
     e.stderr ? e.stderr.toString().split("\n")[0] : e.message
   );
 }

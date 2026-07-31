@@ -23,9 +23,7 @@
   <meta property="product:price:currency" content="USD">
   <meta property="product:availability" content="in stock">
   <!-- Redirect to shop with product deep-link -->
-  <script>
-    window.location.replace("../shop.html#" + "bug-spray");
-  </script>
+  <script>window.location.replace("../shop.html#" + window.location.pathname.split("/").pop().replace(".html",""));</script>
 </head>
 <body style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;text-align:center;padding:50px;background:#fcfaf7;color:#353230;">
   <h1>Bug Off B*tch Natural Bug Spray | Y'allternative Living</h1>

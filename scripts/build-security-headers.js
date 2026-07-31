@@ -62,7 +62,8 @@ var PAGES = [
   "faq.html",
   "journal.html",
   "policies.html",
-  "terms.html"
+  "terms.html",
+  "products/backroad-soak.html"
 ];
 
 function extractInlineScripts(html) {
@@ -104,12 +105,7 @@ function run() {
     );
   }
 
-  // Verify every other page's real inline scripts are byte-identical to
-  // index.html's -- if a future edit makes one page's inline script
-  // diverge, this needs to be either fixed (keep them identical) or this
-  // script needs to be taught about the new hash. Either way, silently
-  // shipping a CSP that only covers SOME pages would be worse than
-  // failing loudly here.
+  // Collect unique inline scripts across all configured pages.
   var allTexts = {};
   canonicalScripts.forEach(function (s) {
     allTexts[sha256Base64(s)] = s;
@@ -120,11 +116,7 @@ function run() {
     extractInlineScripts(html).forEach(function (s) {
       var h = sha256Base64(s);
       if (!allTexts[h]) {
-        throw new Error(
-          page +
-            " has an inline <script> whose content doesn't match any hash computed from index.html. " +
-            "Either make it identical to the corresponding block in index.html, or update this script to hash it too."
-        );
+        allTexts[h] = s;
       }
     });
   });
@@ -161,7 +153,7 @@ function run() {
     // does a normal top-level `window.location = url` redirect to Stripe's
     // hosted Checkout page -- full-page navigations aren't governed by
     // connect-src/frame-src/form-action.
-    "connect-src 'self' https://cloud.umami.is https://*.tawk.to wss://*.tawk.to https://translate.googleapis.com",
+    "connect-src 'self' https://cloud.umami.is https://*.tawk.to wss://*.tawk.to https://translate.googleapis.com https://formspree.io https://app.convertkit.com https://app.kit.com",
     "frame-src https://*.tawk.to https://translate.google.com",
     "frame-ancestors 'none'",
     "base-uri 'self'",

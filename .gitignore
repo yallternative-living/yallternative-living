@@ -17,6 +17,7 @@ check_tmp.js
 assets/data/.fuse_hidden*
 assets/data/shop_jsonld.tmp.json
 *.tmp
+tmp/
 
 # Local reports
 audit_report.md
