@@ -139,7 +139,7 @@ function run() {
     // that main.js injects for instant navigations (prerender/prefetch on
     // hover). This keyword ONLY permits speculation-rules scripts -- it does
     // not open up general inline JS execution.
-    "script-src 'self' https://cloud.umami.is https://embed.tawk.to https://translate.google.com https://translate.googleapis.com 'inline-speculation-rules' " +
+    "script-src 'self' https://cloud.umami.is https://embed.tawk.to https://translate.google.com https://translate.googleapis.com 'inline-speculation-rules' 'sha256-gUmq6gOoZ76O8R+C9JLLJzm46Aj4WygKv4n1nBxUfUk=' " +
       hashes.join(" "),
     // fonts.googleapis.com: every page's <link> tags pull Cormorant Garamond
     // + Outfit from Google Fonts (see the top-of-file comment in styles.css)
