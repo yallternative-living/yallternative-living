@@ -84,7 +84,16 @@ function createStaticServer(port = 8083) {
   ];
 
   try {
-    server = await createStaticServer(port);
+    try {
+      server = await createStaticServer(port);
+      console.log(`Started local static server on ${baseUrl}`);
+    } catch (e) {
+      if (e.code === "EADDRINUSE") {
+        console.log(`Using existing server running on ${baseUrl}`);
+      } else {
+        throw e;
+      }
+    }
     browser = await puppeteer.launch({ headless: "new", args: ["--no-sandbox"] });
     const page = await browser.newPage();
 
