@@ -19,7 +19,7 @@
       product = product || {};
       if (pTitle) pTitle.textContent = product.title || 'Product';
       if (pImg) {
-        pImg.src = product.image || '/assets/img/logo.png';
+        pImg.src = product.image || 'assets/img/logo.png';
         pImg.alt = product.title || 'Product preview';
       }
       if (feedback) {

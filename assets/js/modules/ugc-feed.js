@@ -60,7 +60,7 @@
       '<article class="ugc-card reveal" role="listitem">' +
       '  <div class="ugc-card-media">' +
       '    <img src="' +
-      attrEsc(post.image) +
+      attrEsc(safeUrl(post.image)) +
       '" alt="' +
       attrEsc(altText) +
       '" loading="lazy" decoding="async" width="400" height="400">' +
