@@ -1105,18 +1105,15 @@
           
           <div class="custom-input-wrap" id="customAmountGroup" style="display: none;">
             <label for="customGiftAmount">Custom Amount ($10 - $500)</label>
-            <input type="number" id="customGiftAmount" min="10" max="500" value="25" step="1">
+            <input type="number" id="customGiftAmount" name="customGiftAmount" aria-label="Custom Gift Card Amount" min="10" max="500" value="25" step="1">
           </div>
-        </div>
-
-        <div class="gift-fields-grid">
-          <div class="field">
+          <div class="gift-field">
             <label for="giftRecipientEmail">Recipient Email</label>
-            <input type="email" id="giftRecipientEmail" placeholder="friend@example.com" required>
+            <input type="email" id="giftRecipientEmail" name="recipient_email" aria-label="Recipient Email" placeholder="friend@example.com" required>
           </div>
-          <div class="field">
-            <label for="giftSenderName">Sender Name</label>
-            <input type="text" id="giftSenderName" placeholder="Your Name" required>
+          <div class="gift-field">
+            <label for="giftSenderName">Your Name</label>
+            <input type="text" id="giftSenderName" name="sender_name" aria-label="Your Name" placeholder="Your Name" required>
           </div>
         </div>
 
@@ -1245,6 +1242,71 @@
     </div>
   </section>
 
+  <!-- CUSTOMER COMMUNITY & SOCIAL PROOF UGC STRIP -->
+  <section id="shopSocialFeed" class="ugc-section" aria-labelledby="ugcHeadingShop" style="display:none;">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">Community In Action</span>
+        <h2 id="ugcHeadingShop">How Y'all Use Our Apothecary</h2>
+        <p>From bedtime rituals to farmers market hauls — see how our handmade salves &amp; soaks fit into your daily life.</p>
+      </div>
+      <div id="shopSocialFeedGrid" class="ugc-grid stagger" role="list"></div>
+      <div class="ugc-cta reveal">
+        <a class="btn btn-outline" href="https://www.instagram.com/yallternativeliving" target="_blank" rel="noopener">
+          Tag Us To Be Featured <span class="sr-only">(opens Instagram in a new tab)</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- SHOP FAQ ACCORDION SECTION -->
+  <section id="shop-faq" class="shop-faq-section" aria-labelledby="shopFaqHeading">
+    <div class="container">
+      <div class="section-head center reveal">
+        <span class="eyebrow">Got Questions?</span>
+        <h2 id="shopFaqHeading">Frequently Asked Questions</h2>
+        <p>Everything you need to know about our handmade salves, soaks, shipping, and custom orders.</p>
+      </div>
+      <!-- SHOP_FAQ:START -->
+      <div class="faq-accordion">
+        <details class="faq-accordion-item">
+          <summary class="faq-accordion-summary">Where do you ship from?</summary>
+          <div class="faq-accordion-content">
+            <p>Straight out of Landrum, SC. Processing time isn&#39;t the same for every item, so check the product description for the specifics before you order.</p>
+          </div>
+        </details>
+        <details class="faq-accordion-item">
+          <summary class="faq-accordion-summary">What&#39;s your return policy?</summary>
+          <div class="faq-accordion-content">
+            <p>Opened salves, scrubs, and soaks are final sale for hygiene reasons. Unworn apparel and sealed items can be exchanged. Anything arrive wrong or damaged? Email us and we&#39;ll make it right.</p>
+          </div>
+        </details>
+        <details class="faq-accordion-item">
+          <summary class="faq-accordion-summary">Do you have unscented or sensitive-skin options?</summary>
+          <div class="faq-accordion-content">
+            <p>We do. The Y&#39;allternative Miracle Balm is unscented and essential-oil-free, made for skin that side-eyes fragrance.</p>
+          </div>
+        </details>
+        <details class="faq-accordion-item">
+          <summary class="faq-accordion-summary">Can I get something custom or in bulk?</summary>
+          <div class="faq-accordion-content">
+            <p>Yep. Email us or send an Instagram DM with what you&#39;re picturing (gifts, market swag, wedding favors, whatever) and we&#39;ll figure it out together.</p>
+          </div>
+        </details>
+        <details class="faq-accordion-item">
+          <summary class="faq-accordion-summary">Where can I meet you in person?</summary>
+          <div class="faq-accordion-content">
+            <p>Farmers markets and Pride events around Upstate SC and beyond. Check out our <a href="events.html">events page</a> or follow our socials so you know exactly where and when we&#39;ll be set up next.</p>
+          </div>
+        </details>
+      </div>
+      <!-- SHOP_FAQ:END -->
+      <div class="center" style="margin-top: 32px;">
+        <a href="faq.html" class="btn btn-outline">View All FAQs</a>
+      </div>
+    </div>
+  </section>
+
   <!-- ORDER STATUS LOOKUP MODAL -->
   <dialog id="order-status-modal" class="order-status-modal gift-modal" role="dialog" aria-modal="true" aria-labelledby="orderStatusModalTitle">
     <button type="button" class="gift-modal-close" id="closeOrderStatusModalBtn" data-action="close-order-status" aria-label="Close dialog">&times;</button>
@@ -1264,6 +1326,51 @@
     </form>
 
     <div id="order-timeline-container" class="order-status-results" aria-live="polite" style="margin-top: 1.5rem;" hidden></div>
+  </dialog>
+
+  <!-- RESTOCK ALERT MODAL -->
+  <dialog id="restock-alert-modal" class="restock-alert-modal gift-modal" role="dialog" aria-modal="true" aria-labelledby="restockModalTitle">
+    <button type="button" class="gift-modal-close" id="closeRestockModalBtn" data-action="close-restock-modal" aria-label="Close dialog">&times;</button>
+    
+    <div class="gift-modal-header">
+      <h2 id="restockModalTitle">Restock &amp; Launch Alert</h2>
+      <p class="muted" id="restockModalSubtitle">Get an email as soon as this item is back in stock or ready to ship.</p>
+    </div>
+
+    <div id="restockModalProductInfo" class="restock-product-preview" style="display: flex; align-items: center; gap: 16px; margin: 16px 0 24px; padding: 14px 18px; background: var(--ink-1); border-radius: var(--radius-md); border: 1px solid var(--hide);">
+      <img id="restockProductImg" src="" alt="" style="width: 56px; height: 56px; object-fit: cover; border-radius: var(--radius-sm);" hidden>
+      <div>
+        <h3 id="restockProductName" style="margin: 0; font-size: 1.1rem; color: var(--paper);">Product Name</h3>
+        <span id="restockProductBadge" class="stock-badge coming-soon" style="margin-top: 4px; display: inline-block;">Coming Soon</span>
+      </div>
+    </div>
+
+    <form id="restockAlertForm" class="restock-alert-form" novalidate>
+      <!-- Honeypot field for bot protection -->
+      <div class="form-hp" style="position: absolute; left: -9999px;" aria-hidden="true">
+        <label for="restock-hp-field">Leave this field blank</label>
+        <input type="text" id="restock-hp-field" name="website_hp" tabindex="-1" autocomplete="off">
+      </div>
+
+      <input type="hidden" id="restockProductId" name="product_id" value="">
+      <input type="hidden" id="restockProductNameInput" name="product_name" value="">
+
+      <div class="field">
+        <label for="restock-email-input">Email Address <span style="color: var(--crimson);">*</span></label>
+        <input type="email" id="restock-email-input" name="email" placeholder="you@example.com" autocomplete="email" required>
+        <span class="field-error" id="restockEmailError" aria-live="assertive" hidden style="color: var(--crimson); font-size: 0.85rem; margin-top: 4px; display: block;"></span>
+      </div>
+
+      <button type="submit" id="restockSubmitBtn" class="btn btn-primary btn-block" style="margin-top: 1.25rem;">
+        <span>Notify Me When Back in Stock</span>
+      </button>
+    </form>
+
+    <div id="restockSuccessMessage" class="restock-success-state" aria-live="polite" style="margin-top: 1.25rem; text-align: center;" hidden>
+      <p style="color: var(--success); font-weight: 600; font-size: 1.1rem; margin-bottom: 8px;">✨ You're on the list!</p>
+      <p class="muted" style="font-size: 0.9rem;">We'll drop an email in your inbox the second this batch lands.</p>
+      <button type="button" class="btn btn-outline btn-sm" id="restockDoneBtn" style="margin-top: 12px;">Close</button>
+    </div>
   </dialog>
 
 </main>
@@ -1363,6 +1470,7 @@
 <script src="assets/js/products-data.js?v=2.0" defer></script>
 <script src="assets/js/image-manifest.js?v=2.0" defer></script>
 <script src="assets/js/site-reviews-data.js?v=2.0" defer></script>
+<script src="assets/js/social-feed-data.js?v=2.0" defer></script>
 <script src="assets/js/main.js?v=2.0" defer></script>
 <script src="assets/js/cart.js" defer></script>
 <!-- Live chat (Tawk.to) -- placeholder, inert until real IDs are set.

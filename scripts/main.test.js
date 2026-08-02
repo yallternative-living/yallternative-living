@@ -2,6 +2,7 @@
  * @fileoverview Unit tests for shared site behavior in assets/js/main.js
  * Run: node scripts/main.test.js
  */
+/* global window */
 
 // Mock DOM environment for pure Node execution
 const storage = new Map();
@@ -173,12 +174,40 @@ assert(
 const soldOut = { id: "salve-1", name: "Salve", price: 15, stock: 0 };
 assert(main.addToCartHTML(soldOut).includes("Sold Out"), "addToCartHTML handles sold out items");
 assert(main.addToCartHTML(soldOut).includes("disabled"), "addToCartHTML disables sold out button");
+assert(
+  main.addToCartHTML(soldOut).includes("yl-notify-toggle"),
+  "addToCartHTML includes notify button for sold out items"
+);
+assert(
+  main.addToCartHTML(soldOut).includes("Notify Me When Back in Stock"),
+  "addToCartHTML includes correct notify button label for sold out items"
+);
 
 const comingSoon = { id: "salve-1", name: "Salve", price: 15, comingSoon: true };
 assert(
   main.addToCartHTML(comingSoon).includes("Coming Soon"),
   "addToCartHTML handles coming soon items"
 );
+assert(
+  main.addToCartHTML(comingSoon).includes("yl-notify-toggle"),
+  "addToCartHTML includes notify button for coming soon items"
+);
+assert(
+  main.addToCartHTML(comingSoon).includes("Notify Me When Back in Stock"),
+  "addToCartHTML includes correct notify button label for coming soon items"
+);
+
+// Gated with enableRestockAlerts === false
+window.YL_CONTENT = { site: { enableRestockAlerts: false } };
+assert(
+  !main.addToCartHTML(soldOut).includes("yl-notify-toggle"),
+  "addToCartHTML hides notify button when enableRestockAlerts is false (sold out)"
+);
+assert(
+  !main.addToCartHTML(comingSoon).includes("yl-notify-toggle"),
+  "addToCartHTML hides notify button when enableRestockAlerts is false (coming soon)"
+);
+window.YL_CONTENT = { site: { enableRestockAlerts: true } };
 
 const cappedStock = { id: "salve-1", name: "Salve", price: 15.5, stock: 4 };
 assert(

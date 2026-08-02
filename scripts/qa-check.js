@@ -1023,18 +1023,13 @@ section("Site FAQ (single source, no duplication)");
     }
   }
 
-  // Regression guard: shop.html should link to the FAQ, not duplicate it.
-  if (/class="faq-accordion"/.test(shopHtml)) {
-    fail(
-      "shop.html",
-      "still has a .faq-accordion -- the site is only supposed to have one FAQ now (see faq.html); remove the duplicate"
-    );
-  } else if (/href="faq\.html"/.test(shopHtml)) {
-    ok("shop.html links to faq.html instead of duplicating FAQ content");
+  // Milestone 3: shop.html carries an on-site FAQ accordion section (#shop-faq) synced from products-data.js
+  if (/class="faq-accordion"/.test(shopHtml) && /href="faq\.html"/.test(shopHtml)) {
+    ok("shop.html has on-site FAQ accordion (.faq-accordion) and links to full faq.html");
   } else {
     fail(
       "shop.html",
-      'doesn\'t appear to link to faq.html -- the "check our FAQ before checkout" pointer may have been removed'
+      "missing .faq-accordion or link to faq.html -- expected on-site FAQ section synced from products-data.js"
     );
   }
 })();
@@ -1692,6 +1687,105 @@ section("HTML container-tag balance (no unclosed/mismatched elements)");
     else fail(page + ": unbalanced HTML", problems.slice(0, 3).join("; "));
   });
 })();
+
+/* ---------- 13) Milestone 3: FAQ Accordion & Post-Purchase Review Prompt ---------- */
+section("Milestone 3: FAQ Accordion & Post-Purchase Review Prompt");
+try {
+  var shopHtmlContent = fs.readFileSync(path.join(ROOT, "shop.html"), "utf8");
+  if (
+    shopHtmlContent.indexOf('id="shop-faq"') !== -1 &&
+    shopHtmlContent.indexOf("<!-- SHOP_FAQ:START -->") !== -1 &&
+    shopHtmlContent.indexOf("<!-- SHOP_FAQ:END -->") !== -1
+  ) {
+    ok("shop.html contains #shop-faq section with build markers");
+  } else {
+    fail("shop.html missing #shop-faq or SHOP_FAQ build markers");
+  }
+
+  var faqItemCount = (shopHtmlContent.match(/class="faq-accordion-item"/g) || []).length;
+  if (faqItemCount >= 3) {
+    ok("shop.html contains " + faqItemCount + " synced FAQ accordion items");
+  } else {
+    fail("shop.html FAQ accordion has fewer than 3 items (" + faqItemCount + " found)");
+  }
+
+  var thankYouHtmlContent = fs.readFileSync(path.join(ROOT, "thank-you.html"), "utf8");
+  if (
+    thankYouHtmlContent.indexOf('id="post-purchase-review"') !== -1 &&
+    thankYouHtmlContent.indexOf("review-prompt-card") !== -1
+  ) {
+    ok("thank-you.html contains #post-purchase-review section");
+  } else {
+    fail("thank-you.html missing #post-purchase-review section");
+  }
+
+  var hasSiteReviewCta = thankYouHtmlContent.indexOf('href="shop.html#reviews"') !== -1;
+  var hasEtsyReviewCta = /href="https:\/\/www\.etsy\.com\/shop\/YallternativeLivinCO[^"]*"/.test(
+    thankYouHtmlContent
+  );
+  if (hasSiteReviewCta && hasEtsyReviewCta) {
+    ok("thank-you.html contains dual CTAs (Write A Review On Our Site & Review On Etsy)");
+  } else {
+    fail(
+      "thank-you.html missing dual review CTAs",
+      "Site CTA: " + hasSiteReviewCta + ", Etsy CTA: " + hasEtsyReviewCta
+    );
+  }
+
+  var requiredCssClasses = [
+    ".shop-faq-section",
+    ".faq-accordion",
+    ".faq-accordion-item",
+    ".faq-accordion-summary",
+    ".faq-accordion-content",
+    ".review-prompt-section",
+    ".review-prompt-card",
+    ".review-prompt-actions"
+  ];
+  var cssText = fs.readFileSync(path.join(ROOT, "assets/css/styles.css"), "utf8");
+  var missingCss = requiredCssClasses.filter(function (cls) {
+    return cssText.indexOf(cls) === -1;
+  });
+  if (!missingCss.length) {
+    ok("styles.css contains all Milestone 3 required CSS classes");
+  } else {
+    fail("styles.css missing required CSS classes", missingCss.join(", "));
+  }
+} catch (e) {
+  fail("Milestone 3 verification", e.message);
+}
+
+/* ---------- 2026 SOTA Architecture Verification ---------- */
+section("2026 SOTA Modules & Serverless Endpoints");
+try {
+  var hasStoreProxy = fs.existsSync(path.join(ROOT, "assets/js/modules/store-proxy.js"));
+  var hasUgcFeedModule = fs.existsSync(path.join(ROOT, "assets/js/modules/ugc-feed.js"));
+  var hasRestockModalModule = fs.existsSync(path.join(ROOT, "assets/js/modules/restock-modal.js"));
+
+  if (hasStoreProxy && hasUgcFeedModule && hasRestockModalModule) {
+    ok("assets/js/modules contains store-proxy, ugc-feed, and restock-modal JS modules");
+  } else {
+    fail("Missing one or more SOTA JS modules in assets/js/modules");
+  }
+
+  var hasNetlifySubmitRestock = fs.existsSync(
+    path.join(ROOT, "netlify/functions/submit-restock.js")
+  );
+  if (hasNetlifySubmitRestock) {
+    ok("netlify/functions/submit-restock.js exists for first-party restock & review handling");
+  } else {
+    fail("netlify/functions/submit-restock.js missing");
+  }
+
+  var hasSyncSocialFeedScript = fs.existsSync(path.join(ROOT, "scripts/sync-social-feed.js"));
+  if (hasSyncSocialFeedScript) {
+    ok("scripts/sync-social-feed.js exists for build-time UGC feed verification");
+  } else {
+    fail("scripts/sync-social-feed.js missing");
+  }
+} catch (e) {
+  fail("2026 SOTA architecture verification", e.message);
+}
 
 /* ---------- Summary ---------- */
 console.log("\n" + "=".repeat(50));

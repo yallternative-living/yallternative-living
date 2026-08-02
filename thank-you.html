@@ -125,6 +125,20 @@
     </div>
   </section>
 
+  <!-- POST-PURCHASE REVIEW PROMPT SECTION -->
+  <section id="post-purchase-review" class="review-prompt-section">
+    <div class="container">
+      <div class="review-prompt-card reveal">
+        <h2>Loved Your Experience?</h2>
+        <p>Your feedback helps our small-batch apothecary grow! Leave a review on our site or share your love on Etsy.</p>
+        <div class="review-prompt-actions">
+          <a href="shop.html#reviews" class="btn btn-primary">Write A Review On Our Site</a>
+          <a href="https://www.etsy.com/shop/YallternativeLivinCO#reviews" target="_blank" rel="noopener" class="btn btn-outline">Review On Etsy <span class="sr-only">(opens in new tab)</span></a>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- ORDER STATUS LOOKUP MODAL -->
   <dialog id="order-status-modal" class="order-status-modal gift-modal" role="dialog" aria-modal="true" aria-labelledby="orderStatusModalTitle">
     <button type="button" class="gift-modal-close" id="closeOrderStatusModalBtn" data-action="close-order-status" aria-label="Close dialog">&times;</button>
@@ -207,6 +221,31 @@
         </div>
       </div>
     </div>
+
+    <!-- NEWSLETTER SIGNUP -- plain HTML form, real native POST, no JS
+         required to submit it. Provider: Kit (https://kit.com), chosen
+         for its free 10k-subscriber tier and dashboard-configurable
+         post-signup redirect. Replace YOUR_KIT_FORM_ACTION_URL with the
+         real form action URL from your Kit account -- see README. -->
+    <div class="footer-signup reveal" id="footerSignup">
+      <div class="footer-signup-text">
+        <h3>Get 10% Off Your First Order</h3>
+        <p>Drop your email for a welcome code, plus new batch alerts, market dates, and the occasional bad pun. No spam, unsubscribe whenever.</p>
+      </div>
+      <p class="footer-signup-confirm"><span class="glyph" aria-hidden="true">&#10003;</span> You're on the list, y'all! Keep an eye on your inbox.</p>
+      <form class="footer-signup-form" action="YOUR_KIT_FORM_ACTION_URL" method="post" toolname="subscribe-newsletter" tooldescription="Subscribe to the Y'allternative Living newsletter for updates and discounts.">
+        <div class="form-hp" aria-hidden="true">
+          <label for="footer_website">Leave this field blank</label>
+          <input type="text" id="footer_website" name="footer_website" tabindex="-1" autocomplete="off" aria-hidden="true">
+        </div>
+        <div class="field">
+          <label for="footer_email" class="sr-only">Email address</label>
+          <input type="email" id="footer_email" name="email_address" placeholder="you@email.com" required autocomplete="email">
+        </div>
+        <button class="btn btn-primary btn-sm" type="submit">Join The List</button>
+      </form>
+    </div>
+
 
     <p class="footer-disclaimer">Handmade self-care, not medicine. Nothing sold here is intended to diagnose, treat, cure, or prevent any condition. Got a real skin or health concern? See an actual doctor, then treat yourself to something that smells nice after.</p>
     <div class="footer-bottom">

@@ -718,32 +718,35 @@
     // tracked," not "unlimited," and the site never invents a number).
     // When Savanna sets it to 0, the button becomes inert instead of
     // silently accepting an order she can't fulfill.
+    var siteCfg = (window.YL_CONTENT && window.YL_CONTENT.site) || {};
+    var enableAlerts = siteCfg.enableRestockAlerts !== false;
+    var notifyBtn;
+
     if (p.comingSoon) {
-      /* A disabled "Coming Soon" button is a dead end -- the shopper wants it
-         and there's nothing to do. Offer to tell them when it lands, gated on
-         the CMS switch. Deliberately scoped to comingSoon only: this uses the
-         one real availability signal in the catalogue, so it never implies
-         stock information the shop doesn't actually track. */
-      var siteCfg = (window.YL_CONTENT && window.YL_CONTENT.site) || {};
-      var notify =
-        siteCfg.enableRestockAlerts === false
-          ? ""
-          : '<button type="button" class="btn btn-ghost btn-sm yl-notify-toggle" data-notify-for="' +
-            attrEsc(p.id) +
-            '" aria-expanded="false">Email me when it launches</button>';
+      notifyBtn = enableAlerts
+        ? '<button type="button" class="btn btn-ghost btn-sm yl-notify-toggle" data-notify-for="' +
+          attrEsc(p.id) +
+          '" aria-expanded="false">Notify Me When Back in Stock</button>'
+        : "";
       return (
         '<button type="button" class="btn btn-outline btn-sm' +
         (extraClass ? " " + extraClass : "") +
         '" disabled aria-disabled="true">Coming Soon</button>' +
-        notify
+        notifyBtn
       );
     }
 
-    if (p.stock === 0) {
+    if (p.stock === 0 || p.inStock === false) {
+      notifyBtn = enableAlerts
+        ? '<button type="button" class="btn btn-ghost btn-sm yl-notify-toggle" data-notify-for="' +
+          attrEsc(p.id) +
+          '" aria-expanded="false">Notify Me When Back in Stock</button>'
+        : "";
       return (
         '<button type="button" class="btn btn-outline btn-sm' +
         (extraClass ? " " + extraClass : "") +
-        '" disabled aria-disabled="true">Sold Out</button>'
+        '" disabled aria-disabled="true">Sold Out</button>' +
+        notifyBtn
       );
     }
 
@@ -1561,96 +1564,227 @@
   }
   initCustomBox();
 
-  /* ---------- Launch ("restock") alerts ----------
-     Delegated so it covers cards rendered now or re-rendered after any
-     filter/sort. Clicking the prompt reveals a small inline email form on that
-     card; submitting posts to Formspree exactly like the contact and review
-     forms, and reuses the same honest fallback when the endpoint is still a
-     placeholder -- no pretending someone has been added to a list that doesn't
-     exist yet. */
-  document.addEventListener("click", function (e) {
-    var toggle = e.target.closest(".yl-notify-toggle");
-    if (!toggle) return;
-    var productId = toggle.getAttribute("data-notify-for");
-    var existing = toggle.parentElement.querySelector(".yl-notify-form");
-    if (existing) {
-      var nowHidden = !existing.hidden;
-      existing.hidden = nowHidden;
-      toggle.setAttribute("aria-expanded", nowHidden ? "false" : "true");
-      if (!nowHidden) {
-        var reveal = existing.querySelector("input[type=email]");
-        if (reveal) reveal.focus();
+  /* ---------- Restock / Launch Alert Modal Controller ---------- */
+  function initRestockAlertModal() {
+    var modal = document.getElementById("restock-alert-modal");
+    if (!modal) return;
+
+    var lastFocusedElement = null;
+    var form = document.getElementById("restockAlertForm");
+    var emailInput = document.getElementById("restock-email-input");
+    var errorSpan = document.getElementById("restockEmailError");
+    var successMsg = document.getElementById("restockSuccessMessage");
+    var submitBtn = document.getElementById("restockSubmitBtn");
+
+    function openModal(productId) {
+      lastFocusedElement = document.activeElement;
+
+      // Reset state
+      if (form) {
+        form.reset();
+        form.hidden = false;
       }
-      return;
+      if (errorSpan) {
+        errorSpan.textContent = "";
+        errorSpan.hidden = true;
+      }
+      if (successMsg) successMsg.hidden = true;
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        var btnSpan = submitBtn.querySelector("span");
+        if (btnSpan) btnSpan.textContent = "Notify Me When Back in Stock";
+        else submitBtn.textContent = "Notify Me When Back in Stock";
+      }
+
+      // Find product details
+      var catalog = (window.YL_PRODUCTS && window.YL_PRODUCTS.products) || [];
+      var p = catalog.find(function (item) {
+        return item.id === productId;
+      });
+
+      var prodIdInput = document.getElementById("restockProductId");
+      var prodNameInput = document.getElementById("restockProductNameInput");
+      var nameHeading = document.getElementById("restockProductName");
+      var badge = document.getElementById("restockProductBadge");
+      var img = document.getElementById("restockProductImg");
+
+      var productName = p ? p.name : productId;
+      if (prodIdInput) prodIdInput.value = productId;
+      if (prodNameInput) prodNameInput.value = productName;
+      if (nameHeading) nameHeading.textContent = productName;
+
+      if (badge) {
+        if (p && p.comingSoon) {
+          badge.textContent = "Coming Soon";
+          badge.className = "stock-badge coming-soon";
+        } else {
+          badge.textContent = "Sold Out";
+          badge.className = "stock-badge sold-out";
+        }
+      }
+
+      if (img) {
+        if (p && p.image) {
+          img.src = p.image;
+          img.alt = p.name;
+          img.hidden = false;
+        } else {
+          img.hidden = true;
+        }
+      }
+
+      if (typeof modal.showModal === "function") {
+        if (!modal.open && !modal.hasAttribute("open")) {
+          modal.showModal();
+        }
+      } else {
+        modal.setAttribute("open", "true");
+      }
+
+      setTimeout(function () {
+        if (emailInput) emailInput.focus();
+      }, 50);
     }
 
-    var site = (window.YL_CONTENT && window.YL_CONTENT.site) || {};
-    var formId = site.formspreeRestockId || "YOUR_FORMSPREE_RESTOCK_ID";
-    var form = document.createElement("form");
-    form.className = "yl-notify-form";
-    form.setAttribute("novalidate", "");
-    form.action = "https://formspree.io/f/" + formId;
-    form.method = "post";
-    var inputId = "notify-email-" + productId;
-    form.innerHTML =
-      '<label class="sr-only" for="' +
-      attrEsc(inputId) +
-      '">Your email address for ' +
-      attrEsc(productId) +
-      " launch alerts</label>" +
-      '<input id="' +
-      attrEsc(inputId) +
-      '" type="email" name="email" required placeholder="you@example.com" autocomplete="email">' +
-      '<input type="hidden" name="product" value="' +
-      attrEsc(productId) +
-      '">' +
-      '<button type="submit" class="btn btn-primary btn-sm">Notify me</button>';
-    toggle.parentElement.appendChild(form);
-    toggle.setAttribute("aria-expanded", "true");
-    var emailInput = form.querySelector("input[type=email]");
-    if (emailInput) emailInput.focus();
+    function closeModal() {
+      if (typeof modal.close === "function") {
+        modal.close();
+      } else {
+        modal.removeAttribute("open");
+      }
+      if (lastFocusedElement && typeof lastFocusedElement.focus === "function") {
+        lastFocusedElement.focus();
+      }
+    }
 
-    form.addEventListener("submit", function (ev) {
-      ev.preventDefault();
-      if (!form.checkValidity()) {
-        form.reportValidity();
+    // Delegated trigger handler
+    document.addEventListener("click", function (e) {
+      var toggle = e.target.closest(".yl-notify-toggle");
+      if (toggle) {
+        e.preventDefault();
+        var productId = toggle.getAttribute("data-notify-for");
+        if (productId) openModal(productId);
         return;
       }
-      if (form.action.indexOf("YOUR_FORMSPREE_RESTOCK_ID") !== -1) {
-        showFormFallback(
-          form,
-          "Launch alerts aren't connected yet -- you haven't been added to a list. Email us and we'll tell you when it lands: ",
-          "y.allternative.living@gmail.com"
-        );
+
+      var closeBtn = e.target.closest(
+        '#closeRestockModalBtn, [data-action="close-restock-modal"], #restockDoneBtn'
+      );
+      if (closeBtn) {
+        e.preventDefault();
+        closeModal();
+      }
+    });
+
+    modal.addEventListener("click", function (e) {
+      if (e.target === modal) {
+        closeModal();
+      }
+    });
+
+    modal.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeModal();
         return;
       }
-      var btn = form.querySelector("button[type=submit]");
-      if (btn) {
-        btn.disabled = true;
-        btn.textContent = "Saving…";
-      }
-      fetch(form.action, {
-        method: "POST",
-        body: new FormData(form),
-        headers: { Accept: "application/json" }
-      })
-        .then(function (res) {
-          if (!res.ok) throw new Error("Signup failed");
-          form.innerHTML = '<p class="yl-notify-done" role="status">You\'re on the list.</p>';
-        })
-        .catch(function () {
-          if (btn) {
-            btn.disabled = false;
-            btn.textContent = "Notify me";
+      if (e.key === "Tab") {
+        var focusables = Array.prototype.filter.call(
+          modal.querySelectorAll(
+            'button:not([disabled]):not([tabindex="-1"]), input:not([type="hidden"]):not([disabled]):not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])'
+          ),
+          function (el) {
+            return !el.closest("[hidden]");
           }
+        );
+        if (!focusables.length) return;
+        var first = focusables[0];
+        var last = focusables[focusables.length - 1];
+
+        if (e.shiftKey) {
+          if (document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      }
+    });
+
+    if (form) {
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+
+        // Honeypot check
+        var hp = document.getElementById("restock-hp-field");
+        if (hp && hp.value.trim() !== "") {
+          form.hidden = true;
+          if (successMsg) successMsg.hidden = false;
+          return;
+        }
+
+        var email = emailInput ? emailInput.value.trim() : "";
+        var emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!email || !emailPattern.test(email)) {
+          if (errorSpan) {
+            errorSpan.textContent = "Please enter a valid email address.";
+            errorSpan.hidden = false;
+          }
+          if (emailInput) emailInput.focus();
+          return;
+        }
+        if (errorSpan) errorSpan.hidden = true;
+
+        var site = (window.YL_CONTENT && window.YL_CONTENT.site) || {};
+        var formId = site.formspreeRestockId || "YOUR_FORMSPREE_RESTOCK_ID";
+
+        if (formId === "YOUR_FORMSPREE_RESTOCK_ID") {
           showFormFallback(
             form,
-            "That didn't go through. Please email us instead: ",
+            "Restock alerts aren't connected yet -- you haven't been added to a list. Email us and we'll tell you when it lands: ",
             "y.allternative.living@gmail.com"
           );
-        });
-    });
-  });
+          return;
+        }
+
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          var btnSpan = submitBtn.querySelector("span");
+          if (btnSpan) btnSpan.textContent = "Saving…";
+          else submitBtn.textContent = "Saving…";
+        }
+
+        fetch("https://formspree.io/f/" + formId, {
+          method: "POST",
+          body: new FormData(form),
+          headers: { Accept: "application/json" }
+        })
+          .then(function (res) {
+            if (!res.ok) throw new Error("Signup failed");
+            form.hidden = true;
+            if (successMsg) successMsg.hidden = false;
+          })
+          .catch(function () {
+            if (submitBtn) {
+              submitBtn.disabled = false;
+              var btnSpan = submitBtn.querySelector("span");
+              if (btnSpan) btnSpan.textContent = "Notify Me When Back in Stock";
+              else submitBtn.textContent = "Notify Me When Back in Stock";
+            }
+            showFormFallback(
+              form,
+              "That didn't go through. Please email us instead: ",
+              "y.allternative.living@gmail.com"
+            );
+          });
+      });
+    }
+  }
+  initRestockAlertModal();
 
   /* Keyboard activation for the gallery slides exposed as role="button"
      above. Native buttons fire click on Enter and Space for free; an element
@@ -2954,40 +3088,88 @@
     }
   }
 
-  // 2. Render Social Feed if enabled
+  // 2. Render Social Feed (UGC Community Gallery) if enabled
   var socialFeedGrid = document.getElementById("socialFeedGrid");
   var homeSocialFeedSection = document.getElementById("homeSocialFeed");
-  var enableSocialFeed = /*YL:site.enableSocialFeed*/ false; /*/YL:site.enableSocialFeed*/
+  var shopSocialFeedGrid = document.getElementById("shopSocialFeedGrid");
+  var shopSocialFeedSection = document.getElementById("shopSocialFeed");
+  var enableSocialFeed =
+    window.YL_CONTENT &&
+    window.YL_CONTENT.site &&
+    window.YL_CONTENT.site.enableSocialFeed !== undefined
+      ? window.YL_CONTENT.site.enableSocialFeed
+      : /*YL:site.enableSocialFeed*/ true; /*/YL:site.enableSocialFeed*/
   var enableJournal = /*YL:site.enableJournal*/ false; /*/YL:site.enableJournal*/
 
-  if (enableSocialFeed && socialFeedGrid && homeSocialFeedSection && window.YL_SOCIAL_FEED) {
+  function renderUgcFeed(gridElem, sectionElem) {
+    if (!enableSocialFeed || !gridElem || !sectionElem || !window.YL_SOCIAL_FEED) return;
     var socialPosts = window.YL_SOCIAL_FEED.posts || [];
-    if (socialPosts.length > 0) {
-      homeSocialFeedSection.style.display = "block";
-      socialFeedGrid.innerHTML = socialPosts
-        .map(function (post) {
-          return (
-            '<a href="' +
-            attrEsc(safeUrl(post.url) || "#") +
-            '" target="_blank" rel="noopener" class="card social-card reveal">' +
-            '  <div class="card-img-wrap">' +
-            '    <img src="' +
-            attrEsc(post.image) +
-            '" alt="Social Media Post" loading="lazy">' +
-            "  </div>" +
-            '  <div class="card-content">' +
-            '    <p class="social-caption">' +
-            attrEsc(post.caption) +
-            "</p>" +
-            '    <span class="sr-only">(opens in new tab)</span>' +
-            "  </div>" +
-            "</a>"
-          );
-        })
-        .join("");
-      wireReveal(socialFeedGrid);
-    }
+    if (socialPosts.length === 0) return;
+
+    sectionElem.style.display = "block";
+    gridElem.innerHTML = socialPosts
+      .map(function (post) {
+        var altText = post.caption
+          ? "Customer community photo: " + post.caption.slice(0, 80)
+          : "Y'allternative Living customer post";
+        var productTagHtml = "";
+        if (post.productId && post.productName) {
+          productTagHtml =
+            '<a href="shop.html#' +
+            attrEsc(post.productId) +
+            '" class="ugc-product-tag" aria-label="View ' +
+            attrEsc(post.productName) +
+            ' in shop">' +
+            '  <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg> ' +
+            attrEsc(post.productName) +
+            "</a>";
+        }
+        var postLink = safeUrl(post.url);
+        var linkHtml = postLink
+          ? '<a href="' +
+            attrEsc(postLink) +
+            '" target="_blank" rel="noopener" class="ugc-post-link" aria-label="View original post by ' +
+            attrEsc(post.handle || "@yallternativeliving") +
+            ' (opens in new tab)">View Post &#8599;<span class="sr-only">(opens in new tab)</span></a>'
+          : "";
+
+        return (
+          '<article class="ugc-card reveal" role="listitem">' +
+          '  <div class="ugc-card-media">' +
+          '    <img src="' +
+          attrEsc(post.image) +
+          '" alt="' +
+          attrEsc(altText) +
+          '" loading="lazy" decoding="async" width="400" height="400">' +
+          '    <div class="ugc-media-badge">' +
+          '      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1"/></svg>' +
+          "      <span>UGC</span>" +
+          "    </div>" +
+          productTagHtml +
+          "  </div>" +
+          '  <div class="ugc-card-body">' +
+          '    <div class="ugc-author-row">' +
+          '      <span class="ugc-author-name">' +
+          attrEsc(post.author || "Community Member") +
+          "</span>" +
+          '      <span class="ugc-author-handle">' +
+          attrEsc(post.handle || "@yallternativeliving") +
+          "</span>" +
+          "    </div>" +
+          '    <p class="ugc-caption">' +
+          attrEsc(post.caption) +
+          "</p>" +
+          linkHtml +
+          "  </div>" +
+          "</article>"
+        );
+      })
+      .join("");
+    wireReveal(gridElem);
   }
+
+  renderUgcFeed(socialFeedGrid, homeSocialFeedSection);
+  renderUgcFeed(shopSocialFeedGrid, shopSocialFeedSection);
 
   // 3. Render Journal (Blog) Page
   var journalApp = document.getElementById("journalApp");

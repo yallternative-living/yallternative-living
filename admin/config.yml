@@ -446,6 +446,10 @@ collections:
               - { name: id, label: "Post ID (leave blank -- auto-generated)", widget: string, required: false }
               - { name: image, label: "Post Image", widget: image }
               - { name: caption, label: "Caption", widget: text }
+              - { name: author, label: "Author Name / Handle (optional)", widget: string, required: false }
+              - { name: handle, label: "Social Handle (e.g. @user, optional)", widget: string, required: false }
+              - { name: productId, label: "Tagged Product ID (optional)", widget: string, required: false }
+              - { name: productName, label: "Tagged Product Name (optional)", widget: string, required: false }
               - { name: url, label: "Original Post Link (optional)", widget: string, required: false }
 
   - name: content

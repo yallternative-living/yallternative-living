@@ -250,6 +250,13 @@ function buildSiteData() {
   // -- the window.YL_SITE_REVIEWS global shop.html loads -- is generated from it
   // below. These are NEVER folded into aggregateRating JSON-LD (reserved for
   // genuine Etsy-verified ratings only).
+  try {
+    const { syncSocialFeed } = require("./sync-social-feed");
+    syncSocialFeed();
+  } catch (e) {
+    /* fallback if missing */
+  }
+
   var SITE_REVIEWS = readJson("assets/data/site-reviews.json").reviews || [];
   var JOURNAL = readJson("assets/data/journal.json");
   var SOCIAL_FEED = readJson("assets/data/social-feed.json");
@@ -729,6 +736,40 @@ function buildSiteData() {
     shopHtml = shopHtml.replace("</head>", "\n  " + newFaqLdBlock + "\n</head>");
   }
 
+  var shopFaqMarkerRe = /(<!-- SHOP_FAQ:START -->)[\s\S]*?(<!-- SHOP_FAQ:END -->)/;
+  if (!shopFaqMarkerRe.test(shopHtml)) {
+    throw new Error(
+      "Could not find SHOP_FAQ:START/SHOP_FAQ:END markers in shop.html -- aborting so nothing gets corrupted."
+    );
+  }
+  var topFaq = FAQ.slice(0, 5);
+  var shopFaqAccordionHtml =
+    '      <div class="faq-accordion">\n' +
+    topFaq
+      .map(function (item) {
+        var escQuestion = escapeHtml(item.question);
+        var escAnswer = escapeHtml(item.answer);
+        var renderedAnswer = escAnswer.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+        return (
+          '        <details class="faq-accordion-item">\n' +
+          '          <summary class="faq-accordion-summary">' +
+          escQuestion +
+          "</summary>\n" +
+          '          <div class="faq-accordion-content">\n' +
+          "            <p>" +
+          renderedAnswer +
+          "</p>\n" +
+          "          </div>\n" +
+          "        </details>"
+        );
+      })
+      .join("\n") +
+    "\n      </div>";
+
+  shopHtml = shopHtml.replace(shopFaqMarkerRe, function (m, start, end) {
+    return start + "\n" + shopFaqAccordionHtml + "\n      " + end;
+  });
+
   writeFile("shop.html", shopHtml);
 
   /* ---------- 4) faq.html FAQ (JSON-LD + visible prose) ----------
@@ -1173,6 +1214,7 @@ function buildSiteData() {
     "terms.html",
     "policies.html",
     "404.html",
+    "thank-you.html",
     "journal.html"
   ].forEach(function (page) {
     var filePath = path.join(ROOT, page);
