@@ -1,7 +1,5 @@
-# Dev-time only -- never ships to the deployed site, and never needs
-# to be committed. Installed via `npm install` for scripts/optimize-images.js.
+# Dev-time only -- never ships to the deployed site.
 node_modules/
-package-lock.json
 
 # OS cruft
 .DS_Store
