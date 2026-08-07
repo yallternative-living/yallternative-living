@@ -143,6 +143,14 @@
   --radius-sm: 6px;
   --radius-md: var(--radius);
   --radius-large: var(--radius-lg);
+  /* --radius-xl (Build-Your-Own-Box card, Apothecary Quiz modal) and --ink-1
+     (box-builder thumbnail/checkbox fills, restock modal panels) were the
+     same story as the block above -- referenced but never defined, so
+     border-radius silently fell back to square corners and those
+     backgrounds/checkmarks fell back to transparent/inherited. Aliased here
+     for the same reason. */
+  --radius-xl: 24px;
+  --ink-1: var(--ink);
   --bg: var(--ink);
   --crimson: var(--error);
   --font-heading: var(--font-display);

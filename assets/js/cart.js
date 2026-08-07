@@ -491,7 +491,7 @@
         (state.isPickup ? " display: block;" : " display: none;") +
         '">' +
         '    <label for="yl-cart-pickup-select" style="font-size: 0.78rem; color: var(--paper-muted); display: block; margin-bottom: 4px;">Choose Upcoming Market Location:</label>' +
-        '    <select id="yl-cart-pickup-select" style="width: 100%; padding: 6px 8px; font-size: 0.82rem; background: var(--paper); color: var(--paper-bright); border: 1px solid var(--border-color); border-radius: 4px;">' +
+        '    <select id="yl-cart-pickup-select" style="width: 100%; padding: 6px 8px; font-size: 0.82rem; background: var(--paper); color: var(--ink); border: 1px solid var(--border-color); border-radius: 4px;">' +
         optionsHTML +
         "    </select>" +
         "  </div>" +

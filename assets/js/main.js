@@ -3200,6 +3200,11 @@
           "  <h2>Journal Coming Soon</h2>" +
           "  <p>Savanna is stirring up some stories. Check back soon for herbal folklore, batch updates, and behind-the-scenes thoughts.</p>" +
           "</div>";
+        // This early-return path injects a `reveal` element but (unlike the
+        // enabled path below) never wired up the reveal animation, so with the
+        // journal flag off the whole page rendered blank -- a header with an
+        // invisible (opacity:0) "Coming Soon" notice under it.
+        wireReveal(journalApp);
         return;
       }
 
@@ -3839,7 +3844,7 @@
 
         if (results) {
           results.innerHTML =
-            '<div class="card quiz-recommended-card reveal" style="max-width: 540px; margin: 0 auto; padding: 1.5rem; text-align: center; border: 2px solid var(--whiskey); background: var(--paper); border-radius: var(--radius-md);">' +
+            '<div class="card quiz-recommended-card reveal" style="max-width: 540px; margin: 0 auto; padding: 1.5rem; text-align: center; border: 2px solid var(--whiskey); background: var(--ink-3); color: var(--paper); border-radius: var(--radius-md);">' +
             '  <span class="card-cat" style="color: var(--whiskey); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700;">✨ Your Apothecary Prescription</span>' +
             '  <h3 style="font-family: var(--font-heading); margin: 0.5rem 0;">' +
             attrEsc(match.name) +
@@ -3883,6 +3888,13 @@
 
           if (step3) step3.style.display = "none";
           results.style.display = "block";
+
+          // The recommendation card ships with the `reveal` class (opacity:0
+          // until observed). Every other dynamically-injected section wires up
+          // its reveal animation after inserting markup; this one never did, so
+          // the finished card rendered fully transparent -- the quiz looked
+          // like it did nothing. Wire it up so the card actually fades in.
+          wireReveal(results);
 
           var retakeBtn = document.getElementById("quizRetakeBtn");
           if (retakeBtn) retakeBtn.addEventListener("click", resetQuiz);
