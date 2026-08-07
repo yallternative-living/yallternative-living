@@ -24,28 +24,26 @@
  * Resend free tier (as of 2026): 3,000 emails/month AND 100 emails/day.
  */
 
-const ALLOWED_ORIGINS = [
-  "https://yallternativeliving.com",
-  "https://www.yallternativeliving.com",
-];
+const ALLOWED_ORIGINS = ["https://yallternativeliving.com", "https://www.yallternativeliving.com"];
 
 const MAX_FIELD = 5000;
 
 function corsHeaders(origin, env) {
-  const isAllowed = ALLOWED_ORIGINS.includes(origin) || (env && env.SITE_ORIGIN && origin === env.SITE_ORIGIN);
+  const isAllowed =
+    ALLOWED_ORIGINS.includes(origin) || (env && env.SITE_ORIGIN && origin === env.SITE_ORIGIN);
   const allow = isAllowed ? origin : ALLOWED_ORIGINS[0];
   return {
     "Access-Control-Allow-Origin": allow,
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
-    Vary: "Origin",
+    Vary: "Origin"
   };
 }
 
 function json(body, status, origin, env) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json", ...corsHeaders(origin, env) },
+    headers: { "Content-Type": "application/json", ...corsHeaders(origin, env) }
   });
 }
 
@@ -70,7 +68,8 @@ export default {
     if (request.method !== "POST") {
       return json({ error: "Method Not Allowed" }, 405, origin, env);
     }
-    const isAllowedOrigin = ALLOWED_ORIGINS.includes(origin) || (env.SITE_ORIGIN && origin === env.SITE_ORIGIN);
+    const isAllowedOrigin =
+      ALLOWED_ORIGINS.includes(origin) || (env.SITE_ORIGIN && origin === env.SITE_ORIGIN);
     if (origin && !isAllowedOrigin) {
       return json({ error: "Forbidden origin" }, 403, origin, env);
     }
@@ -98,18 +97,15 @@ export default {
       }
 
       // Verify the Turnstile token.
-      const verify = await fetch(
-        "https://challenges.cloudflare.com/turnstile/v0/siteverify",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: new URLSearchParams({
-            secret: env.TURNSTILE_SECRET_KEY,
-            response: turnstileToken || "",
-            remoteip: request.headers.get("CF-Connecting-IP") || "",
-          }),
-        }
-      );
+      const verify = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          secret: env.TURNSTILE_SECRET_KEY,
+          response: turnstileToken || "",
+          remoteip: request.headers.get("CF-Connecting-IP") || ""
+        })
+      });
       const outcome = await verify.json();
       if (!outcome.success) {
         return json({ error: "Bot check failed. Please try again." }, 400, origin, env);
@@ -123,7 +119,7 @@ export default {
         method: "POST",
         headers: {
           Authorization: `Bearer ${env.RESEND_API_KEY}`,
-          "Content-Type": "application/json",
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({
           from: env.FROM_EMAIL,
@@ -133,8 +129,8 @@ export default {
           html:
             `<p><strong>Name:</strong> ${safeName}</p>` +
             `<p><strong>Email:</strong> ${safeEmail}</p>` +
-            `<p><strong>Message:</strong></p><p>${safeMessage}</p>`,
-        }),
+            `<p><strong>Message:</strong></p><p>${safeMessage}</p>`
+        })
       });
       if (!resendRes.ok) {
         throw new Error("Email delivery failed");
@@ -142,10 +138,14 @@ export default {
 
       return json({ success: true, message: "Thanks! Your message was sent." }, 200, origin, env);
     } catch (_err) {
-      return json({ error: "An error occurred while sending your message. Please try again." }, 500, origin, env);
+      return json(
+        { error: "An error occurred while sending your message. Please try again." },
+        500,
+        origin,
+        env
+      );
     }
-  },
+  }
 };
 
-export { escapeHtml };
-
+export { escapeHtml, corsHeaders };

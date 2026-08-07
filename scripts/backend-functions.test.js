@@ -236,6 +236,25 @@ try {
     "submitForm.escapeHtml escapes HTML chars"
   );
 
+  // submit-form: corsHeaders
+  const corsEnv = { SITE_ORIGIN: "https://yallternativeliving.com" };
+  const okCors = submitForm.corsHeaders("https://yallternativeliving.com", corsEnv);
+  eq(
+    okCors["Access-Control-Allow-Origin"],
+    "https://yallternativeliving.com",
+    "corsHeaders reflects an allowed origin"
+  );
+  eq(okCors["Vary"], "Origin", "corsHeaders sets Vary: Origin");
+  assert(
+    okCors["Access-Control-Allow-Methods"].includes("POST"),
+    "corsHeaders allows the POST method"
+  );
+  const evilCors = submitForm.corsHeaders("https://evil.example", corsEnv);
+  assert(
+    evilCors["Access-Control-Allow-Origin"] !== "https://evil.example",
+    "corsHeaders does not echo a disallowed origin back"
+  );
+
   // mock catalog
   const mockCatalog = {
     products: [

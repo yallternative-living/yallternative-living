@@ -101,10 +101,7 @@
  *                                   "false" forces it off. Omit for auto.
  */
 
-const ALLOWED_ORIGINS = [
-  "https://yallternativeliving.com",
-  "https://www.yallternativeliving.com",
-];
+const ALLOWED_ORIGINS = ["https://yallternativeliving.com", "https://www.yallternativeliving.com"];
 
 // Pinned explicitly (Stripe's own recommendation) rather than left to the
 // account's dashboard-configured default, so a change made in the Stripe
@@ -129,20 +126,21 @@ const MAX_LINE_ITEMS = 50;
 const MAX_GIFT_TEXT_LEN = 500;
 
 function corsHeaders(origin, env) {
-  const isAllowed = ALLOWED_ORIGINS.includes(origin) || (env && env.SITE_ORIGIN && origin === env.SITE_ORIGIN);
+  const isAllowed =
+    ALLOWED_ORIGINS.includes(origin) || (env && env.SITE_ORIGIN && origin === env.SITE_ORIGIN);
   const allow = isAllowed ? origin : ALLOWED_ORIGINS[0];
   return {
     "Access-Control-Allow-Origin": allow,
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
-    Vary: "Origin",
+    Vary: "Origin"
   };
 }
 
 function json(body, status, origin, env) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json", ...corsHeaders(origin, env) },
+    headers: { "Content-Type": "application/json", ...corsHeaders(origin, env) }
   });
 }
 
@@ -223,9 +221,7 @@ async function isTaxEnabled(env, ctx) {
   const mode = String(env.STRIPE_SECRET_KEY || "").includes("_live_") ? "live" : "test";
   const cache = typeof caches !== "undefined" ? caches.default : null;
   // Synthetic key: never contains the API key, only site + mode.
-  const cacheKey = new Request(
-    `${env.SITE_ORIGIN}/__internal/tax-status?mode=${mode}`
-  );
+  const cacheKey = new Request(`${env.SITE_ORIGIN}/__internal/tax-status?mode=${mode}`);
 
   if (cache) {
     const hit = await cache.match(cacheKey);
@@ -244,8 +240,8 @@ async function isTaxEnabled(env, ctx) {
     const res = await fetch("https://api.stripe.com/v1/tax/settings", {
       headers: {
         Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
-        "Stripe-Version": STRIPE_API_VERSION,
-      },
+        "Stripe-Version": STRIPE_API_VERSION
+      }
     });
     if (res.ok) {
       const settings = await res.json();
@@ -259,8 +255,8 @@ async function isTaxEnabled(env, ctx) {
     const toCache = new Response(JSON.stringify({ active }), {
       headers: {
         "Content-Type": "application/json",
-        "Cache-Control": "max-age=3600",
-      },
+        "Cache-Control": "max-age=3600"
+      }
     });
     ctx.waitUntil(cache.put(cacheKey, toCache));
   }
@@ -334,9 +330,9 @@ async function createPickupCustomer(env, address, marketLabel) {
     headers: {
       Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
       "Content-Type": "application/x-www-form-urlencoded",
-      "Stripe-Version": STRIPE_API_VERSION,
+      "Stripe-Version": STRIPE_API_VERSION
     },
-    body: params.toString(),
+    body: params.toString()
   });
   if (!res.ok) return null;
   const customer = await res.json();
@@ -348,13 +344,41 @@ async function createPickupCustomer(env, address, marketLabel) {
 // that prefix (e.g. button id "bundle-starter-self-care-set" vs. catalog id
 // "starter-self-care-set") -- strip it back off before searching the
 // bundles array, or every bundle checkout would 404 against its own catalog.
+// A single checkout validates every line item against the same catalog, so
+// each item was rebuilding an identical id->product (and id->bundle) Map and
+// running O(N) `.find()` scans. Build each lookup Map once per catalog object
+// and cache it in a WeakMap keyed by that catalog, turning findEntry and the
+// price resolvers into O(1) lookups with no repeated allocation. The WeakMap
+// key means a fresh catalog (e.g. after cache expiry) transparently gets its
+// own maps, and old ones are garbage-collected with the catalog they belong to.
+const productMapCache = new WeakMap();
+const bundleMapCache = new WeakMap();
+
+function productMapOf(catalog) {
+  let map = productMapCache.get(catalog);
+  if (!map) {
+    const products = Array.isArray(catalog.products) ? catalog.products : [];
+    map = new Map(products.map((p) => [p.id, p]));
+    productMapCache.set(catalog, map);
+  }
+  return map;
+}
+
+function bundleMapOf(catalog) {
+  let map = bundleMapCache.get(catalog);
+  if (!map) {
+    const bundles = Array.isArray(catalog.bundles) ? catalog.bundles : [];
+    map = new Map(bundles.map((b) => [b.id, b]));
+    bundleMapCache.set(catalog, map);
+  }
+  return map;
+}
+
 function findEntry(catalog, id) {
-  const products = Array.isArray(catalog.products) ? catalog.products : [];
-  const bundles = Array.isArray(catalog.bundles) ? catalog.bundles : [];
-  const found = products.find((p) => p.id === id);
+  const found = productMapOf(catalog).get(id);
   if (found) return found;
   const bundleId = id.startsWith("bundle-") ? id.slice("bundle-".length) : id;
-  return bundles.find((b) => b.id === bundleId) || null;
+  return bundleMapOf(catalog).get(bundleId) || null;
 }
 
 // Bundles in products.json never carry their own `price` field -- like
@@ -366,8 +390,7 @@ function findEntry(catalog, id) {
 // so it's recomputed here, server-side, on every checkout instead.)
 function resolveBundlePriceDollars(catalog, bundle) {
   if (!bundle || !Array.isArray(bundle.productIds) || !bundle.productIds.length) return null;
-  const products = Array.isArray(catalog.products) ? catalog.products : [];
-  const productMap = new Map(products.map((prod) => [prod.id, prod]));
+  const productMap = productMapOf(catalog);
   let fullPrice = 0;
   for (const id of bundle.productIds) {
     const p = productMap.get(id);
@@ -438,8 +461,7 @@ function resolveCustomBoxCents(catalog, productIds) {
   }
 
   const eligible = Array.isArray(cfg.eligibleCategories) ? cfg.eligibleCategories : null;
-  const products = Array.isArray(catalog.products) ? catalog.products : [];
-  const productMap = new Map(products.map((p) => [p.id, p]));
+  const productMap = productMapOf(catalog);
 
   let fullPrice = 0;
   for (const rawId of productIds) {
@@ -472,7 +494,8 @@ export default {
       return json({ error: "Method Not Allowed" }, 405, origin, env);
     }
     // Reject cross-site callers outright.
-    const isAllowedOrigin = ALLOWED_ORIGINS.includes(origin) || (env.SITE_ORIGIN && origin === env.SITE_ORIGIN);
+    const isAllowedOrigin =
+      ALLOWED_ORIGINS.includes(origin) || (env.SITE_ORIGIN && origin === env.SITE_ORIGIN);
     if (origin && !isAllowedOrigin) {
       return json({ error: "Forbidden origin" }, 403, origin, env);
     }
@@ -509,9 +532,10 @@ export default {
             Number.isNaN(parsedBoxQty) || parsedBoxQty < 1
               ? 1
               : Math.min(parsedBoxQty, MAX_QTY_PER_ITEM);
-          const products = Array.isArray(catalog.products) ? catalog.products : [];
-          const nameById = new Map(products.map((p) => [p.id, p.name]));
-          const contents = ids.map((id) => nameById.get(String(id)) || id).join(", ");
+          const boxProductMap = productMapOf(catalog);
+          const contents = ids
+            .map((id) => (boxProductMap.get(String(id)) || {}).name || id)
+            .join(", ");
           boxLineIndex += 1;
           // Record the exact contents so the packing slip / fulfilment side
           // knows what actually goes in the box.
@@ -533,8 +557,7 @@ export default {
         if (!entry) throw new Error(`Product not found: ${item.id}`);
 
         const isGiftCard = item.id === GIFT_CARD_ID;
-        const isBundle =
-          !isGiftCard && Array.isArray(catalog.bundles) && catalog.bundles.some((b) => b.id === entry.id);
+        const isBundle = !isGiftCard && bundleMapOf(catalog).has(entry.id);
         const unitAmount = isGiftCard
           ? resolveGiftCardAmountCents(item.variant)
           : resolveUnitAmountCents(catalog, entry, item.variant, isBundle);
@@ -544,12 +567,15 @@ export default {
 
         const parsedQty = parseInt(item.qty, 10);
         const qty =
-          Number.isNaN(parsedQty) || parsedQty < 1
-            ? 1
-            : Math.min(parsedQty, MAX_QTY_PER_ITEM);
+          Number.isNaN(parsedQty) || parsedQty < 1 ? 1 : Math.min(parsedQty, MAX_QTY_PER_ITEM);
 
         const name =
-          entry.name + (isGiftCard ? ` ($${(unitAmount / 100).toFixed(2)})` : item.variant ? ` (${item.variant})` : "");
+          entry.name +
+          (isGiftCard
+            ? ` ($${(unitAmount / 100).toFixed(2)})`
+            : item.variant
+              ? ` (${item.variant})`
+              : "");
         const image =
           entry.image && env.SITE_ORIGIN
             ? `${env.SITE_ORIGIN}/${String(entry.image).replace(/^\/+/, "")}`
@@ -644,11 +670,7 @@ export default {
           const events = await loadEvents(env, ctx);
           const pickupAddress = resolvePickupAddress(events, body.pickupMarket);
           if (pickupAddress) {
-            pickupCustomerId = await createPickupCustomer(
-              env,
-              pickupAddress,
-              body.pickupMarket
-            );
+            pickupCustomerId = await createPickupCustomer(env, pickupAddress, body.pickupMarket);
           }
         } catch (e) {
           // Non-fatal by design: a market calendar that won't load must never
@@ -684,31 +706,19 @@ export default {
       // shipping address would override the market address for tax.
       if (hasPhysicalItems && !pinnedToMarket) {
         params.append("shipping_address_collection[allowed_countries][0]", "US");
-        params.append(
-          "shipping_options[0][shipping_rate_data][type]",
-          "fixed_amount"
-        );
+        params.append("shipping_options[0][shipping_rate_data][type]", "fixed_amount");
         params.append(
           "shipping_options[0][shipping_rate_data][fixed_amount][amount]",
           String(shippingCents)
         );
-        params.append(
-          "shipping_options[0][shipping_rate_data][fixed_amount][currency]",
-          "usd"
-        );
+        params.append("shipping_options[0][shipping_rate_data][fixed_amount][currency]", "usd");
         params.append(
           "shipping_options[0][shipping_rate_data][display_name]",
           shippingCents === 0 ? "Free shipping" : "Standard shipping"
         );
         if (taxEnabled) {
-          params.append(
-            "shipping_options[0][shipping_rate_data][tax_behavior]",
-            "exclusive"
-          );
-          params.append(
-            "shipping_options[0][shipping_rate_data][tax_code]",
-            TAX_CODE_SHIPPING
-          );
+          params.append("shipping_options[0][shipping_rate_data][tax_behavior]", "exclusive");
+          params.append("shipping_options[0][shipping_rate_data][tax_code]", TAX_CODE_SHIPPING);
         }
       }
       // Lets a gift-card recipient enter the code fulfill-gift-card.js
@@ -729,10 +739,7 @@ export default {
           // "exclusive" = the price above is pre-tax and Stripe adds tax on
           // top, which is how every price on this site is displayed.
           params.append(`line_items[${i}][price_data][tax_behavior]`, "exclusive");
-          params.append(
-            `line_items[${i}][price_data][product_data][tax_code]`,
-            li.taxCode
-          );
+          params.append(`line_items[${i}][price_data][product_data][tax_code]`, li.taxCode);
         }
         params.append(`line_items[${i}][quantity]`, String(li.qty));
       });
@@ -742,9 +749,9 @@ export default {
         headers: {
           Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
           "Content-Type": "application/x-www-form-urlencoded",
-          "Stripe-Version": STRIPE_API_VERSION,
+          "Stripe-Version": STRIPE_API_VERSION
         },
-        body: params,
+        body: params
       });
       const session = await stripeRes.json();
       if (session.error) throw new Error(session.error.message);
@@ -753,7 +760,7 @@ export default {
     } catch (err) {
       return json({ error: err.message || "Checkout failed" }, 400, origin, env);
     }
-  },
+  }
 };
 
 export {
@@ -766,6 +773,5 @@ export {
   resolveBundlePriceDollars,
   resolveUnitAmountCents,
   resolveGiftCardAmountCents,
-  resolveCustomBoxCents,
+  resolveCustomBoxCents
 };
-

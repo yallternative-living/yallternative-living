@@ -481,6 +481,34 @@
     return "";
   }
 
+  /* ---------- shared: horizontal swipe gesture ----------
+     Both the product lightbox and the events carousel wired up their own
+     near-identical touchstart/touchend handlers with the same 50px
+     threshold. Centralize it here so there's one implementation to reason
+     about; each caller just supplies what a left/right swipe should do. */
+  var SWIPE_THRESHOLD_PX = 50;
+  function attachSwipe(el, onSwipeLeft, onSwipeRight) {
+    if (!el) return;
+    var startX = 0;
+    el.addEventListener(
+      "touchstart",
+      function (e) {
+        startX = e.changedTouches[0].screenX;
+      },
+      { passive: true }
+    );
+    el.addEventListener(
+      "touchend",
+      function (e) {
+        var diff = e.changedTouches[0].screenX - startX;
+        if (Math.abs(diff) <= SWIPE_THRESHOLD_PX) return;
+        if (diff < 0) onSwipeLeft();
+        else onSwipeRight();
+      },
+      { passive: true }
+    );
+  }
+
   /* Builds a <picture> element from assets/js/image-manifest.js (generated
      by scripts/optimize-images.js), serving AVIF first (smallest, ~2026-
      universal browser support), WebP second for the rare AVIF holdout,
@@ -1248,29 +1276,14 @@
     });
 
     // Mobile touch swipe gestures
-    var touchStartX = 0;
-    var touchEndX = 0;
-    dialog.addEventListener(
-      "touchstart",
-      function (e) {
-        touchStartX = e.changedTouches[0].screenX;
+    attachSwipe(
+      dialog,
+      function () {
+        showImage(currentIndex + 1);
       },
-      { passive: true }
-    );
-    dialog.addEventListener(
-      "touchend",
-      function (e) {
-        touchEndX = e.changedTouches[0].screenX;
-        var diff = touchEndX - touchStartX;
-        if (Math.abs(diff) > 50) {
-          if (diff < 0) {
-            showImage(currentIndex + 1);
-          } else {
-            showImage(currentIndex - 1);
-          }
-        }
-      },
-      { passive: true }
+      function () {
+        showImage(currentIndex - 1);
+      }
     );
 
     window.openLightbox = function (images, startSrc) {
@@ -2648,31 +2661,16 @@
     });
 
     // Touch swipe gesture controls for mobile users
-    var touchStartX = 0;
-    var touchEndX = 0;
-    inner.addEventListener(
-      "touchstart",
-      function (e) {
-        touchStartX = e.changedTouches[0].screenX;
+    attachSwipe(
+      inner,
+      function () {
+        goTo(currentIndex + 1); // swipe left
+        startAutoplay();
       },
-      { passive: true }
-    );
-    inner.addEventListener(
-      "touchend",
-      function (e) {
-        touchEndX = e.changedTouches[0].screenX;
-        var diff = touchEndX - touchStartX;
-        if (Math.abs(diff) > 50) {
-          // threshold of 50px
-          if (diff < 0) {
-            goTo(currentIndex + 1); // swipe left
-          } else {
-            goTo(currentIndex - 1); // swipe right
-          }
-          startAutoplay();
-        }
-      },
-      { passive: true }
+      function () {
+        goTo(currentIndex - 1); // swipe right
+        startAutoplay();
+      }
     );
 
     // Initial setup based on current viewport
@@ -2758,11 +2756,14 @@
     var scentSelect = document.getElementById("scentSelect");
     if (scentWrap && scentSelect) {
       var siteCfg = (window.YL_CONTENT && window.YL_CONTENT.site) || {};
-      var scents = [];
+      // Collect distinct scents with a Set (O(1) membership) instead of
+      // Array.indexOf on every product (which made this O(n^2)).
+      var seenScents = new Set();
       allProducts.forEach(function (p) {
         var s = (p.scent || "").trim();
-        if (s && scents.indexOf(s) === -1) scents.push(s);
+        if (s) seenScents.add(s);
       });
+      var scents = Array.from(seenScents);
       scents.sort(function (a, b) {
         // "Unscented" is a fallback rather than a scent -- keep it last.
         if (a === "Unscented") return 1;
