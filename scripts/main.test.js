@@ -139,6 +139,15 @@ eq(
 eq(main.attrEsc(null), "", "attrEsc handles null input");
 eq(main.attrEsc(undefined), "", "attrEsc handles undefined input");
 eq(main.attrEsc(123), "123", "attrEsc handles numeric input");
+eq(main.attrEsc(0), "0", "attrEsc handles zero (falsy number)");
+eq(main.attrEsc(true), "true", "attrEsc handles boolean input");
+eq(main.attrEsc(false), "false", "attrEsc handles false (falsy boolean)");
+eq(
+  main.attrEsc({ toString: () => '<b>"x"</b>' }),
+  "&lt;b&gt;&quot;x&quot;&lt;/b&gt;",
+  "attrEsc coerces and escapes non-string objects"
+);
+eq(main.attrEsc(["<a>", "<b>"]), "&lt;a&gt;,&lt;b&gt;", "attrEsc coerces and escapes arrays");
 eq(main.attrEsc("Clean String"), "Clean String", "attrEsc leaves clean string unchanged");
 
 /* 1b. safeUrl */
@@ -263,6 +272,18 @@ eq(main.getWishlist(), [], "saveWishlist normalizes non-array input");
 mockLocalStorage.setItem("yl-wishlist", "invalid-json{");
 main._resetState();
 eq(main.getWishlist(), [], "getWishlist handles invalid JSON gracefully");
+
+/* 5b. isWished */
+mockLocalStorage.clear();
+main._resetState();
+main.saveWishlist(["salve-1", "soak-2"]);
+assert(main.isWished("salve-1"), "isWished returns true for a saved item");
+assert(main.isWished("soak-2"), "isWished returns true for another saved item");
+assert(!main.isWished("not-saved"), "isWished returns false for an unsaved item");
+main.toggleWish("salve-1");
+assert(!main.isWished("salve-1"), "isWished reflects removal after toggleWish");
+main.toggleWish("brand-new");
+assert(main.isWished("brand-new"), "isWished reflects addition after toggleWish");
 
 /* 6. renderWishDrawer */
 mockLocalStorage.clear();

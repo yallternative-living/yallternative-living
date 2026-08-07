@@ -2234,7 +2234,7 @@
       "</div>" +
       '<div class="card-body">' +
       '<span class="card-cat">' +
-      catLabel +
+      attrEsc(catLabel) +
       "</span>" +
       tagPillsHTML(p) +
       "<h3>" +
@@ -2412,9 +2412,18 @@
     });
 
     if (upcomingEl) {
-      var sortedUpcoming = upcoming.slice().sort(function (a, b) {
-        return new Date(a.date) - new Date(b.date);
-      });
+      // Decorate-sort-undecorate: parse each date once (O(n)) instead of
+      // allocating two Date objects on every comparison (O(n log n)).
+      var sortedUpcoming = upcoming
+        .map(function (ev) {
+          return { ev: ev, t: new Date(ev.date).getTime() };
+        })
+        .sort(function (a, b) {
+          return a.t - b.t;
+        })
+        .map(function (x) {
+          return x.ev;
+        });
       if (sortedUpcoming.length) {
         upcomingEl.innerHTML = sortedUpcoming.map(eventCardHTML).join("");
       } else {
@@ -2435,11 +2444,18 @@
 
     if (pastEl) {
       // Sort past events: most recent first
-      var sortedPast = past.slice().sort(function (a, b) {
-        var dateA = a.date || "1970-01-01";
-        var dateB = b.date || "1970-01-01";
-        return new Date(dateB) - new Date(dateA);
-      });
+      // Decorate-sort-undecorate: parse each date once (O(n)) instead of
+      // allocating two Date objects on every comparison (O(n log n)).
+      var sortedPast = past
+        .map(function (ev) {
+          return { ev: ev, t: new Date(ev.date || "1970-01-01").getTime() };
+        })
+        .sort(function (a, b) {
+          return b.t - a.t;
+        })
+        .map(function (x) {
+          return x.ev;
+        });
 
       function renderPastEventsCarousel() {
         // Slice to top 3 most recent appearances
@@ -3895,6 +3911,7 @@
       applyTheme: applyTheme,
       pickFeatured: pickFeatured,
       toggleWish: toggleWish,
+      isWished: isWished,
       currentTheme: currentTheme,
       renderWishDrawer: renderWishDrawer,
       _resetState: function () {
