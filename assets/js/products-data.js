@@ -10,7 +10,7 @@ window.YL_PRODUCTS = {
     "etsyShopUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
     "rating": 4.9,
     "reviewCount": 32,
-    "sales": 105,
+    "sales": 106,
     "freeShippingThreshold": 40,
     "customBox": {
       "minItems": 3,
