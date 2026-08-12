@@ -1288,8 +1288,10 @@ function buildSiteData() {
     // Sync og:image and twitter:image meta tags with robust parsing (supports any attribute ordering)
     html = html.replace(/<meta\s+[^>]+>/gi, function (match) {
       if (/\b(?:property|name)=['"](?:og:image|twitter:image)['"]/i.test(match)) {
-        return match.replace(/(content=['"])[^'"]*(['"])/i, function (m, p1, p2) {
-          return p1 + ogImageUrl + p2;
+        // \b avoids matching the `content` tail of attrs like data-content=,
+        // and the \1 backreference keeps the closing quote matched to the open.
+        return match.replace(/\bcontent=(['"])[^'"]*\1/i, function (m, q) {
+          return "content=" + q + ogImageUrl + q;
         });
       }
       return match;
