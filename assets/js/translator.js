@@ -5,6 +5,7 @@
    on-device Translator API (where available) with a custom-styled,
    in-place Google Translate widget fallback for Safari/Firefox/Mobile.
    ========================================================== */
+/* global module */
 (function () {
   "use strict";
 

@@ -51,7 +51,7 @@ function createMockElement(tagName = "div") {
   // Some element specific properties
   Object.defineProperty(el, 'src', {
     get: () => attrs.get('src') || '',
-    set: (v) => attrs.set('src', v)
+    set: (v) => { attrs.set('src', String(v)); }
   });
 
   return el;
@@ -144,6 +144,9 @@ async function runTests() {
 
     const internalState = translator._getInternalState();
     assert.ok(internalState.googleInitPromise, "promise should be stored in internal state");
+
+    // suppress unused variable warning
+    assert.ok(promise, "promise returned from function");
   });
 
   await runTest("loadGoogleScript returns same promise on subsequent calls without duplicating elements", async () => {
