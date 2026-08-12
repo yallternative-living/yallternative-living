@@ -1267,10 +1267,14 @@ function buildSiteData() {
     var pageKey = page.replace(".html", "");
     if (pageKey === "index") pageKey = "home";
 
+    // Only honor an EXPLICIT per-page og image (a purpose-built ~1200x630
+    // share asset). Do NOT fall back to on-page heroImage/image/bioImage:
+    // those are portrait product photos (e.g. 1050x1400) that hard-crop badly
+    // in social previews, especially twitter summary_large_image. Pages
+    // without an explicit ogImage fall through to the branded site.ogImage.
     var pageOgImage = null;
-    if (CONTENT[pageKey]) {
-      pageOgImage =
-        CONTENT[pageKey].heroImage || CONTENT[pageKey].image || CONTENT[pageKey].bioImage;
+    if (CONTENT[pageKey] && CONTENT[pageKey].ogImage) {
+      pageOgImage = CONTENT[pageKey].ogImage;
     }
     if (page === "journal.html" && JOURNAL && JOURNAL.image) {
       pageOgImage = JOURNAL.image;
