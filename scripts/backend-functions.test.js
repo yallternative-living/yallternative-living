@@ -578,7 +578,7 @@ try {
   async function captureStripeParams(items, extraEnv, body) {
     let captured = null;
     let customerParams = null;
-    const opts2 = {
+    const testOpts = {
       eventsOk: true,
       customerOk: true,
       // Mirrors an account that has finished Stripe Tax setup. Individual
@@ -586,25 +586,25 @@ try {
       taxSettings: { ok: true, status: "active" },
       ...(extraEnv || {})._stub
     };
-    global.fetch = async (url, opts) => {
+    global.fetch = async (url, fetchOpts) => {
       const u = String(url);
       if (u.includes("/v1/tax/settings")) {
-        if (!opts2.taxSettings.ok) return { ok: false };
-        return { ok: true, json: async () => ({ status: opts2.taxSettings.status }) };
+        if (!testOpts.taxSettings.ok) return { ok: false };
+        return { ok: true, json: async () => ({ status: testOpts.taxSettings.status }) };
       }
       if (u.includes("products.json")) {
         return { ok: true, clone: () => ({ body: null }), json: async () => taxCatalog };
       }
       if (u.includes("events.json")) {
-        if (!opts2.eventsOk) return { ok: false };
+        if (!testOpts.eventsOk) return { ok: false };
         return { ok: true, clone: () => ({ body: null }), json: async () => taxEvents };
       }
       if (u.includes("/v1/customers")) {
-        customerParams = new URLSearchParams(opts.body);
-        if (!opts2.customerOk) return { ok: false };
+        customerParams = new URLSearchParams(fetchOpts.body);
+        if (!testOpts.customerOk) return { ok: false };
         return { ok: true, json: async () => ({ id: "cus_test123" }) };
       }
-      captured = new URLSearchParams(opts.body);
+      captured = new URLSearchParams(fetchOpts.body);
       return { ok: true, json: async () => ({ url: "https://checkout.stripe.com/c/test" }) };
     };
     const req = new Request("https://yallternativeliving.com/api/checkout", {
