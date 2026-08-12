@@ -1541,6 +1541,13 @@ try {
   );
 }
 
+try {
+  execSync('node "' + path.join(ROOT, "scripts/translator.test.js") + '"', { stdio: "pipe" });
+  ok("scripts/translator.test.js passed");
+} catch (e) {
+  fail("scripts/translator.test.js", e.stderr ? e.stderr.toString().split("\n")[0] : e.message);
+}
+
 /* ---------- Feature switches are actually wired ----------
    Every boolean in content.json's `site` block is a switch shown to Savanna
    in /admin. Nine of them once did nothing at all: three were switches for
