@@ -236,6 +236,13 @@ async function isTaxEnabled(env, ctx) {
   }
 
   let active = false;
+  // Did we actually get a definitive answer from Stripe? A probe that never
+  // reached a good response (network error, non-2xx, unparseable body) leaves
+  // this false. We still fail open -- active stays false, so the order is
+  // created without tax -- but a *failed* probe must not be cached like a
+  // genuine "tax is off" result. Otherwise one transient Stripe blip would
+  // pin every SC order to untaxed for the full hour-long cache window.
+  let probeSucceeded = false;
   try {
     const res = await fetch("https://api.stripe.com/v1/tax/settings", {
       headers: {
@@ -246,16 +253,20 @@ async function isTaxEnabled(env, ctx) {
     if (res.ok) {
       const settings = await res.json();
       active = settings && settings.status === "active";
+      probeSucceeded = true;
     }
   } catch (e) {
     active = false;
   }
 
   if (cache && ctx) {
+    // Cache a real result for the full hour; cache a failed probe for only
+    // 60s so we re-probe soon instead of serving stale "no tax" for an hour.
+    const maxAge = probeSucceeded ? 3600 : 60;
     const toCache = new Response(JSON.stringify({ active }), {
       headers: {
         "Content-Type": "application/json",
-        "Cache-Control": "max-age=3600"
+        "Cache-Control": `max-age=${maxAge}`
       }
     });
     ctx.waitUntil(cache.put(cacheKey, toCache));
