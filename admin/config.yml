@@ -453,20 +453,21 @@ collections:
               - { name: url, label: "Original Post Link (optional)", widget: string, required: false }
 
   - name: content
-    label: "6. Page Headlines & Wording"
+    label: "6. Site Images & Page Wording"
     files:
       - name: content
-        label: Page Wording (homepage + About)
+        label: Site Images & Page Content
         file: assets/data/content.json
         format: json
         fields:
           - name: site
-            label: "⚙️ Site Settings & Integrations"
+            label: "⚙️ Site Settings, Branding & Integrations"
             widget: object
             collapsed: true
             fields:
-              - { name: logoDesktop, label: "Desktop Logo Image", widget: image }
-              - { name: logoMobile, label: "Mobile Logo Image", widget: image }
+              - { name: logoDesktop, label: "Desktop Logo Image (Header & Footer)", widget: image, hint: "Main brand logo image shown in the website header and footer on desktop screens." }
+              - { name: logoMobile, label: "Mobile Logo Image (Navigation)", widget: image, hint: "Brand logo image shown in the mobile navigation menu drawer." }
+              - { name: ogImage, label: "Social Share / Link Preview Image (OG Image)", widget: image, hint: "Preview image shown when sharing site links on Facebook, text messages, iMessage, Twitter, etc." }
               - { name: footerTagline, label: "Footer Message", widget: text, required: false }
               - { name: newsletterTitle, label: "Newsletter Headline", widget: string, required: false }
               - { name: newsletterSubtext, label: "Newsletter Description", widget: text, required: false }
@@ -509,8 +510,8 @@ collections:
               - { name: promoBanner, label: "Promo Banner Text (top bar)", widget: string, required: false }
               - { name: heroTitle, label: "Hero headline (the big line on the homepage)", widget: string }
               - { name: heroText, label: "Hero paragraph (under the headline)", widget: text }
-              - { name: heroImage, label: "Hero Image (unisex-tshirt)", widget: image }
-              - { name: featureImage, label: "Feature Image (shea-butter)", widget: image }
+              - { name: heroImage, label: "Homepage Hero Photo", widget: image, hint: "Main photo shown at the top of the homepage hero banner." }
+              - { name: featureImage, label: "Homepage Story / Feature Photo", widget: image, hint: "Photo shown next to the 'Handmade In Small Batches' section on the homepage." }
 
           - name: about
             label: About page
@@ -524,8 +525,8 @@ collections:
                 label: "Your story"
                 widget: text
                 hint: "Separate paragraphs with a blank line -- each becomes its own paragraph on the page."
-              - { name: bioImage, label: "Bio Image (unisex-tshirt)", widget: image }
-              - { name: secondaryImage, label: "Secondary Image (beard-salve)", widget: image }
+              - { name: bioImage, label: "About Page Main Bio Photo", widget: image, hint: "Primary photo of Savanna / kitchen shown next to 'Hey Y'all, I'm Savanna' on the About page." }
+              - { name: secondaryImage, label: "About Page Secondary Photo", widget: image, hint: "Secondary photo shown next to the 'Backroads, Porch Lights' section on the About page." }
 
           - name: shop
             label: Shop page
@@ -534,7 +535,7 @@ collections:
             fields:
               - { name: heroTitle, label: "Shop Headline", widget: string, required: false }
               - { name: heroIntro, label: "Shop Subheading", widget: text, required: false }
-              - { name: giftCardImage, label: "Gift Card Background", widget: image }
+              - { name: giftCardImage, label: "Shop Gift Card Banner Image", widget: image, hint: "Background photo shown for the Digital Gift Card banner on the Shop page." }
 
           - name: events
             label: Events page
@@ -551,7 +552,7 @@ collections:
             fields:
               - { name: heroTitle, label: "Contact Headline", widget: string, required: false }
               - { name: heroIntro, label: "Contact Subheading", widget: text, required: false }
-              - { name: image, label: "Feature Image (backroad-soak)", widget: image }
+              - { name: image, label: "Contact Page Feature Photo", widget: image, hint: "Photo shown alongside the contact form on the Contact page." }
               - { name: email, label: "Direct Email Address", widget: string, required: false }
               - { name: namePlaceholder, label: "Name Form Input Placeholder", widget: string, required: false }
               - { name: emailPlaceholder, label: "Email Form Input Placeholder", widget: string, required: false }

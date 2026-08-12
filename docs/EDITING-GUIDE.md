@@ -18,7 +18,7 @@ You'll get a form-based editor (no code) for everything in your catalog:
 - **3. Customer Reviews** — Publish on-site customer reviews and choose which ones feature on the homepage testimonials grid.
 - **4. Apothecary Journal (Blog)** — Write and publish stories, kitchen updates, and announcements.
 - **5. Social Media Feed** — Curate and toggle Instagram/TikTok post previews on the homepage.
-- **6. Page Headlines & Wording** — Edit section headlines, hero paragraphs, contact form placeholders, direct email link, global site settings (API keys, tracking, live chat), and turn individual features on/off (Restock Alerts, Custom Box Builder, Scent Filter, Rewards Points, Apothecary Quiz, and more — see `docs/SETUP-GUIDE.md` Step 9 for the full list).
+- **6. Site Images & Page Wording** — Choose and update non-product photos (homepage hero banner, homepage story photo, About bio photo, About secondary photo, Shop gift card banner, Contact page feature photo, desktop/mobile site logos, and social media preview OG image) or edit section headlines, hero paragraphs, contact form placeholders, direct email link, global site settings (API keys, tracking, live chat), and turn individual features on/off (Restock Alerts, Custom Box Builder, Scent Filter, Rewards Points, Apothecary Quiz, and more — see `docs/SETUP-GUIDE.md` Step 9 for the full list).
 
 When you hit **Save**, it records the change and the site rebuilds and
 re-publishes itself automatically — you don't run anything. Changes usually go
@@ -84,7 +84,7 @@ npm test
   the shop page — once a product actually has real photos and is ready to
   sell, switch its Coming Soon toggle off in `/admin` and it goes back to a
   normal, buyable listing automatically.
-- **Static page photos (About bio photo, homepage hero, logos, etc.):** You can replace these directly in `/admin` under **Page Wording**. Upload the new photo in the editor, and the site's build script will automatically wire it in, optimize it, and generate the responsive breakpoints.
+- **Non-product site photos (About bio photo, homepage hero, logos, social share image, etc.):** You can easily choose different photos or upload new ones directly in `/admin` under **6. Site Images & Page Wording**. Click **Choose an image** to select any photo from your media library or upload a new image file. Upon save, the site's build script automatically links it, updates metadata, and generates responsive breakpoints.
 
 ---
 
@@ -93,7 +93,7 @@ npm test
 Honest heads-up — the catalog is owner-friendly; a few things still live in the
 page files:
 
-- **Legal policies** — the privacy, terms, and shipping policy pages are in `privacy.html`, `terms.html`, and `policies.html`. These are not editable in `/admin` and still require a quick edit from Steven to keep the formatting robust. (The homepage headline/intro, About story, contact photo, site logos, and integration settings/API keys ARE now editable in `/admin` under "Page Wording".)
+- **Legal policies** — the privacy, terms, and shipping policy pages are in `privacy.html`, `terms.html`, and `policies.html`. These are not editable in `/admin` and still require a quick edit from Steven to keep the formatting robust. (The homepage headline/intro, About story, contact photo, site logos, social share image, and integration settings/API keys ARE now editable in `/admin` under "Site Images & Page Wording".)
 
 ---
 
@@ -108,6 +108,7 @@ page files:
 | Publish a customer review | `/admin` → Customer Reviews, or `site-reviews.json` | same |
 | Swap a product photo | `assets/img/` + `npm run optimize-images` | on next deploy |
 | Add a market/Pride date | `/admin` → Markets, or `events.json` | Auto (CMS) / `npm run build-data` |
-| Reword homepage headline / About story | `/admin` → Page Wording, or `content.json` | Auto (CMS) / `npm run build-data` |
+| Choose different hero/bio/site photos | `/admin` → Site Images & Page Wording, or `content.json` | Auto (CMS) / `npm run build-data` |
+| Reword homepage headline / About story | `/admin` → Site Images & Page Wording, or `content.json` | Auto (CMS) / `npm run build-data` |
 
 **Rule of thumb:** products, prices, bundles, FAQ, photos, market dates, site logos, integration API keys, and page wording (About / homepage / contact text) = you, via `/admin`. Only the legal policies and underlying layout structures = a quick edit from Steven.

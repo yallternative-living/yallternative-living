@@ -1277,6 +1277,7 @@ try {
   var imageKeys = [
     { section: "site", key: "logoDesktop", required: true },
     { section: "site", key: "logoMobile", required: true },
+    { section: "site", key: "ogImage", required: true },
     { section: "home", key: "heroImage", required: true },
     { section: "home", key: "featureImage", required: true },
     { section: "about", key: "bioImage", required: true },

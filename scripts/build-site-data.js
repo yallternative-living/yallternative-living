@@ -733,7 +733,9 @@ function buildSiteData() {
       return newFaqLdBlock;
     });
   } else {
-    shopHtml = shopHtml.replace("</head>", "\n  " + newFaqLdBlock + "\n</head>");
+    shopHtml = shopHtml.replace("</head>", function () {
+      return "\n  " + newFaqLdBlock + "\n</head>";
+    });
   }
 
   var shopFaqMarkerRe = /(<!-- SHOP_FAQ:START -->)[\s\S]*?(<!-- SHOP_FAQ:END -->)/;
@@ -974,7 +976,8 @@ function buildSiteData() {
           "image",
           "giftCardImage",
           "logoDesktop",
-          "logoMobile"
+          "logoMobile",
+          "ogImage"
         ].indexOf(key) !== -1;
       var m = "YL:" + pageKey + "\\." + key;
 
@@ -1005,7 +1008,9 @@ function buildSiteData() {
 
             // Replace ONLY the src attribute of the <img> tag, leaving all other custom/native attributes untouched
             if (imgTag) {
-              imgTag = imgTag.replace(/(\bsrc=['"])[^'"]*(['"])/i, "$1" + imgPath + "$2");
+              imgTag = imgTag.replace(/(\bsrc=['"])[^'"]*(['"])/i, function (m, p1, p2) {
+                return p1 + imgPath + p2;
+              });
             } else {
               imgTag = '<img src="' + imgPath + '">';
             }
@@ -1060,7 +1065,9 @@ function buildSiteData() {
         } else if (reCss.test(html)) {
           html = html.replace(reCss, function (match) {
             // Replace ONLY the url() property inside the CSS block, preserving other background attributes (e.g. no-repeat center center / cover)
-            return match.replace(/url\(['"]?[^'")]+['"]?\)/i, "url('" + imgPath + "')");
+            return match.replace(/url\(['"]?[^'")]+['"]?\)/i, function () {
+              return "url('" + imgPath + "')";
+            });
           });
         }
       } else {
@@ -1150,13 +1157,17 @@ function buildSiteData() {
     // Replace Title
     var reTitle = /(<!--YL:journal\.heroTitle-->)[\s\S]*?(<!--\/YL:journal\.heroTitle-->)/g;
     if (reTitle.test(updated)) {
-      updated = updated.replace(reTitle, "$1" + title + "$2");
+      updated = updated.replace(reTitle, function (m, p1, p2) {
+        return p1 + title + p2;
+      });
     }
 
     // Replace Lede
     var reLede = /(<!--YL:journal\.heroText-->)[\s\S]*?(<!--\/YL:journal\.heroText-->)/g;
     if (reLede.test(updated)) {
-      updated = updated.replace(reLede, "$1" + lede + "$2");
+      updated = updated.replace(reLede, function (m, p1, p2) {
+        return p1 + lede + p2;
+      });
     }
 
     if (updated !== html) {
@@ -1203,6 +1214,10 @@ function buildSiteData() {
 
   var FOOTER_BLOCK = '<footer class="site-footer">\n' + FOOTER_INNER + "\n</footer>";
   var FOOTER_RE = /<footer class="site-footer">[\s\S]*?<\/footer>/;
+  var ogImage = (CONTENT.site && CONTENT.site.ogImage) || "assets/img/og-image.jpg";
+  ogImage = ogImage.replace(/^\/+/, "");
+  var ogImageUrl = (DOMAIN + "/" + ogImage).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+
   [
     "index.html",
     "shop.html",
@@ -1239,13 +1254,31 @@ function buildSiteData() {
       var isLogoDesktop = /\bclass=['"]([^'"]*\s+)?logo-desktop(\s+[^'"]*)?['"]/.test(match);
       var isLogoMobile = /\bclass=['"]([^'"]*\s+)?logo-mobile(\s+[^'"]*)?['"]/.test(match);
       if (isLogoDesktop) {
-        return match.replace(/(\bsrc=['"])[^'"]*(['"])/i, "$1" + logoDesktop + "$2");
+        return match.replace(/(\bsrc=['"])[^'"]*(['"])/i, function (m, p1, p2) {
+          return p1 + logoDesktop + p2;
+        });
       }
       if (isLogoMobile) {
-        return match.replace(/(\bsrc=['"])[^'"]*(['"])/i, "$1" + logoMobile + "$2");
+        return match.replace(/(\bsrc=['"])[^'"]*(['"])/i, function (m, p1, p2) {
+          return p1 + logoMobile + p2;
+        });
       }
       return match;
     });
+
+    // Sync og:image and twitter:image meta tags with site.ogImage from content.json
+    html = html.replace(
+      /(<meta\s+property=['"]og:image['"]\s+content=['"])[^'"]*(['"])/gi,
+      function (m, p1, p2) {
+        return p1 + ogImageUrl + p2;
+      }
+    );
+    html = html.replace(
+      /(<meta\s+name=['"]twitter:image['"]\s+content=['"])[^'"]*(['"])/gi,
+      function (m, p1, p2) {
+        return p1 + ogImageUrl + p2;
+      }
+    );
 
     var updated = html.replace(FOOTER_RE, FOOTER_BLOCK);
     if (updated !== html) writeFile(page, updated);

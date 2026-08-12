@@ -2,6 +2,7 @@
   "site": {
     "logoDesktop": "/assets/img/logo.png",
     "logoMobile": "assets/img/logo.png",
+    "ogImage": "assets/img/og-image.jpg",
     "kitFormAction": "YOUR_KIT_FORM_ACTION_URL",
     "tawkToPropertyId": "YOUR_TAWKTO_PROPERTY_ID",
     "tawkToWidgetId": "YOUR_TAWKTO_WIDGET_ID",
