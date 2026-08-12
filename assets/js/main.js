@@ -2561,41 +2561,91 @@
     }
   }
 
+  function getWrappedIndex(index, length) {
+    return ((index % length) + length) % length;
+  }
+
+  function setupCarouselInteraction(container, onPause, onResume) {
+    container.addEventListener("mouseenter", onPause);
+    container.addEventListener("mouseleave", onResume);
+    container.addEventListener("focusin", onPause);
+    container.addEventListener("focusout", onResume);
+  }
+
+  function setupCarouselNavigation(container, dots, inner, onRelativeNav, onAbsoluteNav) {
+    var prev = container.querySelector(".carousel-prev");
+    var next = container.querySelector(".carousel-next");
+    if (prev) {
+      prev.addEventListener("click", function () {
+        onRelativeNav(-1);
+      });
+    }
+    if (next) {
+      next.addEventListener("click", function () {
+        onRelativeNav(1);
+      });
+    }
+
+    dots.forEach(function (dot) {
+      dot.addEventListener("click", function () {
+        onAbsoluteNav(parseInt(this.getAttribute("data-index"), 10));
+      });
+    });
+
+    attachSwipe(
+      inner,
+      function () {
+        onRelativeNav(1); // swipe left (next)
+      },
+      function () {
+        onRelativeNav(-1); // swipe right (prev)
+      }
+    );
+  }
+
+  function createAutoplayManager(onTick, interval) {
+    var intervalId;
+    return {
+      start: function () {
+        this.stop();
+        intervalId = setInterval(onTick, interval);
+      },
+      stop: function () {
+        if (intervalId) {
+          clearInterval(intervalId);
+          intervalId = null;
+        }
+      }
+    };
+  }
+
   function setupPastEventsRotation(container) {
     var inner = container.querySelector(".events-carousel-inner");
     var cards = container.querySelectorAll(".event-card");
     var dots = container.querySelectorAll(".carousel-dot");
     if (!inner || cards.length <= 1) return;
+
     var currentIndex = 0;
     var paused = false;
-    var intervalId;
-    var mql = window.matchMedia("(max-width: 768px)");
 
-    function goTo(index) {
+    var autoplay = createAutoplayManager(function () {
+      if (!container.querySelector(".events-carousel-inner")) {
+        autoplay.stop();
+        return;
+      }
+      if (!paused) goToIndex(currentIndex + 1);
+    }, 4000);
+
+    function goToIndex(index) {
       if (!container.querySelector(".events-carousel-inner")) return;
       cards[currentIndex].classList.remove("active");
       if (dots[currentIndex]) dots[currentIndex].classList.remove("active");
-      currentIndex = ((index % cards.length) + cards.length) % cards.length;
+
+      currentIndex = getWrappedIndex(index, cards.length);
+
       cards[currentIndex].classList.add("active");
       if (dots[currentIndex]) dots[currentIndex].classList.add("active");
       inner.style.transform = "translateX(-" + currentIndex * 100 + "%)";
-    }
-
-    function stopAutoplay() {
-      clearInterval(intervalId);
-      intervalId = null;
-    }
-
-    function startAutoplay() {
-      stopAutoplay();
-      intervalId = setInterval(function () {
-        // Self-clean if the carousel was destroyed (e.g. toggled to grid)
-        if (!container.querySelector(".events-carousel-inner")) {
-          stopAutoplay();
-          return;
-        }
-        if (!paused) goTo(currentIndex + 1);
-      }, 4000);
     }
 
     function enterCarouselMode() {
@@ -2605,75 +2655,48 @@
       cards[0].classList.add("active");
       for (var j = 0; j < dots.length; j++) dots[j].classList.remove("active");
       if (dots[0]) dots[0].classList.add("active");
-      startAutoplay();
+      autoplay.start();
     }
 
     function exitCarouselMode() {
-      stopAutoplay();
+      autoplay.stop();
       inner.style.transform = "";
       for (var i = 0; i < cards.length; i++) cards[i].classList.remove("active");
     }
 
-    // Respond to viewport changes
-    function onViewportChange() {
+    var mql = window.matchMedia("(max-width: 768px)");
+    mql.addEventListener("change", function () {
       if (mql.matches) {
         enterCarouselMode();
       } else {
         exitCarouselMode();
       }
-    }
-    mql.addEventListener("change", onViewportChange);
-
-    // Pause on hover / focus
-    container.addEventListener("mouseenter", function () {
-      paused = true;
-    });
-    container.addEventListener("mouseleave", function () {
-      paused = false;
-    });
-    container.addEventListener("focusin", function () {
-      paused = true;
-    });
-    container.addEventListener("focusout", function () {
-      paused = false;
     });
 
-    // Arrow controls
-    var prev = container.querySelector(".carousel-prev");
-    var next = container.querySelector(".carousel-next");
-    if (prev)
-      prev.addEventListener("click", function () {
-        goTo(currentIndex - 1);
-        startAutoplay();
-      });
-    if (next)
-      next.addEventListener("click", function () {
-        goTo(currentIndex + 1);
-        startAutoplay();
-      });
-
-    // Dot controls
-    dots.forEach(function (dot) {
-      dot.addEventListener("click", function () {
-        goTo(parseInt(this.getAttribute("data-index"), 10));
-        startAutoplay();
-      });
-    });
-
-    // Touch swipe gesture controls for mobile users
-    attachSwipe(
-      inner,
+    setupCarouselInteraction(
+      container,
       function () {
-        goTo(currentIndex + 1); // swipe left
-        startAutoplay();
+        paused = true;
       },
       function () {
-        goTo(currentIndex - 1); // swipe right
-        startAutoplay();
+        paused = false;
       }
     );
 
-    // Initial setup based on current viewport
+    setupCarouselNavigation(
+      container,
+      dots,
+      inner,
+      function (delta) {
+        goToIndex(currentIndex + delta);
+        autoplay.start();
+      },
+      function (index) {
+        goToIndex(index);
+        autoplay.start();
+      }
+    );
+
     if (mql.matches) {
       enterCarouselMode();
     }
