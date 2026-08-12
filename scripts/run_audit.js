@@ -6,15 +6,22 @@ const http = require("http");
 
 const PORT = 8080;
 const URL_BASE = `http://127.0.0.1:${PORT}`;
-const PAGES = [
-  "index.html",
-  "shop.html",
-  "about.html",
-  "events.html",
-  "contact.html",
-  "policies.html",
-  "404.html"
-];
+function getAllPages() {
+  const root = path.resolve(__dirname, "..");
+  const topPages = fs.readdirSync(root).filter((f) => f.endsWith(".html"));
+
+  const productsDir = path.join(root, "products");
+  const productPages = fs.existsSync(productsDir)
+    ? fs
+        .readdirSync(productsDir)
+        .filter((f) => f.endsWith(".html"))
+        .map((f) => `products/${f}`)
+    : [];
+
+  return [...topPages, ...productPages];
+}
+
+const PAGES = getAllPages();
 
 const VIEWPORTS = [
   { name: "desktop", width: 1200, height: 800 },
@@ -109,6 +116,7 @@ function createStaticServer(port = 8080) {
       };
 
       const page = await browser.newPage();
+      const pageSlug = pageName.replace(/\.html$/, "").replace(/[/]/g, "_");
 
       // Inject Mock translation API with a realistic dictionary for nav links
       await page.evaluateOnNewDocument(() => {
@@ -226,9 +234,13 @@ function createStaticServer(port = 8080) {
         // Take light mode screenshot
         const lightShotPath = path.join(
           SCREENSHOT_DIR,
-          `${pageName.replace(".html", "")}_${vp.name}_light.png`
+          `${pageSlug}_${vp.name}_light.png`
         );
-        await page.screenshot({ path: lightShotPath, fullPage: true });
+        try {
+          await page.screenshot({ path: lightShotPath, fullPage: false, timeout: 5000 });
+        } catch (e) {
+          console.warn(`[Screenshot Warning on ${pageName} ${vp.name} light]:`, e.message);
+        }
 
         // Check horizontal overflow
         const lightOverflow = await page.evaluate(() => {
@@ -247,9 +259,13 @@ function createStaticServer(port = 8080) {
         // Take dark mode screenshot
         const darkShotPath = path.join(
           SCREENSHOT_DIR,
-          `${pageName.replace(".html", "")}_${vp.name}_dark.png`
+          `${pageSlug}_${vp.name}_dark.png`
         );
-        await page.screenshot({ path: darkShotPath, fullPage: true });
+        try {
+          await page.screenshot({ path: darkShotPath, fullPage: false, timeout: 5000 });
+        } catch (e) {
+          console.warn(`[Screenshot Warning on ${pageName} ${vp.name} dark]:`, e.message);
+        }
 
         // Check horizontal overflow
         const darkOverflow = await page.evaluate(() => {
@@ -289,7 +305,7 @@ function createStaticServer(port = 8080) {
             // Take screenshot of the translated page
             const langShotPath = path.join(
               SCREENSHOT_DIR,
-              `${pageName.replace(".html", "")}_translation_${lang}.png`
+              `${pageSlug}_translation_${lang}.png`
             );
             try {
               await page.screenshot({ path: langShotPath, fullPage: false, timeout: 5000 });
