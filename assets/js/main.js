@@ -1465,7 +1465,7 @@
         trackerHtml +
         "</div>" +
         "</div>" +
-        '<ul class="custom-box-options" role="group" aria-labelledby="customBoxHeading">' +
+        '<ul class="custom-box-options" aria-labelledby="customBoxHeading">' +
         eligible
           .map(function (p) {
             var isOn = chosenSet.has(p.id);
