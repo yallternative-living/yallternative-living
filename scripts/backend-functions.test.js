@@ -223,7 +223,33 @@ try {
 })();
 
 /* ==========================================================
-   5. Dynamic import of ESM workers (workers/checkout.js & workers/submit-form.js)
+   5. fulfill-gift-card.js: handler (invalid signature)
+   ========================================================== */
+(async () => {
+  const originalConsoleError = console.error;
+  let errorLogged = false;
+  console.error = () => {
+    errorLogged = true;
+  };
+
+  const event = {
+    httpMethod: "POST",
+    body: "{}",
+    headers: {
+      "stripe-signature": "t=123,v1=bad_signature"
+    }
+  };
+
+  const result = await fulfillGiftCard.handler(event);
+  eq(result.statusCode, 400, "handler returns 400 on invalid signature");
+  assert(result.body.includes("Invalid signature"), "handler returns invalid signature message");
+  assert(errorLogged, "handler logs error on invalid signature");
+
+  console.error = originalConsoleError;
+})();
+
+/* ==========================================================
+   6. Dynamic import of ESM workers (workers/checkout.js & workers/submit-form.js)
    ========================================================== */
 (async () => {
   const checkout = await import("../workers/checkout.js");
@@ -679,6 +705,37 @@ try {
     global.fetch = savedFetch;
     eq(active, true, "isTaxEnabled reports active straight from Stripe");
     eq(taxProbeAuth, "Bearer sk_test_x", "isTaxEnabled authenticates the probe");
+  }
+
+  // An unreadable cache entry must fall through and re-probe.
+  {
+    const savedCaches = global.caches;
+    const savedFetch = global.fetch;
+    global.caches = {
+      default: {
+        match: async () => ({
+          json: async () => {
+            throw new Error("unreadable cache");
+          }
+        })
+      }
+    };
+    let fetchCalled = false;
+    global.fetch = async (url) => {
+      if (String(url).includes("/v1/tax/settings")) {
+        fetchCalled = true;
+        return { ok: true, json: async () => ({ status: "active" }) };
+      }
+      return { ok: false };
+    };
+    const active = await checkout.isTaxEnabled(
+      { STRIPE_SECRET_KEY: "sk_test_x", SITE_ORIGIN: "https://yallternativeliving.com" },
+      null
+    );
+    global.caches = savedCaches;
+    global.fetch = savedFetch;
+    eq(active, true, "isTaxEnabled falls back to probe when cache entry is unreadable");
+    eq(fetchCalled, true, "isTaxEnabled hits the network when cache entry is unreadable");
   }
 
   // On: physical order.

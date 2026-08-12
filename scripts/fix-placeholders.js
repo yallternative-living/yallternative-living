@@ -1,5 +1,4 @@
 const fs = require("fs");
-const path = require("path");
 const htmlFiles = fs.readdirSync(".").filter((f) => f.endsWith(".html"));
 
 htmlFiles.forEach((file) => {

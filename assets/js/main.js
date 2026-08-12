@@ -2014,11 +2014,12 @@
      disagree. */
   function bundlesHTML(bundles, productsById) {
     var pMap = getProductMap();
+    var isMap = productsById && typeof productsById.get === "function";
     return bundles
       .map(function (b) {
         var items = b.productIds
           .map(function (id) {
-            if (productsById && typeof productsById.get === "function") {
+            if (isMap) {
               return productsById.get(id);
             }
             return productsById && productsById[id] ? productsById[id] : pMap.get(id);

@@ -5,6 +5,7 @@
    on-device Translator API (where available) with a custom-styled,
    in-place Google Translate widget fallback for Safari/Firefox/Mobile.
    ========================================================== */
+/* global module */
 (function () {
   "use strict";
 
@@ -587,5 +588,25 @@
     init();
   } else {
     document.addEventListener("DOMContentLoaded", init);
+  }
+
+  // Export for testing
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = {
+      loadGoogleScript,
+      getNativeTranslator,
+      triggerGoogleTranslate,
+      performTranslation,
+      _getInternalState: () => ({
+        googleInitPromise,
+        isGoogleLoaded,
+        currentLang
+      }),
+      _resetInternalState: () => {
+        googleInitPromise = null;
+        isGoogleLoaded = false;
+        currentLang = "en";
+      }
+    };
   }
 })();
