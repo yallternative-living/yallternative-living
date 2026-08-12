@@ -9,6 +9,7 @@
 
 const crypto = require("crypto");
 const fulfillGiftCard = require("../netlify/functions/fulfill-gift-card.js");
+const submitRestock = require("../netlify/functions/submit-restock.js");
 
 let passed = 0;
 let failed = 0;
@@ -898,6 +899,99 @@ try {
   eq(r.params.get("metadata[pickup_market]"), marketLabel, "pickup: market recorded in metadata");
 
   global.fetch = globalFetch;
+
+  /* ==========================================================
+     8. submit-restock.js Netlify function
+     ========================================================== */
+
+  // HTTP method handling: Validate that an OPTIONS request returns a 204 status with CORS headers.
+  let restockRes = await submitRestock.handler({
+    httpMethod: "OPTIONS",
+    headers: { origin: "https://yallternativeliving.com" },
+    body: ""
+  });
+  eq(restockRes.statusCode, 204, "submitRestock returns 204 for OPTIONS");
+  eq(
+    restockRes.headers["Access-Control-Allow-Origin"],
+    "https://yallternativeliving.com",
+    "submitRestock CORS header correct"
+  );
+
+  // HTTP method handling: Validate that a GET request returns a 405 status with an error body.
+  restockRes = await submitRestock.handler({
+    httpMethod: "GET",
+    headers: { origin: "https://yallternativeliving.com" },
+    body: ""
+  });
+  eq(restockRes.statusCode, 405, "submitRestock returns 405 for GET");
+
+  // Payload parsing: Validate that application/json payload works correctly.
+  restockRes = await submitRestock.handler({
+    httpMethod: "POST",
+    headers: { origin: "https://yallternativeliving.com" },
+    body: JSON.stringify({ email: "test@example.com", product: "Item1" })
+  });
+  eq(restockRes.statusCode, 200, "submitRestock parses JSON successfully");
+  assert(
+    JSON.parse(restockRes.body).message.includes("test@example.com"),
+    "submitRestock JSON message includes email"
+  );
+
+  // Payload parsing: Validate that application/x-www-form-urlencoded payload works correctly.
+  restockRes = await submitRestock.handler({
+    httpMethod: "POST",
+    headers: {
+      origin: "https://yallternativeliving.com",
+      "content-type": "application/x-www-form-urlencoded"
+    },
+    body: "email=form%40example.com&product=Item2"
+  });
+  eq(restockRes.statusCode, 200, "submitRestock parses x-www-form-urlencoded successfully");
+  assert(
+    JSON.parse(restockRes.body).message.includes("form@example.com"),
+    "submitRestock form message includes email"
+  );
+
+  // Honeypot logic: Validate that a form submission with `website_hp` field set returns a 200 silent success.
+  restockRes = await submitRestock.handler({
+    httpMethod: "POST",
+    headers: { origin: "https://yallternativeliving.com" },
+    body: JSON.stringify({ email: "bot@example.com", website_hp: "botstuff" })
+  });
+  eq(restockRes.statusCode, 200, "submitRestock silent success for honeypot");
+  eq(
+    JSON.parse(restockRes.body).message,
+    "Request received.",
+    "submitRestock honeypot message correct"
+  );
+
+  // Email validation: Validate that a missing or invalid email address returns a 400 error.
+  restockRes = await submitRestock.handler({
+    httpMethod: "POST",
+    headers: { origin: "https://yallternativeliving.com" },
+    body: JSON.stringify({ email: "not-an-email", product: "Item1" })
+  });
+  eq(restockRes.statusCode, 400, "submitRestock returns 400 for invalid email");
+
+  // Success response: Validate that a valid email and product ID returns a 200 success with properly sanitized email/product.
+  restockRes = await submitRestock.handler({
+    httpMethod: "POST",
+    headers: { origin: "https://yallternativeliving.com" },
+    body: JSON.stringify({ email: "test@example.com", product: "<script>alert('xss')</script>" })
+  });
+  eq(restockRes.statusCode, 200, "submitRestock sanitizes product string");
+  assert(
+    JSON.parse(restockRes.body).message.includes("&lt;script&gt;"),
+    "submitRestock HTML escapes product"
+  );
+
+  // Payload parsing error: Validate that invalid JSON gracefully catches the error and returns a 400.
+  restockRes = await submitRestock.handler({
+    httpMethod: "POST",
+    headers: { origin: "https://yallternativeliving.com" },
+    body: "{ bad json"
+  });
+  eq(restockRes.statusCode, 400, "submitRestock returns 400 for invalid JSON payload");
 
   console.log(`\nbackend-functions.test.js: ${passed} passed, ${failed} failed`);
   if (failed > 0) process.exit(1);
