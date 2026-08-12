@@ -681,6 +681,37 @@ try {
     eq(taxProbeAuth, "Bearer sk_test_x", "isTaxEnabled authenticates the probe");
   }
 
+  // An unreadable cache entry must fall through and re-probe.
+  {
+    const savedCaches = global.caches;
+    const savedFetch = global.fetch;
+    global.caches = {
+      default: {
+        match: async () => ({
+          json: async () => {
+            throw new Error("unreadable cache");
+          }
+        })
+      }
+    };
+    let fetchCalled = false;
+    global.fetch = async (url, opts) => {
+      if (String(url).includes("/v1/tax/settings")) {
+        fetchCalled = true;
+        return { ok: true, json: async () => ({ status: "active" }) };
+      }
+      return { ok: false };
+    };
+    const active = await checkout.isTaxEnabled(
+      { STRIPE_SECRET_KEY: "sk_test_x", SITE_ORIGIN: "https://yallternativeliving.com" },
+      null
+    );
+    global.caches = savedCaches;
+    global.fetch = savedFetch;
+    eq(active, true, "isTaxEnabled falls back to probe when cache entry is unreadable");
+    eq(fetchCalled, true, "isTaxEnabled hits the network when cache entry is unreadable");
+  }
+
   // On: physical order.
   p = await captureParams([{ id: "beard-salve", qty: 2 }], { STRIPE_TAX_ENABLED: "true" });
   eq(p.get("automatic_tax[enabled]"), "true", "tax on: automatic_tax enabled");
