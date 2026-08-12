@@ -247,7 +247,7 @@ exports.handler = async (event) => {
             <img src="https://yallternativeliving.com/assets/img/logo.png" alt="Y'allternative Living Logo" style="max-width: 200px;" />
           </div>
           <h1 style="color: #d69b5c; text-align: center;">You've received a gift!</h1>
-          <p style="font-size: 18px;"><strong>${escapeHtml(senderName) || 'Someone special'}</strong> sent you a $${amount.toFixed(2)} gift card to Y'allternative Living.</p>
+          <p style="font-size: 18px;"><strong>${senderName ? escapeHtml(senderName) : 'Someone special'}</strong> sent you a $${amount.toFixed(2)} gift card to Y'allternative Living.</p>
 
           ${personalMessage ? `<div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; font-style: italic; margin: 20px 0;">"${escapeHtml(personalMessage)}"</div>` : ''}
 
