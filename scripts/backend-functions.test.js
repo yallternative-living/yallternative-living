@@ -8,6 +8,14 @@
  */
 
 const crypto = require("crypto");
+
+// fulfill-gift-card.js captures process.env.STRIPE_WEBHOOK_SECRET into a
+// module-level const at load time, so this MUST be set before the require
+// below -- otherwise verifyStripeSignature short-circuits on "not configured"
+// and the invalid-signature test never reaches the real HMAC comparison.
+process.env.STRIPE_WEBHOOK_SECRET =
+  process.env.STRIPE_WEBHOOK_SECRET || "whsec_test_dummy_secret_for_signature_tests";
+
 const fulfillGiftCard = require("../netlify/functions/fulfill-gift-card.js");
 const submitRestock = require("../netlify/functions/submit-restock.js");
 
@@ -233,17 +241,29 @@ try {
     errorLogged = true;
   };
 
+  // Use a FRESH timestamp so we clear the replay-tolerance window (a stale
+  // t=123 would be rejected before any HMAC work), and a wrong signature that
+  // is a full 64-hex-char string (the length of a real sha256 HMAC digest) so
+  // the check actually reaches crypto.timingSafeEqual rather than being
+  // rejected earlier on a length mismatch. With STRIPE_WEBHOOK_SECRET set at
+  // the top of this file, this now exercises the real signature-rejection path.
+  const freshTimestamp = Math.floor(Date.now() / 1000);
+  const wrongSignature = "0".repeat(64);
   const event = {
     httpMethod: "POST",
     body: "{}",
     headers: {
-      "stripe-signature": "t=123,v1=bad_signature"
+      "stripe-signature": `t=${freshTimestamp},v1=${wrongSignature}`
     }
   };
 
   const result = await fulfillGiftCard.handler(event);
   eq(result.statusCode, 400, "handler returns 400 on invalid signature");
   assert(result.body.includes("Invalid signature"), "handler returns invalid signature message");
+  assert(
+    result.body.includes("Signature mismatch"),
+    "handler reaches real HMAC compare and rejects on signature mismatch"
+  );
   assert(errorLogged, "handler logs error on invalid signature");
 
   console.error = originalConsoleError;
