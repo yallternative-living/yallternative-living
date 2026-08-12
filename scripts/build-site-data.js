@@ -965,8 +965,23 @@ function buildSiteData() {
   function injectPageCopy(page, pageKey) {
     var html = readText(page, page + " page");
     var section = CONTENT[pageKey] || {};
-    Object.keys(section).forEach(function (key) {
-      var raw = String(section[key]);
+    // Flatten nested content objects into dotted marker keys so page copy can
+    // be organized into grouped sub-objects in /admin (e.g. home.badges.badge1)
+    // while still resolving to <!--YL:home.badges.badge1--> markers here.
+    var __flat = [];
+    (function walk(obj, prefix) {
+      Object.keys(obj).forEach(function (k) {
+        var v = obj[k];
+        if (v && typeof v === "object" && !Array.isArray(v)) {
+          walk(v, prefix + "." + k);
+          return;
+        }
+        __flat.push({ dotted: prefix + "." + k, leaf: k, value: v });
+      });
+    })(section, pageKey);
+    __flat.forEach(function (entry) {
+      var key = entry.leaf;
+      var raw = String(entry.value);
       var isImage =
         [
           "heroImage",
@@ -979,7 +994,7 @@ function buildSiteData() {
           "logoMobile",
           "ogImage"
         ].indexOf(key) !== -1;
-      var m = "YL:" + pageKey + "\\." + key;
+      var m = "YL:" + entry.dotted.replace(/\./g, "\\.");
 
       if (isImage) {
         var imgPath = raw.replace(/^\/+/, "");
@@ -989,10 +1004,8 @@ function buildSiteData() {
         var reCss = new RegExp(
           "(\\/\\*" +
             m +
-            "\\*\\/)[\\s\\S]*?(\\/\\*(?:\\\\|\\/)?YL:" +
-            pageKey +
-            "\\." +
-            key +
+            "\\*\\/)[\\s\\S]*?(\\/\\*(?:\\\\|\\/)?" +
+            m +
             "\\*\\/)"
         );
 
@@ -1072,7 +1085,7 @@ function buildSiteData() {
         }
       } else {
         var rendered =
-          key === "bio"
+          key === "bio" || key === "body" || /\n\s*\n/.test(raw)
             ? raw
                 .split(/\n\s*\n/)
                 .map(function (para) {

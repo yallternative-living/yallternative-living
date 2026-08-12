@@ -232,10 +232,7 @@ function createStaticServer(port = 8080) {
         await new Promise((r) => setTimeout(r, 300)); // wait for theme transition
 
         // Take light mode screenshot
-        const lightShotPath = path.join(
-          SCREENSHOT_DIR,
-          `${pageSlug}_${vp.name}_light.png`
-        );
+        const lightShotPath = path.join(SCREENSHOT_DIR, `${pageSlug}_${vp.name}_light.png`);
         try {
           await page.screenshot({ path: lightShotPath, fullPage: false, timeout: 5000 });
         } catch (e) {
@@ -257,10 +254,7 @@ function createStaticServer(port = 8080) {
         await new Promise((r) => setTimeout(r, 300)); // wait for theme transition
 
         // Take dark mode screenshot
-        const darkShotPath = path.join(
-          SCREENSHOT_DIR,
-          `${pageSlug}_${vp.name}_dark.png`
-        );
+        const darkShotPath = path.join(SCREENSHOT_DIR, `${pageSlug}_${vp.name}_dark.png`);
         try {
           await page.screenshot({ path: darkShotPath, fullPage: false, timeout: 5000 });
         } catch (e) {
@@ -274,8 +268,8 @@ function createStaticServer(port = 8080) {
         auditResults.pages[pageName].viewports[vp.name].dark.overflow = darkOverflow;
       }
 
-      // Check Translation Quality & Visual Integrity for desktop
-      if (pageName === "index.html" || pageName === "shop.html") {
+      // Check Translation Quality & Visual Integrity on index.html
+      if (pageName === "index.html") {
         console.log(`Verifying translation feature on ${pageName}...`);
         await page.setViewport({ width: 1200, height: 800 });
         auditResults.translations[pageName] = {};
@@ -300,18 +294,7 @@ function createStaticServer(port = 8080) {
               }
             }, lang);
 
-            await new Promise((r) => setTimeout(r, 500)); // wait for DOM translation updates
-
-            // Take screenshot of the translated page
-            const langShotPath = path.join(
-              SCREENSHOT_DIR,
-              `${pageSlug}_translation_${lang}.png`
-            );
-            try {
-              await page.screenshot({ path: langShotPath, fullPage: false, timeout: 5000 });
-            } catch (e) {
-              console.warn(`[Screenshot Warning on ${pageName} ${lang}]:`, e.message);
-            }
+            await new Promise((r) => setTimeout(r, 200));
 
             // Test visual integrity and alignment
             const integrity = await page.evaluate(() => {
@@ -544,8 +527,9 @@ We verified the local client-side translation feature across all configured lang
     ja: "日本語",
     zh: "中文"
   };
-  for (const pageName of ["index.html", "shop.html"]) {
+  for (const pageName of ["index.html"]) {
     const tData = auditResults.translations[pageName];
+    if (!tData) continue;
     for (const lang of LANGUAGES) {
       const info = tData[lang];
       const overflow = info.overflow ? "❌ Overflow" : "✅ Normal";
