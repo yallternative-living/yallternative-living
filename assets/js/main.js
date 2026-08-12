@@ -1578,105 +1578,194 @@
   initCustomBox();
 
   /* ---------- Restock / Launch Alert Modal Controller ---------- */
-  function initRestockAlertModal() {
-    var modal = document.getElementById("restock-alert-modal");
-    if (!modal) return;
+  function openRestockModal(productId, state) {
+    state.lastFocusedElement = document.activeElement;
 
-    var lastFocusedElement = null;
-    var form = document.getElementById("restockAlertForm");
-    var emailInput = document.getElementById("restock-email-input");
-    var errorSpan = document.getElementById("restockEmailError");
-    var successMsg = document.getElementById("restockSuccessMessage");
-    var submitBtn = document.getElementById("restockSubmitBtn");
+    // Reset state
+    if (state.form) {
+      state.form.reset();
+      state.form.hidden = false;
+    }
+    if (state.errorSpan) {
+      state.errorSpan.textContent = "";
+      state.errorSpan.hidden = true;
+    }
+    if (state.successMsg) state.successMsg.hidden = true;
+    if (state.submitBtn) {
+      state.submitBtn.disabled = false;
+      var btnSpan = state.submitBtn.querySelector("span");
+      if (btnSpan) btnSpan.textContent = "Notify Me When Back in Stock";
+      else state.submitBtn.textContent = "Notify Me When Back in Stock";
+    }
 
-    function openModal(productId) {
-      lastFocusedElement = document.activeElement;
+    // Find product details
+    var catalog = (window.YL_PRODUCTS && window.YL_PRODUCTS.products) || [];
+    var p = catalog.find(function (item) {
+      return item.id === productId;
+    });
 
-      // Reset state
-      if (form) {
-        form.reset();
-        form.hidden = false;
+    var prodIdInput = document.getElementById("restockProductId");
+    var prodNameInput = document.getElementById("restockProductNameInput");
+    var nameHeading = document.getElementById("restockProductName");
+    var badge = document.getElementById("restockProductBadge");
+    var img = document.getElementById("restockProductImg");
+
+    var productName = p ? p.name : productId;
+    if (prodIdInput) prodIdInput.value = productId;
+    if (prodNameInput) prodNameInput.value = productName;
+    if (nameHeading) nameHeading.textContent = productName;
+
+    if (badge) {
+      if (p && p.comingSoon) {
+        badge.textContent = "Coming Soon";
+        badge.className = "stock-badge coming-soon";
+      } else {
+        badge.textContent = "Sold Out";
+        badge.className = "stock-badge sold-out";
       }
-      if (errorSpan) {
-        errorSpan.textContent = "";
-        errorSpan.hidden = true;
-      }
-      if (successMsg) successMsg.hidden = true;
-      if (submitBtn) {
-        submitBtn.disabled = false;
-        var btnSpan = submitBtn.querySelector("span");
-        if (btnSpan) btnSpan.textContent = "Notify Me When Back in Stock";
-        else submitBtn.textContent = "Notify Me When Back in Stock";
-      }
+    }
 
-      // Find product details
-      var catalog = (window.YL_PRODUCTS && window.YL_PRODUCTS.products) || [];
-      var p = catalog.find(function (item) {
-        return item.id === productId;
+    if (img) {
+      if (p && p.image) {
+        img.src = p.image;
+        img.alt = p.name;
+        img.hidden = false;
+      } else {
+        img.hidden = true;
+      }
+    }
+
+    if (typeof state.modal.showModal === "function") {
+      if (!state.modal.open && !state.modal.hasAttribute("open")) {
+        state.modal.showModal();
+      }
+    } else {
+      state.modal.setAttribute("open", "true");
+    }
+
+    setTimeout(function () {
+      if (state.emailInput) state.emailInput.focus();
+    }, 50);
+  }
+
+  function closeRestockModal(state) {
+    if (typeof state.modal.close === "function") {
+      state.modal.close();
+    } else {
+      state.modal.removeAttribute("open");
+    }
+    if (state.lastFocusedElement && typeof state.lastFocusedElement.focus === "function") {
+      state.lastFocusedElement.focus();
+    }
+  }
+
+  function handleRestockModalKeydown(e, state) {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      closeRestockModal(state);
+      return;
+    }
+    if (e.key === "Tab") {
+      var focusables = Array.prototype.filter.call(
+        state.modal.querySelectorAll(
+          'button:not([disabled]):not([tabindex="-1"]), input:not([type="hidden"]):not([disabled]):not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])'
+        ),
+        function (el) {
+          return !el.closest("[hidden]");
+        }
+      );
+      if (!focusables.length) return;
+      var first = focusables[0];
+      var last = focusables[focusables.length - 1];
+
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    }
+  }
+
+  function handleRestockFormSubmit(e, state) {
+    e.preventDefault();
+
+    // Honeypot check
+    var hp = document.getElementById("restock-hp-field");
+    if (hp && hp.value.trim() !== "") {
+      state.form.hidden = true;
+      if (state.successMsg) state.successMsg.hidden = false;
+      return;
+    }
+
+    var email = state.emailInput ? state.emailInput.value.trim() : "";
+    var emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailPattern.test(email)) {
+      if (state.errorSpan) {
+        state.errorSpan.textContent = "Please enter a valid email address.";
+        state.errorSpan.hidden = false;
+      }
+      if (state.emailInput) state.emailInput.focus();
+      return;
+    }
+    if (state.errorSpan) state.errorSpan.hidden = true;
+
+    var site = (window.YL_CONTENT && window.YL_CONTENT.site) || {};
+    var formId = site.formspreeRestockId || "YOUR_FORMSPREE_RESTOCK_ID";
+
+    if (formId === "YOUR_FORMSPREE_RESTOCK_ID") {
+      showFormFallback(
+        state.form,
+        "Restock alerts aren't connected yet -- you haven't been added to a list. Email us and we'll tell you when it lands: ",
+        "y.allternative.living@gmail.com"
+      );
+      return;
+    }
+
+    if (state.submitBtn) {
+      state.submitBtn.disabled = true;
+      var btnSpan = state.submitBtn.querySelector("span");
+      if (btnSpan) btnSpan.textContent = "Saving…";
+      else state.submitBtn.textContent = "Saving…";
+    }
+
+    fetch("https://formspree.io/f/" + formId, {
+      method: "POST",
+      body: new FormData(state.form),
+      headers: { Accept: "application/json" }
+    })
+      .then(function (res) {
+        if (!res.ok) throw new Error("Signup failed");
+        state.form.hidden = true;
+        if (state.successMsg) state.successMsg.hidden = false;
+      })
+      .catch(function () {
+        if (state.submitBtn) {
+          state.submitBtn.disabled = false;
+          var btnSpan = state.submitBtn.querySelector("span");
+          if (btnSpan) btnSpan.textContent = "Notify Me When Back in Stock";
+          else state.submitBtn.textContent = "Notify Me When Back in Stock";
+        }
+        showFormFallback(
+          state.form,
+          "That didn't go through. Please email us instead: ",
+          "y.allternative.living@gmail.com"
+        );
       });
+  }
 
-      var prodIdInput = document.getElementById("restockProductId");
-      var prodNameInput = document.getElementById("restockProductNameInput");
-      var nameHeading = document.getElementById("restockProductName");
-      var badge = document.getElementById("restockProductBadge");
-      var img = document.getElementById("restockProductImg");
-
-      var productName = p ? p.name : productId;
-      if (prodIdInput) prodIdInput.value = productId;
-      if (prodNameInput) prodNameInput.value = productName;
-      if (nameHeading) nameHeading.textContent = productName;
-
-      if (badge) {
-        if (p && p.comingSoon) {
-          badge.textContent = "Coming Soon";
-          badge.className = "stock-badge coming-soon";
-        } else {
-          badge.textContent = "Sold Out";
-          badge.className = "stock-badge sold-out";
-        }
-      }
-
-      if (img) {
-        if (p && p.image) {
-          img.src = p.image;
-          img.alt = p.name;
-          img.hidden = false;
-        } else {
-          img.hidden = true;
-        }
-      }
-
-      if (typeof modal.showModal === "function") {
-        if (!modal.open && !modal.hasAttribute("open")) {
-          modal.showModal();
-        }
-      } else {
-        modal.setAttribute("open", "true");
-      }
-
-      setTimeout(function () {
-        if (emailInput) emailInput.focus();
-      }, 50);
-    }
-
-    function closeModal() {
-      if (typeof modal.close === "function") {
-        modal.close();
-      } else {
-        modal.removeAttribute("open");
-      }
-      if (lastFocusedElement && typeof lastFocusedElement.focus === "function") {
-        lastFocusedElement.focus();
-      }
-    }
-
-    // Delegated trigger handler
+  function setupRestockAlertModalTriggers(state) {
     document.addEventListener("click", function (e) {
       var toggle = e.target.closest(".yl-notify-toggle");
       if (toggle) {
         e.preventDefault();
         var productId = toggle.getAttribute("data-notify-for");
-        if (productId) openModal(productId);
+        if (productId) openRestockModal(productId, state);
         return;
       }
 
@@ -1685,117 +1774,42 @@
       );
       if (closeBtn) {
         e.preventDefault();
-        closeModal();
+        closeRestockModal(state);
       }
     });
 
-    modal.addEventListener("click", function (e) {
-      if (e.target === modal) {
-        closeModal();
+    state.modal.addEventListener("click", function (e) {
+      if (e.target === state.modal) {
+        closeRestockModal(state);
       }
     });
 
-    modal.addEventListener("keydown", function (e) {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        closeModal();
-        return;
-      }
-      if (e.key === "Tab") {
-        var focusables = Array.prototype.filter.call(
-          modal.querySelectorAll(
-            'button:not([disabled]):not([tabindex="-1"]), input:not([type="hidden"]):not([disabled]):not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])'
-          ),
-          function (el) {
-            return !el.closest("[hidden]");
-          }
-        );
-        if (!focusables.length) return;
-        var first = focusables[0];
-        var last = focusables[focusables.length - 1];
-
-        if (e.shiftKey) {
-          if (document.activeElement === first) {
-            e.preventDefault();
-            last.focus();
-          }
-        } else {
-          if (document.activeElement === last) {
-            e.preventDefault();
-            first.focus();
-          }
-        }
-      }
+    state.modal.addEventListener("keydown", function (e) {
+      handleRestockModalKeydown(e, state);
     });
 
-    if (form) {
-      form.addEventListener("submit", function (e) {
-        e.preventDefault();
-
-        // Honeypot check
-        var hp = document.getElementById("restock-hp-field");
-        if (hp && hp.value.trim() !== "") {
-          form.hidden = true;
-          if (successMsg) successMsg.hidden = false;
-          return;
-        }
-
-        var email = emailInput ? emailInput.value.trim() : "";
-        var emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!email || !emailPattern.test(email)) {
-          if (errorSpan) {
-            errorSpan.textContent = "Please enter a valid email address.";
-            errorSpan.hidden = false;
-          }
-          if (emailInput) emailInput.focus();
-          return;
-        }
-        if (errorSpan) errorSpan.hidden = true;
-
-        var site = (window.YL_CONTENT && window.YL_CONTENT.site) || {};
-        var formId = site.formspreeRestockId || "YOUR_FORMSPREE_RESTOCK_ID";
-
-        if (formId === "YOUR_FORMSPREE_RESTOCK_ID") {
-          showFormFallback(
-            form,
-            "Restock alerts aren't connected yet -- you haven't been added to a list. Email us and we'll tell you when it lands: ",
-            "y.allternative.living@gmail.com"
-          );
-          return;
-        }
-
-        if (submitBtn) {
-          submitBtn.disabled = true;
-          var btnSpan = submitBtn.querySelector("span");
-          if (btnSpan) btnSpan.textContent = "Saving…";
-          else submitBtn.textContent = "Saving…";
-        }
-
-        fetch("https://formspree.io/f/" + formId, {
-          method: "POST",
-          body: new FormData(form),
-          headers: { Accept: "application/json" }
-        })
-          .then(function (res) {
-            if (!res.ok) throw new Error("Signup failed");
-            form.hidden = true;
-            if (successMsg) successMsg.hidden = false;
-          })
-          .catch(function () {
-            if (submitBtn) {
-              submitBtn.disabled = false;
-              var btnSpan = submitBtn.querySelector("span");
-              if (btnSpan) btnSpan.textContent = "Notify Me When Back in Stock";
-              else submitBtn.textContent = "Notify Me When Back in Stock";
-            }
-            showFormFallback(
-              form,
-              "That didn't go through. Please email us instead: ",
-              "y.allternative.living@gmail.com"
-            );
-          });
+    if (state.form) {
+      state.form.addEventListener("submit", function (e) {
+        handleRestockFormSubmit(e, state);
       });
     }
+  }
+
+  function initRestockAlertModal() {
+    var modal = document.getElementById("restock-alert-modal");
+    if (!modal) return;
+
+    var state = {
+      modal: modal,
+      lastFocusedElement: null,
+      form: document.getElementById("restockAlertForm"),
+      emailInput: document.getElementById("restock-email-input"),
+      errorSpan: document.getElementById("restockEmailError"),
+      successMsg: document.getElementById("restockSuccessMessage"),
+      submitBtn: document.getElementById("restockSubmitBtn")
+    };
+
+    setupRestockAlertModalTriggers(state);
   }
   initRestockAlertModal();
 
