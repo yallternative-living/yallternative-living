@@ -519,6 +519,7 @@ export default {
       let giftLineIndex = 0;
 
       let boxLineIndex = 0;
+      const boxProductMap = productMapOf(catalog);
 
       const lineItems = items.map((item) => {
         // Custom boxes have no catalog entry of their own -- priced and
@@ -532,7 +533,6 @@ export default {
             Number.isNaN(parsedBoxQty) || parsedBoxQty < 1
               ? 1
               : Math.min(parsedBoxQty, MAX_QTY_PER_ITEM);
-          const boxProductMap = productMapOf(catalog);
           const contents = ids
             .map((id) => (boxProductMap.get(String(id)) || {}).name || id)
             .join(", ");
