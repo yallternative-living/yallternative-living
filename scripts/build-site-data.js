@@ -1214,9 +1214,6 @@ function buildSiteData() {
 
   var FOOTER_BLOCK = '<footer class="site-footer">\n' + FOOTER_INNER + "\n</footer>";
   var FOOTER_RE = /<footer class="site-footer">[\s\S]*?<\/footer>/;
-  var ogImage = (CONTENT.site && CONTENT.site.ogImage) || "assets/img/og-image.jpg";
-  ogImage = ogImage.replace(/^\/+/, "");
-  var ogImageUrl = (DOMAIN + "/" + ogImage).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 
   [
     "index.html",
@@ -1266,19 +1263,33 @@ function buildSiteData() {
       return match;
     });
 
-    // Sync og:image and twitter:image meta tags with site.ogImage from content.json
-    html = html.replace(
-      /(<meta\s+property=['"]og:image['"]\s+content=['"])[^'"]*(['"])/gi,
-      function (m, p1, p2) {
-        return p1 + ogImageUrl + p2;
+    // Determine page-specific OG image
+    var pageKey = page.replace(".html", "");
+    if (pageKey === "index") pageKey = "home";
+
+    var pageOgImage = null;
+    if (CONTENT[pageKey]) {
+      pageOgImage =
+        CONTENT[pageKey].heroImage || CONTENT[pageKey].image || CONTENT[pageKey].bioImage;
+    }
+    if (page === "journal.html" && JOURNAL && JOURNAL.image) {
+      pageOgImage = JOURNAL.image;
+    }
+
+    var finalOgImage =
+      pageOgImage || (CONTENT.site && CONTENT.site.ogImage) || "assets/img/og-image.jpg";
+    finalOgImage = finalOgImage.replace(/^\/+/, "");
+    var ogImageUrl = escapeHtml(DOMAIN + "/" + finalOgImage);
+
+    // Sync og:image and twitter:image meta tags with robust parsing (supports any attribute ordering)
+    html = html.replace(/<meta\s+[^>]+>/gi, function (match) {
+      if (/\b(?:property|name)=['"](?:og:image|twitter:image)['"]/i.test(match)) {
+        return match.replace(/(content=['"])[^'"]*(['"])/i, function (m, p1, p2) {
+          return p1 + ogImageUrl + p2;
+        });
       }
-    );
-    html = html.replace(
-      /(<meta\s+name=['"]twitter:image['"]\s+content=['"])[^'"]*(['"])/gi,
-      function (m, p1, p2) {
-        return p1 + ogImageUrl + p2;
-      }
-    );
+      return match;
+    });
 
     var updated = html.replace(FOOTER_RE, FOOTER_BLOCK);
     if (updated !== html) writeFile(page, updated);
