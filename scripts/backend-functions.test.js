@@ -223,7 +223,33 @@ try {
 })();
 
 /* ==========================================================
-   5. Dynamic import of ESM workers (workers/checkout.js & workers/submit-form.js)
+   5. fulfill-gift-card.js: handler (invalid signature)
+   ========================================================== */
+(async () => {
+  const originalConsoleError = console.error;
+  let errorLogged = false;
+  console.error = () => {
+    errorLogged = true;
+  };
+
+  const event = {
+    httpMethod: "POST",
+    body: "{}",
+    headers: {
+      "stripe-signature": "t=123,v1=bad_signature"
+    }
+  };
+
+  const result = await fulfillGiftCard.handler(event);
+  eq(result.statusCode, 400, "handler returns 400 on invalid signature");
+  assert(result.body.includes("Invalid signature"), "handler returns invalid signature message");
+  assert(errorLogged, "handler logs error on invalid signature");
+
+  console.error = originalConsoleError;
+})();
+
+/* ==========================================================
+   6. Dynamic import of ESM workers (workers/checkout.js & workers/submit-form.js)
    ========================================================== */
 (async () => {
   const checkout = await import("../workers/checkout.js");
