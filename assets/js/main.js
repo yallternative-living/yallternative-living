@@ -2428,7 +2428,10 @@
 
     // Auto-promote upcoming events in the past to the past array
     rawUpcoming.forEach(function (ev) {
-      if (ev.date && ev.date < todayStr) {
+      // Multi-day events stay listed through their final day (endDate); the
+      // countdown still targets the start date so it counts down to opening.
+      var evCutoff = ev.endDate || ev.date;
+      if (evCutoff && evCutoff < todayStr) {
         past.push(ev);
       } else {
         upcoming.push(ev);

@@ -346,7 +346,8 @@ collections:
             required: false
             summary: "{{fields.dateLabel}} — {{fields.name}} ({{fields.location}})"
             fields:
-              - { name: date, label: "Event Date", widget: datetime, format: "YYYY-MM-DD", date_format: "MM/DD/YYYY", time_format: false, hint: "Select the date of the event (used to automatically sort and hide past events)." }
+              - { name: date, label: "Event Date (start)", widget: datetime, format: "YYYY-MM-DD", date_format: "MM/DD/YYYY", time_format: false, hint: "The event's date (or the FIRST day for a multi-day event). Drives sorting and the countdown to opening." }
+              - { name: endDate, label: "End Date (only for multi-day events)", widget: datetime, format: "YYYY-MM-DD", date_format: "MM/DD/YYYY", time_format: false, required: false, hint: "Leave blank for single-day events. For a two-day market, set this to the LAST day so it stays listed through the whole event." }
               - { name: dateLabel, label: "Date shown on the page (e.g. \"Sat, Sep 12, 2026 · 9am-2pm\")", widget: string }
               - { name: name, label: "Event Name (e.g. Landrum Farmers Market)", widget: string }
               - { name: type, label: "Type (e.g. Farmers Market, Fair, Pride Event)", widget: string }
@@ -512,6 +513,58 @@ collections:
               - { name: heroText, label: "Hero paragraph (under the headline)", widget: text }
               - { name: heroImage, label: "Homepage Hero Photo", widget: image, hint: "Main photo shown at the top of the homepage hero banner." }
               - { name: featureImage, label: "Homepage Story / Feature Photo", widget: image, hint: "Photo shown next to the 'Handmade In Small Batches' section on the homepage." }
+              - name: badges
+                label: "Trust Badges (the 4 icons under the hero)"
+                widget: object
+                collapsed: true
+                fields:
+                  - { name: badge1Title, label: "Badge 1 — Title", widget: string }
+                  - { name: badge1Text, label: "Badge 1 — Text", widget: text }
+                  - { name: badge2Title, label: "Badge 2 — Title", widget: string }
+                  - { name: badge2Text, label: "Badge 2 — Text", widget: text }
+                  - { name: badge3Title, label: "Badge 3 — Title", widget: string }
+                  - { name: badge3Text, label: "Badge 3 — Text", widget: text }
+                  - { name: badge4Title, label: "Badge 4 — Title", widget: string }
+                  - { name: badge4Text, label: "Badge 4 — Text", widget: text }
+              - name: featured
+                label: "“Small Batch, Big Feels” Section"
+                widget: object
+                collapsed: true
+                fields:
+                  - { name: eyebrow, label: "Small label above heading", widget: string, required: false }
+                  - { name: title, label: "Section heading", widget: string }
+                  - { name: text, label: "Section subtext", widget: text, required: false }
+              - name: story
+                label: "“Made By Hand” Story Section"
+                widget: object
+                collapsed: true
+                fields:
+                  - { name: eyebrow, label: "Small label above heading", widget: string, required: false }
+                  - { name: title, label: "Section heading", widget: string }
+                  - { name: body, label: "Story paragraphs (leave a blank line between paragraphs)", widget: text }
+              - name: reviews
+                label: "Customer Reviews Heading"
+                widget: object
+                collapsed: true
+                fields:
+                  - { name: eyebrow, label: "Small label above heading", widget: string, required: false }
+                  - { name: title, label: "Section heading", widget: string }
+              - name: community
+                label: "“Spotted In The Wild” Social Section"
+                widget: object
+                collapsed: true
+                fields:
+                  - { name: eyebrow, label: "Small label above heading", widget: string, required: false }
+                  - { name: title, label: "Section heading", widget: string }
+                  - { name: text, label: "Section subtext", widget: text, required: false }
+              - name: findUs
+                label: "“We Pop Up In The Wild” Section"
+                widget: object
+                collapsed: true
+                fields:
+                  - { name: eyebrow, label: "Small label above heading", widget: string, required: false }
+                  - { name: title, label: "Section heading", widget: string }
+                  - { name: text, label: "Section paragraph", widget: text, required: false }
 
           - name: about
             label: About page
@@ -527,6 +580,21 @@ collections:
                 hint: "Separate paragraphs with a blank line -- each becomes its own paragraph on the page."
               - { name: bioImage, label: "About Page Main Bio Photo", widget: image, hint: "Primary photo of Savanna / kitchen shown next to 'Hey Y'all, I'm Savanna' on the About page." }
               - { name: secondaryImage, label: "About Page Secondary Photo", widget: image, hint: "Secondary photo shown next to the 'Backroads, Porch Lights' section on the About page." }
+              - name: community
+                label: "“Find Us In The Wild” Section"
+                widget: object
+                collapsed: true
+                fields:
+                  - { name: title, label: "Section heading", widget: string }
+                  - { name: text, label: "Section paragraph", widget: text }
+                  - { name: quote, label: "Highlighted quote line", widget: text, required: false }
+              - name: closing
+                label: "Closing Call-To-Action Band"
+                widget: object
+                collapsed: true
+                fields:
+                  - { name: title, label: "Heading", widget: string }
+                  - { name: text, label: "Subtext", widget: text, required: false }
 
           - name: shop
             label: Shop page
@@ -536,6 +604,22 @@ collections:
               - { name: heroTitle, label: "Shop Headline", widget: string, required: false }
               - { name: heroIntro, label: "Shop Subheading", widget: text, required: false }
               - { name: giftCardImage, label: "Shop Gift Card Banner Image", widget: image, hint: "Background photo shown for the Digital Gift Card banner on the Shop page." }
+              - name: sections
+                label: "Section Headings & Bands"
+                widget: object
+                collapsed: true
+                fields:
+                  - { name: giftSetsTitle, label: "“Gift Sets” heading", widget: string }
+                  - { name: faqBannerTitle, label: "“Got Questions?” banner heading", widget: string }
+                  - { name: customTitle, label: "Custom Orders band — heading", widget: string }
+                  - { name: customText, label: "Custom Orders band — subtext", widget: text }
+                  - { name: reviewsTitle, label: "“Customer Reviews” heading", widget: string }
+                  - { name: ugcEyebrow, label: "Community section — small label", widget: string, required: false }
+                  - { name: ugcTitle, label: "Community section — heading", widget: string }
+                  - { name: ugcText, label: "Community section — subtext", widget: text, required: false }
+                  - { name: faqEyebrow, label: "FAQ section — small label", widget: string, required: false }
+                  - { name: faqTitle, label: "FAQ section — heading", widget: string }
+                  - { name: faqText, label: "FAQ section — subtext", widget: text, required: false }
 
           - name: events
             label: Events page
@@ -544,6 +628,15 @@ collections:
             fields:
               - { name: heroTitle, label: "Events Headline", widget: string, required: false }
               - { name: heroIntro, label: "Events Subheading", widget: text, required: false }
+              - name: sections
+                label: "Section Headings"
+                widget: object
+                collapsed: true
+                fields:
+                  - { name: upcomingTitle, label: "“Upcoming Pop-Ups” heading", widget: string }
+                  - { name: recentTitle, label: "“Recent Appearances” heading", widget: string }
+                  - { name: followTitle, label: "Follow-along band — heading", widget: string }
+                  - { name: followText, label: "Follow-along band — subtext", widget: text, required: false }
 
           - name: contact
             label: Contact page
@@ -557,6 +650,19 @@ collections:
               - { name: namePlaceholder, label: "Name Form Input Placeholder", widget: string, required: false }
               - { name: emailPlaceholder, label: "Email Form Input Placeholder", widget: string, required: false }
               - { name: messagePlaceholder, label: "Message Form Input Placeholder", widget: text, required: false }
+              - name: sections
+                label: "Section Headings & Bands"
+                widget: object
+                collapsed: true
+                fields:
+                  - { name: formTitle, label: "“Send a Message” heading", widget: string }
+                  - { name: formDesc, label: "Form helper text", widget: text, required: false }
+                  - { name: directTitle, label: "“Direct & Socials” heading", widget: string }
+                  - { name: findTitle, label: "“Find Us In Person” heading", widget: string }
+                  - { name: findText1, label: "Find Us — paragraph 1", widget: text, required: false }
+                  - { name: findText2, label: "Find Us — paragraph 2", widget: text, required: false }
+                  - { name: closingTitle, label: "Closing band — heading", widget: string }
+                  - { name: closingText, label: "Closing band — subtext", widget: text, required: false }
 
           - name: faq
             label: FAQ page
@@ -565,3 +671,24 @@ collections:
             fields:
               - { name: heroTitle, label: "FAQ Headline", widget: string, required: false }
               - { name: heroIntro, label: "FAQ Subheading", widget: text, required: false }
+
+          - name: privacy
+            label: "Privacy Policy page"
+            widget: object
+            collapsed: true
+            fields:
+              - { name: intro, label: "Intro paragraph (under the title)", widget: text }
+              - { name: lastUpdated, label: "\"Last updated\" date", widget: string, hint: "Shown at the bottom, e.g. \"July 16, 2026\". Update this whenever you change the policy wording (the detailed clauses are managed in code — ask your developer to edit those)." }
+          - name: terms
+            label: "Terms of Service page"
+            widget: object
+            collapsed: true
+            fields:
+              - { name: intro, label: "Intro paragraph (under the title)", widget: text }
+              - { name: lastUpdated, label: "\"Last updated\" date", widget: string, hint: "Shown at the bottom, e.g. \"July 18, 2026\". Update this whenever you change the terms wording (the detailed clauses are managed in code)." }
+          - name: policies
+            label: "Shipping & Returns page"
+            widget: object
+            collapsed: true
+            fields:
+              - { name: intro, label: "Intro paragraph (under the title)", widget: text }

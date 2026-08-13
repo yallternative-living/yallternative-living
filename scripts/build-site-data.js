@@ -393,7 +393,10 @@ function buildSiteData() {
   if (EVENTS && Array.isArray(EVENTS.upcoming)) {
     var stillUpcoming = [];
     EVENTS.upcoming.forEach(function (evt) {
-      if (evt.date && evt.date < todayStr) {
+      // Multi-day events stay "upcoming" through their final day: archive by
+      // endDate when present, otherwise by the single date.
+      var evtCutoff = evt.endDate || evt.date;
+      if (evtCutoff && evtCutoff < todayStr) {
         EVENTS.past = EVENTS.past || [];
         EVENTS.past.unshift({
           dateLabel: evt.dateLabel,
@@ -844,7 +847,8 @@ function buildSiteData() {
   var past = [];
 
   rawUpcoming.forEach(function (ev) {
-    if (ev.date && ev.date < buildTodayStr) {
+    var evCutoff = ev.endDate || ev.date;
+    if (evCutoff && evCutoff < buildTodayStr) {
       past.push(ev);
     } else {
       upcoming.push(ev);
@@ -1150,6 +1154,9 @@ function buildSiteData() {
   injectPageCopy("shop.html", "shop");
   injectPageCopy("events.html", "events");
   injectPageCopy("faq.html", "faq");
+  injectPageCopy("privacy.html", "privacy");
+  injectPageCopy("terms.html", "terms");
+  injectPageCopy("policies.html", "policies");
 
   // Dynamically inject Journal title/subheading from journal.json
   function injectJournalCopy() {
