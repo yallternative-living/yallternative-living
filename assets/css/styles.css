@@ -885,6 +885,16 @@ section{
   &.sale-badge{ background:var(--rose-dim); color:var(--on-fill); }
 }
 
+/* In light theme the .16 amber tint darkens the badge fill to ~#edddc4,
+   which drops --whiskey (#93571b) text to 4.34:1 -- just under the 4.5:1
+   AA floor (axe-core color-contrast). --whiskey-dim (#7a4816) clears it at
+   ~5.7:1. Dark theme's lighter amber text already passes, so scope to light
+   only. Covers both explicit toggle and OS-preference-only visitors. */
+:root[data-theme="light"] .stock-badge.low-stock,
+:root:not([data-theme="dark"]):not([data-theme="light"]) .stock-badge.low-stock{
+  color: var(--whiskey-dim);
+}
+
 /* Bundle cards reuse .card entirely; these only cover what's actually
    different -- the included-items list and the struck-through full price. */
 .bundle-includes{

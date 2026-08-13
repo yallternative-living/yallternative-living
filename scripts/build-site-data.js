@@ -1002,15 +1002,11 @@ function buildSiteData() {
 
       if (isImage) {
         var imgPath = raw.replace(/^\/+/, "");
-        var entry = MANIFEST[imgPath];
+        var imgManifestEntry = MANIFEST[imgPath];
 
         var reHtml = new RegExp("(<!--" + m + "-->)[\\s\\S]*?(<!--/" + m + "-->)");
         var reCss = new RegExp(
-          "(\\/\\*" +
-            m +
-            "\\*\\/)[\\s\\S]*?(\\/\\*(?:\\\\|\\/)?" +
-            m +
-            "\\*\\/)"
+          "(\\/\\*" + m + "\\*\\/)[\\s\\S]*?(\\/\\*(?:\\\\|\\/)?" + m + "\\*\\/)"
         );
 
         if (reHtml.test(html)) {
@@ -1038,13 +1034,13 @@ function buildSiteData() {
             if (isPicture) {
               var avifSrcset = "";
               var webpSrcset = "";
-              if (entry && entry.variants) {
-                avifSrcset = entry.variants.avif
+              if (imgManifestEntry && imgManifestEntry.variants) {
+                avifSrcset = imgManifestEntry.variants.avif
                   .map(function (v) {
                     return v.file + " " + v.width + "w";
                   })
                   .join(", ");
-                webpSrcset = entry.variants.webp
+                webpSrcset = imgManifestEntry.variants.webp
                   .map(function (v) {
                     return v.file + " " + v.width + "w";
                   })

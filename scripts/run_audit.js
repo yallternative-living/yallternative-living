@@ -210,6 +210,11 @@ function createStaticServer(port = 8080) {
         console.log(
           `❌ Found ${criticalViolations.length} critical/serious accessibility violations!`
         );
+        criticalViolations.forEach((v) => {
+          console.log(
+            `   [${v.impact}] ${v.id}: ${v.help} -- nodes: ${v.nodes.map((n) => n.target.join(",")).join(" | ")}`
+          );
+        });
       } else {
         console.log("✅ Zero critical accessibility violations found.");
       }
