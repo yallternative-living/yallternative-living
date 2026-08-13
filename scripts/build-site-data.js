@@ -1001,7 +1001,11 @@ function buildSiteData() {
       var m = "YL:" + entry.dotted.replace(/\./g, "\\.");
 
       if (isImage) {
-        var imgPath = raw.replace(/^\/+/, "");
+        // The value comes from the CMS and is dropped into a src="..." attr
+        // and a CSS url('...'), so strip anything that could break out of
+        // either quoting context (quotes, angle brackets, parens, backticks,
+        // backslashes, whitespace). A real image path never needs them.
+        var imgPath = raw.replace(/^\/+/, "").replace(/["'`<>()\\\s]/g, "");
         var imgManifestEntry = MANIFEST[imgPath];
 
         var reHtml = new RegExp("(<!--" + m + "-->)[\\s\\S]*?(<!--/" + m + "-->)");

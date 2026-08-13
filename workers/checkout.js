@@ -125,6 +125,12 @@ const MAX_QTY_PER_ITEM = 99;
 const MAX_LINE_ITEMS = 50;
 const MAX_GIFT_TEXT_LEN = 500;
 
+// Errors whose message is safe to show the shopper (cart/validation problems
+// they can act on). Anything NOT a ClientError is treated as internal: it's
+// logged server-side and the browser only ever sees a generic message, so raw
+// Stripe error strings or unexpected internal failures never leak to clients.
+class ClientError extends Error {}
+
 function corsHeaders(origin, env) {
   const isAllowed =
     ALLOWED_ORIGINS.includes(origin) || (env && env.SITE_ORIGIN && origin === env.SITE_ORIGIN);
@@ -460,15 +466,15 @@ const CUSTOM_BOX_ID = "custom-box";
 
 function resolveCustomBoxCents(catalog, productIds) {
   const cfg = (catalog.shop && catalog.shop.customBox) || null;
-  if (!cfg) throw new Error("Custom boxes are not enabled.");
+  if (!cfg) throw new ClientError("Custom boxes are not enabled.");
   if (!Array.isArray(productIds) || !productIds.length) {
-    throw new Error("Custom box is empty.");
+    throw new ClientError("Custom box is empty.");
   }
 
   const minItems = Number.isFinite(cfg.minItems) ? cfg.minItems : 1;
   const maxItems = Number.isFinite(cfg.maxItems) ? cfg.maxItems : 12;
   if (productIds.length < minItems || productIds.length > maxItems) {
-    throw new Error(`A custom box must contain between ${minItems} and ${maxItems} items.`);
+    throw new ClientError(`A custom box must contain between ${minItems} and ${maxItems} items.`);
   }
 
   const eligible = Array.isArray(cfg.eligibleCategories) ? cfg.eligibleCategories : null;
@@ -478,11 +484,11 @@ function resolveCustomBoxCents(catalog, productIds) {
   for (const rawId of productIds) {
     const p = productMap.get(String(rawId));
     if (!p || typeof p.price !== "number") {
-      throw new Error(`Product not found in box: ${rawId}`);
+      throw new ClientError(`Product not found in box: ${rawId}`);
     }
-    if (p.comingSoon) throw new Error(`Not available yet: ${rawId}`);
+    if (p.comingSoon) throw new ClientError(`Not available yet: ${rawId}`);
     if (eligible && eligible.indexOf(p.category) === -1) {
-      throw new Error(`Not eligible for a custom box: ${rawId}`);
+      throw new ClientError(`Not eligible for a custom box: ${rawId}`);
     }
     fullPrice += p.price;
   }
@@ -515,10 +521,10 @@ export default {
       const body = await request.json();
       const items = body && body.items;
       if (!Array.isArray(items) || items.length === 0) {
-        return json({ error: "Cart is empty or invalid." }, 400, origin);
+        return json({ error: "Cart is empty or invalid." }, 400, origin, env);
       }
       if (items.length > MAX_LINE_ITEMS) {
-        return json({ error: "Too many line items." }, 400, origin);
+        return json({ error: "Too many line items." }, 400, origin, env);
       }
 
       const catalog = await loadCatalog(env, ctx);
@@ -565,7 +571,7 @@ export default {
         }
 
         const entry = findEntry(catalog, String(item.id));
-        if (!entry) throw new Error(`Product not found: ${item.id}`);
+        if (!entry) throw new ClientError(`Product not found: ${item.id}`);
 
         const isGiftCard = item.id === GIFT_CARD_ID;
         const isBundle = !isGiftCard && bundleMapOf(catalog).has(entry.id);
@@ -573,7 +579,7 @@ export default {
           ? resolveGiftCardAmountCents(item.variant)
           : resolveUnitAmountCents(catalog, entry, item.variant, isBundle);
         if (unitAmount === null || unitAmount < 0) {
-          throw new Error(`Product not purchasable: ${item.id}`);
+          throw new ClientError(`Product not purchasable: ${item.id}`);
         }
 
         const parsedQty = parseInt(item.qty, 10);
@@ -765,11 +771,23 @@ export default {
         body: params
       });
       const session = await stripeRes.json();
-      if (session.error) throw new Error(session.error.message);
+      if (session.error) {
+        // Log the real Stripe error server-side for debugging, but never echo
+        // its message to the browser -- it can carry internal detail.
+        console.error("Stripe checkout session error:", session.error);
+        throw new Error("Stripe rejected the checkout session");
+      }
 
       return json({ url: session.url }, 200, origin, env);
     } catch (err) {
-      return json({ error: err.message || "Checkout failed" }, 400, origin, env);
+      // Only ClientError messages are safe to show the shopper. Anything else
+      // is an internal failure: log it and return a generic message so raw
+      // error strings never leak to the client.
+      if (err instanceof ClientError) {
+        return json({ error: err.message }, 400, origin, env);
+      }
+      console.error("Checkout failed:", err && err.stack ? err.stack : err);
+      return json({ error: "Checkout failed. Please try again." }, 400, origin, env);
     }
   }
 };
