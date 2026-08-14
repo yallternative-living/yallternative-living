@@ -67,9 +67,9 @@
    ========================================================== */
 "use strict";
 
-var fs = require("fs");
-var path = require("path");
-var ROOT = path.join(__dirname, "..");
+const fs = require("fs");
+const path = require("path");
+const ROOT = path.join(__dirname, "..");
 
 /* Read + parse one of the canonical assets/data/*.json source files.
    A bare JSON.parse() on a file the CMS (or a hand-edit) broke throws
@@ -83,8 +83,8 @@ var ROOT = path.join(__dirname, "..");
    meantime -- a broken commit can't take the live site down, only
    block the next publish until the JSON is valid again. */
 function readJson(relPath) {
-  var full = path.join(ROOT, relPath);
-  var raw;
+  const full = path.join(ROOT, relPath);
+  let raw;
   try {
     raw = fs.readFileSync(full, "utf8");
   } catch (e) {
@@ -135,7 +135,7 @@ function safeUrl(url) {
   // attribute-breakout but not a same-quote-safe `javascript:` URL, which
   // still executes on click. Empty string means "render no link" upstream.
   if (!url) return "";
-  var trimmed = String(url).trim();
+  const trimmed = String(url).trim();
   if (/^(https?:)?\/\//i.test(trimmed) || /^\//.test(trimmed)) return trimmed;
   return "";
 }
@@ -151,9 +151,9 @@ function slugify(text) {
 }
 
 function generateUniqueId(existingSet, rawName, fallbackPrefix, index) {
-  var base = slugify(rawName) || fallbackPrefix + "-" + (index + 1);
-  var candidate = base;
-  var counter = 2;
+  const base = slugify(rawName) || fallbackPrefix + "-" + (index + 1);
+  let candidate = base;
+  let counter = 2;
   while (existingSet.has(candidate)) {
     candidate = base + "-" + counter;
     counter++;
@@ -167,21 +167,21 @@ function generateUniqueId(existingSet, rawName, fallbackPrefix, index) {
    changes. Returns null (and lets the caller decide how to fail loudly)
    if a bundle references a product ID that doesn't exist. */
 function bundlePricing(b, productsMap) {
-  var map = productsMap || PRODUCTS_BY_ID || {};
-  var missing = b.productIds.filter(function (id) {
+  const map = productsMap || PRODUCTS_BY_ID || {};
+  const missing = b.productIds.filter(function (id) {
     return !map[id];
   });
   if (missing.length) return null;
-  var fullPrice = b.productIds.reduce(function (sum, id) {
-    var original = map[id].originalPrice || map[id].price;
+  const fullPrice = b.productIds.reduce(function (sum, id) {
+    const original = map[id].originalPrice || map[id].price;
     return sum + original;
   }, 0);
-  var bundlePrice = Math.round(fullPrice * (1 - (b.discountPercent || 0) / 100) * 100) / 100;
+  const bundlePrice = Math.round(fullPrice * (1 - (b.discountPercent || 0) / 100) * 100) / 100;
   return { fullPrice: fullPrice, bundlePrice: bundlePrice };
 }
 
 function readText(relPath, label) {
-  var full = path.join(ROOT, relPath);
+  const full = path.join(ROOT, relPath);
   try {
     return fs.readFileSync(full, "utf8");
   } catch (e) {
@@ -206,8 +206,8 @@ function stripMarkersInsideAttributes(html) {
 }
 
 function writeFile(relPath, contents) {
-  var full = path.join(ROOT, relPath);
-  var dir = path.dirname(full);
+  const full = path.join(ROOT, relPath);
+  const dir = path.dirname(full);
   try {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
@@ -225,26 +225,26 @@ function variantPriceRange(p) {
   if (!p.variants || !Array.isArray(p.variants.options) || !p.variants.options.length) {
     return { low: p.price, high: p.price };
   }
-  var prices = p.variants.options.map(function (o) {
+  const prices = p.variants.options.map(function (o) {
     return p.price + (o.priceDelta || 0);
   });
   return { low: Math.min.apply(null, prices), high: Math.max.apply(null, prices) };
 }
 
-var PRODUCTS_BY_ID = {};
+let PRODUCTS_BY_ID = {};
 
 function buildSiteData() {
   PRODUCTS_BY_ID = {};
-  var CATALOG = readJson("assets/data/products.json");
-  var PRODUCTS = CATALOG.products;
-  var BUNDLES = CATALOG.bundles || [];
-  var FAQ = CATALOG.faq || [];
+  const CATALOG = readJson("assets/data/products.json");
+  const PRODUCTS = CATALOG.products;
+  const BUNDLES = CATALOG.bundles || [];
+  const FAQ = CATALOG.faq || [];
   // Markets/Pride dates: assets/data/events.json is now the canonical, CMS-edited
   // source (plain JSON, editable at /admin); assets/js/events-data.js -- the
   // window.YL_EVENTS global the pages load -- is GENERATED from it below, exactly
   // like products.json -> products-data.js. (Previously events-data.js was the
   // hand-edited source; flipped so Savanna can edit dates in the /admin editor.)
-  var EVENTS = readJson("assets/data/events.json");
+  const EVENTS = readJson("assets/data/events.json");
   // Customer reviews: assets/data/site-reviews.json is the canonical, CMS-edited
   // source (Savanna approves + adds reviews at /admin); assets/js/site-reviews-data.js
   // -- the window.YL_SITE_REVIEWS global shop.html loads -- is generated from it
@@ -257,15 +257,15 @@ function buildSiteData() {
     /* fallback if missing */
   }
 
-  var SITE_REVIEWS = readJson("assets/data/site-reviews.json").reviews || [];
-  var JOURNAL = readJson("assets/data/journal.json");
-  var SOCIAL_FEED = readJson("assets/data/social-feed.json");
-  var CONTENT = readJson("assets/data/content.json");
-  var SITE_CONFIG = CONTENT.site || {};
+  const SITE_REVIEWS = readJson("assets/data/site-reviews.json").reviews || [];
+  const JOURNAL = readJson("assets/data/journal.json");
+  const SOCIAL_FEED = readJson("assets/data/social-feed.json");
+  const CONTENT = readJson("assets/data/content.json");
+  const SITE_CONFIG = CONTENT.site || {};
 
   /* 1. Process Categories & Guards */
-  var CATEGORY_IDS = new Set();
-  var CATEGORY_LABEL = {};
+  const CATEGORY_IDS = new Set();
+  const CATEGORY_LABEL = {};
   (CATALOG.categories || []).forEach(function (c, idx) {
     if (!c.id) {
       if (!c.label) {
@@ -287,9 +287,9 @@ function buildSiteData() {
 
   /* 2. Process Products & Guards */
   PRODUCTS_BY_ID = {};
-  var USED_PRODUCT_IDS = new Set();
-  var SALES = CATALOG.sales || [];
-  var salesByCategory = {};
+  const USED_PRODUCT_IDS = new Set();
+  const SALES = CATALOG.sales || [];
+  const salesByCategory = {};
   SALES.forEach(function (s) {
     salesByCategory[s.category] = s;
   });
@@ -326,7 +326,7 @@ function buildSiteData() {
       p.originalPrice = p.price;
       p.price = p.sale.price;
     } else if (salesByCategory[p.category]) {
-      var catSale = salesByCategory[p.category];
+      const catSale = salesByCategory[p.category];
       p.originalPrice = p.price;
       p.price = Math.round(p.price * (1 - catSale.percentOff / 100) * 100) / 100;
       p.sale = { label: catSale.label };
@@ -334,7 +334,7 @@ function buildSiteData() {
   });
 
   /* 3. Process Bundles & Guards */
-  var USED_BUNDLE_IDS = new Set();
+  const USED_BUNDLE_IDS = new Set();
   BUNDLES.forEach(function (b, idx) {
     if (!b.id) {
       if (!b.name) {
@@ -352,7 +352,7 @@ function buildSiteData() {
   });
 
   /* 4. Process Reviews & Guards */
-  var USED_REVIEW_IDS = new Set();
+  const USED_REVIEW_IDS = new Set();
   SITE_REVIEWS.forEach(function (r, idx) {
     if (!r.id) {
       r.id = generateUniqueId(USED_REVIEW_IDS, r.name, "review", idx);
@@ -362,7 +362,7 @@ function buildSiteData() {
   });
 
   /* 5. Process Journal Posts & Guards */
-  var USED_JOURNAL_IDS = new Set();
+  const USED_JOURNAL_IDS = new Set();
   ((JOURNAL && JOURNAL.posts) || []).forEach(function (post, idx) {
     if (!post.id) {
       if (!post.title) {
@@ -378,10 +378,10 @@ function buildSiteData() {
   });
 
   /* 6. Process Social Feed & Guards */
-  var USED_SOCIAL_IDS = new Set();
+  const USED_SOCIAL_IDS = new Set();
   ((SOCIAL_FEED && SOCIAL_FEED.posts) || []).forEach(function (post, idx) {
     if (!post.id) {
-      var captionSnippet = post.caption ? post.caption.slice(0, 30) : "";
+      const captionSnippet = post.caption ? post.caption.slice(0, 30) : "";
       post.id = generateUniqueId(USED_SOCIAL_IDS, captionSnippet, "social", idx);
     } else {
       USED_SOCIAL_IDS.add(post.id);
@@ -389,13 +389,13 @@ function buildSiteData() {
   });
 
   /* 7. Auto-Archive Past Events & Sort Upcoming Events Chronologically */
-  var todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = new Date().toISOString().slice(0, 10);
   if (EVENTS && Array.isArray(EVENTS.upcoming)) {
-    var stillUpcoming = [];
+    const stillUpcoming = [];
     EVENTS.upcoming.forEach(function (evt) {
       // Multi-day events stay "upcoming" through their final day: archive by
       // endDate when present, otherwise by the single date.
-      var evtCutoff = evt.endDate || evt.date;
+      const evtCutoff = evt.endDate || evt.date;
       if (evtCutoff && evtCutoff < todayStr) {
         EVENTS.past = EVENTS.past || [];
         EVENTS.past.unshift({
@@ -422,8 +422,8 @@ function buildSiteData() {
   if (JOURNAL && Array.isArray(JOURNAL.posts)) {
     JOURNAL.posts.forEach(function (post) {
       if (post.content && !post.readTime) {
-        var wordCount = post.content.trim().split(/\s+/).length;
-        var mins = Math.max(1, Math.ceil(wordCount / 200));
+        const wordCount = post.content.trim().split(/\s+/).length;
+        const mins = Math.max(1, Math.ceil(wordCount / 200));
         post.readTime = mins + " min read";
       }
     });
@@ -432,7 +432,7 @@ function buildSiteData() {
   // There's no live domain yet -- every generated absolute URL below uses this
   // placeholder. Update this ONE constant (and re-run the script) once a real
   // domain exists, instead of hand-editing every file again.
-  var DOMAIN = "https://yallternativeliving.com";
+  const DOMAIN = "https://yallternativeliving.com";
   /* ---------- 1) assets/js/products-data.js ----------
    A thin `window.YL_PRODUCTS = ...;` wrapper around the exact same data
    in assets/data/products.json (the real, canonical, CMS-edited source
@@ -442,7 +442,7 @@ function buildSiteData() {
    would need a real HTTP server and CORS headers just to open the site
    locally. Never hand-edit this file -- edit products.json instead (by
    hand, or through the CMS at /admin) and re-run this script. */
-  var productsDataJs =
+  const productsDataJs =
     "/**\n" +
     " * @fileoverview Auto-generated shop products catalog source of truth.\n" +
     " * Wrap of assets/data/products.json into a global variable YL_PRODUCTS.\n" +
@@ -459,7 +459,7 @@ function buildSiteData() {
    CMS-edited source for markets/Pride dates). Pages load this generated file
    directly. Never hand-edit it -- edit events.json (by hand, or via /admin)
    and re-run this script. */
-  var eventsDataJs =
+  const eventsDataJs =
     "/**\n" +
     " * @fileoverview Auto-generated events and markets appearances data.\n" +
     " * Wrap of assets/data/events.json into a global variable YL_EVENTS.\n" +
@@ -475,7 +475,7 @@ function buildSiteData() {
    window.YL_SITE_REVIEWS wrapper around assets/data/site-reviews.json (the
    canonical, CMS-edited source). Generated -- never hand-edit; edit
    site-reviews.json (by hand, or via /admin) and re-run this script. */
-  var reviewsDataJs =
+  const reviewsDataJs =
     "/**\n" +
     " * @fileoverview Auto-generated site-submitted customer reviews data.\n" +
     " * Wrap of assets/data/site-reviews.json into a global variable YL_SITE_REVIEWS.\n" +
@@ -498,7 +498,7 @@ function buildSiteData() {
    features were permanently on: flipping either toggle in the CMS did
    nothing at all. Emitting the file makes those two switches real, and gives
    any future runtime flag a single place to come from. */
-  var contentDataJs =
+  const contentDataJs =
     "/**\n" +
     " * @fileoverview Auto-generated site content/config.\n" +
     " * Wrap of assets/data/content.json into a global variable YL_CONTENT.\n" +
@@ -511,7 +511,7 @@ function buildSiteData() {
     ";\n";
   writeFile("assets/js/content-data.js", contentDataJs);
 
-  var journalDataJs =
+  const journalDataJs =
     "/**\n" +
     " * @fileoverview Auto-generated Apothecary Journal data.\n" +
     " * Wrap of assets/data/journal.json into a global variable YL_JOURNAL.\n" +
@@ -523,7 +523,7 @@ function buildSiteData() {
     ";\n";
   writeFile("assets/js/journal-data.js", journalDataJs);
 
-  var socialFeedDataJs =
+  const socialFeedDataJs =
     "/**\n" +
     " * @fileoverview Auto-generated Social Feed data.\n" +
     " * Wrap of assets/data/social-feed.json into a global variable YL_SOCIAL_FEED.\n" +
@@ -553,17 +553,17 @@ function buildSiteData() {
   });
 
   /* ---------- 3) shop.html Product/ItemList JSON-LD ---------- */
-  var itemListElement = PRODUCTS.map(function (p, i) {
+  const itemListElement = PRODUCTS.map(function (p, i) {
     // Schema.org's Product.image accepts either a single URL or an array --
     // include every real photo (hero + any extra gallery shots) when a
     // product has them, so search engines can surface more than one photo.
     // Normalize a leading "/" (the CMS public_folder writes "/assets/img/x.jpg",
     // hand-entered paths are relative "assets/img/x.jpg") so DOMAIN + "/" + img
     // never produces a double-slash "domain.com//assets/img" URL in the JSON-LD.
-    var allPhotos = [p.image].concat(Array.isArray(p.images) ? p.images : []).map(function (img) {
+    const allPhotos = [p.image].concat(Array.isArray(p.images) ? p.images : []).map(function (img) {
       return String(img).replace(/^\/+/, "");
     });
-    var imageField =
+    const imageField =
       allPhotos.length > 1
         ? allPhotos.map(function (img) {
             return DOMAIN + "/" + img;
@@ -572,8 +572,8 @@ function buildSiteData() {
     // Variants that actually change the price (e.g. a bigger size) get an
     // AggregateOffer with a real low/high range instead of a single Offer --
     // same-price variants (a size-only or scent-only pick) don't need one.
-    var range = variantPriceRange(p);
-    var offers =
+    const range = variantPriceRange(p);
+    const offers =
       range.low === range.high
         ? {
             "@type": "Offer",
@@ -599,7 +599,7 @@ function buildSiteData() {
                 : "https://schema.org/InStock",
             seller: { "@type": "Organization", name: "Y'allternative Living" }
           };
-    var productLd = {
+    const productLd = {
       "@type": "Product",
       name: p.name,
       description: p.blurb,
@@ -628,22 +628,22 @@ function buildSiteData() {
       item: productLd
     };
   });
-  var shopJsonLd = {
+  const shopJsonLd = {
     "@context": "https://schema.org",
     "@type": "ItemList",
     name: "Y'allternative Living | Full Shop Catalog",
     itemListElement: itemListElement
   };
-  var shopHtml = readText("shop.html", "shop page");
+  let shopHtml = readText("shop.html", "shop page");
 
   // Generate and inject the full $10 to $500 options string for the Gift Card button
-  var giftCardOptionsList = [];
-  for (var val = 10; val <= 500; val++) {
-    var delta = val - 10;
+  const giftCardOptionsList = [];
+  for (let val = 10; val <= 500; val++) {
+    const delta = val - 10;
     giftCardOptionsList.push("Preset $" + val + "[+" + delta.toFixed(2) + "]");
   }
-  var giftCardOptionsStr = giftCardOptionsList.join("|");
-  var optionsPlaceholderRe =
+  const giftCardOptionsStr = giftCardOptionsList.join("|");
+  const optionsPlaceholderRe =
     /data-item-custom1-options="Preset \$10\[\+0\.00\].*?Preset \$500\[\+490\.00\]"/;
   if (optionsPlaceholderRe.test(shopHtml)) {
     shopHtml = shopHtml.replace(
@@ -652,7 +652,7 @@ function buildSiteData() {
     );
   }
 
-  var NUMBER_WORDS = [
+  const NUMBER_WORDS = [
     "Zero",
     "One",
     "Two",
@@ -675,10 +675,10 @@ function buildSiteData() {
     "Nineteen",
     "Twenty"
   ];
-  var productCount = CATALOG.products.filter(function (p) {
+  const productCount = CATALOG.products.filter(function (p) {
     return p.image && p.image.indexOf("placeholder") === -1 && p.id !== "yallternative-gift-card";
   }).length;
-  var productCountWord = NUMBER_WORDS[productCount] || String(productCount);
+  const productCountWord = NUMBER_WORDS[productCount] || String(productCount);
 
   shopHtml = shopHtml.replace(
     /Shop \d+ handmade goods/,
@@ -689,30 +689,30 @@ function buildSiteData() {
     productCount + " handmade goods across"
   );
 
-  var countMarkerRe = /(<!--YL:productCount-->)\d+(<!--\/YL:productCount-->)/;
+  const countMarkerRe = /(<!--YL:productCount-->)\d+(<!--\/YL:productCount-->)/;
   if (countMarkerRe.test(shopHtml)) {
     shopHtml = shopHtml.replace(countMarkerRe, "$1" + productCount + "$2");
   }
 
-  var wordMarkerRe = /(<!--YL:productCountWord-->)[A-Za-z]+(<!--\/YL:productCountWord-->)/;
+  const wordMarkerRe = /(<!--YL:productCountWord-->)[A-Za-z]+(<!--\/YL:productCountWord-->)/;
   if (wordMarkerRe.test(shopHtml)) {
     shopHtml = shopHtml.replace(wordMarkerRe, "$1" + productCountWord + "$2");
   }
 
-  var shopBlockRe =
+  const shopBlockRe =
     /<script type="application\/ld\+json">\n\{\n\s*"@context": "https:\/\/schema\.org",\n\s*"@type": "ItemList"[\s\S]*?\n<\/script>/;
   if (!shopBlockRe.test(shopHtml)) {
     throw new Error(
       "Could not find the ItemList JSON-LD block in shop.html -- aborting so nothing gets corrupted. Check the block still starts with @type: ItemList."
     );
   }
-  var newBlock =
+  const newBlock =
     '<script type="application/ld+json">\n' + JSON.stringify(shopJsonLd, null, 2) + "\n</script>";
   shopHtml = shopHtml.replace(shopBlockRe, function () {
     return newBlock;
   });
 
-  var shopFaqLd = {
+  const shopFaqLd = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
     mainEntity: FAQ.map(function (item) {
@@ -726,9 +726,9 @@ function buildSiteData() {
       };
     })
   };
-  var faqLdBlockRe =
+  const faqLdBlockRe =
     /<script type="application\/ld\+json">\n\{\n\s*"@context": "https:\/\/schema\.org",\n\s*"@type": "FAQPage"[\s\S]*?\n<\/script>/;
-  var newFaqLdBlock =
+  let newFaqLdBlock =
     '<script type="application/ld+json">\n' + JSON.stringify(shopFaqLd, null, 2) + "\n</script>";
 
   if (faqLdBlockRe.test(shopHtml)) {
@@ -741,20 +741,20 @@ function buildSiteData() {
     });
   }
 
-  var shopFaqMarkerRe = /(<!-- SHOP_FAQ:START -->)[\s\S]*?(<!-- SHOP_FAQ:END -->)/;
+  const shopFaqMarkerRe = /(<!-- SHOP_FAQ:START -->)[\s\S]*?(<!-- SHOP_FAQ:END -->)/;
   if (!shopFaqMarkerRe.test(shopHtml)) {
     throw new Error(
       "Could not find SHOP_FAQ:START/SHOP_FAQ:END markers in shop.html -- aborting so nothing gets corrupted."
     );
   }
-  var topFaq = FAQ.slice(0, 5);
-  var shopFaqAccordionHtml =
+  const topFaq = FAQ.slice(0, 5);
+  const shopFaqAccordionHtml =
     '      <div class="faq-accordion">\n' +
     topFaq
       .map(function (item) {
-        var escQuestion = escapeHtml(item.question);
-        var escAnswer = escapeHtml(item.answer);
-        var renderedAnswer = escAnswer.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+        const escQuestion = escapeHtml(item.question);
+        const escAnswer = escapeHtml(item.answer);
+        const renderedAnswer = escAnswer.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
         return (
           '        <details class="faq-accordion-item">\n' +
           '          <summary class="faq-accordion-summary">' +
@@ -782,9 +782,9 @@ function buildSiteData() {
    to add/edit/reorder a question -- this generates both the FAQPage
    JSON-LD and the visible Q&A prose in faq.html's .contact-faq block from
    it, so the two can never drift out of sync with each other again. */
-  var faqHtml = readText("faq.html", "FAQ page");
+  let faqHtml = readText("faq.html", "FAQ page");
 
-  var faqJsonLd = {
+  const faqJsonLd = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
     mainEntity: FAQ.map(function (item) {
@@ -809,10 +809,10 @@ function buildSiteData() {
     return newFaqLdBlock;
   });
 
-  var faqVisibleHtml = FAQ.map(function (item, i) {
-    var escAnswer = escapeHtml(item.answer);
-    var renderedAnswer = escAnswer.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
-    var block =
+  const faqVisibleHtml = FAQ.map(function (item, i) {
+    const escAnswer = escapeHtml(item.answer);
+    const renderedAnswer = escAnswer.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+    const block =
       '        <div class="reveal">\n' +
       "          <h2>" +
       escapeHtml(item.question) +
@@ -823,7 +823,7 @@ function buildSiteData() {
       "        </div>";
     return i < FAQ.length - 1 ? block + '\n        <hr class="rule">\n' : block;
   }).join("\n");
-  var faqMarkerRe = /(<!-- FAQ:START[\s\S]*?-->)[\s\S]*?(<!-- FAQ:END -->)/;
+  const faqMarkerRe = /(<!-- FAQ:START[\s\S]*?-->)[\s\S]*?(<!-- FAQ:END -->)/;
   if (!faqMarkerRe.test(faqHtml)) {
     throw new Error(
       "Could not find the FAQ:START/FAQ:END markers in faq.html's .contact-faq block -- aborting so nothing gets corrupted."
@@ -836,18 +836,18 @@ function buildSiteData() {
   writeFile("faq.html", faqHtml);
 
   /* ---------- 4b) events.html Past Events Pre-population ---------- */
-  var eventsHtml = readText("events.html", "events page");
-  var eventsJson = readJson("assets/data/events.json");
+  let eventsHtml = readText("events.html", "events page");
+  const eventsJson = readJson("assets/data/events.json");
 
-  var rawUpcoming = eventsJson.upcoming || [];
-  var rawPast = eventsJson.past || [];
-  var buildTodayStr = new Date().toISOString().slice(0, 10);
+  const rawUpcoming = eventsJson.upcoming || [];
+  const rawPast = eventsJson.past || [];
+  const buildTodayStr = new Date().toISOString().slice(0, 10);
 
-  var upcoming = [];
-  var past = [];
+  const upcoming = [];
+  const past = [];
 
   rawUpcoming.forEach(function (ev) {
-    var evCutoff = ev.endDate || ev.date;
+    const evCutoff = ev.endDate || ev.date;
     if (evCutoff && evCutoff < buildTodayStr) {
       past.push(ev);
     } else {
@@ -859,29 +859,29 @@ function buildSiteData() {
     past.push(ev);
   });
 
-  var sortedPast = past.slice().sort(function (a, b) {
-    var dateA = a.date || "1970-01-01";
-    var dateB = b.date || "1970-01-01";
+  const sortedPast = past.slice().sort(function (a, b) {
+    const dateA = a.date || "1970-01-01";
+    const dateB = b.date || "1970-01-01";
     return new Date(dateB) - new Date(dateA);
   });
 
-  var displayPast = sortedPast.slice(0, 3);
+  const displayPast = sortedPast.slice(0, 3);
 
-  var pastEventsHtml = "";
+  let pastEventsHtml = "";
   if (displayPast.length) {
     pastEventsHtml =
       '        <div class="events-carousel-inner">\n' +
       displayPast
         .map(function (ev, index) {
-          var activeClass = index === 0 ? "active" : "";
-          var cardCat = ev.type
+          const activeClass = index === 0 ? "active" : "";
+          const cardCat = ev.type
             ? '              <span class="card-cat">' + escapeHtml(ev.type) + "</span>\n"
             : "";
-          var cardNote = ev.note
+          const cardNote = ev.note
             ? '              <p class="event-desc">' + escapeHtml(ev.note) + "</p>\n"
             : "";
-          var evUrl = safeUrl(ev.url);
-          var cardUrl = evUrl
+          const evUrl = safeUrl(ev.url);
+          const cardUrl = evUrl
             ? '              <div class="event-cta">\n' +
               '                <a class="btn btn-primary btn-sm btn-block" href="' +
               escapeHtml(evUrl) +
@@ -918,7 +918,7 @@ function buildSiteData() {
       '        <p class="muted center">No past pop-ups logged yet. Check back soon.</p>';
   }
 
-  var pastEventsRe = /(<!-- PAST_EVENTS:START -->)[\s\S]*?(<!-- PAST_EVENTS:END -->)/;
+  const pastEventsRe = /(<!-- PAST_EVENTS:START -->)[\s\S]*?(<!-- PAST_EVENTS:END -->)/;
   if (!pastEventsRe.test(eventsHtml)) {
     throw new Error("Could not find PAST_EVENTS:START/PAST_EVENTS:END markers in events.html");
   }
@@ -935,13 +935,13 @@ function buildSiteData() {
    in those pages and filled in here from assets/data/content.json.
    If the key is an image, we resolve its AVIF/WebP responsive sources using the
    manifest generated by scripts/optimize-images.js. */
-  var MANIFEST = {};
+  let MANIFEST = {};
   try {
-    var manifestText = fs.readFileSync(path.join(ROOT, "assets/js/image-manifest.js"), "utf8");
-    var startMarker = "window.YL_IMAGES =";
-    var markerIdx = manifestText.indexOf(startMarker);
+    const manifestText = fs.readFileSync(path.join(ROOT, "assets/js/image-manifest.js"), "utf8");
+    const startMarker = "window.YL_IMAGES =";
+    const markerIdx = manifestText.indexOf(startMarker);
     if (markerIdx !== -1) {
-      var jsonText = manifestText.substring(
+      let jsonText = manifestText.substring(
         manifestText.indexOf("{", markerIdx),
         manifestText.lastIndexOf("}") + 1
       );
@@ -967,15 +967,15 @@ function buildSiteData() {
   }
 
   function injectPageCopy(page, pageKey) {
-    var html = readText(page, page + " page");
-    var section = CONTENT[pageKey] || {};
+    let html = readText(page, page + " page");
+    const section = CONTENT[pageKey] || {};
     // Flatten nested content objects into dotted marker keys so page copy can
     // be organized into grouped sub-objects in /admin (e.g. home.badges.badge1)
     // while still resolving to <!--YL:home.badges.badge1--> markers here.
-    var __flat = [];
+    const __flat = [];
     (function walk(obj, prefix) {
       Object.keys(obj).forEach(function (k) {
-        var v = obj[k];
+        const v = obj[k];
         if (v && typeof v === "object" && !Array.isArray(v)) {
           walk(v, prefix + "." + k);
           return;
@@ -984,9 +984,9 @@ function buildSiteData() {
       });
     })(section, pageKey);
     __flat.forEach(function (entry) {
-      var key = entry.leaf;
-      var raw = String(entry.value);
-      var isImage =
+      const key = entry.leaf;
+      const raw = String(entry.value);
+      const isImage =
         [
           "heroImage",
           "featureImage",
@@ -998,30 +998,30 @@ function buildSiteData() {
           "logoMobile",
           "ogImage"
         ].indexOf(key) !== -1;
-      var m = "YL:" + entry.dotted.replace(/\./g, "\\.");
+      const m = "YL:" + entry.dotted.replace(/\./g, "\\.");
 
       if (isImage) {
         // The value comes from the CMS and is dropped into a src="..." attr
         // and a CSS url('...'), so strip anything that could break out of
         // either quoting context (quotes, angle brackets, parens, backticks,
         // backslashes, whitespace). A real image path never needs them.
-        var imgPath = raw.replace(/^\/+/, "").replace(/["'`<>()\\\s]/g, "");
-        var imgManifestEntry = MANIFEST[imgPath];
+        const imgPath = raw.replace(/^\/+/, "").replace(/["'`<>()\\\s]/g, "");
+        const imgManifestEntry = MANIFEST[imgPath];
 
-        var reHtml = new RegExp("(<!--" + m + "-->)[\\s\\S]*?(<!--/" + m + "-->)");
-        var reCss = new RegExp(
+        const reHtml = new RegExp("(<!--" + m + "-->)[\\s\\S]*?(<!--/" + m + "-->)");
+        const reCss = new RegExp(
           "(\\/\\*" + m + "\\*\\/)[\\s\\S]*?(\\/\\*(?:\\\\|\\/)?" + m + "\\*\\/)"
         );
 
         if (reHtml.test(html)) {
           html = html.replace(reHtml, function (match, open, close) {
             // Parse sizes attribute from the original block
-            var sizesMatch = match.match(/sizes="([^"]*)"/i) || match.match(/sizes='([^']*)'/i);
-            var sizes = sizesMatch ? sizesMatch[1] : "";
+            const sizesMatch = match.match(/sizes="([^"]*)"/i) || match.match(/sizes='([^']*)'/i);
+            const sizes = sizesMatch ? sizesMatch[1] : "";
 
             // Extract the original <img> tag exactly as written
-            var imgTagMatch = match.match(/<img\s+[^>]+>/i);
-            var imgTag = imgTagMatch ? imgTagMatch[0] : "";
+            const imgTagMatch = match.match(/<img\s+[^>]+>/i);
+            let imgTag = imgTagMatch ? imgTagMatch[0] : "";
 
             // Replace ONLY the src attribute of the <img> tag, leaving all other custom/native attributes untouched
             if (imgTag) {
@@ -1032,12 +1032,12 @@ function buildSiteData() {
               imgTag = '<img src="' + imgPath + '">';
             }
 
-            var isPicture = /<picture/i.test(match);
-            var innerTag = "";
+            const isPicture = /<picture/i.test(match);
+            let innerTag = "";
 
             if (isPicture) {
-              var avifSrcset = "";
-              var webpSrcset = "";
+              let avifSrcset = "";
+              let webpSrcset = "";
               if (imgManifestEntry && imgManifestEntry.variants) {
                 avifSrcset = imgManifestEntry.variants.avif
                   .map(function (v) {
@@ -1088,7 +1088,7 @@ function buildSiteData() {
           });
         }
       } else {
-        var rendered =
+        const rendered =
           key === "bio" || key === "body" || /\n\s*\n/.test(raw)
             ? raw
                 .split(/\n\s*\n/)
@@ -1097,7 +1097,7 @@ function buildSiteData() {
                 })
                 .join("\n          ")
             : escapeHtml(raw);
-        var re = new RegExp("(<!--" + m + "-->)[\\s\\S]*?(<!--/" + m + "-->)");
+        const re = new RegExp("(<!--" + m + "-->)[\\s\\S]*?(<!--/" + m + "-->)");
         if (!re.test(html)) return;
         html = html.replace(re, function (_match, open, close) {
           return open + rendered + close;
@@ -1111,20 +1111,20 @@ function buildSiteData() {
 
   // Build dynamic homepage testimonials from site-reviews.json
   function buildHomepageTestimonials() {
-    var html = readText("index.html", "index.html page");
-    var siteReviews = readJson("assets/data/site-reviews.json").reviews || [];
+    let html = readText("index.html", "index.html page");
+    const siteReviews = readJson("assets/data/site-reviews.json").reviews || [];
 
     // Filter for featured reviews
-    var featured = siteReviews.filter(function (r) {
+    let featured = siteReviews.filter(function (r) {
       return r.featured;
     });
     if (featured.length === 0) {
       featured = siteReviews.slice(0, 3);
     }
 
-    var cardsHtml = '<div class="grid grid-3">\n';
+    let cardsHtml = '<div class="grid grid-3">\n';
     featured.forEach(function (r) {
-      var stars = Array(Math.round(r.rating || 5) + 1).join("★");
+      const stars = Array(Math.round(r.rating || 5) + 1).join("★");
       cardsHtml += '        <div class="quote-card reveal">\n';
       cardsHtml +=
         '          <span class="stars" aria-hidden="true">' +
@@ -1138,7 +1138,7 @@ function buildSiteData() {
     });
     cardsHtml += "      </div>";
 
-    var re = /<!--YL:home\.testimonials-->[\s\S]*?<!--\/YL:home\.testimonials-->/;
+    const re = /<!--YL:home\.testimonials-->[\s\S]*?<!--\/YL:home\.testimonials-->/;
     if (re.test(html)) {
       html = html.replace(
         re,
@@ -1160,22 +1160,22 @@ function buildSiteData() {
 
   // Dynamically inject Journal title/subheading from journal.json
   function injectJournalCopy() {
-    var journalPath = path.join(ROOT, "assets/data/journal.json");
+    const journalPath = path.join(ROOT, "assets/data/journal.json");
     if (!fs.existsSync(journalPath)) return;
-    var journal = JSON.parse(fs.readFileSync(journalPath, "utf8"));
+    const journal = JSON.parse(fs.readFileSync(journalPath, "utf8"));
 
-    var pagePath = path.join(ROOT, "journal.html");
+    const pagePath = path.join(ROOT, "journal.html");
     if (!fs.existsSync(pagePath)) return;
-    var html = fs.readFileSync(pagePath, "utf8");
-    var updated = html;
+    const html = fs.readFileSync(pagePath, "utf8");
+    let updated = html;
 
-    var title = escapeHtml(journal.title || "Apothecary Journal");
-    var lede = escapeHtml(
+    const title = escapeHtml(journal.title || "Apothecary Journal");
+    const lede = escapeHtml(
       journal.lede || "Stories, science, and small-batch updates straight from the kitchen."
     );
 
     // Replace Title
-    var reTitle = /(<!--YL:journal\.heroTitle-->)[\s\S]*?(<!--\/YL:journal\.heroTitle-->)/g;
+    const reTitle = /(<!--YL:journal\.heroTitle-->)[\s\S]*?(<!--\/YL:journal\.heroTitle-->)/g;
     if (reTitle.test(updated)) {
       updated = updated.replace(reTitle, function (m, p1, p2) {
         return p1 + title + p2;
@@ -1183,7 +1183,7 @@ function buildSiteData() {
     }
 
     // Replace Lede
-    var reLede = /(<!--YL:journal\.heroText-->)[\s\S]*?(<!--\/YL:journal\.heroText-->)/g;
+    const reLede = /(<!--YL:journal\.heroText-->)[\s\S]*?(<!--\/YL:journal\.heroText-->)/g;
     if (reLede.test(updated)) {
       updated = updated.replace(reLede, function (m, p1, p2) {
         return p1 + lede + p2;
@@ -1209,18 +1209,18 @@ function buildSiteData() {
    inside review quote-cards are never touched. The copyright YEAR is
    still filled in live by main.js (getFullYear), so it stays correct
    without any yearly rebuild. */
-  var logoDesktop = (CONTENT.site && CONTENT.site.logoDesktop) || "assets/img/logo.png";
-  var logoMobile = (CONTENT.site && CONTENT.site.logoMobile) || "assets/img/logo.jpg";
+  let logoDesktop = (CONTENT.site && CONTENT.site.logoDesktop) || "assets/img/logo.png";
+  let logoMobile = (CONTENT.site && CONTENT.site.logoMobile) || "assets/img/logo.jpg";
   logoDesktop = logoDesktop.replace(/^\/+/, "");
   logoMobile = logoMobile.replace(/^\/+/, "");
 
-  var FOOTER_INNER = readText("assets/data/footer.html", "footer template").replace(/\s+$/, "");
+  let FOOTER_INNER = readText("assets/data/footer.html", "footer template").replace(/\s+$/, "");
 
   // Inject logo path into footer template using outer comment tag
-  var reFooterLogo = /(<!--YL:site\.logoDesktop-->)[\s\S]*?(<!--\/YL:site\.logoDesktop-->)/;
+  const reFooterLogo = /(<!--YL:site\.logoDesktop-->)[\s\S]*?(<!--\/YL:site\.logoDesktop-->)/;
   FOOTER_INNER = FOOTER_INNER.replace(reFooterLogo, function (match, open, close) {
-    var altMatch = match.match(/alt="([^"]*)"/i) || match.match(/alt='([^']*)'/i);
-    var alt = altMatch ? altMatch[1] : "Y'allternative Living logo";
+    const altMatch = match.match(/alt="([^"]*)"/i) || match.match(/alt='([^']*)'/i);
+    const alt = altMatch ? altMatch[1] : "Y'allternative Living logo";
     return (
       open +
       '<img class="logo-desktop" src="/' +
@@ -1232,8 +1232,8 @@ function buildSiteData() {
     );
   });
 
-  var FOOTER_BLOCK = '<footer class="site-footer">\n' + FOOTER_INNER + "\n</footer>";
-  var FOOTER_RE = /<footer class="site-footer">[\s\S]*?<\/footer>/;
+  const FOOTER_BLOCK = '<footer class="site-footer">\n' + FOOTER_INNER + "\n</footer>";
+  const FOOTER_RE = /<footer class="site-footer">[\s\S]*?<\/footer>/;
 
   [
     "index.html",
@@ -1249,9 +1249,9 @@ function buildSiteData() {
     "thank-you.html",
     "journal.html"
   ].forEach(function (page) {
-    var filePath = path.join(ROOT, page);
+    const filePath = path.join(ROOT, page);
     if (!fs.existsSync(filePath)) return;
-    var html;
+    let html;
     try {
       html = fs.readFileSync(filePath, "utf8");
     } catch (e) {
@@ -1268,8 +1268,8 @@ function buildSiteData() {
 
     // Inject header desktop/mobile logos using a robust tag parser (supports any attribute ordering, class naming, or quote formatting)
     html = html.replace(/<img\s+[^>]+>/gi, function (match) {
-      var isLogoDesktop = /\bclass=['"]([^'"]*\s+)?logo-desktop(\s+[^'"]*)?['"]/.test(match);
-      var isLogoMobile = /\bclass=['"]([^'"]*\s+)?logo-mobile(\s+[^'"]*)?['"]/.test(match);
+      const isLogoDesktop = /\bclass=['"]([^'"]*\s+)?logo-desktop(\s+[^'"]*)?['"]/.test(match);
+      const isLogoMobile = /\bclass=['"]([^'"]*\s+)?logo-mobile(\s+[^'"]*)?['"]/.test(match);
       if (isLogoDesktop) {
         return match.replace(/(\bsrc=['"])[^'"]*(['"])/i, function (m, p1, p2) {
           return p1 + logoDesktop + p2;
@@ -1284,7 +1284,7 @@ function buildSiteData() {
     });
 
     // Determine page-specific OG image
-    var pageKey = page.replace(".html", "");
+    let pageKey = page.replace(".html", "");
     if (pageKey === "index") pageKey = "home";
 
     // Only honor an EXPLICIT per-page og image (a purpose-built ~1200x630
@@ -1292,7 +1292,7 @@ function buildSiteData() {
     // those are portrait product photos (e.g. 1050x1400) that hard-crop badly
     // in social previews, especially twitter summary_large_image. Pages
     // without an explicit ogImage fall through to the branded site.ogImage.
-    var pageOgImage = null;
+    let pageOgImage = null;
     if (CONTENT[pageKey] && CONTENT[pageKey].ogImage) {
       pageOgImage = CONTENT[pageKey].ogImage;
     }
@@ -1300,10 +1300,10 @@ function buildSiteData() {
       pageOgImage = JOURNAL.image;
     }
 
-    var finalOgImage =
+    let finalOgImage =
       pageOgImage || (CONTENT.site && CONTENT.site.ogImage) || "assets/img/og-image.jpg";
     finalOgImage = finalOgImage.replace(/^\/+/, "");
-    var ogImageUrl = escapeHtml(DOMAIN + "/" + finalOgImage);
+    const ogImageUrl = escapeHtml(DOMAIN + "/" + finalOgImage);
 
     // Sync og:image and twitter:image meta tags with robust parsing (supports any attribute ordering)
     html = html.replace(/<meta\s+[^>]+>/gi, function (match) {
@@ -1317,7 +1317,7 @@ function buildSiteData() {
       return match;
     });
 
-    var updated = html.replace(FOOTER_RE, FOOTER_BLOCK);
+    const updated = html.replace(FOOTER_RE, FOOTER_BLOCK);
     if (updated !== html) writeFile(page, updated);
   });
 
@@ -1326,7 +1326,7 @@ function buildSiteData() {
    introspect on a static site) -- add a line if you add a new top-level
    page. lastmod is set to today every run, which is an accepted
    simplification for a small site with no per-file mtime tracking. */
-  var PAGES = [
+  const PAGES = [
     { loc: "index.html", priority: "1.0" },
     { loc: "shop.html", priority: "0.9" },
     { loc: "events.html", priority: "0.7" },
@@ -1340,8 +1340,8 @@ function buildSiteData() {
   if (SITE_CONFIG.enableJournal) {
     PAGES.push({ loc: "journal.html", priority: "0.7" });
   }
-  var today = new Date().toISOString().slice(0, 10);
-  var sitemapXml =
+  const today = new Date().toISOString().slice(0, 10);
+  const sitemapXml =
     '<?xml version="1.0" encoding="UTF-8"?>\n' +
     "<!-- Auto-generated by scripts/build-site-data.js -- don't hand-edit,\n" +
     "     re-run the script after adding a page. Swap the DOMAIN constant\n" +
@@ -1353,7 +1353,7 @@ function buildSiteData() {
       // here would make search engines see two competing duplicate URLs.
       // (PAGES keeps the real "index.html" filename because it's reused below
       // to read the actual files for canonical-tag injection.)
-      var locPath = p.loc === "index.html" ? "" : p.loc;
+      const locPath = p.loc === "index.html" ? "" : p.loc;
       return (
         "  <url><loc>" +
         DOMAIN +
@@ -1377,7 +1377,7 @@ function buildSiteData() {
    setting a real DOMAIN and re-running is the only step required. The
    crawler allow-list itself is stable enough to live as a template
    string here rather than a separate source file. */
-  var robotsTxt =
+  const robotsTxt =
     "User-agent: *\nAllow: /\n\n" +
     "# Explicit allow list for known AI crawlers (mid-2026). This is a small\n" +
     "# business marketing/commerce site that WANTS visibility -- being included\n" +
@@ -1411,7 +1411,7 @@ function buildSiteData() {
    list below is generated from products-data.js, same as everything
    else in this script -- never hand-edit it directly, it'll just get
    overwritten. */
-  var productLines = PRODUCTS.map(function (p) {
+  const productLines = PRODUCTS.map(function (p) {
     return (
       "- **" +
       p.name +
@@ -1424,13 +1424,13 @@ function buildSiteData() {
     );
   }).join("\n");
 
-  var journalLines = ((JOURNAL && JOURNAL.posts) || [])
+  const journalLines = ((JOURNAL && JOURNAL.posts) || [])
     .map(function (p) {
       return "- **" + p.title + "** (" + p.date + "): " + p.excerpt;
     })
     .join("\n");
 
-  var llmsTxt =
+  const llmsTxt =
     "# Y'allternative Living\n\n" +
     "> Queer-owned, Southern-raised handmade self-care -- small-batch salves, soaks, body care and apparel out of Landrum, SC. Sold directly on this site and on Etsy, plus in person at farmers markets and Pride events around Upstate SC and beyond.\n\n" +
     "Y'allternative Living is a small, queer-owned business run by founder Savanna out of Landrum, South Carolina (the Upstate SC / Blue Ridge foothills region). Everything is handmade in small batches. As of mid-2026 the shop has a 4.9-star average across 32 reviews and 105+ sales on its Etsy shop (a separate, longer-running sales channel from this site).\n\n" +
@@ -1501,15 +1501,15 @@ function buildSiteData() {
    humans, and through a real POST /api/checkout endpoint (workers/
    checkout.js) that AI purchasing agents can call directly -- see the
    "How to buy" section below for its exact request/response shape. */
-  var freeShip = (CATALOG.shop && CATALOG.shop.freeShippingThreshold) || null;
-  var fullProductBlocks = PRODUCTS.map(function (p) {
-    var range = variantPriceRange(p);
-    var priceStr =
+  const freeShip = (CATALOG.shop && CATALOG.shop.freeShippingThreshold) || null;
+  const fullProductBlocks = PRODUCTS.map(function (p) {
+    const range = variantPriceRange(p);
+    const priceStr =
       range.low === range.high
         ? "$" + range.low.toFixed(2)
         : "$" + range.low.toFixed(2) + " - $" + range.high.toFixed(2);
-    var inStock = !(p.image && p.image.indexOf("placeholder") !== -1) && !p.comingSoon;
-    var lines = [
+    const inStock = !(p.image && p.image.indexOf("placeholder") !== -1) && !p.comingSoon;
+    const lines = [
       "### " + p.name,
       "- **ID / slug**: `" + p.id + "`",
       "- **Price**: " + priceStr + " USD",
@@ -1536,8 +1536,8 @@ function buildSiteData() {
     return lines.join("\n");
   }).join("\n\n");
 
-  var fullBundleBlocks = BUNDLES.map(function (b) {
-    var names = (b.productIds || [])
+  const fullBundleBlocks = BUNDLES.map(function (b) {
+    const names = (b.productIds || [])
       .map(function (id) {
         return PRODUCTS_BY_ID[id] ? PRODUCTS_BY_ID[id].name : id;
       })
@@ -1553,7 +1553,7 @@ function buildSiteData() {
       .join("\n");
   }).join("\n\n");
 
-  var llmsFullTxt =
+  const llmsFullTxt =
     "# Y'allternative Living -- Full Machine-Readable Catalog\n\n" +
     "> Structured catalog for AI shopping assistants and agents. Every product, price, and slug\n" +
     "> below is generated directly from the site's live source data (assets/data/products.json).\n" +
@@ -1618,16 +1618,16 @@ function buildSiteData() {
    .github/workflows/deploy-pages.yml). While DOMAIN is still the
    placeholder, this whole block is a no-op and every page stays
    exactly as it is today. */
-  var DOMAIN_IS_LIVE = DOMAIN.indexOf("your-domain-here.com") === -1;
+  const DOMAIN_IS_LIVE = DOMAIN.indexOf("your-domain-here.com") === -1;
   if (DOMAIN_IS_LIVE) {
-    var BARE_DOMAIN = DOMAIN.replace(/^https?:\/\//, "");
-    var ALL_HTML_PAGES = PAGES.map(function (p) {
+    const BARE_DOMAIN = DOMAIN.replace(/^https?:\/\//, "");
+    const ALL_HTML_PAGES = PAGES.map(function (p) {
       return p.loc;
     }).concat(["404.html", "thank-you.html"]);
     ALL_HTML_PAGES.forEach(function (page) {
-      var filePath = path.join(ROOT, page);
+      const filePath = path.join(ROOT, page);
       if (!fs.existsSync(filePath)) return;
-      var html = fs.readFileSync(filePath, "utf8");
+      let html = fs.readFileSync(filePath, "utf8");
 
       // Turn the two "not live yet" comments into real, active tags.
       html = html.replace(
@@ -1653,17 +1653,17 @@ function buildSiteData() {
 
   // Propagate global site configurations from content.json to all HTML files
   (function injectGlobalConfigurations() {
-    var content = readJson("assets/data/content.json");
-    var site = content.site || {};
-    var ALL_HTML_PAGES = PAGES.map(function (p) {
+    const content = readJson("assets/data/content.json");
+    const site = content.site || {};
+    const ALL_HTML_PAGES = PAGES.map(function (p) {
       return p.loc;
     }).concat(["404.html", "thank-you.html", "journal.html", "assets/data/footer.html"]);
 
     ALL_HTML_PAGES.forEach(function (page) {
-      var filePath = path.join(ROOT, page);
+      const filePath = path.join(ROOT, page);
       if (!fs.existsSync(filePath)) return;
-      var html = fs.readFileSync(filePath, "utf8");
-      var updated = html;
+      const html = fs.readFileSync(filePath, "utf8");
+      let updated = html;
 
       /* ---------- feature gates ----------
        The quiz, countdown ticker and order-lookup tool all shipped hardcoded
@@ -1677,7 +1677,7 @@ function buildSiteData() {
        build regenerates from scratch). display:none also takes the element out
        of the accessibility tree, so it's genuinely hidden, not just invisible,
        and the rule lands in <head> so nothing flashes before it applies. */
-      var FEATURE_SELECTORS = {
+      const FEATURE_SELECTORS = {
         enableApothecaryQuiz: "#apothecary-quiz-section",
         enableCountdownTicker: "#yl-countdown-ticker",
         enableOrderStatusLookup: "#order-status-modal, #openOrderStatusBtn"
@@ -1685,11 +1685,11 @@ function buildSiteData() {
       updated = updated.replace(
         /<!--YL:featureStyles-->([\s\S]*?)<!--\/YL:featureStyles-->/g,
         function () {
-          var off = Object.keys(FEATURE_SELECTORS).filter(function (k) {
+          const off = Object.keys(FEATURE_SELECTORS).filter(function (k) {
             return site[k] === false;
           });
           if (!off.length) return "<!--YL:featureStyles--><!--/YL:featureStyles-->";
-          var css = off
+          const css = off
             .map(function (k) {
               return FEATURE_SELECTORS[k] + "{display:none !important}";
             })
@@ -1712,7 +1712,7 @@ function buildSiteData() {
         updated = updated.replace(
           /<!--YL:journal\.robots-->([\s\S]*?)<!--\/YL:journal\.robots-->/g,
           function () {
-            var tag = site.enableJournal ? "" : '<meta name="robots" content="noindex, follow">';
+            const tag = site.enableJournal ? "" : '<meta name="robots" content="noindex, follow">';
             return "<!--YL:journal.robots-->" + tag + "<!--/YL:journal.robots-->";
           }
         );
@@ -1723,8 +1723,8 @@ function buildSiteData() {
         updated = updated.replace(
           /<!--YL:nav\.journal-->([\s\S]*?)<!--\/YL:nav\.journal-->/g,
           function () {
-            var isActive = page === "journal.html";
-            var activeClass = isActive ? ' class="active" aria-current="page"' : "";
+            const isActive = page === "journal.html";
+            const activeClass = isActive ? ' class="active" aria-current="page"' : "";
             return (
               "<!--YL:nav.journal--><li><a" +
               activeClass +
@@ -1775,9 +1775,9 @@ function buildSiteData() {
         /<!--YL:site\.umamiWebsiteId-->([\s\S]*?)<!--\/YL:site\.umamiWebsiteId-->/g,
         function (match) {
           if (site.umamiWebsiteId === undefined) return match;
-          var val = String(site.umamiWebsiteId).trim();
-          var isReal = val && val !== "YOUR_UMAMI_WEBSITE_ID";
-          var body = isReal
+          const val = String(site.umamiWebsiteId).trim();
+          const isReal = val && val !== "YOUR_UMAMI_WEBSITE_ID";
+          const body = isReal
             ? '<script defer src="https://cloud.umami.is/script.js" data-website-id="' +
               val +
               '"></script>'
@@ -1791,9 +1791,9 @@ function buildSiteData() {
         /<!--YL:site\.giftUpId-->([\s\S]*?)<!--\/YL:site\.giftUpId-->/g,
         function (match) {
           if (site.giftUpId !== undefined) {
-            var val = site.giftUpId.trim();
+            const val = site.giftUpId.trim();
             if (val && val !== "YOUR_GIFTUP_ID") {
-              var embed =
+              const embed =
                 '\n<div class="gift-up-target" data-site-id="' +
                 val +
                 '"></div>\n' +
@@ -1834,21 +1834,21 @@ function buildSiteData() {
 
   // Automatically update sw.js CACHE_NAME version on build
   (function updateServiceWorkerVersion() {
-    var swPath = path.join(ROOT, "sw.js");
+    const swPath = path.join(ROOT, "sw.js");
     if (fs.existsSync(swPath)) {
-      var swContent = fs.readFileSync(swPath, "utf8");
-      var now = new Date();
-      var pad = function (n) {
+      const swContent = fs.readFileSync(swPath, "utf8");
+      const now = new Date();
+      const pad = function (n) {
         return (n < 10 ? "0" : "") + n;
       };
-      var versionString =
+      const versionString =
         now.getFullYear() +
         pad(now.getMonth() + 1) +
         pad(now.getDate()) +
         pad(now.getHours()) +
         pad(now.getMinutes()) +
         pad(now.getSeconds());
-      var updatedContent = swContent.replace(
+      const updatedContent = swContent.replace(
         /const CACHE_NAME\s*=\s*['"]yallternative-cache-v[^'"]*['"];/,
         'const CACHE_NAME = "yallternative-cache-v' + versionString + '";'
       );
@@ -1860,14 +1860,14 @@ function buildSiteData() {
   // Automatically generate individual product OpenGraph HTML pages
   (function generateProductOgPages() {
     PRODUCTS.forEach(function (product) {
-      var pTitle = escapeHtml(product.name) + " | Y'allternative Living";
+      const pTitle = escapeHtml(product.name) + " | Y'allternative Living";
       // Prefer the hand-written SEO `description` field (present in
       // products.json) over the shop-card blurb; fall back to the blurb.
-      var pDesc = escapeHtml(product.description || product.blurb || "");
-      var pUrl = DOMAIN + "/products/" + product.id + ".html";
-      var pImage = DOMAIN + "/" + product.image;
+      const pDesc = escapeHtml(product.description || product.blurb || "");
+      const pUrl = DOMAIN + "/products/" + product.id + ".html";
+      const pImage = DOMAIN + "/" + product.image;
 
-      var html =
+      const html =
         "<!DOCTYPE html>\n" +
         '<html lang="en">\n' +
         "<head>\n" +
@@ -1951,17 +1951,17 @@ function buildSiteData() {
    action="...") is removed here, leaving the injected value. Element-text
    markers (between tags) are left in place so the build stays re-runnable. */
   (function cleanAttributeMarkers() {
-    var htmlPages = PAGES.map(function (p) {
+    const htmlPages = PAGES.map(function (p) {
       return p.loc;
     }).concat(["404.html", "thank-you.html", "journal.html"]);
     PRODUCTS.forEach(function (product) {
       htmlPages.push("products/" + product.id + ".html");
     });
     htmlPages.forEach(function (page) {
-      var full = path.join(ROOT, page);
+      const full = path.join(ROOT, page);
       if (!fs.existsSync(full) || fs.statSync(full).isDirectory()) return;
-      var html = fs.readFileSync(full, "utf8");
-      var cleaned = stripMarkersInsideAttributes(html);
+      const html = fs.readFileSync(full, "utf8");
+      const cleaned = stripMarkersInsideAttributes(html);
       if (cleaned !== html) {
         fs.writeFileSync(full, cleaned);
         console.log("cleaned attribute markers in " + page);

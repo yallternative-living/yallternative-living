@@ -2,7 +2,7 @@
  * @fileoverview Unit tests for translator.js
  * Run: node scripts/translator.test.js
  */
-/* global window, document */
+/* global window */
 const assert = require("assert");
 
 // Setup mock DOM environment

@@ -249,32 +249,36 @@ h1,h2,h3,h4{
   margin:0 0 .5em;
   color: var(--paper);
   text-wrap: balance;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 
-h1{ font-size: clamp(2.2rem, 4.4vw, 3.6rem); }
-h2{ font-size: clamp(1.8rem, 3.4vw, 2.6rem); }
-h3{ font-size: clamp(1.1rem, 2.5vw, 1.35rem); }
-h4{ font-size: 1.1rem; }
-p{ margin:0 0 1em; color: var(--paper-dim); text-wrap: pretty; }
+h1{ font-size: clamp(1.65rem, 5vw, 3.2rem); }
+h2{ font-size: clamp(1.35rem, 3.8vw, 2.4rem); }
+h3{ font-size: clamp(1.05rem, 2.5vw, 1.35rem); }
+h4{ font-size: 1.05rem; }
+p{ margin:0 0 1em; color: var(--paper-dim); text-wrap: pretty; overflow-wrap: break-word; }
 
 .eyebrow{
   display:inline-flex; align-items:center; gap:.5em;
   font-family: var(--font-body);
   text-transform:uppercase;
-  letter-spacing:.22em;
+  letter-spacing:.18em;
   font-size:.72rem;
   font-weight:600;
   color: var(--whiskey);
+  flex-wrap: wrap;
 }
 
 .container{
   max-width: var(--container);
   margin:0 auto;
-  padding:0 36px;
+  padding:0 32px;
   width:100%;
+  box-sizing: border-box;
   
   @media (max-width: 640px) {
-    padding: 0 20px;
+    padding: 0 16px;
   }
 }
 
@@ -398,9 +402,10 @@ section{
     padding: 12px 18px; gap:10px;
   }
   @media (max-width: 600px){
-    flex-direction: column;
-    align-items: stretch;
-    padding: 8px 12px; gap:6px;
+    padding: 10px 14px; gap:8px;
+  }
+  @media (max-width: 360px){
+    padding: 8px 10px; gap:6px;
   }
 }
 
@@ -409,9 +414,7 @@ section{
   flex-shrink:1; min-width:0;
   
   @media (max-width: 600px) {
-    width: 100%;
-    justify-content: flex-start;
-    gap: 8px;
+    gap: 6px;
   }
   
   & img.logo-desktop {
@@ -429,7 +432,7 @@ section{
   
   @media (max-width: 600px) {
     & img.logo-desktop { display: none; }
-    & img.logo-mobile { display: block; height: 36px; width: 36px; }
+    & img.logo-mobile { display: block; height: 32px; width: 32px; }
   }
   
   & .brand-word{
@@ -439,16 +442,6 @@ section{
     line-height:1.1;
     white-space:nowrap;
     font-variation-settings:"opsz" 40, "wght" 420;
-    
-    @media (max-width: 768px) {
-      font-size:1.25rem;
-    }
-    @media (max-width: 480px) {
-      font-size:1.1rem;
-    }
-    @media (max-width: 360px) {
-      font-size:1.0rem;
-    }
     
     /* "Living" inherits the same styling as "Y'allternative" appearing on the same line with a small left margin acting as a space. */
     & small{
@@ -461,6 +454,20 @@ section{
       color:inherit;
       font-weight:inherit;
       font-variation-settings:inherit;
+
+      @media (max-width: 600px) {
+        display: none !important;
+      }
+    }
+
+    @media (max-width: 768px) {
+      font-size:1.15rem;
+    }
+    @media (max-width: 480px) {
+      font-size:0.95rem;
+    }
+    @media (max-width: 360px) {
+      display: none;
     }
   }
 }
@@ -501,11 +508,11 @@ section{
        Giving it an explicit height (100dvh accounts for mobile browser
        chrome; the plain vh line is the fallback for browsers without
        dvh support) makes it actually fill the viewport below the header. */
-    position:fixed; top:100px; left:0; right:0; z-index:99;
-    height: calc(100vh - 100px);
-    height: calc(100dvh - 100px);
+    position:fixed; top:58px; left:0; right:0; z-index:99;
+    height: calc(100vh - 58px);
+    height: calc(100dvh - 58px);
     background: var(--ink); flex-direction:column; justify-content:flex-start;
-    padding: 40px 24px calc(40px + env(safe-area-inset-bottom, 0px)); gap: 26px;
+    padding: 32px 24px calc(32px + env(safe-area-inset-bottom, 0px)); gap: 22px;
     overflow-y: auto;
     transform: translateY(-12px); opacity:0; pointer-events:none;
     transition: transform .25s ease, opacity .2s ease;
@@ -522,15 +529,7 @@ section{
   flex-shrink:0;
   
   @media (max-width: 600px) {
-    width: 100%;
-    justify-content: flex-start;
-    gap: 8px;
-    padding-top: 8px;
-    border-top: 1px solid color-mix(in oklch, var(--hide) 30%, transparent);
-
-    & .lang-selector-wrap {
-      margin-left: auto;
-    }
+    gap: 6px;
   }
 
   & > * {
@@ -616,7 +615,10 @@ section{
   container-type: inline-size;
   
   @media (max-width: 900px){
-    min-height:auto; padding:48px 0 64px;
+    min-height:auto; padding:32px 0 36px;
+  }
+  @media (max-width: 480px){
+    padding:24px 0 28px;
   }
   
   & h1{ margin-bottom:.5em; }
@@ -634,6 +636,11 @@ section{
     & h1, & .lede { text-align: center; margin-left: auto; margin-right: auto; }
     & .hero-actions { justify-content: center; }
   }
+  @media (max-width: 480px) {
+    & .lede { font-size: 1.0rem; margin-bottom: 16px; }
+    & .hero-actions { gap: 10px; }
+    & .hero-actions .btn { padding: 12px 20px; font-size: 0.86rem; }
+  }
 }
 
 .hero-grid{
@@ -645,6 +652,7 @@ section{
   
   @container (max-width: 900px) {
     grid-template-columns:1fr;
+    gap: 28px;
   }
 }
 
@@ -663,7 +671,7 @@ section{
   justify-self: end;
   
   @container (max-width: 900px) {
-    margin:0 auto 28px;
+    margin:0 auto 16px;
     justify-self: center;
   }
   
@@ -672,7 +680,10 @@ section{
     max-width: 320px;
     
     @container (max-width: 900px) {
-      max-width: 420px;
+      max-width: 320px;
+    }
+    @container (max-width: 480px) {
+      max-width: 240px;
     }
   }
   & img{ border-radius: var(--radius-lg); box-shadow: var(--shadow); border:1px solid var(--hide); }
@@ -683,24 +694,18 @@ section{
   display: flex;
   align-items: center;
   flex-wrap: wrap;
+  gap: 8px 12px;
   margin-top: 8px;
   margin-bottom: 16px;
-  
-  @media (max-width:900px) {
-    flex-direction: column;
-    justify-content: center;
-    text-align: center;
-    gap: 6px;
-  }
 }
 
 .hero-separator {
   color: var(--paper-dim);
-  margin: 0 16px 0 12px;
+  margin: 0;
   font-weight: bold;
   font-size: 0.85rem;
   
-  @media (max-width:900px) {
+  @media (max-width:600px) {
     display: none;
   }
 }
@@ -708,6 +713,7 @@ section{
 .shop-rating-inline {
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
   font-size: 0.82rem;
   color: var(--paper-dim);
@@ -725,6 +731,11 @@ section{
   & b {
     color: var(--paper);
     font-weight: 700;
+  }
+
+  & .rating-text {
+    display: inline;
+    overflow-wrap: break-word;
   }
 }
 
@@ -1598,7 +1609,11 @@ section{
   & .shop-search-icon{ position:absolute; left:14px; top:50%; transform:translateY(-50%); width:16px; height:16px; color:var(--paper-dim); pointer-events:none; }
   & input{
     width:100%; background: var(--ink); border:1px solid var(--hide); color:var(--paper);
-    padding:12px 14px 12px 40px; border-radius:30px; font-family:var(--font-body); font-size:.9rem;
+    padding:12px 14px 12px 40px; border-radius:30px; font-family:var(--font-body); font-size:.92rem;
+    
+    @media (max-width: 600px) {
+      font-size: 16px; /* iOS Safari auto-zoom prevention */
+    }
     
     &::-webkit-search-cancel-button{ cursor:pointer; }
     &:focus-visible{ outline: 2px solid var(--whiskey); outline-offset: 1px; border-color:var(--whiskey); }
@@ -1607,41 +1622,24 @@ section{
 
 /* =============== FILTER PILLS + SORT (shop page) =============== */
 .shop-toolbar{
-  display:flex; align-items:center; justify-content:space-between; gap:20px 28px; flex-wrap:wrap; margin-bottom:20px;
-  
-  @media (max-width:700px){
-    flex-direction:column; align-items:flex-start;
+  display:flex; flex-direction:column; gap:16px; align-items:stretch; margin-bottom:20px;
+}
+
+@media (min-width: 900px){
+  .shop-toolbar{
+    flex-direction:row; align-items:center; justify-content:space-between;
   }
 }
 
 .filter-row{
-  display:flex; gap:12px; flex-wrap:wrap; justify-content:flex-start; margin-bottom:0; max-width:100%;
-  
-  @media (max-width: 600px) {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    /* Removed deprecated -webkit-overflow-scrolling */
-    scrollbar-width: none;
-    padding-bottom: 8px;
-    
-    &::-webkit-scrollbar {
-      display: none;
-    }
-  }
+  display:flex; gap:8px 10px; flex-wrap:wrap; justify-content:flex-start; margin-bottom:0; max-width:100%;
 }
 
 .filter-pill{
   position:relative; border:1px solid var(--hide); background:transparent; color:var(--paper-dim);
-  padding:9px 20px; border-radius:30px; font-size:.82rem; letter-spacing:.05em;
+  padding:8px 18px; border-radius:30px; font-size:.8rem; letter-spacing:.05em;
   text-transform:uppercase; font-weight:600; cursor:pointer;
   display:inline-flex; align-items:center; justify-content:center;
-  /* .filter-row scrolls horizontally below 600px instead of wrapping --
-     but flex-shrink defaults to 1, so a two-word pill like "Salves &
-     Balms" was getting squeezed narrower than its own text and wrapping
-     to 2 lines, which then stretched every other (single-line) pill in
-     the row to match its height via the row's default align-items:stretch.
-     Keeping pills at their natural width lets the row scroll like it's
-     meant to, instead of the text wrapping. */
   white-space:nowrap; flex-shrink:0;
   transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
   box-shadow: 0 0 0 rgba(0,0,0,0);
@@ -1666,20 +1664,42 @@ section{
 }
 
 .shop-sort{
-  display:flex; align-items:center; gap:10px; flex-shrink:0;
-
-  @media (max-width:700px){
-    width:100%;
-    /* Label + select + "Track Order Status" were locked on one line here, so
-       below ~360px the button ran past the container and its text was clipped
-       to "k Order St". Let the row wrap instead. */
-    flex-wrap:wrap;
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  
+  & #scentFieldWrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  & #scentFieldWrap[hidden] {
+    display: none !important;
   }
 
-  /* On the narrowest phones give the button its own full-width line rather
-     than a cramped remainder beside the select. */
-  @media (max-width:420px){
-    & > .btn{ width:100%; }
+  @media (max-width: 600px){
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    
+    & #scentFieldWrap {
+      flex: 1 1 auto;
+    }
+    
+    & label[for="sortSelect"] {
+      margin-left: 0;
+    }
+    
+    & #sortSelect {
+      flex: 1 1 120px;
+    }
+    
+    & > .btn {
+      width: 100%;
+      text-align: center;
+      margin-top: 4px;
+    }
   }
 
   & label{ font-size:.72rem; letter-spacing:.12em; text-transform:uppercase; color:var(--paper-dim); font-weight:600; }
@@ -1689,11 +1709,11 @@ section{
     background: var(--ink-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2393571b'/%3E%3C/svg%3E") no-repeat right 14px center;
     background-size:10px 6px;
     border:1px solid var(--hide); color:var(--paper);
-    padding:9px 32px 9px 14px; border-radius:var(--radius); font-family:var(--font-body); font-size:.85rem;
+    padding:9px 32px 9px 14px; border-radius:var(--radius); font-family:var(--font-body); font-size:.88rem;
     cursor:pointer;
     
-    @media (max-width:700px){
-      flex:1;
+    @media (max-width: 600px) {
+      font-size: 16px; /* iOS Safari auto-zoom prevention */
     }
     
     &:focus-visible{

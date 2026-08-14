@@ -742,7 +742,7 @@ try {
       }
     };
     let fetchCalled = false;
-    global.fetch = async (url, opts) => {
+    global.fetch = async (url) => {
       if (String(url).includes("/v1/tax/settings")) {
         fetchCalled = true;
         return { ok: true, json: async () => ({ status: "active" }) };
