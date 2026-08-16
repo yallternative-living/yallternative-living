@@ -25,17 +25,27 @@ function createMockElement(tagName = "div") {
     style: {},
     classList: {
       _list: new Set(),
-      add: function (...names) { names.forEach((n) => this._list.add(n)); },
-      remove: function (...names) { names.forEach((n) => this._list.delete(n)); },
-      contains: function (name) { return this._list.has(name); },
+      add: function (...names) {
+        names.forEach((n) => this._list.add(n));
+      },
+      remove: function (...names) {
+        names.forEach((n) => this._list.delete(n));
+      },
+      contains: function (name) {
+        return this._list.has(name);
+      },
       toggle: function (name) {
         if (this._list.has(name)) this._list.delete(name);
         else this._list.add(name);
       }
     },
     _innerHTML: "",
-    get innerHTML() { return this._innerHTML; },
-    set innerHTML(val) { this._innerHTML = val; },
+    get innerHTML() {
+      return this._innerHTML;
+    },
+    set innerHTML(val) {
+      this._innerHTML = val;
+    },
     textContent: "",
     addEventListener: () => {},
     removeEventListener: () => {},
@@ -47,8 +57,10 @@ function createMockElement(tagName = "div") {
       children.push(newNode);
       return newNode;
     },
-    get children() { return children; },
-    querySelector: function(sel) {
+    get children() {
+      return children;
+    },
+    querySelector: function (sel) {
       if (!this._mockQs) this._mockQs = {};
       if (!this._mockQs[sel]) {
         this._mockQs[sel] = createMockElement("div");
@@ -59,7 +71,7 @@ function createMockElement(tagName = "div") {
       }
       return this._mockQs[sel];
     },
-    querySelectorAll: function(sel) {
+    querySelectorAll: function (sel) {
       return [this.querySelector(sel)];
     },
     closest: () => null,
@@ -74,7 +86,7 @@ const mockDocument = {
   body: createMockElement("body"),
   addEventListener: () => {},
   readyState: "complete",
-  querySelectorAll: function(sel) {
+  querySelectorAll: function () {
     return [createMockElement("div")];
   }
 };
@@ -141,18 +153,24 @@ YLCart.addCustomBox({ productIds: ["p1", "p2"], price: 30 });
 eq(YLCart.items().length, 2, "addCustomBox adds to items");
 const savedData = JSON.parse(storage.get("yl-cart-v1"));
 eq(savedData.length, 2, "save() writes back to localStorage");
-assert(savedData.some(i => i.id === "custom-box"), "save() includes the added item");
+assert(
+  savedData.some((i) => i.id === "custom-box"),
+  "save() includes the added item"
+);
 
 // Verify Drawer Rendering
 // We need to trigger render(), which is called by openDrawer() and addCustomBox()
 // The drawer is appended to the body
-const drawer = mockDocument.body.children.find(el => el.id === "yl-cart-drawer");
+const drawer = mockDocument.body.children.find((el) => el.id === "yl-cart-drawer");
 assert(drawer != null, "Drawer element is appended to body");
 
 if (drawer) {
   const itemsEl = drawer.querySelector("#yl-cart-items");
   assert(itemsEl.innerHTML.includes("Test Item"), "render() populates items correctly");
-  assert(itemsEl.innerHTML.includes("Build-Your-Own Box"), "render() populates custom box correctly");
+  assert(
+    itemsEl.innerHTML.includes("Build-Your-Own Box"),
+    "render() populates custom box correctly"
+  );
 
   const footEl = drawer.querySelector("#yl-cart-foot");
   assert(footEl.innerHTML.includes("Subtotal"), "render() populates subtotal footer");
