@@ -3131,12 +3131,7 @@
   // 1. Deep-linking to open product lightbox on load
   if (window.location.hash) {
     var possibleProdId = window.location.hash.replace("#", "");
-    var allItems = ((window.YL_PRODUCTS && window.YL_PRODUCTS.products) || []).concat(
-      (window.YL_PRODUCTS && window.YL_PRODUCTS.bundles) || []
-    );
-    var matchedItem = allItems.find(function (i) {
-      return i.id === possibleProdId;
-    });
+    var matchedItem = getProductMap().get(possibleProdId);
     if (matchedItem) {
       setTimeout(function () {
         if (typeof window.openLightbox === "function") {
