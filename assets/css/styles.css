@@ -2425,6 +2425,7 @@ iframe.skiptranslate,
 body {
   top: 0 !important;
   position: static !important;
+  padding-top: 0 !important;
 }
 
 /* Fix for Google Translate injecting style elements that add body padding */

@@ -3131,12 +3131,7 @@
   // 1. Deep-linking to open product lightbox on load
   if (window.location.hash) {
     var possibleProdId = window.location.hash.replace("#", "");
-    var allItems = ((window.YL_PRODUCTS && window.YL_PRODUCTS.products) || []).concat(
-      (window.YL_PRODUCTS && window.YL_PRODUCTS.bundles) || []
-    );
-    var matchedItem = allItems.find(function (i) {
-      return i.id === possibleProdId;
-    });
+    var matchedItem = getProductMap().get(possibleProdId);
     if (matchedItem) {
       setTimeout(function () {
         if (typeof window.openLightbox === "function") {
@@ -3640,28 +3635,53 @@
 
         if (resultsContainer) {
           var isSessionId = /^cs_[a-zA-Z0-9_]+/i.test(val);
+          resultsContainer.innerHTML = "";
+
           if (isSessionId) {
             // Render realistic order status timeline steps for valid Stripe Checkout Session IDs
-            resultsContainer.innerHTML =
-              '<div class="order-status-card" style="background:var(--ink-2); border:1px solid var(--hide); border-radius:var(--radius-md); padding:1.25rem; margin-top:1rem;">' +
-              '<h3 style="margin-top:0; font-size:1.1rem;">Order Status for ' +
-              attrEsc(displayId) +
-              "</h3>" +
-              '<div class="timeline-steps" style="display:flex; flex-direction:column; gap:0.75rem; margin-top:1rem;">' +
+            var card = document.createElement("div");
+            card.className = "order-status-card";
+            card.style.cssText =
+              "background:var(--ink-2); border:1px solid var(--hide); border-radius:var(--radius-md); padding:1.25rem; margin-top:1rem;";
+
+            var h3 = document.createElement("h3");
+            h3.style.cssText = "margin-top:0; font-size:1.1rem;";
+            h3.textContent = "Order Status for " + displayId;
+            card.appendChild(h3);
+
+            var steps = document.createElement("div");
+            steps.className = "timeline-steps";
+            steps.style.cssText =
+              "display:flex; flex-direction:column; gap:0.75rem; margin-top:1rem;";
+            steps.innerHTML =
               '<div class="timeline-step" style="display:flex; align-items:center; gap:0.75rem;"><span style="color:var(--success);">✓</span> <strong>Order Confirmed</strong> &mdash; Payment processed</div>' +
               '<div class="timeline-step" style="display:flex; align-items:center; gap:0.75rem;"><span style="color:var(--success);">✓</span> <strong>Prepared in Landrum, SC</strong> &mdash; Handcrafted &amp; packed</div>' +
-              '<div class="timeline-step" style="display:flex; align-items:center; gap:0.75rem;"><span style="color:var(--whiskey);">🚚</span> <strong>Out for Delivery</strong> &mdash; Carrier tracking active</div>' +
-              "</div></div>";
+              '<div class="timeline-step" style="display:flex; align-items:center; gap:0.75rem;"><span style="color:var(--whiskey);">🚚</span> <strong>Out for Delivery</strong> &mdash; Carrier tracking active</div>';
+            card.appendChild(steps);
+
+            resultsContainer.appendChild(card);
             resultsContainer.hidden = false;
           } else {
-            resultsContainer.innerHTML =
-              '<p class="order-lookup-unavailable" role="status">' +
+            var p = document.createElement("p");
+            p.className = "order-lookup-unavailable";
+            p.setAttribute("role", "status");
+            p.textContent =
               "Online order tracking isn't connected yet, so we can't look up " +
-              attrEsc(displayId) +
-              ' here. Email <a href="mailto:y.allternative.living@gmail.com">' +
-              "y.allternative.living@gmail.com</a> with your order number and " +
-              "we'll check on it personally and get straight back to you." +
-              "</p>";
+              displayId +
+              " here. Email ";
+
+            var a = document.createElement("a");
+            a.href = "mailto:y.allternative.living@gmail.com";
+            a.textContent = "y.allternative.living@gmail.com";
+
+            p.appendChild(a);
+            p.appendChild(
+              document.createTextNode(
+                " with your order number and we'll check on it personally and get straight back to you."
+              )
+            );
+
+            resultsContainer.appendChild(p);
             resultsContainer.hidden = false;
           }
         }

@@ -185,12 +185,21 @@
   }
 
   // Unique-enough id for a single gift-card line (see lineKey() above) --
-  // doesn't need to be cryptographically random, just distinct per add.
+  // must be cryptographically secure to prevent ID guessing or collisions.
   function newLineId() {
     if (root.crypto && typeof root.crypto.randomUUID === "function") {
       return root.crypto.randomUUID();
     }
-    return Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    if (root.crypto && typeof root.crypto.getRandomValues === "function") {
+      var array = new Uint32Array(4);
+      root.crypto.getRandomValues(array);
+      var hex = "";
+      for (var i = 0; i < array.length; i++) {
+        hex += ("00000000" + array[i].toString(16)).slice(-8);
+      }
+      return hex;
+    }
+    throw new Error("Secure random number generator not available");
   }
 
   function freeShipThreshold() {
