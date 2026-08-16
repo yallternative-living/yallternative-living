@@ -8,11 +8,11 @@ const assert = require("assert");
 // Setup mock DOM environment
 function createMockElement(tagName = "div") {
   const attrs = new Map();
-  const children = [];
   const classListSet = new Set();
 
   const el = {
     tagName: tagName.toUpperCase(),
+    _children: [],
     id: "",
     className: "",
     attributes: attrs,
@@ -40,8 +40,8 @@ function createMockElement(tagName = "div") {
     textContent: "",
     addEventListener: () => {},
     removeEventListener: () => {},
-    appendChild: (child) => {
-      children.push(child);
+    appendChild: function (child) {
+      this._children.push(child);
       return child;
     },
     querySelector: (selector) => {
@@ -87,36 +87,6 @@ const mockDocument = {
   addEventListener: () => {},
   get cookie() { return this._cookie || ""; },
   set cookie(v) { this._cookie = v; }
-};
-
-// Fix up mockBody to store children
-mockBody._children = [];
-mockBody.appendChild = (child) => {
-  mockBody._children.push(child);
-  return child;
-};
-
-
-// Setup timeout mocking
-let pendingTimeouts = [];
-global.setTimeout = (cb, ms) => {
-  pendingTimeouts.push({ cb, ms });
-  return pendingTimeouts.length;
-};
-global.clearTimeouts = () => {
-  pendingTimeouts = [];
-};
-global.runPendingTimeouts = () => {
-  const toRun = [...pendingTimeouts];
-  pendingTimeouts = [];
-  toRun.forEach(t => t.cb());
-};
-
-global.Event = class Event {
-  constructor(type, options) {
-    this.type = type;
-    this.options = options;
-  }
 };
 
 // Expose globals
