@@ -8,11 +8,11 @@ const assert = require("assert");
 // Setup mock DOM environment
 function createMockElement(tagName = "div") {
   const attrs = new Map();
-  const children = [];
   const classListSet = new Set();
 
   const el = {
     tagName: tagName.toUpperCase(),
+    _children: [],
     id: "",
     className: "",
     attributes: attrs,
@@ -40,8 +40,8 @@ function createMockElement(tagName = "div") {
     textContent: "",
     addEventListener: () => {},
     removeEventListener: () => {},
-    appendChild: (child) => {
-      children.push(child);
+    appendChild: function (child) {
+      this._children.push(child);
       return child;
     },
     querySelector: () => null,
@@ -71,13 +71,6 @@ const mockDocument = {
   body: mockBody,
   addEventListener: () => {},
   cookie: ""
-};
-
-// Fix up mockBody to store children
-mockBody._children = [];
-mockBody.appendChild = (child) => {
-  mockBody._children.push(child);
-  return child;
 };
 
 // Expose globals
