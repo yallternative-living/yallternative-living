@@ -1599,10 +1599,7 @@
     }
 
     // Find product details
-    var catalog = (window.YL_PRODUCTS && window.YL_PRODUCTS.products) || [];
-    var p = catalog.find(function (item) {
-      return item.id === productId;
-    });
+    var p = getProductMap().get(productId);
 
     var prodIdInput = document.getElementById("restockProductId");
     var prodNameInput = document.getElementById("restockProductNameInput");
