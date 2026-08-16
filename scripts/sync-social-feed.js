@@ -34,6 +34,8 @@ function syncSocialFeed() {
       }
     });
 
+    fs.writeFileSync(feedPath, JSON.stringify(data, null, 2) + "\n", "utf8");
+
     console.log(
       `[social-feed-sync] Verified ${posts.length} UGC posts (${validCount} local assets verified).`
     );
