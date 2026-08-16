@@ -19,17 +19,6 @@ function assert(condition, label) {
   }
 }
 
-function eq(actual, expected, label) {
-  const a = JSON.stringify(actual);
-  const e = JSON.stringify(expected);
-  if (a === e) {
-    passed++;
-  } else {
-    failed++;
-    console.error(`  ✗ ${label}\n      expected ${e}\n      got      ${a}`);
-  }
-}
-
 console.log("Running sync-social-feed.test.js unit tests...\n");
 
 // Mocks
@@ -73,7 +62,10 @@ fs.existsSync = (p) => {
   return originalExistsSync(p);
 };
 syncSocialFeed();
-assert(warns.length > 0 && warns[0].includes("not found"), "Logs warning if social-feed.json is missing");
+assert(
+  warns.length > 0 && warns[0].includes("not found"),
+  "Logs warning if social-feed.json is missing"
+);
 restoreMocks();
 
 /* Test Case 2: The file exists but contains invalid JSON. Verify that an error is caught and logged. */
@@ -87,16 +79,16 @@ fs.readFileSync = (p, enc) => {
   return originalReadFileSync(p, enc);
 };
 syncSocialFeed();
-assert(errors.length > 0 && errors[0].includes("Error parsing"), "Logs error if social-feed.json contains invalid JSON");
+assert(
+  errors.length > 0 && errors[0].includes("Error parsing"),
+  "Logs error if social-feed.json contains invalid JSON"
+);
 restoreMocks();
 
 /* Test Case 3: The file exists and contains valid JSON with valid local image paths. Verify that image paths are checked using fs.existsSync and a success message is logged. */
 setupMocks();
 const validData = {
-  posts: [
-    { image: "assets/img/valid1.jpg" },
-    { image: "assets/img/valid2.jpg" }
-  ]
+  posts: [{ image: "assets/img/valid1.jpg" }, { image: "assets/img/valid2.jpg" }]
 };
 fs.existsSync = (p) => {
   if (p === feedPath) return true;
@@ -111,7 +103,10 @@ fs.writeFileSync = (p, data) => {
   writes[p] = data;
 };
 syncSocialFeed();
-assert(logs.length > 0 && logs[0].includes("2 local assets verified"), "Logs success and verifies local images if valid");
+assert(
+  logs.length > 0 && logs[0].includes("2 local assets verified"),
+  "Logs success and verifies local images if valid"
+);
 // Also verify that IDs and handles were added (we can't check mutated objects easily here unless we modified syncSocialFeed to return them, but we know it runs)
 restoreMocks();
 
@@ -119,7 +114,7 @@ restoreMocks();
 setupMocks();
 const mixedData = {
   posts: [
-    { }, // No image, no id, no handle
+    {}, // No image, no id, no handle
     { image: "https://example.com/img.jpg" }, // External image
     { image: "assets/img/missing.jpg", id: "custom-id", handle: "@custom" } // Missing local image
   ]
@@ -138,8 +133,14 @@ fs.writeFileSync = (p, data) => {
 };
 
 syncSocialFeed();
-assert(warns.length > 0 && warns[0].includes("image not found on disk"), "Logs warning if local image is missing on disk");
-assert(logs.length > 0 && logs[0].includes("Verified 3 UGC posts (0 local assets verified)"), "Handles posts without images or with external images correctly");
+assert(
+  warns.length > 0 && warns[0].includes("image not found on disk"),
+  "Logs warning if local image is missing on disk"
+);
+assert(
+  logs.length > 0 && logs[0].includes("Verified 3 UGC posts (0 local assets verified)"),
+  "Handles posts without images or with external images correctly"
+);
 
 // Check that writes occurred with populated defaults.
 assert(writes[feedPath] !== undefined, "Writes updated JSON to disk");

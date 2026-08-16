@@ -1552,7 +1552,10 @@ try {
   execSync('node "' + path.join(ROOT, "scripts/sync-social-feed.test.js") + '"', { stdio: "pipe" });
   ok("scripts/sync-social-feed.test.js passed");
 } catch (e) {
-  fail("scripts/sync-social-feed.test.js", e.stderr ? e.stderr.toString().split("\n")[0] : e.message);
+  fail(
+    "scripts/sync-social-feed.test.js",
+    e.stderr ? e.stderr.toString().split("\n")[0] : e.message
+  );
 }
 
 /* ---------- Feature switches are actually wired ----------
