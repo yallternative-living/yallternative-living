@@ -1511,6 +1511,13 @@ try {
 }
 
 try {
+  execSync('node "' + path.join(ROOT, "scripts/cart.test.js") + '"', { stdio: "pipe" });
+  ok("scripts/cart.test.js passed");
+} catch (e) {
+  fail("scripts/cart.test.js", e.stderr ? e.stderr.toString().split("\n")[0] : e.message);
+}
+
+try {
   execSync('node "' + path.join(ROOT, "scripts/backend-functions.test.js") + '"', {
     stdio: "pipe"
   });
