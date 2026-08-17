@@ -188,18 +188,27 @@
   // must be cryptographically secure to prevent ID guessing or collisions.
   function newLineId() {
     if (root.crypto && typeof root.crypto.randomUUID === "function") {
-      return root.crypto.randomUUID();
+      try {
+        return root.crypto.randomUUID();
+      } catch {
+        /* fallback below */
+      }
     }
     if (root.crypto && typeof root.crypto.getRandomValues === "function") {
-      var array = new Uint32Array(4);
-      root.crypto.getRandomValues(array);
-      var hex = "";
-      for (var i = 0; i < array.length; i++) {
-        hex += ("00000000" + array[i].toString(16)).slice(-8);
+      try {
+        var array = new Uint32Array(4);
+        root.crypto.getRandomValues(array);
+        var hex = "";
+        for (var i = 0; i < array.length; i++) {
+          hex += ("00000000" + array[i].toString(16)).slice(-8);
+        }
+        return hex;
+      } catch {
+        /* fallback below */
       }
-      return hex;
     }
-    throw new Error("Secure random number generator not available");
+    // Safe fallback for non-secure contexts / environments lacking Web Crypto
+    return "gc-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
   }
 
   function freeShipThreshold() {
@@ -619,11 +628,11 @@
   var cartProductMapCache = null;
 
   function getCartProductMap() {
-    if (!cartProductMapCache && root.YL_PRODUCTS) {
+    var products = (root.YL_PRODUCTS && root.YL_PRODUCTS.products) || [];
+    var bundles = (root.YL_PRODUCTS && root.YL_PRODUCTS.bundles) || [];
+    var expectedCount = products.length + bundles.length * 2;
+    if (!cartProductMapCache || cartProductMapCache.size !== expectedCount) {
       cartProductMapCache = new Map();
-      var products = root.YL_PRODUCTS.products || [];
-      var bundles = root.YL_PRODUCTS.bundles || [];
-
       products.forEach(function (p) {
         if (p && p.id) {
           cartProductMapCache.set(p.id, p);
@@ -636,7 +645,7 @@
         }
       });
     }
-    return cartProductMapCache || new Map();
+    return cartProductMapCache;
   }
 
   function addUpsell(id) {

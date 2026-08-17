@@ -2417,12 +2417,18 @@ hr.rule{ border:none; border-top:1px solid var(--hide); margin:48px 0; }
 #google_translate_element,
 iframe.skiptranslate,
 .goog-te-banner-frame,
-#goog-gt-tt {
+#goog-gt-tt,
+.goog-te-balloon-frame {
   display: none !important;
   visibility: hidden !important;
 }
 
-body {
+/* Neutralize Google Translate's inline banner positioning and body offset injection */
+html.translated-ltr body,
+html.translated-rtl body,
+body.translated-ltr,
+body.translated-rtl,
+body[style*="top:"] {
   top: 0 !important;
   position: static !important;
   padding-top: 0 !important;

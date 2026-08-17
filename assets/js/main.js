@@ -884,11 +884,11 @@
   var productMapCache = null;
 
   function getProductMap() {
-    if (!productMapCache && window.YL_PRODUCTS) {
+    var products = (window.YL_PRODUCTS && window.YL_PRODUCTS.products) || [];
+    var bundles = (window.YL_PRODUCTS && window.YL_PRODUCTS.bundles) || [];
+    var expectedCount = products.length + bundles.length * 2;
+    if (!productMapCache || productMapCache.size !== expectedCount) {
       productMapCache = new Map();
-      var products = window.YL_PRODUCTS.products || [];
-      var bundles = window.YL_PRODUCTS.bundles || [];
-
       products.forEach(function (p) {
         if (p && p.id) {
           productMapCache.set(p.id, p);
@@ -901,7 +901,7 @@
         }
       });
     }
-    return productMapCache || new Map();
+    return productMapCache;
   }
 
   /* ---------- Wishlist / "Saved For Later" (localStorage + in-memory cache) ---------- */

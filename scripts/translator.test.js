@@ -89,6 +89,28 @@ const mockDocument = {
   set cookie(v) { this._cookie = v; }
 };
 
+// Setup timeout mocking
+let pendingTimeouts = [];
+global.setTimeout = (cb, ms) => {
+  pendingTimeouts.push({ cb, ms });
+  return pendingTimeouts.length;
+};
+global.clearTimeouts = () => {
+  pendingTimeouts = [];
+};
+global.runPendingTimeouts = () => {
+  const toRun = [...pendingTimeouts];
+  pendingTimeouts = [];
+  toRun.forEach((t) => t.cb());
+};
+
+global.Event = class Event {
+  constructor(type, options) {
+    this.type = type;
+    this.options = options;
+  }
+};
+
 // Expose globals
 global.document = mockDocument;
 global.window = {
