@@ -45,11 +45,11 @@ function createMockElement(tagName = "div") {
       return child;
     },
     querySelector: (selector) => {
-    if (selector === '.goog-te-combo') {
-      return mockBody._children.find(c => c.className === 'goog-te-combo') || null;
-    }
-    return null;
-  },
+      if (selector === ".goog-te-combo") {
+        return mockBody._children.find((c) => c.className === "goog-te-combo") || null;
+      }
+      return null;
+    },
     querySelectorAll: () => []
   };
 
@@ -71,8 +71,8 @@ const mockDocument = {
     return mockBody._children?.find((c) => c.id === id) || null;
   },
   querySelector: (selector) => {
-    if (selector === '.goog-te-combo') {
-      return mockBody._children.find(c => c.className === 'goog-te-combo') || null;
+    if (selector === ".goog-te-combo") {
+      return mockBody._children.find((c) => c.className === "goog-te-combo") || null;
     }
     return null;
   },
@@ -85,8 +85,12 @@ const mockDocument = {
   }),
   body: mockBody,
   addEventListener: () => {},
-  get cookie() { return this._cookie || ""; },
-  set cookie(v) { this._cookie = v; }
+  get cookie() {
+    return this._cookie || "";
+  },
+  set cookie(v) {
+    this._cookie = v;
+  }
 };
 
 // Setup timeout mocking
@@ -118,7 +122,9 @@ global.window = {
   location: {
     hostname: "yallternativeliving.com",
     reloadCalls: 0,
-    reload: function() { this.reloadCalls++; }
+    reload: function () {
+      this.reloadCalls++;
+    }
   }
 };
 global.self = {};
@@ -247,7 +253,6 @@ async function runTests() {
     }
   );
 
-
   // --- Tests for triggerGoogleTranslate ---
 
   await runTest("triggerGoogleTranslate reloads if retries > 50", async () => {
@@ -284,86 +289,124 @@ async function runTests() {
     assert.strictEqual(pendingTimeouts.length, 1, "Should schedule another retry timeout");
   });
 
-  await runTest("triggerGoogleTranslate updates combo and dispatches event if combo exists", async () => {
-    translator._resetInternalState();
-    mockDocument.cookie = "";
-    global.clearTimeouts();
+  await runTest(
+    "triggerGoogleTranslate updates combo and dispatches event if combo exists",
+    async () => {
+      translator._resetInternalState();
+      mockDocument.cookie = "";
+      global.clearTimeouts();
 
-    // Add mock combo element
-    const combo = createMockElement("select");
-    combo.className = "goog-te-combo";
-    Object.defineProperty(combo, "value", { get: function() { return this._value || ""; }, set: function(v) { this._value = v; } });
-    combo.value = "";
-    let eventDispatched = false;
-    combo.dispatchEvent = (e) => {
-      eventDispatched = true;
-      assert.strictEqual(e.type, "change", "Event should be change");
-    };
-    mockBody.appendChild(combo);
+      // Add mock combo element
+      const combo = createMockElement("select");
+      combo.className = "goog-te-combo";
+      Object.defineProperty(combo, "value", {
+        get: function () {
+          return this._value || "";
+        },
+        set: function (v) {
+          this._value = v;
+        }
+      });
+      combo.value = "";
+      let eventDispatched = false;
+      combo.dispatchEvent = (e) => {
+        eventDispatched = true;
+        assert.strictEqual(e.type, "change", "Event should be change");
+      };
+      mockBody.appendChild(combo);
 
-    translator.triggerGoogleTranslate("es", 0);
-    assert.strictEqual(combo.value, "es", "Combo value should be updated");
-    assert.strictEqual(eventDispatched, true, "Should dispatch change event");
-    assert.ok(mockDocument.cookie.includes("googtrans=/en/es"), "Should set googtrans cookie");
+      translator.triggerGoogleTranslate("es", 0);
+      assert.strictEqual(combo.value, "es", "Combo value should be updated");
+      assert.strictEqual(eventDispatched, true, "Should dispatch change event");
+      assert.ok(mockDocument.cookie.includes("googtrans=/en/es"), "Should set googtrans cookie");
 
-    // Check timeout for translation verification was set
-    assert.strictEqual(pendingTimeouts.length, 1, "Should schedule verification timeout");
-    assert.strictEqual(pendingTimeouts[0].ms, 800, "Timeout should be 800ms");
-  });
+      // Check timeout for translation verification was set
+      assert.strictEqual(pendingTimeouts.length, 1, "Should schedule verification timeout");
+      assert.strictEqual(pendingTimeouts[0].ms, 800, "Timeout should be 800ms");
+    }
+  );
 
-  await runTest("triggerGoogleTranslate verification timeout reloads if not translated", async () => {
-    translator._resetInternalState();
-    mockDocument.cookie = "";
-    global.clearTimeouts();
-    window.location.reloadCalls = 0;
+  await runTest(
+    "triggerGoogleTranslate verification timeout reloads if not translated",
+    async () => {
+      translator._resetInternalState();
+      mockDocument.cookie = "";
+      global.clearTimeouts();
+      window.location.reloadCalls = 0;
 
-    // Reset document element classes
-    mockDocument.documentElement = createMockElement("html");
+      // Reset document element classes
+      mockDocument.documentElement = createMockElement("html");
 
-    const combo = createMockElement("select");
-    combo.className = "goog-te-combo";
-    Object.defineProperty(combo, "value", { get: function() { return this._value || ""; }, set: function(v) { this._value = v; } });
-    combo.value = "";
-    combo.dispatchEvent = () => {};
-    mockBody._children = [combo];
+      const combo = createMockElement("select");
+      combo.className = "goog-te-combo";
+      Object.defineProperty(combo, "value", {
+        get: function () {
+          return this._value || "";
+        },
+        set: function (v) {
+          this._value = v;
+        }
+      });
+      combo.value = "";
+      combo.dispatchEvent = () => {};
+      mockBody._children = [combo];
 
-    translator.triggerGoogleTranslate("de", 0);
+      translator.triggerGoogleTranslate("de", 0);
 
-    assert.strictEqual(pendingTimeouts.length, 1, "Should schedule verification timeout");
+      assert.strictEqual(pendingTimeouts.length, 1, "Should schedule verification timeout");
 
-    // Execute the timeout without adding translated class
-    global.runPendingTimeouts();
+      // Execute the timeout without adding translated class
+      global.runPendingTimeouts();
 
-    assert.strictEqual(window.location.reloadCalls, 1, "Should reload if translated class not present");
-  });
+      assert.strictEqual(
+        window.location.reloadCalls,
+        1,
+        "Should reload if translated class not present"
+      );
+    }
+  );
 
-  await runTest("triggerGoogleTranslate verification timeout does not reload if translated", async () => {
-    translator._resetInternalState();
-    mockDocument.cookie = "";
-    global.clearTimeouts();
-    window.location.reloadCalls = 0;
+  await runTest(
+    "triggerGoogleTranslate verification timeout does not reload if translated",
+    async () => {
+      translator._resetInternalState();
+      mockDocument.cookie = "";
+      global.clearTimeouts();
+      window.location.reloadCalls = 0;
 
-    mockDocument.documentElement = createMockElement("html");
+      mockDocument.documentElement = createMockElement("html");
 
-    const combo = createMockElement("select");
-    combo.className = "goog-te-combo";
-    Object.defineProperty(combo, "value", { get: function() { return this._value || ""; }, set: function(v) { this._value = v; } });
-    combo.value = "";
-    combo.dispatchEvent = () => {};
-    mockBody._children = [combo];
+      const combo = createMockElement("select");
+      combo.className = "goog-te-combo";
+      Object.defineProperty(combo, "value", {
+        get: function () {
+          return this._value || "";
+        },
+        set: function (v) {
+          this._value = v;
+        }
+      });
+      combo.value = "";
+      combo.dispatchEvent = () => {};
+      mockBody._children = [combo];
 
-    translator.triggerGoogleTranslate("de", 0);
+      translator.triggerGoogleTranslate("de", 0);
 
-    assert.strictEqual(pendingTimeouts.length, 1, "Should schedule verification timeout");
+      assert.strictEqual(pendingTimeouts.length, 1, "Should schedule verification timeout");
 
-    // Add translated class to simulate success
-    mockDocument.documentElement.classList.add("translated-ltr");
+      // Add translated class to simulate success
+      mockDocument.documentElement.classList.add("translated-ltr");
 
-    // Execute the timeout
-    global.runPendingTimeouts();
+      // Execute the timeout
+      global.runPendingTimeouts();
 
-    assert.strictEqual(window.location.reloadCalls, 0, "Should NOT reload if translated class is present");
-  });
+      assert.strictEqual(
+        window.location.reloadCalls,
+        0,
+        "Should NOT reload if translated class is present"
+      );
+    }
+  );
 
   console.log(`\nResults: ${testsPassed} passed, ${testsFailed} failed.`);
   if (testsFailed > 0) {
