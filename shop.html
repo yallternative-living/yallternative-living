@@ -891,13 +891,20 @@
               <option value="all">Any</option>
             </select>
           </span>
-          <label for="sortSelect">Sort</label>
-          <select id="sortSelect">
-            <option value="featured">Featured</option>
-            <option value="price-asc">Price: Low to High</option>
-            <option value="price-desc">Price: High to Low</option>
-            <option value="name-asc">Name: A to Z</option>
-          </select>
+          <!-- Label and select share a wrapper for the same reason #scentFieldWrap
+               has one: .shop-sort wraps, and as loose siblings the "Sort" label
+               would strand itself at the end of one line with its dropdown on the
+               next -- which is exactly what happened at ~1200px wide, right next
+               to the Scent control it then appeared to belong to. -->
+          <span class="sort-field-wrap">
+            <label for="sortSelect">Sort</label>
+            <select id="sortSelect">
+              <option value="featured">Featured</option>
+              <option value="price-asc">Price: Low to High</option>
+              <option value="price-desc">Price: High to Low</option>
+              <option value="name-asc">Name: A to Z</option>
+            </select>
+          </span>
           <button type="button" class="btn btn-outline btn-sm" id="openOrderStatusBtn" data-action="open-order-status">Track Order Status</button>
         </div>
       </div>
@@ -1189,7 +1196,7 @@
       <div class="reviews-head">
 
         <h2><!--YL:shop.sections.reviewsTitle-->Customer Reviews<!--/YL:shop.sections.reviewsTitle--></h2>
-        <p class="muted">Left right here on the site, alongside our <a href="https://www.etsy.com/shop/YallternativeLivinCO" target="_blank" rel="noopener">Etsy reviews<span class="sr-only">(opens in new tab)</span></a>. Every submission gets a real read-through before it's posted.</p>
+        <p class="muted">Left right here on the site, alongside our <a href="https://www.etsy.com/shop/YallternativeLivinCO" target="_blank" rel="noopener">Etsy reviews<span class="sr-only"> (opens in new tab)</span></a>. Every submission gets a real read-through before it's posted.</p>
       </div>
 
       <div id="siteReviewsList" class="grid grid-3 reviews-list"></div>
@@ -1413,7 +1420,7 @@
         <h3>Say Hey</h3>
         <ul>
           <li><a href="mailto:y.allternative.living@gmail.com">y.allternative.living@gmail.com</a></li>
-          <li><a href="https://www.etsy.com/shop/YallternativeLivinCO" target="_blank" rel="noopener">Etsy shop ↗<span class="sr-only">(opens in new tab)</span></a></li>
+          <li><a href="https://www.etsy.com/shop/YallternativeLivinCO" target="_blank" rel="noopener">Etsy shop ↗<span class="sr-only"> (opens in new tab)</span></a></li>
           <li>Based in Landrum, SC</li>
           <li>Find us at markets &amp; Pride events in the Upstate &amp; beyond</li>
         </ul>

@@ -7,16 +7,6 @@
 window.YL_EVENTS = {
   "upcoming": [
     {
-      "date": "2026-08-15",
-      "endDate": "2026-08-16",
-      "dateLabel": "August 15–16, 2026 · Sat & Sun, 11am–7pm",
-      "name": "Summerville Punk Flea Market",
-      "type": "Flea Market",
-      "location": "Ladson, SC",
-      "zip": "29456",
-      "note": "9850 Highway 78, Ladson, SC 29456. Two-day punk flea market — come find our table."
-    },
-    {
       "date": "2026-08-21",
       "dateLabel": "August 21, 2026 · Friday, 6:30pm–9pm",
       "name": "Gothic Punk Night Market",
@@ -47,6 +37,15 @@ window.YL_EVENTS = {
     }
   ],
   "past": [
+    {
+      "date": "2026-08-15",
+      "endDate": "2026-08-16",
+      "dateLabel": "August 15–16, 2026 · Sat & Sun, 11am–7pm",
+      "name": "Summerville Punk Flea Market",
+      "type": "Flea Market",
+      "location": "Ladson, SC",
+      "note": "9850 Highway 78, Ladson, SC 29456. Two-day punk flea market — come find our table."
+    },
     {
       "date": "2026-06-20",
       "dateLabel": "June 2026",

@@ -259,18 +259,27 @@ function createStaticServer(port = 8082) {
       if (pageName === "index.html") {
         const ticker = await page.$("#yl-countdown-ticker");
         if (ticker) {
-          const daysText = await page
-            .$eval("#yl-countdown-days", (el) => el.textContent.trim())
+          /* Three legitimate states, all driven by the real events.json:
+             counting down to the next pop-up (the digit spans), a market
+             that's open today, or no dates on the calendar at all. The
+             "in progress" and "no dates" branches replace #heroCountdownTimer's
+             children with plain text, so asserting on the digit spans alone
+             turned this check into a calendar-dependent time bomb -- it would
+             start failing the morning of a market day. Assert the ticker says
+             something meaningful in whichever state it's in. */
+          const timerText = await page
+            .$eval("#heroCountdownTimer", (el) => el.textContent.replace(/\s+/g, " ").trim())
             .catch(() => null);
-          const secsText = await page
-            .$eval("#yl-countdown-seconds", (el) => el.textContent.trim())
-            .catch(() => null);
-          if (daysText !== null && secsText !== null) {
-            console.log(
-              `✅ Countdown ticker rendering timer values on ${pageName} (${daysText}d ${secsText}s).`
-            );
+          const digits = await page.$("#yl-countdown-days");
+          const counting = digits !== null && /\d/.test(timerText || "");
+          const inProgress = /in progress today/i.test(timerText || "");
+          const noDates = /stay tuned for new confirmed market dates/i.test(timerText || "");
+          if (counting || inProgress || noDates) {
+            console.log(`✅ Countdown ticker rendering on ${pageName} ("${timerText}").`);
           } else {
-            console.log(`❌ Countdown ticker digits missing on ${pageName}.`);
+            console.log(
+              `❌ Countdown ticker rendered no usable text on ${pageName} (got "${timerText}").`
+            );
             exitCode = 1;
           }
         } else {
@@ -368,7 +377,9 @@ function createStaticServer(port = 8082) {
        so visiting that page no longer doubles as a reset. Start from a
        known-empty cart, or the expected point total below is the wrong one. */
     await page.evaluate(() => {
+      /* eslint-disable no-undef */
       if (window.YLCart && typeof window.YLCart.clear === "function") window.YLCart.clear();
+      /* eslint-enable no-undef */
     });
     const badgeText = await page
       .$eval(".alt-points-badge", (el) => el.textContent.trim())

@@ -294,5 +294,65 @@ assert(
   "renderWishDrawer handles empty wishlist state"
 );
 
+/* 7. pickNextEvent -- the countdown ticker's event selection.
+   events.json is hand-ordered through the CMS, so none of this can lean on
+   the array already being in date order. */
+const TODAY = "2026-08-21";
+
+eq(main.pickNextEvent([], TODAY), null, "pickNextEvent returns null with no events");
+eq(main.pickNextEvent(null, TODAY), null, "pickNextEvent tolerates a missing list");
+
+const outOfOrder = [
+  { date: "2026-10-17T09:00:00-04:00", name: "Autumn Apothecary Faire" },
+  { date: "2026-08-29", endDate: "2026-08-30", name: "Spartanburg Punk Flea Market" },
+  { date: "2026-09-12", name: "Greenville Night Market" }
+];
+eq(
+  main.pickNextEvent(outOfOrder, TODAY).event.name,
+  "Spartanburg Punk Flea Market",
+  "pickNextEvent picks the soonest event, not the first one listed"
+);
+
+eq(
+  main.pickNextEvent(
+    [
+      { date: "2026-08-15", endDate: "2026-08-16", name: "Finished Market" },
+      { date: "2026-08-29", name: "Spartanburg Punk Flea Market" }
+    ],
+    TODAY
+  ).event.name,
+  "Spartanburg Punk Flea Market",
+  "pickNextEvent skips an event whose final day has passed"
+);
+
+const inProgress = main.pickNextEvent(
+  [
+    { date: "2026-08-20", endDate: "2026-08-21", name: "Two-Day Market" },
+    { date: "2026-08-29", name: "Spartanburg Punk Flea Market" }
+  ],
+  TODAY
+);
+eq(
+  inProgress.event.name,
+  "Two-Day Market",
+  "pickNextEvent keeps a multi-day market through its final day"
+);
+assert(
+  inProgress.startTime < new Date(2026, 7, 21).getTime() + 24 * 3600 * 1000,
+  "pickNextEvent reports the in-progress market's start time, so the ticker reads 'in progress'"
+);
+
+eq(
+  main.pickNextEvent([{ date: "2026-08-21", name: "Starts Today" }], TODAY).event.name,
+  "Starts Today",
+  "pickNextEvent keeps an event that starts today"
+);
+
+eq(
+  main.pickNextEvent([{ name: "No Date" }, null, { date: "not-a-date", name: "Bad Date" }], TODAY),
+  null,
+  "pickNextEvent ignores entries with a missing or unparseable date"
+);
+
 console.log(`\nmain.test.js: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

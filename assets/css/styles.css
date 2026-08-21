@@ -1666,7 +1666,8 @@ section{
 .shop-sort{
   display:flex; align-items:center; gap:10px; flex-wrap:wrap;
   
-  & #scentFieldWrap {
+  & #scentFieldWrap,
+  & .sort-field-wrap {
     display: inline-flex;
     align-items: center;
     gap: 8px;
@@ -1683,7 +1684,8 @@ section{
     align-items: center;
     gap: 8px;
     
-    & #scentFieldWrap {
+    & #scentFieldWrap,
+    & .sort-field-wrap {
       flex: 1 1 auto;
     }
     
@@ -2846,25 +2848,46 @@ dialog.gift-modal[open]::backdrop {
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: 12px;
+  gap: 2px;
   z-index: 5;
 }
+/* Same WCAG 2.5.8 target-size pattern the shop-card gallery dots already use
+   (see .card-gallery-dot): the button itself is a 38px tap target and the
+   visible dot is drawn small inside it. These used to be bare 10px buttons
+   12px apart -- half the 24px floor, and the one control a phone user reaches
+   for most while flipping through a product's photos. */
 .lightbox-dot {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+}
+.lightbox-dot::after {
+  content: "";
+  display: block;
   width: 10px;
   height: 10px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.3);
-  border: none;
-  cursor: pointer;
-  padding: 0;
   transition: background 0.2s, transform 0.2s;
 }
-.lightbox-dot.active {
+.lightbox-dot.active::after {
   background: var(--whiskey);
   transform: scale(1.2);
 }
-.lightbox-dot:hover {
+.lightbox-dot:hover::after {
   background: var(--paper);
+}
+.lightbox-dot:focus-visible {
+  outline: 2px solid var(--whiskey);
+  outline-offset: -8px;
+  border-radius: 50%;
 }
 
 /* Adjust layout on smaller screens */

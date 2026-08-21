@@ -44,7 +44,7 @@ Here is a quick checklist of the external accounts you'll need to set up for lau
 
 - **Architecture**: 100% static HTML/CSS/JS frontend with zero runtime framework dependencies. Fast, mobile-first, and offline-capable via `sw.js`.
 - **Checkout & Cart**: On-site drawer cart (`assets/js/cart.js`) backed by server-side Cloudflare Workers (`workers/checkout.js`) for price-tampering security.
-- **Automated Verification**: Run `npm test` to execute **300+ static QA assertions** (JSON-LD validation, CSP byte-sync, live WCAG contrast, variant parsing) and `npm run test:integration` for headless Puppeteer browser testing across viewports.
+- **Automated Verification**: Run `npm test` to execute the **330+ unit assertions** across every `scripts/*.test.js` suite (cart and checkout pricing, tax, gift cards, the build-data compiler) plus **330+ static QA assertions** (JSON-LD validation, CSP byte-sync, live WCAG contrast, variant parsing), and `npm run test:integration` for headless Puppeteer browser testing across viewports plus an axe-core accessibility gate (WCAG 2.2 AA, zero violations across all 31 pages).
 
 ---
 
