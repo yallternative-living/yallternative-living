@@ -2,12 +2,18 @@
  * @fileoverview Runs every scripts/*.test.js unit suite in one shot and
  * aggregates the results.
  *
- * These suites (cart pricing, the Cloudflare Worker's checkout/tax/gift-card
- * math, the build-data compiler, main.js behaviour, the social-feed sync, the
- * translator) each exit non-zero on failure, but nothing used to run them:
- * `npm test` only ran scripts/qa-check.js, so a broken cart total could sail
- * through CI green. This runner is what `npm test` calls first, so they all
- * gate a push the same way the static QA assertions do.
+ * These suites cover cart pricing, the Cloudflare Worker's checkout/tax/
+ * gift-card math, the build-data compiler, main.js behaviour, the social-feed
+ * sync, and the translator.
+ *
+ * qa-check.js used to run them itself, but through execSync with
+ * stdio:"pipe", collapsing each suite to one ✓/✗ and truncating any error to
+ * its first line -- a missing dependency reported itself as
+ * "node:internal/modules/cjs/loader:1386", which names neither the module nor
+ * the suite's own assertions. This runner inherits stdio instead, so a
+ * failure tells you what actually broke, and it discovers suites by scanning
+ * the directory rather than hard-coding seven paths that a new test file
+ * would silently miss.
  *
  * Every suite runs even when an earlier one fails -- one broken file should
  * still report the state of the rest, not hide it.

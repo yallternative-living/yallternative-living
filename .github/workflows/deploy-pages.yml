@@ -5,11 +5,16 @@
 # CMS at /admin -- see DEVELOPMENT.md section 20) still ships with a freshly
 # regenerated products-data.js, shop.html/contact.html JSON-LD,
 # sitemap.xml, and llms.txt, exactly like the Netlify/Vercel build
-# commands in netlify.toml/vercel.json do. No `npm install` step is
-# needed first: build-site-data.js and build-security-headers.js only
-# use Node's built-in fs/path/crypto modules -- zero external
-# dependencies (only scripts/optimize-images.js, a dev-time-only script,
-# needs the sharp devDependency, and that never runs here).
+# commands in netlify.toml/vercel.json do.
+#
+# Dependencies DO have to be installed here, despite the build scripts
+# themselves using only Node built-ins: the QA suite runs the unit test
+# suites, and scripts/backend-functions.test.js loads
+# netlify/functions/fulfill-gift-card.js, which requires `resend`. Without
+# an install that suite dies with MODULE_NOT_FOUND. It always did -- the
+# QA step used to swallow its own exit code, so the failure printed into
+# the log and the deploy went out anyway. PUPPETEER_SKIP_DOWNLOAD keeps
+# the install cheap by skipping the ~150MB Chromium this job never uses.
 #
 # One-time setup: in this repo's Settings -> Pages, set Source to
 # "GitHub Actions" (not "Deploy from a branch"). After that, every push
@@ -47,6 +52,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: "true"
+          PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: "true"
+        run: npm ci --no-audit --no-fund
 
       - name: Regenerate derived files from products.json/events-data.js
         run: node scripts/build-site-data.js
@@ -55,7 +67,7 @@ jobs:
         run: node scripts/build-security-headers.js
 
       - name: Run the automated QA suite
-        run: node scripts/qa-check.js
+        run: npm test
         # This gate blocks the deploy on purpose. It used to end in
         # "|| true" back when the site had no real domain yet and the
         # "Live-domain placeholder" check was expected to fail on every
