@@ -5,7 +5,7 @@
  */
 
 /** @const {string} Cache name key, updated on assets release. */
-const CACHE_NAME = "yallternative-cache-v20260814112307";
+const CACHE_NAME = "yallternative-cache-v20260821054231";
 
 /** @const {!Array<string>} Array of absolute URLs to be cached on installation. */
 const ASSETS_TO_CACHE = [
@@ -31,6 +31,13 @@ const ASSETS_TO_CACHE = [
   '/assets/js/products-data.js',
   '/assets/js/events-data.js',
   '/assets/js/site-reviews-data.js',
+  // journal.html and the homepage/shop UGC strip render entirely from these
+  // two. Precaching the pages without them meant an offline visitor who had
+  // never opened journal.html online got the cached shell with an empty
+  // journal grid (main.js bails on `!window.YL_JOURNAL`), and the same for
+  // the social feed strip.
+  '/assets/js/journal-data.js',
+  '/assets/js/social-feed-data.js',
   '/assets/js/image-manifest.js',
   '/assets/js/translator.js',
   '/assets/js/gift-card.js',

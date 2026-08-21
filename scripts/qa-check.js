@@ -1616,6 +1616,70 @@ section("Every CMS feature switch is wired to real code");
   }
 })();
 
+/* ---------- CMS form endpoints actually reach the pages ----------
+   Same rule as the switches above, for the three string fields that carry an
+   integration endpoint. They live in an action="..." attribute, where a
+   <!--YL:key--> marker can't survive the build's cleanAttributeMarkers()
+   pass -- so for a while /admin offered "Newsletter Form Link (Kit)" and
+   "Contact Form Code (Formspree)" while every page stayed pinned to the
+   hardcoded placeholder, and main.js kept showing the "not connected yet"
+   fallback no matter what was typed in. Assert the shipped attribute is the
+   one build-site-data.js derives from content.json, so it can't drift back. */
+section("CMS form endpoints (Kit / Formspree) reach the built pages");
+(function checkFormEndpointsWired() {
+  var builder = require(path.join(ROOT, "scripts/build-site-data.js"));
+  var contentJson = JSON.parse(
+    fs.readFileSync(path.join(ROOT, "assets/data/content.json"), "utf8")
+  );
+  var siteCfg = contentJson.site || {};
+  var expectations = [
+    {
+      page: "index.html",
+      className: "footer-signup-form",
+      expected: builder.newsletterAction(siteCfg.kitFormAction, "YOUR_KIT_FORM_ACTION_URL"),
+      field: "site.kitFormAction"
+    },
+    {
+      page: "contact.html",
+      className: "contact-form",
+      expected: builder.formspreeAction(siteCfg.formspreeContactId, "YOUR_FORM_ID"),
+      field: "site.formspreeContactId"
+    },
+    {
+      page: "shop.html",
+      className: "review-form",
+      expected: builder.formspreeAction(siteCfg.formspreeReviewId, "YOUR_FORMSPREE_FORM_ID"),
+      field: "site.formspreeReviewId"
+    }
+  ];
+  expectations.forEach(function (spec) {
+    var full = path.join(ROOT, spec.page);
+    if (!fs.existsSync(full)) {
+      fail(spec.page, "missing file");
+      return;
+    }
+    var html = fs.readFileSync(full, "utf8");
+    var tags = html.match(/<form\b[^>]*>/g) || [];
+    var match = null;
+    tags.forEach(function (tag) {
+      var cls = /\sclass="([^"]*)"/.exec(tag);
+      if (!cls || cls[1].trim().split(/\s+/).indexOf(spec.className) === -1) return;
+      var act = /\saction="([^"]*)"/.exec(tag);
+      if (act) match = act[1];
+    });
+    if (match === null) {
+      fail(spec.page + " ." + spec.className, "no form with that class and an action attribute");
+    } else if (match === spec.expected) {
+      ok(spec.page + " ." + spec.className + " action follows " + spec.field);
+    } else {
+      fail(
+        spec.page + " ." + spec.className + " action ignores " + spec.field,
+        'shipped "' + match + '" but content.json resolves to "' + spec.expected + '"'
+      );
+    }
+  });
+})();
+
 /* ---------- HTML container-tag balance (regression guard) ----------
    Real bug this caught: shop.html's <div class="page-hero"> was never
    closed, so it wrapped the ENTIRE page instead of just the intro. That

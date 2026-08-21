@@ -3112,7 +3112,20 @@
     // Show a non-disruptive toast when a new SW version is ready,
     // instead of force-reloading mid-session (which can clear form
     // state and break the visitor's flow).
+    //
+    // controllerchange also fires on a *first* install: sw.js calls
+    // skipWaiting() then clients.claim(), which takes control of the page
+    // that just registered it, moving navigator.serviceWorker.controller
+    // from null to the new worker. Without this guard every brand-new
+    // visitor (and anyone who cleared site data) was told "A new version is
+    // available!" seconds after landing, on the version they had just
+    // loaded. Only a change away from an existing controller is an update.
+    var hadController = !!navigator.serviceWorker.controller;
     navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (!hadController) {
+        hadController = true;
+        return;
+      }
       var toast = document.getElementById("sw-update-toast");
       if (!toast) {
         toast = document.createElement("div");
