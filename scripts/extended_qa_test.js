@@ -75,7 +75,9 @@ function createStaticServer(port = 8083) {
     wishlistTestsPassed: 0,
     altPointsTestsPassed: 0,
     overflowCheckPassed: 0,
-    overflowCheckTotal: 0
+    overflowCheckTotal: 0,
+    regressionTestsPassed: 0,
+    regressionTestsTotal: 0
   };
 
   try {
@@ -337,6 +339,297 @@ function createStaticServer(port = 8083) {
       exitCode = 1;
     }
 
+    /* ==========================================================
+       5-7. Regression tests for shipped shop.html bug fixes.
+       ----------------------------------------------------------
+       These three behaviors live inside delegated DOM event handlers in
+       assets/js/main.js that are not exported to Node, so a real browser is
+       the only place they can be exercised end to end.
+
+       `check` fails LOUDLY: a missing element is a failure, not a skip. The
+       older sections above guard interactions with `if (el)`, which quietly
+       passes the whole block if the selector ever stops matching -- these
+       sections deliberately do not.
+       ========================================================== */
+    function check(condition, label, detail) {
+      if (condition) {
+        console.log(`✅ ${label}`);
+        metrics.regressionTestsPassed++;
+      } else {
+        console.log(`❌ ${label}${detail === undefined ? "" : ` (got ${JSON.stringify(detail)})`}`);
+        exitCode = 1;
+      }
+      metrics.regressionTestsTotal++;
+    }
+
+    // Snapshot of the shop grid's filter/search state, read fresh each time.
+    const readShopState = () => ({
+      cards: document.querySelectorAll("#shopGrid .card").length,
+      noResults: !!document.querySelector(".yl-no-results"),
+      activePill: (document.querySelector(".filter-pill.active") || {}).getAttribute
+        ? document.querySelector(".filter-pill.active").getAttribute("data-filter")
+        : null,
+      search: (document.getElementById("shopSearch") || {}).value
+    });
+
+    /* ---------- 5. "Reset Filters & Search" restores the full grid ----------
+       The zero-result panel's reset button looked for the All pill as
+       `.cat-pill[data-category="all"]`, but the shop renders filter pills as
+       `.filter-pill[data-filter="all"]` (see buildFilters). querySelector
+       returned null, the `if (allPill)` guard swallowed it, and the button
+       cleared the search box while leaving the category filter stuck -- so
+       "Reset Filters & Search" reset the search only. */
+    console.log("\n--- Testing Shop Reset Filters & Search ---");
+    await page.goto(`${url}/shop.html`, { waitUntil: "networkidle2" });
+    await page.evaluate(() => localStorage.clear());
+    await page.reload({ waitUntil: "networkidle2" });
+
+    const baselineShop = await page.evaluate(readShopState);
+    check(baselineShop.cards > 0, "Shop grid renders product cards on load", baselineShop);
+    check(baselineShop.activePill === "all", "Shop grid starts on the All filter", baselineShop);
+
+    // Narrow to a category, then search something guaranteed to match nothing.
+    const categoryApplied = await page.evaluate(() => {
+      const pill = document.querySelector('.filter-pill[data-filter="salves"]');
+      if (!pill) return false;
+      pill.click();
+      return true;
+    });
+    check(categoryApplied, "Shop exposes a 'salves' category pill to filter by");
+    await new Promise((r) => setTimeout(r, 400));
+
+    const filteredShop = await page.evaluate(readShopState);
+    check(
+      filteredShop.activePill === "salves" &&
+        filteredShop.cards > 0 &&
+        filteredShop.cards < baselineShop.cards,
+      "Category filter narrows the grid to a strict subset",
+      filteredShop
+    );
+
+    await page.evaluate(() => {
+      const s = document.getElementById("shopSearch");
+      s.value = "zzzzqqq-no-such-product";
+      s.dispatchEvent(new Event("input"));
+    });
+    await new Promise((r) => setTimeout(r, 500));
+
+    const emptyShop = await page.evaluate(readShopState);
+    check(
+      emptyShop.cards === 0 && emptyShop.noResults,
+      "A no-match search shows the zero-result panel",
+      emptyShop
+    );
+
+    const resetClicked = await page.evaluate(() => {
+      const btn = document.getElementById("resetFiltersBtn");
+      if (!btn) return false;
+      btn.click();
+      return true;
+    });
+    check(resetClicked, "Zero-result panel renders the Reset Filters & Search button");
+    await new Promise((r) => setTimeout(r, 500));
+
+    const resetShop = await page.evaluate(readShopState);
+    // The load-bearing assertion: the CATEGORY has to come back to All. The
+    // old selector cleared the search box but left the pill on "salves".
+    check(
+      resetShop.activePill === "all",
+      "Reset Filters & Search reactivates the All pill",
+      resetShop
+    );
+    check(resetShop.search === "", "Reset Filters & Search clears the search box", resetShop);
+    check(
+      resetShop.cards === baselineShop.cards && !resetShop.noResults,
+      `Reset Filters & Search restores the full grid (${baselineShop.cards} cards)`,
+      resetShop
+    );
+
+    /* ---------- 6. Lightbox opens on the full photo list ----------
+       products.json splits photos into `image` (the primary) and `images`
+       (the ALT shots only) -- the primary is NOT a member of `images`. Both
+       lightbox entry points passed `images` alone, so the primary photo was
+       missing from the lightbox entirely: the dot strip was one short, and
+       clicking the default slide "enlarged" the first alt photo instead of
+       the photo the shopper was actually looking at. Both paths now pass
+       [p.image].concat(p.images). */
+    console.log("\n--- Testing Lightbox Photo List (primary + alts) ---");
+
+    // Fresh load: section 5 leaves the grid filtered, and if its reset ever
+    // regresses the target card would simply not be in the DOM -- which would
+    // report as a lightbox failure rather than a reset failure. Reload so this
+    // section stands on its own.
+    await page.goto(`${url}/shop.html`, { waitUntil: "networkidle2" });
+
+    // Pick a real multi-photo product straight out of the catalog the page
+    // loaded, so this cannot drift out of sync with products.json.
+    const photoFixture = await page.evaluate(() => {
+      const products = (window.YL_PRODUCTS && window.YL_PRODUCTS.products) || [];
+      const p = products.find(
+        (x) =>
+          x.image && Array.isArray(x.images) && x.images.length > 1 && !x.images.includes(x.image)
+      );
+      return p ? { id: p.id, image: p.image, altCount: p.images.length } : null;
+    });
+    check(
+      photoFixture !== null,
+      "Catalog contains a product with a primary photo plus multiple alts",
+      photoFixture
+    );
+
+    if (photoFixture) {
+      const expectedDots = photoFixture.altCount + 1;
+      const readLightbox = () => ({
+        open: !!document.querySelector(".lightbox-modal[open]"),
+        dots: document.querySelectorAll("#lightboxDots .lightbox-dot").length,
+        src: (document.getElementById("lightboxImage") || {}).getAttribute
+          ? document.getElementById("lightboxImage").getAttribute("src")
+          : null
+      });
+
+      // 6a. Card-click path.
+      const slideClicked = await page.evaluate((id) => {
+        const slide = document.querySelector(`.card[data-id="${id}"] .card-gallery-slide`);
+        if (!slide) return false;
+        slide.click();
+        return true;
+      }, photoFixture.id);
+      check(slideClicked, `Product card ${photoFixture.id} renders a clickable gallery slide`);
+      await new Promise((r) => setTimeout(r, 500));
+
+      const cardLightbox = await page.evaluate(readLightbox);
+      check(cardLightbox.open, "Card click opens the lightbox", cardLightbox);
+      check(
+        cardLightbox.dots === expectedDots,
+        `Card-click lightbox shows 1 primary + ${photoFixture.altCount} alt dots (${expectedDots})`,
+        cardLightbox
+      );
+      check(
+        cardLightbox.src === photoFixture.image,
+        "Card-click lightbox displays the PRIMARY photo, not the first alt",
+        { got: cardLightbox.src, expected: photoFixture.image }
+      );
+
+      /* 6b. Deep-link path (#<product-id> on load) -- a separate call site in
+         main.js with the same bug, so it needs its own assertion.
+
+         The about:blank hop is load-bearing. Puppeteer treats a goto that
+         differs from the current URL only by its fragment as a same-document
+         navigation: the page does NOT reload and main.js's deep-link block
+         (which runs once at script evaluation) never re-executes. Without the
+         hop this check just re-observed the lightbox 6a had left open and
+         passed no matter what the deep-link path did -- verified by asserting
+         a marker set on the old document survives a hash-only goto. */
+      await page.goto("about:blank");
+      await page.goto(`${url}/shop.html#${photoFixture.id}`, { waitUntil: "networkidle2" });
+      // main.js defers the deep-link open by 400ms; wait past that.
+      await new Promise((r) => setTimeout(r, 1000));
+
+      const deepLightbox = await page.evaluate(readLightbox);
+      check(deepLightbox.open, "Deep link opens the lightbox on load", deepLightbox);
+      check(
+        deepLightbox.dots === expectedDots,
+        `Deep-linked lightbox shows all ${expectedDots} photos`,
+        deepLightbox
+      );
+      check(
+        deepLightbox.src === photoFixture.image,
+        "Deep-linked lightbox displays the PRIMARY photo",
+        { got: deepLightbox.src, expected: photoFixture.image }
+      );
+    }
+
+    /* ---------- 7. Quiz Alt-Points badge honours loyalty config ----------
+       The quiz result card hard-coded '✨ Earn N Alt-Points' with N =
+       floor(price), ignoring getLoyaltyConfig() -- which every other badge on
+       the site respects. Turning loyalty off left the quiz still advertising
+       points, and a non-1 points-per-dollar rate (or a renamed programme) was
+       silently wrong only on this one card. */
+    console.log("\n--- Testing Quiz Alt-Points Badge Loyalty Config ---");
+
+    // Drive the quiz to its result card. Overrides are applied to the live
+    // window.YL_CONTENT before submitting, because getLoyaltyConfig() reads it
+    // at render time; each run starts from a fresh page load so no override
+    // leaks into the next case.
+    async function runQuiz(configure) {
+      await page.goto(`${url}/shop.html`, { waitUntil: "networkidle2" });
+      if (configure) await page.evaluate(configure);
+      await page.evaluate(() => document.getElementById("open-apothecary-quiz-btn").click());
+      await new Promise((r) => setTimeout(r, 300));
+      await page.evaluate(() => document.querySelectorAll(".quiz-next-step")[0].click());
+      await new Promise((r) => setTimeout(r, 250));
+      await page.evaluate(() => document.querySelectorAll(".quiz-next-step")[1].click());
+      await new Promise((r) => setTimeout(r, 250));
+      await page.evaluate(() => document.getElementById("quiz-submit-btn").click());
+      await new Promise((r) => setTimeout(r, 700));
+      return page.evaluate(() => {
+        const c = document.getElementById("quiz-results-container");
+        const badge = c ? c.querySelector(".alt-points-badge") : null;
+        const priceMatch = c ? c.innerHTML.match(/\$([\d.]+)/) : null;
+        return {
+          hasCard: !!(c && c.querySelector(".quiz-recommended-card")),
+          badgeText: badge ? badge.textContent.replace(/\s+/g, " ").trim() : null,
+          points: c && c.querySelector(".pts-val") ? c.querySelector(".pts-val").textContent : null,
+          price: priceMatch ? Number(priceMatch[1]) : null
+        };
+      });
+    }
+
+    const quizDefault = await runQuiz(null);
+    check(quizDefault.hasCard, "Quiz renders a recommendation card", quizDefault);
+    check(
+      quizDefault.badgeText !== null && quizDefault.price !== null,
+      "Quiz card shows an Alt-Points badge and a price by default",
+      quizDefault
+    );
+    check(
+      Number(quizDefault.points) === Math.floor(quizDefault.price),
+      "Quiz badge uses the default 1 point per dollar",
+      quizDefault
+    );
+
+    // Loyalty switched OFF: the badge must disappear entirely.
+    const quizDisabled = await runQuiz(() => {
+      window.YL_CONTENT.site.enableLoyaltyPoints = false;
+    });
+    check(
+      quizDisabled.hasCard,
+      "Quiz still renders its recommendation with loyalty disabled",
+      quizDisabled
+    );
+    check(
+      quizDisabled.badgeText === null,
+      "Quiz omits the points badge when loyalty is disabled",
+      quizDisabled
+    );
+
+    // Custom rate + renamed programme: the badge must follow the config.
+    const quizCustom = await runQuiz(() => {
+      window.YL_CONTENT.site.loyaltyPointsPerDollar = 5;
+      window.YL_CONTENT.site.loyaltyPointsName = "Hex Points";
+      window.YL_CONTENT.site.loyaltyBadgeEmoji = "🌙";
+    });
+    check(
+      Number(quizCustom.points) === Math.floor(quizCustom.price * 5),
+      "Quiz badge multiplies by the configured points-per-dollar rate",
+      quizCustom
+    );
+    check(
+      quizCustom.badgeText !== null && quizCustom.badgeText.includes("Hex Points"),
+      "Quiz badge uses the configured programme name",
+      quizCustom
+    );
+    check(
+      quizCustom.badgeText !== null && quizCustom.badgeText.includes("🌙"),
+      "Quiz badge uses the configured badge emoji",
+      quizCustom
+    );
+    check(
+      quizCustom.badgeText !== null && !quizCustom.badgeText.includes("Alt-Points"),
+      "Quiz badge no longer hard-codes the Alt-Points name",
+      quizCustom
+    );
+
     console.log("\n==================================================");
     console.log("Extended QA Test Summary:");
     console.log(`- Pages Checked: ${metrics.pagesChecked}`);
@@ -348,6 +641,10 @@ function createStaticServer(port = 8083) {
     );
     console.log(`- Wishlist State Tests Passed: ${metrics.wishlistTestsPassed}`);
     console.log(`- Alt-Points Calculator Tests Passed: ${metrics.altPointsTestsPassed}`);
+    console.log(
+      `- Bug-Fix Regression Checks: ${metrics.regressionTestsPassed}/${metrics.regressionTestsTotal} PASSED` +
+        " (reset-filters, lightbox photo list, quiz loyalty badge)"
+    );
     console.log(`- Final Verdict: ${exitCode === 0 ? "PASSED" : "FAILED"}`);
     console.log("==================================================\n");
   } catch (e) {

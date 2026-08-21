@@ -67,6 +67,27 @@ function generateRandomCode() {
   return result;
 }
 
+// Deterministic per (session, gift index): a retried webhook delivery
+// (Stripe retries on non-2xx or timeout) must send the promotion-code
+// request with EXACTLY the same parameters under the same Idempotency-Key
+// to get the original code back. A fresh generateRandomCode() on the retry
+// put a different `code` param under the reused key, which Stripe rejects
+// outright (idempotency_error) -- so a retried delivery could never mint or
+// re-fetch the code and the recipient's email was silently skipped. Keyed
+// with the webhook signing secret so codes stay unguessable without it.
+function deriveGiftCardCode(sessionId, giftIndex, secret) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const digest = crypto
+    .createHmac('sha256', String(secret || ''))
+    .update('gift-code-' + sessionId + '-' + giftIndex)
+    .digest();
+  let result = 'YALL-';
+  for (let i = 0; i < 8; i++) {
+    result += chars.charAt(digest[i] % chars.length);
+  }
+  return result;
+}
+
 // Escape user-supplied text before interpolating it into the email HTML.
 // Sender Name / Message come straight from checkout metadata (ultimately
 // from the buyer's own form input), so without this a buyer could inject
@@ -231,7 +252,7 @@ exports.handler = async (event) => {
           return;
         }
 
-        var uniqueCode = generateRandomCode();
+        var uniqueCode = deriveGiftCardCode(session.id, n, STRIPE_WEBHOOK_SECRET);
         var confirmedCode;
         try {
           confirmedCode = await createGiftCardPromotionCode(session.id, n, amountCents, uniqueCode);
@@ -291,6 +312,7 @@ exports.handler = async (event) => {
 };
 
 exports.generateRandomCode = generateRandomCode;
+exports.deriveGiftCardCode = deriveGiftCardCode;
 exports.escapeHtml = escapeHtml;
 exports.verifyStripeSignature = verifyStripeSignature;
 exports.createGiftCardPromotionCode = createGiftCardPromotionCode;

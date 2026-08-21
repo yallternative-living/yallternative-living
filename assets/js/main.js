@@ -704,7 +704,13 @@
   function addToCartHTML(p, extraClass) {
     if (p.id === "yallternative-gift-card") {
       return (
-        '<a href="#gift-cards" class="btn btn-secondary btn-sm' +
+        /* btn-outline, not btn-secondary: there is no .btn-secondary rule in
+           styles.css, and bare .btn carries no background and a transparent
+           border, so the gift card's "Configure Card" rendered as unstyled
+           inherited text in a row of solid buttons. btn-outline is this
+           design system's secondary variant (what the old class name was
+           reaching for) and keeps it visibly distinct from Add to Cart. */
+        '<a href="#gift-cards" class="btn btn-outline btn-sm' +
         (extraClass ? " " + extraClass : "") +
         '">Configure Card</a>'
       );
@@ -1335,9 +1341,15 @@
           }
           var item = getProductMap().get(prodId);
           if (item && item.images && item.images.length) {
+            /* p.images holds only the ALT photos -- the primary p.image is
+               not in it (see cardGalleryHTML, which renders
+               [p.image].concat(p.images)). Passing item.images alone left
+               the primary photo out of the lightbox entirely, so clicking
+               the default slide "enlarged" the first alt photo instead. */
+            var allPhotos = [item.image].concat(item.images).filter(Boolean);
             var activeImg = slide.querySelector("img");
-            var src = activeImg ? activeImg.getAttribute("src") : item.images[0];
-            window.openLightbox(item.images, src);
+            var src = activeImg ? activeImg.getAttribute("src") : allPhotos[0];
+            window.openLightbox(allPhotos, src);
           }
         }
       }
@@ -2215,6 +2227,21 @@
   function cardHTML(p, opts) {
     opts = opts || {};
     var loyalty = getLoyaltyConfig();
+    /* 0 means the owner switched free shipping off in the CMS ("Set to 0 to
+       disable"), which the announcement bar and the checkout Worker both
+       honour -- so the card must drop the promise rather than fall back to
+       the default and advertise a tier Stripe will no longer give. Only a
+       missing/non-numeric value falls back. */
+    var rawFreeShip =
+      window.YL_PRODUCTS && window.YL_PRODUCTS.shop
+        ? window.YL_PRODUCTS.shop.freeShippingThreshold
+        : undefined;
+    var freeShipThreshold =
+      rawFreeShip === null || rawFreeShip === undefined || rawFreeShip === ""
+        ? 40
+        : isFinite(Number(rawFreeShip))
+          ? Number(rawFreeShip)
+          : 40;
     var pointsBadgeHTML = loyalty.enabled
       ? '<div style="text-align: center; margin-bottom: 8px;"><span class="alt-points-badge">' +
         attrEsc(loyalty.emoji) +
@@ -2273,8 +2300,10 @@
       stockBadgeHTML(p) +
       '<div class="card-foot">' +
       variantSelectHTML(p) +
-      (p.id !== "yallternative-gift-card"
-        ? '<p style="font-size: 0.72rem; color: var(--whiskey); margin: 0 0 6px 0; text-align: center; font-weight: 600;">Free shipping over $40</p>'
+      (p.id !== "yallternative-gift-card" && freeShipThreshold > 0
+        ? '<p style="font-size: 0.72rem; color: var(--whiskey); margin: 0 0 6px 0; text-align: center; font-weight: 600;">Free shipping over $' +
+          freeShipThreshold +
+          "</p>"
         : "") +
       pointsBadgeHTML +
       '<div class="card-foot-row">' +
@@ -2322,7 +2351,7 @@
             searchInput.value = "";
             searchInput.dispatchEvent(new Event("input"));
           }
-          var allPill = document.querySelector('.cat-pill[data-category="all"]');
+          var allPill = document.querySelector('.filter-pill[data-filter="all"]');
           if (allPill) {
             allPill.click();
           }
@@ -3089,7 +3118,20 @@
     // Show a non-disruptive toast when a new SW version is ready,
     // instead of force-reloading mid-session (which can clear form
     // state and break the visitor's flow).
+    //
+    // controllerchange also fires on a *first* install: sw.js calls
+    // skipWaiting() then clients.claim(), which takes control of the page
+    // that just registered it, moving navigator.serviceWorker.controller
+    // from null to the new worker. Without this guard every brand-new
+    // visitor (and anyone who cleared site data) was told "A new version is
+    // available!" seconds after landing, on the version they had just
+    // loaded. Only a change away from an existing controller is an update.
+    var hadController = !!navigator.serviceWorker.controller;
     navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (!hadController) {
+        hadController = true;
+        return;
+      }
       var toast = document.getElementById("sw-update-toast");
       if (!toast) {
         toast = document.createElement("div");
@@ -3132,7 +3174,13 @@
     if (matchedItem) {
       setTimeout(function () {
         if (typeof window.openLightbox === "function") {
-          window.openLightbox(matchedItem.images || [matchedItem.image], matchedItem.image);
+          // Same shape as the gallery: p.image is the primary, p.images are
+          // the extra photos only -- concat so the deep-linked lightbox
+          // opens on the primary instead of falling back to slide 0.
+          window.openLightbox(
+            [matchedItem.image].concat(matchedItem.images || []).filter(Boolean),
+            matchedItem.image
+          );
         }
       }, 400);
     }
@@ -3461,6 +3509,14 @@
     var secsSpan = document.getElementById("yl-countdown-seconds");
     var eventDetailsSpan = document.getElementById("heroEventDetails");
 
+    /* .countdown-card has no rule in styles.css -- the card is drawn entirely
+       by these inline styles. The "in progress today" branch below used to
+       emit the bare class with nothing on it, so from 9am on a market day the
+       banner dropped its panel, border and centering and rendered as raw
+       text. Shared here so both states of the same card stay identical. */
+    var countdownCardStyle =
+      "background: var(--ink-3); color: var(--paper); border: 1px solid var(--hide); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.5rem; text-align: center;";
+
     function update() {
       var rem = targetTime - Date.now();
       if (rem <= 0) {
@@ -3470,9 +3526,13 @@
         }
         if (bannerContainer) {
           bannerContainer.innerHTML =
-            '<div class="countdown-card"><h3>' +
+            '<div class="countdown-card" style="' +
+            countdownCardStyle +
+            '"><span class="card-cat" style="color: var(--whiskey); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;">Happening Now</span>' +
+            '<h3 style="margin: 0.4rem 0 0.6rem; font-family: var(--font-heading);">' +
             attrEsc(nextEvt.name) +
-            "</h3><p>Pop-up in progress today!</p></div>";
+            "</h3>" +
+            '<p style="margin: 0;">Pop-up in progress today!</p></div>';
         }
         return;
       }
@@ -3508,7 +3568,9 @@
           sStr +
           " Secs";
         bannerContainer.innerHTML =
-          '<div class="countdown-card" style="background: var(--ink-3); color: var(--paper); border: 1px solid var(--hide); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.5rem; text-align: center;">' +
+          '<div class="countdown-card" style="' +
+          countdownCardStyle +
+          '">' +
           '  <span class="card-cat" style="color: var(--whiskey); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;">Next Live Appearance</span>' +
           '  <h3 style="margin: 0.4rem 0 0.6rem; font-family: var(--font-heading);">' +
           attrEsc(nextEvt.name) +
@@ -3900,6 +3962,17 @@
           recPrice = 0;
         }
 
+        var loyalty = getLoyaltyConfig();
+        var quizPointsBadgeHTML = loyalty.enabled
+          ? '  <div style="text-align: center; margin-bottom: 12px;"><span class="alt-points-badge">' +
+            attrEsc(loyalty.emoji) +
+            ' Earn <span class="pts-val">' +
+            Math.floor(recPrice * loyalty.rate) +
+            "</span> " +
+            attrEsc(loyalty.name) +
+            "</span></div>"
+          : "";
+
         if (results) {
           results.innerHTML =
             '<div class="card quiz-recommended-card reveal" style="max-width: 540px; margin: 0 auto; padding: 1.5rem; text-align: center; border: 2px solid var(--whiskey); background: var(--ink-3); color: var(--paper); border-radius: var(--radius-md);">' +
@@ -3918,9 +3991,7 @@
             '  <p style="font-size: 0.82rem; color: var(--whiskey); font-style: italic; margin-bottom: 0.75rem;">' +
             attrEsc(rationale) +
             "</p>" +
-            '  <div style="text-align: center; margin-bottom: 12px;"><span class="alt-points-badge">✨ Earn <span class="pts-val">' +
-            Math.floor(recPrice) +
-            "</span> Alt-Points</span></div>" +
+            quizPointsBadgeHTML +
             '  <button type="button" class="btn btn-primary btn-block yl-add-item"' +
             '    data-item-id="' +
             attrEsc(match.isBundle ? "bundle-" + match.id : match.id) +

@@ -140,6 +140,53 @@ function safeUrl(url) {
   return "";
 }
 
+/* ---------- Form endpoints (action="...") ----------
+   These three live inside a quoted HTML attribute, where a <!--YL:key-->
+   marker can't survive: inside an attribute value an HTML comment isn't a
+   comment, so the build's final cleanAttributeMarkers() pass deletes it --
+   and with it the only hook the NEXT build had to re-inject through. The
+   result was the same failure umamiWebsiteId used to have: /admin offers
+   "Newsletter Form Link (Kit/ConvertKit)" and "Contact Form Code
+   (Formspree)", and filling either one in changed nothing at all -- every
+   page kept posting to YOUR_KIT_FORM_ACTION_URL / formspree.io/f/YOUR_FORM_ID
+   and main.js kept telling visitors the form isn't connected yet.
+
+   So these match the action attribute on the form's own class instead of a
+   marker, which stays re-injectable on every build in BOTH directions:
+   clearing the field in /admin restores the placeholder, which is exactly the
+   string main.js looks for to show its honest "not connected yet" fallback
+   rather than dropping a message on the floor. */
+
+// A Formspree form id is a short token in a URL path. Anything else is a typo
+// or an attempt to smuggle markup into an action="" attribute, so fall back
+// to the placeholder (= the honest "not wired up yet" state) rather than
+// emitting a broken or hostile endpoint.
+function formspreeAction(rawId, placeholderId) {
+  const id = String(rawId === null || rawId === undefined ? "" : rawId).trim();
+  const useId = /^[A-Za-z0-9_-]{1,64}$/.test(id) ? id : placeholderId;
+  return "https://formspree.io/f/" + useId;
+}
+
+// Kit/ConvertKit hands out a full https form URL. safeUrl() already rejects
+// javascript:/data:, and the placeholder is kept for anything else.
+function newsletterAction(rawUrl, placeholder) {
+  const url = safeUrl(rawUrl);
+  return url && url !== placeholder ? escapeHtml(url) : placeholder;
+}
+
+// Rewrite the action="" of every <form> carrying `className`. Class matching
+// is by whole token, so "contact-form" never matches "contact-form-col".
+function setFormAction(html, className, actionValue) {
+  return html.replace(/<form\b[^>]*>/g, function (tag) {
+    const classAttr = /\sclass="([^"]*)"/.exec(tag);
+    if (!classAttr || classAttr[1].trim().split(/\s+/).indexOf(className) === -1) return tag;
+    if (!/\saction="/.test(tag)) return tag;
+    return tag.replace(/(\saction=")[^"]*(")/, function (m, pre, post) {
+      return pre + actionValue + post;
+    });
+  });
+}
+
 function slugify(text) {
   if (!text) return "";
   return String(text)
@@ -1786,6 +1833,24 @@ function buildSiteData() {
         }
       );
 
+      /* Newsletter + Formspree endpoints. See formspreeAction/setFormAction
+       at the top of this file for why these can't go through YL: markers. */
+      updated = setFormAction(
+        updated,
+        "footer-signup-form",
+        newsletterAction(site.kitFormAction, "YOUR_KIT_FORM_ACTION_URL")
+      );
+      updated = setFormAction(
+        updated,
+        "contact-form",
+        formspreeAction(site.formspreeContactId, "YOUR_FORM_ID")
+      );
+      updated = setFormAction(
+        updated,
+        "review-form",
+        formspreeAction(site.formspreeReviewId, "YOUR_FORMSPREE_FORM_ID")
+      );
+
       // Special handling for Gift Up! ID to generate full HTML script embed
       updated = updated.replace(
         /<!--YL:site\.giftUpId-->([\s\S]*?)<!--\/YL:site\.giftUpId-->/g,
@@ -1987,6 +2052,9 @@ if (typeof module !== "undefined" && module.exports) {
     bundlePricing: bundlePricing,
     variantPriceRange: variantPriceRange,
     stripMarkersInsideAttributes: stripMarkersInsideAttributes,
+    formspreeAction: formspreeAction,
+    newsletterAction: newsletterAction,
+    setFormAction: setFormAction,
     buildSiteData: buildSiteData
   };
 }

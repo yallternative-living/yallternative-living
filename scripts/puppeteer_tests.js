@@ -362,6 +362,14 @@ function createStaticServer(port = 8082) {
     // 7. Test Alt-Points Loyalty System (R3)
     console.log("--- Testing Alt-Points Loyalty System (R3) ---");
     await page.goto(`${url}/shop.html`, { waitUntil: "networkidle2" });
+    /* The Cart Flow section above left an item in localStorage and nothing
+       since empties it -- thank-you.html only clears the cart after a real
+       Stripe redirect now (keyed on session_id, see assets/js/thank-you.js),
+       so visiting that page no longer doubles as a reset. Start from a
+       known-empty cart, or the expected point total below is the wrong one. */
+    await page.evaluate(() => {
+      if (window.YLCart && typeof window.YLCart.clear === "function") window.YLCart.clear();
+    });
     const badgeText = await page
       .$eval(".alt-points-badge", (el) => el.textContent.trim())
       .catch(() => null);

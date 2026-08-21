@@ -50,8 +50,8 @@ exports.handler = async function (event) {
       params = JSON.parse(event.body || "{}");
     }
 
-    const email = escapeHtml(params.email).trim();
-    const product = escapeHtml(params.product || params.product_id).trim();
+    const email = String(params.email || "").trim();
+    const product = String(params.product || params.product_id || "").trim();
     const honeypot = params.website_hp || params.hp_field;
 
     // Silent honeypot rejection for bots
@@ -77,7 +77,7 @@ exports.handler = async function (event) {
       headers,
       body: JSON.stringify({
         success: true,
-        message: `Thank you! We'll notify ${email} when ${product || "this item"} is back in stock.`,
+        message: `Thank you! We'll notify ${escapeHtml(email)} when ${escapeHtml(product) || "this item"} is back in stock.`,
       }),
     };
   } catch (err) {

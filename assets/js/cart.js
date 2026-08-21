@@ -141,6 +141,23 @@
     return payload;
   }
 
+  /* Free-shipping threshold in dollars, from products.json
+     shop.freeShippingThreshold. Returns 0 when the owner has switched the
+     promise off in the CMS ("Set to 0 to disable", admin/config.yml) -- the
+     announcement bar in main.js and the Worker's shipping line
+     (workers/checkout.js resolveFreeShippingThresholdCents) read that same 0
+     the same way, so a disabled promise disappears everywhere instead of only
+     from the banner. Only a missing/non-numeric value falls back to the
+     default. */
+  function freeShipThreshold() {
+    var shop = (root.YL_PRODUCTS && root.YL_PRODUCTS.shop) || {};
+    var raw = shop.freeShippingThreshold;
+    if (raw === null || raw === undefined || raw === "") return DEFAULT_FREE_SHIP;
+    var dollars = Number(raw);
+    if (!isFinite(dollars)) return DEFAULT_FREE_SHIP;
+    return dollars > 0 ? dollars : 0;
+  }
+
   // Expose the pure helpers to Node for testing without touching the DOM layer.
   if (typeof module !== "undefined" && module.exports) {
     module.exports = {
@@ -151,7 +168,8 @@
       subtotal: subtotal,
       totalCount: totalCount,
       addToList: addToList,
-      toCheckoutPayload: toCheckoutPayload
+      toCheckoutPayload: toCheckoutPayload,
+      freeShipThreshold: freeShipThreshold
     };
   }
 
@@ -200,11 +218,6 @@
       return hex;
     }
     throw new Error("Secure random number generator not available");
-  }
-
-  function freeShipThreshold() {
-    var v = Number(root.YL_FREE_SHIP);
-    return v > 0 ? v : DEFAULT_FREE_SHIP;
   }
 
   /* ---------------- Drawer UI ---------------- */
@@ -405,14 +418,33 @@
     var sub = subtotal(state.items);
     var physSub = physicalSubtotal(state.items);
     var threshold = freeShipThreshold();
-    var remaining = Math.max(0, threshold - physSub);
+    var remaining = threshold > 0 ? Math.max(0, threshold - physSub) : 0;
 
+    /* With the promise switched off (threshold 0) there's no progress to
+       report and nothing to unlock, so the meter drops out entirely -- but a
+       pickup order still gets its "$0 shipping" confirmation, which is about
+       pickup, not the free-shipping tier. */
     var shipMsg = state.isPickup
       ? "📍 Local SC Market Pick-up Selected ($0 Shipping)"
-      : remaining > 0
-        ? "Add " + money(remaining) + " for free shipping"
-        : "You've unlocked free shipping!";
-    var pct = state.isPickup ? 100 : Math.min(100, Math.round((physSub / threshold) * 100));
+      : threshold <= 0
+        ? ""
+        : remaining > 0
+          ? "Add " + money(remaining) + " for free shipping"
+          : "You've unlocked free shipping!";
+    var pct =
+      state.isPickup || threshold <= 0
+        ? 100
+        : Math.min(100, Math.round((physSub / threshold) * 100));
+    var shipHTML = shipMsg
+      ? '<div class="yl-cart-ship">' +
+        '<div class="yl-cart-ship-msg">' +
+        shipMsg +
+        "</div>" +
+        '<div class="yl-cart-ship-bar"><span style="width:' +
+        pct +
+        '%"></span></div>' +
+        "</div>"
+      : "";
 
     var loyalty = getLoyaltyConfig();
     var earnedPoints = Math.floor(sub * loyalty.rate);
@@ -511,14 +543,7 @@
       upsellHTML() +
       pointsHTML +
       pickupHTML +
-      '<div class="yl-cart-ship">' +
-      '<div class="yl-cart-ship-msg">' +
-      shipMsg +
-      "</div>" +
-      '<div class="yl-cart-ship-bar"><span style="width:' +
-      pct +
-      '%"></span></div>' +
-      "</div>" +
+      shipHTML +
       '<div class="yl-cart-subtotal"><span>Subtotal</span><strong>' +
       money(sub) +
       "</strong></div>" +
