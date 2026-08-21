@@ -203,8 +203,11 @@
   }
 
   function freeShipThreshold() {
-    var v = Number(root.YL_FREE_SHIP);
-    return v > 0 ? v : DEFAULT_FREE_SHIP;
+    var configured =
+      root.YL_PRODUCTS &&
+      root.YL_PRODUCTS.shop &&
+      Number(root.YL_PRODUCTS.shop.freeShippingThreshold);
+    return configured > 0 ? configured : DEFAULT_FREE_SHIP;
   }
 
   /* ---------------- Drawer UI ---------------- */

@@ -2221,6 +2221,11 @@
   function cardHTML(p, opts) {
     opts = opts || {};
     var loyalty = getLoyaltyConfig();
+    var freeShipThreshold =
+      (window.YL_PRODUCTS &&
+        window.YL_PRODUCTS.shop &&
+        window.YL_PRODUCTS.shop.freeShippingThreshold) ||
+      40;
     var pointsBadgeHTML = loyalty.enabled
       ? '<div style="text-align: center; margin-bottom: 8px;"><span class="alt-points-badge">' +
         attrEsc(loyalty.emoji) +
@@ -2280,7 +2285,9 @@
       '<div class="card-foot">' +
       variantSelectHTML(p) +
       (p.id !== "yallternative-gift-card"
-        ? '<p style="font-size: 0.72rem; color: var(--whiskey); margin: 0 0 6px 0; text-align: center; font-weight: 600;">Free shipping over $40</p>'
+        ? '<p style="font-size: 0.72rem; color: var(--whiskey); margin: 0 0 6px 0; text-align: center; font-weight: 600;">Free shipping over $' +
+          freeShipThreshold +
+          "</p>"
         : "") +
       pointsBadgeHTML +
       '<div class="card-foot-row">' +
@@ -3912,6 +3919,17 @@
           recPrice = 0;
         }
 
+        var loyalty = getLoyaltyConfig();
+        var quizPointsBadgeHTML = loyalty.enabled
+          ? '  <div style="text-align: center; margin-bottom: 12px;"><span class="alt-points-badge">' +
+            attrEsc(loyalty.emoji) +
+            ' Earn <span class="pts-val">' +
+            Math.floor(recPrice * loyalty.rate) +
+            "</span> " +
+            attrEsc(loyalty.name) +
+            "</span></div>"
+          : "";
+
         if (results) {
           results.innerHTML =
             '<div class="card quiz-recommended-card reveal" style="max-width: 540px; margin: 0 auto; padding: 1.5rem; text-align: center; border: 2px solid var(--whiskey); background: var(--ink-3); color: var(--paper); border-radius: var(--radius-md);">' +
@@ -3930,9 +3948,7 @@
             '  <p style="font-size: 0.82rem; color: var(--whiskey); font-style: italic; margin-bottom: 0.75rem;">' +
             attrEsc(rationale) +
             "</p>" +
-            '  <div style="text-align: center; margin-bottom: 12px;"><span class="alt-points-badge">✨ Earn <span class="pts-val">' +
-            Math.floor(recPrice) +
-            "</span> Alt-Points</span></div>" +
+            quizPointsBadgeHTML +
             '  <button type="button" class="btn btn-primary btn-block yl-add-item"' +
             '    data-item-id="' +
             attrEsc(match.isBundle ? "bundle-" + match.id : match.id) +
