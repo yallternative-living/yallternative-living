@@ -1501,69 +1501,15 @@ if (
   fail("shop.html", "missing #apothecary-quiz-section or #quiz-submit-btn");
 }
 
-/* ---------- Unit Test Suites ---------- */
-section("Unit Test Suites (cart-engine, backend-functions, main, build-site-data)");
-try {
-  execSync('node "' + path.join(ROOT, "scripts/cart-engine.test.js") + '"', { stdio: "pipe" });
-  ok("scripts/cart-engine.test.js passed");
-} catch (e) {
-  fail("scripts/cart-engine.test.js", e.stderr ? e.stderr.toString().split("\n")[0] : e.message);
-}
-
-try {
-  execSync('node "' + path.join(ROOT, "scripts/cart.test.js") + '"', { stdio: "pipe" });
-  ok("scripts/cart.test.js passed");
-} catch (e) {
-  fail("scripts/cart.test.js", e.stderr ? e.stderr.toString().split("\n")[0] : e.message);
-}
-
-try {
-  execSync('node "' + path.join(ROOT, "scripts/backend-functions.test.js") + '"', {
-    stdio: "pipe"
-  });
-  ok("scripts/backend-functions.test.js passed");
-} catch (e) {
-  fail(
-    "scripts/backend-functions.test.js",
-    e.stderr ? e.stderr.toString().split("\n")[0] : e.message
-  );
-}
-
-try {
-  execSync('node "' + path.join(ROOT, "scripts/main.test.js") + '"', { stdio: "pipe" });
-  ok("scripts/main.test.js passed");
-} catch (e) {
-  fail("scripts/main.test.js", e.stderr ? e.stderr.toString().split("\n")[0] : e.message);
-}
-
-try {
-  execSync('node "' + path.join(ROOT, "scripts/build-site-data.test.js") + '"', {
-    stdio: "pipe"
-  });
-  ok("scripts/build-site-data.test.js passed");
-} catch (e) {
-  fail(
-    "scripts/build-site-data.test.js",
-    e.stderr ? e.stderr.toString().split("\n")[0] : e.message
-  );
-}
-
-try {
-  execSync('node "' + path.join(ROOT, "scripts/translator.test.js") + '"', { stdio: "pipe" });
-  ok("scripts/translator.test.js passed");
-} catch (e) {
-  fail("scripts/translator.test.js", e.stderr ? e.stderr.toString().split("\n")[0] : e.message);
-}
-
-try {
-  execSync('node "' + path.join(ROOT, "scripts/sync-social-feed.test.js") + '"', { stdio: "pipe" });
-  ok("scripts/sync-social-feed.test.js passed");
-} catch (e) {
-  fail(
-    "scripts/sync-social-feed.test.js",
-    e.stderr ? e.stderr.toString().split("\n")[0] : e.message
-  );
-}
+/* ---------- Unit Test Suites ----------
+   Deliberately NOT run from here any more. This file used to shell out to
+   each scripts/*.test.js with stdio:"pipe" and collapse the result to a
+   single ✓/✗ per suite, which threw away every assertion name and truncated
+   the error to its first line -- a real failure reported itself as
+   "node:internal/modules/cjs/loader:1386", which tells you nothing.
+   scripts/run-unit-tests.js runs them with inherited stdio instead, and
+   `npm test` runs it first, so the suites still gate every push -- once,
+   with readable output, rather than twice with the second run mute. */
 
 /* ---------- Feature switches are actually wired ----------
    Every boolean in content.json's `site` block is a switch shown to Savanna
