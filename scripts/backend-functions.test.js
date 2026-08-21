@@ -614,7 +614,13 @@ try {
         return { ok: true, json: async () => ({ status: opts2.taxSettings.status }) };
       }
       if (u.includes("products.json")) {
-        return { ok: true, clone: () => ({ body: null }), json: async () => taxCatalog };
+        // _stub.shop lets a test hand the Worker a different shop config
+        // (e.g. a CMS-edited freeShippingThreshold) without rebuilding the
+        // whole catalog.
+        const catalog = opts2.shop
+          ? { ...taxCatalog, shop: { ...taxCatalog.shop, ...opts2.shop } }
+          : taxCatalog;
+        return { ok: true, clone: () => ({ body: null }), json: async () => catalog };
       }
       if (u.includes("events.json")) {
         if (!opts2.eventsOk) return { ok: false };
@@ -834,6 +840,111 @@ try {
   // after applying discounts"), so this combination is well-defined; see
   // DEVELOPMENT.md section 18 for what that means for gift cards.
   eq(p.get("allow_promotion_codes"), "true", "tax on: promotion codes still allowed");
+
+  /* ==========================================================
+     6b. Free-shipping threshold follows the CMS, not a constant
+     shop.freeShippingThreshold in products.json drives the announcement
+     bar, the product cards and the cart drawer's progress meter. If the
+     Worker keeps its own copy, raising the threshold in /admin changes
+     every promise on the site while Stripe silently keeps waiving shipping
+     at the old number -- checkout contradicting the page that sold it.
+     ========================================================== */
+  const shipAmount = (params) =>
+    params.get("shipping_options[0][shipping_rate_data][fixed_amount][amount]");
+  const shipName = (params) => params.get("shipping_options[0][shipping_rate_data][display_name]");
+
+  // Pure resolver: dollars -> cents, with the client's own fallback rules.
+  eq(
+    checkout.resolveFreeShippingThresholdCents({ shop: { freeShippingThreshold: 40 } }),
+    4000,
+    "resolveFreeShippingThresholdCents converts dollars to cents"
+  );
+  eq(
+    checkout.resolveFreeShippingThresholdCents({ shop: { freeShippingThreshold: 74.5 } }),
+    7450,
+    "resolveFreeShippingThresholdCents handles a fractional threshold"
+  );
+  eq(
+    checkout.resolveFreeShippingThresholdCents({ shop: {} }),
+    4000,
+    "resolveFreeShippingThresholdCents falls back when the field is missing"
+  );
+  eq(
+    checkout.resolveFreeShippingThresholdCents({}),
+    4000,
+    "resolveFreeShippingThresholdCents falls back when shop is missing"
+  );
+  eq(
+    checkout.resolveFreeShippingThresholdCents(null),
+    4000,
+    "resolveFreeShippingThresholdCents is null-safe"
+  );
+  eq(
+    checkout.resolveFreeShippingThresholdCents({ shop: { freeShippingThreshold: "nope" } }),
+    4000,
+    "resolveFreeShippingThresholdCents falls back on a non-numeric value"
+  );
+  eq(
+    checkout.resolveFreeShippingThresholdCents({ shop: { freeShippingThreshold: 0 } }),
+    0,
+    'resolveFreeShippingThresholdCents treats 0 as "disabled", not as the default'
+  );
+
+  // End to end: a raised threshold has to reach the Stripe session.
+  // $16 salve x 3 = $48: free under the default $40, charged under a $75
+  // threshold. If the Worker were still hardcoded, this line would be free.
+  p = await captureParams([{ id: "beard-salve", qty: 3 }], {
+    _stub: { shop: { freeShippingThreshold: 75 } }
+  });
+  eq(shipAmount(p), "1000", "raised threshold: $48 order is below $75, so shipping is charged");
+  eq(shipName(p), "Standard shipping", "raised threshold: shipping line is named as charged");
+
+  p = await captureParams([{ id: "beard-salve", qty: 5 }], {
+    _stub: { shop: { freeShippingThreshold: 75 } }
+  });
+  eq(shipAmount(p), "0", "raised threshold: $80 order clears $75 and ships free");
+  eq(shipName(p), "Free shipping", "raised threshold: free line is named as free");
+
+  // Lowered threshold, the same order: now free where the old constant charged.
+  p = await captureParams([{ id: "beard-salve", qty: 1 }], {
+    _stub: { shop: { freeShippingThreshold: 15 } }
+  });
+  eq(shipAmount(p), "0", "lowered threshold: $16 order clears $15 and ships free");
+
+  // Exactly at the threshold counts as qualifying -- "orders over $X" on the
+  // site has always meant the meter filling at $X in the cart drawer.
+  p = await captureParams([{ id: "beard-salve", qty: 1 }], {
+    _stub: { shop: { freeShippingThreshold: 16 } }
+  });
+  eq(shipAmount(p), "0", "threshold: an order exactly at the threshold ships free");
+
+  // 0 = "Set to 0 to disable" (admin/config.yml). Nothing qualifies, however
+  // large -- matching the announcement bar, which hides the promise entirely.
+  p = await captureParams([{ id: "beard-salve", qty: 10 }], {
+    _stub: { shop: { freeShippingThreshold: 0 } }
+  });
+  eq(shipAmount(p), "1000", "threshold 0: free shipping disabled even on a $160 order");
+
+  // Missing/garbage config must not make shipping free by accident.
+  p = await captureParams([{ id: "beard-salve", qty: 1 }], {});
+  eq(shipAmount(p), "1000", "no threshold configured: falls back to $40, so $16 is charged");
+  p = await captureParams([{ id: "beard-salve", qty: 3 }], {});
+  eq(shipAmount(p), "0", "no threshold configured: falls back to $40, so $48 ships free");
+  p = await captureParams([{ id: "beard-salve", qty: 1 }], {
+    _stub: { shop: { freeShippingThreshold: "forty" } }
+  });
+  eq(shipAmount(p), "1000", "non-numeric threshold: falls back rather than shipping free");
+
+  // Gift cards never count toward the physical subtotal, whatever the
+  // threshold is -- an emailed card can't push an order into free shipping.
+  p = await captureParams(
+    [
+      { id: "beard-salve", qty: 1 },
+      { id: "yallternative-gift-card", qty: 1, variant: "Preset $100" }
+    ],
+    { _stub: { shop: { freeShippingThreshold: 40 } } }
+  );
+  eq(shipAmount(p), "1000", "gift cards don't count toward the free-shipping threshold");
 
   /* ==========================================================
      7. Market pickup is taxed where the order is collected

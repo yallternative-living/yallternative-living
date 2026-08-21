@@ -2221,11 +2221,21 @@
   function cardHTML(p, opts) {
     opts = opts || {};
     var loyalty = getLoyaltyConfig();
+    /* 0 means the owner switched free shipping off in the CMS ("Set to 0 to
+       disable"), which the announcement bar and the checkout Worker both
+       honour -- so the card must drop the promise rather than fall back to
+       the default and advertise a tier Stripe will no longer give. Only a
+       missing/non-numeric value falls back. */
+    var rawFreeShip =
+      window.YL_PRODUCTS && window.YL_PRODUCTS.shop
+        ? window.YL_PRODUCTS.shop.freeShippingThreshold
+        : undefined;
     var freeShipThreshold =
-      (window.YL_PRODUCTS &&
-        window.YL_PRODUCTS.shop &&
-        window.YL_PRODUCTS.shop.freeShippingThreshold) ||
-      40;
+      rawFreeShip === null || rawFreeShip === undefined || rawFreeShip === ""
+        ? 40
+        : isFinite(Number(rawFreeShip))
+          ? Number(rawFreeShip)
+          : 40;
     var pointsBadgeHTML = loyalty.enabled
       ? '<div style="text-align: center; margin-bottom: 8px;"><span class="alt-points-badge">' +
         attrEsc(loyalty.emoji) +
@@ -2284,7 +2294,7 @@
       stockBadgeHTML(p) +
       '<div class="card-foot">' +
       variantSelectHTML(p) +
-      (p.id !== "yallternative-gift-card"
+      (p.id !== "yallternative-gift-card" && freeShipThreshold > 0
         ? '<p style="font-size: 0.72rem; color: var(--whiskey); margin: 0 0 6px 0; text-align: center; font-weight: 600;">Free shipping over $' +
           freeShipThreshold +
           "</p>"
