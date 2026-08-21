@@ -15,6 +15,12 @@
   publish = "."
   command = "node scripts/build-site-data.js && node scripts/build-security-headers.js"
 
+[[redirects]]
+  from = "/api/checkout"
+  to = "https://yallternative-checkout.y-allternative-living.workers.dev"
+  status = 200
+  force = true
+
 # Long-lived caching for hashed/never-changing assets. Pages themselves
 # (index.html, shop.html, etc.) intentionally aren't cached long here --
 # Netlify already serves them with an ETag + must-revalidate by default,

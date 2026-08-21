@@ -1886,6 +1886,55 @@ try {
   fail("lockfile hygiene", e.message);
 }
 
+/* ---------- 21) Checkout proxy actually points at the Worker ----------
+   The cart POSTs to a same-origin path; Netlify proxies that path to the
+   Cloudflare Worker that answers it. Three files have to agree on it --
+   assets/js/cart.js (the path it calls), build-security-headers.js (the
+   generator that emits the rule) and netlify.toml (the generated output).
+   A mismatch has no visible symptom until a real shopper clicks Checkout and
+   gets a 404, so it gets asserted rather than trusted. */
+section("Checkout proxy (cart.js -> netlify.toml -> Cloudflare Worker)");
+try {
+  var cartSrc = fs.readFileSync(path.join(ROOT, "assets/js/cart.js"), "utf8");
+  var cartMatch = cartSrc.match(/CHECKOUT_URL\s*=\s*"([^"]+)"/);
+  var netlifySrc = fs.readFileSync(path.join(ROOT, "netlify.toml"), "utf8");
+  var redirectMatch = netlifySrc.match(
+    /\[\[redirects\]\][\s\S]*?from\s*=\s*"([^"]+)"[\s\S]*?to\s*=\s*"([^"]+)"[\s\S]*?status\s*=\s*(\d+)/
+  );
+
+  if (!cartMatch) {
+    fail("cart.js declares a CHECKOUT_URL");
+  } else if (!redirectMatch) {
+    fail("netlify.toml has a [[redirects]] rule for checkout", "none found");
+  } else {
+    if (cartMatch[1] === redirectMatch[1]) {
+      ok("netlify.toml proxies exactly the path cart.js posts to (" + cartMatch[1] + ")");
+    } else {
+      fail(
+        "netlify.toml proxy path matches cart.js CHECKOUT_URL",
+        "cart.js posts to " + cartMatch[1] + ", netlify.toml proxies " + redirectMatch[1]
+      );
+    }
+
+    // status 200 is a proxy; 301/302 would send the browser cross-origin to
+    // workers.dev, where the CSP's connect-src 'self' blocks it and the POST
+    // body is dropped on the redirect.
+    if (redirectMatch[3] === "200") {
+      ok("checkout rule is a proxy (status 200), not a redirect");
+    } else {
+      fail("checkout rule is a proxy (status 200)", "found status " + redirectMatch[3]);
+    }
+
+    if (/^https:\/\/[^/]+\.workers\.dev$/.test(redirectMatch[2])) {
+      ok("checkout proxy targets a Cloudflare workers.dev host over https");
+    } else {
+      fail("checkout proxy targets a workers.dev host over https", "found " + redirectMatch[2]);
+    }
+  }
+} catch (e) {
+  fail("checkout proxy wiring", e.message);
+}
+
 /* ---------- Summary ---------- */
 console.log("\n" + "=".repeat(50));
 console.log(passCount + " checks passed, " + failures.length + " failed.");
