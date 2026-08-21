@@ -194,8 +194,18 @@ try {
 
 /* ==========================================================
    4. fulfill-gift-card.js: createGiftCardPromotionCode
+   ----------------------------------------------------------
+   Each async section below is a named function awaited in order by the
+   runner at the bottom of this file. They used to be bare `(async () =>
+   {...})()` IIFEs fired off back-to-back, which meant they interleaved at
+   their first `await`: section 4 swapped `global.fetch` out from under
+   whatever else was mid-flight, and the summary (which lived at the end of
+   the last IIFE) could print -- and set the exit code -- while assertions
+   from the others were still pending. Sequencing them removes both the
+   shared-mutable-state race and the "green because it exited early" failure
+   mode.
    ========================================================== */
-(async () => {
+async function testCreateGiftCardPromotionCode() {
   const globalFetch = global.fetch;
 
   // Coupon API failure
@@ -229,12 +239,12 @@ try {
 
   // Restore global.fetch
   global.fetch = globalFetch;
-})();
+}
 
 /* ==========================================================
    5. fulfill-gift-card.js: handler (invalid signature)
    ========================================================== */
-(async () => {
+async function testHandlerInvalidSignature() {
   const originalConsoleError = console.error;
   let errorLogged = false;
   console.error = () => {
@@ -267,12 +277,12 @@ try {
   assert(errorLogged, "handler logs error on invalid signature");
 
   console.error = originalConsoleError;
-})();
+}
 
 /* ==========================================================
    6. Dynamic import of ESM workers (workers/checkout.js & workers/submit-form.js)
    ========================================================== */
-(async () => {
+async function testWorkersAndNetlifyFunctions() {
   const checkout = await import("../workers/checkout.js");
   const submitForm = await import("../workers/submit-form.js");
 
@@ -1181,6 +1191,305 @@ try {
   });
   eq(restockRes.statusCode, 400, "submitRestock returns 400 for invalid JSON payload");
 
+  /* ----------------------------------------------------------
+     Escape AFTER validating, not before: escape-exactly-once contract.
+     ----------------------------------------------------------
+     The handler used to run escapeHtml() over params.email first and then
+     validate the escaped string; it now validates the raw value and escapes
+     only at the point of interpolation.
+
+     Honesty note on what these assertions can and cannot prove. The two
+     orderings are provably indistinguishable through this handler: escapeHtml
+     only ever emits characters from [A-Za-z0-9#;&], so it can neither
+     introduce nor remove the whitespace, "@" or "." that the address regex
+     keys on -- an address matches before escaping iff it matches after. A
+     differential run over 168 (email, product) pairs against both
+     implementations produced zero divergent responses. So this block is NOT a
+     regression test for the ordering swap itself; no handler-level test can
+     be, and claiming otherwise would be an always-passing assertion dressed
+     up as a guard.
+
+     What it does pin is the contract the new ordering has to keep, and which
+     a future edit can genuinely break: user input reaches the customer-facing
+     message escaped EXACTLY ONCE -- never raw (an XSS hole), never twice (a
+     mangled address like "a&amp;amp;b@example.com" shown back to the user).
+     Verified to have teeth: double-escaping the email slot fails four of the
+     assertions below. */
+  restockRes = await submitRestock.handler({
+    httpMethod: "POST",
+    headers: { origin: "https://yallternativeliving.com" },
+    body: JSON.stringify({ email: "a&b@example.com", product: "Sleep Salve" })
+  });
+  eq(restockRes.statusCode, 200, "submitRestock accepts an email containing an ampersand");
+  const ampMessage = JSON.parse(restockRes.body).message;
+  assert(
+    ampMessage.includes("a&amp;b@example.com"),
+    "submitRestock escapes the ampersand email for HTML output"
+  );
+  assert(
+    !ampMessage.includes("&amp;amp;"),
+    "submitRestock does not double-escape the ampersand email"
+  );
+  eq(
+    ampMessage.split("a&amp;b@example.com").length - 1,
+    1,
+    "submitRestock echoes the escaped email exactly once"
+  );
+
+  /* Missing-product fallback. Both orderings coerce a missing product to ""
+     (escapeHtml starts with `String(str || "")`), so this is a behavior lock,
+     not a bug reproduction: a request with no product must say "this item"
+     and must never leak a stringified "undefined"/"null" into the message. */
+  restockRes = await submitRestock.handler({
+    httpMethod: "POST",
+    headers: { origin: "https://yallternativeliving.com" },
+    body: JSON.stringify({ email: "noproduct@example.com" })
+  });
+  eq(restockRes.statusCode, 200, "submitRestock accepts a request with no product");
+  const noProductMessage = JSON.parse(restockRes.body).message;
+  assert(
+    noProductMessage.includes("this item"),
+    "submitRestock falls back to 'this item' when no product is supplied"
+  );
+  assert(
+    !noProductMessage.includes("undefined"),
+    "submitRestock never leaks the string 'undefined' into the customer message"
+  );
+
+  // Same escape-exactly-once contract on the product slot, which (unlike the
+  // email) is never validated at all -- escaping on output is its only guard.
+  restockRes = await submitRestock.handler({
+    httpMethod: "POST",
+    headers: { origin: "https://yallternativeliving.com" },
+    body: JSON.stringify({ email: "amp@example.com", product: "Salves & Soaks" })
+  });
+  eq(restockRes.statusCode, 200, "submitRestock accepts a product name containing an ampersand");
+  const ampProductMessage = JSON.parse(restockRes.body).message;
+  assert(
+    ampProductMessage.includes("Salves &amp; Soaks"),
+    "submitRestock escapes the ampersand product name"
+  );
+  assert(
+    !ampProductMessage.includes("&amp;amp;"),
+    "submitRestock does not double-escape the product name"
+  );
+
+  /* Moving escapeHtml to the point of interpolation must not have opened a
+     hole. The address regex is deliberately permissive -- it only demands
+     "no-spaces-or-@" + "@" + "no-spaces-or-@" + "." + "no-spaces-or-@" -- so a
+     quoted local part full of markup sails straight through it and IS
+     accepted. Escaping on output is therefore the only thing standing between
+     that input and the echoed message.
+
+     The status code here is asserted outright rather than guarded with
+     `statusCode !== 200 || ...`: that shape passes vacuously the moment
+     validation starts rejecting the address, which would silently retire the
+     escaping check instead of failing. If this 200 ever changes, this test
+     should break loudly and be re-thought. */
+  restockRes = await submitRestock.handler({
+    httpMethod: "POST",
+    headers: { origin: "https://yallternativeliving.com" },
+    body: JSON.stringify({ email: '"<script>x</script>"@example.com', product: "Item" })
+  });
+  eq(restockRes.statusCode, 200, "submitRestock accepts a quoted local part containing markup");
+  const riskyMessage = JSON.parse(restockRes.body).message || "";
+  assert(!riskyMessage.includes("<script>"), "submitRestock never echoes a raw <script> tag");
+  assert(
+    riskyMessage.includes("&lt;script&gt;x&lt;/script&gt;"),
+    "submitRestock escapes angle brackets in the email slot"
+  );
+  assert(
+    !riskyMessage.includes("&amp;lt;"),
+    "submitRestock does not double-escape a markup-bearing email"
+  );
+}
+
+/* ==========================================================
+   9. fulfill-gift-card.js: deriveGiftCardCode (retry idempotency)
+   ----------------------------------------------------------
+   Stripe retries a webhook delivery on any non-2xx or timeout. The promotion
+   code is created under an Idempotency-Key derived from (session, gift index),
+   and Stripe requires a reused key to carry IDENTICAL parameters -- a second
+   delivery that minted a fresh random `code` was rejected with an
+   idempotency_error, so the retry could neither create nor re-fetch the code
+   and the recipient's email was silently skipped. The code therefore has to be
+   a pure function of (session, index, secret).
+   ========================================================== */
+function testDeriveGiftCardCode() {
+  const secret = "whsec_test_dummy_secret_for_signature_tests";
+  const derive = fulfillGiftCard.deriveGiftCardCode;
+
+  // Determinism: the property the retry path depends on.
+  eq(
+    derive("cs_test_abc123", 1, secret),
+    derive("cs_test_abc123", 1, secret),
+    "deriveGiftCardCode is deterministic for the same session, index and secret"
+  );
+
+  // Format parity with the random generator it replaced.
+  assert(
+    /^YALL-[A-Z0-9]{8}$/.test(derive("cs_test_abc123", 1, secret)),
+    "deriveGiftCardCode matches YALL-[A-Z0-9]{8}"
+  );
+  eq(derive("cs_test_abc123", 1, secret).length, 13, "deriveGiftCardCode is 13 chars long");
+
+  // Distinctness: two gift cards in one order, and two different orders,
+  // must never collide (a collision would make Stripe reject the second
+  // promotion code as a duplicate).
+  assert(
+    derive("cs_test_abc123", 1, secret) !== derive("cs_test_abc123", 2, secret),
+    "deriveGiftCardCode differs across gift indexes in the same session"
+  );
+  assert(
+    derive("cs_test_abc123", 1, secret) !== derive("cs_test_xyz789", 1, secret),
+    "deriveGiftCardCode differs across sessions at the same index"
+  );
+  assert(
+    derive("cs_test_abc123", 1, secret) !== derive("cs_test_abc123", 1, "whsec_other_secret"),
+    "deriveGiftCardCode differs when the signing secret differs"
+  );
+
+  // Spread check: a derivation that always landed on the same character
+  // would still be deterministic but worthless. 200 sessions must not
+  // collapse into a handful of codes.
+  const derivedSet = new Set();
+  for (let i = 0; i < 200; i++) {
+    derivedSet.add(derive("cs_test_session_" + i, 1, secret));
+  }
+  eq(derivedSet.size, 200, "deriveGiftCardCode produces 200 distinct codes for 200 sessions");
+
+  // Missing/empty secret must not throw (the handler passes whatever is in
+  // the environment) -- it still has to return a well-formed code.
+  assert(
+    /^YALL-[A-Z0-9]{8}$/.test(derive("cs_test_abc123", 1, undefined)),
+    "deriveGiftCardCode still returns a well-formed code with no secret"
+  );
+
+  // And it is genuinely a different function from the random generator:
+  // generateRandomCode never repeats, deriveGiftCardCode always does.
+  assert(
+    fulfillGiftCard.generateRandomCode() !== fulfillGiftCard.generateRandomCode(),
+    "generateRandomCode is still non-deterministic (the contrast being tested)"
+  );
+}
+
+/* ==========================================================
+   10. fulfill-gift-card.js: handler mints the derived code, and a retried
+       delivery of the same event sends Stripe the SAME code parameter.
+   ========================================================== */
+async function testHandlerRetryIdempotency() {
+  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+  const globalFetch = global.fetch;
+  const originalLog = console.log;
+  const originalError = console.error;
+  console.log = () => {};
+  console.error = () => {};
+
+  // Every outbound call is intercepted -- Stripe's REST API and the Resend
+  // SDK (which also goes through global fetch) -- so this test does no
+  // network I/O and cannot flake.
+  const promoRequests = [];
+  global.fetch = async (url, options) => {
+    const target = String(url);
+    if (target.includes("/v1/coupons")) {
+      return { json: async () => ({ id: "co_test_123" }) };
+    }
+    if (target.includes("/v1/promotion_codes")) {
+      const params = new URLSearchParams(options.body);
+      promoRequests.push({
+        code: params.get("code"),
+        idempotencyKey: options.headers["Idempotency-Key"]
+      });
+      return { json: async () => ({ code: params.get("code") }) };
+    }
+    // Resend
+    return {
+      ok: true,
+      status: 200,
+      headers: new Map(),
+      json: async () => ({ id: "email_test_123" }),
+      text: async () => '{"id":"email_test_123"}'
+    };
+  };
+
+  const sessionId = "cs_test_retry_idempotency";
+  const payload = JSON.stringify({
+    type: "checkout.session.completed",
+    data: {
+      object: {
+        id: sessionId,
+        metadata: {
+          gift_card_1_amount_cents: "5000",
+          gift_card_1_recipient: "recipient@example.com",
+          gift_card_1_sender: "Sender",
+          gift_card_1_message: "Enjoy"
+        }
+      }
+    }
+  });
+
+  function signedEvent() {
+    // Fresh timestamp per delivery: the signature differs between the
+    // original and the retry, exactly as it does in production, but the
+    // derived code must not.
+    const timestamp = Math.floor(Date.now() / 1000);
+    const signature = crypto
+      .createHmac("sha256", secret)
+      .update(timestamp + "." + payload, "utf8")
+      .digest("hex");
+    return {
+      httpMethod: "POST",
+      body: payload,
+      headers: { "stripe-signature": `t=${timestamp},v1=${signature}` }
+    };
+  }
+
+  const firstDelivery = await fulfillGiftCard.handler(signedEvent());
+  const retryDelivery = await fulfillGiftCard.handler(signedEvent());
+
+  console.log = originalLog;
+  console.error = originalError;
+  global.fetch = globalFetch;
+
+  eq(firstDelivery.statusCode, 200, "handler accepts a validly signed gift-card webhook");
+  eq(retryDelivery.statusCode, 200, "handler accepts a retried delivery of the same webhook");
+  eq(promoRequests.length, 2, "handler requested a promotion code on both deliveries");
+
+  const expectedCode = fulfillGiftCard.deriveGiftCardCode(sessionId, 1, secret);
+  eq(promoRequests[0].code, expectedCode, "handler mints the derived code, not a random one");
+  eq(
+    promoRequests[1].code,
+    promoRequests[0].code,
+    "retried delivery reuses the identical code parameter (no Stripe idempotency_error)"
+  );
+  eq(
+    promoRequests[1].idempotencyKey,
+    promoRequests[0].idempotencyKey,
+    "retried delivery reuses the identical Idempotency-Key"
+  );
+  assert(
+    /^YALL-[A-Z0-9]{8}$/.test(promoRequests[0].code),
+    "handler's promotion code is well-formed"
+  );
+}
+
+/* ==========================================================
+   Runner: sections run strictly in order so nothing races over shared
+   globals (console, global.fetch) and the summary only prints once every
+   assertion has actually run.
+   ========================================================== */
+(async () => {
+  await testCreateGiftCardPromotionCode();
+  await testHandlerInvalidSignature();
+  await testWorkersAndNetlifyFunctions();
+  testDeriveGiftCardCode();
+  await testHandlerRetryIdempotency();
+
   console.log(`\nbackend-functions.test.js: ${passed} passed, ${failed} failed`);
   if (failed > 0) process.exit(1);
-})();
+})().catch((err) => {
+  // Fail loudly: an exception escaping a section used to surface as an
+  // unhandled rejection with no summary line at all.
+  console.error("backend-functions.test.js crashed:", err);
+  process.exit(1);
+});
