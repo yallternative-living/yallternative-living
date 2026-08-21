@@ -59,8 +59,10 @@ which method is best for *Steven doing it*, not about avoiding a
 terminal for someone who was never going to run these commands
 regardless.
 
-Given that, **Option B (Wrangler CLI) is the recommended default** for
-this specific file -- it's the long-established, well-tested path, and
+**Option A (Workers Builds) is what this repo is now set up for** -- see the
+committed `workers/wrangler.toml`. The reasoning below is left intact because
+it is still the honest trade-off: Option B was written up as the safer default
+for this specific file -- it's the long-established, well-tested path, and
 this Worker touches Stripe secret keys and real payments, where
 favoring the most mature deploy method over the newest one is the right
 trade-off. Option A is documented as a legitimate alternative, not a
@@ -68,7 +70,11 @@ downgrade -- reach for it if you'd genuinely rather never run
 `wrangler deploy` again after initial setup, just go in with eyes open
 about its beta status.
 
-### Option B -- Wrangler CLI (recommended: well-tested, long track record)
+### Option B -- Wrangler CLI (fallback: well-tested, long track record)
+
+> Use this if Workers Builds misbehaves, or for a one-off deploy without
+> waiting on a push. It reads the same committed `wrangler.toml`, so the two
+> paths cannot drift apart.
 
 1. `npm i -g wrangler` and `wrangler login`.
 2. `cp wrangler.toml.example wrangler.toml`, confirm `SITE_ORIGIN`.
@@ -87,7 +93,11 @@ about its beta status.
    worth knowing going in, since that's the main thing Option A trades
    away the beta risk to avoid.
 
-### Option A -- Cloudflare Workers Builds (dashboard-only, open beta)
+### Option A -- Cloudflare Workers Builds (dashboard-only, open beta) -- **this is the configured path**
+
+> **Step 1 is already done.** `workers/wrangler.toml` is committed, and
+> `npx wrangler deploy --dry-run` builds it clean (19 KiB upload, `SITE_ORIGIN`
+> bound). Everything left is dashboard clicking -- steps 2-4 below.
 
 Cloudflare's own git-integration feature (Workers Builds) auto-deploys
 on every push, the same way Netlify already does for the rest of the
@@ -99,9 +109,10 @@ Workers Builds "open beta," not GA, and this exact flow has not been
 run against this project's real Cloudflare/GitHub accounts -- treat it
 as "try this," not a guarantee.
 
-1. Create a real `wrangler.toml` from `wrangler.toml.example` (confirm
-   `SITE_ORIGIN`) and commit it -- this can be done straight in GitHub's
-   web UI, no local checkout needed.
+1. ~~Create a real `wrangler.toml` from `wrangler.toml.example` and commit
+   it.~~ **Done** -- see `workers/wrangler.toml`, whose header comment
+   repeats the dashboard steps below so they're findable from the file
+   itself.
 2. Cloudflare dashboard -> **Workers & Pages -> Create -> Import a
    repository** (button wording may have shifted -- look for anything
    offering to connect a GitHub repo) -> authorize GitHub -> select this

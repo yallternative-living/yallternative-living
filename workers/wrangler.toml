@@ -1,0 +1,41 @@
+# Cloudflare Worker config for the checkout backend.
+#
+# This is the REAL config (wrangler.toml.example is the annotated template it
+# was copied from). It's committed on purpose: Workers Builds -- Cloudflare's
+# git integration -- reads this file straight out of the repo and redeploys
+# checkout.js on every push to main, so nobody has to run `wrangler deploy`
+# by hand. See workers/README.md "Option A".
+#
+# Nothing secret lives here, and nothing secret ever should. STRIPE_SECRET_KEY
+# is set as a Secret in the Cloudflare dashboard (Settings -> Variables and
+# Secrets), never in this file -- it would be committed to a public repo.
+#
+# Dashboard setup this file does NOT cover (one-time, by hand):
+#   1. Workers & Pages -> Create -> Import a repository -> this repo,
+#      with the project root set to `workers`.
+#   2. Settings -> Variables and Secrets -> add STRIPE_SECRET_KEY as a Secret.
+#      Use a RESTRICTED Stripe key with Checkout Sessions, Coupons, Promotion
+#      Codes and Customers WRITE, plus Tax Settings READ. Miss the Tax read and
+#      sales tax silently never switches on -- nothing errors, it just
+#      undercharges.
+#   3. Settings -> Domains & Routes -> Add -> Route ->
+#      yallternativeliving.com/api/checkout
+#      That path is not arbitrary: assets/js/cart.js posts to "/api/checkout"
+#      (see its CHECKOUT_URL constant). Change one, change the other.
+
+name = "yallternative-checkout"
+main = "checkout.js"
+compatibility_date = "2026-01-01"
+
+[vars]
+# Used by the Worker's CORS check. checkout.js also hard-codes the apex and www
+# hosts in its ALLOWED_ORIGINS, so this is belt-and-braces for that same origin
+# rather than the only thing standing between the cart and a wildcard CORS
+# policy.
+SITE_ORIGIN = "https://yallternativeliving.com"
+
+# Sales tax needs no config here: the Worker asks Stripe hourly and turns
+# automatic_tax on by itself once Tax -> Settings/Registrations are filled in
+# on the Stripe Dashboard. This var is only an override -- "true" forces it on
+# without checking, "false" is a kill switch. Left unset on purpose.
+# STRIPE_TAX_ENABLED = "false"
