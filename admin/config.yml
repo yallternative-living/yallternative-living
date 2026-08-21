@@ -18,18 +18,17 @@
 #
 # backend.repo below now points at the real repo:
 # github.com/yallternative-living/yallternative-living. What's still needed
-# before /admin actually logs in: (1) this repo deployed on Netlify or
-# GitHub Pages, (2) GitHub OAuth turned on for that deploy (one Netlify
-# checkbox, or a small auth helper for Pages) -- see DEVELOPMENT.md section 20.
+# before /admin actually logs in: (1) this repo deployed on Netlify,
+# (2) GitHub OAuth turned on for that deploy (one Netlify checkbox)
+# -- see DEVELOPMENT.md section 20.
 #
 # Every field below maps 1:1 to a real field already used in
 # assets/data/products.json -- nothing here was invented; if a field
 # isn't listed, it isn't part of the real catalog schema. After saving
 # a change here, Sveltia commits straight to the repo, and the site's
 # own deploy step re-runs `node scripts/build-site-data.js` to
-# regenerate everything derived from it (see netlify.toml / vercel.json
-# / .github/workflows/deploy-pages.yml) -- Savanna does NOT need to run
-# that script by hand.
+# regenerate everything derived from it (see netlify.toml /
+# vercel.json) -- Savanna does NOT need to run that script by hand.
 
 backend:
   name: github

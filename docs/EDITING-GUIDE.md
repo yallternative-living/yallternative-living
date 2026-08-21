@@ -31,9 +31,9 @@ The repo is already set to the real GitHub project (`admin/config.yml`'s
 the site itself (see **docs/SETUP-GUIDE.md** Steps 1–2 for the click-by-click,
 or **DEVELOPMENT.md section 20** for the full technical explanation):
 
-1. **Deploy** the site (Netlify or GitHub Pages — both are already configured).
-2. Turn on **login** (on Netlify, its GitHub OAuth needs one checkbox; on GitHub
-   Pages you point it at a small auth helper).
+1. **Deploy** the site (Netlify — already configured, and it's what the live
+   site runs on).
+2. Turn on **login** (on Netlify, its GitHub OAuth needs one checkbox).
 
 Until both are done, use the "edit the file" way below.
 

@@ -25,7 +25,7 @@
    - change a price
    - add/edit a page and want it in the sitemap
    This ALSO now runs automatically as part of every real deploy (see
-   netlify.toml / vercel.json / .github/workflows/deploy-pages.yml) --
+   netlify.toml / vercel.json) --
    see DEVELOPMENT.md section 20 for why that became necessary once a CMS
    commit could update products.json without a human remembering to
    run this script by hand first.
@@ -1669,8 +1669,8 @@ function buildSiteData() {
    placeholder in 7 HTML files across dozens of JSON-LD fields -- easy
    to miss one and ship inconsistent metadata. Now it's one line: set a
    real DOMAIN above and re-run this script (which every real deploy
-   already does automatically, see netlify.toml/vercel.json/
-   .github/workflows/deploy-pages.yml). While DOMAIN is still the
+   already does automatically, see netlify.toml/vercel.json). While
+   DOMAIN is still the
    placeholder, this whole block is a no-op and every page stays
    exactly as it is today. */
   const DOMAIN_IS_LIVE = DOMAIN.indexOf("your-domain-here.com") === -1;
