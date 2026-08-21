@@ -31,7 +31,12 @@ This document provides project context, tech stack rules, data-flow pipelines, s
    - `scripts/puppeteer_tests.js` automatically manages its own local HTTP static server lifecycle on port `8082`.
    - Never assume an external HTTP server is already running when triggering integration tests.
 
-5. **No Superficial Fixes**:
+5. **One Lockfile (`package-lock.json`)**:
+   - npm is this project's package manager -- the CI workflows, the docs and every `npm run ...` script assume it. `package-lock.json` is the only lockfile that may exist; do not add `pnpm-lock.yaml`, `yarn.lock` or `bun.lockb`.
+   - Netlify chooses its package manager from whichever lockfile it finds and installs with `--frozen-lockfile`. A stale second lockfile silently becomes the one that decides production deploys: an out-of-date `pnpm-lock.yaml` broke every deploy for nine days while `npm test` stayed green.
+   - After any change to `package.json`'s `dependencies`/`devDependencies`, run `npm install` so the lockfile follows. `npm test` asserts both invariants.
+
+6. **No Superficial Fixes**:
    - Never comment out failing QA assertions, swallow errors silently, or use arbitrary dummy fallbacks to force a passing test.
    - The same rule applies to the CI workflows in `.github/workflows/`: a quality gate there must be allowed to fail the run. Never append `|| true` (or an equivalent) to a test step to keep a deploy green.
 
