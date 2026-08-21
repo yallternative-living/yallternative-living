@@ -1335,9 +1335,15 @@
           }
           var item = getProductMap().get(prodId);
           if (item && item.images && item.images.length) {
+            /* p.images holds only the ALT photos -- the primary p.image is
+               not in it (see cardGalleryHTML, which renders
+               [p.image].concat(p.images)). Passing item.images alone left
+               the primary photo out of the lightbox entirely, so clicking
+               the default slide "enlarged" the first alt photo instead. */
+            var allPhotos = [item.image].concat(item.images).filter(Boolean);
             var activeImg = slide.querySelector("img");
-            var src = activeImg ? activeImg.getAttribute("src") : item.images[0];
-            window.openLightbox(item.images, src);
+            var src = activeImg ? activeImg.getAttribute("src") : allPhotos[0];
+            window.openLightbox(allPhotos, src);
           }
         }
       }
@@ -2322,7 +2328,7 @@
             searchInput.value = "";
             searchInput.dispatchEvent(new Event("input"));
           }
-          var allPill = document.querySelector('.cat-pill[data-category="all"]');
+          var allPill = document.querySelector('.filter-pill[data-filter="all"]');
           if (allPill) {
             allPill.click();
           }
@@ -3132,7 +3138,13 @@
     if (matchedItem) {
       setTimeout(function () {
         if (typeof window.openLightbox === "function") {
-          window.openLightbox(matchedItem.images || [matchedItem.image], matchedItem.image);
+          // Same shape as the gallery: p.image is the primary, p.images are
+          // the extra photos only -- concat so the deep-linked lightbox
+          // opens on the primary instead of falling back to slide 0.
+          window.openLightbox(
+            [matchedItem.image].concat(matchedItem.images || []).filter(Boolean),
+            matchedItem.image
+          );
         }
       }, 400);
     }
