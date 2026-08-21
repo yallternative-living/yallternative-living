@@ -1876,6 +1876,70 @@ try {
   fail("2026 SOTA architecture verification", e.message);
 }
 
+/* ---------- 20) Lockfile hygiene ----------
+   Netlify picks the package manager by which lockfile it finds, and it
+   installs dependencies with --frozen-lockfile. A second, unmaintained
+   lockfile therefore quietly becomes the one that decides production
+   deploys: pnpm-lock.yaml sat here months out of date while every human
+   and every CI workflow ran npm, so the commit that dropped two unused
+   dependencies updated package-lock.json, left pnpm-lock.yaml stale, and
+   broke every Netlify deploy from that day on -- with the site's own test
+   suite still passing green the whole time. One lockfile, kept in step
+   with package.json. */
+section("Lockfile hygiene (one package manager, in sync with package.json)");
+try {
+  var rivalLockfiles = ["pnpm-lock.yaml", "yarn.lock", "bun.lockb"].filter(function (f) {
+    return fs.existsSync(path.join(ROOT, f));
+  });
+  if (!fs.existsSync(path.join(ROOT, "package-lock.json"))) {
+    fail(
+      "package-lock.json exists",
+      "npm is this project's package manager (see .github/workflows)"
+    );
+  } else if (rivalLockfiles.length) {
+    fail(
+      "package-lock.json is the only lockfile",
+      "also found " +
+        rivalLockfiles.join(", ") +
+        " -- a deploy host will install from that one instead"
+    );
+  } else {
+    ok("package-lock.json is the only lockfile");
+  }
+
+  var pkgJson = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
+  var lockJson = JSON.parse(fs.readFileSync(path.join(ROOT, "package-lock.json"), "utf8"));
+  var declared = Object.assign({}, pkgJson.dependencies, pkgJson.devDependencies);
+  // The lockfile mirrors package.json's own dependency block under the ""
+  // (root) importer. Comparing the two catches a hand-edited package.json
+  // that nobody re-ran `npm install` after.
+  var lockRoot = (lockJson.packages && lockJson.packages[""]) || {};
+  var lockDeclared = Object.assign({}, lockRoot.dependencies, lockRoot.devDependencies);
+  var drift = [];
+  Object.keys(declared).forEach(function (name) {
+    if (lockDeclared[name] !== declared[name]) {
+      drift.push(
+        name +
+          " (package.json " +
+          declared[name] +
+          ", lock " +
+          (lockDeclared[name] || "absent") +
+          ")"
+      );
+    }
+  });
+  Object.keys(lockDeclared).forEach(function (name) {
+    if (!(name in declared)) drift.push(name + " (in lock, removed from package.json)");
+  });
+  if (drift.length) {
+    fail("package-lock.json matches package.json", drift.join("; ") + " -- run `npm install`");
+  } else {
+    ok("package-lock.json matches package.json's declared dependencies");
+  }
+} catch (e) {
+  fail("lockfile hygiene", e.message);
+}
+
 /* ---------- Summary ---------- */
 console.log("\n" + "=".repeat(50));
 console.log(passCount + " checks passed, " + failures.length + " failed.");
