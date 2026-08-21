@@ -445,7 +445,15 @@ function buildSiteData() {
       const evtCutoff = evt.endDate || evt.date;
       if (evtCutoff && evtCutoff < todayStr) {
         EVENTS.past = EVENTS.past || [];
+        // Carry the dates across. main.js sorts "Where We've Been"
+        // most-recent-first and falls back to 1970-01-01 for a dateless
+        // entry, so dropping `date` here used to bury the market that JUST
+        // happened at the bottom of the list -- past the 3-card carousel,
+        // i.e. off the page entirely -- and left events.html rendering an
+        // empty <time datetime="">.
         EVENTS.past.unshift({
+          date: evt.date,
+          endDate: evt.endDate,
           dateLabel: evt.dateLabel,
           name: evt.name,
           type: evt.type,
@@ -932,7 +940,7 @@ function buildSiteData() {
             ? '              <div class="event-cta">\n' +
               '                <a class="btn btn-primary btn-sm btn-block" href="' +
               escapeHtml(evUrl) +
-              '" target="_blank" rel="noopener">More Info / RSVP<span class="sr-only">(opens in new tab)</span></a>\n' +
+              '" target="_blank" rel="noopener">More Info / RSVP<span class="sr-only"> (opens in new tab)</span></a>\n' +
               "              </div>\n"
             : "";
           return (

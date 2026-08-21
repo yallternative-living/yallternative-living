@@ -55,12 +55,14 @@ jobs:
         run: node scripts/build-security-headers.js
 
       - name: Run the automated QA suite
-        run: node scripts/qa-check.js || true
-        # "|| true" on purpose: the one known/expected failure (the
-        # your-domain-here.com placeholder, see README) would otherwise
-        # block every deploy until a real domain is wired in. This still
-        # prints the full report in the workflow log for a human to read
-        # -- it just doesn't fail the build over that one known item.
+        run: node scripts/qa-check.js
+        # This gate blocks the deploy on purpose. It used to end in
+        # "|| true" back when the site had no real domain yet and the
+        # "Live-domain placeholder" check was expected to fail on every
+        # run. The real domain is wired in now and the suite passes
+        # clean, so swallowing the exit code would only mean shipping a
+        # broken build (dead link, malformed price, CSP drift) straight
+        # to the live site with the failure buried in a log nobody reads.
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

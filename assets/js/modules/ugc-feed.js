@@ -53,11 +53,15 @@
         attrEsc(postLink) +
         '" target="_blank" rel="noopener" class="ugc-post-link" aria-label="View original post by ' +
         attrEsc(post.handle || '@yallternativeliving') +
-        ' (opens in new tab)">View Post &#8599;<span class="sr-only">(opens in new tab)</span></a>'
+        ' (opens in new tab)">View Post &#8599;<span class="sr-only"> (opens in new tab)</span></a>'
       : '';
 
     return (
-      '<article class="ugc-card reveal" role="listitem">' +
+      /* A <div>, not an <article>: role="listitem" is not a valid role
+         override for <article>, so each card announced itself as a stray
+         article instead of as item N of the surrounding role="list"
+         feed (axe aria-allowed-role). */
+      '<div class="ugc-card reveal" role="listitem">' +
       '  <div class="ugc-card-media">' +
       '    <img src="' +
       attrEsc(safeUrl(post.image)) +
@@ -84,7 +88,7 @@
       '</p>' +
       linkHtml +
       '  </div>' +
-      '</article>'
+      '</div>'
     );
   }
 

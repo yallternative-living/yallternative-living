@@ -184,7 +184,11 @@ function createStaticServer(port = 8080) {
         return await axe.run({
           runOnly: {
             type: "tag",
-            values: ["wcag2a", "wcag2aa", "best-practice"]
+            // The 2.1/2.2 tags belong here too -- this report has always
+            // claimed to check "WCAG 2.2 AA", but scanning wcag2aa alone
+            // skipped every rule added after 2.0. That hid a serious
+            // target-size (2.5.8) failure on all 19 product pages.
+            values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"]
           }
         });
       });

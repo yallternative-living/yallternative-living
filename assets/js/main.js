@@ -2491,8 +2491,8 @@
           "<p>We keep this page current the second a market or Pride date is locked in. In the meantime, " +
           "follow along on Instagram or TikTok where every table gets announced first.</p>" +
           '<div class="hero-actions" style="justify-content:center;">' +
-          '<a class="btn btn-primary" href="https://www.instagram.com/yallternativeliving" target="_blank" rel="noopener">Instagram ↗<span class="sr-only">(opens in new tab)</span></a>' +
-          '<a class="btn btn-outline" href="https://www.tiktok.com/@yallternativeliving" target="_blank" rel="noopener">TikTok ↗<span class="sr-only">(opens in new tab)</span></a>' +
+          '<a class="btn btn-primary" href="https://www.instagram.com/yallternativeliving" target="_blank" rel="noopener">Instagram ↗<span class="sr-only"> (opens in new tab)</span></a>' +
+          '<a class="btn btn-outline" href="https://www.tiktok.com/@yallternativeliving" target="_blank" rel="noopener">TikTok ↗<span class="sr-only"> (opens in new tab)</span></a>' +
           "</div>" +
           "</div>";
       }
@@ -2770,7 +2770,7 @@
       (safeUrl(ev.url)
         ? '<a class="btn btn-primary btn-sm btn-block" href="' +
           attrEsc(safeUrl(ev.url)) +
-          '" target="_blank" rel="noopener">More Info / RSVP<span class="sr-only">(opens in new tab)</span></a>'
+          '" target="_blank" rel="noopener">More Info / RSVP<span class="sr-only"> (opens in new tab)</span></a>'
         : "") +
       "</div>" +
       "</div>" +
@@ -3228,11 +3228,15 @@
             attrEsc(postLink) +
             '" target="_blank" rel="noopener" class="ugc-post-link" aria-label="View original post by ' +
             attrEsc(post.handle || "@yallternativeliving") +
-            ' (opens in new tab)">View Post &#8599;<span class="sr-only">(opens in new tab)</span></a>'
+            ' (opens in new tab)">View Post &#8599;<span class="sr-only"> (opens in new tab)</span></a>'
           : "";
 
         return (
-          '<article class="ugc-card reveal" role="listitem">' +
+          /* A <div>, not an <article>: role="listitem" is not a valid role
+             override for <article>, so each card announced itself as a
+             stray article instead of as item N of the surrounding
+             role="list" feed (axe aria-allowed-role). */
+          '<div class="ugc-card reveal" role="listitem">' +
           '  <div class="ugc-card-media">' +
           '    <img src="' +
           attrEsc(post.image) +
@@ -3259,7 +3263,7 @@
           "</p>" +
           linkHtml +
           "  </div>" +
-          "</article>"
+          "</div>"
         );
       })
       .join("");
@@ -3460,6 +3464,40 @@
   })();
 
   /* ---------- R1: Live Market Event Countdown Ticker ---------- */
+
+  /* Picks the pop-up the hero ticker and the events-page banner should point
+     at, given today's date as a YYYY-MM-DD string. Returns
+     { event, startTime } or null when there's nothing left on the calendar.
+     Split out of initCountdownTicker so it can be unit-tested without a DOM
+     (scripts/main.test.js). */
+  function pickNextEvent(list, todayStr) {
+    var best = null;
+    (list || []).forEach(function (evt) {
+      if (!evt || !evt.date) return;
+      /* Same cutoff the events.html list uses (see the auto-promote block
+         above): a multi-day market stays the "next" pop-up through its final
+         day, so day two reads as happening now instead of skipping ahead to
+         the following event while the list right below it still shows the
+         market that's open today. */
+      if (String(evt.endDate || evt.date).slice(0, 10) < todayStr) return;
+      var t;
+      if (evt.date.length === 10) {
+        var p = evt.date.split("-");
+        t = new Date(p[0], p[1] - 1, p[2], 9, 0, 0).getTime();
+      } else {
+        t = new Date(evt.date).getTime();
+      }
+      if (isNaN(t)) return;
+      /* Take the SOONEST event, not merely the first one in the array.
+         events.json is hand-ordered through the CMS, so an event Savanna
+         adds out of sequence would otherwise have the hero counting down to
+         a date weeks away while events.html -- which sorts -- names a
+         different pop-up as the next one. */
+      if (!best || t < best.startTime) best = { event: evt, startTime: t };
+    });
+    return best;
+  }
+
   function initCountdownTicker() {
     var tickerContainer = document.getElementById("yl-countdown-ticker");
     var bannerContainer = document.getElementById("eventsCountdownBanner");
@@ -3467,26 +3505,9 @@
 
     var upcomingList =
       window.YL_EVENTS && window.YL_EVENTS.upcoming ? window.YL_EVENTS.upcoming : [];
-    var now = Date.now();
-    var nextEvt = null;
-    var targetTime = 0;
-
-    for (var i = 0; i < upcomingList.length; i++) {
-      var evt = upcomingList[i];
-      if (!evt.date) continue;
-      var t = 0;
-      if (evt.date.length === 10) {
-        var p = evt.date.split("-");
-        t = new Date(p[0], p[1] - 1, p[2], 9, 0, 0).getTime();
-      } else {
-        t = new Date(evt.date).getTime();
-      }
-      if (t > now) {
-        nextEvt = evt;
-        targetTime = t;
-        break;
-      }
-    }
+    var picked = pickNextEvent(upcomingList, new Date().toISOString().slice(0, 10));
+    var nextEvt = picked ? picked.event : null;
+    var targetTime = picked ? picked.startTime : 0;
 
     if (!nextEvt) {
       if (tickerContainer) {
@@ -3523,6 +3544,11 @@
         if (tickerContainer) {
           var timerEl = document.getElementById("heroCountdownTimer");
           if (timerEl) timerEl.textContent = nextEvt.name + " is in progress today!";
+          /* The badge next to it is baked into the HTML as "NEXT POP-UP:",
+             which reads wrong once the pop-up is the one happening right now.
+             Match the events-page banner, which already says "Happening Now". */
+          var badgeEl = tickerContainer.querySelector(".ticker-badge");
+          if (badgeEl) badgeEl.textContent = "⚡ HAPPENING NOW:";
         }
         if (bannerContainer) {
           bannerContainer.innerHTML =
@@ -4052,6 +4078,7 @@
       addToCartHTML: addToCartHTML,
       applyTheme: applyTheme,
       pickFeatured: pickFeatured,
+      pickNextEvent: pickNextEvent,
       toggleWish: toggleWish,
       isWished: isWished,
       currentTheme: currentTheme,

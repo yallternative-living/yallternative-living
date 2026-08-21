@@ -123,7 +123,13 @@
      whole "79 days, 11 hours, 54 mins, 09 secs" string every single second,
      forever, drowning out the rest of the page. The text stays readable on
      demand; it just no longer interrupts. -->
-<div class="announcement-bar" id="yl-countdown-ticker">
+<!-- role="region" + a name (not role="status"): this makes the bar a
+     landmark so its text isn't content stranded outside every landmark on the
+     page (axe "region"), while staying clear of the live-region behaviour the
+     comment above rules out. main.js gives the bar it builds on the other
+     pages role="status" instead -- that one is a static one-line message, not
+     a per-second countdown. -->
+<div class="announcement-bar" id="yl-countdown-ticker" role="region" aria-label="Site announcements">
   <span class="announcement-content" id="heroAnnouncementContent">
     <span class="ticker-badge">⚡ NEXT POP-UP:</span>
     <span class="ticker-timer" id="heroCountdownTimer">
@@ -351,7 +357,7 @@
       <span class="eyebrow"><!--YL:home.findUs.eyebrow-->Find Us In Person<!--/YL:home.findUs.eyebrow--></span>
       <h2><!--YL:home.findUs.title-->We Pop Up In The Wild<!--/YL:home.findUs.title--></h2>
       <p class="lede"><!--YL:home.findUs.text-->Farmers markets, Pride events, and everywhere else folks need a little glitter and grit. We keep our folding table moving through the season. Follow along on Instagram and TikTok @yallternativeliving for the schedule so you can shop in person.<!--/YL:home.findUs.text--></p>
-      <a class="btn btn-primary" href="https://www.instagram.com/yallternativeliving" target="_blank" rel="noopener">Follow Along<span class="sr-only">(opens in new tab)</span></a>
+      <a class="btn btn-primary" href="https://www.instagram.com/yallternativeliving" target="_blank" rel="noopener">Follow Along<span class="sr-only"> (opens in new tab)</span></a>
     </div>
   </section>
 
@@ -395,7 +401,7 @@
         <h3>Say Hey</h3>
         <ul>
           <li><a href="mailto:y.allternative.living@gmail.com">y.allternative.living@gmail.com</a></li>
-          <li><a href="https://www.etsy.com/shop/YallternativeLivinCO" target="_blank" rel="noopener">Etsy shop ↗<span class="sr-only">(opens in new tab)</span></a></li>
+          <li><a href="https://www.etsy.com/shop/YallternativeLivinCO" target="_blank" rel="noopener">Etsy shop ↗<span class="sr-only"> (opens in new tab)</span></a></li>
           <li>Based in Landrum, SC</li>
           <li>Find us at markets &amp; Pride events in the Upstate &amp; beyond</li>
         </ul>
