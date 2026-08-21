@@ -12,17 +12,45 @@
         this is ONLY for analytics, never proof of payment).
      2. Clear the local cart, since the order that was in it just went
         through.
-   Both are best-effort and never block rendering the "thanks!" page even
-   if something above fails or these globals aren't ready yet.
+   Both are once per order, keyed off the redirect's session_id (see
+   claimSession below), and both are best-effort: neither ever blocks
+   rendering the "thanks!" page if something above fails or these globals
+   aren't ready yet.
    ========================================================== */
 (function () {
   "use strict";
+
+  /* Both of those are once-per-order actions, but nothing stopped this page
+     from running them again on every load of the same URL. Refreshing the
+     thank-you page (or hitting Back to it after shopping on) re-fired the
+     Purchase event, double-counting that order's revenue in Umami, and
+     re-ran YLCart.clear(), silently emptying a cart the shopper had already
+     started refilling. The Worker always appends session_id to success_url
+     (see workers/checkout.js), so that id is the honest "this is a fresh
+     post-checkout redirect" signal: remember the last one handled and skip
+     both actions for a repeat. No session_id at all means this isn't a
+     checkout redirect, so neither action belongs. */
+  var SEEN_KEY = "yl-thankyou-session";
+  function claimSession(sessionId) {
+    if (!sessionId) return false;
+    try {
+      if (window.localStorage.getItem(SEEN_KEY) === sessionId) return false;
+      window.localStorage.setItem(SEEN_KEY, sessionId);
+    } catch {
+      /* Storage blocked (private mode, locked-down webview): fall through and
+         handle it, matching the pre-existing behaviour rather than dropping a
+         real order's cart-clear on the floor. */
+    }
+    return true;
+  }
+
   try {
     var params = new URLSearchParams(window.location.search);
     var amount = parseFloat(params.get("amount"));
     var currency = (params.get("currency") || "usd").toUpperCase();
+    var isFreshOrder = claimSession((params.get("session_id") || "").trim());
 
-    if (!isNaN(amount) && typeof window.plausible === "function") {
+    if (isFreshOrder && !isNaN(amount) && typeof window.plausible === "function") {
       window.plausible("Purchase", {
         props: {
           revenue: {
@@ -33,7 +61,7 @@
       });
     }
 
-    if (window.YLCart && typeof window.YLCart.clear === "function") {
+    if (isFreshOrder && window.YLCart && typeof window.YLCart.clear === "function") {
       window.YLCart.clear();
     }
 

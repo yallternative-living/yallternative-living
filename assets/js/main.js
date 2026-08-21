@@ -704,7 +704,13 @@
   function addToCartHTML(p, extraClass) {
     if (p.id === "yallternative-gift-card") {
       return (
-        '<a href="#gift-cards" class="btn btn-secondary btn-sm' +
+        /* btn-outline, not btn-secondary: there is no .btn-secondary rule in
+           styles.css, and bare .btn carries no background and a transparent
+           border, so the gift card's "Configure Card" rendered as unstyled
+           inherited text in a row of solid buttons. btn-outline is this
+           design system's secondary variant (what the old class name was
+           reaching for) and keeps it visibly distinct from Add to Cart. */
+        '<a href="#gift-cards" class="btn btn-outline btn-sm' +
         (extraClass ? " " + extraClass : "") +
         '">Configure Card</a>'
       );
@@ -3503,6 +3509,14 @@
     var secsSpan = document.getElementById("yl-countdown-seconds");
     var eventDetailsSpan = document.getElementById("heroEventDetails");
 
+    /* .countdown-card has no rule in styles.css -- the card is drawn entirely
+       by these inline styles. The "in progress today" branch below used to
+       emit the bare class with nothing on it, so from 9am on a market day the
+       banner dropped its panel, border and centering and rendered as raw
+       text. Shared here so both states of the same card stay identical. */
+    var countdownCardStyle =
+      "background: var(--ink-3); color: var(--paper); border: 1px solid var(--hide); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.5rem; text-align: center;";
+
     function update() {
       var rem = targetTime - Date.now();
       if (rem <= 0) {
@@ -3512,9 +3526,13 @@
         }
         if (bannerContainer) {
           bannerContainer.innerHTML =
-            '<div class="countdown-card"><h3>' +
+            '<div class="countdown-card" style="' +
+            countdownCardStyle +
+            '"><span class="card-cat" style="color: var(--whiskey); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;">Happening Now</span>' +
+            '<h3 style="margin: 0.4rem 0 0.6rem; font-family: var(--font-heading);">' +
             attrEsc(nextEvt.name) +
-            "</h3><p>Pop-up in progress today!</p></div>";
+            "</h3>" +
+            '<p style="margin: 0;">Pop-up in progress today!</p></div>';
         }
         return;
       }
@@ -3550,7 +3568,9 @@
           sStr +
           " Secs";
         bannerContainer.innerHTML =
-          '<div class="countdown-card" style="background: var(--ink-3); color: var(--paper); border: 1px solid var(--hide); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.5rem; text-align: center;">' +
+          '<div class="countdown-card" style="' +
+          countdownCardStyle +
+          '">' +
           '  <span class="card-cat" style="color: var(--whiskey); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;">Next Live Appearance</span>' +
           '  <h3 style="margin: 0.4rem 0 0.6rem; font-family: var(--font-heading);">' +
           attrEsc(nextEvt.name) +
