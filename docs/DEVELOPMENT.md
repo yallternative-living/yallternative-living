@@ -92,8 +92,8 @@ site/
   netlify.toml         Netlify config: headers, caching, CSP
   vercel.json          Vercel config: same headers/CSP as netlify.toml
   .gitignore
-  .github/workflows/deploy-pages.yml   GitHub Pages auto-deploy (runs the
-                                        build command below first)
+  .github/workflows/test.yml   CI: lint, format check, and the QA suite
+                                on every push and pull request
   admin/index.html      Sveltia CMS loader (section 20) — the no-code
                          product editor Savanna uses instead of a text editor
   admin/config.yml       Sveltia CMS field schema, mapped 1:1 to
@@ -751,18 +751,20 @@ are already in this folder, all pre-wired with the build command:
   dashboard so the build command actually runs (running `vercel` from a
   local folder without a repo connection skips it, same caveat as
   Netlify's drag-and-drop above).
-- **GitHub Pages** — `.github/workflows/deploy-pages.yml` runs the build
-  command, then the QA suite (informationally — it won't block a deploy
-  over the one known expected failure, the domain placeholder), then
-  deploys on every push to `main`. One-time setup: in the repo's
-  **Settings → Pages**, set **Source** to **"GitHub Actions"** (not
-  "Deploy from a branch"). After that, every push publishes
-  automatically. (GitHub Pages doesn't support custom response headers,
-  so the CSP/security headers only apply on Netlify or Vercel — the site
-  still works fine on Pages, just without those extra headers, and
-  `/admin`'s own CSP doesn't apply there either.)
+- **GitHub Pages** — no longer wired up. There was a
+  `.github/workflows/deploy-pages.yml` that built and published to Pages
+  on every push to `main`, but Pages was never actually enabled on the
+  repo (**Settings → Pages → Source** was never set to "GitHub Actions"),
+  so its deploy step failed with a 404 on every single run it ever made
+  and put a red ✗ on the Actions tab for changes that were perfectly
+  fine. Netlify is the live host, so the workflow was only ever going to
+  publish a second copy nobody visited; it was removed rather than left
+  failing. Pages also can't serve custom response headers, so the
+  CSP/security headers and `/admin`'s own CSP never applied there anyway.
+  To bring it back: enable Pages in that setting first, then restore the
+  workflow from git history.
 
-**All three of these require a real GitHub repo** now that `/admin`'s
+**Both of these require a real GitHub repo** now that `/admin`'s
 Sveltia CMS backend is GitHub-based (section 20) — if this project isn't
 in a GitHub repo yet, that's the actual first step, before any of the
 above.
