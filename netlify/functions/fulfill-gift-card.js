@@ -294,10 +294,6 @@ exports.handler = async (event) => {
               'X-Entity-Ref-ID': 'gift-email-' + session.id + '-' + n
             }
           });
-
-          console.log(
-            `Successfully generated and sent gift card ${confirmedCode} to ${recipientEmail}`
-          );
         } catch (emailErr) {
           console.error(`Failed to send gift card email for code ${confirmedCode}:`, emailErr.message);
         }
