@@ -115,10 +115,12 @@ function outputHTML({ provider, status, content, allowedDomains }) {
       const trustedPatterns = ${serialize(domainPatternSources(allowedDomains))};
 
       const isTrusted = (origin) => {
-        // With no ALLOWED_DOMAINS configured, fall back to trusting the opener
-        // (the upstream default). Setting ALLOWED_DOMAINS is strongly advised
-        // and IS set for this project -- see wrangler.toml.
-        if (!trustedPatterns.length) return true;
+        // Fail CLOSED: with no ALLOWED_DOMAINS configured, trust NO origin
+        // rather than handing a token to anyone (upstream fails open here; we
+        // don't). ALLOWED_DOMAINS is set in wrangler.toml, so this only bites a
+        // misconfigured deploy -- and then login fails safe instead of leaking
+        // a token to any site that opens the popup.
+        if (!trustedPatterns.length) return false;
         let host = "";
         try { host = new URL(origin).hostname; } catch (e) { return false; }
         return trustedPatterns.some((p) => new RegExp(p).test(host));
