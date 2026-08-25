@@ -53,13 +53,19 @@ backend:
   # depends on Netlify for anything. See DEVELOPMENT.md section 20.
   #
   # >>> ONE VALUE TO FILL IN (Steven, once, after deploying cms-auth) <<<
-  # Replace YOUR-SUBDOMAIN below with the real Worker URL Cloudflare shows
-  # after deploy (it looks like
-  # https://yallternative-cms-auth.<your-subdomain>.workers.dev), and set that
-  # same URL's /callback as the GitHub OAuth App's callback. Until this points
-  # at the real Worker, use the "Sign in with Token" option on the /admin
-  # login screen instead (works today, zero setup -- DEVELOPMENT.md section 20).
-  base_url: https://yallternative-cms-auth.YOUR-SUBDOMAIN.workers.dev
+  # Uncomment the base_url line below and replace YOUR-SUBDOMAIN with the real
+  # Worker URL Cloudflare shows after deploy (it looks like
+  # https://yallternative-cms-auth.<your-subdomain>.workers.dev), then set that
+  # same URL's /callback as the GitHub OAuth App's callback.
+  #
+  # SECURITY -- keep base_url COMMENTED OUT until the real Worker exists.
+  # Shipping a placeholder URL live would point the "Sign in with GitHub"
+  # button at a workers.dev hostname nobody owns yet; someone could register
+  # that exact name and use it to intercept a login and phish a repo-scoped
+  # token. While it's commented out, /admin just uses the "Sign in with Token"
+  # option (works today, zero setup -- DEVELOPMENT.md section 20), which is what
+  # we tell Savanna to use anyway.
+  # base_url: https://yallternative-cms-auth.YOUR-SUBDOMAIN.workers.dev
 
 site_url: https://yallternativeliving.com
 display_url: https://yallternativeliving.com
