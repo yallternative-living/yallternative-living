@@ -74,6 +74,27 @@ logo_url: /assets/img/logo.png
 media_folder: /assets/img
 public_folder: /assets/img
 
+# Makes the /admin "Assets" (photo library) friendlier and harder to break.
+# The panel itself is Sveltia's built-in UI -- its name and layout aren't
+# ours to rename -- but how uploads behave IS configurable, and these two
+# settings matter most for a non-technical owner uploading phone photos:
+#   - slugify_filename: auto-tidies messy upload names so links never break.
+#     "IMG 4823 (1).JPG" is saved as "img-4823-1.jpg" (the extension is kept,
+#     so scripts/optimize-images.js -- which only processes .jpg -- still
+#     generates the responsive/webp versions on deploy).
+#   - max_file_size: rejects an accidental huge upload (e.g. a video) with a
+#     clear message instead of committing a giant file to the repo. 25 MB is
+#     generous headroom for any real photo.
+# NOT enabling upload-time image "transformations" on purpose: Sveltia would
+# convert uploads to .webp, but optimize-images.js only reads .jpg originals,
+# so a converted upload would never get its responsive variants. Optimization
+# already happens at build time -- leave it there.
+media_libraries:
+  default:
+    config:
+      slugify_filename: true
+      max_file_size: 26214400 # 25 MB (25 * 1024 * 1024)
+
 collections:
   - name: products
     label: "1. Products, Bundles & FAQ"
