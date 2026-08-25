@@ -16,11 +16,15 @@
 # For the click-by-click version of that same setup, see docs/SETUP-GUIDE.md
 # Step 2C.
 #
-# backend.repo below now points at the real repo:
-# github.com/yallternative-living/yallternative-living. What's still needed
-# before /admin actually logs in: (1) this repo deployed on Netlify,
-# (2) GitHub OAuth turned on for that deploy (one Netlify checkbox)
-# -- see DEVELOPMENT.md section 20.
+# backend.repo below points at the real repo:
+# github.com/yallternative-living/yallternative-living. To actually log in at
+# /admin you pick ONE of two GitHub sign-in methods (Netlify is NOT involved --
+# its old Git Gateway / OAuth login is deprecated):
+#   (A) Instant, zero setup: "Sign in with Token" on the /admin login screen
+#       (paste a GitHub token -- good for logging in today).
+#   (B) Permanent "Sign in with GitHub" button: deploy the login Worker in
+#       cms-auth/ and set backend.base_url below to its URL.
+# Full steps for both are in DEVELOPMENT.md section 20.
 #
 # Every field below maps 1:1 to a real field already used in
 # assets/data/products.json -- nothing here was invented; if a field
@@ -38,12 +42,23 @@ backend:
   # doesn't exist anymore, which would make every /admin login fail).
   repo: yallternative-living/yallternative-living
   branch: main
-  # No `base_url` set here on purpose -- when this site is deployed on
-  # Netlify, Netlify itself is Sveltia's default OAuth provider for the
-  # github backend with ZERO extra config here (verified directly
-  # against sveltiacms.app/en/docs/backends/github, "Using Netlify"
-  # section). The one-time setup happens in the Netlify dashboard, not
-  # in this file -- see DEVELOPMENT.md section 20.
+  # base_url = the "Sign in with GitHub" login service for /admin.
+  #
+  # This used to be left unset so Netlify could act as the default OAuth
+  # provider -- but Netlify DEPRECATED that (its "Git Gateway / OAuth"),
+  # which is the dead end the /admin login kept hitting. We now run our own
+  # tiny login Worker on Cloudflare (the top-level cms-auth/ folder,
+  # alongside the checkout Worker this site already uses), so /admin no longer
+  # depends on Netlify for anything. See DEVELOPMENT.md section 20.
+  #
+  # >>> ONE VALUE TO FILL IN (Steven, once, after deploying cms-auth) <<<
+  # Replace YOUR-SUBDOMAIN below with the real Worker URL Cloudflare shows
+  # after deploy (it looks like
+  # https://yallternative-cms-auth.<your-subdomain>.workers.dev), and set that
+  # same URL's /callback as the GitHub OAuth App's callback. Until this points
+  # at the real Worker, use the "Sign in with Token" option on the /admin
+  # login screen instead (works today, zero setup -- DEVELOPMENT.md section 20).
+  base_url: https://yallternative-cms-auth.YOUR-SUBDOMAIN.workers.dev
 
 site_url: https://yallternativeliving.com
 display_url: https://yallternativeliving.com

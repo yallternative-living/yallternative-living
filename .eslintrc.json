@@ -40,7 +40,8 @@
     },
     {
       "files": [
-        "workers/**/*.js"
+        "workers/**/*.js",
+        "cms-auth/**/*.js"
       ],
       "parserOptions": {
         "sourceType": "module"

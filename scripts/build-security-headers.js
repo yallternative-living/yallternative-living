@@ -193,13 +193,27 @@ function run() {
   // console while using /admin and watch for "Refused to connect/load..."
   // CSP errors, then add whatever origin they name here and re-run this
   // script.
+  // Sveltia loads its Material Symbols ICON FONT from an external CDN, not from
+  // its own bundle: Google Fonts (fonts.googleapis.com CSS + fonts.gstatic.com
+  // font files) on the version pinned in admin/index.html, and Fontsource via
+  // jsDelivr (cdn.jsdelivr.net) on v0.174.0+. With only `font-src 'self'` the
+  // font is blocked and every icon renders as its raw ligature text
+  // ("bookmark_manager", "chevron_right", "expand_more", ...) -- which is
+  // exactly what /admin looked like before this. Allow BOTH font sources so the
+  // policy is correct whether or not admin/index.html's pin is later bumped:
+  //   - style-src:   fonts.googleapis.com (Google Fonts CSS), cdn.jsdelivr.net
+  //   - font-src:    fonts.gstatic.com (Google font files), cdn.jsdelivr.net, data:
+  //   - connect-src: cdn.jsdelivr.net (Fontsource fetches its CSS/font), blob:, data:
+  // These four are well-known font CDNs and this is the /admin-only policy, not
+  // the public-site CSP. If a future Sveltia release names another origin,
+  // watch the /admin console for "Refused to load..." and add it here.
   var adminCsp = [
     "default-src 'self'",
     "script-src 'self' https://unpkg.com",
-    "style-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com",
     "img-src 'self' data: blob: https://*.githubusercontent.com",
-    "font-src 'self'",
-    "connect-src 'self' https://unpkg.com https://api.github.com https://*.githubusercontent.com",
+    "font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com",
+    "connect-src 'self' blob: data: https://unpkg.com https://cdn.jsdelivr.net https://api.github.com https://*.githubusercontent.com",
     "media-src blob:",
     "frame-src 'self' blob:",
     "frame-ancestors 'none'",
