@@ -198,8 +198,9 @@ function handleAuth(request, env) {
     });
   }
 
-  // Sveltia asks for a "repo" scope by default so it can read+write the repo.
-  const scope = searchParams.get("scope") || "repo,user";
+  // Sveltia sends its own scope; this fallback is least-privilege "repo"
+  // (read+write the repo), which is all the CMS needs to commit.
+  const scope = searchParams.get("scope") || "repo";
   const hostname = env[cfg.hostnameEnv] || cfg.defaultHostname;
 
   // CSRF token: random, remembered in an HttpOnly cookie, echoed as `state`.

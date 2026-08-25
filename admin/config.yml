@@ -53,13 +53,19 @@ backend:
   # depends on Netlify for anything. See DEVELOPMENT.md section 20.
   #
   # >>> ONE VALUE TO FILL IN (Steven, once, after deploying cms-auth) <<<
-  # Replace YOUR-SUBDOMAIN below with the real Worker URL Cloudflare shows
-  # after deploy (it looks like
-  # https://yallternative-cms-auth.<your-subdomain>.workers.dev), and set that
-  # same URL's /callback as the GitHub OAuth App's callback. Until this points
-  # at the real Worker, use the "Sign in with Token" option on the /admin
-  # login screen instead (works today, zero setup -- DEVELOPMENT.md section 20).
-  base_url: https://yallternative-cms-auth.YOUR-SUBDOMAIN.workers.dev
+  # Uncomment the base_url line below and replace YOUR-SUBDOMAIN with the real
+  # Worker URL Cloudflare shows after deploy (it looks like
+  # https://yallternative-cms-auth.<your-subdomain>.workers.dev), then set that
+  # same URL's /callback as the GitHub OAuth App's callback.
+  #
+  # SECURITY -- keep base_url COMMENTED OUT until the real Worker exists.
+  # Shipping a placeholder URL live would point the "Sign in with GitHub"
+  # button at a workers.dev hostname nobody owns yet; someone could register
+  # that exact name and use it to intercept a login and phish a repo-scoped
+  # token. While it's commented out, /admin just uses the "Sign in with Token"
+  # option (works today, zero setup -- DEVELOPMENT.md section 20), which is what
+  # we tell Savanna to use anyway.
+  # base_url: https://yallternative-cms-auth.YOUR-SUBDOMAIN.workers.dev
 
 site_url: https://yallternativeliving.com
 display_url: https://yallternativeliving.com
@@ -98,6 +104,7 @@ media_libraries:
 collections:
   - name: products
     label: "1. Products, Bundles & FAQ"
+    description: "Your whole shop lives here — products and prices, gift bundles, and the FAQ. Tap any item to edit it, or use the 'Add' button to create a new one. Hit Save and the site updates itself within a couple of minutes."
     files:
       - name: products
         label: Products, Bundles & FAQ
@@ -369,6 +376,7 @@ collections:
 
   - name: events
     label: "2. Markets, Fairs & Pride Dates"
+    description: "Your pop-up schedule — add upcoming markets, fairs, and Pride dates. Once a date passes it moves itself down to 'Where We've Been', so you never have to clean up old ones. Save and the site updates itself."
     files:
       - name: events
         label: Markets, Fairs & Pride Dates
@@ -410,6 +418,7 @@ collections:
 
   - name: reviews
     label: "3. Customer Reviews"
+    description: "Customer reviews shown on your site. Only add real ones you've approved, and tick 'Feature on homepage' for the few you want front and center. (These are separate from your Etsy star rating — they're never merged into it.)"
     files:
       - name: reviews
         label: Customer Reviews (on-site)
@@ -439,6 +448,7 @@ collections:
 
   - name: journal
     label: "4. Apothecary Journal (Blog)"
+    description: "Your blog. Write updates, stories, and announcements — each post just needs a title, a date, and its text (a photo is optional). Save and it publishes. If the blog is switched off, turn it on under section 6 → Site Settings."
     files:
       - name: journal
         label: Apothecary Journal
@@ -467,6 +477,7 @@ collections:
 
   - name: social_feed
     label: "5. Social Media Feed"
+    description: "The photo strip on your homepage — add a picture and caption for each Instagram/TikTok-style post you want to show off. If it's switched off, turn it on under section 6 → Site Settings."
     files:
       - name: social_feed
         label: Social Media Feed
@@ -491,6 +502,7 @@ collections:
 
   - name: content
     label: "6. Site Images & Page Wording"
+    description: "The wording and photos across your pages — homepage, About, Contact, your logos, and the on/off switches for features. Open a section, change the text or pick a new photo, and Save. Start with 'Site Settings' for logos, the social-share image, and feature switches."
     files:
       - name: content
         label: Site Images & Page Content
