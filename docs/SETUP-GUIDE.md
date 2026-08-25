@@ -42,13 +42,14 @@ Netlify hosts the site for free.
    can take a little while for the new address to work everywhere —
    usually under an hour, sometimes up to 48.
 
-**C. Connect Netlify and GitHub for logins (one-time)**
+**C. Logging into `/admin` — skip Netlify entirely**
 
-One switch, nothing to copy — but skip it and Step 9's "Log in with
-GitHub" won't work.
-
-1. In Netlify: **Site configuration → Identity** (or search "OAuth") →
-   **Git Gateway / OAuth** → enable **GitHub**, authorize when prompted.
+Netlify's old "Git Gateway / OAuth" login is **deprecated** (that's the
+"This feature is deprecated" warning you may have seen — not your fault,
+it just doesn't work anymore). You don't need it. Your `/admin` login is
+handled two other ways instead — see **Step 9** below. The fastest one
+(paste a GitHub token) needs nothing set up here at all, so you can move
+straight on to Step 3.
 
 ---
 
@@ -156,10 +157,29 @@ This is what actually sends the gift-card email once someone buys one.
 
 ## Step 9: Your Dashboard (Sveltia CMS)
 
-Once Step 2C is done and the site is live, everything below is yours to
-edit at `yallternativeliving.com/admin/` — no code, no file edits.
+Once the site is live, everything below is yours to edit at
+`yallternativeliving.com/admin/` — no code, no file edits.
 
-1. Visit `/admin` → **Log in with GitHub**.
+**Logging in — two ways (Netlify is NOT involved):**
+
+- **Fastest, works right now — "Sign in with Token":** on GitHub, go to
+  **Settings → Developer settings → Personal access tokens →
+  Fine-grained tokens → Generate new token**. Under **Repository
+  access** choose **Only select repositories** → the
+  `yallternative-living/yallternative-living` repo. Under **Repository
+  permissions** set **Contents → Read and write** (leave everything else
+  alone). Pick an expiration, click **Generate token**, and copy it.
+  Then go to `/admin`, click **Sign in with Token**, and paste it. Keep
+  that token private, like a password. (If it ever expires, just make a
+  new one the same way.)
+- **Permanent one-click "Sign in with GitHub" button:** a small one-time
+  setup Steven does (a GitHub OAuth App + a Cloudflare login service —
+  see **DEVELOPMENT.md Section 20, Option B**). After that, `/admin` just
+  shows a **Sign in with GitHub** button and there's no token to manage.
+
+Once you're in:
+
+1. Visit `/admin` → sign in (either method above).
 2. **⚙️ Site Settings & Integrations:**
    - **Integration codes** — Kit link, all 3 Formspree IDs, live chat
      IDs, analytics ID.

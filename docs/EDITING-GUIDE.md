@@ -10,8 +10,9 @@ version of linking every external account).
 
 ## The easy way: the product editor at `/admin`
 
-Once the site is live, go to **yourdomain.com/admin** and log in with GitHub.
-You'll get a form-based editor (no code) for everything in your catalog:
+Once the site is live, go to **yourdomain.com/admin** and log in with GitHub
+(two easy ways — see "How to log in" just below; **you do not need Netlify** for
+this). You'll get a form-based editor (no code) for everything in your catalog:
 
 - **1. Products, Bundles & FAQ** — Add a new product, edit pricing, descriptions, ingredients, scent, size variants, upload photos, manage bundles/gift sets, or update FAQ answers. Item IDs are automatically generated for you.
 - **2. Markets, Fairs & Pride Dates** — Add or edit market appearances. Upcoming dates display chronologically and past dates automatically archive under "Where We've Been". *Fill in the **ZIP code** for any market where customers can pick up an online order: sales tax is based on where they actually collect it, and each county charges slightly differently, so the ZIP is what gets the amount right.*
@@ -24,18 +25,29 @@ When you hit **Save**, it records the change and the site rebuilds and
 re-publishes itself automatically — you don't run anything. Changes usually go
 live within a couple of minutes.
 
-### One-time setup before `/admin` works (Steven does this once)
+### How to log in (two easy ways — no Netlify needed)
 
-The repo is already set to the real GitHub project (`admin/config.yml`'s
-`backend.repo`) — nothing to change there. What's left is part of launching
-the site itself (see **docs/SETUP-GUIDE.md** Steps 1–2 for the click-by-click,
-or **DEVELOPMENT.md section 20** for the full technical explanation):
+**Heads-up:** Netlify's old "Log in with GitHub" switch is **deprecated** — if
+you hit a "This feature is deprecated" warning while poking around Netlify, that
+was the old, dead path. Ignore it. Your login works one of these two ways
+instead:
 
-1. **Deploy** the site (Netlify — already configured, and it's what the live
-   site runs on).
-2. Turn on **login** (on Netlify, its GitHub OAuth needs one checkbox).
+1. **Sign in with Token — works right now, nothing for Steven to set up.**
+   Make a GitHub token and paste it in. Step-by-step is in
+   **docs/SETUP-GUIDE.md → Step 9** ("Fastest, works right now"). This is the
+   quickest way to start editing today.
+2. **Sign in with GitHub button — the nicer permanent login.** Steven does a
+   one-time setup once (a GitHub OAuth App + a tiny Cloudflare login service —
+   **DEVELOPMENT.md section 20, Option B**). After that, `/admin` just shows a
+   **Sign in with GitHub** button and there's no token to keep track of.
 
-Until both are done, use the "edit the file" way below.
+The repo is already pointed at the real GitHub project (`admin/config.yml`'s
+`backend.repo`) — nothing to change there. The site is deployed on Netlify
+(already configured, and it's what the live site runs on); Netlify hosts the
+pages, it just no longer handles the `/admin` login.
+
+If you'd rather not deal with `/admin` at all yet, the "edit the file" way below
+still works.
 
 ---
 

@@ -1,9 +1,16 @@
-# Cloudflare Workers (checkout + forms)
+# Cloudflare Workers (checkout + CMS login + forms)
 
 `checkout.js` is the live checkout backend: the on-site cart (`assets/js/cart.js`)
 POSTs to it and gets back a Stripe Checkout URL. Snipcart is fully removed (see
 `docs/STRIPE-MIGRATION.md`) -- this Worker is what replaced it, and it needs to
 actually be deployed (with real Stripe keys) before checkout works in production.
+
+`auth/sveltia-auth.js` is the **CMS sign-in service** -- the permanent "Sign in
+with GitHub" button for the Sveltia CMS product editor at `/admin`. It replaces
+Netlify's deprecated "Git Gateway / OAuth" login, so `/admin` depends on nothing
+from Netlify. It's its own separate Worker in `workers/auth/` (see the section
+below). Optional to deploy: Savanna can also log in immediately with a token
+("Sign in with Token") and set this up later.
 
 `submit-form.js` is still **optional** -- the contact/review forms currently post
 to Formspree directly, and this Worker is only worth deploying if you want that
@@ -155,6 +162,60 @@ Security notes already handled in the code: CORS is locked to your origins,
 prices are re-derived from `products.json` (client prices are ignored),
 quantities are integer-clamped 1–99, and both `products` and `bundles` are
 searched.
+
+---
+
+## Sign-in Worker (CMS login) — `auth/sveltia-auth.js`
+
+This is the **permanent "Sign in with GitHub" button** for the Sveltia CMS
+product editor at `/admin` (DEVELOPMENT.md section 20, Option B). It's the
+modern replacement for Netlify's deprecated "Git Gateway / OAuth" login —
+`/admin` no longer depends on Netlify for anything.
+
+It's a **separate Worker** from checkout, in its own folder (`workers/auth/`)
+with its own committed `wrangler.toml`, kept apart on purpose: the checkout
+Worker holds the Stripe secret and handles real payments, so the CMS login
+stays isolated from it. Nothing secret is committed here either — the GitHub
+client secret only ever lives as a Cloudflare Secret.
+
+> **Alternative that needs none of this:** Savanna can log in *today* with
+> **"Sign in with Token"** on the `/admin` screen (a GitHub fine-grained token,
+> zero infrastructure — SETUP-GUIDE.md Step 9 / DEVELOPMENT.md section 20
+> Option A). This Worker is the nicer, permanent login you graduate to.
+
+**Setup (once):**
+
+1. **GitHub OAuth App** — GitHub → **Settings → Developer settings → OAuth
+   Apps → New OAuth App** (the short *OAuth App* form, **not** "GitHub App").
+   Homepage URL `https://yallternativeliving.com`. Copy the **Client ID**,
+   generate + copy a **Client Secret**. Set the **Authorization callback URL**
+   after step 2 to `<this-Worker-URL>/callback`.
+2. **Deploy `workers/auth/`** — same two paths as checkout above:
+   - **Workers Builds (dashboard):** Workers & Pages → Create → Import a
+     repository → this repo, project root **`workers/auth`** (checkout's root
+     is `workers`; each Worker is its own Workers Builds project). Redeploys on
+     every push, no `wrangler deploy` by hand.
+   - **Wrangler CLI:** `cd workers/auth && wrangler deploy`.
+
+   Either way, `wrangler deploy --dry-run` builds it clean first if you want to
+   check. Cloudflare then shows the Worker URL, e.g.
+   `https://yallternative-cms-auth.<subdomain>.workers.dev`.
+3. **Secrets** — this Worker → **Settings → Variables and Secrets** → add
+   `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` (type **Secret**) from step 1.
+   `ALLOWED_DOMAINS` is already set as a plain var in `wrangler.toml` and locks
+   token issuance to this site — no other site can point its CMS at this Worker
+   and harvest tokens.
+4. **Wire the URLs together** — put the Worker URL into `admin/config.yml` as
+   `backend.base_url` (replace the `YOUR-SUBDOMAIN` placeholder), and set the
+   GitHub OAuth App's callback (step 1) to `<that-URL>/callback`. They must
+   match exactly. Commit `config.yml`; `/admin` now shows **Sign in with
+   GitHub**.
+
+Security notes already handled in the code: a random per-login CSRF token in an
+HttpOnly cookie is checked on callback; the access token is only `postMessage`d
+to a window whose origin matches `ALLOWED_DOMAINS`; the callback page is
+`Cache-Control: no-store`; and the client secret is read only from a Cloudflare
+Secret (never committed).
 
 ---
 

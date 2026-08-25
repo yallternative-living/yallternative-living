@@ -1,0 +1,59 @@
+# Cloudflare Worker config for the CMS sign-in service (GitHub OAuth for the
+# Sveltia CMS product editor at /admin). See sveltia-auth.js's header and
+# workers/README.md "Sign-in Worker" for the full one-time setup.
+#
+# This is a SEPARATE Worker from the checkout one (workers/wrangler.toml). Kept
+# apart on purpose: the checkout Worker holds the Stripe secret and handles real
+# payments, so it stays isolated from the CMS login. Two small single-purpose
+# Workers, not one worker doing two unrelated jobs.
+#
+# It's committed on purpose, exactly like the checkout config: Workers Builds
+# reads it straight from the repo and redeploys on every push to main, so nobody
+# runs `wrangler deploy` by hand after the initial setup.
+#
+# NOTHING SECRET LIVES HERE, and nothing secret ever should. GITHUB_CLIENT_ID
+# and GITHUB_CLIENT_SECRET are set as Secrets in the Cloudflare dashboard
+# (this Worker -> Settings -> Variables and Secrets), never in this file --
+# it's committed to a public repo.
+#
+# Dashboard setup this file does NOT cover (one-time, by hand):
+#   1. GitHub -> Settings -> Developer settings -> OAuth Apps -> New OAuth App
+#      (the short "OAuth App" form, NOT "GitHub App"):
+#        - Homepage URL:              https://yallternativeliving.com
+#        - Authorization callback URL: https://<this-worker-url>/callback
+#      Copy the Client ID; generate + copy a Client Secret.
+#   2. Workers & Pages -> Create -> Import a repository -> this repo, with the
+#      project root set to `workers/auth` (the checkout Worker's project root is
+#      `workers`; each Worker is its own Workers Builds project).
+#   3. This Worker -> Settings -> Variables and Secrets -> add two Secrets:
+#        GITHUB_CLIENT_ID       (from step 1)
+#        GITHUB_CLIENT_SECRET   (from step 1)
+#   4. Copy this Worker's URL (Cloudflare shows it after deploy, e.g.
+#      https://yallternative-cms-auth.<subdomain>.workers.dev) into
+#      admin/config.yml as backend.base_url, and use <that-url>/callback as the
+#      GitHub OAuth App callback in step 1. The two must match exactly.
+
+name = "yallternative-cms-auth"
+main = "sveltia-auth.js"
+compatibility_date = "2026-01-01"
+
+# KEEP ON. Sveltia's /admin login opens this Worker directly at its workers.dev
+# URL (admin/config.yml's backend.base_url). Turning this off takes CMS login
+# offline. (Unlike checkout, this Worker is reached directly, not via a Netlify
+# proxy -- the OAuth popup navigates straight to it.)
+workers_dev = true
+
+# OFF. No benefit to extra public preview URLs for a login endpoint, and each
+# would be another internet-facing copy bound to the OAuth client secret.
+preview_urls = false
+
+[vars]
+# Anti-abuse + security: the sign-in page will only hand a GitHub token to a
+# window whose origin matches one of these hosts, so nobody else can point their
+# own CMS at this Worker and harvest tokens. Comma-separated; "*" is a wildcard
+# (e.g. "*.yallternativeliving.com"). NOT a secret -- safe to commit.
+ALLOWED_DOMAINS = "yallternativeliving.com,www.yallternativeliving.com"
+
+# GITHUB_HOSTNAME is only needed for GitHub Enterprise; github.com is the
+# default in sveltia-auth.js, so it's intentionally left unset here.
+# GITHUB_HOSTNAME = "github.com"

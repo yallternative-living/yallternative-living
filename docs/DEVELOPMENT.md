@@ -28,7 +28,7 @@ To start taking payments, sending newsletters, or moderating reviews directly on
 5. **[ ] Gift Card Emails (Resend):** Required for the built-in gift-card system (item 2's checkout Worker uses it) to actually email a redeemable code once someone buys one — not optional unless you replace gift cards entirely with item 6. (Setup steps in `workers/README.md`.)
 6. ~~Digital Gift Cards — optional upgrade (Gift Up!)~~ **Not usable yet — nothing to do here.** A possible future paid alternative to item 5's built-in system, but the code that would actually switch to it was never finished, so its CMS field is hidden (`widget: hidden` in `admin/config.yml`) rather than shown-but-unusable. See [Section 18](#18-digital-gift-cards-explained) for the honest status check.
 7. **[ ] Customer Live Chat (Tawk.to - Optional):** Adds a small chat bubble to the bottom of the pages so customers can ask you questions. (Setup steps in [Section 19](#19-live-chat-explained)).
-8. **[ ] Store Management (Sveltia CMS):** Log in to your secure admin panel using your GitHub account to manage products and content — requires turning on GitHub login in Netlify first, one checkbox, see [Section 20](#20-product-editor-sveltia-cms-at-admin-explained).
+8. **[ ] Store Management (Sveltia CMS):** Log in to your secure admin panel with GitHub to manage products and content. Log in **today** with a GitHub token ("Sign in with Token"), or set up the permanent one-click "Sign in with GitHub" button. **Netlify is not involved** (its old Git Gateway login is deprecated). See [Section 20](#20-product-editor-sveltia-cms-at-admin-explained).
 
 ### 3. Setting Up Your Website Name (Domain Name)
 When you're ready to buy your own custom web address (like `yallternativeliving.com`), just let me know. I've already wired up a script that will automatically update the entire site to use your new address in one click. You or I can follow the steps in [Section 10](#10-seo--ai-agent-optimization-already-in-place) to run it!
@@ -1176,11 +1176,18 @@ current docs at that time.
   it's had real orders," "bundle price is always computed, never
   hand-set"). Nothing was invented — if a field isn't in this file, it
   isn't part of the real catalog schema.
+- `workers/auth/` — the self-hosted GitHub login Worker
+  (`sveltia-auth.js` + `wrangler.toml`) for the permanent "Sign in with
+  GitHub" button (Option B under authentication below). Written and
+  committed; it just needs the one-time deploy + GitHub OAuth App in that
+  same section. Nothing secret is in the repo.
 - A path-scoped CSP for `/admin/*` in `_headers`/`vercel.json`/
   `netlify.toml` (separate from, and more permissive than, the main
   site's strict CSP — see the `adminCsp` comment in
   `scripts/build-security-headers.js` for exactly what it allows and
-  why).
+  why). The OAuth login popup (Option B) needs no CSP change: it's a
+  `window.open` navigation to the login Worker plus a `postMessage` back,
+  neither of which the page's CSP governs.
 - The required build step (section 12) in all three deploy configs, so
   a commit from `/admin` automatically regenerates everything derived
   from `products.json` before going live.
@@ -1193,32 +1200,66 @@ current docs at that time.
 **What you (Savanna/Steven) still need to do:**
 
 1. **GitHub Repository Access:** The repository currently lives under Steven's personal GitHub account, and Savanna now has access as a collaborator. If you ever choose to transfer the repository directly to Savanna's own GitHub account in the future (GitHub → repo → Settings → "Transfer ownership"), make sure to update `admin/config.yml`'s `backend.repo` to the new `owner/repo-name` and commit the change (otherwise Sveltia CMS won't be able to save edits, and `npm test` will flag the mismatch).
-2. **Set up authentication.** Two real options, in order of how this
-   project is already configured:
-   - **Using Netlify (the default, zero extra config in `config.yml`).**
-     If this site is deployed on Netlify (section 12), Netlify is
-     Sveltia's *default* authentication provider for a `github` backend
-     the moment you deploy there — Sveltia's own docs confirm: *"It's
-     the default authentication method if you don't configure
-     authentication explicitly, and you don't need to set up a backend
-     server yourself."* The one-time setup happens entirely in
-     Netlify's own dashboard, not in `config.yml`: in your Netlify
-     site's dashboard, go to **Site configuration → Identity** (or
-     search "OAuth" in settings) and enable the **GitHub** OAuth
-     provider under **Git Gateway / OAuth**, authorizing it against your
-     GitHub account. Once that's done, visiting `/admin` on the live
-     site shows a normal "Sign in with GitHub" button — no separate
-     GitHub OAuth App needs to be hand-created.
-   - **Personal Access Token ("Sign In with Token") — the faster
-     option for just Savanna/Steven editing solo**, no OAuth app or
-     Netlify dashboard step at all: on GitHub, go to **Settings →
-     Developer settings → Personal access tokens → Fine-grained
-     tokens**, create one scoped to just this repo with **Contents:
-     Read and write** permission, then paste that token into Sveltia's
-     "Sign In with Token" option on the `/admin` login screen the first
-     time you visit it. Simpler to set up, but the token is a
-     credential to protect like a password — don't share it, and revoke
-     it from GitHub's settings if it's ever exposed.
+2. **Set up authentication.** Two real options. **Do NOT use Netlify's
+   old "Git Gateway / OAuth" — Netlify deprecated it** (that is the exact
+   dead end the earlier version of this doc sent people to; the CMS login
+   kept landing on Netlify's "This feature is deprecated" warning). Sveltia
+   does not need Netlify for login at all. Pick one:
+
+   - **Option A — Personal Access Token ("Sign In with Token"). Instant,
+     zero infrastructure — use this to log in today.** No OAuth app, no
+     Worker, no Netlify dashboard step. On GitHub, go to **Settings →
+     Developer settings → Personal access tokens → Fine-grained tokens →
+     Generate new token**, scope it to **only this repository** with
+     **Repository permissions → Contents: Read and write** (that one
+     permission is all Sveltia needs to save edits), pick an expiration,
+     and **Generate token**. Then on the `/admin` login screen click
+     **Sign in with Token** and paste it. Sveltia stores the token in that
+     browser's local storage and reuses it. Downsides: it's a credential to
+     protect like a password (don't share it; revoke it from GitHub's
+     settings if it's ever exposed), it lives per-browser (a new
+     device/browser means pasting it again), and it stops working when it
+     expires (just generate a fresh one). Perfect for getting Savanna
+     editing right now; Option B is the nicer long-term login.
+
+   - **Option B — Self-hosted GitHub OAuth on Cloudflare Workers (the
+     permanent "Sign in with GitHub" button).** This is the modern
+     replacement for the deprecated Netlify path, and it reuses the
+     Cloudflare Workers setup this site already runs for checkout. The
+     login Worker lives in the repo at **`workers/auth/`**
+     (`sveltia-auth.js` + `wrangler.toml`) — a clean-room build of the
+     canonical [Sveltia CMS Authenticator](https://github.com/sveltia/sveltia-cms-auth).
+     One-time setup (Steven does this once):
+       1. **Create a GitHub OAuth App** — GitHub → **Settings → Developer
+          settings → OAuth Apps → New OAuth App**. This is the short
+          **"OAuth App"** form; it is **not** the long "GitHub App" form
+          (that's the wrong thing — if you land on a page asking for a
+          "Webhook", per-resource "Repository permissions", and a generated
+          `.pem` key, back out; you want plain *OAuth Apps*). Set
+          **Homepage URL** to `https://yallternativeliving.com`. Create it,
+          copy the **Client ID**, then **Generate a new client secret** and
+          copy that. You'll set the **Authorization callback URL** in step 4,
+          once step 2 gives you the Worker URL.
+       2. **Deploy `workers/auth/`** to Cloudflare — same two ways as the
+          checkout Worker (Workers Builds with the project root set to
+          `workers/auth`, or `wrangler deploy` from that folder). See
+          `workers/README.md` → "Sign-in Worker". Cloudflare then shows the
+          Worker's URL, e.g.
+          `https://yallternative-cms-auth.<your-subdomain>.workers.dev`.
+       3. **Add the two secrets** — in that Worker's Cloudflare dashboard,
+          **Settings → Variables and Secrets**, add `GITHUB_CLIENT_ID` and
+          `GITHUB_CLIENT_SECRET` as **Secrets** (from step 1). `ALLOWED_DOMAINS`
+          is already set in `wrangler.toml` (not secret) and restricts token
+          issuance to this site.
+       4. **Connect the three URLs.** Put the Worker URL from step 2 into
+          `admin/config.yml` as `backend.base_url` (replacing the
+          `YOUR-SUBDOMAIN` placeholder already there), commit it, and set the
+          GitHub OAuth App's **Authorization callback URL** (step 1) to
+          `<that-same-Worker-URL>/callback`. These must match exactly.
+     After that, `/admin` shows a real **Sign in with GitHub** button and
+     nobody manages a token. The Worker never sees your data — it only
+     performs the OAuth handshake and hands the browser a token; the client
+     secret lives only as a Cloudflare Secret, never in the repo.
 3. **Visit `https://<your-real-domain>/admin` and sign in** using
    whichever method you set up. You should see forms for Shop Info,
    Categories, Products, Bundles, and FAQ — editing any of them and
