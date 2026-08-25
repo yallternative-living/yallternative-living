@@ -1176,11 +1176,13 @@ current docs at that time.
   it's had real orders," "bundle price is always computed, never
   hand-set"). Nothing was invented — if a field isn't in this file, it
   isn't part of the real catalog schema.
-- `workers/auth/` — the self-hosted GitHub login Worker
+- `cms-auth/` — the self-hosted GitHub login Worker
   (`sveltia-auth.js` + `wrangler.toml`) for the permanent "Sign in with
   GitHub" button (Option B under authentication below). Written and
   committed; it just needs the one-time deploy + GitHub OAuth App in that
-  same section. Nothing secret is in the repo.
+  same section. Nothing secret is in the repo. (It's a top-level folder,
+  deliberately not under `workers/`, so it doesn't share the checkout
+  Worker's Workers Builds root — see its `wrangler.toml` header.)
 - A path-scoped CSP for `/admin/*` in `_headers`/`vercel.json`/
   `netlify.toml` (separate from, and more permissive than, the main
   site's strict CSP — see the `adminCsp` comment in
@@ -1226,7 +1228,7 @@ current docs at that time.
      permanent "Sign in with GitHub" button).** This is the modern
      replacement for the deprecated Netlify path, and it reuses the
      Cloudflare Workers setup this site already runs for checkout. The
-     login Worker lives in the repo at **`workers/auth/`**
+     login Worker lives in the repo at **`cms-auth/`**
      (`sveltia-auth.js` + `wrangler.toml`) — a clean-room build of the
      canonical [Sveltia CMS Authenticator](https://github.com/sveltia/sveltia-cms-auth).
      One-time setup (Steven does this once):
@@ -1240,9 +1242,9 @@ current docs at that time.
           copy the **Client ID**, then **Generate a new client secret** and
           copy that. You'll set the **Authorization callback URL** in step 4,
           once step 2 gives you the Worker URL.
-       2. **Deploy `workers/auth/`** to Cloudflare — same two ways as the
+       2. **Deploy `cms-auth/`** to Cloudflare — same two ways as the
           checkout Worker (Workers Builds with the project root set to
-          `workers/auth`, or `wrangler deploy` from that folder). See
+          `cms-auth`, or `wrangler deploy` from that folder). See
           `workers/README.md` → "Sign-in Worker". Cloudflare then shows the
           Worker's URL, e.g.
           `https://yallternative-cms-auth.<your-subdomain>.workers.dev`.

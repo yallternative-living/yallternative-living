@@ -38,7 +38,7 @@
  *        - Homepage URL:      https://yallternativeliving.com
  *        - Authorization callback URL:  <THIS-WORKER-URL>/callback
  *      Copy the Client ID, then "Generate a new client secret" and copy that.
- *   2. Deploy this folder (workers/auth) to Cloudflare -- see workers/README.md.
+ *   2. Deploy this folder (cms-auth) to Cloudflare -- see workers/README.md.
  *   3. In the Worker's Cloudflare dashboard, Settings -> Variables and Secrets,
  *      add two Secrets:  GITHUB_CLIENT_ID  and  GITHUB_CLIENT_SECRET.
  *      (ALLOWED_DOMAINS is set in wrangler.toml, not as a secret -- it's not

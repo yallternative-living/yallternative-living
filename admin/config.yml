@@ -23,7 +23,7 @@
 #   (A) Instant, zero setup: "Sign in with Token" on the /admin login screen
 #       (paste a GitHub token -- good for logging in today).
 #   (B) Permanent "Sign in with GitHub" button: deploy the login Worker in
-#       workers/auth/ and set backend.base_url below to its URL.
+#       cms-auth/ and set backend.base_url below to its URL.
 # Full steps for both are in DEVELOPMENT.md section 20.
 #
 # Every field below maps 1:1 to a real field already used in
@@ -47,11 +47,11 @@ backend:
   # This used to be left unset so Netlify could act as the default OAuth
   # provider -- but Netlify DEPRECATED that (its "Git Gateway / OAuth"),
   # which is the dead end the /admin login kept hitting. We now run our own
-  # tiny login Worker on Cloudflare (workers/auth/, right next to the
-  # checkout Worker this site already uses), so /admin no longer depends on
-  # Netlify for anything. See DEVELOPMENT.md section 20.
+  # tiny login Worker on Cloudflare (the top-level cms-auth/ folder,
+  # alongside the checkout Worker this site already uses), so /admin no longer
+  # depends on Netlify for anything. See DEVELOPMENT.md section 20.
   #
-  # >>> ONE VALUE TO FILL IN (Steven, once, after deploying workers/auth) <<<
+  # >>> ONE VALUE TO FILL IN (Steven, once, after deploying cms-auth) <<<
   # Replace YOUR-SUBDOMAIN below with the real Worker URL Cloudflare shows
   # after deploy (it looks like
   # https://yallternative-cms-auth.<your-subdomain>.workers.dev), and set that

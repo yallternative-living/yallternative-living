@@ -8,9 +8,9 @@ actually be deployed (with real Stripe keys) before checkout works in production
 `auth/sveltia-auth.js` is the **CMS sign-in service** -- the permanent "Sign in
 with GitHub" button for the Sveltia CMS product editor at `/admin`. It replaces
 Netlify's deprecated "Git Gateway / OAuth" login, so `/admin` depends on nothing
-from Netlify. It's its own separate Worker in `workers/auth/` (see the section
-below). Optional to deploy: Savanna can also log in immediately with a token
-("Sign in with Token") and set this up later.
+from Netlify. It's its own separate Worker in the top-level `cms-auth/` folder
+(see the section below). Optional to deploy: Savanna can also log in immediately
+with a token ("Sign in with Token") and set this up later.
 
 `submit-form.js` is still **optional** -- the contact/review forms currently post
 to Formspree directly, and this Worker is only worth deploying if you want that
@@ -165,18 +165,21 @@ searched.
 
 ---
 
-## Sign-in Worker (CMS login) — `auth/sveltia-auth.js`
+## Sign-in Worker (CMS login) — `../cms-auth/sveltia-auth.js`
 
 This is the **permanent "Sign in with GitHub" button** for the Sveltia CMS
 product editor at `/admin` (DEVELOPMENT.md section 20, Option B). It's the
 modern replacement for Netlify's deprecated "Git Gateway / OAuth" login —
 `/admin` no longer depends on Netlify for anything.
 
-It's a **separate Worker** from checkout, in its own folder (`workers/auth/`)
-with its own committed `wrangler.toml`, kept apart on purpose: the checkout
-Worker holds the Stripe secret and handles real payments, so the CMS login
-stays isolated from it. Nothing secret is committed here either — the GitHub
-client secret only ever lives as a Cloudflare Secret.
+It's a **separate Worker** from checkout, in its own **top-level `cms-auth/`
+folder** (not under `workers/`) with its own committed `wrangler.toml`, kept
+apart on purpose: the checkout Worker holds the Stripe secret and handles real
+payments, so the CMS login stays isolated from it. It also *has* to live outside
+`workers/` — that folder is the checkout Worker's Workers Builds root, and a
+second `wrangler.toml` inside it breaks the checkout build. Nothing secret is
+committed here either — the GitHub client secret only ever lives as a Cloudflare
+Secret.
 
 > **Alternative that needs none of this:** Savanna can log in *today* with
 > **"Sign in with Token"** on the `/admin` screen (a GitHub fine-grained token,
@@ -190,12 +193,12 @@ client secret only ever lives as a Cloudflare Secret.
    Homepage URL `https://yallternativeliving.com`. Copy the **Client ID**,
    generate + copy a **Client Secret**. Set the **Authorization callback URL**
    after step 2 to `<this-Worker-URL>/callback`.
-2. **Deploy `workers/auth/`** — same two paths as checkout above:
+2. **Deploy `cms-auth/`** — same two paths as checkout above:
    - **Workers Builds (dashboard):** Workers & Pages → Create → Import a
-     repository → this repo, project root **`workers/auth`** (checkout's root
+     repository → this repo, project root **`cms-auth`** (checkout's root
      is `workers`; each Worker is its own Workers Builds project). Redeploys on
      every push, no `wrangler deploy` by hand.
-   - **Wrangler CLI:** `cd workers/auth && wrangler deploy`.
+   - **Wrangler CLI:** `cd cms-auth && wrangler deploy`.
 
    Either way, `wrangler deploy --dry-run` builds it clean first if you want to
    check. Cloudflare then shows the Worker URL, e.g.

@@ -7,6 +7,11 @@
 # payments, so it stays isolated from the CMS login. Two small single-purpose
 # Workers, not one worker doing two unrelated jobs.
 #
+# It lives in its OWN top-level folder (cms-auth/), deliberately NOT under
+# workers/. The checkout Worker's Workers Builds project uses `workers` as its
+# build root, and a second wrangler.toml sitting inside that root breaks the
+# checkout build -- so this one gets its own root here instead.
+#
 # It's committed on purpose, exactly like the checkout config: Workers Builds
 # reads it straight from the repo and redeploys on every push to main, so nobody
 # runs `wrangler deploy` by hand after the initial setup.
@@ -23,8 +28,9 @@
 #        - Authorization callback URL: https://<this-worker-url>/callback
 #      Copy the Client ID; generate + copy a Client Secret.
 #   2. Workers & Pages -> Create -> Import a repository -> this repo, with the
-#      project root set to `workers/auth` (the checkout Worker's project root is
-#      `workers`; each Worker is its own Workers Builds project).
+#      project root set to `cms-auth` (the checkout Worker's project root is
+#      `workers`; each Worker is its own Workers Builds project with its own
+#      root -- which is exactly why this folder is not under workers/).
 #   3. This Worker -> Settings -> Variables and Secrets -> add two Secrets:
 #        GITHUB_CLIENT_ID       (from step 1)
 #        GITHUB_CLIENT_SECRET   (from step 1)
