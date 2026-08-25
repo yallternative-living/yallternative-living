@@ -58,6 +58,8 @@ preview_urls = false
 # window whose origin matches one of these hosts, so nobody else can point their
 # own CMS at this Worker and harvest tokens. Comma-separated; "*" is a wildcard
 # (e.g. "*.yallternativeliving.com"). NOT a secret -- safe to commit.
+# REQUIRED: sveltia-auth.js fails CLOSED, so if this is empty no login will
+# succeed (the token is never delivered). Keep it set to the real site host(s).
 ALLOWED_DOMAINS = "yallternativeliving.com,www.yallternativeliving.com"
 
 # GITHUB_HOSTNAME is only needed for GitHub Enterprise; github.com is the
