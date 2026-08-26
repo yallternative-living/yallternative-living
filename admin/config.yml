@@ -511,8 +511,34 @@ collections:
               - { name: title, label: "Title", widget: string }
               - { name: date, label: "Publish Date", widget: datetime, format: "YYYY-MM-DD", date_format: "MM/DD/YYYY", time_format: false }
               - { name: image, label: "Featured Image", widget: image, required: false }
-              - { name: excerpt, label: "Excerpt (short text shown in list)", widget: text }
-              - { name: content, label: "Content (full post text)", widget: text }
+              # Left as a plain box on purpose: this teaser is printed inside a
+              # small card on journal.html (and into llms.txt as a one-line
+              # summary), so headings/bullets there would break the layout and
+              # bold/link marks would just show up as literal ** and [ ].
+              - { name: excerpt, label: "Short teaser (the blurb on the blog list page)", widget: text, hint: "One or two plain sentences that make someone want to open the post. Formatting isn't used here." }
+              # widget: markdown = Sveltia's rich-text editor: a real toolbar
+              # (bold, italic, links, headings, bullet + numbered lists) with a
+              # "raw" tab for anyone who'd rather type. It saves MARKDOWN TEXT
+              # into journal.json, not HTML, which is exactly what the site's
+              # renderMarkdown() in assets/js/main.js renders -- and because
+              # the site escapes everything before formatting it, nothing typed
+              # here can turn into live code on the page.
+              #   - "markdown" and "richtext" are the same editor in the pinned
+              #     Sveltia 0.172.4 (admin/index.html); "markdown" is used here
+              #     because it names the format actually stored in the file, and
+              #     it's the spelling Netlify/Decap CMS understands too.
+              #   - buttons/editor_components are trimmed to exactly what the
+              #     site can draw, so nothing Savanna can click comes out broken
+              #     on the page: no strikethrough, inline code, block quotes,
+              #     code blocks or in-post images. (Heading 2/3 here render as
+              #     the post's section/sub-section headings; Heading 1 is left
+              #     out because the post title already fills that slot.)
+              - name: content
+                label: "The post itself"
+                widget: markdown
+                buttons: [bold, italic, link, heading-two, heading-three, bulleted-list, numbered-list]
+                editor_components: []
+                hint: "Write the post here — the toolbar gives you bold, italic, links, headings and lists, and it looks on the website the way it looks in this box. Leave a blank line between paragraphs."
 
   - name: social_feed
     label: "5. Social Media Feed"

@@ -481,6 +481,192 @@
     return "";
   }
 
+  /* ---------- shared: only allow safe schemes into a markdown link's href ----------
+     safeUrl() above is deliberately narrow (absolute http(s), or a path that
+     starts with "/") because it guards machine-supplied feed/event URLs. A
+     link typed into a journal post also has to accept "mailto:" and ordinary
+     relative paths like "shop.html#gift-cards", while still refusing anything
+     that can execute.
+
+     The whitespace/control-character strip is the load-bearing part: a browser
+     removes tabs and newlines from a URL and trims leading control characters
+     BEFORE it decides what the scheme is, so " javascript:alert(1)" and
+     "java<TAB>script:alert(1)" both run. Strip first, then decide. */
+  function safeLinkUrl(url) {
+    if (!url) return "";
+    var raw = String(url);
+    var cleaned = "";
+    for (var i = 0; i < raw.length; i++) {
+      var code = raw.charCodeAt(i);
+      // Everything at or below 0x20 is a space or a control character, and
+      // 0x7F is DEL -- none of them belong inside a URL.
+      if (code > 32 && code !== 127) cleaned += raw.charAt(i);
+    }
+    if (!cleaned) return "";
+    var scheme = /^([a-zA-Z][a-zA-Z0-9+.-]*):/.exec(cleaned);
+    if (scheme) {
+      var name = scheme[1].toLowerCase();
+      if (name !== "http" && name !== "https" && name !== "mailto") return "";
+      return cleaned;
+    }
+    // No scheme at all -- "shop.html", "/journal.html", "#gift-cards",
+    // "//example.com". A relative reference can't execute.
+    return cleaned;
+  }
+
+  /* ---------- shared: minimal, escape-first Markdown renderer ----------
+     The Apothecary Journal's post body is written by Savanna in /admin (the
+     `content` field is a rich-text editor there) and rendered on journal.html
+     through innerHTML, so this has exactly two jobs: cover the handful of
+     formatting marks a shop owner actually needs, and never let post text
+     become live markup.
+
+     Why this isn't a vendored library. Self-hosting one would have been fine
+     -- the site's CSP only blocks CDN scripts, and we already self-host the
+     fonts for that same reason (docs/SELF-HOSTING-FONTS.md) -- so this was a
+     trade, not a constraint:
+       - snarkdown (1.9 KB minified, MIT) is the closest fit by size, but its
+         last release was 2020, it passes raw HTML straight through (an
+         `<img src=x onerror=...>` in a post survives verbatim), writes hrefs
+         with no scheme check (`[x](javascript:alert(1))` becomes a live
+         link), and separates paragraphs with `<br />` instead of `<p>` --
+         which on its own would restyle every post already published, since
+         journal.html styles `.content p`. Fixing the first two means forking
+         its single dense minified regex, which throws away the reason to
+         vendor it in the first place.
+       - marked (40 KB minified) and markdown-it (124 KB minified) are each
+         bigger than every file this site ships except main.js itself, for a
+         page that renders a couple of posts. marked doesn't sanitize either
+         (its docs hand you off to DOMPurify); markdown-it is genuinely safe
+         by default (html:false plus a scheme allowlist) but is ~15x the size
+         of the ~8 KB below for the same handful of formatting marks.
+     So: escape with attrEsc() FIRST, then add formatting to text that can no
+     longer contain markup. Anything unsupported degrades to plain text. */
+
+  /* Inline emphasis. Only ever runs on text attrEsc() has already escaped,
+     so there is no "<" left for it to turn into a tag. Sveltia's editor
+     writes **bold** and _italic_; *italic* and __bold__ are accepted too
+     because that's what people type by hand. An underscore inside a word
+     (soap_batch_2) is not emphasis, which is why those two rules check the
+     characters on either side. */
+  function mdEmphasis(escaped) {
+    return escaped
+      .replace(/(^|[^A-Za-z0-9_])__([^\n]+?)__(?![A-Za-z0-9_])/g, "$1<strong>$2</strong>")
+      .replace(/\*\*([^\n]+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/(^|[^A-Za-z0-9_])_([^_\n]+?)_(?![A-Za-z0-9_])/g, "$1<em>$2</em>")
+      .replace(/\*([^*\n]+?)\*/g, "<em>$1</em>");
+  }
+
+  /* [label](url). The URL may not contain whitespace, and may contain at most
+     one nested pair of parentheses -- enough for the Wikipedia-style
+     ".../Arnica_(plant)" links an herbal blog actually uses, while staying a
+     single unambiguous match per link (the two alternatives can't match the
+     same character, so there is nothing here to backtrack over). */
+  var MD_LINK_RE = /\[([^\]\n]*)\]\(((?:[^()\s]|\([^()\s]*\))*)\)/g;
+
+  /* One run of markdown text -> safe HTML. Escaping happens per slice so the
+     URL is checked in its raw form (before "&" becomes "&amp;") and only then
+     escaped for the attribute it lands in. */
+  function mdInline(text) {
+    var html = "";
+    var lastIndex = 0;
+    var match;
+    MD_LINK_RE.lastIndex = 0;
+    while ((match = MD_LINK_RE.exec(text)) !== null) {
+      html += mdEmphasis(attrEsc(text.slice(lastIndex, match.index)));
+      var href = safeLinkUrl(match[2]);
+      var label = mdEmphasis(attrEsc(match[1]));
+      // A rejected URL (javascript:, data:, ...) keeps the words and drops
+      // the link -- it never reaches an href.
+      html += href ? '<a href="' + attrEsc(href) + '">' + label + "</a>" : label;
+      lastIndex = MD_LINK_RE.lastIndex;
+    }
+    return html + mdEmphasis(attrEsc(text.slice(lastIndex)));
+  }
+
+  /* Block structure: blank-line separated paragraphs (what every post written
+     before this existed already is), "## " headings, "- " bullet lists,
+     "1. " numbered lists, and "***" dividers. Deliberately not a CommonMark
+     parser -- no tables, code blocks, blockquotes or images, all of which are
+     also switched off in the editor (see admin/config.yml's `buttons` and
+     `editor_components` for the journal `content` field). */
+  function renderMarkdown(text) {
+    if (text == null) return "";
+    var lines = String(text).replace(/\r\n?/g, "\n").split("\n");
+    var html = "";
+    var para = [];
+    var items = [];
+    var listTag = "";
+
+    function flushPara() {
+      if (!para.length) return;
+      // Joined with "\n", not " ": a plain-text post then renders the exact
+      // same bytes it did before this function existed.
+      html += "<p>" + mdInline(para.join("\n")) + "</p>";
+      para = [];
+    }
+
+    function flushList() {
+      if (!items.length) return;
+      html +=
+        "<" +
+        listTag +
+        ">" +
+        items
+          .map(function (item) {
+            return "<li>" + mdInline(item) + "</li>";
+          })
+          .join("") +
+        "</" +
+        listTag +
+        ">";
+      items = [];
+      listTag = "";
+    }
+
+    function pushItem(tag, item) {
+      // A "1." right after a "-" starts a second, differently-tagged list.
+      if (listTag && listTag !== tag) flushList();
+      flushPara();
+      listTag = tag;
+      items.push(item);
+    }
+
+    lines.forEach(function (line) {
+      var trimmed = line.trim();
+      var heading = /^(#{1,6})\s+(.+)$/.exec(trimmed);
+      var bullet = /^[-*+]\s+(.+)$/.exec(trimmed);
+      var numbered = /^\d{1,9}[.)]\s+(.+)$/.exec(trimmed);
+
+      if (!trimmed) {
+        flushPara();
+        flushList();
+      } else if (/^(\*{3,}|-{3,}|_{3,})$/.test(trimmed)) {
+        flushPara();
+        flushList();
+        html += "<hr>";
+      } else if (heading) {
+        flushPara();
+        flushList();
+        // The post's own title is the page's <h2>, so headings inside a post
+        // start at <h3> and never skip a level (screen-reader outline).
+        var tag = heading[1].length > 2 ? "h4" : "h3";
+        html += "<" + tag + ">" + mdInline(heading[2]) + "</" + tag + ">";
+      } else if (bullet) {
+        pushItem("ul", bullet[1]);
+      } else if (numbered) {
+        pushItem("ol", numbered[1]);
+      } else {
+        flushList();
+        para.push(line);
+      }
+    });
+
+    flushPara();
+    flushList();
+    return html;
+  }
+
   /* ---------- shared: horizontal swipe gesture ----------
      Both the product lightbox and the events carousel wired up their own
      near-identical touchstart/touchend handlers with the same 50px
@@ -3349,12 +3535,11 @@
         return;
       }
 
-      var paragraphs = post.content
-        .split("\n\n")
-        .map(function (p) {
-          return "<p>" + attrEsc(p) + "</p>";
-        })
-        .join("");
+      // Markdown-aware and escape-first (see renderMarkdown above). A post
+      // written as plain blank-line-separated text -- which is every post
+      // published before the CMS grew a formatting toolbar -- still renders
+      // as exactly the same <p> blocks it always did.
+      var body = renderMarkdown(post.content);
 
       journalApp.innerHTML =
         '<div class="journal-detail">' +
@@ -3373,7 +3558,7 @@
             '">'
           : "") +
         '  <div class="content reveal">' +
-        paragraphs +
+        body +
         "</div>" +
         "</div>";
 
@@ -4075,6 +4260,8 @@
       saveWishlist: saveWishlist,
       attrEsc: attrEsc,
       safeUrl: safeUrl,
+      safeLinkUrl: safeLinkUrl,
+      renderMarkdown: renderMarkdown,
       addToCartHTML: addToCartHTML,
       applyTheme: applyTheme,
       pickFeatured: pickFeatured,
