@@ -34,9 +34,11 @@ Netlify hosts the site for free.
 
 **B. Point Porkbun's nameservers at Netlify**
 
-1. In Netlify: **Site Settings → Domain Management → Add Custom
-   Domain** → enter `yallternativeliving.com` → copy the 4 nameservers
-   shown (e.g. `dns1.p01.nsone.net`).
+1. In Netlify: **Project configuration → Domain management → Add a
+   domain** (Netlify has renamed "Site settings" to "Project
+   configuration" — look for whichever wording your dashboard shows) →
+   enter `yallternativeliving.com` → copy the 4 nameservers shown (e.g.
+   `dns1.p01.nsone.net`).
 2. In Porkbun: **Domain Management → yallternativeliving.com → Details
    → edit Nameservers** → paste the 4 Netlify values → **Submit**. It
    can take a little while for the new address to work everywhere —
@@ -129,13 +131,27 @@ those orders tax correctly.
 ## Step 6: Gift-Card Emails (Resend) — required
 
 This is what actually sends the gift-card email once someone buys one.
+**Two parts, and both are required** — the email is sent from
+`gifts@yallternativeliving.com`, and Resend won't let anyone send from
+your domain until you prove you own it (step 1). Skipping that doesn't
+error loudly: the purchase still completes, but the recipient's email
+silently never arrives.
 
-1. Sign up free at [Resend.com](https://resend.com) → **API Keys →
-   Create API Key** → copy it (`re_...`).
-2. In Netlify: **Site Settings → Environment Variables** → add three
-   values: the **Secret key** and **Signing secret** from Step 3, plus
-   this Resend key. Just pasting, nothing technical — the gift-card
-   email turns itself on once all three are filled in.
+1. **Verify your domain in Resend** (do this first): [Resend.com](https://resend.com)
+   sign up → **Domains → Add Domain** → enter `yallternativeliving.com` →
+   Resend shows you a few DNS records (a couple of TXT records and an
+   MX record) → add each one, exactly as shown, wherever your domain's
+   DNS is managed. **Since Step 2B pointed this domain's nameservers at
+   Netlify, that's now Netlify** — in Netlify: **Domain management →
+   DNS records → Add a record** (not Porkbun anymore). Back in Resend,
+   click **Verify** — usually confirms within 15 minutes, occasionally
+   up to 24 hours.
+2. **API Keys → Create API Key** → copy it (`re_...`).
+3. In Netlify: **Project configuration → Environment variables** → add
+   three values: the **Secret key** and **Signing secret** from Step 3,
+   plus this Resend key. Just pasting, nothing technical — the gift-card
+   email turns itself on once all three are filled in AND the domain
+   above shows Verified.
 
 ---
 

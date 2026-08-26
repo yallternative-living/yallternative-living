@@ -34,6 +34,18 @@
  *                            starts with "whsec_").
  *   - RESEND_API_KEY         Already used before this migration.
  *
+ * REQUIRED, not just the env vars above: the sending domain
+ * (yallternativeliving.com, since emails go out as
+ * gifts@yallternativeliving.com below) must be added and verified in
+ * Resend's dashboard (Domains -> Add Domain -> add the DNS records it
+ * shows -> Verify) before RESEND_API_KEY will actually deliver anything.
+ * An unverified domain fails the send silently from the buyer's point of
+ * view -- the checkout still completes, the recipient just never gets an
+ * email -- and this function only logs that failure (see the catch around
+ * resend.emails.send below), it doesn't surface it anywhere a human would
+ * see it. See docs/SETUP-GUIDE.md Step 6 / workers/README.md for the
+ * full steps.
+ *
  * IMPORTANT -- this could not be verified against a live Stripe webhook
  * delivery in the sandboxed dev environment this was built in (no way to
  * receive a real POST from Stripe). Before relying on this in production:

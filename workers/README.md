@@ -245,19 +245,31 @@ submission cap.
 
 This one deploys with the rest of the site (Netlify auto-detects anything
 under `netlify/functions/`, no extra config needed) -- but it does nothing
-useful until it's registered as a Stripe webhook endpoint:
+useful until it's registered as a Stripe webhook endpoint, AND until Resend
+can actually send from this domain:
 
-1. In Netlify's site settings -> Environment variables, set:
+1. **Verify `yallternativeliving.com` in Resend first** -- Resend.com ->
+   Domains -> Add Domain -> enter the domain -> add the DNS records it
+   shows (a couple of TXT records, one MX) wherever this domain's DNS is
+   managed (Netlify, since Step 2B of docs/SETUP-GUIDE.md pointed the
+   nameservers there) -> click Verify in Resend. This is NOT optional:
+   the function sends `from: 'gifts@yallternativeliving.com'` (see its
+   header comment), and Resend silently rejects sends from an unverified
+   domain -- the buyer's purchase still completes, the recipient's email
+   just never arrives, and nothing in this codebase surfaces that failure
+   to a human. Confirm the domain shows "Verified" in Resend before
+   relying on this in production.
+2. In Netlify's **Project configuration -> Environment variables**, set:
    - `STRIPE_SECRET_KEY` (same key as the Worker, needs Coupons +
      Promotion Codes write access)
    - `STRIPE_WEBHOOK_SECRET` (get this in the next step)
-   - `RESEND_API_KEY` (already needed if you use Resend elsewhere)
-2. Deploy once so the function has a live URL:
+   - `RESEND_API_KEY` (from the Resend account whose domain you just verified)
+3. Deploy once so the function has a live URL:
    `https://yallternativeliving.com/.netlify/functions/fulfill-gift-card`
-3. In the Stripe Dashboard: Developers -> Webhooks -> Add endpoint, paste that
+4. In the Stripe Dashboard: Developers -> Webhooks -> Add endpoint, paste that
    URL, and select the `checkout.session.completed` event. Stripe shows you a
-   signing secret (`whsec_...`) -- that's `STRIPE_WEBHOOK_SECRET` from step 1.
-4. Test mode first: run a real test-mode Checkout that includes a gift card,
+   signing secret (`whsec_...`) -- that's `STRIPE_WEBHOOK_SECRET` from step 2.
+5. Test mode first: run a real test-mode Checkout that includes a gift card,
    confirm the recipient email arrives with a code, and confirm that code
    actually applies at a second test-mode Checkout (the Worker sets
    `allow_promotion_codes: true` so it should show up as a redeemable code
