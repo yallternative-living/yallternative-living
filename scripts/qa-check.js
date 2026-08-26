@@ -376,6 +376,11 @@ PRODUCTS.forEach(function (p) {
         if (typeof o.label !== "string" || !o.label) fail(p.id + ": variant option missing label");
         if (o.priceDelta !== undefined && typeof o.priceDelta !== "number")
           fail(p.id + ": variant option priceDelta must be numeric", o.label);
+        // Per-variant sold-out flag (main.js picker/addToCartHTML and the
+        // checkout Worker all read it) -- must be a real boolean when set,
+        // since a truthy string like "false" would sell out the option.
+        if (o.soldOut !== undefined && typeof o.soldOut !== "boolean")
+          fail(p.id + ": variant option soldOut must be true/false", o.label);
         // main.js builds each product's data-item-custom1-options attribute
         // as "Label[+X.XX]|Label[+X.XX]|..." (see addToCartHTML() there,
         // and cart.js's addItemFromButton() which parses it back apart) --

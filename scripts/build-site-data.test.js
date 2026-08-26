@@ -99,7 +99,7 @@ eq(
 const noVariants = { price: 20.0 };
 eq(
   buildScript.variantPriceRange(noVariants),
-  { low: 20.0, high: 20.0 },
+  { low: 20.0, high: 20.0, offerCount: 1 },
   "variantPriceRange handles single price product"
 );
 
@@ -114,7 +114,7 @@ const prodWithVariants = {
 };
 eq(
   buildScript.variantPriceRange(prodWithVariants),
-  { low: 20.0, high: 25.0 },
+  { low: 20.0, high: 25.0, offerCount: 2 },
   "variantPriceRange calculates min and max prices"
 );
 
@@ -129,8 +129,39 @@ const negativeDeltaVariants = {
 };
 eq(
   buildScript.variantPriceRange(negativeDeltaVariants),
-  { low: 15.0, high: 30.0 },
+  { low: 15.0, high: 30.0, offerCount: 2 },
   "variantPriceRange supports negative price deltas"
+);
+
+const soldOutVariantMix = {
+  price: 20.0,
+  variants: {
+    options: [
+      { label: "1oz", priceDelta: -6, soldOut: true },
+      { label: "2oz", priceDelta: 0 },
+      { label: "4oz", priceDelta: 8 }
+    ]
+  }
+};
+eq(
+  buildScript.variantPriceRange(soldOutVariantMix),
+  { low: 20.0, high: 28.0, offerCount: 2 },
+  "variantPriceRange excludes sold-out options from range and offerCount"
+);
+
+const allSoldOutVariants = {
+  price: 20.0,
+  variants: {
+    options: [
+      { label: "1oz", priceDelta: -6, soldOut: true },
+      { label: "2oz", priceDelta: 0, soldOut: true }
+    ]
+  }
+};
+eq(
+  buildScript.variantPriceRange(allSoldOutVariants),
+  { low: 14.0, high: 20.0, offerCount: 2 },
+  "variantPriceRange falls back to the full option list when every option is sold out"
 );
 
 /* 5. stripMarkersInsideAttributes */

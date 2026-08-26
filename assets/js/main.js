@@ -912,9 +912,20 @@
     // is the one currently selected. variantSelectHTML()'s change handler
     // keeps -value (and the base data-item-price for delta'd variants) in
     // sync with whatever the shopper picks before they click this button.
+    // Sold-out options are left out of the cart attributes entirely: the
+    // picker (variantSelectHTML) shows them disabled for honesty, but the
+    // cart should never be able to resolve one. The checkout Worker
+    // re-rejects them server-side too (resolveUnitAmountCents), so a
+    // tampered button can't order a sold-out size either.
     var variantAttrs = "";
-    if (p.variants && Array.isArray(p.variants.options) && p.variants.options.length) {
-      var optionsStr = p.variants.options
+    var availableOptions =
+      p.variants && Array.isArray(p.variants.options)
+        ? p.variants.options.filter(function (o) {
+            return !o.soldOut;
+          })
+        : [];
+    if (availableOptions.length) {
+      var optionsStr = availableOptions
         .map(function (o) {
           var delta = o.priceDelta || 0;
           var sign = delta < 0 ? "-" : "+";
@@ -929,7 +940,7 @@
         optionsStr +
         '"' +
         ' data-item-custom1-value="' +
-        attrEsc(p.variants.options[0].label) +
+        attrEsc(availableOptions[0].label) +
         '"';
     }
 
@@ -956,7 +967,17 @@
       );
     }
 
-    if (p.stock === 0 || p.inStock === false) {
+    // Every size/scent option sold out counts as the product being sold out:
+    // there is nothing left to order, so render the same honest inert button
+    // (with its restock-alert signup) instead of an Add to Cart that could
+    // only ever produce an unfulfillable order.
+    var everyVariantSoldOut =
+      p.variants &&
+      Array.isArray(p.variants.options) &&
+      p.variants.options.length > 0 &&
+      !availableOptions.length;
+
+    if (p.stock === 0 || p.inStock === false || everyVariantSoldOut) {
       notifyBtn = enableAlerts
         ? '<button type="button" class="btn btn-ghost btn-sm yl-notify-toggle" data-notify-for="' +
           attrEsc(p.id) +
@@ -1014,12 +1035,35 @@
      number tied to real analytics. */
   var LOW_STOCK_THRESHOLD = 5;
   function stockBadgeHTML(p) {
+    // Sale badge: build-site-data.js bakes `sale: {label}` onto every product
+    // in a discounted category (see its "Process Products" step) -- this is
+    // what finally renders it. Styling already existed (.stock-badge.sale-badge
+    // in styles.css) but was never emitted by any JS until now. Suppressed on
+    // coming-soon and sold-out cards: "on sale" on something you can't buy
+    // reads as a mistake.
+    var saleBadge =
+      p.sale && p.sale.label
+        ? '<span class="stock-badge sale-badge">' + attrEsc(p.sale.label) + "</span>"
+        : "";
     if (p.comingSoon) return '<span class="stock-badge low-stock">Coming Soon</span>';
-    if (typeof p.stock !== "number") return "";
+    if (typeof p.stock !== "number") return saleBadge;
     if (p.stock === 0) return '<span class="stock-badge sold-out">Sold out</span>';
     if (p.stock <= LOW_STOCK_THRESHOLD)
-      return '<span class="stock-badge low-stock">Only ' + p.stock + " left</span>";
-    return "";
+      return saleBadge + '<span class="stock-badge low-stock">Only ' + p.stock + " left</span>";
+    return saleBadge;
+  }
+
+  /* Price with an honest markdown: when a category sale is active
+     (p.sale + p.originalPrice, both baked by build-site-data.js), show the
+     sale price with the pre-sale price struck through -- the exact pattern
+     bundlesHTML() already uses for a bundle's full price. No sale, no extra
+     markup: renders the same bytes it always did. */
+  function priceHTML(p) {
+    var html = '<span class="price">$' + p.price.toFixed(2);
+    if (p.sale && typeof p.originalPrice === "number" && p.originalPrice > p.price) {
+      html += ' <s class="original-price">$' + p.originalPrice.toFixed(2) + "</s>";
+    }
+    return html + "</span>";
   }
 
   /* ---------- Size/scent/blend picker (only for products that have one) ----------
@@ -1031,18 +1075,35 @@
   function variantSelectHTML(p) {
     if (p.id === "yallternative-gift-card") return "";
     if (!p.variants || !Array.isArray(p.variants.options) || !p.variants.options.length) return "";
+    /* A sold-out option stays visible but disabled -- honest "S — sold out"
+       beats the option silently vanishing (which reads as "we don't make S").
+       `selected` goes explicitly on the first available option: per the HTML
+       spec the browser's default is the first non-disabled option anyway,
+       but being explicit keeps that guaranteed when the first option in the
+       list is the sold-out one. */
+    var firstAvailableSelected = false;
     var options = p.variants.options
       .map(function (o) {
         var delta = o.priceDelta || 0;
         var priceSuffix = delta
           ? " (" + (delta < 0 ? "-$" + Math.abs(delta).toFixed(2) : "+$" + delta.toFixed(2)) + ")"
           : "";
+        var stateAttrs = "";
+        if (o.soldOut) {
+          stateAttrs = ' disabled aria-disabled="true"';
+          priceSuffix = " — sold out";
+        } else if (!firstAvailableSelected) {
+          firstAvailableSelected = true;
+          stateAttrs = " selected";
+        }
         return (
           '<option value="' +
           attrEsc(o.label) +
           '" data-delta="' +
           delta +
-          '">' +
+          '"' +
+          stateAttrs +
+          ">" +
           attrEsc(o.label) +
           priceSuffix +
           "</option>"
@@ -1339,9 +1400,7 @@
           "<h4>" +
           attrEsc(p.name) +
           "</h4>" +
-          '<span class="price">$' +
-          p.price.toFixed(2) +
-          "</span>" +
+          priceHTML(p) +
           '<div class="wish-item-actions">' +
           addToCartHTML(p) +
           '<button class="wish-remove" type="button" aria-label="Remove ' +
@@ -2493,9 +2552,7 @@
         : "") +
       pointsBadgeHTML +
       '<div class="card-foot-row">' +
-      '<span class="price">$' +
-      p.price.toFixed(2) +
-      "</span>" +
+      priceHTML(p) +
       addToCartHTML(p) +
       "</div>" +
       "</div>" +
@@ -4263,6 +4320,9 @@
       safeLinkUrl: safeLinkUrl,
       renderMarkdown: renderMarkdown,
       addToCartHTML: addToCartHTML,
+      variantSelectHTML: variantSelectHTML,
+      stockBadgeHTML: stockBadgeHTML,
+      priceHTML: priceHTML,
       applyTheme: applyTheme,
       pickFeatured: pickFeatured,
       pickNextEvent: pickNextEvent,

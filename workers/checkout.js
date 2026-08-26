@@ -459,9 +459,18 @@ function resolveUnitAmountCents(catalog, entry, variantLabel, isBundle) {
     price = typeof entry.price === "number" ? entry.price : null;
   }
   if (price === null || price === undefined) return null;
-  if (!isBundle && variantLabel && entry.variants && Array.isArray(entry.variants.options)) {
-    const opt = entry.variants.options.find((o) => o.label === variantLabel);
-    if (opt && typeof opt.priceDelta === "number") price += opt.priceDelta;
+  if (!isBundle && entry.variants && Array.isArray(entry.variants.options)) {
+    const opts = entry.variants.options;
+    // Per-variant sold-out, mirroring main.js's addToCartHTML(): a sold-out
+    // option never renders as orderable, so an order naming one (or naming
+    // no variant when every option is sold out) can only come from a stale
+    // cart or a tampered client -- fail closed either way.
+    if (opts.length && opts.every((o) => o.soldOut)) return null;
+    if (variantLabel) {
+      const opt = opts.find((o) => o.label === variantLabel);
+      if (opt && opt.soldOut) return null;
+      if (opt && typeof opt.priceDelta === "number") price += opt.priceDelta;
+    }
   }
   return Math.round(price * 100);
 }

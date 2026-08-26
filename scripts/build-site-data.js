@@ -270,12 +270,24 @@ function writeFile(relPath, contents) {
 /* ---------- Variant helpers ---------- */
 function variantPriceRange(p) {
   if (!p.variants || !Array.isArray(p.variants.options) || !p.variants.options.length) {
-    return { low: p.price, high: p.price };
+    return { low: p.price, high: p.price, offerCount: 1 };
   }
-  const prices = p.variants.options.map(function (o) {
+  // Sold-out options are excluded: a sold-out size's price shouldn't set the
+  // advertised low/high or be counted as a live offer. If every option is
+  // sold out, fall back to the full list so the JSON-LD still carries a sane
+  // price range (the shop page itself renders the product as Sold Out).
+  const available = p.variants.options.filter(function (o) {
+    return !o.soldOut;
+  });
+  const pool = available.length ? available : p.variants.options;
+  const prices = pool.map(function (o) {
     return p.price + (o.priceDelta || 0);
   });
-  return { low: Math.min.apply(null, prices), high: Math.max.apply(null, prices) };
+  return {
+    low: Math.min.apply(null, prices),
+    high: Math.max.apply(null, prices),
+    offerCount: pool.length
+  };
 }
 
 let PRODUCTS_BY_ID = {};
@@ -650,7 +662,7 @@ function buildSiteData() {
             lowPrice: range.low.toFixed(2),
             highPrice: range.high.toFixed(2),
             priceCurrency: "USD",
-            offerCount: p.variants.options.length,
+            offerCount: range.offerCount,
             url: DOMAIN + "/shop.html",
             availability:
               p.image && p.image.indexOf("placeholder") !== -1
