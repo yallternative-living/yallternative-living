@@ -7,15 +7,6 @@
 window.YL_EVENTS = {
   "upcoming": [
     {
-      "date": "2026-08-21",
-      "dateLabel": "August 21, 2026 · Friday, 6:30pm–9pm",
-      "name": "Gothic Punk Night Market",
-      "type": "Night Market",
-      "location": "Charlotte, NC",
-      "zip": "28206",
-      "note": "NoDa Brewing Company, 150 W 32nd St, Charlotte, NC 28206."
-    },
-    {
       "date": "2026-08-29",
       "endDate": "2026-08-30",
       "dateLabel": "August 29–30, 2026 · Sat & Sun, 11am–7pm",
@@ -37,6 +28,14 @@ window.YL_EVENTS = {
     }
   ],
   "past": [
+    {
+      "date": "2026-08-21",
+      "dateLabel": "August 21, 2026 · Friday, 6:30pm–9pm",
+      "name": "Gothic Punk Night Market",
+      "type": "Night Market",
+      "location": "Charlotte, NC",
+      "note": "NoDa Brewing Company, 150 W 32nd St, Charlotte, NC 28206."
+    },
     {
       "date": "2026-08-15",
       "endDate": "2026-08-16",

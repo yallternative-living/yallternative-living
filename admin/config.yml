@@ -104,6 +104,7 @@ media_libraries:
 collections:
   - name: products
     label: "1. Products, Bundles & FAQ"
+    icon: storefront
     description: "Your whole shop lives here — products and prices, gift bundles, and the FAQ. Tap any item to edit it, or use the 'Add' button to create a new one. Hit Save and the site updates itself within a couple of minutes."
     files:
       - name: products
@@ -132,11 +133,20 @@ collections:
                   - { name: minItems, label: "Minimum items in a box", widget: number, value_type: int, default: 3 }
                   - { name: maxItems, label: "Maximum items in a box", widget: number, value_type: int, default: 5 }
                   - { name: discountPercent, label: "Discount (%)", widget: number, value_type: int, default: 10, hint: "Percent off the combined price of the chosen items." }
+                  # relation (not a plain list) so this is a tick-list of your
+                  # REAL categories instead of hand-typed codes -- add a
+                  # category below and it shows up here automatically.
                   - name: eligibleCategories
                     label: "Categories shoppers can pick from"
-                    widget: list
+                    widget: relation
+                    multiple: true
+                    collection: products
+                    file: products
+                    value_field: categories.*.id
+                    display_fields: ["categories.*.label"]
+                    search_fields: ["categories.*.label"]
                     default: ["salves", "body", "soaks", "potions", "ritual"]
-                    hint: "Category codes, e.g. salves, body, soaks, potions, ritual. Apparel and gift cards are usually left out."
+                    hint: "Tick the categories a shopper can choose from. Apparel and gift cards are usually left out."
 
           - name: sales
             label: Category Sales
@@ -146,7 +156,17 @@ collections:
             summary: "{{fields.label}}"
             hint: "Put a whole category on sale at once — e.g. 15% off everything in Body & Skin."
             fields:
-              - { name: category, label: "Which category is on sale (its code, e.g. body, salves)", widget: string, hint: "Use the category's short code — the lowercase word like body, salves, or soaks." }
+              # relation, so this is a dropdown of your real categories --
+              # no more typing a code and hoping it matches.
+              - name: category
+                label: "Which category is on sale"
+                widget: relation
+                collection: products
+                file: products
+                value_field: categories.*.id
+                display_fields: ["categories.*.label"]
+                search_fields: ["categories.*.label"]
+                hint: "Pick the category to discount."
               - { name: percentOff, label: "Percent off (e.g. 15)", widget: number, value_type: int }
               - { name: label, label: "Sale name shoppers see (e.g. Body Care Sale)", widget: string }
 
@@ -206,18 +226,21 @@ collections:
                 default: false
                 required: false
                 hint: "Check this box to show a 'Coming Soon' badge and hide the purchase options."
+              # relation, NOT a hardcoded select list. This used to be a fixed
+              # list of 7 options that had already drifted from the real data
+              # (it was missing "Gift Sets"), and any category Savanna added
+              # under "Categories" below would never appear here -- she could
+              # create a category but never put a product in it. Reading the
+              # real categories means the two can never fall out of sync again.
               - name: category
                 label: Category
-                widget: select
-                options:
-                  - { label: "Apparel", value: "apparel" }
-                  - { label: "Salves & Balms", value: "salves" }
-                  - { label: "Body & Skin", value: "body" }
-                  - { label: "Soaks", value: "soaks" }
-                  - { label: "Potions & Spellwork", value: "potions" }
-                  - { label: "Ritual & Home", value: "ritual" }
-                  - { label: "Gift Cards", value: "gift-cards" }
-                hint: Choose the shop category this product belongs to.
+                widget: relation
+                collection: products
+                file: products
+                value_field: categories.*.id
+                display_fields: ["categories.*.label"]
+                search_fields: ["categories.*.label"]
+                hint: "Choose the shop category this product belongs to. This list is your real Categories list (below) — add one there and it appears here."
               - { name: price, label: "Price (USD, e.g. 16 or 16.50)", widget: number, value_type: float, min: 0, step: 0.01 }
               - name: sale
                 label: "Sale (optional — put just this one product on sale)"
@@ -352,16 +375,23 @@ collections:
               # and wishlist key for the bundle).
               - { name: id, label: "Bundle ID (leave blank for new bundles; don't change it on existing ones)", widget: string, required: false }
               - { name: name, label: "Bundle Name", widget: string }
+              # relation, so Savanna picks real products BY NAME from a
+              # searchable list. This was the single most error-prone field in
+              # the whole CMS: it used to be hand-typed product IDs, where one
+              # typo silently produced a bundle referencing a product that
+              # doesn't exist. The stored value is unchanged (an array of
+              # product ids), so existing bundles keep working untouched.
               - name: productIds
-                label: "Products in this bundle (add 2 or more)"
-                widget: list
-                label_singular: Product
-                hint: >-
-                  Type each product's ID exactly (you'll find it in the Product
-                  ID field on each product). This is typed by hand, not a
-                  dropdown, so double-check the spelling against the Products
-                  list.
-                field: { name: productId, label: Product ID, widget: string }
+                label: "Products in this bundle (pick 2 or more)"
+                widget: relation
+                multiple: true
+                min: 2
+                collection: products
+                file: products
+                value_field: products.*.id
+                display_fields: ["products.*.name"]
+                search_fields: ["products.*.name"]
+                hint: "Start typing a product name and pick it from the list."
               - { name: discountPercent, label: "Discount Percent (0-90, e.g. 10 for 10% off)", widget: number, value_type: int, min: 0, max: 90 }
               - { name: blurb, label: Bundle Description, widget: text }
 
@@ -376,6 +406,7 @@ collections:
 
   - name: events
     label: "2. Markets, Fairs & Pride Dates"
+    icon: event
     description: "Your pop-up schedule — add upcoming markets, fairs, and Pride dates. Once a date passes it moves itself down to 'Where We've Been', so you never have to clean up old ones. Save and the site updates itself."
     files:
       - name: events
@@ -418,6 +449,7 @@ collections:
 
   - name: reviews
     label: "3. Customer Reviews"
+    icon: reviews
     description: "Customer reviews shown on your site. Only add real ones you've approved, and tick 'Feature on homepage' for the few you want front and center. (These are separate from your Etsy star rating — they're never merged into it.)"
     files:
       - name: reviews
@@ -438,16 +470,23 @@ collections:
               - { name: name, label: "Reviewer name/handle (add \"(Etsy)\" if it's from an Etsy review)", widget: string }
               - { name: rating, label: "Rating (1-5)", widget: number, value_type: int, min: 1, max: 5 }
               - { name: text, label: "Review text (keep it close to what they actually wrote)", widget: text }
+              # relation -> pick the product by name instead of typing its id.
               - name: productId
                 label: "Which product? (optional)"
-                widget: string
+                widget: relation
                 required: false
-                hint: "A product's ID (e.g. sleep-salve), or leave blank for a general/whole-shop review."
+                collection: products
+                file: products
+                value_field: products.*.id
+                display_fields: ["products.*.name"]
+                search_fields: ["products.*.name"]
+                hint: "Pick the product this review is about, or leave blank for a general/whole-shop review."
               - { name: date, label: "Publish Date", widget: datetime, format: "YYYY-MM-DD", date_format: "MM/DD/YYYY", time_format: false, required: false, hint: "Select the date the review was written/published." }
               - { name: featured, label: "Feature on homepage?", widget: boolean, default: false, required: false, hint: "Check this to highlight this review on the homepage testimonials grid." }
 
   - name: journal
     label: "4. Apothecary Journal (Blog)"
+    icon: article
     description: "Your blog. Write updates, stories, and announcements — each post just needs a title, a date, and its text (a photo is optional). Save and it publishes. If the blog is switched off, turn it on under section 6 → Site Settings."
     files:
       - name: journal
@@ -472,11 +511,38 @@ collections:
               - { name: title, label: "Title", widget: string }
               - { name: date, label: "Publish Date", widget: datetime, format: "YYYY-MM-DD", date_format: "MM/DD/YYYY", time_format: false }
               - { name: image, label: "Featured Image", widget: image, required: false }
-              - { name: excerpt, label: "Excerpt (short text shown in list)", widget: text }
-              - { name: content, label: "Content (full post text)", widget: text }
+              # Left as a plain box on purpose: this teaser is printed inside a
+              # small card on journal.html (and into llms.txt as a one-line
+              # summary), so headings/bullets there would break the layout and
+              # bold/link marks would just show up as literal ** and [ ].
+              - { name: excerpt, label: "Short teaser (the blurb on the blog list page)", widget: text, hint: "One or two plain sentences that make someone want to open the post. Formatting isn't used here." }
+              # widget: markdown = Sveltia's rich-text editor: a real toolbar
+              # (bold, italic, links, headings, bullet + numbered lists) with a
+              # "raw" tab for anyone who'd rather type. It saves MARKDOWN TEXT
+              # into journal.json, not HTML, which is exactly what the site's
+              # renderMarkdown() in assets/js/main.js renders -- and because
+              # the site escapes everything before formatting it, nothing typed
+              # here can turn into live code on the page.
+              #   - "markdown" and "richtext" are the same editor in the pinned
+              #     Sveltia 0.172.4 (admin/index.html); "markdown" is used here
+              #     because it names the format actually stored in the file, and
+              #     it's the spelling Netlify/Decap CMS understands too.
+              #   - buttons/editor_components are trimmed to exactly what the
+              #     site can draw, so nothing Savanna can click comes out broken
+              #     on the page: no strikethrough, inline code, block quotes,
+              #     code blocks or in-post images. (Heading 2/3 here render as
+              #     the post's section/sub-section headings; Heading 1 is left
+              #     out because the post title already fills that slot.)
+              - name: content
+                label: "The post itself"
+                widget: markdown
+                buttons: [bold, italic, link, heading-two, heading-three, bulleted-list, numbered-list]
+                editor_components: []
+                hint: "Write the post here — the toolbar gives you bold, italic, links, headings and lists, and it looks on the website the way it looks in this box. Leave a blank line between paragraphs."
 
   - name: social_feed
     label: "5. Social Media Feed"
+    icon: photo_camera
     description: "The photo strip on your homepage — add a picture and caption for each Instagram/TikTok-style post you want to show off. If it's switched off, turn it on under section 6 → Site Settings."
     files:
       - name: social_feed
@@ -496,12 +562,23 @@ collections:
               - { name: caption, label: "Caption", widget: text }
               - { name: author, label: "Author Name / Handle (optional)", widget: string, required: false }
               - { name: handle, label: "Social Handle (e.g. @user, optional)", widget: string, required: false }
-              - { name: productId, label: "Tagged Product ID (optional)", widget: string, required: false }
-              - { name: productName, label: "Tagged Product Name (optional)", widget: string, required: false }
+              # relation -> pick the tagged product by name, not by typing its id.
+              - name: productId
+                label: "Tagged product (optional)"
+                widget: relation
+                required: false
+                collection: products
+                file: products
+                value_field: products.*.id
+                display_fields: ["products.*.name"]
+                search_fields: ["products.*.name"]
+                hint: "Pick a product to tag in this post, or leave blank."
+              - { name: productName, label: "Tagged Product Name (optional)", widget: string, required: false, hint: "The name shown on the tag. Leave blank to just use the product's own name." }
               - { name: url, label: "Original Post Link (optional)", widget: string, required: false }
 
   - name: content
     label: "6. Site Images & Page Wording"
+    icon: tune
     description: "The wording and photos across your pages — homepage, About, Contact, your logos, and the on/off switches for features. Open a section, change the text or pick a new photo, and Save. Start with 'Site Settings' for logos, the social-share image, and feature switches."
     files:
       - name: content
