@@ -152,6 +152,35 @@ function json(body, status, origin, env) {
   });
 }
 
+// Bake active sales into a freshly loaded catalog, mirroring
+// scripts/build-site-data.js's "Process Products" step (and qa-check.js's
+// copy of it -- change one, change all three). The shop pages render prices
+// from the generated, sale-adjusted catalog, so the raw products.json this
+// Worker fetches must get the same transform before any price is validated
+// against it: without this, a live category sale displays one price on the
+// site and charges another at checkout. Bundle math is unaffected on
+// purpose -- resolveBundlePriceDollars() prefers originalPrice (the
+// pre-sale price), exactly like main.js's bundlesHTML(), so bundle
+// discounts don't stack with a sale on either side.
+function applySales(catalog) {
+  const salesByCategory = {};
+  for (const s of Array.isArray(catalog.sales) ? catalog.sales : []) {
+    if (s && s.category) salesByCategory[s.category] = s;
+  }
+  for (const p of Array.isArray(catalog.products) ? catalog.products : []) {
+    if (p.sale && p.sale.price) {
+      p.originalPrice = p.price;
+      p.price = p.sale.price;
+    } else if (salesByCategory[p.category] && typeof p.price === "number") {
+      const catSale = salesByCategory[p.category];
+      p.originalPrice = p.price;
+      p.price = Math.round(p.price * (1 - catSale.percentOff / 100) * 100) / 100;
+      p.sale = { label: catSale.label };
+    }
+  }
+  return catalog;
+}
+
 // Fetch + cache the canonical catalog from the deployed site so prices here
 // always match assets/data/products.json (the single source of truth).
 async function loadCatalog(env, ctx) {
@@ -168,7 +197,7 @@ async function loadCatalog(env, ctx) {
     }
   }
   if (!res.ok) throw new Error("Could not load product catalog");
-  return res.json();
+  return applySales(await res.json());
 }
 
 // Same fetch+cache treatment for the market calendar. Only needed when a

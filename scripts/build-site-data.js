@@ -370,7 +370,9 @@ function buildSiteData() {
     }
 
     // Sale baking below is mirrored by qa-check.js's products-data.js
-    // freshness check -- change one, change both.
+    // freshness check AND workers/checkout.js's applySales() (the Worker
+    // fetches the raw products.json, so it must bake sales itself before
+    // validating checkout prices) -- change one, change all three.
     if (p.sale && p.sale.price) {
       p.originalPrice = p.price;
       p.price = p.sale.price;
