@@ -1035,12 +1035,35 @@
      number tied to real analytics. */
   var LOW_STOCK_THRESHOLD = 5;
   function stockBadgeHTML(p) {
+    // Sale badge: build-site-data.js bakes `sale: {label}` onto every product
+    // in a discounted category (see its "Process Products" step) -- this is
+    // what finally renders it. Styling already existed (.stock-badge.sale-badge
+    // in styles.css) but was never emitted by any JS until now. Suppressed on
+    // coming-soon and sold-out cards: "on sale" on something you can't buy
+    // reads as a mistake.
+    var saleBadge =
+      p.sale && p.sale.label
+        ? '<span class="stock-badge sale-badge">' + attrEsc(p.sale.label) + "</span>"
+        : "";
     if (p.comingSoon) return '<span class="stock-badge low-stock">Coming Soon</span>';
-    if (typeof p.stock !== "number") return "";
+    if (typeof p.stock !== "number") return saleBadge;
     if (p.stock === 0) return '<span class="stock-badge sold-out">Sold out</span>';
     if (p.stock <= LOW_STOCK_THRESHOLD)
-      return '<span class="stock-badge low-stock">Only ' + p.stock + " left</span>";
-    return "";
+      return saleBadge + '<span class="stock-badge low-stock">Only ' + p.stock + " left</span>";
+    return saleBadge;
+  }
+
+  /* Price with an honest markdown: when a category sale is active
+     (p.sale + p.originalPrice, both baked by build-site-data.js), show the
+     sale price with the pre-sale price struck through -- the exact pattern
+     bundlesHTML() already uses for a bundle's full price. No sale, no extra
+     markup: renders the same bytes it always did. */
+  function priceHTML(p) {
+    var html = '<span class="price">$' + p.price.toFixed(2);
+    if (p.sale && typeof p.originalPrice === "number" && p.originalPrice > p.price) {
+      html += ' <s class="original-price">$' + p.originalPrice.toFixed(2) + "</s>";
+    }
+    return html + "</span>";
   }
 
   /* ---------- Size/scent/blend picker (only for products that have one) ----------
@@ -1377,9 +1400,7 @@
           "<h4>" +
           attrEsc(p.name) +
           "</h4>" +
-          '<span class="price">$' +
-          p.price.toFixed(2) +
-          "</span>" +
+          priceHTML(p) +
           '<div class="wish-item-actions">' +
           addToCartHTML(p) +
           '<button class="wish-remove" type="button" aria-label="Remove ' +
@@ -2531,9 +2552,7 @@
         : "") +
       pointsBadgeHTML +
       '<div class="card-foot-row">' +
-      '<span class="price">$' +
-      p.price.toFixed(2) +
-      "</span>" +
+      priceHTML(p) +
       addToCartHTML(p) +
       "</div>" +
       "</div>" +
@@ -4302,6 +4321,8 @@
       renderMarkdown: renderMarkdown,
       addToCartHTML: addToCartHTML,
       variantSelectHTML: variantSelectHTML,
+      stockBadgeHTML: stockBadgeHTML,
+      priceHTML: priceHTML,
       applyTheme: applyTheme,
       pickFeatured: pickFeatured,
       pickNextEvent: pickNextEvent,

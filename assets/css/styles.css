@@ -924,7 +924,7 @@ section{
   }
 }
 
-.bundle-full-price{ color:var(--paper-dim); font-size:.8rem; font-weight:400; margin-left:6px; }
+.bundle-full-price, .original-price{ color:var(--paper-dim); font-size:.8rem; font-weight:400; margin-left:6px; }
 
 .bundle-thumbs{
   & picture, & img { width:48px; height:48px; border-radius:var(--radius); border:1px solid var(--hide); object-fit:cover; }
