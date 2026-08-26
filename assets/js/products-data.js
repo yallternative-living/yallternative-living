@@ -182,7 +182,7 @@ window.YL_PRODUCTS = {
         "Essential Oils (Lavender, Tea Tree, Frankincense, Rosemary, Chamomile)"
       ],
       "ingredientsLabel": "",
-      "ingredientsNote": "",
+      "ingredientsNote": "Now made with almond oil (a tree nut). Not recommended if you have a nut allergy.",
       "scent": "Herbal & Woodsy",
       "variants": {
         "name": "Size",
