@@ -209,21 +209,37 @@ eq(main.safeLinkUrl(null), "", "safeLinkUrl handles null input");
    It writes straight into innerHTML, so the security cases below matter more
    than the breadth of Markdown supported. */
 
-// --- backward compatibility: a post written before Markdown support existed
-// must produce byte-for-byte the same HTML it always did. Checked against
-// the real posts in assets/data/journal.json, not a hand-written fixture.
-const realPosts = require("../assets/data/journal.json").posts;
+// --- backward compatibility: content containing no Markdown at all must
+// produce byte-for-byte the same HTML the pre-Markdown renderer did, so a
+// post written as plain paragraphs never changes appearance.
+//
+// Deliberately checked against FIXTURES rather than the live
+// assets/data/journal.json: the real posts are editable content and may
+// legitimately start using headings/bold/lists (they now do), which would
+// make a live-data assertion fail for a non-bug. The property worth locking
+// down is about plain text, not about whatever happens to be published.
 const legacyRender = (content) =>
   content
     .split("\n\n")
     .map((p) => "<p>" + main.attrEsc(p) + "</p>")
     .join("");
-assert(realPosts.length > 0, "journal.json has at least one real post to check against");
-realPosts.forEach((post) => {
+const plainTextPosts = [
+  "A single paragraph with no formatting at all.",
+  "First paragraph.\n\nSecond paragraph.\n\nThird one.",
+  // Trailing spaces before the break: exactly how the pre-Markdown posts in
+  // journal.json were written, and a case a naive trim() would break.
+  "Ends with a space before the break. \n\nAnd continues here.",
+  // Apostrophes/ampersands must still be escaped the same way.
+  "We've all been there & it's fine.",
+  // A line starting with a digit that is NOT a numbered list ("2012," has a
+  // comma, not the "1. " marker) must stay an ordinary paragraph.
+  "2012, was a year.\n\nSo was 2013."
+];
+plainTextPosts.forEach((content, i) => {
   eq(
-    main.renderMarkdown(post.content),
-    legacyRender(post.content),
-    'renderMarkdown renders the existing "' + post.id + '" post exactly as the old code did'
+    main.renderMarkdown(content),
+    legacyRender(content),
+    "renderMarkdown renders plain-text post #" + (i + 1) + " exactly as the old code did"
   );
 });
 
