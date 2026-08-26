@@ -1100,6 +1100,26 @@ if (!fs.existsSync(productsJsonPath)) {
 } else {
   try {
     var canonicalCatalog = JSON.parse(fs.readFileSync(productsJsonPath, "utf8"));
+    // Mirror build-site-data.js's sale baking (its "Process Products" step):
+    // the generated catalog carries sale-adjusted price/originalPrice/sale
+    // keys, so the raw source needs the same transform before deep-comparing.
+    // Without this, any active entry in products.json's "sales" array makes
+    // this check fail forever -- even immediately after `npm run build-data`.
+    var qaSalesByCategory = {};
+    (canonicalCatalog.sales || []).forEach(function (s) {
+      qaSalesByCategory[s.category] = s;
+    });
+    (canonicalCatalog.products || []).forEach(function (p) {
+      if (p.sale && p.sale.price) {
+        p.originalPrice = p.price;
+        p.price = p.sale.price;
+      } else if (qaSalesByCategory[p.category]) {
+        var qaCatSale = qaSalesByCategory[p.category];
+        p.originalPrice = p.price;
+        p.price = Math.round(p.price * (1 - qaCatSale.percentOff / 100) * 100) / 100;
+        p.sale = { label: qaCatSale.label };
+      }
+    });
     var generatedCatalog = global.window.YL_PRODUCTS || {};
     if (JSON.stringify(generatedCatalog) === JSON.stringify(canonicalCatalog)) {
       ok(
