@@ -369,6 +369,8 @@ function buildSiteData() {
       );
     }
 
+    // Sale baking below is mirrored by qa-check.js's products-data.js
+    // freshness check -- change one, change both.
     if (p.sale && p.sale.price) {
       p.originalPrice = p.price;
       p.price = p.sale.price;
