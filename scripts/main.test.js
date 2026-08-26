@@ -392,6 +392,77 @@ assert(
 );
 window.YL_CONTENT = { site: { enableRestockAlerts: true } };
 
+/* Per-variant sold-out (soldOut: true on a variants option) */
+const partialSoldOut = {
+  id: "tank",
+  name: "Tank",
+  price: 30,
+  blurb: "b",
+  image: "i.jpg",
+  category: "apparel",
+  variants: {
+    name: "Size",
+    options: [
+      { label: "S", priceDelta: 0, soldOut: true },
+      { label: "M", priceDelta: 0 },
+      { label: "L", priceDelta: 2 }
+    ]
+  }
+};
+const partialBtn = main.addToCartHTML(partialSoldOut);
+assert(
+  !partialBtn.includes("S[") && partialBtn.includes("M[+0.00]|L[+2.00]"),
+  "addToCartHTML excludes sold-out options from data-item-custom1-options"
+);
+assert(
+  partialBtn.includes('data-item-custom1-value="M"'),
+  "addToCartHTML defaults custom1-value to the first available (non-sold-out) option"
+);
+assert(partialBtn.includes("Add to Cart"), "addToCartHTML stays buyable with sizes remaining");
+
+const partialSelect = main.variantSelectHTML(partialSoldOut);
+assert(
+  /<option value="S"[^>]*disabled/.test(partialSelect),
+  "variantSelectHTML disables a sold-out option"
+);
+assert(
+  partialSelect.includes("S — sold out"),
+  "variantSelectHTML labels a sold-out option as sold out"
+);
+assert(
+  /<option value="M"[^>]*selected/.test(partialSelect),
+  "variantSelectHTML pre-selects the first available option"
+);
+assert(
+  !/<option value="L"[^>]*(disabled|selected)/.test(partialSelect),
+  "variantSelectHTML leaves later available options plain"
+);
+
+const allSoldOut = {
+  id: "tank",
+  name: "Tank",
+  price: 30,
+  blurb: "b",
+  image: "i.jpg",
+  category: "apparel",
+  variants: {
+    name: "Size",
+    options: [
+      { label: "S", priceDelta: 0, soldOut: true },
+      { label: "M", priceDelta: 0, soldOut: true }
+    ]
+  }
+};
+const allSoldOutBtn = main.addToCartHTML(allSoldOut);
+assert(
+  allSoldOutBtn.includes("Sold Out") && allSoldOutBtn.includes("disabled"),
+  "addToCartHTML treats every-variant-sold-out as a sold-out product"
+);
+assert(
+  allSoldOutBtn.includes("yl-notify-toggle"),
+  "addToCartHTML keeps the restock-alert signup when every variant is sold out"
+);
+
 const cappedStock = { id: "salve-1", name: "Salve", price: 15.5, stock: 4 };
 assert(
   main.addToCartHTML(cappedStock).includes('data-item-max-quantity="4"'),

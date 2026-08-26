@@ -90,6 +90,11 @@ window.YL_PRODUCTS = {
         "name": "Size",
         "options": [
           {
+            "label": "S",
+            "priceDelta": 0,
+            "soldOut": true
+          },
+          {
             "label": "M",
             "priceDelta": 0
           },

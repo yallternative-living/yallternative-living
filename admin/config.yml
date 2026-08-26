@@ -339,6 +339,7 @@ collections:
                         widget: string
                         hint: "Don't use the characters [ ] or | here — they'll break the cart."
                       - { name: priceDelta, label: "Price difference from the base price (0 = same; use a negative number to charge less)", widget: number, value_type: float, default: 0 }
+                      - { name: soldOut, label: "Sold out? (shows greyed out as \"sold out\" in the shop's picker and can't be ordered — flip it back off when you restock; don't delete the option, or shoppers can't see it ever existed)", widget: boolean, required: false, default: false }
               - name: tags
                 label: Tags (Sensitivity / Allergen)
                 widget: select
