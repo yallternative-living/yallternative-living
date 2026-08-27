@@ -15,6 +15,16 @@
   publish = "."
   command = "node scripts/optimize-images.js && node scripts/build-site-data.js && node scripts/build-security-headers.js"
 
+# The build needs devDependencies -- scripts/optimize-images.js requires
+# "sharp" to generate each new photo's AVIF/WebP variants. Netlify installs
+# devDependencies by default, but setting NODE_ENV=production (easy to do in
+# the UI, and a common habit) silently makes npm skip them. Ask for them
+# explicitly so that can't happen. optimize-images.js also degrades to a
+# warning if sharp is missing anyway, so a mistake here costs unoptimized
+# photos rather than a failed deploy.
+[build.environment]
+  NPM_FLAGS = "--include=dev"
+
 [[redirects]]
   from = "/api/checkout"
   to = "https://yallternative-checkout.y-allternative-living.workers.dev"
