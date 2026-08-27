@@ -15,8 +15,15 @@
    the fallback for the rare holdout, and the original JPG is the
    final safety net for anything that supports neither.
 
-   Run this any time a new product photo gets dropped into
-   assets/img/ -- HOW TO ADD A NEW PRODUCT PHOTO:
+   This ALSO runs automatically on every deploy (netlify.toml /
+   vercel.json, before build-site-data.js so new variants land in the
+   generated <picture> markup) -- so a photo uploaded through /admin
+   gets optimized without anyone running anything. Incremental: photos
+   whose variants already exist and whose source is unchanged are
+   skipped, so a no-new-photos deploy costs ~2 seconds.
+
+   Run it by hand any time a new product photo gets dropped into
+   assets/img/ locally -- HOW TO ADD A NEW PRODUCT PHOTO:
      1. Drop the new .jpg into assets/img/
      2. Reference it from assets/js/products-data.js as usual
      3. Run: node scripts/optimize-images.js

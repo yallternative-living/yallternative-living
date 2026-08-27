@@ -85,9 +85,10 @@ npm test
   npm run optimize-images
   ```
 
-  That makes the fast, modern versions of the image the site serves. (If you
-  upload a photo through `/admin` it will show up, but run this command — or ask
-  Steven to add it to the deploy — so it's fully optimized.)
+  That makes the fast, modern versions of the image the site serves. (Photos
+  you upload through `/admin` get this treatment automatically — the optimizer
+  now runs as part of every deploy, so a new photo is fully optimized within a
+  couple of minutes of saving. The command above is only for working locally.)
 - **Five products are on a "Photo coming soon" placeholder** right now
   (`Y'all Means All Sugar Scrub`, `Y'all Means All Rainbow Whipped Body Butter`, `Appalachian Rain Clearing Mist`, `Moonlit Meadow Bath Tea`, and `Porch Sweep Clearing Mist`). Swap in real
   photos the same way, and double-check their price and ingredients while you're
@@ -118,7 +119,7 @@ page files:
 | Add a gift bundle | `/admin` → Bundles, or `products.json` | same |
 | Edit shipping/returns FAQ | `/admin` → FAQ, or `products.json` | same |
 | Publish a customer review | `/admin` → Customer Reviews, or `site-reviews.json` | same |
-| Swap a product photo | `assets/img/` + `npm run optimize-images` | on next deploy |
+| Swap a product photo | `/admin` upload, or `assets/img/` | Auto (optimized on deploy) |
 | Add a market/Pride date | `/admin` → Markets, or `events.json` | Auto (CMS) / `npm run build-data` |
 | Choose different hero/bio/site photos | `/admin` → Site Images & Page Wording, or `content.json` | Auto (CMS) / `npm run build-data` |
 | Reword homepage headline / About story | `/admin` → Site Images & Page Wording, or `content.json` | Auto (CMS) / `npm run build-data` |

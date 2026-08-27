@@ -13,7 +13,7 @@
 
 [build]
   publish = "."
-  command = "node scripts/build-site-data.js && node scripts/build-security-headers.js"
+  command = "node scripts/optimize-images.js && node scripts/build-site-data.js && node scripts/build-security-headers.js"
 
 [[redirects]]
   from = "/api/checkout"
