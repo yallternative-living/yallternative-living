@@ -16,7 +16,7 @@ window.YL_SITE_REVIEWS = [
   },
   {
     "id": "etsy-2026-05-leila",
-    "productId": "frankincense-salve",
+    "productId": "bug-spray",
     "name": "Leila (Etsy)",
     "rating": 5,
     "text": "This bug spray is the truth. Sat outside all evening in the South Carolina humidity and didn't get a single bite.",
@@ -25,7 +25,7 @@ window.YL_SITE_REVIEWS = [
   },
   {
     "id": "etsy-2026-03-kim",
-    "productId": "whipped-body-butter",
+    "productId": "sleep-salve",
     "name": "Kim (Etsy)",
     "rating": 5,
     "text": "The sleep salve is literal magic. I rub it on my temples and I'm out in 10 minutes. Smells incredible too.",
