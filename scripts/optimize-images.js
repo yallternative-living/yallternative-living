@@ -41,7 +41,27 @@
 
 const fs = require("fs");
 const path = require("path");
-const sharp = require("sharp");
+
+// sharp is a devDependency, and this script now runs as the first step of
+// every deploy (see netlify.toml / vercel.json). If a host ever skips
+// devDependencies -- setting NODE_ENV=production is the usual way -- a hard
+// require here would abort the whole build, which on this site means a CMS
+// edit silently never goes live. Photos being unoptimized is a slow page;
+// a failed deploy is no page at all, so degrade instead of dying: warn,
+// leave whatever variants are already committed in place, and let the rest
+// of the build run.
+let sharp;
+try {
+  sharp = require("sharp");
+} catch (err) {
+  console.warn(
+    "\n[optimize-images] sharp is not installed -- skipping image optimization.\n" +
+      "  Already-committed AVIF/WebP variants still ship; only brand-new photos\n" +
+      "  stay full-size. Run `npm install` locally, or make sure the deploy\n" +
+      "  installs devDependencies, then re-run to generate the missing ones.\n"
+  );
+  process.exit(0);
+}
 
 const ROOT = path.join(__dirname, "..");
 const IMG_DIR = path.join(ROOT, "assets", "img");

@@ -1267,15 +1267,25 @@ function buildSiteData() {
     // Google's search-result title, and the Facebook/Twitter share preview
     // all silently kept saying "Apothecary Journal." Keep the same
     // "<name> | Y'allternative Living" suffix these tags already use.
+    // Function-form replacements, never string ones: a title containing "$&"
+    // (or $1, $', $`) would otherwise be read as a substitution pattern and
+    // splice the whole match back into the page. Same reason the marker
+    // replacements above use callbacks.
     const titleTag = title + " | Y'allternative Living";
-    updated = updated.replace(/<title>[\s\S]*?<\/title>/, "<title>" + titleTag + "</title>");
+    updated = updated.replace(/<title>[\s\S]*?<\/title>/, function () {
+      return "<title>" + titleTag + "</title>";
+    });
     updated = updated.replace(
       /(<meta property="og:title" content=")[^"]*(")/,
-      "$1" + titleTag + "$2"
+      function (m, p1, p2) {
+        return p1 + titleTag + p2;
+      }
     );
     updated = updated.replace(
       /(<meta name="twitter:title" content=")[^"]*(")/,
-      "$1" + titleTag + "$2"
+      function (m, p1, p2) {
+        return p1 + titleTag + p2;
+      }
     );
 
     if (updated !== html) {
