@@ -1261,6 +1261,23 @@ function buildSiteData() {
       });
     }
 
+    // The <title> tag and og:title/twitter:title meta tags aren't wrapped in
+    // YL: markers (unlike the on-page heading above), so renaming the
+    // journal in /admin used to update the h1 while the browser tab title,
+    // Google's search-result title, and the Facebook/Twitter share preview
+    // all silently kept saying "Apothecary Journal." Keep the same
+    // "<name> | Y'allternative Living" suffix these tags already use.
+    const titleTag = title + " | Y'allternative Living";
+    updated = updated.replace(/<title>[\s\S]*?<\/title>/, "<title>" + titleTag + "</title>");
+    updated = updated.replace(
+      /(<meta property="og:title" content=")[^"]*(")/,
+      "$1" + titleTag + "$2"
+    );
+    updated = updated.replace(
+      /(<meta name="twitter:title" content=")[^"]*(")/,
+      "$1" + titleTag + "$2"
+    );
+
     if (updated !== html) {
       writeFile("journal.html", updated);
       console.log("[build] Injected configurations into journal.html");
