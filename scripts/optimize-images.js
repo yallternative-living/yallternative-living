@@ -15,8 +15,15 @@
    the fallback for the rare holdout, and the original JPG is the
    final safety net for anything that supports neither.
 
-   Run this any time a new product photo gets dropped into
-   assets/img/ -- HOW TO ADD A NEW PRODUCT PHOTO:
+   This ALSO runs automatically on every deploy (netlify.toml /
+   vercel.json, before build-site-data.js so new variants land in the
+   generated <picture> markup) -- so a photo uploaded through /admin
+   gets optimized without anyone running anything. Incremental: photos
+   whose variants already exist and whose source is unchanged are
+   skipped, so a no-new-photos deploy costs ~2 seconds.
+
+   Run it by hand any time a new product photo gets dropped into
+   assets/img/ locally -- HOW TO ADD A NEW PRODUCT PHOTO:
      1. Drop the new .jpg into assets/img/
      2. Reference it from assets/js/products-data.js as usual
      3. Run: node scripts/optimize-images.js
@@ -34,7 +41,27 @@
 
 const fs = require("fs");
 const path = require("path");
-const sharp = require("sharp");
+
+// sharp is a devDependency, and this script now runs as the first step of
+// every deploy (see netlify.toml / vercel.json). If a host ever skips
+// devDependencies -- setting NODE_ENV=production is the usual way -- a hard
+// require here would abort the whole build, which on this site means a CMS
+// edit silently never goes live. Photos being unoptimized is a slow page;
+// a failed deploy is no page at all, so degrade instead of dying: warn,
+// leave whatever variants are already committed in place, and let the rest
+// of the build run.
+let sharp;
+try {
+  sharp = require("sharp");
+} catch (err) {
+  console.warn(
+    "\n[optimize-images] sharp is not installed -- skipping image optimization.\n" +
+      "  Already-committed AVIF/WebP variants still ship; only brand-new photos\n" +
+      "  stay full-size. Run `npm install` locally, or make sure the deploy\n" +
+      "  installs devDependencies, then re-run to generate the missing ones.\n"
+  );
+  process.exit(0);
+}
 
 const ROOT = path.join(__dirname, "..");
 const IMG_DIR = path.join(ROOT, "assets", "img");

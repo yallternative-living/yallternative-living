@@ -1918,6 +1918,31 @@ try {
    generator that emits the rule) and netlify.toml (the generated output).
    A mismatch has no visible symptom until a real shopper clicks Checkout and
    gets a 404, so it gets asserted rather than trusted. */
+/* ---------- Deploy build needs devDependencies ----------
+   scripts/optimize-images.js runs first in the deploy command and is the
+   only build step that requires an npm package (sharp, a devDependency).
+   If a deploy config ever asks for the optimizer without also guaranteeing
+   devDependencies get installed, brand-new photos silently ship full-size.
+   The script itself degrades rather than failing the build, which is what
+   makes the regression silent -- so assert the pairing here instead. */
+section("Deploy config installs devDependencies for the image optimizer");
+try {
+  var netlifyToml = fs.readFileSync(path.join(ROOT, "netlify.toml"), "utf8");
+  if (netlifyToml.indexOf("optimize-images.js") === -1) {
+    ok("netlify.toml does not run the image optimizer -- nothing to guarantee");
+  } else if (/NPM_FLAGS\s*=\s*"[^"]*--include=dev/.test(netlifyToml)) {
+    ok("netlify.toml runs the image optimizer and asks npm for devDependencies");
+  } else {
+    fail(
+      'netlify.toml runs optimize-images.js without NPM_FLAGS="--include=dev"',
+      "sharp is a devDependency -- without this, a host that skips devDependencies " +
+        "ships new photos unoptimized"
+    );
+  }
+} catch (e) {
+  fail("netlify.toml devDependency check", e.message);
+}
+
 section("Checkout proxy (cart.js -> netlify.toml -> Cloudflare Worker)");
 try {
   var cartSrc = fs.readFileSync(path.join(ROOT, "assets/js/cart.js"), "utf8");

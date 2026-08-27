@@ -1,5 +1,5 @@
 {
-  "buildCommand": "node scripts/build-site-data.js && node scripts/build-security-headers.js",
+  "buildCommand": "node scripts/optimize-images.js && node scripts/build-site-data.js && node scripts/build-security-headers.js",
   "outputDirectory": ".",
   "headers": [
     {
