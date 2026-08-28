@@ -7,11 +7,11 @@ name: QA checks
 # before it ever reaches a real deploy, instead of relying on someone
 # remembering to run these by hand first.
 #
-# Note: as of the domain still being the "your-domain-here.com" placeholder
-# (see scripts/build-site-data.js), this workflow is EXPECTED to fail on
-# the "Live-domain placeholder" check until a real production domain is
-# set and `npm run build-data` is re-run -- that's the check doing its job,
-# not a broken pipeline.
+# Every step here is expected to pass. A red run means a real regression
+# to fix, not a known-pending item to wave through. (This note used to say
+# the opposite -- the "Live-domain placeholder" check was expected to fail
+# until a real domain was set. That domain is set, so the exception is
+# gone.)
 
 # Minutes-saving notes (added to stop this workflow burning Actions minutes):
 #   * paths-ignore: doc-only commits (*.md, docs/) don't trigger a run.

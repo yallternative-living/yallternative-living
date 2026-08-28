@@ -25,47 +25,55 @@ window.YL_PRODUCTS = {
       ]
     }
   },
-  "sales": [],
+  "sales": [
+    {
+      "category": "salves",
+      "percentOff": 5,
+      "label": "Healing Sale"
+    }
+  ],
   "categories": [
     {
-      "id": "apparel",
-      "label": "Apparel"
+      "label": "Apparel",
+      "id": "apparel"
     },
     {
-      "id": "salves",
-      "label": "Salves & Balms"
+      "label": "Salves & Balms",
+      "id": "salves"
     },
     {
-      "id": "body",
-      "label": "Body & Skin"
+      "label": "Body & Skin",
+      "id": "body"
     },
     {
-      "id": "soaks",
-      "label": "Soaks"
+      "label": "Soaks",
+      "id": "soaks"
     },
     {
-      "id": "potions",
-      "label": "Potions & Spellwork"
+      "label": "Potions & Spellwork",
+      "id": "potions"
     },
     {
-      "id": "ritual",
-      "label": "Ritual & Home"
+      "label": "Ritual & Home",
+      "id": "ritual"
     },
     {
-      "id": "gift-sets",
-      "label": "Gift Sets"
+      "label": "Gift Sets",
+      "id": "gift-sets"
     },
     {
-      "id": "gift-cards",
-      "label": "Gift Cards"
+      "label": "Gift Cards",
+      "id": "gift-cards"
     }
   ],
   "products": [
     {
       "id": "tank-top",
       "name": "Y'allternative Living Tank Top",
+      "description": "",
       "category": "apparel",
-      "price": 25,
+      "price": 30,
+      "originalPrice": null,
       "image": "assets/img/tank-top.jpg",
       "images": [
         "assets/img/tank-top-alt1.jpg",
@@ -73,12 +81,18 @@ window.YL_PRODUCTS = {
         "assets/img/tank-top-alt3.jpg"
       ],
       "blurb": "Same rainbow stag, same crescent moon, cut for the hottest days of the year. Soft triblend racerback built to be worn hard and washed easy. Original artwork, not something pulled off a mass-print catalog.",
+      "etsyUrl": "https://www.etsy.com/listing/4341507933/yallternative-living-tank-top",
+      "stock": 10,
+      "ingredientsLabel": "",
+      "ingredientsNote": "",
+      "scent": "",
       "variants": {
         "name": "Size",
         "options": [
           {
             "label": "S",
-            "priceDelta": 0
+            "priceDelta": 0,
+            "soldOut": true
           },
           {
             "label": "M",
@@ -94,14 +108,17 @@ window.YL_PRODUCTS = {
           }
         ]
       },
-      "etsyUrl": "https://www.etsy.com/listing/4341507933/yallternative-living-tank-top",
-      "tags": []
+      "tags": [],
+      "inStock": true
     },
     {
       "id": "unisex-tshirt",
       "name": "Y'allternative Living Unisex T-Shirt",
+      "description": "",
+      "featured": true,
       "category": "apparel",
-      "price": 25,
+      "price": 31,
+      "originalPrice": null,
       "image": "assets/img/unisex-tshirt.jpg",
       "images": [
         "assets/img/unisex-tshirt-alt1.jpg",
@@ -109,6 +126,11 @@ window.YL_PRODUCTS = {
         "assets/img/unisex-tshirt-alt3.jpg"
       ],
       "blurb": "The shirt that started the whole shop: a rainbow stag under a crescent moon, screen-printed on soft cotton cut to actually fit everybody. Original artwork, zero mass-production. Wear it to the market, wear it to Pride, wear it everywhere in between.",
+      "etsyUrl": "https://www.etsy.com/listing/4341518675/yallternative-living-unisex-t-shirt",
+      "stock": 20,
+      "ingredientsLabel": "",
+      "ingredientsNote": "",
+      "scent": "",
       "variants": {
         "name": "Size",
         "options": [
@@ -130,15 +152,17 @@ window.YL_PRODUCTS = {
           }
         ]
       },
-      "etsyUrl": "https://www.etsy.com/listing/4341518675/yallternative-living-unisex-t-shirt",
       "tags": [],
-      "featured": true
+      "inStock": true
     },
     {
       "id": "frankincense-salve",
       "name": "Y'all Heal Now Miracle Frankincense Salve",
+      "description": "",
+      "featured": true,
       "category": "salves",
-      "price": 16,
+      "price": 19,
+      "originalPrice": 20,
       "image": "assets/img/frankincense-salve.jpg",
       "images": [
         "assets/img/frankincense-salve-alt1.jpg",
@@ -146,34 +170,57 @@ window.YL_PRODUCTS = {
         "assets/img/frankincense-salve-alt3.jpg"
       ],
       "blurb": "One little tin, a whole lot of jobs: dry cuticles, cracked heels, windburn, razor bumps. Whatever's rough, this goes on it. Calendula, arnica, and five essential oils in a beeswax-shea base, mixed by hand in a 2 oz tin in Landrum, SC.",
+      "etsyUrl": "https://www.etsy.com/listing/4398130795/yall-heal-now-miracle-frankincense-salve",
+      "rating": {
+        "value": 5,
+        "count": 5
+      },
+      "stock": null,
       "ingredients": [
         "Beeswax",
         "Shea Butter",
         "Coconut Oil",
-        "Avocado Oil",
+        "Almond Oil",
         "Arnica",
         "Calendula",
         "Vitamin E",
         "Essential Oils (Lavender, Tea Tree, Frankincense, Rosemary, Chamomile)"
       ],
-      "rating": {
-        "value": 5,
-        "count": 5
+      "ingredientsLabel": "",
+      "ingredientsNote": "Now made with almond oil (a tree nut). Not recommended if you have a nut allergy.",
+      "scent": "Herbal & Woodsy",
+      "variants": {
+        "name": "Size",
+        "options": [
+          {
+            "label": "2oz",
+            "priceDelta": 0
+          },
+          {
+            "label": "1oz",
+            "priceDelta": -6
+          }
+        ]
       },
-      "etsyUrl": "https://www.etsy.com/listing/4398130795/yall-heal-now-miracle-frankincense-salve",
       "tags": [
         "bestseller"
       ],
-      "featured": true,
-      "scent": "Herbal & Woodsy"
+      "inStock": true,
+      "sale": {
+        "label": "Healing Sale"
+      }
     },
     {
       "id": "miracle-balm",
       "name": "Y'allternative Miracle Balm",
+      "description": "",
       "category": "salves",
-      "price": 8,
+      "price": 7.6,
+      "originalPrice": 8,
       "image": "assets/img/miracle-balm.jpg",
       "blurb": "No essential oils, no fragrance, nothing to react to. Just a rich little .5 oz balm for lips, cuticles, and anywhere skin needs backup. Gentle enough for the whole family, kids included.",
+      "etsyUrl": "https://www.etsy.com/listing/4466572716/yallternative-miracle-balm-multi-use",
+      "stock": null,
       "ingredients": [
         "Beeswax (Cera alba)",
         "Shea Butter (Butyrospermum parkii)",
@@ -183,52 +230,62 @@ window.YL_PRODUCTS = {
         "Lanolin",
         "Vitamin E (Tocopherol)"
       ],
+      "ingredientsLabel": "",
       "ingredientsNote": "No essential oils, no added fragrance.",
+      "scent": "Unscented",
       "tags": [
         "bestseller",
         "unscented",
         "essential-oil-free",
         "sensitive-safe"
       ],
-      "etsyUrl": "https://www.etsy.com/listing/4466572716/yallternative-miracle-balm-multi-use",
-      "scent": "Unscented"
+      "inStock": true,
+      "sale": {
+        "label": "Healing Sale"
+      }
     },
     {
       "id": "sleep-salve",
       "name": "Hush Y'all Magnesium Arnica Sleep Salve",
       "category": "salves",
-      "price": 16,
+      "price": 15.2,
       "image": "assets/img/sleep-salve.jpg",
       "images": [
         "assets/img/sleep-salve-alt1.jpg"
       ],
       "blurb": "Rub a little onto your feet or shoulders before bed and let lavender, chamomile, and cedarwood take it from there. Magnesium and arnica in a 2 oz tin, built for overthinkers and night owls who need the day to actually end.",
+      "etsyUrl": "https://www.etsy.com/listing/4398125773/hush-yall-magnesium-arnica-sleep-salve",
+      "rating": {
+        "value": 5,
+        "count": 1
+      },
       "ingredients": [
         "Shea Butter",
         "Coconut Oil",
         "Magnesium",
         "Essential Oils (Lavender, Cedarwood, Chamomile, Orange, Frankincense)"
       ],
-      "rating": {
-        "value": 5,
-        "count": 1
-      },
-      "etsyUrl": "https://www.etsy.com/listing/4398125773/hush-yall-magnesium-arnica-sleep-salve",
+      "scent": "Lavender",
       "tags": [
         "vegan"
       ],
-      "scent": "Lavender"
+      "originalPrice": 16,
+      "sale": {
+        "label": "Healing Sale"
+      }
     },
     {
       "id": "beard-salve",
       "name": "Bourbon Beard Salve",
+      "featured": true,
       "category": "salves",
-      "price": 14,
+      "price": 13.3,
       "image": "assets/img/beard-salve.jpg",
       "images": [
         "assets/img/beard-salve-alt1.jpg"
       ],
       "blurb": "A 2 oz tin that softens coarse facial hair, calms the itch underneath, and smells like a stiff drink and cedarwood instead of a drugstore aisle. Light hold, zero grease, genuinely good gift material.",
+      "etsyUrl": "https://www.etsy.com/listing/4460199621/bourbon-beard-salve-vanilla-cedarwood",
       "ingredients": [
         "Shea Butter",
         "Coconut Oil",
@@ -237,14 +294,17 @@ window.YL_PRODUCTS = {
         "Vitamin E",
         "Fragrance & Essential Oils"
       ],
-      "etsyUrl": "https://www.etsy.com/listing/4460199621/bourbon-beard-salve-vanilla-cedarwood",
+      "scent": "Bourbon & Vanilla",
       "tags": [],
-      "featured": true,
-      "scent": "Bourbon & Vanilla"
+      "originalPrice": 14,
+      "sale": {
+        "label": "Healing Sale"
+      }
     },
     {
       "id": "shimmer-oil",
       "name": "Shimmer Body Oil",
+      "featured": true,
       "category": "body",
       "price": 19,
       "image": "assets/img/shimmer-oil.jpg",
@@ -254,6 +314,7 @@ window.YL_PRODUCTS = {
         "assets/img/shimmer-oil-alt3.jpg"
       ],
       "blurb": "Cedarwood, sweet orange, and patchouli under a black-gold shimmer that photographs as good as it feels. That's the Seduction blend, one of three scents this comes in. Lightweight, fast-absorbing, and built for festivals, Pride, and anywhere else you plan on shining harder than everyone around you.",
+      "etsyUrl": "https://www.etsy.com/listing/4502740269/shimmer-body-oil-glitter-body-oil-non",
       "ingredients": [
         "Fractionated Coconut Oil",
         "Sweet Almond Oil",
@@ -265,6 +326,7 @@ window.YL_PRODUCTS = {
         "Essential Oils",
         "Vitamin E"
       ],
+      "scent": "Citrus & Bright",
       "variants": {
         "name": "Scent",
         "options": [
@@ -282,12 +344,9 @@ window.YL_PRODUCTS = {
           }
         ]
       },
-      "etsyUrl": "https://www.etsy.com/listing/4502740269/shimmer-body-oil-glitter-body-oil-non",
       "tags": [
         "vegan"
-      ],
-      "featured": true,
-      "scent": "Citrus & Bright"
+      ]
     },
     {
       "id": "shea-butter",
@@ -300,6 +359,11 @@ window.YL_PRODUCTS = {
         "assets/img/shea-butter-alt2.jpg"
       ],
       "blurb": "Deep Shea Rest, whipped thick with raw African shea and a lavender-forward blend underneath. Massage it into damp skin after your shower and let it work on cracked heels and winter-dry patches while you sleep. Built as a night ritual, not just a lotion.",
+      "etsyUrl": "https://www.etsy.com/listing/4460110222/lavender-shea-body-butter-raw-african",
+      "rating": {
+        "value": 4,
+        "count": 1
+      },
       "ingredients": [
         "Shea Butter (Raw African + Refined)",
         "Mango Butter",
@@ -310,6 +374,7 @@ window.YL_PRODUCTS = {
         "Optiphen (Preservative)",
         "Essential Oils"
       ],
+      "scent": "Lavender",
       "variants": {
         "name": "Size",
         "options": [
@@ -323,13 +388,7 @@ window.YL_PRODUCTS = {
           }
         ]
       },
-      "rating": {
-        "value": 4,
-        "count": 1
-      },
-      "etsyUrl": "https://www.etsy.com/listing/4460110222/lavender-shea-body-butter-raw-african",
-      "tags": [],
-      "scent": "Lavender"
+      "tags": []
     },
     {
       "id": "hand-scrub",
@@ -343,6 +402,11 @@ window.YL_PRODUCTS = {
         "assets/img/hand-scrub-alt3.jpg"
       ],
       "blurb": "Pumice, pink salt, and sugar for the grease and grime; coconut and olive oil so your hands don't pay for it. A 2 oz tin built for hands that work for a living.",
+      "etsyUrl": "https://www.etsy.com/listing/4342208406/bourbon-vanilla-hand-scrub-exfoliating",
+      "rating": {
+        "value": 5,
+        "count": 2
+      },
       "ingredients": [
         "Pumice",
         "Himalayan Pink Salt",
@@ -356,6 +420,7 @@ window.YL_PRODUCTS = {
         "Bourbon Vanilla Fragrance",
         "Preservative"
       ],
+      "scent": "Bourbon & Vanilla",
       "variants": {
         "name": "Size",
         "options": [
@@ -369,16 +434,10 @@ window.YL_PRODUCTS = {
           }
         ]
       },
-      "rating": {
-        "value": 5,
-        "count": 2
-      },
-      "etsyUrl": "https://www.etsy.com/listing/4342208406/bourbon-vanilla-hand-scrub-exfoliating",
       "tags": [
         "vegan",
         "essential-oil-free"
-      ],
-      "scent": "Bourbon & Vanilla"
+      ]
     },
     {
       "id": "lavender-soak",
@@ -391,15 +450,14 @@ window.YL_PRODUCTS = {
         "assets/img/lavender-soak-alt2.jpg"
       ],
       "blurb": "Relaxation with a side of rebellion: lavender, black pepper, and rosemary dissolved into a 10 oz bag of Epsom salt and baking soda. Run the bath, toss in a scoop, take up all the space you want.",
+      "etsyUrl": "https://www.etsy.com/listing/4345557444/lavender-epsom-salt-soak-muscle-relief",
       "ingredients": [
         "Epsom Salt",
         "Baking Soda",
         "Cornstarch",
         "Essential Oils (Lavender, Black Pepper, Rosemary)"
       ],
-      "tags": [
-        "vegan"
-      ],
+      "scent": "Lavender",
       "variants": {
         "name": "Size",
         "options": [
@@ -413,12 +471,14 @@ window.YL_PRODUCTS = {
           }
         ]
       },
-      "etsyUrl": "https://www.etsy.com/listing/4345557444/lavender-epsom-salt-soak-muscle-relief",
-      "scent": "Lavender"
+      "tags": [
+        "vegan"
+      ]
     },
     {
       "id": "backroad-soak",
       "name": "Backroad Recovery Epsom Salt Soak",
+      "featured": true,
       "category": "soaks",
       "price": 10,
       "image": "assets/img/backroad-soak.jpg",
@@ -428,15 +488,18 @@ window.YL_PRODUCTS = {
         "assets/img/backroad-soak-alt3.jpg"
       ],
       "blurb": "Peppermint, lavender, black pepper, and ylang ylang for whatever the backroads (or the day) put you through. Stir a scoop into a warm bath, soak 20 to 30 minutes, come out looser than you went in.",
+      "etsyUrl": "https://www.etsy.com/listing/4333988264/backroad-recovery-epsom-salt-muscle-soak",
+      "rating": {
+        "value": 5,
+        "count": 3
+      },
       "ingredients": [
         "Epsom Salt",
         "Baking Soda",
         "Fractionated Coconut Oil",
         "Essential Oils (Peppermint, Lavender, Black Pepper, Ylang Ylang)"
       ],
-      "tags": [
-        "vegan"
-      ],
+      "scent": "Herbal & Woodsy",
       "variants": {
         "name": "Size",
         "options": [
@@ -450,17 +513,14 @@ window.YL_PRODUCTS = {
           }
         ]
       },
-      "rating": {
-        "value": 5,
-        "count": 3
-      },
-      "etsyUrl": "https://www.etsy.com/listing/4333988264/backroad-recovery-epsom-salt-muscle-soak",
-      "featured": true,
-      "scent": "Herbal & Woodsy"
+      "tags": [
+        "vegan"
+      ]
     },
     {
       "id": "protection-keychain",
       "name": "Protection Potion Keychain",
+      "featured": true,
       "category": "potions",
       "price": 8,
       "image": "assets/img/protection-keychain.jpg",
@@ -469,6 +529,11 @@ window.YL_PRODUCTS = {
         "assets/img/protection-keychain-alt2.jpg"
       ],
       "blurb": "A mini spell jar, wax-sealed and clipped to a sturdy keyring. Pick your blend below. Five inches of everyday witchy armor for your keys, bag, or backpack.",
+      "etsyUrl": "https://www.etsy.com/listing/4378341348/protection-potion-keychain-black-lava",
+      "rating": {
+        "value": 5,
+        "count": 1
+      },
       "ingredients": [
         "Black Lava Salt",
         "Pink Himalayan Salt",
@@ -478,6 +543,7 @@ window.YL_PRODUCTS = {
       ],
       "ingredientsLabel": "Materials",
       "ingredientsNote": "Exact salt/herb blend varies by the option you choose above.",
+      "scent": "Herbal & Woodsy",
       "variants": {
         "name": "Blend",
         "options": [
@@ -495,14 +561,7 @@ window.YL_PRODUCTS = {
           }
         ]
       },
-      "rating": {
-        "value": 5,
-        "count": 1
-      },
-      "etsyUrl": "https://www.etsy.com/listing/4378341348/protection-potion-keychain-black-lava",
-      "tags": [],
-      "featured": true,
-      "scent": "Herbal & Woodsy"
+      "tags": []
     },
     {
       "id": "bug-spray",
@@ -516,30 +575,35 @@ window.YL_PRODUCTS = {
         "assets/img/bug-spray-alt3.jpg"
       ],
       "blurb": "Tell the mosquitoes to buzz off, naturally. Citronella, lemongrass, and five other essential oils in a 2 oz amber spray, no DEET, no sticky residue, just Southern summer survival.",
+      "etsyUrl": "https://www.etsy.com/listing/4335217388/bug-off-btch-natural-bug-spray",
+      "rating": {
+        "value": 5,
+        "count": 4
+      },
       "ingredients": [
         "Alcohol",
         "Glycerin",
         "Germall Plus (Preservative)",
         "Essential Oils (Citronella, Lemongrass, Peppermint, Tea Tree, Lavender, Rosemary)"
       ],
+      "scent": "Herbal & Woodsy",
       "tags": [
         "vegan"
-      ],
-      "rating": {
-        "value": 5,
-        "count": 4
-      },
-      "etsyUrl": "https://www.etsy.com/listing/4335217388/bug-off-btch-natural-bug-spray",
-      "scent": "Herbal & Woodsy"
+      ]
     },
     {
       "id": "sugar-scrub",
       "name": "Y'all Means All Sugar Scrub",
+      "comingSoon": true,
       "category": "body",
       "price": 14,
-      "comingSoon": true,
       "image": "assets/img/placeholder-coming-soon.svg",
       "blurb": "Rainbow layers of sweet exfoliant that slough off the rough, leave skin soft, and look like a Pride parade in a jar. Glitter-and-grit self-care that means exactly what it says: everybody's welcome.",
+      "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
+      "rating": {
+        "value": 5,
+        "count": 1
+      },
       "ingredients": [
         "Cane Sugar",
         "Coconut Oil",
@@ -548,25 +612,25 @@ window.YL_PRODUCTS = {
         "Skin-Safe Fragrance",
         "Mica (Color)"
       ],
-      "rating": {
-        "value": 5,
-        "count": 1
-      },
-      "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
+      "scent": "Citrus & Bright",
       "tags": [
         "vegan",
         "essential-oil-free"
-      ],
-      "scent": "Citrus & Bright"
+      ]
     },
     {
       "id": "whipped-body-butter",
       "name": "Y'all Means All Rainbow Whipped Body Butter",
+      "comingSoon": true,
       "category": "body",
       "price": 18,
-      "comingSoon": true,
       "image": "assets/img/placeholder-coming-soon.svg",
       "blurb": "Whipped light and fluffy in a citrus-peach blend, with rainbow swirls that mean all of it: every color, every one of us. Melts in without the grease and keeps skin soft all day. Everybody's welcome, moisturized.",
+      "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
+      "rating": {
+        "value": 5,
+        "count": 1
+      },
       "ingredients": [
         "Shea Butter",
         "Mango Butter",
@@ -577,25 +641,21 @@ window.YL_PRODUCTS = {
         "Citrus Peach Fragrance",
         "Mica (Color)"
       ],
-      "rating": {
-        "value": 5,
-        "count": 1
-      },
-      "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
+      "scent": "Citrus & Bright",
       "tags": [
         "vegan",
         "essential-oil-free"
-      ],
-      "scent": "Citrus & Bright"
+      ]
     },
     {
       "id": "cleansing-spray",
       "name": "Appalachian Rain Clearing Mist",
+      "comingSoon": true,
       "category": "ritual",
       "price": 14,
-      "comingSoon": true,
       "image": "assets/img/placeholder-coming-soon.svg",
       "blurb": "White sage, cedar, and sweetgrass in a fine mist: two pumps at the doorway after a hard conversation, a house guest who overstayed, or just a Monday that won't quit. Inspired by Appalachian folk tradition, no smoke, no residue, no landlord complaints. Amber glass, small-batch blended in Landrum, SC.",
+      "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
       "ingredients": [
         "Distilled Water",
         "Witch Hazel",
@@ -604,6 +664,7 @@ window.YL_PRODUCTS = {
         "Preservative"
       ],
       "ingredientsNote": "Shake gently before each use. Mist doorways, corners, or yourself: anywhere the energy feels stuck. Safe around pets when dry.",
+      "scent": "Fresh & Clean",
       "variants": {
         "name": "Size",
         "options": [
@@ -617,20 +678,19 @@ window.YL_PRODUCTS = {
           }
         ]
       },
-      "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
       "tags": [
         "vegan"
-      ],
-      "scent": "Fresh & Clean"
+      ]
     },
     {
       "id": "bath-tea",
       "name": "Moonlit Meadow Bath Tea",
+      "comingSoon": true,
       "category": "ritual",
       "price": 12,
-      "comingSoon": true,
       "image": "assets/img/placeholder-coming-soon.svg",
       "blurb": "Dried lavender, chamomile, rose petals, and oat straw in a reusable muslin bag. Drop it in a warm bath, let it steep five minutes, soak until the day stops mattering. Gentler on your tub than loose herbs, and the bag's good for two or three rounds before you compost the whole thing.",
+      "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
       "ingredients": [
         "Dried Lavender Buds",
         "Chamomile Flowers",
@@ -640,6 +700,7 @@ window.YL_PRODUCTS = {
         "Baking Soda"
       ],
       "ingredientsNote": "Comes with a reusable organic cotton muslin bag. Each bag is good for 2–3 soaks. Compost when spent.",
+      "scent": "Fresh & Clean",
       "variants": {
         "name": "Size",
         "options": [
@@ -653,21 +714,20 @@ window.YL_PRODUCTS = {
           }
         ]
       },
-      "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
       "tags": [
         "vegan",
         "essential-oil-free"
-      ],
-      "scent": "Fresh & Clean"
+      ]
     },
     {
       "id": "porch-sweep-spray",
       "name": "Porch Sweep Clearing Mist",
+      "comingSoon": true,
       "category": "ritual",
       "price": 16,
-      "comingSoon": true,
       "image": "assets/img/placeholder-coming-soon.svg",
       "blurb": "Named for the old Southern habit of sweeping the porch at dusk to clear out the day's trouble. Lemongrass, palo santo, and black tourmaline-infused water in a 4 oz amber bottle. Mist your space after an argument, a bad day, or just because the vibes are off.",
+      "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
       "ingredients": [
         "Moon Water (Distilled)",
         "Witch Hazel",
@@ -676,24 +736,21 @@ window.YL_PRODUCTS = {
         "Vegetable Glycerin",
         "Preservative"
       ],
-      "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
+      "scent": "Fresh & Clean",
       "tags": [
         "vegan"
-      ],
-      "scent": "Fresh & Clean"
+      ]
     },
     {
       "id": "yallternative-gift-card",
       "name": "Digital Gift Card",
-      "price": 10,
-      "category": "gift-cards",
-      "tags": [
-        "Instant Delivery"
-      ],
-      "image": "assets/img/gift-card.png",
-      "blurb": "Can't decide what they'd love? Let them pick. Delivered by email, ready to use on anything in the shop.",
       "description": "The perfect gift for the black sheep & bold hearts. Choose any amount from $10 to $500. No expiration date, delivered straight to their inbox.",
+      "featured": true,
+      "category": "gift-cards",
+      "price": 10,
+      "image": "assets/img/gift-card.png",
       "images": [],
+      "blurb": "Can't decide what they'd love? Let them pick. Delivered by email, ready to use on anything in the shop.",
       "variants": {
         "name": "Amount",
         "options": [
@@ -719,7 +776,9 @@ window.YL_PRODUCTS = {
           }
         ]
       },
-      "featured": true
+      "tags": [
+        "Instant Delivery"
+      ]
     }
   ],
   "bundles": [

@@ -1,9 +1,16 @@
-# Cloudflare Workers (checkout + forms)
+# Cloudflare Workers (checkout + CMS login + forms)
 
 `checkout.js` is the live checkout backend: the on-site cart (`assets/js/cart.js`)
 POSTs to it and gets back a Stripe Checkout URL. Snipcart is fully removed (see
 `docs/STRIPE-MIGRATION.md`) -- this Worker is what replaced it, and it needs to
 actually be deployed (with real Stripe keys) before checkout works in production.
+
+`auth/sveltia-auth.js` is the **CMS sign-in service** -- the permanent "Sign in
+with GitHub" button for the Sveltia CMS product editor at `/admin`. It replaces
+Netlify's deprecated "Git Gateway / OAuth" login, so `/admin` depends on nothing
+from Netlify. It's its own separate Worker in the top-level `cms-auth/` folder
+(see the section below). Optional to deploy: Savanna can also log in immediately
+with a token ("Sign in with Token") and set this up later.
 
 `submit-form.js` is still **optional** -- the contact/review forms currently post
 to Formspree directly, and this Worker is only worth deploying if you want that
@@ -59,8 +66,10 @@ which method is best for *Steven doing it*, not about avoiding a
 terminal for someone who was never going to run these commands
 regardless.
 
-Given that, **Option B (Wrangler CLI) is the recommended default** for
-this specific file -- it's the long-established, well-tested path, and
+**Option A (Workers Builds) is what this repo is now set up for** -- see the
+committed `workers/wrangler.toml`. The reasoning below is left intact because
+it is still the honest trade-off: Option B was written up as the safer default
+for this specific file -- it's the long-established, well-tested path, and
 this Worker touches Stripe secret keys and real payments, where
 favoring the most mature deploy method over the newest one is the right
 trade-off. Option A is documented as a legitimate alternative, not a
@@ -68,7 +77,11 @@ downgrade -- reach for it if you'd genuinely rather never run
 `wrangler deploy` again after initial setup, just go in with eyes open
 about its beta status.
 
-### Option B -- Wrangler CLI (recommended: well-tested, long track record)
+### Option B -- Wrangler CLI (fallback: well-tested, long track record)
+
+> Use this if Workers Builds misbehaves, or for a one-off deploy without
+> waiting on a push. It reads the same committed `wrangler.toml`, so the two
+> paths cannot drift apart.
 
 1. `npm i -g wrangler` and `wrangler login`.
 2. `cp wrangler.toml.example wrangler.toml`, confirm `SITE_ORIGIN`.
@@ -87,7 +100,11 @@ about its beta status.
    worth knowing going in, since that's the main thing Option A trades
    away the beta risk to avoid.
 
-### Option A -- Cloudflare Workers Builds (dashboard-only, open beta)
+### Option A -- Cloudflare Workers Builds (dashboard-only, open beta) -- **this is the configured path**
+
+> **Step 1 is already done.** `workers/wrangler.toml` is committed, and
+> `npx wrangler deploy --dry-run` builds it clean (19 KiB upload, `SITE_ORIGIN`
+> bound). Everything left is dashboard clicking -- steps 2-4 below.
 
 Cloudflare's own git-integration feature (Workers Builds) auto-deploys
 on every push, the same way Netlify already does for the rest of the
@@ -99,9 +116,10 @@ Workers Builds "open beta," not GA, and this exact flow has not been
 run against this project's real Cloudflare/GitHub accounts -- treat it
 as "try this," not a guarantee.
 
-1. Create a real `wrangler.toml` from `wrangler.toml.example` (confirm
-   `SITE_ORIGIN`) and commit it -- this can be done straight in GitHub's
-   web UI, no local checkout needed.
+1. ~~Create a real `wrangler.toml` from `wrangler.toml.example` and commit
+   it.~~ **Done** -- see `workers/wrangler.toml`, whose header comment
+   repeats the dashboard steps below so they're findable from the file
+   itself.
 2. Cloudflare dashboard -> **Workers & Pages -> Create -> Import a
    repository** (button wording may have shifted -- look for anything
    offering to connect a GitHub repo) -> authorize GitHub -> select this
@@ -147,6 +165,63 @@ searched.
 
 ---
 
+## Sign-in Worker (CMS login) — `../cms-auth/sveltia-auth.js`
+
+This is the **permanent "Sign in with GitHub" button** for the Sveltia CMS
+product editor at `/admin` (DEVELOPMENT.md section 20, Option B). It's the
+modern replacement for Netlify's deprecated "Git Gateway / OAuth" login —
+`/admin` no longer depends on Netlify for anything.
+
+It's a **separate Worker** from checkout, in its own **top-level `cms-auth/`
+folder** (not under `workers/`) with its own committed `wrangler.toml`, kept
+apart on purpose: the checkout Worker holds the Stripe secret and handles real
+payments, so the CMS login stays isolated from it. It also *has* to live outside
+`workers/` — that folder is the checkout Worker's Workers Builds root, and a
+second `wrangler.toml` inside it breaks the checkout build. Nothing secret is
+committed here either — the GitHub client secret only ever lives as a Cloudflare
+Secret.
+
+> **Alternative that needs none of this:** Savanna can log in *today* with
+> **"Sign in with Token"** on the `/admin` screen (a GitHub fine-grained token,
+> zero infrastructure — SETUP-GUIDE.md Step 9 / DEVELOPMENT.md section 20
+> Option A). This Worker is the nicer, permanent login you graduate to.
+
+**Setup (once):**
+
+1. **GitHub OAuth App** — GitHub → **Settings → Developer settings → OAuth
+   Apps → New OAuth App** (the short *OAuth App* form, **not** "GitHub App").
+   Homepage URL `https://yallternativeliving.com`. Copy the **Client ID**,
+   generate + copy a **Client Secret**. Set the **Authorization callback URL**
+   after step 2 to `<this-Worker-URL>/callback`.
+2. **Deploy `cms-auth/`** — same two paths as checkout above:
+   - **Workers Builds (dashboard):** Workers & Pages → Create → Import a
+     repository → this repo, project root **`cms-auth`** (checkout's root
+     is `workers`; each Worker is its own Workers Builds project). Redeploys on
+     every push, no `wrangler deploy` by hand.
+   - **Wrangler CLI:** `cd cms-auth && wrangler deploy`.
+
+   Either way, `wrangler deploy --dry-run` builds it clean first if you want to
+   check. Cloudflare then shows the Worker URL, e.g.
+   `https://yallternative-cms-auth.<subdomain>.workers.dev`.
+3. **Secrets** — this Worker → **Settings → Variables and Secrets** → add
+   `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` (type **Secret**) from step 1.
+   `ALLOWED_DOMAINS` is already set as a plain var in `wrangler.toml` and locks
+   token issuance to this site — no other site can point its CMS at this Worker
+   and harvest tokens.
+4. **Wire the URLs together** — put the Worker URL into `admin/config.yml` as
+   `backend.base_url` (replace the `YOUR-SUBDOMAIN` placeholder), and set the
+   GitHub OAuth App's callback (step 1) to `<that-URL>/callback`. They must
+   match exactly. Commit `config.yml`; `/admin` now shows **Sign in with
+   GitHub**.
+
+Security notes already handled in the code: a random per-login CSRF token in an
+HttpOnly cookie is checked on callback; the access token is only `postMessage`d
+to a window whose origin matches `ALLOWED_DOMAINS`; the callback page is
+`Cache-Control: no-store`; and the client secret is read only from a Cloudflare
+Secret (never committed).
+
+---
+
 ## Deploying `submit-form.js`
 
 1. Verify your sending domain in **Resend** and create an API key.
@@ -170,19 +245,31 @@ submission cap.
 
 This one deploys with the rest of the site (Netlify auto-detects anything
 under `netlify/functions/`, no extra config needed) -- but it does nothing
-useful until it's registered as a Stripe webhook endpoint:
+useful until it's registered as a Stripe webhook endpoint, AND until Resend
+can actually send from this domain:
 
-1. In Netlify's site settings -> Environment variables, set:
+1. **Verify `yallternativeliving.com` in Resend first** -- Resend.com ->
+   Domains -> Add Domain -> enter the domain -> add the DNS records it
+   shows (a couple of TXT records, one MX) wherever this domain's DNS is
+   managed (Netlify, since Step 2B of docs/SETUP-GUIDE.md pointed the
+   nameservers there) -> click Verify in Resend. This is NOT optional:
+   the function sends `from: 'gifts@yallternativeliving.com'` (see its
+   header comment), and Resend silently rejects sends from an unverified
+   domain -- the buyer's purchase still completes, the recipient's email
+   just never arrives, and nothing in this codebase surfaces that failure
+   to a human. Confirm the domain shows "Verified" in Resend before
+   relying on this in production.
+2. In Netlify's **Project configuration -> Environment variables**, set:
    - `STRIPE_SECRET_KEY` (same key as the Worker, needs Coupons +
      Promotion Codes write access)
    - `STRIPE_WEBHOOK_SECRET` (get this in the next step)
-   - `RESEND_API_KEY` (already needed if you use Resend elsewhere)
-2. Deploy once so the function has a live URL:
+   - `RESEND_API_KEY` (from the Resend account whose domain you just verified)
+3. Deploy once so the function has a live URL:
    `https://yallternativeliving.com/.netlify/functions/fulfill-gift-card`
-3. In the Stripe Dashboard: Developers -> Webhooks -> Add endpoint, paste that
+4. In the Stripe Dashboard: Developers -> Webhooks -> Add endpoint, paste that
    URL, and select the `checkout.session.completed` event. Stripe shows you a
-   signing secret (`whsec_...`) -- that's `STRIPE_WEBHOOK_SECRET` from step 1.
-4. Test mode first: run a real test-mode Checkout that includes a gift card,
+   signing secret (`whsec_...`) -- that's `STRIPE_WEBHOOK_SECRET` from step 2.
+5. Test mode first: run a real test-mode Checkout that includes a gift card,
    confirm the recipient email arrives with a code, and confirm that code
    actually applies at a second test-mode Checkout (the Worker sets
    `allow_promotion_codes: true` so it should show up as a redeemable code

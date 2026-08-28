@@ -163,6 +163,180 @@ eq(main.safeUrl("data:text/html,evil"), "", "safeUrl rejects data: URLs");
 eq(main.safeUrl(""), "", "safeUrl handles empty string");
 eq(main.safeUrl(null), "", "safeUrl handles null input");
 
+/* 1c. safeLinkUrl -- the scheme gate for links typed into a journal post.
+   Wider than safeUrl (mailto: and plain relative paths are legitimate in a
+   blog post) but it still has to refuse anything that can execute. */
+eq(
+  main.safeLinkUrl("https://example.com/a?b=1&c=2"),
+  "https://example.com/a?b=1&c=2",
+  "safeLinkUrl allows https URLs"
+);
+eq(main.safeLinkUrl("http://example.com"), "http://example.com", "safeLinkUrl allows http URLs");
+eq(
+  main.safeLinkUrl("mailto:hello@example.com"),
+  "mailto:hello@example.com",
+  "safeLinkUrl allows mailto links"
+);
+eq(
+  main.safeLinkUrl("shop.html#gift-cards"),
+  "shop.html#gift-cards",
+  "safeLinkUrl allows a plain relative page link"
+);
+eq(main.safeLinkUrl("/journal.html"), "/journal.html", "safeLinkUrl allows root-relative paths");
+eq(main.safeLinkUrl("#ingredients"), "#ingredients", "safeLinkUrl allows same-page anchors");
+eq(main.safeLinkUrl("javascript:alert(1)"), "", "safeLinkUrl rejects javascript: URLs");
+eq(
+  main.safeLinkUrl("JaVaScRiPt:alert(1)"),
+  "",
+  "safeLinkUrl rejects javascript: regardless of case"
+);
+eq(
+  main.safeLinkUrl("   javascript:alert(1)"),
+  "",
+  "safeLinkUrl rejects javascript: hidden behind leading whitespace"
+);
+eq(
+  main.safeLinkUrl("java\tscript:alert(1)"),
+  "",
+  "safeLinkUrl rejects javascript: split by a tab (browsers strip it before parsing)"
+);
+eq(main.safeLinkUrl("data:text/html,<h1>x</h1>"), "", "safeLinkUrl rejects data: URLs");
+eq(main.safeLinkUrl("vbscript:msgbox(1)"), "", "safeLinkUrl rejects vbscript: URLs");
+eq(main.safeLinkUrl(""), "", "safeLinkUrl handles empty string");
+eq(main.safeLinkUrl(null), "", "safeLinkUrl handles null input");
+
+/* 1d. renderMarkdown -- the journal post body renderer.
+   It writes straight into innerHTML, so the security cases below matter more
+   than the breadth of Markdown supported. */
+
+// --- backward compatibility: content containing no Markdown at all must
+// produce byte-for-byte the same HTML the pre-Markdown renderer did, so a
+// post written as plain paragraphs never changes appearance.
+//
+// Deliberately checked against FIXTURES rather than the live
+// assets/data/journal.json: the real posts are editable content and may
+// legitimately start using headings/bold/lists (they now do), which would
+// make a live-data assertion fail for a non-bug. The property worth locking
+// down is about plain text, not about whatever happens to be published.
+const legacyRender = (content) =>
+  content
+    .split("\n\n")
+    .map((p) => "<p>" + main.attrEsc(p) + "</p>")
+    .join("");
+const plainTextPosts = [
+  "A single paragraph with no formatting at all.",
+  "First paragraph.\n\nSecond paragraph.\n\nThird one.",
+  // Trailing spaces before the break: exactly how the pre-Markdown posts in
+  // journal.json were written, and a case a naive trim() would break.
+  "Ends with a space before the break. \n\nAnd continues here.",
+  // Apostrophes/ampersands must still be escaped the same way.
+  "We've all been there & it's fine.",
+  // A line starting with a digit that is NOT a numbered list ("2012," has a
+  // comma, not the "1. " marker) must stay an ordinary paragraph.
+  "2012, was a year.\n\nSo was 2013."
+];
+plainTextPosts.forEach((content, i) => {
+  eq(
+    main.renderMarkdown(content),
+    legacyRender(content),
+    "renderMarkdown renders plain-text post #" + (i + 1) + " exactly as the old code did"
+  );
+});
+
+// --- XSS: HTML in a post can never become live markup.
+eq(
+  main.renderMarkdown("<script>alert(1)</script>"),
+  "<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>",
+  "renderMarkdown escapes a <script> tag in post content"
+);
+assert(
+  main.renderMarkdown('<img src=x onerror="alert(1)">').indexOf("<img") === -1,
+  "renderMarkdown never emits an <img> tag from post content"
+);
+assert(
+  main.renderMarkdown("## <iframe src=evil>").indexOf("<iframe") === -1,
+  "renderMarkdown escapes HTML inside a heading"
+);
+assert(
+  main.renderMarkdown("- <svg onload=alert(1)>").indexOf("<svg") === -1,
+  "renderMarkdown escapes HTML inside a list item"
+);
+assert(
+  main.renderMarkdown("**<b>bold</b>**") === "<p><strong>&lt;b&gt;bold&lt;/b&gt;</strong></p>",
+  "renderMarkdown formats around escaped HTML instead of un-escaping it"
+);
+eq(
+  main.renderMarkdown("[x](javascript:alert(1))"),
+  "<p>x</p>",
+  "renderMarkdown drops a javascript: link and keeps only its words"
+);
+assert(
+  main.renderMarkdown("[x](javascript:alert(1))").indexOf("javascript") === -1,
+  "renderMarkdown never puts javascript: in the output at all"
+);
+assert(
+  main.renderMarkdown("[x](data:text/html,<script>alert(1)</script>)").indexOf("<a ") === -1,
+  "renderMarkdown emits no anchor for a data: URL"
+);
+assert(
+  main.renderMarkdown('[x](https://ok.test/" onmouseover="alert(1))').indexOf('"alert(1)"') === -1,
+  "renderMarkdown can't be broken out of an href attribute"
+);
+
+// --- formatting a shop owner actually uses.
+eq(
+  main.renderMarkdown("First para.\n\nSecond para."),
+  "<p>First para.</p><p>Second para.</p>",
+  "renderMarkdown keeps blank-line-separated paragraphs"
+);
+eq(
+  main.renderMarkdown("## Section\n\n### Sub-section"),
+  "<h3>Section</h3><h4>Sub-section</h4>",
+  "renderMarkdown starts post headings at h3 so the page outline never skips a level"
+);
+eq(
+  main.renderMarkdown("**bold** and _italic_ and *italic* and __bold__"),
+  "<p><strong>bold</strong> and <em>italic</em> and <em>italic</em> and <strong>bold</strong></p>",
+  "renderMarkdown handles both bold and italic spellings"
+);
+eq(
+  main.renderMarkdown("soap_batch_2 is a name"),
+  "<p>soap_batch_2 is a name</p>",
+  "renderMarkdown leaves underscores inside a word alone"
+);
+eq(
+  main.renderMarkdown("- one\n- two"),
+  "<ul><li>one</li><li>two</li></ul>",
+  "renderMarkdown builds a bullet list"
+);
+eq(
+  main.renderMarkdown("1. one\n2. two"),
+  "<ol><li>one</li><li>two</li></ol>",
+  "renderMarkdown builds a numbered list"
+);
+eq(
+  main.renderMarkdown("Intro:\n- one\n\nAfter."),
+  "<p>Intro:</p><ul><li>one</li></ul><p>After.</p>",
+  "renderMarkdown closes a list before the next paragraph"
+);
+eq(
+  main.renderMarkdown("[our shop](shop.html) and [email](mailto:hi@example.com)"),
+  '<p><a href="shop.html">our shop</a> and <a href="mailto:hi@example.com">email</a></p>',
+  "renderMarkdown links to a page and an email address"
+);
+eq(
+  main.renderMarkdown("[Arnica](https://en.wikipedia.org/wiki/Arnica_(plant))"),
+  '<p><a href="https://en.wikipedia.org/wiki/Arnica_(plant)">Arnica</a></p>',
+  "renderMarkdown handles a URL containing parentheses"
+);
+eq(
+  main.renderMarkdown("Tea & honey"),
+  "<p>Tea &amp; honey</p>",
+  "renderMarkdown escapes ampersands in ordinary text"
+);
+eq(main.renderMarkdown(""), "", "renderMarkdown handles empty content");
+eq(main.renderMarkdown(null), "", "renderMarkdown handles missing content");
+
 /* 2. pickFeatured */
 const sampleProducts = [
   { id: "salve-1", featured: true },
@@ -217,6 +391,127 @@ assert(
   "addToCartHTML hides notify button when enableRestockAlerts is false (coming soon)"
 );
 window.YL_CONTENT = { site: { enableRestockAlerts: true } };
+
+/* Per-variant sold-out (soldOut: true on a variants option) */
+const partialSoldOut = {
+  id: "tank",
+  name: "Tank",
+  price: 30,
+  blurb: "b",
+  image: "i.jpg",
+  category: "apparel",
+  variants: {
+    name: "Size",
+    options: [
+      { label: "S", priceDelta: 0, soldOut: true },
+      { label: "M", priceDelta: 0 },
+      { label: "L", priceDelta: 2 }
+    ]
+  }
+};
+const partialBtn = main.addToCartHTML(partialSoldOut);
+assert(
+  !partialBtn.includes("S[") && partialBtn.includes("M[+0.00]|L[+2.00]"),
+  "addToCartHTML excludes sold-out options from data-item-custom1-options"
+);
+assert(
+  partialBtn.includes('data-item-custom1-value="M"'),
+  "addToCartHTML defaults custom1-value to the first available (non-sold-out) option"
+);
+assert(partialBtn.includes("Add to Cart"), "addToCartHTML stays buyable with sizes remaining");
+
+const partialSelect = main.variantSelectHTML(partialSoldOut);
+assert(
+  /<option value="S"[^>]*disabled/.test(partialSelect),
+  "variantSelectHTML disables a sold-out option"
+);
+assert(
+  partialSelect.includes("S — sold out"),
+  "variantSelectHTML labels a sold-out option as sold out"
+);
+assert(
+  /<option value="M"[^>]*selected/.test(partialSelect),
+  "variantSelectHTML pre-selects the first available option"
+);
+assert(
+  !/<option value="L"[^>]*(disabled|selected)/.test(partialSelect),
+  "variantSelectHTML leaves later available options plain"
+);
+
+const allSoldOut = {
+  id: "tank",
+  name: "Tank",
+  price: 30,
+  blurb: "b",
+  image: "i.jpg",
+  category: "apparel",
+  variants: {
+    name: "Size",
+    options: [
+      { label: "S", priceDelta: 0, soldOut: true },
+      { label: "M", priceDelta: 0, soldOut: true }
+    ]
+  }
+};
+const allSoldOutBtn = main.addToCartHTML(allSoldOut);
+assert(
+  allSoldOutBtn.includes("Sold Out") && allSoldOutBtn.includes("disabled"),
+  "addToCartHTML treats every-variant-sold-out as a sold-out product"
+);
+assert(
+  allSoldOutBtn.includes("yl-notify-toggle"),
+  "addToCartHTML keeps the restock-alert signup when every variant is sold out"
+);
+
+/* Sale badge + strikethrough price (sale/originalPrice baked by build-site-data.js) */
+const onSale = {
+  id: "salve-2",
+  name: "Salve",
+  price: 19,
+  originalPrice: 20,
+  sale: { label: "Healing Sale" },
+  blurb: "b",
+  image: "i.jpg",
+  category: "salves"
+};
+assert(
+  main.stockBadgeHTML(onSale).includes('class="stock-badge sale-badge"') &&
+    main.stockBadgeHTML(onSale).includes("Healing Sale"),
+  "stockBadgeHTML renders the sale badge with its label"
+);
+eq(
+  main.stockBadgeHTML({ id: "x", price: 20 }),
+  "",
+  "stockBadgeHTML renders nothing without a sale or tracked stock"
+);
+assert(
+  !main.stockBadgeHTML({ ...onSale, comingSoon: true }).includes("sale-badge"),
+  "stockBadgeHTML suppresses the sale badge on coming-soon products"
+);
+assert(
+  !main.stockBadgeHTML({ ...onSale, stock: 0 }).includes("sale-badge"),
+  "stockBadgeHTML suppresses the sale badge on sold-out products"
+);
+assert(
+  main.stockBadgeHTML({ ...onSale, stock: 3 }).includes("sale-badge") &&
+    main.stockBadgeHTML({ ...onSale, stock: 3 }).includes("Only 3 left"),
+  "stockBadgeHTML shows sale badge alongside a low-stock badge"
+);
+eq(
+  main.priceHTML(onSale),
+  '<span class="price">$19.00 <s class="original-price">$20.00</s></span>',
+  "priceHTML strikes through the pre-sale price during a sale"
+);
+eq(
+  main.priceHTML({ id: "x", price: 8 }),
+  '<span class="price">$8.00</span>',
+  "priceHTML renders a plain price when no sale is active"
+);
+eq(
+  main.priceHTML({ id: "x", price: 8, originalPrice: 10 }),
+  '<span class="price">$8.00</span>',
+  "priceHTML ignores originalPrice without an active sale"
+);
 
 const cappedStock = { id: "salve-1", name: "Salve", price: 15.5, stock: 4 };
 assert(
@@ -292,6 +587,66 @@ main.renderWishDrawer();
 assert(
   wishBodyEl.innerHTML.includes("wish-empty") || wishBodyEl.innerHTML.includes("empty"),
   "renderWishDrawer handles empty wishlist state"
+);
+
+/* 7. pickNextEvent -- the countdown ticker's event selection.
+   events.json is hand-ordered through the CMS, so none of this can lean on
+   the array already being in date order. */
+const TODAY = "2026-08-21";
+
+eq(main.pickNextEvent([], TODAY), null, "pickNextEvent returns null with no events");
+eq(main.pickNextEvent(null, TODAY), null, "pickNextEvent tolerates a missing list");
+
+const outOfOrder = [
+  { date: "2026-10-17T09:00:00-04:00", name: "Autumn Apothecary Faire" },
+  { date: "2026-08-29", endDate: "2026-08-30", name: "Spartanburg Punk Flea Market" },
+  { date: "2026-09-12", name: "Greenville Night Market" }
+];
+eq(
+  main.pickNextEvent(outOfOrder, TODAY).event.name,
+  "Spartanburg Punk Flea Market",
+  "pickNextEvent picks the soonest event, not the first one listed"
+);
+
+eq(
+  main.pickNextEvent(
+    [
+      { date: "2026-08-15", endDate: "2026-08-16", name: "Finished Market" },
+      { date: "2026-08-29", name: "Spartanburg Punk Flea Market" }
+    ],
+    TODAY
+  ).event.name,
+  "Spartanburg Punk Flea Market",
+  "pickNextEvent skips an event whose final day has passed"
+);
+
+const inProgress = main.pickNextEvent(
+  [
+    { date: "2026-08-20", endDate: "2026-08-21", name: "Two-Day Market" },
+    { date: "2026-08-29", name: "Spartanburg Punk Flea Market" }
+  ],
+  TODAY
+);
+eq(
+  inProgress.event.name,
+  "Two-Day Market",
+  "pickNextEvent keeps a multi-day market through its final day"
+);
+assert(
+  inProgress.startTime < new Date(2026, 7, 21).getTime() + 24 * 3600 * 1000,
+  "pickNextEvent reports the in-progress market's start time, so the ticker reads 'in progress'"
+);
+
+eq(
+  main.pickNextEvent([{ date: "2026-08-21", name: "Starts Today" }], TODAY).event.name,
+  "Starts Today",
+  "pickNextEvent keeps an event that starts today"
+);
+
+eq(
+  main.pickNextEvent([{ name: "No Date" }, null, { date: "not-a-date", name: "Bad Date" }], TODAY),
+  null,
+  "pickNextEvent ignores entries with a missing or unparseable date"
 );
 
 console.log(`\nmain.test.js: ${passed} passed, ${failed} failed`);

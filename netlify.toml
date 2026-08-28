@@ -13,7 +13,23 @@
 
 [build]
   publish = "."
-  command = "node scripts/build-site-data.js && node scripts/build-security-headers.js"
+  command = "node scripts/optimize-images.js && node scripts/build-site-data.js && node scripts/build-security-headers.js"
+
+# The build needs devDependencies -- scripts/optimize-images.js requires
+# "sharp" to generate each new photo's AVIF/WebP variants. Netlify installs
+# devDependencies by default, but setting NODE_ENV=production (easy to do in
+# the UI, and a common habit) silently makes npm skip them. Ask for them
+# explicitly so that can't happen. optimize-images.js also degrades to a
+# warning if sharp is missing anyway, so a mistake here costs unoptimized
+# photos rather than a failed deploy.
+[build.environment]
+  NPM_FLAGS = "--include=dev"
+
+[[redirects]]
+  from = "/api/checkout"
+  to = "https://yallternative-checkout.y-allternative-living.workers.dev"
+  status = 200
+  force = true
 
 # Long-lived caching for hashed/never-changing assets. Pages themselves
 # (index.html, shop.html, etc.) intentionally aren't cached long here --
@@ -56,4 +72,4 @@
 [[headers]]
   for = "/admin/*"
   [headers.values]
-    Content-Security-Policy = "default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.githubusercontent.com; font-src 'self'; connect-src 'self' https://unpkg.com https://api.github.com https://*.githubusercontent.com; media-src blob:; frame-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; img-src 'self' data: blob: https://*.githubusercontent.com; font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com; connect-src 'self' blob: data: https://unpkg.com https://cdn.jsdelivr.net https://api.github.com https://*.githubusercontent.com; media-src blob:; frame-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"

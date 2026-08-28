@@ -34,6 +34,18 @@
  *                            starts with "whsec_").
  *   - RESEND_API_KEY         Already used before this migration.
  *
+ * REQUIRED, not just the env vars above: the sending domain
+ * (yallternativeliving.com, since emails go out as
+ * gifts@yallternativeliving.com below) must be added and verified in
+ * Resend's dashboard (Domains -> Add Domain -> add the DNS records it
+ * shows -> Verify) before RESEND_API_KEY will actually deliver anything.
+ * An unverified domain fails the send silently from the buyer's point of
+ * view -- the checkout still completes, the recipient just never gets an
+ * email -- and this function only logs that failure (see the catch around
+ * resend.emails.send below), it doesn't surface it anywhere a human would
+ * see it. See docs/SETUP-GUIDE.md Step 6 / workers/README.md for the
+ * full steps.
+ *
  * IMPORTANT -- this could not be verified against a live Stripe webhook
  * delivery in the sandboxed dev environment this was built in (no way to
  * receive a real POST from Stripe). Before relying on this in production:
@@ -63,6 +75,27 @@ function generateRandomCode() {
   let result = 'YALL-';
   for (let i = 0; i < 8; i++) {
     result += chars.charAt(crypto.randomInt(chars.length));
+  }
+  return result;
+}
+
+// Deterministic per (session, gift index): a retried webhook delivery
+// (Stripe retries on non-2xx or timeout) must send the promotion-code
+// request with EXACTLY the same parameters under the same Idempotency-Key
+// to get the original code back. A fresh generateRandomCode() on the retry
+// put a different `code` param under the reused key, which Stripe rejects
+// outright (idempotency_error) -- so a retried delivery could never mint or
+// re-fetch the code and the recipient's email was silently skipped. Keyed
+// with the webhook signing secret so codes stay unguessable without it.
+function deriveGiftCardCode(sessionId, giftIndex, secret) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const digest = crypto
+    .createHmac('sha256', String(secret || ''))
+    .update('gift-code-' + sessionId + '-' + giftIndex)
+    .digest();
+  let result = 'YALL-';
+  for (let i = 0; i < 8; i++) {
+    result += chars.charAt(digest[i] % chars.length);
   }
   return result;
 }
@@ -231,7 +264,7 @@ exports.handler = async (event) => {
           return;
         }
 
-        var uniqueCode = generateRandomCode();
+        var uniqueCode = deriveGiftCardCode(session.id, n, STRIPE_WEBHOOK_SECRET);
         var confirmedCode;
         try {
           confirmedCode = await createGiftCardPromotionCode(session.id, n, amountCents, uniqueCode);
@@ -273,10 +306,6 @@ exports.handler = async (event) => {
               'X-Entity-Ref-ID': 'gift-email-' + session.id + '-' + n
             }
           });
-
-          console.log(
-            `Successfully generated and sent gift card ${confirmedCode} to ${recipientEmail}`
-          );
         } catch (emailErr) {
           console.error(`Failed to send gift card email for code ${confirmedCode}:`, emailErr.message);
         }
@@ -291,6 +320,7 @@ exports.handler = async (event) => {
 };
 
 exports.generateRandomCode = generateRandomCode;
+exports.deriveGiftCardCode = deriveGiftCardCode;
 exports.escapeHtml = escapeHtml;
 exports.verifyStripeSignature = verifyStripeSignature;
 exports.createGiftCardPromotionCode = createGiftCardPromotionCode;

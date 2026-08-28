@@ -1513,7 +1513,7 @@ window.YL_IMAGES = {
     key: "assets/img/apple-touch-icon.png",
     width: 180,
     height: 180,
-    size: 13773,
+    size: 36967,
     variants: {
       avif: [
         {

@@ -376,6 +376,11 @@ PRODUCTS.forEach(function (p) {
         if (typeof o.label !== "string" || !o.label) fail(p.id + ": variant option missing label");
         if (o.priceDelta !== undefined && typeof o.priceDelta !== "number")
           fail(p.id + ": variant option priceDelta must be numeric", o.label);
+        // Per-variant sold-out flag (main.js picker/addToCartHTML and the
+        // checkout Worker all read it) -- must be a real boolean when set,
+        // since a truthy string like "false" would sell out the option.
+        if (o.soldOut !== undefined && typeof o.soldOut !== "boolean")
+          fail(p.id + ": variant option soldOut must be true/false", o.label);
         // main.js builds each product's data-item-custom1-options attribute
         // as "Label[+X.XX]|Label[+X.XX]|..." (see addToCartHTML() there,
         // and cart.js's addItemFromButton() which parses it back apart) --
@@ -1100,6 +1105,26 @@ if (!fs.existsSync(productsJsonPath)) {
 } else {
   try {
     var canonicalCatalog = JSON.parse(fs.readFileSync(productsJsonPath, "utf8"));
+    // Mirror build-site-data.js's sale baking (its "Process Products" step):
+    // the generated catalog carries sale-adjusted price/originalPrice/sale
+    // keys, so the raw source needs the same transform before deep-comparing.
+    // Without this, any active entry in products.json's "sales" array makes
+    // this check fail forever -- even immediately after `npm run build-data`.
+    var qaSalesByCategory = {};
+    (canonicalCatalog.sales || []).forEach(function (s) {
+      qaSalesByCategory[s.category] = s;
+    });
+    (canonicalCatalog.products || []).forEach(function (p) {
+      if (p.sale && p.sale.price) {
+        p.originalPrice = p.price;
+        p.price = p.sale.price;
+      } else if (qaSalesByCategory[p.category]) {
+        var qaCatSale = qaSalesByCategory[p.category];
+        p.originalPrice = p.price;
+        p.price = Math.round(p.price * (1 - qaCatSale.percentOff / 100) * 100) / 100;
+        p.sale = { label: qaCatSale.label };
+      }
+    });
     var generatedCatalog = global.window.YL_PRODUCTS || {};
     if (JSON.stringify(generatedCatalog) === JSON.stringify(canonicalCatalog)) {
       ok(
@@ -1501,69 +1526,15 @@ if (
   fail("shop.html", "missing #apothecary-quiz-section or #quiz-submit-btn");
 }
 
-/* ---------- Unit Test Suites ---------- */
-section("Unit Test Suites (cart-engine, backend-functions, main, build-site-data)");
-try {
-  execSync('node "' + path.join(ROOT, "scripts/cart-engine.test.js") + '"', { stdio: "pipe" });
-  ok("scripts/cart-engine.test.js passed");
-} catch (e) {
-  fail("scripts/cart-engine.test.js", e.stderr ? e.stderr.toString().split("\n")[0] : e.message);
-}
-
-try {
-  execSync('node "' + path.join(ROOT, "scripts/cart.test.js") + '"', { stdio: "pipe" });
-  ok("scripts/cart.test.js passed");
-} catch (e) {
-  fail("scripts/cart.test.js", e.stderr ? e.stderr.toString().split("\n")[0] : e.message);
-}
-
-try {
-  execSync('node "' + path.join(ROOT, "scripts/backend-functions.test.js") + '"', {
-    stdio: "pipe"
-  });
-  ok("scripts/backend-functions.test.js passed");
-} catch (e) {
-  fail(
-    "scripts/backend-functions.test.js",
-    e.stderr ? e.stderr.toString().split("\n")[0] : e.message
-  );
-}
-
-try {
-  execSync('node "' + path.join(ROOT, "scripts/main.test.js") + '"', { stdio: "pipe" });
-  ok("scripts/main.test.js passed");
-} catch (e) {
-  fail("scripts/main.test.js", e.stderr ? e.stderr.toString().split("\n")[0] : e.message);
-}
-
-try {
-  execSync('node "' + path.join(ROOT, "scripts/build-site-data.test.js") + '"', {
-    stdio: "pipe"
-  });
-  ok("scripts/build-site-data.test.js passed");
-} catch (e) {
-  fail(
-    "scripts/build-site-data.test.js",
-    e.stderr ? e.stderr.toString().split("\n")[0] : e.message
-  );
-}
-
-try {
-  execSync('node "' + path.join(ROOT, "scripts/translator.test.js") + '"', { stdio: "pipe" });
-  ok("scripts/translator.test.js passed");
-} catch (e) {
-  fail("scripts/translator.test.js", e.stderr ? e.stderr.toString().split("\n")[0] : e.message);
-}
-
-try {
-  execSync('node "' + path.join(ROOT, "scripts/sync-social-feed.test.js") + '"', { stdio: "pipe" });
-  ok("scripts/sync-social-feed.test.js passed");
-} catch (e) {
-  fail(
-    "scripts/sync-social-feed.test.js",
-    e.stderr ? e.stderr.toString().split("\n")[0] : e.message
-  );
-}
+/* ---------- Unit Test Suites ----------
+   Deliberately NOT run from here any more. This file used to shell out to
+   each scripts/*.test.js with stdio:"pipe" and collapse the result to a
+   single ✓/✗ per suite, which threw away every assertion name and truncated
+   the error to its first line -- a real failure reported itself as
+   "node:internal/modules/cjs/loader:1386", which tells you nothing.
+   scripts/run-unit-tests.js runs them with inherited stdio instead, and
+   `npm test` runs it first, so the suites still gate every push -- once,
+   with readable output, rather than twice with the second run mute. */
 
 /* ---------- Feature switches are actually wired ----------
    Every boolean in content.json's `site` block is a switch shown to Savanna
@@ -1614,6 +1585,70 @@ section("Every CMS feature switch is wired to real code");
     if (!orphans.length) ok("no CMS switches missing from content.json");
     else fail("CMS switches with no config", orphans.join(", "));
   }
+})();
+
+/* ---------- CMS form endpoints actually reach the pages ----------
+   Same rule as the switches above, for the three string fields that carry an
+   integration endpoint. They live in an action="..." attribute, where a
+   <!--YL:key--> marker can't survive the build's cleanAttributeMarkers()
+   pass -- so for a while /admin offered "Newsletter Form Link (Kit)" and
+   "Contact Form Code (Formspree)" while every page stayed pinned to the
+   hardcoded placeholder, and main.js kept showing the "not connected yet"
+   fallback no matter what was typed in. Assert the shipped attribute is the
+   one build-site-data.js derives from content.json, so it can't drift back. */
+section("CMS form endpoints (Kit / Formspree) reach the built pages");
+(function checkFormEndpointsWired() {
+  var builder = require(path.join(ROOT, "scripts/build-site-data.js"));
+  var contentJson = JSON.parse(
+    fs.readFileSync(path.join(ROOT, "assets/data/content.json"), "utf8")
+  );
+  var siteCfg = contentJson.site || {};
+  var expectations = [
+    {
+      page: "index.html",
+      className: "footer-signup-form",
+      expected: builder.newsletterAction(siteCfg.kitFormAction, "YOUR_KIT_FORM_ACTION_URL"),
+      field: "site.kitFormAction"
+    },
+    {
+      page: "contact.html",
+      className: "contact-form",
+      expected: builder.formspreeAction(siteCfg.formspreeContactId, "YOUR_FORM_ID"),
+      field: "site.formspreeContactId"
+    },
+    {
+      page: "shop.html",
+      className: "review-form",
+      expected: builder.formspreeAction(siteCfg.formspreeReviewId, "YOUR_FORMSPREE_FORM_ID"),
+      field: "site.formspreeReviewId"
+    }
+  ];
+  expectations.forEach(function (spec) {
+    var full = path.join(ROOT, spec.page);
+    if (!fs.existsSync(full)) {
+      fail(spec.page, "missing file");
+      return;
+    }
+    var html = fs.readFileSync(full, "utf8");
+    var tags = html.match(/<form\b[^>]*>/g) || [];
+    var match = null;
+    tags.forEach(function (tag) {
+      var cls = /\sclass="([^"]*)"/.exec(tag);
+      if (!cls || cls[1].trim().split(/\s+/).indexOf(spec.className) === -1) return;
+      var act = /\saction="([^"]*)"/.exec(tag);
+      if (act) match = act[1];
+    });
+    if (match === null) {
+      fail(spec.page + " ." + spec.className, "no form with that class and an action attribute");
+    } else if (match === spec.expected) {
+      ok(spec.page + " ." + spec.className + " action follows " + spec.field);
+    } else {
+      fail(
+        spec.page + " ." + spec.className + " action ignores " + spec.field,
+        'shipped "' + match + '" but content.json resolves to "' + spec.expected + '"'
+      );
+    }
+  });
 })();
 
 /* ---------- HTML container-tag balance (regression guard) ----------
@@ -1810,6 +1845,144 @@ try {
   }
 } catch (e) {
   fail("2026 SOTA architecture verification", e.message);
+}
+
+/* ---------- 20) Lockfile hygiene ----------
+   Netlify picks the package manager by which lockfile it finds, and it
+   installs dependencies with --frozen-lockfile. A second, unmaintained
+   lockfile therefore quietly becomes the one that decides production
+   deploys: pnpm-lock.yaml sat here months out of date while every human
+   and every CI workflow ran npm, so the commit that dropped two unused
+   dependencies updated package-lock.json, left pnpm-lock.yaml stale, and
+   broke every Netlify deploy from that day on -- with the site's own test
+   suite still passing green the whole time. One lockfile, kept in step
+   with package.json. */
+section("Lockfile hygiene (one package manager, in sync with package.json)");
+try {
+  var rivalLockfiles = ["pnpm-lock.yaml", "yarn.lock", "bun.lockb"].filter(function (f) {
+    return fs.existsSync(path.join(ROOT, f));
+  });
+  if (!fs.existsSync(path.join(ROOT, "package-lock.json"))) {
+    fail(
+      "package-lock.json exists",
+      "npm is this project's package manager (see .github/workflows)"
+    );
+  } else if (rivalLockfiles.length) {
+    fail(
+      "package-lock.json is the only lockfile",
+      "also found " +
+        rivalLockfiles.join(", ") +
+        " -- a deploy host will install from that one instead"
+    );
+  } else {
+    ok("package-lock.json is the only lockfile");
+  }
+
+  var pkgJson = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
+  var lockJson = JSON.parse(fs.readFileSync(path.join(ROOT, "package-lock.json"), "utf8"));
+  var declared = Object.assign({}, pkgJson.dependencies, pkgJson.devDependencies);
+  // The lockfile mirrors package.json's own dependency block under the ""
+  // (root) importer. Comparing the two catches a hand-edited package.json
+  // that nobody re-ran `npm install` after.
+  var lockRoot = (lockJson.packages && lockJson.packages[""]) || {};
+  var lockDeclared = Object.assign({}, lockRoot.dependencies, lockRoot.devDependencies);
+  var drift = [];
+  Object.keys(declared).forEach(function (name) {
+    if (lockDeclared[name] !== declared[name]) {
+      drift.push(
+        name +
+          " (package.json " +
+          declared[name] +
+          ", lock " +
+          (lockDeclared[name] || "absent") +
+          ")"
+      );
+    }
+  });
+  Object.keys(lockDeclared).forEach(function (name) {
+    if (!(name in declared)) drift.push(name + " (in lock, removed from package.json)");
+  });
+  if (drift.length) {
+    fail("package-lock.json matches package.json", drift.join("; ") + " -- run `npm install`");
+  } else {
+    ok("package-lock.json matches package.json's declared dependencies");
+  }
+} catch (e) {
+  fail("lockfile hygiene", e.message);
+}
+
+/* ---------- 21) Checkout proxy actually points at the Worker ----------
+   The cart POSTs to a same-origin path; Netlify proxies that path to the
+   Cloudflare Worker that answers it. Three files have to agree on it --
+   assets/js/cart.js (the path it calls), build-security-headers.js (the
+   generator that emits the rule) and netlify.toml (the generated output).
+   A mismatch has no visible symptom until a real shopper clicks Checkout and
+   gets a 404, so it gets asserted rather than trusted. */
+/* ---------- Deploy build needs devDependencies ----------
+   scripts/optimize-images.js runs first in the deploy command and is the
+   only build step that requires an npm package (sharp, a devDependency).
+   If a deploy config ever asks for the optimizer without also guaranteeing
+   devDependencies get installed, brand-new photos silently ship full-size.
+   The script itself degrades rather than failing the build, which is what
+   makes the regression silent -- so assert the pairing here instead. */
+section("Deploy config installs devDependencies for the image optimizer");
+try {
+  var netlifyToml = fs.readFileSync(path.join(ROOT, "netlify.toml"), "utf8");
+  if (netlifyToml.indexOf("optimize-images.js") === -1) {
+    ok("netlify.toml does not run the image optimizer -- nothing to guarantee");
+  } else if (/NPM_FLAGS\s*=\s*"[^"]*--include=dev/.test(netlifyToml)) {
+    ok("netlify.toml runs the image optimizer and asks npm for devDependencies");
+  } else {
+    fail(
+      'netlify.toml runs optimize-images.js without NPM_FLAGS="--include=dev"',
+      "sharp is a devDependency -- without this, a host that skips devDependencies " +
+        "ships new photos unoptimized"
+    );
+  }
+} catch (e) {
+  fail("netlify.toml devDependency check", e.message);
+}
+
+section("Checkout proxy (cart.js -> netlify.toml -> Cloudflare Worker)");
+try {
+  var cartSrc = fs.readFileSync(path.join(ROOT, "assets/js/cart.js"), "utf8");
+  var cartMatch = cartSrc.match(/CHECKOUT_URL\s*=\s*"([^"]+)"/);
+  var netlifySrc = fs.readFileSync(path.join(ROOT, "netlify.toml"), "utf8");
+  var redirectMatch = netlifySrc.match(
+    /\[\[redirects\]\][\s\S]*?from\s*=\s*"([^"]+)"[\s\S]*?to\s*=\s*"([^"]+)"[\s\S]*?status\s*=\s*(\d+)/
+  );
+
+  if (!cartMatch) {
+    fail("cart.js declares a CHECKOUT_URL");
+  } else if (!redirectMatch) {
+    fail("netlify.toml has a [[redirects]] rule for checkout", "none found");
+  } else {
+    if (cartMatch[1] === redirectMatch[1]) {
+      ok("netlify.toml proxies exactly the path cart.js posts to (" + cartMatch[1] + ")");
+    } else {
+      fail(
+        "netlify.toml proxy path matches cart.js CHECKOUT_URL",
+        "cart.js posts to " + cartMatch[1] + ", netlify.toml proxies " + redirectMatch[1]
+      );
+    }
+
+    // status 200 is a proxy; 301/302 would send the browser cross-origin to
+    // workers.dev, where the CSP's connect-src 'self' blocks it and the POST
+    // body is dropped on the redirect.
+    if (redirectMatch[3] === "200") {
+      ok("checkout rule is a proxy (status 200), not a redirect");
+    } else {
+      fail("checkout rule is a proxy (status 200)", "found status " + redirectMatch[3]);
+    }
+
+    if (/^https:\/\/[^/]+\.workers\.dev$/.test(redirectMatch[2])) {
+      ok("checkout proxy targets a Cloudflare workers.dev host over https");
+    } else {
+      fail("checkout proxy targets a workers.dev host over https", "found " + redirectMatch[2]);
+    }
+  }
+} catch (e) {
+  fail("checkout proxy wiring", e.message);
 }
 
 /* ---------- Summary ---------- */

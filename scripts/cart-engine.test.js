@@ -7,6 +7,12 @@
  * merge-on-add, and the Stripe checkout payload shape.
  */
 
+/* cart.js binds its `root` once, at load time (window when there is one), so
+   a stand-in has to exist before the require for freeShipThreshold() to be
+   testable against different catalogs. There's still no `document`, so the
+   DOM half of cart.js stays inert exactly as before. */
+global.window = global.window || {};
+
 const cart = require("../assets/js/cart.js");
 
 let passed = 0;
@@ -140,6 +146,22 @@ eq(
   },
   "toCheckoutPayload: gift metadata attached only to gift-card line"
 );
+
+/* freeShipThreshold reads products.json shop.freeShippingThreshold, the same
+   CMS field the announcement bar and workers/checkout.js read. A 0 there means
+   "Set to 0 to disable" (admin/config.yml) and must not silently become the
+   default, or the drawer promises a tier Stripe no longer honours. */
+eq(cart.freeShipThreshold(), 40, "freeShipThreshold defaults with no catalog loaded");
+global.window.YL_PRODUCTS = { shop: { freeShippingThreshold: 75 } };
+eq(cart.freeShipThreshold(), 75, "freeShipThreshold honours a CMS-configured threshold");
+global.window.YL_PRODUCTS = { shop: { freeShippingThreshold: 0 } };
+eq(cart.freeShipThreshold(), 0, "freeShipThreshold treats 0 as disabled, not as the default");
+global.window.YL_PRODUCTS = { shop: {} };
+eq(cart.freeShipThreshold(), 40, "freeShipThreshold falls back when the field is missing");
+global.window.YL_PRODUCTS = { shop: { freeShippingThreshold: "forty" } };
+eq(cart.freeShipThreshold(), 40, "freeShipThreshold falls back on a non-numeric value");
+global.window.YL_PRODUCTS = null;
+eq(cart.freeShipThreshold(), 40, "freeShipThreshold is safe with no catalog at all");
 
 console.log(`\ncart-engine.test.js: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

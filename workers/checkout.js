@@ -21,14 +21,16 @@
  *   - products.json is fetched from the deployed site and cached, so this
  *     Worker never drifts from the single source of truth in assets/data/.
  *
- * Shipping: a flat $10 rate applies below a $40 physical-items subtotal,
- * free above it (see the freeShippingThresholdCents/flatShippingRateCents
- * constants below) -- matches the "Free shipping on orders over $40"
- * promise already shown on every page. Snipcart used to own this via its
- * own dashboard config; there's no equivalent dashboard here, so it's a
- * starting default hardcoded below. Change it there (not in the Stripe
- * Dashboard) if real rates differ. All-gift-card orders skip shipping
- * entirely -- nothing physical to ship.
+ * Shipping: a flat $10 rate applies below the free-shipping threshold on the
+ * physical-items subtotal, free at or above it -- matching the "Free shipping
+ * on orders over $X" promise already shown on every page. The threshold is
+ * NOT hardcoded here: it comes from the same catalog these prices do
+ * (products.json shop.freeShippingThreshold, editable in the CMS), so
+ * changing it in /admin moves the site copy and what Stripe charges together
+ * -- see resolveFreeShippingThresholdCents. The $10 flat rate itself is a
+ * business constant with no CMS field, hardcoded below; change it there (not
+ * in the Stripe Dashboard) if real rates differ. All-gift-card orders skip
+ * shipping entirely -- nothing physical to ship.
  *
  * Gift cards are a special case (see resolveGiftCardAmountCents below):
  * products.json's own `variants.options` for the gift card is a short
@@ -150,6 +152,35 @@ function json(body, status, origin, env) {
   });
 }
 
+// Bake active sales into a freshly loaded catalog, mirroring
+// scripts/build-site-data.js's "Process Products" step (and qa-check.js's
+// copy of it -- change one, change all three). The shop pages render prices
+// from the generated, sale-adjusted catalog, so the raw products.json this
+// Worker fetches must get the same transform before any price is validated
+// against it: without this, a live category sale displays one price on the
+// site and charges another at checkout. Bundle math is unaffected on
+// purpose -- resolveBundlePriceDollars() prefers originalPrice (the
+// pre-sale price), exactly like main.js's bundlesHTML(), so bundle
+// discounts don't stack with a sale on either side.
+function applySales(catalog) {
+  const salesByCategory = {};
+  for (const s of Array.isArray(catalog.sales) ? catalog.sales : []) {
+    if (s && s.category) salesByCategory[s.category] = s;
+  }
+  for (const p of Array.isArray(catalog.products) ? catalog.products : []) {
+    if (p.sale && p.sale.price) {
+      p.originalPrice = p.price;
+      p.price = p.sale.price;
+    } else if (salesByCategory[p.category] && typeof p.price === "number") {
+      const catSale = salesByCategory[p.category];
+      p.originalPrice = p.price;
+      p.price = Math.round(p.price * (1 - catSale.percentOff / 100) * 100) / 100;
+      p.sale = { label: catSale.label };
+    }
+  }
+  return catalog;
+}
+
 // Fetch + cache the canonical catalog from the deployed site so prices here
 // always match assets/data/products.json (the single source of truth).
 async function loadCatalog(env, ctx) {
@@ -166,7 +197,7 @@ async function loadCatalog(env, ctx) {
     }
   }
   if (!res.ok) throw new Error("Could not load product catalog");
-  return res.json();
+  return applySales(await res.json());
 }
 
 // Same fetch+cache treatment for the market calendar. Only needed when a
@@ -428,9 +459,18 @@ function resolveUnitAmountCents(catalog, entry, variantLabel, isBundle) {
     price = typeof entry.price === "number" ? entry.price : null;
   }
   if (price === null || price === undefined) return null;
-  if (!isBundle && variantLabel && entry.variants && Array.isArray(entry.variants.options)) {
-    const opt = entry.variants.options.find((o) => o.label === variantLabel);
-    if (opt && typeof opt.priceDelta === "number") price += opt.priceDelta;
+  if (!isBundle && entry.variants && Array.isArray(entry.variants.options)) {
+    const opts = entry.variants.options;
+    // Per-variant sold-out, mirroring main.js's addToCartHTML(): a sold-out
+    // option never renders as orderable, so an order naming one (or naming
+    // no variant when every option is sold out) can only come from a stale
+    // cart or a tampered client -- fail closed either way.
+    if (opts.length && opts.every((o) => o.soldOut)) return null;
+    if (variantLabel) {
+      const opt = opts.find((o) => o.label === variantLabel);
+      if (opt && opt.soldOut) return null;
+      if (opt && typeof opt.priceDelta === "number") price += opt.priceDelta;
+    }
   }
   return Math.round(price * 100);
 }
@@ -498,6 +538,31 @@ function resolveCustomBoxCents(catalog, productIds) {
   // able to produce a negative line total.
   const safePct = Math.min(Math.max(pct, 0), 90);
   return Math.round(fullPrice * (1 - safePct / 100) * 100);
+}
+
+// Free-shipping threshold, in cents, straight from the catalog the site is
+// already rendering from (products.json shop.freeShippingThreshold, editable
+// in the CMS). Keeping this out of a constant is the whole point: the
+// announcement bar, the product cards and the cart drawer all read that
+// value, so hardcoding it here means changing it in the CMS updates every
+// promise on the site while Stripe quietly keeps billing at the old number.
+//
+// Semantics match the client (assets/js/cart.js freeShipThreshold() and
+// main.js's announcement bar):
+//   missing / non-numeric -> DEFAULT_FREE_SHIPPING_THRESHOLD_CENTS
+//   <= 0                  -> free shipping disabled (admin/config.yml:
+//                            "Set to 0 to disable"), flat rate always applies
+const DEFAULT_FREE_SHIPPING_THRESHOLD_CENTS = 4000; // $40.00
+
+function resolveFreeShippingThresholdCents(catalog) {
+  const raw = catalog && catalog.shop ? catalog.shop.freeShippingThreshold : undefined;
+  if (raw === null || raw === undefined || raw === "") {
+    return DEFAULT_FREE_SHIPPING_THRESHOLD_CENTS;
+  }
+  const dollars = Number(raw);
+  if (!Number.isFinite(dollars)) return DEFAULT_FREE_SHIPPING_THRESHOLD_CENTS;
+  if (dollars <= 0) return 0; // promise switched off
+  return Math.round(dollars * 100);
 }
 
 export default {
@@ -636,25 +701,28 @@ export default {
       const totalCents = lineItems.reduce((sum, li) => sum + li.unitAmount * li.qty, 0);
 
       // Flat-rate shipping, matching the site's existing "Free shipping on
-      // orders over $40" promise (see the announcement bar in main.js and
+      // orders over $X" promise (see the announcement bar in main.js and
       // cart.js's free-shipping progress meter, both driven by
-      // products.json's shop.freeShippingThreshold). $10 is a starting
-      // default carried over from what the Etsy listings charge for
-      // apparel shipped from Landrum, SC -- adjust both constants below to
-      // match real rates; this is a business decision, not a technical one.
-      // Gift cards are emailed, not shipped, so an order that's ALL gift
-      // cards gets no shipping line at all.
+      // products.json's shop.freeShippingThreshold -- which is why the
+      // threshold is read from the same catalog here rather than hardcoded;
+      // see resolveFreeShippingThresholdCents). $10 is a starting default
+      // carried over from what the Etsy listings charge for apparel shipped
+      // from Landrum, SC -- that one genuinely is a business constant, not
+      // CMS-editable. Gift cards are emailed, not shipped, so an order
+      // that's ALL gift cards gets no shipping line at all.
       const physicalSubtotalCents = lineItems
         .filter((li) => !li.isGiftCard)
         .reduce((sum, li) => sum + li.unitAmount * li.qty, 0);
       const hasPhysicalItems = physicalSubtotalCents > 0;
-      const freeShippingThresholdCents = 4000; // $40.00
+      const freeShippingThresholdCents = resolveFreeShippingThresholdCents(catalog);
       const flatShippingRateCents = 1000; // $10.00
       const isPickup = body && Boolean(body.pickupMarket);
+      // A threshold of 0 means the promise is off entirely, so nothing ever
+      // qualifies -- not even a huge order.
+      const qualifiesForFreeShipping =
+        freeShippingThresholdCents > 0 && physicalSubtotalCents >= freeShippingThresholdCents;
       const shippingCents =
-        hasPhysicalItems && physicalSubtotalCents < freeShippingThresholdCents && !isPickup
-          ? flatShippingRateCents
-          : 0;
+        hasPhysicalItems && !isPickup && !qualifiesForFreeShipping ? flatShippingRateCents : 0;
 
       const taxEnabled = await isTaxEnabled(env, ctx);
 
@@ -802,5 +870,6 @@ export {
   resolveBundlePriceDollars,
   resolveUnitAmountCents,
   resolveGiftCardAmountCents,
-  resolveCustomBoxCents
+  resolveCustomBoxCents,
+  resolveFreeShippingThresholdCents
 };

@@ -60,6 +60,19 @@
   .journal-detail img { width: 100%; height: auto; max-height: 450px; object-fit: cover; border-radius: var(--radius-lg); margin-bottom: 32px; border: 1px solid var(--hide); }
   .journal-detail .content { line-height: 1.8; font-size: 1.1rem; }
   .journal-detail .content p { margin-bottom: 1.5em; }
+  /* Formatting Savanna can add from /admin (see the journal "content" field in
+     admin/config.yml, rendered by renderMarkdown() in assets/js/main.js). The
+     post's own title is the <h2> above, so headings inside a post start at
+     <h3>. Lists need their markers back -- styles.css resets every ul. */
+  .journal-detail .content h3 { font-family: var(--font-display); font-size: 1.6rem; margin: 1.8em 0 0.5em; }
+  .journal-detail .content h4 { font-size: 1.2rem; font-weight: 700; margin: 1.5em 0 0.4em; }
+  .journal-detail .content ul, .journal-detail .content ol { margin: 0 0 1.5em; padding-left: 1.5em; }
+  .journal-detail .content ul { list-style: disc; }
+  .journal-detail .content ol { list-style: decimal; }
+  .journal-detail .content li { margin-bottom: 0.5em; }
+  .journal-detail .content a { color: var(--whiskey); text-decoration: underline; }
+  .journal-detail .content a:hover { color: var(--paper); }
+  .journal-detail .content hr { border: 0; border-top: 1px solid var(--hide); margin: 2em 0; }
   .journal-detail .back-link { margin-bottom: 24px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600; color: var(--whiskey); }
   .journal-detail .back-link:hover { color: var(--paper); }
 </style>
@@ -159,7 +172,7 @@
         <h3>Say Hey</h3>
         <ul>
           <li><a href="mailto:y.allternative.living@gmail.com">y.allternative.living@gmail.com</a></li>
-          <li><a href="https://www.etsy.com/shop/YallternativeLivinCO" target="_blank" rel="noopener">Etsy shop ↗<span class="sr-only">(opens in new tab)</span></a></li>
+          <li><a href="https://www.etsy.com/shop/YallternativeLivinCO" target="_blank" rel="noopener">Etsy shop ↗<span class="sr-only"> (opens in new tab)</span></a></li>
           <li>Based in Landrum, SC</li>
           <li>Find us at markets &amp; Pride events in the Upstate &amp; beyond</li>
         </ul>

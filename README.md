@@ -36,7 +36,7 @@ Here is a quick checklist of the external accounts you'll need to set up for lau
 5. **[ ] Gift Card Emails (Resend)** — required for the built-in gift-card system to actually send the redeemable code
 6. ~~Digital Gift Cards — optional upgrade (Gift Up!)~~ — not usable yet (needs a code change first) and hidden from the dashboard, so there's nothing to set up here today; see `docs/DEVELOPMENT.md` section 18
 7. **[ ] Customer Live Chat (Tawk.to - Optional)**
-8. **[ ] Store Management (Sveltia CMS)** — also needs GitHub login turned on in Netlify first (one checkbox, see SETUP-GUIDE.md Step 2C)
+8. **[ ] Store Management (Sveltia CMS)** — log in at `/admin` with GitHub. Log in **today** by pasting a GitHub token ("Sign in with Token"), or set up the permanent one-click "Sign in with GitHub" button. **Not** via Netlify (its old Git Gateway login is deprecated). See SETUP-GUIDE.md Step 9 / DEVELOPMENT.md section 20
 
 ---
 
@@ -44,7 +44,7 @@ Here is a quick checklist of the external accounts you'll need to set up for lau
 
 - **Architecture**: 100% static HTML/CSS/JS frontend with zero runtime framework dependencies. Fast, mobile-first, and offline-capable via `sw.js`.
 - **Checkout & Cart**: On-site drawer cart (`assets/js/cart.js`) backed by server-side Cloudflare Workers (`workers/checkout.js`) for price-tampering security.
-- **Automated Verification**: Run `npm test` to execute **300+ static QA assertions** (JSON-LD validation, CSP byte-sync, live WCAG contrast, variant parsing) and `npm run test:integration` for headless Puppeteer browser testing across viewports.
+- **Automated Verification**: Run `npm test` to execute the **330+ unit assertions** across every `scripts/*.test.js` suite (cart and checkout pricing, tax, gift cards, the build-data compiler) plus **330+ static QA assertions** (JSON-LD validation, CSP byte-sync, live WCAG contrast, variant parsing), and `npm run test:integration` for headless Puppeteer browser testing across viewports plus an axe-core accessibility gate (WCAG 2.2 AA, zero violations across all 31 pages).
 
 ---
 

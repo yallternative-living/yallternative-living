@@ -1,5 +1,5 @@
 {
-  "buildCommand": "node scripts/build-site-data.js && node scripts/build-security-headers.js",
+  "buildCommand": "node scripts/optimize-images.js && node scripts/build-site-data.js && node scripts/build-security-headers.js",
   "outputDirectory": ".",
   "headers": [
     {
@@ -40,7 +40,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.githubusercontent.com; font-src 'self'; connect-src 'self' https://unpkg.com https://api.github.com https://*.githubusercontent.com; media-src blob:; frame-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+          "value": "default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; img-src 'self' data: blob: https://*.githubusercontent.com; font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com; connect-src 'self' blob: data: https://unpkg.com https://cdn.jsdelivr.net https://api.github.com https://*.githubusercontent.com; media-src blob:; frame-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
         }
       ]
     }

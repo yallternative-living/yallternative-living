@@ -3,33 +3,37 @@
 # Y'ALLTERNATIVE LIVING -- Sveltia CMS configuration
 # ----------------------------------------------------------------------
 # This is the editor Savanna uses at /admin instead of hand-editing JSON
-# files in a text editor. It's split into four separate top-level
+# files in a text editor. It's split into six separate top-level
 # sections in the /admin sidebar -- each its own collection below, on
 # purpose, so Savanna sees exactly what she can do at a glance instead
 # of hunting through one generic "catalog" menu:
-#   1. Products, Bundles & FAQ  -- assets/data/products.json
+#   1. Products, Bundles & FAQ      -- assets/data/products.json
 #   2. Markets, Fairs & Pride Dates -- assets/data/events.json
-#   3. Customer Reviews         -- assets/data/site-reviews.json
-#   4. Page Wording             -- assets/data/content.json
-# Full setup instructions (GitHub repo, Netlify OAuth, first login) are
-# in DEVELOPMENT.md section 20 -- read that before changing anything here.
-# For the click-by-click version of that same setup, see docs/SETUP-GUIDE.md
-# Step 2C.
+#   3. Customer Reviews             -- assets/data/site-reviews.json
+#   4. Apothecary Journal (Blog)    -- assets/data/journal.json
+#   5. Social Media Feed            -- assets/data/social-feed.json
+#   6. Site Images & Page Wording   -- assets/data/content.json
+# Full setup instructions (GitHub repo, first login) are in DEVELOPMENT.md
+# section 20 -- read that before changing anything here. For the
+# click-by-click version, see docs/SETUP-GUIDE.md Step 9.
 #
-# backend.repo below now points at the real repo:
-# github.com/yallternative-living/yallternative-living. What's still needed
-# before /admin actually logs in: (1) this repo deployed on Netlify or
-# GitHub Pages, (2) GitHub OAuth turned on for that deploy (one Netlify
-# checkbox, or a small auth helper for Pages) -- see DEVELOPMENT.md section 20.
+# backend.repo below points at the real repo:
+# github.com/yallternative-living/yallternative-living. To actually log in at
+# /admin you pick ONE of two GitHub sign-in methods (Netlify is NOT involved --
+# its old Git Gateway / OAuth login is deprecated):
+#   (A) Instant, zero setup: "Sign in with Token" on the /admin login screen
+#       (paste a GitHub token -- good for logging in today).
+#   (B) Permanent "Sign in with GitHub" button: deploy the login Worker in
+#       cms-auth/ and set backend.base_url below to its URL.
+# Full steps for both are in DEVELOPMENT.md section 20.
 #
 # Every field below maps 1:1 to a real field already used in
 # assets/data/products.json -- nothing here was invented; if a field
 # isn't listed, it isn't part of the real catalog schema. After saving
 # a change here, Sveltia commits straight to the repo, and the site's
 # own deploy step re-runs `node scripts/build-site-data.js` to
-# regenerate everything derived from it (see netlify.toml / vercel.json
-# / .github/workflows/deploy-pages.yml) -- Savanna does NOT need to run
-# that script by hand.
+# regenerate everything derived from it (see netlify.toml /
+# vercel.json) -- Savanna does NOT need to run that script by hand.
 
 backend:
   name: github
@@ -39,12 +43,29 @@ backend:
   # doesn't exist anymore, which would make every /admin login fail).
   repo: yallternative-living/yallternative-living
   branch: main
-  # No `base_url` set here on purpose -- when this site is deployed on
-  # Netlify, Netlify itself is Sveltia's default OAuth provider for the
-  # github backend with ZERO extra config here (verified directly
-  # against sveltiacms.app/en/docs/backends/github, "Using Netlify"
-  # section). The one-time setup happens in the Netlify dashboard, not
-  # in this file -- see DEVELOPMENT.md section 20.
+  # base_url = the "Sign in with GitHub" login service for /admin.
+  #
+  # This used to be left unset so Netlify could act as the default OAuth
+  # provider -- but Netlify DEPRECATED that (its "Git Gateway / OAuth"),
+  # which is the dead end the /admin login kept hitting. We now run our own
+  # tiny login Worker on Cloudflare (the top-level cms-auth/ folder,
+  # alongside the checkout Worker this site already uses), so /admin no longer
+  # depends on Netlify for anything. See DEVELOPMENT.md section 20.
+  #
+  # >>> ONE VALUE TO FILL IN (Steven, once, after deploying cms-auth) <<<
+  # Uncomment the base_url line below and replace YOUR-SUBDOMAIN with the real
+  # Worker URL Cloudflare shows after deploy (it looks like
+  # https://yallternative-cms-auth.<your-subdomain>.workers.dev), then set that
+  # same URL's /callback as the GitHub OAuth App's callback.
+  #
+  # SECURITY -- keep base_url COMMENTED OUT until the real Worker exists.
+  # Shipping a placeholder URL live would point the "Sign in with GitHub"
+  # button at a workers.dev hostname nobody owns yet; someone could register
+  # that exact name and use it to intercept a login and phish a repo-scoped
+  # token. While it's commented out, /admin just uses the "Sign in with Token"
+  # option (works today, zero setup -- DEVELOPMENT.md section 20), which is what
+  # we tell Savanna to use anyway.
+  # base_url: https://yallternative-cms-auth.YOUR-SUBDOMAIN.workers.dev
 
 site_url: https://yallternativeliving.com
 display_url: https://yallternativeliving.com
@@ -59,9 +80,32 @@ logo_url: /assets/img/logo.png
 media_folder: /assets/img
 public_folder: /assets/img
 
+# Makes the /admin "Assets" (photo library) friendlier and harder to break.
+# The panel itself is Sveltia's built-in UI -- its name and layout aren't
+# ours to rename -- but how uploads behave IS configurable, and these two
+# settings matter most for a non-technical owner uploading phone photos:
+#   - slugify_filename: auto-tidies messy upload names so links never break.
+#     "IMG 4823 (1).JPG" is saved as "img-4823-1.jpg" (the extension is kept,
+#     so scripts/optimize-images.js -- which only processes .jpg -- still
+#     generates the responsive/webp versions on deploy).
+#   - max_file_size: rejects an accidental huge upload (e.g. a video) with a
+#     clear message instead of committing a giant file to the repo. 25 MB is
+#     generous headroom for any real photo.
+# NOT enabling upload-time image "transformations" on purpose: Sveltia would
+# convert uploads to .webp, but optimize-images.js only reads .jpg originals,
+# so a converted upload would never get its responsive variants. Optimization
+# already happens at build time -- leave it there.
+media_libraries:
+  default:
+    config:
+      slugify_filename: true
+      max_file_size: 26214400 # 25 MB (25 * 1024 * 1024)
+
 collections:
   - name: products
     label: "1. Products, Bundles & FAQ"
+    icon: storefront
+    description: "Your whole shop lives here — products and prices, gift bundles, and the FAQ. Tap any item to edit it, or use the 'Add' button to create a new one. Hit Save and the site updates itself within a couple of minutes."
     files:
       - name: products
         label: Products, Bundles & FAQ
@@ -69,16 +113,16 @@ collections:
         format: json
         fields:
           - name: shop
-            label: Shop Info (shown in JSON-LD + llms.txt -- keep accurate)
+            label: "Shop Info (used across the site and in your search-result listing — keep it accurate)"
             widget: object
             collapsed: true
             fields:
               - { name: name, label: Shop Name, widget: string }
               - { name: etsyShopUrl, label: Etsy Shop URL, widget: string }
-              - { name: rating, label: "Etsy Rating (0-5, real number only)", widget: number, value_type: float }
-              - { name: reviewCount, label: "Etsy Review Count (real number only)", widget: number, value_type: int }
-              - { name: sales, label: "Etsy Sales Count (real number only)", widget: number, value_type: int }
-              - { name: freeShippingThreshold, label: "Free Shipping Threshold (USD)", widget: number, value_type: int, hint: "Orders at or above this amount get free shipping. Set to 0 to disable." }
+              - { name: rating, label: "Etsy star rating (e.g. 4.9)", widget: number, value_type: float, hint: "Your shop's real Etsy rating, from 0 to 5. Decimals are fine." }
+              - { name: reviewCount, label: "Number of Etsy reviews (e.g. 320)", widget: number, value_type: int, hint: "Your real Etsy review count — a whole number." }
+              - { name: sales, label: "Number of Etsy sales (e.g. 1200)", widget: number, value_type: int, hint: "Your real Etsy sales count — a whole number." }
+              - { name: freeShippingThreshold, label: "Free shipping when an order reaches ($)", widget: number, value_type: int, hint: "Orders at or above this amount ship free. Set to 0 to turn free shipping off." }
               - name: customBox
                 label: "Build-Your-Own Box"
                 widget: object
@@ -89,11 +133,20 @@ collections:
                   - { name: minItems, label: "Minimum items in a box", widget: number, value_type: int, default: 3 }
                   - { name: maxItems, label: "Maximum items in a box", widget: number, value_type: int, default: 5 }
                   - { name: discountPercent, label: "Discount (%)", widget: number, value_type: int, default: 10, hint: "Percent off the combined price of the chosen items." }
+                  # relation (not a plain list) so this is a tick-list of your
+                  # REAL categories instead of hand-typed codes -- add a
+                  # category below and it shows up here automatically.
                   - name: eligibleCategories
                     label: "Categories shoppers can pick from"
-                    widget: list
+                    widget: relation
+                    multiple: true
+                    collection: products
+                    file: products
+                    value_field: categories.*.id
+                    display_fields: ["categories.*.label"]
+                    search_fields: ["categories.*.label"]
                     default: ["salves", "body", "soaks", "potions", "ritual"]
-                    hint: "Category codes, e.g. salves, body, soaks, potions, ritual. Apparel and gift cards are usually left out."
+                    hint: "Tick the categories a shopper can choose from. Apparel and gift cards are usually left out."
 
           - name: sales
             label: Category Sales
@@ -101,11 +154,21 @@ collections:
             label_singular: Sale
             collapsed: true
             summary: "{{fields.label}}"
-            hint: "Example: { 'category': 'body', 'percentOff': 15, 'label': 'Body Care Sale' }"
+            hint: "Put a whole category on sale at once — e.g. 15% off everything in Body & Skin."
             fields:
-              - { name: category, label: Category ID, widget: string }
-              - { name: percentOff, label: Percent Off, widget: number, value_type: int }
-              - { name: label, label: Sale Label, widget: string }
+              # relation, so this is a dropdown of your real categories --
+              # no more typing a code and hoping it matches.
+              - name: category
+                label: "Which category is on sale"
+                widget: relation
+                collection: products
+                file: products
+                value_field: categories.*.id
+                display_fields: ["categories.*.label"]
+                search_fields: ["categories.*.label"]
+                hint: "Pick the category to discount."
+              - { name: percentOff, label: "Percent off (e.g. 15)", widget: number, value_type: int }
+              - { name: label, label: "Sale name shoppers see (e.g. Body Care Sale)", widget: string }
 
           - name: categories
             label: Categories
@@ -113,10 +176,10 @@ collections:
             label_singular: Category
             summary: "{{fields.label}}"
             hint: >-
-              These power the shop page's filter pills. Adding a category label
-              here automatically generates its ID for filter matching.
+              These become the filter buttons across the top of the shop page.
+              Just type the name — the behind-the-scenes code is created for you.
             fields:
-              - { name: label, label: "Label (shown on the filter pill)", widget: string }
+              - { name: label, label: "Category name (the filter button on the shop page)", widget: string }
 
           - name: products
             label: Products
@@ -127,24 +190,24 @@ collections:
               # `id` and `description` exist in products.json but were not
               # declared here -- a CMS save writes only declared fields, so
               # both would have been silently stripped from the file the
-              # first time Savanna hit Save. `id` is also the Snipcart
-              # product ID and the wishlist/review/bundle reference key, so
-              # it must never change once a product has been sold.
+              # first time Savanna hit Save. `id` is also the cart line-item
+              # key and the wishlist/review/bundle reference key, so it must
+              # never change once a product has been sold.
               - name: id
-                label: "Product ID (advanced -- leave blank for new products, NEVER change on existing ones)"
+                label: "Product ID (leave blank for new products; don't change it on existing ones)"
                 widget: string
                 required: false
                 hint: >-
-                  Auto-generated from the product name by the build if left
-                  blank. Once a product is live this ID is what Snipcart,
-                  bundles, reviews, and customer wishlists point at --
-                  changing it breaks all of those, so don't.
+                  Leave this blank on a new product and it's created for you
+                  from the name. It's how bundles and reviews find this product
+                  (you'll copy it when setting those up) — but once a product is
+                  live, changing it here breaks those links, so don't.
               - { name: name, label: "Product Name (shown everywhere on the site)", widget: string }
               - name: description
-                label: "SEO / Share Description (used for the product page's meta description and link previews)"
+                label: "Search & share blurb (shown in Google results and link previews)"
                 widget: text
                 required: false
-                hint: "Falls back to the shop-card description below if left blank."
+                hint: "If you leave this blank, the main product description below is used instead."
               - name: featured
                 label: Featured Product
                 widget: boolean
@@ -163,28 +226,31 @@ collections:
                 default: false
                 required: false
                 hint: "Check this box to show a 'Coming Soon' badge and hide the purchase options."
+              # relation, NOT a hardcoded select list. This used to be a fixed
+              # list of 7 options that had already drifted from the real data
+              # (it was missing "Gift Sets"), and any category Savanna added
+              # under "Categories" below would never appear here -- she could
+              # create a category but never put a product in it. Reading the
+              # real categories means the two can never fall out of sync again.
               - name: category
                 label: Category
-                widget: select
-                options:
-                  - { label: "Apparel", value: "apparel" }
-                  - { label: "Salves & Balms", value: "salves" }
-                  - { label: "Body & Skin", value: "body" }
-                  - { label: "Soaks", value: "soaks" }
-                  - { label: "Potions & Spellwork", value: "potions" }
-                  - { label: "Ritual & Home", value: "ritual" }
-                  - { label: "Gift Cards", value: "gift-cards" }
-                hint: Choose the shop category this product belongs to.
+                widget: relation
+                collection: products
+                file: products
+                value_field: categories.*.id
+                display_fields: ["categories.*.label"]
+                search_fields: ["categories.*.label"]
+                hint: "Choose the shop category this product belongs to. This list is your real Categories list (below) — add one there and it appears here."
               - { name: price, label: "Price (USD, e.g. 16 or 16.50)", widget: number, value_type: float, min: 0, step: 0.01 }
               - name: sale
-                label: "Sale (Optional per-product sale)"
+                label: "Sale (optional — put just this one product on sale)"
                 widget: object
                 required: false
                 collapsed: true
                 fields:
-                  - { name: price, label: Sale Price, widget: number, value_type: float }
-                  - { name: label, label: Sale Label, widget: string }
-              - { name: originalPrice, label: "Original Price (if on sale, usually auto-computed)", widget: number, value_type: float, required: false }
+                  - { name: price, label: "Sale price ($)", widget: number, value_type: float }
+                  - { name: label, label: "Sale name shoppers see (e.g. Spring Sale)", widget: string }
+              - { name: originalPrice, label: "Original price — the crossed-out 'was' price (usually filled in for you when on sale)", widget: number, value_type: float, required: false }
               - name: image
                 label: Main Photo
                 widget: image
@@ -198,21 +264,22 @@ collections:
                 # Sveltia's config schema and the photo list won't render.
                 field: { name: photo, label: Photo, widget: image }
               - name: blurb
-                label: "Description (real, honest copy -- see DEVELOPMENT.md section 1 for the brand voice/what NOT to claim)"
+                label: "Product description (the main text shoppers read)"
                 widget: text
+                hint: "Keep it honest — describe what it is and how it's made. Avoid health or medical claims."
               - name: etsyUrl
                 label: "Real Etsy Listing URL (optional)"
                 widget: string
                 required: false
                 hint: "Etsy listing URL -- optional (e.g. leave blank for digital gift cards or site-only items)."
               - name: rating
-                label: "Etsy Rating for THIS product (optional -- leave blank unless this exact listing has its own real reviews)"
+                label: "This product's own Etsy rating (optional — only if this exact item has its own Etsy reviews)"
                 widget: object
                 required: false
                 collapsed: true
                 fields:
-                  - { name: value, label: "Rating (0-5, real number from this listing's own Etsy page)", widget: number, value_type: float }
-                  - { name: count, label: "Review Count (real number from this listing's own Etsy page)", widget: number, value_type: int }
+                  - { name: value, label: "Star rating (0–5, from this item's Etsy page)", widget: number, value_type: float }
+                  - { name: count, label: "Number of reviews (from this item's Etsy page)", widget: number, value_type: int }
               - name: stock
                 label: "Stock Count (leave blank for unlimited stock)"
                 widget: number
@@ -231,10 +298,10 @@ collections:
                 widget: list
                 required: false
                 hint: >-
-                  Source this from the product's OWN Etsy listing
-                  description -- not the generic "Materials" tag field,
-                  which has been found to be copy-pasted boilerplate
-                  across unrelated listings. Never invent an ingredient.
+                  Copy these from this product's own Etsy listing description.
+                  Don't use Etsy's generic "Materials" tag -- it's often the
+                  same boilerplate copied across unrelated items. Never make up
+                  an ingredient.
               - name: ingredientsLabel
                 label: "Ingredients Section Label (optional -- defaults to \"Ingredients\")"
                 widget: string
@@ -262,16 +329,17 @@ collections:
                     label_singular: Option
                     summary: "{{fields.label}} ({{fields.priceDelta}})"
                     hint: >-
-                      At least one option must have priceDelta 0 (the
-                      base price above). A real Etsy listing's own
-                      variant price differences go in priceDelta, not a
-                      guess -- verify against the actual listing.
+                      One option must have a price difference of 0 -- that's the
+                      base price you set above. For the others, enter how much
+                      more or less they cost (use your real Etsy prices, not a
+                      guess).
                     fields:
                       - name: label
-                        label: "Option Label (e.g. \"8 oz\" or \"Lavender\")"
+                        label: "Option name (e.g. \"8 oz\" or \"Lavender\")"
                         widget: string
-                        hint: Cannot contain [ ] or | characters -- these break the cart's option-parsing syntax (see assets/js/cart.js).
-                      - { name: priceDelta, label: "Price Difference From Base Price (0 if same price, negative allowed)", widget: number, value_type: float, default: 0 }
+                        hint: "Don't use the characters [ ] or | here — they'll break the cart."
+                      - { name: priceDelta, label: "Price difference from the base price (0 = same; use a negative number to charge less)", widget: number, value_type: float, default: 0 }
+                      - { name: soldOut, label: "Sold out? (shows greyed out as \"sold out\" in the shop's picker and can't be ordered — flip it back off when you restock; don't delete the option, or shoppers can't see it ever existed)", widget: boolean, required: false, default: false }
               - name: tags
                 label: Tags (Sensitivity / Allergen)
                 widget: select
@@ -299,31 +367,37 @@ collections:
             summary: "{{fields.name}} — {{fields.discountPercent}}% off"
             required: false
             hint: >-
-              The bundle's actual selling price is ALWAYS computed at
-              build time from the real current prices of the products
-              listed below plus this discount -- never hand-set a price
-              here, there's nowhere to put one.
+              The bundle's price is always worked out automatically from the
+              current prices of the products you list below, minus this
+              discount -- there's no price to type in here.
             fields:
               # Same as products: `id` exists in the data file, so it must be
-              # declared here or a CMS save strips it (it's the Snipcart ID
+              # declared here or a CMS save strips it (it's the cart line-item
               # and wishlist key for the bundle).
-              - { name: id, label: "Bundle ID (advanced -- leave blank for new bundles, never change on existing ones)", widget: string, required: false }
+              - { name: id, label: "Bundle ID (leave blank for new bundles; don't change it on existing ones)", widget: string, required: false }
               - { name: name, label: "Bundle Name", widget: string }
+              # relation, so Savanna picks real products BY NAME from a
+              # searchable list. This was the single most error-prone field in
+              # the whole CMS: it used to be hand-typed product IDs, where one
+              # typo silently produced a bundle referencing a product that
+              # doesn't exist. The stored value is unchanged (an array of
+              # product ids), so existing bundles keep working untouched.
               - name: productIds
-                label: "Product IDs In This Bundle (2 or more)"
-                widget: list
-                label_singular: Product ID
-                hint: >-
-                  Type the exact "id" value of each real product to
-                  include (see each product's own ID field above) --
-                  this is plain text, not a picker, so double-check
-                  spelling against the Products list.
-                field: { name: productId, label: Product ID, widget: string }
+                label: "Products in this bundle (pick 2 or more)"
+                widget: relation
+                multiple: true
+                min: 2
+                collection: products
+                file: products
+                value_field: products.*.id
+                display_fields: ["products.*.name"]
+                search_fields: ["products.*.name"]
+                hint: "Start typing a product name and pick it from the list."
               - { name: discountPercent, label: "Discount Percent (0-90, e.g. 10 for 10% off)", widget: number, value_type: int, min: 0, max: 90 }
               - { name: blurb, label: Bundle Description, widget: text }
 
           - name: faq
-            label: "FAQ (the site's ONE FAQ -- shown on contact.html and linked from shop.html, see DEVELOPMENT.md section 17)"
+            label: "FAQ (shown on the Contact page and linked from the Shop page)"
             widget: list
             label_singular: Question
             summary: "{{fields.question}}"
@@ -333,6 +407,8 @@ collections:
 
   - name: events
     label: "2. Markets, Fairs & Pride Dates"
+    icon: event
+    description: "Your pop-up schedule — add upcoming markets, fairs, and Pride dates. Once a date passes it moves itself down to 'Where We've Been', so you never have to clean up old ones. Save and the site updates itself."
     files:
       - name: events
         label: Markets, Fairs & Pride Dates
@@ -374,6 +450,8 @@ collections:
 
   - name: reviews
     label: "3. Customer Reviews"
+    icon: reviews
+    description: "Customer reviews shown on your site. Only add real ones you've approved, and tick 'Feature on homepage' for the few you want front and center. (These are separate from your Etsy star rating — they're never merged into it.)"
     files:
       - name: reviews
         label: Customer Reviews (on-site)
@@ -393,16 +471,24 @@ collections:
               - { name: name, label: "Reviewer name/handle (add \"(Etsy)\" if it's from an Etsy review)", widget: string }
               - { name: rating, label: "Rating (1-5)", widget: number, value_type: int, min: 1, max: 5 }
               - { name: text, label: "Review text (keep it close to what they actually wrote)", widget: text }
+              # relation -> pick the product by name instead of typing its id.
               - name: productId
                 label: "Which product? (optional)"
-                widget: string
+                widget: relation
                 required: false
-                hint: "A product's ID (e.g. sleep-salve), or leave blank for a general/whole-shop review."
+                collection: products
+                file: products
+                value_field: products.*.id
+                display_fields: ["products.*.name"]
+                search_fields: ["products.*.name"]
+                hint: "Pick the product this review is about, or leave blank for a general/whole-shop review."
               - { name: date, label: "Publish Date", widget: datetime, format: "YYYY-MM-DD", date_format: "MM/DD/YYYY", time_format: false, required: false, hint: "Select the date the review was written/published." }
               - { name: featured, label: "Feature on homepage?", widget: boolean, default: false, required: false, hint: "Check this to highlight this review on the homepage testimonials grid." }
 
   - name: journal
     label: "4. Apothecary Journal (Blog)"
+    icon: article
+    description: "Your blog. Write updates, stories, and announcements — each post just needs a title, a date, and its text (a photo is optional). Save and it publishes. If the blog is switched off, turn it on under section 6 → Site Settings."
     files:
       - name: journal
         label: Apothecary Journal
@@ -426,11 +512,39 @@ collections:
               - { name: title, label: "Title", widget: string }
               - { name: date, label: "Publish Date", widget: datetime, format: "YYYY-MM-DD", date_format: "MM/DD/YYYY", time_format: false }
               - { name: image, label: "Featured Image", widget: image, required: false }
-              - { name: excerpt, label: "Excerpt (short text shown in list)", widget: text }
-              - { name: content, label: "Content (full post text)", widget: text }
+              # Left as a plain box on purpose: this teaser is printed inside a
+              # small card on journal.html (and into llms.txt as a one-line
+              # summary), so headings/bullets there would break the layout and
+              # bold/link marks would just show up as literal ** and [ ].
+              - { name: excerpt, label: "Short teaser (the blurb on the blog list page)", widget: text, hint: "One or two plain sentences that make someone want to open the post. Formatting isn't used here." }
+              # widget: markdown = Sveltia's rich-text editor: a real toolbar
+              # (bold, italic, links, headings, bullet + numbered lists) with a
+              # "raw" tab for anyone who'd rather type. It saves MARKDOWN TEXT
+              # into journal.json, not HTML, which is exactly what the site's
+              # renderMarkdown() in assets/js/main.js renders -- and because
+              # the site escapes everything before formatting it, nothing typed
+              # here can turn into live code on the page.
+              #   - "markdown" and "richtext" are the same editor in the pinned
+              #     Sveltia 0.172.4 (admin/index.html); "markdown" is used here
+              #     because it names the format actually stored in the file, and
+              #     it's the spelling Netlify/Decap CMS understands too.
+              #   - buttons/editor_components are trimmed to exactly what the
+              #     site can draw, so nothing Savanna can click comes out broken
+              #     on the page: no strikethrough, inline code, block quotes,
+              #     code blocks or in-post images. (Heading 2/3 here render as
+              #     the post's section/sub-section headings; Heading 1 is left
+              #     out because the post title already fills that slot.)
+              - name: content
+                label: "The post itself"
+                widget: markdown
+                buttons: [bold, italic, link, heading-two, heading-three, bulleted-list, numbered-list]
+                editor_components: []
+                hint: "Write the post here — the toolbar gives you bold, italic, links, headings and lists, and it looks on the website the way it looks in this box. Leave a blank line between paragraphs."
 
   - name: social_feed
     label: "5. Social Media Feed"
+    icon: photo_camera
+    description: "The photo strip on your homepage — add a picture and caption for each Instagram/TikTok-style post you want to show off. If it's switched off, turn it on under section 6 → Site Settings."
     files:
       - name: social_feed
         label: Social Media Feed
@@ -449,12 +563,24 @@ collections:
               - { name: caption, label: "Caption", widget: text }
               - { name: author, label: "Author Name / Handle (optional)", widget: string, required: false }
               - { name: handle, label: "Social Handle (e.g. @user, optional)", widget: string, required: false }
-              - { name: productId, label: "Tagged Product ID (optional)", widget: string, required: false }
-              - { name: productName, label: "Tagged Product Name (optional)", widget: string, required: false }
+              # relation -> pick the tagged product by name, not by typing its id.
+              - name: productId
+                label: "Tagged product (optional)"
+                widget: relation
+                required: false
+                collection: products
+                file: products
+                value_field: products.*.id
+                display_fields: ["products.*.name"]
+                search_fields: ["products.*.name"]
+                hint: "Pick a product to tag in this post, or leave blank."
+              - { name: productName, label: "Tagged Product Name (optional)", widget: string, required: false, hint: "The name shown on the tag. Leave blank to just use the product's own name." }
               - { name: url, label: "Original Post Link (optional)", widget: string, required: false }
 
   - name: content
     label: "6. Site Images & Page Wording"
+    icon: tune
+    description: "The wording and photos across your pages — homepage, About, Contact, your logos, and the on/off switches for features. Open a section, change the text or pick a new photo, and Save. Start with 'Site Settings' for logos, the social-share image, and feature switches."
     files:
       - name: content
         label: Site Images & Page Content
@@ -468,16 +594,16 @@ collections:
             fields:
               - { name: logoDesktop, label: "Desktop Logo Image (Header & Footer)", widget: image, hint: "Main brand logo image shown in the website header and footer on desktop screens." }
               - { name: logoMobile, label: "Mobile Logo Image (Navigation)", widget: image, hint: "Brand logo image shown in the mobile navigation menu drawer." }
-              - { name: ogImage, label: "Social Share / Link Preview Image (OG Image)", widget: image, hint: "Preview image shown when sharing site links on Facebook, text messages, iMessage, Twitter, etc." }
+              - { name: ogImage, label: "Social Share / Link Preview Image", widget: image, hint: "The preview picture that shows up when someone shares a link to your site (Facebook, text messages, iMessage, etc.)." }
               - { name: footerTagline, label: "Footer Message", widget: text, required: false }
               - { name: newsletterTitle, label: "Newsletter Headline", widget: string, required: false }
               - { name: newsletterSubtext, label: "Newsletter Description", widget: text, required: false }
-              - { name: kitFormAction, label: "Newsletter Form Link (Kit/ConvertKit)", widget: string, required: false, hint: "Paste the form link from your Kit account here." }
-              - { name: tawkToPropertyId, label: "Live Chat Property Code (Tawk.to)", widget: string, required: false, hint: "Optional live chat support ID." }
-              - { name: tawkToWidgetId, label: "Live Chat Widget Code (Tawk.to)", widget: string, required: false, hint: "Optional live chat widget ID." }
-              - { name: formspreeContactId, label: "Contact Form Code (Formspree)", widget: string, required: false, hint: "Your Formspree code for messages sent from the Contact page." }
-              - { name: formspreeReviewId, label: "Customer Reviews Form Code (Formspree)", widget: string, required: false, hint: "Your Formspree code for customer review submissions." }
-              - { name: formspreeRestockId, label: "Launch Alert Signup Code (Formspree)", widget: string, required: false, hint: "Your Formspree code for 'email me when it launches' signups." }
+              - { name: kitFormAction, label: "Newsletter sign-up link (from Kit / ConvertKit)", widget: string, required: false, hint: "Paste the form link from your Kit account here." }
+              - { name: tawkToPropertyId, label: "Live chat — Property ID (from Tawk.to, optional)", widget: string, required: false, hint: "Turns on the live-chat bubble. Leave blank to skip live chat." }
+              - { name: tawkToWidgetId, label: "Live chat — Widget ID (from Tawk.to, optional)", widget: string, required: false, hint: "The second Tawk.to code, paired with the Property ID above." }
+              - { name: formspreeContactId, label: "Contact form ID (from Formspree)", widget: string, required: false, hint: "Makes the Contact page's message form work." }
+              - { name: formspreeReviewId, label: "Reviews form ID (from Formspree)", widget: string, required: false, hint: "Makes the 'leave a review' form work." }
+              - { name: formspreeRestockId, label: "Launch-alert form ID (from Formspree)", widget: string, required: false, hint: "Makes the 'email me when it launches' sign-ups work." }
               # Hidden on purpose (widget: hidden = stored, but no UI control).
               # Gift Up! is only half-built: setting a real ID generates a
               # working Gift Up! widget, but nothing hides the built-in
@@ -486,7 +612,7 @@ collections:
               # dropping it on save -- unhide it (widget: string) only after
               # the bypass in main.js exists. See DEVELOPMENT.md section 18.
               - { name: giftUpId, label: "Gift Card Account Code (Gift Up!)", widget: hidden, required: false }
-              - { name: umamiWebsiteId, label: "Website Analytics Code (Umami - Optional)", widget: string, required: false, hint: "Optional code for cookieless website visitor tracking." }
+              - { name: umamiWebsiteId, label: "Website analytics ID (from Umami, optional)", widget: string, required: false, hint: "Turns on private, cookie-free visitor stats. Leave blank to skip." }
               - { name: enableJournal, label: "Show Apothecary Journal (Blog)", widget: boolean, default: false, required: false, hint: "Show or hide the blog page." }
               - { name: enableSocialFeed, label: "Show Social Media Feed", widget: boolean, default: false, required: false, hint: "Show or hide the Instagram/TikTok social feed on the homepage." }
               - { name: enableRestockAlerts, label: "Show 'Email Me When It Launches' Signup", widget: boolean, default: true, required: false, hint: "Adds an email signup to any product marked Coming Soon, so shoppers can be told when it lands." }
@@ -647,9 +773,9 @@ collections:
               - { name: heroIntro, label: "Contact Subheading", widget: text, required: false }
               - { name: image, label: "Contact Page Feature Photo", widget: image, hint: "Photo shown alongside the contact form on the Contact page." }
               - { name: email, label: "Direct Email Address", widget: string, required: false }
-              - { name: namePlaceholder, label: "Name Form Input Placeholder", widget: string, required: false }
-              - { name: emailPlaceholder, label: "Email Form Input Placeholder", widget: string, required: false }
-              - { name: messagePlaceholder, label: "Message Form Input Placeholder", widget: text, required: false }
+              - { name: namePlaceholder, label: "Name box — faint example text", widget: string, required: false, hint: "The greyed-out hint inside the Name box before someone types." }
+              - { name: emailPlaceholder, label: "Email box — faint example text", widget: string, required: false }
+              - { name: messagePlaceholder, label: "Message box — faint example text", widget: text, required: false }
               - name: sections
                 label: "Section Headings & Bands"
                 widget: object

@@ -25,7 +25,7 @@
    - change a price
    - add/edit a page and want it in the sitemap
    This ALSO now runs automatically as part of every real deploy (see
-   netlify.toml / vercel.json / .github/workflows/deploy-pages.yml) --
+   netlify.toml / vercel.json) --
    see DEVELOPMENT.md section 20 for why that became necessary once a CMS
    commit could update products.json without a human remembering to
    run this script by hand first.
@@ -140,6 +140,53 @@ function safeUrl(url) {
   return "";
 }
 
+/* ---------- Form endpoints (action="...") ----------
+   These three live inside a quoted HTML attribute, where a <!--YL:key-->
+   marker can't survive: inside an attribute value an HTML comment isn't a
+   comment, so the build's final cleanAttributeMarkers() pass deletes it --
+   and with it the only hook the NEXT build had to re-inject through. The
+   result was the same failure umamiWebsiteId used to have: /admin offers
+   "Newsletter Form Link (Kit/ConvertKit)" and "Contact Form Code
+   (Formspree)", and filling either one in changed nothing at all -- every
+   page kept posting to YOUR_KIT_FORM_ACTION_URL / formspree.io/f/YOUR_FORM_ID
+   and main.js kept telling visitors the form isn't connected yet.
+
+   So these match the action attribute on the form's own class instead of a
+   marker, which stays re-injectable on every build in BOTH directions:
+   clearing the field in /admin restores the placeholder, which is exactly the
+   string main.js looks for to show its honest "not connected yet" fallback
+   rather than dropping a message on the floor. */
+
+// A Formspree form id is a short token in a URL path. Anything else is a typo
+// or an attempt to smuggle markup into an action="" attribute, so fall back
+// to the placeholder (= the honest "not wired up yet" state) rather than
+// emitting a broken or hostile endpoint.
+function formspreeAction(rawId, placeholderId) {
+  const id = String(rawId === null || rawId === undefined ? "" : rawId).trim();
+  const useId = /^[A-Za-z0-9_-]{1,64}$/.test(id) ? id : placeholderId;
+  return "https://formspree.io/f/" + useId;
+}
+
+// Kit/ConvertKit hands out a full https form URL. safeUrl() already rejects
+// javascript:/data:, and the placeholder is kept for anything else.
+function newsletterAction(rawUrl, placeholder) {
+  const url = safeUrl(rawUrl);
+  return url && url !== placeholder ? escapeHtml(url) : placeholder;
+}
+
+// Rewrite the action="" of every <form> carrying `className`. Class matching
+// is by whole token, so "contact-form" never matches "contact-form-col".
+function setFormAction(html, className, actionValue) {
+  return html.replace(/<form\b[^>]*>/g, function (tag) {
+    const classAttr = /\sclass="([^"]*)"/.exec(tag);
+    if (!classAttr || classAttr[1].trim().split(/\s+/).indexOf(className) === -1) return tag;
+    if (!/\saction="/.test(tag)) return tag;
+    return tag.replace(/(\saction=")[^"]*(")/, function (m, pre, post) {
+      return pre + actionValue + post;
+    });
+  });
+}
+
 function slugify(text) {
   if (!text) return "";
   return String(text)
@@ -223,12 +270,24 @@ function writeFile(relPath, contents) {
 /* ---------- Variant helpers ---------- */
 function variantPriceRange(p) {
   if (!p.variants || !Array.isArray(p.variants.options) || !p.variants.options.length) {
-    return { low: p.price, high: p.price };
+    return { low: p.price, high: p.price, offerCount: 1 };
   }
-  const prices = p.variants.options.map(function (o) {
+  // Sold-out options are excluded: a sold-out size's price shouldn't set the
+  // advertised low/high or be counted as a live offer. If every option is
+  // sold out, fall back to the full list so the JSON-LD still carries a sane
+  // price range (the shop page itself renders the product as Sold Out).
+  const available = p.variants.options.filter(function (o) {
+    return !o.soldOut;
+  });
+  const pool = available.length ? available : p.variants.options;
+  const prices = pool.map(function (o) {
     return p.price + (o.priceDelta || 0);
   });
-  return { low: Math.min.apply(null, prices), high: Math.max.apply(null, prices) };
+  return {
+    low: Math.min.apply(null, prices),
+    high: Math.max.apply(null, prices),
+    offerCount: pool.length
+  };
 }
 
 let PRODUCTS_BY_ID = {};
@@ -322,6 +381,10 @@ function buildSiteData() {
       );
     }
 
+    // Sale baking below is mirrored by qa-check.js's products-data.js
+    // freshness check AND workers/checkout.js's applySales() (the Worker
+    // fetches the raw products.json, so it must bake sales itself before
+    // validating checkout prices) -- change one, change all three.
     if (p.sale && p.sale.price) {
       p.originalPrice = p.price;
       p.price = p.sale.price;
@@ -398,7 +461,15 @@ function buildSiteData() {
       const evtCutoff = evt.endDate || evt.date;
       if (evtCutoff && evtCutoff < todayStr) {
         EVENTS.past = EVENTS.past || [];
+        // Carry the dates across. main.js sorts "Where We've Been"
+        // most-recent-first and falls back to 1970-01-01 for a dateless
+        // entry, so dropping `date` here used to bury the market that JUST
+        // happened at the bottom of the list -- past the 3-card carousel,
+        // i.e. off the page entirely -- and left events.html rendering an
+        // empty <time datetime="">.
         EVENTS.past.unshift({
+          date: evt.date,
+          endDate: evt.endDate,
           dateLabel: evt.dateLabel,
           name: evt.name,
           type: evt.type,
@@ -591,7 +662,7 @@ function buildSiteData() {
             lowPrice: range.low.toFixed(2),
             highPrice: range.high.toFixed(2),
             priceCurrency: "USD",
-            offerCount: p.variants.options.length,
+            offerCount: range.offerCount,
             url: DOMAIN + "/shop.html",
             availability:
               p.image && p.image.indexOf("placeholder") !== -1
@@ -885,7 +956,7 @@ function buildSiteData() {
             ? '              <div class="event-cta">\n' +
               '                <a class="btn btn-primary btn-sm btn-block" href="' +
               escapeHtml(evUrl) +
-              '" target="_blank" rel="noopener">More Info / RSVP<span class="sr-only">(opens in new tab)</span></a>\n' +
+              '" target="_blank" rel="noopener">More Info / RSVP<span class="sr-only"> (opens in new tab)</span></a>\n' +
               "              </div>\n"
             : "";
           return (
@@ -1189,6 +1260,33 @@ function buildSiteData() {
         return p1 + lede + p2;
       });
     }
+
+    // The <title> tag and og:title/twitter:title meta tags aren't wrapped in
+    // YL: markers (unlike the on-page heading above), so renaming the
+    // journal in /admin used to update the h1 while the browser tab title,
+    // Google's search-result title, and the Facebook/Twitter share preview
+    // all silently kept saying "Apothecary Journal." Keep the same
+    // "<name> | Y'allternative Living" suffix these tags already use.
+    // Function-form replacements, never string ones: a title containing "$&"
+    // (or $1, $', $`) would otherwise be read as a substitution pattern and
+    // splice the whole match back into the page. Same reason the marker
+    // replacements above use callbacks.
+    const titleTag = title + " | Y'allternative Living";
+    updated = updated.replace(/<title>[\s\S]*?<\/title>/, function () {
+      return "<title>" + titleTag + "</title>";
+    });
+    updated = updated.replace(
+      /(<meta property="og:title" content=")[^"]*(")/,
+      function (m, p1, p2) {
+        return p1 + titleTag + p2;
+      }
+    );
+    updated = updated.replace(
+      /(<meta name="twitter:title" content=")[^"]*(")/,
+      function (m, p1, p2) {
+        return p1 + titleTag + p2;
+      }
+    );
 
     if (updated !== html) {
       writeFile("journal.html", updated);
@@ -1614,8 +1712,8 @@ function buildSiteData() {
    placeholder in 7 HTML files across dozens of JSON-LD fields -- easy
    to miss one and ship inconsistent metadata. Now it's one line: set a
    real DOMAIN above and re-run this script (which every real deploy
-   already does automatically, see netlify.toml/vercel.json/
-   .github/workflows/deploy-pages.yml). While DOMAIN is still the
+   already does automatically, see netlify.toml/vercel.json). While
+   DOMAIN is still the
    placeholder, this whole block is a no-op and every page stays
    exactly as it is today. */
   const DOMAIN_IS_LIVE = DOMAIN.indexOf("your-domain-here.com") === -1;
@@ -1784,6 +1882,24 @@ function buildSiteData() {
             : "";
           return "<!--YL:site.umamiWebsiteId-->" + body + "<!--/YL:site.umamiWebsiteId-->";
         }
+      );
+
+      /* Newsletter + Formspree endpoints. See formspreeAction/setFormAction
+       at the top of this file for why these can't go through YL: markers. */
+      updated = setFormAction(
+        updated,
+        "footer-signup-form",
+        newsletterAction(site.kitFormAction, "YOUR_KIT_FORM_ACTION_URL")
+      );
+      updated = setFormAction(
+        updated,
+        "contact-form",
+        formspreeAction(site.formspreeContactId, "YOUR_FORM_ID")
+      );
+      updated = setFormAction(
+        updated,
+        "review-form",
+        formspreeAction(site.formspreeReviewId, "YOUR_FORMSPREE_FORM_ID")
       );
 
       // Special handling for Gift Up! ID to generate full HTML script embed
@@ -1987,6 +2103,9 @@ if (typeof module !== "undefined" && module.exports) {
     bundlePricing: bundlePricing,
     variantPriceRange: variantPriceRange,
     stripMarkersInsideAttributes: stripMarkersInsideAttributes,
+    formspreeAction: formspreeAction,
+    newsletterAction: newsletterAction,
+    setFormAction: setFormAction,
     buildSiteData: buildSiteData
   };
 }

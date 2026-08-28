@@ -3,6 +3,9 @@
     "logoDesktop": "/assets/img/logo.png",
     "logoMobile": "assets/img/logo.png",
     "ogImage": "assets/img/og-image.jpg",
+    "footerTagline": "Southern-raised, alt-inspired self-care, salves, soaks, body care, and apparel. Queer-owned and small-batch brewed in Landrum, SC.",
+    "newsletterTitle": "Join The Inner Circle",
+    "newsletterSubtext": "Get market announcements, secret drop dates, and 10% off your first order.",
     "kitFormAction": "YOUR_KIT_FORM_ACTION_URL",
     "tawkToPropertyId": "YOUR_TAWKTO_PROPERTY_ID",
     "tawkToWidgetId": "YOUR_TAWKTO_WIDGET_ID",
@@ -13,6 +16,9 @@
     "umamiWebsiteId": "YOUR_UMAMI_WEBSITE_ID",
     "enableJournal": false,
     "enableSocialFeed": true,
+    "enableRestockAlerts": true,
+    "enableCustomBoxBuilder": true,
+    "enableScentFilter": true,
     "enableIngredientsModal": true,
     "enableLocalPickup": true,
     "enableCountdownTicker": true,
@@ -22,13 +28,7 @@
     "loyaltyPointsSingular": "Alt-Point",
     "loyaltyPointsPerDollar": 1,
     "loyaltyBadgeEmoji": "✨",
-    "enableApothecaryQuiz": true,
-    "footerTagline": "Southern-raised, alt-inspired self-care, salves, soaks, body care, and apparel. Queer-owned and small-batch brewed in Landrum, SC.",
-    "newsletterTitle": "Join The Inner Circle",
-    "newsletterSubtext": "Get market announcements, secret drop dates, and 10% off your first order.",
-    "enableRestockAlerts": true,
-    "enableCustomBoxBuilder": true,
-    "enableScentFilter": true
+    "enableApothecaryQuiz": true
   },
   "home": {
     "promoBanner": "Free shipping on orders over $40 ✦ Small-batch, handmade with love in Landrum, SC",
@@ -72,10 +72,10 @@
     }
   },
   "about": {
-    "heroTitle": "Part Goth, Part Grit, All Heart",
+    "heroTitle": "Part Alt, Part Grit, All Heart",
     "heroIntro": "This is the part where we're supposed to sound polished and corporate. Instead, here's the truth: just a girl, a stove full of salves, and a whole lot of us who never fit neatly into one box. Come on in.",
     "bioHeading": "Hey Y'all, I'm Savanna",
-    "bio": "I'm the hands, the nose, and most days the mouth behind Y'allternative Living. Every salve, soak, and scrub gets mixed, poured, and labeled by hand right in Landrum, SC. No factories, no focus groups. Just me, my kitchen, and an unreasonable number of mason jars.\n\nGrowing up in these foothills, you get handed sweet tea in one hand and a church potluck plate in the other. If you're anything like me, you spend years thinking you have to pick a side: country or alternative, Southern or strange. Turns out, this dirt raised a whole quiet army of us: goth kids working the peach stand, emo kids who still say \"y'all,\" queer folks who never left because this is home too. Backroads, porch lights, and sweet tea still run through everything I make here—eyebrow-raising parts included. Y'allternative Living is for every one of us who got tired of choosing.\n\nWhat started as small batches of soaks and salves a little over a year ago has grown into a proper apothecary. Showing up face-to-face is part of the job, not an afterthought. I built this so people like us have handmade self-care made with them in mind. Creating honest goods was always the whole mission statement.",
+    "bio": "I'm the hands, the nose, and most days the mouth behind Y'allternative Living. Every salve, soak, and scrub gets mixed, poured, and labeled by hand right in Landrum, SC. No factories, no focus groups. Just me, my kitchen, and an unreasonable number of jars.\n\nGrowing up in these foothills, you get handed sweet tea in one hand and a church potluck plate in the other. If you're anything like me, you spend years thinking you have to pick a side: country or alternative, Southern or strange. Turns out, this dirt raised a whole quiet army of us: alt kids working the peach stand, emo kids who still say \"y'all,\" queer folks who never left because this is home too. Backroads, porch lights, and sweet tea still run through everything I make here—eyebrow-raising parts included. Y'allternative Living is for every one of us who got tired of choosing.\n\nWhat started as small batches of soaks and salves a little over a year ago has grown into a proper apothecary. Showing up face-to-face is part of the job, not an afterthought. I built this so people like us have handmade self-care made with them in mind. Creating honest goods was always the whole mission statement.",
     "bioImage": "assets/img/unisex-tshirt.jpg",
     "secondaryImage": "assets/img/beard-salve.jpg",
     "community": {
@@ -113,7 +113,7 @@
       "upcomingTitle": "Upcoming Pop-Ups",
       "recentTitle": "Recent Appearances",
       "followTitle": "Follow Along For The Live Schedule",
-      "followText": "We post every market, fair and Pride date the second it's locked in. Instagram and TikTok are the fastest way to know exactly where the rainbow-stag banner is going up next."
+      "followText": "We post every market, fair and Pride date the second it's locked in. Facebook, Instagram and TikTok are the fastest way to know exactly where the rainbow-stag banner is going up next."
     }
   },
   "contact": {

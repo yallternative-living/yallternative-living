@@ -15,8 +15,15 @@
    the fallback for the rare holdout, and the original JPG is the
    final safety net for anything that supports neither.
 
-   Run this any time a new product photo gets dropped into
-   assets/img/ -- HOW TO ADD A NEW PRODUCT PHOTO:
+   This ALSO runs automatically on every deploy (netlify.toml /
+   vercel.json, before build-site-data.js so new variants land in the
+   generated <picture> markup) -- so a photo uploaded through /admin
+   gets optimized without anyone running anything. Incremental: photos
+   whose variants already exist and whose source is unchanged are
+   skipped, so a no-new-photos deploy costs ~2 seconds.
+
+   Run it by hand any time a new product photo gets dropped into
+   assets/img/ locally -- HOW TO ADD A NEW PRODUCT PHOTO:
      1. Drop the new .jpg into assets/img/
      2. Reference it from assets/js/products-data.js as usual
      3. Run: node scripts/optimize-images.js
@@ -32,29 +39,49 @@
    everything else.
    ========================================================== */
 
-var fs = require("fs");
-var path = require("path");
-var sharp = require("sharp");
+const fs = require("fs");
+const path = require("path");
 
-var ROOT = path.join(__dirname, "..");
-var IMG_DIR = path.join(ROOT, "assets", "img");
-var MANIFEST_PATH = path.join(ROOT, "assets", "js", "image-manifest.js");
+// sharp is a devDependency, and this script now runs as the first step of
+// every deploy (see netlify.toml / vercel.json). If a host ever skips
+// devDependencies -- setting NODE_ENV=production is the usual way -- a hard
+// require here would abort the whole build, which on this site means a CMS
+// edit silently never goes live. Photos being unoptimized is a slow page;
+// a failed deploy is no page at all, so degrade instead of dying: warn,
+// leave whatever variants are already committed in place, and let the rest
+// of the build run.
+let sharp;
+try {
+  sharp = require("sharp");
+} catch (err) {
+  console.warn(
+    "\n[optimize-images] sharp is not installed -- skipping image optimization.\n" +
+      "  Already-committed AVIF/WebP variants still ship; only brand-new photos\n" +
+      "  stay full-size. Run `npm install` locally, or make sure the deploy\n" +
+      "  installs devDependencies, then re-run to generate the missing ones.\n"
+  );
+  process.exit(0);
+}
 
-var WIDTHS = [480, 800]; // plus one "full" variant at the source's own width
-var WEBP_QUALITY = 80;
+const ROOT = path.join(__dirname, "..");
+const IMG_DIR = path.join(ROOT, "assets", "img");
+const MANIFEST_PATH = path.join(ROOT, "assets", "js", "image-manifest.js");
+
+const WIDTHS = [480, 800]; // plus one "full" variant at the source's own width
+const WEBP_QUALITY = 80;
 // AVIF's compression curve isn't the same as WebP's -- a lower quality
 // number here looks comparable to WEBP_QUALITY=80 while encoding
 // smaller, which is the whole point of adding it.
-var AVIF_QUALITY = 55;
+const AVIF_QUALITY = 55;
 // libaom's default encode effort (4) is noticeably slower per image than
 // WebP for a real gain of only a few percent smaller files -- effort 2
 // keeps AVIF's size advantage over WebP while running several times
 // faster, which matters when re-encoding dozens of photos at once.
-var AVIF_EFFORT = 2;
+const AVIF_EFFORT = 2;
 
 // Small/UI images that don't need the responsive treatment --
 // they're already tiny and used at a fixed, small size everywhere.
-var SKIP_EXACT = ["logo.jpg", "logo.png"];
+const SKIP_EXACT = ["logo.jpg", "logo.png"];
 
 function shouldSkip(filename) {
   if (SKIP_EXACT.indexOf(filename) !== -1) return true;
@@ -63,22 +90,22 @@ function shouldSkip(filename) {
 }
 
 async function optimizeOne(filename) {
-  var base = filename.replace(/\.(jpe?g|png)$/i, "");
-  var srcPath = path.join(IMG_DIR, filename);
-  var meta = await sharp(srcPath).metadata();
-  var srcWidth = meta.width || 1200;
-  var srcHeight = meta.height || Math.round(srcWidth * 0.85);
+  const base = filename.replace(/\.(jpe?g|png)$/i, "");
+  const srcPath = path.join(IMG_DIR, filename);
+  const meta = await sharp(srcPath).metadata();
+  const srcWidth = meta.width || 1200;
+  const srcHeight = meta.height || Math.round(srcWidth * 0.85);
 
-  var avifVariants = [];
-  var webpVariants = [];
+  const avifVariants = [];
+  const webpVariants = [];
 
-  var tasks = [];
+  const tasks = [];
 
-  for (var i = 0; i < WIDTHS.length; i++) {
-    var w = WIDTHS[i];
+  for (let i = 0; i < WIDTHS.length; i++) {
+    const w = WIDTHS[i];
     if (w >= srcWidth) continue; // never upscale
 
-    var webpOut = base + "-" + w + ".webp";
+    const webpOut = base + "-" + w + ".webp";
     tasks.push(
       sharp(srcPath)
         .resize({ width: w })
@@ -87,7 +114,7 @@ async function optimizeOne(filename) {
     );
     webpVariants.push({ width: w, file: "assets/img/" + webpOut });
 
-    var avifOut = base + "-" + w + ".avif";
+    const avifOut = base + "-" + w + ".avif";
     tasks.push(
       sharp(srcPath)
         .resize({ width: w })
@@ -99,11 +126,11 @@ async function optimizeOne(filename) {
 
   // Full-size variants, always included, always the widest -- this is
   // what large screens / the srcset's biggest candidate use.
-  var fullWebp = base + ".webp";
+  const fullWebp = base + ".webp";
   tasks.push(sharp(srcPath).webp({ quality: WEBP_QUALITY }).toFile(path.join(IMG_DIR, fullWebp)));
   webpVariants.push({ width: srcWidth, file: "assets/img/" + fullWebp });
 
-  var fullAvif = base + ".avif";
+  const fullAvif = base + ".avif";
   tasks.push(
     sharp(srcPath)
       .avif({ quality: AVIF_QUALITY, effort: AVIF_EFFORT })
@@ -113,7 +140,7 @@ async function optimizeOne(filename) {
 
   await Promise.all(tasks);
 
-  var beforeSize = fs.statSync(srcPath).size;
+  const beforeSize = fs.statSync(srcPath).size;
   return {
     key: "assets/img/" + filename,
     width: srcWidth,
@@ -129,15 +156,15 @@ async function optimizeOne(filename) {
  * @param {!Object} manifest The manifest object containing image details and responsive sizes.
  */
 function writeManifest(manifest) {
-  var header =
+  const header =
     "/**\n" +
     " * @fileoverview Auto-generated image manifest mapping original product photos\n" +
     " * to responsive AVIF and WebP sizes.\n" +
     " * Do not hand-edit this file.\n" +
     " * @const {!Object}\n" +
     " */\n";
-  var body = "window.YL_IMAGES = " + JSON.stringify(manifest, null, 2) + ";\n";
-  var dir = path.dirname(MANIFEST_PATH);
+  const body = "window.YL_IMAGES = " + JSON.stringify(manifest, null, 2) + ";\n";
+  const dir = path.dirname(MANIFEST_PATH);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -147,7 +174,7 @@ function writeManifest(manifest) {
 function loadExistingManifest() {
   if (!fs.existsSync(MANIFEST_PATH)) return {};
   try {
-    var stub = {};
+    const stub = {};
     // `window` below is used inside the eval()'d manifest text
     // ("window.YL_IMAGES = ..."), not visible to static analysis, so it
     // looks unused from the linter's view -- it isn't.
@@ -166,7 +193,7 @@ async function run() {
     console.log("Creating missing image directory: " + IMG_DIR);
     fs.mkdirSync(IMG_DIR, { recursive: true });
   }
-  var files = fs
+  let files = fs
     .readdirSync(IMG_DIR)
     .filter(function (f) {
       return /\.(jpe?g|png)$/i.test(f) && !shouldSkip(f);
@@ -186,17 +213,17 @@ async function run() {
   // Every run merges into whatever manifest already exists (and writes
   // it after EACH photo, not just at the end) so a batch that gets
   // interrupted partway never loses previously-finished work.
-  var force = process.argv.indexOf("--force") !== -1 || process.argv.indexOf("-f") !== -1;
-  var args = process.argv.slice(2).filter(function (arg) {
+  const force = process.argv.indexOf("--force") !== -1 || process.argv.indexOf("-f") !== -1;
+  const args = process.argv.slice(2).filter(function (arg) {
     return !arg.startsWith("-");
   });
-  var onlyArg = args.join(",");
+  const onlyArg = args.join(",");
   if (onlyArg) {
-    var wanted = onlyArg.split(",").map(function (s) {
+    const wanted = onlyArg.split(",").map(function (s) {
       return s.trim();
     });
     files = files.filter(function (f) {
-      var base = f.replace(/\.(jpe?g|png)$/i, "");
+      const base = f.replace(/\.(jpe?g|png)$/i, "");
       return wanted.indexOf(base) !== -1;
     });
     if (!files.length) {
@@ -205,23 +232,23 @@ async function run() {
     }
   }
 
-  var manifest = loadExistingManifest();
-  var beforeTotal = 0;
-  var avifSmallestTotal = 0; // what an AVIF-capable phone actually downloads
-  var avifFullTotal = 0; // what an AVIF-capable desktop actually downloads
-  var webpSmallestTotal = 0; // same, for the WebP fallback path
-  var beforeSize, avifSizes, webpSizes;
+  const manifest = loadExistingManifest();
+  let beforeTotal = 0;
+  let avifSmallestTotal = 0; // what an AVIF-capable phone actually downloads
+  let avifFullTotal = 0; // what an AVIF-capable desktop actually downloads
+  let webpSmallestTotal = 0; // same, for the WebP fallback path
+  let beforeSize, avifSizes, webpSizes;
 
-  for (var i = 0; i < files.length; i++) {
-    var filename = files[i];
-    var fullPath = path.join(IMG_DIR, filename);
-    var currentSize = fs.statSync(fullPath).size;
-    var entry = manifest["assets/img/" + filename];
+  for (let i = 0; i < files.length; i++) {
+    const filename = files[i];
+    const fullPath = path.join(IMG_DIR, filename);
+    const currentSize = fs.statSync(fullPath).size;
+    let entry = manifest["assets/img/" + filename];
 
     if (!force && entry && entry.size === currentSize && entry.variants) {
       // Check if all variant files actually exist on disk
-      var allExist = true;
-      var checkVariant = function (v) {
+      let allExist = true;
+      const checkVariant = function (v) {
         if (!fs.existsSync(path.join(ROOT, v.file))) allExist = false;
       };
       entry.variants.avif.forEach(checkVariant);

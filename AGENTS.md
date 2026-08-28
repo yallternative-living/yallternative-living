@@ -31,8 +31,14 @@ This document provides project context, tech stack rules, data-flow pipelines, s
    - `scripts/puppeteer_tests.js` automatically manages its own local HTTP static server lifecycle on port `8082`.
    - Never assume an external HTTP server is already running when triggering integration tests.
 
-5. **No Superficial Fixes**:
+5. **One Lockfile (`package-lock.json`)**:
+   - npm is this project's package manager -- the CI workflows, the docs and every `npm run ...` script assume it. `package-lock.json` is the only lockfile that may exist; do not add `pnpm-lock.yaml`, `yarn.lock` or `bun.lockb`.
+   - Netlify chooses its package manager from whichever lockfile it finds and installs with `--frozen-lockfile`. A stale second lockfile silently becomes the one that decides production deploys: an out-of-date `pnpm-lock.yaml` broke every deploy for nine days while `npm test` stayed green.
+   - After any change to `package.json`'s `dependencies`/`devDependencies`, run `npm install` so the lockfile follows. `npm test` asserts both invariants.
+
+6. **No Superficial Fixes**:
    - Never comment out failing QA assertions, swallow errors silently, or use arbitrary dummy fallbacks to force a passing test.
+   - The same rule applies to the CI workflows in `.github/workflows/`: a quality gate there must be allowed to fail the run. Never append `|| true` (or an equivalent) to a test step to keep a deploy green.
 
 ---
 
@@ -45,10 +51,12 @@ Every AI agent MUST execute and pass all quality gates before finalizing changes
 | **1** | `npm run build-data` | `node scripts/build-site-data.js` | Compiles JSON files into derived JS data objects, updates static HTML comment markers, generates `products/*.html`, `sitemap.xml`, `robots.txt`, and `llms.txt`. |
 | **2** | `npm run optimize-images` | `node scripts/optimize-images.js` | *(Optional when adding new images)* Generates responsive AVIF/WebP image variants via Sharp and updates `assets/js/image-manifest.js`. |
 | **3** | `npm run build-security-headers` | `node scripts/build-security-headers.js` | Syncs CSP rules across `_headers`, `netlify.toml`, and `vercel.json`. |
-| **4** | `npm run test` | `node scripts/qa-check.js` | Executes 250+ static quality assertions (JSON-LD validation, gift-card/bundle pricing, CSP coverage, FAQ match, rating calculations, comment traps). |
+| **4** | `npm run test` | `node scripts/run-unit-tests.js && node scripts/qa-check.js` | Runs every `scripts/*.test.js` unit suite (cart pricing, Worker checkout/tax/gift-card math, build-data compiler, main.js, social-feed sync, translator), then 330+ static quality assertions (JSON-LD validation, gift-card/bundle pricing, CSP coverage, FAQ match, rating calculations, comment traps). |
 | **5** | `npm run lint` | `eslint scripts assets/js` | Enforces JavaScript quality and syntax standards. |
 | **6** | `npm run format:check` | `prettier --check` | Validates formatting across scripts and client JS files. |
-| **7** | `npm run test:integration` | `node scripts/puppeteer_tests.js` | Runs automated headless browser tests across Desktop (1200x800), **Tablet (768x1024)**, and Mobile (375x667) viewports (link integrity, menu drawer, form intercept, on-site cart add-to-cart flow). |
+| **7** | `npm run test:integration` | `puppeteer_tests.js`, `extended_qa_test.js`, `security_stress_test.js`, `a11y-check.js` | Runs automated headless browser tests across Desktop (1200x800), **Tablet (768x1024)**, and Mobile (375x667) viewports (link integrity, menu drawer, form intercept, on-site cart add-to-cart flow, XSS/CSP stress), then the axe-core accessibility gate. |
+
+> **Accessibility gate**: `scripts/a11y-check.js` scans every top-level and generated product page with axe-core against `wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa`, `wcag22aa` and `best-practice`, and fails on **any** violation -- the site is currently at zero, and that is the bar to keep. Do not narrow that tag list to make a run pass: scanning `wcag2aa` alone is exactly how a serious WCAG 2.2 target-size failure sat unnoticed on all 19 product pages. `scripts/run_audit.js` is the richer hand-run report (screenshots, per-viewport overflow, transitions); the gate is what runs on every push.
 
 ---
 

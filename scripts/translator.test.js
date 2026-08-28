@@ -93,28 +93,6 @@ const mockDocument = {
   }
 };
 
-// Setup timeout mocking
-let pendingTimeouts = [];
-global.setTimeout = (cb, ms) => {
-  pendingTimeouts.push({ cb, ms });
-  return pendingTimeouts.length;
-};
-global.clearTimeouts = () => {
-  pendingTimeouts = [];
-};
-global.runPendingTimeouts = () => {
-  const toRun = [...pendingTimeouts];
-  pendingTimeouts = [];
-  toRun.forEach((t) => t.cb());
-};
-
-global.Event = class Event {
-  constructor(type, options) {
-    this.type = type;
-    this.options = options;
-  }
-};
-
 // Expose globals
 global.document = mockDocument;
 global.window = {
@@ -128,6 +106,22 @@ global.window = {
   }
 };
 global.self = {};
+
+// Mock timer harness: capture setTimeout calls so tests can inspect and run
+// scheduled callbacks deterministically instead of waiting on real timers.
+const pendingTimeouts = [];
+global.setTimeout = (cb, ms) => {
+  pendingTimeouts.push({ cb, ms });
+  return pendingTimeouts.length;
+};
+global.clearTimeout = () => {};
+global.clearTimeouts = () => {
+  pendingTimeouts.length = 0;
+};
+global.runPendingTimeouts = () => {
+  const toRun = pendingTimeouts.splice(0, pendingTimeouts.length);
+  toRun.forEach((t) => t.cb());
+};
 
 // Now load the module
 const translator = require("../assets/js/translator.js");

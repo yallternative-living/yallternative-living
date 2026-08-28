@@ -40,7 +40,7 @@ yourself.
 
 ### Y'allternative Living Tank Top
 - **ID / slug**: `tank-top`
-- **Price**: $25.00 USD
+- **Price**: $30.00 USD
 - **Category**: Apparel
 - **Availability**: In stock
 - **Size**: S, M, L, 1X
@@ -50,7 +50,7 @@ yourself.
 
 ### Y'allternative Living Unisex T-Shirt
 - **ID / slug**: `unisex-tshirt`
-- **Price**: $25.00 USD
+- **Price**: $31.00 USD
 - **Category**: Apparel
 - **Availability**: In stock
 - **Size**: S, M, L, XL
@@ -60,16 +60,17 @@ yourself.
 
 ### Y'all Heal Now Miracle Frankincense Salve
 - **ID / slug**: `frankincense-salve`
-- **Price**: $16.00 USD
+- **Price**: $13.00 - $19.00 USD
 - **Category**: Salves & Balms
 - **Availability**: In stock
+- **Size**: 2oz, 1oz
 - **Description**: One little tin, a whole lot of jobs: dry cuticles, cracked heels, windburn, razor bumps. Whatever's rough, this goes on it. Calendula, arnica, and five essential oils in a beeswax-shea base, mixed by hand in a 2 oz tin in Landrum, SC.
 - **Product page**: https://yallternativeliving.com/shop.html#frankincense-salve
 - **Also on Etsy**: https://www.etsy.com/listing/4398130795/yall-heal-now-miracle-frankincense-salve
 
 ### Y'allternative Miracle Balm
 - **ID / slug**: `miracle-balm`
-- **Price**: $8.00 USD
+- **Price**: $7.60 USD
 - **Category**: Salves & Balms
 - **Availability**: In stock
 - **Description**: No essential oils, no fragrance, nothing to react to. Just a rich little .5 oz balm for lips, cuticles, and anywhere skin needs backup. Gentle enough for the whole family, kids included.
@@ -78,7 +79,7 @@ yourself.
 
 ### Hush Y'all Magnesium Arnica Sleep Salve
 - **ID / slug**: `sleep-salve`
-- **Price**: $16.00 USD
+- **Price**: $15.20 USD
 - **Category**: Salves & Balms
 - **Availability**: In stock
 - **Description**: Rub a little onto your feet or shoulders before bed and let lavender, chamomile, and cedarwood take it from there. Magnesium and arnica in a 2 oz tin, built for overthinkers and night owls who need the day to actually end.
@@ -87,7 +88,7 @@ yourself.
 
 ### Bourbon Beard Salve
 - **ID / slug**: `beard-salve`
-- **Price**: $14.00 USD
+- **Price**: $13.30 USD
 - **Category**: Salves & Balms
 - **Availability**: In stock
 - **Description**: A 2 oz tin that softens coarse facial hair, calms the itch underneath, and smells like a stiff drink and cedarwood instead of a drugstore aisle. Light hold, zero grease, genuinely good gift material.

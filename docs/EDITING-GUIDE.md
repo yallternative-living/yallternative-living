@@ -10,13 +10,14 @@ version of linking every external account).
 
 ## The easy way: the product editor at `/admin`
 
-Once the site is live, go to **yourdomain.com/admin** and log in with GitHub.
-You'll get a form-based editor (no code) for everything in your catalog:
+Once the site is live, go to **yourdomain.com/admin** and log in with GitHub
+(two easy ways — see "How to log in" just below; **you do not need Netlify** for
+this). You'll get a form-based editor (no code) for everything in your catalog:
 
-- **1. Products, Bundles & FAQ** — Add a new product, edit pricing, descriptions, ingredients, scent, size variants, upload photos, manage bundles/gift sets, or update FAQ answers. Item IDs are automatically generated for you.
+- **1. Products, Bundles & FAQ** — Add a new product, edit pricing, descriptions, ingredients, scent, size variants, upload photos, manage bundles/gift sets, or update FAQ answers. Item IDs are automatically generated for you. *If one size or scent runs out, don't delete the option — flip its **Sold out?** toggle instead. It shows greyed out ("S — sold out") in the shop so folks know it exists and is coming back, and it can't be ordered. Flip it back off when you restock.*
 - **2. Markets, Fairs & Pride Dates** — Add or edit market appearances. Upcoming dates display chronologically and past dates automatically archive under "Where We've Been". *Fill in the **ZIP code** for any market where customers can pick up an online order: sales tax is based on where they actually collect it, and each county charges slightly differently, so the ZIP is what gets the amount right.*
 - **3. Customer Reviews** — Publish on-site customer reviews and choose which ones feature on the homepage testimonials grid.
-- **4. Apothecary Journal (Blog)** — Write and publish stories, kitchen updates, and announcements.
+- **4. Apothecary Journal (Blog)** — Write and publish stories, kitchen updates, and announcements. *The big post box has a formatting toolbar — bold, italic, links, headings, and bullet or numbered lists all come out on the website looking the way they look in the box. The "short teaser" above it stays plain text on purpose: it's the one-or-two-sentence blurb on the blog list page.*
 - **5. Social Media Feed** — Curate and toggle Instagram/TikTok post previews on the homepage.
 - **6. Site Images & Page Wording** — Choose and update non-product photos (homepage hero banner, homepage story photo, About bio photo, About secondary photo, Shop gift card banner, Contact page feature photo, desktop/mobile site logos, and social media preview OG image) or edit section headlines, hero paragraphs, contact form placeholders, direct email link, global site settings (API keys, tracking, live chat), and turn individual features on/off (Restock Alerts, Custom Box Builder, Scent Filter, Rewards Points, Apothecary Quiz, and more — see `docs/SETUP-GUIDE.md` Step 9 for the full list).
 
@@ -24,18 +25,29 @@ When you hit **Save**, it records the change and the site rebuilds and
 re-publishes itself automatically — you don't run anything. Changes usually go
 live within a couple of minutes.
 
-### One-time setup before `/admin` works (Steven does this once)
+### How to log in (two easy ways — no Netlify needed)
 
-The repo is already set to the real GitHub project (`admin/config.yml`'s
-`backend.repo`) — nothing to change there. What's left is part of launching
-the site itself (see **docs/SETUP-GUIDE.md** Steps 1–2 for the click-by-click,
-or **DEVELOPMENT.md section 20** for the full technical explanation):
+**Heads-up:** Netlify's old "Log in with GitHub" switch is **deprecated** — if
+you hit a "This feature is deprecated" warning while poking around Netlify, that
+was the old, dead path. Ignore it. Your login works one of these two ways
+instead:
 
-1. **Deploy** the site (Netlify or GitHub Pages — both are already configured).
-2. Turn on **login** (on Netlify, its GitHub OAuth needs one checkbox; on GitHub
-   Pages you point it at a small auth helper).
+1. **Sign in with Token — works right now, nothing for Steven to set up.**
+   Make a GitHub token and paste it in. Step-by-step is in
+   **docs/SETUP-GUIDE.md → Step 9** ("Fastest, works right now"). This is the
+   quickest way to start editing today.
+2. **Sign in with GitHub button — the nicer permanent login.** Steven does a
+   one-time setup once (a GitHub OAuth App + a tiny Cloudflare login service —
+   **DEVELOPMENT.md section 20, Option B**). After that, `/admin` just shows a
+   **Sign in with GitHub** button and there's no token to keep track of.
 
-Until both are done, use the "edit the file" way below.
+The repo is already pointed at the real GitHub project (`admin/config.yml`'s
+`backend.repo`) — nothing to change there. The site is deployed on Netlify
+(already configured, and it's what the live site runs on); Netlify hosts the
+pages, it just no longer handles the `/admin` login.
+
+If you'd rather not deal with `/admin` at all yet, the "edit the file" way below
+still works.
 
 ---
 
@@ -73,9 +85,10 @@ npm test
   npm run optimize-images
   ```
 
-  That makes the fast, modern versions of the image the site serves. (If you
-  upload a photo through `/admin` it will show up, but run this command — or ask
-  Steven to add it to the deploy — so it's fully optimized.)
+  That makes the fast, modern versions of the image the site serves. (Photos
+  you upload through `/admin` get this treatment automatically — the optimizer
+  now runs as part of every deploy, so a new photo is fully optimized within a
+  couple of minutes of saving. The command above is only for working locally.)
 - **Five products are on a "Photo coming soon" placeholder** right now
   (`Y'all Means All Sugar Scrub`, `Y'all Means All Rainbow Whipped Body Butter`, `Appalachian Rain Clearing Mist`, `Moonlit Meadow Bath Tea`, and `Porch Sweep Clearing Mist`). Swap in real
   photos the same way, and double-check their price and ingredients while you're
@@ -106,7 +119,7 @@ page files:
 | Add a gift bundle | `/admin` → Bundles, or `products.json` | same |
 | Edit shipping/returns FAQ | `/admin` → FAQ, or `products.json` | same |
 | Publish a customer review | `/admin` → Customer Reviews, or `site-reviews.json` | same |
-| Swap a product photo | `assets/img/` + `npm run optimize-images` | on next deploy |
+| Swap a product photo | `/admin` upload, or `assets/img/` | Auto (optimized on deploy) |
 | Add a market/Pride date | `/admin` → Markets, or `events.json` | Auto (CMS) / `npm run build-data` |
 | Choose different hero/bio/site photos | `/admin` → Site Images & Page Wording, or `content.json` | Auto (CMS) / `npm run build-data` |
 | Reword homepage headline / About story | `/admin` → Site Images & Page Wording, or `content.json` | Auto (CMS) / `npm run build-data` |

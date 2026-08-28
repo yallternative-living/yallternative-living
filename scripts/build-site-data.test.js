@@ -99,7 +99,7 @@ eq(
 const noVariants = { price: 20.0 };
 eq(
   buildScript.variantPriceRange(noVariants),
-  { low: 20.0, high: 20.0 },
+  { low: 20.0, high: 20.0, offerCount: 1 },
   "variantPriceRange handles single price product"
 );
 
@@ -114,7 +114,7 @@ const prodWithVariants = {
 };
 eq(
   buildScript.variantPriceRange(prodWithVariants),
-  { low: 20.0, high: 25.0 },
+  { low: 20.0, high: 25.0, offerCount: 2 },
   "variantPriceRange calculates min and max prices"
 );
 
@@ -129,8 +129,39 @@ const negativeDeltaVariants = {
 };
 eq(
   buildScript.variantPriceRange(negativeDeltaVariants),
-  { low: 15.0, high: 30.0 },
+  { low: 15.0, high: 30.0, offerCount: 2 },
   "variantPriceRange supports negative price deltas"
+);
+
+const soldOutVariantMix = {
+  price: 20.0,
+  variants: {
+    options: [
+      { label: "1oz", priceDelta: -6, soldOut: true },
+      { label: "2oz", priceDelta: 0 },
+      { label: "4oz", priceDelta: 8 }
+    ]
+  }
+};
+eq(
+  buildScript.variantPriceRange(soldOutVariantMix),
+  { low: 20.0, high: 28.0, offerCount: 2 },
+  "variantPriceRange excludes sold-out options from range and offerCount"
+);
+
+const allSoldOutVariants = {
+  price: 20.0,
+  variants: {
+    options: [
+      { label: "1oz", priceDelta: -6, soldOut: true },
+      { label: "2oz", priceDelta: 0, soldOut: true }
+    ]
+  }
+};
+eq(
+  buildScript.variantPriceRange(allSoldOutVariants),
+  { low: 14.0, high: 20.0, offerCount: 2 },
+  "variantPriceRange falls back to the full option list when every option is sold out"
 );
 
 /* 5. stripMarkersInsideAttributes */
@@ -194,6 +225,88 @@ try {
 } catch {
   /* cleanup best-effort */
 }
+
+/* 8. Form endpoints (action="...") are re-injectable every build.
+   These can't go through <!--YL:key--> markers -- an HTML comment inside a
+   quoted attribute isn't a comment, so cleanAttributeMarkers() strips it and
+   the next build has nothing left to match. Matching the attribute itself is
+   what keeps a CMS edit reaching the page more than once. */
+eq(
+  buildScript.formspreeAction("abcd1234", "YOUR_FORM_ID"),
+  "https://formspree.io/f/abcd1234",
+  "formspreeAction builds the endpoint from a configured id"
+);
+eq(
+  buildScript.formspreeAction("", "YOUR_FORM_ID"),
+  "https://formspree.io/f/YOUR_FORM_ID",
+  "formspreeAction keeps the placeholder when the id is blank"
+);
+eq(
+  buildScript.formspreeAction(undefined, "YOUR_FORM_ID"),
+  "https://formspree.io/f/YOUR_FORM_ID",
+  "formspreeAction keeps the placeholder when the id is unset"
+);
+eq(
+  buildScript.formspreeAction('x" onload="alert(1)', "YOUR_FORM_ID"),
+  "https://formspree.io/f/YOUR_FORM_ID",
+  "formspreeAction refuses an id that would break out of the attribute"
+);
+eq(
+  buildScript.newsletterAction("https://kit.com/f/abc", "YOUR_KIT_FORM_ACTION_URL"),
+  "https://kit.com/f/abc",
+  "newsletterAction passes a real https form URL through"
+);
+eq(
+  buildScript.newsletterAction("javascript:alert(1)", "YOUR_KIT_FORM_ACTION_URL"),
+  "YOUR_KIT_FORM_ACTION_URL",
+  "newsletterAction rejects a javascript: URL"
+);
+eq(
+  buildScript.newsletterAction("", "YOUR_KIT_FORM_ACTION_URL"),
+  "YOUR_KIT_FORM_ACTION_URL",
+  "newsletterAction keeps the placeholder while the field is empty"
+);
+
+const formHtml =
+  '<form class="footer-signup-form" action="YOUR_KIT_FORM_ACTION_URL" method="post"></form>' +
+  '<div class="contact-form-col">' +
+  '<form action="https://formspree.io/f/YOUR_FORM_ID" method="POST" class="contact-form"></form>' +
+  "</div>" +
+  '<form class="other-form" action="keep-me"></form>';
+const injected = buildScript.setFormAction(
+  buildScript.setFormAction(formHtml, "footer-signup-form", "https://kit.com/f/abc"),
+  "contact-form",
+  "https://formspree.io/f/mabcdefg"
+);
+assert(
+  injected.indexOf('class="footer-signup-form" action="https://kit.com/f/abc"') !== -1,
+  "setFormAction rewrites the newsletter form action"
+);
+assert(
+  injected.indexOf('action="https://formspree.io/f/mabcdefg"') !== -1,
+  "setFormAction rewrites the contact form action (attribute before class)"
+);
+assert(
+  injected.indexOf('class="other-form" action="keep-me"') !== -1,
+  "setFormAction leaves unrelated forms alone"
+);
+assert(
+  injected.indexOf('class="contact-form-col"') !== -1,
+  'setFormAction matches whole class tokens ("contact-form" is not "contact-form-col")'
+);
+// Re-running must be a no-op, and must be able to walk the value back to the
+// placeholder when the CMS field is cleared again.
+eq(
+  buildScript.setFormAction(injected, "contact-form", "https://formspree.io/f/mabcdefg"),
+  injected,
+  "setFormAction is idempotent"
+);
+assert(
+  buildScript
+    .setFormAction(injected, "footer-signup-form", "YOUR_KIT_FORM_ACTION_URL")
+    .indexOf('action="YOUR_KIT_FORM_ACTION_URL"') !== -1,
+  "setFormAction restores the placeholder when the CMS field is cleared"
+);
 
 console.log(`\nbuild-site-data.test.js: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

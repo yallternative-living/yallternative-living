@@ -34,21 +34,24 @@ Netlify hosts the site for free.
 
 **B. Point Porkbun's nameservers at Netlify**
 
-1. In Netlify: **Site Settings → Domain Management → Add Custom
-   Domain** → enter `yallternativeliving.com` → copy the 4 nameservers
-   shown (e.g. `dns1.p01.nsone.net`).
+1. In Netlify: **Project configuration → Domain management → Add a
+   domain** (Netlify has renamed "Site settings" to "Project
+   configuration" — look for whichever wording your dashboard shows) →
+   enter `yallternativeliving.com` → copy the 4 nameservers shown (e.g.
+   `dns1.p01.nsone.net`).
 2. In Porkbun: **Domain Management → yallternativeliving.com → Details
    → edit Nameservers** → paste the 4 Netlify values → **Submit**. It
    can take a little while for the new address to work everywhere —
    usually under an hour, sometimes up to 48.
 
-**C. Connect Netlify and GitHub for logins (one-time)**
+**C. Logging into `/admin` — skip Netlify entirely**
 
-One switch, nothing to copy — but skip it and Step 9's "Log in with
-GitHub" won't work.
-
-1. In Netlify: **Site configuration → Identity** (or search "OAuth") →
-   **Git Gateway / OAuth** → enable **GitHub**, authorize when prompted.
+Netlify's old "Git Gateway / OAuth" login is **deprecated** (that's the
+"This feature is deprecated" warning you may have seen — not your fault,
+it just doesn't work anymore). You don't need it. Your `/admin` login is
+handled two other ways instead — see **Step 9** below. The fastest one
+(paste a GitHub token) needs nothing set up here at all, so you can move
+straight on to Step 3.
 
 ---
 
@@ -128,13 +131,27 @@ those orders tax correctly.
 ## Step 6: Gift-Card Emails (Resend) — required
 
 This is what actually sends the gift-card email once someone buys one.
+**Two parts, and both are required** — the email is sent from
+`gifts@yallternativeliving.com`, and Resend won't let anyone send from
+your domain until you prove you own it (step 1). Skipping that doesn't
+error loudly: the purchase still completes, but the recipient's email
+silently never arrives.
 
-1. Sign up free at [Resend.com](https://resend.com) → **API Keys →
-   Create API Key** → copy it (`re_...`).
-2. In Netlify: **Site Settings → Environment Variables** → add three
-   values: the **Secret key** and **Signing secret** from Step 3, plus
-   this Resend key. Just pasting, nothing technical — the gift-card
-   email turns itself on once all three are filled in.
+1. **Verify your domain in Resend** (do this first): [Resend.com](https://resend.com)
+   sign up → **Domains → Add Domain** → enter `yallternativeliving.com` →
+   Resend shows you a few DNS records (a couple of TXT records and an
+   MX record) → add each one, exactly as shown, wherever your domain's
+   DNS is managed. **Since Step 2B pointed this domain's nameservers at
+   Netlify, that's now Netlify** — in Netlify: **Domain management →
+   DNS records → Add a record** (not Porkbun anymore). Back in Resend,
+   click **Verify** — usually confirms within 15 minutes, occasionally
+   up to 24 hours.
+2. **API Keys → Create API Key** → copy it (`re_...`).
+3. In Netlify: **Project configuration → Environment variables** → add
+   three values: the **Secret key** and **Signing secret** from Step 3,
+   plus this Resend key. Just pasting, nothing technical — the gift-card
+   email turns itself on once all three are filled in AND the domain
+   above shows Verified.
 
 ---
 
@@ -156,10 +173,29 @@ This is what actually sends the gift-card email once someone buys one.
 
 ## Step 9: Your Dashboard (Sveltia CMS)
 
-Once Step 2C is done and the site is live, everything below is yours to
-edit at `yallternativeliving.com/admin/` — no code, no file edits.
+Once the site is live, everything below is yours to edit at
+`yallternativeliving.com/admin/` — no code, no file edits.
 
-1. Visit `/admin` → **Log in with GitHub**.
+**Logging in — two ways (Netlify is NOT involved):**
+
+- **Fastest, works right now — "Sign in with Token":** on GitHub, go to
+  **Settings → Developer settings → Personal access tokens →
+  Fine-grained tokens → Generate new token**. Under **Repository
+  access** choose **Only select repositories** → the
+  `yallternative-living/yallternative-living` repo. Under **Repository
+  permissions** set **Contents → Read and write** (leave everything else
+  alone). Pick an expiration, click **Generate token**, and copy it.
+  Then go to `/admin`, click **Sign in with Token**, and paste it. Keep
+  that token private, like a password. (If it ever expires, just make a
+  new one the same way.)
+- **Permanent one-click "Sign in with GitHub" button:** a small one-time
+  setup Steven does (a GitHub OAuth App + a Cloudflare login service —
+  see **DEVELOPMENT.md Section 20, Option B**). After that, `/admin` just
+  shows a **Sign in with GitHub** button and there's no token to manage.
+
+Once you're in:
+
+1. Visit `/admin` → sign in (either method above).
 2. **⚙️ Site Settings & Integrations:**
    - **Integration codes** — Kit link, all 3 Formspree IDs, live chat
      IDs, analytics ID.

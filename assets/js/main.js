@@ -481,6 +481,192 @@
     return "";
   }
 
+  /* ---------- shared: only allow safe schemes into a markdown link's href ----------
+     safeUrl() above is deliberately narrow (absolute http(s), or a path that
+     starts with "/") because it guards machine-supplied feed/event URLs. A
+     link typed into a journal post also has to accept "mailto:" and ordinary
+     relative paths like "shop.html#gift-cards", while still refusing anything
+     that can execute.
+
+     The whitespace/control-character strip is the load-bearing part: a browser
+     removes tabs and newlines from a URL and trims leading control characters
+     BEFORE it decides what the scheme is, so " javascript:alert(1)" and
+     "java<TAB>script:alert(1)" both run. Strip first, then decide. */
+  function safeLinkUrl(url) {
+    if (!url) return "";
+    var raw = String(url);
+    var cleaned = "";
+    for (var i = 0; i < raw.length; i++) {
+      var code = raw.charCodeAt(i);
+      // Everything at or below 0x20 is a space or a control character, and
+      // 0x7F is DEL -- none of them belong inside a URL.
+      if (code > 32 && code !== 127) cleaned += raw.charAt(i);
+    }
+    if (!cleaned) return "";
+    var scheme = /^([a-zA-Z][a-zA-Z0-9+.-]*):/.exec(cleaned);
+    if (scheme) {
+      var name = scheme[1].toLowerCase();
+      if (name !== "http" && name !== "https" && name !== "mailto") return "";
+      return cleaned;
+    }
+    // No scheme at all -- "shop.html", "/journal.html", "#gift-cards",
+    // "//example.com". A relative reference can't execute.
+    return cleaned;
+  }
+
+  /* ---------- shared: minimal, escape-first Markdown renderer ----------
+     The Apothecary Journal's post body is written by Savanna in /admin (the
+     `content` field is a rich-text editor there) and rendered on journal.html
+     through innerHTML, so this has exactly two jobs: cover the handful of
+     formatting marks a shop owner actually needs, and never let post text
+     become live markup.
+
+     Why this isn't a vendored library. Self-hosting one would have been fine
+     -- the site's CSP only blocks CDN scripts, and we already self-host the
+     fonts for that same reason (docs/SELF-HOSTING-FONTS.md) -- so this was a
+     trade, not a constraint:
+       - snarkdown (1.9 KB minified, MIT) is the closest fit by size, but its
+         last release was 2020, it passes raw HTML straight through (an
+         `<img src=x onerror=...>` in a post survives verbatim), writes hrefs
+         with no scheme check (`[x](javascript:alert(1))` becomes a live
+         link), and separates paragraphs with `<br />` instead of `<p>` --
+         which on its own would restyle every post already published, since
+         journal.html styles `.content p`. Fixing the first two means forking
+         its single dense minified regex, which throws away the reason to
+         vendor it in the first place.
+       - marked (40 KB minified) and markdown-it (124 KB minified) are each
+         bigger than every file this site ships except main.js itself, for a
+         page that renders a couple of posts. marked doesn't sanitize either
+         (its docs hand you off to DOMPurify); markdown-it is genuinely safe
+         by default (html:false plus a scheme allowlist) but is ~15x the size
+         of the ~8 KB below for the same handful of formatting marks.
+     So: escape with attrEsc() FIRST, then add formatting to text that can no
+     longer contain markup. Anything unsupported degrades to plain text. */
+
+  /* Inline emphasis. Only ever runs on text attrEsc() has already escaped,
+     so there is no "<" left for it to turn into a tag. Sveltia's editor
+     writes **bold** and _italic_; *italic* and __bold__ are accepted too
+     because that's what people type by hand. An underscore inside a word
+     (soap_batch_2) is not emphasis, which is why those two rules check the
+     characters on either side. */
+  function mdEmphasis(escaped) {
+    return escaped
+      .replace(/(^|[^A-Za-z0-9_])__([^\n]+?)__(?![A-Za-z0-9_])/g, "$1<strong>$2</strong>")
+      .replace(/\*\*([^\n]+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/(^|[^A-Za-z0-9_])_([^_\n]+?)_(?![A-Za-z0-9_])/g, "$1<em>$2</em>")
+      .replace(/\*([^*\n]+?)\*/g, "<em>$1</em>");
+  }
+
+  /* [label](url). The URL may not contain whitespace, and may contain at most
+     one nested pair of parentheses -- enough for the Wikipedia-style
+     ".../Arnica_(plant)" links an herbal blog actually uses, while staying a
+     single unambiguous match per link (the two alternatives can't match the
+     same character, so there is nothing here to backtrack over). */
+  var MD_LINK_RE = /\[([^\]\n]*)\]\(((?:[^()\s]|\([^()\s]*\))*)\)/g;
+
+  /* One run of markdown text -> safe HTML. Escaping happens per slice so the
+     URL is checked in its raw form (before "&" becomes "&amp;") and only then
+     escaped for the attribute it lands in. */
+  function mdInline(text) {
+    var html = "";
+    var lastIndex = 0;
+    var match;
+    MD_LINK_RE.lastIndex = 0;
+    while ((match = MD_LINK_RE.exec(text)) !== null) {
+      html += mdEmphasis(attrEsc(text.slice(lastIndex, match.index)));
+      var href = safeLinkUrl(match[2]);
+      var label = mdEmphasis(attrEsc(match[1]));
+      // A rejected URL (javascript:, data:, ...) keeps the words and drops
+      // the link -- it never reaches an href.
+      html += href ? '<a href="' + attrEsc(href) + '">' + label + "</a>" : label;
+      lastIndex = MD_LINK_RE.lastIndex;
+    }
+    return html + mdEmphasis(attrEsc(text.slice(lastIndex)));
+  }
+
+  /* Block structure: blank-line separated paragraphs (what every post written
+     before this existed already is), "## " headings, "- " bullet lists,
+     "1. " numbered lists, and "***" dividers. Deliberately not a CommonMark
+     parser -- no tables, code blocks, blockquotes or images, all of which are
+     also switched off in the editor (see admin/config.yml's `buttons` and
+     `editor_components` for the journal `content` field). */
+  function renderMarkdown(text) {
+    if (text == null) return "";
+    var lines = String(text).replace(/\r\n?/g, "\n").split("\n");
+    var html = "";
+    var para = [];
+    var items = [];
+    var listTag = "";
+
+    function flushPara() {
+      if (!para.length) return;
+      // Joined with "\n", not " ": a plain-text post then renders the exact
+      // same bytes it did before this function existed.
+      html += "<p>" + mdInline(para.join("\n")) + "</p>";
+      para = [];
+    }
+
+    function flushList() {
+      if (!items.length) return;
+      html +=
+        "<" +
+        listTag +
+        ">" +
+        items
+          .map(function (item) {
+            return "<li>" + mdInline(item) + "</li>";
+          })
+          .join("") +
+        "</" +
+        listTag +
+        ">";
+      items = [];
+      listTag = "";
+    }
+
+    function pushItem(tag, item) {
+      // A "1." right after a "-" starts a second, differently-tagged list.
+      if (listTag && listTag !== tag) flushList();
+      flushPara();
+      listTag = tag;
+      items.push(item);
+    }
+
+    lines.forEach(function (line) {
+      var trimmed = line.trim();
+      var heading = /^(#{1,6})\s+(.+)$/.exec(trimmed);
+      var bullet = /^[-*+]\s+(.+)$/.exec(trimmed);
+      var numbered = /^\d{1,9}[.)]\s+(.+)$/.exec(trimmed);
+
+      if (!trimmed) {
+        flushPara();
+        flushList();
+      } else if (/^(\*{3,}|-{3,}|_{3,})$/.test(trimmed)) {
+        flushPara();
+        flushList();
+        html += "<hr>";
+      } else if (heading) {
+        flushPara();
+        flushList();
+        // The post's own title is the page's <h2>, so headings inside a post
+        // start at <h3> and never skip a level (screen-reader outline).
+        var tag = heading[1].length > 2 ? "h4" : "h3";
+        html += "<" + tag + ">" + mdInline(heading[2]) + "</" + tag + ">";
+      } else if (bullet) {
+        pushItem("ul", bullet[1]);
+      } else if (numbered) {
+        pushItem("ol", numbered[1]);
+      } else {
+        flushList();
+        para.push(line);
+      }
+    });
+
+    flushPara();
+    flushList();
+    return html;
+  }
+
   /* ---------- shared: horizontal swipe gesture ----------
      Both the product lightbox and the events carousel wired up their own
      near-identical touchstart/touchend handlers with the same 50px
@@ -704,7 +890,13 @@
   function addToCartHTML(p, extraClass) {
     if (p.id === "yallternative-gift-card") {
       return (
-        '<a href="#gift-cards" class="btn btn-secondary btn-sm' +
+        /* btn-outline, not btn-secondary: there is no .btn-secondary rule in
+           styles.css, and bare .btn carries no background and a transparent
+           border, so the gift card's "Configure Card" rendered as unstyled
+           inherited text in a row of solid buttons. btn-outline is this
+           design system's secondary variant (what the old class name was
+           reaching for) and keeps it visibly distinct from Add to Cart. */
+        '<a href="#gift-cards" class="btn btn-outline btn-sm' +
         (extraClass ? " " + extraClass : "") +
         '">Configure Card</a>'
       );
@@ -720,9 +912,20 @@
     // is the one currently selected. variantSelectHTML()'s change handler
     // keeps -value (and the base data-item-price for delta'd variants) in
     // sync with whatever the shopper picks before they click this button.
+    // Sold-out options are left out of the cart attributes entirely: the
+    // picker (variantSelectHTML) shows them disabled for honesty, but the
+    // cart should never be able to resolve one. The checkout Worker
+    // re-rejects them server-side too (resolveUnitAmountCents), so a
+    // tampered button can't order a sold-out size either.
     var variantAttrs = "";
-    if (p.variants && Array.isArray(p.variants.options) && p.variants.options.length) {
-      var optionsStr = p.variants.options
+    var availableOptions =
+      p.variants && Array.isArray(p.variants.options)
+        ? p.variants.options.filter(function (o) {
+            return !o.soldOut;
+          })
+        : [];
+    if (availableOptions.length) {
+      var optionsStr = availableOptions
         .map(function (o) {
           var delta = o.priceDelta || 0;
           var sign = delta < 0 ? "-" : "+";
@@ -737,7 +940,7 @@
         optionsStr +
         '"' +
         ' data-item-custom1-value="' +
-        attrEsc(p.variants.options[0].label) +
+        attrEsc(availableOptions[0].label) +
         '"';
     }
 
@@ -764,7 +967,17 @@
       );
     }
 
-    if (p.stock === 0 || p.inStock === false) {
+    // Every size/scent option sold out counts as the product being sold out:
+    // there is nothing left to order, so render the same honest inert button
+    // (with its restock-alert signup) instead of an Add to Cart that could
+    // only ever produce an unfulfillable order.
+    var everyVariantSoldOut =
+      p.variants &&
+      Array.isArray(p.variants.options) &&
+      p.variants.options.length > 0 &&
+      !availableOptions.length;
+
+    if (p.stock === 0 || p.inStock === false || everyVariantSoldOut) {
       notifyBtn = enableAlerts
         ? '<button type="button" class="btn btn-ghost btn-sm yl-notify-toggle" data-notify-for="' +
           attrEsc(p.id) +
@@ -822,12 +1035,35 @@
      number tied to real analytics. */
   var LOW_STOCK_THRESHOLD = 5;
   function stockBadgeHTML(p) {
+    // Sale badge: build-site-data.js bakes `sale: {label}` onto every product
+    // in a discounted category (see its "Process Products" step) -- this is
+    // what finally renders it. Styling already existed (.stock-badge.sale-badge
+    // in styles.css) but was never emitted by any JS until now. Suppressed on
+    // coming-soon and sold-out cards: "on sale" on something you can't buy
+    // reads as a mistake.
+    var saleBadge =
+      p.sale && p.sale.label
+        ? '<span class="stock-badge sale-badge">' + attrEsc(p.sale.label) + "</span>"
+        : "";
     if (p.comingSoon) return '<span class="stock-badge low-stock">Coming Soon</span>';
-    if (typeof p.stock !== "number") return "";
+    if (typeof p.stock !== "number") return saleBadge;
     if (p.stock === 0) return '<span class="stock-badge sold-out">Sold out</span>';
     if (p.stock <= LOW_STOCK_THRESHOLD)
-      return '<span class="stock-badge low-stock">Only ' + p.stock + " left</span>";
-    return "";
+      return saleBadge + '<span class="stock-badge low-stock">Only ' + p.stock + " left</span>";
+    return saleBadge;
+  }
+
+  /* Price with an honest markdown: when a category sale is active
+     (p.sale + p.originalPrice, both baked by build-site-data.js), show the
+     sale price with the pre-sale price struck through -- the exact pattern
+     bundlesHTML() already uses for a bundle's full price. No sale, no extra
+     markup: renders the same bytes it always did. */
+  function priceHTML(p) {
+    var html = '<span class="price">$' + p.price.toFixed(2);
+    if (p.sale && typeof p.originalPrice === "number" && p.originalPrice > p.price) {
+      html += ' <s class="original-price">$' + p.originalPrice.toFixed(2) + "</s>";
+    }
+    return html + "</span>";
   }
 
   /* ---------- Size/scent/blend picker (only for products that have one) ----------
@@ -839,18 +1075,35 @@
   function variantSelectHTML(p) {
     if (p.id === "yallternative-gift-card") return "";
     if (!p.variants || !Array.isArray(p.variants.options) || !p.variants.options.length) return "";
+    /* A sold-out option stays visible but disabled -- honest "S — sold out"
+       beats the option silently vanishing (which reads as "we don't make S").
+       `selected` goes explicitly on the first available option: per the HTML
+       spec the browser's default is the first non-disabled option anyway,
+       but being explicit keeps that guaranteed when the first option in the
+       list is the sold-out one. */
+    var firstAvailableSelected = false;
     var options = p.variants.options
       .map(function (o) {
         var delta = o.priceDelta || 0;
         var priceSuffix = delta
           ? " (" + (delta < 0 ? "-$" + Math.abs(delta).toFixed(2) : "+$" + delta.toFixed(2)) + ")"
           : "";
+        var stateAttrs = "";
+        if (o.soldOut) {
+          stateAttrs = ' disabled aria-disabled="true"';
+          priceSuffix = " — sold out";
+        } else if (!firstAvailableSelected) {
+          firstAvailableSelected = true;
+          stateAttrs = " selected";
+        }
         return (
           '<option value="' +
           attrEsc(o.label) +
           '" data-delta="' +
           delta +
-          '">' +
+          '"' +
+          stateAttrs +
+          ">" +
           attrEsc(o.label) +
           priceSuffix +
           "</option>"
@@ -1147,9 +1400,7 @@
           "<h4>" +
           attrEsc(p.name) +
           "</h4>" +
-          '<span class="price">$' +
-          p.price.toFixed(2) +
-          "</span>" +
+          priceHTML(p) +
           '<div class="wish-item-actions">' +
           addToCartHTML(p) +
           '<button class="wish-remove" type="button" aria-label="Remove ' +
@@ -1335,9 +1586,15 @@
           }
           var item = getProductMap().get(prodId);
           if (item && item.images && item.images.length) {
+            /* p.images holds only the ALT photos -- the primary p.image is
+               not in it (see cardGalleryHTML, which renders
+               [p.image].concat(p.images)). Passing item.images alone left
+               the primary photo out of the lightbox entirely, so clicking
+               the default slide "enlarged" the first alt photo instead. */
+            var allPhotos = [item.image].concat(item.images).filter(Boolean);
             var activeImg = slide.querySelector("img");
-            var src = activeImg ? activeImg.getAttribute("src") : item.images[0];
-            window.openLightbox(item.images, src);
+            var src = activeImg ? activeImg.getAttribute("src") : allPhotos[0];
+            window.openLightbox(allPhotos, src);
           }
         }
       }
@@ -2215,6 +2472,21 @@
   function cardHTML(p, opts) {
     opts = opts || {};
     var loyalty = getLoyaltyConfig();
+    /* 0 means the owner switched free shipping off in the CMS ("Set to 0 to
+       disable"), which the announcement bar and the checkout Worker both
+       honour -- so the card must drop the promise rather than fall back to
+       the default and advertise a tier Stripe will no longer give. Only a
+       missing/non-numeric value falls back. */
+    var rawFreeShip =
+      window.YL_PRODUCTS && window.YL_PRODUCTS.shop
+        ? window.YL_PRODUCTS.shop.freeShippingThreshold
+        : undefined;
+    var freeShipThreshold =
+      rawFreeShip === null || rawFreeShip === undefined || rawFreeShip === ""
+        ? 40
+        : isFinite(Number(rawFreeShip))
+          ? Number(rawFreeShip)
+          : 40;
     var pointsBadgeHTML = loyalty.enabled
       ? '<div style="text-align: center; margin-bottom: 8px;"><span class="alt-points-badge">' +
         attrEsc(loyalty.emoji) +
@@ -2273,14 +2545,14 @@
       stockBadgeHTML(p) +
       '<div class="card-foot">' +
       variantSelectHTML(p) +
-      (p.id !== "yallternative-gift-card"
-        ? '<p style="font-size: 0.72rem; color: var(--whiskey); margin: 0 0 6px 0; text-align: center; font-weight: 600;">Free shipping over $40</p>'
+      (p.id !== "yallternative-gift-card" && freeShipThreshold > 0
+        ? '<p style="font-size: 0.72rem; color: var(--whiskey); margin: 0 0 6px 0; text-align: center; font-weight: 600;">Free shipping over $' +
+          freeShipThreshold +
+          "</p>"
         : "") +
       pointsBadgeHTML +
       '<div class="card-foot-row">' +
-      '<span class="price">$' +
-      p.price.toFixed(2) +
-      "</span>" +
+      priceHTML(p) +
       addToCartHTML(p) +
       "</div>" +
       "</div>" +
@@ -2322,7 +2594,7 @@
             searchInput.value = "";
             searchInput.dispatchEvent(new Event("input"));
           }
-          var allPill = document.querySelector('.cat-pill[data-category="all"]');
+          var allPill = document.querySelector('.filter-pill[data-filter="all"]');
           if (allPill) {
             allPill.click();
           }
@@ -2462,8 +2734,8 @@
           "<p>We keep this page current the second a market or Pride date is locked in. In the meantime, " +
           "follow along on Instagram or TikTok where every table gets announced first.</p>" +
           '<div class="hero-actions" style="justify-content:center;">' +
-          '<a class="btn btn-primary" href="https://www.instagram.com/yallternativeliving" target="_blank" rel="noopener">Instagram ↗<span class="sr-only">(opens in new tab)</span></a>' +
-          '<a class="btn btn-outline" href="https://www.tiktok.com/@yallternativeliving" target="_blank" rel="noopener">TikTok ↗<span class="sr-only">(opens in new tab)</span></a>' +
+          '<a class="btn btn-primary" href="https://www.instagram.com/yallternativeliving" target="_blank" rel="noopener">Instagram ↗<span class="sr-only"> (opens in new tab)</span></a>' +
+          '<a class="btn btn-outline" href="https://www.tiktok.com/@yallternativeliving" target="_blank" rel="noopener">TikTok ↗<span class="sr-only"> (opens in new tab)</span></a>' +
           "</div>" +
           "</div>";
       }
@@ -2741,7 +3013,7 @@
       (safeUrl(ev.url)
         ? '<a class="btn btn-primary btn-sm btn-block" href="' +
           attrEsc(safeUrl(ev.url)) +
-          '" target="_blank" rel="noopener">More Info / RSVP<span class="sr-only">(opens in new tab)</span></a>'
+          '" target="_blank" rel="noopener">More Info / RSVP<span class="sr-only"> (opens in new tab)</span></a>'
         : "") +
       "</div>" +
       "</div>" +
@@ -3089,7 +3361,20 @@
     // Show a non-disruptive toast when a new SW version is ready,
     // instead of force-reloading mid-session (which can clear form
     // state and break the visitor's flow).
+    //
+    // controllerchange also fires on a *first* install: sw.js calls
+    // skipWaiting() then clients.claim(), which takes control of the page
+    // that just registered it, moving navigator.serviceWorker.controller
+    // from null to the new worker. Without this guard every brand-new
+    // visitor (and anyone who cleared site data) was told "A new version is
+    // available!" seconds after landing, on the version they had just
+    // loaded. Only a change away from an existing controller is an update.
+    var hadController = !!navigator.serviceWorker.controller;
     navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (!hadController) {
+        hadController = true;
+        return;
+      }
       var toast = document.getElementById("sw-update-toast");
       if (!toast) {
         toast = document.createElement("div");
@@ -3132,7 +3417,13 @@
     if (matchedItem) {
       setTimeout(function () {
         if (typeof window.openLightbox === "function") {
-          window.openLightbox(matchedItem.images || [matchedItem.image], matchedItem.image);
+          // Same shape as the gallery: p.image is the primary, p.images are
+          // the extra photos only -- concat so the deep-linked lightbox
+          // opens on the primary instead of falling back to slide 0.
+          window.openLightbox(
+            [matchedItem.image].concat(matchedItem.images || []).filter(Boolean),
+            matchedItem.image
+          );
         }
       }, 400);
     }
@@ -3180,11 +3471,15 @@
             attrEsc(postLink) +
             '" target="_blank" rel="noopener" class="ugc-post-link" aria-label="View original post by ' +
             attrEsc(post.handle || "@yallternativeliving") +
-            ' (opens in new tab)">View Post &#8599;<span class="sr-only">(opens in new tab)</span></a>'
+            ' (opens in new tab)">View Post &#8599;<span class="sr-only"> (opens in new tab)</span></a>'
           : "";
 
         return (
-          '<article class="ugc-card reveal" role="listitem">' +
+          /* A <div>, not an <article>: role="listitem" is not a valid role
+             override for <article>, so each card announced itself as a
+             stray article instead of as item N of the surrounding
+             role="list" feed (axe aria-allowed-role). */
+          '<div class="ugc-card reveal" role="listitem">' +
           '  <div class="ugc-card-media">' +
           '    <img src="' +
           attrEsc(post.image) +
@@ -3211,7 +3506,7 @@
           "</p>" +
           linkHtml +
           "  </div>" +
-          "</article>"
+          "</div>"
         );
       })
       .join("");
@@ -3297,12 +3592,11 @@
         return;
       }
 
-      var paragraphs = post.content
-        .split("\n\n")
-        .map(function (p) {
-          return "<p>" + attrEsc(p) + "</p>";
-        })
-        .join("");
+      // Markdown-aware and escape-first (see renderMarkdown above). A post
+      // written as plain blank-line-separated text -- which is every post
+      // published before the CMS grew a formatting toolbar -- still renders
+      // as exactly the same <p> blocks it always did.
+      var body = renderMarkdown(post.content);
 
       journalApp.innerHTML =
         '<div class="journal-detail">' +
@@ -3321,7 +3615,7 @@
             '">'
           : "") +
         '  <div class="content reveal">' +
-        paragraphs +
+        body +
         "</div>" +
         "</div>";
 
@@ -3412,6 +3706,40 @@
   })();
 
   /* ---------- R1: Live Market Event Countdown Ticker ---------- */
+
+  /* Picks the pop-up the hero ticker and the events-page banner should point
+     at, given today's date as a YYYY-MM-DD string. Returns
+     { event, startTime } or null when there's nothing left on the calendar.
+     Split out of initCountdownTicker so it can be unit-tested without a DOM
+     (scripts/main.test.js). */
+  function pickNextEvent(list, todayStr) {
+    var best = null;
+    (list || []).forEach(function (evt) {
+      if (!evt || !evt.date) return;
+      /* Same cutoff the events.html list uses (see the auto-promote block
+         above): a multi-day market stays the "next" pop-up through its final
+         day, so day two reads as happening now instead of skipping ahead to
+         the following event while the list right below it still shows the
+         market that's open today. */
+      if (String(evt.endDate || evt.date).slice(0, 10) < todayStr) return;
+      var t;
+      if (evt.date.length === 10) {
+        var p = evt.date.split("-");
+        t = new Date(p[0], p[1] - 1, p[2], 9, 0, 0).getTime();
+      } else {
+        t = new Date(evt.date).getTime();
+      }
+      if (isNaN(t)) return;
+      /* Take the SOONEST event, not merely the first one in the array.
+         events.json is hand-ordered through the CMS, so an event Savanna
+         adds out of sequence would otherwise have the hero counting down to
+         a date weeks away while events.html -- which sorts -- names a
+         different pop-up as the next one. */
+      if (!best || t < best.startTime) best = { event: evt, startTime: t };
+    });
+    return best;
+  }
+
   function initCountdownTicker() {
     var tickerContainer = document.getElementById("yl-countdown-ticker");
     var bannerContainer = document.getElementById("eventsCountdownBanner");
@@ -3419,26 +3747,9 @@
 
     var upcomingList =
       window.YL_EVENTS && window.YL_EVENTS.upcoming ? window.YL_EVENTS.upcoming : [];
-    var now = Date.now();
-    var nextEvt = null;
-    var targetTime = 0;
-
-    for (var i = 0; i < upcomingList.length; i++) {
-      var evt = upcomingList[i];
-      if (!evt.date) continue;
-      var t = 0;
-      if (evt.date.length === 10) {
-        var p = evt.date.split("-");
-        t = new Date(p[0], p[1] - 1, p[2], 9, 0, 0).getTime();
-      } else {
-        t = new Date(evt.date).getTime();
-      }
-      if (t > now) {
-        nextEvt = evt;
-        targetTime = t;
-        break;
-      }
-    }
+    var picked = pickNextEvent(upcomingList, new Date().toISOString().slice(0, 10));
+    var nextEvt = picked ? picked.event : null;
+    var targetTime = picked ? picked.startTime : 0;
 
     if (!nextEvt) {
       if (tickerContainer) {
@@ -3461,18 +3772,35 @@
     var secsSpan = document.getElementById("yl-countdown-seconds");
     var eventDetailsSpan = document.getElementById("heroEventDetails");
 
+    /* .countdown-card has no rule in styles.css -- the card is drawn entirely
+       by these inline styles. The "in progress today" branch below used to
+       emit the bare class with nothing on it, so from 9am on a market day the
+       banner dropped its panel, border and centering and rendered as raw
+       text. Shared here so both states of the same card stay identical. */
+    var countdownCardStyle =
+      "background: var(--ink-3); color: var(--paper); border: 1px solid var(--hide); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.5rem; text-align: center;";
+
     function update() {
       var rem = targetTime - Date.now();
       if (rem <= 0) {
         if (tickerContainer) {
           var timerEl = document.getElementById("heroCountdownTimer");
           if (timerEl) timerEl.textContent = nextEvt.name + " is in progress today!";
+          /* The badge next to it is baked into the HTML as "NEXT POP-UP:",
+             which reads wrong once the pop-up is the one happening right now.
+             Match the events-page banner, which already says "Happening Now". */
+          var badgeEl = tickerContainer.querySelector(".ticker-badge");
+          if (badgeEl) badgeEl.textContent = "⚡ HAPPENING NOW:";
         }
         if (bannerContainer) {
           bannerContainer.innerHTML =
-            '<div class="countdown-card"><h3>' +
+            '<div class="countdown-card" style="' +
+            countdownCardStyle +
+            '"><span class="card-cat" style="color: var(--whiskey); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;">Happening Now</span>' +
+            '<h3 style="margin: 0.4rem 0 0.6rem; font-family: var(--font-heading);">' +
             attrEsc(nextEvt.name) +
-            "</h3><p>Pop-up in progress today!</p></div>";
+            "</h3>" +
+            '<p style="margin: 0;">Pop-up in progress today!</p></div>';
         }
         return;
       }
@@ -3508,7 +3836,9 @@
           sStr +
           " Secs";
         bannerContainer.innerHTML =
-          '<div class="countdown-card" style="background: var(--ink-3); color: var(--paper); border: 1px solid var(--hide); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.5rem; text-align: center;">' +
+          '<div class="countdown-card" style="' +
+          countdownCardStyle +
+          '">' +
           '  <span class="card-cat" style="color: var(--whiskey); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;">Next Live Appearance</span>' +
           '  <h3 style="margin: 0.4rem 0 0.6rem; font-family: var(--font-heading);">' +
           attrEsc(nextEvt.name) +
@@ -3900,6 +4230,17 @@
           recPrice = 0;
         }
 
+        var loyalty = getLoyaltyConfig();
+        var quizPointsBadgeHTML = loyalty.enabled
+          ? '  <div style="text-align: center; margin-bottom: 12px;"><span class="alt-points-badge">' +
+            attrEsc(loyalty.emoji) +
+            ' Earn <span class="pts-val">' +
+            Math.floor(recPrice * loyalty.rate) +
+            "</span> " +
+            attrEsc(loyalty.name) +
+            "</span></div>"
+          : "";
+
         if (results) {
           results.innerHTML =
             '<div class="card quiz-recommended-card reveal" style="max-width: 540px; margin: 0 auto; padding: 1.5rem; text-align: center; border: 2px solid var(--whiskey); background: var(--ink-3); color: var(--paper); border-radius: var(--radius-md);">' +
@@ -3918,9 +4259,7 @@
             '  <p style="font-size: 0.82rem; color: var(--whiskey); font-style: italic; margin-bottom: 0.75rem;">' +
             attrEsc(rationale) +
             "</p>" +
-            '  <div style="text-align: center; margin-bottom: 12px;"><span class="alt-points-badge">✨ Earn <span class="pts-val">' +
-            Math.floor(recPrice) +
-            "</span> Alt-Points</span></div>" +
+            quizPointsBadgeHTML +
             '  <button type="button" class="btn btn-primary btn-block yl-add-item"' +
             '    data-item-id="' +
             attrEsc(match.isBundle ? "bundle-" + match.id : match.id) +
@@ -3978,9 +4317,15 @@
       saveWishlist: saveWishlist,
       attrEsc: attrEsc,
       safeUrl: safeUrl,
+      safeLinkUrl: safeLinkUrl,
+      renderMarkdown: renderMarkdown,
       addToCartHTML: addToCartHTML,
+      variantSelectHTML: variantSelectHTML,
+      stockBadgeHTML: stockBadgeHTML,
+      priceHTML: priceHTML,
       applyTheme: applyTheme,
       pickFeatured: pickFeatured,
+      pickNextEvent: pickNextEvent,
       toggleWish: toggleWish,
       isWished: isWished,
       currentTheme: currentTheme,

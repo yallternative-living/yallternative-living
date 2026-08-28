@@ -43,6 +43,14 @@ var path = require("path");
 var crypto = require("crypto");
 
 var ROOT = path.join(__dirname, "..");
+
+/* The Cloudflare Worker that answers the cart's checkout POST, and the
+   same-origin path the browser actually calls. CHECKOUT_PATH must stay equal
+   to CHECKOUT_URL in assets/js/cart.js -- qa-check.js asserts that, since a
+   silent mismatch between them breaks checkout with no visible error until
+   someone tries to pay. */
+var CHECKOUT_PATH = "/api/checkout";
+var CHECKOUT_WORKER_URL = "https://yallternative-checkout.y-allternative-living.workers.dev";
 var PAGES = [
   "index.html",
   "shop.html",
@@ -185,13 +193,27 @@ function run() {
   // console while using /admin and watch for "Refused to connect/load..."
   // CSP errors, then add whatever origin they name here and re-run this
   // script.
+  // Sveltia loads its Material Symbols ICON FONT from an external CDN, not from
+  // its own bundle: Google Fonts (fonts.googleapis.com CSS + fonts.gstatic.com
+  // font files) on the version pinned in admin/index.html, and Fontsource via
+  // jsDelivr (cdn.jsdelivr.net) on v0.174.0+. With only `font-src 'self'` the
+  // font is blocked and every icon renders as its raw ligature text
+  // ("bookmark_manager", "chevron_right", "expand_more", ...) -- which is
+  // exactly what /admin looked like before this. Allow BOTH font sources so the
+  // policy is correct whether or not admin/index.html's pin is later bumped:
+  //   - style-src:   fonts.googleapis.com (Google Fonts CSS), cdn.jsdelivr.net
+  //   - font-src:    fonts.gstatic.com (Google font files), cdn.jsdelivr.net, data:
+  //   - connect-src: cdn.jsdelivr.net (Fontsource fetches its CSS/font), blob:, data:
+  // These four are well-known font CDNs and this is the /admin-only policy, not
+  // the public-site CSP. If a future Sveltia release names another origin,
+  // watch the /admin console for "Refused to load..." and add it here.
   var adminCsp = [
     "default-src 'self'",
     "script-src 'self' https://unpkg.com",
-    "style-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com",
     "img-src 'self' data: blob: https://*.githubusercontent.com",
-    "font-src 'self'",
-    "connect-src 'self' https://unpkg.com https://api.github.com https://*.githubusercontent.com",
+    "font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com",
+    "connect-src 'self' blob: data: https://unpkg.com https://cdn.jsdelivr.net https://api.github.com https://*.githubusercontent.com",
     "media-src blob:",
     "frame-src 'self' blob:",
     "frame-ancestors 'none'",
@@ -290,6 +312,35 @@ function run() {
     "[build]\n" +
     '  publish = "."\n' +
     '  command = "node scripts/build-site-data.js && node scripts/build-security-headers.js"\n\n' +
+    // ---- checkout proxy ----
+    // The cart POSTs to a same-origin /api/checkout (assets/js/cart.js's
+    // CHECKOUT_URL). The code that answers it is a Cloudflare Worker
+    // (workers/checkout.js), which lives on a workers.dev hostname. status=200
+    // makes this a PROXY rather than a redirect: Netlify fetches the Worker
+    // server-side and returns its response, so the browser only ever talks to
+    // yallternativeliving.com.
+    //
+    // Same-origin on purpose, and not just for tidiness -- the CSP below sets
+    // connect-src 'self', so a fetch straight to workers.dev would be blocked
+    // outright. Proxying keeps checkout working without punching a hole in the
+    // CSP for a third-party origin.
+    //
+    // A Cloudflare Worker *Route* on the real domain would remove this hop,
+    // but Routes require Cloudflare to run the domain's DNS, and DNS lives at
+    // Netlify. Not worth migrating a working site for one endpoint.
+    //
+    // This block is here rather than hand-written into netlify.toml because
+    // this script rewrites that whole file on every deploy -- an edit made
+    // directly there would vanish on the next build.
+    "[[redirects]]\n" +
+    '  from = "' +
+    CHECKOUT_PATH +
+    '"\n' +
+    '  to = "' +
+    CHECKOUT_WORKER_URL +
+    '"\n' +
+    "  status = 200\n" +
+    "  force = true\n\n" +
     "# Long-lived caching for hashed/never-changing assets. Pages themselves\n" +
     "# (index.html, shop.html, etc.) intentionally aren't cached long here --\n" +
     "# Netlify already serves them with an ETag + must-revalidate by default,\n" +

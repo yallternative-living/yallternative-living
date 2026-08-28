@@ -624,22 +624,29 @@ section{
   & h1{ margin-bottom:.5em; }
   & .lede{ font-size:1.15rem; max-width:78ch; margin-bottom: 22px; }
 
-  /* Below 900px the hero image drops under the text (see .hero-grid) and
-     .shop-hero-header already centers itself here -- but the headline,
-     paragraph, and CTA buttons were left unstyled, so they stayed
-     left-aligned under a centered eyebrow/rating line, and the two
-     differently-sized buttons stacked into a jagged, uneven-looking
-     left edge. Centering the rest of the block (and the button row)
-     matches the eyebrow and the centered hero image below it, instead
-     of reading as randomly unbalanced. */
-  @media (max-width: 900px) {
-    & h1, & .lede { text-align: center; margin-left: auto; margin-right: auto; }
-    & .hero-actions { justify-content: center; }
-  }
+  /* The hero stays left-aligned at every width, same as the desktop
+     layout. It briefly centred the h1/lede/buttons below 900px on the
+     premise that ".shop-hero-header already centers itself here" -- but
+     that rule is `align-items: center`, which centres flex items on the
+     CROSS axis (vertically). It has no justify-content, so the eyebrow
+     and rating row stayed hard left. The result on a phone was a
+     left-aligned eyebrow sitting above a centred headline and a centred
+     three-line paragraph: the exact mismatch the centring was meant to
+     fix. Centred body copy is also the harder thing to read, since every
+     line starts at a different x.
+
+     The buttons go full-width instead of centred: two CTAs of very
+     different label lengths ("Shop Salves, Soaks & More" vs "Read Our
+     Story") look ragged however they're aligned, and matching their
+     width settles that while giving each a bigger tap target. */
   @media (max-width: 480px) {
     & .lede { font-size: 1.0rem; margin-bottom: 16px; }
     & .hero-actions { gap: 10px; }
-    & .hero-actions .btn { padding: 12px 20px; font-size: 0.86rem; }
+    & .hero-actions .btn {
+      padding: 13px 20px;
+      font-size: 0.9rem;
+      width: 100%;
+    }
   }
 }
 
@@ -917,7 +924,7 @@ section{
   }
 }
 
-.bundle-full-price{ color:var(--paper-dim); font-size:.8rem; font-weight:400; margin-left:6px; }
+.bundle-full-price, .original-price{ color:var(--paper-dim); font-size:.8rem; font-weight:400; margin-left:6px; }
 
 .bundle-thumbs{
   & picture, & img { width:48px; height:48px; border-radius:var(--radius); border:1px solid var(--hide); object-fit:cover; }
@@ -1084,7 +1091,20 @@ section{
   display:grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap:40px; margin-bottom:48px;
   
   @container (max-width:820px){ grid-template-columns: repeat(2,1fr); }
-  @container (max-width:560px){ grid-template-columns: 1fr; gap:32px; }
+  
+  /* Two columns all the way down, not one. Collapsing to a single column
+     turned the footer into ~20 links stacked one per row -- 1610px on a
+     390px-wide phone, nearly two full screens of nothing but footer to
+     scroll past. The Explore and Shop lists are short labels that sit
+     side by side fine at this width; only the brand blurb and the
+     contact block need the full row, so they span it. */
+  @container (max-width:560px){
+    grid-template-columns: repeat(2,1fr);
+    gap: 28px 20px;
+    
+    & > .footer-brand{ grid-column: 1 / -1; }
+    & > :last-child{ grid-column: 1 / -1; }
+  }
   
   /* h3, not h5 -- the footer's last preceding heading on every page is an
      h2, so h5 skipped two levels there too. Now matches the newsletter
@@ -1666,7 +1686,8 @@ section{
 .shop-sort{
   display:flex; align-items:center; gap:10px; flex-wrap:wrap;
   
-  & #scentFieldWrap {
+  & #scentFieldWrap,
+  & .sort-field-wrap {
     display: inline-flex;
     align-items: center;
     gap: 8px;
@@ -1683,7 +1704,8 @@ section{
     align-items: center;
     gap: 8px;
     
-    & #scentFieldWrap {
+    & #scentFieldWrap,
+    & .sort-field-wrap {
       flex: 1 1 auto;
     }
     
@@ -2852,25 +2874,46 @@ dialog.gift-modal[open]::backdrop {
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: 12px;
+  gap: 2px;
   z-index: 5;
 }
+/* Same WCAG 2.5.8 target-size pattern the shop-card gallery dots already use
+   (see .card-gallery-dot): the button itself is a 38px tap target and the
+   visible dot is drawn small inside it. These used to be bare 10px buttons
+   12px apart -- half the 24px floor, and the one control a phone user reaches
+   for most while flipping through a product's photos. */
 .lightbox-dot {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+}
+.lightbox-dot::after {
+  content: "";
+  display: block;
   width: 10px;
   height: 10px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.3);
-  border: none;
-  cursor: pointer;
-  padding: 0;
   transition: background 0.2s, transform 0.2s;
 }
-.lightbox-dot.active {
+.lightbox-dot.active::after {
   background: var(--whiskey);
   transform: scale(1.2);
 }
-.lightbox-dot:hover {
+.lightbox-dot:hover::after {
   background: var(--paper);
+}
+.lightbox-dot:focus-visible {
+  outline: 2px solid var(--whiskey);
+  outline-offset: -8px;
+  border-radius: 50%;
 }
 
 /* Adjust layout on smaller screens */
