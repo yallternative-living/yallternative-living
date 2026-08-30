@@ -239,6 +239,17 @@ async function run() {
   let webpSmallestTotal = 0; // same, for the WebP fallback path
   let beforeSize, avifSizes, webpSizes;
 
+  const sizeCache = {};
+  const getSize = function (vPath) {
+    if (sizeCache[vPath] !== undefined) return sizeCache[vPath];
+    try {
+      sizeCache[vPath] = fs.statSync(vPath).size;
+    } catch (e) {
+      sizeCache[vPath] = 0;
+    }
+    return sizeCache[vPath];
+  };
+
   for (let i = 0; i < files.length; i++) {
     const filename = files[i];
     const fullPath = path.join(IMG_DIR, filename);
@@ -249,7 +260,7 @@ async function run() {
       // Check if all variant files actually exist on disk
       let allExist = true;
       const checkVariant = function (v) {
-        if (!fs.existsSync(path.join(ROOT, v.file))) allExist = false;
+        if (getSize(path.join(ROOT, v.file)) === 0) allExist = false;
       };
       entry.variants.avif.forEach(checkVariant);
       entry.variants.webp.forEach(checkVariant);
@@ -259,14 +270,10 @@ async function run() {
         beforeSize = entry.size || currentSize;
         beforeTotal += beforeSize;
         avifSizes = entry.variants.avif.map(function (v) {
-          return fs.existsSync(path.join(ROOT, v.file))
-            ? fs.statSync(path.join(ROOT, v.file)).size
-            : 0;
+          return getSize(path.join(ROOT, v.file));
         });
         webpSizes = entry.variants.webp.map(function (v) {
-          return fs.existsSync(path.join(ROOT, v.file))
-            ? fs.statSync(path.join(ROOT, v.file)).size
-            : 0;
+          return getSize(path.join(ROOT, v.file));
         });
         avifSmallestTotal += Math.min.apply(null, avifSizes);
         avifFullTotal += avifSizes[avifSizes.length - 1];
