@@ -28,15 +28,19 @@ const FONTS = {
 
 function getJson(url) {
   return new Promise((resolve, reject) => {
-    const req = https.get(url, { headers: { 'User-Agent': 'yallternative-living' } }, res => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        if (res.statusCode !== 200) return reject(new Error('Status ' + res.statusCode));
-        try { resolve(JSON.parse(data)); } catch (e) { reject(e); }
+    const req = https.get(url, { headers: { "User-Agent": "yallternative-living" } }, (res) => {
+      let data = "";
+      res.on("data", (chunk) => (data += chunk));
+      res.on("end", () => {
+        if (res.statusCode !== 200) return reject(new Error("Status " + res.statusCode));
+        try {
+          resolve(JSON.parse(data));
+        } catch (e) {
+          reject(e);
+        }
       });
     });
-    req.on('error', reject);
+    req.on("error", reject);
   });
 }
 
@@ -92,6 +96,6 @@ if (require.main === module) {
   });
 }
 
-if (typeof module !== 'undefined' && module.exports) {
+if (typeof module !== "undefined" && module.exports) {
   module.exports = { getJson, download };
 }
