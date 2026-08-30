@@ -352,7 +352,19 @@ async function run() {
   );
 }
 
-run().catch(function (err) {
-  console.error(err);
-  process.exit(1);
-});
+if (require.main === module) {
+  run().catch(function (err) {
+    console.error(err);
+    process.exit(1);
+  });
+}
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = {
+    shouldSkip,
+    optimizeOne,
+    writeManifest,
+    loadExistingManifest,
+    run
+  };
+}
