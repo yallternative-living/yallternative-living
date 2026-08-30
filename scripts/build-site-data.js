@@ -1717,37 +1717,7 @@ function buildSiteData() {
    placeholder, this whole block is a no-op and every page stays
    exactly as it is today. */
   const DOMAIN_IS_LIVE = DOMAIN.indexOf("your-domain-here.com") === -1;
-  if (DOMAIN_IS_LIVE) {
-    const BARE_DOMAIN = DOMAIN.replace(/^https?:\/\//, "");
-    const ALL_HTML_PAGES = PAGES.map(function (p) {
-      return p.loc;
-    }).concat(["404.html", "thank-you.html"]);
-    ALL_HTML_PAGES.forEach(function (page) {
-      const filePath = path.join(ROOT, page);
-      if (!fs.existsSync(filePath)) return;
-      let html = fs.readFileSync(filePath, "utf8");
-
-      // Turn the two "not live yet" comments into real, active tags.
-      html = html.replace(
-        /<!-- No live domain yet -- once deployed, add: (<link rel="canonical"[^>]*>) -->/,
-        "$1"
-      );
-      html = html.replace(
-        /<!-- og:url -- add once deployed: (<meta property="og:url"[^>]*>) -->/,
-        "$1"
-      );
-
-      // Now that those tags are live (and already carry the placeholder
-      // domain themselves), one blanket swap covers them plus every
-      // JSON-LD @id/url/image/breadcrumb entry on the page.
-      html = html.split("https://your-domain-here.com").join(DOMAIN);
-      html = html
-        .split('data-domain="your-domain-here.com"')
-        .join('data-domain="' + BARE_DOMAIN + '"');
-
-      writeFile(page, html);
-    });
-  }
+  const BARE_DOMAIN = DOMAIN.replace(/^https?:\/\//, "");
 
   // Propagate global site configurations from content.json to all HTML files
   (function injectGlobalConfigurations() {
@@ -1760,7 +1730,29 @@ function buildSiteData() {
     ALL_HTML_PAGES.forEach(function (page) {
       const filePath = path.join(ROOT, page);
       if (!fs.existsSync(filePath)) return;
-      const html = fs.readFileSync(filePath, "utf8");
+      let html = fs.readFileSync(filePath, "utf8");
+
+      // ---------- 7) live-domain propagation across every page ----------
+      if (DOMAIN_IS_LIVE) {
+        // Turn the two "not live yet" comments into real, active tags.
+        html = html.replace(
+          /<!-- No live domain yet -- once deployed, add: (<link rel="canonical"[^>]*>) -->/,
+          "$1"
+        );
+        html = html.replace(
+          /<!-- og:url -- add once deployed: (<meta property="og:url"[^>]*>) -->/,
+          "$1"
+        );
+
+        // Now that those tags are live (and already carry the placeholder
+        // domain themselves), one blanket swap covers them plus every
+        // JSON-LD @id/url/image/breadcrumb entry on the page.
+        html = html.split("https://your-domain-here.com").join(DOMAIN);
+        html = html
+          .split('data-domain="your-domain-here.com"')
+          .join('data-domain="' + BARE_DOMAIN + '"');
+      }
+
       let updated = html;
 
       /* ---------- feature gates ----------
