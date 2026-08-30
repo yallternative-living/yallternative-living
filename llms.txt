@@ -8,7 +8,6 @@ Y'allternative Living is a small, queer-owned business run by founder Savanna ou
 
 - [Shop](https://yallternativeliving.com/shop.html): the full catalog of 19 handmade products across 8 categories (Apparel, Salves & Balms, Body & Skin, Soaks, Potions & Spellwork, Ritual & Home, Gift Sets, Gift Cards). Add-to-cart checkout happens directly on this site -- no redirect to a third-party marketplace required.
 - [Events](https://yallternativeliving.com/events.html): upcoming and past farmers markets, fairs, and Pride pop-ups where the shop appears in person. Only real, confirmed dates are listed -- if it's empty, no dates are confirmed yet.
-- [Apothecary Journal](https://yallternativeliving.com/journal.html): stories, herbal science, and small-batch updates straight from the kitchen.
 - [Our Story](https://yallternativeliving.com/about.html): founder background and brand story.
 - [Contact](https://yallternativeliving.com/contact.html): contact info, shipping/custom-order FAQ, and where to find the shop in person.
 - [Privacy Policy](https://yallternativeliving.com/privacy.html): plain-language privacy policy (not a substitute for legal advice).
@@ -36,11 +35,6 @@ Y'allternative Living is a small, queer-owned business run by founder Savanna ou
 - **Moonlit Meadow Bath Tea** -- $12.00 -- Ritual & Home -- Dried lavender, chamomile, rose petals, and oat straw in a reusable muslin bag. Drop it in a warm bath, let it steep five minutes, soak until the day stops mattering. Gentler on your tub than loose herbs, and the bag's good for two or three rounds before you compost the whole thing.
 - **Porch Sweep Clearing Mist** -- $16.00 -- Ritual & Home -- Named for the old Southern habit of sweeping the porch at dusk to clear out the day's trouble. Lemongrass, palo santo, and black tourmaline-infused water in a 4 oz amber bottle. Mist your space after an argument, a bad day, or just because the vibes are off.
 - **Digital Gift Card** -- $10.00 -- Gift Cards -- Can't decide what they'd love? Let them pick. Delivered by email, ready to use on anything in the shop.
-
-## Journal & Articles
-
-- **Why Magnesium & Arnica Belong in Your Bedtime Routine** (2026-07-15): Struggling to turn your brain off or dealing with sore muscles? Here is the science (and folklore) behind why this duo works.
-- **What's the Deal with Small Batch Apothecary?** (2026-07-01): Is 'small batch' just a trendy buzzword, or does it actually make a difference for your skin? Let's talk about shelf life and real ingredients.
 
 Machine-readable catalog: https://yallternativeliving.com/assets/data/products.json (always the live source of truth for current prices -- prefer it over this file if the two ever disagree, since this file may not be regenerated as often as the catalog changes).
 Full structured catalog for AI shopping agents (every product, price, and slug): https://yallternativeliving.com/llms-full.txt

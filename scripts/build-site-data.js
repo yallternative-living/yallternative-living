@@ -1522,7 +1522,9 @@ function buildSiteData() {
     );
   }).join("\n");
 
-  const journalLines = ((JOURNAL && JOURNAL.posts) || [])
+  // Unpublished posts are not content of this site yet -- with the Journal
+  // switched off they must not be advertised to crawlers or LLMs either.
+  const journalLines = ((SITE_CONFIG.enableJournal && JOURNAL && JOURNAL.posts) || [])
     .map(function (p) {
       return "- **" + p.title + "** (" + p.date + "): " + p.excerpt;
     })
@@ -1549,9 +1551,11 @@ function buildSiteData() {
     "- [Events](" +
     DOMAIN +
     "/events.html): upcoming and past farmers markets, fairs, and Pride pop-ups where the shop appears in person. Only real, confirmed dates are listed -- if it's empty, no dates are confirmed yet.\n" +
-    "- [Apothecary Journal](" +
-    DOMAIN +
-    "/journal.html): stories, herbal science, and small-batch updates straight from the kitchen.\n" +
+    (SITE_CONFIG.enableJournal
+      ? "- [Apothecary Journal](" +
+        DOMAIN +
+        "/journal.html): stories, herbal science, and small-batch updates straight from the kitchen.\n"
+      : "") +
     "- [Our Story](" +
     DOMAIN +
     "/about.html): founder background and brand story.\n" +

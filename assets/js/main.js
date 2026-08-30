@@ -169,29 +169,64 @@
     return sharedRevealIO;
   }
 
-  function wireReveal(root) {
+  /* Has the browser put anything on screen yet? Before the first paint the
+     page is still blank, so hiding an element costs nothing and the entrance
+     animation plays exactly as designed. Measured on this site, that is the
+     normal case: DOMContentLoaded lands at ~124ms and first paint at ~180ms.
+     After a paint, though, the reader is already looking at the content --
+     that is the slow load where this deferred script arrives late, and
+     hiding what is on screen is the bug this guards against. */
+  function hasPainted() {
+    try {
+      return performance.getEntriesByType("paint").length > 0;
+    } catch (e) {
+      // No paint-timing API: assume painted, which errs towards leaving
+      // content visible rather than towards hiding it.
+      return true;
+    }
+  }
+
+  /* `serverRendered` marks the one call that runs over markup the browser
+     parsed with the document, the only markup that can already be on screen
+     when this runs. `.reveal` no longer carries the hidden state in CSS --
+     this function arms it -- so once a paint has happened, anything visible
+     must be left alone: hiding it would blink already-readable content out
+     from under the reader. Dynamically injected nodes (shop grid, journal,
+     filters) pass nothing: they are armed in the same task that inserts
+     them, before any paint of those nodes, so they animate in as designed. */
+  function wireReveal(root, serverRendered) {
     root = root || document;
     var els = root.querySelectorAll(".reveal:not(.in)");
     if (!els.length) return;
-    if (!("IntersectionObserver" in window) || window.navigator.webdriver) {
-      els.forEach(function (el) {
-        el.classList.add("in");
-      });
-      return;
-    }
-    var io = getRevealObserver();
+    var io =
+      "IntersectionObserver" in window && !window.navigator.webdriver ? getRevealObserver() : null;
     if (!io) {
       els.forEach(function (el) {
         el.classList.add("in");
       });
       return;
     }
+    var protectVisible = !!serverRendered && hasPainted();
+    // Measure first, mutate second: interleaving the two would force a
+    // layout recalc per element.
+    var fold = window.innerHeight || document.documentElement.clientHeight;
+    var tops = [];
+    if (protectVisible) {
+      els.forEach(function (el) {
+        tops.push(el.getBoundingClientRect().top);
+      });
+    }
     els.forEach(function (el, i) {
       el.style.setProperty("--i", i % 8);
+      if (protectVisible && tops[i] < fold) {
+        el.classList.add("in");
+        return;
+      }
+      el.classList.add("reveal-armed");
       io.observe(el);
     });
   }
-  wireReveal(document);
+  wireReveal(document, true);
 
   /* ---------- Footer year ---------- */
   var yearEl = document.getElementById("year");
@@ -1476,6 +1511,10 @@
     var dotsContainer = dialog.querySelector("#lightboxDots");
 
     function showImage(idx) {
+      /* With no images the index maths below lands on currentImages[0] ===
+         undefined, and `img.src = undefined` stringifies to "undefined" --
+         a real request for /undefined (404) behind a broken-image icon. */
+      if (!currentImages.length) return;
       if (idx < 0) idx = currentImages.length - 1;
       if (idx >= currentImages.length) idx = 0;
       currentIndex = idx;
@@ -1539,6 +1578,9 @@
 
     window.openLightbox = function (images, startSrc) {
       currentImages = images || [];
+      // Nothing to enlarge: opening an empty viewer shows the reader a blank
+      // modal they then have to dismiss.
+      if (!currentImages.length) return;
       var startIdx = currentImages.indexOf(startSrc);
       if (startIdx === -1) startIdx = 0;
 
@@ -3440,7 +3482,20 @@
     window.YL_CONTENT.site.enableSocialFeed !== undefined
       ? window.YL_CONTENT.site.enableSocialFeed
       : /*YL:site.enableSocialFeed*/ true; /*/YL:site.enableSocialFeed*/
-  var enableJournal = /*YL:site.enableJournal*/ false; /*/YL:site.enableJournal*/
+  /* Read the live flag the same way enableSocialFeed above does. The
+     build injects the `YL:site` markers into HTML pages only -- never into
+     this file -- so the baked-in literal is a stale second source of truth
+     that content.json cannot correct. Flipping enableJournal in /admin
+     updated the nav link, the sitemap and robots tag while this constant
+     stayed put, leaving the Journal half-on. YL_CONTENT is generated from
+     content.json, so it is the authority; the literal is only the fallback
+     for a page that loads without content-data.js. */
+  var enableJournal =
+    window.YL_CONTENT &&
+    window.YL_CONTENT.site &&
+    window.YL_CONTENT.site.enableJournal !== undefined
+      ? window.YL_CONTENT.site.enableJournal
+      : /*YL:site.enableJournal*/ false; /*/YL:site.enableJournal*/
 
   function renderUgcFeed(gridElem, sectionElem) {
     if (!enableSocialFeed || !gridElem || !sectionElem || !window.YL_SOCIAL_FEED) return;
@@ -3522,16 +3577,16 @@
     var journalPosts = window.YL_JOURNAL.posts || [];
 
     function renderJournalList() {
+      /* Switched off, or on with nothing written yet: both get the same
+         "coming soon" notice. The page is kept out of the nav, out of
+         sitemap.xml and out of llms.txt while the flag is off and carries a
+         noindex tag, so the only way to see this is to already know the URL. */
       if (!enableJournal || journalPosts.length === 0) {
         journalApp.innerHTML =
           '<div class="section-head reveal">' +
           "  <h2>Journal Coming Soon</h2>" +
           "  <p>Savanna is stirring up some stories. Check back soon for herbal folklore, batch updates, and behind-the-scenes thoughts.</p>" +
           "</div>";
-        // This early-return path injects a `reveal` element but (unlike the
-        // enabled path below) never wired up the reveal animation, so with the
-        // journal flag off the whole page rendered blank -- a header with an
-        // invisible (opacity:0) "Coming Soon" notice under it.
         wireReveal(journalApp);
         return;
       }
