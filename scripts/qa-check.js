@@ -1985,6 +1985,39 @@ try {
   fail("checkout proxy wiring", e.message);
 }
 
+/* ---------- Feature flags: content.json stays the single source of truth ----------
+   The build injects `YL:site.KEY` markers into HTML pages only -- never into
+   assets/js/*.js -- so a flag literal baked into main.js is a second source of
+   truth that content.json cannot correct. enableJournal drifted exactly that
+   way: flipping it in /admin moved the nav link, sitemap.xml and the robots
+   tag while main.js kept its own stale `false`, leaving a half-enabled
+   Journal. Any flag main.js consumes must therefore read the live value from
+   window.YL_CONTENT, keeping the literal only as a fallback. */
+section("Feature flags (main.js reads content.json, not a baked-in literal)");
+try {
+  var mainJsSrc = fs.readFileSync(path.join(ROOT, "assets/js/main.js"), "utf8");
+  var flagMarkers = mainJsSrc.match(/\/\*YL:site\.([a-zA-Z0-9]+)\*\//g) || [];
+  var seenFlags = [];
+  flagMarkers.forEach(function (marker) {
+    var key = marker.replace("/*YL:site.", "").replace("*/", "");
+    if (seenFlags.indexOf(key) !== -1) return;
+    seenFlags.push(key);
+    if (mainJsSrc.indexOf("window.YL_CONTENT.site." + key) !== -1) {
+      ok("main.js reads " + key + " from YL_CONTENT (literal is only a fallback)");
+    } else {
+      fail(
+        "main.js reads " + key + " from YL_CONTENT",
+        "only the baked-in literal is used, so content.json cannot change it"
+      );
+    }
+  });
+  if (!seenFlags.length) {
+    fail("feature flag markers found in main.js", "expected at least one YL:site marker");
+  }
+} catch (e) {
+  fail("feature flag single-source-of-truth check", e.message);
+}
+
 /* ---------- Summary ---------- */
 console.log("\n" + "=".repeat(50));
 console.log(passCount + " checks passed, " + failures.length + " failed.");
