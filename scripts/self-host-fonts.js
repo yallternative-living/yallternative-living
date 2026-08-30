@@ -28,19 +28,15 @@ const FONTS = {
 
 function getJson(url) {
   return new Promise((resolve, reject) => {
-    https
-      .get(url, (res) => {
-        let data = "";
-        res.on("data", (c) => (data += c));
-        res.on("end", () => {
-          try {
-            resolve(JSON.parse(data));
-          } catch (e) {
-            reject(e);
-          }
-        });
-      })
-      .on("error", reject);
+    const req = https.get(url, { headers: { 'User-Agent': 'yallternative-living' } }, res => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        if (res.statusCode !== 200) return reject(new Error('Status ' + res.statusCode));
+        try { resolve(JSON.parse(data)); } catch (e) { reject(e); }
+      });
+    });
+    req.on('error', reject);
   });
 }
 
@@ -62,34 +58,40 @@ function download(url, dest) {
   });
 }
 
-(async () => {
-  if (!fs.existsSync(OUT_DIR)) fs.mkdirSync(OUT_DIR, { recursive: true });
+if (require.main === module) {
+  (async () => {
+    if (!fs.existsSync(OUT_DIR)) fs.mkdirSync(OUT_DIR, { recursive: true });
 
-  for (const [family, wantIds] of Object.entries(FONTS)) {
-    const meta = await getJson(`https://gwfh.mranftl.com/api/fonts/${family}?subsets=latin`);
-    for (const id of wantIds) {
-      const variant = (meta.variants || []).find((v) => v.id === id);
-      if (!variant || !variant.woff2) {
-        console.warn(`  ! ${family} ${id}: no woff2 found, skipping`);
-        continue;
+    for (const [family, wantIds] of Object.entries(FONTS)) {
+      const meta = await getJson(`https://gwfh.mranftl.com/api/fonts/${family}?subsets=latin`);
+      for (const id of wantIds) {
+        const variant = (meta.variants || []).find((v) => v.id === id);
+        if (!variant || !variant.woff2) {
+          console.warn(`  ! ${family} ${id}: no woff2 found, skipping`);
+          continue;
+        }
+        const weight = id === "regular" ? "400" : id;
+        const filename = `${family}-${weight}.woff2`;
+        const dest = path.join(OUT_DIR, filename);
+        await download(variant.woff2, dest);
+        console.log(`  ✓ ${filename}`);
       }
-      const weight = id === "regular" ? "400" : id;
-      const filename = `${family}-${weight}.woff2`;
-      const dest = path.join(OUT_DIR, filename);
-      await download(variant.woff2, dest);
-      console.log(`  ✓ ${filename}`);
     }
-  }
 
-  console.log(
-    "\nDone. Fonts are in assets/fonts/. Next: follow docs/SELF-HOSTING-FONTS.md\n" +
-      "to swap the <head> font links for @font-face, and update the CSP."
-  );
-})().catch((err) => {
-  console.error("Font download failed:", err.message);
-  console.error(
-    "If the google-webfonts-helper API is unreachable, you can also grab the\n" +
-      "WOFF2 files by hand from https://gwfh.mranftl.com and drop them in assets/fonts/."
-  );
-  process.exit(1);
-});
+    console.log(
+      "\nDone. Fonts are in assets/fonts/. Next: follow docs/SELF-HOSTING-FONTS.md\n" +
+        "to swap the <head> font links for @font-face, and update the CSP."
+    );
+  })().catch((err) => {
+    console.error("Font download failed:", err.message);
+    console.error(
+      "If the google-webfonts-helper API is unreachable, you can also grab the\n" +
+        "WOFF2 files by hand from https://gwfh.mranftl.com and drop them in assets/fonts/."
+    );
+    process.exit(1);
+  });
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { getJson, download };
+}
