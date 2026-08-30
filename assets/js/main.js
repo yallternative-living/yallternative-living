@@ -178,10 +178,22 @@
      hiding what is on screen is the bug this guards against. */
   function hasPainted() {
     try {
+      /* An entry type the browser does not implement comes back as an empty
+         array rather than throwing, so a bare length check cannot tell
+         "nothing has painted yet" apart from "this browser never reports
+         paints". Those want opposite handling, so ask first. When the answer
+         is unknowable, treat the page as painted: that leaves whatever is on
+         screen alone, at the cost of the entrance animation on browsers old
+         enough to lack paint timing. Hiding content a reader can already see
+         is the failure this whole guard exists to prevent -- losing an
+         animation is not. */
+      var supportsPaintTiming =
+        typeof PerformanceObserver !== "undefined" &&
+        PerformanceObserver.supportedEntryTypes &&
+        PerformanceObserver.supportedEntryTypes.indexOf("paint") !== -1;
+      if (!supportsPaintTiming) return true;
       return performance.getEntriesByType("paint").length > 0;
     } catch (e) {
-      // No paint-timing API: assume painted, which errs towards leaving
-      // content visible rather than towards hiding it.
       return true;
     }
   }
