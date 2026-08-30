@@ -493,10 +493,23 @@ section{
     color: var(--paper-dim); position:relative; padding:6px 0;
     
     &:hover, &.active{ color: var(--paper); }
-    &.active::after{
+
+    /* The pride underline is a hover/focus affordance, not a page-load
+       badge. It used to sit permanently under `.active`, so the only time
+       anyone ever saw it draw was when a new page finished loading -- it
+       read as decoration that fired at the wrong moment. The current page
+       is still marked by the brighter `--paper` colour above and by
+       `aria-current="page"` in the markup, which is what assistive tech
+       actually reads. */
+    &::after{
       content:""; position:absolute; left:0; right:0; bottom:0; height:2px;
       background: var(--pride);
+      transform: scaleX(0); transform-origin: left center;
+      transition: transform .25s ease;
+      pointer-events: none;
     }
+    &:hover::after,
+    &:focus-visible::after{ transform: scaleX(1); }
   }
   
   @media (max-width: 1024px){
@@ -2067,8 +2080,19 @@ section{
 
 /* =============== UTILS =============== */
 .sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+/* Scroll reveal. The hidden state is armed by main.js (`.reveal-armed`),
+   never applied by default. It used to be the default, which meant every
+   `.reveal` block stayed at opacity:0 until a 165KB deferred main.js had
+   downloaded and run. about.html is the page that made that visible: its
+   entire story -- both content sections -- is `.reveal`, so on a slow
+   connection the page painted a hero over a blank white expanse for
+   seconds and looked like it had failed to load. Content now paints
+   immediately and only elements main.js has measured as below the fold get
+   hidden to animate in, which can't flash because they are off-screen at
+   the moment it happens. */
 .reveal{
-  opacity:0; transform: translateY(18px); transition: opacity .6s ease, transform .6s ease;
+  transition: opacity .6s ease, transform .6s ease;
+  &.reveal-armed{ opacity:0; transform: translateY(18px); }
   &.in{ opacity:1; transform:none; }
 }
 

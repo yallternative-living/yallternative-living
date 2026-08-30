@@ -169,29 +169,47 @@
     return sharedRevealIO;
   }
 
-  function wireReveal(root) {
+  /* `alreadyPainted` marks the one call that runs over server-rendered
+     markup the browser has already put on screen. `.reveal` no longer
+     carries the hidden state in CSS -- this function arms it -- so for that
+     call anything currently on screen must be left alone: hiding it here
+     would blink already-readable content out from under the reader the
+     moment this deferred script lands. Everything below the fold is
+     off-screen and safe to arm. Dynamically injected nodes (shop grid,
+     journal, filters) pass nothing: they are armed in the same task that
+     inserts them, before any paint, so they animate in as designed. */
+  function wireReveal(root, alreadyPainted) {
     root = root || document;
     var els = root.querySelectorAll(".reveal:not(.in)");
     if (!els.length) return;
-    if (!("IntersectionObserver" in window) || window.navigator.webdriver) {
-      els.forEach(function (el) {
-        el.classList.add("in");
-      });
-      return;
-    }
-    var io = getRevealObserver();
+    var io =
+      "IntersectionObserver" in window && !window.navigator.webdriver ? getRevealObserver() : null;
     if (!io) {
       els.forEach(function (el) {
         el.classList.add("in");
       });
       return;
     }
+    // Measure first, mutate second: interleaving the two would force a
+    // layout recalc per element.
+    var fold = window.innerHeight || document.documentElement.clientHeight;
+    var tops = [];
+    if (alreadyPainted) {
+      els.forEach(function (el) {
+        tops.push(el.getBoundingClientRect().top);
+      });
+    }
     els.forEach(function (el, i) {
       el.style.setProperty("--i", i % 8);
+      if (alreadyPainted && tops[i] < fold) {
+        el.classList.add("in");
+        return;
+      }
+      el.classList.add("reveal-armed");
       io.observe(el);
     });
   }
-  wireReveal(document);
+  wireReveal(document, true);
 
   /* ---------- Footer year ---------- */
   var yearEl = document.getElementById("year");
