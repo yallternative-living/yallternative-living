@@ -94,6 +94,36 @@ eq(
   "prod-3",
   "generateUniqueId falls back to prefix when name is empty"
 );
+assert(
+  existingIds.has("new-salve") && existingIds.has("salve-1-3") && existingIds.has("prod-3"),
+  "generateUniqueId adds new ids to the existingSet"
+);
+
+const unslugifiableSet = new Set();
+eq(
+  buildScript.generateUniqueId(unslugifiableSet, "!!!", "prod", 0),
+  "prod-1",
+  "generateUniqueId falls back to prefix when slugify produces empty string"
+);
+
+const longCollisionSet = new Set(["base", "base-2", "base-3", "base-4", "base-5"]);
+eq(
+  buildScript.generateUniqueId(longCollisionSet, "base", "prod", 0),
+  "base-6",
+  "generateUniqueId correctly handles long collision chains"
+);
+
+const nullSet = new Set();
+eq(
+  buildScript.generateUniqueId(nullSet, null, "prod", 99),
+  "prod-100",
+  "generateUniqueId falls back to prefix when rawName is null"
+);
+eq(
+  buildScript.generateUniqueId(nullSet, undefined, "prod", 100),
+  "prod-101",
+  "generateUniqueId falls back to prefix when rawName is undefined"
+);
 
 /* 4. variantPriceRange */
 const noVariants = { price: 20.0 };
