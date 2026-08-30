@@ -30,7 +30,7 @@ eq(
 
 eq(
   extractInlineScripts('<script type="text/javascript">alert(1);</script>'),
-  ['alert(1);'],
+  ["alert(1);"],
   "Extracts inline script with type attribute"
 );
 
@@ -41,25 +41,33 @@ eq(
 );
 
 eq(
-  extractInlineScripts('<script type="application/ld+json">{"@context": "https://schema.org"}</script>'),
+  extractInlineScripts(
+    '<script type="application/ld+json">{"@context": "https://schema.org"}</script>'
+  ),
   [],
   "Ignores JSON-LD scripts"
 );
 
 eq(
-  extractInlineScripts('<script type="application/ld+json" >{"@context": "https://schema.org"}</script>'),
+  extractInlineScripts(
+    '<script type="application/ld+json" >{"@context": "https://schema.org"}</script>'
+  ),
   [],
   "Ignores JSON-LD scripts with extra space"
 );
 
 eq(
-  extractInlineScripts('<script type="application/ld+json"\n>{"@context": "https://schema.org"}</script>'),
+  extractInlineScripts(
+    '<script type="application/ld+json"\n>{"@context": "https://schema.org"}</script>'
+  ),
   [],
   "Ignores JSON-LD scripts with newline before bracket"
 );
 
 eq(
-  extractInlineScripts('<script type=\'application/ld+json\'>{"@context": "https://schema.org"}</script>'),
+  extractInlineScripts(
+    '<script type=\'application/ld+json\'>{"@context": "https://schema.org"}</script>'
+  ),
   [],
   "Ignores JSON-LD scripts with single quotes"
 );
@@ -87,7 +95,6 @@ eq(
   ['console.log("hello");'],
   "Extracts inline script with id and class attributes"
 );
-
 
 if (failed > 0) {
   console.error(`\n${failed} test(s) failed.`);
