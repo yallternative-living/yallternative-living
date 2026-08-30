@@ -409,4 +409,13 @@ function run() {
   console.log("something unexpected worth investigating rather than a domain to allowlist.");
 }
 
-run();
+if (require.main === module) {
+  run();
+}
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = {
+    extractInlineScripts: extractInlineScripts,
+    sha256Base64: sha256Base64
+  };
+}
