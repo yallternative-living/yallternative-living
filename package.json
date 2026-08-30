@@ -16,10 +16,12 @@
     "test:integration": "node scripts/puppeteer_tests.js && node scripts/extended_qa_test.js && node scripts/security_stress_test.js && node scripts/reveal-check.js && node scripts/a11y-check.js",
     "lint": "eslint scripts assets/js workers cms-auth netlify",
     "format": "prettier --write \"scripts/**/*.js\" \"assets/js/*.js\"",
-    "format:check": "prettier --check \"scripts/**/*.js\" \"assets/js/*.js\""
+    "format:check": "prettier --check \"scripts/**/*.js\" \"assets/js/*.js\"",
+    "test:cross-browser": "node scripts/cross-browser-check.js"
   },
   "devDependencies": {
     "eslint": "^8.57.0",
+    "playwright": "^1.56.0",
     "prettier": "^3.3.3",
     "sharp": "^0.35.3"
   },

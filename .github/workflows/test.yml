@@ -17,9 +17,10 @@ name: QA checks
 #   * paths-ignore: doc-only commits (*.md, docs/) don't trigger a run.
 #   * concurrency: a newer push cancels the older in-progress run instead of
 #     letting both finish.
-#   * PUPPETEER_SKIP_DOWNLOAD: this job runs lint/format/qa only -- none of
-#     which need a browser -- so we skip Puppeteer's ~150MB Chromium download,
-#     which was the single biggest chunk of every `npm install` here.
+#   * PUPPETEER_SKIP_DOWNLOAD on the `qa` job: that job runs lint/format/qa
+#     only -- none of which need a browser -- so it skips Puppeteer's ~150MB
+#     Chromium download. The separate `browser` job below does need browsers
+#     and therefore does not set it.
 #   * npm cache: setup-node caches ~/.npm keyed on the lockfile so repeat
 #     installs are near-instant.
 # The biggest lever of all, though, is repo visibility: GitHub Actions is
@@ -55,3 +56,31 @@ jobs:
       - run: npm run lint
       - run: npm run format:check
       - run: npm test
+
+  # The browser gates. These were local-only until now, which meant the
+  # accessibility gate, the scroll-reveal gate and the Puppeteer suites could
+  # all regress and still show a green board -- exactly how a blank about.html
+  # reached production once already. They cost minutes (a Puppeteer Chromium
+  # download plus three Playwright engines), so they run as their own job:
+  # `qa` above stays fast and fails first on the cheap stuff, and the engines
+  # are cached between runs keyed on the lockfile.
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      # No PUPPETEER_SKIP_DOWNLOAD here: test:integration needs that Chromium.
+      - run: npm install --no-audit --no-fund
+      - name: Cache Playwright engines
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      # Left unconditional even on a cache hit: the download is skipped but the
+      # system libraries WebKit needs are not part of the cache.
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - run: npm run test:integration
+      - run: npm run test:cross-browser
