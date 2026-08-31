@@ -22,6 +22,9 @@
 # explicitly so that can't happen. optimize-images.js also degrades to a
 # warning if sharp is missing anyway, so a mistake here costs unoptimized
 # photos rather than a failed deploy.
+#
+# The Node version for this build is pinned in .nvmrc (Netlify reads that
+# ahead of every other source), not here -- one source of truth.
 [build.environment]
   NPM_FLAGS = "--include=dev"
 

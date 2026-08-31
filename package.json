@@ -5,7 +5,7 @@
   "description": "Dev-time build tooling for the Y'allternative Living static site. Nothing here ships to the live site -- the deployed site is still 100% static HTML/CSS/JS with zero runtime dependencies. This just powers a few local maintenance scripts.",
   "license": "UNLICENSED",
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "scripts": {
     "build-data": "node scripts/build-site-data.js && npm run format",

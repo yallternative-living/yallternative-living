@@ -272,7 +272,8 @@ function run() {
     // run that script by hand first. No npm install needed first: this
     // script and build-site-data.js only use Node's built-in fs/path/
     // crypto modules, zero external dependencies.
-    buildCommand: "node scripts/build-site-data.js && node scripts/build-security-headers.js",
+    buildCommand:
+      "node scripts/optimize-images.js && node scripts/build-site-data.js && node scripts/build-security-headers.js",
     outputDirectory: ".",
     headers: [
       { source: "/(.*)", headers: vercelHeaders },
@@ -311,7 +312,22 @@ function run() {
     "# arrays in that script instead, then re-run it.\n\n" +
     "[build]\n" +
     '  publish = "."\n' +
-    '  command = "node scripts/build-site-data.js && node scripts/build-security-headers.js"\n\n' +
+    '  command = "node scripts/optimize-images.js && node scripts/build-site-data.js && node scripts/build-security-headers.js"\n\n' +
+    // This block used to be hand-written into netlify.toml, which meant every
+    // run of this script silently deleted it -- taking image optimization off
+    // the deploy with it. Generated here so the two cannot drift apart again.
+    "# The build needs devDependencies -- scripts/optimize-images.js requires\n" +
+    '# "sharp" to generate each new photo\'s AVIF/WebP variants. Netlify installs\n' +
+    "# devDependencies by default, but setting NODE_ENV=production (easy to do in\n" +
+    "# the UI, and a common habit) silently makes npm skip them. Ask for them\n" +
+    "# explicitly so that can't happen. optimize-images.js also degrades to a\n" +
+    "# warning if sharp is missing anyway, so a mistake here costs unoptimized\n" +
+    "# photos rather than a failed deploy.\n" +
+    "#\n" +
+    "# The Node version for this build is pinned in .nvmrc (Netlify reads that\n" +
+    "# ahead of every other source), not here -- one source of truth.\n" +
+    "[build.environment]\n" +
+    '  NPM_FLAGS = "--include=dev"\n\n' +
     // ---- checkout proxy ----
     // The cart POSTs to a same-origin /api/checkout (assets/js/cart.js's
     // CHECKOUT_URL). The code that answers it is a Cloudflare Worker
