@@ -175,12 +175,34 @@ function createStaticServer(port = 8082) {
     if (emailInput) {
       await emailInput.type("test@example.com");
 
+      /* The expected endpoint is whatever site.kitFormAction is configured to,
+         read from the same JSON the build renders the form from -- not a
+         literal pasted here. This assertion used to hardcode the
+         YOUR_KIT_FORM_ACTION_URL placeholder, which meant it only passed
+         while the newsletter was unconfigured: connecting Kit for real, the
+         thing we actually want, turned the check red. A test that goes green
+         only on the broken state is worse than no test, because it argues
+         against fixing the bug. */
+      const kitAction = (
+        JSON.parse(fs.readFileSync(path.join(__dirname, "..", "assets/data/content.json"), "utf8"))
+          .site || {}
+      ).kitFormAction;
+
+      if (!kitAction) {
+        console.log(
+          "❌ site.kitFormAction missing from content.json -- nothing to assert against."
+        );
+        exitCode = 1;
+      }
+
       let intercepted = false;
+      let postedTo = null;
       await page.setRequestInterception(true);
       const requestHandler = (req) => {
         if (req.isInterceptResolutionHandled()) return;
-        if (req.method() === "POST" && req.url().includes("YOUR_KIT_FORM_ACTION_URL")) {
-          intercepted = true;
+        if (req.method() === "POST") {
+          postedTo = req.url();
+          if (kitAction && req.url().startsWith(kitAction)) intercepted = true;
           req.abort();
         } else {
           req.continue();
@@ -192,9 +214,14 @@ function createStaticServer(port = 8082) {
       await new Promise((r) => setTimeout(r, 1000));
 
       if (intercepted) {
-        console.log("✅ Form submission intercepted correctly.");
-      } else {
-        console.log("❌ Form did not submit to the expected URL.");
+        console.log("✅ Newsletter form posts to the configured Kit endpoint (" + kitAction + ").");
+      } else if (postedTo) {
+        console.log(
+          "❌ Newsletter form posted to " + postedTo + " but content.json says " + kitAction + "."
+        );
+        exitCode = 1;
+      } else if (kitAction) {
+        console.log("❌ Newsletter form issued no POST at all.");
         exitCode = 1;
       }
 
