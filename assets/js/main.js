@@ -156,6 +156,12 @@
         function (entries) {
           entries.forEach(function (entry) {
             if (entry.isIntersecting) {
+              /* Drop the armed class rather than relying on `.in` winning the
+                 cascade. Both selectors have equal specificity, so today `.in`
+                 wins only because it is written second -- reordering those two
+                 nested rules would leave revealed content invisible, with
+                 nothing to hint why. */
+              entry.target.classList.remove("reveal-armed");
               entry.target.classList.add("in");
               if (sharedRevealIO) {
                 sharedRevealIO.unobserve(entry.target);

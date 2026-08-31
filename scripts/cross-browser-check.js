@@ -122,18 +122,31 @@ function createStaticServer() {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/* Playwright normally ships its own Chromium. Some environments (including the
-   container this repo's web sessions run in) pre-install one at a different
-   revision under PLAYWRIGHT_BROWSERS_PATH, which Playwright will not use
-   because the revision does not match. Fall back to whatever is actually
-   there rather than failing on a browser that exists. */
+/* Playwright normally ships its own Chromium and resolving it is its job, not
+   ours -- in CI this returns {} and Playwright is simply right. Some
+   environments (including the container this repo's web sessions run in)
+   pre-install a Chromium at a different revision under
+   PLAYWRIGHT_BROWSERS_PATH, which Playwright declines to use. Only then do we
+   go looking, and only for a binary Playwright's own expected path did not
+   provide: hard-coding a layout here would silently pin the wrong build the
+   day Playwright changes it (it already moved chrome-linux -> chrome-linux64). */
 function chromiumLaunchOptions() {
+  try {
+    if (fs.existsSync(playwright.chromium.executablePath())) return {};
+  } catch (e) {
+    /* no resolvable default -- fall through and look for one */
+  }
   const browsersPath = process.env.PLAYWRIGHT_BROWSERS_PATH;
   if (!browsersPath || !fs.existsSync(browsersPath)) return {};
   const candidate = fs
     .readdirSync(browsersPath)
-    .filter((d) => d.startsWith("chromium-"))
-    .map((d) => path.join(browsersPath, d, "chrome-linux", "chrome"))
+    .filter((d) => /^chromium-\d+$/.test(d))
+    .sort()
+    .reverse()
+    .flatMap((d) => [
+      path.join(browsersPath, d, "chrome-linux64", "chrome"),
+      path.join(browsersPath, d, "chrome-linux", "chrome")
+    ])
     .find((p) => fs.existsSync(p));
   return candidate ? { executablePath: candidate } : {};
 }
@@ -148,12 +161,16 @@ const ENGINES = [
    is still a regression, and the settled end state would not show it. */
 const FRAME_SAMPLER = () => {
   window.__minOpacity = 1;
+  // Counted so the assertions can tell "never dropped below 1" apart from
+  // "never looked at anything". An unsampled run reports a perfect score.
+  window.__sampleCount = 0;
   const tick = () => {
     document.querySelectorAll(".reveal").forEach((el) => {
       const r = el.getBoundingClientRect();
       if (!r.height) return;
       const shown = Math.max(0, Math.min(r.bottom, window.innerHeight) - Math.max(r.top, 0));
       if (shown / r.height > 0.25) {
+        window.__sampleCount++;
         const o = parseFloat(getComputedStyle(el).opacity);
         if (o < window.__minOpacity) window.__minOpacity = o;
       }
@@ -297,12 +314,21 @@ async function runEngine(engine) {
       });
       await page.goto(`${BASE}/about.html`, { waitUntil: "domcontentloaded" });
       await sleep(2600);
-      const result = await page.evaluate(() => ({
-        min: window.__minOpacity,
-        story: getComputedStyle(document.querySelector(".about-founder .reveal")).opacity,
-        armed: document.querySelectorAll(".reveal-armed:not(.in)").length
-      }));
+      const result = await page.evaluate(() => {
+        const el = document.querySelector(".about-founder .reveal");
+        return {
+          min: window.__minOpacity,
+          samples: window.__sampleCount,
+          story: el ? getComputedStyle(el).opacity : null,
+          armed: document.querySelectorAll(".reveal-armed:not(.in)").length
+        };
+      });
       const hidden = await page.evaluate(HIDDEN_BUT_VISIBLE);
+      check(
+        `${engine.name}: ${variant.label} -- opacity was actually sampled`,
+        result.samples > 0,
+        "the frame sampler saw no on-screen .reveal content, so the check below proves nothing"
+      );
       check(
         `${engine.name}: ${variant.label} -- on-screen content never blinked out`,
         result.min > 0.9,

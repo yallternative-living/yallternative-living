@@ -206,6 +206,19 @@ async function assertReal(page, label) {
         await page.goto(`${BASE}/${pageName}`, { waitUntil: "networkidle2", timeout: 90000 });
         await sleep(1200);
         if (await assertReal(page, pageName)) {
+          /* Without this, a page that lost its .reveal markup passes every
+             check below on empty sets -- "nothing hidden" is trivially true of
+             nothing. Green while testing nothing is the exact failure this
+             file was written to prevent, so assert there is subject matter
+             before asserting anything about it. */
+          const revealCount = await page.evaluate(
+            () => document.querySelectorAll(".reveal").length
+          );
+          check(
+            `${pageName}: has reveal content to test`,
+            revealCount > 0,
+            "no .reveal elements on the page -- these checks would pass vacuously"
+          );
           const stillHidden = await hiddenButVisible(page);
           check(
             `${pageName}: nothing on screen left hidden`,
