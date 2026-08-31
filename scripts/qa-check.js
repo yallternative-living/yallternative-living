@@ -1928,8 +1928,28 @@ try {
 section("Deploy config installs devDependencies for the image optimizer");
 try {
   var netlifyToml = fs.readFileSync(path.join(ROOT, "netlify.toml"), "utf8");
-  if (netlifyToml.indexOf("optimize-images.js") === -1) {
-    ok("netlify.toml does not run the image optimizer -- nothing to guarantee");
+  /* Read the build command itself, not the whole file. A bare
+     indexOf("optimize-images.js") is satisfied by any comment that merely
+     mentions the script -- including the one this file's own generator writes
+     above [build.environment] -- so it would pass on a config whose build
+     command had lost the optimizer entirely. */
+  var buildCommandMatch = /^\s*command\s*=\s*"([^"]*)"/m.exec(netlifyToml);
+  var buildCommand = buildCommandMatch ? buildCommandMatch[1] : "";
+  if (!buildCommandMatch) {
+    fail("netlify.toml declares a [build] command", 'no command = "..." line found');
+  } else if (buildCommand.indexOf("optimize-images.js") === -1) {
+    /* This branch used to pass, on the reasoning that a build with no image
+       optimizer has no devDependency to guarantee. That let the guard switch
+       itself off exactly when it mattered: scripts/build-security-headers.js
+       regenerates netlify.toml, its template had dropped optimize-images.js,
+       and so running the documented pipeline step took image optimization off
+       the deploy while this check still reported green. The optimizer is
+       supposed to be in the build -- its absence is the failure. */
+    fail(
+      "netlify.toml runs the image optimizer",
+      "optimize-images.js is missing from the build command, so new photos " +
+        "deploy without AVIF/WebP variants"
+    );
   } else if (/NPM_FLAGS\s*=\s*"[^"]*--include=dev/.test(netlifyToml)) {
     ok("netlify.toml runs the image optimizer and asks npm for devDependencies");
   } else {
