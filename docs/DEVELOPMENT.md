@@ -799,8 +799,10 @@ using **[Kit](https://kit.com)**, formerly ConvertKit (free tier: 10,000
 subscribers, no credit card required — chosen over Mailchimp's 500-contact
 free cap and Buttondown's 100-subscriber cap, and its plain-HTML embed +
 dashboard-configurable post-signup redirect need zero JavaScript to work,
-matching the rest of this site's philosophy). It's a plain
-`<form method="post">` that submits directly to Kit.
+matching the rest of this site's philosophy). The markup is a plain
+`<form method="post">` pointed at Kit, so it still submits with JS off;
+with JS on, `main.js` intercepts and posts it via `fetch` so the visitor
+is never navigated away to Kit's site.
 
 **What's already wired in:**
 
@@ -809,19 +811,32 @@ matching the rest of this site's philosophy). It's a plain
   it's filled in (a sign of a bot) — no account or backend needed for this.
   With JavaScript off, the field just stays blank for real people and the
   form still posts normally straight to Kit.
-- A `?subscribed=1` check in `main.js`: after Kit's own post-signup
-  redirect lands back on the site, the footer box swaps to a "you're on
-  the list" state and the flag is cleaned out of the URL. The actual
-  subscribe is a real, un-intercepted POST straight to Kit — this JS never
-  fakes success, it just reacts to Kit's real redirect.
+- The signup posts via `fetch` with `Accept: application/json` and checks
+  `res.ok`. It reports success only when Kit actually accepted the
+  submission; a rejection or a network failure restores the button and
+  says plainly that the person is **not** subscribed, offering the real
+  mailbox instead. This used to pass `mode: "no-cors"`, which makes the
+  response opaque — `res.ok` is always false and the promise resolves no
+  matter what Kit said — so the old code showed "you're on the list" for
+  every outcome, including rejected submissions. Kit answers preflight
+  with `access-control-allow-origin: *`, so the plain CORS request works
+  and the response can actually be read.
+- A `?subscribed=1` check in `main.js` still swaps the footer box to the
+  subscribed state and cleans the flag out of the URL, for the case where
+  Kit's own redirect lands back here.
 - CSP in both `netlify.toml` and `vercel.json` already allows Kit's form
   domains (`app.kit.com`, `app.convertkit.com`) via the `form-action`
   directive.
 - The same signup box appears identically in the footer of all seven
   pages (including `privacy.html`), verified byte-for-byte identical.
 
-**What you (Savanna) still need to do — I can't do this part for you,
-since it requires creating an account:**
+**Setup status:** steps 1-5 below are **done** — the Kit account and form
+exist and `site.kitFormAction` is set to
+`https://app.kit.com/forms/9867317/subscriptions`, propagated into every
+page's footer by the build. They are kept as the record of how it was
+wired, and as the recipe if the form is ever rebuilt.
+
+**Original setup steps (completed):**
 
 1. [Sign up for a free Kit account](https://kit.com) (no credit card
    required for the free tier).
@@ -842,6 +857,49 @@ since it requires creating an account:**
 Nothing about the honeypot or confirmation JS needs to change once you do
 this — they're driven entirely by the form's real action URL and Kit's
 own redirect setting, not by anything hardcoded to a fake key.
+
+### TODO: deliver the 10% welcome code
+
+Every page's footer promises **"Get 10% Off Your First Order"** for signing
+up. A Stripe coupon and promotion code now exist, and
+`workers/checkout.js` already sets `allow_promotion_codes: "true"`, so the
+code is redeemable at checkout. **What does not exist yet is any path that
+puts the code in front of the subscriber.** Until one of the two below is
+built, everyone who signs up is promised a discount they never receive.
+
+Either works alone; both together is better — the page gives it to them
+instantly, the email gives them something to find later when they are
+actually ready to buy.
+
+**Approach A — automated email from Kit (not started).**
+Build one welcome email in Kit, triggered when someone subscribes to form
+`9867317`, containing the promotion code. It fires after the visitor
+confirms (double opt-in is on), so it doubles as the reward for
+confirming. This is the route the confirmation email's copy assumes when
+it says the code "lands in your inbox right after" — do not ship that
+wording until this exists.
+
+**Approach B — a welcome page on this site (not started).**
+Kit's "after confirming redirect to" currently points at
+`https://yallternativeliving.com/shop.html`, which shows no code and does
+not mention one. A dedicated `/welcome.html` could display the code with
+instructions and link into the shop; repointing that redirect is then a
+one-field change in Kit. This route needs no Kit automation, and unlike
+the email it lives entirely in this repo.
+
+Whichever is built, the code string must not be hardcoded in more than one
+place — put it in `assets/data/content.json` under `site.*` so `/admin` can
+edit it and the build propagates it, exactly as `kitFormAction` works.
+
+**Do not put the code in the confirmation email.** If it is visible before
+confirming, people take it and never click: the discount is spent and no
+subscriber is gained.
+
+Note for whoever sets the promotion code's restrictions: sale prices are
+baked into `unit_amount` before Stripe ever sees them (see the comment
+above `applySales()` in `workers/checkout.js`), so a percentage promotion
+code stacks on top of an active sale. A minimum order value on the
+promotion code is the practical guard.
 
 ## 14. Privacy policy page
 

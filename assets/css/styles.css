@@ -1915,6 +1915,48 @@ section{
   & p{ font-size:.78rem; margin:10px 0 0; }
 }
 
+/* =============== WELCOME PAGE (post-confirm discount) =============== */
+/* Shown on welcome.html only, where Kit sends a subscriber after they click
+   the confirmation link. The code is a thing people retype into Stripe's
+   promo box, so it is set in a monospaced face at a size that survives being
+   read off a phone, with generous letter-spacing so O/0 and I/1 stay apart. */
+.welcome-code-card{
+  max-width: 380px;
+  margin: 28px auto 22px;
+  padding: 22px 24px;
+  border: 1px solid var(--hide);
+  border-radius: var(--radius-lg);
+  background: var(--ink-2);
+  text-align: center;
+
+  & .welcome-code-label{
+    font-size:.72rem; text-transform:uppercase; letter-spacing:.14em;
+    color: var(--whiskey); font-weight:700; margin:0 0 6px;
+  }
+  & .welcome-code{
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: clamp(1.5rem, 6vw, 2rem);
+    font-weight: 700;
+    letter-spacing: .12em;
+    color: var(--paper);
+    margin: 0 0 10px;
+    /* Long codes should wrap rather than push the card wide on a 320px screen. */
+    overflow-wrap: anywhere;
+  }
+  & .welcome-code-hint{ font-size:.82rem; margin:0; color: var(--paper-dim); }
+}
+
+/* The lede sits directly above the code card, so it stays short and does not
+   compete with it -- the code is what the visitor came for. */
+.welcome-lede{ max-width: 34ch; margin-left:auto; margin-right:auto; }
+
+.welcome-footnote{
+  max-width: 46ch;
+  margin: 28px auto 0;
+  font-size: .84rem;
+  color: var(--paper-dim);
+}
+
 /* =============== EVENTS =============== */
 .event-card{
   & .card-body{ gap:6px; }

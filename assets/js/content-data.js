@@ -19,6 +19,7 @@ window.YL_CONTENT = {
     "formspreeContactId": "xoeqevqv",
     "formspreeReviewId": "xzebezbl",
     "formspreeRestockId": "xwlklppo",
+    "welcomeCode": "YALL10",
     "giftUpId": "YOUR_GIFTUP_ID",
     "umamiWebsiteId": "YOUR_UMAMI_WEBSITE_ID",
     "enableJournal": false,

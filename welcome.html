@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Y'allternative">
+<meta name="color-scheme" content="dark light">
+<meta name="view-transition" content="same-origin">
+<title>Welcome To The List | Y'allternative Living</title>
+<!-- Transactional page (a Stripe Checkout redirect target, see
+     workers/checkout.js's success_url) -- not a page anyone should land
+     on from search, so it stays out of the index like 404.html does. -->
+<meta name="robots" content="noindex, nofollow">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Welcome To The List | Y'allternative Living">
+<meta property="og:description" content="You’re on the list. Grab your welcome discount and go find something good.">
+<meta property="og:image" content="https://yallternativeliving.com/assets/img/og-image.jpg">
+<meta property="og:url" content="https://yallternativeliving.com/welcome.html">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Welcome To The List | Y'allternative Living">
+<meta name="twitter:description" content="You’re on the list. Grab your welcome discount and go find something good.">
+<meta name="twitter:image" content="https://yallternativeliving.com/assets/img/og-image.jpg">
+<link rel="icon" href="assets/img/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="assets/img/favicon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#c65a6d">
+
+<!-- Premium modern typography for the brand's southern-alt vibe -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Gloock&family=DM+Sans:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=DM+Sans:wght@400;500;700&display=swap" media="print" id="gfontsStylesheet">
+<script>document.getElementById("gfontsStylesheet").addEventListener("load",function(){this.media="all";});</script>
+<noscript>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=DM+Sans:wght@400;500;700&display=swap">
+</noscript>
+<!-- Warm up the analytics origin this page talks to, so the Umami
+     beacon doesn't pay a cold DNS+TLS handshake at the moment it's needed.
+     (Checkout is same-origin now -- assets/js/cart.js posts to /api/checkout
+     on this domain -- so there's no third-party cart origin to warm up.) -->
+<link rel="preconnect" href="https://cloud.umami.is" crossorigin>
+<link rel="stylesheet" href="assets/css/styles.css?v=2.0">
+<link rel="stylesheet" href="assets/css/cart.css">
+
+<script>
+  // No-flash theme init: runs before paint, before main.js.
+  (function(){
+    var t = localStorage.getItem('yl-theme');
+    if(!t){ t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'; }
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
+<!-- Privacy-friendly analytics (Umami: cookieless, no personal data, no
+     fingerprinting, no cross-site tracking -- and unlike a plain page-view
+     counter it also captures the shop's conversion events: Add to Cart,
+     Purchase, Newsletter Signup, and Site Search. https://umami.is/).
+     No cookie-consent banner required. Before this records anything real:
+       1. Create a free Umami Cloud account (or self-host) and add this site.
+       2. Swap the placeholder data-website-id below for the real one. -->
+<!--YL:site.umamiWebsiteId--><!--/YL:site.umamiWebsiteId-->
+<!--YL:featureStyles--><!--/YL:featureStyles-->
+</head>
+<body>
+<a href="#main-content" class="skip-link">Skip to main content</a>
+<header class="site-header">
+  <nav class="nav">
+    <a class="brand" href="index.html" aria-label="Y'allternative Living home">
+      <img class="logo-desktop" src="assets/img/logo.png" alt="Y'allternative Living icon" width="48" height="48">
+      <img class="logo-mobile" src="assets/img/logo.png" alt="Y'allternative Living logo" height="48" width="48">
+      <span class="brand-word">Y'allternative<small>Living</small></span>
+    </a>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="shop.html">Shop</a></li>
+      <li><a href="events.html">Events</a></li>
+      <li><a href="about.html">Our Story</a></li>
+      <li><a href="contact.html">Contact</a></li>
+      <!--YL:nav.journal--><!--/YL:nav.journal-->
+    </ul>
+    <div class="nav-cta">
+      <button class="cart-toggle" type="button" aria-label="View your cart">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="icon-cart"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
+        <span class="badge cart-count" aria-live="polite"></span>
+      </button>
+      <button type="button" class="theme-toggle" id="themeToggle" role="switch" aria-checked="false" aria-label="Toggle dark and light mode">
+        <span class="knob" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-moon"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-sun"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span>
+      </button>
+      <button type="button" class="nav-toggle" aria-label="Open menu" aria-expanded="false" aria-controls="navLinks">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-menu"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+      </button>
+    </div>
+  </nav>
+</header>
+<main id="main-content">
+
+  <section class="hero tight-hero">
+    <div class="container center">
+      <span class="eyebrow">You're In</span>
+      <h1>Welcome To The List, Y'all!</h1>
+      <p class="lede welcome-lede">Here's 10% off your first order, as promised.</p>
+
+      <!-- The h1 above is followed by the footer's h3s, so without a level-2
+           here the document jumps h1 -> h3 and fails axe's heading-order rule
+           (thank-you.html, which this page was built from, had a level-2 section
+           that is not wanted here). It sits outside both state blocks on
+           purpose: either the card or the fallback shows, never both, and a
+           heading inside a hidden block leaves the gap open again. Visually
+           redundant next to the card, so it is screen-reader only. -->
+      <h2 class="sr-only">Your welcome discount</h2>
+
+      <!-- Filled in by main.js from site.welcomeCode (content.json, editable at
+           /admin). Starts hidden: with no code configured main.js leaves this
+           alone and reveals #welcomeNoCode instead, so this page never prints a
+           code that fails at checkout. -->
+      <div class="welcome-code-card" id="welcomeCodeCard" hidden>
+        <p class="welcome-code-label">Your code</p>
+        <p class="welcome-code" id="welcomeCode"></p>
+        <p class="welcome-code-hint">Enter it at checkout, in the box marked &ldquo;Add promotion code&rdquo;.</p>
+      </div>
+
+      <p class="lede welcome-lede" id="welcomeNoCode" hidden>
+        Your code is on its way by email. If it doesn&rsquo;t turn up, email
+        <a href="mailto:y.allternative.living@gmail.com">y.allternative.living@gmail.com</a>
+        and we&rsquo;ll sort you out.
+      </p>
+
+      <div class="hero-actions center">
+        <a class="btn btn-primary" href="shop.html">Start Shopping</a>
+        <a class="btn btn-outline" href="index.html">Back To Home</a>
+      </div>
+
+      <p class="welcome-footnote">
+        New batches, market dates, and the occasional bad pun. Nothing else.
+        Unsubscribe any time; every email has a link.
+      </p>
+    </div>
+  </section>
+
+</main>
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="brand">
+<!--YL:site.logoDesktop-->
+          <img class="logo-desktop" src="/assets/img/logo.png" alt="Y'allternative Living icon" width="48" height="48" loading="lazy" decoding="async">
+<!--/YL:site.logoDesktop-->
+          <span class="brand-word">Y'allternative<small>Living</small></span>
+        </div>
+        <p>Handmade self-care for the black sheep &amp; bold hearts. Mixed, poured, and stirred in small batches.</p>
+      </div>
+      <div>
+        <h3>Explore</h3>
+        <ul>
+          <li><a href="/index.html">Home</a></li>
+          <li><a href="/shop.html">Shop All</a></li>
+          <li><a href="/events.html">Events &amp; Fairs</a></li>
+          <li><a href="/about.html">Our Story</a></li>
+          <li><a href="/faq.html">FAQ</a></li>
+          <li><a href="/contact.html">Contact</a></li>
+        </ul>
+      </div>
+      <div>
+        <h3>Shop</h3>
+        <ul>
+          <li><a href="/shop.html#apparel">Apparel</a></li>
+          <li><a href="/shop.html#salves">Salves &amp; Balms</a></li>
+          <li><a href="/shop.html#body">Body &amp; Skin</a></li>
+          <li><a href="/shop.html#soaks">Soaks</a></li>
+          <li><a href="/shop.html#potions">Potions &amp; Spellwork</a></li>
+          <li><a href="/shop.html#ritual">Ritual &amp; Home</a></li>
+          <li><a href="/shop.html#gift-cards">Digital Gift Cards</a></li>
+        </ul>
+      </div>
+      <div>
+        <h3>Say Hey</h3>
+        <ul>
+          <li><a href="mailto:y.allternative.living@gmail.com">y.allternative.living@gmail.com</a></li>
+          <li><a href="https://www.etsy.com/shop/YallternativeLivinCO" target="_blank" rel="noopener">Etsy shop ↗<span class="sr-only"> (opens in new tab)</span></a></li>
+          <li>Based in Landrum, SC</li>
+          <li>Find us at markets &amp; Pride events in the Upstate &amp; beyond</li>
+        </ul>
+        <div class="social-row">
+          <a href="https://www.instagram.com/yallternativeliving" target="_blank" rel="noopener" aria-label="Instagram (opens in new tab)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1"/></svg>
+          </a>
+          <a href="https://www.tiktok.com/@yallternativeliving" target="_blank" rel="noopener" aria-label="TikTok (opens in new tab)">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15 3c.4 2.3 2 4 4.7 4.2v3c-1.7 0-3.3-.5-4.7-1.4v6.7c0 3.1-2.5 5.5-5.6 5.5S3.8 18.6 3.8 15.5c0-3 2.4-5.5 5.6-5.5.4 0 .8 0 1.1.1v3.1c-.3-.1-.7-.2-1.1-.2-1.3 0-2.4 1.1-2.4 2.5s1.1 2.5 2.4 2.5 2.5-1 2.6-2.4V3H15z"/></svg>
+          </a>
+          <a href="https://www.facebook.com/p/Yallternative-Living-61577943406316/" target="_blank" rel="noopener" aria-label="Facebook (opens in new tab)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 8.5h2.5V5H14c-2 0-3.5 1.6-3.5 3.5V11H8v3.5h2.5V21H14v-6.5h2.3l.7-3.5h-3V9c0-.3.2-.5.5-.5z"/></svg>
+          </a>
+          <a href="https://www.etsy.com/shop/YallternativeLivinCO" target="_blank" rel="noopener" aria-label="Etsy shop (opens in new tab)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 8l1-4h14l1 4"/><path d="M4 8h16v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8z"/><path d="M9 12a3 3 0 0 0 6 0"/></svg>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- NEWSLETTER SIGNUP -- plain HTML form that still submits with JS
+         off. Provider: Kit (https://kit.com), chosen for its free
+         10k-subscriber tier and dashboard-configurable post-signup
+         redirect. The action URL comes from site.kitFormAction in
+         content.json (editable at /admin); it is not hand-written here.
+
+         Kit's own embed ships a ck.5.js script tag -- do not add it. It
+         loads from f.convertkit.com, which is deliberately absent from
+         script-src, and it is only needed for Kit's own styled widget.
+         This form posts the field name Kit expects (email_address) to
+         the same endpoint, and app.kit.com is already allowed in both
+         connect-src and form-action. -->
+    <div class="footer-signup reveal" id="footerSignup">
+      <div class="footer-signup-text">
+        <h3>Get 10% Off Your First Order</h3>
+        <p>Drop your email for a welcome code, plus new batch alerts, market dates, and the occasional bad pun. No spam, unsubscribe whenever.</p>
+      </div>
+      <p class="footer-signup-confirm"><span class="glyph" aria-hidden="true">&#10003;</span> You're on the list, y'all! Keep an eye on your inbox.</p>
+      <form class="footer-signup-form" action="https://app.kit.com/forms/9867317/subscriptions" method="post" toolname="subscribe-newsletter" tooldescription="Subscribe to the Y'allternative Living newsletter for updates and discounts.">
+        <div class="form-hp" aria-hidden="true">
+          <label for="footer_website">Leave this field blank</label>
+          <input type="text" id="footer_website" name="footer_website" tabindex="-1" autocomplete="off" aria-hidden="true">
+        </div>
+        <div class="field">
+          <label for="footer_email" class="sr-only">Email address</label>
+          <input type="email" id="footer_email" name="email_address" placeholder="you@email.com" required autocomplete="email">
+        </div>
+        <button class="btn btn-primary btn-sm" type="submit">Join The List</button>
+      </form>
+    </div>
+
+
+    <p class="footer-disclaimer">Handmade self-care, not medicine. Nothing sold here is intended to diagnose, treat, cure, or prevent any condition. Got a real skin or health concern? See an actual doctor, then treat yourself to something that smells nice after.</p>
+    <div class="footer-bottom">
+      <span>&copy; <span id="year"></span> Y'allternative Living. Handmade with grit &amp; glitter. &middot; <a href="/policies.html">Shipping &amp; Returns</a> &middot; <a href="/terms.html">Terms of Service</a> &middot; <a href="/privacy.html">Privacy Policy</a></span>
+      <span>Queer-owned &middot; Southern-raised &middot; Alt-inspired</span>
+    </div>
+  </div>
+</footer>
+<script src="assets/js/content-data.js?v=2.0" defer></script>
+<script src="assets/js/products-data.js?v=2.0" defer></script>
+<script src="assets/js/image-manifest.js?v=2.0" defer></script>
+<script src="assets/js/main.js?v=2.0" defer></script>
+<script src="assets/js/cart.js" defer></script>
+<script src="assets/js/thank-you.js" defer></script>
+<!-- Live chat (Tawk.to) -- placeholder, inert until real IDs are set.
+     Free live-chat widget: https://www.tawk.to -- see DEVELOPMENT.md section 19.
+     Replace YOUR_TAWKTO_PROPERTY_ID/YOUR_TAWKTO_WIDGET_ID below with the
+     real embed values from your own Tawk.to dashboard (Administration ->
+     Chat Widget). Until then this script 404s quietly and no widget
+     appears -- nothing is broken by leaving it as-is. -->
+<script type="text/javascript">
+var Tawk_API = Tawk_API || {}, Tawk_LoadStart = new Date();
+(function () {
+  /* Both IDs are injected from content.json by scripts/build-site-data.js.
+     Until Savanna sets real ones, they're still the "YOUR_..." placeholders --
+     in that state this used to build a live embed.tawk.to URL out of them and
+     request it on every single page load, which 404s and buys nothing. Bail
+     out instead, so the widget stays genuinely inert until it's configured. */
+  var propertyId = /*YL:site.tawkToPropertyId*/ "YOUR_TAWKTO_PROPERTY_ID" /*/YL:site.tawkToPropertyId*/;
+  var widgetId = /*YL:site.tawkToWidgetId*/ "YOUR_TAWKTO_WIDGET_ID" /*/YL:site.tawkToWidgetId*/;
+  if (!propertyId || !widgetId) return;
+  if (propertyId.indexOf("YOUR_") === 0 || widgetId.indexOf("YOUR_") === 0) return;
+  var s1 = document.createElement("script"), s0 = document.getElementsByTagName("script")[0];
+  s1.async = true;
+  s1.src = "https://embed.tawk.to/" + propertyId + "/" + widgetId;
+  s1.charset = "UTF-8";
+  s1.setAttribute("crossorigin", "*");
+  s0.parentNode.insertBefore(s1, s0);
+})();
+</script>
+</body>
+</html>

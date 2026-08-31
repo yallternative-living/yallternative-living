@@ -604,6 +604,7 @@ collections:
               - { name: formspreeContactId, label: "Contact form ID (from Formspree)", widget: string, required: false, hint: "Makes the Contact page's message form work." }
               - { name: formspreeReviewId, label: "Reviews form ID (from Formspree)", widget: string, required: false, hint: "Makes the 'leave a review' form work." }
               - { name: formspreeRestockId, label: "Launch-alert form ID (from Formspree)", widget: string, required: false, hint: "Makes the 'email me when it launches' sign-ups work." }
+              - { name: welcomeCode, label: "Newsletter welcome discount code", widget: string, required: false, hint: "The 10% off code new subscribers get. Shown on the welcome page they land on after confirming. Leave blank and the page points them at your email instead of showing a code that does not work." }
               # Hidden on purpose (widget: hidden = stored, but no UI control).
               # Gift Up! is only half-built: setting a real ID generates a
               # working Gift Up! widget, but nothing hides the built-in
