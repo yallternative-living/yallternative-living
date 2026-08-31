@@ -273,17 +273,25 @@ async function runTests() {
   console.log("\n5. Aspect Ratios & Image Layout Attributes");
   await page.goto(`${URL_BASE}/index.html`, { waitUntil: "networkidle2" });
 
-  const imageAttributesValid = await page.$$eval(".ugc-card-media img", (imgs) => {
-    return imgs.every((img) => {
+  /* $$eval hands back an empty array when the selector matches nothing, and
+     every() is true of an empty array -- so a UGC strip that failed to render
+     at all would pass every attribute assertion below. Count first. */
+  const imageAttributes = await page.$$eval(".ugc-card-media img", (imgs) => ({
+    count: imgs.length,
+    allValid: imgs.every((img) => {
       const w = img.getAttribute("width");
       const h = img.getAttribute("height");
       const loading = img.getAttribute("loading");
       const alt = img.getAttribute("alt");
       return w === "400" && h === "400" && loading === "lazy" && alt && alt.length > 5;
-    });
-  });
+    })
+  }));
   assert(
-    imageAttributesValid,
+    imageAttributes.count > 0,
+    "UGC card images present to check (found " + imageAttributes.count + ")"
+  );
+  assert(
+    imageAttributes.count > 0 && imageAttributes.allValid,
     "All UGC card images have width='400', height='400', loading='lazy', and non-empty alt text"
   );
 
@@ -364,17 +372,30 @@ async function runTests() {
   );
   assert(roleListPresent, "#shopSocialFeedGrid has role='list'");
 
-  const roleListItemPresent = await page.$$eval("#shopSocialFeedGrid .ugc-card", (cards) => {
-    return cards.every((c) => c.getAttribute("role") === "listitem");
-  });
-  assert(roleListItemPresent, "All UGC cards in grid have role='listitem'");
+  const roleListItems = await page.$$eval("#shopSocialFeedGrid .ugc-card", (cards) => ({
+    count: cards.length,
+    allValid: cards.every((c) => c.getAttribute("role") === "listitem")
+  }));
+  assert(
+    roleListItems.count > 0,
+    "UGC cards present in grid to check (found " + roleListItems.count + ")"
+  );
+  assert(
+    roleListItems.count > 0 && roleListItems.allValid,
+    "All UGC cards in grid have role='listitem'"
+  );
 
-  const linksHaveNoopener = await page.$$eval(".ugc-post-link", (links) => {
-    return links.every(
+  const postLinks = await page.$$eval(".ugc-post-link", (links) => ({
+    count: links.length,
+    allValid: links.every(
       (l) => l.getAttribute("target") === "_blank" && l.getAttribute("rel") === "noopener"
-    );
-  });
-  assert(linksHaveNoopener, "All external post links have target='_blank' and rel='noopener'");
+    )
+  }));
+  assert(postLinks.count > 0, "UGC post links present to check (found " + postLinks.count + ")");
+  assert(
+    postLinks.count > 0 && postLinks.allValid,
+    "All external post links have target='_blank' and rel='noopener'"
+  );
 
   // ----------------------------------------------------
   // CLEANUP & SUMMARY

@@ -223,7 +223,15 @@ var imgRefs = new Set();
 var missingImgs = Array.from(imgRefs).filter(function (r) {
   return !fs.existsSync(path.join(ROOT, r));
 });
-if (!missingImgs.length) ok("all " + imgRefs.size + " referenced image paths exist on disk");
+/* A floor, not a coverage target: this set is built by regex-scanning pages,
+   so if that scan ever broke the filter below would find nothing missing and
+   report "all 0 referenced image paths exist" as a pass. */
+if (!imgRefs.size) {
+  fail(
+    "image reference scan found any references at all",
+    "0 refs scanned -- the check below would pass vacuously"
+  );
+} else if (!missingImgs.length) ok("all " + imgRefs.size + " referenced image paths exist on disk");
 else
   missingImgs.forEach(function (m) {
     fail("missing image file", m);
@@ -1405,7 +1413,12 @@ if (!fs.existsSync(swPath)) {
       var full = path.join(ROOT, clean);
       if (!fs.existsSync(full)) missingSwAssets.push(assetPath);
     });
-    if (!missingSwAssets.length) {
+    if (!rawAssets.length) {
+      /* The array was located but no entries parsed out of it -- a quoting
+         change in sw.js would do that. Without this, "all 0 cached assets
+         exist" passes while the precache list goes unchecked. */
+      fail("sw.js: ASSETS_TO_CACHE entries parsed", "0 entries parsed from the array");
+    } else if (!missingSwAssets.length) {
       ok("sw.js: all " + rawAssets.length + " cached assets exist on disk");
     } else {
       missingSwAssets.forEach(function (ma) {
