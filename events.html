@@ -171,6 +171,15 @@
         <div class="events-carousel-inner">
           <article class="card event-card active">
             <div class="card-body">
+              <span class="card-cat">Flea Market</span>
+              <h3>Spartanburg Punk Flea Market</h3>
+              <p class="event-date"><time datetime="2026-08-29">📅 August 29–30, 2026 · Sat &amp; Sun, 11am–7pm</time></p>
+              <p class="event-location">📍 Spartanburg, SC</p>
+              <p class="event-desc">575 Fairgrounds Rd, Spartanburg, SC 29303. Two-day punk flea market.</p>
+            </div>
+          </article>
+          <article class="card event-card ">
+            <div class="card-body">
               <span class="card-cat">Night Market</span>
               <h3>Gothic Punk Night Market</h3>
               <p class="event-date"><time datetime="2026-08-21">📅 August 21, 2026 · Friday, 6:30pm–9pm</time></p>
@@ -185,18 +194,6 @@
               <p class="event-date"><time datetime="2026-08-15">📅 August 15–16, 2026 · Sat &amp; Sun, 11am–7pm</time></p>
               <p class="event-location">📍 Ladson, SC</p>
               <p class="event-desc">9850 Highway 78, Ladson, SC 29456. Two-day punk flea market — come find our table.</p>
-            </div>
-          </article>
-          <article class="card event-card ">
-            <div class="card-body">
-              <span class="card-cat">Pride Event</span>
-              <h3>Upstate Pride: Colors of Pride</h3>
-              <p class="event-date"><time datetime="2026-06-20">📅 June 2026</time></p>
-              <p class="event-location">📍 Greenville, SC</p>
-              <p class="event-desc">Y&#39;allternative Living tabled with soaps, salves &amp; the full rainbow lineup.</p>
-              <div class="event-cta">
-                <a class="btn btn-primary btn-sm btn-block" href="https://www.upstatepride.sc/" target="_blank" rel="noopener">More Info / RSVP<span class="sr-only"> (opens in new tab)</span></a>
-              </div>
             </div>
           </article>
         </div>
@@ -280,18 +277,25 @@
       </div>
     </div>
 
-    <!-- NEWSLETTER SIGNUP -- plain HTML form, real native POST, no JS
-         required to submit it. Provider: Kit (https://kit.com), chosen
-         for its free 10k-subscriber tier and dashboard-configurable
-         post-signup redirect. Replace YOUR_KIT_FORM_ACTION_URL with the
-         real form action URL from your Kit account -- see README. -->
+    <!-- NEWSLETTER SIGNUP -- plain HTML form that still submits with JS
+         off. Provider: Kit (https://kit.com), chosen for its free
+         10k-subscriber tier and dashboard-configurable post-signup
+         redirect. The action URL comes from site.kitFormAction in
+         content.json (editable at /admin); it is not hand-written here.
+
+         Kit's own embed ships a ck.5.js script tag -- do not add it. It
+         loads from f.convertkit.com, which is deliberately absent from
+         script-src, and it is only needed for Kit's own styled widget.
+         This form posts the field name Kit expects (email_address) to
+         the same endpoint, and app.kit.com is already allowed in both
+         connect-src and form-action. -->
     <div class="footer-signup reveal" id="footerSignup">
       <div class="footer-signup-text">
         <h3>Get 10% Off Your First Order</h3>
         <p>Drop your email for a welcome code, plus new batch alerts, market dates, and the occasional bad pun. No spam, unsubscribe whenever.</p>
       </div>
       <p class="footer-signup-confirm"><span class="glyph" aria-hidden="true">&#10003;</span> You're on the list, y'all! Keep an eye on your inbox.</p>
-      <form class="footer-signup-form" action="YOUR_KIT_FORM_ACTION_URL" method="post" toolname="subscribe-newsletter" tooldescription="Subscribe to the Y'allternative Living newsletter for updates and discounts.">
+      <form class="footer-signup-form" action="https://app.kit.com/forms/9867317/subscriptions" method="post" toolname="subscribe-newsletter" tooldescription="Subscribe to the Y'allternative Living newsletter for updates and discounts.">
         <div class="form-hp" aria-hidden="true">
           <label for="footer_website">Leave this field blank</label>
           <input type="text" id="footer_website" name="footer_website" tabindex="-1" autocomplete="off" aria-hidden="true">

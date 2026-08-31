@@ -895,7 +895,24 @@ section{
 .card-body{
   padding:20px 22px 24px; display:flex; flex-direction:column; gap:8px; flex:1;
   
-  & h3{ margin:0; font-family:var(--font-body); font-weight:700; font-size:1.02rem; }
+  /* `text-wrap: balance` (set globally on h1-h4) evens out a heading's line
+     lengths. That is right for a big hero title and wrong for a card title in
+     a narrow column: it broke "Bug Off B*tch Natural Bug Spray" at 113px of an
+     available 242px on a 320px screen, leaving half the line empty and reading
+     like a bug rather than a choice. Fill the line instead.
+
+     Below 600px the cards are the narrowest they ever get (~288px on a 320px
+     screen, ~380px on a Pixel 7), which is the only place long product names
+     actually run out of room. Easing the title down there fits nearly all of
+     them on one line -- measured over all 26 products, wrapping goes 3/26 ->
+     0/26 on a Pixel 7 and 3/26 -> 1/26 on an iPhone 14. A 320px screen still
+     wraps 5; no type size fixes that without shrinking past legibility. */
+  & h3{
+    margin:0; font-family:var(--font-body); font-weight:700; font-size:1.02rem;
+    text-wrap: wrap;
+    
+    @media (max-width: 600px){ font-size:.9rem; }
+  }
   & p{ font-size:.88rem; margin:0; }
 }
 

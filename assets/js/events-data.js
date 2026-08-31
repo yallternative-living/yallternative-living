@@ -7,16 +7,6 @@
 window.YL_EVENTS = {
   "upcoming": [
     {
-      "date": "2026-08-29",
-      "endDate": "2026-08-30",
-      "dateLabel": "August 29–30, 2026 · Sat & Sun, 11am–7pm",
-      "name": "Spartanburg Punk Flea Market",
-      "type": "Flea Market",
-      "location": "Spartanburg, SC",
-      "zip": "29303",
-      "note": "575 Fairgrounds Rd, Spartanburg, SC 29303. Two-day punk flea market."
-    },
-    {
       "date": "2026-10-17T09:00:00-04:00",
       "dateLabel": "October 17, 2026",
       "name": "Autumn Apothecary Faire",
@@ -28,6 +18,15 @@ window.YL_EVENTS = {
     }
   ],
   "past": [
+    {
+      "date": "2026-08-29",
+      "endDate": "2026-08-30",
+      "dateLabel": "August 29–30, 2026 · Sat & Sun, 11am–7pm",
+      "name": "Spartanburg Punk Flea Market",
+      "type": "Flea Market",
+      "location": "Spartanburg, SC",
+      "note": "575 Fairgrounds Rd, Spartanburg, SC 29303. Two-day punk flea market."
+    },
     {
       "date": "2026-08-21",
       "dateLabel": "August 21, 2026 · Friday, 6:30pm–9pm",
