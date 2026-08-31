@@ -22,7 +22,7 @@
  * that spoof ever stops working -- otherwise these checks would pass vacuously
  * while testing nothing, which is worse than not having them.
  *
- * Manages its own static server on port 8085, so nothing external needs to be
+ * Manages its own static server on port 8087, so nothing external needs to be
  * running first.
  *
  * Run: node scripts/reveal-check.js
@@ -35,7 +35,7 @@ const fs = require("fs");
 const path = require("path");
 const puppeteer = require("puppeteer");
 
-const PORT = 8085;
+const PORT = 8087;
 const ROOT = path.resolve(__dirname, "..");
 const BASE = `http://127.0.0.1:${PORT}`;
 

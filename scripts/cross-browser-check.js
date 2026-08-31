@@ -391,9 +391,18 @@ async function runEngine(engine) {
           (a) => getComputedStyle(a, "::after").transform
         )
       );
+      /* every() is true of an empty array, so if `.nav-links a` ever stopped
+         matching -- a renamed class, a restructured header -- "flat on every
+         link" would pass having examined no links at all. Assert there are
+         links before asserting anything about them. */
+      check(
+        `${engine.name}: nav links found to test`,
+        atRest.length >= 3,
+        `${atRest.length} matched .nav-links a -- the selector is stale, so the check below proves nothing`
+      );
       check(
         `${engine.name}: underline flat at rest on every link incl. current page`,
-        atRest.every(FLAT),
+        atRest.length >= 3 && atRest.every(FLAT),
         JSON.stringify(atRest)
       );
       await page.hover('.nav-links a[href="shop.html"]');
@@ -415,8 +424,8 @@ async function runEngine(engine) {
       );
       check(
         `${engine.name}: other links stay flat while hovering`,
-        hovered.others.every(FLAT),
-        JSON.stringify(hovered.others)
+        hovered.others.length > 0 && hovered.others.every(FLAT),
+        `${hovered.others.length} other links: ${JSON.stringify(hovered.others)}`
       );
       await context.close();
     }
