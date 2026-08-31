@@ -858,34 +858,60 @@ Nothing about the honeypot or confirmation JS needs to change once you do
 this — they're driven entirely by the form's real action URL and Kit's
 own redirect setting, not by anything hardcoded to a fake key.
 
-### TODO: deliver the 10% welcome code
+### Delivering the 10% welcome code
 
 Every page's footer promises **"Get 10% Off Your First Order"** for signing
-up. A Stripe coupon and promotion code now exist, and
-`workers/checkout.js` already sets `allow_promotion_codes: "true"`, so the
-code is redeemable at checkout. **What does not exist yet is any path that
-puts the code in front of the subscriber.** Until one of the two below is
-built, everyone who signs up is promised a discount they never receive.
+up. The Stripe coupon and its promotion code `YALL10` exist, and
+`workers/checkout.js` sets `allow_promotion_codes: "true"`, so the code is
+redeemable at checkout.
 
-Either works alone; both together is better — the page gives it to them
-instantly, the email gives them something to find later when they are
-actually ready to buy.
+There are two ways to get the code in front of a subscriber. Either works
+alone; both together is better, because the page gives it to them instantly
+and the email gives them something to find later, when they are actually
+ready to buy.
 
-**Approach A — automated email from Kit (not started).**
-Build one welcome email in Kit, triggered when someone subscribes to form
-`9867317`, containing the promotion code. It fires after the visitor
-confirms (double opt-in is on), so it doubles as the reward for
-confirming. This is the route the confirmation email's copy assumes when
-it says the code "lands in your inbox right after" — do not ship that
-wording until this exists.
+**Approach A — automated email from Kit. Not built; copy is ready.**
+Nothing in this repo can build it: it is one automation inside Kit,
+triggered when someone subscribes to form `9867317`, sending a single
+welcome email that contains the code. It fires after the visitor confirms
+(double opt-in is on), so it doubles as the reward for confirming.
 
-**Approach B — a welcome page on this site (not started).**
-Kit's "after confirming redirect to" currently points at
-`https://yallternativeliving.com/shop.html`, which shows no code and does
-not mention one. A dedicated `/welcome.html` could display the code with
-instructions and link into the shop; repointing that redirect is then a
-one-field change in Kit. This route needs no Kit automation, and unlike
-the email it lives entirely in this repo.
+Suggested copy, matching the site's voice and the welcome page's wording:
+
+> **Subject:** Here's your 10% off, y'all
+>
+> You're confirmed and on the list. Here's the 10% off your first order we
+> promised.
+>
+> **YALL10**
+>
+> Enter it at checkout, in the box marked "Add promotion code".
+>
+> [Start shopping](https://yallternativeliving.com/shop.html)
+>
+> New batches, market dates, and the occasional bad pun. Nothing else.
+
+If this gets built, the confirmation email can then honestly promise the
+code is coming; until then its copy should say only that confirming puts
+them on the list. Keep the code itself out of the confirmation email
+regardless (see below).
+
+**Approach B — a welcome page on this site. Built and live.**
+`welcome.html` shows the code and links into the shop. It is `noindex,
+nofollow` and deliberately absent from the sitemap: it is a landing spot
+for people arriving from a confirmation link, not a page to be found in
+search.
+
+The code comes from `site.welcomeCode` in `content.json` (editable at
+`/admin`), never hardcoded in the markup. If that value is blank or still
+the `YOUR_WELCOME_CODE` placeholder, `main.js` hides the code card and
+shows "your code is on its way by email" instead, so the page can never
+print a code that fails at checkout.
+
+**One manual step is still outstanding:** Kit's "after confirming redirect
+to" must point at `https://yallternativeliving.com/welcome.html`. While it
+points anywhere else (it was `shop.html`), confirmed subscribers never see
+the page and the code is undelivered.
 
 Whichever is built, the code string must not be hardcoded in more than one
 place — put it in `assets/data/content.json` under `site.*` so `/admin` can
