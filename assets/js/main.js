@@ -332,6 +332,33 @@
     });
   });
 
+  /* ---------- Welcome page: show the subscriber discount code ----------
+     welcome.html is where Kit's "after confirming redirect to" sends people
+     once they click the confirmation link. The code itself lives in
+     content.json under site.welcomeCode (editable at /admin), never hardcoded
+     in the markup, so it can be rotated without a code change.
+
+     Both blocks start hidden. If no real code is configured we reveal the
+     "it's coming by email" copy instead of printing the placeholder --
+     showing a code that fails at checkout is worse than showing none, and
+     matches how the contact, review and newsletter handlers refuse to fake
+     a result they cannot deliver. */
+  var welcomeCodeEl = document.getElementById("welcomeCode");
+  if (welcomeCodeEl) {
+    var welcomeSite = (window.YL_CONTENT && window.YL_CONTENT.site) || {};
+    var welcomeCode = welcomeSite.welcomeCode;
+    var codeIsReal = !!welcomeCode && welcomeCode !== "YOUR_WELCOME_CODE";
+    var codeCard = document.getElementById("welcomeCodeCard");
+    var noCode = document.getElementById("welcomeNoCode");
+
+    if (codeIsReal) {
+      welcomeCodeEl.textContent = welcomeCode;
+      if (codeCard) codeCard.hidden = false;
+    } else if (noCode) {
+      noCode.hidden = false;
+    }
+  }
+
   /* ---------- Newsletter signup: post-redirect confirmation ----------
      The actual subscribe is a real, un-intercepted POST straight to
      the email provider (see the form's real action URL once it's set

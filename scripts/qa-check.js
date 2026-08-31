@@ -63,6 +63,7 @@ var PAGES = [
   "policies.html",
   "404.html",
   "thank-you.html",
+  "welcome.html",
   "journal.html"
 ];
 

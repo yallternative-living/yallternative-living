@@ -1729,7 +1729,13 @@ function buildSiteData() {
     const site = content.site || {};
     const ALL_HTML_PAGES = PAGES.map(function (p) {
       return p.loc;
-    }).concat(["404.html", "thank-you.html", "journal.html", "assets/data/footer.html"]);
+    }).concat([
+      "404.html",
+      "thank-you.html",
+      "welcome.html",
+      "journal.html",
+      "assets/data/footer.html"
+    ]);
 
     ALL_HTML_PAGES.forEach(function (page) {
       const filePath = path.join(ROOT, page);
