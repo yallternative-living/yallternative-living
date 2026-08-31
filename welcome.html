@@ -102,6 +102,15 @@
       <h1>Welcome To The List, Y'all!</h1>
       <p class="lede welcome-lede">Here's 10% off your first order, as promised.</p>
 
+      <!-- The h1 above is followed by the footer's h3s, so without a level-2
+           here the document jumps h1 -> h3 and fails axe's heading-order rule
+           (thank-you.html, which this page was built from, had a level-2 section
+           that is not wanted here). It sits outside both state blocks on
+           purpose: either the card or the fallback shows, never both, and a
+           heading inside a hidden block leaves the gap open again. Visually
+           redundant next to the card, so it is screen-reader only. -->
+      <h2 class="sr-only">Your welcome discount</h2>
+
       <!-- Filled in by main.js from site.welcomeCode (content.json, editable at
            /admin). Starts hidden: with no code configured main.js leaves this
            alone and reveals #welcomeNoCode instead, so this page never prints a
