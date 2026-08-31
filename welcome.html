@@ -14,13 +14,13 @@
      on from search, so it stays out of the index like 404.html does. -->
 <meta name="robots" content="noindex, nofollow">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Thank You | Y'allternative Living">
-<meta property="og:description" content="Thanks for your order from Y'allternative Living -- handmade self-care from Landrum, SC.">
+<meta property="og:title" content="Welcome To The List | Y'allternative Living">
+<meta property="og:description" content="You’re on the list. Grab your welcome discount and go find something good.">
 <meta property="og:image" content="https://yallternativeliving.com/assets/img/og-image.jpg">
-<meta property="og:url" content="https://yallternativeliving.com/thank-you.html">
+<meta property="og:url" content="https://yallternativeliving.com/welcome.html">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Thank You | Y'allternative Living">
-<meta name="twitter:description" content="Thanks for your order from Y'allternative Living -- handmade self-care from Landrum, SC.">
+<meta name="twitter:title" content="Welcome To The List | Y'allternative Living">
+<meta name="twitter:description" content="You’re on the list. Grab your welcome discount and go find something good.">
 <meta name="twitter:image" content="https://yallternativeliving.com/assets/img/og-image.jpg">
 <link rel="icon" href="assets/img/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="icon" href="assets/img/favicon-192.png" sizes="192x192" type="image/png">
@@ -100,25 +100,22 @@
     <div class="container center">
       <span class="eyebrow">You're In</span>
       <h1>Welcome To The List, Y'all!</h1>
-      <p class="lede">
-        Your email is confirmed. Here's the 10% off your first order we promised --
-        no catch, no minimum fuss.
-      </p>
+      <p class="lede welcome-lede">Here's 10% off your first order, as promised.</p>
 
       <!-- Filled in by main.js from site.welcomeCode (content.json, editable at
-           /admin). Starts hidden: if no code is configured, main.js leaves this
-           alone and reveals #welcomeNoCode instead, so this page never shows a
-           fake code that fails at checkout. -->
+           /admin). Starts hidden: with no code configured main.js leaves this
+           alone and reveals #welcomeNoCode instead, so this page never prints a
+           code that fails at checkout. -->
       <div class="welcome-code-card" id="welcomeCodeCard" hidden>
         <p class="welcome-code-label">Your code</p>
         <p class="welcome-code" id="welcomeCode"></p>
-        <p class="muted">Enter it at checkout, in the box marked "Add promotion code".</p>
+        <p class="welcome-code-hint">Enter it at checkout, in the box marked &ldquo;Add promotion code&rdquo;.</p>
       </div>
 
-      <p class="lede" id="welcomeNoCode" hidden>
-        Your code is on its way by email. If it doesn't turn up, email
+      <p class="lede welcome-lede" id="welcomeNoCode" hidden>
+        Your code is on its way by email. If it doesn&rsquo;t turn up, email
         <a href="mailto:y.allternative.living@gmail.com">y.allternative.living@gmail.com</a>
-        and we'll sort you out.
+        and we&rsquo;ll sort you out.
       </p>
 
       <div class="hero-actions center">
@@ -126,9 +123,9 @@
         <a class="btn btn-outline" href="index.html">Back To Home</a>
       </div>
 
-      <p class="muted" style="margin-top:24px;max-width:520px;margin-left:auto;margin-right:auto;">
-        You'll hear from us when a new batch lands, when we're at a market near you,
-        and not much else. Unsubscribe any time -- every email has a link.
+      <p class="welcome-footnote">
+        New batches, market dates, and the occasional bad pun. Nothing else.
+        Unsubscribe any time; every email has a link.
       </p>
     </div>
   </section>

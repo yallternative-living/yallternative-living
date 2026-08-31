@@ -1922,7 +1922,7 @@ section{
    read off a phone, with generous letter-spacing so O/0 and I/1 stay apart. */
 .welcome-code-card{
   max-width: 380px;
-  margin: 28px auto 8px;
+  margin: 28px auto 22px;
   padding: 22px 24px;
   border: 1px solid var(--hide);
   border-radius: var(--radius-lg);
@@ -1943,7 +1943,18 @@ section{
     /* Long codes should wrap rather than push the card wide on a 320px screen. */
     overflow-wrap: anywhere;
   }
-  & .muted{ font-size:.82rem; margin:0; }
+  & .welcome-code-hint{ font-size:.82rem; margin:0; color: var(--paper-dim); }
+}
+
+/* The lede sits directly above the code card, so it stays short and does not
+   compete with it -- the code is what the visitor came for. */
+.welcome-lede{ max-width: 34ch; margin-left:auto; margin-right:auto; }
+
+.welcome-footnote{
+  max-width: 46ch;
+  margin: 28px auto 0;
+  font-size: .84rem;
+  color: var(--paper-dim);
 }
 
 /* =============== EVENTS =============== */
