@@ -282,24 +282,52 @@
         return;
       }
 
-      // Submit via AJAX (fetch) to prevent page reload/redirect
+      /* Submit via AJAX so the page never navigates away to Kit.
+
+         This used to pass mode:"no-cors", which makes the response opaque:
+         status is always 0, res.ok is always false, and the promise resolves
+         no matter what the server said. The old .then() therefore showed
+         "You're on the list, y'all!" for every outcome, including a rejected
+         or misrouted submission -- telling someone they had subscribed when
+         they had not, so they would never think to try again. Kit answers
+         preflight with `access-control-allow-origin: *` and permits POST plus
+         the accept header, so a normal CORS request works and the response can
+         actually be read. */
       e.preventDefault();
       var button = form.querySelector('button[type="submit"]');
-      button.disabled = true;
-      button.textContent = "Joining...";
+      var buttonLabel = button ? button.textContent : "";
+      if (button) {
+        button.disabled = true;
+        button.textContent = "Joining...";
+      }
+
+      var restoreButton = function () {
+        if (!button) return;
+        button.disabled = false;
+        button.textContent = buttonLabel;
+      };
 
       fetch(form.action, {
         method: "POST",
         body: new FormData(form),
-        mode: "no-cors"
+        headers: { Accept: "application/json" }
       })
-        .then(function () {
+        .then(function (res) {
+          if (!res.ok) throw new Error("Signup rejected: " + res.status);
           var box = form.closest(".footer-signup");
           if (box) box.classList.add("is-subscribed");
         })
         .catch(function () {
-          // Fallback to standard form submit in case of network issues
-          form.submit();
+          /* Deliberately not falling back to form.submit() here. That fired a
+             real full-page POST, dumping the visitor on Kit's own site with no
+             way back. Say plainly that it did not go through and hand over a
+             mailbox that does, matching the contact and restock handlers. */
+          restoreButton();
+          showFormFallback(
+            form,
+            "That didn't go through -- you haven't been subscribed. Email us and we'll add you: ",
+            "y.allternative.living@gmail.com"
+          );
         });
     });
   });
