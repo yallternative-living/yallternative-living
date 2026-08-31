@@ -13,6 +13,19 @@ name: QA checks
 # until a real domain was set. That domain is set, so the exception is
 # gone.)
 
+# Action versions (checked Aug 2026): checkout v7, setup-node v7, cache v6 are
+# the current majors. v4 of each ran on the Node20 action runtime, which GitHub
+# stopped defaulting to on 2026-06-16 and removes entirely on 2026-09-23 --
+# after that a v4 action does not run at all, opt-out flag or no. Everything
+# from v5 onward runs on Node24 and needs runner >= 2.327.1, which
+# GitHub-hosted ubuntu-latest satisfies.
+#
+# `node-version` below is a different thing: the Node the project's own tests
+# run on, not the actions runtime. It is 24 because that is Active LTS -- Node
+# 20 went end-of-life on 2026-03-24 (so CI was testing on an unpatched runtime)
+# and 22 is only in maintenance. Every suite in this repo is verified green on
+# 24.20.0.
+#
 # Minutes-saving notes (added to stop this workflow burning Actions minutes):
 #   * paths-ignore: doc-only commits (*.md, docs/) don't trigger a run.
 #   * concurrency: a newer push cancels the older in-progress run instead of
@@ -50,10 +63,10 @@ jobs:
       PUPPETEER_SKIP_DOWNLOAD: "true"
       PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: "true"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version: "24"
           cache: "npm"
       - run: npm install --no-audit --no-fund
       - run: npm run lint
@@ -73,15 +86,15 @@ jobs:
     # the ones that hang -- a wedged page load has no deadline of its own.
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version: "24"
           cache: "npm"
       # No PUPPETEER_SKIP_DOWNLOAD here: test:integration needs that Chromium.
       - run: npm install --no-audit --no-fund
       - name: Cache Playwright engines
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
