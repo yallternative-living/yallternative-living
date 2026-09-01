@@ -1539,5 +1539,103 @@ const contentJson = JSON.parse(
   );
 });
 
+/* ---------- H-14: the privacy policy has to describe the site that exists ----------
+   It claimed no form but the newsletter collected contact information (five
+   others do), and stated as fact that Umami analytics runs (the website id is
+   still a placeholder). It named none of the processors actually handling
+   customer data. These assertions are derived from the code and config, not
+   from a copy of the prose, so a new form or a new third party breaks them. */
+const privacySrc = fs404.readFileSync(path404.join(repoRoot, "privacy.html"), "utf8");
+
+/* Every processor the site actually talks to has to be named on the page. */
+[
+  "Stripe",
+  "Cloudflare",
+  "Netlify",
+  "Formspree",
+  "Kit",
+  "Resend",
+  "Tawk.to",
+  "Google Fonts",
+  "Google Translate",
+  "Umami",
+  "Etsy"
+].forEach((processor) => {
+  assert(
+    privacySrc.indexOf(processor) !== -1,
+    `privacy.html names ${processor}, which handles data for this site`
+  );
+});
+
+/* Every form that collects something has to be described. */
+[
+  ["Contact form", /Contact form/],
+  ["product review", /Product review form/],
+  ["shop review", /Shop review form/],
+  ["restock alert", /Restock &amp; launch alerts/],
+  ["gift card recipient", /Gift card recipient details/],
+  ["newsletter", /Newsletter signup/],
+  ["live chat", /Live chat/]
+].forEach(([label, pattern]) => {
+  assert(pattern.test(privacySrc), `privacy.html describes the ${label} form`);
+});
+
+/* The false claim that nothing else collects contact information is gone. */
+assert(
+  privacySrc.indexOf("There's no other form on this site that collects contact info") === -1,
+  "privacy.html no longer claims the newsletter is the only form that collects contact info"
+);
+
+/* Analytics is conditional, so the page must not state it as running. The
+   website id is still a placeholder, so nothing loads today. */
+const contentSrc = JSON.parse(
+  fs404.readFileSync(path404.join(repoRoot, "assets/data/content.json"), "utf8")
+);
+const umamiConfigured =
+  !!contentSrc.site.umamiWebsiteId && contentSrc.site.umamiWebsiteId.indexOf("YOUR_") !== 0;
+if (!umamiConfigured) {
+  assert(
+    privacySrc.indexOf('We run <a href="https://umami.is/"') === -1,
+    "privacy.html does not assert that Umami is running while its id is a placeholder"
+  );
+  assert(
+    /analytics may be enabled/i.test(privacySrc),
+    "privacy.html says analytics may be enabled rather than that it is"
+  );
+}
+assert(
+  /cookieless/i.test(privacySrc),
+  "privacy.html describes Umami as cookieless if it is enabled"
+);
+
+/* Tawk.to is live on this page and sets its own cookies -- that has to be said. */
+assert(
+  privacySrc.indexOf("tawk.to") !== -1 && /Tawk\.to[\s\S]{0,400}cookies/i.test(privacySrc),
+  "privacy.html says the live chat sets its own cookies"
+);
+
+/* Browser storage: the cart, wishlist, recently viewed and applied gift card. */
+[/wishlist/i, /Your cart/i, /Recently viewed/i, /gift card code you've applied/i].forEach(
+  (pattern) => {
+    assert(pattern.test(privacySrc), `privacy.html lists ${pattern} among what is stored locally`);
+  }
+);
+assert(
+  privacySrc.indexOf("localStorage") !== -1,
+  "privacy.html still names localStorage as where that lives"
+);
+
+/* Build markers must survive the rewrite, in both comment syntaxes. */
+eq(
+  (privacySrc.match(/<!--YL:/g) || []).length,
+  (privacySrc.match(/<!--\/YL:/g) || []).length,
+  "privacy.html HTML build markers stay paired"
+);
+eq(
+  (privacySrc.match(/\/\*YL:/g) || []).length,
+  (privacySrc.match(/\/\*\/YL:/g) || []).length,
+  "privacy.html script build markers stay paired"
+);
+
 console.log(`\nmain.test.js: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

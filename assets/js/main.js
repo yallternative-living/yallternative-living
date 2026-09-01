@@ -3278,7 +3278,7 @@
     var safeRef = attrEsc(reference || "");
     return (
       '<div class="order-lookup-unavailable" role="status">' +
-      "<h3>We look this one up by hand</h3>" +
+      "<h2>We look this one up by hand</h2>" +
       "<p>Order tracking isn&rsquo;t automated here &mdash; every batch is made and boxed by one " +
       "person, and every lookup is answered by that same person. " +
       (safeRef ? "Send us <strong>" + safeRef + "</strong> " : "Send us your order reference ") +
