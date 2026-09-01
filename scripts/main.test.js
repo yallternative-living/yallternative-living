@@ -1187,5 +1187,54 @@ assert(
 mockDocument.getElementById = originalGetElementById;
 mockDocument.querySelector = originalQuerySelector;
 
+/* ---------- C-5: 404.html must work at any depth, and the translator load ----------
+   Netlify serves 404.html at the requested URL, so a document-relative asset
+   path on /products/anything resolves to /products/assets/... and the page
+   renders unstyled with every escape route broken. Assert every same-origin
+   reference in the file is root-absolute (or a fragment/mailto), and that
+   main.js loads the translator from an absolute path for the same reason. */
+const fs404 = require("fs");
+const path404 = require("path");
+const repoRoot = path404.resolve(__dirname, "..");
+const notFoundSrc = fs404.readFileSync(path404.join(repoRoot, "404.html"), "utf8");
+const relativeRefs = [];
+notFoundSrc.replace(/\s(?:href|src)="([^"]*)"/g, function (_m, url) {
+  if (!url) return _m;
+  if (/^(https?:)?\/\//i.test(url)) return _m;
+  if (url.charAt(0) === "/" || url.charAt(0) === "#") return _m;
+  if (/^(mailto|tel):/i.test(url)) return _m;
+  relativeRefs.push(url);
+  return _m;
+});
+eq(relativeRefs, [], "404.html has no document-relative href/src (C-5)");
+assert(
+  notFoundSrc.indexOf('<link rel="manifest" href="/site.webmanifest">') !== -1,
+  "404.html links the manifest root-absolutely"
+);
+assert(
+  notFoundSrc.indexOf('src="/assets/js/main.js?v=2.0"') !== -1,
+  "404.html loads main.js root-absolutely"
+);
+assert(
+  notFoundSrc.indexOf("<!--YL:site.umamiWebsiteId--><!--/YL:site.umamiWebsiteId-->") !== -1 &&
+    notFoundSrc.indexOf("<!--YL:nav.journal--><!--/YL:nav.journal-->") !== -1,
+  "404.html keeps its build markers intact"
+);
+
+const mainSrc = fs404.readFileSync(path404.join(repoRoot, "assets/js/main.js"), "utf8");
+assert(
+  mainSrc.indexOf('s.src = "/assets/js/translator.js?v=2.0";') !== -1,
+  "main.js loads translator.js from a root-absolute path (C-5)"
+);
+
+/* ---------- site.webmanifest identity ---------- */
+const manifest = JSON.parse(fs404.readFileSync(path404.join(repoRoot, "site.webmanifest"), "utf8"));
+eq(manifest.start_url, "/", "site.webmanifest start_url is root-absolute");
+eq(manifest.scope, "/", "site.webmanifest declares a scope");
+assert(
+  typeof manifest.id === "string" && manifest.id.length > 0,
+  "site.webmanifest declares a stable id"
+);
+
 console.log(`\nmain.test.js: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

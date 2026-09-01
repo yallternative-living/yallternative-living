@@ -8081,7 +8081,7 @@
   (function () {
     if (typeof document === "undefined") return;
     var s = document.createElement("script");
-    s.src = "assets/js/translator.js?v=2.0";
+    s.src = "/assets/js/translator.js?v=2.0";
     s.defer = true;
     document.body.appendChild(s);
   })();
