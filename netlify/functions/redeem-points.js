@@ -1,19 +1,76 @@
 /* ==========================================================================
    netlify/functions/redeem-points.js
-   Y'allternative Living — Alt-Points Loyalty to Gift Voucher Conversion
+   Y'allternative Living — Alt-Points redemption: DISABLED ENDPOINT
    --------------------------------------------------------------------------
-   Converts customer Alt-Points into a real stored-value Stripe Promotion Code
-   and Coupon (prefixed with YALL-PTS-), allowing balance carryover across
-   orders. Dispatches a confirmation email with the voucher code via Resend.
+   THIS ENDPOINT MINTS NOTHING. Every non-OPTIONS request gets 410 Gone.
+
+   It used to convert "Alt-Points" into a real stored-value Stripe Promotion
+   Code (YALL-PTS-), and it did so on the word of the caller alone. There is
+   no server-side points ledger anywhere in this project: the balance lives in
+   the shopper's own browser (localStorage), the request body simply says
+   `{"points": 500}`, and nothing here could check whether those points were
+   ever earned or had already been spent. A single POST from a terminal --
+   repeated in a loop -- minted unlimited real store credit, redeemable at
+   checkout like cash, with no record that would even let it be reconciled
+   after the fact.
+
+   Turning the endpoint off is the only correct fix available without a
+   ledger: the discount codes it created are indistinguishable from real gift
+   cards once they exist, so there is nothing to claw back afterwards. The
+   loyalty UI is hidden client-side; this returns 410 (Gone, not 404) so the
+   old URL is honest about having been withdrawn, and so any cached client
+   still calling it shows the shopper a real message instead of a spinner.
+
+   The pure helpers below (code derivation, the tier table, and the Stripe /
+   Resend calls) are kept EXPORTED but UNREACHABLE from the handler: they are
+   the shape a future ledger-backed implementation would take, and the test
+   suite pins their behaviour. Nothing in exports.handler calls them -- do not
+   wire them back up without a server-side ledger that can verify a balance
+   and record the spend atomically.
    ========================================================================== */
 
 const crypto = require("crypto");
 
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
-const STRIPE_API_VERSION = "2024-06-20";
+// Kept in lockstep with workers/checkout.js, fulfill-gift-card.js and
+// gift-card-balance.js -- see the note on STRIPE_API_VERSION in
+// workers/checkout.js. All four move together or none of them do.
+const STRIPE_API_VERSION = "2026-06-24.dahlia";
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const FROM_EMAIL =
-  process.env.GIFT_CARD_FROM_EMAIL || "orders@yallternativeliving.com";
+const FROM_EMAIL = process.env.GIFT_CARD_FROM_EMAIL || "orders@yallternativeliving.com";
+
+// Same allowlist shape as gift-card-balance.js: the request Origin is checked
+// against a fixed list and never reflected back, so a hostile page can't turn
+// this endpoint into a same-origin-looking call of its own.
+const ALLOWED_ORIGINS = [
+  "https://yallternativeliving.com",
+  "https://www.yallternativeliving.com",
+  "http://localhost:8080",
+  "http://localhost:8082",
+  "http://localhost:8083",
+  "http://localhost:8085",
+  "http://127.0.0.1:8080",
+  "http://127.0.0.1:8082",
+  "http://127.0.0.1:8083",
+  "http://127.0.0.1:8085"
+];
+
+function getCorsHeaders(origin) {
+  const isAllowed =
+    ALLOWED_ORIGINS.includes(origin) ||
+    (process.env.SITE_ORIGIN && origin === process.env.SITE_ORIGIN);
+  const allow = isAllowed ? origin : ALLOWED_ORIGINS[0];
+  return {
+    "Access-Control-Allow-Origin": allow,
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Content-Type": "application/json",
+    "Cache-Control": "no-store",
+    Vary: "Origin"
+  };
+}
+
+const DISABLED_MESSAGE = "Alt-Points redemption is not available yet.";
 
 const REDEMPTION_TIERS = {
   100: { discountCents: 500, discountDollars: 5.0 },
@@ -136,80 +193,33 @@ async function sendRewardEmail(email, code, amountDollars, points, resendKey) {
   }
 }
 
+/**
+ * Disabled endpoint. Every non-OPTIONS request -- GET, POST, anything --
+ * returns 410 Gone with the same body, so there is no shape of request that
+ * reaches Stripe or Resend from here. See the file header for why.
+ *
+ * Deliberately NOT method-dependent: a 405 on GET would imply POST still
+ * works, and a 400 on a bad tier would imply a good tier mints something.
+ * One answer, always.
+ */
 exports.handler = async function (event) {
-  const origin = event.headers.origin || event.headers.Origin || "*";
-  const corsHeaders = {
-    "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Content-Type": "application/json"
+  const origin = (event && event.headers && (event.headers.origin || event.headers.Origin)) || "";
+  const headers = getCorsHeaders(origin);
+
+  if (event && event.httpMethod === "OPTIONS") {
+    return { statusCode: 204, headers, body: "" };
+  }
+
+  return {
+    statusCode: 410,
+    headers,
+    body: JSON.stringify({ error: DISABLED_MESSAGE })
   };
-
-  if (event.httpMethod === "OPTIONS") {
-    return { statusCode: 204, headers: corsHeaders, body: "" };
-  }
-
-  if (event.httpMethod !== "POST") {
-    return {
-      statusCode: 405,
-      headers: corsHeaders,
-      body: JSON.stringify({ error: "Method Not Allowed. Use POST." })
-    };
-  }
-
-  try {
-    const body = event.body ? JSON.parse(event.body) : {};
-    const points = Number(body.points);
-    const email = body.email ? String(body.email).trim().toLowerCase() : "";
-
-    if (!points || !REDEMPTION_TIERS[points]) {
-      return {
-        statusCode: 400,
-        headers: corsHeaders,
-        body: JSON.stringify({
-          error: "Invalid redemption tier. Valid tiers: 100 ($5), 200 ($10), 500 ($25)."
-        })
-      };
-    }
-
-    const tier = REDEMPTION_TIERS[points];
-    const code = deriveRewardCode();
-
-    await createRewardPromotionCode(
-      tier.discountCents,
-      code,
-      email,
-      points,
-      process.env.STRIPE_SECRET_KEY || STRIPE_SECRET_KEY
-    );
-
-    if (email) {
-      await sendRewardEmail(email, code, tier.discountDollars, points);
-    }
-
-    return {
-      statusCode: 200,
-      headers: corsHeaders,
-      body: JSON.stringify({
-        success: true,
-        code: code,
-        pointsRedeemed: points,
-        balance: tier.discountDollars,
-        balanceCents: tier.discountCents,
-        formattedBalance: `$${tier.discountDollars.toFixed(2)}`
-      })
-    };
-  } catch (err) {
-    console.error("Points redemption error:", err);
-    return {
-      statusCode: 500,
-      headers: corsHeaders,
-      body: JSON.stringify({
-        error: "Could not redeem Alt-Points. Please try again later."
-      })
-    };
-  }
 };
+
+exports.DISABLED_MESSAGE = DISABLED_MESSAGE;
+exports.getCorsHeaders = getCorsHeaders;
+exports.ALLOWED_ORIGINS = ALLOWED_ORIGINS;
 
 exports.deriveRewardCode = deriveRewardCode;
 exports.createRewardPromotionCode = createRewardPromotionCode;

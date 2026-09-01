@@ -692,54 +692,85 @@ async function runMilestone1AdversarialSuite() {
     }
   );
 
-  // 3.5: Netlify function direct handler security & tier validation
+  // 3.5: redeem-points.js is a DISABLED endpoint (C-1). There is no
+  // server-side points ledger, so the old handler minted real, cash-like
+  // store credit on the caller's unverified say-so -- a loop of POSTs was
+  // unlimited free money. Every non-OPTIONS request must now answer 410 with
+  // the same body, and nothing may reach Stripe or Resend.
   await runAsyncTest(
-    "3.5.1: netlify/functions/redeem-points.js handles HTTP methods, corrupt bodies, and non-tier requests",
+    "3.5.1: netlify/functions/redeem-points.js refuses every request with 410 and never calls Stripe",
     async () => {
-      // 1. GET method rejected
-      const getRes = await redeemPoints.handler({
-        httpMethod: "GET",
-        headers: {}
-      });
-      assert.strictEqual(getRes.statusCode, 405);
+      const originalFetch = global.fetch;
+      let outboundCalls = 0;
+      global.fetch = async (url) => {
+        outboundCalls++;
+        throw new Error(`redeem-points must not call out to ${url}`);
+      };
 
-      // 2. Corrupt JSON body handled gracefully (suppress console.error during test)
-      const originalConsoleError = console.error;
-      console.error = () => {};
       try {
-        const corruptRes = await redeemPoints.handler({
+        const requests = [
+          { httpMethod: "GET", headers: {} },
+          { httpMethod: "POST", headers: {}, body: "{corrupt json body" },
+          // Every tier, valid or not: a 400 on a bad tier would still imply
+          // that a good one mints something.
+          { httpMethod: "POST", headers: {}, body: JSON.stringify({ points: 150 }) },
+          { httpMethod: "POST", headers: {}, body: JSON.stringify({ points: -100 }) },
+          { httpMethod: "POST", headers: {}, body: JSON.stringify({ points: 100.5 }) },
+          { httpMethod: "POST", headers: {}, body: JSON.stringify({ points: 100 }) },
+          { httpMethod: "POST", headers: {}, body: JSON.stringify({ points: 200 }) },
+          {
+            httpMethod: "POST",
+            headers: { origin: "https://yallternativeliving.com" },
+            body: JSON.stringify({ points: 500, email: "shopper@example.com" })
+          },
+          { httpMethod: "PUT", headers: {}, body: JSON.stringify({ points: 500 }) },
+          { httpMethod: "DELETE", headers: {} }
+        ];
+
+        for (const req of requests) {
+          const res = await redeemPoints.handler(req);
+          assert.strictEqual(
+            res.statusCode,
+            410,
+            `${req.httpMethod} must be refused with 410 Gone`
+          );
+          assert.deepStrictEqual(JSON.parse(res.body), {
+            error: "Alt-Points redemption is not available yet."
+          });
+          assert.strictEqual(res.headers["Cache-Control"], "no-store");
+        }
+
+        assert.strictEqual(outboundCalls, 0, "No Stripe or Resend call is reachable at all");
+
+        // Preflight still answers, so the browser shows the 410 body rather
+        // than an opaque CORS error.
+        const preflight = await redeemPoints.handler({ httpMethod: "OPTIONS", headers: {} });
+        assert.strictEqual(preflight.statusCode, 204);
+
+        // CORS is an allowlist, never a reflection of the caller's Origin.
+        const hostile = await redeemPoints.handler({
           httpMethod: "POST",
-          headers: {},
-          body: "{corrupt json body"
+          headers: { origin: "https://attacker.example" },
+          body: "{}"
         });
-        assert.strictEqual(corruptRes.statusCode, 500);
+        assert.strictEqual(
+          hostile.headers["Access-Control-Allow-Origin"],
+          "https://yallternativeliving.com"
+        );
+        assert.strictEqual(hostile.headers.Vary, "Origin");
+
+        const allowed = await redeemPoints.handler({
+          httpMethod: "POST",
+          headers: { origin: "https://www.yallternativeliving.com" },
+          body: "{}"
+        });
+        assert.strictEqual(
+          allowed.headers["Access-Control-Allow-Origin"],
+          "https://www.yallternativeliving.com"
+        );
       } finally {
-        console.error = originalConsoleError;
+        global.fetch = originalFetch;
       }
-
-      // 3. Invalid tier points (150 pts)
-      const invalidTierRes = await redeemPoints.handler({
-        httpMethod: "POST",
-        headers: {},
-        body: JSON.stringify({ points: 150 })
-      });
-      assert.strictEqual(invalidTierRes.statusCode, 400);
-
-      // 4. Zero / Negative points
-      const negRes = await redeemPoints.handler({
-        httpMethod: "POST",
-        headers: {},
-        body: JSON.stringify({ points: -100 })
-      });
-      assert.strictEqual(negRes.statusCode, 400);
-
-      // 5. Float points
-      const floatRes = await redeemPoints.handler({
-        httpMethod: "POST",
-        headers: {},
-        body: JSON.stringify({ points: 100.5 })
-      });
-      assert.strictEqual(floatRes.statusCode, 400);
     }
   );
 
