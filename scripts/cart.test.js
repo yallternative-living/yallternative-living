@@ -47,8 +47,26 @@ function createMockElement(tagName = "div") {
       this._innerHTML = val;
     },
     textContent: "",
-    addEventListener: () => {},
-    removeEventListener: () => {},
+    _listeners: {},
+    addEventListener: function (type, fn) {
+      if (!this._listeners[type]) this._listeners[type] = [];
+      this._listeners[type].push(fn);
+    },
+    removeEventListener: function (type, fn) {
+      const list = this._listeners[type];
+      if (list) this._listeners[type] = list.filter((f) => f !== fn);
+    },
+    // Test-only: run the handlers a real click would.
+    _fire: function (type) {
+      (this._listeners[type] || []).slice().forEach((fn) =>
+        fn({
+          type,
+          target: this,
+          preventDefault: () => {},
+          stopPropagation: () => {}
+        })
+      );
+    },
     appendChild: (child) => {
       children.push(child);
       return child;
@@ -148,10 +166,22 @@ eq(YLCart.items().length, 1, "load() reads from localStorage");
 eq(YLCart.items()[0].id, "test", "load() sets correct items");
 eq(YLCart.count(), 2, "count() matches loaded quantities");
 
+/* The cart is persisted as {version, items} rather than a bare array, so
+   these read it back through the same envelope the browser writes. */
+function storedCart() {
+  const raw = storage.get("yl-cart-v1");
+  return raw ? JSON.parse(raw) : null;
+}
+function storedItems() {
+  const parsed = storedCart();
+  if (!parsed) return [];
+  return Array.isArray(parsed) ? parsed : parsed.items || [];
+}
+
 // Add an item using YLCart.addCustomBox (which triggers save)
 YLCart.addCustomBox({ productIds: ["p1", "p2"], price: 30 });
 eq(YLCart.items().length, 2, "addCustomBox adds to items");
-const savedData = JSON.parse(storage.get("yl-cart-v1"));
+const savedData = storedItems();
 eq(savedData.length, 2, "save() writes back to localStorage");
 assert(
   savedData.some((i) => i.id === "custom-box"),
@@ -187,6 +217,20 @@ if (drawer) {
 storage.set("yl-cart-v1", "{bad json}");
 YLCart.init({ force: true });
 eq(YLCart.items(), [], "load() recovers from malformed JSON");
+/* The stored payload is versioned, and a pre-version bare array -- which is
+   what every existing shopper has in localStorage right now -- still loads
+   and is rewritten in the new shape on the next save. */
+storage.set(
+  "yl-cart-v1",
+  JSON.stringify([{ id: "legacy-item", qty: 3, price: 5, name: "Legacy Item" }])
+);
+YLCart.init({ force: true });
+eq(YLCart.items().length, 1, "load() migrates a pre-version bare array");
+eq(YLCart.count(), 3, "load() keeps quantities through the migration");
+YLCart.addCustomBox({ productIds: ["p1"], price: 12 });
+eq(storedCart().version, 1, "save() writes a versioned cart envelope");
+assert(Array.isArray(storedCart().items), "save() keeps the lines under .items");
+eq(storedItems().length, 2, "a migrated cart keeps its original line");
 
 /* ==========================================================
    freeShipThreshold(): reads YL_PRODUCTS.shop.freeShippingThreshold
@@ -692,7 +736,7 @@ const restored = YLCart.restoreCartFromUrl("?cart=lavender-soak:2,frankincense-s
 assert(restored, "restoreCartFromUrl returns true on successful parse and addition");
 eq(YLCart.items().length, 2, "restoreCartFromUrl adds valid products to cart items");
 eq(YLCart.count(), 3, "restoreCartFromUrl restores exact quantities (2 + 1 = 3)");
-const storedAfterShare = JSON.parse(storage.get("yl-cart-v1"));
+const storedAfterShare = storedItems();
 eq(storedAfterShare.length, 2, "restoreCartFromUrl persists restored items to localStorage");
 
 // 4. Alt-Points Loyalty Wallet UI & 1-Click Redemption
@@ -711,65 +755,424 @@ footHTML = drawerFootHTML();
 assert(footHTML.includes("yl-cart-loyalty-card"), "Loyalty: Renders loyalty wallet card");
 assert(footHTML.includes("yl-loyalty-wallet-balance"), "Loyalty: Renders wallet balance element");
 assert(footHTML.includes("150"), "Loyalty: Displays current 150 points balance");
+/* Alt-Points are never credited and redeem-points answers 410, so the drawer
+   promises neither. The wallet balance above is all that is left of it. */
 assert(
-  footHTML.includes("Redeem 100 Alt-Points ($5.00 Off)"),
-  "Loyalty: Renders 1-click 100-point voucher button"
+  !footHTML.includes("Redeem 100") && !footHTML.includes("yl-cart-redeem-btn"),
+  "Loyalty: no Alt-Points redeem button is rendered"
+);
+assert(
+  !footHTML.includes("more points to unlock"),
+  "Loyalty: no points-to-next-voucher nudge is rendered"
+);
+assert(
+  !footHTML.includes("You'll earn") && !footHTML.includes("cart-points-count"),
+  "Loyalty: the drawer no longer promises points this order will earn"
+);
+assert(
+  !footHTML.includes("Add physical items to earn"),
+  "Loyalty: the drawer no longer advertises earning points"
 );
 
-// Mock redeemPoints fetch endpoint for unit testing
-const originalFetch = global.fetch;
-global.fetch = async (url, opts) => {
-  if (String(url).includes("redeem-points")) {
-    const body = opts && opts.body ? JSON.parse(opts.body) : {};
-    if (body.points === 100) {
-      return {
-        ok: true,
-        json: async () => ({
-          success: true,
-          code: "YALL-PTS-UNIT01",
-          pointsRedeemed: 100,
-          balance: 5.0,
-          formattedBalance: "$5.00"
-        })
-      };
-    }
-  }
-  return { ok: false, json: async () => ({ error: "Not found" }) };
-};
-
-// Execute 1-click redemption of 100 points
 (async () => {
   try {
-    const redeemResult = await YLCart.redeemLoyaltyPoints(100);
-    eq(redeemResult.code, "YALL-PTS-UNIT01", "redeemLoyaltyPoints receives promo code");
-    eq(YLCart.getWalletPoints(), 50, "Wallet balance deducted by 100 points (150 -> 50)");
+    const originalFetch = global.fetch;
 
-    footHTML = drawerFootHTML();
-    assert(
-      footHTML.includes("Gift Card Discount (YALL-PTS-UNIT01)"),
-      "Applied reward code renders discount line in drawer"
-    );
-    assert(footHTML.includes("-$5.00"), "Discount line displays -$5.00 off subtotal");
-    assert(
-      footHTML.includes("Total Due"),
-      "Drawer displays Total Due with voucher discount applied"
-    );
-    assert(
-      footHTML.includes("$31.00"),
-      "Total due reflects $36.00 subtotal - $5.00 discount = $31.00"
-    );
+    /* ==========================================================
+       Alt-Points redemption is unavailable end to end: it must reject
+       without touching the network and without moving the wallet.
+       ========================================================== */
+    let fetchCalls = 0;
+    global.fetch = async () => {
+      fetchCalls++;
+      return { ok: true, status: 200, json: async () => ({ code: "YALL-PTS-NOPE", balance: 5 }) };
+    };
 
-    // Attempt redemption with insufficient points (50 < 100)
-    let threw = false;
+    let redeemError = null;
     try {
       await YLCart.redeemLoyaltyPoints(100);
-    } catch {
-      threw = true;
+    } catch (err) {
+      redeemError = err;
     }
-    assert(threw, "redeemLoyaltyPoints rejects when wallet has insufficient points");
+    assert(redeemError instanceof Error, "redeemLoyaltyPoints rejects");
+    eq(
+      redeemError && redeemError.message,
+      "Alt-Points redemption is not available yet.",
+      "redeemLoyaltyPoints rejects with the unavailable message"
+    );
+    eq(fetchCalls, 0, "redeemLoyaltyPoints makes no network call");
+    eq(YLCart.getWalletPoints(), 150, "redeemLoyaltyPoints leaves the wallet balance alone");
+    footHTML = drawerFootHTML();
+    assert(
+      !footHTML.includes("Gift Card Discount"),
+      "A refused redemption applies no voucher to the drawer"
+    );
+
+    /* ==========================================================
+       Gift cards: applied through YLCart.applyGiftCard, stored as
+       {code, balance, valid}, capped against subtotal + shipping, and
+       dropped by clear().
+       ========================================================== */
+    mockWindow.YL_PRODUCTS = null;
+    storage.clear();
+    storage.set(
+      "yl-cart-v1",
+      JSON.stringify({
+        version: 1,
+        items: [{ id: "physical-item", qty: 1, price: 20, name: "Physical Item" }]
+      })
+    );
+    YLCart.init({ force: true });
+
+    eq(typeof YLCart.applyGiftCard, "function", "YLCart exposes applyGiftCard");
+    eq(YLCart.applyGiftCard(null), false, "applyGiftCard rejects a missing object");
+    eq(
+      YLCart.applyGiftCard({ code: "YALL-NOPE" }),
+      false,
+      "applyGiftCard rejects a card with no balance"
+    );
+    eq(
+      YLCart.applyGiftCard({ code: "YALL-NOPE", balance: 5, valid: false }),
+      false,
+      "applyGiftCard rejects a card the endpoint marked invalid"
+    );
+    eq(
+      YLCart.applyGiftCard({ code: "  yall-good1  ", balance: 50, valid: true }),
+      true,
+      "applyGiftCard accepts a well-formed card"
+    );
+    eq(
+      JSON.parse(mockLocalStorage.getItem("yl_applied_gift_card")),
+      { code: "YALL-GOOD1", balance: 50, valid: true },
+      "applyGiftCard stores only {code, balance, valid}"
+    );
+
+    footHTML = drawerFootHTML();
+    /* $20 of goods is under the $40 default threshold, so $10 shipping
+       applies and the card must cover all $30 -- the Worker caps its coupon
+       at subtotal + shipping too. */
+    assert(
+      footHTML.includes("<span>Shipping</span><strong>$10.00"),
+      "Shipping line charges $10.00 below the threshold"
+    );
+    assert(
+      footHTML.includes("-$30.00"),
+      "Gift card is capped on subtotal + shipping, not the subtotal alone"
+    );
+    assert(
+      footHTML.includes("Estimated total (before tax)"),
+      "Totals row is labelled as an estimate before tax"
+    );
+    assert(!footHTML.includes("Total Due"), "The old Total Due label is gone");
+
+    YLCart.applyGiftCard({
+      code: "YALL-GOOD2",
+      balance: 12.34,
+      valid: true,
+      formattedBalance: "$12.34",
+      initialAmount: 50
+    });
+    eq(
+      Object.keys(JSON.parse(mockLocalStorage.getItem("yl_applied_gift_card"))).sort(),
+      ["balance", "code", "valid"],
+      "applyGiftCard drops every other field the balance endpoint returns"
+    );
+
+    YLCart.clear();
+    eq(
+      mockLocalStorage.getItem("yl_applied_gift_card"),
+      null,
+      "clear() removes the stored gift card"
+    );
+    footHTML = drawerFootHTML();
+    assert(!footHTML.includes("Gift Card Discount"), "clear() drops the applied gift card");
+
+    /* ==========================================================
+       Shipping line
+       ========================================================== */
+    storage.set(
+      "yl-cart-v1",
+      JSON.stringify({
+        version: 1,
+        items: [{ id: "physical-item", qty: 2, price: 25, name: "Physical Item" }]
+      })
+    );
+    YLCart.init({ force: true });
+    footHTML = drawerFootHTML();
+    assert(
+      footHTML.includes("<span>Shipping</span><strong>Free"),
+      "A $50 cart clears the default $40 threshold and ships free"
+    );
+
+    storage.set(
+      "yl-cart-v1",
+      JSON.stringify({
+        version: 1,
+        items: [{ id: "physical-item", qty: 1, price: 10, name: "Physical Item" }]
+      })
+    );
+    YLCart.init({ force: true });
+    footHTML = drawerFootHTML();
+    assert(
+      footHTML.includes("<span>Shipping</span><strong>$10.00"),
+      "A $10 cart is under the threshold and is quoted $10.00 shipping"
+    );
+    assert(
+      footHTML.includes("Estimated total (before tax)</span><strong>$20.00"),
+      "Estimated total adds shipping to the subtotal"
+    );
+
+    /* ==========================================================
+       Pick-up survives a reload and is re-validated against the
+       markets the site is currently advertising.
+       ========================================================== */
+    mockWindow.YL_EVENTS = {
+      upcoming: [
+        { name: "Landrum Market", dateLabel: "Sat Sep 6", location: "Landrum, SC" },
+        { name: "Tryon Market", dateLabel: "Sat Sep 13", location: "Tryon, NC" }
+      ]
+    };
+    storage.set("yl_cart_is_pickup", "true");
+    storage.set("yl_cart_pickup_market", "Tryon Market — Sat Sep 13 (Tryon, NC)");
+    YLCart.init({ force: true });
+    footHTML = drawerFootHTML();
+    assert(
+      footHTML.includes('id="yl-cart-pickup-checkbox" checked'),
+      "A stored pick-up preference survives a reload"
+    );
+    assert(
+      footHTML.includes('value="Tryon Market — Sat Sep 13 (Tryon, NC)" selected'),
+      "The stored market label is re-selected"
+    );
+    assert(
+      footHTML.includes("<span>Shipping</span><strong>Free"),
+      "Pick-up ships free whatever the subtotal"
+    );
+
+    storage.set("yl_cart_pickup_market", "Ghost Market — Sat Jan 1 (Nowhere, SC)");
+    YLCart.init({ force: true });
+    footHTML = drawerFootHTML();
+    assert(
+      !footHTML.includes("Ghost Market"),
+      "A stored market that is no longer upcoming is discarded on load"
+    );
+    assert(
+      footHTML.includes('value="Landrum Market — Sat Sep 6 (Landrum, SC)" selected'),
+      "The next real market is selected in its place"
+    );
+    delete mockWindow.YL_EVENTS;
+    storage.delete("yl_cart_is_pickup");
+    storage.delete("yl_cart_pickup_market");
+
+    /* ==========================================================
+       load() drops lines the catalog no longer has, and lines that are
+       not priceable at all, and says how many it dropped.
+       ========================================================== */
+    mockWindow.YL_PRODUCTS = {
+      products: [{ id: "lavender-soak", name: "Lavender Soak", price: 18.0 }],
+      bundles: [{ id: "starter-kit", name: "Starter Kit", price: 40 }]
+    };
+    storage.set(
+      "yl-cart-v1",
+      JSON.stringify({
+        version: 1,
+        items: [
+          { id: "lavender-soak", qty: 1, price: 18, name: "Lavender Soak" },
+          { id: "bundle-starter-kit", qty: 1, price: 40, name: "Starter Kit" },
+          { id: "custom-box", qty: 1, price: 30, name: "Build-Your-Own Box" },
+          { id: "yallternative-gift-card", qty: 1, price: 25, name: "Gift Card" },
+          { id: "discontinued-salve", qty: 1, price: 19, name: "Discontinued" },
+          { id: "lavender-soak", qty: 1, price: "not-a-price", name: "Broken Price" },
+          { id: "", qty: 1, price: 5, name: "No Id" },
+          null,
+          42
+        ]
+      })
+    );
+    YLCart.init({ force: true });
+    eq(
+      YLCart.items().map((i) => i.id),
+      ["lavender-soak", "bundle-starter-kit", "custom-box", "yallternative-gift-card"],
+      "load() keeps catalog products, bundles and the two pseudo-ids only"
+    );
+    eq(storedItems().length, 4, "load() persists the cleaned cart so bad lines do not come back");
+
+    const liveRegion = mockDocument.body.children.find(
+      (el) => el.getAttribute && el.getAttribute("aria-live") === "polite"
+    );
+    eq(
+      liveRegion && liveRegion.textContent,
+      "Removed 5 unavailable item(s) from your cart",
+      "load() announces how many lines it dropped"
+    );
+
+    storage.set(
+      "yl-cart-v1",
+      JSON.stringify({
+        version: 1,
+        items: [{ id: "lavender-soak", qty: 5000, price: 18, name: "Lavender Soak" }]
+      })
+    );
+    YLCart.init({ force: true });
+    eq(YLCart.count(), 99, "load() clamps a stored quantity to the hard ceiling");
+
+    storage.set(
+      "yl-cart-v1",
+      JSON.stringify({
+        version: 1,
+        items: [
+          {
+            id: "lavender-soak",
+            qty: "<img src=x onerror=alert(1)>",
+            price: 18,
+            name: "Lavender Soak"
+          }
+        ]
+      })
+    );
+    YLCart.init({ force: true });
+    itemsHTML = drawerItemsHTML();
+    assert(
+      !itemsHTML.includes("<img src=x"),
+      "A non-numeric stored quantity never reaches the drawer as markup"
+    );
+
+    /* With no catalog on the page there is nothing to validate against, so
+       nothing may be dropped. */
+    mockWindow.YL_PRODUCTS = null;
+    storage.set(
+      "yl-cart-v1",
+      JSON.stringify({
+        version: 1,
+        items: [{ id: "some-unknown-id", qty: 1, price: 9, name: "Unknown" }]
+      })
+    );
+    YLCart.init({ force: true });
+    eq(YLCart.items().length, 1, "load() keeps every line when no catalog is loaded");
+
+    /* ==========================================================
+       Checkout: one request in flight at a time, curated 400 text
+       shown verbatim, generic message for everything else.
+       ========================================================== */
+    storage.clear();
+    storage.set(
+      "yl-cart-v1",
+      JSON.stringify({
+        version: 1,
+        items: [{ id: "physical-item", qty: 1, price: 20, name: "Physical Item" }]
+      })
+    );
+    YLCart.init({ force: true });
+
+    function drawerFoot() {
+      return mockDocument.body.children
+        .find((child) => child.id === "yl-cart-drawer")
+        .querySelector("#yl-cart-foot");
+    }
+    function checkoutButton() {
+      return drawerFoot().querySelector(".yl-cart-checkout");
+    }
+    function errorText() {
+      const el = drawerFoot().querySelector(".yl-cart-error");
+      return el ? el.textContent : "";
+    }
+
+    let checkoutCalls = 0;
+    let lastCheckoutOpts = null;
+    let resolveCheckout = null;
+    global.fetch = (url, opts) => {
+      checkoutCalls++;
+      lastCheckoutOpts = opts;
+      return new Promise((resolve) => {
+        resolveCheckout = resolve;
+      });
+    };
+
+    // Drop handlers accumulated by earlier renders, then render once so the
+    // button carries exactly one click handler.
+    checkoutButton()._listeners = {};
+    YLCart.open();
+
+    checkoutButton()._fire("click");
+    checkoutButton()._fire("click");
+    eq(checkoutCalls, 1, "A second click while a checkout is in flight starts no second session");
+    assert(
+      lastCheckoutOpts && lastCheckoutOpts.signal,
+      "The checkout request carries an AbortController signal"
+    );
+    YLCart.open();
+    eq(
+      checkoutButton().disabled,
+      true,
+      "A re-render mid-request keeps the Checkout button disabled"
+    );
+
+    resolveCheckout({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: "That gift card has already been used." })
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    eq(
+      errorText(),
+      "That gift card has already been used.",
+      "A 400 shows the Worker's curated message verbatim"
+    );
+    eq(checkoutButton().disabled, false, "The Checkout button is usable again after a failure");
+
+    global.fetch = async () => ({
+      ok: false,
+      status: 500,
+      json: async () => {
+        throw new SyntaxError("Unexpected token < in JSON at position 0");
+      }
+    });
+    checkoutButton()._listeners = {};
+    YLCart.open();
+    checkoutButton()._fire("click");
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    eq(
+      errorText(),
+      "Sorry -- checkout isn't available right now. Please try again in a moment.",
+      "A non-JSON 500 falls back to the generic message instead of a parser error"
+    );
+
+    global.fetch = originalFetch;
+
+    /* ==========================================================
+       H-12: the footer scrolls instead of pushing Checkout off screen
+       ========================================================== */
+    const fs = require("fs");
+    const path = require("path");
+    const cartCss = fs.readFileSync(
+      path.join(__dirname, "..", "assets", "css", "cart.css"),
+      "utf8"
+    );
+    const footRule = cartCss.match(/\.yl-cart-foot\s*\{[^}]*\}/);
+    assert(
+      footRule && /overflow-y:\s*auto/.test(footRule[0]),
+      "cart.css: .yl-cart-foot scrolls on its own"
+    );
+    assert(
+      footRule && /max-height:\s*min\(62dvh,\s*560px\)/.test(footRule[0]),
+      "cart.css: .yl-cart-foot is capped at min(62dvh, 560px)"
+    );
+    const itemsRule = cartCss.match(/\.yl-cart-items\s*\{[^}]*\}/);
+    assert(
+      itemsRule && /min-height:\s*0/.test(itemsRule[0]),
+      "cart.css: .yl-cart-items may shrink below its content"
+    );
+    assert(
+      /@media\s*\(max-height:\s*480px\)\s*\{\s*\.yl-cart-foot\s*\{[^}]*padding:/.test(cartCss),
+      "cart.css: a short-viewport media query trims the footer padding"
+    );
+    assert(
+      cartCss.indexOf("*/") < cartCss.indexOf("/* Monoline SVG Icon System */"),
+      "cart.css: the file header comment is closed before the next comment"
+    );
 
     // Clean up
-    global.fetch = originalFetch;
     mockWindow.YL_PRODUCTS = null;
     storage.clear();
     YLCart.init({ force: true });
@@ -777,7 +1180,7 @@ global.fetch = async (url, opts) => {
     console.log(`\ncart.test.js: ${passed} passed, ${failed} failed`);
     process.exit(failed ? 1 : 0);
   } catch (err) {
-    console.error("Async loyalty test failure:", err);
+    console.error("Async cart test failure:", err);
     process.exit(1);
   }
 })();

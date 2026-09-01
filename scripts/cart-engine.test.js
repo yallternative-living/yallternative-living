@@ -636,5 +636,359 @@ eq(sDisabled.message, "", "Disabled milestones (0 threshold) produce empty messa
 if (savedWindowYlProducts === undefined) delete global.window.YL_PRODUCTS;
 else global.window.YL_PRODUCTS = savedWindowYlProducts;
 
+/* ==========================================================
+   C-3: the service worker must never intercept dynamic endpoints
+   ----------------------------------------------------------
+   sw.js ran every same-origin GET through its cache layer, which included
+   /.netlify/functions/* (gift-card balance, order status) and /api/* (the
+   Cloudflare Worker checkout proxy). Those responses are per-request and
+   sometimes single-use, so caching one hands the next shopper a stale
+   balance or a dead checkout session. The fetch handler now returns for
+   those two prefixes BEFORE any caches.* call and before respondWith().
+
+   This loads the real sw.js in a vm with a fake `self` and records whether
+   respondWith() was called for each path. It fails against the old handler
+   (which responded for every same-origin GET).
+   ========================================================== */
+{
+  const fs = require("fs");
+  const path = require("path");
+  const vm = require("vm");
+
+  const listeners = {};
+  const swCaches = {
+    open: async () => ({ addAll: async () => {}, put: async () => {} }),
+    match: async () => undefined,
+    keys: async () => [],
+    delete: async () => true
+  };
+  const sandbox = {
+    self: {
+      addEventListener: (type, fn) => {
+        listeners[type] = fn;
+      },
+      location: { origin: "https://example.test" },
+      registration: {},
+      clients: { claim: async () => {} },
+      skipWaiting: async () => {}
+    },
+    caches: swCaches,
+    fetch: async () => ({ status: 200, clone: () => ({}) }),
+    Request: class {
+      constructor(u) {
+        this.url = String(u);
+      }
+    },
+    Response: { error: () => ({}) },
+    URL,
+    console: { warn: () => {}, log: () => {} }
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "sw.js"), "utf8"), sandbox, {
+    filename: "sw.js"
+  });
+
+  function respondedTo(url) {
+    let called = false;
+    listeners.fetch({
+      request: {
+        url,
+        method: "GET",
+        mode: "no-cors",
+        headers: { get: () => null }
+      },
+      respondWith: () => {
+        called = true;
+      },
+      preloadResponse: Promise.resolve(null)
+    });
+    return called;
+  }
+
+  eq(typeof listeners.fetch, "function", "sw.js registers a fetch listener");
+  eq(
+    respondedTo("https://example.test/.netlify/functions/gift-card-balance"),
+    false,
+    "sw.js does not intercept /.netlify/ function requests"
+  );
+  eq(
+    respondedTo("https://example.test/.netlify/functions/order-status?id=cs_test_1"),
+    false,
+    "sw.js does not intercept /.netlify/ requests carrying a query string"
+  );
+  eq(
+    respondedTo("https://example.test/api/checkout"),
+    false,
+    "sw.js does not intercept the /api/ checkout proxy"
+  );
+  eq(
+    respondedTo("https://example.test/assets/js/cart.js"),
+    true,
+    "sw.js still caches ordinary same-origin static assets"
+  );
+}
+
+/* ==========================================================
+   H-7: thank-you.js only trusts a real Stripe redirect
+   ----------------------------------------------------------
+   The page used to fire the Purchase analytics event and clear the cart for
+   ANY ?session_id= value, print a "$25.00" placeholder whenever the amount
+   was missing, and render a printable gift certificate straight out of
+   query-string parameters the Worker never emits.
+
+   These run the real assets/js/thank-you.js against a fake window/document
+   and assert the new gates. Every assertion below except the happy path
+   fails against the previous version.
+   ========================================================== */
+{
+  const fs = require("fs");
+  const path = require("path");
+  const thankYouPath = path.join(__dirname, "..", "assets", "js", "thank-you.js");
+
+  function runThankYou(search, seenSession) {
+    const els = {};
+    const lookups = [];
+    const purchases = [];
+    const store = new Map();
+    if (seenSession) store.set("yl-thankyou-session", seenSession);
+    let cleared = 0;
+
+    function element(id) {
+      if (!els[id]) {
+        els[id] = { id, textContent: "", hidden: true, addEventListener: () => {} };
+      }
+      return els[id];
+    }
+
+    const prevWindow = global.window;
+    const prevDocument = global.document;
+    global.window = {
+      location: { search },
+      localStorage: {
+        getItem: (k) => (store.has(k) ? store.get(k) : null),
+        setItem: (k, v) => store.set(k, String(v)),
+        removeItem: (k) => store.delete(k)
+      },
+      plausible: (name, payload) => purchases.push({ name, payload }),
+      YLCart: {
+        clear: () => {
+          cleared += 1;
+        }
+      }
+    };
+    global.document = {
+      getElementById: (id) => {
+        lookups.push(id);
+        return element(id);
+      }
+    };
+    try {
+      delete require.cache[require.resolve(thankYouPath)];
+      require(thankYouPath);
+    } finally {
+      global.window = prevWindow;
+      global.document = prevDocument;
+    }
+    return { els, lookups, purchases, cleared };
+  }
+
+  // Happy path: a genuine Worker redirect still books revenue and clears.
+  const good = runThankYou("?session_id=cs_test_a1B2c3&amount=42.00&currency=usd");
+  eq(good.purchases.length, 1, "thank-you: real cs_test_ session fires one Purchase event");
+  eq(good.purchases[0].name, "Purchase", "thank-you: analytics event is named Purchase");
+  eq(
+    good.purchases[0].payload.props.revenue,
+    { currency: "USD", amount: 42 },
+    "thank-you: Purchase carries the redirect's amount and currency"
+  );
+  eq(good.cleared, 1, "thank-you: real session clears the cart once");
+  eq(
+    good.els.thankYouAmountGroup.hidden,
+    false,
+    "thank-you: order total shown when amount present"
+  );
+  eq(
+    good.els.thankYouAmountDisplay.textContent,
+    "$42.00",
+    "thank-you: order total renders the redirect amount"
+  );
+  eq(good.els.thankYouSessionRow.hidden, false, "thank-you: reference id shown for a real session");
+
+  // A hand-crafted session_id is not a completed order.
+  const forged = runThankYou("?session_id=not-a-session&amount=42.00");
+  eq(forged.purchases.length, 0, "thank-you: non cs_ session_id fires no Purchase event");
+  eq(forged.cleared, 0, "thank-you: non cs_ session_id does not clear the cart");
+  eq(
+    forged.els.thankYouSessionRow.hidden,
+    true,
+    "thank-you: non cs_ session_id shows no reference id"
+  );
+
+  // Same order re-opened (refresh / Back): still once per order.
+  const repeat = runThankYou("?session_id=cs_live_ZZ9&amount=12.00", "cs_live_ZZ9");
+  eq(repeat.purchases.length, 0, "thank-you: a repeat visit re-fires no Purchase event");
+  eq(repeat.cleared, 0, "thank-you: a repeat visit does not re-clear the cart");
+
+  // No amount at all: nothing is invented, and no revenue is booked.
+  const noAmount = runThankYou("?session_id=cs_test_noamount");
+  eq(noAmount.purchases.length, 0, "thank-you: a missing amount books no revenue");
+  eq(
+    noAmount.els.thankYouAmountGroup.hidden,
+    true,
+    "thank-you: the order-total block stays hidden when no amount is present"
+  );
+  eq(
+    noAmount.els.thankYouAmountDisplay.textContent,
+    "",
+    "thank-you: no $25.00 placeholder is printed when the amount is absent"
+  );
+
+  // Implausible amounts are treated as no amount.
+  const huge = runThankYou("?session_id=cs_test_huge&amount=99999.99");
+  eq(huge.purchases.length, 0, "thank-you: an amount over $10,000 books no revenue");
+  eq(huge.cleared, 0, "thank-you: an amount over $10,000 does not clear the cart");
+  const negative = runThankYou("?session_id=cs_test_neg&amount=-5");
+  eq(negative.purchases.length, 0, "thank-you: a negative amount books no revenue");
+
+  // The URL-parameter gift certificate is gone, not merely hidden.
+  const gift = runThankYou(
+    "?session_id=cs_test_g1&amount=5.00&gift_code=YALL-FORGED&recipient=victim@example.com"
+  );
+  eq(
+    gift.lookups.filter((id) => id.indexOf("giftCert") === 0),
+    [],
+    "thank-you: no gift-certificate element is addressed from query parameters"
+  );
+  const thankYouSrc = fs.readFileSync(thankYouPath, "utf8");
+  eq(/gift_code|giftCertCode/.test(thankYouSrc), false, "thank-you.js has no gift-code parser");
+  eq(/\$25\.00/.test(thankYouSrc), false, "thank-you.js has no hardcoded $25.00 fallback");
+  const thankYouHtml = fs.readFileSync(path.join(__dirname, "..", "thank-you.html"), "utf8");
+  eq(
+    /giftCertificateSection|gift-certificate-section/.test(thankYouHtml),
+    false,
+    "thank-you.html no longer carries the gift-certificate markup"
+  );
+  eq(
+    /id="thankYouAmountDisplay">\$/.test(thankYouHtml),
+    false,
+    "thank-you.html ships no hardcoded order total"
+  );
+}
+
+/* ==========================================================
+   Gift-card codes travel in a POST body, never in a URL
+   ----------------------------------------------------------
+   A GET put the code in the query string, where it lands in browser
+   history, the Referer header and every proxy log between here and the
+   function. Both callers (this helper and assets/js/gift-card.js) now POST
+   {code} to the same endpoint, which answers Cache-Control: no-store.
+   ========================================================== */
+{
+  const fs = require("fs");
+  const path = require("path");
+  const calls = [];
+  const originalFetch = global.fetch;
+  global.fetch = (url, opts) => {
+    calls.push({ url: String(url), opts: opts || {} });
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      json: async () => ({ valid: true, balance: 10, code: "YALL-ABC123" })
+    });
+  };
+
+  cart.checkGiftCardBalance("  yall-abc123  ");
+  eq(calls.length, 1, "checkGiftCardBalance issues one request");
+  eq(
+    calls[0].url,
+    "/.netlify/functions/gift-card-balance",
+    "checkGiftCardBalance puts no code in the URL"
+  );
+  eq(calls[0].opts.method, "POST", "checkGiftCardBalance POSTs");
+  eq(
+    JSON.parse(calls[0].opts.body),
+    { code: "YALL-ABC123" },
+    "checkGiftCardBalance sends the normalised code in the body"
+  );
+
+  // Alt-Points redemption never reaches the network any more.
+  calls.length = 0;
+  let redeemRejection = null;
+  cart.redeemPoints(100).catch((err) => {
+    redeemRejection = err;
+  });
+  eq(calls.length, 0, "redeemPoints makes no network call");
+
+  global.fetch = originalFetch;
+
+  const giftCardSrc = fs.readFileSync(
+    path.join(__dirname, "..", "assets", "js", "gift-card.js"),
+    "utf8"
+  );
+  eq(
+    /gift-card-balance\?code=/.test(giftCardSrc),
+    false,
+    "gift-card.js no longer builds a ?code= balance URL"
+  );
+  eq(
+    /gift-card-balance"[\s\S]{0,120}method:\s*"POST"/.test(giftCardSrc),
+    true,
+    "gift-card.js POSTs the balance lookup"
+  );
+  eq(
+    /localStorage\.setItem\(\s*"yl_applied_gift_card"/.test(giftCardSrc),
+    false,
+    "gift-card.js no longer writes the cart's gift-card key itself"
+  );
+  eq(
+    /YLCart\.applyGiftCard\(/.test(giftCardSrc),
+    true,
+    "gift-card.js hands the card to YLCart.applyGiftCard"
+  );
+  eq(/catch\s*\(e\)\s*\{\}/.test(giftCardSrc), false, "gift-card.js has no empty catch block");
+  eq(
+    /escapeHtml\(\s*\n?\s*data\.formattedBalance/.test(giftCardSrc),
+    true,
+    "gift-card.js escapes the server-supplied formatted balance"
+  );
+  // Keep the rejection referenced so the promise is not unhandled.
+  eq(redeemRejection === null || redeemRejection instanceof Error, true, "redeemPoints rejects");
+}
+
+/* ==========================================================
+   The "all perks unlocked" copy names the configured reward
+   ----------------------------------------------------------
+   The top-tier reward name was hardcoded, so renaming the milestone in the
+   CMS (and therefore in the $0 line item the Worker adds at that tier)
+   changed every string in the drawer except the celebration, which went on
+   promising a Pocket Salve the order no longer included.
+   ========================================================== */
+{
+  const renamed = [
+    { threshold: 40, reward: "Free Tracked Shipping", icon: "truck" },
+    { threshold: 60, reward: "Handcrafted Lavender Sachet", icon: "gift" }
+  ];
+  const unlocked = cart.calculateMilestoneStatus(75, renamed, false);
+  eq(
+    unlocked.message,
+    "🎉 All perks unlocked! Free Shipping + Free Handcrafted Lavender Sachet!",
+    "the celebration names the configured top-tier reward"
+  );
+  const threeTier = cart.calculateMilestoneStatus(
+    999,
+    [
+      { threshold: 40, reward: "Free Tracked Shipping" },
+      { threshold: 60, reward: "Free Pocket Salve" },
+      { threshold: 120, reward: "Tote Bag" }
+    ],
+    false
+  );
+  eq(
+    threeTier.message,
+    "🎉 All perks unlocked! Free Shipping + Free Pocket Salve + Free Tote Bag!",
+    "every bonus tier is named, in configured order"
+  );
+}
+
 console.log(`\ncart-engine.test.js: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

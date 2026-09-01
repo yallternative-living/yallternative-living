@@ -114,10 +114,23 @@ self.addEventListener('activate', event => {
  */
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
-  
+
+  const url = new URL(event.request.url);
+
+  // Dynamic endpoints are never cached and never intercepted. /.netlify/
+  // (serverless functions: gift-card balance, order status, refunds) and
+  // /api/ (the Cloudflare Worker checkout proxy, see netlify.toml) return
+  // per-request, often personalised, sometimes single-use payloads. Serving
+  // one of those from the cache -- or writing one into it -- hands the next
+  // shopper someone else's gift-card balance or a dead checkout session.
+  // Returning BEFORE any caches.match/caches.put and before respondWith()
+  // leaves them entirely to the network.
+  if (url.pathname.startsWith('/.netlify/') || url.pathname.startsWith('/api/')) {
+    return;
+  }
+
   // Handle local same-origin assets
   if (event.request.url.startsWith(self.location.origin)) {
-    const url = new URL(event.request.url);
     url.search = "";
     const cleanRequest = new Request(url.toString());
 

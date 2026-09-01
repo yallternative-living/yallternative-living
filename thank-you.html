@@ -126,9 +126,9 @@
         </div>
 
         <div class="thank-you-amount-row">
-          <div class="amount-group">
+          <div class="amount-group" id="thankYouAmountGroup" hidden>
             <span class="amount-label">Order Total</span>
-            <div class="amount-val" id="thankYouAmountDisplay">$25.00</div>
+            <div class="amount-val" id="thankYouAmountDisplay"></div>
           </div>
           <div class="receipt-secure-pill">
             <svg class="yl-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
@@ -199,78 +199,6 @@
             <a href="mailto:y.allternative.living@gmail.com">y.allternative.living@gmail.com</a>
             and we'll sort it out right away.
           </p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- DIGITAL GIFT CERTIFICATE SECTION (R3) -->
-  <section id="giftCertificateSection" class="gift-certificate-section section-tight" hidden aria-labelledby="giftCertHeading">
-    <div class="container center">
-      <div class="gift-cert-actions" style="display: flex; gap: 12px; justify-content: center; margin-bottom: 1.5rem; flex-wrap: wrap;">
-        <button type="button" class="btn btn-primary" id="printGiftCertBtn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
-          Print Certificate
-        </button>
-        <button type="button" class="btn btn-outline" id="copyGiftCertCodeBtn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-          Copy Gift Code
-        </button>
-      </div>
-      <div id="giftCertCopyFeedback" class="sr-only" aria-live="polite"></div>
-
-      <div class="gift-certificate-card" id="giftCertificateCard">
-        <div class="gift-cert-header">
-          <img class="gift-cert-logo" src="assets/img/logo.png" alt="Y'allternative Living icon" width="56" height="56">
-          <div class="gift-cert-brand-info">
-            <span class="gift-cert-brand-name">Y'allternative Living</span>
-            <span class="gift-cert-origin">Landrum, South Carolina</span>
-            <span class="gift-cert-tagline">Handmade Self-Care for the Black Sheep &amp; Bold Hearts</span>
-          </div>
-        </div>
-
-        <div class="gift-cert-body">
-          <h2 id="giftCertHeading" class="gift-cert-title">Digital Gift Certificate</h2>
-          
-          <div class="gift-cert-value-wrap">
-            <span class="gift-cert-value-label">Gift Amount</span>
-            <div class="gift-cert-value" id="giftCertValue">$25.00</div>
-          </div>
-
-          <div class="gift-cert-details">
-            <div class="gift-cert-field" id="giftCertRecipientWrap">
-              <span class="gift-cert-label">To / Recipient:</span>
-              <span class="gift-cert-val" id="giftCertRecipient">Special Someone</span>
-            </div>
-            <div class="gift-cert-field" id="giftCertSenderWrap">
-              <span class="gift-cert-label">From / Sender:</span>
-              <span class="gift-cert-val" id="giftCertSender">A Friend</span>
-            </div>
-            <div class="gift-cert-field gift-cert-message-field" id="giftCertMessageWrap">
-              <span class="gift-cert-label">Personal Note:</span>
-              <p class="gift-cert-message" id="giftCertMessage">Enjoy some handmade self-care!</p>
-            </div>
-          </div>
-
-          <div class="gift-cert-code-container">
-            <span class="gift-cert-code-title">Redemption Code:</span>
-            <div class="gift-cert-code-box">
-              <code class="gift-cert-code" id="giftCertCode">YALL-GIFT-CARD</code>
-            </div>
-          </div>
-
-          <div class="gift-cert-instructions">
-            <h3>How to Redeem</h3>
-            <ol>
-              <li>Visit <strong>yallternativeliving.com/shop.html</strong> on any phone, tablet, or computer.</li>
-              <li>Pick your favorite handcrafted salves, soaks, body care, or apparel.</li>
-              <li>Enter your redemption code at checkout to apply your gift balance.</li>
-            </ol>
-          </div>
-        </div>
-
-        <div class="gift-cert-cut-guide" aria-hidden="true">
-          <span>✀ Cut along dashed line</span>
         </div>
       </div>
     </div>
