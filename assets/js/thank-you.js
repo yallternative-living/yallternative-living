@@ -31,6 +31,18 @@
      both actions for a repeat. No session_id at all means this isn't a
      checkout redirect, so neither action belongs. */
   var SEEN_KEY = "yl-thankyou-session";
+
+  /* ...and "a session_id is present" was too weak a signal on its own. The
+     Worker's success_url always carries a real Stripe Checkout Session id
+     (cs_live_… / cs_test_…, see workers/checkout.js). Anything else in that
+     parameter is a hand-typed or shared URL rather than a completed order,
+     and must not book revenue in analytics or empty a shopper's cart. The
+     amount is held to the same standard: it is only ever an analytics hint,
+     so an absent, non-numeric, negative or absurd value is treated as "no
+     amount" rather than reported as an order total. */
+  var SESSION_ID_RE = /^cs_(live|test)_[A-Za-z0-9]+$/;
+  var MAX_ORDER_AMOUNT = 10000;
+
   function claimSession(sessionId) {
     if (!sessionId) return false;
     try {
@@ -46,11 +58,17 @@
 
   try {
     var params = new URLSearchParams(window.location.search);
-    var amount = parseFloat(params.get("amount"));
-    var currency = (params.get("currency") || "usd").toUpperCase();
-    var isFreshOrder = claimSession((params.get("session_id") || "").trim());
+    var sessionId = (params.get("session_id") || "").trim();
+    var isValidSession = SESSION_ID_RE.test(sessionId);
 
-    if (isFreshOrder && !isNaN(amount) && typeof window.plausible === "function") {
+    var rawAmount = params.get("amount");
+    var amount = rawAmount === null ? NaN : parseFloat(rawAmount);
+    var hasAmount = isFinite(amount) && amount >= 0 && amount <= MAX_ORDER_AMOUNT;
+    var currency = (params.get("currency") || "usd").toUpperCase();
+
+    var isFreshOrder = isValidSession && hasAmount && claimSession(sessionId);
+
+    if (isFreshOrder && typeof window.plausible === "function") {
       window.plausible("Purchase", {
         props: {
           revenue: {
@@ -66,24 +84,28 @@
     }
 
     var amountEl = document.getElementById("thankYouAmount");
-    if (amountEl && !isNaN(amount)) {
+    if (amountEl && hasAmount) {
       amountEl.textContent = "$" + amount.toFixed(2);
       amountEl.hidden = false;
     }
 
+    /* No invented total. The receipt block stays hidden unless the redirect
+       actually carried a usable amount -- the old hardcoded placeholder total
+       was printed for every order whose amount was missing, which read as a
+       real charge the shopper never made. */
+    var amountGroup = document.getElementById("thankYouAmountGroup");
     var amountDisplay = document.getElementById("thankYouAmountDisplay");
-    if (amountDisplay) {
-      if (!isNaN(amount)) {
-        amountDisplay.textContent = "$" + amount.toFixed(2);
-      } else {
-        amountDisplay.textContent = "$25.00";
-      }
+    if (hasAmount) {
+      if (amountDisplay) amountDisplay.textContent = "$" + amount.toFixed(2);
+      if (amountGroup) amountGroup.hidden = false;
+    } else {
+      if (amountDisplay) amountDisplay.textContent = "";
+      if (amountGroup) amountGroup.hidden = true;
     }
 
-    var sessionId = (params.get("session_id") || "").trim();
     var sessionRow = document.getElementById("thankYouSessionRow");
     var sessionCode = document.getElementById("thankYouSessionCode");
-    if (sessionId && sessionRow && sessionCode) {
+    if (isValidSession && sessionRow && sessionCode) {
       sessionCode.textContent = sessionId;
       sessionRow.hidden = false;
 
@@ -119,103 +141,16 @@
       dateEl.textContent = formattedDate;
     }
 
-    /* ---------- R3: Digital Gift Certificate Parser & Controller ---------- */
-    var giftCode = (
-      params.get("gift_code") ||
-      params.get("code") ||
-      params.get("gift_card_code") ||
-      ""
-    ).trim();
-    var recipient = (params.get("recipient") || params.get("to") || "").trim();
-    var sender = (params.get("sender") || params.get("from") || "").trim();
-    var customNote = (
-      params.get("message") ||
-      params.get("note") ||
-      params.get("gift_message") ||
-      ""
-    ).trim();
-
-    var certSection = document.getElementById("giftCertificateSection");
-    if (giftCode && certSection) {
-      certSection.hidden = false;
-
-      var certCodeEl = document.getElementById("giftCertCode");
-      if (certCodeEl) {
-        certCodeEl.textContent = giftCode;
-      }
-
-      var certValEl = document.getElementById("giftCertValue");
-      if (certValEl && !isNaN(amount)) {
-        certValEl.textContent = "$" + amount.toFixed(2);
-      }
-
-      var certRecipientEl = document.getElementById("giftCertRecipient");
-      if (certRecipientEl && recipient) {
-        certRecipientEl.textContent = recipient;
-      }
-
-      var certSenderEl = document.getElementById("giftCertSender");
-      if (certSenderEl && sender) {
-        certSenderEl.textContent = sender;
-      }
-
-      var certMessageEl = document.getElementById("giftCertMessage");
-      if (certMessageEl && customNote) {
-        certMessageEl.textContent = customNote;
-      }
-
-      var printBtn = document.getElementById("printGiftCertBtn");
-      if (printBtn) {
-        printBtn.addEventListener("click", function () {
-          window.print();
-        });
-      }
-
-      var copyBtn = document.getElementById("copyGiftCertCodeBtn");
-      var feedbackEl = document.getElementById("giftCertCopyFeedback");
-      if (copyBtn) {
-        copyBtn.addEventListener("click", function () {
-          var originalText = copyBtn.innerHTML;
-          function showSuccess() {
-            copyBtn.innerHTML =
-              '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg> Copied!';
-            if (feedbackEl) {
-              feedbackEl.textContent = "Gift card code " + giftCode + " copied to clipboard.";
-            }
-            setTimeout(function () {
-              copyBtn.innerHTML = originalText;
-            }, 2500);
-          }
-
-          if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
-            navigator.clipboard
-              .writeText(giftCode)
-              .then(showSuccess)
-              .catch(function () {
-                fallbackCopy();
-              });
-          } else {
-            fallbackCopy();
-          }
-
-          function fallbackCopy() {
-            try {
-              var tempInput = document.createElement("input");
-              tempInput.value = giftCode;
-              document.body.appendChild(tempInput);
-              tempInput.select();
-              document.execCommand("copy");
-              document.body.removeChild(tempInput);
-              showSuccess();
-            } catch {
-              if (feedbackEl) {
-                feedbackEl.textContent = "Could not copy code. Please copy manually: " + giftCode;
-              }
-            }
-          }
-        });
-      }
-    }
+    /* The digital gift-certificate renderer that used to live here read a
+       gift code, recipient, sender and note straight out of the query string
+       and printed them onto a certificate. workers/checkout.js never emits
+       any of those parameters -- the only success_url params are session_id,
+       amount and currency -- so the whole path was unreachable for real
+       orders and reachable by anyone who could hand a shopper a link: a
+       code plus a recipient in the query string rendered an official-looking
+       certificate for a gift card that does not exist. Gift cards are
+       delivered by the fulfilment email instead (see netlify/functions), so
+       the parser and its markup are gone rather than merely hidden. */
   } catch {
     /* Never let a query-param hiccup break this page's "thanks!" message. */
   }
