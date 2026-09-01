@@ -317,6 +317,18 @@ function section(title) {
     }
 
     // 3. Simulated Checkout Session Execution
+    // A market on the (mocked) calendar, in the shape workers/checkout.js's
+    // resolvePickupAddress() reads: name, dateLabel, location ending ", XX",
+    // and a 5-digit zip.
+    const mockPickupEvent = {
+      id: "smoke-test-market",
+      name: "Smoke Test Market",
+      date: "2099-01-01",
+      dateLabel: "January 1, 2099",
+      location: "Landrum, SC",
+      zip: "29356"
+    };
+
     const mockCatalog = {
       products: [
         { id: "lavender-soak", name: "Lavender Soak", price: 18.0, category: "soaks" },
@@ -356,6 +368,15 @@ function section(title) {
             ok: true,
             clone: () => ({ body: null }),
             json: async () => mockCatalog
+          };
+        }
+        if (u.includes("events.json")) {
+          // The Worker validates a pick-up label against the live market
+          // calendar (audit H-2): an invented label must not zero shipping.
+          return {
+            ok: true,
+            clone: () => ({ body: null }),
+            json: async () => ({ upcoming: [mockPickupEvent], past: [] })
           };
         }
         if (u.includes("api.stripe.com/v1/promotion_codes")) {
@@ -436,21 +457,36 @@ function section(title) {
       fail("Gift order metadata missing in Stripe session");
     }
 
-    // Pickup market order test ($0 shipping rate)
+    // Pickup market order test: a label that is on the market calendar is
+    // honoured (metadata set, no shipping line at all); an invented label is
+    // rejected (no metadata, shipping charged). Both halves must hold -- the
+    // second is what stops "pickup_market: x" from buying free shipping.
+    const pickupLabel = workerModule.pickupLabelFor(mockPickupEvent);
     const pickupRes = await executeCheckout({
+      items: [{ id: "lavender-soak", qty: 1 }],
+      pickup_market: pickupLabel
+    });
+    const pickupHonoured =
+      pickupRes.sessionParams &&
+      pickupRes.sessionParams.get("metadata[pickup_market]") === pickupLabel &&
+      !Array.from(pickupRes.sessionParams.keys()).some((k) => k.startsWith("shipping_options["));
+    const forgedRes = await executeCheckout({
       items: [{ id: "lavender-soak", qty: 1 }],
       pickup_market: "Landrum SC Farmers Market"
     });
-    if (
-      pickupRes.sessionParams &&
-      pickupRes.sessionParams.get("metadata[pickup_market]") === "Landrum SC Farmers Market" &&
-      pickupRes.sessionParams.get(
+    const forgedRejected =
+      forgedRes.sessionParams &&
+      !forgedRes.sessionParams.get("metadata[pickup_market]") &&
+      forgedRes.sessionParams.get(
         "shipping_options[0][shipping_rate_data][fixed_amount][amount]"
-      ) === "0"
-    ) {
-      pass("Local market pickup captures metadata and applies $0 free shipping rate");
+      ) === "1000";
+    if (pickupHonoured && forgedRejected) {
+      pass("Calendar pick-up label suppresses shipping; a forged label is rejected");
     } else {
-      fail("Pickup market metadata or shipping rate mismatch");
+      fail(
+        "Pickup market validation mismatch",
+        `honoured=${Boolean(pickupHonoured)} forgedRejected=${Boolean(forgedRejected)}`
+      );
     }
   } catch (err) {
     fail("Stage 3 Worker checkout execution threw exception", err.stack || err.message);
