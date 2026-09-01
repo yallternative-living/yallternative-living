@@ -1087,24 +1087,28 @@ window.YL_SEARCH_INDEX = {
         "name": "Amount",
         "options": [
           {
-            "label": "$10",
+            "label": "Preset $10",
             "priceDelta": 0
           },
           {
-            "label": "$25",
+            "label": "Preset $25",
             "priceDelta": 15
           },
           {
-            "label": "$50",
+            "label": "Preset $50",
             "priceDelta": 40
           },
           {
-            "label": "$100",
+            "label": "Preset $100",
             "priceDelta": 90
           },
           {
-            "label": "$200",
+            "label": "Preset $200",
             "priceDelta": 190
+          },
+          {
+            "label": "Preset $500",
+            "priceDelta": 490
           }
         ]
       },
@@ -1359,42 +1363,7 @@ window.YL_SEARCH_INDEX = {
       "shopUrl": "shop.html#bundle-discovery-flight"
     }
   ],
-  "journal": [
-    {
-      "id": "magnesium-salve-benefits",
-      "title": "Why Magnesium & Arnica Belong in Your Bedtime Routine",
-      "date": "2026-07-15",
-      "formattedDate": "2026-07-15",
-      "image": "assets/img/sleep-salve.jpg",
-      "readTime": "4 min read",
-      "tags": [
-        "Apothecary",
-        "Botanical Care",
-        "Self-Care"
-      ],
-      "excerpt": "Struggling to turn your brain off or dealing with sore muscles? Here is the science (and folklore) behind why this duo works.",
-      "content": "We've all been there: staring at the ceiling, mentally sorting through every conversation we've had since 2012, while your legs feel restless and your shoulders are up around your ears. Modern life is noisy, and muscle tension is real. Why magnesium and arnica That's where magnesium and arnica come in. Magnesium is a mineral that plays a huge role in muscle relaxation and regulating the nervous system. When applied topically, it sinks straight in where you need it most. Combined with arnica —a mountain herb used for centuries to soothe bruising, aches, and swelling—it creates a powerful recovery balm. How to use it To use it, just massage a small amount into any of these before bed: - Your temples - The back of your neck - Sore muscles The act of massaging it in helps relax the muscles, while the lavender and chamomile scents cue your brain that it's time to rest. Sweet dreams, y'all!",
-      "featuredProductId": "magnesium-body-butter",
-      "url": "journal.html#post-magnesium-salve-benefits"
-    },
-    {
-      "id": "small-batch-difference",
-      "title": "What's the Deal with Small Batch Apothecary?",
-      "date": "2026-07-01",
-      "formattedDate": "2026-07-01",
-      "image": "assets/img/shea-butter.jpg",
-      "readTime": "3 min read",
-      "tags": [
-        "Small Batch",
-        "Botanical Care",
-        "Behind the Scenes"
-      ],
-      "excerpt": "Is 'small batch' just a trendy buzzword, or does it actually make a difference for your skin? Let's talk about shelf life and real ingredients.",
-      "content": "If you look at the ingredients of a drugstore lotion, the first five are usually water, mineral oils, and a bunch of parabens and synthetic stabilizers designed to make it last on a warehouse shelf for three years. What 'small batch' actually means When we say 'small batch,' we mean that Savanna literally measures, stirs, and pours a few dozen jars at a time in her kitchen . Because we sell out quickly and make fresh batches every week, we don't have to load our skin products with harsh chemical preservatives. We use real, active plant oils, raw shea butter, and organic botanicals that actually feed your skin. What that means for you It means you get fresher, more potent self-care , and you're supporting a real person, not a corporate lab. Keep it real, y'all.",
-      "featuredProductId": "pine-tar-salve",
-      "url": "journal.html#post-small-batch-difference"
-    }
-  ],
+  "journal": [],
   "events": [
     {
       "id": "autumn-apothecary-faire",
@@ -1412,6 +1381,7 @@ window.YL_SEARCH_INDEX = {
       "url": "events.html#autumn-apothecary-faire"
     },
     {
+      "id": "spartanburg-punk-flea-market",
       "name": "Spartanburg Punk Flea Market",
       "title": "Spartanburg Punk Flea Market",
       "date": "2026-08-29",
@@ -1419,13 +1389,14 @@ window.YL_SEARCH_INDEX = {
       "endDate": "2026-08-30",
       "type": "Flea Market",
       "location": "Spartanburg, SC",
-      "zip": "",
+      "zip": "29303",
       "note": "575 Fairgrounds Rd, Spartanburg, SC 29303. Two-day punk flea market.",
       "description": "575 Fairgrounds Rd, Spartanburg, SC 29303. Two-day punk flea market.",
       "isUpcoming": false,
-      "url": "events.html#undefined"
+      "url": "events.html#spartanburg-punk-flea-market"
     },
     {
+      "id": "gothic-punk-night-market",
       "name": "Gothic Punk Night Market",
       "title": "Gothic Punk Night Market",
       "date": "2026-08-21",
@@ -1433,13 +1404,14 @@ window.YL_SEARCH_INDEX = {
       "endDate": null,
       "type": "Night Market",
       "location": "Charlotte, NC",
-      "zip": "",
+      "zip": "28206",
       "note": "NoDa Brewing Company, 150 W 32nd St, Charlotte, NC 28206.",
       "description": "NoDa Brewing Company, 150 W 32nd St, Charlotte, NC 28206.",
       "isUpcoming": false,
-      "url": "events.html#undefined"
+      "url": "events.html#gothic-punk-night-market"
     },
     {
+      "id": "summerville-punk-flea-market",
       "name": "Summerville Punk Flea Market",
       "title": "Summerville Punk Flea Market",
       "date": "2026-08-15",
@@ -1447,11 +1419,11 @@ window.YL_SEARCH_INDEX = {
       "endDate": "2026-08-16",
       "type": "Flea Market",
       "location": "Ladson, SC",
-      "zip": "",
+      "zip": "29456",
       "note": "9850 Highway 78, Ladson, SC 29456. Two-day punk flea market — come find our table.",
       "description": "9850 Highway 78, Ladson, SC 29456. Two-day punk flea market — come find our table.",
       "isUpcoming": false,
-      "url": "events.html#undefined"
+      "url": "events.html#summerville-punk-flea-market"
     },
     {
       "id": "upstate-pride-colors-of-pride",
