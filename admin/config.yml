@@ -738,11 +738,16 @@ collections:
               - { name: birthdayTitle, label: "Birthday Club Headline", widget: string, required: false, default: "Join The Birthday Club" }
               - { name: birthdaySubtext, label: "Birthday Club Offer Description", widget: text, required: false, default: "Get a $5 gift voucher delivered to your inbox on your birthday." }
               - { name: kitFormAction, label: "Newsletter sign-up link (from Kit / ConvertKit)", widget: string, required: false, hint: "Paste the form link from your Kit account here." }
-              - { name: tawkToPropertyId, label: "Live chat — Property ID (from Tawk.to, optional)", widget: string, required: false, hint: "Turns on the live-chat bubble. Leave blank to skip live chat." }
-              - { name: tawkToWidgetId, label: "Live chat — Widget ID (from Tawk.to, optional)", widget: string, required: false, hint: "The second Tawk.to code, paired with the Property ID above." }
-              - { name: formspreeContactId, label: "Contact form ID (from Formspree)", widget: string, required: false, hint: "Makes the Contact page's message form work." }
-              - { name: formspreeReviewId, label: "Reviews form ID (from Formspree)", widget: string, required: false, hint: "Makes the 'leave a review' form work." }
-              - { name: formspreeRestockId, label: "Launch-alert form ID (from Formspree)", widget: string, required: false, hint: "Makes the 'email me when it launches' sign-ups work." }
+              # These IDs are pasted from another dashboard and land inside an
+              # attribute or a JavaScript string on every page, so they are
+              # checked here AND at build time (validateSiteIds in
+              # scripts/build-site-data.js): a value that is not a plausible ID
+              # is a typo or an injection attempt, and the deploy stops.
+              - { name: tawkToPropertyId, label: "Live chat — Property ID (from Tawk.to, optional)", widget: string, required: false, pattern: ['^$|^[A-Za-z0-9]{1,40}$', "Copy the Property ID exactly from Tawk.to: letters and numbers only, no spaces or punctuation."], hint: "Turns on the live-chat bubble. Leave blank to skip live chat." }
+              - { name: tawkToWidgetId, label: "Live chat — Widget ID (from Tawk.to, optional)", widget: string, required: false, pattern: ['^$|^[A-Za-z0-9]{1,40}$', "Copy the Widget ID exactly from Tawk.to: letters and numbers only, no spaces or punctuation."], hint: "The second Tawk.to code, paired with the Property ID above." }
+              - { name: formspreeContactId, label: "Contact form ID (from Formspree)", widget: string, required: false, pattern: ['^$|^[A-Za-z0-9_-]{1,64}$', "Just the short form code from the Formspree URL (letters, numbers, - and _) -- not the whole web address."], hint: "Makes the Contact page's message form work." }
+              - { name: formspreeReviewId, label: "Reviews form ID (from Formspree)", widget: string, required: false, pattern: ['^$|^[A-Za-z0-9_-]{1,64}$', "Just the short form code from the Formspree URL (letters, numbers, - and _) -- not the whole web address."], hint: "Makes the 'leave a review' form work." }
+              - { name: formspreeRestockId, label: "Launch-alert form ID (from Formspree)", widget: string, required: false, pattern: ['^$|^[A-Za-z0-9_-]{1,64}$', "Just the short form code from the Formspree URL (letters, numbers, - and _) -- not the whole web address."], hint: "Makes the 'email me when it launches' sign-ups work." }
               - { name: welcomeCode, label: "Newsletter welcome discount code", widget: string, required: false, hint: "The 10% off code new subscribers get. Shown on the welcome page they land on after confirming. Leave blank and the page points them at your email instead of showing a code that does not work." }
               # Hidden on purpose (widget: hidden = stored, but no UI control).
               # Gift Up! is only half-built: setting a real ID generates a
@@ -751,8 +756,8 @@ collections:
               # stays declared so the CMS round-trips the value instead of
               # dropping it on save -- unhide it (widget: string) only after
               # the bypass in main.js exists. See DEVELOPMENT.md section 18.
-              - { name: giftUpId, label: "Gift Card Account Code (Gift Up!)", widget: hidden, required: false }
-              - { name: umamiWebsiteId, label: "Website analytics ID (from Umami, optional)", widget: string, required: false, hint: "Turns on private, cookie-free visitor stats. Leave blank to skip." }
+              - { name: giftUpId, label: "Gift Card Account Code (Gift Up!)", widget: hidden, required: false, pattern: ['^(YOUR_GIFTUP_ID|[A-Za-z0-9-]{0,64})$', "Gift Up! account codes are letters, numbers and hyphens only."] }
+              - { name: umamiWebsiteId, label: "Website analytics ID (from Umami, optional)", widget: string, required: false, pattern: ['^(YOUR_UMAMI_WEBSITE_ID|[A-Za-z0-9-]{0,64})$', "Paste the Website ID from Umami: letters, numbers and hyphens only."], hint: "Turns on private, cookie-free visitor stats. Leave blank to skip." }
               - { name: enableJournal, label: "Show Apothecary Journal (Blog)", widget: boolean, default: false, required: false, hint: "Show or hide the blog page." }
               - { name: enableSocialFeed, label: "Show Social Media Feed", widget: boolean, default: false, required: false, hint: "Show or hide the Instagram/TikTok social feed on the homepage." }
               - { name: enableRestockAlerts, label: "Show 'Email Me When It Launches' Signup", widget: boolean, default: true, required: false, hint: "Adds an email signup to any product marked Coming Soon, so shoppers can be told when it lands." }

@@ -32,10 +32,24 @@
 
      node scripts/build-security-headers.js
 
-   It reads the current inline scripts straight out of index.html
-   (verifying they're byte-identical across every page first), hashes
-   them, and rewrites _headers + vercel.json to match. Safe to run any
-   time; it doesn't touch products, images, or anything else.
+   It reads every inline <script> out of every page this site ships --
+   all the top-level HTML files plus every generated products/*.html --
+   hashes them, and rewrites _headers + vercel.json + netlify.toml to
+   match. Safe to run any time; it doesn't touch products, images, or
+   anything else.
+
+   IMPORTANT -- what the hash set is checked against:
+   This script used to hash whatever it found and emit it, which meant a
+   CSP that certified its own input. Anything that reached an inline
+   script -- including a value typed into the CMS at /admin and
+   interpolated into the Tawk.to snippet by build-site-data.js -- was
+   automatically allowlisted on the next deploy, so the policy could
+   never block it (audit findings C-4 and H-13). Every hash is now
+   checked against the committed baseline in
+   scripts/inline-script-hashes.json and an unrecognised one FAILS the
+   build. That is a deliberate speed bump: when you legitimately change
+   an inline script, read the diff, satisfy yourself it is yours, and
+   add the new hash to that file in the same commit.
    ========================================================== */
 
 var fs = require("fs");
@@ -51,6 +65,27 @@ var ROOT = path.join(__dirname, "..");
    someone tries to pay. */
 var CHECKOUT_PATH = "/api/checkout";
 var CHECKOUT_WORKER_URL = "https://yallternative-checkout.y-allternative-living.workers.dev";
+var BASELINE_PATH = path.join(__dirname, "inline-script-hashes.json");
+
+/* Paths that must never be served: this repository is the publish root
+   (`publish = "."`), so without these every build script, audit document,
+   Worker source and lockfile in the tree is a public URL on the live
+   domain. Netlify matches redirects in order and the checkout proxy is
+   emitted after these, which is fine -- none of these patterns match
+   /api/checkout. /admin/* is deliberately absent: the CMS is served. */
+var BLOCKED_PATHS = [
+  "/scripts/*",
+  "/docs/*",
+  "/workers/*",
+  "/cms-auth/*",
+  "/netlify/*",
+  "/package.json",
+  "/package-lock.json",
+  "/*.md",
+  "/.eslintrc.json",
+  "/run-launch-checks.command",
+  "/TEST_INFRA.md"
+];
 var PAGES = [
   "index.html",
   "shop.html",
@@ -76,6 +111,68 @@ var PAGES = [
   "welcome.html",
   "products/backroad-soak.html"
 ];
+
+/* Every page whose inline scripts the CSP has to cover. The static list
+   above is the top-level site; the 19 generated product pages are globbed
+   because they are created by build-site-data.js from products.json -- a CMS
+   commit can add one, and only backroad-soak.html used to be checked, so an
+   inline script on any of the other 18 was hashed by nobody. */
+function allPages() {
+  var pages = PAGES.slice();
+  var productsDir = path.join(ROOT, "products");
+  if (fs.existsSync(productsDir)) {
+    fs.readdirSync(productsDir)
+      .filter(function (f) {
+        return /\.html$/.test(f);
+      })
+      .sort()
+      .forEach(function (f) {
+        var rel = "products/" + f;
+        if (pages.indexOf(rel) === -1) pages.push(rel);
+      });
+  }
+  return pages;
+}
+
+function readBaseline() {
+  if (!fs.existsSync(BASELINE_PATH)) {
+    console.error(
+      "[build-security-headers] Missing " +
+        path.relative(ROOT, BASELINE_PATH) +
+        " -- the CSP cannot be built without the approved inline-script baseline."
+    );
+    process.exit(1);
+  }
+  try {
+    var parsed = JSON.parse(fs.readFileSync(BASELINE_PATH, "utf8"));
+    return parsed && parsed.hashes ? parsed.hashes : {};
+  } catch (e) {
+    console.error(
+      "[build-security-headers] " + path.relative(ROOT, BASELINE_PATH) + ": " + e.message
+    );
+    process.exit(1);
+  }
+}
+
+/* Which of the inline scripts found on the pages are NOT in the baseline.
+   `pageScripts` maps a page name to its array of inline script bodies. */
+function findUnapprovedHashes(pageScripts, baseline) {
+  var unapproved = [];
+  var seen = {};
+  Object.keys(pageScripts).forEach(function (page) {
+    (pageScripts[page] || []).forEach(function (body) {
+      var hash = "sha256-" + sha256Base64(body);
+      if (baseline && Object.prototype.hasOwnProperty.call(baseline, hash)) return;
+      if (seen[hash]) {
+        seen[hash].pages.push(page);
+        return;
+      }
+      seen[hash] = { hash: hash, pages: [page], body: body };
+      unapproved.push(seen[hash]);
+    });
+  });
+  return unapproved;
+}
 
 function extractInlineScripts(html) {
   var out = [];
@@ -116,25 +213,75 @@ function run() {
     );
   }
 
-  // Collect unique inline scripts across all configured pages.
+  // Collect the inline scripts on every page, PDPs included.
+  var pages = allPages();
+  var pageScripts = {};
   var allTexts = {};
-  canonicalScripts.forEach(function (s) {
-    allTexts[sha256Base64(s)] = s;
-  });
-
-  PAGES.slice(1).forEach(function (page) {
-    var html = readHtml(page);
-    extractInlineScripts(html).forEach(function (s) {
-      var h = sha256Base64(s);
-      if (!allTexts[h]) {
-        allTexts[h] = s;
-      }
+  var hashPages = {};
+  pages.forEach(function (page) {
+    var html = page === "index.html" ? canonical : readHtml(page);
+    var scripts = extractInlineScripts(html);
+    pageScripts[page] = scripts;
+    scripts.forEach(function (body) {
+      var h = sha256Base64(body);
+      if (!allTexts[h]) allTexts[h] = body;
+      hashPages[h] = hashPages[h] || [];
+      hashPages[h].push(page);
     });
   });
 
-  var hashes = Object.keys(allTexts).map(function (h) {
-    return "'sha256-" + h + "'";
+  /* ---------- the gate ----------
+     Runs before anything is written, so a failure leaves _headers,
+     vercel.json and netlify.toml exactly as they were. */
+  var baseline = readBaseline();
+  var unapproved = findUnapprovedHashes(pageScripts, baseline);
+  if (unapproved.length) {
+    console.error(
+      "\n[build-security-headers] Refusing to build: " +
+        unapproved.length +
+        " inline script(s) are not in the approved baseline.\n"
+    );
+    unapproved.forEach(function (item) {
+      var preview = item.body.replace(/\s+/g, " ").trim().slice(0, 160);
+      console.error("  " + item.hash);
+      console.error("    on: " + item.pages.join(", "));
+      console.error("    starts: " + preview + (item.body.length > 160 ? " ..." : ""));
+      console.error("");
+    });
+    console.error(
+      "  This is the check that stops CMS-authored text from being allowlisted by\n" +
+        "  the CSP that is meant to contain it (audit C-4 / H-13). If YOU changed an\n" +
+        "  inline script, read the block above, confirm every line of it is yours,\n" +
+        "  then add the hash to scripts/inline-script-hashes.json with a note saying\n" +
+        "  what the script does -- in the same commit as the change. If you did not\n" +
+        "  change it, do not update the baseline: find out where it came from.\n"
+    );
+    process.exit(1);
+  }
+
+  /* Baseline entries that no longer match anything on the site are reported
+     but not fatal -- a page can legitimately lose a script. They are left out
+     of the emitted CSP: the policy carries hashes that exist, nothing else.
+     (One hardcoded hash matching no page had been sitting in the script-src
+     for exactly this reason.) */
+  var stale = Object.keys(baseline).filter(function (h) {
+    return !allTexts[h.replace(/^sha256-/, "")];
   });
+  if (stale.length) {
+    console.warn(
+      "[build-security-headers] " +
+        stale.length +
+        " baseline hash(es) match no page any more (left out of the CSP; remove them from " +
+        "scripts/inline-script-hashes.json when you are sure): " +
+        stale.join(", ")
+    );
+  }
+
+  var hashes = Object.keys(allTexts)
+    .sort()
+    .map(function (h) {
+      return "'sha256-" + h + "'";
+    });
 
   var csp = [
     "default-src 'self'",
@@ -150,7 +297,11 @@ function run() {
     // that main.js injects for instant navigations (prerender/prefetch on
     // hover). This keyword ONLY permits speculation-rules scripts -- it does
     // not open up general inline JS execution.
-    "script-src 'self' https://cloud.umami.is https://embed.tawk.to https://translate.google.com https://translate.googleapis.com 'inline-speculation-rules' 'sha256-gUmq6gOoZ76O8R+C9JLLJzm46Aj4WygKv4n1nBxUfUk=' " +
+    // Every hash here is computed from a real inline script on a real page
+    // and approved in scripts/inline-script-hashes.json. There used to be one
+    // more, hardcoded, matching no script on any page in the repository --
+    // an allowlist entry for something nobody could point at.
+    "script-src 'self' https://cloud.umami.is https://embed.tawk.to https://translate.google.com https://translate.googleapis.com 'inline-speculation-rules' " +
       hashes.join(" "),
     // fonts.googleapis.com: every page's <link> tags pull Cormorant Garamond
     // + Outfit from Google Fonts (see the top-of-file comment in styles.css)
@@ -360,6 +511,28 @@ function run() {
     '"\n' +
     "  status = 200\n" +
     "  force = true\n\n" +
+    // Netlify publishes this whole repository, so without these every build
+    // script, audit document, Worker source, serverless function and lockfile
+    // in the tree is a live URL on the real domain (audit: Medium, SEO/content
+    // -- 1.5 MB of scripts/ alone). Netlify applies the first MATCHING rule,
+    // and none of these patterns overlap /api/checkout, so they block just as
+    // well after it as before it -- and keeping the checkout proxy as the
+    // first [[redirects]] block is what qa-check.js's "Checkout proxy" section
+    // reads to confirm cart.js and this file still agree on the path.
+    // /admin/* is deliberately absent: the CMS has to keep being served.
+    "# Source, docs and tooling are in the publish root but must never be\n" +
+    "# served. /admin/ is deliberately not in this list -- the CMS is served.\n" +
+    BLOCKED_PATHS.map(function (blockedPath) {
+      return (
+        "[[redirects]]\n" +
+        '  from = "' +
+        blockedPath +
+        '"\n' +
+        '  to = "/404.html"\n' +
+        "  status = 404\n" +
+        "  force = true\n\n"
+      );
+    }).join("") +
     "# Long-lived caching for hashed/never-changing assets. Pages themselves\n" +
     "# (index.html, shop.html, etc.) intentionally aren't cached long here --\n" +
     "# Netlify already serves them with an ETag + must-revalidate by default,\n" +
@@ -435,6 +608,11 @@ if (require.main === module) {
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     extractInlineScripts: extractInlineScripts,
-    sha256Base64: sha256Base64
+    sha256Base64: sha256Base64,
+    allPages: allPages,
+    readBaseline: readBaseline,
+    findUnapprovedHashes: findUnapprovedHashes,
+    BASELINE_PATH: BASELINE_PATH,
+    BLOCKED_PATHS: BLOCKED_PATHS
   };
 }

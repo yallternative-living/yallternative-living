@@ -83,7 +83,7 @@ window.YL_SITE_REVIEWS = [
     "text": "Refreshing mist that clears heavy energy from my workspace. The cedar and sage note combination is perfect.",
     "date": "2026-08-18",
     "featured": false,
-    "verifiedBuyer": true
+    "verifiedBuyer": false
   },
   {
     "id": "site-2026-08-sam",
@@ -93,7 +93,7 @@ window.YL_SITE_REVIEWS = [
     "text": "Brewing a giant herbal tea bag directly in the bath is a game changer. No floating mess and totally relaxing.",
     "date": "2026-08-22",
     "featured": false,
-    "verifiedBuyer": true
+    "verifiedBuyer": false
   },
   {
     "id": "site-2026-08-alex",
@@ -123,6 +123,6 @@ window.YL_SITE_REVIEWS = [
     "text": "Great crisp aroma, though I wish the rosemary scent lingered a bit longer in large open rooms.",
     "date": "2026-08-30",
     "featured": false,
-    "verifiedBuyer": true
+    "verifiedBuyer": false
   }
 ];

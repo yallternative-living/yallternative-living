@@ -931,10 +931,6 @@ window.YL_PRODUCTS = {
       "image": "assets/img/placeholder-coming-soon.svg",
       "blurb": "Rainbow layers of sweet exfoliant that slough off the rough, leave skin soft, and look like a Pride parade in a jar. Glitter-and-grit self-care that means exactly what it says: everybody's welcome.",
       "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
-      "rating": {
-        "value": 5,
-        "count": 1
-      },
       "ingredients": [
         "Cane Sugar",
         "Coconut Oil",
@@ -990,10 +986,6 @@ window.YL_PRODUCTS = {
       "image": "assets/img/placeholder-coming-soon.svg",
       "blurb": "Whipped light and fluffy in a citrus-peach blend, with rainbow swirls that mean all of it: every color, every one of us. Melts in without the grease and keeps skin soft all day. Everybody's welcome, moisturized.",
       "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
-      "rating": {
-        "value": 5,
-        "count": 1
-      },
       "ingredients": [
         "Shea Butter",
         "Mango Butter",
@@ -1242,24 +1234,28 @@ window.YL_PRODUCTS = {
         "name": "Amount",
         "options": [
           {
-            "label": "$10",
+            "label": "Preset $10",
             "priceDelta": 0
           },
           {
-            "label": "$25",
+            "label": "Preset $25",
             "priceDelta": 15
           },
           {
-            "label": "$50",
+            "label": "Preset $50",
             "priceDelta": 40
           },
           {
-            "label": "$100",
+            "label": "Preset $100",
             "priceDelta": 90
           },
           {
-            "label": "$200",
+            "label": "Preset $200",
             "priceDelta": 190
+          },
+          {
+            "label": "Preset $500",
+            "priceDelta": 490
           }
         ]
       },

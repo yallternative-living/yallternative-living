@@ -1,0 +1,46 @@
+{
+  "_readme": [
+    "Approved inline <script> blocks for this site's Content-Security-Policy.",
+    "",
+    "scripts/build-security-headers.js hashes every inline script on every page",
+    "(all the top-level HTML files plus every generated products/*.html) and",
+    "refuses to build if it finds one that is not listed here. Without that",
+    "check the generator re-hashed whatever it found on each deploy, so any",
+    "script that reached a page -- including text typed into the CMS at /admin",
+    "and interpolated into the Tawk.to snippet by build-site-data.js -- was",
+    "automatically allowlisted by the very policy meant to contain it. That is",
+    "findings C-4 and H-13 in docs/AUDIT-2026-09-01.md.",
+    "",
+    "WHEN THE BUILD FAILS ON A NEW HASH: read the script it prints. Confirm",
+    "line by line that it is a change you or a colleague made on purpose. Only",
+    "then add its hash below, with a note saying what the script does and which",
+    "file emits it, in the same commit as the change itself. Never paste in a",
+    "hash to make a red build go green.",
+    "",
+    "A hash listed here that matches nothing on the site is reported as stale",
+    "on every build and is left out of the emitted CSP; delete it once you are",
+    "sure the script is gone for good."
+  ],
+  "hashes": {
+    "sha256-Wmlc/Lumj50wOdax6AEbaQv0zXK/9D0NZCQxPTdXDqM=": {
+      "what": "No-flash theme init: reads the yl-theme preference and sets data-theme before first paint.",
+      "emittedBy": "hand-written in each page's <head>",
+      "pages": "all 15 top-level pages"
+    },
+    "sha256-0kqeFm4bqiT8bQvy1ltLsg9sxxjyyPTni1L+4ARp8us=": {
+      "what": "Google Fonts stylesheet loader: flips the print-media stylesheet to all once it has loaded.",
+      "emittedBy": "hand-written in each page's <head>",
+      "pages": "all 15 top-level pages"
+    },
+    "sha256-Y0mDoLE/QTaOFwAZeZ4lDbSl/yUCx8wjXTvb9LMvyB8=": {
+      "what": "Tawk.to live-chat loader. The two IDs inside it come from content.json via scripts/build-site-data.js, which now writes them as JSON string literals -- so this hash changes whenever those IDs change in /admin, and the change must be reviewed here before it can ship.",
+      "emittedBy": "scripts/build-site-data.js (site.tawkToPropertyId / site.tawkToWidgetId markers)",
+      "pages": "all 15 top-level pages"
+    },
+    "sha256-VJ7jNsHEHhcsOXcbS3AonhQ32XVieLA091IRBqiUMZQ=": {
+      "what": "Product-page redirect: sends products/<id>.html to shop.html#<id>.",
+      "emittedBy": "scripts/build-site-data.js (renderProductPdpHtml)",
+      "pages": "all 19 generated products/*.html"
+    }
+  }
+}

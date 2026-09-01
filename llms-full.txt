@@ -213,10 +213,10 @@ yourself.
 
 ### Digital Gift Card
 - **ID / slug**: `yallternative-gift-card`
-- **Price**: $10.00 - $200.00 USD
+- **Price**: $10.00 - $500.00 USD
 - **Category**: Gift Cards
 - **Availability**: In stock
-- **Amount**: $10, $25, $50, $100, $200
+- **Amount**: Preset $10, Preset $25, Preset $50, Preset $100, Preset $200, Preset $500
 - **Description**: The perfect gift for the black sheep & bold hearts. Choose any amount from $10 to $500. No expiration date, delivered straight to their inbox.
 - **Product page**: https://yallternativeliving.com/shop.html#yallternative-gift-card
 

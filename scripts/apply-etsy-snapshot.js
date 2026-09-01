@@ -3,8 +3,15 @@
    Y'ALLTERNATIVE LIVING -- Etsy sync applier
    ----------------------------------------------------------
    Applies a freshly-gathered snapshot of the live Etsy shop to
-   products-data.js -- the single source of truth this whole site's
-   build pipeline (build-site-data.js) reads from.
+   assets/data/products.json -- the single source of truth this whole
+   site's build pipeline (build-site-data.js) reads from, and the file
+   the CMS at /admin commits to.
+
+   (Until this was fixed it read and wrote assets/js/products-data.js,
+   which has been GENERATED from products.json since the source-of-truth
+   flip in mid-2026 -- so the very next build overwrote every rating this
+   script had just synced, and every Etsy sync since that flip was a
+   silent no-op. Audit finding, data integrity, High.)
 
    IMPORTANT -- how the snapshot gets built:
    This script does NOT fetch anything from Etsy itself (Etsy blocks
@@ -59,19 +66,20 @@ if (!Array.isArray(snapshot.listings)) {
   process.exit(1);
 }
 
-var dataPath = path.join(ROOT, "assets/js/products-data.js");
+var dataPath = path.join(ROOT, "assets/data/products.json");
 if (!fs.existsSync(dataPath)) {
-  console.error("Error: products-data.js is missing at " + dataPath);
-  console.error("Please run the site data builder first: node scripts/build-site-data.js");
+  console.error("Error: products.json is missing at " + dataPath);
   process.exit(1);
 }
 
-// Same window-stub trick build-site-data.js uses, so this unmodified
-// browser-global file loads fine under plain Node too.
-global.window = {};
-require(dataPath);
-var CATALOG = global.window.YL_PRODUCTS;
-var PRODUCTS = CATALOG.products;
+var CATALOG;
+try {
+  CATALOG = JSON.parse(fs.readFileSync(dataPath, "utf8"));
+} catch (e) {
+  console.error("Error: assets/data/products.json is not valid JSON -- " + e.message);
+  process.exit(1);
+}
+var PRODUCTS = CATALOG.products || [];
 
 /**
  * Extracts the numeric listing ID from an Etsy URL.
@@ -192,21 +200,11 @@ if (snapshot.complete) {
   });
 }
 
-// ---- write products-data.js back out only if something actually changed ----
+// ---- write products.json back out only if something actually changed ----
+// Two-space JSON, trailing newline: byte-for-byte the shape the CMS and
+// prettier both write, so a sync run produces a clean one-field diff.
 if (ratingChanges.length) {
-  var HEADER =
-    "/* Auto-mirrors assets/data/products.json as a global,\n" +
-    "   so the site works instantly off file:// with zero\n" +
-    "   network/CORS issues, and just as fast once hosted.\n" +
-    "   NOTE: ratings in this file are kept in sync with real per-listing\n" +
-    "   Etsy reviews by scripts/apply-etsy-snapshot.js -- everything else\n" +
-    "   here (photos, blurbs, prices, variants) is still hand-maintained. */\n";
-  var out = HEADER + "window.YL_PRODUCTS = " + JSON.stringify(CATALOG, null, 2) + ";\n";
-  var dir = path.dirname(dataPath);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-  fs.writeFileSync(dataPath, out);
+  fs.writeFileSync(dataPath, JSON.stringify(CATALOG, null, 2) + "\n");
 }
 
 // ---- human-readable report, overwritten every run ----
@@ -280,5 +278,7 @@ console.log(
 );
 console.log("Full report: scripts/etsy-sync-report.md");
 if (ratingChanges.length) {
-  console.log("\nproducts-data.js changed -- now run: node scripts/build-site-data.js && npm test");
+  console.log(
+    "\nassets/data/products.json changed -- now run: node scripts/build-site-data.js && npm test"
+  );
 }

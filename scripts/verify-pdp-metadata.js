@@ -26,6 +26,37 @@ function assert(condition, label, detail = "") {
   }
 }
 
+/* Mirrors truncateForMeta() in scripts/build-site-data.js. Product blurbs
+   run to 304 characters and Google cuts descriptions around 155-160, so the
+   PDP meta/og/twitter description is trimmed at a word boundary while the
+   visible on-page copy keeps the full text. */
+function truncateForMeta(text, maxLen) {
+  const limit = maxLen || 155;
+  const clean = String(text == null ? "" : text)
+    .replace(/\s+/g, " ")
+    .trim();
+  if (clean.length <= limit) return clean;
+  const slice = clean.slice(0, limit - 1);
+  const lastSpace = slice.lastIndexOf(" ");
+  const base = lastSpace > 0 ? slice.slice(0, lastSpace) : slice;
+  return base.replace(/[\s,;:.!?-]+$/, "") + "\u2026";
+}
+
+/* Mirrors variantPriceRange(): the advertised price is the cheapest buyable
+   variant, which is not the base price when a variant has a negative delta
+   (frankincense-salve's 1oz option is -$6). */
+function advertisedLowPrice(product) {
+  const options =
+    product.variants && Array.isArray(product.variants.options) ? product.variants.options : [];
+  const available = options.filter((o) => !o.soldOut);
+  const pool = available.length ? available : options;
+  if (!pool.length) return product.price;
+  return Math.min.apply(
+    null,
+    pool.map((o) => product.price + (o.priceDelta || 0))
+  );
+}
+
 function escapeHtml(s) {
   return String(s == null ? "" : s)
     .replace(/&/g, "&amp;")
@@ -49,18 +80,49 @@ productsData.products.forEach((product) => {
 
   // 1. Title & Meta Description
   const expectedTitle = escapeHtml(product.name) + " | Y'allternative Living";
-  const expectedDesc = escapeHtml(product.description || product.blurb || "");
+  const rawDesc = product.description || product.blurb || "";
+  const expectedDesc = escapeHtml(rawDesc);
+  const expectedMetaDesc = escapeHtml(truncateForMeta(rawDesc, 155));
+  const expectedLowPrice = advertisedLowPrice(product).toFixed(2);
   const expectedOgImage = DOMAIN + "/" + String(product.image).replace(/^\/+/, "");
   const expectedOgUrl = DOMAIN + "/products/" + product.id + ".html";
 
   assert(html.includes(`<title>${expectedTitle}</title>`), `${product.id}: <title> tag matches`);
   assert(
-    html.includes(`<meta name="description" content="${expectedDesc}">`),
-    `${product.id}: meta description matches`
+    html.includes(`<meta name="description" content="${expectedMetaDesc}">`),
+    `${product.id}: meta description matches (truncated at a word boundary)`
+  );
+  // Measured on the text a reader (and Google) actually sees, i.e. before
+  // HTML-escaping turns one apostrophe into six characters.
+  assert(
+    truncateForMeta(rawDesc, 155).length <= 155,
+    `${product.id}: meta description is 155 characters or fewer`
   );
   assert(
     html.includes(`<link rel="canonical" href="${DOMAIN}/shop.html">`),
     `${product.id}: canonical link points to shop.html`
+  );
+
+  /* H-15. These pages deliberately redirect to shop.html and canonicalise
+     there, so they are noindex and carry no Product/Offer/BreadcrumbList
+     JSON-LD of their own -- shop.html's ItemList is the one place the
+     catalogue's schema lives. Reversing that decision means deleting these
+     three assertions along with the ones in build-site-data.js. */
+  assert(
+    html.includes('<meta name="robots" content="noindex, follow">'),
+    `${product.id}: PDP is explicitly noindex, follow`
+  );
+  assert(
+    !html.includes('type="application/ld+json"'),
+    `${product.id}: PDP emits no JSON-LD (shop.html carries the catalogue schema)`
+  );
+  assert(
+    !html.includes("#category-"),
+    `${product.id}: no dead shop.html#category- breadcrumb anchor`
+  );
+  assert(
+    html.includes(`href="../shop.html#${product.category}"`),
+    `${product.id}: category breadcrumb points at shop.html#${product.category}`
   );
 
   // 2. OpenGraph Meta Tags
@@ -73,7 +135,7 @@ productsData.products.forEach((product) => {
     `${product.id}: og:title matches`
   );
   assert(
-    html.includes(`<meta property="og:description" content="${expectedDesc}">`),
+    html.includes(`<meta property="og:description" content="${expectedMetaDesc}">`),
     `${product.id}: og:description matches`
   );
   assert(
@@ -99,7 +161,7 @@ productsData.products.forEach((product) => {
     `${product.id}: twitter:title matches`
   );
   assert(
-    html.includes(`<meta name="twitter:description" content="${expectedDesc}">`),
+    html.includes(`<meta name="twitter:description" content="${expectedMetaDesc}">`),
     `${product.id}: twitter:description matches`
   );
   assert(
@@ -109,14 +171,19 @@ productsData.products.forEach((product) => {
 
   // 4. E-Commerce OpenGraph Tags
   assert(
-    html.includes(`<meta property="product:price:amount" content="${product.price.toFixed(2)}">`),
-    `${product.id}: product:price:amount matches ${product.price.toFixed(2)}`
+    html.includes(`<meta property="product:price:amount" content="${expectedLowPrice}">`),
+    `${product.id}: product:price:amount is the cheapest buyable variant (${expectedLowPrice})`
   );
   assert(
     html.includes('<meta property="product:price:currency" content="USD">'),
     `${product.id}: product:price:currency is USD`
   );
-  const expectedAvailability = product.comingSoon ? "preorder" : "in stock";
+  const expectedAvailability =
+    product.inStock === false || product.stock === 0
+      ? "out of stock"
+      : product.comingSoon
+        ? "preorder"
+        : "in stock";
   assert(
     html.includes(`<meta property="product:availability" content="${expectedAvailability}">`),
     `${product.id}: product:availability is ${expectedAvailability}`
@@ -144,8 +211,8 @@ productsData.products.forEach((product) => {
     `${product.id}: itemprop="priceCurrency" is USD`
   );
   assert(
-    html.includes(`itemprop="price" content="${product.price.toFixed(2)}"`),
-    `${product.id}: itemprop="price" content matches ${product.price.toFixed(2)}`
+    html.includes(`itemprop="price" content="${expectedLowPrice}"`),
+    `${product.id}: itemprop="price" matches the advertised low price (${expectedLowPrice})`
   );
   assert(
     html.includes(`itemprop="description">${expectedDesc}</p>`),

@@ -1,38 +1,6 @@
 {
   "upcoming": [
     {
-      "id": "summerville-punk-flea-market",
-      "date": "2026-08-15",
-      "endDate": "2026-08-16",
-      "dateLabel": "August 15–16, 2026 · Sat & Sun, 11am–7pm",
-      "name": "Summerville Punk Flea Market",
-      "type": "Flea Market",
-      "location": "Ladson, SC",
-      "zip": "29456",
-      "note": "9850 Highway 78, Ladson, SC 29456. Two-day punk flea market — come find our table."
-    },
-    {
-      "id": "gothic-punk-night-market",
-      "date": "2026-08-21",
-      "dateLabel": "August 21, 2026 · Friday, 6:30pm–9pm",
-      "name": "Gothic Punk Night Market",
-      "type": "Night Market",
-      "location": "Charlotte, NC",
-      "zip": "28206",
-      "note": "NoDa Brewing Company, 150 W 32nd St, Charlotte, NC 28206."
-    },
-    {
-      "id": "spartanburg-punk-flea-market",
-      "date": "2026-08-29",
-      "endDate": "2026-08-30",
-      "dateLabel": "August 29–30, 2026 · Sat & Sun, 11am–7pm",
-      "name": "Spartanburg Punk Flea Market",
-      "type": "Flea Market",
-      "location": "Spartanburg, SC",
-      "zip": "29303",
-      "note": "575 Fairgrounds Rd, Spartanburg, SC 29303. Two-day punk flea market."
-    },
-    {
       "id": "autumn-apothecary-faire",
       "date": "2026-10-17T09:00:00-04:00",
       "dateLabel": "October 17, 2026",
@@ -45,6 +13,38 @@
     }
   ],
   "past": [
+    {
+      "id": "spartanburg-punk-flea-market",
+      "date": "2026-08-29",
+      "endDate": "2026-08-30",
+      "dateLabel": "August 29–30, 2026 · Sat & Sun, 11am–7pm",
+      "name": "Spartanburg Punk Flea Market",
+      "type": "Flea Market",
+      "location": "Spartanburg, SC",
+      "zip": "29303",
+      "note": "575 Fairgrounds Rd, Spartanburg, SC 29303. Two-day punk flea market."
+    },
+    {
+      "id": "gothic-punk-night-market",
+      "date": "2026-08-21",
+      "dateLabel": "August 21, 2026 · Friday, 6:30pm–9pm",
+      "name": "Gothic Punk Night Market",
+      "type": "Night Market",
+      "location": "Charlotte, NC",
+      "zip": "28206",
+      "note": "NoDa Brewing Company, 150 W 32nd St, Charlotte, NC 28206."
+    },
+    {
+      "id": "summerville-punk-flea-market",
+      "date": "2026-08-15",
+      "endDate": "2026-08-16",
+      "dateLabel": "August 15–16, 2026 · Sat & Sun, 11am–7pm",
+      "name": "Summerville Punk Flea Market",
+      "type": "Flea Market",
+      "location": "Ladson, SC",
+      "zip": "29456",
+      "note": "9850 Highway 78, Ladson, SC 29456. Two-day punk flea market — come find our table."
+    },
     {
       "id": "upstate-pride-colors-of-pride",
       "date": "2026-06-20",

@@ -101,16 +101,59 @@ for (let i = 1; i <= iterations; i++) {
   }
 }
 
-// Special check for sw.js (updates version on build)
+/* sw.js and feed.xml carried the two wall-clock stamps in the build (H-20):
+   the cache name was a timestamp, so every deploy renamed the service-worker
+   cache and dumped every visitor's precache whether or not anything had
+   changed, and the feed's lastBuildDate moved on every run. Both are derived
+   from content now -- the cache name from a sha256 of the precached files,
+   the feed date from the newest journal post -- so they have to be stable
+   across builds like everything else, and they are checked here. */
 const swPath = path.join(ROOT, "sw.js");
 console.log(`\nService Worker sw.js check:`);
 const swContent = fs.readFileSync(swPath, "utf8");
-const swMatch = swContent.match(/const CACHE_NAME\s*=\s*['"](yallternative-cache-v\d+)['"];/);
+const swMatch = swContent.match(
+  /const CACHE_NAME\s*=\s*['"](yallternative-cache-v[0-9a-f]{12})['"];/
+);
 if (swMatch) {
-  console.log(`  ✓ sw.js CACHE_NAME pattern valid: ${swMatch[1]}`);
+  console.log(`  ✓ sw.js CACHE_NAME is a content digest: ${swMatch[1]}`);
 } else {
-  console.error(`  ✗ sw.js CACHE_NAME missing or invalid format`);
+  console.error(
+    `  ✗ sw.js CACHE_NAME missing or not a content digest (expected yallternative-cache-v<12 hex chars>)`
+  );
   nondeterministicChanges++;
+}
+
+// Rebuilding without changing anything must not roll the cache name.
+execSync("node scripts/build-site-data.js", { cwd: ROOT });
+const swAfter = fs.readFileSync(swPath, "utf8");
+if (swAfter === swContent) {
+  console.log(`  ✓ sw.js unchanged by a rebuild with no input changes`);
+} else {
+  console.error(`  ✗ sw.js changed on a no-op rebuild -- CACHE_NAME is not content-derived`);
+  nondeterministicChanges++;
+}
+
+const feedPath = path.join(ROOT, "feed.xml");
+console.log(`\nRSS feed.xml check:`);
+const feedContent = fs.readFileSync(feedPath, "utf8");
+const lastBuild = feedContent.match(/<lastBuildDate>([^<]*)<\/lastBuildDate>/);
+if (!lastBuild) {
+  console.error(`  ✗ feed.xml has no <lastBuildDate>`);
+  nondeterministicChanges++;
+} else {
+  const journal = JSON.parse(fs.readFileSync(path.join(ROOT, "assets/data/journal.json"), "utf8"));
+  const dates = (journal.posts || [])
+    .map((post) => new Date(post.date))
+    .filter((d) => !isNaN(d.getTime()));
+  const newest = dates.length ? new Date(Math.max.apply(null, dates)) : new Date(0);
+  if (lastBuild[1] === newest.toUTCString()) {
+    console.log(`  ✓ feed.xml lastBuildDate is the newest post's date: ${lastBuild[1]}`);
+  } else {
+    console.error(
+      `  ✗ feed.xml lastBuildDate is ${lastBuild[1]}, expected the newest post date ${newest.toUTCString()}`
+    );
+    nondeterministicChanges++;
+  }
 }
 
 // Summary

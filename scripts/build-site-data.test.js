@@ -399,10 +399,82 @@ assert(
     pdpHtmlOutput.indexOf("pdp-freshness-badge") !== -1 &&
     pdpHtmlOutput.indexOf("pdp-scent-profile") !== -1 &&
     pdpHtmlOutput.indexOf("pdp-accordion") !== -1 &&
-    pdpHtmlOutput.indexOf('href="../shop.html#category-salves"') !== -1 &&
-    pdpHtmlOutput.indexOf('"@type": "Product"') !== -1 &&
-    pdpHtmlOutput.indexOf('"@type": "BreadcrumbList"') !== -1,
-  "renderProductPdpHtml generates complete PDP page with JSON-LD and 4-tier breadcrumb markup"
+    pdpHtmlOutput.indexOf('href="../shop.html#salves"') !== -1,
+  "renderProductPdpHtml generates complete PDP page with 4-tier breadcrumb markup"
+);
+assert(
+  pdpHtmlOutput.indexOf("#category-salves") === -1,
+  "PDP category breadcrumb has no dead #category- prefix"
+);
+
+/* H-15: PDPs redirect to shop.html and canonicalise there, so they carry no
+   Product/Offer/BreadcrumbList schema of their own (shop.html's ItemList
+   does) and they say noindex outright. */
+assert(
+  pdpHtmlOutput.indexOf('type="application/ld+json"') === -1,
+  "PDP emits no JSON-LD (the shop page carries the catalogue schema)"
+);
+assert(
+  pdpHtmlOutput.indexOf('<meta name="robots" content="noindex, follow">') !== -1,
+  "PDP is explicitly noindex, follow"
+);
+assert(
+  pdpHtmlOutput.indexOf(
+    '<link rel="canonical" href="https://yallternativeliving.com/shop.html">'
+  ) !== -1,
+  "PDP still canonicalises to shop.html"
+);
+
+/* Meta descriptions are truncated at a word boundary; the visible blurb is
+   not. */
+const longDescProd = Object.assign({}, testApothecaryProd, {
+  description:
+    "Calendula, arnica and five other botanicals in a beeswax base for cracked hands, " +
+    "windburn, razor bumps, dry cuticles, scraped knees and every other rough patch a " +
+    "Southern summer can hand you, poured in very small batches in Landrum South Carolina."
+});
+const longDescPdp = buildScript.renderProductPdpHtml(
+  longDescProd,
+  "https://yallternativeliving.com",
+  "Salves & Balms"
+);
+const metaDescMatch = longDescPdp.match(/<meta name="description" content="([^"]*)">/);
+assert(Boolean(metaDescMatch), "PDP emits a meta description");
+assert(
+  metaDescMatch && metaDescMatch[1].length <= 155,
+  "PDP meta description is trimmed to 155 characters or fewer"
+);
+assert(
+  metaDescMatch && /\u2026$/.test(metaDescMatch[1]) && !/\s\u2026$/.test(metaDescMatch[1]),
+  "PDP meta description is cut at a word boundary and ellipsised"
+);
+assert(
+  longDescPdp.indexOf("poured in very small batches in Landrum South Carolina.") !== -1,
+  "the visible on-page description keeps the full text"
+);
+
+/* A negative price delta means the advertised price is the cheapest buyable
+   variant, not the base price (frankincense-salve's 1oz option is -$6). */
+const deltaProd = {
+  id: "delta-salve",
+  name: "Delta Salve",
+  price: 19.99,
+  image: "assets/img/x.jpg",
+  blurb: "b",
+  variants: { name: "Size", options: [{ label: "2oz" }, { label: "1oz", priceDelta: -6 }] }
+};
+const deltaPdp = buildScript.renderProductPdpHtml(
+  deltaProd,
+  "https://yallternativeliving.com",
+  "Salves & Balms"
+);
+assert(
+  deltaPdp.indexOf('<meta property="product:price:amount" content="13.99">') !== -1,
+  "og price is the cheapest buyable variant, not the base price"
+);
+assert(
+  deltaPdp.indexOf('itemprop="price" content="13.99"') !== -1,
+  "microdata price matches the advertised low price"
 );
 
 /* 10. Google Merchant Rich Product JSON-LD & BreadcrumbList (R5) */
@@ -611,9 +683,9 @@ eq(
     "@type": "ListItem",
     position: 3,
     name: "Salves & Balms",
-    item: "https://yallternativeliving.com/shop.html#category-salves"
+    item: "https://yallternativeliving.com/shop.html#salves"
   },
-  "Breadcrumb Tier 3 is Category"
+  "Breadcrumb Tier 3 is Category (plain #<categoryId>, the anchor shop.html actually has)"
 );
 eq(
   breadcrumbLd.itemListElement[3],
@@ -624,6 +696,231 @@ eq(
     item: "https://yallternativeliving.com/products/lavender-salve.html"
   },
   "Breadcrumb Tier 4 is Product"
+);
+
+/* ---------- C-4: escaping into script and attribute contexts ---------- */
+eq(
+  buildScript.escapeJsonForScript('{"name":"</script><img src=x>"}'),
+  '{"name":"\\u003c/script\\u003e\\u003cimg src=x\\u003e"}',
+  "escapeJsonForScript neutralises </script> inside JSON"
+);
+eq(
+  buildScript.escapeJsonForScript('{"a":"x & y"}'),
+  '{"a":"x \\u0026 y"}',
+  "escapeJsonForScript escapes ampersands as \\u0026 (round-trips to '&')"
+);
+eq(
+  JSON.parse(buildScript.escapeJsonForScript(JSON.stringify({ c: "Salves & Balms" }))).c,
+  "Salves & Balms",
+  "escaped JSON-LD still parses back to the exact original text"
+);
+eq(
+  JSON.parse(buildScript.escapeJsonForScript(JSON.stringify({ n: "</script><b>" }))).n,
+  "</script><b>",
+  "escaped JSON-LD round-trips a </script> payload byte for byte"
+);
+assert(
+  buildScript
+    .jsonLdScriptBlock({ "@type": "Product", name: "</script>" }, "")
+    .indexOf("</script>\n") === -1,
+  "jsonLdScriptBlock never emits a nested closing script tag from data"
+);
+
+eq(
+  buildScript.jsStringLiteral('"; fetch("https://evil.example"); //'),
+  '"\\"; fetch(\\"https://evil.example\\"); //"',
+  "jsStringLiteral keeps an injected quote inside the JS string literal"
+);
+eq(
+  buildScript.jsStringLiteral("</script><script>alert(1)</script>"),
+  '"\\u003c/script\\u003e\\u003cscript\\u003ealert(1)\\u003c/script\\u003e"',
+  "jsStringLiteral escapes < so the inline script block cannot be closed"
+);
+eq(
+  JSON.parse(buildScript.jsStringLiteral("6a9687f6adddbc3447585d73")),
+  "6a9687f6adddbc3447585d73",
+  "jsStringLiteral round-trips a real Tawk.to property id"
+);
+
+/* ---------- C-4: content.json integration IDs are validated ---------- */
+const originalExit = process.exit;
+const originalError = console.error;
+function siteIdsRejected(site) {
+  let exited = false;
+  process.exit = function () {
+    exited = true;
+    throw new Error("__exit__");
+  };
+  console.error = function () {};
+  try {
+    buildScript.validateSiteIds(site);
+  } catch (e) {
+    if (e.message !== "__exit__") throw e;
+  } finally {
+    process.exit = originalExit;
+    console.error = originalError;
+  }
+  return exited;
+}
+assert(
+  siteIdsRejected({ tawkToWidgetId: '"; fetch("https://evil.example"); //' }),
+  "build refuses a Tawk.to widget id carrying a JS payload"
+);
+assert(
+  siteIdsRejected({ tawkToPropertyId: "</script><script>alert(1)</script>" }),
+  "build refuses a Tawk.to property id carrying markup"
+);
+assert(
+  siteIdsRejected({ umamiWebsiteId: 'x" onload="alert(1)' }),
+  "build refuses an Umami id that breaks out of its attribute"
+);
+assert(
+  siteIdsRejected({ formspreeContactId: "../../evil" }),
+  "build refuses a Formspree id with path characters"
+);
+assert(
+  !siteIdsRejected({
+    tawkToPropertyId: "6a9687f6adddbc3447585d73",
+    tawkToWidgetId: "1k1e066pc",
+    umamiWebsiteId: "YOUR_UMAMI_WEBSITE_ID",
+    giftUpId: "YOUR_GIFTUP_ID",
+    formspreeContactId: "xoeqevqv",
+    formspreeReviewId: "xzebezbl",
+    formspreeRestockId: "xwlklppo"
+  }),
+  "the real content.json values pass validation"
+);
+assert(!siteIdsRejected({ umamiWebsiteId: "", giftUpId: "" }), "empty ids mean 'not configured'");
+
+/* ---------- ratings, availability, meta truncation ---------- */
+eq(buildScript.clampRating(500, 5), 5, "clampRating caps a rating at 5");
+eq(buildScript.clampRating(-2, 5), 0, "clampRating floors a rating at 0");
+eq(buildScript.clampRating("not a number", 5), 5, "clampRating falls back for non-numeric input");
+eq(buildScript.clampRating(4.5, 5), 4.5, "clampRating leaves a valid rating alone");
+
+eq(
+  buildScript.schemaAvailability({ comingSoon: true, image: "assets/img/real-photo.jpg" }),
+  "https://schema.org/PreOrder",
+  "availability comes from comingSoon, not the image filename"
+);
+eq(
+  buildScript.schemaAvailability({ image: "assets/img/placeholder-coming-soon.svg" }),
+  "https://schema.org/InStock",
+  "a placeholder photo alone no longer implies PreOrder"
+);
+eq(
+  buildScript.schemaAvailability({ inStock: false }),
+  "https://schema.org/OutOfStock",
+  "inStock:false is OutOfStock"
+);
+eq(
+  buildScript.schemaAvailability({ stock: 0 }),
+  "https://schema.org/OutOfStock",
+  "stock:0 is OutOfStock"
+);
+
+eq(buildScript.truncateForMeta("short one", 155), "short one", "truncateForMeta leaves short text");
+const longMeta = buildScript.truncateForMeta("word ".repeat(60), 155);
+assert(longMeta.length <= 155, "truncateForMeta respects the 155-character limit");
+assert(/word\u2026$/.test(longMeta), "truncateForMeta cuts at a word boundary");
+
+/* ---------- FAQ markdown links ---------- */
+eq(
+  buildScript.renderFaqAnswerHtml("See the [events page](events.html) for dates."),
+  'See the <a href="events.html">events page</a> for dates.',
+  "FAQ markdown keeps a legitimate relative link"
+);
+eq(
+  buildScript.renderFaqAnswerHtml("Click [here](javascript:alert%281%29) now."),
+  "Click here now.",
+  "FAQ markdown drops a javascript: link and keeps the text"
+);
+eq(
+  buildScript.renderFaqAnswerHtml("[x](data:text/html;base64,PHNjcmlwdD4=)"),
+  "x",
+  "FAQ markdown drops a data: link"
+);
+eq(
+  buildScript.renderFaqAnswerHtml("[y](JaVaScRiPt:alert%281%29)"),
+  "y",
+  "FAQ markdown scheme check is case-insensitive"
+);
+assert(
+  buildScript.renderFaqAnswerHtml("<img src=x onerror=alert(1)>").indexOf("<img") === -1,
+  "FAQ answers are HTML-escaped before the markdown pass"
+);
+
+/* ---------- feed.xml determinism + XML legality ---------- */
+eq(
+  buildScript.stripXmlControlChars("a\u000bb\u0000c"),
+  "abc",
+  "XML-illegal control characters are stripped from feed text"
+);
+const feedA = buildScript.generateRssFeed(
+  { posts: [{ id: "p1", title: "One", date: "2026-07-15", excerpt: "e" }] },
+  "https://yallternativeliving.com"
+);
+assert(
+  feedA.indexOf("<lastBuildDate>Wed, 15 Jul 2026 00:00:00 GMT</lastBuildDate>") !== -1,
+  "feed lastBuildDate comes from the newest post date, not the wall clock"
+);
+eq(
+  buildScript.generateRssFeed(
+    { posts: [{ id: "p1", title: "One", date: "2026-07-15", excerpt: "e" }] },
+    "https://yallternativeliving.com"
+  ),
+  feedA,
+  "two feed builds of the same data are byte-identical"
+);
+assert(
+  buildScript
+    .generateRssFeed(
+      { posts: [{ id: "p1", title: "One", date: "2026-07-15", excerpt: "e" }] },
+      "https://yallternativeliving.com",
+      { includeItems: false }
+    )
+    .indexOf("<item>") === -1,
+  "feed carries no items while the Journal is switched off"
+);
+
+/* ---------- netlify.toml: the repository source must not be served ---------- */
+const netlifyToml = fs.readFileSync(path.join(__dirname, "..", "netlify.toml"), "utf8");
+[
+  "/scripts/*",
+  "/docs/*",
+  "/workers/*",
+  "/cms-auth/*",
+  "/netlify/*",
+  "/package.json",
+  "/package-lock.json",
+  "/*.md",
+  "/.eslintrc.json",
+  "/run-launch-checks.command",
+  "/TEST_INFRA.md"
+].forEach(function (blocked) {
+  const idx = netlifyToml.indexOf('from = "' + blocked + '"');
+  assert(idx !== -1, "netlify.toml has a redirect rule for " + blocked);
+  if (idx !== -1) {
+    const rule = netlifyToml.slice(idx, idx + 200);
+    assert(/status = 404/.test(rule), "netlify.toml returns 404 for " + blocked);
+  }
+});
+const checkoutIdx = netlifyToml.indexOf('from = "/api/checkout"');
+assert(checkoutIdx !== -1, "netlify.toml still proxies /api/checkout");
+/* Netlify applies the first MATCHING rule and none of the 404 patterns
+   overlap /api/checkout, so the proxy stays the first [[redirects]] block --
+   which is also what qa-check.js's "Checkout proxy" section parses. */
+assert(
+  netlifyToml.indexOf('from = "/scripts/*"') > checkoutIdx,
+  "the checkout proxy is still the first redirect rule"
+);
+assert(
+  /from = "\/api\/checkout"\n\s+to = "https:\/\/[^"]+"\n\s+status = 200/.test(netlifyToml),
+  "/api/checkout is still a 200 proxy to the Worker"
+);
+assert(
+  netlifyToml.indexOf('from = "/admin/*"') === -1,
+  "/admin is still served (no 404 rule for it)"
 );
 
 console.log(`\nbuild-site-data.test.js: ${passed} passed, ${failed} failed`);

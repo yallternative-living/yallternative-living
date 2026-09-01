@@ -69,6 +69,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 const ROOT = path.join(__dirname, "..");
 
 /* Read + parse one of the canonical assets/data/*.json source files.
@@ -128,6 +129,69 @@ function escapeHtml(s) {
     .replace(/`/g, "&#96;");
 }
 
+/* ---------- JSON embedded in HTML ----------
+   The contents of a <script> element are RAW TEXT: the HTML parser never
+   decodes entities inside them, but it DOES end the element at the first
+   "</script" and treats "<!--" as the start of a comment-like state. So a
+   product name, blurb or FAQ answer containing "</script>" -- all of them
+   CMS-editable -- closes a JSON-LD block early and everything after it is
+   parsed as markup. That is finding C-4 in docs/AUDIT-2026-09-01.md, and it
+   applied to every JSON-LD block this script emits.
+
+   The fix neutralizes those characters INSIDE the JSON source text using
+   JSON's own \uXXXX escapes rather than HTML entities. Both stop the
+   breakout; only this one round-trips. Script content is not entity-decoded,
+   so writing "&amp;" would put those literal five characters into the
+   structured data every consumer reads (this catalogue has 32 ampersands in
+   category and scent names alone), whereas the JSON \u0026 escape parses
+   back to exactly "&". Same technique the CMS auth worker uses at
+   cms-auth/sveltia-auth.js:94-96.
+
+   U+2028/U+2029 are legal in JSON strings but are line terminators in
+   JavaScript, so they are escaped too. */
+function escapeJsonForScript(jsonText) {
+  return String(jsonText)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+}
+
+/* Serialize a value into a JS string literal that is safe both as JavaScript
+   and inside an HTML <script> block. Used for the Tawk.to IDs the CMS writes
+   into the inline chat snippet on 11 pages -- previously concatenated raw
+   between two quote characters, so a value of `"; fetch(...); //` executed,
+   and build-security-headers.js then certified the result with a fresh CSP
+   hash (C-4 / H-13). */
+function jsStringLiteral(value) {
+  const str = String(value === null || value === undefined ? "" : value);
+  return escapeJsonForScript(JSON.stringify(str));
+}
+
+/* One JSON-LD <script> block, escaped as above. `indent` is the leading
+   whitespace the block's closing tag carries in the page, so re-running the
+   build re-finds and replaces the block byte-for-byte. */
+function jsonLdScriptBlock(data, indent) {
+  const pad = indent || "";
+  return (
+    '<script type="application/ld+json">\n' +
+    escapeJsonForScript(JSON.stringify(data, null, 2)) +
+    "\n" +
+    pad +
+    "</script>"
+  );
+}
+
+/* Clamp a CMS-supplied star rating into the 0-5 range schema.org allows.
+   A non-numeric rating used to reach `Array(NaN)` and crash the build, and a
+   rating of 500 used to be published verbatim (Low findings in the audit). */
+function clampRating(value, fallback) {
+  const n = Number(value);
+  if (!isFinite(n)) return typeof fallback === "number" ? fallback : 0;
+  return Math.min(5, Math.max(0, n));
+}
+
 function safeUrl(url) {
   // Only lets http(s) and protocol-relative/root-relative links through.
   // ev.url comes from assets/data/events.json (editable via /admin) and is
@@ -138,6 +202,135 @@ function safeUrl(url) {
   const trimmed = String(url).trim();
   if (/^(https?:)?\/\//i.test(trimmed) || /^\//.test(trimmed)) return trimmed;
   return "";
+}
+
+/* A link target for CMS-authored Markdown ([text](url)) in the FAQ.
+   safeUrl() above is deliberately stricter -- it only allows absolute and
+   root-relative URLs, because an event's "More info" link is always one of
+   those -- but the FAQ legitimately links to "events.html", a document-
+   relative path safeUrl() would drop. This mirrors safeLinkUrl() in
+   assets/js/main.js:622: strip control characters, allow http/https/mailto
+   and anything with no scheme at all, reject every other scheme
+   (javascript:, data:, vbscript:). Empty string means "render the link text
+   without a link", which is what the FAQ renderer below does. */
+function safeLinkUrl(url) {
+  if (!url) return "";
+  let cleaned = "";
+  const raw = String(url);
+  for (let i = 0; i < raw.length; i++) {
+    const code = raw.charCodeAt(i);
+    if (code > 32 && code !== 127) cleaned += raw.charAt(i);
+  }
+  if (!cleaned) return "";
+  const scheme = /^([a-zA-Z][a-zA-Z0-9+.-]*):/.exec(cleaned);
+  if (scheme) {
+    const name = scheme[1].toLowerCase();
+    if (name !== "http" && name !== "https" && name !== "mailto") return "";
+  }
+  return cleaned;
+}
+
+/* Render one FAQ answer: HTML-escape first, then turn [text](url) into a
+   real link with the URL run through safeLinkUrl(). A javascript: URL used
+   to be emitted verbatim here (Low finding in the audit -- only the CSP
+   stopped it executing); now the link is dropped and the text survives. The
+   answer is escaped BEFORE the Markdown pass, so `url` is already
+   attribute-safe by the time it reaches the href. */
+function renderFaqAnswerHtml(answer) {
+  return escapeHtml(answer).replace(/\[([^\]]+)\]\(([^)]+)\)/g, function (m, text, url) {
+    const href = safeLinkUrl(url);
+    return href ? '<a href="' + href + '">' + text + "</a>" : text;
+  });
+}
+
+/* ---------- CMS integration IDs ----------
+   Every one of these lands in either an HTML attribute or a JavaScript
+   string literal inside a CSP-hashed inline script, and all of them are
+   editable from /admin. The sinks below escape properly now, but a value
+   that isn't a plausible ID is a mistake or an attack either way, so the
+   build refuses it outright rather than shipping an escaped payload. The
+   same patterns are declared as `pattern:` validators in admin/config.yml so
+   the CMS rejects them before they are ever committed -- this check is the
+   backstop for a hand-edit or a direct commit. */
+const SITE_ID_RULES = [
+  {
+    key: "tawkToPropertyId",
+    re: /^[A-Za-z0-9]{1,40}$/,
+    placeholders: ["YOUR_TAWKTO_PROPERTY_ID"],
+    describe: "letters and digits only, 1-40 characters"
+  },
+  {
+    key: "tawkToWidgetId",
+    re: /^[A-Za-z0-9]{1,40}$/,
+    placeholders: ["YOUR_TAWKTO_WIDGET_ID"],
+    describe: "letters and digits only, 1-40 characters"
+  },
+  {
+    key: "umamiWebsiteId",
+    re: /^[A-Za-z0-9-]{0,64}$/,
+    placeholders: ["YOUR_UMAMI_WEBSITE_ID"],
+    describe: "letters, digits and hyphens only, up to 64 characters"
+  },
+  {
+    key: "giftUpId",
+    re: /^[A-Za-z0-9-]{0,64}$/,
+    placeholders: ["YOUR_GIFTUP_ID"],
+    describe: "letters, digits and hyphens only, up to 64 characters"
+  },
+  {
+    key: "formspreeContactId",
+    re: /^[A-Za-z0-9_-]{1,64}$/,
+    placeholders: ["YOUR_FORM_ID"],
+    describe: "letters, digits, underscore and hyphen only, 1-64 characters"
+  },
+  {
+    key: "formspreeReviewId",
+    re: /^[A-Za-z0-9_-]{1,64}$/,
+    placeholders: ["YOUR_FORMSPREE_FORM_ID"],
+    describe: "letters, digits, underscore and hyphen only, 1-64 characters"
+  },
+  {
+    key: "formspreeRestockId",
+    re: /^[A-Za-z0-9_-]{1,64}$/,
+    placeholders: ["YOUR_FORMSPREE_FORM_ID"],
+    describe: "letters, digits, underscore and hyphen only, 1-64 characters"
+  }
+];
+
+function validateSiteIds(site) {
+  const problems = [];
+  SITE_ID_RULES.forEach(function (rule) {
+    const value = site ? site[rule.key] : undefined;
+    if (value === undefined || value === null) return;
+    const str = String(value).trim();
+    // An empty field means "not configured yet" -- every one of these is
+    // optional in /admin and the sinks below already handle the empty case.
+    if (str === "") return;
+    if (rule.placeholders.indexOf(str) !== -1) return;
+    if (!rule.re.test(str)) {
+      problems.push(
+        "  - site." +
+          rule.key +
+          ' is "' +
+          str +
+          '"\n      allowed: ' +
+          rule.describe +
+          " (or the placeholder " +
+          rule.placeholders[0] +
+          ")"
+      );
+    }
+  });
+  if (problems.length) {
+    console.error(
+      "\n[build] assets/data/content.json has integration IDs that don't look like IDs:\n" +
+        problems.join("\n") +
+        "\n\n        These values are written into HTML attributes and into the inline\n" +
+        "        live-chat script, so the build stops rather than publishing them.\n" +
+        "        Fix the field in /admin (Site Settings) or in content.json and rebuild.\n"
+    );
+    process.exit(1);
+  }
 }
 
 /* ---------- Form endpoints (action="...") ----------
@@ -317,6 +510,35 @@ function variantPriceRange(p) {
   };
 }
 
+/* Availability for schema.org, derived from the real catalogue flags.
+   shop.html's ItemList used to read `p.image.indexOf("placeholder")` instead,
+   so the day a coming-soon product got a real photo the shop page started
+   advertising it as InStock while the PDP still said PreOrder (Medium finding
+   in the audit's data-integrity section). One helper, one answer. */
+function schemaAvailability(product) {
+  const p = product || {};
+  if (p.inStock === false || p.stock === 0) return "https://schema.org/OutOfStock";
+  if (p.comingSoon === true) return "https://schema.org/PreOrder";
+  return "https://schema.org/InStock";
+}
+
+/* Meta descriptions are cut to <=155 characters at a word boundary.
+   Google truncates around 155-160 and the raw product blurbs run to 304, so
+   20 of them were being cut mid-word by the search engine instead (Medium
+   finding in the audit's SEO section). The visible on-page description is
+   never truncated -- only what goes into <meta>/og:/twitter: tags. */
+function truncateForMeta(text, maxLen) {
+  const limit = maxLen || 155;
+  const clean = String(text == null ? "" : text)
+    .replace(/\s+/g, " ")
+    .trim();
+  if (clean.length <= limit) return clean;
+  const slice = clean.slice(0, limit - 1);
+  const lastSpace = slice.lastIndexOf(" ");
+  const base = lastSpace > 0 ? slice.slice(0, lastSpace) : slice;
+  return base.replace(/[\s,;:.!?-]+$/, "") + "\u2026";
+}
+
 let PRODUCTS_BY_ID = {};
 
 function buildSiteData() {
@@ -348,6 +570,7 @@ function buildSiteData() {
   const SOCIAL_FEED = readJson("assets/data/social-feed.json");
   const CONTENT = readJson("assets/data/content.json");
   const SITE_CONFIG = CONTENT.site || {};
+  validateSiteIds(SITE_CONFIG);
 
   /* 1. Process Categories & Guards */
   const CATEGORY_IDS = new Set();
@@ -470,6 +693,158 @@ function buildSiteData() {
     }
   });
 
+  /* 5b. Journal -> product referential integrity.
+   Bundles and pairsWith have been checked since they existed; this relation
+   was not, and both shipped posts pointed at products that do not exist
+   ("magnesium-body-butter", "pine-tar-salve"), so journal.html rendered a
+   featured-product card for nothing at all. */
+  ((JOURNAL && JOURNAL.posts) || []).forEach(function (post) {
+    if (post.featuredProductId && !PRODUCTS_BY_ID[post.featuredProductId]) {
+      console.error(
+        "\n[build] Journal post '" +
+          (post.id || post.title) +
+          "' has featuredProductId '" +
+          post.featuredProductId +
+          "', which is not a product in products.json.\n" +
+          "        Set it to a real product id (or clear the field) and rebuild.\n"
+      );
+      process.exit(1);
+    }
+  });
+
+  /* 5c. Ratings must be backed by something real.
+   A product's aggregateRating is published to Google. It is legitimate when
+   the product has a live Etsy listing in scripts/etsy-snapshot.json (whose
+   per-listing rating is what apply-etsy-snapshot.js writes) OR when at least
+   one review for it exists in assets/data/site-reviews.json -- website
+   reviews are real reviews and keep arriving. Anything else is a fabricated
+   rating and a structured-data manual-action risk (audit, data integrity,
+   High), so the build stops. */
+  const REVIEWED_PRODUCT_IDS = {};
+  SITE_REVIEWS.forEach(function (r) {
+    if (r && r.productId) REVIEWED_PRODUCT_IDS[r.productId] = true;
+  });
+  let ETSY_LISTING_IDS = null;
+  try {
+    const snapPath = path.join(__dirname, "etsy-snapshot.json");
+    if (fs.existsSync(snapPath)) {
+      const snap = JSON.parse(fs.readFileSync(snapPath, "utf8"));
+      ETSY_LISTING_IDS = {};
+      (snap.listings || []).forEach(function (l) {
+        if (l && l.listingId) ETSY_LISTING_IDS[String(l.listingId)] = true;
+      });
+    }
+  } catch (e) {
+    console.warn("[build] Warning: could not read scripts/etsy-snapshot.json: " + e.message);
+    ETSY_LISTING_IDS = null;
+  }
+  const unbackedRatings = [];
+  PRODUCTS.forEach(function (p) {
+    if (!p.rating) return;
+    const listingMatch = /\/listing\/(\d+)(?:\/|$)/.exec(String(p.etsyUrl || ""));
+    const hasEtsyListing =
+      ETSY_LISTING_IDS === null
+        ? !!listingMatch // no snapshot to check against -- don't fail on it
+        : !!(listingMatch && ETSY_LISTING_IDS[listingMatch[1]]);
+    const hasSiteReview = !!REVIEWED_PRODUCT_IDS[p.id];
+    if (!hasEtsyListing && !hasSiteReview) {
+      unbackedRatings.push(p.id + " (" + p.name + ")");
+    }
+    if (p.comingSoon && (hasEtsyListing || hasSiteReview)) {
+      console.warn(
+        "[build] Warning: '" +
+          p.id +
+          "' is marked coming soon but carries a rating -- check that is intended."
+      );
+    }
+  });
+  if (unbackedRatings.length) {
+    console.error(
+      "\n[build] These products carry a `rating` with nothing behind it:\n" +
+        unbackedRatings
+          .map(function (x) {
+            return "  - " + x;
+          })
+          .join("\n") +
+        "\n\n        A rating needs EITHER an Etsy listing present in\n" +
+        "        scripts/etsy-snapshot.json (matched on the /listing/<id> in etsyUrl)\n" +
+        "        OR at least one review for that product in\n" +
+        "        assets/data/site-reviews.json. Remove the rating, or add the review.\n"
+    );
+    process.exit(1);
+  }
+
+  /* 5d. "Verified buyer" reviews on products nobody can have bought yet.
+   A warning, not a failure: the review may be a real tester's, and the owner
+   decides. Only the verifiedBuyer badge is in question, not the review. */
+  SITE_REVIEWS.forEach(function (r) {
+    if (!r || r.verifiedBuyer !== true) return;
+    const target = PRODUCTS_BY_ID[r.productId];
+    if (target && target.comingSoon) {
+      console.warn(
+        "[build] Warning: review '" +
+          r.id +
+          "' is flagged verifiedBuyer but '" +
+          r.productId +
+          "' has never been on sale (comingSoon). Set verifiedBuyer to false unless it really was purchased."
+      );
+    }
+  });
+
+  /* 5e. Volume-pricing sanity.
+   The rule advertises "N+ for $unitPrice each", so a qualifying product whose
+   own price is already at or below unitPrice makes the badge a lie (and the
+   Worker's min(base, rule) means the shopper is charged the lower one
+   anyway). Matching mirrors itemMatchesVolumeRule() in workers/checkout.js:
+   whitespace-stripped, case-insensitive, variant labels first and the
+   product's own text only when it has no variants. */
+  (CATALOG.volumePricing || []).forEach(function (rule) {
+    if (!rule || rule.enabled === false) return;
+    const normQ = String(rule.qualifyingVariant || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "");
+    PRODUCTS.forEach(function (p) {
+      if (p.category !== rule.category) return;
+      let qualifies = true;
+      if (normQ) {
+        const options = (p.variants && p.variants.options) || [];
+        if (options.length) {
+          qualifies = options.some(function (o) {
+            return String(o.label).trim().toLowerCase().replace(/\s+/g, "") === normQ;
+          });
+        } else {
+          const text = (
+            String(p.name || "") +
+            " " +
+            String(p.blurb || "") +
+            " " +
+            String(p.description || "")
+          )
+            .toLowerCase()
+            .replace(/\s+/g, "");
+          qualifies = text.indexOf(normQ) !== -1;
+        }
+      }
+      if (!qualifies) return;
+      if (typeof rule.unitPrice === "number" && !(p.price > rule.unitPrice)) {
+        console.warn(
+          "[build] Warning: '" +
+            p.id +
+            "' qualifies for volume rule '" +
+            (rule.id || rule.name) +
+            "' but its price ($" +
+            Number(p.price).toFixed(2) +
+            ") is not above the rule unit price ($" +
+            rule.unitPrice.toFixed(2) +
+            '), so "' +
+            (rule.label || "the multi-buy offer") +
+            '" offers no saving.'
+        );
+      }
+    });
+  });
+
   /* 6. Process Social Feed & Guards */
   const USED_SOCIAL_IDS = new Set();
   ((SOCIAL_FEED && SOCIAL_FEED.posts) || []).forEach(function (post, idx) {
@@ -498,12 +873,18 @@ function buildSiteData() {
         // i.e. off the page entirely -- and left events.html rendering an
         // empty <time datetime="">.
         EVENTS.past.unshift({
+          // `id` and `zip` used to be dropped here. Search results link to
+          // "events.html#" + ev.id, so three of eight results pointed at
+          // events.html#undefined, and the pickup ZIP that decides sales-tax
+          // sourcing vanished the moment a market moved to the past list.
+          id: evt.id,
           date: evt.date,
           endDate: evt.endDate,
           dateLabel: evt.dateLabel,
           name: evt.name,
           type: evt.type,
           location: evt.location,
+          zip: evt.zip,
           url: evt.url,
           note: evt.note
         });
@@ -612,15 +993,25 @@ function buildSiteData() {
     ";\n";
   writeFile("assets/js/content-data.js", contentDataJs);
 
+  /* With the Journal switched off in /admin the page is unlinked, noindexed
+   and out of the sitemap -- but both posts still shipped here in full, so an
+   unpublished draft was one view-source away and searchable on every page.
+   The wrapper is still emitted (journal.html and the search engine both read
+   the global unconditionally); it just carries no posts until the switch is
+   on. Same gate is applied to the search index, feed.xml and the service
+   worker's precache below. */
+  const journalPublished = !!SITE_CONFIG.enableJournal;
+  const journalForPages = journalPublished ? JOURNAL : Object.assign({}, JOURNAL, { posts: [] });
   const journalDataJs =
     "/**\n" +
     " * @fileoverview Auto-generated Apothecary Journal data.\n" +
     " * Wrap of assets/data/journal.json into a global variable YL_JOURNAL.\n" +
+    " * Posts are only included while site.enableJournal is on in content.json.\n" +
     " * Do not hand-edit this file.\n" +
     " * @const {!Object}\n" +
     " */\n" +
     "window.YL_JOURNAL = " +
-    JSON.stringify(JOURNAL, null, 2) +
+    JSON.stringify(journalForPages, null, 2) +
     ";\n";
   writeFile("assets/js/journal-data.js", journalDataJs);
 
@@ -696,26 +1087,29 @@ function buildSiteData() {
 
   const allSearchProducts = searchProducts.concat(searchBundles);
 
-  const searchJournal = (Array.isArray(JOURNAL) ? JOURNAL : JOURNAL.posts || []).map(
-    function (post) {
-      return {
-        id: post.id,
-        title: post.title,
-        date: post.date,
-        formattedDate: post.formattedDate || post.date,
-        image: post.image || "assets/img/sleep-salve.jpg",
-        readTime: post.readingTime || post.readTime || "4 min read",
-        tags: Array.isArray(post.tags) ? post.tags : [],
-        excerpt: post.excerpt || post.lede || "",
-        content: (post.content || "")
-          .replace(/[#*`_[\]()]/g, " ")
-          .replace(/\s+/g, " ")
-          .trim(),
-        featuredProductId: post.featuredProductId || "",
-        url: "journal.html#post-" + post.id
-      };
-    }
-  );
+  const searchJournalSource = journalPublished
+    ? Array.isArray(JOURNAL)
+      ? JOURNAL
+      : JOURNAL.posts || []
+    : [];
+  const searchJournal = searchJournalSource.map(function (post) {
+    return {
+      id: post.id,
+      title: post.title,
+      date: post.date,
+      formattedDate: post.formattedDate || post.date,
+      image: post.image || "assets/img/sleep-salve.jpg",
+      readTime: post.readingTime || post.readTime || "4 min read",
+      tags: Array.isArray(post.tags) ? post.tags : [],
+      excerpt: post.excerpt || post.lede || "",
+      content: (post.content || "")
+        .replace(/[#*`_[\]()]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim(),
+      featuredProductId: post.featuredProductId || "",
+      url: "journal.html#post-" + post.id
+    };
+  });
 
   const searchFaq = FAQ.map(function (f, idx) {
     return {
@@ -967,38 +1361,42 @@ function buildSiteData() {
     // AggregateOffer with a real low/high range instead of a single Offer --
     // same-price variants (a size-only or scent-only pick) don't need one.
     const range = variantPriceRange(p);
+    /* This page is now the ONLY place the catalogue's Product schema lives:
+       products/*.html canonicalise here and are noindex (see
+       renderProductPdpHtml), so the per-item Offer they used to carry --
+       price, availability, condition, seller, return policy and shipping --
+       moved onto these ItemList entries. Availability comes from the real
+       comingSoon/inStock/stock flags via schemaAvailability(), never from the
+       image filename. */
+    const availability = schemaAvailability(p);
+    const offerCommon = {
+      priceCurrency: "USD",
+      priceValidUntil: "2027-12-31",
+      itemCondition: "https://schema.org/NewCondition",
+      availability: availability,
+      url: DOMAIN + "/shop.html#" + p.id,
+      seller: { "@type": "Organization", name: "Y'allternative Living" }
+    };
     const offers =
       range.low === range.high
-        ? {
-            "@type": "Offer",
-            price: range.low.toFixed(2),
-            priceCurrency: "USD",
-            url: DOMAIN + "/shop.html",
-            availability:
-              p.image && p.image.indexOf("placeholder") !== -1
-                ? "https://schema.org/PreOrder"
-                : "https://schema.org/InStock",
-            seller: { "@type": "Organization", name: "Y'allternative Living" }
-          }
-        : {
-            "@type": "AggregateOffer",
-            lowPrice: range.low.toFixed(2),
-            highPrice: range.high.toFixed(2),
-            priceCurrency: "USD",
-            offerCount: range.offerCount,
-            url: DOMAIN + "/shop.html",
-            availability:
-              p.image && p.image.indexOf("placeholder") !== -1
-                ? "https://schema.org/PreOrder"
-                : "https://schema.org/InStock",
-            seller: { "@type": "Organization", name: "Y'allternative Living" }
-          };
+        ? Object.assign({ "@type": "Offer", price: range.low.toFixed(2) }, offerCommon)
+        : Object.assign(
+            {
+              "@type": "AggregateOffer",
+              lowPrice: range.low.toFixed(2),
+              highPrice: range.high.toFixed(2),
+              offerCount: range.offerCount
+            },
+            offerCommon
+          );
     const productLd = {
       "@type": "Product",
       name: p.name,
       description: p.blurb,
       image: imageField,
-      url: DOMAIN + "/shop.html",
+      url: DOMAIN + "/shop.html#" + p.id,
+      sku: p.sku || p.id,
+      mpn: p.mpn || p.sku || p.id,
       category: CATEGORY_LABEL[p.category] || p.category,
       brand: { "@type": "Brand", name: "Y'allternative Living" },
       offers: offers
@@ -1030,20 +1428,53 @@ function buildSiteData() {
   };
   let shopHtml = readText("shop.html", "shop page");
 
-  // Generate and inject the full $10 to $500 options string for the Gift Card button
-  const giftCardOptionsList = [];
-  for (let val = 10; val <= 500; val++) {
-    const delta = val - 10;
-    giftCardOptionsList.push("Preset $" + val + "[+" + delta.toFixed(2) + "]");
-  }
-  const giftCardOptionsStr = giftCardOptionsList.join("|");
-  const optionsPlaceholderRe =
-    /data-item-custom1-options="Preset \$10\[\+0\.00\].*?Preset \$500\[\+490\.00\]"/;
-  if (optionsPlaceholderRe.test(shopHtml)) {
-    shopHtml = shopHtml.replace(
-      optionsPlaceholderRe,
-      'data-item-custom1-options="' + giftCardOptionsStr + '"'
-    );
+  /* ---------- gift card amount options ----------
+   The gift card button's data-item-custom1-options attribute used to
+   enumerate every dollar value from $10 to $500 -- 491 options, a 10 KB
+   attribute in the HTML of every visitor's shop page (Medium finding in the
+   audit's SEO section). Only the presets the catalogue actually declares are
+   emitted now. The custom-amount path does not need them: gift-card.js
+   builds the label itself ("Preset $" + clamped amount, see
+   assets/js/gift-card.js:156,190) and workers/checkout.js re-derives the
+   charge from that label alone via resolveGiftCardAmountCents(), clamped
+   server-side to $10-$500. The labels live in products.json's variants so
+   the published catalogue, the button and the Worker's parser all agree --
+   they used to read "$200", which the Worker's /^Preset \$(\d+)$/ does not
+   match, so it fell back to the $10 floor. */
+  const giftCardProduct = PRODUCTS_BY_ID["yallternative-gift-card"];
+  const giftCardOptions =
+    giftCardProduct && giftCardProduct.variants && Array.isArray(giftCardProduct.variants.options)
+      ? giftCardProduct.variants.options
+      : [];
+  if (giftCardOptions.length) {
+    giftCardOptions.forEach(function (o) {
+      if (!/^Preset \$\d+(?:\.\d{1,2})?$/.test(String(o.label))) {
+        console.error(
+          "\n[build] Gift card variant label '" +
+            o.label +
+            "' does not match the checkout protocol.\n" +
+            '        workers/checkout.js parses these as "Preset $NN" and falls back to the\n' +
+            "        $10 minimum for anything else -- a $200 card would be charged $10.\n" +
+            "        Fix the label in assets/data/products.json (or /admin) and rebuild.\n"
+        );
+        process.exit(1);
+      }
+    });
+    const giftCardOptionsStr = giftCardOptions
+      .map(function (o) {
+        const delta = o.priceDelta || 0;
+        return (
+          escapeHtml(o.label) + "[" + (delta < 0 ? "-" : "+") + Math.abs(delta).toFixed(2) + "]"
+        );
+      })
+      .join("|");
+    const optionsPlaceholderRe = /data-item-custom1-options="Preset \$10\[\+0\.00\][^"]*"/;
+    if (optionsPlaceholderRe.test(shopHtml)) {
+      shopHtml = shopHtml.replace(
+        optionsPlaceholderRe,
+        'data-item-custom1-options="' + giftCardOptionsStr + '"'
+      );
+    }
   }
 
   const NUMBER_WORDS = [
@@ -1100,8 +1531,7 @@ function buildSiteData() {
       "Could not find the ItemList JSON-LD block in shop.html -- aborting so nothing gets corrupted. Check the block still starts with @type: ItemList."
     );
   }
-  const newBlock =
-    '<script type="application/ld+json">\n' + JSON.stringify(shopJsonLd, null, 2) + "\n</script>";
+  const newBlock = jsonLdScriptBlock(shopJsonLd, "");
   shopHtml = shopHtml.replace(shopBlockRe, function () {
     return newBlock;
   });
@@ -1122,8 +1552,7 @@ function buildSiteData() {
   };
   const faqLdBlockRe =
     /<script type="application\/ld\+json">\n\{\n\s*"@context": "https:\/\/schema\.org",\n\s*"@type": "FAQPage"[\s\S]*?\n<\/script>/;
-  let newFaqLdBlock =
-    '<script type="application/ld+json">\n' + JSON.stringify(shopFaqLd, null, 2) + "\n</script>";
+  let newFaqLdBlock = jsonLdScriptBlock(shopFaqLd, "");
 
   if (faqLdBlockRe.test(shopHtml)) {
     shopHtml = shopHtml.replace(faqLdBlockRe, function () {
@@ -1147,8 +1576,7 @@ function buildSiteData() {
     topFaq
       .map(function (item) {
         const escQuestion = escapeHtml(item.question);
-        const escAnswer = escapeHtml(item.answer);
-        const renderedAnswer = escAnswer.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+        const renderedAnswer = renderFaqAnswerHtml(item.answer);
         return (
           '        <details class="faq-accordion-item">\n' +
           '          <summary class="faq-accordion-summary">' +
@@ -1197,15 +1625,13 @@ function buildSiteData() {
       "Could not find the FAQPage JSON-LD block in faq.html -- aborting so nothing gets corrupted. Check the block still starts with @type: FAQPage."
     );
   }
-  newFaqLdBlock =
-    '<script type="application/ld+json">\n' + JSON.stringify(faqJsonLd, null, 2) + "\n</script>";
+  newFaqLdBlock = jsonLdScriptBlock(faqJsonLd, "");
   faqHtml = faqHtml.replace(faqLdBlockRe, function () {
     return newFaqLdBlock;
   });
 
   const faqVisibleHtml = FAQ.map(function (item, i) {
-    const escAnswer = escapeHtml(item.answer);
-    const renderedAnswer = escAnswer.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+    const renderedAnswer = renderFaqAnswerHtml(item.answer);
     const block =
       '        <div class="reveal">\n' +
       "          <h2>" +
@@ -1292,7 +1718,7 @@ function buildSiteData() {
             escapeHtml(ev.name) +
             "</h3>\n" +
             '              <p class="event-date"><time datetime="' +
-            (ev.date || "") +
+            escapeHtml(ev.date || "") +
             '"><svg class="yl-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> ' +
             escapeHtml(ev.dateLabel) +
             "</time></p>\n" +
@@ -1521,13 +1947,18 @@ function buildSiteData() {
 
     let cardsHtml = '<div class="grid grid-3">\n';
     featured.forEach(function (r) {
-      const stars = Array(Math.round(r.rating || 5) + 1).join("★");
+      // A CMS-entered rating is neither trusted to be a number nor to be in
+      // range: `Array(Math.round("x") + 1)` threw and killed the build, and a
+      // rating of 500 rendered 500 stars into the page. Clamp, then escape --
+      // the value is also read out to screen readers as text.
+      const ratingValue = clampRating(r.rating, 5);
+      const stars = Array(Math.round(ratingValue) + 1).join("★");
       cardsHtml += '        <div class="quote-card reveal">\n';
       cardsHtml +=
         '          <span class="stars" aria-hidden="true">' +
         stars +
         '</span><span class="sr-only">Rated ' +
-        r.rating +
+        escapeHtml(ratingValue) +
         " out of 5 stars.</span>\n";
       cardsHtml += '          <p>"' + escapeHtml(r.text) + '"</p>\n';
       cardsHtml += "          <footer>" + escapeHtml(r.name) + "</footer>\n";
@@ -1648,9 +2079,9 @@ function buildSiteData() {
     return (
       open +
       '<img class="logo-desktop" src="/' +
-      logoDesktop +
+      escapeHtml(logoDesktop) +
       '" alt="' +
-      alt +
+      escapeHtml(alt) +
       '" width="48" height="48" loading="lazy" decoding="async">' +
       close
     );
@@ -1697,12 +2128,12 @@ function buildSiteData() {
       const isLogoMobile = /\bclass=['"]([^'"]*\s+)?logo-mobile(\s+[^'"]*)?['"]/.test(match);
       if (isLogoDesktop) {
         return match.replace(/(\bsrc=['"])[^'"]*(['"])/i, function (m, p1, p2) {
-          return p1 + logoDesktop + p2;
+          return p1 + escapeHtml(logoDesktop) + p2;
         });
       }
       if (isLogoMobile) {
         return match.replace(/(\bsrc=['"])[^'"]*(['"])/i, function (m, p1, p2) {
-          return p1 + logoMobile + p2;
+          return p1 + escapeHtml(logoMobile) + p2;
         });
       }
       return match;
@@ -1770,7 +2201,7 @@ function buildSiteData() {
   const today = new Date().toISOString().slice(0, 10);
   const sitemapXml =
     '<?xml version="1.0" encoding="UTF-8"?>\n' +
-    "<!-- Auto-generated by scripts/build-site-data.js -- don't hand-edit,\n" +
+    "<!-- Auto-generated by scripts/build-site-data.js. Do not hand-edit;\n" +
     "     re-run the script after adding a page. Swap the DOMAIN constant\n" +
     "     inside that script once a real domain exists, then re-run. -->\n" +
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
@@ -1797,7 +2228,7 @@ function buildSiteData() {
   writeFile("sitemap.xml", sitemapXml);
 
   /* ---------- 5c) feed.xml (Apothecary Journal RSS Feed) ---------- */
-  const rssXml = generateRssFeed(JOURNAL, DOMAIN);
+  const rssXml = generateRssFeed(JOURNAL, DOMAIN, { includeItems: journalPublished });
   writeFile("feed.xml", rssXml);
 
   /* ---------- 5b) robots.txt ----------
@@ -1809,7 +2240,14 @@ function buildSiteData() {
    crawler allow-list itself is stable enough to live as a template
    string here rather than a separate source file. */
   const robotsTxt =
-    "User-agent: *\nAllow: /\n\n" +
+    "User-agent: *\nAllow: /\n" +
+    // The CMS and the OAuth handshake pages have no business in a search
+    // index: they are login-walled tooling, not content. Both pages already
+    // carry a noindex meta tag; this stops the crawl before it happens, and
+    // the netlify.toml rule generated by build-security-headers.js stops
+    // /cms-auth/ being served at all.
+    "Disallow: /admin/\n" +
+    "Disallow: /cms-auth/\n\n" +
     "# Explicit allow list for known AI crawlers (mid-2026). This is a small\n" +
     "# business marketing/commerce site that WANTS visibility -- being included\n" +
     "# in AI answers, shopping-agent recommendations, and model training all\n" +
@@ -2181,12 +2619,18 @@ function buildSiteData() {
           if (key === "logoDesktop" && site[key]) {
             return (
               '<!--YL:site.logoDesktop-->\n          <img class="logo-desktop" src="' +
-              site[key] +
+              escapeHtml(site[key]) +
               '" alt="Y\'allternative Living icon" width="48" height="48" loading="lazy" decoding="async">\n<!--/YL:site.logoDesktop-->'
             );
           }
           if (site[key] !== undefined) {
-            return "<!--YL:site." + key + "-->" + site[key] + "<!--/YL:site." + key + "-->";
+            /* Straight into element text on every page -- birthdayTitle,
+               loyaltyPointsName, footerTagline and friends are all CMS
+               fields, and an <img onerror> in one of them used to land on
+               thank-you.html (C-4). */
+            return (
+              "<!--YL:site." + key + "-->" + escapeHtml(site[key]) + "<!--/YL:site." + key + "-->"
+            );
           }
           return match;
         }
@@ -2212,7 +2656,7 @@ function buildSiteData() {
           const isReal = val && val !== "YOUR_UMAMI_WEBSITE_ID";
           const body = isReal
             ? '<script defer src="https://cloud.umami.is/script.js" data-website-id="' +
-              val +
+              escapeHtml(val) +
               '"></script>'
             : "";
           return "<!--YL:site.umamiWebsiteId-->" + body + "<!--/YL:site.umamiWebsiteId-->";
@@ -2246,7 +2690,7 @@ function buildSiteData() {
             if (val && val !== "YOUR_GIFTUP_ID") {
               const embed =
                 '\n<div class="gift-up-target" data-site-id="' +
-                val +
+                escapeHtml(val) +
                 '"></div>\n' +
                 "<script>\n" +
                 "  (function (g, i, f, t, u, p) {\n" +
@@ -2270,7 +2714,18 @@ function buildSiteData() {
         /\/\*YL:site\.([a-zA-Z0-9]+)\*\/([\s\S]*?)\/\*\/YL:site\.\1\*\//g,
         function (match, key) {
           if (site[key] !== undefined) {
-            return "/*YL:site." + key + '*/ "' + site[key] + '" /*/YL:site.' + key + "*/";
+            /* This lands INSIDE a JavaScript string literal in a CSP-hashed
+               inline <script> (the Tawk.to snippet near </body> on 11 pages).
+               Concatenating the raw value between two quote characters let a
+               CMS value of `"; fetch(...); //` execute -- and because
+               build-security-headers.js re-hashed whatever it found, the
+               injected script was allowlisted by the very CSP meant to stop
+               it (C-4 / H-13). JSON.stringify produces the quoted literal,
+               and "<" is escaped so a "</script>" inside the value cannot end
+               the block either. */
+            return (
+              "/*YL:site." + key + "*/ " + jsStringLiteral(site[key]) + " /*/YL:site." + key + "*/"
+            );
           }
           return match;
         }
@@ -2281,31 +2736,6 @@ function buildSiteData() {
         console.log("[build] Injected configurations into " + page);
       }
     });
-  })();
-
-  // Automatically update sw.js CACHE_NAME version on build
-  (function updateServiceWorkerVersion() {
-    const swPath = path.join(ROOT, "sw.js");
-    if (fs.existsSync(swPath)) {
-      const swContent = fs.readFileSync(swPath, "utf8");
-      const now = new Date();
-      const pad = function (n) {
-        return (n < 10 ? "0" : "") + n;
-      };
-      const versionString =
-        now.getFullYear() +
-        pad(now.getMonth() + 1) +
-        pad(now.getDate()) +
-        pad(now.getHours()) +
-        pad(now.getMinutes()) +
-        pad(now.getSeconds());
-      const updatedContent = swContent.replace(
-        /const CACHE_NAME\s*=\s*['"]yallternative-cache-v[^'"]*['"];/,
-        'const CACHE_NAME = "yallternative-cache-v' + versionString + '";'
-      );
-      fs.writeFileSync(swPath, updatedContent, "utf8");
-      console.log("[build] Automatically updated sw.js CACHE_NAME to version " + versionString);
-    }
   })();
 
   // Automatically generate individual product OpenGraph HTML pages
@@ -2348,6 +2778,71 @@ function buildSiteData() {
     });
   })();
 
+  /* Runs last: the digest below has to see the pages exactly as they are
+     shipped, after every injection pass and the attribute-marker clean-up
+     above have finished writing them. */
+  /* ---------- sw.js: precache list + content-derived cache name ----------
+   CACHE_NAME used to be a wall-clock timestamp, so every deploy renamed the
+   cache and threw away every visitor's entire precache whether or not one
+   byte had changed -- and it guaranteed the committed sw.js could never
+   match a fresh build (H-20). It is a sha256 over the precached files'
+   actual contents now: identical inputs give an identical name (so a rebuild
+   is a no-op and the cache survives), and any real change to a precached
+   page or script rolls it exactly once. */
+  (function updateServiceWorker() {
+    const swPath = path.join(ROOT, "sw.js");
+    if (!fs.existsSync(swPath)) return;
+    let swContent = fs.readFileSync(swPath, "utf8");
+
+    /* journal.html is precached even with the Journal switched off, which
+       pushed an unlinked, noindexed page into every visitor's cache. Toggle
+       the one line rather than rewriting the array, so flipping the switch
+       back on restores it in the same place. */
+    const journalLine = "  '/journal.html',\n";
+    swContent = swContent.replace(/[ \t]*'\/journal\.html',\n/, "");
+    if (SITE_CONFIG.enableJournal) {
+      swContent = swContent.replace(/([ \t]*'\/404\.html',\n)/, function (m, before) {
+        return before + journalLine;
+      });
+    }
+
+    const listMatch = /const ASSETS_TO_CACHE\s*=\s*\[([\s\S]*?)\];/.exec(swContent);
+    const precached = [];
+    if (listMatch) {
+      const entryRe = /['"]([^'"]+)['"]/g;
+      let m;
+      while ((m = entryRe.exec(listMatch[1]))) precached.push(m[1]);
+    }
+    const hash = crypto.createHash("sha256");
+    precached.forEach(function (entry) {
+      // "/" is index.html; a query string or a missing file contributes its
+      // name only, so the digest still changes if the list itself changes.
+      const rel = entry === "/" ? "index.html" : entry.replace(/^\/+/, "").split("?")[0];
+      const full = path.join(ROOT, rel);
+      hash.update(entry + "\n");
+      try {
+        if (fs.existsSync(full) && fs.statSync(full).isFile()) {
+          hash.update(fs.readFileSync(full));
+        }
+      } catch (e) {
+        /* unreadable file: the entry name above still contributes */
+      }
+    });
+    const versionString = hash.digest("hex").slice(0, 12);
+    swContent = swContent.replace(
+      /const CACHE_NAME\s*=\s*['"]yallternative-cache-v[^'"]*['"];/,
+      'const CACHE_NAME = "yallternative-cache-v' + versionString + '";'
+    );
+    fs.writeFileSync(swPath, swContent, "utf8");
+    console.log(
+      "[build] sw.js CACHE_NAME set to yallternative-cache-v" +
+        versionString +
+        " (sha256 of " +
+        precached.length +
+        " precached files)"
+    );
+  })();
+
   console.log(
     "\nDone. Regenerated derived files + page copy from the JSON sources in assets/data/."
   );
@@ -2385,17 +2880,8 @@ function generateProductJsonLd(product, domain, categoryLabel) {
     });
   }
 
-  // Determine item availability
-  let availability = "https://schema.org/InStock";
-  if (product && (product.inStock === false || product.stock === 0)) {
-    availability = "https://schema.org/OutOfStock";
-  } else if (
-    product &&
-    (product.comingSoon === true ||
-      (product.image && String(product.image).indexOf("placeholder") !== -1))
-  ) {
-    availability = "https://schema.org/PreOrder";
-  }
+  // Determine item availability (flags only -- see schemaAvailability()).
+  const availability = schemaAvailability(product);
 
   // Merchant Return Policy (30 days, US)
   const returnPolicy = {
@@ -2553,7 +3039,7 @@ function generateProductJsonLd(product, domain, categoryLabel) {
         : 1;
     jsonLd.aggregateRating = {
       "@type": "AggregateRating",
-      ratingValue: ratingValue,
+      ratingValue: clampRating(ratingValue, 5),
       reviewCount: reviewCount,
       bestRating: "5",
       worstRating: "1"
@@ -2590,7 +3076,11 @@ function generateProductBreadcrumbJsonLd(product, domain, categoryLabel) {
         "@type": "ListItem",
         position: 3,
         name: catLabel,
-        item: dom + "/shop.html#category-" + catSlug
+        // shop.html's filter deep-links are "#<categoryId>" -- nothing has
+        // ever handled "#category-<id>", so every category breadcrumb on the
+        // site pointed at a fragment that does not exist (Medium finding in
+        // the audit's SEO section).
+        item: dom + "/shop.html#" + catSlug
       },
       {
         "@type": "ListItem",
@@ -2784,7 +3274,7 @@ function renderRitualSectionHtml(product, productsMap, categoryLabelMap) {
     '">\n' +
     '          <div class="pdp-ritual-item-thumb">\n' +
     '            <img src="../' +
-    String(product.image).replace(/^\/+/, "") +
+    escapeHtml(String(product.image).replace(/^\/+/, "")) +
     '" alt="" width="54" height="54" loading="lazy">\n' +
     "          </div>\n" +
     '          <div class="pdp-ritual-item-details">\n' +
@@ -2813,7 +3303,7 @@ function renderRitualSectionHtml(product, productsMap, categoryLabelMap) {
       '">\n' +
       '          <div class="pdp-ritual-item-thumb">\n' +
       '            <img src="../' +
-      String(paired.image).replace(/^\/+/, "") +
+      escapeHtml(String(paired.image).replace(/^\/+/, "")) +
       '" alt="" width="54" height="54" loading="lazy">\n' +
       "          </div>\n" +
       '          <div class="pdp-ritual-item-details">\n' +
@@ -3030,9 +3520,13 @@ function renderStickyBarHtml(product, categoryLabel) {
 
 function renderProductPdpHtml(product, domain, categoryLabel, productsById, categoryLabelMap) {
   const pTitle = escapeHtml(product.name) + " | Y'allternative Living";
-  const pDesc = escapeHtml(product.description || product.blurb || "");
+  const rawDesc = product.description || product.blurb || "";
+  // Visible copy keeps the full blurb; the meta/og/twitter tags get the
+  // word-boundary-truncated version (<=155 chars).
+  const pDesc = escapeHtml(rawDesc);
+  const pMetaDesc = escapeHtml(truncateForMeta(rawDesc, 155));
   const pUrl = domain + "/products/" + product.id + ".html";
-  const pImage = domain + "/" + String(product.image).replace(/^\/+/, "");
+  const pImage = escapeHtml(domain + "/" + String(product.image).replace(/^\/+/, ""));
   const catLabel = escapeHtml(categoryLabel || product.category || "Apothecary");
   const range = variantPriceRange(product);
   const priceDisplayHtml =
@@ -3043,15 +3537,20 @@ function renderProductPdpHtml(product, domain, categoryLabel, productsById, cate
         range.low.toFixed(2) +
         "</span>"
       : '<span itemprop="priceCurrency" content="USD">$</span><span itemprop="price" content="' +
-        product.price.toFixed(2) +
+        range.low.toFixed(2) +
         '">' +
         range.low.toFixed(2) +
         " &ndash; $" +
         range.high.toFixed(2) +
         "</span>";
 
-  const productJsonLd = generateProductJsonLd(product, domain, categoryLabel);
-  const breadcrumbJsonLd = generateProductBreadcrumbJsonLd(product, domain, categoryLabel);
+  const pdpAvailability = schemaAvailability(product);
+  const pdpOgAvailability =
+    pdpAvailability === "https://schema.org/PreOrder"
+      ? "preorder"
+      : pdpAvailability === "https://schema.org/OutOfStock"
+        ? "out of stock"
+        : "in stock";
 
   const freshnessBadgeHtml = renderFreshnessBadgeHtml();
   const scentProfileHtml = renderScentProfileHtml(product);
@@ -3093,8 +3592,18 @@ function renderProductPdpHtml(product, domain, categoryLabel, productsById, cate
     pTitle +
     "</title>\n" +
     '  <meta name="description" content="' +
-    pDesc +
+    pMetaDesc +
     '">\n' +
+    /* These pages exist for deep links and social unfurls; every one of them
+       redirects to shop.html#id and canonicalises there. Telling crawlers
+       "noindex, follow" states that intent outright instead of leaving 19
+       redirecting doorway pages with a cross-canonical for a search engine to
+       reconcile on its own (H-15). They stay out of sitemap.xml for the same
+       reason. Reverse by deleting this tag, self-canonicalising, dropping the
+       redirect, adding them to PAGES, and putting the Product JSON-LD back
+       (generateProductJsonLd/generateProductBreadcrumbJsonLd below still
+       build it). */
+    '  <meta name="robots" content="noindex, follow">\n' +
     '  <link rel="canonical" href="' +
     domain +
     '/shop.html">\n' +
@@ -3107,7 +3616,7 @@ function renderProductPdpHtml(product, domain, categoryLabel, productsById, cate
     pTitle +
     '">\n' +
     '  <meta property="og:description" content="' +
-    pDesc +
+    pMetaDesc +
     '">\n' +
     '  <meta property="og:image" content="' +
     pImage +
@@ -3122,26 +3631,26 @@ function renderProductPdpHtml(product, domain, categoryLabel, productsById, cate
     pTitle +
     '">\n' +
     '  <meta name="twitter:description" content="' +
-    pDesc +
+    pMetaDesc +
     '">\n' +
     '  <meta name="twitter:image" content="' +
     pImage +
     '">\n' +
     "  <!-- E-commerce OG -->\n" +
     '  <meta property="product:price:amount" content="' +
-    product.price.toFixed(2) +
+    // The advertised price is the cheapest buyable variant, not the base
+    // price: frankincense-salve's 1oz option is -$6, so the base 19.99 here
+    // contradicted the 13.99 shown on the page and in the shop's JSON-LD.
+    range.low.toFixed(2) +
     '">\n' +
     '  <meta property="product:price:currency" content="USD">\n' +
     '  <meta property="product:availability" content="' +
-    (product.comingSoon ? "preorder" : "in stock") +
+    pdpOgAvailability +
     '">\n' +
-    "  <!-- Schema.org JSON-LD -->\n" +
-    '  <script type="application/ld+json">\n' +
-    JSON.stringify(productJsonLd, null, 2) +
-    "\n  </script>\n" +
-    '  <script type="application/ld+json">\n' +
-    JSON.stringify(breadcrumbJsonLd, null, 2) +
-    "\n  </script>\n" +
+    "  <!-- No Product/Offer/BreadcrumbList JSON-LD here on purpose: this page\n" +
+    "       is noindex and canonicalises to shop.html, which carries the whole\n" +
+    "       catalogue's Product schema (see the ItemList block there). Emitting\n" +
+    "       it on both was the doorway-page half of audit finding H-15. -->\n" +
     "  <!-- Redirect to shop with product deep-link -->\n" +
     '  <script>window.location.replace("../shop.html#" + window.location.pathname.split("/").pop().replace(".html",""));</script>\n' +
     "</head>\n" +
@@ -3169,7 +3678,7 @@ function renderProductPdpHtml(product, domain, categoryLabel, productsById, cate
     "  </header>\n" +
     '  <main id="main-content" class="container pdp-container">\n' +
     '    <nav class="breadcrumb-nav" aria-label="Breadcrumb">\n' +
-    '      <p class="breadcrumb"><a href="../index.html">Home</a> / <a href="../shop.html">Shop</a> / <a href="../shop.html#category-' +
+    '      <p class="breadcrumb"><a href="../index.html">Home</a> / <a href="../shop.html">Shop</a> / <a href="../shop.html#' +
     escapeHtml(product.category || "apothecary") +
     '">' +
     catLabel +
@@ -3180,7 +3689,7 @@ function renderProductPdpHtml(product, domain, categoryLabel, productsById, cate
     '    <article class="pdp-layout" itemscope itemtype="https://schema.org/Product">\n' +
     '      <div class="pdp-gallery">\n' +
     '        <img src="../' +
-    String(product.image).replace(/^\/+/, "") +
+    escapeHtml(String(product.image).replace(/^\/+/, "")) +
     '" alt="' +
     escapeHtml(product.name) +
     '" class="pdp-main-image" width="600" height="600" loading="eager" itemprop="image">\n' +
@@ -3268,26 +3777,60 @@ function renderProductPdpHtml(product, domain, categoryLabel, productsById, cate
   );
 }
 
-function generateRssFeed(journalData, domainUrl) {
+/* XML 1.0 forbids most C0 control characters outright -- escapeHtml() lets
+   them through untouched, and a single U+000B in a CMS-written excerpt made
+   the whole feed unparseable (Low finding in the audit). Tab, LF and CR are
+   the only legal ones. */
+function stripXmlControlChars(text) {
+  return String(text == null ? "" : text).replace(
+    // eslint-disable-next-line no-control-regex
+    /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g,
+    ""
+  );
+}
+
+function xmlText(value) {
+  return stripXmlControlChars(escapeHtml(value));
+}
+
+/* options.includeItems -- false while the Journal is switched off in /admin,
+   so unpublished posts are not syndicated from a page that is noindexed and
+   unlinked. The channel itself keeps existing so subscribers do not 404. */
+function generateRssFeed(journalData, domainUrl, options) {
   const DOMAIN_URL = domainUrl || "https://yallternativeliving.com";
-  const journalPosts = Array.isArray(journalData)
+  const opts = options || {};
+  const allPosts = Array.isArray(journalData)
     ? journalData
     : (journalData && journalData.posts) || [];
-  const rssLastBuildDate = new Date().toUTCString();
+  const journalPosts = opts.includeItems === false ? [] : allPosts;
+  /* lastBuildDate used to be the wall clock, which made feed.xml differ on
+   every single build and put the whole repository permanently out of sync
+   with what the build produces (H-20). The newest post's own date is the
+   only thing about this feed that actually changes when content changes. */
+  let newestPostDate = null;
+  allPosts.forEach(function (post) {
+    if (!post || !post.date) return;
+    const d = new Date(post.date);
+    if (isNaN(d.getTime())) return;
+    if (!newestPostDate || d > newestPostDate) newestPostDate = d;
+  });
+  const rssLastBuildDate = newestPostDate
+    ? newestPostDate.toUTCString()
+    : new Date(0).toUTCString();
   const rssItems = journalPosts
     .filter(Boolean)
     .map(function (post) {
       if (!post) return "";
       const postDate = post.date ? new Date(post.date).toUTCString() : new Date().toUTCString();
       const slug = post.id || post.slug || "";
-      const postUrl = DOMAIN_URL + "/journal.html#post-" + encodeURIComponent(slug);
-      const title = escapeHtml(post.title || "Journal Entry");
-      const excerpt = escapeHtml(post.excerpt || post.summary || "");
+      const postUrl = xmlText(DOMAIN_URL + "/journal.html#post-" + encodeURIComponent(slug));
+      const title = xmlText(post.title || "Journal Entry");
+      const excerpt = xmlText(post.excerpt || post.summary || "");
       const categoriesXml = Array.isArray(post.tags)
         ? post.tags
             .filter(Boolean)
             .map(function (t) {
-              return "      <category>" + escapeHtml(t) + "</category>";
+              return "      <category>" + xmlText(t) + "</category>";
             })
             .join("\n")
         : "";
@@ -3343,6 +3886,16 @@ if (typeof module !== "undefined" && module.exports) {
     readText: readText,
     writeFile: writeFile,
     escapeHtml: escapeHtml,
+    escapeJsonForScript: escapeJsonForScript,
+    jsStringLiteral: jsStringLiteral,
+    jsonLdScriptBlock: jsonLdScriptBlock,
+    clampRating: clampRating,
+    truncateForMeta: truncateForMeta,
+    schemaAvailability: schemaAvailability,
+    stripXmlControlChars: stripXmlControlChars,
+    validateSiteIds: validateSiteIds,
+    renderFaqAnswerHtml: renderFaqAnswerHtml,
+    safeLinkUrl: safeLinkUrl,
     safeUrl: safeUrl,
     slugify: slugify,
     generateUniqueId: generateUniqueId,
