@@ -95,9 +95,43 @@ global.navigator = { userAgent: "node" };
 
 const main = require("../assets/js/main.js");
 const mainSource = fs.readFileSync(path.join(__dirname, "..", "assets/js/main.js"), "utf8");
-const eventsData = JSON.parse(
+const shippedEventsData = JSON.parse(
   fs.readFileSync(path.join(__dirname, "../assets/data/events.json"), "utf8")
 );
+
+/* Synthetic markets, not real ones. events.json is live: the build archives a
+   market once its last day has passed, so "summerville-punk-flea-market is
+   upcoming" was a fact with an expiry date, and the day it expired this suite
+   started failing for a reason that had nothing to do with the code it tests.
+   These two exist purely to exercise id / name / location matching. */
+const eventsData = {
+  upcoming: [
+    {
+      id: "test-harbor-night-market",
+      date: "2099-08-15",
+      endDate: "2099-08-16",
+      dateLabel: "August 15-16, 2099",
+      name: "Harbor Night Market",
+      type: "Night Market",
+      location: "Ladson, SC",
+      zip: "29456",
+      url: "https://example.com/harbor-night-market",
+      note: "Two-day night market -- come find our table."
+    },
+    {
+      id: "test-gothic-punk-night-market",
+      date: "2099-08-21",
+      dateLabel: "August 21, 2099",
+      name: "Gothic Punk Night Market",
+      type: "Night Market",
+      location: "Charlotte, NC",
+      zip: "28202",
+      url: "https://example.com/gothic-punk-night-market",
+      note: "One-night market with handmade salves, soaks & soaps."
+    }
+  ],
+  past: []
+};
 
 let passed = 0;
 let failed = 0;
@@ -328,11 +362,11 @@ eq(
 console.log("\n5. Pickup booth deep-linking parameter parsing:");
 
 // Match by ID
-const matchById = main.parsePickupMarketParam("summerville-punk-flea-market", eventsData);
+const matchById = main.parsePickupMarketParam("test-harbor-night-market", eventsData);
 assert(matchById && matchById.event, "parsePickupMarketParam matches upcoming event by id");
 eq(
   matchById.event.name,
-  "Summerville Punk Flea Market",
+  "Harbor Night Market",
   "parsePickupMarketParam returns correct matched event object"
 );
 
@@ -365,6 +399,16 @@ eq(
 /* -------------------------------------------------------------------------- */
 console.log("\n6. Event card HTML rendering (eventCardHTML):");
 
+/* The shipped file still has to have the shape the engine reads. Assert that
+   much against the real data, then render from the synthetic market. */
+assert(
+  Array.isArray(shippedEventsData.upcoming) && Array.isArray(shippedEventsData.past),
+  "events.json exposes upcoming and past arrays"
+);
+shippedEventsData.upcoming.concat(shippedEventsData.past).forEach(function (ev) {
+  assert(!!ev.id && !!ev.date && !!ev.name, "every event in events.json has an id, date and name");
+});
+
 const sampleEvent = eventsData.upcoming[0];
 const cardHtml = main.eventCardHTML(sampleEvent);
 
@@ -392,13 +436,13 @@ assert(
   "Card contains Reserve / Pick Up at This Booth button"
 );
 assert(
-  cardHtml.includes("shop.html?pickup_market=summerville-punk-flea-market#shop-catalog"),
+  cardHtml.includes("shop.html?pickup_market=test-harbor-night-market#shop-catalog"),
   "Card contains deep link to shop.html with pickup_market and #shop-catalog anchor"
 );
 assert(cardHtml.includes("Add to Google Calendar"), "Card contains Add to Google Calendar button");
 assert(cardHtml.includes("iCal / Apple Calendar (.ics)"), "Card contains iCal download button");
 assert(
-  cardHtml.includes('download="summerville-punk-flea-market.ics"'),
+  cardHtml.includes('download="test-harbor-night-market.ics"'),
   "Card iCal link specifies download attribute"
 );
 assert(cardHtml.includes("data:text/calendar;charset=utf-8,"), "Card iCal link points to data URI");

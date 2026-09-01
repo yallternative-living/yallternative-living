@@ -13,6 +13,16 @@ const assert = require("assert");
 
 const ROOT = path.resolve(__dirname, "..");
 
+/* The Journal is a CMS switch. With site.enableJournal false the build leaves
+   journal entries out of search-data.js altogether, so every journal
+   expectation below is derived from the flag rather than hardcoded -- a test
+   that assumes one setting fails the moment the shop owner flips it, and
+   passing for that reason tells us nothing about the search engine. */
+const siteConfig = JSON.parse(
+  fs.readFileSync(path.join(ROOT, "assets", "data", "content.json"), "utf8")
+);
+const JOURNAL_ENABLED = !!(siteConfig.site && siteConfig.site.enableJournal);
+
 // Setup mock DOM environment for Node execution
 function createMockElement(tagName = "div") {
   const attrs = new Map();
@@ -120,7 +130,18 @@ it("search index contains products, journal, events, faq, and synonyms", () => {
     `products count expected >= 19, got ${index.products.length}`
   );
   assert.ok(Array.isArray(index.journal), "journal must be an array");
-  assert.ok(index.journal.length >= 2, `journal count expected >= 2, got ${index.journal.length}`);
+  if (JOURNAL_ENABLED) {
+    assert.ok(
+      index.journal.length >= 2,
+      `journal count expected >= 2, got ${index.journal.length}`
+    );
+  } else {
+    assert.strictEqual(
+      index.journal.length,
+      0,
+      `journal is switched off, so the index must carry no articles, got ${index.journal.length}`
+    );
+  }
   assert.ok(Array.isArray(index.events), "events must be an array");
   assert.ok(index.events.length >= 4, `events count expected >= 4, got ${index.events.length}`);
   assert.ok(Array.isArray(index.faq), "faq must be an array");
@@ -196,16 +217,46 @@ it("searchGlobal('calendula') matches botanicals and ingredients", () => {
   assert.ok(productIds.includes("miracle-balm"), "calendula should match miracle-balm");
 });
 
-it("searchGlobal('magnesium') matches products, journal articles, and FAQs", () => {
+it("searchGlobal('magnesium') matches products", () => {
   const res = mainJs.searchGlobal("magnesium");
   assert.ok(res.totalCount > 0, "Query 'magnesium' should return results");
   assert.ok(res.products.length > 0, "Query 'magnesium' should return products");
-  assert.ok(res.journal.length > 0, "Query 'magnesium' should return journal articles");
-  const journalTitles = res.journal.map((j) => j.title);
-  assert.ok(
-    journalTitles.some((t) => t.toLowerCase().includes("magnesium")),
-    "Journal results should include magnesium post"
-  );
+});
+
+/* The journal domain of the engine is exercised against a synthetic index, not
+   the generated one: whether search-data.js carries articles depends on the
+   Journal switch, and an engine test that quietly stops testing anything the
+   day a shop owner flips a toggle is worse than no test. */
+it("searchGlobal reaches the journal domain (synthetic index)", () => {
+  const realIndex = mockWindow.YL_SEARCH_INDEX;
+  mockWindow.YL_SEARCH_INDEX = {
+    version: "test",
+    products: [],
+    journal: [
+      {
+        id: "magnesium-post",
+        title: "Why Magnesium Belongs In Your Sleep Salve",
+        excerpt: "Magnesium and arnica, and why we reach for them at bedtime.",
+        tags: ["magnesium", "sleep"],
+        url: "journal.html#magnesium-post"
+      }
+    ],
+    events: [],
+    faq: [],
+    synonyms: {}
+  };
+  mainJs._resetState();
+  try {
+    const res = mainJs.searchGlobal("magnesium");
+    assert.ok(res.journal.length > 0, "a matching article must surface in the journal domain");
+    assert.ok(
+      res.journal.map((j) => j.title).some((t) => t.toLowerCase().includes("magnesium")),
+      "the matching article is the one returned"
+    );
+  } finally {
+    mockWindow.YL_SEARCH_INDEX = realIndex;
+    mainJs._resetState();
+  }
 });
 
 it("searchGlobal('market') matches upcoming and past pop-up events", () => {
