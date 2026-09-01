@@ -4,10 +4,11 @@
    with a rainbow that only shows up when it means something.
    ========================================================= */
 
-/* Fonts are now loaded from Google Fonts for a more modern, premium vibe.
-   Heading: Cormorant Garamond
-   Body: Outfit
-*/
+/* Fonts are loaded from Google Fonts (see the <link>s in each page <head>).
+   Heading: Gloock          -- var(--font-display) / var(--font-heading)
+   Body:    DM Sans         -- var(--font-body)
+   Neither Cormorant Garamond nor Outfit (what this comment used to name)
+   has ever been loaded by this site; don't reintroduce them as fallbacks. */
 
 /* ---------------------------------------------------------
    THEME TOKENS
@@ -6446,7 +6447,7 @@ dialog.restock-alert-modal {
 
 .journal-featured-title {
   margin: 4px 0 6px;
-  font-family: var(--font-heading, "Cormorant Garamond", Georgia, serif);
+  font-family: var(--font-heading, "Gloock", Georgia, serif);
   font-size: 1.25rem;
   line-height: 1.25;
 }
