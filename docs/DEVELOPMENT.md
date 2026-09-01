@@ -902,9 +902,11 @@ Copy is kept below so the work is paste-and-go if that day comes:
 > New batches, market dates, and the occasional bad pun. Nothing else.
 
 Until it exists, **the confirmation email must not promise an email that
-will never arrive.** Point at the page instead: "Click below to confirm.
-Your 10% off code is on the next page." That is both accurate and the
-stronger line, since it tells people the payoff is immediate. Keep the code
+will never arrive.** Tie the click to the reward instead: "Click below to
+confirm and get your 10% off code." Accurate, since clicking does get them
+the code, and stronger than a bare "confirm to join" because it says what
+is in it for them. Avoid describing page mechanics ("on the next page") --
+the reader is in an inbox and has no page in front of them yet. Keep the code
 itself out of the confirmation email regardless (see below).
 
 **Approach B — a welcome page on this site. Built and live.**
