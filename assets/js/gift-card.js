@@ -16,9 +16,17 @@
     if (finalAmount < 10) finalAmount = 10;
     if (finalAmount > 500) finalAmount = 500;
 
-    giftCardAmountDisplay.textContent = "$" + finalAmount;
-    customGiftAmount.value = finalAmount;
+    if (giftCardAmountDisplay) {
+      giftCardAmountDisplay.textContent = "$" + finalAmount;
+    }
+    if (customGiftAmount) {
+      customGiftAmount.value = finalAmount;
+    }
     addGiftCardBtn.setAttribute("data-item-custom1-value", "Preset $" + finalAmount);
+    var btnTextEl = document.getElementById("addGiftCardBtnText");
+    if (btnTextEl) {
+      btnTextEl.textContent = "Add $" + finalAmount + " Gift Card to Cart";
+    }
   }
 
   presetBtns.forEach(function (btn) {
@@ -70,6 +78,18 @@
   });
 
   addGiftCardBtn.addEventListener("click", function (e) {
+    // Explicitly sync input values before validation and cart dispatch to catch
+    // any browser autofill or programmatic updates that did not trigger input events.
+    if (giftRecipientEmail) {
+      addGiftCardBtn.setAttribute("data-item-custom2-value", giftRecipientEmail.value.trim());
+    }
+    if (giftSenderName) {
+      addGiftCardBtn.setAttribute("data-item-custom3-value", giftSenderName.value.trim());
+    }
+    if (giftMessage) {
+      addGiftCardBtn.setAttribute("data-item-custom4-value", giftMessage.value.trim());
+    }
+
     if (!giftRecipientEmail.checkValidity()) {
       giftRecipientEmail.reportValidity();
       e.stopPropagation();

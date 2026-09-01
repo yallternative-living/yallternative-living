@@ -96,25 +96,102 @@
 </header>
 <main id="main-content">
 
-  <section class="hero tight-hero">
+  <section class="hero tight-hero thank-you-hero">
     <div class="container center">
-      <span class="eyebrow">Order Confirmed</span>
-      <h1>Thank You, Y'all!</h1>
-      <p class="lede">
-        Your order is in and headed for the workbench. A confirmation email is on its way
+      <div class="thank-you-badge-wrap">
+        <div class="thank-you-badge" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="thank-you-check-icon">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </div>
+      </div>
+      <span class="eyebrow">Order Confirmed · Receipt Issued</span>
+      <h1 class="thank-you-title">Thank You, Y'all!</h1>
+      <p class="lede thank-you-lede">
+        Your order is in and headed for the workbench in Landrum, SC. A confirmation email is on its way
         from Stripe with your receipt, and we'll follow up once it ships.
       </p>
-      <p class="lede" id="thankYouAmount" hidden></p>
-      <div class="hero-actions center">
-        <a class="btn btn-primary" href="shop.html">Keep Shopping</a>
-        <button type="button" class="btn btn-outline" id="openOrderStatusBtn" data-action="open-order-status">Track Order Status</button>
+
+      <!-- Order Receipt & Next Steps Card -->
+      <div class="thank-you-card" id="thankYouCard">
+        <div class="thank-you-card-header">
+          <div class="receipt-status-badge">
+            <span class="status-pulse" aria-hidden="true"></span>
+            <span>Payment Received</span>
+          </div>
+          <span class="receipt-date-label" id="thankYouDate"></span>
+        </div>
+
+        <div class="thank-you-amount-row">
+          <div class="amount-group">
+            <span class="amount-label">Order Total</span>
+            <div class="amount-val" id="thankYouAmountDisplay">$25.00</div>
+          </div>
+          <div class="receipt-secure-pill">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            <span>Verified Stripe Payment</span>
+          </div>
+        </div>
+
+        <p class="lede" id="thankYouAmount" hidden></p>
+
+        <div class="thank-you-session-row" id="thankYouSessionRow" hidden>
+          <span class="session-label">Reference ID:</span>
+          <code class="session-code" id="thankYouSessionCode"></code>
+        </div>
+
+        <!-- Fulfillment Flow Tracker -->
+        <div class="thank-you-timeline">
+          <div class="timeline-step step-complete">
+            <div class="timeline-marker">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div class="timeline-text">
+              <span class="timeline-title">Order Placed</span>
+              <span class="timeline-sub">Payment confirmed</span>
+            </div>
+          </div>
+          <div class="timeline-line complete"></div>
+          <div class="timeline-step step-current">
+            <div class="timeline-marker">🌿</div>
+            <div class="timeline-text">
+              <span class="timeline-title">At Workbench</span>
+              <span class="timeline-sub">Handmade prep</span>
+            </div>
+          </div>
+          <div class="timeline-line"></div>
+          <div class="timeline-step step-next">
+            <div class="timeline-marker">📦</div>
+            <div class="timeline-text">
+              <span class="timeline-title">On Its Way</span>
+              <span class="timeline-sub">Tracking sent</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-actions center thank-you-actions">
+        <a class="btn btn-primary" href="shop.html">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
+          Keep Shopping
+        </a>
+        <button type="button" class="btn btn-outline" id="openOrderStatusBtn" data-action="open-order-status">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+          Track Order Status
+        </button>
         <a class="btn btn-outline" href="index.html">Back To Home</a>
       </div>
-      <p class="muted" style="margin-top:24px;max-width:520px;margin-left:auto;margin-right:auto;">
-        Questions about your order? Email
-        <a href="mailto:y.allternative.living@gmail.com">y.allternative.living@gmail.com</a>
-        and we'll sort it out.
-      </p>
+
+      <div class="thank-you-support-callout">
+        <div class="support-callout-icon">💬</div>
+        <div class="support-callout-text">
+          <p>
+            <strong>Questions about your order?</strong> Email
+            <a href="mailto:y.allternative.living@gmail.com">y.allternative.living@gmail.com</a>
+            and we'll sort it out right away.
+          </p>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -138,13 +215,13 @@
     
     <div class="gift-modal-header">
       <h2 id="orderStatusModalTitle">Look Up Order Status</h2>
-      <p class="muted">Enter your Stripe Session ID (e.g. <code>cs_test_...</code>) or purchase email address to check order status.</p>
+      <p class="muted">Enter your order reference number or purchase email address to check order status.</p>
     </div>
 
     <form id="orderStatusForm" class="order-status-form" novalidate style="margin-top: 1rem;">
       <div class="field">
-        <label for="order-id-input">Session ID or Email Address</label>
-        <input type="text" id="order-id-input" name="query" placeholder="cs_test_... or customer@example.com" autocomplete="off" required>
+        <label for="order-id-input">Order Number or Email Address</label>
+        <input type="text" id="order-id-input" name="query" placeholder="Order number or your email address" autocomplete="off" required>
         <span class="field-error" id="orderLookupError" aria-live="assertive" hidden style="color: var(--crimson); font-size: 0.85rem; margin-top: 4px; display: block;"></span>
       </div>
       <button type="submit" id="order-lookup-btn" class="btn btn-primary btn-block" style="margin-top: 1rem;">Look Up Order</button>

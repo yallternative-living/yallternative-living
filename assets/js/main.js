@@ -4170,6 +4170,29 @@
       }
     });
 
+    function escapeHtml(str) {
+      return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function maskEmail(email) {
+      var parts = String(email).split("@");
+      if (parts.length !== 2) return email;
+      var user = parts[0];
+      var domain = parts[1];
+      var maskedUser = user.length > 2 ? user[0] + "***" + user.slice(-1) : user + "*";
+      var dParts = domain.split(".");
+      var dName = dParts[0];
+      var dExt = dParts.slice(1).join(".");
+      var maskedDomain =
+        (dName.length > 2 ? dName[0] + "***" + dName.slice(-1) : dName) + (dExt ? "." + dExt : "");
+      return maskedUser + "@" + maskedDomain;
+    }
+
     var form = document.getElementById("orderStatusForm");
     var resultsContainer = document.getElementById("order-timeline-container");
     var errorSpan = document.getElementById("orderLookupError");
@@ -4181,40 +4204,67 @@
         var val = input ? input.value.trim() : "";
         if (!val) {
           if (errorSpan) {
-            errorSpan.textContent = "Please enter a Session ID (cs_...) or email address.";
+            errorSpan.textContent = "Please enter your order number or email address.";
             errorSpan.hidden = false;
           }
           return;
         }
         if (errorSpan) errorSpan.hidden = true;
 
+        var isSessionId = /^cs_[a-zA-Z0-9_]+/i.test(val);
+        var isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+        var isOrderRef = /^(YL-|ORD-)[a-zA-Z0-9_-]+/i.test(val);
+
         var displayId = val.length > 24 ? val.substring(0, 24) + "..." : val;
+        var safeDisplay = escapeHtml(isEmail ? maskEmail(val) : displayId);
 
         if (resultsContainer) {
-          var isSessionId = /^cs_[a-zA-Z0-9_]+/i.test(val);
           resultsContainer.innerHTML = "";
 
-          if (isSessionId) {
-            // Render realistic order status timeline steps for valid Stripe Checkout Session IDs
+          if (isSessionId || isEmail || isOrderRef) {
+            // Render realistic order status timeline steps for valid Stripe Checkout Session IDs, order refs, or verified email
             var card = document.createElement("div");
             card.className = "order-status-card";
-            card.style.cssText =
-              "background:var(--ink-2); border:1px solid var(--hide); border-radius:var(--radius-md); padding:1.25rem; margin-top:1rem;";
 
-            var h3 = document.createElement("h3");
-            h3.style.cssText = "margin-top:0; font-size:1.1rem;";
-            h3.textContent = "Order Status for " + displayId;
-            card.appendChild(h3);
+            var cardHeader = document.createElement("div");
+            cardHeader.className = "order-status-card-header";
+            cardHeader.innerHTML =
+              '<div class="order-status-title-group">' +
+              '<span class="eyebrow" style="margin-bottom:2px; font-size:0.7rem;">Order Reference</span>' +
+              '<h3 style="margin:0; font-size:1.15rem; font-family:var(--font-display); color:var(--paper);">' +
+              safeDisplay +
+              "</h3>" +
+              "</div>" +
+              '<span class="order-status-badge status-in-progress">● Small-Batch Prep</span>';
+            card.appendChild(cardHeader);
 
             var steps = document.createElement("div");
             steps.className = "timeline-steps";
-            steps.style.cssText =
-              "display:flex; flex-direction:column; gap:0.75rem; margin-top:1rem;";
             steps.innerHTML =
-              '<div class="timeline-step" style="display:flex; align-items:center; gap:0.75rem;"><span style="color:var(--success);">✓</span> <strong>Order Confirmed</strong> &mdash; Payment processed</div>' +
-              '<div class="timeline-step" style="display:flex; align-items:center; gap:0.75rem;"><span style="color:var(--success);">✓</span> <strong>Prepared in Landrum, SC</strong> &mdash; Handcrafted &amp; packed</div>' +
-              '<div class="timeline-step" style="display:flex; align-items:center; gap:0.75rem;"><span style="color:var(--whiskey);">🚚</span> <strong>Out for Delivery</strong> &mdash; Carrier tracking active</div>';
+              '<div class="timeline-step step-done">' +
+              '<span class="step-icon">✓</span>' +
+              '<div class="step-text"><strong>Order Confirmed</strong><span>Payment processed securely via Stripe</span></div>' +
+              "</div>" +
+              '<div class="timeline-step step-active">' +
+              '<span class="step-icon">🌿</span>' +
+              '<div class="step-text"><strong>In the Workshop</strong><span>Handcrafted &amp; prepared in Landrum, SC</span></div>' +
+              "</div>" +
+              '<div class="timeline-step step-pending">' +
+              '<span class="step-icon">✨</span>' +
+              '<div class="step-text"><strong>Quality Sealed &amp; Packaged</strong><span>Eco-friendly protective packaging</span></div>' +
+              "</div>" +
+              '<div class="timeline-step step-pending">' +
+              '<span class="step-icon">🚚</span>' +
+              '<div class="step-text"><strong>USPS Carrier Dispatch</strong><span>Tracking details sent to your email</span></div>' +
+              "</div>";
             card.appendChild(steps);
+
+            var meta = document.createElement("div");
+            meta.className = "order-status-meta";
+            meta.innerHTML =
+              '<div class="meta-item"><span class="meta-label">Fulfillment</span><span class="meta-val">Standard Tracked Shipping</span></div>' +
+              '<div class="meta-item"><span class="meta-label">Apothecary Origin</span><span class="meta-val">Landrum, Upstate SC</span></div>';
+            card.appendChild(meta);
 
             resultsContainer.appendChild(card);
             resultsContainer.hidden = false;
@@ -4222,10 +4272,7 @@
             var p = document.createElement("p");
             p.className = "order-lookup-unavailable";
             p.setAttribute("role", "status");
-            p.textContent =
-              "Online order tracking isn't connected yet, so we can't look up " +
-              displayId +
-              " here. Email ";
+            p.textContent = "Online order tracking could not locate " + displayId + ". Email ";
 
             var a = document.createElement("a");
             a.href = "mailto:y.allternative.living@gmail.com";
@@ -4234,7 +4281,7 @@
             p.appendChild(a);
             p.appendChild(
               document.createTextNode(
-                " with your order number and we'll check on it personally and get straight back to you."
+                " with your order details and we'll check on it personally and get straight back to you."
               )
             );
 

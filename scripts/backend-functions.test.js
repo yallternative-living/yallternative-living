@@ -15,6 +15,8 @@ const crypto = require("crypto");
 // and the invalid-signature test never reaches the real HMAC comparison.
 process.env.STRIPE_WEBHOOK_SECRET =
   process.env.STRIPE_WEBHOOK_SECRET || "whsec_test_dummy_secret_for_signature_tests";
+process.env.STRIPE_SECRET_KEY =
+  process.env.STRIPE_SECRET_KEY || "sk_test_dummy_secret_for_signature_tests";
 
 const fulfillGiftCard = require("../netlify/functions/fulfill-gift-card.js");
 const submitRestock = require("../netlify/functions/submit-restock.js");
@@ -1716,6 +1718,232 @@ async function testHandlerRetryIdempotency() {
 }
 
 /* ==========================================================
+   11. fulfill-gift-card.js: Resend error handling & dual-format email dispatch
+   ========================================================== */
+async function testGiftCardEmailDeliveryAndErrors() {
+  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+  const globalFetch = global.fetch;
+
+  let capturedResendCalls = [];
+  global.fetch = async (url, options) => {
+    const target = String(url);
+    if (target.includes("/v1/coupons")) {
+      return { json: async () => ({ id: "co_test_456" }) };
+    }
+    if (target.includes("/v1/promotion_codes")) {
+      const params = new URLSearchParams(options.body);
+      return { json: async () => ({ code: params.get("code") }) };
+    }
+    if (target.includes("resend.com") || options.headers?.Authorization?.includes("re_")) {
+      const parsedBody = JSON.parse(options.body);
+      capturedResendCalls.push({
+        body: parsedBody,
+        headers: options.headers
+      });
+      return {
+        ok: true,
+        status: 200,
+        headers: new Map(),
+        json: async () => ({ id: "email_success_123" }),
+        text: async () => '{"id":"email_success_123"}'
+      };
+    }
+    return { ok: true, json: async () => ({}) };
+  };
+
+  const sessionId = "cs_test_email_dispatch";
+  const payload = JSON.stringify({
+    type: "checkout.session.completed",
+    data: {
+      object: {
+        id: sessionId,
+        customer_details: { email: "buyer@example.com" },
+        metadata: {
+          gift_card_1_amount_cents: "2500",
+          gift_card_1_recipient: "friend@example.com",
+          gift_card_1_sender: "Alex",
+          gift_card_1_message: "Happy Birthday!"
+        }
+      }
+    }
+  });
+
+  const timestamp = Math.floor(Date.now() / 1000);
+  const signature = crypto
+    .createHmac("sha256", secret)
+    .update(timestamp + "." + payload, "utf8")
+    .digest("hex");
+  const event = {
+    httpMethod: "POST",
+    body: payload,
+    headers: { "stripe-signature": `t=${timestamp},v1=${signature}` }
+  };
+
+  const res = await fulfillGiftCard.handler(event);
+  eq(res.statusCode, 200, "handler succeeds when Resend delivery succeeds");
+  eq(capturedResendCalls.length, 2, "Resend was called for recipient and buyer confirmation");
+
+  const recipientCall = capturedResendCalls[0];
+  const recipient = Array.isArray(recipientCall.body?.to)
+    ? recipientCall.body.to[0]
+    : recipientCall.body?.to;
+  eq(recipient, "friend@example.com", "Recipient email received gift card");
+  assert(
+    recipientCall.body.subject.includes("$25.00"),
+    "Recipient email subject includes formatted dollar amount"
+  );
+  assert(
+    recipientCall.body.html.includes("Happy Birthday!"),
+    "Recipient email contains personal message"
+  );
+  assert(
+    recipientCall.body.text && recipientCall.body.text.includes("Happy Birthday!"),
+    "Recipient email includes plain-text fallback"
+  );
+  const getIdempotencyKey = (call) =>
+    (call.headers &&
+      (call.headers["Idempotency-Key"] ||
+        call.headers["idempotency-key"] ||
+        (typeof call.headers.get === "function" && call.headers.get("idempotency-key")))) ||
+    (call.body &&
+      call.body.headers &&
+      (call.body.headers["Idempotency-Key"] || call.body.headers["idempotency-key"]));
+
+  eq(
+    getIdempotencyKey(recipientCall),
+    `gift-email-${sessionId}-1`,
+    "Recipient email includes Resend Idempotency-Key header"
+  );
+
+  const buyerCall = capturedResendCalls[1];
+  const buyerRecipient = Array.isArray(buyerCall.body?.to)
+    ? buyerCall.body.to[0]
+    : buyerCall.body?.to;
+  eq(buyerRecipient, "buyer@example.com", "Buyer receives confirmation email");
+  assert(
+    buyerCall.body.subject.includes("Gift Card Sent"),
+    "Buyer email subject indicates gift card delivery"
+  );
+  assert(
+    buyerCall.body.html.includes("Gift Voucher Code (Backup Copy)"),
+    "Buyer email includes backup copy of voucher code"
+  );
+  eq(
+    getIdempotencyKey(buyerCall),
+    `gift-buyer-email-${sessionId}-1`,
+    "Buyer email includes Resend Idempotency-Key header"
+  );
+
+  // Resend API Error path -> must return 500 so Stripe retries
+  const originalError = console.error;
+  console.error = () => {};
+  global.fetch = async (url, options) => {
+    const target = String(url);
+    if (target.includes("/v1/coupons")) return { json: async () => ({ id: "co_123" }) };
+    if (target.includes("/v1/promotion_codes")) {
+      const params = new URLSearchParams(options.body);
+      return { json: async () => ({ code: params.get("code") }) };
+    }
+    // Resend returns an API error object (e.g. unverified domain or invalid key)
+    return {
+      ok: false,
+      status: 400,
+      headers: new Map(),
+      json: async () => ({
+        statusCode: 400,
+        name: "validation_error",
+        message: "Domain not verified in Resend"
+      }),
+      text: async () => '{"message":"Domain not verified in Resend"}'
+    };
+  };
+
+  const failRes = await fulfillGiftCard.handler(event);
+  console.error = originalError;
+  eq(
+    failRes.statusCode,
+    500,
+    "handler fails closed with status 500 when Resend email delivery fails"
+  );
+
+  global.fetch = globalFetch;
+}
+
+/* ==========================================================
+   12. workers/checkout.js: multi-unit gift card metadata allocation
+   ========================================================== */
+async function testMultiQuantityGiftCardCheckout() {
+  const checkout = await import("../workers/checkout.js");
+  const taxCatalog = {
+    products: [{ id: "yallternative-gift-card", price: 25.0, category: "gift-cards" }],
+    bundles: []
+  };
+
+  let captured = null;
+  const globalFetch = global.fetch;
+  global.fetch = async (url, opts) => {
+    const u = String(url);
+    if (u.includes("products.json")) {
+      return { ok: true, clone: () => ({ body: null }), json: async () => taxCatalog };
+    }
+    if (u.includes("/v1/tax/settings")) {
+      return { ok: true, json: async () => ({ status: "active" }) };
+    }
+    captured = new URLSearchParams(opts.body);
+    return { ok: true, json: async () => ({ url: "https://checkout.stripe.com/c/test" }) };
+  };
+
+  const req = new Request("https://yallternativeliving.com/api/checkout", {
+    method: "POST",
+    headers: { Origin: "https://yallternativeliving.com", "Content-Type": "application/json" },
+    body: JSON.stringify({
+      items: [
+        {
+          id: "yallternative-gift-card",
+          qty: 2,
+          variant: "Preset $50",
+          giftRecipientEmail: "recipient@example.com",
+          giftSenderName: "Taylor",
+          giftMessage: "Treat yourself"
+        }
+      ]
+    })
+  });
+
+  await checkout.default.fetch(
+    req,
+    {
+      SITE_ORIGIN: "https://yallternativeliving.com",
+      STRIPE_SECRET_KEY: "sk_test_x"
+    },
+    null
+  );
+
+  global.fetch = globalFetch;
+
+  eq(
+    captured.get("metadata[gift_card_1_amount_cents]"),
+    "5000",
+    "Worker assigns metadata for gift_card_1"
+  );
+  eq(
+    captured.get("metadata[gift_card_1_recipient]"),
+    "recipient@example.com",
+    "Worker assigns recipient for gift_card_1"
+  );
+  eq(
+    captured.get("metadata[gift_card_2_amount_cents]"),
+    "5000",
+    "Worker expands qty=2 into metadata for gift_card_2"
+  );
+  eq(
+    captured.get("metadata[gift_card_2_recipient]"),
+    "recipient@example.com",
+    "Worker assigns recipient for gift_card_2"
+  );
+}
+
+/* ==========================================================
    Runner: sections run strictly in order so nothing races over shared
    globals (console, global.fetch) and the summary only prints once every
    assertion has actually run.
@@ -1726,6 +1954,8 @@ async function testHandlerRetryIdempotency() {
   await testWorkersAndNetlifyFunctions();
   testDeriveGiftCardCode();
   await testHandlerRetryIdempotency();
+  await testGiftCardEmailDeliveryAndErrors();
+  await testMultiQuantityGiftCardCheckout();
 
   console.log(`\nbackend-functions.test.js: ${passed} passed, ${failed} failed`);
   if (failed > 0) process.exit(1);

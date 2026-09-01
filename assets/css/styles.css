@@ -2655,145 +2655,255 @@ dialog.gift-modal[open]::backdrop {
   color: var(--paper-dim);
   opacity: 1;
 }
-/* ── Gift Card Widget ──────────────────────────────── */
+/* ── Gift Card Widget (SOTA 2026) ─────────────────── */
 .gift-card-widget {
   display: grid;
   grid-template-columns: 1.2fr 1.8fr;
-  gap: 40px;
+  gap: 36px;
   background: var(--ink);
   border: 1px solid var(--hide);
   border-radius: var(--radius-large);
-  padding: 40px;
-  max-width: 900px;
-  margin: 30px auto 0;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+  padding: 36px;
+  max-width: 920px;
+  margin: 24px auto 0;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  align-items: start;
 }
 .gift-card-preview {
-  aspect-ratio: 1.586; /* Standard credit card ratio */
-  background: url('../img/gift-card.png') no-repeat center center / cover;
-  border: 1px solid rgba(214, 155, 92, 0.4);
+  aspect-ratio: 1.586;
+  background: linear-gradient(135deg, #1c1713 0%, #2a2019 50%, #15110d 100%);
+  border: 1.5px solid #d69b5c;
   border-radius: 16px;
-  padding: 24px;
+  padding: 22px 24px;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
+  justify-content: space-between;
   color: #f3ead9;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
-.gift-card-preview .preview-badge-row {
+.gift-card-preview::after {
+  content: "";
+  position: absolute;
+  top: -50%;
+  right: -50%;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle, rgba(214, 155, 92, 0.15) 0%, transparent 70%);
+  pointer-events: none;
+}
+.card-brand-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  width: 100%;
+  z-index: 2;
+}
+.card-brand-mark {
+  display: flex;
+  flex-direction: column;
+}
+.card-brand-yall {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  color: #d69b5c;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+}
+.card-brand-sub {
+  font-size: 0.65rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: #cfc0a8;
+  font-weight: 600;
+}
+.gift-card-preview .card-badge {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: #d69b5c;
+  background: rgba(214, 155, 92, 0.15);
+  border: 1px solid rgba(214, 155, 92, 0.35);
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-weight: 700;
+}
+.card-chip-art {
+  width: 38px;
+  height: 28px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #d69b5c 0%, #a86c32 100%);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  margin: 10px 0;
+  z-index: 2;
+}
+.card-amount-large {
+  font-size: 2.5rem;
+  font-weight: 700;
+  font-family: var(--font-display);
+  color: #d69b5c;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.8);
+  margin: 4px 0;
+  z-index: 2;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.card-footer-info {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  width: 100%;
+  font-size: 0.68rem;
+  color: #cfc0a8;
+  border-top: 1px solid rgba(214, 155, 92, 0.2);
+  padding-top: 8px;
+  margin-top: 6px;
+  z-index: 2;
 }
-.gift-card-preview .card-badge {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  color: var(--whiskey);
-  font-weight: 700;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
-}
-.gift-card-preview .card-amount {
-  font-size: 1.8rem;
-  font-weight: 700;
-  font-family: var(--font-display);
-  color: var(--whiskey);
-  text-shadow: 0 1px 4px rgba(0,0,0,0.8);
-  margin: 0;
-}
-.gift-card-preview .card-footer {
-  font-size: 0.75rem;
-  color: rgba(243, 234, 217, 0.8);
-  background: rgba(23, 19, 15, 0.6);
-  padding: 8px 12px;
-  border-radius: 6px;
-  border: 1px solid rgba(214, 155, 92, 0.2);
-  text-align: center;
-  line-height: 1.4;
-  margin-top: auto;
-  width: 100%;
-  box-sizing: border-box;
-}
-.gift-card-actions button {
-  margin: 0;
-  width: 100%;
-}
+
+/* Controls */
 .gift-card-controls {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
   text-align: left;
 }
-.gift-card-controls h3 {
-  margin: 0 0 10px;
-  font-size: 1.25rem;
-}
-.gift-card-widget .field input,
-.gift-card-widget .field textarea {
-  background: var(--ink-2);
+.gift-section-label {
+  display: block;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--paper);
+  margin-bottom: 10px;
 }
 .preset-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 10px;
+  gap: 8px;
 }
 .preset-btn {
-  background: var(--bg);
+  background: var(--ink-3);
   border: 1px solid var(--hide);
   color: var(--paper);
-  border-radius: var(--radius);
-  padding: 12px 6px;
+  border-radius: var(--radius, 8px);
+  padding: 10px 4px;
   font-weight: 600;
+  font-size: 0.92rem;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
+  text-align: center;
 }
 .preset-btn:hover {
   border-color: var(--whiskey);
   color: var(--whiskey);
+  background: oklch(from var(--whiskey) l c h / 0.1);
 }
 .preset-btn.active {
   background: var(--whiskey);
   border-color: var(--whiskey);
   color: var(--ink);
+  box-shadow: 0 2px 10px oklch(from var(--whiskey) l c h / 0.35);
 }
+
 .custom-input-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 5px;
+  margin-top: 10px;
 }
 .custom-input-wrap label {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: var(--paper-dim);
+  display: block;
+  margin-bottom: 4px;
 }
-.custom-input-wrap input {
-  padding: 10px 14px;
-  background: var(--bg);
+.custom-amount-input-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  max-width: 180px;
+  width: 100%;
+}
+.custom-amount-input-wrap .currency-prefix {
+  position: absolute;
+  left: 12px;
+  color: var(--whiskey);
+  font-weight: 700;
+  pointer-events: none;
+}
+.custom-amount-input-wrap input {
+  padding: 10px 14px 10px 26px;
+  background: var(--ink-2);
   border: 1px solid var(--hide);
   color: var(--paper);
-  border-radius: var(--radius);
+  border-radius: var(--radius, 8px);
   font-size: 1rem;
+  font-weight: 600;
   width: 100%;
-  max-width: 200px;
 }
+.custom-amount-input-wrap input:focus {
+  outline: none;
+  border-color: var(--whiskey);
+}
+
 .gift-fields-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 15px;
+  gap: 14px;
 }
-.gift-fields-grid .field {
+.gift-card-controls .field {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
+.gift-card-controls .field label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--paper-dim);
+}
+.gift-card-controls .field label .required-star {
+  color: var(--whiskey);
+}
+.gift-card-controls .field label .optional-tag {
+  color: var(--paper-dim);
+  font-weight: 400;
+  font-size: 0.75rem;
+}
+.gift-card-controls .field input,
+.gift-card-controls .field textarea {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--ink-2);
+  border: 1px solid var(--hide);
+  border-radius: var(--radius, 8px);
+  color: var(--paper);
+  font-size: 0.9rem;
+  font-family: inherit;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.gift-card-controls .field input:focus,
+.gift-card-controls .field textarea:focus {
+  outline: none;
+  border-color: var(--whiskey);
+  box-shadow: 0 0 0 3px oklch(from var(--whiskey) l c h / 0.15);
+}
+
+.gift-card-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+}
+.gift-card-actions button {
+  margin: 0;
+  width: 100%;
+  min-height: 48px;
+  font-size: 0.96rem;
+  font-weight: 700;
+}
+
 @media (max-width: 768px) {
   .gift-card-widget {
     grid-template-columns: 1fr;
-    gap: 30px;
+    gap: 28px;
     padding: 24px;
   }
   .preset-grid {
@@ -2802,12 +2912,6 @@ dialog.gift-modal[open]::backdrop {
   .gift-fields-grid {
     grid-template-columns: 1fr;
   }
-}
-
-.gift-card-actions {
-  display: flex;
-  gap: 12px;
-  margin-top: 16px;
 }
 @media (max-width: 600px) {
   .gift-card-actions {
@@ -3643,4 +3747,417 @@ dialog.restock-alert-modal {
   background: var(--ink-1);
   border-radius: var(--radius-md);
   border: 1px solid var(--whiskey-glow, rgba(212, 143, 56, 0.2));
+}
+
+/* ── Thank You / Order Confirmation Page (SOTA 2026) ── */
+.thank-you-hero {
+  padding: 48px 0 64px;
+}
+.thank-you-badge-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+.thank-you-badge {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: oklch(from var(--whiskey) l c h / 0.12);
+  border: 1.5px solid var(--whiskey);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--whiskey);
+  box-shadow: 0 0 24px oklch(from var(--whiskey) l c h / 0.3);
+}
+.thank-you-check-icon {
+  width: 26px;
+  height: 26px;
+}
+.thank-you-title {
+  font-family: var(--font-display);
+  font-size: clamp(2.2rem, 4.5vw, 3.2rem);
+  margin: 10px 0 12px;
+  color: var(--paper);
+}
+.thank-you-lede {
+  max-width: 600px;
+  margin: 0 auto 32px;
+  color: var(--paper-dim);
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+/* Order Receipt & Details Card (Left-Aligned Content inside Centered Card) */
+.thank-you-card {
+  background: var(--ink-2);
+  border: 1px solid var(--hide);
+  border-radius: var(--radius-lg, 16px);
+  padding: 28px 32px;
+  max-width: 600px;
+  margin: 0 auto 32px;
+  text-align: left;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+}
+.thank-you-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--hide);
+}
+.receipt-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--success, #5ca86c);
+  background: oklch(from var(--success, #5ca86c) l c h / 0.12);
+  border: 1px solid oklch(from var(--success, #5ca86c) l c h / 0.3);
+  padding: 4px 12px;
+  border-radius: 20px;
+}
+.status-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+}
+.receipt-date-label {
+  font-size: 0.82rem;
+  color: var(--paper-dim);
+  font-weight: 500;
+}
+
+.thank-you-amount-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding: 20px 0 16px;
+}
+.amount-group .amount-label {
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--paper-dim);
+  font-weight: 700;
+  display: block;
+}
+.amount-group .amount-val {
+  font-size: 2.2rem;
+  font-weight: 700;
+  font-family: var(--font-display);
+  color: var(--paper);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  margin-top: 4px;
+}
+.receipt-secure-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.76rem;
+  color: var(--whiskey);
+  background: var(--ink-3);
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--hide);
+  font-weight: 500;
+}
+
+.thank-you-session-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--ink-3);
+  border: 1px solid var(--hide);
+  border-radius: 8px;
+  font-size: 0.8rem;
+  margin-bottom: 20px;
+}
+.session-label {
+  color: var(--paper-dim);
+  font-weight: 600;
+}
+.session-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: var(--whiskey);
+  word-break: break-all;
+}
+
+/* Timeline Tracker inside Receipt Card */
+.thank-you-timeline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 20px;
+  border-top: 1px solid var(--hide);
+  gap: 8px;
+}
+.thank-you-timeline .timeline-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+.thank-you-timeline .timeline-marker {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: var(--ink-3);
+  border: 1.5px solid var(--hide);
+  color: var(--paper-dim);
+}
+.thank-you-timeline .step-complete .timeline-marker {
+  background: var(--whiskey);
+  border-color: var(--whiskey);
+  color: var(--ink);
+}
+.thank-you-timeline .step-current .timeline-marker {
+  border-color: var(--whiskey);
+  background: oklch(from var(--whiskey) l c h / 0.15);
+  color: var(--whiskey);
+  box-shadow: 0 0 10px oklch(from var(--whiskey) l c h / 0.3);
+}
+.thank-you-timeline .timeline-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: block;
+  color: var(--paper);
+}
+.thank-you-timeline .timeline-sub {
+  font-size: 0.7rem;
+  color: var(--paper-dim);
+  display: block;
+}
+.thank-you-timeline .timeline-line {
+  flex: 1 1 auto;
+  height: 2px;
+  background: var(--hide);
+  margin: 0 4px;
+}
+.thank-you-timeline .timeline-line.complete {
+  background: var(--whiskey);
+}
+
+.thank-you-actions {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  margin: 0 auto;
+}
+.thank-you-support-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 28px auto 0;
+  padding: 14px 20px;
+  background: var(--ink-2);
+  border: 1px solid var(--hide);
+  border-radius: var(--radius, 8px);
+  text-align: left;
+  font-size: 0.88rem;
+  color: var(--paper-dim);
+  max-width: 600px;
+}
+.thank-you-support-callout .support-callout-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+.thank-you-support-callout p {
+  margin: 0;
+  line-height: 1.5;
+}
+.thank-you-support-callout a {
+  color: var(--whiskey);
+  text-decoration: underline;
+}
+.thank-you-support-callout a:hover {
+  color: var(--paper);
+}
+
+@media (max-width: 600px) {
+  .thank-you-card {
+    padding: 20px;
+  }
+  .thank-you-timeline {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .thank-you-timeline .timeline-line {
+    display: none;
+  }
+  .thank-you-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+  .thank-you-actions .btn {
+    width: 100%;
+  }
+}
+
+/* ── Order Status Modal & Timeline (SOTA 2026) ────── */
+.order-status-modal {
+  max-width: 620px;
+}
+.order-status-form .field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.order-status-form input {
+  width: 100%;
+  padding: 11px 14px;
+  background: var(--ink-3);
+  border: 1px solid var(--hide);
+  border-radius: var(--radius, 8px);
+  color: var(--paper);
+  font-size: 0.92rem;
+}
+.order-status-form input:focus {
+  outline: none;
+  border-color: var(--whiskey);
+  box-shadow: 0 0 0 3px oklch(from var(--whiskey) l c h / 0.15);
+}
+
+.order-status-card {
+  background: var(--ink-3);
+  border: 1px solid var(--hide);
+  border-radius: var(--radius, 10px);
+  padding: 20px 24px;
+  margin-top: 1.25rem;
+  text-align: left;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+.order-status-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--hide);
+  margin-bottom: 16px;
+}
+.order-status-badge {
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+.order-status-badge.status-in-progress {
+  color: var(--whiskey);
+  background: oklch(from var(--whiskey) l c h / 0.12);
+  border: 1px solid oklch(from var(--whiskey) l c h / 0.3);
+}
+
+.timeline-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: relative;
+  padding-left: 8px;
+  margin: 16px 0;
+}
+.timeline-steps::before {
+  content: "";
+  position: absolute;
+  top: 14px;
+  bottom: 14px;
+  left: 21px;
+  width: 2px;
+  background: var(--hide);
+  z-index: 1;
+}
+.timeline-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  position: relative;
+  z-index: 2;
+}
+.timeline-step .step-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--ink-2);
+  border: 1.5px solid var(--hide);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--paper-dim);
+  flex-shrink: 0;
+}
+.timeline-step.step-done .step-icon {
+  background: var(--success, #5ca86c);
+  border-color: var(--success, #5ca86c);
+  color: #fff;
+}
+.timeline-step.step-active .step-icon {
+  border-color: var(--whiskey);
+  background: oklch(from var(--whiskey) l c h / 0.15);
+  color: var(--whiskey);
+  box-shadow: 0 0 10px oklch(from var(--whiskey) l c h / 0.4);
+}
+.timeline-step .step-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.timeline-step .step-text strong {
+  font-size: 0.88rem;
+  color: var(--paper);
+}
+.timeline-step .step-text span {
+  font-size: 0.76rem;
+  color: var(--paper-dim);
+}
+
+.order-status-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--hide);
+  margin-top: 14px;
+}
+.order-status-meta .meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.order-status-meta .meta-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--paper-dim);
+  font-weight: 600;
+}
+.order-status-meta .meta-val {
+  font-size: 0.82rem;
+  color: var(--paper);
+  font-weight: 500;
+}
+.order-lookup-unavailable {
+  padding: 16px;
+  background: var(--ink-3);
+  border: 1px solid var(--hide);
+  border-radius: var(--radius, 8px);
+  color: var(--paper-dim);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  margin-top: 1rem;
+}
+.order-lookup-unavailable a {
+  color: var(--whiskey);
+  text-decoration: underline;
 }

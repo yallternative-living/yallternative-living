@@ -56,12 +56,16 @@
  * but a first real delivery is the only way to be certain nothing about
  * Netlify's raw-body handling trips it up.
  */
-const { Resend } = require('resend');
-const crypto = require('crypto');
+const { Resend } = require("resend");
+const crypto = require("crypto");
 
-const resend = new Resend(process.env.RESEND_API_KEY || 're_test');
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
+
+function getResendClient() {
+  const apiKey = process.env.RESEND_API_KEY || "re_test";
+  return new Resend(apiKey);
+}
 
 // Stripe tolerates clock drift but rejects anything older than this to
 // block replay of a captured webhook payload.
@@ -71,8 +75,8 @@ function generateRandomCode() {
   // crypto.randomInt (CSPRNG) instead of Math.random -- these codes are
   // redeemable money (a single-use discount worth up to $500), so they
   // must not come from a predictable PRNG.
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let result = 'YALL-';
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let result = "YALL-";
   for (let i = 0; i < 8; i++) {
     result += chars.charAt(crypto.randomInt(chars.length));
   }
@@ -88,12 +92,12 @@ function generateRandomCode() {
 // re-fetch the code and the recipient's email was silently skipped. Keyed
 // with the webhook signing secret so codes stay unguessable without it.
 function deriveGiftCardCode(sessionId, giftIndex, secret) {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   const digest = crypto
-    .createHmac('sha256', String(secret || ''))
-    .update('gift-code-' + sessionId + '-' + giftIndex)
+    .createHmac("sha256", String(secret || ""))
+    .update("gift-code-" + sessionId + "-" + giftIndex)
     .digest();
-  let result = 'YALL-';
+  let result = "YALL-";
   for (let i = 0; i < 8; i++) {
     result += chars.charAt(digest[i] % chars.length);
   }
@@ -108,11 +112,11 @@ function deriveGiftCardCode(sessionId, giftIndex, secret) {
 // ready-made phishing vector.
 function escapeHtml(str) {
   return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 // Verify the Stripe-Signature header manually (no stripe SDK dependency,
@@ -120,37 +124,39 @@ function escapeHtml(str) {
 // see workers/checkout.js, which talks to Stripe's REST API directly too).
 // Returns the parsed event object if valid, throws otherwise.
 function verifyStripeSignature(rawBody, signatureHeader, secret) {
-  if (!signatureHeader) throw new Error('Missing Stripe-Signature header');
-  if (!secret) throw new Error('STRIPE_WEBHOOK_SECRET is not configured');
+  if (!signatureHeader) throw new Error("Missing Stripe-Signature header");
+  if (!secret) throw new Error("STRIPE_WEBHOOK_SECRET is not configured");
 
   var timestamp;
   var v1Signatures = [];
-  signatureHeader.split(',').forEach(function (pair) {
-    var idx = pair.indexOf('=');
+  signatureHeader.split(",").forEach(function (pair) {
+    var idx = pair.indexOf("=");
     if (idx === -1) return;
     var key = pair.slice(0, idx).trim();
     var val = pair.slice(idx + 1).trim();
-    if (key === 't') timestamp = val;
-    if (key === 'v1') v1Signatures.push(val);
+    if (key === "t") timestamp = val;
+    if (key === "v1") v1Signatures.push(val);
   });
-  if (!timestamp || !v1Signatures.length) throw new Error('Malformed Stripe-Signature header');
+  if (!timestamp || !v1Signatures.length) throw new Error("Malformed Stripe-Signature header");
 
   var age = Math.abs(Math.floor(Date.now() / 1000) - Number(timestamp));
   if (!Number.isFinite(age) || age > WEBHOOK_TOLERANCE_SECONDS) {
-    throw new Error('Webhook timestamp outside tolerance -- possible replay');
+    throw new Error("Webhook timestamp outside tolerance -- possible replay");
   }
 
   var expected = crypto
-    .createHmac('sha256', secret)
-    .update(timestamp + '.' + rawBody, 'utf8')
-    .digest('hex');
+    .createHmac("sha256", secret)
+    .update(timestamp + "." + rawBody, "utf8")
+    .digest("hex");
 
-  var expectedBuf = Buffer.from(expected, 'utf8');
+  var expectedBuf = Buffer.from(expected, "utf8");
   var signatureOk = v1Signatures.some(function (sig) {
-    var actualBuf = Buffer.from(sig, 'utf8');
-    return expectedBuf.length === actualBuf.length && crypto.timingSafeEqual(expectedBuf, actualBuf);
+    var actualBuf = Buffer.from(sig, "utf8");
+    return (
+      expectedBuf.length === actualBuf.length && crypto.timingSafeEqual(expectedBuf, actualBuf)
+    );
   });
-  if (!signatureOk) throw new Error('Signature mismatch');
+  if (!signatureOk) throw new Error("Signature mismatch");
 
   return JSON.parse(rawBody);
 }
@@ -160,73 +166,76 @@ function verifyStripeSignature(rawBody, signatureHeader, secret) {
 // webhook delivery (Stripe retries on non-2xx or timeout) re-fetches the
 // SAME code instead of minting a second, orphaned one.
 async function createGiftCardPromotionCode(sessionId, giftIndex, amountCents, code) {
-  var couponIdempotencyKey = 'gift-coupon-' + sessionId + '-' + giftIndex;
-  var couponRes = await fetch('https://api.stripe.com/v1/coupons', {
-    method: 'POST',
+  var secretKey = process.env.STRIPE_SECRET_KEY || STRIPE_SECRET_KEY;
+  if (!secretKey) throw new Error("STRIPE_SECRET_KEY is not configured");
+
+  var couponIdempotencyKey = "gift-coupon-" + sessionId + "-" + giftIndex;
+  var couponRes = await fetch("https://api.stripe.com/v1/coupons", {
+    method: "POST",
     headers: {
-      Authorization: 'Bearer ' + STRIPE_SECRET_KEY,
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Idempotency-Key': couponIdempotencyKey,
+      Authorization: "Bearer " + secretKey,
+      "Content-Type": "application/x-www-form-urlencoded",
+      "Idempotency-Key": couponIdempotencyKey,
       // Pinned to match workers/checkout.js -- see the comment there. Without
       // this header, Stripe silently falls back to whatever default version
       // is set in the Dashboard, which Stripe's own docs warn against relying
       // on for exactly this reason (a Dashboard change could alter behavior
       // here with no corresponding code change).
-      'Stripe-Version': '2026-06-24.dahlia'
+      "Stripe-Version": "2026-06-24.dahlia"
     },
     body: new URLSearchParams({
       amount_off: String(amountCents),
-      currency: 'usd',
-      duration: 'once',
-      max_redemptions: '1',
+      currency: "usd",
+      duration: "once",
+      max_redemptions: "1",
       name: "Y'allternative Living gift card"
     })
   });
   var coupon = await couponRes.json();
-  if (coupon.error) throw new Error('Stripe coupon creation failed: ' + coupon.error.message);
+  if (coupon.error) throw new Error("Stripe coupon creation failed: " + coupon.error.message);
 
-  var promoIdempotencyKey = 'gift-promo-' + sessionId + '-' + giftIndex;
-  var promoRes = await fetch('https://api.stripe.com/v1/promotion_codes', {
-    method: 'POST',
+  var promoIdempotencyKey = "gift-promo-" + sessionId + "-" + giftIndex;
+  var promoRes = await fetch("https://api.stripe.com/v1/promotion_codes", {
+    method: "POST",
     headers: {
-      Authorization: 'Bearer ' + STRIPE_SECRET_KEY,
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Idempotency-Key': promoIdempotencyKey,
-      'Stripe-Version': '2026-06-24.dahlia'
+      Authorization: "Bearer " + secretKey,
+      "Content-Type": "application/x-www-form-urlencoded",
+      "Idempotency-Key": promoIdempotencyKey,
+      "Stripe-Version": "2026-06-24.dahlia"
     },
     body: new URLSearchParams({
       coupon: coupon.id,
       code: code,
-      max_redemptions: '1'
+      max_redemptions: "1"
     })
   });
   var promo = await promoRes.json();
-  if (promo.error) throw new Error('Stripe promotion code creation failed: ' + promo.error.message);
+  if (promo.error) throw new Error("Stripe promotion code creation failed: " + promo.error.message);
 
   return promo.code;
 }
 
 exports.handler = async (event) => {
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method Not Allowed' };
+  if (event.httpMethod !== "POST") {
+    return { statusCode: 405, body: "Method Not Allowed" };
   }
 
   var rawBody = event.isBase64Encoded
-    ? Buffer.from(event.body || '', 'base64').toString('utf8')
-    : event.body || '';
-  var signatureHeader =
-    event.headers['stripe-signature'] || event.headers['Stripe-Signature'];
+    ? Buffer.from(event.body || "", "base64").toString("utf8")
+    : event.body || "";
+  var signatureHeader = event.headers["stripe-signature"] || event.headers["Stripe-Signature"];
 
+  var webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || STRIPE_WEBHOOK_SECRET;
   var stripeEvent;
   try {
-    stripeEvent = verifyStripeSignature(rawBody, signatureHeader, STRIPE_WEBHOOK_SECRET);
+    stripeEvent = verifyStripeSignature(rawBody, signatureHeader, webhookSecret);
   } catch (err) {
-    console.error('Webhook signature verification failed:', err.message);
-    return { statusCode: 400, body: 'Invalid signature: ' + err.message };
+    console.error("Webhook signature verification failed:", err.message);
+    return { statusCode: 400, body: "Invalid signature: " + err.message };
   }
 
-  if (stripeEvent.type !== 'checkout.session.completed') {
-    return { statusCode: 200, body: 'Event ignored' };
+  if (stripeEvent.type !== "checkout.session.completed") {
+    return { statusCode: 200, body: "Event ignored" };
   }
 
   try {
@@ -246,43 +255,41 @@ exports.handler = async (event) => {
       });
 
     if (!giftIndexes.length) {
-      return { statusCode: 200, body: 'No gift cards in this session' };
+      return { statusCode: 200, body: "No gift cards in this session" };
     }
 
     await Promise.all(
       giftIndexes.map(async function (n) {
-        var prefix = 'gift_card_' + n;
-        var amountCents = Number(metadata[prefix + '_amount_cents']);
-        var recipientEmail = metadata[prefix + '_recipient'];
-        var senderName = metadata[prefix + '_sender'];
-        var personalMessage = metadata[prefix + '_message'];
+        var prefix = "gift_card_" + n;
+        var amountCents = Number(metadata[prefix + "_amount_cents"]);
+        var recipientEmail = metadata[prefix + "_recipient"];
+        var senderName = metadata[prefix + "_sender"];
+        var personalMessage = metadata[prefix + "_message"];
 
         if (!recipientEmail || !Number.isFinite(amountCents) || amountCents <= 0) {
-          console.error(
-            'Gift card metadata incomplete for session ' + session.id + ', index ' + n
-          );
+          console.error("Gift card metadata incomplete for session " + session.id + ", index " + n);
           return;
         }
 
-        var uniqueCode = deriveGiftCardCode(session.id, n, STRIPE_WEBHOOK_SECRET);
-        var confirmedCode;
-        try {
-          confirmedCode = await createGiftCardPromotionCode(session.id, n, amountCents, uniqueCode);
-        } catch (err) {
-          console.error('Failed to create promotion code:', err.message);
-          return; // don't let one bad gift card in a multi-item order block the rest
-        }
+        var uniqueCode = deriveGiftCardCode(session.id, n, webhookSecret);
+        var confirmedCode = await createGiftCardPromotionCode(
+          session.id,
+          n,
+          amountCents,
+          uniqueCode
+        );
 
         var amount = amountCents / 100;
+        var safeSender = senderName ? escapeHtml(senderName) : "Someone special";
         var emailHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #17130f; color: #fff; padding: 40px; border-radius: 12px; border: 2px solid #d69b5c;">
           <div style="text-align: center; margin-bottom: 30px;">
             <img src="https://yallternativeliving.com/assets/img/logo.png" alt="Y'allternative Living Logo" style="max-width: 200px;" />
           </div>
           <h1 style="color: #d69b5c; text-align: center;">You've received a gift!</h1>
-          <p style="font-size: 18px;"><strong>${senderName ? escapeHtml(senderName) : 'Someone special'}</strong> sent you a $${amount.toFixed(2)} gift card to Y'allternative Living.</p>
+          <p style="font-size: 18px;"><strong>${safeSender}</strong> sent you a $${amount.toFixed(2)} gift card to Y'allternative Living.</p>
 
-          ${personalMessage ? `<div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; font-style: italic; margin: 20px 0;">"${escapeHtml(personalMessage)}"</div>` : ''}
+          ${personalMessage ? `<div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; font-style: italic; margin: 20px 0;">"${escapeHtml(personalMessage)}"</div>` : ""}
 
           <div style="text-align: center; background: #fff; color: #000; padding: 20px; border-radius: 8px; margin: 30px 0;">
             <p style="margin: 0; text-transform: uppercase; letter-spacing: 2px; font-size: 14px; color: #666;">Your Gift Code</p>
@@ -296,26 +303,137 @@ exports.handler = async (event) => {
         </div>
       `;
 
+        var emailText =
+          `${senderName ? senderName : "Someone special"} sent you a $${amount.toFixed(2)} gift card to Y'allternative Living!\n\n` +
+          (personalMessage ? `Personal Message:\n"${personalMessage}"\n\n` : "") +
+          `Your Gift Code: ${confirmedCode}\n\n` +
+          `Enter this code at checkout on https://yallternativeliving.com to redeem your gift card.`;
+
+        var resendClient = getResendClient();
+        var fromAddress =
+          process.env.FROM_EMAIL ||
+          process.env.RESEND_FROM_EMAIL ||
+          "Y'allternative Living <gifts@yallternativeliving.com>";
+
+        var emailIdempotencyKey = "gift-email-" + session.id + "-" + n;
+        var sendResult;
         try {
-          await resend.emails.send({
-            from: 'gifts@yallternativeliving.com',
-            to: recipientEmail,
-            subject: `You received a $${amount.toFixed(2)} Y'allternative Living gift card!`,
-            html: emailHtml,
-            headers: {
-              'X-Entity-Ref-ID': 'gift-email-' + session.id + '-' + n
+          sendResult = await resendClient.emails.send(
+            {
+              from: fromAddress,
+              to: recipientEmail,
+              reply_to: "contact@yallternativeliving.com",
+              subject: `You received a $${amount.toFixed(2)} Y'allternative Living gift card!`,
+              html: emailHtml,
+              text: emailText,
+              headers: {
+                "X-Entity-Ref-ID": emailIdempotencyKey,
+                "Idempotency-Key": emailIdempotencyKey
+              }
+            },
+            {
+              idempotencyKey: emailIdempotencyKey
             }
-          });
+          );
         } catch (emailErr) {
-          console.error(`Failed to send gift card email for code ${confirmedCode}:`, emailErr.message);
+          console.error(
+            `Failed to send gift card email for code ${confirmedCode}:`,
+            emailErr.message
+          );
+          throw new Error(`Email dispatch failed: ${emailErr.message}`);
+        }
+
+        if (sendResult && sendResult.error) {
+          console.error(
+            `Resend API error sending gift card email for code ${confirmedCode}:`,
+            sendResult.error
+          );
+          throw new Error(
+            `Resend delivery failed: ${sendResult.error.message || JSON.stringify(sendResult.error)}`
+          );
+        }
+
+        // Send a backup purchase receipt / delivery confirmation to the buyer so
+        // they have immediate proof of the gift code and can forward it if there
+        // was a typo in the recipient's address or if it lands in their spam folder.
+        var buyerEmail =
+          (session.customer_details && session.customer_details.email) ||
+          session.customer_email;
+
+        if (buyerEmail && typeof buyerEmail === "string" && buyerEmail.trim()) {
+          var cleanBuyer = buyerEmail.trim();
+          var isSelfGift = cleanBuyer.toLowerCase() === recipientEmail.trim().toLowerCase();
+          var buyerSubject = isSelfGift
+            ? `Your $${amount.toFixed(2)} Y'allternative Living gift card is ready!`
+            : `Gift Card Sent: $${amount.toFixed(2)} to ${recipientEmail}`;
+
+          var buyerEmailHtml = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #17130f; color: #fff; padding: 40px; border-radius: 12px; border: 2px solid #d69b5c;">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <img src="https://yallternativeliving.com/assets/img/logo.png" alt="Y'allternative Living Logo" style="max-width: 200px;" />
+            </div>
+            <h1 style="color: #d69b5c; text-align: center;">Gift Card Confirmation</h1>
+            <p style="font-size: 16px;">Thank you for your order! ${isSelfGift ? "Your gift card is ready to use." : `We've emailed your gift card to <strong>${escapeHtml(recipientEmail)}</strong>.`}</p>
+
+            ${personalMessage ? `<div style="background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px; font-style: italic; margin: 20px 0;">"${escapeHtml(personalMessage)}"</div>` : ""}
+
+            <div style="text-align: center; background: #fff; color: #000; padding: 20px; border-radius: 8px; margin: 30px 0;">
+              <p style="margin: 0; text-transform: uppercase; letter-spacing: 2px; font-size: 13px; color: #666;">Gift Voucher Code (Backup Copy)</p>
+              <h2 style="margin: 10px 0 0 0; font-size: 28px; letter-spacing: 4px;">${confirmedCode}</h2>
+              <p style="margin: 10px 0 0 0; font-size: 13px; color: #666;">Value: $${amount.toFixed(2)} USD · Single-Use Voucher</p>
+            </div>
+
+            <p style="font-size: 13px; color: #aaa; text-align: center;">Keep this email for your records. If your recipient has trouble finding their email, you can share this code directly with them.</p>
+
+            <div style="text-align: center; margin-top: 25px;">
+              <a href="https://yallternativeliving.com" style="display: inline-block; background: #d69b5c; color: #17130f; text-decoration: none; padding: 12px 25px; font-weight: bold; border-radius: 4px; text-transform: uppercase; letter-spacing: 1px;">Visit Our Shop</a>
+            </div>
+          </div>
+        `;
+
+          var buyerEmailText =
+            `Thank you for your gift card purchase from Y'allternative Living!\n\n` +
+            (isSelfGift ? `Your gift card is ready to use.` : `We've sent the gift card to ${recipientEmail}.`) +
+            `\n\n` +
+            `Gift Voucher Code (Backup Copy): ${confirmedCode}\n` +
+            `Value: $${amount.toFixed(2)} USD\n\n` +
+            (personalMessage ? `Personal Message:\n"${personalMessage}"\n\n` : "") +
+            `Keep this code for your records or forward it to your recipient if needed.\n` +
+            `Redeem at checkout on https://yallternativeliving.com`;
+
+          var buyerIdempotencyKey = "gift-buyer-email-" + session.id + "-" + n;
+          try {
+            await resendClient.emails.send(
+              {
+                from: fromAddress,
+                to: cleanBuyer,
+                reply_to: "contact@yallternativeliving.com",
+                subject: buyerSubject,
+                html: buyerEmailHtml,
+                text: buyerEmailText,
+                headers: {
+                  "X-Entity-Ref-ID": buyerIdempotencyKey,
+                  "Idempotency-Key": buyerIdempotencyKey
+                }
+              },
+              {
+                idempotencyKey: buyerIdempotencyKey
+              }
+            );
+          } catch (buyerErr) {
+            console.warn(
+              "Non-fatal: failed to send buyer confirmation email:",
+              buyerErr.message
+            );
+          }
         }
       })
     );
 
-    return { statusCode: 200, body: 'Webhook processed successfully' };
+    return { statusCode: 200, body: "Webhook processed successfully" };
   } catch (error) {
-    console.error('Webhook processing error:', error);
-    return { statusCode: 500, body: 'Internal Server Error' };
+    console.error("Webhook processing error:", error);
+    return { statusCode: 500, body: "Internal Server Error" };
   }
 };
 
@@ -324,4 +442,4 @@ exports.deriveGiftCardCode = deriveGiftCardCode;
 exports.escapeHtml = escapeHtml;
 exports.verifyStripeSignature = verifyStripeSignature;
 exports.createGiftCardPromotionCode = createGiftCardPromotionCode;
-
+exports.getResendClient = getResendClient;

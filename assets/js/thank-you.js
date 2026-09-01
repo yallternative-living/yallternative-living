@@ -70,6 +70,54 @@
       amountEl.textContent = "$" + amount.toFixed(2);
       amountEl.hidden = false;
     }
+
+    var amountDisplay = document.getElementById("thankYouAmountDisplay");
+    if (amountDisplay) {
+      if (!isNaN(amount)) {
+        amountDisplay.textContent = "$" + amount.toFixed(2);
+      } else {
+        amountDisplay.textContent = "$25.00";
+      }
+    }
+
+    var sessionId = (params.get("session_id") || "").trim();
+    var sessionRow = document.getElementById("thankYouSessionRow");
+    var sessionCode = document.getElementById("thankYouSessionCode");
+    if (sessionId && sessionRow && sessionCode) {
+      sessionCode.textContent = sessionId;
+      sessionRow.hidden = false;
+
+      // Pre-fill and wire auto-lookup when opening modal
+      var trackBtn = document.getElementById("openOrderStatusBtn");
+      if (trackBtn) {
+        trackBtn.addEventListener("click", function () {
+          setTimeout(function () {
+            var orderInput = document.getElementById("order-id-input");
+            var orderForm = document.getElementById("orderStatusForm");
+            if (orderInput && sessionId) {
+              orderInput.value = sessionId;
+              if (orderForm && typeof orderForm.requestSubmit === "function") {
+                orderForm.requestSubmit();
+              } else if (orderForm) {
+                var submitBtn = orderForm.querySelector("button[type='submit']");
+                if (submitBtn) submitBtn.click();
+              }
+            }
+          }, 100);
+        });
+      }
+    }
+
+    var dateEl = document.getElementById("thankYouDate");
+    if (dateEl) {
+      var d = new Date();
+      var formattedDate = d.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric"
+      });
+      dateEl.textContent = formattedDate;
+    }
   } catch {
     /* Never let a query-param hiccup break this page's "thanks!" message. */
   }

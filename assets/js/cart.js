@@ -571,6 +571,12 @@
           }
         }
 
+        var recipientText = it.giftRecipientEmail
+          ? '<span class="yl-cart-recipient" style="display:block; font-size:0.75rem; color:var(--hide);">For: ' +
+            escapeHtml(it.giftRecipientEmail) +
+            "</span>"
+          : "";
+
         return (
           '<div class="yl-cart-line yl-cart-item">' +
           '<img class="yl-cart-thumb" src="' +
@@ -588,6 +594,7 @@
           "</button>" +
           "</div>" +
           (variantText ? '<span class="yl-cart-variant">Variant: ' + variantText + "</span>" : "") +
+          (recipientText || "") +
           (isDiscounted
             ? '<span class="yl-cart-badge" style="display:inline-block; font-size:0.72rem; color:var(--whiskey); font-weight:600; margin-top:2px;">' +
               escapeHtml(badgeLabel) +
@@ -674,9 +681,10 @@
           (loyalty.rate === 1 ? "" : "s") +
           ")!";
     var pointsHTML = loyalty.enabled
-      ? '<div class="yl-cart-points" style="font-size:0.85rem; color:var(--whiskey); margin-bottom:8px; text-align:center; font-weight:600;">' +
+      ? '<div class="yl-cart-points">' +
+        '<span class="yl-cart-points-icon" aria-hidden="true">' +
         escapeHtml(loyalty.emoji) +
-        ' <span id="cart-points-banner">' +
+        '</span> <span id="cart-points-banner">' +
         pointsMsg +
         "</span></div>"
       : "";
@@ -727,25 +735,28 @@
       }
 
       pickupHTML =
-        /* --paper-dim is a TEXT colour in this design system, not a surface
-           (see the palette at the top of assets/css/styles.css: --ink* are
-           backgrounds, --paper* are foregrounds). Using it as a background
-           here painted a light tan panel behind light --paper/--whiskey text,
-           landing around 1.4:1. --ink-3 is the real card-fill token. */
-        '<div class="yl-cart-pickup-wrap" style="margin: 10px 0; padding: 10px; background: var(--ink-3); border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 0.85rem;">' +
-        '  <label style="display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer; color: var(--whiskey); margin: 0;">' +
-        '    <input type="checkbox" id="yl-cart-pickup-checkbox" style="accent-color: var(--whiskey); cursor: pointer;"' +
-        (state.isPickup ? " checked" : "") +
-        ">" +
-        "    <span>📍 Local SC Market Pick-up (Free)</span>" +
-        "  </label>" +
-        '  <div id="yl-cart-pickup-select-container" style="margin-top: 8px;' +
-        (state.isPickup ? " display: block;" : " display: none;") +
+        '<div class="yl-cart-pickup-wrap' +
+        (state.isPickup ? " is-active" : "") +
         '">' +
-        '    <label for="yl-cart-pickup-select" style="font-size: 0.78rem; color: var(--paper-muted); display: block; margin-bottom: 4px;">Choose Upcoming Market Location:</label>' +
-        '    <select id="yl-cart-pickup-select" style="width: 100%; padding: 6px 8px; font-size: 0.82rem; background: var(--paper); color: var(--ink); border: 1px solid var(--border-color); border-radius: 4px;">' +
+        '  <label class="yl-cart-pickup-label" for="yl-cart-pickup-checkbox">' +
+        '    <input type="checkbox" id="yl-cart-pickup-checkbox"' +
+        (state.isPickup ? " checked" : "") +
+        "    >" +
+        '    <span class="yl-cart-pickup-custom-check" aria-hidden="true"></span>' +
+        '    <div class="yl-cart-pickup-text">' +
+        '      <span class="yl-cart-pickup-title">📍 Local SC Market Pick-up (Free)</span>' +
+        '      <span class="yl-cart-pickup-sub">Skip shipping &amp; collect at our next market booth</span>' +
+        "    </div>" +
+        "  </label>" +
+        '  <div id="yl-cart-pickup-select-container" class="yl-cart-pickup-select-container"' +
+        (state.isPickup ? ' style="display: block;"' : ' style="display: none;"') +
+        "  >" +
+        '    <label for="yl-cart-pickup-select" class="yl-cart-pickup-select-label">Choose Upcoming Market Location:</label>' +
+        '    <div class="yl-cart-select-wrap">' +
+        '      <select id="yl-cart-pickup-select" class="yl-cart-pickup-select">' +
         optionsHTML +
-        "    </select>" +
+        "      </select>" +
+        "    </div>" +
         "  </div>" +
         "</div>";
     }
@@ -766,7 +777,7 @@
         var needed = minQ - count;
         var pluralUnit = minQ === 2 ? "both" : "all " + minQ;
         nudgeMessages.push(
-          '<div class="yl-cart-salve-nudge" style="font-size:0.85rem; color:var(--whiskey); margin-bottom:8px; text-align:center; font-weight:600;">🌿 Mix &amp; Match: Add ' +
+          '<div class="yl-cart-salve-nudge">🌿 <strong>Mix &amp; Match:</strong> Add ' +
             needed +
             " more " +
             variantPart +
@@ -783,7 +794,7 @@
             ? " · Add " + money(remaining) + " for FREE SHIPPING!"
             : "";
         nudgeMessages.push(
-          '<div class="yl-cart-salve-nudge" style="font-size:0.85rem; color:var(--whiskey); margin-bottom:8px; text-align:center; font-weight:600;">✨ Mix &amp; Match: ' +
+          '<div class="yl-cart-salve-nudge yl-cart-salve-nudge-active">✨ <strong>Mix &amp; Match:</strong> ' +
             priceFormatted +
             "/ea " +
             variantPart +
@@ -876,7 +887,7 @@
           '">' +
           '<img src="' +
           escapeAttr(p.image || "") +
-          '" alt="" width="36" height="36" loading="lazy">' +
+          '" alt="" width="40" height="40" loading="lazy">' +
           '<div class="yl-cart-upsell-info">' +
           '<span class="yl-cart-upsell-name">' +
           escapeHtml(p.name) +
@@ -891,7 +902,7 @@
       .join("");
     return (
       '<div class="yl-cart-upsell">' +
-      '<p class="yl-cart-upsell-title">You Might Also Like</p>' +
+      '<p class="yl-cart-upsell-title"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> You Might Also Like</p>' +
       '<div class="yl-cart-upsell-list">' +
       cards +
       "</div>" +
@@ -978,6 +989,7 @@
       item.giftRecipientEmail = d.itemCustom2Value || "";
       item.giftSenderName = d.itemCustom3Value || "";
       item.giftMessage = d.itemCustom4Value || "";
+      item.maxQty = 1; // 1 card per line item ensures recipient isolation
     }
     state.items = addToList(state.items, item);
     save();

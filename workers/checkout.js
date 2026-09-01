@@ -529,21 +529,14 @@ function itemMatchesVolumeRule(item, rule, catalog) {
 
 function isQualifying2ozSalve(item, catalog) {
   const rules = getVolumePricingRules(catalog);
-  const salveRule =
-    rules.find((r) => r.category === "salves") || DEFAULT_VOLUME_PRICING[0];
+  const salveRule = rules.find((r) => r.category === "salves") || DEFAULT_VOLUME_PRICING[0];
   return itemMatchesVolumeRule(item, salveRule, catalog);
 }
 
 // Resolve a validated unit price (in cents) for an item, honoring a chosen
 // variant's priceDelta when one is supplied and valid. `isBundle` picks the
 // bundle-pricing path above instead of a plain product's own `price` field.
-function resolveUnitAmountCents(
-  catalog,
-  entry,
-  variantLabel,
-  isBundle,
-  ruleCountsOrSalveCount
-) {
+function resolveUnitAmountCents(catalog, entry, variantLabel, isBundle, ruleCountsOrSalveCount) {
   let matchedDiscountCents = null;
   if (!isBundle && entry) {
     const rules = getVolumePricingRules(catalog);
@@ -556,8 +549,7 @@ function resolveUnitAmountCents(
           catalog
         )
       ) {
-        const salveRule =
-          rules.find((r) => r.category === "salves") || DEFAULT_VOLUME_PRICING[0];
+        const salveRule = rules.find((r) => r.category === "salves") || DEFAULT_VOLUME_PRICING[0];
         matchedDiscountCents = Math.round(Number(salveRule.unitPrice) * 100);
       }
     } else if (ruleCountsOrSalveCount && typeof ruleCountsOrSalveCount.get === "function") {
@@ -815,22 +807,27 @@ export default {
         // pure metadata, attached at the session level (indexed so multiple
         // gift cards in one order don't collide).
         if (isGiftCard) {
-          giftLineIndex += 1;
-          const prefix = `gift_card_${giftLineIndex}`;
-          // amount_cents is what fulfill-gift-card.js (the Netlify function
-          // listening for checkout.session.completed) reads to know how
-          // much to put on the code it emails -- it's set here, server-
-          // side, from the same clamped unitAmount already computed above,
-          // never from anything the client sent directly.
-          metadata[`${prefix}_amount_cents`] = String(unitAmount);
-          if (item.giftRecipientEmail) {
-            metadata[`${prefix}_recipient`] = truncate(item.giftRecipientEmail, MAX_GIFT_TEXT_LEN);
-          }
-          if (item.giftSenderName) {
-            metadata[`${prefix}_sender`] = truncate(item.giftSenderName, MAX_GIFT_TEXT_LEN);
-          }
-          if (item.giftMessage) {
-            metadata[`${prefix}_message`] = truncate(item.giftMessage, MAX_GIFT_TEXT_LEN);
+          for (let q = 0; q < qty; q++) {
+            giftLineIndex += 1;
+            const prefix = `gift_card_${giftLineIndex}`;
+            // amount_cents is what fulfill-gift-card.js (the Netlify function
+            // listening for checkout.session.completed) reads to know how
+            // much to put on the code it emails -- it's set here, server-
+            // side, from the same clamped unitAmount already computed above,
+            // never from anything the client sent directly.
+            metadata[`${prefix}_amount_cents`] = String(unitAmount);
+            if (item.giftRecipientEmail) {
+              metadata[`${prefix}_recipient`] = truncate(
+                item.giftRecipientEmail,
+                MAX_GIFT_TEXT_LEN
+              );
+            }
+            if (item.giftSenderName) {
+              metadata[`${prefix}_sender`] = truncate(item.giftSenderName, MAX_GIFT_TEXT_LEN);
+            }
+            if (item.giftMessage) {
+              metadata[`${prefix}_message`] = truncate(item.giftMessage, MAX_GIFT_TEXT_LEN);
+            }
           }
         }
 

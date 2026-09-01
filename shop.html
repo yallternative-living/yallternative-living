@@ -1086,17 +1086,26 @@
     
     <div class="gift-card-widget">
       <!-- Visual Preview Card -->
-      <div class="gift-card-preview">
-        <div class="preview-badge-row">
-          <span class="card-badge">Gift Card</span>
-          <div class="card-amount" id="giftCardAmountDisplay" aria-live="polite">$25</div>
+      <div class="gift-card-preview" id="giftCardPreview">
+        <div class="card-brand-top">
+          <div class="card-brand-mark">
+            <span class="card-brand-yall">Y'ALLTERNATIVE</span>
+            <span class="card-brand-sub">LIVING</span>
+          </div>
+          <span class="card-badge">GIFT CARD</span>
+        </div>
+        <div class="card-chip-art" aria-hidden="true"></div>
+        <div class="card-amount-large" id="giftCardAmountDisplay" aria-live="polite">$25</div>
+        <div class="card-footer-info">
+          <span>Digital Gift Voucher · No Expiration</span>
+          <span>yallternativeliving.com</span>
         </div>
       </div>
 
       <!-- Form controls -->
       <div class="gift-card-controls">
-        <div>
-          <h3>Select Card Amount</h3>
+        <div class="gift-amount-section">
+          <label class="gift-section-label">Select Card Amount</label>
           <div class="preset-grid">
             <button type="button" class="preset-btn active" aria-pressed="true" aria-label="Select $25 gift card amount" data-amount="25">$25</button>
             <button type="button" class="preset-btn" aria-pressed="false" aria-label="Select $50 gift card amount" data-amount="50">$50</button>
@@ -1107,21 +1116,28 @@
           
           <div class="custom-input-wrap" id="customAmountGroup" style="display: none;">
             <label for="customGiftAmount">Custom Amount ($10 - $500)</label>
-            <input type="number" id="customGiftAmount" name="customGiftAmount" aria-label="Custom Gift Card Amount" min="10" max="500" value="25" step="1">
+            <div class="custom-amount-input-wrap">
+              <span class="currency-prefix">$</span>
+              <input type="number" id="customGiftAmount" name="customGiftAmount" aria-label="Custom Gift Card Amount" min="10" max="500" value="25" step="1">
+            </div>
           </div>
-          <div class="gift-field">
-            <label for="giftRecipientEmail">Recipient Email</label>
-            <input type="email" id="giftRecipientEmail" name="recipient_email" aria-label="Recipient Email" placeholder="friend@example.com" required>
+          <p class="muted" style="font-size: 0.8rem; margin: 8px 0 0;">Single-use digital discount voucher applied to order total at checkout. No expiration.</p>
+        </div>
+
+        <div class="gift-fields-grid">
+          <div class="field">
+            <label for="giftRecipientEmail">Recipient Email <span class="required-star" aria-hidden="true">*</span></label>
+            <input type="email" id="giftRecipientEmail" name="recipient_email" aria-label="Recipient Email" placeholder="friend@example.com" required autocomplete="email">
           </div>
-          <div class="gift-field">
-            <label for="giftSenderName">Your Name</label>
-            <input type="text" id="giftSenderName" name="sender_name" aria-label="Your Name" placeholder="Your Name" required>
+          <div class="field">
+            <label for="giftSenderName">Your Name <span class="required-star" aria-hidden="true">*</span></label>
+            <input type="text" id="giftSenderName" name="sender_name" aria-label="Your Name" placeholder="Your Name" required autocomplete="name">
           </div>
         </div>
 
         <div class="field">
-          <label for="giftMessage">Personal Message (Optional)</label>
-          <textarea id="giftMessage" rows="2" placeholder="Write a nice message..."></textarea>
+          <label for="giftMessage">Personal Message <span class="optional-tag">(Optional)</span></label>
+          <textarea id="giftMessage" rows="3" placeholder="Write a warm note for the recipient..."></textarea>
         </div>
 
         <div class="gift-card-actions">
@@ -1132,6 +1148,7 @@
             data-item-price="10.00"
             data-item-image="assets/img/gift-card.png"
             data-item-description="Digital Gift Card"
+            data-item-max-quantity="1"
             data-item-custom1-name="Amount"
             data-item-custom1-options="Preset $10[+0.00]|Preset $11[+1.00]|Preset $12[+2.00]|Preset $13[+3.00]|Preset $14[+4.00]|Preset $15[+5.00]|Preset $16[+6.00]|Preset $17[+7.00]|Preset $18[+8.00]|Preset $19[+9.00]|Preset $20[+10.00]|Preset $21[+11.00]|Preset $22[+12.00]|Preset $23[+13.00]|Preset $24[+14.00]|Preset $25[+15.00]|Preset $26[+16.00]|Preset $27[+17.00]|Preset $28[+18.00]|Preset $29[+19.00]|Preset $30[+20.00]|Preset $31[+21.00]|Preset $32[+22.00]|Preset $33[+23.00]|Preset $34[+24.00]|Preset $35[+25.00]|Preset $36[+26.00]|Preset $37[+27.00]|Preset $38[+28.00]|Preset $39[+29.00]|Preset $40[+30.00]|Preset $41[+31.00]|Preset $42[+32.00]|Preset $43[+33.00]|Preset $44[+34.00]|Preset $45[+35.00]|Preset $46[+36.00]|Preset $47[+37.00]|Preset $48[+38.00]|Preset $49[+39.00]|Preset $50[+40.00]|Preset $51[+41.00]|Preset $52[+42.00]|Preset $53[+43.00]|Preset $54[+44.00]|Preset $55[+45.00]|Preset $56[+46.00]|Preset $57[+47.00]|Preset $58[+48.00]|Preset $59[+49.00]|Preset $60[+50.00]|Preset $61[+51.00]|Preset $62[+52.00]|Preset $63[+53.00]|Preset $64[+54.00]|Preset $65[+55.00]|Preset $66[+56.00]|Preset $67[+57.00]|Preset $68[+58.00]|Preset $69[+59.00]|Preset $70[+60.00]|Preset $71[+61.00]|Preset $72[+62.00]|Preset $73[+63.00]|Preset $74[+64.00]|Preset $75[+65.00]|Preset $76[+66.00]|Preset $77[+67.00]|Preset $78[+68.00]|Preset $79[+69.00]|Preset $80[+70.00]|Preset $81[+71.00]|Preset $82[+72.00]|Preset $83[+73.00]|Preset $84[+74.00]|Preset $85[+75.00]|Preset $86[+76.00]|Preset $87[+77.00]|Preset $88[+78.00]|Preset $89[+79.00]|Preset $90[+80.00]|Preset $91[+81.00]|Preset $92[+82.00]|Preset $93[+83.00]|Preset $94[+84.00]|Preset $95[+85.00]|Preset $96[+86.00]|Preset $97[+87.00]|Preset $98[+88.00]|Preset $99[+89.00]|Preset $100[+90.00]|Preset $101[+91.00]|Preset $102[+92.00]|Preset $103[+93.00]|Preset $104[+94.00]|Preset $105[+95.00]|Preset $106[+96.00]|Preset $107[+97.00]|Preset $108[+98.00]|Preset $109[+99.00]|Preset $110[+100.00]|Preset $111[+101.00]|Preset $112[+102.00]|Preset $113[+103.00]|Preset $114[+104.00]|Preset $115[+105.00]|Preset $116[+106.00]|Preset $117[+107.00]|Preset $118[+108.00]|Preset $119[+109.00]|Preset $120[+110.00]|Preset $121[+111.00]|Preset $122[+112.00]|Preset $123[+113.00]|Preset $124[+114.00]|Preset $125[+115.00]|Preset $126[+116.00]|Preset $127[+117.00]|Preset $128[+118.00]|Preset $129[+119.00]|Preset $130[+120.00]|Preset $131[+121.00]|Preset $132[+122.00]|Preset $133[+123.00]|Preset $134[+124.00]|Preset $135[+125.00]|Preset $136[+126.00]|Preset $137[+127.00]|Preset $138[+128.00]|Preset $139[+129.00]|Preset $140[+130.00]|Preset $141[+131.00]|Preset $142[+132.00]|Preset $143[+133.00]|Preset $144[+134.00]|Preset $145[+135.00]|Preset $146[+136.00]|Preset $147[+137.00]|Preset $148[+138.00]|Preset $149[+139.00]|Preset $150[+140.00]|Preset $151[+141.00]|Preset $152[+142.00]|Preset $153[+143.00]|Preset $154[+144.00]|Preset $155[+145.00]|Preset $156[+146.00]|Preset $157[+147.00]|Preset $158[+148.00]|Preset $159[+149.00]|Preset $160[+150.00]|Preset $161[+151.00]|Preset $162[+152.00]|Preset $163[+153.00]|Preset $164[+154.00]|Preset $165[+155.00]|Preset $166[+156.00]|Preset $167[+157.00]|Preset $168[+158.00]|Preset $169[+159.00]|Preset $170[+160.00]|Preset $171[+161.00]|Preset $172[+162.00]|Preset $173[+163.00]|Preset $174[+164.00]|Preset $175[+165.00]|Preset $176[+166.00]|Preset $177[+167.00]|Preset $178[+168.00]|Preset $179[+169.00]|Preset $180[+170.00]|Preset $181[+171.00]|Preset $182[+172.00]|Preset $183[+173.00]|Preset $184[+174.00]|Preset $185[+175.00]|Preset $186[+176.00]|Preset $187[+177.00]|Preset $188[+178.00]|Preset $189[+179.00]|Preset $190[+180.00]|Preset $191[+181.00]|Preset $192[+182.00]|Preset $193[+183.00]|Preset $194[+184.00]|Preset $195[+185.00]|Preset $196[+186.00]|Preset $197[+187.00]|Preset $198[+188.00]|Preset $199[+189.00]|Preset $200[+190.00]|Preset $201[+191.00]|Preset $202[+192.00]|Preset $203[+193.00]|Preset $204[+194.00]|Preset $205[+195.00]|Preset $206[+196.00]|Preset $207[+197.00]|Preset $208[+198.00]|Preset $209[+199.00]|Preset $210[+200.00]|Preset $211[+201.00]|Preset $212[+202.00]|Preset $213[+203.00]|Preset $214[+204.00]|Preset $215[+205.00]|Preset $216[+206.00]|Preset $217[+207.00]|Preset $218[+208.00]|Preset $219[+209.00]|Preset $220[+210.00]|Preset $221[+211.00]|Preset $222[+212.00]|Preset $223[+213.00]|Preset $224[+214.00]|Preset $225[+215.00]|Preset $226[+216.00]|Preset $227[+217.00]|Preset $228[+218.00]|Preset $229[+219.00]|Preset $230[+220.00]|Preset $231[+221.00]|Preset $232[+222.00]|Preset $233[+223.00]|Preset $234[+224.00]|Preset $235[+225.00]|Preset $236[+226.00]|Preset $237[+227.00]|Preset $238[+228.00]|Preset $239[+229.00]|Preset $240[+230.00]|Preset $241[+231.00]|Preset $242[+232.00]|Preset $243[+233.00]|Preset $244[+234.00]|Preset $245[+235.00]|Preset $246[+236.00]|Preset $247[+237.00]|Preset $248[+238.00]|Preset $249[+239.00]|Preset $250[+240.00]|Preset $251[+241.00]|Preset $252[+242.00]|Preset $253[+243.00]|Preset $254[+244.00]|Preset $255[+245.00]|Preset $256[+246.00]|Preset $257[+247.00]|Preset $258[+248.00]|Preset $259[+249.00]|Preset $260[+250.00]|Preset $261[+251.00]|Preset $262[+252.00]|Preset $263[+253.00]|Preset $264[+254.00]|Preset $265[+255.00]|Preset $266[+256.00]|Preset $267[+257.00]|Preset $268[+258.00]|Preset $269[+259.00]|Preset $270[+260.00]|Preset $271[+261.00]|Preset $272[+262.00]|Preset $273[+263.00]|Preset $274[+264.00]|Preset $275[+265.00]|Preset $276[+266.00]|Preset $277[+267.00]|Preset $278[+268.00]|Preset $279[+269.00]|Preset $280[+270.00]|Preset $281[+271.00]|Preset $282[+272.00]|Preset $283[+273.00]|Preset $284[+274.00]|Preset $285[+275.00]|Preset $286[+276.00]|Preset $287[+277.00]|Preset $288[+278.00]|Preset $289[+279.00]|Preset $290[+280.00]|Preset $291[+281.00]|Preset $292[+282.00]|Preset $293[+283.00]|Preset $294[+284.00]|Preset $295[+285.00]|Preset $296[+286.00]|Preset $297[+287.00]|Preset $298[+288.00]|Preset $299[+289.00]|Preset $300[+290.00]|Preset $301[+291.00]|Preset $302[+292.00]|Preset $303[+293.00]|Preset $304[+294.00]|Preset $305[+295.00]|Preset $306[+296.00]|Preset $307[+297.00]|Preset $308[+298.00]|Preset $309[+299.00]|Preset $310[+300.00]|Preset $311[+301.00]|Preset $312[+302.00]|Preset $313[+303.00]|Preset $314[+304.00]|Preset $315[+305.00]|Preset $316[+306.00]|Preset $317[+307.00]|Preset $318[+308.00]|Preset $319[+309.00]|Preset $320[+310.00]|Preset $321[+311.00]|Preset $322[+312.00]|Preset $323[+313.00]|Preset $324[+314.00]|Preset $325[+315.00]|Preset $326[+316.00]|Preset $327[+317.00]|Preset $328[+318.00]|Preset $329[+319.00]|Preset $330[+320.00]|Preset $331[+321.00]|Preset $332[+322.00]|Preset $333[+323.00]|Preset $334[+324.00]|Preset $335[+325.00]|Preset $336[+326.00]|Preset $337[+327.00]|Preset $338[+328.00]|Preset $339[+329.00]|Preset $340[+330.00]|Preset $341[+331.00]|Preset $342[+332.00]|Preset $343[+333.00]|Preset $344[+334.00]|Preset $345[+335.00]|Preset $346[+336.00]|Preset $347[+337.00]|Preset $348[+338.00]|Preset $349[+339.00]|Preset $350[+340.00]|Preset $351[+341.00]|Preset $352[+342.00]|Preset $353[+343.00]|Preset $354[+344.00]|Preset $355[+345.00]|Preset $356[+346.00]|Preset $357[+347.00]|Preset $358[+348.00]|Preset $359[+349.00]|Preset $360[+350.00]|Preset $361[+351.00]|Preset $362[+352.00]|Preset $363[+353.00]|Preset $364[+354.00]|Preset $365[+355.00]|Preset $366[+356.00]|Preset $367[+357.00]|Preset $368[+358.00]|Preset $369[+359.00]|Preset $370[+360.00]|Preset $371[+361.00]|Preset $372[+362.00]|Preset $373[+363.00]|Preset $374[+364.00]|Preset $375[+365.00]|Preset $376[+366.00]|Preset $377[+367.00]|Preset $378[+368.00]|Preset $379[+369.00]|Preset $380[+370.00]|Preset $381[+371.00]|Preset $382[+372.00]|Preset $383[+373.00]|Preset $384[+374.00]|Preset $385[+375.00]|Preset $386[+376.00]|Preset $387[+377.00]|Preset $388[+378.00]|Preset $389[+379.00]|Preset $390[+380.00]|Preset $391[+381.00]|Preset $392[+382.00]|Preset $393[+383.00]|Preset $394[+384.00]|Preset $395[+385.00]|Preset $396[+386.00]|Preset $397[+387.00]|Preset $398[+388.00]|Preset $399[+389.00]|Preset $400[+390.00]|Preset $401[+391.00]|Preset $402[+392.00]|Preset $403[+393.00]|Preset $404[+394.00]|Preset $405[+395.00]|Preset $406[+396.00]|Preset $407[+397.00]|Preset $408[+398.00]|Preset $409[+399.00]|Preset $410[+400.00]|Preset $411[+401.00]|Preset $412[+402.00]|Preset $413[+403.00]|Preset $414[+404.00]|Preset $415[+405.00]|Preset $416[+406.00]|Preset $417[+407.00]|Preset $418[+408.00]|Preset $419[+409.00]|Preset $420[+410.00]|Preset $421[+411.00]|Preset $422[+412.00]|Preset $423[+413.00]|Preset $424[+414.00]|Preset $425[+415.00]|Preset $426[+416.00]|Preset $427[+417.00]|Preset $428[+418.00]|Preset $429[+419.00]|Preset $430[+420.00]|Preset $431[+421.00]|Preset $432[+422.00]|Preset $433[+423.00]|Preset $434[+424.00]|Preset $435[+425.00]|Preset $436[+426.00]|Preset $437[+427.00]|Preset $438[+428.00]|Preset $439[+429.00]|Preset $440[+430.00]|Preset $441[+431.00]|Preset $442[+432.00]|Preset $443[+433.00]|Preset $444[+434.00]|Preset $445[+435.00]|Preset $446[+436.00]|Preset $447[+437.00]|Preset $448[+438.00]|Preset $449[+439.00]|Preset $450[+440.00]|Preset $451[+441.00]|Preset $452[+442.00]|Preset $453[+443.00]|Preset $454[+444.00]|Preset $455[+445.00]|Preset $456[+446.00]|Preset $457[+447.00]|Preset $458[+448.00]|Preset $459[+449.00]|Preset $460[+450.00]|Preset $461[+451.00]|Preset $462[+452.00]|Preset $463[+453.00]|Preset $464[+454.00]|Preset $465[+455.00]|Preset $466[+456.00]|Preset $467[+457.00]|Preset $468[+458.00]|Preset $469[+459.00]|Preset $470[+460.00]|Preset $471[+461.00]|Preset $472[+462.00]|Preset $473[+463.00]|Preset $474[+464.00]|Preset $475[+465.00]|Preset $476[+466.00]|Preset $477[+467.00]|Preset $478[+468.00]|Preset $479[+469.00]|Preset $480[+470.00]|Preset $481[+471.00]|Preset $482[+472.00]|Preset $483[+473.00]|Preset $484[+474.00]|Preset $485[+475.00]|Preset $486[+476.00]|Preset $487[+477.00]|Preset $488[+478.00]|Preset $489[+479.00]|Preset $490[+480.00]|Preset $491[+481.00]|Preset $492[+482.00]|Preset $493[+483.00]|Preset $494[+484.00]|Preset $495[+485.00]|Preset $496[+486.00]|Preset $497[+487.00]|Preset $498[+488.00]|Preset $499[+489.00]|Preset $500[+490.00]"
             data-item-custom1-value="Preset $25"
@@ -1144,7 +1161,8 @@
             data-item-custom4-name="Message"
             data-item-custom4-required="false"
             data-item-custom4-value="">
-            Add Gift Card to Cart
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:inline-block; vertical-align:middle; margin-right:6px;"><rect x="3" y="8" width="18" height="13" rx="2"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/></svg>
+            <span id="addGiftCardBtnText">Add $25 Gift Card to Cart</span>
           </button>
         </div>
       </div>
@@ -1320,13 +1338,13 @@
     
     <div class="gift-modal-header">
       <h2 id="orderStatusModalTitle">Look Up Order Status</h2>
-      <p class="muted">Enter your Stripe Session ID (e.g. <code>cs_test_...</code>) or purchase email address to check order status.</p>
+      <p class="muted">Enter your order reference number or purchase email address to check order status.</p>
     </div>
 
     <form id="orderStatusForm" class="order-status-form" novalidate style="margin-top: 1rem;">
       <div class="field">
-        <label for="order-id-input">Session ID or Email Address</label>
-        <input type="text" id="order-id-input" name="query" placeholder="cs_test_... or customer@example.com" autocomplete="off" required>
+        <label for="order-id-input">Order Number or Email Address</label>
+        <input type="text" id="order-id-input" name="query" placeholder="Order number or your email address" autocomplete="off" required>
         <span class="field-error" id="orderLookupError" aria-live="assertive" hidden style="color: var(--crimson); font-size: 0.85rem; margin-top: 4px; display: block;"></span>
       </div>
       <button type="submit" id="order-lookup-btn" class="btn btn-primary btn-block" style="margin-top: 1rem;">Look Up Order</button>
