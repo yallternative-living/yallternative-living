@@ -305,6 +305,38 @@ async function testWorkerAdversarial() {
     );
   }
 
+  // 1.5b Error contract: the client now DISPLAYS the message the Worker
+  // returns, so the split has to hold in both directions -- curated
+  // ClientError text reaches the shopper verbatim, and an internal failure
+  // (a raw Stripe error, which can carry account detail) never does.
+  {
+    const clientError = await executeWorkerCheckout({
+      items: [{ id: "ghost-item", qty: 1 }]
+    });
+    eq(clientError.status, 400, "A cart problem is a 400");
+    eq(
+      clientError.data.error,
+      "Product not found: ghost-item",
+      "A cart problem returns text the shopper can act on"
+    );
+
+    const internal = await executeWorkerCheckout(
+      { items: [{ id: "lavender-soak", qty: 1 }] },
+      mockEnv,
+      { sessionError: "No such customer: 'cus_secret_internal_id'" }
+    );
+    eq(internal.status, 400, "An internal Stripe failure is still a 400 to the browser");
+    eq(
+      internal.data.error,
+      "Checkout failed. Please try again.",
+      "An internal Stripe failure returns the generic message"
+    );
+    assert(
+      !String(internal.data.error).includes("cus_secret_internal_id"),
+      "Raw Stripe error detail never reaches the browser"
+    );
+  }
+
   // 1.6 Custom Box Validation: empty, invalid product, comingSoon, bounds
   {
     // Empty box
