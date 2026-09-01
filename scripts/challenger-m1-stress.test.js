@@ -1109,24 +1109,56 @@ async function testCartDOMAdversarial() {
     eq(YLCart.getWalletPoints(), 0, "Wallet points recover safely to 0");
   }
 
-  // 4.4 Array containing poisoned non-objects in yl-cart-v1
+  /* 4.4 Poisoned non-objects in yl-cart-v1.
+
+     This assertion used to CONFIRM a crash: load() accepted any
+     Array.isArray(parsed) without filtering, so a stored [null] made
+     totalCount() throw "Cannot read properties of null" during init() and
+     the whole cart drawer died on page load -- one poisoned localStorage
+     value (a bad write, a half-finished migration, another script on the
+     origin) and the shop was unusable until the visitor cleared site data.
+
+     cart.js now validates every entry on load and clamps quantities, so the
+     assertion is inverted: init() must SURVIVE the poisoned array and come
+     up with zero lines. None of these five entries is a usable line item --
+     null, a number, a string, an object with no id, and an object with an
+     empty id -- so every one of them is dropped.
+
+     Both storage shapes are exercised: the legacy bare array (which cart.js
+     migrates) and the current {version:1, items:[...]} envelope. */
   {
-    mockStorageMap.set("yl-cart-v1", JSON.stringify([null, 42, "string", {}, { id: "" }]));
-    let loadCrashed = false;
-    let crashError = null;
-    try {
-      YLCart.init({ force: true });
-    } catch (e) {
-      loadCrashed = true;
-      crashError = e.message;
+    const poisoned = [null, 42, "string", {}, { id: "" }];
+    const shapes = [
+      { label: "legacy bare array", value: JSON.stringify(poisoned) },
+      { label: "versioned envelope", value: JSON.stringify({ version: 1, items: poisoned }) }
+    ];
+
+    for (const shape of shapes) {
+      mockStorageMap.set("yl-cart-v1", shape.value);
+      let loadCrashed = false;
+      let crashError = null;
+      try {
+        YLCart.init({ force: true });
+      } catch (e) {
+        loadCrashed = true;
+        crashError = e.message;
+      }
+      eq(loadCrashed, false, `init() survives a poisoned ${shape.label} in localStorage`);
+      if (loadCrashed) {
+        console.error(`      observed error: ${crashError}`);
+        continue;
+      }
+      eq(YLCart.items(), [], `Every unusable entry is dropped from a poisoned ${shape.label}`);
+      eq(YLCart.count(), 0, `Cart renders zero lines after a poisoned ${shape.label}`);
     }
-    // Record empirical observation: load() blindly accepts Array.isArray(parsed)
-    // without filtering non-null items, causing totalCount() to throw TypeError.
-    assert(
-      loadCrashed === true && crashError.includes("Cannot read properties of null"),
-      "Empirical vulnerability confirmed: poisoned array [null] in localStorage crashes totalCount() during init()",
-      `Observed error: ${crashError}`
-    );
+
+    // The cart is not merely empty, it is still WORKING: a real add after a
+    // poisoned load has to behave normally.
+    YLCart.addItem({ id: "lavender-soak", name: "Lavender Soak", price: 18.0, qty: 2 });
+    eq(YLCart.items().length, 1, "The cart still accepts items after recovering from poison");
+    eq(YLCart.count(), 2, "Counts are correct after recovering from poison");
+    YLCart.clear();
+    mockStorageMap.delete("yl-cart-v1");
   }
 
   // 4.5 restoreCartFromUrl with URL state cleanup
