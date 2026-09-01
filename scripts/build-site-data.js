@@ -1345,6 +1345,7 @@ function buildSiteData() {
     "policies.html",
     "404.html",
     "thank-you.html",
+    "welcome.html",
     "journal.html"
   ].forEach(function (page) {
     const filePath = path.join(ROOT, page);
@@ -2071,7 +2072,7 @@ function buildSiteData() {
   (function cleanAttributeMarkers() {
     const htmlPages = PAGES.map(function (p) {
       return p.loc;
-    }).concat(["404.html", "thank-you.html", "journal.html"]);
+    }).concat(["404.html", "thank-you.html", "welcome.html", "journal.html"]);
     PRODUCTS.forEach(function (product) {
       htmlPages.push("products/" + product.id + ".html");
     });

@@ -484,11 +484,19 @@
             if (wrap) wrap.classList.add("is-submitted");
             form.reset();
           } else {
-            form.submit();
+            showFormFallback(
+              form,
+              "Review submission failed -- your review was not sent. Please email your review directly to ",
+              "y.allternative.living@gmail.com"
+            );
           }
         })
         .catch(function () {
-          form.submit();
+          showFormFallback(
+            form,
+            "Review submission failed -- your review was not sent. Please email your review directly to ",
+            "y.allternative.living@gmail.com"
+          );
         });
     });
   });
@@ -546,11 +554,19 @@
             if (col) col.classList.add("is-submitted");
             form.reset();
           } else {
-            form.submit();
+            showFormFallback(
+              form,
+              "Message sending failed -- your message was not sent. Please email us directly at ",
+              "y.allternative.living@gmail.com"
+            );
           }
         })
         .catch(function () {
-          form.submit();
+          showFormFallback(
+            form,
+            "Message sending failed -- your message was not sent. Please email us directly at ",
+            "y.allternative.living@gmail.com"
+          );
         });
     });
   });
@@ -1141,6 +1157,61 @@
      is a common, reasonable urgency-signal convention (roughly the point a
      shopper should worry it might sell out before they act), not a magic
      number tied to real analytics. */
+  function getVolumePricingRules() {
+    if (
+      window.YL_PRODUCTS &&
+      window.YL_PRODUCTS.shop &&
+      Array.isArray(window.YL_PRODUCTS.shop.volumePricing)
+    ) {
+      return window.YL_PRODUCTS.shop.volumePricing.filter(function (r) {
+        return r && r.enabled !== false;
+      });
+    }
+    return [
+      {
+        id: "salves-2oz",
+        name: "2oz Salve Multi-Buy",
+        category: "salves",
+        qualifyingVariant: "2oz",
+        minQuantity: 2,
+        unitPrice: 14.99,
+        label: "2+ for $14.99 each",
+        enabled: true
+      }
+    ];
+  }
+
+  function getMatchingVolumeRule(p) {
+    if (!p || !p.category) return null;
+    var rules = getVolumePricingRules();
+    for (var i = 0; i < rules.length; i++) {
+      var r = rules[i];
+      if (r.category === p.category) {
+        if (r.qualifyingVariant) {
+          if (
+            p.id === "miracle-balm" &&
+            String(r.qualifyingVariant).toLowerCase().indexOf("2oz") !== -1
+          ) {
+            continue;
+          }
+          if (p.variants && Array.isArray(p.variants.options) && p.variants.options.length > 0) {
+            var normQ = String(r.qualifyingVariant).trim().toLowerCase().replace(/\s+/g, "");
+            var hasVariant = p.variants.options.some(function (opt) {
+              var normL = String(opt.label || "")
+                .trim()
+                .toLowerCase()
+                .replace(/\s+/g, "");
+              return normL === normQ;
+            });
+            if (!hasVariant) continue;
+          }
+        }
+        return r;
+      }
+    }
+    return null;
+  }
+
   var LOW_STOCK_THRESHOLD = 5;
   function stockBadgeHTML(p) {
     // Sale badge: build-site-data.js bakes `sale: {label}` onto every product
@@ -1149,10 +1220,21 @@
     // in styles.css) but was never emitted by any JS until now. Suppressed on
     // coming-soon and sold-out cards: "on sale" on something you can't buy
     // reads as a mistake.
+    var volumeRule = getMatchingVolumeRule(p);
+    var volumeBadgeText = "";
+    if (volumeRule) {
+      var rawLabel =
+        volumeRule.label ||
+        volumeRule.minQuantity + "+ for $" + Number(volumeRule.unitPrice).toFixed(2) + " ea";
+      volumeBadgeText = rawLabel.replace(/\s*each$/i, " ea");
+    }
+
     var saleBadge =
       p.sale && p.sale.label
         ? '<span class="stock-badge sale-badge">' + attrEsc(p.sale.label) + "</span>"
-        : "";
+        : volumeBadgeText
+          ? '<span class="stock-badge sale-badge">' + attrEsc(volumeBadgeText) + "</span>"
+          : "";
     if (p.comingSoon) return '<span class="stock-badge low-stock">Coming Soon</span>';
     if (typeof p.stock !== "number") return saleBadge;
     if (p.stock === 0) return '<span class="stock-badge sold-out">Sold out</span>';
@@ -2660,6 +2742,21 @@
       stockBadgeHTML(p) +
       '<div class="card-foot">' +
       variantSelectHTML(p) +
+      (function () {
+        var vRule = getMatchingVolumeRule(p);
+        if (!vRule) return "";
+        var baseFormatted = "$" + p.price.toFixed(2) + " each";
+        var promoFormatted =
+          vRule.label ||
+          vRule.minQuantity + "+ for $" + Number(vRule.unitPrice).toFixed(2) + " each";
+        return (
+          '<p class="volume-pricing-note" style="font-size: 0.75rem; color: var(--whiskey); margin: 0 0 6px 0; text-align: center; font-weight: 600;">' +
+          baseFormatted +
+          " · " +
+          attrEsc(promoFormatted) +
+          " (Mix &amp; Match)</p>"
+        );
+      })() +
       (p.id !== "yallternative-gift-card" && freeShipThreshold > 0
         ? '<p style="font-size: 0.72rem; color: var(--whiskey); margin: 0 0 6px 0; text-align: center; font-weight: 600;">Free shipping over $' +
           freeShipThreshold +

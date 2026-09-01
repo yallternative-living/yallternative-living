@@ -71,14 +71,172 @@
     return q;
   }
 
-  function unitPrice(item) {
-    return Math.max(0, (Number(item.price) || 0) + (Number(item.variantDelta) || 0));
+  var QUALIFYING_2OZ_SALVE_PRICE = 14.99;
+
+  var DEFAULT_VOLUME_PRICING = [
+    {
+      id: "salves-2oz",
+      name: "2oz Salve Multi-Buy",
+      category: "salves",
+      qualifyingVariant: "2oz",
+      minQuantity: 2,
+      unitPrice: QUALIFYING_2OZ_SALVE_PRICE,
+      label: "2+ for $14.99 each",
+      enabled: true
+    }
+  ];
+
+  function getCatalog() {
+    if (typeof root !== "undefined" && root && root.YL_PRODUCTS) return root.YL_PRODUCTS;
+    if (typeof window !== "undefined" && window && window.YL_PRODUCTS) return window.YL_PRODUCTS;
+    var g = typeof globalThis !== "undefined" ? globalThis : null;
+    if (g && g.window && g.window.YL_PRODUCTS) return g.window.YL_PRODUCTS;
+    if (g && g.YL_PRODUCTS) return g.YL_PRODUCTS;
+    return null;
+  }
+
+  function getVolumePricingRules() {
+    var cat = getCatalog();
+    if (cat && cat.shop && Array.isArray(cat.shop.volumePricing)) {
+      return cat.shop.volumePricing.filter(function (r) {
+        return r && r.enabled !== false;
+      });
+    }
+    return DEFAULT_VOLUME_PRICING;
+  }
+
+  function getItemCategory(item) {
+    if (!item || !item.id) return "";
+    var cat = "";
+    var catalog = getCatalog();
+    if (catalog && Array.isArray(catalog.products)) {
+      var found = catalog.products.find(function (p) {
+        return p && p.id === item.id;
+      });
+      if (found && found.category) cat = found.category;
+    }
+    if (!cat && item.category) {
+      cat = item.category;
+    }
+    if (!cat && (item.id === "frankincense-salve" || item.id === "sleep-salve")) {
+      cat = "salves";
+    }
+    return cat;
+  }
+
+  function itemMatchesRule(item, rule) {
+    if (!item || !item.id || !rule || rule.enabled === false) return false;
+    var cat = getItemCategory(item);
+    if (cat !== rule.category) return false;
+
+    if (rule.qualifyingVariant) {
+      var normQ = String(rule.qualifyingVariant).trim().toLowerCase().replace(/\s+/g, "");
+      var v = item.variantLabel || item.variant;
+      if (v) {
+        var normV = String(v).trim().toLowerCase().replace(/\s+/g, "");
+        return normV === normQ;
+      }
+      var id = String(item.id);
+      if (id === "miracle-balm") return false;
+      if (id === "sleep-salve") return true;
+
+      var catalog = getCatalog();
+      var entry = null;
+      if (catalog && Array.isArray(catalog.products)) {
+        entry = catalog.products.find(function (p) {
+          return p && p.id === item.id;
+        });
+      }
+      if (entry) {
+        if (
+          entry.variants &&
+          Array.isArray(entry.variants.options) &&
+          entry.variants.options.length > 0
+        ) {
+          return false;
+        }
+        var text = (
+          String(entry.name || "") +
+          " " +
+          String(entry.blurb || "") +
+          " " +
+          String(entry.description || "")
+        )
+          .toLowerCase()
+          .replace(/\s+/g, "");
+        return text.indexOf(normQ) !== -1;
+      }
+      return false;
+    }
+    return true;
+  }
+
+  function ruleQualifyingCount(rule, items) {
+    if (!Array.isArray(items) || !rule) return 0;
+    return items.reduce(function (sum, it) {
+      return sum + (itemMatchesRule(it, rule) ? Number(it.qty) || 1 : 0);
+    }, 0);
+  }
+
+  function isQualifying2ozSalve(item) {
+    var rules = getVolumePricingRules();
+    var salveRule =
+      rules.find(function (r) {
+        return r.category === "salves";
+      }) || DEFAULT_VOLUME_PRICING[0];
+    return itemMatchesRule(item, salveRule);
+  }
+
+  function qualifying2ozSalveCount(items) {
+    var rules = getVolumePricingRules();
+    var salveRule =
+      rules.find(function (r) {
+        return r.category === "salves";
+      }) || DEFAULT_VOLUME_PRICING[0];
+    return ruleQualifyingCount(salveRule, items);
+  }
+
+  function getActiveRuleForItem(item, items) {
+    var rules = getVolumePricingRules();
+    var matchedRule = null;
+    var lowestPrice = null;
+    for (var i = 0; i < rules.length; i++) {
+      var r = rules[i];
+      if (itemMatchesRule(item, r)) {
+        var count = Array.isArray(items)
+          ? ruleQualifyingCount(r, items)
+          : item && item.qty
+            ? item.qty
+            : 1;
+        var minQ = typeof r.minQuantity === "number" ? r.minQuantity : 2;
+        if (count >= minQ) {
+          var price = Number(r.unitPrice);
+          if (lowestPrice === null || price < lowestPrice) {
+            lowestPrice = price;
+            matchedRule = r;
+          }
+        }
+      }
+    }
+    return matchedRule;
+  }
+
+  function unitPrice(item, items) {
+    var base =
+      Math.round(Math.max(0, (Number(item.price) || 0) + (Number(item.variantDelta) || 0)) * 100) /
+      100;
+    var activeRule = getActiveRuleForItem(item, items);
+    if (activeRule && typeof activeRule.unitPrice === "number") {
+      return Math.min(base, activeRule.unitPrice);
+    }
+    return base;
   }
 
   function subtotal(items) {
-    return (items || []).reduce(function (sum, it) {
-      return sum + unitPrice(it) * it.qty;
+    var raw = (items || []).reduce(function (sum, it) {
+      return sum + unitPrice(it, items) * it.qty;
     }, 0);
+    return Math.round(raw * 100) / 100;
   }
 
   function totalCount(items) {
@@ -164,12 +322,20 @@
       lineKey: lineKey,
       deltaForLabel: deltaForLabel,
       clampQty: clampQty,
+      isQualifying2ozSalve: isQualifying2ozSalve,
+      qualifying2ozSalveCount: qualifying2ozSalveCount,
       unitPrice: unitPrice,
+      effectiveUnitPrice: unitPrice,
       subtotal: subtotal,
       totalCount: totalCount,
       addToList: addToList,
       toCheckoutPayload: toCheckoutPayload,
-      freeShipThreshold: freeShipThreshold
+      freeShipThreshold: freeShipThreshold,
+      getVolumePricingRules: getVolumePricingRules,
+      itemMatchesRule: itemMatchesRule,
+      ruleQualifyingCount: ruleQualifyingCount,
+      getActiveRuleForItem: getActiveRuleForItem,
+      DEFAULT_VOLUME_PRICING: DEFAULT_VOLUME_PRICING
     };
   }
 
@@ -347,10 +513,11 @@
   }
 
   function physicalSubtotal(items) {
-    return (items || []).reduce(function (sum, it) {
+    var raw = (items || []).reduce(function (sum, it) {
       if (it.id === GIFT_CARD_ID) return sum;
-      return sum + unitPrice(it) * it.qty;
+      return sum + unitPrice(it, items) * it.qty;
     }, 0);
+    return Math.round(raw * 100) / 100;
   }
 
   function getLoyaltyConfig() {
@@ -376,8 +543,29 @@
     itemsEl.innerHTML = state.items
       .map(function (it) {
         var key = lineKey(it);
-        var line = unitPrice(it) * it.qty;
+        var uPrice = unitPrice(it, state.items);
+        var line = uPrice * it.qty;
         var variantText = it.variantLabel ? escapeHtml(it.variantLabel) : "";
+        var activeRule = getActiveRuleForItem(it, state.items);
+        var isDiscounted = !!activeRule;
+        var baseUnitPrice =
+          Math.round(Math.max(0, (Number(it.price) || 0) + (Number(it.variantDelta) || 0)) * 100) /
+          100;
+
+        var badgeLabel = "";
+        if (isDiscounted) {
+          var rawLabel =
+            activeRule.label ||
+            activeRule.minQuantity +
+              "+ for $" +
+              Number(activeRule.unitPrice).toFixed(2) +
+              " applied";
+          badgeLabel = rawLabel.replace(/\s*(each|ea)$/i, "") + " applied";
+          if (rawLabel.indexOf("applied") !== -1) {
+            badgeLabel = rawLabel;
+          }
+        }
+
         return (
           '<div class="yl-cart-line yl-cart-item">' +
           '<img class="yl-cart-thumb" src="' +
@@ -395,6 +583,11 @@
           "</button>" +
           "</div>" +
           (variantText ? '<span class="yl-cart-variant">Variant: ' + variantText + "</span>" : "") +
+          (isDiscounted
+            ? '<span class="yl-cart-badge" style="display:inline-block; font-size:0.72rem; color:var(--whiskey); font-weight:600; margin-top:2px;">' +
+              escapeHtml(badgeLabel) +
+              "</span>"
+            : "") +
           '<div class="yl-cart-actions-row">' +
           '<div class="yl-cart-qty-pill">' +
           '<button type="button" data-cart-action="dec" data-key="' +
@@ -410,11 +603,15 @@
           ">+</button>" +
           "</div>" +
           '<div class="yl-cart-price-block">' +
-          '<span class="yl-cart-line-total">' +
-          money(line) +
-          "</span>" +
-          (it.qty > 1
-            ? '<span class="yl-cart-unit-price">' + money(unitPrice(it)) + " ea</span>"
+          (isDiscounted
+            ? '<div style="display:flex; align-items:baseline; gap:4px; justify-content:flex-end;"><s style="color:var(--hide); font-size:0.85em;">' +
+              money(baseUnitPrice * it.qty) +
+              '</s><span class="yl-cart-line-total">' +
+              money(line) +
+              "</span></div>"
+            : '<span class="yl-cart-line-total">' + money(line) + "</span>") +
+          (it.qty > 1 || isDiscounted
+            ? '<span class="yl-cart-unit-price">' + money(uPrice) + " ea</span>"
             : "") +
           "</div>" +
           "</div>" +
@@ -548,8 +745,55 @@
         "</div>";
     }
 
+    var volumeNudgesHTML = "";
+    var allRules = getVolumePricingRules();
+    var nudgeMessages = [];
+    for (var rIdx = 0; rIdx < allRules.length; rIdx++) {
+      var rule = allRules[rIdx];
+      var count = ruleQualifyingCount(rule, state.items);
+      var minQ = typeof rule.minQuantity === "number" ? rule.minQuantity : 2;
+      var catNoun =
+        rule.category === "salves" ? "salve" : rule.category === "soaks" ? "soak" : rule.category;
+      var variantPart = rule.qualifyingVariant ? rule.qualifyingVariant + " " : "";
+      var priceFormatted = "$" + Number(rule.unitPrice).toFixed(2);
+
+      if (count > 0 && count < minQ) {
+        var needed = minQ - count;
+        var pluralUnit = minQ === 2 ? "both" : "all " + minQ;
+        nudgeMessages.push(
+          '<div class="yl-cart-salve-nudge" style="font-size:0.85rem; color:var(--whiskey); margin-bottom:8px; text-align:center; font-weight:600;">🌿 Mix &amp; Match: Add ' +
+            needed +
+            " more " +
+            variantPart +
+            catNoun +
+            " to get " +
+            pluralUnit +
+            " for " +
+            priceFormatted +
+            " each!</div>"
+        );
+      } else if (count >= minQ) {
+        var shipExtra =
+          remaining > 0 && !state.isPickup && threshold > 0
+            ? " · Add " + money(remaining) + " for FREE SHIPPING!"
+            : "";
+        nudgeMessages.push(
+          '<div class="yl-cart-salve-nudge" style="font-size:0.85rem; color:var(--whiskey); margin-bottom:8px; text-align:center; font-weight:600;">✨ Mix &amp; Match: ' +
+            priceFormatted +
+            "/ea " +
+            variantPart +
+            catNoun +
+            " volume tier applied!" +
+            shipExtra +
+            "</div>"
+        );
+      }
+    }
+    volumeNudgesHTML = nudgeMessages.join("");
+
     footEl.innerHTML =
       upsellHTML() +
+      volumeNudgesHTML +
       pointsHTML +
       pickupHTML +
       shipHTML +
@@ -714,6 +958,7 @@
       name: d.itemName,
       price: parseFloat(d.itemPrice) || 0,
       image: d.itemImage || "",
+      category: d.itemCategories || "",
       variantName: variantName,
       variantLabel: variantLabel,
       variantDelta: variantDelta,

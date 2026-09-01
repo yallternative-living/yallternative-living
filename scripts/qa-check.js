@@ -442,6 +442,55 @@ try {
   fail("products.json", "could not parse to validate sales: " + e.message);
 }
 
+/* ---------- 6a-2) Volume pricing rules schema sanity ---------- */
+section("Volume pricing rules schema sanity");
+try {
+  var volRules = RAW_CATALOG.shop && RAW_CATALOG.shop.volumePricing;
+  if (volRules) {
+    if (!Array.isArray(volRules)) {
+      fail("shop.volumePricing must be an array");
+    } else {
+      var seenRuleIds = {};
+      volRules.forEach(function (r, idx) {
+        if (!r.id || typeof r.id !== "string" || !r.id.trim()) {
+          fail("Volume pricing rule #" + idx + ": missing or invalid id");
+        } else if (seenRuleIds[r.id]) {
+          fail("Volume pricing rule #" + idx + ": duplicate id '" + r.id + "'");
+        } else {
+          seenRuleIds[r.id] = true;
+        }
+        if (!r.name || typeof r.name !== "string" || !r.name.trim()) {
+          fail("Volume pricing rule '" + (r.id || idx) + "': missing or empty name");
+        }
+        if (!r.category || catIds.indexOf(r.category) === -1) {
+          fail(
+            "Volume pricing rule '" + (r.id || idx) + "': invalid category '" + r.category + "'"
+          );
+        }
+        if (typeof r.minQuantity !== "number" || r.minQuantity < 2) {
+          fail("Volume pricing rule '" + (r.id || idx) + "': minQuantity must be a number >= 2");
+        }
+        if (typeof r.unitPrice !== "number" || r.unitPrice <= 0) {
+          fail("Volume pricing rule '" + (r.id || idx) + "': unitPrice must be a positive number");
+        }
+        if (!r.label || typeof r.label !== "string" || !r.label.trim()) {
+          fail("Volume pricing rule '" + (r.id || idx) + "': label must be a non-empty string");
+        }
+        if (r.enabled !== undefined && typeof r.enabled !== "boolean") {
+          fail(
+            "Volume pricing rule '" + (r.id || idx) + "': enabled must be a boolean if specified"
+          );
+        }
+      });
+      ok("Volume pricing rules schema is valid (" + volRules.length + " rules)");
+    }
+  } else {
+    ok("No volume pricing rules defined (skipping)");
+  }
+} catch (e) {
+  fail("products.json", "could not validate volume pricing rules: " + e.message);
+}
+
 /* ---------- 6b) Bundles / gift sets schema sanity ---------- */
 section("Bundles / gift sets");
 var BUNDLES = (global.window.YL_PRODUCTS && global.window.YL_PRODUCTS.bundles) || [];
@@ -1590,7 +1639,7 @@ section("Every CMS feature switch is wired to real code");
   var cmsPath = path.join(ROOT, "admin/config.yml");
   if (fs.existsSync(cmsPath)) {
     var cms = fs.readFileSync(cmsPath, "utf8");
-    var cmsFlags = (cms.match(/name:\s*(enable[A-Za-z0-9]+)/g) || []).map(function (m) {
+    var cmsFlags = (cms.match(/name:\s*(enable[A-Z][A-Za-z0-9]*)/g) || []).map(function (m) {
       return m.replace(/name:\s*/, "");
     });
     var orphans = cmsFlags.filter(function (f) {
@@ -2050,6 +2099,22 @@ try {
   }
 } catch (e) {
   fail("feature flag single-source-of-truth check", e.message);
+}
+
+/* ---------- Welcome page script integrity ---------- */
+section("Welcome page script integrity");
+try {
+  var welcomeHtmlSrc = fs.readFileSync(path.join(ROOT, "welcome.html"), "utf8");
+  if (welcomeHtmlSrc.indexOf("thank-you.js") === -1) {
+    ok("welcome.html does not load thank-you.js (preventing premature purchase attribution)");
+  } else {
+    fail(
+      "welcome.html does not load thank-you.js",
+      "found thank-you.js reference in welcome.html which would trigger false purchase conversions"
+    );
+  }
+} catch (e) {
+  fail("welcome.html script integrity check", e.message);
 }
 
 /* ---------- Summary ---------- */

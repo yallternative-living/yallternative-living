@@ -147,6 +147,162 @@ eq(
   "toCheckoutPayload: gift metadata attached only to gift-card line"
 );
 
+// 2oz Salve Mix-and-Match Volume Pricing Test Suite
+// 1. Single 2oz Frankincense (No volume discount)
+const cart1 = [
+  { id: "frankincense-salve", price: 19.99, variantDelta: 0, variantLabel: "2oz", qty: 1 }
+];
+eq(cart.subtotal(cart1), 19.99, "1x 2oz Frankincense = $19.99");
+eq(cart.unitPrice(cart1[0], cart1), 19.99, "1x 2oz Frankincense unit price = $19.99");
+
+// 2. Single 2oz Sleep Salve (No volume discount)
+const cart2 = [{ id: "sleep-salve", price: 19.99, variantDelta: 0, variantLabel: "2oz", qty: 1 }];
+eq(cart.subtotal(cart2), 19.99, "1x 2oz Sleep Salve = $19.99");
+
+// 3. Two 2oz Frankincense Salves (Volume discount applies)
+const cart3 = [
+  { id: "frankincense-salve", price: 19.99, variantDelta: 0, variantLabel: "2oz", qty: 2 }
+];
+eq(cart.subtotal(cart3), 29.98, "2x 2oz Frankincense = $29.98 ($14.99 each)");
+eq(cart.unitPrice(cart3[0], cart3), 14.99, "2x 2oz Frankincense unit price drops to $14.99");
+
+// 4. Mix-and-match: 1x 2oz Frankincense + 1x 2oz Sleep Salve (Volume discount applies)
+const cart4 = [
+  { id: "frankincense-salve", price: 19.99, variantDelta: 0, variantLabel: "2oz", qty: 1 },
+  { id: "sleep-salve", price: 19.99, variantDelta: 0, variantLabel: "2oz", qty: 1 }
+];
+eq(cart.subtotal(cart4), 29.98, "1x 2oz Frankincense + 1x 2oz Sleep Salve = $29.98 ($14.99 each)");
+eq(cart.unitPrice(cart4[0], cart4), 14.99, "Mix-and-match Frankincense unit price = $14.99");
+eq(cart.unitPrice(cart4[1], cart4), 14.99, "Mix-and-match Sleep Salve unit price = $14.99");
+
+// 5. 3x Qualifying 2oz Salves (Volume discount applies across all units)
+const cart5 = [
+  { id: "frankincense-salve", price: 19.99, variantDelta: 0, variantLabel: "2oz", qty: 2 },
+  { id: "sleep-salve", price: 19.99, variantDelta: 0, variantLabel: "2oz", qty: 1 }
+];
+eq(cart.subtotal(cart5), 44.97, "3x 2oz qualifying salves = $44.97 ($14.99 each)");
+
+// 6. 1oz Frankincense Variant Exclusion
+const cart6 = [
+  { id: "frankincense-salve", price: 19.99, variantDelta: -6.0, variantLabel: "1oz", qty: 1 },
+  { id: "sleep-salve", price: 19.99, variantDelta: 0, variantLabel: "2oz", qty: 1 }
+];
+eq(
+  cart.subtotal(cart6),
+  33.98,
+  "1x 1oz Frankincense ($13.99) + 1x 2oz Sleep Salve ($19.99) = $33.98 (no discount)"
+);
+
+// 7. Beard Salve Exclusion
+const cart7 = [
+  { id: "beard-salve", category: "body", price: 14.0, variantDelta: 0, qty: 1 },
+  { id: "frankincense-salve", price: 19.99, variantDelta: 0, variantLabel: "2oz", qty: 1 }
+];
+eq(
+  cart.subtotal(cart7),
+  33.99,
+  "1x Beard Salve ($14.00) + 1x 2oz Frankincense ($19.99) = $33.99 (no discount)"
+);
+
+// 8. Miracle Balm (.5oz) Exclusion
+const cart8 = [
+  { id: "miracle-balm", price: 8.0, variantDelta: 0, qty: 1 },
+  { id: "frankincense-salve", price: 19.99, variantDelta: 0, variantLabel: "2oz", qty: 1 }
+];
+eq(
+  cart.subtotal(cart8),
+  27.99,
+  "1x Miracle Balm ($8.00) + 1x 2oz Frankincense ($19.99) = $27.99 (no discount)"
+);
+
+// 9. Mixed Basket (Qualifying + Excluded Items)
+const cart9 = [
+  { id: "frankincense-salve", price: 19.99, variantDelta: 0, variantLabel: "2oz", qty: 2 },
+  { id: "frankincense-salve", price: 19.99, variantDelta: -6.0, variantLabel: "1oz", qty: 1 },
+  { id: "beard-salve", category: "body", price: 14.0, variantDelta: 0, qty: 1 },
+  { id: "miracle-balm", price: 8.0, variantDelta: 0, qty: 1 }
+];
+eq(
+  cart.subtotal(cart9),
+  65.97,
+  "2x 2oz ($29.98) + 1x 1oz ($13.99) + 1x Beard ($14) + 1x Miracle ($8) = $65.97"
+);
+
+// 10. Multi-Rule Volume Pricing (Salves + Soaks concurrently)
+global.window = global.window || {};
+global.window.YL_PRODUCTS = {
+  shop: {
+    volumePricing: [
+      {
+        id: "salves-2oz",
+        name: "2oz Salve Multi-Buy",
+        category: "salves",
+        qualifyingVariant: "2oz",
+        minQuantity: 2,
+        unitPrice: 14.99,
+        label: "2+ for $14.99 each",
+        enabled: true
+      },
+      {
+        id: "soaks-all",
+        name: "Soaks Multi-Buy",
+        category: "soaks",
+        minQuantity: 2,
+        unitPrice: 16.0,
+        label: "2+ for $16 each",
+        enabled: true
+      }
+    ]
+  },
+  products: [
+    { id: "frankincense-salve", category: "salves", price: 19.99 },
+    { id: "sleep-salve", category: "salves", price: 19.99 },
+    { id: "lavender-soak", category: "soaks", price: 18.0 },
+    { id: "ritual-soak", category: "soaks", price: 18.0 }
+  ]
+};
+
+const cartMulti = [
+  { id: "frankincense-salve", price: 19.99, variantDelta: 0, variantLabel: "2oz", qty: 2 },
+  { id: "lavender-soak", category: "soaks", price: 18.0, variantDelta: 0, qty: 1 },
+  { id: "ritual-soak", category: "soaks", price: 18.0, variantDelta: 0, qty: 1 }
+];
+eq(
+  cart.unitPrice(cartMulti[0], cartMulti),
+  14.99,
+  "Multi-rule: Salves qualify for $14.99 unit price"
+);
+eq(
+  cart.unitPrice(cartMulti[1], cartMulti),
+  16.0,
+  "Multi-rule: Lavender Soak qualifies for $16.00 unit price"
+);
+eq(
+  cart.unitPrice(cartMulti[2], cartMulti),
+  16.0,
+  "Multi-rule: Ritual Soak qualifies for $16.00 unit price"
+);
+eq(
+  cart.subtotal(cartMulti),
+  61.98,
+  "Multi-rule subtotal: 2x $14.99 ($29.98) + 2x $16.00 ($32.00) = $61.98"
+);
+
+// 11. Multi-Rule with Disabled Rule
+global.window.YL_PRODUCTS.shop.volumePricing[1].enabled = false;
+eq(
+  cart.unitPrice(cartMulti[1], cartMulti),
+  18.0,
+  "Disabled soak rule: Lavender Soak reverts to base price $18.00"
+);
+eq(
+  cart.unitPrice(cartMulti[0], cartMulti),
+  14.99,
+  "Active salve rule: Frankincense Salve remains discounted at $14.99"
+);
+
+global.window.YL_PRODUCTS = null;
+
 /* freeShipThreshold reads products.json shop.freeShippingThreshold, the same
    CMS field the announcement bar and workers/checkout.js read. A 0 there means
    "Set to 0 to disable" (admin/config.yml) and must not silently become the

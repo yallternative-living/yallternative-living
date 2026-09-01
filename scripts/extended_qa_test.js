@@ -269,7 +269,8 @@ function createStaticServer(port = 8083) {
       "terms.html",
       "policies.html",
       "404.html",
-      "thank-you.html"
+      "thank-you.html",
+      "welcome.html"
     ];
 
     const viewports = [

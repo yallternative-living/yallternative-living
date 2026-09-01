@@ -17,15 +17,21 @@
         "potions",
         "ritual"
       ]
-    }
+    },
+    "volumePricing": [
+      {
+        "id": "salves-2oz",
+        "name": "2oz Salve Multi-Buy",
+        "category": "salves",
+        "qualifyingVariant": "2oz",
+        "minQuantity": 2,
+        "unitPrice": 14.99,
+        "label": "2+ for $14.99 each",
+        "enabled": true
+      }
+    ]
   },
-  "sales": [
-    {
-      "category": "salves",
-      "percentOff": 5,
-      "label": "Healing Sale"
-    }
-  ],
+  "sales": [],
   "categories": [
     {
       "label": "Apparel",
@@ -155,7 +161,7 @@
       "description": "",
       "featured": true,
       "category": "salves",
-      "price": 20,
+      "price": 19.99,
       "originalPrice": null,
       "image": "assets/img/frankincense-salve.jpg",
       "images": [
@@ -236,7 +242,7 @@
       "id": "sleep-salve",
       "name": "Hush Y'all Magnesium Arnica Sleep Salve",
       "category": "salves",
-      "price": 16,
+      "price": 19.99,
       "image": "assets/img/sleep-salve.jpg",
       "images": [
         "assets/img/sleep-salve-alt1.jpg"
@@ -262,7 +268,7 @@
       "id": "beard-salve",
       "name": "Bourbon Beard Salve",
       "featured": true,
-      "category": "salves",
+      "category": "body",
       "price": 14,
       "image": "assets/img/beard-salve.jpg",
       "images": [

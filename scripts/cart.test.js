@@ -309,6 +309,196 @@ if (savedYlProducts === undefined) delete mockWindow.YL_PRODUCTS;
 else mockWindow.YL_PRODUCTS = savedYlProducts;
 if (savedYlFreeShip === undefined) delete mockWindow.YL_FREE_SHIP;
 else mockWindow.YL_FREE_SHIP = savedYlFreeShip;
+/* ==========================================================
+   2oz Salve Mix-and-Match Volume Pricing Drawer DOM Suite
+   ========================================================== */
+function drawerItemsHTML() {
+  YLCart.open();
+  const el = mockDocument.body.children
+    .find((child) => child.id === "yl-cart-drawer")
+    .querySelector("#yl-cart-items");
+  YLCart.close();
+  return el.innerHTML;
+}
+
+// 1. Single qualifying 2oz salve in cart
+storage.set(
+  "yl-cart-v1",
+  JSON.stringify([
+    {
+      id: "frankincense-salve",
+      category: "salves",
+      qty: 1,
+      price: 19.99,
+      variantDelta: 0,
+      variantLabel: "2oz",
+      name: "Frankincense Salve"
+    }
+  ])
+);
+YLCart.init({ force: true });
+let itemsHTML = drawerItemsHTML();
+footHTML = drawerFootHTML();
+assert(itemsHTML.includes("$19.99"), "1x 2oz salve renders at $19.99");
+assert(
+  !itemsHTML.includes("2+ for $14.99 applied"),
+  "1x 2oz salve does not have 2+ for $14.99 applied badge"
+);
+assert(
+  footHTML.includes("Add 1 more 2oz salve to get both for $14.99 each"),
+  "1x 2oz salve renders mix-and-match nudge in footer"
+);
+
+// 2. Two qualifying 2oz salves in cart (2x Frankincense 2oz)
+storage.set(
+  "yl-cart-v1",
+  JSON.stringify([
+    {
+      id: "frankincense-salve",
+      category: "salves",
+      qty: 2,
+      price: 19.99,
+      variantDelta: 0,
+      variantLabel: "2oz",
+      name: "Frankincense Salve"
+    }
+  ])
+);
+YLCart.init({ force: true });
+itemsHTML = drawerItemsHTML();
+footHTML = drawerFootHTML();
+assert(itemsHTML.includes("$29.98"), "2x 2oz salve renders $29.98 total");
+assert(itemsHTML.includes("$14.99 ea"), "2x 2oz salve renders $14.99 ea unit price");
+assert(itemsHTML.includes("2+ for $14.99 applied"), "2x 2oz salve renders applied badge");
+assert(footHTML.includes("$29.98"), "2x 2oz salve renders $29.98 subtotal in footer");
+assert(
+  footHTML.includes("$14.99/ea 2oz salve volume tier applied"),
+  "2x 2oz salve renders celebration banner in footer"
+);
+
+// 3. Mix & Match: 1x Frankincense 2oz + 1x Sleep Salve 2oz
+storage.set(
+  "yl-cart-v1",
+  JSON.stringify([
+    {
+      id: "frankincense-salve",
+      category: "salves",
+      qty: 1,
+      price: 19.99,
+      variantDelta: 0,
+      variantLabel: "2oz",
+      name: "Frankincense Salve"
+    },
+    {
+      id: "sleep-salve",
+      category: "salves",
+      qty: 1,
+      price: 19.99,
+      variantDelta: 0,
+      variantLabel: "2oz",
+      name: "Sleep Salve"
+    }
+  ])
+);
+YLCart.init({ force: true });
+itemsHTML = drawerItemsHTML();
+footHTML = drawerFootHTML();
+assert(
+  itemsHTML.includes("2+ for $14.99 applied"),
+  "Mix & match renders applied badge on both lines"
+);
+assert(footHTML.includes("$29.98"), "Mix & match renders $29.98 subtotal in footer");
+assert(
+  footHTML.includes("$14.99/ea 2oz salve volume tier applied"),
+  "Mix & match renders celebration banner in footer"
+);
+
+// 4. Multi-Rule Volume Pricing Drawer DOM Rendering (Salves + Soaks)
+mockWindow.YL_PRODUCTS = {
+  shop: {
+    volumePricing: [
+      {
+        id: "salves-2oz",
+        name: "2oz Salve Multi-Buy",
+        category: "salves",
+        qualifyingVariant: "2oz",
+        minQuantity: 2,
+        unitPrice: 14.99,
+        label: "2+ for $14.99 each",
+        enabled: true
+      },
+      {
+        id: "soaks-all",
+        name: "Soaks Multi-Buy",
+        category: "soaks",
+        minQuantity: 2,
+        unitPrice: 16.0,
+        label: "2+ for $16 each",
+        enabled: true
+      }
+    ]
+  },
+  products: [
+    { id: "frankincense-salve", category: "salves", price: 19.99 },
+    { id: "lavender-soak", category: "soaks", price: 18.0 },
+    { id: "ritual-soak", category: "soaks", price: 18.0 }
+  ]
+};
+
+storage.set(
+  "yl-cart-v1",
+  JSON.stringify([
+    {
+      id: "frankincense-salve",
+      category: "salves",
+      qty: 2,
+      price: 19.99,
+      variantDelta: 0,
+      variantLabel: "2oz",
+      name: "Frankincense Salve"
+    },
+    {
+      id: "lavender-soak",
+      category: "soaks",
+      qty: 1,
+      price: 18.0,
+      variantDelta: 0,
+      name: "Lavender Soak"
+    },
+    {
+      id: "ritual-soak",
+      category: "soaks",
+      qty: 1,
+      price: 18.0,
+      variantDelta: 0,
+      name: "Ritual Soak"
+    }
+  ])
+);
+YLCart.init({ force: true });
+itemsHTML = drawerItemsHTML();
+footHTML = drawerFootHTML();
+
+assert(
+  itemsHTML.includes("2+ for $14.99 applied"),
+  "Multi-rule: Salves have 2+ for $14.99 badge in drawer"
+);
+assert(
+  itemsHTML.includes("2+ for $16 applied"),
+  "Multi-rule: Soaks have 2+ for $16 applied badge in drawer"
+);
+assert(footHTML.includes("$61.98"), "Multi-rule: Drawer renders combined subtotal $61.98");
+assert(
+  footHTML.includes("$14.99/ea 2oz salve volume tier applied"),
+  "Multi-rule: Salve celebration banner present"
+);
+assert(
+  footHTML.includes("$16.00/ea soak volume tier applied"),
+  "Multi-rule: Soak celebration banner present"
+);
+
+mockWindow.YL_PRODUCTS = null;
+
 storage.clear();
 YLCart.init({ force: true });
 

@@ -71,6 +71,7 @@ var PAGES = [
   "journal.html",
   "policies.html",
   "terms.html",
+  "welcome.html",
   "products/backroad-soak.html"
 ];
 

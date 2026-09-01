@@ -23,15 +23,21 @@ window.YL_PRODUCTS = {
         "potions",
         "ritual"
       ]
-    }
+    },
+    "volumePricing": [
+      {
+        "id": "salves-2oz",
+        "name": "2oz Salve Multi-Buy",
+        "category": "salves",
+        "qualifyingVariant": "2oz",
+        "minQuantity": 2,
+        "unitPrice": 14.99,
+        "label": "2+ for $14.99 each",
+        "enabled": true
+      }
+    ]
   },
-  "sales": [
-    {
-      "category": "salves",
-      "percentOff": 5,
-      "label": "Healing Sale"
-    }
-  ],
+  "sales": [],
   "categories": [
     {
       "label": "Apparel",
@@ -161,8 +167,8 @@ window.YL_PRODUCTS = {
       "description": "",
       "featured": true,
       "category": "salves",
-      "price": 19,
-      "originalPrice": 20,
+      "price": 19.99,
+      "originalPrice": null,
       "image": "assets/img/frankincense-salve.jpg",
       "images": [
         "assets/img/frankincense-salve-alt1.jpg",
@@ -205,18 +211,15 @@ window.YL_PRODUCTS = {
       "tags": [
         "bestseller"
       ],
-      "inStock": true,
-      "sale": {
-        "label": "Healing Sale"
-      }
+      "inStock": true
     },
     {
       "id": "miracle-balm",
       "name": "Y'allternative Miracle Balm",
       "description": "",
       "category": "salves",
-      "price": 7.6,
-      "originalPrice": 8,
+      "price": 8,
+      "originalPrice": null,
       "image": "assets/img/miracle-balm.jpg",
       "blurb": "No essential oils, no fragrance, nothing to react to. Just a rich little .5 oz balm for lips, cuticles, and anywhere skin needs backup. Gentle enough for the whole family, kids included.",
       "etsyUrl": "https://www.etsy.com/listing/4466572716/yallternative-miracle-balm-multi-use",
@@ -239,16 +242,13 @@ window.YL_PRODUCTS = {
         "essential-oil-free",
         "sensitive-safe"
       ],
-      "inStock": true,
-      "sale": {
-        "label": "Healing Sale"
-      }
+      "inStock": true
     },
     {
       "id": "sleep-salve",
       "name": "Hush Y'all Magnesium Arnica Sleep Salve",
       "category": "salves",
-      "price": 15.2,
+      "price": 19.99,
       "image": "assets/img/sleep-salve.jpg",
       "images": [
         "assets/img/sleep-salve-alt1.jpg"
@@ -268,18 +268,14 @@ window.YL_PRODUCTS = {
       "scent": "Lavender",
       "tags": [
         "vegan"
-      ],
-      "originalPrice": 16,
-      "sale": {
-        "label": "Healing Sale"
-      }
+      ]
     },
     {
       "id": "beard-salve",
       "name": "Bourbon Beard Salve",
       "featured": true,
-      "category": "salves",
-      "price": 13.3,
+      "category": "body",
+      "price": 14,
       "image": "assets/img/beard-salve.jpg",
       "images": [
         "assets/img/beard-salve-alt1.jpg"
@@ -295,11 +291,7 @@ window.YL_PRODUCTS = {
         "Fragrance & Essential Oils"
       ],
       "scent": "Bourbon & Vanilla",
-      "tags": [],
-      "originalPrice": 14,
-      "sale": {
-        "label": "Healing Sale"
-      }
+      "tags": []
     },
     {
       "id": "shimmer-oil",

@@ -147,6 +147,31 @@ collections:
                     search_fields: ["categories.*.label"]
                     default: ["salves", "body", "soaks", "potions", "ritual"]
                     hint: "Tick the categories a shopper can choose from. Apparel and gift cards are usually left out."
+              - name: volumePricing
+                label: "Volume Pricing Rules"
+                widget: list
+                label_singular: "Volume Pricing Rule"
+                required: false
+                collapsed: true
+                summary: "{{fields.name}} — {{fields.label}} ({{fields.category}})"
+                hint: "Configure category volume discounts (e.g. 2+ for $14.99 each). Multiple rules can run concurrently."
+                fields:
+                  - { name: id, label: "Rule ID (e.g. salves-2oz)", widget: string, hint: "Unique identifier for this rule." }
+                  - { name: name, label: "Rule Name (e.g. 2oz Salve Multi-Buy)", widget: string }
+                  - name: category
+                    label: "Category"
+                    widget: relation
+                    collection: products
+                    file: products
+                    value_field: categories.*.id
+                    display_fields: ["categories.*.label"]
+                    search_fields: ["categories.*.label"]
+                    hint: "Pick the category this volume pricing rule applies to."
+                  - { name: qualifyingVariant, label: "Qualifying Variant (e.g. 2oz)", widget: string, required: false, hint: "Variant size/label to qualify for this rule (e.g. 2oz). Leave blank to apply to all variants in the category." }
+                  - { name: minQuantity, label: "Minimum Quantity (e.g. 2)", widget: number, value_type: int, default: 2 }
+                  - { name: unitPrice, label: "Discounted Unit Price ($ USD, e.g. 14.99)", widget: number, value_type: float, step: 0.01 }
+                  - { name: label, label: "Promotional Label (e.g. 2+ for $14.99 each)", widget: string }
+                  - { name: enabled, label: "Rule Enabled", widget: boolean, default: true }
 
           - name: sales
             label: Category Sales

@@ -477,6 +477,58 @@ async function testWorkersAndNetlifyFunctions() {
     "resolveUnitAmountCents null for missing price"
   );
 
+  const salveCatalog = {
+    products: [
+      {
+        id: "frankincense-salve",
+        price: 19.99,
+        category: "salves",
+        variants: {
+          name: "Size",
+          options: [
+            { label: "2oz", priceDelta: 0 },
+            { label: "1oz", priceDelta: -6.0 }
+          ]
+        }
+      },
+      { id: "sleep-salve", price: 19.99, category: "salves" },
+      { id: "beard-salve", price: 14.0, category: "body" },
+      { id: "miracle-balm", price: 8.0, category: "salves" }
+    ],
+    bundles: []
+  };
+
+  eq(
+    checkout.resolveUnitAmountCents(salveCatalog, salveCatalog.products[0], "2oz", false, 1),
+    1999,
+    "resolveUnitAmountCents 1x 2oz Frankincense (single unit) is 1999 cents"
+  );
+  eq(
+    checkout.resolveUnitAmountCents(salveCatalog, salveCatalog.products[0], "2oz", false, 2),
+    1499,
+    "resolveUnitAmountCents 2x 2oz Frankincense (volume tier) is 1499 cents"
+  );
+  eq(
+    checkout.resolveUnitAmountCents(salveCatalog, salveCatalog.products[0], "1oz", false, 2),
+    1399,
+    "resolveUnitAmountCents 1oz Frankincense is 1399 cents (excluded from volume tier)"
+  );
+  eq(
+    checkout.resolveUnitAmountCents(salveCatalog, salveCatalog.products[1], null, false, 2),
+    1499,
+    "resolveUnitAmountCents 2oz Sleep Salve (volume tier) is 1499 cents"
+  );
+  eq(
+    checkout.resolveUnitAmountCents(salveCatalog, salveCatalog.products[2], null, false, 2),
+    1400,
+    "resolveUnitAmountCents Beard Salve (body category) remains 1400 cents"
+  );
+  eq(
+    checkout.resolveUnitAmountCents(salveCatalog, salveCatalog.products[3], null, false, 2),
+    800,
+    "resolveUnitAmountCents Miracle Balm (.5oz) remains 800 cents"
+  );
+
   // loadCatalog error path
   const globalFetch = global.fetch;
   global.fetch = async () => ({ ok: false });
@@ -568,7 +620,7 @@ async function testWorkersAndNetlifyFunctions() {
      ========================================================== */
   const taxCatalog = {
     products: [
-      { id: "beard-salve", price: 16.0, category: "salves" },
+      { id: "beard-salve", price: 16.0, category: "body" },
       { id: "unisex-tshirt", price: 25.0, category: "apparel" },
       { id: "yallternative-gift-card", price: 25.0, category: "gift-cards" }
     ],
@@ -624,12 +676,11 @@ async function testWorkersAndNetlifyFunctions() {
         return { ok: true, json: async () => ({ status: opts2.taxSettings.status }) };
       }
       if (u.includes("products.json")) {
-        // _stub.shop lets a test hand the Worker a different shop config
-        // (e.g. a CMS-edited freeShippingThreshold) without rebuilding the
-        // whole catalog.
-        const catalog = opts2.shop
-          ? { ...taxCatalog, shop: { ...taxCatalog.shop, ...opts2.shop } }
-          : taxCatalog;
+        const catalog = opts2.catalog
+          ? opts2.catalog
+          : opts2.shop
+            ? { ...taxCatalog, shop: { ...taxCatalog.shop, ...opts2.shop } }
+            : taxCatalog;
         return { ok: true, clone: () => ({ body: null }), json: async () => catalog };
       }
       if (u.includes("events.json")) {
@@ -1095,6 +1146,197 @@ async function testWorkersAndNetlifyFunctions() {
     { pickupMarket: marketLabel }
   );
   eq(r.params.get("metadata[pickup_market]"), marketLabel, "pickup: market recorded in metadata");
+
+  /* ==========================================================
+     7. 2oz Salve Mix-and-Match Volume Pricing Checkout Worker Tests
+     ========================================================== */
+  const fullSalveCatalog = {
+    products: [
+      {
+        id: "frankincense-salve",
+        name: "Y'all Heal Now Miracle Frankincense Salve",
+        price: 19.99,
+        category: "salves",
+        variants: {
+          name: "Size",
+          options: [
+            { label: "2oz", priceDelta: 0 },
+            { label: "1oz", priceDelta: -6.0 }
+          ]
+        }
+      },
+      {
+        id: "sleep-salve",
+        name: "Hush Y'all Magnesium Arnica Sleep Salve",
+        price: 19.99,
+        category: "salves"
+      },
+      {
+        id: "beard-salve",
+        name: "Bourbon Beard Salve",
+        price: 14.0,
+        category: "body"
+      },
+      {
+        id: "miracle-balm",
+        name: "Y'allternative Miracle Balm",
+        price: 8.0,
+        category: "salves"
+      }
+    ],
+    bundles: [],
+    shop: { freeShippingThreshold: 40 }
+  };
+
+  // 1. Single 2oz Frankincense -> 1999 cents
+  p = await captureParams([{ id: "frankincense-salve", qty: 1, variant: "2oz" }], {
+    _stub: { catalog: fullSalveCatalog }
+  });
+  eq(
+    p.get("line_items[0][price_data][unit_amount]"),
+    "1999",
+    "Worker: 1x 2oz Frankincense is 1999 cents"
+  );
+
+  // 2. 2x 2oz Frankincense -> 1499 cents each
+  p = await captureParams([{ id: "frankincense-salve", qty: 2, variant: "2oz" }], {
+    _stub: { catalog: fullSalveCatalog }
+  });
+  eq(
+    p.get("line_items[0][price_data][unit_amount]"),
+    "1499",
+    "Worker: 2x 2oz Frankincense is 1499 cents each"
+  );
+  eq(p.get("line_items[0][quantity]"), "2", "Worker: quantity is 2");
+
+  // 3. Mixed 1x Frankincense (2oz) + 1x Sleep Salve (2oz) -> 1499 cents each
+  p = await captureParams(
+    [
+      { id: "frankincense-salve", qty: 1, variant: "2oz" },
+      { id: "sleep-salve", qty: 1 }
+    ],
+    { _stub: { catalog: fullSalveCatalog } }
+  );
+  eq(
+    p.get("line_items[0][price_data][unit_amount]"),
+    "1499",
+    "Worker: Mixed bundle Frankincense is 1499 cents"
+  );
+  eq(
+    p.get("line_items[1][price_data][unit_amount]"),
+    "1499",
+    "Worker: Mixed bundle Sleep Salve is 1499 cents"
+  );
+
+  // 4. 1x 1oz Frankincense + 1x 2oz Sleep Salve -> 1399 cents + 1999 cents
+  p = await captureParams(
+    [
+      { id: "frankincense-salve", qty: 1, variant: "1oz" },
+      { id: "sleep-salve", qty: 1 }
+    ],
+    { _stub: { catalog: fullSalveCatalog } }
+  );
+  eq(
+    p.get("line_items[0][price_data][unit_amount]"),
+    "1399",
+    "Worker: 1oz Frankincense is 1399 cents (no volume tier)"
+  );
+  eq(
+    p.get("line_items[1][price_data][unit_amount]"),
+    "1999",
+    "Worker: 2oz Sleep Salve is 1999 cents (no volume tier)"
+  );
+
+  // 5. Client Price Tampering Defense
+  p = await captureParams([{ id: "frankincense-salve", qty: 1, variant: "2oz", price: 5.0 }], {
+    _stub: { catalog: fullSalveCatalog }
+  });
+  eq(
+    p.get("line_items[0][price_data][unit_amount]"),
+    "1999",
+    "Worker: Client price tampering ignored, charges 1999 cents"
+  );
+
+  // 6. Multi-Rule Volume Pricing (Salves + Soaks concurrently in Worker)
+  const multiRuleCatalog = {
+    products: [
+      {
+        id: "frankincense-salve",
+        name: "Y'all Heal Now Miracle Frankincense Salve",
+        price: 19.99,
+        category: "salves",
+        variants: {
+          name: "Size",
+          options: [
+            { label: "2oz", priceDelta: 0 },
+            { label: "1oz", priceDelta: -6.0 }
+          ]
+        }
+      },
+      {
+        id: "lavender-soak",
+        name: "Lavender Salt Soak",
+        price: 18.0,
+        category: "soaks"
+      },
+      {
+        id: "ritual-soak",
+        name: "Ritual Salt Soak",
+        price: 18.0,
+        category: "soaks"
+      }
+    ],
+    bundles: [],
+    shop: {
+      freeShippingThreshold: 40,
+      volumePricing: [
+        {
+          id: "salves-2oz",
+          name: "2oz Salve Multi-Buy",
+          category: "salves",
+          qualifyingVariant: "2oz",
+          minQuantity: 2,
+          unitPrice: 14.99,
+          label: "2+ for $14.99 each",
+          enabled: true
+        },
+        {
+          id: "soaks-all",
+          name: "Soaks Multi-Buy",
+          category: "soaks",
+          minQuantity: 2,
+          unitPrice: 16.0,
+          label: "2+ for $16 each",
+          enabled: true
+        }
+      ]
+    }
+  };
+
+  p = await captureParams(
+    [
+      { id: "frankincense-salve", qty: 2, variant: "2oz" },
+      { id: "lavender-soak", qty: 1 },
+      { id: "ritual-soak", qty: 1 }
+    ],
+    { _stub: { catalog: multiRuleCatalog } }
+  );
+  eq(
+    p.get("line_items[0][price_data][unit_amount]"),
+    "1499",
+    "Worker: Multi-rule Frankincense 2oz discounted to 1499 cents"
+  );
+  eq(p.get("line_items[0][quantity]"), "2", "Worker: Salve quantity is 2");
+  eq(
+    p.get("line_items[1][price_data][unit_amount]"),
+    "1600",
+    "Worker: Multi-rule Lavender Soak discounted to 1600 cents"
+  );
+  eq(
+    p.get("line_items[2][price_data][unit_amount]"),
+    "1600",
+    "Worker: Multi-rule Ritual Soak discounted to 1600 cents"
+  );
 
   global.fetch = globalFetch;
 

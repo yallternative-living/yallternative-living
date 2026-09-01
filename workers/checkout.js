@@ -448,10 +448,137 @@ function resolveBundlePriceDollars(catalog, bundle) {
   return Math.round(fullPrice * (1 - (bundle.discountPercent || 0) / 100) * 100) / 100;
 }
 
+const QUALIFYING_2OZ_SALVE_PRICE_CENTS = 1499;
+
+const DEFAULT_VOLUME_PRICING = [
+  {
+    id: "salves-2oz",
+    name: "2oz Salve Multi-Buy",
+    category: "salves",
+    qualifyingVariant: "2oz",
+    minQuantity: 2,
+    unitPrice: QUALIFYING_2OZ_SALVE_PRICE_CENTS / 100,
+    label: "2+ for $14.99 each",
+    enabled: true
+  }
+];
+
+function getVolumePricingRules(catalog) {
+  if (catalog && catalog.shop && Array.isArray(catalog.shop.volumePricing)) {
+    return catalog.shop.volumePricing.filter((r) => r && r.enabled !== false);
+  }
+  return DEFAULT_VOLUME_PRICING;
+}
+
+function itemMatchesVolumeRule(item, rule, catalog) {
+  if (!item || !item.id || !rule || rule.enabled === false) return false;
+  let category = "";
+  let entry = null;
+  if (catalog) {
+    entry = findEntry(catalog, String(item.id));
+    if (entry && entry.category) category = entry.category;
+  }
+  if (!category && item.category) {
+    category = item.category;
+  }
+  if (
+    !category &&
+    (String(item.id) === "frankincense-salve" || String(item.id) === "sleep-salve")
+  ) {
+    category = "salves";
+  }
+  if (category !== rule.category) return false;
+
+  if (rule.qualifyingVariant) {
+    const normQ = String(rule.qualifyingVariant).trim().toLowerCase().replace(/\s+/g, "");
+    const v = item.variant || item.variantLabel;
+    if (v) {
+      const normV = String(v).trim().toLowerCase().replace(/\s+/g, "");
+      return normV === normQ;
+    }
+    const id = String(item.id);
+    if (id === "miracle-balm") return false;
+    if (id === "sleep-salve") return true;
+
+    if (entry) {
+      if (
+        entry.variants &&
+        Array.isArray(entry.variants.options) &&
+        entry.variants.options.length > 0
+      ) {
+        return false;
+      }
+      const text = (
+        String(entry.name || "") +
+        " " +
+        String(entry.blurb || "") +
+        " " +
+        String(entry.description || "")
+      )
+        .toLowerCase()
+        .replace(/\s+/g, "");
+      return text.includes(normQ);
+    }
+    return false;
+  }
+  return true;
+}
+
+function isQualifying2ozSalve(item, catalog) {
+  const rules = getVolumePricingRules(catalog);
+  const salveRule =
+    rules.find((r) => r.category === "salves") || DEFAULT_VOLUME_PRICING[0];
+  return itemMatchesVolumeRule(item, salveRule, catalog);
+}
+
 // Resolve a validated unit price (in cents) for an item, honoring a chosen
 // variant's priceDelta when one is supplied and valid. `isBundle` picks the
 // bundle-pricing path above instead of a plain product's own `price` field.
-function resolveUnitAmountCents(catalog, entry, variantLabel, isBundle) {
+function resolveUnitAmountCents(
+  catalog,
+  entry,
+  variantLabel,
+  isBundle,
+  ruleCountsOrSalveCount
+) {
+  let matchedDiscountCents = null;
+  if (!isBundle && entry) {
+    const rules = getVolumePricingRules(catalog);
+
+    if (typeof ruleCountsOrSalveCount === "number") {
+      if (
+        ruleCountsOrSalveCount >= 2 &&
+        isQualifying2ozSalve(
+          { id: entry.id, category: entry.category, variant: variantLabel },
+          catalog
+        )
+      ) {
+        const salveRule =
+          rules.find((r) => r.category === "salves") || DEFAULT_VOLUME_PRICING[0];
+        matchedDiscountCents = Math.round(Number(salveRule.unitPrice) * 100);
+      }
+    } else if (ruleCountsOrSalveCount && typeof ruleCountsOrSalveCount.get === "function") {
+      for (const rule of rules) {
+        const ruleKey = rule.id || rule.name || rule.category;
+        const count = ruleCountsOrSalveCount.get(ruleKey) || 0;
+        const minQ = typeof rule.minQuantity === "number" ? rule.minQuantity : 2;
+        if (
+          count >= minQ &&
+          itemMatchesVolumeRule(
+            { id: entry.id, category: entry.category, variant: variantLabel },
+            rule,
+            catalog
+          )
+        ) {
+          const discountCents = Math.round(Number(rule.unitPrice) * 100);
+          if (matchedDiscountCents === null || discountCents < matchedDiscountCents) {
+            matchedDiscountCents = discountCents;
+          }
+        }
+      }
+    }
+  }
+
   let price;
   if (isBundle) {
     price = resolveBundlePriceDollars(catalog, entry);
@@ -472,7 +599,12 @@ function resolveUnitAmountCents(catalog, entry, variantLabel, isBundle) {
       if (opt && typeof opt.priceDelta === "number") price += opt.priceDelta;
     }
   }
-  return Math.round(price * 100);
+
+  const baseCents = Math.round(price * 100);
+  if (matchedDiscountCents !== null) {
+    return Math.min(baseCents, matchedDiscountCents);
+  }
+  return baseCents;
 }
 
 // Gift card: parse "Preset $NN" and clamp to the allowed range -- see the
@@ -603,6 +735,19 @@ export default {
       let boxLineIndex = 0;
       const boxProductMap = productMapOf(catalog);
 
+      const volumeRules = getVolumePricingRules(catalog);
+      const ruleCounts = new Map();
+      for (const rule of volumeRules) {
+        const count = items.reduce((sum, item) => {
+          if (itemMatchesVolumeRule(item, rule, catalog)) {
+            const q = parseInt(item.qty, 10);
+            return sum + (Number.isNaN(q) || q < 1 ? 1 : Math.min(q, MAX_QTY_PER_ITEM));
+          }
+          return sum;
+        }, 0);
+        ruleCounts.set(rule.id || rule.name || rule.category, count);
+      }
+
       const lineItems = items.map((item) => {
         // Custom boxes have no catalog entry of their own -- priced and
         // validated entirely from their contents. Handled before findEntry(),
@@ -642,7 +787,7 @@ export default {
         const isBundle = !isGiftCard && bundleMapOf(catalog).has(entry.id);
         const unitAmount = isGiftCard
           ? resolveGiftCardAmountCents(item.variant)
-          : resolveUnitAmountCents(catalog, entry, item.variant, isBundle);
+          : resolveUnitAmountCents(catalog, entry, item.variant, isBundle, ruleCounts);
         if (unitAmount === null || unitAmount < 0) {
           throw new ClientError(`Product not purchasable: ${item.id}`);
         }
@@ -871,5 +1016,8 @@ export {
   resolveUnitAmountCents,
   resolveGiftCardAmountCents,
   resolveCustomBoxCents,
-  resolveFreeShippingThresholdCents
+  resolveFreeShippingThresholdCents,
+  isQualifying2ozSalve,
+  itemMatchesVolumeRule,
+  getVolumePricingRules
 };
