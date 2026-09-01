@@ -17,6 +17,11 @@ process.env.STRIPE_WEBHOOK_SECRET =
   process.env.STRIPE_WEBHOOK_SECRET || "whsec_test_dummy_secret_for_signature_tests";
 process.env.STRIPE_SECRET_KEY =
   process.env.STRIPE_SECRET_KEY || "sk_test_dummy_secret_for_signature_tests";
+// fulfill-gift-card.js now refuses to build a Resend client without a key
+// (it used to fall back to the literal "re_test", so a deploy with the
+// variable missing returned 200 while delivering nothing). The suite stubs
+// the network, but the key still has to be present for the client to exist.
+process.env.RESEND_API_KEY = process.env.RESEND_API_KEY || "re_test_dummy_for_stubbed_sends";
 
 const fulfillGiftCard = require("../netlify/functions/fulfill-gift-card.js");
 const submitRestock = require("../netlify/functions/submit-restock.js");
@@ -249,8 +254,10 @@ async function testCreateGiftCardPromotionCode() {
 async function testHandlerInvalidSignature() {
   const originalConsoleError = console.error;
   let errorLogged = false;
-  console.error = () => {
+  let loggedText = "";
+  console.error = (...args) => {
     errorLogged = true;
+    loggedText += args.map((a) => String(a && a.message ? a.message : a)).join(" ") + "\n";
   };
 
   // Use a FRESH timestamp so we clear the replay-tolerance window (a stale
@@ -271,12 +278,20 @@ async function testHandlerInvalidSignature() {
 
   const result = await fulfillGiftCard.handler(event);
   eq(result.statusCode, 400, "handler returns 400 on invalid signature");
-  assert(result.body.includes("Invalid signature"), "handler returns invalid signature message");
+  eq(result.body, "Invalid signature", "handler returns a fixed invalid-signature message");
+  // The REASON stays server-side. Echoing err.message told an
+  // unauthenticated caller whether their forgery failed on a missing header,
+  // a malformed one, the replay window or the HMAC compare -- a free oracle
+  // for probing the verification path.
   assert(
-    result.body.includes("Signature mismatch"),
-    "handler reaches real HMAC compare and rejects on signature mismatch"
+    !/Signature mismatch|Malformed|tolerance|not configured/i.test(result.body),
+    "handler never echoes why the signature was rejected"
   );
   assert(errorLogged, "handler logs error on invalid signature");
+  assert(
+    loggedText.includes("Signature mismatch"),
+    "handler still logs the real reason server-side (real HMAC compare was reached)"
+  );
 
   console.error = originalConsoleError;
 }
@@ -449,15 +464,18 @@ async function testWorkersAndNetlifyFunctions() {
 
   // resolveUnitAmountCents
   eq(
-    checkout.resolveUnitAmountCents(mockCatalog, mockCatalog.products[0], null, false),
-    1600,
-    "resolveUnitAmountCents standard product"
+    checkout.resolveUnitAmountCents(mockCatalog, mockCatalog.products[1], null, false),
+    1200,
+    "resolveUnitAmountCents standard product (no variants to choose)"
   );
   eq(
     checkout.resolveUnitAmountCents(mockCatalog, mockCatalog.products[0], "Large", false),
     2000,
     "resolveUnitAmountCents product with variant delta"
   );
+  // A label the catalog doesn't list is NOT purchasable. It used to fall
+  // back to the base price, i.e. sell a product at a size/price combination
+  // no page ever offered and give fulfilment a size that doesn't exist.
   eq(
     checkout.resolveUnitAmountCents(
       mockCatalog,
@@ -465,8 +483,34 @@ async function testWorkersAndNetlifyFunctions() {
       "NonExistentVariant",
       false
     ),
-    1600,
-    "resolveUnitAmountCents ignores invalid variant"
+    null,
+    "resolveUnitAmountCents rejects an unknown variant instead of repricing it"
+  );
+  eq(
+    checkout.resolveUnitAmountCents(mockCatalog, mockCatalog.products[0], null, false),
+    null,
+    "resolveUnitAmountCents rejects a variant product ordered with no variant"
+  );
+  eq(
+    checkout.resolveUnitAmountCents(mockCatalog, mockCatalog.products[0], "  large ", false),
+    2000,
+    "resolveUnitAmountCents normalizes case and surrounding whitespace"
+  );
+  // Matching for the catalog label, and the option object behind it.
+  eq(
+    checkout.findVariantOption(mockCatalog.products[0], "LARGE").label,
+    "Large",
+    "findVariantOption returns the catalog's own option for a normalized label"
+  );
+  eq(
+    checkout.findVariantOption(mockCatalog.products[0], "24 oz "),
+    null,
+    "findVariantOption rejects a label that is not on the option list"
+  );
+  eq(
+    checkout.findVariantOption({ variants: { options: [] } }, "Large"),
+    null,
+    "findVariantOption is null-safe for an empty option list"
   );
   eq(
     checkout.resolveUnitAmountCents(mockCatalog, mockCatalog.bundles[0], null, true),
@@ -493,9 +537,18 @@ async function testWorkersAndNetlifyFunctions() {
           ]
         }
       },
-      { id: "sleep-salve", price: 19.99, category: "salves" },
+      // Volume-rule matching now reads the catalog only (F11: no client
+      // `category`, no per-id hardcodes), so a variant-less salve qualifies
+      // on its own catalog copy -- exactly as products.json describes it.
+      {
+        id: "sleep-salve",
+        name: "Hush Y'all Magnesium Arnica Sleep Salve",
+        blurb: "A 2oz tin of magnesium and arnica.",
+        price: 19.99,
+        category: "salves"
+      },
       { id: "beard-salve", price: 14.0, category: "body" },
-      { id: "miracle-balm", price: 8.0, category: "salves" }
+      { id: "miracle-balm", name: "Y'allternative Miracle Balm", price: 8.0, category: "salves" }
     ],
     bundles: []
   };
@@ -1089,10 +1142,18 @@ async function testWorkersAndNetlifyFunctions() {
   );
   eq(r.customerParams, null, "pickup without a ZIP: no customer created");
   eq(r.params.get("customer_creation"), "always", "pickup without a ZIP: normal customer flow");
+  // The market is real, it just has no ZIP to rate against, so tax falls back
+  // to the buyer's billing address. It is still a pickup: nothing ships, so
+  // no delivery address is collected and no shipping line is added.
   eq(
     r.params.get("shipping_address_collection[allowed_countries][0]"),
-    "US",
-    "pickup without a ZIP: falls back to collecting an address"
+    null,
+    "pickup without a ZIP: still a pickup, so no shipping address is collected"
+  );
+  eq(
+    r.params.get("metadata[pickup_market]"),
+    "No Zip Market — November 2, 2026 (Greer, SC)",
+    "pickup without a ZIP: the market is still recorded for the packing list"
   );
 
   // events.json unreachable must never block a sale.
@@ -1117,7 +1178,8 @@ async function testWorkersAndNetlifyFunctions() {
   eq(r.params.get("customer"), null, "customer create fails: no pinned customer");
   eq(r.params.get("customer_creation"), "always", "customer create fails: normal flow resumes");
 
-  // A forged label can't smuggle in a cheaper jurisdiction.
+  // A forged label can't smuggle in a cheaper jurisdiction -- and, since it
+  // isn't a pickup at all, can't waive shipping either.
   r = await captureStripeParams(
     [{ id: "beard-salve", qty: 1 }],
     { STRIPE_TAX_ENABLED: "true" },
@@ -1129,16 +1191,70 @@ async function testWorkersAndNetlifyFunctions() {
     "US",
     "forged pickup label: falls back to the buyer's real address"
   );
+  eq(
+    r.params.get("metadata[pickup_market]"),
+    null,
+    "forged pickup label: never recorded as a market on the order"
+  );
+  eq(
+    r.params.get("metadata[pickup_market_rejected]"),
+    "true",
+    "forged pickup label: flagged as rejected in metadata"
+  );
+  eq(
+    r.params.get("shipping_options[0][shipping_rate_data][fixed_amount][amount]"),
+    "1000",
+    "forged pickup label: still pays shipping (it used to waive it for free)"
+  );
 
-  // With tax off there's no rate to get wrong, so skip the extra API call.
+  // Tax off is exactly the case that used to skip pickup validation
+  // altogether: a real market is honoured, and still no address is collected.
   r = await captureStripeParams([{ id: "beard-salve", qty: 1 }], pending, {
     pickupMarket: marketLabel
   });
   eq(r.customerParams, null, "tax off: pickup does not create a customer");
   eq(
     r.params.get("shipping_address_collection[allowed_countries][0]"),
+    null,
+    "tax off: an honoured pickup collects no shipping address"
+  );
+  eq(
+    r.params.get("metadata[pickup_market]"),
+    marketLabel,
+    "tax off: the market is validated and recorded"
+  );
+
+  // ... and an invented one is still rejected with tax off.
+  r = await captureStripeParams([{ id: "beard-salve", qty: 1 }], pending, {
+    pickupMarket: "Fake Market — (Portland, OR)"
+  });
+  eq(
+    r.params.get("metadata[pickup_market_rejected]"),
+    "true",
+    "tax off: an invented market label is validated and rejected"
+  );
+  eq(
+    r.params.get("shipping_options[0][shipping_rate_data][fixed_amount][amount]"),
+    "1000",
+    "tax off: an invented market label does not waive shipping"
+  );
+
+  // A calendar that won't load can't honour a pickup, so it fails closed
+  // into the ordinary shipped flow rather than trusting the label.
+  r = await captureStripeParams(
+    [{ id: "beard-salve", qty: 1 }],
+    { STRIPE_TAX_ENABLED: "false", _stub: { eventsOk: false } },
+    { pickupMarket: marketLabel }
+  );
+  eq(
+    r.params.get("metadata[pickup_market_rejected]"),
+    "true",
+    "events.json down: pickup is not honoured"
+  );
+  eq(
+    r.params.get("shipping_address_collection[allowed_countries][0]"),
     "US",
-    "tax off: pickup behaviour unchanged"
+    "events.json down: checkout still completes as an ordinary shipped order"
   );
 
   // Pickup still records which market, for the packing list.
@@ -1170,6 +1286,7 @@ async function testWorkersAndNetlifyFunctions() {
       {
         id: "sleep-salve",
         name: "Hush Y'all Magnesium Arnica Sleep Salve",
+        blurb: "A 2oz tin of magnesium and arnica.",
         price: 19.99,
         category: "salves"
       },
@@ -1344,7 +1461,27 @@ async function testWorkersAndNetlifyFunctions() {
 
   /* ==========================================================
      8. submit-restock.js Netlify function
+
+     The endpoint FORWARDS the request by email now. It used to validate the
+     address and then answer "Thank you! We'll notify you when this is back
+     in stock." without sending anything anywhere, so every restock request
+     the site ever collected was dropped while the shopper was told it had
+     been received. These assertions run against a stubbed Resend so a happy
+     path can only pass if a mail was actually dispatched.
      ========================================================== */
+  const restockSentMails = [];
+  let restockResendOk = true;
+  const savedResendKey = process.env.RESEND_API_KEY;
+  const savedNotifyEmail = process.env.RESTOCK_NOTIFY_EMAIL;
+  process.env.RESEND_API_KEY = "re_test_restock";
+  delete process.env.RESTOCK_NOTIFY_EMAIL;
+  global.fetch = async (url, opts) => {
+    if (String(url).includes("api.resend.com")) {
+      restockSentMails.push(JSON.parse(opts.body));
+      return { ok: restockResendOk, status: restockResendOk ? 200 : 500 };
+    }
+    return { ok: true, json: async () => ({}) };
+  };
 
   // HTTP method handling: Validate that an OPTIONS request returns a 204 status with CORS headers.
   let restockRes = await submitRestock.handler({
@@ -1546,6 +1683,97 @@ async function testWorkersAndNetlifyFunctions() {
     !riskyMessage.includes("&amp;lt;"),
     "submitRestock does not double-escape a markup-bearing email"
   );
+
+  /* ----------------------------------------------------------
+     The request has to actually go somewhere.
+     ---------------------------------------------------------- */
+  restockSentMails.length = 0;
+  restockRes = await submitRestock.handler({
+    httpMethod: "POST",
+    headers: { origin: "https://yallternativeliving.com" },
+    body: JSON.stringify({ email: "waiting@example.com", product: "Sleep Salve" })
+  });
+  eq(restockRes.statusCode, 200, "submitRestock returns 200 once the alert is dispatched");
+  eq(restockSentMails.length, 1, "submitRestock actually forwards the request by email");
+  eq(
+    restockSentMails[0].to,
+    "contact@yallternativeliving.com",
+    "submitRestock defaults the alert to contact@yallternativeliving.com"
+  );
+  assert(
+    restockSentMails[0].text.includes("waiting@example.com"),
+    "submitRestock alert carries the requester's email"
+  );
+  assert(
+    restockSentMails[0].text.includes("Sleep Salve"),
+    "submitRestock alert carries the product requested"
+  );
+  eq(
+    restockSentMails[0].reply_to,
+    "waiting@example.com",
+    "submitRestock alert replies straight to the shopper"
+  );
+
+  // RESTOCK_NOTIFY_EMAIL overrides the default recipient.
+  process.env.RESTOCK_NOTIFY_EMAIL = "restock@yallternativeliving.com";
+  restockSentMails.length = 0;
+  await submitRestock.handler({
+    httpMethod: "POST",
+    headers: { origin: "https://yallternativeliving.com" },
+    body: JSON.stringify({ email: "waiting@example.com", product: "Bath Tea" })
+  });
+  eq(
+    restockSentMails[0].to,
+    "restock@yallternativeliving.com",
+    "submitRestock honours RESTOCK_NOTIFY_EMAIL"
+  );
+  delete process.env.RESTOCK_NOTIFY_EMAIL;
+
+  // A bot still gets the silent success -- and still sends nothing.
+  restockSentMails.length = 0;
+  await submitRestock.handler({
+    httpMethod: "POST",
+    headers: { origin: "https://yallternativeliving.com" },
+    body: JSON.stringify({ email: "bot@example.com", website_hp: "botstuff" })
+  });
+  eq(restockSentMails.length, 0, "submitRestock sends nothing for a honeypot submission");
+
+  // An unconfigured mailer is an outage, not a success.
+  delete process.env.RESEND_API_KEY;
+  restockSentMails.length = 0;
+  const savedConsoleError = console.error;
+  console.error = () => {};
+  restockRes = await submitRestock.handler({
+    httpMethod: "POST",
+    headers: { origin: "https://yallternativeliving.com" },
+    body: JSON.stringify({ email: "waiting@example.com", product: "Sleep Salve" })
+  });
+  console.error = savedConsoleError;
+  eq(restockRes.statusCode, 503, "submitRestock returns 503 when RESEND_API_KEY is missing");
+  assert(
+    !JSON.parse(restockRes.body).success,
+    "submitRestock never claims success with no mailer configured"
+  );
+  eq(restockSentMails.length, 0, "submitRestock sends nothing with no mailer configured");
+  process.env.RESEND_API_KEY = "re_test_restock";
+
+  // A mailer that rejects the send is reported, not swallowed.
+  restockResendOk = false;
+  console.error = () => {};
+  restockRes = await submitRestock.handler({
+    httpMethod: "POST",
+    headers: { origin: "https://yallternativeliving.com" },
+    body: JSON.stringify({ email: "waiting@example.com", product: "Sleep Salve" })
+  });
+  console.error = savedConsoleError;
+  eq(restockRes.statusCode, 502, "submitRestock reports a failed dispatch instead of faking one");
+  restockResendOk = true;
+
+  if (savedResendKey === undefined) delete process.env.RESEND_API_KEY;
+  else process.env.RESEND_API_KEY = savedResendKey;
+  if (savedNotifyEmail === undefined) delete process.env.RESTOCK_NOTIFY_EMAIL;
+  else process.env.RESTOCK_NOTIFY_EMAIL = savedNotifyEmail;
+  global.fetch = globalFetch;
 }
 
 /* ==========================================================
@@ -1931,16 +2159,17 @@ async function testMultiQuantityGiftCardCheckout() {
     "recipient@example.com",
     "Worker assigns recipient for gift_card_1"
   );
+  // H-8: quantity travels as _qty on the single group for that line. Per-unit
+  // expansion here is what used to push large orders past Stripe's 50-key
+  // metadata cap, silently dropping paid-for cards before the webhook saw
+  // them. fulfill-gift-card.js expands _qty when it derives the codes.
+  eq(captured.get("metadata[gift_card_1_qty]"), "2", "Worker records qty=2 on the gift card line");
   eq(
     captured.get("metadata[gift_card_2_amount_cents]"),
-    "5000",
-    "Worker expands qty=2 into metadata for gift_card_2"
+    null,
+    "Worker no longer expands one metadata group per gift card unit"
   );
-  eq(
-    captured.get("metadata[gift_card_2_recipient]"),
-    "recipient@example.com",
-    "Worker assigns recipient for gift_card_2"
-  );
+  eq(captured.get("line_items[0][quantity]"), "2", "Both gift cards are still charged");
 }
 
 /* ==========================================================
@@ -2168,11 +2397,32 @@ async function testGiftCardBalanceLookup() {
   });
   eq(res.statusCode, 204, "gift-card-balance handler returns 204 for OPTIONS preflight");
 
+  // POST with a JSON body is the preferred call now: it keeps the code out
+  // of the URL (and therefore out of history, Referer and access logs).
   res = await giftCardBalance.handler({
     httpMethod: "POST",
+    headers: { origin: "https://yallternativeliving.com" },
+    body: JSON.stringify({ code: "yall-valid12" })
+  });
+  eq(res.statusCode, 200, "gift-card-balance handler accepts POST with a JSON body");
+  eq(
+    JSON.parse(res.body).balanceCents,
+    3500,
+    "gift-card-balance POST returns the same balance as GET"
+  );
+
+  res = await giftCardBalance.handler({
+    httpMethod: "POST",
+    headers: { origin: "https://yallternativeliving.com" },
+    body: "{not json"
+  });
+  eq(res.statusCode, 400, "gift-card-balance handler rejects an unparseable POST body");
+
+  res = await giftCardBalance.handler({
+    httpMethod: "PUT",
     headers: { origin: "https://yallternativeliving.com" }
   });
-  eq(res.statusCode, 405, "gift-card-balance handler returns 405 for POST");
+  eq(res.statusCode, 405, "gift-card-balance handler still returns 405 for other methods");
 
   res = await giftCardBalance.handler({
     httpMethod: "GET",
@@ -2180,6 +2430,11 @@ async function testGiftCardBalanceLookup() {
     headers: { origin: "https://yallternativeliving.com" }
   });
   eq(res.statusCode, 200, "gift-card-balance handler returns 200 for valid code");
+  eq(
+    res.headers["Cache-Control"],
+    "no-store",
+    "gift-card-balance never lets a balance answer be cached"
+  );
 
   res = await giftCardBalance.handler({
     httpMethod: "GET",
@@ -2187,6 +2442,11 @@ async function testGiftCardBalanceLookup() {
     headers: { origin: "https://yallternativeliving.com" }
   });
   eq(res.statusCode, 404, "gift-card-balance handler returns 404 for non-existent code");
+  eq(
+    res.headers["Cache-Control"],
+    "no-store",
+    "gift-card-balance sends no-store on the 404 path too"
+  );
 
   global.fetch = globalFetch;
 }
@@ -2304,6 +2564,420 @@ async function testCartAndWorkerGiftCardPreApplication() {
 }
 
 /* ==========================================================
+   17. C-2 / H-5 / H-8: the webhook side of the stored-value ledger.
+   ========================================================== */
+async function testWebhookLedgerFixes() {
+  const globalFetch = global.fetch;
+  const originalLog = console.log;
+  const originalError = console.error;
+  console.log = () => {};
+  console.error = () => {};
+
+  /* ---------- C-2(b): a pre-applied card is actually spent ----------
+     workers/checkout.js converts a redeemed balance into an ephemeral
+     one-off Coupon, so the session carries NO promotion_code at all.
+     findUsedPromotionCode() looked for one, found nothing, and returned
+     null: the balance was never decremented, so the shopper kept the full
+     card after spending it and could spend it again. The session metadata
+     is now what drives the rollover. */
+  {
+    const created = [];
+    const deactivated = [];
+    global.fetch = async (url, options) => {
+      const target = String(url);
+      const method = (options && options.method) || "GET";
+      if (target.includes("/v1/promotion_codes/promo_meta_1")) {
+        if (method === "POST") {
+          deactivated.push(target);
+          return { ok: true, json: async () => ({ id: "promo_meta_1", active: false }) };
+        }
+        return {
+          ok: true,
+          json: async () => ({
+            id: "promo_meta_1",
+            code: "YALL-META01",
+            active: true,
+            coupon: { id: "co_meta", amount_off: 5000 },
+            metadata: { initial_amount_cents: "5000", recipient_email: "buyer@example.com" }
+          })
+        };
+      }
+      if (target.includes("/v1/coupons")) {
+        const params = new URLSearchParams(options.body);
+        created.push({ kind: "coupon", amountOff: Number(params.get("amount_off")) });
+        return { ok: true, json: async () => ({ id: "co_rolled" }) };
+      }
+      if (target.includes("/v1/promotion_codes")) {
+        const params = new URLSearchParams(options.body);
+        created.push({ kind: "promo", code: params.get("code") });
+        return { ok: true, json: async () => ({ id: "promo_rolled", code: params.get("code") }) };
+      }
+      return { ok: true, status: 200, json: async () => ({ id: "email_1" }) };
+    };
+
+    const session = {
+      id: "cs_preapplied_1",
+      // NOTE: no `discounts` array -- an ephemeral coupon leaves none.
+      metadata: {
+        gift_card_redeemed_code: "YALL-META01",
+        gift_card_promo_id: "promo_meta_1",
+        gift_card_amount_applied_cents: "2600",
+        gift_card_original_balance_cents: "5000"
+      },
+      total_details: { amount_discount: 2600 },
+      customer_details: { email: "buyer@example.com" }
+    };
+
+    const result = await fulfillGiftCard.handleGiftCardRedemption(session, "sk_test_mock");
+    assert(result !== null, "Pre-applied gift card is recognised from session metadata");
+    eq(result.code, "YALL-META01", "Redemption identifies the pre-applied code");
+    eq(result.spentCents, 2600, "Redemption spends exactly what checkout recorded");
+    eq(result.newBalanceCents, 2400, "Balance is decremented ($50 - $26 = $24)");
+    eq(deactivated.length, 1, "The spent promotion code is deactivated");
+    eq(
+      created.filter((c) => c.kind === "coupon")[0].amountOff,
+      2400,
+      "The replacement coupon carries the remaining $24, not the original $50"
+    );
+  }
+
+  /* ---------- C-2(b): never mint a replacement while the old code lives */
+  {
+    global.fetch = async (url, options) => {
+      const target = String(url);
+      const method = (options && options.method) || "GET";
+      if (target.includes("/v1/promotion_codes/promo_dead") && method === "POST") {
+        return { ok: false, status: 500, json: async () => ({ error: { message: "boom" } }) };
+      }
+      if (target.includes("/v1/coupons") || target.includes("/v1/promotion_codes")) {
+        failed++;
+        console.error("  ✗ rollover created a code despite a failed deactivation");
+        return { ok: true, json: async () => ({ id: "should_not_exist" }) };
+      }
+      return { ok: true, json: async () => ({}) };
+    };
+    await throwsAsync(
+      () =>
+        fulfillGiftCard.rolloverGiftCardBalance(
+          "YALL-DEAD01",
+          "promo_dead",
+          3000,
+          5000,
+          "shopper@example.com",
+          "cs_dead"
+        ),
+      "Could not deactivate spent promotion code",
+      "A failed deactivation aborts the rollover instead of leaving two live codes"
+    );
+  }
+
+  /* ---------- H-5: refunds restore only what was actually refunded ----------
+     The old version read gift_card_* metadata off the CHARGE (where it never
+     exists), so no refund ever restored anything; and it restored the full
+     applied amount on every delivery, so a repeat event minted money. */
+  {
+    let activePromoMetadata = { initial_amount_cents: "5000" };
+    let activeBalance = 2400;
+    const rollovers = [];
+    const sessionLookups = [];
+
+    global.fetch = async (url, options) => {
+      const target = String(url);
+      const method = (options && options.method) || "GET";
+      if (target.includes("/v1/checkout/sessions")) {
+        sessionLookups.push(target);
+        return {
+          ok: true,
+          json: async () => ({
+            data: [
+              {
+                id: "cs_refunded_1",
+                metadata: {
+                  gift_card_redeemed_code: "YALL-REF001",
+                  gift_card_promo_id: "promo_ref_old",
+                  gift_card_amount_applied_cents: "2600"
+                }
+              }
+            ]
+          })
+        };
+      }
+      if (target.includes("/v1/promotion_codes?") || target.includes("/v1/promotion_codes&")) {
+        return {
+          ok: true,
+          json: async () => ({
+            data: [
+              {
+                id: "promo_ref_active",
+                code: "YALL-REF001",
+                coupon: { id: "co_ref", amount_off: activeBalance },
+                metadata: activePromoMetadata
+              }
+            ]
+          })
+        };
+      }
+      if (target.includes("/v1/promotion_codes/promo_ref_active") && method === "POST") {
+        return { ok: true, json: async () => ({ id: "promo_ref_active", active: false }) };
+      }
+      if (target.includes("/v1/coupons")) {
+        const params = new URLSearchParams(options.body);
+        rollovers.push({
+          amountOff: Number(params.get("amount_off")),
+          restoredMarker: params.get("metadata[restored_for_charge_ch_partial_1]")
+        });
+        return { ok: true, json: async () => ({ id: "co_ref_new" }) };
+      }
+      if (target.includes("/v1/promotion_codes")) {
+        const params = new URLSearchParams(options.body);
+        return { ok: true, json: async () => ({ id: "promo_ref_new", code: params.get("code") }) };
+      }
+      return { ok: true, status: 200, json: async () => ({ id: "email_ref" }) };
+    };
+
+    // 1. A $10 partial refund of a $26 gift-card payment restores $10.
+    const partial = await fulfillGiftCard.handleGiftCardRefund(
+      {
+        id: "ch_partial_1",
+        payment_intent: "pi_refunded_1",
+        amount_refunded: 1000,
+        billing_details: { email: "buyer@example.com" }
+      },
+      "sk_test_mock"
+    );
+    eq(sessionLookups.length, 1, "Refund finds the session from the charge's payment_intent");
+    assert(
+      sessionLookups[0].includes("payment_intent=pi_refunded_1"),
+      "Refund looks the session up by payment_intent"
+    );
+    eq(partial.restoredCents, 1000, "A $10 refund restores $10, not the whole $26 applied");
+    eq(rollovers[0].amountOff, 3400, "Balance goes from $24 to $34");
+    eq(
+      rollovers[0].restoredMarker,
+      "1000",
+      "How much has been restored for this charge is recorded on the new code"
+    );
+
+    // 2. The refund grows to the full $26: only the $16 difference is added.
+    activePromoMetadata = {
+      initial_amount_cents: "5000",
+      restored_for_charge_ch_partial_1: "1000"
+    };
+    activeBalance = 3400;
+    const rest = await fulfillGiftCard.handleGiftCardRefund(
+      {
+        id: "ch_partial_1",
+        payment_intent: "pi_refunded_1",
+        amount_refunded: 2600,
+        billing_details: { email: "buyer@example.com" }
+      },
+      "sk_test_mock"
+    );
+    eq(rest.restoredCents, 1600, "A grown refund restores only the difference");
+    eq(rollovers[1].amountOff, 5000, "Balance reaches the original $50 and stops there");
+
+    // 3. Stripe redelivers the same event: nothing more is restored.
+    activePromoMetadata = {
+      initial_amount_cents: "5000",
+      restored_for_charge_ch_partial_1: "2600"
+    };
+    activeBalance = 5000;
+    const rolloversBefore = rollovers.length;
+    const replay = await fulfillGiftCard.handleGiftCardRefund(
+      {
+        id: "ch_partial_1",
+        payment_intent: "pi_refunded_1",
+        amount_refunded: 2600,
+        billing_details: { email: "buyer@example.com" }
+      },
+      "sk_test_mock"
+    );
+    eq(replay.restoredCents, 0, "A redelivered refund event restores nothing further");
+    eq(rollovers.length, rolloversBefore, "A redelivered refund event mints no new coupon");
+
+    // 4. A refund can never restore more than the card actually paid.
+    activePromoMetadata = { initial_amount_cents: "5000" };
+    activeBalance = 2400;
+    const overRefund = await fulfillGiftCard.handleGiftCardRefund(
+      {
+        id: "ch_partial_1",
+        payment_intent: "pi_refunded_1",
+        amount_refunded: 9999,
+        billing_details: { email: "buyer@example.com" }
+      },
+      "sk_test_mock"
+    );
+    eq(
+      overRefund.restoredCents,
+      2600,
+      "A refund larger than the gift-card share restores only the gift-card share"
+    );
+  }
+
+  /* ---------- H-5: refund.created is no longer processed ---------- */
+  {
+    let refundLookups = 0;
+    global.fetch = async (url) => {
+      if (String(url).includes("/v1/checkout/sessions")) refundLookups++;
+      return { ok: true, json: async () => ({ data: [] }) };
+    };
+    const secret = process.env.STRIPE_WEBHOOK_SECRET;
+    const payload = JSON.stringify({
+      type: "refund.created",
+      data: { object: { id: "re_1", payment_intent: "pi_1", amount: 1000 } }
+    });
+    const timestamp = Math.floor(Date.now() / 1000);
+    const signature = crypto
+      .createHmac("sha256", secret)
+      .update(timestamp + "." + payload, "utf8")
+      .digest("hex");
+    const res = await fulfillGiftCard.handler({
+      httpMethod: "POST",
+      body: payload,
+      headers: { "stripe-signature": `t=${timestamp},v1=${signature}` }
+    });
+    eq(res.statusCode, 200, "refund.created is acknowledged");
+    eq(res.body, "Event ignored", "refund.created is ignored (charge.refunded covers the money)");
+    eq(refundLookups, 0, "refund.created triggers no balance restoration");
+  }
+
+  /* ---------- C-2(c): an abandoned checkout's coupon is deleted ---------- */
+  {
+    const deletes = [];
+    global.fetch = async (url, options) => {
+      const target = String(url);
+      if (target.includes("/v1/coupons/")) {
+        deletes.push({ url: target, method: options && options.method });
+        return { ok: true, json: async () => ({ id: "co_ephemeral_1", deleted: true }) };
+      }
+      return { ok: true, json: async () => ({}) };
+    };
+    const secret = process.env.STRIPE_WEBHOOK_SECRET;
+    const payload = JSON.stringify({
+      type: "checkout.session.expired",
+      data: {
+        object: {
+          id: "cs_expired_1",
+          metadata: { gift_card_ephemeral_coupon_id: "co_ephemeral_1" }
+        }
+      }
+    });
+    const timestamp = Math.floor(Date.now() / 1000);
+    const signature = crypto
+      .createHmac("sha256", secret)
+      .update(timestamp + "." + payload, "utf8")
+      .digest("hex");
+    const res = await fulfillGiftCard.handler({
+      httpMethod: "POST",
+      body: payload,
+      headers: { "stripe-signature": `t=${timestamp},v1=${signature}` }
+    });
+    eq(res.statusCode, 200, "checkout.session.expired is handled");
+    eq(deletes.length, 1, "The abandoned session's ephemeral coupon is deleted");
+    eq(deletes[0].method, "DELETE", "The ephemeral coupon is deleted, not just deactivated");
+    assert(
+      deletes[0].url.includes("co_ephemeral_1"),
+      "The coupon named in session metadata is the one deleted"
+    );
+
+    // A coupon that is already gone is success -- this must be redeliverable.
+    global.fetch = async () => ({ ok: false, status: 404, json: async () => ({}) });
+    const gone = await fulfillGiftCard.deleteEphemeralCoupon("co_already_gone", "sk_test_mock");
+    eq(gone.deleted, true, "Deleting an already-deleted coupon is treated as success");
+  }
+
+  /* ---------- H-8: the webhook expands a multi-unit gift-card line ---------- */
+  {
+    const mintedCodes = [];
+    global.fetch = async (url, options) => {
+      const target = String(url);
+      if (target.includes("/v1/coupons")) {
+        return { ok: true, json: async () => ({ id: "co_multi" }) };
+      }
+      if (target.includes("/v1/promotion_codes")) {
+        const params = new URLSearchParams(options.body);
+        const code = params.get("code");
+        if (code) mintedCodes.push(code);
+        return { ok: true, json: async () => ({ id: "promo_multi", code }) };
+      }
+      return {
+        ok: true,
+        status: 200,
+        headers: new Map(),
+        json: async () => ({ id: "email_multi" }),
+        text: async () => '{"id":"email_multi"}'
+      };
+    };
+
+    const secret = process.env.STRIPE_WEBHOOK_SECRET;
+    const sessionId = "cs_multi_qty_1";
+    const payload = JSON.stringify({
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: sessionId,
+          customer_details: { email: "buyer@example.com" },
+          metadata: {
+            gift_card_1_amount_cents: "2500",
+            gift_card_1_qty: "3",
+            gift_card_1_recipient: "recipient@example.com",
+            gift_card_1_sender: "Sender"
+          }
+        }
+      }
+    });
+    const timestamp = Math.floor(Date.now() / 1000);
+    const signature = crypto
+      .createHmac("sha256", secret)
+      .update(timestamp + "." + payload, "utf8")
+      .digest("hex");
+    const res = await fulfillGiftCard.handler({
+      httpMethod: "POST",
+      body: payload,
+      headers: { "stripe-signature": `t=${timestamp},v1=${signature}` }
+    });
+
+    eq(res.statusCode, 200, "A multi-unit gift card line is fulfilled");
+    eq(mintedCodes.length, 3, "qty 3 mints three separate codes from one metadata group");
+    eq(new Set(mintedCodes).size, 3, "The three codes are distinct");
+    eq(
+      mintedCodes[0],
+      fulfillGiftCard.deriveGiftCardCode(sessionId, "1-1", secret),
+      "Unit codes are derived deterministically from (session, line-unit)"
+    );
+
+    // Backwards compatibility: a single card on index 1 still derives the
+    // exact code it did before H-8, so codes already in shoppers' inboxes
+    // stay reproducible on a webhook retry.
+    eq(
+      fulfillGiftCard.deriveGiftCardCode("cs_legacy", 1, secret),
+      fulfillGiftCard.deriveGiftCardCode("cs_legacy", "1", secret),
+      "Index 1 with qty 1 derives the identical code it always has"
+    );
+  }
+
+  /* ---------- RESEND_API_KEY must fail loudly ---------- */
+  {
+    const savedKey = process.env.RESEND_API_KEY;
+    delete process.env.RESEND_API_KEY;
+    throws(
+      () => fulfillGiftCard.getResendClient(),
+      "RESEND_API_KEY is not configured",
+      "getResendClient throws instead of quietly falling back to the 're_test' placeholder"
+    );
+    process.env.RESEND_API_KEY = savedKey;
+    assert(
+      Boolean(fulfillGiftCard.getResendClient()),
+      "getResendClient builds a client when the key is present"
+    );
+  }
+
+  console.log = originalLog;
+  console.error = originalError;
+  global.fetch = globalFetch;
+}
+
+/* ==========================================================
    Runner: sections run strictly in order so nothing races over shared
    globals (console, global.fetch) and the summary only prints once every
    assertion has actually run.
@@ -2320,6 +2994,7 @@ async function testCartAndWorkerGiftCardPreApplication() {
   await testGiftCardRedemptionWebhook();
   await testGiftCardBalanceLookup();
   await testCartAndWorkerGiftCardPreApplication();
+  await testWebhookLedgerFixes();
 
   console.log(`\nbackend-functions.test.js: ${passed} passed, ${failed} failed`);
   if (failed > 0) process.exit(1);

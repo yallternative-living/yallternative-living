@@ -305,6 +305,38 @@ async function testWorkerAdversarial() {
     );
   }
 
+  // 1.5b Error contract: the client now DISPLAYS the message the Worker
+  // returns, so the split has to hold in both directions -- curated
+  // ClientError text reaches the shopper verbatim, and an internal failure
+  // (a raw Stripe error, which can carry account detail) never does.
+  {
+    const clientError = await executeWorkerCheckout({
+      items: [{ id: "ghost-item", qty: 1 }]
+    });
+    eq(clientError.status, 400, "A cart problem is a 400");
+    eq(
+      clientError.data.error,
+      "Product not found: ghost-item",
+      "A cart problem returns text the shopper can act on"
+    );
+
+    const internal = await executeWorkerCheckout(
+      { items: [{ id: "lavender-soak", qty: 1 }] },
+      mockEnv,
+      { sessionError: "No such customer: 'cus_secret_internal_id'" }
+    );
+    eq(internal.status, 400, "An internal Stripe failure is still a 400 to the browser");
+    eq(
+      internal.data.error,
+      "Checkout failed. Please try again.",
+      "An internal Stripe failure returns the generic message"
+    );
+    assert(
+      !String(internal.data.error).includes("cus_secret_internal_id"),
+      "Raw Stripe error detail never reaches the browser"
+    );
+  }
+
   // 1.6 Custom Box Validation: empty, invalid product, comingSoon, bounds
   {
     // Empty box
@@ -357,7 +389,27 @@ async function testWorkerAdversarial() {
     eq(res.sessionParams.get("line_items[0][quantity]"), "1", "qty -10 clamped to 1");
     eq(res.sessionParams.get("line_items[1][quantity]"), "1", "qty 0 clamped to 1");
     eq(res.sessionParams.get("line_items[2][quantity]"), "1", "qty NaN clamped to 1");
-    eq(res.sessionParams.get("line_items[3][quantity]"), "99", "qty 9999999 clamped to 99");
+    // lavender-soak carries stock: 5 in this fixture, and tracked stock now
+    // caps the line -- you cannot buy 99 of the 5 that exist.
+    eq(
+      res.sessionParams.get("line_items[3][quantity]"),
+      "5",
+      "qty 9999999 clamped to the 5 units actually in stock"
+    );
+
+    // With no stock tracked (stock absent), the MAX_QTY_PER_ITEM cap applies.
+    const untracked = await executeWorkerCheckout({
+      items: [{ id: "coming-soon-oil", qty: 9999999 }]
+    });
+    eq(untracked.status, 400, "A comingSoon product is refused whatever the quantity");
+    const giftCards = await executeWorkerCheckout({
+      items: [{ id: "yallternative-gift-card", qty: 9999999, variant: "Preset $25" }]
+    });
+    eq(
+      giftCards.sessionParams.get("line_items[0][quantity]"),
+      "99",
+      "Untracked stock still clamps to the 99-per-item cap"
+    );
   }
 
   // 1.8 Stripe Metadata Sanitization & Gifting Fuzzing
@@ -464,10 +516,17 @@ async function testWorkerAdversarial() {
       "5000",
       "Gift card 1 amount_cents is 5000"
     );
+    // One metadata GROUP per gift-card line, carrying the quantity, rather
+    // than one group per unit -- see H-8 in workers/checkout.js.
+    eq(
+      res.sessionParams.get("metadata[gift_card_1_qty]"),
+      "2",
+      "Gift card line records qty 2 in a single metadata group"
+    );
     eq(
       res.sessionParams.get("metadata[gift_card_2_amount_cents]"),
-      "5000",
-      "Gift card 2 amount_cents is 5000"
+      null,
+      "No per-unit metadata expansion for a qty-2 gift card line"
     );
     eq(
       res.sessionParams.get("metadata[gift_card_1_recipient]"),
@@ -560,10 +619,39 @@ async function testWorkerAdversarial() {
       "always",
       "Creates new customer via standard Checkout flow"
     );
+    // The market is real, it just has no ZIP recorded: tax falls back to the
+    // buyer's own (billing) address, but the order is still a pickup, so no
+    // delivery address is collected and no shipping is charged.
     eq(
       resNoZip.sessionParams.get("shipping_address_collection[allowed_countries][0]"),
+      null,
+      "A real market with no ZIP is still a pickup: no shipping address collected"
+    );
+    eq(
+      resNoZip.sessionParams.get("billing_address_collection"),
+      "required",
+      "Billing address is still required so Stripe can rate the order"
+    );
+
+    // A label that is not on the calendar at all is ignored outright.
+    const resForged = await executeWorkerCheckout({
+      items: [{ id: "lavender-soak", qty: 1 }],
+      pickup_market: "Fake Market — Whenever (Portland, OR)"
+    });
+    eq(
+      resForged.sessionParams.get("metadata[pickup_market]"),
+      null,
+      "A forged market label is never recorded as a pickup"
+    );
+    eq(
+      resForged.sessionParams.get("metadata[pickup_market_rejected]"),
+      "true",
+      "A forged market label is flagged as rejected"
+    );
+    eq(
+      resForged.sessionParams.get("shipping_address_collection[allowed_countries][0]"),
       "US",
-      "Collects shipping address as safe fallback"
+      "A forged market label falls back to the ordinary shipped flow"
     );
   }
 }
@@ -1021,24 +1109,56 @@ async function testCartDOMAdversarial() {
     eq(YLCart.getWalletPoints(), 0, "Wallet points recover safely to 0");
   }
 
-  // 4.4 Array containing poisoned non-objects in yl-cart-v1
+  /* 4.4 Poisoned non-objects in yl-cart-v1.
+
+     This assertion used to CONFIRM a crash: load() accepted any
+     Array.isArray(parsed) without filtering, so a stored [null] made
+     totalCount() throw "Cannot read properties of null" during init() and
+     the whole cart drawer died on page load -- one poisoned localStorage
+     value (a bad write, a half-finished migration, another script on the
+     origin) and the shop was unusable until the visitor cleared site data.
+
+     cart.js now validates every entry on load and clamps quantities, so the
+     assertion is inverted: init() must SURVIVE the poisoned array and come
+     up with zero lines. None of these five entries is a usable line item --
+     null, a number, a string, an object with no id, and an object with an
+     empty id -- so every one of them is dropped.
+
+     Both storage shapes are exercised: the legacy bare array (which cart.js
+     migrates) and the current {version:1, items:[...]} envelope. */
   {
-    mockStorageMap.set("yl-cart-v1", JSON.stringify([null, 42, "string", {}, { id: "" }]));
-    let loadCrashed = false;
-    let crashError = null;
-    try {
-      YLCart.init({ force: true });
-    } catch (e) {
-      loadCrashed = true;
-      crashError = e.message;
+    const poisoned = [null, 42, "string", {}, { id: "" }];
+    const shapes = [
+      { label: "legacy bare array", value: JSON.stringify(poisoned) },
+      { label: "versioned envelope", value: JSON.stringify({ version: 1, items: poisoned }) }
+    ];
+
+    for (const shape of shapes) {
+      mockStorageMap.set("yl-cart-v1", shape.value);
+      let loadCrashed = false;
+      let crashError = null;
+      try {
+        YLCart.init({ force: true });
+      } catch (e) {
+        loadCrashed = true;
+        crashError = e.message;
+      }
+      eq(loadCrashed, false, `init() survives a poisoned ${shape.label} in localStorage`);
+      if (loadCrashed) {
+        console.error(`      observed error: ${crashError}`);
+        continue;
+      }
+      eq(YLCart.items(), [], `Every unusable entry is dropped from a poisoned ${shape.label}`);
+      eq(YLCart.count(), 0, `Cart renders zero lines after a poisoned ${shape.label}`);
     }
-    // Record empirical observation: load() blindly accepts Array.isArray(parsed)
-    // without filtering non-null items, causing totalCount() to throw TypeError.
-    assert(
-      loadCrashed === true && crashError.includes("Cannot read properties of null"),
-      "Empirical vulnerability confirmed: poisoned array [null] in localStorage crashes totalCount() during init()",
-      `Observed error: ${crashError}`
-    );
+
+    // The cart is not merely empty, it is still WORKING: a real add after a
+    // poisoned load has to behave normally.
+    YLCart.addItem({ id: "lavender-soak", name: "Lavender Soak", price: 18.0, qty: 2 });
+    eq(YLCart.items().length, 1, "The cart still accepts items after recovering from poison");
+    eq(YLCart.count(), 2, "Counts are correct after recovering from poison");
+    YLCart.clear();
+    mockStorageMap.delete("yl-cart-v1");
   }
 
   // 4.5 restoreCartFromUrl with URL state cleanup

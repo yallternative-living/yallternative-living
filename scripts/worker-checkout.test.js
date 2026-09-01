@@ -44,9 +44,14 @@ const mockCatalog = {
       name: "Frankincense Salve",
       price: 19.99,
       category: "salves",
+      stock: 8,
       variants: {
         name: "Size",
-        options: [{ name: "2oz", priceDelta: 0 }]
+        options: [
+          { label: "2oz", priceDelta: 0 },
+          { label: "1oz", priceDelta: -6.0 },
+          { label: "4oz", priceDelta: 15.0, soldOut: true }
+        ]
       }
     },
     {
@@ -55,14 +60,57 @@ const mockCatalog = {
       price: 25.0,
       variants: {
         name: "Amount",
-        options: [{ name: "Preset $25", priceDelta: 0 }]
+        options: [{ label: "Preset $25", priceDelta: 0 }]
       }
+    },
+    {
+      id: "coming-soon-oil",
+      name: "Coming Soon Botanical Oil",
+      price: 22.0,
+      category: "body",
+      comingSoon: true
+    },
+    {
+      id: "sold-out-soak",
+      name: "Sold Out Soak",
+      price: 12.0,
+      category: "soaks",
+      inStock: false
+    },
+    {
+      id: "last-three-balm",
+      name: "Last Three Balm",
+      price: 9.0,
+      category: "salves",
+      stock: 3
     }
   ],
   shop: {
-    freeShippingThreshold: 40
+    freeShippingThreshold: 40,
+    shippingMilestones: [
+      { threshold: 40, reward: "Free Tracked Shipping", icon: "truck" },
+      { threshold: 60, reward: "Free Handcrafted Pocket Salve", icon: "gift" }
+    ]
   }
 };
+
+/* The Worker validates a pickup label against the real market calendar on
+   every checkout now, so these tests need one. PICKUP_LABEL is byte-identical
+   to what cart.js's pickup <select> renders for this event -- see
+   pickupLabelFor() in workers/checkout.js. */
+const mockEvents = {
+  upcoming: [
+    {
+      id: "landrum-market",
+      name: "Landrum Farmers Market",
+      dateLabel: "Saturdays 9am-12pm",
+      location: "Landrum, SC",
+      zip: "29356"
+    }
+  ],
+  past: []
+};
+const PICKUP_LABEL = "Landrum Farmers Market — Saturdays 9am-12pm (Landrum, SC)";
 
 const mockEnv = {
   STRIPE_SECRET_KEY: "sk_test_mock_12345",
@@ -85,6 +133,13 @@ async function executeCheckout(body, mockStripeResponses = {}) {
         ok: true,
         clone: () => ({ body: null }),
         json: async () => mockCatalog
+      };
+    }
+    if (u.includes("events.json")) {
+      return {
+        ok: true,
+        clone: () => ({ body: null }),
+        json: async () => mockEvents
       };
     }
     if (u.includes("api.stripe.com/v1/promotion_codes")) {
@@ -214,27 +269,65 @@ async function runWorkerCheckoutTests() {
     );
   }
 
-  // Test 5: Pickup Market in Session Metadata (supports pickup_market & pickupMarket)
+  // Test 5: Pickup Market validated against events.json (supports
+  // pickup_market & pickupMarket). Tax is OFF in this harness, which is
+  // exactly the case that used to skip validation entirely.
   {
     const result = await executeCheckout({
       items: [{ id: "lavender-soak", qty: 1 }],
-      pickup_market: "Landrum SC Farmers Market (Saturdays 9am-12pm)"
+      pickup_market: PICKUP_LABEL
     });
 
     eq(
       result.sessionParams.get("metadata[pickup_market]"),
-      "Landrum SC Farmers Market (Saturdays 9am-12pm)",
+      PICKUP_LABEL,
       "pickup_market captured in Stripe session metadata"
     );
     eq(
+      result.sessionParams.get("metadata[pickup_market_rejected]"),
+      null,
+      "A calendar-matched pickup label is not flagged as rejected"
+    );
+    // A pickup isn't shipped anywhere: no shipping line, no address form.
+    eq(
       result.sessionParams.get("shipping_options[0][shipping_rate_data][fixed_amount][amount]"),
-      "0",
-      "Pickup market orders apply $0 shipping rate"
+      null,
+      "Honoured pickup adds no shipping option at all"
     );
     eq(
-      result.sessionParams.get("shipping_options[0][shipping_rate_data][display_name]"),
-      "Free shipping",
-      "Pickup market orders display 'Free shipping'"
+      result.sessionParams.get("shipping_address_collection[allowed_countries][0]"),
+      null,
+      "Honoured pickup collects no shipping address"
+    );
+  }
+
+  // Test 5b: An invented pickup label is ignored (it used to waive shipping
+  // on any order that merely sent the field, tax on or off).
+  {
+    const result = await executeCheckout({
+      items: [{ id: "lavender-soak", qty: 1 }],
+      pickup_market: "Totally Made Up Market — Someday (Nowhere, SC)"
+    });
+
+    eq(
+      result.sessionParams.get("metadata[pickup_market]"),
+      null,
+      "Unknown pickup label is never recorded as a real market"
+    );
+    eq(
+      result.sessionParams.get("metadata[pickup_market_rejected]"),
+      "true",
+      "Unknown pickup label is flagged with pickup_market_rejected"
+    );
+    eq(
+      result.sessionParams.get("shipping_options[0][shipping_rate_data][fixed_amount][amount]"),
+      "1000",
+      "Unknown pickup label still pays the $10 flat shipping rate"
+    );
+    eq(
+      result.sessionParams.get("shipping_address_collection[allowed_countries][0]"),
+      "US",
+      "Unknown pickup label still collects a shipping address"
     );
   }
 
@@ -339,7 +432,7 @@ async function runWorkerCheckoutTests() {
     const result = await executeCheckout(
       {
         items: [{ id: "lavender-soak", qty: 1 }],
-        pickup_market: "Landrum Market",
+        pickup_market: PICKUP_LABEL,
         gift_card_code: "YALL-PTS-COMBO1",
         is_gift_order: true,
         gift_message: "Enjoy this gift at the booth!"
@@ -356,7 +449,7 @@ async function runWorkerCheckoutTests() {
     );
     eq(
       result.sessionParams.get("metadata[pickup_market]"),
-      "Landrum Market",
+      PICKUP_LABEL,
       "Combo: pickup_market captured"
     );
     eq(
@@ -366,7 +459,10 @@ async function runWorkerCheckoutTests() {
     );
   }
 
-  // Test 9: Express 1-Tap Wallets (Apple Pay, Google Pay, Stripe Link, Cash App Pay)
+  // Test 9: Payment methods come from the Stripe Dashboard, not from code.
+  // Sending an explicit payment_method_types list pinned every session to
+  // exactly card/link/cashapp, so enabling (or urgently disabling) a method
+  // in the Dashboard had no effect on the live checkout.
   {
     const result = await executeCheckout({
       items: [{ id: "lavender-soak", qty: 1 }]
@@ -375,23 +471,18 @@ async function runWorkerCheckoutTests() {
     eq(result.status, 200, "Standard checkout returns HTTP 200");
     eq(
       result.sessionParams.get("payment_method_types[0]"),
-      "card",
-      "payment_method_types[0] is 'card' (Apple Pay / Google Pay / cards)"
+      null,
+      "No payment_method_types sent: the account's enabled methods apply"
     );
     eq(
       result.sessionParams.get("payment_method_types[1]"),
-      "link",
-      "payment_method_types[1] is 'link' (Stripe Link 1-tap checkout)"
-    );
-    eq(
-      result.sessionParams.get("payment_method_types[2]"),
-      "cashapp",
-      "payment_method_types[2] is 'cashapp' (Cash App Pay)"
+      null,
+      "No second payment_method_types entry either"
     );
     eq(
       result.sessionParams.get("payment_method_options[card][request_three_d_secure]"),
       "automatic",
-      "payment_method_options[card][request_three_d_secure] is 'automatic'"
+      "payment_method_options[card][request_three_d_secure] is still 'automatic'"
     );
   }
 
@@ -458,29 +549,19 @@ async function runWorkerCheckoutTests() {
     const result = await executeCheckout({
       items: [
         { id: "lavender-soak", qty: 2 },
-        { id: "frankincense-salve", qty: 1 }
+        { id: "frankincense-salve", qty: 1, variant: "2oz" }
       ],
       is_gift_order: true,
       gift_message: "Happy Holidays from the South!",
-      pickup_market: "Travelers Rest Farmers Market",
+      pickup_market: PICKUP_LABEL,
       discount_code: "HOLIDAY25"
     });
 
     eq(result.status, 200, "Comprehensive checkout returns HTTP 200");
     eq(
       result.sessionParams.get("payment_method_types[0]"),
-      "card",
-      "Comprehensive: payment_method_types[0] === 'card'"
-    );
-    eq(
-      result.sessionParams.get("payment_method_types[1]"),
-      "link",
-      "Comprehensive: payment_method_types[1] === 'link'"
-    );
-    eq(
-      result.sessionParams.get("payment_method_types[2]"),
-      "cashapp",
-      "Comprehensive: payment_method_types[2] === 'cashapp'"
+      null,
+      "Comprehensive: no payment_method_types pinned"
     );
     eq(
       result.sessionParams.get("payment_method_options[card][request_three_d_secure]"),
@@ -499,8 +580,13 @@ async function runWorkerCheckoutTests() {
     );
     eq(
       result.sessionParams.get("metadata[pickup_market]"),
-      "Travelers Rest Farmers Market",
+      PICKUP_LABEL,
       "Comprehensive: pickup_market captured"
+    );
+    eq(
+      result.sessionParams.get("line_items[1][price_data][product_data][name]"),
+      "Frankincense Salve (2oz)",
+      "Comprehensive: line name carries the catalog's own variant label"
     );
     eq(
       result.sessionParams.get("metadata[discount_code]"),
@@ -546,6 +632,287 @@ async function runWorkerCheckoutTests() {
       resultMixed.sessionParams.get("metadata[free_gift]"),
       null,
       "Gift cards are excluded from physical subtotal for free_gift qualification"
+    );
+  }
+
+  /* ==========================================================
+     Test 15 (H-2): the promised free gift is a real $0 line on the order,
+     not just a metadata flag nobody downstream ever sees. The threshold
+     comes from shop.shippingMilestones, so moving it in the CMS moves both
+     the promise and the order.
+     ========================================================== */
+  {
+    const below = await executeCheckout({ items: [{ id: "lavender-soak", qty: 1 }] }); // $18
+    eq(
+      below.sessionParams.get("line_items[1][price_data][product_data][name]"),
+      null,
+      "Sub-milestone order has no free gift line item"
+    );
+
+    const above = await executeCheckout({ items: [{ id: "lavender-soak", qty: 4 }] }); // $72
+    eq(above.status, 200, "Qualifying order returns HTTP 200");
+    eq(
+      above.sessionParams.get("line_items[1][price_data][product_data][name]"),
+      "Free Handcrafted Pocket Salve (gift)",
+      "Qualifying order carries the free gift as a real line item"
+    );
+    eq(
+      above.sessionParams.get("line_items[1][price_data][unit_amount]"),
+      "0",
+      "Free gift line is charged $0"
+    );
+    eq(above.sessionParams.get("line_items[1][quantity]"), "1", "Free gift line is quantity 1");
+    eq(
+      above.sessionParams.get("line_items[1][price_data][product_data][tax_code]"),
+      null,
+      "Free gift line carries no tax code (tax is off in this harness anyway)"
+    );
+
+    // The milestone is read from the catalog, not hardcoded: $54 clears a
+    // $50 milestone even though it is under the $60 default.
+    const originalMilestones = mockCatalog.shop.shippingMilestones;
+    mockCatalog.shop.shippingMilestones = [
+      { threshold: 50, reward: "Free Handcrafted Pocket Salve", icon: "gift" }
+    ];
+    const cmsDriven = await executeCheckout({ items: [{ id: "lavender-soak", qty: 3 }] }); // $54
+    mockCatalog.shop.shippingMilestones = originalMilestones;
+    eq(
+      cmsDriven.sessionParams.get("line_items[1][price_data][product_data][name]"),
+      "Free Handcrafted Pocket Salve (gift)",
+      "Free gift milestone follows shop.shippingMilestones from the CMS"
+    );
+  }
+
+  /* ==========================================================
+     Test 16 (H-1): variants are resolved against the catalog's own option
+     list. An unknown label used to be ignored and charged at base price.
+     ========================================================== */
+  {
+    const good = await executeCheckout({
+      items: [{ id: "frankincense-salve", qty: 1, variant: "1oz" }]
+    });
+    eq(good.status, 200, "Known variant checks out");
+    eq(
+      good.sessionParams.get("line_items[0][price_data][unit_amount]"),
+      "1399",
+      "Known variant applies its priceDelta ($19.99 - $6.00)"
+    );
+
+    const spaced = await executeCheckout({
+      items: [{ id: "frankincense-salve", qty: 1, variant: "  2OZ " }]
+    });
+    eq(
+      spaced.sessionParams.get("line_items[0][price_data][product_data][name]"),
+      "Frankincense Salve (2oz)",
+      "Case/whitespace differences still resolve to the catalog label"
+    );
+
+    const unknown = await executeCheckout({
+      items: [{ id: "frankincense-salve", qty: 1, variant: "24 oz " }]
+    });
+    eq(unknown.status, 400, "Unknown variant '24 oz ' is rejected, not charged at base price");
+    eq(
+      unknown.data.error,
+      "Product not purchasable: frankincense-salve",
+      "Unknown variant returns the curated not-purchasable message"
+    );
+
+    const soldOut = await executeCheckout({
+      items: [{ id: "frankincense-salve", qty: 1, variant: "4oz" }]
+    });
+    eq(soldOut.status, 400, "Sold-out variant is rejected");
+
+    const noVariant = await executeCheckout({
+      items: [{ id: "frankincense-salve", qty: 1 }]
+    });
+    eq(noVariant.status, 400, "A product with options cannot be bought without choosing one");
+  }
+
+  /* ==========================================================
+     Test 17 (H-4): coming-soon, sold-out and stock-limited products.
+     ========================================================== */
+  {
+    const soon = await executeCheckout({ items: [{ id: "coming-soon-oil", qty: 1 }] });
+    eq(soon.status, 400, "comingSoon product is rejected");
+    eq(
+      soon.data.error,
+      "Not available yet: Coming Soon Botanical Oil",
+      "comingSoon rejection is a curated shopper-facing message"
+    );
+
+    const gone = await executeCheckout({ items: [{ id: "sold-out-soak", qty: 1 }] });
+    eq(gone.status, 400, "inStock === false product is rejected");
+    eq(gone.data.error, "Sold out: Sold Out Soak", "Sold-out rejection names the product");
+
+    const capped = await executeCheckout({ items: [{ id: "last-three-balm", qty: 25 }] });
+    eq(capped.status, 200, "An over-ask on a stocked product still checks out");
+    eq(
+      capped.sessionParams.get("line_items[0][quantity]"),
+      "3",
+      "Quantity is clamped to the stock actually on hand"
+    );
+  }
+
+  /* ==========================================================
+     Test 18 (H-8): one metadata group per gift-card LINE, carrying qty.
+     ========================================================== */
+  {
+    const single = await executeCheckout({
+      items: [
+        {
+          id: "yallternative-gift-card",
+          qty: 1,
+          variant: "Preset $25",
+          giftRecipientEmail: "friend@example.com"
+        }
+      ]
+    });
+    eq(
+      single.sessionParams.get("metadata[gift_card_1_amount_cents]"),
+      "2500",
+      "A single card writes exactly the keys it always did"
+    );
+    eq(
+      single.sessionParams.get("metadata[gift_card_1_qty]"),
+      null,
+      "qty is omitted for a single card (unchanged output)"
+    );
+
+    const many = await executeCheckout({
+      items: [
+        {
+          id: "yallternative-gift-card",
+          qty: 6,
+          variant: "Preset $25",
+          giftRecipientEmail: "friend@example.com",
+          giftSenderName: "Sam",
+          giftMessage: "Enjoy!"
+        }
+      ]
+    });
+    eq(
+      many.sessionParams.get("metadata[gift_card_1_qty]"),
+      "6",
+      "A 6-card line records its quantity in one metadata group"
+    );
+    eq(
+      many.sessionParams.get("metadata[gift_card_2_amount_cents]"),
+      null,
+      "No per-unit metadata expansion (that is what blew the 50-key cap)"
+    );
+    eq(many.sessionParams.get("line_items[0][quantity]"), "6", "All 6 cards are still charged");
+
+    // The recipient address is validated, not just truncated.
+    const badEmail = await executeCheckout({
+      items: [
+        {
+          id: "yallternative-gift-card",
+          qty: 1,
+          variant: "Preset $25",
+          giftRecipientEmail: "not-an-email"
+        }
+      ]
+    });
+    eq(badEmail.status, 400, "An unmailable gift recipient address is rejected at checkout");
+    eq(
+      badEmail.data.error,
+      "Please enter a valid email address for your gift card recipient.",
+      "Gift recipient rejection is a curated shopper-facing message"
+    );
+
+    const injected = await executeCheckout({
+      items: [
+        {
+          id: "yallternative-gift-card",
+          qty: 1,
+          variant: "Preset $25",
+          giftRecipientEmail: "friend@example.com\r\nBcc: attacker@evil.test"
+        }
+      ]
+    });
+    eq(injected.status, 400, "A header-injection attempt in the recipient address is rejected");
+  }
+
+  /* ==========================================================
+     Test 19 (C-2a): the ephemeral gift-card coupon is single-use and its id
+     is recorded so an abandoned session can be cleaned up. A cart that
+     contains a gift card falls through to Stripe's own promo box instead.
+     ========================================================== */
+  {
+    const promo = {
+      data: [
+        {
+          id: "promo_gc_1",
+          code: "YALL-CARD99",
+          coupon: { id: "coupon_gc_1", amount_off: 5000 }
+        }
+      ]
+    };
+
+    const applied = await executeCheckout(
+      { items: [{ id: "lavender-soak", qty: 1 }], gift_card_code: "YALL-CARD99" },
+      { promoCode: promo }
+    );
+    eq(
+      applied.couponParams.get("max_redemptions"),
+      "1",
+      "Ephemeral gift-card coupon is capped at a single redemption"
+    );
+    eq(
+      applied.sessionParams.get("metadata[gift_card_ephemeral_coupon_id]"),
+      "ephemeral_coupon_123",
+      "Ephemeral coupon id is recorded so the webhook can clean it up"
+    );
+
+    const buyingACard = await executeCheckout(
+      {
+        items: [
+          { id: "yallternative-gift-card", qty: 1, variant: "Preset $25" },
+          { id: "lavender-soak", qty: 1 }
+        ],
+        gift_card_code: "YALL-CARD99"
+      },
+      { promoCode: promo }
+    );
+    eq(
+      buyingACard.couponParams,
+      null,
+      "No ephemeral coupon is minted when the cart itself contains a gift card"
+    );
+    eq(
+      buyingACard.sessionParams.get("allow_promotion_codes"),
+      "true",
+      "Buying a card with a card falls through to Stripe's promotion-code box"
+    );
+    eq(
+      buyingACard.sessionParams.get("metadata[gift_card_redeemed_code]"),
+      null,
+      "No pre-applied redemption metadata when the pre-application is refused"
+    );
+  }
+
+  /* ==========================================================
+     Test 20 (H-8 guard): a metadata payload that would blow Stripe's 50-key
+     cap is refused with a message the shopper can act on.
+     ========================================================== */
+  {
+    const items = [];
+    for (let i = 0; i < 12; i++) {
+      items.push({
+        id: "yallternative-gift-card",
+        qty: 1,
+        variant: "Preset $25",
+        giftRecipientEmail: `friend${i}@example.com`,
+        giftSenderName: "Sam",
+        giftMessage: "Enjoy!"
+      });
+    }
+    const res = await executeCheckout({ items });
+    eq(res.status, 400, "An order whose metadata would exceed the cap is refused");
+    eq(
+      res.data.error,
+      "Please split orders of more than 12 gift cards into separate checkouts.",
+      "Metadata cap returns a curated shopper-facing message"
     );
   }
 

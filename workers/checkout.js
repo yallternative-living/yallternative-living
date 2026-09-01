@@ -110,6 +110,17 @@ const ALLOWED_ORIGINS = ["https://yallternativeliving.com", "https://www.yallter
 // Dashboard can never silently alter these requests' behavior. Bump
 // deliberately -- re-check this file's use of `session.error`/`session.url`
 // still holds -- rather than letting it drift for years.
+//
+// !! ONE VALUE, FOUR FILES !! This exact string is duplicated in every
+// process that talks to Stripe for this shop:
+//   - workers/checkout.js                     (this file, creates sessions)
+//   - netlify/functions/fulfill-gift-card.js  (webhook, mints/rolls codes)
+//   - netlify/functions/gift-card-balance.js  (balance lookup)
+//   - netlify/functions/redeem-points.js      (disabled, still pinned)
+// They read and write the SAME objects (promotion codes, coupons, sessions),
+// so a version bumped in one file and not the others means one side sends a
+// shape the other cannot parse -- a gift card that mints but never rolls
+// over. Change all four together, in the same commit, or none of them.
 const STRIPE_API_VERSION = "2026-06-24.dahlia";
 
 const GIFT_CARD_ID = "yallternative-gift-card";
@@ -126,6 +137,10 @@ const TAX_CODE_SHIPPING = "txcd_92010001"; // Shipping
 const MAX_QTY_PER_ITEM = 99;
 const MAX_LINE_ITEMS = 50;
 const MAX_GIFT_TEXT_LEN = 500;
+// Stripe's own limit is 50 metadata keys per object; stop short of it so the
+// session-level keys (pickup, discount, gift flags, gift-card redemption)
+// always fit alongside the per-gift-card groups. See the guard in fetch().
+const MAX_METADATA_KEYS = 45;
 
 // Errors whose message is safe to show the shopper (cart/validation problems
 // they can act on). Anything NOT a ClientError is treated as internal: it's
@@ -346,10 +361,18 @@ function pickupLabelFor(evt) {
  * the state is read off the tail of the "City, ST" location string, since
  * markets aren't always in SC (past events include Flat Rock, NC).
  */
-function resolvePickupAddress(events, pickupMarket) {
-  if (!events || !pickupMarket) return null;
+// Is this label a market that's actually on the calendar? This is the single
+// gate on whether an order is treated as a pickup at all -- it runs on every
+// checkout, tax on or off (an unvalidated label used to waive shipping on any
+// order that merely sent the field). Returns the calendar event, or null.
+function findPickupEvent(events, pickupMarket) {
+  if (!events || !pickupMarket || typeof pickupMarket !== "string") return null;
   const upcoming = Array.isArray(events.upcoming) ? events.upcoming : [];
-  const evt = upcoming.find((e) => pickupLabelFor(e) === pickupMarket);
+  return upcoming.find((e) => pickupLabelFor(e) === pickupMarket) || null;
+}
+
+function resolvePickupAddress(events, pickupMarket) {
+  const evt = findPickupEvent(events, pickupMarket);
   if (!evt) return null;
 
   const zip = String(evt.zip || "").trim();
@@ -429,6 +452,50 @@ function findEntry(catalog, id) {
   return bundleMapOf(catalog).get(bundleId) || null;
 }
 
+// Variant labels arrive from the client and are matched against the catalog's
+// own option list, never trusted as free text. Normalisation is deliberately
+// forgiving about the things a copy/paste or a stale cart mangles (case,
+// surrounding and doubled whitespace) and deliberately strict about
+// everything else: "S " is the sold-out "S", but "24 oz" is not "4 oz".
+function normalizeVariantLabel(value) {
+  return String(value === null || value === undefined ? "" : value)
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+/**
+ * Resolve a client-sent variant label to the real catalog option.
+ *
+ * Returns the matching option object, or null when the item is not
+ * purchasable as sent. Callers must treat null as "fail closed":
+ *   - the entry has options and the client named one that doesn't exist
+ *     (previously this silently charged the base price -- a shopper who
+ *     edited the label got a real product at a price no page ever offered),
+ *   - the named option is sold out,
+ *   - the entry has options and the client named none (an order can't be
+ *     packed without knowing which size shipped).
+ * An entry with no options at all returns null too; callers distinguish that
+ * case with hasVariantOptions() before deciding it's an error.
+ */
+function hasVariantOptions(entry) {
+  return Boolean(
+    entry &&
+    entry.variants &&
+    Array.isArray(entry.variants.options) &&
+    entry.variants.options.length
+  );
+}
+
+function findVariantOption(entry, variantLabel) {
+  if (!hasVariantOptions(entry)) return null;
+  if (variantLabel === null || variantLabel === undefined || variantLabel === "") return null;
+  const wanted = normalizeVariantLabel(variantLabel);
+  if (!wanted) return null;
+  const opt = entry.variants.options.find((o) => o && normalizeVariantLabel(o.label) === wanted);
+  return opt || null;
+}
+
 // Bundles in products.json never carry their own `price` field -- like
 // main.js's bundlesHTML() and scripts/build-site-data.js's bundlePricing(),
 // their price is always computed live from their real component products'
@@ -473,56 +540,45 @@ function getVolumePricingRules(catalog) {
   return DEFAULT_VOLUME_PRICING;
 }
 
+// Volume pricing decides how many units of a rule's product are in the cart,
+// which is what unlocks the cheaper unit price. Every input to that decision
+// therefore has to come from the catalog, not from the payload (F11): a
+// client that could assert its own `category`, or have an unrecognised
+// `variant` string taken at face value, could mix two unrelated products and
+// still collect the multi-buy price. So:
+//   - the category is ONLY ever the catalog entry's category (no
+//     item.category fallback, no per-id hardcodes for products whose entry
+//     failed to load -- an unknown id simply doesn't qualify),
+//   - a variant claim is resolved against the entry's real option list and
+//     the CATALOG's label is what gets compared to the rule.
+// Products with no options at all can still qualify (Sleep Salve is a 2oz
+// salve with nothing to choose), but only on the catalog's own text.
 function itemMatchesVolumeRule(item, rule, catalog) {
   if (!item || !item.id || !rule || rule.enabled === false) return false;
-  let category = "";
-  let entry = null;
-  if (catalog) {
-    entry = findEntry(catalog, String(item.id));
-    if (entry && entry.category) category = entry.category;
-  }
-  if (!category && item.category) {
-    category = item.category;
-  }
-  if (
-    !category &&
-    (String(item.id) === "frankincense-salve" || String(item.id) === "sleep-salve")
-  ) {
-    category = "salves";
-  }
-  if (category !== rule.category) return false;
+  if (!catalog) return false;
+  const entry = findEntry(catalog, String(item.id));
+  if (!entry) return false;
+  if ((entry.category || "") !== rule.category) return false;
 
   if (rule.qualifyingVariant) {
+    // Whitespace is stripped entirely here (not just collapsed) so a rule
+    // written "2 oz" still matches a catalog option labelled "2oz".
     const normQ = String(rule.qualifyingVariant).trim().toLowerCase().replace(/\s+/g, "");
-    const v = item.variant || item.variantLabel;
-    if (v) {
-      const normV = String(v).trim().toLowerCase().replace(/\s+/g, "");
-      return normV === normQ;
+    if (hasVariantOptions(entry)) {
+      const opt = findVariantOption(entry, item.variant || item.variantLabel);
+      if (!opt || opt.soldOut) return false;
+      return String(opt.label).trim().toLowerCase().replace(/\s+/g, "") === normQ;
     }
-    const id = String(item.id);
-    if (id === "miracle-balm") return false;
-    if (id === "sleep-salve") return true;
-
-    if (entry) {
-      if (
-        entry.variants &&
-        Array.isArray(entry.variants.options) &&
-        entry.variants.options.length > 0
-      ) {
-        return false;
-      }
-      const text = (
-        String(entry.name || "") +
-        " " +
-        String(entry.blurb || "") +
-        " " +
-        String(entry.description || "")
-      )
-        .toLowerCase()
-        .replace(/\s+/g, "");
-      return text.includes(normQ);
-    }
-    return false;
+    const text = (
+      String(entry.name || "") +
+      " " +
+      String(entry.blurb || "") +
+      " " +
+      String(entry.description || "")
+    )
+      .toLowerCase()
+      .replace(/\s+/g, "");
+    return text.includes(normQ);
   }
   return true;
 }
@@ -581,18 +637,19 @@ function resolveUnitAmountCents(catalog, entry, variantLabel, isBundle, ruleCoun
     price = typeof entry.price === "number" ? entry.price : null;
   }
   if (price === null || price === undefined) return null;
-  if (!isBundle && entry.variants && Array.isArray(entry.variants.options)) {
-    const opts = entry.variants.options;
-    // Per-variant sold-out, mirroring main.js's addToCartHTML(): a sold-out
-    // option never renders as orderable, so an order naming one (or naming
-    // no variant when every option is sold out) can only come from a stale
-    // cart or a tampered client -- fail closed either way.
-    if (opts.length && opts.every((o) => o.soldOut)) return null;
-    if (variantLabel) {
-      const opt = opts.find((o) => o.label === variantLabel);
-      if (opt && opt.soldOut) return null;
-      if (opt && typeof opt.priceDelta === "number") price += opt.priceDelta;
-    }
+  if (!isBundle && hasVariantOptions(entry)) {
+    // A product with options is only sold AS one of those options. Anything
+    // else -- an unknown label, a sold-out one, or no label at all -- is not
+    // purchasable, rather than quietly falling back to the base price:
+    //   - an unknown label used to charge base price for a product no page
+    //     ever offered at that price (and left fulfilment with no size),
+    //   - "no label" can only reach here from a stale cart or a tampered
+    //     client, since every add-to-cart control picks an option.
+    // Matching is by the CATALOG's label (normalised for case/whitespace),
+    // and the matched option is what names the Stripe line item.
+    const opt = findVariantOption(entry, variantLabel);
+    if (!opt || opt.soldOut) return null;
+    if (typeof opt.priceDelta === "number") price += opt.priceDelta;
   }
 
   const baseCents = Math.round(price * 100);
@@ -616,6 +673,69 @@ function resolveGiftCardAmountCents(variantLabel) {
 
 function truncate(s, max) {
   return String(s || "").slice(0, max);
+}
+
+// Strip the control characters that have no business in Stripe metadata (and
+// that would land unescaped in the gift-card email the webhook sends), then
+// trim. Tabs/newlines are kept: a gift message is allowed to have lines.
+function stripControlChars(s) {
+  return (
+    String(s === null || s === undefined ? "" : s)
+      // eslint-disable-next-line no-control-regex
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "")
+      .trim()
+  );
+}
+
+/**
+ * Validate a gift-card recipient address before it becomes the destination of
+ * a real email carrying real money.
+ *
+ * This is the one client-supplied string this Worker hands to an outbound
+ * mailer: fulfill-gift-card.js sends the redeemable code to whatever address
+ * lands in session metadata. An unvalidated value meant a typo silently
+ * burned the card (the code exists, nobody can receive it), and a value
+ * carrying a CR/LF or a control byte is header-injection material on the way
+ * out. Reject at checkout, where the shopper can still fix it, with a message
+ * they're allowed to see (ClientError -> 400 with this text).
+ */
+const MAX_EMAIL_LEN = 254; // RFC 5321 practical maximum
+
+function validateGiftRecipientEmail(raw) {
+  const clean = stripControlChars(raw).replace(/\s+/g, "");
+  if (
+    !clean ||
+    clean.length > MAX_EMAIL_LEN ||
+    !/^[^\s@,;<>]+@[^\s@,;<>.]+(?:\.[^\s@,;<>.]+)+$/.test(clean)
+  ) {
+    throw new ClientError("Please enter a valid email address for your gift card recipient.");
+  }
+  return clean;
+}
+
+// The cart drawer's milestone meter promises a free pocket salve once the
+// physical subtotal clears the top shipping milestone. Read the number from
+// the same CMS-editable list the meter renders from (products.json
+// shop.shippingMilestones) so raising it in /admin moves the promise and what
+// Stripe puts on the order together; fall back to the $60 the copy has always
+// quoted when the field is missing or malformed.
+const DEFAULT_FREE_GIFT_THRESHOLD_CENTS = 6000; // $60.00
+const FREE_GIFT_LINE_NAME = "Free Handcrafted Pocket Salve (gift)";
+
+function resolveFreeGiftThresholdCents(catalog) {
+  const milestones =
+    catalog && catalog.shop && Array.isArray(catalog.shop.shippingMilestones)
+      ? catalog.shop.shippingMilestones
+      : [];
+  for (const m of milestones) {
+    if (!m) continue;
+    const isGiftMilestone = m.icon === "gift" || /salve|gift/i.test(String(m.reward || ""));
+    const dollars = Number(m.threshold);
+    if (isGiftMilestone && Number.isFinite(dollars) && dollars > 0) {
+      return Math.round(dollars * 100);
+    }
+  }
+  return DEFAULT_FREE_GIFT_THRESHOLD_CENTS;
 }
 
 // Build-your-own box. The shopper picks their own mix, so unlike a bundle
@@ -722,10 +842,35 @@ export default {
       const catalog = await loadCatalog(env, ctx);
 
       const metadata = {}; // Stripe session-level metadata (gift recipient/sender/message)
-      const pickup = body && (body.pickupMarket || body.pickup_market);
-      if (pickup && typeof pickup === "string") {
-        metadata.pickup_market = truncate(pickup, 250);
+
+      // Market pickup, validated on EVERY checkout rather than only when tax
+      // is on. Claiming a pickup waives the shipping charge and (below) the
+      // shipping-address form, so an unchecked label was a free-shipping
+      // switch any client could flip by sending a string; and a made-up
+      // market on the packing list is a physical order nobody can hand over.
+      // The label is re-derived from events.json exactly as cart.js renders
+      // it -- anything that doesn't match a real upcoming market is ignored
+      // (ordinary shipped order) and flagged in metadata so a legitimate
+      // mismatch, e.g. a market pulled from the calendar mid-session, is
+      // visible in the Stripe dashboard instead of silent. A calendar that
+      // won't load is treated the same way: it can't be honoured, so it
+      // falls back to the shipped flow rather than trusting the client.
+      const rawPickup = body && (body.pickupMarket || body.pickup_market);
+      let pickupEvent = null;
+      if (rawPickup && typeof rawPickup === "string") {
+        try {
+          pickupEvent = findPickupEvent(await loadEvents(env, ctx), rawPickup);
+        } catch (e) {
+          pickupEvent = null;
+        }
+        if (pickupEvent) {
+          // Store the calendar's own label, never the client's copy of it.
+          metadata.pickup_market = truncate(pickupLabelFor(pickupEvent), 250);
+        } else {
+          metadata.pickup_market_rejected = "true";
+        }
       }
+      const isPickup = Boolean(pickupEvent);
       const rawDiscount =
         body && (body.discount_code !== undefined ? body.discount_code : body.discountCode);
       if (rawDiscount && typeof rawDiscount === "string") {
@@ -791,6 +936,18 @@ export default {
         const entry = findEntry(catalog, String(item.id));
         if (!entry) throw new ClientError(`Product not found: ${item.id}`);
 
+        // Availability, from the same catalog fields the shop pages render
+        // from. A "Coming Soon" card has no working buy button and a sold-out
+        // product isn't offered at all, so an order for one can only come
+        // from a stale cart or an edited payload -- and taking the money for
+        // something that cannot ship is worse than losing the sale.
+        if (entry.comingSoon) {
+          throw new ClientError(`Not available yet: ${entry.name || item.id}`);
+        }
+        if (entry.inStock === false) {
+          throw new ClientError(`Sold out: ${entry.name || item.id}`);
+        }
+
         const isGiftCard = item.id === GIFT_CARD_ID;
         const isBundle = !isGiftCard && bundleMapOf(catalog).has(entry.id);
         const unitAmount = isGiftCard
@@ -801,15 +958,33 @@ export default {
         }
 
         const parsedQty = parseInt(item.qty, 10);
-        const qty =
+        let qty =
           Number.isNaN(parsedQty) || parsedQty < 1 ? 1 : Math.min(parsedQty, MAX_QTY_PER_ITEM);
 
+        // `stock` is the on-hand count the CMS tracks (null/absent = not
+        // tracked, e.g. made to order). Where it IS tracked, it caps the
+        // quantity: a shopper who asks for 10 of the 3 that exist gets 3 --
+        // charged for what can actually be shipped -- and 0 means there is
+        // nothing to sell at all.
+        if (typeof entry.stock === "number" && Number.isFinite(entry.stock)) {
+          if (entry.stock <= 0) {
+            throw new ClientError(`Sold out: ${entry.name || item.id}`);
+          }
+          qty = Math.min(qty, Math.floor(entry.stock));
+        }
+
+        // The variant in the line name comes from the catalog option that was
+        // matched server-side, never from item.variant -- otherwise a client
+        // could put arbitrary text (or a size it isn't buying) on the Stripe
+        // receipt and the packing slip derived from it.
+        const variantOption =
+          !isGiftCard && !isBundle ? findVariantOption(entry, item.variant) : null;
         const name =
           entry.name +
           (isGiftCard
             ? ` ($${(unitAmount / 100).toFixed(2)})`
-            : item.variant
-              ? ` (${item.variant})`
+            : variantOption
+              ? ` (${variantOption.label})`
               : "");
         const image =
           entry.image && env.SITE_ORIGIN
@@ -819,28 +994,43 @@ export default {
         // Gift-card recipient/sender/message never affect price -- they're
         // pure metadata, attached at the session level (indexed so multiple
         // gift cards in one order don't collide).
+        // One metadata GROUP per gift-card line, carrying its quantity --
+        // not one group per unit. Stripe caps a session at 50 metadata keys,
+        // so the old per-unit expansion meant a 10-card order silently lost
+        // the cards past the cap: keys were dropped, the webhook never saw
+        // them, and the buyer paid for codes that were never minted. The
+        // webhook (fulfill-gift-card.js) now expands `_qty` itself when it
+        // derives codes. A single card still writes exactly the keys it
+        // always did, so nothing about the one-card case changes.
         if (isGiftCard) {
-          for (let q = 0; q < qty; q++) {
-            giftLineIndex += 1;
-            const prefix = `gift_card_${giftLineIndex}`;
-            // amount_cents is what fulfill-gift-card.js (the Netlify function
-            // listening for checkout.session.completed) reads to know how
-            // much to put on the code it emails -- it's set here, server-
-            // side, from the same clamped unitAmount already computed above,
-            // never from anything the client sent directly.
-            metadata[`${prefix}_amount_cents`] = String(unitAmount);
-            if (item.giftRecipientEmail) {
-              metadata[`${prefix}_recipient`] = truncate(
-                item.giftRecipientEmail,
-                MAX_GIFT_TEXT_LEN
-              );
-            }
-            if (item.giftSenderName) {
-              metadata[`${prefix}_sender`] = truncate(item.giftSenderName, MAX_GIFT_TEXT_LEN);
-            }
-            if (item.giftMessage) {
-              metadata[`${prefix}_message`] = truncate(item.giftMessage, MAX_GIFT_TEXT_LEN);
-            }
+          giftLineIndex += 1;
+          const prefix = `gift_card_${giftLineIndex}`;
+          // amount_cents is what fulfill-gift-card.js (the Netlify function
+          // listening for checkout.session.completed) reads to know how
+          // much to put on the code it emails -- it's set here, server-
+          // side, from the same clamped unitAmount already computed above,
+          // never from anything the client sent directly.
+          metadata[`${prefix}_amount_cents`] = String(unitAmount);
+          if (qty > 1) metadata[`${prefix}_qty`] = String(qty);
+          if (
+            item.giftRecipientEmail !== undefined &&
+            item.giftRecipientEmail !== null &&
+            item.giftRecipientEmail !== ""
+          ) {
+            // Validated, not just truncated: this address is where a real
+            // stored-value code gets emailed. See validateGiftRecipientEmail.
+            metadata[`${prefix}_recipient`] = truncate(
+              validateGiftRecipientEmail(item.giftRecipientEmail),
+              MAX_GIFT_TEXT_LEN
+            );
+          }
+          if (item.giftSenderName) {
+            const sender = stripControlChars(item.giftSenderName);
+            if (sender) metadata[`${prefix}_sender`] = truncate(sender, MAX_GIFT_TEXT_LEN);
+          }
+          if (item.giftMessage) {
+            const giftNote = stripControlChars(item.giftMessage);
+            if (giftNote) metadata[`${prefix}_message`] = truncate(giftNote, MAX_GIFT_TEXT_LEN);
           }
         }
 
@@ -874,7 +1064,6 @@ export default {
       const hasPhysicalItems = physicalSubtotalCents > 0;
       const freeShippingThresholdCents = resolveFreeShippingThresholdCents(catalog);
       const flatShippingRateCents = 1000; // $10.00
-      const isPickup = body && Boolean(body.pickupMarket || body.pickup_market);
       // A threshold of 0 means the promise is off entirely, so nothing ever
       // qualifies -- not even a huge order.
       const qualifiesForFreeShipping =
@@ -882,19 +1071,40 @@ export default {
       const shippingCents =
         hasPhysicalItems && !isPickup && !qualifiesForFreeShipping ? flatShippingRateCents : 0;
 
-      if (physicalSubtotalCents >= 6000) {
+      // The cart drawer promises a free pocket salve at this milestone, so
+      // the order has to actually contain one. A metadata flag alone left the
+      // gift invisible on Stripe's receipt, on the packing slip generated
+      // from the session, and to anyone picking the order -- a promise the
+      // shopper saw and nobody downstream did. A $0 line item makes it part
+      // of the order proper. No tax code: a promotional $0 line has no
+      // taxable value, and taxing zero is still zero.
+      if (physicalSubtotalCents >= resolveFreeGiftThresholdCents(catalog)) {
         metadata.free_gift = "true";
+        lineItems.push({
+          name: FREE_GIFT_LINE_NAME,
+          image: null,
+          unitAmount: 0,
+          qty: 1,
+          isGiftCard: false,
+          taxCode: null,
+          noTax: true
+        });
       }
 
       const taxEnabled = await isTaxEnabled(env, ctx);
 
       const params = new URLSearchParams();
       params.append("mode", "payment");
-      // Express 1-Tap Wallets (Apple Pay, Google Pay, Stripe Link, Cash App Pay)
-      const paymentMethodTypes = ["card", "link", "cashapp"];
-      paymentMethodTypes.forEach((pm, i) => {
-        params.append(`payment_method_types[${i}]`, pm);
-      });
+      // No explicit payment_method_types list. Sending one PINS the session
+      // to exactly those methods, which quietly overrode the account's own
+      // Payment methods settings: turning on Klarna/Affirm/Amazon Pay (or
+      // having Stripe enable a new wallet) in the Dashboard did nothing here,
+      // and a method that later needs disabling for risk reasons could not be
+      // switched off without a redeploy. Omitting it lets Stripe offer
+      // whatever the Dashboard has enabled and the buyer's device supports --
+      // Apple Pay, Google Pay, Link and Cash App Pay included. 3-D Secure
+      // stays "automatic": Stripe steps up only when the issuer or the risk
+      // signals call for it.
       params.append("payment_method_options[card][request_three_d_secure]", "automatic");
       // amount/currency on the success URL are ONLY for a best-effort
       // client-side analytics ping on thank-you.html -- never treat this
@@ -920,15 +1130,17 @@ export default {
       let pickupCustomerId = null;
       if (taxEnabled && isPickup && hasPhysicalItems) {
         try {
-          const marketLabel = body.pickupMarket || body.pickup_market;
-          const events = await loadEvents(env, ctx);
-          const pickupAddress = resolvePickupAddress(events, marketLabel);
+          const marketLabel = pickupLabelFor(pickupEvent);
+          const pickupAddress = resolvePickupAddress({ upcoming: [pickupEvent] }, marketLabel);
           if (pickupAddress) {
             pickupCustomerId = await createPickupCustomer(env, pickupAddress, marketLabel);
           }
         } catch (e) {
-          // Non-fatal by design: a market calendar that won't load must never
-          // block a sale. Falls through to buyer-address rating below.
+          // Non-fatal by design: a market that can't be pinned (no ZIP on the
+          // calendar, or the customer create failing) must never block a
+          // sale. Falls through to buyer-address rating below. It is still a
+          // pickup -- nothing is being shipped -- so the shipping address
+          // form stays off either way.
           pickupCustomerId = null;
         }
       }
@@ -955,10 +1167,12 @@ export default {
       }
       // Only ask for a shipping address (and charge shipping) when there's
       // actually something physical in the order -- an all-gift-card order
-      // has nothing to ship. Pickup orders pinned to a market skip the
-      // address form too: they aren't being shipped anywhere, and a collected
-      // shipping address would override the market address for tax.
-      if (hasPhysicalItems && !pinnedToMarket) {
+      // has nothing to ship. A validated market pickup skips the address form
+      // and the shipping line entirely: nothing is being shipped, asking for
+      // a delivery address invites the buyer to expect delivery, and (with
+      // tax on) a collected shipping address would override the market
+      // address the order is rated against.
+      if (hasPhysicalItems && !isPickup) {
         params.append("shipping_address_collection[allowed_countries][0]", "US");
         params.append("shipping_options[0][shipping_rate_data][type]", "fixed_amount");
         params.append(
@@ -1000,7 +1214,16 @@ export default {
       let appliedGiftCardDiscountCents = 0;
 
       const rawGiftCard = body && (body.giftCardCode || body.gift_card_code);
-      if (rawGiftCard && typeof rawGiftCard === "string") {
+      // Buying a gift card with a gift card is refused for pre-application:
+      // the webhook rolls the remaining balance of a redeemed code onto a
+      // fresh code AND mints codes for cards bought in the same session, and
+      // the two flows have collided before (a card paid for with another
+      // card's balance could be minted while the balance it came from was
+      // still being rolled). The code isn't rejected -- the order just falls
+      // through to Stripe's own promotion-code box, where the redemption is
+      // applied by Stripe and recorded as an ordinary discount.
+      const cartHasGiftCardProduct = items.some((it) => it && String(it.id) === GIFT_CARD_ID);
+      if (rawGiftCard && typeof rawGiftCard === "string" && !cartHasGiftCardProduct) {
         const cleanCode = rawGiftCard.trim().toUpperCase();
         if (/^YALL-(?:PTS-)?[A-Z0-9]{6,16}$/.test(cleanCode)) {
           try {
@@ -1036,6 +1259,12 @@ export default {
                         amount_off: String(appliedGiftCardDiscountCents),
                         currency: "usd",
                         duration: "once",
+                        // Single use, always. This coupon exists only to
+                        // discount THIS session by the balance of THIS card;
+                        // without the cap its id (which appears in the
+                        // session and in metadata) could be replayed on
+                        // another checkout and spend the same balance twice.
+                        max_redemptions: "1",
                         name: `Gift Card (${cleanCode})`,
                         "metadata[gift_card_code]": cleanCode,
                         "metadata[promo_id]": promo.id
@@ -1050,6 +1279,12 @@ export default {
                         appliedGiftCardDiscountCents
                       );
                       metadata.gift_card_original_balance_cents = String(availableCents);
+                      // Named so the webhook can clean it up: on
+                      // checkout.session.expired the coupon is deleted, and
+                      // on completion it has already been consumed. Without
+                      // this id an abandoned checkout left a live
+                      // amount_off coupon in the account forever.
+                      metadata.gift_card_ephemeral_coupon_id = String(ephemeralCoupon.id);
                     }
                   }
                 }
@@ -1069,6 +1304,17 @@ export default {
         // amount_off) right on Stripe's own hosted Checkout page.
         params.append("allow_promotion_codes", "true");
       }
+      // Stripe hard-caps a session at 50 metadata keys and silently rejects
+      // the request past that. Refuse the order here, with a message the
+      // shopper can act on, rather than letting a large multi-card order
+      // reach Stripe and either fail opaquely or (worse, pre-H-8) succeed
+      // with the trailing gift cards missing from the metadata the webhook
+      // reads. 45 leaves headroom for the session-level keys added above.
+      if (Object.keys(metadata).length > MAX_METADATA_KEYS) {
+        throw new ClientError(
+          "Please split orders of more than 12 gift cards into separate checkouts."
+        );
+      }
       Object.keys(metadata).forEach((key) => {
         params.append(`metadata[${key}]`, metadata[key]);
       });
@@ -1079,7 +1325,7 @@ export default {
           params.append(`line_items[${i}][price_data][product_data][images][0]`, li.image);
         }
         params.append(`line_items[${i}][price_data][unit_amount]`, String(li.unitAmount));
-        if (taxEnabled) {
+        if (taxEnabled && !li.noTax) {
           // "exclusive" = the price above is pre-tax and Stripe adds tax on
           // top, which is how every price on this site is displayed.
           params.append(`line_items[${i}][price_data][tax_behavior]`, "exclusive");
@@ -1125,7 +1371,14 @@ export {
   loadEvents,
   findEntry,
   pickupLabelFor,
+  findPickupEvent,
   resolvePickupAddress,
+  normalizeVariantLabel,
+  findVariantOption,
+  hasVariantOptions,
+  validateGiftRecipientEmail,
+  resolveFreeGiftThresholdCents,
+  FREE_GIFT_LINE_NAME,
   resolveBundlePriceDollars,
   resolveUnitAmountCents,
   resolveGiftCardAmountCents,
