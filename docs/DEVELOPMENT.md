@@ -870,13 +870,23 @@ alone; both together is better, because the page gives it to them instantly
 and the email gives them something to find later, when they are actually
 ready to buy.
 
-**Approach A — automated email from Kit. Not built; copy is ready.**
-Nothing in this repo can build it: it is one automation inside Kit,
-triggered when someone subscribes to form `9867317`, sending a single
-welcome email that contains the code. It fires after the visitor confirms
-(double opt-in is on), so it doubles as the reward for confirming.
+**Approach A — automated email from Kit. Blocked: needs a paid Kit plan.**
+It would be one automation inside Kit, triggered when someone subscribes to
+form `9867317`, sending a single welcome email containing the code, firing
+after the visitor confirms.
 
-Suggested copy, matching the site's voice and the welcome page's wording:
+**Kit's free tier does not include Sequences or Visual Automations**, which
+are both required to build it; they need the Creator plan (~$39/month, or
+~$32.50/month billed yearly). Confirmed by hitting the gate in the account,
+not inferred from Kit's marketing pages, which are contradictory on this
+point. Nothing in this repo can substitute for it either: the automation
+lives entirely inside Kit.
+
+This is not worth buying a subscription for on its own. Approach B already
+delivers the code, free, at the same moment in the flow. Revisit only if a
+paid plan is being bought for other reasons.
+
+Copy is kept below so the work is paste-and-go if that day comes:
 
 > **Subject:** Here's your 10% off
 >
@@ -891,10 +901,11 @@ Suggested copy, matching the site's voice and the welcome page's wording:
 >
 > New batches, market dates, and the occasional bad pun. Nothing else.
 
-If this gets built, the confirmation email can then honestly promise the
-code is coming; until then its copy should say only that confirming puts
-them on the list. Keep the code itself out of the confirmation email
-regardless (see below).
+Until it exists, **the confirmation email must not promise an email that
+will never arrive.** Point at the page instead: "Click below to confirm.
+Your 10% off code is on the next page." That is both accurate and the
+stronger line, since it tells people the payoff is immediate. Keep the code
+itself out of the confirmation email regardless (see below).
 
 **Approach B — a welcome page on this site. Built and live.**
 `welcome.html` shows the code and links into the shop. It is `noindex,
