@@ -12,7 +12,8 @@
   // Tab switcher elements
   var tabPurchase = document.getElementById("tabPurchaseGiftCard");
   var tabCheckBalance = document.getElementById("tabCheckGiftCardBalance");
-  var purchasePanel = document.getElementById("giftCardPurchasePanel") || document.querySelector(".gift-card-widget");
+  var purchasePanel =
+    document.getElementById("giftCardPurchasePanel") || document.querySelector(".gift-card-widget");
   var balancePanel = document.getElementById("giftCardBalancePanel");
 
   // Balance checker form & elements
@@ -58,9 +59,17 @@
       }
 
       balanceResult.hidden = false;
-      balanceResult.innerHTML = '<p class="muted" style="font-size: 0.9rem;">Looking up gift card balance...</p>';
+      balanceResult.innerHTML =
+        '<p class="muted" style="font-size: 0.9rem;">Looking up gift card balance...</p>';
 
-      fetch("/.netlify/functions/gift-card-balance?code=" + encodeURIComponent(rawCode))
+      // POSTed, not GETed: a code in the query string is logged by every
+      // proxy in the path, kept in browser history and sent on in Referer.
+      // The function takes {code} as a JSON body and answers no-store.
+      fetch("/.netlify/functions/gift-card-balance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ code: rawCode })
+      })
         .then(function (res) {
           return res.json().catch(function () {
             return { valid: false, error: "Invalid response from server" };
@@ -73,33 +82,63 @@
           }
 
           if (data && data.valid && data.balance > 0) {
-            var formatted = data.formattedBalance || ("$" + Number(data.balance).toFixed(2));
-            var initial = data.initialAmount ? (" (of $" + Number(data.initialAmount).toFixed(2) + " initial)") : "";
-            
+            // Server-supplied text, interpolated into innerHTML: escape it.
+            var formatted = escapeHtml(
+              data.formattedBalance || "$" + Number(data.balance).toFixed(2)
+            );
+            var initial = data.initialAmount
+              ? " (of $" + Number(data.initialAmount).toFixed(2) + " initial)"
+              : "";
+
             balanceResult.innerHTML =
               '<div style="background: rgba(214, 155, 92, 0.1); border: 1px solid #d69b5c; border-radius: var(--radius); padding: 16px; margin-top: 12px; text-align: center;">' +
               '  <span style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1.5px; color: #d69b5c; font-weight: bold; display: block; margin-bottom: 4px;">Active Stored-Value Balance</span>' +
-              '  <div style="font-size: 2rem; font-weight: bold; color: var(--paper); margin-bottom: 4px;">' + formatted + '</div>' +
-              '  <p class="muted" style="font-size: 0.82rem; margin: 0 0 12px 0;">Code: <strong>' + escapeHtml(data.code || rawCode) + '</strong>' + initial + ' · Never Expires</p>' +
+              '  <div style="font-size: 2rem; font-weight: bold; color: var(--paper); margin-bottom: 4px;">' +
+              formatted +
+              "</div>" +
+              '  <p class="muted" style="font-size: 0.82rem; margin: 0 0 12px 0;">Code: <strong>' +
+              escapeHtml(data.code || rawCode) +
+              "</strong>" +
+              initial +
+              " · Never Expires</p>" +
               '  <button type="button" class="btn btn-sm btn-primary" id="applyCheckedGiftCardBtn" style="border-radius: 20px;">Apply to Cart Now</button>' +
-              '</div>';
+              '  <p class="muted" id="giftCardApplyStatus" role="status" style="font-size: 0.8rem; margin: 8px 0 0 0;" hidden></p>' +
+              "</div>";
 
             var applyBtn = document.getElementById("applyCheckedGiftCardBtn");
             if (applyBtn) {
               applyBtn.addEventListener("click", function () {
-                try {
-                  localStorage.setItem("yl_applied_gift_card", JSON.stringify({
+                /* This used to write yl_applied_gift_card into localStorage
+                   directly, inside a try/catch that swallowed every failure:
+                   in private mode the click did nothing at all, and even when
+                   it worked the open drawer went on showing the old total
+                   because nothing told the cart to re-read storage. The cart
+                   owns its own state -- hand the card to it. */
+                var applied =
+                  window.YLCart &&
+                  typeof window.YLCart.applyGiftCard === "function" &&
+                  window.YLCart.applyGiftCard({
                     code: data.code || rawCode,
                     balance: data.balance,
                     valid: true
-                  }));
-                } catch (e) {}
+                  });
+
+                if (!applied) {
+                  var status = document.getElementById("giftCardApplyStatus");
+                  if (status) {
+                    status.hidden = false;
+                    status.textContent =
+                      "We couldn't apply this card automatically. Enter the code in the cart at checkout.";
+                  }
+                  return;
+                }
 
                 var modal = document.getElementById("giftCardModal");
                 if (modal) modal.close();
 
                 // Open cart drawer if available
-                var cartToggle = document.getElementById("cartToggle") || document.querySelector(".cart-toggle");
+                var cartToggle =
+                  document.getElementById("cartToggle") || document.querySelector(".cart-toggle");
                 if (cartToggle) cartToggle.click();
               });
             }
@@ -108,16 +147,19 @@
               '<div style="background: rgba(255, 255, 255, 0.05); border: 1px solid var(--hide); border-radius: var(--radius); padding: 14px; margin-top: 12px; text-align: center;">' +
               '  <p style="margin: 0; color: #e66550; font-weight: 500;">Card Fully Redeemed</p>' +
               '  <p class="muted" style="font-size: 0.82rem; margin: 4px 0 0 0;">This gift code has a remaining balance of <strong>$0.00</strong>.</p>' +
-              '</div>';
+              "</div>";
           } else {
-            var msg = (data && data.error) ? data.error : "Gift card code not found or invalid format.";
+            var msg =
+              data && data.error ? data.error : "Gift card code not found or invalid format.";
             balanceResult.innerHTML =
               '<div style="background: rgba(230, 101, 80, 0.1); border: 1px solid rgba(230, 101, 80, 0.3); border-radius: var(--radius); padding: 14px; margin-top: 12px; text-align: center;">' +
-              '  <p style="margin: 0; color: #e66550; font-size: 0.88rem;">' + escapeHtml(msg) + '</p>' +
-              '</div>';
+              '  <p style="margin: 0; color: #e66550; font-size: 0.88rem;">' +
+              escapeHtml(msg) +
+              "</p>" +
+              "</div>";
           }
         })
-        .catch(function (err) {
+        .catch(function () {
           if (checkBalanceBtn) {
             checkBalanceBtn.disabled = false;
             checkBalanceBtn.textContent = "Check Balance";
@@ -125,7 +167,7 @@
           balanceResult.innerHTML =
             '<div style="background: rgba(230, 101, 80, 0.1); border: 1px solid rgba(230, 101, 80, 0.3); border-radius: var(--radius); padding: 14px; margin-top: 12px; text-align: center;">' +
             '  <p style="margin: 0; color: #e66550; font-size: 0.88rem;">Network error checking balance. Please try again.</p>' +
-            '</div>';
+            "</div>";
         });
     });
   }
@@ -188,6 +230,13 @@
         if (clamped > 500) clamped = 500;
         if (giftCardAmountDisplay) giftCardAmountDisplay.textContent = "$" + clamped;
         addGiftCardBtn.setAttribute("data-item-custom1-value", "Preset $" + clamped);
+        /* The button kept whatever amount was last committed ("Add $25 Gift
+           Card to Cart") while the display and the cart attribute had already
+           moved on, so the button contradicted the price beside it. */
+        var btnTextEl = document.getElementById("addGiftCardBtnText");
+        if (btnTextEl) {
+          btnTextEl.textContent = "Add $" + clamped + " Gift Card to Cart";
+        }
       }
     });
 
