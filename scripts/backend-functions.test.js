@@ -1446,7 +1446,27 @@ async function testWorkersAndNetlifyFunctions() {
 
   /* ==========================================================
      8. submit-restock.js Netlify function
+
+     The endpoint FORWARDS the request by email now. It used to validate the
+     address and then answer "Thank you! We'll notify you when this is back
+     in stock." without sending anything anywhere, so every restock request
+     the site ever collected was dropped while the shopper was told it had
+     been received. These assertions run against a stubbed Resend so a happy
+     path can only pass if a mail was actually dispatched.
      ========================================================== */
+  const restockSentMails = [];
+  let restockResendOk = true;
+  const savedResendKey = process.env.RESEND_API_KEY;
+  const savedNotifyEmail = process.env.RESTOCK_NOTIFY_EMAIL;
+  process.env.RESEND_API_KEY = "re_test_restock";
+  delete process.env.RESTOCK_NOTIFY_EMAIL;
+  global.fetch = async (url, opts) => {
+    if (String(url).includes("api.resend.com")) {
+      restockSentMails.push(JSON.parse(opts.body));
+      return { ok: restockResendOk, status: restockResendOk ? 200 : 500 };
+    }
+    return { ok: true, json: async () => ({}) };
+  };
 
   // HTTP method handling: Validate that an OPTIONS request returns a 204 status with CORS headers.
   let restockRes = await submitRestock.handler({
@@ -1648,6 +1668,97 @@ async function testWorkersAndNetlifyFunctions() {
     !riskyMessage.includes("&amp;lt;"),
     "submitRestock does not double-escape a markup-bearing email"
   );
+
+  /* ----------------------------------------------------------
+     The request has to actually go somewhere.
+     ---------------------------------------------------------- */
+  restockSentMails.length = 0;
+  restockRes = await submitRestock.handler({
+    httpMethod: "POST",
+    headers: { origin: "https://yallternativeliving.com" },
+    body: JSON.stringify({ email: "waiting@example.com", product: "Sleep Salve" })
+  });
+  eq(restockRes.statusCode, 200, "submitRestock returns 200 once the alert is dispatched");
+  eq(restockSentMails.length, 1, "submitRestock actually forwards the request by email");
+  eq(
+    restockSentMails[0].to,
+    "contact@yallternativeliving.com",
+    "submitRestock defaults the alert to contact@yallternativeliving.com"
+  );
+  assert(
+    restockSentMails[0].text.includes("waiting@example.com"),
+    "submitRestock alert carries the requester's email"
+  );
+  assert(
+    restockSentMails[0].text.includes("Sleep Salve"),
+    "submitRestock alert carries the product requested"
+  );
+  eq(
+    restockSentMails[0].reply_to,
+    "waiting@example.com",
+    "submitRestock alert replies straight to the shopper"
+  );
+
+  // RESTOCK_NOTIFY_EMAIL overrides the default recipient.
+  process.env.RESTOCK_NOTIFY_EMAIL = "restock@yallternativeliving.com";
+  restockSentMails.length = 0;
+  await submitRestock.handler({
+    httpMethod: "POST",
+    headers: { origin: "https://yallternativeliving.com" },
+    body: JSON.stringify({ email: "waiting@example.com", product: "Bath Tea" })
+  });
+  eq(
+    restockSentMails[0].to,
+    "restock@yallternativeliving.com",
+    "submitRestock honours RESTOCK_NOTIFY_EMAIL"
+  );
+  delete process.env.RESTOCK_NOTIFY_EMAIL;
+
+  // A bot still gets the silent success -- and still sends nothing.
+  restockSentMails.length = 0;
+  await submitRestock.handler({
+    httpMethod: "POST",
+    headers: { origin: "https://yallternativeliving.com" },
+    body: JSON.stringify({ email: "bot@example.com", website_hp: "botstuff" })
+  });
+  eq(restockSentMails.length, 0, "submitRestock sends nothing for a honeypot submission");
+
+  // An unconfigured mailer is an outage, not a success.
+  delete process.env.RESEND_API_KEY;
+  restockSentMails.length = 0;
+  const savedConsoleError = console.error;
+  console.error = () => {};
+  restockRes = await submitRestock.handler({
+    httpMethod: "POST",
+    headers: { origin: "https://yallternativeliving.com" },
+    body: JSON.stringify({ email: "waiting@example.com", product: "Sleep Salve" })
+  });
+  console.error = savedConsoleError;
+  eq(restockRes.statusCode, 503, "submitRestock returns 503 when RESEND_API_KEY is missing");
+  assert(
+    !JSON.parse(restockRes.body).success,
+    "submitRestock never claims success with no mailer configured"
+  );
+  eq(restockSentMails.length, 0, "submitRestock sends nothing with no mailer configured");
+  process.env.RESEND_API_KEY = "re_test_restock";
+
+  // A mailer that rejects the send is reported, not swallowed.
+  restockResendOk = false;
+  console.error = () => {};
+  restockRes = await submitRestock.handler({
+    httpMethod: "POST",
+    headers: { origin: "https://yallternativeliving.com" },
+    body: JSON.stringify({ email: "waiting@example.com", product: "Sleep Salve" })
+  });
+  console.error = savedConsoleError;
+  eq(restockRes.statusCode, 502, "submitRestock reports a failed dispatch instead of faking one");
+  restockResendOk = true;
+
+  if (savedResendKey === undefined) delete process.env.RESEND_API_KEY;
+  else process.env.RESEND_API_KEY = savedResendKey;
+  if (savedNotifyEmail === undefined) delete process.env.RESTOCK_NOTIFY_EMAIL;
+  else process.env.RESTOCK_NOTIFY_EMAIL = savedNotifyEmail;
+  global.fetch = globalFetch;
 }
 
 /* ==========================================================
