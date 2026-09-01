@@ -2271,11 +2271,32 @@ async function testGiftCardBalanceLookup() {
   });
   eq(res.statusCode, 204, "gift-card-balance handler returns 204 for OPTIONS preflight");
 
+  // POST with a JSON body is the preferred call now: it keeps the code out
+  // of the URL (and therefore out of history, Referer and access logs).
   res = await giftCardBalance.handler({
     httpMethod: "POST",
+    headers: { origin: "https://yallternativeliving.com" },
+    body: JSON.stringify({ code: "yall-valid12" })
+  });
+  eq(res.statusCode, 200, "gift-card-balance handler accepts POST with a JSON body");
+  eq(
+    JSON.parse(res.body).balanceCents,
+    3500,
+    "gift-card-balance POST returns the same balance as GET"
+  );
+
+  res = await giftCardBalance.handler({
+    httpMethod: "POST",
+    headers: { origin: "https://yallternativeliving.com" },
+    body: "{not json"
+  });
+  eq(res.statusCode, 400, "gift-card-balance handler rejects an unparseable POST body");
+
+  res = await giftCardBalance.handler({
+    httpMethod: "PUT",
     headers: { origin: "https://yallternativeliving.com" }
   });
-  eq(res.statusCode, 405, "gift-card-balance handler returns 405 for POST");
+  eq(res.statusCode, 405, "gift-card-balance handler still returns 405 for other methods");
 
   res = await giftCardBalance.handler({
     httpMethod: "GET",
@@ -2283,6 +2304,11 @@ async function testGiftCardBalanceLookup() {
     headers: { origin: "https://yallternativeliving.com" }
   });
   eq(res.statusCode, 200, "gift-card-balance handler returns 200 for valid code");
+  eq(
+    res.headers["Cache-Control"],
+    "no-store",
+    "gift-card-balance never lets a balance answer be cached"
+  );
 
   res = await giftCardBalance.handler({
     httpMethod: "GET",
@@ -2290,6 +2316,11 @@ async function testGiftCardBalanceLookup() {
     headers: { origin: "https://yallternativeliving.com" }
   });
   eq(res.statusCode, 404, "gift-card-balance handler returns 404 for non-existent code");
+  eq(
+    res.headers["Cache-Control"],
+    "no-store",
+    "gift-card-balance sends no-store on the 404 path too"
+  );
 
   global.fetch = globalFetch;
 }

@@ -658,16 +658,23 @@ async function main() {
         assert.strictEqual(activeRes.formattedBalance, "$25.00");
         assert.strictEqual(activeRes.expires, null);
 
+        // A spent card and a code that never existed must be INDISTINGUISHABLE:
+        // a "no balance remaining" message confirmed to a guesser that the code
+        // was real, turning the balance endpoint into an enumeration oracle.
         const zeroRes = await giftCardBalance.lookupGiftCardBalance("YALL-ZERO00", "sk_test_key");
         assert.strictEqual(zeroRes.valid, false);
-        assert.ok(zeroRes.error.includes("no monetary balance remaining"));
 
         const notFoundRes = await giftCardBalance.lookupGiftCardBalance(
           "YALL-NOTFOUND1",
           "sk_test_key"
         );
         assert.strictEqual(notFoundRes.valid, false);
-        assert.ok(notFoundRes.error.includes("not found"));
+        assert.strictEqual(
+          zeroRes.error,
+          notFoundRes.error,
+          "A spent card and an unknown code return the identical message"
+        );
+        assert.strictEqual(zeroRes.error, giftCardBalance.GENERIC_NOT_FOUND);
       } finally {
         global.fetch = originalFetch;
       }
