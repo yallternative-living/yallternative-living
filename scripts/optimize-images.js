@@ -25,7 +25,9 @@
    Run it by hand any time a new product photo gets dropped into
    assets/img/ locally -- HOW TO ADD A NEW PRODUCT PHOTO:
      1. Drop the new .jpg into assets/img/
-     2. Reference it from assets/js/products-data.js as usual
+     2. Reference it from assets/data/products.json as usual (that is the
+        catalog source of truth; assets/js/products-data.js is generated
+        from it by scripts/build-site-data.js)
      3. Run: node scripts/optimize-images.js
         (or: npm run optimize-images)
    That regenerates both formats' variants and the manifest so the
