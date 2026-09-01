@@ -20,7 +20,25 @@
          upstream release can't silently break /admin. 0.33.0 was ~140
          releases behind current; bumped 2026-07-22. When updating, check
          https://github.com/sveltia/sveltia-cms/releases and bump the
-         version here deliberately. -->
-    <script src="https://unpkg.com/@sveltia/cms@0.172.4/dist/sveltia-cms.js"></script>
+         version here deliberately.
+
+         integrity: a version pin trusts unpkg to keep serving the same bytes
+         for that version. This page holds a GitHub token with write access to
+         the repository, so the browser verifies the bundle itself and refuses
+         to run anything else. crossorigin="anonymous" is required for the
+         check on a cross-origin script (unpkg sends
+         Access-Control-Allow-Origin: *).
+
+         The hash below is sha384 of
+         https://unpkg.com/@sveltia/cms@0.172.4/dist/sveltia-cms.js
+         (1,975,506 bytes), confirmed byte-identical from jsdelivr. WHEN YOU
+         BUMP THE VERSION YOU MUST RECOMPUTE IT, or /admin will not load:
+           curl -sL https://unpkg.com/@sveltia/cms@<version>/dist/sveltia-cms.js \
+             | openssl dgst -sha384 -binary | openssl base64 -A -->
+    <script
+      src="https://unpkg.com/@sveltia/cms@0.172.4/dist/sveltia-cms.js"
+      integrity="sha384-Sj4Mfbg9OjjwG2ZE/YeUYu7xbZRTXGFg/wa/nszj3KzItKuRLEmGqSpV5C9YI2Ge"
+      crossorigin="anonymous"
+    ></script>
   </body>
 </html>
