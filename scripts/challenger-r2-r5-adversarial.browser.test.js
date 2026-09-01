@@ -422,6 +422,13 @@ function testGoogleMerchantJsonLd() {
 // -----------------------------------------------------------------------------
 // VECTOR 2, 3, 4, 5: R2 PDP & MODAL RITUAL INTERACTIVE TESTS (PUPPETEER)
 // -----------------------------------------------------------------------------
+//
+// From here on, `document`, `window` and `localStorage` appear only inside
+// callbacks handed to page.evaluate()/$eval(), which Puppeteer serialises and
+// runs in the page rather than in Node. Declaring those three names is the
+// correct fix; a file-wide `eslint-disable no-undef` would also silence a real
+// typo in the Node half of this suite (VECTOR 1 runs entirely in Node).
+/* global document, window, localStorage */
 async function testRitualInteractivity() {
   console.log("\n================================================================================");
   console.log("VECTOR 2 & 3: R2 'Complete the Ritual' PDP Checkbox & Cart Synchronization");

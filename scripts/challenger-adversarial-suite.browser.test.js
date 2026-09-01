@@ -462,6 +462,13 @@ function createStaticServer(port = 8089) {
   // ===========================================================================
   // SECTION 3: R1 - MOBILE STICKY BAR HEADLESS BROWSER INTERACTION SUITE
   // ===========================================================================
+  //
+  // Everything below this point that reads `document` or `window` does so
+  // inside a callback handed to page.evaluate()/$eval(), which Puppeteer
+  // serialises and runs in the page, not in Node. Declaring the two names
+  // ESLint cannot infer from that boundary is the fix; blanket-disabling
+  // no-undef for the file would also hide a genuine typo in the Node half.
+  /* global document, window */
   console.log("\n--- 3. R1: Mobile Sticky Bar Puppeteer Browser Verification ---");
 
   const serverPort = 8089;
