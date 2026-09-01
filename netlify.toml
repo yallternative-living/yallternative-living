@@ -34,6 +34,74 @@
   status = 200
   force = true
 
+# Source, docs and tooling are in the publish root but must never be
+# served. /admin/ is deliberately not in this list -- the CMS is served.
+[[redirects]]
+  from = "/scripts/*"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/docs/*"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/workers/*"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/cms-auth/*"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/netlify/*"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/package.json"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/package-lock.json"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/*.md"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/.eslintrc.json"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/run-launch-checks.command"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/TEST_INFRA.md"
+  to = "/404.html"
+  status = 404
+  force = true
+
 # Long-lived caching for hashed/never-changing assets. Pages themselves
 # (index.html, shop.html, etc.) intentionally aren't cached long here --
 # Netlify already serves them with an ETag + must-revalidate by default,
@@ -64,7 +132,7 @@
     Permissions-Policy = "geolocation=(), microphone=(), camera=(), usb=(), payment=(self)"
     Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
     Cross-Origin-Opener-Policy = "same-origin-allow-popups"
-    Content-Security-Policy = "default-src 'self'; script-src 'self' https://cloud.umami.is https://embed.tawk.to https://translate.google.com https://translate.googleapis.com 'inline-speculation-rules' 'sha256-gUmq6gOoZ76O8R+C9JLLJzm46Aj4WygKv4n1nBxUfUk=' 'sha256-0kqeFm4bqiT8bQvy1ltLsg9sxxjyyPTni1L+4ARp8us=' 'sha256-Wmlc/Lumj50wOdax6AEbaQv0zXK/9D0NZCQxPTdXDqM=' 'sha256-Y0mDoLE/QTaOFwAZeZ4lDbSl/yUCx8wjXTvb9LMvyB8=' 'sha256-VJ7jNsHEHhcsOXcbS3AonhQ32XVieLA091IRBqiUMZQ='; style-src 'self' https://fonts.googleapis.com https://translate.googleapis.com 'unsafe-inline'; img-src 'self' data: https://*.tawk.to https://translate.google.com https://translate.googleapis.com https://www.google.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://cloud.umami.is https://*.tawk.to wss://*.tawk.to https://translate.googleapis.com https://formspree.io https://app.convertkit.com https://app.kit.com; frame-src https://*.tawk.to https://translate.google.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://app.convertkit.com https://app.kit.com https://formspree.io; object-src 'none'"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' https://cloud.umami.is https://embed.tawk.to https://translate.google.com https://translate.googleapis.com 'inline-speculation-rules' 'sha256-0kqeFm4bqiT8bQvy1ltLsg9sxxjyyPTni1L+4ARp8us=' 'sha256-VJ7jNsHEHhcsOXcbS3AonhQ32XVieLA091IRBqiUMZQ=' 'sha256-Wmlc/Lumj50wOdax6AEbaQv0zXK/9D0NZCQxPTdXDqM=' 'sha256-Y0mDoLE/QTaOFwAZeZ4lDbSl/yUCx8wjXTvb9LMvyB8='; style-src 'self' https://fonts.googleapis.com https://translate.googleapis.com 'unsafe-inline'; img-src 'self' data: https://*.tawk.to https://translate.google.com https://translate.googleapis.com https://www.google.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://cloud.umami.is https://*.tawk.to wss://*.tawk.to https://translate.googleapis.com https://formspree.io https://app.convertkit.com https://app.kit.com; frame-src https://*.tawk.to https://translate.google.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://app.convertkit.com https://app.kit.com https://formspree.io; object-src 'none'"
 
 # Sveltia CMS (product editor, see DEVELOPMENT.md section 20) gets its own
 # CSP here -- more specific paths win over "/*" on Netlify, so this
