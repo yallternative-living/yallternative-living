@@ -425,6 +425,111 @@ async function handleGiftCardRedemption(session, secretKey) {
   return { code: promo.code, spentCents: amountDiscountCents, newBalanceCents };
 }
 
+// Handles restoring gift card balance on refund / cancellation
+async function handleGiftCardRefund(chargeOrRefund, secretKey) {
+  const key = secretKey || process.env.STRIPE_SECRET_KEY || STRIPE_SECRET_KEY;
+  if (!chargeOrRefund || !key) return null;
+
+  const metadata = chargeOrRefund.metadata || {};
+  const giftCardCode = metadata.gift_card_redeemed_code || metadata.gift_card_code;
+  const promoId = metadata.gift_card_promo_id;
+  const appliedCents = Number(metadata.gift_card_amount_applied_cents || 0);
+
+  if (!giftCardCode || !giftCardCode.startsWith("YALL-") || appliedCents <= 0) {
+    return null;
+  }
+
+  const params = new URLSearchParams({
+    code: giftCardCode,
+    active: "true",
+    limit: "1",
+    "expand[]": "data.coupon"
+  });
+
+  let currentBalanceCents = 0;
+  let initialAmountCents = appliedCents;
+  let recipientEmail = metadata.recipient_email || "";
+  let oldPromoId = promoId;
+
+  try {
+    const res = await fetch(`https://api.stripe.com/v1/promotion_codes?${params.toString()}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${key}`, "Stripe-Version": STRIPE_API_VERSION }
+    });
+
+    if (res.ok) {
+      const list = await res.json();
+      if (list && list.data && list.data.length > 0) {
+        const promo = list.data[0];
+        oldPromoId = promo.id;
+        currentBalanceCents = (promo.coupon && promo.coupon.amount_off) || 0;
+        initialAmountCents =
+          Number(promo.metadata && promo.metadata.initial_amount_cents) ||
+          currentBalanceCents + appliedCents;
+        recipientEmail = (promo.metadata && promo.metadata.recipient_email) || recipientEmail;
+      }
+    }
+  } catch (e) {
+    console.warn("Could not fetch existing promo for refund balance:", e.message);
+  }
+
+  const restoredBalanceCents = currentBalanceCents + appliedCents;
+  const restored = await rolloverGiftCardBalance(
+    giftCardCode,
+    oldPromoId,
+    restoredBalanceCents,
+    initialAmountCents,
+    recipientEmail,
+    `refund-${chargeOrRefund.id || Date.now()}`
+  );
+
+  const targetEmail =
+    recipientEmail || (chargeOrRefund.billing_details && chargeOrRefund.billing_details.email);
+  if (targetEmail) {
+    const resendClient = getResendClient();
+    const fromAddress =
+      process.env.FROM_EMAIL ||
+      process.env.RESEND_FROM_EMAIL ||
+      "Y'allternative Living <gifts@yallternativeliving.com>";
+
+    const restoredDollars = (appliedCents / 100).toFixed(2);
+    const newBalDollars = (restoredBalanceCents / 100).toFixed(2);
+
+    const subject = `Gift Card Balance Restored: $${restoredDollars} added back to ${giftCardCode}`;
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #17130f; color: #fff; padding: 40px; border-radius: 12px; border: 2px solid #d69b5c;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <img src="https://yallternativeliving.com/assets/img/logo.png" alt="Y'allternative Living Logo" style="max-width: 200px;" />
+        </div>
+        <h1 style="color: #d69b5c; text-align: center;">Gift Card Balance Restored</h1>
+        <p style="font-size: 16px;">An order refund has been processed. <strong>$${restoredDollars}</strong> has been added back to your gift card.</p>
+        <div style="text-align: center; background: #fff; color: #000; padding: 24px; border-radius: 8px; margin: 25px 0;">
+          <p style="margin: 0; text-transform: uppercase; letter-spacing: 2px; font-size: 12px; color: #666;">Available Balance</p>
+          <h2 style="margin: 8px 0; font-size: 36px; color: #17130f; letter-spacing: 1px;">$${newBalDollars}</h2>
+          <p style="margin: 4px 0 0 0; font-size: 14px; font-weight: bold; letter-spacing: 2px; color: #333;">Code: ${giftCardCode}</p>
+        </div>
+        <p style="font-size: 14px; color: #cfc0a8;">Your code remains active and ready for your next order.</p>
+      </div>
+    `;
+    const text = `Your gift card balance on ${giftCardCode} has been restored by $${restoredDollars}. Total available balance: $${newBalDollars}.`;
+
+    try {
+      await resendClient.emails.send({
+        from: fromAddress,
+        to: targetEmail,
+        reply_to: "contact@yallternativeliving.com",
+        subject: subject,
+        html: html,
+        text: text
+      });
+    } catch (e) {
+      console.warn("Failed to send refund restoration email:", e.message);
+    }
+  }
+
+  return restored;
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: "Method Not Allowed" };
@@ -442,6 +547,17 @@ exports.handler = async (event) => {
   } catch (err) {
     console.error("Webhook signature verification failed:", err.message);
     return { statusCode: 400, body: "Invalid signature: " + err.message };
+  }
+
+  if (stripeEvent.type === "charge.refunded" || stripeEvent.type === "refund.created") {
+    try {
+      var refundObj = stripeEvent.data.object;
+      await handleGiftCardRefund(refundObj, STRIPE_SECRET_KEY);
+      return { statusCode: 200, body: "Refund processed successfully" };
+    } catch (refundErr) {
+      console.error("Refund processing error:", refundErr);
+      return { statusCode: 500, body: "Internal Server Error" };
+    }
   }
 
   if (stripeEvent.type !== "checkout.session.completed") {
@@ -657,5 +773,6 @@ exports.verifyStripeSignature = verifyStripeSignature;
 exports.createGiftCardPromotionCode = createGiftCardPromotionCode;
 exports.rolloverGiftCardBalance = rolloverGiftCardBalance;
 exports.handleGiftCardRedemption = handleGiftCardRedemption;
+exports.handleGiftCardRefund = handleGiftCardRefund;
 exports.findUsedPromotionCode = findUsedPromotionCode;
 exports.getResendClient = getResendClient;

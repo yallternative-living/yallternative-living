@@ -1088,6 +1088,10 @@
     <div class="gift-modal-header">
       <h2 id="giftCardModalTitle">Digital Gift Cards</h2>
       <p class="muted" style="margin-top: 4px;">Can't decide what they'd love? Let them pick. Delivered by email, ready to use on anything in the shop.</p>
+      <div class="gift-modal-tabs" style="display: flex; gap: 8px; justify-content: center; margin-top: 14px;">
+        <button type="button" class="btn btn-sm btn-primary active" id="tabPurchaseGiftCard" style="border-radius: 20px;">Purchase Card</button>
+        <button type="button" class="btn btn-sm btn-outline" id="tabCheckGiftCardBalance" style="border-radius: 20px;">Check Balance</button>
+      </div>
     </div>
     
     <div class="gift-card-widget">
@@ -1163,6 +1167,17 @@
           </button>
         </div>
       </div>
+    </div>
+
+    <!-- Balance Checker Panel -->
+    <div id="giftCardBalancePanel" style="display: none; max-width: 580px; margin: 20px auto; padding: 28px; background: var(--ink-2); border: 1px solid var(--hide); border-radius: var(--radius-large);">
+      <h3 style="margin: 0 0 8px; font-size: 1.15rem; color: var(--paper); font-family: var(--font-display);">Check Gift Card Balance</h3>
+      <p class="muted" style="font-size: 0.86rem; margin-bottom: 18px;">Enter your 13-character gift code (e.g. <code>YALL-XXXXXXXX</code>) to check your remaining balance.</p>
+      <form id="giftCardBalanceForm" style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <input type="text" id="giftCardBalanceInput" placeholder="YALL-XXXXXXXX" required style="flex: 1 1 240px; padding: 11px 14px; background: var(--ink-3); border: 1px solid var(--hide); border-radius: var(--radius); color: var(--paper); font-size: 0.95rem; text-transform: uppercase;">
+        <button type="submit" id="checkBalanceSubmitBtn" class="btn btn-primary" style="flex: 0 0 auto;">Check Balance</button>
+      </form>
+      <div id="giftCardBalanceResult" aria-live="polite" style="margin-top: 16px;" hidden></div>
     </div>
   </dialog>
   <script src="assets/js/gift-card.js" defer></script>

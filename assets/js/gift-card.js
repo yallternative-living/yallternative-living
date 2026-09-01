@@ -9,6 +9,137 @@
   var giftSenderName = document.getElementById("giftSenderName");
   var giftMessage = document.getElementById("giftMessage");
 
+  // Tab switcher elements
+  var tabPurchase = document.getElementById("tabPurchaseGiftCard");
+  var tabCheckBalance = document.getElementById("tabCheckGiftCardBalance");
+  var purchasePanel = document.getElementById("giftCardPurchasePanel") || document.querySelector(".gift-card-widget");
+  var balancePanel = document.getElementById("giftCardBalancePanel");
+
+  // Balance checker form & elements
+  var balanceForm = document.getElementById("giftCardBalanceForm");
+  var balanceInput = document.getElementById("giftCardBalanceInput");
+  var balanceResult = document.getElementById("giftCardBalanceResult");
+  var checkBalanceBtn = document.getElementById("checkBalanceSubmitBtn");
+
+  // --- Tab Switcher Logic ---
+  if (tabPurchase && tabCheckBalance && purchasePanel && balancePanel) {
+    tabPurchase.addEventListener("click", function () {
+      tabPurchase.classList.add("btn-primary", "active");
+      tabPurchase.classList.remove("btn-outline");
+      tabCheckBalance.classList.remove("btn-primary", "active");
+      tabCheckBalance.classList.add("btn-outline");
+
+      purchasePanel.style.display = "";
+      balancePanel.style.display = "none";
+    });
+
+    tabCheckBalance.addEventListener("click", function () {
+      tabCheckBalance.classList.add("btn-primary", "active");
+      tabCheckBalance.classList.remove("btn-outline");
+      tabPurchase.classList.remove("btn-primary", "active");
+      tabPurchase.classList.add("btn-outline");
+
+      purchasePanel.style.display = "none";
+      balancePanel.style.display = "block";
+      if (balanceInput) balanceInput.focus();
+    });
+  }
+
+  // --- Live Balance Lookup Logic ---
+  if (balanceForm && balanceInput && balanceResult) {
+    balanceForm.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var rawCode = balanceInput.value.trim().toUpperCase();
+      if (!rawCode) return;
+
+      if (checkBalanceBtn) {
+        checkBalanceBtn.disabled = true;
+        checkBalanceBtn.textContent = "Checking...";
+      }
+
+      balanceResult.hidden = false;
+      balanceResult.innerHTML = '<p class="muted" style="font-size: 0.9rem;">Looking up gift card balance...</p>';
+
+      fetch("/.netlify/functions/gift-card-balance?code=" + encodeURIComponent(rawCode))
+        .then(function (res) {
+          return res.json().catch(function () {
+            return { valid: false, error: "Invalid response from server" };
+          });
+        })
+        .then(function (data) {
+          if (checkBalanceBtn) {
+            checkBalanceBtn.disabled = false;
+            checkBalanceBtn.textContent = "Check Balance";
+          }
+
+          if (data && data.valid && data.balance > 0) {
+            var formatted = data.formattedBalance || ("$" + Number(data.balance).toFixed(2));
+            var initial = data.initialAmount ? (" (of $" + Number(data.initialAmount).toFixed(2) + " initial)") : "";
+            
+            balanceResult.innerHTML =
+              '<div style="background: rgba(214, 155, 92, 0.1); border: 1px solid #d69b5c; border-radius: var(--radius); padding: 16px; margin-top: 12px; text-align: center;">' +
+              '  <span style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1.5px; color: #d69b5c; font-weight: bold; display: block; margin-bottom: 4px;">Active Stored-Value Balance</span>' +
+              '  <div style="font-size: 2rem; font-weight: bold; color: var(--paper); margin-bottom: 4px;">' + formatted + '</div>' +
+              '  <p class="muted" style="font-size: 0.82rem; margin: 0 0 12px 0;">Code: <strong>' + escapeHtml(data.code || rawCode) + '</strong>' + initial + ' · Never Expires</p>' +
+              '  <button type="button" class="btn btn-sm btn-primary" id="applyCheckedGiftCardBtn" style="border-radius: 20px;">Apply to Cart Now</button>' +
+              '</div>';
+
+            var applyBtn = document.getElementById("applyCheckedGiftCardBtn");
+            if (applyBtn) {
+              applyBtn.addEventListener("click", function () {
+                try {
+                  localStorage.setItem("yl_applied_gift_card", JSON.stringify({
+                    code: data.code || rawCode,
+                    balance: data.balance,
+                    valid: true
+                  }));
+                } catch (e) {}
+
+                var modal = document.getElementById("giftCardModal");
+                if (modal) modal.close();
+
+                // Open cart drawer if available
+                var cartToggle = document.getElementById("cartToggle") || document.querySelector(".cart-toggle");
+                if (cartToggle) cartToggle.click();
+              });
+            }
+          } else if (data && data.valid && data.balance === 0) {
+            balanceResult.innerHTML =
+              '<div style="background: rgba(255, 255, 255, 0.05); border: 1px solid var(--hide); border-radius: var(--radius); padding: 14px; margin-top: 12px; text-align: center;">' +
+              '  <p style="margin: 0; color: #e66550; font-weight: 500;">Card Fully Redeemed</p>' +
+              '  <p class="muted" style="font-size: 0.82rem; margin: 4px 0 0 0;">This gift code has a remaining balance of <strong>$0.00</strong>.</p>' +
+              '</div>';
+          } else {
+            var msg = (data && data.error) ? data.error : "Gift card code not found or invalid format.";
+            balanceResult.innerHTML =
+              '<div style="background: rgba(230, 101, 80, 0.1); border: 1px solid rgba(230, 101, 80, 0.3); border-radius: var(--radius); padding: 14px; margin-top: 12px; text-align: center;">' +
+              '  <p style="margin: 0; color: #e66550; font-size: 0.88rem;">' + escapeHtml(msg) + '</p>' +
+              '</div>';
+          }
+        })
+        .catch(function (err) {
+          if (checkBalanceBtn) {
+            checkBalanceBtn.disabled = false;
+            checkBalanceBtn.textContent = "Check Balance";
+          }
+          balanceResult.innerHTML =
+            '<div style="background: rgba(230, 101, 80, 0.1); border: 1px solid rgba(230, 101, 80, 0.3); border-radius: var(--radius); padding: 14px; margin-top: 12px; text-align: center;">' +
+            '  <p style="margin: 0; color: #e66550; font-size: 0.88rem;">Network error checking balance. Please try again.</p>' +
+            '</div>';
+        });
+    });
+  }
+
+  function escapeHtml(str) {
+    return String(str || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  // --- Purchase Flow Logic ---
   if (!presetBtns.length || !addGiftCardBtn) return;
 
   function updateGiftCardAmount(amount) {
@@ -39,47 +170,53 @@
       btn.setAttribute("aria-pressed", "true");
 
       if (btn.id === "customPresetBtn") {
-        customAmountGroup.style.display = "block";
+        if (customAmountGroup) customAmountGroup.style.display = "block";
         updateGiftCardAmount(parseInt(customGiftAmount.value, 10) || 25);
       } else {
-        customAmountGroup.style.display = "none";
+        if (customAmountGroup) customAmountGroup.style.display = "none";
         updateGiftCardAmount(parseInt(btn.getAttribute("data-amount"), 10));
       }
     });
   });
 
-  customGiftAmount.addEventListener("input", function () {
-    var val = parseInt(customGiftAmount.value, 10);
-    if (!isNaN(val)) {
-      var clamped = val;
-      if (clamped < 10) clamped = 10;
-      if (clamped > 500) clamped = 500;
-      giftCardAmountDisplay.textContent = "$" + clamped;
-      addGiftCardBtn.setAttribute("data-item-custom1-value", "Preset $" + clamped);
-    }
-  });
+  if (customGiftAmount) {
+    customGiftAmount.addEventListener("input", function () {
+      var val = parseInt(customGiftAmount.value, 10);
+      if (!isNaN(val)) {
+        var clamped = val;
+        if (clamped < 10) clamped = 10;
+        if (clamped > 500) clamped = 500;
+        if (giftCardAmountDisplay) giftCardAmountDisplay.textContent = "$" + clamped;
+        addGiftCardBtn.setAttribute("data-item-custom1-value", "Preset $" + clamped);
+      }
+    });
 
-  customGiftAmount.addEventListener("change", function () {
-    var val = parseInt(customGiftAmount.value, 10) || 25;
-    if (val < 10) val = 10;
-    if (val > 500) val = 500;
-    customGiftAmount.value = val;
-    updateGiftCardAmount(val);
-  });
+    customGiftAmount.addEventListener("change", function () {
+      var val = parseInt(customGiftAmount.value, 10) || 25;
+      if (val < 10) val = 10;
+      if (val > 500) val = 500;
+      customGiftAmount.value = val;
+      updateGiftCardAmount(val);
+    });
+  }
 
-  giftRecipientEmail.addEventListener("input", function () {
-    addGiftCardBtn.setAttribute("data-item-custom2-value", giftRecipientEmail.value.trim());
-  });
-  giftSenderName.addEventListener("input", function () {
-    addGiftCardBtn.setAttribute("data-item-custom3-value", giftSenderName.value.trim());
-  });
-  giftMessage.addEventListener("input", function () {
-    addGiftCardBtn.setAttribute("data-item-custom4-value", giftMessage.value.trim());
-  });
+  if (giftRecipientEmail) {
+    giftRecipientEmail.addEventListener("input", function () {
+      addGiftCardBtn.setAttribute("data-item-custom2-value", giftRecipientEmail.value.trim());
+    });
+  }
+  if (giftSenderName) {
+    giftSenderName.addEventListener("input", function () {
+      addGiftCardBtn.setAttribute("data-item-custom3-value", giftSenderName.value.trim());
+    });
+  }
+  if (giftMessage) {
+    giftMessage.addEventListener("input", function () {
+      addGiftCardBtn.setAttribute("data-item-custom4-value", giftMessage.value.trim());
+    });
+  }
 
   addGiftCardBtn.addEventListener("click", function (e) {
-    // Explicitly sync input values before validation and cart dispatch to catch
-    // any browser autofill or programmatic updates that did not trigger input events.
     if (giftRecipientEmail) {
       addGiftCardBtn.setAttribute("data-item-custom2-value", giftRecipientEmail.value.trim());
     }
@@ -90,21 +227,19 @@
       addGiftCardBtn.setAttribute("data-item-custom4-value", giftMessage.value.trim());
     }
 
-    if (!giftRecipientEmail.checkValidity()) {
+    if (giftRecipientEmail && !giftRecipientEmail.checkValidity()) {
       giftRecipientEmail.reportValidity();
       e.stopPropagation();
       e.preventDefault();
       return;
     }
-    if (!giftSenderName.checkValidity()) {
+    if (giftSenderName && !giftSenderName.checkValidity()) {
       giftSenderName.reportValidity();
       e.stopPropagation();
       e.preventDefault();
       return;
     }
 
-    // Validation passed. Close modal after brief delay so the cart (see
-    // assets/js/cart.js, which listens for this same click) registers the add.
     var modal = document.getElementById("giftCardModal");
     if (modal) {
       setTimeout(function () {
