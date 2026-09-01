@@ -31,14 +31,20 @@ name: QA checks
 #   * concurrency: a newer push cancels the older in-progress run instead of
 #     letting both finish.
 #   * path filtering (changes job): separates routine content/data edits from
-#     core frontend/worker/script changes using dorny/paths-filter.
+#     core frontend/worker/script changes using dorny/paths-filter. The filter
+#     must list everything that changes what the browser gates see -- a
+#     products.json edit regenerates 19 PDPs and shop.html at deploy time, and
+#     a skipped job reports success to branch protection, so an incomplete
+#     filter is a silent gap rather than a saving.
 #   * fast smoke test (test:smoke): executes in <3s (<0.5s typical) on every run.
 #   * conditional browser job: heavy multi-engine Playwright browser downloads
 #     and tests are reserved for core file changes or pushes to main.
 #   * PUPPETEER_SKIP_DOWNLOAD on the `qa` job: that job runs lint/format/smoke/qa
-#     only -- none of which need a browser -- so it skips Puppeteer's ~150MB
-#     Chromium download. The separate `browser` job below does need browsers
-#     and therefore does not set it.
+#     only. Every browser-driven suite is named `*.browser.test.js` and belongs
+#     to `npm run test:integration`; `npm test` globs the unit pool with that
+#     suffix excluded, so nothing the `qa` job runs needs a browser and it can
+#     skip Puppeteer's ~150MB Chromium download. The separate `browser` job
+#     below does need browsers and therefore does not set it.
 #   * npm cache: setup-node caches ~/.npm keyed on the lockfile so repeat
 #     installs are near-instant.
 # The biggest lever of all, though, is repo visibility: GitHub Actions is
@@ -58,6 +64,14 @@ concurrency:
   group: qa-${{ github.ref }}
   cancel-in-progress: true
 
+# Least privilege for the GITHUB_TOKEN handed to every job. No job here pushes,
+# comments or publishes; they check out and run tests. Without this block the
+# token inherits the repository default, which on a public repo can still be
+# read/write -- so a compromised third-party action in this workflow would hold
+# a write token.
+permissions:
+  contents: read
+
 jobs:
   # Job 1: Evaluate changed files to determine downstream execution paths
   changes:
@@ -67,18 +81,31 @@ jobs:
       core: ${{ steps.filter.outputs.core }}
     steps:
       - uses: actions/checkout@v7
-      - uses: dorny/paths-filter@v3
+      # Pinned to the commit v3.0.4 points at, not the mutable v3 tag: the
+      # third-party action this workflow trusts should not be able to change
+      # under it between runs.
+      - uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad # v3.0.4
         id: filter
         with:
           filters: |
             core:
               - 'assets/js/**'
               - 'assets/css/**'
+              - 'assets/data/**'
+              - 'assets/img/**'
               - 'workers/**'
               - 'netlify/**'
               - 'scripts/**'
               - '*.html'
               - 'products/*.html'
+              - 'admin/**'
+              - 'cms-auth/**'
+              - '_headers'
+              - 'netlify.toml'
+              - 'vercel.json'
+              - 'sw.js'
+              - 'sitemap.xml'
+              - 'llms*.txt'
               - 'package.json'
               - 'package-lock.json'
               - '.github/workflows/**'
@@ -133,6 +160,11 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          # Without restore-keys, any lockfile change is a total cache miss and
+          # all three engines are re-downloaded. A prefix match reuses the last
+          # run's engines and lets `playwright install` fetch only what moved.
+          restore-keys: |
+            playwright-${{ runner.os }}-
       # Left unconditional even on a cache hit: the download is skipped but the
       # system libraries WebKit needs are not part of the cache.
       - run: npx playwright install --with-deps chromium firefox webkit
