@@ -2185,6 +2185,133 @@ try {
   fail("Milestone 6 QA assertions", e.message);
 }
 
+/* ---------- Global Search Suite Markup, Data Index & Invariants ---------- */
+section("Global Search Suite (2026 SOTA) Static QA");
+try {
+  var searchDataPath = path.join(ROOT, "assets/js/search-data.js");
+  if (fs.existsSync(searchDataPath)) {
+    var searchDataSrc = fs.readFileSync(searchDataPath, "utf8");
+    if (searchDataSrc.indexOf("window.YL_SEARCH_INDEX =") !== -1) {
+      ok("assets/js/search-data.js exists and initializes window.YL_SEARCH_INDEX");
+    } else {
+      fail("assets/js/search-data.js", "missing window.YL_SEARCH_INDEX assignment");
+    }
+  } else {
+    fail("assets/js/search-data.js", "file not found on disk");
+  }
+
+  var swSrc = fs.readFileSync(path.join(ROOT, "sw.js"), "utf8");
+  if (swSrc.indexOf("'/assets/js/search-data.js'") !== -1) {
+    ok("sw.js ASSETS_TO_CACHE includes '/assets/js/search-data.js'");
+  } else {
+    fail("sw.js caching", "missing '/assets/js/search-data.js' in cache asset list");
+  }
+
+  var allPagesToVerify = PAGES.map(function (p) {
+    return path.join(ROOT, p);
+  });
+  var productsDir = path.join(ROOT, "products");
+  if (fs.existsSync(productsDir)) {
+    fs.readdirSync(productsDir).forEach(function (f) {
+      if (f.endsWith(".html")) {
+        allPagesToVerify.push(path.join(productsDir, f));
+      }
+    });
+  }
+
+  var missingTriggers = [];
+  var missingModals = [];
+  var missingScripts = [];
+  var emojiViolations = [];
+  var emojiRegex = /[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u;
+
+  allPagesToVerify.forEach(function (filePath) {
+    var relPath = path.relative(ROOT, filePath);
+    var htmlContent = fs.readFileSync(filePath, "utf8");
+
+    if (
+      htmlContent.indexOf('id="globalSearchTrigger"') === -1 ||
+      htmlContent.indexOf('aria-controls="global-search-modal"') === -1
+    ) {
+      missingTriggers.push(relPath);
+    }
+
+    if (
+      htmlContent.indexOf('id="global-search-modal"') === -1 ||
+      htmlContent.indexOf('id="globalSearchInput"') === -1 ||
+      htmlContent.indexOf('id="globalSearchResultsList"') === -1 ||
+      htmlContent.indexOf('id="globalSearchResultCount"') === -1
+    ) {
+      missingModals.push(relPath);
+    }
+
+    if (htmlContent.indexOf("search-data.js") === -1) {
+      missingScripts.push(relPath);
+    }
+
+    var modalStart = htmlContent.indexOf('id="global-search-modal"');
+    if (modalStart !== -1) {
+      var modalEnd = htmlContent.indexOf("</dialog>", modalStart);
+      if (modalEnd !== -1) {
+        var modalSlice = htmlContent.substring(modalStart, modalEnd);
+        if (emojiRegex.test(modalSlice)) {
+          emojiViolations.push(relPath);
+        }
+      }
+    }
+  });
+
+  if (missingTriggers.length === 0) {
+    ok(
+      "All " +
+        allPagesToVerify.length +
+        " pages contain #globalSearchTrigger with aria-controls contract"
+    );
+  } else {
+    fail(
+      "Pages missing #globalSearchTrigger",
+      missingTriggers.slice(0, 5).join(", ") +
+        (missingTriggers.length > 5 ? " and " + (missingTriggers.length - 5) + " more" : "")
+    );
+  }
+
+  if (missingModals.length === 0) {
+    ok(
+      "All " +
+        allPagesToVerify.length +
+        ' pages contain <dialog id="global-search-modal"> with complete DOM contract'
+    );
+  } else {
+    fail(
+      "Pages missing #global-search-modal",
+      missingModals.slice(0, 5).join(", ") +
+        (missingModals.length > 5 ? " and " + (missingModals.length - 5) + " more" : "")
+    );
+  }
+
+  if (missingScripts.length === 0) {
+    ok("All " + allPagesToVerify.length + " pages include search-data.js script tag");
+  } else {
+    fail(
+      "Pages missing search-data.js script",
+      missingScripts.slice(0, 5).join(", ") +
+        (missingScripts.length > 5 ? " and " + (missingScripts.length - 5) + " more" : "")
+    );
+  }
+
+  if (emojiViolations.length === 0) {
+    ok(
+      "Zero system emojis in search modal across all " +
+        allPagesToVerify.length +
+        " pages (100% monoline SVGs)"
+    );
+  } else {
+    fail("Search modal system emoji violations found in", emojiViolations.slice(0, 5).join(", "));
+  }
+} catch (e) {
+  fail("Global Search Suite QA assertions", e.message);
+}
+
 /* ---------- Summary ---------- */
 console.log("\n" + "=".repeat(50));
 console.log(passCount + " checks passed, " + failures.length + " failed.");

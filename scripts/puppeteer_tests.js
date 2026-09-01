@@ -148,25 +148,34 @@ function createStaticServer(port = 8082) {
       { name: "Tablet", width: 768, height: 1024 },
       { name: "Mobile", width: 375, height: 667 }
     ];
-    for (const vp of testViewports) {
-      await page.setViewport({ width: vp.width, height: vp.height });
-      await page.goto(url, { waitUntil: "networkidle2" });
-      const hasOverflow = await page.evaluate(
-        // eslint-disable-next-line no-undef
-        () => document.documentElement.scrollWidth > window.innerWidth
-      );
-      if (!hasOverflow) {
+    const vpOverflowResults = await Promise.all(
+      testViewports.map(async (vp) => {
+        const vpPage = await browser.newPage();
+        try {
+          await vpPage.setViewport({ width: vp.width, height: vp.height });
+          await vpPage.goto(url, { waitUntil: "networkidle2" });
+          const hasOverflow = await vpPage.evaluate(
+            // eslint-disable-next-line no-undef
+            () => document.documentElement.scrollWidth > window.innerWidth
+          );
+          return { vp, hasOverflow };
+        } finally {
+          await vpPage.close();
+        }
+      })
+    );
+    for (const r of vpOverflowResults) {
+      if (!r.hasOverflow) {
         console.log(
-          `✅ ${vp.name} viewport (${vp.width}x${vp.height}) layout renders without horizontal overflow.`
+          `✅ ${r.vp.name} viewport (${r.vp.width}x${r.vp.height}) layout renders without horizontal overflow.`
         );
       } else {
         console.log(
-          `❌ ${vp.name} viewport (${vp.width}x${vp.height}) has horizontal scroll overflow.`
+          `❌ ${r.vp.name} viewport (${r.vp.width}x${r.vp.height}) has horizontal scroll overflow.`
         );
         exitCode = 1;
       }
     }
-    await page.setViewport({ width: 1200, height: 800 });
 
     // 3. Test Form Submissions
     console.log("--- Testing Newsletter Form ---");
@@ -618,6 +627,517 @@ function createStaticServer(port = 8082) {
       console.log(
         "❌ Printable Packing Slip contains dollar prices, violating gift recipient privacy invariant!"
       );
+      exitCode = 1;
+    }
+
+    // 9. Test Global Search Suite (2026 SOTA Spotlight Modal, Multi-Domain, Chips, Shortcuts, 1-Click Cart, ARIA Traversal)
+    console.log("--- Testing Global Search Suite (2026 SOTA) ---");
+
+    // 9.1 Multi-Viewport Header Search Trigger & Dialog Lifecycle
+    console.log("  -- 9.1 Header Search Trigger across Desktop, Tablet, and Mobile --");
+    const vpSearchTriggerResults = await Promise.all(
+      testViewports.map(async (vp) => {
+        const vpPage = await browser.newPage();
+        try {
+          await vpPage.setViewport({ width: vp.width, height: vp.height });
+          await vpPage.goto(`${url}/index.html`, { waitUntil: "networkidle2" });
+
+          const searchBtn = await vpPage.$("#globalSearchTrigger");
+          if (!searchBtn) {
+            return {
+              vp,
+              error: `#globalSearchTrigger button missing on index.html (${vp.name} viewport).`
+            };
+          }
+
+          await vpPage.click("#globalSearchTrigger");
+          await vpPage.waitForSelector("#global-search-modal[open]", {
+            visible: true,
+            timeout: 5000
+          });
+
+          const modalState = await vpPage.evaluate(() => {
+            /* eslint-disable no-undef */
+            const modal = document.getElementById("global-search-modal");
+            const input = document.getElementById("globalSearchInput");
+            const trigger = document.getElementById("globalSearchTrigger");
+            const chipsSection = document.getElementById("globalSearchChipsSection");
+            return {
+              isOpen: modal && modal.hasAttribute("open"),
+              isInputFocused: document.activeElement === input,
+              ariaExpanded: trigger && trigger.getAttribute("aria-expanded") === "true",
+              chipsVisible: chipsSection && !chipsSection.hidden
+            };
+            /* eslint-enable no-undef */
+          });
+
+          if (
+            !modalState.isOpen ||
+            !modalState.isInputFocused ||
+            !modalState.ariaExpanded ||
+            !modalState.chipsVisible
+          ) {
+            return { vp, error: `modal open failure: ${JSON.stringify(modalState)}` };
+          }
+
+          // Close modal via close button
+          await vpPage.click("#globalSearchCloseBtn");
+          await vpPage.waitForFunction(
+            // eslint-disable-next-line no-undef
+            () => !document.getElementById("global-search-modal").hasAttribute("open"),
+            { timeout: 5000 }
+          );
+
+          const closedAria = await vpPage.$eval("#globalSearchTrigger", (el) =>
+            el.getAttribute("aria-expanded")
+          );
+          if (closedAria !== "false") {
+            return { vp, error: "aria-expanded not reset after closing modal." };
+          }
+
+          return { vp, ok: true };
+        } catch (err) {
+          return { vp, error: err.message };
+        } finally {
+          await vpPage.close();
+        }
+      })
+    );
+
+    for (const r of vpSearchTriggerResults) {
+      if (r.ok) {
+        console.log(
+          `✅ ${r.vp.name} viewport (${r.vp.width}x${r.vp.height}): Header trigger opens search modal, focuses input, sets aria-expanded, and displays chips.`
+        );
+        console.log(
+          `✅ ${r.vp.name} viewport: Modal closed via close button and aria-expanded reset to false.`
+        );
+      } else {
+        console.log(`❌ ${r.vp.name} viewport: ${r.error}`);
+        exitCode = 1;
+      }
+    }
+
+    // 9.2 Keyboard Shortcuts (Cmd+K / Ctrl+K)
+    console.log("  -- 9.2 Keyboard Shortcuts (Cmd+K / Ctrl+K) --");
+    await page.evaluate(() => {
+      /* eslint-disable no-undef */
+      const isMac = /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform);
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "k",
+          code: "KeyK",
+          metaKey: isMac,
+          ctrlKey: !isMac,
+          bubbles: true,
+          cancelable: true
+        })
+      );
+      /* eslint-enable no-undef */
+    });
+    await page.waitForSelector("#global-search-modal[open]", { visible: true, timeout: 5000 });
+    const cmdKOpened = await page.evaluate(() => {
+      /* eslint-disable no-undef */
+      const modal = document.getElementById("global-search-modal");
+      return modal && modal.hasAttribute("open");
+      /* eslint-enable no-undef */
+    });
+    if (cmdKOpened) {
+      console.log("✅ Cmd+K / Ctrl+K keyboard shortcut opens search modal.");
+    } else {
+      console.log("❌ Cmd+K / Ctrl+K shortcut failed to open search modal.");
+      exitCode = 1;
+    }
+
+    // Toggle closed with Cmd+K / Ctrl+K
+    await page.evaluate(() => {
+      /* eslint-disable no-undef */
+      const isMac = /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform);
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "k",
+          code: "KeyK",
+          metaKey: isMac,
+          ctrlKey: !isMac,
+          bubbles: true,
+          cancelable: true
+        })
+      );
+      /* eslint-enable no-undef */
+    });
+    await page.waitForFunction(
+      // eslint-disable-next-line no-undef
+      () => !document.getElementById("global-search-modal").hasAttribute("open"),
+      { timeout: 5000 }
+    );
+    console.log("✅ Cmd+K / Ctrl+K keyboard shortcut toggles search modal closed.");
+
+    // 9.3 Guarded Slash (/) Shortcut
+    console.log("  -- 9.3 Guarded Slash (/) Shortcut --");
+    // When body is focused, pressing / opens modal
+    // eslint-disable-next-line no-undef
+    await page.evaluate(() => document.body.focus());
+    await page.keyboard.press("Slash");
+    await page.waitForSelector("#global-search-modal[open]", { visible: true, timeout: 5000 });
+    console.log("✅ Unfocused '/' keypress opens search modal.");
+
+    // Close modal
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(
+      // eslint-disable-next-line no-undef
+      () => !document.getElementById("global-search-modal").hasAttribute("open"),
+      { timeout: 5000 }
+    );
+
+    // Focus an input and verify '/' does NOT open modal and enters '/' in input
+    const footerEmail = await page.$("#footer_email");
+    if (footerEmail) {
+      await page.click("#footer_email");
+      await page.keyboard.type("test/");
+      const slashInInputModalClosed = await page.evaluate(() => {
+        /* eslint-disable no-undef */
+        const modal = document.getElementById("global-search-modal");
+        const email = document.getElementById("footer_email");
+        return (!modal || !modal.hasAttribute("open")) && email && email.value.includes("/");
+        /* eslint-enable no-undef */
+      });
+      if (slashInInputModalClosed) {
+        console.log("✅ Guarded '/' does not intercept typing inside form inputs.");
+      } else {
+        console.log("❌ Guarded '/' improperly intercepted typing inside input field.");
+        exitCode = 1;
+      }
+      await page.$eval("#footer_email", (el) => {
+        el.value = "";
+      });
+    }
+
+    // 9.4 Escape Key Closes Modal & Restores Focus
+    console.log("  -- 9.4 Escape Key Closes Modal & Restores Focus --");
+    await page.click("#globalSearchTrigger");
+    await page.waitForSelector("#global-search-modal[open]", { visible: true, timeout: 5000 });
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(
+      // eslint-disable-next-line no-undef
+      () => !document.getElementById("global-search-modal").hasAttribute("open"),
+      { timeout: 5000 }
+    );
+
+    const focusRestored = await page.evaluate(() => {
+      /* eslint-disable no-undef */
+      return document.activeElement && document.activeElement.id === "globalSearchTrigger";
+      /* eslint-enable no-undef */
+    });
+    if (focusRestored) {
+      console.log("✅ Escape key closes search modal and restores focus to search trigger.");
+    } else {
+      console.log("❌ Escape key failed to restore focus to search trigger button.");
+      exitCode = 1;
+    }
+
+    // 9.5 Popular Search Quick Chips & Clear Button
+    console.log("  -- 9.5 Popular Search Quick Chips & Clear Button --");
+    await page.click("#globalSearchTrigger");
+    await page.waitForSelector("#global-search-modal[open]", { visible: true, timeout: 5000 });
+
+    const chipCount = await page.$$eval(".search-chip", (chips) => chips.length);
+    if (chipCount >= 5) {
+      console.log(`✅ Popular search chips rendered in zero-state (${chipCount} chips).`);
+    } else {
+      console.log(`❌ Expected at least 5 popular search chips, found ${chipCount}.`);
+      exitCode = 1;
+    }
+
+    // Click 'Bedtime & Sleep' (data-search-query="sleep") chip
+    const sleepChip = await page.$('.search-chip[data-search-query="sleep"]');
+    if (sleepChip) {
+      await sleepChip.click();
+      await page.waitForSelector("#globalSearchResultsList .search-result-item", {
+        visible: true,
+        timeout: 5000
+      });
+
+      const chipExecutionState = await page.evaluate(() => {
+        /* eslint-disable no-undef */
+        const input = document.getElementById("globalSearchInput");
+        const chipsSection = document.getElementById("globalSearchChipsSection");
+        const clearBtn = document.getElementById("globalSearchClearBtn");
+        const items = document.querySelectorAll("#globalSearchResultsList .search-result-item");
+        return {
+          inputValue: input ? input.value : "",
+          chipsHidden: chipsSection ? chipsSection.hidden : false,
+          clearBtnVisible: clearBtn ? !clearBtn.hidden : false,
+          itemCount: items.length
+        };
+        /* eslint-enable no-undef */
+      });
+
+      if (
+        chipExecutionState.inputValue === "sleep" &&
+        chipExecutionState.chipsHidden &&
+        chipExecutionState.clearBtnVisible &&
+        chipExecutionState.itemCount > 0
+      ) {
+        console.log(
+          `✅ Clicking popular chip executes search for "${chipExecutionState.inputValue}" and renders ${chipExecutionState.itemCount} items.`
+        );
+      } else {
+        console.log("❌ Popular search chip execution failed:", chipExecutionState);
+        exitCode = 1;
+      }
+
+      // Test Clear Button
+      await page.click("#globalSearchClearBtn");
+      await new Promise((r) => setTimeout(r, 100));
+
+      const clearedState = await page.evaluate(() => {
+        /* eslint-disable no-undef */
+        const input = document.getElementById("globalSearchInput");
+        const chipsSection = document.getElementById("globalSearchChipsSection");
+        const results = document.getElementById("globalSearchResultsList");
+        return {
+          inputEmpty: input && input.value === "",
+          chipsRestored: chipsSection && !chipsSection.hidden,
+          resultsEmpty: results && results.innerHTML.trim() === ""
+        };
+        /* eslint-enable no-undef */
+      });
+
+      if (clearedState.inputEmpty && clearedState.chipsRestored && clearedState.resultsEmpty) {
+        console.log(
+          "✅ Clear button resets input, clears results list, and restores popular chips."
+        );
+      } else {
+        console.log("❌ Clear button failed to reset search state:", clearedState);
+        exitCode = 1;
+      }
+    }
+
+    // 9.6 Universal Cross-Content Search & Live Segmented Results
+    console.log("  -- 9.6 Universal Cross-Content Search & Segmented Results --");
+    await page.type("#globalSearchInput", "sleep");
+    await new Promise((r) => setTimeout(r, 300)); // debounce wait
+    await page.waitForSelector("#globalSearchResultsList .search-results-section", {
+      visible: true,
+      timeout: 5000
+    });
+
+    const segmentedResults = await page.evaluate(() => {
+      /* eslint-disable no-undef */
+      const prodSec = document.getElementById("search-section-products-title");
+      const jrnlSec = document.getElementById("search-section-journal-title");
+      const evtSec = document.getElementById("search-section-events-title");
+      const faqSec = document.getElementById("search-section-faq-title");
+      const thumbs = document.querySelectorAll(".search-item-thumb");
+      const prices = document.querySelectorAll(".search-item-price");
+      const stockBadges = document.querySelectorAll(".stock-badge");
+      const liveCount = document.getElementById("globalSearchResultCount");
+
+      return {
+        hasProducts: !!prodSec,
+        hasJournal: !!jrnlSec,
+        hasEvents: !!evtSec,
+        hasFaq: !!faqSec,
+        thumbsValid:
+          thumbs.length > 0 &&
+          Array.from(thumbs).every((img) => img.getAttribute("src") && img.getAttribute("alt")),
+        pricesValid:
+          prices.length > 0 && Array.from(prices).every((p) => p.textContent.includes("$")),
+        stockBadgesValid: stockBadges.length > 0,
+        liveStatusText: liveCount ? liveCount.textContent : ""
+      };
+      /* eslint-enable no-undef */
+    });
+
+    if (
+      segmentedResults.hasProducts &&
+      segmentedResults.thumbsValid &&
+      segmentedResults.pricesValid &&
+      segmentedResults.stockBadgesValid
+    ) {
+      console.log(
+        `✅ Cross-content search rendered segmented results with thumbnails, prices, stock badges, and live status: "${segmentedResults.liveStatusText}".`
+      );
+    } else {
+      console.log("❌ Segmented search results validation failed:", segmentedResults);
+      exitCode = 1;
+    }
+
+    // 9.7 Inline 1-Click [ + Add ] Button to Cart Flow
+    console.log("  -- 9.7 Inline 1-Click [ + Add ] Button to Cart Flow --");
+    const initialCartCount = await page.evaluate(() => {
+      /* eslint-disable no-undef */
+      const badge = document.querySelector(".cart-count");
+      return badge ? parseInt(badge.textContent.trim() || "0", 10) : 0;
+      /* eslint-enable no-undef */
+    });
+
+    const searchAddBtn = await page.$("#globalSearchResultsList .search-add-btn");
+    if (searchAddBtn) {
+      await searchAddBtn.click();
+      await new Promise((r) => setTimeout(r, 400));
+
+      const cartAddState = await page.evaluate((initialCount) => {
+        /* eslint-disable no-undef */
+        const modal = document.getElementById("global-search-modal");
+        const badge = document.querySelector(".cart-count");
+        const currentCount = badge ? parseInt(badge.textContent.trim() || "0", 10) : 0;
+        const addBtn = document.querySelector("#globalSearchResultsList .search-add-btn");
+        return {
+          modalStillOpen: modal && modal.hasAttribute("open"),
+          badgeIncremented: currentCount > initialCount,
+          buttonShowsAdded:
+            addBtn &&
+            (addBtn.classList.contains("is-added") || addBtn.textContent.includes("Added"))
+        };
+        /* eslint-enable no-undef */
+      }, initialCartCount);
+
+      if (cartAddState.modalStillOpen && cartAddState.badgeIncremented) {
+        console.log(
+          "✅ Inline 1-click '+ Add' button added product to cart, incremented header cart count, and kept search modal open."
+        );
+      } else {
+        console.log("❌ Inline 1-click add to cart failed:", cartAddState);
+        exitCode = 1;
+      }
+    } else {
+      console.log("❌ Inline '+ Add' button not found in product search results.");
+      exitCode = 1;
+    }
+
+    // 9.8 WAI-ARIA Combobox & Keyboard Arrow Navigation
+    console.log("  -- 9.8 WAI-ARIA Combobox & Keyboard Arrow Navigation --");
+    await page.$eval("#globalSearchInput", (el) => {
+      el.value = "";
+    });
+    await page.type("#globalSearchInput", "salve");
+    await new Promise((r) => setTimeout(r, 300));
+    await page.waitForSelector("#globalSearchResultsList .search-result-item", {
+      visible: true,
+      timeout: 5000
+    });
+
+    // Press ArrowDown to select 1st item
+    await page.keyboard.press("ArrowDown");
+    const opt0State = await page.evaluate(() => {
+      /* eslint-disable no-undef */
+      const input = document.getElementById("globalSearchInput");
+      const opt0 = document.getElementById("search-opt-0");
+      return {
+        inputDescendant: input ? input.getAttribute("aria-activedescendant") : null,
+        opt0Selected:
+          opt0 &&
+          opt0.classList.contains("is-selected") &&
+          opt0.getAttribute("aria-selected") === "true"
+      };
+      /* eslint-enable no-undef */
+    });
+
+    if (opt0State.inputDescendant === "search-opt-0" && opt0State.opt0Selected) {
+      console.log(
+        "✅ ArrowDown key highlights first option (search-opt-0) and updates aria-activedescendant."
+      );
+    } else {
+      console.log("❌ ArrowDown failed on search-opt-0:", opt0State);
+      exitCode = 1;
+    }
+
+    // Press ArrowDown again to select 2nd item
+    await page.keyboard.press("ArrowDown");
+    const opt1State = await page.evaluate(() => {
+      /* eslint-disable no-undef */
+      const input = document.getElementById("globalSearchInput");
+      const opt1 = document.getElementById("search-opt-1");
+      return {
+        inputDescendant: input ? input.getAttribute("aria-activedescendant") : null,
+        opt1Selected:
+          opt1 &&
+          opt1.classList.contains("is-selected") &&
+          opt1.getAttribute("aria-selected") === "true"
+      };
+      /* eslint-enable no-undef */
+    });
+
+    if (opt1State.inputDescendant === "search-opt-1" && opt1State.opt1Selected) {
+      console.log(
+        "✅ ArrowDown key navigates to second option (search-opt-1) and updates aria-activedescendant."
+      );
+    } else {
+      console.log("❌ ArrowDown failed on search-opt-1:", opt1State);
+      exitCode = 1;
+    }
+
+    // Press ArrowUp to go back to 1st item
+    await page.keyboard.press("ArrowUp");
+    const optBackState = await page.evaluate(() => {
+      /* eslint-disable no-undef */
+      const input = document.getElementById("globalSearchInput");
+      const opt0 = document.getElementById("search-opt-0");
+      return {
+        inputDescendant: input ? input.getAttribute("aria-activedescendant") : null,
+        opt0Selected: opt0 && opt0.classList.contains("is-selected")
+      };
+      /* eslint-enable no-undef */
+    });
+
+    if (optBackState.inputDescendant === "search-opt-0" && optBackState.opt0Selected) {
+      console.log("✅ ArrowUp key returns to previous option (search-opt-0).");
+    } else {
+      console.log("❌ ArrowUp failed to return to previous option:", optBackState);
+      exitCode = 1;
+    }
+
+    // Press Enter to navigate to selected option
+    const expectedUrl = await page.evaluate(() => {
+      /* eslint-disable no-undef */
+      const opt0 = document.getElementById("search-opt-0");
+      return opt0 ? opt0.getAttribute("data-url") : null;
+      /* eslint-enable no-undef */
+    });
+
+    if (expectedUrl) {
+      await Promise.all([
+        page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 5000 }),
+        page.keyboard.press("Enter")
+      ]);
+      const currentUrl = page.url();
+      const targetSlug = expectedUrl.split("/").pop().replace(".html", "");
+      if (
+        currentUrl.includes(expectedUrl) ||
+        (currentUrl.includes("shop.html") && currentUrl.includes(targetSlug))
+      ) {
+        console.log(`✅ Enter key executed selection and navigated to ${currentUrl}.`);
+      } else {
+        console.log(
+          `❌ Enter key navigation mismatch (expected ${expectedUrl} or shop.html#${targetSlug}, got ${currentUrl}).`
+        );
+        exitCode = 1;
+      }
+    }
+
+    // 9.9 Strict 100% Monoline Vector SVGs Invariant (Zero Emojis)
+    console.log("  -- 9.9 Monoline Vector SVGs Invariant --");
+    await page.goto(`${url}/index.html`, { waitUntil: "networkidle2" });
+    const emojiCheck = await page.evaluate(() => {
+      /* eslint-disable no-undef */
+      const modal = document.getElementById("global-search-modal");
+      if (!modal) return { found: false, count: 0 };
+      const emojiRegex = /[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u;
+      const html = modal.innerHTML;
+      return {
+        hasEmoji: emojiRegex.test(html),
+        svgCount: modal.querySelectorAll("svg.yl-icon").length
+      };
+      /* eslint-enable no-undef */
+    });
+
+    if (!emojiCheck.hasEmoji && emojiCheck.svgCount >= 6) {
+      console.log(
+        `✅ Strict monoline SVG invariant verified: 0 emojis in modal, ${emojiCheck.svgCount} monoline SVGs rendered.`
+      );
+    } else {
+      console.log("❌ Monoline SVG invariant violation in search modal:", emojiCheck);
       exitCode = 1;
     }
   } catch (e) {

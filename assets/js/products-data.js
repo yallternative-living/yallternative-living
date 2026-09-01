@@ -55,7 +55,20 @@ window.YL_PRODUCTS = {
         "howToApply": "Wear proudly to markets, Pride, and sunny days. Soft triblend racerback cut for comfort and durability.",
         "storage": "Machine wash cold with like colors. Tumble dry low or hang dry for longevity.",
         "patchTest": "100% skin-safe triblend fabric. Non-irritating and breathable."
-      }
+      },
+      "keywords": [
+        "apparel",
+        "shirt",
+        "tank",
+        "racerback",
+        "cotton",
+        "clothing",
+        "queer",
+        "goth",
+        "rainbow",
+        "stag",
+        "summer"
+      ]
     },
     {
       "id": "unisex-tshirt",
@@ -106,7 +119,21 @@ window.YL_PRODUCTS = {
         "howToApply": "Wear everywhere. Screen-printed on soft ring-spun cotton cut to fit all bodies comfortably.",
         "storage": "Machine wash cold inside-out. Tumble dry low. Do not iron directly over screen-printed artwork.",
         "patchTest": "100% ring-spun cotton with skin-friendly water-based discharge screen print ink."
-      }
+      },
+      "keywords": [
+        "apparel",
+        "shirt",
+        "tshirt",
+        "t-shirt",
+        "tee",
+        "cotton",
+        "clothing",
+        "queer",
+        "goth",
+        "rainbow",
+        "stag",
+        "wear"
+      ]
     },
     {
       "id": "frankincense-salve",
@@ -174,7 +201,19 @@ window.YL_PRODUCTS = {
         "howToApply": "Warm a pea-sized amount between clean fingertips and gently massage into cuticles, rough heels, elbows, windburned cheeks, or irritated skin as needed.",
         "storage": "Store in a cool, dry place away from direct sunlight and heat. Shelf life is 6–12 months.",
         "patchTest": "Contains sweet almond oil (tree nut). Apply a dime-sized amount to the inner forearm and wait 24 hours. Discontinue use if redness or irritation occurs."
-      }
+      },
+      "keywords": [
+        "healing",
+        "skin recovery",
+        "dry skin",
+        "chapped hands",
+        "rashes",
+        "anti-inflammatory",
+        "herbal balm",
+        "cuticles",
+        "frankincense",
+        "rosemary"
+      ]
     },
     {
       "id": "miracle-balm",
@@ -221,7 +260,22 @@ window.YL_PRODUCTS = {
         "howToApply": "Smooth a small dab onto lips, cuticles, knuckles, dry elbows, or sensitive skin patches. Safe for daily use on face and body.",
         "storage": "Store in a cool, dry spot away from direct heat. Shelf life is 12 months.",
         "patchTest": "Formulated without essential oils or added fragrances for ultra-sensitive skin. As with any botanical balm, test a small dab on inner wrist before first full use."
-      }
+      },
+      "keywords": [
+        "pain",
+        "sore muscles",
+        "joint ache",
+        "arthritis",
+        "stiffness",
+        "bruises",
+        "unscented",
+        "sensitive skin",
+        "family safe",
+        "lips",
+        "cuticles",
+        "calendula",
+        "lanolin"
+      ]
     },
     {
       "id": "sleep-salve",
@@ -263,7 +317,22 @@ window.YL_PRODUCTS = {
         "howToApply": "Massage a dime-sized amount into temples, back of neck, shoulders, or soles of feet 15–30 minutes before bedtime.",
         "storage": "Store in a cool, dry place away from direct heat. Shelf life is 6–12 months.",
         "patchTest": "Apply a small dab to inner forearm 24 hours before first use to ensure compatibility with essential oils."
-      }
+      },
+      "keywords": [
+        "sleep",
+        "insomnia",
+        "bedtime",
+        "magnesium",
+        "arnica",
+        "restless legs",
+        "calm",
+        "relax",
+        "nighttime",
+        "anxiety",
+        "stress relief",
+        "lavender",
+        "cedarwood"
+      ]
     },
     {
       "id": "beard-salve",
@@ -302,7 +371,20 @@ window.YL_PRODUCTS = {
         "howToApply": "Scrape a thumbnail-sized amount, warm between palms until melted, and work upward through beard into the underlying skin. Comb through to style.",
         "storage": "Store in a cool, dry place. Keep lid tightly sealed. Shelf life is 6–12 months.",
         "patchTest": "Test a small amount on the jawline or inner arm 24 hours prior to full beard application."
-      }
+      },
+      "keywords": [
+        "beard",
+        "mustache",
+        "facial hair",
+        "grooming",
+        "stubble",
+        "barber",
+        "woodsy",
+        "bourbon",
+        "conditioning",
+        "coarse hair",
+        "softening"
+      ]
     },
     {
       "id": "shimmer-oil",
@@ -364,7 +446,20 @@ window.YL_PRODUCTS = {
         "howToApply": "Shake bottle vigorously before each use. Dispense 3–5 drops into palms and smooth over collarbones, shoulders, arms, and legs for instant hydration and radiant glow.",
         "storage": "Store upright at room temperature away from direct sunlight. Shelf life is 12 months.",
         "patchTest": "Contains cosmetic mica and fragrance. Apply 1 drop to inner wrist and wait 24 hours before full body application."
-      }
+      },
+      "keywords": [
+        "glow",
+        "shimmer",
+        "glitter",
+        "sparkle",
+        "radiance",
+        "body oil",
+        "bronze",
+        "festival",
+        "summer glow",
+        "highlighter",
+        "golden hour"
+      ]
     },
     {
       "id": "shea-butter",
@@ -422,7 +517,19 @@ window.YL_PRODUCTS = {
         "howToApply": "Scoop a generous amount and massage directly into towel-damp skin immediately after bathing or showering to lock in deep hydration.",
         "storage": "Store at room temperature (below 80°F/27°C) to prevent melting. Shelf life is 6–12 months.",
         "patchTest": "Test a small amount on inner forearm before first use. Discontinue if irritation develops."
-      }
+      },
+      "keywords": [
+        "dry skin",
+        "eczema",
+        "intense moisture",
+        "body butter",
+        "shea",
+        "lavender",
+        "rough heels",
+        "chapped",
+        "hydration",
+        "soothing"
+      ]
     },
     {
       "id": "hand-scrub",
@@ -487,7 +594,18 @@ window.YL_PRODUCTS = {
         "howToApply": "Scoop a nickel-sized amount onto damp hands. Work thoroughly into palms, knuckles, and cuticles in circular motions, then rinse clean with warm water.",
         "storage": "Keep lid closed between uses to prevent excess water from entering the tin. Shelf life is 6–12 months.",
         "patchTest": "Exfoliating scrub with pumice and pink salt. Test a small amount on hands before first heavy use; avoid open cuts."
-      }
+      },
+      "keywords": [
+        "hand scrub",
+        "exfoliator",
+        "rough hands",
+        "bourbon vanilla",
+        "dead skin",
+        "soft hands",
+        "gardener hands",
+        "cane sugar",
+        "smoothing"
+      ]
     },
     {
       "id": "lavender-soak",
@@ -539,7 +657,18 @@ window.YL_PRODUCTS = {
         "howToApply": "Pour 1/2 to 1 cup into warm running bathwater. Swirl with hands until mineral salts dissolve completely. Soak for at least 20 minutes.",
         "storage": "Keep pouch tightly sealed in a dry environment to prevent clumping. Shelf life is 12 months.",
         "patchTest": "Contains lavender and black pepper essential oils. For sensitive skin, test a dilute pinch in warm water on inner wrist."
-      }
+      },
+      "keywords": [
+        "bath soak",
+        "epsom salts",
+        "relaxation",
+        "sleep",
+        "stress relief",
+        "calming bath",
+        "lavender",
+        "mineral soak",
+        "evening unwind"
+      ]
     },
     {
       "id": "backroad-soak",
@@ -597,7 +726,18 @@ window.YL_PRODUCTS = {
         "howToApply": "Add 1/2 cup into hot bathwater. Inhale clearing herbal vapors and soak for 20–30 minutes to soothe aching muscles and overworked joints.",
         "storage": "Store in a cool, dry location with bag sealed tight. Shelf life is 12 months.",
         "patchTest": "Contains potent peppermint and eucalyptus essential oils. Test on forearm before first full soak; avoid eye contact."
-      }
+      },
+      "keywords": [
+        "muscle recovery",
+        "sore muscles",
+        "joint pain",
+        "post workout",
+        "gym recovery",
+        "epsom salts",
+        "eucalyptus",
+        "peppermint",
+        "tension bath"
+      ]
     },
     {
       "id": "protection-keychain",
@@ -656,7 +796,19 @@ window.YL_PRODUCTS = {
         "howToApply": "Attach to your keyring, backpack, purse, or altar space as a handheld protective talisman. Handle with positive intention.",
         "storage": "Keep dry and avoid dropping onto hard surfaces to protect the sealed glass vial.",
         "patchTest": "Non-topical talisman artifact. Contains sealed mineral salts and dried botanicals — not for consumption or topical skin application."
-      }
+      },
+      "keywords": [
+        "protection",
+        "amulet",
+        "talisman",
+        "warding",
+        "energy clearing",
+        "alt gothic",
+        "witchy",
+        "potion bottle",
+        "keychain",
+        "good vibes"
+      ]
     },
     {
       "id": "bug-spray",
@@ -699,7 +851,21 @@ window.YL_PRODUCTS = {
         "howToApply": "Shake vigorously before each use. Mist evenly across exposed skin and outer clothing before heading outdoors. Reapply every 2 hours as needed.",
         "storage": "Store in a cool spot out of direct car heat and direct sun. Shelf life is 12 months.",
         "patchTest": "DEET-free formula with pure essential oils. Spray a small test patch on forearm 24 hours before first full outdoor use."
-      }
+      },
+      "keywords": [
+        "bug spray",
+        "mosquito repellent",
+        "ticks",
+        "gnats",
+        "flies",
+        "insect defense",
+        "plant based",
+        "camping",
+        "hiking",
+        "outdoors",
+        "trail",
+        "bites"
+      ]
     },
     {
       "id": "sugar-scrub",
@@ -742,7 +908,18 @@ window.YL_PRODUCTS = {
         "howToApply": "Buff gently onto wet skin in circular motions during shower or bath. Rinse thoroughly with warm water to reveal silky soft, exfoliated skin.",
         "storage": "Keep jar sealed tightly and avoid introducing standing water into jar. Shelf life is 6–12 months.",
         "patchTest": "Test a small dab on inner wrist before first use. Discontinue if redness occurs."
-      }
+      },
+      "keywords": [
+        "sugar scrub",
+        "body exfoliator",
+        "rainbow scrub",
+        "smooth skin",
+        "pride",
+        "cane sugar",
+        "dry skin",
+        "polishing",
+        "softening"
+      ]
     },
     {
       "id": "whipped-body-butter",
@@ -787,7 +964,17 @@ window.YL_PRODUCTS = {
         "howToApply": "Smooth a dollop over clean, towel-dry skin from neck to toes. Absorbs quickly without greasy residue.",
         "storage": "Keep in a cool, dark place away from heat vents or direct sun. Shelf life is 6–12 months.",
         "patchTest": "Test a pea-sized amount on inner forearm 24 hours before full use."
-      }
+      },
+      "keywords": [
+        "body butter",
+        "whipped butter",
+        "rainbow",
+        "pride",
+        "dry skin",
+        "deep hydration",
+        "fluffy moisturizer",
+        "soft skin"
+      ]
     },
     {
       "id": "cleansing-spray",
@@ -837,7 +1024,18 @@ window.YL_PRODUCTS = {
         "howToApply": "Shake gently and spritz 2–3 pumps into room corners, doorways, entry thresholds, or personal atmosphere to clear stagnant energy.",
         "storage": "Store upright in a cool, shaded area. Shelf life is 12 months.",
         "patchTest": "Aromatherapy mist for ambient room and linen clearing. Spray on a hidden fabric corner first to verify colorfastness."
-      }
+      },
+      "keywords": [
+        "cleansing spray",
+        "smudge spray",
+        "smoke-free",
+        "energy clearing",
+        "room mist",
+        "appalachian rain",
+        "aura cleanse",
+        "sacred space",
+        "negative energy"
+      ]
     },
     {
       "id": "bath-tea",
@@ -890,7 +1088,18 @@ window.YL_PRODUCTS = {
         "howToApply": "Place 1 filled organic muslin tea bag into hot running bathwater. Steep for 5 minutes, then squeeze bag gently while soaking for 20 minutes.",
         "storage": "Keep unused tea bags in a dry, airtight jar or pouch. Compost spent botanicals after 2–3 uses.",
         "patchTest": "Pure dried botanicals and mineral salts. Test steeped herbal water on wrist if prone to botanical pollen sensitivities."
-      }
+      },
+      "keywords": [
+        "bath tea",
+        "tub tea",
+        "botanical steep",
+        "herbal bath",
+        "moonlit meadow",
+        "flower petals",
+        "soothing soak",
+        "spa bath",
+        "relaxation"
+      ]
     },
     {
       "id": "porch-sweep-spray",
@@ -927,7 +1136,17 @@ window.YL_PRODUCTS = {
         "howToApply": "Mist across front entryways, thresholds, patio spaces, and work areas whenever energy feels cluttered or heavy.",
         "storage": "Store at room temperature out of direct sunlight. Shelf life is 12 months.",
         "patchTest": "Aromatherapy and space-clearing mist. For room and threshold use; avoid spraying directly into eyes."
-      }
+      },
+      "keywords": [
+        "porch sweep",
+        "banishing mist",
+        "home protection",
+        "clearing spray",
+        "negative vibes",
+        "room freshener",
+        "herbal mist",
+        "house blessing"
+      ]
     },
     {
       "id": "yallternative-gift-card",
@@ -973,7 +1192,17 @@ window.YL_PRODUCTS = {
         "howToApply": "Enter your unique digital gift card code at checkout on yallternativeliving.com to redeem toward any purchase.",
         "storage": "Digital certificate delivered instantly via email. Save or print your voucher code for safe keeping.",
         "patchTest": "Digital credit — 100% allergen-free, valid for all products and never expires."
-      }
+      },
+      "keywords": [
+        "gift card",
+        "voucher",
+        "present",
+        "digital gift",
+        "birthday gift",
+        "care package",
+        "gift certificate",
+        "discount voucher"
+      ]
     }
   ],
   "volumePricing": [

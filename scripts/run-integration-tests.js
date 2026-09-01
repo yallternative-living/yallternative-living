@@ -1,19 +1,18 @@
 /**
- * @fileoverview Runs every scripts/*.test.js unit suite across a parallel
- * worker pool and aggregates the results.
+ * @fileoverview Runs all integration test suites across isolated local server ports
+ * in parallel using a worker pool and aggregates the results.
  *
- * These suites cover cart pricing, the Cloudflare Worker's checkout/tax/
- * gift-card math, the build-data compiler, main.js behaviour, the social-feed
- * sync, global search, and the translator.
+ * Suites run concurrently:
+ * - puppeteer_tests.js (port 8082)
+ * - extended_qa_test.js (port 8083)
+ * - a11y-check.js (port 8084)
+ * - test-m2-ugc-strip.js (port 8085)
+ * - security_stress_test.js (port 8086)
+ * - reveal-check.js (port 8087)
  *
- * Suites are run concurrently across CPU cores using a worker pool.
- * Output is cleanly buffered per test suite and printed on completion so
- * log messages never interleave, and exit codes accurately reflect failures.
+ * Output is buffered per suite so logs remain clean, readable, and non-interleaved.
  *
- * Every suite runs even when an earlier one fails -- one broken file should
- * still report the state of the rest, not hide it.
- *
- * Run: node scripts/run-unit-tests.js
+ * Run: node scripts/run-integration-tests.js
  */
 
 const fs = require("fs");
@@ -24,19 +23,23 @@ const { spawn } = require("child_process");
 const SCRIPTS_DIR = __dirname;
 const ROOT_DIR = path.resolve(SCRIPTS_DIR, "..");
 
-const suites = fs
-  .readdirSync(SCRIPTS_DIR)
-  .filter((f) => f.endsWith(".test.js"))
-  .sort();
+const suites = [
+  "puppeteer_tests.js",
+  "extended_qa_test.js",
+  "security_stress_test.js",
+  "test-m2-ugc-strip.js",
+  "reveal-check.js",
+  "a11y-check.js"
+].filter((f) => fs.existsSync(path.join(SCRIPTS_DIR, f)));
 
 if (!suites.length) {
-  console.error("No *.test.js suites found in scripts/ -- did they get moved or deleted?");
+  console.error("No integration test suites found in scripts/!");
   process.exit(1);
 }
 
 const maxWorkers = Math.max(1, Math.min(os.cpus() ? os.cpus().length : 4, suites.length));
 console.log(
-  `Running ${suites.length} unit test suites in parallel across ${maxWorkers} workers...\n`
+  `Running ${suites.length} integration test suites in parallel across ${maxWorkers} workers...\n`
 );
 
 function runSuite(file) {
@@ -98,7 +101,9 @@ function runSuite(file) {
       const res = await runSuite(file);
       results.push(res);
 
+      console.log(`\n==================================================`);
       console.log(`--- ${res.file} (${(res.durationMs / 1000).toFixed(2)}s) ---`);
+      console.log(`==================================================`);
       if (res.stdout) process.stdout.write(res.stdout);
       if (res.stderr) process.stderr.write(res.stderr);
       if (!res.stdout.endsWith("\n") && !res.stderr.endsWith("\n")) {
@@ -116,17 +121,19 @@ function runSuite(file) {
   const workers = Array.from({ length: maxWorkers }, () => worker());
   await Promise.all(workers);
 
-  console.log("\n==================================================");
+  console.log("\n" + "=".repeat(50));
   if (failures.length) {
-    console.log(`Unit suites: ${suites.length - failures.length}/${suites.length} passed.`);
+    console.log(
+      `Integration test suites: ${suites.length - failures.length}/${suites.length} passed.`
+    );
     failures.forEach((f) => console.log(`  ✗ ${f}`));
-    console.log("==================================================");
+    console.log("=".repeat(50));
     process.exit(1);
   }
-  console.log(`Unit suites: ${suites.length}/${suites.length} passed.`);
-  console.log("==================================================");
+  console.log(`Integration test suites: ${suites.length}/${suites.length} passed.`);
+  console.log("=".repeat(50));
   process.exit(0);
 })().catch((err) => {
-  console.error("Test runner crashed:", err);
+  console.error("Integration test runner crashed:", err);
   process.exit(1);
 });

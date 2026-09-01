@@ -303,6 +303,11 @@ collections:
                   - { label: "Cruelty-Free", value: "cruelty-free" }
                   - { label: "Organic Ingredients", value: "organic" }
                   - { label: "Locally Sourced / Foraged", value: "locally-sourced" }
+              - name: keywords
+                label: "Search Keywords & Colloquial Tags (Optional)"
+                widget: list
+                required: false
+                hint: "Colloquial synonyms, symptoms, or remedies (e.g. 'insomnia', 'joint ache', 'mosquito repellent') to help customers find this product via search."
               - name: inStock
                 label: In Stock
                 widget: boolean

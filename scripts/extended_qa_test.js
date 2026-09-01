@@ -279,21 +279,34 @@ function createStaticServer(port = 8083) {
       { name: "Mobile", width: 375, height: 667 }
     ];
 
-    for (const pageName of pagesToTest) {
-      metrics.pagesChecked++;
-      for (const vp of viewports) {
-        metrics.overflowCheckTotal++;
-        await page.setViewport({ width: vp.width, height: vp.height });
-        await page.goto(`${url}/${pageName}`, { waitUntil: "networkidle2" });
-        const hasOverflow = await page.evaluate(
-          () => document.documentElement.scrollWidth > window.innerWidth
-        );
+    const pageTasks = pagesToTest.map(async (pageName) => {
+      const pageInstance = await browser.newPage();
+      try {
+        const vpResults = [];
+        for (const vp of viewports) {
+          await pageInstance.setViewport({ width: vp.width, height: vp.height });
+          await pageInstance.goto(`${url}/${pageName}`, { waitUntil: "networkidle2" });
+          const hasOverflow = await pageInstance.evaluate(
+            () => document.documentElement.scrollWidth > window.innerWidth
+          );
+          vpResults.push({ vp, hasOverflow });
+        }
+        return { pageName, vpResults };
+      } finally {
+        await pageInstance.close();
+      }
+    });
 
-        if (!hasOverflow) {
+    const allPageResults = await Promise.all(pageTasks);
+    for (const res of allPageResults) {
+      metrics.pagesChecked++;
+      for (const r of res.vpResults) {
+        metrics.overflowCheckTotal++;
+        if (!r.hasOverflow) {
           metrics.overflowCheckPassed++;
         } else {
           console.log(
-            `❌ ${pageName} on ${vp.name} (${vp.width}x${vp.height}) has horizontal scroll overflow!`
+            `❌ ${res.pageName} on ${r.vp.name} (${r.vp.width}x${r.vp.height}) has horizontal scroll overflow!`
           );
           exitCode = 1;
         }
@@ -314,21 +327,40 @@ function createStaticServer(port = 8083) {
       links.forEach((l) => allDiscoveredHrefs.add(l));
     }
 
-    let brokenLinksList = [];
-    for (const href of allDiscoveredHrefs) {
-      if (href.startsWith(url)) {
-        metrics.linksTested++;
-        try {
-          const res = await page.goto(href, { waitUntil: "domcontentloaded" });
-          if (res && res.status() >= 400) {
-            brokenLinksList.push(`${href} (Status: ${res.status()})`);
+    const internalHrefs = [...allDiscoveredHrefs].filter((h) => h.startsWith(url));
+    const linkCheckConcurrency = 5;
+    const linkQueue = [...internalHrefs];
+    const brokenLinksList = [];
+    let linksTestedCount = 0;
+
+    async function linkWorker() {
+      const linkPage = await browser.newPage();
+      try {
+        while (linkQueue.length > 0) {
+          const href = linkQueue.shift();
+          linksTestedCount++;
+          try {
+            const res = await linkPage.goto(href, { waitUntil: "domcontentloaded" });
+            if (res && res.status() >= 400) {
+              brokenLinksList.push(`${href} (Status: ${res.status()})`);
+            }
+          } catch (e) {
+            brokenLinksList.push(`${href} (Error: ${e.message})`);
           }
-        } catch (e) {
-          brokenLinksList.push(`${href} (Error: ${e.message})`);
         }
+      } finally {
+        await linkPage.close();
       }
     }
 
+    await Promise.all(
+      Array.from(
+        { length: Math.min(linkCheckConcurrency, Math.max(1, internalHrefs.length)) },
+        () => linkWorker()
+      )
+    );
+
+    metrics.linksTested = linksTestedCount;
     metrics.brokenLinks = brokenLinksList.length;
     if (brokenLinksList.length === 0) {
       console.log(

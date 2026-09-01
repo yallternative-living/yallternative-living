@@ -82,19 +82,6 @@ const MIME = {
   ".webmanifest": "application/manifest+json"
 };
 
-let passed = 0;
-const failures = [];
-
-function check(name, ok, detail) {
-  if (ok) {
-    passed++;
-    console.log(`   ✓ ${name}`);
-  } else {
-    failures.push(`${name}${detail ? " -- " + detail : ""}`);
-    console.log(`   ✗ ${name}${detail ? " -- " + detail : ""}`);
-  }
-}
-
 function createStaticServer() {
   const server = http.createServer((req, res) => {
     let reqPath = decodeURIComponent(req.url.split("?")[0]);
@@ -227,9 +214,9 @@ const HIDDEN_BUT_VISIBLE = () =>
 
 const FLAT = (t) => t === "matrix(0, 0, 0, 1, 0, 0)" || t === "none";
 
-async function runEngine(engine) {
+async function runEngine(engine, check, log) {
   const browser = await engine.type().launch(engine.options());
-  console.log(`\n### ${engine.name}`);
+  log(`\n### ${engine.name}`);
 
   try {
     // -- capability probe, printed so a future failure has context
@@ -262,7 +249,7 @@ async function runEngine(engine) {
         })(),
         io: "IntersectionObserver" in window
       }));
-      console.log(`   features: ${JSON.stringify(features)}`);
+      log(`   features: ${JSON.stringify(features)}`);
       check(`${engine.name}: IntersectionObserver available`, features.io === true, "missing");
       const spoofed = await page.evaluate(() => navigator.webdriver === false);
       check(
@@ -436,96 +423,165 @@ async function runEngine(engine) {
 
 /* The real-world worst case for the original bug: a phone on a slow
    connection. Mobile Safari is the engine no other suite here covers. */
-async function runMobile() {
-  console.log("\n### Mobile device profiles (main.js delayed)");
-  const profiles = [
-    {
-      name: "Mobile Safari",
-      type: () => playwright.webkit,
-      options: () => ({}),
-      device: "iPhone 14"
-    },
-    {
-      name: "Mobile Chrome",
-      type: () => playwright.chromium,
-      options: chromiumLaunchOptions,
-      device: "Pixel 7"
-    }
-  ];
-  for (const profile of profiles) {
-    const descriptor = playwright.devices[profile.device];
-    if (!descriptor) {
-      check(`${profile.name}: device profile available`, false, `${profile.device} unknown`);
-      continue;
-    }
-    const device = Object.assign({}, descriptor);
-    delete device.defaultBrowserType;
-    const browser = await profile.type().launch(profile.options());
-    try {
-      const context = await makeContext(browser, { device, sampleFrames: true });
-      const page = await context.newPage();
-      const errors = [];
-      page.on("pageerror", (e) => errors.push(e.message.split("\n")[0]));
-      await page.route("**/main.js*", async (r) => {
-        await sleep(1500);
-        r.continue();
-      });
-      await page.goto(`${BASE}/about.html`, { waitUntil: "domcontentloaded" });
-      await sleep(2600);
-      const result = await page.evaluate(() => ({
-        min: window.__minOpacity,
-        story: getComputedStyle(document.querySelector(".about-founder .reveal")).opacity,
-        hScroll: document.documentElement.scrollWidth > window.innerWidth + 1,
-        width: window.innerWidth
-      }));
-      console.log(`   ${profile.name} (${result.width}px): min opacity ${result.min.toFixed(2)}`);
-      check(
-        `${profile.name}: content never hidden on a slow load`,
-        result.min > 0.9 && result.story === "1",
-        `min ${result.min} story ${result.story}`
-      );
-      check(`${profile.name}: no horizontal overflow`, !result.hScroll, "page scrolls sideways");
-      check(`${profile.name}: no page errors`, errors.length === 0, errors.join("; "));
-      await context.close();
-    } finally {
-      await browser.close();
-    }
+const MOBILE_PROFILES = [
+  {
+    name: "Mobile Safari",
+    type: () => playwright.webkit,
+    options: () => ({}),
+    device: "iPhone 14"
+  },
+  {
+    name: "Mobile Chrome",
+    type: () => playwright.chromium,
+    options: chromiumLaunchOptions,
+    device: "Pixel 7"
+  }
+];
+
+async function runMobileProfile(profile, check, log) {
+  const descriptor = playwright.devices[profile.device];
+  if (!descriptor) {
+    check(`${profile.name}: device profile available`, false, `${profile.device} unknown`);
+    return;
+  }
+  const device = Object.assign({}, descriptor);
+  delete device.defaultBrowserType;
+  const browser = await profile.type().launch(profile.options());
+  try {
+    const context = await makeContext(browser, { device, sampleFrames: true });
+    const page = await context.newPage();
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(e.message.split("\n")[0]));
+    await page.route("**/main.js*", async (r) => {
+      await sleep(1500);
+      r.continue();
+    });
+    await page.goto(`${BASE}/about.html`, { waitUntil: "domcontentloaded" });
+    await sleep(2600);
+    const result = await page.evaluate(() => ({
+      min: window.__minOpacity,
+      story: getComputedStyle(document.querySelector(".about-founder .reveal")).opacity,
+      hScroll: document.documentElement.scrollWidth > window.innerWidth + 1,
+      width: window.innerWidth
+    }));
+    log(`   ${profile.name} (${result.width}px): min opacity ${result.min.toFixed(2)}`);
+    check(
+      `${profile.name}: content never hidden on a slow load`,
+      result.min > 0.9 && result.story === "1",
+      `min ${result.min} story ${result.story}`
+    );
+    check(`${profile.name}: no horizontal overflow`, !result.hScroll, "page scrolls sideways");
+    check(`${profile.name}: no page errors`, errors.length === 0, errors.join("; "));
+    await context.close();
+  } finally {
+    await browser.close();
   }
 }
 
+async function executeEngine(engine) {
+  const lines = [];
+  const failuresList = [];
+  let passedCount = 0;
+
+  function localCheck(name, ok, detail) {
+    if (ok) {
+      passedCount++;
+      lines.push(`   ✓ ${name}`);
+    } else {
+      failuresList.push(`${name}${detail ? " -- " + detail : ""}`);
+      lines.push(`   ✗ ${name}${detail ? " -- " + detail : ""}`);
+    }
+  }
+
+  function localLog(msg) {
+    lines.push(msg);
+  }
+
+  try {
+    await runEngine(engine, localCheck, localLog);
+  } catch (e) {
+    lines.push(`\n### ${engine.name}`);
+    localCheck(
+      `${engine.name}: engine available and usable`,
+      false,
+      `${e.message.split("\n")[0]} -- run: npx playwright install --with-deps chromium firefox webkit`
+    );
+  }
+
+  return { name: engine.name, lines, passed: passedCount, failures: failuresList };
+}
+
+async function executeMobileProfile(profile) {
+  const lines = [];
+  const failuresList = [];
+  let passedCount = 0;
+
+  function localCheck(name, ok, detail) {
+    if (ok) {
+      passedCount++;
+      lines.push(`   ✓ ${name}`);
+    } else {
+      failuresList.push(`${name}${detail ? " -- " + detail : ""}`);
+      lines.push(`   ✗ ${name}${detail ? " -- " + detail : ""}`);
+    }
+  }
+
+  function localLog(msg) {
+    lines.push(msg);
+  }
+
+  lines.push(`\n### ${profile.name} (device profile)`);
+  try {
+    await runMobileProfile(profile, localCheck, localLog);
+  } catch (e) {
+    localCheck(
+      `${profile.name}: device profile available and usable`,
+      false,
+      `${e.message.split("\n")[0]}`
+    );
+  }
+
+  return { name: profile.name, lines, passed: passedCount, failures: failuresList };
+}
+
 (async () => {
-  console.log("Starting cross-browser gate (Chromium, Firefox, WebKit)...");
+  console.log(
+    "Starting parallel cross-browser gate (Chromium, Firefox, WebKit, Mobile Safari, Mobile Chrome)..."
+  );
   const server = await createStaticServer();
   try {
-    for (const engine of ENGINES) {
-      try {
-        await runEngine(engine);
-      } catch (e) {
-        // A missing or unlaunchable engine fails the run. Skipping it quietly
-        // would leave the suite reporting green while covering less than it
-        // claims, which is the failure mode this gate exists to prevent.
-        console.log(`\n### ${engine.name}`);
-        check(
-          `${engine.name}: engine available and usable`,
-          false,
-          `${e.message.split("\n")[0]} -- run: npx playwright install --with-deps chromium firefox webkit`
-        );
-      }
+    const tasks = [
+      ...ENGINES.map((engine) => executeEngine(engine)),
+      ...MOBILE_PROFILES.map((profile) => executeMobileProfile(profile))
+    ];
+
+    const results = await Promise.all(tasks);
+
+    let totalPassed = 0;
+    const allFailures = [];
+
+    results.forEach((res) => {
+      console.log(res.lines.join("\n"));
+      totalPassed += res.passed;
+      allFailures.push(...res.failures);
+    });
+
+    console.log("\n" + "=".repeat(50));
+    if (allFailures.length) {
+      console.log(
+        `Cross-browser gate FAILED: ${allFailures.length} check(s) failed, ${totalPassed} passed.`
+      );
+      allFailures.forEach((f) => console.log(`  - ${f}`));
+      console.log("=".repeat(50));
+      process.exit(1);
     }
-    await runMobile();
+    console.log(
+      `Cross-browser gate PASSED: ${totalPassed} checks across 3 engines + 2 device profiles.`
+    );
+    console.log("=".repeat(50));
   } finally {
     server.close();
   }
-
-  console.log("\n" + "=".repeat(50));
-  if (failures.length) {
-    console.log(`Cross-browser gate FAILED: ${failures.length} check(s) failed, ${passed} passed.`);
-    failures.forEach((f) => console.log(`  - ${f}`));
-    console.log("=".repeat(50));
-    process.exit(1);
-  }
-  console.log(`Cross-browser gate PASSED: ${passed} checks across 3 engines + 2 device profiles.`);
-  console.log("=".repeat(50));
 })().catch((err) => {
   console.error("Cross-browser gate crashed:", err);
   process.exit(1);

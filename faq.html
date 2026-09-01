@@ -161,6 +161,9 @@
       <!--YL:nav.journal--><!--/YL:nav.journal-->
     </ul>
     <div class="nav-cta">
+      <button class="nav-search-btn" id="globalSearchTrigger" type="button" aria-label="Search catalog, articles &amp; FAQ" title="Search (Cmd+K)" aria-haspopup="dialog" aria-expanded="false" aria-controls="global-search-modal">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-search" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      </button>
       <button class="cart-toggle" type="button" aria-label="View your cart">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="icon-cart"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
         <span class="badge cart-count" aria-live="polite"></span>
@@ -340,8 +343,46 @@
     </div>
   </div>
 </footer>
+<dialog id="global-search-modal" class="global-search-modal gift-modal" aria-labelledby="globalSearchModalTitle" aria-modal="true">
+  <div class="global-search-container" role="document">
+    <div class="global-search-header">
+      <div class="global-search-input-wrapper">
+        <svg class="global-search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+        </svg>
+        <label for="globalSearchInput" id="globalSearchModalTitle" class="sr-only">Search catalog, articles &amp; FAQ</label>
+        <input type="search" id="globalSearchInput" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, journal, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <button type="button" class="global-search-clear-btn" id="globalSearchClearBtn" aria-label="Clear search query" hidden>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/></svg>
+        </button>
+      </div>
+      <button type="button" class="modal-close global-search-close-btn" id="globalSearchCloseBtn" aria-label="Close search dialog">&times;</button>
+    </div>
+    <div id="globalSearchResultCount" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+    <div class="global-search-chips-section" id="globalSearchChipsSection">
+      <p class="global-search-chips-title" id="globalSearchChipsLabel">Popular Searches</p>
+      <div class="global-search-chips-list" role="group" aria-labelledby="globalSearchChipsLabel">
+        <button type="button" class="search-chip" data-search-query="sleep"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><span>Bedtime &amp; Sleep</span></button>
+        <button type="button" class="search-chip" data-search-query="sore muscles"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg><span>Sore Muscles</span></button>
+        <button type="button" class="search-chip" data-search-query="dry skin"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg><span>Dry Skin &amp; Eczema</span></button>
+        <button type="button" class="search-chip" data-search-query="bug spray"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>Bug Defense</span></button>
+        <button type="button" class="search-chip" data-search-query="events"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span>Pop-Up Markets</span></button>
+        <button type="button" class="search-chip" data-search-query="gift card"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 12 20 22 4 22 4 12"></polyline><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg><span>Gift Cards</span></button>
+      </div>
+    </div>
+    <div class="global-search-results-wrapper" id="globalSearchResultsWrapper">
+      <div id="globalSearchResultsList" class="global-search-results-list" role="listbox" aria-label="Search results" tabindex="-1"></div>
+    </div>
+    <div class="global-search-footer">
+      <span class="search-key-hint"><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>
+      <span class="search-key-hint"><kbd>↵</kbd> Select</span>
+      <span class="search-key-hint"><kbd>ESC</kbd> Close</span>
+    </div>
+  </div>
+</dialog>
 <script src="assets/js/content-data.js?v=2.0" defer></script>
 <script src="assets/js/products-data.js?v=2.0" defer></script>
+<script src="assets/js/search-data.js?v=2.0" defer></script>
 <script src="assets/js/image-manifest.js?v=2.0" defer></script>
 <script src="assets/js/main.js?v=2.0" defer></script>
 <script src="assets/js/cart.js" defer></script>

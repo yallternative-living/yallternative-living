@@ -4111,9 +4111,212 @@
     // well after LCP, so it should always load lazily.
     var isFirstRender = true;
 
-    // Plain client-side substring search across name/blurb/category label/concerns
-    function matchesQuery(p, q) {
-      if (!q) return true;
+    // 2-Tier FLIR-Style Semantic & Intent Search Ontology
+    var STOPWORDS = new Set([
+      "a",
+      "an",
+      "and",
+      "are",
+      "as",
+      "at",
+      "be",
+      "by",
+      "for",
+      "from",
+      "has",
+      "he",
+      "in",
+      "is",
+      "it",
+      "its",
+      "of",
+      "on",
+      "that",
+      "the",
+      "to",
+      "was",
+      "were",
+      "will",
+      "with",
+      "i",
+      "me",
+      "my",
+      "we",
+      "our",
+      "you",
+      "your",
+      "them",
+      "some",
+      "any",
+      "can",
+      "do",
+      "does",
+      "give",
+      "help",
+      "need",
+      "looking",
+      "want",
+      "find",
+      "good",
+      "best",
+      "something"
+    ]);
+
+    var SYNONYM_GROUPS = [
+      ["lavender", "lavandula", "lavendula", "lavendar"],
+      ["frankincense", "boswellia", "olibanum"],
+      ["arnica", "arnica montana"],
+      ["calendula", "marigold"],
+      ["shea", "shea butter", "butyrospermum parkii", "butyrospermum"],
+      ["cedarwood", "cedar"],
+      ["eucalyptus", "blue gum"],
+      ["peppermint", "mentha piperita", "mint"],
+      ["chamomile", "matricaria"],
+      ["sleep", "insomnia", "bedtime", "nighttime", "slumber", "restless", "unwind"],
+      [
+        "sore",
+        "ache",
+        "aching",
+        "pain",
+        "muscles",
+        "muscle",
+        "joint",
+        "joints",
+        "stiff",
+        "stiffness",
+        "sprain",
+        "bruise",
+        "tension",
+        "arthritis"
+      ],
+      ["dry", "chapped", "cracked", "flaky", "ashy", "rough", "eczema", "hydration", "moisturizer"],
+      [
+        "bug",
+        "bugs",
+        "mosquito",
+        "mosquitoes",
+        "tick",
+        "ticks",
+        "gnat",
+        "gnats",
+        "insects",
+        "insect",
+        "repellent",
+        "bites"
+      ],
+      ["smudge", "cleansing", "energy", "smoke-free", "aura", "protection", "banishing"],
+      ["shimmer", "glow", "glitter", "sparkle", "radiance", "highlight", "highlighter"],
+      ["beard", "mustache", "stubble", "facial hair", "grooming"],
+      ["bath", "soak", "soaking", "tub", "epsom", "salts"],
+      ["gift", "voucher", "present", "gift card", "certificate", "birthday"]
+    ];
+
+    var CATEGORY_TERMS = {
+      sleep: ["sleep-salve", "lavender-soak", "bath-tea"],
+      insomnia: ["sleep-salve", "lavender-soak", "bath-tea"],
+      bedtime: ["sleep-salve", "lavender-soak", "bath-tea"],
+      pain: ["miracle-balm", "backroad-soak", "frankincense-salve"],
+      "sore muscles": ["miracle-balm", "backroad-soak", "frankincense-salve"],
+      muscle: ["miracle-balm", "backroad-soak", "frankincense-salve"],
+      joint: ["miracle-balm", "backroad-soak", "frankincense-salve"],
+      arthritis: ["miracle-balm", "backroad-soak", "frankincense-salve"],
+      "dry skin": [
+        "shea-butter",
+        "whipped-body-butter",
+        "hand-scrub",
+        "sugar-scrub",
+        "frankincense-salve"
+      ],
+      eczema: [
+        "shea-butter",
+        "whipped-body-butter",
+        "hand-scrub",
+        "sugar-scrub",
+        "frankincense-salve"
+      ],
+      chapped: [
+        "shea-butter",
+        "whipped-body-butter",
+        "hand-scrub",
+        "sugar-scrub",
+        "frankincense-salve"
+      ],
+      bug: ["bug-spray", "miracle-balm"],
+      mosquito: ["bug-spray", "miracle-balm"],
+      insect: ["bug-spray", "miracle-balm"],
+      repellent: ["bug-spray", "miracle-balm"],
+      smudge: ["cleansing-spray", "porch-sweep-spray", "protection-keychain"],
+      energy: ["cleansing-spray", "porch-sweep-spray", "protection-keychain"],
+      clearing: ["cleansing-spray", "porch-sweep-spray", "protection-keychain"],
+      beard: ["beard-salve"],
+      grooming: ["beard-salve"],
+      shimmer: ["shimmer-oil"],
+      glow: ["shimmer-oil"],
+      gift: ["yallternative-gift-card", "custom-box"],
+      voucher: ["yallternative-gift-card"],
+      shirt: ["unisex-tshirt", "tank-top"],
+      tshirt: ["unisex-tshirt", "tank-top"],
+      tank: ["tank-top"]
+    };
+
+    var SYNONYM_MAP = new Map();
+    SYNONYM_GROUPS.forEach(function (group) {
+      group.forEach(function (term) {
+        var termNorm = term.toLowerCase().trim();
+        if (!SYNONYM_MAP.has(termNorm)) {
+          SYNONYM_MAP.set(termNorm, new Set());
+        }
+        group.forEach(function (sibling) {
+          if (sibling !== term) {
+            SYNONYM_MAP.get(termNorm).add(sibling.toLowerCase().trim());
+          }
+        });
+      });
+    });
+
+    function expandQuery(rawQuery) {
+      var q = (rawQuery || "").toLowerCase().trim();
+      if (!q)
+        return { exact: "", tokens: [], expandedTokens: new Set(), hypernymTargets: new Set() };
+
+      var tokens = q
+        .replace(/[^\w\s-]/g, " ")
+        .split(/\s+/)
+        .filter(function (w) {
+          return w.length > 1 && !STOPWORDS.has(w);
+        });
+      var expandedTokens = new Set(tokens);
+      var hypernymTargets = new Set();
+
+      tokens.forEach(function (t) {
+        if (SYNONYM_MAP.has(t)) {
+          SYNONYM_MAP.get(t).forEach(function (syn) {
+            syn.split(/\s+/).forEach(function (st) {
+              expandedTokens.add(st);
+            });
+          });
+        }
+      });
+
+      Object.keys(CATEGORY_TERMS).forEach(function (cat) {
+        if (q.indexOf(cat) !== -1 || tokens.includes(cat)) {
+          CATEGORY_TERMS[cat].forEach(function (targetId) {
+            hypernymTargets.add(targetId);
+          });
+        }
+      });
+
+      return {
+        exact: q,
+        tokens: tokens,
+        expandedTokens: expandedTokens,
+        hypernymTargets: hypernymTargets
+      };
+    }
+
+    function matchesQuery(p, qContext) {
+      if (!qContext || !qContext.exact) return { matched: true, score: 1.0 };
+      var q = qContext.exact;
       var concernNames = Array.isArray(p.concerns)
         ? p.concerns
             .map(function (cid) {
@@ -4121,6 +4324,8 @@
             })
             .join(" ")
         : "";
+      var keywordList = Array.isArray(p.keywords) ? p.keywords.join(" ") : "";
+      var ingredientList = Array.isArray(p.ingredients) ? p.ingredients.join(" ") : "";
       var haystack = (
         p.name +
         " " +
@@ -4128,14 +4333,53 @@
         " " +
         (catLabel[p.category] || p.category) +
         " " +
-        concernNames
+        (p.scent || "") +
+        " " +
+        concernNames +
+        " " +
+        keywordList +
+        " " +
+        ingredientList
       ).toLowerCase();
-      return haystack.indexOf(q) !== -1;
+
+      var score = 0;
+      var isExact = false;
+
+      // 1. Exact Substring Match Guarantee (Floored >= 2.0, Ranked Top)
+      if (haystack.indexOf(q) !== -1) {
+        isExact = true;
+        score += 2.0;
+        if (p.name && p.name.toLowerCase().indexOf(q) !== -1) score += 3.0;
+      }
+
+      // 2. Tier 2 Hypernym Target
+      if (qContext.hypernymTargets.has(p.id)) {
+        score += 1.8;
+      }
+
+      // 3. Token & Synonym Coverage
+      var matchedTokens = 0;
+      qContext.expandedTokens.forEach(function (tok) {
+        if (haystack.indexOf(tok) !== -1) {
+          matchedTokens++;
+          score += 0.5;
+          if (p.name && p.name.toLowerCase().indexOf(tok) !== -1) score += 1.0;
+          if (keywordList.indexOf(tok) !== -1) score += 0.8;
+        }
+      });
+
+      var passed = isExact || qContext.hypernymTargets.has(p.id) || matchedTokens > 0;
+      return {
+        matched: passed && score > 0,
+        score: score,
+        isExact: isExact
+      };
     }
 
     function render() {
       var pMap = getProductMap();
       var q = state.query.trim().toLowerCase();
+      var qCtx = expandQuery(state.query);
       var bundlesSection = document.querySelector(".bundles-section");
 
       if (state.filter === "gift-sets") {
@@ -4156,7 +4400,12 @@
               })
               .join(" ")
           ).toLowerCase();
-          return haystack.indexOf(q) !== -1;
+          if (haystack.indexOf(q) !== -1) return true;
+          var hasToken = false;
+          qCtx.expandedTokens.forEach(function (tok) {
+            if (haystack.indexOf(tok) !== -1) hasToken = true;
+          });
+          return hasToken;
         });
 
         grid.innerHTML = bundlesHTML(filteredBundles, pMap);
@@ -4199,12 +4448,30 @@
           });
         }
 
-        filtered = filtered.filter(function (p) {
-          return matchesQuery(p, q);
+        var scoredList = [];
+        filtered.forEach(function (p) {
+          var res = matchesQuery(p, qCtx);
+          if (res.matched) {
+            scoredList.push({ product: p, score: res.score });
+          }
         });
 
-        var sorted = sortProducts(filtered, state.sort);
-        renderCards(grid, sorted, { eagerFirst: isFirstRender });
+        var sortedProducts;
+        if (q && (!state.sort || state.sort === "featured" || state.sort === "default")) {
+          scoredList.sort(function (a, b) {
+            return b.score - a.score;
+          });
+          sortedProducts = scoredList.map(function (item) {
+            return item.product;
+          });
+        } else {
+          var matchedProds = scoredList.map(function (item) {
+            return item.product;
+          });
+          sortedProducts = sortProducts(matchedProds, state.sort);
+        }
+
+        renderCards(grid, sortedProducts, { eagerFirst: isFirstRender });
         isFirstRender = false;
 
         if (state.filter === "all") {
@@ -4214,7 +4481,7 @@
         }
 
         if (countEl) {
-          if (!sorted.length) {
+          if (!sortedProducts.length) {
             countEl.textContent =
               "No goods match" +
               (q ? ' "' + state.query.trim() + '"' : " that criteria") +
@@ -4227,7 +4494,7 @@
                 : "";
             countEl.textContent =
               "Showing " +
-              sorted.length +
+              sortedProducts.length +
               " of " +
               allProducts.length +
               " " +
@@ -5801,6 +6068,950 @@
     }
   }
   initApothecaryQuiz();
+  /* ==================== GLOBAL SEARCH SUITE (2026 SOTA) ==================== */
+  var searchIndexCache = null;
+
+  function escapeSearchHtml(str) {
+    if (!str) return "";
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function getSearchIndex() {
+    if (searchIndexCache) return searchIndexCache;
+    if (typeof window !== "undefined" && window.YL_SEARCH_INDEX) {
+      searchIndexCache = window.YL_SEARCH_INDEX;
+      return searchIndexCache;
+    }
+    var prods = (typeof window !== "undefined" && window.PRODUCTS) || [];
+    var jrnl =
+      typeof window !== "undefined" && window.JOURNAL
+        ? window.JOURNAL.articles || window.JOURNAL
+        : [];
+    var evts =
+      typeof window !== "undefined" && window.EVENTS
+        ? (window.EVENTS.upcoming || []).concat(window.EVENTS.past || [])
+        : [];
+    var fqs = (typeof window !== "undefined" && window.FAQ) || [];
+    return {
+      version: "fallback",
+      products: prods,
+      journal: jrnl,
+      events: evts,
+      faq: fqs,
+      synonyms: {}
+    };
+  }
+
+  function tokenizeQuery(rawQuery) {
+    if (!rawQuery || typeof rawQuery !== "string") return [];
+    var cleaned = rawQuery
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .trim();
+    if (!cleaned) return [];
+    var rawTokens = cleaned.split(/\s+/).filter(Boolean);
+    var seen = new Set();
+    var result = [];
+    for (var i = 0; i < rawTokens.length; i++) {
+      if (!seen.has(rawTokens[i])) {
+        seen.add(rawTokens[i]);
+        result.push(rawTokens[i]);
+      }
+    }
+    return result;
+  }
+
+  function expandTokensWithSynonyms(tokens, synonymsMap) {
+    if (!tokens || !tokens.length) return [];
+    var synMap = synonymsMap || getSearchIndex().synonyms || {};
+    var expanded = new Set();
+
+    tokens.forEach(function (token) {
+      expanded.add(token);
+
+      // 1. Direct key lookup
+      if (synMap[token] && Array.isArray(synMap[token])) {
+        tokenizeQuery(token.replace(/_/g, " ")).forEach(function (t) {
+          expanded.add(t);
+        });
+        synMap[token].forEach(function (syn) {
+          tokenizeQuery(syn).forEach(function (t) {
+            expanded.add(t);
+          });
+        });
+      }
+
+      // 2. Reverse variant match with whole-word boundary check & snake_case normalization
+      Object.keys(synMap).forEach(function (key) {
+        if (Array.isArray(synMap[key])) {
+          var keyTokens = tokenizeQuery(key.replace(/_/g, " "));
+          synMap[key].forEach(function (variant) {
+            var varTokens = tokenizeQuery(variant);
+            var isMatch = false;
+            if (varTokens.length === 1) {
+              isMatch = variant === token || varTokens[0] === token;
+            } else if (varTokens.length > 1) {
+              isMatch = varTokens.every(function (vt) {
+                return tokens.includes(vt);
+              });
+            }
+            if (isMatch) {
+              keyTokens.forEach(function (t) {
+                expanded.add(t);
+              });
+              varTokens.forEach(function (t) {
+                expanded.add(t);
+              });
+              synMap[key].forEach(function (sibling) {
+                tokenizeQuery(sibling).forEach(function (st) {
+                  expanded.add(st);
+                });
+              });
+            }
+          });
+        }
+      });
+    });
+
+    return Array.from(expanded);
+  }
+
+  function scoreTextMatch(targetText, queryTokens, expandedTokens, weights) {
+    if (!targetText || typeof targetText !== "string") return 0;
+    var lower = targetText.toLowerCase();
+    var targetTokens = tokenizeQuery(targetText);
+    var score = 0;
+    var directWeight = weights && weights.direct ? weights.direct : 10;
+    var synWeight = weights && weights.synonym ? weights.synonym : 4;
+
+    queryTokens.forEach(function (tok) {
+      if (!tok) return;
+      if (lower === tok) {
+        score += directWeight * 3;
+      } else if (targetTokens.includes(tok)) {
+        score += directWeight * 2;
+      } else if (tok.length > 2 && lower.indexOf(tok) !== -1) {
+        score += directWeight;
+      }
+    });
+
+    expandedTokens.forEach(function (tok) {
+      if (!tok || queryTokens.includes(tok)) return;
+      if (lower === tok) {
+        score += synWeight * 3;
+      } else if (targetTokens.includes(tok)) {
+        score += synWeight * 2;
+      } else if (tok.length > 2 && lower.indexOf(tok) !== -1) {
+        score += synWeight;
+      }
+    });
+
+    return score;
+  }
+
+  function searchGlobal(rawQuery) {
+    if (!rawQuery || typeof rawQuery !== "string") {
+      return {
+        query: "",
+        totalCount: 0,
+        products: [],
+        journal: [],
+        events: [],
+        faq: []
+      };
+    }
+    var query = rawQuery.trim();
+    if (!query) {
+      return {
+        query: "",
+        totalCount: 0,
+        products: [],
+        journal: [],
+        events: [],
+        faq: []
+      };
+    }
+
+    var index = getSearchIndex();
+    var queryTokens = tokenizeQuery(query);
+    var expandedTokens = expandTokensWithSynonyms(queryTokens, index.synonyms);
+
+    // 1. Search Products
+    var scoredProducts = (index.products || [])
+      .map(function (prod) {
+        var score = 0;
+        score += scoreTextMatch(prod.name, queryTokens, expandedTokens, {
+          direct: 30,
+          synonym: 12
+        });
+        if (Array.isArray(prod.keywords)) {
+          score += scoreTextMatch(prod.keywords.join(" "), queryTokens, expandedTokens, {
+            direct: 20,
+            synonym: 10
+          });
+        }
+        if (Array.isArray(prod.concerns)) {
+          score += scoreTextMatch(prod.concerns.join(" "), queryTokens, expandedTokens, {
+            direct: 18,
+            synonym: 9
+          });
+        }
+        if (Array.isArray(prod.tags)) {
+          score += scoreTextMatch(prod.tags.join(" "), queryTokens, expandedTokens, {
+            direct: 15,
+            synonym: 8
+          });
+        }
+        if (prod.scent) {
+          score += scoreTextMatch(prod.scent, queryTokens, expandedTokens, {
+            direct: 14,
+            synonym: 7
+          });
+        }
+        if (Array.isArray(prod.ingredients)) {
+          score += scoreTextMatch(prod.ingredients.join(" "), queryTokens, expandedTokens, {
+            direct: 12,
+            synonym: 6
+          });
+        }
+        score += scoreTextMatch(prod.blurb || prod.description || "", queryTokens, expandedTokens, {
+          direct: 8,
+          synonym: 4
+        });
+        score += scoreTextMatch(prod.category || "", queryTokens, expandedTokens, {
+          direct: 6,
+          synonym: 3
+        });
+
+        if (prod.outOfStock || prod.stock === 0) {
+          score = score * 0.7;
+        }
+
+        return { item: prod, score: score };
+      })
+      .filter(function (res) {
+        return res.score > 0;
+      })
+      .sort(function (a, b) {
+        return b.score - a.score;
+      })
+      .slice(0, 6)
+      .map(function (res) {
+        return res.item;
+      });
+
+    // 2. Search Journal
+    var scoredJournal = (index.journal || [])
+      .map(function (art) {
+        var score = 0;
+        score += scoreTextMatch(art.title, queryTokens, expandedTokens, {
+          direct: 25,
+          synonym: 10
+        });
+        if (Array.isArray(art.tags)) {
+          score += scoreTextMatch(art.tags.join(" "), queryTokens, expandedTokens, {
+            direct: 18,
+            synonym: 8
+          });
+        }
+        score += scoreTextMatch(art.excerpt || "", queryTokens, expandedTokens, {
+          direct: 10,
+          synonym: 5
+        });
+        score += scoreTextMatch(art.content || "", queryTokens, expandedTokens, {
+          direct: 4,
+          synonym: 2
+        });
+        return { item: art, score: score };
+      })
+      .filter(function (res) {
+        return res.score > 0;
+      })
+      .sort(function (a, b) {
+        return b.score - a.score;
+      })
+      .slice(0, 4)
+      .map(function (res) {
+        return res.item;
+      });
+
+    // 3. Search Events
+    var scoredEvents = (index.events || [])
+      .map(function (ev) {
+        var score = 0;
+        score += scoreTextMatch(ev.name || ev.title, queryTokens, expandedTokens, {
+          direct: 25,
+          synonym: 10
+        });
+        score += scoreTextMatch(ev.location || "", queryTokens, expandedTokens, {
+          direct: 20,
+          synonym: 8
+        });
+        score += scoreTextMatch(ev.type || "", queryTokens, expandedTokens, {
+          direct: 15,
+          synonym: 6
+        });
+        score += scoreTextMatch(ev.note || ev.description || "", queryTokens, expandedTokens, {
+          direct: 10,
+          synonym: 4
+        });
+
+        var eventKeywords = "market booth pop-up festival in-person calendar craft show fair pride";
+        score += scoreTextMatch(eventKeywords, queryTokens, expandedTokens, {
+          direct: 8,
+          synonym: 4
+        });
+
+        if (ev.isUpcoming) {
+          score = score * 1.25;
+        }
+        return { item: ev, score: score };
+      })
+      .filter(function (res) {
+        return res.score > 0;
+      })
+      .sort(function (a, b) {
+        return b.score - a.score;
+      })
+      .slice(0, 4)
+      .map(function (res) {
+        return res.item;
+      });
+
+    // 4. Search FAQ
+    var scoredFaq = (index.faq || [])
+      .map(function (f) {
+        var score = 0;
+        score += scoreTextMatch(f.question, queryTokens, expandedTokens, {
+          direct: 25,
+          synonym: 10
+        });
+        if (Array.isArray(f.keywords)) {
+          score += scoreTextMatch(f.keywords.join(" "), queryTokens, expandedTokens, {
+            direct: 18,
+            synonym: 8
+          });
+        }
+        score += scoreTextMatch(f.answer, queryTokens, expandedTokens, { direct: 10, synonym: 4 });
+        score += scoreTextMatch(f.category || "", queryTokens, expandedTokens, {
+          direct: 8,
+          synonym: 3
+        });
+        return { item: f, score: score };
+      })
+      .filter(function (res) {
+        return res.score > 0;
+      })
+      .sort(function (a, b) {
+        return b.score - a.score;
+      })
+      .slice(0, 4)
+      .map(function (res) {
+        return res.item;
+      });
+
+    var totalCount =
+      scoredProducts.length + scoredJournal.length + scoredEvents.length + scoredFaq.length;
+
+    return {
+      query: query,
+      totalCount: totalCount,
+      products: scoredProducts,
+      journal: scoredJournal,
+      events: scoredEvents,
+      faq: scoredFaq
+    };
+  }
+
+  function initGlobalSearchModal() {
+    var modal = document.getElementById("global-search-modal");
+    if (!modal) return;
+
+    var input = document.getElementById("globalSearchInput");
+    var clearBtn = document.getElementById("globalSearchClearBtn");
+    var closeBtn = document.getElementById("globalSearchCloseBtn");
+    var chipsSection = document.getElementById("globalSearchChipsSection");
+    var resultsList = document.getElementById("globalSearchResultsList");
+    var resultCount = document.getElementById("globalSearchResultCount");
+
+    var lastFocusedElement = null;
+    var debounceTimer = null;
+    var selectedIndex = -1;
+    var currentItems = [];
+
+    function openModal(initialQuery) {
+      lastFocusedElement = document.activeElement;
+      if (typeof modal.showModal === "function") {
+        modal.showModal();
+      } else {
+        modal.setAttribute("open", "");
+      }
+
+      var triggers = document.querySelectorAll(
+        "#globalSearchTrigger, [data-action='open-global-search']"
+      );
+      triggers.forEach(function (btn) {
+        btn.setAttribute("aria-expanded", "true");
+      });
+
+      if (input) {
+        if (typeof initialQuery === "string") {
+          input.value = initialQuery;
+          triggerSearch(initialQuery);
+        } else if (!input.value) {
+          if (chipsSection) chipsSection.hidden = false;
+          if (resultsList) resultsList.innerHTML = "";
+          if (clearBtn) clearBtn.hidden = true;
+          if (resultCount) resultCount.textContent = "";
+          input.setAttribute("aria-expanded", "false");
+        } else {
+          triggerSearch(input.value);
+        }
+
+        setTimeout(function () {
+          input.focus();
+          if (input.value) input.select();
+        }, 50);
+      }
+    }
+
+    function closeModal() {
+      if (typeof modal.close === "function") {
+        modal.close();
+      } else {
+        modal.removeAttribute("open");
+      }
+
+      var triggers = document.querySelectorAll(
+        "#globalSearchTrigger, [data-action='open-global-search']"
+      );
+      triggers.forEach(function (btn) {
+        btn.setAttribute("aria-expanded", "false");
+      });
+
+      selectedIndex = -1;
+      if (input) {
+        input.removeAttribute("aria-activedescendant");
+        input.setAttribute("aria-expanded", "false");
+      }
+
+      if (lastFocusedElement && typeof lastFocusedElement.focus === "function") {
+        lastFocusedElement.focus();
+      }
+    }
+
+    function triggerSearch(query) {
+      var trimmed = (query || "").trim();
+      if (!trimmed) {
+        if (chipsSection) chipsSection.hidden = false;
+        if (resultsList) resultsList.innerHTML = "";
+        if (clearBtn) clearBtn.hidden = true;
+        if (resultCount) resultCount.textContent = "";
+        if (input) {
+          input.setAttribute("aria-expanded", "false");
+          input.removeAttribute("aria-activedescendant");
+        }
+        currentItems = [];
+        selectedIndex = -1;
+        return;
+      }
+
+      if (chipsSection) chipsSection.hidden = true;
+      if (clearBtn) clearBtn.hidden = false;
+
+      var results = searchGlobal(trimmed);
+      renderResults(results);
+    }
+
+    function renderResults(results) {
+      if (!resultsList) return;
+      currentItems = [];
+      selectedIndex = -1;
+
+      if (results.totalCount === 0) {
+        resultsList.innerHTML =
+          '<div class="search-empty-state">' +
+          '  <svg class="yl-icon search-empty-icon" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' +
+          '  <h3 class="search-empty-title">No potion found for &ldquo;' +
+          escapeSearchHtml(results.query) +
+          "&rdquo;</h3>" +
+          '  <p class="search-empty-text">Looking for sleep, sore muscles, bug defense, or upcoming pop-up markets? Try one of these popular searches:</p>' +
+          '  <div class="search-empty-suggestions">' +
+          '    <button type="button" class="search-chip" data-search-query="sleep"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><span>Bedtime &amp; Sleep</span></button>' +
+          '    <button type="button" class="search-chip" data-search-query="sore muscles"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg><span>Sore Muscles</span></button>' +
+          '    <button type="button" class="search-chip" data-search-query="dry skin"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg><span>Dry Skin &amp; Eczema</span></button>' +
+          '    <button type="button" class="search-chip" data-search-query="bug spray"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>Bug Defense</span></button>' +
+          '    <button type="button" class="search-chip" data-search-query="events"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span>Pop-Up Markets</span></button>' +
+          '    <button type="button" class="search-chip" data-search-query="gift card"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 12 20 22 4 22 4 12"></polyline><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg><span>Gift Cards</span></button>' +
+          "  </div>" +
+          "</div>";
+
+        if (resultCount) {
+          resultCount.textContent = "No results found for " + results.query;
+        }
+        if (input) {
+          input.setAttribute("aria-expanded", "false");
+          input.removeAttribute("aria-activedescendant");
+        }
+        return;
+      }
+
+      var html = "";
+      var globalIdx = 0;
+
+      // 1. Products Section
+      if (results.products.length > 0) {
+        html +=
+          '<div class="search-results-section" role="group" aria-labelledby="search-section-products-title">';
+        html += '  <div class="search-section-header" id="search-section-products-title">';
+        html +=
+          '    <span><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg> Products</span>';
+        html += '    <span class="search-section-count">' + results.products.length + "</span>";
+        html += "  </div>";
+        results.products.forEach(function (prod) {
+          var itemOptId = "search-opt-" + globalIdx;
+          currentItems.push({ id: itemOptId, url: prod.url, type: "product", item: prod });
+
+          var priceStr = "$" + prod.price.toFixed(2);
+          var stockBadge = prod.outOfStock
+            ? '<span class="stock-badge out-of-stock">Sold Out</span>'
+            : '<span class="stock-badge in-stock">In Stock</span>';
+
+          html +=
+            '<div class="search-result-item" id="' +
+            itemOptId +
+            '" role="option" aria-selected="false" data-item-index="' +
+            globalIdx +
+            '" data-url="' +
+            attrEsc(prod.url) +
+            '">';
+          html += '  <a href="' + attrEsc(prod.url) + '" class="search-item-main">';
+          html +=
+            '    <img src="' +
+            attrEsc(prod.image) +
+            '" alt="' +
+            attrEsc(prod.name) +
+            '" class="search-item-thumb" width="52" height="52" loading="lazy">';
+          html += '    <div class="search-item-info">';
+          html += '      <h4 class="search-item-title">' + escapeSearchHtml(prod.name) + "</h4>";
+          html += '      <div class="search-item-meta">';
+          html += '        <span class="search-item-price">' + priceStr + "</span>";
+          html += "        " + stockBadge;
+          html += "      </div>";
+          if (prod.blurb) {
+            html += '      <p class="search-item-blurb">' + escapeSearchHtml(prod.blurb) + "</p>";
+          }
+          html += "    </div>";
+          html += "  </a>";
+          html += '  <div class="search-item-action">';
+          if (!prod.outOfStock) {
+            html +=
+              '    <button type="button" class="btn btn-primary btn-sm yl-add-item search-add-btn"' +
+              ' data-item-id="' +
+              attrEsc(prod.id) +
+              '"' +
+              ' data-item-name="' +
+              attrEsc(prod.name) +
+              '"' +
+              ' data-item-price="' +
+              prod.price.toFixed(2) +
+              '"' +
+              ' data-item-image="' +
+              attrEsc(prod.image) +
+              '"' +
+              ' data-item-description="' +
+              attrEsc(prod.blurb || "") +
+              '"' +
+              ' data-item-url="' +
+              attrEsc(prod.url || "") +
+              '">' +
+              "+ Add</button>";
+          }
+          html += "  </div>";
+          html += "</div>";
+          globalIdx++;
+        });
+        html += "</div>";
+      }
+
+      // 2. Journal Section
+      if (results.journal.length > 0) {
+        html +=
+          '<div class="search-results-section" role="group" aria-labelledby="search-section-journal-title">';
+        html += '  <div class="search-section-header" id="search-section-journal-title">';
+        html +=
+          '    <span><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg> Apothecary Journal</span>';
+        html += '    <span class="search-section-count">' + results.journal.length + "</span>";
+        html += "  </div>";
+        results.journal.forEach(function (art) {
+          var itemOptId = "search-opt-" + globalIdx;
+          currentItems.push({ id: itemOptId, url: art.url, type: "journal", item: art });
+
+          html +=
+            '<div class="search-result-item" id="' +
+            itemOptId +
+            '" role="option" aria-selected="false" data-item-index="' +
+            globalIdx +
+            '" data-url="' +
+            attrEsc(art.url) +
+            '">';
+          html += '  <a href="' + attrEsc(art.url) + '" class="search-item-main">';
+          html +=
+            '    <div class="search-faq-icon" aria-hidden="true"><svg class="yl-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>';
+          html += '    <div class="search-item-info">';
+          html += '      <h4 class="search-item-title">' + escapeSearchHtml(art.title) + "</h4>";
+          html += '      <div class="search-item-meta">';
+          if (art.readTime) {
+            html +=
+              '        <span class="search-tag-pill">' + escapeSearchHtml(art.readTime) + "</span>";
+          }
+          if (art.date) {
+            html +=
+              '        <span class="search-tag-pill">' + escapeSearchHtml(art.date) + "</span>";
+          }
+          html += "      </div>";
+          if (art.excerpt) {
+            html += '      <p class="search-item-blurb">' + escapeSearchHtml(art.excerpt) + "</p>";
+          }
+          html += "    </div>";
+          html += "  </a>";
+          html += "</div>";
+          globalIdx++;
+        });
+        html += "</div>";
+      }
+
+      // 3. Markets & Events Section
+      if (results.events.length > 0) {
+        html +=
+          '<div class="search-results-section" role="group" aria-labelledby="search-section-events-title">';
+        html += '  <div class="search-section-header" id="search-section-events-title">';
+        html +=
+          '    <span><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Markets &amp; Events</span>';
+        html += '    <span class="search-section-count">' + results.events.length + "</span>";
+        html += "  </div>";
+        results.events.forEach(function (ev) {
+          var itemOptId = "search-opt-" + globalIdx;
+          currentItems.push({ id: itemOptId, url: ev.url, type: "event", item: ev });
+
+          html +=
+            '<div class="search-result-item" id="' +
+            itemOptId +
+            '" role="option" aria-selected="false" data-item-index="' +
+            globalIdx +
+            '" data-url="' +
+            attrEsc(ev.url) +
+            '">';
+          html += '  <a href="' + attrEsc(ev.url) + '" class="search-item-main">';
+          html +=
+            '    <div class="search-event-badge"><span class="event-badge-day">' +
+            escapeSearchHtml(ev.dateLabel || ev.date || "") +
+            "</span></div>";
+          html += '    <div class="search-item-info">';
+          html +=
+            '      <h4 class="search-item-title">' +
+            escapeSearchHtml(ev.name || ev.title) +
+            "</h4>";
+          html += '      <div class="search-item-meta">';
+          if (ev.location) {
+            html += "        <span>" + escapeSearchHtml(ev.location) + "</span>";
+          }
+          if (ev.type) {
+            html +=
+              '        <span class="search-tag-pill">' + escapeSearchHtml(ev.type) + "</span>";
+          }
+          html += "      </div>";
+          if (ev.note || ev.description) {
+            html +=
+              '      <p class="search-item-blurb">' +
+              escapeSearchHtml(ev.note || ev.description) +
+              "</p>";
+          }
+          html += "    </div>";
+          html += "  </a>";
+          html += "</div>";
+          globalIdx++;
+        });
+        html += "</div>";
+      }
+
+      // 4. FAQ Section
+      if (results.faq.length > 0) {
+        html +=
+          '<div class="search-results-section" role="group" aria-labelledby="search-section-faq-title">';
+        html += '  <div class="search-section-header" id="search-section-faq-title">';
+        html +=
+          '    <span><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> FAQ &amp; Help</span>';
+        html += '    <span class="search-section-count">' + results.faq.length + "</span>";
+        html += "  </div>";
+        results.faq.forEach(function (f) {
+          var itemOptId = "search-opt-" + globalIdx;
+          currentItems.push({ id: itemOptId, url: f.url, type: "faq", item: f });
+
+          html +=
+            '<div class="search-result-item" id="' +
+            itemOptId +
+            '" role="option" aria-selected="false" data-item-index="' +
+            globalIdx +
+            '" data-url="' +
+            attrEsc(f.url) +
+            '">';
+          html += '  <a href="' + attrEsc(f.url) + '" class="search-item-main">';
+          html +=
+            '    <div class="search-faq-icon" aria-hidden="true"><svg class="yl-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>';
+          html += '    <div class="search-item-info">';
+          html += '      <h4 class="search-item-title">' + escapeSearchHtml(f.question) + "</h4>";
+          if (f.category) {
+            html +=
+              '      <div class="search-item-meta"><span class="search-tag-pill">' +
+              escapeSearchHtml(f.category) +
+              "</span></div>";
+          }
+          if (f.answer) {
+            html += '      <p class="search-item-blurb">' + escapeSearchHtml(f.answer) + "</p>";
+          }
+          html += "    </div>";
+          html += "  </a>";
+          html += "</div>";
+          globalIdx++;
+        });
+        html += "</div>";
+      }
+
+      resultsList.innerHTML = html;
+
+      // Screen reader announcement
+      if (resultCount) {
+        var summary =
+          "Found " +
+          results.products.length +
+          " products, " +
+          results.journal.length +
+          " articles, " +
+          results.events.length +
+          " events, and " +
+          results.faq.length +
+          " FAQs for " +
+          results.query;
+        resultCount.textContent = summary;
+      }
+
+      if (input) {
+        input.setAttribute("aria-expanded", "true");
+      }
+    }
+
+    function selectOption(index, scrollIntoView) {
+      if (!currentItems.length) {
+        selectedIndex = -1;
+        if (input) input.removeAttribute("aria-activedescendant");
+        return;
+      }
+
+      if (index < 0) index = currentItems.length - 1;
+      if (index >= currentItems.length) index = 0;
+
+      selectedIndex = index;
+      var activeItemMeta = currentItems[selectedIndex];
+
+      var items = resultsList ? resultsList.querySelectorAll(".search-result-item") : [];
+      items.forEach(function (el, idx) {
+        if (idx === selectedIndex) {
+          el.classList.add("is-selected");
+          el.setAttribute("aria-selected", "true");
+          if (scrollIntoView && typeof el.scrollIntoView === "function") {
+            el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+          }
+        } else {
+          el.classList.remove("is-selected");
+          el.setAttribute("aria-selected", "false");
+        }
+      });
+
+      if (input && activeItemMeta) {
+        input.setAttribute("aria-activedescendant", activeItemMeta.id);
+      }
+    }
+
+    function executeOption(index) {
+      if (index < 0 || index >= currentItems.length) return;
+      var activeItemMeta = currentItems[index];
+      if (activeItemMeta && activeItemMeta.url) {
+        closeModal();
+        window.location.href = activeItemMeta.url;
+      }
+    }
+
+    // Event Listeners
+    document.addEventListener("click", function (e) {
+      var trigger = e.target.closest("#globalSearchTrigger, [data-action='open-global-search']");
+      if (trigger) {
+        e.preventDefault();
+        openModal();
+      }
+
+      // Quick chip clicks (inside modal or empty state)
+      var chip = e.target.closest(".search-chip");
+      if (chip) {
+        var query = chip.getAttribute("data-search-query") || chip.textContent.trim();
+        if (input) {
+          input.value = query;
+          triggerSearch(query);
+          input.focus();
+        }
+      }
+    });
+
+    if (closeBtn) {
+      closeBtn.addEventListener("click", function (e) {
+        e.preventDefault();
+        closeModal();
+      });
+    }
+
+    if (clearBtn) {
+      clearBtn.addEventListener("click", function (e) {
+        e.preventDefault();
+        if (input) {
+          input.value = "";
+          triggerSearch("");
+          input.focus();
+        }
+      });
+    }
+
+    modal.addEventListener("click", function (e) {
+      if (e.target === modal) {
+        closeModal();
+      }
+    });
+
+    if (input) {
+      input.addEventListener("input", function () {
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(function () {
+          triggerSearch(input.value);
+        }, 150);
+      });
+
+      input.addEventListener("keydown", function (e) {
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          selectOption(selectedIndex + 1, true);
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          selectOption(selectedIndex <= 0 ? currentItems.length - 1 : selectedIndex - 1, true);
+        } else if (e.key === "Enter") {
+          if (selectedIndex >= 0) {
+            e.preventDefault();
+            executeOption(selectedIndex);
+          } else if (currentItems.length > 0) {
+            e.preventDefault();
+            executeOption(0);
+          }
+        }
+      });
+    }
+
+    // Focus trapping and modal keydown handler
+    modal.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeModal();
+        return;
+      }
+
+      if (e.key === "Tab") {
+        var allFocusables = Array.from(
+          modal.querySelectorAll(
+            'input, button:not([hidden]):not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+          )
+        );
+        var focusables = allFocusables.filter(function (el) {
+          return !el.closest("[hidden], [style*='display: none'], .is-hidden");
+        });
+        if (focusables.length === 0) {
+          e.preventDefault();
+          return;
+        }
+        var first = focusables[0];
+        var last = focusables[focusables.length - 1];
+
+        if (focusables.length === 1) {
+          e.preventDefault();
+          first.focus();
+          return;
+        }
+
+        if (e.shiftKey) {
+          if (document.activeElement === first || !focusables.includes(document.activeElement)) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (document.activeElement === last || !focusables.includes(document.activeElement)) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      }
+    });
+
+    // Global keyboard shortcuts: Cmd+K / Ctrl+K and guarded /
+    document.addEventListener("keydown", function (e) {
+      var isMac =
+        typeof navigator !== "undefined" && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform);
+      var isCmdK = (isMac ? e.metaKey : e.ctrlKey) && (e.key === "k" || e.key === "K");
+
+      if (isCmdK) {
+        e.preventDefault();
+        if (modal.hasAttribute("open")) {
+          closeModal();
+        } else {
+          openModal();
+        }
+        return;
+      }
+
+      if (e.key === "/") {
+        var activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : "";
+        var isEditable =
+          document.activeElement &&
+          (activeTag === "input" ||
+            activeTag === "textarea" ||
+            activeTag === "select" ||
+            document.activeElement.isContentEditable);
+        var anyDialogOpen = !!document.querySelector("dialog[open]");
+
+        if (!isEditable && !anyDialogOpen) {
+          e.preventDefault();
+          openModal();
+        }
+      }
+    });
+
+    // Visual feedback for add-to-cart in search results
+    if (resultsList) {
+      resultsList.addEventListener("click", function (e) {
+        var addBtn = e.target.closest(".search-add-btn");
+        if (addBtn) {
+          addBtn.classList.add("is-added");
+          var originalText = addBtn.textContent;
+          addBtn.textContent = "✓ Added";
+          setTimeout(function () {
+            addBtn.classList.remove("is-added");
+            addBtn.textContent = originalText;
+          }, 1200);
+        }
+      });
+    }
+  }
+  initGlobalSearchModal();
 
   /* ---------- Load translator ---------- */
   (function () {
@@ -5856,11 +7067,17 @@
       parseOrderStatusQuery: parseOrderStatusQuery,
       maskEmail: maskEmail,
       initOrderStatusPage: initOrderStatusPage,
+      searchGlobal: searchGlobal,
+      tokenizeQuery: tokenizeQuery,
+      expandTokensWithSynonyms: expandTokensWithSynonyms,
+      getSearchIndex: getSearchIndex,
+      initGlobalSearchModal: initGlobalSearchModal,
       _resetState: function () {
         wishCache = null;
         wishSet = null;
         cachedTheme = null;
         productMapCache = null;
+        searchIndexCache = null;
       }
     };
   }

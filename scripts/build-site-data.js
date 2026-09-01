@@ -606,6 +606,297 @@ function buildSiteData() {
     ";\n";
   writeFile("assets/js/social-feed-data.js", socialFeedDataJs);
 
+  /* ---------- assets/js/search-data.js (Global Search Index) ---------- */
+  const searchProducts = PRODUCTS.map(function (p) {
+    return {
+      id: p.id,
+      name: p.name,
+      category: p.category,
+      categoryLabel: CATEGORY_LABEL[p.category] || p.category || "Apothecary",
+      price: p.price,
+      originalPrice: p.originalPrice || null,
+      formattedPrice: "$" + p.price.toFixed(2),
+      image: p.image,
+      inStock: p.inStock !== false && p.stock !== 0,
+      comingSoon: !!p.comingSoon,
+      featured: !!p.featured,
+      blurb: p.blurb || p.description || "",
+      ingredients: Array.isArray(p.ingredients) ? p.ingredients : [],
+      ingredientsLabel: p.ingredientsLabel || "Ingredients",
+      scent: p.scent || "",
+      tags: Array.isArray(p.tags) ? p.tags : [],
+      concerns: Array.isArray(p.concerns) ? p.concerns : [],
+      keywords: Array.isArray(p.keywords) ? p.keywords : [],
+      variants: p.variants || null,
+      url: "products/" + p.id + ".html",
+      shopUrl: "shop.html#" + p.id
+    };
+  });
+
+  const searchBundles = BUNDLES.map(function (b) {
+    const pricing = bundlePricing(b, PRODUCTS_BY_ID) || { fullPrice: 0, bundlePrice: 0 };
+    const firstProd = PRODUCTS_BY_ID[b.productIds[0]];
+    const bundleImg = b.image || (firstProd && firstProd.image) || "assets/img/gift-card.png";
+    return {
+      id: "bundle-" + b.id,
+      name: b.name,
+      category: "gift-sets",
+      categoryLabel: "Gift Sets & Bundles",
+      price: pricing.bundlePrice,
+      originalPrice: pricing.fullPrice,
+      formattedPrice: "$" + pricing.bundlePrice.toFixed(2),
+      image: bundleImg,
+      inStock: true,
+      comingSoon: false,
+      featured: !!b.featured,
+      blurb:
+        b.description || b.blurb || "Curated botanical bundle with special multi-item savings.",
+      ingredients: [],
+      scent: "",
+      tags: ["bundle", "gift-set", "bestseller"],
+      concerns: [],
+      keywords: ["bundle", "set", "gift set", "package", "gift", "deal", "discount", "gift box"],
+      variants: null,
+      url: "shop.html#bundle-" + b.id,
+      shopUrl: "shop.html#bundle-" + b.id
+    };
+  });
+
+  const allSearchProducts = searchProducts.concat(searchBundles);
+
+  const searchJournal = (Array.isArray(JOURNAL) ? JOURNAL : JOURNAL.posts || []).map(
+    function (post) {
+      return {
+        id: post.id,
+        title: post.title,
+        date: post.date,
+        formattedDate: post.formattedDate || post.date,
+        image: post.image || "assets/img/sleep-salve.jpg",
+        readTime: post.readingTime || post.readTime || "4 min read",
+        tags: Array.isArray(post.tags) ? post.tags : [],
+        excerpt: post.excerpt || post.lede || "",
+        content: (post.content || "")
+          .replace(/[#*`_[\]()]/g, " ")
+          .replace(/\s+/g, " ")
+          .trim(),
+        featuredProductId: post.featuredProductId || "",
+        url: "journal.html#post-" + post.id
+      };
+    }
+  );
+
+  const searchFaq = FAQ.map(function (f, idx) {
+    return {
+      id: "faq-" + idx,
+      question: f.question,
+      answer: f.answer,
+      category: f.category || "General",
+      keywords: Array.isArray(f.keywords) ? f.keywords : [],
+      url: "faq.html#faq-" + idx
+    };
+  });
+
+  const searchEvents = (EVENTS.upcoming || []).concat(EVENTS.past || []).map(function (ev) {
+    return {
+      id: ev.id,
+      name: ev.name,
+      title: ev.name,
+      date: ev.date,
+      dateLabel: ev.dateLabel || ev.date,
+      endDate: ev.endDate || null,
+      type: ev.type || "Market",
+      location: ev.location || "",
+      zip: ev.zip || "",
+      note: ev.note || "",
+      description: ev.note || "",
+      isUpcoming: (EVENTS.upcoming || []).some(function (u) {
+        return u.id === ev.id;
+      }),
+      url: "events.html#" + ev.id
+    };
+  });
+
+  const searchSynonyms = {
+    // Tier 1: Botanicals, herbs, ingredients
+    lavender: ["lavendar", "lavandre", "lavandula", "french lavender", "lavender oil", "sleep"],
+    magnesium: [
+      "mg",
+      "mag",
+      "magnesium oil",
+      "magnesium salve",
+      "mineral soak",
+      "transdermal",
+      "muscle"
+    ],
+    arnica: ["arnica montana", "mountain arnica", "bruise herb", "arnika", "soreness", "bruises"],
+    calendula: [
+      "marigold",
+      "calendula officinalis",
+      "calendula flower",
+      "calendula oil",
+      "healing"
+    ],
+    chamomile: ["camomile", "german chamomile", "matricaria", "calming tea", "soothing"],
+    frankincense: ["olibanum", "boswellia", "frankensense", "frankencense", "resin"],
+    shea: [
+      "shea butter",
+      "karite",
+      "raw shea",
+      "african shea",
+      "tallow",
+      "body butter",
+      "moisture"
+    ],
+    beeswax: ["cera alba", "wax", "natural wax", "honeycomb"],
+    peppermint: ["mint", "mentha piperita", "cooling mint", "pepermint"],
+    eucalyptus: ["eucalypt", "blue gum", "eucalyptus oil"],
+    citronella: ["citronela", "cymbopogon", "fever grass", "lemon grass", "lemongrass", "bug"],
+    lemongrass: ["lemon grass", "citronella", "cymbopogon"],
+    cedarwood: ["cedar", "red cedar", "juniperus", "woodsy"],
+    epsom: ["epsom salt", "magnesium sulfate", "bath salt", "mineral salt", "soak"],
+    salt: ["epsom salt", "bath salt", "lava salt", "black salt", "sea salt"],
+    tea_tree: ["melaleuca", "tea tree oil", "teatree"],
+    sage: ["white sage", "salvia apiana", "smudge", "clearing"],
+    palo_santo: ["holy wood", "sacred wood", "bursera", "smudge"],
+    lanolin: ["wool wax", "lanoline", "emollient"],
+    squalane: ["shimmer", "glow", "oil"],
+    pumice: ["exfoliant", "scrub", "pumice stone"],
+
+    // Tier 2: Concerns, symptoms, intent
+    sleep: [
+      "insomnia",
+      "bedtime",
+      "nighttime",
+      "tired",
+      "restless",
+      "rest",
+      "unwind",
+      "calm",
+      "relax",
+      "anxiety",
+      "stress",
+      "sleepy",
+      "somnolence"
+    ],
+    muscles: [
+      "sore muscles",
+      "muscle ache",
+      "joint pain",
+      "tension",
+      "stiffness",
+      "workout",
+      "gym",
+      "arthritis",
+      "recovery",
+      "sore",
+      "pain",
+      "cramps"
+    ],
+    dry_skin: [
+      "dry skin",
+      "eczema",
+      "cracked heels",
+      "chapped hands",
+      "ashy",
+      "rough skin",
+      "cuticles",
+      "rash",
+      "dry",
+      "moisturizer",
+      "hydrate",
+      "barrier"
+    ],
+    bug_spray: [
+      "bug spray",
+      "mosquito",
+      "bugs",
+      "bites",
+      "gnats",
+      "ticks",
+      "repellent",
+      "camping",
+      "hiking",
+      "outdoor",
+      "bug off",
+      "insect"
+    ],
+    sensitive_skin: [
+      "sensitive skin",
+      "unscented",
+      "fragrance free",
+      "allergy",
+      "hypoallergenic",
+      "baby safe",
+      "gentle",
+      "pure"
+    ],
+    gift_cards: [
+      "gift card",
+      "gift certificate",
+      "voucher",
+      "present",
+      "birthday",
+      "e-gift",
+      "store credit",
+      "gifting",
+      "gifts"
+    ],
+    pride: [
+      "queer",
+      "rainbow",
+      "lgbtq",
+      "stag",
+      "festival",
+      "glitter",
+      "yall means all",
+      "pride set"
+    ],
+    witchy: [
+      "spell",
+      "amulet",
+      "energy",
+      "smudge",
+      "clearing",
+      "ritual",
+      "protection",
+      "potion",
+      "magic",
+      "talisman"
+    ],
+    shipping: [
+      "delivery",
+      "returns",
+      "exchange",
+      "order tracking",
+      "cost",
+      "free shipping",
+      "ship",
+      "landrum",
+      "dispatch",
+      "transit"
+    ]
+  };
+
+  const searchIndex = {
+    version: "2026.09.01",
+    products: allSearchProducts,
+    journal: searchJournal,
+    events: searchEvents,
+    faq: searchFaq,
+    synonyms: searchSynonyms
+  };
+
+  const searchDataJs =
+    "/**\n" +
+    " * @fileoverview Auto-generated Global Search Index.\n" +
+    " * Generated by scripts/build-site-data.js -- Do not hand-edit.\n" +
+    " * @const {!Object}\n" +
+    " */\n" +
+    "window.YL_SEARCH_INDEX = " +
+    JSON.stringify(searchIndex, null, 2) +
+    ";\n";
+  writeFile("assets/js/search-data.js", searchDataJs);
+
   /* ---------- 2) Bundle referential integrity check ----------
    Every bundle in products.json's `bundles` array (each its own single
    cart line item, id "bundle-<id>", at a computed discounted price --
@@ -2282,6 +2573,11 @@ function renderProductPdpHtml(product, domain, categoryLabel) {
     '        <li><a href="../about.html">Our Story</a></li>\n' +
     '        <li><a href="../contact.html">Contact</a></li>\n' +
     "      </ul>\n" +
+    '      <div class="nav-cta">\n' +
+    '        <button class="nav-search-btn" id="globalSearchTrigger" type="button" aria-label="Search catalog, articles &amp; FAQ" title="Search (Cmd+K)" aria-haspopup="dialog" aria-expanded="false" aria-controls="global-search-modal">\n' +
+    '          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-search" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>\n' +
+    "        </button>\n" +
+    "      </div>\n" +
     "    </nav>\n" +
     "  </header>\n" +
     '  <main id="main-content" class="container pdp-container">\n' +
@@ -2333,6 +2629,45 @@ function renderProductPdpHtml(product, domain, categoryLabel) {
     "      </div>\n" +
     "    </article>\n" +
     "  </main>\n" +
+    '  <dialog id="global-search-modal" class="global-search-modal gift-modal" aria-labelledby="globalSearchModalTitle" aria-modal="true">\n' +
+    '    <div class="global-search-container" role="document">\n' +
+    '      <div class="global-search-header">\n' +
+    '        <div class="global-search-input-wrapper">\n' +
+    '          <svg class="global-search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">\n' +
+    '            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>\n' +
+    "          </svg>\n" +
+    '          <label for="globalSearchInput" id="globalSearchModalTitle" class="sr-only">Search catalog, articles &amp; FAQ</label>\n' +
+    '          <input type="search" id="globalSearchInput" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, journal, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">\n' +
+    '          <button type="button" class="global-search-clear-btn" id="globalSearchClearBtn" aria-label="Clear search query" hidden>\n' +
+    '            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>\n' +
+    "          </button>\n" +
+    "        </div>\n" +
+    '        <button type="button" class="modal-close global-search-close-btn" id="globalSearchCloseBtn" aria-label="Close search dialog">&times;</button>\n' +
+    "      </div>\n" +
+    '      <div id="globalSearchResultCount" class="sr-only" aria-live="polite" aria-atomic="true"></div>\n' +
+    '      <div class="global-search-chips-section" id="globalSearchChipsSection">\n' +
+    '        <p class="global-search-chips-title" id="globalSearchChipsLabel">Popular Searches</p>\n' +
+    '        <div class="global-search-chips-list" role="group" aria-labelledby="globalSearchChipsLabel">\n' +
+    '          <button type="button" class="search-chip" data-search-query="sleep"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><span>Bedtime &amp; Sleep</span></button>\n' +
+    '          <button type="button" class="search-chip" data-search-query="sore muscles"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg><span>Sore Muscles</span></button>\n' +
+    '          <button type="button" class="search-chip" data-search-query="dry skin"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg><span>Dry Skin &amp; Eczema</span></button>\n' +
+    '          <button type="button" class="search-chip" data-search-query="bug spray"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>Bug Defense</span></button>\n' +
+    '          <button type="button" class="search-chip" data-search-query="events"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span>Pop-Up Markets</span></button>\n' +
+    '          <button type="button" class="search-chip" data-search-query="gift card"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 12 20 22 4 22 4 12"></polyline><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg><span>Gift Cards</span></button>\n' +
+    "        </div>\n" +
+    "      </div>\n" +
+    '      <div class="global-search-results-wrapper" id="globalSearchResultsWrapper">\n' +
+    '        <div id="globalSearchResultsList" class="global-search-results-list" role="listbox" aria-label="Search results" tabindex="-1"></div>\n' +
+    "      </div>\n" +
+    '      <div class="global-search-footer">\n' +
+    '        <span class="search-key-hint"><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>\n' +
+    '        <span class="search-key-hint"><kbd>↵</kbd> Select</span>\n' +
+    '        <span class="search-key-hint"><kbd>ESC</kbd> Close</span>\n' +
+    "      </div>\n" +
+    "    </div>\n" +
+    "  </dialog>\n" +
+    '  <script src="../assets/js/search-data.js?v=2.0" defer></script>\n' +
+    '  <script src="../assets/js/main.js?v=2.0" defer></script>\n' +
     "</body>\n" +
     "</html>\n"
   );

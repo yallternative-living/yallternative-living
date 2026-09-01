@@ -106,7 +106,7 @@ function checkTagBalance(html, filename) {
 }
 
 // Static server for Puppeteer tests
-function createServer(port = 8089) {
+function createServer(port = 0) {
   const MIME_TYPES = {
     ".html": "text/html",
     ".css": "text/css",
@@ -381,7 +381,8 @@ async function runAdversarialStressTests() {
     "\n>>> TEST GROUP 3: Headless Browser DOM, Accordion Keyboard/Rapid Click & 320px Stress"
   );
 
-  const server = await createServer(8089);
+  const server = await createServer(0);
+  const serverPort = server.address().port;
   const browser = await puppeteer.launch({
     headless: "new",
     args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
@@ -403,7 +404,7 @@ async function runAdversarialStressTests() {
 
       // A. Viewport 320px (Ultra-narrow Mobile: iPhone SE 1st gen)
       await page.setViewport({ width: 320, height: 568 });
-      await page.goto(`http://127.0.0.1:8089/products/${prodId}.html`, {
+      await page.goto(`http://127.0.0.1:${serverPort}/products/${prodId}.html`, {
         waitUntil: "networkidle0"
       });
 
@@ -549,7 +550,7 @@ async function runAdversarialStressTests() {
     console.log("\n--- Checking Desktop (1200x800) and Tablet (768x1024) Layout Reflow ---");
     for (const width of [1200, 768]) {
       await page.setViewport({ width, height: width === 1200 ? 800 : 1024 });
-      await page.goto("http://127.0.0.1:8089/products/frankincense-salve.html", {
+      await page.goto(`http://127.0.0.1:${serverPort}/products/frankincense-salve.html`, {
         waitUntil: "networkidle0"
       });
 
