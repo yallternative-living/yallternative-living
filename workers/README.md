@@ -23,10 +23,24 @@ caps, no server-side price validation). See the header comment in each file.
 There's also `netlify/functions/fulfill-gift-card.js` -- not a Cloudflare
 Worker (it's a Netlify Function, deployed automatically alongside the site
 build since it lives under `netlify/functions/`), but part of the same
-checkout flow: it's the `checkout.session.completed` webhook that actually
-emails a redeemable code once someone buys a gift card. See the header
-comment in that file for its own required env vars and deploy step (register
-the endpoint in the Stripe Dashboard).
+checkout flow: it's the Stripe webhook that actually emails a redeemable
+code once someone buys a gift card, decrements a redeemed card's balance,
+restores it on a refund, and cleans up after an abandoned checkout. See the
+header comment in that file for its own required env vars and deploy step
+(register the endpoint in the Stripe Dashboard), and "Known limits of the
+gift-card ledger" below for what this design can and cannot guarantee.
+
+**One Stripe API version, four files.** `workers/checkout.js`,
+`netlify/functions/fulfill-gift-card.js`, `netlify/functions/gift-card-balance.js`
+and `netlify/functions/redeem-points.js` each pin the same
+`STRIPE_API_VERSION` string. They read and write the same Stripe objects, so
+bumping it in one file and not the others means one side sends a shape the
+other cannot parse. Change all four in the same commit, or none.
+
+`netlify/functions/redeem-points.js` is **disabled**: it returns 410 to every
+request. It used to mint real store credit from a points balance that only
+ever existed in the shopper's own browser -- see the header comment in that
+file. Do not re-enable it without a server-side ledger.
 
 ---
 
@@ -267,8 +281,16 @@ can actually send from this domain:
 3. Deploy once so the function has a live URL:
    `https://yallternativeliving.com/.netlify/functions/fulfill-gift-card`
 4. In the Stripe Dashboard: Developers -> Webhooks -> Add endpoint, paste that
-   URL, and select the `checkout.session.completed` event. Stripe shows you a
-   signing secret (`whsec_...`) -- that's `STRIPE_WEBHOOK_SECRET` from step 2.
+   URL, and select these events:
+   - `checkout.session.completed` -- mints gift-card codes and decrements a
+     redeemed card's balance,
+   - `charge.refunded` -- puts a refunded order's gift-card share back on the
+     card (do NOT also select `refund.created`: it fires for the same money,
+     and the function deliberately ignores it),
+   - `checkout.session.expired` -- deletes the ephemeral coupon an abandoned
+     checkout leaves behind.
+   Stripe shows you a signing secret (`whsec_...`) -- that's
+   `STRIPE_WEBHOOK_SECRET` from step 2.
 5. Test mode first: run a real test-mode Checkout that includes a gift card,
    confirm the recipient email arrives with a code, and confirm that code
    actually applies at a second test-mode Checkout (the Worker sets
@@ -278,6 +300,76 @@ can actually send from this domain:
 See the header comment in `fulfill-gift-card.js` for how the webhook
 signature is verified and why this couldn't be tested against a real Stripe
 delivery in the environment this was built in.
+
+---
+
+## Known limits of the gift-card ledger (read before changing this code)
+
+Gift cards here are **Stripe Promotion Codes with an `amount_off` coupon**,
+not a stored-value balance in a database this project controls. That buys a
+working gift card with no infrastructure, and it costs two things that
+cannot be fully fixed at this layer. Both are live today; neither is a
+theoretical concern.
+
+### 1. Two checkouts at once can spend the same balance twice
+
+`workers/checkout.js` reads the card's balance when it builds a Checkout
+Session, and `fulfill-gift-card.js` decrements it when the order completes.
+Nothing holds the balance in between. So:
+
+1. A shopper opens two tabs with the same $50 card and a $40 basket in each.
+2. Both sessions read "balance $50" and each mints an ephemeral $40 coupon.
+3. Both complete. The webhook rolls the balance over twice: $50 - $40 = $10,
+   then $10 - $40, clamped to $0.
+
+Net effect: $80 of goods against a $50 card. The clamp keeps the card from
+going negative (a negative `amount_off` would be rejected by Stripe, and an
+unclamped subtraction is exactly the kind of arithmetic that wraps into a
+fresh balance), and when `applied > current` the webhook **emails the shop**
+at `RESTOCK_NOTIFY_EMAIL` (default `contact@yallternativeliving.com`) so a
+human sees the discrepancy on the order it happened to, rather than finding
+it in a monthly reconciliation. It does not, and cannot here, prevent the
+overspend: preventing it needs a balance that can be *reserved* -- an
+atomic read-modify-write in a store both the Worker and the webhook can
+reach (Cloudflare KV/Durable Object, or a small database), with the Stripe
+coupon derived from it rather than being the source of truth. That is the
+real fix, and it is a project of its own.
+
+Exposure is bounded by the size of the card and the number of tabs, and it
+takes deliberate effort to trigger. It is documented rather than hidden so
+that whoever adds a real ledger knows exactly which behaviour they are
+replacing.
+
+### 2. The balance endpoint cannot be rate limited here
+
+`netlify/functions/gift-card-balance.js` answers "is this code real, and
+what is on it?". The codes are 8 characters from a 36-symbol alphabet
+(~2.8e12 combinations) and deliberately human-typeable, so the endpoint is
+guessable in principle given enough requests.
+
+There is **no rate limiting in that function, and it does not claim any**.
+Netlify Functions are stateless: each invocation may be a fresh container,
+so a counter in module scope is per-instance and is bypassed by spreading
+requests across cold starts. Rate limiting needs shared state this project
+does not have (no Redis, no database, no Netlify Blobs configured).
+
+What the endpoint does instead:
+
+- one generic 404 body for "no such code", "inactive", "fully redeemed" and
+  "no balance", so a guess never gets told it hit a real code,
+- `Cache-Control: no-store` on every response, so no CDN or browser keeps a
+  balance answer to replay,
+- POST with a JSON body (the client's default) so codes stay out of URLs,
+  history, `Referer` headers and access logs,
+- the `YALL-` format regex, which rejects the cheapest garbage before any
+  Stripe call.
+
+If this ever needs real throttling, the options in rough order of effort
+are: put the endpoint behind Cloudflare (a Worker in front, with Rate
+Limiting rules or a KV counter), move it into `workers/` alongside
+`checkout.js` and use KV, or enable Netlify Blobs and count there. Whichever
+is chosen, **remove the "no rate limiting" note above** so this file keeps
+telling the truth.
 
 ---
 
