@@ -620,36 +620,114 @@
   border-color: var(--whiskey);
 }
 
-/* Shipping Progress Meter */
+/* Multi-Tier Shipping & Reward Milestones Progress Meter */
+.yl-cart-milestones,
 .yl-cart-ship {
-  margin-bottom: 12px;
-  padding: 10px 12px;
+  margin-bottom: 14px;
+  padding: 12px 14px 18px;
   background: var(--ink-3);
   border: 1px solid var(--hide);
   border-radius: 8px;
+  position: relative;
 }
+.yl-cart-milestones-msg,
 .yl-cart-ship-msg {
   font-size: 0.82rem;
+  font-weight: 500;
   color: var(--paper-dim);
-  margin-bottom: 6px;
+  margin-bottom: 10px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 6px;
 }
+.yl-cart-milestones-msg .yl-cart-icon,
+.yl-cart-ship-msg .yl-cart-icon {
+  flex-shrink: 0;
+  color: var(--whiskey);
+}
+.yl-cart-milestones-track,
 .yl-cart-ship-bar {
+  position: relative;
   height: 8px;
   border-radius: 999px;
   background: var(--ink-2);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  margin: 0 8px 12px 8px;
 }
+.yl-cart-milestones-fill,
 .yl-cart-ship-bar span {
   display: block;
   height: 100%;
   background: linear-gradient(90deg, var(--whiskey), var(--rose));
   border-radius: 999px;
-  transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow: 0 0 8px oklch(from var(--whiskey) l c h / 0.4);
+}
+.yl-cart-milestone-pin {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+  z-index: 2;
+}
+.yl-cart-milestone-pin .yl-cart-icon {
+  width: 18px;
+  height: 18px;
+  padding: 3px;
+  background: var(--ink-2);
+  border: 2px solid var(--hide);
+  border-radius: 50%;
+  color: var(--paper-dim);
+  transition: all 0.25s ease;
+  box-sizing: border-box;
+}
+.yl-cart-milestone-pin span {
+  position: absolute;
+  top: 100%;
+  margin-top: 4px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--paper-dim);
+  white-space: nowrap;
+  transition: color 0.25s ease;
+}
+.yl-cart-milestone-pin.is-reached .yl-cart-icon {
+  background: var(--whiskey);
+  border-color: var(--whiskey);
+  color: var(--ink);
+  box-shadow: 0 0 8px oklch(from var(--whiskey) l c h / 0.5);
+}
+.yl-cart-milestone-pin.is-reached span {
+  color: var(--whiskey);
+  font-weight: 700;
+}
+
+:root[data-theme="light"] .yl-cart-milestones,
+:root:not([data-theme="dark"]):not([data-theme="light"]) .yl-cart-milestones {
+  background: var(--ink-3);
+  border-color: var(--hide);
+}
+:root[data-theme="light"] .yl-cart-milestones-track,
+:root:not([data-theme="dark"]):not([data-theme="light"]) .yl-cart-milestones-track {
+  background: var(--ink-2);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+:root[data-theme="light"] .yl-cart-milestone-pin .yl-cart-icon,
+:root:not([data-theme="dark"]):not([data-theme="light"]) .yl-cart-milestone-pin .yl-cart-icon {
+  background: var(--ink-2);
+  border-color: var(--hide);
+  color: var(--paper-dim);
+}
+:root[data-theme="light"] .yl-cart-milestone-pin.is-reached .yl-cart-icon,
+:root:not([data-theme="dark"]):not([data-theme="light"])
+  .yl-cart-milestone-pin.is-reached
+  .yl-cart-icon {
+  background: var(--whiskey);
+  border-color: var(--whiskey);
+  color: var(--paper);
 }
 
 /* Gift Order & Message */

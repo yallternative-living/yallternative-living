@@ -518,5 +518,123 @@ eq(cart.getWalletPoints(), 0, "setWalletPoints clamps negative points to 0");
 cart.setWalletPoints("invalid");
 eq(cart.getWalletPoints(), 0, "setWalletPoints handles non-numeric value gracefully");
 
+// 5. Multi-Tier Free Shipping & Reward Milestones (R3)
+const customMilestones = [
+  { threshold: 40, reward: "Free Tracked Shipping", icon: "truck" },
+  { threshold: 60, reward: "Free Handcrafted Pocket Salve", icon: "gift" }
+];
+
+// Fallback behavior when YL_PRODUCTS is unset or empty
+const savedWindowYlProducts = global.window.YL_PRODUCTS;
+delete global.window.YL_PRODUCTS;
+eq(
+  cart.getShippingMilestones(),
+  [{ threshold: 40, reward: "Free Tracked Shipping", icon: "truck" }],
+  "getShippingMilestones falls back to default $40 threshold when YL_PRODUCTS is absent"
+);
+
+// Reads shop.shippingMilestones and sorts ascending
+global.window.YL_PRODUCTS = {
+  shop: {
+    shippingMilestones: [
+      { threshold: 60, reward: "Free Handcrafted Pocket Salve", icon: "gift" },
+      { threshold: 40, reward: "Free Tracked Shipping", icon: "truck" }
+    ]
+  }
+};
+eq(
+  cart.getShippingMilestones(),
+  customMilestones,
+  "getShippingMilestones parses and sorts milestones in ascending order"
+);
+
+// Malformed milestones fall back gracefully
+global.window.YL_PRODUCTS = {
+  shop: {
+    shippingMilestones: [{ threshold: "invalid" }, null]
+  }
+};
+eq(
+  cart.getShippingMilestones(),
+  [{ threshold: 40, reward: "Free Tracked Shipping", icon: "truck" }],
+  "getShippingMilestones ignores non-numeric thresholds and falls back cleanly"
+);
+
+// Milestone calculations & copy across edge cases
+// Subtotal $0 -> "Add $40.00 for Free Tracked Shipping!"
+let s0 = cart.calculateMilestoneStatus(0, customMilestones, false);
+eq(s0.message, "Add $40.00 for Free Tracked Shipping!", "Milestone at $0 subtotal");
+eq(s0.progressPercent, 0, "Progress percent at $0 subtotal");
+eq(s0.remaining, 40, "Remaining distance at $0 subtotal");
+eq(s0.isAllUnlocked, false, "Not unlocked at $0 subtotal");
+eq(s0.nextMilestone.threshold, 40, "Next milestone at $0 subtotal is $40");
+
+// Subtotal $25 -> "Add $15.00 for Free Tracked Shipping!"
+let s25 = cart.calculateMilestoneStatus(25, customMilestones, false);
+eq(s25.message, "Add $15.00 for Free Tracked Shipping!", "Milestone at $25 subtotal");
+eq(s25.progressPercent, 42, "Progress percent at $25 subtotal (25/60 = 42%)");
+eq(s25.remaining, 15, "Remaining distance at $25 subtotal ($40 - $25 = $15)");
+eq(s25.nextMilestone.threshold, 40, "Next milestone at $25 is $40");
+
+// Subtotal $40 -> "Add $20.00 more to unlock a Free Handcrafted Pocket Salve!"
+let s40 = cart.calculateMilestoneStatus(40, customMilestones, false);
+eq(
+  s40.message,
+  "Add $20.00 more to unlock a Free Handcrafted Pocket Salve!",
+  "Milestone at $40 subtotal unlocks tier 1, targets tier 2"
+);
+eq(s40.progressPercent, 67, "Progress percent at $40 subtotal (40/60 = 67%)");
+eq(s40.remaining, 20, "Remaining distance at $40 subtotal ($60 - $40 = $20)");
+eq(s40.nextMilestone.threshold, 60, "Next milestone at $40 is $60");
+
+// Subtotal $51.99 -> "Add $8.01 more to unlock a Free Handcrafted Pocket Salve!" (Float precision safety)
+let s5199 = cart.calculateMilestoneStatus(51.99, customMilestones, false);
+eq(
+  s5199.message,
+  "Add $8.01 more to unlock a Free Handcrafted Pocket Salve!",
+  "Milestone at $51.99 calculates $8.01 without floating-point drift"
+);
+eq(s5199.progressPercent, 87, "Progress percent at $51.99 (51.99/60 = 87%)");
+eq(s5199.remaining, 8.01, "Remaining float distance at $51.99 is 8.01");
+eq(s5199.nextMilestone.threshold, 60, "Next milestone at $51.99 is $60");
+
+// Subtotal $60 -> "🎉 All perks unlocked! Free Shipping + Free Handcrafted Pocket Salve!"
+let s60 = cart.calculateMilestoneStatus(60, customMilestones, false);
+eq(
+  s60.message,
+  "🎉 All perks unlocked! Free Shipping + Free Handcrafted Pocket Salve!",
+  "Milestone at $60 unlocks all perks"
+);
+eq(s60.progressPercent, 100, "Progress percent at $60 is 100%");
+eq(s60.isAllUnlocked, true, "isAllUnlocked is true at $60");
+eq(s60.nextMilestone, null, "nextMilestone is null when all unlocked");
+
+// Subtotal $75 -> "🎉 All perks unlocked! Free Shipping + Free Handcrafted Pocket Salve!"
+let s75 = cart.calculateMilestoneStatus(75, customMilestones, false);
+eq(
+  s75.message,
+  "🎉 All perks unlocked! Free Shipping + Free Handcrafted Pocket Salve!",
+  "Milestone at $75 stays capped at 100%"
+);
+eq(s75.progressPercent, 100, "Progress percent at $75 is capped at 100%");
+eq(s75.isAllUnlocked, true, "isAllUnlocked is true at $75");
+
+// Local pickup override
+let sPickup = cart.calculateMilestoneStatus(25, customMilestones, true);
+eq(
+  sPickup.message,
+  "Local SC Market Pick-up Selected ($0 Shipping)",
+  "Local pickup override message"
+);
+eq(sPickup.progressPercent, 100, "Progress percent is 100% on pickup");
+
+// Disabled threshold (0)
+let sDisabled = cart.calculateMilestoneStatus(25, [{ threshold: 0, reward: "Disabled" }], false);
+eq(sDisabled.message, "", "Disabled milestones (0 threshold) produce empty message");
+
+// Restore window.YL_PRODUCTS
+if (savedWindowYlProducts === undefined) delete global.window.YL_PRODUCTS;
+else global.window.YL_PRODUCTS = savedWindowYlProducts;
+
 console.log(`\ncart-engine.test.js: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

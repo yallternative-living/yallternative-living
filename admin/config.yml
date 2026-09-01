@@ -308,6 +308,33 @@ collections:
                 widget: list
                 required: false
                 hint: "Colloquial synonyms, symptoms, or remedies (e.g. 'insomnia', 'joint ache', 'mosquito repellent') to help customers find this product via search."
+              - name: concerns
+                label: "Shop Concerns / Symptoms"
+                widget: relation
+                multiple: true
+                required: false
+                collection: products
+                file: products
+                value_field: concerns.*.id
+                display_fields: ["concerns.*.icon", "concerns.*.name"]
+                search_fields: ["concerns.*.name"]
+                hint: "Select customer concerns/symptoms this product helps with (e.g. Sore Muscles, Dry Skin)."
+              - name: pairsWith
+                label: "Pairs Well With / Complete the Ritual (Optional)"
+                widget: relation
+                multiple: true
+                required: false
+                collection: products
+                file: products
+                value_field: products.*.id
+                display_fields: ["products.*.name"]
+                search_fields: ["products.*.name"]
+                hint: "Choose complementary botanical products for 'Complete the Ritual' cross-sell bundles."
+              - name: ritualTitle
+                label: "Ritual Cross-Sell Title (Optional)"
+                widget: string
+                required: false
+                hint: "Headline for the Complete the Ritual section (e.g. 'The Deep Rest & Nighttime Ritual')."
               - name: inStock
                 label: In Stock
                 widget: boolean
@@ -393,6 +420,17 @@ collections:
                 hint: "Start typing a product name and pick it from the list."
               - { name: discountPercent, label: "Discount Percent (0-90, e.g. 10 for 10% off)", widget: number, value_type: int, min: 0, max: 90 }
               - { name: blurb, label: Bundle Description, widget: text }
+              - name: concerns
+                label: "Bundle Concerns / Benefits"
+                widget: relation
+                multiple: true
+                required: false
+                collection: products
+                file: products
+                value_field: concerns.*.id
+                display_fields: ["concerns.*.icon", "concerns.*.name"]
+                search_fields: ["concerns.*.name"]
+                hint: "Select customer concerns this curated gift set addresses."
 
           # ==================================================================
           # 4. SHOP FAQ (Accordion Items)
@@ -423,7 +461,7 @@ collections:
               - { name: icon, label: "Icon / Emoji", widget: string, required: false }
 
           - name: categories
-            label: "Shop Filter Categories (Technical)"
+            label: "Product Categories (Filter Buttons)"
             widget: list
             label_singular: Category
             collapsed: true
@@ -446,7 +484,19 @@ collections:
               - { name: rating, label: "Etsy star rating (e.g. 4.9)", widget: number, value_type: float, hint: "Your shop's real Etsy rating, from 0 to 5. Decimals are fine." }
               - { name: reviewCount, label: "Number of Etsy reviews (e.g. 320)", widget: number, value_type: int, hint: "Your real Etsy review count — a whole number." }
               - { name: sales, label: "Number of Etsy sales (e.g. 1200)", widget: number, value_type: int, hint: "Your real Etsy sales count — a whole number." }
-              - { name: freeShippingThreshold, label: "Free shipping when an order reaches ($)", widget: number, value_type: int, hint: "Orders at or above this amount ship free. Set to 0 to turn free shipping off." }
+              - { name: freeShippingThreshold, label: "Free shipping threshold ($)", widget: number, value_type: int, hint: "Orders at or above this amount ship free. Set to 0 to turn free shipping off." }
+              - name: shippingMilestones
+                label: "Cart Milestone Rewards (Multi-Tier Free Shipping & Gifts)"
+                widget: list
+                label_singular: "Milestone Reward Tier"
+                required: false
+                collapsed: true
+                summary: "${{fields.threshold}} — {{fields.reward}}"
+                hint: "Add or edit rewards unlocked as cart value increases (e.g. $40 Free Shipping, $60 Free Pocket Salve, $80 10% Off)."
+                fields:
+                  - { name: threshold, label: "Cart Total Amount ($)", widget: number, value_type: int, min: 1, hint: "Order value required to unlock this perk." }
+                  - { name: reward, label: "Reward / Perk Name", widget: string, hint: "e.g. Free Tracked Shipping, Free Handcrafted Pocket Salve, Free Vinyl Sticker" }
+                  - { name: icon, label: "Icon / Badge Style", widget: select, default: "gift", options: [{ label: "Shipping Truck", value: "truck" }, { label: "Gift / Perk", value: "gift" }, { label: "Star / Sparkle", value: "sparkle" }, { label: "Heart", value: "heart" }] }
               - name: customBox
                 label: "Build-Your-Own Box"
                 widget: object
@@ -486,6 +536,7 @@ collections:
             required: false
             summary: "{{fields.dateLabel}} — {{fields.name}} ({{fields.location}})"
             fields:
+              - { name: id, label: "Event ID / Slug (leave blank for new events)", widget: string, required: false, hint: "Internal identifier used for search indexing and page anchor links." }
               - { name: date, label: "Event Date (start)", widget: datetime, format: "YYYY-MM-DD", date_format: "MM/DD/YYYY", time_format: false, hint: "The event's date (or the FIRST day for a multi-day event). Drives sorting and the countdown to opening." }
               - { name: endDate, label: "End Date (only for multi-day events)", widget: datetime, format: "YYYY-MM-DD", date_format: "MM/DD/YYYY", time_format: false, required: false, hint: "Leave blank for single-day events. For a two-day market, set this to the LAST day so it stays listed through the whole event." }
               - { name: dateLabel, label: "Date shown on the page (e.g. \"Sat, Sep 12, 2026 · 9am-2pm\")", widget: string }
@@ -502,8 +553,7 @@ collections:
             required: false
             summary: "{{fields.dateLabel}} — {{fields.name}} ({{fields.location}})"
             fields:
-              # Past events in events.json also carry a `date` -- declared
-              # here so a CMS save doesn't strip it from existing entries.
+              - { name: id, label: "Event ID / Slug", widget: string, required: false }
               - { name: date, label: "Event Date (optional -- used for sorting)", widget: datetime, format: "YYYY-MM-DD", date_format: "MM/DD/YYYY", time_format: false, required: false }
               - { name: dateLabel, label: "Date shown (e.g. \"June 2026\")", widget: string }
               - { name: name, label: "Event Name", widget: string }

@@ -726,6 +726,18 @@ export default {
       if (pickup && typeof pickup === "string") {
         metadata.pickup_market = truncate(pickup, 250);
       }
+      const rawDiscount =
+        body && (body.discount_code !== undefined ? body.discount_code : body.discountCode);
+      if (rawDiscount && typeof rawDiscount === "string") {
+        const cleanDiscount = rawDiscount
+          // eslint-disable-next-line no-control-regex
+          .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "")
+          .trim()
+          .toUpperCase();
+        if (cleanDiscount) {
+          metadata.discount_code = truncate(cleanDiscount, 100);
+        }
+      }
       let giftLineIndex = 0;
 
       let boxLineIndex = 0;
@@ -870,10 +882,20 @@ export default {
       const shippingCents =
         hasPhysicalItems && !isPickup && !qualifiesForFreeShipping ? flatShippingRateCents : 0;
 
+      if (physicalSubtotalCents >= 6000) {
+        metadata.free_gift = "true";
+      }
+
       const taxEnabled = await isTaxEnabled(env, ctx);
 
       const params = new URLSearchParams();
       params.append("mode", "payment");
+      // Express 1-Tap Wallets (Apple Pay, Google Pay, Stripe Link, Cash App Pay)
+      const paymentMethodTypes = ["card", "link", "cashapp"];
+      paymentMethodTypes.forEach((pm, i) => {
+        params.append(`payment_method_types[${i}]`, pm);
+      });
+      params.append("payment_method_options[card][request_three_d_secure]", "automatic");
       // amount/currency on the success URL are ONLY for a best-effort
       // client-side analytics ping on thank-you.html -- never treat this
       // redirect as proof of payment. Real fulfillment must come from a
@@ -955,10 +977,10 @@ export default {
       }
       const isGift = Boolean(
         body &&
-          (body.is_gift_order === true ||
-            body.is_gift_order === "true" ||
-            body.isGiftOrder === true ||
-            body.isGiftOrder === "true")
+        (body.is_gift_order === true ||
+          body.is_gift_order === "true" ||
+          body.isGiftOrder === true ||
+          body.isGiftOrder === "true")
       );
       if (isGift) {
         metadata.is_gift_order = "true";

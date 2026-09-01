@@ -213,6 +213,11 @@ window.YL_PRODUCTS = {
         "cuticles",
         "frankincense",
         "rosemary"
+      ],
+      "ritualTitle": "The Heavy Working Hands & Skin Revival",
+      "pairsWith": [
+        "hand-scrub",
+        "miracle-balm"
       ]
     },
     {
@@ -275,6 +280,11 @@ window.YL_PRODUCTS = {
         "cuticles",
         "calendula",
         "lanolin"
+      ],
+      "ritualTitle": "The Gentle Skin Shield Ritual",
+      "pairsWith": [
+        "shea-butter",
+        "lavender-soak"
       ]
     },
     {
@@ -332,6 +342,11 @@ window.YL_PRODUCTS = {
         "stress relief",
         "lavender",
         "cedarwood"
+      ],
+      "ritualTitle": "The Deep Rest & Nighttime Ritual",
+      "pairsWith": [
+        "lavender-soak",
+        "shea-butter"
       ]
     },
     {
@@ -384,6 +399,11 @@ window.YL_PRODUCTS = {
         "conditioning",
         "coarse hair",
         "softening"
+      ],
+      "ritualTitle": "The Appalachian Woodsman Grooming Ritual",
+      "pairsWith": [
+        "hand-scrub",
+        "frankincense-salve"
       ]
     },
     {
@@ -459,6 +479,11 @@ window.YL_PRODUCTS = {
         "summer glow",
         "highlighter",
         "golden hour"
+      ],
+      "ritualTitle": "The Golden Hour Radiance Ritual",
+      "pairsWith": [
+        "whipped-body-butter",
+        "sugar-scrub"
       ]
     },
     {
@@ -529,6 +554,11 @@ window.YL_PRODUCTS = {
         "chapped",
         "hydration",
         "soothing"
+      ],
+      "ritualTitle": "The Ultra-Nourishing Body Ritual",
+      "pairsWith": [
+        "sugar-scrub",
+        "sleep-salve"
       ]
     },
     {
@@ -605,6 +635,11 @@ window.YL_PRODUCTS = {
         "gardener hands",
         "cane sugar",
         "smoothing"
+      ],
+      "ritualTitle": "The Bourbon & Grit Working Hands Reset",
+      "pairsWith": [
+        "frankincense-salve",
+        "beard-salve"
       ]
     },
     {
@@ -668,6 +703,11 @@ window.YL_PRODUCTS = {
         "lavender",
         "mineral soak",
         "evening unwind"
+      ],
+      "ritualTitle": "The Evening Bath & Unwind Ritual",
+      "pairsWith": [
+        "sleep-salve",
+        "bath-tea"
       ]
     },
     {
@@ -737,6 +777,11 @@ window.YL_PRODUCTS = {
         "eucalyptus",
         "peppermint",
         "tension bath"
+      ],
+      "ritualTitle": "The Trailhead Muscle Recovery Ritual",
+      "pairsWith": [
+        "frankincense-salve",
+        "hand-scrub"
       ]
     },
     {
@@ -808,6 +853,11 @@ window.YL_PRODUCTS = {
         "potion bottle",
         "keychain",
         "good vibes"
+      ],
+      "ritualTitle": "The Witches' Road Armor Ritual",
+      "pairsWith": [
+        "bug-spray",
+        "cleansing-spray"
       ]
     },
     {
@@ -865,6 +915,11 @@ window.YL_PRODUCTS = {
         "outdoors",
         "trail",
         "bites"
+      ],
+      "ritualTitle": "The Backwoods Defense Ritual",
+      "pairsWith": [
+        "protection-keychain",
+        "backroad-soak"
       ]
     },
     {
@@ -919,6 +974,11 @@ window.YL_PRODUCTS = {
         "dry skin",
         "polishing",
         "softening"
+      ],
+      "ritualTitle": "The Sweet Woods Exfoliation Ritual",
+      "pairsWith": [
+        "whipped-body-butter",
+        "bath-tea"
       ]
     },
     {
@@ -974,6 +1034,11 @@ window.YL_PRODUCTS = {
         "deep hydration",
         "fluffy moisturizer",
         "soft skin"
+      ],
+      "ritualTitle": "The Velvet Cloud Moisture Ritual",
+      "pairsWith": [
+        "sugar-scrub",
+        "shimmer-oil"
       ]
     },
     {
@@ -1035,6 +1100,11 @@ window.YL_PRODUCTS = {
         "aura cleanse",
         "sacred space",
         "negative energy"
+      ],
+      "ritualTitle": "The Sacred Hearth Clearing Ritual",
+      "pairsWith": [
+        "porch-sweep-spray",
+        "protection-keychain"
       ]
     },
     {
@@ -1099,6 +1169,11 @@ window.YL_PRODUCTS = {
         "soothing soak",
         "spa bath",
         "relaxation"
+      ],
+      "ritualTitle": "The Whole Botanical Soak Infusion",
+      "pairsWith": [
+        "lavender-soak",
+        "miracle-balm"
       ]
     },
     {
@@ -1146,6 +1221,11 @@ window.YL_PRODUCTS = {
         "room freshener",
         "herbal mist",
         "house blessing"
+      ],
+      "ritualTitle": "The Southern Threshold Protection Ritual",
+      "pairsWith": [
+        "cleansing-spray",
+        "bug-spray"
       ]
     },
     {
@@ -1426,6 +1506,18 @@ window.YL_PRODUCTS = {
     "reviewCount": 32,
     "sales": 105,
     "freeShippingThreshold": 40,
+    "shippingMilestones": [
+      {
+        "threshold": 40,
+        "reward": "Free Tracked Shipping",
+        "icon": "truck"
+      },
+      {
+        "threshold": 60,
+        "reward": "Free Handcrafted Pocket Salve",
+        "icon": "gift"
+      }
+    ],
     "customBox": {
       "minItems": 3,
       "maxItems": 5,

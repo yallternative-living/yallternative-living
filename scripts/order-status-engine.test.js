@@ -202,6 +202,7 @@ console.log("  ✓ parseOrderStatusQuery accurately validates and categorizes lo
 console.log("\n  --- 3. Testing Order Status Page Lifecycle & Progression Timeline ---");
 const form = mockDocument.getElementById("orderStatusPageForm");
 const input = mockDocument.getElementById("orderQueryInput");
+const verifyInput = mockDocument.getElementById("orderVerifyInput");
 const timeline = mockDocument.getElementById("orderTimelineContainer");
 const itemsList = mockDocument.getElementById("orderItemsList");
 const itemsContainer = mockDocument.getElementById("orderItemsContainer");
@@ -296,7 +297,17 @@ console.log("  ✓ Fulfillment packing slip renders itemized checklist with stri
 
 // 6. Test Unknown / Malformed Query Handling
 console.log("\n  --- 6. Testing Unknown Lookup Feedback ---");
+const errorDiv = mockDocument.getElementById("orderStatusError");
 input.value = "unknown_order_id_xyz";
+verifyInput.value = "";
+form.dispatchEvent({ type: "submit", preventDefault() {} });
+assert.strictEqual(
+  errorDiv.hidden,
+  false,
+  "Error is displayed when secondary verification is missing"
+);
+
+verifyInput.value = "customer@example.com";
 form.dispatchEvent({ type: "submit", preventDefault() {} });
 
 assert.ok(

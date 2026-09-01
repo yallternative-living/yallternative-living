@@ -241,12 +241,296 @@ const expectedClasses = [
   ".pdp-freshness-badge",
   ".pdp-layout",
   ".scent-notes-grid",
-  ".scent-note-card"
+  ".scent-note-card",
+  ".pdp-ritual-section",
+  ".pdp-ritual-header",
+  ".pdp-ritual-title",
+  ".pdp-ritual-card",
+  ".pdp-ritual-items-grid",
+  ".pdp-ritual-item",
+  ".pdp-ritual-checkbox",
+  ".pdp-ritual-footer",
+  ".pdp-ritual-total-price",
+  ".pdp-ritual-shipping-badge",
+  ".pdp-ritual-add-btn"
 ];
 
 expectedClasses.forEach((cls) => {
   assert(stylesCss.includes(cls), `styles.css contains required class '${cls}'`);
 });
+
+/* 6. Validate "Complete the Ritual" Data Integrity */
+console.log("\n--- 6. Complete the Ritual Data Integrity ---");
+const botanicalProds = productsData.products.filter((p) =>
+  ["salves", "body", "soaks", "potions", "ritual"].includes(p.category)
+);
+assert(
+  botanicalProds.length >= 16,
+  `Catalog contains ${botanicalProds.length} botanical/apothecary products`
+);
+
+const allProductIds = new Set(productsData.products.map((p) => p.id));
+
+botanicalProds.forEach((p) => {
+  assert(
+    Array.isArray(p.pairsWith) && p.pairsWith.length >= 1,
+    `Product '${p.id}' has pairsWith array`
+  );
+  assert(
+    typeof p.ritualTitle === "string" && p.ritualTitle.trim().length > 0,
+    `Product '${p.id}' has non-empty ritualTitle '${p.ritualTitle}'`
+  );
+  if (Array.isArray(p.pairsWith)) {
+    p.pairsWith.forEach((pairedId) => {
+      assert(
+        allProductIds.has(pairedId),
+        `Product '${p.id}' pairsWith ID '${pairedId}' exists in catalog`
+      );
+      assert(pairedId !== p.id, `Product '${p.id}' does not self-reference in pairsWith`);
+    });
+  }
+});
+
+/* 7. Validate Sveltia CMS Ritual Declarations */
+console.log("\n--- 7. CMS Schema Ritual Declarations ---");
+assert(
+  /name:\s*pairsWith/.test(configYml),
+  "config.yml declares pairsWith relation widget in products collection"
+);
+assert(
+  /name:\s*ritualTitle/.test(configYml),
+  "config.yml declares ritualTitle string widget in products collection"
+);
+
+/* 8. Validate Ritual Build Helpers */
+console.log("\n--- 8. Ritual Build Helper Functions ---");
+assert(
+  typeof buildScript.validatePairsWith === "function",
+  "buildScript exports validatePairsWith function"
+);
+assert(
+  typeof buildScript.renderRitualSectionHtml === "function",
+  "buildScript exports renderRitualSectionHtml function"
+);
+
+// validatePairsWith test
+const validMap = {};
+productsData.products.forEach((p) => {
+  validMap[p.id] = p;
+});
+assert(
+  buildScript.validatePairsWith(productsData.products, validMap) === true,
+  "validatePairsWith passes on canonical catalog"
+);
+
+let caughtSelfRef = false;
+try {
+  buildScript.validatePairsWith(
+    [{ id: "item-a", pairsWith: ["item-a"], ritualTitle: "Self Pair" }],
+    { "item-a": { id: "item-a", price: 10 } }
+  );
+} catch (e) {
+  caughtSelfRef = true;
+}
+assert(caughtSelfRef, "validatePairsWith throws on self-referencing pairsWith");
+
+let caughtUnknownId = false;
+try {
+  buildScript.validatePairsWith(
+    [{ id: "item-a", pairsWith: ["missing-id"], ritualTitle: "Missing ID" }],
+    { "item-a": { id: "item-a", price: 10 } }
+  );
+} catch (e) {
+  caughtUnknownId = true;
+}
+assert(caughtUnknownId, "validatePairsWith throws on unknown paired product ID");
+
+// renderRitualSectionHtml tests
+const frankincenseProd = validMap["frankincense-salve"];
+const ritualHtml = buildScript.renderRitualSectionHtml(frankincenseProd, validMap, {
+  salves: "Salves & Balms",
+  body: "Body & Skin"
+});
+assert(
+  ritualHtml.includes('class="pdp-ritual-section"'),
+  "renderRitualSectionHtml outputs pdp-ritual-section"
+);
+assert(
+  ritualHtml.includes('id="pdpRitualSection"'),
+  "renderRitualSectionHtml outputs id pdpRitualSection"
+);
+assert(
+  ritualHtml.includes(
+    "✦ Complete the Ritual: " + buildScript.escapeHtml(frankincenseProd.ritualTitle) + " ✦"
+  ),
+  "renderRitualSectionHtml contains formatted ritual title"
+);
+assert(
+  ritualHtml.includes('id="pdpRitualAddBtn"'),
+  "renderRitualSectionHtml contains pdpRitualAddBtn"
+);
+assert(
+  ritualHtml.includes('data-ritual-ids="frankincense-salve,hand-scrub,miracle-balm"'),
+  "renderRitualSectionHtml contains data-ritual-ids attribute"
+);
+assert(
+  !ritualHtml.includes('class="reveal') && !ritualHtml.includes(" reveal"),
+  "renderRitualSectionHtml does NOT use .reveal class (prevents reveal-check conflict)"
+);
+
+const emptyRitualHtml = buildScript.renderRitualSectionHtml(
+  { id: "tee", pairsWith: [], price: 20 },
+  validMap
+);
+eq(
+  emptyRitualHtml,
+  "",
+  "renderRitualSectionHtml returns empty string for product without pairsWith"
+);
+
+/* 9. Validate Generated PDP Ritual HTML */
+console.log("\n--- 9. Generated PDP Ritual HTML Verification ---");
+productsData.products.forEach((p) => {
+  const pFile = path.join(ROOT, "products", `${p.id}.html`);
+  const html = fs.readFileSync(pFile, "utf8");
+
+  if (Array.isArray(p.pairsWith) && p.pairsWith.length > 0) {
+    assert(
+      html.includes('class="pdp-ritual-section"'),
+      `products/${p.id}.html renders pdp-ritual-section`
+    );
+    assert(
+      html.includes('id="pdpRitualSection"'),
+      `products/${p.id}.html renders id="pdpRitualSection"`
+    );
+    assert(
+      html.includes('id="pdpRitualAddBtn"'),
+      `products/${p.id}.html renders id="pdpRitualAddBtn"`
+    );
+    assert(
+      html.includes('id="pdpRitualTotalPrice"'),
+      `products/${p.id}.html renders id="pdpRitualTotalPrice"`
+    );
+    assert(
+      html.includes('class="pdp-ritual-checkbox"'),
+      `products/${p.id}.html renders pdp-ritual-checkbox elements`
+    );
+    assert(
+      html.includes(buildScript.escapeHtml(p.ritualTitle)),
+      `products/${p.id}.html renders ritualTitle text`
+    );
+    assert(
+      !html.includes('class="pdp-ritual-section reveal"') &&
+        !html.includes('class="reveal pdp-ritual-section"'),
+      `products/${p.id}.html does not have reveal class on ritual section`
+    );
+  }
+});
+
+/* 10. Validate Client JS Module Exports & Functions */
+console.log("\n--- 10. Client JS Ritual Exports ---");
+function createMockEl(tag = "div") {
+  const attrs = new Map();
+  const classes = new Set();
+  const listeners = new Map();
+  return {
+    tagName: tag.toUpperCase(),
+    attributes: attrs,
+    style: {},
+    classList: {
+      add: (...c) => c.forEach((x) => classes.add(x)),
+      remove: (...c) => c.forEach((x) => classes.delete(x)),
+      contains: (x) => classes.has(x),
+      toggle: (x, force) => {
+        if (force !== undefined) {
+          if (force) classes.add(x);
+          else classes.delete(x);
+        } else if (classes.has(x)) classes.delete(x);
+        else classes.add(x);
+      }
+    },
+    hidden: false,
+    setAttribute: (k, v) => attrs.set(k, String(v)),
+    getAttribute: (k) => attrs.get(k) || null,
+    removeAttribute: (k) => attrs.delete(k),
+    hasAttribute: (k) => attrs.has(k),
+    addEventListener: (evt, fn) => {
+      if (!listeners.has(evt)) listeners.set(evt, []);
+      listeners.get(evt).push(fn);
+    },
+    dispatchEvent: (evt) => {
+      const fns = listeners.get(evt.type) || [];
+      fns.forEach((fn) => fn(evt));
+    },
+    querySelector: () => createMockEl("div"),
+    querySelectorAll: () => [],
+    appendChild: (ch) => ch,
+    textContent: "",
+    innerHTML: ""
+  };
+}
+
+const mockDoc = {
+  documentElement: createMockEl("html"),
+  body: createMockEl("body"),
+  getElementById: () => createMockEl("div"),
+  querySelector: () => createMockEl("div"),
+  querySelectorAll: () => [],
+  createElement: (tag) => createMockEl(tag),
+  addEventListener: () => {}
+};
+
+const mockWin = {
+  document: mockDoc,
+  localStorage: {
+    getItem: () => null,
+    setItem: () => {},
+    removeItem: () => {},
+    clear: () => {}
+  },
+  matchMedia: () => ({
+    matches: false,
+    addEventListener: () => {},
+    removeEventListener: () => {}
+  }),
+  location: {
+    href: "https://yallternativeliving.com",
+    pathname: "/",
+    search: "",
+    hash: ""
+  },
+  YL_PRODUCTS: productsData,
+  addEventListener: () => {}
+};
+
+global.window = mockWin;
+global.document = mockDoc;
+global.localStorage = mockWin.localStorage;
+global.navigator = { userAgent: "node" };
+
+const mainJs = require("../assets/js/main.js");
+assert(
+  typeof mainJs.initPdpRitualSection === "function",
+  "main.js exports initPdpRitualSection function"
+);
+assert(
+  typeof mainJs.renderModalRitualHtml === "function",
+  "main.js exports renderModalRitualHtml function"
+);
+
+const modalRitualHtml = mainJs.renderModalRitualHtml(frankincenseProd, {
+  get: (id) => validMap[id]
+});
+assert(
+  modalRitualHtml.includes('class="pdp-ritual-section pdp-ritual-compact"'),
+  "renderModalRitualHtml produces compact modal ritual section"
+);
+assert(
+  modalRitualHtml.includes(
+    "✦ Complete the Ritual: " + mainJs.attrEsc(frankincenseProd.ritualTitle) + " ✦"
+  ),
+  "renderModalRitualHtml includes ritualTitle"
+);
 
 console.log(`\npdp-merchandising.test.js: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

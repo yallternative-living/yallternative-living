@@ -351,6 +351,129 @@ pdpFiles.forEach((pdpFile) => {
   });
 });
 
+// --- SECTION 6: Inline Variant Chip Picker Unit Contracts ---
+console.log("\n--- 6. Search Inline Variant Chip Picker (R2) ---");
+
+it("formatVariantChipLabel computes delta prices and formats labels accurately", () => {
+  const frankincense = {
+    id: "frankincense-salve",
+    name: "Frankincense Salve",
+    price: 19.99,
+    variants: {
+      name: "Size",
+      options: [
+        { label: "2oz", priceDelta: 0 },
+        { label: "1oz", priceDelta: -6 }
+      ]
+    }
+  };
+
+  assert.strictEqual(
+    mainJs.formatVariantChipLabel(frankincense, frankincense.variants.options[0]),
+    "2oz - $19.99"
+  );
+  assert.strictEqual(
+    mainJs.formatVariantChipLabel(frankincense, frankincense.variants.options[1]),
+    "1oz - $13.99"
+  );
+
+  const tankTop = {
+    id: "tank-top",
+    name: "Tank Top",
+    price: 30.0,
+    variants: {
+      name: "Size",
+      options: [
+        { label: "S", priceDelta: 0, soldOut: true },
+        { label: "M", priceDelta: 0 },
+        { label: "L", priceDelta: 0 }
+      ]
+    }
+  };
+
+  assert.strictEqual(mainJs.formatVariantChipLabel(tankTop, tankTop.variants.options[0]), "S");
+  assert.strictEqual(mainJs.formatVariantChipLabel(tankTop, tankTop.variants.options[1]), "M");
+
+  const giftCard = {
+    id: "yallternative-gift-card",
+    name: "Gift Card",
+    price: 10.0,
+    variants: {
+      name: "Amount",
+      options: [
+        { label: "$10", priceDelta: 0 },
+        { label: "$25", priceDelta: 15 },
+        { label: "$50", priceDelta: 40 }
+      ]
+    }
+  };
+
+  assert.strictEqual(mainJs.formatVariantChipLabel(giftCard, giftCard.variants.options[1]), "$25");
+  assert.strictEqual(mainJs.formatVariantChipLabel(giftCard, giftCard.variants.options[2]), "$50");
+});
+
+it("renderVariantChipsHtml emits accessible radiogroup with ARIA roles, chips, and price deltas", () => {
+  const frankincense = {
+    id: "frankincense-salve",
+    name: "Frankincense Salve",
+    price: 19.99,
+    variants: {
+      name: "Size",
+      options: [
+        { label: "2oz", priceDelta: 0 },
+        { label: "1oz", priceDelta: -6 }
+      ]
+    }
+  };
+
+  const html = mainJs.renderVariantChipsHtml(frankincense);
+  assert.ok(html.includes('role="radiogroup"'), "Variant picker must declare role='radiogroup'");
+  assert.ok(
+    html.includes('aria-label="Size for Frankincense Salve"'),
+    "Radiogroup must declare descriptive aria-label"
+  );
+  assert.ok(html.includes('role="radio"'), "Variant chips must declare role='radio'");
+  assert.ok(html.includes('aria-checked="false"'), "Variant chips must declare aria-checked");
+  assert.ok(html.includes('data-variant-name="Size"'), "Chips must carry data-variant-name");
+  assert.ok(html.includes('data-variant-label="1oz"'), "Chips must carry data-variant-label");
+  assert.ok(html.includes('data-variant-delta="-6"'), "Chips must carry data-variant-delta");
+  assert.ok(html.includes('data-price="13.99"'), "Chips must carry calculated unit data-price");
+  assert.ok(html.includes("1oz - $13.99"), "1oz chip must display formatted price label");
+});
+
+it("renderVariantChipsHtml handles sold-out options with disabled state and class", () => {
+  const tankTop = {
+    id: "tank-top",
+    name: "Tank Top",
+    price: 30.0,
+    variants: {
+      name: "Size",
+      options: [
+        { label: "S", priceDelta: 0, soldOut: true },
+        { label: "M", priceDelta: 0 }
+      ]
+    }
+  };
+
+  const html = mainJs.renderVariantChipsHtml(tankTop);
+  assert.ok(html.includes("is-sold-out"), "Sold out option must include .is-sold-out class");
+  assert.ok(
+    html.includes('disabled aria-disabled="true"'),
+    "Sold out option must include disabled and aria-disabled attributes"
+  );
+  assert.ok(html.includes("S (Sold Out)"), "Sold out chip must display (Sold Out) text");
+});
+
+it("renderVariantChipsHtml returns empty string for single-option or non-variant items", () => {
+  const singleItem = {
+    id: "sleep-salve",
+    name: "Sleep Salve",
+    price: 18.0,
+    variants: null
+  };
+  assert.strictEqual(mainJs.renderVariantChipsHtml(singleItem), "");
+});
+
 console.log(`\n==================================================`);
 console.log(`Global Search Tests: ${passed} passed, ${failed} failed.`);
 console.log(`==================================================\n`);

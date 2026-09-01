@@ -240,7 +240,7 @@ eq(YLCart.items().length, 1, "free-ship fixture seeded a single physical line");
 delete mockWindow.YL_PRODUCTS;
 let footHTML = drawerFootHTML();
 assert(
-  footHTML.includes("unlocked free shipping"),
+  footHTML.includes("Free Tracked Shipping") && footHTML.includes("unlocked"),
   "freeShipThreshold falls back to 40 when YL_PRODUCTS is absent ($50 cart qualifies)"
 );
 
@@ -249,11 +249,11 @@ assert(
 mockWindow.YL_PRODUCTS = { shop: { freeShippingThreshold: 75 } };
 footHTML = drawerFootHTML();
 assert(
-  footHTML.includes("Add $25.00 for free shipping"),
+  footHTML.includes("Add $25.00 for Free Tracked Shipping!"),
   "freeShipThreshold uses configured 75 (a $50 cart is $25.00 short)"
 );
 assert(
-  !footHTML.includes("unlocked free shipping"),
+  !footHTML.includes("unlocked"),
   "freeShipThreshold does not report free shipping unlocked below the configured threshold"
 );
 
@@ -262,7 +262,7 @@ assert(
 mockWindow.YL_PRODUCTS = { shop: { freeShippingThreshold: 30 } };
 footHTML = drawerFootHTML();
 assert(
-  footHTML.includes("unlocked free shipping"),
+  footHTML.includes("unlocked"),
   "freeShipThreshold uses configured 30 (a $50 cart qualifies)"
 );
 
@@ -273,11 +273,11 @@ delete mockWindow.YL_PRODUCTS;
 mockWindow.YL_FREE_SHIP = 500;
 footHTML = drawerFootHTML();
 assert(
-  footHTML.includes("unlocked free shipping"),
+  footHTML.includes("unlocked"),
   "freeShipThreshold ignores the stale YL_FREE_SHIP global (reads products.json config only)"
 );
 assert(
-  !footHTML.includes("Add $450.00 for free shipping"),
+  !footHTML.includes("Add $450.00"),
   "freeShipThreshold does not resurrect YL_FREE_SHIP as the threshold source"
 );
 
@@ -289,7 +289,10 @@ mockWindow.YL_FREE_SHIP = savedYlFreeShip;
 mockWindow.YL_PRODUCTS = { shop: { freeShippingThreshold: 0 } };
 footHTML = drawerFootHTML();
 assert(
-  !footHTML.includes("free shipping") && !footHTML.includes("yl-cart-ship"),
+  !footHTML.includes("free shipping") &&
+    !footHTML.includes("Free Tracked Shipping") &&
+    !footHTML.includes("yl-cart-ship") &&
+    !footHTML.includes("yl-cart-milestones"),
   "drawer drops the free-shipping meter entirely when the threshold is 0 (disabled)"
 );
 assert(footHTML.includes("Subtotal"), "drawer still renders its subtotal with free shipping off");
@@ -299,10 +302,127 @@ for (const bad of ["not-a-number", null, undefined, ""]) {
   mockWindow.YL_PRODUCTS = { shop: { freeShippingThreshold: bad } };
   footHTML = drawerFootHTML();
   assert(
-    footHTML.includes("unlocked free shipping") && !footHTML.includes("NaN"),
+    footHTML.includes("unlocked") && !footHTML.includes("NaN"),
     `drawer falls back to the default threshold for unusable value ${JSON.stringify(bad)}`
   );
 }
+
+/* ==========================================================
+   Multi-Tier Milestone Progress Meter DOM Suite (R3)
+   ========================================================== */
+mockWindow.YL_PRODUCTS = {
+  shop: {
+    shippingMilestones: [
+      { threshold: 40, reward: "Free Tracked Shipping", icon: "truck" },
+      { threshold: 60, reward: "Free Handcrafted Pocket Salve", icon: "gift" }
+    ]
+  }
+};
+
+// 1. Tier 0 ($25 subtotal) -> Short of $40 milestone 1
+storage.set(
+  "yl-cart-v1",
+  JSON.stringify([{ id: "item-25", qty: 1, price: 25.0, name: "Item 25" }])
+);
+YLCart.init({ force: true });
+footHTML = drawerFootHTML();
+
+assert(
+  footHTML.includes("Add $15.00 for Free Tracked Shipping!"),
+  "Multi-tier DOM: $25 subtotal shows countdown to $40 shipping threshold"
+);
+assert(
+  footHTML.includes('role="progressbar"'),
+  "Multi-tier DOM: Progress bar includes role='progressbar'"
+);
+assert(
+  footHTML.includes('aria-valuenow="25"'),
+  "Multi-tier DOM: aria-valuenow reflects current physical subtotal ($25)"
+);
+assert(
+  footHTML.includes('aria-valuemax="60"'),
+  "Multi-tier DOM: aria-valuemax reflects highest milestone ($60)"
+);
+assert(
+  footHTML.includes('aria-label="Shipping and reward milestones"'),
+  "Multi-tier DOM: aria-label configured for accessibility"
+);
+assert(
+  footHTML.includes('class="yl-cart-milestones-fill" style="width:42%"'),
+  "Multi-tier DOM: fill bar rendered with correct width percentage (25/60 = 42%)"
+);
+assert(
+  footHTML.includes('style="left:66.67%"') && footHTML.includes("<span>$40</span>"),
+  "Multi-tier DOM: $40 milestone pin rendered at 66.67%"
+);
+assert(
+  footHTML.includes('style="left:100.00%"') && footHTML.includes("<span>$60</span>"),
+  "Multi-tier DOM: $60 milestone pin rendered at 100.00%"
+);
+assert(
+  !footHTML.includes("is-reached"),
+  "Multi-tier DOM: neither pin has .is-reached class at $25 subtotal"
+);
+
+// 2. Tier 1 ($40 subtotal) -> Unlocks Tier 1 ($40), counts down to Tier 2 ($60)
+storage.set(
+  "yl-cart-v1",
+  JSON.stringify([{ id: "item-40", qty: 2, price: 20.0, name: "Item 40" }])
+);
+YLCart.init({ force: true });
+footHTML = drawerFootHTML();
+
+assert(
+  footHTML.includes("Add $20.00 more to unlock a Free Handcrafted Pocket Salve!"),
+  "Multi-tier DOM: $40 subtotal unlocks shipping and prompts for gift milestone"
+);
+assert(
+  footHTML.includes('class="yl-cart-milestones-fill" style="width:67%"'),
+  "Multi-tier DOM: fill bar at 67% width for $40 subtotal"
+);
+assert(
+  footHTML.includes('class="yl-cart-milestone-pin is-reached" style="left:66.67%"'),
+  "Multi-tier DOM: $40 milestone pin has .is-reached class"
+);
+
+// 3. Float Precision Safety ($51.99 subtotal) -> Exactly $8.01 remaining
+storage.set(
+  "yl-cart-v1",
+  JSON.stringify([{ id: "item-float", qty: 1, price: 51.99, name: "Item Float" }])
+);
+YLCart.init({ force: true });
+footHTML = drawerFootHTML();
+
+assert(
+  footHTML.includes("Add $8.01 more to unlock a Free Handcrafted Pocket Salve!"),
+  "Multi-tier DOM: $51.99 subtotal computes $8.01 without floating point noise"
+);
+assert(
+  footHTML.includes('class="yl-cart-milestones-fill" style="width:87%"'),
+  "Multi-tier DOM: fill bar at 87% width for $51.99 subtotal"
+);
+
+// 4. Tier 2 ($60 subtotal) -> Unlocks all perks
+storage.set(
+  "yl-cart-v1",
+  JSON.stringify([{ id: "item-60", qty: 3, price: 20.0, name: "Item 60" }])
+);
+YLCart.init({ force: true });
+footHTML = drawerFootHTML();
+
+assert(
+  footHTML.includes("🎉 All perks unlocked! Free Shipping + Free Handcrafted Pocket Salve!"),
+  "Multi-tier DOM: $60 subtotal displays all perks unlocked celebration message"
+);
+assert(
+  footHTML.includes('class="yl-cart-milestones-fill" style="width:100%"'),
+  "Multi-tier DOM: fill bar at 100% width for $60 subtotal"
+);
+assert(
+  footHTML.includes('class="yl-cart-milestone-pin is-reached" style="left:66.67%"') &&
+    footHTML.includes('class="yl-cart-milestone-pin is-reached" style="left:100.00%"'),
+  "Multi-tier DOM: both $40 and $60 pins carry .is-reached class"
+);
 
 // Restore globals so nothing after this block inherits the fixture.
 if (savedYlProducts === undefined) delete mockWindow.YL_PRODUCTS;

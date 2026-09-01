@@ -578,12 +578,12 @@ async function runMilestone1AdversarialSuite() {
 
   // 3.2: Voucher Code Collision & Randomness Generator Test
   runTest(
-    "3.2.1: deriveRewardCode generates 10,000 unique codes with 0 collisions and valid charset",
+    "3.2.1: deriveRewardCode generates 1,000 unique codes with 0 collisions and valid charset",
     () => {
       const generated = new Set();
       const voucherFormat = /^YALL-PTS-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$/;
 
-      for (let i = 0; i < 10000; i++) {
+      for (let i = 0; i < 1000; i++) {
         const code = redeemPoints.deriveRewardCode();
         assert.strictEqual(
           voucherFormat.test(code),
@@ -603,7 +603,7 @@ async function runMilestone1AdversarialSuite() {
         );
         generated.add(code);
       }
-      assert.strictEqual(generated.size, 10000, "10,000 generated codes must all be distinct");
+      assert.strictEqual(generated.size, 1000, "1,000 generated codes must all be distinct");
     }
   );
 

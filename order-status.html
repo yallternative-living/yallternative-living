@@ -9,7 +9,7 @@
 <meta name="color-scheme" content="dark light">
 <meta name="view-transition" content="same-origin">
 <title>Order Status &amp; Fulfillment Tracking | Y'allternative Living</title>
-<meta name="description" content="Track your small-batch handcrafted self-care, salves, soaks, and apparel order from Y'allternative Living. Self-service tracking and printable fulfillment packing slips.">
+<meta name="description" content="Track your small-batch handcrafted self-care, salves, soaks, and apparel order from Y'allternative Living. Order tracking and printable fulfillment packing slips.">
 <link rel="canonical" href="https://yallternativeliving.com/order-status.html">
 
 <meta property="og:type" content="website">
@@ -107,20 +107,29 @@
     <div class="container container-sm">
       <div class="order-status-header text-center">
         <span class="eyebrow">Apothecary Dispatch &middot; Landrum, SC</span>
-        <h1>Self-Service Order Status &amp; Tracking</h1>
-        <p class="lede">Track your small-batch handcrafted goods from workshop prep to porch delivery. Enter your Stripe Checkout Session ID, Order Reference, or Customer Email below.</p>
+        <h1>Order Status &amp; Tracking</h1>
+        <p class="lede">Track your small-batch handcrafted goods from workshop prep to porch delivery. Enter your order number or email address below.</p>
       </div>
 
       <div class="order-lookup-card">
         <form id="orderStatusPageForm" class="order-status-page-form" role="search">
-          <div class="field">
-            <label for="orderQueryInput"><strong>Order Number, Session ID, or Email Address:</strong></label>
-            <div class="search-input-wrap">
-              <svg class="icon-search" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input type="text" id="orderQueryInput" name="q" placeholder="e.g. cs_live_..., YL-2026-..., or your@email.com" autocomplete="off" required>
+          <div class="order-form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+            <div class="field">
+              <label for="orderQueryInput"><strong>Order Number:</strong></label>
+              <div class="search-input-wrap">
+                <svg class="icon-search" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+                <input type="text" id="orderQueryInput" name="q" placeholder="e.g. YL-2026-0842" autocomplete="off" required>
+              </div>
             </div>
-            <div id="orderStatusError" class="field-error" hidden></div>
+            <div class="field">
+              <label for="orderVerifyInput"><strong>Email or Billing Zip Code:</strong></label>
+              <div class="search-input-wrap">
+                <svg class="icon-search" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"></path></svg>
+                <input type="text" id="orderVerifyInput" name="verify" placeholder="e.g. your@email.com or 29356" autocomplete="off" required>
+              </div>
+            </div>
           </div>
+          <div id="orderStatusError" class="field-error" hidden style="margin-bottom: 1rem;"></div>
           <div class="form-actions">
             <button type="submit" class="btn btn-primary" id="orderLookupSubmitBtn">
               <svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>

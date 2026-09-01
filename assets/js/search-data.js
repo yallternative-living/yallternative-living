@@ -59,6 +59,8 @@ window.YL_SEARCH_INDEX = {
           }
         ]
       },
+      "pairsWith": [],
+      "ritualTitle": "",
       "url": "products/tank-top.html",
       "shopUrl": "shop.html#tank-top"
     },
@@ -115,6 +117,8 @@ window.YL_SEARCH_INDEX = {
           }
         ]
       },
+      "pairsWith": [],
+      "ritualTitle": "",
       "url": "products/unisex-tshirt.html",
       "shopUrl": "shop.html#unisex-tshirt"
     },
@@ -175,6 +179,11 @@ window.YL_SEARCH_INDEX = {
           }
         ]
       },
+      "pairsWith": [
+        "hand-scrub",
+        "miracle-balm"
+      ],
+      "ritualTitle": "The Heavy Working Hands & Skin Revival",
       "url": "products/frankincense-salve.html",
       "shopUrl": "shop.html#frankincense-salve"
     },
@@ -228,6 +237,11 @@ window.YL_SEARCH_INDEX = {
         "lanolin"
       ],
       "variants": null,
+      "pairsWith": [
+        "shea-butter",
+        "lavender-soak"
+      ],
+      "ritualTitle": "The Gentle Skin Shield Ritual",
       "url": "products/miracle-balm.html",
       "shopUrl": "shop.html#miracle-balm"
     },
@@ -275,6 +289,11 @@ window.YL_SEARCH_INDEX = {
         "cedarwood"
       ],
       "variants": null,
+      "pairsWith": [
+        "lavender-soak",
+        "shea-butter"
+      ],
+      "ritualTitle": "The Deep Rest & Nighttime Ritual",
       "url": "products/sleep-salve.html",
       "shopUrl": "shop.html#sleep-salve"
     },
@@ -320,6 +339,11 @@ window.YL_SEARCH_INDEX = {
         "softening"
       ],
       "variants": null,
+      "pairsWith": [
+        "hand-scrub",
+        "frankincense-salve"
+      ],
+      "ritualTitle": "The Appalachian Woodsman Grooming Ritual",
       "url": "products/beard-salve.html",
       "shopUrl": "shop.html#beard-salve"
     },
@@ -385,6 +409,11 @@ window.YL_SEARCH_INDEX = {
           }
         ]
       },
+      "pairsWith": [
+        "whipped-body-butter",
+        "sugar-scrub"
+      ],
+      "ritualTitle": "The Golden Hour Radiance Ritual",
       "url": "products/shimmer-oil.html",
       "shopUrl": "shop.html#shimmer-oil"
     },
@@ -443,6 +472,11 @@ window.YL_SEARCH_INDEX = {
           }
         ]
       },
+      "pairsWith": [
+        "sugar-scrub",
+        "sleep-salve"
+      ],
+      "ritualTitle": "The Ultra-Nourishing Body Ritual",
       "url": "products/shea-butter.html",
       "shopUrl": "shop.html#shea-butter"
     },
@@ -506,6 +540,11 @@ window.YL_SEARCH_INDEX = {
           }
         ]
       },
+      "pairsWith": [
+        "frankincense-salve",
+        "beard-salve"
+      ],
+      "ritualTitle": "The Bourbon & Grit Working Hands Reset",
       "url": "products/hand-scrub.html",
       "shopUrl": "shop.html#hand-scrub"
     },
@@ -561,6 +600,11 @@ window.YL_SEARCH_INDEX = {
           }
         ]
       },
+      "pairsWith": [
+        "sleep-salve",
+        "bath-tea"
+      ],
+      "ritualTitle": "The Evening Bath & Unwind Ritual",
       "url": "products/lavender-soak.html",
       "shopUrl": "shop.html#lavender-soak"
     },
@@ -616,6 +660,11 @@ window.YL_SEARCH_INDEX = {
           }
         ]
       },
+      "pairsWith": [
+        "frankincense-salve",
+        "hand-scrub"
+      ],
+      "ritualTitle": "The Trailhead Muscle Recovery Ritual",
       "url": "products/backroad-soak.html",
       "shopUrl": "shop.html#backroad-soak"
     },
@@ -672,6 +721,11 @@ window.YL_SEARCH_INDEX = {
           }
         ]
       },
+      "pairsWith": [
+        "bug-spray",
+        "cleansing-spray"
+      ],
+      "ritualTitle": "The Witches' Road Armor Ritual",
       "url": "products/protection-keychain.html",
       "shopUrl": "shop.html#protection-keychain"
     },
@@ -717,6 +771,11 @@ window.YL_SEARCH_INDEX = {
         "bites"
       ],
       "variants": null,
+      "pairsWith": [
+        "protection-keychain",
+        "backroad-soak"
+      ],
+      "ritualTitle": "The Backwoods Defense Ritual",
       "url": "products/bug-spray.html",
       "shopUrl": "shop.html#bug-spray"
     },
@@ -763,6 +822,11 @@ window.YL_SEARCH_INDEX = {
         "softening"
       ],
       "variants": null,
+      "pairsWith": [
+        "whipped-body-butter",
+        "bath-tea"
+      ],
+      "ritualTitle": "The Sweet Woods Exfoliation Ritual",
       "url": "products/sugar-scrub.html",
       "shopUrl": "shop.html#sugar-scrub"
     },
@@ -810,6 +874,11 @@ window.YL_SEARCH_INDEX = {
         "soft skin"
       ],
       "variants": null,
+      "pairsWith": [
+        "sugar-scrub",
+        "shimmer-oil"
+      ],
+      "ritualTitle": "The Velvet Cloud Moisture Ritual",
       "url": "products/whipped-body-butter.html",
       "shopUrl": "shop.html#whipped-body-butter"
     },
@@ -865,6 +934,11 @@ window.YL_SEARCH_INDEX = {
           }
         ]
       },
+      "pairsWith": [
+        "porch-sweep-spray",
+        "protection-keychain"
+      ],
+      "ritualTitle": "The Sacred Hearth Clearing Ritual",
       "url": "products/cleansing-spray.html",
       "shopUrl": "shop.html#cleansing-spray"
     },
@@ -923,6 +997,11 @@ window.YL_SEARCH_INDEX = {
           }
         ]
       },
+      "pairsWith": [
+        "lavender-soak",
+        "miracle-balm"
+      ],
+      "ritualTitle": "The Whole Botanical Soak Infusion",
       "url": "products/bath-tea.html",
       "shopUrl": "shop.html#bath-tea"
     },
@@ -966,6 +1045,11 @@ window.YL_SEARCH_INDEX = {
         "house blessing"
       ],
       "variants": null,
+      "pairsWith": [
+        "cleansing-spray",
+        "bug-spray"
+      ],
+      "ritualTitle": "The Southern Threshold Protection Ritual",
       "url": "products/porch-sweep-spray.html",
       "shopUrl": "shop.html#porch-sweep-spray"
     },
@@ -1024,6 +1108,8 @@ window.YL_SEARCH_INDEX = {
           }
         ]
       },
+      "pairsWith": [],
+      "ritualTitle": "",
       "url": "products/yallternative-gift-card.html",
       "shopUrl": "shop.html#yallternative-gift-card"
     },

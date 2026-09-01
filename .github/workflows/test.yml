@@ -1,7 +1,7 @@
 name: QA checks
 
 # Runs ESLint, Prettier's format check, and the site's own automated QA
-# suite (scripts/qa-check.js, "npm test") on every push and pull request --
+# suite (scripts/smoke-test.js, scripts/qa-check.js, "npm test") on every push and pull request --
 # catches a broken build, a dead link, a malformed variant/rating, CSP
 # drift between _headers/vercel.json/netlify.toml, or a lint/format issue
 # before it ever reaches a real deploy, instead of relying on someone
@@ -30,7 +30,12 @@ name: QA checks
 #   * paths-ignore: doc-only commits (*.md, docs/) don't trigger a run.
 #   * concurrency: a newer push cancels the older in-progress run instead of
 #     letting both finish.
-#   * PUPPETEER_SKIP_DOWNLOAD on the `qa` job: that job runs lint/format/qa
+#   * path filtering (changes job): separates routine content/data edits from
+#     core frontend/worker/script changes using dorny/paths-filter.
+#   * fast smoke test (test:smoke): executes in <3s (<0.5s typical) on every run.
+#   * conditional browser job: heavy multi-engine Playwright browser downloads
+#     and tests are reserved for core file changes or pushes to main.
+#   * PUPPETEER_SKIP_DOWNLOAD on the `qa` job: that job runs lint/format/smoke/qa
 #     only -- none of which need a browser -- so it skips Puppeteer's ~150MB
 #     Chromium download. The separate `browser` job below does need browsers
 #     and therefore does not set it.
@@ -54,6 +59,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Job 1: Evaluate changed files to determine downstream execution paths
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      core: ${{ steps.filter.outputs.core }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            core:
+              - 'assets/js/**'
+              - 'assets/css/**'
+              - 'workers/**'
+              - 'netlify/**'
+              - 'scripts/**'
+              - '*.html'
+              - 'products/*.html'
+              - 'package.json'
+              - 'package-lock.json'
+              - '.github/workflows/**'
+
+  # Job 2: Fast Quality & Smoke Gate (Runs on ALL PRs and pushes)
   qa:
     runs-on: ubuntu-latest
     # Normally ~30s. A cap costs nothing when green and stops a hung run from
@@ -71,7 +101,10 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: npm run lint
       - run: npm run format:check
-      - run: npm test
+      - name: Fast Smoke Gate (<3s)
+        run: npm run test:smoke
+      - name: Full Unit & QA Suite
+        run: npm test
 
   # The browser gates. These were local-only until now, which meant the
   # accessibility gate, the scroll-reveal gate and the Puppeteer suites could
@@ -81,6 +114,8 @@ jobs:
   # `qa` above stays fast and fails first on the cheap stuff, and the engines
   # are cached between runs keyed on the lockfile.
   browser:
+    needs: [changes, qa]
+    if: github.ref == 'refs/heads/main' || needs.changes.outputs.core == 'true'
     runs-on: ubuntu-latest
     # ~6 minutes cold (engine downloads), less on a cache hit. Browser jobs are
     # the ones that hang -- a wedged page load has no deadline of its own.

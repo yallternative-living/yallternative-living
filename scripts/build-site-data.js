@@ -227,6 +227,33 @@ function bundlePricing(b, productsMap) {
   return { fullPrice: fullPrice, bundlePrice: bundlePrice };
 }
 
+function validatePairsWith(products, productsMap) {
+  const map = productsMap || PRODUCTS_BY_ID || {};
+  (products || []).forEach(function (p) {
+    if (p.pairsWith !== undefined && p.pairsWith !== null) {
+      if (!Array.isArray(p.pairsWith)) {
+        throw new Error("Product '" + (p.id || "unknown") + "' pairsWith must be an array");
+      }
+      p.pairsWith.forEach(function (pairedId) {
+        if (pairedId === p.id) {
+          throw new Error("Product '" + p.id + "' cannot pair with itself in pairsWith");
+        }
+        if (!map[pairedId]) {
+          throw new Error(
+            "Product '" + p.id + "' pairsWith references unknown product ID: '" + pairedId + "'"
+          );
+        }
+      });
+      if (p.ritualTitle !== undefined && p.ritualTitle !== null) {
+        if (typeof p.ritualTitle !== "string" || !p.ritualTitle.trim()) {
+          throw new Error("Product '" + p.id + "' ritualTitle must be a non-empty string");
+        }
+      }
+    }
+  });
+  return true;
+}
+
 function readText(relPath, label) {
   const full = path.join(ROOT, relPath);
   try {
@@ -395,6 +422,9 @@ function buildSiteData() {
       p.sale = { label: catSale.label };
     }
   });
+
+  /* 2b. Validate PairsWith Referential Integrity */
+  validatePairsWith(PRODUCTS, PRODUCTS_BY_ID);
 
   /* 3. Process Bundles & Guards */
   const USED_BUNDLE_IDS = new Set();
@@ -628,6 +658,8 @@ function buildSiteData() {
       concerns: Array.isArray(p.concerns) ? p.concerns : [],
       keywords: Array.isArray(p.keywords) ? p.keywords : [],
       variants: p.variants || null,
+      pairsWith: Array.isArray(p.pairsWith) ? p.pairsWith : [],
+      ritualTitle: p.ritualTitle || "",
       url: "products/" + p.id + ".html",
       shopUrl: "shop.html#" + p.id
     };
@@ -2280,7 +2312,13 @@ function buildSiteData() {
   (function generateProductOgPages() {
     PRODUCTS.forEach(function (product) {
       const categoryLabel = CATEGORY_LABEL[product.category] || product.category || "Apothecary";
-      const html = renderProductPdpHtml(product, DOMAIN, categoryLabel);
+      const html = renderProductPdpHtml(
+        product,
+        DOMAIN,
+        categoryLabel,
+        PRODUCTS_BY_ID,
+        CATEGORY_LABEL
+      );
       writeFile("products/" + product.id + ".html", html);
     });
   })();
@@ -2316,6 +2354,254 @@ function buildSiteData() {
 }
 
 /* ---------- Export Internal Helpers & Build Function ---------- */
+function generateProductJsonLd(product, domain, categoryLabel) {
+  const dom = (domain || "https://yallternativeliving.com").replace(/\/+$/, "");
+  const prodId = (product && product.id) || "product";
+  const prodName = (product && product.name) || "";
+  const prodDesc = (product && (product.description || product.blurb)) || "";
+  const prodUrl = dom + "/products/" + prodId + ".html";
+  const catLabel = categoryLabel || (product && product.category) || "Apothecary";
+  const sku = (product && product.sku) || prodId;
+  const mpn = (product && product.mpn) || sku;
+
+  // Build full-URL image array
+  const images = [];
+  if (product && product.image) {
+    const mainImg = /^https?:\/\//i.test(product.image)
+      ? product.image
+      : dom + "/" + String(product.image).replace(/^\/+/, "");
+    images.push(mainImg);
+  }
+  if (product && Array.isArray(product.images)) {
+    product.images.forEach(function (img) {
+      if (img) {
+        const fullImg = /^https?:\/\//i.test(img)
+          ? img
+          : dom + "/" + String(img).replace(/^\/+/, "");
+        if (images.indexOf(fullImg) === -1) {
+          images.push(fullImg);
+        }
+      }
+    });
+  }
+
+  // Determine item availability
+  let availability = "https://schema.org/InStock";
+  if (product && (product.inStock === false || product.stock === 0)) {
+    availability = "https://schema.org/OutOfStock";
+  } else if (
+    product &&
+    (product.comingSoon === true ||
+      (product.image && String(product.image).indexOf("placeholder") !== -1))
+  ) {
+    availability = "https://schema.org/PreOrder";
+  }
+
+  // Merchant Return Policy (30 days, US)
+  const returnPolicy = {
+    "@type": "MerchantReturnPolicy",
+    applicableCountry: "US",
+    returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+    merchantReturnDays: 30,
+    returnMethod: "https://schema.org/ReturnByMail",
+    returnFees: "https://schema.org/FreeReturn",
+    returnLink: dom + "/policies.html"
+  };
+
+  // Shipping Details (Flat $10, Free over $40)
+  const shippingDetails = [
+    {
+      "@type": "OfferShippingDetails",
+      shippingRate: {
+        "@type": "MonetaryAmount",
+        value: "10.00",
+        currency: "USD"
+      },
+      shippingDestination: {
+        "@type": "DefinedRegion",
+        addressCountry: "US"
+      },
+      deliveryTime: {
+        "@type": "ShippingDeliveryTime",
+        handlingTime: {
+          "@type": "QuantitativeValue",
+          minValue: 1,
+          maxValue: 3,
+          unitCode: "DAY"
+        },
+        transitTime: {
+          "@type": "QuantitativeValue",
+          minValue: 2,
+          maxValue: 5,
+          unitCode: "DAY"
+        }
+      }
+    },
+    {
+      "@type": "OfferShippingDetails",
+      shippingRate: {
+        "@type": "MonetaryAmount",
+        value: "0.00",
+        currency: "USD"
+      },
+      shippingDestination: {
+        "@type": "DefinedRegion",
+        addressCountry: "US"
+      },
+      freeShippingThreshold: {
+        "@type": "DeliveryChargeSpecification",
+        appliesToDeliveryCharge: {
+          "@type": "MonetaryAmount",
+          value: "0.00",
+          currency: "USD"
+        },
+        eligibleTransactionVolume: {
+          "@type": "PriceSpecification",
+          price: "40.00",
+          priceCurrency: "USD"
+        }
+      },
+      deliveryTime: {
+        "@type": "ShippingDeliveryTime",
+        handlingTime: {
+          "@type": "QuantitativeValue",
+          minValue: 1,
+          maxValue: 3,
+          unitCode: "DAY"
+        },
+        transitTime: {
+          "@type": "QuantitativeValue",
+          minValue: 2,
+          maxValue: 5,
+          unitCode: "DAY"
+        }
+      }
+    }
+  ];
+
+  // Offer calculation (AggregateOffer for variant price range vs Offer for single price)
+  const range = variantPriceRange(product || {});
+  const seller = {
+    "@type": "Organization",
+    name: "Y'allternative Living"
+  };
+
+  let offers;
+  if (range.low !== range.high) {
+    offers = {
+      "@type": "AggregateOffer",
+      lowPrice: range.low.toFixed(2),
+      highPrice: range.high.toFixed(2),
+      priceCurrency: "USD",
+      offerCount: range.offerCount,
+      priceValidUntil: "2027-12-31",
+      itemCondition: "https://schema.org/NewCondition",
+      availability: availability,
+      url: prodUrl,
+      seller: seller,
+      hasMerchantReturnPolicy: returnPolicy,
+      shippingDetails: shippingDetails
+    };
+  } else {
+    offers = {
+      "@type": "Offer",
+      price: range.low.toFixed(2),
+      priceCurrency: "USD",
+      priceValidUntil: "2027-12-31",
+      itemCondition: "https://schema.org/NewCondition",
+      availability: availability,
+      url: prodUrl,
+      seller: seller,
+      hasMerchantReturnPolicy: returnPolicy,
+      shippingDetails: shippingDetails
+    };
+  }
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: prodName,
+    description: prodDesc,
+    image: images,
+    url: prodUrl,
+    sku: sku,
+    mpn: mpn,
+    category: catLabel,
+    brand: {
+      "@type": "Brand",
+      name: "Y'allternative Living"
+    },
+    offers: offers
+  };
+
+  if (product && product.rating) {
+    const ratingValue =
+      typeof product.rating === "number"
+        ? product.rating
+        : product.rating.value !== undefined
+          ? product.rating.value
+          : product.rating.ratingValue !== undefined
+            ? product.rating.ratingValue
+            : 5;
+    const reviewCount =
+      typeof product.rating === "object" && product.rating !== null
+        ? product.rating.count !== undefined
+          ? product.rating.count
+          : product.rating.reviewCount !== undefined
+            ? product.rating.reviewCount
+            : 1
+        : 1;
+    jsonLd.aggregateRating = {
+      "@type": "AggregateRating",
+      ratingValue: ratingValue,
+      reviewCount: reviewCount,
+      bestRating: "5",
+      worstRating: "1"
+    };
+  }
+
+  return jsonLd;
+}
+
+function generateProductBreadcrumbJsonLd(product, domain, categoryLabel) {
+  const dom = (domain || "https://yallternativeliving.com").replace(/\/+$/, "");
+  const prodId = (product && product.id) || "product";
+  const prodName = (product && product.name) || "Product";
+  const catSlug = (product && product.category) || "apothecary";
+  const catLabel = categoryLabel || (product && product.category) || "Apothecary";
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: dom + "/index.html"
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Shop",
+        item: dom + "/shop.html"
+      },
+      {
+        "@type": "ListItem",
+        position: 3,
+        name: catLabel,
+        item: dom + "/shop.html#category-" + catSlug
+      },
+      {
+        "@type": "ListItem",
+        position: 4,
+        name: prodName,
+        item: dom + "/products/" + prodId + ".html"
+      }
+    ]
+  };
+}
+
 function renderFreshnessBadgeHtml() {
   return (
     '      <div class="pdp-freshness-badge" role="status">\n' +
@@ -2453,7 +2739,296 @@ function renderUsageAccordionsHtml(product) {
   );
 }
 
-function renderProductPdpHtml(product, domain, categoryLabel) {
+function renderRitualSectionHtml(product, productsMap, categoryLabelMap) {
+  if (!product || !Array.isArray(product.pairsWith) || !product.pairsWith.length) {
+    return "";
+  }
+  const map = productsMap || PRODUCTS_BY_ID || {};
+  const catMap = categoryLabelMap || {};
+  const pairedProducts = product.pairsWith
+    .map(function (id) {
+      return map[id];
+    })
+    .filter(Boolean);
+
+  if (!pairedProducts.length) {
+    return "";
+  }
+
+  let totalBundlePrice = typeof product.price === "number" ? product.price : 0;
+  pairedProducts.forEach(function (p) {
+    totalBundlePrice += typeof p.price === "number" ? p.price : 0;
+  });
+
+  const formattedTotal = "$" + totalBundlePrice.toFixed(2);
+  const ritualTitle = product.ritualTitle || "Botanical Pairing";
+  const allIds = [product.id]
+    .concat(
+      pairedProducts.map(function (p) {
+        return p.id;
+      })
+    )
+    .join(",");
+
+  let itemsHtml = "";
+
+  // Main product (checked by default, disabled checkbox)
+  itemsHtml +=
+    '        <label class="pdp-ritual-item is-checked" data-product-id="' +
+    escapeHtml(product.id) +
+    '">\n' +
+    '          <input type="checkbox" class="pdp-ritual-checkbox" checked disabled aria-label="Include ' +
+    escapeHtml(product.name) +
+    ' (Current product)" data-price="' +
+    (typeof product.price === "number" ? product.price.toFixed(2) : "0.00") +
+    '">\n' +
+    '          <div class="pdp-ritual-item-thumb">\n' +
+    '            <img src="../' +
+    String(product.image).replace(/^\/+/, "") +
+    '" alt="" width="54" height="54" loading="lazy">\n' +
+    "          </div>\n" +
+    '          <div class="pdp-ritual-item-details">\n' +
+    '            <span class="pdp-ritual-item-tag">This Item</span>\n' +
+    '            <span class="pdp-ritual-item-name">' +
+    escapeHtml(product.name) +
+    "</span>\n" +
+    '            <span class="pdp-ritual-item-price">$' +
+    (typeof product.price === "number" ? product.price.toFixed(2) : "0.00") +
+    "</span>\n" +
+    "          </div>\n" +
+    "        </label>\n";
+
+  // Paired products
+  pairedProducts.forEach(function (paired, idx) {
+    const pairedCatLabel = catMap[paired.category] || paired.category || "Pairing";
+    itemsHtml +=
+      '        <span class="pdp-ritual-plus" aria-hidden="true">+</span>\n' +
+      '        <label class="pdp-ritual-item is-checked" data-product-id="' +
+      escapeHtml(paired.id) +
+      '">\n' +
+      '          <input type="checkbox" class="pdp-ritual-checkbox" checked aria-label="Include ' +
+      escapeHtml(paired.name) +
+      '" data-price="' +
+      (typeof paired.price === "number" ? paired.price.toFixed(2) : "0.00") +
+      '">\n' +
+      '          <div class="pdp-ritual-item-thumb">\n' +
+      '            <img src="../' +
+      String(paired.image).replace(/^\/+/, "") +
+      '" alt="" width="54" height="54" loading="lazy">\n' +
+      "          </div>\n" +
+      '          <div class="pdp-ritual-item-details">\n' +
+      '            <span class="pdp-ritual-item-tag">Step ' +
+      (idx + 2) +
+      ": " +
+      escapeHtml(pairedCatLabel) +
+      "</span>\n" +
+      '            <a href="' +
+      escapeHtml(paired.id) +
+      '.html" class="pdp-ritual-item-name">' +
+      escapeHtml(paired.name) +
+      "</a>\n" +
+      '            <span class="pdp-ritual-item-price">$' +
+      (typeof paired.price === "number" ? paired.price.toFixed(2) : "0.00") +
+      "</span>\n" +
+      "          </div>\n" +
+      "        </label>\n";
+  });
+
+  const unlocksFreeShipping = totalBundlePrice >= 40;
+
+  return (
+    '    <section class="pdp-ritual-section" id="pdpRitualSection" aria-labelledby="ritualHeading">\n' +
+    '      <div class="pdp-ritual-header">\n' +
+    '        <span class="eyebrow">✦ COMPLETE THE RITUAL ✦</span>\n' +
+    '        <h2 id="ritualHeading" class="pdp-ritual-title">✦ Complete the Ritual: ' +
+    escapeHtml(ritualTitle) +
+    " ✦</h2>\n" +
+    '        <p class="pdp-ritual-sub">Pair this item with complementary botanicals crafted to work together.</p>\n' +
+    "      </div>\n" +
+    '      <div class="pdp-ritual-card">\n' +
+    '        <div class="pdp-ritual-items-grid">\n' +
+    itemsHtml +
+    "        </div>\n" +
+    '        <div class="pdp-ritual-footer">\n' +
+    '          <div class="pdp-ritual-total-wrap">\n' +
+    '            <span class="pdp-ritual-total-label">Ritual Bundle Total:</span>\n' +
+    '            <span class="pdp-ritual-total-price" id="pdpRitualTotalPrice">' +
+    formattedTotal +
+    "</span>\n" +
+    '            <span class="pdp-ritual-shipping-badge" id="pdpRitualShippingBadge"' +
+    (unlocksFreeShipping ? "" : " hidden") +
+    ">✓ Unlocks Free Tracked Shipping!</span>\n" +
+    "          </div>\n" +
+    '          <button type="button" class="btn btn-primary btn-lg pdp-ritual-add-btn" id="pdpRitualAddBtn" data-ritual-ids="' +
+    escapeHtml(allIds) +
+    '">\n' +
+    '            <svg class="yl-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">\n' +
+    '              <circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>\n' +
+    "            </svg>\n" +
+    '            <span>Add All to Cart · <span class="ritual-btn-price">' +
+    formattedTotal +
+    "</span></span>\n" +
+    "          </button>\n" +
+    "        </div>\n" +
+    "      </div>\n" +
+    "    </section>\n"
+  );
+}
+
+/**
+ * Renders the Mobile Sticky Add-to-Cart Bottom Bar (R1) for a product.
+ * Rendered inside the PDP <main class="container pdp-container"> container.
+ *
+ * @param {Object} product - Product data object
+ * @param {string} categoryLabel - Human-readable category label
+ * @returns {string} - Rendered HTML string for the sticky bar
+ */
+function renderStickyBarHtml(product, categoryLabel) {
+  if (!product) return "";
+  const p = product;
+  const price = typeof p.price === "number" ? p.price.toFixed(2) : "0.00";
+  const imgSrc = String(p.image || "").replace(/^\/+/, "");
+  const cat = escapeHtml(categoryLabel || p.category || "");
+
+  const availableOptions =
+    p.variants && Array.isArray(p.variants.options)
+      ? p.variants.options.filter(function (o) {
+          return !o.soldOut;
+        })
+      : [];
+
+  let variantAttrs = "";
+  if (availableOptions.length) {
+    const optionsStr = availableOptions
+      .map(function (o) {
+        const delta = o.priceDelta || 0;
+        const sign = delta < 0 ? "-" : "+";
+        return escapeHtml(o.label) + "[" + sign + Math.abs(delta).toFixed(2) + "]";
+      })
+      .join("|");
+    const defaultVal = availableOptions[0].label;
+    const vName = (p.variants && p.variants.name) || "Option";
+    variantAttrs =
+      ' data-item-custom1-name="' +
+      escapeHtml(vName) +
+      '"' +
+      ' data-item-custom1-options="' +
+      optionsStr +
+      '"' +
+      ' data-item-custom1-value="' +
+      escapeHtml(defaultVal) +
+      '"';
+  }
+
+  const maxQtyAttr =
+    typeof p.stock === "number" && p.stock > 0 ? ' data-item-max-quantity="' + p.stock + '"' : "";
+
+  let variantWrapHtml = "";
+  if (p.variants && Array.isArray(p.variants.options) && p.variants.options.length) {
+    let firstSelected = false;
+    const optionsHtml = p.variants.options
+      .map(function (o) {
+        const delta = o.priceDelta || 0;
+        let priceSuffix = "";
+        if (delta) {
+          priceSuffix =
+            " (" + (delta < 0 ? "-$" + Math.abs(delta).toFixed(2) : "+$" + delta.toFixed(2)) + ")";
+        }
+        let stateAttrs = "";
+        if (o.soldOut) {
+          stateAttrs = ' disabled aria-disabled="true"';
+          priceSuffix = " — sold out";
+        } else if (!firstSelected) {
+          firstSelected = true;
+          stateAttrs = " selected";
+        }
+        return (
+          '            <option value="' +
+          escapeHtml(o.label) +
+          '" data-delta="' +
+          delta +
+          '"' +
+          stateAttrs +
+          ">" +
+          escapeHtml(o.label) +
+          priceSuffix +
+          "</option>"
+        );
+      })
+      .join("\n");
+
+    variantWrapHtml =
+      '        <div class="pdp-sticky-variant-wrap">\n' +
+      '          <select class="pdp-sticky-variant-select variant-select" data-base-price="' +
+      price +
+      '" aria-label="Select variant">\n' +
+      optionsHtml +
+      "\n          </select>\n" +
+      "        </div>\n";
+  }
+
+  let buttonHtml = "";
+  if (p.id === "yallternative-gift-card") {
+    buttonHtml =
+      '        <a href="../shop.html#gift-cards" class="btn btn-outline btn-sm pdp-sticky-add-btn">Configure Card</a>\n';
+  } else if (p.comingSoon) {
+    buttonHtml =
+      '        <button type="button" class="btn btn-outline btn-sm pdp-sticky-add-btn" disabled aria-disabled="true">Coming Soon</button>\n';
+  } else if (
+    p.stock === 0 ||
+    p.inStock === false ||
+    (p.variants &&
+      Array.isArray(p.variants.options) &&
+      p.variants.options.length > 0 &&
+      !availableOptions.length)
+  ) {
+    buttonHtml =
+      '        <button type="button" class="btn btn-outline btn-sm pdp-sticky-add-btn" disabled aria-disabled="true">Sold Out</button>\n';
+  } else {
+    buttonHtml =
+      '        <button type="button" class="btn btn-primary btn-sm pdp-sticky-add-btn yl-add-item"' +
+      ' data-item-id="' +
+      escapeHtml(p.id) +
+      '"' +
+      ' data-item-name="' +
+      escapeHtml(p.name) +
+      '"' +
+      ' data-item-price="' +
+      price +
+      '"' +
+      ' data-item-image="' +
+      escapeHtml(imgSrc) +
+      '"' +
+      ' data-item-categories="' +
+      (cat || escapeHtml(p.category || "")) +
+      '"' +
+      variantAttrs +
+      maxQtyAttr +
+      ">Add to Cart</button>\n";
+  }
+
+  return (
+    '    <div class="pdp-sticky-bar" id="pdpStickyBar" aria-hidden="true">\n' +
+    '      <div class="pdp-sticky-inner">\n' +
+    '        <img class="pdp-sticky-thumb" src="../' +
+    escapeHtml(imgSrc) +
+    '" alt="" loading="lazy" width="44" height="44" aria-hidden="true">\n' +
+    '        <div class="pdp-sticky-info">\n' +
+    '          <p class="pdp-sticky-title">' +
+    escapeHtml(p.name) +
+    "</p>\n" +
+    '          <p class="pdp-sticky-price">$' +
+    price +
+    "</p>\n" +
+    "        </div>\n" +
+    variantWrapHtml +
+    buttonHtml +
+    "      </div>\n" +
+    "    </div>\n"
+  );
+}
+
+function renderProductPdpHtml(product, domain, categoryLabel, productsById, categoryLabelMap) {
   const pTitle = escapeHtml(product.name) + " | Y'allternative Living";
   const pDesc = escapeHtml(product.description || product.blurb || "");
   const pUrl = domain + "/products/" + product.id + ".html";
@@ -2475,9 +3050,14 @@ function renderProductPdpHtml(product, domain, categoryLabel) {
         range.high.toFixed(2) +
         "</span>";
 
+  const productJsonLd = generateProductJsonLd(product, domain, categoryLabel);
+  const breadcrumbJsonLd = generateProductBreadcrumbJsonLd(product, domain, categoryLabel);
+
   const freshnessBadgeHtml = renderFreshnessBadgeHtml();
   const scentProfileHtml = renderScentProfileHtml(product);
   const usageAccordionsHtml = renderUsageAccordionsHtml(product);
+  const ritualSectionHtml = renderRitualSectionHtml(product, productsById, categoryLabelMap);
+  const stickyBarHtml = renderStickyBarHtml(product, categoryLabel);
 
   let ingredientsHtml = "";
   if (Array.isArray(product.ingredients) && product.ingredients.length) {
@@ -2555,6 +3135,13 @@ function renderProductPdpHtml(product, domain, categoryLabel) {
     '  <meta property="product:availability" content="' +
     (product.comingSoon ? "preorder" : "in stock") +
     '">\n' +
+    "  <!-- Schema.org JSON-LD -->\n" +
+    '  <script type="application/ld+json">\n' +
+    JSON.stringify(productJsonLd, null, 2) +
+    "\n  </script>\n" +
+    '  <script type="application/ld+json">\n' +
+    JSON.stringify(breadcrumbJsonLd, null, 2) +
+    "\n  </script>\n" +
     "  <!-- Redirect to shop with product deep-link -->\n" +
     '  <script>window.location.replace("../shop.html#" + window.location.pathname.split("/").pop().replace(".html",""));</script>\n' +
     "</head>\n" +
@@ -2582,7 +3169,11 @@ function renderProductPdpHtml(product, domain, categoryLabel) {
     "  </header>\n" +
     '  <main id="main-content" class="container pdp-container">\n' +
     '    <nav class="breadcrumb-nav" aria-label="Breadcrumb">\n' +
-    '      <p class="breadcrumb"><a href="../index.html">Home</a> / <a href="../shop.html">Shop</a> / <span>' +
+    '      <p class="breadcrumb"><a href="../index.html">Home</a> / <a href="../shop.html">Shop</a> / <a href="../shop.html#category-' +
+    escapeHtml(product.category || "apothecary") +
+    '">' +
+    catLabel +
+    "</a> / <span>" +
     escapeHtml(product.name) +
     "</span></p>\n" +
     "    </nav>\n" +
@@ -2628,6 +3219,8 @@ function renderProductPdpHtml(product, domain, categoryLabel) {
     "        </div>\n" +
     "      </div>\n" +
     "    </article>\n" +
+    ritualSectionHtml +
+    stickyBarHtml +
     "  </main>\n" +
     '  <dialog id="global-search-modal" class="global-search-modal gift-modal" aria-labelledby="globalSearchModalTitle" aria-modal="true">\n' +
     '    <div class="global-search-container" role="document">\n' +
@@ -2666,6 +3259,8 @@ function renderProductPdpHtml(product, domain, categoryLabel) {
     "      </div>\n" +
     "    </div>\n" +
     "  </dialog>\n" +
+    '  <script src="../assets/js/products-data.js?v=2.0" defer></script>\n' +
+    '  <script src="../assets/js/cart.js" defer></script>\n' +
     '  <script src="../assets/js/search-data.js?v=2.0" defer></script>\n' +
     '  <script src="../assets/js/main.js?v=2.0" defer></script>\n' +
     "</body>\n" +
@@ -2758,9 +3353,14 @@ if (typeof module !== "undefined" && module.exports) {
     newsletterAction: newsletterAction,
     setFormAction: setFormAction,
     generateRssFeed: generateRssFeed,
+    generateProductJsonLd: generateProductJsonLd,
+    generateProductBreadcrumbJsonLd: generateProductBreadcrumbJsonLd,
     renderFreshnessBadgeHtml: renderFreshnessBadgeHtml,
     renderScentProfileHtml: renderScentProfileHtml,
     renderUsageAccordionsHtml: renderUsageAccordionsHtml,
+    validatePairsWith: validatePairsWith,
+    renderRitualSectionHtml: renderRitualSectionHtml,
+    renderStickyBarHtml: renderStickyBarHtml,
     renderProductPdpHtml: renderProductPdpHtml,
     buildSiteData: buildSiteData
   };

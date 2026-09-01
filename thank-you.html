@@ -320,9 +320,13 @@
     </div>
 
     <form id="orderStatusForm" class="order-status-form" novalidate style="margin-top: 1rem;">
-      <div class="field">
-        <label for="order-id-input">Order Number or Email Address</label>
-        <input type="text" id="order-id-input" name="query" placeholder="Order number or your email address" autocomplete="off" required>
+      <div class="field" style="margin-bottom: 0.75rem;">
+        <label for="order-id-input">Order Reference Number</label>
+        <input type="text" id="order-id-input" name="query" placeholder="e.g. YL-2026-0842" autocomplete="off" required>
+      </div>
+      <div class="field" style="margin-bottom: 0.75rem;">
+        <label for="order-verify-input">Email Address or Billing Zip Code</label>
+        <input type="text" id="order-verify-input" name="verify" placeholder="e.g. your@email.com or 29356" autocomplete="off" required>
         <span class="field-error" id="orderLookupError" aria-live="assertive" hidden style="color: var(--crimson); font-size: 0.85rem; margin-top: 4px; display: block;"></span>
       </div>
       <button type="submit" id="order-lookup-btn" class="btn btn-primary btn-block" style="margin-top: 1rem;">Look Up Order</button>

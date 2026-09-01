@@ -1,75 +1,88 @@
-# Project: 2026 SOTA Global Search Suite
+# Project: Y'allternative Living E-Commerce Quick Wins Suite
 
 ## Architecture
-- **Zero-Runtime-Framework Static Architecture**: Vanilla HTML5, CSS3 with modern CSS custom properties, and modular vanilla JavaScript.
-- **Single Source of Truth**: Canonical JSON in `assets/data/` (`products.json`, `journal.json`, `events.json`, `content.json`).
-- **Compilation Pipeline (`scripts/build-site-data.js`)**: Compiles normalized client search index `assets/js/search-data.js` (`window.YL_SEARCH_INDEX`), injects header `.nav-search-btn` and `<dialog id="global-search-modal">` into all 15 top-level HTML pages and 19 generated `products/*.html` pages.
-- **Offline & Service Worker Support (`sw.js`)**: Cached search index enables instant in-memory client-side searches even when offline.
-- **W3C ARIA Combobox 1.2 / 1.3 & Dialog Pattern**: Native `<dialog>` element with `showModal()`, focus trapping, `Escape` key close, focus restoration to search trigger, and polite live regions (`aria-live="polite"`).
-- **Brand & Aesthetic Invariants**:
-  - Color Tokens: `var(--paper)`, `var(--ink)`, `var(--whiskey)` (`#d97736`), `var(--hide)`, `var(--cream)`.
-  - Dark & Light theme translucent backdrop blur (`rgba(28, 23, 19, 0.85)` / warm parchment).
-  - Warm terracotta/gold focus glow rings, never browser default blue outlines.
-  - Southern botanical apothecary voice in placeholder and zero-result recovery states.
-  - Pill badges, rounded thumbnails (`8px`), 0 horizontal overflow.
-  - 100% Monoline Vector SVGs across all search triggers, chips, segment headers, event badges, and empty states.
+The Y'allternative Living platform is a 100% static HTML/CSS/JS e-commerce application with zero runtime framework dependencies.
+Data flow:
+1. Canonical Single Source of Truth in `assets/data/*.json` (`products.json`, `events.json`, `content.json`, `site-reviews.json`).
+2. Build compiler `scripts/build-site-data.js` compiles JSON into derived client data globals (`assets/js/products-data.js`, `assets/js/events-data.js`, etc.), updates static HTML comment markers, compiles 19 individual product detail pages (`products/*.html`), and generates sitemap/robots/llms.
+3. Client runtime: `assets/js/main.js` (DOM interactions, theme, search, wishlist, carousels, sticky bar, variant switching), `assets/js/cart.js` (client-side cart state, volume discounts, multi-tier shipping/gift meters, Stripe checkout payload).
+4. Cloudflare Worker: `workers/checkout.js` (server-side cart validation, tax calculation, Stripe Checkout session creation, promotion codes, and free gift metadata).
+5. Testing stack: Node.js parallel unit test runners (`scripts/run-unit-tests.js`), static quality validation (`scripts/qa-check.js`), Puppeteer integration suites (`scripts/run-integration-tests.js`), axe-core WCAG 2.2 AA audit (`scripts/a11y-check.js`), and Playwright multi-browser test (`scripts/cross-browser-check.js`).
 
 ## Feature Inventory
 | # | Feature | Description | Milestone | Source |
 |---|---------|-------------|-----------|--------|
-| 1 | Global Header 🔍 Trigger & Spotlight Modal | Accessible search button in header `.nav-cta` and native `<dialog id="global-search-modal">` modal with glassmorphic backdrop. | M1, M2 | Survey / R1 |
-| 2 | Keyboard Shortcuts (`Cmd+K`, `/`, `Escape`) | Global spotlight shortcuts (`Cmd+K`/`Ctrl+K`, `/` guarded against inputs, `Escape` dismiss and focus restoration). | M2 | Survey / R1 |
-| 3 | Popular Search Quick Chips | Zero-state 1-tap chips (`[Bedtime & Sleep]`, `[Sore Muscles]`, `[Dry Skin & Eczema]`, `[Bug Defense]`, `[Pop-Up Markets]`, `[Gift Cards]`) with instant execution. | M2 | Survey / R2 |
-| 4 | Instant Floating Autocomplete with Live Thumbnails | Debounced (150ms) live matching results with thumbnails, price, in-stock badges, and arrow-key navigation (`ArrowDown`/`ArrowUp`/`Enter`). | M3 | Survey / R3 |
-| 5 | 1-Click Add to Cart Action | Inline `[ + Add to Cart ]` on product search results, variant resolution, cart count badge increment, and drawer coordination. | M3 | Survey / R3 |
-| 6 | Universal Cross-Content Search (4 Domains) | Simultaneous search across Products, Journal, Markets & Events (`events.json`), and FAQ with segmented headers & counters. | M3 | Survey / R4 + User Req |
-| 7 | Two-Tier Synonym & Intent Engine | Botanical synonyms (lavender, magnesium, arnica, calendula, shea) + skin concern/intent mappings (sleep, eczema, sore muscles, bug defense, gift cards). | M3 | Survey / R4 |
-| 8 | Search Data Compilation Pipeline | `scripts/build-site-data.js` compiles `assets/js/search-data.js` (including events) and updates all static HTML and `products/*.html` templates. | M1 | Survey / Architecture |
-| 9 | Dedicated Unit Test Suite | `scripts/global-search.test.js` covering 4-domain search, tokenization, synonym expansion, chips, keyboard navigation, ARIA states, and cart payload. | M4 | Survey / Testing |
-| 10 | Static QA Rule Assertions | `scripts/qa-check.js` asserting search trigger and modal markup across all 32+ pages. | M4 | Survey / Testing |
-| 11 | Headless Browser Integration Tests | `scripts/puppeteer_tests.js` multi-viewport tests across Desktop (1200x800), Tablet (768x1024), and Mobile (375x667). | M4 | Survey / Testing |
-| 12 | WCAG 2.2 AA Accessibility & Cross-Browser Gate | `scripts/a11y-check.js` (0 axe-core violations across 34 pages) + `scripts/cross-browser-check.js` (Chromium, Firefox, WebKit, Mobile Safari, Mobile Chrome). | M5 | Survey / Gate |
-| 13 | Test Runner Parallelization | `scripts/run-unit-tests.js`, `scripts/cross-browser-check.js`, `scripts/run-integration-tests.js` parallelized across CPU cores. | M4/M5 | User Directive |
+| 1 | R5.1 Rich Product Schema | `<script type="application/ld+json">` for Schema.org `Product` on all 19 PDPs | M1 | ORIGINAL_REQUEST §R5 |
+| 2 | R5.2 Return Policy Schema | `hasMerchantReturnPolicy` (30-day returns, US, free mail returns) in Offer | M1 | ORIGINAL_REQUEST §R5 |
+| 3 | R5.3 Shipping Details Schema | `shippingDetails` ($10 flat rate standard, $0 free shipping over $40 threshold) | M1 | ORIGINAL_REQUEST §R5 |
+| 4 | R5.4 Stock Availability Schema | `ItemAvailability` URI (`https://schema.org/InStock`, `OutOfStock`, `PreOrder`) | M1 | ORIGINAL_REQUEST §R5 |
+| 5 | R5.5 4-Tier Breadcrumb Schema | `BreadcrumbList` JSON-LD (Home > Shop > Category > Product) on all 19 PDPs | M1 | ORIGINAL_REQUEST §R5 |
+| 6 | R3.1 Multi-Tier Milestone Meter | Multi-tier milestone tracker in cart drawer ($40 Free Shipping, $60 Free Pocket Salve) | M2 | ORIGINAL_REQUEST §R3 |
+| 7 | R3.2 Dynamic Distance Copy | Real-time countdown: "Add $8.01 more to unlock a Free Pocket Salve!" with float precision | M2 | ORIGINAL_REQUEST §R3 |
+| 8 | R3.3 Milestone Pins & Visuals | Progress track with milestone pins, icons (truck, gift), and `.is-reached` states | M2 | ORIGINAL_REQUEST §R3 |
+| 9 | R3.4 Free Gift Metadata | Server-side metadata in `workers/checkout.js` (`metadata.free_gift`) | M2 | ORIGINAL_REQUEST §R3 |
+| 10 | R4.1 Recently Viewed Tracking | `localStorage["yl-recently-viewed"]` tracking on PDP visit (capped at 8 items, privacy-safe) | M3 | ORIGINAL_REQUEST §R4 |
+| 11 | R4.2 Scroll-Snap Carousel UI | Horizontal CSS scroll-snap carousel rendered on `shop.html` and PDPs when >= 2 items exist | M3 | ORIGINAL_REQUEST §R4 |
+| 12 | R2.1 Cross-Sell Data Schema | `pairsWith` product ID arrays and `ritualTitle` strings on botanical items in `products.json` | M4 | ORIGINAL_REQUEST §R2 |
+| 13 | R2.2 Ritual Section UI | "Complete the Ritual" callout section on PDPs & shop modal with bundle pricing | M4 | ORIGINAL_REQUEST §R2 |
+| 14 | R2.3 1-Click Multi-Item Add | 1-click batch add to cart using `window.YLCart.addItems(itemsArray)` | M4 | ORIGINAL_REQUEST §R2 |
+| 15 | R1.1 Sticky Bottom Bar DOM | Accessible `.pdp-sticky-bar` markup on PDPs (<768px) with thumb, title, price, variant, Add to Cart | M5 | ORIGINAL_REQUEST §R1 |
+| 16 | R1.2 Scroll Trigger Observer | `IntersectionObserver` sliding sticky bar into view when primary CTA scrolls out of view | M5 | ORIGINAL_REQUEST §R1 |
+| 17 | R1.3 Bi-directional Variant Sync | Real-time sync between sticky bar variant and main PDP details form | M5 | ORIGINAL_REQUEST §R1 |
+| 18 | R1.4 Mobile Safe Area & Styling | Fixed bottom layout, iOS `env(safe-area-inset-bottom)`, touch targets >= 44x44px | M5 | ORIGINAL_REQUEST §R1 |
+| 19 | Quality Gate Full Verification | 100% E2E tests, axe-core WCAG 2.2 AA (0 errors), Playwright cross-browser, lint & format | M6 | ORIGINAL_REQUEST §Quality Gates |
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| M1 | Build Compiler & Markup Foundation | `scripts/build-site-data.js` (search data index generator for Products, Journal, Events, FAQ, header `.nav-search-btn` injection, `<dialog id="global-search-modal">` template injection in static pages & `products/*.html`), `sw.js` cache update. | none | DONE |
-| M2 | Modal CSS, Dialog Lifecycle, Popular Chips & Shortcuts | `assets/css/styles.css` (modal styles, backdrop blur, search input, chips, results list, footer hints), `assets/js/main.js` (`openSearchModal`, `closeSearchModal`, `Cmd+K`, `/`, `Escape`, focus trap & restoration, popular chips click). | M1 | DONE |
-| M3 | Search Engine, Cross-Domain Autocomplete & 1-Click Cart | `assets/js/main.js` (tokenizer, 2-tier synonym engine, Products + Journal + Events + FAQ matching, debounced input, live thumbnail rendering, arrow key navigation, 1-click cart action integration with `assets/js/cart.js`, `aria-live` polite announcements). | M1, M2 | DONE |
-| M4 | Unit Tests, QA Assertions & Integration Tests | `scripts/global-search.test.js`, `scripts/qa-check.js`, `scripts/puppeteer_tests.js` search integration suite across Desktop, Tablet, and Mobile viewports. | M1, M2, M3 | DONE |
-| M5 | Multi-Agent Review, Challenger, Forensic Audit & Final Gate | Full verification pipeline (`npm run build-data`, `npm test`, `npm run lint`, `npm run format:check`, `npm run test:integration`, `scripts/a11y-check.js`, `npm run test:cross-browser`), Reviewers, Challenger, Forensic Auditor. | M1, M2, M3, M4 | DONE |
+| M1 | Google Merchant Rich Product JSON-LD (R5) | `scripts/build-site-data.js`, `scripts/build-site-data.test.js`, `scripts/qa-check.js` | None | PLANNED |
+| M2 | Multi-Tier Free Shipping & Gift Progress Meter (R3) | `assets/js/cart.js`, `assets/css/cart.css`, `scripts/cart-engine.test.js`, `scripts/cart.test.js`, `workers/checkout.js` | None | PLANNED |
+| M3 | "Recently Viewed Products" Carousel (R4) | `assets/js/main.js`, `assets/css/styles.css`, `shop.html`, `scripts/main.test.js` | None | PLANNED |
+| M4 | "Complete the Ritual" Smart Cross-Sells (R2) | `assets/data/products.json`, `admin/config.yml`, `scripts/build-site-data.js`, `assets/js/main.js`, `assets/css/styles.css`, `scripts/pdp-merchandising.test.js` | M1, M2 | PLANNED |
+| M5 | Mobile Sticky Add-to-Cart Bottom Bar on PDPs (R1) | `scripts/build-site-data.js`, `assets/js/main.js`, `assets/css/styles.css`, `scripts/main.test.js` | M1, M2 | PLANNED |
+| M6 | E2E Integration, Cross-Browser & A11y Verification | `scripts/puppeteer_tests.js`, `scripts/extended_qa_test.js`, `scripts/a11y-check.js`, `scripts/cross-browser-check.js` | M1, M2, M3, M4, M5 | PLANNED |
 
 ## Interface Contracts
 
-### Data Index Contract (`assets/js/search-data.js` ↔ `assets/js/main.js`)
-- `window.YL_SEARCH_INDEX`:
-  - `products`: Array of `{ id, name, category, categoryLabel, price, formattedPrice, image, inStock, comingSoon, featured, blurb, tags, concerns, scent, ingredients, keywords, url, variants }`
-  - `journal`: Array of `{ id, title, date, formattedDate, image, readTime, tags, excerpt, featuredProductId, url }`
-  - `events`: Array of `{ id, title, date, formattedDate, location, city, description, tags, url }`
-  - `faq`: Array of `{ id, question, answer, category, keywords, url }`
-  - `synonyms`: Object mapping canonical terms to synonym lists.
+### M1: Schema Generator Contract
+- Function `generateProductJsonLd(product, domain, categoryLabel)` -> Returns JSON-LD object for Schema.org `Product` with `offers` (`AggregateOffer` or `Offer`), `hasMerchantReturnPolicy`, `shippingDetails`, `ItemAvailability`, `aggregateRating`.
+- Function `generateProductBreadcrumbJsonLd(product, domain, categoryLabel)` -> Returns 4-tier Schema.org `BreadcrumbList`.
 
-### Modal UI & Event Contract
-- **Trigger**: `<button class="nav-search-btn" id="globalSearchTrigger" type="button" aria-label="Search catalog, articles & FAQ" title="Search (Cmd+K)" aria-haspopup="dialog" aria-expanded="false" aria-controls="global-search-modal">`
-- **Dialog**: `<dialog id="global-search-modal" class="global-search-modal gift-modal" aria-labelledby="globalSearchModalTitle" aria-modal="true">`
-- **Input**: `<input type="search" id="globalSearchInput" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, journal, FAQ, events… (Cmd+K)">`
-- **Results List**: `<div id="globalSearchResultsList" class="global-search-results-list" role="listbox" aria-label="Search results" tabindex="-1">`
-- **Option Item**: `<div id="search-opt-${index}" class="search-result-item" role="option" aria-selected="false" data-item-type="product|journal|event|faq">`
-- **Cart Button**: `<button type="button" class="btn btn-primary btn-sm yl-add-item search-add-btn" data-item-id="${id}" data-item-name="${name}" data-item-price="${price}" data-item-image="${image}">+ Add to Cart</button>`
-- **Live Status**: `<div id="globalSearchResultCount" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>`
+### M2: Cart Milestone Meter Contract
+- Data structure in `window.YL_PRODUCTS.shop.shippingMilestones`:
+  `[{ threshold: 40, reward: "Free Tracked Shipping", icon: "truck" }, { threshold: 60, reward: "Free Handcrafted Pocket Salve", icon: "gift" }]`
+- Function `getShippingMilestones()` -> Array of `{ threshold: number, reward: string, icon: string }`.
+- Method `YLCart.physicalSubtotal(items)` -> number of non-gift-card subtotal.
+- UI elements: `.yl-cart-milestones`, `.yl-cart-milestones-track`, `.yl-cart-milestones-fill`, `.yl-cart-milestone-pin`, `.yl-cart-milestones-msg`.
+
+### M3: Recently Viewed Contract
+- Storage Key: `localStorage["yl-recently-viewed"]`
+- Schema: Array of `{ id: string, name: string, price: number, priceRange?: string, image: string, category: string, timestamp: number }`, max length 8.
+- Method `recordRecentlyViewed(product)`
+- Container: `#recently-viewed-section` (in `shop.html`) and `#pdpRecentlyViewedSection` (in PDPs).
+
+### M4: Ritual Cross-Sell Contract
+- Data in `assets/data/products.json`: Product entries have `pairsWith: string[]` (referencing valid product IDs) and `ritualTitle: string`.
+- Method `YLCart.addItems(itemsArray)` -> Adds multiple items in a single atomic batch, updates drawer, announces count.
+
+### M5: Mobile Sticky Bar Contract
+- Element: `.pdp-sticky-bar` inside PDP `<main class="container pdp-container">`.
+- Trigger: `IntersectionObserver` observing `.pdp-actions` / primary purchase CTA.
+- Variant synchronization: Two-way binding between `.pdp-details .variant-select` and `.pdp-sticky-variant-select`.
+- Action: Click `.pdp-sticky-add-btn` invokes `YLCart.addItem(...)`.
 
 ## Code Layout
-- `assets/data/`: Single source of truth JSON files (`products.json`, `journal.json`, `events.json`, `content.json`).
-- `scripts/build-site-data.js`: Main data compilation script.
-- `assets/js/search-data.js`: Generated static search index.
-- `assets/js/main.js`: Modal lifecycle, search controller, tokenizer, keyboard listeners.
-- `assets/js/cart.js`: Cart integration and event delegation.
-- `assets/css/styles.css`: Site-wide styles including `/* GLOBAL SEARCH SUITE */`.
-- `scripts/global-search.test.js`: Dedicated unit test suite.
-- `scripts/qa-check.js`: Static quality assertions.
-- `scripts/puppeteer_tests.js`: Headless browser integration tests.
-- `scripts/a11y-check.js`: Axe-core WCAG 2.2 AA accessibility scanner.
-- `scripts/cross-browser-check.js`: Playwright cross-browser test runner.
-- `scripts/run-unit-tests.js`: Parallel unit test runner.
-- `scripts/run-integration-tests.js`: Parallel integration test runner.
+- `assets/data/products.json` — Product catalog single source of truth
+- `admin/config.yml` — Sveltia CMS configuration
+- `scripts/build-site-data.js` — Build compiler & static HTML generator
+- `assets/js/main.js` — Client runtime for site interactions
+- `assets/js/cart.js` — Cart state and drawer engine
+- `assets/css/styles.css` — Global stylesheet and component styles
+- `assets/css/cart.css` — Cart drawer styling
+- `workers/checkout.js` — Cloudflare Worker for checkout & Stripe API
+- `scripts/*.test.js` — Unit test suites
+- `scripts/qa-check.js` — Static QA assertions
+- `scripts/puppeteer_tests.js` — Multi-viewport Puppeteer integration tests
+- `scripts/extended_qa_test.js` — Rapid click and edge case integration tests
+- `scripts/a11y-check.js` — axe-core WCAG 2.2 AA accessibility verification
+- `scripts/cross-browser-check.js` — Playwright cross-browser verification

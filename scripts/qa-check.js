@@ -2312,6 +2312,460 @@ try {
   fail("Global Search Suite QA assertions", e.message);
 }
 
+/* ---------- Google Merchant Rich Product JSON-LD & BreadcrumbList (R5) ---------- */
+section("Google Merchant Rich Product JSON-LD & BreadcrumbList (R5)");
+try {
+  var pdpFiles = fs.readdirSync(path.join(ROOT, "products")).filter(function (f) {
+    return f.endsWith(".html");
+  });
+
+  if (pdpFiles.length === 0) {
+    fail("PDP HTML files", "No products/*.html files found -- run npm run build-data");
+  } else {
+    ok("Found " + pdpFiles.length + " PDP HTML files in products/ directory");
+  }
+
+  PRODUCTS.forEach(function (prod) {
+    var prodHtmlPath = path.join(ROOT, "products", prod.id + ".html");
+    if (!fs.existsSync(prodHtmlPath)) {
+      fail("PDP file missing for " + prod.id, "products/" + prod.id + ".html does not exist");
+      return;
+    }
+
+    var html = fs.readFileSync(prodHtmlPath, "utf8");
+    var blocks = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g) || [];
+
+    if (blocks.length < 2) {
+      fail(
+        prod.id + " PDP JSON-LD blocks",
+        "Expected at least 2 JSON-LD blocks (Product & BreadcrumbList), found " + blocks.length
+      );
+      return;
+    }
+
+    var parsedLdBlocks = [];
+    blocks.forEach(function (b, idx) {
+      var jsonText = b
+        .replace(/^<script[^>]*>/, "")
+        .replace(/<\/script>$/, "")
+        .trim();
+      try {
+        parsedLdBlocks.push(JSON.parse(jsonText));
+      } catch (err) {
+        fail(prod.id + " JSON-LD block #" + (idx + 1) + " JSON parse error", err.message);
+      }
+    });
+
+    var productLd = parsedLdBlocks.find(function (ld) {
+      return ld["@type"] === "Product";
+    });
+    var breadcrumbLd = parsedLdBlocks.find(function (ld) {
+      return ld["@type"] === "BreadcrumbList";
+    });
+
+    // 1. Validate Product JSON-LD Schema
+    if (!productLd) {
+      fail(prod.id + " Product JSON-LD", "Missing @type: Product block");
+    } else {
+      var prodValid =
+        productLd["@context"] === "https://schema.org" &&
+        productLd.name === prod.name &&
+        productLd.sku === (prod.sku || prod.id) &&
+        productLd.mpn === (prod.mpn || prod.sku || prod.id) &&
+        productLd.brand &&
+        productLd.brand["@type"] === "Brand" &&
+        productLd.brand.name === "Y'allternative Living" &&
+        Array.isArray(productLd.image) &&
+        productLd.image.length >= 1 &&
+        productLd.image.every(function (img) {
+          return /^https?:\/\//.test(img);
+        }) &&
+        productLd.url === "https://yallternativeliving.com/products/" + prod.id + ".html";
+
+      if (prodValid) {
+        ok(prod.id + ": Product schema structure & metadata valid");
+      } else {
+        fail(prod.id + ": Product schema invalid metadata", JSON.stringify(productLd));
+      }
+
+      // Validate Offers
+      var offers = productLd.offers;
+      if (!offers) {
+        fail(prod.id + ": Product offers", "Missing offers object");
+      } else {
+        var isAggregate = offers["@type"] === "AggregateOffer";
+        var isSingle = offers["@type"] === "Offer";
+        var offerTypeValid = isAggregate || isSingle;
+
+        // Determine expected availability
+        var expectedAvailability = "https://schema.org/InStock";
+        if (prod.inStock === false || prod.stock === 0) {
+          expectedAvailability = "https://schema.org/OutOfStock";
+        } else if (
+          prod.comingSoon === true ||
+          (prod.image && String(prod.image).indexOf("placeholder") !== -1)
+        ) {
+          expectedAvailability = "https://schema.org/PreOrder";
+        }
+
+        var commonOffersValid =
+          offerTypeValid &&
+          offers.priceCurrency === "USD" &&
+          offers.priceValidUntil === "2027-12-31" &&
+          offers.itemCondition === "https://schema.org/NewCondition" &&
+          offers.availability === expectedAvailability &&
+          offers.url === "https://yallternativeliving.com/products/" + prod.id + ".html" &&
+          offers.seller &&
+          offers.seller["@type"] === "Organization" &&
+          offers.seller.name === "Y'allternative Living";
+
+        // Validate Merchant Return Policy
+        var returnPolicy = offers.hasMerchantReturnPolicy;
+        var returnPolicyValid =
+          returnPolicy &&
+          returnPolicy["@type"] === "MerchantReturnPolicy" &&
+          returnPolicy.applicableCountry === "US" &&
+          returnPolicy.returnPolicyCategory ===
+            "https://schema.org/MerchantReturnFiniteReturnWindow" &&
+          returnPolicy.merchantReturnDays === 30 &&
+          returnPolicy.returnMethod === "https://schema.org/ReturnByMail" &&
+          returnPolicy.returnFees === "https://schema.org/FreeReturn" &&
+          returnPolicy.returnLink === "https://yallternativeliving.com/policies.html";
+
+        // Validate Shipping Details (Flat rate + Free shipping threshold)
+        var shipping = offers.shippingDetails;
+        var shippingValid =
+          Array.isArray(shipping) &&
+          shipping.length === 2 &&
+          shipping[0]["@type"] === "OfferShippingDetails" &&
+          shipping[0].shippingRate &&
+          shipping[0].shippingRate.value === "10.00" &&
+          shipping[0].shippingRate.currency === "USD" &&
+          shipping[0].shippingDestination &&
+          shipping[0].shippingDestination.addressCountry === "US" &&
+          shipping[0].deliveryTime &&
+          shipping[0].deliveryTime.handlingTime &&
+          shipping[0].deliveryTime.handlingTime.minValue === 1 &&
+          shipping[0].deliveryTime.handlingTime.maxValue === 3 &&
+          shipping[0].deliveryTime.transitTime &&
+          shipping[0].deliveryTime.transitTime.minValue === 2 &&
+          shipping[0].deliveryTime.transitTime.maxValue === 5 &&
+          shipping[1]["@type"] === "OfferShippingDetails" &&
+          shipping[1].shippingRate &&
+          shipping[1].shippingRate.value === "0.00" &&
+          shipping[1].shippingRate.currency === "USD" &&
+          shipping[1].freeShippingThreshold &&
+          shipping[1].freeShippingThreshold.eligibleTransactionVolume &&
+          shipping[1].freeShippingThreshold.eligibleTransactionVolume.price === "40.00" &&
+          shipping[1].freeShippingThreshold.eligibleTransactionVolume.priceCurrency === "USD" &&
+          shipping[1].deliveryTime &&
+          shipping[1].deliveryTime.handlingTime &&
+          shipping[1].deliveryTime.handlingTime.minValue === 1 &&
+          shipping[1].deliveryTime.handlingTime.maxValue === 3 &&
+          shipping[1].deliveryTime.transitTime &&
+          shipping[1].deliveryTime.transitTime.minValue === 2 &&
+          shipping[1].deliveryTime.transitTime.maxValue === 5;
+
+        if (commonOffersValid && returnPolicyValid && shippingValid) {
+          ok(
+            prod.id +
+              ": Offer (" +
+              offers["@type"] +
+              ") with return policy & 2-tier shipping details valid"
+          );
+        } else {
+          fail(
+            prod.id + ": Offer structure / shipping / return policy invalid",
+            JSON.stringify(offers)
+          );
+        }
+      }
+
+      // Validate Rating Consistency
+      if (prod.rating) {
+        var ar = productLd.aggregateRating;
+        if (
+          ar &&
+          ar["@type"] === "AggregateRating" &&
+          Number(ar.ratingValue) === prod.rating.value &&
+          Number(ar.reviewCount) === prod.rating.count
+        ) {
+          ok(prod.id + ": AggregateRating JSON-LD matches product rating data");
+        } else {
+          fail(
+            prod.id + ": AggregateRating mismatch with products-data.js",
+            JSON.stringify(ar) + " vs " + JSON.stringify(prod.rating)
+          );
+        }
+      } else {
+        if (productLd.aggregateRating === undefined) {
+          ok(prod.id + ": No ungrounded aggregateRating fabricated");
+        } else {
+          fail(
+            prod.id + ": Fabricated aggregateRating found on unrated product",
+            JSON.stringify(productLd.aggregateRating)
+          );
+        }
+      }
+    }
+
+    // 2. Validate BreadcrumbList JSON-LD Schema
+    if (!breadcrumbLd) {
+      fail(prod.id + " BreadcrumbList JSON-LD", "Missing @type: BreadcrumbList block");
+    } else {
+      var items = breadcrumbLd.itemListElement;
+      var breadcrumbValid =
+        breadcrumbLd["@context"] === "https://schema.org" &&
+        Array.isArray(items) &&
+        items.length === 4 &&
+        items[0]["@type"] === "ListItem" &&
+        items[0].position === 1 &&
+        items[0].name === "Home" &&
+        items[0].item === "https://yallternativeliving.com/index.html" &&
+        items[1]["@type"] === "ListItem" &&
+        items[1].position === 2 &&
+        items[1].name === "Shop" &&
+        items[1].item === "https://yallternativeliving.com/shop.html" &&
+        items[2]["@type"] === "ListItem" &&
+        items[2].position === 3 &&
+        items[2].item === "https://yallternativeliving.com/shop.html#category-" + prod.category &&
+        items[3]["@type"] === "ListItem" &&
+        items[3].position === 4 &&
+        items[3].name === prod.name &&
+        items[3].item === "https://yallternativeliving.com/products/" + prod.id + ".html";
+
+      if (breadcrumbValid) {
+        ok(prod.id + ": 4-tier BreadcrumbList JSON-LD well-formed");
+      } else {
+        fail(prod.id + ": 4-tier BreadcrumbList JSON-LD invalid", JSON.stringify(items));
+      }
+    }
+
+    // 3. Validate Visible 4-Tier Breadcrumb Navigation in HTML
+    var visibleBreadcrumbMatch = html.match(/<p class="breadcrumb">([\s\S]*?)<\/p>/);
+    if (!visibleBreadcrumbMatch) {
+      fail(prod.id + ": Visible breadcrumb element", 'Missing <p class="breadcrumb">');
+    } else {
+      var crumbHtml = visibleBreadcrumbMatch[1];
+      var hasHome = crumbHtml.indexOf('<a href="../index.html">Home</a>') !== -1;
+      var hasShop = crumbHtml.indexOf('<a href="../shop.html">Shop</a>') !== -1;
+      var hasCategory =
+        crumbHtml.indexOf('href="../shop.html#category-' + prod.category + '"') !== -1;
+      var hasProdName = crumbHtml.indexOf(escapeHtml(prod.name)) !== -1;
+
+      if (hasHome && hasShop && hasCategory && hasProdName) {
+        ok(
+          prod.id +
+            ": Visible 4-tier breadcrumb navigation matches Home > Shop > Category > Product"
+        );
+      } else {
+        fail(prod.id + ": Visible breadcrumbs missing required tier", crumbHtml);
+      }
+    }
+  });
+} catch (e) {
+  fail("Google Merchant JSON-LD QA check failed", e.message);
+}
+
+/* ---------- Complete the Ritual Smart Cross-Sells (R2) ---------- */
+section("Complete the Ritual Smart Cross-Sells (R2)");
+try {
+  var botanicalProducts = PRODUCTS.filter(function (p) {
+    return ["salves", "body", "soaks", "potions", "ritual"].includes(p.category);
+  });
+
+  if (botanicalProducts.length >= 16) {
+    ok("Found " + botanicalProducts.length + " botanical & apothecary products in catalog");
+  } else {
+    fail(
+      "Botanical products count",
+      "Expected at least 16 botanical products, found " + botanicalProducts.length
+    );
+  }
+
+  var allProdIds = new Set(
+    PRODUCTS.map(function (p) {
+      return p.id;
+    })
+  );
+
+  botanicalProducts.forEach(function (p) {
+    // Check pairsWith and ritualTitle
+    if (Array.isArray(p.pairsWith) && p.pairsWith.length >= 1) {
+      ok(p.id + ": pairsWith array populated with " + p.pairsWith.length + " items");
+    } else {
+      fail(p.id + ": missing or empty pairsWith array", JSON.stringify(p.pairsWith));
+    }
+
+    if (typeof p.ritualTitle === "string" && p.ritualTitle.trim().length > 0) {
+      ok(p.id + ": ritualTitle defined as '" + p.ritualTitle + "'");
+    } else {
+      fail(p.id + ": missing or empty ritualTitle", String(p.ritualTitle));
+    }
+
+    if (Array.isArray(p.pairsWith)) {
+      p.pairsWith.forEach(function (pairedId) {
+        if (allProdIds.has(pairedId)) {
+          ok(p.id + " -> " + pairedId + ": referential integrity valid");
+        } else {
+          fail(p.id + ": pairsWith unknown ID '" + pairedId + "'");
+        }
+        if (pairedId !== p.id) {
+          ok(p.id + ": no self-referencing in pairsWith");
+        } else {
+          fail(p.id + ": self-referencing pairsWith found");
+        }
+      });
+    }
+
+    // Check PDP HTML rendering
+    var pdpHtmlPath = path.join(ROOT, "products", p.id + ".html");
+    if (fs.existsSync(pdpHtmlPath)) {
+      var pdpHtml = fs.readFileSync(pdpHtmlPath, "utf8");
+      var hasRitualSection = pdpHtml.indexOf('class="pdp-ritual-section"') !== -1;
+      var hasRitualId = pdpHtml.indexOf('id="pdpRitualSection"') !== -1;
+      var hasRitualTitle = pdpHtml.indexOf(escapeHtml(p.ritualTitle)) !== -1;
+      var hasAddBtn = pdpHtml.indexOf('id="pdpRitualAddBtn"') !== -1;
+      var hasTotalPrice = pdpHtml.indexOf('id="pdpRitualTotalPrice"') !== -1;
+      var hasNoReveal =
+        pdpHtml.indexOf('class="pdp-ritual-section reveal"') === -1 &&
+        pdpHtml.indexOf('class="reveal pdp-ritual-section"') === -1;
+
+      if (hasRitualSection && hasRitualId && hasRitualTitle && hasAddBtn && hasTotalPrice) {
+        ok(p.id + ": PDP renders complete ritual cross-sell markup");
+      } else {
+        fail(
+          p.id + ": PDP ritual markup incomplete",
+          "Missing ritual elements in products/" + p.id + ".html"
+        );
+      }
+
+      if (hasNoReveal) {
+        ok(
+          p.id +
+            ": PDP ritual section does not use .reveal class (prevents scroll-reveal gate failure)"
+        );
+      } else {
+        fail(p.id + ": PDP ritual section illegally carries .reveal class");
+      }
+    }
+  });
+
+  // Verify CMS config declarations
+  var cmsConfig = fs.readFileSync(path.join(ROOT, "admin/config.yml"), "utf8");
+  if (/name:\s*pairsWith/.test(cmsConfig) && /name:\s*ritualTitle/.test(cmsConfig)) {
+    ok("admin/config.yml declares pairsWith relation widget and ritualTitle string widget");
+  } else {
+    fail("admin/config.yml missing pairsWith or ritualTitle declarations");
+  }
+
+  // Verify CSS styles exist
+  var ritualCss = fs.readFileSync(path.join(ROOT, "assets/css/styles.css"), "utf8");
+  if (
+    ritualCss.indexOf(".pdp-ritual-section") !== -1 &&
+    ritualCss.indexOf(".pdp-ritual-card") !== -1 &&
+    ritualCss.indexOf(".pdp-ritual-item") !== -1 &&
+    ritualCss.indexOf(".pdp-ritual-checkbox") !== -1 &&
+    ritualCss.indexOf(".pdp-ritual-add-btn") !== -1
+  ) {
+    ok("assets/css/styles.css contains required .pdp-ritual-* style rules");
+  } else {
+    fail("assets/css/styles.css missing .pdp-ritual-* style rules");
+  }
+} catch (e) {
+  fail("Complete the Ritual QA check failed", e.message);
+}
+
+/* ---------- Mobile Sticky Add-to-Cart Bottom Bar (R1) ---------- */
+section("Mobile Sticky Add-to-Cart Bottom Bar (R1)");
+try {
+  var pdpProducts = PRODUCTS.filter(function (p) {
+    return p && p.id;
+  });
+
+  if (pdpProducts.length >= 19) {
+    ok("Found " + pdpProducts.length + " products for PDP sticky bar validation");
+  } else {
+    fail("PDP product count", "Expected >= 19 products, found " + pdpProducts.length);
+  }
+
+  pdpProducts.forEach(function (p) {
+    var pdpHtmlPath = path.join(ROOT, "products", p.id + ".html");
+    if (!fs.existsSync(pdpHtmlPath)) {
+      fail("PDP file missing for " + p.id, "products/" + p.id + ".html does not exist");
+      return;
+    }
+
+    var pdpHtml = fs.readFileSync(pdpHtmlPath, "utf8");
+    var hasStickyBar = pdpHtml.indexOf('class="pdp-sticky-bar"') !== -1;
+    var hasStickyId = pdpHtml.indexOf('id="pdpStickyBar"') !== -1;
+    var hasAriaHidden = pdpHtml.indexOf('aria-hidden="true"') !== -1;
+    var hasThumb = pdpHtml.indexOf('class="pdp-sticky-thumb"') !== -1;
+    var hasInfo = pdpHtml.indexOf('class="pdp-sticky-info"') !== -1;
+    var hasTitle =
+      pdpHtml.indexOf('class="pdp-sticky-title"') !== -1 &&
+      pdpHtml.indexOf(escapeHtml(p.name)) !== -1;
+    var hasPrice = pdpHtml.indexOf('class="pdp-sticky-price"') !== -1;
+    var hasAddBtn = pdpHtml.indexOf("pdp-sticky-add-btn") !== -1;
+    var hasNoReveal =
+      pdpHtml.indexOf('class="pdp-sticky-bar reveal"') === -1 &&
+      pdpHtml.indexOf('class="reveal pdp-sticky-bar"') === -1;
+
+    if (
+      hasStickyBar &&
+      hasStickyId &&
+      hasAriaHidden &&
+      hasThumb &&
+      hasInfo &&
+      hasTitle &&
+      hasPrice &&
+      hasAddBtn
+    ) {
+      ok(p.id + ": PDP renders complete sticky add-to-cart bottom bar markup");
+    } else {
+      fail(
+        p.id + ": PDP sticky bottom bar markup incomplete",
+        "Missing required elements in products/" + p.id + ".html"
+      );
+    }
+
+    if (hasNoReveal) {
+      ok(p.id + ": PDP sticky bar does not carry .reveal class (preserves reveal gate)");
+    } else {
+      fail(p.id + ": PDP sticky bar illegally carries .reveal class");
+    }
+
+    // If product has variants, check variant selector
+    if (p.variants && Array.isArray(p.variants.options) && p.variants.options.length > 0) {
+      var hasVariantSelect =
+        pdpHtml.indexOf('class="pdp-sticky-variant-select variant-select"') !== -1;
+      var hasAriaLabel = pdpHtml.indexOf('aria-label="Select variant"') !== -1;
+      var hasBasePrice = pdpHtml.indexOf('data-base-price="') !== -1;
+      if (hasVariantSelect && hasAriaLabel && hasBasePrice) {
+        ok(p.id + ": PDP sticky bar includes accessible variant selector");
+      } else {
+        fail(p.id + ": PDP sticky bar missing variant selector or attributes");
+      }
+    }
+  });
+
+  // Verify CSS in styles.css
+  var stylesCss = fs.readFileSync(path.join(ROOT, "assets/css/styles.css"), "utf8");
+  if (
+    stylesCss.indexOf(".pdp-sticky-bar") !== -1 &&
+    stylesCss.indexOf(".pdp-sticky-bar.is-visible") !== -1 &&
+    stylesCss.indexOf("@media (min-width: 768px)") !== -1 &&
+    stylesCss.indexOf(".pdp-sticky-thumb") !== -1 &&
+    stylesCss.indexOf(".pdp-sticky-add-btn") !== -1
+  ) {
+    ok("assets/css/styles.css contains required .pdp-sticky-bar style rules");
+  } else {
+    fail("assets/css/styles.css missing .pdp-sticky-bar style rules");
+  }
+} catch (e) {
+  fail("Mobile Sticky Add-to-Cart Bottom Bar QA check failed", e.message);
+}
+
 /* ---------- Summary ---------- */
 console.log("\n" + "=".repeat(50));
 console.log(passCount + " checks passed, " + failures.length + " failed.");

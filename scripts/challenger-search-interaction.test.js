@@ -398,7 +398,7 @@ function recordFail(msg) {
     // Perform rapid concurrent clicks on multiple add-to-cart buttons
     console.log("  Executing rapid concurrent clicks on search result Add-to-Cart buttons...");
     await page.evaluate(() => {
-      const btns = document.querySelectorAll(".search-add-btn");
+      const btns = document.querySelectorAll(".search-add-btn.yl-add-item");
       if (btns.length >= 2) {
         btns[0].click();
         btns[0].click();
@@ -764,6 +764,222 @@ function recordFail(msg) {
       });
       if (isClosed) recordPass(`[${p}] Escape key closes modal`);
       else recordFail(`[${p}] Escape key failed to close modal`);
+    }
+    // =========================================================================
+    // SUITE 8: Search Inline Variant Chip Picker (R2 Micro-Interactions & Cart Delta Math)
+    // =========================================================================
+    console.log(
+      "\n--------------------------------------------------------------------------------"
+    );
+    console.log("VECTOR 8: Search Inline Variant Chip Picker (2026 SOTA & Cart Delta Math)");
+    console.log("--------------------------------------------------------------------------------");
+
+    await page.goto(`${baseUrl}/shop.html`, { waitUntil: "networkidle0" });
+    await page.setViewport({ width: 1200, height: 800 });
+
+    // Clear cart state
+    await page.evaluate(() => {
+      localStorage.removeItem("yl-cart-v1");
+      if (window.YLCart && typeof window.YLCart.clear === "function") {
+        window.YLCart.clear();
+      }
+    });
+
+    // Open search modal and search for "frankincense"
+    await page.click("#globalSearchTrigger");
+    await sleep(150);
+    await page.type("#globalSearchInput", "frankincense", { delay: 20 });
+    await sleep(350);
+
+    // Verify Frankincense Salve card has variant trigger
+    const variantTriggerExists = await page.evaluate(() => {
+      const btn = document.querySelector(
+        ".search-variant-trigger[data-item-id='frankincense-salve']"
+      );
+      return !!btn;
+    });
+    if (variantTriggerExists) {
+      recordPass("Frankincense Salve renders .search-variant-trigger button (+ Add)");
+    } else {
+      recordFail("Frankincense Salve missing .search-variant-trigger button");
+    }
+
+    // Click + Add on Frankincense Salve
+    await page.click(".search-variant-trigger[data-item-id='frankincense-salve']");
+    await sleep(150);
+
+    const pickerExpanded = await page.evaluate(() => {
+      const action = document.querySelector(
+        ".search-item-action[data-product-id='frankincense-salve']"
+      );
+      const picker = document.querySelector("#search-variant-picker-frankincense-salve");
+      const trigger = document.querySelector(
+        ".search-variant-trigger[data-item-id='frankincense-salve']"
+      );
+      return (
+        action.classList.contains("is-expanded") &&
+        !picker.hidden &&
+        trigger.getAttribute("aria-expanded") === "true" &&
+        picker.getAttribute("role") === "radiogroup"
+      );
+    });
+    if (pickerExpanded) {
+      recordPass(
+        "Clicking + Add expands .search-variant-picker with role='radiogroup' and aria-expanded='true'"
+      );
+    } else {
+      recordFail("Variant picker failed to expand with required ARIA attributes");
+    }
+
+    // Check chips inside Frankincense Salve picker
+    const chipDetails = await page.evaluate(() => {
+      const picker = document.querySelector("#search-variant-picker-frankincense-salve");
+      const chips = Array.from(picker.querySelectorAll(".search-variant-chip"));
+      return chips.map((c) => ({
+        text: c.textContent.trim(),
+        role: c.getAttribute("role"),
+        ariaChecked: c.getAttribute("aria-checked"),
+        variantLabel: c.getAttribute("data-variant-label"),
+        variantDelta: c.getAttribute("data-variant-delta"),
+        price: c.getAttribute("data-price")
+      }));
+    });
+
+    if (chipDetails.length === 2) {
+      recordPass(`Variant picker renders 2 size chips (found: ${chipDetails.length})`);
+    } else {
+      recordFail(`Unexpected number of variant chips (expected 2, got ${chipDetails.length})`);
+    }
+
+    const has1ozChip = chipDetails.some(
+      (c) => c.variantLabel === "1oz" && c.variantDelta === "-6" && c.price === "13.99"
+    );
+    if (has1ozChip) {
+      recordPass("1oz variant chip carries delta -6 and price $13.99");
+    } else {
+      recordFail("1oz variant chip missing correct delta / price attributes");
+    }
+
+    // Test Arrow navigation to 1oz chip and Spacebar select
+    await page.keyboard.press("ArrowRight");
+    await sleep(50);
+    await page.keyboard.press("Space");
+    await sleep(300);
+
+    // Verify cart state updated with 1oz Frankincense Salve at $13.99
+    const cartStateAfter1oz = await page.evaluate(() => {
+      try {
+        const raw = localStorage.getItem("yl-cart-v1");
+        const items = JSON.parse(raw || "[]");
+        return items[0] || null;
+      } catch {
+        return null;
+      }
+    });
+
+    if (
+      cartStateAfter1oz &&
+      cartStateAfter1oz.id === "frankincense-salve" &&
+      cartStateAfter1oz.variantLabel === "1oz" &&
+      cartStateAfter1oz.variantDelta === -6
+    ) {
+      recordPass("Cart state successfully populated with 1oz variant (delta -6)");
+    } else {
+      recordFail(`Cart state variant mismatch: ${JSON.stringify(cartStateAfter1oz)}`);
+    }
+
+    // Verify cart drawer is opened
+    const isCartDrawerOpen = await page.evaluate(() => {
+      const drawer = document.getElementById("yl-cart-drawer");
+      return (
+        drawer &&
+        (drawer.matches(":popover-open") ||
+          drawer.classList.contains("open") ||
+          drawer.hasAttribute("open") ||
+          drawer.getAttribute("data-open") === "true")
+      );
+    });
+    if (isCartDrawerOpen) {
+      recordPass("Selecting variant opens cart drawer");
+    } else {
+      recordFail("Cart drawer did not open on variant selection");
+    }
+
+    // Close drawer via Escape
+    await page.keyboard.press("Escape");
+    await sleep(150);
+
+    // Test sold-out chip handling on Tank Top
+    await page.click("#globalSearchInput");
+    await page.evaluate(() => {
+      const inp = document.getElementById("globalSearchInput");
+      inp.value = "tank";
+      inp.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await sleep(350);
+
+    const tankSoldOutChip = await page.evaluate(() => {
+      const trigger = document.querySelector(".search-variant-trigger[data-item-id='tank-top']");
+      if (trigger) trigger.click();
+      const sChip = document.querySelector(
+        "#search-variant-picker-tank-top .search-variant-chip[data-variant-label='S']"
+      );
+      return sChip
+        ? {
+            disabled: sChip.disabled,
+            isSoldOutClass: sChip.classList.contains("is-sold-out"),
+            ariaDisabled: sChip.getAttribute("aria-disabled")
+          }
+        : null;
+    });
+
+    if (tankSoldOutChip && tankSoldOutChip.disabled && tankSoldOutChip.isSoldOutClass) {
+      recordPass("Tank top 'S' variant is disabled and carries .is-sold-out class");
+    } else {
+      recordFail(
+        `Tank top sold out state missing or incorrect: ${JSON.stringify(tankSoldOutChip)}`
+      );
+    }
+
+    // Close modal for next suite
+    await page.keyboard.press("Escape");
+    await sleep(150);
+
+    // =========================================================================
+    // SUITE 9: Speculative Hover Prefetching (R3 Live Browser Validation)
+    // =========================================================================
+    console.log(
+      "\n--------------------------------------------------------------------------------"
+    );
+    console.log(
+      "VECTOR 9: Speculative Hover Prefetching Controller (2026 SOTA in Headless Browser)"
+    );
+    console.log("--------------------------------------------------------------------------------");
+
+    await page.goto(`${baseUrl}/index.html`, { waitUntil: "networkidle0" });
+
+    // Hover over an internal navigation link for 150ms (>65ms debounce)
+    const aboutLink = await page.$("a[href*='about.html']");
+    if (aboutLink) {
+      await aboutLink.hover();
+      await sleep(150);
+
+      const isPrefetched = await page.evaluate(() => {
+        const headHtml = document.head.innerHTML;
+        return (
+          headHtml.includes("about.html") ||
+          !!document.head.querySelector("link[rel='prefetch'][href*='about.html']") ||
+          !!document.head.querySelector("script[type='speculationrules']")
+        );
+      });
+
+      if (isPrefetched) {
+        recordPass("Hovering internal link (>65ms debounce) injects prefetch into <head>");
+      } else {
+        recordFail("Hover prefetch element not found in <head>");
+      }
+    } else {
+      recordFail("Could not locate about.html link on index.html");
     }
   } catch (err) {
     console.error("FATAL ERROR in test execution:", err);

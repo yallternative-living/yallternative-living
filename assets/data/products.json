@@ -207,6 +207,11 @@
         "cuticles",
         "frankincense",
         "rosemary"
+      ],
+      "ritualTitle": "The Heavy Working Hands & Skin Revival",
+      "pairsWith": [
+        "hand-scrub",
+        "miracle-balm"
       ]
     },
     {
@@ -269,6 +274,11 @@
         "cuticles",
         "calendula",
         "lanolin"
+      ],
+      "ritualTitle": "The Gentle Skin Shield Ritual",
+      "pairsWith": [
+        "shea-butter",
+        "lavender-soak"
       ]
     },
     {
@@ -326,6 +336,11 @@
         "stress relief",
         "lavender",
         "cedarwood"
+      ],
+      "ritualTitle": "The Deep Rest & Nighttime Ritual",
+      "pairsWith": [
+        "lavender-soak",
+        "shea-butter"
       ]
     },
     {
@@ -378,6 +393,11 @@
         "conditioning",
         "coarse hair",
         "softening"
+      ],
+      "ritualTitle": "The Appalachian Woodsman Grooming Ritual",
+      "pairsWith": [
+        "hand-scrub",
+        "frankincense-salve"
       ]
     },
     {
@@ -453,6 +473,11 @@
         "summer glow",
         "highlighter",
         "golden hour"
+      ],
+      "ritualTitle": "The Golden Hour Radiance Ritual",
+      "pairsWith": [
+        "whipped-body-butter",
+        "sugar-scrub"
       ]
     },
     {
@@ -523,6 +548,11 @@
         "chapped",
         "hydration",
         "soothing"
+      ],
+      "ritualTitle": "The Ultra-Nourishing Body Ritual",
+      "pairsWith": [
+        "sugar-scrub",
+        "sleep-salve"
       ]
     },
     {
@@ -599,6 +629,11 @@
         "gardener hands",
         "cane sugar",
         "smoothing"
+      ],
+      "ritualTitle": "The Bourbon & Grit Working Hands Reset",
+      "pairsWith": [
+        "frankincense-salve",
+        "beard-salve"
       ]
     },
     {
@@ -662,6 +697,11 @@
         "lavender",
         "mineral soak",
         "evening unwind"
+      ],
+      "ritualTitle": "The Evening Bath & Unwind Ritual",
+      "pairsWith": [
+        "sleep-salve",
+        "bath-tea"
       ]
     },
     {
@@ -731,6 +771,11 @@
         "eucalyptus",
         "peppermint",
         "tension bath"
+      ],
+      "ritualTitle": "The Trailhead Muscle Recovery Ritual",
+      "pairsWith": [
+        "frankincense-salve",
+        "hand-scrub"
       ]
     },
     {
@@ -802,6 +847,11 @@
         "potion bottle",
         "keychain",
         "good vibes"
+      ],
+      "ritualTitle": "The Witches' Road Armor Ritual",
+      "pairsWith": [
+        "bug-spray",
+        "cleansing-spray"
       ]
     },
     {
@@ -859,6 +909,11 @@
         "outdoors",
         "trail",
         "bites"
+      ],
+      "ritualTitle": "The Backwoods Defense Ritual",
+      "pairsWith": [
+        "protection-keychain",
+        "backroad-soak"
       ]
     },
     {
@@ -913,6 +968,11 @@
         "dry skin",
         "polishing",
         "softening"
+      ],
+      "ritualTitle": "The Sweet Woods Exfoliation Ritual",
+      "pairsWith": [
+        "whipped-body-butter",
+        "bath-tea"
       ]
     },
     {
@@ -968,6 +1028,11 @@
         "deep hydration",
         "fluffy moisturizer",
         "soft skin"
+      ],
+      "ritualTitle": "The Velvet Cloud Moisture Ritual",
+      "pairsWith": [
+        "sugar-scrub",
+        "shimmer-oil"
       ]
     },
     {
@@ -1029,6 +1094,11 @@
         "aura cleanse",
         "sacred space",
         "negative energy"
+      ],
+      "ritualTitle": "The Sacred Hearth Clearing Ritual",
+      "pairsWith": [
+        "porch-sweep-spray",
+        "protection-keychain"
       ]
     },
     {
@@ -1093,6 +1163,11 @@
         "soothing soak",
         "spa bath",
         "relaxation"
+      ],
+      "ritualTitle": "The Whole Botanical Soak Infusion",
+      "pairsWith": [
+        "lavender-soak",
+        "miracle-balm"
       ]
     },
     {
@@ -1140,6 +1215,11 @@
         "room freshener",
         "herbal mist",
         "house blessing"
+      ],
+      "ritualTitle": "The Southern Threshold Protection Ritual",
+      "pairsWith": [
+        "cleansing-spray",
+        "bug-spray"
       ]
     },
     {
@@ -1420,6 +1500,18 @@
     "reviewCount": 32,
     "sales": 105,
     "freeShippingThreshold": 40,
+    "shippingMilestones": [
+      {
+        "threshold": 40,
+        "reward": "Free Tracked Shipping",
+        "icon": "truck"
+      },
+      {
+        "threshold": 60,
+        "reward": "Free Handcrafted Pocket Salve",
+        "icon": "gift"
+      }
+    ],
     "customBox": {
       "minItems": 3,
       "maxItems": 5,

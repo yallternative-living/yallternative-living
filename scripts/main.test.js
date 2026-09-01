@@ -16,12 +16,27 @@ const mockLocalStorage = {
 function createMockElement(tagName = "div") {
   const attrs = new Map();
   const children = [];
+  let _hidden = false;
   const el = {
     tagName: tagName.toUpperCase(),
     attributes: attrs,
-    setAttribute: (name, val) => attrs.set(name, String(val)),
+    get hidden() {
+      return _hidden || attrs.has("hidden");
+    },
+    set hidden(val) {
+      _hidden = !!val;
+      if (val) attrs.set("hidden", "");
+      else attrs.delete("hidden");
+    },
+    setAttribute: (name, val) => {
+      attrs.set(name, String(val));
+      if (name === "hidden") _hidden = true;
+    },
     getAttribute: (name) => attrs.get(name) || null,
-    removeAttribute: (name) => attrs.delete(name),
+    removeAttribute: (name) => {
+      attrs.delete(name);
+      if (name === "hidden") _hidden = false;
+    },
     hasAttribute: (name) => attrs.has(name),
     style: {},
     classList: {
@@ -57,17 +72,56 @@ function createMockElement(tagName = "div") {
 const mockDocumentElement = createMockElement("html");
 const themeToggleEl = createMockElement("button");
 const wishBodyEl = createMockElement("div");
+const recentlyViewedSectionEl = createMockElement("section");
+const recentlyViewedTrackEl = createMockElement("div");
+const pdpRecentlyViewedSectionEl = createMockElement("section");
+const pdpRecentlyViewedTrackEl = createMockElement("div");
+
+recentlyViewedSectionEl.querySelector = (sel) => {
+  if (
+    sel === ".recently-viewed-track" ||
+    sel === "#recentlyViewedTrack" ||
+    sel === "#pdpRecentlyViewedTrack"
+  ) {
+    return recentlyViewedTrackEl;
+  }
+  return null;
+};
+pdpRecentlyViewedSectionEl.querySelector = (sel) => {
+  if (
+    sel === ".recently-viewed-track" ||
+    sel === "#recentlyViewedTrack" ||
+    sel === "#pdpRecentlyViewedTrack"
+  ) {
+    return pdpRecentlyViewedTrackEl;
+  }
+  return null;
+};
 
 const mockDocument = {
   documentElement: mockDocumentElement,
   getElementById: (id) => {
     if (id === "themeToggle") return themeToggleEl;
     if (id === "wishBody") return wishBodyEl;
+    if (id === "recently-viewed-section") {
+      return mockDocument.body.classList.contains("pdp-page") ? null : recentlyViewedSectionEl;
+    }
+    if (id === "recentlyViewedTrack") return recentlyViewedTrackEl;
+    if (id === "pdpRecentlyViewedSection") {
+      return mockDocument.body.classList.contains("pdp-page") ? pdpRecentlyViewedSectionEl : null;
+    }
+    if (id === "pdpRecentlyViewedTrack") return pdpRecentlyViewedTrackEl;
     return null;
   },
   querySelector: (sel) => {
     if (sel === "#themeToggle" || sel === ".theme-toggle") return themeToggleEl;
     if (sel === "#wishBody" || sel === ".wish-body") return wishBodyEl;
+    if (sel === "#recently-viewed-section" || sel === ".recently-viewed-section") {
+      return mockDocument.body.classList.contains("pdp-page") ? null : recentlyViewedSectionEl;
+    }
+    if (sel === "#pdpRecentlyViewedSection" || sel === ".pdp-recently-viewed-section") {
+      return mockDocument.body.classList.contains("pdp-page") ? pdpRecentlyViewedSectionEl : null;
+    }
     return null;
   },
   querySelectorAll: (sel) => {
@@ -715,6 +769,423 @@ assert(
 assert(cardMarkup.includes("iCal / Apple Calendar (.ics)"), "eventCardHTML includes iCal button");
 assert(cardMarkup.includes("Google Maps"), "eventCardHTML includes Google Maps link");
 assert(cardMarkup.includes("Apple Maps"), "eventCardHTML includes Apple Maps link");
+
+/* 9. Milestone 3: Recently Viewed Products (R4) */
+mockLocalStorage.clear();
+main._resetState();
+
+eq(main.getRecentlyViewed(), [], "getRecentlyViewed returns empty array initially");
+
+// Corrupted JSON handling
+mockLocalStorage.setItem("yl-recently-viewed", "{broken-json");
+main._resetState();
+eq(main.getRecentlyViewed(), [], "getRecentlyViewed handles corrupted JSON gracefully");
+
+// Null / invalid inputs
+mockLocalStorage.clear();
+main._resetState();
+eq(main.recordRecentlyViewed(null), [], "recordRecentlyViewed handles null safely");
+eq(main.recordRecentlyViewed(undefined), [], "recordRecentlyViewed handles undefined safely");
+eq(main.recordRecentlyViewed({}), [], "recordRecentlyViewed handles empty object safely");
+
+// Recording products
+const prodA = {
+  id: "frankincense-salve",
+  name: "Y'all Heal Now Miracle Frankincense Salve",
+  price: 19.99,
+  image: "assets/img/frankincense-salve.jpg",
+  category: "salves"
+};
+const prodB = {
+  id: "backroad-soak",
+  name: "Backroad Recovery Epsom Salt Soak",
+  price: 10.0,
+  image: "assets/img/backroad-soak.jpg",
+  category: "soaks"
+};
+const prodC = {
+  id: "tank-top",
+  name: "Y'allternative Living Tank Top",
+  price: 30.0,
+  image: "assets/img/tank-top.jpg",
+  category: "apparel"
+};
+
+const recorded1 = main.recordRecentlyViewed(prodA);
+eq(recorded1.length, 1, "recordRecentlyViewed adds first product");
+eq(recorded1[0].id, "frankincense-salve", "recordRecentlyViewed saves product id");
+eq(
+  recorded1[0].name,
+  "Y'all Heal Now Miracle Frankincense Salve",
+  "recordRecentlyViewed saves product name"
+);
+eq(recorded1[0].price, 19.99, "recordRecentlyViewed saves product price");
+eq(
+  recorded1[0].image,
+  "assets/img/frankincense-salve.jpg",
+  "recordRecentlyViewed saves product image"
+);
+eq(recorded1[0].category, "salves", "recordRecentlyViewed saves product category");
+assert(
+  typeof recorded1[0].timestamp === "number",
+  "recordRecentlyViewed attaches numeric timestamp"
+);
+
+// Unshift order (most recent first)
+const recorded2 = main.recordRecentlyViewed(prodB);
+eq(recorded2.length, 2, "recordRecentlyViewed adds second product");
+eq(recorded2[0].id, "backroad-soak", "recordRecentlyViewed unshifts second product to index 0");
+eq(recorded2[1].id, "frankincense-salve", "first product moved to index 1");
+
+// Deduplication
+const recorded3 = main.recordRecentlyViewed(prodA);
+eq(recorded3.length, 2, "recordRecentlyViewed deduplicates by id");
+eq(recorded3[0].id, "frankincense-salve", "re-viewed product moves to index 0");
+eq(recorded3[1].id, "backroad-soak", "other product remains in list");
+
+// Capping at 8 items
+mockLocalStorage.clear();
+main._resetState();
+for (let i = 1; i <= 10; i++) {
+  main.recordRecentlyViewed({
+    id: `item-${i}`,
+    name: `Item ${i}`,
+    price: i * 5,
+    image: `assets/img/item-${i}.jpg`,
+    category: "salves"
+  });
+}
+const cappedList = main.getRecentlyViewed();
+eq(cappedList.length, 8, "recordRecentlyViewed caps list at exactly 8 items");
+eq(cappedList[0].id, "item-10", "most recent item is at index 0");
+eq(cappedList[7].id, "item-3", "oldest retained item is at index 7");
+assert(
+  !cappedList.some((item) => item.id === "item-1" || item.id === "item-2"),
+  "items beyond 8 are pruned"
+);
+
+// Safe error handling on localStorage failure (e.g. private browsing / quota)
+const origSetItem = mockLocalStorage.setItem;
+mockLocalStorage.setItem = () => {
+  throw new Error("QuotaExceededError");
+};
+const errorHandled = main.recordRecentlyViewed({
+  id: "quota-test",
+  name: "Quota Test Item",
+  price: 15.0
+});
+assert(
+  Array.isArray(errorHandled),
+  "recordRecentlyViewed returns array despite localStorage failure"
+);
+eq(
+  errorHandled[0].id,
+  "quota-test",
+  "recordRecentlyViewed still updates in-memory cache on storage error"
+);
+mockLocalStorage.setItem = origSetItem;
+
+// Carousel rendering tests
+mockLocalStorage.clear();
+main._resetState();
+recentlyViewedSectionEl.hidden = false;
+recentlyViewedSectionEl.removeAttribute("hidden");
+recentlyViewedTrackEl.innerHTML = "initial";
+
+// With 0 items
+main.renderRecentlyViewedCarousel();
+assert(
+  recentlyViewedSectionEl.hidden === true,
+  "renderRecentlyViewedCarousel hides section with 0 items"
+);
+
+// With 1 item
+main.recordRecentlyViewed(prodA);
+main.renderRecentlyViewedCarousel();
+assert(
+  recentlyViewedSectionEl.hidden === true,
+  "renderRecentlyViewedCarousel hides section with 1 item"
+);
+
+// With 2 items
+main.recordRecentlyViewed(prodB);
+main.renderRecentlyViewedCarousel();
+assert(
+  recentlyViewedSectionEl.hidden === false,
+  "renderRecentlyViewedCarousel unhides section with >= 2 items"
+);
+assert(
+  recentlyViewedTrackEl.innerHTML.includes("Backroad Recovery Epsom Salt Soak"),
+  "carousel track contains product B"
+);
+assert(
+  recentlyViewedTrackEl.innerHTML.includes("Y&#39;all Heal Now Miracle Frankincense Salve") ||
+    recentlyViewedTrackEl.innerHTML.includes("Frankincense Salve"),
+  "carousel track contains product A"
+);
+assert(
+  recentlyViewedTrackEl.innerHTML.includes("recently-viewed-card"),
+  "carousel track renders card elements"
+);
+assert(
+  !recentlyViewedTrackEl.innerHTML.includes("reveal"),
+  "carousel track does NOT apply .reveal class to dynamic cards"
+);
+
+// On PDP page: filters out the current PDP product
+mockDocument.body.classList.add("pdp-page");
+mockWindow.location.pathname = "/products/backroad-soak.html";
+pdpRecentlyViewedSectionEl.hidden = false;
+pdpRecentlyViewedSectionEl.removeAttribute("hidden");
+pdpRecentlyViewedTrackEl.innerHTML = "initial";
+
+main.renderRecentlyViewedCarousel();
+// Out of prodA and prodB, prodB is filtered out -> 1 item remaining (< 2) -> section hidden
+assert(
+  pdpRecentlyViewedSectionEl.hidden === true,
+  "PDP carousel hides section if remaining items < 2"
+);
+
+main.recordRecentlyViewed(prodC);
+main.renderRecentlyViewedCarousel();
+// prodA, prodB, prodC -> prodB filtered out -> prodA and prodC remain (2 items) -> unhidden
+assert(
+  pdpRecentlyViewedSectionEl.hidden === false,
+  "PDP carousel unhides when >= 2 non-current items exist"
+);
+assert(
+  !pdpRecentlyViewedTrackEl.innerHTML.includes("Backroad Recovery Epsom Salt Soak"),
+  "PDP carousel excludes current PDP product"
+);
+assert(
+  pdpRecentlyViewedTrackEl.innerHTML.includes("Y&#39;allternative Living Tank Top") ||
+    pdpRecentlyViewedTrackEl.innerHTML.includes("Tank Top"),
+  "PDP carousel includes other viewed products"
+);
+
+mockDocument.body.classList.remove("pdp-page");
+mockWindow.location.pathname = "/";
+
+// ============================================================================
+// R1: Mobile Sticky Add-to-Cart Bottom Bar on PDPs
+// ============================================================================
+console.log("\n--- Testing initPdpStickyBar (R1) ---");
+
+assert(typeof main.initPdpStickyBar === "function", "main.initPdpStickyBar is a function");
+
+// Mock elements for PDP Sticky Bar testing
+const testStickyBarEl = createMockElement("div");
+testStickyBarEl.setAttribute("id", "pdpStickyBar");
+testStickyBarEl.setAttribute("aria-hidden", "true");
+
+const testPrimaryCtaEl = createMockElement("div");
+testPrimaryCtaEl.classList.add("pdp-actions");
+
+const testStickyPriceEl = createMockElement("p");
+testStickyPriceEl.classList.add("pdp-sticky-price");
+testStickyPriceEl.textContent = "$13.99";
+
+const testStickyVariantSelect = createMockElement("select");
+testStickyVariantSelect.classList.add("pdp-sticky-variant-select", "variant-select");
+testStickyVariantSelect.setAttribute("data-base-price", "13.99");
+testStickyVariantSelect._listeners = {};
+testStickyVariantSelect.addEventListener = (evt, fn) => {
+  if (!testStickyVariantSelect._listeners[evt]) testStickyVariantSelect._listeners[evt] = [];
+  testStickyVariantSelect._listeners[evt].push(fn);
+};
+
+const opt1 = createMockElement("option");
+opt1.value = "2oz";
+opt1.setAttribute("data-delta", "0");
+const opt2 = createMockElement("option");
+opt2.value = "4oz";
+opt2.setAttribute("data-delta", "6.00");
+testStickyVariantSelect.options = [opt1, opt2];
+testStickyVariantSelect.selectedIndex = 0;
+testStickyVariantSelect.value = "2oz";
+
+const testStickyAddBtn = createMockElement("button");
+testStickyAddBtn.classList.add("pdp-sticky-add-btn", "yl-add-item");
+testStickyAddBtn.setAttribute("data-item-id", "frankincense-salve");
+testStickyAddBtn.setAttribute("data-item-custom1-value", "2oz");
+testStickyAddBtn.setAttribute("data-item-price", "13.99");
+
+const testMainDetailsEl = createMockElement("div");
+testMainDetailsEl.classList.add("pdp-details");
+
+const testMainSelect = createMockElement("select");
+testMainSelect.classList.add("variant-select");
+testMainSelect.setAttribute("data-base-price", "13.99");
+testMainSelect._listeners = {};
+testMainSelect.addEventListener = (evt, fn) => {
+  if (!testMainSelect._listeners[evt]) testMainSelect._listeners[evt] = [];
+  testMainSelect._listeners[evt].push(fn);
+};
+const mOpt1 = createMockElement("option");
+mOpt1.value = "2oz";
+mOpt1.setAttribute("data-delta", "0");
+const mOpt2 = createMockElement("option");
+mOpt2.value = "4oz";
+mOpt2.setAttribute("data-delta", "6.00");
+testMainSelect.options = [mOpt1, mOpt2];
+testMainSelect.selectedIndex = 0;
+testMainSelect.value = "2oz";
+
+const testMainPriceEl = createMockElement("span");
+testMainPriceEl.classList.add("pdp-price");
+testMainPriceEl.textContent = "$13.99";
+testMainPriceEl.querySelector = () => null;
+
+const testMainAddBtn = createMockElement("button");
+testMainAddBtn.classList.add("yl-add-item");
+testMainAddBtn.setAttribute("data-item-id", "frankincense-salve");
+testMainAddBtn.setAttribute("data-item-custom1-value", "2oz");
+testMainAddBtn.setAttribute("data-item-price", "13.99");
+
+testStickyBarEl.querySelector = (sel) => {
+  if (sel === ".pdp-sticky-variant-select") return testStickyVariantSelect;
+  if (sel === ".pdp-sticky-price") return testStickyPriceEl;
+  if (sel === ".pdp-sticky-add-btn") return testStickyAddBtn;
+  return null;
+};
+
+// Wire up mock document queries for PDP
+const originalGetElementById = mockDocument.getElementById;
+const originalQuerySelector = mockDocument.querySelector;
+
+mockDocument.getElementById = (id) => {
+  if (id === "pdpStickyBar") return testStickyBarEl;
+  return originalGetElementById(id);
+};
+
+mockDocument.querySelector = (sel) => {
+  if (sel === ".pdp-actions") return testPrimaryCtaEl;
+  if (sel === ".pdp-details .variant-select") return testMainSelect;
+  if (sel === ".pdp-details .pdp-price" || sel === ".pdp-price-row .price") return testMainPriceEl;
+  if (sel === ".pdp-details .yl-add-item" || sel === ".pdp-actions .yl-add-item")
+    return testMainAddBtn;
+  return originalQuerySelector(sel);
+};
+
+// Mock IntersectionObserver
+let observerCb = null;
+let observedEl = null;
+global.IntersectionObserver = class {
+  constructor(cb) {
+    observerCb = cb;
+  }
+  observe(el) {
+    observedEl = el;
+  }
+  unobserve() {}
+  disconnect() {}
+};
+
+// Initialize PDP Sticky Bar
+main.initPdpStickyBar();
+
+assert(observedEl === testPrimaryCtaEl, "initPdpStickyBar observes primary CTA element");
+
+// Test mobile viewport: primary CTA scrolled past (out of view above)
+mockWindow.innerWidth = 375;
+observerCb([
+  {
+    isIntersecting: false,
+    boundingClientRect: { top: -120 }
+  }
+]);
+
+assert(
+  testStickyBarEl.classList.contains("is-visible"),
+  "sticky bar gains .is-visible when primary CTA scrolls past top on mobile"
+);
+assert(
+  testStickyBarEl.getAttribute("aria-hidden") === "false",
+  "sticky bar sets aria-hidden='false' when visible"
+);
+
+// Test primary CTA scrolled back into view
+observerCb([
+  {
+    isIntersecting: true,
+    boundingClientRect: { top: 50 }
+  }
+]);
+
+assert(
+  !testStickyBarEl.classList.contains("is-visible"),
+  "sticky bar loses .is-visible when primary CTA is in view"
+);
+assert(
+  testStickyBarEl.getAttribute("aria-hidden") === "true",
+  "sticky bar sets aria-hidden='true' when hidden"
+);
+
+// Test desktop viewport: should remain hidden even if scrolled past
+mockWindow.innerWidth = 1024;
+observerCb([
+  {
+    isIntersecting: false,
+    boundingClientRect: { top: -120 }
+  }
+]);
+
+assert(
+  !testStickyBarEl.classList.contains("is-visible"),
+  "sticky bar does not gain .is-visible on desktop (width >= 768)"
+);
+
+// Test Two-way Variant Synchronization: sticky select changes to 4oz (+$6.00)
+testStickyVariantSelect.selectedIndex = 1;
+testStickyVariantSelect.value = "4oz";
+if (testStickyVariantSelect._listeners["change"]) {
+  testStickyVariantSelect._listeners["change"].forEach((fn) => fn());
+}
+
+assert(
+  testStickyPriceEl.textContent === "$19.99",
+  "sticky price updates to $19.99 on 4oz selection"
+);
+assert(
+  testStickyAddBtn.getAttribute("data-item-custom1-value") === "4oz",
+  "sticky add button custom1 value updates to 4oz"
+);
+assert(
+  testStickyAddBtn.getAttribute("data-item-price") === "19.99",
+  "sticky add button price updates to 19.99"
+);
+assert(testMainSelect.value === "4oz", "main variant selector synchronizes to 4oz");
+assert(testMainPriceEl.textContent === "$19.99", "main PDP price updates to $19.99");
+assert(
+  testMainAddBtn.getAttribute("data-item-custom1-value") === "4oz",
+  "main add button custom1 value updates to 4oz"
+);
+assert(
+  testMainAddBtn.getAttribute("data-item-price") === "19.99",
+  "main add button price updates to 19.99"
+);
+
+// Test Two-way Variant Synchronization: main select changes back to 2oz ($13.99)
+testMainSelect.selectedIndex = 0;
+testMainSelect.value = "2oz";
+if (testMainSelect._listeners["change"]) {
+  testMainSelect._listeners["change"].forEach((fn) => fn());
+}
+
+assert(testStickyVariantSelect.value === "2oz", "sticky variant selector synchronizes to 2oz");
+assert(testStickyPriceEl.textContent === "$13.99", "sticky price updates back to $13.99");
+assert(
+  testStickyAddBtn.getAttribute("data-item-custom1-value") === "2oz",
+  "sticky add button custom1 value updates back to 2oz"
+);
+assert(
+  testStickyAddBtn.getAttribute("data-item-price") === "13.99",
+  "sticky add button price updates back to 13.99"
+);
+
+// Restore mockDocument
+mockDocument.getElementById = originalGetElementById;
+mockDocument.querySelector = originalQuerySelector;
 
 console.log(`\nmain.test.js: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

@@ -13,6 +13,7 @@
     "build-security-headers": "node scripts/build-security-headers.js",
     "sync-etsy": "node scripts/apply-etsy-snapshot.js",
     "test": "node scripts/run-unit-tests.js && node scripts/qa-check.js",
+    "test:smoke": "node scripts/smoke-test.js",
     "test:integration": "node scripts/run-integration-tests.js",
     "lint": "eslint scripts assets/js workers cms-auth netlify",
     "format": "prettier --write \"scripts/**/*.js\" \"assets/js/*.js\"",

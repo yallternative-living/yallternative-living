@@ -665,12 +665,140 @@
      from the banner. Only a missing/non-numeric value falls back to the
      default. */
   function freeShipThreshold() {
-    var shop = (root.YL_PRODUCTS && root.YL_PRODUCTS.shop) || {};
+    var shop =
+      (root.YL_PRODUCTS && root.YL_PRODUCTS.shop) ||
+      (typeof window !== "undefined" && window.YL_PRODUCTS && window.YL_PRODUCTS.shop) ||
+      {};
     var raw = shop.freeShippingThreshold;
     if (raw === null || raw === undefined || raw === "") return DEFAULT_FREE_SHIP;
     var dollars = Number(raw);
     if (!isFinite(dollars)) return DEFAULT_FREE_SHIP;
     return dollars > 0 ? dollars : 0;
+  }
+
+  function money(n) {
+    return "$" + (Math.round(n * 100) / 100).toFixed(2);
+  }
+
+  /* Multi-tier shipping and reward milestones from products.json
+     shop.shippingMilestones. Fall back to single-tier free shipping threshold
+     if missing or invalid. */
+  function getShippingMilestones() {
+    var shop =
+      (root.YL_PRODUCTS && root.YL_PRODUCTS.shop) ||
+      (typeof window !== "undefined" && window.YL_PRODUCTS && window.YL_PRODUCTS.shop) ||
+      {};
+    var raw = shop.shippingMilestones;
+    if (Array.isArray(raw) && raw.length > 0) {
+      var valid = [];
+      for (var i = 0; i < raw.length; i++) {
+        var item = raw[i];
+        if (item && typeof item === "object") {
+          var t = Number(item.threshold);
+          if (isFinite(t) && t > 0) {
+            valid.push({
+              threshold: t,
+              reward: String(item.reward || "Reward").trim(),
+              icon: String(item.icon || "truck").trim()
+            });
+          }
+        }
+      }
+      if (valid.length > 0) {
+        valid.sort(function (a, b) {
+          return a.threshold - b.threshold;
+        });
+        return valid;
+      }
+    }
+    var defThreshold = freeShipThreshold();
+    return [{ threshold: defThreshold, reward: "Free Tracked Shipping", icon: "truck" }];
+  }
+
+  function calculateMilestoneStatus(physSub, milestones, isPickup) {
+    var list =
+      Array.isArray(milestones) && milestones.length > 0 ? milestones : getShippingMilestones();
+    var maxThreshold = list.length > 0 ? list[list.length - 1].threshold : 0;
+
+    if (isPickup) {
+      return {
+        message: "Local SC Market Pick-up Selected ($0 Shipping)",
+        progressPercent: 100,
+        nextMilestone: null,
+        remaining: 0,
+        isAllUnlocked: true,
+        milestones: list,
+        maxThreshold: maxThreshold
+      };
+    }
+
+    if (maxThreshold <= 0) {
+      return {
+        message: "",
+        progressPercent: 0,
+        nextMilestone: null,
+        remaining: 0,
+        isAllUnlocked: false,
+        milestones: list,
+        maxThreshold: 0
+      };
+    }
+
+    var currentSub = Math.max(0, Number(physSub) || 0);
+    var nextMilestone = null;
+    var nextIndex = -1;
+
+    for (var i = 0; i < list.length; i++) {
+      if (currentSub < list[i].threshold) {
+        nextMilestone = list[i];
+        nextIndex = i;
+        break;
+      }
+    }
+
+    var pct = Math.min(100, Math.round((currentSub / maxThreshold) * 100));
+
+    if (!nextMilestone) {
+      var allMsg =
+        list.length > 1
+          ? "🎉 All perks unlocked! Free Shipping + Free Handcrafted Pocket Salve!"
+          : "🎉 You've unlocked " +
+            (list[0].reward.toLowerCase().indexOf("free") === 0
+              ? list[0].reward.toLowerCase()
+              : list[0].reward) +
+            "!";
+      return {
+        message: allMsg,
+        progressPercent: 100,
+        nextMilestone: null,
+        remaining: 0,
+        isAllUnlocked: true,
+        milestones: list,
+        maxThreshold: maxThreshold
+      };
+    }
+
+    var remaining = Math.round((nextMilestone.threshold - currentSub) * 100) / 100;
+    var msg = "";
+    if (nextIndex === 0) {
+      msg = "Add " + money(remaining) + " for " + nextMilestone.reward + "!";
+    } else {
+      var rewardLabel = nextMilestone.reward;
+      if (rewardLabel.toLowerCase().indexOf("free ") !== 0) {
+        rewardLabel = "Free " + rewardLabel;
+      }
+      msg = "Add " + money(remaining) + " more to unlock a " + rewardLabel + "!";
+    }
+
+    return {
+      message: msg,
+      progressPercent: pct,
+      nextMilestone: nextMilestone,
+      remaining: remaining,
+      isAllUnlocked: false,
+      milestones: list,
+      maxThreshold: maxThreshold
+    };
   }
 
   // Expose the pure helpers to Node for testing without touching the DOM layer.
@@ -695,6 +823,9 @@
       getWalletPoints: getWalletPoints,
       setWalletPoints: setWalletPoints,
       freeShipThreshold: freeShipThreshold,
+      getShippingMilestones: getShippingMilestones,
+      calculateMilestoneStatus: calculateMilestoneStatus,
+      money: money,
       getVolumePricingRules: getVolumePricingRules,
       itemMatchesRule: itemMatchesRule,
       ruleQualifyingCount: ruleQualifyingCount,
@@ -779,10 +910,6 @@
     } catch {
       /* storage full / blocked */
     }
-  }
-
-  function money(n) {
-    return "$" + (Math.round(n * 100) / 100).toFixed(2);
   }
 
   // Unique-enough id for a single gift-card line (see lineKey() above) --
@@ -1069,35 +1196,74 @@
 
     var sub = subtotal(state.items);
     var physSub = physicalSubtotal(state.items);
-    var threshold = freeShipThreshold();
-    var remaining = threshold > 0 ? Math.max(0, threshold - physSub) : 0;
+    var milestoneStatus = calculateMilestoneStatus(
+      physSub,
+      getShippingMilestones(),
+      state.isPickup
+    );
+    var shipHTML = "";
+    if (milestoneStatus.message) {
+      var pinsHTML = "";
+      if (milestoneStatus.milestones && milestoneStatus.maxThreshold > 0) {
+        pinsHTML = milestoneStatus.milestones
+          .map(function (m) {
+            var pinPos = Math.min(
+              100,
+              Math.max(0, (m.threshold / milestoneStatus.maxThreshold) * 100)
+            );
+            var isReached = state.isPickup || physSub >= m.threshold;
+            var pinIcon =
+              m.icon === "gift"
+                ? '<svg class="yl-cart-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="8" width="18" height="4" rx="1"></rect><path d="M12 8v13"></path><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"></path><path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 4.8 0 0 1 12 8a4.8 4.8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5Z"></path></svg>'
+                : m.icon === "sparkle"
+                  ? '<svg class="yl-cart-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg>'
+                  : m.icon === "heart"
+                    ? '<svg class="yl-cart-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path></svg>'
+                    : '<svg class="yl-cart-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"></path><circle cx="7" cy="18" r="2"></circle><circle cx="17" cy="18" r="2"></circle><path d="M15 18H9"></path><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14v10Z"></path></svg>';
+            return (
+              '<div class="yl-cart-milestone-pin' +
+              (isReached ? " is-reached" : "") +
+              '" style="left:' +
+              pinPos.toFixed(2) +
+              '%" title="' +
+              escapeHtml(m.reward) +
+              '">' +
+              pinIcon +
+              "<span>$" +
+              m.threshold +
+              "</span></div>"
+            );
+          })
+          .join("");
+      }
 
-    /* With the promise switched off (threshold 0) there's no progress to
-       report and nothing to unlock, so the meter drops out entirely -- but a
-       pickup order still gets its "$0 shipping" confirmation, which is about
-       pickup, not the free-shipping tier. */
-    var shipMsg = state.isPickup
-      ? "Local SC Market Pick-up Selected ($0 Shipping)"
-      : threshold <= 0
-        ? ""
-        : remaining > 0
-          ? "Add " + money(remaining) + " for free shipping"
-          : "You've unlocked free shipping!";
-    var pct =
-      state.isPickup || threshold <= 0
-        ? 100
-        : Math.min(100, Math.round((physSub / threshold) * 100));
-    var shipHTML = shipMsg
-      ? '<div class="yl-cart-ship">' +
-        '<div class="yl-cart-ship-msg">' +
-        '<svg class="yl-cart-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg> ' +
-        escapeHtml(shipMsg) +
+      var headerIcon = state.isPickup
+        ? '<svg class="yl-cart-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg>'
+        : milestoneStatus.isAllUnlocked
+          ? '<svg class="yl-cart-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg>'
+          : milestoneStatus.nextMilestone && milestoneStatus.nextMilestone.icon === "gift"
+            ? '<svg class="yl-cart-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="8" width="18" height="4" rx="1"></rect><path d="M12 8v13"></path><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"></path><path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 4.8 0 0 1 12 8a4.8 4.8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5Z"></path></svg>'
+            : '<svg class="yl-cart-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"></path><circle cx="7" cy="18" r="2"></circle><circle cx="17" cy="18" r="2"></circle><path d="M15 18H9"></path><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14v10Z"></path></svg>';
+
+      shipHTML =
+        '<div class="yl-cart-milestones yl-cart-ship" role="progressbar" aria-valuenow="' +
+        physSub +
+        '" aria-valuemin="0" aria-valuemax="' +
+        milestoneStatus.maxThreshold +
+        '" aria-label="Shipping and reward milestones">' +
+        '<div class="yl-cart-milestones-msg yl-cart-ship-msg">' +
+        headerIcon +
+        " " +
+        escapeHtml(milestoneStatus.message) +
         "</div>" +
-        '<div class="yl-cart-ship-bar"><span style="width:' +
-        pct +
-        '%"></span></div>' +
-        "</div>"
-      : "";
+        '<div class="yl-cart-milestones-track yl-cart-ship-bar">' +
+        '<div class="yl-cart-milestones-fill" style="width:' +
+        milestoneStatus.progressPercent +
+        '%"></div>' +
+        pinsHTML +
+        "</div>" +
+        "</div>";
+    }
 
     var siteCfg = (root.YL_CONTENT && root.YL_CONTENT.site) || {};
     var enableGiftOrders = siteCfg.enableGiftOrders !== false;
@@ -1277,8 +1443,8 @@
         );
       } else if (count >= minQ) {
         var shipExtra =
-          remaining > 0 && !state.isPickup && threshold > 0
-            ? " · Add " + money(remaining) + " for FREE SHIPPING!"
+          milestoneStatus.remaining > 0 && !state.isPickup && milestoneStatus.maxThreshold > 0
+            ? " · Add " + money(milestoneStatus.remaining) + " for FREE SHIPPING!"
             : "";
         nudgeMessages.push(
           '<div class="yl-cart-salve-nudge yl-cart-salve-nudge-active"><svg class="yl-cart-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> <strong>Mix &amp; Match:</strong> ' +
@@ -2041,6 +2207,8 @@
     redeemLoyaltyPoints: redeemLoyaltyPoints,
     restoreCartFromUrl: restoreCartFromUrl,
     parseSharedCartParam: parseSharedCartParam,
+    getShippingMilestones: getShippingMilestones,
+    calculateMilestoneStatus: calculateMilestoneStatus,
     count: function () {
       return totalCount(state.items);
     },

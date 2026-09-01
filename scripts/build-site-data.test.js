@@ -398,8 +398,232 @@ assert(
     pdpHtmlOutput.indexOf('class="pdp-page"') !== -1 &&
     pdpHtmlOutput.indexOf("pdp-freshness-badge") !== -1 &&
     pdpHtmlOutput.indexOf("pdp-scent-profile") !== -1 &&
-    pdpHtmlOutput.indexOf("pdp-accordion") !== -1,
-  "renderProductPdpHtml generates complete PDP page with all components"
+    pdpHtmlOutput.indexOf("pdp-accordion") !== -1 &&
+    pdpHtmlOutput.indexOf('href="../shop.html#category-salves"') !== -1 &&
+    pdpHtmlOutput.indexOf('"@type": "Product"') !== -1 &&
+    pdpHtmlOutput.indexOf('"@type": "BreadcrumbList"') !== -1,
+  "renderProductPdpHtml generates complete PDP page with JSON-LD and 4-tier breadcrumb markup"
+);
+
+/* 10. Google Merchant Rich Product JSON-LD & BreadcrumbList (R5) */
+const singlePriceProd = {
+  id: "lavender-salve",
+  name: "Pure Lavender Salve",
+  category: "salves",
+  price: 16.5,
+  image: "assets/img/lavender-salve.jpg",
+  images: ["assets/img/lavender-salve-alt.jpg"],
+  blurb: "Gentle lavender bedtime salve.",
+  inStock: true
+};
+
+const singlePriceLd = buildScript.generateProductJsonLd(
+  singlePriceProd,
+  "https://yallternativeliving.com",
+  "Salves & Balms"
+);
+
+eq(singlePriceLd["@context"], "https://schema.org", "generateProductJsonLd sets schema context");
+eq(singlePriceLd["@type"], "Product", "generateProductJsonLd sets @type to Product");
+eq(singlePriceLd.name, "Pure Lavender Salve", "generateProductJsonLd sets name");
+eq(singlePriceLd.sku, "lavender-salve", "generateProductJsonLd sets sku");
+eq(singlePriceLd.mpn, "lavender-salve", "generateProductJsonLd sets mpn");
+eq(singlePriceLd.category, "Salves & Balms", "generateProductJsonLd sets category");
+eq(
+  singlePriceLd.image,
+  [
+    "https://yallternativeliving.com/assets/img/lavender-salve.jpg",
+    "https://yallternativeliving.com/assets/img/lavender-salve-alt.jpg"
+  ],
+  "generateProductJsonLd aggregates all image URLs into array"
+);
+eq(
+  singlePriceLd.brand,
+  { "@type": "Brand", name: "Y'allternative Living" },
+  "generateProductJsonLd sets Brand"
+);
+eq(singlePriceLd.offers["@type"], "Offer", "Single-price product generates Offer schema");
+eq(singlePriceLd.offers.price, "16.50", "Offer price formatted to 2 decimal places");
+eq(singlePriceLd.offers.priceCurrency, "USD", "Offer priceCurrency is USD");
+eq(
+  singlePriceLd.offers.availability,
+  "https://schema.org/InStock",
+  "In-stock product availability is InStock"
+);
+eq(
+  singlePriceLd.offers.hasMerchantReturnPolicy,
+  {
+    "@type": "MerchantReturnPolicy",
+    applicableCountry: "US",
+    returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+    merchantReturnDays: 30,
+    returnMethod: "https://schema.org/ReturnByMail",
+    returnFees: "https://schema.org/FreeReturn",
+    returnLink: "https://yallternativeliving.com/policies.html"
+  },
+  "generateProductJsonLd attaches 30-day US MerchantReturnPolicy"
+);
+assert(
+  Array.isArray(singlePriceLd.offers.shippingDetails) &&
+    singlePriceLd.offers.shippingDetails.length === 2 &&
+    singlePriceLd.offers.shippingDetails[0].shippingRate.value === "10.00" &&
+    singlePriceLd.offers.shippingDetails[1].shippingRate.value === "0.00" &&
+    singlePriceLd.offers.shippingDetails[1].freeShippingThreshold.eligibleTransactionVolume
+      .price === "40.00",
+  "generateProductJsonLd attaches flat-rate and free shippingDetails"
+);
+eq(
+  singlePriceLd.aggregateRating,
+  undefined,
+  "generateProductJsonLd omits aggregateRating when product has no rating"
+);
+
+// Variant-price product JSON-LD
+const variantProd = {
+  id: "potion-var",
+  name: "Magic Potion",
+  category: "potions",
+  price: 20.0,
+  image: "assets/img/potion.jpg",
+  variants: {
+    options: [
+      { label: "1oz", priceDelta: -5.0 },
+      { label: "2oz", priceDelta: 0 },
+      { label: "4oz", priceDelta: 10.0 }
+    ]
+  },
+  rating: {
+    value: 4.9,
+    count: 22
+  }
+};
+
+const variantLd = buildScript.generateProductJsonLd(
+  variantProd,
+  "https://yallternativeliving.com",
+  "Potions & Mists"
+);
+eq(variantLd.offers["@type"], "AggregateOffer", "Variant product generates AggregateOffer schema");
+eq(variantLd.offers.lowPrice, "15.00", "AggregateOffer lowPrice matches min variant");
+eq(variantLd.offers.highPrice, "30.00", "AggregateOffer highPrice matches max variant");
+eq(variantLd.offers.offerCount, 3, "AggregateOffer offerCount matches option count");
+eq(
+  variantLd.aggregateRating,
+  {
+    "@type": "AggregateRating",
+    ratingValue: 4.9,
+    reviewCount: 22,
+    bestRating: "5",
+    worstRating: "1"
+  },
+  "generateProductJsonLd attaches AggregateRating when rating data exists"
+);
+
+// Out of stock product
+const oosProd = {
+  id: "soldout-item",
+  name: "Sold Out Item",
+  category: "soaks",
+  price: 18.0,
+  inStock: false
+};
+const oosLd = buildScript.generateProductJsonLd(oosProd, "https://yallternativeliving.com");
+eq(
+  oosLd.offers.availability,
+  "https://schema.org/OutOfStock",
+  "OutOfStock availability when inStock is false"
+);
+
+const zeroStockProd = {
+  id: "zero-stock-item",
+  name: "Zero Stock Item",
+  category: "soaks",
+  price: 18.0,
+  stock: 0
+};
+const zeroStockLd = buildScript.generateProductJsonLd(
+  zeroStockProd,
+  "https://yallternativeliving.com"
+);
+eq(
+  zeroStockLd.offers.availability,
+  "https://schema.org/OutOfStock",
+  "OutOfStock availability when stock is 0"
+);
+
+// Pre-order / coming soon product
+const preorderProd = {
+  id: "coming-soon-item",
+  name: "Coming Soon Item",
+  category: "apparel",
+  price: 35.0,
+  comingSoon: true
+};
+const preorderLd = buildScript.generateProductJsonLd(
+  preorderProd,
+  "https://yallternativeliving.com"
+);
+eq(
+  preorderLd.offers.availability,
+  "https://schema.org/PreOrder",
+  "PreOrder availability when comingSoon is true"
+);
+
+// BreadcrumbList JSON-LD
+const breadcrumbLd = buildScript.generateProductBreadcrumbJsonLd(
+  singlePriceProd,
+  "https://yallternativeliving.com",
+  "Salves & Balms"
+);
+eq(breadcrumbLd["@context"], "https://schema.org", "generateProductBreadcrumbJsonLd sets context");
+eq(
+  breadcrumbLd["@type"],
+  "BreadcrumbList",
+  "generateProductBreadcrumbJsonLd sets @type to BreadcrumbList"
+);
+assert(
+  Array.isArray(breadcrumbLd.itemListElement) && breadcrumbLd.itemListElement.length === 4,
+  "generateProductBreadcrumbJsonLd generates 4-tier itemListElement"
+);
+eq(
+  breadcrumbLd.itemListElement[0],
+  {
+    "@type": "ListItem",
+    position: 1,
+    name: "Home",
+    item: "https://yallternativeliving.com/index.html"
+  },
+  "Breadcrumb Tier 1 is Home"
+);
+eq(
+  breadcrumbLd.itemListElement[1],
+  {
+    "@type": "ListItem",
+    position: 2,
+    name: "Shop",
+    item: "https://yallternativeliving.com/shop.html"
+  },
+  "Breadcrumb Tier 2 is Shop"
+);
+eq(
+  breadcrumbLd.itemListElement[2],
+  {
+    "@type": "ListItem",
+    position: 3,
+    name: "Salves & Balms",
+    item: "https://yallternativeliving.com/shop.html#category-salves"
+  },
+  "Breadcrumb Tier 3 is Category"
+);
+eq(
+  breadcrumbLd.itemListElement[3],
+  {
+    "@type": "ListItem",
+    position: 4,
+    name: "Pure Lavender Salve",
+    item: "https://yallternativeliving.com/products/lavender-salve.html"
+  },
+  "Breadcrumb Tier 4 is Product"
 );
 
 console.log(`\nbuild-site-data.test.js: ${passed} passed, ${failed} failed`);
