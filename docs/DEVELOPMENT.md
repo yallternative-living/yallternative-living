@@ -878,7 +878,7 @@ welcome email that contains the code. It fires after the visitor confirms
 
 Suggested copy, matching the site's voice and the welcome page's wording:
 
-> **Subject:** Here's your 10% off, y'all
+> **Subject:** Here's your 10% off
 >
 > You're confirmed and on the list. Here's the 10% off your first order we
 > promised.
