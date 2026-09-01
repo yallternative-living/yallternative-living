@@ -2585,6 +2585,9 @@ dialog.gift-modal {
   color: var(--paper);
   overflow-y: auto;
   max-height: 90vh;
+  max-height: 90dvh;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   position: fixed;
   top: 50%;
   left: 50%;
@@ -2914,6 +2917,16 @@ dialog.gift-modal[open]::backdrop {
   }
 }
 @media (max-width: 600px) {
+  dialog.gift-modal {
+    padding: 32px 18px 24px;
+    width: calc(100vw - 24px);
+    max-width: calc(100vw - 24px);
+    max-height: 92dvh;
+  }
+  .gift-modal-close {
+    top: 14px;
+    right: 14px;
+  }
   .gift-card-actions {
     flex-direction: column;
   }
