@@ -1158,6 +1158,11 @@
      shopper should worry it might sell out before they act), not a magic
      number tied to real analytics. */
   function getVolumePricingRules() {
+    if (window.YL_PRODUCTS && Array.isArray(window.YL_PRODUCTS.volumePricing)) {
+      return window.YL_PRODUCTS.volumePricing.filter(function (r) {
+        return r && r.enabled !== false;
+      });
+    }
     if (
       window.YL_PRODUCTS &&
       window.YL_PRODUCTS.shop &&

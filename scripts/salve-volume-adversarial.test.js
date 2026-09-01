@@ -491,7 +491,7 @@ async function runAllTests() {
      ========================================================================= */
   console.log("--- Scenario 12: Multi-Rule Concurrent Volume Pricing ---");
   const customCatalog = JSON.parse(JSON.stringify(catalogData));
-  customCatalog.shop.volumePricing = [
+  customCatalog.volumePricing = customCatalog.shop.volumePricing = [
     {
       id: "salves-2oz",
       name: "2oz Salve Multi-Buy",

@@ -5,73 +5,6 @@
  * @const {!Object}
  */
 window.YL_PRODUCTS = {
-  "shop": {
-    "name": "Y'allternative Living",
-    "etsyShopUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
-    "rating": 4.9,
-    "reviewCount": 32,
-    "sales": 105,
-    "freeShippingThreshold": 40,
-    "customBox": {
-      "minItems": 3,
-      "maxItems": 5,
-      "discountPercent": 10,
-      "eligibleCategories": [
-        "salves",
-        "body",
-        "soaks",
-        "potions",
-        "ritual"
-      ]
-    },
-    "volumePricing": [
-      {
-        "id": "salves-2oz",
-        "name": "2oz Salve Multi-Buy",
-        "category": "salves",
-        "qualifyingVariant": "2oz",
-        "minQuantity": 2,
-        "unitPrice": 14.99,
-        "label": "2+ for $14.99 each",
-        "enabled": true
-      }
-    ]
-  },
-  "sales": [],
-  "categories": [
-    {
-      "label": "Apparel",
-      "id": "apparel"
-    },
-    {
-      "label": "Salves & Balms",
-      "id": "salves"
-    },
-    {
-      "label": "Body & Skin",
-      "id": "body"
-    },
-    {
-      "label": "Soaks",
-      "id": "soaks"
-    },
-    {
-      "label": "Potions & Spellwork",
-      "id": "potions"
-    },
-    {
-      "label": "Ritual & Home",
-      "id": "ritual"
-    },
-    {
-      "label": "Gift Sets",
-      "id": "gift-sets"
-    },
-    {
-      "label": "Gift Cards",
-      "id": "gift-cards"
-    }
-  ],
   "products": [
     {
       "id": "tank-top",
@@ -773,6 +706,19 @@ window.YL_PRODUCTS = {
       ]
     }
   ],
+  "volumePricing": [
+    {
+      "id": "salves-2oz",
+      "name": "2oz Salve Multi-Buy",
+      "category": "salves",
+      "qualifyingVariant": "2oz",
+      "minQuantity": 2,
+      "unitPrice": 14.99,
+      "label": "2+ for $14.99 each",
+      "enabled": true
+    }
+  ],
+  "sales": [],
   "bundles": [
     {
       "id": "starter-self-care-set",
@@ -878,5 +824,59 @@ window.YL_PRODUCTS = {
       "question": "What is the shelf life of your salves and soaks?",
       "answer": "Since our products are all-natural and preservative-free, we recommend using them within 6 to 12 months for the best potency and freshness. Keep them in a cool, dry place away from direct sunlight."
     }
-  ]
+  ],
+  "categories": [
+    {
+      "label": "Apparel",
+      "id": "apparel"
+    },
+    {
+      "label": "Salves & Balms",
+      "id": "salves"
+    },
+    {
+      "label": "Body & Skin",
+      "id": "body"
+    },
+    {
+      "label": "Soaks",
+      "id": "soaks"
+    },
+    {
+      "label": "Potions & Spellwork",
+      "id": "potions"
+    },
+    {
+      "label": "Ritual & Home",
+      "id": "ritual"
+    },
+    {
+      "label": "Gift Sets",
+      "id": "gift-sets"
+    },
+    {
+      "label": "Gift Cards",
+      "id": "gift-cards"
+    }
+  ],
+  "shop": {
+    "name": "Y'allternative Living",
+    "etsyShopUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
+    "rating": 4.9,
+    "reviewCount": 32,
+    "sales": 105,
+    "freeShippingThreshold": 40,
+    "customBox": {
+      "minItems": 3,
+      "maxItems": 5,
+      "discountPercent": 10,
+      "eligibleCategories": [
+        "salves",
+        "body",
+        "soaks",
+        "potions",
+        "ritual"
+      ]
+    }
+  }
 };

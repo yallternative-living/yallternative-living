@@ -97,6 +97,11 @@
 
   function getVolumePricingRules() {
     var cat = getCatalog();
+    if (cat && Array.isArray(cat.volumePricing)) {
+      return cat.volumePricing.filter(function (r) {
+        return r && r.enabled !== false;
+      });
+    }
     if (cat && cat.shop && Array.isArray(cat.shop.volumePricing)) {
       return cat.shop.volumePricing.filter(function (r) {
         return r && r.enabled !== false;

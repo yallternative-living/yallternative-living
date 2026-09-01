@@ -445,10 +445,10 @@ try {
 /* ---------- 6a-2) Volume pricing rules schema sanity ---------- */
 section("Volume pricing rules schema sanity");
 try {
-  var volRules = RAW_CATALOG.shop && RAW_CATALOG.shop.volumePricing;
+  var volRules = RAW_CATALOG.volumePricing || (RAW_CATALOG.shop && RAW_CATALOG.shop.volumePricing);
   if (volRules) {
     if (!Array.isArray(volRules)) {
-      fail("shop.volumePricing must be an array");
+      fail("volumePricing must be an array");
     } else {
       var seenRuleIds = {};
       volRules.forEach(function (r, idx) {

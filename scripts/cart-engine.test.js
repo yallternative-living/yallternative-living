@@ -301,6 +301,48 @@ eq(
   "Active salve rule: Frankincense Salve remains discounted at $14.99"
 );
 
+// 12. Top-Level Volume Pricing (cat.volumePricing)
+global.window.YL_PRODUCTS = {
+  volumePricing: [
+    {
+      id: "salves-2oz",
+      name: "2oz Salve Multi-Buy",
+      category: "salves",
+      qualifyingVariant: "2oz",
+      minQuantity: 2,
+      unitPrice: 14.99,
+      label: "2+ for $14.99 each",
+      enabled: true
+    }
+  ],
+  products: [
+    { id: "frankincense-salve", category: "salves", price: 19.99 },
+    { id: "sleep-salve", category: "salves", price: 19.99 }
+  ]
+};
+const cartTopLevelVol = [
+  { id: "frankincense-salve", price: 19.99, variantDelta: 0, variantLabel: "2oz", qty: 1 },
+  {
+    id: "sleep-salve",
+    category: "salves",
+    price: 19.99,
+    variantDelta: 0,
+    variantLabel: "2oz",
+    qty: 1
+  }
+];
+eq(
+  cart.unitPrice(cartTopLevelVol[0], cartTopLevelVol),
+  14.99,
+  "Top-level volumePricing: Frankincense Salve qualifies for $14.99 unit price"
+);
+eq(
+  cart.unitPrice(cartTopLevelVol[1], cartTopLevelVol),
+  14.99,
+  "Top-level volumePricing: Sleep Salve qualifies for $14.99 unit price"
+);
+eq(cart.subtotal(cartTopLevelVol), 29.98, "Top-level volumePricing: 2x $14.99 = $29.98 subtotal");
+
 global.window.YL_PRODUCTS = null;
 
 /* freeShipThreshold reads products.json shop.freeShippingThreshold, the same

@@ -464,6 +464,9 @@ const DEFAULT_VOLUME_PRICING = [
 ];
 
 function getVolumePricingRules(catalog) {
+  if (catalog && Array.isArray(catalog.volumePricing)) {
+    return catalog.volumePricing.filter((r) => r && r.enabled !== false);
+  }
   if (catalog && catalog.shop && Array.isArray(catalog.shop.volumePricing)) {
     return catalog.shop.volumePricing.filter((r) => r && r.enabled !== false);
   }

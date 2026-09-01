@@ -105,119 +105,25 @@ collections:
   - name: products
     label: "1. Products, Bundles & FAQ"
     icon: storefront
-    description: "Your whole shop lives here — products and prices, gift bundles, and the FAQ. Tap any item to edit it, or use the 'Add' button to create a new one. Hit Save and the site updates itself within a couple of minutes."
+    description: "Your whole shop lives here — products and prices, promotions & volume deals, gift bundles, and FAQ. Tap any item to edit it, or use the 'Add' button to create a new one. Hit Save and the site updates itself within a couple of minutes."
     files:
       - name: products
         label: Products, Bundles & FAQ
         file: assets/data/products.json
         format: json
         fields:
-          - name: shop
-            label: "Shop Info (used across the site and in your search-result listing — keep it accurate)"
-            widget: object
-            collapsed: true
-            fields:
-              - { name: name, label: Shop Name, widget: string }
-              - { name: etsyShopUrl, label: Etsy Shop URL, widget: string }
-              - { name: rating, label: "Etsy star rating (e.g. 4.9)", widget: number, value_type: float, hint: "Your shop's real Etsy rating, from 0 to 5. Decimals are fine." }
-              - { name: reviewCount, label: "Number of Etsy reviews (e.g. 320)", widget: number, value_type: int, hint: "Your real Etsy review count — a whole number." }
-              - { name: sales, label: "Number of Etsy sales (e.g. 1200)", widget: number, value_type: int, hint: "Your real Etsy sales count — a whole number." }
-              - { name: freeShippingThreshold, label: "Free shipping when an order reaches ($)", widget: number, value_type: int, hint: "Orders at or above this amount ship free. Set to 0 to turn free shipping off." }
-              - name: customBox
-                label: "Build-Your-Own Box"
-                widget: object
-                required: false
-                collapsed: true
-                hint: "Settings for the pick-your-own bundle on the shop page. The box price is always worked out from the real prices of whatever the shopper picks, minus the discount below."
-                fields:
-                  - { name: minItems, label: "Minimum items in a box", widget: number, value_type: int, default: 3 }
-                  - { name: maxItems, label: "Maximum items in a box", widget: number, value_type: int, default: 5 }
-                  - { name: discountPercent, label: "Discount (%)", widget: number, value_type: int, default: 10, hint: "Percent off the combined price of the chosen items." }
-                  # relation (not a plain list) so this is a tick-list of your
-                  # REAL categories instead of hand-typed codes -- add a
-                  # category below and it shows up here automatically.
-                  - name: eligibleCategories
-                    label: "Categories shoppers can pick from"
-                    widget: relation
-                    multiple: true
-                    collection: products
-                    file: products
-                    value_field: categories.*.id
-                    display_fields: ["categories.*.label"]
-                    search_fields: ["categories.*.label"]
-                    default: ["salves", "body", "soaks", "potions", "ritual"]
-                    hint: "Tick the categories a shopper can choose from. Apparel and gift cards are usually left out."
-              - name: volumePricing
-                label: "Volume Pricing Rules"
-                widget: list
-                label_singular: "Volume Pricing Rule"
-                required: false
-                collapsed: true
-                summary: "{{fields.name}} — {{fields.label}} ({{fields.category}})"
-                hint: "Configure category volume discounts (e.g. 2+ for $14.99 each). Multiple rules can run concurrently."
-                fields:
-                  - { name: id, label: "Rule ID (e.g. salves-2oz)", widget: string, hint: "Unique identifier for this rule." }
-                  - { name: name, label: "Rule Name (e.g. 2oz Salve Multi-Buy)", widget: string }
-                  - name: category
-                    label: "Category"
-                    widget: relation
-                    collection: products
-                    file: products
-                    value_field: categories.*.id
-                    display_fields: ["categories.*.label"]
-                    search_fields: ["categories.*.label"]
-                    hint: "Pick the category this volume pricing rule applies to."
-                  - { name: qualifyingVariant, label: "Qualifying Variant (e.g. 2oz)", widget: string, required: false, hint: "Variant size/label to qualify for this rule (e.g. 2oz). Leave blank to apply to all variants in the category." }
-                  - { name: minQuantity, label: "Minimum Quantity (e.g. 2)", widget: number, value_type: int, default: 2 }
-                  - { name: unitPrice, label: "Discounted Unit Price ($ USD, e.g. 14.99)", widget: number, value_type: float, step: 0.01 }
-                  - { name: label, label: "Promotional Label (e.g. 2+ for $14.99 each)", widget: string }
-                  - { name: enabled, label: "Rule Enabled", widget: boolean, default: true }
-
-          - name: sales
-            label: Category Sales
-            widget: list
-            label_singular: Sale
-            collapsed: true
-            summary: "{{fields.label}}"
-            hint: "Put a whole category on sale at once — e.g. 15% off everything in Body & Skin."
-            fields:
-              # relation, so this is a dropdown of your real categories --
-              # no more typing a code and hoping it matches.
-              - name: category
-                label: "Which category is on sale"
-                widget: relation
-                collection: products
-                file: products
-                value_field: categories.*.id
-                display_fields: ["categories.*.label"]
-                search_fields: ["categories.*.label"]
-                hint: "Pick the category to discount."
-              - { name: percentOff, label: "Percent off (e.g. 15)", widget: number, value_type: int }
-              - { name: label, label: "Sale name shoppers see (e.g. Body Care Sale)", widget: string }
-
-          - name: categories
-            label: Categories
-            widget: list
-            label_singular: Category
-            summary: "{{fields.label}}"
-            hint: >-
-              These become the filter buttons across the top of the shop page.
-              Just type the name — the behind-the-scenes code is created for you.
-            fields:
-              - { name: label, label: "Category name (the filter button on the shop page)", widget: string }
-
+          # ==================================================================
+          # 1. PRODUCTS (Top Priority - Daily Catalog Management)
+          # ==================================================================
           - name: products
             label: Products
             widget: list
             label_singular: Product
             summary: "{{fields.name}} — ${{fields.price}} ({{fields.category}})"
             fields:
-              # `id` and `description` exist in products.json but were not
-              # declared here -- a CMS save writes only declared fields, so
-              # both would have been silently stripped from the file the
-              # first time Savanna hit Save. `id` is also the cart line-item
-              # key and the wishlist/review/bundle reference key, so it must
-              # never change once a product has been sold.
+              # `id` and `description` exist in products.json and are declared here
+              # so a CMS save preserves them. `id` is the cart line-item key and the
+              # wishlist/review/bundle reference key.
               - name: id
                 label: "Product ID (leave blank for new products; don't change it on existing ones)"
                 widget: string
@@ -251,12 +157,6 @@ collections:
                 default: false
                 required: false
                 hint: "Check this box to show a 'Coming Soon' badge and hide the purchase options."
-              # relation, NOT a hardcoded select list. This used to be a fixed
-              # list of 7 options that had already drifted from the real data
-              # (it was missing "Gift Sets"), and any category Savanna added
-              # under "Categories" below would never appear here -- she could
-              # create a category but never put a product in it. Reading the
-              # real categories means the two can never fall out of sync again.
               - name: category
                 label: Category
                 widget: relation
@@ -285,8 +185,6 @@ collections:
                 widget: list
                 label_singular: Photo
                 required: false
-                # The subfield needs a `name` -- without it this field fails
-                # Sveltia's config schema and the photo list won't render.
                 field: { name: photo, label: Photo, widget: image }
               - name: blurb
                 label: "Product description (the main text shoppers read)"
@@ -316,8 +214,6 @@ collections:
                   Set to 0 to show "Sold Out" and disable checkout.
                   Set to a number 1-5 to show a warning badge (e.g. "Only 3 left").
                   (Note: This is manually updated and does not auto-sync with Etsy).
-              # NOTE: no label_singular here -- a plain string list (no
-              # subfields) doesn't accept it per Sveltia's config schema.
               - name: ingredients
                 label: "Ingredients / Materials list (optional)"
                 widget: list
@@ -385,8 +281,60 @@ collections:
                 required: false
                 hint: "Uncheck to show a 'Sold Out' badge and email notification form instead of Add to Cart."
 
+          # ==================================================================
+          # 2. PROMOTIONS & DEALS (Volume Pricing Rules & Category Sales)
+          # ==================================================================
+          - name: volumePricing
+            label: "Volume Pricing Rules (Multi-Buy Deals)"
+            widget: list
+            label_singular: "Volume Pricing Rule"
+            required: false
+            collapsed: true
+            summary: "{{fields.name}} — {{fields.label}} ({{fields.category}})"
+            hint: "Configure category volume discounts (e.g. 2+ 2oz Salves for $14.99 each). Multiple rules can run concurrently."
+            fields:
+              - { name: id, label: "Rule ID (e.g. salves-2oz)", widget: string, hint: "Unique identifier for this rule." }
+              - { name: name, label: "Rule Name (e.g. 2oz Salve Multi-Buy)", widget: string }
+              - name: category
+                label: "Category"
+                widget: relation
+                collection: products
+                file: products
+                value_field: categories.*.id
+                display_fields: ["categories.*.label"]
+                search_fields: ["categories.*.label"]
+                hint: "Pick the category this volume pricing rule applies to."
+              - { name: qualifyingVariant, label: "Qualifying Variant (e.g. 2oz)", widget: string, required: false, hint: "Variant size/label to qualify for this rule (e.g. 2oz). Leave blank to apply to all variants in the category." }
+              - { name: minQuantity, label: "Minimum Quantity (e.g. 2)", widget: number, value_type: int, default: 2 }
+              - { name: unitPrice, label: "Discounted Unit Price ($ USD, e.g. 14.99)", widget: number, value_type: float, step: 0.01 }
+              - { name: label, label: "Promotional Label (e.g. 2+ for $14.99 each)", widget: string }
+              - { name: enabled, label: "Rule Enabled", widget: boolean, default: true }
+
+          - name: sales
+            label: Category Sales
+            widget: list
+            label_singular: Sale
+            collapsed: true
+            summary: "{{fields.label}}"
+            hint: "Put a whole category on sale at once — e.g. 15% off everything in Body & Skin."
+            fields:
+              - name: category
+                label: "Which category is on sale"
+                widget: relation
+                collection: products
+                file: products
+                value_field: categories.*.id
+                display_fields: ["categories.*.label"]
+                search_fields: ["categories.*.label"]
+                hint: "Pick the category to discount."
+              - { name: percentOff, label: "Percent off (e.g. 15)", widget: number, value_type: int }
+              - { name: label, label: "Sale name shoppers see (e.g. Body Care Sale)", widget: string }
+
+          # ==================================================================
+          # 3. CURATED GIFT SETS (Pre-made Bundles)
+          # ==================================================================
           - name: bundles
-            label: Bundles / Gift Sets
+            label: "Bundles / Pre-made Gift Sets"
             widget: list
             label_singular: Bundle
             summary: "{{fields.name}} — {{fields.discountPercent}}% off"
@@ -396,17 +344,8 @@ collections:
               current prices of the products you list below, minus this
               discount -- there's no price to type in here.
             fields:
-              # Same as products: `id` exists in the data file, so it must be
-              # declared here or a CMS save strips it (it's the cart line-item
-              # and wishlist key for the bundle).
               - { name: id, label: "Bundle ID (leave blank for new bundles; don't change it on existing ones)", widget: string, required: false }
               - { name: name, label: "Bundle Name", widget: string }
-              # relation, so Savanna picks real products BY NAME from a
-              # searchable list. This was the single most error-prone field in
-              # the whole CMS: it used to be hand-typed product IDs, where one
-              # typo silently produced a bundle referencing a product that
-              # doesn't exist. The stored value is unchanged (an array of
-              # product ids), so existing bundles keep working untouched.
               - name: productIds
                 label: "Products in this bundle (pick 2 or more)"
                 widget: relation
@@ -421,14 +360,68 @@ collections:
               - { name: discountPercent, label: "Discount Percent (0-90, e.g. 10 for 10% off)", widget: number, value_type: int, min: 0, max: 90 }
               - { name: blurb, label: Bundle Description, widget: text }
 
+          # ==================================================================
+          # 4. SHOP FAQ (Accordion Items)
+          # ==================================================================
           - name: faq
-            label: "FAQ (shown on the Contact page and linked from the Shop page)"
+            label: "FAQ (Shop & Contact Accordion)"
             widget: list
             label_singular: Question
             summary: "{{fields.question}}"
+            hint: "Frequently asked questions displayed in the FAQ accordion on the Contact page and Shop page."
             fields:
               - { name: question, label: Question, widget: string }
               - { name: answer, label: Answer, widget: text }
+
+          # ==================================================================
+          # 5. TECHNICAL & SHOP SETTINGS (Rare / Setup Items - Collapsed by Default)
+          # ==================================================================
+          - name: categories
+            label: "Shop Filter Categories (Technical)"
+            widget: list
+            label_singular: Category
+            collapsed: true
+            summary: "{{fields.label}}"
+            hint: >-
+              These become the filter buttons across the top of the shop page.
+              Just type the name — the behind-the-scenes code is created for you.
+            fields:
+              - { name: id, label: "Category ID (leave blank for new categories; don't change on existing)", widget: string, required: false, hint: "Identifier used as internal reference key." }
+              - { name: label, label: "Category name (the filter button on the shop page)", widget: string }
+
+          - name: shop
+            label: "⚙️ Shop Metadata & Shipping Settings"
+            widget: object
+            collapsed: true
+            hint: "Shop search metadata, Etsy counters, free shipping threshold, and Build-Your-Own Box configuration."
+            fields:
+              - { name: name, label: Shop Name, widget: string }
+              - { name: etsyShopUrl, label: Etsy Shop URL, widget: string }
+              - { name: rating, label: "Etsy star rating (e.g. 4.9)", widget: number, value_type: float, hint: "Your shop's real Etsy rating, from 0 to 5. Decimals are fine." }
+              - { name: reviewCount, label: "Number of Etsy reviews (e.g. 320)", widget: number, value_type: int, hint: "Your real Etsy review count — a whole number." }
+              - { name: sales, label: "Number of Etsy sales (e.g. 1200)", widget: number, value_type: int, hint: "Your real Etsy sales count — a whole number." }
+              - { name: freeShippingThreshold, label: "Free shipping when an order reaches ($)", widget: number, value_type: int, hint: "Orders at or above this amount ship free. Set to 0 to turn free shipping off." }
+              - name: customBox
+                label: "Build-Your-Own Box"
+                widget: object
+                required: false
+                collapsed: true
+                hint: "Settings for the pick-your-own bundle on the shop page. The box price is always worked out from the real prices of whatever the shopper picks, minus the discount below."
+                fields:
+                  - { name: minItems, label: "Minimum items in a box", widget: number, value_type: int, default: 3 }
+                  - { name: maxItems, label: "Maximum items in a box", widget: number, value_type: int, default: 5 }
+                  - { name: discountPercent, label: "Discount (%)", widget: number, value_type: int, default: 10, hint: "Percent off the combined price of the chosen items." }
+                  - name: eligibleCategories
+                    label: "Categories shoppers can pick from"
+                    widget: relation
+                    multiple: true
+                    collection: products
+                    file: products
+                    value_field: categories.*.id
+                    display_fields: ["categories.*.label"]
+                    search_fields: ["categories.*.label"]
+                    default: ["salves", "body", "soaks", "potions", "ritual"]
+                    hint: "Tick the categories a shopper can choose from. Apparel and gift cards are usually left out."
 
   - name: events
     label: "2. Markets, Fairs & Pride Dates"
