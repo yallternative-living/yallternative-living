@@ -875,5 +875,120 @@ else global.window.YL_PRODUCTS = savedWindowYlProducts;
   );
 }
 
+/* ==========================================================
+   Gift-card codes travel in a POST body, never in a URL
+   ----------------------------------------------------------
+   A GET put the code in the query string, where it lands in browser
+   history, the Referer header and every proxy log between here and the
+   function. Both callers (this helper and assets/js/gift-card.js) now POST
+   {code} to the same endpoint, which answers Cache-Control: no-store.
+   ========================================================== */
+{
+  const fs = require("fs");
+  const path = require("path");
+  const calls = [];
+  const originalFetch = global.fetch;
+  global.fetch = (url, opts) => {
+    calls.push({ url: String(url), opts: opts || {} });
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      json: async () => ({ valid: true, balance: 10, code: "YALL-ABC123" })
+    });
+  };
+
+  cart.checkGiftCardBalance("  yall-abc123  ");
+  eq(calls.length, 1, "checkGiftCardBalance issues one request");
+  eq(
+    calls[0].url,
+    "/.netlify/functions/gift-card-balance",
+    "checkGiftCardBalance puts no code in the URL"
+  );
+  eq(calls[0].opts.method, "POST", "checkGiftCardBalance POSTs");
+  eq(
+    JSON.parse(calls[0].opts.body),
+    { code: "YALL-ABC123" },
+    "checkGiftCardBalance sends the normalised code in the body"
+  );
+
+  // Alt-Points redemption never reaches the network any more.
+  calls.length = 0;
+  let redeemRejection = null;
+  cart.redeemPoints(100).catch((err) => {
+    redeemRejection = err;
+  });
+  eq(calls.length, 0, "redeemPoints makes no network call");
+
+  global.fetch = originalFetch;
+
+  const giftCardSrc = fs.readFileSync(
+    path.join(__dirname, "..", "assets", "js", "gift-card.js"),
+    "utf8"
+  );
+  eq(
+    /gift-card-balance\?code=/.test(giftCardSrc),
+    false,
+    "gift-card.js no longer builds a ?code= balance URL"
+  );
+  eq(
+    /gift-card-balance"[\s\S]{0,120}method:\s*"POST"/.test(giftCardSrc),
+    true,
+    "gift-card.js POSTs the balance lookup"
+  );
+  eq(
+    /localStorage\.setItem\(\s*"yl_applied_gift_card"/.test(giftCardSrc),
+    false,
+    "gift-card.js no longer writes the cart's gift-card key itself"
+  );
+  eq(
+    /YLCart\.applyGiftCard\(/.test(giftCardSrc),
+    true,
+    "gift-card.js hands the card to YLCart.applyGiftCard"
+  );
+  eq(/catch\s*\(e\)\s*\{\}/.test(giftCardSrc), false, "gift-card.js has no empty catch block");
+  eq(
+    /escapeHtml\(\s*\n?\s*data\.formattedBalance/.test(giftCardSrc),
+    true,
+    "gift-card.js escapes the server-supplied formatted balance"
+  );
+  // Keep the rejection referenced so the promise is not unhandled.
+  eq(redeemRejection === null || redeemRejection instanceof Error, true, "redeemPoints rejects");
+}
+
+/* ==========================================================
+   The "all perks unlocked" copy names the configured reward
+   ----------------------------------------------------------
+   The top-tier reward name was hardcoded, so renaming the milestone in the
+   CMS (and therefore in the $0 line item the Worker adds at that tier)
+   changed every string in the drawer except the celebration, which went on
+   promising a Pocket Salve the order no longer included.
+   ========================================================== */
+{
+  const renamed = [
+    { threshold: 40, reward: "Free Tracked Shipping", icon: "truck" },
+    { threshold: 60, reward: "Handcrafted Lavender Sachet", icon: "gift" }
+  ];
+  const unlocked = cart.calculateMilestoneStatus(75, renamed, false);
+  eq(
+    unlocked.message,
+    "🎉 All perks unlocked! Free Shipping + Free Handcrafted Lavender Sachet!",
+    "the celebration names the configured top-tier reward"
+  );
+  const threeTier = cart.calculateMilestoneStatus(
+    999,
+    [
+      { threshold: 40, reward: "Free Tracked Shipping" },
+      { threshold: 60, reward: "Free Pocket Salve" },
+      { threshold: 120, reward: "Tote Bag" }
+    ],
+    false
+  );
+  eq(
+    threeTier.message,
+    "🎉 All perks unlocked! Free Shipping + Free Pocket Salve + Free Tote Bag!",
+    "every bonus tier is named, in configured order"
+  );
+}
+
 console.log(`\ncart-engine.test.js: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

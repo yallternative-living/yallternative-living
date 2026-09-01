@@ -20,6 +20,13 @@
   var DEFAULT_FREE_SHIP = 40; // products.json shop.freeShippingThreshold
   var MAX_QTY = 99;
   var GIFT_CARD_ID = "yallternative-gift-card";
+  /* Flat shipping rate below the free-shipping threshold. Mirrors
+     flatShippingRateCents in workers/checkout.js -- a business constant, not
+     a CMS field -- so the drawer quotes the same number Stripe charges. */
+  var FLAT_SHIPPING = 10;
+  /* Bumping this means the stored cart shape changed; load() migrates
+     anything older (see parseStoredCart). */
+  var STORAGE_VERSION = 1;
 
   /* ---------------- Pure cart math (unit-testable in Node) ---------------- */
 
@@ -495,19 +502,25 @@
     };
   }
 
-  /* Query live remaining balance of a stored-value gift card from Stripe. */
+  /* Query live remaining balance of a stored-value gift card from Stripe.
+
+     POSTed, not GETed: a code in the query string ends up in browser history,
+     the Referer header, any CDN/proxy access log and the service worker's
+     cache key. The function takes {code} as a JSON body and answers
+     Cache-Control: no-store; sw.js additionally refuses to touch /.netlify/
+     at all (see its fetch handler). */
   function checkGiftCardBalance(code) {
     var clean = String(code || "")
       .trim()
       .toUpperCase();
     if (!clean) return Promise.reject(new Error("Please enter a gift card code."));
-    var endpoint = "/.netlify/functions/gift-card-balance?code=" + encodeURIComponent(clean);
-    return fetch(endpoint, {
-      method: "GET",
-      headers: { Accept: "application/json" }
+    return fetch("/.netlify/functions/gift-card-balance", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ code: clean })
     }).then(function (res) {
       if (!res.ok) {
-        return res.json().then(function (data) {
+        return readJsonSafely(res).then(function (data) {
           throw new Error((data && data.error) || "Gift card code not found or exhausted.");
         });
       }
@@ -515,25 +528,40 @@
     });
   }
 
-  /* Redeem loyalty points for a stored-value gift voucher via Netlify function. */
-  function redeemPoints(points, email) {
+  /* A failing endpoint answers with an HTML error page or an empty body at
+     least as often as it answers with JSON, and res.json() rejects on both.
+     Never let that rejection replace the real failure with a parser error. */
+  function readJsonSafely(res) {
+    if (!res || typeof res.json !== "function") return Promise.resolve(null);
+    var parsed;
+    try {
+      parsed = res.json();
+    } catch {
+      return Promise.resolve(null);
+    }
+    return Promise.resolve(parsed).then(
+      function (data) {
+        return data;
+      },
+      function () {
+        return null;
+      }
+    );
+  }
+
+  /* Alt-Points redemption is switched off end to end: the redeem-points
+     function answers 410 and mints nothing, so there is no voucher to hand
+     back and no reason to make the call. The helper stays exported (as do the
+     wallet helpers below) purely so anything still holding a reference gets a
+     clean rejection instead of a TypeError. */
+  var REDEEM_UNAVAILABLE = "Alt-Points redemption is not available yet.";
+
+  function redeemPoints(points) {
     var pts = Number(points);
     if (!pts || pts < 100) {
       return Promise.reject(new Error("At least 100 Alt-Points are required to redeem."));
     }
-    var endpoint = "/.netlify/functions/redeem-points";
-    return fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ points: pts, email: email || "" })
-    }).then(function (res) {
-      if (!res.ok) {
-        return res.json().then(function (data) {
-          throw new Error((data && data.error) || "Could not redeem Alt-Points.");
-        });
-      }
-      return res.json();
-    });
+    return Promise.reject(new Error(REDEEM_UNAVAILABLE));
   }
 
   /* Generate a shareable link that encodes the current cart state. */
@@ -759,9 +787,24 @@
     var pct = Math.min(100, Math.round((currentSub / maxThreshold) * 100));
 
     if (!nextMilestone) {
+      /* The reward names come from products.json shop.shippingMilestones (the
+         same list the pins and the countdown copy read, and the same list the
+         Worker adds the $0 gift line item from). Hardcoding the top reward
+         here meant renaming it in the CMS changed every string in the drawer
+         except this one, so the celebration promised a gift the order no
+         longer came with. */
+      var bonusRewards = list.slice(1).map(function (m) {
+        var label = String(m.reward || "").trim();
+        if (!label) return "";
+        return label.toLowerCase().indexOf("free ") === 0 ? label : "Free " + label;
+      });
       var allMsg =
         list.length > 1
-          ? "🎉 All perks unlocked! Free Shipping + Free Handcrafted Pocket Salve!"
+          ? "🎉 All perks unlocked! Free Shipping" +
+            (bonusRewards.filter(Boolean).length
+              ? " + " + bonusRewards.filter(Boolean).join(" + ")
+              : "") +
+            "!"
           : "🎉 You've unlocked " +
             (list[0].reward.toLowerCase().indexOf("free") === 0
               ? list[0].reward.toLowerCase()
@@ -850,42 +893,200 @@
     giftCardLoading: false,
     isGiftOrder: false,
     giftMessage: "",
-    pointsRedeeming: false,
-    pointsError: "",
+    isPickup: false,
+    pickupMarket: "",
+    storageNotice: "",
     shareCartNotice: ""
   };
 
   var GC_STORAGE_KEY = "yl_applied_gift_card";
+  var GIFT_ORDER_KEY = "yl_is_gift_order";
+  var GIFT_MESSAGE_KEY = "yl_gift_message";
+  var PICKUP_KEY = "yl_cart_is_pickup";
+  var PICKUP_MARKET_KEY = "yl_cart_pickup_market";
+
+  /* Every key load() reads. A `storage` event on any of them means another
+     tab changed something this drawer renders. */
+  var SYNCED_KEYS = [
+    STORAGE_KEY,
+    GC_STORAGE_KEY,
+    GIFT_ORDER_KEY,
+    GIFT_MESSAGE_KEY,
+    PICKUP_KEY,
+    PICKUP_MARKET_KEY
+  ];
+
+  /* Ids the catalog will never list: a build-your-own box is priced by the
+     Worker from its contents, and the gift card is a fixed SKU. */
+  var PSEUDO_ITEM_IDS = ["custom-box", GIFT_CARD_ID];
+
+  /* Shown when there are no upcoming markets to choose from (see render()). */
+  var FALLBACK_PICKUP_LABEL = "Landrum SC Farmers Market (Saturdays 9am-12pm)";
+
+  function pickupLabelFor(evt) {
+    if (!evt) return "";
+    return (
+      (evt.name || "Pop-up Market") +
+      " — " +
+      (evt.dateLabel || "") +
+      " (" +
+      (evt.location || "Landrum, SC") +
+      ")"
+    );
+  }
+
+  function upcomingPickupEvents() {
+    return root.YL_EVENTS && Array.isArray(root.YL_EVENTS.upcoming) ? root.YL_EVENTS.upcoming : [];
+  }
+
+  /* Cart storage was a bare JSON array, which left no room to say anything
+     about the payload -- including which version wrote it. It is now
+     {version, items}; a bare array is still read (and rewritten on the next
+     save) so a returning shopper never loses the cart they left. */
+  function parseStoredCart(raw) {
+    if (!raw) return [];
+    var parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed;
+    if (parsed && typeof parsed === "object" && Array.isArray(parsed.items)) return parsed.items;
+    return [];
+  }
+
+  /* localStorage is shopper-writable and outlives the catalog: a discontinued
+     product, a hand-edited entry, or a line written by a much older build can
+     all still be sitting there. Anything that isn't a real, priceable line
+     the Worker would accept is dropped here rather than rendered as NaN,
+     crashed on, or POSTed to checkout only to be rejected. */
+  function knownItemIds() {
+    var catalog = getCatalog();
+    var products = catalog && Array.isArray(catalog.products) ? catalog.products : null;
+    /* No catalog on this page (or not loaded yet) is not evidence that an
+       item is gone -- validate ids only when there is something to validate
+       against. */
+    if (!products || !products.length) return null;
+    var bundles = catalog && Array.isArray(catalog.bundles) ? catalog.bundles : [];
+    var ids = Object.create(null);
+    products.forEach(function (prod) {
+      if (prod && prod.id) ids[prod.id] = true;
+    });
+    bundles.forEach(function (b) {
+      if (b && b.id) {
+        ids[b.id] = true;
+        ids["bundle-" + b.id] = true;
+      }
+    });
+    PSEUDO_ITEM_IDS.forEach(function (id) {
+      ids[id] = true;
+    });
+    return ids;
+  }
+
+  function sanitizeStoredItems(rawItems) {
+    var known = knownItemIds();
+    var kept = [];
+    var dropped = 0;
+    (Array.isArray(rawItems) ? rawItems : []).forEach(function (it) {
+      if (!it || typeof it !== "object" || Array.isArray(it)) {
+        dropped++;
+        return;
+      }
+      if (typeof it.id !== "string" || !it.id.trim()) {
+        dropped++;
+        return;
+      }
+      var price = Number(it.price);
+      if (!isFinite(price) || price < 0) {
+        dropped++;
+        return;
+      }
+      if (known && !known[it.id]) {
+        dropped++;
+        return;
+      }
+      it.price = price;
+      it.qty = clampQty(it.qty, it.maxQty);
+      kept.push(it);
+    });
+    return { items: kept, dropped: dropped };
+  }
 
   function load() {
+    var dropped = 0;
     try {
-      var raw = localStorage.getItem(STORAGE_KEY);
-      var parsed = raw ? JSON.parse(raw) : null;
-      state.items = Array.isArray(parsed) ? parsed : [];
+      var cleaned = sanitizeStoredItems(parseStoredCart(localStorage.getItem(STORAGE_KEY)));
+      state.items = cleaned.items;
+      dropped = cleaned.dropped;
     } catch {
       state.items = [];
     }
     try {
       var rawGC = localStorage.getItem(GC_STORAGE_KEY);
-      var parsedGC = rawGC ? JSON.parse(rawGC) : null;
-      state.appliedGiftCard = parsedGC && parsedGC.code && parsedGC.balance ? parsedGC : null;
+      state.appliedGiftCard = normalizeGiftCard(rawGC ? JSON.parse(rawGC) : null);
     } catch {
       state.appliedGiftCard = null;
     }
     try {
-      state.isGiftOrder = localStorage.getItem("yl_is_gift_order") === "true";
-      state.giftMessage = localStorage.getItem("yl_gift_message") || "";
+      state.isGiftOrder = localStorage.getItem(GIFT_ORDER_KEY) === "true";
+      state.giftMessage = localStorage.getItem(GIFT_MESSAGE_KEY) || "";
     } catch {
       state.isGiftOrder = false;
       state.giftMessage = "";
     }
+    /* Pick-up used to live only in memory, so choosing "collect at the market"
+       and then reloading (or coming back from a product page) silently put the
+       order back on shipping. It persists now -- and the stored market label is
+       re-checked against the events the site is currently advertising, because
+       the Worker validates that label too and a saved date that has since
+       passed would fail checkout with nothing on screen explaining why. */
+    try {
+      state.isPickup = localStorage.getItem(PICKUP_KEY) === "true";
+      state.pickupMarket = localStorage.getItem(PICKUP_MARKET_KEY) || "";
+    } catch {
+      state.isPickup = false;
+      state.pickupMarket = "";
+    }
+    var upcoming = upcomingPickupEvents();
+    if (state.pickupMarket && upcoming.length) {
+      var validLabels = upcoming.map(pickupLabelFor);
+      validLabels.push(FALLBACK_PICKUP_LABEL);
+      if (validLabels.indexOf(state.pickupMarket) === -1) {
+        /* Stale market: keep the pick-up preference, drop the dead date so
+           render() re-selects the next real one. */
+        state.pickupMarket = "";
+      }
+    }
+
+    if (dropped > 0) {
+      state.loadNotice = "Removed " + dropped + " unavailable item(s) from your cart";
+      save();
+    } else {
+      state.loadNotice = "";
+    }
+  }
+
+  function isQuotaError(err) {
+    if (!err) return false;
+    return (
+      err.name === "QuotaExceededError" ||
+      err.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+      err.code === 22 ||
+      err.code === 1014
+    );
   }
 
   function save() {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.items));
-    } catch {
-      /* storage full / blocked -- cart still works for this page view */
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ version: STORAGE_VERSION, items: state.items })
+      );
+      state.storageNotice = "";
+    } catch (err) {
+      /* Storage full or blocked -- the cart still works for this page view,
+         it just won't survive a reload. Say so once, quietly, rather than
+         letting the shopper discover it after closing the tab. */
+      if (isQuotaError(err)) {
+        state.storageNotice = "Cart saved for this visit only — this device's storage is full.";
+      }
     }
     try {
       if (state.appliedGiftCard) {
@@ -898,18 +1099,41 @@
     }
     try {
       if (state.isGiftOrder) {
-        localStorage.setItem("yl_is_gift_order", "true");
+        localStorage.setItem(GIFT_ORDER_KEY, "true");
       } else {
-        localStorage.removeItem("yl_is_gift_order");
+        localStorage.removeItem(GIFT_ORDER_KEY);
       }
       if (state.giftMessage) {
-        localStorage.setItem("yl_gift_message", state.giftMessage);
+        localStorage.setItem(GIFT_MESSAGE_KEY, state.giftMessage);
       } else {
-        localStorage.removeItem("yl_gift_message");
+        localStorage.removeItem(GIFT_MESSAGE_KEY);
+      }
+      if (state.isPickup) {
+        localStorage.setItem(PICKUP_KEY, "true");
+      } else {
+        localStorage.removeItem(PICKUP_KEY);
+      }
+      if (state.isPickup && state.pickupMarket) {
+        localStorage.setItem(PICKUP_MARKET_KEY, state.pickupMarket);
+      } else {
+        localStorage.removeItem(PICKUP_MARKET_KEY);
       }
     } catch {
       /* storage full / blocked */
     }
+  }
+
+  /* Only ever store what the drawer and the Worker actually use. The balance
+     endpoint also returns formattedBalance, initialAmount and friends; none of
+     that belongs in localStorage, where it would go stale the moment the card
+     is spent anywhere else. */
+  function normalizeGiftCard(gc) {
+    if (!gc || typeof gc !== "object") return null;
+    if (gc.valid === false) return null;
+    var code = typeof gc.code === "string" ? gc.code.trim().toUpperCase() : "";
+    var balance = Number(gc.balance);
+    if (!code || !isFinite(balance) || balance <= 0) return null;
+    return { code: code, balance: Math.round(balance * 100) / 100, valid: true };
   }
 
   // Unique-enough id for a single gift-card line (see lineKey() above) --
@@ -941,7 +1165,8 @@
 
   /* ---------------- Drawer UI ---------------- */
 
-  var drawer, itemsEl, footEl, liveEl, dispatchEl;
+  var drawer, itemsEl, footEl, liveEl, dispatchEl, dispatchLiveEl;
+  var lastDispatchMessage = null;
 
   function ensureDrawer() {
     if (drawer) return;
@@ -977,8 +1202,15 @@
         return;
       }
       if (e.key === "Tab") {
-        var focusables = drawer.querySelectorAll(
-          'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        /* A disabled Apply button or a collapsed gift-note textarea still
+           matches the selector but cannot take focus, so trapping against
+           them dumped focus out of the drawer at exactly the wrong moment.
+           Keep only controls that can actually receive it. */
+        var focusables = Array.prototype.filter.call(
+          drawer.querySelectorAll(
+            'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+          ),
+          isFocusable
         );
         if (!focusables.length) return;
         var first = focusables[0];
@@ -1014,6 +1246,45 @@
     liveEl.className = "sr-only";
     liveEl.setAttribute("aria-live", "polite");
     document.body.appendChild(liveEl);
+
+    /* The dispatch countdown re-renders on every drawer render, and it used to
+       carry aria-live itself: replacing the node re-announced "Order in next
+       3h 04m..." after every quantity change. The visible badge is now inert
+       and this separate region -- which render() never rebuilds -- is written
+       to only when the message actually changes. */
+    dispatchLiveEl = document.createElement("div");
+    dispatchLiveEl.className = "sr-only";
+    dispatchLiveEl.setAttribute("aria-live", "polite");
+    document.body.appendChild(dispatchLiveEl);
+  }
+
+  function isFocusable(el) {
+    if (!el) return false;
+    if (el.disabled) return false;
+    if (el.hidden) return false;
+    if (typeof el.getAttribute === "function" && el.getAttribute("aria-hidden") === "true") {
+      return false;
+    }
+    /* Anything display:none (the collapsed gift-card form, the hidden market
+       picker) has no layout boxes. Environments without layout -- unit tests,
+       jsdom -- don't implement getClientRects, so absence of the method is
+       treated as "visible" rather than "hidden". */
+    if (typeof el.getClientRects === "function" && el.getClientRects().length === 0) return false;
+    return true;
+  }
+
+  /* Re-render replaces every node in the footer, which drops focus to
+     <body> -- a keyboard user toggling pick-up lost their place and a screen
+     reader went silent. Put focus back on the control that was just used. */
+  function restoreFooterFocus(selector) {
+    if (!footEl) return;
+    var el = footEl.querySelector(selector);
+    if (!el || typeof el.focus !== "function") return;
+    try {
+      el.focus({ preventScroll: true });
+    } catch {
+      el.focus();
+    }
   }
 
   function openDrawer() {
@@ -1087,16 +1358,24 @@
       if (dispatchEnabled) {
         var status = calculateDispatchStatus();
         dispatchEl.innerHTML =
-          '<div class="yl-cart-dispatch-badge" role="status" aria-live="polite">' +
+          '<div class="yl-cart-dispatch-badge">' +
           '<svg class="yl-cart-icon yl-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg> ' +
           "<span>" +
           escapeHtml(status.message) +
           "</span>" +
           "</div>";
         dispatchEl.style.display = "block";
+        if (dispatchLiveEl && status.message !== lastDispatchMessage) {
+          lastDispatchMessage = status.message;
+          dispatchLiveEl.textContent = status.message;
+        }
       } else {
         dispatchEl.innerHTML = "";
         dispatchEl.style.display = "none";
+        if (dispatchLiveEl && lastDispatchMessage !== "") {
+          lastDispatchMessage = "";
+          dispatchLiveEl.textContent = "";
+        }
       }
     }
     if (!state.items.length) {
@@ -1132,8 +1411,11 @@
           }
         }
 
+        /* --hide is a border/divider token; as text colour it rendered these
+           two lines at roughly 2:1 against the drawer. --paper-dim is the
+           site's muted *text* token and clears AA. */
         var recipientText = it.giftRecipientEmail
-          ? '<span class="yl-cart-recipient" style="display:block; font-size:0.75rem; color:var(--hide);">For: ' +
+          ? '<span class="yl-cart-recipient" style="display:block; font-size:0.75rem; color:var(--paper-dim);">For: ' +
             escapeHtml(it.giftRecipientEmail) +
             "</span>"
           : "";
@@ -1167,7 +1449,7 @@
           escapeAttr(key) +
           '" aria-label="Decrease quantity">-</button>' +
           '<span class="yl-cart-qty-val">' +
-          it.qty +
+          escapeHtml(it.qty) +
           "</span>" +
           '<button type="button" data-cart-action="inc" data-key="' +
           escapeAttr(key) +
@@ -1177,7 +1459,7 @@
           "</div>" +
           '<div class="yl-cart-price-block">' +
           (isDiscounted
-            ? '<div style="display:flex; align-items:baseline; gap:4px; justify-content:flex-end;"><s style="color:var(--hide); font-size:0.85em;">' +
+            ? '<div style="display:flex; align-items:baseline; gap:4px; justify-content:flex-end;"><s style="color:var(--paper-dim); font-size:0.85em;">' +
               money(baseUnitPrice * it.qty) +
               '</s><span class="yl-cart-line-total">' +
               money(line) +
@@ -1269,75 +1551,28 @@
     var enableGiftOrders = siteCfg.enableGiftOrders !== false;
     var enableShareCart = siteCfg.enableShareCart !== false;
 
+    /* Nothing credits Alt-Points and nothing redeems them: the earn promise
+       ("You'll earn 36 Alt-Points with this order!") was never kept, and the
+       redeem buttons called an endpoint that now answers 410. Both are gone.
+       The wallet balance stays visible so anyone holding points can still see
+       them, and the helpers stay exported. */
     var loyalty = getLoyaltyConfig();
     var loyaltyHTML = "";
     if (loyalty.enabled) {
-      var earnedPoints = Math.floor(physSub * loyalty.rate);
       var walletBalance = getWalletPoints();
-      var pointsMsg =
-        earnedPoints > 0
-          ? 'You\'ll earn <strong id="cart-points-count">' +
-            earnedPoints +
-            "</strong> " +
-            (earnedPoints === 1 ? escapeHtml(loyalty.singular) : escapeHtml(loyalty.name)) +
-            " with this order!"
-          : "Add physical items to earn " +
-            escapeHtml(loyalty.name) +
-            " ($1 = " +
-            loyalty.rate +
-            " point" +
-            (loyalty.rate === 1 ? "" : "s") +
-            ")!";
-
-      var redeemBtnHTML = "";
-      if (state.pointsRedeeming) {
-        redeemBtnHTML =
-          '<div class="yl-cart-wallet-redeem-row"><span class="yl-cart-wallet-loading">Redeeming reward voucher…</span></div>';
-      } else if (walletBalance >= 100) {
-        redeemBtnHTML =
-          '<div class="yl-cart-wallet-redeem-row">' +
-          '  <button type="button" class="yl-cart-redeem-btn" data-redeem-points="100">' +
-          '    <svg class="yl-cart-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> Redeem 100 ' +
-          escapeHtml(loyalty.name) +
-          " ($5.00 Off)" +
-          "  </button>" +
-          (walletBalance >= 200
-            ? '  <button type="button" class="yl-cart-redeem-btn" data-redeem-points="200">Redeem 200 ' +
-              escapeHtml(loyalty.name) +
-              " ($10.00 Off)</button>"
-            : "") +
-          "</div>";
-      } else {
-        var ptsToNext = 100 - walletBalance;
-        redeemBtnHTML =
-          '<div class="yl-cart-wallet-needed">' +
-          ptsToNext +
-          " more points to unlock a $5 reward voucher</div>";
-      }
-
-      var pointsErrorHTML = state.pointsError
-        ? '<div class="yl-cart-points-error">' + escapeHtml(state.pointsError) + "</div>"
-        : "";
-
       loyaltyHTML =
         '<div class="yl-cart-loyalty-card">' +
-        '  <div class="yl-cart-points">' +
-        '    <span class="yl-cart-points-icon" aria-hidden="true"><svg class="yl-cart-icon yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span> ' +
-        '    <span id="cart-points-banner">' +
-        pointsMsg +
-        "    </span>" +
-        "  </div>" +
         '  <div class="yl-cart-wallet-block">' +
         '    <div class="yl-cart-wallet-header">' +
-        '      <span class="yl-cart-wallet-title">Alt-Points Wallet:</span>' +
+        '      <span class="yl-cart-wallet-title">' +
+        escapeHtml(loyalty.name) +
+        " Wallet:</span>" +
         '      <span class="yl-cart-wallet-balance" id="yl-loyalty-wallet-balance"><strong>' +
         walletBalance +
         "</strong> " +
         escapeHtml(loyalty.name) +
         "</span>" +
         "    </div>" +
-        redeemBtnHTML +
-        pointsErrorHTML +
         "  </div>" +
         "</div>";
     }
@@ -1348,17 +1583,22 @@
       !root.YL_CONTENT.site ||
       root.YL_CONTENT.site.enableLocalPickup !== false
     ) {
-      var upcomingEvts =
-        root.YL_EVENTS && Array.isArray(root.YL_EVENTS.upcoming) ? root.YL_EVENTS.upcoming : [];
+      var upcomingEvts = upcomingPickupEvents();
+
+      /* Resolve the selected market first: the option list marks its selection
+         from state.pickupMarket, so defaulting afterwards (as this used to)
+         rendered a list with nothing selected while state claimed a market --
+         the shopper saw the first market and checkout was sent whatever
+         state happened to hold. */
+      if (!state.pickupMarket) {
+        state.pickupMarket = upcomingEvts[0]
+          ? pickupLabelFor(upcomingEvts[0])
+          : FALLBACK_PICKUP_LABEL;
+      }
+
       var optionsHTML = upcomingEvts
         .map(function (evt) {
-          var label =
-            (evt.name || "Pop-up Market") +
-            " — " +
-            (evt.dateLabel || "") +
-            " (" +
-            (evt.location || "Landrum, SC") +
-            ")";
+          var label = pickupLabelFor(evt);
           return (
             '<option value="' +
             escapeAttr(label) +
@@ -1373,18 +1613,11 @@
 
       if (!optionsHTML) {
         optionsHTML =
-          '<option value="Landrum SC Farmers Market (Saturdays 9am-12pm)">Landrum SC Farmers Market (Saturdays 9am-12pm)</option>';
-      }
-
-      if (!state.pickupMarket && upcomingEvts[0]) {
-        var defaultEvt = upcomingEvts[0];
-        state.pickupMarket =
-          (defaultEvt.name || "Pop-up Market") +
-          " — " +
-          (defaultEvt.dateLabel || "") +
-          " (" +
-          (defaultEvt.location || "Landrum, SC") +
-          ")";
+          '<option value="' +
+          escapeAttr(FALLBACK_PICKUP_LABEL) +
+          '" selected>' +
+          escapeHtml(FALLBACK_PICKUP_LABEL) +
+          "</option>";
       }
 
       pickupHTML =
@@ -1421,9 +1654,16 @@
       var rule = allRules[rIdx];
       var count = ruleQualifyingCount(rule, state.items);
       var minQ = typeof rule.minQuantity === "number" ? rule.minQuantity : 2;
+      /* Both of these come from products.json shop.volumePricing, which is
+         CMS-editable, so they are untrusted text like any other content
+         field -- not markup. */
       var catNoun =
-        rule.category === "salves" ? "salve" : rule.category === "soaks" ? "soak" : rule.category;
-      var variantPart = rule.qualifyingVariant ? rule.qualifyingVariant + " " : "";
+        rule.category === "salves"
+          ? "salve"
+          : rule.category === "soaks"
+            ? "soak"
+            : escapeHtml(rule.category);
+      var variantPart = rule.qualifyingVariant ? escapeHtml(rule.qualifyingVariant) + " " : "";
       var priceFormatted = "$" + Number(rule.unitPrice).toFixed(2);
 
       if (count > 0 && count < minQ) {
@@ -1481,12 +1721,29 @@
         "</div>";
     }
 
+    /* The drawer quoted a subtotal and nothing else, so a $28 order read as
+       $28 right up until Stripe added $10 of shipping on the next screen.
+       Same rule as workers/checkout.js: free at or above the threshold, free
+       on pick-up, free when there is nothing physical to ship (gift cards are
+       emailed), $10 otherwise. A threshold of 0 means the promise is switched
+       off, so nothing qualifies. */
+    var shipThreshold = freeShipThreshold();
+    var shippingCost =
+      physSub > 0 && !state.isPickup && !(shipThreshold > 0 && physSub >= shipThreshold)
+        ? FLAT_SHIPPING
+        : 0;
+
+    /* The Worker caps the gift-card coupon at totalCents + shippingCents, so
+       cap it against the same number here -- capping on the subtotal alone
+       under-applied the card by up to $10 in the drawer and then "found" the
+       difference at checkout. */
     var gcDiscount = 0;
-    var finalDue = sub;
     if (state.appliedGiftCard && state.appliedGiftCard.balance) {
-      gcDiscount = Math.min(sub, state.appliedGiftCard.balance);
-      finalDue = Math.max(0, sub - gcDiscount);
+      gcDiscount =
+        Math.round(Math.min(sub + shippingCost, Number(state.appliedGiftCard.balance) || 0) * 100) /
+        100;
     }
+    var estimatedTotal = Math.max(0, Math.round((sub + shippingCost - gcDiscount) * 100) / 100);
 
     var giftCardHTML =
       '<div class="yl-cart-giftcard-wrap">' +
@@ -1528,16 +1785,21 @@
       '<div class="yl-cart-subtotal"><span>Subtotal</span><strong>' +
       money(sub) +
       "</strong></div>" +
+      '<div class="yl-cart-subtotal yl-cart-total-shipping"><span>Shipping</span><strong>' +
+      (shippingCost > 0 ? money(shippingCost) : "Free") +
+      "</strong></div>" +
       (gcDiscount > 0
         ? '<div class="yl-cart-discount-line"><span>Gift Card Discount (' +
           escapeHtml(state.appliedGiftCard.code) +
           ")</span><strong>-" +
           money(gcDiscount) +
-          "</strong></div>" +
-          '<div class="yl-cart-subtotal yl-cart-total-due" style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 6px; padding-top: 6px;"><span>Total Due</span><strong>' +
-          money(finalDue) +
           "</strong></div>"
-        : "");
+        : "") +
+      /* "Total Due" promised a final number this page cannot know: sales tax
+         is calculated by Stripe against the address collected at checkout. */
+      '<div class="yl-cart-subtotal yl-cart-total-due" style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 6px; padding-top: 6px;"><span>Estimated total (before tax)</span><strong>' +
+      money(estimatedTotal) +
+      "</strong></div>";
 
     var shareCartHTML = "";
     if (enableShareCart) {
@@ -1550,6 +1812,10 @@
         "</div>";
     }
 
+    var storageNoticeHTML = state.storageNotice
+      ? '<p class="yl-cart-storage-notice">' + escapeHtml(state.storageNotice) + "</p>"
+      : "";
+
     footEl.innerHTML =
       upsellHTML() +
       volumeNudgesHTML +
@@ -1559,11 +1825,31 @@
       shipHTML +
       giftCardHTML +
       totalsHTML +
-      '<button type="button" class="btn btn-primary btn-block yl-cart-checkout">Checkout</button>' +
+      '<button type="button" class="btn btn-primary btn-block yl-cart-checkout"' +
+      (checkoutInFlight ? " disabled" : "") +
+      ">" +
+      (checkoutInFlight ? "Redirecting…" : "Checkout") +
+      "</button>" +
       shareCartHTML +
+      storageNoticeHTML +
       '<p class="yl-cart-note">Promo codes, gift cards &amp; taxes applied at checkout.</p>';
 
-    footEl.querySelector(".yl-cart-checkout").addEventListener("click", checkout);
+    var checkoutBtn = footEl.querySelector(".yl-cart-checkout");
+    if (checkoutBtn) {
+      /* A render triggered while the checkout request is still in flight (a
+         cross-tab storage event, a quantity change) used to hand back a fresh,
+         enabled Checkout button -- a second click then opened a second Stripe
+         session for the same cart. The disabled state belongs to the request,
+         so re-apply it on every render, not just at click time. */
+      if (checkoutInFlight) {
+        checkoutBtn.disabled = true;
+        checkoutBtn.textContent = "Redirecting…";
+      } else {
+        checkoutBtn.disabled = false;
+        checkoutBtn.textContent = "Checkout";
+      }
+      checkoutBtn.addEventListener("click", checkout);
+    }
 
     var gcToggleBtn = footEl.querySelector(".yl-cart-giftcard-toggle");
     if (gcToggleBtn) {
@@ -1594,13 +1880,7 @@
       checkGiftCardBalance(code)
         .then(function (data) {
           state.giftCardLoading = false;
-          if (data && data.valid && data.balance > 0) {
-            state.appliedGiftCard = data;
-            state.giftCardOpen = false;
-            save();
-            render();
-            announce("Gift card " + data.code + " applied (" + money(data.balance) + " available)");
-          } else {
+          if (!applyGiftCard(data)) {
             state.giftCardError = (data && data.error) || "Gift card code not found or exhausted.";
             render();
           }
@@ -1634,14 +1914,6 @@
       });
     }
 
-    var redeemBtns = footEl.querySelectorAll(".yl-cart-redeem-btn");
-    redeemBtns.forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        var pts = parseInt(btn.getAttribute("data-redeem-points") || "100", 10);
-        redeemLoyaltyPoints(pts).catch(function () {});
-      });
-    });
-
     var giftOrderCb = footEl.querySelector("#yl-cart-giftorder-checkbox");
     var giftMsgInput = footEl.querySelector("#yl-cart-giftmessage-input");
     if (giftOrderCb) {
@@ -1649,6 +1921,10 @@
         state.isGiftOrder = giftOrderCb.checked;
         save();
         render();
+        restoreFooterFocus("#yl-cart-giftorder-checkbox");
+        announce(
+          state.isGiftOrder ? "Gift order on. A gift note can be added below." : "Gift order off."
+        );
       });
     }
     if (giftMsgInput) {
@@ -1688,16 +1964,27 @@
         if (pickupContainer) {
           pickupContainer.style.display = state.isPickup ? "block" : "none";
         }
-        if (pickupSelect) {
+        if (pickupSelect && pickupSelect.value) {
           state.pickupMarket = pickupSelect.value;
         }
+        save();
         render();
+        restoreFooterFocus("#yl-cart-pickup-checkbox");
+        announce(
+          state.isPickup
+            ? "Local market pick-up selected. Shipping is free" +
+                (state.pickupMarket ? ": " + state.pickupMarket : "") +
+                "."
+            : "Local market pick-up deselected. Shipping applies."
+        );
       });
     }
 
     if (pickupSelect) {
       pickupSelect.addEventListener("change", function () {
         state.pickupMarket = pickupSelect.value;
+        save();
+        announce("Pick-up market set to " + state.pickupMarket + ".");
       });
     }
 
@@ -1879,14 +2166,36 @@
     render();
   }
 
+  /* One checkout request at a time, ever. The old guard was the button's own
+     disabled attribute, which every re-render threw away: a storage event or
+     a quantity change mid-request handed back an enabled button, and a second
+     click created a second Stripe session (two holds on the same card, two
+     order emails). The flag lives out here instead, where nothing can
+     re-render it away, and render() reads it back. */
+  var checkoutInFlight = false;
+  var CHECKOUT_TIMEOUT_MS = 20000;
+  var GENERIC_CHECKOUT_ERROR =
+    "Sorry -- checkout isn't available right now. Please try again in a moment.";
+
   function checkout() {
     if (!state.items.length) return;
+    if (checkoutInFlight) return;
+    checkoutInFlight = true;
+
     var btn = footEl.querySelector(".yl-cart-checkout");
     if (btn) {
       btn.disabled = true;
       btn.textContent = "Redirecting…";
     }
-    fetch(CHECKOUT_URL, {
+
+    /* Without a deadline a hung Worker left the button on "Redirecting…"
+       forever with no way back. */
+    var controller = typeof AbortController === "function" ? new AbortController() : null;
+    var timer = setTimeout(function () {
+      if (controller) controller.abort();
+    }, CHECKOUT_TIMEOUT_MS);
+
+    var opts = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(
@@ -1898,26 +2207,55 @@
           state.giftMessage
         )
       )
-    })
-      .then(function (r) {
-        return r.json();
+    };
+    if (controller) opts.signal = controller.signal;
+
+    function settle() {
+      clearTimeout(timer);
+      checkoutInFlight = false;
+    }
+
+    fetch(CHECKOUT_URL, opts)
+      .then(function (res) {
+        return readJsonSafely(res).then(function (data) {
+          return { res: res, data: data };
+        });
       })
-      .then(function (data) {
-        if (data && data.url) {
+      .then(function (out) {
+        var res = out.res;
+        var data = out.data;
+        if (res && res.ok && data && data.url) {
+          settle();
           window.location = data.url;
-        } else {
-          throw new Error((data && data.error) || "Checkout unavailable");
+          return;
         }
+        /* The Worker answers 400 with curated, shopper-safe text ("That gift
+           card has already been used", "Pick-up market is no longer
+           available"). Showing the house "try again in a moment" for those
+           told the shopper to retry something that will never succeed. Any
+           other status is an infrastructure problem whose message is not
+           ours to show. */
+        var err = new Error("Checkout unavailable");
+        if (
+          res &&
+          res.status === 400 &&
+          data &&
+          typeof data.error === "string" &&
+          data.error.trim()
+        ) {
+          err.shopperMessage = data.error.trim();
+        }
+        throw err;
       })
       .catch(function (err) {
-        if (btn) {
-          btn.disabled = false;
-          btn.textContent = "Checkout";
-        }
-        announce("Checkout error: " + err.message);
-        showCheckoutError(
-          "Sorry -- checkout isn't available right now. Please try again in a moment."
-        );
+        settle();
+        /* render() re-enables the button from checkoutInFlight, so the drawer
+           recovers even if this render replaced the node the click came
+           from. */
+        render();
+        var msg = (err && err.shopperMessage) || GENERIC_CHECKOUT_ERROR;
+        announce("Checkout error: " + msg);
+        showCheckoutError(msg);
       });
   }
 
@@ -1925,6 +2263,13 @@
     state.items = [];
     state.isGiftOrder = false;
     state.giftMessage = "";
+    /* An emptied cart used to keep its applied gift card, so the next order
+       opened with someone else's (or an already-spent) code attached and a
+       discount line against a $0 subtotal. save() drops the key with it. */
+    state.appliedGiftCard = null;
+    state.giftCardOpen = false;
+    state.giftCardError = "";
+    state.storageNotice = "";
     save();
     render();
   }
@@ -2017,53 +2362,32 @@
     announce(itemsArray.length + " items added to cart");
   }
 
-  function redeemLoyaltyPoints(points) {
-    var pts = parseInt(points, 10) || 100;
-    var currentBal = getWalletPoints();
-    if (currentBal < pts) {
-      state.pointsError = "You need at least " + pts + " Alt-Points in your wallet to redeem.";
-      render();
-      return Promise.reject(new Error("Insufficient Alt-Points"));
-    }
-    state.pointsRedeeming = true;
-    state.pointsError = "";
+  /* The one supported way to attach a gift card to the cart. gift-card.js
+     used to write yl_applied_gift_card straight into localStorage and hope
+     the drawer picked it up: it stored the whole balance response, it wrote
+     an unvalidated shape, and in the same tab nothing re-read storage, so the
+     card only appeared after a reload. */
+  function applyGiftCard(gc) {
+    var normalized = normalizeGiftCard(gc);
+    if (!normalized) return false;
+    state.appliedGiftCard = normalized;
+    state.giftCardOpen = false;
+    state.giftCardError = "";
+    save();
     render();
+    announce(
+      "Gift card " + normalized.code + " applied (" + money(normalized.balance) + " available)"
+    );
+    return true;
+  }
 
-    return redeemPoints(pts)
-      .then(function (data) {
-        state.pointsRedeeming = false;
-        if (data && data.code) {
-          var newBal = setWalletPoints(currentBal - pts);
-          var discountAmount = Number(data.balance) || (pts === 100 ? 5.0 : (pts / 100) * 5.0);
-          state.appliedGiftCard = {
-            code: data.code,
-            balance: discountAmount,
-            valid: true
-          };
-          save();
-          render();
-          announce(
-            "Redeemed " +
-              pts +
-              " points! Reward " +
-              data.code +
-              " applied (-$" +
-              discountAmount.toFixed(2) +
-              "). New balance: " +
-              newBal +
-              " points."
-          );
-          return data;
-        } else {
-          throw new Error((data && data.error) || "Could not redeem Alt-Points.");
-        }
-      })
-      .catch(function (err) {
-        state.pointsRedeeming = false;
-        state.pointsError = err.message || "Could not redeem Alt-Points.";
-        render();
-        throw err;
-      });
+  /* Kept on the public surface so an old inline handler or a cached page
+     gets a rejected promise rather than a TypeError. It never touches the
+     network: redeem-points answers 410 and mints nothing, and deducting the
+     wallet balance for a voucher that will never exist is worse than doing
+     nothing at all. */
+  function redeemLoyaltyPoints() {
+    return Promise.reject(new Error(REDEEM_UNAVAILABLE));
   }
 
   function restoreCartFromUrl(searchStr) {
@@ -2124,6 +2448,10 @@
     load();
     ensureDrawer();
     updateBadges();
+    if (state.loadNotice) {
+      announce(state.loadNotice);
+      state.loadNotice = "";
+    }
 
     var siteCfg = (root.YL_CONTENT && root.YL_CONTENT.site) || {};
     if (siteCfg.enableShareCart !== false) {
@@ -2162,8 +2490,12 @@
     // Cross-tab sync: when the cart changes in another tab, this tab's
     // localStorage fires a `storage` event -- reload state and re-render so
     // the badge/drawer never show stale counts across tabs.
+    /* Only the items key was watched, so applying a gift card or ticking
+       "this is a gift" in one tab left every other tab showing the old
+       totals -- and a null key (localStorage.clear()) went unnoticed
+       entirely. Re-read on anything load() reads. */
     window.addEventListener("storage", function (e) {
-      if (e.key === STORAGE_KEY) {
+      if (!e || e.key === null || e.key === undefined || SYNCED_KEYS.indexOf(e.key) !== -1) {
         load();
         render();
         updateBadges();
@@ -2202,6 +2534,7 @@
     addItem: addItem,
     addItems: addItems,
     addCustomBox: addCustomBox,
+    applyGiftCard: applyGiftCard,
     getWalletPoints: getWalletPoints,
     setWalletPoints: setWalletPoints,
     redeemLoyaltyPoints: redeemLoyaltyPoints,
