@@ -3,7 +3,7 @@
  *
  * Runs comprehensive Puppeteer tests covering:
  * - Wishlist drawer state handling (toggle, add, remove, badge count, empty state, localStorage persistence)
- * - Alt-points calculator & loyalty total verification across multiple cart items
+ * - Cart drawer money math, and that the withdrawn Alt-Points counter stays withdrawn
  * - Multi-page responsiveness & scroll overflow checks across 3 viewports (Desktop, Tablet, Mobile)
  * - Comprehensive internal link integrity crawling across all static HTML pages
  */
@@ -234,19 +234,36 @@ function createStaticServer(port = 8083) {
       await page.evaluate((b) => b.click(), addButtons[1]);
       await new Promise((r) => setTimeout(r, 400));
 
-      const expectedTotalPoints = Math.floor(price1 + price2);
-      const displayedPoints = await page
-        .$eval("#cart-points-count", (el) => parseInt(el.textContent.trim(), 10))
-        .catch(() => 0);
-
-      if (displayedPoints === expectedTotalPoints) {
+      /* The drawer used to show an Alt-Points total, and this checked its
+         arithmetic. Nothing ever credited those points and the redeem endpoint
+         that spent them minted real Stripe credit for anyone who asked (audit
+         C-1), so the counter is gone until a server-side ledger exists. The
+         section now asserts what replaced it: the counter really is absent,
+         and the money the drawer DOES quote is right. */
+      const pointsCounterPresent = await page.$("#cart-points-count");
+      if (pointsCounterPresent) {
         console.log(
-          `✅ Alt-Points total accurately calculated for multiple items (${displayedPoints} pts for $${price1}+$${price2}).`
+          "❌ #cart-points-count is back in the cart drawer -- nothing credits Alt-Points."
+        );
+        exitCode = 1;
+      } else {
+        console.log("✅ Cart drawer shows no Alt-Points counter (feature is off end to end).");
+        metrics.altPointsTestsPassed++;
+      }
+
+      const expectedSubtotal = Math.round((price1 + price2) * 100) / 100;
+      const subtotalText = await page
+        .$eval(".yl-cart-subtotal strong", (el) => el.textContent.trim())
+        .catch(() => null);
+      const subtotalValue = subtotalText ? parseFloat(subtotalText.replace(/[^0-9.]/g, "")) : NaN;
+      if (Math.abs(subtotalValue - expectedSubtotal) < 0.005) {
+        console.log(
+          `✅ Cart drawer subtotal is correct for multiple items (${subtotalText} for $${price1}+$${price2}).`
         );
         metrics.altPointsTestsPassed++;
       } else {
         console.log(
-          `❌ Alt-Points calculation error: expected ${expectedTotalPoints}, got ${displayedPoints}.`
+          `❌ Cart drawer subtotal wrong: expected $${expectedSubtotal.toFixed(2)}, got ${subtotalText}.`
         );
         exitCode = 1;
       }

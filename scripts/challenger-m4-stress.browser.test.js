@@ -6,7 +6,7 @@
  * 3. Featured product card resolution: aliases, substring matches, missing/invalid IDs, sold-out items, XSS attributes, 1-click cart integration.
  * 4. End-to-end headless browser interaction tests on journal.html (tag filtering, detail navigation, 1-click add-to-cart).
  *
- * Run: node scripts/challenger-m4-stress.test.js
+ * Run: node scripts/challenger-m4-stress.browser.test.js
  */
 
 /* global window, document, navigator */
@@ -18,6 +18,20 @@ const puppeteer = require("puppeteer");
 const buildScript = require("./build-site-data.js");
 
 const ROOT = path.resolve(__dirname, "..");
+
+/**
+ * The Apothecary Journal is a content switch, not a permanent feature: with
+ * site.enableJournal off, the build emits no posts into journal-data.js,
+ * search-data.js or feed.xml, and journal.html renders a "coming soon" notice.
+ * Every journal expectation below is read off this flag rather than
+ * hard-coded, so the suite asserts the state the site is actually in -- both
+ * the gated one (nothing published) and the live one -- instead of failing the
+ * moment the switch is flipped either way.
+ */
+const JOURNAL_ENABLED =
+  JSON.parse(fs.readFileSync(path.join(ROOT, "assets/data/content.json"), "utf8")).site
+    .enableJournal === true;
+
 let passed = 0;
 let failed = 0;
 const findings = [];
@@ -268,9 +282,31 @@ async function runAllTests() {
     "Channel contains Atom self link"
   );
 
-  // Check date formatting in items
+  // Check date formatting in items. The only <item> elements in this feed are
+  // journal posts, so when the journal is gated off the correct number of them
+  // is zero -- asserting ">= 2" unconditionally would demand that a switched-off
+  // feature keep publishing.
+  const feedItemMatches = feedXmlContent.match(/<item>/g) || [];
   const pubDateMatches = feedXmlContent.match(/<pubDate>([^<]+)<\/pubDate>/g) || [];
-  assert(pubDateMatches.length >= 2, `feed.xml contains ${pubDateMatches.length} <pubDate> items`);
+  if (JOURNAL_ENABLED) {
+    assert(
+      feedItemMatches.length >= 2,
+      `feed.xml publishes ${feedItemMatches.length} <item> entries while the journal is on`
+    );
+    assert(
+      pubDateMatches.length >= 2,
+      `feed.xml contains ${pubDateMatches.length} <pubDate> items`
+    );
+  } else {
+    assert(
+      feedItemMatches.length === 0,
+      `feed.xml publishes no <item> entries while the journal is gated off (found ${feedItemMatches.length})`
+    );
+    assert(
+      pubDateMatches.length === 0,
+      `feed.xml contains no item <pubDate> while the journal is gated off (found ${pubDateMatches.length})`
+    );
+  }
   pubDateMatches.forEach((matchStr) => {
     const rawDate = matchStr.replace(/<\/?pubDate>/g, "").trim();
     const parsedTime = Date.parse(rawDate);
@@ -281,12 +317,19 @@ async function runAllTests() {
     );
   });
 
-  // Check categories in items
+  // Check categories in items (journal post tags -- gated with the posts).
   const categoryMatches = feedXmlContent.match(/<category>([^<]+)<\/category>/g) || [];
-  assert(
-    categoryMatches.length >= 3,
-    `feed.xml contains ${categoryMatches.length} <category> items`
-  );
+  if (JOURNAL_ENABLED) {
+    assert(
+      categoryMatches.length >= 3,
+      `feed.xml contains ${categoryMatches.length} <category> items`
+    );
+  } else {
+    assert(
+      categoryMatches.length === 0,
+      `feed.xml contains no <category> items while the journal is gated off (found ${categoryMatches.length})`
+    );
+  }
 
   // 1.2 Adversarial Fuzzing of generateRssFeed()
   console.log("\n--- 1.2 Fuzzing generateRssFeed() with Malicious & Corrupted Data ---");
@@ -701,166 +744,193 @@ async function runAllTests() {
       { name: "Mobile", width: 375, height: 667 }
     ];
 
-    // 4.0 Test Coming Soon notice when enableJournal is false (default content.json state)
-    console.log("\n  --- 4.0 Testing Coming Soon state when enableJournal: false ---");
-    await page.goto(`http://127.0.0.1:${PORT}/journal.html`, { waitUntil: "networkidle0" });
-    const comingSoonText = await page.$eval("#journalApp", (el) => el.textContent.trim());
-    assert(
-      comingSoonText.includes("Journal Coming Soon"),
-      "Default journal.html displays 'Journal Coming Soon' when enableJournal is false"
+    // 4.0 journal.html reflects the site.enableJournal switch
+    console.log(
+      `\n  --- 4.0 Testing journal.html with site.enableJournal = ${JOURNAL_ENABLED} ---`
     );
-
-    // 4.1 Enable Journal flag for interactive testing
-    console.log("\n  --- 4.1 Testing Active Journal state (enableJournal: true) ---");
-    await page.evaluateOnNewDocument(() => {
-      // Intercept window.YL_CONTENT to force enableJournal = true
-      let originalContent = window.YL_CONTENT;
-      Object.defineProperty(window, "YL_CONTENT", {
-        get() {
-          if (originalContent && originalContent.site) {
-            originalContent.site.enableJournal = true;
-          }
-          return originalContent;
-        },
-        set(val) {
-          originalContent = val;
-          if (originalContent && originalContent.site) {
-            originalContent.site.enableJournal = true;
-          }
-        }
-      });
-    });
-
-    for (const vp of viewports) {
-      await page.setViewport({ width: vp.width, height: vp.height });
-      await page.goto(`http://127.0.0.1:${PORT}/journal.html`, { waitUntil: "networkidle0" });
-
-      // Check list view rendering
-      const cardsCount = await page.$$eval(".grid .card", (cards) => cards.length);
-      assert(cardsCount >= 2, `[${vp.name}] journal.html renders ${cardsCount} article cards`);
-
-      const readingTimesCount = await page.$$eval(".journal-reading-time", (els) => els.length);
+    await page.goto(`http://127.0.0.1:${PORT}/journal.html`, { waitUntil: "networkidle0" });
+    const journalAppText = await page.$eval("#journalApp", (el) => el.textContent.trim());
+    if (JOURNAL_ENABLED) {
       assert(
-        readingTimesCount >= 2,
-        `[${vp.name}] Article cards display reading time badges with clock icon`
+        !journalAppText.includes("Journal Coming Soon"),
+        "journal.html renders the article list while enableJournal is true"
       );
-
-      const tagButtonsCount = await page.$$eval(".journal-tag-pill", (els) => els.length);
+    } else {
       assert(
-        tagButtonsCount >= 4,
-        `[${vp.name}] Article cards render interactive tag pill buttons (found ${tagButtonsCount})`
+        journalAppText.includes("Journal Coming Soon"),
+        "journal.html displays 'Journal Coming Soon' while enableJournal is false"
       );
     }
 
-    // 4.2 Test Tag Filter Interaction in browser
-    console.log("\n  --- Testing Interactive Tag Filtering in Browser ---");
-    await page.goto(`http://127.0.0.1:${PORT}/journal.html`, { waitUntil: "networkidle0" });
-
-    // Click on the 'Apothecary' tag
-    await page.evaluate(() => {
-      const tagBtn = Array.from(document.querySelectorAll(".journal-tag")).find(
-        (b) => b.getAttribute("data-tag") === "Apothecary"
+    // 4.1 - 4.4 only exist while the journal is published. With the switch
+    // off the build emits zero posts, so there is nothing to filter, open or
+    // add to a cart -- assert the gated state instead of driving a UI that is
+    // deliberately not there.
+    if (!JOURNAL_ENABLED) {
+      const journalData = fs.readFileSync(path.join(ROOT, "assets/js/journal-data.js"), "utf8");
+      const postsBlock = journalData.match(/"posts":\s*\[([\s\S]*?)\]/);
+      assert(
+        Boolean(postsBlock) && postsBlock[1].trim() === "",
+        "journal-data.js publishes no posts while site.enableJournal is false"
       );
-      if (tagBtn) tagBtn.click();
-    });
-
-    await new Promise((r) => setTimeout(r, 100));
-
-    // Verify filter banner is visible
-    const filterBannerText = await page.$eval(".journal-filter-banner", (el) =>
-      el.textContent.trim()
-    );
-    assert(
-      filterBannerText.includes("Showing articles tagged with: Apothecary"),
-      "Filter banner displays active tag 'Apothecary'"
-    );
-
-    // Verify filtered card count
-    const filteredCount = await page.$$eval(".grid .card", (cards) => cards.length);
-    eq(filteredCount, 1, "Tag filter narrows list to 1 matching article for 'Apothecary'");
-
-    // Click Clear Filter button
-    await page.click("#journalClearFilter");
-    await new Promise((r) => setTimeout(r, 100));
-
-    const restoredCount = await page.$$eval(".grid .card", (cards) => cards.length);
-    assert(restoredCount >= 2, "Clearing filter restores all journal articles");
-
-    // 4.3 Test Article Detail Navigation & Featured Card 1-Click Cart Addition
-    console.log("\n  --- Testing Detail View & Featured Card 1-Click Cart Integration ---");
-    await page.goto(`http://127.0.0.1:${PORT}/journal.html#post-magnesium-salve-benefits`, {
-      waitUntil: "networkidle0"
-    });
-    await new Promise((r) => setTimeout(r, 150));
-
-    // Verify detail elements
-    const detailTitle = await page.$eval(".journal-detail h2", (el) => el.textContent.trim());
-    assert(
-      detailTitle.includes("Why Magnesium & Arnica Belong in Your Bedtime Routine"),
-      "Detail view displays article title"
-    );
-
-    const detailReadTime = await page.$eval(".journal-detail .journal-reading-time", (el) =>
-      el.textContent.trim()
-    );
-    assert(
-      detailReadTime.includes("min read"),
-      `Detail view displays estimated reading time: "${detailReadTime}"`
-    );
-
-    const detailTagsCount = await page.$$eval(
-      ".journal-detail-tags .journal-tag",
-      (tags) => tags.length
-    );
-    assert(detailTagsCount >= 3, `Detail view renders ${detailTagsCount} topical tags`);
-
-    // Verify Featured Product Card
-    const featuredCardExists = await page.$eval(".journal-featured-card", (el) => !!el);
-    assert(featuredCardExists, "Detail view renders inline .journal-featured-card");
-
-    const featuredTitle = await page.$eval(".journal-featured-title", (el) =>
-      el.textContent.trim()
-    );
-    assert(
-      featuredTitle.includes("Magnesium Arnica Sleep Salve"),
-      `Featured product card title: "${featuredTitle}"`
-    );
-
-    // Click '+ Add to Cart' button on featured card
-    console.log("  Triggering 1-Click Add to Cart from featured card...");
-    await page.click(".journal-featured-action .yl-add-item");
-    await new Promise((r) => setTimeout(r, 200));
-
-    // Check cart drawer open state
-    const isCartDrawerOpen = await page.$eval("#yl-cart-drawer", (drawer) => {
-      return (
-        drawer.matches(":popover-open") ||
-        drawer.getAttribute("data-open") === "true" ||
-        window.getComputedStyle(drawer).display !== "none"
+      const journalHtml = fs.readFileSync(path.join(ROOT, "journal.html"), "utf8");
+      assert(
+        journalHtml.includes('<meta name="robots" content="noindex'),
+        "journal.html is noindex while the journal is gated off"
       );
-    });
-    assert(isCartDrawerOpen, "1-Click Add to Cart opens the cart drawer (#yl-cart-drawer)");
+    } else {
+      // 4.1 Enable Journal flag for interactive testing
+      console.log("\n  --- 4.1 Testing Active Journal state (enableJournal: true) ---");
+      await page.evaluateOnNewDocument(() => {
+        // Intercept window.YL_CONTENT to force enableJournal = true
+        let originalContent = window.YL_CONTENT;
+        Object.defineProperty(window, "YL_CONTENT", {
+          get() {
+            if (originalContent && originalContent.site) {
+              originalContent.site.enableJournal = true;
+            }
+            return originalContent;
+          },
+          set(val) {
+            originalContent = val;
+            if (originalContent && originalContent.site) {
+              originalContent.site.enableJournal = true;
+            }
+          }
+        });
+      });
 
-    // Check cart items in drawer
-    const cartItemNames = await page.$$eval(".yl-cart-name", (els) =>
-      els.map((e) => e.textContent.trim())
-    );
-    assert(
-      cartItemNames.some((name) => name.includes("Sleep Salve") || name.includes("Magnesium")),
-      `Featured product was successfully added to cart drawer items: [${cartItemNames.join(", ")}]`
-    );
+      for (const vp of viewports) {
+        await page.setViewport({ width: vp.width, height: vp.height });
+        await page.goto(`http://127.0.0.1:${PORT}/journal.html`, { waitUntil: "networkidle0" });
 
-    // Close cart drawer before navigating back
-    console.log("  Closing cart drawer via Escape...");
-    await page.keyboard.press("Escape");
-    await new Promise((r) => setTimeout(r, 150));
+        // Check list view rendering
+        const cardsCount = await page.$$eval(".grid .card", (cards) => cards.length);
+        assert(cardsCount >= 2, `[${vp.name}] journal.html renders ${cardsCount} article cards`);
 
-    // 4.4 Verify Back to Journal button
-    console.log("  Clicking '← Back to Journal' button...");
-    await page.click("#journalBackBtn");
-    await new Promise((r) => setTimeout(r, 150));
-    const isListViewRestored = await page.$$eval(".grid .card", (cards) => cards.length >= 2);
-    assert(isListViewRestored, "'← Back to Journal' button restores article list view");
+        const readingTimesCount = await page.$$eval(".journal-reading-time", (els) => els.length);
+        assert(
+          readingTimesCount >= 2,
+          `[${vp.name}] Article cards display reading time badges with clock icon`
+        );
+
+        const tagButtonsCount = await page.$$eval(".journal-tag-pill", (els) => els.length);
+        assert(
+          tagButtonsCount >= 4,
+          `[${vp.name}] Article cards render interactive tag pill buttons (found ${tagButtonsCount})`
+        );
+      }
+
+      // 4.2 Test Tag Filter Interaction in browser
+      console.log("\n  --- Testing Interactive Tag Filtering in Browser ---");
+      await page.goto(`http://127.0.0.1:${PORT}/journal.html`, { waitUntil: "networkidle0" });
+
+      // Click on the 'Apothecary' tag
+      await page.evaluate(() => {
+        const tagBtn = Array.from(document.querySelectorAll(".journal-tag")).find(
+          (b) => b.getAttribute("data-tag") === "Apothecary"
+        );
+        if (tagBtn) tagBtn.click();
+      });
+
+      await new Promise((r) => setTimeout(r, 100));
+
+      // Verify filter banner is visible
+      const filterBannerText = await page.$eval(".journal-filter-banner", (el) =>
+        el.textContent.trim()
+      );
+      assert(
+        filterBannerText.includes("Showing articles tagged with: Apothecary"),
+        "Filter banner displays active tag 'Apothecary'"
+      );
+
+      // Verify filtered card count
+      const filteredCount = await page.$$eval(".grid .card", (cards) => cards.length);
+      eq(filteredCount, 1, "Tag filter narrows list to 1 matching article for 'Apothecary'");
+
+      // Click Clear Filter button
+      await page.click("#journalClearFilter");
+      await new Promise((r) => setTimeout(r, 100));
+
+      const restoredCount = await page.$$eval(".grid .card", (cards) => cards.length);
+      assert(restoredCount >= 2, "Clearing filter restores all journal articles");
+
+      // 4.3 Test Article Detail Navigation & Featured Card 1-Click Cart Addition
+      console.log("\n  --- Testing Detail View & Featured Card 1-Click Cart Integration ---");
+      await page.goto(`http://127.0.0.1:${PORT}/journal.html#post-magnesium-salve-benefits`, {
+        waitUntil: "networkidle0"
+      });
+      await new Promise((r) => setTimeout(r, 150));
+
+      // Verify detail elements
+      const detailTitle = await page.$eval(".journal-detail h2", (el) => el.textContent.trim());
+      assert(
+        detailTitle.includes("Why Magnesium & Arnica Belong in Your Bedtime Routine"),
+        "Detail view displays article title"
+      );
+
+      const detailReadTime = await page.$eval(".journal-detail .journal-reading-time", (el) =>
+        el.textContent.trim()
+      );
+      assert(
+        detailReadTime.includes("min read"),
+        `Detail view displays estimated reading time: "${detailReadTime}"`
+      );
+
+      const detailTagsCount = await page.$$eval(
+        ".journal-detail-tags .journal-tag",
+        (tags) => tags.length
+      );
+      assert(detailTagsCount >= 3, `Detail view renders ${detailTagsCount} topical tags`);
+
+      // Verify Featured Product Card
+      const featuredCardExists = await page.$eval(".journal-featured-card", (el) => !!el);
+      assert(featuredCardExists, "Detail view renders inline .journal-featured-card");
+
+      const featuredTitle = await page.$eval(".journal-featured-title", (el) =>
+        el.textContent.trim()
+      );
+      assert(
+        featuredTitle.includes("Magnesium Arnica Sleep Salve"),
+        `Featured product card title: "${featuredTitle}"`
+      );
+
+      // Click '+ Add to Cart' button on featured card
+      console.log("  Triggering 1-Click Add to Cart from featured card...");
+      await page.click(".journal-featured-action .yl-add-item");
+      await new Promise((r) => setTimeout(r, 200));
+
+      // Check cart drawer open state
+      const isCartDrawerOpen = await page.$eval("#yl-cart-drawer", (drawer) => {
+        return (
+          drawer.matches(":popover-open") ||
+          drawer.getAttribute("data-open") === "true" ||
+          window.getComputedStyle(drawer).display !== "none"
+        );
+      });
+      assert(isCartDrawerOpen, "1-Click Add to Cart opens the cart drawer (#yl-cart-drawer)");
+
+      // Check cart items in drawer
+      const cartItemNames = await page.$$eval(".yl-cart-name", (els) =>
+        els.map((e) => e.textContent.trim())
+      );
+      assert(
+        cartItemNames.some((name) => name.includes("Sleep Salve") || name.includes("Magnesium")),
+        `Featured product was successfully added to cart drawer items: [${cartItemNames.join(", ")}]`
+      );
+
+      // Close cart drawer before navigating back
+      console.log("  Closing cart drawer via Escape...");
+      await page.keyboard.press("Escape");
+      await new Promise((r) => setTimeout(r, 150));
+
+      // 4.4 Verify Back to Journal button
+      console.log("  Clicking '← Back to Journal' button...");
+      await page.click("#journalBackBtn");
+      await new Promise((r) => setTimeout(r, 150));
+      const isListViewRestored = await page.$$eval(".grid .card", (cards) => cards.length >= 2);
+      assert(isListViewRestored, "'← Back to Journal' button restores article list view");
+    }
   } finally {
     if (browser) await browser.close();
     server.close();

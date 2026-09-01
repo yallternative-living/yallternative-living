@@ -412,8 +412,15 @@ function recordFail(msg) {
     // Verify cart state
     const cartItems = await page.evaluate(() => {
       try {
-        const raw = localStorage.getItem("yl-cart-v1");
-        return JSON.parse(raw || "[]");
+        /* The cart persists {version, items} now, migrating from the bare array it
+           used to write. Every read below accepts either shape, so the suite keeps
+           working across the migration instead of silently seeing an empty cart --
+           `parsed.length` on the new object is undefined, which reads as "cart empty"
+           and would have turned real regressions into passes. */
+        return (function () {
+          const p = JSON.parse(localStorage.getItem("yl-cart-v1") || "[]");
+          return Array.isArray(p) ? p : Array.isArray(p.items) ? p.items : [];
+        })();
       } catch (e) {
         return null;
       }
@@ -869,8 +876,10 @@ function recordFail(msg) {
     // Verify cart state updated with 1oz Frankincense Salve at $13.99
     const cartStateAfter1oz = await page.evaluate(() => {
       try {
-        const raw = localStorage.getItem("yl-cart-v1");
-        const items = JSON.parse(raw || "[]");
+        const items = (function () {
+          const p = JSON.parse(localStorage.getItem("yl-cart-v1") || "[]");
+          return Array.isArray(p) ? p : Array.isArray(p.items) ? p.items : [];
+        })();
         return items[0] || null;
       } catch {
         return null;

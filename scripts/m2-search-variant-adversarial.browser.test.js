@@ -331,7 +331,15 @@ function recordFail(msg) {
       // Verify cart accumulated items
       const cartState = await page.evaluate(() => {
         try {
-          return JSON.parse(localStorage.getItem("yl-cart-v1") || "[]");
+          /* The cart persists {version, items} now, migrating from the bare array it
+             used to write. Every read below accepts either shape, so the suite keeps
+             working across the migration instead of silently seeing an empty cart --
+             `parsed.length` on the new object is undefined, which reads as "cart empty"
+             and would have turned real regressions into passes. */
+          return (function () {
+            const p = JSON.parse(localStorage.getItem("yl-cart-v1") || "[]");
+            return Array.isArray(p) ? p : Array.isArray(p.items) ? p.items : [];
+          })();
         } catch (e) {
           return [];
         }
@@ -364,7 +372,10 @@ function recordFail(msg) {
         await sleep(60);
 
         const cartCountAfterSpace = await page.evaluate(() => {
-          const items = JSON.parse(localStorage.getItem("yl-cart-v1") || "[]");
+          const items = (function () {
+            const p = JSON.parse(localStorage.getItem("yl-cart-v1") || "[]");
+            return Array.isArray(p) ? p : Array.isArray(p.items) ? p.items : [];
+          })();
           return items.reduce((sum, item) => sum + (item.qty || 1), 0);
         });
 
@@ -541,7 +552,10 @@ function recordFail(msg) {
     await sleep(100);
 
     let cartAfterClick = await page.evaluate(() =>
-      JSON.parse(localStorage.getItem("yl-cart-v1") || "[]")
+      (function () {
+        const p = JSON.parse(localStorage.getItem("yl-cart-v1") || "[]");
+        return Array.isArray(p) ? p : Array.isArray(p.items) ? p.items : [];
+      })()
     );
     if (cartAfterClick.length === 0) {
       recordPass("Direct click event on sold-out 'S' variant chip rejected; cart remains empty");
@@ -569,7 +583,10 @@ function recordFail(msg) {
     await sleep(100);
 
     let cartAfterKey = await page.evaluate(() =>
-      JSON.parse(localStorage.getItem("yl-cart-v1") || "[]")
+      (function () {
+        const p = JSON.parse(localStorage.getItem("yl-cart-v1") || "[]");
+        return Array.isArray(p) ? p : Array.isArray(p.items) ? p.items : [];
+      })()
     );
     if (cartAfterKey.length === 0) {
       recordPass("Enter/Space keypress on sold-out 'S' variant chip rejected; cart remains empty");
@@ -594,7 +611,10 @@ function recordFail(msg) {
     await sleep(100);
 
     let cartAfterProgClick = await page.evaluate(() =>
-      JSON.parse(localStorage.getItem("yl-cart-v1") || "[]")
+      (function () {
+        const p = JSON.parse(localStorage.getItem("yl-cart-v1") || "[]");
+        return Array.isArray(p) ? p : Array.isArray(p.items) ? p.items : [];
+      })()
     );
     if (cartAfterProgClick.length === 0) {
       recordPass("Programmatic .click() on sold-out 'S' variant chip rejected; cart remains empty");
@@ -615,7 +635,10 @@ function recordFail(msg) {
     await sleep(100);
 
     let cartAfterM = await page.evaluate(() =>
-      JSON.parse(localStorage.getItem("yl-cart-v1") || "[]")
+      (function () {
+        const p = JSON.parse(localStorage.getItem("yl-cart-v1") || "[]");
+        return Array.isArray(p) ? p : Array.isArray(p.items) ? p.items : [];
+      })()
     );
     if (
       cartAfterM.length === 1 &&
@@ -786,7 +809,10 @@ function recordFail(msg) {
     }
 
     const basketSummary = await page.evaluate(() => {
-      const items = JSON.parse(localStorage.getItem("yl-cart-v1") || "[]");
+      const items = (function () {
+        const p = JSON.parse(localStorage.getItem("yl-cart-v1") || "[]");
+        return Array.isArray(p) ? p : Array.isArray(p.items) ? p.items : [];
+      })();
       const subtotalVal = items.reduce((sum, it) => {
         const base =
           Math.round(Math.max(0, (Number(it.price) || 0) + (Number(it.variantDelta) || 0)) * 100) /

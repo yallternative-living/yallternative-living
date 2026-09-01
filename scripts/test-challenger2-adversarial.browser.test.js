@@ -5,8 +5,8 @@
  * Rigorously stress-tests:
  * 1. R2: Multi-facet filtering on shop.html (category + concern + scent + search + sort intersection,
  *    deep-linking URL params, reset button, zero layout shift / CLS).
- * 2. R3: Printable gift card certificate on thank-you.html (parameter parsing, alias params,
- *    print stylesheet verification, print and copy button behaviors, XSS resilience).
+ * 2. R3: the URL-parameter gift card certificate on thank-you.html stays deleted (audit H-7),
+ *    with no element of that UI reachable from query parameters alone).
  * 3. R6: Order status modal and reorder flow (DOM rendering, lookup validation, 1-click reorder to cart drawer,
  *    out-of-stock item handling, keyboard accessibility).
  */
@@ -280,173 +280,45 @@ function assert(condition, message) {
     }
 
     /* =========================================================================
-       SUITE 2: Printable Gift Card Certificate on thank-you.html (R3)
+       SUITE 2: The URL-parameter gift certificate stays deleted (was R3)
        ========================================================================= */
-    console.log("\n--- 2. Printable Gift Card Certificate on thank-you.html ---");
+    /* The printable gift certificate that used to live here rendered a
+       $500-looking certificate on the real domain from nothing but URL
+       parameters -- ?gift_code=&amount=&sender= -- while the Worker's success
+       URL never carried them, so a real purchase never produced one (audit
+       H-7). It was deleted rather than fixed. What is asserted instead is that
+       it stays deleted: no element of that UI may come back without a verified
+       session behind it. */
+    console.log("\n--- 2. URL-parameter gift certificate stays deleted ---");
     {
       const page = await browser.newPage();
-      await page.setViewport({ width: 1200, height: 800 });
-
-      // Case A: thank-you.html with NO gift certificate parameters -> Section remains hidden
-      await page.goto(`${baseUrl}/thank-you.html`, { waitUntil: "networkidle2" });
-      const sectionHiddenDefault = await page.$eval("#giftCertificateSection", (el) => el.hidden);
-      assert(
-        sectionHiddenDefault === true,
-        "giftCertificateSection is hidden by default when no gift_code param is present"
+      await page.goto(
+        `${baseUrl}/thank-you.html?gift_code=YALL-TEST-9988&amount=50000&sender=Attacker&recipient=Victim`,
+        { waitUntil: "networkidle2" }
       );
-
-      // Case B: thank-you.html with Full Query Parameters
-      const testParams = new URLSearchParams({
-        gift_code: "YALL-TEST-9988",
-        amount: "50.00",
-        recipient: "Savanna & Steven",
-        sender: "Aunt Maeve",
-        message: "Enjoy some soothing mountain salves, y'all!"
-      });
-      await page.goto(`${baseUrl}/thank-you.html?${testParams.toString()}`, {
-        waitUntil: "networkidle2"
-      });
-
-      const sectionVisible = await page.$eval("#giftCertificateSection", (el) => !el.hidden);
-      assert(
-        sectionVisible,
-        "giftCertificateSection becomes visible when gift_code param is present"
-      );
-
-      const codeVal = await page.$eval("#giftCertCode", (el) => el.textContent.trim());
-      const amountVal = await page.$eval("#giftCertValue", (el) => el.textContent.trim());
-      const recipientVal = await page.$eval("#giftCertRecipient", (el) => el.textContent.trim());
-      const senderVal = await page.$eval("#giftCertSender", (el) => el.textContent.trim());
-      const messageVal = await page.$eval("#giftCertMessage", (el) => el.textContent.trim());
-
-      assert(codeVal === "YALL-TEST-9988", `Certificate code correctly parsed: "${codeVal}"`);
-      assert(amountVal === "$50.00", `Certificate amount correctly formatted: "${amountVal}"`);
-      assert(
-        recipientVal === "Savanna & Steven",
-        `Certificate recipient correctly parsed: "${recipientVal}"`
-      );
-      assert(senderVal === "Aunt Maeve", `Certificate sender correctly parsed: "${senderVal}"`);
-      assert(
-        messageVal === "Enjoy some soothing mountain salves, y'all!",
-        `Certificate message correctly parsed: "${messageVal}"`
-      );
-
-      // Case C: Alias parameter mapping (code, to, from, note)
-      const aliasParams = new URLSearchParams({
-        code: "ALT-LUCKY-777",
-        to: "Taylor",
-        from: "Jordan",
-        note: "Have a blast"
-      });
-      await page.goto(`${baseUrl}/thank-you.html?${aliasParams.toString()}`, {
-        waitUntil: "networkidle2"
-      });
-      const aliasCode = await page.$eval("#giftCertCode", (el) => el.textContent.trim());
-      const aliasTo = await page.$eval("#giftCertRecipient", (el) => el.textContent.trim());
-      const aliasFrom = await page.$eval("#giftCertSender", (el) => el.textContent.trim());
-      const aliasNote = await page.$eval("#giftCertMessage", (el) => el.textContent.trim());
-
-      assert(aliasCode === "ALT-LUCKY-777", `Alias 'code' param parsed: "${aliasCode}"`);
-      assert(aliasTo === "Taylor", `Alias 'to' param parsed: "${aliasTo}"`);
-      assert(aliasFrom === "Jordan", `Alias 'from' param parsed: "${aliasFrom}"`);
-      assert(aliasNote === "Have a blast", `Alias 'note' param parsed: "${aliasNote}"`);
-
-      // Case D: Print button triggers window.print
-      await page.goto(`${baseUrl}/thank-you.html?gift_code=YALL-PRINT-1`, {
-        waitUntil: "networkidle2"
-      });
-      const printTriggered = await page.evaluate(() => {
-        let called = false;
-        const originalPrint = window.print;
-        window.print = () => {
-          called = true;
-        };
-        const btn = document.getElementById("printGiftCertBtn");
-        if (btn) btn.click();
-        window.print = originalPrint;
-        return called;
-      });
-      assert(printTriggered, "Clicking #printGiftCertBtn calls window.print()");
-
-      // Case E: Copy button interaction and feedback
-      const copySuccess = await page.evaluate(async () => {
-        const btn = document.getElementById("copyGiftCertCodeBtn");
-        const feedback = document.getElementById("giftCertCopyFeedback");
-        if (!btn) return false;
-        btn.click();
-        await new Promise((r) => setTimeout(r, 100));
-        return btn.textContent.includes("Copied") || (feedback && feedback.textContent.length > 0);
+      const remnants = await page.evaluate(() => {
+        const ids = [
+          "giftCertificateSection",
+          "giftCertificateCard",
+          "giftCertCode",
+          "giftCertValue",
+          "giftCertRecipient",
+          "giftCertSender",
+          "giftCertMessage",
+          "printGiftCertBtn",
+          "copyGiftCertCodeBtn"
+        ];
+        return ids.filter((id) => document.getElementById(id) !== null);
       });
       assert(
-        copySuccess,
-        "Clicking #copyGiftCertCodeBtn displays copied feedback and updates aria-live element"
+        remnants.length === 0,
+        `thank-you.html renders no URL-parameter gift certificate (found: ${remnants.join(", ") || "none"})`
       );
-
-      // Case F: Print Stylesheet (@media print) Verification
-      await page.emulateMediaType("print");
-      const printStyles = await page.evaluate(() => {
-        const certCard = document.getElementById("giftCertificateCard");
-        const header = document.querySelector(".site-header");
-        const footer = document.querySelector(".site-footer");
-        const thankYouCard = document.getElementById("thankYouCard");
-        const certSection = document.getElementById("giftCertificateSection");
-
-        const cardStyle = window.getComputedStyle(certCard);
-        const headerStyle = window.getComputedStyle(header);
-        const footerStyle = window.getComputedStyle(footer);
-        const thankYouCardStyle = window.getComputedStyle(thankYouCard);
-        const sectionStyle = window.getComputedStyle(certSection);
-
-        return {
-          sectionDisplay: sectionStyle.display,
-          headerDisplay: headerStyle.display,
-          footerDisplay: footerStyle.display,
-          thankYouCardDisplay: thankYouCardStyle.display,
-          cardBreakInside: cardStyle.pageBreakInside || cardStyle.breakInside,
-          cardBg: cardStyle.backgroundColor,
-          cardColor: cardStyle.color
-        };
-      });
-
+      const bodyText = await page.evaluate(() => document.body.textContent);
       assert(
-        printStyles.sectionDisplay === "block",
-        `Print media: #giftCertificateSection is displayed as block (${printStyles.sectionDisplay})`
+        !/YALL-TEST-9988/.test(bodyText),
+        "thank-you.html does not echo a gift code supplied in the query string"
       );
-      assert(
-        printStyles.headerDisplay === "none",
-        `Print media: .site-header is hidden (display: ${printStyles.headerDisplay})`
-      );
-      assert(
-        printStyles.footerDisplay === "none",
-        `Print media: .site-footer is hidden (display: ${printStyles.footerDisplay})`
-      );
-      assert(
-        printStyles.thankYouCardDisplay === "none",
-        `Print media: #thankYouCard is hidden (display: ${printStyles.thankYouCardDisplay})`
-      );
-      assert(
-        printStyles.cardBreakInside === "avoid",
-        `Print media: .gift-certificate-card has page-break-inside: avoid (${printStyles.cardBreakInside})`
-      );
-
-      await page.emulateMediaType("screen");
-
-      // Case G: Adversarial XSS Payload Injection
-      const xssParams = new URLSearchParams({
-        gift_code: "<script>window.__XSS__=1</script>",
-        recipient: '<img src=x onerror="window.__XSS__=2">',
-        sender: '"><svg onload="window.__XSS__=3">',
-        message: "${window.__XSS__=4}"
-      });
-      await page.goto(`${baseUrl}/thank-you.html?${xssParams.toString()}`, {
-        waitUntil: "networkidle2"
-      });
-      const xssTriggered = await page.evaluate(() => window.__XSS__ !== undefined);
-      assert(
-        !xssTriggered,
-        "Gift certificate query parameter parser safely escapes XSS payloads (no execution)"
-      );
-
       await page.close();
     }
 

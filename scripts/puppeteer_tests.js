@@ -454,17 +454,28 @@ function createStaticServer(port = 8082) {
       );
       await shopAddBtn.click();
       await page.waitForSelector("#yl-cart-drawer .yl-cart-line", { visible: true, timeout: 5000 });
-      const pointsText = await page
-        .$eval("#cart-points-count", (el) => el.textContent.trim())
+
+      /* The drawer's Alt-Points total is gone: nothing credits the points and
+         the endpoint that redeemed them minted real Stripe credit for anyone
+         who asked (audit C-1). Assert the money it does quote instead, and
+         that the withdrawn counter has not come back. */
+      const pointsCounter = await page.$("#cart-points-count");
+      if (pointsCounter) {
+        console.log("❌ #cart-points-count is back in the cart drawer -- Alt-Points are not real.");
+        exitCode = 1;
+      } else {
+        console.log("✅ Cart drawer shows no Alt-Points counter.");
+      }
+
+      const subtotalText = await page
+        .$eval(".yl-cart-subtotal strong", (el) => el.textContent.trim())
         .catch(() => null);
-      const expectedPoints = Math.floor(itemPrice);
-      if (pointsText && parseInt(pointsText, 10) === expectedPoints) {
-        console.log(
-          `✅ Cart drawer displays correct Alt-Points total (${pointsText} points for $${itemPrice}).`
-        );
+      const subtotalValue = subtotalText ? parseFloat(subtotalText.replace(/[^0-9.]/g, "")) : NaN;
+      if (Math.abs(subtotalValue - itemPrice) < 0.005) {
+        console.log(`✅ Cart drawer subtotal matches the item price (${subtotalText}).`);
       } else {
         console.log(
-          `❌ Cart drawer Alt-Points mismatch (expected ${expectedPoints}, got ${pointsText}).`
+          `❌ Cart drawer subtotal mismatch (expected $${itemPrice}, got ${subtotalText}).`
         );
         exitCode = 1;
       }
