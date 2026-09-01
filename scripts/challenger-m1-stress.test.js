@@ -357,7 +357,27 @@ async function testWorkerAdversarial() {
     eq(res.sessionParams.get("line_items[0][quantity]"), "1", "qty -10 clamped to 1");
     eq(res.sessionParams.get("line_items[1][quantity]"), "1", "qty 0 clamped to 1");
     eq(res.sessionParams.get("line_items[2][quantity]"), "1", "qty NaN clamped to 1");
-    eq(res.sessionParams.get("line_items[3][quantity]"), "99", "qty 9999999 clamped to 99");
+    // lavender-soak carries stock: 5 in this fixture, and tracked stock now
+    // caps the line -- you cannot buy 99 of the 5 that exist.
+    eq(
+      res.sessionParams.get("line_items[3][quantity]"),
+      "5",
+      "qty 9999999 clamped to the 5 units actually in stock"
+    );
+
+    // With no stock tracked (stock absent), the MAX_QTY_PER_ITEM cap applies.
+    const untracked = await executeWorkerCheckout({
+      items: [{ id: "coming-soon-oil", qty: 9999999 }]
+    });
+    eq(untracked.status, 400, "A comingSoon product is refused whatever the quantity");
+    const giftCards = await executeWorkerCheckout({
+      items: [{ id: "yallternative-gift-card", qty: 9999999, variant: "Preset $25" }]
+    });
+    eq(
+      giftCards.sessionParams.get("line_items[0][quantity]"),
+      "99",
+      "Untracked stock still clamps to the 99-per-item cap"
+    );
   }
 
   // 1.8 Stripe Metadata Sanitization & Gifting Fuzzing
@@ -464,10 +484,17 @@ async function testWorkerAdversarial() {
       "5000",
       "Gift card 1 amount_cents is 5000"
     );
+    // One metadata GROUP per gift-card line, carrying the quantity, rather
+    // than one group per unit -- see H-8 in workers/checkout.js.
+    eq(
+      res.sessionParams.get("metadata[gift_card_1_qty]"),
+      "2",
+      "Gift card line records qty 2 in a single metadata group"
+    );
     eq(
       res.sessionParams.get("metadata[gift_card_2_amount_cents]"),
-      "5000",
-      "Gift card 2 amount_cents is 5000"
+      null,
+      "No per-unit metadata expansion for a qty-2 gift card line"
     );
     eq(
       res.sessionParams.get("metadata[gift_card_1_recipient]"),
@@ -560,10 +587,39 @@ async function testWorkerAdversarial() {
       "always",
       "Creates new customer via standard Checkout flow"
     );
+    // The market is real, it just has no ZIP recorded: tax falls back to the
+    // buyer's own (billing) address, but the order is still a pickup, so no
+    // delivery address is collected and no shipping is charged.
     eq(
       resNoZip.sessionParams.get("shipping_address_collection[allowed_countries][0]"),
+      null,
+      "A real market with no ZIP is still a pickup: no shipping address collected"
+    );
+    eq(
+      resNoZip.sessionParams.get("billing_address_collection"),
+      "required",
+      "Billing address is still required so Stripe can rate the order"
+    );
+
+    // A label that is not on the calendar at all is ignored outright.
+    const resForged = await executeWorkerCheckout({
+      items: [{ id: "lavender-soak", qty: 1 }],
+      pickup_market: "Fake Market — Whenever (Portland, OR)"
+    });
+    eq(
+      resForged.sessionParams.get("metadata[pickup_market]"),
+      null,
+      "A forged market label is never recorded as a pickup"
+    );
+    eq(
+      resForged.sessionParams.get("metadata[pickup_market_rejected]"),
+      "true",
+      "A forged market label is flagged as rejected"
+    );
+    eq(
+      resForged.sessionParams.get("shipping_address_collection[allowed_countries][0]"),
       "US",
-      "Collects shipping address as safe fallback"
+      "A forged market label falls back to the ordinary shipped flow"
     );
   }
 }

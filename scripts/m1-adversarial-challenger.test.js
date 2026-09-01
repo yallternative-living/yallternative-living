@@ -205,7 +205,7 @@ async function runMilestone1AdversarialSuite() {
     async () => {
       const overflowNote = "Y'allternative Living Gift Note ".repeat(30); // ~960 chars
       const res = await executeWorkerCheckout({
-        items: [{ id: "lavender-soak", qty: 1 }],
+        items: [{ id: "lavender-soak", qty: 1, variant: "10 oz" }],
         is_gift_order: true,
         gift_message: overflowNote
       });
@@ -230,7 +230,7 @@ async function runMilestone1AdversarialSuite() {
       dirty += "\x7F-End";
 
       const res = await executeWorkerCheckout({
-        items: [{ id: "lavender-soak", qty: 1 }],
+        items: [{ id: "lavender-soak", qty: 1, variant: "10 oz" }],
         is_gift_order: true,
         gift_message: dirty
       });
@@ -249,7 +249,7 @@ async function runMilestone1AdversarialSuite() {
       const unicodeNote =
         "Happy Birthday! 🎁✨\nمرحبا بكم · こんにちは · Привет · Southern Charm!\r\nFrom Landrum, SC.";
       const res = await executeWorkerCheckout({
-        items: [{ id: "lavender-soak", qty: 1 }],
+        items: [{ id: "lavender-soak", qty: 1, variant: "10 oz" }],
         is_gift_order: true,
         gift_message: unicodeNote
       });
@@ -282,7 +282,7 @@ async function runMilestone1AdversarialSuite() {
 
       for (const payload of maliciousPayloads) {
         const res = await executeWorkerCheckout({
-          items: [{ id: "lavender-soak", qty: 1 }],
+          items: [{ id: "lavender-soak", qty: 1, variant: "10 oz" }],
           is_gift_order: true,
           gift_message: payload
         });
@@ -341,7 +341,7 @@ async function runMilestone1AdversarialSuite() {
 
       for (const body of weirdPayloads) {
         const res = await executeWorkerCheckout({
-          items: [{ id: "lavender-soak", qty: 1 }],
+          items: [{ id: "lavender-soak", qty: 1, variant: "10 oz" }],
           ...body
         });
         assert.strictEqual(
@@ -627,7 +627,7 @@ async function runMilestone1AdversarialSuite() {
 
       for (const code of invalidCodes) {
         const res = await executeWorkerCheckout({
-          items: [{ id: "lavender-soak", qty: 1 }],
+          items: [{ id: "lavender-soak", qty: 1, variant: "10 oz" }],
           gift_card_code: code
         });
         assert.strictEqual(res.status, 200);
@@ -663,7 +663,7 @@ async function runMilestone1AdversarialSuite() {
 
       const res = await executeWorkerCheckout(
         {
-          items: [{ id: "lavender-soak", qty: 1 }],
+          items: [{ id: "lavender-soak", qty: 1, variant: "10 oz" }],
           gift_card_code: "YALL-PTS-BIG100"
         },
         { promoCode: mockBigPromo }

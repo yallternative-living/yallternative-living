@@ -449,15 +449,18 @@ async function testWorkersAndNetlifyFunctions() {
 
   // resolveUnitAmountCents
   eq(
-    checkout.resolveUnitAmountCents(mockCatalog, mockCatalog.products[0], null, false),
-    1600,
-    "resolveUnitAmountCents standard product"
+    checkout.resolveUnitAmountCents(mockCatalog, mockCatalog.products[1], null, false),
+    1200,
+    "resolveUnitAmountCents standard product (no variants to choose)"
   );
   eq(
     checkout.resolveUnitAmountCents(mockCatalog, mockCatalog.products[0], "Large", false),
     2000,
     "resolveUnitAmountCents product with variant delta"
   );
+  // A label the catalog doesn't list is NOT purchasable. It used to fall
+  // back to the base price, i.e. sell a product at a size/price combination
+  // no page ever offered and give fulfilment a size that doesn't exist.
   eq(
     checkout.resolveUnitAmountCents(
       mockCatalog,
@@ -465,8 +468,34 @@ async function testWorkersAndNetlifyFunctions() {
       "NonExistentVariant",
       false
     ),
-    1600,
-    "resolveUnitAmountCents ignores invalid variant"
+    null,
+    "resolveUnitAmountCents rejects an unknown variant instead of repricing it"
+  );
+  eq(
+    checkout.resolveUnitAmountCents(mockCatalog, mockCatalog.products[0], null, false),
+    null,
+    "resolveUnitAmountCents rejects a variant product ordered with no variant"
+  );
+  eq(
+    checkout.resolveUnitAmountCents(mockCatalog, mockCatalog.products[0], "  large ", false),
+    2000,
+    "resolveUnitAmountCents normalizes case and surrounding whitespace"
+  );
+  // Matching for the catalog label, and the option object behind it.
+  eq(
+    checkout.findVariantOption(mockCatalog.products[0], "LARGE").label,
+    "Large",
+    "findVariantOption returns the catalog's own option for a normalized label"
+  );
+  eq(
+    checkout.findVariantOption(mockCatalog.products[0], "24 oz "),
+    null,
+    "findVariantOption rejects a label that is not on the option list"
+  );
+  eq(
+    checkout.findVariantOption({ variants: { options: [] } }, "Large"),
+    null,
+    "findVariantOption is null-safe for an empty option list"
   );
   eq(
     checkout.resolveUnitAmountCents(mockCatalog, mockCatalog.bundles[0], null, true),
@@ -493,9 +522,18 @@ async function testWorkersAndNetlifyFunctions() {
           ]
         }
       },
-      { id: "sleep-salve", price: 19.99, category: "salves" },
+      // Volume-rule matching now reads the catalog only (F11: no client
+      // `category`, no per-id hardcodes), so a variant-less salve qualifies
+      // on its own catalog copy -- exactly as products.json describes it.
+      {
+        id: "sleep-salve",
+        name: "Hush Y'all Magnesium Arnica Sleep Salve",
+        blurb: "A 2oz tin of magnesium and arnica.",
+        price: 19.99,
+        category: "salves"
+      },
       { id: "beard-salve", price: 14.0, category: "body" },
-      { id: "miracle-balm", price: 8.0, category: "salves" }
+      { id: "miracle-balm", name: "Y'allternative Miracle Balm", price: 8.0, category: "salves" }
     ],
     bundles: []
   };
@@ -1089,10 +1127,18 @@ async function testWorkersAndNetlifyFunctions() {
   );
   eq(r.customerParams, null, "pickup without a ZIP: no customer created");
   eq(r.params.get("customer_creation"), "always", "pickup without a ZIP: normal customer flow");
+  // The market is real, it just has no ZIP to rate against, so tax falls back
+  // to the buyer's billing address. It is still a pickup: nothing ships, so
+  // no delivery address is collected and no shipping line is added.
   eq(
     r.params.get("shipping_address_collection[allowed_countries][0]"),
-    "US",
-    "pickup without a ZIP: falls back to collecting an address"
+    null,
+    "pickup without a ZIP: still a pickup, so no shipping address is collected"
+  );
+  eq(
+    r.params.get("metadata[pickup_market]"),
+    "No Zip Market — November 2, 2026 (Greer, SC)",
+    "pickup without a ZIP: the market is still recorded for the packing list"
   );
 
   // events.json unreachable must never block a sale.
@@ -1117,7 +1163,8 @@ async function testWorkersAndNetlifyFunctions() {
   eq(r.params.get("customer"), null, "customer create fails: no pinned customer");
   eq(r.params.get("customer_creation"), "always", "customer create fails: normal flow resumes");
 
-  // A forged label can't smuggle in a cheaper jurisdiction.
+  // A forged label can't smuggle in a cheaper jurisdiction -- and, since it
+  // isn't a pickup at all, can't waive shipping either.
   r = await captureStripeParams(
     [{ id: "beard-salve", qty: 1 }],
     { STRIPE_TAX_ENABLED: "true" },
@@ -1129,16 +1176,70 @@ async function testWorkersAndNetlifyFunctions() {
     "US",
     "forged pickup label: falls back to the buyer's real address"
   );
+  eq(
+    r.params.get("metadata[pickup_market]"),
+    null,
+    "forged pickup label: never recorded as a market on the order"
+  );
+  eq(
+    r.params.get("metadata[pickup_market_rejected]"),
+    "true",
+    "forged pickup label: flagged as rejected in metadata"
+  );
+  eq(
+    r.params.get("shipping_options[0][shipping_rate_data][fixed_amount][amount]"),
+    "1000",
+    "forged pickup label: still pays shipping (it used to waive it for free)"
+  );
 
-  // With tax off there's no rate to get wrong, so skip the extra API call.
+  // Tax off is exactly the case that used to skip pickup validation
+  // altogether: a real market is honoured, and still no address is collected.
   r = await captureStripeParams([{ id: "beard-salve", qty: 1 }], pending, {
     pickupMarket: marketLabel
   });
   eq(r.customerParams, null, "tax off: pickup does not create a customer");
   eq(
     r.params.get("shipping_address_collection[allowed_countries][0]"),
+    null,
+    "tax off: an honoured pickup collects no shipping address"
+  );
+  eq(
+    r.params.get("metadata[pickup_market]"),
+    marketLabel,
+    "tax off: the market is validated and recorded"
+  );
+
+  // ... and an invented one is still rejected with tax off.
+  r = await captureStripeParams([{ id: "beard-salve", qty: 1 }], pending, {
+    pickupMarket: "Fake Market — (Portland, OR)"
+  });
+  eq(
+    r.params.get("metadata[pickup_market_rejected]"),
+    "true",
+    "tax off: an invented market label is validated and rejected"
+  );
+  eq(
+    r.params.get("shipping_options[0][shipping_rate_data][fixed_amount][amount]"),
+    "1000",
+    "tax off: an invented market label does not waive shipping"
+  );
+
+  // A calendar that won't load can't honour a pickup, so it fails closed
+  // into the ordinary shipped flow rather than trusting the label.
+  r = await captureStripeParams(
+    [{ id: "beard-salve", qty: 1 }],
+    { STRIPE_TAX_ENABLED: "false", _stub: { eventsOk: false } },
+    { pickupMarket: marketLabel }
+  );
+  eq(
+    r.params.get("metadata[pickup_market_rejected]"),
+    "true",
+    "events.json down: pickup is not honoured"
+  );
+  eq(
+    r.params.get("shipping_address_collection[allowed_countries][0]"),
     "US",
-    "tax off: pickup behaviour unchanged"
+    "events.json down: checkout still completes as an ordinary shipped order"
   );
 
   // Pickup still records which market, for the packing list.
@@ -1170,6 +1271,7 @@ async function testWorkersAndNetlifyFunctions() {
       {
         id: "sleep-salve",
         name: "Hush Y'all Magnesium Arnica Sleep Salve",
+        blurb: "A 2oz tin of magnesium and arnica.",
         price: 19.99,
         category: "salves"
       },
@@ -1931,16 +2033,17 @@ async function testMultiQuantityGiftCardCheckout() {
     "recipient@example.com",
     "Worker assigns recipient for gift_card_1"
   );
+  // H-8: quantity travels as _qty on the single group for that line. Per-unit
+  // expansion here is what used to push large orders past Stripe's 50-key
+  // metadata cap, silently dropping paid-for cards before the webhook saw
+  // them. fulfill-gift-card.js expands _qty when it derives the codes.
+  eq(captured.get("metadata[gift_card_1_qty]"), "2", "Worker records qty=2 on the gift card line");
   eq(
     captured.get("metadata[gift_card_2_amount_cents]"),
-    "5000",
-    "Worker expands qty=2 into metadata for gift_card_2"
+    null,
+    "Worker no longer expands one metadata group per gift card unit"
   );
-  eq(
-    captured.get("metadata[gift_card_2_recipient]"),
-    "recipient@example.com",
-    "Worker assigns recipient for gift_card_2"
-  );
+  eq(captured.get("line_items[0][quantity]"), "2", "Both gift cards are still charged");
 }
 
 /* ==========================================================

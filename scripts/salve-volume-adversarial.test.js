@@ -420,15 +420,25 @@ async function runAllTests() {
     "Attack 11B: variantDelta override ignored; charges 1999 cents"
   );
 
-  // Attack 11C: Invalid variant name injection
+  // Attack 11C: Invalid variant name injection.
+  // This used to "fall back safely to base price" -- which was not safe at
+  // all: it sold a product at a price/size combination no page ever offered
+  // and left the packing slip with a size that doesn't exist. A variant that
+  // isn't in the catalog's own option list is now not purchasable.
   const attack11C = await runWorkerCheckout([
     { id: "frankincense-salve", variant: "10oz-free", qty: 1 }
   ]);
-  eq(attack11C.res.status, 200, "Attack 11C: worker falls back safely to base price");
+  eq(attack11C.res.status, 400, "Attack 11C: invented variant is rejected, not silently repriced");
   eq(
-    attack11C.capturedStripeBody.get("line_items[0][price_data][unit_amount]"),
-    "1999",
-    "Attack 11C: ignores invalid variant and charges base price 1999 cents"
+    attack11C.capturedStripeBody,
+    null,
+    "Attack 11C: no Stripe session is created for an invented variant"
+  );
+  const attack11C2 = await runWorkerCheckout([{ id: "frankincense-salve", qty: 1 }]);
+  eq(
+    attack11C2.res.status,
+    400,
+    "Attack 11C: a product sold by size cannot be ordered with no size at all"
   );
 
   // Attack 11D: Category spoofing on non-salve item

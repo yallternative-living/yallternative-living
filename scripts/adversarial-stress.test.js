@@ -223,7 +223,7 @@ async function main() {
         "Line 1: Happy Birthday!\nLine 2: Enjoy the scents!\r\nLine 3: From Steven";
       const dirtyMsg = multilineMsg + "\x00\x07\x1F\x7F";
       const res = await executeWorkerCheckout({
-        items: [{ id: "frankincense-salve", qty: 1 }],
+        items: [{ id: "frankincense-salve", qty: 1, variant: "2oz" }],
         is_gift_order: true,
         gift_message: dirtyMsg
       });
@@ -251,7 +251,7 @@ async function main() {
 
       for (const xss of xssPayloads) {
         const res = await executeWorkerCheckout({
-          items: [{ id: "frankincense-salve", qty: 1 }],
+          items: [{ id: "frankincense-salve", qty: 1, variant: "2oz" }],
           is_gift_order: true,
           gift_message: xss
         });
@@ -266,21 +266,21 @@ async function main() {
     "R1.7: Worker checkout parses is_gift_order whether passed as boolean or string",
     async () => {
       const resBool = await executeWorkerCheckout({
-        items: [{ id: "frankincense-salve", qty: 1 }],
+        items: [{ id: "frankincense-salve", qty: 1, variant: "2oz" }],
         is_gift_order: true,
         gift_message: "Bool test"
       });
       assert.strictEqual(resBool.sessionParams.get("metadata[is_gift_order]"), "true");
 
       const resStr = await executeWorkerCheckout({
-        items: [{ id: "frankincense-salve", qty: 1 }],
+        items: [{ id: "frankincense-salve", qty: 1, variant: "2oz" }],
         is_gift_order: "true",
         gift_message: "String test"
       });
       assert.strictEqual(resStr.sessionParams.get("metadata[is_gift_order]"), "true");
 
       const resFalse = await executeWorkerCheckout({
-        items: [{ id: "frankincense-salve", qty: 1 }],
+        items: [{ id: "frankincense-salve", qty: 1, variant: "2oz" }],
         is_gift_order: false,
         gift_message: "False test"
       });
@@ -703,7 +703,7 @@ async function main() {
 
       const res = await executeWorkerCheckout(
         {
-          items: [{ id: "frankincense-salve", qty: 1 }],
+          items: [{ id: "frankincense-salve", qty: 1, variant: "2oz" }],
           gift_card_code: "yall-gift50"
         },
         { promoCode: mockPromo }
