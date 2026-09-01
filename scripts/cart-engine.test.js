@@ -636,5 +636,97 @@ eq(sDisabled.message, "", "Disabled milestones (0 threshold) produce empty messa
 if (savedWindowYlProducts === undefined) delete global.window.YL_PRODUCTS;
 else global.window.YL_PRODUCTS = savedWindowYlProducts;
 
+/* ==========================================================
+   C-3: the service worker must never intercept dynamic endpoints
+   ----------------------------------------------------------
+   sw.js ran every same-origin GET through its cache layer, which included
+   /.netlify/functions/* (gift-card balance, order status) and /api/* (the
+   Cloudflare Worker checkout proxy). Those responses are per-request and
+   sometimes single-use, so caching one hands the next shopper a stale
+   balance or a dead checkout session. The fetch handler now returns for
+   those two prefixes BEFORE any caches.* call and before respondWith().
+
+   This loads the real sw.js in a vm with a fake `self` and records whether
+   respondWith() was called for each path. It fails against the old handler
+   (which responded for every same-origin GET).
+   ========================================================== */
+{
+  const fs = require("fs");
+  const path = require("path");
+  const vm = require("vm");
+
+  const listeners = {};
+  const swCaches = {
+    open: async () => ({ addAll: async () => {}, put: async () => {} }),
+    match: async () => undefined,
+    keys: async () => [],
+    delete: async () => true
+  };
+  const sandbox = {
+    self: {
+      addEventListener: (type, fn) => {
+        listeners[type] = fn;
+      },
+      location: { origin: "https://example.test" },
+      registration: {},
+      clients: { claim: async () => {} },
+      skipWaiting: async () => {}
+    },
+    caches: swCaches,
+    fetch: async () => ({ status: 200, clone: () => ({}) }),
+    Request: class {
+      constructor(u) {
+        this.url = String(u);
+      }
+    },
+    Response: { error: () => ({}) },
+    URL,
+    console: { warn: () => {}, log: () => {} }
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "sw.js"), "utf8"), sandbox, {
+    filename: "sw.js"
+  });
+
+  function respondedTo(url) {
+    let called = false;
+    listeners.fetch({
+      request: {
+        url,
+        method: "GET",
+        mode: "no-cors",
+        headers: { get: () => null }
+      },
+      respondWith: () => {
+        called = true;
+      },
+      preloadResponse: Promise.resolve(null)
+    });
+    return called;
+  }
+
+  eq(typeof listeners.fetch, "function", "sw.js registers a fetch listener");
+  eq(
+    respondedTo("https://example.test/.netlify/functions/gift-card-balance"),
+    false,
+    "sw.js does not intercept /.netlify/ function requests"
+  );
+  eq(
+    respondedTo("https://example.test/.netlify/functions/order-status?id=cs_test_1"),
+    false,
+    "sw.js does not intercept /.netlify/ requests carrying a query string"
+  );
+  eq(
+    respondedTo("https://example.test/api/checkout"),
+    false,
+    "sw.js does not intercept the /api/ checkout proxy"
+  );
+  eq(
+    respondedTo("https://example.test/assets/js/cart.js"),
+    true,
+    "sw.js still caches ordinary same-origin static assets"
+  );
+}
+
 console.log(`\ncart-engine.test.js: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
