@@ -14,8 +14,8 @@ window.YL_CONTENT = {
     "newsletterTitle": "Join The Inner Circle",
     "newsletterSubtext": "Get market announcements, secret drop dates, and 10% off your first order.",
     "kitFormAction": "https://app.kit.com/forms/9867317/subscriptions",
-    "tawkToPropertyId": "YOUR_TAWKTO_PROPERTY_ID",
-    "tawkToWidgetId": "YOUR_TAWKTO_WIDGET_ID",
+    "tawkToPropertyId": "6a9687f6adddbc3447585d73",
+    "tawkToWidgetId": "1k1e066pc",
     "formspreeContactId": "xoeqevqv",
     "formspreeReviewId": "xzebezbl",
     "formspreeRestockId": "xwlklppo",
@@ -36,7 +36,9 @@ window.YL_CONTENT = {
     "loyaltyPointsSingular": "Alt-Point",
     "loyaltyPointsPerDollar": 1,
     "loyaltyBadgeEmoji": "✨",
-    "enableApothecaryQuiz": true
+    "enableApothecaryQuiz": true,
+    "birthdayTitle": "Join The Birthday Club",
+    "birthdaySubtext": "Get a $5 gift voucher delivered to your inbox on your birthday."
   },
   "home": {
     "promoBanner": "Free shipping on orders over $40 ✦ Small-batch, handmade with love in Landrum, SC",

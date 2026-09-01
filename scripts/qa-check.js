@@ -64,7 +64,9 @@ var PAGES = [
   "404.html",
   "thank-you.html",
   "welcome.html",
-  "journal.html"
+  "journal.html",
+  "reviews.html",
+  "order-status.html"
 ];
 
 var failures = [];
@@ -2115,6 +2117,72 @@ try {
   }
 } catch (e) {
   fail("welcome.html script integrity check", e.message);
+}
+
+/* ---------- Milestone 6: Order Status & Fulfillment Packing Slip (R6) ---------- */
+section("Milestone 6: Order Status & Printable Fulfillment Packing Slip (R6)");
+try {
+  var orderStatusHtmlSrc = fs.readFileSync(path.join(ROOT, "order-status.html"), "utf8");
+  if (
+    orderStatusHtmlSrc.indexOf('id="orderStatusPageForm"') !== -1 &&
+    orderStatusHtmlSrc.indexOf('id="orderQueryInput"') !== -1
+  ) {
+    ok("order-status.html contains #orderStatusPageForm and #orderQueryInput");
+  } else {
+    fail("order-status.html lookup form", "missing #orderStatusPageForm or #orderQueryInput");
+  }
+
+  if (orderStatusHtmlSrc.indexOf('id="orderTimelineContainer"') !== -1) {
+    ok("order-status.html contains #orderTimelineContainer");
+  } else {
+    fail("order-status.html progression timeline", "missing #orderTimelineContainer");
+  }
+
+  if (
+    orderStatusHtmlSrc.indexOf('id="reorderPastOrderBtn"') !== -1 &&
+    orderStatusHtmlSrc.indexOf('id="printPackingSlipBtn"') !== -1
+  ) {
+    ok("order-status.html contains #reorderPastOrderBtn and #printPackingSlipBtn");
+  } else {
+    fail("order-status.html actions", "missing #reorderPastOrderBtn or #printPackingSlipBtn");
+  }
+
+  if (
+    orderStatusHtmlSrc.indexOf('id="packingSlipContainer"') !== -1 &&
+    orderStatusHtmlSrc.indexOf('class="packing-slip-table"') !== -1
+  ) {
+    ok("order-status.html contains #packingSlipContainer with .packing-slip-table");
+  } else {
+    fail(
+      "order-status.html packing slip view",
+      "missing #packingSlipContainer or .packing-slip-table"
+    );
+  }
+
+  if (orderStatusHtmlSrc.indexOf('id="slipItemsTableBody"') !== -1) {
+    var tableBodyIdx = orderStatusHtmlSrc.indexOf('id="slipItemsTableBody"');
+    var tableBodySlice = orderStatusHtmlSrc.substring(tableBodyIdx, tableBodyIdx + 800);
+    if (tableBodySlice.indexOf("$") === -1) {
+      ok("order-status.html template packing table contains strictly ZERO currency symbols ($)");
+    } else {
+      fail(
+        "order-status.html template packing table",
+        "contains price currency symbol ($), violating packing slip gift privacy invariant"
+      );
+    }
+  }
+
+  var stylesCssSrc = fs.readFileSync(path.join(ROOT, "assets/css/styles.css"), "utf8");
+  if (
+    stylesCssSrc.indexOf(".packing-slip-view") !== -1 &&
+    stylesCssSrc.indexOf("@media print") !== -1
+  ) {
+    ok("styles.css defines .packing-slip-view with @media print rules");
+  } else {
+    fail("styles.css print stylesheet", "missing .packing-slip-view or @media print rules");
+  }
+} catch (e) {
+  fail("Milestone 6 QA assertions", e.message);
 }
 
 /* ---------- Summary ---------- */

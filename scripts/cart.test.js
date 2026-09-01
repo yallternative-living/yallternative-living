@@ -499,8 +499,165 @@ assert(
 
 mockWindow.YL_PRODUCTS = null;
 
+// Milestone 1 Tests: Gifting UI, Share Cart Hydration & Loyalty Wallet in Cart Drawer
+
+// 1. Gifting UI & Feature Flag Gate
+mockWindow.YL_CONTENT = {
+  site: {
+    enableGiftOrders: true,
+    enableShareCart: true,
+    enableLoyaltyPoints: true,
+    loyaltyPointsName: "Alt-Points",
+    loyaltyPointsPerDollar: 1
+  }
+};
+mockWindow.YL_PRODUCTS = {
+  products: [
+    { id: "lavender-soak", name: "Lavender Soak", price: 18.0, category: "soaks" },
+    {
+      id: "frankincense-salve",
+      name: "Frankincense Salve",
+      price: 19.99,
+      category: "salves",
+      variants: {
+        name: "Size",
+        options: [{ name: "2oz", priceDelta: 0 }]
+      }
+    }
+  ]
+};
+
+storage.set(
+  "yl-cart-v1",
+  JSON.stringify([{ id: "lavender-soak", qty: 1, price: 18.0, name: "Lavender Soak" }])
+);
+YLCart.init({ force: true });
+footHTML = drawerFootHTML();
+assert(
+  footHTML.includes("yl-cart-giftorder-wrap"),
+  "Gifting: Renders gift order wrap when enabled"
+);
+assert(footHTML.includes("This order is a gift"), "Gifting: Renders gift order checkbox label");
+assert(footHTML.includes("yl-cart-giftmessage-input"), "Gifting: Renders gift message textarea");
+
+// When enableGiftOrders is false
+mockWindow.YL_CONTENT.site.enableGiftOrders = false;
+footHTML = drawerFootHTML();
+assert(
+  !footHTML.includes("yl-cart-giftorder-wrap"),
+  "Gifting: Omits gift order wrap when enableGiftOrders is false"
+);
+mockWindow.YL_CONTENT.site.enableGiftOrders = true;
+
+// 2. Share Cart UI & Feature Flag Gate
+footHTML = drawerFootHTML();
+assert(footHTML.includes("yl-cart-share-wrap"), "Share Cart: Renders share cart wrap when enabled");
+assert(footHTML.includes("yl-cart-share-btn"), "Share Cart: Renders share cart button");
+
+// When enableShareCart is false
+mockWindow.YL_CONTENT.site.enableShareCart = false;
+footHTML = drawerFootHTML();
+assert(
+  !footHTML.includes("yl-cart-share-wrap"),
+  "Share Cart: Omits share cart wrap when enableShareCart is false"
+);
+mockWindow.YL_CONTENT.site.enableShareCart = true;
+
+// 3. Share Cart URL Hydration (restoreCartFromUrl)
 storage.clear();
 YLCart.init({ force: true });
+eq(YLCart.items().length, 0, "Cart empty prior to shared URL hydration");
 
-console.log(`\ncart.test.js: ${passed} passed, ${failed} failed`);
-process.exit(failed ? 1 : 0);
+const restored = YLCart.restoreCartFromUrl("?cart=lavender-soak:2,frankincense-salve:1:2oz");
+assert(restored, "restoreCartFromUrl returns true on successful parse and addition");
+eq(YLCart.items().length, 2, "restoreCartFromUrl adds valid products to cart items");
+eq(YLCart.count(), 3, "restoreCartFromUrl restores exact quantities (2 + 1 = 3)");
+const storedAfterShare = JSON.parse(storage.get("yl-cart-v1"));
+eq(storedAfterShare.length, 2, "restoreCartFromUrl persists restored items to localStorage");
+
+// 4. Alt-Points Loyalty Wallet UI & 1-Click Redemption
+storage.clear();
+storage.set(
+  "yl-cart-v1",
+  JSON.stringify([{ id: "lavender-soak", qty: 2, price: 18.0, name: "Lavender Soak" }])
+);
+// Seed 150 points in customer wallet
+YLCart.setWalletPoints(150);
+eq(YLCart.getWalletPoints(), 150, "Wallet points initialized to 150");
+
+YLCart.init({ force: true });
+footHTML = drawerFootHTML();
+
+assert(footHTML.includes("yl-cart-loyalty-card"), "Loyalty: Renders loyalty wallet card");
+assert(footHTML.includes("yl-loyalty-wallet-balance"), "Loyalty: Renders wallet balance element");
+assert(footHTML.includes("150"), "Loyalty: Displays current 150 points balance");
+assert(
+  footHTML.includes("Redeem 100 Alt-Points ($5.00 Off)"),
+  "Loyalty: Renders 1-click 100-point voucher button"
+);
+
+// Mock redeemPoints fetch endpoint for unit testing
+const originalFetch = global.fetch;
+global.fetch = async (url, opts) => {
+  if (String(url).includes("redeem-points")) {
+    const body = opts && opts.body ? JSON.parse(opts.body) : {};
+    if (body.points === 100) {
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          code: "YALL-PTS-UNIT01",
+          pointsRedeemed: 100,
+          balance: 5.0,
+          formattedBalance: "$5.00"
+        })
+      };
+    }
+  }
+  return { ok: false, json: async () => ({ error: "Not found" }) };
+};
+
+// Execute 1-click redemption of 100 points
+(async () => {
+  try {
+    const redeemResult = await YLCart.redeemLoyaltyPoints(100);
+    eq(redeemResult.code, "YALL-PTS-UNIT01", "redeemLoyaltyPoints receives promo code");
+    eq(YLCart.getWalletPoints(), 50, "Wallet balance deducted by 100 points (150 -> 50)");
+
+    footHTML = drawerFootHTML();
+    assert(
+      footHTML.includes("Gift Card Discount (YALL-PTS-UNIT01)"),
+      "Applied reward code renders discount line in drawer"
+    );
+    assert(footHTML.includes("-$5.00"), "Discount line displays -$5.00 off subtotal");
+    assert(
+      footHTML.includes("Total Due"),
+      "Drawer displays Total Due with voucher discount applied"
+    );
+    assert(
+      footHTML.includes("$31.00"),
+      "Total due reflects $36.00 subtotal - $5.00 discount = $31.00"
+    );
+
+    // Attempt redemption with insufficient points (50 < 100)
+    let threw = false;
+    try {
+      await YLCart.redeemLoyaltyPoints(100);
+    } catch {
+      threw = true;
+    }
+    assert(threw, "redeemLoyaltyPoints rejects when wallet has insufficient points");
+
+    // Clean up
+    global.fetch = originalFetch;
+    mockWindow.YL_PRODUCTS = null;
+    storage.clear();
+    YLCart.init({ force: true });
+
+    console.log(`\ncart.test.js: ${passed} passed, ${failed} failed`);
+    process.exit(failed ? 1 : 0);
+  } catch (err) {
+    console.error("Async loyalty test failure:", err);
+    process.exit(1);
+  }
+})();

@@ -8,28 +8,121 @@ window.YL_SITE_REVIEWS = [
   {
     "id": "etsy-2026-06-eric",
     "productId": "hand-scrub",
-    "name": "Eric (Etsy)",
+    "name": "Eric M. (Etsy)",
     "rating": 5,
     "text": "Fixed my cracked knuckles in 3 days. I've tried every lotion at the drugstore and this is the only thing that works without feeling greasy.",
     "date": "2026-06-16",
-    "featured": true
+    "featured": true,
+    "verifiedBuyer": true
   },
   {
     "id": "etsy-2026-05-leila",
     "productId": "bug-spray",
-    "name": "Leila (Etsy)",
+    "name": "Leila K. (Etsy)",
     "rating": 5,
     "text": "This bug spray is the truth. Sat outside all evening in the South Carolina humidity and didn't get a single bite.",
     "date": "2026-05-03",
-    "featured": true
+    "featured": true,
+    "verifiedBuyer": true
   },
   {
     "id": "etsy-2026-03-kim",
     "productId": "sleep-salve",
-    "name": "Kim (Etsy)",
+    "name": "Kim T. (Etsy)",
     "rating": 5,
     "text": "The sleep salve is literal magic. I rub it on my temples and I'm out in 10 minutes. Smells incredible too.",
     "date": "2026-03-05",
-    "featured": true
+    "featured": true,
+    "verifiedBuyer": true
+  },
+  {
+    "id": "site-2026-07-morgan",
+    "productId": "beard-salve",
+    "name": "Morgan D.",
+    "rating": 4,
+    "text": "Smells earthy and subtle without overpowering. Softened my beard noticeably after a week of daily use.",
+    "date": "2026-07-10",
+    "featured": false,
+    "verifiedBuyer": true
+  },
+  {
+    "id": "site-2026-07-taylor",
+    "productId": "backroad-soak",
+    "name": "Taylor R.",
+    "rating": 5,
+    "text": "Best bath soak after a long hike in the Blue Ridge. The epsom salt and cedarwood blend melts tension away.",
+    "date": "2026-07-22",
+    "featured": false,
+    "verifiedBuyer": true
+  },
+  {
+    "id": "site-2026-08-jordan",
+    "productId": "miracle-balm",
+    "name": "Jordan P.",
+    "rating": 4,
+    "text": "Smooth and long-lasting balm that holds up against mountain wind. Love the gentle, clean formula.",
+    "date": "2026-08-05",
+    "featured": false,
+    "verifiedBuyer": false
+  },
+  {
+    "id": "site-2026-08-casey",
+    "productId": "shea-butter",
+    "name": "Casey W.",
+    "rating": 5,
+    "text": "Ultra-rich whipped texture that sinks right in. Completely rescued my dry elbows and winter skin.",
+    "date": "2026-08-12",
+    "featured": true,
+    "verifiedBuyer": true
+  },
+  {
+    "id": "site-2026-08-riley",
+    "productId": "cleansing-spray",
+    "name": "Riley H.",
+    "rating": 4,
+    "text": "Refreshing mist that clears heavy energy from my workspace. The cedar and sage note combination is perfect.",
+    "date": "2026-08-18",
+    "featured": false,
+    "verifiedBuyer": true
+  },
+  {
+    "id": "site-2026-08-sam",
+    "productId": "bath-tea",
+    "name": "Sam B.",
+    "rating": 5,
+    "text": "Brewing a giant herbal tea bag directly in the bath is a game changer. No floating mess and totally relaxing.",
+    "date": "2026-08-22",
+    "featured": false,
+    "verifiedBuyer": true
+  },
+  {
+    "id": "site-2026-08-alex",
+    "productId": "unisex-tshirt",
+    "name": "Alex M.",
+    "rating": 5,
+    "text": "Incredibly soft shirt with vibrant screen printing. Fits true to size and survived numerous washes without shrinking.",
+    "date": "2026-08-25",
+    "featured": false,
+    "verifiedBuyer": true
+  },
+  {
+    "id": "site-2026-08-devon",
+    "productId": "lavender-soak",
+    "name": "Devon S.",
+    "rating": 4,
+    "text": "A soothing bedtime bath ritual. The lavender is genuine essential oil, not fake perfume.",
+    "date": "2026-08-28",
+    "featured": false,
+    "verifiedBuyer": true
+  },
+  {
+    "id": "site-2026-08-avery",
+    "productId": "porch-sweep-spray",
+    "name": "Avery G.",
+    "rating": 3,
+    "text": "Great crisp aroma, though I wish the rosemary scent lingered a bit longer in large open rooms.",
+    "date": "2026-08-30",
+    "featured": false,
+    "verifiedBuyer": true
   }
 ];

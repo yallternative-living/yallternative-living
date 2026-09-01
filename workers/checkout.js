@@ -722,8 +722,9 @@ export default {
       const catalog = await loadCatalog(env, ctx);
 
       const metadata = {}; // Stripe session-level metadata (gift recipient/sender/message)
-      if (body && body.pickupMarket) {
-        metadata.pickup_market = truncate(body.pickupMarket, 250);
+      const pickup = body && (body.pickupMarket || body.pickup_market);
+      if (pickup && typeof pickup === "string") {
+        metadata.pickup_market = truncate(pickup, 250);
       }
       let giftLineIndex = 0;
 
@@ -861,7 +862,7 @@ export default {
       const hasPhysicalItems = physicalSubtotalCents > 0;
       const freeShippingThresholdCents = resolveFreeShippingThresholdCents(catalog);
       const flatShippingRateCents = 1000; // $10.00
-      const isPickup = body && Boolean(body.pickupMarket);
+      const isPickup = body && Boolean(body.pickupMarket || body.pickup_market);
       // A threshold of 0 means the promise is off entirely, so nothing ever
       // qualifies -- not even a huge order.
       const qualifiesForFreeShipping =
@@ -897,10 +898,11 @@ export default {
       let pickupCustomerId = null;
       if (taxEnabled && isPickup && hasPhysicalItems) {
         try {
+          const marketLabel = body.pickupMarket || body.pickup_market;
           const events = await loadEvents(env, ctx);
-          const pickupAddress = resolvePickupAddress(events, body.pickupMarket);
+          const pickupAddress = resolvePickupAddress(events, marketLabel);
           if (pickupAddress) {
-            pickupCustomerId = await createPickupCustomer(env, pickupAddress, body.pickupMarket);
+            pickupCustomerId = await createPickupCustomer(env, pickupAddress, marketLabel);
           }
         } catch (e) {
           // Non-fatal by design: a market calendar that won't load must never
@@ -951,10 +953,100 @@ export default {
           params.append("shipping_options[0][shipping_rate_data][tax_code]", TAX_CODE_SHIPPING);
         }
       }
-      // Lets a gift-card recipient enter the code fulfill-gift-card.js
-      // emailed them (a Stripe restricted Promotion Code, single-use,
-      // amount_off) right on Stripe's own hosted Checkout page.
-      params.append("allow_promotion_codes", "true");
+      const isGift = Boolean(
+        body &&
+          (body.is_gift_order === true ||
+            body.is_gift_order === "true" ||
+            body.isGiftOrder === true ||
+            body.isGiftOrder === "true")
+      );
+      if (isGift) {
+        metadata.is_gift_order = "true";
+        const rawGiftMessage =
+          body && (body.gift_message !== undefined ? body.gift_message : body.giftMessage);
+        if (typeof rawGiftMessage === "string") {
+          metadata.gift_message = rawGiftMessage
+            // eslint-disable-next-line no-control-regex
+            .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "")
+            .trim()
+            .slice(0, 500);
+        } else {
+          metadata.gift_message = "";
+        }
+      }
+      let appliedGiftCardCouponId = null;
+      let appliedGiftCardDiscountCents = 0;
+
+      const rawGiftCard = body && (body.giftCardCode || body.gift_card_code);
+      if (rawGiftCard && typeof rawGiftCard === "string") {
+        const cleanCode = rawGiftCard.trim().toUpperCase();
+        if (/^YALL-(?:PTS-)?[A-Z0-9]{6,16}$/.test(cleanCode)) {
+          try {
+            const promoRes = await fetch(
+              `https://api.stripe.com/v1/promotion_codes?code=${cleanCode}&active=true&limit=1&expand[]=data.coupon`,
+              {
+                headers: {
+                  Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+                  "Stripe-Version": STRIPE_API_VERSION
+                }
+              }
+            );
+            if (promoRes.ok) {
+              const promoData = await promoRes.json();
+              if (promoData && promoData.data && promoData.data.length > 0) {
+                const promo = promoData.data[0];
+                const coupon = promo.coupon;
+                if (coupon && coupon.amount_off && coupon.amount_off > 0) {
+                  const availableCents = coupon.amount_off;
+                  appliedGiftCardDiscountCents = Math.min(
+                    totalCents + shippingCents,
+                    availableCents
+                  );
+                  if (appliedGiftCardDiscountCents > 0) {
+                    const ephemeralRes = await fetch("https://api.stripe.com/v1/coupons", {
+                      method: "POST",
+                      headers: {
+                        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+                        "Content-Type": "application/x-www-form-urlencoded",
+                        "Stripe-Version": STRIPE_API_VERSION
+                      },
+                      body: new URLSearchParams({
+                        amount_off: String(appliedGiftCardDiscountCents),
+                        currency: "usd",
+                        duration: "once",
+                        name: `Gift Card (${cleanCode})`,
+                        "metadata[gift_card_code]": cleanCode,
+                        "metadata[promo_id]": promo.id
+                      })
+                    });
+                    if (ephemeralRes.ok) {
+                      const ephemeralCoupon = await ephemeralRes.json();
+                      appliedGiftCardCouponId = ephemeralCoupon.id;
+                      metadata.gift_card_redeemed_code = cleanCode;
+                      metadata.gift_card_promo_id = promo.id;
+                      metadata.gift_card_amount_applied_cents = String(
+                        appliedGiftCardDiscountCents
+                      );
+                      metadata.gift_card_original_balance_cents = String(availableCents);
+                    }
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            console.warn("Could not pre-apply gift card code:", e.message);
+          }
+        }
+      }
+
+      if (appliedGiftCardCouponId) {
+        params.append("discounts[0][coupon]", appliedGiftCardCouponId);
+      } else {
+        // Lets a gift-card recipient enter the code fulfill-gift-card.js
+        // emailed them (a Stripe restricted Promotion Code, single-use,
+        // amount_off) right on Stripe's own hosted Checkout page.
+        params.append("allow_promotion_codes", "true");
+      }
       Object.keys(metadata).forEach((key) => {
         params.append(`metadata[${key}]`, metadata[key]);
       });

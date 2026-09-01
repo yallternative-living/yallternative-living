@@ -1,66 +1,27 @@
 /**
- * Netlify Function: gift-card fulfillment webhook.
+ * Netlify Function: Gift card fulfillment & stored-value balance ledger webhook.
  *
- * Used to be a Snipcart order.completed webhook that created a Snipcart
- * "Discount" and emailed it. Snipcart is gone (see docs/STRIPE-MIGRATION.md)
- * -- this now listens for Stripe's checkout.session.completed event instead,
- * which is the reliable "actually paid" signal (never the success-page
- * redirect, which a dropped connection can lose -- see workers/checkout.js's
- * own comment on the same point).
- *
- * Flow:
- *   1. workers/checkout.js creates the Stripe Checkout Session and, for any
- *      gift-card line item, writes gift_card_<N>_amount_cents/_recipient/
- *      _sender/_message onto the session's metadata (N is 1-indexed per
- *      gift card in the order, so multiple gift cards in one order don't
- *      collide).
- *   2. Once the customer pays, Stripe POSTs a checkout.session.completed
- *      event here. This handler verifies it's really from Stripe, then for
- *      each gift_card_N_* group: generates a random redemption code, asks
- *      Stripe to create a single-use, fixed-amount Promotion Code for it
- *      (the direct equivalent of the old Snipcart "Discount"), and emails
- *      the code to the recipient via Resend.
- *   3. workers/checkout.js sets allow_promotion_codes: true on every
- *      Checkout Session, so the recipient can enter that code on Stripe's
- *      own hosted checkout page on a future order.
- *
- * Required environment variables (Netlify site settings -> Environment):
- *   - STRIPE_SECRET_KEY      Same restricted/secret key used by the Worker,
- *                            needs Coupon + Promotion Code write access.
- *   - STRIPE_WEBHOOK_SECRET  From the Stripe Dashboard once this function's
- *                            URL is registered as an endpoint listening for
- *                            checkout.session.completed (Developers ->
- *                            Webhooks -> Add endpoint -> signing secret,
- *                            starts with "whsec_").
- *   - RESEND_API_KEY         Already used before this migration.
- *
- * REQUIRED, not just the env vars above: the sending domain
- * (yallternativeliving.com, since emails go out as
- * gifts@yallternativeliving.com below) must be added and verified in
- * Resend's dashboard (Domains -> Add Domain -> add the DNS records it
- * shows -> Verify) before RESEND_API_KEY will actually deliver anything.
- * An unverified domain fails the send silently from the buyer's point of
- * view -- the checkout still completes, the recipient just never gets an
- * email -- and this function only logs that failure (see the catch around
- * resend.emails.send below), it doesn't surface it anywhere a human would
- * see it. See docs/SETUP-GUIDE.md Step 6 / workers/README.md for the
- * full steps.
- *
- * IMPORTANT -- this could not be verified against a live Stripe webhook
- * delivery in the sandboxed dev environment this was built in (no way to
- * receive a real POST from Stripe). Before relying on this in production:
- * register the endpoint in test mode, run a real test-mode Checkout, and
- * confirm the email arrives with a code that actually applies at checkout.
- * The signature-verification scheme below follows Stripe's documented
- * webhook-signing spec (https://stripe.com/docs/webhooks#verify-manually)
- * but a first real delivery is the only way to be certain nothing about
- * Netlify's raw-body handling trips it up.
+ * Listens for Stripe's `checkout.session.completed` event:
+ *   1. Initial Purchase: When a gift card is bought, generates a unique
+ *      `YALL-XXXX-XXXX` code, creates a Stripe Coupon/Promotion Code with
+ *      the full initial amount, and emails the digital gift card to the
+ *      recipient and buyer.
+ *   2. Partial Redemption & Balance Carryover: When any order uses a `YALL-`
+ *      gift card code, calculates the exact amount spent vs. available balance.
+ *      If a residual balance remains (e.g. $26 left of $50), deactivates the
+ *      spent promotion code, creates a new coupon/promotion code with the
+ *      EXACT SAME code `YALL-XXXX-XXXX` for the remaining balance ($26.00),
+ *      and sends an automated "Remaining Balance" email receipt.
+ *   3. Zero Exhaustion: If the balance reaches $0.00, marks the card fully
+ *      redeemed and sends a completion confirmation.
  */
+
 const { Resend } = require("resend");
 const crypto = require("crypto");
 
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
+const STRIPE_API_VERSION = "2026-06-24.dahlia";
 
 function getResendClient() {
   const apiKey = process.env.RESEND_API_KEY || "re_test";
@@ -72,9 +33,6 @@ function getResendClient() {
 const WEBHOOK_TOLERANCE_SECONDS = 300;
 
 function generateRandomCode() {
-  // crypto.randomInt (CSPRNG) instead of Math.random -- these codes are
-  // redeemable money (a single-use discount worth up to $500), so they
-  // must not come from a predictable PRNG.
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   let result = "YALL-";
   for (let i = 0; i < 8; i++) {
@@ -86,11 +44,7 @@ function generateRandomCode() {
 // Deterministic per (session, gift index): a retried webhook delivery
 // (Stripe retries on non-2xx or timeout) must send the promotion-code
 // request with EXACTLY the same parameters under the same Idempotency-Key
-// to get the original code back. A fresh generateRandomCode() on the retry
-// put a different `code` param under the reused key, which Stripe rejects
-// outright (idempotency_error) -- so a retried delivery could never mint or
-// re-fetch the code and the recipient's email was silently skipped. Keyed
-// with the webhook signing secret so codes stay unguessable without it.
+// to get the original code back.
 function deriveGiftCardCode(sessionId, giftIndex, secret) {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   const digest = crypto
@@ -104,14 +58,9 @@ function deriveGiftCardCode(sessionId, giftIndex, secret) {
   return result;
 }
 
-// Escape user-supplied text before interpolating it into the email HTML.
-// Sender Name / Message come straight from checkout metadata (ultimately
-// from the buyer's own form input), so without this a buyer could inject
-// arbitrary HTML (links, fake buttons, hidden text) into an email that
-// lands in someone ELSE's inbox from gifts@yallternativeliving.com -- a
-// ready-made phishing vector.
+// Escape user-supplied text before interpolating it into email HTML.
 function escapeHtml(str) {
-  return String(str)
+  return String(str || "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
@@ -119,10 +68,7 @@ function escapeHtml(str) {
     .replace(/'/g, "&#39;");
 }
 
-// Verify the Stripe-Signature header manually (no stripe SDK dependency,
-// matching the rest of this project's zero/minimal-dependency style --
-// see workers/checkout.js, which talks to Stripe's REST API directly too).
-// Returns the parsed event object if valid, throws otherwise.
+// Verify Stripe-Signature header manually.
 function verifyStripeSignature(rawBody, signatureHeader, secret) {
   if (!signatureHeader) throw new Error("Missing Stripe-Signature header");
   if (!secret) throw new Error("STRIPE_WEBHOOK_SECRET is not configured");
@@ -161,58 +107,322 @@ function verifyStripeSignature(rawBody, signatureHeader, secret) {
   return JSON.parse(rawBody);
 }
 
-// Ask Stripe to create a single-use, fixed-amount Promotion Code. Uses an
-// idempotency key derived from the session + gift-card index so a retried
-// webhook delivery (Stripe retries on non-2xx or timeout) re-fetches the
-// SAME code instead of minting a second, orphaned one.
-async function createGiftCardPromotionCode(sessionId, giftIndex, amountCents, code) {
+// Create a Stripe Coupon + Promotion Code with stored-value metadata.
+async function createGiftCardPromotionCode(
+  sessionId,
+  giftIndex,
+  amountCents,
+  code,
+  extraMetadata = {}
+) {
   var secretKey = process.env.STRIPE_SECRET_KEY || STRIPE_SECRET_KEY;
   if (!secretKey) throw new Error("STRIPE_SECRET_KEY is not configured");
 
   var couponIdempotencyKey = "gift-coupon-" + sessionId + "-" + giftIndex;
+  var couponBody = new URLSearchParams({
+    amount_off: String(amountCents),
+    currency: "usd",
+    duration: "once",
+    max_redemptions: "1",
+    name: "Y'allternative Living gift card"
+  });
+
+  const metadata = {
+    initial_amount_cents: String(extraMetadata.initial_amount_cents || amountCents),
+    remaining_balance_cents: String(amountCents),
+    recipient_email: String(extraMetadata.recipient_email || ""),
+    original_code: code,
+    ...extraMetadata
+  };
+
+  Object.keys(metadata).forEach((k) => {
+    couponBody.append(`metadata[${k}]`, metadata[k]);
+  });
+
   var couponRes = await fetch("https://api.stripe.com/v1/coupons", {
     method: "POST",
     headers: {
       Authorization: "Bearer " + secretKey,
       "Content-Type": "application/x-www-form-urlencoded",
       "Idempotency-Key": couponIdempotencyKey,
-      // Pinned to match workers/checkout.js -- see the comment there. Without
-      // this header, Stripe silently falls back to whatever default version
-      // is set in the Dashboard, which Stripe's own docs warn against relying
-      // on for exactly this reason (a Dashboard change could alter behavior
-      // here with no corresponding code change).
-      "Stripe-Version": "2026-06-24.dahlia"
+      "Stripe-Version": STRIPE_API_VERSION
     },
-    body: new URLSearchParams({
-      amount_off: String(amountCents),
-      currency: "usd",
-      duration: "once",
-      max_redemptions: "1",
-      name: "Y'allternative Living gift card"
-    })
+    body: couponBody
   });
   var coupon = await couponRes.json();
   if (coupon.error) throw new Error("Stripe coupon creation failed: " + coupon.error.message);
 
   var promoIdempotencyKey = "gift-promo-" + sessionId + "-" + giftIndex;
+  var promoBody = new URLSearchParams({
+    coupon: coupon.id,
+    code: code,
+    max_redemptions: "1"
+  });
+  Object.keys(metadata).forEach((k) => {
+    promoBody.append(`metadata[${k}]`, metadata[k]);
+  });
+
   var promoRes = await fetch("https://api.stripe.com/v1/promotion_codes", {
     method: "POST",
     headers: {
       Authorization: "Bearer " + secretKey,
       "Content-Type": "application/x-www-form-urlencoded",
       "Idempotency-Key": promoIdempotencyKey,
-      "Stripe-Version": "2026-06-24.dahlia"
+      "Stripe-Version": STRIPE_API_VERSION
     },
-    body: new URLSearchParams({
-      coupon: coupon.id,
-      code: code,
-      max_redemptions: "1"
-    })
+    body: promoBody
   });
   var promo = await promoRes.json();
   if (promo.error) throw new Error("Stripe promotion code creation failed: " + promo.error.message);
 
   return promo.code;
+}
+
+// Rollover an existing gift card code to a new remaining balance.
+// Deactivates the previous spent promotion code, creates a new coupon for the
+// remaining cents, and re-attaches the EXACT SAME code `YALL-XXXX-XXXX`.
+async function rolloverGiftCardBalance(
+  code,
+  oldPromoId,
+  newBalanceCents,
+  initialAmountCents,
+  recipientEmail,
+  sessionId
+) {
+  var secretKey = process.env.STRIPE_SECRET_KEY || STRIPE_SECRET_KEY;
+  if (!secretKey) throw new Error("STRIPE_SECRET_KEY is not configured");
+
+  // 1. Deactivate old promotion code if provided
+  if (oldPromoId) {
+    try {
+      await fetch(`https://api.stripe.com/v1/promotion_codes/${oldPromoId}`, {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + secretKey,
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Stripe-Version": STRIPE_API_VERSION
+        },
+        body: new URLSearchParams({ active: "false" })
+      });
+    } catch (e) {
+      console.warn("Could not deactivate spent promo code:", e.message);
+    }
+  }
+
+  if (newBalanceCents <= 0) {
+    return { code, balanceCents: 0, status: "exhausted" };
+  }
+
+  // 2. Create new coupon for residual balance
+  const couponIdemp = `gift-rollover-coupon-${sessionId}-${code}-${newBalanceCents}`;
+  const couponRes = await fetch("https://api.stripe.com/v1/coupons", {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer " + secretKey,
+      "Content-Type": "application/x-www-form-urlencoded",
+      "Idempotency-Key": couponIdemp,
+      "Stripe-Version": STRIPE_API_VERSION
+    },
+    body: new URLSearchParams({
+      amount_off: String(newBalanceCents),
+      currency: "usd",
+      duration: "once",
+      max_redemptions: "1",
+      name: "Y'allternative Living gift card (Balance Rollover)",
+      "metadata[initial_amount_cents]": String(initialAmountCents || newBalanceCents),
+      "metadata[remaining_balance_cents]": String(newBalanceCents),
+      "metadata[recipient_email]": String(recipientEmail || ""),
+      "metadata[original_code]": code
+    })
+  });
+  const coupon = await couponRes.json();
+  if (coupon.error)
+    throw new Error("Stripe rollover coupon creation failed: " + coupon.error.message);
+
+  // 3. Create new promotion code with the EXACT SAME code
+  const promoIdemp = `gift-rollover-promo-${sessionId}-${code}-${newBalanceCents}`;
+  const promoRes = await fetch("https://api.stripe.com/v1/promotion_codes", {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer " + secretKey,
+      "Content-Type": "application/x-www-form-urlencoded",
+      "Idempotency-Key": promoIdemp,
+      "Stripe-Version": STRIPE_API_VERSION
+    },
+    body: new URLSearchParams({
+      coupon: coupon.id,
+      code: code,
+      max_redemptions: "1",
+      "metadata[initial_amount_cents]": String(initialAmountCents || newBalanceCents),
+      "metadata[remaining_balance_cents]": String(newBalanceCents),
+      "metadata[recipient_email]": String(recipientEmail || "")
+    })
+  });
+  const promo = await promoRes.json();
+  if (promo.error) throw new Error("Stripe rollover promo creation failed: " + promo.error.message);
+
+  return { code: promo.code, balanceCents: newBalanceCents, status: "active" };
+}
+
+// Find promotion code used in a checkout session
+async function findUsedPromotionCode(session, secretKey) {
+  const key = secretKey || process.env.STRIPE_SECRET_KEY || STRIPE_SECRET_KEY;
+  if (!session || !key) return null;
+
+  // 1. Direct discount on session
+  if (session.discounts && Array.isArray(session.discounts) && session.discounts.length > 0) {
+    const d = session.discounts[0];
+    if (d.promotion_code) {
+      if (typeof d.promotion_code === "object" && d.promotion_code.code) {
+        return d.promotion_code;
+      }
+      // Fetch promotion code by ID
+      const res = await fetch(`https://api.stripe.com/v1/promotion_codes/${d.promotion_code}`, {
+        headers: { Authorization: "Bearer " + key, "Stripe-Version": STRIPE_API_VERSION }
+      });
+      if (res.ok) return await res.json();
+    }
+  }
+
+  // 2. Query line item discounts or session discount object
+  if (session.discount && session.discount.promotion_code) {
+    const promoId =
+      typeof session.discount.promotion_code === "object"
+        ? session.discount.promotion_code.id
+        : session.discount.promotion_code;
+    const res = await fetch(`https://api.stripe.com/v1/promotion_codes/${promoId}`, {
+      headers: { Authorization: "Bearer " + key, "Stripe-Version": STRIPE_API_VERSION }
+    });
+    if (res.ok) return await res.json();
+  }
+
+  return null;
+}
+
+// Handles gift card redemptions on an order
+async function handleGiftCardRedemption(session, secretKey) {
+  const key = secretKey || process.env.STRIPE_SECRET_KEY || STRIPE_SECRET_KEY;
+  const amountDiscountCents = (session.total_details && session.total_details.amount_discount) || 0;
+  if (amountDiscountCents <= 0) return null;
+
+  const promo = await findUsedPromotionCode(session, key);
+  if (!promo || !promo.code || !promo.code.startsWith("YALL-")) {
+    return null; // Not a Y'allternative gift card promotion code
+  }
+
+  const coupon = promo.coupon || {};
+  const currentBalanceCents =
+    coupon.amount_off ||
+    Number(promo.metadata && promo.metadata.remaining_balance_cents) ||
+    amountDiscountCents;
+
+  const initialAmountCents =
+    Number(promo.metadata && promo.metadata.initial_amount_cents) ||
+    Number(coupon.metadata && coupon.metadata.initial_amount_cents) ||
+    currentBalanceCents;
+
+  const customerEmail =
+    (session.customer_details && session.customer_details.email) || session.customer_email;
+  const recipientEmail =
+    (promo.metadata && promo.metadata.recipient_email) ||
+    (coupon.metadata && coupon.metadata.recipient_email) ||
+    customerEmail;
+
+  const newBalanceCents = Math.max(0, currentBalanceCents - amountDiscountCents);
+
+  // Rollover remaining balance to fresh active code
+  await rolloverGiftCardBalance(
+    promo.code,
+    promo.id,
+    newBalanceCents,
+    initialAmountCents,
+    recipientEmail,
+    session.id
+  );
+
+  // Send Remaining Balance Notification via Resend
+  const targetEmail = recipientEmail || customerEmail;
+  if (targetEmail) {
+    const resendClient = getResendClient();
+    const fromAddress =
+      process.env.FROM_EMAIL ||
+      process.env.RESEND_FROM_EMAIL ||
+      "Y'allternative Living <gifts@yallternativeliving.com>";
+
+    const spentDollars = (amountDiscountCents / 100).toFixed(2);
+    const newBalDollars = (newBalanceCents / 100).toFixed(2);
+
+    let subject, html, text;
+    if (newBalanceCents > 0) {
+      subject = `Gift Card Balance Update: $${newBalDollars} remaining on ${promo.code}`;
+      html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #17130f; color: #fff; padding: 40px; border-radius: 12px; border: 2px solid #d69b5c;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <img src="https://yallternativeliving.com/assets/img/logo.png" alt="Y'allternative Living Logo" style="max-width: 200px;" />
+          </div>
+          <h1 style="color: #d69b5c; text-align: center;">Gift Card Balance Update</h1>
+          <p style="font-size: 16px;">You used <strong>$${spentDollars}</strong> from your gift card on your recent order.</p>
+
+          <div style="text-align: center; background: #fff; color: #000; padding: 24px; border-radius: 8px; margin: 25px 0;">
+            <p style="margin: 0; text-transform: uppercase; letter-spacing: 2px; font-size: 12px; color: #666;">Remaining Available Balance</p>
+            <h2 style="margin: 8px 0; font-size: 36px; color: #17130f; letter-spacing: 1px;">$${newBalDollars}</h2>
+            <p style="margin: 4px 0 0 0; font-size: 14px; font-weight: bold; letter-spacing: 2px; color: #333;">Code: ${promo.code}</p>
+          </div>
+
+          <p style="font-size: 14px; color: #cfc0a8; line-height: 1.5;">Your gift code <strong>${promo.code}</strong> remains active and will carry over to future orders until your balance reaches $0.00.</p>
+
+          <div style="text-align: center; margin-top: 30px;">
+            <a href="https://yallternativeliving.com/shop.html" style="display: inline-block; background: #d69b5c; color: #17130f; text-decoration: none; padding: 14px 28px; font-weight: bold; border-radius: 4px; text-transform: uppercase; letter-spacing: 1px;">Shop The Collection</a>
+          </div>
+        </div>
+      `;
+      text =
+        `Y'allternative Living Gift Card Balance Update\n\n` +
+        `You spent $${spentDollars} on your recent order.\n` +
+        `Remaining Balance: $${newBalDollars}\n` +
+        `Gift Code: ${promo.code}\n\n` +
+        `Your code remains active and can be redeemed on your next order at https://yallternativeliving.com`;
+    } else {
+      subject = `Gift Card Fully Redeemed: ${promo.code}`;
+      html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #17130f; color: #fff; padding: 40px; border-radius: 12px; border: 2px solid #d69b5c;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <img src="https://yallternativeliving.com/assets/img/logo.png" alt="Y'allternative Living Logo" style="max-width: 200px;" />
+          </div>
+          <h1 style="color: #d69b5c; text-align: center;">Gift Card Fully Redeemed</h1>
+          <p style="font-size: 16px;">Your Y'allternative Living gift card (<strong>${promo.code}</strong>) has been fully used ($${spentDollars} applied). Final balance: <strong>$0.00</strong>.</p>
+          <p style="font-size: 14px; color: #cfc0a8;">Thank you for shopping with us! We hope you love your handmade goodies.</p>
+          <div style="text-align: center; margin-top: 25px;">
+            <a href="https://yallternativeliving.com" style="display: inline-block; background: #d69b5c; color: #17130f; text-decoration: none; padding: 12px 24px; font-weight: bold; border-radius: 4px; text-transform: uppercase; letter-spacing: 1px;">Visit Our Shop</a>
+          </div>
+        </div>
+      `;
+      text =
+        `Your Y'allternative Living gift card (${promo.code}) has been fully redeemed ($${spentDollars} spent).\n` +
+        `Final Balance: $0.00.\n\n` +
+        `Thank you for supporting small-batch handmade self-care!`;
+    }
+
+    const emailIdemp = `gift-balance-email-${session.id}-${promo.code}-${newBalanceCents}`;
+    try {
+      await resendClient.emails.send(
+        {
+          from: fromAddress,
+          to: targetEmail,
+          reply_to: "contact@yallternativeliving.com",
+          subject: subject,
+          html: html,
+          text: text,
+          headers: { "X-Entity-Ref-ID": emailIdemp, "Idempotency-Key": emailIdemp }
+        },
+        { idempotencyKey: emailIdemp }
+      );
+    } catch (emailErr) {
+      console.warn("Failed to send balance update email:", emailErr.message);
+    }
+  }
+
+  return { code: promo.code, spentCents: amountDiscountCents, newBalanceCents };
 }
 
 exports.handler = async (event) => {
@@ -242,9 +452,10 @@ exports.handler = async (event) => {
     var session = stripeEvent.data.object;
     var metadata = session.metadata || {};
 
-    // Collect gift_card_<N>_* groups out of the flat metadata object --
-    // there's no fixed upper bound on N (see workers/checkout.js's
-    // giftLineIndex), so scan for every _amount_cents key present.
+    // 1. Check for gift card redemption & balance deduction on this session
+    await handleGiftCardRedemption(session, STRIPE_SECRET_KEY);
+
+    // 2. Check for gift card purchases in this session
     var giftIndexes = Object.keys(metadata)
       .map(function (k) {
         var m = /^gift_card_(\d+)_amount_cents$/.exec(k);
@@ -255,7 +466,7 @@ exports.handler = async (event) => {
       });
 
     if (!giftIndexes.length) {
-      return { statusCode: 200, body: "No gift cards in this session" };
+      return { statusCode: 200, body: "Session processed (no new gift cards purchased)" };
     }
 
     await Promise.all(
@@ -276,7 +487,12 @@ exports.handler = async (event) => {
           session.id,
           n,
           amountCents,
-          uniqueCode
+          uniqueCode,
+          {
+            initial_amount_cents: String(amountCents),
+            recipient_email: recipientEmail,
+            sender_name: senderName || ""
+          }
         );
 
         var amount = amountCents / 100;
@@ -294,7 +510,7 @@ exports.handler = async (event) => {
           <div style="text-align: center; background: #fff; color: #000; padding: 20px; border-radius: 8px; margin: 30px 0;">
             <p style="margin: 0; text-transform: uppercase; letter-spacing: 2px; font-size: 14px; color: #666;">Your Gift Code</p>
             <h2 style="margin: 10px 0 0 0; font-size: 32px; letter-spacing: 4px;">${confirmedCode}</h2>
-            <p style="margin: 10px 0 0 0; font-size: 13px; color: #666;">Enter this code at checkout to redeem it.</p>
+            <p style="margin: 10px 0 0 0; font-size: 13px; color: #666;">Stored-Value Card · Unused balances automatically carry over!</p>
           </div>
 
           <div style="text-align: center;">
@@ -306,7 +522,8 @@ exports.handler = async (event) => {
         var emailText =
           `${senderName ? senderName : "Someone special"} sent you a $${amount.toFixed(2)} gift card to Y'allternative Living!\n\n` +
           (personalMessage ? `Personal Message:\n"${personalMessage}"\n\n` : "") +
-          `Your Gift Code: ${confirmedCode}\n\n` +
+          `Your Gift Code: ${confirmedCode}\n` +
+          `Stored-Value Card: Unused balances carry over automatically across purchases!\n\n` +
           `Enter this code at checkout on https://yallternativeliving.com to redeem your gift card.`;
 
         var resendClient = getResendClient();
@@ -353,12 +570,9 @@ exports.handler = async (event) => {
           );
         }
 
-        // Send a backup purchase receipt / delivery confirmation to the buyer so
-        // they have immediate proof of the gift code and can forward it if there
-        // was a typo in the recipient's address or if it lands in their spam folder.
+        // Send buyer receipt backup
         var buyerEmail =
-          (session.customer_details && session.customer_details.email) ||
-          session.customer_email;
+          (session.customer_details && session.customer_details.email) || session.customer_email;
 
         if (buyerEmail && typeof buyerEmail === "string" && buyerEmail.trim()) {
           var cleanBuyer = buyerEmail.trim();
@@ -380,7 +594,7 @@ exports.handler = async (event) => {
             <div style="text-align: center; background: #fff; color: #000; padding: 20px; border-radius: 8px; margin: 30px 0;">
               <p style="margin: 0; text-transform: uppercase; letter-spacing: 2px; font-size: 13px; color: #666;">Gift Voucher Code (Backup Copy)</p>
               <h2 style="margin: 10px 0 0 0; font-size: 28px; letter-spacing: 4px;">${confirmedCode}</h2>
-              <p style="margin: 10px 0 0 0; font-size: 13px; color: #666;">Value: $${amount.toFixed(2)} USD · Single-Use Voucher</p>
+              <p style="margin: 10px 0 0 0; font-size: 13px; color: #666;">Value: $${amount.toFixed(2)} USD · Stored-Value Balance</p>
             </div>
 
             <p style="font-size: 13px; color: #aaa; text-align: center;">Keep this email for your records. If your recipient has trouble finding their email, you can share this code directly with them.</p>
@@ -393,7 +607,9 @@ exports.handler = async (event) => {
 
           var buyerEmailText =
             `Thank you for your gift card purchase from Y'allternative Living!\n\n` +
-            (isSelfGift ? `Your gift card is ready to use.` : `We've sent the gift card to ${recipientEmail}.`) +
+            (isSelfGift
+              ? `Your gift card is ready to use.`
+              : `We've sent the gift card to ${recipientEmail}.`) +
             `\n\n` +
             `Gift Voucher Code (Backup Copy): ${confirmedCode}\n` +
             `Value: $${amount.toFixed(2)} USD\n\n` +
@@ -421,10 +637,7 @@ exports.handler = async (event) => {
               }
             );
           } catch (buyerErr) {
-            console.warn(
-              "Non-fatal: failed to send buyer confirmation email:",
-              buyerErr.message
-            );
+            console.warn("Non-fatal: failed to send buyer confirmation email:", buyerErr.message);
           }
         }
       })
@@ -442,4 +655,7 @@ exports.deriveGiftCardCode = deriveGiftCardCode;
 exports.escapeHtml = escapeHtml;
 exports.verifyStripeSignature = verifyStripeSignature;
 exports.createGiftCardPromotionCode = createGiftCardPromotionCode;
+exports.rolloverGiftCardBalance = rolloverGiftCardBalance;
+exports.handleGiftCardRedemption = handleGiftCardRedemption;
+exports.findUsedPromotionCode = findUsedPromotionCode;
 exports.getResendClient = getResendClient;

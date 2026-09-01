@@ -237,6 +237,35 @@ collections:
                 widget: string
                 required: false
                 hint: "One short scent name, e.g. Lavender, Bourbon Vanilla, Frankincense, or Unscented. Products sharing a name get grouped together in the shop's scent filter. Leave blank if it doesn't apply."
+              - name: scentProfile
+                label: "Scent Notes & Intensity (Apothecary)"
+                widget: object
+                required: false
+                collapsed: true
+                fields:
+                  - { name: top, label: "Top Notes (e.g. Lavender, Rosemary)", widget: string, required: false }
+                  - { name: heart, label: "Heart Notes (e.g. Chamomile, Tea Tree)", widget: string, required: false }
+                  - { name: base, label: "Base Notes (e.g. Frankincense, Earthy Beeswax)", widget: string, required: false }
+                  - name: intensity
+                    label: Scent Intensity
+                    widget: select
+                    required: false
+                    options:
+                      - { label: "Unscented", value: "Unscented" }
+                      - { label: "Subtle", value: "Subtle" }
+                      - { label: "Medium", value: "Medium" }
+                      - { label: "Strong", value: "Strong" }
+                      - { label: "Bold", value: "Bold" }
+                  - { name: intensityScore, label: "Intensity Score (0-5)", widget: number, value_type: int, min: 0, max: 5, required: false }
+              - name: usageGuide
+                label: "Usage & Care Guidelines"
+                widget: object
+                required: false
+                collapsed: true
+                fields:
+                  - { name: howToApply, label: "How to Apply / Use / Wear", widget: text, required: false }
+                  - { name: storage, label: "Storage & Shelf Life / Garment Care", widget: text, required: false }
+                  - { name: patchTest, label: "Patch Test Guidelines / Allergen Info", widget: text, required: false }
               - name: variants
                 label: "Size/Scent/Blend Variants (optional -- leave blank for a single-option product)"
                 widget: object
@@ -376,6 +405,18 @@ collections:
           # ==================================================================
           # 5. TECHNICAL & SHOP SETTINGS (Rare / Setup Items - Collapsed by Default)
           # ==================================================================
+          - name: concerns
+            label: "Shop Concern Filters"
+            widget: list
+            label_singular: Concern
+            collapsed: true
+            summary: "{{fields.name}}"
+            hint: "Shop filter tags categorized by customer need (e.g. Sleep & Relaxation, Sore Muscles)."
+            fields:
+              - { name: id, label: "Concern ID", widget: string, required: false, hint: "Identifier used as internal reference key." }
+              - { name: name, label: "Concern Name", widget: string }
+              - { name: icon, label: "Icon / Emoji", widget: string, required: false }
+
           - name: categories
             label: "Shop Filter Categories (Technical)"
             widget: list
@@ -502,6 +543,8 @@ collections:
                 hint: "Pick the product this review is about, or leave blank for a general/whole-shop review."
               - { name: date, label: "Publish Date", widget: datetime, format: "YYYY-MM-DD", date_format: "MM/DD/YYYY", time_format: false, required: false, hint: "Select the date the review was written/published." }
               - { name: featured, label: "Feature on homepage?", widget: boolean, default: false, required: false, hint: "Check this to highlight this review on the homepage testimonials grid." }
+              - { name: verifiedBuyer, label: "Verified Buyer?", widget: boolean, default: true, required: false, hint: "Check if this review came from a confirmed purchaser or verified market attendee." }
+
 
   - name: journal
     label: "4. Apothecary Journal (Blog)"
@@ -530,6 +573,27 @@ collections:
               - { name: title, label: "Title", widget: string }
               - { name: date, label: "Publish Date", widget: datetime, format: "YYYY-MM-DD", date_format: "MM/DD/YYYY", time_format: false }
               - { name: image, label: "Featured Image", widget: image, required: false }
+              - name: readingTime
+                label: "Reading Time (e.g. 4 min read)"
+                widget: string
+                required: false
+                hint: "Estimated reading time (e.g. 4 min read). Leave blank to auto-calculate from word count."
+              - name: tags
+                label: Topical Tags
+                widget: list
+                required: false
+                field: { name: tag, label: Tag, widget: string }
+                hint: "Topical tags for this article (e.g. Apothecary, Botanical Care, Self-Care)."
+              - name: featuredProductId
+                label: "Featured Product in this Article (optional)"
+                widget: relation
+                required: false
+                collection: products
+                file: products
+                value_field: products.*.id
+                display_fields: ["products.*.name"]
+                search_fields: ["products.*.name"]
+                hint: "Pick a product featured in this article to display the inline 1-click cart card."
               # Left as a plain box on purpose: this teaser is printed inside a
               # small card on journal.html (and into llms.txt as a one-line
               # summary), so headings/bullets there would break the layout and
@@ -616,6 +680,8 @@ collections:
               - { name: footerTagline, label: "Footer Message", widget: text, required: false }
               - { name: newsletterTitle, label: "Newsletter Headline", widget: string, required: false }
               - { name: newsletterSubtext, label: "Newsletter Description", widget: text, required: false }
+              - { name: birthdayTitle, label: "Birthday Club Headline", widget: string, required: false, default: "Join The Birthday Club" }
+              - { name: birthdaySubtext, label: "Birthday Club Offer Description", widget: text, required: false, default: "Get a $5 gift voucher delivered to your inbox on your birthday." }
               - { name: kitFormAction, label: "Newsletter sign-up link (from Kit / ConvertKit)", widget: string, required: false, hint: "Paste the form link from your Kit account here." }
               - { name: tawkToPropertyId, label: "Live chat — Property ID (from Tawk.to, optional)", widget: string, required: false, hint: "Turns on the live-chat bubble. Leave blank to skip live chat." }
               - { name: tawkToWidgetId, label: "Live chat — Widget ID (from Tawk.to, optional)", widget: string, required: false, hint: "The second Tawk.to code, paired with the Property ID above." }

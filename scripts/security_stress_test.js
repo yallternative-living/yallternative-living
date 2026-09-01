@@ -71,7 +71,7 @@ function createStaticServer(port = 8083) {
   console.log("Starting Security & CSP Stress Test Harness...");
   let server;
   let browser;
-  const port = 8083;
+  const port = 8086;
   const baseUrl = `http://127.0.0.1:${port}`;
   let passed = true;
 
@@ -206,6 +206,15 @@ function createStaticServer(port = 8083) {
     consoleErrors = [];
     const productUrl = `${baseUrl}/products/backroad-soak.html`;
     await page.goto(productUrl, { waitUntil: "networkidle2" });
+    try {
+      await page.waitForFunction(
+        () =>
+          window.location.href.includes("/shop.html") && window.location.hash === "#backroad-soak",
+        { timeout: 4000 }
+      );
+    } catch (_e) {
+      // Fall through to assertion
+    }
 
     const finalUrl = page.url();
     const hash = new URL(finalUrl).hash;
@@ -231,7 +240,9 @@ function createStaticServer(port = 8083) {
     passed = false;
   } finally {
     if (browser) await browser.close();
-    if (server) server.close();
+    if (server) {
+      await new Promise((resolve) => server.close(resolve));
+    }
   }
 
   if (passed) {

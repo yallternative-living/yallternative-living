@@ -124,7 +124,7 @@
      a per-second countdown. -->
 <div class="announcement-bar" id="yl-countdown-ticker" role="region" aria-label="Site announcements">
   <span class="announcement-content" id="heroAnnouncementContent">
-    <span class="ticker-badge">⚡ NEXT POP-UP:</span>
+    <span class="ticker-badge"><svg class="yl-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg> NEXT POP-UP:</span>
     <span class="ticker-timer" id="heroCountdownTimer">
       <span id="yl-countdown-days">0</span> Days, 
       <span id="yl-countdown-hours">00</span> Hours, 
@@ -156,7 +156,9 @@
       <button type="button" class="theme-toggle" id="themeToggle" role="switch" aria-checked="false" aria-label="Toggle dark and light mode">
         <span class="knob" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-moon"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-sun"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span>
       </button>
-      <button type="button" class="nav-toggle" aria-label="Open menu" aria-expanded="false" aria-controls="navLinks">☰</button>
+      <button type="button" class="nav-toggle" aria-label="Open menu" aria-expanded="false" aria-controls="navLinks">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-menu" aria-hidden="true"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+      </button>
     </div>
   </nav>
 </header>
@@ -310,17 +312,22 @@
         <div class="quote-card reveal">
           <span class="stars" aria-hidden="true">★★★★★</span><span class="sr-only">Rated 5 out of 5 stars.</span>
           <p>"Fixed my cracked knuckles in 3 days. I&#39;ve tried every lotion at the drugstore and this is the only thing that works without feeling greasy."</p>
-          <footer>Eric (Etsy)</footer>
+          <footer>Eric M. (Etsy)</footer>
         </div>
         <div class="quote-card reveal">
           <span class="stars" aria-hidden="true">★★★★★</span><span class="sr-only">Rated 5 out of 5 stars.</span>
           <p>"This bug spray is the truth. Sat outside all evening in the South Carolina humidity and didn&#39;t get a single bite."</p>
-          <footer>Leila (Etsy)</footer>
+          <footer>Leila K. (Etsy)</footer>
         </div>
         <div class="quote-card reveal">
           <span class="stars" aria-hidden="true">★★★★★</span><span class="sr-only">Rated 5 out of 5 stars.</span>
           <p>"The sleep salve is literal magic. I rub it on my temples and I&#39;m out in 10 minutes. Smells incredible too."</p>
-          <footer>Kim (Etsy)</footer>
+          <footer>Kim T. (Etsy)</footer>
+        </div>
+        <div class="quote-card reveal">
+          <span class="stars" aria-hidden="true">★★★★★</span><span class="sr-only">Rated 5 out of 5 stars.</span>
+          <p>"Ultra-rich whipped texture that sinks right in. Completely rescued my dry elbows and winter skin."</p>
+          <footer>Casey W.</footer>
         </div>
       </div>
       <!--/YL:home.testimonials-->
@@ -442,6 +449,10 @@
           <label for="footer_email" class="sr-only">Email address</label>
           <input type="email" id="footer_email" name="email_address" placeholder="you@email.com" required autocomplete="email">
         </div>
+        <div class="field footer-birthday-field">
+          <label for="footer_birthday" class="sr-only">Birthday (Optional — for birthday rewards)</label>
+          <input type="text" id="footer_birthday" name="fields[birthday]" placeholder="Birthday: MM/DD (Optional)" pattern="(0[1-9]|1[0-2])\/(0[1-9]|[12][0-9]|3[01])" maxlength="5" title="MM/DD format (e.g. 06/14)" autocomplete="off">
+        </div>
         <button class="btn btn-primary btn-sm" type="submit">Join The List</button>
       </form>
     </div>
@@ -476,8 +487,8 @@ var Tawk_API = Tawk_API || {}, Tawk_LoadStart = new Date();
      in that state this used to build a live embed.tawk.to URL out of them and
      request it on every single page load, which 404s and buys nothing. Bail
      out instead, so the widget stays genuinely inert until it's configured. */
-  var propertyId = /*YL:site.tawkToPropertyId*/ "YOUR_TAWKTO_PROPERTY_ID" /*/YL:site.tawkToPropertyId*/;
-  var widgetId = /*YL:site.tawkToWidgetId*/ "YOUR_TAWKTO_WIDGET_ID" /*/YL:site.tawkToWidgetId*/;
+  var propertyId = /*YL:site.tawkToPropertyId*/ "6a9687f6adddbc3447585d73" /*/YL:site.tawkToPropertyId*/;
+  var widgetId = /*YL:site.tawkToWidgetId*/ "1k1e066pc" /*/YL:site.tawkToWidgetId*/;
   if (!propertyId || !widgetId) return;
   if (propertyId.indexOf("YOUR_") === 0 || widgetId.indexOf("YOUR_") === 0) return;
   var s1 = document.createElement("script"), s0 = document.getElementsByTagName("script")[0];

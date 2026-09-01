@@ -1388,3 +1388,19 @@ Both resolve to the exact same file when the browser loads them, and
 `assets/img/...` substring regardless of a leading slash) — nothing to
 fix here, just don't be surprised if you notice the inconsistency
 browsing the raw JSON.
+
+## 21. Birthday Rewards & Kit Visual Automation (TODO / Setup Guide)
+
+The site includes optional birthday capture on the footer newsletter form (`assets/data/footer.html`) and post-purchase screen (`thank-you.html`).
+
+**Data Flow:**
+1. Submissions pass `fields[birthday]` in standard `MM/DD` format (e.g. `06/14`) to `site.kitFormAction` (ConvertKit/Kit form endpoint).
+2. **Kit Custom Field Setup (TODO for Savanna / Steven):**
+   - In the Kit Dashboard → **Subscribers** → **Custom Fields**, create a text field named `birthday`.
+   - In Kit → **Automations** → **Visual Automations**, create a date-triggered rule:
+     - Trigger: *Date occurs on Custom Field `birthday`* (or *1st day of birth month*).
+     - Action: *Send Email Sequence: Birthday Treat*.
+3. **Birthday Treat Email Configuration:**
+   - Write a warm birthday greeting from Savanna.
+   - Provide a $5 digital voucher code (e.g. `YALL-BDAY-5OFF`) or auto-applied shop link (`https://yallternativeliving.com/shop.html?promo=YALL-BDAY-5OFF`) or 50 bonus Alt-Points.
+

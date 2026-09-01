@@ -4,7 +4,18 @@
    Native Popover API drawer -- browser handles light-dismiss, Esc, focus,
    and top-layer stacking; we just style + animate it.
    Uses the site's existing design tokens (--ink, --paper, --rose, --hide).
-   ========================================================== */
+/* Monoline SVG Icon System */
+.yl-icon,
+.yl-cart-icon {
+  display: inline-block;
+  vertical-align: -0.125em;
+  flex-shrink: 0;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 
 .yl-cart-drawer {
   position: fixed;
@@ -99,6 +110,31 @@
   background: var(--ink-3);
 }
 
+/* ---- Dispatch Countdown Badge ---- */
+.yl-cart-dispatch-banner {
+  flex: 0 0 auto;
+  padding: 10px 20px 0;
+}
+.yl-cart-dispatch-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: oklch(from var(--whiskey) l c h / 0.1);
+  border: 1px solid oklch(from var(--whiskey) l c h / 0.3);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--whiskey);
+  line-height: 1.35;
+  text-align: center;
+}
+.yl-cart-dispatch-badge svg {
+  flex-shrink: 0;
+  color: var(--whiskey);
+}
+
 /* ---- Line items (scrollable) ---- */
 .yl-cart-items {
   flex: 1 1 auto;
@@ -169,7 +205,9 @@
   align-items: center;
   justify-content: center;
   border-radius: 4px;
-  transition: color 0.2s ease, background 0.2s ease;
+  transition:
+    color 0.2s ease,
+    background 0.2s ease;
   position: relative;
   flex-shrink: 0;
 }
@@ -221,7 +259,9 @@
   align-items: center;
   justify-content: center;
   position: relative;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 .yl-cart-qty-pill button::after {
   content: "";
@@ -318,7 +358,11 @@
   color: var(--paper);
   cursor: pointer;
   text-align: left;
-  transition: border-color 0.2s ease, transform 0.15s ease, background 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    transform 0.15s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 .yl-cart-upsell-item:hover {
@@ -362,11 +406,95 @@
   display: inline-block;
   align-self: flex-start;
   white-space: nowrap;
-  transition: color 0.15s ease, background 0.15s ease;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
 }
 .yl-cart-upsell-item:hover .yl-cart-upsell-add {
   background: var(--whiskey);
   color: var(--ink);
+}
+
+/* Loyalty Card & Stored-Value Wallet */
+.yl-cart-loyalty-card {
+  margin-bottom: 10px;
+  background: var(--ink-3);
+  border: 1px solid var(--hide);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.yl-cart-loyalty-card .yl-cart-points {
+  margin-bottom: 0;
+  border: none;
+  border-bottom: 1px solid oklch(from var(--whiskey) l c h / 0.2);
+  border-radius: 0;
+}
+.yl-cart-wallet-block {
+  padding: 8px 12px;
+  background: oklch(from var(--whiskey) l c h / 0.04);
+}
+.yl-cart-wallet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--paper-dim);
+}
+.yl-cart-wallet-title {
+  font-weight: 500;
+}
+.yl-cart-wallet-balance {
+  font-weight: 700;
+  color: var(--whiskey);
+}
+.yl-cart-wallet-balance strong {
+  color: var(--paper);
+  font-size: 0.95rem;
+}
+.yl-cart-wallet-redeem-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.yl-cart-redeem-btn {
+  flex: 1 1 auto;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: oklch(from var(--whiskey) l c h / 0.15);
+  border: 1px solid oklch(from var(--whiskey) l c h / 0.4);
+  color: var(--whiskey);
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+.yl-cart-redeem-btn:hover {
+  background: var(--whiskey);
+  color: var(--ink);
+  border-color: var(--whiskey);
+}
+.yl-cart-wallet-loading {
+  font-size: 0.76rem;
+  color: var(--whiskey);
+  font-style: italic;
+}
+.yl-cart-wallet-needed {
+  margin-top: 6px;
+  font-size: 0.72rem;
+  color: var(--paper-dim);
+  text-align: right;
+}
+.yl-cart-points-error {
+  margin-top: 6px;
+  font-size: 0.75rem;
+  color: var(--error);
 }
 
 /* Points & Nudges */
@@ -417,7 +545,9 @@
   background: var(--ink-3);
   border: 1px solid var(--hide);
   border-radius: 8px;
-  transition: border-color 0.2s ease, background 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
 }
 .yl-cart-pickup-wrap.is-active,
 .yl-cart-pickup-wrap:hover {
@@ -522,6 +652,215 @@
   box-shadow: 0 0 8px oklch(from var(--whiskey) l c h / 0.4);
 }
 
+/* Gift Order & Message */
+.yl-cart-giftorder-wrap {
+  margin: 10px 0;
+  padding: 10px 12px;
+  background: var(--ink-3);
+  border: 1px solid var(--hide);
+  border-radius: 8px;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+.yl-cart-giftorder-wrap:hover,
+.yl-cart-giftorder-wrap:focus-within {
+  border-color: var(--whiskey);
+}
+.yl-cart-giftorder-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--whiskey);
+  margin: 0;
+  user-select: none;
+  font-size: 0.86rem;
+}
+.yl-cart-giftorder-label input[type="checkbox"] {
+  accent-color: var(--whiskey);
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.yl-cart-giftorder-custom-check {
+  display: none;
+}
+.yl-cart-giftorder-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.yl-cart-gift-toggle {
+  background: none;
+  border: none;
+  color: var(--whiskey);
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.yl-cart-giftmessage-container {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid oklch(from var(--whiskey) l c h / 0.15);
+}
+.yl-cart-giftmessage-input {
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 0.82rem;
+  font-family: inherit;
+  background: var(--ink-2);
+  color: var(--paper);
+  border: 1px solid var(--hide);
+  border-radius: 6px;
+  resize: vertical;
+  min-height: 52px;
+  line-height: 1.4;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.yl-cart-giftmessage-input:focus {
+  outline: none;
+  border-color: var(--whiskey);
+  box-shadow: 0 0 0 2px oklch(from var(--whiskey) l c h / 0.25);
+}
+.yl-cart-giftmessage-input::placeholder {
+  color: var(--paper-dim);
+  opacity: 0.8;
+}
+
+/* Gift Card / Stored-Value Voucher */
+.yl-cart-giftcard-wrap {
+  margin: 10px 0;
+  padding: 10px 12px;
+  background: var(--ink-3);
+  border: 1px solid var(--hide);
+  border-radius: 8px;
+}
+.yl-cart-giftcard-toggle {
+  background: none;
+  border: none;
+  color: var(--whiskey);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+}
+.yl-cart-giftcard-toggle:hover {
+  text-decoration: underline;
+}
+.yl-cart-giftcard-form {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.yl-cart-giftcard-input-row {
+  display: flex;
+  gap: 8px;
+}
+.yl-cart-giftcard-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  font-family: monospace;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: var(--ink-2);
+  color: var(--paper);
+  border: 1px solid var(--hide);
+  border-radius: 6px;
+}
+.yl-cart-giftcard-input:focus {
+  outline: none;
+  border-color: var(--whiskey);
+}
+.yl-cart-giftcard-btn {
+  padding: 6px 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  background: var(--whiskey);
+  color: var(--ink);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+.yl-cart-giftcard-btn:hover {
+  opacity: 0.9;
+}
+.yl-cart-giftcard-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.yl-cart-giftcard-applied {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: oklch(from var(--whiskey) l c h / 0.1);
+  border: 1px solid oklch(from var(--whiskey) l c h / 0.3);
+  border-radius: 6px;
+  font-size: 0.82rem;
+}
+.yl-cart-giftcard-applied-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.yl-cart-giftcard-applied-code {
+  font-weight: 700;
+  color: var(--whiskey);
+  letter-spacing: 0.05em;
+}
+.yl-cart-giftcard-applied-bal {
+  font-size: 0.74rem;
+  color: var(--paper-dim);
+}
+.yl-cart-giftcard-remove {
+  background: none;
+  border: none;
+  color: var(--paper-dim);
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 4px;
+  text-decoration: underline;
+}
+.yl-cart-giftcard-remove:hover {
+  color: var(--rose);
+}
+.yl-cart-giftcard-msg {
+  font-size: 0.76rem;
+  color: var(--error);
+  margin-top: 4px;
+  line-height: 1.3;
+}
+
+.yl-cart-discount-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  color: var(--whiskey);
+  font-size: 0.92rem;
+  margin: 4px 0;
+}
+.yl-cart-discount-line strong {
+  font-variant-numeric: tabular-nums;
+}
+
 .yl-cart-subtotal {
   display: flex;
   justify-content: space-between;
@@ -547,12 +886,54 @@
   letter-spacing: 0.03em;
   border-radius: var(--radius, 8px);
   box-shadow: 0 4px 16px oklch(from var(--rose) l c h / 0.35);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
 }
 .yl-cart-checkout:hover {
   transform: translateY(-1px);
   box-shadow: 0 6px 20px oklch(from var(--rose) l c h / 0.45);
 }
+/* Share Cart */
+.yl-cart-share-wrap {
+  margin-top: 10px;
+  text-align: center;
+}
+.yl-cart-share-btn {
+  background: transparent;
+  border: 1px dashed oklch(from var(--whiskey) l c h / 0.4);
+  color: var(--whiskey);
+  padding: 8px 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+.yl-cart-share-btn:hover {
+  background: oklch(from var(--whiskey) l c h / 0.1);
+  border-color: var(--whiskey);
+}
+.yl-cart-share-btn:focus-visible {
+  outline: 2px solid var(--whiskey);
+  outline-offset: 2px;
+}
+.yl-cart-share-toast {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 0.75rem;
+  color: var(--whiskey);
+  font-weight: 600;
+}
+
 .yl-cart-note {
   margin: 8px 0 0;
   text-align: center;

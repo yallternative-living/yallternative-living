@@ -4,10 +4,7 @@
  * honeypot bot defense, and HTML sanitization.
  */
 
-const ALLOWED_ORIGINS = [
-  "https://yallternativeliving.com",
-  "https://www.yallternativeliving.com",
-];
+const ALLOWED_ORIGINS = ["https://yallternativeliving.com", "https://www.yallternativeliving.com"];
 
 function escapeHtml(str) {
   return String(str || "")
@@ -27,7 +24,7 @@ exports.handler = async function (event) {
     "Access-Control-Allow-Origin": allowOrigin,
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Content-Type": "application/json",
+    "Content-Type": "application/json"
   };
 
   if (event.httpMethod === "OPTIONS") {
@@ -38,7 +35,7 @@ exports.handler = async function (event) {
     return {
       statusCode: 405,
       headers,
-      body: JSON.stringify({ error: "Method Not Allowed" }),
+      body: JSON.stringify({ error: "Method Not Allowed" })
     };
   }
 
@@ -59,7 +56,7 @@ exports.handler = async function (event) {
       return {
         statusCode: 200,
         headers,
-        body: JSON.stringify({ success: true, message: "Request received." }),
+        body: JSON.stringify({ success: true, message: "Request received." })
       };
     }
 
@@ -67,7 +64,7 @@ exports.handler = async function (event) {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ error: "Please enter a valid email address." }),
+        body: JSON.stringify({ error: "Please enter a valid email address." })
       };
     }
 
@@ -77,14 +74,14 @@ exports.handler = async function (event) {
       headers,
       body: JSON.stringify({
         success: true,
-        message: `Thank you! We'll notify ${escapeHtml(email)} when ${escapeHtml(product) || "this item"} is back in stock.`,
-      }),
+        message: `Thank you! We'll notify ${escapeHtml(email)} when ${escapeHtml(product) || "this item"} is back in stock.`
+      })
     };
   } catch (err) {
     return {
       statusCode: 400,
       headers,
-      body: JSON.stringify({ error: "Invalid request payload." }),
+      body: JSON.stringify({ error: "Invalid request payload." })
     };
   }
 };

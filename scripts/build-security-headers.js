@@ -69,6 +69,8 @@ var PAGES = [
   // an inline <script> is covered by the byte-identical check.
   "faq.html",
   "journal.html",
+  "reviews.html",
+  "order-status.html",
   "policies.html",
   "terms.html",
   "welcome.html",

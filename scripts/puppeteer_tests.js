@@ -442,6 +442,81 @@ function createStaticServer(port = 8082) {
       }
     }
 
+    // 8. Test Reviews & Social Proof Search, Filter & Verified Badges (R5)
+    console.log("--- Testing Customer Reviews Search & Filter Page (R5) ---");
+    await page.goto(`${url}/reviews.html`, { waitUntil: "networkidle2" });
+    const reviewsGrid = await page.$("#reviewsGrid");
+    if (reviewsGrid) {
+      const initialCards = await page.$$(".review-card");
+      if (initialCards.length >= 3) {
+        console.log(`✅ reviews.html rendered ${initialCards.length} review cards.`);
+      } else {
+        console.log(`❌ reviews.html rendered fewer than 3 cards (got ${initialCards.length}).`);
+        exitCode = 1;
+      }
+
+      const verifiedBadges = await page.$$(".badge-verified");
+      if (verifiedBadges.length >= 2) {
+        console.log(
+          `✅ reviews.html successfully rendered ${verifiedBadges.length} verified buyer badges.`
+        );
+      } else {
+        console.log(`❌ reviews.html failed to render verified buyer badges.`);
+        exitCode = 1;
+      }
+
+      // Test Live Search
+      await page.type("#reviewSearchInput", "knuckles");
+      await new Promise((r) => setTimeout(r, 200));
+      const filteredCards = await page.$$(".review-card");
+      const bannerText = await page.$eval("#reviewsCountBanner", (el) => el.textContent);
+      if (filteredCards.length === 1 && bannerText.includes("1 review")) {
+        console.log(
+          "✅ reviews.html keyword search dynamically filters cards and updates live counter."
+        );
+      } else {
+        console.log(
+          `❌ reviews.html keyword search failed (got ${filteredCards.length} cards, banner: "${bannerText}").`
+        );
+        exitCode = 1;
+      }
+
+      // Test Clear / Star Rating Filter
+      await page.$eval("#reviewSearchInput", (el) => {
+        el.value = "";
+        el.dispatchEvent(new Event("input"));
+      });
+      await new Promise((r) => setTimeout(r, 150));
+      const chip5 = await page.$('button[data-rating="5"]');
+      if (chip5) {
+        await chip5.click();
+        await new Promise((r) => setTimeout(r, 200));
+        const fiveStarCards = await page.$$(".review-card");
+        if (fiveStarCards.length >= 2) {
+          console.log(
+            `✅ reviews.html star rating filter chip narrowed to 5-star reviews (${fiveStarCards.length} cards).`
+          );
+        } else {
+          console.log("❌ reviews.html star rating filter failed.");
+          exitCode = 1;
+        }
+      }
+
+      // Reset
+      const resetBtn = await page.$('button[data-rating="all"]');
+      if (resetBtn) {
+        await resetBtn.click();
+        await new Promise((r) => setTimeout(r, 200));
+        const restoredCards = await page.$$(".review-card");
+        if (restoredCards.length === initialCards.length) {
+          console.log("✅ reviews.html reset button restored all review cards.");
+        }
+      }
+    } else {
+      console.log("❌ #reviewsGrid element missing on reviews.html.");
+      exitCode = 1;
+    }
+
     console.log("--- Testing Apothecary Recommendation Quiz (R4) ---");
     await page.goto(`${url}/shop.html`, { waitUntil: "networkidle2" });
     const quizSection = await page.$("#apothecary-quiz-section");
@@ -477,6 +552,72 @@ function createStaticServer(port = 8082) {
       }
     } else {
       console.log("❌ #apothecary-quiz-section element missing on shop.html.");
+      exitCode = 1;
+    }
+
+    console.log("--- Testing Self-Service Order Status & Packing Slip (R6) ---");
+    await page.goto(`${url}/order-status.html?session_id=cs_test_sample12345`, {
+      waitUntil: "networkidle2"
+    });
+
+    const statusCard = await page.waitForSelector(".order-status-card", {
+      visible: true,
+      timeout: 5000
+    });
+    if (statusCard) {
+      console.log(
+        "✅ order-status.html auto-rendered progression timeline from ?session_id= query."
+      );
+    } else {
+      console.log("❌ order-status.html failed to render progression timeline.");
+      exitCode = 1;
+    }
+
+    const orderRows = await page.$$(".order-item-row");
+    if (orderRows.length >= 2) {
+      console.log(`✅ order-status.html rendered itemized breakdown (${orderRows.length} items).`);
+    } else {
+      console.log("❌ order-status.html failed to render past order items.");
+      exitCode = 1;
+    }
+
+    // Verify Reorder Past Order button opens cart
+    const reorderPastBtn = await page.$("#reorderPastOrderBtn");
+    if (reorderPastBtn) {
+      await page.evaluate((b) => b.click(), reorderPastBtn);
+      let cartOpened = false;
+      try {
+        await page.waitForSelector("#yl-cart-drawer .yl-cart-line", {
+          visible: true,
+          timeout: 5000
+        });
+        cartOpened = true;
+      } catch (e) {
+        cartOpened = false;
+      }
+      if (cartOpened) {
+        console.log("✅ Reorder Past Order button populated cart and opened drawer.");
+      } else {
+        console.log("❌ Reorder Past Order button failed to open cart drawer.");
+        exitCode = 1;
+      }
+    }
+
+    // Assert STRICT INVARIANT: Packing slip table contains ZERO dollar prices
+    const slipTableText = await page.evaluate(() => {
+      /* eslint-disable no-undef */
+      const tb = document.getElementById("slipItemsTableBody");
+      return tb ? tb.textContent : "";
+      /* eslint-enable no-undef */
+    });
+    if (!slipTableText.includes("$") && !/\$\d+\.\d{2}/.test(slipTableText)) {
+      console.log(
+        "✅ Printable Fulfillment Packing Slip table verified: STRICTLY ZERO dollar prices."
+      );
+    } else {
+      console.log(
+        "❌ Printable Packing Slip contains dollar prices, violating gift recipient privacy invariant!"
+      );
       exitCode = 1;
     }
   } catch (e) {

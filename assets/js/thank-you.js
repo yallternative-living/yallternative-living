@@ -118,6 +118,104 @@
       });
       dateEl.textContent = formattedDate;
     }
+
+    /* ---------- R3: Digital Gift Certificate Parser & Controller ---------- */
+    var giftCode = (
+      params.get("gift_code") ||
+      params.get("code") ||
+      params.get("gift_card_code") ||
+      ""
+    ).trim();
+    var recipient = (params.get("recipient") || params.get("to") || "").trim();
+    var sender = (params.get("sender") || params.get("from") || "").trim();
+    var customNote = (
+      params.get("message") ||
+      params.get("note") ||
+      params.get("gift_message") ||
+      ""
+    ).trim();
+
+    var certSection = document.getElementById("giftCertificateSection");
+    if (giftCode && certSection) {
+      certSection.hidden = false;
+
+      var certCodeEl = document.getElementById("giftCertCode");
+      if (certCodeEl) {
+        certCodeEl.textContent = giftCode;
+      }
+
+      var certValEl = document.getElementById("giftCertValue");
+      if (certValEl && !isNaN(amount)) {
+        certValEl.textContent = "$" + amount.toFixed(2);
+      }
+
+      var certRecipientEl = document.getElementById("giftCertRecipient");
+      if (certRecipientEl && recipient) {
+        certRecipientEl.textContent = recipient;
+      }
+
+      var certSenderEl = document.getElementById("giftCertSender");
+      if (certSenderEl && sender) {
+        certSenderEl.textContent = sender;
+      }
+
+      var certMessageEl = document.getElementById("giftCertMessage");
+      if (certMessageEl && customNote) {
+        certMessageEl.textContent = customNote;
+      }
+
+      var printBtn = document.getElementById("printGiftCertBtn");
+      if (printBtn) {
+        printBtn.addEventListener("click", function () {
+          window.print();
+        });
+      }
+
+      var copyBtn = document.getElementById("copyGiftCertCodeBtn");
+      var feedbackEl = document.getElementById("giftCertCopyFeedback");
+      if (copyBtn) {
+        copyBtn.addEventListener("click", function () {
+          var originalText = copyBtn.innerHTML;
+          function showSuccess() {
+            copyBtn.innerHTML =
+              '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg> Copied!';
+            if (feedbackEl) {
+              feedbackEl.textContent = "Gift card code " + giftCode + " copied to clipboard.";
+            }
+            setTimeout(function () {
+              copyBtn.innerHTML = originalText;
+            }, 2500);
+          }
+
+          if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+            navigator.clipboard
+              .writeText(giftCode)
+              .then(showSuccess)
+              .catch(function () {
+                fallbackCopy();
+              });
+          } else {
+            fallbackCopy();
+          }
+
+          function fallbackCopy() {
+            try {
+              var tempInput = document.createElement("input");
+              tempInput.value = giftCode;
+              document.body.appendChild(tempInput);
+              tempInput.select();
+              document.execCommand("copy");
+              document.body.removeChild(tempInput);
+              showSuccess();
+            } catch {
+              if (feedbackEl) {
+                feedbackEl.textContent = "Could not copy code. Please copy manually: " + giftCode;
+              }
+            }
+          }
+        });
+      }
+    }
   } catch {
     /* Never let a query-param hiccup break this page's "thanks!" message. */
   }

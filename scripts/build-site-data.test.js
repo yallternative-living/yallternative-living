@@ -338,5 +338,69 @@ assert(
   "setFormAction restores the placeholder when the CMS field is cleared"
 );
 
+/* 9. PDP Merchandising Helper Functions */
+const freshnessBadgeHtml = buildScript.renderFreshnessBadgeHtml();
+assert(
+  freshnessBadgeHtml.indexOf("pdp-freshness-badge") !== -1 &&
+    freshnessBadgeHtml.indexOf("Poured in Landrum, SC · Small-Batch Promise") !== -1,
+  "renderFreshnessBadgeHtml generates small-batch promise trust badge"
+);
+
+const testApothecaryProd = {
+  id: "test-salve",
+  name: "Test Botanical Salve",
+  category: "salves",
+  price: 19.99,
+  image: "assets/img/frankincense-salve.jpg",
+  blurb: "Handcrafted salve test.",
+  scentProfile: {
+    top: "Lavender, Bergamot",
+    heart: "Chamomile, Tea Tree",
+    base: "Frankincense, Beeswax",
+    intensity: "Medium",
+    intensityScore: 3
+  },
+  usageGuide: {
+    howToApply: "Massage a small amount into skin.",
+    storage: "Store in cool dry place. Shelf life 6-12 months.",
+    patchTest: "Apply small dab to inner wrist 24 hours prior to use."
+  }
+};
+
+const scentProfileMarkup = buildScript.renderScentProfileHtml(testApothecaryProd);
+assert(
+  scentProfileMarkup.indexOf("pdp-scent-profile") !== -1 &&
+    scentProfileMarkup.indexOf("Lavender, Bergamot") !== -1 &&
+    scentProfileMarkup.indexOf("Chamomile, Tea Tree") !== -1 &&
+    scentProfileMarkup.indexOf("Frankincense, Beeswax") !== -1 &&
+    scentProfileMarkup.indexOf("Intensity:") !== -1 &&
+    scentProfileMarkup.indexOf("width:60%;") !== -1,
+  "renderScentProfileHtml generates note pyramid and intensity badge"
+);
+
+const usageAccordionMarkup = buildScript.renderUsageAccordionsHtml(testApothecaryProd);
+assert(
+  usageAccordionMarkup.indexOf('<details class="pdp-accordion">') !== -1 &&
+    usageAccordionMarkup.indexOf("How to Apply") !== -1 &&
+    usageAccordionMarkup.indexOf("Storage &amp; Shelf Life") !== -1 &&
+    usageAccordionMarkup.indexOf("Patch Test Guidelines") !== -1 &&
+    usageAccordionMarkup.indexOf("Massage a small amount into skin.") !== -1,
+  "renderUsageAccordionsHtml generates accessible details accordions"
+);
+
+const pdpHtmlOutput = buildScript.renderProductPdpHtml(
+  testApothecaryProd,
+  "https://yallternativeliving.com",
+  "Salves & Balms"
+);
+assert(
+  pdpHtmlOutput.indexOf("<!DOCTYPE html>") !== -1 &&
+    pdpHtmlOutput.indexOf('class="pdp-page"') !== -1 &&
+    pdpHtmlOutput.indexOf("pdp-freshness-badge") !== -1 &&
+    pdpHtmlOutput.indexOf("pdp-scent-profile") !== -1 &&
+    pdpHtmlOutput.indexOf("pdp-accordion") !== -1,
+  "renderProductPdpHtml generates complete PDP page with all components"
+);
+
 console.log(`\nbuild-site-data.test.js: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

@@ -970,11 +970,14 @@ function buildSiteData() {
             "</h3>\n" +
             '              <p class="event-date"><time datetime="' +
             (ev.date || "") +
-            '">📅 ' +
+            '"><svg class="yl-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> ' +
             escapeHtml(ev.dateLabel) +
             "</time></p>\n" +
             '              <p class="event-location">' +
-            (ev.location ? "📍 " + escapeHtml(ev.location) : "") +
+            (ev.location
+              ? '<svg class="yl-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg> ' +
+                escapeHtml(ev.location)
+              : "") +
             "</p>\n" +
             cardNote +
             cardUrl +
@@ -1430,6 +1433,8 @@ function buildSiteData() {
     { loc: "shop.html", priority: "0.9" },
     { loc: "events.html", priority: "0.7" },
     { loc: "about.html", priority: "0.7" },
+    { loc: "reviews.html", priority: "0.8" },
+    { loc: "order-status.html", priority: "0.7" },
     { loc: "contact.html", priority: "0.6" },
     { loc: "faq.html", priority: "0.6" },
     { loc: "privacy.html", priority: "0.3" },
@@ -1467,6 +1472,10 @@ function buildSiteData() {
     }).join("\n") +
     "\n</urlset>\n";
   writeFile("sitemap.xml", sitemapXml);
+
+  /* ---------- 5c) feed.xml (Apothecary Journal RSS Feed) ---------- */
+  const rssXml = generateRssFeed(JOURNAL, DOMAIN);
+  writeFile("feed.xml", rssXml);
 
   /* ---------- 5b) robots.txt ----------
    Previously a hand-maintained static file -- its one dynamic bit (the
@@ -1979,86 +1988,8 @@ function buildSiteData() {
   // Automatically generate individual product OpenGraph HTML pages
   (function generateProductOgPages() {
     PRODUCTS.forEach(function (product) {
-      const pTitle = escapeHtml(product.name) + " | Y'allternative Living";
-      // Prefer the hand-written SEO `description` field (present in
-      // products.json) over the shop-card blurb; fall back to the blurb.
-      const pDesc = escapeHtml(product.description || product.blurb || "");
-      const pUrl = DOMAIN + "/products/" + product.id + ".html";
-      const pImage = DOMAIN + "/" + product.image;
-
-      const html =
-        "<!DOCTYPE html>\n" +
-        '<html lang="en">\n' +
-        "<head>\n" +
-        '  <meta charset="UTF-8">\n' +
-        '  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
-        "  <title>" +
-        pTitle +
-        "</title>\n" +
-        '  <meta name="description" content="' +
-        pDesc +
-        '">\n' +
-        /* These 19 files exist only so a shared/pasted product link renders a
-         rich preview -- a human hitting one is immediately JS-redirected to the
-         real listing on shop.html. Without a canonical they're 19 indexable
-         URLs whose content duplicates shop.html and which aren't in
-         sitemap.xml, competing with the page actually meant to rank. Point
-         every one at shop.html so the ranking signals consolidate there.
-         (Canonical deliberately omits the #id fragment -- search engines drop
-         fragments from canonical URLs, so shop.html is the real target.)
-         Social scrapers read the og:* tags below regardless of this tag, so
-         previews are unaffected. */
-        '  <link rel="canonical" href="' +
-        DOMAIN +
-        '/shop.html">\n' +
-        "  <!-- OpenGraph -->\n" +
-        '  <meta property="og:type" content="product">\n' +
-        '  <meta property="og:title" content="' +
-        pTitle +
-        '">\n' +
-        '  <meta property="og:description" content="' +
-        pDesc +
-        '">\n' +
-        '  <meta property="og:image" content="' +
-        pImage +
-        '">\n' +
-        '  <meta property="og:url" content="' +
-        pUrl +
-        '">\n' +
-        '  <meta property="og:site_name" content="Y\'allternative Living">\n' +
-        "  <!-- Twitter -->\n" +
-        '  <meta name="twitter:card" content="summary_large_image">\n' +
-        '  <meta name="twitter:title" content="' +
-        pTitle +
-        '">\n' +
-        '  <meta name="twitter:description" content="' +
-        pDesc +
-        '">\n' +
-        '  <meta name="twitter:image" content="' +
-        pImage +
-        '">\n' +
-        "  <!-- E-commerce OG -->\n" +
-        '  <meta property="product:price:amount" content="' +
-        product.price.toFixed(2) +
-        '">\n' +
-        '  <meta property="product:price:currency" content="USD">\n' +
-        '  <meta property="product:availability" content="' +
-        (product.comingSoon ? "preorder" : "in stock") +
-        '">\n' +
-        "  <!-- Redirect to shop with product deep-link -->\n" +
-        '  <script>window.location.replace("../shop.html#" + window.location.pathname.split("/").pop().replace(".html",""));</script>\n' +
-        "</head>\n" +
-        '<body style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;text-align:center;padding:50px;background:#fcfaf7;color:#353230;">\n' +
-        "  <h1>" +
-        pTitle +
-        "</h1>\n" +
-        "  <p>Redirecting you to the shop...</p>\n" +
-        '  <p><a href="../shop.html#' +
-        product.id +
-        "\">Click here if you aren't redirected automatically</a></p>\n" +
-        "</body>\n" +
-        "</html>\n";
-
+      const categoryLabel = CATEGORY_LABEL[product.category] || product.category || "Apothecary";
+      const html = renderProductPdpHtml(product, DOMAIN, categoryLabel);
       writeFile("products/" + product.id + ".html", html);
     });
   })();
@@ -2094,6 +2025,388 @@ function buildSiteData() {
 }
 
 /* ---------- Export Internal Helpers & Build Function ---------- */
+function renderFreshnessBadgeHtml() {
+  return (
+    '      <div class="pdp-freshness-badge" role="status">\n' +
+    '        <svg class="pdp-freshness-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">\n' +
+    '          <path d="M12 2l2.4 7.4h7.6l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/>\n' +
+    "        </svg>\n" +
+    "        <span>Poured in Landrum, SC · Small-Batch Promise</span>\n" +
+    "      </div>\n"
+  );
+}
+
+function renderScentProfileHtml(product) {
+  if (!product || !product.scentProfile) return "";
+  const sp = product.scentProfile;
+  const isUnscented = sp.intensity === "Unscented" || sp.intensityScore === 0;
+  if (isUnscented) {
+    return (
+      '      <section class="pdp-scent-profile pdp-scent-unscented" aria-labelledby="scentHeading-' +
+      escapeHtml(product.id || "prod") +
+      '">\n' +
+      '        <div class="pdp-scent-header">\n' +
+      '          <h2 id="scentHeading-' +
+      escapeHtml(product.id || "prod") +
+      '" class="pdp-section-title">Scent Profile</h2>\n' +
+      '          <span class="pdp-intensity-bar" aria-label="Scent intensity: Unscented (0 out of 5)">\n' +
+      '            <span class="intensity-label">Intensity: <strong>Unscented</strong> (0/5)</span>\n' +
+      "          </span>\n" +
+      "        </div>\n" +
+      '        <p class="pdp-scent-unscented-note">Naturally unscented and free from added essential oils or synthetic fragrances. Perfect for sensitive skin.</p>\n' +
+      "      </section>\n"
+    );
+  }
+  const scorePercent = Math.min(100, Math.max(0, (sp.intensityScore || 0) * 20));
+  return (
+    '      <section class="pdp-scent-profile" aria-labelledby="scentHeading-' +
+    escapeHtml(product.id || "prod") +
+    '">\n' +
+    '        <div class="pdp-scent-header">\n' +
+    '          <h2 id="scentHeading-' +
+    escapeHtml(product.id || "prod") +
+    '" class="pdp-section-title">Scent Profile &amp; Notes</h2>\n' +
+    '          <span class="pdp-intensity-bar" aria-label="Scent intensity: ' +
+    escapeHtml(sp.intensity || "Medium") +
+    " (" +
+    (sp.intensityScore || 3) +
+    ' out of 5)">\n' +
+    '            <span class="intensity-label">Intensity: <strong>' +
+    escapeHtml(sp.intensity || "Medium") +
+    "</strong> (" +
+    (sp.intensityScore || 3) +
+    "/5)</span>\n" +
+    '            <span class="intensity-meter" aria-hidden="true"><span class="intensity-fill" style="width:' +
+    scorePercent +
+    '%;"></span></span>\n' +
+    "          </span>\n" +
+    "        </div>\n" +
+    '        <div class="scent-notes-grid">\n' +
+    '          <div class="scent-note-card top-note">\n' +
+    '            <span class="note-label">Top Notes</span>\n' +
+    '            <p class="note-desc">' +
+    escapeHtml(sp.top || "N/A") +
+    "</p>\n" +
+    "          </div>\n" +
+    '          <div class="scent-note-card heart-note">\n' +
+    '            <span class="note-label">Heart Notes</span>\n' +
+    '            <p class="note-desc">' +
+    escapeHtml(sp.heart || "N/A") +
+    "</p>\n" +
+    "          </div>\n" +
+    '          <div class="scent-note-card base-note">\n' +
+    '            <span class="note-label">Base Notes</span>\n' +
+    '            <p class="note-desc">' +
+    escapeHtml(sp.base || "N/A") +
+    "</p>\n" +
+    "          </div>\n" +
+    "        </div>\n" +
+    "      </section>\n"
+  );
+}
+
+function renderUsageAccordionsHtml(product) {
+  if (!product || !product.usageGuide) return "";
+  const ug = product.usageGuide;
+  const isApparel = product.category === "apparel";
+  const isGiftCard = product.category === "gift-cards";
+  const howToLabel = isApparel
+    ? "How to Wear &amp; Fit"
+    : isGiftCard
+      ? "How to Redeem"
+      : "How to Apply";
+  const storageLabel = isApparel
+    ? "Garment Care &amp; Washing"
+    : isGiftCard
+      ? "Digital Delivery &amp; Expiration"
+      : "Storage &amp; Shelf Life";
+  const patchTestLabel = isApparel
+    ? "Material &amp; Skin Safety"
+    : isGiftCard
+      ? "Terms &amp; Gift Guarantee"
+      : "Patch Test Guidelines";
+
+  return (
+    '      <div class="pdp-accordions-group" aria-label="Product usage, care, and safety guidelines">\n' +
+    '        <details class="pdp-accordion">\n' +
+    '          <summary class="pdp-accordion-summary"><span>' +
+    howToLabel +
+    "</span></summary>\n" +
+    '          <div class="pdp-accordion-content">\n' +
+    "            <p>" +
+    escapeHtml(ug.howToApply || "") +
+    "</p>\n" +
+    "          </div>\n" +
+    "        </details>\n" +
+    '        <details class="pdp-accordion">\n' +
+    '          <summary class="pdp-accordion-summary"><span>' +
+    storageLabel +
+    "</span></summary>\n" +
+    '          <div class="pdp-accordion-content">\n' +
+    "            <p>" +
+    escapeHtml(ug.storage || "") +
+    "</p>\n" +
+    "          </div>\n" +
+    "        </details>\n" +
+    '        <details class="pdp-accordion">\n' +
+    '          <summary class="pdp-accordion-summary"><span>' +
+    patchTestLabel +
+    "</span></summary>\n" +
+    '          <div class="pdp-accordion-content">\n' +
+    "            <p>" +
+    escapeHtml(ug.patchTest || "") +
+    "</p>\n" +
+    "          </div>\n" +
+    "        </details>\n" +
+    "      </div>\n"
+  );
+}
+
+function renderProductPdpHtml(product, domain, categoryLabel) {
+  const pTitle = escapeHtml(product.name) + " | Y'allternative Living";
+  const pDesc = escapeHtml(product.description || product.blurb || "");
+  const pUrl = domain + "/products/" + product.id + ".html";
+  const pImage = domain + "/" + String(product.image).replace(/^\/+/, "");
+  const catLabel = escapeHtml(categoryLabel || product.category || "Apothecary");
+  const range = variantPriceRange(product);
+  const priceDisplayHtml =
+    range.low === range.high
+      ? '<span itemprop="priceCurrency" content="USD">$</span><span itemprop="price" content="' +
+        range.low.toFixed(2) +
+        '">' +
+        range.low.toFixed(2) +
+        "</span>"
+      : '<span itemprop="priceCurrency" content="USD">$</span><span itemprop="price" content="' +
+        product.price.toFixed(2) +
+        '">' +
+        range.low.toFixed(2) +
+        " &ndash; $" +
+        range.high.toFixed(2) +
+        "</span>";
+
+  const freshnessBadgeHtml = renderFreshnessBadgeHtml();
+  const scentProfileHtml = renderScentProfileHtml(product);
+  const usageAccordionsHtml = renderUsageAccordionsHtml(product);
+
+  let ingredientsHtml = "";
+  if (Array.isArray(product.ingredients) && product.ingredients.length) {
+    const ingLabel = escapeHtml(product.ingredientsLabel || "Ingredients");
+    ingredientsHtml =
+      '      <div class="pdp-ingredients-block">\n' +
+      '        <h2 class="pdp-section-title">' +
+      ingLabel +
+      "</h2>\n" +
+      '        <ul class="pdp-ingredients-list">\n' +
+      product.ingredients
+        .map(function (ing) {
+          return "          <li>" + escapeHtml(ing) + "</li>";
+        })
+        .join("\n") +
+      "\n        </ul>\n" +
+      (product.ingredientsNote
+        ? '        <p class="pdp-ingredients-note"><small>Note: ' +
+          escapeHtml(product.ingredientsNote) +
+          "</small></p>\n"
+        : "") +
+      "      </div>\n";
+  }
+
+  return (
+    "<!DOCTYPE html>\n" +
+    '<html lang="en">\n' +
+    "<head>\n" +
+    '  <meta charset="UTF-8">\n' +
+    '  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
+    '  <meta name="color-scheme" content="dark light">\n' +
+    "  <title>" +
+    pTitle +
+    "</title>\n" +
+    '  <meta name="description" content="' +
+    pDesc +
+    '">\n' +
+    '  <link rel="canonical" href="' +
+    domain +
+    '/shop.html">\n' +
+    '  <link rel="icon" href="../assets/img/favicon-32.png" sizes="32x32" type="image/png">\n' +
+    '  <link rel="stylesheet" href="../assets/css/styles.css?v=2.0">\n' +
+    '  <link rel="stylesheet" href="../assets/css/cart.css">\n' +
+    "  <!-- OpenGraph -->\n" +
+    '  <meta property="og:type" content="product">\n' +
+    '  <meta property="og:title" content="' +
+    pTitle +
+    '">\n' +
+    '  <meta property="og:description" content="' +
+    pDesc +
+    '">\n' +
+    '  <meta property="og:image" content="' +
+    pImage +
+    '">\n' +
+    '  <meta property="og:url" content="' +
+    pUrl +
+    '">\n' +
+    '  <meta property="og:site_name" content="Y\'allternative Living">\n' +
+    "  <!-- Twitter -->\n" +
+    '  <meta name="twitter:card" content="summary_large_image">\n' +
+    '  <meta name="twitter:title" content="' +
+    pTitle +
+    '">\n' +
+    '  <meta name="twitter:description" content="' +
+    pDesc +
+    '">\n' +
+    '  <meta name="twitter:image" content="' +
+    pImage +
+    '">\n' +
+    "  <!-- E-commerce OG -->\n" +
+    '  <meta property="product:price:amount" content="' +
+    product.price.toFixed(2) +
+    '">\n' +
+    '  <meta property="product:price:currency" content="USD">\n' +
+    '  <meta property="product:availability" content="' +
+    (product.comingSoon ? "preorder" : "in stock") +
+    '">\n' +
+    "  <!-- Redirect to shop with product deep-link -->\n" +
+    '  <script>window.location.replace("../shop.html#" + window.location.pathname.split("/").pop().replace(".html",""));</script>\n' +
+    "</head>\n" +
+    '<body class="pdp-page">\n' +
+    '  <a href="#main-content" class="skip-link">Skip to main content</a>\n' +
+    '  <header class="site-header">\n' +
+    '    <nav class="nav" aria-label="Main Navigation">\n' +
+    '      <a class="brand" href="../index.html" aria-label="Y\'allternative Living home">\n' +
+    '        <img class="logo-desktop" src="../assets/img/logo.png" alt="Y\'allternative Living icon" width="48" height="48">\n' +
+    '        <span class="brand-word">Y\'allternative<small>Living</small></span>\n' +
+    "      </a>\n" +
+    '      <ul class="nav-links">\n' +
+    '        <li><a href="../index.html">Home</a></li>\n' +
+    '        <li><a href="../shop.html" class="active">Shop</a></li>\n' +
+    '        <li><a href="../events.html">Events</a></li>\n' +
+    '        <li><a href="../about.html">Our Story</a></li>\n' +
+    '        <li><a href="../contact.html">Contact</a></li>\n' +
+    "      </ul>\n" +
+    "    </nav>\n" +
+    "  </header>\n" +
+    '  <main id="main-content" class="container pdp-container">\n' +
+    '    <nav class="breadcrumb-nav" aria-label="Breadcrumb">\n' +
+    '      <p class="breadcrumb"><a href="../index.html">Home</a> / <a href="../shop.html">Shop</a> / <span>' +
+    escapeHtml(product.name) +
+    "</span></p>\n" +
+    "    </nav>\n" +
+    '    <article class="pdp-layout" itemscope itemtype="https://schema.org/Product">\n' +
+    '      <div class="pdp-gallery">\n' +
+    '        <img src="../' +
+    String(product.image).replace(/^\/+/, "") +
+    '" alt="' +
+    escapeHtml(product.name) +
+    '" class="pdp-main-image" width="600" height="600" loading="eager" itemprop="image">\n' +
+    "      </div>\n" +
+    '      <div class="pdp-details">\n' +
+    '        <span class="eyebrow">' +
+    catLabel +
+    "</span>\n" +
+    '        <h1 class="pdp-title" itemprop="name">' +
+    escapeHtml(product.name) +
+    "</h1>\n" +
+    '        <div class="pdp-price-row">\n' +
+    '          <span class="price pdp-price" itemprop="offers" itemscope itemtype="https://schema.org/Offer">\n' +
+    "            " +
+    priceDisplayHtml +
+    "\n" +
+    "          </span>\n" +
+    (product.originalPrice
+      ? '          <span class="original-price">$' + product.originalPrice.toFixed(2) + "</span>\n"
+      : "") +
+    "        </div>\n" +
+    freshnessBadgeHtml +
+    '        <p class="pdp-blurb" itemprop="description">' +
+    pDesc +
+    "</p>\n" +
+    scentProfileHtml +
+    ingredientsHtml +
+    usageAccordionsHtml +
+    '        <div class="pdp-actions">\n' +
+    '          <a href="../shop.html#' +
+    escapeHtml(product.id) +
+    '" class="btn btn-primary btn-lg pdp-cta-btn">\n' +
+    "            <span>View &amp; Purchase in Shop</span>\n" +
+    '            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>\n' +
+    "          </a>\n" +
+    "        </div>\n" +
+    "      </div>\n" +
+    "    </article>\n" +
+    "  </main>\n" +
+    "</body>\n" +
+    "</html>\n"
+  );
+}
+
+function generateRssFeed(journalData, domainUrl) {
+  const DOMAIN_URL = domainUrl || "https://yallternativeliving.com";
+  const journalPosts = Array.isArray(journalData)
+    ? journalData
+    : (journalData && journalData.posts) || [];
+  const rssLastBuildDate = new Date().toUTCString();
+  const rssItems = journalPosts
+    .filter(Boolean)
+    .map(function (post) {
+      if (!post) return "";
+      const postDate = post.date ? new Date(post.date).toUTCString() : new Date().toUTCString();
+      const slug = post.id || post.slug || "";
+      const postUrl = DOMAIN_URL + "/journal.html#post-" + encodeURIComponent(slug);
+      const title = escapeHtml(post.title || "Journal Entry");
+      const excerpt = escapeHtml(post.excerpt || post.summary || "");
+      const categoriesXml = Array.isArray(post.tags)
+        ? post.tags
+            .filter(Boolean)
+            .map(function (t) {
+              return "      <category>" + escapeHtml(t) + "</category>";
+            })
+            .join("\n")
+        : "";
+
+      return (
+        "    <item>\n" +
+        "      <title>" +
+        title +
+        "</title>\n" +
+        "      <link>" +
+        postUrl +
+        "</link>\n" +
+        '      <guid isPermaLink="true">' +
+        postUrl +
+        "</guid>\n" +
+        "      <pubDate>" +
+        postDate +
+        "</pubDate>\n" +
+        (categoriesXml ? categoriesXml + "\n" : "") +
+        "      <description>" +
+        excerpt +
+        "</description>\n" +
+        "    </item>"
+      );
+    })
+    .join("\n");
+
+  return (
+    '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">\n' +
+    "  <channel>\n" +
+    "    <title>Apothecary Journal | Y'allternative Living</title>\n" +
+    "    <link>" +
+    DOMAIN_URL +
+    "/journal.html</link>\n" +
+    "    <description>Small-batch apothecary updates, herbal science, and market stories from Landrum, SC.</description>\n" +
+    "    <language>en-us</language>\n" +
+    "    <lastBuildDate>" +
+    rssLastBuildDate +
+    "</lastBuildDate>\n" +
+    '    <atom:link href="' +
+    DOMAIN_URL +
+    '/feed.xml" rel="self" type="application/rss+xml"/>\n' +
+    (rssItems ? rssItems + "\n" : "") +
+    "  </channel>\n" +
+    "</rss>\n"
+  );
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     readJson: readJson,
@@ -2109,6 +2422,11 @@ if (typeof module !== "undefined" && module.exports) {
     formspreeAction: formspreeAction,
     newsletterAction: newsletterAction,
     setFormAction: setFormAction,
+    generateRssFeed: generateRssFeed,
+    renderFreshnessBadgeHtml: renderFreshnessBadgeHtml,
+    renderScentProfileHtml: renderScentProfileHtml,
+    renderUsageAccordionsHtml: renderUsageAccordionsHtml,
+    renderProductPdpHtml: renderProductPdpHtml,
     buildSiteData: buildSiteData
   };
 }

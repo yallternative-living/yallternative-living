@@ -7,6 +7,7 @@
 window.YL_EVENTS = {
   "upcoming": [
     {
+      "id": "autumn-apothecary-faire",
       "date": "2026-10-17T09:00:00-04:00",
       "dateLabel": "October 17, 2026",
       "name": "Autumn Apothecary Faire",
@@ -45,6 +46,7 @@ window.YL_EVENTS = {
       "note": "9850 Highway 78, Ladson, SC 29456. Two-day punk flea market — come find our table."
     },
     {
+      "id": "upstate-pride-colors-of-pride",
       "date": "2026-06-20",
       "dateLabel": "June 2026",
       "name": "Upstate Pride: Colors of Pride",
@@ -54,6 +56,7 @@ window.YL_EVENTS = {
       "note": "Y'allternative Living tabled with soaps, salves & the full rainbow lineup."
     },
     {
+      "id": "southern-touch-craft-show",
       "date": "2026-05-09",
       "dateLabel": "May 2026",
       "name": "Southern Touch Craft Show",
@@ -63,6 +66,7 @@ window.YL_EVENTS = {
       "note": "Brought custom-poured whipped body butters, bath salts, and new alt apparel."
     },
     {
+      "id": "out-in-the-open-rainbow-parade",
       "date": "2025-10-11",
       "dateLabel": "October 2025",
       "name": "OUT IN THE OPEN: Rainbow Parade & Market",
@@ -72,6 +76,7 @@ window.YL_EVENTS = {
       "note": "Celebrating pride with handmade salves, scrubs, and local Southern alt vibes."
     },
     {
+      "id": "landrum-farmers-market",
       "date": "2025-08-16",
       "dateLabel": "August 2025",
       "name": "Landrum Farmers Market",

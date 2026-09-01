@@ -649,5 +649,72 @@ eq(
   "pickNextEvent ignores entries with a missing or unparseable date"
 );
 
+/* 8. Milestone 2: Calendar, Maps & Pickup deep-linking exports */
+const testEv = {
+  id: "punk-flea",
+  name: "Summerville Punk Flea Market",
+  date: "2026-08-15",
+  endDate: "2026-08-16",
+  dateLabel: "August 15–16, 2026 · Sat & Sun, 11am–7pm",
+  location: "Ladson, SC",
+  zip: "29456",
+  note: "9850 Highway 78, Ladson, SC 29456. Two-day punk flea market."
+};
+
+const gCal = main.generateGoogleCalendarUrl(testEv);
+assert(gCal.includes("action=TEMPLATE"), "generateGoogleCalendarUrl sets action=TEMPLATE");
+assert(
+  gCal.includes("dates=20260815/20260817"),
+  "generateGoogleCalendarUrl sets exclusive multi-day dates"
+);
+
+const icsUri = main.generateIcsDataUri(testEv);
+assert(
+  icsUri.startsWith("data:text/calendar;charset=utf-8,"),
+  "generateIcsDataUri produces calendar data URI"
+);
+
+const icsText = main.generateIcsContent(testEv);
+assert(icsText.includes("BEGIN:VCALENDAR"), "generateIcsContent starts VCALENDAR");
+assert(
+  icsText.includes("UID:yl-event-punk-flea-20260815@yallternativeliving.com"),
+  "generateIcsContent sets UID"
+);
+assert(icsText.includes("DTSTART;VALUE=DATE:20260815"), "generateIcsContent sets DTSTART");
+assert(icsText.includes("DTEND;VALUE=DATE:20260817"), "generateIcsContent sets DTEND");
+assert(icsText.includes("END:VCALENDAR"), "generateIcsContent ends VCALENDAR");
+
+const gMap = main.generateGoogleMapsDirUrl(testEv);
+assert(
+  gMap.includes("https://www.google.com/maps/dir/?api=1&destination="),
+  "generateGoogleMapsDirUrl formats direction URL"
+);
+
+const appleMap = main.generateAppleMapsDirUrl(testEv);
+assert(
+  appleMap.includes("https://maps.apple.com/?daddr="),
+  "generateAppleMapsDirUrl formats Apple directions URL"
+);
+
+const pickup = main.parsePickupMarketParam("punk-flea", { upcoming: [testEv] });
+eq(
+  pickup.marketName,
+  "Summerville Punk Flea Market",
+  "parsePickupMarketParam resolves event by id"
+);
+
+const cardMarkup = main.eventCardHTML(testEv);
+assert(
+  cardMarkup.includes("Reserve / Pick Up at This Booth"),
+  "eventCardHTML includes Reserve / Pick Up button"
+);
+assert(
+  cardMarkup.includes("Add to Google Calendar"),
+  "eventCardHTML includes Add to Google Calendar button"
+);
+assert(cardMarkup.includes("iCal / Apple Calendar (.ics)"), "eventCardHTML includes iCal button");
+assert(cardMarkup.includes("Google Maps"), "eventCardHTML includes Google Maps link");
+assert(cardMarkup.includes("Apple Maps"), "eventCardHTML includes Apple Maps link");
+
 console.log(`\nmain.test.js: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

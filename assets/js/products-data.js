@@ -48,7 +48,14 @@ window.YL_PRODUCTS = {
         ]
       },
       "tags": [],
-      "inStock": true
+      "concerns": [],
+      "inStock": true,
+      "scentProfile": null,
+      "usageGuide": {
+        "howToApply": "Wear proudly to markets, Pride, and sunny days. Soft triblend racerback cut for comfort and durability.",
+        "storage": "Machine wash cold with like colors. Tumble dry low or hang dry for longevity.",
+        "patchTest": "100% skin-safe triblend fabric. Non-irritating and breathable."
+      }
     },
     {
       "id": "unisex-tshirt",
@@ -92,7 +99,14 @@ window.YL_PRODUCTS = {
         ]
       },
       "tags": [],
-      "inStock": true
+      "concerns": [],
+      "inStock": true,
+      "scentProfile": null,
+      "usageGuide": {
+        "howToApply": "Wear everywhere. Screen-printed on soft ring-spun cotton cut to fit all bodies comfortably.",
+        "storage": "Machine wash cold inside-out. Tumble dry low. Do not iron directly over screen-printed artwork.",
+        "patchTest": "100% ring-spun cotton with skin-friendly water-based discharge screen print ink."
+      }
     },
     {
       "id": "frankincense-salve",
@@ -144,7 +158,23 @@ window.YL_PRODUCTS = {
       "tags": [
         "bestseller"
       ],
-      "inStock": true
+      "concerns": [
+        "dry-skin",
+        "sore-muscles"
+      ],
+      "inStock": true,
+      "scentProfile": {
+        "top": "Lavender, Rosemary",
+        "heart": "Chamomile, Tea Tree",
+        "base": "Frankincense, Earthy Beeswax",
+        "intensity": "Medium",
+        "intensityScore": 3
+      },
+      "usageGuide": {
+        "howToApply": "Warm a pea-sized amount between clean fingertips and gently massage into cuticles, rough heels, elbows, windburned cheeks, or irritated skin as needed.",
+        "storage": "Store in a cool, dry place away from direct sunlight and heat. Shelf life is 6–12 months.",
+        "patchTest": "Contains sweet almond oil (tree nut). Apply a dime-sized amount to the inner forearm and wait 24 hours. Discontinue use if redness or irritation occurs."
+      }
     },
     {
       "id": "miracle-balm",
@@ -175,7 +205,23 @@ window.YL_PRODUCTS = {
         "essential-oil-free",
         "sensitive-safe"
       ],
-      "inStock": true
+      "concerns": [
+        "dry-skin",
+        "daily-glow"
+      ],
+      "inStock": true,
+      "scentProfile": {
+        "top": "None",
+        "heart": "None",
+        "base": "None",
+        "intensity": "Unscented",
+        "intensityScore": 0
+      },
+      "usageGuide": {
+        "howToApply": "Smooth a small dab onto lips, cuticles, knuckles, dry elbows, or sensitive skin patches. Safe for daily use on face and body.",
+        "storage": "Store in a cool, dry spot away from direct heat. Shelf life is 12 months.",
+        "patchTest": "Formulated without essential oils or added fragrances for ultra-sensitive skin. As with any botanical balm, test a small dab on inner wrist before first full use."
+      }
     },
     {
       "id": "sleep-salve",
@@ -201,7 +247,23 @@ window.YL_PRODUCTS = {
       "scent": "Lavender",
       "tags": [
         "vegan"
-      ]
+      ],
+      "concerns": [
+        "sleep-relaxation",
+        "sore-muscles"
+      ],
+      "scentProfile": {
+        "top": "Fresh Lavender, Sweet Chamomile",
+        "heart": "Herbal Arnica, Mountain Honey",
+        "base": "Grounding Cedarwood, Rich Shea",
+        "intensity": "Medium",
+        "intensityScore": 3
+      },
+      "usageGuide": {
+        "howToApply": "Massage a dime-sized amount into temples, back of neck, shoulders, or soles of feet 15–30 minutes before bedtime.",
+        "storage": "Store in a cool, dry place away from direct heat. Shelf life is 6–12 months.",
+        "patchTest": "Apply a small dab to inner forearm 24 hours before first use to ensure compatibility with essential oils."
+      }
     },
     {
       "id": "beard-salve",
@@ -224,7 +286,23 @@ window.YL_PRODUCTS = {
         "Fragrance & Essential Oils"
       ],
       "scent": "Bourbon & Vanilla",
-      "tags": []
+      "tags": [],
+      "concerns": [
+        "dry-skin",
+        "daily-glow"
+      ],
+      "scentProfile": {
+        "top": "Warm Bourbon, Madagascar Vanilla",
+        "heart": "Golden Jojoba, Sweet Amber",
+        "base": "Smoky Cedarwood, Rich Beeswax",
+        "intensity": "Strong",
+        "intensityScore": 4
+      },
+      "usageGuide": {
+        "howToApply": "Scrape a thumbnail-sized amount, warm between palms until melted, and work upward through beard into the underlying skin. Comb through to style.",
+        "storage": "Store in a cool, dry place. Keep lid tightly sealed. Shelf life is 6–12 months.",
+        "patchTest": "Test a small amount on the jawline or inner arm 24 hours prior to full beard application."
+      }
     },
     {
       "id": "shimmer-oil",
@@ -271,7 +349,22 @@ window.YL_PRODUCTS = {
       },
       "tags": [
         "vegan"
-      ]
+      ],
+      "concerns": [
+        "daily-glow"
+      ],
+      "scentProfile": {
+        "top": "Sweet Orange, Sparkling Citrus",
+        "heart": "Warm Amber, Golden Mica Shimmer",
+        "base": "Earthy Patchouli, Atlas Cedar",
+        "intensity": "Medium",
+        "intensityScore": 3
+      },
+      "usageGuide": {
+        "howToApply": "Shake bottle vigorously before each use. Dispense 3–5 drops into palms and smooth over collarbones, shoulders, arms, and legs for instant hydration and radiant glow.",
+        "storage": "Store upright at room temperature away from direct sunlight. Shelf life is 12 months.",
+        "patchTest": "Contains cosmetic mica and fragrance. Apply 1 drop to inner wrist and wait 24 hours before full body application."
+      }
     },
     {
       "id": "shea-butter",
@@ -313,7 +406,23 @@ window.YL_PRODUCTS = {
           }
         ]
       },
-      "tags": []
+      "tags": [],
+      "concerns": [
+        "sleep-relaxation",
+        "dry-skin"
+      ],
+      "scentProfile": {
+        "top": "French Lavender Bud",
+        "heart": "Velvet Cream, Herbal Warmth",
+        "base": "Raw Nutty African Shea",
+        "intensity": "Medium",
+        "intensityScore": 3
+      },
+      "usageGuide": {
+        "howToApply": "Scoop a generous amount and massage directly into towel-damp skin immediately after bathing or showering to lock in deep hydration.",
+        "storage": "Store at room temperature (below 80°F/27°C) to prevent melting. Shelf life is 6–12 months.",
+        "patchTest": "Test a small amount on inner forearm before first use. Discontinue if irritation develops."
+      }
     },
     {
       "id": "hand-scrub",
@@ -362,7 +471,23 @@ window.YL_PRODUCTS = {
       "tags": [
         "vegan",
         "essential-oil-free"
-      ]
+      ],
+      "concerns": [
+        "dry-skin",
+        "sore-muscles"
+      ],
+      "scentProfile": {
+        "top": "Distiller's Bourbon, Brown Sugar",
+        "heart": "Warm Tahitian Vanilla",
+        "base": "Roasted Tonka Bean, Cedar",
+        "intensity": "Strong",
+        "intensityScore": 4
+      },
+      "usageGuide": {
+        "howToApply": "Scoop a nickel-sized amount onto damp hands. Work thoroughly into palms, knuckles, and cuticles in circular motions, then rinse clean with warm water.",
+        "storage": "Keep lid closed between uses to prevent excess water from entering the tin. Shelf life is 6–12 months.",
+        "patchTest": "Exfoliating scrub with pumice and pink salt. Test a small amount on hands before first heavy use; avoid open cuts."
+      }
     },
     {
       "id": "lavender-soak",
@@ -398,7 +523,23 @@ window.YL_PRODUCTS = {
       },
       "tags": [
         "vegan"
-      ]
+      ],
+      "concerns": [
+        "sleep-relaxation",
+        "sore-muscles"
+      ],
+      "scentProfile": {
+        "top": "Crushed Lavender Blossoms, Bergamot",
+        "heart": "Epsom Mineral Salts, Herbal Floral",
+        "base": "Mountain Honey, Dried Botanicals",
+        "intensity": "Medium",
+        "intensityScore": 3
+      },
+      "usageGuide": {
+        "howToApply": "Pour 1/2 to 1 cup into warm running bathwater. Swirl with hands until mineral salts dissolve completely. Soak for at least 20 minutes.",
+        "storage": "Keep pouch tightly sealed in a dry environment to prevent clumping. Shelf life is 12 months.",
+        "patchTest": "Contains lavender and black pepper essential oils. For sensitive skin, test a dilute pinch in warm water on inner wrist."
+      }
     },
     {
       "id": "backroad-soak",
@@ -440,7 +581,23 @@ window.YL_PRODUCTS = {
       },
       "tags": [
         "vegan"
-      ]
+      ],
+      "concerns": [
+        "sore-muscles",
+        "sleep-relaxation"
+      ],
+      "scentProfile": {
+        "top": "Blue Ridge Pine Needle, Eucalyptus",
+        "heart": "Crushed Peppermint Leaves",
+        "base": "Forest Moss, Himalayan Pink Salt",
+        "intensity": "Strong",
+        "intensityScore": 4
+      },
+      "usageGuide": {
+        "howToApply": "Add 1/2 cup into hot bathwater. Inhale clearing herbal vapors and soak for 20–30 minutes to soothe aching muscles and overworked joints.",
+        "storage": "Store in a cool, dry location with bag sealed tight. Shelf life is 12 months.",
+        "patchTest": "Contains potent peppermint and eucalyptus essential oils. Test on forearm before first full soak; avoid eye contact."
+      }
     },
     {
       "id": "protection-keychain",
@@ -486,7 +643,20 @@ window.YL_PRODUCTS = {
           }
         ]
       },
-      "tags": []
+      "tags": [],
+      "concerns": [],
+      "scentProfile": {
+        "top": "Crushed Rosemary, White Sage",
+        "heart": "Bay Laurel, Tourmaline Essence",
+        "base": "Smoky Cedar, Black Sea Salt",
+        "intensity": "Subtle",
+        "intensityScore": 2
+      },
+      "usageGuide": {
+        "howToApply": "Attach to your keyring, backpack, purse, or altar space as a handheld protective talisman. Handle with positive intention.",
+        "storage": "Keep dry and avoid dropping onto hard surfaces to protect the sealed glass vial.",
+        "patchTest": "Non-topical talisman artifact. Contains sealed mineral salts and dried botanicals — not for consumption or topical skin application."
+      }
     },
     {
       "id": "bug-spray",
@@ -514,7 +684,22 @@ window.YL_PRODUCTS = {
       "scent": "Herbal & Woodsy",
       "tags": [
         "vegan"
-      ]
+      ],
+      "concerns": [
+        "outdoor-defense"
+      ],
+      "scentProfile": {
+        "top": "Bright Lemongrass, Citronella",
+        "heart": "Wild Rosemary, Peppermint",
+        "base": "Virginia Cedarwood, Witch Hazel",
+        "intensity": "Strong",
+        "intensityScore": 4
+      },
+      "usageGuide": {
+        "howToApply": "Shake vigorously before each use. Mist evenly across exposed skin and outer clothing before heading outdoors. Reapply every 2 hours as needed.",
+        "storage": "Store in a cool spot out of direct car heat and direct sun. Shelf life is 12 months.",
+        "patchTest": "DEET-free formula with pure essential oils. Spray a small test patch on forearm 24 hours before first full outdoor use."
+      }
     },
     {
       "id": "sugar-scrub",
@@ -541,7 +726,23 @@ window.YL_PRODUCTS = {
       "tags": [
         "vegan",
         "essential-oil-free"
-      ]
+      ],
+      "concerns": [
+        "dry-skin",
+        "daily-glow"
+      ],
+      "scentProfile": {
+        "top": "Juicy Peach Nectar, Meyer Lemon",
+        "heart": "Candied Citrus Peel, Cane Sugar",
+        "base": "Golden Vanilla, Sweet Almond",
+        "intensity": "Medium",
+        "intensityScore": 3
+      },
+      "usageGuide": {
+        "howToApply": "Buff gently onto wet skin in circular motions during shower or bath. Rinse thoroughly with warm water to reveal silky soft, exfoliated skin.",
+        "storage": "Keep jar sealed tightly and avoid introducing standing water into jar. Shelf life is 6–12 months.",
+        "patchTest": "Test a small dab on inner wrist before first use. Discontinue if redness occurs."
+      }
     },
     {
       "id": "whipped-body-butter",
@@ -570,7 +771,23 @@ window.YL_PRODUCTS = {
       "tags": [
         "vegan",
         "essential-oil-free"
-      ]
+      ],
+      "concerns": [
+        "dry-skin",
+        "daily-glow"
+      ],
+      "scentProfile": {
+        "top": "Sweet Tangerine, Blood Orange",
+        "heart": "Whipped Coconut Cream",
+        "base": "Raw Shea, Golden Jojoba",
+        "intensity": "Medium",
+        "intensityScore": 3
+      },
+      "usageGuide": {
+        "howToApply": "Smooth a dollop over clean, towel-dry skin from neck to toes. Absorbs quickly without greasy residue.",
+        "storage": "Keep in a cool, dark place away from heat vents or direct sun. Shelf life is 6–12 months.",
+        "patchTest": "Test a pea-sized amount on inner forearm 24 hours before full use."
+      }
     },
     {
       "id": "cleansing-spray",
@@ -605,7 +822,22 @@ window.YL_PRODUCTS = {
       },
       "tags": [
         "vegan"
-      ]
+      ],
+      "concerns": [
+        "sleep-relaxation"
+      ],
+      "scentProfile": {
+        "top": "White Sage, Appalachian Sweetgrass",
+        "heart": "Clean Rainwater, Mountain Air",
+        "base": "Smoked Cedar, Sacred Wood",
+        "intensity": "Subtle",
+        "intensityScore": 2
+      },
+      "usageGuide": {
+        "howToApply": "Shake gently and spritz 2–3 pumps into room corners, doorways, entry thresholds, or personal atmosphere to clear stagnant energy.",
+        "storage": "Store upright in a cool, shaded area. Shelf life is 12 months.",
+        "patchTest": "Aromatherapy mist for ambient room and linen clearing. Spray on a hidden fabric corner first to verify colorfastness."
+      }
     },
     {
       "id": "bath-tea",
@@ -642,7 +874,23 @@ window.YL_PRODUCTS = {
       "tags": [
         "vegan",
         "essential-oil-free"
-      ]
+      ],
+      "concerns": [
+        "sleep-relaxation",
+        "dry-skin"
+      ],
+      "scentProfile": {
+        "top": "Wild Meadow Flora, English Rose",
+        "heart": "Sweet German Chamomile, Oat Straw",
+        "base": "Botanical Lavender Bud",
+        "intensity": "Subtle",
+        "intensityScore": 2
+      },
+      "usageGuide": {
+        "howToApply": "Place 1 filled organic muslin tea bag into hot running bathwater. Steep for 5 minutes, then squeeze bag gently while soaking for 20 minutes.",
+        "storage": "Keep unused tea bags in a dry, airtight jar or pouch. Compost spent botanicals after 2–3 uses.",
+        "patchTest": "Pure dried botanicals and mineral salts. Test steeped herbal water on wrist if prone to botanical pollen sensitivities."
+      }
     },
     {
       "id": "porch-sweep-spray",
@@ -664,7 +912,22 @@ window.YL_PRODUCTS = {
       "scent": "Fresh & Clean",
       "tags": [
         "vegan"
-      ]
+      ],
+      "concerns": [
+        "sleep-relaxation"
+      ],
+      "scentProfile": {
+        "top": "Crisp Lemongrass, Wild Mint",
+        "heart": "Holy Palo Santo, Distilled Moon Water",
+        "base": "Grounding Tourmaline, Cedarwood",
+        "intensity": "Medium",
+        "intensityScore": 3
+      },
+      "usageGuide": {
+        "howToApply": "Mist across front entryways, thresholds, patio spaces, and work areas whenever energy feels cluttered or heavy.",
+        "storage": "Store at room temperature out of direct sunlight. Shelf life is 12 months.",
+        "patchTest": "Aromatherapy and space-clearing mist. For room and threshold use; avoid spraying directly into eyes."
+      }
     },
     {
       "id": "yallternative-gift-card",
@@ -703,7 +966,14 @@ window.YL_PRODUCTS = {
       },
       "tags": [
         "Instant Delivery"
-      ]
+      ],
+      "concerns": [],
+      "scentProfile": null,
+      "usageGuide": {
+        "howToApply": "Enter your unique digital gift card code at checkout on yallternativeliving.com to redeem toward any purchase.",
+        "storage": "Digital certificate delivered instantly via email. Save or print your voucher code for safe keeping.",
+        "patchTest": "Digital credit — 100% allergen-free, valid for all products and never expires."
+      }
     }
   ],
   "volumePricing": [
@@ -729,7 +999,12 @@ window.YL_PRODUCTS = {
         "bug-spray"
       ],
       "discountPercent": 10,
-      "blurb": "The essential trio for anyone navigating life south of the Mason-Dixon: the do-everything salve folks keep re-ordering, the bourbon-vanilla scrub that gets your hands actually clean, and the bug spray nobody admits they need until August. Three of our most-reviewed goods, one easy yes."
+      "blurb": "The essential trio for anyone navigating life south of the Mason-Dixon: the do-everything salve folks keep re-ordering, the bourbon-vanilla scrub that gets your hands actually clean, and the bug spray nobody admits they need until August. Three of our most-reviewed goods, one easy yes.",
+      "concerns": [
+        "dry-skin",
+        "sore-muscles",
+        "outdoor-defense"
+      ]
     },
     {
       "id": "bourbon-and-grit-set",
@@ -739,7 +1014,12 @@ window.YL_PRODUCTS = {
         "hand-scrub"
       ],
       "discountPercent": 10,
-      "blurb": "Scent-matched on purpose. The beard salve softens the scruff; the hand scrub takes the grease off whatever he was working on. Both in the same bourbon, vanilla and cedarwood, so it reads as one gift, not two things from two different aisles."
+      "blurb": "Scent-matched on purpose. The beard salve softens the scruff; the hand scrub takes the grease off whatever he was working on. Both in the same bourbon, vanilla and cedarwood, so it reads as one gift, not two things from two different aisles.",
+      "concerns": [
+        "dry-skin",
+        "daily-glow",
+        "sore-muscles"
+      ]
     },
     {
       "id": "night-ritual-set",
@@ -749,7 +1029,12 @@ window.YL_PRODUCTS = {
         "shea-butter"
       ],
       "discountPercent": 10,
-      "blurb": "For unwinding after the kind of days that leave you running on fumes: massage the lavender shea butter into damp skin after a shower, then work the magnesium sleep salve into feet and shoulders and let lavender, chamomile and cedarwood take it from there. Built for night owls and overthinkers."
+      "blurb": "For unwinding after the kind of days that leave you running on fumes: massage the lavender shea butter into damp skin after a shower, then work the magnesium sleep salve into feet and shoulders and let lavender, chamomile and cedarwood take it from there. Built for night owls and overthinkers.",
+      "concerns": [
+        "sleep-relaxation",
+        "sore-muscles",
+        "dry-skin"
+      ]
     },
     {
       "id": "pride-set",
@@ -759,7 +1044,10 @@ window.YL_PRODUCTS = {
         "shimmer-oil"
       ],
       "discountPercent": 10,
-      "blurb": "The flagship rainbow-stag tee plus the shimmer oil built for exactly this: festivals, Pride, and anywhere you plan on shining harder than everyone around you. Pull the 'Y'all Means All' scent and wear the whole thing to the parade. Queer at the root, year-round."
+      "blurb": "The flagship rainbow-stag tee plus the shimmer oil built for exactly this: festivals, Pride, and anywhere you plan on shining harder than everyone around you. Pull the 'Y'all Means All' scent and wear the whole thing to the parade. Queer at the root, year-round.",
+      "concerns": [
+        "daily-glow"
+      ]
     },
     {
       "id": "everyday-armor-kit",
@@ -770,7 +1058,12 @@ window.YL_PRODUCTS = {
         "lavender-soak"
       ],
       "discountPercent": 10,
-      "blurb": "Everyday witchy armor, boxed up: a wax-sealed protection spell jar for your keys, the bug spray that tells mosquitoes to buzz off, naturally, and a lavender soak for taking up all the space you want in the tub. Grit and glitter for the ones who need it."
+      "blurb": "Everyday witchy armor, boxed up: a wax-sealed protection spell jar for your keys, the bug spray that tells mosquitoes to buzz off, naturally, and a lavender soak for taking up all the space you want in the tub. Grit and glitter for the ones who need it.",
+      "concerns": [
+        "outdoor-defense",
+        "sleep-relaxation",
+        "sore-muscles"
+      ]
     },
     {
       "id": "gentle-landing-set",
@@ -780,7 +1073,12 @@ window.YL_PRODUCTS = {
         "shea-butter"
       ],
       "discountPercent": 10,
-      "blurb": "A soft place to land: the unscented, essential-oil-free Miracle Balm for wherever skin needs backup, paired with our raw-shea body butter for everywhere else. For new parents, sensitive skin, and anybody having a rough go."
+      "blurb": "A soft place to land: the unscented, essential-oil-free Miracle Balm for wherever skin needs backup, paired with our raw-shea body butter for everywhere else. For new parents, sensitive skin, and anybody having a rough go.",
+      "concerns": [
+        "dry-skin",
+        "daily-glow",
+        "sleep-relaxation"
+      ]
     },
     {
       "id": "discovery-flight",
@@ -792,7 +1090,13 @@ window.YL_PRODUCTS = {
         "bug-spray"
       ],
       "discountPercent": 15,
-      "blurb": "Can't decide? Try a little of everything. Four of our bestselling products bundled together at 15% off: the salve everybody re-orders, the bourbon-vanilla scrub, a lavender soak, and the bug spray that actually works. A full tour of the shop in one box."
+      "blurb": "Can't decide? Try a little of everything. Four of our bestselling products bundled together at 15% off: the salve everybody re-orders, the bourbon-vanilla scrub, a lavender soak, and the bug spray that actually works. A full tour of the shop in one box.",
+      "concerns": [
+        "dry-skin",
+        "sore-muscles",
+        "sleep-relaxation",
+        "outdoor-defense"
+      ]
     }
   ],
   "faq": [
@@ -823,6 +1127,33 @@ window.YL_PRODUCTS = {
     {
       "question": "What is the shelf life of your salves and soaks?",
       "answer": "Since our products are all-natural and preservative-free, we recommend using them within 6 to 12 months for the best potency and freshness. Keep them in a cool, dry place away from direct sunlight."
+    }
+  ],
+  "concerns": [
+    {
+      "id": "sleep-relaxation",
+      "name": "Sleep & Relaxation",
+      "icon": "🌙"
+    },
+    {
+      "id": "sore-muscles",
+      "name": "Sore Muscles & Tension",
+      "icon": "🌿"
+    },
+    {
+      "id": "dry-skin",
+      "name": "Dry Skin & Eczema",
+      "icon": "💧"
+    },
+    {
+      "id": "outdoor-defense",
+      "name": "Outdoor Defense",
+      "icon": "🏕️"
+    },
+    {
+      "id": "daily-glow",
+      "name": "Daily Glow & Hydration",
+      "icon": "✨"
     }
   ],
   "categories": [

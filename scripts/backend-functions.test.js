@@ -1944,6 +1944,366 @@ async function testMultiQuantityGiftCardCheckout() {
 }
 
 /* ==========================================================
+   13. Stored-Value Gift Card Balance Rollover & Partial Redemption
+   ========================================================== */
+async function testStoredValueGiftCardRollover() {
+  const globalFetch = global.fetch;
+  const createdCoupons = [];
+  const createdPromos = [];
+  const deactivatedPromos = [];
+
+  global.fetch = async (url, options) => {
+    const target = String(url);
+    if (target.includes("/v1/promotion_codes/promo_old_123")) {
+      const params = new URLSearchParams(options.body);
+      deactivatedPromos.push({ id: "promo_old_123", active: params.get("active") });
+      return { ok: true, json: async () => ({ id: "promo_old_123", active: false }) };
+    }
+    if (target.includes("/v1/coupons")) {
+      const params = new URLSearchParams(options.body);
+      const c = {
+        id: "coupon_new_3000",
+        amount_off: Number(params.get("amount_off")),
+        metadata: {
+          remaining_balance_cents: params.get("metadata[remaining_balance_cents]"),
+          original_code: params.get("metadata[original_code]")
+        }
+      };
+      createdCoupons.push(c);
+      return { ok: true, json: async () => c };
+    }
+    if (target.includes("/v1/promotion_codes")) {
+      const params = new URLSearchParams(options.body);
+      const p = {
+        id: "promo_new_123",
+        code: params.get("code"),
+        coupon: params.get("coupon"),
+        metadata: {
+          remaining_balance_cents: params.get("metadata[remaining_balance_cents]")
+        }
+      };
+      createdPromos.push(p);
+      return { ok: true, json: async () => p };
+    }
+    return { ok: true, json: async () => ({}) };
+  };
+
+  // 1. Partial Spend: $50 initial card, spends $20 -> $30 balance remaining
+  const rolloverRes = await fulfillGiftCard.rolloverGiftCardBalance(
+    "YALL-ROLLOVER-1",
+    "promo_old_123",
+    3000,
+    5000,
+    "shopper@example.com",
+    "cs_test_session_roll"
+  );
+
+  eq(rolloverRes.status, "active", "Rollover status is active for positive balance");
+  eq(rolloverRes.code, "YALL-ROLLOVER-1", "Rollover preserves the EXACT same code");
+  eq(rolloverRes.balanceCents, 3000, "Rollover sets remaining balance to 3000 cents ($30.00)");
+  eq(deactivatedPromos.length, 1, "Spent promotion code was deactivated in Stripe");
+  eq(deactivatedPromos[0].active, "false", "Deactivated promo active flag is false");
+  eq(createdCoupons[0].amount_off, 3000, "Stripe coupon amount_off is 3000 cents");
+  eq(createdPromos[0].code, "YALL-ROLLOVER-1", "Stripe promotion code retains original code");
+
+  // 2. Full Exhaustion: Spends all remaining $30 -> balance 0
+  const exhaustedRes = await fulfillGiftCard.rolloverGiftCardBalance(
+    "YALL-ROLLOVER-1",
+    "promo_new_123",
+    0,
+    5000,
+    "shopper@example.com",
+    "cs_test_session_exhaust"
+  );
+
+  eq(exhaustedRes.status, "exhausted", "Rollover status is exhausted when balance is 0");
+  eq(exhaustedRes.balanceCents, 0, "Exhausted balance is 0 cents");
+
+  global.fetch = globalFetch;
+}
+
+/* ==========================================================
+   14. Webhook Gift Card Partial Redemption & Balance Update Email
+   ========================================================== */
+async function testGiftCardRedemptionWebhook() {
+  const globalFetch = global.fetch;
+  const originalLog = console.log;
+  console.log = () => {};
+
+  const capturedResendCalls = [];
+  global.fetch = async (url, options) => {
+    const target = String(url);
+    if (target.includes("/v1/promotion_codes/promo_used_123")) {
+      return {
+        ok: true,
+        json: async () => ({
+          id: "promo_used_123",
+          code: "YALL-SPEND-1",
+          active: true,
+          coupon: { id: "co_orig", amount_off: 5000 },
+          metadata: { initial_amount_cents: "5000", remaining_balance_cents: "5000" }
+        })
+      };
+    }
+    if (target.includes("/v1/coupons")) {
+      return { ok: true, json: async () => ({ id: "co_new_3000" }) };
+    }
+    if (target.includes("/v1/promotion_codes")) {
+      const params = new URLSearchParams(options.body);
+      return {
+        ok: true,
+        json: async () => ({
+          id: "promo_rolled_123",
+          code: params.get("code") || "YALL-SPEND-1"
+        })
+      };
+    }
+    // Resend Email Capture
+    if (target.includes("resend") || options?.headers?.Authorization?.includes("re_")) {
+      const body = typeof options.body === "string" ? JSON.parse(options.body) : options.body;
+      capturedResendCalls.push({ url: target, body: body, headers: options.headers });
+      return {
+        ok: true,
+        status: 200,
+        headers: new Map(),
+        json: async () => ({ id: "email_bal_update_123" }),
+        text: async () => '{"id":"email_bal_update_123"}'
+      };
+    }
+    return { ok: true, json: async () => ({}) };
+  };
+
+  const redemptionSession = {
+    id: "cs_test_redemption_flow",
+    total_details: { amount_discount: 2000 }, // Spent $20
+    discounts: [{ promotion_code: "promo_used_123" }],
+    customer_details: { email: "customer@example.com" }
+  };
+
+  const result = await fulfillGiftCard.handleGiftCardRedemption(redemptionSession, "sk_test_mock");
+
+  eq(result.code, "YALL-SPEND-1", "handleGiftCardRedemption identifies redeemed code");
+  eq(result.spentCents, 2000, "handleGiftCardRedemption records 2000 cents spent");
+  eq(
+    result.newBalanceCents,
+    3000,
+    "handleGiftCardRedemption computes 3000 cents ($30.00) remaining"
+  );
+
+  eq(capturedResendCalls.length, 1, "Remaining balance notification email sent via Resend");
+  assert(
+    capturedResendCalls[0].body.subject.includes("$30.00 remaining on YALL-SPEND-1"),
+    "Balance update email subject displays remaining balance and code"
+  );
+  assert(
+    capturedResendCalls[0].body.html.includes("$20.00"),
+    "Balance update email HTML details spent amount ($20.00)"
+  );
+  assert(
+    capturedResendCalls[0].body.html.includes("$30.00"),
+    "Balance update email HTML details new available balance ($30.00)"
+  );
+
+  console.log = originalLog;
+  global.fetch = globalFetch;
+}
+
+/* ==========================================================
+   15. Live Balance Lookup Netlify Function (gift-card-balance.js)
+   ========================================================== */
+async function testGiftCardBalanceLookup() {
+  const giftCardBalance = require("../netlify/functions/gift-card-balance.js");
+  const globalFetch = global.fetch;
+
+  global.fetch = async (url) => {
+    const target = String(url);
+    if (target.includes("code=YALL-VALID12")) {
+      return {
+        ok: true,
+        json: async () => ({
+          data: [
+            {
+              id: "promo_val",
+              code: "YALL-VALID12",
+              active: true,
+              coupon: { amount_off: 3500, currency: "usd" },
+              metadata: { initial_amount_cents: "5000" }
+            }
+          ]
+        })
+      };
+    }
+    if (target.includes("code=YALL-EMPTY00")) {
+      return {
+        ok: true,
+        json: async () => ({
+          data: []
+        })
+      };
+    }
+    return { ok: true, json: async () => ({ data: [] }) };
+  };
+
+  // 1. Valid Active Gift Card Lookup
+  const validLookup = await giftCardBalance.lookupGiftCardBalance("yall-valid12", "sk_test_key");
+  eq(validLookup.valid, true, "lookupGiftCardBalance returns valid: true for active card");
+  eq(validLookup.code, "YALL-VALID12", "lookupGiftCardBalance normalizes code to uppercase");
+  eq(validLookup.balance, 35.0, "lookupGiftCardBalance computes balance in dollars ($35.00)");
+  eq(validLookup.balanceCents, 3500, "lookupGiftCardBalance returns balance in cents (3500)");
+  eq(validLookup.formattedBalance, "$35.00", "lookupGiftCardBalance formats balance as $35.00");
+  eq(validLookup.initialAmount, 50.0, "lookupGiftCardBalance returns initial amount ($50.00)");
+
+  // 2. Non-existent / Inactive Card
+  const emptyLookup = await giftCardBalance.lookupGiftCardBalance("YALL-EMPTY00", "sk_test_key");
+  eq(emptyLookup.valid, false, "lookupGiftCardBalance returns valid: false for missing card");
+
+  // 3. Malformed Code
+  const badFormat = await giftCardBalance.lookupGiftCardBalance("INVALID-CODE", "sk_test_key");
+  eq(badFormat.valid, false, "lookupGiftCardBalance rejects malformed code");
+
+  // 4. Netlify Handler HTTP Status Codes
+  let res = await giftCardBalance.handler({
+    httpMethod: "OPTIONS",
+    headers: { origin: "https://yallternativeliving.com" }
+  });
+  eq(res.statusCode, 204, "gift-card-balance handler returns 204 for OPTIONS preflight");
+
+  res = await giftCardBalance.handler({
+    httpMethod: "POST",
+    headers: { origin: "https://yallternativeliving.com" }
+  });
+  eq(res.statusCode, 405, "gift-card-balance handler returns 405 for POST");
+
+  res = await giftCardBalance.handler({
+    httpMethod: "GET",
+    queryStringParameters: { code: "YALL-VALID12" },
+    headers: { origin: "https://yallternativeliving.com" }
+  });
+  eq(res.statusCode, 200, "gift-card-balance handler returns 200 for valid code");
+
+  res = await giftCardBalance.handler({
+    httpMethod: "GET",
+    queryStringParameters: { code: "YALL-EMPTY00" },
+    headers: { origin: "https://yallternativeliving.com" }
+  });
+  eq(res.statusCode, 404, "gift-card-balance handler returns 404 for non-existent code");
+
+  global.fetch = globalFetch;
+}
+
+/* ==========================================================
+   16. Cart toCheckoutPayload with Gift Card Code & Worker Pre-Application
+   ========================================================== */
+async function testCartAndWorkerGiftCardPreApplication() {
+  const cart = require("../assets/js/cart.js");
+  const checkout = await import("../workers/checkout.js");
+  const globalFetch = global.fetch;
+
+  // 1. toCheckoutPayload attaches giftCardCode
+  const payload = cart.toCheckoutPayload(
+    [{ id: "beard-salve", qty: 1 }],
+    "Market 1",
+    "yall-test1234"
+  );
+  eq(
+    payload.giftCardCode,
+    "YALL-TEST1234",
+    "toCheckoutPayload uppercases and includes giftCardCode"
+  );
+
+  // 2. workers/checkout.js resolves gift card balance and binds ephemeral coupon
+  let capturedSessionParams = null;
+  let capturedCouponParams = null;
+
+  global.fetch = async (url, opts) => {
+    const u = String(url);
+    if (u.includes("products.json")) {
+      return {
+        ok: true,
+        clone: () => ({ body: null }),
+        json: async () => ({
+          products: [{ id: "beard-salve", price: 16.0, category: "body" }],
+          bundles: []
+        })
+      };
+    }
+    if (u.includes("/v1/promotion_codes?code=YALL-GIFT50")) {
+      return {
+        ok: true,
+        json: async () => ({
+          data: [
+            {
+              id: "promo_gift_50",
+              code: "YALL-GIFT50",
+              active: true,
+              coupon: { id: "co_gift_50", amount_off: 5000 } // $50 card balance
+            }
+          ]
+        })
+      };
+    }
+    if (u.includes("/v1/coupons")) {
+      capturedCouponParams = new URLSearchParams(opts.body);
+      return {
+        ok: true,
+        json: async () => ({ id: "co_ephemeral_2600" })
+      };
+    }
+    if (u.includes("/v1/checkout/sessions")) {
+      capturedSessionParams = new URLSearchParams(opts.body);
+      return {
+        ok: true,
+        json: async () => ({ url: "https://checkout.stripe.com/c/test_gc" })
+      };
+    }
+    return { ok: true, json: async () => ({}) };
+  };
+
+  // $16 salve + $10 shipping = $26 total. $50 gift card applied -> $26 ephemeral discount coupon
+  const req = new Request("https://yallternativeliving.com/api/checkout", {
+    method: "POST",
+    headers: { Origin: "https://yallternativeliving.com", "Content-Type": "application/json" },
+    body: JSON.stringify({
+      items: [{ id: "beard-salve", qty: 1 }],
+      giftCardCode: "YALL-GIFT50"
+    })
+  });
+
+  await checkout.default.fetch(
+    req,
+    {
+      SITE_ORIGIN: "https://yallternativeliving.com",
+      STRIPE_SECRET_KEY: "sk_test_x"
+    },
+    null
+  );
+
+  eq(
+    capturedCouponParams.get("amount_off"),
+    "2600",
+    "Worker creates ephemeral coupon for full order amount (2600 cents = $26.00)"
+  );
+  eq(capturedCouponParams.get("duration"), "once", "Worker sets ephemeral coupon duration to once");
+  eq(
+    capturedSessionParams.get("discounts[0][coupon]"),
+    "co_ephemeral_2600",
+    "Worker attaches ephemeral discount coupon to checkout session"
+  );
+  eq(
+    capturedSessionParams.get("metadata[gift_card_redeemed_code]"),
+    "YALL-GIFT50",
+    "Worker attaches gift_card_redeemed_code to session metadata"
+  );
+  eq(
+    capturedSessionParams.get("metadata[gift_card_amount_applied_cents]"),
+    "2600",
+    "Worker attaches gift_card_amount_applied_cents (2600) to metadata"
+  );
+
+  global.fetch = globalFetch;
+}
+
+/* ==========================================================
    Runner: sections run strictly in order so nothing races over shared
    globals (console, global.fetch) and the summary only prints once every
    assertion has actually run.
@@ -1956,6 +2316,10 @@ async function testMultiQuantityGiftCardCheckout() {
   await testHandlerRetryIdempotency();
   await testGiftCardEmailDeliveryAndErrors();
   await testMultiQuantityGiftCardCheckout();
+  await testStoredValueGiftCardRollover();
+  await testGiftCardRedemptionWebhook();
+  await testGiftCardBalanceLookup();
+  await testCartAndWorkerGiftCardPreApplication();
 
   console.log(`\nbackend-functions.test.js: ${passed} passed, ${failed} failed`);
   if (failed > 0) process.exit(1);

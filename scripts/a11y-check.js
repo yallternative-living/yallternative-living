@@ -70,7 +70,7 @@ function createStaticServer(port) {
     });
   });
   return new Promise((resolve, reject) => {
-    server.listen(port, () => resolve(server));
+    server.listen(port, "127.0.0.1", () => resolve(server));
     server.on("error", reject);
   });
 }
@@ -146,8 +146,8 @@ function collectPages() {
       }
     }
   } finally {
-    await browser.close();
-    server.close();
+    if (browser) await browser.close();
+    if (server) await new Promise((r) => server.close(r));
   }
 
   console.log("\n==================================================");

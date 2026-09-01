@@ -361,5 +361,162 @@ eq(cart.freeShipThreshold(), 40, "freeShipThreshold falls back on a non-numeric 
 global.window.YL_PRODUCTS = null;
 eq(cart.freeShipThreshold(), 40, "freeShipThreshold is safe with no catalog at all");
 
+// Milestone 1 Tests: Gifting, Share Cart URL, and Loyalty Wallet Math
+
+// 1. toCheckoutPayload Gifting & Payload Serialization
+const giftPayload1 = cart.toCheckoutPayload(
+  [{ id: "lavender-soak", qty: 1 }],
+  "Landrum SC Farmers Market",
+  "YALL-PTS-ABC123",
+  true,
+  "Happy Birthday, hope you love this soak!"
+);
+eq(giftPayload1.isGiftOrder, true, "toCheckoutPayload sets isGiftOrder boolean");
+eq(giftPayload1.is_gift_order, true, "toCheckoutPayload sets is_gift_order snake_case");
+eq(
+  giftPayload1.giftMessage,
+  "Happy Birthday, hope you love this soak!",
+  "toCheckoutPayload includes giftMessage"
+);
+eq(
+  giftPayload1.gift_message,
+  "Happy Birthday, hope you love this soak!",
+  "toCheckoutPayload includes gift_message snake_case"
+);
+eq(
+  giftPayload1.pickupMarket,
+  "Landrum SC Farmers Market",
+  "toCheckoutPayload includes pickupMarket"
+);
+eq(
+  giftPayload1.pickup_market,
+  "Landrum SC Farmers Market",
+  "toCheckoutPayload includes pickup_market snake_case"
+);
+eq(giftPayload1.giftCardCode, "YALL-PTS-ABC123", "toCheckoutPayload includes giftCardCode");
+eq(
+  giftPayload1.gift_card_code,
+  "YALL-PTS-ABC123",
+  "toCheckoutPayload includes gift_card_code snake_case"
+);
+
+// Gifting message max length clamping (500 chars)
+const longMsg = "A".repeat(600);
+const giftPayload2 = cart.toCheckoutPayload(
+  [{ id: "lavender-soak", qty: 1 }],
+  null,
+  null,
+  true,
+  longMsg
+);
+eq(giftPayload2.giftMessage.length, 500, "toCheckoutPayload clamps giftMessage to 500 characters");
+eq(
+  giftPayload2.gift_message.length,
+  500,
+  "toCheckoutPayload clamps gift_message to 500 characters"
+);
+
+// Gifting without isGiftOrder (falsy)
+const giftPayload3 = cart.toCheckoutPayload(
+  [{ id: "lavender-soak", qty: 1 }],
+  null,
+  null,
+  false,
+  "Should not be included"
+);
+eq(giftPayload3.isGiftOrder, undefined, "toCheckoutPayload omits isGiftOrder when false");
+eq(giftPayload3.giftMessage, undefined, "toCheckoutPayload omits giftMessage when not a gift");
+
+// 2. generateShareCartUrl
+const shareItems = [
+  { id: "frankincense-salve", qty: 2, variantLabel: "2oz" },
+  { id: "lavender-soak", qty: 1 }
+];
+const shareUrl = cart.generateShareCartUrl(shareItems);
+eq(
+  shareUrl,
+  "/shop.html?cart=frankincense-salve%3A2%3A2oz%2Clavender-soak%3A1",
+  "generateShareCartUrl generates valid shop.html?cart= URL with encoded items"
+);
+eq(cart.generateShareCartUrl([]), "", "generateShareCartUrl returns empty string for empty cart");
+eq(cart.generateShareCartUrl(null), "", "generateShareCartUrl returns empty string for null");
+
+// 3. parseSharedCartParam
+const mockCatalog = {
+  products: [
+    {
+      id: "frankincense-salve",
+      name: "Frankincense Salve",
+      price: 19.99,
+      category: "salves",
+      stock: 5,
+      variants: {
+        name: "Size",
+        options: [
+          { name: "2oz", priceDelta: 0 },
+          { name: "1oz", priceDelta: -6.0 }
+        ]
+      }
+    },
+    {
+      id: "lavender-soak",
+      name: "Lavender Soak",
+      price: 18.0,
+      category: "soaks",
+      stock: 10
+    }
+  ],
+  bundles: [
+    {
+      id: "duo-bundle",
+      name: "Apothecary Duo",
+      price: 32.0
+    }
+  ]
+};
+
+const parsed = cart.parseSharedCartParam(
+  "frankincense-salve:2:1oz,lavender-soak:1,duo-bundle:1,non-existent-product:5",
+  mockCatalog
+);
+eq(parsed.length, 3, "parseSharedCartParam drops invalid products");
+eq(parsed[0].id, "frankincense-salve", "parseSharedCartParam sets product id");
+eq(parsed[0].qty, 2, "parseSharedCartParam sets quantity");
+eq(parsed[0].variantLabel, "1oz", "parseSharedCartParam sets variantLabel");
+eq(parsed[0].variantDelta, -6.0, "parseSharedCartParam resolves variantDelta");
+eq(parsed[1].id, "lavender-soak", "parseSharedCartParam resolves second product");
+eq(parsed[2].id, "duo-bundle", "parseSharedCartParam resolves bundle");
+
+// Stock ceiling clamping on shared cart hydration
+const overstocked = cart.parseSharedCartParam("frankincense-salve:20:2oz", mockCatalog);
+eq(overstocked[0].qty, 5, "parseSharedCartParam clamps quantity to stock level");
+
+// Malformed string handling
+eq(cart.parseSharedCartParam("", mockCatalog), [], "parseSharedCartParam handles empty string");
+eq(cart.parseSharedCartParam(null, mockCatalog), [], "parseSharedCartParam handles null");
+eq(
+  cart.parseSharedCartParam(":::", mockCatalog),
+  [],
+  "parseSharedCartParam handles malformed token"
+);
+
+// 4. Alt-Points Loyalty Wallet storage helpers
+const mockStorageMap = new Map();
+global.localStorage = {
+  getItem: (k) => mockStorageMap.get(k) || null,
+  setItem: (k, v) => mockStorageMap.set(k, String(v)),
+  removeItem: (k) => mockStorageMap.delete(k),
+  clear: () => mockStorageMap.clear()
+};
+
+mockStorageMap.clear();
+eq(cart.getWalletPoints(), 0, "getWalletPoints defaults to 0 when storage is empty");
+cart.setWalletPoints(150);
+eq(cart.getWalletPoints(), 150, "getWalletPoints returns updated balance after setWalletPoints");
+cart.setWalletPoints(-50);
+eq(cart.getWalletPoints(), 0, "setWalletPoints clamps negative points to 0");
+cart.setWalletPoints("invalid");
+eq(cart.getWalletPoints(), 0, "setWalletPoints handles non-numeric value gracefully");
+
 console.log(`\ncart-engine.test.js: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

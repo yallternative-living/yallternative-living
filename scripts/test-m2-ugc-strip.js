@@ -87,8 +87,16 @@ async function runTests() {
   console.log("MILESTONE 2 EMPIRICAL TEST SUITE: UGC / SOCIAL FEED");
   console.log("==================================================\n");
 
-  server = await createServer();
-  console.log(`Local test server running on ${URL_BASE}`);
+  try {
+    server = await createServer();
+    console.log(`Local test server running on ${URL_BASE}`);
+  } catch (e) {
+    if (e.code === "EADDRINUSE") {
+      console.log(`Using existing server running on ${URL_BASE}`);
+    } else {
+      throw e;
+    }
+  }
 
   browser = await puppeteer.launch({ headless: "new", args: ["--no-sandbox"] });
   const page = await browser.newPage();
@@ -400,8 +408,8 @@ async function runTests() {
   // ----------------------------------------------------
   // CLEANUP & SUMMARY
   // ----------------------------------------------------
-  await browser.close();
-  server.close();
+  if (browser) await browser.close();
+  if (server) await new Promise((r) => server.close(r));
 
   console.log("\n==================================================");
   console.log(`TEST RESULTS: ${passed} passed, ${failed} failed.`);
@@ -412,9 +420,9 @@ async function runTests() {
   }
 }
 
-runTests().catch((err) => {
+runTests().catch(async (err) => {
   console.error("Fatal error in test script:", err);
-  if (browser) browser.close();
-  if (server) server.close();
+  if (browser) await browser.close();
+  if (server) await new Promise((r) => server.close(r));
   process.exit(1);
 });

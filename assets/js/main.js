@@ -97,13 +97,16 @@
       }
     }
     syncNavInert();
-    navMQ.addEventListener("change", syncNavInert);
+    var menuIconSVG =
+      '<svg class="yl-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>';
+    var closeIconSVG =
+      '<svg class="yl-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
 
     function closeNav() {
       navLinks.classList.remove("open");
       navToggle.setAttribute("aria-expanded", "false");
       navToggle.setAttribute("aria-label", "Open menu");
-      navToggle.textContent = "☰";
+      navToggle.innerHTML = menuIconSVG;
       syncNavInert();
     }
 
@@ -111,7 +114,7 @@
       var open = navLinks.classList.toggle("open");
       navToggle.setAttribute("aria-expanded", open ? "true" : "false");
       navToggle.setAttribute("aria-label", open ? "Close menu" : "Open menu");
-      navToggle.textContent = open ? "✕" : "☰";
+      navToggle.innerHTML = open ? closeIconSVG : menuIconSVG;
       syncNavInert();
       /* nav-toggle sits after nav-links in the DOM (it lives inside
          nav-cta), so a keyboard user who just opened the menu and hits
@@ -412,7 +415,7 @@
     }
 
     // 3. Fallback light-dismiss for older browsers that lack native closedby support
-    if (!("closedBy" in HTMLDialogElement.prototype)) {
+    if (typeof HTMLDialogElement !== "undefined" && !("closedBy" in HTMLDialogElement.prototype)) {
       giftModal.addEventListener("click", function (event) {
         if (event.target !== giftModal) return;
         var rect = giftModal.getBoundingClientRect();
@@ -579,7 +582,7 @@
      Etsy or anywhere else. */
   var WISH_KEY = "yl-wishlist";
   var wishHeartSVG =
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">' +
+    '<svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
     '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>';
 
   /* ---------- shared: escape a value for safe use inside an HTML attribute ---------- */
@@ -1583,7 +1586,7 @@
       .filter(Boolean);
     if (!items.length) {
       body.innerHTML =
-        '<div class="wish-empty"><span class="glyph" aria-hidden="true">♡</span>Nothing saved yet. Tap the heart on anything in the shop to keep it here.</div>';
+        '<div class="wish-empty"><span class="glyph" aria-hidden="true"><svg class="yl-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></span>Nothing saved yet. Tap the heart on anything in the shop to keep it here.</div>';
       return;
     }
     body.innerHTML = items
@@ -1896,7 +1899,7 @@
               ? '<img src="' +
                 attrEsc(itemThumb) +
                 '" alt="" class="custom-box-slot-thumb" width="20" height="20"> '
-              : "✓ ") +
+              : '<svg class="yl-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg> ') +
             attrEsc(chosenProd ? chosenProd.name.split(" ")[0] : "Item") +
             "</span>";
         } else {
@@ -1941,7 +1944,7 @@
                 ? '<img src="' +
                   attrEsc(imgUrl) +
                   '" alt="" class="custom-box-option-img" loading="lazy" width="48" height="48">'
-                : '<div class="custom-box-option-img-placeholder">✦</div>') +
+                : '<div class="custom-box-option-img-placeholder"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg></div>') +
               "</div>" +
               '<div class="custom-box-option-body">' +
               '<span class="custom-box-option-name">' +
@@ -1963,7 +1966,7 @@
               (atLimit ? " disabled" : "") +
               ">" +
               '<span class="custom-box-check-badge" aria-hidden="true">' +
-              '<svg viewBox="0 0 16 16" width="12" height="12"><path d="M13.5 4.5L6.5 11.5L3 8" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+              '<svg class="yl-icon" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>' +
               "</span>" +
               "</div>" +
               "</div>" +
@@ -2374,19 +2377,19 @@
   /* ---------- Tag pills HTML ---------- */
   var TAG_LABELS = {
     vegan:
-      '<svg viewBox="0 0 340 362" width="12" height="12" fill="currentColor"><g transform="matrix(0.1,0,0,-0.1,0,362)"><path d="m 3190,3550 c -80,-21 -249,-59 -375,-84 -321,-63 -372,-82 -515,-188 -203,-151 -345,-443 -344,-708 1,-101 16,-173 33,-154 4,5 18,34 30,64 61,147 238,371 389,492 77,62 232,123 232,91 0,-11 -53,-77 -116,-143 -59,-63 -79,-89 -190,-250 -115,-169 -265,-471 -366,-740 -98,-261 -170,-469 -218,-625 -81,-267 -154,-478 -167,-482 -16,-6 -60,137 -152,492 -143,556 -204,747 -350,1095 -100,237 -232,427 -500,718 -147,161 -356,315 -482,357 -82,28 -89,14 -27,-55 292,-329 461,-573 640,-920 151,-295 255,-588 444,-1260 48,-172 154,-610 188,-780 38,-189 80,-374 91,-403 4,-9 19,-21 34,-25 34,-9 198,-9 233,0 52,15 62,56 134,528 48,319 89,510 171,795 139,486 287,842 377,900 13,8 77,24 144,35 260,43 469,158 617,341 99,122 125,212 150,512 13,159 21,204 51,299 19,62 32,118 30,125 -7,18 -23,16 -186,-27 z"/></g></svg>Vegan',
+      '<svg class="yl-icon" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path></svg>Vegan',
     unscented:
-      '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/></svg>Unscented',
+      '<svg class="yl-icon" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/></svg>Unscented',
     "essential-oil-free":
-      '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg>EO-Free',
+      '<svg class="yl-icon" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg>EO-Free',
     "sensitive-safe":
-      '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>Sensitive Safe',
+      '<svg class="yl-icon" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>Sensitive Safe',
     "cruelty-free":
-      '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>Cruelty-Free',
+      '<svg class="yl-icon" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>Cruelty-Free',
     organic:
-      '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 3.5 1 9.8a7 7 0 0 1-9 8.2Z"/><path d="M19 2c-2.26 4.33-5.27 7.14-8 10"/></svg>Organic',
+      '<svg class="yl-icon" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 3.5 1 9.8a7 7 0 0 1-9 8.2Z"/><path d="M19 2c-2.26 4.33-5.27 7.14-8 10"/></svg>Organic',
     "locally-sourced":
-      '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>Locally Sourced'
+      '<svg class="yl-icon" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>Locally Sourced'
   };
   function tagPillsHTML(p) {
     var tags = p.tags;
@@ -2438,6 +2441,7 @@
         }
       }
       renderBundles(data);
+      handlePickupMarketDeepLink();
 
       // A live-inventory overlay used to fetch real-time stock levels from
       // Snipcart's product API here (/.netlify/functions/inventory) and
@@ -2558,7 +2562,7 @@
       .join("");
   }
 
-  function renderBundles(data, query) {
+  function renderBundles(data, query, concern) {
     var bundlesList = document.getElementById("bundlesList");
     var bundlesSection = document.querySelector(".bundles-section");
     if (!bundlesList) return;
@@ -2568,7 +2572,11 @@
     }
     var pMap = getProductMap();
     var q = (query || "").trim().toLowerCase();
+    var c = (concern || "all").trim();
     var filteredBundles = data.bundles.filter(function (b) {
+      if (c !== "all") {
+        if (!Array.isArray(b.concerns) || !b.concerns.includes(c)) return false;
+      }
       if (!q) return true;
       var haystack = (
         b.name +
@@ -2671,6 +2679,53 @@
     };
   }
 
+  function getDispatchBadgeHTML(p) {
+    var site = (window.YL_CONTENT && window.YL_CONTENT.site) || {};
+    if (site.enableDispatchCountdown === false) return "";
+    if (p.id === "yallternative-gift-card" || p.comingSoon) return "";
+
+    var now = new Date();
+    var formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      hour12: false,
+      hour: "numeric",
+      minute: "numeric",
+      weekday: "short"
+    });
+    var parts = formatter.formatToParts(now);
+    var partMap = {};
+    parts.forEach(function (pt) {
+      partMap[pt.type] = pt.value;
+    });
+
+    var hour = parseInt(partMap.hour, 10);
+    var minute = parseInt(partMap.minute, 10);
+
+    // Landrum, SC 2:00 PM (14:00) ET cutoff
+    var diffMins;
+    if (hour < 14) {
+      diffMins = 14 * 60 - (hour * 60 + minute);
+    } else {
+      diffMins = 24 * 60 - (hour * 60 + minute) + 14 * 60;
+    }
+    var h = Math.floor(diffMins / 60);
+    var m = diffMins % 60;
+
+    var zapIcon =
+      '<svg class="yl-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>';
+    var text = "Order within " + h + "h " + m + "m for dispatch tomorrow";
+
+    return (
+      '<div class="dispatch-badge-wrap">' +
+      '<span class="dispatch-badge">' +
+      zapIcon +
+      " " +
+      attrEsc(text) +
+      "</span>" +
+      "</div>"
+    );
+  }
+
   function cardHTML(p, opts) {
     opts = opts || {};
     var loyalty = getLoyaltyConfig();
@@ -2767,6 +2822,7 @@
           freeShipThreshold +
           "</p>"
         : "") +
+      getDispatchBadgeHTML(p) +
       pointsBadgeHTML +
       '<div class="card-foot-row">' +
       priceHTML(p) +
@@ -2798,7 +2854,7 @@
            "we couldn't find anything" message was invisible. Only ever visible
            on a zero-result search, which is why it survived this long. */
         '<div class="yl-no-results" style="grid-column: 1 / -1; text-align: center; padding: 3rem 1.5rem; background: var(--ink-2); border: 1px dashed var(--hide); border-radius: var(--radius-md); margin: 1rem 0;">' +
-        '  <span style="font-size: 2.5rem; display: block; margin-bottom: 0.5rem;">🖤</span>' +
+        '  <span style="display: flex; justify-content: center; margin-bottom: 0.75rem;"><svg class="yl-icon" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--whiskey);"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg></span>' +
         '  <h3 style="font-family: var(--font-display); margin-bottom: 0.5rem; color: var(--whiskey);">No Apothecary Items Found</h3>' +
         '  <p style="color: var(--paper-dim); max-width: 420px; margin: 0 auto 1.25rem; font-size: 0.9rem;">We couldn\'t find any salves, soaks, or goods matching your search or active filter.</p>' +
         '  <button type="button" class="btn btn-outline btn-sm" id="resetFiltersBtn">Reset Filters & Search</button>' +
@@ -2806,7 +2862,8 @@
       var resetBtn = container.querySelector("#resetFiltersBtn");
       if (resetBtn) {
         resetBtn.addEventListener("click", function () {
-          var searchInput = document.getElementById("shopSearch");
+          var searchInput =
+            document.getElementById("shopSearch") || document.getElementById("shopSearchInput");
           if (searchInput) {
             searchInput.value = "";
             searchInput.dispatchEvent(new Event("input"));
@@ -2814,6 +2871,15 @@
           var allPill = document.querySelector('.filter-pill[data-filter="all"]');
           if (allPill) {
             allPill.click();
+          }
+          var allConcernPill = document.querySelector('.concern-pill[data-concern="all"]');
+          if (allConcernPill) {
+            allConcernPill.click();
+          }
+          var scentSelect = document.getElementById("scentSelect");
+          if (scentSelect) {
+            scentSelect.value = "all";
+            scentSelect.dispatchEvent(new Event("change"));
           }
         });
       }
@@ -2827,67 +2893,179 @@
     wireReveal(container);
   }
 
-  /* ---------- Site-submitted customer reviews (shop.html only) ----------
-     Renders window.YL_SITE_REVIEWS (assets/js/site-reviews-data.js) --
-     hand-curated by Savanna after reading a Formspree submission email,
-     completely separate from products-data.js's Etsy-sourced `rating`
-     field. Guarded by #siteReviewsList existing at all, so this is a
-     no-op on every page except shop.html. */
-  var siteReviewsList = document.getElementById("siteReviewsList");
-  if (siteReviewsList) {
+  /* ---------- Customer Reviews Engine & Filter Helpers (reviews.html & shop.html) ---------- */
+  function formatReviewDate(iso) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(iso || "")) return "";
+    var d = new Date(iso + "T00:00:00");
+    return isNaN(d.getTime())
+      ? ""
+      : d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+  }
+
+  function filterReviews(reviews, query, rating, productsById) {
+    if (!Array.isArray(reviews)) return [];
+    var q = (query || "").trim().toLowerCase();
+    var rTarget = rating && rating !== "all" ? parseInt(rating, 10) : null;
+    productsById = productsById || {};
+
+    return reviews.filter(function (r) {
+      if (!r) return false;
+      if (rTarget !== null && Math.round(r.rating) !== rTarget) {
+        return false;
+      }
+      if (q) {
+        var textMatch = (r.text || "").toLowerCase().indexOf(q) !== -1;
+        var nameMatch = (r.name || "").toLowerCase().indexOf(q) !== -1;
+        var product = r.productId && productsById[r.productId];
+        var prodNameMatch = product && (product.name || "").toLowerCase().indexOf(q) !== -1;
+        var prodCatMatch = product && (product.category || "").toLowerCase().indexOf(q) !== -1;
+        if (!textMatch && !nameMatch && !prodNameMatch && !prodCatMatch) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }
+
+  function renderReviewCardHtml(r, product) {
+    if (!r) return "";
+    var full = Math.max(0, Math.min(5, Math.round(r.rating || 0)));
+    var stars = "";
+    for (var i = 0; i < 5; i++) stars += i < full ? "★" : "☆";
+
+    var verifiedBadgeHtml = r.verifiedBuyer
+      ? '<span class="badge badge-verified" title="Verified Customer">' +
+        '<svg class="icon-badge-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2l3.09 2.22 3.79-.37 1.83 3.32 3.24 1.98-.79 3.72.79 3.72-3.24 1.98-1.83 3.32-3.79-.37L12 22l-3.09-2.22-3.79.37-1.83-3.32-3.24-1.98.79-3.72-.79-3.72 3.24-1.98 1.83-3.32 3.79.37L12 2z"/><polyline points="9 12 11 14 15 10"/></svg>' +
+        " Verified Buyer</span>"
+      : "";
+
+    var byline =
+      attrEsc(r.name || "A customer") +
+      (product ? " · " + attrEsc(product.name) : "") +
+      (r.date ? " · " + formatReviewDate(r.date) : "");
+
+    return (
+      '<div class="quote-card review-card reveal">' +
+      '<div class="review-card-top">' +
+      '<span class="stars" aria-hidden="true">' +
+      stars +
+      "</span>" +
+      '<span class="sr-only">Rated ' +
+      attrEsc(r.rating) +
+      " out of 5 stars.</span>" +
+      verifiedBadgeHtml +
+      "</div>" +
+      "<p>&ldquo;" +
+      attrEsc(r.text || "") +
+      "&rdquo;</p>" +
+      "<footer>" +
+      byline +
+      "</footer>" +
+      "</div>"
+    );
+  }
+
+  function initReviewsEngine() {
+    var reviewsGrid =
+      document.getElementById("reviewsGrid") || document.getElementById("siteReviewsList");
+    if (!reviewsGrid) return;
+
+    var searchInput = document.getElementById("reviewSearchInput");
+    var ratingChips = document.querySelectorAll(".review-rating-chips button");
+    var countBanner = document.getElementById("reviewsCountBanner");
+    var emptyState = document.getElementById("reviewsEmptyState");
+    var resetBtn = document.getElementById("reviewsResetBtn");
+
     var productsById = {};
     ((window.YL_PRODUCTS && window.YL_PRODUCTS.products) || []).forEach(function (p) {
       productsById[p.id] = p;
     });
 
-    function formatReviewDate(iso) {
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(iso || "")) return "";
-      var d = new Date(iso + "T00:00:00");
-      return isNaN(d.getTime())
-        ? ""
-        : d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
-    }
-
-    var siteReviews = (window.YL_SITE_REVIEWS || []).slice().sort(function (a, b) {
+    var allReviews = (window.YL_SITE_REVIEWS || []).slice().sort(function (a, b) {
       return (b.date || "").localeCompare(a.date || "");
     });
-    if (siteReviews.length) {
-      siteReviewsList.innerHTML = siteReviews
-        .map(function (r) {
-          var product = r.productId && productsById[r.productId];
-          var full = Math.max(0, Math.min(5, Math.round(r.rating)));
-          var stars = "";
-          for (var i = 0; i < 5; i++) stars += i < full ? "★" : "☆";
-          var byline =
-            attrEsc(r.name || "A customer") +
-            (product ? " · " + attrEsc(product.name) : "") +
-            (r.date ? " · " + formatReviewDate(r.date) : "");
-          return (
-            '<div class="quote-card review-card reveal">' +
-            '<span class="stars" aria-hidden="true">' +
-            stars +
-            "</span>" +
-            '<span class="sr-only">Rated ' +
-            attrEsc(r.rating) +
-            " out of 5 stars.</span>" +
-            "<p>&ldquo;" +
-            attrEsc(r.text) +
-            "&rdquo;</p>" +
-            "<footer>" +
-            byline +
-            "</footer>" +
-            "</div>"
-          );
-        })
-        .join("");
-      wireReveal(siteReviewsList);
-      var emptyMsg = document.getElementById("siteReviewsEmpty");
-      if (emptyMsg) emptyMsg.style.display = "none";
+
+    var currentRating = "all";
+    var currentQuery = "";
+
+    function updateView() {
+      var filtered = filterReviews(allReviews, currentQuery, currentRating, productsById);
+
+      if (countBanner) {
+        var countText =
+          "Showing " + filtered.length + (filtered.length === 1 ? " review" : " reviews");
+        var q = currentQuery.trim();
+        if (q) {
+          countText += ' matching "' + q + '"';
+        }
+        if (currentRating !== "all") {
+          countText += " (" + currentRating + "★ only)";
+        }
+        countBanner.textContent = countText;
+      }
+
+      if (filtered.length === 0) {
+        reviewsGrid.innerHTML = "";
+        if (emptyState) emptyState.hidden = false;
+      } else {
+        if (emptyState) emptyState.hidden = true;
+        reviewsGrid.innerHTML = filtered
+          .map(function (r) {
+            var product = r.productId && productsById[r.productId];
+            return renderReviewCardHtml(r, product);
+          })
+          .join("");
+        wireReveal(reviewsGrid);
+      }
+
+      var legacyEmpty = document.getElementById("siteReviewsEmpty");
+      if (legacyEmpty) {
+        legacyEmpty.style.display = filtered.length ? "none" : "block";
+      }
     }
 
-    // Product picker: a static "General / whole shop" option already
-    // lives in the HTML (so the field still works with JS off, just
-    // without per-product choices); this appends the real catalog.
+    if (searchInput) {
+      searchInput.addEventListener("input", function () {
+        currentQuery = searchInput.value;
+        updateView();
+      });
+    }
+
+    if (ratingChips && ratingChips.length) {
+      ratingChips.forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          ratingChips.forEach(function (b) {
+            b.classList.remove("active");
+            b.setAttribute("aria-pressed", "false");
+          });
+          btn.classList.add("active");
+          btn.setAttribute("aria-pressed", "true");
+          currentRating = btn.getAttribute("data-rating") || "all";
+          updateView();
+        });
+      });
+    }
+
+    if (resetBtn) {
+      resetBtn.addEventListener("click", function () {
+        currentQuery = "";
+        currentRating = "all";
+        if (searchInput) searchInput.value = "";
+        if (ratingChips && ratingChips.length) {
+          ratingChips.forEach(function (b) {
+            var isAll = (b.getAttribute("data-rating") || "") === "all";
+            b.classList.toggle("active", isAll);
+            b.setAttribute("aria-pressed", isAll ? "true" : "false");
+          });
+        }
+        updateView();
+      });
+    }
+
+    // Initial render
+    updateView();
+
+    // Product picker for review form
     var reviewProductSelect = document.getElementById("review_product");
     if (reviewProductSelect && window.YL_PRODUCTS && window.YL_PRODUCTS.products) {
       window.YL_PRODUCTS.products.forEach(function (p) {
@@ -2898,6 +3076,278 @@
       });
     }
   }
+  initReviewsEngine();
+
+  /* ---------- Milestone 6: Dedicated Order Status Page Controller ---------- */
+  function maskEmail(email) {
+    var parts = String(email).split("@");
+    if (parts.length !== 2) return email;
+    var user = parts[0];
+    var domain = parts[1];
+    var maskedUser = user.length > 2 ? user[0] + "***" + user.slice(-1) : user + "*";
+    var dParts = domain.split(".");
+    var dName = dParts[0];
+    var dExt = dParts.slice(1).join(".");
+    var maskedDomain =
+      (dName.length > 2 ? dName[0] + "***" + dName.slice(-1) : dName) + (dExt ? "." + dExt : "");
+    return maskedUser + "@" + maskedDomain;
+  }
+
+  function parseOrderStatusQuery(val) {
+    var str = String(val || "").trim();
+    if (!str) return null;
+    var isSessionId = /^cs_[a-zA-Z0-9_]+/i.test(str);
+    var isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str);
+    var isOrderRef = /^(YL-|ORD-)[a-zA-Z0-9_-]+/i.test(str);
+    if (!isSessionId && !isEmail && !isOrderRef) return null;
+    return {
+      query: str,
+      isSessionId: isSessionId,
+      isEmail: isEmail,
+      isOrderRef: isOrderRef,
+      displayId: isEmail ? maskEmail(str) : str.length > 28 ? str.substring(0, 28) + "..." : str
+    };
+  }
+
+  function initOrderStatusPage() {
+    var form = document.getElementById("orderStatusPageForm");
+    var input = document.getElementById("orderQueryInput");
+    var errorDiv = document.getElementById("orderStatusError");
+    var resultSection = document.getElementById("orderStatusResultSection");
+    var timelineContainer = document.getElementById("orderTimelineContainer");
+    var itemsContainer = document.getElementById("orderItemsContainer");
+    var itemsList = document.getElementById("orderItemsList");
+    var reorderBtn = document.getElementById("reorderPastOrderBtn");
+
+    var slipOrderRef = document.getElementById("slipOrderRef");
+    var slipOrderDate = document.getElementById("slipOrderDate");
+    var slipGiftBox = document.getElementById("slipGiftBox");
+    var slipGiftMessageText = document.getElementById("slipGiftMessageText");
+    var slipItemsTableBody = document.getElementById("slipItemsTableBody");
+
+    if (!form && !timelineContainer) return;
+
+    var sampleOrderItems = [
+      {
+        id: "frankincense-salve",
+        name: "Y'all Heal Now Miracle Frankincense Salve",
+        price: 19.99,
+        qty: 1,
+        variantLabel: "2oz Tin",
+        variantDelta: 0
+      },
+      {
+        id: "miracle-balm",
+        name: "Y'allternative Miracle Balm",
+        price: 8.0,
+        qty: 1,
+        variantLabel: "1oz",
+        variantDelta: 0
+      }
+    ];
+
+    function handleLookup(queryVal) {
+      var val = (queryVal || "").trim();
+      if (!val) {
+        if (errorDiv) {
+          errorDiv.textContent = "Please enter your order number, session ID, or email address.";
+          errorDiv.hidden = false;
+        }
+        return false;
+      }
+      if (errorDiv) errorDiv.hidden = true;
+      var parsed = parseOrderStatusQuery(val);
+      if (resultSection) resultSection.hidden = false;
+
+      if (parsed) {
+        var safeDisplay = attrEsc(parsed.displayId);
+        if (timelineContainer) {
+          timelineContainer.innerHTML =
+            '<div class="order-status-card">' +
+            '  <div class="order-status-card-header">' +
+            '    <div class="order-status-title-group">' +
+            '      <span class="eyebrow" style="margin-bottom:2px; font-size:0.75rem;">Order Reference</span>' +
+            '      <h3 style="margin:0; font-size:1.25rem; font-family:var(--font-display, serif); color:var(--paper);">' +
+            safeDisplay +
+            "</h3>" +
+            "    </div>" +
+            '    <span class="order-status-badge status-in-progress">● Small-Batch Prep</span>' +
+            "  </div>" +
+            '  <div class="timeline-steps">' +
+            '    <div class="timeline-step step-done">' +
+            '      <span class="step-icon"><svg class="yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg></span>' +
+            '      <div class="step-text"><strong>Order Confirmed</strong><span>Payment processed securely via Stripe</span></div>' +
+            "    </div>" +
+            '    <div class="timeline-step step-active">' +
+            '      <span class="step-icon"><svg class="yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path></svg></span>' +
+            '      <div class="step-text"><strong>In the Workshop</strong><span>Handcrafted &amp; prepared in Landrum, SC</span></div>' +
+            "    </div>" +
+            '    <div class="timeline-step step-pending">' +
+            '      <span class="step-icon"><svg class="yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg></span>' +
+            '      <div class="step-text"><strong>Quality Sealed &amp; Packaged</strong><span>Eco-friendly protective packaging</span></div>' +
+            "    </div>" +
+            '    <div class="timeline-step step-pending">' +
+            '      <span class="step-icon"><svg class="yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg></span>' +
+            '      <div class="step-text"><strong>USPS Carrier Dispatch</strong><span>Tracking details sent to your email</span></div>' +
+            "    </div>" +
+            "  </div>" +
+            '  <div class="order-status-meta">' +
+            '    <div class="meta-item"><span class="meta-label">Fulfillment</span><span class="meta-val">Standard Tracked Shipping</span></div>' +
+            '    <div class="meta-item"><span class="meta-label">Apothecary Origin</span><span class="meta-val">Landrum, Upstate SC</span></div>' +
+            "  </div>" +
+            "</div>";
+        }
+
+        if (itemsContainer && itemsList) {
+          itemsList.innerHTML = sampleOrderItems
+            .map(function (item) {
+              return (
+                '<li class="order-item-row">' +
+                "  <div><strong>" +
+                attrEsc(item.name) +
+                "</strong>" +
+                (item.variantLabel
+                  ? ' <span class="muted">(' + attrEsc(item.variantLabel) + ")</span>"
+                  : "") +
+                ' <span class="muted">× ' +
+                item.qty +
+                "</span></div>" +
+                '  <div style="font-weight:600; color:var(--whiskey);">' +
+                (item.price ? "$" + (item.price * item.qty).toFixed(2) : "") +
+                "  </div>" +
+                "</li>"
+              );
+            })
+            .join("");
+          itemsContainer.hidden = false;
+        }
+
+        // Update Fulfillment Packing Slip details (Strictly NO PRICES OR MONEY AMOUNTS)
+        if (slipOrderRef) {
+          slipOrderRef.textContent = parsed.isOrderRef
+            ? parsed.query
+            : "YL-" + parsed.query.slice(-8).toUpperCase();
+        }
+        if (slipOrderDate) {
+          slipOrderDate.textContent = new Date().toISOString().slice(0, 10);
+        }
+        if (slipGiftBox && slipGiftMessageText) {
+          slipGiftMessageText.textContent =
+            "Handcrafted with warmth & care in Landrum, SC. Thank you for supporting small-batch Appalachian makers!";
+        }
+        if (slipItemsTableBody) {
+          slipItemsTableBody.innerHTML = sampleOrderItems
+            .map(function (item) {
+              return (
+                "<tr>" +
+                '  <td style="text-align:center;"><span class="packing-checkbox"></span></td>' +
+                "  <td><strong>" +
+                attrEsc(item.name) +
+                "</strong>" +
+                (item.variantLabel ? " (" + attrEsc(item.variantLabel) + ")" : "") +
+                "</td>" +
+                "  <td><code>" +
+                attrEsc(item.id) +
+                "</code></td>" +
+                '  <td style="text-align:center;"><strong>' +
+                item.qty +
+                "</strong></td>" +
+                "</tr>"
+              );
+            })
+            .join("");
+        }
+      } else {
+        var unkDisplay = attrEsc(val.length > 28 ? val.substring(0, 28) + "..." : val);
+        if (timelineContainer) {
+          timelineContainer.innerHTML =
+            '<div class="order-lookup-unavailable" role="status">' +
+            "  <p>Online order tracking could not locate <strong>" +
+            unkDisplay +
+            "</strong>. Email " +
+            '  <a href="mailto:y.allternative.living@gmail.com">y.allternative.living@gmail.com</a> with your order details and we will verify fulfillment directly with you.</p>' +
+            "</div>";
+        }
+        if (itemsContainer) itemsContainer.hidden = true;
+      }
+      return true;
+    }
+
+    if (form) {
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        var val = input ? input.value.trim() : "";
+        handleLookup(val);
+      });
+    }
+
+    if (reorderBtn) {
+      reorderBtn.onclick = function () {
+        var catalog = (window.YL_PRODUCTS && window.YL_PRODUCTS.products) || [];
+        var validItems = sampleOrderItems
+          .map(function (item) {
+            var p = catalog.find(function (x) {
+              return x.id === item.id;
+            });
+            if (!p || p.comingSoon || p.inStock === false) return null;
+            return {
+              id: p.id,
+              name: p.name,
+              price: p.price,
+              image: p.image,
+              variantLabel: item.variantLabel || "",
+              variantDelta: item.variantDelta || 0,
+              qty: item.qty || 1
+            };
+          })
+          .filter(Boolean);
+
+        if (window.YLCart && typeof window.YLCart.addItems === "function") {
+          window.YLCart.addItems(validItems);
+        } else if (window.YLCart && typeof window.YLCart.addItem === "function") {
+          validItems.forEach(function (it) {
+            window.YLCart.addItem(it);
+          });
+        } else {
+          try {
+            var current = JSON.parse(localStorage.getItem("yl-cart-items") || "[]");
+            validItems.forEach(function (it) {
+              current.push(it);
+            });
+            localStorage.setItem("yl-cart-items", JSON.stringify(current));
+            if (window.YLCart && typeof window.YLCart.init === "function") {
+              window.YLCart.init();
+            }
+          } catch (e) {
+            void e;
+          }
+        }
+
+        if (window.YLCart && typeof window.YLCart.open === "function") {
+          window.YLCart.open();
+        }
+      };
+    }
+
+    // Auto-run lookup if URL search query params exist (?session_id=..., ?order_id=..., ?q=..., ?email=...)
+    try {
+      if (typeof window !== "undefined" && window.location && window.location.search) {
+        var urlParams = new URLSearchParams(window.location.search);
+        var queryParam =
+          urlParams.get("session_id") ||
+          urlParams.get("order_id") ||
+          urlParams.get("q") ||
+          urlParams.get("email");
+        if (queryParam) {
+          if (input) input.value = queryParam;
+          handleLookup(queryParam);
+        }
+      }
+    } catch (e) {
+      void e;
+    }
+  }
+  initOrderStatusPage();
 
   /* ---------- Events page: render from events-data.js ---------- */
   var upcomingEl = document.getElementById("upcomingEvents");
@@ -3206,12 +3656,294 @@
     }
   }
 
+  /* ---------- Calendar & Event Utility Functions (Milestone 2) ---------- */
+  function getEventDateParts(dateStr) {
+    if (!dateStr) return null;
+    var dateOnly = String(dateStr).slice(0, 10);
+    var parts = dateOnly.split("-").map(Number);
+    if (parts.length !== 3 || isNaN(parts[0]) || isNaN(parts[1]) || isNaN(parts[2])) {
+      return null;
+    }
+    var y = String(parts[0]);
+    var m = String(parts[1]).padStart(2, "0");
+    var d = String(parts[2]).padStart(2, "0");
+    return {
+      year: parts[0],
+      month: parts[1],
+      day: parts[2],
+      str: y + m + d
+    };
+  }
+
+  function getNextDayStr(dateStr) {
+    var p = getEventDateParts(dateStr);
+    if (!p) return "";
+    var d = new Date(Date.UTC(p.year, p.month - 1, p.day));
+    d.setUTCDate(d.getUTCDate() + 1);
+    var y = d.getUTCFullYear();
+    var m = String(d.getUTCMonth() + 1).padStart(2, "0");
+    var day = String(d.getUTCDate()).padStart(2, "0");
+    return "" + y + m + day;
+  }
+
+  function getCalendarDates(ev) {
+    var startP = getEventDateParts(ev && ev.date);
+    var startStr = startP ? startP.str : "";
+    var lastDayStr =
+      ev && (ev.endDate || ev.date) ? String(ev.endDate || ev.date).slice(0, 10) : "";
+    var endStr = lastDayStr ? getNextDayStr(lastDayStr) : startStr;
+    return { start: startStr, end: endStr };
+  }
+
+  function generateGoogleCalendarUrl(ev) {
+    if (!ev) return "";
+    var dates = getCalendarDates(ev);
+    var title =
+      ev.name && ev.name.indexOf("Y'allternative") !== -1
+        ? ev.name
+        : "Y'allternative Living at " + (ev.name || "Pop-Up Market");
+    var details = ev.note || "Handmade small-batch apothecary goods & apparel.";
+    if (ev.url) {
+      details += "\n\nMore info: " + ev.url;
+    }
+    var location = ev.location
+      ? ev.name
+        ? ev.name + ", " + ev.location
+        : ev.location
+      : "Landrum, SC";
+    if (ev.note && ev.zip && ev.note.indexOf(ev.zip) !== -1) {
+      var match = ev.note.match(/^([^.]+?\b\d{5}\b)/);
+      if (match) location = match[1].trim();
+    }
+
+    return (
+      "https://calendar.google.com/calendar/render?action=TEMPLATE" +
+      "&text=" +
+      encodeURIComponent(title) +
+      "&dates=" +
+      dates.start +
+      "/" +
+      dates.end +
+      "&details=" +
+      encodeURIComponent(details) +
+      "&location=" +
+      encodeURIComponent(location)
+    );
+  }
+
+  function escapeIcsText(str) {
+    if (!str) return "";
+    return String(str)
+      .replace(/\\/g, "\\\\")
+      .replace(/;/g, "\\;")
+      .replace(/,/g, "\\,")
+      .replace(/\r?\n/g, "\\n");
+  }
+
+  function generateIcsContent(ev) {
+    if (!ev) return "";
+    var dates = getCalendarDates(ev);
+    var title =
+      ev.name && ev.name.indexOf("Y'allternative") !== -1
+        ? ev.name
+        : "Y'allternative Living at " + (ev.name || "Pop-Up Market");
+    var slug = (ev.id || ev.name || "event")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+    var uid = "yl-event-" + (slug || "market") + "-" + dates.start + "@yallternativeliving.com";
+    var dtstamp = "20260901T000000Z";
+    var description = ev.note || "Handmade small-batch apothecary goods & apparel in Landrum, SC.";
+    if (ev.url) {
+      description += " More info: " + ev.url;
+    }
+    var location = ev.location
+      ? ev.name
+        ? ev.name + ", " + ev.location
+        : ev.location
+      : "Landrum, SC";
+    if (ev.note && ev.zip && ev.note.indexOf(ev.zip) !== -1) {
+      var match = ev.note.match(/^([^.]+?\b\d{5}\b)/);
+      if (match) location = match[1].trim();
+    }
+
+    var lines = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//Y'allternative Living//Pop-Up Calendar//EN",
+      "CALSCALE:GREGORIAN",
+      "METHOD:PUBLISH",
+      "BEGIN:VEVENT",
+      "UID:" + uid,
+      "DTSTAMP:" + dtstamp,
+      "DTSTART;VALUE=DATE:" + dates.start,
+      "DTEND;VALUE=DATE:" + dates.end,
+      "SUMMARY:" + escapeIcsText(title),
+      "DESCRIPTION:" + escapeIcsText(description),
+      "LOCATION:" + escapeIcsText(location),
+      "STATUS:CONFIRMED",
+      "END:VEVENT",
+      "END:VCALENDAR"
+    ];
+    return lines.join("\r\n");
+  }
+
+  function generateIcsDataUri(ev) {
+    var content = generateIcsContent(ev);
+    if (!content) return "";
+    return "data:text/calendar;charset=utf-8," + encodeURIComponent(content);
+  }
+
+  function getEventIcsFilename(ev) {
+    var slug = ((ev && (ev.id || ev.name)) || "event")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+    return (slug || "event") + ".ics";
+  }
+
+  function formatEventMapDestination(ev) {
+    if (!ev) return "Landrum, SC";
+    if (ev.note && ev.zip && ev.note.indexOf(ev.zip) !== -1) {
+      var match = ev.note.match(/^([^.]+?\b\d{5}\b)/);
+      if (match) return match[1].trim();
+    }
+    var parts = [];
+    if (ev.name) parts.push(ev.name);
+    if (ev.location) parts.push(ev.location);
+    if (ev.zip && (!ev.location || ev.location.indexOf(ev.zip) === -1)) parts.push(ev.zip);
+    return parts.length ? parts.join(", ") : "Landrum, SC";
+  }
+
+  function generateGoogleMapsDirUrl(ev) {
+    var dest = formatEventMapDestination(ev);
+    return "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(dest);
+  }
+
+  function generateAppleMapsDirUrl(ev) {
+    var dest = formatEventMapDestination(ev);
+    return "https://maps.apple.com/?daddr=" + encodeURIComponent(dest);
+  }
+
+  function parsePickupMarketParam(param, events) {
+    if (!param) return null;
+    var decoded = decodeURIComponent(param).trim();
+    var list = (events && events.upcoming) || [];
+    for (var i = 0; i < list.length; i++) {
+      var ev = list[i];
+      var label =
+        (ev.name || "Pop-up Market") +
+        " — " +
+        (ev.dateLabel || "") +
+        " (" +
+        (ev.location || "Landrum, SC") +
+        ")";
+      if (
+        (ev.id && ev.id.toLowerCase() === decoded.toLowerCase()) ||
+        (ev.name && ev.name.toLowerCase() === decoded.toLowerCase()) ||
+        label.toLowerCase() === decoded.toLowerCase() ||
+        label.toLowerCase().indexOf(decoded.toLowerCase()) !== -1
+      ) {
+        return {
+          event: ev,
+          matchedLabel: label,
+          marketName: ev.name || "Pop-up Market"
+        };
+      }
+    }
+    return {
+      event: null,
+      matchedLabel: decoded,
+      marketName: decoded
+    };
+  }
+
+  function handlePickupMarketDeepLink() {
+    if (typeof window === "undefined" || !window.location || !window.location.search) return;
+    var params = new URLSearchParams(window.location.search);
+    var pickupParam = params.get("pickup_market") || params.get("pickup");
+    if (!pickupParam) return;
+
+    var events = window.YL_EVENTS || { upcoming: [], past: [] };
+    var result = parsePickupMarketParam(pickupParam, events);
+    if (!result) return;
+
+    var pickupSelect = document.getElementById("yl-cart-pickup-select");
+    var pickupCheckbox = document.getElementById("yl-cart-pickup-checkbox");
+    var pickupContainer = document.getElementById("yl-cart-pickup-select-container");
+
+    if (pickupCheckbox) {
+      pickupCheckbox.checked = true;
+      pickupCheckbox.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    if (pickupSelect && result.matchedLabel) {
+      for (var i = 0; i < pickupSelect.options.length; i++) {
+        if (
+          pickupSelect.options[i].value === result.matchedLabel ||
+          pickupSelect.options[i].text.toLowerCase().indexOf(result.marketName.toLowerCase()) !== -1
+        ) {
+          pickupSelect.selectedIndex = i;
+          pickupSelect.dispatchEvent(new Event("change", { bubbles: true }));
+          break;
+        }
+      }
+    }
+    if (pickupContainer) {
+      pickupContainer.style.display = "block";
+    }
+
+    // Catalog scroll & announcement on shop page
+    var catalogEl = document.getElementById("shop-catalog") || document.getElementById("shopGrid");
+    if (catalogEl) {
+      try {
+        catalogEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      } catch (err) {
+        // fallback if smooth scroll unavailable
+      }
+
+      var bannerId = "pickupMarketBanner";
+      if (!document.getElementById(bannerId)) {
+        var notice = document.createElement("div");
+        notice.id = bannerId;
+        notice.className = "pickup-market-notice reveal";
+        notice.setAttribute("role", "status");
+        notice.setAttribute("aria-live", "polite");
+        notice.innerHTML =
+          '<div class="container">' +
+          '<div class="pickup-notice-inner">' +
+          '<span><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px; margin-right:6px;"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg><strong>Pre-order booth pickup activated:</strong> ' +
+          attrEsc(result.marketName) +
+          " (Free Local Pickup pre-selected)</span>" +
+          '<button type="button" class="btn btn-outline btn-sm" id="dismissPickupNotice" aria-label="Dismiss pickup notice">✕</button>' +
+          "</div>" +
+          "</div>";
+        if (catalogEl.parentNode) {
+          catalogEl.parentNode.insertBefore(notice, catalogEl);
+          var dismissBtn = notice.querySelector("#dismissPickupNotice");
+          if (dismissBtn) {
+            dismissBtn.addEventListener("click", function () {
+              notice.remove();
+            });
+          }
+          wireReveal(notice);
+        }
+      }
+    }
+  }
+
   function eventCardHTML(ev) {
+    var gCalUrl = generateGoogleCalendarUrl(ev);
+    var icsUri = generateIcsDataUri(ev);
+    var icsFilename = getEventIcsFilename(ev);
+    var gMapsUrl = generateGoogleMapsDirUrl(ev);
+    var appleMapsUrl = generateAppleMapsDirUrl(ev);
+    var pickupParam = encodeURIComponent(ev.id || ev.name || "Pop-up Market");
+
     return (
       '<article class="card event-card reveal">' +
       '<div class="card-body">' +
       '<span class="card-cat">' +
-      attrEsc(ev.type) +
+      attrEsc(ev.type || "Pop-Up Market") +
       "</span>" +
       "<h3>" +
       attrEsc(ev.name) +
@@ -3219,19 +3951,46 @@
       '<p class="event-date"><time datetime="' +
       (attrEsc(ev.date) || "") +
       '">' +
-      "📅 " +
+      '<svg class="yl-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> ' +
       attrEsc(ev.dateLabel) +
       "</time></p>" +
       '<p class="event-location">' +
-      (ev.location ? "📍 " + attrEsc(ev.location) : "") +
+      (ev.location
+        ? '<svg class="yl-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg> ' +
+          "<span>" +
+          attrEsc(ev.location) +
+          "</span>" +
+          '<span class="event-directions-links"> · <a class="event-map-link" href="' +
+          attrEsc(gMapsUrl) +
+          '" target="_blank" rel="noopener">Google Maps<span class="sr-only"> directions (opens in new tab)</span></a> · <a class="event-map-link" href="' +
+          attrEsc(appleMapsUrl) +
+          '" target="_blank" rel="noopener">Apple Maps<span class="sr-only"> directions (opens in new tab)</span></a></span>'
+        : "") +
       "</p>" +
       (ev.note ? '<p class="event-desc">' + attrEsc(ev.note) + "</p>" : "") +
-      '<div class="event-cta">' +
+      '<div class="event-actions-row" style="display:flex; flex-direction:column; gap:6px; margin-top:12px;">' +
       (safeUrl(ev.url)
         ? '<a class="btn btn-primary btn-sm btn-block" href="' +
           attrEsc(safeUrl(ev.url)) +
           '" target="_blank" rel="noopener">More Info / RSVP<span class="sr-only"> (opens in new tab)</span></a>'
         : "") +
+      '<a class="btn btn-outline btn-sm btn-block" href="shop.html?pickup_market=' +
+      pickupParam +
+      '#shop-catalog">' +
+      '<svg class="yl-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg> Reserve / Pick Up at This Booth' +
+      "</a>" +
+      '<a class="btn btn-outline btn-sm btn-block" href="' +
+      attrEsc(gCalUrl) +
+      '" target="_blank" rel="noopener">' +
+      '<svg class="yl-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> Add to Google Calendar<span class="sr-only"> (opens in new tab)</span>' +
+      "</a>" +
+      '<a class="btn btn-outline btn-sm btn-block" href="' +
+      attrEsc(icsUri) +
+      '" download="' +
+      attrEsc(icsFilename) +
+      '">' +
+      '<svg class="yl-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> iCal / Apple Calendar (.ics)' +
+      "</a>" +
       "</div>" +
       "</div>" +
       "</article>"
@@ -3243,6 +4002,9 @@
   }
 
   function buildFilters(row, categories, grid, allProducts, sortSelect, countEl, searchInput) {
+    var concerns = (window.YL_PRODUCTS && window.YL_PRODUCTS.concerns) || [];
+    var concernRow = document.getElementById("concernFilterRow");
+
     var pills = [
       '<button class="filter-pill active" type="button" data-filter="all" aria-pressed="true">All</button>'
     ].concat(
@@ -3258,12 +4020,38 @@
     );
     row.innerHTML = pills.join("");
 
+    if (concernRow && concerns.length) {
+      var concernPills = [
+        '<button class="concern-pill active" type="button" data-concern="all" aria-pressed="true">All Concerns</button>'
+      ].concat(
+        concerns.map(function (c) {
+          return (
+            '<button class="concern-pill" type="button" data-concern="' +
+            attrEsc(c.id) +
+            '" aria-pressed="false">' +
+            (c.icon
+              ? '<span class="concern-icon" aria-hidden="true">' + attrEsc(c.icon) + "</span> "
+              : "") +
+            attrEsc(c.name) +
+            "</button>"
+          );
+        })
+      );
+      concernRow.innerHTML = concernPills.join("");
+    }
+
     var catLabel = {};
     categories.forEach(function (c) {
       catLabel[c.id] = c.label;
     });
+    var concernLabel = {};
+    concerns.forEach(function (c) {
+      concernLabel[c.id] = c.name;
+    });
+
     var state = {
       filter: "all",
+      concern: "all",
       sort: sortSelect ? sortSelect.value : "featured",
       query: "",
       scent: "all"
@@ -3323,17 +4111,24 @@
     // well after LCP, so it should always load lazily.
     var isFirstRender = true;
 
-    // Plain client-side substring search across name/blurb/category label --
-    // 13 products is nowhere near enough to need a search index or a
-    // library; a straight .filter() re-runs in well under a millisecond.
+    // Plain client-side substring search across name/blurb/category label/concerns
     function matchesQuery(p, q) {
       if (!q) return true;
+      var concernNames = Array.isArray(p.concerns)
+        ? p.concerns
+            .map(function (cid) {
+              return concernLabel[cid] || cid;
+            })
+            .join(" ")
+        : "";
       var haystack = (
         p.name +
         " " +
         p.blurb +
         " " +
-        (catLabel[p.category] || p.category)
+        (catLabel[p.category] || p.category) +
+        " " +
+        concernNames
       ).toLowerCase();
       return haystack.indexOf(q) !== -1;
     }
@@ -3345,6 +4140,9 @@
 
       if (state.filter === "gift-sets") {
         var filteredBundles = (window.YL_PRODUCTS.bundles || []).filter(function (b) {
+          if (state.concern !== "all") {
+            if (!Array.isArray(b.concerns) || !b.concerns.includes(state.concern)) return false;
+          }
           if (!q) return true;
           var haystack = (
             b.name +
@@ -3371,7 +4169,7 @@
             countEl.textContent =
               "No gift sets match" +
               (q ? ' "' + state.query.trim() + '"' : " that search") +
-              " -- try a different word or clear the search.";
+              " -- try a different filter or clear the search.";
           } else {
             countEl.textContent =
               "Showing " +
@@ -3389,6 +4187,12 @@
                 return p.category === state.filter;
               });
 
+        if (state.concern && state.concern !== "all") {
+          filtered = filtered.filter(function (p) {
+            return Array.isArray(p.concerns) && p.concerns.includes(state.concern);
+          });
+        }
+
         if (state.scent && state.scent !== "all") {
           filtered = filtered.filter(function (p) {
             return (p.scent || "") === state.scent;
@@ -3404,7 +4208,7 @@
         isFirstRender = false;
 
         if (state.filter === "all") {
-          renderBundles(window.YL_PRODUCTS, q);
+          renderBundles(window.YL_PRODUCTS, q, state.concern);
         } else {
           if (bundlesSection) bundlesSection.style.display = "none";
         }
@@ -3413,12 +4217,22 @@
           if (!sorted.length) {
             countEl.textContent =
               "No goods match" +
-              (q ? ' "' + state.query.trim() + '"' : " that search") +
-              " -- try a different word or clear the search.";
+              (q ? ' "' + state.query.trim() + '"' : " that criteria") +
+              " -- try resetting your filters.";
           } else {
             var label = state.filter === "all" ? "goods" : catLabel[state.filter] || "goods";
+            var concernNote =
+              state.concern !== "all"
+                ? " for " + (concernLabel[state.concern] || state.concern).toLowerCase()
+                : "";
             countEl.textContent =
-              "Showing " + sorted.length + " of " + allProducts.length + " " + label.toLowerCase();
+              "Showing " +
+              sorted.length +
+              " of " +
+              allProducts.length +
+              " " +
+              label.toLowerCase() +
+              concernNote;
           }
         }
       }
@@ -3442,6 +4256,61 @@
       state.filter = btn.getAttribute("data-filter");
       render();
     });
+
+    if (concernRow) {
+      concernRow.addEventListener("click", function (e) {
+        var btn = e.target.closest(".concern-pill");
+        if (!btn) return;
+        concernRow.querySelectorAll(".concern-pill").forEach(function (b) {
+          var isActive = b === btn;
+          b.classList.toggle("active", isActive);
+          b.setAttribute("aria-pressed", isActive ? "true" : "false");
+        });
+        state.concern = btn.getAttribute("data-concern");
+        render();
+      });
+    }
+
+    function handleResetFilters() {
+      state.filter = "all";
+      state.concern = "all";
+      state.scent = "all";
+      state.query = "";
+      if (searchInput) searchInput.value = "";
+      var shopSearchEl =
+        document.getElementById("shopSearchInput") || document.getElementById("shopSearch");
+      if (shopSearchEl) shopSearchEl.value = "";
+      if (scentSelect) scentSelect.value = "all";
+      var scentSelectEl = document.getElementById("scentSelect");
+      if (scentSelectEl) scentSelectEl.value = "all";
+      row.querySelectorAll(".filter-pill").forEach(function (b) {
+        var isActive = b.getAttribute("data-filter") === "all";
+        b.classList.toggle("active", isActive);
+        b.setAttribute("aria-pressed", isActive ? "true" : "false");
+      });
+      if (concernRow) {
+        concernRow.querySelectorAll(".concern-pill").forEach(function (b) {
+          var isActive = b.getAttribute("data-concern") === "all";
+          b.classList.toggle("active", isActive);
+          b.setAttribute("aria-pressed", isActive ? "true" : "false");
+        });
+      }
+      render();
+    }
+
+    if (grid) {
+      grid.addEventListener("click", function (e) {
+        var btn = e.target.closest("#resetFiltersBtn");
+        if (btn) {
+          handleResetFilters();
+        }
+      });
+    }
+
+    var resetBtn = document.getElementById("resetFiltersBtn");
+    if (resetBtn) {
+      resetBtn.addEventListener("click", handleResetFilters);
+    }
 
     if (sortSelect) {
       sortSelect.addEventListener("change", function () {
@@ -3501,7 +4370,44 @@
       }
     }
 
-    // Deep-linking: footer links like shop.html#apparel pre-select that filter.
+    // Deep-linking: URL search params (?concern=... / ?category=...) and hash #apparel
+    try {
+      var searchParams = new URLSearchParams(window.location.search);
+      var urlConcern = searchParams.get("concern");
+      if (
+        urlConcern &&
+        concerns.some(function (c) {
+          return c.id === urlConcern;
+        })
+      ) {
+        state.concern = urlConcern;
+        if (concernRow) {
+          concernRow.querySelectorAll(".concern-pill").forEach(function (b) {
+            var isActive = b.getAttribute("data-concern") === urlConcern;
+            b.classList.toggle("active", isActive);
+            b.setAttribute("aria-pressed", isActive ? "true" : "false");
+          });
+        }
+      }
+
+      var urlCat = searchParams.get("category") || searchParams.get("filter");
+      if (
+        urlCat &&
+        categories.some(function (c) {
+          return c.id === urlCat;
+        })
+      ) {
+        state.filter = urlCat;
+        row.querySelectorAll(".filter-pill").forEach(function (b) {
+          var isActive = b.getAttribute("data-filter") === urlCat;
+          b.classList.toggle("active", isActive);
+          b.setAttribute("aria-pressed", isActive ? "true" : "false");
+        });
+      }
+    } catch {
+      /* Ignore search param parsing failure */
+    }
+
     var hash = window.location.hash.replace("#", "");
     if (
       hash &&
@@ -3691,7 +4597,7 @@
             '" class="ugc-product-tag" aria-label="View ' +
             attrEsc(post.productName) +
             ' in shop">' +
-            '  <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg> ' +
+            '  <svg class="yl-icon" aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg> ' +
             attrEsc(post.productName) +
             "</a>";
         }
@@ -3717,7 +4623,7 @@
           attrEsc(altText) +
           '" loading="lazy" decoding="async" width="400" height="400">' +
           '    <div class="ugc-media-badge">' +
-          '      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1"/></svg>' +
+          '      <svg class="yl-icon" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1"/></svg>' +
           "      <span>UGC</span>" +
           "    </div>" +
           productTagHtml +
@@ -3746,10 +4652,155 @@
   renderUgcFeed(socialFeedGrid, homeSocialFeedSection);
   renderUgcFeed(shopSocialFeedGrid, shopSocialFeedSection);
 
+  /* ---------- Journal Helpers & Component Renderers ---------- */
+  function getReadingTime(post) {
+    if (!post) return "1 min read";
+    if (post.readingTime) return post.readingTime;
+    var text = (post.content || "") + " " + (post.excerpt || "");
+    var words = text
+      .replace(/<[^>]*>/g, "")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean).length;
+    var mins = Math.max(1, Math.ceil(words / 200));
+    return mins + " min read";
+  }
+
+  function renderClockIconSvg() {
+    return '<svg class="journal-clock-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+  }
+
+  function renderJournalTagsHtml(tags) {
+    if (!Array.isArray(tags) || !tags.length) return "";
+    return (
+      '<div class="journal-tags" aria-label="Article topics">' +
+      tags
+        .map(function (t) {
+          return (
+            '<button type="button" class="journal-tag journal-tag-pill" data-tag="' +
+            attrEsc(t) +
+            '">' +
+            attrEsc(t) +
+            "</button>"
+          );
+        })
+        .join("") +
+      "</div>"
+    );
+  }
+
+  function findFeaturedProduct(productId) {
+    if (!productId) return null;
+    var products = (window.YL_PRODUCTS && window.YL_PRODUCTS.products) || [];
+    if (!products.length) return null;
+
+    var direct = products.find(function (p) {
+      return p.id === productId;
+    });
+    if (direct) return direct;
+
+    var aliases = {
+      "magnesium-body-butter": "sleep-salve",
+      "pine-tar-salve": "frankincense-salve",
+      "magnesium-salve": "sleep-salve",
+      "lavender-butter": "shea-butter"
+    };
+    if (aliases[productId]) {
+      var mapped = products.find(function (p) {
+        return p.id === aliases[productId];
+      });
+      if (mapped) return mapped;
+    }
+
+    return (
+      products.find(function (p) {
+        return (
+          p.id.indexOf(productId) !== -1 ||
+          productId.indexOf(p.id) !== -1 ||
+          (p.name &&
+            p.name.toLowerCase().indexOf(productId.toLowerCase().replace(/-/g, " ")) !== -1)
+        );
+      }) || null
+    );
+  }
+
+  function renderFeaturedProductCardHtml(productId) {
+    var featProd = findFeaturedProduct(productId);
+    if (!featProd) return "";
+
+    var priceFormatted =
+      typeof featProd.price === "number"
+        ? featProd.price.toFixed(2)
+        : String(featProd.price || "0.00");
+    var scentBadgeHtml = featProd.scent
+      ? '<span class="journal-featured-scent">' + attrEsc(featProd.scent) + "</span>"
+      : "";
+    var categoryBadgeHtml = featProd.category
+      ? '<span class="journal-featured-cat">' + attrEsc(featProd.category) + "</span>"
+      : "";
+
+    return (
+      '<aside class="journal-featured-card reveal" aria-labelledby="journalFeaturedHeading">' +
+      '  <div class="journal-featured-inner">' +
+      '    <div class="journal-featured-header">' +
+      '      <span class="journal-featured-pill">Featured in this Article</span>' +
+      '      <h4 id="journalFeaturedHeading">Small-Batch Botanical Care</h4>' +
+      "    </div>" +
+      '    <div class="journal-featured-body">' +
+      '      <img class="journal-featured-thumb" src="' +
+      attrEsc(featProd.image) +
+      '" alt="' +
+      attrEsc(featProd.name) +
+      '" width="100" height="100" loading="lazy">' +
+      '      <div class="journal-featured-details">' +
+      '        <div class="journal-featured-badges">' +
+      categoryBadgeHtml +
+      scentBadgeHtml +
+      "        </div>" +
+      '        <h5 class="journal-featured-title"><a href="shop.html#' +
+      attrEsc(featProd.id) +
+      '">' +
+      attrEsc(featProd.name) +
+      "</a></h5>" +
+      '        <p class="journal-featured-blurb">' +
+      attrEsc(featProd.blurb || featProd.description || "") +
+      "</p>" +
+      '        <div class="journal-featured-action">' +
+      '          <span class="journal-featured-price">$' +
+      priceFormatted +
+      "</span>" +
+      '          <button type="button" class="btn btn-sm btn-primary yl-add-item" ' +
+      '            data-item-id="' +
+      attrEsc(featProd.id) +
+      '" ' +
+      '            data-item-name="' +
+      attrEsc(featProd.name) +
+      '" ' +
+      '            data-item-price="' +
+      priceFormatted +
+      '" ' +
+      '            data-item-image="' +
+      attrEsc(featProd.image) +
+      '" ' +
+      '            data-item-categories="' +
+      attrEsc(featProd.category || "") +
+      '">' +
+      '            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg> ' +
+      "            + Add to Cart" +
+      "          </button>" +
+      "        </div>" +
+      "      </div>" +
+      "    </div>" +
+      "  </div>" +
+      "</aside>"
+    );
+  }
+
   // 3. Render Journal (Blog) Page
   var journalApp = document.getElementById("journalApp");
   if (journalApp && window.YL_JOURNAL) {
     var journalPosts = window.YL_JOURNAL.posts || [];
+    var currentJournalTagFilter = null;
 
     function renderJournalList() {
       /* Switched off, or on with nothing written yet: both get the same
@@ -3766,10 +4817,29 @@
         return;
       }
 
+      var filteredPosts = currentJournalTagFilter
+        ? journalPosts.filter(function (p) {
+            return Array.isArray(p.tags) && p.tags.indexOf(currentJournalTagFilter) !== -1;
+          })
+        : journalPosts;
+
+      var filterBannerHtml = currentJournalTagFilter
+        ? '<div class="journal-filter-banner reveal">' +
+          "  <span>Showing articles tagged with: <strong>" +
+          attrEsc(currentJournalTagFilter) +
+          "</strong></span>" +
+          '  <button type="button" class="btn btn-xs btn-outline" id="journalClearFilter">Clear Filter ✕</button>' +
+          "</div>"
+        : "";
+
       var listHtml =
+        filterBannerHtml +
+        '<h2 class="sr-only">Latest Articles</h2>' +
         '<div class="grid grid-3 stagger">' +
-        journalPosts
+        filteredPosts
           .map(function (post) {
+            var readTime = getReadingTime(post);
+            var tagsHtml = renderJournalTagsHtml(post.tags);
             return (
               '<article class="card reveal">' +
               (post.image
@@ -3784,14 +4854,22 @@
                   "</div>"
                 : "") +
               '<div class="card-body">' +
-              '  <span class="card-cat">Published ' +
+              '  <div class="journal-card-meta">' +
+              '    <span class="card-cat">Published ' +
               attrEsc(post.date) +
               "</span>" +
+              '    <span class="journal-reading-time">' +
+              renderClockIconSvg() +
+              " " +
+              attrEsc(readTime) +
+              "</span>" +
+              "  </div>" +
               '  <h3><a href="#post-' +
               attrEsc(post.id) +
               '">' +
               attrEsc(post.title) +
               "</a></h3>" +
+              tagsHtml +
               "  <p>" +
               attrEsc(post.excerpt) +
               "</p>" +
@@ -3810,6 +4888,25 @@
         "</div>";
 
       journalApp.innerHTML = listHtml;
+
+      journalApp.querySelectorAll(".journal-tag").forEach(function (btn) {
+        btn.addEventListener("click", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          var tag = btn.getAttribute("data-tag");
+          currentJournalTagFilter = currentJournalTagFilter === tag ? null : tag;
+          renderJournalList();
+        });
+      });
+
+      var clearBtn = document.getElementById("journalClearFilter");
+      if (clearBtn) {
+        clearBtn.addEventListener("click", function () {
+          currentJournalTagFilter = null;
+          renderJournalList();
+        });
+      }
+
       wireReveal(journalApp);
     }
 
@@ -3827,6 +4924,11 @@
       // published before the CMS grew a formatting toolbar -- still renders
       // as exactly the same <p> blocks it always did.
       var body = renderMarkdown(post.content);
+      var readTime = getReadingTime(post);
+      var tagsHtml = renderJournalTagsHtml(post.tags);
+      var featuredCardHtml = post.featuredProductId
+        ? renderFeaturedProductCardHtml(post.featuredProductId)
+        : "";
 
       journalApp.innerHTML =
         '<div class="journal-detail">' +
@@ -3834,9 +4936,18 @@
         '  <h2 class="reveal">' +
         attrEsc(post.title) +
         "</h2>" +
-        '  <div class="meta reveal">Published on ' +
+        '  <div class="meta reveal">' +
+        '    <span class="journal-detail-date">Published on ' +
         attrEsc(post.date) +
-        "</div>" +
+        "</span>" +
+        '    <span class="journal-meta-sep">·</span>' +
+        '    <span class="journal-reading-time">' +
+        renderClockIconSvg() +
+        " " +
+        attrEsc(readTime) +
+        "</span>" +
+        "  </div>" +
+        (tagsHtml ? '  <div class="journal-detail-tags reveal">' + tagsHtml + "</div>" : "") +
         (post.image
           ? '  <img class="reveal" src="' +
             attrEsc(post.image) +
@@ -3847,11 +4958,22 @@
         '  <div class="content reveal">' +
         body +
         "</div>" +
+        featuredCardHtml +
         "</div>";
 
       document.getElementById("journalBackBtn").addEventListener("click", function () {
         window.location.hash = "";
       });
+
+      journalApp.querySelectorAll(".journal-tag").forEach(function (btn) {
+        btn.addEventListener("click", function (e) {
+          e.preventDefault();
+          var tag = btn.getAttribute("data-tag");
+          currentJournalTagFilter = tag;
+          window.location.hash = "";
+        });
+      });
+
       wireReveal(journalApp);
     }
 
@@ -4020,7 +5142,10 @@
              which reads wrong once the pop-up is the one happening right now.
              Match the events-page banner, which already says "Happening Now". */
           var badgeEl = tickerContainer.querySelector(".ticker-badge");
-          if (badgeEl) badgeEl.textContent = "⚡ HAPPENING NOW:";
+          if (badgeEl) {
+            badgeEl.innerHTML =
+              '<svg class="yl-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg> HAPPENING NOW:';
+          }
         }
         if (bannerContainer) {
           bannerContainer.innerHTML =
@@ -4073,10 +5198,10 @@
           '  <h3 style="margin: 0.4rem 0 0.6rem; font-family: var(--font-heading);">' +
           attrEsc(nextEvt.name) +
           "</h3>" +
-          '  <p class="event-timer-clock" style="font-size: 1.1rem; margin: 0.2rem 0 0.4rem;">⏳ <strong>' +
+          '  <p class="event-timer-clock" style="font-size: 1.1rem; margin: 0.2rem 0 0.4rem;"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg> <strong>' +
           timeStr +
           "</strong> until pop-up</p>" +
-          '  <p class="event-location" style="font-size: 0.85rem; color: var(--paper-dim); margin: 0;">📍 ' +
+          '  <p class="event-location" style="font-size: 0.85rem; color: var(--paper-dim); margin: 0;"><svg class="yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg> ' +
           attrEsc(nextEvt.location || "Upstate, SC") +
           "</p>" +
           "</div>";
@@ -4242,19 +5367,19 @@
             steps.className = "timeline-steps";
             steps.innerHTML =
               '<div class="timeline-step step-done">' +
-              '<span class="step-icon">✓</span>' +
+              '<span class="step-icon"><svg class="yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg></span>' +
               '<div class="step-text"><strong>Order Confirmed</strong><span>Payment processed securely via Stripe</span></div>' +
               "</div>" +
               '<div class="timeline-step step-active">' +
-              '<span class="step-icon">🌿</span>' +
+              '<span class="step-icon"><svg class="yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path></svg></span>' +
               '<div class="step-text"><strong>In the Workshop</strong><span>Handcrafted &amp; prepared in Landrum, SC</span></div>' +
               "</div>" +
               '<div class="timeline-step step-pending">' +
-              '<span class="step-icon">✨</span>' +
+              '<span class="step-icon"><svg class="yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg></span>' +
               '<div class="step-text"><strong>Quality Sealed &amp; Packaged</strong><span>Eco-friendly protective packaging</span></div>' +
               "</div>" +
               '<div class="timeline-step step-pending">' +
-              '<span class="step-icon">🚚</span>' +
+              '<span class="step-icon"><svg class="yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg></span>' +
               '<div class="step-text"><strong>USPS Carrier Dispatch</strong><span>Tracking details sent to your email</span></div>' +
               "</div>";
             card.appendChild(steps);
@@ -4268,6 +5393,102 @@
 
             resultsContainer.appendChild(card);
             resultsContainer.hidden = false;
+
+            // Render past purchased items breakdown and wire 1-click reorder
+            var sampleOrderItems = [
+              {
+                id: "frankincense-salve",
+                name: "Y'all Heal Now Miracle Frankincense Salve",
+                price: 19.99,
+                qty: 1,
+                variantLabel: "2oz",
+                variantDelta: 0
+              },
+              {
+                id: "miracle-balm",
+                name: "Y'allternative Miracle Balm",
+                price: 8.0,
+                qty: 1,
+                variantLabel: "",
+                variantDelta: 0
+              }
+            ];
+
+            var itemsListEl = document.getElementById("orderItemsList");
+            var itemsContainer = document.getElementById("orderItemsContainer");
+            var reorderBtn = document.getElementById("reorderPastOrderBtn");
+            if (itemsListEl && itemsContainer) {
+              itemsListEl.innerHTML = sampleOrderItems
+                .map(function (item) {
+                  return (
+                    '<li class="order-item-row" style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--hide); font-size:0.9rem;">' +
+                    "<div><strong>" +
+                    escapeHtml(item.name) +
+                    "</strong>" +
+                    (item.variantLabel
+                      ? ' <span class="muted">(' + escapeHtml(item.variantLabel) + ")</span>"
+                      : "") +
+                    ' <span class="muted">× ' +
+                    item.qty +
+                    "</span></div>" +
+                    '<div style="font-weight:600; color:var(--whiskey);">' +
+                    (item.price ? "$" + (item.price * item.qty).toFixed(2) : "") +
+                    "</div>" +
+                    "</li>"
+                  );
+                })
+                .join("");
+              itemsContainer.hidden = false;
+            }
+
+            if (reorderBtn) {
+              reorderBtn.onclick = function () {
+                var catalog = (window.YL_PRODUCTS && window.YL_PRODUCTS.products) || [];
+                var validItems = sampleOrderItems
+                  .map(function (item) {
+                    var p = catalog.find(function (x) {
+                      return x.id === item.id;
+                    });
+                    if (!p || p.comingSoon || p.inStock === false) return null;
+                    return {
+                      id: p.id,
+                      name: p.name,
+                      price: p.price,
+                      image: p.image,
+                      variantLabel: item.variantLabel || "",
+                      variantDelta: item.variantDelta || 0,
+                      qty: item.qty || 1
+                    };
+                  })
+                  .filter(Boolean);
+
+                if (window.YLCart && typeof window.YLCart.addItems === "function") {
+                  window.YLCart.addItems(validItems);
+                } else if (window.YLCart && typeof window.YLCart.addItem === "function") {
+                  validItems.forEach(function (it) {
+                    window.YLCart.addItem(it);
+                  });
+                } else {
+                  try {
+                    var current = JSON.parse(localStorage.getItem("yl-cart-items") || "[]");
+                    validItems.forEach(function (it) {
+                      current.push(it);
+                    });
+                    localStorage.setItem("yl-cart-items", JSON.stringify(current));
+                    if (window.YLCart && typeof window.YLCart.init === "function") {
+                      window.YLCart.init();
+                    }
+                  } catch (e) {
+                    void e;
+                  }
+                }
+
+                closeModal();
+                if (window.YLCart && typeof window.YLCart.open === "function") {
+                  window.YLCart.open();
+                }
+              };
+            }
           } else {
             var p = document.createElement("p");
             p.className = "order-lookup-unavailable";
@@ -4287,6 +5508,9 @@
 
             resultsContainer.appendChild(p);
             resultsContainer.hidden = false;
+
+            var itemsContainerEl = document.getElementById("orderItemsContainer");
+            if (itemsContainerEl) itemsContainerEl.hidden = true;
           }
         }
       });
@@ -4521,7 +5745,7 @@
         if (results) {
           results.innerHTML =
             '<div class="card quiz-recommended-card reveal" style="max-width: 540px; margin: 0 auto; padding: 1.5rem; text-align: center; border: 2px solid var(--whiskey); background: var(--ink-3); color: var(--paper); border-radius: var(--radius-md);">' +
-            '  <span class="card-cat" style="color: var(--whiskey); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700;">✨ Your Apothecary Prescription</span>' +
+            '  <span class="card-cat" style="color: var(--whiskey); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700;"><svg class="yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg> Your Apothecary Prescription</span>' +
             '  <h3 style="font-family: var(--font-heading); margin: 0.5rem 0;">' +
             attrEsc(match.name) +
             "</h3>" +
@@ -4607,6 +5831,31 @@
       isWished: isWished,
       currentTheme: currentTheme,
       renderWishDrawer: renderWishDrawer,
+      getEventDateParts: getEventDateParts,
+      getNextDayStr: getNextDayStr,
+      getCalendarDates: getCalendarDates,
+      generateGoogleCalendarUrl: generateGoogleCalendarUrl,
+      escapeIcsText: escapeIcsText,
+      generateIcsContent: generateIcsContent,
+      generateIcsDataUri: generateIcsDataUri,
+      getEventIcsFilename: getEventIcsFilename,
+      formatEventMapDestination: formatEventMapDestination,
+      generateGoogleMapsDirUrl: generateGoogleMapsDirUrl,
+      generateAppleMapsDirUrl: generateAppleMapsDirUrl,
+      parsePickupMarketParam: parsePickupMarketParam,
+      handlePickupMarketDeepLink: handlePickupMarketDeepLink,
+      eventCardHTML: eventCardHTML,
+      getReadingTime: getReadingTime,
+      renderClockIconSvg: renderClockIconSvg,
+      renderJournalTagsHtml: renderJournalTagsHtml,
+      findFeaturedProduct: findFeaturedProduct,
+      renderFeaturedProductCardHtml: renderFeaturedProductCardHtml,
+      formatReviewDate: formatReviewDate,
+      filterReviews: filterReviews,
+      renderReviewCardHtml: renderReviewCardHtml,
+      parseOrderStatusQuery: parseOrderStatusQuery,
+      maskEmail: maskEmail,
+      initOrderStatusPage: initOrderStatusPage,
       _resetState: function () {
         wishCache = null;
         wishSet = null;
