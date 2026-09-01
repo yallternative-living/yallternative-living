@@ -4,6 +4,8 @@
    Native Popover API drawer -- browser handles light-dismiss, Esc, focus,
    and top-layer stacking; we just style + animate it.
    Uses the site's existing design tokens (--ink, --paper, --rose, --hide).
+   ========================================================== */
+
 /* Monoline SVG Icon System */
 .yl-icon,
 .yl-cart-icon {
@@ -139,6 +141,10 @@
 .yl-cart-items {
   flex: 1 1 auto;
   overflow-y: auto;
+  /* A flex item's default min-height:auto refuses to shrink below its
+     content, so a long cart pushed the footer (and its Checkout button) off
+     the bottom of the drawer instead of scrolling. */
+  min-height: 0;
   padding: 8px 20px;
 }
 .yl-cart-empty {
@@ -308,9 +314,24 @@
 /* ---- Footer (upsell + shipping meter + checkout) ---- */
 .yl-cart-foot {
   flex: 0 0 auto;
+  /* The footer grew well past a phone viewport (upsells + milestone meter +
+     gift note + pick-up + gift card + totals), which pushed the Checkout
+     button below the fold with no way to reach it. Cap it and let it scroll
+     on its own so the button is always reachable. */
+  overflow-y: auto;
+  max-height: min(62dvh, 560px);
   padding: 16px 20px calc(16px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--hide);
   background: var(--ink-2);
+}
+
+/* Landscape phones and short windows: claw back the footer's own padding
+   before anything else has to give. */
+@media (max-height: 480px) {
+  .yl-cart-foot {
+    max-height: min(70dvh, 560px);
+    padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
+  }
 }
 .yl-cart-upsell {
   margin-bottom: 12px;
@@ -1017,6 +1038,20 @@
   text-align: center;
   font-size: 0.74rem;
   color: var(--paper-dim);
+}
+
+/* One-line notice shown when localStorage refuses the cart (private mode,
+   quota exhausted): the cart still works for this page view, it just won't
+   survive a reload. See save() in assets/js/cart.js. */
+.yl-cart-storage-notice {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border: 1px solid var(--hide);
+  border-radius: var(--radius, 8px);
+  color: var(--paper-dim);
+  font-size: 0.76rem;
+  line-height: 1.4;
+  text-align: center;
 }
 
 /* Inline checkout failure notice -- replaces the old blocking window.alert().
