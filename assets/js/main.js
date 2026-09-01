@@ -585,6 +585,18 @@
     '<svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
     '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>';
 
+  /* ---------- shared: read a CMS feature switch ----------
+     window.YL_CONTENT is generated from assets/data/content.json, so it is
+     the authority for every /admin toggle. Several switches shipped read by
+     nothing at all (the order lookup, the countdown ticker, the quiz), which
+     meant flipping one in the dashboard changed nothing in the browser.
+     Absent means on: that is how each of these features shipped, and a page
+     that loads without content-data.js must not silently lose them. */
+  function siteFlagEnabled(name) {
+    var site = (window.YL_CONTENT && window.YL_CONTENT.site) || {};
+    return site[name] !== false;
+  }
+
   /* ---------- shared: escape a value for safe use inside an HTML attribute ---------- */
   function attrEsc(str) {
     if (str == null) return "";
@@ -3143,47 +3155,68 @@
     };
   }
 
+  /* ---------- Order status: the honest lookup ----------
+     There is no order API on this site. The page used to answer any
+     syntactically plausible string with "Order Confirmed, payment processed
+     securely via Stripe", a four-step fulfilment timeline, a hardcoded
+     two-item order and a printable packing slip -- none of it fetched from
+     anywhere, all of it fabricated for whatever the visitor typed. It also
+     reflected `?email=` straight back into the input and let a "Reorder"
+     button push those invented items into the real cart.
+
+     What the site can honestly offer is what the old fallback branch already
+     said: mail the reference to a human. That is now the only branch. The
+     reference is pre-filled into the mail subject so the customer does not
+     have to retype it, and the reply window is stated up front. */
+  function orderStatusMailtoHref(reference) {
+    var subject = reference ? "Order status: " + reference : "Order status request";
+    return "mailto:y.allternative.living@gmail.com?subject=" + attrEsc(encodeURIComponent(subject));
+  }
+
+  function orderStatusFallbackHTML(reference) {
+    var safeRef = attrEsc(reference || "");
+    return (
+      '<div class="order-lookup-unavailable" role="status">' +
+      "<h3>We look this one up by hand</h3>" +
+      "<p>Order tracking isn&rsquo;t automated here &mdash; every batch is made and boxed by one " +
+      "person, and every lookup is answered by that same person. " +
+      (safeRef ? "Send us <strong>" + safeRef + "</strong> " : "Send us your order reference ") +
+      "and we&rsquo;ll check where it stands and write back " +
+      "<strong>within one business day</strong>.</p>" +
+      '<p><a class="btn btn-primary" href="' +
+      orderStatusMailtoHref(reference) +
+      '">Email us about this order</a></p>' +
+      '<p class="muted">Prefer to write it yourself? We\'re at ' +
+      '<a href="mailto:y.allternative.living@gmail.com">y.allternative.living@gmail.com</a>.</p>' +
+      "</div>"
+    );
+  }
+
   function initOrderStatusPage() {
     var form = document.getElementById("orderStatusPageForm");
     var input = document.getElementById("orderQueryInput");
-    var verifyInput = document.getElementById("orderVerifyInput");
     var errorDiv = document.getElementById("orderStatusError");
     var resultSection = document.getElementById("orderStatusResultSection");
+    var lookupCard = document.getElementById("orderStatusLookupCard");
     var timelineContainer = document.getElementById("orderTimelineContainer");
-    var itemsContainer = document.getElementById("orderItemsContainer");
-    var itemsList = document.getElementById("orderItemsList");
-    var reorderBtn = document.getElementById("reorderPastOrderBtn");
-
-    var slipOrderRef = document.getElementById("slipOrderRef");
-    var slipOrderDate = document.getElementById("slipOrderDate");
-    var slipGiftBox = document.getElementById("slipGiftBox");
-    var slipGiftMessageText = document.getElementById("slipGiftMessageText");
-    var slipItemsTableBody = document.getElementById("slipItemsTableBody");
 
     if (!form && !timelineContainer) return;
 
-    var sampleOrderItems = [
-      {
-        id: "frankincense-salve",
-        name: "Y'all Heal Now Miracle Frankincense Salve",
-        price: 19.99,
-        qty: 1,
-        variantLabel: "2oz Tin",
-        variantDelta: 0
-      },
-      {
-        id: "miracle-balm",
-        name: "Y'allternative Miracle Balm",
-        price: 8.0,
-        qty: 1,
-        variantLabel: "1oz",
-        variantDelta: 0
+    /* content.json's switch used to be read by nothing at all, so turning the
+       tool off in /admin left it fully working. Off now means: no form, and
+       the contact route shown in its place rather than a dead page. */
+    if (!siteFlagEnabled("enableOrderStatusLookup")) {
+      if (lookupCard) {
+        lookupCard.hidden = true;
+        lookupCard.setAttribute("hidden", "");
       }
-    ];
+      if (resultSection) resultSection.hidden = false;
+      if (timelineContainer) timelineContainer.innerHTML = orderStatusFallbackHTML("");
+      return;
+    }
 
-    function handleLookup(queryVal, verifyVal) {
-      var val = (queryVal || "").trim();
-      var verify = String(verifyVal || (verifyInput && verifyInput.value) || "").trim();
+    function handleLookup(queryVal) {
+      var val = String(queryVal == null ? (input && input.value) || "" : queryVal).trim();
       if (!val) {
         if (errorDiv) {
           errorDiv.textContent = "Please enter your order reference number.";
@@ -3191,200 +3224,40 @@
         }
         return false;
       }
-      if (!verify && !/^cs_[a-zA-Z0-9_]+/i.test(val)) {
-        if (errorDiv) {
-          errorDiv.textContent =
-            "Please enter your purchase email address or billing zip code for security verification.";
-          errorDiv.hidden = false;
-        }
-        return false;
-      }
       if (errorDiv) errorDiv.hidden = true;
+
+      /* Same shape validation as before -- a Stripe session id, an order
+         reference or an email address. An email is masked before it is shown
+         back, so a shared screen never repeats the address in full. */
       var parsed = parseOrderStatusQuery(val);
+      var display = parsed
+        ? parsed.displayId
+        : val.length > 28
+          ? val.substring(0, 28) + "..."
+          : val;
+
       if (resultSection) resultSection.hidden = false;
-
-      if (parsed) {
-        var safeDisplay = attrEsc(parsed.displayId);
-        if (timelineContainer) {
-          timelineContainer.innerHTML =
-            '<div class="order-status-card">' +
-            '  <div class="order-status-card-header">' +
-            '    <div class="order-status-title-group">' +
-            '      <span class="eyebrow" style="margin-bottom:2px; font-size:0.75rem;">Order Reference</span>' +
-            '      <h3 style="margin:0; font-size:1.25rem; font-family:var(--font-display, serif); color:var(--paper);">' +
-            safeDisplay +
-            "</h3>" +
-            "    </div>" +
-            '    <span class="order-status-badge status-in-progress">● Small-Batch Prep</span>' +
-            "  </div>" +
-            '  <div class="timeline-steps">' +
-            '    <div class="timeline-step step-done">' +
-            '      <span class="step-icon"><svg class="yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg></span>' +
-            '      <div class="step-text"><strong>Order Confirmed</strong><span>Payment processed securely via Stripe</span></div>' +
-            "    </div>" +
-            '    <div class="timeline-step step-active">' +
-            '      <span class="step-icon"><svg class="yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path></svg></span>' +
-            '      <div class="step-text"><strong>In the Workshop</strong><span>Handcrafted &amp; prepared in Landrum, SC</span></div>' +
-            "    </div>" +
-            '    <div class="timeline-step step-pending">' +
-            '      <span class="step-icon"><svg class="yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg></span>' +
-            '      <div class="step-text"><strong>Quality Sealed &amp; Packaged</strong><span>Eco-friendly protective packaging</span></div>' +
-            "    </div>" +
-            '    <div class="timeline-step step-pending">' +
-            '      <span class="step-icon"><svg class="yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg></span>' +
-            '      <div class="step-text"><strong>USPS Carrier Dispatch</strong><span>Tracking details sent to your email</span></div>' +
-            "    </div>" +
-            "  </div>" +
-            '  <div class="order-status-meta">' +
-            '    <div class="meta-item"><span class="meta-label">Fulfillment</span><span class="meta-val">Standard Tracked Shipping</span></div>' +
-            '    <div class="meta-item"><span class="meta-label">Apothecary Origin</span><span class="meta-val">Landrum, Upstate SC</span></div>' +
-            "  </div>" +
-            "</div>";
-        }
-
-        if (itemsContainer && itemsList) {
-          itemsList.innerHTML = sampleOrderItems
-            .map(function (item) {
-              return (
-                '<li class="order-item-row">' +
-                "  <div><strong>" +
-                attrEsc(item.name) +
-                "</strong>" +
-                (item.variantLabel
-                  ? ' <span class="muted">(' + attrEsc(item.variantLabel) + ")</span>"
-                  : "") +
-                ' <span class="muted">× ' +
-                item.qty +
-                "</span></div>" +
-                '  <div style="font-weight:600; color:var(--whiskey);">' +
-                (item.price ? "$" + (item.price * item.qty).toFixed(2) : "") +
-                "  </div>" +
-                "</li>"
-              );
-            })
-            .join("");
-          itemsContainer.hidden = false;
-        }
-
-        // Update Fulfillment Packing Slip details (Strictly NO PRICES OR MONEY AMOUNTS)
-        if (slipOrderRef) {
-          slipOrderRef.textContent = parsed.isOrderRef
-            ? parsed.query
-            : "YL-" + parsed.query.slice(-8).toUpperCase();
-        }
-        if (slipOrderDate) {
-          slipOrderDate.textContent = new Date().toISOString().slice(0, 10);
-        }
-        if (slipGiftBox && slipGiftMessageText) {
-          slipGiftMessageText.textContent =
-            "Handcrafted with warmth & care in Landrum, SC. Thank you for supporting small-batch Appalachian makers!";
-        }
-        if (slipItemsTableBody) {
-          slipItemsTableBody.innerHTML = sampleOrderItems
-            .map(function (item) {
-              return (
-                "<tr>" +
-                '  <td style="text-align:center;"><span class="packing-checkbox"></span></td>' +
-                "  <td><strong>" +
-                attrEsc(item.name) +
-                "</strong>" +
-                (item.variantLabel ? " (" + attrEsc(item.variantLabel) + ")" : "") +
-                "</td>" +
-                "  <td><code>" +
-                attrEsc(item.id) +
-                "</code></td>" +
-                '  <td style="text-align:center;"><strong>' +
-                item.qty +
-                "</strong></td>" +
-                "</tr>"
-              );
-            })
-            .join("");
-        }
-      } else {
-        var unkDisplay = attrEsc(val.length > 28 ? val.substring(0, 28) + "..." : val);
-        if (timelineContainer) {
-          timelineContainer.innerHTML =
-            '<div class="order-lookup-unavailable" role="status">' +
-            "  <p>Online order tracking could not locate <strong>" +
-            unkDisplay +
-            "</strong>. Email " +
-            '  <a href="mailto:y.allternative.living@gmail.com">y.allternative.living@gmail.com</a> with your order details and we will verify fulfillment directly with you.</p>' +
-            "</div>";
-        }
-        if (itemsContainer) itemsContainer.hidden = true;
-      }
+      if (timelineContainer) timelineContainer.innerHTML = orderStatusFallbackHTML(display);
       return true;
     }
 
     if (form) {
       form.addEventListener("submit", function (e) {
         e.preventDefault();
-        var val = input ? input.value.trim() : "";
-        handleLookup(val);
+        handleLookup(input ? input.value : "");
       });
     }
 
-    if (reorderBtn) {
-      reorderBtn.onclick = function () {
-        var catalog = (window.YL_PRODUCTS && window.YL_PRODUCTS.products) || [];
-        var validItems = sampleOrderItems
-          .map(function (item) {
-            var p = catalog.find(function (x) {
-              return x.id === item.id;
-            });
-            if (!p || p.comingSoon || p.inStock === false) return null;
-            return {
-              id: p.id,
-              name: p.name,
-              price: p.price,
-              image: p.image,
-              variantLabel: item.variantLabel || "",
-              variantDelta: item.variantDelta || 0,
-              qty: item.qty || 1
-            };
-          })
-          .filter(Boolean);
-
-        if (window.YLCart && typeof window.YLCart.addItems === "function") {
-          window.YLCart.addItems(validItems);
-        } else if (window.YLCart && typeof window.YLCart.addItem === "function") {
-          validItems.forEach(function (it) {
-            window.YLCart.addItem(it);
-          });
-        } else {
-          try {
-            var current = JSON.parse(localStorage.getItem("yl-cart-items") || "[]");
-            validItems.forEach(function (it) {
-              current.push(it);
-            });
-            localStorage.setItem("yl-cart-items", JSON.stringify(current));
-            if (window.YLCart && typeof window.YLCart.init === "function") {
-              window.YLCart.init();
-            }
-          } catch (e) {
-            void e;
-          }
-        }
-
-        if (window.YLCart && typeof window.YLCart.open === "function") {
-          window.YLCart.open();
-        }
-      };
-    }
-
-    // Auto-run lookup if URL search query params exist (?session_id=..., ?order_id=..., ?q=..., ?email=...)
+    /* Only the Stripe session id may pre-fill, and it never submits. `?email=`
+       and `?q=` used to be reflected into the field and looked up on load,
+       which put a customer's address on screen (and into any screenshot or
+       shared link) without them typing it. */
     try {
       if (typeof window !== "undefined" && window.location && window.location.search) {
         var urlParams = new URLSearchParams(window.location.search);
-        var queryParam =
-          urlParams.get("session_id") ||
-          urlParams.get("order_id") ||
-          urlParams.get("q") ||
-          urlParams.get("email");
-        if (queryParam) {
-          if (input) input.value = queryParam;
-          handleLookup(queryParam);
+        var sessionParam = urlParams.get("session_id");
+        if (sessionParam && input && /^cs_[a-zA-Z0-9_]+$/.test(sessionParam)) {
+          input.value = sessionParam;
         }
       }
     } catch (e) {
@@ -5522,7 +5395,7 @@
     update();
     setInterval(update, 1000);
   }
-  initCountdownTicker();
+  if (siteFlagEnabled("enableCountdownTicker")) initCountdownTicker();
 
   /* ---------- R2: Order Status Lookup Modal Controller ---------- */
   function initOrderStatusModal() {
@@ -5561,7 +5434,10 @@
       );
       if (trigger) {
         e.preventDefault();
-        openModal();
+        /* The build hides the trigger with CSS when the switch is off, but a
+           page built before the switch flipped still ships the button. Refuse
+           to open rather than trust the stylesheet. */
+        if (siteFlagEnabled("enableOrderStatusLookup")) openModal();
       }
       var closeBtn = e.target.closest(
         '[data-action="close-order-status"], #closeOrderStatusModalBtn'
@@ -5606,15 +5482,6 @@
       }
     });
 
-    function escapeHtml(str) {
-      return String(str || "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#39;");
-    }
-
     var form = document.getElementById("orderStatusForm");
     var resultsContainer = document.getElementById("order-timeline-container");
     var errorSpan = document.getElementById("orderLookupError");
@@ -5623,9 +5490,7 @@
       form.addEventListener("submit", function (e) {
         e.preventDefault();
         var input = document.getElementById("order-id-input");
-        var verifyInput = document.getElementById("order-verify-input");
         var val = String((input && input.value) || "").trim();
-        var verifyVal = String((verifyInput && verifyInput.value) || "").trim();
         if (!val) {
           if (errorSpan) {
             errorSpan.textContent = "Please enter your order reference number.";
@@ -5633,192 +5498,21 @@
           }
           return;
         }
-        if (!verifyVal && !/^cs_[a-zA-Z0-9_]+/i.test(val)) {
-          if (errorSpan) {
-            errorSpan.textContent =
-              "Please enter your purchase email address or billing zip code for verification.";
-            errorSpan.hidden = false;
-          }
-          return;
-        }
         if (errorSpan) errorSpan.hidden = true;
 
-        var isSessionId = /^cs_[a-zA-Z0-9_]+/i.test(val);
-        var isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(verifyVal || val);
-        var isOrderRef = /^(YL-|ORD-)[a-zA-Z0-9_-]+/i.test(val);
-
-        var displayId = val.length > 24 ? val.substring(0, 24) + "..." : val;
-        var safeDisplay = escapeHtml(displayId);
+        /* Same honest answer as the dedicated page: no order is fetched
+           anywhere, so nothing about one is asserted. See the comment above
+           orderStatusFallbackHTML. */
+        var parsed = parseOrderStatusQuery(val);
+        var display = parsed
+          ? parsed.displayId
+          : val.length > 28
+            ? val.substring(0, 28) + "..."
+            : val;
 
         if (resultsContainer) {
-          resultsContainer.innerHTML = "";
-
-          if (isSessionId || isEmail || isOrderRef) {
-            // Render realistic order status timeline steps for valid Stripe Checkout Session IDs, order refs, or verified email
-            var card = document.createElement("div");
-            card.className = "order-status-card";
-
-            var cardHeader = document.createElement("div");
-            cardHeader.className = "order-status-card-header";
-            cardHeader.innerHTML =
-              '<div class="order-status-title-group">' +
-              '<span class="eyebrow" style="margin-bottom:2px; font-size:0.7rem;">Order Reference</span>' +
-              '<h3 style="margin:0; font-size:1.15rem; font-family:var(--font-display); color:var(--paper);">' +
-              safeDisplay +
-              "</h3>" +
-              "</div>" +
-              '<span class="order-status-badge status-in-progress">● Small-Batch Prep</span>';
-            card.appendChild(cardHeader);
-
-            var steps = document.createElement("div");
-            steps.className = "timeline-steps";
-            steps.innerHTML =
-              '<div class="timeline-step step-done">' +
-              '<span class="step-icon"><svg class="yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg></span>' +
-              '<div class="step-text"><strong>Order Confirmed</strong><span>Payment processed securely via Stripe</span></div>' +
-              "</div>" +
-              '<div class="timeline-step step-active">' +
-              '<span class="step-icon"><svg class="yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path></svg></span>' +
-              '<div class="step-text"><strong>In the Workshop</strong><span>Handcrafted &amp; prepared in Landrum, SC</span></div>' +
-              "</div>" +
-              '<div class="timeline-step step-pending">' +
-              '<span class="step-icon"><svg class="yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg></span>' +
-              '<div class="step-text"><strong>Quality Sealed &amp; Packaged</strong><span>Eco-friendly protective packaging</span></div>' +
-              "</div>" +
-              '<div class="timeline-step step-pending">' +
-              '<span class="step-icon"><svg class="yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg></span>' +
-              '<div class="step-text"><strong>USPS Carrier Dispatch</strong><span>Tracking details sent to your email</span></div>' +
-              "</div>";
-            card.appendChild(steps);
-
-            var meta = document.createElement("div");
-            meta.className = "order-status-meta";
-            meta.innerHTML =
-              '<div class="meta-item"><span class="meta-label">Fulfillment</span><span class="meta-val">Standard Tracked Shipping</span></div>' +
-              '<div class="meta-item"><span class="meta-label">Apothecary Origin</span><span class="meta-val">Landrum, Upstate SC</span></div>';
-            card.appendChild(meta);
-
-            resultsContainer.appendChild(card);
-            resultsContainer.hidden = false;
-
-            // Render past purchased items breakdown and wire 1-click reorder
-            var sampleOrderItems = [
-              {
-                id: "frankincense-salve",
-                name: "Y'all Heal Now Miracle Frankincense Salve",
-                price: 19.99,
-                qty: 1,
-                variantLabel: "2oz",
-                variantDelta: 0
-              },
-              {
-                id: "miracle-balm",
-                name: "Y'allternative Miracle Balm",
-                price: 8.0,
-                qty: 1,
-                variantLabel: "",
-                variantDelta: 0
-              }
-            ];
-
-            var itemsListEl = document.getElementById("orderItemsList");
-            var itemsContainer = document.getElementById("orderItemsContainer");
-            var reorderBtn = document.getElementById("reorderPastOrderBtn");
-            if (itemsListEl && itemsContainer) {
-              itemsListEl.innerHTML = sampleOrderItems
-                .map(function (item) {
-                  return (
-                    '<li class="order-item-row" style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--hide); font-size:0.9rem;">' +
-                    "<div><strong>" +
-                    escapeHtml(item.name) +
-                    "</strong>" +
-                    (item.variantLabel
-                      ? ' <span class="muted">(' + escapeHtml(item.variantLabel) + ")</span>"
-                      : "") +
-                    ' <span class="muted">× ' +
-                    item.qty +
-                    "</span></div>" +
-                    '<div style="font-weight:600; color:var(--whiskey);">' +
-                    (item.price ? "$" + (item.price * item.qty).toFixed(2) : "") +
-                    "</div>" +
-                    "</li>"
-                  );
-                })
-                .join("");
-              itemsContainer.hidden = false;
-            }
-
-            if (reorderBtn) {
-              reorderBtn.onclick = function () {
-                var catalog = (window.YL_PRODUCTS && window.YL_PRODUCTS.products) || [];
-                var validItems = sampleOrderItems
-                  .map(function (item) {
-                    var p = catalog.find(function (x) {
-                      return x.id === item.id;
-                    });
-                    if (!p || p.comingSoon || p.inStock === false) return null;
-                    return {
-                      id: p.id,
-                      name: p.name,
-                      price: p.price,
-                      image: p.image,
-                      variantLabel: item.variantLabel || "",
-                      variantDelta: item.variantDelta || 0,
-                      qty: item.qty || 1
-                    };
-                  })
-                  .filter(Boolean);
-
-                if (window.YLCart && typeof window.YLCart.addItems === "function") {
-                  window.YLCart.addItems(validItems);
-                } else if (window.YLCart && typeof window.YLCart.addItem === "function") {
-                  validItems.forEach(function (it) {
-                    window.YLCart.addItem(it);
-                  });
-                } else {
-                  try {
-                    var current = JSON.parse(localStorage.getItem("yl-cart-items") || "[]");
-                    validItems.forEach(function (it) {
-                      current.push(it);
-                    });
-                    localStorage.setItem("yl-cart-items", JSON.stringify(current));
-                    if (window.YLCart && typeof window.YLCart.init === "function") {
-                      window.YLCart.init();
-                    }
-                  } catch (e) {
-                    void e;
-                  }
-                }
-
-                closeModal();
-                if (window.YLCart && typeof window.YLCart.open === "function") {
-                  window.YLCart.open();
-                }
-              };
-            }
-          } else {
-            var p = document.createElement("p");
-            p.className = "order-lookup-unavailable";
-            p.setAttribute("role", "status");
-            p.textContent = "Online order tracking could not locate " + displayId + ". Email ";
-
-            var a = document.createElement("a");
-            a.href = "mailto:y.allternative.living@gmail.com";
-            a.textContent = "y.allternative.living@gmail.com";
-
-            p.appendChild(a);
-            p.appendChild(
-              document.createTextNode(
-                " with your order details and we'll check on it personally and get straight back to you."
-              )
-            );
-
-            resultsContainer.appendChild(p);
-            resultsContainer.hidden = false;
-
-            var itemsContainerEl = document.getElementById("orderItemsContainer");
-            if (itemsContainerEl) itemsContainerEl.hidden = true;
-          }
+          resultsContainer.innerHTML = orderStatusFallbackHTML(display);
+          resultsContainer.hidden = false;
         }
       });
     }
@@ -6107,7 +5801,7 @@
       });
     }
   }
-  initApothecaryQuiz();
+  if (siteFlagEnabled("enableApothecaryQuiz")) initApothecaryQuiz();
   /* ==================== GLOBAL SEARCH SUITE (2026 SOTA) ==================== */
   var searchIndexCache = null;
 
@@ -8131,6 +7825,9 @@
       parseOrderStatusQuery: parseOrderStatusQuery,
       maskEmail: maskEmail,
       initOrderStatusPage: initOrderStatusPage,
+      initOrderStatusModal: initOrderStatusModal,
+      orderStatusFallbackHTML: orderStatusFallbackHTML,
+      siteFlagEnabled: siteFlagEnabled,
       searchGlobal: searchGlobal,
       tokenizeQuery: tokenizeQuery,
       expandTokensWithSynonyms: expandTokensWithSynonyms,
