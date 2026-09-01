@@ -5,11 +5,18 @@
  *   1. scripts/smoke-test.js executes and exits cleanly with code 0 on healthy repository.
  *   2. Smoke test completes strictly within the < 3000ms performance SLA budget.
  *   3. All 4 verification stages (Build, Cart Math, Worker Checkout, Static QA) execute and log diagnostic headers.
- *   4. Failure trapping logic returns exit code 1 with actionable diagnostic logs on errors.
+ *   4. Failure trapping really traps: a copy of the repository with one input
+ *      broken makes smoke-test.js exit 1 with a diagnostic naming the problem.
+ *
+ * (4) used to be a comment and an assertion that stdout was a non-empty string
+ * -- the suite only ever ran the happy path, so a smoke test that had stopped
+ * failing on broken input would still have looked green (audit H-19).
  *
  * Run: node scripts/smoke-test.test.js
  */
 
+const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const { spawnSync } = require("child_process");
 
@@ -79,12 +86,50 @@ assert(
   "Output reports all stages passed cleanly"
 );
 
-// Test 4: Diagnostic logs and error trapping logic
-// Test that running a simulated syntax error or invalid data triggers non-zero exit in smoke checks
 assert(
   typeof result.stdout === "string" && result.stdout.length > 0,
   "smoke-test.js emits detailed diagnostic output to stdout"
 );
+
+// Test 4: Negative control -- the gate actually fails on broken input.
+//
+// Copy the working tree (minus node_modules/.git) into a scratch directory,
+// truncate _headers so the site CSP disappears, and run the same script there.
+// A smoke test that cannot go red is not a gate.
+const scratchRoot = fs.mkdtempSync(path.join(os.tmpdir(), "yl-smoke-negative-"));
+try {
+  fs.cpSync(ROOT, scratchRoot, {
+    recursive: true,
+    filter: (src) => {
+      const base = path.basename(src);
+      return base !== "node_modules" && base !== ".git";
+    }
+  });
+
+  const scratchHeaders = path.join(scratchRoot, "_headers");
+  assert(fs.existsSync(scratchHeaders), "scratch copy contains _headers to break");
+  fs.writeFileSync(scratchHeaders, "");
+
+  const broken = spawnSync(process.execPath, [path.join(scratchRoot, "scripts", "smoke-test.js")], {
+    cwd: scratchRoot,
+    encoding: "utf8",
+    env: process.env
+  });
+  const brokenOutput = (broken.stdout || "") + (broken.stderr || "");
+
+  eq(broken.status, 1, "smoke-test.js exits 1 when _headers has been emptied");
+  assert(
+    /Content-Security-Policy/i.test(brokenOutput),
+    "failure output names the broken subject (Content-Security-Policy)",
+    `output was: ${brokenOutput.slice(-400)}`
+  );
+  assert(
+    /SMOKE TEST FAILED|✗/.test(brokenOutput),
+    "failure output is an actionable diagnostic, not a silent non-zero exit"
+  );
+} finally {
+  fs.rmSync(scratchRoot, { recursive: true, force: true });
+}
 
 console.log("\n==================================================");
 console.log(

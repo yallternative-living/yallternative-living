@@ -9,7 +9,7 @@
  * Dimension 5: Axe-Core WCAG 2.2 AA Audits on Rendered Journal List, Post Detail, & Active Cart Drawer
  * Dimension 6: Playwright Multi-Engine Cross-Browser Compatibility (Chromium, Firefox, WebKit)
  *
- * Run: node scripts/m4-adversarial-challenger.test.js
+ * Run: node scripts/m4-adversarial-challenger.browser.test.js
  */
 
 /* global window, document, getComputedStyle */
@@ -18,12 +18,12 @@ const fs = require("fs");
 const path = require("path");
 const http = require("http");
 const puppeteer = require("puppeteer");
-let playwright;
-try {
-  playwright = require("playwright");
-} catch (e) {
-  playwright = null;
-}
+// Required unguarded on purpose. This used to sit in a try/catch that set
+// `playwright = null`, and Dimension 6 then logged "skipping" and passed --
+// so the three-engine gate quietly reported green on any machine where the
+// engines were not installed, which is every machine but the CI `browser`
+// job (audit H-19). A missing engine is now a failure, not a skip.
+const playwright = require("playwright");
 
 const ROOT = path.resolve(__dirname, "..");
 
@@ -781,7 +781,7 @@ async function runAdversarialStressSuite() {
     // =========================================================================
     console.log("\n>>> DIMENSION 6: Playwright Cross-Browser Testing (Chromium, Firefox, WebKit)");
 
-    if (playwright) {
+    {
       const engines = [
         { name: "Chromium", type: playwright.chromium },
         { name: "Firefox", type: playwright.firefox },
@@ -830,8 +830,6 @@ async function runAdversarialStressSuite() {
           if (pwBrowser) await pwBrowser.close();
         }
       }
-    } else {
-      console.log("  (Playwright not available, skipping Playwright multi-engine run)");
     }
   } finally {
     if (browser) await browser.close();
