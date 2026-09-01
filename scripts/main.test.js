@@ -718,8 +718,8 @@ const testEv = {
 const gCal = main.generateGoogleCalendarUrl(testEv);
 assert(gCal.includes("action=TEMPLATE"), "generateGoogleCalendarUrl sets action=TEMPLATE");
 assert(
-  gCal.includes("dates=20260815/20260817"),
-  "generateGoogleCalendarUrl sets exclusive multi-day dates"
+  gCal.includes("dates=20260815%2F20260817"),
+  "generateGoogleCalendarUrl percent-encodes the exclusive multi-day date range"
 );
 
 const icsUri = main.generateIcsDataUri(testEv);

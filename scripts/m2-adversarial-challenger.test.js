@@ -420,7 +420,22 @@ const xssEvent = {
   note: "Handmade items \\ \"quotes\" & 'single quotes'\nLine 2 <style>body{color:red}</style>"
 };
 
-const xssIcs = main.generateIcsContent(xssEvent);
+/* RFC 5545 3.1 folds any content line over 75 octets with CRLF + a single
+   space, so the escaped values these assertions look for are now split across
+   physical lines. Unfold before matching -- what matters here is the escaping,
+   which the folding must not disturb. */
+function unfoldIcs(ics) {
+  return String(ics).split("\r\n ").join("");
+}
+
+const xssIcsRaw = main.generateIcsContent(xssEvent);
+xssIcsRaw.split("\r\n").forEach((line) => {
+  assert(
+    Buffer.byteLength(line, "utf8") <= 75,
+    "every ICS content line stays within RFC 5545's 75-octet limit"
+  );
+});
+const xssIcs = unfoldIcs(xssIcsRaw);
 assert(
   xssIcs.includes(
     'SUMMARY:Y\'allternative Living at <script>alert("XSS")</script>\\;DROP TABLE events\\;'

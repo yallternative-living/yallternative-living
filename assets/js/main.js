@@ -585,6 +585,36 @@
     '<svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
     '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>';
 
+  /* ---------- shared: today's date in the shop's own timezone ----------
+     Every pop-up date in events.json is a plain calendar date in Landrum,
+     South Carolina. Comparing them against new Date().toISOString() compares
+     them against UTC, so from 8pm Eastern (7pm on standard time) the site
+     already believed it was tomorrow: today's market moved itself to "Past
+     Events" while the countdown -- which reads local time -- still had it
+     running. Same technique the dispatch badge already uses. */
+  function todayInEastern() {
+    try {
+      var parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/New_York",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+      }).formatToParts(new Date());
+      var map = {};
+      parts.forEach(function (pt) {
+        map[pt.type] = pt.value;
+      });
+      if (map.year && map.month && map.day) {
+        return map.year + "-" + map.month + "-" + map.day;
+      }
+    } catch (e) {
+      void e;
+    }
+    /* An engine without full ICU (or without America/New_York) falls back to
+       UTC, which is what this used to do everywhere. */
+    return new Date().toISOString().slice(0, 10);
+  }
+
   /* ---------- shared: read a CMS feature switch ----------
      window.YL_CONTENT is generated from assets/data/content.json, so it is
      the authority for every /admin toggle. Several switches shipped read by
@@ -3293,7 +3323,7 @@
     var events = window.YL_EVENTS || { upcoming: [], past: [] };
     var rawUpcoming = events.upcoming || [];
     var rawPast = events.past || [];
-    var todayStr = new Date().toISOString().slice(0, 10);
+    var todayStr = todayInEastern();
 
     var upcoming = [];
     var past = [];
@@ -3509,6 +3539,11 @@
     };
   }
 
+  /* setupPastEventsRotation runs again on every past-events re-render, and
+     each run used to add another matchMedia("change") listener that kept a
+     closure over the previous, now-detached cards alive. Bound once. */
+  var pastEventsMqlBound = false;
+
   function setupPastEventsRotation(container) {
     var inner = container.querySelector(".events-carousel-inner");
     var cards = container.querySelectorAll(".event-card");
@@ -3555,13 +3590,16 @@
     }
 
     var mql = window.matchMedia("(max-width: 768px)");
-    mql.addEventListener("change", function () {
-      if (mql.matches) {
-        enterCarouselMode();
-      } else {
-        exitCarouselMode();
-      }
-    });
+    if (!pastEventsMqlBound) {
+      pastEventsMqlBound = true;
+      mql.addEventListener("change", function () {
+        if (mql.matches) {
+          enterCarouselMode();
+        } else {
+          exitCarouselMode();
+        }
+      });
+    }
 
     setupCarouselInteraction(
       container,
@@ -3657,9 +3695,7 @@
       "&text=" +
       encodeURIComponent(title) +
       "&dates=" +
-      dates.start +
-      "/" +
-      dates.end +
+      encodeURIComponent(dates.start + "/" + dates.end) +
       "&details=" +
       encodeURIComponent(details) +
       "&location=" +
@@ -3676,6 +3712,45 @@
       .replace(/\r?\n/g, "\\n");
   }
 
+  /* RFC 5545 3.1: no content line may exceed 75 octets, and a long one is
+     folded by inserting CRLF followed by a single space. Counted in octets,
+     not characters -- an accented place name or an em dash is 2-3 bytes -- and
+     never split inside a multi-byte character, which would corrupt it. */
+  function utf8OctetLength(ch) {
+    var code = ch.codePointAt(0);
+    if (code < 0x80) return 1;
+    if (code < 0x800) return 2;
+    if (code < 0x10000) return 3;
+    return 4;
+  }
+
+  function foldIcsLine(line) {
+    var str = String(line == null ? "" : line);
+    var out = "";
+    var used = 0;
+    var isContinuation = false;
+    for (var i = 0; i < str.length; i++) {
+      var ch = str.charAt(i);
+      var code = str.charCodeAt(i);
+      // Keep a surrogate pair together.
+      if (code >= 0xd800 && code <= 0xdbff && i + 1 < str.length) {
+        ch += str.charAt(i + 1);
+        i++;
+      }
+      var octets = utf8OctetLength(ch);
+      // A folded line's leading space counts toward its own 75.
+      var limit = isContinuation ? 74 : 75;
+      if (used + octets > limit) {
+        out += "\r\n ";
+        used = 1;
+        isContinuation = true;
+      }
+      out += ch;
+      used += octets;
+    }
+    return out;
+  }
+
   function generateIcsContent(ev) {
     if (!ev) return "";
     var dates = getCalendarDates(ev);
@@ -3688,10 +3763,18 @@
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "");
     var uid = "yl-event-" + (slug || "market") + "-" + dates.start + "@yallternativeliving.com";
-    var dtstamp = "20260901T000000Z";
+    /* Was hardcoded to the day this feature shipped, which made every export
+       claim to have been written on 2026-09-01. Derived from the event's own
+       date instead: still deterministic (the same event always produces a
+       byte-identical file, so re-importing updates rather than duplicates),
+       but no longer a lie about when it was produced. */
+    var dtstamp = (dates.start || "19700101") + "T000000Z";
     var description = ev.note || "Handmade small-batch apothecary goods & apparel in Landrum, SC.";
-    if (ev.url) {
-      description += " More info: " + ev.url;
+    /* events.json is CMS-editable, and this URL is handed to whatever calendar
+       client imports the file. Same gate the event card's link uses. */
+    var eventUrl = safeUrl(ev.url);
+    if (eventUrl) {
+      description += " More info: " + eventUrl;
     }
     var location = ev.location
       ? ev.name
@@ -3721,7 +3804,7 @@
       "END:VEVENT",
       "END:VCALENDAR"
     ];
-    return lines.join("\r\n");
+    return lines.map(foldIcsLine).join("\r\n");
   }
 
   function generateIcsDataUri(ev) {
@@ -5338,7 +5421,7 @@
 
     var upcomingList =
       window.YL_EVENTS && window.YL_EVENTS.upcoming ? window.YL_EVENTS.upcoming : [];
-    var picked = pickNextEvent(upcomingList, new Date().toISOString().slice(0, 10));
+    var picked = pickNextEvent(upcomingList, todayInEastern());
     var nextEvt = picked ? picked.event : null;
     var targetTime = picked ? picked.startTime : 0;
 
@@ -5448,7 +5531,21 @@
     }
 
     update();
-    setInterval(update, 1000);
+    /* This used to be a bare setInterval, so a 1Hz timer kept running against
+       detached nodes for the life of the tab once the events page re-rendered
+       its banner or a soft navigation replaced the hero ticker. Stop as soon
+       as neither element is the one still mounted under its id. */
+    var countdownIntervalId = setInterval(function () {
+      var tickerMounted =
+        !!tickerContainer && document.getElementById("yl-countdown-ticker") === tickerContainer;
+      var bannerMounted =
+        !!bannerContainer && document.getElementById("eventsCountdownBanner") === bannerContainer;
+      if (!tickerMounted && !bannerMounted) {
+        clearInterval(countdownIntervalId);
+        return;
+      }
+      update();
+    }, 1000);
   }
   if (siteFlagEnabled("enableCountdownTicker")) initCountdownTicker();
 
@@ -7873,6 +7970,8 @@
       getCalendarDates: getCalendarDates,
       generateGoogleCalendarUrl: generateGoogleCalendarUrl,
       escapeIcsText: escapeIcsText,
+      foldIcsLine: foldIcsLine,
+      todayInEastern: todayInEastern,
       generateIcsContent: generateIcsContent,
       generateIcsDataUri: generateIcsDataUri,
       getEventIcsFilename: getEventIcsFilename,
