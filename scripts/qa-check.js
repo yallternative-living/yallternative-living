@@ -304,6 +304,30 @@ if (!fs.existsSync(productsDataPath)) {
 if (fs.existsSync(productsDataPath) && !PRODUCTS.length)
   fail("products-data.js", "no products found");
 var REQUIRED_FIELDS = ["id", "name", "category", "price", "image", "blurb"];
+
+/* The only product categories with nothing to declare: printed apparel and the
+   digital gift card. Everything else is something applied to skin and must
+   list what is in it -- the PDP, the JSON-LD and the label all read from that
+   array. Keep this list, not the individual product ids: a new salve must fail
+   the check, a new t-shirt must not need an entry here. */
+var INGREDIENTS_EXEMPT_CATEGORIES = ["apparel", "gift-cards"];
+var exemptCategoriesInUse = PRODUCTS.filter(function (p) {
+  return INGREDIENTS_EXEMPT_CATEGORIES.indexOf(p.category) !== -1;
+});
+if (exemptCategoriesInUse.length)
+  ok(
+    "ingredients allowlist covers " +
+      exemptCategoriesInUse.length +
+      " product(s) in " +
+      JSON.stringify(INGREDIENTS_EXEMPT_CATEGORIES)
+  );
+else
+  fail(
+    "ingredients allowlist " +
+      JSON.stringify(INGREDIENTS_EXEMPT_CATEGORIES) +
+      " matches no product -- delete it rather than leaving a dead exemption"
+  );
+
 PRODUCTS.forEach(function (p) {
   var missing = REQUIRED_FIELDS.filter(function (f) {
     return p[f] === undefined || p[f] === null || p[f] === "";
@@ -344,6 +368,27 @@ PRODUCTS.forEach(function (p) {
         p.id + ": stock must be a non-negative integer (or omitted entirely if not tracked)",
         JSON.stringify(p.stock)
       );
+  }
+
+  /* An `ingredients` array used to be checked only when it was already there,
+     so a product that shipped without one was silently exempt -- the check
+     could not catch the case it exists for (audit "vacuous passes"). Every
+     product the shop makes is now required to list its ingredients; the only
+     exemptions are the two categories that have none to list, and the
+     allowlist is asserted rather than assumed, so a new category cannot join
+     it by accident. */
+  if (!(p.ingredients && p.ingredients.length)) {
+    if (INGREDIENTS_EXEMPT_CATEGORIES.indexOf(p.category) !== -1) {
+      ok(p.id + ": ingredients not required (category '" + p.category + "' is exempt)");
+    } else {
+      fail(
+        p.id +
+          ": every product outside " +
+          JSON.stringify(INGREDIENTS_EXEMPT_CATEGORIES) +
+          " must list ingredients",
+        "category '" + p.category + "' has no ingredients array"
+      );
+    }
   }
 
   if (p.ingredients && p.ingredients.length) {

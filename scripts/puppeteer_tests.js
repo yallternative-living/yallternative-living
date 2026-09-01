@@ -94,8 +94,10 @@ function createStaticServer(port = 8082) {
       links.map((a) => a.href).filter((h) => h.startsWith("http"))
     );
     let brokenLinks = [];
+    let linksChecked = 0;
     for (let href of [...new Set(hrefs)]) {
       if (href.startsWith(url)) {
+        linksChecked++;
         try {
           const res = await page.goto(href, { waitUntil: "domcontentloaded" });
           if (res && res.status() >= 400) {
@@ -106,12 +108,26 @@ function createStaticServer(port = 8082) {
         }
       }
     }
+
+    /* "0 broken links" out of 0 links is not a pass. The homepage header,
+       footer and product grid carry well over twenty internal links, so an
+       empty crawl means the anchors, the selector or the page failed to
+       render -- exactly the regression this check exists to catch. */
+    const MIN_INTERNAL_LINKS = 20;
+    if (linksChecked < MIN_INTERNAL_LINKS) {
+      console.log(
+        `❌ Only ${linksChecked} internal links found on the homepage ` +
+          `(expected at least ${MIN_INTERNAL_LINKS}) -- nothing to verify.`
+      );
+      exitCode = 1;
+    }
+
     if (brokenLinks.length > 0) {
       console.log(`❌ Found ${brokenLinks.length} broken links:`);
       brokenLinks.forEach((b) => console.log(b));
       exitCode = 1;
-    } else {
-      console.log("✅ No broken internal links found on homepage.");
+    } else if (linksChecked >= MIN_INTERNAL_LINKS) {
+      console.log(`✅ No broken internal links found on homepage (${linksChecked} checked).`);
     }
 
     // 2. Test Mobile Menu Interaction
@@ -381,6 +397,9 @@ function createStaticServer(port = 8082) {
             console.log(`❌ Order status lookup response missing on ${targetPage}.`);
             exitCode = 1;
           }
+        } else {
+          console.log(`❌ #order-id-input not found in the order status modal on ${targetPage}.`);
+          exitCode = 1;
         }
 
         // Test Escape key close
@@ -449,6 +468,9 @@ function createStaticServer(port = 8082) {
         );
         exitCode = 1;
       }
+    } else {
+      console.log("❌ No product card Add to Cart button (.card .yl-add-item) found on shop.html.");
+      exitCode = 1;
     }
 
     // 8. Test Reviews & Social Proof Search, Filter & Verified Badges (R5)
@@ -509,6 +531,9 @@ function createStaticServer(port = 8082) {
           console.log("❌ reviews.html star rating filter failed.");
           exitCode = 1;
         }
+      } else {
+        console.log('❌ reviews.html star rating chip button[data-rating="5"] not found.');
+        exitCode = 1;
       }
 
       // Reset
@@ -519,7 +544,15 @@ function createStaticServer(port = 8082) {
         const restoredCards = await page.$$(".review-card");
         if (restoredCards.length === initialCards.length) {
           console.log("✅ reviews.html reset button restored all review cards.");
+        } else {
+          console.log(
+            `❌ reviews.html reset button restored ${restoredCards.length} review cards, expected ${initialCards.length}.`
+          );
+          exitCode = 1;
         }
+      } else {
+        console.log('❌ reviews.html reset chip button[data-rating="all"] not found.');
+        exitCode = 1;
       }
     } else {
       console.log("❌ #reviewsGrid element missing on reviews.html.");
@@ -534,6 +567,9 @@ function createStaticServer(port = 8082) {
       if (openQuizBtn) {
         await page.evaluate((b) => b.click(), openQuizBtn);
         await new Promise((r) => setTimeout(r, 200));
+      } else {
+        console.log("❌ #open-apothecary-quiz-btn not found inside #apothecary-quiz-section.");
+        exitCode = 1;
       }
       await page.click('#quiz-step-1 input[type="radio"]');
       await page.click("#quiz-next-btn-1");
@@ -610,6 +646,9 @@ function createStaticServer(port = 8082) {
         console.log("❌ Reorder Past Order button failed to open cart drawer.");
         exitCode = 1;
       }
+    } else {
+      console.log("❌ #reorderPastOrderBtn not found on order-status.html.");
+      exitCode = 1;
     }
 
     // Assert STRICT INVARIANT: Packing slip table contains ZERO dollar prices
@@ -810,6 +849,9 @@ function createStaticServer(port = 8082) {
       await page.$eval("#footer_email", (el) => {
         el.value = "";
       });
+    } else {
+      console.log("❌ #footer_email input not found -- '/' guard could not be exercised.");
+      exitCode = 1;
     }
 
     // 9.4 Escape Key Closes Modal & Restores Focus
@@ -911,6 +953,11 @@ function createStaticServer(port = 8082) {
         console.log("❌ Clear button failed to reset search state:", clearedState);
         exitCode = 1;
       }
+    } else {
+      console.log(
+        '❌ Popular search chip .search-chip[data-search-query="sleep"] not found in the search modal.'
+      );
+      exitCode = 1;
     }
 
     // 9.6 Universal Cross-Content Search & Live Segmented Results
@@ -1114,6 +1161,11 @@ function createStaticServer(port = 8082) {
         );
         exitCode = 1;
       }
+    } else {
+      console.log(
+        "❌ #search-opt-0 carried no data-url -- there was no selected search result to activate."
+      );
+      exitCode = 1;
     }
 
     // 9.9 Strict 100% Monoline Vector SVGs Invariant (Zero Emojis)

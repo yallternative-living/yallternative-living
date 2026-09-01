@@ -328,6 +328,22 @@ function createStaticServer(port = 8083) {
     }
 
     const internalHrefs = [...allDiscoveredHrefs].filter((h) => h.startsWith(url));
+
+    /* A "0 broken links" pass is only meaningful if links were actually
+       crawled. This loop used to report success on an empty set, so a page
+       that rendered no navigation at all -- or a selector change that made
+       $$eval return nothing -- read as a clean bill of health. The site
+       header and footer alone carry well over twenty internal links. */
+    const MIN_INTERNAL_LINKS = 20;
+    if (internalHrefs.length < MIN_INTERNAL_LINKS) {
+      console.log(
+        `❌ Only ${internalHrefs.length} unique internal links discovered across ` +
+          `${pagesToTest.length} pages (expected at least ${MIN_INTERNAL_LINKS}). ` +
+          "The link-integrity check has nothing to verify."
+      );
+      exitCode = 1;
+    }
+
     const linkCheckConcurrency = 5;
     const linkQueue = [...internalHrefs];
     const brokenLinksList = [];
@@ -362,6 +378,12 @@ function createStaticServer(port = 8083) {
 
     metrics.linksTested = linksTestedCount;
     metrics.brokenLinks = brokenLinksList.length;
+    if (linksTestedCount !== internalHrefs.length) {
+      console.log(
+        `❌ Link workers visited ${linksTestedCount} of ${internalHrefs.length} discovered internal links.`
+      );
+      exitCode = 1;
+    }
     if (brokenLinksList.length === 0) {
       console.log(
         `✅ All ${metrics.linksTested} unique internal links across site returned 200 OK.`
@@ -662,6 +684,19 @@ function createStaticServer(port = 8083) {
       "Quiz badge no longer hard-codes the Alt-Points name",
       quizCustom
     );
+
+    /* Every counter printed in the summary below is also an assertion: a
+       zero means the section it belongs to never ran, and a summary of zeroes
+       used to print a PASSED verdict. */
+    const zeroCounters = Object.entries(metrics).filter(
+      ([name, value]) => name !== "brokenLinks" && value === 0
+    );
+    if (zeroCounters.length) {
+      zeroCounters.forEach(([name]) =>
+        console.log(`❌ Counter "${name}" is 0 -- that section of the suite did not run.`)
+      );
+      exitCode = 1;
+    }
 
     console.log("\n==================================================");
     console.log("Extended QA Test Summary:");
