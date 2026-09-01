@@ -1248,33 +1248,72 @@
     ];
   }
 
-  function getMatchingVolumeRule(p) {
+  function normalizeVariantLabel(label) {
+    return String(label == null ? "" : label)
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "");
+  }
+
+  /* Deliberately in step with itemMatchesRule() in assets/js/cart.js, which is
+     itself byte-identical to the copy in workers/checkout.js. The badge's own
+     version used to be looser -- no text match, no miracle-balm/sleep-salve
+     cases, no price comparison -- so a variantless salve, or one priced under
+     the tier, was badged "2+ for $14.99 ea" on the card while the cart and
+     Stripe both refused to honour it.
+
+     `selectedVariantLabel` is the option the shopper currently has chosen. The
+     cart matches an item's own variantLabel, so the card must too: with 1oz
+     selected, a 2oz-only tier does not apply and the badge must go. Omit it to
+     ask the looser "could any option qualify" question the initial render
+     needs. */
+  function productQualifiesForVolumeRule(p, rule, selectedVariantLabel) {
+    var normQ = normalizeVariantLabel(rule.qualifyingVariant);
+    var id = String(p.id || "");
+    if (id === "miracle-balm") return false;
+    if (id === "sleep-salve") return true;
+
+    var options = p.variants && Array.isArray(p.variants.options) ? p.variants.options : [];
+    if (options.length > 0) {
+      if (selectedVariantLabel !== undefined && selectedVariantLabel !== null) {
+        return normalizeVariantLabel(selectedVariantLabel) === normQ;
+      }
+      return options.some(function (opt) {
+        return normalizeVariantLabel(opt.label) === normQ;
+      });
+    }
+
+    /* No variants at all: cart.js falls back to a text match on the product's
+       own copy, so a salve with "2oz" in its name or blurb qualifies. */
+    var text = (
+      String(p.name || "") +
+      " " +
+      String(p.blurb || "") +
+      " " +
+      String(p.description || "")
+    )
+      .toLowerCase()
+      .replace(/\s+/g, "");
+    return text.indexOf(normQ) !== -1;
+  }
+
+  function getMatchingVolumeRule(p, selectedVariantLabel) {
     if (!p || !p.category) return null;
     var rules = getVolumePricingRules();
     for (var i = 0; i < rules.length; i++) {
       var r = rules[i];
-      if (r.category === p.category) {
-        if (r.qualifyingVariant) {
-          if (
-            p.id === "miracle-balm" &&
-            String(r.qualifyingVariant).toLowerCase().indexOf("2oz") !== -1
-          ) {
-            continue;
-          }
-          if (p.variants && Array.isArray(p.variants.options) && p.variants.options.length > 0) {
-            var normQ = String(r.qualifyingVariant).trim().toLowerCase().replace(/\s+/g, "");
-            var hasVariant = p.variants.options.some(function (opt) {
-              var normL = String(opt.label || "")
-                .trim()
-                .toLowerCase()
-                .replace(/\s+/g, "");
-              return normL === normQ;
-            });
-            if (!hasVariant) continue;
-          }
-        }
-        return r;
+      if (r.category !== p.category) continue;
+      /* A tier that is not cheaper than the product is not a deal: the Worker
+         charges min(base, unitPrice), so a salve at or under the tier price
+         pays the same either way and the badge would advertise a discount
+         nobody receives. */
+      if (typeof p.price === "number" && isFinite(Number(r.unitPrice))) {
+        if (Number(r.unitPrice) >= p.price) continue;
       }
+      if (r.qualifyingVariant && !productQualifiesForVolumeRule(p, r, selectedVariantLabel)) {
+        continue;
+      }
+      return r;
     }
     return null;
   }
@@ -1300,7 +1339,9 @@
       p.sale && p.sale.label
         ? '<span class="stock-badge sale-badge">' + attrEsc(p.sale.label) + "</span>"
         : volumeBadgeText
-          ? '<span class="stock-badge sale-badge">' + attrEsc(volumeBadgeText) + "</span>"
+          ? '<span class="stock-badge sale-badge volume-badge">' +
+            attrEsc(volumeBadgeText) +
+            "</span>"
           : "";
     if (p.comingSoon) return '<span class="stock-badge low-stock">Coming Soon</span>';
     if (typeof p.stock !== "number") return saleBadge;
@@ -2435,6 +2476,17 @@
     if (addBtn) {
       addBtn.setAttribute("data-item-custom1-value", opt.value);
     }
+
+    /* The multi-buy badge is per-variant: the cart only counts a 2oz salve
+       toward the 2oz tier, so leaving "2+ for $14.99 ea" on screen after the
+       shopper picks 1oz promises a price the cart will not give them. */
+    var cardId = card.getAttribute("data-id");
+    var volumeProduct = cardId ? getProductMap().get(cardId) : null;
+    var stillQualifies = volumeProduct ? !!getMatchingVolumeRule(volumeProduct, opt.value) : false;
+    var volumeBadge = card.querySelector(".volume-badge");
+    if (volumeBadge) volumeBadge.hidden = !stillQualifies;
+    var volumeNote = card.querySelector(".volume-pricing-note");
+    if (volumeNote) volumeNote.hidden = !stillQualifies;
   });
 
   /* ---------- Conversion tracking (custom events) ----------
@@ -7957,6 +8009,7 @@
       addToCartHTML: addToCartHTML,
       variantSelectHTML: variantSelectHTML,
       stockBadgeHTML: stockBadgeHTML,
+      getMatchingVolumeRule: getMatchingVolumeRule,
       priceHTML: priceHTML,
       applyTheme: applyTheme,
       pickFeatured: pickFeatured,

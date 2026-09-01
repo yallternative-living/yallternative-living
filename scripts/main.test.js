@@ -1349,5 +1349,195 @@ assert(
 mockLocalStorage.clear();
 main._resetState();
 
+/* ---------- Volume-tier badge parity with cart.js / workers/checkout.js ----------
+   The badge decides on its own whether "2+ for $14.99 ea" appears on a card,
+   and it used to decide with looser rules than the cart and the Worker (which
+   agree byte for byte). This block runs the same product through both
+   implementations and asserts they never disagree. */
+const cartEngine = require("../assets/js/cart.js");
+const volumeRule = {
+  id: "salves-2oz",
+  name: "2oz Salve Multi-Buy",
+  category: "salves",
+  qualifyingVariant: "2oz",
+  minQuantity: 2,
+  unitPrice: 14.99,
+  label: "2+ for $14.99 each",
+  enabled: true
+};
+
+const savedProducts = mockWindow.YL_PRODUCTS;
+
+function withCatalog(products, fn) {
+  mockWindow.YL_PRODUCTS = { products: products, volumePricing: [volumeRule] };
+  main._resetState();
+  try {
+    return fn();
+  } finally {
+    mockWindow.YL_PRODUCTS = savedProducts;
+    main._resetState();
+  }
+}
+
+const frankincense = {
+  id: "frankincense-salve",
+  name: "Y'all Heal Now Miracle Frankincense Salve",
+  category: "salves",
+  price: 19.99,
+  blurb: "Small-batch frankincense salve.",
+  variants: { options: [{ label: "2oz" }, { label: "1oz", priceDelta: -6 }] }
+};
+const sleepSalve = {
+  id: "sleep-salve",
+  name: "Hush Y'all Magnesium Arnica Sleep Salve",
+  category: "salves",
+  price: 19.99,
+  blurb: "Magnesium and arnica for bedtime."
+};
+const miracleBalm = {
+  id: "miracle-balm",
+  name: "Y'allternative Miracle Balm",
+  category: "salves",
+  price: 8.0,
+  blurb: "All-purpose balm."
+};
+// A hypothetical future variantless salve whose copy names the size, and one
+// priced at or under the tier. Both are the cases the badge got wrong.
+const textMatchSalve = {
+  id: "cedar-salve",
+  name: "Cedar Woods Salve 2oz",
+  category: "salves",
+  price: 19.99,
+  blurb: "Poured into a 2oz tin."
+};
+const cheapSalve = {
+  id: "budget-salve",
+  name: "Budget Salve 2oz",
+  category: "salves",
+  price: 13.99,
+  blurb: "Poured into a 2oz tin."
+};
+const bodyProduct = {
+  id: "shea-butter",
+  name: "Lavender Shea Body Butter",
+  category: "body",
+  price: 16.0,
+  blurb: "Whipped shea."
+};
+
+withCatalog(
+  [frankincense, sleepSalve, miracleBalm, textMatchSalve, cheapSalve, bodyProduct],
+  () => {
+    assert(
+      typeof main.getMatchingVolumeRule === "function",
+      "getMatchingVolumeRule is exported for the parity check"
+    );
+    assert(
+      typeof cartEngine.itemMatchesRule === "function",
+      "cart.js exports itemMatchesRule to compare against"
+    );
+
+    /* Product-level: does any variant of this product qualify? */
+    assert(
+      !!main.getMatchingVolumeRule(frankincense),
+      "frankincense-salve is badged (a 2oz option exists and $14.99 < $19.99)"
+    );
+    assert(
+      !!main.getMatchingVolumeRule(sleepSalve),
+      "sleep-salve is badged (cart.js includes it explicitly)"
+    );
+    assert(
+      main.getMatchingVolumeRule(miracleBalm) === null,
+      "miracle-balm is never badged (cart.js excludes it explicitly)"
+    );
+    assert(
+      !!main.getMatchingVolumeRule(textMatchSalve),
+      "a variantless salve whose copy names the size is badged, matching cart.js's text match"
+    );
+    assert(
+      main.getMatchingVolumeRule(cheapSalve) === null,
+      "a salve priced at or under the tier is not badged -- the tier is not a discount"
+    );
+    assert(
+      main.getMatchingVolumeRule(bodyProduct) === null,
+      "a product outside the rule's category is never badged"
+    );
+
+    /* Selected-variant level: the cart counts an item by its own variantLabel,
+       so the badge must disappear when the shopper picks a non-qualifying one. */
+    assert(
+      !!main.getMatchingVolumeRule(frankincense, "2oz"),
+      "the badge stays on the 2oz selection"
+    );
+    assert(
+      main.getMatchingVolumeRule(frankincense, "1oz") === null,
+      "the badge is hidden on the 1oz selection"
+    );
+    assert(
+      !!main.getMatchingVolumeRule(frankincense, " 2 OZ "),
+      "variant matching normalises whitespace and case, as cart.js does"
+    );
+
+    /* Parity: the two implementations must agree on every case above. */
+    [
+      [frankincense, "2oz"],
+      [frankincense, "1oz"],
+      [sleepSalve, null],
+      [miracleBalm, null],
+      [miracleBalm, "2oz"],
+      [textMatchSalve, null],
+      [cheapSalve, null],
+      [bodyProduct, null]
+    ].forEach(([product, label]) => {
+      const badged = !!main.getMatchingVolumeRule(product, label === null ? undefined : label);
+      const cartItem = { id: product.id, category: product.category, qty: 1 };
+      if (label) cartItem.variantLabel = label;
+      let cartQualifies = cartEngine.itemMatchesRule(cartItem, volumeRule);
+      // The cart has no notion of "this tier is not cheaper than the item";
+      // the Worker applies min(base, unitPrice) instead. The badge must not
+      // advertise a tier in that case, so treat it as a non-match here too.
+      if (product.price <= volumeRule.unitPrice) cartQualifies = false;
+      eq(
+        badged,
+        cartQualifies,
+        `badge and cart agree on ${product.id}${label ? " @" + label : ""}`
+      );
+    });
+  }
+);
+
+/* ---------- CMS feature switches are honoured ---------- */
+const savedContent = mockWindow.YL_CONTENT;
+mockWindow.YL_CONTENT = undefined;
+["enableOrderStatusLookup", "enableCountdownTicker", "enableApothecaryQuiz"].forEach((flag) => {
+  eq(main.siteFlagEnabled(flag), true, `${flag} defaults to on when content.json is absent`);
+});
+mockWindow.YL_CONTENT = {
+  site: {
+    enableOrderStatusLookup: false,
+    enableCountdownTicker: false,
+    enableApothecaryQuiz: false
+  }
+};
+["enableOrderStatusLookup", "enableCountdownTicker", "enableApothecaryQuiz"].forEach((flag) => {
+  eq(main.siteFlagEnabled(flag), false, `${flag} is read from window.YL_CONTENT.site`);
+});
+mockWindow.YL_CONTENT = savedContent;
+["enableOrderStatusLookup", "enableCountdownTicker", "enableApothecaryQuiz"].forEach((flag) => {
+  assert(
+    mainJsSource.indexOf('siteFlagEnabled("' + flag + '")') !== -1,
+    `main.js actually reads ${flag}`
+  );
+});
+const contentJson = JSON.parse(
+  fs404.readFileSync(path404.join(repoRoot, "assets/data/content.json"), "utf8")
+);
+["enableOrderStatusLookup", "enableCountdownTicker", "enableApothecaryQuiz"].forEach((flag) => {
+  assert(
+    Object.prototype.hasOwnProperty.call(contentJson.site, flag),
+    `content.json still declares ${flag}, so main.js has something to read`
+  );
+});
+
 console.log(`\nmain.test.js: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
