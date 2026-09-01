@@ -620,6 +620,22 @@
     return "";
   }
 
+  /* ---------- shared: only allow an image path into src= ----------
+     safeUrl() above is deliberately narrow -- absolute http(s), or a path
+     that starts with "/" -- because it guards link hrefs. Images written in
+     the CMS JSON are legitimately document-relative ("assets/img/x.jpg"), so
+     that one extra shape is accepted here: a plain relative path of ordinary
+     path characters, which cannot carry a scheme, a host, whitespace or a
+     control character. Everything else -- javascript:, data:, vbscript:, a
+     tab-obfuscated scheme -- comes back empty. */
+  function safeImageSrc(url) {
+    var vetted = safeUrl(url);
+    if (vetted) return vetted;
+    var raw = String(url == null ? "" : url).trim();
+    if (/^[A-Za-z0-9][A-Za-z0-9._-]*(?:\/[A-Za-z0-9._-]+)*$/.test(raw)) return raw;
+    return "";
+  }
+
   /* ---------- shared: only allow safe schemes into a markdown link's href ----------
      safeUrl() above is deliberately narrow (absolute http(s), or a path that
      starts with "/") because it guards machine-supplied feed/event URLs. A
@@ -2443,7 +2459,10 @@
       '<div class="tag-pills">' +
       tags
         .map(function (t) {
-          return '<span class="tag-pill">' + (TAG_LABELS[t] || t) + "</span>";
+          /* TAG_LABELS covers the tags the shop uses today, but `tags` is a
+             free-text list in /admin: an unlisted tag fell through to the raw
+             value and landed in the card on the home and shop pages. */
+          return '<span class="tag-pill">' + (TAG_LABELS[t] || attrEsc(t)) + "</span>";
         })
         .join("") +
       "</div>"
@@ -3971,7 +3990,8 @@
       concern: "all",
       sort: sortSelect ? sortSelect.value : "featured",
       query: "",
-      scent: "all"
+      scent: "all",
+      lastResultCount: 0
     };
 
     /* ---------- Scent filter ----------
@@ -4390,6 +4410,7 @@
 
         renderCards(grid, sortedProducts, { eagerFirst: isFirstRender });
         isFirstRender = false;
+        state.lastResultCount = sortedProducts.length;
 
         if (state.filter === "all") {
           renderBundles(window.YL_PRODUCTS, q, state.concern);
@@ -4528,7 +4549,17 @@
             value !== lastTrackedQuery &&
             typeof window.plausible === "function"
           ) {
-            window.plausible("Site Search", { props: { query: value.trim() } });
+            /* The raw query used to be sent as an event property. Shop
+               search is where people type "eczema on my toddler", their own
+               name, or an order number -- none of which belongs in an
+               analytics dashboard. The two things worth measuring are how
+               much they typed and whether the catalogue had an answer. */
+            window.plausible("Site Search", {
+              props: {
+                length: value.trim().length,
+                hasResults: state.lastResultCount > 0
+              }
+            });
             lastTrackedQuery = value;
           }
         }, 1500);
@@ -4687,10 +4718,34 @@
         toast = document.createElement("div");
         toast.id = "sw-update-toast";
         toast.className = "sw-update-toast";
-        toast.innerHTML =
-          "<span>A new version is available!</span>" +
-          '<button onclick="window.location.reload()" class="btn btn-sm btn-primary" style="margin-left:12px;">Update now</button>' +
-          '<button onclick="this.parentElement.remove()" class="btn btn-sm btn-outline" style="margin-left:6px;" aria-label="Dismiss">&times;</button>';
+        /* Both buttons used to carry inline click attributes, which the CSP
+           blocks outright -- so the only way to dismiss this toast, or to act
+           on it, was to reload the page by hand. Wired as listeners now. */
+        var toastText = document.createElement("span");
+        toastText.textContent = "A new version is available!";
+        toast.appendChild(toastText);
+
+        var updateBtn = document.createElement("button");
+        updateBtn.type = "button";
+        updateBtn.className = "btn btn-sm btn-primary";
+        updateBtn.style.marginLeft = "12px";
+        updateBtn.textContent = "Update now";
+        updateBtn.addEventListener("click", function () {
+          window.location.reload();
+        });
+        toast.appendChild(updateBtn);
+
+        var dismissBtn = document.createElement("button");
+        dismissBtn.type = "button";
+        dismissBtn.className = "btn btn-sm btn-outline";
+        dismissBtn.style.marginLeft = "6px";
+        dismissBtn.setAttribute("aria-label", "Dismiss");
+        dismissBtn.textContent = "\u00d7";
+        dismissBtn.addEventListener("click", function () {
+          if (toast && toast.parentNode) toast.parentNode.removeChild(toast);
+        });
+        toast.appendChild(dismissBtn);
+
         document.body.appendChild(toast);
         // Animate in
         requestAnimationFrame(function () {
@@ -4802,7 +4857,7 @@
           '<div class="ugc-card reveal" role="listitem">' +
           '  <div class="ugc-card-media">' +
           '    <img src="' +
-          attrEsc(post.image) +
+          attrEsc(safeImageSrc(post.image)) +
           '" alt="' +
           attrEsc(altText) +
           '" loading="lazy" decoding="async" width="400" height="400">' +
@@ -6420,9 +6475,9 @@
             '" role="option" aria-selected="false" data-item-index="' +
             globalIdx +
             '" data-url="' +
-            attrEsc(prod.url) +
+            attrEsc(safeLinkUrl(prod.url)) +
             '">';
-          html += '  <a href="' + attrEsc(prod.url) + '" class="search-item-main">';
+          html += '  <a href="' + attrEsc(safeLinkUrl(prod.url)) + '" class="search-item-main">';
           html +=
             '    <img src="' +
             attrEsc(prod.image) +
@@ -6508,9 +6563,9 @@
             '" role="option" aria-selected="false" data-item-index="' +
             globalIdx +
             '" data-url="' +
-            attrEsc(art.url) +
+            attrEsc(safeLinkUrl(art.url)) +
             '">';
-          html += '  <a href="' + attrEsc(art.url) + '" class="search-item-main">';
+          html += '  <a href="' + attrEsc(safeLinkUrl(art.url)) + '" class="search-item-main">';
           html +=
             '    <div class="search-faq-icon" aria-hidden="true"><svg class="yl-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>';
           html += '    <div class="search-item-info">';
@@ -6555,9 +6610,9 @@
             '" role="option" aria-selected="false" data-item-index="' +
             globalIdx +
             '" data-url="' +
-            attrEsc(ev.url) +
+            attrEsc(safeLinkUrl(ev.url)) +
             '">';
-          html += '  <a href="' + attrEsc(ev.url) + '" class="search-item-main">';
+          html += '  <a href="' + attrEsc(safeLinkUrl(ev.url)) + '" class="search-item-main">';
           html +=
             '    <div class="search-event-badge"><span class="event-badge-day">' +
             escapeSearchHtml(ev.dateLabel || ev.date || "") +
@@ -6609,9 +6664,9 @@
             '" role="option" aria-selected="false" data-item-index="' +
             globalIdx +
             '" data-url="' +
-            attrEsc(f.url) +
+            attrEsc(safeLinkUrl(f.url)) +
             '">';
-          html += '  <a href="' + attrEsc(f.url) + '" class="search-item-main">';
+          html += '  <a href="' + attrEsc(safeLinkUrl(f.url)) + '" class="search-item-main">';
           html +=
             '    <div class="search-faq-icon" aria-hidden="true"><svg class="yl-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>';
           html += '    <div class="search-item-info">';
@@ -6691,9 +6746,14 @@
     function executeOption(index) {
       if (index < 0 || index >= currentItems.length) return;
       var activeItemMeta = currentItems[index];
-      if (activeItemMeta && activeItemMeta.url) {
+      /* The index is CMS-editable JSON, and this is a navigation sink: a
+         "javascript:" entry here executes on Enter even though the same
+         string is inert in the href above (the CSP blocks that one). Refuse
+         to navigate rather than sanitising into a broken URL. */
+      var target = activeItemMeta ? safeLinkUrl(activeItemMeta.url) : "";
+      if (target) {
         closeModal();
-        window.location.href = activeItemMeta.url;
+        window.location.href = target;
       }
     }
 
@@ -7277,7 +7337,14 @@
         .replace(/^[#/]/, "");
     }
 
-    var list = getRecentlyViewed();
+    /* Every id here becomes "products/<id>.html" below. The list comes out
+       of localStorage, which another script on the origin (or the visitor)
+       can write, so an id is only usable if it looks like the product slugs
+       the build actually emits. Anything else is dropped, not escaped into a
+       link that goes nowhere. */
+    var list = getRecentlyViewed().filter(function (item) {
+      return item && typeof item.id === "string" && /^[a-z0-9-]+$/.test(item.id);
+    });
     var displayList = list;
     if (isPdp && currentPdpId) {
       displayList = list.filter(function (item) {
@@ -7787,6 +7854,7 @@
       saveWishlist: saveWishlist,
       attrEsc: attrEsc,
       safeUrl: safeUrl,
+      safeImageSrc: safeImageSrc,
       safeLinkUrl: safeLinkUrl,
       renderMarkdown: renderMarkdown,
       addToCartHTML: addToCartHTML,

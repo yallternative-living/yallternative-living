@@ -1236,5 +1236,118 @@ assert(
   "site.webmanifest declares a stable id"
 );
 
+/* ---------- Escaping, CSP and analytics hardening ---------- */
+
+/* safeImageSrc: the src= counterpart of safeUrl. Catalogue and UGC images are
+   written document-relative in the CMS JSON, so that shape is allowed; a
+   scheme of any kind is not. */
+eq(
+  main.safeImageSrc("assets/img/shea-butter.jpg"),
+  "assets/img/shea-butter.jpg",
+  "safeImageSrc allows a document-relative asset path"
+);
+eq(
+  main.safeImageSrc("/assets/img/x.png"),
+  "/assets/img/x.png",
+  "safeImageSrc allows a root-relative path"
+);
+eq(
+  main.safeImageSrc("https://cdn.example.com/x.png"),
+  "https://cdn.example.com/x.png",
+  "safeImageSrc allows an absolute https image"
+);
+eq(main.safeImageSrc("javascript:alert(1)"), "", "safeImageSrc rejects javascript:");
+eq(main.safeImageSrc("data:text/html,<script>"), "", "safeImageSrc rejects data:");
+eq(main.safeImageSrc('x" onerror="alert(1)'), "", "safeImageSrc rejects an attribute breakout");
+eq(main.safeImageSrc(null), "", "safeImageSrc handles null");
+
+/* Regression guards on the sinks themselves. Each of these is a one-line
+   omission that reads as harmless in review, so assert the call is present at
+   the sink rather than only testing the helper in isolation. */
+const mainJsSource = fs404.readFileSync(path404.join(repoRoot, "assets/js/main.js"), "utf8");
+
+assert(
+  mainJsSource.indexOf("(TAG_LABELS[t] || attrEsc(t))") !== -1,
+  "an unknown product tag is escaped before it reaches the card (main.js tagPillsHTML)"
+);
+assert(
+  mainJsSource.indexOf("attrEsc(safeImageSrc(post.image))") !== -1,
+  "the UGC feed image src goes through safeImageSrc"
+);
+["prod", "art", "ev", "f"].forEach((v) => {
+  assert(
+    mainJsSource.indexOf("attrEsc(safeLinkUrl(" + v + ".url))") !== -1,
+    `search result URLs for ${v} go through safeLinkUrl`
+  );
+  assert(
+    mainJsSource.indexOf("attrEsc(" + v + ".url)") === -1,
+    `no unchecked ${v}.url is left in a search result href`
+  );
+});
+assert(
+  mainJsSource.indexOf("window.location.href = activeItemMeta.url") === -1 &&
+    mainJsSource.indexOf("var target = activeItemMeta ? safeLinkUrl(activeItemMeta.url)") !== -1,
+  "the search modal's navigation sink runs the URL through safeLinkUrl"
+);
+
+/* CSP: the service-worker update toast's buttons were inline onclick handlers,
+   which the site's CSP blocks -- so neither button did anything. */
+assert(
+  mainJsSource.indexOf("onclick=") === -1,
+  "main.js emits no inline onclick handler anywhere (the CSP blocks them)"
+);
+assert(
+  mainJsSource.indexOf('updateBtn.addEventListener("click"') !== -1 &&
+    mainJsSource.indexOf('dismissBtn.addEventListener("click"') !== -1,
+  "the service-worker update toast wires its buttons with addEventListener"
+);
+
+/* Analytics must never carry the raw search string. */
+assert(
+  mainJsSource.indexOf("props: { query: value.trim() }") === -1,
+  "the Site Search event no longer sends the raw query"
+);
+assert(
+  /window\.plausible\("Site Search", \{\s*props: \{\s*length: value\.trim\(\)\.length,\s*hasResults:/.test(
+    mainJsSource
+  ),
+  "the Site Search event sends only {length, hasResults}"
+);
+
+/* Recently viewed: every id becomes a products/<id>.html href, and the list
+   comes out of localStorage. */
+mockLocalStorage.clear();
+main._resetState();
+mockLocalStorage.setItem(
+  "yl-recently-viewed",
+  JSON.stringify([
+    { id: "frankincense-salve", name: "Frankincense Salve", price: 19.99, image: "a.jpg" },
+    {
+      id: '../evil.html?x="><img src=x onerror=alert(1)>',
+      name: "Injected",
+      price: 1,
+      image: "b.jpg"
+    },
+    { id: "backroad-soak", name: "Backroad Soak", price: 18, image: "c.jpg" },
+    { id: "Frank_Salve", name: "Wrong Case", price: 5, image: "d.jpg" }
+  ])
+);
+recentlyViewedTrackEl.innerHTML = "";
+main.renderRecentlyViewedCarousel();
+assert(
+  recentlyViewedTrackEl.innerHTML.indexOf("evil.html") === -1,
+  "a recently-viewed id that is not a plain slug never reaches an href"
+);
+assert(
+  recentlyViewedTrackEl.innerHTML.indexOf("Frank_Salve") === -1,
+  "a recently-viewed id outside /^[a-z0-9-]+$/ is dropped"
+);
+assert(
+  recentlyViewedTrackEl.innerHTML.indexOf('href="products/frankincense-salve.html"') !== -1,
+  "well-formed recently-viewed ids still render their links"
+);
+mockLocalStorage.clear();
+main._resetState();
+
 console.log(`\nmain.test.js: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
