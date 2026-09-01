@@ -21,10 +21,32 @@ const crypto = require("crypto");
 
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
+// One value, four files -- see the STRIPE_API_VERSION note in
+// workers/checkout.js. Bump all four together or none of them.
 const STRIPE_API_VERSION = "2026-06-24.dahlia";
 
+// Where operational alerts go when a gift card needs a human (see the
+// overspend note in handleGiftCardRedemption).
+const SHOP_ALERT_EMAIL = process.env.RESTOCK_NOTIFY_EMAIL || "contact@yallternativeliving.com";
+
+/**
+ * Resend client. Fails LOUDLY when RESEND_API_KEY is unset.
+ *
+ * This used to default to the literal "re_test", which meant a deploy with
+ * the variable missing looked healthy: the client constructed, the send was
+ * rejected by Resend, the rejection was caught and logged as a warning, and
+ * the webhook returned 200. A shopper paid for a gift card, Stripe recorded a
+ * successful fulfilment, and the code was never delivered to anybody. Throwing
+ * here turns that into a non-2xx the webhook retries and that shows up in
+ * Stripe's dashboard as a failing endpoint.
+ */
 function getResendClient() {
-  const apiKey = process.env.RESEND_API_KEY || "re_test";
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      "RESEND_API_KEY is not configured -- refusing to pretend a gift card email was sent"
+    );
+  }
   return new Resend(apiKey);
 }
 
@@ -187,25 +209,37 @@ async function rolloverGiftCardBalance(
   newBalanceCents,
   initialAmountCents,
   recipientEmail,
-  sessionId
+  sessionId,
+  extraMetadata
 ) {
   var secretKey = process.env.STRIPE_SECRET_KEY || STRIPE_SECRET_KEY;
   if (!secretKey) throw new Error("STRIPE_SECRET_KEY is not configured");
 
-  // 1. Deactivate old promotion code if provided
+  // 1. Deactivate the old promotion code -- and make sure it worked.
+  //
+  // This used to swallow every failure as a warning and carry on minting the
+  // replacement. That is the one outcome a stored-value card must never have:
+  // the OLD code, still carrying the OLD (larger) balance, stays live at the
+  // same time as a new code for the remainder, so the same money is spendable
+  // twice. Failing here means the webhook returns non-2xx and Stripe retries
+  // (the rollover's Idempotency-Keys make the retry safe); the shopper keeps
+  // a working code with the correct balance in the meantime.
   if (oldPromoId) {
-    try {
-      await fetch(`https://api.stripe.com/v1/promotion_codes/${oldPromoId}`, {
-        method: "POST",
-        headers: {
-          Authorization: "Bearer " + secretKey,
-          "Content-Type": "application/x-www-form-urlencoded",
-          "Stripe-Version": STRIPE_API_VERSION
-        },
-        body: new URLSearchParams({ active: "false" })
-      });
-    } catch (e) {
-      console.warn("Could not deactivate spent promo code:", e.message);
+    const deactivateRes = await fetch(`https://api.stripe.com/v1/promotion_codes/${oldPromoId}`, {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + secretKey,
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Stripe-Version": STRIPE_API_VERSION
+      },
+      body: new URLSearchParams({ active: "false" })
+    });
+    if (!deactivateRes || !deactivateRes.ok) {
+      throw new Error(
+        "Could not deactivate spent promotion code " +
+          oldPromoId +
+          " -- refusing to mint a replacement while the old balance is still live"
+      );
     }
   }
 
@@ -213,8 +247,27 @@ async function rolloverGiftCardBalance(
     return { code, balanceCents: 0, status: "exhausted" };
   }
 
+  // Extra metadata rides along onto BOTH new objects. The refund path uses it
+  // to carry forward how much of each charge has already been restored
+  // (restored_for_charge_<id>): a rollover replaces the promotion code, so
+  // anything not copied across is forgotten, and a repeated
+  // charge.refunded event would restore the same money a second time.
+  const carried = extraMetadata && typeof extraMetadata === "object" ? extraMetadata : {};
+
   // 2. Create new coupon for residual balance
   const couponIdemp = `gift-rollover-coupon-${sessionId}-${code}-${newBalanceCents}`;
+  const couponBody = new URLSearchParams({
+    amount_off: String(newBalanceCents),
+    currency: "usd",
+    duration: "once",
+    max_redemptions: "1",
+    name: "Y'allternative Living gift card (Balance Rollover)",
+    "metadata[initial_amount_cents]": String(initialAmountCents || newBalanceCents),
+    "metadata[remaining_balance_cents]": String(newBalanceCents),
+    "metadata[recipient_email]": String(recipientEmail || ""),
+    "metadata[original_code]": code
+  });
+  Object.keys(carried).forEach((k) => couponBody.append(`metadata[${k}]`, String(carried[k])));
   const couponRes = await fetch("https://api.stripe.com/v1/coupons", {
     method: "POST",
     headers: {
@@ -223,17 +276,7 @@ async function rolloverGiftCardBalance(
       "Idempotency-Key": couponIdemp,
       "Stripe-Version": STRIPE_API_VERSION
     },
-    body: new URLSearchParams({
-      amount_off: String(newBalanceCents),
-      currency: "usd",
-      duration: "once",
-      max_redemptions: "1",
-      name: "Y'allternative Living gift card (Balance Rollover)",
-      "metadata[initial_amount_cents]": String(initialAmountCents || newBalanceCents),
-      "metadata[remaining_balance_cents]": String(newBalanceCents),
-      "metadata[recipient_email]": String(recipientEmail || ""),
-      "metadata[original_code]": code
-    })
+    body: couponBody
   });
   const coupon = await couponRes.json();
   if (coupon.error)
@@ -241,6 +284,15 @@ async function rolloverGiftCardBalance(
 
   // 3. Create new promotion code with the EXACT SAME code
   const promoIdemp = `gift-rollover-promo-${sessionId}-${code}-${newBalanceCents}`;
+  const promoBody = new URLSearchParams({
+    coupon: coupon.id,
+    code: code,
+    max_redemptions: "1",
+    "metadata[initial_amount_cents]": String(initialAmountCents || newBalanceCents),
+    "metadata[remaining_balance_cents]": String(newBalanceCents),
+    "metadata[recipient_email]": String(recipientEmail || "")
+  });
+  Object.keys(carried).forEach((k) => promoBody.append(`metadata[${k}]`, String(carried[k])));
   const promoRes = await fetch("https://api.stripe.com/v1/promotion_codes", {
     method: "POST",
     headers: {
@@ -249,14 +301,7 @@ async function rolloverGiftCardBalance(
       "Idempotency-Key": promoIdemp,
       "Stripe-Version": STRIPE_API_VERSION
     },
-    body: new URLSearchParams({
-      coupon: coupon.id,
-      code: code,
-      max_redemptions: "1",
-      "metadata[initial_amount_cents]": String(initialAmountCents || newBalanceCents),
-      "metadata[remaining_balance_cents]": String(newBalanceCents),
-      "metadata[recipient_email]": String(recipientEmail || "")
-    })
+    body: promoBody
   });
   const promo = await promoRes.json();
   if (promo.error) throw new Error("Stripe rollover promo creation failed: " + promo.error.message);
@@ -299,13 +344,98 @@ async function findUsedPromotionCode(session, secretKey) {
   return null;
 }
 
-// Handles gift card redemptions on an order
+// Fetch one promotion code by id, with its coupon expanded so the CURRENT
+// amount_off (the live balance) comes back with it.
+async function fetchPromotionCodeById(promoId, key) {
+  if (!promoId || !key) return null;
+  const res = await fetch(
+    `https://api.stripe.com/v1/promotion_codes/${encodeURIComponent(promoId)}?expand[]=coupon`,
+    { headers: { Authorization: "Bearer " + key, "Stripe-Version": STRIPE_API_VERSION } }
+  );
+  if (!res || !res.ok) return null;
+  return await res.json();
+}
+
+// Fetch the active promotion code currently carrying a gift card's balance.
+async function findActivePromotionByCode(code, key) {
+  if (!code || !key) return null;
+  const params = new URLSearchParams({
+    code: code,
+    active: "true",
+    limit: "1",
+    "expand[]": "data.coupon"
+  });
+  const res = await fetch(`https://api.stripe.com/v1/promotion_codes?${params.toString()}`, {
+    headers: { Authorization: "Bearer " + key, "Stripe-Version": STRIPE_API_VERSION }
+  });
+  if (!res || !res.ok) return null;
+  const list = await res.json();
+  return list && Array.isArray(list.data) && list.data.length ? list.data[0] : null;
+}
+
+// Best-effort operational alert to the shop. Never throws: an unsendable
+// warning must not turn into a retried webhook or a failed fulfilment.
+async function alertShop(subject, text) {
+  try {
+    const client = getResendClient();
+    await client.emails.send({
+      from:
+        process.env.FROM_EMAIL ||
+        process.env.RESEND_FROM_EMAIL ||
+        "Y'allternative Living <gifts@yallternativeliving.com>",
+      to: SHOP_ALERT_EMAIL,
+      subject: subject,
+      text: text
+    });
+  } catch (e) {
+    console.error("Could not send shop alert:", subject, e && e.message);
+  }
+}
+
+/**
+ * Handles gift card redemptions on a completed order.
+ *
+ * Session metadata is read FIRST, and it is what drives the rollover. When
+ * workers/checkout.js pre-applies a card it converts the balance into an
+ * ephemeral one-off Coupon and attaches THAT to the session -- there is no
+ * promotion_code on the session at all, so findUsedPromotionCode() (which
+ * looks for one) found nothing and returned null. The card's balance was
+ * therefore never decremented: the shopper spent it and kept it, and could
+ * spend the whole balance again on the next order. The metadata written at
+ * checkout (gift_card_redeemed_code / _promo_id / _amount_applied_cents) is
+ * the authoritative record of what was actually spent; findUsedPromotionCode
+ * remains the fallback for codes entered in Stripe's own promo box.
+ */
 async function handleGiftCardRedemption(session, secretKey) {
   const key = secretKey || process.env.STRIPE_SECRET_KEY || STRIPE_SECRET_KEY;
+  const sessionMetadata = (session && session.metadata) || {};
   const amountDiscountCents = (session.total_details && session.total_details.amount_discount) || 0;
-  if (amountDiscountCents <= 0) return null;
 
-  const promo = await findUsedPromotionCode(session, key);
+  const metaCode = sessionMetadata.gift_card_redeemed_code;
+  const metaPromoId = sessionMetadata.gift_card_promo_id;
+  const metaAppliedCents = Number(sessionMetadata.gift_card_amount_applied_cents || 0);
+
+  let promo = null;
+  let appliedCents = amountDiscountCents;
+
+  if (metaCode && String(metaCode).startsWith("YALL-") && metaPromoId && metaAppliedCents > 0) {
+    // Pre-applied at checkout: spend exactly what the Worker recorded.
+    appliedCents = metaAppliedCents;
+    promo = await fetchPromotionCodeById(metaPromoId, key);
+    if (!promo) {
+      throw new Error(
+        "Gift card " +
+          metaCode +
+          " was applied to session " +
+          session.id +
+          " but its promotion code could not be read back -- balance not rolled over"
+      );
+    }
+  } else {
+    if (amountDiscountCents <= 0) return null;
+    promo = await findUsedPromotionCode(session, key);
+  }
+
   if (!promo || !promo.code || !promo.code.startsWith("YALL-")) {
     return null; // Not a Y'allternative gift card promotion code
   }
@@ -314,7 +444,7 @@ async function handleGiftCardRedemption(session, secretKey) {
   const currentBalanceCents =
     coupon.amount_off ||
     Number(promo.metadata && promo.metadata.remaining_balance_cents) ||
-    amountDiscountCents;
+    appliedCents;
 
   const initialAmountCents =
     Number(promo.metadata && promo.metadata.initial_amount_cents) ||
@@ -328,7 +458,24 @@ async function handleGiftCardRedemption(session, secretKey) {
     (coupon.metadata && coupon.metadata.recipient_email) ||
     customerEmail;
 
-  const newBalanceCents = Math.max(0, currentBalanceCents - amountDiscountCents);
+  // Overspend. Two checkouts opened at once both read the full balance
+  // before either completed, so the second one's discount can exceed what is
+  // actually left by the time this webhook runs. Clamping at 0 keeps the card
+  // from going negative (and from silently wrapping into a fresh balance),
+  // and the shop is told, because the difference is real money that was
+  // discounted and needs a human decision. See workers/README.md.
+  if (appliedCents > currentBalanceCents) {
+    await alertShop(
+      `Gift card overspend on ${promo.code}`,
+      `Order ${session.id} discounted $${(appliedCents / 100).toFixed(2)} against gift card ` +
+        `${promo.code}, which had $${(currentBalanceCents / 100).toFixed(2)} left at the time ` +
+        `this webhook ran. The card has been zeroed rather than going negative. ` +
+        `The likely cause is two checkouts running at once against the same card.`
+    );
+  }
+
+  const newBalanceCents = Math.max(0, currentBalanceCents - appliedCents);
+  const amountDiscountForEmailCents = appliedCents;
 
   // Rollover remaining balance to fresh active code
   await rolloverGiftCardBalance(
@@ -349,7 +496,7 @@ async function handleGiftCardRedemption(session, secretKey) {
       process.env.RESEND_FROM_EMAIL ||
       "Y'allternative Living <gifts@yallternativeliving.com>";
 
-    const spentDollars = (amountDiscountCents / 100).toFixed(2);
+    const spentDollars = (amountDiscountForEmailCents / 100).toFixed(2);
     const newBalDollars = (newBalanceCents / 100).toFixed(2);
 
     let subject, html, text;
@@ -422,69 +569,111 @@ async function handleGiftCardRedemption(session, secretKey) {
     }
   }
 
-  return { code: promo.code, spentCents: amountDiscountCents, newBalanceCents };
+  return { code: promo.code, spentCents: appliedCents, newBalanceCents };
 }
 
-// Handles restoring gift card balance on refund / cancellation
-async function handleGiftCardRefund(chargeOrRefund, secretKey) {
+/**
+ * Restore gift-card balance when an order is refunded (charge.refunded).
+ *
+ * Three things were wrong with the previous version:
+ *
+ *  1. It read gift_card_* metadata off the CHARGE. Those keys are written by
+ *     workers/checkout.js onto the Checkout SESSION; a charge does not carry
+ *     them, so the lookup found nothing and no refund ever restored a balance.
+ *     The session is now found from the charge's payment_intent.
+ *  2. It restored the full applied amount on every delivery. Stripe sends
+ *     charge.refunded again for each partial refund (and re-delivers on
+ *     retry), so a $50 card could be credited $50 per event -- minting money.
+ *     Restoration is now capped at the amount actually refunded so far, and
+ *     how much has already been restored for THIS charge is recorded in the
+ *     promotion code's metadata (restored_for_charge_<id>) and carried
+ *     forward across rollovers, so a repeat delivery restores the difference
+ *     and nothing more.
+ *  3. refund.created fired for the same money as charge.refunded, so both
+ *     were processed. Only charge.refunded is handled now.
+ */
+async function handleGiftCardRefund(charge, secretKey) {
   const key = secretKey || process.env.STRIPE_SECRET_KEY || STRIPE_SECRET_KEY;
-  if (!chargeOrRefund || !key) return null;
+  if (!charge || !key) return null;
 
-  const metadata = chargeOrRefund.metadata || {};
-  const giftCardCode = metadata.gift_card_redeemed_code || metadata.gift_card_code;
-  const promoId = metadata.gift_card_promo_id;
+  const paymentIntentId =
+    charge.payment_intent && typeof charge.payment_intent === "object"
+      ? charge.payment_intent.id
+      : charge.payment_intent;
+  if (!paymentIntentId) return null;
+
+  // The session carries what the gift card actually paid for this order.
+  const sessionRes = await fetch(
+    `https://api.stripe.com/v1/checkout/sessions?payment_intent=${encodeURIComponent(
+      paymentIntentId
+    )}&limit=1`,
+    { headers: { Authorization: `Bearer ${key}`, "Stripe-Version": STRIPE_API_VERSION } }
+  );
+  if (!sessionRes || !sessionRes.ok) {
+    throw new Error(
+      "Could not look up the checkout session for refunded charge " + (charge.id || "(no id)")
+    );
+  }
+  const sessionList = await sessionRes.json();
+  const session =
+    sessionList && Array.isArray(sessionList.data) && sessionList.data.length
+      ? sessionList.data[0]
+      : null;
+  if (!session) return null;
+
+  const metadata = session.metadata || {};
+  const giftCardCode = metadata.gift_card_redeemed_code;
   const appliedCents = Number(metadata.gift_card_amount_applied_cents || 0);
-
-  if (!giftCardCode || !giftCardCode.startsWith("YALL-") || appliedCents <= 0) {
-    return null;
+  if (!giftCardCode || !String(giftCardCode).startsWith("YALL-") || !(appliedCents > 0)) {
+    return null; // No gift card was spent on this order.
   }
 
-  const params = new URLSearchParams({
-    code: giftCardCode,
-    active: "true",
-    limit: "1",
-    "expand[]": "data.coupon"
+  // Never restore more than the card actually paid, and never more than has
+  // actually been refunded (a partial refund restores its own share only).
+  const refundedCents = Number(charge.amount_refunded || 0);
+  if (refundedCents <= 0) return null;
+  const restorableCents = Math.min(appliedCents, refundedCents);
+
+  const promo = await findActivePromotionByCode(giftCardCode, key);
+  const currentBalanceCents = (promo && promo.coupon && promo.coupon.amount_off) || 0;
+  const promoMetadata = (promo && promo.metadata) || {};
+
+  const restoredKey = `restored_for_charge_${charge.id}`;
+  const alreadyRestoredCents = Number(promoMetadata[restoredKey] || 0);
+  const deltaCents = restorableCents - alreadyRestoredCents;
+  if (deltaCents <= 0) {
+    // Already credited for this charge (a repeat delivery, or a partial
+    // refund that has not grown since the last one).
+    return { code: giftCardCode, restoredCents: 0, status: "already-restored" };
+  }
+
+  const initialAmountCents =
+    Number(promoMetadata.initial_amount_cents) || currentBalanceCents + deltaCents;
+  const recipientEmail = promoMetadata.recipient_email || metadata.recipient_email || "";
+
+  // Carry every restored_for_charge_* marker onto the replacement code --
+  // a rollover creates a NEW promotion code, and anything not copied across
+  // is forgotten, which is what would let a later delivery double-credit.
+  const carried = {};
+  Object.keys(promoMetadata).forEach(function (k) {
+    if (k.indexOf("restored_for_charge_") === 0) carried[k] = promoMetadata[k];
   });
+  carried[restoredKey] = String(restorableCents);
 
-  let currentBalanceCents = 0;
-  let initialAmountCents = appliedCents;
-  let recipientEmail = metadata.recipient_email || "";
-  let oldPromoId = promoId;
-
-  try {
-    const res = await fetch(`https://api.stripe.com/v1/promotion_codes?${params.toString()}`, {
-      method: "GET",
-      headers: { Authorization: `Bearer ${key}`, "Stripe-Version": STRIPE_API_VERSION }
-    });
-
-    if (res.ok) {
-      const list = await res.json();
-      if (list && list.data && list.data.length > 0) {
-        const promo = list.data[0];
-        oldPromoId = promo.id;
-        currentBalanceCents = (promo.coupon && promo.coupon.amount_off) || 0;
-        initialAmountCents =
-          Number(promo.metadata && promo.metadata.initial_amount_cents) ||
-          currentBalanceCents + appliedCents;
-        recipientEmail = (promo.metadata && promo.metadata.recipient_email) || recipientEmail;
-      }
-    }
-  } catch (e) {
-    console.warn("Could not fetch existing promo for refund balance:", e.message);
-  }
-
-  const restoredBalanceCents = currentBalanceCents + appliedCents;
+  const newBalanceCents = currentBalanceCents + deltaCents;
   const restored = await rolloverGiftCardBalance(
     giftCardCode,
-    oldPromoId,
-    restoredBalanceCents,
+    promo ? promo.id : null,
+    newBalanceCents,
     initialAmountCents,
     recipientEmail,
-    `refund-${chargeOrRefund.id || Date.now()}`
+    // Idempotency scope: this charge, at this restored total. A redelivery of
+    // the same event reuses the same Stripe Idempotency-Keys.
+    `refund-${charge.id}-${restorableCents}`,
+    carried
   );
 
-  const targetEmail =
-    recipientEmail || (chargeOrRefund.billing_details && chargeOrRefund.billing_details.email);
+  const targetEmail = recipientEmail || (charge.billing_details && charge.billing_details.email);
   if (targetEmail) {
     const resendClient = getResendClient();
     const fromAddress =
@@ -492,8 +681,8 @@ async function handleGiftCardRefund(chargeOrRefund, secretKey) {
       process.env.RESEND_FROM_EMAIL ||
       "Y'allternative Living <gifts@yallternativeliving.com>";
 
-    const restoredDollars = (appliedCents / 100).toFixed(2);
-    const newBalDollars = (restoredBalanceCents / 100).toFixed(2);
+    const restoredDollars = (deltaCents / 100).toFixed(2);
+    const newBalDollars = (newBalanceCents / 100).toFixed(2);
 
     const subject = `Gift Card Balance Restored: $${restoredDollars} added back to ${giftCardCode}`;
     const html = `
@@ -506,28 +695,52 @@ async function handleGiftCardRefund(chargeOrRefund, secretKey) {
         <div style="text-align: center; background: #fff; color: #000; padding: 24px; border-radius: 8px; margin: 25px 0;">
           <p style="margin: 0; text-transform: uppercase; letter-spacing: 2px; font-size: 12px; color: #666;">Available Balance</p>
           <h2 style="margin: 8px 0; font-size: 36px; color: #17130f; letter-spacing: 1px;">$${newBalDollars}</h2>
-          <p style="margin: 4px 0 0 0; font-size: 14px; font-weight: bold; letter-spacing: 2px; color: #333;">Code: ${giftCardCode}</p>
+          <p style="margin: 4px 0 0 0; font-size: 14px; font-weight: bold; letter-spacing: 2px; color: #333;">Code: ${escapeHtml(giftCardCode)}</p>
         </div>
         <p style="font-size: 14px; color: #cfc0a8;">Your code remains active and ready for your next order.</p>
       </div>
     `;
     const text = `Your gift card balance on ${giftCardCode} has been restored by $${restoredDollars}. Total available balance: $${newBalDollars}.`;
 
+    const emailIdemp = `gift-refund-email-${charge.id}-${restorableCents}`;
     try {
-      await resendClient.emails.send({
-        from: fromAddress,
-        to: targetEmail,
-        reply_to: "contact@yallternativeliving.com",
-        subject: subject,
-        html: html,
-        text: text
-      });
+      await resendClient.emails.send(
+        {
+          from: fromAddress,
+          to: targetEmail,
+          reply_to: "contact@yallternativeliving.com",
+          subject: subject,
+          html: html,
+          text: text,
+          headers: { "X-Entity-Ref-ID": emailIdemp, "Idempotency-Key": emailIdemp }
+        },
+        { idempotencyKey: emailIdemp }
+      );
     } catch (e) {
       console.warn("Failed to send refund restoration email:", e.message);
     }
   }
 
-  return restored;
+  return { ...restored, restoredCents: deltaCents };
+}
+
+/**
+ * An abandoned checkout leaves its ephemeral gift-card coupon behind -- a
+ * live amount_off coupon in the Stripe account, usable by anyone who knows
+ * its id, for a balance the shopper still has on their card. Delete it when
+ * Stripe reports the session expired. A coupon that is already gone (404) is
+ * success: this handler has to be safe to redeliver.
+ */
+async function deleteEphemeralCoupon(couponId, secretKey) {
+  const key = secretKey || process.env.STRIPE_SECRET_KEY || STRIPE_SECRET_KEY;
+  if (!couponId || !key) return { deleted: false };
+  const res = await fetch(`https://api.stripe.com/v1/coupons/${encodeURIComponent(couponId)}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${key}`, "Stripe-Version": STRIPE_API_VERSION }
+  });
+  if (res && res.ok) return { deleted: true };
+  if (res && res.status === 404) return { deleted: true, alreadyGone: true };
+  throw new Error("Could not delete ephemeral gift-card coupon " + couponId);
 }
 
 exports.handler = async (event) => {
@@ -545,17 +758,41 @@ exports.handler = async (event) => {
   try {
     stripeEvent = verifyStripeSignature(rawBody, signatureHeader, webhookSecret);
   } catch (err) {
+    // Log the real reason, return a fixed string. Echoing err.message told an
+    // unauthenticated caller exactly WHY their forged signature was rejected
+    // -- missing header vs. malformed header vs. timestamp outside tolerance
+    // vs. signature mismatch -- which is a free oracle for probing the
+    // verification logic (and for confirming whether a secret is configured
+    // at all).
     console.error("Webhook signature verification failed:", err.message);
-    return { statusCode: 400, body: "Invalid signature: " + err.message };
+    return { statusCode: 400, body: "Invalid signature" };
   }
 
-  if (stripeEvent.type === "charge.refunded" || stripeEvent.type === "refund.created") {
+  // Only charge.refunded. refund.created fires for the same money, so
+  // handling both restored a refunded balance twice.
+  if (stripeEvent.type === "charge.refunded") {
     try {
       var refundObj = stripeEvent.data.object;
       await handleGiftCardRefund(refundObj, STRIPE_SECRET_KEY);
       return { statusCode: 200, body: "Refund processed successfully" };
     } catch (refundErr) {
       console.error("Refund processing error:", refundErr);
+      return { statusCode: 500, body: "Internal Server Error" };
+    }
+  }
+
+  // An abandoned checkout leaves its ephemeral gift-card coupon live in the
+  // Stripe account. Clean it up when the session expires.
+  if (stripeEvent.type === "checkout.session.expired") {
+    try {
+      var expiredSession = stripeEvent.data.object || {};
+      var ephemeralCouponId = (expiredSession.metadata || {}).gift_card_ephemeral_coupon_id || null;
+      if (ephemeralCouponId) {
+        await deleteEphemeralCoupon(ephemeralCouponId, STRIPE_SECRET_KEY);
+      }
+      return { statusCode: 200, body: "Expired session processed" };
+    } catch (expiredErr) {
+      console.error("Expired session cleanup error:", expiredErr);
       return { statusCode: 500, body: "Internal Server Error" };
     }
   }
@@ -585,23 +822,56 @@ exports.handler = async (event) => {
       return { statusCode: 200, body: "Session processed (no new gift cards purchased)" };
     }
 
-    await Promise.all(
-      giftIndexes.map(async function (n) {
+    /* One metadata group per gift-card LINE now carries its quantity
+       (gift_card_N_qty), rather than the Worker writing a group per unit --
+       that expansion pushed large orders past Stripe's 50-key metadata cap,
+       so cards a shopper had paid for never reached this webhook at all.
+       Expand it here into one code per unit.
+
+       The unit key feeds both deriveGiftCardCode and the Stripe
+       Idempotency-Keys, so it must be STABLE across redeliveries: a line with
+       qty 1 keeps the bare index it has always used (index 1 -> "1"), which
+       means every code minted before this change still re-derives to exactly
+       the same string on a retry. Only multi-unit lines use "N-Q". */
+    var giftUnits = [];
+    giftIndexes
+      .sort(function (a, b) {
+        return a - b;
+      })
+      .forEach(function (n) {
         var prefix = "gift_card_" + n;
-        var amountCents = Number(metadata[prefix + "_amount_cents"]);
-        var recipientEmail = metadata[prefix + "_recipient"];
-        var senderName = metadata[prefix + "_sender"];
-        var personalMessage = metadata[prefix + "_message"];
+        var parsedQty = parseInt(metadata[prefix + "_qty"], 10);
+        var qty = Number.isFinite(parsedQty) && parsedQty > 0 ? parsedQty : 1;
+        for (var q = 1; q <= qty; q++) {
+          giftUnits.push({
+            unitKey: qty > 1 ? n + "-" + q : String(n),
+            amountCents: Number(metadata[prefix + "_amount_cents"]),
+            recipientEmail: metadata[prefix + "_recipient"],
+            senderName: metadata[prefix + "_sender"],
+            personalMessage: metadata[prefix + "_message"]
+          });
+        }
+      });
+
+    await Promise.all(
+      giftUnits.map(async function (unit) {
+        var unitKey = unit.unitKey;
+        var amountCents = unit.amountCents;
+        var recipientEmail = unit.recipientEmail;
+        var senderName = unit.senderName;
+        var personalMessage = unit.personalMessage;
 
         if (!recipientEmail || !Number.isFinite(amountCents) || amountCents <= 0) {
-          console.error("Gift card metadata incomplete for session " + session.id + ", index " + n);
+          console.error(
+            "Gift card metadata incomplete for session " + session.id + ", index " + unitKey
+          );
           return;
         }
 
-        var uniqueCode = deriveGiftCardCode(session.id, n, webhookSecret);
+        var uniqueCode = deriveGiftCardCode(session.id, unitKey, webhookSecret);
         var confirmedCode = await createGiftCardPromotionCode(
           session.id,
-          n,
+          unitKey,
           amountCents,
           uniqueCode,
           {
@@ -648,7 +918,7 @@ exports.handler = async (event) => {
           process.env.RESEND_FROM_EMAIL ||
           "Y'allternative Living <gifts@yallternativeliving.com>";
 
-        var emailIdempotencyKey = "gift-email-" + session.id + "-" + n;
+        var emailIdempotencyKey = "gift-email-" + session.id + "-" + unitKey;
         var sendResult;
         try {
           sendResult = await resendClient.emails.send(
@@ -733,7 +1003,7 @@ exports.handler = async (event) => {
             `Keep this code for your records or forward it to your recipient if needed.\n` +
             `Redeem at checkout on https://yallternativeliving.com`;
 
-          var buyerIdempotencyKey = "gift-buyer-email-" + session.id + "-" + n;
+          var buyerIdempotencyKey = "gift-buyer-email-" + session.id + "-" + unitKey;
           try {
             await resendClient.emails.send(
               {
@@ -776,3 +1046,6 @@ exports.handleGiftCardRedemption = handleGiftCardRedemption;
 exports.handleGiftCardRefund = handleGiftCardRefund;
 exports.findUsedPromotionCode = findUsedPromotionCode;
 exports.getResendClient = getResendClient;
+exports.fetchPromotionCodeById = fetchPromotionCodeById;
+exports.findActivePromotionByCode = findActivePromotionByCode;
+exports.deleteEphemeralCoupon = deleteEphemeralCoupon;
