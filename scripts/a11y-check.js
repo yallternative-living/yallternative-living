@@ -14,13 +14,21 @@
  * gallery dots (2.5.8 target-size, serious) went unnoticed on all 19 product
  * pages.
  *
+ * Every page is scanned once per THEME. styles.css defines a dark and a light
+ * palette and the site ships an inline blocking script that stamps
+ * data-theme on <html>, so a single scan only ever exercised whichever theme
+ * headless Chromium happened to resolve (light, since prefers-color-scheme
+ * defaults to light in a headless profile). Half the palette was therefore
+ * ungated: a colour-contrast regression in dark mode could ship green. Both
+ * themes are asserted here, so 34 pages means 68 scans.
+ *
  * Manages its own static server on port 8084, so nothing external needs to be
  * running first.
  *
  * Run: node scripts/a11y-check.js
  */
 
-/* global document */
+/* global document, window */
 
 const http = require("http");
 const fs = require("fs");
@@ -31,6 +39,11 @@ const PORT = 8084;
 const ROOT = path.resolve(__dirname, "..");
 
 const AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"];
+
+/* The two palettes styles.css defines. Scanned by stamping data-theme on
+   <html> -- the same attribute the site's own inline theme script sets -- so
+   axe resolves the real computed colours for each. */
+const THEMES = ["dark", "light"];
 
 const MIME = {
   ".html": "text/html",
@@ -96,7 +109,10 @@ function collectPages() {
 
   const axeSource = fs.readFileSync(require.resolve("axe-core/axe.min.js"), "utf8");
   const server = await createStaticServer(PORT);
-  console.log(`Starting Accessibility Gate (axe-core, WCAG 2.2 AA) on ${pages.length} pages...`);
+  console.log(
+    `Starting Accessibility Gate (axe-core, WCAG 2.2 AA) on ${pages.length} pages ` +
+      `x ${THEMES.length} themes (${pages.length * THEMES.length} scans)...`
+  );
 
   const browser = await puppeteer.launch({
     headless: true,
@@ -108,41 +124,65 @@ function collectPages() {
 
   try {
     for (const pageName of pages) {
-      const page = await browser.newPage();
-      try {
-        /* networkidle2, like the rest of the integration suite: the pages
-           preconnect to Google Fonts and the analytics origin, and waiting for
-           networkidle0 means eating a full navigation timeout per page
-           whenever those hang -- minutes of wall clock for a gate that has to
-           run on every push. The rendered DOM axe needs (product grid, UGC
-           feed, cart chrome) is in place either way. */
-        await page.goto(`http://127.0.0.1:${PORT}/${pageName}`, {
-          waitUntil: "networkidle2",
-          timeout: 30000
-        });
-        await page.evaluate(axeSource);
-        const result = await page.evaluate(async (tags) => {
-          // eslint-disable-next-line no-undef
-          return await axe.run(document, { runOnly: { type: "tag", values: tags } });
-        }, AXE_TAGS);
+      for (const theme of THEMES) {
+        /* A fresh page per theme, with the theme seeded before the document
+           loads. Flipping data-theme on an already-scanned page and re-running
+           axe does NOT work: axe-core caches resolved ancestor background
+           colours across runs in the same document, so the second run pairs the
+           new theme's foreground with the previous theme's background and
+           reports ~65 bogus colour-contrast failures per page. Seeding the same
+           localStorage key the site's own no-flash bootstrap reads also means
+           the theme is in place before first paint, exactly as in a real visit. */
+        const page = await browser.newPage();
+        try {
+          await page.evaluateOnNewDocument((t) => {
+            try {
+              window.localStorage.setItem("yl-theme", t);
+            } catch {
+              /* storage unavailable -- the attribute set after load still applies */
+            }
+          }, theme);
 
-        if (!result.violations.length) {
-          console.log(`  ✓ ${pageName}`);
-          continue;
-        }
+          /* networkidle2, like the rest of the integration suite: the pages
+             preconnect to Google Fonts and the analytics origin, and waiting for
+             networkidle0 means eating a full navigation timeout per page
+             whenever those hang -- minutes of wall clock for a gate that has to
+             run on every push. The rendered DOM axe needs (product grid, UGC
+             feed, cart chrome) is in place either way. */
+          await page.goto(`http://127.0.0.1:${PORT}/${pageName}`, {
+            waitUntil: "networkidle2",
+            timeout: 30000
+          });
+          /* Belt and braces: assert the theme even if storage was unavailable
+             or the page has no theme bootstrap of its own. */
+          await page.evaluate((t) => {
+            document.documentElement.setAttribute("data-theme", t);
+          }, theme);
+          await page.evaluate(axeSource);
+          const result = await page.evaluate(async (tags) => {
+            // eslint-disable-next-line no-undef
+            return await axe.run(document, { runOnly: { type: "tag", values: tags } });
+          }, AXE_TAGS);
 
-        violationCount += result.violations.length;
-        console.log(`  ✗ ${pageName} -- ${result.violations.length} violation(s):`);
-        result.violations.forEach((v) => {
-          console.log(`      [${v.impact}] ${v.id}: ${v.help}`);
-          console.log(`        ${v.helpUrl}`);
-          v.nodes.slice(0, 5).forEach((n) => console.log(`        -> ${n.target.join(", ")}`));
-          if (v.nodes.length > 5) {
-            console.log(`        -> ...and ${v.nodes.length - 5} more node(s)`);
+          const label = `${pageName} [${theme}]`;
+          if (!result.violations.length) {
+            console.log(`  ✓ ${label}`);
+            continue;
           }
-        });
-      } finally {
-        await page.close();
+
+          violationCount += result.violations.length;
+          console.log(`  ✗ ${label} -- ${result.violations.length} violation(s):`);
+          result.violations.forEach((v) => {
+            console.log(`      [${v.impact}] ${v.id}: ${v.help}`);
+            console.log(`        ${v.helpUrl}`);
+            v.nodes.slice(0, 5).forEach((n) => console.log(`        -> ${n.target.join(", ")}`));
+            if (v.nodes.length > 5) {
+              console.log(`        -> ...and ${v.nodes.length - 5} more node(s)`);
+            }
+          });
+        } finally {
+          await page.close();
+        }
       }
     }
   } finally {
@@ -153,12 +193,15 @@ function collectPages() {
   console.log("\n==================================================");
   if (violationCount) {
     console.log(
-      `Accessibility gate FAILED: ${violationCount} violation(s) across ${pages.length} pages.`
+      `Accessibility gate FAILED: ${violationCount} violation(s) across ${pages.length} pages ` +
+        `x ${THEMES.length} themes.`
     );
     console.log("==================================================");
     process.exit(1);
   }
-  console.log(`Accessibility gate PASSED: 0 violations across ${pages.length} pages.`);
+  console.log(
+    `Accessibility gate PASSED: 0 violations across ${pages.length} pages x ${THEMES.length} themes.`
+  );
   console.log("==================================================");
 })().catch((err) => {
   console.error("Accessibility gate crashed:", err);

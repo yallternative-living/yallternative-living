@@ -61,9 +61,17 @@
   --paper-dim: #5b4d3d; /* muted body text on light */
   /* #a8631f (the original "darkened for AA contrast" amber) still fell
      short at the small text sizes .eyebrow/.card-cat actually use --
-     4.3:1 vs the 4.5:1 AA floor. Darkened one more notch to #93571b,
-     which clears 4.5:1 against both --ink and --ink-2 at those sizes. */
-  --whiskey: #93571b;
+     4.3:1 vs the 4.5:1 AA floor. #93571b cleared 4.5:1 against flat --ink
+     and --ink-2, but not against the amber-TINTED chip fills this file
+     builds with `oklch(from var(--whiskey) l c h / <alpha>)`: tinting a
+     light surface with a dark amber darkens the background, so
+     .dispatch-badge (.12 tint, 4.10:1) and .concern-pill.active (.18
+     tint, 4.17:1) both landed under the floor on every product card.
+     Darkened to #7f4a13, which clears 4.5:1 on flat surfaces AND on the
+     .10-.18 self-tints (4.6:1-5.1:1). --whiskey is only ever used in
+     light mode as text on a light surface or as a fill under --ink text,
+     so darkening only ever raises contrast. */
+  --whiskey: #7f4a13;
   --whiskey-dim: #7a4816;
   --rose: #9c2f45; /* wine accent, darkened for contrast (NOT for text!) */
   --rose-dim: #7d3140;
@@ -72,7 +80,11 @@
 
   /* Semantic Tokens */
   --error: #d13b3b;
-  --success: #3b8248;
+  /* Same tint story as --whiskey: #3b8248 as text on its own .12 tint was
+     3.39:1 (.receipt-status-badge on thank-you). #276030 clears 4.7:1+ on
+     the tints and lifts white-on-fill (.timeline-step.step-done,
+     .search-add-btn.is-added) from 4.70:1 to 7.49:1. */
+  --success: #276030;
   --focus-ring: var(--whiskey);
 
   --shadow: 0 12px 26px -14px rgba(60, 40, 20, 0.28);
@@ -91,12 +103,14 @@
     --hide: #c4a880;
     --paper: #221a14;
     --paper-dim: #5b4d3d;
-    --whiskey: #93571b;
+    --whiskey: #7f4a13;
     --whiskey-dim: #7a4816;
     --rose: #9c2f45;
     --rose-dim: #7d3140;
     --rose-text: var(--rose);
     --sage: #4f6a45;
+    --error: #d13b3b;
+    --success: #276030;
     --shadow: 0 12px 26px -14px rgba(60, 40, 20, 0.28);
     --nav-bg: rgb(250, 245, 234);
     --footer-bg: #ece2cd;
@@ -1323,11 +1337,15 @@ section {
   }
 }
 
-/* In light theme the .16 amber tint darkens the badge fill to ~#edddc4,
-   which drops --whiskey (#93571b) text to 4.34:1 -- just under the 4.5:1
-   AA floor (axe-core color-contrast). --whiskey-dim (#7a4816) clears it at
-   ~5.7:1. Dark theme's lighter amber text already passes, so scope to light
-   only. Covers both explicit toggle and OS-preference-only visitors. */
+/* In light theme the .16 amber tint darkens the badge fill to ~#edddc4.
+   The old --whiskey (#93571b) dropped to 4.34:1 there -- just under the
+   4.5:1 AA floor (axe-core color-contrast) -- so this pinned the text to
+   --whiskey-dim (#7a4816, ~5.7:1). --whiskey has since been darkened to
+   #7f4a13 for the same class of tint failures and now clears it on its
+   own; the pin stays because "lowest stock" reads better a shade deeper
+   than the other amber chips. Dark theme's lighter amber text already
+   passes, so scope to light only. Covers both explicit toggle and
+   OS-preference-only visitors. */
 :root[data-theme="light"] .stock-badge.low-stock,
 :root:not([data-theme="dark"]):not([data-theme="light"]) .stock-badge.low-stock {
   color: var(--whiskey-dim);
@@ -1689,10 +1707,23 @@ section {
   border: 1px solid rgba(76, 175, 80, 0.3);
 }
 
-[data-theme="light"] .badge-verified {
-  background: rgba(46, 125, 50, 0.12);
-  color: #2e7d32;
-  border-color: rgba(46, 125, 50, 0.25);
+/* #2e7d32 sat at 3.66:1 on its own .12 green tint (55 nodes across
+   shop/reviews). Matched to the light --success green (#276030), which
+   clears 5.3:1 on the same tint. The second selector covers
+   OS-preference-only visitors, who previously fell through to the
+   dark-theme #4caf50 on a light fill. */
+:root[data-theme="light"] .badge-verified {
+  background: rgba(39, 96, 48, 0.12);
+  color: #276030;
+  border-color: rgba(39, 96, 48, 0.28);
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]):not([data-theme="light"]) .badge-verified {
+    background: rgba(39, 96, 48, 0.12);
+    color: #276030;
+    border-color: rgba(39, 96, 48, 0.28);
+  }
 }
 
 .reviews-count-banner {
