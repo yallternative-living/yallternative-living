@@ -1692,5 +1692,83 @@ assert(
   "hasPainted decides on how old the paint is"
 );
 
+/* ---------- H-6: the order status page reports, it does not invent ----------
+   The page used to answer any plausible-looking string with "Order Confirmed",
+   a four-step timeline, a hardcoded two-item order, a printable packing slip
+   and a Reorder button that pushed those invented items into the real cart --
+   with no request made anywhere. It now asks a real endpoint and reports what
+   comes back; when it cannot, it hands over to a person. These assertions hold
+   both halves of that: the fabrication stays gone, and the lookup stays real.
+
+   The branch-by-branch behaviour lives in scripts/order-status-engine.test.js;
+   what is asserted here is the shape of the module itself. */
+assert(
+  mainJsSource.indexOf('var ORDER_STATUS_ENDPOINT = "/api/order-status"') !== -1,
+  "main.js posts the lookup to the Worker route, same-origin via the /api/* proxy"
+);
+["sampleOrderItems", "slipItemsTableBody", "slipGiftMessageText", "reorderPastOrderBtn"].forEach(
+  (needle) => {
+    assert(
+      mainJsSource.indexOf(needle) === -1,
+      `main.js no longer references the fabricated ${needle}`
+    );
+  }
+);
+
+/* Every string in the Worker's answer -- Stripe line item names, a
+   merchant-typed tracking URL -- reaches the page as text, never as markup. */
+assert(
+  typeof main.renderOrderStatusResult === "function",
+  "renderOrderStatusResult is exported so its source can be gated"
+);
+assert(
+  /innerHTML|insertAdjacentHTML|outerHTML|document\.write/.test(
+    main.renderOrderStatusResult.toString()
+  ) === false,
+  "renderOrderStatusResult writes no server string through a markup sink"
+);
+
+/* Both fields are required before a request is spent, and the reference is
+   Stripe's own shape rather than anything that merely looks like an id. */
+eq(
+  main.validateOrderLookup("cs_live_abc123", "").ok,
+  false,
+  "a reference without an email is refused (the email is the other half of the credential)"
+);
+eq(
+  main.validateOrderLookup("", "savanna@example.com").ok,
+  false,
+  "an email without a reference is refused"
+);
+eq(
+  main.validateOrderLookup("YL-2026-0842", "savanna@example.com").ok,
+  false,
+  "the invented YL-#### reference format is no longer accepted"
+);
+eq(
+  main.validateOrderLookup("cs_live_abc123", "savanna@example.com").ok,
+  true,
+  "a Stripe session id plus an email is accepted"
+);
+
+/* The one place the site is still allowed to speak without a 200 behind it. */
+const handoffHtml = main.orderStatusFallbackHTML("cs_live_abc123");
+assert(
+  handoffHtml.indexOf("order-lookup-unavailable") !== -1,
+  "the hand-off is still the answer when the lookup cannot speak"
+);
+assert(
+  handoffHtml.indexOf("mailto:y.allternative.living@gmail.com") !== -1,
+  "the hand-off offers a real person to write to"
+);
+["Order Confirmed", "In the Workshop", "Quality Sealed", "timeline-step", "Reorder"].forEach(
+  (needle) => {
+    assert(
+      handoffHtml.indexOf(needle) === -1,
+      `the hand-off asserts nothing about an order it never fetched: ${needle}`
+    );
+  }
+);
+
 console.log(`\nmain.test.js: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

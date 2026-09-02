@@ -3298,17 +3298,394 @@
     };
   }
 
-  /* ---------- Order status: the honest lookup ----------
-     There is no order API on this site. The page used to answer any
-     syntactically plausible string with "Order Confirmed, payment processed
-     securely via Stripe", a four-step fulfilment timeline, a hardcoded
-     two-item order and a printable packing slip -- none of it fetched from
-     anywhere, all of it fabricated for whatever the visitor typed. It also
-     reflected `?email=` straight back into the input and let a "Reorder"
-     button push those invented items into the real cart.
+  /* ---------- Order status: the real lookup ----------
+     History. The page used to answer any syntactically plausible string with
+     "Order Confirmed, payment processed securely via Stripe", a four-step
+     fulfilment timeline, a hardcoded two-item order and a printable packing
+     slip -- none of it fetched from anywhere, all of it fabricated for
+     whatever the visitor typed (audit H-6). That was replaced by an honest
+     "we look this one up by hand" contact route, which is still the answer
+     whenever the lookup cannot speak.
 
-     What the site can honestly offer is what the old fallback branch already
-     said: mail the reference to a human. That is now the only branch. The
+     What exists now. workers/routes/order-status.js is a real endpoint:
+     POST /api/order-status {sessionId, email} against the Stripe Checkout
+     Session, same-origin through the Netlify /api/* proxy, answered
+     no-store. So the page asks it, and reports exactly what comes back.
+
+     AUTHORISATION IS THE WORKER'S JOB. The email is not "verified" here and
+     never was -- this side only checks that the two fields are the right
+     SHAPE before spending a request. The Worker compares the email against
+     `customer_details.email` on the session and answers a byte-identical
+     404 for a wrong email and for a session that does not exist, so nothing
+     on this page can be used to test whether a `cs_...` is real.
+
+     RENDERING. Everything the Worker sends is written with textContent (or
+     an attribute set through safeLinkUrl), never innerHTML -- a line item
+     name comes from Stripe, which takes it from the catalog, and the
+     tracking URL comes from merchant-typed PaymentIntent metadata. See
+     renderOrderStatusResult below; scripts/order-status-engine.test.js
+     greps its source to keep it that way. */
+  var ORDER_STATUS_ENDPOINT = "/api/order-status";
+
+  /* The reference printed on the thank-you page. Stripe's own shape, pinned
+     tighter than the Worker's `cs_[A-Za-z0-9_]{8,255}` so a half-pasted id
+     is caught before it costs a request. */
+  function isStripeSessionId(value) {
+    return /^cs_(live|test)_[A-Za-z0-9]+$/.test(String(value == null ? "" : value).trim());
+  }
+
+  /* Deliberately a shape check, not a validity check: the only authority on
+     whether this address belongs to the order is Stripe, and it is asked. */
+  function isLookupEmail(value) {
+    var str = String(value == null ? "" : value).trim();
+    return str.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str);
+  }
+
+  /**
+   * Client-side gate on the two fields. Returns the request body on success,
+   * or the field to focus and the message to show on failure.
+   */
+  function validateOrderLookup(reference, email) {
+    var ref = String(reference == null ? "" : reference).trim();
+    var mail = String(email == null ? "" : email).trim();
+    if (!ref && !mail) {
+      return {
+        ok: false,
+        field: "reference",
+        message: "Enter the reference from your confirmation page and the email you ordered with."
+      };
+    }
+    if (!ref) {
+      return {
+        ok: false,
+        field: "reference",
+        message: "Enter the reference from your confirmation page (it starts with cs_)."
+      };
+    }
+    if (!isStripeSessionId(ref)) {
+      return {
+        ok: false,
+        field: "reference",
+        message:
+          "That doesn't look like an order reference. It starts with cs_ and is on your " +
+          "confirmation page and receipt email."
+      };
+    }
+    if (!mail) {
+      return { ok: false, field: "email", message: "Enter the email you used at checkout." };
+    }
+    if (!isLookupEmail(mail)) {
+      return {
+        ok: false,
+        field: "email",
+        message: "Enter the email address you used at checkout."
+      };
+    }
+    return { ok: true, sessionId: ref, email: mail };
+  }
+
+  /**
+   * Stripe's `status`/`payment_status` and the merchant's fulfilment key, in
+   * plain words. Deliberately coarse: four sentences a customer can act on,
+   * rather than repeating an API enum at them.
+   */
+  function orderStatusPlainWords(order) {
+    var o = order || {};
+    var session = String(o.status || "").toLowerCase();
+    var payment = String(o.paymentStatus || "").toLowerCase();
+    var fulfilment = String((o.fulfillment || {}).status || "").toLowerCase();
+    if (session === "expired") return "Expired / not completed";
+    if (payment !== "paid" && payment !== "no_payment_required") return "Payment pending";
+    if (fulfilment === "shipped" || fulfilment === "delivered" || fulfilment === "fulfilled") {
+      return "Shipped";
+    }
+    return "Paid, being packed";
+  }
+
+  /** Cents + ISO currency -> "$42.00". Falls back when Intl has no currency data. */
+  function formatOrderAmount(cents, currency) {
+    var value = Number(cents);
+    if (!isFinite(value)) return "";
+    var code = String(currency || "usd").toUpperCase();
+    try {
+      return new Intl.NumberFormat(undefined, { style: "currency", currency: code }).format(
+        value / 100
+      );
+    } catch (e) {
+      void e;
+      return (code === "USD" ? "$" : code + " ") + (value / 100).toFixed(2);
+    }
+  }
+
+  /** Stripe sends `created` as Unix seconds. Rendered in the visitor's zone. */
+  function formatOrderPlacedAt(placedAt) {
+    var seconds = Number(placedAt);
+    if (!isFinite(seconds) || seconds <= 0) return "";
+    var date = new Date(seconds * 1000);
+    if (isNaN(date.getTime())) return "";
+    try {
+      return date.toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "long",
+        day: "numeric"
+      });
+    } catch (e) {
+      void e;
+      return date.toISOString().slice(0, 10);
+    }
+  }
+
+  /**
+   * Writes the Worker's answer into `container`.
+   *
+   * NOTHING HERE MAY USE innerHTML. Every string below originates on the
+   * other side of a network boundary -- line item names come from Stripe,
+   * which takes them from the catalog, and `trackingUrl` from PaymentIntent
+   * metadata a human types -- so each one is set with textContent and the
+   * single href goes through safeLinkUrl, which drops `javascript:` (and its
+   * whitespace-obfuscated cousins) to "". scripts/order-status-engine.test.js
+   * asserts on the source of this function that the string does not appear.
+   */
+  function renderOrderStatusResult(container, order) {
+    if (!container) return null;
+    var doc = container.ownerDocument || document;
+    container.textContent = "";
+
+    var card = doc.createElement("div");
+    card.className = "order-status-result";
+    card.setAttribute("role", "status");
+
+    var heading = doc.createElement("h2");
+    heading.className = "order-status-result-heading";
+    heading.textContent = orderStatusPlainWords(order);
+    card.appendChild(heading);
+
+    var rawTracking = (order && order.fulfillment && order.fulfillment.trackingUrl) || "";
+    var trackingUrl = safeLinkUrl(rawTracking);
+    if (trackingUrl) {
+      var trackP = doc.createElement("p");
+      var trackA = doc.createElement("a");
+      trackA.className = "btn btn-primary";
+      trackA.setAttribute("href", trackingUrl);
+      trackA.setAttribute("rel", "noopener");
+      trackA.setAttribute("target", "_blank");
+      trackA.textContent = "Track this shipment";
+      trackP.appendChild(trackA);
+      card.appendChild(trackP);
+    }
+
+    var placed = formatOrderPlacedAt(order && order.placedAt);
+    if (placed) {
+      var placedP = doc.createElement("p");
+      placedP.className = "order-status-placed";
+      placedP.textContent = "Placed " + placed;
+      card.appendChild(placedP);
+    }
+
+    var items = (order && order.items) || [];
+    if (items.length) {
+      var itemsHeading = doc.createElement("h3");
+      itemsHeading.textContent = "What's in it";
+      card.appendChild(itemsHeading);
+      var list = doc.createElement("ul");
+      list.className = "order-status-items";
+      for (var i = 0; i < items.length; i++) {
+        var item = items[i] || {};
+        var qty = Number(item.quantity);
+        var li = doc.createElement("li");
+        li.textContent =
+          String(item.name == null ? "Item" : item.name) +
+          " × " +
+          (isFinite(qty) && qty > 0 ? qty : 1);
+        list.appendChild(li);
+      }
+      card.appendChild(list);
+    }
+
+    var total = formatOrderAmount(
+      order && (order.amountTotalCents != null ? order.amountTotalCents : order.amountTotal),
+      order && order.currency
+    );
+    if (total) {
+      var totalP = doc.createElement("p");
+      totalP.className = "order-status-total";
+      totalP.textContent = "Order total: " + total;
+      card.appendChild(totalP);
+    }
+
+    /* City and state only. The Worker never sends the street or the phone,
+       and this must not start implying that it does. */
+    var shipping = (order && order.shipping) || null;
+    if (shipping && (shipping.city || shipping.state)) {
+      var where = [shipping.city, shipping.state]
+        .filter(function (part) {
+          return !!part;
+        })
+        .join(", ");
+      var shipP = doc.createElement("p");
+      shipP.className = "order-status-shipping";
+      shipP.textContent = "Shipping to " + where;
+      card.appendChild(shipP);
+    }
+
+    container.appendChild(card);
+    return card;
+  }
+
+  /** The request itself, shared by the dedicated page and the modal. */
+  function orderStatusLookupRequest(sessionId, email, fetchImpl) {
+    var doFetch =
+      fetchImpl ||
+      (typeof window !== "undefined" && typeof window.fetch === "function"
+        ? function () {
+            return window.fetch.apply(window, arguments);
+          }
+        : null);
+    if (!doFetch) return Promise.reject(new Error("fetch unavailable"));
+    /* POSTed, never GETed: a reference in the query string is kept in
+       history, sent on in Referer and logged by every proxy in the path. */
+    return doFetch(ORDER_STATUS_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ sessionId: sessionId, email: email })
+    }).then(function (res) {
+      var status = res && typeof res.status === "number" ? res.status : 0;
+      if (!res || typeof res.json !== "function") return { status: status, data: null };
+      return res.json().then(
+        function (data) {
+          return { status: status, data: data };
+        },
+        function () {
+          return { status: status, data: null };
+        }
+      );
+    });
+  }
+
+  /**
+   * Drives one lookup end to end for whichever controller owns the fields.
+   *
+   * @param {object} ctx referenceInput, emailInput, errorEl, resultContainer,
+   *   resultSection, submitBtn, submitLabel, fetchImpl.
+   * @returns {Promise<string>} the branch taken -- "invalid", "found",
+   *   "not_found", "rate_limited" or "unavailable" -- so callers and tests
+   *   can assert on it without reading the DOM back.
+   */
+  function runOrderStatusLookup(ctx) {
+    var opts = ctx || {};
+    var referenceInput = opts.referenceInput || null;
+    var emailInput = opts.emailInput || null;
+    var errorEl = opts.errorEl || null;
+    var container = opts.resultContainer || null;
+    var section = opts.resultSection || null;
+    var btn = opts.submitBtn || null;
+    var btnLabel = opts.submitLabel || (btn && btn.textContent) || "";
+
+    function showError(message) {
+      if (errorEl) {
+        errorEl.textContent = message;
+        errorEl.hidden = false;
+      }
+    }
+
+    function reveal() {
+      if (section) section.hidden = false;
+      if (container) container.hidden = false;
+    }
+
+    function containerDoc() {
+      return (container && container.ownerDocument) || document;
+    }
+
+    /* Everything the visitor typed stays theirs: the reference is echoed
+       into the mail subject exactly as entered, and the email they gave is
+       never written back to the screen at all. */
+    function handOff(reference) {
+      reveal();
+      if (container) container.innerHTML = orderStatusFallbackHTML(reference || "");
+    }
+
+    var typedReference = referenceInput ? String(referenceInput.value || "").trim() : "";
+
+    var check = validateOrderLookup(
+      referenceInput ? referenceInput.value : "",
+      emailInput ? emailInput.value : ""
+    );
+    if (!check.ok) {
+      showError(check.message);
+      var focusTarget = check.field === "email" ? emailInput : referenceInput;
+      if (focusTarget && typeof focusTarget.focus === "function") focusTarget.focus();
+      return Promise.resolve("invalid");
+    }
+    if (errorEl) errorEl.hidden = true;
+
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Looking up…";
+    }
+    function restoreButton() {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = btnLabel;
+      }
+    }
+
+    return orderStatusLookupRequest(check.sessionId, check.email, opts.fetchImpl).then(
+      function (out) {
+        restoreButton();
+        var status = out ? out.status : 0;
+        var data = (out && out.data) || null;
+
+        if (status === 200 && data && data.found === true) {
+          reveal();
+          renderOrderStatusResult(container, data);
+          return "found";
+        }
+        if (status === 404) {
+          reveal();
+          if (container) {
+            var doc = containerDoc();
+            container.textContent = "";
+            var miss = doc.createElement("p");
+            miss.className = "order-status-not-found";
+            miss.textContent = "We couldn't find an order with that reference and email.";
+            container.appendChild(miss);
+            var wrap = doc.createElement("div");
+            container.appendChild(wrap);
+            wrap.innerHTML = orderStatusFallbackHTML(typedReference);
+          }
+          return "not_found";
+        }
+        if (status === 429) {
+          reveal();
+          if (container) {
+            var rateDoc = containerDoc();
+            container.textContent = "";
+            var rateP = rateDoc.createElement("p");
+            rateP.className = "order-status-rate-limited";
+            rateP.setAttribute("role", "status");
+            rateP.textContent = "Too many lookups; try again in a minute.";
+            container.appendChild(rateP);
+          }
+          return "rate_limited";
+        }
+        /* 500, 503, a proxy that answered HTML, a body that was not JSON:
+           the site cannot say anything true about the order, so it says so
+           and hands over to a person. */
+        handOff(typedReference);
+        return "unavailable";
+      },
+      function () {
+        restoreButton();
+        handOff(typedReference);
+        return "unavailable";
+      }
+    );
+  }
+
+  /* ---------- Order status: the contact hand-off ----------
+     Shown whenever the lookup cannot speak -- the switch is off, the Worker
+     is unreachable, or it answered something this page cannot read. The
      reference is pre-filled into the mail subject so the customer does not
      have to retype it, and the reply window is stated up front. */
   function orderStatusMailtoHref(reference) {
@@ -3321,8 +3698,8 @@
     return (
       '<div class="order-lookup-unavailable" role="status">' +
       "<h2>We look this one up by hand</h2>" +
-      "<p>Order tracking isn&rsquo;t automated here &mdash; every batch is made and boxed by one " +
-      "person, and every lookup is answered by that same person. " +
+      "<p>We couldn&rsquo;t reach the order system just now &mdash; every batch is made and boxed " +
+      "by one person, and that same person can check on it directly. " +
       (safeRef ? "Send us <strong>" + safeRef + "</strong> " : "Send us your order reference ") +
       "and we&rsquo;ll check where it stands and write back " +
       "<strong>within one business day</strong>.</p>" +
@@ -3338,6 +3715,7 @@
   function initOrderStatusPage() {
     var form = document.getElementById("orderStatusPageForm");
     var input = document.getElementById("orderQueryInput");
+    var emailInput = document.getElementById("orderEmailInput");
     var errorDiv = document.getElementById("orderStatusError");
     var resultSection = document.getElementById("orderStatusResultSection");
     var lookupCard = document.getElementById("orderStatusLookupCard");
@@ -3358,43 +3736,26 @@
       return;
     }
 
-    function handleLookup(queryVal) {
-      var val = String(queryVal == null ? (input && input.value) || "" : queryVal).trim();
-      if (!val) {
-        if (errorDiv) {
-          errorDiv.textContent = "Please enter your order reference number.";
-          errorDiv.hidden = false;
-        }
-        return false;
-      }
-      if (errorDiv) errorDiv.hidden = true;
-
-      /* Same shape validation as before -- a Stripe session id, an order
-         reference or an email address. An email is masked before it is shown
-         back, so a shared screen never repeats the address in full. */
-      var parsed = parseOrderStatusQuery(val);
-      var display = parsed
-        ? parsed.displayId
-        : val.length > 28
-          ? val.substring(0, 28) + "..."
-          : val;
-
-      if (resultSection) resultSection.hidden = false;
-      if (timelineContainer) timelineContainer.innerHTML = orderStatusFallbackHTML(display);
-      return true;
-    }
-
     if (form) {
       form.addEventListener("submit", function (e) {
         e.preventDefault();
-        handleLookup(input ? input.value : "");
+        runOrderStatusLookup({
+          referenceInput: input,
+          emailInput: emailInput,
+          errorEl: errorDiv,
+          resultContainer: timelineContainer,
+          resultSection: resultSection,
+          submitBtn: document.getElementById("orderLookupSubmitBtn"),
+          submitLabel: "Look up this order"
+        });
       });
     }
 
-    /* Only the Stripe session id may pre-fill, and it never submits. `?email=`
-       and `?q=` used to be reflected into the field and looked up on load,
-       which put a customer's address on screen (and into any screenshot or
-       shared link) without them typing it. */
+    /* Only the Stripe session id may pre-fill, and it never submits -- the
+       email is the other half of the credential and has to be typed by
+       whoever has it. `?email=` and `?q=` used to be reflected into the
+       field and looked up on load, which put a customer's address on screen
+       (and into any screenshot or shared link) without them typing it. */
     try {
       if (typeof window !== "undefined" && window.location && window.location.search) {
         var urlParams = new URLSearchParams(window.location.search);
@@ -5735,31 +6096,19 @@
     if (form) {
       form.addEventListener("submit", function (e) {
         e.preventDefault();
-        var input = document.getElementById("order-id-input");
-        var val = String((input && input.value) || "").trim();
-        if (!val) {
-          if (errorSpan) {
-            errorSpan.textContent = "Please enter your order reference number.";
-            errorSpan.hidden = false;
-          }
-          return;
-        }
-        if (errorSpan) errorSpan.hidden = true;
-
-        /* Same honest answer as the dedicated page: no order is fetched
-           anywhere, so nothing about one is asserted. See the comment above
-           orderStatusFallbackHTML. */
-        var parsed = parseOrderStatusQuery(val);
-        var display = parsed
-          ? parsed.displayId
-          : val.length > 28
-            ? val.substring(0, 28) + "..."
-            : val;
-
-        if (resultsContainer) {
-          resultsContainer.innerHTML = orderStatusFallbackHTML(display);
-          resultsContainer.hidden = false;
-        }
+        /* One lookup function, two mounts. The modal and the dedicated page
+           differ only in which elements they hand over -- validation, the
+           request, the four response branches and the escaping rules are all
+           runOrderStatusLookup's, so the two can never drift into saying
+           different things about the same order. */
+        runOrderStatusLookup({
+          referenceInput: document.getElementById("order-id-input"),
+          emailInput: document.getElementById("order-email-input"),
+          errorEl: errorSpan,
+          resultContainer: resultsContainer,
+          submitBtn: document.getElementById("order-lookup-btn"),
+          submitLabel: "Look Up Order"
+        });
       });
     }
   }
@@ -8095,6 +8444,16 @@
       initOrderStatusPage: initOrderStatusPage,
       initOrderStatusModal: initOrderStatusModal,
       orderStatusFallbackHTML: orderStatusFallbackHTML,
+      ORDER_STATUS_ENDPOINT: ORDER_STATUS_ENDPOINT,
+      isStripeSessionId: isStripeSessionId,
+      isLookupEmail: isLookupEmail,
+      validateOrderLookup: validateOrderLookup,
+      orderStatusPlainWords: orderStatusPlainWords,
+      formatOrderAmount: formatOrderAmount,
+      formatOrderPlacedAt: formatOrderPlacedAt,
+      renderOrderStatusResult: renderOrderStatusResult,
+      orderStatusLookupRequest: orderStatusLookupRequest,
+      runOrderStatusLookup: runOrderStatusLookup,
       siteFlagEnabled: siteFlagEnabled,
       searchGlobal: searchGlobal,
       tokenizeQuery: tokenizeQuery,
