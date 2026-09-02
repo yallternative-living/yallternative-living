@@ -17,6 +17,14 @@
 
   var STORAGE_KEY = "yl-cart-v1";
   var CHECKOUT_URL = "/api/checkout"; // Cloudflare Worker route (workers/checkout.js)
+  /* Same Worker, same-origin through the Netlify proxy. The legacy Netlify
+     function path this replaced answers 410 now, so nothing on the site may
+     name it any more. */
+  var GIFT_CARD_BALANCE_URL = "/api/gift-card-balance";
+  var GIFT_CARD_THROTTLED = "Too many attempts, try again in a minute.";
+  /* The Worker's own words when a concurrent spend beat this session to the
+     card. Only a fallback: it sends this text with the 409. */
+  var GIFT_CARD_CONFLICT = "That gift card balance changed; please re-apply it.";
   var DEFAULT_FREE_SHIP = 40; // products.json shop.freeShippingThreshold
   var MAX_QTY = 99;
   var GIFT_CARD_ID = "yallternative-gift-card";
@@ -502,29 +510,65 @@
     };
   }
 
-  /* Query live remaining balance of a stored-value gift card from Stripe.
+  /* Gift cards are issued as YALL-XXXX-XXXX-XXXX: twelve characters over an
+     A-Z2-9 alphabet with the ambiguous letters removed. Shoppers type them in
+     lowercase, paste them with the dashes stripped by their mail client, or
+     copy them out of a PDF with a stray space in the middle -- every one of
+     those is the same card, and sending them through unnormalised turns a
+     valid card into a 404 the shopper cannot explain.
+
+     Fold to one canonical form before the lookup, and display that form so
+     the code on screen matches the code on the card. A code of any other
+     length keeps its single dash rather than being regrouped into fours: the
+     legacy 8-character cards (YALL-XXXXXXXX) are still live and still spend,
+     so inventing dash positions for them would break a real code. */
+  function normalizeGiftCardCode(code) {
+    var raw = String(code == null ? "" : code)
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "");
+    if (!raw) return "";
+    if (raw.indexOf("YALL") !== 0) return raw;
+    var body = raw.slice(4);
+    if (!body) return raw;
+    if (body.length === 12) {
+      return "YALL-" + body.slice(0, 4) + "-" + body.slice(4, 8) + "-" + body.slice(8);
+    }
+    return "YALL-" + body;
+  }
+
+  /* Query live remaining balance of a stored-value gift card.
 
      POSTed, not GETed: a code in the query string ends up in browser history,
      the Referer header, any CDN/proxy access log and the service worker's
-     cache key. The function takes {code} as a JSON body and answers
-     Cache-Control: no-store; sw.js additionally refuses to touch /.netlify/
-     at all (see its fetch handler). */
+     cache key. The Worker takes {code} as a JSON body and answers
+     Cache-Control: no-store; sw.js additionally refuses to touch /api/ at all
+     (see its fetch handler). */
   function checkGiftCardBalance(code) {
-    var clean = String(code || "")
-      .trim()
-      .toUpperCase();
+    var clean = normalizeGiftCardCode(code);
     if (!clean) return Promise.reject(new Error("Please enter a gift card code."));
-    return fetch("/.netlify/functions/gift-card-balance", {
+    return fetch(GIFT_CARD_BALANCE_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify({ code: clean })
     }).then(function (res) {
       if (!res.ok) {
         return readJsonSafely(res).then(function (data) {
+          /* 429 is the endpoint's rate limiter, not a verdict on the code.
+             Repeating "not found" here would send the shopper hunting for a
+             second card they do not have, and hammering a throttle that only
+             clears with silence. */
+          if (res.status === 429) throw new Error(GIFT_CARD_THROTTLED);
           throw new Error((data && data.error) || "Gift card code not found or exhausted.");
         });
       }
-      return res.json();
+      return readJsonSafely(res).then(function (data) {
+        if (!data || typeof data !== "object") {
+          throw new Error("Gift card code not found or exhausted.");
+        }
+        /* Display the canonical form even if the endpoint echoes a bare one. */
+        data.code = normalizeGiftCardCode(data.code) || clean;
+        return data;
+      });
     });
   }
 
@@ -549,20 +593,14 @@
     );
   }
 
-  /* Alt-Points redemption is switched off end to end: the redeem-points
-     function answers 410 and mints nothing, so there is no voucher to hand
-     back and no reason to make the call. The helper stays exported (as do the
-     wallet helpers below) purely so anything still holding a reference gets a
-     clean rejection instead of a TypeError. */
+  /* Alt-Points redemption is switched off end to end. The old redeem-points
+     endpoint is gone (it answers 410 and mints nothing), so there is no
+     voucher to hand back and nothing left to call: the whole helper went with
+     it. All that survives is the redeemLoyaltyPoints stub on the public
+     surface, so a cached page or an old inline handler gets a clean rejection
+     instead of a TypeError. The wallet helpers below stay for the same
+     reason. */
   var REDEEM_UNAVAILABLE = "Alt-Points redemption is not available yet.";
-
-  function redeemPoints(points) {
-    var pts = Number(points);
-    if (!pts || pts < 100) {
-      return Promise.reject(new Error("At least 100 Alt-Points are required to redeem."));
-    }
-    return Promise.reject(new Error(REDEEM_UNAVAILABLE));
-  }
 
   /* Generate a shareable link that encodes the current cart state. */
   function generateShareCartUrl(items) {
@@ -860,7 +898,7 @@
       addToList: addToList,
       toCheckoutPayload: toCheckoutPayload,
       checkGiftCardBalance: checkGiftCardBalance,
-      redeemPoints: redeemPoints,
+      normalizeGiftCardCode: normalizeGiftCardCode,
       generateShareCartUrl: generateShareCartUrl,
       parseSharedCartParam: parseSharedCartParam,
       getWalletPoints: getWalletPoints,
@@ -1130,7 +1168,7 @@
   function normalizeGiftCard(gc) {
     if (!gc || typeof gc !== "object") return null;
     if (gc.valid === false) return null;
-    var code = typeof gc.code === "string" ? gc.code.trim().toUpperCase() : "";
+    var code = typeof gc.code === "string" ? normalizeGiftCardCode(gc.code) : "";
     var balance = Number(gc.balance);
     if (!code || !isFinite(balance) || balance <= 0) return null;
     return { code: code, balance: Math.round(balance * 100) / 100, valid: true };
@@ -1768,7 +1806,9 @@
           (state.giftCardOpen ? ' style="display: flex;"' : ' style="display: none;"') +
           ">" +
           '  <div class="yl-cart-giftcard-input-row">' +
-          '    <input type="text" class="yl-cart-giftcard-input" placeholder="YALL-XXXXXXXX" maxlength="20" aria-label="Gift card code">' +
+          /* maxlength allows for a pasted code carrying its own spacing --
+             normalizeGiftCardCode strips it before the lookup. */
+          '    <input type="text" class="yl-cart-giftcard-input" placeholder="YALL-XXXX-XXXX-XXXX" maxlength="24" aria-label="Gift card code">' +
           '    <button type="button" class="yl-cart-giftcard-btn"' +
           (state.giftCardLoading ? " disabled" : "") +
           ">" +
@@ -2232,23 +2272,43 @@
         /* The Worker answers 400 with curated, shopper-safe text ("That gift
            card has already been used", "Pick-up market is no longer
            available"). Showing the house "try again in a moment" for those
-           told the shopper to retry something that will never succeed. Any
-           other status is an infrastructure problem whose message is not
+           told the shopper to retry something that will never succeed.
+
+           409 is the gift-card ledger refusing a stale balance: between the
+           lookup that applied this card and this click, another tab or
+           another holder of the same code spent it. It reads like a 400 to
+           the shopper -- their own words, Checkout usable again -- but the
+           card in state is worthless now and has to go with it, or every
+           retry re-sends the same dead code and fails the same way forever.
+
+           Any other status is an infrastructure problem whose message is not
            ours to show. */
+        var status = res ? res.status : 0;
         var err = new Error("Checkout unavailable");
         if (
-          res &&
-          res.status === 400 &&
+          (status === 400 || status === 409) &&
           data &&
           typeof data.error === "string" &&
           data.error.trim()
         ) {
           err.shopperMessage = data.error.trim();
         }
+        if (status === 409) {
+          err.clearGiftCard = true;
+          if (!err.shopperMessage) err.shopperMessage = GIFT_CARD_CONFLICT;
+        }
         throw err;
       })
       .catch(function (err) {
         settle();
+        if (err && err.clearGiftCard) {
+          /* save() drops yl_applied_gift_card with it, so a reload does not
+             resurrect the spent card. */
+          state.appliedGiftCard = null;
+          state.giftCardOpen = false;
+          state.giftCardError = "";
+          save();
+        }
         /* render() re-enables the button from checkoutInFlight, so the drawer
            recovers even if this render replaced the node the click came
            from. */
@@ -2535,6 +2595,7 @@
     addItems: addItems,
     addCustomBox: addCustomBox,
     applyGiftCard: applyGiftCard,
+    normalizeGiftCardCode: normalizeGiftCardCode,
     getWalletPoints: getWalletPoints,
     setWalletPoints: setWalletPoints,
     redeemLoyaltyPoints: redeemLoyaltyPoints,

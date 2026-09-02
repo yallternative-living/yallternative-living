@@ -17,6 +17,9 @@ const cart = require("../assets/js/cart.js");
 
 let passed = 0;
 let failed = 0;
+/* Assertions that have to await a promise push it here; the summary at the
+   foot of the file waits on all of them before counting. */
+const asyncChecks = [];
 function eq(actual, expected, label) {
   const a = JSON.stringify(actual);
   const e = JSON.stringify(expected);
@@ -641,10 +644,15 @@ else global.window.YL_PRODUCTS = savedWindowYlProducts;
    ----------------------------------------------------------
    sw.js ran every same-origin GET through its cache layer, which included
    /.netlify/functions/* (gift-card balance, order status) and /api/* (the
-   Cloudflare Worker checkout proxy). Those responses are per-request and
-   sometimes single-use, so caching one hands the next shopper a stale
-   balance or a dead checkout session. The fetch handler now returns for
-   those two prefixes BEFORE any caches.* call and before respondWith().
+   Cloudflare Worker routes -- checkout, and now the gift-card balance).
+   Those responses are per-request and sometimes single-use, so caching one
+   hands the next shopper a stale balance or a dead checkout session. The
+   fetch handler now returns for those two prefixes BEFORE any caches.* call
+   and before respondWith().
+
+   The Netlify prefix is still asserted even though nothing on the site calls
+   it any more: those paths answer 410, and a cached 410 would outlive the
+   deploy that fixed whatever old page was still asking for them.
 
    This loads the real sw.js in a vm with a fake `self` and records whether
    respondWith() was called for each path. It fails against the old handler
@@ -876,64 +884,415 @@ else global.window.YL_PRODUCTS = savedWindowYlProducts;
 }
 
 /* ==========================================================
-   Gift-card codes travel in a POST body, never in a URL
+   Gift-card codes are normalised, and travel in a POST body
    ----------------------------------------------------------
    A GET put the code in the query string, where it lands in browser
    history, the Referer header and every proxy log between here and the
-   function. Both callers (this helper and assets/js/gift-card.js) now POST
-   {code} to the same endpoint, which answers Cache-Control: no-store.
+   endpoint. Both callers (this helper and assets/js/gift-card.js) POST
+   {code} to /api/gift-card-balance on the Worker, which answers
+   Cache-Control: no-store.
+
+   Codes are issued as YALL-XXXX-XXXX-XXXX. A shopper types that in
+   lowercase, or pastes it with the dashes eaten, and every one of those is
+   the same card -- so the code is folded to one canonical form before it
+   goes anywhere, and shown back in that form. The legacy 8-character cards
+   are still live and must survive the fold with their single dash intact.
+   ========================================================== */
+{
+  /* input -> canonical form. Case and dashes are the only things that may
+     change: no character is ever added, dropped or reordered. */
+  const CODE_CASES = [
+    ["YALL-ABC1-DEF2-GH34", "YALL-ABC1-DEF2-GH34"],
+    ["yall-abc1-def2-gh34", "YALL-ABC1-DEF2-GH34"],
+    ["yallabc1def2gh34", "YALL-ABC1-DEF2-GH34"],
+    ["  YALL ABC1 DEF2 GH34  ", "YALL-ABC1-DEF2-GH34"],
+    ["yall-abc1def2-gh34", "YALL-ABC1-DEF2-GH34"],
+    // The 8-character legacy shape passes through with its one dash.
+    ["YALL-AB12CD34", "YALL-AB12CD34"],
+    ["yall-ab12cd34", "YALL-AB12CD34"],
+    ["yallab12cd34", "YALL-AB12CD34"],
+    // Neither 8 nor 12: no dashes are invented at positions that mean
+    // nothing, because guessing would corrupt a code that does spend.
+    ["yall-abc", "YALL-ABC"],
+    ["YALL", "YALL"],
+    ["", ""],
+    ["   ", ""]
+  ];
+
+  CODE_CASES.forEach(([input, expected]) => {
+    eq(
+      cart.normalizeGiftCardCode(input),
+      expected,
+      `normalizeGiftCardCode(${JSON.stringify(input)}) -> ${JSON.stringify(expected)}`
+    );
+  });
+
+  // Normalising a canonical code again must be a no-op.
+  CODE_CASES.forEach(([, expected]) => {
+    eq(
+      cart.normalizeGiftCardCode(expected),
+      expected,
+      `normalizeGiftCardCode is idempotent for ${JSON.stringify(expected)}`
+    );
+  });
+}
+
+{
+  const originalFetch = global.fetch;
+  const calls = [];
+  function stubFetch(response) {
+    calls.length = 0;
+    global.fetch = (url, opts) => {
+      calls.push({ url: String(url), opts: opts || {} });
+      return Promise.resolve(response);
+    };
+  }
+
+  stubFetch({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      valid: true,
+      code: "YALL-ABC1-DEF2-GH34",
+      balanceCents: 1000,
+      balance: 10,
+      formattedBalance: "$10.00"
+    })
+  });
+
+  asyncChecks.push(
+    (async () => {
+      const data = await cart.checkGiftCardBalance("  yall-abc1def2 gh34  ");
+      eq(calls.length, 1, "checkGiftCardBalance issues one request");
+      eq(calls[0].url, "/api/gift-card-balance", "checkGiftCardBalance posts to the Worker route");
+      eq(
+        /\.netlify/.test(calls[0].url),
+        false,
+        "checkGiftCardBalance no longer calls the Netlify function path"
+      );
+      eq(calls[0].opts.method, "POST", "checkGiftCardBalance POSTs");
+      eq(
+        JSON.parse(calls[0].opts.body),
+        { code: "YALL-ABC1-DEF2-GH34" },
+        "checkGiftCardBalance sends the normalised code in the body, and nothing else"
+      );
+      eq(data.balanceCents, 1000, "checkGiftCardBalance returns the Worker's balanceCents");
+      eq(data.code, "YALL-ABC1-DEF2-GH34", "checkGiftCardBalance returns the normalised code");
+
+      /* A 200 that echoes a bare code still displays in the canonical shape
+         -- the code on screen has to match the code on the card. */
+      stubFetch({
+        ok: true,
+        status: 200,
+        json: async () => ({ valid: true, code: "yallabc1def2gh34", balance: 10 })
+      });
+      const bare = await cart.checkGiftCardBalance("YALL-ABC1-DEF2-GH34");
+      eq(bare.code, "YALL-ABC1-DEF2-GH34", "a bare echoed code is re-normalised for display");
+
+      /* 404: the endpoint's own words reach the shopper. */
+      stubFetch({
+        ok: false,
+        status: 404,
+        json: async () => ({ valid: false, error: "Gift card not found." })
+      });
+      let rejection = null;
+      try {
+        await cart.checkGiftCardBalance("YALL-NOPE-NOPE-NOPE");
+      } catch (err) {
+        rejection = err;
+      }
+      eq(rejection instanceof Error, true, "a 404 rejects");
+      eq(rejection.message, "Gift card not found.", "a 404 shows the endpoint's message");
+
+      /* 429 is the rate limiter, not a verdict on the code: saying "not
+         found" would send the shopper hunting for a card in their hand. */
+      stubFetch({
+        ok: false,
+        status: 429,
+        json: async () => ({ error: "rate_limited" })
+      });
+      rejection = null;
+      try {
+        await cart.checkGiftCardBalance("YALL-ABC1-DEF2-GH34");
+      } catch (err) {
+        rejection = err;
+      }
+      eq(rejection instanceof Error, true, "a 429 rejects");
+      eq(
+        rejection.message,
+        "Too many attempts, try again in a minute.",
+        "a 429 shows the throttle message, not the raw error or 'not found'"
+      );
+
+      /* A 429 whose body is an HTML error page must not surface a parser
+         error in place of the throttle message. */
+      stubFetch({
+        ok: false,
+        status: 429,
+        json: async () => {
+          throw new SyntaxError("Unexpected token < in JSON at position 0");
+        }
+      });
+      rejection = null;
+      try {
+        await cart.checkGiftCardBalance("YALL-ABC1-DEF2-GH34");
+      } catch (err) {
+        rejection = err;
+      }
+      eq(
+        rejection && rejection.message,
+        "Too many attempts, try again in a minute.",
+        "a non-JSON 429 still shows the throttle message"
+      );
+
+      // An empty code never reaches the network at all.
+      stubFetch({ ok: true, status: 200, json: async () => ({}) });
+      rejection = null;
+      try {
+        await cart.checkGiftCardBalance("   ");
+      } catch (err) {
+        rejection = err;
+      }
+      eq(calls.length, 0, "an empty code makes no request");
+      eq(
+        rejection && rejection.message,
+        "Please enter a gift card code.",
+        "an empty code asks for one"
+      );
+
+      global.fetch = originalFetch;
+    })()
+  );
+}
+
+/* ==========================================================
+   The redeem-points plumbing is gone, not merely unused
+   ----------------------------------------------------------
+   C-1: store credit was minted from a localStorage counter. The endpoint
+   answers 410 now, so the helper that called it is deleted outright --
+   leaving a dormant caller around is how a "temporarily disabled" money path
+   gets switched back on by accident. Only the inert redeemLoyaltyPoints stub
+   survives, so a cached page's inline handler gets a rejected promise rather
+   than a TypeError (asserted in cart.test.js against the live YLCart).
+   ========================================================== */
+{
+  eq(typeof cart.redeemPoints, "undefined", "cart.js exports no redeemPoints helper");
+  const fs = require("fs");
+  const path = require("path");
+  const cartSrc = fs.readFileSync(path.join(__dirname, "..", "assets", "js", "cart.js"), "utf8");
+  /* Comments may still explain why the path is gone; a string literal
+     holding the URL is what would make it callable again. */
+  eq(
+    /["'][^"'\n]*redeem-points[^"'\n]*["']/.test(cartSrc),
+    false,
+    "cart.js holds no redeem-points URL in a string literal"
+  );
+  eq(
+    /function\s+redeemPoints/.test(cartSrc),
+    false,
+    "cart.js defines no redeemPoints function at all"
+  );
+}
+
+/* ==========================================================
+   Nothing may call the retired Netlify function paths
+   ----------------------------------------------------------
+   They answer 410 now. A single surviving caller is a dead feature that
+   fails silently in production, so this is asserted against the source of
+   all three browser files rather than against any one code path.
    ========================================================== */
 {
   const fs = require("fs");
   const path = require("path");
-  const calls = [];
-  const originalFetch = global.fetch;
-  global.fetch = (url, opts) => {
-    calls.push({ url: String(url), opts: opts || {} });
-    return Promise.resolve({
-      ok: true,
-      status: 200,
-      json: async () => ({ valid: true, balance: 10, code: "YALL-ABC123" })
-    });
-  };
-
-  cart.checkGiftCardBalance("  yall-abc123  ");
-  eq(calls.length, 1, "checkGiftCardBalance issues one request");
-  eq(
-    calls[0].url,
-    "/.netlify/functions/gift-card-balance",
-    "checkGiftCardBalance puts no code in the URL"
-  );
-  eq(calls[0].opts.method, "POST", "checkGiftCardBalance POSTs");
-  eq(
-    JSON.parse(calls[0].opts.body),
-    { code: "YALL-ABC123" },
-    "checkGiftCardBalance sends the normalised code in the body"
-  );
-
-  // Alt-Points redemption never reaches the network any more.
-  calls.length = 0;
-  let redeemRejection = null;
-  cart.redeemPoints(100).catch((err) => {
-    redeemRejection = err;
+  ["cart.js", "gift-card.js", "thank-you.js"].forEach((file) => {
+    const src = fs.readFileSync(path.join(__dirname, "..", "assets", "js", file), "utf8");
+    eq(src.indexOf("/.netlify/"), -1, `${file} contains no /.netlify/ path`);
   });
-  eq(calls.length, 0, "redeemPoints makes no network call");
+}
 
-  global.fetch = originalFetch;
-
+/* ==========================================================
+   assets/js/gift-card.js: the on-site balance checker
+   ----------------------------------------------------------
+   Driven for real, not grepped: the file is executed against a stand-in
+   document, the balance form is submitted, and the request it makes and the
+   markup it writes are inspected. gift-card.js keeps its own copy of the
+   code normaliser (it must work on a page that does not load the cart), so
+   the first assertion is that the copy has not drifted from cart.js's.
+   ========================================================== */
+{
+  const fs = require("fs");
+  const path = require("path");
+  const vm = require("vm");
   const giftCardSrc = fs.readFileSync(
     path.join(__dirname, "..", "assets", "js", "gift-card.js"),
     "utf8"
   );
+
+  function makeEl(id) {
+    return {
+      id,
+      value: "",
+      innerHTML: "",
+      textContent: "",
+      hidden: true,
+      disabled: false,
+      style: {},
+      classList: { add() {}, remove() {}, contains: () => false },
+      focus() {},
+      close() {},
+      click() {},
+      _listeners: {},
+      addEventListener(type, fn) {
+        (this._listeners[type] = this._listeners[type] || []).push(fn);
+      }
+    };
+  }
+
+  /* Submit the balance form with `input` and the given response, and hand
+     back the request made plus the markup rendered. */
+  function checkBalance(input, response) {
+    const els = {
+      giftCardBalanceForm: makeEl("giftCardBalanceForm"),
+      giftCardBalanceInput: makeEl("giftCardBalanceInput"),
+      giftCardBalanceResult: makeEl("giftCardBalanceResult"),
+      checkBalanceSubmitBtn: makeEl("checkBalanceSubmitBtn")
+    };
+    const calls = [];
+    const sandbox = {
+      window: {},
+      document: {
+        // No preset buttons: the purchase half of the file bails out and
+        // only the balance checker runs.
+        querySelectorAll: () => [],
+        querySelector: () => null,
+        getElementById: (id) => els[id] || null
+      },
+      fetch: (url, opts) => {
+        calls.push({ url: String(url), opts: opts || {} });
+        return Promise.resolve(response);
+      },
+      Promise,
+      JSON,
+      Number,
+      String,
+      console
+    };
+    sandbox.window.document = sandbox.document;
+    vm.createContext(sandbox);
+    vm.runInContext(giftCardSrc, sandbox, { filename: "gift-card.js" });
+
+    els.giftCardBalanceInput.value = input;
+    const submit = els.giftCardBalanceForm._listeners.submit;
+    if (!submit || !submit.length) throw new Error("gift-card.js registered no submit handler");
+    submit[0]({ preventDefault() {} });
+
+    // Let the fetch chain settle.
+    return new Promise((resolve) => setTimeout(resolve, 0)).then(() => ({
+      calls,
+      html: els.giftCardBalanceResult.innerHTML,
+      btn: els.checkBalanceSubmitBtn
+    }));
+  }
+
+  const okResponse = () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      valid: true,
+      code: "YALL-ABC1-DEF2-GH34",
+      balanceCents: 1000,
+      balance: 10,
+      formattedBalance: "$10.00"
+    })
+  });
+
+  asyncChecks.push(
+    (async () => {
+      const out = await checkBalance("  yall-abc1def2 gh34  ", okResponse());
+      eq(out.calls.length, 1, "gift-card.js issues one balance request");
+      eq(out.calls[0].url, "/api/gift-card-balance", "gift-card.js posts to the Worker route");
+      eq(out.calls[0].opts.method, "POST", "gift-card.js POSTs the balance lookup");
+      eq(
+        JSON.parse(out.calls[0].opts.body),
+        { code: "YALL-ABC1-DEF2-GH34" },
+        "gift-card.js sends the normalised code in the body"
+      );
+      eq(
+        out.html.includes("YALL-ABC1-DEF2-GH34"),
+        true,
+        "gift-card.js displays the normalised code, not what was typed"
+      );
+      eq(out.html.includes("$10.00"), true, "gift-card.js displays the formatted balance");
+      eq(out.btn.disabled, false, "gift-card.js re-enables the Check Balance button");
+
+      /* gift-card.js's normaliser must agree with cart.js's character for
+         character, or the same card reads as two different codes depending
+         on which box the shopper typed it into. */
+      for (const [input, expected] of [
+        ["yall-abc1-def2-gh34", "YALL-ABC1-DEF2-GH34"],
+        ["yallabc1def2gh34", "YALL-ABC1-DEF2-GH34"],
+        ["YALL-AB12CD34", "YALL-AB12CD34"],
+        ["yall-ab12cd34", "YALL-AB12CD34"],
+        ["  YALL AB12 CD34 ", "YALL-AB12CD34"]
+      ]) {
+        const res = await checkBalance(input, okResponse());
+        eq(
+          JSON.parse(res.calls[0].opts.body).code,
+          cart.normalizeGiftCardCode(input),
+          `gift-card.js normalises ${JSON.stringify(input)} exactly as cart.js does`
+        );
+        eq(
+          JSON.parse(res.calls[0].opts.body).code,
+          expected,
+          `gift-card.js sends ${JSON.stringify(expected)} for ${JSON.stringify(input)}`
+        );
+      }
+
+      // 429: the throttle message, not "not found".
+      const throttled = await checkBalance("YALL-ABC1-DEF2-GH34", {
+        ok: false,
+        status: 429,
+        json: async () => ({ error: "rate_limited" })
+      });
+      eq(
+        throttled.html.includes("Too many attempts, try again in a minute."),
+        true,
+        "gift-card.js shows the throttle message on a 429"
+      );
+      eq(
+        throttled.html.includes("rate_limited"),
+        false,
+        "gift-card.js does not leak the raw 429 error string"
+      );
+      eq(throttled.btn.disabled, false, "gift-card.js re-enables the button after a 429");
+
+      // 404: the endpoint's own words, escaped on the way into innerHTML.
+      const missing = await checkBalance("YALL-NOPE-NOPE-NOPE", {
+        ok: false,
+        status: 404,
+        json: async () => ({ valid: false, error: 'Not found <img src=x onerror="alert(1)">' })
+      });
+      eq(
+        missing.html.includes("Not found &lt;img src=x onerror=&quot;alert(1)&quot;&gt;"),
+        true,
+        "gift-card.js escapes the endpoint's error before writing it to innerHTML"
+      );
+      eq(
+        missing.html.includes("<img src=x"),
+        false,
+        "gift-card.js writes no live markup from the endpoint's error"
+      );
+
+      // An empty code never reaches the network.
+      const empty = await checkBalance("   ", okResponse());
+      eq(empty.calls.length, 0, "gift-card.js makes no request for an empty code");
+    })()
+  );
+
   eq(
     /gift-card-balance\?code=/.test(giftCardSrc),
     false,
     "gift-card.js no longer builds a ?code= balance URL"
-  );
-  eq(
-    /gift-card-balance"[\s\S]{0,120}method:\s*"POST"/.test(giftCardSrc),
-    true,
-    "gift-card.js POSTs the balance lookup"
   );
   eq(
     /localStorage\.setItem\(\s*"yl_applied_gift_card"/.test(giftCardSrc),
@@ -951,8 +1310,6 @@ else global.window.YL_PRODUCTS = savedWindowYlProducts;
     true,
     "gift-card.js escapes the server-supplied formatted balance"
   );
-  // Keep the rejection referenced so the promise is not unhandled.
-  eq(redeemRejection === null || redeemRejection instanceof Error, true, "redeemPoints rejects");
 }
 
 /* ==========================================================
@@ -990,5 +1347,14 @@ else global.window.YL_PRODUCTS = savedWindowYlProducts;
   );
 }
 
-console.log(`\ncart-engine.test.js: ${passed} passed, ${failed} failed`);
-process.exit(failed ? 1 : 0);
+Promise.all(asyncChecks).then(
+  () => {
+    console.log(`\ncart-engine.test.js: ${passed} passed, ${failed} failed`);
+    process.exit(failed ? 1 : 0);
+  },
+  (err) => {
+    console.error("  ✗ an async check threw", err);
+    console.log(`\ncart-engine.test.js: ${passed} passed, ${failed + 1} failed`);
+    process.exit(1);
+  }
+);

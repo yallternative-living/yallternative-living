@@ -1,5 +1,37 @@
 (function () {
   "use strict";
+
+  /* Same-origin through the Netlify proxy to the Cloudflare Worker. The
+     Netlify function that used to serve this answers 410 now. */
+  var BALANCE_URL = "/api/gift-card-balance";
+
+  /* Cards are issued as YALL-XXXX-XXXX-XXXX -- twelve characters over an
+     A-Z2-9 alphabet with the ambiguous letters dropped. Shoppers type them in
+     lowercase and paste them with the dashes eaten by their mail client, and
+     an unnormalised code turns a valid card into a 404 nobody can explain.
+
+     A body of any other length keeps its single dash instead of being
+     regrouped into fours: the legacy 8-character cards (YALL-XXXXXXXX) still
+     spend, and inventing dash positions for them would break a real code.
+
+     cart.js owns the canonical copy of this (YLCart.normalizeGiftCardCode)
+     and scripts/cart-engine.test.js asserts the two agree character for
+     character; it is duplicated rather than borrowed so the balance checker
+     still works on a page that does not load the cart. */
+  function normalizeGiftCardCode(code) {
+    var raw = String(code == null ? "" : code)
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "");
+    if (!raw) return "";
+    if (raw.indexOf("YALL") !== 0) return raw;
+    var body = raw.slice(4);
+    if (!body) return raw;
+    if (body.length === 12) {
+      return "YALL-" + body.slice(0, 4) + "-" + body.slice(4, 8) + "-" + body.slice(8);
+    }
+    return "YALL-" + body;
+  }
+
   var presetBtns = document.querySelectorAll(".preset-btn");
   var customAmountGroup = document.getElementById("customAmountGroup");
   var customGiftAmount = document.getElementById("customGiftAmount");
@@ -50,7 +82,7 @@
   if (balanceForm && balanceInput && balanceResult) {
     balanceForm.addEventListener("submit", function (e) {
       e.preventDefault();
-      var rawCode = balanceInput.value.trim().toUpperCase();
+      var rawCode = normalizeGiftCardCode(balanceInput.value);
       if (!rawCode) return;
 
       if (checkBalanceBtn) {
@@ -64,24 +96,31 @@
 
       // POSTed, not GETed: a code in the query string is logged by every
       // proxy in the path, kept in browser history and sent on in Referer.
-      // The function takes {code} as a JSON body and answers no-store.
-      fetch("/.netlify/functions/gift-card-balance", {
+      // The Worker takes {code} as a JSON body and answers no-store.
+      fetch(BALANCE_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ code: rawCode })
       })
         .then(function (res) {
-          return res.json().catch(function () {
-            return { valid: false, error: "Invalid response from server" };
+          // The status carries meaning the body does not (a 429 body says
+          // nothing a shopper can act on), so keep them together.
+          return readJson(res).then(function (data) {
+            return { status: res ? res.status : 0, data: data };
           });
         })
-        .then(function (data) {
+        .then(function (out) {
+          var data = out.data;
           if (checkBalanceBtn) {
             checkBalanceBtn.disabled = false;
             checkBalanceBtn.textContent = "Check Balance";
           }
 
-          if (data && data.valid && data.balance > 0) {
+          if (out.status === 429) {
+            // Rate-limited, not rejected. "Not found" here would send the
+            // shopper hunting for a card that is sitting in their hand.
+            balanceResult.innerHTML = errorBox("Too many attempts, try again in a minute.");
+          } else if (data && data.valid && data.balance > 0) {
             // Server-supplied text, interpolated into innerHTML: escape it.
             var formatted = escapeHtml(
               data.formattedBalance || "$" + Number(data.balance).toFixed(2)
@@ -97,7 +136,7 @@
               formatted +
               "</div>" +
               '  <p class="muted" style="font-size: 0.82rem; margin: 0 0 12px 0;">Code: <strong>' +
-              escapeHtml(data.code || rawCode) +
+              escapeHtml(normalizeGiftCardCode(data.code) || rawCode) +
               "</strong>" +
               initial +
               " · Never Expires</p>" +
@@ -118,7 +157,7 @@
                   window.YLCart &&
                   typeof window.YLCart.applyGiftCard === "function" &&
                   window.YLCart.applyGiftCard({
-                    code: data.code || rawCode,
+                    code: normalizeGiftCardCode(data.code) || rawCode,
                     balance: data.balance,
                     valid: true
                   });
@@ -149,14 +188,9 @@
               '  <p class="muted" style="font-size: 0.82rem; margin: 4px 0 0 0;">This gift code has a remaining balance of <strong>$0.00</strong>.</p>' +
               "</div>";
           } else {
-            var msg =
-              data && data.error ? data.error : "Gift card code not found or invalid format.";
-            balanceResult.innerHTML =
-              '<div style="background: rgba(230, 101, 80, 0.1); border: 1px solid rgba(230, 101, 80, 0.3); border-radius: var(--radius); padding: 14px; margin-top: 12px; text-align: center;">' +
-              '  <p style="margin: 0; color: #e66550; font-size: 0.88rem;">' +
-              escapeHtml(msg) +
-              "</p>" +
-              "</div>";
+            balanceResult.innerHTML = errorBox(
+              data && data.error ? data.error : "Gift card code not found or invalid format."
+            );
           }
         })
         .catch(function () {
@@ -164,12 +198,42 @@
             checkBalanceBtn.disabled = false;
             checkBalanceBtn.textContent = "Check Balance";
           }
-          balanceResult.innerHTML =
-            '<div style="background: rgba(230, 101, 80, 0.1); border: 1px solid rgba(230, 101, 80, 0.3); border-radius: var(--radius); padding: 14px; margin-top: 12px; text-align: center;">' +
-            '  <p style="margin: 0; color: #e66550; font-size: 0.88rem;">Network error checking balance. Please try again.</p>' +
-            "</div>";
+          balanceResult.innerHTML = errorBox("Network error checking balance. Please try again.");
         });
     });
+  }
+
+  /* The endpoint answers with an HTML error page or an empty body at least as
+     often as it answers JSON, and res.json() rejects on both. Never let that
+     rejection stand in for the real failure. */
+  function readJson(res) {
+    if (!res || typeof res.json !== "function") return Promise.resolve(null);
+    var parsed;
+    try {
+      parsed = res.json();
+    } catch {
+      return Promise.resolve(null);
+    }
+    return Promise.resolve(parsed).then(
+      function (data) {
+        return data;
+      },
+      function () {
+        return null;
+      }
+    );
+  }
+
+  /* Every message that reaches this box is server-supplied or shopper-typed:
+     escape it on the way in, once, here. */
+  function errorBox(msg) {
+    return (
+      '<div style="background: rgba(230, 101, 80, 0.1); border: 1px solid rgba(230, 101, 80, 0.3); border-radius: var(--radius); padding: 14px; margin-top: 12px; text-align: center;">' +
+      '  <p style="margin: 0; color: #e66550; font-size: 0.88rem;">' +
+      escapeHtml(msg) +
+      "</p>" +
+      "</div>"
+    );
   }
 
   function escapeHtml(str) {

@@ -847,6 +847,34 @@ assert(
       "applyGiftCard stores only {code, balance, valid}"
     );
 
+    /* The same card typed three ways is one card. gift-card.js hands
+       whatever the endpoint echoed straight to applyGiftCard, so the
+       canonical form has to be enforced here rather than at the caller. */
+    eq(
+      typeof YLCart.normalizeGiftCardCode,
+      "function",
+      "YLCart exposes normalizeGiftCardCode for the balance checker"
+    );
+    eq(
+      YLCart.normalizeGiftCardCode("yallabc1def2gh34"),
+      "YALL-ABC1-DEF2-GH34",
+      "YLCart.normalizeGiftCardCode restores the dashes of a 12-character code"
+    );
+    eq(
+      YLCart.normalizeGiftCardCode("yall-ab12cd34"),
+      "YALL-AB12CD34",
+      "YLCart.normalizeGiftCardCode passes a legacy 8-character code through"
+    );
+    [" yall-abc1-def2-gh34 ", "yallabc1def2gh34", "YALL-ABC1DEF2-GH34"].forEach((typed) => {
+      YLCart.applyGiftCard({ code: typed, balance: 50, valid: true });
+      eq(
+        JSON.parse(mockLocalStorage.getItem("yl_applied_gift_card")).code,
+        "YALL-ABC1-DEF2-GH34",
+        `applyGiftCard stores ${JSON.stringify(typed)} in its canonical form`
+      );
+    });
+    YLCart.applyGiftCard({ code: "  yall-good1  ", balance: 50, valid: true });
+
     footHTML = drawerFootHTML();
     /* $20 of goods is under the $40 default threshold, so $10 shipping
        applies and the card must cover all $30 -- the Worker caps its coupon
@@ -1052,7 +1080,8 @@ assert(
 
     /* ==========================================================
        Checkout: one request in flight at a time, curated 400 text
-       shown verbatim, generic message for everything else.
+       shown verbatim, a 409 that also drops the spent gift card, and a
+       generic message for everything else.
        ========================================================== */
     storage.clear();
     storage.set(
@@ -1119,6 +1148,141 @@ assert(
       "A 400 shows the Worker's curated message verbatim"
     );
     eq(checkoutButton().disabled, false, "The Checkout button is usable again after a failure");
+
+    /* ==========================================================
+       C-2 follow-on: the 409 the gift-card ledger returns when a
+       concurrent spend beat this session to the card.
+       ----------------------------------------------------------
+       It reads like a 400 to the shopper -- the Worker's own words, and
+       Checkout usable again -- but the card in state is spent, so it has to
+       go from state AND from localStorage. Leaving it there sends the same
+       dead code on every retry and fails the same way forever, and a reload
+       resurrects it.
+       ========================================================== */
+    eq(
+      YLCart.applyGiftCard({ code: "yall-abc1-def2-gh34", balance: 25, valid: true }),
+      true,
+      "409 setup: a gift card is applied before checkout"
+    );
+    eq(
+      JSON.parse(mockLocalStorage.getItem("yl_applied_gift_card")).code,
+      "YALL-ABC1-DEF2-GH34",
+      "409 setup: the applied card is stored in its normalised form"
+    );
+    assert(
+      drawerFootHTML().includes("Gift Card Discount"),
+      "409 setup: the drawer shows the gift card discount line"
+    );
+
+    let conflictBody = null;
+    global.fetch = (url, opts) => {
+      conflictBody = JSON.parse(opts.body);
+      return Promise.resolve({
+        ok: false,
+        status: 409,
+        json: async () => ({ error: "That gift card balance changed; please re-apply it." })
+      });
+    };
+    checkoutButton()._listeners = {};
+    YLCart.open();
+    checkoutButton()._fire("click");
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    eq(
+      conflictBody && conflictBody.giftCardCode,
+      "YALL-ABC1-DEF2-GH34",
+      "The checkout payload carried the normalised gift card code"
+    );
+    eq(
+      errorText(),
+      "That gift card balance changed; please re-apply it.",
+      "A 409 shows the Worker's message verbatim, like a 400"
+    );
+    eq(checkoutButton().disabled, false, "A 409 leaves the Checkout button usable again");
+    eq(
+      mockLocalStorage.getItem("yl_applied_gift_card"),
+      null,
+      "A 409 removes the spent gift card from storage"
+    );
+    assert(
+      !drawerFootHTML().includes("Gift Card Discount"),
+      "A 409 drops the gift card discount line from the drawer"
+    );
+
+    // The retry after a 409 must not re-send the code that just failed.
+    conflictBody = null;
+    checkoutButton()._listeners = {};
+    YLCart.open();
+    checkoutButton()._fire("click");
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    eq(
+      conflictBody && conflictBody.giftCardCode,
+      undefined,
+      "The retry after a 409 sends no gift card code at all"
+    );
+
+    /* A 409 with no usable body still says something true, and still drops
+       the card -- the conflict is real whether or not the Worker explained
+       it. */
+    global.fetch = async () => ({
+      ok: false,
+      status: 409,
+      json: async () => {
+        throw new SyntaxError("Unexpected token < in JSON at position 0");
+      }
+    });
+    YLCart.applyGiftCard({ code: "YALL-ZZZZ-ZZZZ-ZZZZ", balance: 25, valid: true });
+    checkoutButton()._listeners = {};
+    YLCart.open();
+    checkoutButton()._fire("click");
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    eq(
+      errorText(),
+      "That gift card balance changed; please re-apply it.",
+      "A bodyless 409 falls back to the balance-changed message"
+    );
+    eq(
+      mockLocalStorage.getItem("yl_applied_gift_card"),
+      null,
+      "A bodyless 409 still removes the spent gift card"
+    );
+
+    /* A 400 is not a gift-card conflict: whatever else is wrong with the
+       cart, the shopper's card must survive it. */
+    YLCart.applyGiftCard({ code: "YALL-KEEP-KEEP-KEEP", balance: 25, valid: true });
+    global.fetch = async () => ({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: "Product not found: some-unknown-id" })
+    });
+    checkoutButton()._listeners = {};
+    YLCart.open();
+    checkoutButton()._fire("click");
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    eq(
+      errorText(),
+      "Product not found: some-unknown-id",
+      "A 400 still shows the Worker's curated message"
+    );
+    eq(
+      JSON.parse(mockLocalStorage.getItem("yl_applied_gift_card") || "null") &&
+        JSON.parse(mockLocalStorage.getItem("yl_applied_gift_card")).code,
+      "YALL-KEEP-KEEP-KEEP",
+      "A 400 leaves the applied gift card alone"
+    );
+    YLCart.clear();
+    storage.set(
+      "yl-cart-v1",
+      JSON.stringify({
+        version: 1,
+        items: [{ id: "physical-item", qty: 1, price: 20, name: "Physical Item" }]
+      })
+    );
+    YLCart.init({ force: true });
 
     global.fetch = async () => ({
       ok: false,
