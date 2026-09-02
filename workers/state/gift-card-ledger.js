@@ -134,14 +134,31 @@ export class LedgerError extends Error {
 /**
  * Canonical form of a gift-card code. MUST be used before `idFromName` so that
  * "yall-gift50" and " YALL-GIFT50 " address the same object as "YALL-GIFT50".
+ *
+ * Issued codes are `YALL-XXXX-XXXX-XXXX` (12 symbols over Crockford base32 --
+ * see workers/routes/gift-cards.js). Whitespace is removed rather than
+ * collapsed, and the same twelve characters typed WITHOUT the inner dashes
+ * canonicalise to the grouped form, so a shopper who retypes a code off a
+ * printed email reaches the same Durable Object either way. Getting that wrong
+ * is not a cosmetic bug: a second spelling of a code is a second, empty ledger.
+ *
+ * The older `YALL-[A-Z0-9]{6,16}` shape is still accepted. No code in it was
+ * ever issued -- this ledger has never held a card, which is why there is no
+ * migration anywhere in this change -- but the shape appears in fixtures and in
+ * the `YALL-PTS-` reservation, and rejecting it here would only move the
+ * failure somewhere less obvious.
  */
 export function normalizeCode(code) {
   if (typeof code !== "string") throw new LedgerError("invalid_code", "Code must be a string.");
-  const clean = code.trim().toUpperCase();
-  if (!/^YALL-(?:PTS-)?[A-Z0-9]{6,16}$/.test(clean)) {
-    throw new LedgerError("invalid_code", "Code is not a Y'allternative gift-card code.");
+  const clean = code.trim().toUpperCase().replace(/\s+/g, "");
+  if (/^YALL-[0-9A-Z]{4}-[0-9A-Z]{4}-[0-9A-Z]{4}$/.test(clean)) return clean;
+  const flat = /^YALL-([0-9A-Z]{12})$/.exec(clean);
+  if (flat) {
+    const body = flat[1];
+    return `YALL-${body.slice(0, 4)}-${body.slice(4, 8)}-${body.slice(8, 12)}`;
   }
-  return clean;
+  if (/^YALL-(?:PTS-)?[A-Z0-9]{6,16}$/.test(clean)) return clean;
+  throw new LedgerError("invalid_code", "Code is not a Y'allternative gift-card code.");
 }
 
 function assertCents(value, field) {
