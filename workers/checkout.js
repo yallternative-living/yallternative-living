@@ -1,7 +1,34 @@
 /**
- * @fileoverview Cloudflare Worker: Stripe Checkout Session creator. Backs
- * the on-site cart in assets/js/cart.js -- this is the checkout backend for
- * the Snipcart -> Stripe migration (see docs/STRIPE-MIGRATION.md).
+ * @fileoverview Cloudflare Worker: the entire money path for this shop.
+ *
+ * This file is the Worker's entrypoint. It creates Stripe Checkout Sessions
+ * (its original job, backing the on-site cart in assets/js/cart.js -- see
+ * docs/STRIPE-MIGRATION.md) and it now ROUTES the four endpoints that used to
+ * be Netlify Functions:
+ *
+ *   POST /api/checkout           create a Checkout Session   (this file)
+ *   POST /api/gift-card-balance  what is left on a card      (routes/gift-card-balance.js)
+ *   POST /api/stripe-webhook     Stripe events               (routes/stripe-webhook.js)
+ *   POST /api/order-status       look up a real order        (routes/order-status.js)
+ *   POST /api/restock            "tell me when it's back"    (routes/restock.js)
+ *
+ * WHY ONE WORKER. The state those endpoints need -- the gift-card ledger, the
+ * exactly-once webhook claim, the rate-limit counters -- lives in Cloudflare
+ * Durable Objects and D1, which a Netlify Function cannot reach. Splitting the
+ * money path across two providers also meant splitting it across two failure
+ * modes: audit H-23 notes the Netlify free plan pauses EVERY project at its
+ * 300-credit cap, which would have taken the Stripe webhook down with it.
+ * Netlify keeps serving the static site and proxies `/api/*` here.
+ *
+ * PATH NORMALISATION. That proxy rule forwards `/api/<rest>` as `/<rest>`
+ * (netlify.toml's `:splat`), while a Cloudflare route on the apex domain would
+ * deliver the full `/api/<rest>`. The router accepts both -- see routeOf --
+ * so the same build works whichever way traffic arrives.
+ *
+ * The Durable Object classes are re-exported at the foot of this file. A
+ * `[[durable_objects.bindings]]` entry is only valid if the Worker's `main`
+ * module exports its `class_name`, so those two lines are what make the
+ * bindings in wrangler.toml legal.
  *
  * Corrections applied vs. the original SOTA-report draft this started from:
  *   - CORS is locked to the real site origin(s), NOT "*".
@@ -42,10 +69,10 @@
  * "Preset $NN" label and clamps it to $10-$500 server-side -- the client
  * still never controls the charged amount, it only picks a preset off a
  * list whose bounds are enforced here. The resolved cents amount is also
- * written to session metadata (gift_card_N_amount_cents) so the separate
- * fulfill-gift-card.js webhook (netlify/functions/, listens for
- * checkout.session.completed) knows how much to put on the redeemable
- * code it emails the recipient -- see that file for the rest of the flow.
+ * written to session metadata (gift_card_N_amount_cents) so the webhook route
+ * (routes/stripe-webhook.js, listening for checkout.session.completed) knows
+ * how much to put on the card it issues on the ledger and emails to the
+ * recipient -- see that file for the rest of the flow.
  *
  * Sales tax: self-enabling. The Worker asks Stripe once an hour whether Tax
  * is ready on the account (GET /v1/tax/settings, status "active") and turns
@@ -83,45 +110,49 @@
  * treatment for this site's built-in markdowns -- bundle discountPercent and
  * the custom box's 10% are baked into unit_amount before Stripe ever sees
  * the line, and a sale price is genuinely a lower price, so tax should
- * follow it down. One caveat worth knowing: gift cards are redeemed here as
- * Stripe Promotion Codes (amount_off), so Stripe also treats a redemption as
- * a discount and rates the reduced amount. Tax law generally treats a gift
- * card as a payment method instead -- tax the full price, then let the card
- * pay part of the total. Since these cards are also untaxed at purchase (see
- * the gift-card tax code above), an order fully covered by one currently
- * collects no tax at either end. Fixing that properly needs stored-value
- * balances rather than coupons; see docs/DEVELOPMENT.md section 18.
- * See docs/DEVELOPMENT.md section 8 for the non-technical version.
+ * follow it down. One caveat worth knowing: a gift-card redemption reaches
+ * Stripe as a single-use `amount_off` coupon, so Stripe treats it as a
+ * discount and rates the reduced amount. Tax law generally treats a gift card
+ * as a payment method instead -- tax the full price, then let the card pay part
+ * of the total. Since these cards are also untaxed at purchase (see the
+ * gift-card tax code above), an order fully covered by one still collects no
+ * tax at either end. The BALANCE is now real (it lives in the GiftCardLedger
+ * Durable Object rather than in a coupon), but the tax treatment is unchanged:
+ * fixing it needs Stripe to accept stored value as a payment method, which it
+ * does not. See docs/DEVELOPMENT.md section 18, and section 8 for the
+ * non-technical version.
  *
  * Required Worker secrets / vars (wrangler secret put / [vars]):
- *   - STRIPE_SECRET_KEY   (secret)  Stripe restricted or secret key. Needs
- *                                   Tax Settings *read* if you want tax to
- *                                   switch itself on; without that scope the
- *                                   probe just fails closed (tax stays off).
- *   - SITE_ORIGIN         (var)     e.g. "https://yallternativeliving.com"
- *   - STRIPE_TAX_ENABLED  (var)     optional override: "true" forces tax on,
- *                                   "false" forces it off. Omit for auto.
+ *   - STRIPE_SECRET_KEY      (secret) Stripe restricted or secret key. Needs
+ *                                     Tax Settings *read* if you want tax to
+ *                                     switch itself on; without that scope the
+ *                                     probe just fails closed (tax stays off).
+ *   - STRIPE_WEBHOOK_SECRET  (secret) signing secret for /api/stripe-webhook.
+ *                                     Also keys the gift-card code derivation.
+ *   - RESEND_API_KEY         (secret) gift-card and restock email.
+ *   - SITE_ORIGIN            (var)    e.g. "https://yallternativeliving.com"
+ *   - STRIPE_TAX_ENABLED     (var)    optional override: "true" forces tax on,
+ *                                     "false" forces it off. Omit for auto.
+ *   - RESTOCK_NOTIFY_EMAIL   (var)    optional; where restock alerts go.
+ *   - GIFT_CARD_FROM_EMAIL   (var)    optional; verified Resend sender.
+ *
+ * Bindings (workers/wrangler.toml): GIFT_CARD_LEDGER and RATE_LIMIT_COUNTER
+ * (Durable Objects) and STATE_DB (D1). Checkout itself runs without them; the
+ * routes that cannot are guarded and return 503 rather than pretending.
  */
 
-const ALLOWED_ORIGINS = ["https://yallternativeliving.com", "https://www.yallternativeliving.com"];
-
-// Pinned explicitly (Stripe's own recommendation) rather than left to the
-// account's dashboard-configured default, so a change made in the Stripe
-// Dashboard can never silently alter these requests' behavior. Bump
-// deliberately -- re-check this file's use of `session.error`/`session.url`
-// still holds -- rather than letting it drift for years.
-//
-// !! ONE VALUE, FOUR FILES !! This exact string is duplicated in every
-// process that talks to Stripe for this shop:
-//   - workers/checkout.js                     (this file, creates sessions)
-//   - netlify/functions/fulfill-gift-card.js  (webhook, mints/rolls codes)
-//   - netlify/functions/gift-card-balance.js  (balance lookup)
-//   - netlify/functions/redeem-points.js      (disabled, still pinned)
-// They read and write the SAME objects (promotion codes, coupons, sessions),
-// so a version bumped in one file and not the others means one side sends a
-// shape the other cannot parse -- a gift card that mints but never rolls
-// over. Change all four together, in the same commit, or none of them.
-const STRIPE_API_VERSION = "2026-06-24.dahlia";
+import { ClientError, isAllowedOrigin, json, preflight, stripControlChars } from "./routes/http.js";
+// The Stripe API version used to be "ONE VALUE, FOUR FILES" -- this file plus
+// three Netlify functions, all reading and writing the same Stripe objects,
+// each with its own copy of the string. The functions are retired and the
+// version is pinned once, in routes/stripe.js.
+import { STRIPE_API_VERSION, deleteCoupon, expireSession, stripePost } from "./routes/stripe.js";
+import { isGiftCardCode } from "./routes/gift-cards.js";
+import { handleGiftCardBalance } from "./routes/gift-card-balance.js";
+import { handleStripeWebhook } from "./routes/stripe-webhook.js";
+import { handleOrderStatus } from "./routes/order-status.js";
+import { handleRestock } from "./routes/restock.js";
+import { giftCardLedger, LedgerError } from "./state/gift-card-ledger.js";
 
 const GIFT_CARD_ID = "yallternative-gift-card";
 const GIFT_CARD_MIN = 10;
@@ -142,30 +173,9 @@ const MAX_GIFT_TEXT_LEN = 500;
 // always fit alongside the per-gift-card groups. See the guard in fetch().
 const MAX_METADATA_KEYS = 45;
 
-// Errors whose message is safe to show the shopper (cart/validation problems
-// they can act on). Anything NOT a ClientError is treated as internal: it's
-// logged server-side and the browser only ever sees a generic message, so raw
-// Stripe error strings or unexpected internal failures never leak to clients.
-class ClientError extends Error {}
-
-function corsHeaders(origin, env) {
-  const isAllowed =
-    ALLOWED_ORIGINS.includes(origin) || (env && env.SITE_ORIGIN && origin === env.SITE_ORIGIN);
-  const allow = isAllowed ? origin : ALLOWED_ORIGINS[0];
-  return {
-    "Access-Control-Allow-Origin": allow,
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-    Vary: "Origin"
-  };
-}
-
-function json(body, status, origin, env) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", ...corsHeaders(origin, env) }
-  });
-}
+// ClientError, corsHeaders and json now live in routes/http.js, shared with
+// every other route this Worker answers -- three copies of an origin allowlist
+// is three chances for one of them to drift open.
 
 // Bake active sales into a freshly loaded catalog, mirroring
 // scripts/build-site-data.js's "Process Products" step (and qa-check.js's
@@ -675,17 +685,10 @@ function truncate(s, max) {
   return String(s || "").slice(0, max);
 }
 
-// Strip the control characters that have no business in Stripe metadata (and
-// that would land unescaped in the gift-card email the webhook sends), then
-// trim. Tabs/newlines are kept: a gift message is allowed to have lines.
-function stripControlChars(s) {
-  return (
-    String(s === null || s === undefined ? "" : s)
-      // eslint-disable-next-line no-control-regex
-      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "")
-      .trim()
-  );
-}
+// stripControlChars (imported from routes/http.js) drops the control
+// characters that have no business in Stripe metadata and would otherwise land
+// unescaped in the gift-card email the webhook sends. Tabs and newlines
+// survive: a gift message is allowed to have lines.
 
 /**
  * Validate a gift-card recipient address before it becomes the destination of
@@ -812,23 +815,28 @@ function resolveFreeShippingThresholdCents(catalog) {
   return Math.round(dollars * 100);
 }
 
-export default {
-  async fetch(request, env, ctx) {
-    const origin = request.headers.get("Origin") || "";
+/**
+ * Which route is this? Accepts both the path Netlify's `/api/*` proxy forwards
+ * (`/checkout`, because `:splat` drops the prefix) and the full `/api/checkout`
+ * a Cloudflare route on the apex domain would deliver -- see the file header.
+ * A trailing slash is ignored; anything else is not a route.
+ */
+export function routeOf(pathname) {
+  let path = String(pathname || "").replace(/\/+$/, "");
+  if (path === "/api" || path.startsWith("/api/")) path = path.slice(4);
+  if (path === "") path = "/checkout"; // the bare proxy target, historically
+  return path;
+}
 
-    if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: corsHeaders(origin, env) });
-    }
-    if (request.method !== "POST") {
-      return json({ error: "Method Not Allowed" }, 405, origin, env);
-    }
-    // Reject cross-site callers outright.
-    const isAllowedOrigin =
-      ALLOWED_ORIGINS.includes(origin) || (env.SITE_ORIGIN && origin === env.SITE_ORIGIN);
-    if (origin && !isAllowedOrigin) {
-      return json({ error: "Forbidden origin" }, 403, origin, env);
-    }
+const ROUTES = {
+  "/gift-card-balance": handleGiftCardBalance,
+  "/stripe-webhook": handleStripeWebhook,
+  "/order-status": handleOrderStatus,
+  "/restock": handleRestock
+};
 
+async function handleCheckout(request, env, ctx, origin) {
+  {
     try {
       const body = await request.json();
       const items = body && body.items;
@@ -1210,98 +1218,107 @@ export default {
           metadata.gift_message = "";
         }
       }
+      // ---------------------------------------------------------------
+      // Gift card, applied from the cart drawer.
+      //
+      // Audit C-2: the previous version looked the code up as a Stripe
+      // Promotion Code, minted an ephemeral coupon for min(total, balance) and
+      // DEBITED NOTHING. The balance checker kept reporting the full amount and
+      // two tabs spent the same card twice.
+      //
+      // The balance now lives in the GiftCardLedger Durable Object -- one
+      // object per code, so every request for a card is serialised -- and the
+      // order here is what makes double-spending impossible:
+      //
+      //   1. read the balance and cap the discount at it,
+      //   2. mint a single-use coupon for exactly that,
+      //   3. create the session,
+      //   4. RESERVE the amount against the ledger.
+      //
+      // Reserving last means a Stripe call that fails leaves no hold behind. If
+      // the reserve itself fails -- another checkout took the money in between
+      // -- the coupon is deleted, the session is EXPIRED so nobody can walk
+      // back to that tab and pay a total discounted by money the card no longer
+      // has, and the shopper gets a 409 telling them to re-apply.
+      // ---------------------------------------------------------------
       let appliedGiftCardCouponId = null;
       let appliedGiftCardDiscountCents = 0;
+      let appliedGiftCardCode = null;
 
       const rawGiftCard = body && (body.giftCardCode || body.gift_card_code);
-      // Buying a gift card with a gift card is refused for pre-application:
-      // the webhook rolls the remaining balance of a redeemed code onto a
-      // fresh code AND mints codes for cards bought in the same session, and
-      // the two flows have collided before (a card paid for with another
-      // card's balance could be minted while the balance it came from was
-      // still being rolled). The code isn't rejected -- the order just falls
-      // through to Stripe's own promotion-code box, where the redemption is
-      // applied by Stripe and recorded as an ordinary discount.
+      // Buying a gift card with a gift card is still refused. The reasons have
+      // narrowed (there is no rollover to collide with any more) but one
+      // remains: a card issued by this very session does not exist on the
+      // ledger until the webhook runs, so an order that both spends and mints
+      // stored value has two halves that cannot be made atomic. The code is not
+      // rejected outright -- the order falls through to Stripe's own promotion
+      // -code box.
       const cartHasGiftCardProduct = items.some((it) => it && String(it.id) === GIFT_CARD_ID);
       if (rawGiftCard && typeof rawGiftCard === "string" && !cartHasGiftCardProduct) {
-        const cleanCode = rawGiftCard.trim().toUpperCase();
-        if (/^YALL-(?:PTS-)?[A-Z0-9]{6,16}$/.test(cleanCode)) {
-          try {
-            const promoRes = await fetch(
-              `https://api.stripe.com/v1/promotion_codes?code=${cleanCode}&active=true&limit=1&expand[]=data.coupon`,
-              {
-                headers: {
-                  Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
-                  "Stripe-Version": STRIPE_API_VERSION
-                }
-              }
-            );
-            if (promoRes.ok) {
-              const promoData = await promoRes.json();
-              if (promoData && promoData.data && promoData.data.length > 0) {
-                const promo = promoData.data[0];
-                const coupon = promo.coupon;
-                if (coupon && coupon.amount_off && coupon.amount_off > 0) {
-                  const availableCents = coupon.amount_off;
-                  appliedGiftCardDiscountCents = Math.min(
-                    totalCents + shippingCents,
-                    availableCents
-                  );
-                  if (appliedGiftCardDiscountCents > 0) {
-                    const ephemeralRes = await fetch("https://api.stripe.com/v1/coupons", {
-                      method: "POST",
-                      headers: {
-                        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
-                        "Content-Type": "application/x-www-form-urlencoded",
-                        "Stripe-Version": STRIPE_API_VERSION
-                      },
-                      body: new URLSearchParams({
-                        amount_off: String(appliedGiftCardDiscountCents),
-                        currency: "usd",
-                        duration: "once",
-                        // Single use, always. This coupon exists only to
-                        // discount THIS session by the balance of THIS card;
-                        // without the cap its id (which appears in the
-                        // session and in metadata) could be replayed on
-                        // another checkout and spend the same balance twice.
-                        max_redemptions: "1",
-                        name: `Gift Card (${cleanCode})`,
-                        "metadata[gift_card_code]": cleanCode,
-                        "metadata[promo_id]": promo.id
-                      })
-                    });
-                    if (ephemeralRes.ok) {
-                      const ephemeralCoupon = await ephemeralRes.json();
-                      appliedGiftCardCouponId = ephemeralCoupon.id;
-                      metadata.gift_card_redeemed_code = cleanCode;
-                      metadata.gift_card_promo_id = promo.id;
-                      metadata.gift_card_amount_applied_cents = String(
-                        appliedGiftCardDiscountCents
-                      );
-                      metadata.gift_card_original_balance_cents = String(availableCents);
-                      // Named so the webhook can clean it up: on
-                      // checkout.session.expired the coupon is deleted, and
-                      // on completion it has already been consumed. Without
-                      // this id an abandoned checkout left a live
-                      // amount_off coupon in the account forever.
-                      metadata.gift_card_ephemeral_coupon_id = String(ephemeralCoupon.id);
-                    }
-                  }
-                }
-              }
-            }
-          } catch (e) {
-            console.warn("Could not pre-apply gift card code:", e.message);
+        if (!isGiftCardCode(rawGiftCard)) {
+          throw new ClientError("That gift card code doesn't look right. Please check it.");
+        }
+        if (!env.GIFT_CARD_LEDGER) {
+          // Fail closed and SAY SO. Silently dropping the card would charge the
+          // shopper full price for a cart whose total they watched go down.
+          console.error("checkout: GIFT_CARD_LEDGER binding is missing; refusing to apply a card");
+          throw new ClientError(
+            "Gift cards are temporarily unavailable. Please try again shortly."
+          );
+        }
+
+        const ledger = giftCardLedger(env, rawGiftCard);
+        let snapshot;
+        try {
+          snapshot = await ledger.getBalance();
+        } catch (err) {
+          if (err instanceof LedgerError) snapshot = null;
+          else throw err;
+        }
+        const availableCents = snapshot && snapshot.issued ? snapshot.balanceCents : 0;
+        if (!(availableCents > 0)) {
+          throw new ClientError("That gift card has no balance left.");
+        }
+
+        appliedGiftCardDiscountCents = Math.min(totalCents + shippingCents, availableCents);
+        if (appliedGiftCardDiscountCents > 0) {
+          const ephemeralCoupon = await stripePost(env, "/coupons", {
+            amount_off: String(appliedGiftCardDiscountCents),
+            currency: "usd",
+            duration: "once",
+            // Single use, always. This coupon exists only to discount THIS
+            // session by the amount THIS card agreed to hold; without the cap
+            // its id (which appears in the session and in metadata) could be
+            // replayed on another checkout and spend the same money twice.
+            max_redemptions: "1",
+            name: `Gift Card (${ledger.code})`,
+            "metadata[gift_card_code]": ledger.code,
+            "metadata[applied_cents]": String(appliedGiftCardDiscountCents)
+          });
+          if (!ephemeralCoupon || !ephemeralCoupon.id) {
+            throw new Error("Stripe refused the gift-card coupon");
           }
+          appliedGiftCardCouponId = ephemeralCoupon.id;
+          appliedGiftCardCode = ledger.code;
+          metadata.gift_card_redeemed_code = ledger.code;
+          metadata.gift_card_amount_applied_cents = String(appliedGiftCardDiscountCents);
+          metadata.gift_card_original_balance_cents = String(availableCents);
+          // Named so the webhook can clean it up: on checkout.session.expired
+          // the coupon is deleted, and on completion it has already been
+          // consumed. Without this id an abandoned checkout left a live
+          // amount_off coupon in the account forever.
+          metadata.gift_card_ephemeral_coupon_id = String(ephemeralCoupon.id);
         }
       }
 
       if (appliedGiftCardCouponId) {
         params.append("discounts[0][coupon]", appliedGiftCardCouponId);
       } else {
-        // Lets a gift-card recipient enter the code fulfill-gift-card.js
-        // emailed them (a Stripe restricted Promotion Code, single-use,
-        // amount_off) right on Stripe's own hosted Checkout page.
+        // Marketing codes ONLY. A gift card is never entered here any more --
+        // it is not a promotion code, it is a ledger balance -- and the webhook
+        // ignores promotion codes entirely. Stripe will not accept a session
+        // that carries both `discounts` and `allow_promotion_codes`, so this is
+        // an either/or in any case.
         params.append("allow_promotion_codes", "true");
       }
       // Stripe hard-caps a session at 50 metadata keys and silently rejects
@@ -1348,22 +1365,123 @@ export default {
         // Log the real Stripe error server-side for debugging, but never echo
         // its message to the browser -- it can carry internal detail.
         console.error("Stripe checkout session error:", session.error);
+        // A coupon minted for a session that was never created is a live
+        // amount_off coupon with no webhook coming to clean it up.
+        if (appliedGiftCardCouponId) await deleteCoupon(env, appliedGiftCardCouponId);
         throw new Error("Stripe rejected the checkout session");
+      }
+
+      // Take the hold LAST, against the session that now exists. Everything up
+      // to here can fail without moving money; from here on, the money is held
+      // and the webhook (commit on payment, release on expiry, and the ledger's
+      // own 24h alarm as a backstop) is what lets it go again.
+      if (appliedGiftCardCode && appliedGiftCardDiscountCents > 0) {
+        try {
+          await giftCardLedger(env, appliedGiftCardCode).reserve({
+            sessionId: session.id,
+            cents: appliedGiftCardDiscountCents
+          });
+        } catch (err) {
+          if (!(err instanceof LedgerError)) throw err;
+          // Another checkout spent the balance while this one was being built.
+          // Unwind everything so nothing is left pointing at money that is no
+          // longer there: delete the coupon, expire the session (otherwise the
+          // shopper could return to the tab and pay the discounted total), and
+          // tell the shopper to re-apply.
+          await deleteCoupon(env, appliedGiftCardCouponId);
+          await expireSession(env, session.id);
+          console.warn(
+            `Gift card ${appliedGiftCardCode} could not be held for ${session.id}: ${err.code}`
+          );
+          throw new ClientError("That gift card balance changed; please re-apply it.", 409);
+        }
       }
 
       return json({ url: session.url }, 200, origin, env);
     } catch (err) {
       // Only ClientError messages are safe to show the shopper. Anything else
       // is an internal failure: log it and return a generic message so raw
-      // error strings never leak to the client.
+      // error strings never leak to the client. `err.status` lets a refusal
+      // that is not a validation problem carry its own code -- a gift-card
+      // balance that moved under a live checkout is a 409, and the cart tells
+      // the two apart.
       if (err instanceof ClientError) {
-        return json({ error: err.message }, 400, origin, env);
+        return json({ error: err.message }, err.status || 400, origin, env);
       }
       console.error("Checkout failed:", err && err.stack ? err.stack : err);
       return json({ error: "Checkout failed. Please try again." }, 400, origin, env);
     }
   }
+}
+
+/**
+ * The Worker entrypoint: one router in front of every endpoint on the money
+ * path. Same CORS allowlist and the same `Cache-Control: no-store` envelope for
+ * all of them (routes/http.js), because the difference between these endpoints
+ * is what they do, not who may call them.
+ */
+export default {
+  async fetch(request, env, ctx) {
+    const origin = request.headers.get("Origin") || "";
+    const route = routeOf(new URL(request.url).pathname);
+    const known = route === "/checkout" || Object.prototype.hasOwnProperty.call(ROUTES, route);
+
+    if (request.method === "OPTIONS") {
+      // Preflight for a route that does not exist still gets a CORS answer;
+      // the POST behind it is what 404s. Answering differently here would let
+      // an unauthenticated caller map the Worker's surface with OPTIONS alone.
+      return preflight(origin, env);
+    }
+    if (!known) {
+      return json({ error: "Not Found" }, 404, origin, env);
+    }
+    if (request.method !== "POST") {
+      return json({ error: "Method Not Allowed" }, 405, origin, env);
+    }
+    // Reject cross-site callers outright. A request with NO Origin header is
+    // allowed through: that is server-to-server traffic, which is what Stripe's
+    // webhook is -- and it authenticates with a signature, not an origin.
+    if (origin && !isAllowedOrigin(origin, env)) {
+      return json({ error: "Forbidden origin" }, 403, origin, env);
+    }
+
+    if (route === "/checkout") return handleCheckout(request, env, ctx, origin);
+
+    try {
+      return await ROUTES[route](request, env, origin, ctx);
+    } catch (err) {
+      if (err instanceof ClientError) {
+        return json({ error: err.message }, err.status || 400, origin, env);
+      }
+      console.error(`Route ${route} failed:`, err && err.stack ? err.stack : err);
+      return json({ error: "Something went wrong. Please try again." }, 500, origin, env);
+    }
+  },
+
+  /**
+   * Cron housekeeping (wrangler.toml `[triggers]`). Nothing schedules this
+   * yet; the handler exists so adding a schedule is a config change rather
+   * than a code change.
+   */
+  async scheduled(event, env, ctx) {
+    if (!env.STATE_DB) return;
+    ctx.waitUntil(
+      (async () => {
+        const { sweepOldEvents } = await import("./state/webhook-events.js");
+        await sweepOldEvents(env.STATE_DB);
+      })()
+    );
+  }
 };
+
+/**
+ * A `[[durable_objects.bindings]]` entry is only valid when the Worker's `main`
+ * module exports the binding's `class_name`. These two lines are what make
+ * GIFT_CARD_LEDGER and RATE_LIMIT_COUNTER in wrangler.toml legal -- remove
+ * either one and `wrangler deploy` fails outright.
+ */
+export { GiftCardLedger } from "./state/gift-card-ledger.js";
+export { RateLimitCounter } from "./state/rate-limit.js";
 
 export {
   isTaxEnabled,
