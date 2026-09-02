@@ -4,10 +4,11 @@
    with a rainbow that only shows up when it means something.
    ========================================================= */
 
-/* Fonts are now loaded from Google Fonts for a more modern, premium vibe.
-   Heading: Cormorant Garamond
-   Body: Outfit
-*/
+/* Fonts are loaded from Google Fonts (see the <link>s in each page <head>).
+   Heading: Gloock          -- var(--font-display) / var(--font-heading)
+   Body:    DM Sans         -- var(--font-body)
+   Neither Cormorant Garamond nor Outfit (what this comment used to name)
+   has ever been loaded by this site; don't reintroduce them as fallbacks. */
 
 /* ---------------------------------------------------------
    THEME TOKENS
@@ -61,9 +62,17 @@
   --paper-dim: #5b4d3d; /* muted body text on light */
   /* #a8631f (the original "darkened for AA contrast" amber) still fell
      short at the small text sizes .eyebrow/.card-cat actually use --
-     4.3:1 vs the 4.5:1 AA floor. Darkened one more notch to #93571b,
-     which clears 4.5:1 against both --ink and --ink-2 at those sizes. */
-  --whiskey: #93571b;
+     4.3:1 vs the 4.5:1 AA floor. #93571b cleared 4.5:1 against flat --ink
+     and --ink-2, but not against the amber-TINTED chip fills this file
+     builds with `oklch(from var(--whiskey) l c h / <alpha>)`: tinting a
+     light surface with a dark amber darkens the background, so
+     .dispatch-badge (.12 tint, 4.10:1) and .concern-pill.active (.18
+     tint, 4.17:1) both landed under the floor on every product card.
+     Darkened to #7f4a13, which clears 4.5:1 on flat surfaces AND on the
+     .10-.18 self-tints (4.6:1-5.1:1). --whiskey is only ever used in
+     light mode as text on a light surface or as a fill under --ink text,
+     so darkening only ever raises contrast. */
+  --whiskey: #7f4a13;
   --whiskey-dim: #7a4816;
   --rose: #9c2f45; /* wine accent, darkened for contrast (NOT for text!) */
   --rose-dim: #7d3140;
@@ -72,7 +81,14 @@
 
   /* Semantic Tokens */
   --error: #d13b3b;
-  --success: #3b8248;
+  /* Same tint story as the amber above. The old #3b8248 as text on its own
+     .12 tint was 3.39:1 (.receipt-status-badge on thank-you). #276030 clears
+     4.7:1+ on the tints and lifts white-on-fill (.timeline-step.step-done,
+     .search-add-btn.is-added) from 4.70:1 to 7.49:1.
+     NB: scripts/qa-check.js parses this block with a regex that does not
+     strip comments, so never write "--token: #hex" in prose here -- it is
+     picked up as a real declaration and shadows the one below. */
+  --success: #276030;
   --focus-ring: var(--whiskey);
 
   --shadow: 0 12px 26px -14px rgba(60, 40, 20, 0.28);
@@ -91,12 +107,14 @@
     --hide: #c4a880;
     --paper: #221a14;
     --paper-dim: #5b4d3d;
-    --whiskey: #93571b;
+    --whiskey: #7f4a13;
     --whiskey-dim: #7a4816;
     --rose: #9c2f45;
     --rose-dim: #7d3140;
     --rose-text: var(--rose);
     --sage: #4f6a45;
+    --error: #d13b3b;
+    --success: #276030;
     --shadow: 0 12px 26px -14px rgba(60, 40, 20, 0.28);
     --nav-bg: rgb(250, 245, 234);
     --footer-bg: #ece2cd;
@@ -163,10 +181,40 @@
   --moss: #4a6b5d;
 }
 
+/* ---------------------------------------------------------
+   Z-INDEX BANDS
+   Everything in this file (and cart.css) should land in one
+   of these, so a new overlay can be placed without reading
+   the whole stylesheet:
+
+     0-10    in-flow decoration (card badges, gallery dots,
+             carousel arrows, lightbox chrome)
+     90-99   viewport-pinned page chrome that any overlay must
+             be able to cover: .pdp-sticky-bar (90), mobile
+             .nav-links drawer (99)
+     100-199 header band: .site-header (100),
+             .announcement-bar (101), .wish-backdrop (198),
+             .wish-drawer (199)
+     200-999 escapes the header: .skip-link (200),
+             .lang-dropdown (200)
+     1000+   modal layer: dialog.global-search-modal (1000)
+     9999    always-on-top: .sw-update-toast, and the cart
+             drawer's non-popover fallback in cart.css
+
+   Real <dialog>s opened with showModal() (.lightbox-modal,
+   .gift-modal, the search modal) and the cart drawer's
+   popover path render in the browser's top layer, above all
+   of this regardless of z-index -- the values above only
+   decide the fallback ordering.
+
+   The tawk.to chat bubble is injected by a third party with
+   its own very high inline z-index and sits above everything
+   here; nothing in this file can reorder it.
+   --------------------------------------------------------- */
+
 /* Prevent CSS Grid blowout bug in Chrome/Safari */
 .hero-grid > *,
 .footer-grid > *,
-.shop-grid > *,
 .value-strip .container > * {
   min-width: 0;
 }
@@ -183,12 +231,21 @@
    those still win on specificity. Everything else -- nav/theme/cart/
    wish toggles, filter pills, every .btn variant -- was relying on
    nothing but the browser's own default, which is inconsistent across
-   browsers and not guaranteed visible against this dark UI. */
+   browsers and not guaranteed visible against this dark UI.
+
+   `summary` is in the list because <summary> is focusable with no tabindex
+   and matches none of the other selectors here. .card-ingredients summary and
+   .faq-accordion-summary each ship their own ring, but .pdp-accordion-summary
+   (three per product page) had nothing of its own -- only
+   `.pdp-accordion:has(:focus-visible) { border-color }`, a colour-only change
+   on the parent, which is exactly the weak indicator this baseline exists to
+   replace. */
 a:focus-visible,
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
+summary:focus-visible,
 [tabindex]:focus-visible {
   outline: 2px solid var(--whiskey);
   outline-offset: 2px;
@@ -905,25 +962,12 @@ section {
   }
 }
 
-.pride-rule {
-  width: 64px;
-  height: 4px;
-  border-radius: 4px;
-  background: var(--pride);
-  margin: 18px 0 26px;
-}
 .hero-actions {
   display: flex;
   gap: 16px;
   flex-wrap: wrap;
   align-items: center;
   margin-top: 8px;
-}
-.hero-tags {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 28px;
 }
 
 .tag {
@@ -1323,11 +1367,15 @@ section {
   }
 }
 
-/* In light theme the .16 amber tint darkens the badge fill to ~#edddc4,
-   which drops --whiskey (#93571b) text to 4.34:1 -- just under the 4.5:1
-   AA floor (axe-core color-contrast). --whiskey-dim (#7a4816) clears it at
-   ~5.7:1. Dark theme's lighter amber text already passes, so scope to light
-   only. Covers both explicit toggle and OS-preference-only visitors. */
+/* In light theme the .16 amber tint darkens the badge fill to ~#edddc4.
+   The old --whiskey (#93571b) dropped to 4.34:1 there -- just under the
+   4.5:1 AA floor (axe-core color-contrast) -- so this pinned the text to
+   --whiskey-dim (#7a4816, ~5.7:1). --whiskey has since been darkened to
+   #7f4a13 for the same class of tint failures and now clears it on its
+   own; the pin stays because "lowest stock" reads better a shade deeper
+   than the other amber chips. Dark theme's lighter amber text already
+   passes, so scope to light only. Covers both explicit toggle and
+   OS-preference-only visitors. */
 :root[data-theme="light"] .stock-badge.low-stock,
 :root:not([data-theme="dark"]):not([data-theme="light"]) .stock-badge.low-stock {
   color: var(--whiskey-dim);
@@ -1362,23 +1410,6 @@ section {
   font-size: 0.8rem;
   font-weight: 400;
   margin-left: 6px;
-}
-
-.bundle-thumbs {
-  & picture,
-  & img {
-    width: 48px;
-    height: 48px;
-    border-radius: var(--radius);
-    border: 1px solid var(--hide);
-    object-fit: cover;
-  }
-}
-
-.gift-cards-embed {
-  max-width: 600px;
-  margin: 0 auto;
-  text-align: center;
 }
 
 /* Collapsed by default (<details> with no [open]) -- real per-product
@@ -1440,10 +1471,6 @@ section {
 .ingredients-caveat {
   margin: 12px 0 16px;
   font-size: 0.8rem;
-}
-
-.trust-badge svg {
-  flex-shrink: 0;
 }
 
 /* contact.html's 3 contact cards sit directly under the page h1 with no
@@ -1689,10 +1716,23 @@ section {
   border: 1px solid rgba(76, 175, 80, 0.3);
 }
 
-[data-theme="light"] .badge-verified {
-  background: rgba(46, 125, 50, 0.12);
-  color: #2e7d32;
-  border-color: rgba(46, 125, 50, 0.25);
+/* #2e7d32 sat at 3.66:1 on its own .12 green tint (55 nodes across
+   shop/reviews). Matched to the light --success green (#276030), which
+   clears 5.3:1 on the same tint. The second selector covers
+   OS-preference-only visitors, who previously fell through to the
+   dark-theme #4caf50 on a light fill. */
+:root[data-theme="light"] .badge-verified {
+  background: rgba(39, 96, 48, 0.12);
+  color: #276030;
+  border-color: rgba(39, 96, 48, 0.28);
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]):not([data-theme="light"]) .badge-verified {
+    background: rgba(39, 96, 48, 0.12);
+    color: #276030;
+    border-color: rgba(39, 96, 48, 0.28);
+  }
 }
 
 .reviews-count-banner {
@@ -1922,10 +1962,6 @@ section {
   gap: 12px;
   font-size: 0.78rem;
   color: var(--paper-dim);
-
-  & .pride-rule {
-    margin: 0;
-  }
 }
 
 /* =============== NEWSLETTER SIGNUP (footer strip) ===============
@@ -2410,54 +2446,23 @@ section {
   }
 }
 
-/* Launch-alert signup revealed under a Coming Soon product's button. */
-.yl-notify-form {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
-  width: 100%;
-
-  & input[type="email"] {
-    flex: 1 1 150px;
-    min-width: 0;
-    padding: 8px 10px;
-    font-size: 0.82rem;
-    font-family: var(--font-body);
-    color: var(--paper);
-    background: var(--ink-3);
-    border: 1px solid var(--hide);
-    border-radius: var(--radius);
-  }
-
-  & .btn {
-    flex: 0 0 auto;
-  }
-}
-
-.yl-notify-done {
-  margin: 8px 0 0;
-  font-size: 0.82rem;
-  color: var(--success);
-  font-weight: 600;
-}
-
 /* Order-tracking-unavailable notice. Same reasoning as .form-fallback-note
    below: state plainly that the lookup isn't wired up rather than inventing
    an order status. */
 .order-lookup-unavailable {
-  margin: 0;
-  padding: 12px 14px;
+  margin: 1rem 0 0;
+  padding: 16px;
   border: 1px solid var(--hide);
-  border-radius: var(--radius);
+  border-radius: var(--radius, 8px);
   background: var(--ink-3);
-  color: var(--paper);
+  color: var(--paper-dim);
   font-size: 0.88rem;
-  line-height: 1.55;
+  line-height: 1.5;
 
   & a {
     color: var(--whiskey);
     font-weight: 600;
+    text-decoration: underline;
   }
 }
 
@@ -2790,8 +2795,7 @@ section {
   }
 }
 
-.wish-btn,
-.card-wish {
+.wish-btn {
   position: absolute;
   top: 10px;
   right: 10px;
@@ -2829,8 +2833,7 @@ section {
   }
 }
 
-.wish-toggle,
-.wishlist-trigger {
+.wish-toggle {
   position: relative;
   background: none;
   border: 1px solid var(--hide);
@@ -2886,8 +2889,7 @@ section {
    the drawer on click) and keeps its .cart-count badge in sync; this just
    styles the wrapper to match the wishlist heart button next to it. Amber
    badge (vs. the wishlist's rose one) keeps the two icons easy to tell apart. */
-.cart-toggle,
-.cart-trigger {
+.cart-toggle {
   position: relative;
   background: none;
   border: 1px solid var(--hide);
@@ -3324,13 +3326,6 @@ section {
   opacity: 1;
 }
 
-.event-date {
-  color: var(--whiskey);
-  font-weight: 600;
-  font-size: 0.88rem;
-  margin: 0;
-}
-
 .event-empty {
   grid-column: 1 / -1;
   text-align: center;
@@ -3473,34 +3468,6 @@ hr.rule {
   }
 }
 
-/* ---------- Shop Improvements ---------- */
-.shop-trust-strip .stars {
-  color: var(--whiskey);
-}
-
-.shop-empty .glyph {
-  display: block;
-  font-size: 2rem;
-  color: var(--whiskey);
-  margin-bottom: 1rem;
-}
-
-.pairing-thumb {
-  &:hover,
-  &:focus-visible {
-    border-color: var(--whiskey);
-    outline: 2px solid var(--whiskey);
-    outline-offset: 2px;
-  }
-
-  & img {
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    object-fit: cover;
-  }
-}
-
 /* ── Announcement bar ─────────────────────────────────── */
 .announcement-bar {
   background: var(--whiskey);
@@ -3596,45 +3563,6 @@ hr.rule {
 .shipping-progress--done {
   color: var(--whiskey);
   font-weight: 600;
-}
-
-/* ── Restock notification ─────────────────────────────── */
-.restock-form {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-
-  & input[type="email"] {
-    flex: 1;
-    padding: 0.5rem 0.75rem;
-    border: 1px solid oklch(from var(--paper) l c h / 0.2);
-    border-radius: var(--radius);
-    background: var(--ink-2);
-    color: var(--paper);
-    font-family: var(--font-body);
-    font-size: 0.85rem;
-  }
-
-  & button {
-    padding: 0.5rem 1rem;
-    background: var(--rose-dim);
-    color: var(--on-fill);
-    border: none;
-    border-radius: var(--radius);
-    font-weight: 600;
-    font-size: 0.8rem;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: opacity 0.2s;
-    &:hover {
-      opacity: 0.85;
-    }
-  }
-}
-
-.badge-soldout {
-  background: oklch(from var(--paper) l c h / 0.15);
-  color: var(--paper-dim);
 }
 
 /* ── Cart cross-sell ──────────────────────────────────── */
@@ -3957,21 +3885,7 @@ body > .skiptranslate {
   max-width: 1040px;
   margin: 0 0 22px;
   font-size: 1.05rem;
-}
-.shop-trust {
-  text-align: center;
-  margin-top: 14px;
-  font-size: 0.82rem;
-  letter-spacing: 0.04em;
-  color: var(--whiskey);
-  font-weight: 600;
-}
-.shop-trust span[aria-hidden] {
-  display: inline-block;
-  transform: translateY(-1px);
-  margin-right: 0.3em;
-}
-.shop-cta-actions {
+}.shop-cta-actions {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -4330,8 +4244,9 @@ dialog.gift-modal[open]::backdrop {
 }
 .event-date {
   font-weight: 600;
+  font-size: 0.88rem;
   color: var(--paper);
-  margin-bottom: 4px;
+  margin: 0 0 4px;
 }
 .event-location {
   margin-bottom: 12px;
@@ -4535,91 +4450,6 @@ dialog.gift-modal[open]::backdrop {
   }
 }
 
-/* ── Order Status Timeline Stepper ────────────────────── */
-.timeline-stepper {
-  list-style: none;
-  padding: 0;
-  margin: 1.5rem 0;
-  position: relative;
-}
-
-.timeline-stepper::before {
-  content: "";
-  position: absolute;
-  left: 19px;
-  top: 12px;
-  bottom: 12px;
-  width: 2px;
-  background: var(--border-color);
-  z-index: 0;
-}
-
-.timeline-step {
-  display: flex;
-  align-items: flex-start;
-  gap: 1rem;
-  margin-bottom: 1.25rem;
-  position: relative;
-  z-index: 1;
-}
-
-.timeline-step .step-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  /* The #2a2421 fallback shows the intent was a dark chip -- but --paper-dim
-     is defined, so the fallback never applied and this rendered light tan
-     under amber text instead. --ink-3 is the correct dark card fill. */
-  background: var(--ink-3, #2a2421);
-  color: var(--whiskey, #d4a359);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-  border: 2px solid var(--border-color);
-  flex-shrink: 0;
-}
-
-.timeline-step.completed .step-icon {
-  background: var(--whiskey);
-  color: var(--ink);
-  border-color: var(--whiskey);
-}
-
-.timeline-step.active .step-icon {
-  background: var(--moss, #4a6b5d);
-  color: #fff;
-  border-color: var(--moss);
-  box-shadow: 0 0 0 4px oklch(from var(--moss) l c h / 0.25);
-}
-
-.timeline-step .step-content strong {
-  display: block;
-  font-size: 0.95rem;
-}
-
-.timeline-step .step-content p {
-  font-size: 0.82rem;
-  color: var(--paper-muted);
-  margin: 2px 0 0;
-}
-
-/* ── Order Status Timeline Connector Line ────────────── */
-.order-timeline {
-  position: relative;
-  padding-left: 0.5rem;
-}
-.order-timeline::before {
-  content: "";
-  position: absolute;
-  left: 24px;
-  top: 20px;
-  bottom: 20px;
-  width: 2px;
-  background: var(--border-color, rgba(255, 255, 255, 0.15));
-  z-index: 0;
-}
-
 /* ── Apothecary Quiz Section Styles ───────────────────── */
 .quiz-option-card {
   transition:
@@ -4654,21 +4484,7 @@ dialog.gift-modal[open]::backdrop {
   background: oklch(from var(--whiskey) l c h / 0.1) !important;
 }
 
-.quiz-progress-bar {
-  width: 100%;
-  height: 6px;
-  background: var(--paper-dim);
-  border-radius: 3px;
-  overflow: hidden;
-  margin-bottom: 1.5rem;
-}
-.quiz-progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--whiskey), var(--moss, #4a6b5d));
-  transition: width 0.3s ease;
-}
-
-/* ── Alt-Points Loyalty Tier Badges & Goal Bar ───────── */
+/* ── Alt-Points loyalty badge ─────────────────────────── */
 .alt-points-badge {
   display: inline-block;
   font-size: 0.78rem;
@@ -4676,61 +4492,6 @@ dialog.gift-modal[open]::backdrop {
   font-weight: 600;
   margin-top: 4px;
 }
-.loyalty-tier-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.2rem 0.6rem;
-  border-radius: 12px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-.tier-standard {
-  background: oklch(from var(--whiskey) l c h / 0.15);
-  color: var(--whiskey);
-  border: 1px solid oklch(from var(--whiskey) l c h / 0.3);
-}
-.tier-silver {
-  background: oklch(from var(--paper-dim) l c h / 0.4);
-  color: #e2e8f0;
-  border: 1px solid #94a3b8;
-}
-.tier-gold {
-  background: linear-gradient(135deg, #d4a359, #b38038);
-  color: #1c1917;
-}
-
-/* ── Time-Unit Badges for Event Countdown Ticker ──────── */
-.ticker-timer .time-unit-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.15rem 0.45rem;
-  background: oklch(from var(--whiskey) l c h / 0.2);
-  color: var(--whiskey);
-  border: 1px solid oklch(from var(--whiskey) l c h / 0.4);
-  border-radius: 4px;
-  font-family: monospace;
-  font-weight: 700;
-  font-size: 0.85rem;
-  min-width: 2rem;
-}
-
-/* ── Restock Alert Toast ──────────────────────────────── */
-.restock-alert-toast {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.6rem 1rem;
-  background: var(--moss, #4a6b5d);
-  color: #fff;
-  border-radius: var(--radius-sm);
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
 /* =========================================================================
    ACCESSIBILITY: WCAG 2.5.8 MINIMUM TOUCH TARGETS
    =========================================================================
@@ -4741,11 +4502,8 @@ dialog.gift-modal[open]::backdrop {
 .nav-toggle::after,
 .theme-toggle::after,
 .wish-btn::after,
-.card-wish::after,
 .wish-toggle::after,
-.wishlist-trigger::after,
 .cart-toggle::after,
-.cart-trigger::after,
 .filter-pill::after,
 .social-row a::after {
   content: "";
@@ -5588,21 +5346,6 @@ dialog.restock-alert-modal {
   color: var(--paper);
   font-weight: 500;
 }
-.order-lookup-unavailable {
-  padding: 16px;
-  background: var(--ink-3);
-  border: 1px solid var(--hide);
-  border-radius: var(--radius, 8px);
-  color: var(--paper-dim);
-  font-size: 0.88rem;
-  line-height: 1.5;
-  margin-top: 1rem;
-}
-.order-lookup-unavailable a {
-  color: var(--whiskey);
-  text-decoration: underline;
-}
-
 /* ── Digital Gift Certificate Card Styling (R3) ── */
 .gift-certificate-section {
   margin: 2rem 0;
@@ -5808,12 +5551,6 @@ dialog.restock-alert-modal {
   margin-bottom: 0.75rem;
   color: var(--paper);
   font-family: var(--font-display);
-}
-
-.order-items-list {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 1rem 0;
 }
 
 .order-item-row {
@@ -6415,7 +6152,7 @@ dialog.restock-alert-modal {
 
 .journal-featured-title {
   margin: 4px 0 6px;
-  font-family: var(--font-heading, "Cormorant Garamond", Georgia, serif);
+  font-family: var(--font-heading, "Gloock", Georgia, serif);
   font-size: 1.25rem;
   line-height: 1.25;
 }
@@ -6661,6 +6398,29 @@ dialog.restock-alert-modal {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--paper-dim);
+}
+
+/* At 375px the packing slip ran 390px wide inside a 343px column and pushed
+   its right edge to x=435 -- 60px past the viewport. `width: 100%` cannot
+   shrink an auto-layout table below its min-content width, and long unbroken
+   cell values ("salve-frankincense-2oz") set that floor. body has
+   `overflow-x: hidden` as a safety net, so the overflow did not produce a
+   scrollbar: the whole Qty column was simply cut off and unreachable, which is
+   the zero-cutoff rule's exact failure mode. `table-layout: fixed` makes the
+   columns divide the available width instead of demanding their content width,
+   and `overflow-wrap: anywhere` lets the long SKU wrap rather than force the
+   table wide again. */
+@media (max-width: 600px) {
+  .packing-slip-table {
+    table-layout: fixed;
+    font-size: 0.8rem;
+  }
+
+  .packing-slip-table th,
+  .packing-slip-table td {
+    padding: 8px 6px;
+    overflow-wrap: anywhere;
+  }
 }
 
 .packing-checkbox {
@@ -7874,7 +7634,14 @@ a.pdp-ritual-item-name:focus-visible {
   left: 0;
   right: 0;
   width: 100%;
-  z-index: 950;
+  /* Page chrome, not an overlay -- see the Z-INDEX BANDS block at the top of
+     this file. At 950 this bar painted OVER every overlay that is supposed to
+     cover the page: the mobile nav drawer (99), the wishlist backdrop and
+     drawer (198/199) and the skip link (200). On a phone -- the only width
+     where this bar shows at all -- opening the nav or the wishlist left a
+     full-width Add-to-Cart bar floating on top of the panel. 90 puts it below
+     every one of them and still above all in-flow content. */
+  z-index: 90;
   background: var(--ink-2, #181513);
   border-top: 1px solid var(--hide, #3a322d);
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.45);
