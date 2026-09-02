@@ -53,6 +53,9 @@ export const WEBHOOK_TOLERANCE_SECONDS = 300;
 
 const REPLY_TO = "contact@yallternativeliving.com";
 
+// Logged once per isolate when the optional D1 claim table is not bound.
+let warnedNoStateDb = false;
+
 function hexToBytes(hex) {
   if (typeof hex !== "string" || hex.length === 0 || hex.length % 2 !== 0) return null;
   if (!/^[0-9a-fA-F]+$/.test(hex)) return null;
@@ -387,12 +390,26 @@ export async function processStripeEvent(event, env) {
 }
 
 export async function handleStripeWebhook(request, env, origin) {
-  // Startup guard. Without the state layer there is no exactly-once claim and
-  // no ledger, and processing an order without either is worse than not
-  // processing it: 503 is a retryable status, so Stripe holds the event for us.
-  if (!env.STATE_DB || !env.GIFT_CARD_LEDGER) {
-    console.error("stripe-webhook: STATE_DB or GIFT_CARD_LEDGER binding is missing");
+  // Startup guard. Without the ledger there is nowhere to record a gift card,
+  // and processing an order without it is worse than not processing it: 503
+  // is a retryable status, so Stripe holds the event for us.
+  //
+  // STATE_DB (D1) is different: it only backs the exactly-once claim. Every
+  // effect below is idempotent on its own (the ledger keys issue/commit/
+  // release/restore on session or charge ids; Resend sends carry idempotency
+  // keys), so a redelivery without the claim table is harmless. The binding
+  // is optional until the owner has run `wrangler d1 create` (see
+  // workers/README.md); the Worker logs once per isolate and carries on.
+  if (!env.GIFT_CARD_LEDGER) {
+    console.error("stripe-webhook: GIFT_CARD_LEDGER binding is missing");
     return json({ received: false, error: "state_unavailable" }, 503, origin, env);
+  }
+  const hasClaimTable = Boolean(env.STATE_DB);
+  if (!hasClaimTable && !warnedNoStateDb) {
+    warnedNoStateDb = true;
+    console.warn(
+      "stripe-webhook: STATE_DB binding is missing -- processing without the exactly-once claim table"
+    );
   }
 
   const rawBody = await request.text();
@@ -415,20 +432,22 @@ export async function handleStripeWebhook(request, env, origin) {
 
   let claimed = false;
   try {
-    // Lazily, once per isolate: the Worker has no filesystem, so the schema is
-    // applied from migrations.js rather than read from workers/schema.sql.
-    await ensureSchema(env.STATE_DB);
+    if (hasClaimTable) {
+      // Lazily, once per isolate: the Worker has no filesystem, so the schema
+      // is applied from migrations.js rather than read from workers/schema.sql.
+      await ensureSchema(env.STATE_DB);
 
-    claimed = await claimEvent(env.STATE_DB, event.id, event.type);
-    if (!claimed) {
-      // A redelivery. Everything this event was going to do has already been
-      // started or finished; doing it again is exactly what the claim exists to
-      // prevent.
-      return json({ received: true, duplicate: true }, 200, origin, env);
+      claimed = await claimEvent(env.STATE_DB, event.id, event.type);
+      if (!claimed) {
+        // A redelivery. Everything this event was going to do has already
+        // been started or finished; doing it again is exactly what the claim
+        // exists to prevent.
+        return json({ received: true, duplicate: true }, 200, origin, env);
+      }
     }
 
     await processStripeEvent(event, env);
-    await markEventDone(env.STATE_DB, event.id);
+    if (hasClaimTable) await markEventDone(env.STATE_DB, event.id);
     return json({ received: true }, 200, origin, env);
   } catch (err) {
     console.error("Webhook processing error:", err && (err.stack || err.message));

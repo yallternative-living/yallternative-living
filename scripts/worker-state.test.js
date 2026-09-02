@@ -1458,16 +1458,37 @@ async function testWebhookRoute() {
   );
   eq(ignoredRes.status, 200, "an event this shop does not care about is acknowledged, not retried");
 
+  /* STATE_DB (D1) only backs the exactly-once claim table, and every webhook
+     effect is idempotent on its own (ledger keyed on session/charge ids,
+     Resend idempotency keys). The binding stays commented out in
+     wrangler.toml until the owner has run `wrangler d1 create`, so the
+     Worker must keep processing events without it rather than 503 -- a 503
+     here would mean no gift card is ever fulfilled on a fresh deploy. */
   const unbound = await makeRouteEnv({ STATE_DB: undefined });
-  const guarded = await worker.fetch(
+  const degraded = await worker.fetch(
     post("/api/stripe-webhook", ignored, { "Stripe-Signature": signWebhook(ignored) }),
     unbound,
     noCtx
   );
   eq(
+    degraded.status,
+    200,
+    "with no D1 binding the webhook still processes events (claim table is optional)"
+  );
+  const degradedBody = await degraded.json();
+  eq(degradedBody.received, true, "…and acknowledges the event");
+  eq(degradedBody.duplicate, undefined, "…without a claim table it cannot flag duplicates");
+
+  const noLedger = await makeRouteEnv({ GIFT_CARD_LEDGER: undefined });
+  const guarded = await worker.fetch(
+    post("/api/stripe-webhook", ignored, { "Stripe-Signature": signWebhook(ignored) }),
+    noLedger,
+    noCtx
+  );
+  eq(
     guarded.status,
     503,
-    "with no D1 binding the webhook is 503 -- retryable, so Stripe holds the event"
+    "with no ledger binding the webhook is 503 -- retryable, so Stripe holds the event"
   );
 }
 
@@ -1902,6 +1923,10 @@ function testNetlifyRedirects() {
     status: Number((/status\s*=\s*(\d+)/.exec(block) || [])[1])
   }));
 
+  /* Netlify reserves the /.netlify/functions/ prefix and rejects redirect
+     rules on it at deploy time ("4 invalid redirect rules"), so the retired
+     function URLs get no rule at all: a deleted function answers 404 on its
+     own, and nothing in assets/js references those paths any more. */
   for (const legacy of [
     "/.netlify/functions/gift-card-balance",
     "/.netlify/functions/redeem-points",
@@ -1909,9 +1934,12 @@ function testNetlifyRedirects() {
     "/.netlify/functions/submit-restock"
   ]) {
     const rule = rules.find((r) => r.from === legacy);
-    assert(Boolean(rule), `netlify.toml has a rule for ${legacy}`);
-    eq(rule && rule.status, 410, `${legacy} answers 410 Gone`);
+    assert(!rule, `netlify.toml carries no (rejected) redirect rule for ${legacy}`);
   }
+  assert(
+    !fs.existsSync(path.join(ROOT, "netlify", "functions", "gift-card-balance.js")),
+    "the retired Netlify Function source is gone"
+  );
 
   const proxy = rules.find((r) => r.from === "/api/*");
   assert(Boolean(proxy), "netlify.toml proxies the whole /api/* surface to the Worker");

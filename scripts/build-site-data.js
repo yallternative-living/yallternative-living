@@ -2126,14 +2126,18 @@ function buildSiteData() {
     html = html.replace(/<img\s+[^>]+>/gi, function (match) {
       const isLogoDesktop = /\bclass=['"]([^'"]*\s+)?logo-desktop(\s+[^'"]*)?['"]/.test(match);
       const isLogoMobile = /\bclass=['"]([^'"]*\s+)?logo-mobile(\s+[^'"]*)?['"]/.test(match);
+      // Root-absolute: 404.html is served at the requested URL (audit C-5), so
+      // a document-relative logo path 404s under /products/. All of these
+      // pages live at the root, so "/" + path is right for every one of them.
+      const rootAbs = (p) => "/" + escapeHtml(String(p).replace(/^\/+/, ""));
       if (isLogoDesktop) {
         return match.replace(/(\bsrc=['"])[^'"]*(['"])/i, function (m, p1, p2) {
-          return p1 + escapeHtml(logoDesktop) + p2;
+          return p1 + rootAbs(logoDesktop) + p2;
         });
       }
       if (isLogoMobile) {
         return match.replace(/(\bsrc=['"])[^'"]*(['"])/i, function (m, p1, p2) {
-          return p1 + escapeHtml(logoMobile) + p2;
+          return p1 + rootAbs(logoMobile) + p2;
         });
       }
       return match;
@@ -2649,9 +2653,13 @@ function buildSiteData() {
           if (key === "giftUpId") return match; // Handled separately below
           if (key === "umamiWebsiteId") return match; // Handled separately below
           if (key === "logoDesktop" && site[key]) {
+            /* Root-absolute on purpose: 404.html is served at whatever URL
+               was requested (audit C-5), so a document-relative path breaks
+               under /products/. Every top-level page lives at the root, so
+               the leading slash is correct for all of them. */
             return (
-              '<!--YL:site.logoDesktop-->\n          <img class="logo-desktop" src="' +
-              escapeHtml(site[key]) +
+              '<!--YL:site.logoDesktop-->\n          <img class="logo-desktop" src="/' +
+              escapeHtml(String(site[key]).replace(/^\/+/, "")) +
               '" alt="Y\'allternative Living icon" width="48" height="48" loading="lazy" decoding="async">\n<!--/YL:site.logoDesktop-->'
             );
           }

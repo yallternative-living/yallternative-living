@@ -118,10 +118,20 @@ new_sqlite_classes = ["GiftCardLedger", "RateLimitCounter"]
 # FAIL UNTIL YOU DO. The Worker itself degrades honestly if the binding is
 # missing at runtime: checkout keeps working, and /api/stripe-webhook and
 # /api/gift-card-balance return 503 rather than pretending.
-[[d1_databases]]
-binding = "STATE_DB"
-database_name = "yallternative-state"
-database_id = "REPLACE_ME_WITH_THE_ID_FROM_WRANGLER_D1_CREATE"
+# COMMENTED OUT UNTIL THE DATABASE EXISTS. A [[d1_databases]] block with a
+# placeholder id fails `wrangler deploy` outright, which Workers Builds runs
+# on every push to main -- so leaving it live would take the checkout Worker's
+# deploys down until someone noticed. The Worker runs without STATE_DB: the
+# webhook processes events without the exactly-once claim table (every effect
+# is idempotent on its own, see workers/routes/stripe-webhook.js) and the
+# order-status/balance routes do not need it. To switch it on:
+#   1. `npx wrangler d1 create yallternative-state`
+#   2. paste the printed database_id below and uncomment the four lines
+#   3. commit; the next push to main applies workers/schema.sql lazily.
+# [[d1_databases]]
+# binding = "STATE_DB"
+# database_name = "yallternative-state"
+# database_id = "REPLACE_ME_WITH_THE_ID_FROM_WRANGLER_D1_CREATE"
 
 # Optional: Cloudflare's built-in Rate Limiting binding. Free, storage-free and
 # preferred for high-volume public reads (gift-card balance, order status), but

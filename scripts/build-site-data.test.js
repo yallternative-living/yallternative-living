@@ -907,8 +907,9 @@ const netlifyToml = fs.readFileSync(path.join(__dirname, "..", "netlify.toml"), 
 });
 /* The Worker answers every /api/* route (checkout, gift-card-balance,
    stripe-webhook, order-status, restock), so the proxy is a wildcard that
-   forwards the matched remainder with :splat. The retired Netlify Function
-   paths are 410 rules ahead of it; none of them overlap /api/. */
+   forwards the matched remainder with :splat. No rule may exist for the
+   retired /.netlify/functions/* paths: Netlify reserves that prefix and
+   rejects such rules at deploy time. */
 const checkoutIdx = netlifyToml.indexOf('from = "/api/*"');
 assert(checkoutIdx !== -1, "netlify.toml proxies /api/* to the Worker");
 assert(
@@ -921,21 +922,10 @@ assert(
   ),
   "/api/* is a 200 proxy to the Worker with :splat forwarding"
 );
-[
-  "/.netlify/functions/gift-card-balance",
-  "/.netlify/functions/redeem-points",
-  "/.netlify/functions/fulfill-gift-card",
-  "/.netlify/functions/submit-restock"
-].forEach(function (retired) {
-  const idx = netlifyToml.indexOf('from = "' + retired + '"');
-  assert(idx !== -1, "netlify.toml has a rule for the retired function " + retired);
-  if (idx !== -1) {
-    assert(
-      /status = 410/.test(netlifyToml.slice(idx, idx + 200)),
-      "netlify.toml returns 410 Gone for " + retired
-    );
-  }
-});
+assert(
+  netlifyToml.indexOf('from = "/.netlify/functions/') === -1,
+  "netlify.toml carries no redirect rule on the reserved /.netlify/functions/ prefix"
+);
 assert(
   netlifyToml.indexOf('from = "/admin/*"') === -1,
   "/admin is still served (no 404 rule for it)"

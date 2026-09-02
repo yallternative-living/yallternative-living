@@ -2233,26 +2233,24 @@ try {
     fail("order-status.html progression timeline", "missing #orderTimelineContainer");
   }
 
-  if (
-    orderStatusHtmlSrc.indexOf('id="reorderPastOrderBtn"') !== -1 &&
-    orderStatusHtmlSrc.indexOf('id="printPackingSlipBtn"') !== -1
-  ) {
-    ok("order-status.html contains #reorderPastOrderBtn and #printPackingSlipBtn");
-  } else {
-    fail("order-status.html actions", "missing #reorderPastOrderBtn or #printPackingSlipBtn");
-  }
-
-  if (
-    orderStatusHtmlSrc.indexOf('id="packingSlipContainer"') !== -1 &&
-    orderStatusHtmlSrc.indexOf('class="packing-slip-table"') !== -1
-  ) {
-    ok("order-status.html contains #packingSlipContainer with .packing-slip-table");
-  } else {
-    fail(
-      "order-status.html packing slip view",
-      "missing #packingSlipContainer or .packing-slip-table"
-    );
-  }
+  // Audit H-6: the page used to render a fabricated order (timeline, item
+  // rows, a reorder button that added invented items to the cart, and a
+  // printable packing slip) for any input. None of that may come back.
+  [
+    'id="reorderPastOrderBtn"',
+    'id="printPackingSlipBtn"',
+    'id="packingSlipContainer"',
+    'class="packing-slip-table"',
+    'id="slipItemsTableBody"',
+    'id="order-verify-input"',
+    "onclick="
+  ].forEach(function (marker) {
+    if (orderStatusHtmlSrc.indexOf(marker) === -1) {
+      ok("order-status.html carries no fabricated-order markup: " + marker);
+    } else {
+      fail("order-status.html fabricated-order markup (H-6)", "found " + marker);
+    }
+  });
 
   if (orderStatusHtmlSrc.indexOf('id="slipItemsTableBody"') !== -1) {
     var tableBodyIdx = orderStatusHtmlSrc.indexOf('id="slipItemsTableBody"');

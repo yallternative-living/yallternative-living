@@ -611,72 +611,77 @@ function createStaticServer(port = 8082) {
       exitCode = 1;
     }
 
-    console.log("--- Testing Self-Service Order Status & Packing Slip (R6) ---");
+    // Order status is an honest hand-off now (audit H-6): the page never
+    // invents an order. A ?session_id= may prefill the reference, nothing is
+    // auto-submitted, and a submitted lookup renders the contact route rather
+    // than a fabricated timeline, item list, reorder button or packing slip.
+    console.log("--- Testing Order Status honest hand-off (H-6) ---");
     await page.goto(`${url}/order-status.html?session_id=cs_test_sample12345`, {
       waitUntil: "networkidle2"
     });
 
-    const statusCard = await page.waitForSelector(".order-status-card", {
-      visible: true,
-      timeout: 5000
+    const fabricated = await page.evaluate(() => {
+      /* eslint-disable no-undef */
+      return {
+        card: Boolean(document.querySelector(".order-status-card")),
+        rows: document.querySelectorAll(".order-item-row").length,
+        reorder: Boolean(document.getElementById("reorderPastOrderBtn")),
+        slip: Boolean(document.getElementById("slipItemsTableBody")),
+        verifyField: Boolean(document.getElementById("order-verify-input")),
+        prefill: (document.getElementById("orderQueryInput") || {}).value || ""
+      };
+      /* eslint-enable no-undef */
     });
-    if (statusCard) {
+    if (!fabricated.card && fabricated.rows === 0 && !fabricated.reorder && !fabricated.slip) {
+      console.log("✅ order-status.html renders no fabricated order for ?session_id=.");
+    } else {
       console.log(
-        "✅ order-status.html auto-rendered progression timeline from ?session_id= query."
+        "❌ order-status.html still renders fabricated order content: " + JSON.stringify(fabricated)
       );
+      exitCode = 1;
+    }
+    if (!fabricated.verifyField) {
+      console.log("✅ order-status.html no longer asks for an unverified email/zip.");
     } else {
-      console.log("❌ order-status.html failed to render progression timeline.");
+      console.log("❌ order-status.html still carries the fake verification field.");
       exitCode = 1;
     }
 
-    const orderRows = await page.$$(".order-item-row");
-    if (orderRows.length >= 2) {
-      console.log(`✅ order-status.html rendered itemized breakdown (${orderRows.length} items).`);
-    } else {
-      console.log("❌ order-status.html failed to render past order items.");
-      exitCode = 1;
-    }
-
-    // Verify Reorder Past Order button opens cart
-    const reorderPastBtn = await page.$("#reorderPastOrderBtn");
-    if (reorderPastBtn) {
-      await page.evaluate((b) => b.click(), reorderPastBtn);
-      let cartOpened = false;
+    const lookupForm = await page.$("#orderStatusForm, form.order-status-form");
+    if (lookupForm) {
+      await page.evaluate(() => {
+        /* eslint-disable no-undef */
+        const input =
+          document.getElementById("orderQueryInput") || document.getElementById("order-id-input");
+        if (input) input.value = "YL-2026-0842";
+        const form =
+          document.getElementById("orderStatusForm") ||
+          document.querySelector("form.order-status-form");
+        if (form) form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+        /* eslint-enable no-undef */
+      });
+      let handoff = null;
       try {
-        await page.waitForSelector("#yl-cart-drawer .yl-cart-line", {
+        handoff = await page.waitForSelector(".order-lookup-unavailable", {
           visible: true,
           timeout: 5000
         });
-        cartOpened = true;
       } catch (e) {
-        cartOpened = false;
+        handoff = null;
       }
-      if (cartOpened) {
-        console.log("✅ Reorder Past Order button populated cart and opened drawer.");
+      const handoffHasContact = handoff
+        ? await page.evaluate((el) => /mailto:|contact\.html/.test(el.innerHTML), handoff)
+        : false;
+      if (handoff && handoffHasContact) {
+        console.log(
+          "✅ Submitted lookup renders the contact hand-off with a way to reach the shop."
+        );
       } else {
-        console.log("❌ Reorder Past Order button failed to open cart drawer.");
+        console.log("❌ Submitted lookup did not render the contact hand-off.");
         exitCode = 1;
       }
     } else {
-      console.log("❌ #reorderPastOrderBtn not found on order-status.html.");
-      exitCode = 1;
-    }
-
-    // Assert STRICT INVARIANT: Packing slip table contains ZERO dollar prices
-    const slipTableText = await page.evaluate(() => {
-      /* eslint-disable no-undef */
-      const tb = document.getElementById("slipItemsTableBody");
-      return tb ? tb.textContent : "";
-      /* eslint-enable no-undef */
-    });
-    if (!slipTableText.includes("$") && !/\$\d+\.\d{2}/.test(slipTableText)) {
-      console.log(
-        "✅ Printable Fulfillment Packing Slip table verified: STRICTLY ZERO dollar prices."
-      );
-    } else {
-      console.log(
-        "❌ Printable Packing Slip contains dollar prices, violating gift recipient privacy invariant!"
-      );
+      console.log("❌ order-status.html lookup form not found.");
       exitCode = 1;
     }
 
