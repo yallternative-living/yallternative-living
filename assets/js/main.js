@@ -9910,13 +9910,21 @@
   initPdpStickyBar();
   initHoverPrefetch();
 
-  /* ---------- Load translator ---------- */
+  /* ---------- Load translator & locales ---------- */
   (function () {
     if (typeof document === "undefined") return;
-    var s = document.createElement("script");
-    s.src = "/assets/js/translator.js?v=2.0";
-    s.defer = true;
-    document.body.appendChild(s);
+    if (!window.YL_LOCALES && !document.querySelector('script[src*="locales-data.js"]')) {
+      var sLoc = document.createElement("script");
+      sLoc.src = "/assets/js/locales-data.js?v=2.0";
+      sLoc.defer = true;
+      document.body.appendChild(sLoc);
+    }
+    if (!window.YL_TRANSLATOR && !document.querySelector('script[src*="translator.js"]')) {
+      var s = document.createElement("script");
+      s.src = "/assets/js/translator.js?v=2.0";
+      s.defer = true;
+      document.body.appendChild(s);
+    }
   })();
 
   /* ---------- Node.js / Unit Test Export ---------- */

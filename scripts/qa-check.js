@@ -1590,9 +1590,7 @@ if (!cspText) {
     ["umami.is", "Umami (cookieless analytics + conversion events)"],
     ["formspree.io", "Formspree (review submission form)"],
     ["embed.tawk.to", "Tawk.to (live chat script-src)"],
-    ["*.tawk.to", "Tawk.to (connect/frame/img-src)"],
-    ["translate.google.com", "Google Translate element.js (translator.js, user-triggered)"],
-    ["translate.googleapis.com", "Google Translate el_main bundle + translation XHRs"]
+    ["*.tawk.to", "Tawk.to (connect/frame/img-src)"]
   ];
   /* The newsletter endpoint is derived, not pinned. This list used to require
      BOTH app.kit.com and app.convertkit.com -- the second was dead (nothing in
@@ -1627,6 +1625,17 @@ if (!cspText) {
           " is wired into the site but not allowlisted -- it'll be silently blocked by the browser"
       );
   });
+  // Regression guard: Google Translate was replaced with a self-hosted,
+  // cookieless in-place client localization engine (assets/js/translator.js).
+  // No external Google Translate origins or scripts are permitted in the CSP.
+  if (!/translate\.google/i.test(cspText)) {
+    ok("CSP has no leftover Google Translate references (self-hosted localization)");
+  } else {
+    fail(
+      "CSP still references Google Translate",
+      "expected Google Translate to be fully removed from CSP"
+    );
+  }
   // Regression guard: Snipcart was fully removed in favor of a same-origin
   // cart + Stripe Checkout (see docs/STRIPE-MIGRATION.md). Stripe's hosted
   // checkout page is reached via a top-level redirect, not a fetch/frame/
@@ -4654,6 +4663,242 @@ section("SERP-safe titles and meta descriptions");
     });
   } else if (checked) {
     ok("every title and description is unique across " + checked + " pages");
+  }
+})();
+
+/* ---------- Milestone 4: Self-Hosted Localization Suite & Static QA Invariants ---------- */
+section("Milestone 4: Self-Hosted Localization Suite & Static QA Invariants");
+(function checkLocalizationInvariants() {
+  // 1. Zero Google Translate domains in deploy configs (_headers, netlify.toml, vercel.json)
+  var deployFiles = ["_headers", "netlify.toml", "vercel.json"];
+  var forbiddenDomains = [
+    "translate.google.com",
+    "translate.googleapis.com",
+    "translate-pa.googleapis.com"
+  ];
+  deployFiles.forEach(function (file) {
+    var filePath = path.join(ROOT, file);
+    if (!fs.existsSync(filePath)) {
+      fail(file, "deploy config file missing");
+      return;
+    }
+    var content = fs.readFileSync(filePath, "utf8");
+    forbiddenDomains.forEach(function (domain) {
+      if (content.indexOf(domain) === -1) {
+        ok(file + ": zero occurrences of " + domain);
+      } else {
+        fail(file + " contains legacy Google Translate domain", domain);
+      }
+    });
+  });
+
+  // 2. CSP byte-parity between _headers, netlify.toml, and vercel.json
+  try {
+    var cspHeaders = extractHeadersFileCSP();
+    var cspVercel = extractVercelCSP();
+    var cspNetlify = extractNetlifyCSP();
+    if (cspHeaders && cspHeaders === cspVercel && cspVercel === cspNetlify) {
+      ok("M4: CSP byte-parity strictly maintained across _headers, vercel.json, and netlify.toml");
+    } else {
+      fail("M4: CSP drift detected between _headers, vercel.json, and netlify.toml");
+    }
+  } catch (e) {
+    fail("M4: CSP byte-parity check failed", e.message);
+  }
+
+  // 3. Zero legacy Google Translate CSS hacks in assets/css/styles.css
+  var stylesPath = path.join(ROOT, "assets/css/styles.css");
+  if (fs.existsSync(stylesPath)) {
+    var stylesContent = fs.readFileSync(stylesPath, "utf8");
+    var legacyCssHacks = [
+      ".skiptranslate",
+      "#google_translate_element",
+      ".goog-te-banner-frame",
+      "html.translated-ltr body",
+      "body.translated-ltr",
+      ".goog-te-combo"
+    ];
+    legacyCssHacks.forEach(function (hack) {
+      if (stylesContent.indexOf(hack) === -1) {
+        ok("styles.css: zero legacy Google Translate CSS hack (" + hack + ")");
+      } else {
+        fail("styles.css contains legacy Google Translate CSS hack", hack);
+      }
+    });
+  } else {
+    fail("assets/css/styles.css", "missing stylesheet file");
+  }
+
+  // 4. assets/data/locales/*.json exist and validate brand glossary terms
+  var expectedLocales = ["en", "es", "de", "fr", "ja", "zh"];
+  expectedLocales.forEach(function (lang) {
+    var localePath = path.join(ROOT, "assets/data/locales", lang + ".json");
+    if (fs.existsSync(localePath)) {
+      try {
+        var parsedLocale = JSON.parse(fs.readFileSync(localePath, "utf8"));
+        if (parsedLocale.meta && parsedLocale.meta.code === lang && parsedLocale.phrases) {
+          var phraseCount = Object.keys(parsedLocale.phrases).length;
+          if (phraseCount >= 40) {
+            ok(
+              "assets/data/locales/" +
+                lang +
+                ".json: valid dictionary with " +
+                phraseCount +
+                " phrases"
+            );
+          } else {
+            fail("assets/data/locales/" + lang + ".json", "too few phrases (" + phraseCount + ")");
+          }
+        } else {
+          fail("assets/data/locales/" + lang + ".json", "invalid schema structure");
+        }
+      } catch (err) {
+        fail("assets/data/locales/" + lang + ".json", "JSON parse error: " + err.message);
+      }
+    } else {
+      fail("assets/data/locales/" + lang + ".json", "locale file not found");
+    }
+  });
+
+  // Brand glossary validation
+  var glossaryPath = path.join(ROOT, "assets/data/brand-glossary.json");
+  if (fs.existsSync(glossaryPath)) {
+    try {
+      var glossary = JSON.parse(fs.readFileSync(glossaryPath, "utf8"));
+      if (Array.isArray(glossary.protectedTerms) && glossary.categories && glossary.rules) {
+        ok(
+          "assets/data/brand-glossary.json: structural schema valid with " +
+            glossary.protectedTerms.length +
+            " protected terms"
+        );
+        var requiredTerms = [
+          "Y'allternative Living",
+          "Porch Sweep",
+          "Cathedral Dust",
+          "Bless Your Heart",
+          "Unbothered",
+          "Calendula officinalis",
+          "Arnica montana",
+          "Boswellia carterii",
+          "Lavandula angustifolia",
+          "Magnesium chloride"
+        ];
+        requiredTerms.forEach(function (term) {
+          if (glossary.protectedTerms.indexOf(term) !== -1) {
+            ok("Brand glossary protects term: " + term);
+          } else {
+            fail("Brand glossary missing protected term", term);
+          }
+        });
+      } else {
+        fail("assets/data/brand-glossary.json", "missing protectedTerms, categories, or rules");
+      }
+    } catch (err) {
+      fail("assets/data/brand-glossary.json", "JSON parse error: " + err.message);
+    }
+  } else {
+    fail("assets/data/brand-glossary.json", "file not found");
+  }
+
+  // Locales-data.js compiled bundle validation
+  var localesBundlePath = path.join(ROOT, "assets/js/locales-data.js");
+  if (fs.existsSync(localesBundlePath)) {
+    ok("assets/js/locales-data.js exists on disk");
+  } else {
+    fail("assets/js/locales-data.js", "missing bundle file -- run npm run build-data");
+  }
+
+  // 5. Valid <link rel="alternate" hreflang="..."> tags across all indexable static HTML files and 19 PDPs
+  var allHtmlPages = PAGES.map(function (p) {
+    return path.join(ROOT, p);
+  });
+  var productsDir = path.join(ROOT, "products");
+  if (fs.existsSync(productsDir)) {
+    fs.readdirSync(productsDir).forEach(function (f) {
+      if (f.endsWith(".html")) {
+        allHtmlPages.push(path.join(productsDir, f));
+      }
+    });
+  }
+
+  var indexablePages = allHtmlPages.filter(function (filePath) {
+    var content = fs.readFileSync(filePath, "utf8");
+    return !/<meta name="robots" content="[^"]*noindex/i.test(content);
+  });
+
+  var hreflangs = ["x-default", "en", "es", "de", "fr", "ja", "zh"];
+  var missingHreflangPages = [];
+
+  indexablePages.forEach(function (filePath) {
+    var relPath = path.relative(ROOT, filePath);
+    var content = fs.readFileSync(filePath, "utf8");
+    var missingInPage = [];
+    hreflangs.forEach(function (langCode) {
+      var re = new RegExp(
+        '<link\\s+rel="alternate"\\s+hreflang="' + langCode + '"\\s+href="[^"]+"',
+        "i"
+      );
+      if (!re.test(content)) {
+        missingInPage.push(langCode);
+      }
+    });
+    if (missingInPage.length > 0) {
+      missingHreflangPages.push(relPath + " (missing: " + missingInPage.join(", ") + ")");
+    }
+  });
+
+  if (missingHreflangPages.length === 0) {
+    ok(
+      "All " +
+        indexablePages.length +
+        " indexable HTML pages (13 static + 19 PDPs) declare valid hreflang tags for all 6 languages + x-default"
+    );
+  } else {
+    fail("Pages missing hreflang tags", missingHreflangPages.join("; "));
+  }
+
+  // 6. Valid sitemap.xml declaring xmlns:xhtml="http://www.w3.org/1999/xhtml" and <xhtml:link> elements
+  var sitemapPath = path.join(ROOT, "sitemap.xml");
+  if (fs.existsSync(sitemapPath)) {
+    var sitemapContent = fs.readFileSync(sitemapPath, "utf8");
+    if (sitemapContent.indexOf('xmlns:xhtml="http://www.w3.org/1999/xhtml"') !== -1) {
+      ok('sitemap.xml declares xmlns:xhtml="http://www.w3.org/1999/xhtml" namespace');
+    } else {
+      fail(
+        "sitemap.xml",
+        'missing xmlns:xhtml="http://www.w3.org/1999/xhtml" namespace declaration'
+      );
+    }
+
+    var xhtmlLinkCount = (sitemapContent.match(/<xhtml:link\s+rel="alternate"/g) || []).length;
+    if (xhtmlLinkCount >= 100) {
+      ok("sitemap.xml contains " + xhtmlLinkCount + " <xhtml:link> alternate localization links");
+    } else {
+      fail(
+        "sitemap.xml alternate links",
+        "expected >= 100 <xhtml:link> elements, found " + xhtmlLinkCount
+      );
+    }
+  } else {
+    fail("sitemap.xml", "file not found");
+  }
+
+  // 7. sw.js includes /assets/js/locales-data.js and /assets/js/translator.js in ASSETS_TO_CACHE
+  var swPath = path.join(ROOT, "sw.js");
+  if (fs.existsSync(swPath)) {
+    var swContent = fs.readFileSync(swPath, "utf8");
+    if (swContent.indexOf("'/assets/js/locales-data.js'") !== -1) {
+      ok("sw.js ASSETS_TO_CACHE includes '/assets/js/locales-data.js'");
+    } else {
+      fail("sw.js", "missing '/assets/js/locales-data.js' in ASSETS_TO_CACHE");
+    }
+    if (swContent.indexOf("'/assets/js/translator.js'") !== -1) {
+      ok("sw.js ASSETS_TO_CACHE includes '/assets/js/translator.js'");
+    } else {
+      fail("sw.js", "missing '/assets/js/translator.js' in ASSETS_TO_CACHE");
+    }
+  } else {
+    fail("sw.js", "file not found");
   }
 })();
 

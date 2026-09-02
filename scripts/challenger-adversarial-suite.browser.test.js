@@ -470,8 +470,8 @@ function createStaticServer(port = 8089) {
   /* global document, window */
   console.log("\n--- 3. R1: Mobile Sticky Bar Puppeteer Browser Verification ---");
 
-  const serverPort = 8089;
-  const server = await createStaticServer(serverPort);
+  const server = await createStaticServer(0);
+  const serverPort = server.address().port;
   const baseUrl = `http://127.0.0.1:${serverPort}`;
 
   const browser = await puppeteer.launch({

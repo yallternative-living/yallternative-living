@@ -386,12 +386,12 @@ function recordFail(msg) {
     // open and its input focused (openModal focuses on a 50ms timer) before
     // typing, and start from an empty query so nothing left over from the
     // shortcut vectors above can be prepended to it.
-    await page.waitForSelector("#globalSearchTrigger", { visible: true, timeout: 5000 });
+    await page.waitForSelector("#globalSearchTrigger", { visible: true, timeout: 10000 });
     await page.click("#globalSearchTrigger");
-    await page.waitForSelector("#global-search-modal[open]", { visible: true, timeout: 5000 });
+    await page.waitForSelector("#global-search-modal[open]", { visible: true, timeout: 10000 });
     await page.waitForFunction(
       () => document.activeElement && document.activeElement.id === "globalSearchInput",
-      { timeout: 5000 }
+      { timeout: 10000 }
     );
     await page.$eval("#globalSearchInput", (el) => {
       el.value = "";

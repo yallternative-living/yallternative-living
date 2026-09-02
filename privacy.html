@@ -12,6 +12,13 @@
 <meta name="robots" content="index, follow">
 <meta name="description" content="Plain-language privacy info for Y'allternative Living: what happens with your data when you browse, buy something, sign up for emails, or shop our Etsy.">
 <link rel="canonical" href="https://yallternativeliving.com/privacy.html">
+<link rel="alternate" hreflang="x-default" href="https://yallternativeliving.com/privacy.html">
+<link rel="alternate" hreflang="en" href="https://yallternativeliving.com/privacy.html">
+<link rel="alternate" hreflang="es" href="https://yallternativeliving.com/privacy.html?lang=es">
+<link rel="alternate" hreflang="de" href="https://yallternativeliving.com/privacy.html?lang=de">
+<link rel="alternate" hreflang="fr" href="https://yallternativeliving.com/privacy.html?lang=fr">
+<link rel="alternate" hreflang="ja" href="https://yallternativeliving.com/privacy.html?lang=ja">
+<link rel="alternate" hreflang="zh" href="https://yallternativeliving.com/privacy.html?lang=zh">
 
 <meta property="og:type" content="website">
 <meta property="og:title" content="Privacy Policy | Y'allternative Living">
@@ -186,7 +193,7 @@
             <li><strong>Your cart</strong> &mdash; which goods, which sizes, how many, and any gift message or recipient email you've typed into a gift card.</li>
             <li><strong>Recently viewed items</strong>, so the carousel at the bottom of the shop can show you where you've been (the last eight, by product ID).</li>
             <li><strong>A gift card code you've applied</strong> to your cart, along with its balance, and your Alt-Points total.</li>
-            <li><strong>Your language choice</strong>, if you use the translation tool &mdash; that one is a cookie (<code>googtrans</code>), because that's what Google Translate reads.</li>
+            <li><strong>Your language choice</strong>, if you use the translation tool (stored locally in <code>localStorage['yl-lang']</code>, zero cookies).</li>
           </ul>
           <p>None of that is sent anywhere while you're browsing. The cart is the one to know about: it stays on your device right up until you click Checkout, at which point its contents go to our checkout service so it can build your payment page. Clear your browser data, or switch devices or browsers, and all of it resets, because it was never anywhere but your own machine to begin with.</p>
         </div>
@@ -250,10 +257,10 @@
 
         <div class="reveal">
           <h2>Cookies &amp; Analytics</h2>
-          <p>The browser storage this site uses is the functional kind, listed in full under &ldquo;Just Browsing?&rdquo; above: your theme, your wishlist, your cart, your recently viewed items, an applied gift card, and &mdash; if you use the translation tool &mdash; a cookie holding your language choice. None of it is used for tracking or advertising.</p>
+          <p>The browser storage this site uses is the functional kind, listed in full under &ldquo;Just Browsing?&rdquo; above: your theme, your wishlist, your cart, your recently viewed items, an applied gift card, and your language choice (in local storage). None of it is used for tracking or advertising, and none of it sets a cookie.</p>
           <p><strong>Analytics.</strong> This site is built to run <a href="https://umami.is/" target="_blank" rel="noopener">Umami<span class="sr-only"> (opens in new tab)</span></a>, and analytics may be enabled here. If it is: Umami is cookieless, doesn't collect or store personal data, doesn't fingerprint your device, and can't track you across other websites &mdash; it counts anonymous, aggregate activity like how many people visited a page or added something to a cart. Our search box reports only how long a search was and whether it found anything, never what you typed. If analytics is switched off, nothing is loaded and nothing is counted.</p>
           <p><strong>Live chat.</strong> The chat bubble in the corner is <a href="https://www.tawk.to/privacy-policy/" target="_blank" rel="noopener">Tawk.to<span class="sr-only"> (opens in new tab)</span></a>, and it is live on every page of this site, product pages included &mdash; the one exception is the offline fallback page you only see when your connection drops. Unlike the rest of what's here, it loads its own script and sets its own cookies (it uses them to recognize a returning visitor and keep a conversation together), and it can see the page you're on. Anything you type into the chat is held by Tawk.to as well as reaching us.</p>
-          <p><strong>Translation.</strong> Google Translate is opt-in: nothing from Google's translation service loads until you actually pick a language. Once you do, the page text is sent to Google to be translated and the <code>googtrans</code> cookie records your choice.</p>
+          <p><strong>Translation.</strong> Translations are self-hosted and run locally in your browser with zero cookies, zero third-party scripts, and zero network requests to Google or any external service. Your language preference is saved solely in your browser's local storage (<code>localStorage['yl-lang']</code>).</p>
           <p>The other third-party services embedded here &mdash; Stripe during checkout, and Etsy once you click through &mdash; may set their own cookies or use their own tracking as part of how they operate. Those are governed by those companies' own policies.</p>
         </div>
         <hr class="rule">
@@ -269,7 +276,6 @@
             <li><a href="https://kit.com/privacy" target="_blank" rel="noopener">Kit<span class="sr-only"> (opens in new tab)</span></a> (formerly ConvertKit) &mdash; holds newsletter subscribers.</li>
             <li><a href="https://resend.com/legal/privacy-policy" target="_blank" rel="noopener">Resend<span class="sr-only"> (opens in new tab)</span></a> &mdash; sends gift card emails, restock-alert emails and the two emails a reaction report generates (our copy and your acknowledgement).</li>
             <li><a href="https://www.tawk.to/privacy-policy/" target="_blank" rel="noopener">Tawk.to<span class="sr-only"> (opens in new tab)</span></a> &mdash; the live chat widget, and its cookies.</li>
-            <li><a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google<span class="sr-only"> (opens in new tab)</span></a> &mdash; Google Translate, only if you ask for it.</li>
             <li><a href="https://umami.is/privacy" target="_blank" rel="noopener">Umami<span class="sr-only"> (opens in new tab)</span></a> &mdash; cookieless analytics, if analytics is enabled.</li>
             <li><a href="https://www.etsy.com/legal/privacy/" target="_blank" rel="noopener">Etsy<span class="sr-only"> (opens in new tab)</span></a> &mdash; our second storefront, once you click through to it.</li>
           </ul>

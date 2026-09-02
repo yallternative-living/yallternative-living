@@ -383,6 +383,73 @@ function renderFaqAnswerHtml(answer) {
   });
 }
 
+/* ---------- Localization & Multilingual SEO ---------- */
+const SUPPORTED_LOCALES = ["en", "es", "de", "fr", "ja", "zh"];
+
+function generateHreflangTags(pageCanonicalUrl, indent) {
+  const pad = indent !== undefined ? indent : "";
+  const lines = [];
+  lines.push(
+    pad + '<link rel="alternate" hreflang="x-default" href="' + escapeHtml(pageCanonicalUrl) + '">'
+  );
+  lines.push(
+    pad + '<link rel="alternate" hreflang="en" href="' + escapeHtml(pageCanonicalUrl) + '">'
+  );
+  SUPPORTED_LOCALES.slice(1).forEach(function (lang) {
+    const sep = pageCanonicalUrl.indexOf("?") !== -1 ? "&" : "?";
+    const localizedUrl = pageCanonicalUrl + sep + "lang=" + lang;
+    lines.push(
+      pad + '<link rel="alternate" hreflang="' + lang + '" href="' + escapeHtml(localizedUrl) + '">'
+    );
+  });
+  return lines.join("\n");
+}
+
+function validateLocalesAndGlossary(locales, glossary) {
+  if (!glossary || !Array.isArray(glossary.protectedTerms) || !glossary.protectedTerms.length) {
+    throw new Error("brand-glossary.json must define a non-empty protectedTerms array.");
+  }
+  const protectedTerms = glossary.protectedTerms;
+  const nonEnglishLocales = ["es", "de", "fr", "ja", "zh"];
+
+  if (!locales || !locales.en || !locales.en.phrases) {
+    throw new Error("Canonical English locale (en.json) is missing or has no phrases.");
+  }
+
+  const enPhrases = locales.en.phrases;
+
+  nonEnglishLocales.forEach(function (lang) {
+    const loc = locales[lang];
+    if (!loc || !loc.phrases) {
+      throw new Error("Locale '" + lang + "' is missing or has no phrases.");
+    }
+
+    Object.keys(enPhrases).forEach(function (key) {
+      const enText = enPhrases[key];
+      const targetText = loc.phrases[key];
+      if (!targetText) return;
+      protectedTerms.forEach(function (term) {
+        if (enText.indexOf(term) !== -1) {
+          if (targetText.indexOf(term) === -1) {
+            throw new Error(
+              "Protected term violation in locale '" +
+                lang +
+                "' for key '" +
+                key +
+                "': expected protected term '" +
+                term +
+                "' to be preserved verbatim in '" +
+                targetText +
+                "'."
+            );
+          }
+        }
+      });
+    });
+  });
+  return true;
+}
+
 /* ---------- CMS integration IDs ----------
    Every one of these lands in either an HTML attribute or a JavaScript
    string literal inside a CSP-hashed inline script, and all of them are
@@ -920,6 +987,13 @@ function buildSiteData() {
   const JOURNAL = readJson("assets/data/journal.json");
   const SOCIAL_FEED = readJson("assets/data/social-feed.json");
   const CONTENT = readJson("assets/data/content.json");
+  const BRAND_GLOSSARY = readJson("assets/data/brand-glossary.json");
+  const LOCALES = {};
+  SUPPORTED_LOCALES.forEach(function (lang) {
+    LOCALES[lang] = readJson("assets/data/locales/" + lang + ".json");
+  });
+  validateLocalesAndGlossary(LOCALES, BRAND_GLOSSARY);
+
   const SEARCH_CONFIG = getSearchConfig(CONTENT);
   const SITE_CONFIG = CONTENT.site || {};
   validateSiteIds(SITE_CONFIG);
@@ -1398,6 +1472,40 @@ function buildSiteData() {
     JSON.stringify(SOCIAL_FEED, null, 2) +
     ";\n";
   writeFile("assets/js/social-feed-data.js", socialFeedDataJs);
+
+  /* ---------- assets/js/locales-data.js ----------
+   window.YL_LOCALES and window.YL_BRAND_GLOSSARY wrapper around
+   assets/data/locales/*.json and assets/data/brand-glossary.json.
+   Precached in sw.js for zero-network, offline translation. */
+  const localesDataJs =
+    "/**\n" +
+    " * @fileoverview Auto-generated localization dictionaries and brand glossary.\n" +
+    " * Wrap of assets/data/locales/*.json and assets/data/brand-glossary.json.\n" +
+    " * Do not hand-edit this file.\n" +
+    " * @const {!Object}\n" +
+    " */\n" +
+    "/* global module */\n" +
+    "(function () {\n" +
+    "  var LOCALES = " +
+    JSON.stringify(LOCALES, null, 2) +
+    ";\n" +
+    "  var BRAND_GLOSSARY = " +
+    JSON.stringify(BRAND_GLOSSARY, null, 2) +
+    ";\n\n" +
+    "  if (typeof window !== 'undefined') {\n" +
+    "    window.YL_LOCALES = LOCALES;\n" +
+    "    window.YL_BRAND_GLOSSARY = BRAND_GLOSSARY;\n" +
+    "  }\n\n" +
+    "  if (typeof module !== 'undefined' && module.exports) {\n" +
+    "    module.exports = {\n" +
+    "      LOCALES: LOCALES,\n" +
+    "      BRAND_GLOSSARY: BRAND_GLOSSARY,\n" +
+    "      YL_LOCALES: LOCALES,\n" +
+    "      YL_BRAND_GLOSSARY: BRAND_GLOSSARY\n" +
+    "    };\n" +
+    "  }\n" +
+    "})();\n";
+  writeFile("assets/js/locales-data.js", localesDataJs);
 
   /* ---------- assets/js/search-data.js (Global Search Index) ---------- */
   const searchProducts = PRODUCTS.map(function (p) {
@@ -3261,12 +3369,32 @@ function buildSiteData() {
     "reviews.html": ["assets/data/site-reviews.json"],
     "journal.html": ["assets/data/journal.json"]
   };
+  function sitemapXhtmlLinks(pageUrl) {
+    const lines = [];
+    lines.push('    <xhtml:link rel="alternate" hreflang="x-default" href="' + pageUrl + '"/>');
+    lines.push('    <xhtml:link rel="alternate" hreflang="en" href="' + pageUrl + '"/>');
+    SUPPORTED_LOCALES.slice(1).forEach(function (lang) {
+      const sep = pageUrl.indexOf("?") !== -1 ? "&" : "?";
+      lines.push(
+        '    <xhtml:link rel="alternate" hreflang="' +
+          lang +
+          '" href="' +
+          pageUrl +
+          sep +
+          "lang=" +
+          lang +
+          '"/>'
+      );
+    });
+    return lines.join("\n");
+  }
+
   const sitemapXml =
     '<?xml version="1.0" encoding="UTF-8"?>\n' +
     "<!-- Auto-generated by scripts/build-site-data.js. Do not hand-edit;\n" +
     "     re-run the script after adding a page. Swap the DOMAIN constant\n" +
     "     inside that script once a real domain exists, then re-run. -->\n" +
-    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n' +
     PAGES.map(function (p) {
       // Emit the homepage as the bare root URL, not /index.html -- the page's
       // own canonical/OG tags point at DOMAIN + "/", so listing /index.html
@@ -3274,31 +3402,35 @@ function buildSiteData() {
       // (PAGES keeps the real "index.html" filename because it's reused below
       // to read the actual files for canonical-tag injection.)
       const locPath = p.loc === "index.html" ? "" : p.loc;
+      const fullUrl = DOMAIN + "/" + locPath;
       return (
-        "  <url><loc>" +
-        DOMAIN +
-        "/" +
-        locPath +
-        "</loc><lastmod>" +
+        "  <url>\n" +
+        "    <loc>" +
+        fullUrl +
+        "</loc>\n" +
+        sitemapXhtmlLinks(fullUrl) +
+        "\n    <lastmod>" +
         pageLastmod([p.loc].concat(SHARED_SOURCES, PAGE_EXTRA_SOURCES[p.loc] || [])) +
-        "</lastmod><priority>" +
+        "</lastmod>\n    <priority>" +
         p.priority +
-        "</priority></url>"
+        "</priority>\n  </url>"
       );
     }).join("\n") +
     "\n" +
     // Product pages: indexable since 2026-09-01 (see renderProductPdpHtml).
     PRODUCTS.map(function (p) {
+      const fullUrl = DOMAIN + "/products/" + p.id + ".html";
       return (
-        "  <url><loc>" +
-        DOMAIN +
-        "/products/" +
-        p.id +
-        ".html</loc><lastmod>" +
+        "  <url>\n" +
+        "    <loc>" +
+        fullUrl +
+        "</loc>\n" +
+        sitemapXhtmlLinks(fullUrl) +
+        "\n    <lastmod>" +
         pageLastmod(
           ["products/" + p.id + ".html", "assets/data/products.json"].concat(SHARED_SOURCES)
         ) +
-        "</lastmod><priority>0.8</priority></url>"
+        "</lastmod>\n    <priority>0.8</priority>\n  </url>"
       );
     }).join("\n") +
     "\n</urlset>\n";
@@ -3658,6 +3790,19 @@ function buildSiteData() {
       }
 
       let updated = html;
+
+      // Multilingual hreflang alternate links injection
+      if (page.endsWith(".html") && page !== "assets/data/footer.html") {
+        const locPath = page === "index.html" ? "" : page;
+        const pageCanonicalUrl = DOMAIN + "/" + locPath;
+        const hreflangTags = generateHreflangTags(pageCanonicalUrl, "");
+        // Clean out existing hreflang tags if any to ensure idempotency
+        updated = updated.replace(/\n?<link rel="alternate" hreflang="[^"]*" href="[^"]*">/g, "");
+        // Inject right after canonical link tag
+        updated = updated.replace(/(<link rel="canonical" href="[^"]*">)/, function (m, canTag) {
+          return canTag + "\n" + hreflangTags;
+        });
+      }
 
       /* ---------- feature gates ----------
        The quiz, countdown ticker and order-lookup tool all shipped hardcoded
@@ -6056,6 +6201,8 @@ function renderProductPdpHtml(
     '  <link rel="canonical" href="' +
     pUrl +
     '">\n' +
+    generateHreflangTags(pUrl, "  ") +
+    "\n" +
     '  <link rel="icon" href="/assets/img/favicon-32.png" sizes="32x32" type="image/png">\n' +
     '  <link rel="icon" href="/assets/img/favicon-192.png" sizes="192x192" type="image/png">\n' +
     '  <link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png">\n' +
@@ -6357,6 +6504,9 @@ if (typeof module !== "undefined" && module.exports) {
     renderRitualSectionHtml: renderRitualSectionHtml,
     renderStickyBarHtml: renderStickyBarHtml,
     renderProductPdpHtml: renderProductPdpHtml,
+    SUPPORTED_LOCALES: SUPPORTED_LOCALES,
+    generateHreflangTags: generateHreflangTags,
+    validateLocalesAndGlossary: validateLocalesAndGlossary,
     buildSiteData: buildSiteData
   };
 }

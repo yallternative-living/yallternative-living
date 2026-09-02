@@ -452,34 +452,15 @@ function run() {
     // loaded by the deferred inline snippet on first pointerdown/scroll and
     // the two Tawk IDs in content.json are real, so this fires for any visitor
     // who touches the page.
-    // translate.google.com / translate.googleapis.com: same story, and the
-    // same reason M-2's "0 / 65 pages reference it" is not the whole picture.
-    // No page links them; assets/js/main.js appends assets/js/translator.js at
-    // the end of init on every page, translator.js draws the globe menu in the
-    // header (confirmed in the live DOM at yallternativeliving.com), and
-    // choosing a language injects
-    // translate.google.com/translate_a/element.js, which then pulls its
-    // el_main bundle from translate.googleapis.com. Both are load-bearing for
-    // a real, user-triggered feature.
-    "script-src 'self' https://cloud.umami.is https://embed.tawk.to https://cdn.jsdelivr.net/emojione/ https://translate.google.com https://translate.googleapis.com 'inline-speculation-rules' " +
+    "script-src 'self' https://cloud.umami.is https://embed.tawk.to https://cdn.jsdelivr.net/emojione/ 'inline-speculation-rules' " +
       hashes.join(" "),
     // Fonts are self-hosted from /assets/fonts/ (styles.css @font-face), so
     // neither fonts.googleapis.com nor fonts.gstatic.com is needed any more.
     // embed.tawk.to: the chat widget's script loads its own stylesheet and
     // font files from that origin; without it the widget renders unstyled
     // (every page logged a style-src violation for min-widget.css).
-    "style-src 'self' https://embed.tawk.to https://translate.googleapis.com 'unsafe-inline'", // main.js/cart.js/gift-card.js/translator.js all set element.style.* directly (display toggles, carousel transforms, etc.); can't pre-hash those, so this directive stays looser on purpose
-    /* https://www.google.com was here until the 2026-09-02 live audit (M-2).
-       Nothing on any of the 65 live pages referenced it, and driving the
-       language switcher end to end under this exact policy produced no image
-       request to it either: Google Translate's own chrome now comes from
-       www.gstatic.com and fonts.gstatic.com, and those are deliberately NOT
-       allowlisted -- they only dress the #google_translate_element div, which
-       translator.js keeps display:none because the site draws its own
-       language menu. Two expected img-src / one style-src violation fire when
-       a visitor picks a language; the translation itself does not depend on
-       any of them. Do not "fix" them by widening this line. */
-    "img-src 'self' data: https://*.tawk.to https://cdn.jsdelivr.net/emojione/ https://translate.google.com https://translate.googleapis.com",
+    "style-src 'self' https://embed.tawk.to 'unsafe-inline'", // main.js/cart.js/gift-card.js/translator.js all set element.style.* directly (display toggles, carousel transforms, etc.); can't pre-hash those, so this directive stays looser on purpose
+    "img-src 'self' data: https://*.tawk.to https://cdn.jsdelivr.net/emojione/",
     "font-src 'self' https://embed.tawk.to",
     // Checkout itself never needs an entry here: cart.js POSTs to the
     // same-origin /api/checkout Worker route (covered by 'self'), then
@@ -495,21 +476,7 @@ function run() {
        the required origins from content.json instead of pinning this list, so
        pasting an app.convertkit.com form URL into the CMS fails the build
        here rather than silently breaking signups in the browser. */
-    /* translate-pa.googleapis.com is where the Google Translate element sends
-       the actual text to be translated (POST /v1/translateHtml). It is a
-       DIFFERENT host from translate.googleapis.com, which only serves the
-       widget bundle, so the entry above never covered it -- with it missing
-       the widget loads, draws, accepts a language, and then translates
-       nothing, silently. Added 2026-09-02 alongside the M-2 CSP trim. */
-    "connect-src 'self' https://cloud.umami.is https://*.tawk.to wss://*.tawk.to https://translate.googleapis.com https://translate-pa.googleapis.com https://formspree.io https://app.kit.com",
-    /* https://translate.google.com dropped from frame-src 2026-09-02 (live
-       audit M-2 -- frame-src is one of the two directives where a dead entry
-       actually costs something). translator.js builds the widget with
-       autoDisplay:false, so Google never inserts its "Translated to ..."
-       banner frame, and the only iframes the element does create are
-       about:blank / srcdoc ones, which CSP exempts. Verified by driving the
-       language switcher under this policy and logging every frame
-       navigation: about:blank and about:srcdoc, nothing else. */
+    "connect-src 'self' https://cloud.umami.is https://*.tawk.to wss://*.tawk.to https://formspree.io https://app.kit.com",
     "frame-src https://*.tawk.to",
     "frame-ancestors 'none'",
     "base-uri 'self'",

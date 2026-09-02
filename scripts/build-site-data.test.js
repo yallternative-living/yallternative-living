@@ -30,6 +30,15 @@ function eq(actual, expected, label) {
   }
 }
 
+function throwsMatching(fn, re) {
+  try {
+    fn();
+  } catch (e) {
+    return re.test(String(e && e.message));
+  }
+  return false;
+}
+
 console.log("Running build-site-data.js unit tests...\n");
 
 /* 1. slugify */
@@ -1255,6 +1264,153 @@ assert(
   assert(
     chipHtml.indexOf("<span>A &amp; B</span>") !== -1,
     "renderSearchChipsHtml: label is HTML-escaped"
+  );
+})();
+
+/* 27. Localization & Multilingual SEO */
+(function testLocalizationAndSeo() {
+  // 1. generateHreflangTags
+  const sampleUrl = "https://yallternativeliving.com/shop.html";
+  const hreflang = buildScript.generateHreflangTags(sampleUrl, "  ");
+  assert(
+    hreflang.includes('hreflang="x-default" href="https://yallternativeliving.com/shop.html"'),
+    "generateHreflangTags includes x-default"
+  );
+  assert(
+    hreflang.includes('hreflang="en" href="https://yallternativeliving.com/shop.html"'),
+    "generateHreflangTags includes en"
+  );
+  assert(
+    hreflang.includes('hreflang="es" href="https://yallternativeliving.com/shop.html?lang=es"'),
+    "generateHreflangTags includes es"
+  );
+  assert(
+    hreflang.includes('hreflang="de" href="https://yallternativeliving.com/shop.html?lang=de"'),
+    "generateHreflangTags includes de"
+  );
+  assert(
+    hreflang.includes('hreflang="fr" href="https://yallternativeliving.com/shop.html?lang=fr"'),
+    "generateHreflangTags includes fr"
+  );
+  assert(
+    hreflang.includes('hreflang="ja" href="https://yallternativeliving.com/shop.html?lang=ja"'),
+    "generateHreflangTags includes ja"
+  );
+  assert(
+    hreflang.includes('hreflang="zh" href="https://yallternativeliving.com/shop.html?lang=zh"'),
+    "generateHreflangTags includes zh"
+  );
+
+  // URL with existing query param
+  const urlWithParam = "https://yallternativeliving.com/shop.html?category=salves";
+  const hreflangParam = buildScript.generateHreflangTags(urlWithParam, "");
+  assert(
+    hreflangParam.includes(
+      'hreflang="es" href="https://yallternativeliving.com/shop.html?category=salves&amp;lang=es"'
+    ),
+    "generateHreflangTags handles URLs with existing query params"
+  );
+
+  // 2. validateLocalesAndGlossary
+  const validGlossary = {
+    protectedTerms: ["Y'allternative Living", "Porch Sweep Clearing Mist"]
+  };
+  const validLocales = {
+    en: {
+      meta: { name: "English" },
+      phrases: { brand: "Y'allternative Living", prod: "Buy Porch Sweep Clearing Mist today" }
+    },
+    es: {
+      meta: { name: "Español" },
+      phrases: { brand: "Y'allternative Living", prod: "Compre Porch Sweep Clearing Mist hoy" }
+    },
+    de: {
+      meta: { name: "Deutsch" },
+      phrases: {
+        brand: "Y'allternative Living",
+        prod: "Kaufen Sie Porch Sweep Clearing Mist heute"
+      }
+    },
+    fr: {
+      meta: { name: "Français" },
+      phrases: {
+        brand: "Y'allternative Living",
+        prod: "Achetez Porch Sweep Clearing Mist aujourd'hui"
+      }
+    },
+    ja: {
+      meta: { name: "日本語" },
+      phrases: {
+        brand: "Y'allternative Living",
+        prod: "Porch Sweep Clearing Mist を今日購入"
+      }
+    },
+    zh: {
+      meta: { name: "中文" },
+      phrases: {
+        brand: "Y'allternative Living",
+        prod: "今天购买 Porch Sweep Clearing Mist"
+      }
+    }
+  };
+  assert(
+    buildScript.validateLocalesAndGlossary(validLocales, validGlossary) === true,
+    "validateLocalesAndGlossary passes on valid locales and glossary"
+  );
+
+  // Corrupted protected term in non-English locale
+  const invalidLocales = JSON.parse(JSON.stringify(validLocales));
+  invalidLocales.es.phrases.prod = "Compre Niebla Limpiadora de Porche hoy"; // translated proprietary name!
+  assert(
+    throwsMatching(
+      () => buildScript.validateLocalesAndGlossary(invalidLocales, validGlossary),
+      /Protected term violation in locale 'es'/
+    ),
+    "validateLocalesAndGlossary fails when protected term is corrupted"
+  );
+
+  // Missing protectedTerms array
+  assert(
+    throwsMatching(
+      () => buildScript.validateLocalesAndGlossary(validLocales, {}),
+      /protectedTerms/
+    ),
+    "validateLocalesAndGlossary fails when protectedTerms is missing"
+  );
+
+  // Missing locale
+  const missingLocales = { en: validLocales.en };
+  assert(
+    throwsMatching(
+      () => buildScript.validateLocalesAndGlossary(missingLocales, validGlossary),
+      /Locale 'es' is missing/
+    ),
+    "validateLocalesAndGlossary fails when a supported locale is missing"
+  );
+
+  // 3. Compiled locales-data.js verification
+  const localesBundlePath = path.join(__dirname, "../assets/js/locales-data.js");
+  assert(fs.existsSync(localesBundlePath), "assets/js/locales-data.js exists on disk");
+  const localesBundle = require("../assets/js/locales-data.js");
+  assert(
+    localesBundle.LOCALES && localesBundle.LOCALES.en,
+    "locales-data.js exports LOCALES with en"
+  );
+  assert(
+    localesBundle.BRAND_GLOSSARY && localesBundle.BRAND_GLOSSARY.protectedTerms.length > 0,
+    "locales-data.js exports BRAND_GLOSSARY"
+  );
+
+  // 4. sitemap.xml verification
+  const sitemapPath = path.join(__dirname, "../sitemap.xml");
+  const sitemapContent = fs.readFileSync(sitemapPath, "utf8");
+  assert(
+    sitemapContent.includes('xmlns:xhtml="http://www.w3.org/1999/xhtml"'),
+    "sitemap.xml declares xmlns:xhtml"
+  );
+  assert(
+    sitemapContent.includes('<xhtml:link rel="alternate" hreflang="es"'),
+    "sitemap.xml includes xhtml:link hreflang alternates"
   );
 })();
 

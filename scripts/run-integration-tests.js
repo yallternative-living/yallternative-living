@@ -68,7 +68,7 @@ if (!browserSuites.length) {
 
 const suites = FIXED_SUITES.concat(browserSuites);
 
-const maxWorkers = Math.max(1, Math.min(os.cpus() ? os.cpus().length : 4, suites.length));
+const maxWorkers = Math.max(1, Math.min(os.cpus() ? os.cpus().length : 4, 4, suites.length));
 console.log(
   `Running ${suites.length} integration test suites in parallel across ${maxWorkers} workers...\n`
 );
