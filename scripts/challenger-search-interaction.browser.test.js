@@ -390,14 +390,29 @@ function recordFail(msg) {
     }
     await sleep(150);
 
-    const productResultsCount = await page.evaluate(() => {
-      return document.querySelectorAll(".search-result-item[data-url*='products/']").length;
+    const productResultsState = await page.evaluate(() => {
+      const modal = document.getElementById("global-search-modal");
+      const input = document.getElementById("globalSearchInput");
+      return {
+        count: document.querySelectorAll(".search-result-item[data-url*='products/']").length,
+        allItems: document.querySelectorAll(".search-result-item").length,
+        inputValue: input ? input.value : null,
+        modalOpen: !!(modal && modal.hasAttribute("open")),
+        sections: Array.from(document.querySelectorAll(".search-section-header")).map((h) =>
+          h.textContent.replace(/\s+/g, " ").trim()
+        ),
+        resultCount: (document.getElementById("globalSearchResultCount") || {}).textContent || ""
+      };
     });
+    const productResultsCount = productResultsState.count;
     if (productResultsCount >= 2)
       recordPass(
         `Search results render multiple products for 'salve' (found: ${productResultsCount})`
       );
-    else recordFail(`Insufficient product results for 'salve' (found: ${productResultsCount})`);
+    else
+      recordFail(
+        `Insufficient product results for 'salve' (found: ${productResultsCount}; state: ${JSON.stringify(productResultsState)})`
+      );
 
     const addButtonsCount = await page.evaluate(() => {
       return document.querySelectorAll(".search-add-btn").length;
