@@ -1,12 +1,23 @@
-# The state layer — architecture and phase-B wiring plan
+# The state layer — architecture, and the routes built on it
 
-**Status:** phase A complete. Every module in `workers/state/` exists, is
-unit-tested and is wired into nothing. The Worker still deploys exactly as it did
-before this branch.
+**Status: phase B done.** The bindings are live in `workers/wrangler.toml`, the
+Worker exports the Durable Object classes, and gift cards, the Stripe webhook,
+order status and restock all run on this layer. What is NOT done, and is called
+out as such in §4.5: loyalty points and magic links. Their modules
+(`workers/state/loyalty.js`, `workers/state/magic-link.js`) are still wired into
+nothing, deliberately.
 
-**Audience:** whoever does phase B. Read `workers/state/README.md` first for the
-module contracts; this document explains _why the layer looks like this_, what it
-costs, and exactly what has to change to switch it on.
+**One thing has to happen before the next push to `main`:** `wrangler.toml`
+declares a D1 database whose `database_id` is a placeholder, so `wrangler deploy`
+fails until it is replaced with the id printed by `wrangler d1 create` (§5). The
+Worker itself degrades honestly if the binding is missing at runtime — checkout
+keeps working, `/api/stripe-webhook` and `/api/gift-card-balance` answer 503 —
+but the deploy is the thing that breaks first.
+
+**Audience:** whoever changes this next. Read `workers/state/README.md` for the
+module contracts and `workers/README.md` for the deploy checklist; this document
+explains _why the layer looks like this_, what it costs, and what is wired to
+what.
 
 ---
 
@@ -81,12 +92,14 @@ The margins are not close, which is the point: the design is chosen so that a
 bad day cannot push the shop past a hard daily limit. Two things could:
 
 1. **Enumeration of the gift-card balance endpoint.** Each lookup is one DO
-   request; 100k guesses in a day exhausts the daily DO allowance and takes the
-   balance checker offline for everyone. Mitigation: the balance endpoint uses
-   the **Rate Limiting binding** (no DO request, no storage) as its first line,
-   and the DO fallback only for authenticated flows. Lengthening the code (the
-   Medium finding: 6 chars over a 32-char alphabet, with modulo bias) is the real
-   fix and belongs in phase B.
+   request; 100k guesses in a day would exhaust the daily DO allowance and take
+   the balance checker offline for everyone. Three things stand in the way now:
+   the route is rate-limited to 10/min per IP, the code space is 32^12 rather
+   than the biased ~1e9 the Medium finding measured (§4.3), and enabling the
+   **Rate Limiting binding** would move the counting off Durable Objects
+   entirely (§6.1). As shipped, the DO counter is what runs, so a distributed
+   attacker still spends the budget one request at a time — the binding is the
+   answer if that ever happens.
 2. **A webhook retry storm.** Bounded by `claimEvent`: a redelivery is one
    indexed read and no writes.
 
@@ -94,102 +107,175 @@ D1's free limits are enforced daily and **hard** — over the line, writes fail
 rather than bill. Every table here has a sweeper (`sweepOldEvents`,
 `sweepBurnedTokens`) so the row count tracks the last 30 days, not all time.
 
-## 4. Phase-B wiring plan
+## 4. What is wired to what
 
-### 4.1 Enable the bindings
+### 4.1 The bindings
 
-1. `workers/checkout.js` (owned by another agent) re-exports the classes — a DO
-   binding is only valid if `main` exports its `class_name`:
-   ```js
-   export { GiftCardLedger } from "./state/gift-card-ledger.js";
-   export { RateLimitCounter } from "./state/rate-limit.js";
-   ```
-2. Uncomment the four blocks at the foot of `workers/wrangler.toml`, **in the
-   same commit as step 1**. They are commented out today precisely because
-   Workers Builds redeploys on every push to `main`, and a binding pointing at a
-   class that does not exist fails the deploy — which would mean the next urgent
-   checkout fix silently never ships.
+`workers/checkout.js` — the Worker's `main` — re-exports the classes, which is
+what makes a `class_name` in a binding legal:
 
-### 4.2 Which code path calls what
+```js
+export { GiftCardLedger } from "./state/gift-card-ledger.js";
+export { RateLimitCounter } from "./state/rate-limit.js";
+```
 
-| Trigger                                                           | Today                                                                                                                                    | Phase B                                                                                                                                                                                                                                                                                                                                             |
-| ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Cart drawer applies a gift card (`checkout.js`, session creation) | mints an ephemeral coupon for `min(total, balance)`, debits nothing (**C-2**)                                                            | `giftCardLedger(env, code).getBalance()` → cap the discount at `balanceCents` → create the session → `reserve({ sessionId: session.id, cents: applied })`. If `reserve` throws `insufficient_balance`, delete the ephemeral coupon and return a 400 the drawer can show. Reserve _after_ the session exists so a failed Stripe call leaves no hold. |
-| `checkout.session.completed`                                      | `handleGiftCardRedemption` reads `session.discounts[0].promotion_code`, which is `null` for the drawer path, and returns early (**C-2**) | drive from `session.metadata.gift_card_redeemed_code` (the Worker already writes it) → `commit({ sessionId })`. Then `credit(db, { email, points, orderId: session.id })` for loyalty.                                                                                                                                                              |
-| `checkout.session.expired`                                        | nothing                                                                                                                                  | `release({ sessionId, reason: "session_expired" })`. Harmless when the session never reserved.                                                                                                                                                                                                                                                      |
-| `charge.refunded`                                                 | dead code that would double-restore (**H-5**)                                                                                            | look the session up by payment intent, then `restore({ chargeId: refund.id, cents: Math.min(applied, refunded) })` — idempotent per charge/refund id, so subscribing to one event type is enough.                                                                                                                                                   |
-| Every webhook, before anything else                               | ad-hoc idempotency keys (**H-9**)                                                                                                        | `claimEvent(db, event.id, event.type)` → work → `markEventDone`; `releaseEvent` in the catch. Each sub-step in its own try/catch so a rollover failure cannot block gift-card delivery.                                                                                                                                                             |
-| Gift card sold                                                    | `fulfill-gift-card.js` creates the promo code and emails it                                                                              | additionally `issue({ code, initialCents, recipientEmail, source: "checkout", stripePromoId })` so the ledger knows the card exists.                                                                                                                                                                                                                |
-| Points redemption (**C-1**)                                       | unauthenticated coupon minting                                                                                                           | magic-link token → `debit(db, …)` → only then mint a `duration: "once"`, `max_redemptions: 1` promotion code.                                                                                                                                                                                                                                       |
-| A 24h-old unpaid session                                          | nothing                                                                                                                                  | the DO alarm releases the hold by itself.                                                                                                                                                                                                                                                                                                           |
+`workers/wrangler.toml` declares `GIFT_CARD_LEDGER`, `RATE_LIMIT_COUNTER`, the
+`new_sqlite_classes` migration and `STATE_DB`. The optional `RATE_LIMITER`
+binding stays commented out: `checkRateLimit` uses it when present and falls back
+to the exact Durable Object counter when it is not, so the shipped configuration
+works either way (§6.1).
 
-### 4.3 Netlify functions become Worker routes
+### 4.2 The route contract, as implemented
 
-All four move into the Worker, because the state layer lives there and because
-H-23 means the Netlify free plan can pause the whole site mid-month. Netlify
-keeps serving the static site and proxies `/api/*`.
+Everything is `POST`, JSON in and JSON out, `Cache-Control: no-store` on every
+response, CORS limited to the apex and www origins with `Vary: Origin`, `OPTIONS`
+answered as a 204 preflight, and anything else a JSON 404.
 
-| Route                              | Replaces                                           | Request                           | Response                                                                                                                                                                                                                                                                                                       |
-| ---------------------------------- | -------------------------------------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /api/gift-card-balance?code=` | `gift-card-balance.js`                             | query `code`                      | `200 {valid:true, code, balanceCents, balance, formattedBalance, pendingCents, initialAmountCents, currency}` / `404 {valid:false, error}`. **`Cache-Control: no-store`** (finding C-3) and rate-limited by IP. Response shape is a superset of today's so `assets/js/gift-card.js` and the cart keep working. |
-| `POST /api/stripe-webhook`         | `fulfill-gift-card.js`                             | Stripe event + `Stripe-Signature` | `200 {received:true}`; `400` only for a bad signature. Non-2xx _only_ when a retry would help.                                                                                                                                                                                                                 |
-| `POST /api/order-status`           | the fabricated `order-status.html` logic (**H-6**) | `{sessionId, email}`              | `200 {found:true, status, paymentStatus, amountTotalCents, currency, placedAt, items:[{name,quantity}], shipTo:{city,state,country}, fulfilment:{status,trackingUrl,shippedAt}}` / `200 {found:false, error:"not_found"}` — identical for a wrong email and a missing session. Rate-limited by IP.             |
-| `POST /api/restock`                | `submit-restock.js`                                | `{productId, email}`              | `202 {ok:true}`. Actually rate-limited this time, and the submission is stored rather than discarded.                                                                                                                                                                                                          |
-| `POST /api/magic-link`             | new                                                | `{email, purpose}`                | always `202 {ok:true}` (never reveal whether the address is known); emails a link. `GET /api/magic-link?token=` verifies + burns and returns `{ok, purpose, email}`.                                                                                                                                           |
+Netlify proxies `/api/*` to the Worker with `:splat`, which **drops the `/api`
+prefix** — `/api/order-status` arrives as `/order-status`. `routeOf()` accepts
+both spellings so the same build works behind the proxy or on a Cloudflare route.
 
-Client contracts are additive: no existing response field changes meaning, so
-the front-end agents can migrate page by page.
+| Route                    | Request                                     | Response                                                                                                                                                                                                                                                                        |
+| ------------------------ | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/checkout`          | the cart payload, optionally `giftCardCode` | `200 {url}`; `400 {error}` for anything the shopper can fix; **`409 {error}`** when the gift-card balance moved under a live session                                                                                                                                            |
+| `/api/gift-card-balance` | `{code}`                                    | `200 {valid:true, code, balanceCents, balance, formattedBalance, pendingCents, initialAmountCents, initialAmount, currency, expires:null}`; `404 {valid:false, error}` for a bad format AND for unknown/spent/empty (one generic sentence); `429`; `503` with no ledger binding |
+| `/api/stripe-webhook`    | Stripe event + `Stripe-Signature`           | `200 {received:true}` (`{received:true, duplicate:true}` on a redelivery); `400 {error:"Invalid signature"}`, one fixed string; `500` only when a retry would help; `503` with no state bindings                                                                                |
+| `/api/order-status`      | `{sessionId, email}`                        | `200 {found:true, status, paymentStatus, amountTotal, amountTotalCents, currency, placedAt, sessionId, items:[{name, quantity}], shipping:{city,state}, fulfillment:{status, trackingUrl, shippedAt}}`; `404 {found:false, error:"not_found"}`; `429`                           |
+| `/api/restock`           | `{email, product, website_hp}`              | `200 {success:true, message}`; `400` for an invalid address; `429`; `502` when the mailer refuses; `503` with no `RESEND_API_KEY`                                                                                                                                               |
 
-### 4.4 Ordering
+Notes that are contract, not detail:
 
-Ship in this order so each step is independently revertable:
+- **`amountTotal` is cents**, as Stripe reports it. `amountTotalCents` carries the
+  same number so no caller has to guess at the unit.
+- **`/api/order-status` never returns the street address, the phone number or the
+  email.** A wrong email and a session that does not exist return a
+  byte-identical `404`, so the endpoint cannot be used to test whether a `cs_…`
+  is real.
+- **A gift-card balance miss is one answer.** "No such code", "issued but spent"
+  and "zero balance" all return the same 404 and the same sentence. A malformed
+  code is the exception — that is a typo the shopper can fix, it costs no lookup,
+  and it reveals nothing.
+- **The restock honeypot returns the success shape**, sends nothing, and logs
+  nothing.
 
-1. Bindings + class exports (deploys, changes no behaviour).
-2. `/api/stripe-webhook` with `claimEvent` only — proves exactly-once against
-   real Stripe traffic before any balance moves.
-3. `issue` on gift-card sale; `getBalance` behind the balance route (read-only).
-4. `reserve`/`commit`/`release` in checkout (**C-2 closed**).
-5. `restore` on refunds (**H-5 closed**).
-6. Loyalty credit, then magic link, then debit (**C-1 closed**).
-7. `/api/order-status` (**H-6 closed**).
+Rate limits, per IP, via `checkRateLimit`: 10/min on the balance route, 5/min on
+order status and restock. The IP is the first `X-Forwarded-For` entry (Netlify's
+record of the client) falling back to `CF-Connecting-IP` — `CF-Connecting-IP`
+alone would be Netlify's edge address and put every visitor in one bucket. That
+first entry is client-influenced, which is acceptable only because nothing is
+authorised by it.
+
+### 4.3 Gift cards: what each event does
+
+| Trigger                                          | What happens                                                                                                                                                                                                                                                                                                                                                                        |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cart applies a gift card (`/api/checkout`)       | `getBalance()` → cap the discount at `balanceCents` → mint a single-use `duration:"once"` coupon → create the session → `reserve({sessionId, cents})`. Reserving LAST means a failed Stripe call leaves no hold. If `reserve` refuses, the coupon is deleted, the session is **expired** (so nobody can return to that tab and pay a discounted total), and the shopper gets a 409. |
+| `checkout.session.completed`, order used a card  | `commit({sessionId})` from `session.metadata.gift_card_redeemed_code`, then a balance-update email. Idempotent.                                                                                                                                                                                                                                                                     |
+| `checkout.session.completed`, order bought cards | for each `gift_card_N_*` group expanded by `_qty`: derive the code, `issue(...)`, email recipient and buyer.                                                                                                                                                                                                                                                                        |
+| `checkout.session.expired`                       | `release({sessionId, reason:"session_expired"})` and delete the ephemeral coupon.                                                                                                                                                                                                                                                                                                   |
+| `charge.refunded`                                | find the session by `payment_intent`, `restore` `min(applied, refunded)` minus whatever is already restored for that charge.                                                                                                                                                                                                                                                        |
+| Every webhook, before anything else              | `claimEvent(db, event.id, event.type)` → work → `markEventDone`; `releaseEvent` in the catch. Each sub-step has its own try/catch, so one failure cannot block the others (H-9).                                                                                                                                                                                                    |
+| A 24h-old unpaid session                         | the Durable Object's alarm releases the hold by itself.                                                                                                                                                                                                                                                                                                                             |
+
+**Stripe promotion codes are out of the gift-card path entirely.** There is no
+rollover, no per-card promotion code, and the webhook never inspects
+`session.discounts`. `allow_promotion_codes` stays on the hosted page for
+MARKETING codes, and only when no gift card is applied — Stripe will not accept a
+session carrying both `discounts` and `allow_promotion_codes` anyway.
+
+**Codes.** `YALL-XXXX-XXXX-XXXX`: 12 symbols over Crockford base32 (no I/L/O/U),
+so 32^12 ≈ 1.15e18. 32 divides 256, so a byte maps to a symbol with no modulo
+bias — the open question in the old §7 about the 8-character, 36-symbol,
+biased derivation is closed. A purchased card's code is
+`HMAC(STRIPE_WEBHOOK_SECRET, "gift-code-<session>-<line>-<unit>")`, so a
+redelivered webhook re-derives the same string and `issue()` no-ops. Random codes
+(`randomGiftCardCode`) use `crypto.getRandomValues` with rejection sampling.
+
+There was **no migration**, because no gift-card code had ever been issued. The
+ledger started empty and stays the only place a balance has ever lived.
+
+### 4.4 The Netlify functions, retired
+
+All four are deleted. `/.netlify/functions/gift-card-balance`, `/redeem-points`,
+`/fulfill-gift-card` and `/submit-restock` answer **410 Gone** from
+`netlify.toml` (generated by `scripts/build-security-headers.js`) — 404 would
+say "try again later"; 410 tells a cached client, a crawler and a stale service
+worker to stop asking.
+
+`redeem-points` was not ported. Audit C-1: it minted real, cash-like store credit
+for anyone who could POST to it, and there is no server-side points ledger for a
+rebuilt version to spend from. Rebuilding it is §4.5.
+
+### 4.5 Deliberately still unwired
+
+- **`workers/state/loyalty.js`** — the D1 points ledger exists and is tested, but
+  nothing credits or debits it. Nothing yet decides how many points an order
+  earns or whether they expire, and a ledger with an undecided earning rate is
+  worse than none.
+- **`workers/state/magic-link.js`** — HMAC tokens and the single-use burn exist
+  and are tested. They are the missing half of C-1: redeeming points has to be
+  tied to a verified email before a redemption can mint anything. Until both of
+  those land, points redemption stays gone rather than disabled.
+- **The cron sweeps.** `checkout.js` has a `scheduled()` handler that calls
+  `sweepOldEvents`, but `wrangler.toml` has no `[triggers]` block, so nothing
+  runs it. Add `crons = ["17 4 * * *"]` when the `webhook_events` table starts
+  mattering; at current volume it will not for a long time.
 
 ## 5. Dashboard setup (one-time, by hand)
 
+`workers/README.md` has this as a numbered checklist with the reasoning; the
+short version:
+
 ```bash
-# 1. D1 database — prints the database_id for wrangler.toml
+# 1. D1 database — prints the database_id. PASTE IT INTO workers/wrangler.toml.
+#    `wrangler deploy` fails until you do.
 npx wrangler d1 create yallternative-state
 
 # 2. Load the schema (also applied automatically at first request by migrations.js)
 npx wrangler d1 execute yallternative-state --remote --file=workers/schema.sql
 
 # 3. Secrets — never [vars], never committed
-npx wrangler secret put MAGIC_LINK_SECRET      # 32+ random bytes
+npx wrangler secret put STRIPE_SECRET_KEY      # Checkout Sessions, Coupons, Customers write; Tax Settings read
 npx wrangler secret put STRIPE_WEBHOOK_SECRET  # from the Stripe endpoint below
+npx wrangler secret put RESEND_API_KEY         # from a Resend account with this domain verified
+# optional vars: RESTOCK_NOTIFY_EMAIL, GIFT_CARD_FROM_EMAIL
+# MAGIC_LINK_SECRET is NOT needed yet — magic links are unwired (§4.5)
 ```
 
 Then, by hand:
 
-- **Cloudflare → Workers & Pages → the Worker → Settings → Domains & Routes.**
-  Add routes on the custom domain for `/api/gift-card-balance`,
-  `/api/stripe-webhook`, `/api/order-status`, `/api/restock`, `/api/magic-link`.
-  Use the apex domain, not `*.workers.dev` — the Medium finding stands: if that
-  subdomain is ever released, whoever claims it receives the traffic.
-- **Cloudflare → the Worker → Settings → Bindings.** Confirm `GIFT_CARD_LEDGER`,
-  `RATE_LIMIT_COUNTER` and `STATE_DB` appear after the first deploy.
 - **Stripe → Developers → Webhooks.** Point the endpoint at
   `https://yallternativeliving.com/api/stripe-webhook` and subscribe to
   `checkout.session.completed`, `checkout.session.expired` and `charge.refunded`.
-  Copy the new signing secret into `STRIPE_WEBHOOK_SECRET`. The old Netlify
-  endpoint stays enabled until the Worker has processed real events, then is
-  deleted — both can run at once, because `claimEvent` makes double processing
-  impossible only _within_ one deployment. Run them in parallel for observation
-  only, not for fulfilment.
-- **Netlify.** `netlify.toml` needs a proxy rule per route, alongside the
-  existing `/api/checkout` one. It is generated by
-  `scripts/build-security-headers.js`, so the rules go in that generator, not in
-  the committed file.
-- **Cron.** Add a `[triggers] crons = ["17 4 * * *"]` schedule calling
-  `sweepOldEvents` and `sweepBurnedTokens`.
+  Copy the signing secret into `STRIPE_WEBHOOK_SECRET`. That URL reaches the
+  Worker through the Netlify proxy, which **must forward the raw body
+  unchanged** — the signature is computed over the exact bytes. If Stripe reports
+  signature failures, suspect that first; the fallback is to register
+  `https://yallternative-checkout.y-allternative-living.workers.dev/stripe-webhook`
+  directly (note the missing `/api`: the proxy's `:splat` drops the prefix, and
+  the router accepts both).
+  The old Netlify endpoint stays enabled until the Worker has processed real
+  events, then is deleted — both can run at once for **observation only**,
+  because `claimEvent` makes double processing impossible only _within_ one
+  deployment.
+- **Cloudflare → the Worker → Settings → Bindings.** Confirm `GIFT_CARD_LEDGER`,
+  `RATE_LIMIT_COUNTER` and `STATE_DB` appear after the first deploy.
+- **Cloudflare → Workers & Pages → the Worker → Settings → Domains & Routes.**
+  Optional. Traffic reaches the Worker through Netlify's `/api/*` proxy today, so
+  no route is required. Adding `yallternativeliving.com/api/*` removes the hop —
+  and the Medium finding about `*.workers.dev` still stands: if that subdomain is
+  ever released, whoever claims it receives the traffic.
+- **Netlify.** The proxy rule and the four `410` rules are generated by
+  `scripts/build-security-headers.js`, not hand-written — that script rewrites
+  `netlify.toml` on every deploy, so an edit made directly there vanishes. Also
+  **delete the old function environment variables** (`STRIPE_SECRET_KEY`,
+  `STRIPE_WEBHOOK_SECRET`, `RESEND_API_KEY`, `RESTOCK_NOTIFY_EMAIL`,
+  `RESTOCK_FROM_EMAIL`, `GIFT_CARD_FROM_EMAIL`, `FROM_EMAIL`): nothing in the
+  Netlify build reads them now, and a live Stripe key in a second provider's
+  dashboard is a second place it can leak from.
+- **Cron.** Not set up. `checkout.js` has a `scheduled()` handler that calls
+  `sweepOldEvents`; add `[triggers] crons = ["17 4 * * *"]` to `wrangler.toml`
+  when the `webhook_events` table starts mattering.
 
 ## 6. Two things to verify in a dashboard before relying on them
 
@@ -207,20 +293,32 @@ Neither can be checked from the repository.
    300-credit monthly hard cap — production deploys at 15 credits each, and every
    Sveltia CMS save triggers one — and at zero credits _every project pauses_,
    including any function still on the money path. Moving `/api/*` to the Worker
-   is what makes that survivable, but until the migration is finished, confirm
-   the plan and put a card on file so it bills instead of pausing.
+   is what makes that survivable, and that migration is now done — no function
+   remains on the money path. Still worth confirming the plan and putting a card
+   on file: a paused project still takes the static site down, CMS saves
+   included.
 
-## 7. Open questions for phase B
+## 7. Questions that were open, and where they landed
 
-- **Where do gift-card codes get _created_?** `fulfill-gift-card.js` derives them
-  from the session id with `deriveGiftCardCode`, which the audit flags for modulo
-  bias and a 6-character suffix. `issue()` accepts whatever it is given; phase B
-  should lengthen and de-bias the code at the same time, since the ledger makes
-  the balance real and therefore worth guessing.
-- **RPC or fetch?** The DO is addressed over `fetch` today so the Node tests can
-  drive it. Switching to `extends DurableObject` + RPC is a two-line change and
-  slightly cheaper; decide once, in one place.
-- **Points earning rate and expiry.** `loyalty.js` stores whatever is credited;
-  nothing yet decides how many points an order earns, or whether they expire.
-- **Do reservations need to survive a code change?** If a card is ever reissued
-  under a new code, its DO does not follow. Today codes are immutable.
+- **Where do gift-card codes get _created_?** _Answered._ In
+  `workers/routes/gift-cards.js`, at 12 symbols over a 32-symbol alphabet with no
+  modulo bias, derived per (session, unit) under `STRIPE_WEBHOOK_SECRET` so a
+  webhook redelivery re-derives the same string. See §4.3.
+- **RPC or fetch?** _Still open, deliberately._ The Durable Objects are addressed
+  over `fetch` because that is what lets `scripts/worker-state.test.js` drive
+  real instances with plain `node` — `cloudflare:workers`' `DurableObject` base
+  class cannot be imported outside the runtime. Switching to RPC is a small
+  change and slightly cheaper per call; it would cost the ability to test the
+  ledger without miniflare. Not worth it at this volume.
+- **Points earning rate and expiry.** _Still open, and it is what keeps loyalty
+  unwired._ `loyalty.js` stores whatever is credited; nothing decides how many
+  points an order earns or whether they expire. Deciding that is the first step
+  of closing C-1 properly (§4.5).
+- **Do reservations need to survive a code change?** _Still open, still
+  theoretical._ A card's Durable Object is addressed by its code, so reissuing a
+  card under a new code does not carry its balance across. Codes are immutable
+  today and nothing reissues them.
+- **What happens to a hold nobody resolves?** _Answered._ The object's alarm
+  releases anything older than 24 hours, which is a Stripe session's maximum
+  life. `checkout.session.expired` normally gets there first; the alarm is the
+  backstop for an event that never arrives.

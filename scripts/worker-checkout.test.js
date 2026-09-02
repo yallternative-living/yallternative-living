@@ -7,6 +7,7 @@
 
 const workerModule = require("../workers/checkout.js");
 const worker = workerModule.default || workerModule;
+const { makeNamespace } = require("./lib/d1-emulator.js");
 
 let passed = 0;
 let failed = 0;
@@ -121,45 +122,79 @@ const mockCtx = {
   waitUntil: () => {}
 };
 
-async function executeCheckout(body, mockStripeResponses = {}) {
+/* The gift-card ledger the Worker talks to. `makeNamespace` builds REAL
+   GiftCardLedger instances over an in-memory SQLite Durable Object, so these
+   tests exercise the shipped reserve/commit/release logic rather than a stub of
+   it -- see scripts/lib/d1-emulator.js. */
+async function makeLedgerEnv(cards) {
+  const { GiftCardLedger } = await import("../workers/state/gift-card-ledger.js");
+  const ns = makeNamespace(GiftCardLedger);
+  const env = { ...mockEnv, GIFT_CARD_LEDGER: ns };
+  for (const [code, cents] of Object.entries(cards || {})) {
+    const { giftCardLedger } = await import("../workers/state/gift-card-ledger.js");
+    await giftCardLedger(env, code).issue({ initialCents: cents, source: "test" });
+  }
+  return env;
+}
+
+/**
+ * Drive one checkout through the real Worker.
+ *
+ * @param {object} body    the JSON the cart would POST
+ * @param {object} options
+ *   `cards`            {code: initialCents} to pre-issue on a fresh ledger
+ *   `env`              extra bindings/vars merged over the defaults
+ *   `beforeReserve`    async hook run after Stripe returns the session and
+ *                      before the Worker reserves -- how a concurrent second
+ *                      spender is simulated
+ *   `sessionError`     make Stripe refuse the session
+ */
+async function executeCheckout(body, options = {}) {
   let capturedSessionParams = null;
   let capturedCouponParams = null;
+  const deletedCoupons = [];
+  const expiredSessions = [];
+  const promoLookups = [];
+
+  const env = options.env
+    ? { ...(await makeLedgerEnv(options.cards)), ...options.env }
+    : await makeLedgerEnv(options.cards);
 
   const originalFetch = global.fetch;
   global.fetch = async (url, opts) => {
     const u = String(url);
+    const method = (opts && opts.method) || "GET";
     if (u.includes("products.json")) {
-      return {
-        ok: true,
-        clone: () => ({ body: null }),
-        json: async () => mockCatalog
-      };
+      return { ok: true, clone: () => ({ body: null }), json: async () => mockCatalog };
     }
     if (u.includes("events.json")) {
-      return {
-        ok: true,
-        clone: () => ({ body: null }),
-        json: async () => mockEvents
-      };
+      return { ok: true, clone: () => ({ body: null }), json: async () => mockEvents };
     }
     if (u.includes("api.stripe.com/v1/promotion_codes")) {
-      if (mockStripeResponses.promoCode) {
-        return {
-          ok: true,
-          json: async () => mockStripeResponses.promoCode
-        };
-      }
+      /* Recorded, never answered. A gift card is a ledger balance now; a
+         Worker that still asked Stripe for one would be reading a number
+         nothing maintains. The assertions below check this stays empty. */
+      promoLookups.push(u);
       return { ok: false, status: 404, json: async () => ({ error: "Not found" }) };
     }
     if (u.includes("api.stripe.com/v1/coupons")) {
+      if (method === "DELETE") {
+        deletedCoupons.push(u.split("/").pop());
+        return { ok: true, status: 200, json: async () => ({ deleted: true }) };
+      }
       capturedCouponParams = new URLSearchParams(opts.body);
-      return {
-        ok: true,
-        json: async () => ({ id: "ephemeral_coupon_123" })
-      };
+      return { ok: true, json: async () => ({ id: "ephemeral_coupon_123" }) };
+    }
+    if (u.includes("/expire")) {
+      expiredSessions.push(u);
+      return { ok: true, status: 200, json: async () => ({ status: "expired" }) };
     }
     if (u.includes("api.stripe.com/v1/checkout/sessions")) {
       capturedSessionParams = new URLSearchParams(opts.body);
+      if (options.sessionError) {
+        return { ok: false, json: async () => ({ error: { message: "nope" } }) };
+      }
+      if (options.beforeReserve) await options.beforeReserve(env);
       return {
         ok: true,
         json: async () => ({
@@ -181,13 +216,17 @@ async function executeCheckout(body, mockStripeResponses = {}) {
       body: JSON.stringify(body)
     });
 
-    const res = await worker.fetch(req, mockEnv, mockCtx);
+    const res = await worker.fetch(req, env, mockCtx);
     const data = await res.json();
     return {
       status: res.status,
       data: data,
       sessionParams: capturedSessionParams,
-      couponParams: capturedCouponParams
+      couponParams: capturedCouponParams,
+      deletedCoupons,
+      expiredSessions,
+      promoLookups,
+      env
     };
   } finally {
     global.fetch = originalFetch;
@@ -331,113 +370,168 @@ async function runWorkerCheckoutTests() {
     );
   }
 
-  // Test 6: Alt-Points Loyalty Voucher / Gift Card Redemption in Checkout
+  // Test 6 (C-2): a card applied from the drawer is capped at its LEDGER
+  // balance and the amount is actually held against the card.
   {
-    const mockPromoResponse = {
-      data: [
-        {
-          id: "promo_pts_123",
-          code: "YALL-PTS-TEST99",
-          coupon: {
-            id: "coupon_pts_123",
-            amount_off: 500 // $5.00 voucher
-          }
-        }
-      ]
-    };
-
     const result = await executeCheckout(
       {
         items: [{ id: "lavender-soak", qty: 1 }], // $18.00 item
-        gift_card_code: "YALL-PTS-TEST99"
+        gift_card_code: "YALL-AAAA-BBBB-CCCC"
       },
-      { promoCode: mockPromoResponse }
+      { cards: { "YALL-AAAA-BBBB-CCCC": 500 } } // $5.00 on the card
     );
 
-    eq(result.status, 200, "Alt-Points voucher checkout succeeds");
+    eq(result.status, 200, "A gift-card checkout succeeds");
+    eq(
+      result.promoLookups.length,
+      0,
+      "The Worker never asks Stripe for a promotion code -- the balance is the ledger's"
+    );
     eq(
       result.sessionParams.get("discounts[0][coupon]"),
       "ephemeral_coupon_123",
-      "Stripe session receives ephemeral coupon discount"
+      "Stripe session receives the ephemeral coupon as its discount"
     );
-    eq(
-      result.couponParams.get("amount_off"),
-      "500",
-      "Ephemeral coupon applied for $5.00 discount (500 cents)"
-    );
+    eq(result.couponParams.get("amount_off"), "500", "Coupon is minted for the $5.00 balance");
+    eq(result.couponParams.get("duration"), "once", "Coupon is single-order (duration once)");
     eq(
       result.sessionParams.get("metadata[gift_card_redeemed_code]"),
-      "YALL-PTS-TEST99",
-      "Session metadata records redeemed Alt-Points voucher code"
+      "YALL-AAAA-BBBB-CCCC",
+      "Session metadata records the redeemed code"
     );
     eq(
       result.sessionParams.get("metadata[gift_card_amount_applied_cents]"),
       "500",
-      "Session metadata records applied discount cents"
+      "Session metadata records the applied cents"
     );
+    eq(
+      result.sessionParams.get("allow_promotion_codes"),
+      null,
+      "Stripe's promo box is off when a gift card is already discounting the session"
+    );
+
+    const { giftCardLedger } = await import("../workers/state/gift-card-ledger.js");
+    const after = await giftCardLedger(result.env, "YALL-AAAA-BBBB-CCCC").getBalance();
+    eq(after.balanceCents, 0, "The applied amount left the spendable balance");
+    eq(after.pendingCents, 500, "...and is held pending payment, not spent");
   }
 
-  // Test 7: Balance Carryover Math (Voucher exceeds item total)
+  // Test 7: a card worth more than the order is capped at total + shipping,
+  // and only that much is held -- the rest stays spendable.
   {
-    const mockLargeVoucher = {
-      data: [
-        {
-          id: "promo_large_123",
-          code: "YALL-PTS-BIGVOUCHER",
-          coupon: {
-            id: "coupon_large_123",
-            amount_off: 5000 // $50.00 voucher
-          }
-        }
-      ]
-    };
-
-    // Lavender Soak = $18.00 ($18.00 + $10.00 shipping = $28.00 / 2800 cents total)
+    // Lavender Soak $18.00 + $10.00 shipping = 2800 cents.
     const result = await executeCheckout(
       {
         items: [{ id: "lavender-soak", qty: 1 }],
-        gift_card_code: "YALL-PTS-BIGVOUCHER"
+        gift_card_code: "YALL-BIGB-IGBI-GBIG"
       },
-      { promoCode: mockLargeVoucher }
+      { cards: { "YALL-BIGB-IGBI-GBIG": 5000 } }
     );
 
-    // Applied discount clamped to order total ($18.00 + $10.00 shipping = 2800 cents)
     eq(
       result.couponParams.get("amount_off"),
       "2800",
-      "Ephemeral discount capped at order total ($28.00) leaving remaining balance on voucher"
+      "Discount is capped at the order total including shipping"
     );
     eq(
       result.sessionParams.get("metadata[gift_card_original_balance_cents]"),
       "5000",
-      "Session metadata preserves original $50.00 balance for carryover tracking"
+      "Session metadata preserves the balance the card had when it was applied"
     );
+
+    const { giftCardLedger } = await import("../workers/state/gift-card-ledger.js");
+    const after = await giftCardLedger(result.env, "YALL-BIGB-IGBI-GBIG").getBalance();
+    eq(after.balanceCents, 2200, "The unspent remainder is still spendable");
+    eq(after.pendingCents, 2800, "Only the applied amount is held");
   }
 
-  // Test 8: Combined Gifting + Pickup + Alt-Points Loyalty Voucher
+  // Test 7b (C-2, the actual double-spend): a second checkout that lands
+  // between the balance read and the reserve gets a 409 and leaves nothing
+  // behind -- no coupon, no payable session.
   {
-    const mockPromoResponse = {
-      data: [
-        {
-          id: "promo_pts_456",
-          code: "YALL-PTS-COMBO1",
-          coupon: {
-            id: "coupon_pts_456",
-            amount_off: 500
-          }
+    const result = await executeCheckout(
+      {
+        items: [{ id: "lavender-soak", qty: 1 }],
+        gift_card_code: "YALL-RACE-RACE-RACE"
+      },
+      {
+        cards: { "YALL-RACE-RACE-RACE": 500 },
+        // The other tab pays while this session is being created.
+        beforeReserve: async (env) => {
+          const { giftCardLedger } = await import("../workers/state/gift-card-ledger.js");
+          await giftCardLedger(env, "YALL-RACE-RACE-RACE").reserve({
+            sessionId: "cs_other_tab",
+            cents: 500
+          });
         }
-      ]
-    };
+      }
+    );
 
+    eq(result.status, 409, "The losing checkout is refused with a 409, not a silent discount");
+    eq(
+      result.data.error,
+      "That gift card balance changed; please re-apply it.",
+      "...and with a message that tells the shopper what to do"
+    );
+    eq(result.deletedCoupons, ["ephemeral_coupon_123"], "The ephemeral coupon is deleted");
+    eq(result.expiredSessions.length, 1, "The unpayable session is expired");
+
+    const { giftCardLedger } = await import("../workers/state/gift-card-ledger.js");
+    const after = await giftCardLedger(result.env, "YALL-RACE-RACE-RACE").getBalance();
+    eq(after.pendingCents, 500, "Only the winning session holds the money");
+    eq(after.balanceCents, 0, "The card was not debited twice");
+  }
+
+  // Test 7c: a card with nothing on it, and a card that does not exist, are
+  // both refused before any Stripe object is created.
+  {
+    const empty = await executeCheckout(
+      { items: [{ id: "lavender-soak", qty: 1 }], gift_card_code: "YALL-DEAD-DEAD-DEAD" },
+      { cards: {} }
+    );
+    eq(empty.status, 400, "An unknown gift card is refused");
+    eq(empty.couponParams, null, "No coupon is minted for an unknown card");
+
+    const malformed = await executeCheckout({
+      items: [{ id: "lavender-soak", qty: 1 }],
+      gift_card_code: "NOT-A-CODE"
+    });
+    eq(malformed.status, 400, "A malformed code is refused");
+  }
+
+  // Test 7d: with no GIFT_CARD_LEDGER binding, a card cannot be applied -- and
+  // the shopper is TOLD, rather than silently charged full price. Checkout
+  // itself must still work for everyone else.
+  {
+    const unbound = await executeCheckout(
+      { items: [{ id: "lavender-soak", qty: 1 }], gift_card_code: "YALL-AAAA-BBBB-CCCC" },
+      { env: { ...mockEnv, GIFT_CARD_LEDGER: undefined } }
+    );
+    eq(unbound.status, 400, "Applying a card without the ledger binding fails closed");
+    eq(
+      unbound.data.error,
+      "Gift cards are temporarily unavailable. Please try again shortly.",
+      "...with a message the shopper can act on"
+    );
+
+    const plain = await executeCheckout(
+      { items: [{ id: "lavender-soak", qty: 1 }] },
+      { env: { ...mockEnv, GIFT_CARD_LEDGER: undefined } }
+    );
+    eq(plain.status, 200, "An ordinary checkout still works with no state bindings at all");
+  }
+
+  // Test 8: Combined Gifting + Pickup + gift card
+  {
     const result = await executeCheckout(
       {
         items: [{ id: "lavender-soak", qty: 1 }],
         pickup_market: PICKUP_LABEL,
-        gift_card_code: "YALL-PTS-COMBO1",
+        gift_card_code: "YALL-COMB-OCOM-BOCO",
         is_gift_order: true,
         gift_message: "Enjoy this gift at the booth!"
       },
-      { promoCode: mockPromoResponse }
+      { cards: { "YALL-COMB-OCOM-BOCO": 500 } }
     );
 
     eq(result.status, 200, "Combined feature checkout returns 200 OK");
@@ -454,8 +548,8 @@ async function runWorkerCheckoutTests() {
     );
     eq(
       result.sessionParams.get("metadata[gift_card_redeemed_code]"),
-      "YALL-PTS-COMBO1",
-      "Combo: loyalty voucher code captured"
+      "YALL-COMB-OCOM-BOCO",
+      "Combo: gift-card code captured"
     );
   }
 
@@ -839,19 +933,9 @@ async function runWorkerCheckoutTests() {
      contains a gift card falls through to Stripe's own promo box instead.
      ========================================================== */
   {
-    const promo = {
-      data: [
-        {
-          id: "promo_gc_1",
-          code: "YALL-CARD99",
-          coupon: { id: "coupon_gc_1", amount_off: 5000 }
-        }
-      ]
-    };
-
     const applied = await executeCheckout(
-      { items: [{ id: "lavender-soak", qty: 1 }], gift_card_code: "YALL-CARD99" },
-      { promoCode: promo }
+      { items: [{ id: "lavender-soak", qty: 1 }], gift_card_code: "YALL-CARD-CARD-CARD" },
+      { cards: { "YALL-CARD-CARD-CARD": 5000 } }
     );
     eq(
       applied.couponParams.get("max_redemptions"),
@@ -870,9 +954,9 @@ async function runWorkerCheckoutTests() {
           { id: "yallternative-gift-card", qty: 1, variant: "Preset $25" },
           { id: "lavender-soak", qty: 1 }
         ],
-        gift_card_code: "YALL-CARD99"
+        gift_card_code: "YALL-CARD-CARD-CARD"
       },
-      { promoCode: promo }
+      { cards: { "YALL-CARD-CARD-CARD": 5000 } }
     );
     eq(
       buyingACard.couponParams,
@@ -889,6 +973,10 @@ async function runWorkerCheckoutTests() {
       null,
       "No pre-applied redemption metadata when the pre-application is refused"
     );
+
+    const { giftCardLedger } = await import("../workers/state/gift-card-ledger.js");
+    const untouched = await giftCardLedger(buyingACard.env, "YALL-CARD-CARD-CARD").getBalance();
+    eq(untouched.balanceCents, 5000, "The refused pre-application held none of the card");
   }
 
   /* ==========================================================

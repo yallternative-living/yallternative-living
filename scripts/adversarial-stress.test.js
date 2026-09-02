@@ -8,8 +8,11 @@
  *       non-existent product IDs, negative/fractional quantities, zero items, stock limits.
  * - R5: Dispatch countdown math: Landrum, SC 2:00 PM ET cutoff across all days of the week,
  *       weekends, Friday after 2 PM ET, and all postal/federal holiday roll-forwards.
- * - R7: Gift card and points voucher regex validation: standard YALL-XXXXXXXX, points
- *       YALL-PTS-XXXXXXXX, lowercase normalization, invalid formats, zero/expired balances.
+ * - R7: Gift card code validation and balance: the YALL-XXXX-XXXX-XXXX format, lowercase
+ *       and dash normalisation, invalid formats, and the rule that a spent card and a
+ *       code that never existed answer identically. Now driven through the Worker's
+ *       /api/gift-card-balance route and the real ledger -- the Netlify functions these
+ *       cases used to import are deleted (audit C-1, C-2, H-23).
  *
  * Run: node scripts/adversarial-stress.test.js
  */
@@ -19,8 +22,7 @@ const cart = require("../assets/js/cart.js");
 const checkoutModule = require("../workers/checkout.js");
 const checkoutWorker = checkoutModule.default || checkoutModule;
 const catalogData = require("../assets/data/products.json");
-const giftCardBalance = require("../netlify/functions/gift-card-balance.js");
-const redeemPoints = require("../netlify/functions/redeem-points.js");
+const { makeNamespace } = require("./lib/d1-emulator.js");
 
 let totalTests = 0;
 let passedTests = 0;
@@ -51,10 +53,29 @@ async function runAsyncTest(name, fn) {
   }
 }
 
+/* A Worker env carrying a real GiftCardLedger over an in-memory Durable
+   Object, pre-loaded with `cards` ({code: initialCents}). Gift cards are ledger
+   balances now, not Stripe promotion codes, so a test that mocks the Stripe
+   promo lookup would be mocking a call the Worker no longer makes. */
+async function makeStressEnv(cards) {
+  const { GiftCardLedger, giftCardLedger } = await import("../workers/state/gift-card-ledger.js");
+  const env = {
+    STRIPE_SECRET_KEY: "sk_test_stress_dummy_key",
+    SITE_ORIGIN: "https://yallternativeliving.com",
+    STRIPE_TAX_ENABLED: "false",
+    GIFT_CARD_LEDGER: makeNamespace(GiftCardLedger)
+  };
+  for (const [code, cents] of Object.entries(cards || {})) {
+    await giftCardLedger(env, code).issue({ initialCents: cents, source: "test" });
+  }
+  return env;
+}
+
 // Helper to mock Stripe responses and test workers/checkout.js
 async function executeWorkerCheckout(body, mockStripe = {}) {
   let capturedSessionParams = null;
   let capturedCouponParams = null;
+  if (!mockStripe.env) mockStripe.env = await makeStressEnv(mockStripe.cards);
 
   const originalFetch = global.fetch;
   global.fetch = async (url, opts = {}) => {
@@ -87,10 +108,8 @@ async function executeWorkerCheckout(body, mockStripe = {}) {
       return { ok: true, json: async () => ({ status: "inactive" }) };
     }
     if (u.includes("/v1/promotion_codes")) {
-      if (mockStripe.promoCode) {
-        return { ok: true, json: async () => mockStripe.promoCode };
-      }
-      return { ok: true, json: async () => ({ data: [] }) };
+      // The Worker must never reach here for a gift card any more.
+      throw new Error("workers/checkout.js asked Stripe for a promotion code");
     }
     if (u.includes("/v1/coupons")) {
       capturedCouponParams = new URLSearchParams(opts.body);
@@ -125,13 +144,7 @@ async function executeWorkerCheckout(body, mockStripe = {}) {
       body: JSON.stringify(body)
     });
 
-    const env = {
-      STRIPE_SECRET_KEY: "sk_test_stress_dummy_key",
-      SITE_ORIGIN: "https://yallternativeliving.com",
-      STRIPE_TAX_ENABLED: "false"
-    };
-
-    const res = await checkoutWorker.fetch(req, env, { waitUntil: () => {} });
+    const res = await checkoutWorker.fetch(req, mockStripe.env, { waitUntil: () => {} });
     const resJson = await res.json();
     return {
       status: res.status,
@@ -550,28 +563,33 @@ async function main() {
      ========================================================================== */
   console.log("\n--- R7: Gift Card & Points Voucher Validation & Math ---");
 
-  const voucherRegex = /^YALL-(?:PTS-)?[A-Z0-9]{6,16}$/;
+  /* The shipped validator, not a copy of it. A regex written out again in a
+     test can only ever prove the test agrees with itself. */
+  const { isGiftCardCode } = await import("../workers/routes/gift-cards.js");
+  const voucherRegex = { test: (code) => isGiftCardCode(code) };
 
-  runTest("R7.1: Standard gift card format regex matches valid codes", () => {
+  runTest("R7.1: The issued gift card format is accepted, in any spelling", () => {
     const validCodes = [
-      "YALL-12345678",
-      "YALL-ABCD1234",
-      "YALL-ABCDEFGH12345678",
+      "YALL-ABCD-1234-EFGH", // canonical
+      "yall-abcd-1234-efgh", // lower case
+      " YALL-ABCD-1234-EFGH ", // pasted with whitespace
+      "YALL-ABCD1234EFGH", // typed without the inner dashes
+      "YALL-12345678", // legacy shape, still accepted
       "YALL-MINLEN" // 6 chars suffix
     ];
     for (const code of validCodes) {
-      assert.strictEqual(voucherRegex.test(code), true, `Code ${code} should match regex`);
+      assert.strictEqual(voucherRegex.test(code), true, `Code ${code} should be accepted`);
     }
   });
 
-  runTest("R7.2: Alt-Points reward voucher format regex matches valid codes", () => {
+  runTest("R7.2: Alt-Points reward voucher format is still recognised", () => {
     const validPointCodes = ["YALL-PTS-ABC123", "YALL-PTS-12345678", "YALL-PTS-A1B2C3D4E5F6G7H8"];
     for (const code of validPointCodes) {
-      assert.strictEqual(voucherRegex.test(code), true, `Points code ${code} should match regex`);
+      assert.strictEqual(voucherRegex.test(code), true, `Points code ${code} should be accepted`);
     }
   });
 
-  runTest("R7.3: Voucher regex rejects invalid formats, bad prefixes, and bad characters", () => {
+  runTest("R7.3: Code validation rejects bad formats, prefixes, and characters", () => {
     const invalidCodes = [
       "YALL-", // no suffix
       "YALL-123", // too short (< 6 chars)
@@ -583,7 +601,9 @@ async function main() {
       "YALL_12345678", // underscore
       "PTS-12345678", // missing YALL-
       "DISCOUNT20", // generic coupon
-      "yall-12345678", // lowercase before normalization
+      // NOTE: "yall-12345678" is deliberately NOT here. Case and surrounding
+      // whitespace are normalised before validation (R7.1) -- a shopper who
+      // pastes a code in lower case has typed a real code, not a bad one.
       "",
       "   "
     ];
@@ -593,133 +613,193 @@ async function main() {
   });
 
   await runAsyncTest(
-    "R7.4: lookupGiftCardBalance normalizes lowercase input and validates against regex",
+    "R7.4: /api/gift-card-balance normalises input and validates the format first",
     async () => {
-      const invalidRes = await giftCardBalance.lookupGiftCardBalance(
-        "invalid-code",
-        "sk_test_mock"
-      );
-      assert.strictEqual(invalidRes.valid, false);
-      assert.ok(invalidRes.error.includes("Invalid code format"));
+      const { GiftCardLedger, giftCardLedger } =
+        await import("../workers/state/gift-card-ledger.js");
+      const { RateLimitCounter } = await import("../workers/state/rate-limit.js");
+      const env = {
+        SITE_ORIGIN: "https://yallternativeliving.com",
+        STRIPE_SECRET_KEY: "sk_test_stress_dummy_key",
+        GIFT_CARD_LEDGER: makeNamespace(GiftCardLedger),
+        RATE_LIMIT_COUNTER: makeNamespace(RateLimitCounter)
+      };
+      await giftCardLedger(env, "YALL-ACTI-VE25-0000").issue({
+        initialCents: 2500,
+        source: "test"
+      });
 
-      const emptyRes = await giftCardBalance.lookupGiftCardBalance("", "sk_test_mock");
-      assert.strictEqual(emptyRes.valid, false);
-      assert.ok(emptyRes.error.includes("Please enter a gift card code"));
-    }
-  );
-
-  await runAsyncTest(
-    "R7.5: lookupGiftCardBalance handles valid, zero, and missing balances",
-    async () => {
-      const originalFetch = global.fetch;
-      try {
-        // Mock Stripe active promo code with positive balance
-        global.fetch = async (url) => {
-          const u = String(url);
-          if (u.includes("code=YALL-ACTIVE25")) {
-            return {
-              ok: true,
-              json: async () => ({
-                data: [
-                  {
-                    id: "promo_active_1",
-                    code: "YALL-ACTIVE25",
-                    coupon: { id: "coup_25", amount_off: 2500, currency: "usd" },
-                    metadata: { initial_amount_cents: "2500" }
-                  }
-                ]
-              })
-            };
-          }
-          if (u.includes("code=YALL-ZERO00")) {
-            return {
-              ok: true,
-              json: async () => ({
-                data: [
-                  {
-                    id: "promo_zero_1",
-                    code: "YALL-ZERO00",
-                    coupon: { id: "coup_0", amount_off: 0, currency: "usd" }
-                  }
-                ]
-              })
-            };
-          }
-          return { ok: true, json: async () => ({ data: [] }) };
-        };
-
-        const activeRes = await giftCardBalance.lookupGiftCardBalance(
-          "yall-active25",
-          "sk_test_key"
+      const ask = async (code) => {
+        const res = await checkoutWorker.fetch(
+          new Request("https://yallternativeliving.com/api/gift-card-balance", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Origin: "https://yallternativeliving.com"
+            },
+            body: JSON.stringify({ code })
+          }),
+          env,
+          { waitUntil: () => {} }
         );
-        assert.strictEqual(activeRes.valid, true);
-        assert.strictEqual(activeRes.code, "YALL-ACTIVE25");
-        assert.strictEqual(activeRes.balance, 25.0);
-        assert.strictEqual(activeRes.formattedBalance, "$25.00");
-        assert.strictEqual(activeRes.expires, null);
-
-        // A spent card and a code that never existed must be INDISTINGUISHABLE:
-        // a "no balance remaining" message confirmed to a guesser that the code
-        // was real, turning the balance endpoint into an enumeration oracle.
-        const zeroRes = await giftCardBalance.lookupGiftCardBalance("YALL-ZERO00", "sk_test_key");
-        assert.strictEqual(zeroRes.valid, false);
-
-        const notFoundRes = await giftCardBalance.lookupGiftCardBalance(
-          "YALL-NOTFOUND1",
-          "sk_test_key"
-        );
-        assert.strictEqual(notFoundRes.valid, false);
-        assert.strictEqual(
-          zeroRes.error,
-          notFoundRes.error,
-          "A spent card and an unknown code return the identical message"
-        );
-        assert.strictEqual(zeroRes.error, giftCardBalance.GENERIC_NOT_FOUND);
-      } finally {
-        global.fetch = originalFetch;
-      }
-    }
-  );
-
-  runTest("R7.6: deriveRewardCode generates valid YALL-PTS- codes with high entropy", () => {
-    const codes = new Set();
-    for (let i = 0; i < 50; i++) {
-      const code = redeemPoints.deriveRewardCode();
-      assert.strictEqual(voucherRegex.test(code), true);
-      assert.ok(code.startsWith("YALL-PTS-"));
-      assert.strictEqual(code.length, 15); // "YALL-PTS-" (9) + 6 chars = 15
-      codes.add(code);
-    }
-    assert.strictEqual(codes.size, 50, "50 generated codes should all be unique");
-  });
-
-  await runAsyncTest(
-    "R7.7: Worker checkout creates ephemeral coupon for gift card and caps discount at order total",
-    async () => {
-      // Basket: Frankincense Salve ($19.99) + $10 shipping = $29.99 ($2999 cents)
-      // Gift Card: $50.00 ($5000 cents) -> discount should be capped at $29.99 ($2999 cents)
-      const mockPromo = {
-        data: [
-          {
-            id: "promo_gift_50",
-            code: "YALL-GIFT50",
-            coupon: { id: "coup_gift_50", amount_off: 5000, currency: "usd" }
-          }
-        ]
+        return { status: res.status, body: await res.json() };
       };
 
+      const invalid = await ask("invalid-code");
+      assert.strictEqual(invalid.body.valid, false);
+      assert.ok(invalid.body.error.includes("Invalid code format"));
+
+      const empty = await ask("");
+      assert.strictEqual(empty.body.valid, false);
+
+      // Lower case, and the same code typed without the inner dashes, must
+      // reach the same card -- otherwise a retyped code is a second, empty
+      // ledger with the shopper's money nowhere in it.
+      const lower = await ask("yall-acti-ve25-0000");
+      assert.strictEqual(lower.status, 200);
+      assert.strictEqual(lower.body.balance, 25.0);
+      assert.strictEqual(lower.body.formattedBalance, "$25.00");
+      assert.strictEqual(lower.body.code, "YALL-ACTI-VE25-0000");
+      assert.strictEqual(lower.body.expires, null);
+
+      const flat = await ask("YALL-ACTIVE250000");
+      assert.strictEqual(flat.status, 200);
+      assert.strictEqual(flat.body.balanceCents, 2500);
+    }
+  );
+
+  await runAsyncTest(
+    "R7.5: a spent card and a code that never existed are indistinguishable",
+    async () => {
+      const { GiftCardLedger, giftCardLedger } =
+        await import("../workers/state/gift-card-ledger.js");
+      const { RateLimitCounter } = await import("../workers/state/rate-limit.js");
+      const { GENERIC_NOT_FOUND } = await import("../workers/routes/gift-card-balance.js");
+      const env = {
+        SITE_ORIGIN: "https://yallternativeliving.com",
+        STRIPE_SECRET_KEY: "sk_test_stress_dummy_key",
+        GIFT_CARD_LEDGER: makeNamespace(GiftCardLedger),
+        RATE_LIMIT_COUNTER: makeNamespace(RateLimitCounter)
+      };
+      await giftCardLedger(env, "YALL-ZERO-0000-0000").issue({
+        initialCents: 1000,
+        source: "test"
+      });
+      await giftCardLedger(env, "YALL-ZERO-0000-0000").reserve({
+        sessionId: "cs_stress_spend",
+        cents: 1000
+      });
+      await giftCardLedger(env, "YALL-ZERO-0000-0000").commit({ sessionId: "cs_stress_spend" });
+
+      const ask = async (code) => {
+        const res = await checkoutWorker.fetch(
+          new Request("https://yallternativeliving.com/api/gift-card-balance", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Origin: "https://yallternativeliving.com"
+            },
+            body: JSON.stringify({ code })
+          }),
+          env,
+          { waitUntil: () => {} }
+        );
+        return { status: res.status, body: await res.json() };
+      };
+
+      const spent = await ask("YALL-ZERO-0000-0000");
+      const unknown = await ask("YALL-NOTF-OUND-0001");
+      assert.strictEqual(spent.body.valid, false);
+      assert.strictEqual(unknown.body.valid, false);
+      assert.strictEqual(spent.status, unknown.status, "same status");
+      assert.strictEqual(
+        spent.body.error,
+        unknown.body.error,
+        "A spent card and an unknown code return the identical message"
+      );
+      assert.strictEqual(spent.body.error, GENERIC_NOT_FOUND);
+      assert.deepStrictEqual(
+        Object.keys(spent.body).sort(),
+        Object.keys(unknown.body).sort(),
+        "...and the identical response shape, so the difference is not inferable"
+      );
+    }
+  );
+
+  await runAsyncTest(
+    "R7.6: generated gift-card codes are unbiased, unique, and derived deterministically",
+    async () => {
+      const { randomGiftCardCode, deriveGiftCardCode, CODE_ALPHABET } =
+        await import("../workers/routes/gift-cards.js");
+
+      const codes = new Set();
+      const symbolCounts = new Map();
+      for (let i = 0; i < 500; i++) {
+        const code = randomGiftCardCode();
+        assert.match(code, /^YALL-[0-9A-Z]{4}-[0-9A-Z]{4}-[0-9A-Z]{4}$/);
+        codes.add(code);
+        for (const ch of code.replace(/^YALL-/, "").replace(/-/g, "")) {
+          symbolCounts.set(ch, (symbolCounts.get(ch) || 0) + 1);
+        }
+      }
+      assert.strictEqual(codes.size, 500, "500 generated codes should all be unique");
+
+      // The old derivation took `digest[i] % 36`, which is biased because 256 is
+      // not a multiple of 36 -- the first four symbols came up more often. The
+      // alphabet is 32 symbols now and 256 IS a multiple of 32, so nothing can
+      // be systematically excluded. 6000 draws over 32 symbols averages ~187
+      // each; a symbol that never appears at all would be the tell.
+      for (const symbol of CODE_ALPHABET) {
+        assert.ok(
+          (symbolCounts.get(symbol) || 0) > 0,
+          `symbol ${symbol} never appeared in 500 codes -- the mapping is skewed`
+        );
+      }
+      assert.ok(!/[ILOU]/.test(CODE_ALPHABET), "look-alike letters are not in the alphabet");
+
+      // Derivation is what makes a redelivered webhook safe: the same session
+      // and unit must always produce the same code, and a different secret must
+      // not.
+      const a = await deriveGiftCardCode("cs_stress_1", "1-1", "whsec_stress");
+      const b = await deriveGiftCardCode("cs_stress_1", "1-1", "whsec_stress");
+      assert.strictEqual(a, b, "the same session+unit re-derives the same code");
+      assert.notStrictEqual(
+        a,
+        await deriveGiftCardCode("cs_stress_1", "1-2", "whsec_stress"),
+        "a second unit of the same order gets its own code"
+      );
+      assert.notStrictEqual(
+        a,
+        await deriveGiftCardCode("cs_stress_1", "1-1", "whsec_other"),
+        "the signing secret is part of the derivation, so a session id is not enough"
+      );
+    }
+  );
+
+  await runAsyncTest(
+    "R7.7: Worker caps the gift-card discount at the order total and holds it on the ledger",
+    async () => {
+      // Basket: Frankincense Salve ($19.99) + $10 shipping = $29.99 ($2999 cents)
+      // Gift Card: $50.00 ($5000 cents) -> discount capped at $29.99 ($2999 cents)
+      const env = await makeStressEnv({ "YALL-GIFT-5000-0000": 5000 });
       const res = await executeWorkerCheckout(
         {
           items: [{ id: "frankincense-salve", qty: 1, variant: "2oz" }],
-          gift_card_code: "yall-gift50"
+          gift_card_code: "yall-gift-5000-0000"
         },
-        { promoCode: mockPromo }
+        { env }
       );
 
       assert.strictEqual(res.status, 200);
       assert.strictEqual(res.couponParams.get("amount_off"), "2999");
-      assert.strictEqual(res.couponParams.get("metadata[gift_card_code]"), "YALL-GIFT50");
-      assert.strictEqual(res.couponParams.get("metadata[promo_id]"), "promo_gift_50");
+      assert.strictEqual(res.couponParams.get("duration"), "once");
+      assert.strictEqual(res.couponParams.get("max_redemptions"), "1");
+      assert.strictEqual(res.couponParams.get("metadata[gift_card_code]"), "YALL-GIFT-5000-0000");
+
+      const { giftCardLedger } = await import("../workers/state/gift-card-ledger.js");
+      const after = await giftCardLedger(env, "YALL-GIFT-5000-0000").getBalance();
+      assert.strictEqual(after.pendingCents, 2999, "exactly the applied amount is held");
+      assert.strictEqual(after.balanceCents, 2001, "the remainder is still spendable");
     }
   );
 
