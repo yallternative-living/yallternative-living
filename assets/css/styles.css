@@ -594,6 +594,16 @@ section {
     gap: 6px;
   }
 
+  /* The two logos are <picture> elements now (AVIF/WebP variants over a PNG
+     fallback -- live audit 2026-09-02, H-1). `display: contents` keeps the
+     <img> itself as the flex item, so the wrapper never becomes a zero-width
+     child that the 10px gap still spaces around when its <img> is
+     display:none at the other breakpoint. Layout is byte-for-byte what it
+     was when these were bare <img> tags. */
+  & picture {
+    display: contents;
+  }
+
   & img.logo-desktop {
     width: 44px;
     height: 44px;
@@ -7034,6 +7044,15 @@ dialog.global-search-modal::backdrop {
 
 .pdp-ritual-item-thumb {
   flex-shrink: 0;
+}
+
+/* The ritual and sticky-bar thumbnails are <picture> elements now (they used
+   to be bare <img> tags pointing at the full-size product JPEG -- live audit
+   2026-09-02, H-2). `display: contents` keeps the <img> itself as the box the
+   rules below and the flex parent see, so nothing about the layout moved. */
+.pdp-ritual-item-thumb picture,
+.pdp-sticky-inner picture {
+  display: contents;
 }
 
 .pdp-ritual-item-thumb img {

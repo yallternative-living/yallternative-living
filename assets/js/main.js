@@ -986,7 +986,11 @@
     var imagePath = opts.imagePath || p.image;
     var normalizedPath = (imagePath || "").replace(/^\/+/, "");
     var manifest = window.YL_IMAGES && window.YL_IMAGES[normalizedPath];
-    var alt = attrEsc(opts.alt || p.name);
+    /* An explicit alt="" is a real answer, not a missing one: the ritual
+       thumbnails sit right next to the product name, so the image is
+       decorative there. `opts.alt || p.name` swallowed that and printed the
+       name twice to a screen reader. */
+    var alt = attrEsc(opts.alt !== undefined ? opts.alt : p.name);
     var imgAttrs =
       ' alt="' +
       alt +
@@ -2351,6 +2355,12 @@
         img.hidden = false;
       } else {
         img.hidden = true;
+        /* Drop the attribute rather than blanking it: src="" is invalid and
+           resolves to the current document (live audit 2026-09-02, N-1), so
+           re-opening the modal for a product with no photo would leave the
+           previous product's photo attached to a hidden element. */
+        img.removeAttribute("src");
+        img.alt = "";
       }
     }
 
@@ -9264,9 +9274,19 @@
       ' (Current product)" data-price="' +
       (typeof product.price === "number" ? product.price.toFixed(2) : "0.00") +
       '">' +
-      '<div class="pdp-ritual-item-thumb"><img src="' +
-      attrEsc(rootAbsImage(product.image || "")) +
-      '" alt="" width="44" height="44" loading="lazy"></div>' +
+      '<div class="pdp-ritual-item-thumb">' +
+      /* Through the manifest, like every other photo on the site. A bare
+         <img> here pointed at the 1400px original to paint a 44px square
+         (live audit 2026-09-02, H-2); `single` picks the smallest generated
+         variant, which is all a 44px box can use. */
+      pictureHTML(product, {
+        single: true,
+        alt: "",
+        width: 44,
+        height: 44,
+        loading: "lazy"
+      }) +
+      "</div>" +
       '<div class="pdp-ritual-item-details">' +
       '<span class="pdp-ritual-item-tag">This Item</span>' +
       '<span class="pdp-ritual-item-name">' +
@@ -9289,9 +9309,15 @@
         '" data-price="' +
         (typeof p.price === "number" ? p.price.toFixed(2) : "0.00") +
         '">' +
-        '<div class="pdp-ritual-item-thumb"><img src="' +
-        attrEsc(rootAbsImage(p.image || "")) +
-        '" alt="" width="44" height="44" loading="lazy"></div>' +
+        '<div class="pdp-ritual-item-thumb">' +
+        pictureHTML(p, {
+          single: true,
+          alt: "",
+          width: 44,
+          height: 44,
+          loading: "lazy"
+        }) +
+        "</div>" +
         '<div class="pdp-ritual-item-details">' +
         '<span class="pdp-ritual-item-tag">Pairing ' +
         (idx + 1) +

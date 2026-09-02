@@ -1006,12 +1006,36 @@ if (!cspText) {
 } else {
   var REQUIRED_CSP_SUBSTRINGS = [
     ["umami.is", "Umami (cookieless analytics + conversion events)"],
-    ["app.convertkit.com", "Kit/ConvertKit (footer newsletter form, legacy domain)"],
-    ["app.kit.com", "Kit/ConvertKit (footer newsletter form, current domain)"],
     ["formspree.io", "Formspree (review submission form)"],
     ["embed.tawk.to", "Tawk.to (live chat script-src)"],
-    ["*.tawk.to", "Tawk.to (connect/frame/img-src)"]
+    ["*.tawk.to", "Tawk.to (connect/frame/img-src)"],
+    ["translate.google.com", "Google Translate element.js (translator.js, user-triggered)"],
+    ["translate.googleapis.com", "Google Translate el_main bundle + translation XHRs"]
   ];
+  /* The newsletter endpoint is derived, not pinned. This list used to require
+     BOTH app.kit.com and app.convertkit.com -- the second was dead (nothing in
+     the repo or on any live page reached it) and the 2026-09-02 live audit
+     called it out as CSP dilution, but a hardcoded pin is also the wrong shape:
+     it asserts a domain instead of asserting that the domain the site is
+     actually configured to post to is allowed. Read site.kitFormAction and
+     require ITS origin, so switching the CMS field to any other host fails
+     here instead of silently breaking signups in the browser. */
+  try {
+    var cspContent = JSON.parse(
+      fs.readFileSync(path.join(ROOT, "assets/data/content.json"), "utf8")
+    );
+    var kitAction = ((cspContent.site || {}).kitFormAction || "").trim();
+    if (!kitAction || kitAction.indexOf("YOUR_") === 0) {
+      ok("newsletter endpoint not configured yet -- no CSP origin to require");
+    } else if (!/^https:\/\//.test(kitAction)) {
+      fail("site.kitFormAction", "expected an https:// URL, got: " + kitAction);
+    } else {
+      var kitOrigin = "https://" + kitAction.split("/")[2];
+      REQUIRED_CSP_SUBSTRINGS.push([kitOrigin, "newsletter form (site.kitFormAction)"]);
+    }
+  } catch (e) {
+    fail("CSP newsletter origin check", "could not read content.json: " + e.message);
+  }
   REQUIRED_CSP_SUBSTRINGS.forEach(function (pair) {
     if (cspText.indexOf(pair[0]) !== -1) ok("CSP includes " + pair[0] + " (" + pair[1] + ")");
     else
@@ -1552,7 +1576,12 @@ if (!fs.existsSync(swPath)) {
   if (!matchAssets) {
     fail("sw.js", "ASSETS_TO_CACHE array not found");
   } else {
-    var rawAssets = matchAssets[1].match(/'([^']+)'/g) || [];
+    /* Strip comments first. The array is annotated, and an apostrophe in a
+       comment ("every visitor's install budget") otherwise parses as the
+       start of a quoted entry and turns the whole block into nonsense
+       paths -- a red gate for a real, correct precache list. */
+    var assetsBody = matchAssets[1].replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+    var rawAssets = assetsBody.match(/'([^']+)'/g) || [];
     var missingSwAssets = [];
     rawAssets.forEach(function (quoted) {
       var assetPath = quoted.slice(1, -1);
@@ -2692,7 +2721,10 @@ try {
       if (prod.inStock === false || prod.stock === 0) {
         expectedAvailability = "https://schema.org/OutOfStock";
       } else if (prod.comingSoon === true) {
-        expectedAvailability = "https://schema.org/PreOrder";
+        /* Not PreOrder: a coming-soon product cannot be ordered at all, only
+           waitlisted -- see schemaAvailability() in build-site-data.js and the
+           2026-09-02 live audit, M-5. */
+        expectedAvailability = "https://schema.org/OutOfStock";
       }
 
       var offerValid =
@@ -3810,6 +3842,203 @@ section("Report a Reaction page (safety.html) -- MoCRA adverse-event intake");
     ok("workers/schema.sql documents the adverse_events table");
   } else {
     fail("workers/schema.sql has no adverse_events table");
+  }
+})();
+
+/* ---------- /.well-known/security.txt is present and not about to lapse ----------
+   RFC 9116 requires Contact (at least once) and Expires (exactly once), and
+   recommends an expiry under a year out. An expired security.txt is worse
+   than no file: it tells a researcher the address is abandoned. The build
+   hardcodes the date so the output stays reproducible, which means the only
+   thing that can move it is a person -- so this gate is the reminder, and it
+   goes red 30 days before the file lapses rather than on the day. */
+/* ---------- journal + feed are 404'd while the journal is switched off ----------
+   site.enableJournal gates the whole feature, but journal.html and feed.xml
+   are still written to disk and were still served 200 -- an orphan page with
+   nothing on it and an RSS feed with zero items that a reader could subscribe
+   to and never hear from (live audit 2026-09-02, L-2). build-security-headers
+   .js adds a 404 rule for both while the flag is off. Assert the two agree,
+   in both directions: a flag flipped on with the rules still in place would
+   take the journal down silently, which is the worse failure of the two. */
+section("journal gate matches the emitted redirect rules");
+(function checkJournalGate() {
+  var tomlPath = path.join(ROOT, "netlify.toml");
+  if (!fs.existsSync(tomlPath)) {
+    fail("netlify.toml", "missing -- run npm run build-security-headers");
+    return;
+  }
+  var toml = fs.readFileSync(tomlPath, "utf8");
+  var jsonPath = path.join(ROOT, "assets/data/content.json");
+  var enabled;
+  try {
+    enabled = !!(JSON.parse(fs.readFileSync(jsonPath, "utf8")).site || {}).enableJournal;
+  } catch (e) {
+    fail("content.json", "unreadable: " + e.message);
+    return;
+  }
+  ["/journal.html", "/feed.xml"].forEach(function (p404) {
+    var blocked = toml.indexOf('from = "' + p404 + '"') !== -1;
+    if (enabled && blocked) {
+      fail(
+        "journal is enabled but " + p404 + " is 404'd in netlify.toml",
+        "re-run npm run build-security-headers"
+      );
+    } else if (!enabled && !blocked) {
+      fail(
+        "journal is disabled but " + p404 + " is still served",
+        "re-run npm run build-security-headers"
+      );
+    } else {
+      ok(p404 + " matches site.enableJournal=" + enabled + (blocked ? " (404'd)" : " (served)"));
+    }
+  });
+})();
+
+section("security.txt (RFC 9116)");
+(function checkSecurityTxt() {
+  var stPath = path.join(ROOT, ".well-known", "security.txt");
+  if (!fs.existsSync(stPath)) {
+    fail("/.well-known/security.txt", "missing -- run npm run build-data");
+    return;
+  }
+  var st = fs.readFileSync(stPath, "utf8");
+  var contacts = st.split("\n").filter(function (l) {
+    return /^Contact:\s*\S/.test(l);
+  });
+  var expires = st.split("\n").filter(function (l) {
+    return /^Expires:\s*\S/.test(l);
+  });
+  if (contacts.length >= 1) ok("security.txt has " + contacts.length + " Contact field(s)");
+  else fail("security.txt has no Contact field", "RFC 9116 requires at least one");
+  if (expires.length === 1) {
+    ok("security.txt has exactly one Expires field");
+    var when = Date.parse(expires[0].replace(/^Expires:\s*/, "").trim());
+    if (isNaN(when)) {
+      fail("security.txt Expires is not a parseable date", expires[0]);
+    } else {
+      var daysLeft = Math.floor((when - Date.now()) / 86400000);
+      if (daysLeft <= 30) {
+        fail(
+          "security.txt expires in " + daysLeft + " day(s)",
+          "move SECURITY_TXT_EXPIRES in scripts/build-site-data.js forward (under a year out) " +
+            "and re-run npm run build-data"
+        );
+      } else if (daysLeft > 366) {
+        fail(
+          "security.txt expires " + daysLeft + " days out",
+          "RFC 9116 recommends less than a year"
+        );
+      } else {
+        ok("security.txt expiry is " + daysLeft + " days out (RFC 9116 wants under a year)");
+      }
+    }
+  } else {
+    fail("security.txt Expires field count is " + expires.length, "RFC 9116 requires exactly one");
+  }
+})();
+
+/* ---------- SERP-safe <title> and meta description on every page ----------
+   Google renders roughly the first 60 characters of a title and 155 of a
+   description before it truncates. Nothing checked either, so four product
+   titles and three page descriptions had drifted past those limits -- and the
+   half of a title that gets cut is the end, which is where the brand lives
+   (live audit 2026-09-02, L-6 and L-7). Lengths are measured on the DECODED
+   text: "Y&#39;all" is one apostrophe to a search engine, not five characters.
+   Uniqueness is checked in the same pass because a duplicated title is the
+   other way this silently goes wrong. */
+section("SERP-safe titles and meta descriptions");
+(function checkSerpText() {
+  var TITLE_MAX = 60;
+  var DESC_MAX = 155;
+  var serpPages = PAGES.slice();
+  var productDir = path.join(ROOT, "products");
+  if (fs.existsSync(productDir)) {
+    fs.readdirSync(productDir)
+      .filter(function (f) {
+        return f.endsWith(".html");
+      })
+      .sort()
+      .forEach(function (f) {
+        serpPages.push("products/" + f);
+      });
+  }
+  var decode = function (str) {
+    return String(str)
+      .replace(/&#39;/g, "'")
+      .replace(/&quot;/g, '"')
+      .replace(/&mdash;/g, "\u2014")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/\s+/g, " ")
+      .trim();
+  };
+  var titles = {};
+  var descs = {};
+  var checked = 0;
+  var longTitles = [];
+  var longDescs = [];
+  var dupes = [];
+  serpPages.forEach(function (page) {
+    var full = path.join(ROOT, page);
+    if (!fs.existsSync(full)) return;
+    var html = fs.readFileSync(full, "utf8");
+    var tm = html.match(/<title>([\s\S]*?)<\/title>/);
+    var dm = html.match(/<meta name="description" content="([\s\S]*?)">/);
+    if (!tm) {
+      fail(page + ": no <title>", "every page needs one");
+      return;
+    }
+    /* 404.html, thank-you.html and welcome.html are noindex, nofollow -- they
+       never appear in a result page, so there is no snippet for a description
+       to fill. Everything indexable must have one. */
+    var isNoindex = /<meta name="robots" content="[^"]*noindex/i.test(html);
+    if (!dm && !isNoindex) {
+      fail(page + ": no meta description", "every indexable page needs one");
+      return;
+    }
+    checked++;
+    var t = decode(tm[1]);
+    if (t.length > TITLE_MAX) longTitles.push(page + " (" + t.length + "): " + t);
+    if (titles[t]) dupes.push("title shared by " + titles[t] + " and " + page);
+    else titles[t] = page;
+    if (dm) {
+      var d = decode(dm[1]);
+      if (d.length > DESC_MAX) longDescs.push(page + " (" + d.length + ")");
+      if (descs[d]) dupes.push("description shared by " + descs[d] + " and " + page);
+      else descs[d] = page;
+    }
+  });
+  /* An empty page list would make every "0 pages over the limit" line below
+     pass while examining nothing. */
+  if (checked < serpPages.length) {
+    fail(
+      "SERP text coverage",
+      "only " + checked + " of " + serpPages.length + " pages passed the title/description check"
+    );
+  } else {
+    ok("all " + checked + " pages carry a <title>, and every indexable one a description");
+  }
+  if (longTitles.length) {
+    longTitles.forEach(function (t) {
+      fail("<title> over " + TITLE_MAX + " chars -- Google will truncate it", t);
+    });
+  } else if (checked) {
+    ok("all " + checked + " titles are within " + TITLE_MAX + " characters");
+  }
+  if (longDescs.length) {
+    longDescs.forEach(function (d) {
+      fail("meta description over " + DESC_MAX + " chars -- Google will truncate it", d);
+    });
+  } else if (checked) {
+    ok("all " + checked + " meta descriptions are within " + DESC_MAX + " characters");
+  }
+  if (dupes.length) {
+    dupes.forEach(function (d) {
+      fail("duplicate SERP text", d);
+    });
+  } else if (checked) {
+    ok("every title and description is unique across " + checked + " pages");
   }
 })();
 

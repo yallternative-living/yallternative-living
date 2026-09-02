@@ -5,7 +5,7 @@
  */
 
 /** @const {string} Cache name key, updated on assets release. */
-const CACHE_NAME = "yallternative-cache-v99717665d4da";
+const CACHE_NAME = "yallternative-cache-v1dfad0811ba5";
 
 /** @const {!Array<string>} Array of absolute URLs to be cached on installation. */
 const ASSETS_TO_CACHE = [
@@ -57,7 +57,20 @@ const ASSETS_TO_CACHE = [
   '/assets/fonts/dm-sans-700.woff2',
   '/site.webmanifest',
   '/favicon.ico',
-  '/assets/img/logo.png',
+  // The header/footer mark, as the variants a browser actually picks out of
+  // its <picture> (sizes="48px", so 48w at 1x, 96w at 2x, 144w at 3x). The
+  // 512x512 assets/img/logo.png behind them is deliberately NOT precached any
+  // more: it is only the <picture> fallback for a browser with neither AVIF
+  // nor WebP, plus the JSON-LD and order-email brand image, and precaching it
+  // spent 201KB of every install budget on a 48px icon (live audit
+  // 2026-09-02, H-1). A DPR-4 screen picks logo-192.* and gets it from the
+  // runtime stale-while-revalidate cache instead.
+  '/assets/img/logo-48.avif',
+  '/assets/img/logo-96.avif',
+  '/assets/img/logo-144.avif',
+  '/assets/img/logo-48.webp',
+  '/assets/img/logo-96.webp',
+  '/assets/img/logo-144.webp',
   '/assets/img/favicon-32.png',
   '/assets/img/favicon-192.png',
   '/assets/img/favicon-512.png',

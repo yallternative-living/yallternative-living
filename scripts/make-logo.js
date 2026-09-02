@@ -117,6 +117,19 @@ const fs = require("fs");
     .png()
     .toBuffer();
 
+  /* Palette-quantised PNG, not the 8-bit RGBA sharp writes by default.
+     These icons used to ship as full-truecolour PNGs: favicon-192.png was
+     40KB (fetched on every page load as a <link rel=icon>), favicon-512.png
+     and logo.png were 201KB each and both are precached by sw.js -- roughly
+     480KB of chrome icons for a flat, six-colour illustration (live audit
+     2026-09-02, finding L-3). libimagequant at 256 colours takes the set to
+     ~85KB with a mean per-channel deviation of 0.4/255 (max 51 on a handful
+     of gradient edge pixels) -- invisible at the 16-192px these are ever
+     painted at, checked side by side at 300px before this was committed.
+     Everything downstream still gets a real PNG, which <link rel=icon>, the
+     webmanifest and the order e-mails all require. */
+  const PNG_OPTS = { palette: true, quality: 100, effort: 10, compressionLevel: 9 };
+
   const out = async (size, file, bg) => {
     let base = sharp(master).resize(size, size, {
       fit: "contain",
@@ -126,8 +139,8 @@ const fs = require("fs");
     if (bg)
       base = sharp({
         create: { width: size, height: size, channels: 4, background: bg }
-      }).composite([{ input: await base.png().toBuffer() }]);
-    await base.png().toFile(path.join(IMG, file));
+      }).composite([{ input: await base.png(PNG_OPTS).toBuffer() }]);
+    await base.png(PNG_OPTS).toFile(path.join(IMG, file));
     console.log("wrote", file, size + "x" + size, bg ? "(bg)" : "(transparent)");
   };
 

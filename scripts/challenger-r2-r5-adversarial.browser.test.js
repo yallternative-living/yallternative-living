@@ -256,7 +256,9 @@ function testGoogleMerchantJsonLd() {
       if (prod.inStock === false || prod.stock === 0) {
         expectedAvailability = "https://schema.org/OutOfStock";
       } else if (prod.comingSoon === true) {
-        expectedAvailability = "https://schema.org/PreOrder";
+        /* OutOfStock, not PreOrder: nothing coming-soon is orderable, only
+           waitlistable (2026-09-02 live audit, M-5). */
+        expectedAvailability = "https://schema.org/OutOfStock";
       }
       assert(
         offers.availability === expectedAvailability,

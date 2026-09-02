@@ -112,6 +112,33 @@ var BLOCKED_PATHS = [
   "/.eslintrc.json",
   "/run-launch-checks.command"
 ];
+
+/* The Apothecary Journal is gated off (site.enableJournal in
+   assets/data/content.json). With it off, build-site-data.js still emits
+   journal.html -- noindex, with an empty grid -- and feed.xml as a
+   well-formed RSS document containing zero <item>s and a lastBuildDate frozen
+   at whenever the last post was written. Both answered 200 on the live domain
+   with no inbound link from any of the 65 pages (live audit 2026-09-02, L-2).
+   An orphan page and an empty feed that a reader can subscribe to and never
+   hear from are worse than a clean 404, so while the flag is off they are
+   served as 404s. Turning the flag back on and redeploying removes these two
+   rules automatically: Netlify and Vercel both run this script on every
+   build, right after build-site-data.js. scripts/qa-check.js asserts the flag
+   and these rules agree, so the two cannot drift. */
+var JOURNAL_PATHS = ["/journal.html", "/feed.xml"];
+function journalEnabled() {
+  try {
+    var content = JSON.parse(fs.readFileSync(path.join(ROOT, "assets/data/content.json"), "utf8"));
+    return !!(content.site && content.site.enableJournal);
+  } catch (e) {
+    /* Unreadable content.json is reported by build-site-data.js; assume the
+       journal is ON here so a parse failure can never take a live page down. */
+    return true;
+  }
+}
+if (!journalEnabled()) {
+  BLOCKED_PATHS = BLOCKED_PATHS.concat(JOURNAL_PATHS);
+}
 var PAGES = [
   "index.html",
   "shop.html",
@@ -360,7 +387,20 @@ function run() {
     // cdn.jsdelivr.net/emojione/: the Tawk.to widget, once loaded, pulls its
     // emoji renderer from that one path (seen as a script-src violation on every
     // page in the 2026-09-02 verification). Path-scoped on purpose: the rest of
-    // jsDelivr stays blocked.
+    // jsDelivr stays blocked. Kept through the 2026-09-02 live audit (M-2
+    // listed it as unused): the audit grepped static markup, but the widget is
+    // loaded by the deferred inline snippet on first pointerdown/scroll and
+    // the two Tawk IDs in content.json are real, so this fires for any visitor
+    // who touches the page.
+    // translate.google.com / translate.googleapis.com: same story, and the
+    // same reason M-2's "0 / 65 pages reference it" is not the whole picture.
+    // No page links them; assets/js/main.js appends assets/js/translator.js at
+    // the end of init on every page, translator.js draws the globe menu in the
+    // header (confirmed in the live DOM at yallternativeliving.com), and
+    // choosing a language injects
+    // translate.google.com/translate_a/element.js, which then pulls its
+    // el_main bundle from translate.googleapis.com. Both are load-bearing for
+    // a real, user-triggered feature.
     "script-src 'self' https://cloud.umami.is https://embed.tawk.to https://cdn.jsdelivr.net/emojione/ https://translate.google.com https://translate.googleapis.com 'inline-speculation-rules' " +
       hashes.join(" "),
     // Fonts are self-hosted from /assets/fonts/ (styles.css @font-face), so
@@ -369,23 +409,58 @@ function run() {
     // font files from that origin; without it the widget renders unstyled
     // (every page logged a style-src violation for min-widget.css).
     "style-src 'self' https://embed.tawk.to https://translate.googleapis.com 'unsafe-inline'", // main.js/cart.js/gift-card.js/translator.js all set element.style.* directly (display toggles, carousel transforms, etc.); can't pre-hash those, so this directive stays looser on purpose
-    "img-src 'self' data: https://*.tawk.to https://cdn.jsdelivr.net/emojione/ https://translate.google.com https://translate.googleapis.com https://www.google.com",
+    /* https://www.google.com was here until the 2026-09-02 live audit (M-2).
+       Nothing on any of the 65 live pages referenced it, and driving the
+       language switcher end to end under this exact policy produced no image
+       request to it either: Google Translate's own chrome now comes from
+       www.gstatic.com and fonts.gstatic.com, and those are deliberately NOT
+       allowlisted -- they only dress the #google_translate_element div, which
+       translator.js keeps display:none because the site draws its own
+       language menu. Two expected img-src / one style-src violation fire when
+       a visitor picks a language; the translation itself does not depend on
+       any of them. Do not "fix" them by widening this line. */
+    "img-src 'self' data: https://*.tawk.to https://cdn.jsdelivr.net/emojione/ https://translate.google.com https://translate.googleapis.com",
     "font-src 'self' https://embed.tawk.to",
     // Checkout itself never needs an entry here: cart.js POSTs to the
     // same-origin /api/checkout Worker route (covered by 'self'), then
     // does a normal top-level `window.location = url` redirect to Stripe's
     // hosted Checkout page -- full-page navigations aren't governed by
     // connect-src/frame-src/form-action.
-    "connect-src 'self' https://cloud.umami.is https://*.tawk.to wss://*.tawk.to https://translate.googleapis.com https://formspree.io https://app.convertkit.com https://app.kit.com",
-    "frame-src https://*.tawk.to https://translate.google.com",
+    /* https://app.convertkit.com dropped 2026-09-02 (live audit M-2). The
+       footer newsletter posts with fetch() to site.kitFormAction, which is
+       https://app.kit.com/forms/9867317/subscriptions -- the current domain.
+       Nothing in the repository, and nothing on any of the 65 live pages,
+       reaches the legacy ConvertKit host; the redirect that does exist runs
+       convertkit.com -> kit.com, not the other way. qa-check.js now derives
+       the required origins from content.json instead of pinning this list, so
+       pasting an app.convertkit.com form URL into the CMS fails the build
+       here rather than silently breaking signups in the browser. */
+    /* translate-pa.googleapis.com is where the Google Translate element sends
+       the actual text to be translated (POST /v1/translateHtml). It is a
+       DIFFERENT host from translate.googleapis.com, which only serves the
+       widget bundle, so the entry above never covered it -- with it missing
+       the widget loads, draws, accepts a language, and then translates
+       nothing, silently. Added 2026-09-02 alongside the M-2 CSP trim. */
+    "connect-src 'self' https://cloud.umami.is https://*.tawk.to wss://*.tawk.to https://translate.googleapis.com https://translate-pa.googleapis.com https://formspree.io https://app.kit.com",
+    /* https://translate.google.com dropped from frame-src 2026-09-02 (live
+       audit M-2 -- frame-src is one of the two directives where a dead entry
+       actually costs something). translator.js builds the widget with
+       autoDisplay:false, so Google never inserts its "Translated to ..."
+       banner frame, and the only iframes the element does create are
+       about:blank / srcdoc ones, which CSP exempts. Verified by driving the
+       language switcher under this policy and logging every frame
+       navigation: about:blank and about:srcdoc, nothing else. */
+    "frame-src https://*.tawk.to",
     "frame-ancestors 'none'",
     "base-uri 'self'",
     // 'self' covers the review-submission form once it posts to a same-site
-    // endpoint; the two Kit/ConvertKit domains cover the footer newsletter
-    // form's real action URL (Kit rebranded from ConvertKit and forms in
-    // the wild still resolve to either domain depending on when they were
-    // created); formspree.io covers the "Write a Review" form below.
-    "form-action 'self' https://app.convertkit.com https://app.kit.com https://formspree.io",
+    // endpoint; app.kit.com is the footer newsletter form's real action URL
+    // (site.kitFormAction in content.json -- this is the no-JS path, since
+    // main.js otherwise intercepts and posts with fetch()); formspree.io
+    // covers the "Write a Review" form below. app.convertkit.com came out
+    // with the connect-src entry above, for the same reason and the same
+    // evidence.
+    "form-action 'self' https://app.kit.com https://formspree.io",
     "object-src 'none'"
   ].join("; ");
 
@@ -437,6 +512,17 @@ function run() {
     "object-src 'none'"
   ].join("; ");
 
+  /* /admin/* is served (Sveltia needs its own config.yml client-side), so it
+     cannot be blocked -- but nothing under it should ever be in an index. It
+     already carries a noindex meta tag and a robots.txt Disallow; a Disallow
+     only stops the crawl, it does not stop a URL discovered elsewhere from
+     being listed. X-Robots-Tag is the part that actually removes it. The
+     2026-09-02 live audit (L-4) noted /admin/config.yml answers 200 and
+     discloses the CMS backend and repo path; there are no credentials in it
+     and Sveltia cannot work without it, so this is the available hardening,
+     not a fix for the disclosure itself. */
+  var ADMIN_ROBOTS_TAG = "noindex, nofollow, noarchive";
+
   var otherHeaders = [
     ["X-Frame-Options", "DENY"],
     ["X-Content-Type-Options", "nosniff"],
@@ -467,6 +553,7 @@ function run() {
   });
   headersFile += "\n/admin/*\n";
   headersFile += "  Content-Security-Policy: " + adminCsp + "\n";
+  headersFile += "  X-Robots-Tag: " + ADMIN_ROBOTS_TAG + "\n";
   fs.writeFileSync(path.join(ROOT, "_headers"), headersFile);
   console.log("wrote _headers (Netlify / Cloudflare Pages)");
 
@@ -500,7 +587,13 @@ function run() {
       // a live Vercel deploy during development -- if /admin ever shows
       // the wrong CSP in production, check Vercel's current docs on
       // multiple matching header rules.)
-      { source: "/admin/(.*)", headers: [{ key: "Content-Security-Policy", value: adminCsp }] }
+      {
+        source: "/admin/(.*)",
+        headers: [
+          { key: "Content-Security-Policy", value: adminCsp },
+          { key: "X-Robots-Tag", value: ADMIN_ROBOTS_TAG }
+        ]
+      }
     ]
   };
   fs.writeFileSync(path.join(ROOT, "vercel.json"), JSON.stringify(vercelJson, null, 2) + "\n");
@@ -680,6 +773,9 @@ function run() {
     "  [headers.values]\n" +
     "    Content-Security-Policy = " +
     JSON.stringify(adminCsp) +
+    "\n" +
+    "    X-Robots-Tag = " +
+    JSON.stringify(ADMIN_ROBOTS_TAG) +
     "\n";
   fs.writeFileSync(path.join(ROOT, "netlify.toml"), netlifyToml);
   console.log("wrote netlify.toml");

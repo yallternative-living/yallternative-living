@@ -3,7 +3,7 @@
       <div class="footer-brand">
         <div class="brand">
 <!--YL:site.logoDesktop-->
-          <img class="logo-desktop" src="/assets/img/logo.png" alt="Y'allternative Living icon" width="48" height="48" loading="lazy" decoding="async">
+          <picture><source type="image/avif" srcset="/assets/img/logo-48.avif 48w, /assets/img/logo-96.avif 96w, /assets/img/logo-144.avif 144w, /assets/img/logo-192.avif 192w" sizes="48px"><source type="image/webp" srcset="/assets/img/logo-48.webp 48w, /assets/img/logo-96.webp 96w, /assets/img/logo-144.webp 144w, /assets/img/logo-192.webp 192w" sizes="48px"><img src="/assets/img/logo.png" alt="Y&#39;allternative Living icon" width="48" height="48" loading="lazy" decoding="async" class="logo-desktop" sizes="48px"></picture>
 <!--/YL:site.logoDesktop-->
           <span class="brand-word">Y'allternative<small>Living</small></span>
         </div>
@@ -67,8 +67,9 @@
          content.json (editable at /admin); it is not hand-written here.
 
          Kit's own embed ships a ck.5.js script tag -- do not add it. It
-         loads from f.convertkit.com, which is deliberately absent from
-         script-src, and it is only needed for Kit's own styled widget.
+         loads from f.kit.com (f.convertkit.com, the old host, no longer
+         resolves at all), which is deliberately absent from script-src, and
+         it is only needed for Kit's own styled widget.
          This form posts the field name Kit expects (email_address) to
          the same endpoint, and app.kit.com is already allowed in both
          connect-src and form-action. -->

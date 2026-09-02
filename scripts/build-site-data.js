@@ -787,8 +787,54 @@ function variantPriceRange(p) {
 function schemaAvailability(product) {
   const p = product || {};
   if (p.inStock === false || p.stock === 0) return "https://schema.org/OutOfStock";
-  if (p.comingSoon === true) return "https://schema.org/PreOrder";
+  /* Coming-soon products used to be marked PreOrder. schema.org/PreOrder means
+     "orderable now, ships later" -- and Google Merchant reads it that way too,
+     expecting a working purchase path and a ship date. Nothing here is
+     orderable: the only control on a coming-soon PDP is a "Notify me when it
+     launches" toggle, and the sticky bar's buy button is `disabled` and reads
+     "Coming Soon". A shopping crawler that believed the old markup would have
+     listed a buyable price against a page with no way to buy, which is the
+     classic availability-mismatch disapproval (live audit 2026-09-02, M-5).
+     BackOrder is no better -- Merchant Center defines it as a previously
+     stocked item coming back that you ARE accepting orders for, and it wants
+     an availability_date too. OutOfStock is the term in this vocabulary that
+     means exactly what is true: not purchasable right now. Google supports it
+     directly and it carries no disapproval risk, unlike advertising a price
+     as orderable against a page with no purchase path.
+
+     The alternative considered and rejected: drop the whole `offers` block
+     while the waitlist is the only action, so the page asserts nothing at all
+     about price or availability. That is arguably the purest answer, but it
+     costs the page its Product offer and price signal for a state that ends
+     on launch day, and it would mean loosening four existing gates that
+     currently assert every product carries a priced offer (qa-check's
+     ItemList section, challenger-r2-r5, verify-pdp-metadata,
+     build-site-data.test). OutOfStock keeps every one of those honest and
+     still tells the truth. The price stays on the Offer -- an Offer with no
+     price is invisible in Merchant Center, and the price IS what the product
+     will cost. The page stays indexable, because a launch page that ranks
+     before launch day is the entire point of the waitlist. */
+  if (p.comingSoon === true) return "https://schema.org/OutOfStock";
   return "https://schema.org/InStock";
+}
+
+/* Page <title> for a product, kept inside the ~60 characters Google renders
+   before it truncates. Four product names are long enough that the full
+   " | Y'allternative Living" suffix pushed the title past that and the brand
+   -- the half most worth keeping -- was what got cut (live audit 2026-09-02,
+   L-7). Shorten the suffix rather than the product name: a shopper scanning a
+   SERP needs the product, and "Y'allternative" alone still reads as the shop.
+   A name that already carries the brand drops the suffix entirely instead of
+   saying it twice. scripts/qa-check.js enforces the 60-character ceiling on
+   every page so this cannot quietly regress. */
+const PDP_TITLE_MAX = 60;
+function pdpPageTitle(name) {
+  const clean = String(name == null ? "" : name).trim();
+  const full = clean + " | Y'allternative Living";
+  if (full.length <= PDP_TITLE_MAX) return full;
+  if (/y'?allternative/i.test(clean)) return clean;
+  const short = clean + " | Y'allternative";
+  return short.length <= PDP_TITLE_MAX ? short : clean;
 }
 
 /* Meta descriptions are cut to <=155 characters at a word boundary.
@@ -2305,6 +2351,109 @@ function buildSiteData() {
 
   writeFile("faq.html", faqHtml);
 
+  /* ---------- Event structured data (events.html) ----------
+   These five helpers are a deliberate, line-for-line mirror of the ones in
+   assets/js/main.js (getEventStreetAddress / getEasternOffsetForDate /
+   buildEventDateTimeISO / buildEventJsonLdLocation / buildEventJsonLd).
+   main.js has injected this markup at runtime for a while, which is exactly
+   the problem the 2026-09-02 live audit found in M-4: events.html shipped
+   LocalBusiness + BreadcrumbList and nothing else, so a crawler that does not
+   execute JavaScript saw no Event at all for a fully-specified upcoming
+   market -- free local/rich-result distribution for a business whose in-person
+   markets are a primary sales channel.
+
+   It is emitted ONCE, into a tag carrying main.js's own id, so main.js
+   updates it in place rather than appending a duplicate. scripts/main.test.js
+   asserts the two produce byte-identical JSON for the real events.json, so
+   this copy cannot drift from the runtime one without failing the build.
+
+   Why a copy and not a require(): main.js is a browser IIFE that needs a full
+   DOM mock before Node will even load it (see the top of scripts/main.test.js);
+   pulling that into the build to reach two pure functions would be a far
+   bigger liability than a mirrored pair the test pins together. */
+  function getEventStreetAddress(ev) {
+    if (!ev || !ev.note || !ev.zip) return "";
+    const note = String(ev.note);
+    if (!/^\d/.test(note.trim())) return "";
+    if (note.indexOf(ev.zip) === -1) return "";
+    const match = note.match(/^([^.]+?\b\d{5}\b)/);
+    if (!match) return "";
+    const full = match[1].trim();
+    const commaIdx = full.indexOf(",");
+    return commaIdx > 0 ? full.slice(0, commaIdx).trim() : full;
+  }
+
+  function getEasternOffsetForDate(dateObj) {
+    try {
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/New_York",
+        timeZoneName: "shortOffset"
+      }).formatToParts(dateObj);
+      const tzPart = parts.find(function (part) {
+        return part.type === "timeZoneName";
+      });
+      const raw = tzPart ? tzPart.value : "";
+      const m = /GMT([+-])(\d{1,2})(?::?(\d{2}))?/.exec(raw);
+      if (!m) return null;
+      return m[1] + m[2].padStart(2, "0") + ":" + (m[3] || "00");
+    } catch {
+      return null;
+    }
+  }
+
+  function buildEventDateTimeISO(dateStr) {
+    if (!dateStr) return null;
+    const str = String(dateStr);
+    const datePart = str.slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(datePart)) return null;
+    const timeMatch = /T(\d{2}:\d{2}:\d{2})/.exec(str);
+    if (!timeMatch) return { iso: datePart, hasTime: false };
+    const parts = datePart.split("-").map(Number);
+    const noonUtc = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2], 12));
+    const offset = getEasternOffsetForDate(noonUtc);
+    return { iso: datePart + "T" + timeMatch[1] + (offset || ""), hasTime: true };
+  }
+
+  function buildEventJsonLdLocation(ev) {
+    const address = { "@type": "PostalAddress", addressCountry: "US" };
+    const loc = ev && ev.location ? String(ev.location) : "";
+    const locParts = loc.split(",");
+    const city = locParts[0] ? locParts[0].trim() : "";
+    const region = locParts[1] ? locParts[1].trim() : "";
+    if (city) address.addressLocality = city;
+    if (region) address.addressRegion = region;
+    if (ev && ev.zip) address.postalCode = ev.zip;
+    const street = getEventStreetAddress(ev);
+    if (street) address.streetAddress = street;
+    return { "@type": "Place", address: address };
+  }
+
+  function buildEventJsonLd(ev) {
+    if (!ev || !ev.name) return null;
+    const start = buildEventDateTimeISO(ev.date);
+    if (!start) return null;
+    const ld = {
+      "@context": "https://schema.org",
+      "@type": "Event",
+      name: "Y'allternative Living at " + ev.name,
+      startDate: start.iso,
+      eventStatus: "https://schema.org/EventScheduled",
+      eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+      location: buildEventJsonLdLocation(ev)
+    };
+    if (ev.endDate) {
+      const end = buildEventDateTimeISO(ev.endDate);
+      if (end) ld.endDate = end.iso;
+    }
+    return ld;
+  }
+
+  function buildEventsJsonLd(events) {
+    return (Array.isArray(events) ? events : []).map(buildEventJsonLd).filter(function (ld) {
+      return !!ld;
+    });
+  }
+
   /* ---------- 4b) events.html Past Events Pre-population ---------- */
   let eventsHtml = readText("events.html", "events page");
   const eventsJson = readJson("assets/data/events.json");
@@ -2399,9 +2548,124 @@ function buildSiteData() {
     return start + "\n" + pastEventsHtml + "\n        " + end;
   });
 
+  /* Upcoming events, sorted the same way main.js sorts them before calling
+     injectEventJsonLd, so the static tag and the runtime rewrite agree. The
+     CMS switch (site.enableEventJsonLd) gates both; when it is off, or when
+     nothing is upcoming, the markers are emitted empty rather than wrapping
+     an empty <script>, which would be worse structured data than none. */
+  const eventJsonLdRe = /(<!-- EVENT_JSONLD:START -->)[\s\S]*?(<!-- EVENT_JSONLD:END -->)/;
+  if (!eventJsonLdRe.test(eventsHtml)) {
+    throw new Error(
+      "Could not find EVENT_JSONLD:START/EVENT_JSONLD:END markers in events.html -- " +
+        "refusing to silently ship the page with no Event structured data."
+    );
+  }
+  const sortedUpcomingForLd = upcoming
+    .map(function (ev) {
+      return { ev: ev, t: new Date(ev.date).getTime() };
+    })
+    .sort(function (a, b) {
+      return a.t - b.t;
+    })
+    .map(function (x) {
+      return x.ev;
+    });
+  const eventLdObjects =
+    SITE_CONFIG.enableEventJsonLd === false ? [] : buildEventsJsonLd(sortedUpcomingForLd);
+  const eventLdBody = eventLdObjects.length
+    ? '\n<script type="application/ld+json" id="yl-event-jsonld">\n' +
+      JSON.stringify(eventLdObjects.length === 1 ? eventLdObjects[0] : eventLdObjects, null, 2)
+        .split("</")
+        .join("<\\/") +
+      "\n</" +
+      "script>\n"
+    : "";
+  eventsHtml = eventsHtml.replace(eventJsonLdRe, function (m, start, end) {
+    return start + eventLdBody + end;
+  });
+
   writeFile("events.html", eventsHtml);
 
   // shop.html no longer contains a duplicated visible FAQ accordion (now links directly to faq.html)
+
+  /* ---------- 4c) shop.html filter toolbar, pre-rendered ----------
+   assets/js/main.js builds both pill rows from window.YL_PRODUCTS on load.
+   Neither had its height reserved: #filterRow shipped completely empty (no
+   min-height at all) and #concernFilterRow shipped empty behind a
+   min-height:38px that is wrong for a row which actually renders 121px tall
+   on desktop and mobile (78px on tablet). Everything below them jumped the
+   moment main.js ran -- the largest single layout shift on the site (live
+   audit 2026-09-02, L-8; the audit named the two elements that MOVED,
+   #concernFilterWrap and .shop-sort, and reserving height on the wrapper
+   alone does not fix it because #filterRow above them grows too).
+   A taller magic number would only be right until someone adds a category or
+   a concern, and both lists are static build-time data -- so paint the real
+   pills and let main.js overwrite them with byte-identical markup. Nothing
+   moves, and the filters are usable with JS off. */
+  (function prerenderShopFilters() {
+    const concerns = Array.isArray(CATALOG.concerns) ? CATALOG.concerns : [];
+    const categories = Array.isArray(CATALOG.categories) ? CATALOG.categories : [];
+    let shopHtmlForFilter;
+    try {
+      shopHtmlForFilter = readText("shop.html", "shop page");
+    } catch (e) {
+      return;
+    }
+
+    const rowRe = (id) => new RegExp('(<div id="' + id + '"[^>]*>)[\\s\\S]*?(</div>)');
+    [
+      ["filterRow", categories.length],
+      ["concernFilterRow", concerns.length]
+    ].forEach(function (pair) {
+      if (!rowRe(pair[0]).test(shopHtmlForFilter)) {
+        throw new Error(
+          'Could not find <div id="' +
+            pair[0] +
+            '"> in shop.html -- refusing to ship the shop toolbar with an unreserved height.'
+        );
+      }
+    });
+
+    const categoryPills = categories.length
+      ? '<button class="filter-pill active" type="button" data-filter="all" aria-pressed="true">All</button>' +
+        categories
+          .map(function (c) {
+            return (
+              '<button class="filter-pill" type="button" data-filter="' +
+              escapeHtml(c.id) +
+              '" aria-pressed="false">' +
+              escapeHtml(c.label) +
+              "</button>"
+            );
+          })
+          .join("")
+      : "";
+    const concernPills = concerns.length
+      ? '<button class="concern-pill active" type="button" data-concern="all" aria-pressed="true">All Concerns</button>' +
+        concerns
+          .map(function (c) {
+            return (
+              '<button class="concern-pill" type="button" data-concern="' +
+              escapeHtml(c.id) +
+              '" aria-pressed="false">' +
+              (c.icon
+                ? '<span class="concern-icon" aria-hidden="true">' + escapeHtml(c.icon) + "</span> "
+                : "") +
+              escapeHtml(c.name) +
+              "</button>"
+            );
+          })
+          .join("")
+      : "";
+
+    let updatedShop = shopHtmlForFilter.replace(rowRe("filterRow"), function (m, open, close) {
+      return open + categoryPills + close;
+    });
+    updatedShop = updatedShop.replace(rowRe("concernFilterRow"), function (m, open, close) {
+      return open + concernPills + close;
+    });
+    if (updatedShop !== shopHtmlForFilter) writeFile("shop.html", updatedShop);
+  })();
 
   /* ---------- Page copy (index.html + about.html + contact.html + shop.html) ----------
    The homepage headline/intro, the About story, and page images are marker-delimited
@@ -2724,17 +2988,7 @@ function buildSiteData() {
   // Inject logo path into footer template using outer comment tag
   const reFooterLogo = /(<!--YL:site\.logoDesktop-->)[\s\S]*?(<!--\/YL:site\.logoDesktop-->)/;
   FOOTER_INNER = FOOTER_INNER.replace(reFooterLogo, function (match, open, close) {
-    const altMatch = match.match(/alt="([^"]*)"/i) || match.match(/alt='([^']*)'/i);
-    const alt = altMatch ? altMatch[1] : "Y'allternative Living logo";
-    return (
-      open +
-      '<img class="logo-desktop" src="/' +
-      escapeHtml(logoDesktop) +
-      '" alt="' +
-      escapeHtml(alt) +
-      '" width="48" height="48" loading="lazy" decoding="async">' +
-      close
-    );
+    return open + logoPictureHtml(logoDesktop, MANIFEST, "desktop", { loading: "lazy" }) + close;
   });
 
   // Inject social row into footer template using outer comment tag
@@ -2795,26 +3049,13 @@ function buildSiteData() {
       );
     }
 
-    // Inject header desktop/mobile logos using a robust tag parser (supports any attribute ordering, class naming, or quote formatting)
-    html = html.replace(/<img\s+[^>]+>/gi, function (match) {
-      const isLogoDesktop = /\bclass=['"]([^'"]*\s+)?logo-desktop(\s+[^'"]*)?['"]/.test(match);
-      const isLogoMobile = /\bclass=['"]([^'"]*\s+)?logo-mobile(\s+[^'"]*)?['"]/.test(match);
-      // Root-absolute: 404.html is served at the requested URL (audit C-5), so
-      // a document-relative logo path 404s under /products/. All of these
-      // pages live at the root, so "/" + path is right for every one of them.
-      const rootAbs = (p) => "/" + escapeHtml(String(p).replace(/^\/+/, ""));
-      if (isLogoDesktop) {
-        return match.replace(/(\bsrc=['"])[^'"]*(['"])/i, function (m, p1, p2) {
-          return p1 + rootAbs(logoDesktop) + p2;
-        });
-      }
-      if (isLogoMobile) {
-        return match.replace(/(\bsrc=['"])[^'"]*(['"])/i, function (m, p1, p2) {
-          return p1 + rootAbs(logoMobile) + p2;
-        });
-      }
-      return match;
-    });
+    /* Inject header desktop/mobile logos. replaceLogoBlocks() emits the full
+       <picture> over the manifest's 48/96/144 variants and is idempotent, so
+       a rebuild replaces the whole block rather than editing the <img> inside
+       an already-generated one. Paths inside are root-absolute: 404.html is
+       served at the requested URL (audit C-5), so a document-relative logo
+       path 404s under /products/. */
+    html = replaceLogoBlocks(html, logoDesktop, logoMobile, MANIFEST);
 
     // Determine page-specific OG image
     let pageKey = page.replace(".html", "");
@@ -2920,7 +3161,67 @@ function buildSiteData() {
   if (SITE_CONFIG.enableJournal) {
     PAGES.push({ loc: "journal.html", priority: "0.7" });
   }
+  /* ---------- per-URL <lastmod> ----------
+     Every one of the 32 entries used to carry the SAME date -- the newest
+     date found inside the content JSON (a past event, as it happened), which
+     is a date about the CONTENT, not about when the page last changed. So it
+     sat at 2026-08-30 through a deploy on 2026-09-02 that shipped real
+     content changes (live audit 2026-09-02, L-1). Google only uses lastmod
+     "if it's consistently and verifiably accurate", checked against the
+     page's own last-modification signals, and its trust in the tag is
+     all-or-nothing per site -- a sitemap full of dates that do not move is
+     worse than one with no dates at all.
+
+     So ask git when each page's real inputs last changed. That is verifiable
+     from the outside (it is the deploy that changed the file) and it moves
+     when, and only when, something did. The inputs are the SOURCES, not the
+     generated HTML: a CMS edit commits assets/data/products.json and lets
+     Netlify regenerate products/*.html at deploy time, so the generated
+     file's own commit date would stand still while the page changed.
+
+     Still deterministic for a given commit, so
+     scripts/verify-build-reproducibility.js stays green. If git is not
+     available (a tarball export, say) every page falls back to the old
+     content-derived date rather than losing the tag. */
   const today = contentLastmod();
+  const gitDateCache = {};
+  function gitLastModified(file) {
+    if (Object.prototype.hasOwnProperty.call(gitDateCache, file)) return gitDateCache[file];
+    let out = "";
+    try {
+      out = require("child_process")
+        .execSync("git log -1 --format=%cs -- " + JSON.stringify(file), {
+          cwd: ROOT,
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "ignore"]
+        })
+        .trim();
+    } catch (e) {
+      out = "";
+    }
+    gitDateCache[file] = /^\d{4}-\d{2}-\d{2}$/.test(out) ? out : "";
+    return gitDateCache[file];
+  }
+  /* Newest git date across a page's inputs, or the content-derived fallback
+     when git answers for none of them. */
+  function pageLastmod(files) {
+    const dates = files.map(gitLastModified).filter(Boolean);
+    if (!dates.length) return today;
+    dates.sort();
+    return dates[dates.length - 1];
+  }
+  const SHARED_SOURCES = ["assets/data/content.json", "assets/data/footer.html"];
+  const PAGE_EXTRA_SOURCES = {
+    "index.html": [
+      "assets/data/products.json",
+      "assets/data/events.json",
+      "assets/data/site-reviews.json"
+    ],
+    "shop.html": ["assets/data/products.json", "assets/data/site-reviews.json"],
+    "events.html": ["assets/data/events.json"],
+    "reviews.html": ["assets/data/site-reviews.json"],
+    "journal.html": ["assets/data/journal.json"]
+  };
   const sitemapXml =
     '<?xml version="1.0" encoding="UTF-8"?>\n' +
     "<!-- Auto-generated by scripts/build-site-data.js. Do not hand-edit;\n" +
@@ -2940,7 +3241,7 @@ function buildSiteData() {
         "/" +
         locPath +
         "</loc><lastmod>" +
-        today +
+        pageLastmod([p.loc].concat(SHARED_SOURCES, PAGE_EXTRA_SOURCES[p.loc] || [])) +
         "</lastmod><priority>" +
         p.priority +
         "</priority></url>"
@@ -2955,7 +3256,9 @@ function buildSiteData() {
         "/products/" +
         p.id +
         ".html</loc><lastmod>" +
-        today +
+        pageLastmod(
+          ["products/" + p.id + ".html", "assets/data/products.json"].concat(SHARED_SOURCES)
+        ) +
         "</lastmod><priority>0.8</priority></url>"
       );
     }).join("\n") +
@@ -3004,6 +3307,45 @@ function buildSiteData() {
     DOMAIN +
     "/sitemap.xml\n";
   writeFile("robots.txt", robotsTxt);
+
+  /* ---------- 5d) /.well-known/security.txt (RFC 9116) ----------
+   A shop that takes card payments through Stripe and publishes a MoCRA
+   adverse-event address had no machine-readable way for anyone to report a
+   vulnerability -- /.well-known/security.txt answered 404 (live audit
+   2026-09-02, L-5). RFC 9116 requires exactly two fields: Contact (at least
+   once) and Expires (exactly once), and RECOMMENDS an expiry less than a
+   year out so a stale file is visibly stale.
+
+   SECURITY_TXT_EXPIRES is a hardcoded constant, not a date computed from the
+   clock: this build is reproducible by contract (see
+   scripts/verify-build-reproducibility.js) and a wall-clock expiry would make
+   every rebuild a different file. scripts/qa-check.js fails the build once
+   the date is inside 30 days, which is the reminder to move it -- an expired
+   security.txt is worse than none, because it tells a researcher the contact
+   is abandoned. */
+  const SECURITY_TXT_EXPIRES = "2027-06-01T00:00:00.000Z";
+  const securityContact = (CONTENT.site && CONTENT.site.email) || "y.allternative.living@gmail.com";
+  const securityTxt =
+    "# Y'allternative Living -- security contact (RFC 9116).\n" +
+    "# Generated by scripts/build-site-data.js; edit it there, not here.\n" +
+    "# This is a one-person handmade shop, not a company with a security team:\n" +
+    "# reports go to the same mailbox everything else does, and you will get a\n" +
+    "# human. There is no bounty programme.\n" +
+    "\n" +
+    "Contact: mailto:" +
+    securityContact +
+    "\n" +
+    "Contact: " +
+    DOMAIN +
+    "/contact.html\n" +
+    "Expires: " +
+    SECURITY_TXT_EXPIRES +
+    "\n" +
+    "Preferred-Languages: en\n" +
+    "Canonical: " +
+    DOMAIN +
+    "/.well-known/security.txt\n";
+  writeFile(".well-known/security.txt", securityTxt);
 
   /* ---------- 6) llms.txt ----------
    The community "llms.txt" convention: a plain-Markdown, token-efficient
@@ -3402,15 +3744,18 @@ function buildSiteData() {
         function (match, key) {
           if (key === "giftUpId") return match; // Handled separately below
           if (key === "umamiWebsiteId") return match; // Handled separately below
+          if (key === "umamiPreconnect") return match; // Handled separately below
           if (key === "logoDesktop" && site[key]) {
             /* Root-absolute on purpose: 404.html is served at whatever URL
                was requested (audit C-5), so a document-relative path breaks
                under /products/. Every top-level page lives at the root, so
-               the leading slash is correct for all of them. */
+               the leading slash is correct for all of them. The <picture>
+               comes from the same helper the header and the footer template
+               use, so all three carry the identical variant ladder. */
             return (
-              '<!--YL:site.logoDesktop-->\n          <img class="logo-desktop" src="/' +
-              escapeHtml(String(site[key]).replace(/^\/+/, "")) +
-              '" alt="Y\'allternative Living icon" width="48" height="48" loading="lazy" decoding="async">\n<!--/YL:site.logoDesktop-->'
+              "<!--YL:site.logoDesktop-->\n          " +
+              logoPictureHtml(String(site[key]), MANIFEST, "desktop", { loading: "lazy" }) +
+              "\n<!--/YL:site.logoDesktop-->"
             );
           }
           if (site[key] !== undefined) {
@@ -3450,6 +3795,28 @@ function buildSiteData() {
               '"></script>'
             : "";
           return "<!--YL:site.umamiWebsiteId-->" + body + "<!--/YL:site.umamiWebsiteId-->";
+        }
+      );
+
+      /* ...and the preconnect that goes with it, on exactly the same
+       condition. The <link rel="preconnect" href="https://cloud.umami.is">
+       used to be hardcoded into every page's <head> while the script above
+       was correctly suppressed, so a site with no analytics configured still
+       performed DNS + TCP + TLS to a third-party analytics vendor on every
+       load: the visitor's IP and the SNI for their hostname went to Umami on
+       a connection that was then discarded unused, and the page paid three
+       round trips of connection contention for it (live audit 2026-09-02,
+       finding M-3). One condition now gates both halves of the feature. */
+      updated = updated.replace(
+        /<!--YL:site\.umamiPreconnect-->([\s\S]*?)<!--\/YL:site\.umamiPreconnect-->/g,
+        function (match) {
+          if (site.umamiWebsiteId === undefined) return match;
+          const val = String(site.umamiWebsiteId).trim();
+          const isReal = val && val !== "YOUR_UMAMI_WEBSITE_ID";
+          const body = isReal
+            ? '<link rel="preconnect" href="https://cloud.umami.is" crossorigin>'
+            : "";
+          return "<!--YL:site.umamiPreconnect-->" + body + "<!--/YL:site.umamiPreconnect-->";
         }
       );
 
@@ -4074,7 +4441,14 @@ function renderUsageAccordionsHtml(product) {
   );
 }
 
-function renderRitualSectionHtml(product, productsMap, categoryLabelMap, ritualDefaults) {
+function renderRitualSectionHtml(
+  product,
+  productsMap,
+  categoryLabelMap,
+  ritualDefaults,
+  imageManifest
+) {
+  const manifest = imageManifest || {};
   if (!product || !Array.isArray(product.pairsWith) || !product.pairsWith.length) {
     return "";
   }
@@ -4130,9 +4504,19 @@ function renderRitualSectionHtml(product, productsMap, categoryLabelMap, ritualD
     (typeof product.price === "number" ? product.price.toFixed(2) : "0.00") +
     '">\n' +
     '          <div class="pdp-ritual-item-thumb">\n' +
-    '            <img src="../' +
-    escapeHtml(String(product.image).replace(/^\/+/, "")) +
-    '" alt="" width="54" height="54" loading="lazy">\n' +
+    /* 54px thumb over the manifest's 480w variant, not the 1400px original
+       (live audit 2026-09-02, H-2 -- the bare <img> here and the sticky-bar
+       one were the whole reason every product page fetched a full-size JPEG
+       it never displayed). */
+    "            " +
+    pictureFromManifest(String(product.image), manifest, {
+      alt: "",
+      width: 54,
+      height: 54,
+      loading: "lazy",
+      sizes: "54px"
+    }) +
+    "\n" +
     "          </div>\n" +
     '          <div class="pdp-ritual-item-details">\n' +
     '            <span class="pdp-ritual-item-tag">This Item</span>\n' +
@@ -4159,9 +4543,15 @@ function renderRitualSectionHtml(product, productsMap, categoryLabelMap, ritualD
       (typeof paired.price === "number" ? paired.price.toFixed(2) : "0.00") +
       '">\n' +
       '          <div class="pdp-ritual-item-thumb">\n' +
-      '            <img src="../' +
-      escapeHtml(String(paired.image).replace(/^\/+/, "")) +
-      '" alt="" width="54" height="54" loading="lazy">\n' +
+      "            " +
+      pictureFromManifest(String(paired.image), manifest, {
+        alt: "",
+        width: 54,
+        height: 54,
+        loading: "lazy",
+        sizes: "54px"
+      }) +
+      "\n" +
       "          </div>\n" +
       '          <div class="pdp-ritual-item-details">\n' +
       '            <span class="pdp-ritual-item-tag">Step ' +
@@ -4232,7 +4622,8 @@ function renderRitualSectionHtml(product, productsMap, categoryLabelMap, ritualD
  * @param {string} categoryLabel - Human-readable category label
  * @returns {string} - Rendered HTML string for the sticky bar
  */
-function renderStickyBarHtml(product, categoryLabel) {
+function renderStickyBarHtml(product, categoryLabel, imageManifest) {
+  const manifest = imageManifest || {};
   if (!product) return "";
   const p = product;
   const price = typeof p.price === "number" ? p.price.toFixed(2) : "0.00";
@@ -4361,9 +4752,25 @@ function renderStickyBarHtml(product, categoryLabel) {
   return (
     '    <div class="pdp-sticky-bar" id="pdpStickyBar" aria-hidden="true">\n' +
     '      <div class="pdp-sticky-inner">\n' +
-    '        <img class="pdp-sticky-thumb" src="../' +
-    escapeHtml(imgSrc) +
-    '" alt="" loading="lazy" width="44" height="44" aria-hidden="true">\n' +
+    "        " +
+    /* 44px thumb. This was a bare <img> at the product photo's full size --
+       a 1400x1050, 259-281KB JPEG decoded to paint a 44-pixel square, and
+       because the sticky bar sits near the top of the document Chrome's
+       lazy-load proximity heuristic fetched it immediately, so it was 25-28%
+       of the cold mobile transfer of every product page (live audit
+       2026-09-02, finding H-2). sizes="44px" lands on the 480w variant --
+       the same file the gallery thumbnails above already request, so on the
+       main product it now costs nothing at all. */
+    pictureFromManifest(imgSrc, manifest, {
+      alt: "",
+      width: 44,
+      height: 44,
+      loading: "lazy",
+      sizes: "44px",
+      className: "pdp-sticky-thumb",
+      ariaHidden: true
+    }) +
+    "\n" +
     '        <div class="pdp-sticky-info">\n' +
     '          <p class="pdp-sticky-title">' +
     escapeHtml(p.name) +
@@ -4431,6 +4838,7 @@ function pictureFromManifest(imgPath, manifest, opts) {
     (o.className ? ' class="' + escapeHtml(o.className) + '"' : "") +
     (o.id ? ' id="' + escapeHtml(o.id) + '"' : "") +
     (o.itemprop ? ' itemprop="' + escapeHtml(o.itemprop) + '"' : "") +
+    (o.ariaHidden ? ' aria-hidden="true"' : "") +
     (o.sizes ? ' sizes="' + escapeHtml(o.sizes) + '"' : "");
   const img = '<img src="' + escapeHtml(rootImage(key)) + '"' + imgAttrs + ">";
   if (!entry || !entry.variants) return img;
@@ -4451,6 +4859,73 @@ function pictureFromManifest(imgPath, manifest, opts) {
     img +
     "</picture>"
   );
+}
+
+/* ---------- header / footer logo ----------
+   The brand mark is 48px in the markup and 44px (32px under 600px) in CSS,
+   yet it was served as the 512x512, 201KB assets/img/logo.png on all 65
+   pages -- the single largest asset on the domain, 38% of the homepage's
+   cold mobile transfer and 22% of a product page's (live audit 2026-09-02,
+   finding H-1). scripts/optimize-images.js now gives it a 48/96/144 DPR
+   ladder in AVIF and WebP; these two helpers put that ladder into the
+   markup. The original PNG stays as the <picture> fallback (and as the
+   JSON-LD / e-mail brand image), so a browser with neither format still
+   gets a logo -- it is just no longer what everyone downloads.
+
+   LOGO_ALT_* are constants rather than values read back out of the page:
+   the build rewrites these tags in place, and re-reading an alt it had
+   already escaped would double-escape the apostrophe on every rebuild. */
+const LOGO_ALT_DESKTOP = "Y'allternative Living icon";
+const LOGO_ALT_MOBILE = "Y'allternative Living logo";
+
+/**
+ * One header/footer logo as a <picture> over the manifest's variants.
+ * `variant` is "desktop" or "mobile" (which class the <img> carries, and
+ * therefore which of the two the CSS shows at a given width).
+ */
+function logoPictureHtml(logoPath, manifest, variant, opts) {
+  const o = opts || {};
+  return pictureFromManifest(logoPath, manifest, {
+    alt: variant === "mobile" ? LOGO_ALT_MOBILE : LOGO_ALT_DESKTOP,
+    width: 48,
+    height: 48,
+    // 48px is the intrinsic box; the CSS paints it at 44 (32 on phones), so
+    // a 2x screen lands on the 96w candidate and a 3x screen on 144w.
+    sizes: "48px",
+    className: variant === "mobile" ? "logo-mobile" : "logo-desktop",
+    loading: o.loading,
+    decoding: "async"
+  });
+}
+
+/* Matches a logo <img> whether it is still the bare tag the hand-written
+   pages shipped or the <picture> a previous build wrapped it in, so the
+   rewrite below replaces the whole block instead of editing the <img>
+   inside a stale set of <source> tags. Non-logo <picture>/<img> blocks match
+   too and are returned untouched. */
+const LOGO_BLOCK_RE = /(?:<picture>(?:<source\b[^>]*>)*)?<img\s+[^>]*>(?:<\/picture>)?/gi;
+
+/** Rewrites every header/footer logo block in a page to the responsive form. */
+function replaceLogoBlocks(html, logoDesktop, logoMobile, manifest) {
+  return html.replace(LOGO_BLOCK_RE, function (block) {
+    const imgMatch = block.match(/<img\s+[^>]*>/i);
+    if (!imgMatch) return block;
+    const img = imgMatch[0];
+    const isDesktop = /\bclass=['"]([^'"]*\s+)?logo-desktop(\s+[^'"]*)?['"]/.test(img);
+    const isMobile = /\bclass=['"]([^'"]*\s+)?logo-mobile(\s+[^'"]*)?['"]/.test(img);
+    if (!isDesktop && !isMobile) return block;
+    // The footer copy is below the fold on every page and keeps its
+    // loading="lazy"; the header copy is the first thing painted and must not.
+    const lazy = /\bloading=['"]lazy['"]/i.test(img) ? "lazy" : undefined;
+    return logoPictureHtml(
+      isMobile ? logoMobile : logoDesktop,
+      manifest,
+      isMobile ? "mobile" : "desktop",
+      {
+        loading: lazy
+      }
+    );
+  });
 }
 
 /** <link rel="preload"> for the LCP image, matching the <picture>'s AVIF candidates. */
@@ -5109,13 +5584,18 @@ function renderPdpGoodToKnowHtml(p, sizeLabel) {
   );
 }
 
-function renderSiteHeaderHtml() {
+function renderSiteHeaderHtml(manifest) {
+  const m = manifest || {};
   return (
     '  <header class="site-header">\n' +
     '    <nav class="nav" aria-label="Main Navigation">\n' +
     '      <a class="brand" href="/index.html" aria-label="Y\'allternative Living home">\n' +
-    '        <img class="logo-desktop" src="/assets/img/logo.png" alt="Y\'allternative Living icon" width="48" height="48">\n' +
-    '        <img class="logo-mobile" src="/assets/img/logo.png" alt="Y\'allternative Living logo" height="48" width="48">\n' +
+    "        " +
+    logoPictureHtml("assets/img/logo.png", m, "desktop") +
+    "\n" +
+    "        " +
+    logoPictureHtml("assets/img/logo.png", m, "mobile") +
+    "\n" +
     '        <span class="brand-word">Y\'allternative<small>Living</small></span>\n' +
     "      </a>\n" +
     '      <ul class="nav-links" id="navLinks">\n' +
@@ -5154,7 +5634,13 @@ function renderRestockModalHtml() {
     '      <p class="muted" id="restockModalSubtitle">Get an email as soon as this item is back in stock or ready to ship.</p>\n' +
     "    </div>\n" +
     '    <div id="restockModalProductInfo" class="restock-product-preview">\n' +
-    '      <img id="restockProductImg" src="" alt="" width="56" height="56" hidden>\n' +
+    /* No src attribute at all until main.js fills one in. An empty src is
+       invalid HTML and, per the URL spec, resolves to the document itself --
+       which is why this image reported naturalWidth 0 with currentSrc equal to
+       the page URL. Chrome issues no extra request for it, but Safari has
+       historically re-fetched the document for this pattern (live audit
+       2026-09-02, N-1). */
+    '      <img id="restockProductImg" alt="" width="56" height="56" hidden>\n' +
     "      <div>\n" +
     '        <h3 id="restockProductName">Product Name</h3>\n' +
     '        <span id="restockProductBadge" class="stock-badge coming-soon">Coming Soon</span>\n' +
@@ -5243,7 +5729,7 @@ function renderProductPdpHtml(
   const c = ctx || {};
   const manifest = c.manifest || {};
   const shop = c.shop || {};
-  const pTitle = escapeHtml(product.name) + " | Y'allternative Living";
+  const pTitle = escapeHtml(pdpPageTitle(product.name));
   const rawDesc = product.description || product.blurb || "";
   const pDesc = escapeHtml(rawDesc);
   const pMetaDesc = escapeHtml(truncateForMeta(rawDesc, 155));
@@ -5327,7 +5813,8 @@ function renderProductPdpHtml(
     product,
     productsById,
     categoryLabelMap,
-    ritualDefaults
+    ritualDefaults,
+    manifest
   );
   const batchDateHtml =
     product.comingSoon && product.estimatedBatchDate
@@ -5335,7 +5822,7 @@ function renderProductPdpHtml(
         escapeHtml(product.estimatedBatchDate) +
         "</strong></div>\n"
       : "";
-  const stickyBarHtml = renderStickyBarHtml(product, categoryLabel);
+  const stickyBarHtml = renderStickyBarHtml(product, categoryLabel, manifest);
 
   let ingredientsHtml = "";
   if (Array.isArray(product.ingredients) && product.ingredients.length) {
@@ -5442,7 +5929,7 @@ function renderProductPdpHtml(
     "</head>\n" +
     '<body class="pdp-page">\n' +
     '  <a href="#main-content" class="skip-link">Skip to main content</a>\n' +
-    renderSiteHeaderHtml() +
+    renderSiteHeaderHtml(manifest) +
     '  <main id="main-content" class="container pdp-container">\n' +
     '    <nav class="breadcrumb-nav" aria-label="Breadcrumb">\n' +
     '      <p class="breadcrumb"><a href="../index.html">Home</a> / <a href="../shop.html">Shop</a> / <a href="../shop.html#' +

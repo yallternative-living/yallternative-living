@@ -27,8 +27,8 @@
       "emittedBy": "hand-written in each page's <head>",
       "pages": "all 15 top-level pages"
     },
-    "sha256-GwShjQS8ayLbH/DuImQmgPbWdnTGaE3Khi+i/XB9D38=": {
-      "what": "Tawk.to live-chat loader, deferred. Loads the widget SDK on the visitor's first pointerdown/keydown/scroll/touchstart, never on a timer: an idle-timeout fallback made the widget iframe land with no user input and register as a 0.047 layout shift on every page (2026-09-02). The two IDs still come from content.json via scripts/build-site-data.js, so this hash still changes whenever they change in /admin.",
+    "sha256-X8kUvpVWVbaRRvoM1l6EpaLEU/5DbGswOGSfQfOEV4g=": {
+      "what": "Tawk.to live-chat loader, deferred. Loads the widget SDK on the visitor's first pointerdown/keydown/scroll/touchstart, never on a timer: an idle-timeout fallback made the widget iframe land with no user input and register as a 0.047 layout shift on every page (2026-09-02). The two IDs still come from content.json via scripts/build-site-data.js, so this hash still changes whenever they change in /admin. Rehashed 2026-09-02 (live audit M-1): the loader used to call s1.setAttribute(\"crossorigin\", \"*\") -- not a value the enumerated attribute accepts, so the browser fell back to the anonymous state and made a CORS-mode fetch out of a request that needs no CORS, with no integrity hash to justify it. The diff was reviewed line by line before this hash was written down: it is that one line deleted and nothing else, so the snippet stays byte-identical everywhere it is emitted and one hash keeps covering every page that carries it.",
       "emittedBy": "scripts/build-site-data.js (site.tawkToPropertyId / site.tawkToWidgetId markers)",
       "pages": "all 16 top-level pages"
     },

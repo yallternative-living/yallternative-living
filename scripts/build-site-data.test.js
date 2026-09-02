@@ -666,8 +666,12 @@ const preorderLd = buildScript.generateProductJsonLd(
 );
 eq(
   preorderLd.offers.availability,
-  "https://schema.org/PreOrder",
-  "PreOrder availability when comingSoon is true"
+  "https://schema.org/OutOfStock",
+  "OutOfStock availability when comingSoon is true -- nothing is orderable yet (live audit M-5)"
+);
+assert(
+  typeof preorderLd.offers.price === "string" && /^\d+\.\d{2}$/.test(preorderLd.offers.price),
+  "a coming-soon offer still carries its price -- OutOfStock is about the purchase path, not the price"
 );
 
 // BreadcrumbList JSON-LD
@@ -829,13 +833,13 @@ eq(buildScript.clampRating(4.5, 5), 4.5, "clampRating leaves a valid rating alon
 
 eq(
   buildScript.schemaAvailability({ comingSoon: true, image: "assets/img/real-photo.jpg" }),
-  "https://schema.org/PreOrder",
+  "https://schema.org/OutOfStock",
   "availability comes from comingSoon, not the image filename"
 );
 eq(
   buildScript.schemaAvailability({ image: "assets/img/placeholder-coming-soon.svg" }),
   "https://schema.org/InStock",
-  "a placeholder photo alone no longer implies PreOrder"
+  "a placeholder photo alone does not imply an unavailable product"
 );
 eq(
   buildScript.schemaAvailability({ inStock: false }),

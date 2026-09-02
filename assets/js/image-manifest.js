@@ -1700,5 +1700,49 @@ window.YL_IMAGES = {
         }
       ]
     }
+  },
+  "assets/img/logo.png": {
+    key: "assets/img/logo.png",
+    width: 512,
+    height: 512,
+    size: 50459,
+    variants: {
+      avif: [
+        {
+          width: 48,
+          file: "assets/img/logo-48.avif"
+        },
+        {
+          width: 96,
+          file: "assets/img/logo-96.avif"
+        },
+        {
+          width: 144,
+          file: "assets/img/logo-144.avif"
+        },
+        {
+          width: 192,
+          file: "assets/img/logo-192.avif"
+        }
+      ],
+      webp: [
+        {
+          width: 48,
+          file: "assets/img/logo-48.webp"
+        },
+        {
+          width: 96,
+          file: "assets/img/logo-96.webp"
+        },
+        {
+          width: 144,
+          file: "assets/img/logo-144.webp"
+        },
+        {
+          width: 192,
+          file: "assets/img/logo-192.webp"
+        }
+      ]
+    }
   }
 };

@@ -55,7 +55,10 @@ async function runTests() {
 
   /* 1. shouldSkip */
   check(optimizeScript.shouldSkip("logo.jpg"), "shouldSkip skips logo.jpg");
-  check(optimizeScript.shouldSkip("logo.png"), "shouldSkip skips logo.png");
+  /* logo.png is deliberately NOT skipped any more (live audit 2026-09-02,
+     H-1): skipping it shipped a 512x512, 201KB PNG into a 48x48 header box
+     on every page. It gets its own 48/96/144 DPR ladder instead. */
+  check(!optimizeScript.shouldSkip("logo.png"), "shouldSkip no longer skips logo.png");
   check(optimizeScript.shouldSkip("favicon.ico"), "shouldSkip skips favicon.ico");
   check(optimizeScript.shouldSkip("favicon-32x32.png"), "shouldSkip skips favicon variants");
   check(!optimizeScript.shouldSkip("product-1.jpg"), "shouldSkip includes product-1.jpg");

@@ -2156,5 +2156,65 @@ assert(
   "Quiz renders loyalty points badge"
 );
 
+/* ---------- Event JSON-LD: the static copy must equal the runtime one ----------
+   scripts/build-site-data.js writes an Event block into events.html at build
+   time so a crawler that does not run JavaScript sees it (live audit
+   2026-09-02, M-4), and main.js rewrites that same tag from live data at
+   runtime. Two implementations of the same markup is exactly the shape that
+   drifts, so pin them together against the real assets/data/events.json.
+   Asserts the tag EXISTS first: an empty match would otherwise make this
+   check pass by comparing nothing. */
+const eventsJsonSrc = JSON.parse(
+  fs404.readFileSync(path404.join(repoRoot, "assets/data/events.json"), "utf8")
+);
+const contentJsonSrc = JSON.parse(
+  fs404.readFileSync(path404.join(repoRoot, "assets/data/content.json"), "utf8")
+);
+const eventsHtmlSrc = fs404.readFileSync(path404.join(repoRoot, "events.html"), "utf8");
+const staticEventLdMatch = eventsHtmlSrc.match(
+  /<script type="application\/ld\+json" id="yl-event-jsonld">\s*([\s\S]*?)\s*<\/script>/
+);
+const buildTodayForLd = new Date().toISOString().slice(0, 10);
+const upcomingForLd = (eventsJsonSrc.upcoming || [])
+  .filter((ev) => {
+    const cutoff = ev.endDate || ev.date;
+    return !(cutoff && cutoff < buildTodayForLd);
+  })
+  .map((ev) => ({ ev, t: new Date(ev.date).getTime() }))
+  .sort((a, b) => a.t - b.t)
+  .map((x) => x.ev);
+const runtimeEventLd = main.buildEventsJsonLd(upcomingForLd);
+const eventLdEnabled = (contentJsonSrc.site || {}).enableEventJsonLd !== false;
+
+if (eventLdEnabled && runtimeEventLd.length) {
+  assert(
+    !!staticEventLdMatch,
+    "events.html carries a static #yl-event-jsonld block for the upcoming markets"
+  );
+  if (staticEventLdMatch) {
+    let staticParsed = null;
+    try {
+      staticParsed = JSON.parse(staticEventLdMatch[1].split("<\\/").join("</"));
+    } catch (e) {
+      staticParsed = null;
+    }
+    assert(!!staticParsed, "events.html Event JSON-LD parses");
+    assert(
+      JSON.stringify(staticParsed) ===
+        JSON.stringify(runtimeEventLd.length === 1 ? runtimeEventLd[0] : runtimeEventLd),
+      "build-time Event JSON-LD matches what main.js injects at runtime"
+    );
+  }
+  assert(
+    (eventsHtmlSrc.match(/id="yl-event-jsonld"/g) || []).length === 1,
+    "events.html has exactly one #yl-event-jsonld block (main.js updates it, never duplicates it)"
+  );
+} else {
+  assert(
+    !staticEventLdMatch,
+    "no static Event JSON-LD while the flag is off or nothing is upcoming"
+  );
+}
+
 console.log(`\nmain.test.js: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

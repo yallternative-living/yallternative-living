@@ -48,6 +48,17 @@ const FIXED_GATES = [
   // 2026-09-02). It runs here, after the pool, for the same reason
   // verify-build-reproducibility.js does.
   "smoke-test.test.js",
+  // Same hazard, found the same way (2026-09-02 live-audit fix pass): this one
+  // calls buildScript.buildSiteData() in-process rather than spawning
+  // scripts/smoke-test.js, so the grep that caught smoke-test.test.js -- for
+  // suites that shell out -- missed it. It is the same full site build,
+  // rewriting every top-level page twice while the pool reads them, and it is
+  // what made worker-retention.test.js's footer-form assertion fail
+  // intermittently: it read thank-you.html in the window after the footer
+  // block was injected and before the kitFormAction marker was resolved. Any
+  // future suite that runs the real build belongs on this list, whether it
+  // spawns it or requires it.
+  "m1-compilation-challenger.test.js",
   "verify-pdp-metadata.js",
   // Red until the build stops stamping wall-clock time into feed.xml's
   // <lastBuildDate> and sw.js's CACHE_NAME (audit H-20, owned by the build

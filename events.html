@@ -42,7 +42,7 @@
      beacon doesn't pay a cold DNS+TLS handshake at the moment it's needed.
      (Checkout is same-origin now -- assets/js/cart.js posts to /api/checkout
      on this domain -- so there's no third-party cart origin to warm up.) -->
-<link rel="preconnect" href="https://cloud.umami.is" crossorigin>
+<!--YL:site.umamiPreconnect--><!--/YL:site.umamiPreconnect-->
 <link rel="stylesheet" href="assets/css/styles.css?v=2.0">
 <link rel="stylesheet" href="assets/css/cart.css">
 
@@ -107,6 +107,35 @@
   ]
 }
 </script>
+<!-- Event structured data for every upcoming market, written at build time by
+     scripts/build-site-data.js from assets/data/events.json. It carries the
+     same id assets/js/main.js uses, so main.js updates this tag in place from
+     the live data instead of appending a second one. It exists statically
+     because a crawler that does not run JavaScript -- which is most of them
+     outside Googlebot, including the local "events near you" feeds -- saw no
+     Event markup at all before (live audit 2026-09-02, finding M-4). -->
+<!-- EVENT_JSONLD:START -->
+<script type="application/ld+json" id="yl-event-jsonld">
+{
+  "@context": "https://schema.org",
+  "@type": "Event",
+  "name": "Y'allternative Living at Autumn Apothecary Faire",
+  "startDate": "2026-10-17T09:00:00-04:00",
+  "eventStatus": "https://schema.org/EventScheduled",
+  "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+  "location": {
+    "@type": "Place",
+    "address": {
+      "@type": "PostalAddress",
+      "addressCountry": "US",
+      "addressLocality": "Landrum",
+      "addressRegion": "SC",
+      "postalCode": "29356"
+    }
+  }
+}
+</script>
+<!-- EVENT_JSONLD:END -->
 <!--YL:featureStyles--><!--/YL:featureStyles-->
 </head>
 <body>
@@ -114,8 +143,8 @@
 <header class="site-header">
   <nav class="nav">
     <a class="brand" href="index.html" aria-label="Y'allternative Living home">
-      <img class="logo-desktop" src="/assets/img/logo.png" alt="Y'allternative Living icon" width="48" height="48">
-      <img class="logo-mobile" src="/assets/img/logo.png" alt="Y'allternative Living logo" height="48" width="48">
+      <picture><source type="image/avif" srcset="/assets/img/logo-48.avif 48w, /assets/img/logo-96.avif 96w, /assets/img/logo-144.avif 144w, /assets/img/logo-192.avif 192w" sizes="48px"><source type="image/webp" srcset="/assets/img/logo-48.webp 48w, /assets/img/logo-96.webp 96w, /assets/img/logo-144.webp 144w, /assets/img/logo-192.webp 192w" sizes="48px"><img src="/assets/img/logo.png" alt="Y&#39;allternative Living icon" width="48" height="48" decoding="async" class="logo-desktop" sizes="48px"></picture>
+      <picture><source type="image/avif" srcset="/assets/img/logo-48.avif 48w, /assets/img/logo-96.avif 96w, /assets/img/logo-144.avif 144w, /assets/img/logo-192.avif 192w" sizes="48px"><source type="image/webp" srcset="/assets/img/logo-48.webp 48w, /assets/img/logo-96.webp 96w, /assets/img/logo-144.webp 144w, /assets/img/logo-192.webp 192w" sizes="48px"><img src="/assets/img/logo.png" alt="Y&#39;allternative Living logo" width="48" height="48" decoding="async" class="logo-mobile" sizes="48px"></picture>
       <span class="brand-word">Y'allternative<small>Living</small></span>
     </a>
     <ul class="nav-links" id="navLinks">
@@ -227,7 +256,7 @@
       <div class="footer-brand">
         <div class="brand">
 <!--YL:site.logoDesktop-->
-          <img class="logo-desktop" src="/assets/img/logo.png" alt="Y'allternative Living icon" width="48" height="48" loading="lazy" decoding="async">
+          <picture><source type="image/avif" srcset="/assets/img/logo-48.avif 48w, /assets/img/logo-96.avif 96w, /assets/img/logo-144.avif 144w, /assets/img/logo-192.avif 192w" sizes="48px"><source type="image/webp" srcset="/assets/img/logo-48.webp 48w, /assets/img/logo-96.webp 96w, /assets/img/logo-144.webp 144w, /assets/img/logo-192.webp 192w" sizes="48px"><img src="/assets/img/logo.png" alt="Y&#39;allternative Living icon" width="48" height="48" loading="lazy" decoding="async" class="logo-desktop" sizes="48px"></picture>
 <!--/YL:site.logoDesktop-->
           <span class="brand-word">Y'allternative<small>Living</small></span>
         </div>
@@ -291,8 +320,9 @@
          content.json (editable at /admin); it is not hand-written here.
 
          Kit's own embed ships a ck.5.js script tag -- do not add it. It
-         loads from f.convertkit.com, which is deliberately absent from
-         script-src, and it is only needed for Kit's own styled widget.
+         loads from f.kit.com (f.convertkit.com, the old host, no longer
+         resolves at all), which is deliberately absent from script-src, and
+         it is only needed for Kit's own styled widget.
          This form posts the field name Kit expects (email_address) to
          the same endpoint, and app.kit.com is already allowed in both
          connect-src and form-action. -->
@@ -408,7 +438,6 @@ var Tawk_API = Tawk_API || {}, Tawk_LoadStart = new Date();
     s1.async = true;
     s1.src = "https://embed.tawk.to/" + propertyId + "/" + widgetId;
     s1.charset = "UTF-8";
-    s1.setAttribute("crossorigin", "*");
     s0.parentNode.insertBefore(s1, s0);
   }
   TRIGGERS.forEach(function (t) { window.addEventListener(t, load, opts); });

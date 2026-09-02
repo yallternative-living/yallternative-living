@@ -26,6 +26,19 @@ function assert(condition, label, detail = "") {
   }
 }
 
+/* Mirrors pdpPageTitle() in scripts/build-site-data.js. Long product names
+   pushed the title past the ~60 characters Google renders, and the brand at
+   the end was what got truncated (live audit 2026-09-02, L-7). */
+const PDP_TITLE_MAX = 60;
+function pdpPageTitle(name) {
+  const clean = String(name == null ? "" : name).trim();
+  const full = clean + " | Y'allternative Living";
+  if (full.length <= PDP_TITLE_MAX) return full;
+  if (/y'?allternative/i.test(clean)) return clean;
+  const short = clean + " | Y'allternative";
+  return short.length <= PDP_TITLE_MAX ? short : clean;
+}
+
 /* Mirrors truncateForMeta() in scripts/build-site-data.js. Product blurbs
    run to 304 characters and Google cuts descriptions around 155-160, so the
    PDP meta/og/twitter description is trimmed at a word boundary while the
@@ -79,7 +92,7 @@ productsData.products.forEach((product) => {
   const html = fs.readFileSync(pdpPath, "utf8");
 
   // 1. Title & Meta Description
-  const expectedTitle = escapeHtml(product.name) + " | Y'allternative Living";
+  const expectedTitle = escapeHtml(pdpPageTitle(product.name));
   const rawDesc = product.description || product.blurb || "";
   const expectedDesc = escapeHtml(rawDesc);
   const expectedMetaDesc = escapeHtml(truncateForMeta(rawDesc, 155));
@@ -202,16 +215,49 @@ productsData.products.forEach((product) => {
     html.includes('<meta property="product:price:currency" content="USD">'),
     `${product.id}: product:price:currency is USD`
   );
+  /* Coming-soon products report "out of stock", matching
+     schemaAvailability() in build-site-data.js. They used to say "preorder",
+     which asserts an order can be placed -- these pages offer a waitlist and
+     a disabled buy button (2026-09-02 live audit, M-5). The og value and the
+     JSON-LD value are checked against each other further down, so the two can
+     never drift apart again. */
   const expectedAvailability =
-    product.inStock === false || product.stock === 0
+    product.inStock === false || product.stock === 0 || product.comingSoon
       ? "out of stock"
-      : product.comingSoon
-        ? "preorder"
-        : "in stock";
+      : "in stock";
   assert(
     html.includes(`<meta property="product:availability" content="${expectedAvailability}">`),
     `${product.id}: product:availability is ${expectedAvailability}`
   );
+
+  /* The OG value and the JSON-LD value have to say the same thing. They have
+     agreed so far by luck of both being derived from the same helper; nothing
+     checked it, so the day one of the two mappings changed on its own the page
+     would have advertised two different availabilities to two different
+     crawlers. Parse the block rather than substring-matching, and assert it
+     was found -- a missing offers object must fail, not quietly pass. */
+  const OG_TO_SCHEMA = {
+    "in stock": "https://schema.org/InStock",
+    "out of stock": "https://schema.org/OutOfStock",
+    preorder: "https://schema.org/PreOrder"
+  };
+  const productLdMatch = html.match(
+    /<script type="application\/ld\+json">\s*(\{[\s\S]*?"@type": "Product"[\s\S]*?)\s*<\/script>/
+  );
+  let productLd = null;
+  try {
+    productLd = productLdMatch ? JSON.parse(productLdMatch[1].split("<\\/").join("</")) : null;
+  } catch (e) {
+    productLd = null;
+  }
+  assert(!!(productLd && productLd.offers), `${product.id}: Product JSON-LD offers block parses`);
+  if (productLd && productLd.offers) {
+    assert(
+      productLd.offers.availability === OG_TO_SCHEMA[expectedAvailability],
+      `${product.id}: JSON-LD availability agrees with product:availability`,
+      `${productLd.offers.availability} vs ${OG_TO_SCHEMA[expectedAvailability]}`
+    );
+  }
 
   // 5. Schema.org Product Microdata
   assert(

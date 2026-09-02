@@ -70,6 +70,23 @@ const IMG_DIR = path.join(ROOT, "assets", "img");
 const MANIFEST_PATH = path.join(ROOT, "assets", "js", "image-manifest.js");
 
 const WIDTHS = [480, 800]; // plus one "full" variant at the source's own width
+
+/* Per-file width sets for images that are NOT product photos. The default
+   480/800 ladder is sized for a photo that fills a card or a PDP hero; it is
+   the wrong ladder for a 48px chrome icon, where the useful candidates are
+   the 1x/2x/3x device-pixel-ratio sizes. logo.png used to be skipped entirely
+   for that reason (see SKIP_EXACT below) -- which left the site serving a
+   512x512, 201KB PNG into a 48x48 box on all 65 pages, the single largest
+   asset on the domain and 38% of the homepage's cold mobile transfer
+   (live audit 2026-09-02, finding H-1). It gets variants now, at its own
+   sizes. */
+const WIDTH_OVERRIDES = {
+  // 1x/2x/3x/4x of the 48px box the markup declares. A file listed here also
+  // skips the always-widest "full" variant below: a 512w candidate in a
+  // srcset whose sizes attribute says 48px is a 29KB trap for the handful of
+  // DPR>3.5 devices, and nothing on the site paints this mark larger than 48.
+  "logo.png": [48, 96, 144, 192]
+};
 const WEBP_QUALITY = 80;
 // AVIF's compression curve isn't the same as WebP's -- a lower quality
 // number here looks comparable to WEBP_QUALITY=80 while encoding
@@ -81,9 +98,15 @@ const AVIF_QUALITY = 55;
 // faster, which matters when re-encoding dozens of photos at once.
 const AVIF_EFFORT = 2;
 
-// Small/UI images that don't need the responsive treatment --
-// they're already tiny and used at a fixed, small size everywhere.
-const SKIP_EXACT = ["logo.jpg", "logo.png"];
+/* Small/UI images that don't need the responsive treatment -- they really
+   ARE tiny. logo.jpg is the 5.7KB artwork source scripts/make-logo.js reads;
+   nothing on the site links to it. logo.png is deliberately NOT here any
+   more: the comment that justified skipping it ("already tiny") was false
+   for the 201KB file the repo actually shipped. Favicons stay skipped
+   because <link rel=icon> and the webmanifest need real PNGs, not AVIF --
+   their size problem is fixed by re-encoding in scripts/make-logo.js
+   instead. */
+const SKIP_EXACT = ["logo.jpg"];
 
 function shouldSkip(filename) {
   if (SKIP_EXACT.indexOf(filename) !== -1) return true;
@@ -103,8 +126,9 @@ async function optimizeOne(filename) {
 
   const tasks = [];
 
-  for (let i = 0; i < WIDTHS.length; i++) {
-    const w = WIDTHS[i];
+  const widths = WIDTH_OVERRIDES[filename] || WIDTHS;
+  for (let i = 0; i < widths.length; i++) {
+    const w = widths[i];
     if (w >= srcWidth) continue; // never upscale
 
     const webpOut = base + "-" + w + ".webp";
@@ -126,19 +150,23 @@ async function optimizeOne(filename) {
     avifVariants.push({ width: w, file: "assets/img/" + avifOut });
   }
 
-  // Full-size variants, always included, always the widest -- this is
-  // what large screens / the srcset's biggest candidate use.
-  const fullWebp = base + ".webp";
-  tasks.push(sharp(srcPath).webp({ quality: WEBP_QUALITY }).toFile(path.join(IMG_DIR, fullWebp)));
-  webpVariants.push({ width: srcWidth, file: "assets/img/" + fullWebp });
+  // Full-size variants for photos: always included, always the widest --
+  // this is what large screens / the srcset's biggest candidate use. Files
+  // with an explicit width ladder (WIDTH_OVERRIDES) opt out: their ladder
+  // already tops out at the largest size anything on the site paints them.
+  if (!WIDTH_OVERRIDES[filename]) {
+    const fullWebp = base + ".webp";
+    tasks.push(sharp(srcPath).webp({ quality: WEBP_QUALITY }).toFile(path.join(IMG_DIR, fullWebp)));
+    webpVariants.push({ width: srcWidth, file: "assets/img/" + fullWebp });
 
-  const fullAvif = base + ".avif";
-  tasks.push(
-    sharp(srcPath)
-      .avif({ quality: AVIF_QUALITY, effort: AVIF_EFFORT })
-      .toFile(path.join(IMG_DIR, fullAvif))
-  );
-  avifVariants.push({ width: srcWidth, file: "assets/img/" + fullAvif });
+    const fullAvif = base + ".avif";
+    tasks.push(
+      sharp(srcPath)
+        .avif({ quality: AVIF_QUALITY, effort: AVIF_EFFORT })
+        .toFile(path.join(IMG_DIR, fullAvif))
+    );
+    avifVariants.push({ width: srcWidth, file: "assets/img/" + fullAvif });
+  }
 
   await Promise.all(tasks);
 
