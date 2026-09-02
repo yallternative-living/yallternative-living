@@ -1,9 +1,37 @@
 # Cloudflare Workers (checkout + CMS login + forms)
 
-`checkout.js` is the live checkout backend: the on-site cart (`assets/js/cart.js`)
-POSTs to it and gets back a Stripe Checkout URL. Snipcart is fully removed (see
-`docs/STRIPE-MIGRATION.md`) -- this Worker is what replaced it, and it needs to
-actually be deployed (with real Stripe keys) before checkout works in production.
+`checkout.js` is the live backend for **the entire money path**. The on-site
+cart (`assets/js/cart.js`) POSTs to it and gets back a Stripe Checkout URL, and
+four more endpoints that used to be Netlify Functions now live behind the same
+router:
+
+| Route                         | What it does                                                          |
+| ----------------------------- | --------------------------------------------------------------------- |
+| `POST /api/checkout`          | creates a Stripe Checkout Session; applies a gift card if one is sent |
+| `POST /api/gift-card-balance` | `{code}` -> the balance on the ledger, rate-limited 10/min per IP     |
+| `POST /api/stripe-webhook`    | Stripe events: issues cards, commits/releases holds, restores refunds |
+| `POST /api/order-status`      | `{sessionId, email}` -> a real order, rate-limited 5/min per IP       |
+| `POST /api/restock`           | `{email, product}` -> emails the shop                                 |
+
+Everything else 404s as JSON. Every response is `Cache-Control: no-store`, and
+CORS is the apex + www allowlist with `Vary: Origin`. Snipcart is fully removed
+(see `docs/STRIPE-MIGRATION.md`) -- this Worker is what replaced it, and it needs
+to actually be deployed (with real Stripe keys) before checkout works.
+
+The handlers live in `workers/routes/`; the state they sit on -- the gift-card
+ledger, the exactly-once webhook claim, the rate-limit counters -- lives in
+`workers/state/`. `docs/STATE-LAYER.md` explains why that layer looks the way it
+does and what it costs on the free plan.
+
+**`netlify/functions/` no longer exists.** Its four handlers moved here, because
+the state above lives in Cloudflare Durable Objects and D1 which a Netlify
+Function cannot reach, and because audit H-23 found the Netlify free plan pauses
+_every_ project at its monthly credit cap -- the Stripe webhook included. The
+four old URLs answer `410 Gone` at the edge (see the rules in
+`scripts/build-security-headers.js`). `redeem-points` was not ported at all:
+audit C-1 found it minted real, cash-like store credit for anyone who could POST
+to it, and there is no server-side points ledger for a rebuilt version to spend
+from.
 
 `auth/sveltia-auth.js` is the **CMS sign-in service** -- the permanent "Sign in
 with GitHub" button for the Sveltia CMS product editor at `/admin`. It replaces
@@ -20,27 +48,10 @@ Both started as corrected versions of the drafts from `sota_research_2026.md`,
 which had real security bugs (wildcard CORS, unescaped email HTML, no quantity
 caps, no server-side price validation). See the header comment in each file.
 
-There's also `netlify/functions/fulfill-gift-card.js` -- not a Cloudflare
-Worker (it's a Netlify Function, deployed automatically alongside the site
-build since it lives under `netlify/functions/`), but part of the same
-checkout flow: it's the Stripe webhook that actually emails a redeemable
-code once someone buys a gift card, decrements a redeemed card's balance,
-restores it on a refund, and cleans up after an abandoned checkout. See the
-header comment in that file for its own required env vars and deploy step
-(register the endpoint in the Stripe Dashboard), and "Known limits of the
-gift-card ledger" below for what this design can and cannot guarantee.
-
-**One Stripe API version, four files.** `workers/checkout.js`,
-`netlify/functions/fulfill-gift-card.js`, `netlify/functions/gift-card-balance.js`
-and `netlify/functions/redeem-points.js` each pin the same
-`STRIPE_API_VERSION` string. They read and write the same Stripe objects, so
-bumping it in one file and not the others means one side sends a shape the
-other cannot parse. Change all four in the same commit, or none.
-
-`netlify/functions/redeem-points.js` is **disabled**: it returns 410 to every
-request. It used to mint real store credit from a points balance that only
-ever existed in the shopper's own browser -- see the header comment in that
-file. Do not re-enable it without a server-side ledger.
+**One Stripe API version, one file.** It used to be one value copied into four
+files that read and wrote the same Stripe objects, so bumping it in one and not
+the others meant one side sent a shape the other could not parse. It is pinned
+once now, in `workers/routes/stripe.js`, and every caller imports it.
 
 ---
 
@@ -58,9 +69,9 @@ floor entirely and you only pay when you actually sell something. That's the
 
 Two ways to do it:
 
-| Option | Server needed? | Best for |
-| --- | --- | --- |
-| **Stripe Payment Links** | None (static URLs) | Simplest. One link per product/price, created in the Stripe dashboard. No cart, no Worker. Good if most orders are single items. |
+| Option                            | Server needed?                                | Best for                                                                                                                              |
+| --------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| **Stripe Payment Links**          | None (static URLs)                            | Simplest. One link per product/price, created in the Stripe dashboard. No cart, no Worker. Good if most orders are single items.      |
 | **Stripe Checkout + this Worker** | 1 Cloudflare Worker (free tier: 100k req/day) | Keeps a real multi-item cart. `checkout.js` validates prices server-side against `products.json` and hands Stripe a Checkout Session. |
 
 > Note: the SOTA report labeled its snippet "Payment Links" but the code was
@@ -76,7 +87,7 @@ Savanna creates the Cloudflare account herself and invites Steven in
 as a Member (see `docs/SETUP-GUIDE.md` Step 3B) -- account ownership
 stays hers, but the actual deploy work below is still Steven's job,
 done from inside her account. So the choice below is purely about
-which method is best for *Steven doing it*, not about avoiding a
+which method is best for _Steven doing it_, not about avoiding a
 terminal for someone who was never going to run these commands
 regardless.
 
@@ -109,7 +120,11 @@ about its beta status.
 4. `wrangler deploy`. Leave `STRIPE_TAX_ENABLED` unset -- tax turns itself
    on once Stripe Tax is activated in the Dashboard. See DEVELOPMENT.md
    section 8.
-5. Point a route at it (e.g. `yallternativeliving.com/api/checkout`).
+5. Optionally point a route at it (`yallternativeliving.com/api/*`). Not
+   required today: the site reaches the Worker through Netlify's `/api/*`
+   proxy, so `workers_dev` stays on and no route is needed. A real route
+   removes that hop, but it needs Cloudflare running the domain's DNS, and DNS
+   lives at Netlify.
 6. Any future change to `checkout.js` needs step 4 run again by hand --
    worth knowing going in, since that's the main thing Option A trades
    away the beta risk to avoid.
@@ -139,9 +154,12 @@ as "try this," not a guarantee.
    offering to connect a GitHub repo) -> authorize GitHub -> select this
    repo -> set the project root to `workers`.
 3. **Settings -> Variables and Secrets -> Add** -> `STRIPE_SECRET_KEY`,
-   type **Secret** (same restricted-key guidance as Option B step 3).
-4. **Settings -> Domains & Routes -> Add -> Route** ->
-   `yallternativeliving.com/api/checkout`.
+   `STRIPE_WEBHOOK_SECRET` and `RESEND_API_KEY`, type **Secret** (same
+   restricted-key guidance as Option B step 3; see "Turning the state layer on"
+   below for what each one is for).
+4. **Settings -> Domains & Routes.** Optional -- see Option B step 5. If you do
+   add a route, it is `yallternativeliving.com/api/*`, not just
+   `/api/checkout`: the Worker answers five paths now.
 5. Every future push to `checkout.js` redeploys automatically -- no
    step 4 of Option B (`wrangler deploy`) ever needs to run by hand
    again.
@@ -189,13 +207,13 @@ modern replacement for Netlify's deprecated "Git Gateway / OAuth" login —
 It's a **separate Worker** from checkout, in its own **top-level `cms-auth/`
 folder** (not under `workers/`) with its own committed `wrangler.toml`, kept
 apart on purpose: the checkout Worker holds the Stripe secret and handles real
-payments, so the CMS login stays isolated from it. It also *has* to live outside
+payments, so the CMS login stays isolated from it. It also _has_ to live outside
 `workers/` — that folder is the checkout Worker's Workers Builds root, and a
 second `wrangler.toml` inside it breaks the checkout build. Nothing secret is
 committed here either — the GitHub client secret only ever lives as a Cloudflare
 Secret.
 
-> **Alternative that needs none of this:** Savanna can log in *today* with
+> **Alternative that needs none of this:** Savanna can log in _today_ with
 > **"Sign in with Token"** on the `/admin` screen (a GitHub fine-grained token,
 > zero infrastructure — SETUP-GUIDE.md Step 9 / DEVELOPMENT.md section 20
 > Option A). This Worker is the nicer, permanent login you graduate to.
@@ -203,7 +221,7 @@ Secret.
 **Setup (once):**
 
 1. **GitHub OAuth App** — GitHub → **Settings → Developer settings → OAuth
-   Apps → New OAuth App** (the short *OAuth App* form, **not** "GitHub App").
+   Apps → New OAuth App** (the short _OAuth App_ form, **not** "GitHub App").
    Homepage URL `https://yallternativeliving.com`. Copy the **Client ID**,
    generate + copy a **Client Secret**. Set the **Authorization callback URL**
    after step 2 to `<this-Worker-URL>/callback`.
@@ -217,6 +235,7 @@ Secret.
    Either way, `wrangler deploy --dry-run` builds it clean first if you want to
    check. Cloudflare then shows the Worker URL, e.g.
    `https://yallternative-cms-auth.<subdomain>.workers.dev`.
+
 3. **Secrets** — this Worker → **Settings → Variables and Secrets** → add
    `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` (type **Secret**) from step 1.
    `ALLOWED_DOMAINS` is already set as a plain var in `wrangler.toml` and locks
@@ -255,121 +274,177 @@ submission cap.
 
 ---
 
-## Deploying `netlify/functions/fulfill-gift-card.js`
+## Turning the state layer on (do this in order)
 
-This one deploys with the rest of the site (Netlify auto-detects anything
-under `netlify/functions/`, no extra config needed) -- but it does nothing
-useful until it's registered as a Stripe webhook endpoint, AND until Resend
-can actually send from this domain:
+The Worker deploys from `workers/wrangler.toml` on every push to `main`
+(Workers Builds). That file now declares a D1 database whose `database_id` is a
+**placeholder**, so **`wrangler deploy` fails until step 1 is done** -- which
+would mean the next urgent checkout fix silently never ships. Do step 1 before
+the next push.
 
-1. **Verify `yallternativeliving.com` in Resend first** -- Resend.com ->
-   Domains -> Add Domain -> enter the domain -> add the DNS records it
-   shows (a couple of TXT records, one MX) wherever this domain's DNS is
-   managed (Netlify, since Step 2B of docs/SETUP-GUIDE.md pointed the
-   nameservers there) -> click Verify in Resend. This is NOT optional:
-   the function sends `from: 'gifts@yallternativeliving.com'` (see its
-   header comment), and Resend silently rejects sends from an unverified
-   domain -- the buyer's purchase still completes, the recipient's email
-   just never arrives, and nothing in this codebase surfaces that failure
-   to a human. Confirm the domain shows "Verified" in Resend before
-   relying on this in production.
-2. In Netlify's **Project configuration -> Environment variables**, set:
-   - `STRIPE_SECRET_KEY` (same key as the Worker, needs Coupons +
-     Promotion Codes write access)
-   - `STRIPE_WEBHOOK_SECRET` (get this in the next step)
-   - `RESEND_API_KEY` (from the Resend account whose domain you just verified)
-3. Deploy once so the function has a live URL:
-   `https://yallternativeliving.com/.netlify/functions/fulfill-gift-card`
-4. In the Stripe Dashboard: Developers -> Webhooks -> Add endpoint, paste that
-   URL, and select these events:
-   - `checkout.session.completed` -- mints gift-card codes and decrements a
-     redeemed card's balance,
-   - `charge.refunded` -- puts a refunded order's gift-card share back on the
-     card (do NOT also select `refund.created`: it fires for the same money,
-     and the function deliberately ignores it),
-   - `checkout.session.expired` -- deletes the ephemeral coupon an abandoned
-     checkout leaves behind.
-   Stripe shows you a signing secret (`whsec_...`) -- that's
-   `STRIPE_WEBHOOK_SECRET` from step 2.
-5. Test mode first: run a real test-mode Checkout that includes a gift card,
-   confirm the recipient email arrives with a code, and confirm that code
-   actually applies at a second test-mode Checkout (the Worker sets
-   `allow_promotion_codes: true` so it should show up as a redeemable code
-   field on Stripe's hosted page).
+### 1. Create the D1 database and paste its id
 
-See the header comment in `fulfill-gift-card.js` for how the webhook
-signature is verified and why this couldn't be tested against a real Stripe
-delivery in the environment this was built in.
+```bash
+npx wrangler d1 create yallternative-state
+# -> prints database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+```
+
+Paste that id over `REPLACE_ME_WITH_THE_ID_FROM_WRANGLER_D1_CREATE` in
+`workers/wrangler.toml`, then load the schema:
+
+```bash
+npx wrangler d1 execute yallternative-state --remote --file=workers/schema.sql
+```
+
+(The Worker also applies the same statements itself at the first webhook
+request -- `workers/state/migrations.js` -- so this is belt and braces, not the
+only path.)
+
+The Durable Object bindings need no setup: `checkout.js` exports
+`GiftCardLedger` and `RateLimitCounter`, and the `new_sqlite_classes` migration
+in `wrangler.toml` creates them on first deploy. SQLite-backed Durable Objects
+are the ones included on the free plan; `new_classes` (the older key-value
+backend) is paid-only and cannot be changed after the fact.
+
+### 2. Verify the domain in Resend
+
+Resend.com -> Domains -> Add Domain -> enter `yallternativeliving.com` -> add the
+DNS records it shows (a couple of TXT records, one MX) wherever this domain's DNS
+is managed (Netlify, since Step 2B of `docs/SETUP-GUIDE.md` pointed the
+nameservers there) -> click Verify.
+
+This is NOT optional. The Worker sends `from: gifts@yallternativeliving.com`, and
+Resend silently rejects sends from an unverified domain: the buyer's purchase
+completes, the recipient's gift card never arrives, and nothing surfaces that to
+a human. Confirm it reads "Verified" before relying on this in production.
+
+### 3. Set the secrets
+
+In the Cloudflare dashboard (the Worker -> Settings -> Variables and Secrets), or
+with the CLI. Never as `[vars]`, never in a committed file:
+
+```bash
+npx wrangler secret put STRIPE_SECRET_KEY      # Checkout Sessions, Coupons, Customers write; Tax Settings read
+npx wrangler secret put STRIPE_WEBHOOK_SECRET  # from step 4 -- also keys the gift-card code derivation
+npx wrangler secret put RESEND_API_KEY         # from the verified Resend account
+```
+
+Optional vars: `RESTOCK_NOTIFY_EMAIL` (where restock alerts go; defaults to
+`contact@yallternativeliving.com`) and `GIFT_CARD_FROM_EMAIL` (a different
+verified Resend sender).
+
+`STRIPE_WEBHOOK_SECRET` is load-bearing twice over: it verifies Stripe's
+signature AND it is the HMAC key the purchased gift-card codes are derived from.
+Rotating it makes future codes derive differently -- which is fine, because
+already-issued codes live in the ledger and are never re-derived -- but a
+webhook redelivery that straddles the rotation would issue a second card for the
+same purchase. Rotate when no delivery is in flight.
+
+### 4. Register the Stripe webhook
+
+Stripe Dashboard -> Developers -> Webhooks -> Add endpoint:
+
+```
+https://yallternativeliving.com/api/stripe-webhook
+```
+
+Subscribe to exactly these three:
+
+- `checkout.session.completed` -- issues the cards an order bought and commits
+  the hold on a card an order spent,
+- `checkout.session.expired` -- releases the hold and deletes the ephemeral
+  coupon an abandoned checkout leaves behind,
+- `charge.refunded` -- puts a refunded order's gift-card share back on the card.
+  Do NOT also select `refund.created`: it fires for the same money.
+
+Copy the signing secret (`whsec_…`) into `STRIPE_WEBHOOK_SECRET`.
+
+That URL goes through the Netlify proxy (`/api/*` -> the Worker, generated by
+`scripts/build-security-headers.js`). **The proxy must pass the raw body through
+unchanged**, because the signature is computed over the exact bytes; Netlify's
+proxying does not rewrite bodies, but this is the thing to suspect first if
+Stripe reports signature failures. The fallback is to register the workers.dev
+URL with Stripe directly:
+
+```
+https://yallternative-checkout.y-allternative-living.workers.dev/stripe-webhook
+```
+
+Note the missing `/api` in that form -- the proxy's `:splat` drops the prefix, so
+the Worker's router accepts both spellings.
+
+Test mode first: run a real test-mode Checkout that buys a gift card, confirm the
+recipient email arrives with a `YALL-XXXX-XXXX-XXXX` code, check that code on the
+site's balance page, then spend it in a second test-mode Checkout and confirm the
+balance goes down.
+
+### 5. Clean up Netlify
+
+In Netlify's **Project configuration -> Environment variables**, delete the
+variables the retired functions used: `STRIPE_SECRET_KEY`,
+`STRIPE_WEBHOOK_SECRET`, `RESEND_API_KEY`, `RESTOCK_NOTIFY_EMAIL`,
+`RESTOCK_FROM_EMAIL`, `GIFT_CARD_FROM_EMAIL`, `FROM_EMAIL`. Nothing in the
+Netlify build reads them any more, and a live Stripe key sitting in a second
+provider's dashboard is a second place it can leak from.
+
+Delete the old Stripe webhook endpoint
+(`…/.netlify/functions/fulfill-gift-card`) **after** the Worker has processed
+real events, not before. Both can run at once for observation only: `claimEvent`
+makes double processing impossible _within_ one deployment, not across two.
+
+### 6. Optional: the Rate Limiting binding
+
+`workers/state/rate-limit.js` uses `env.RATE_LIMITER` when it exists and falls
+back to an exact Durable Object counter when it does not, so the shipped
+configuration (binding commented out in `wrangler.toml`) works as-is. Enabling
+the binding trades exactness for cost: it is free and storage-free, but enforced
+per Cloudflare location rather than globally. Check whether it is offered on this
+account's free plan before relying on it -- the instructions are in
+`wrangler.toml` next to the commented block.
 
 ---
 
-## Known limits of the gift-card ledger (read before changing this code)
+## What the gift-card ledger does and does not guarantee
 
-Gift cards here are **Stripe Promotion Codes with an `amount_off` coupon**,
-not a stored-value balance in a database this project controls. That buys a
-working gift card with no infrastructure, and it costs two things that
-cannot be fully fixed at this layer. Both are live today; neither is a
-theoretical concern.
+Gift cards are **stored-value balances in a `GiftCardLedger` Durable Object**,
+one object per code. Stripe holds no balance at all: a redemption mints a
+single-use `amount_off` coupon for the amount the ledger agreed to hold, and
+that coupon is the only thing Stripe ever sees.
 
-### 1. Two checkouts at once can spend the same balance twice
+This replaced a design where the card _was_ a Stripe Promotion Code. Two things
+that used to be documented limits are now closed:
 
-`workers/checkout.js` reads the card's balance when it builds a Checkout
-Session, and `fulfill-gift-card.js` decrements it when the order completes.
-Nothing holds the balance in between. So:
+- **Double-spend (audit C-2) is closed.** Every request for a code lands on the
+  same Durable Object, which processes one at a time, so `reserve` either takes
+  the whole amount or refuses. Two tabs with the same $50 card and a $40 basket
+  each: the first holds $40, the second is refused with a 409 ("That gift card
+  balance changed; please re-apply it."), its coupon is deleted and its session
+  is expired so it cannot be paid. A `CHECK (balance_cents >= 0)` constraint
+  means even a logic bug cannot persist a negative balance.
+- **The balance endpoint is throttled.** 10 lookups a minute per IP, plus the
+  same generic 404 for "no such code", "spent" and "no balance", plus
+  `no-store`, plus a code space of 32^12 (~1.15e18) instead of 36^8 with modulo
+  bias.
 
-1. A shopper opens two tabs with the same $50 card and a $40 basket in each.
-2. Both sessions read "balance $50" and each mints an ephemeral $40 coupon.
-3. Both complete. The webhook rolls the balance over twice: $50 - $40 = $10,
-   then $10 - $40, clamped to $0.
+What is still true and worth knowing:
 
-Net effect: $80 of goods against a $50 card. The clamp keeps the card from
-going negative (a negative `amount_off` would be rejected by Stripe, and an
-unclamped subtraction is exactly the kind of arithmetic that wraps into a
-fresh balance), and when `applied > current` the webhook **emails the shop**
-at `RESTOCK_NOTIFY_EMAIL` (default `contact@yallternativeliving.com`) so a
-human sees the discrepancy on the order it happened to, rather than finding
-it in a monthly reconciliation. It does not, and cannot here, prevent the
-overspend: preventing it needs a balance that can be *reserved* -- an
-atomic read-modify-write in a store both the Worker and the webhook can
-reach (Cloudflare KV/Durable Object, or a small database), with the Stripe
-coupon derived from it rather than being the source of truth. That is the
-real fix, and it is a project of its own.
-
-Exposure is bounded by the size of the card and the number of tabs, and it
-takes deliberate effort to trigger. It is documented rather than hidden so
-that whoever adds a real ledger knows exactly which behaviour they are
-replacing.
-
-### 2. The balance endpoint cannot be rate limited here
-
-`netlify/functions/gift-card-balance.js` answers "is this code real, and
-what is on it?". The codes are 8 characters from a 36-symbol alphabet
-(~2.8e12 combinations) and deliberately human-typeable, so the endpoint is
-guessable in principle given enough requests.
-
-There is **no rate limiting in that function, and it does not claim any**.
-Netlify Functions are stateless: each invocation may be a fresh container,
-so a counter in module scope is per-instance and is bypassed by spreading
-requests across cold starts. Rate limiting needs shared state this project
-does not have (no Redis, no database, no Netlify Blobs configured).
-
-What the endpoint does instead:
-
-- one generic 404 body for "no such code", "inactive", "fully redeemed" and
-  "no balance", so a guess never gets told it hit a real code,
-- `Cache-Control: no-store` on every response, so no CDN or browser keeps a
-  balance answer to replay,
-- POST with a JSON body (the client's default) so codes stay out of URLs,
-  history, `Referer` headers and access logs,
-- the `YALL-` format regex, which rejects the cheapest garbage before any
-  Stripe call.
-
-If this ever needs real throttling, the options in rough order of effort
-are: put the endpoint behind Cloudflare (a Worker in front, with Rate
-Limiting rules or a KV counter), move it into `workers/` alongside
-`checkout.js` and use KV, or enable Netlify Blobs and count there. Whichever
-is chosen, **remove the "no rate limiting" note above** so this file keeps
-telling the truth.
+- **A hold is released after 24 hours, not sooner.** The Durable Object's alarm
+  sweeps reservations older than a Stripe session's maximum life. A shopper who
+  abandons a checkout normally gets the money back immediately (Stripe sends
+  `checkout.session.expired`); the alarm is the backstop for an event that never
+  arrives.
+- **The IP a rate limit counts is the one Netlify reports.** Requests arrive
+  through the proxy, so `CF-Connecting-IP` is Netlify's edge address; the first
+  `X-Forwarded-For` entry is used instead, and that is client-influenced.
+  Nothing is authorised by it -- it only picks a counter bucket -- but a
+  determined caller can rotate buckets. Serving the Worker from a Cloudflare
+  route on the apex domain would fix it.
+- **Tax treatment is unchanged.** A redemption still reaches Stripe as a
+  discount, so Stripe rates the reduced amount, while tax law generally treats a
+  gift card as a payment method. The balance is real now; the tax shape is not
+  something this layer can fix.
+- **Codes are immutable.** A card's Durable Object is addressed by its code, so
+  reissuing a card under a new code does not carry its balance across.
 
 ---
 
