@@ -65,12 +65,13 @@ SITE_ORIGIN = "https://yallternativeliving.com"
 # STATE LAYER (workers/state/*, workers/schema.sql)
 #
 # ---------------------------------------------------------------------------
-# LIVE AS OF PHASE B. `wrangler deploy` NEEDS THE D1 ID BELOW.
+# LIVE AS OF PHASE B. The D1 id below is the real one (created 2026-09-02).
 # ---------------------------------------------------------------------------
-# Workers Builds redeploys this Worker from this file on every push to main. The
-# `database_id` below is a PLACEHOLDER: until it is replaced with the real id,
-# `wrangler deploy` fails outright, which would mean the next urgent checkout
-# fix silently never ships. Fill it in FIRST:
+# Workers Builds redeploys this Worker from this file on every push to main. A
+# [[d1_databases]] block whose id does not exist fails `wrangler deploy`
+# outright, which would mean the next urgent checkout fix silently never
+# ships -- so if the database is ever recreated, update the id here in the
+# same commit:
 #
 #   npx wrangler d1 create yallternative-state      # prints the database_id
 #   npx wrangler d1 execute yallternative-state --remote --file=workers/schema.sql
@@ -112,26 +113,22 @@ tag = "v1"
 new_sqlite_classes = ["GiftCardLedger", "RateLimitCounter"]
 
 # Webhook event claims (exactly-once processing), the loyalty points ledger and
-# burned magic-link tokens. Create it once, per environment:
+# burned magic-link tokens. Created once per environment with
 #   npx wrangler d1 create yallternative-state
-# and paste the printed database_id over the placeholder below. THE DEPLOY WILL
-# FAIL UNTIL YOU DO. The Worker itself degrades honestly if the binding is
-# missing at runtime: checkout keeps working, and /api/stripe-webhook and
-# /api/gift-card-balance return 503 rather than pretending.
-# COMMENTED OUT UNTIL THE DATABASE EXISTS. A [[d1_databases]] block with a
-# placeholder id fails `wrangler deploy` outright, which Workers Builds runs
-# on every push to main -- so leaving it live would take the checkout Worker's
-# deploys down until someone noticed. The Worker runs without STATE_DB: the
-# webhook processes events without the exactly-once claim table (every effect
-# is idempotent on its own, see workers/routes/stripe-webhook.js) and the
-# order-status/balance routes do not need it. To switch it on:
-#   1. `npx wrangler d1 create yallternative-state`
-#   2. paste the printed database_id below and uncomment the four lines
-#   3. commit; the next push to main applies workers/schema.sql lazily.
-# [[d1_databases]]
-# binding = "STATE_DB"
-# database_name = "yallternative-state"
-# database_id = "REPLACE_ME_WITH_THE_ID_FROM_WRANGLER_D1_CREATE"
+# (this one: 2026-09-02, region WNAM). workers/schema.sql is applied lazily by
+# workers/state/migrations.js at the first webhook request, or up front with
+# the `d1 execute` command in the header above.
+#
+# The Worker degrades rather than crashes if this binding is missing at
+# runtime: checkout keeps working, the webhook processes events without the
+# exactly-once claim table (every effect is idempotent on its own, see
+# workers/routes/stripe-webhook.js) and the order-status/balance routes do
+# not use it at all. What it must NOT be is present with a stale id -- that
+# fails the deploy, see the header.
+[[d1_databases]]
+binding = "STATE_DB"
+database_name = "yallternative-state"
+database_id = "7039063c-e2dd-41c3-bcb6-f17ac785e972"
 
 # Optional: Cloudflare's built-in Rate Limiting binding. Free, storage-free and
 # preferred for high-volume public reads (gift-card balance, order status), but
