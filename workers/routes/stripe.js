@@ -54,7 +54,17 @@ export async function stripePost(env, pathname, params, idempotencyKey) {
   });
   if (!res) return null;
   const parsed = await res.json().catch(() => null);
-  if (!res.ok || (parsed && parsed.error)) return null;
+  if (!res.ok || (parsed && parsed.error)) {
+    // Log Stripe's own reason server-side. Returning a bare null made every
+    // refusal look identical in the Worker log ("Stripe refused the promotion
+    // code") with nothing to act on. The message never reaches the browser:
+    // callers answer their own generic copy.
+    console.error(
+      `stripe: POST ${pathname} refused (${res.status})`,
+      parsed && parsed.error ? JSON.stringify(parsed.error).slice(0, 400) : "(no body)"
+    );
+    return null;
+  }
   return parsed;
 }
 
@@ -143,7 +153,12 @@ export async function createPromotionCode(env, options, idempotencyKey) {
   const opts = options || {};
   if (!opts.couponId) return null;
   const params = new URLSearchParams();
-  params.append("coupon", String(opts.couponId));
+  // Stripe API 2026-06-24.dahlia takes the coupon nested under `promotion`;
+  // the flat `coupon` parameter this used to send is refused outright
+  // ("Received unknown parameter: coupon"), which silently broke every
+  // welcome, birthday and loyalty code on 2026-09-02.
+  params.append("promotion[type]", "coupon");
+  params.append("promotion[coupon]", String(opts.couponId));
   params.append("max_redemptions", String(Math.max(1, Number(opts.maxRedemptions) || 1)));
   if (Number.isFinite(Number(opts.expiresAt)) && Number(opts.expiresAt) > 0) {
     params.append("expires_at", String(Math.round(Number(opts.expiresAt))));

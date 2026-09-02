@@ -494,7 +494,14 @@ async function testCreatePromotionCode() {
     eq(promo.code, "MINTED1", "the code Stripe generated is returned");
     const sent = calls.promoBodies[0];
     assert(sent !== undefined, "a request actually reached Stripe");
-    eq(sent.params.get("coupon"), "coupon_welcome_10", "it is minted against the shared coupon");
+    /* Stripe 2026-06-24.dahlia: the coupon is nested under `promotion`. */
+    eq(sent.params.get("promotion[type]"), "coupon", "the promotion is a coupon promotion");
+    eq(
+      sent.params.get("promotion[coupon]"),
+      "coupon_welcome_10",
+      "it is minted against the shared coupon"
+    );
+    eq(sent.params.get("coupon"), null, "the retired flat coupon parameter is not sent");
     eq(
       sent.params.get("max_redemptions"),
       "1",
@@ -864,7 +871,8 @@ async function testBirthdayJob() {
     );
     const params = calls.promoBodies[0].params;
     eq(params.get("max_redemptions"), "1", "a birthday code is single-use");
-    eq(params.get("coupon"), "coupon_five_off", "minted against the shared $5 coupon");
+    eq(params.get("promotion[type]"), "coupon", "the birthday promotion is a coupon promotion");
+    eq(params.get("promotion[coupon]"), "coupon_five_off", "minted against the shared $5 coupon");
     const days = (Number(params.get("expires_at")) - Math.floor(morning / 1000)) / 86400;
     eq(Math.round(days), 30, "a birthday code expires in 30 days");
     eq(
