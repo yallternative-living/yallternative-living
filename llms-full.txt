@@ -31,7 +31,7 @@ yourself.
 
 ## Shipping & returns
 
-- **Free US shipping** on orders over $40.00.
+- **Free US shipping** on orders of $40.00 or more.
 - Ships within the US. Processing time is typically 1-2 business days for in-stock items.
 - Exchanges within 14 days for eligible items; opened body-care products are final sale.
 - Full policy: https://yallternativeliving.com/policies.html
@@ -130,7 +130,7 @@ yourself.
 - **Category**: Body & Skin
 - **Availability**: In stock
 - **Size**: 2 oz, 4 oz
-- **Description**: Pumice, pink salt, and sugar for the grease and grime; coconut and olive oil so your hands don't pay for it. A 2 oz tin built for hands that work for a living.
+- **Description**: Pumice, pink salt, and sugar for the grease and grime; coconut and olive oil so your hands don't pay for it. It lathers, so there is a sudsing surfactant base in the mix too, listed in full on the label. A 2 oz tin built for hands that work for a living.
 - **Product page**: https://yallternativeliving.com/products/hand-scrub.html
 - **Also on Etsy**: https://www.etsy.com/listing/4342208406/bourbon-vanilla-hand-scrub-exfoliating
 
@@ -152,7 +152,7 @@ yourself.
 - **Size**: 10 oz, 24 oz
 - **Description**: Peppermint, lavender, black pepper, and ylang ylang for whatever the backroads (or the day) put you through. Stir a scoop into a warm bath, soak 20 to 30 minutes, come out looser than you went in.
 - **Product page**: https://yallternativeliving.com/products/backroad-soak.html
-- **Also on Etsy**: https://www.etsy.com/listing/4333988264/backroad-recovery-epsom-salt-muscle-soak
+- **Also on Etsy**: https://www.etsy.com/listing/4333988264/backroad-recovery-epsom-salt-soak
 
 ### Protection Potion Keychain
 - **ID / slug**: `protection-keychain`

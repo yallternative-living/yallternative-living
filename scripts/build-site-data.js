@@ -837,6 +837,42 @@ function pdpPageTitle(name) {
   return short.length <= PDP_TITLE_MAX ? short : clean;
 }
 
+/* ---------- raster stand-ins for the coming-soon SVG (audit C, H3) ----------
+   The five coming-soon products carry assets/img/placeholder-coming-soon.svg
+   as their only photo. That renders fine ON the page, but it was also being
+   emitted as <meta property="og:image"> and as the schema.org Product image,
+   and neither of those consumers accepts SVG: Facebook, X, LinkedIn, Slack
+   and iMessage all render an imageless card, and Google Merchant rejects SVG
+   product imagery outright. Every share of those five produced a blank card.
+
+   So social and structured-data images go through here and never see an SVG.
+   The two rasters are pre-rendered from the same SVG with the "sharp" dep
+   this repo already uses; regenerate them after editing the SVG with:
+
+     node -e "const s=require('sharp');const bg={r:0x17,g:0x13,b:0x0f,alpha:1};\
+     const f='assets/img/placeholder-coming-soon';\
+     s(f+'.svg',{density:400}).resize({width:1200,height:1200,fit:'contain',background:bg})\
+       .flatten({background:bg}).png({compressionLevel:9}).toFile(f+'-1200.png');\
+     s(f+'.svg',{density:400}).resize({width:1200,height:630,fit:'contain',background:bg})\
+       .flatten({background:bg}).jpeg({quality:86,progressive:true}).toFile(f+'-og.jpg')"
+
+   Any OTHER .svg that ever becomes a product image falls back to the site's
+   own og-image.jpg, which is a known-good 1200x630 JPEG -- a generic brand
+   card beats a card that renders nothing. */
+const COMING_SOON_SVG = "assets/img/placeholder-coming-soon.svg";
+const RASTER_SOCIAL_IMAGE = "assets/img/placeholder-coming-soon-og.jpg"; // 1200x630
+const RASTER_PRODUCT_IMAGE = "assets/img/placeholder-coming-soon-1200.png"; // 1200x1200
+const SITE_OG_IMAGE = "assets/img/og-image.jpg"; // 1200x630
+
+function rasterImagePath(imagePath, kind) {
+  const raw = String(imagePath == null ? "" : imagePath).replace(/^\/+/, "");
+  if (!/\.svg$/i.test(raw)) return raw;
+  if (raw === COMING_SOON_SVG) {
+    return kind === "product" ? RASTER_PRODUCT_IMAGE : RASTER_SOCIAL_IMAGE;
+  }
+  return SITE_OG_IMAGE;
+}
+
 /* Meta descriptions are cut to <=155 characters at a word boundary.
    Google truncates around 155-160 and the raw product blurbs run to 304, so
    20 of them were being cut mid-word by the search engine instead (Medium
@@ -2044,8 +2080,11 @@ function buildSiteData() {
     // Normalize a leading "/" (the CMS public_folder writes "/assets/img/x.jpg",
     // hand-entered paths are relative "assets/img/x.jpg") so DOMAIN + "/" + img
     // never produces a double-slash "domain.com//assets/img" URL in the JSON-LD.
+    // rasterImagePath() also swaps the coming-soon SVG for its PNG twin:
+    // schema.org Product images must be raster (audit C, finding H3), and
+    // the PDP's own Product JSON-LD does the same, so the two agree.
     const allPhotos = [p.image].concat(Array.isArray(p.images) ? p.images : []).map(function (img) {
-      return String(img).replace(/^\/+/, "");
+      return rasterImagePath(img, "product");
     });
     const imageField =
       allPhotos.length > 1
@@ -3541,7 +3580,9 @@ function buildSiteData() {
     "re-derives the charge from the live products.json above, so never assume or send a price\n" +
     "yourself.\n\n" +
     "## Shipping & returns\n\n" +
-    (freeShip ? "- **Free US shipping** on orders over $" + freeShip.toFixed(2) + ".\n" : "") +
+    (freeShip
+      ? "- **Free US shipping** on orders of $" + freeShip.toFixed(2) + " or more.\n"
+      : "") +
     "- Ships within the US. Processing time is typically 1-2 business days for in-stock items.\n" +
     "- Exchanges within 14 days for eligible items; opened body-care products are final sale.\n" +
     "- Full policy: " +
@@ -3933,7 +3974,9 @@ function buildSiteData() {
           products: PRODUCTS,
           shop: CATALOG.shop || {},
           safetyNotes: (CONTENT.shop || {}).safetyNotes || null,
-          search: SEARCH_CONFIG
+          search: SEARCH_CONFIG,
+          // Carries the CMS-owned Tawk.to ids into the PDP's chat loader.
+          site: SITE_CONFIG
         }
       );
       // The shared footer's newsletter form takes its endpoint from the CMS,
@@ -4053,12 +4096,14 @@ function generateProductJsonLd(product, domain, categoryLabel) {
   const sku = (product && product.sku) || prodId;
   const mpn = (product && product.mpn) || sku;
 
-  // Build full-URL image array
+  // Build full-URL image array. Every entry is a raster: Google Merchant
+  // does not accept SVG product imagery, and the five coming-soon products
+  // ship an SVG placeholder as their only photo (audit C, finding H3).
   const images = [];
   if (product && product.image) {
     const mainImg = /^https?:\/\//i.test(product.image)
       ? product.image
-      : dom + "/" + String(product.image).replace(/^\/+/, "");
+      : dom + "/" + rasterImagePath(product.image, "product");
     images.push(mainImg);
   }
   if (product && Array.isArray(product.images)) {
@@ -4066,7 +4111,7 @@ function generateProductJsonLd(product, domain, categoryLabel) {
       if (img) {
         const fullImg = /^https?:\/\//i.test(img)
           ? img
-          : dom + "/" + String(img).replace(/^\/+/, "");
+          : dom + "/" + rasterImagePath(img, "product");
         if (images.indexOf(fullImg) === -1) {
           images.push(fullImg);
         }
@@ -4328,7 +4373,7 @@ function renderScentProfileHtml(product) {
       '          <h2 id="scentHeading-' +
       escapeHtml(product.id || "prod") +
       '" class="pdp-section-title">Scent Profile</h2>\n' +
-      '          <span class="pdp-intensity-bar" aria-label="Scent intensity: Unscented (0 out of 5)">\n' +
+      '          <span class="pdp-intensity-bar" role="meter" aria-label="Scent intensity" aria-valuemin="0" aria-valuemax="5" aria-valuenow="0" aria-valuetext="Unscented (0 out of 5)">\n' +
       '            <span class="intensity-label">Intensity: <strong>Unscented</strong> (0/5)</span>\n' +
       "          </span>\n" +
       "        </div>\n" +
@@ -4345,7 +4390,15 @@ function renderScentProfileHtml(product) {
     '          <h2 id="scentHeading-' +
     escapeHtml(product.id || "prod") +
     '" class="pdp-section-title">Scent Profile &amp; Notes</h2>\n' +
-    '          <span class="pdp-intensity-bar" aria-label="Scent intensity: ' +
+    /* role="meter", not a bare <span> with an aria-label: ARIA 1.2 prohibits
+       aria-label on the generic role, so most screen readers dropped it
+       outright (audit C, finding M7), and a value-within-a-range bar is
+       exactly what meter is for. valuetext carries the same words the
+       visible .intensity-label shows, which is what AT announces since a
+       meter's descendants are presentational. */
+    '          <span class="pdp-intensity-bar" role="meter" aria-label="Scent intensity" aria-valuemin="0" aria-valuemax="5" aria-valuenow="' +
+    (sp.intensityScore || 3) +
+    '" aria-valuetext="' +
     escapeHtml(sp.intensity || "Medium") +
     " (" +
     (sp.intensityScore || 3) +
@@ -4406,7 +4459,9 @@ function renderUsageAccordionsHtml(product) {
       : "Patch Test Guidelines";
 
   return (
-    '      <div class="pdp-accordions-group" aria-label="Product usage, care, and safety guidelines">\n' +
+    /* role="group": the aria-label on a bare <div> is prohibited on the
+       generic role and was being dropped (audit C, finding M7). */
+    '      <div class="pdp-accordions-group" role="group" aria-label="Product usage, care, and safety guidelines">\n' +
     '        <details class="pdp-accordion">\n' +
     '          <summary class="pdp-accordion-summary"><span>' +
     howToLabel +
@@ -4837,7 +4892,6 @@ function pictureFromManifest(imgPath, manifest, opts) {
     (o.fetchpriority ? ' fetchpriority="' + o.fetchpriority + '"' : "") +
     (o.className ? ' class="' + escapeHtml(o.className) + '"' : "") +
     (o.id ? ' id="' + escapeHtml(o.id) + '"' : "") +
-    (o.itemprop ? ' itemprop="' + escapeHtml(o.itemprop) + '"' : "") +
     (o.ariaHidden ? ' aria-hidden="true"' : "") +
     (o.sizes ? ' sizes="' + escapeHtml(o.sizes) + '"' : "");
   const img = '<img src="' + escapeHtml(rootImage(key)) + '"' + imgAttrs + ">";
@@ -5045,8 +5099,7 @@ function renderPdpGalleryHtml(p, manifest) {
     fetchpriority: "high",
     sizes: "(max-width: 820px) 100vw, 50vw",
     className: "pdp-main-image",
-    id: "pdpMainImage",
-    itemprop: "image"
+    id: "pdpMainImage"
   });
   let thumbs = "";
   if (images.length > 1) {
@@ -5218,26 +5271,45 @@ function renderPdpPurchaseHtml(p, categoryLabel) {
 function renderPdpTrustHtml(p, shop) {
   const threshold = shop && shop.freeShippingThreshold ? shop.freeShippingThreshold : 40;
   const isDigital = p.id === "yallternative-gift-card";
-  const items = isDigital
+  /* A coming-soon product has no checkout, no dispatch clock and no return
+     window running -- but the physical strip below was rendering anyway, so
+     five PDPs promised "ships in 1-3 business days" and "Secure checkout by
+     Stripe" directly underneath their own "Estimated Batch Date: Late
+     October 2026" and a notify-me form (audit C, finding H2). The gift card
+     already proved this strip can be conditional; this is the same branch,
+     wired to comingSoon and saying only what is true today. */
+  const isComingSoon = !!p.comingSoon;
+  const items = isComingSoon
     ? [
-        ["mail", "Sent by email, to you or straight to the recipient"],
-        ["lock", "Secure checkout by Stripe"],
-        ["heart", "Queer-owned, Southern-raised, made in Landrum, SC"]
-      ]
-    : [
         [
-          "truck",
-          "Free tracked shipping over $" +
-            threshold +
-            " · ships from Landrum, SC in 1&ndash;3 business days"
+          "calendar",
+          p.estimatedBatchDate
+            ? "Not for sale yet &middot; estimated batch date " + escapeHtml(p.estimatedBatchDate)
+            : "Not for sale yet &middot; this batch has no date on it we would stand behind"
         ],
-        [
-          "refresh",
-          "Sealed items and unworn apparel exchange within 14 days &middot; damaged or wrong? email within 7 days and we make it right"
-        ],
-        ["lock", "Secure checkout by Stripe · Apple Pay &amp; Google Pay"],
+        ["mail", "Leave your email above and you will hear the day it lands"],
         ["heart", "Handmade in small batches by one person in Landrum, SC"]
-      ];
+      ]
+    : isDigital
+      ? [
+          ["mail", "Sent by email, to you or straight to the recipient"],
+          ["lock", "Secure checkout by Stripe"],
+          ["heart", "Queer-owned, Southern-raised, made in Landrum, SC"]
+        ]
+      : [
+          [
+            "truck",
+            "Free tracked shipping at $" +
+              threshold +
+              "+ · ships from Landrum, SC in 1&ndash;3 business days"
+          ],
+          [
+            "refresh",
+            "Sealed items and unworn apparel exchange within 14 days &middot; damaged or wrong? email within 7 days and we make it right"
+          ],
+          ["lock", "Secure checkout by Stripe · Apple Pay &amp; Google Pay"],
+          ["heart", "Handmade in small batches by one person in Landrum, SC"]
+        ];
   const icons = {
     truck:
       '<svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>',
@@ -5246,10 +5318,17 @@ function renderPdpTrustHtml(p, shop) {
     lock: '<svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
     heart:
       '<svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>',
-    mail: '<svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>'
+    mail: '<svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>',
+    calendar:
+      '<svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
   };
+  const stripLabel = isComingSoon
+    ? "Availability and how to hear when it lands"
+    : "Shipping, returns and checkout";
   return (
-    '        <ul class="pdp-trust" aria-label="Shipping, returns and checkout">\n' +
+    '        <ul class="pdp-trust" aria-label="' +
+    stripLabel +
+    '">\n' +
     items
       .map(function (it) {
         return "          <li>" + icons[it[0]] + "<span>" + it[1] + "</span></li>";
@@ -5287,7 +5366,20 @@ function renderEtsyProofHtml(shop) {
   );
 }
 
-function renderPdpReviewsHtml(p, reviews) {
+/**
+ * @param {Object} p product
+ * @param {Array} reviews every site review; this filters to p's own
+ * @param {Object} [options]
+ * @param {boolean} [options.suppressSummary] hide the averaged star summary
+ *   while still publishing the review cards. Set for coming-soon products:
+ *   an unreleased batch must not advertise a rating, but the PDP used to be
+ *   handed an EMPTY array instead, so it printed "No reviews of this one
+ *   yet" about products whose real Etsy reviews /reviews.html was publishing
+ *   on the very same site (audit C, finding H1). Suppress the number, never
+ *   the reviews, and never assert a falsehood about them.
+ */
+function renderPdpReviewsHtml(p, reviews, options) {
+  const opts = options || {};
   const mine = (reviews || []).filter(function (r) {
     return r && r.productId === p.id && Number(r.rating) >= 1;
   });
@@ -5342,16 +5434,21 @@ function renderPdpReviewsHtml(p, reviews) {
     })
     .join("\n");
 
-  const summary = count
-    ? '        <p class="pdp-reviews-summary"><span class="stars" aria-hidden="true">' +
-      starsHtml(avg) +
-      "</span> <strong>" +
-      avg.toFixed(1) +
-      " out of 5</strong> from " +
-      count +
-      (count === 1 ? " review" : " reviews") +
-      " of this product</p>\n"
-    : '        <p class="pdp-reviews-summary muted">No reviews of this one yet. Used it? You would be the first.</p>\n';
+  const summary = !count
+    ? '        <p class="pdp-reviews-summary muted">No reviews of this one yet. Used it? You would be the first.</p>\n'
+    : opts.suppressSummary
+      ? '        <p class="pdp-reviews-summary muted">' +
+        count +
+        (count === 1 ? " review" : " reviews") +
+        " of this one, all from earlier batches. We are not putting a star rating on a batch nobody has held yet.</p>\n"
+      : '        <p class="pdp-reviews-summary"><span class="stars" aria-hidden="true">' +
+        starsHtml(avg) +
+        "</span> <strong>" +
+        avg.toFixed(1) +
+        " out of 5</strong> from " +
+        count +
+        (count === 1 ? " review" : " reviews") +
+        " of this product</p>\n";
 
   const disclosure =
     count &&
@@ -5584,12 +5681,87 @@ function renderPdpGoodToKnowHtml(p, sizeLabel) {
   );
 }
 
+/* ---------- Tawk.to live chat, for the generated product pages ----------
+   The deferred chat loader shipped on the 16 hand-written pages and on none
+   of the 20 PDPs -- which are exactly the pages where a shopper has a
+   question worth asking ("will this work on eczema", "is there almond oil in
+   it", "what does the 4oz cost"). It also made the privacy policy's "live on
+   nearly every page" claim untrue at 16 of 37 (audit C, findings L3 and M9).
+
+   This is the same snippet those pages carry: same deferred first-interaction
+   trigger, same CMS-owned id markers, so build-security-headers.js hashes it
+   into the CSP exactly as it does theirs. Keep the two byte-identical -- two
+   spellings of the same script mean two hashes to read and approve.
+
+   Emitted with EMPTY ids if the build somehow has no site config, in which
+   case the loader's own guard bails before it requests anything. */
+function renderTawkChatHtml(site) {
+  const s = site || {};
+  return (
+    "<!-- Live chat (Tawk.to) -- placeholder, inert until real IDs are set.\n" +
+    "     Free live-chat widget: https://www.tawk.to -- see DEVELOPMENT.md section 19.\n" +
+    "     Replace YOUR_TAWKTO_PROPERTY_ID/YOUR_TAWKTO_WIDGET_ID below with the\n" +
+    "     real embed values from your own Tawk.to dashboard (Administration ->\n" +
+    "     Chat Widget). Until then this script 404s quietly and no widget\n" +
+    "     appears -- nothing is broken by leaving it as-is. -->\n" +
+    '<script type="text/javascript">\n' +
+    "var Tawk_API = Tawk_API || {}, Tawk_LoadStart = new Date();\n" +
+    "(function () {\n" +
+    "  /* Both IDs are injected from content.json by scripts/build-site-data.js.\n" +
+    '     Until Savanna sets real ones, they\'re still the "YOUR_..." placeholders --\n' +
+    "     in that state this used to build a live embed.tawk.to URL out of them and\n" +
+    "     request it on every single page load, which 404s and buys nothing. Bail\n" +
+    "     out instead, so the widget stays genuinely inert until it's configured. */\n" +
+    "  var propertyId = /*YL:site.tawkToPropertyId*/ " +
+    jsStringLiteral(s.tawkToPropertyId || "") +
+    " /*/YL:site.tawkToPropertyId*/;\n" +
+    "  var widgetId = /*YL:site.tawkToWidgetId*/ " +
+    jsStringLiteral(s.tawkToWidgetId || "") +
+    " /*/YL:site.tawkToWidgetId*/;\n" +
+    "  if (!propertyId || !widgetId) return;\n" +
+    '  if (propertyId.indexOf("YOUR_") === 0 || widgetId.indexOf("YOUR_") === 0) return;\n' +
+    "  /* The widget SDK used to be requested on EVERY pageview -- 20 requests to\n" +
+    "     embed.tawk.to plus a wss://*.tawk.to handshake, measured on a cold mobile\n" +
+    "     load -- for the large majority of sessions that never open chat. Hold it\n" +
+    "     until the visitor does something (scroll, tap, key). There is deliberately\n" +
+    "     no idle-timeout fallback: the widget's iframe landing with no user input\n" +
+    "     counted as a 0.047 layout shift on every page in the 2026-09-02\n" +
+    "     measurement, and a shopper who wants chat will have scrolled first. */\n" +
+    "  var loaded = false;\n" +
+    '  var TRIGGERS = ["pointerdown", "keydown", "scroll", "touchstart"];\n' +
+    "  var opts = { passive: true, capture: true };\n" +
+    "  function load() {\n" +
+    "    if (loaded) return;\n" +
+    "    loaded = true;\n" +
+    "    TRIGGERS.forEach(function (t) { window.removeEventListener(t, load, opts); });\n" +
+    '    var s1 = document.createElement("script"), s0 = document.getElementsByTagName("script")[0];\n' +
+    "    s1.async = true;\n" +
+    '    s1.src = "https://embed.tawk.to/" + propertyId + "/" + widgetId;\n' +
+    '    s1.charset = "UTF-8";\n' +
+    "    s0.parentNode.insertBefore(s1, s0);\n" +
+    "  }\n" +
+    "  TRIGGERS.forEach(function (t) { window.addEventListener(t, load, opts); });\n" +
+    "})();\n" +
+    "</script>\n"
+  );
+}
+
 function renderSiteHeaderHtml(manifest) {
   const m = manifest || {};
   return (
     '  <header class="site-header">\n' +
     '    <nav class="nav" aria-label="Main Navigation">\n' +
-    '      <a class="brand" href="/index.html" aria-label="Y\'allternative Living home">\n' +
+    /* The apostrophe is written as &#39; on purpose. Netlify's deploy-time
+       HTML post-processing used to re-serialise every attribute with SINGLE
+       quotes, and a raw apostrophe then closed the attribute early: the
+       accessible name of the site's primary home link became the single
+       letter "Y" on all 36 pages (audit C, finding C1). That processing is
+       switched off now (netlify.toml [build.processing]), but the entity
+       survives ANY serializer, so the source cannot be broken that way
+       again. The decoded label is identical: "Y'allternative Living home".
+       Keep the entity when editing, and use it for any future attribute
+       that carries the brand name. */
+    '      <a class="brand" href="/index.html" aria-label="Y&#39;allternative Living home">\n' +
     "        " +
     logoPictureHtml("assets/img/logo.png", m, "desktop") +
     "\n" +
@@ -5678,7 +5850,11 @@ function renderGlobalSearchModalHtml(searchConfig) {
     '        <div class="global-search-input-wrapper">\n' +
     '          <svg class="global-search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>\n' +
     '          <label for="globalSearchInput" id="globalSearchModalTitle" class="sr-only">Search catalog, articles &amp; FAQ</label>\n' +
-    '          <input type="search" id="globalSearchInput" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, events, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">\n' +
+    /* aria-haspopup="grid" (not the default listbox): each suggestion row
+       carries a link and, for products, an "+ Add" button, and the APG's
+       listbox pattern explicitly cannot host interactive content -- see the
+       setResultsGridRole() comment in assets/js/main.js (audit C, H5). */
+    '          <input type="search" id="globalSearchInput" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-haspopup="grid" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, events, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">\n' +
     '          <button type="button" class="global-search-clear-btn" id="globalSearchClearBtn" aria-label="Clear search query" hidden>\n' +
     '            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>\n' +
     "          </button>\n" +
@@ -5695,7 +5871,13 @@ function renderGlobalSearchModalHtml(searchConfig) {
     "\n        </div>\n" +
     "      </div>\n" +
     '      <div class="global-search-results-wrapper" id="globalSearchResultsWrapper">\n' +
-    '        <div id="globalSearchResultsList" class="global-search-results-list" role="listbox" aria-label="Search results" tabindex="-1"></div>\n' +
+    /* No role and no aria-label in the static markup on purpose: main.js
+       adds role="grid" AND the label together, only while this actually
+       holds result rows, and removes both for the empty and zero-result
+       states. That way the container is never a grid (or a listbox) with
+       structurally invalid children, and never a bare <div> carrying an
+       aria-label ARIA 1.2 prohibits on the generic role (audit C, M7). */
+    '        <div id="globalSearchResultsList" class="global-search-results-list" tabindex="-1"></div>\n' +
     "      </div>\n" +
     '      <div class="global-search-footer">\n' +
     '        <span class="search-key-hint"><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>\n' +
@@ -5734,7 +5916,9 @@ function renderProductPdpHtml(
   const pDesc = escapeHtml(rawDesc);
   const pMetaDesc = escapeHtml(truncateForMeta(rawDesc, 155));
   const pUrl = domain + "/products/" + product.id + ".html";
-  const pImage = escapeHtml(domain + "/" + String(product.image).replace(/^\/+/, ""));
+  /* og:/twitter: images are raster-only -- see rasterImagePath(). For the 15
+     products with real photos this is the photo, unchanged. */
+  const pImage = escapeHtml(domain + "/" + rasterImagePath(product.image, "social"));
   const catLabel = escapeHtml(categoryLabel || product.category || "Apothecary");
   const range = variantPriceRange(product);
   // The headline used to show "$13.99 - $19.99" while the $19.99 size was
@@ -5748,12 +5932,10 @@ function renderProductPdpHtml(
     });
     if (firstOpen) selectedPrice = product.price + (Number(firstOpen.priceDelta) || 0);
   }
-  const priceDisplayHtml =
-    '<span itemprop="priceCurrency" content="USD">$</span><span itemprop="price" content="' +
-    selectedPrice.toFixed(2) +
-    '">' +
-    selectedPrice.toFixed(2) +
-    "</span>";
+  /* .pdp-price-value replaces the old itemprop="price" span: main.js's
+     variant picker rewrites this number on every size change and needs a
+     hook, but it must not be a second schema.org entity (finding L5). */
+  const priceDisplayHtml = '$<span class="pdp-price-value">' + selectedPrice.toFixed(2) + "</span>";
 
   const pdpAvailability = schemaAvailability(product);
   const pdpOgAvailability =
@@ -5940,7 +6122,15 @@ function renderProductPdpHtml(
     escapeHtml(product.name) +
     "</span></p>\n" +
     "    </nav>\n" +
-    '    <article class="pdp-layout" itemscope itemtype="https://schema.org/Product">\n' +
+    /* No itemscope/itemprop anywhere in this page any more. Every PDP used
+       to carry TWO Product entities: the complete JSON-LD one in <head> and
+       a thin microdata one here with only name, image, description and a
+       flat price -- no availability, no url, no brand, no sku. Rich Results
+       Test reported both, and on frankincense-salve the microdata asserted a
+       single price while the JSON-LD (correctly) declared an AggregateOffer
+       of $13.99-$19.99 (audit C, finding L5). One vocabulary, and JSON-LD is
+       the better one. */
+    '    <article class="pdp-layout">\n' +
     renderPdpGalleryHtml(product, manifest) +
     '      <div class="pdp-details">\n' +
     '        <p class="pdp-eyebrow"><span class="eyebrow">' +
@@ -5948,12 +6138,12 @@ function renderProductPdpHtml(
     "</span>" +
     (sizeLabel ? ' <span class="pdp-size-label">' + escapeHtml(sizeLabel) + "</span>" : "") +
     "</p>\n" +
-    '        <h1 class="pdp-title" itemprop="name">' +
+    '        <h1 class="pdp-title">' +
     escapeHtml(product.name) +
     "</h1>\n" +
     ratingSummary +
     '        <div class="pdp-price-row">\n' +
-    '          <span class="price pdp-price" itemprop="offers" itemscope itemtype="https://schema.org/Offer">\n' +
+    '          <span class="price pdp-price">\n' +
     "            " +
     priceDisplayHtml +
     "\n" +
@@ -5965,7 +6155,7 @@ function renderProductPdpHtml(
     stockBadge +
     batchDateHtml +
     '        <div class="pdp-dispatch" id="pdpDispatch"></div>\n' +
-    '        <p class="pdp-blurb" itemprop="description">' +
+    '        <p class="pdp-blurb">' +
     pDesc +
     "</p>\n" +
     (product.comingSoon ? "" : renderVariantControlHtml(product)) +
@@ -5982,12 +6172,15 @@ function renderProductPdpHtml(
     usageAccordionsHtml +
     renderPdpSafetyHtml(product, ctx && ctx.safetyNotes) +
     "      </div>\n" +
-    '      <aside class="pdp-info-side">\n' +
+    /* A complementary landmark with no accessible name is just "complementary"
+       in a screen reader's landmark list, on every one of the 20 PDPs (audit
+       C, nit N7). The aside holds the product facts list, so name it that. */
+    '      <aside class="pdp-info-side" aria-label="Product facts at a glance">\n' +
     renderPdpGoodToKnowHtml(product, sizeLabel) +
     "      </aside>\n" +
     "    </section>\n" +
     ritualSectionHtml +
-    renderPdpReviewsHtml(product, product.comingSoon ? [] : c.reviews) +
+    renderPdpReviewsHtml(product, c.reviews, { suppressSummary: !!product.comingSoon }) +
     renderRelatedProductsHtml(product, c.products, categoryLabelMap, manifest) +
     '    <section class="section-tight recently-viewed-section" id="pdpRecentlyViewedSection" aria-labelledby="pdpRecentlyViewedHeading" hidden>\n' +
     '      <div class="section-head">\n' +
@@ -6008,6 +6201,10 @@ function renderProductPdpHtml(
     '  <script src="/assets/js/site-reviews-data.js?v=2.0" defer></script>\n' +
     '  <script src="/assets/js/main.js?v=2.0" defer></script>\n' +
     '  <script src="/assets/js/cart.js" defer></script>\n' +
+    /* Live chat, same deferred loader the hand-written pages carry. It was
+       missing from all 20 PDPs -- the pages where a shopper actually has a
+       question (audit C, finding L3). */
+    renderTawkChatHtml(ctx && ctx.site) +
     "</body>\n" +
     "</html>\n"
   );

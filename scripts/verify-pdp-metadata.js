@@ -108,7 +108,16 @@ productsData.products.forEach((product) => {
   const expectedSelectedPrice = (
     firstOpen ? product.price + (Number(firstOpen.priceDelta) || 0) : advertisedLowPrice(product)
   ).toFixed(2);
-  const expectedOgImage = DOMAIN + "/" + String(product.image).replace(/^\/+/, "");
+  /* Mirrors rasterImagePath() in scripts/build-site-data.js: og:/twitter:
+     images are never SVG, because no social card renderer draws one. The
+     five coming-soon products' placeholder SVG maps to its 1200x630 JPEG
+     twin; every real photo passes through untouched (audit C, H3). */
+  const expectedOgImage =
+    DOMAIN +
+    "/" +
+    (/\.svg$/i.test(String(product.image))
+      ? "assets/img/placeholder-coming-soon-og.jpg"
+      : String(product.image).replace(/^\/+/, ""));
   const expectedOgUrl = DOMAIN + "/products/" + product.id + ".html";
 
   assert(html.includes(`<title>${expectedTitle}</title>`), `${product.id}: <title> tag matches`);
@@ -259,34 +268,81 @@ productsData.products.forEach((product) => {
     );
   }
 
-  // 5. Schema.org Product Microdata
+  /* 5. Exactly ONE schema.org Product entity, and it is the JSON-LD one.
+     Every PDP used to carry a second, thin Product in microdata alongside
+     the complete JSON-LD block: name, image, description and a flat price,
+     with no availability, url, brand or sku. Rich Results Test reported two
+     Product items per page, and on frankincense-salve the microdata claimed
+     a single price while the JSON-LD correctly declared an AggregateOffer of
+     $13.99-$19.99 (audit C, finding L5). These assertions replace the old
+     itemprop ones one-for-one -- same facts, asserted against the vocabulary
+     the site actually kept, so nothing stopped being checked. */
   assert(
-    html.includes('itemscope itemtype="https://schema.org/Product"'),
-    `${product.id}: schema.org Product itemscope declaration present`
+    !/\bitemscope\b/.test(html) && !/\bitemprop=/.test(html),
+    `${product.id}: no schema.org microdata left to compete with the JSON-LD Product`
+  );
+  {
+    const ldBlocks = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g) || [];
+    const products = [];
+    ldBlocks.forEach((b) => {
+      try {
+        const ld = JSON.parse(b.replace(/^<script[^>]*>/, "").replace(/<\/script>$/, ""));
+        if (ld && ld["@type"] === "Product") products.push(ld);
+      } catch (e) {
+        /* the "every JSON-LD block parses" assertion above owns this case */
+      }
+    });
+    assert(
+      products.length === 1,
+      `${product.id}: exactly one Product entity on the page (found ${products.length})`
+    );
+    const ld = products[0] || {};
+    assert(ld.name === product.name, `${product.id}: JSON-LD Product name matches`);
+    assert(
+      ld.description === (product.description || product.blurb || ""),
+      `${product.id}: JSON-LD Product description matches the visible blurb`
+    );
+    const ldImages = [].concat(ld.image || []);
+    assert(
+      ldImages.length > 0 && ldImages.every((u) => /^https:\/\//.test(u) && !/\.svg$/i.test(u)),
+      `${product.id}: JSON-LD Product image(s) are absolute and raster (${ldImages.length})`
+    );
+    const offers = ld.offers || {};
+    assert(
+      offers.priceCurrency === "USD",
+      `${product.id}: JSON-LD offer priceCurrency is USD (got ${offers.priceCurrency})`
+    );
+    /* The advertised floor: the cheapest buyable variant, which is what the
+       AggregateOffer's lowPrice must be for a multi-price product and what a
+       single Offer's price must be otherwise. This is the number the old
+       microdata got wrong on frankincense-salve. */
+    const ldLow =
+      offers["@type"] === "AggregateOffer" ? String(offers.lowPrice) : String(offers.price);
+    assert(
+      ldLow === expectedLowPrice,
+      `${product.id}: JSON-LD advertises the cheapest buyable variant (${expectedLowPrice}, got ${ldLow})`
+    );
+    assert(
+      typeof offers.availability === "string" &&
+        offers.availability.startsWith("https://schema.org/"),
+      `${product.id}: JSON-LD offer declares availability (${offers.availability})`
+    );
+    assert(
+      !!ld.url && !!ld.sku && !!ld.brand,
+      `${product.id}: JSON-LD Product has url, sku and brand`
+    );
+  }
+  /* The visible headline price is still the pre-selected option (the first
+     variant not sold out), which is what the radio group starts on. It just
+     is not a schema.org claim any more -- main.js rewrites it on every size
+     change through the .pdp-price-value hook. */
+  assert(
+    html.includes(`<span class="pdp-price-value">${expectedSelectedPrice}</span>`),
+    `${product.id}: visible headline price is the pre-selected option (${expectedSelectedPrice})`
   );
   assert(
-    html.includes(`itemprop="name">${escapeHtml(product.name)}</h1>`),
-    `${product.id}: itemprop="name" matches`
-  );
-  assert(
-    html.includes(`itemprop="image"`),
-    `${product.id}: itemprop="image" present on main image`
-  );
-  assert(
-    html.includes('itemprop="offers" itemscope itemtype="https://schema.org/Offer"'),
-    `${product.id}: itemprop="offers" Offer declaration present`
-  );
-  assert(
-    html.includes('itemprop="priceCurrency" content="USD"'),
-    `${product.id}: itemprop="priceCurrency" is USD`
-  );
-  assert(
-    html.includes(`itemprop="price" content="${expectedSelectedPrice}"`),
-    `${product.id}: itemprop="price" matches the pre-selected option price (${expectedSelectedPrice})`
-  );
-  assert(
-    html.includes(`itemprop="description">${expectedDesc}</p>`),
-    `${product.id}: itemprop="description" matches`
+    html.includes(`<p class="pdp-blurb">${expectedDesc}</p>`),
+    `${product.id}: visible blurb matches products.json`
   );
 
   // 6. Image File Existence on Disk

@@ -139,6 +139,66 @@ function journalEnabled() {
 if (!journalEnabled()) {
   BLOCKED_PATHS = BLOCKED_PATHS.concat(JOURNAL_PATHS);
 }
+
+/* ---------- clean-URL twins (audit C, M8 / C1 / L6) ----------
+   Netlify's "Pretty URLs" post-processing used to do two things to every
+   deployed page: re-serialise the HTML (which broke the brand link's
+   aria-label, because a single-quoted attribute cannot hold the apostrophe
+   in "Y'allternative" -- finding C1) and rewrite `href="shop.html"` to
+   `href="/shop"` while ALSO serving that extensionless path at 200. The
+   result was two live URLs per page, with 100% of internal links pointing
+   at the one the canonical tag disowns (finding M8).
+
+   `[build.processing.html] pretty_urls = false` below turns all of that off,
+   so the bytes this repo emits are the bytes the CDN serves. That alone
+   would leave every already-indexed extensionless URL 404ing, so each one
+   gets an explicit 301 to its .html twin -- generated from the real page
+   list rather than a catch-all splat, because a splat here could shadow
+   the /api/* proxy above it and silently break checkout.
+
+   Three pages are deliberately absent from the generated list:
+     index.html  -- its canonical IS the extensionless "/", so there is no
+                    ".html twin" to send anyone to.
+     safety.html -- printed on the packaging; it keeps the status=200
+                    rewrite below so the printed URL never even redirects.
+     404.html    -- gets its own status=404 rules instead (finding L6). */
+var CLEAN_URL_SKIP = ["index.html", "safety.html", "404.html"];
+
+function shippedHtmlPages() {
+  var pages = [];
+  fs.readdirSync(ROOT)
+    .filter(function (f) {
+      return /\.html$/.test(f);
+    })
+    .sort()
+    .forEach(function (f) {
+      pages.push(f);
+    });
+  var productsDir = path.join(ROOT, "products");
+  if (fs.existsSync(productsDir)) {
+    fs.readdirSync(productsDir)
+      .filter(function (f) {
+        return /\.html$/.test(f);
+      })
+      .sort()
+      .forEach(function (f) {
+        pages.push("products/" + f);
+      });
+  }
+  return pages;
+}
+
+/* [["/shop", "/shop.html"], ["/products/bug-spray", "/products/bug-spray.html"], ...] */
+function cleanUrlRedirects() {
+  return shippedHtmlPages()
+    .filter(function (rel) {
+      return CLEAN_URL_SKIP.indexOf(rel) === -1;
+    })
+    .map(function (rel) {
+      return ["/" + rel.replace(/\.html$/, ""), "/" + rel];
+    });
+}
+
 var PAGES = [
   "index.html",
   "shop.html",
@@ -636,6 +696,43 @@ function run() {
     "# ahead of every other source), not here -- one source of truth.\n" +
     "[build.environment]\n" +
     '  NPM_FLAGS = "--include=dev"\n\n' +
+    // ---- deploy-time HTML post-processing: OFF ----
+    // See the CLEAN_URL_SKIP comment near the top of this script. Netlify's
+    // post-processing re-serialised every page's HTML with single-quoted
+    // attributes, which truncated `aria-label="Y'allternative Living home"`
+    // at the apostrophe on all 36 pages -- the site's primary home link
+    // announced as "Y" to a screen reader, and no repo-level test could see
+    // it because the repo's own bytes were correct (audit C, finding C1).
+    // The same pass rewrote every internal href to an extensionless URL that
+    // is not the canonical one (finding M8).
+    //
+    // pretty_urls under [build.processing.html] is the ONE key that still
+    // does anything here. Netlify's wider Asset Optimization stage (the old
+    // [build.processing] skip_processing switch, plus the css/js/images
+    // blocks) was deprecated in July 2023 and end-of-serviced on 2023-10-17,
+    // so it is absent from the current docs and writing it would be
+    // cargo-cult. A netlify.toml setting overrides the dashboard toggle, so
+    // this also cannot be switched back on in the UI by accident.
+    //
+    // Turning pretty_urls off does NOT stop Netlify serving /shop from
+    // shop.html: extensionless resolution is core routing with no toggle at
+    // all, which is exactly why every twin below needs a FORCED 301.
+    //
+    // THIS BLOCK IS GENERATED. It lived only in netlify.toml once, which is
+    // how the [build.environment] block above got silently deleted on the
+    // next run of this script -- a hand-edit here does not survive a deploy.
+    "# Deploy-time HTML post-processing is OFF. Netlify's Pretty URLs pass\n" +
+    "# re-serialises every page and re-quotes attributes with single quotes,\n" +
+    "# which truncated the brand link's aria-label at the apostrophe in\n" +
+    '# "Y\'allternative" and rewrote internal hrefs to extensionless URLs that\n' +
+    "# contradict each page's canonical. The bytes in this repo are the bytes\n" +
+    "# that ship, and this key overrides the dashboard toggle so it cannot be\n" +
+    "# turned back on in the UI. (The old [build.processing] skip_processing\n" +
+    "# switch is deliberately NOT written: Netlify end-of-serviced that whole\n" +
+    "# stage on 2023-10-17, so it is a no-op.)\n" +
+    "# Generated by scripts/build-security-headers.js.\n" +
+    "[build.processing.html]\n" +
+    "  pretty_urls = false\n\n" +
     // ---- retired Netlify Functions ----
     // The four Netlify Functions this site used to run are deleted; the money
     // path is one Cloudflare Worker now (workers/checkout.js). No redirect
@@ -728,6 +825,51 @@ function run() {
     '  from = "/safety"\n' +
     '  to = "/safety.html"\n' +
     "  status = 200\n\n" +
+    // ---- the error page answers 404 (audit C, finding L6) ----
+    // Genuinely missing paths already 404. The error page itself was
+    // fetchable at 200 under both /404 and /404.html, which is a soft-404
+    // signal. force = true is required for the second rule: 404.html is a
+    // real file in the publish root, and without force the file shadows the
+    // rule and is served with its old 200.
+    "# The error page itself answers 404, not 200 -- it was fetchable at 200\n" +
+    "# under both spellings, which reads as a soft 404 to a crawler.\n" +
+    "[[redirects]]\n" +
+    '  from = "/404"\n' +
+    '  to = "/404.html"\n' +
+    "  status = 404\n\n" +
+    "[[redirects]]\n" +
+    '  from = "/404.html"\n' +
+    '  to = "/404.html"\n' +
+    "  status = 404\n" +
+    "  force = true\n\n" +
+    // ---- extensionless twins 301 to the canonical .html (finding M8) ----
+    // One explicit rule per shipped page, never a "/*" splat: a catch-all
+    // here would sit after the /api/* proxy but before nothing else, and any
+    // future reordering would let it swallow the checkout path.
+    "# Every page was reachable at TWO live URLs (/shop and /shop.html, both\n" +
+    "# 200) while the canonical named only one and every internal link pointed\n" +
+    "# at the other. The extensionless spelling now 301s to the canonical .html.\n" +
+    "# force = true because Netlify's core routing resolves /shop to shop.html\n" +
+    "# on its own -- that is not the Pretty URLs feature and has no toggle, so\n" +
+    "# an unforced rule would lose to the content Netlify already found there.\n" +
+    "# One explicit rule per page -- deliberately not a catch-all splat, which\n" +
+    "# could shadow the /api/* proxy above. Generated from the page list by\n" +
+    "# scripts/build-security-headers.js; add a page and its rule appears.\n" +
+    cleanUrlRedirects()
+      .map(function (pair) {
+        return (
+          "[[redirects]]\n" +
+          '  from = "' +
+          pair[0] +
+          '"\n' +
+          '  to = "' +
+          pair[1] +
+          '"\n' +
+          "  status = 301\n" +
+          "  force = true\n\n"
+        );
+      })
+      .join("") +
     "# Long-lived caching for hashed/never-changing assets. Pages themselves\n" +
     "# (index.html, shop.html, etc.) intentionally aren't cached long here --\n" +
     "# Netlify already serves them with an ETag + must-revalidate by default,\n" +
@@ -816,6 +958,9 @@ if (typeof module !== "undefined" && module.exports) {
     readBaseline: readBaseline,
     findUnapprovedHashes: findUnapprovedHashes,
     BASELINE_PATH: BASELINE_PATH,
-    BLOCKED_PATHS: BLOCKED_PATHS
+    BLOCKED_PATHS: BLOCKED_PATHS,
+    CLEAN_URL_SKIP: CLEAN_URL_SKIP,
+    shippedHtmlPages: shippedHtmlPages,
+    cleanUrlRedirects: cleanUrlRedirects
   };
 }

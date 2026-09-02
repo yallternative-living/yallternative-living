@@ -500,9 +500,19 @@ assert(
   deltaPdp.indexOf('<meta property="product:price:amount" content="13.99">') !== -1,
   "og price is the cheapest buyable variant, not the base price"
 );
+/* The PDP's competing microdata Product entity is gone (audit C, finding
+   L5): the page carried a thin second Product with a flat price alongside
+   the complete JSON-LD one, and on this exact shape they disagreed -- the
+   microdata said 19.99 while the JSON-LD declared an AggregateOffer of
+   13.99-19.99. The visible headline is still the pre-selected option; it
+   just is not a schema.org claim any more. */
 assert(
-  deltaPdp.indexOf('itemprop="price" content="19.99"') !== -1,
-  "microdata price is the pre-selected option's price (2oz at 19.99), the range lives in JSON-LD"
+  deltaPdp.indexOf("itemprop=") === -1 && deltaPdp.indexOf("itemscope") === -1,
+  "no schema.org microdata is emitted alongside the JSON-LD Product"
+);
+assert(
+  deltaPdp.indexOf('<span class="pdp-price-value">19.99</span>') !== -1,
+  "visible headline price is the pre-selected option's price (2oz at 19.99); the range lives in JSON-LD"
 );
 
 /* 10. Google Merchant Rich Product JSON-LD & BreadcrumbList (R5) */

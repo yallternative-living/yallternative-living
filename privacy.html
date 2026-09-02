@@ -128,8 +128,8 @@
 <body>
 <a href="#main-content" class="skip-link">Skip to main content</a>
 <header class="site-header">
-  <nav class="nav">
-    <a class="brand" href="index.html" aria-label="Y'allternative Living home">
+  <nav class="nav" aria-label="Main Navigation">
+    <a class="brand" href="index.html" aria-label="Y&#39;allternative Living home">
       <picture><source type="image/avif" srcset="/assets/img/logo-48.avif 48w, /assets/img/logo-96.avif 96w, /assets/img/logo-144.avif 144w, /assets/img/logo-192.avif 192w" sizes="48px"><source type="image/webp" srcset="/assets/img/logo-48.webp 48w, /assets/img/logo-96.webp 96w, /assets/img/logo-144.webp 144w, /assets/img/logo-192.webp 192w" sizes="48px"><img src="/assets/img/logo.png" alt="Y&#39;allternative Living icon" width="48" height="48" decoding="async" class="logo-desktop" sizes="48px"></picture>
       <picture><source type="image/avif" srcset="/assets/img/logo-48.avif 48w, /assets/img/logo-96.avif 96w, /assets/img/logo-144.avif 144w, /assets/img/logo-192.avif 192w" sizes="48px"><source type="image/webp" srcset="/assets/img/logo-48.webp 48w, /assets/img/logo-96.webp 96w, /assets/img/logo-144.webp 144w, /assets/img/logo-192.webp 192w" sizes="48px"><img src="/assets/img/logo.png" alt="Y&#39;allternative Living logo" width="48" height="48" decoding="async" class="logo-mobile" sizes="48px"></picture>
       <span class="brand-word">Y'allternative<small>Living</small></span>
@@ -197,7 +197,7 @@
           <p>Every form on this site is listed here, along with where what you type actually goes. Nothing on this list is optional to mention and nothing is left off it:</p>
           <ul>
             <li><strong>Contact form</strong> (on the Contact page) &mdash; your name, email address and message. Delivered to our inbox by <a href="https://formspree.io/legal/privacy-policy/" target="_blank" rel="noopener">Formspree<span class="sr-only"> (opens in new tab)</span></a>, a form-forwarding service.</li>
-            <li><strong>Review form</strong> (at the bottom of the Shop page and on the Reviews page) &mdash; your name or handle, an optional email address, which product (or the whole shop), a star rating and your review. Also delivered through Formspree. We read them by hand and publish approved ones; the email address is never published.</li>
+            <li><strong>Review form</strong> (at the bottom of the Shop page, on the Reviews page, and on every product page) &mdash; your name or handle, an optional email address, which product (or the whole shop), a star rating and your review. Also delivered through Formspree. We read them by hand and publish approved ones; the email address is never published.</li>
             <li><strong>Restock &amp; launch alerts</strong> (the &ldquo;Notify me when it's back&rdquo; box in the shop) &mdash; your email address and which item you asked about. That goes to our small service on <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener">Cloudflare Workers<span class="sr-only"> (opens in new tab)</span></a>, which emails it to us through <a href="https://resend.com/legal/privacy-policy" target="_blank" rel="noopener">Resend<span class="sr-only"> (opens in new tab)</span></a>. Nothing is kept once that email is sent.</li>
             <li><strong>Market-date reminders</strong> (the &ldquo;Email me the next market date&rdquo; box on the Events page) &mdash; your email address, and nothing else. It is stored by that same small service on Cloudflare Workers, which uses it for exactly one thing: one email the day before each market we're at, sent through Resend. Every one of those emails has an unsubscribe link in it, and unsubscribing from any email we send stops these too.</li>
             <li><strong>Order lookup</strong> (&ldquo;Track Order Status&rdquo; in the shop, on the order confirmation page and on the Order Status page) &mdash; your order reference and the email you used at checkout. Our Cloudflare service checks them against Stripe and shows you your order's status; it stores neither.</li>
@@ -252,7 +252,7 @@
           <h2>Cookies &amp; Analytics</h2>
           <p>The browser storage this site uses is the functional kind, listed in full under &ldquo;Just Browsing?&rdquo; above: your theme, your wishlist, your cart, your recently viewed items, an applied gift card, and &mdash; if you use the translation tool &mdash; a cookie holding your language choice. None of it is used for tracking or advertising.</p>
           <p><strong>Analytics.</strong> This site is built to run <a href="https://umami.is/" target="_blank" rel="noopener">Umami<span class="sr-only"> (opens in new tab)</span></a>, and analytics may be enabled here. If it is: Umami is cookieless, doesn't collect or store personal data, doesn't fingerprint your device, and can't track you across other websites &mdash; it counts anonymous, aggregate activity like how many people visited a page or added something to a cart. Our search box reports only how long a search was and whether it found anything, never what you typed. If analytics is switched off, nothing is loaded and nothing is counted.</p>
-          <p><strong>Live chat.</strong> The chat bubble in the corner is <a href="https://www.tawk.to/privacy-policy/" target="_blank" rel="noopener">Tawk.to<span class="sr-only"> (opens in new tab)</span></a>, and it is live on nearly every page of this site. Unlike the rest of what's here, it loads its own script and sets its own cookies (it uses them to recognise a returning visitor and keep a conversation together), and it can see the page you're on. Anything you type into the chat is held by Tawk.to as well as reaching us.</p>
+          <p><strong>Live chat.</strong> The chat bubble in the corner is <a href="https://www.tawk.to/privacy-policy/" target="_blank" rel="noopener">Tawk.to<span class="sr-only"> (opens in new tab)</span></a>, and it is live on every page of this site, product pages included &mdash; the one exception is the offline fallback page you only see when your connection drops. Unlike the rest of what's here, it loads its own script and sets its own cookies (it uses them to recognize a returning visitor and keep a conversation together), and it can see the page you're on. Anything you type into the chat is held by Tawk.to as well as reaching us.</p>
           <p><strong>Translation.</strong> Google Translate is opt-in: nothing from Google's translation service loads until you actually pick a language. Once you do, the page text is sent to Google to be translated and the <code>googtrans</code> cookie records your choice.</p>
           <p>The other third-party services embedded here &mdash; Stripe during checkout, and Etsy once you click through &mdash; may set their own cookies or use their own tracking as part of how they operate. Those are governed by those companies' own policies.</p>
         </div>
@@ -431,7 +431,7 @@
           <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
         </svg>
         <label for="globalSearchInput" id="globalSearchModalTitle" class="sr-only">Search catalog, articles &amp; FAQ</label>
-        <input type="search" id="globalSearchInput" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, events, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <input type="search" id="globalSearchInput" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-haspopup="grid" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, events, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         <button type="button" class="global-search-clear-btn" id="globalSearchClearBtn" aria-label="Clear search query" hidden>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/></svg>
         </button>
@@ -453,7 +453,7 @@
       </div>
     </div>
     <div class="global-search-results-wrapper" id="globalSearchResultsWrapper">
-      <div id="globalSearchResultsList" class="global-search-results-list" role="listbox" aria-label="Search results" tabindex="-1"></div>
+      <div id="globalSearchResultsList" class="global-search-results-list" tabindex="-1"></div>
     </div>
     <div class="global-search-footer">
       <span class="search-key-hint"><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>

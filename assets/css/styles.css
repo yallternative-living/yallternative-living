@@ -36,6 +36,15 @@
      link-hover, etc.) so it reads clearly against dark backgrounds. */
   --rose-text: #d17b8a;
   --sage: #7c8f6e; /* faded sage, secondary accent */
+  /* The .in-stock badge in the search results tints its own background
+     with rgba(92,168,108,.15), which lifts the effective backdrop to
+     ~#272e22 in dark and ~#dbdfc8 in light. --sage as the label on that
+     measured 4.00:1 (dark) and 4.42:1 (light) -- both under the 4.5:1 AA
+     floor, and at 10.9px/600 the large-text carve-out does not apply
+     (audit C, finding M6). One step of separation each way clears it
+     with margin: 5.4:1 dark, 5.8:1 light. Scoped to that badge so the
+     --sage accent everywhere else is untouched. */
+  --sage-strong: #93a884;
 
   /* Semantic Tokens */
   --error: #e65c5c;
@@ -78,6 +87,7 @@
   --rose-dim: #7d3140;
   --rose-text: var(--rose); /* already >=4.5:1 as text in light mode */
   --sage: #4f6a45;
+  --sage-strong: #41573a;
 
   /* Semantic Tokens */
   --error: #d13b3b;
@@ -113,6 +123,7 @@
     --rose-dim: #7d3140;
     --rose-text: var(--rose);
     --sage: #4f6a45;
+    --sage-strong: #41573a;
     --error: #d13b3b;
     --success: #276030;
     --shadow: 0 12px 26px -14px rgba(60, 40, 20, 0.28);
@@ -3309,26 +3320,45 @@ section {
   .carousel-dots {
     display: flex;
     justify-content: center;
-    gap: 8px;
+    gap: 0;
     margin-top: 16px;
   }
+  /* WCAG 2.2 SC 2.5.8 wants a 24x24 CSS-pixel target. These were 10x10 with
+     an 8px gap, so axe measured 12px of safe clickable space -- the only
+     violation in the whole static sweep (audit C, finding L1). The BUTTON is
+     now 24x24 and the 10px dot is drawn by ::before, so nothing looks
+     different; the gap drops to 0 because the padding now supplies the
+     visual spacing (24px pitch vs the old 18px) and touching 24x24 targets
+     still satisfy the SC. */
   .carousel-dot {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    padding: 0;
+  }
+  .carousel-dot::before {
+    content: "";
+    display: block;
     width: 10px;
     height: 10px;
     border-radius: 50%;
     border: 1.5px solid var(--paper-dim);
     background: transparent;
-    cursor: pointer;
-    padding: 0;
+    box-sizing: border-box;
     transition:
       background 0.25s,
       border-color 0.25s;
   }
-  .carousel-dot.active {
+  .carousel-dot.active::before {
     background: var(--whiskey);
     border-color: var(--whiskey);
   }
-  .carousel-dot:hover {
+  .carousel-dot:hover::before {
     border-color: var(--paper);
   }
 }
@@ -3555,10 +3585,20 @@ hr.rule {
     }
   }
 
+  /* The bar's link was a 676x14px strip -- a full-width tap target 14px tall
+     on a phone, sitting between the skip link and the brand link in the tab
+     order (audit C, finding L10). axe exempts it as inline text, so this is
+     a judgement call rather than a violation, but 24px costs nothing. The
+     negative block margin cancels the padding's effect on layout, so the bar
+     itself is exactly as tall as it was. */
   & a {
     color: inherit;
     text-decoration: underline;
     text-underline-offset: 2px;
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    margin-block: -5px;
   }
 
   & + .site-header {
@@ -3568,6 +3608,23 @@ hr.rule {
 
 .events-countdown-banner {
   font-variant-numeric: tabular-nums;
+}
+
+/* The "Next Live Appearance" hero restates the first upcoming event, which
+   the list below already publishes with its own <h3>. It is styled like a
+   heading but is a <p>, so the same event name no longer appears twice in
+   the document outline (audit C, nit N5). Values copied from the h3 rule
+   near the top of this file plus the inline font-family the card used. */
+.countdown-card-title {
+  margin: 0.4rem 0 0.6rem;
+  font-family: var(--font-heading, var(--font-display));
+  font-size: clamp(1.05rem, 2.5vw, 1.35rem);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  line-height: 1.15;
+  color: var(--paper);
+  text-wrap: balance;
+  overflow-wrap: break-word;
 }
 
 /* ── Cart shipping progress bar ───────────────────────── */
@@ -6442,6 +6499,16 @@ dialog.global-search-modal::backdrop {
   outline: none;
 }
 
+/* The ARIA grid cell that wraps the row's main link (see setResultsGridRole()
+   in main.js). Purely structural -- it inherits the flex behaviour the link
+   used to have directly, so the row looks byte-identical to before. */
+.search-item-cell {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .search-item-main {
   display: flex;
   align-items: center;
@@ -6531,8 +6598,10 @@ dialog.global-search-modal::backdrop {
   padding: 1px 6px;
   border-radius: 4px;
   background: rgba(92, 168, 108, 0.15);
-  color: var(--sage);
-  border: 1px solid var(--sage);
+  /* --sage-strong, not --sage: see the token's comment at the top of this
+     file. This is the only badge in the shop that was failing contrast. */
+  color: var(--sage-strong);
+  border: 1px solid var(--sage-strong);
   font-weight: 600;
 }
 

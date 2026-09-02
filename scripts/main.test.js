@@ -629,6 +629,42 @@ eq(
   '<span class="price">$8.00</span>',
   "priceHTML ignores originalPrice without an active sale"
 );
+/* A card must never advertise the CEILING. frankincense-salve's base is
+   $19.99 with a 1oz option at -$6.00, so its own AggregateOffer floors at
+   $13.99 and Google could surface "from $13.99" against a card that says
+   $19.99 (audit C, finding L8). Every other variant product has
+   priceDelta >= 0 from a base that already is the lowest, and those must
+   keep rendering a plain price. */
+eq(
+  main.priceHTML({
+    id: "frankincense-salve",
+    price: 19.99,
+    variants: { name: "Size", options: [{ label: "2oz" }, { label: "1oz", priceDelta: -6 }] }
+  }),
+  '<span class="price">From $13.99</span>',
+  "priceHTML says From <floor> when a variant is cheaper than the base price"
+);
+eq(
+  main.priceHTML({
+    id: "y",
+    price: 10,
+    variants: { name: "Size", options: [{ label: "2 oz" }, { label: "4 oz", priceDelta: 4 }] }
+  }),
+  '<span class="price">$10.00</span>',
+  "priceHTML leaves a base-is-cheapest product alone"
+);
+eq(
+  main.priceHTML({
+    id: "z",
+    price: 19.99,
+    variants: {
+      name: "Size",
+      options: [{ label: "2oz" }, { label: "1oz", priceDelta: -6, soldOut: true }]
+    }
+  }),
+  '<span class="price">$19.99</span>',
+  "priceHTML ignores a sold-out cheaper variant -- it is not buyable"
+);
 
 /* 1c. ratingHTML -- shows from 1 real review now, not 3+ (docs/research-
    2026-09-01/research-K-reviews-ugc.md §3/§5). */

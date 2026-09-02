@@ -13,7 +13,7 @@ window.YL_CONTENT = {
     "footerTagline": "Southern-raised, alt-inspired self-care, salves, soaks, body care, and apparel. Queer-owned and small-batch brewed in Landrum, SC.",
     "announcement": {
       "enabled": true,
-      "text": "Free shipping on orders over $40 ✦ Small-batch, handmade with love in Landrum, SC",
+      "text": "Free shipping on orders of $40 or more ✦ Small-batch, handmade with love in Landrum, SC",
       "link": "shop.html",
       "accent": "default"
     },
@@ -84,7 +84,7 @@ window.YL_CONTENT = {
     }
   },
   "home": {
-    "promoBanner": "Free shipping on orders over $40 ✦ Small-batch, handmade with love in Landrum, SC",
+    "promoBanner": "Free shipping on orders of $40 or more ✦ Small-batch, handmade with love in Landrum, SC",
     "heroTitle": "Self-Care For The Black Sheep & Bold Hearts",
     "heroText": "For anybody who's ever been told they're a little too much: taking up space and smelling amazing was always the plan.",
     "heroImage": "assets/img/unisex-tshirt.jpg",
@@ -214,10 +214,10 @@ window.YL_CONTENT = {
   "quiz": {
     "eyebrow": "✦ INTERACTIVE APOTHECARY ✦",
     "title": "Find Your Custom Self-Care Match",
-    "subtitle": "Answer 3 quick questions in our popup quiz to discover your personalized salve, soak, or potion prescription.",
+    "subtitle": "Answer 3 quick questions in our popup quiz to discover your personalized salve, soak, or potion match.",
     "buttonText": "Take the Quiz",
     "modalTitle": "Find Your Custom Self-Care Match",
-    "modalSubtitle": "Answer 3 quick questions to discover your personalized salve, soak, or potion prescription.",
+    "modalSubtitle": "Answer 3 quick questions to discover your personalized salve, soak, or potion match.",
     "questions": [
       {
         "id": "vibe",

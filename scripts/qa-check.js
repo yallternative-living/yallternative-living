@@ -847,6 +847,588 @@ try {
   fail("top-level .md block-rule check", e.message);
 }
 
+/* ---------- 10b) Netlify HTML post-processing is off, and every
+   extensionless twin 301s to its canonical .html (audit C: C1, M8, L6)
+   ----------------------------------------------------------------------
+   Netlify's deploy-time rewriter re-serialised attributes with single
+   quotes, so `aria-label="Y'allternative Living home"` was truncated at
+   the apostrophe and the site's primary home link announced as "Y" on all
+   36 pages. Nothing in this repo could see it: the committed bytes were
+   correct and axe's link-name rule passes as long as SOME name exists.
+   The only place that failure is visible from here is the config that
+   switches the rewriter off, so assert it. */
+section("Netlify HTML post-processing off + clean-URL 301s (netlify.toml)");
+try {
+  var procToml = fs.readFileSync(path.join(ROOT, "netlify.toml"), "utf8");
+  if (/\[build\.processing\.html\]\s*\n\s*pretty_urls\s*=\s*false/.test(procToml)) {
+    ok("netlify.toml sets [build.processing.html] pretty_urls = false");
+  } else {
+    fail(
+      "netlify.toml does not disable Netlify's HTML rewriter",
+      "add [build.processing.html] pretty_urls = false to the template in scripts/build-security-headers.js"
+    );
+  }
+  /* Netlify end-of-serviced Asset Optimization on 2023-10-17. Writing the
+     dead switch would read as a working guard that guards nothing -- the
+     exact failure mode AGENTS.md calls "checks that stop checking". */
+  if (/^[^#\n]*\bskip_processing\s*=/m.test(procToml)) {
+    fail(
+      "netlify.toml writes the retired skip_processing key",
+      "Netlify removed that feature in 2023; pretty_urls = false is the live switch"
+    );
+  } else {
+    ok("netlify.toml does not write the retired skip_processing no-op");
+  }
+
+  var shippedPages = fs.readdirSync(ROOT).filter(function (f) {
+    return /\.html$/.test(f);
+  });
+  var productPagesForRedirects = fs.existsSync(path.join(ROOT, "products"))
+    ? fs.readdirSync(path.join(ROOT, "products")).filter(function (f) {
+        return /\.html$/.test(f);
+      })
+    : [];
+  shippedPages = shippedPages.concat(
+    productPagesForRedirects.map(function (f) {
+      return "products/" + f;
+    })
+  );
+  /* index.html's canonical is the extensionless "/" (nothing to redirect to),
+     safety.html keeps its printed-on-the-packaging status=200 rewrite, and
+     404.html is asserted separately below with status 404. */
+  var redirectSkip = ["index.html", "safety.html", "404.html"];
+  var wantRedirects = shippedPages.filter(function (f) {
+    return redirectSkip.indexOf(f) === -1;
+  });
+  if (wantRedirects.length < 20) {
+    fail(
+      "clean-URL redirect check found almost no pages",
+      "expected the top-level pages plus 20 PDPs, got " + wantRedirects.length
+    );
+  } else {
+    var missingRedirects = wantRedirects.filter(function (rel) {
+      var clean = "/" + rel.replace(/\.html$/, "");
+      var re = new RegExp(
+        '\\[\\[redirects\\]\\]\\s*\\n\\s*from = "' +
+          clean.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") +
+          '"\\s*\\n\\s*to = "/' +
+          rel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") +
+          '"\\s*\\n\\s*status = 301\\s*\\n\\s*force = true'
+      );
+      return !re.test(procToml);
+    });
+    if (missingRedirects.length === 0) {
+      ok("all " + wantRedirects.length + " extensionless twins 301 to their canonical .html");
+    } else {
+      fail(
+        "netlify.toml is missing clean-URL 301s",
+        missingRedirects.join(", ") + " -- re-run npm run build-security-headers"
+      );
+    }
+  }
+  /* A catch-all here would sit in the same ordered list as the /api/* proxy
+     that carries the entire money path. Never generate one. */
+  if (/from = "\/\*"/.test(procToml)) {
+    fail(
+      'netlify.toml carries a catch-all from = "/*" redirect',
+      "it can shadow the /api/* Cloudflare Worker proxy -- use explicit per-page rules"
+    );
+  } else {
+    ok("no catch-all redirect that could shadow the /api/* checkout proxy");
+  }
+
+  ["/404", "/404.html"].forEach(function (p) {
+    var re = new RegExp(
+      '\\[\\[redirects\\]\\]\\s*\\n\\s*from = "' +
+        p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") +
+        '"\\s*\\n\\s*to = "/404\\.html"\\s*\\n\\s*status = 404'
+    );
+    if (re.test(procToml)) ok(p + " is configured to answer HTTP 404, not 200");
+    else fail(p + " still answers 200", "add a status = 404 rule for it");
+  });
+} catch (e) {
+  fail("netlify.toml post-processing / clean-URL check", e.message);
+}
+
+/* ---------- 10c) brand link + nav label are serializer-proof (C1, N3) ----- */
+section("Header chrome: entity-escaped brand label + named nav landmark");
+(function () {
+  var chromePages = PAGES.slice();
+  var productsDirForChrome = path.join(ROOT, "products");
+  if (fs.existsSync(productsDirForChrome)) {
+    fs.readdirSync(productsDirForChrome)
+      .filter(function (f) {
+        return /\.html$/.test(f);
+      })
+      .forEach(function (f) {
+        chromePages.push("products/" + f);
+      });
+  }
+  if (chromePages.length < 30) {
+    fail(
+      "header-chrome check has almost nothing to scan",
+      "expected 16 top-level pages plus 20 PDPs, got " + chromePages.length
+    );
+    return;
+  }
+  var rawApostrophe = [];
+  var entityMissing = [];
+  var navUnlabelled = [];
+  chromePages.forEach(function (rel) {
+    var p = path.join(ROOT, rel);
+    if (!fs.existsSync(p)) return;
+    var text = fs.readFileSync(p, "utf8");
+    if (text.indexOf('class="brand"') === -1) return;
+    if (text.indexOf('aria-label="Y\'allternative Living home"') !== -1) rawApostrophe.push(rel);
+    if (text.indexOf('aria-label="Y&#39;allternative Living home"') === -1) entityMissing.push(rel);
+    if (text.indexOf('<nav class="nav" aria-label="Main Navigation">') === -1) {
+      navUnlabelled.push(rel);
+    }
+  });
+  if (rawApostrophe.length === 0) {
+    ok("no page writes the brand aria-label with a raw apostrophe");
+  } else {
+    fail(
+      "brand aria-label carries a raw apostrophe",
+      rawApostrophe.join(", ") + " -- write it as Y&#39;allternative so no serializer can split it"
+    );
+  }
+  if (entityMissing.length === 0) {
+    ok("all " + chromePages.length + " pages carry the entity-escaped brand aria-label");
+  } else {
+    fail("brand aria-label missing or altered", entityMissing.join(", "));
+  }
+  if (navUnlabelled.length === 0) {
+    ok('every <nav class="nav"> carries aria-label="Main Navigation"');
+  } else {
+    fail(
+      "nav landmark is unlabelled on some pages",
+      navUnlabelled.join(", ") + " -- the generated PDPs and hand-written pages must agree"
+    );
+  }
+})();
+
+/* ---------- 10d) Coming-soon PDPs tell the truth (audit C: H1, H2, H3) ----
+   Five products are pre-launch. Their PDPs used to render the physical
+   trust strip unconditionally ("ships in 1-3 business days", "Secure
+   checkout by Stripe") directly under their own October batch date and
+   notify-me form (H2); tell visitors "No reviews of this one yet" about
+   products whose real Etsy reviews /reviews.html publishes on the same site
+   (H1); and hand an SVG to og:image and to schema.org Product.image, where
+   no social-card renderer and no product feed accepts one (H3). */
+section("Coming-soon PDPs: no false shipping/checkout, no false 'no reviews', raster images");
+(function () {
+  var comingSoonProducts = [];
+  var allProductsForPdp = [];
+  try {
+    var pj = JSON.parse(fs.readFileSync(path.join(ROOT, "assets/data/products.json"), "utf8"));
+    allProductsForPdp = pj.products || [];
+    comingSoonProducts = allProductsForPdp.filter(function (p) {
+      return p && p.comingSoon === true;
+    });
+  } catch (e) {
+    fail("coming-soon PDP check could not read products.json", e.message);
+    return;
+  }
+  if (!allProductsForPdp.length) {
+    fail("coming-soon PDP check has no catalogue to scan", "products.json parsed to zero products");
+    return;
+  }
+  if (!comingSoonProducts.length) {
+    /* Not a failure -- but say so out loud rather than printing a green tick
+       for a check that examined nothing. */
+    console.log("  (no comingSoon products in the catalogue right now -- H1/H2 have no subject)");
+  }
+
+  var reviewsById = {};
+  try {
+    var rj = JSON.parse(fs.readFileSync(path.join(ROOT, "assets/data/site-reviews.json"), "utf8"));
+    (rj.reviews || []).forEach(function (r) {
+      if (!r || !r.productId) return;
+      (reviewsById[r.productId] = reviewsById[r.productId] || []).push(r);
+    });
+  } catch (e) {
+    fail("coming-soon PDP check could not read site-reviews.json", e.message);
+    return;
+  }
+
+  var FALSE_ON_A_PRELAUNCH_PAGE = [
+    "ships from Landrum, SC in 1&ndash;3 business days",
+    "Secure checkout by Stripe",
+    "exchange within 14 days"
+  ];
+  comingSoonProducts.forEach(function (p) {
+    var pdp = path.join(ROOT, "products", p.id + ".html");
+    if (!fs.existsSync(pdp)) {
+      fail(p.id + ": PDP missing", "run npm run build-data");
+      return;
+    }
+    var html = fs.readFileSync(pdp, "utf8");
+    var lied = FALSE_ON_A_PRELAUNCH_PAGE.filter(function (s) {
+      return html.indexOf(s) !== -1;
+    });
+    if (lied.length === 0) {
+      ok(p.id + ": pre-launch PDP promises no shipping window, checkout or return clock");
+    } else {
+      fail(
+        p.id + ": pre-launch PDP still promises things it cannot do",
+        lied.join(" | ") + " -- gate renderPdpTrustHtml() on comingSoon"
+      );
+    }
+    if (p.estimatedBatchDate) {
+      if (html.indexOf("estimated batch date " + p.estimatedBatchDate) !== -1) {
+        ok(p.id + ": trust strip states the real batch date (" + p.estimatedBatchDate + ")");
+      } else {
+        fail(p.id + ": trust strip does not state the batch date", p.estimatedBatchDate);
+      }
+    }
+    var mine = reviewsById[p.id] || [];
+    if (mine.length) {
+      if (html.indexOf("No reviews of this one yet") === -1) {
+        ok(p.id + ": does not claim 'no reviews' while " + mine.length + " are published");
+      } else {
+        fail(
+          p.id + ": PDP says 'No reviews of this one yet'",
+          "but site-reviews.json publishes " + mine.length + " review(s) of it"
+        );
+      }
+      var missing = mine.filter(function (r) {
+        return html.indexOf(escapeHtml(r.text)) === -1;
+      });
+      if (missing.length === 0) {
+        ok(p.id + ": all " + mine.length + " real reviews are rendered on the PDP");
+      } else {
+        fail(p.id + ": PDP drops " + missing.length + " of its own published reviews", "");
+      }
+      if (html.indexOf('<p class="pdp-reviews-summary"><span class="stars"') === -1) {
+        ok(p.id + ": no averaged star rating advertised for an unreleased batch");
+      } else {
+        fail(p.id + ": pre-launch PDP advertises an averaged star rating", "");
+      }
+    }
+  });
+
+  /* H3 applies to the whole catalogue, not just today's five: an SVG must
+     never reach a social card or a product feed from any product. */
+  var svgInSocial = [];
+  allProductsForPdp.forEach(function (p) {
+    var pdp = path.join(ROOT, "products", p.id + ".html");
+    if (!fs.existsSync(pdp)) return;
+    var html = fs.readFileSync(pdp, "utf8");
+    var metaHits =
+      html.match(/<meta (?:property="og:image"|name="twitter:image") content="[^"]*"/g) || [];
+    if (!metaHits.length) {
+      svgInSocial.push(p.id + " (no og:image at all)");
+      return;
+    }
+    metaHits.forEach(function (tag) {
+      if (/\.svg"/i.test(tag)) svgInSocial.push(p.id + " " + tag);
+    });
+    var ld = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g) || [];
+    ld.forEach(function (block) {
+      var body = block.replace(/^<script[^>]*>/, "").replace(/<\/script>$/, "");
+      var parsed;
+      try {
+        parsed = JSON.parse(body);
+      } catch (e) {
+        return;
+      }
+      if (!parsed || parsed["@type"] !== "Product") return;
+      var imgs = [].concat(parsed.image || []);
+      imgs.forEach(function (u) {
+        if (/\.svg$/i.test(String(u))) svgInSocial.push(p.id + " JSON-LD image " + u);
+      });
+    });
+  });
+  if (svgInSocial.length === 0) {
+    ok("no PDP hands an SVG to og:image, twitter:image or schema.org Product.image");
+  } else {
+    fail(
+      "SVG reaching a social card or product feed",
+      svgInSocial.join(", ") + " -- route it through rasterImagePath() in build-site-data.js"
+    );
+  }
+  [
+    "assets/img/placeholder-coming-soon-og.jpg",
+    "assets/img/placeholder-coming-soon-1200.png"
+  ].forEach(function (rel) {
+    if (fs.existsSync(path.join(ROOT, rel))) ok(rel + " exists on disk");
+    else fail(rel + " is missing", "regenerate it -- see rasterImagePath() in build-site-data.js");
+  });
+})();
+
+/* ---------- 10e) Live chat coverage matches what the privacy policy says
+   (audit C, findings L3 and M9) -----------------------------------------
+   The Tawk.to loader shipped on the 16 hand-written pages and on none of
+   the 20 PDPs, while /privacy.html told readers it was "live on nearly
+   every page of this site". 16 of 37 is not nearly every page, and the
+   PDPs are exactly where a shopper has a question. Both halves are asserted
+   here, together, because either one alone can drift into a lie. */
+section("Live chat coverage (all PDPs) matches the privacy policy's claim");
+(function () {
+  var pdpDir = path.join(ROOT, "products");
+  if (!fs.existsSync(pdpDir)) {
+    fail("chat-coverage check found no products/ directory", "run npm run build-data");
+    return;
+  }
+  var pdps = fs.readdirSync(pdpDir).filter(function (f) {
+    return /\.html$/.test(f);
+  });
+  if (pdps.length < 15) {
+    fail("chat-coverage check has almost no PDPs to scan", pdps.length + " found");
+    return;
+  }
+  var withoutChat = pdps.filter(function (f) {
+    var text = fs.readFileSync(path.join(pdpDir, f), "utf8");
+    return text.indexOf("embed.tawk.to/") === -1 || text.indexOf("Tawk_LoadStart") === -1;
+  });
+  if (withoutChat.length === 0) {
+    ok("all " + pdps.length + " product pages ship the deferred Tawk.to chat loader");
+  } else {
+    fail(
+      withoutChat.length + " product page(s) ship no chat loader",
+      withoutChat.join(", ") + " -- see renderTawkChatHtml() in build-site-data.js"
+    );
+  }
+  /* The loader must stay deferred behind a real interaction: an idle-timeout
+     fallback put the widget's iframe on screen with no user input and cost
+     0.047 CLS on every page. */
+  var eager = pdps.filter(function (f) {
+    var text = fs.readFileSync(path.join(pdpDir, f), "utf8");
+    return text.indexOf('["pointerdown", "keydown", "scroll", "touchstart"]') === -1;
+  });
+  if (eager.length === 0) ok("the PDP chat loader is deferred behind first interaction");
+  else fail("PDP chat loader is not deferred", eager.join(", "));
+
+  var privacyText = fs.readFileSync(path.join(ROOT, "privacy.html"), "utf8");
+  if (/live on nearly every page/.test(privacyText)) {
+    fail(
+      "privacy.html still says the chat is on 'nearly every page'",
+      "it is on every page now -- say so, or say the real number"
+    );
+  } else if (/live on every page of this site/.test(privacyText)) {
+    ok("privacy.html states the real (now complete) chat coverage");
+  } else {
+    fail("privacy.html no longer describes chat coverage at all", "M9 asked for a true claim");
+  }
+  /* The other half of M9: #reviewForm is on shop, reviews AND all 20 PDPs.
+     The policy named 2 of 22 locations, and "where" is what a reader checks
+     a privacy policy for. */
+  var reviewFormPages = [];
+  ["shop.html", "reviews.html"].forEach(function (rel) {
+    if (fs.readFileSync(path.join(ROOT, rel), "utf8").indexOf('id="reviewForm"') !== -1) {
+      reviewFormPages.push(rel);
+    }
+  });
+  pdps.forEach(function (f) {
+    if (fs.readFileSync(path.join(pdpDir, f), "utf8").indexOf('id="reviewForm"') !== -1) {
+      reviewFormPages.push("products/" + f);
+    }
+  });
+  if (reviewFormPages.length > 2) {
+    if (/on every product page/.test(privacyText)) {
+      ok(
+        "privacy.html lists product pages among the " +
+          reviewFormPages.length +
+          " places the review form actually appears"
+      );
+    } else {
+      fail(
+        "privacy.html under-reports where the review form lives",
+        "it is on " + reviewFormPages.length + " pages, including every PDP"
+      );
+    }
+  } else {
+    fail("review-form sweep found it on 2 pages or fewer", "expected shop, reviews and 20 PDPs");
+  }
+})();
+
+/* ---------- 10f) Copy that contradicted other copy (audit C: M1-M5, L11)
+   ----------------------------------------------------------------------
+   These are one-line regressions to re-introduce and impossible to spot by
+   reading a diff, so each is pinned against the shipped page or the CMS
+   source it comes from. */
+section("Content integrity: claims the rest of the site contradicts");
+(function () {
+  var catalog;
+  var content;
+  try {
+    catalog = JSON.parse(fs.readFileSync(path.join(ROOT, "assets/data/products.json"), "utf8"));
+    content = JSON.parse(fs.readFileSync(path.join(ROOT, "assets/data/content.json"), "utf8"));
+  } catch (e) {
+    fail("content-integrity check could not read the CMS sources", e.message);
+    return;
+  }
+  var products = catalog.products || [];
+  if (!products.length) {
+    fail("content-integrity check has no products to scan", "products.json parsed empty");
+    return;
+  }
+
+  /* M1 -- "prescription" is drug vocabulary, on the same page as the
+     sitewide "not medicine" disclaimer, in the shop's own words.
+
+     Checked in BOTH places it lives. shop.html's quiz banner and modal
+     subtitles are hand-written static copy, NOT wrapped in a YL: marker, so
+     an earlier version of this check that read only content.json reported
+     green while the shipped page still said "prescription" twice. Assert
+     the bytes production serves as well as the CMS source. */
+  var quiz = content.quiz || {};
+  var quizCopy = [quiz.subtitle, quiz.modalSubtitle].join(" ");
+  if (!quizCopy.trim()) {
+    fail("quiz copy is empty in content.json", "nothing to check for M1");
+  } else if (/prescription/i.test(quizCopy)) {
+    fail(
+      "content.json's quiz copy offers a 'prescription'",
+      "the footer on that same page says 'not medicine'"
+    );
+  } else {
+    ok("content.json's quiz copy offers a match, not a prescription");
+  }
+  var drugWordPages = [];
+  var quizBannerSeen = false;
+  PAGES.forEach(function (rel) {
+    var fp = path.join(ROOT, rel);
+    if (!fs.existsSync(fp)) return;
+    var text = fs.readFileSync(fp, "utf8");
+    if (/Answer 3 quick questions/i.test(text)) quizBannerSeen = true;
+    if (/prescription/i.test(text)) drugWordPages.push(rel);
+  });
+  if (!quizBannerSeen) {
+    fail("the quiz banner copy was not found on any page", "M1 has no shipped subject to check");
+  } else if (drugWordPages.length === 0) {
+    ok("no shipped page uses the word 'prescription'");
+  } else {
+    fail("'prescription' still ships on a page", drugWordPages.join(", "));
+  }
+  /* The quiz's RESULT header is built at runtime by main.js, so it is on no
+     page for the sweep above to find -- and that is exactly how the first
+     pass at this fix missed it. The word also appears in
+     SEARCH_SYNONYM_BANNED in build-site-data.js: this repo already refuses
+     "prescription" as a search synonym because it reads as a treatment
+     claim, while the shop's own quiz was saying it out loud. */
+  var quizResultCopy = fs.readFileSync(path.join(ROOT, "assets/js/main.js"), "utf8");
+  if (quizResultCopy.indexOf("Your Apothecary Match") === -1) {
+    fail("the quiz result header is missing from main.js", "M1 has no runtime subject to check");
+  } else if (/Your Apothecary Prescription/i.test(quizResultCopy)) {
+    fail("the quiz still hands the shopper a 'Prescription'", "assets/js/main.js result card");
+  } else {
+    ok("the quiz result card offers a match, not a prescription");
+  }
+
+  /* M2 -- a known contact allergen in the ingredient list must be named in
+     the safety-facing copy, not just buried in the INCI string. */
+  var allergenMisses = products.filter(function (p) {
+    var ing = (p.ingredients || []).join(" ");
+    if (!/methylisothiazolinone/i.test(ing)) return false;
+    var safetyCopy = [(p.usageGuide || {}).patchTest, p.ingredientsNote].join(" ");
+    return !/methylisothiazolinone/i.test(safetyCopy);
+  });
+  if (allergenMisses.length === 0) {
+    ok("every product containing methylisothiazolinone names it in its own safety copy");
+  } else {
+    fail(
+      "a known contact allergen is disclosed only in the INCI string",
+      allergenMisses
+        .map(function (p) {
+          return p.id;
+        })
+        .join(", ")
+    );
+  }
+
+  /* M3 -- "pure essential oils" is not true of a formula carrying a
+     synthetic preservative system. */
+  var purityOverclaims = products.filter(function (p) {
+    var copy = [(p.usageGuide || {}).patchTest, p.blurb, p.ingredientsNote].join(" ");
+    if (!/pure\s+essential\s+oils/i.test(copy)) return false;
+    return /germall|preservative|phenoxyethanol|diazolidinyl|urea/i.test(
+      (p.ingredients || []).join(" ")
+    );
+  });
+  if (purityOverclaims.length === 0) {
+    ok("no preserved formula describes itself as 'pure essential oils'");
+  } else {
+    fail(
+      "'pure essential oils' claimed for a preserved formula",
+      purityOverclaims
+        .map(function (p) {
+          return p.id;
+        })
+        .join(", ")
+    );
+  }
+
+  /* M4 -- the site's only affirmative pet-safety claim, on a mist built
+     from cedar and sage essential oils. No veterinary source supports it. */
+  var petClaims = products.filter(function (p) {
+    var copy = [p.blurb, p.ingredientsNote, (p.usageGuide || {}).howToApply].join(" ");
+    return /safe (?:around|for) pets|pet[- ]safe|safe around cats/i.test(copy);
+  });
+  if (petClaims.length === 0) {
+    ok("no product makes an affirmative pet-safety claim");
+  } else {
+    fail(
+      "affirmative pet-safety claim in product copy",
+      petClaims
+        .map(function (p) {
+          return p.id;
+        })
+        .join(", ") + " -- use access-control wording instead"
+    );
+  }
+
+  /* M5 -- the FAQ and policies used to send shoppers to the product page
+     for a per-item processing time that does not exist: 19 of 19 physical
+     products carry the identical 1-3 day line. Assert BOTH halves: that the
+     redirection is gone, and that the thing it lied about is still true. */
+  var faqShipping = (catalog.faq || []).filter(function (f) {
+    return /ship|processing/i.test(f.question || "");
+  });
+  if (!faqShipping.length) {
+    fail("no shipping FAQ entry found", "M5 has no subject");
+  } else {
+    var stillRedirects = faqShipping.filter(function (f) {
+      return /check the (?:specific )?product (?:description|page)/i.test(f.answer || "");
+    });
+    if (stillRedirects.length === 0) {
+      ok("the shipping FAQ answers the processing-time question instead of deferring it");
+    } else {
+      fail(
+        "the FAQ still defers processing time to the product page",
+        "every physical product states the same 1-3 business days"
+      );
+    }
+  }
+  var policiesText = fs.readFileSync(path.join(ROOT, "policies.html"), "utf8");
+  if (/processing times vary by product/i.test(policiesText)) {
+    fail("policies.html still says processing times vary by product", "they do not");
+  } else {
+    ok("policies.html states the real processing time");
+  }
+
+  /* L11 -- workers/checkout.js waives shipping at >= the threshold, so an
+     exactly-$40.00 cart ships free. "over $40" left that case undefined. */
+  var overFortyPages = [];
+  ["policies.html", "faq.html", "index.html", "shop.html"].forEach(function (rel) {
+    var fp = path.join(ROOT, rel);
+    if (!fs.existsSync(fp)) return;
+    if (/(?:orders?|shipping)[^<.]{0,40}\bover \$\d/i.test(fs.readFileSync(fp, "utf8"))) {
+      overFortyPages.push(rel);
+    }
+  });
+  var announcement = (content.site && content.site.announcement) || {};
+  if (/over \$\d/.test(String(announcement.text || ""))) overFortyPages.push("content.json banner");
+  if (overFortyPages.length === 0) {
+    ok('free-shipping copy says "$40 or more", matching the >= the Worker actually applies');
+  } else {
+    fail(
+      'free-shipping copy still says "over $40"',
+      overFortyPages.join(", ") + " -- the Worker ships a $40.00 cart free"
+    );
+  }
+})();
+
 /* ---------- 11) aggregateRating JSON-LD sanity (shop.html) ---------- */
 section("Per-product aggregateRating JSON-LD");
 var shopHtml = fs.readFileSync(path.join(ROOT, "shop.html"), "utf8");
@@ -1080,25 +1662,58 @@ if (Object.keys(tawkTexts).length === PAGES.length && tawkUnique.length === 1) {
   );
 }
 
-/* ---------- 16) Gift Up (gift cards) container present ---------- */
-section("Gift Up! gift-card container present (shop.html)");
-if (/id="giftUpContainer"/.test(shopHtml)) {
-  ok("shop.html has #giftUpContainer");
-  if (/YOUR_GIFTUP_ID/.test(shopHtml) || /YL:site.giftUpId/.test(shopHtml)) {
-    console.log(
-      "  (still the placeholder -- expected until Savanna has a real Gift Up! account, see DEVELOPMENT.md section 18)"
-    );
-  } else {
-    ok(
-      "placeholder text has been replaced with a real embed (or something else) -- if this is a real Gift Up! snippet, nice"
-    );
+/* ---------- 16) The retired Gift Up! placeholder stays deleted ----------
+   This section used to assert the OPPOSITE: that shop.html still carried a
+   hidden #giftUpContainer holding the literal string YOUR_GIFTUP_ID. That
+   was an unshipped integration for a service the shop replaced with its own
+   Cloudflare Worker gift-card system, and it was live in production's DOM
+   on every visit to /shop.html (audit C, nit N2). The gift-card feature it
+   was supposedly guarding is asserted for real below -- the modal, the
+   balance lookup and the Worker route -- so nothing stopped being checked
+   when the dead node went. */
+section("Retired Gift Up! placeholder is gone; the real gift-card path is wired");
+(function () {
+  var giftUpLeftovers = [];
+  var allPagesForGiftUp = PAGES.slice();
+  var giftUpProducts = path.join(ROOT, "products");
+  if (fs.existsSync(giftUpProducts)) {
+    fs.readdirSync(giftUpProducts)
+      .filter(function (f) {
+        return /\.html$/.test(f);
+      })
+      .forEach(function (f) {
+        allPagesForGiftUp.push("products/" + f);
+      });
   }
-} else {
-  fail(
-    "shop.html",
-    "#giftUpContainer not found -- gift-card section may have been removed or renamed"
-  );
-}
+  if (allPagesForGiftUp.length < 30) {
+    fail("Gift Up! sweep has almost nothing to scan", allPagesForGiftUp.length + " page(s)");
+    return;
+  }
+  allPagesForGiftUp.forEach(function (rel) {
+    var fp = path.join(ROOT, rel);
+    if (!fs.existsSync(fp)) return;
+    var text = fs.readFileSync(fp, "utf8");
+    /* Comments explaining the removal are fine; a real element or the
+       marker the generator used to fill are not. */
+    if (/id="giftUpContainer"/.test(text) || /<!--YL:site\.giftUpId-->/.test(text)) {
+      giftUpLeftovers.push(rel);
+    }
+  });
+  if (giftUpLeftovers.length === 0) {
+    ok("no page ships the retired #giftUpContainer / YL:site.giftUpId placeholder");
+  } else {
+    fail("retired Gift Up! placeholder is back in the DOM", giftUpLeftovers.join(", "));
+  }
+  /* The feature that replaced it, asserted so this section still has a
+     subject: the shop's own gift-card modal and its balance lookup. */
+  if (/id="giftCardModal"/.test(shopHtml)) ok("shop.html has the on-site #giftCardModal");
+  else fail("shop.html", "#giftCardModal not found -- the gift-card section is missing");
+  if (/id="tabCheckGiftCardBalance"/.test(shopHtml)) {
+    ok("shop.html has the gift-card balance lookup tab");
+  } else {
+    fail("shop.html", "#tabCheckGiftCardBalance not found");
+  }
+})();
 
 /* ---------- 17) Shop on-site search wired ---------- */
 section("Shop on-site search wired");

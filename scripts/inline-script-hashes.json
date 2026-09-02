@@ -29,8 +29,8 @@
     },
     "sha256-X8kUvpVWVbaRRvoM1l6EpaLEU/5DbGswOGSfQfOEV4g=": {
       "what": "Tawk.to live-chat loader, deferred. Loads the widget SDK on the visitor's first pointerdown/keydown/scroll/touchstart, never on a timer: an idle-timeout fallback made the widget iframe land with no user input and register as a 0.047 layout shift on every page (2026-09-02). The two IDs still come from content.json via scripts/build-site-data.js, so this hash still changes whenever they change in /admin. Rehashed 2026-09-02 (live audit M-1): the loader used to call s1.setAttribute(\"crossorigin\", \"*\") -- not a value the enumerated attribute accepts, so the browser fell back to the anonymous state and made a CORS-mode fetch out of a request that needs no CORS, with no integrity hash to justify it. The diff was reviewed line by line before this hash was written down: it is that one line deleted and nothing else, so the snippet stays byte-identical everywhere it is emitted and one hash keeps covering every page that carries it.",
-      "emittedBy": "scripts/build-site-data.js (site.tawkToPropertyId / site.tawkToWidgetId markers)",
-      "pages": "all 16 top-level pages"
+      "emittedBy": "scripts/build-site-data.js (site.tawkToPropertyId / site.tawkToWidgetId markers on the 16 top-level pages; renderTawkChatHtml() on the 20 generated products/*.html)",
+      "pages": "all 16 top-level pages and all 20 generated products/*.html"
     },
     "sha256-gUmq6gOoZ76O8R+C9JLLJzm46Aj4WygKv4n1nBxUfUk=": {
       "what": "Speculation-rules JSON that main.js builds at runtime (JSON.stringify of its prerender/prefetch rules object) and appends as <script type=\"speculationrules\">. It is never present in the static HTML, so the page scan cannot see it; 'runtime: true' keeps it in the emitted CSP as belt-and-braces beside the 'inline-speculation-rules' keyword. If the rules object in main.js changes, recompute this hash from JSON.stringify(rules).",
