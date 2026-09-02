@@ -126,10 +126,12 @@ productsData.products.forEach((product) => {
     const ldBlocks = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g) || [];
     let parsedOk = true;
     const types = [];
+    let productLd = null;
     ldBlocks.forEach((b) => {
       try {
         const ld = JSON.parse(b.replace(/^<script[^>]*>/, "").replace(/<\/script>$/, ""));
         types.push(ld["@type"]);
+        if (ld["@type"] === "Product") productLd = ld;
       } catch (e) {
         parsedOk = false;
       }
@@ -139,6 +141,48 @@ productsData.products.forEach((product) => {
       types.includes("Product") && types.includes("BreadcrumbList"),
       `${product.id}: PDP carries Product and BreadcrumbList JSON-LD (got ${types.join(", ") || "none"})`
     );
+
+    /* The return policy Google reads has to agree with the one the shop
+       publishes. policies.html makes opened salves, scrubs, balms and soaks
+       FINAL SALE and offers a 14-day exchange only on unworn apparel and
+       still-sealed goods; every PDP nonetheless advertised a blanket 14-day
+       MerchantReturnFiniteReturnWindow, i.e. a return right on exactly the
+       products where it is refused (live audit M4). */
+    if (productLd) {
+      const FINAL_SALE_CATEGORIES = ["salves", "body", "soaks", "ritual", "potions"];
+      const offers = productLd.offers || {};
+      const policy = offers.hasMerchantReturnPolicy;
+      if (product.id === "yallternative-gift-card") {
+        assert(
+          !policy,
+          `${product.id}: emailed gift card advertises no return policy`,
+          JSON.stringify(policy || null)
+        );
+      } else if (FINAL_SALE_CATEGORIES.indexOf(product.category) !== -1) {
+        assert(
+          !!policy &&
+            policy.returnPolicyCategory === "https://schema.org/MerchantReturnNotPermitted",
+          `${product.id}: final-sale category "${product.category}" declares MerchantReturnNotPermitted`,
+          JSON.stringify((policy && policy.returnPolicyCategory) || null)
+        );
+        assert(
+          !!policy &&
+            policy.merchantReturnDays === undefined &&
+            policy.returnMethod === undefined &&
+            policy.returnFees === undefined,
+          `${product.id}: final-sale policy carries no return window, method or fee`,
+          JSON.stringify(policy || null)
+        );
+      } else {
+        assert(
+          !!policy &&
+            policy.returnPolicyCategory === "https://schema.org/MerchantReturnFiniteReturnWindow" &&
+            policy.merchantReturnDays === 14,
+          `${product.id}: exchangeable category "${product.category}" declares the real 14-day window`,
+          JSON.stringify(policy || null)
+        );
+      }
+    }
   }
   assert(
     !html.includes("#category-"),
