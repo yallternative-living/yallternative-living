@@ -8806,6 +8806,13 @@ hr.rule.safety-rule-tight + #reaction-report {
   display: block !important;
 }
 
+/* Same trick for the "this did not go through, email us" panel, so a no-JS
+   reporter caught by the honeypot is told the truth rather than being sent
+   back to a silent form (live audit M11). */
+#safetyEmailUs:target {
+  display: block !important;
+}
+
 /* PDP sticky bar on narrow phones (verify-C H-7): the variant select must not
    crush the name and price to nothing. */
 .pdp-sticky-info {
