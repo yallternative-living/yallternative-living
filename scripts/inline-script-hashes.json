@@ -32,6 +32,11 @@
       "emittedBy": "scripts/build-site-data.js (site.tawkToPropertyId / site.tawkToWidgetId markers)",
       "pages": "all 16 top-level pages"
     },
+    "sha256-X8kUvpVWVbaRRvoM1l6EpaLEU/5DbGswOGSfQfOEV4g=": {
+      "what": "Tawk.to live-chat loader on the 20 generated product pages. Byte-identical to the top-level pages' copy above EXCEPT that it does not call s1.setAttribute(\"crossorigin\", \"*\") -- that attribute is being removed sitewide (it is not a valid crossorigin value and buys nothing for a plain third-party script), so once the top-level pages drop the line too these two entries collapse into one hash and the other becomes stale. Diffed line by line against index.html's block before this hash was added: the crossorigin call is the only difference. Added for audit C finding L3 (chat was live on 16 of 37 pages and on none of the PDPs, which also made the privacy policy's coverage claim untrue -- finding M9).",
+      "emittedBy": "scripts/build-site-data.js renderTawkChatHtml() (site.tawkToPropertyId / site.tawkToWidgetId markers)",
+      "pages": "all 20 generated products/*.html"
+    },
     "sha256-gUmq6gOoZ76O8R+C9JLLJzm46Aj4WygKv4n1nBxUfUk=": {
       "what": "Speculation-rules JSON that main.js builds at runtime (JSON.stringify of its prerender/prefetch rules object) and appends as <script type=\"speculationrules\">. It is never present in the static HTML, so the page scan cannot see it; 'runtime: true' keeps it in the emitted CSP as belt-and-braces beside the 'inline-speculation-rules' keyword. If the rules object in main.js changes, recompute this hash from JSON.stringify(rules).",
       "emittedBy": "assets/js/main.js (speculation rules block, appended to <body> at runtime)",

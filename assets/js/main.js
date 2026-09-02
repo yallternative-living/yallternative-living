@@ -1472,11 +1472,45 @@
      sale price with the pre-sale price struck through -- the exact pattern
      bundlesHTML() already uses for a bundle's full price. No sale, no extra
      markup: renders the same bytes it always did. */
+  /* The cheapest option a shopper can actually buy. Almost every variant
+     product here has priceDelta >= 0 from a base that IS the cheapest, so
+     this just returns p.price -- but frankincense-salve's 1oz option is
+     -$6.00, which made its card advertise $19.99 while its own AggregateOffer
+     floors at $13.99, so Google could surface "from $13.99" against a page
+     saying $19.99 (audit C, finding L8). Sold-out options are excluded unless
+     they are all sold out, matching variantPriceRange() in
+     scripts/build-site-data.js so the card and the JSON-LD agree. */
+  function lowestBuyablePrice(p) {
+    if (!p || typeof p.price !== "number") return null;
+    var opts = p.variants && Array.isArray(p.variants.options) ? p.variants.options : [];
+    var open = opts.filter(function (o) {
+      return o && !o.soldOut;
+    });
+    var pool = open.length ? open : opts;
+    if (!pool.length) return p.price;
+    return Math.min.apply(
+      null,
+      pool.map(function (o) {
+        return p.price + (Number(o.priceDelta) || 0);
+      })
+    );
+  }
+
+  /* The floor price when the headline number would otherwise be the CEILING,
+     else null. Anything card-shaped runs through this before printing. */
+  function pricePrefixFrom(p) {
+    var low = lowestBuyablePrice(p);
+    return typeof low === "number" && low < p.price - 0.001 ? low : null;
+  }
+
   function priceHTML(p) {
     if (p.id === "yallternative-gift-card") {
       return '<span class="price">From $' + p.price.toFixed(2) + "</span>";
     }
-    var html = '<span class="price">$' + p.price.toFixed(2);
+    var from = pricePrefixFrom(p);
+    var html =
+      '<span class="price">' +
+      (from === null ? "$" + p.price.toFixed(2) : "From $" + from.toFixed(2));
     if (p.sale && typeof p.originalPrice === "number" && p.originalPrice > p.price) {
       html += ' <s class="original-price">$' + p.originalPrice.toFixed(2) + "</s>";
     }
@@ -2174,7 +2208,12 @@
         pct +
         "% off your entire custom bundle." +
         "</p>" +
-        '<div class="custom-box-tracker" aria-label="Box progress">' +
+        /* role="group", not a bare <div>: ARIA 1.2 prohibits aria-label on
+           the generic role, so "Box progress" was announced to nobody
+           (audit C, finding M7). Deliberately NOT role="status": this
+           whole card re-renders on every pick, and a live region here
+           would re-read the entire slot list on each click. */
+        '<div class="custom-box-tracker" role="group" aria-label="Box progress">' +
         trackerHtml +
         "</div>" +
         "</div>" +
@@ -3155,7 +3194,7 @@
         );
       })() +
       (p.id !== "yallternative-gift-card" && freeShipThreshold > 0
-        ? '<p style="font-size: 0.72rem; color: var(--whiskey); margin: 0 0 6px 0; text-align: center; font-weight: 600;">Free shipping over $' +
+        ? '<p style="font-size: 0.72rem; color: var(--whiskey); margin: 0 0 6px 0; text-align: center; font-weight: 600;">Free shipping at $' +
           freeShipThreshold +
           "</p>"
         : "") +
@@ -6110,7 +6149,10 @@
       var data = window.YL_PRODUCTS;
       var threshold = data && data.shop && data.shop.freeShippingThreshold;
       if (!threshold || threshold <= 0) return;
-      message = "✦ Free shipping on orders over $" + threshold + " ✦";
+      /* "or more", not "over": workers/checkout.js waives shipping at
+         >= the threshold, so a cart of exactly $40.00 ships free while the
+         old wording left that case undefined (audit C, finding L11). */
+      message = "✦ Free shipping on orders of $" + threshold + " or more ✦";
     }
 
     var accentClass = accent && accent !== "default" ? " announcement-accent-" + accent : "";
@@ -6418,7 +6460,11 @@
   function renderJournalTagsHtml(tags) {
     if (!Array.isArray(tags) || !tags.length) return "";
     return (
-      '<div class="journal-tags" aria-label="Article topics">' +
+      /* role="group": aria-label is prohibited on the generic role a bare
+         <div> gets, so this label was being dropped by most screen readers
+         (audit C, finding M7). These are real buttons, so a group is the
+         right wrapper. */
+      '<div class="journal-tags" role="group" aria-label="Article topics">' +
       tags
         .map(function (t) {
           return (
@@ -6964,9 +7010,15 @@
           '  <span class="card-cat" style="color: var(--whiskey); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;">' +
           nextAppCatHtml +
           "</span>" +
-          '  <h3 style="margin: 0.4rem 0 0.6rem; font-family: var(--font-heading);">' +
+          /* Not an <h3>: the "Next Live Appearance" hero repeats the very
+             next event, which the list below renders as its own card with
+             its own heading, so the page outline carried the same heading
+             text twice (audit C, nit N5). It is a restatement, not a new
+             section, so it is styled text now -- .countdown-card-title in
+             styles.css matches the h3 typography exactly. */
+          '  <p class="countdown-card-title">' +
           attrEsc(nextEvt.name) +
-          "</h3>" +
+          "</p>" +
           '  <p class="event-timer-clock" style="font-size: 1.1rem; margin: 0.2rem 0 0.4rem;"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg> <strong>' +
           timeStr +
           "</strong> until pop-up</p>" +
@@ -7421,7 +7473,7 @@
       if (results) {
         results.innerHTML =
           '<div class="card quiz-recommended-card reveal" style="max-width: 540px; margin: 0 auto; padding: 1.5rem; text-align: center; border: 2px solid var(--whiskey); background: var(--ink-3); color: var(--paper); border-radius: var(--radius-md);">' +
-          '  <span class="card-cat" style="color: var(--whiskey); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700;"><svg class="yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg> Your Apothecary Prescription</span>' +
+          '  <span class="card-cat" style="color: var(--whiskey); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700;"><svg class="yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg> Your Apothecary Match</span>' +
           '  <h3 style="font-family: var(--font-heading); margin: 0.5rem 0;">' +
           (match.isBundle
             ? attrEsc(match.name)
@@ -8057,6 +8109,7 @@
         } else if (!input.value) {
           if (chipsSection) chipsSection.hidden = false;
           if (resultsList) resultsList.innerHTML = "";
+          setResultsGridRole(false);
           if (clearBtn) clearBtn.hidden = true;
           if (resultCount) resultCount.textContent = "";
           input.setAttribute("aria-expanded", "false");
@@ -8110,6 +8163,7 @@
       if (!trimmed) {
         if (chipsSection) chipsSection.hidden = false;
         if (resultsList) resultsList.innerHTML = "";
+        setResultsGridRole(false);
         if (clearBtn) clearBtn.hidden = true;
         if (resultCount) resultCount.textContent = "";
         if (input) {
@@ -8128,6 +8182,40 @@
       renderResults(results);
     }
 
+    /* ---------- combobox popup: an ARIA GRID, not a listbox ----------
+       Each result row carries a link AND (for products) an "+ Add" button.
+       The APG is explicit that the listbox pattern "does not provide an
+       accessible way to present a list of interactive elements, such as
+       links, buttons, or checkboxes" and points at the Grid Pattern
+       instead; axe-core agreed, reporting 13 serious `nested-interactive`
+       nodes for the focusable link/button inside each role="option" (audit
+       C, finding H5). tabindex="-1" is NOT a fix -- axe-core ships a
+       dedicated message saying a negative tabindex does not stop assistive
+       technology focusing the element.
+
+       So: container role="grid", one role="rowgroup" per section, each
+       result a role="row" with a role="gridcell" around the link and a
+       second role="gridcell" around the action buttons. DOM focus stays in
+       the input and aria-activedescendant still names search-opt-N, which
+       is exactly the APG "editable combobox with grid popup" shape and
+       leaves the arrow-key/Enter behaviour (and its tests) untouched.
+
+       The role is applied only while rows exist: an empty grid, or one
+       holding the zero-result panel, would have invalid required children. */
+    function setResultsGridRole(hasRows) {
+      if (!resultsList) return;
+      if (hasRows) {
+        resultsList.setAttribute("role", "grid");
+        resultsList.setAttribute("aria-label", "Search results");
+      } else {
+        /* The name goes with the role. A bare <div> is the generic role,
+           and ARIA 1.2 prohibits aria-label there -- most screen readers
+           drop it anyway (audit C, finding M7). */
+        resultsList.removeAttribute("role");
+        resultsList.removeAttribute("aria-label");
+      }
+    }
+
     function renderResults(results) {
       if (!resultsList) return;
       currentItems = [];
@@ -8135,6 +8223,11 @@
 
       if (results.totalCount === 0) {
         resultsList.innerHTML = renderNoResultsHtml(results.query);
+        /* The zero-result panel is prose and chips, not rows -- a grid whose
+           only child is a <div class="search-empty-state"> would be an
+           invalid structure. The container is only a grid while it actually
+           holds rows (see setResultsGridRole below). */
+        setResultsGridRole(false);
 
         if (resultCount) {
           resultCount.textContent = "No results found for " + results.query;
@@ -8151,18 +8244,25 @@
 
       // 1. Products Section
       if (results.products.length > 0) {
+        html += '<div class="search-results-section" role="rowgroup">';
         html +=
-          '<div class="search-results-section" role="group" aria-labelledby="search-section-products-title">';
-        html += '  <div class="search-section-header" id="search-section-products-title">';
+          '  <div class="search-section-header" role="row" id="search-section-products-title">';
         html +=
-          '    <span><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg> Products</span>';
-        html += '    <span class="search-section-count">' + results.products.length + "</span>";
+          '    <span role="gridcell"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg> Products</span>';
+        html +=
+          '    <span class="search-section-count" role="gridcell">' +
+          results.products.length +
+          "</span>";
         html += "  </div>";
         results.products.forEach(function (prod) {
           var itemOptId = "search-opt-" + globalIdx;
           currentItems.push({ id: itemOptId, url: prod.url, type: "product", item: prod });
 
-          var priceStr = "$" + prod.price.toFixed(2);
+          /* A search row is a card too, so the same "From" rule applies --
+             it must not advertise the ceiling either (audit C, L8). */
+          var searchFrom = pricePrefixFrom(prod);
+          var priceStr =
+            searchFrom === null ? "$" + prod.price.toFixed(2) : "From $" + searchFrom.toFixed(2);
           /* The index carries inStock (false when sold out) and comingSoon;
              a product that is not on sale yet must never offer "+ Add" or
              claim to be in stock -- the PDP's notify-me button is the CTA. */
@@ -8184,12 +8284,13 @@
           html +=
             '<div class="search-result-item" id="' +
             itemOptId +
-            '" role="option" aria-selected="false" data-item-index="' +
+            '" role="row" aria-selected="false" data-item-index="' +
             globalIdx +
             '" data-url="' +
             attrEsc(rootAbsLink(prod.url)) +
             '">';
-          html += '  <a href="' + attrEsc(rootAbsLink(prod.url)) + '" class="search-item-main">';
+          html += '  <div class="search-item-cell" role="gridcell">';
+          html += '    <a href="' + attrEsc(rootAbsLink(prod.url)) + '" class="search-item-main">';
           html +=
             '    <img src="' +
             attrEsc(rootAbsImage(prod.image)) +
@@ -8206,8 +8307,12 @@
             html += '      <p class="search-item-blurb">' + escapeSearchHtml(prod.blurb) + "</p>";
           }
           html += "    </div>";
-          html += "  </a>";
-          html += '  <div class="search-item-action" data-product-id="' + attrEsc(prod.id) + '">';
+          html += "    </a>";
+          html += "  </div>";
+          html +=
+            '  <div class="search-item-action" role="gridcell" data-product-id="' +
+            attrEsc(prod.id) +
+            '">';
           if (comingSoon) {
             html +=
               '    <a class="btn btn-secondary btn-sm search-add-btn search-notify-link" href="' +
@@ -8263,12 +8368,15 @@
 
       // 2. Journal Section
       if (results.journal.length > 0) {
+        html += '<div class="search-results-section" role="rowgroup">';
         html +=
-          '<div class="search-results-section" role="group" aria-labelledby="search-section-journal-title">';
-        html += '  <div class="search-section-header" id="search-section-journal-title">';
+          '  <div class="search-section-header" role="row" id="search-section-journal-title">';
         html +=
-          '    <span><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg> Apothecary Journal</span>';
-        html += '    <span class="search-section-count">' + results.journal.length + "</span>";
+          '    <span role="gridcell"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg> Apothecary Journal</span>';
+        html +=
+          '    <span class="search-section-count" role="gridcell">' +
+          results.journal.length +
+          "</span>";
         html += "  </div>";
         results.journal.forEach(function (art) {
           var itemOptId = "search-opt-" + globalIdx;
@@ -8277,12 +8385,13 @@
           html +=
             '<div class="search-result-item" id="' +
             itemOptId +
-            '" role="option" aria-selected="false" data-item-index="' +
+            '" role="row" aria-selected="false" data-item-index="' +
             globalIdx +
             '" data-url="' +
             attrEsc(rootAbsLink(art.url)) +
             '">';
-          html += '  <a href="' + attrEsc(rootAbsLink(art.url)) + '" class="search-item-main">';
+          html += '  <div class="search-item-cell" role="gridcell">';
+          html += '    <a href="' + attrEsc(rootAbsLink(art.url)) + '" class="search-item-main">';
           html +=
             '    <div class="search-faq-icon" aria-hidden="true"><svg class="yl-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>';
           html += '    <div class="search-item-info">';
@@ -8301,7 +8410,8 @@
             html += '      <p class="search-item-blurb">' + escapeSearchHtml(art.excerpt) + "</p>";
           }
           html += "    </div>";
-          html += "  </a>";
+          html += "    </a>";
+          html += "  </div>";
           html += "</div>";
           globalIdx++;
         });
@@ -8310,12 +8420,14 @@
 
       // 3. Markets & Events Section
       if (results.events.length > 0) {
+        html += '<div class="search-results-section" role="rowgroup">';
+        html += '  <div class="search-section-header" role="row" id="search-section-events-title">';
         html +=
-          '<div class="search-results-section" role="group" aria-labelledby="search-section-events-title">';
-        html += '  <div class="search-section-header" id="search-section-events-title">';
+          '    <span role="gridcell"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Markets &amp; Events</span>';
         html +=
-          '    <span><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Markets &amp; Events</span>';
-        html += '    <span class="search-section-count">' + results.events.length + "</span>";
+          '    <span class="search-section-count" role="gridcell">' +
+          results.events.length +
+          "</span>";
         html += "  </div>";
         results.events.forEach(function (ev) {
           var itemOptId = "search-opt-" + globalIdx;
@@ -8324,12 +8436,13 @@
           html +=
             '<div class="search-result-item" id="' +
             itemOptId +
-            '" role="option" aria-selected="false" data-item-index="' +
+            '" role="row" aria-selected="false" data-item-index="' +
             globalIdx +
             '" data-url="' +
             attrEsc(rootAbsLink(ev.url)) +
             '">';
-          html += '  <a href="' + attrEsc(rootAbsLink(ev.url)) + '" class="search-item-main">';
+          html += '  <div class="search-item-cell" role="gridcell">';
+          html += '    <a href="' + attrEsc(rootAbsLink(ev.url)) + '" class="search-item-main">';
           html +=
             '    <div class="search-event-badge"><span class="event-badge-day">' +
             escapeSearchHtml(ev.dateLabel || ev.date || "") +
@@ -8355,7 +8468,8 @@
               "</p>";
           }
           html += "    </div>";
-          html += "  </a>";
+          html += "    </a>";
+          html += "  </div>";
           html += "</div>";
           globalIdx++;
         });
@@ -8364,12 +8478,14 @@
 
       // 4. FAQ Section
       if (results.faq.length > 0) {
+        html += '<div class="search-results-section" role="rowgroup">';
+        html += '  <div class="search-section-header" role="row" id="search-section-faq-title">';
         html +=
-          '<div class="search-results-section" role="group" aria-labelledby="search-section-faq-title">';
-        html += '  <div class="search-section-header" id="search-section-faq-title">';
+          '    <span role="gridcell"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> FAQ &amp; Help</span>';
         html +=
-          '    <span><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> FAQ &amp; Help</span>';
-        html += '    <span class="search-section-count">' + results.faq.length + "</span>";
+          '    <span class="search-section-count" role="gridcell">' +
+          results.faq.length +
+          "</span>";
         html += "  </div>";
         results.faq.forEach(function (f) {
           var itemOptId = "search-opt-" + globalIdx;
@@ -8378,12 +8494,13 @@
           html +=
             '<div class="search-result-item" id="' +
             itemOptId +
-            '" role="option" aria-selected="false" data-item-index="' +
+            '" role="row" aria-selected="false" data-item-index="' +
             globalIdx +
             '" data-url="' +
             attrEsc(rootAbsLink(f.url)) +
             '">';
-          html += '  <a href="' + attrEsc(rootAbsLink(f.url)) + '" class="search-item-main">';
+          html += '  <div class="search-item-cell" role="gridcell">';
+          html += '    <a href="' + attrEsc(rootAbsLink(f.url)) + '" class="search-item-main">';
           html +=
             '    <div class="search-faq-icon" aria-hidden="true"><svg class="yl-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>';
           html += '    <div class="search-item-info">';
@@ -8398,7 +8515,8 @@
             html += '      <p class="search-item-blurb">' + escapeSearchHtml(f.answer) + "</p>";
           }
           html += "    </div>";
-          html += "  </a>";
+          html += "    </a>";
+          html += "  </div>";
           html += "</div>";
           globalIdx++;
         });
@@ -8406,6 +8524,7 @@
       }
 
       resultsList.innerHTML = html;
+      setResultsGridRole(currentItems.length > 0);
 
       // Screen reader announcement
       if (resultCount) {
@@ -9604,10 +9723,12 @@
       }
       if (stickyPrice) stickyPrice.textContent = formattedPrice;
       if (mainPrice) {
-        var priceVal = mainPrice.querySelector('[itemprop="price"]');
+        /* .pdp-price-value, not [itemprop="price"]: the PDP's competing
+           microdata Product entity is gone (audit C, finding L5) and this
+           span is now just the number, with the "$" as its sibling text. */
+        var priceVal = mainPrice.querySelector(".pdp-price-value");
         if (priceVal) {
           priceVal.textContent = newPrice.toFixed(2);
-          priceVal.setAttribute("content", newPrice.toFixed(2));
         } else {
           mainPrice.textContent = formattedPrice;
         }
@@ -9718,7 +9839,6 @@
             if (freshImg) {
               freshImg.id = "pdpMainImage";
               freshImg.className = "pdp-main-image";
-              freshImg.setAttribute("itemprop", "image");
             }
             (picture || mainImg).replaceWith(fresh);
             mainImg = freshImg || fresh;
