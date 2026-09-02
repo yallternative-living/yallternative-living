@@ -65,7 +65,14 @@ export async function loadProductIndex(env, ctx) {
         name: typeof entry.name === "string" ? entry.name : entry.id,
         category: typeof entry.category === "string" ? entry.category : "",
         usageGuide:
-          entry.usageGuide && typeof entry.usageGuide === "object" ? entry.usageGuide : null
+          entry.usageGuide && typeof entry.usageGuide === "object" ? entry.usageGuide : null,
+        // Availability, carried verbatim (including `undefined`, which for
+        // `stock` means "not counted" and is NOT the same as zero) so the
+        // restock-alert and low-stock jobs read the same three fields the
+        // product card does. See isInStock() in routes/restock.js.
+        stock: entry.stock,
+        inStock: entry.inStock,
+        comingSoon: entry.comingSoon
       });
     }
   }
@@ -100,4 +107,38 @@ export async function loadPointsPerDollar(env, ctx) {
   const site = await loadSiteSettings(env, ctx);
   const rate = Number(site.loyaltyPointsPerDollar);
   return Number.isFinite(rate) && rate > 0 ? rate : DEFAULT_POINTS_PER_DOLLAR;
+}
+
+/**
+ * The market calendar, `{ upcoming: [], past: [] }`.
+ *
+ * Read from `assets/data/events.json` -- the JSON in `assets/data/` is the
+ * single source of truth (AGENTS.md §2) and `assets/js/events-data.js` is the
+ * generated wrap of it, so the Worker reads the source rather than parsing a
+ * `window.YL_EVENTS = …` assignment out of a script file.
+ *
+ * `workers/checkout.js` has its own `loadEvents` and keeps it, for the same
+ * reason it keeps its own `loadCatalog`: the money path does not take a
+ * dependency on this module. The difference that matters here is the failure
+ * mode -- checkout THROWS on an unreachable calendar (a pickup order must not
+ * be silently taxed at the wrong address), while this returns an empty
+ * calendar, because a cron job that cannot read the calendar should send
+ * nothing rather than blow up the rest of the tick.
+ *
+ * @returns {Promise<{upcoming: object[], past: object[]}>}
+ */
+export async function loadEvents(env, ctx) {
+  const empty = { upcoming: [], past: [] };
+  let data = null;
+  try {
+    data = await loadSiteJson(env, ctx, "/assets/data/events.json");
+  } catch (err) {
+    console.warn("site-data: events.json is unreachable:", err && err.message);
+    return empty;
+  }
+  if (!data || typeof data !== "object") return empty;
+  return {
+    upcoming: Array.isArray(data.upcoming) ? data.upcoming : [],
+    past: Array.isArray(data.past) ? data.past : []
+  };
 }

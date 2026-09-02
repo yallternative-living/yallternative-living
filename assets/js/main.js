@@ -3016,16 +3016,30 @@
        today", and counted down to a Saturday cutoff that does not exist. */
     var zapIcon =
       '<svg class="yl-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>';
+    /* The cutoff is editable in /admin (site.dispatch.cutoffHour / cutoffMinute,
+       Eastern); 2:00 PM when unset, matching cart.js dispatchCutoff(). */
+    var dispatchCfg = site.dispatch || {};
+    var cutoffHour = Number(dispatchCfg.cutoffHour);
+    var cutoffMinute = Number(dispatchCfg.cutoffMinute);
+    if (!isFinite(cutoffHour) || cutoffHour < 0 || cutoffHour > 23) cutoffHour = 14;
+    if (!isFinite(cutoffMinute) || cutoffMinute < 0 || cutoffMinute > 59) cutoffMinute = 0;
+    var cutoffMinutes = cutoffHour * 60 + cutoffMinute;
+    var cutoffLabel =
+      (cutoffHour % 12 === 0 ? 12 : cutoffHour % 12) +
+      (cutoffMinute ? ":" + (cutoffMinute < 10 ? "0" : "") + cutoffMinute : "") +
+      " " +
+      (cutoffHour >= 12 ? "PM" : "AM") +
+      " ET";
     var text;
-    if (isBusinessDay && hour < 14) {
-      var diffMins = 14 * 60 - (hour * 60 + minute);
+    if (isBusinessDay && hour * 60 + minute < cutoffMinutes) {
+      var diffMins = cutoffMinutes - (hour * 60 + minute);
       var h = Math.floor(diffMins / 60);
       var m = diffMins % 60;
       text = "Order within " + h + "h " + m + "m to ship today";
     } else {
       var nextDay =
         weekdayIndex === 5 || weekdayIndex === 6 || weekdayIndex === 0 ? "Monday" : "tomorrow";
-      text = "Ships " + nextDay + " · Order by 2 PM ET";
+      text = "Ships " + nextDay + " · Order by " + cutoffLabel;
     }
 
     return (
@@ -4096,8 +4110,10 @@
           upcomingEl.parentNode.insertBefore(followupPanel, upcomingEl.nextSibling);
         }
       }
-      var eventsSite = (window.YL_CONTENT && window.YL_CONTENT.site) || {};
-      followupPanel.innerHTML = eventInviteOrganizerHTML() + eventEmailCaptureHTML(eventsSite);
+      followupPanel.innerHTML = eventInviteOrganizerHTML() + eventEmailCaptureHTML();
+      /* The markup above is a working plain form on its own. This upgrades it
+         to a fetch, and reads the no-JS round trip's ?market-alerts= result. */
+      initMarketAlertForm(followupPanel);
     }
 
     if (pastEl) {
@@ -4739,33 +4755,131 @@
     );
   }
 
-  /* Event-specific "email me the next market date" capture, distinct from
-     the generic footer newsletter form -- tagged fields[interest]=events so
-     it lands in Kit as its own segment. Same plain-HTML-POST pattern as the
-     footer signup form (works with JS off, no fetch/success-state
-     machinery to build or keep in sync): see index.html's #footerSignup
-     form for the sibling pattern this mirrors. Renders nothing when
-     site.kitFormAction isn't set, exactly like every other Kit-form call
-     site in this codebase -- there is no working form to point at without
-     it. */
-  function eventEmailCaptureHTML(site) {
-    var action = site && typeof site.kitFormAction === "string" ? site.kitFormAction.trim() : "";
-    if (!/^https:\/\//.test(action)) return "";
+  /* The sentence shown under the input, and the promise the shop is making.
+     workers/routes/market-alerts.js stores this EXACT string on every row as
+     `consent_text`, so a subscriber's record always says what they were told
+     -- CONSENT_TEXT there and this constant are asserted equal by
+     scripts/worker-market-alerts.test.js. Change one, change the other. */
+  var MARKET_ALERT_CONSENT = "One email the day before each market. Unsubscribe any time.";
+
+  /* Event-specific "email me the next market date" capture, distinct from the
+     generic footer newsletter form.
+
+     It used to post straight to Kit with fields[interest]=events, which meant
+     the thing it promises -- the next market date, in your inbox -- depended on
+     somebody remembering to write a Kit broadcast the night before every
+     market. It now posts to this site's own Worker (POST /api/market-alerts),
+     which stores the address and sends the day-before reminder itself from the
+     same events.json this page renders from.
+
+     Still a plain HTML POST, so it works with JavaScript off: the Worker
+     answers a form post with a 303 back to ?market-alerts=saved.
+     initMarketAlertForm() below upgrades it to a fetch and reads that query
+     parameter, so both paths end up telling the visitor the same thing. */
+  function eventEmailCaptureHTML() {
     return (
-      '<form class="events-market-alert-form" action="' +
-      attrEsc(action) +
-      '" method="post">' +
+      '<form class="events-market-alert-form" id="eventsMarketAlertForm" action="/api/market-alerts" method="post">' +
       '<div class="form-hp" aria-hidden="true">' +
       '<label for="events_alert_website">Leave this field blank</label>' +
-      '<input type="text" id="events_alert_website" name="events_alert_website" tabindex="-1" autocomplete="off" aria-hidden="true">' +
+      '<input type="text" id="events_alert_website" name="website_hp" tabindex="-1" autocomplete="off" aria-hidden="true">' +
       "</div>" +
       '<p class="events-market-alert-title" id="eventsMarketAlertTitle">Want the next market date in your inbox?</p>' +
       '<label for="events_alert_email" class="sr-only">Email address for market dates</label>' +
-      '<input type="email" id="events_alert_email" name="email_address" placeholder="you@email.com" required autocomplete="email" aria-describedby="eventsMarketAlertTitle">' +
-      '<input type="hidden" name="fields[interest]" value="events">' +
+      '<input type="email" id="events_alert_email" name="email" placeholder="you@email.com" required autocomplete="email" aria-describedby="eventsMarketAlertTitle eventsMarketAlertConsent">' +
       '<button class="btn btn-outline btn-sm" type="submit">Email Me the Next Market Date</button>' +
+      '<p class="muted events-market-alert-consent" id="eventsMarketAlertConsent">' +
+      attrEsc(MARKET_ALERT_CONSENT) +
+      "</p>" +
+      '<p class="muted" id="eventsMarketAlertStatus" role="status" aria-live="polite" hidden></p>' +
       "</form>"
     );
+  }
+
+  /* Wires the market-alert form up to fetch, and shows the no-JS round trip's
+     result. Deliberately mirrors the birthday-club block in thank-you.js:
+     never claim success on a response that did not say so -- the footer
+     newsletter form used to show its confirmation for every outcome,
+     refusals included, which is how someone ends up believing they signed up
+     for something they did not. */
+  function initMarketAlertForm(root) {
+    var scope = root || document;
+    var form = scope.querySelector ? scope.querySelector("#eventsMarketAlertForm") : null;
+    var status = scope.querySelector ? scope.querySelector("#eventsMarketAlertStatus") : null;
+    if (!status) return;
+
+    function say(message, isError) {
+      status.textContent = message;
+      status.hidden = false;
+      /* A failure has to be announced as one: role="status" is polite and
+         does not imply severity. */
+      status.setAttribute("role", isError ? "alert" : "status");
+    }
+
+    try {
+      var landed = new URLSearchParams(window.location.search).get("market-alerts");
+      if (landed === "saved") {
+        say("You're on the list. We'll write the day before each market.", false);
+      } else if (landed === "error") {
+        say("That didn't save. Check the email address and try again.", true);
+      }
+    } catch {
+      /* A URL we cannot parse is not worth breaking the page over. */
+    }
+
+    if (!form || typeof fetch !== "function" || !form.addEventListener) return;
+
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var emailInput = form.querySelector('input[name="email"]');
+      var honeypot = form.querySelector('input[name="website_hp"]');
+      if (honeypot && honeypot.value) return; /* silent, same as every other form here */
+
+      var email = emailInput ? String(emailInput.value || "").trim() : "";
+      if (!email) {
+        say("We need an email address to send the reminder to.", true);
+        return;
+      }
+
+      var button = form.querySelector('button[type="submit"]');
+      var label = button ? button.textContent : "";
+      if (button) {
+        button.disabled = true;
+        button.textContent = "Saving...";
+      }
+
+      fetch(form.action, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ email: email })
+      })
+        .then(function (res) {
+          return res.json().then(function (body) {
+            return { ok: res.ok, body: body || {} };
+          });
+        })
+        .then(function (result) {
+          if (button) {
+            button.disabled = false;
+            button.textContent = label;
+          }
+          if (result.ok && result.body.ok) {
+            say(
+              result.body.message || "You're on the list. We'll write the day before each market.",
+              false
+            );
+            if (emailInput) emailInput.value = "";
+          } else {
+            say(result.body.error || "That didn't save. Please try again in a moment.", true);
+          }
+        })
+        .catch(function () {
+          if (button) {
+            button.disabled = false;
+            button.textContent = label;
+          }
+          say("That didn't save. Please check your connection and try again.", true);
+        });
+    });
   }
 
   function parsePickupMarketParam(param, events) {
@@ -5334,6 +5448,11 @@
        ever bonuses ids present in the current product list), so the test
        exists to catch that before a shopper does. */
     var CATEGORY_TERMS = {
+      // ---- deodorant ----
+      deodorant: ["cream-deodorant"],
+      "natural deodorant": ["cream-deodorant"],
+      "aluminum free": ["cream-deodorant"],
+      underarm: ["cream-deodorant"],
       // ---- sleep / wind-down ----
       sleep: ["sleep-salve", "lavender-soak", "bath-tea"],
       insomnia: ["sleep-salve", "lavender-soak", "bath-tea"],
@@ -5388,7 +5507,7 @@
         "sugar-scrub",
         "frankincense-salve"
       ],
-      "hand cream": ["miracle-balm", "shea-butter"],
+      "hand cream": ["hand-scrub", "miracle-balm", "shea-butter"],
       "hand lotion": ["miracle-balm", "shea-butter"],
       cuticles: ["frankincense-salve", "miracle-balm"],
       windburn: ["frankincense-salve"],
@@ -6073,6 +6192,8 @@
         toast = document.createElement("div");
         toast.id = "sw-update-toast";
         toast.className = "sw-update-toast";
+        toast.setAttribute("role", "status");
+        toast.setAttribute("aria-live", "polite");
         /* Both buttons used to carry inline click attributes, which the CSP
            blocks outright -- so the only way to dismiss this toast, or to act
            on it, was to reload the page by hand. Wired as listeners now. */
@@ -6101,7 +6222,10 @@
         });
         toast.appendChild(dismissBtn);
 
-        document.body.appendChild(toast);
+        /* Inside the main landmark when there is one: axe's "region" rule flags
+           page content outside landmarks, and the toast is fixed-position so
+           its place in the DOM does not matter visually. */
+        (document.querySelector("main") || document.body).appendChild(toast);
         // Animate in
         requestAnimationFrame(function () {
           requestAnimationFrame(function () {
@@ -9690,6 +9814,8 @@
       injectEventJsonLd: injectEventJsonLd,
       eventInviteOrganizerHTML: eventInviteOrganizerHTML,
       eventEmailCaptureHTML: eventEmailCaptureHTML,
+      initMarketAlertForm: initMarketAlertForm,
+      MARKET_ALERT_CONSENT: MARKET_ALERT_CONSENT,
       parsePickupMarketParam: parsePickupMarketParam,
       handlePickupMarketDeepLink: handlePickupMarketDeepLink,
       eventCardHTML: eventCardHTML,

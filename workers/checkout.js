@@ -13,6 +13,7 @@
  *   POST /api/restock            "tell me when it's back"    (routes/restock.js)
  *   POST /api/safety-report      report a reaction (MoCRA)     (routes/safety-report.js)
  *   GET  /api/gift-note          printable gift note (owner, signed link) (routes/gift-note.js)
+ *   POST /api/market-alerts      "email me the next market date" (routes/market-alerts.js)
  *   POST /api/unsubscribe        opt out of marketing email  (routes/retention.js)
  *   POST /api/welcome-code       mint a single-use welcome code
  *   POST /api/birthday-club      store an MM/DD birthday
@@ -188,6 +189,7 @@ import { handleOrderSummary } from "./routes/order-summary.js";
 import { handleRestock } from "./routes/restock.js";
 import { handleSafetyReport } from "./routes/safety-report.js";
 import { handleGiftNote } from "./routes/gift-note.js";
+import { handleMarketAlerts } from "./routes/market-alerts.js";
 import {
   handleBirthdayClub,
   handleLoyaltyBalance,
@@ -882,6 +884,7 @@ const ROUTES = {
   // that page must never produce.
   "/safety-report": handleSafetyReport,
   "/gift-note": handleGiftNote,
+  "/market-alerts": handleMarketAlerts,
   // Retention (workers/routes/retention.js). Every one of these needs STATE_DB
   // and answers 503 without it rather than pretending to have stored anything.
   "/unsubscribe": handleUnsubscribe,
@@ -1618,6 +1621,26 @@ export default {
           ["burned-token sweep", () => sweepBurnedTokens(env.STATE_DB)],
           ["email-queue sweep", () => retention.sweepEmailQueue(env.STATE_DB)],
           ["birthday club", () => jobs.runBirthdayClub(env, ctx)],
+          [
+            "restock alerts",
+            async () => (await import("./routes/restock.js")).runRestockAlerts(env, ctx)
+          ],
+          [
+            "low-stock check",
+            async () => (await import("./routes/restock.js")).runLowStockCheck(env, ctx)
+          ],
+          [
+            "order digest",
+            async () => (await import("./routes/order-digest.js")).runOrderDigest(env, ctx)
+          ],
+          [
+            "market reminders",
+            async () => (await import("./routes/market-alerts.js")).runMarketReminders(env, ctx)
+          ],
+          [
+            "reaction export",
+            async () => (await import("./routes/reaction-export.js")).runReactionExport(env, ctx)
+          ],
           ["email queue drain", () => jobs.drainEmailQueue(env, ctx)]
         ];
         for (const [label, run] of steps) {

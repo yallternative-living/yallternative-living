@@ -388,6 +388,64 @@
       ]
     },
     {
+      "id": "cream-deodorant",
+      "name": "Feral but FRESH Cream Deodorant",
+      "category": "body",
+      "price": 15,
+      "image": "assets/img/cream-deodorant.jpg",
+      "images": [
+        "assets/img/cream-deodorant-alt1.jpg"
+      ],
+      "blurb": "A rich, scoopable cream deodorant handmade for long-lasting freshness and odor control without aluminum. This buttery formula melts into the skin, spreads easily, and dries down with a smooth, non-greasy feel. Scented with a fresh, earthy blend of lavender, cedarwood, orange, and tea tree. 2 oz amber glass jar.",
+      "etsyUrl": "https://www.etsy.com/listing/4563048393/feral-but-fresh-cream-deodorant-natural",
+      "ingredients": [
+        "Shea Butter",
+        "Mango Butter",
+        "Coconut Oil",
+        "Almond Oil",
+        "Beeswax",
+        "Cetyl Alcohol",
+        "Arrowroot Powder",
+        "Zinc Oxide",
+        "Baking Soda",
+        "Vitamin E",
+        "Essential Oils (Lavender, Cedarwood, Orange, Tea Tree)"
+      ],
+      "scent": "Herbal & Woodsy",
+      "tags": [],
+      "concerns": [
+        "daily-glow"
+      ],
+      "scentProfile": {
+        "top": "Bright Orange",
+        "heart": "Lavender, Tea Tree",
+        "base": "Cedarwood",
+        "intensity": "Medium",
+        "intensityScore": 3
+      },
+      "usageGuide": {
+        "howToApply": "Scoop out a small amount with clean, dry fingers and massage into clean, dry underarms. Start with less than you think you need. You can always add more.",
+        "storage": "Keep the jar in a cool spot; the butters soften in summer heat and firm back up when cool. Shelf life is 12 months.",
+        "patchTest": "Baking soda can irritate freshly shaved or sensitive underarms. Try a small amount for a day or two first. Contains essential oils and almond oil."
+      },
+      "keywords": [
+        "deodorant",
+        "cream deodorant",
+        "aluminum free",
+        "natural deodorant",
+        "baking soda",
+        "underarm",
+        "feral but fresh",
+        "lavender cedarwood",
+        "fresh"
+      ],
+      "ritualTitle": "The Fresh Start Ritual",
+      "pairsWith": [
+        "hand-scrub",
+        "frankincense-salve"
+      ]
+    },
+    {
       "id": "shimmer-oil",
       "name": "Shimmer Body Oil",
       "featured": true,
@@ -567,7 +625,7 @@
         "Coconut Oil",
         "Olive Oil",
         "Vitamin E",
-        "Dawn (Dish Soap)",
+        "Surfactant Blend (Water, Sodium Lauryl Sulfate, Sodium Laureth Sulfate, C10-16 Alkyldimethylamine Oxide, Alcohol Denat., Sodium Chloride, Phenoxyethanol, Methylisothiazolinone, Fragrance)",
         "Bourbon Vanilla Fragrance",
         "Preservative"
       ],

@@ -1335,6 +1335,68 @@ collections:
                   hint: "Adds the structured data Google needs to make your upcoming markets eligible for its Event search results. Doesn't guarantee a listing, just makes it possible. Safe to leave on."
                 }
               - {
+                  name: enableDispatchCountdown,
+                  label: "Show the 'order by' shipping countdown",
+                  widget: boolean,
+                  default: false,
+                  required: false,
+                  hint: "Off by default. When on, the 'Order within 2h 10m to ship today' badge shows on product cards, product pages and the cart, counting down to the Shipping cutoff below. Turn it on only when you can keep that promise every business day."
+                }
+              - name: dispatch
+                label: "Shipping cutoff"
+                widget: object
+                collapsed: true
+                required: false
+                hint: "Orders placed before this time on a business day ship the same day; the countdown and the 'Order by' wording use it. Eastern time."
+                fields:
+                  - { name: cutoffHour, label: "Cutoff hour (0-23, Eastern)", widget: number, value_type: int, min: 0, max: 23, default: 14, required: false }
+                  - { name: cutoffMinute, label: "Cutoff minute (0-59)", widget: number, value_type: int, min: 0, max: 59, default: 0, required: false }
+              - {
+                  name: enableLowStockAlerts,
+                  label: "Email me when a product runs low",
+                  widget: boolean,
+                  default: true,
+                  required: false,
+                  hint: "Once a day, a note listing every product at or under the low-stock number in Automation settings."
+                }
+              - {
+                  name: enableOrderDigest,
+                  label: "Email me a daily order digest with pick lists",
+                  widget: boolean,
+                  default: true,
+                  required: false,
+                  hint: "Every morning: each order from the last day with what to pack, sizes, gift notes to print and pickup markets."
+                }
+              - {
+                  name: enableMarketReminders,
+                  label: "Remind market-date subscribers the day before a market",
+                  widget: boolean,
+                  default: true,
+                  required: false,
+                  hint: "People who signed up on the Events page get one email the day before each upcoming market."
+                }
+              - {
+                  name: enableReactionExport,
+                  label: "Email me a monthly export of reaction reports",
+                  widget: boolean,
+                  default: true,
+                  required: false,
+                  hint: "On the 1st, a spreadsheet of last month's Report a Reaction submissions, for the MoCRA file."
+                }
+              - name: automations
+                label: "Automation settings"
+                widget: object
+                collapsed: true
+                required: false
+                hint: "Numbers and wording for the emails the shop sends on its own. Switch each one on or off with the toggles above."
+                fields:
+                  - { name: lowStockThreshold, label: "Low-stock number (email me when stock is at or under this)", widget: number, value_type: int, min: 0, max: 100, default: 3, required: false }
+                  - { name: orderDigestHour, label: "Send the order digest at this hour (0-23, Eastern)", widget: number, value_type: int, min: 0, max: 23, default: 7, required: false }
+                  - { name: marketReminderHour, label: "Send market reminders at this hour (0-23, Eastern)", widget: number, value_type: int, min: 0, max: 23, default: 9, required: false }
+                  - { name: restockEmailIntro, label: "Back-in-stock email: opening line", widget: text, required: false }
+                  - { name: marketReminderIntro, label: "Market reminder email: opening line", widget: text, required: false }
+                  - { name: sizeConfirmationIntro, label: "Size/scent confirmation email: opening line", widget: text, required: false }
+              - {
                   name: enableOrderStatusLookup,
                   label: "Show Order Lookup Tool",
                   widget: boolean,

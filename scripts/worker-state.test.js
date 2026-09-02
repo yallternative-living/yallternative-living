@@ -1712,7 +1712,9 @@ async function testRestockRoute() {
 
   const noKey = await makeRouteEnv({ RESEND_API_KEY: undefined });
   const unavailable = await worker.fetch(
-    post("/api/restock", { email: "waiting@example.com", product: "Miracle Balm" }),
+    /* A real catalogue id: the route now refuses products it cannot match,
+       so the no-mailer path is reached only with a known product. */
+    post("/api/restock", { email: "waiting@example.com", product_id: "miracle-balm" }),
     noKey,
     noCtx
   );

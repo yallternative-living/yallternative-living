@@ -10,6 +10,9 @@
 
 const fs = require("fs");
 const path = require("path");
+const PRODUCT_COUNT = JSON.parse(
+  fs.readFileSync(path.join(__dirname, "..", "assets", "data", "products.json"), "utf8")
+).products.length;
 const http = require("http");
 const puppeteer = require("puppeteer");
 
@@ -122,7 +125,10 @@ function testGoogleMerchantJsonLd() {
 
   const productsDir = path.join(ROOT, "products");
   const htmlFiles = fs.readdirSync(productsDir).filter((f) => f.endsWith(".html"));
-  assert(htmlFiles.length === 19, `Found exactly 19 PDP HTML files (found ${htmlFiles.length})`);
+  assert(
+    htmlFiles.length === PRODUCT_COUNT,
+    `Found exactly ${PRODUCT_COUNT} PDP HTML files (found ${htmlFiles.length})`
+  );
 
   const productsData = JSON.parse(
     fs.readFileSync(path.join(ROOT, "assets/data/products.json"), "utf8")

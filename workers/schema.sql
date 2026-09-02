@@ -266,3 +266,42 @@ CREATE TABLE IF NOT EXISTS adverse_events (
 -- "everything since <date>" when a record request arrives.
 CREATE INDEX IF NOT EXISTS adverse_events_triage ON adverse_events (serious, status, created_at);
 CREATE INDEX IF NOT EXISTS adverse_events_created_at ON adverse_events (created_at);
+
+-- ---------------------------------------------------------------------------
+-- v4 (2026-09-02): automation tables.
+--
+-- restock_signups: "tell me when it's back" now stores the address so the
+-- hourly cron can email the shopper itself once the product is in stock (it
+-- used to only tell the owner someone asked). notified_at set = done.
+--
+-- market_alert_subscribers: the events page's "email me the next market date"
+-- form posts here instead of Kit, so the cron can send a day-before reminder
+-- for each upcoming market. Unsubscribes go through the same suppression list
+-- as every other marketing email.
+--
+-- job_state: one row per scheduled job -- the "last ran on <day>" marker that
+-- keeps a daily/monthly job from running twice inside the hourly cron.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS restock_signups (
+  id           TEXT PRIMARY KEY,
+  product_id   TEXT NOT NULL,
+  email        TEXT NOT NULL,
+  created_at   INTEGER NOT NULL,
+  notified_at  INTEGER,
+  UNIQUE (product_id, email)
+);
+CREATE INDEX IF NOT EXISTS restock_signups_pending ON restock_signups (product_id, notified_at);
+
+CREATE TABLE IF NOT EXISTS market_alert_subscribers (
+  email          TEXT PRIMARY KEY,
+  created_at     INTEGER NOT NULL,
+  consent_text   TEXT NOT NULL,
+  last_event_id  TEXT,
+  last_sent_at   INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS job_state (
+  job         TEXT PRIMARY KEY,
+  value       TEXT NOT NULL,
+  updated_at  INTEGER NOT NULL
+);

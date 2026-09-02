@@ -30,8 +30,11 @@
  * v3 (2026-09-02) added adverse_events -- the MoCRA reaction reports behind
  * /safety. Nothing sweeps that table: its rows are kept for at least three
  * years (MoCRA's small-business retention period).
+ * v4 (2026-09-02) added the automation tables -- restock_signups,
+ * market_alert_subscribers and job_state (the once-per-day marker the cron's
+ * daily and monthly jobs check before running).
  */
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 /** Verbatim from workers/schema.sql. Keep the two in sync -- a test enforces it. */
 export const SCHEMA_STATEMENTS = [
@@ -141,7 +144,29 @@ export const SCHEMA_STATEMENTS = [
      ip_hash         TEXT
    )`,
   `CREATE INDEX IF NOT EXISTS adverse_events_triage ON adverse_events (serious, status, created_at)`,
-  `CREATE INDEX IF NOT EXISTS adverse_events_created_at ON adverse_events (created_at)`
+  `CREATE INDEX IF NOT EXISTS adverse_events_created_at ON adverse_events (created_at)`,
+  // v4: automation tables (see workers/schema.sql for the rationale)
+  `CREATE TABLE IF NOT EXISTS restock_signups (
+  id           TEXT PRIMARY KEY,
+  product_id   TEXT NOT NULL,
+  email        TEXT NOT NULL,
+  created_at   INTEGER NOT NULL,
+  notified_at  INTEGER,
+  UNIQUE (product_id, email)
+)`,
+  `CREATE INDEX IF NOT EXISTS restock_signups_pending ON restock_signups (product_id, notified_at)`,
+  `CREATE TABLE IF NOT EXISTS market_alert_subscribers (
+  email          TEXT PRIMARY KEY,
+  created_at     INTEGER NOT NULL,
+  consent_text   TEXT NOT NULL,
+  last_event_id  TEXT,
+  last_sent_at   INTEGER
+)`,
+  `CREATE TABLE IF NOT EXISTS job_state (
+  job         TEXT PRIMARY KEY,
+  value       TEXT NOT NULL,
+  updated_at  INTEGER NOT NULL
+)`
 ];
 
 /** Per-isolate memo of the in-flight or completed migration. */

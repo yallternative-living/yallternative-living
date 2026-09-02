@@ -52,6 +52,8 @@ import {
 } from "./retention-emails.js";
 import { recordOrder } from "../state/retention.js";
 import { giftNoteLink, giftNotesOf } from "./gift-note.js";
+import { loadOrderCatalog, productsNeedingChoice, sizeConfirmationEmail } from "./order-digest.js";
+import { loadSiteSettings } from "../state/site-data.js";
 import { claimEvent, markEventDone, releaseEvent } from "../state/webhook-events.js";
 import { ensureSchema } from "../state/migrations.js";
 
@@ -160,6 +162,42 @@ export async function emailGiftNoteLink(session, env) {
     `gift-note-email-${session.id}`
   );
   return { emailed: to, notes: count };
+}
+
+/**
+ * A bundle or a build-your-own box can contain something that comes in more
+ * than one size or scent, and neither line lets the shopper pick one: the
+ * option is only ever recorded for a plain product line (see checkout.js's
+ * findVariantOption). Left alone that becomes a guess at the bench, or a DM
+ * days later. This asks, once, while the order is fresh.
+ *
+ * Transactional -- a question about an order already paid for -- so there is
+ * deliberately no unsubscribe link and no suppression check: it is not
+ * marketing, and someone who unsubscribed from the newsletter still needs to
+ * be asked what size they want.
+ *
+ * Sends NOTHING for a plain order, for an order whose bundle contents have no
+ * variants at all, or when the catalogue is unreachable (an empty index yields
+ * an empty list). `size-confirm-<session>` is the Resend idempotency key, so a
+ * redelivered webhook asks once.
+ */
+export async function emailSizeConfirmation(session, env, ctx) {
+  const catalog = await loadOrderCatalog(env, ctx);
+  const pending = productsNeedingChoice(session, catalog);
+  if (!pending.length) return null;
+  const to = buyerEmailOf(session);
+  if (!to) return { skipped: "no-buyer-email" };
+
+  const site = await loadSiteSettings(env, ctx);
+  const automations =
+    (site.automations && typeof site.automations === "object" && site.automations) || {};
+  const body = sizeConfirmationEmail(pending, automations.sizeConfirmationIntro);
+  const delivery = await sendEmail(
+    env,
+    { from: fromAddress(env), to, reply_to: REPLY_TO, ...body },
+    `size-confirm-${session.id}`
+  );
+  return { emailed: to, products: pending.map((p) => p.id), ok: delivery.ok };
 }
 
 function buyerEmailOf(session) {
@@ -490,6 +528,11 @@ export async function processStripeEvent(event, env, ctx) {
       outcome.giftNote = await emailGiftNoteLink(session, env);
     } catch (err) {
       failures.push(`gift-note: ${err && err.message}`);
+    }
+    try {
+      outcome.sizeConfirmation = await emailSizeConfirmation(session, env, ctx);
+    } catch (err) {
+      failures.push(`size-confirmation: ${err && err.message}`);
     }
   } else if (event.type === "checkout.session.expired") {
     const session = event.data.object || {};

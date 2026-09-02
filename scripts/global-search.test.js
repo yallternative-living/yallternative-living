@@ -419,14 +419,17 @@ topLevelPages.forEach((pageName) => {
   });
 });
 
-// Check all 19 PDP files
+// Check every PDP file (one per product in products.json)
 console.log("\n--- 5. Generated PDP Pages Global Search Integration ---");
 
 const pdpDir = path.join(ROOT, "products");
 const pdpFiles = fs.readdirSync(pdpDir).filter((f) => f.endsWith(".html"));
 
-it(`Found 19 generated product PDP HTML files (found ${pdpFiles.length})`, () => {
-  assert.strictEqual(pdpFiles.length, 19);
+const PRODUCT_COUNT = JSON.parse(
+  fs.readFileSync(path.join(ROOT, "assets", "data", "products.json"), "utf8")
+).products.length;
+it(`Found ${PRODUCT_COUNT} generated product PDP HTML files (found ${pdpFiles.length})`, () => {
+  assert.strictEqual(pdpFiles.length, PRODUCT_COUNT);
 });
 
 pdpFiles.forEach((pdpFile) => {
@@ -788,7 +791,6 @@ const EXPECT_TOP = {
   protection: "protection-keychain",
   goth: "tank-top",
   floral: "bath-tea",
-  woodsy: "frankincense-salve",
   "gift card": "yallternative-gift-card",
   "gift for him": "yallternative-gift-card",
   "pride gift": "bundle-pride-set",
@@ -811,6 +813,7 @@ const EXPECT_TOP3 = {
   bourbon: ["hand-scrub", "beard-salve"],
   citrus: ["shimmer-oil", "sugar-scrub", "whipped-body-butter"],
   "chapped lips": ["miracle-balm", "frankincense-salve"],
+  woodsy: ["frankincense-salve", "beard-salve"],
   "cracked heels": ["shea-butter", "frankincense-salve"],
   chapstick: ["frankincense-salve", "miracle-balm"],
   "stocking stuffer": ["yallternative-gift-card"],

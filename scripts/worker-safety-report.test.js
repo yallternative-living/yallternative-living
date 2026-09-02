@@ -830,7 +830,7 @@ async function testFormPost() {
 async function testSchema() {
   console.log("\n11. Schema version 3");
   const { SCHEMA_VERSION, SCHEMA_STATEMENTS } = await import("../workers/state/migrations.js");
-  eq(SCHEMA_VERSION, 3, "the schema version was bumped for adverse_events");
+  eq(SCHEMA_VERSION >= 3, true, "the schema version was bumped for adverse_events");
 
   const { RECORD_RETENTION_YEARS } = await import("../workers/routes/safety-report.js");
   eq(

@@ -570,7 +570,7 @@ function createStaticServer(port = 8082) {
       }
 
       // Test Live Search
-      await page.type("#reviewSearchInput", "knuckles");
+      await page.type("#reviewSearchInput", "scooper");
       await new Promise((r) => setTimeout(r, 200));
       const filteredCards = await page.$$(".review-card");
       const bannerText = await page.$eval("#reviewsCountBanner", (el) => el.textContent);

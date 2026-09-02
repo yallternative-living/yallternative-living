@@ -64,7 +64,24 @@ window.YL_CONTENT = {
     "loyaltyBadgeEmoji": "✨",
     "enableApothecaryQuiz": true,
     "birthdayTitle": "Join The Birthday Club",
-    "birthdaySubtext": "Get a $5 gift voucher delivered to your inbox on your birthday."
+    "birthdaySubtext": "Get a $5 gift voucher delivered to your inbox on your birthday.",
+    "enableLowStockAlerts": true,
+    "enableOrderDigest": true,
+    "enableMarketReminders": true,
+    "enableReactionExport": true,
+    "automations": {
+      "lowStockThreshold": 3,
+      "orderDigestHour": 7,
+      "marketReminderHour": 9,
+      "restockEmailIntro": "Good news: the thing you asked us to watch is back on the shelf. Small batches go fast, so here is your heads-up before anyone else's.",
+      "marketReminderIntro": "Quick reminder that we'll have a table tomorrow. Come say hey, smell everything, and grab whatever you've had your eye on.",
+      "sizeConfirmationIntro": "Your set is on the bench. One thing before it ships: a couple of the pieces come in more than one size or scent, and we'd rather ask than guess."
+    },
+    "enableDispatchCountdown": false,
+    "dispatch": {
+      "cutoffHour": 14,
+      "cutoffMinute": 0
+    }
   },
   "home": {
     "promoBanner": "Free shipping on orders over $40 ✦ Small-batch, handmade with love in Landrum, SC",

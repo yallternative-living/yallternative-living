@@ -1049,6 +1049,9 @@ function buildSiteData() {
    decides. Only the verifiedBuyer badge is in question, not the review. */
   SITE_REVIEWS.forEach(function (r) {
     if (!r || r.verifiedBuyer !== true) return;
+    // A review copied from Etsy is a purchase on Etsy: the product may be
+    // coming soon HERE and still have been bought there.
+    if (/\(Etsy\)\s*$/.test(String(r.name || ""))) return;
     const target = PRODUCTS_BY_ID[r.productId];
     if (target && target.comingSoon) {
       console.warn(
@@ -1896,6 +1899,21 @@ function buildSiteData() {
       "greenville",
       "upstate",
       "south carolina"
+    ],
+
+    deodorant: [
+      "deoderant",
+      "natural deodorant",
+      "cream deodorant",
+      "aluminum free",
+      "aluminium free",
+      "underarm",
+      "underarms",
+      "pit cream",
+      "body odor",
+      "odor",
+      "sweat",
+      "feral"
     ],
 
     // Tier 4: scent families (match the product scent labels)

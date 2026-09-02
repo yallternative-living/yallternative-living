@@ -16,6 +16,9 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const PRODUCT_COUNT = JSON.parse(
+  fs.readFileSync(path.join(__dirname, "..", "assets", "data", "products.json"), "utf8")
+).products.length;
 const puppeteer = require("puppeteer");
 
 function createTestServer() {
@@ -125,10 +128,10 @@ async function runEmpiricalChallengerTests() {
       return cards.length;
     });
     assert(
-      totalProductsCount === 19,
-      `Expected 19 initial product cards, found ${totalProductsCount}`
+      totalProductsCount === PRODUCT_COUNT,
+      `Expected ${PRODUCT_COUNT} initial product cards, found ${totalProductsCount}`
     );
-    pass(`Initial catalog renders 19 product cards correctly.`);
+    pass(`Initial catalog renders ${PRODUCT_COUNT} product cards correctly.`);
 
     // 1.2 Multi-facet combination: Category Salves + Concern Dry-Skin + Sort Price Ascending
     await page.evaluate(() => {
@@ -209,7 +212,7 @@ async function runEmpiricalChallengerTests() {
     });
 
     assert(
-      scentResult.cardCount > 0 && scentResult.cardCount < 19,
+      scentResult.cardCount > 0 && scentResult.cardCount < PRODUCT_COUNT,
       `Scent filter returned ${scentResult.cardCount} products for ${scentResult.scentValue}`
     );
     pass(
@@ -271,14 +274,16 @@ async function runEmpiricalChallengerTests() {
     });
 
     assert(
-      resetResult.cardCount === 19,
-      `Reset restored all 19 products (got ${resetResult.cardCount})`
+      resetResult.cardCount === PRODUCT_COUNT,
+      `Reset restored all ${PRODUCT_COUNT} products (got ${resetResult.cardCount})`
     );
     assert(resetResult.searchValue === "", "Search input cleared on reset");
     assert(resetResult.activeCat === "all", "Category filter restored to 'all'");
     assert(resetResult.activeConcern === "all", "Concern filter restored to 'all'");
     assert(resetResult.scentValue === "all", "Scent filter reset to 'all'");
-    pass(`Reset button restored all 19 products, cleared filters/search/scents cleanly.`);
+    pass(
+      `Reset button restored all ${PRODUCT_COUNT} products, cleared filters/search/scents cleanly.`
+    );
 
     // 1.7 Deep Linking URL Parameter tests (?concern=dry-skin)
     await page.goto(`${baseUrl}/shop.html?concern=dry-skin`, { waitUntil: "networkidle0" });
@@ -294,7 +299,7 @@ async function runEmpiricalChallengerTests() {
       `Deep link active concern should be dry-skin, got ${deepLinkConcern.activeConcern}`
     );
     assert(
-      deepLinkConcern.cardCount > 0 && deepLinkConcern.cardCount < 19,
+      deepLinkConcern.cardCount > 0 && deepLinkConcern.cardCount < PRODUCT_COUNT,
       `Filtered products count: ${deepLinkConcern.cardCount}`
     );
     pass(

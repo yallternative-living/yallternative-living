@@ -489,14 +489,38 @@
     };
   }
 
+  /* The same-day cutoff is editable in /admin (content.json site.dispatch:
+     cutoffHour / cutoffMinute, Eastern). 2:00 PM when unset or nonsense. */
+  function dispatchCutoff() {
+    var content =
+      root.YL_CONTENT ||
+      (typeof globalThis !== "undefined" &&
+        (globalThis.YL_CONTENT || (globalThis.window && globalThis.window.YL_CONTENT))) ||
+      null;
+    var site = (content && content.site) || {};
+    var d = site.dispatch || {};
+    var h = Number(d.cutoffHour);
+    var m = Number(d.cutoffMinute);
+    if (!isFinite(h) || h < 0 || h > 23) h = 14;
+    if (!isFinite(m) || m < 0 || m > 59) m = 0;
+    var hh = h % 12 === 0 ? 12 : h % 12;
+    var label =
+      hh + (m ? ":" + (m < 10 ? "0" : "") + m : "") + " " + (h >= 12 ? "PM" : "AM") + " ET";
+    return { hour: h, minute: m, label: label };
+  }
+
   function calculateDispatchStatus(now) {
     var ny = getNyDateTime(now);
     var isTodayBusiness = isDispatchBusinessDay(ny.year, ny.month, ny.day, ny.weekday);
-    var cutoffHour = 14;
+    var cutoff = dispatchCutoff();
+    var cutoffHour = cutoff.hour;
+    var cutoffMinutes = cutoff.hour * 60 + cutoff.minute;
+    var nowMinutes = ny.hour * 60 + ny.minute;
 
-    if (isTodayBusiness && ny.hour < cutoffHour) {
-      var hoursRemaining = cutoffHour - 1 - ny.hour;
-      var minutesRemaining = 59 - ny.minute;
+    if (isTodayBusiness && nowMinutes < cutoffMinutes) {
+      var remaining = cutoffMinutes - nowMinutes - 1;
+      var hoursRemaining = Math.floor(remaining / 60);
+      var minutesRemaining = remaining % 60;
       var secondsRemaining = 59 - ny.second;
       var timeStr =
         hoursRemaining > 0
@@ -536,7 +560,7 @@
       minutesRemaining: 0,
       secondsRemaining: 0,
       nextDispatchDayLabel: nextDayLabel,
-      message: "Ships " + nextDayLabel + " from Landrum, SC · Order by 2 PM ET"
+      message: "Ships " + nextDayLabel + " from Landrum, SC · Order by " + cutoff.label
     };
   }
 

@@ -1748,12 +1748,24 @@ section("Every CMS feature switch is wired to real code");
     fs.readFileSync(path.join(ROOT, "assets/data/content.json"), "utf8")
   );
   var siteCfg = contentJson.site || {};
-  var haystack = ["assets/js/main.js", "assets/js/cart.js", "scripts/build-site-data.js"]
-    .map(function (f) {
-      var full = path.join(ROOT, f);
-      return fs.existsSync(full) ? fs.readFileSync(full, "utf8") : "";
-    })
-    .join("\n");
+  var workerSources = (function () {
+    var out = "";
+    ["workers", "workers/routes", "workers/state"].forEach(function (dir) {
+      var abs = path.join(ROOT, dir);
+      if (!fs.existsSync(abs)) return;
+      fs.readdirSync(abs).forEach(function (f) {
+        if (f.endsWith(".js")) out += fs.readFileSync(path.join(abs, f), "utf8");
+      });
+    });
+    return out;
+  })();
+  var haystack =
+    ["assets/js/main.js", "assets/js/cart.js", "scripts/build-site-data.js"]
+      .map(function (f) {
+        var full = path.join(ROOT, f);
+        return fs.existsSync(full) ? fs.readFileSync(full, "utf8") : "";
+      })
+      .join("\n") + workerSources;
 
   var flags = Object.keys(siteCfg).filter(function (k) {
     return k.indexOf("enable") === 0 && typeof siteCfg[k] === "boolean";

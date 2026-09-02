@@ -341,6 +341,59 @@ window.YL_SEARCH_INDEX = {
       "shopUrl": "shop.html#beard-salve"
     },
     {
+      "id": "cream-deodorant",
+      "name": "Feral but FRESH Cream Deodorant",
+      "category": "body",
+      "categoryLabel": "Body & Skin",
+      "price": 15,
+      "originalPrice": null,
+      "formattedPrice": "$15.00",
+      "image": "assets/img/cream-deodorant.jpg",
+      "inStock": true,
+      "comingSoon": false,
+      "estimatedBatchDate": null,
+      "featured": false,
+      "blurb": "A rich, scoopable cream deodorant handmade for long-lasting freshness and odor control without aluminum. This buttery formula melts into the skin, spreads easily, and dries down with a smooth, non-greasy feel. Scented with a fresh, earthy blend of lavender, cedarwood, orange, and tea tree. 2 oz amber glass jar.",
+      "ingredients": [
+        "Shea Butter",
+        "Mango Butter",
+        "Coconut Oil",
+        "Almond Oil",
+        "Beeswax",
+        "Cetyl Alcohol",
+        "Arrowroot Powder",
+        "Zinc Oxide",
+        "Baking Soda",
+        "Vitamin E",
+        "Essential Oils (Lavender, Cedarwood, Orange, Tea Tree)"
+      ],
+      "ingredientsLabel": "Ingredients",
+      "scent": "Herbal & Woodsy",
+      "tags": [],
+      "concerns": [
+        "daily-glow"
+      ],
+      "keywords": [
+        "deodorant",
+        "cream deodorant",
+        "aluminum free",
+        "natural deodorant",
+        "baking soda",
+        "underarm",
+        "feral but fresh",
+        "lavender cedarwood",
+        "fresh"
+      ],
+      "variants": null,
+      "pairsWith": [
+        "hand-scrub",
+        "frankincense-salve"
+      ],
+      "ritualTitle": "The Fresh Start Ritual",
+      "url": "products/cream-deodorant.html",
+      "shopUrl": "shop.html#cream-deodorant"
+    },
+    {
       "id": "shimmer-oil",
       "name": "Shimmer Body Oil",
       "category": "body",
@@ -497,7 +550,7 @@ window.YL_SEARCH_INDEX = {
         "Coconut Oil",
         "Olive Oil",
         "Vitamin E",
-        "Dawn (Dish Soap)",
+        "Surfactant Blend (Water, Sodium Lauryl Sulfate, Sodium Laureth Sulfate, C10-16 Alkyldimethylamine Oxide, Alcohol Denat., Sodium Chloride, Phenoxyethanol, Methylisothiazolinone, Fragrance)",
         "Bourbon Vanilla Fragrance",
         "Preservative"
       ],
@@ -2103,6 +2156,20 @@ window.YL_SEARCH_INDEX = {
       "greenville",
       "upstate",
       "south carolina"
+    ],
+    "deodorant": [
+      "deoderant",
+      "natural deodorant",
+      "cream deodorant",
+      "aluminum free",
+      "aluminium free",
+      "underarm",
+      "underarms",
+      "pit cream",
+      "body odor",
+      "odor",
+      "sweat",
+      "feral"
     ],
     "bourbon": [
       "bourbon vanilla",

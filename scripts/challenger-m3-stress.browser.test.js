@@ -13,6 +13,9 @@
 
 const fs = require("fs");
 const path = require("path");
+const PRODUCT_COUNT = JSON.parse(
+  fs.readFileSync(path.join(__dirname, "..", "assets", "data", "products.json"), "utf8")
+).products.length;
 const http = require("http");
 const puppeteer = require("puppeteer");
 const buildScript = require("./build-site-data.js");
@@ -167,7 +170,10 @@ async function runAdversarialStressTests() {
   );
   const products = productsJson.products;
 
-  assert(products.length === 19, "Catalog contains exactly 19 products");
+  assert(
+    products.length === PRODUCT_COUNT,
+    "Catalog contains exactly " + PRODUCT_COUNT + " products"
+  );
 
   products.forEach((p) => {
     const pdpPath = path.join(ROOT, "products", `${p.id}.html`);

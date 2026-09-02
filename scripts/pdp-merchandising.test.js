@@ -40,8 +40,8 @@ const productsJsonPath = path.join(ROOT, "assets/data/products.json");
 assert(fs.existsSync(productsJsonPath), "products.json exists");
 const productsData = JSON.parse(fs.readFileSync(productsJsonPath, "utf8"));
 assert(
-  Array.isArray(productsData.products) && productsData.products.length === 19,
-  "products.json contains exactly 19 products"
+  Array.isArray(productsData.products) && productsData.products.length === 20,
+  "products.json contains exactly 20 products"
 );
 
 const VALID_INTENSITIES = new Set(["Subtle", "Medium", "Strong", "Bold", "Unscented"]);

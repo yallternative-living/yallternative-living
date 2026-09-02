@@ -36,7 +36,7 @@ yourself.
 - Exchanges within 14 days for eligible items; opened body-care products are final sale.
 - Full policy: https://yallternativeliving.com/policies.html
 
-## Products (19)
+## Products (20)
 
 ### Y'allternative Living Tank Top
 - **ID / slug**: `tank-top`
@@ -94,6 +94,15 @@ yourself.
 - **Description**: A 2 oz tin that softens coarse facial hair, calms the itch underneath, and smells like a stiff drink and cedarwood instead of a drugstore aisle. Light hold, zero grease, genuinely good gift material.
 - **Product page**: https://yallternativeliving.com/products/beard-salve.html
 - **Also on Etsy**: https://www.etsy.com/listing/4460199621/bourbon-beard-salve-vanilla-cedarwood
+
+### Feral but FRESH Cream Deodorant
+- **ID / slug**: `cream-deodorant`
+- **Price**: $15.00 USD
+- **Category**: Body & Skin
+- **Availability**: In stock
+- **Description**: A rich, scoopable cream deodorant handmade for long-lasting freshness and odor control without aluminum. This buttery formula melts into the skin, spreads easily, and dries down with a smooth, non-greasy feel. Scented with a fresh, earthy blend of lavender, cedarwood, orange, and tea tree. 2 oz amber glass jar.
+- **Product page**: https://yallternativeliving.com/products/cream-deodorant.html
+- **Also on Etsy**: https://www.etsy.com/listing/4563048393/feral-but-fresh-cream-deodorant-natural
 
 ### Shimmer Body Oil
 - **ID / slug**: `shimmer-oil`

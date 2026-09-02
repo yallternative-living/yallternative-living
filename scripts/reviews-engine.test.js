@@ -122,6 +122,50 @@ var reviewsData = JSON.parse(
 );
 var reviews = reviewsData.reviews;
 
+/* The live file now holds only the reviews actually left on Etsy, so the
+   filter behaviour is exercised on those plus a fixed set of synthetic
+   reviews (every star value, a keyword, a product-name hit) that no data
+   edit can remove. Schema assertions below still run on the live file. */
+var FIXTURES = [
+  {
+    id: "fx-4",
+    productId: "hand-scrub",
+    name: "Fixture Four",
+    rating: 4,
+    text: "Got the grease off my knuckles.",
+    date: "2026-08-01",
+    verifiedBuyer: false
+  },
+  {
+    id: "fx-3",
+    productId: "bug-spray",
+    name: "Fixture Three",
+    rating: 3,
+    text: "Fine for the porch.",
+    date: "2026-08-02",
+    verifiedBuyer: false
+  },
+  {
+    id: "fx-5",
+    productId: "sleep-salve",
+    name: "Fixture Five",
+    rating: 5,
+    text: "Rubbed it on before bed.",
+    date: "2026-08-03",
+    verifiedBuyer: false
+  },
+  {
+    id: "fx-6",
+    productId: "sleep-salve",
+    name: "Fixture Six",
+    rating: 5,
+    text: "A salve that earns its tin.",
+    date: "2026-08-04",
+    verifiedBuyer: false
+  }
+];
+var filterSet = reviews.concat(FIXTURES);
+
 var productsById = {
   "hand-scrub": { id: "hand-scrub", name: "Heavy Duty Hand Scrub", category: "body" },
   "bug-spray": { id: "bug-spray", name: "All-Natural Bug Spray", category: "potions" },
@@ -147,24 +191,24 @@ assert.strictEqual(main.formatReviewDate(null), "", "Returns empty string for nu
 console.log("  ✓ formatReviewDate parses valid ISO dates and handles invalid inputs gracefully");
 
 // 2. filterReviews - all ratings, empty query
-var allRes = main.filterReviews(reviews, "", "all", productsById);
-assert.strictEqual(allRes.length, reviews.length, "Returns all reviews when no filter applied");
+var allRes = main.filterReviews(filterSet, "", "all", productsById);
+assert.strictEqual(allRes.length, filterSet.length, "Returns all reviews when no filter applied");
 console.log("  ✓ filterReviews returns all reviews when query is empty and rating is 'all'");
 
 // 3. filterReviews - star rating filter
-var fiveStar = main.filterReviews(reviews, "", "5", productsById);
+var fiveStar = main.filterReviews(filterSet, "", "5", productsById);
 assert.ok(fiveStar.length > 0, "Finds 5 star reviews");
 fiveStar.forEach(function (r) {
   assert.strictEqual(Math.round(r.rating), 5, "Review rating must be 5");
 });
 
-var fourStar = main.filterReviews(reviews, "", "4", productsById);
+var fourStar = main.filterReviews(filterSet, "", "4", productsById);
 assert.ok(fourStar.length > 0, "Finds 4 star reviews");
 fourStar.forEach(function (r) {
   assert.strictEqual(Math.round(r.rating), 4, "Review rating must be 4");
 });
 
-var threeStar = main.filterReviews(reviews, "", "3", productsById);
+var threeStar = main.filterReviews(filterSet, "", "3", productsById);
 assert.ok(threeStar.length > 0, "Finds 3 star reviews");
 threeStar.forEach(function (r) {
   assert.strictEqual(Math.round(r.rating), 3, "Review rating must be 3");
@@ -172,23 +216,23 @@ threeStar.forEach(function (r) {
 console.log("  ✓ filterReviews accurately filters by discrete star ratings (5★, 4★, 3★)");
 
 // 4. filterReviews - keyword search on review body
-var scrubRes = main.filterReviews(reviews, "knuckles", "all", productsById);
+var scrubRes = main.filterReviews(filterSet, "knuckles", "all", productsById);
 assert.ok(scrubRes.length >= 1, "Matches text 'knuckles'");
 assert.ok(
   scrubRes.some(function (r) {
-    return r.id === "etsy-2026-06-eric";
+    return r.id === "fx-4";
   })
 );
 console.log("  ✓ filterReviews matches keywords in review body text");
 
 // 5. filterReviews - keyword search on author name
-var nameRes = main.filterReviews(reviews, "Leila", "all", productsById);
+var nameRes = main.filterReviews(filterSet, "Leila", "all", productsById);
 assert.strictEqual(nameRes.length, 1, "Matches reviewer name 'Leila'");
 assert.strictEqual(nameRes[0].id, "etsy-2026-05-leila");
 console.log("  ✓ filterReviews matches reviewer name");
 
 // 6. filterReviews - keyword search on product name
-var prodRes = main.filterReviews(reviews, "Sleep Salve", "all", productsById);
+var prodRes = main.filterReviews(filterSet, "Sleep Salve", "all", productsById);
 assert.ok(prodRes.length >= 1, "Matches product name 'Sleep Salve'");
 assert.ok(
   prodRes.some(function (r) {
@@ -198,12 +242,12 @@ assert.ok(
 console.log("  ✓ filterReviews matches product name via productId resolution");
 
 // 7. filterReviews - keyword search on product category
-var catRes = main.filterReviews(reviews, "salves", "all", productsById);
+var catRes = main.filterReviews(filterSet, "salves", "all", productsById);
 assert.ok(catRes.length >= 2, "Matches products in category 'salves'");
 console.log("  ✓ filterReviews matches product category via productId resolution");
 
 // 8. filterReviews - combining search query + rating filter
-var comboRes = main.filterReviews(reviews, "salve", "5", productsById);
+var comboRes = main.filterReviews(filterSet, "salve", "5", productsById);
 assert.ok(comboRes.length >= 1, "Finds 5 star reviews matching 'salve'");
 comboRes.forEach(function (r) {
   assert.strictEqual(Math.round(r.rating), 5);

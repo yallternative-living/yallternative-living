@@ -1628,5 +1628,77 @@ window.YL_IMAGES = {
         }
       ]
     }
+  },
+  "assets/img/cream-deodorant-alt1.jpg": {
+    key: "assets/img/cream-deodorant-alt1.jpg",
+    width: 1448,
+    height: 1086,
+    size: 222501,
+    variants: {
+      avif: [
+        {
+          width: 480,
+          file: "assets/img/cream-deodorant-alt1-480.avif"
+        },
+        {
+          width: 800,
+          file: "assets/img/cream-deodorant-alt1-800.avif"
+        },
+        {
+          width: 1448,
+          file: "assets/img/cream-deodorant-alt1.avif"
+        }
+      ],
+      webp: [
+        {
+          width: 480,
+          file: "assets/img/cream-deodorant-alt1-480.webp"
+        },
+        {
+          width: 800,
+          file: "assets/img/cream-deodorant-alt1-800.webp"
+        },
+        {
+          width: 1448,
+          file: "assets/img/cream-deodorant-alt1.webp"
+        }
+      ]
+    }
+  },
+  "assets/img/cream-deodorant.jpg": {
+    key: "assets/img/cream-deodorant.jpg",
+    width: 1448,
+    height: 1086,
+    size: 219271,
+    variants: {
+      avif: [
+        {
+          width: 480,
+          file: "assets/img/cream-deodorant-480.avif"
+        },
+        {
+          width: 800,
+          file: "assets/img/cream-deodorant-800.avif"
+        },
+        {
+          width: 1448,
+          file: "assets/img/cream-deodorant.avif"
+        }
+      ],
+      webp: [
+        {
+          width: 480,
+          file: "assets/img/cream-deodorant-480.webp"
+        },
+        {
+          width: 800,
+          file: "assets/img/cream-deodorant-800.webp"
+        },
+        {
+          width: 1448,
+          file: "assets/img/cream-deodorant.webp"
+        }
+      ]
+    }
   }
 };

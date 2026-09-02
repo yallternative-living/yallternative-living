@@ -436,6 +436,139 @@ a day still send exactly one birthday code.
 `checkout.session.expired` as well as `checkout.session.completed` -- that is
 the event carrying the recovery URL. See step 4.
 
+### 2d. The order digest and the size/scent question
+
+Two automations that hang off orders. Neither is on the money path: both are
+best-effort, both are gated by a CMS switch, and neither can stop a checkout.
+
+**The daily order digest** (`workers/routes/order-digest.js`, run from the
+hourly cron). One email a day with the pick list: per order, the session id, the
+buyer's FIRST NAME and city/state, and every line -- with bundles expanded into
+the products inside them and a build-your-own box expanded from the
+`custom_box_N` metadata `checkout.js` writes. A gift order carries the signed
+`/api/gift-note` print link, a local pickup names the market, and anything that
+comes in more than one size or scent with nothing chosen is flagged
+`NEEDS SIZE/SCENT CONFIRMATION`.
+
+- **Nothing else is in it.** No email addresses, no street addresses, no
+  postcodes, no totals, no gift-card codes, no gift-note text. Stripe stays the
+  system of record; the digest is a packing aid.
+- **Once a day**, via `claimDaily` in `state/job-state.js` (job `order-digest`),
+  at `site.automations.orderDigestHour` in `assets/data/content.json` (default
+  7, America/New_York, editable in `/admin`). 24 ticks send one email.
+- **Never twice**: the query window is 26 hours so a missed tick recovers, and
+  the newest session id of each run is kept in `job_state` under
+  `order-digest-last`, which is where the next run stops.
+- **Off** when `site.enableOrderDigest` is `false` -- then it does not even call
+  Stripe, and does not burn the day's claim.
+- **A quiet day sends nothing.** Set the var `ORDER_DIGEST_WHEN_EMPTY = "true"`
+  if you would rather get a "No new orders" note than wonder whether it ran.
+
+**The size/scent confirmation** (`emailSizeConfirmation` in
+`routes/stripe-webhook.js`, on `checkout.session.completed`). A bundle and a
+build-your-own box are each ONE line, and neither lets the shopper pick a size:
+`checkout.js` only records an option for a plain product line. So when a paid
+order contains a bundle or a box whose contents have `variants`, the buyer gets
+one email opening with `site.automations.sizeConfirmationIntro`, listing what
+needs choosing and its options, with `reply_to` set to the shop address so an
+answer arrives as an ordinary reply. It is transactional -- **no unsubscribe
+link, no suppression check** -- and keyed `size-confirm-<session id>` at Resend,
+so a redelivered webhook asks once. A plain order, or a bundle whose contents
+have no variants, gets nothing.
+
+| Var                       | Default | What it does                                                          |
+| ------------------------- | ------- | --------------------------------------------------------------------- |
+| `ORDER_NOTIFY_EMAIL`      | falls back to `RESTOCK_NOTIFY_EMAIL`, then `contact@yallternativeliving.com` | Where the digest and the gift-note link go. |
+| `ORDER_DIGEST_WHEN_EMPTY` | unset   | `"true"` sends the digest on days with no orders too.                 |
+
+Both read `assets/data/products.json` for names, a bundle's `productIds` and a
+product's `variants` -- the same file the shop pages render from, so the pick
+list cannot drift from the label. If it is unreachable the digest still goes out
+with the Stripe line names unexpanded, and the size question is simply not asked.
+
+### 2e. Restock alerts, low-stock notes, market reminders and the monthly reaction export
+
+Four more jobs the hourly cron runs (`scheduled` in `checkout.js`, after the
+order digest). Like the digest, none of them is on the money path: each is gated
+by a switch in `assets/data/content.json` (`site.*`, editable under Site
+settings in `/admin`), each degrades to one logged line when its secrets are
+unset, and none can stop a checkout. The daily and monthly ones keep their "last
+ran" marker in the `job_state` table (`state/job-state.js`), which is what
+turns twenty-four hourly ticks into one run.
+
+**Back-in-stock alerts** (`runRestockAlerts` in `routes/restock.js`, every
+tick). `POST /api/restock` -- the "Notify me when it's back" box -- stores the
+address in `restock_signups` as well as emailing the owner. Each tick, every
+pending signup whose product `products.json` now shows as buyable gets one
+email opening with `site.automations.restockEmailIntro`, through
+`sendMarketingEmail` (suppression list, `List-Unsubscribe`, the visible opt-out
+line), keyed `restock-<product id>-<hash>` at Resend. `notified_at` is set
+after a successful send -- and for a suppressed address, so it is not
+reconsidered every hour -- while a Resend refusal leaves the row for the next
+tick. At most 50 rows per tick. Off when `site.enableRestockAlerts` is `false`.
+
+**Low-stock note** (`runLowStockCheck`, same file, once a day at 08:00
+America/New_York, job `low-stock`). One email to the owner listing every
+product whose `stock` is at or under `site.automations.lowStockThreshold`
+(default 3), with how many shoppers are waiting on a restock alert for each.
+Nothing low means no email. Goes to `ORDER_NOTIFY_EMAIL`, then
+`RESTOCK_NOTIFY_EMAIL`, then `contact@yallternativeliving.com`. Off when
+`site.enableLowStockAlerts` is `false`.
+
+**Market reminders** (`routes/market-alerts.js`, once a day at
+`site.automations.marketReminderHour` -- default 9, America/New_York -- job
+`market-reminders`). The events page's "Email me the next market date" form
+posts to `POST /api/market-alerts`: JSON from the fetch upgrade in `main.js`,
+or a plain form post with JavaScript off, which is answered with a 303 back to
+`events.html?market-alerts=saved` (or `=error`) -- never with the address in
+the URL. The row in `market_alert_subscribers` holds the lower-cased address,
+when it arrived, and `consent_text`: the exact sentence the form showed, so
+every subscriber's record says what they were told (the route's `CONSENT_TEXT`
+and `main.js`'s `MARKET_ALERT_CONSENT` are asserted equal by the test). The
+job reads `assets/data/events.json` -- the file the page renders from -- and
+for every market starting TOMORROW sends each subscriber one reminder opening
+with `site.automations.marketReminderIntro`, keyed `market-<event id>-<hash>`.
+It is a marketing send: same suppression list, same unsubscribe link, one
+opt-out stops everything. `last_event_id` on the row is what keeps a resumed
+run from repeating anyone; 50 sends per tick, and a run that hits the cap or
+has a send refused rewrites the day marker to `<day>:partial` so the next
+hourly tick picks up the rest. Needs `MAGIC_LINK_SECRET` and `RESEND_API_KEY`;
+without them it logs one line and does not claim the day. Off when
+`site.enableMarketReminders` is `false`.
+
+**Monthly reaction export** (`routes/reaction-export.js`, once a month on the
+1st, job `reaction-export`). One email to the owner with a CSV of every
+`adverse_events` row filed in the previous New York calendar month: every
+column, `outcomes` flattened to `a|b`, `created_at` as ISO plus the raw epoch
+in a trailing `created_at_ms` column, UTF-8 with a BOM so Excel opens it
+cleanly, and any cell starting with `=`, `+`, `-` or `@` prefixed with an
+apostrophe so a reporter's description cannot run as a formula on the owner's
+machine. The subject carries the row count and the serious count; the body says
+what a serious one requires (Form FDA 3500A within 15 business days). **A month
+with no reports still sends**, with a header-only file -- an unbroken run of
+monthly files is the evidence that the check happened. Not a marketing send: it
+goes through `sendEmail` with no unsubscribe link and no suppression check,
+keyed `reaction-export-<YYYY-MM>` at Resend. A refused send re-opens the month
+so the next tick retries, and the key means the file is never delivered twice.
+Nothing is deleted -- exporting is not archiving. Goes to `SAFETY_REPORT_EMAIL`,
+then `RESTOCK_NOTIFY_EMAIL`, then `contact@yallternativeliving.com`. Off when
+`site.enableReactionExport` is `false`.
+
+| Setting, var or table                                                                                          | Read by                                     | What it does                                                                                     |
+| -------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `site.enableRestockAlerts`, `enableLowStockAlerts`, `enableMarketReminders`, `enableReactionExport`            | each job                                    | `false` switches that job off without claiming its day or month.                                 |
+| `site.automations.lowStockThreshold` (default 3)                                                               | low-stock note                              | "At or under this" is low.                                                                       |
+| `site.automations.restockEmailIntro`, `marketReminderIntro`                                                    | restock alerts, market reminders            | The opening line of the shopper-facing email.                                                    |
+| `site.automations.marketReminderHour` (default 9)                                                              | market reminders                            | The New York hour the daily pass runs at. The low-stock note is fixed at 08:00.                  |
+| `RESEND_API_KEY` (secret)                                                                                      | all four                                    | No key, no send: the job logs one line and skips without burning its marker.                     |
+| `MAGIC_LINK_SECRET` (secret)                                                                                   | restock alerts, market reminders            | Signs the unsubscribe link. Without it no marketing email is sent at all.                        |
+| `RESTOCK_NOTIFY_EMAIL`, `ORDER_NOTIFY_EMAIL`, `SAFETY_REPORT_EMAIL` (vars)                                     | low-stock note, reaction export             | Owner-side recipients; the fallback order is in each paragraph above.                            |
+| `restock_signups`, `market_alert_subscribers`, `job_state` (D1, schema v4); `adverse_events` (v3)               | the jobs                                    | The tables. `adverse_events` is only ever read by the export and is swept by nothing.            |
+
+Tests: `scripts/worker-restock.test.js`, `scripts/worker-market-alerts.test.js`
+and `scripts/worker-reaction-export.test.js` -- Node only, D1 emulated on
+`node:sqlite`, Resend and the site JSON stubbed.
+
 ### 3. Set the secrets
 
 In the Cloudflare dashboard (the Worker -> Settings -> Variables and Secrets), or

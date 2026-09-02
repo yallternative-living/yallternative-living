@@ -444,6 +444,30 @@ async function main() {
     assert.strictEqual(status.message, "Ships Tomorrow from Landrum, SC · Order by 2 PM ET");
   });
 
+  runTest("R5.3b: the cutoff comes from content.json site.dispatch (12:30 PM ET here)", () => {
+    /* No window in this harness: dispatchCutoff() also reads globalThis.YL_CONTENT. */
+    const w = globalThis;
+    const prev = w.YL_CONTENT;
+    w.YL_CONTENT = { site: { dispatch: { cutoffHour: 12, cutoffMinute: 30 } } };
+    try {
+      // Wednesday June 10, 2026 at 11:00:00 EDT (15:00:00 UTC): 1h 29m left
+      let status = cart.calculateDispatchStatus(new Date("2026-06-10T15:00:00Z"));
+      assert.strictEqual(status.shipsToday, true);
+      assert.strictEqual(status.hoursRemaining, 1);
+      assert.strictEqual(status.minutesRemaining, 29);
+      // 12:45 EDT (16:45 UTC): past the earlier cutoff, and the label says so
+      status = cart.calculateDispatchStatus(new Date("2026-06-10T16:45:00Z"));
+      assert.strictEqual(status.shipsToday, false);
+      assert.strictEqual(status.message, "Ships Tomorrow from Landrum, SC · Order by 12:30 PM ET");
+      // Nonsense values fall back to 2 PM
+      w.YL_CONTENT = { site: { dispatch: { cutoffHour: 99, cutoffMinute: -5 } } };
+      status = cart.calculateDispatchStatus(new Date("2026-06-10T18:00:00Z"));
+      assert.strictEqual(status.message, "Ships Tomorrow from Landrum, SC · Order by 2 PM ET");
+    } finally {
+      w.YL_CONTENT = prev;
+    }
+  });
+
   runTest("R5.4: Friday after 2:00 PM ET rolls to Monday", () => {
     // Friday June 12, 2026 at 14:30:00 EDT (18:30:00 UTC)
     const d = new Date("2026-06-12T18:30:00Z");

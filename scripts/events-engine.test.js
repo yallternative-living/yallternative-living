@@ -753,39 +753,59 @@ assert(
   "eventInviteOrganizerHTML actually invites organizers to reach out"
 );
 
-const kitSite = { kitFormAction: "https://app.kit.com/forms/9867317/subscriptions" };
-const captureHtml = main.eventEmailCaptureHTML(kitSite);
+/* The form no longer posts to Kit. It posts to this site's own Worker, which
+   stores the address and sends the day-before reminder itself -- the Kit
+   version depended on somebody remembering to write a broadcast the night
+   before every market, and the whole point of the change is that nobody has
+   to. These assertions are the pins that used to hold the Kit action. */
+const captureHtml = main.eventEmailCaptureHTML();
 assert(
-  captureHtml.indexOf('action="https://app.kit.com/forms/9867317/subscriptions"') !== -1,
-  "eventEmailCaptureHTML posts to the real Kit form action from site.kitFormAction"
+  captureHtml.indexOf('action="/api/market-alerts"') !== -1,
+  "eventEmailCaptureHTML posts to the shop's own Worker route, not to Kit"
 );
 assert(
-  captureHtml.indexOf('name="fields[interest]" value="events"') !== -1,
-  "eventEmailCaptureHTML tags the submission fields[interest]=events"
+  captureHtml.indexOf("kit.com") === -1 && captureHtml.indexOf("fields[interest]") === -1,
+  "eventEmailCaptureHTML carries no Kit action and no Kit-specific hidden field any more"
 );
 assert(
-  captureHtml.indexOf('name="email_address"') !== -1,
-  "eventEmailCaptureHTML posts the field name Kit expects"
+  captureHtml.indexOf('method="post"') !== -1,
+  "eventEmailCaptureHTML stays a plain HTML POST, so it works with JavaScript off"
+);
+assert(
+  captureHtml.indexOf('name="email"') !== -1,
+  "eventEmailCaptureHTML posts the field name the Worker route reads"
+);
+assert(
+  captureHtml.indexOf('name="website_hp"') !== -1,
+  "eventEmailCaptureHTML uses the shared website_hp honeypot name the Worker checks"
 );
 assert(
   captureHtml.indexOf('class="form-hp"') !== -1,
   "eventEmailCaptureHTML carries the shared honeypot field"
 );
+assert(
+  captureHtml.indexOf(main.MARKET_ALERT_CONSENT) !== -1,
+  "eventEmailCaptureHTML shows the consent sentence the Worker stores on the row"
+);
+assert(
+  /unsubscribe/i.test(main.MARKET_ALERT_CONSENT) && /day before/i.test(main.MARKET_ALERT_CONSENT),
+  "…and that sentence says both what arrives (one email the day before) and how to stop it"
+);
+assert(
+  captureHtml.indexOf('id="eventsMarketAlertTitle"') !== -1,
+  "eventEmailCaptureHTML keeps the heading id the Worker's 303 redirect targets"
+);
+assert(
+  captureHtml.indexOf('id="eventsMarketAlertStatus"') !== -1,
+  "eventEmailCaptureHTML carries the live region the JS path writes its result into"
+);
 
-eq(
-  main.eventEmailCaptureHTML({}),
-  "",
-  "eventEmailCaptureHTML renders nothing when site.kitFormAction is absent"
-);
-eq(
-  main.eventEmailCaptureHTML(null),
-  "",
-  "eventEmailCaptureHTML renders nothing when site config itself is absent"
-);
-eq(
-  main.eventEmailCaptureHTML({ kitFormAction: "javascript:alert(1)" }),
-  "",
-  "eventEmailCaptureHTML refuses a non-https kitFormAction rather than emitting a hostile form action"
+/* It renders unconditionally now: there is no external form action that can be
+   missing, so an absent site config is no longer a reason to show nothing. */
+assert(
+  main.eventEmailCaptureHTML({}) === captureHtml &&
+    main.eventEmailCaptureHTML(null) === captureHtml,
+  "eventEmailCaptureHTML no longer depends on site config -- the route is always there"
 );
 
 console.log(`\nevents-engine.test.js: ${passed} passed, ${failed} failed.`);
