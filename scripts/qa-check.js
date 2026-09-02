@@ -2265,15 +2265,19 @@ try {
     }
   }
 
+  // The packing slip, the fabricated order card and the URL-parameter gift
+  // certificate are gone from the markup (H-6); their stylesheet rules went
+  // with them so they cannot quietly come back styled.
   var stylesCssSrc = fs.readFileSync(path.join(ROOT, "assets/css/styles.css"), "utf8");
-  if (
-    stylesCssSrc.indexOf(".packing-slip-view") !== -1 &&
-    stylesCssSrc.indexOf("@media print") !== -1
-  ) {
-    ok("styles.css defines .packing-slip-view with @media print rules");
-  } else {
-    fail("styles.css print stylesheet", "missing .packing-slip-view or @media print rules");
-  }
+  [".packing-slip-", ".order-status-card", ".reorder-past-order-btn", ".gift-cert-"].forEach(
+    function (deadSelector) {
+      if (stylesCssSrc.indexOf(deadSelector) === -1) {
+        ok("styles.css carries no rules for retired markup: " + deadSelector);
+      } else {
+        fail("styles.css retired-markup rules (H-6)", "still defines " + deadSelector);
+      }
+    }
+  );
 } catch (e) {
   fail("Milestone 6 QA assertions", e.message);
 }
