@@ -5,12 +5,13 @@
  */
 
 /** @const {string} Cache name key, updated on assets release. */
-const CACHE_NAME = "yallternative-cache-vdecffc28be46";
+const CACHE_NAME = "yallternative-cache-vc4246b116b6c";
 
 /** @const {!Array<string>} Array of absolute URLs to be cached on installation. */
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
+  '/offline.html',
   '/shop.html',
   '/about.html',
   '/contact.html',
@@ -187,7 +188,13 @@ self.addEventListener('fetch', event => {
             const cached = await caches.match(cleanRequest);
             // Last-resort offline fallback for navigations so users get the
             // branded shell instead of the browser's dinosaur error page.
-            return cached || (isNavigation ? caches.match('/index.html') : Response.error());
+            // A non-precached URL (any product page, a typo) used to get
+            // index.html's markup under the requested path, where its
+            // relative asset links 404 and it renders unstyled. offline.html
+            // uses root-absolute paths and says what is going on.
+            if (cached) return cached;
+            if (!isNavigation) return Response.error();
+            return (await caches.match('/offline.html')) || (await caches.match('/index.html')) || Response.error();
           }
         })()
       );

@@ -501,8 +501,8 @@ assert(
   "og price is the cheapest buyable variant, not the base price"
 );
 assert(
-  deltaPdp.indexOf('itemprop="price" content="13.99"') !== -1,
-  "microdata price matches the advertised low price"
+  deltaPdp.indexOf('itemprop="price" content="19.99"') !== -1,
+  "microdata price is the pre-selected option's price (2oz at 19.99), the range lives in JSON-LD"
 );
 
 /* 10. Google Merchant Rich Product JSON-LD & BreadcrumbList (R5) */

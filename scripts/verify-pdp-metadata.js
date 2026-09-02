@@ -84,6 +84,17 @@ productsData.products.forEach((product) => {
   const expectedDesc = escapeHtml(rawDesc);
   const expectedMetaDesc = escapeHtml(truncateForMeta(rawDesc, 155));
   const expectedLowPrice = advertisedLowPrice(product).toFixed(2);
+  /* The headline price is the pre-selected option (first not sold out), the
+     same figure the radio group starts on; the range lives in the JSON-LD. */
+  const firstOpen =
+    product.variants && Array.isArray(product.variants.options)
+      ? product.variants.options.find(function (o) {
+          return o && !o.soldOut;
+        })
+      : null;
+  const expectedSelectedPrice = (
+    firstOpen ? product.price + (Number(firstOpen.priceDelta) || 0) : advertisedLowPrice(product)
+  ).toFixed(2);
   const expectedOgImage = DOMAIN + "/" + String(product.image).replace(/^\/+/, "");
   const expectedOgUrl = DOMAIN + "/products/" + product.id + ".html";
 
@@ -224,8 +235,8 @@ productsData.products.forEach((product) => {
     `${product.id}: itemprop="priceCurrency" is USD`
   );
   assert(
-    html.includes(`itemprop="price" content="${expectedLowPrice}"`),
-    `${product.id}: itemprop="price" matches the advertised low price (${expectedLowPrice})`
+    html.includes(`itemprop="price" content="${expectedSelectedPrice}"`),
+    `${product.id}: itemprop="price" matches the pre-selected option price (${expectedSelectedPrice})`
   );
   assert(
     html.includes(`itemprop="description">${expectedDesc}</p>`),

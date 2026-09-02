@@ -166,6 +166,7 @@
 
         <div class="reveal">
           <h2>Shipping Policy</h2>
+          <p><strong>Shipping Costs:</strong> Orders over $40 (before tax) ship free within the United States. Below that, a flat $10 shipping charge is added at checkout. The free-shipping line in the cart tracks your subtotal so there are no surprises on the final screen.</p>
           <p><strong>Processing Times:</strong> All of our products are handmade in small batches. Order processing times vary by product, so please check the specific product description for the most accurate timeline. We work as fast as we can, but quality takes time.</p>
           <p><strong>If We Run Late:</strong> Most orders leave Landrum within 1&ndash;3 business days. If we cannot ship within the time stated on the product page (or within 30 days if none is stated), we will email you a new ship date. You can accept the new date or cancel for a full refund, and if we cannot give you a date at all we will refund you rather than keep you waiting.</p>
           <p><strong>Lost or Stolen Packages:</strong> Once we hand your package over to the carrier (usually USPS or UPS), it is quite literally out of our hands. We are not responsible for packages that are lost in transit, delayed by the carrier, or stolen after delivery. If you have an issue with delivery, please contact the carrier directly with your tracking number.</p>
@@ -317,7 +318,7 @@
           <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
         </svg>
         <label for="globalSearchInput" id="globalSearchModalTitle" class="sr-only">Search catalog, articles &amp; FAQ</label>
-        <input type="search" id="globalSearchInput" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, journal, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <input type="search" id="globalSearchInput" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, events, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         <button type="button" class="global-search-clear-btn" id="globalSearchClearBtn" aria-label="Clear search query" hidden>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/></svg>
         </button>
@@ -375,17 +376,17 @@ var Tawk_API = Tawk_API || {}, Tawk_LoadStart = new Date();
   /* The widget SDK used to be requested on EVERY pageview -- 20 requests to
      embed.tawk.to plus a wss://*.tawk.to handshake, measured on a cold mobile
      load -- for the large majority of sessions that never open chat. Hold it
-     until the visitor does something, with an idle-timeout fallback so a
-     visitor who lands and reads without touching anything still gets chat. */
+     until the visitor does something (scroll, tap, key). There is deliberately
+     no idle-timeout fallback: the widget's iframe landing with no user input
+     counted as a 0.047 layout shift on every page in the 2026-09-02
+     measurement, and a shopper who wants chat will have scrolled first. */
   var loaded = false;
   var TRIGGERS = ["pointerdown", "keydown", "scroll", "touchstart"];
   var opts = { passive: true, capture: true };
-  var timer;
   function load() {
     if (loaded) return;
     loaded = true;
     TRIGGERS.forEach(function (t) { window.removeEventListener(t, load, opts); });
-    if (timer) clearTimeout(timer);
     var s1 = document.createElement("script"), s0 = document.getElementsByTagName("script")[0];
     s1.async = true;
     s1.src = "https://embed.tawk.to/" + propertyId + "/" + widgetId;
@@ -394,7 +395,6 @@ var Tawk_API = Tawk_API || {}, Tawk_LoadStart = new Date();
     s0.parentNode.insertBefore(s1, s0);
   }
   TRIGGERS.forEach(function (t) { window.addEventListener(t, load, opts); });
-  timer = setTimeout(load, 5000);
 })();
 </script>
 </body>

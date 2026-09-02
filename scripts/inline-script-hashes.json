@@ -27,10 +27,10 @@
       "emittedBy": "hand-written in each page's <head>",
       "pages": "all 15 top-level pages"
     },
-    "sha256-Lr8dFbj4IjZN4RrCiLNwFGtVLXJ2839SzBjtbjPY1a8=": {
-      "what": "Tawk.to live-chat loader, deferred. Loads the widget SDK on the visitor's first pointerdown/keydown/scroll/touchstart or after a 5s idle timeout, instead of on every pageview (20 requests to embed.tawk.to measured on a cold mobile load). The two IDs still come from content.json via scripts/build-site-data.js, so this hash still changes whenever they change in /admin.",
+    "sha256-GwShjQS8ayLbH/DuImQmgPbWdnTGaE3Khi+i/XB9D38=": {
+      "what": "Tawk.to live-chat loader, deferred. Loads the widget SDK on the visitor's first pointerdown/keydown/scroll/touchstart, never on a timer: an idle-timeout fallback made the widget iframe land with no user input and register as a 0.047 layout shift on every page (2026-09-02). The two IDs still come from content.json via scripts/build-site-data.js, so this hash still changes whenever they change in /admin.",
       "emittedBy": "scripts/build-site-data.js (site.tawkToPropertyId / site.tawkToWidgetId markers)",
-      "pages": "all 15 top-level pages"
+      "pages": "all 16 top-level pages"
     },
     "sha256-gUmq6gOoZ76O8R+C9JLLJzm46Aj4WygKv4n1nBxUfUk=": {
       "what": "Speculation-rules JSON that main.js builds at runtime (JSON.stringify of its prerender/prefetch rules object) and appends as <script type=\"speculationrules\">. It is never present in the static HTML, so the page scan cannot see it; 'runtime: true' keeps it in the emitted CSP as belt-and-braces beside the 'inline-speculation-rules' keyword. If the rules object in main.js changes, recompute this hash from JSON.stringify(rules).",

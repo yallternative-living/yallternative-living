@@ -128,6 +128,15 @@
             var initial = data.initialAmount
               ? " (of $" + Number(data.initialAmount).toFixed(2) + " initial)"
               : "";
+            /* Money a checkout in progress is holding is already out of the
+               balance; say so, or the card looks short (verify-D M-5). */
+            var pendingCents = Number(data.pendingCents) || 0;
+            var pendingNote =
+              pendingCents > 0
+                ? '<p class="muted" style="font-size: 0.82rem; margin: 0 0 12px 0;">$' +
+                  (pendingCents / 100).toFixed(2) +
+                  " is held by a checkout that is still in progress; it comes back to the card if that checkout is abandoned.</p>"
+                : "";
 
             balanceResult.innerHTML =
               '<div style="background: rgba(214, 155, 92, 0.1); border: 1px solid #d69b5c; border-radius: var(--radius); padding: 16px; margin-top: 12px; text-align: center;">' +
@@ -140,6 +149,7 @@
               "</strong>" +
               initial +
               " · Never Expires</p>" +
+              pendingNote +
               '  <button type="button" class="btn btn-sm btn-primary" id="applyCheckedGiftCardBtn" style="border-radius: 20px;">Apply to Cart Now</button>' +
               '  <p class="muted" id="giftCardApplyStatus" role="status" style="font-size: 0.8rem; margin: 8px 0 0 0;" hidden></p>' +
               "</div>";
@@ -189,7 +199,9 @@
               "</div>";
           } else {
             balanceResult.innerHTML = errorBox(
-              data && data.error ? data.error : "Gift card code not found or invalid format."
+              data && typeof data.error === "string" && /format/i.test(data.error)
+                ? "That code doesn't look right. It should read YALL-XXXX-XXXX-XXXX (dashes optional)."
+                : "We couldn't find a gift card with that code. Check the code in your gift email and try again."
             );
           }
         })
@@ -286,12 +298,26 @@
   });
 
   if (customGiftAmount) {
+    var amountNote = document.getElementById("customGiftAmountNote");
+    function noteAmount(raw, clamped) {
+      if (!amountNote) return;
+      var typed = Number(raw);
+      if (raw === "" || isNaN(typed))
+        amountNote.textContent = "Any whole-dollar amount from $10 to $500.";
+      else if (typed < 10) amountNote.textContent = "The minimum is $10, so we've set it to $10.";
+      else if (typed > 500)
+        amountNote.textContent = "The maximum is $500, so we've set it to $500.";
+      else if (typed !== clamped)
+        amountNote.textContent = "Whole dollars only: rounded to $" + clamped + ".";
+      else amountNote.textContent = "Any whole-dollar amount from $10 to $500.";
+    }
     customGiftAmount.addEventListener("input", function () {
       var val = parseInt(customGiftAmount.value, 10);
       if (!isNaN(val)) {
         var clamped = val;
         if (clamped < 10) clamped = 10;
         if (clamped > 500) clamped = 500;
+        noteAmount(customGiftAmount.value, clamped);
         if (giftCardAmountDisplay) giftCardAmountDisplay.textContent = "$" + clamped;
         addGiftCardBtn.setAttribute("data-item-custom1-value", "Preset $" + clamped);
         /* The button kept whatever amount was last committed ("Add $25 Gift
@@ -305,9 +331,11 @@
     });
 
     customGiftAmount.addEventListener("change", function () {
-      var val = parseInt(customGiftAmount.value, 10) || 25;
+      var raw = customGiftAmount.value;
+      var val = parseInt(raw, 10) || 25;
       if (val < 10) val = 10;
       if (val > 500) val = 500;
+      noteAmount(raw, val);
       customGiftAmount.value = val;
       updateGiftCardAmount(val);
     });
@@ -315,6 +343,9 @@
 
   if (giftRecipientEmail) {
     giftRecipientEmail.addEventListener("input", function () {
+      var err = document.getElementById("giftRecipientEmailError");
+      if (err) err.hidden = true;
+      giftRecipientEmail.removeAttribute("aria-invalid");
       addGiftCardBtn.setAttribute("data-item-custom2-value", giftRecipientEmail.value.trim());
     });
   }
@@ -340,7 +371,16 @@
       addGiftCardBtn.setAttribute("data-item-custom4-value", giftMessage.value.trim());
     }
 
+    var emailError = document.getElementById("giftRecipientEmailError");
     if (giftRecipientEmail && !giftRecipientEmail.checkValidity()) {
+      if (emailError) {
+        emailError.textContent = giftRecipientEmail.value.trim()
+          ? "That doesn't look like an email address."
+          : "Add the recipient's email so we know where to send the card.";
+        emailError.hidden = false;
+      }
+      giftRecipientEmail.setAttribute("aria-invalid", "true");
+      giftRecipientEmail.focus();
       giftRecipientEmail.reportValidity();
       e.stopPropagation();
       e.preventDefault();

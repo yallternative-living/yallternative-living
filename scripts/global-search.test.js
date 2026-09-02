@@ -327,8 +327,8 @@ it("every standalone product result links to products/<id>.html and carries a nu
 it("renderNoResultsHtml suggests the full shop and the contact page", () => {
   const html = mainJs.renderNoResultsHtml("zzznonexistentquery");
   assert.ok(html.includes("zzznonexistentquery"), "echoes the searched query back to the shopper");
-  assert.ok(html.includes('href="shop.html"'), "links to the full shop catalog");
-  assert.ok(html.includes('href="contact.html"'), "links to the contact page");
+  assert.ok(html.includes('href="/shop.html"'), "links to the full shop catalog");
+  assert.ok(html.includes('href="/contact.html"'), "links to the contact page");
   assert.ok(html.includes("search-empty-suggestions"), "keeps the existing popular-search chips");
 });
 
@@ -987,7 +987,7 @@ it("every page and PDP renders the CMS chips inside the search.chips markers wit
   const expectedQueries = cfg.popularChips.map((c) => c.query);
   const pages = fs
     .readdirSync(ROOT)
-    .filter((f) => f.endsWith(".html"))
+    .filter((f) => f.endsWith(".html") && f !== "offline.html")
     .concat(fs.readdirSync(path.join(ROOT, "products")).map((f) => "products/" + f));
   assert.ok(pages.length >= 20, "expected top-level pages plus PDPs, got " + pages.length);
   pages.forEach((page) => {

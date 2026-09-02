@@ -362,7 +362,7 @@ window.YL_CONTENT = {
             "categories": [],
             "matchBundles": true,
             "matchFeatured": false,
-            "scoreWeight": 6
+            "scoreWeight": 4
           },
           {
             "value": "ritual-bath",
@@ -377,7 +377,7 @@ window.YL_CONTENT = {
             ],
             "matchBundles": false,
             "matchFeatured": false,
-            "scoreWeight": 5
+            "scoreWeight": 4
           }
         ]
       }

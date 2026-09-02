@@ -179,7 +179,7 @@
 
           <div class="field">
             <label for="safety-product">Which product</label>
-            <select id="safety-product" name="product_id">
+            <select id="safety-product" name="product_id"><!--YL:safety.products--><option value="tank-top">Y&#39;allternative Living Tank Top</option><option value="unisex-tshirt">Y&#39;allternative Living Unisex T-Shirt</option><option value="frankincense-salve">Y&#39;all Heal Now Miracle Frankincense Salve</option><option value="miracle-balm">Y&#39;allternative Miracle Balm</option><option value="sleep-salve">Hush Y&#39;all Magnesium Arnica Sleep Salve</option><option value="beard-salve">Bourbon Beard Salve</option><option value="shimmer-oil">Shimmer Body Oil</option><option value="shea-butter">Lavender Shea Body Butter</option><option value="hand-scrub">Bourbon Vanilla Hand Scrub</option><option value="lavender-soak">Lavender Epsom Salt Soak</option><option value="backroad-soak">Backroad Recovery Epsom Salt Soak</option><option value="protection-keychain">Protection Potion Keychain</option><option value="bug-spray">Bug Off B*tch Natural Bug Spray</option><option value="sugar-scrub">Y&#39;all Means All Sugar Scrub</option><option value="whipped-body-butter">Y&#39;all Means All Rainbow Whipped Body Butter</option><option value="cleansing-spray">Appalachian Rain Clearing Mist</option><option value="bath-tea">Moonlit Meadow Bath Tea</option><option value="porch-sweep-spray">Porch Sweep Clearing Mist</option><!--/YL:safety.products-->
               <option value="">Choose one&hellip;</option>
               <option value="other">Other, or I&#39;m not sure</option>
             </select>
@@ -447,7 +447,7 @@
           <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
         </svg>
         <label for="globalSearchInput" id="globalSearchModalTitle" class="sr-only">Search catalog, articles &amp; FAQ</label>
-        <input type="search" id="globalSearchInput" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, journal, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <input type="search" id="globalSearchInput" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, events, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         <button type="button" class="global-search-clear-btn" id="globalSearchClearBtn" aria-label="Clear search query" hidden>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/></svg>
         </button>
@@ -506,17 +506,17 @@ var Tawk_API = Tawk_API || {}, Tawk_LoadStart = new Date();
   /* The widget SDK used to be requested on EVERY pageview -- 20 requests to
      embed.tawk.to plus a wss://*.tawk.to handshake, measured on a cold mobile
      load -- for the large majority of sessions that never open chat. Hold it
-     until the visitor does something, with an idle-timeout fallback so a
-     visitor who lands and reads without touching anything still gets chat. */
+     until the visitor does something (scroll, tap, key). There is deliberately
+     no idle-timeout fallback: the widget's iframe landing with no user input
+     counted as a 0.047 layout shift on every page in the 2026-09-02
+     measurement, and a shopper who wants chat will have scrolled first. */
   var loaded = false;
   var TRIGGERS = ["pointerdown", "keydown", "scroll", "touchstart"];
   var opts = { passive: true, capture: true };
-  var timer;
   function load() {
     if (loaded) return;
     loaded = true;
     TRIGGERS.forEach(function (t) { window.removeEventListener(t, load, opts); });
-    if (timer) clearTimeout(timer);
     var s1 = document.createElement("script"), s0 = document.getElementsByTagName("script")[0];
     s1.async = true;
     s1.src = "https://embed.tawk.to/" + propertyId + "/" + widgetId;
@@ -525,7 +525,6 @@ var Tawk_API = Tawk_API || {}, Tawk_LoadStart = new Date();
     s0.parentNode.insertBefore(s1, s0);
   }
   TRIGGERS.forEach(function (t) { window.addEventListener(t, load, opts); });
-  timer = setTimeout(load, 5000);
 })();
 </script>
 </body>

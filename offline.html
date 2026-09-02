@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>You're offline | Y'allternative Living</title>
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="stylesheet" href="/assets/css/styles.css?v=2.0">
+<style>
+  /* This page has none of the section wrappers that paint the paper colour
+     in the light theme, so it sets its own ground and text for both themes. */
+  /* No theme transition here: a contrast scan that flips the theme and reads
+     straight away would otherwise sample a mid-fade colour. */
+  body, main, h1, p, a { transition: none !important; }
+  body { background: #17130f; color: #f3ead9; }
+  .lede { color: #cfc0a8; }
+  :root[data-theme="light"] body { background: #faf5ea; color: #1b1712; }
+  :root[data-theme="light"] .lede { color: #4a3f33; }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) body { background: #faf5ea; color: #1b1712; }
+    :root:not([data-theme="dark"]) .lede { color: #4a3f33; }
+  }
+</style>
+</head>
+<body>
+<main id="main-content" class="container" style="min-height: 70vh; display: flex; flex-direction: column; justify-content: center; padding: 48px 20px; max-width: 640px; margin: 0 auto;">
+  <p class="eyebrow">Y'allternative Living</p>
+  <h1 style="margin-top: 8px;">You're offline right now</h1>
+  <p class="lede">This page isn't saved on your device yet, so we can't show it without a connection. The pages you've already visited still work, and everything comes back the moment you're online.</p>
+  <p style="margin-top: 20px;">
+    <a class="btn btn-primary" href="/shop.html">Browse the shop</a>
+    <a class="btn btn-outline" href="/">Go home</a>
+  </p>
+</main>
+</body>
+</html>

@@ -44,9 +44,14 @@
     var catalog = window.YL_PRODUCTS || {};
     var products = Array.isArray(catalog.products) ? catalog.products : [];
     if (!products.length) return;
+    /* The build already injects the catalogue (so the list works with
+       JavaScript off); only fill it here when that did not happen. */
+    if (productSelect.querySelectorAll("option").length > 2) return;
     var other = productSelect.querySelector('option[value="other"]');
     products.forEach(function (product) {
       if (!product || !product.id || !product.name) return;
+      /* A digital gift card cannot cause a reaction; leave it off the list. */
+      if (product.id === "yallternative-gift-card" || product.category === "gift-cards") return;
       var option = document.createElement("option");
       option.value = String(product.id);
       option.textContent = String(product.name);
@@ -95,6 +100,15 @@
     if (!formError) return;
     formError.textContent = message;
     formError.hidden = !message;
+    if (!message) return;
+    /* The message used to land 2,000px above the button with no scroll and
+       no focus, so a refused report looked like nothing happened (verify-D
+       M-3). Bring it into view and give it focus, as the success panel does. */
+    formError.setAttribute("tabindex", "-1");
+    if (typeof formError.scrollIntoView === "function") {
+      formError.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+    formError.focus({ preventScroll: true });
   }
 
   /** @returns {HTMLElement|null} the first invalid control, or null. */
@@ -155,7 +169,7 @@
   /* -------------------------------------------------------------- rendering */
 
   function showSuccess(reference) {
-    if (referenceOut) referenceOut.textContent = reference || "(not returned)";
+    if (referenceOut) referenceOut.textContent = reference || "in the email we just sent you";
     showFormError("");
     if (successPanel) {
       successPanel.hidden = false;
@@ -223,7 +237,7 @@
             return {};
           })
           .then(function (payload) {
-            return { ok: res.ok, payload: payload };
+            return { ok: res.ok, status: res.status, payload: payload };
           });
       })
       .then(function (result) {
@@ -231,10 +245,19 @@
           showSuccess(result.payload.reference);
           return;
         }
+        /* Never print the server's own error string: a shopper filing a
+           reaction report must always get a plain explanation and the email
+           fallback, whatever the Worker or the edge answered. The one code
+           worth translating is the rate limit. */
+        var code =
+          result.payload && typeof result.payload.error === "string" ? result.payload.error : "";
+        var lead =
+          code === "rate_limited" || result.status === 429
+            ? "That is a few tries in a row; give it a minute and send it again. "
+            : "We could not file that report just now. Please try again in a moment. ";
         showFormError(
-          (result.payload && result.payload.error) ||
-            "We could not file that report just now. Please try again in a moment, or email " +
-              "y.allternative.living@gmail.com so it does not get lost."
+          lead +
+            "If it still will not go through, email y.allternative.living@gmail.com so it does not get lost."
         );
       })
       .catch(function () {

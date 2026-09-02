@@ -801,7 +801,49 @@ else global.window.YL_PRODUCTS = savedWindowYlProducts;
   const path = require("path");
   const thankYouPath = path.join(__dirname, "..", "assets", "js", "thank-you.js");
 
-  function runThankYou(search, seenSession) {
+  /* Synchronous thenables so the page's fetch().then().then().catch() chain
+     settles inside require() and the assertions below stay synchronous. */
+  function syncResolved(value) {
+    return {
+      then(fn) {
+        try {
+          const r = fn(value);
+          return r && typeof r.then === "function" ? r : syncResolved(r);
+        } catch (e) {
+          return syncRejected(e);
+        }
+      },
+      catch() {
+        return this;
+      }
+    };
+  }
+  function syncRejected(err) {
+    return {
+      then() {
+        return this;
+      },
+      catch(fn) {
+        return syncResolved(fn(err));
+      }
+    };
+  }
+  const PAID_SUMMARY = {
+    found: true,
+    paymentStatus: "paid",
+    status: "complete",
+    amountTotalCents: 4200,
+    amountDiscountCents: 0,
+    giftCardAppliedCents: 0
+  };
+
+  /* opts.summary: what /api/order-summary answers (PAID_SUMMARY, a not-found
+     body, or null for a network failure). The page now trusts nothing but
+     that answer: no Purchase, no cart clear and no "paid" wording until the
+     Worker has confirmed a paid, complete session. */
+  function runThankYou(search, seenSession, opts) {
+    opts = opts || {};
+    const summary = "summary" in opts ? opts.summary : PAID_SUMMARY;
     const els = {};
     const lookups = [];
     const purchases = [];
@@ -811,7 +853,16 @@ else global.window.YL_PRODUCTS = savedWindowYlProducts;
 
     function element(id) {
       if (!els[id]) {
-        els[id] = { id, textContent: "", hidden: true, addEventListener: () => {} };
+        els[id] = {
+          id,
+          textContent: "",
+          hidden: true,
+          addEventListener: () => {},
+          setAttribute: () => {},
+          removeAttribute: () => {},
+          querySelector: () => (id === "thankYouCard" ? element("badgeText") : null),
+          classList: { add: () => {}, remove: () => {}, contains: () => false }
+        };
       }
       return els[id];
     }
@@ -838,12 +889,18 @@ else global.window.YL_PRODUCTS = savedWindowYlProducts;
         return element(id);
       }
     };
+    const prevFetch = global.fetch;
+    global.fetch = () =>
+      summary === null
+        ? syncRejected(new Error("network"))
+        : syncResolved({ ok: summary.found !== false, json: () => syncResolved(summary) });
     try {
       delete require.cache[require.resolve(thankYouPath)];
       require(thankYouPath);
     } finally {
       global.window = prevWindow;
       global.document = prevDocument;
+      global.fetch = prevFetch;
     }
     return { els, lookups, purchases, cleared };
   }
@@ -860,7 +917,42 @@ else global.window.YL_PRODUCTS = savedWindowYlProducts;
   eq(
     good.purchases[0].payload.props.revenue,
     42,
-    "thank-you: Purchase carries the redirect's amount as a flat numeric revenue prop"
+    "thank-you: Purchase carries the Worker-confirmed total as a flat numeric revenue prop"
+  );
+  eq(
+    good.els.thankYouEyebrow.textContent,
+    "Order Confirmed \u00b7 Receipt Issued",
+    "thank-you: confirmed order says so"
+  );
+
+  // The same redirect with the Worker unable to vouch for it: nothing is
+  // booked, nothing is cleared, and nothing says "paid" (verify-D H-1).
+  const unconfirmed = runThankYou("?session_id=cs_live_totallyMadeUp&amount=9999.99", null, {
+    summary: { found: false, error: "not_found" }
+  });
+  eq(unconfirmed.purchases.length, 0, "thank-you: an unconfirmed session fires no Purchase");
+  eq(unconfirmed.cleared, 0, "thank-you: an unconfirmed session does not clear the cart");
+  eq(
+    unconfirmed.els.thankYouAmountGroup.hidden,
+    true,
+    "thank-you: an unconfirmed session shows no total"
+  );
+  eq(
+    unconfirmed.els.thankYouBadgeWrap.hidden,
+    true,
+    "thank-you: an unconfirmed session shows no paid badge"
+  );
+  eq(
+    unconfirmed.els.thankYouEyebrow.textContent,
+    "Order Confirmation",
+    "thank-you: an unconfirmed session is not called confirmed"
+  );
+  const offline = runThankYou("?session_id=cs_live_net1&amount=10.00", null, { summary: null });
+  eq(offline.purchases.length, 0, "thank-you: a failed confirmation request fires no Purchase");
+  eq(
+    offline.els.thankYouAmountGroup.hidden,
+    true,
+    "thank-you: a failed confirmation shows no total"
   );
   eq(
     good.purchases[0].payload.props.currency,
@@ -876,7 +968,7 @@ else global.window.YL_PRODUCTS = savedWindowYlProducts;
   eq(
     good.els.thankYouAmountDisplay.textContent,
     "$42.00",
-    "thank-you: order total renders the redirect amount"
+    "thank-you: order total renders the Worker-confirmed amount"
   );
   eq(good.els.thankYouSessionRow.hidden, false, "thank-you: reference id shown for a real session");
 
@@ -895,25 +987,49 @@ else global.window.YL_PRODUCTS = savedWindowYlProducts;
   eq(repeat.purchases.length, 0, "thank-you: a repeat visit re-fires no Purchase event");
   eq(repeat.cleared, 0, "thank-you: a repeat visit does not re-clear the cart");
 
-  // No amount at all: nothing is invented, and no revenue is booked.
+  // No amount in the URL: nothing is invented from the URL; the confirmed
+  // total is what gets shown and booked.
   const noAmount = runThankYou("?session_id=cs_test_noamount");
-  eq(noAmount.purchases.length, 0, "thank-you: a missing amount books no revenue");
   eq(
-    noAmount.els.thankYouAmountGroup.hidden,
-    true,
-    "thank-you: the order-total block stays hidden when no amount is present"
+    noAmount.purchases.length,
+    1,
+    "thank-you: a missing URL amount still books the confirmed total"
+  );
+  eq(
+    noAmount.purchases[0].payload.props.revenue,
+    42,
+    "thank-you: ...and it is the Worker's figure"
   );
   eq(
     noAmount.els.thankYouAmountDisplay.textContent,
+    "$42.00",
+    "thank-you: no $25.00 placeholder -- the confirmed total is printed instead"
+  );
+  const noAmountUnconfirmed = runThankYou("?session_id=cs_test_noamount2", null, {
+    summary: { found: false }
+  });
+  eq(noAmountUnconfirmed.purchases.length, 0, "thank-you: a missing amount books no revenue");
+  eq(
+    noAmountUnconfirmed.els.thankYouAmountDisplay.textContent,
     "",
     "thank-you: no $25.00 placeholder is printed when the amount is absent"
   );
 
-  // Implausible amounts are treated as no amount.
+  // Implausible URL amounts never reach analytics: the Worker's figure does.
   const huge = runThankYou("?session_id=cs_test_huge&amount=99999.99");
-  eq(huge.purchases.length, 0, "thank-you: an amount over $10,000 books no revenue");
-  eq(huge.cleared, 0, "thank-you: an amount over $10,000 does not clear the cart");
-  const negative = runThankYou("?session_id=cs_test_neg&amount=-5");
+  eq(
+    huge.purchases[0].payload.props.revenue,
+    42,
+    "thank-you: an amount over $10,000 in the URL is ignored"
+  );
+  const hugeUnconfirmed = runThankYou("?session_id=cs_test_huge2&amount=99999.99", null, {
+    summary: { found: false }
+  });
+  eq(hugeUnconfirmed.purchases.length, 0, "thank-you: an amount over $10,000 books no revenue");
+  eq(hugeUnconfirmed.cleared, 0, "thank-you: an amount over $10,000 does not clear the cart");
+  const negative = runThankYou("?session_id=cs_test_neg&amount=-5", null, {
+    summary: { found: false }
+  });
   eq(negative.purchases.length, 0, "thank-you: a negative amount books no revenue");
 
   // The URL-parameter gift certificate is gone, not merely hidden.
@@ -1330,10 +1446,18 @@ else global.window.YL_PRODUCTS = savedWindowYlProducts;
         status: 404,
         json: async () => ({ valid: false, error: 'Not found <img src=x onerror="alert(1)">' })
       });
+      /* The endpoint's own words are no longer printed at all (verify-B L-6):
+         fixed shopper copy replaces them, so nothing from the server can land
+         in innerHTML, escaped or not. */
       eq(
-        missing.html.includes("Not found &lt;img src=x onerror=&quot;alert(1)&quot;&gt;"),
+        missing.html.includes("Not found") || missing.html.includes("onerror"),
+        false,
+        "gift-card.js never writes the endpoint's error string into innerHTML"
+      );
+      eq(
+        /find a gift card with that code/.test(missing.html),
         true,
-        "gift-card.js escapes the endpoint's error before writing it to innerHTML"
+        "gift-card.js shows its own not-found copy instead"
       );
       eq(
         missing.html.includes("<img src=x"),

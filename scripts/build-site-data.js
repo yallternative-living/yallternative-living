@@ -3332,6 +3332,33 @@ function buildSiteData() {
         );
       }
 
+      // safety.html: the product list is rendered here so the reaction form
+      // works with JavaScript off (safety.js only fills it when this is absent).
+      updated = updated.replace(
+        /<!--YL:safety\.products-->[\s\S]*?<!--\/YL:safety\.products-->/g,
+        function () {
+          return (
+            "<!--YL:safety.products-->" +
+            PRODUCTS.filter(function (p) {
+              return (
+                p &&
+                p.id &&
+                p.name &&
+                p.id !== "yallternative-gift-card" &&
+                p.category !== "gift-cards"
+              );
+            })
+              .map(function (p) {
+                return (
+                  '<option value="' + escapeHtml(p.id) + '">' + escapeHtml(p.name) + "</option>"
+                );
+              })
+              .join("") +
+            "<!--/YL:safety.products-->"
+          );
+        }
+      );
+
       // Popular-search chips and their heading come from content.json "search"
       // (editable in /admin); the markers wrap the static chips in every page.
       updated = updated.replace(
@@ -3886,7 +3913,13 @@ function generateProductBreadcrumbJsonLd(product, domain, categoryLabel) {
   };
 }
 
-function renderFreshnessBadgeHtml() {
+function renderFreshnessBadgeHtml(p) {
+  if (
+    p &&
+    (p.id === "yallternative-gift-card" || p.category === "gift-cards" || p.category === "apparel")
+  ) {
+    return "";
+  }
   return (
     '      <div class="pdp-freshness-badge" role="status">\n' +
     '        <svg class="pdp-freshness-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">\n' +
@@ -4027,6 +4060,9 @@ function renderRitualSectionHtml(product, productsMap, categoryLabelMap, ritualD
   if (!product || !Array.isArray(product.pairsWith) || !product.pairsWith.length) {
     return "";
   }
+  // The current product is the ritual's disabled "This Item" row and is part
+  // of "Add All": a coming-soon or sold-out product must not be sold this way.
+  if (product.comingSoon || product.stock === 0) return "";
   const map = productsMap || {};
   const catMap = categoryLabelMap || {};
   const defaults = ritualDefaults || {};
@@ -4216,7 +4252,9 @@ function renderStickyBarHtml(product, categoryLabel) {
   }
 
   const maxQtyAttr =
-    typeof p.stock === "number" && p.stock > 0 ? ' data-item-max-quantity="' + p.stock + '"' : "";
+    typeof p.stock === "number" && p.stock > 0
+      ? ' data-item-max-quantity="' + Math.min(p.stock, 10) + '"'
+      : "";
 
   let variantWrapHtml = "";
   if (p.variants && Array.isArray(p.variants.options) && p.variants.options.length) {
@@ -4316,7 +4354,7 @@ function renderStickyBarHtml(product, categoryLabel) {
     price +
     "</p>\n" +
     "        </div>\n" +
-    variantWrapHtml +
+    (product.id === "yallternative-gift-card" || product.comingSoon ? "" : variantWrapHtml) +
     buttonHtml +
     "      </div>\n" +
     "    </div>\n"
@@ -4451,7 +4489,9 @@ function addToCartAttrs(p, categoryLabel) {
       '"';
   }
   const maxQty =
-    typeof p.stock === "number" && p.stock > 0 ? ' data-item-max-quantity="' + p.stock + '"' : "";
+    typeof p.stock === "number" && p.stock > 0
+      ? ' data-item-max-quantity="' + Math.min(p.stock, 10) + '"'
+      : "";
   return (
     ' data-item-id="' +
     escapeHtml(p.id) +
@@ -4487,7 +4527,7 @@ function productSizeLabel(p) {
     });
     if (labels.length) return "Sizes " + labels.join(" · ");
   }
-  const m = /(\d+(?:\.\d+)?)\s*(oz|ounce|ml|g)\b/i.exec(
+  const m = /(\d*\.?\d+)\s*(oz|ounce|ml|g)\b/i.exec(
     (p.blurb || "") + " " + (p.description || "") + " " + (p.name || "")
   );
   if (m) return m[1] + " " + m[2].toLowerCase();
@@ -4973,12 +5013,24 @@ function renderPdpSafetyHtml(p, safetyOverrides) {
   const copy = resolveSafetyNotes(safetyOverrides);
   const ingredientsText =
     (Array.isArray(p.ingredients) ? p.ingredients.join(" ") : "") + " " + (p.ingredientsNote || "");
-  const isTopical = /salve|balm|butter|scrub|oil|soak|tea|spray|salt/i.test(
-    p.name + " " + p.category
-  );
-  if (!isTopical && !p.ingredients) return "";
+  const nameAndCat = p.name + " " + p.category;
+  const isTopical =
+    /salve|balm|butter|scrub|oil|soak|tea|spray|salt/i.test(nameAndCat) &&
+    !/keychain|talisman|apparel|shirt|tank|gift/i.test(nameAndCat) &&
+    p.ingredientsLabel !== "Materials";
+  if (!isTopical) return "";
+  // "No essential oils" must not trip the essential-oil caution: test the
+  // ingredient list only, and let an explicit "free" statement win.
+  const saysFree =
+    /no (added )?essential oils|essential-oil-free|free (from|of) (added )?essential oils/i.test(
+      ingredientsText +
+        " " +
+        (p.blurb || "") +
+        " " +
+        (Array.isArray(p.tags) ? p.tags.join(" ") : "")
+    );
   const hasEssentialOils =
-    /essential oil/i.test(ingredientsText) || /essential oil/i.test(p.blurb || "");
+    !saysFree && /essential oil/i.test(Array.isArray(p.ingredients) ? p.ingredients.join(" ") : "");
   const hasNuts = /almond|nut|shea/i.test(ingredientsText);
   const notes = [];
   notes.push(escapeHtml(copy.externalUse));
@@ -5022,7 +5074,10 @@ function renderPdpGoodToKnowHtml(p, sizeLabel) {
         .join(", ")
     ]);
   }
-  rows.push(["Made in", "Landrum, South Carolina, in small batches"]);
+  if (p.category === "apparel") rows.push(["Designed in", "Landrum, South Carolina"]);
+  else if (p.id !== "yallternative-gift-card" && p.category !== "gift-cards") {
+    rows.push(["Made in", "Landrum, South Carolina, in small batches"]);
+  }
   return (
     '      <dl class="pdp-facts">\n' +
     rows
@@ -5119,7 +5174,7 @@ function renderGlobalSearchModalHtml(searchConfig) {
     '        <div class="global-search-input-wrapper">\n' +
     '          <svg class="global-search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>\n' +
     '          <label for="globalSearchInput" id="globalSearchModalTitle" class="sr-only">Search catalog, articles &amp; FAQ</label>\n' +
-    '          <input type="search" id="globalSearchInput" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, journal, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">\n' +
+    '          <input type="search" id="globalSearchInput" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, events, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">\n' +
     '          <button type="button" class="global-search-clear-btn" id="globalSearchClearBtn" aria-label="Clear search query" hidden>\n' +
     '            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>\n' +
     "          </button>\n" +
@@ -5178,20 +5233,23 @@ function renderProductPdpHtml(
   const pImage = escapeHtml(domain + "/" + String(product.image).replace(/^\/+/, ""));
   const catLabel = escapeHtml(categoryLabel || product.category || "Apothecary");
   const range = variantPriceRange(product);
+  // The headline used to show "$13.99 - $19.99" while the $19.99 size was
+  // already selected. Show the pre-selected option's price (the first one not
+  // sold out, which is what the radio group checks); the range lives in the
+  // AggregateOffer JSON-LD, and the radios update this number on change.
+  let selectedPrice = range.low;
+  if (product.variants && Array.isArray(product.variants.options)) {
+    const firstOpen = product.variants.options.find(function (o) {
+      return o && !o.soldOut;
+    });
+    if (firstOpen) selectedPrice = product.price + (Number(firstOpen.priceDelta) || 0);
+  }
   const priceDisplayHtml =
-    range.low === range.high
-      ? '<span itemprop="priceCurrency" content="USD">$</span><span itemprop="price" content="' +
-        range.low.toFixed(2) +
-        '">' +
-        range.low.toFixed(2) +
-        "</span>"
-      : '<span itemprop="priceCurrency" content="USD">$</span><span itemprop="price" content="' +
-        range.low.toFixed(2) +
-        '">' +
-        range.low.toFixed(2) +
-        " &ndash; $" +
-        range.high.toFixed(2) +
-        "</span>";
+    '<span itemprop="priceCurrency" content="USD">$</span><span itemprop="price" content="' +
+    selectedPrice.toFixed(2) +
+    '">' +
+    selectedPrice.toFixed(2) +
+    "</span>";
 
   const pdpAvailability = schemaAvailability(product);
   const pdpOgAvailability =
@@ -5232,18 +5290,19 @@ function renderProductPdpHtml(
           " left in this batch</span>\n"
         : "";
 
-  const ratingSummary = reviewCount
-    ? '        <a class="pdp-rating-summary" href="#pdpReviews"><span class="stars" aria-hidden="true">' +
-      starsHtml(reviewAvg) +
-      "</span> " +
-      reviewAvg.toFixed(1) +
-      " &middot; " +
-      reviewCount +
-      (reviewCount === 1 ? " review" : " reviews") +
-      "</a>\n"
-    : "";
+  const ratingSummary =
+    reviewCount && !product.comingSoon
+      ? '        <a class="pdp-rating-summary" href="#pdpReviews"><span class="stars" aria-hidden="true">' +
+        starsHtml(reviewAvg) +
+        "</span> " +
+        reviewAvg.toFixed(1) +
+        " &middot; " +
+        reviewCount +
+        (reviewCount === 1 ? " review" : " reviews") +
+        "</a>\n"
+      : "";
 
-  const freshnessBadgeHtml = renderFreshnessBadgeHtml();
+  const freshnessBadgeHtml = renderFreshnessBadgeHtml(product);
   const scentProfileHtml = renderScentProfileHtml(product);
   const usageAccordionsHtml = renderUsageAccordionsHtml(product);
   const ritualSectionHtml = renderRitualSectionHtml(
@@ -5268,7 +5327,9 @@ function renderProductPdpHtml(
       '        <h2 class="pdp-section-title">' +
       ingLabel +
       "</h2>\n" +
-      '        <p class="muted pdp-ingredients-lead"><small>Listed in descending order of predominance, the way they appear on the label.</small></p>\n' +
+      (ingLabel === "Materials"
+        ? ""
+        : '        <p class="muted pdp-ingredients-lead"><small>Listed in descending order of predominance, the way they appear on the label.</small></p>\n') +
       '        <ul class="pdp-ingredients-list">\n' +
       product.ingredients
         .map(function (ing) {
@@ -5402,7 +5463,7 @@ function renderProductPdpHtml(
     '        <p class="pdp-blurb" itemprop="description">' +
     pDesc +
     "</p>\n" +
-    renderVariantControlHtml(product) +
+    (product.comingSoon ? "" : renderVariantControlHtml(product)) +
     renderPdpPurchaseHtml(product, categoryLabel) +
     renderPdpTrustHtml(product, shop) +
     renderEtsyProofHtml(shop) +
@@ -5421,7 +5482,7 @@ function renderProductPdpHtml(
     "      </aside>\n" +
     "    </section>\n" +
     ritualSectionHtml +
-    renderPdpReviewsHtml(product, c.reviews) +
+    renderPdpReviewsHtml(product, product.comingSoon ? [] : c.reviews) +
     renderRelatedProductsHtml(product, c.products, categoryLabelMap, manifest) +
     '    <section class="section-tight recently-viewed-section" id="pdpRecentlyViewedSection" aria-labelledby="pdpRecentlyViewedHeading" hidden>\n' +
     '      <div class="section-head">\n' +

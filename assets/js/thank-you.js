@@ -66,10 +66,17 @@
     var hasAmount = isFinite(amount) && amount >= 0 && amount <= MAX_ORDER_AMOUNT;
     var currency = (params.get("currency") || "usd").toUpperCase();
 
-    var isFreshOrder = isValidSession && hasAmount && claimSession(sessionId);
-
-    if (isFreshOrder && typeof window.plausible === "function") {
-      /* FLAT props, not a nested revenue object.
+    /* Nothing below books revenue, empties the cart or says "paid" on the
+       strength of the URL alone: a session id and an amount are hints, and
+       a hand-typed ?session_id=cs_live_x&amount=9999 used to paint a full
+       "Payment Received" receipt (verify-D H-1). The Worker's
+       /api/order-summary is the only proof; confirmOrder() runs once it has
+       answered paid + complete, and the page says so honestly until then. */
+    function confirmOrder(confirmedAmount) {
+      if (!claimSession(sessionId)) return;
+      var revenue = isFinite(confirmedAmount) ? confirmedAmount : hasAmount ? amount : 0;
+      if (typeof window.plausible === "function") {
+        /* FLAT props, not a nested revenue object.
 
          `window.plausible` here is Umami's Plausible-compatible shim (see
          main.js), and Umami stores each prop as one scalar key/value pair --
@@ -78,16 +85,16 @@
          event in the dashboard reported no revenue at all. Umami's own
          revenue-tracking contract is a numeric `revenue` and a string
          `currency` at the top level of props, which is what this sends. */
-      window.plausible("Purchase", {
-        props: {
-          revenue: amount,
-          currency: currency
-        }
-      });
-    }
-
-    if (isFreshOrder && window.YLCart && typeof window.YLCart.clear === "function") {
-      window.YLCart.clear();
+        window.plausible("Purchase", {
+          props: {
+            revenue: revenue,
+            currency: currency
+          }
+        });
+      }
+      if (window.YLCart && typeof window.YLCart.clear === "function") {
+        window.YLCart.clear();
+      }
     }
 
     /* No invented total. The receipt block stays hidden unless the redirect
@@ -99,12 +106,29 @@
     /* ...and only for a real checkout redirect: a hand-typed
        ?session_id=hello&amount=5 used to print "$5.00" under "Verified
        Stripe Payment". */
-    if (hasAmount && isValidSession) {
-      if (amountDisplay) amountDisplay.textContent = "$" + amount.toFixed(2);
-      if (amountGroup) amountGroup.hidden = false;
-    } else {
-      if (amountDisplay) amountDisplay.textContent = "";
-      if (amountGroup) amountGroup.hidden = true;
+    if (amountDisplay) amountDisplay.textContent = "";
+    if (amountGroup) amountGroup.hidden = true;
+
+    var eyebrowEl = document.getElementById("thankYouEyebrow");
+    var titleEl = document.getElementById("thankYouTitle");
+    var ledeEl = document.getElementById("thankYouLede");
+    var cardEl = document.getElementById("thankYouCard");
+    var badgeWrapEl = document.getElementById("thankYouBadgeWrap");
+    var badgeText = cardEl ? cardEl.querySelector(".receipt-status-badge span") : null;
+
+    /* Reached when the Worker cannot vouch for the session: no total, no
+       "paid" wording, and a pointer at the two records that do exist. */
+    function showUnconfirmed() {
+      if (eyebrowEl) eyebrowEl.textContent = "Order Confirmation";
+      if (badgeWrapEl) badgeWrapEl.hidden = true;
+      if (cardEl) cardEl.classList.remove("is-pending");
+      if (badgeText) badgeText.textContent = "Not confirmed yet";
+      if (ledeEl) {
+        ledeEl.textContent =
+          "We couldn't confirm this order from here just now. If you just checked out, " +
+          "your receipt is in the confirmation email from Stripe \u2014 and you can look " +
+          "the order up below with the reference on this page.";
+      }
     }
 
     /* No valid session id means this is not a checkout redirect -- a
@@ -115,11 +139,6 @@
        for an order that does not exist. Say what is actually true instead
        and leave the lookup and shop links, which are the useful part. */
     if (!isValidSession) {
-      var eyebrowEl = document.getElementById("thankYouEyebrow");
-      var titleEl = document.getElementById("thankYouTitle");
-      var ledeEl = document.getElementById("thankYouLede");
-      var cardEl = document.getElementById("thankYouCard");
-      var badgeWrapEl = document.getElementById("thankYouBadgeWrap");
       if (eyebrowEl) eyebrowEl.textContent = "Order Confirmation";
       if (titleEl) titleEl.textContent = "No order to show here";
       if (ledeEl) {
@@ -128,17 +147,26 @@
           "your receipt is in the confirmation email from Stripe \u2014 and you can look the " +
           "order up below with the reference from that email.";
       }
-      if (cardEl) cardEl.hidden = true;
-      if (badgeWrapEl) badgeWrapEl.hidden = true;
+      /* .is-gone collapses the space the hidden card reserves (see the
+         thank-you CSS): this path is the rare one, so it takes the shift. */
+      if (cardEl) {
+        cardEl.classList.add("is-gone");
+        cardEl.hidden = true;
+      }
+      if (badgeWrapEl) {
+        badgeWrapEl.classList.add("is-gone");
+        badgeWrapEl.hidden = true;
+      }
     } else {
-      /* The receipt card and the "paid" badge ship hidden in the markup so a
-         session-less visit never paints ~390px of receipt and then yanks it
-         away (that jump measured as a 0.31 layout shift on mobile). Reveal
-         them only once the session id has passed validation. */
-      var cardShow = document.getElementById("thankYouCard");
-      var badgeShow = document.getElementById("thankYouBadgeWrap");
-      if (cardShow) cardShow.hidden = false;
-      if (badgeShow) badgeShow.hidden = false;
+      /* A real-looking redirect: show the card with the reference, but call
+         it what it is until the Worker answers. */
+      if (eyebrowEl) eyebrowEl.textContent = "Order Received";
+      if (badgeText) badgeText.textContent = "Confirming payment\u2026";
+      if (cardEl) {
+        cardEl.classList.add("is-pending");
+        cardEl.hidden = false;
+      }
+      if (badgeWrapEl) badgeWrapEl.hidden = false;
     }
 
     var sessionRow = document.getElementById("thankYouSessionRow");
@@ -156,7 +184,9 @@
          checks the same thing again so a partial or unexpected payload can
          never put a "verified" total on screen for money that was not
          taken. */
-      if (typeof fetch === "function") {
+      if (typeof fetch !== "function") {
+        showUnconfirmed();
+      } else {
         try {
           fetch("/api/order-summary", {
             method: "POST",
@@ -167,13 +197,19 @@
               return res.ok ? res.json() : null;
             })
             .then(function (summary) {
-              if (!summary || summary.found !== true) return;
+              if (!summary || summary.found !== true) return showUnconfirmed();
               var paid =
                 summary.paymentStatus === "paid" || summary.paymentStatus === "no_payment_required";
-              if (!paid || summary.status !== "complete") return;
-              if (typeof summary.amountTotalCents !== "number") return;
-              if (!isFinite(summary.amountTotalCents) || summary.amountTotalCents < 0) return;
+              if (!paid || summary.status !== "complete") return showUnconfirmed();
+              if (typeof summary.amountTotalCents !== "number") return showUnconfirmed();
+              if (!isFinite(summary.amountTotalCents) || summary.amountTotalCents < 0) {
+                return showUnconfirmed();
+              }
 
+              if (eyebrowEl) eyebrowEl.textContent = "Order Confirmed \u00b7 Receipt Issued";
+              if (badgeText) badgeText.textContent = "Payment Received";
+              if (cardEl) cardEl.classList.remove("is-pending");
+              confirmOrder(summary.amountTotalCents / 100);
               if (amountDisplay) {
                 amountDisplay.textContent = "$" + (summary.amountTotalCents / 100).toFixed(2);
               }
@@ -213,7 +249,9 @@
                 );
               }
             })
-            .catch(function () {});
+            .catch(function () {
+              showUnconfirmed();
+            });
         } catch {
           /* Fallback remains the initial URL amount hint */
         }

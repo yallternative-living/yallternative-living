@@ -877,7 +877,9 @@ function setupAnnouncementDOM(hasCountdownTicker = false) {
   const linkEl = bar.querySelector("a");
   assert(linkEl !== null, "announcementBar (with link): text wrapped in <a> tag");
   assert(
-    linkEl.getAttribute("href") === "shop.html?category=salves",
+    /* announcementBar() makes site-relative links root-absolute so the bar
+       works from /products/ pages too */
+    linkEl.getAttribute("href") === "/shop.html?category=salves",
     "announcementBar (with link): href matches config"
   );
   assert(

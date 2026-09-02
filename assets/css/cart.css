@@ -682,7 +682,7 @@
 .yl-cart-milestones,
 .yl-cart-ship {
   margin-bottom: 14px;
-  padding: 12px 14px 18px;
+  padding: 12px 18px 30px;
   background: var(--ink-3);
   border: 1px solid var(--hide);
   border-radius: 8px;

@@ -308,7 +308,9 @@ export function ownerEmailBody(row, reference) {
   const html =
     `<h2>Reaction report ${escapeHtml(reference)}</h2>${clock}<table>` +
     rows
-      .map((r) => `<tr><td><strong>${escapeHtml(r[0])}</strong></td><td>${escapeHtml(r[1])}</td></tr>`)
+      .map(
+        (r) => `<tr><td><strong>${escapeHtml(r[0])}</strong></td><td>${escapeHtml(r[1])}</td></tr>`
+      )
       .join("") +
     "</table><h3>In their words</h3><p>" +
     escapeHtml(row.description).replace(/\n/g, "<br>") +
@@ -350,11 +352,14 @@ export async function handleSafetyReport(request, env, origin) {
     // No-JS fallback: a 303 back to the page carries the outcome in the query
     // string. The reference is an opaque handle, not personal data, so it is
     // safe in a URL -- nothing else from the form ever goes there.
-    const query = payload && payload.ok ? `report=received&ref=${payload.reference}` : "report=error";
+    const query =
+      payload && payload.ok ? `report=received&ref=${payload.reference}` : "report=error";
     return new Response(null, {
       status: 303,
       headers: {
-        Location: `${siteOrigin}/safety.html?${query}#reaction-report`,
+        // The success hash targets the confirmation panel so a browser with
+        // JavaScript off still shows it (styles.css: #safetySuccess:target).
+        Location: `${siteOrigin}/safety.html?${query}#${payload && payload.ok ? "safetySuccess" : "reaction-report"}`,
         "Cache-Control": "no-store"
       }
     });
@@ -370,7 +375,8 @@ export async function handleSafetyReport(request, env, origin) {
   try {
     row = normalizeReport(data, rawOutcomes);
   } catch (err) {
-    if (err instanceof ClientError && isForm) return done({ error: err.message }, err.status || 400);
+    if (err instanceof ClientError && isForm)
+      return done({ error: err.message }, err.status || 400);
     throw err;
   }
 
@@ -495,7 +501,8 @@ export async function handleSafetyReport(request, env, origin) {
       },
       `safety-ack-${reference}`
     );
-    if (!res.ok) console.error(`safety-report: ${reference} acknowledgement refused (${res.status})`);
+    if (!res.ok)
+      console.error(`safety-report: ${reference} acknowledgement refused (${res.status})`);
   } catch {
     console.error(`safety-report: ${reference} acknowledgement failed to send`);
   }

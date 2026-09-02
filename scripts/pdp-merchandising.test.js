@@ -191,13 +191,17 @@ productsData.products.forEach((p) => {
   assert(fs.existsSync(pFile), `products/${p.id}.html exists on disk`);
   const html = fs.readFileSync(pFile, "utf8");
 
+  /* Only things that are actually poured carry the small-batch badge: the
+     digital gift card and the printed apparel do not (verify-C M-8). */
+  const poured =
+    p.category !== "apparel" && p.category !== "gift-cards" && p.id !== "yallternative-gift-card";
   assert(
-    html.includes('class="pdp-freshness-badge"'),
-    `products/${p.id}.html contains pdp-freshness-badge`
+    html.includes('class="pdp-freshness-badge"') === poured,
+    `products/${p.id}.html ${poured ? "contains" : "omits"} pdp-freshness-badge`
   );
   assert(
-    html.includes("Poured in Landrum, SC · Small-Batch Promise"),
-    `products/${p.id}.html contains small-batch trust badge text`
+    html.includes("Poured in Landrum, SC · Small-Batch Promise") === poured,
+    `products/${p.id}.html ${poured ? "contains" : "omits"} small-batch trust badge text`
   );
   assert(
     html.includes('class="pdp-accordion"'),
@@ -413,7 +417,13 @@ productsData.products.forEach((p) => {
   const buyablePartners = (Array.isArray(p.pairsWith) ? p.pairsWith : [])
     .map((id) => productsData.products.find((q) => q.id === id))
     .filter((q) => q && !q.comingSoon && q.stock !== 0);
-  if (Array.isArray(p.pairsWith) && p.pairsWith.length > 0 && buyablePartners.length === 0) {
+  /* A coming-soon or sold-out product renders no ritual either: it is the
+     ritual's own "This Item" row and part of "Add All". */
+  if (
+    Array.isArray(p.pairsWith) &&
+    p.pairsWith.length > 0 &&
+    (buyablePartners.length === 0 || p.comingSoon || p.stock === 0)
+  ) {
     assert(
       !html.includes('class="pdp-ritual-section"'),
       `products/${p.id}.html renders no ritual section when every partner is unbuyable`

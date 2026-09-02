@@ -49,6 +49,7 @@ workers_dev = true
 preview_urls = false
 
 [vars]
+# ORDER_NOTIFY_EMAIL = "savanna@example.com"   # optional: where "gift note to print" emails go (falls back to RESTOCK_NOTIFY_EMAIL)
 # Used by the Worker's CORS check. checkout.js also hard-codes the apex and www
 # hosts in its ALLOWED_ORIGINS, so this is belt-and-braces for that same origin
 # rather than the only thing standing between the cart and a wildcard CORS

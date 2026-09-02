@@ -1187,7 +1187,8 @@
             <label for="customGiftAmount">Custom Amount ($10 - $500)</label>
             <div class="custom-amount-input-wrap">
               <span class="currency-prefix">$</span>
-              <input type="number" id="customGiftAmount" name="customGiftAmount" aria-label="Custom Gift Card Amount" min="10" max="500" value="25" step="1">
+              <input type="number" id="customGiftAmount" name="customGiftAmount" aria-label="Custom Gift Card Amount" min="10" max="500" value="25" step="1" aria-describedby="customGiftAmountNote">
+              <p class="muted" id="customGiftAmountNote" style="font-size: 0.8rem; margin: 6px 0 0;">Any whole-dollar amount from $10 to $500.</p>
             </div>
           </div>
           <p class="muted" style="font-size: 0.8rem; margin: 8px 0 0;">Single-use digital discount voucher applied to order total at checkout. No expiration.</p>
@@ -1196,7 +1197,8 @@
         <div class="gift-fields-grid">
           <div class="field">
             <label for="giftRecipientEmail">Recipient Email <span class="required-star" aria-hidden="true">*</span></label>
-            <input type="email" id="giftRecipientEmail" name="recipient_email" aria-label="Recipient Email" placeholder="friend@example.com" required autocomplete="email">
+            <input type="email" id="giftRecipientEmail" name="recipient_email" aria-label="Recipient Email" placeholder="friend@example.com" required autocomplete="email" aria-describedby="giftRecipientEmailError">
+            <p class="field-error" id="giftRecipientEmailError" role="alert" hidden style="color: var(--rust, #e66550); font-size: 0.82rem; margin: 6px 0 0;"></p>
           </div>
           <div class="field">
             <label for="giftSenderName">Your Name <span class="required-star" aria-hidden="true">*</span></label>
@@ -1240,9 +1242,9 @@
     <!-- Balance Checker Panel -->
     <div id="giftCardBalancePanel" style="display: none; max-width: 580px; margin: 20px auto; padding: 28px; background: var(--ink-2); border: 1px solid var(--hide); border-radius: var(--radius-large);">
       <h3 style="margin: 0 0 8px; font-size: 1.15rem; color: var(--paper); font-family: var(--font-display);">Check Gift Card Balance</h3>
-      <p class="muted" style="font-size: 0.86rem; margin-bottom: 18px;">Enter your 13-character gift code (e.g. <code>YALL-XXXXXXXX</code>) to check your remaining balance.</p>
+      <p class="muted" style="font-size: 0.86rem; margin-bottom: 18px;">Enter the code from your gift email (<code>YALL-XXXX-XXXX-XXXX</code>, dashes optional) to check your remaining balance.</p>
       <form id="giftCardBalanceForm" style="display: flex; gap: 10px; flex-wrap: wrap;">
-        <input type="text" id="giftCardBalanceInput" placeholder="YALL-XXXXXXXX" required style="flex: 1 1 240px; padding: 11px 14px; background: var(--ink-3); border: 1px solid var(--hide); border-radius: var(--radius); color: var(--paper); font-size: 0.95rem; text-transform: uppercase;">
+        <input type="text" id="giftCardBalanceInput" placeholder="YALL-XXXX-XXXX-XXXX" required style="flex: 1 1 240px; padding: 11px 14px; background: var(--ink-3); border: 1px solid var(--hide); border-radius: var(--radius); color: var(--paper); font-size: 0.95rem; text-transform: uppercase;">
         <button type="submit" id="checkBalanceSubmitBtn" class="btn btn-primary" style="flex: 0 0 auto;">Check Balance</button>
       </form>
       <div id="giftCardBalanceResult" aria-live="polite" style="margin-top: 16px;" hidden></div>
@@ -1612,7 +1614,7 @@
           <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
         </svg>
         <label for="globalSearchInput" id="globalSearchModalTitle" class="sr-only">Search catalog, articles &amp; FAQ</label>
-        <input type="search" id="globalSearchInput" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, journal, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <input type="search" id="globalSearchInput" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, events, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         <button type="button" class="global-search-clear-btn" id="globalSearchClearBtn" aria-label="Clear search query" hidden>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/></svg>
         </button>
@@ -1673,17 +1675,17 @@ var Tawk_API = Tawk_API || {}, Tawk_LoadStart = new Date();
   /* The widget SDK used to be requested on EVERY pageview -- 20 requests to
      embed.tawk.to plus a wss://*.tawk.to handshake, measured on a cold mobile
      load -- for the large majority of sessions that never open chat. Hold it
-     until the visitor does something, with an idle-timeout fallback so a
-     visitor who lands and reads without touching anything still gets chat. */
+     until the visitor does something (scroll, tap, key). There is deliberately
+     no idle-timeout fallback: the widget's iframe landing with no user input
+     counted as a 0.047 layout shift on every page in the 2026-09-02
+     measurement, and a shopper who wants chat will have scrolled first. */
   var loaded = false;
   var TRIGGERS = ["pointerdown", "keydown", "scroll", "touchstart"];
   var opts = { passive: true, capture: true };
-  var timer;
   function load() {
     if (loaded) return;
     loaded = true;
     TRIGGERS.forEach(function (t) { window.removeEventListener(t, load, opts); });
-    if (timer) clearTimeout(timer);
     var s1 = document.createElement("script"), s0 = document.getElementsByTagName("script")[0];
     s1.async = true;
     s1.src = "https://embed.tawk.to/" + propertyId + "/" + widgetId;
@@ -1692,7 +1694,6 @@ var Tawk_API = Tawk_API || {}, Tawk_LoadStart = new Date();
     s0.parentNode.insertBefore(s1, s0);
   }
   TRIGGERS.forEach(function (t) { window.addEventListener(t, load, opts); });
-  timer = setTimeout(load, 5000);
 })();
 </script>
 </body>

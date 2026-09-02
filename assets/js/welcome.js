@@ -140,7 +140,9 @@
            shared one as if it were personal -- say what happened, and let them
            try again if they typed the address wrong. */
         var message =
-          result.body.error || "We couldn't make your code just now. Try again in a moment.";
+          result.status === 429
+            ? "A few tries in a row; give it a minute and try again."
+            : "We couldn't make your code just now. Try again in a moment.";
         if (fromForm) {
           say(message, true);
         } else {
@@ -187,6 +189,15 @@
     ).trim();
   } catch {
     emailFromUrl = "";
+  }
+  /* Never leave a subscriber's address in the address bar, history or a
+     shared link (verify-D M-8): same scrub safety.js does for its query. */
+  if (emailFromUrl && window.history && typeof window.history.replaceState === "function") {
+    try {
+      window.history.replaceState(null, "", window.location.pathname + window.location.hash);
+    } catch {
+      /* ignore */
+    }
   }
 
   if (typeof fetch !== "function") {

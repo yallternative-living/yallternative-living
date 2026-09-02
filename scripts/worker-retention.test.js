@@ -1635,7 +1635,8 @@ function testFrontEnd() {
   const purchaseCall = /window\.plausible\("Purchase",\s*\{[\s\S]*?\n\s{6}\}\);/.exec(thankYouJs);
   assert(purchaseCall !== null, "thank-you.js still fires the Purchase event");
   const purchaseBlock = purchaseCall ? purchaseCall[0] : "";
-  assert(/revenue:\s*amount/.test(purchaseBlock), "revenue is a flat number");
+  /* revenue is the Worker-confirmed total (confirmOrder), falling back to the URL hint */
+  assert(/revenue:\s*(amount|revenue)/.test(purchaseBlock), "revenue is a flat number");
   assert(/currency:\s*currency/.test(purchaseBlock), "currency is a flat string");
   assert(
     !/revenue:\s*\{/.test(purchaseBlock),

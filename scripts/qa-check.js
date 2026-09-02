@@ -2829,9 +2829,18 @@ try {
         });
         return q && !q.comingSoon && q.stock !== 0;
       });
-      if (buyablePartners.length === 0) {
+      // ...and the current product itself must be buyable: it is the disabled
+      // "This Item" row inside "Add All", so a coming-soon or sold-out product
+      // renders no ritual either (verify-C C-2).
+      var selfUnbuyable = !!p.comingSoon || p.stock === 0;
+      if (buyablePartners.length === 0 || selfUnbuyable) {
         if (!hasRitualSection && !hasRitualId && !hasAddBtn) {
-          ok(p.id + ": PDP renders no ritual section (every partner is unbuyable)");
+          ok(
+            p.id +
+              ": PDP renders no ritual section (" +
+              (selfUnbuyable ? "the product itself is not on sale" : "every partner is unbuyable") +
+              ")"
+          );
         } else {
           fail(
             p.id + ": PDP offers a ritual whose partners cannot be bought",
@@ -2942,8 +2951,16 @@ try {
       fail(p.id + ": PDP sticky bar illegally carries .reveal class");
     }
 
-    // If product has variants, check variant selector
-    if (p.variants && Array.isArray(p.variants.options) && p.variants.options.length > 0) {
+    // If product has variants, check variant selector. The gift card's amount
+    // is configured on shop.html (its bar links there), and a coming-soon
+    // product has nothing to buy, so neither carries a picker.
+    if (
+      p.variants &&
+      Array.isArray(p.variants.options) &&
+      p.variants.options.length > 0 &&
+      !p.comingSoon &&
+      p.id !== "yallternative-gift-card"
+    ) {
       var hasVariantSelect =
         pdpHtml.indexOf('class="pdp-sticky-variant-select variant-select"') !== -1;
       var hasAriaLabel = pdpHtml.indexOf('aria-label="Select variant"') !== -1;
@@ -3424,6 +3441,59 @@ section("Milestone 3: CMS Merchandising, Schema Validation & Quiz Integrity");
    subject EXISTS before asserting anything about it. An `every()` over a
    selector that matched nothing is how four checks in this repo went green
    while examining nothing at all (AGENTS.md, "checks that stop checking"). */
+section("CSP baseline vs shipped pages (every inline script hash must be in _headers)");
+(function () {
+  var crypto = require("crypto");
+  var headersText = fs.readFileSync(path.join(ROOT, "_headers"), "utf8");
+  var cspLine =
+    headersText.split("\n").filter(function (l) {
+      return /^\s*Content-Security-Policy:/.test(l);
+    })[0] || "";
+  var pageList = PAGES.slice();
+  var productsDir = path.join(ROOT, "products");
+  if (fs.existsSync(productsDir)) {
+    fs.readdirSync(productsDir).forEach(function (f) {
+      if (f.endsWith(".html")) pageList.push("products/" + f);
+    });
+  }
+  var missing = [];
+  var scanned = 0;
+  pageList.forEach(function (page) {
+    var file = path.join(ROOT, page);
+    if (!fs.existsSync(file)) return;
+    var html = fs.readFileSync(file, "utf8");
+    var re = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
+    var mm;
+    while ((mm = re.exec(html))) {
+      var attrs = mm[1] || "";
+      if (/\bsrc\s*=/i.test(attrs)) continue;
+      if (/type\s*=\s*["']?(application\/ld\+json|speculationrules|text\/template)/i.test(attrs))
+        continue;
+      var body = mm[2];
+      if (!body.trim()) continue;
+      scanned++;
+      var hash = "sha256-" + crypto.createHash("sha256").update(body, "utf8").digest("base64");
+      if (cspLine.indexOf("'" + hash + "'") === -1) missing.push(page + " " + hash);
+    }
+  });
+  if (!cspLine) fail("CSP line", "_headers carries no Content-Security-Policy line");
+  else if (!scanned)
+    fail("inline scripts", "no inline scripts found on any page -- the scan is broken");
+  else if (missing.length) {
+    fail(
+      "inline scripts not covered by the shipped CSP (run npm run build-security-headers)",
+      missing.join(", ")
+    );
+  } else
+    ok(
+      "all " +
+        scanned +
+        " inline scripts across " +
+        pageList.length +
+        " pages are hashed in _headers"
+    );
+})();
+
 section("Report a Reaction page (safety.html) -- MoCRA adverse-event intake");
 (function checkSafetyPage() {
   var safetyPath = path.join(ROOT, "safety.html");
@@ -3613,7 +3683,11 @@ section("Report a Reaction page (safety.html) -- MoCRA adverse-event intake");
   if (mainStart === -1 || mainEnd === -1 || mainEnd < mainStart) {
     fail("safety.html <main>", "could not be isolated -- the copy checks below would be vacuous");
   } else {
-    var mainCopy = safetyHtml.slice(mainStart, mainEnd);
+    // Product names are injected into the product <select> at build time and
+    // are the shop's own listing names, not this page's copy; scan around them.
+    var mainCopy = safetyHtml
+      .slice(mainStart, mainEnd)
+      .replace(/<option[^>]*>[\s\S]*?<\/option>/gi, "");
     var claimWords = ["treat", "cure", "heal"].filter(function (word) {
       return new RegExp("\\b" + word, "i").test(mainCopy);
     });

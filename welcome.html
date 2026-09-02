@@ -131,6 +131,9 @@
            comment in that file.
 
            All three blocks start hidden. Exactly one is revealed. -->
+      <noscript>
+        <p class="welcome-code-status" role="status">This page needs JavaScript to make your code. Email <a href="mailto:y.allternative.living@gmail.com?subject=Welcome%20code">y.allternative.living@gmail.com</a> with the address you subscribed with and we'll send it over.</p>
+      </noscript>
       <div class="welcome-code-card" id="welcomeCodeCard" hidden>
         <p class="welcome-code-label">Your code</p>
         <p class="welcome-code" id="welcomeCode"></p>
@@ -141,7 +144,7 @@
            address, so when it is absent from the query string this asks for it
            rather than guessing. It stays hidden until welcome.js decides it is
            needed, so nobody is shown a form they do not have to fill in. -->
-      <form class="welcome-code-form" id="welcomeCodeForm" method="post" action="/api/welcome-code" hidden style="display: none; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 1rem 0;">
+      <form class="welcome-code-form" id="welcomeCodeForm" method="post" action="/api/welcome-code" novalidate hidden style="display: none; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 1rem 0;">
         <label for="welcome_email" class="sr-only">The email address you just subscribed with</label>
         <input type="email" id="welcome_email" name="email" placeholder="you@email.com" required autocomplete="email" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--hide); background: var(--ink); color: var(--paper); min-width: 220px;">
         <button class="btn btn-primary btn-sm" type="submit">Get my code</button>
@@ -281,7 +284,7 @@
           <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
         </svg>
         <label for="globalSearchInput" id="globalSearchModalTitle" class="sr-only">Search catalog, articles &amp; FAQ</label>
-        <input type="search" id="globalSearchInput" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, journal, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <input type="search" id="globalSearchInput" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, events, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         <button type="button" class="global-search-clear-btn" id="globalSearchClearBtn" aria-label="Clear search query" hidden>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/></svg>
         </button>
@@ -343,17 +346,17 @@ var Tawk_API = Tawk_API || {}, Tawk_LoadStart = new Date();
   /* The widget SDK used to be requested on EVERY pageview -- 20 requests to
      embed.tawk.to plus a wss://*.tawk.to handshake, measured on a cold mobile
      load -- for the large majority of sessions that never open chat. Hold it
-     until the visitor does something, with an idle-timeout fallback so a
-     visitor who lands and reads without touching anything still gets chat. */
+     until the visitor does something (scroll, tap, key). There is deliberately
+     no idle-timeout fallback: the widget's iframe landing with no user input
+     counted as a 0.047 layout shift on every page in the 2026-09-02
+     measurement, and a shopper who wants chat will have scrolled first. */
   var loaded = false;
   var TRIGGERS = ["pointerdown", "keydown", "scroll", "touchstart"];
   var opts = { passive: true, capture: true };
-  var timer;
   function load() {
     if (loaded) return;
     loaded = true;
     TRIGGERS.forEach(function (t) { window.removeEventListener(t, load, opts); });
-    if (timer) clearTimeout(timer);
     var s1 = document.createElement("script"), s0 = document.getElementsByTagName("script")[0];
     s1.async = true;
     s1.src = "https://embed.tawk.to/" + propertyId + "/" + widgetId;
@@ -362,7 +365,6 @@ var Tawk_API = Tawk_API || {}, Tawk_LoadStart = new Date();
     s0.parentNode.insertBefore(s1, s0);
   }
   TRIGGERS.forEach(function (t) { window.addEventListener(t, load, opts); });
-  timer = setTimeout(load, 5000);
 })();
 </script>
 </body>

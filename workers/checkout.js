@@ -12,6 +12,7 @@
  *   POST /api/order-status       look up a real order        (routes/order-status.js)
  *   POST /api/restock            "tell me when it's back"    (routes/restock.js)
  *   POST /api/safety-report      report a reaction (MoCRA)     (routes/safety-report.js)
+ *   GET  /api/gift-note          printable gift note (owner, signed link) (routes/gift-note.js)
  *   POST /api/unsubscribe        opt out of marketing email  (routes/retention.js)
  *   POST /api/welcome-code       mint a single-use welcome code
  *   POST /api/birthday-club      store an MM/DD birthday
@@ -140,6 +141,10 @@
  *   - STRIPE_TAX_ENABLED     (var)    optional override: "true" forces tax on,
  *                                     "false" forces it off. Omit for auto.
  *   - RESTOCK_NOTIFY_EMAIL   (var)    optional; where restock alerts go.
+ *   - ORDER_NOTIFY_EMAIL     (var)    optional; where the "gift note to print"
+ *                                     email for a gift order goes. Falls back
+ *                                     to RESTOCK_NOTIFY_EMAIL, then the shop
+ *                                     contact address.
  *   - GIFT_CARD_FROM_EMAIL   (var)    optional; verified Resend sender.
  *   - SAFETY_REPORT_EMAIL    (var)    optional; where MoCRA reaction reports
  *                                     go. Falls back to RESTOCK_NOTIFY_EMAIL,
@@ -182,6 +187,7 @@ import { handleOrderStatus } from "./routes/order-status.js";
 import { handleOrderSummary } from "./routes/order-summary.js";
 import { handleRestock } from "./routes/restock.js";
 import { handleSafetyReport } from "./routes/safety-report.js";
+import { handleGiftNote } from "./routes/gift-note.js";
 import {
   handleBirthdayClub,
   handleLoyaltyBalance,
@@ -875,6 +881,7 @@ const ROUTES = {
   // without it: a reaction report received into nowhere is the one outcome
   // that page must never produce.
   "/safety-report": handleSafetyReport,
+  "/gift-note": handleGiftNote,
   // Retention (workers/routes/retention.js). Every one of these needs STATE_DB
   // and answers 503 without it rather than pretending to have stored anything.
   "/unsubscribe": handleUnsubscribe,
@@ -1542,6 +1549,17 @@ export default {
     }
     if (!known) {
       return json({ error: "Not Found" }, 404, origin, env);
+    }
+    // The one GET on the Worker: the owner's printable gift note, opened from
+    // a signed link in the order email (routes/gift-note.js). It carries its
+    // own token check; everything else stays POST-only.
+    if (route === "/gift-note" && request.method === "GET") {
+      try {
+        return await handleGiftNote(request, env);
+      } catch (err) {
+        console.error("gift-note failed:", err && err.stack ? err.stack : err);
+        return json({ error: "Something went wrong." }, 500, origin, env);
+      }
     }
     if (request.method !== "POST") {
       return json({ error: "Method Not Allowed" }, 405, origin, env);

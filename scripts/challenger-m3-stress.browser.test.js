@@ -233,11 +233,14 @@ async function runAdversarialStressTests() {
       `products/${p.id}.html contains exactly ${EXPECTED_ACCORDIONS_PER_PDP} <summary class="pdp-accordion-summary"> elements (found: ${summaryCount})`
     );
 
-    // Freshness Badge
+    // Freshness Badge -- only on things that are poured (not the digital
+    // gift card or the printed apparel).
+    const poured =
+      p.category !== "apparel" && p.category !== "gift-cards" && p.id !== "yallternative-gift-card";
     assert(
-      html.includes('<div class="pdp-freshness-badge" role="status">') &&
-        html.includes("Poured in Landrum, SC · Small-Batch Promise"),
-      `products/${p.id}.html has freshness badge with Landrum SC promise`
+      (html.includes('<div class="pdp-freshness-badge" role="status">') &&
+        html.includes("Poured in Landrum, SC · Small-Batch Promise")) === poured,
+      `products/${p.id}.html ${poured ? "has" : "omits"} the freshness badge with Landrum SC promise`
     );
 
     // CTA Button

@@ -13,6 +13,7 @@ router:
 | `POST /api/order-status`      | `{sessionId, email}` -> a real order, rate-limited 5/min per IP       |
 | `POST /api/restock`           | `{email, product}` -> emails the shop                                 |
 | `POST /api/safety-report`     | a reaction report (MoCRA) -> a three-year D1 row + two emails           |
+| `GET /api/gift-note`          | the owner's printable 4x6 gift note for an order (signed link from the order email) |
 | `POST /api/order-summary`     | `{sessionId}` -> the settled totals for the thank-you page            |
 | `POST /api/unsubscribe`       | `?t=<token>` -> opts an address out of every marketing send           |
 | `POST /api/welcome-code`      | `{email}` -> a single-use Stripe Promotion Code for a new subscriber  |
@@ -352,6 +353,7 @@ through which a consumer can report an adverse event; this is it.
 | ------------------ | -------------------------------------------------------------------------------------------------- |
 | The report         | one row in the D1 table `adverse_events` (schema version 3), kept at least three years. **Needs `STATE_DB`; answers 503 without it.** |
 | The owner's copy   | Resend, to `SAFETY_REPORT_EMAIL` -> `RESTOCK_NOTIFY_EMAIL` -> `contact@yallternativeliving.com`.    |
+| `ORDER_NOTIFY_EMAIL` | optional (`[vars]`) | falls back to `RESTOCK_NOTIFY_EMAIL`, then the contact address | Where the "gift note to print" email goes for an order that carries a gift message. |
 | The reporter's copy| Resend, an acknowledgement carrying the reference only.                                            |
 
 - `serious` is computed on the server from the outcome checkboxes, never taken

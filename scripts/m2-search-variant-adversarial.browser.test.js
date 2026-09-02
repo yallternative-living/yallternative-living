@@ -94,13 +94,19 @@ function recordFail(msg) {
     const productsData = JSON.parse(
       fs.readFileSync(path.resolve(__dirname, "../assets/data/products.json"), "utf8")
     );
+    /* A coming-soon product gets a "Notify me" link in search results, never a
+       variant picker, so it is out of scope here. */
     const multiVariantProducts = productsData.products.filter(
-      (p) => p.variants && Array.isArray(p.variants.options) && p.variants.options.length > 1
+      (p) =>
+        p.variants &&
+        Array.isArray(p.variants.options) &&
+        p.variants.options.length > 1 &&
+        !p.comingSoon
     );
 
     console.log(`Loaded catalog: found ${multiVariantProducts.length} multi-variant products.\n`);
-    if (multiVariantProducts.length !== 12) {
-      recordFail(`Expected 12 multi-variant products, got ${multiVariantProducts.length}`);
+    if (multiVariantProducts.length !== 10) {
+      recordFail(`Expected 10 buyable multi-variant products, got ${multiVariantProducts.length}`);
     } else {
       recordPass(`Identified exact 12 multi-variant catalog products for comprehensive testing`);
     }

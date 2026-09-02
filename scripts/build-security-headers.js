@@ -357,7 +357,11 @@ function run() {
     // and approved in scripts/inline-script-hashes.json. There used to be one
     // more, hardcoded, matching no script on any page in the repository --
     // an allowlist entry for something nobody could point at.
-    "script-src 'self' https://cloud.umami.is https://embed.tawk.to https://translate.google.com https://translate.googleapis.com 'inline-speculation-rules' " +
+    // cdn.jsdelivr.net/emojione/: the Tawk.to widget, once loaded, pulls its
+    // emoji renderer from that one path (seen as a script-src violation on every
+    // page in the 2026-09-02 verification). Path-scoped on purpose: the rest of
+    // jsDelivr stays blocked.
+    "script-src 'self' https://cloud.umami.is https://embed.tawk.to https://cdn.jsdelivr.net/emojione/ https://translate.google.com https://translate.googleapis.com 'inline-speculation-rules' " +
       hashes.join(" "),
     // Fonts are self-hosted from /assets/fonts/ (styles.css @font-face), so
     // neither fonts.googleapis.com nor fonts.gstatic.com is needed any more.
@@ -365,7 +369,7 @@ function run() {
     // font files from that origin; without it the widget renders unstyled
     // (every page logged a style-src violation for min-widget.css).
     "style-src 'self' https://embed.tawk.to https://translate.googleapis.com 'unsafe-inline'", // main.js/cart.js/gift-card.js/translator.js all set element.style.* directly (display toggles, carousel transforms, etc.); can't pre-hash those, so this directive stays looser on purpose
-    "img-src 'self' data: https://*.tawk.to https://translate.google.com https://translate.googleapis.com https://www.google.com",
+    "img-src 'self' data: https://*.tawk.to https://cdn.jsdelivr.net/emojione/ https://translate.google.com https://translate.googleapis.com https://www.google.com",
     "font-src 'self' https://embed.tawk.to",
     // Checkout itself never needs an entry here: cart.js POSTs to the
     // same-origin /api/checkout Worker route (covered by 'self'), then
@@ -640,13 +644,18 @@ function run() {
     "  [headers.values]\n" +
     '    Cache-Control = "public, max-age=31536000, immutable"\n\n' +
     "[[headers]]\n" +
+    "  # Scripts and styles: revalidate every time (Netlify answers 304 from its\n" +
+    "  # ETag, so this costs a round trip and no bytes). The old seven-day\n" +
+    "  # max-age let a returning shopper run stale cart/checkout code for a\n" +
+    "  # week: the browser cache answered before the service worker could\n" +
+    "  # even see the request (verify-D H-2).\n" +
     '  for = "/assets/css/*"\n' +
     "  [headers.values]\n" +
-    '    Cache-Control = "public, max-age=604800"\n\n' +
+    '    Cache-Control = "public, max-age=0, must-revalidate"\n\n' +
     "[[headers]]\n" +
     '  for = "/assets/js/*"\n' +
     "  [headers.values]\n" +
-    '    Cache-Control = "public, max-age=604800"\n\n' +
+    '    Cache-Control = "public, max-age=0, must-revalidate"\n\n' +
     "# Baseline security headers on every page -- identical policy to\n" +
     "# _headers and vercel.json (see this script's csp/otherHeaders).\n" +
     "[[headers]]\n" +

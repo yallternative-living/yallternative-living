@@ -90,11 +90,32 @@
        visible inline, so it should never be inert there. */
     var navMQ = window.matchMedia("(max-width: 1024px)");
     function syncNavInert() {
-      if (navMQ.matches && !navLinks.classList.contains("open")) {
+      var open = navLinks.classList.contains("open");
+      if (navMQ.matches && !open) {
         navLinks.setAttribute("inert", "");
       } else {
         navLinks.removeAttribute("inert");
       }
+      /* The open panel overlays a scroll-locked page: Tab must not walk out
+         of it into links that are off-screen and cannot be scrolled to.
+         Everything outside the header is made inert while it is open, and
+         only what this code made inert is released on close (an element
+         that was inert for its own reasons stays that way). */
+      var header = typeof navLinks.closest === "function" ? navLinks.closest("header") : null;
+      var bodyChildren = document.body && document.body.children ? document.body.children : [];
+      Array.prototype.forEach.call(bodyChildren, function (el) {
+        if (el === header || (header && header.contains(el))) return;
+        if (el.tagName === "SCRIPT" || el.tagName === "STYLE" || el.tagName === "LINK") return;
+        if (navMQ.matches && open) {
+          if (!el.hasAttribute("inert")) {
+            el.setAttribute("inert", "");
+            el.setAttribute("data-nav-inert", "1");
+          }
+        } else if (el.getAttribute("data-nav-inert") === "1") {
+          el.removeAttribute("inert");
+          el.removeAttribute("data-nav-inert");
+        }
+      });
     }
     syncNavInert();
     var menuIconSVG =
@@ -440,10 +461,14 @@
       if (target) {
         e.preventDefault();
         giftModal.showModal();
-        // Focus recipient email after modal transition starts
+        /* Focus the first amount preset, not the email field two-thirds of
+           the way down: focusing the field scrolled the dialog so its title,
+           close button and amount preview opened off-screen on phones. */
         setTimeout(function () {
-          var emailInput = document.getElementById("giftRecipientEmail");
-          if (emailInput) emailInput.focus();
+          var first =
+            giftModal.querySelector("[data-amount]") ||
+            document.getElementById("closeGiftModalBtn");
+          if (first) first.focus();
         }, 50);
       }
     });
@@ -719,6 +744,16 @@
      removes tabs and newlines from a URL and trims leading control characters
      BEFORE it decides what the scheme is, so " javascript:alert(1)" and
      "java<TAB>script:alert(1)" both run. Strip first, then decide. */
+  /* Search results render on every page, including /products/<id>.html, so a
+     site-relative path like "products/x.html" or "faq.html#q" must be made
+     root-absolute or it resolves to /products/products/x.html from a PDP. */
+  function rootAbsLink(url) {
+    var s = safeLinkUrl(url);
+    if (!s) return "";
+    if (/^(?:[a-z]+:|\/|#)/i.test(s)) return s;
+    return "/" + s.replace(/^(?:\.\.\/)+/, "").replace(/^\.\//, "");
+  }
+
   function safeLinkUrl(url) {
     if (!url) return "";
     var raw = String(url);
@@ -1438,6 +1473,9 @@
      bundlesHTML() already uses for a bundle's full price. No sale, no extra
      markup: renders the same bytes it always did. */
   function priceHTML(p) {
+    if (p.id === "yallternative-gift-card") {
+      return '<span class="price">From $' + p.price.toFixed(2) + "</span>";
+    }
     var html = '<span class="price">$' + p.price.toFixed(2);
     if (p.sale && typeof p.originalPrice === "number" && p.originalPrice > p.price) {
       html += ' <s class="original-price">$' + p.originalPrice.toFixed(2) + "</s>";
@@ -1847,7 +1885,7 @@
       '<button type="button" class="lightbox-close" aria-label="Close lightbox">&times;</button>' +
       '<div class="lightbox-content">' +
       '  <button type="button" class="lightbox-prev" aria-label="Previous image">&#10094;</button>' +
-      '  <img id="lightboxImage" src="" alt="Enlarged product image">' +
+      '  <img id="lightboxImage" alt="Enlarged product image">' +
       '  <button type="button" class="lightbox-next" aria-label="Next image">&#10095;</button>' +
       "</div>" +
       '<div class="lightbox-dots" id="lightboxDots"></div>' +
@@ -2197,18 +2235,27 @@
             " of " +
             maxItems +
             " chosen</span> " +
-            '<span class="custom-box-price-tag"><s class="custom-box-full-price">$' +
-            fullPrice().toFixed(2) +
-            "</s> <strong>$" +
-            boxPrice().toFixed(2) +
-            "</strong></span>" +
-            (saving > 0
-              ? ' <span class="custom-box-saving">Save $' +
-                saving.toFixed(2) +
-                " (" +
+            (count >= minItems
+              ? '<span class="custom-box-price-tag"><s class="custom-box-full-price">$' +
+                fullPrice().toFixed(2) +
+                "</s> <strong>$" +
+                boxPrice().toFixed(2) +
+                "</strong></span>" +
+                (saving > 0
+                  ? ' <span class="custom-box-saving">Save $' +
+                    saving.toFixed(2) +
+                    " (" +
+                    pct +
+                    "% off)</span>"
+                  : "")
+              : '<span class="custom-box-price-tag"><strong>$' +
+                fullPrice().toFixed(2) +
+                "</strong></span>" +
+                ' <span class="custom-box-saving">Pick ' +
+                (minItems - count) +
+                " more to unlock " +
                 pct +
-                "% off)</span>"
-              : "")
+                "% off</span>")
           : '<span class="custom-box-empty-msg">Nothing picked yet &mdash; select at least ' +
             minItems +
             " items to unlock discount.</span>") +
@@ -2299,7 +2346,7 @@
 
     if (img) {
       if (p && p.image) {
-        img.src = p.image;
+        img.src = rootAbsImage(p.image);
         img.alt = p.name;
         img.hidden = false;
       } else {
@@ -3937,6 +3984,10 @@
     }
 
     if (form) {
+      /* Shipped disabled: with JavaScript off the form would GET itself and
+         put the shopper's email in the URL (verify-D M-1). */
+      var pageSubmitBtn = document.getElementById("orderLookupSubmitBtn");
+      if (pageSubmitBtn) pageSubmitBtn.disabled = false;
       form.addEventListener("submit", function (e) {
         e.preventDefault();
         runOrderStatusLookup({
@@ -4708,8 +4759,9 @@
       '<label for="events_alert_website">Leave this field blank</label>' +
       '<input type="text" id="events_alert_website" name="events_alert_website" tabindex="-1" autocomplete="off" aria-hidden="true">' +
       "</div>" +
-      '<label for="events_alert_email" class="sr-only">Email address</label>' +
-      '<input type="email" id="events_alert_email" name="email_address" placeholder="you@email.com" required autocomplete="email">' +
+      '<p class="events-market-alert-title" id="eventsMarketAlertTitle">Want the next market date in your inbox?</p>' +
+      '<label for="events_alert_email" class="sr-only">Email address for market dates</label>' +
+      '<input type="email" id="events_alert_email" name="email_address" placeholder="you@email.com" required autocomplete="email" aria-describedby="eventsMarketAlertTitle">' +
       '<input type="hidden" name="fields[interest]" value="events">' +
       '<button class="btn btn-outline btn-sm" type="submit">Email Me the Next Market Date</button>' +
       "</form>"
@@ -5539,7 +5591,13 @@
         }
       });
 
-      var passed = isExact || qContext.hypernymTargets.has(p.id) || matchedTokens > 0;
+      /* A single expanded token found only in an ingredient list used to
+         qualify a product ("eczema" returned the keychain and both room
+         mists). A match now needs an exact hit, a hypernym target, or at
+         least one token that landed in the name, the keywords, or two
+         places -- i.e. a score of 1.0 or more. */
+      var passed =
+        isExact || qContext.hypernymTargets.has(p.id) || (matchedTokens > 0 && score >= 1.0);
       return {
         matched: passed && score > 0,
         score: score,
@@ -5579,6 +5637,19 @@
           return hasToken;
         });
 
+        if (typeof sortProducts === "function" && state.sort && state.sort !== "featured") {
+          filteredBundles = sortProducts(
+            filteredBundles.map(function (b) {
+              var full = (b.productIds || []).reduce(function (sum, id) {
+                var p = pMap ? pMap.get(id) : null;
+                return sum + (p ? p.originalPrice || p.price || 0 : 0);
+              }, 0);
+              var bundlePrice = Math.round(full * (1 - (b.discountPercent || 0) / 100) * 100) / 100;
+              return Object.assign({}, b, { price: bundlePrice });
+            }),
+            state.sort
+          );
+        }
         grid.innerHTML = bundlesHTML(filteredBundles, pMap);
         wireReveal(grid);
 
@@ -5940,7 +6011,10 @@
       } else {
         seg.textContent = message;
       }
-      existing.appendChild(sep);
+      /* The separator travels with its segment so a wrap never strands it; a
+         minimal test DOM may lack insertBefore, so fall back to the old order. */
+      if (typeof seg.insertBefore === "function") seg.insertBefore(sep, seg.firstChild);
+      else existing.appendChild(sep);
       existing.appendChild(seg);
       return;
     }
@@ -5951,7 +6025,7 @@
     bar.setAttribute("aria-label", "Site announcement");
     if (link) {
       var barLink = document.createElement("a");
-      barLink.href = link;
+      barLink.href = rootAbsLink(link) || link;
       barLink.textContent = message;
       bar.appendChild(barLink);
     } else {
@@ -6942,6 +7016,33 @@
     var quizCfg = (window.YL_CONTENT && window.YL_CONTENT.quiz) || null;
     var quizQuestions = (quizCfg && (quizCfg.questions || quizCfg.steps)) || null;
 
+    /* A recommendation that is only sold as a size/scent/blend must carry a
+       variant or the Worker refuses the whole checkout (verify-B C-1): give
+       the add button the product's first available option, the same default
+       its own page pre-selects, in the attribute shape cart.js reads. */
+    function quizVariantAttrs(p) {
+      var v = p && p.variants;
+      if (!v || !Array.isArray(v.options) || !v.options.length) return "";
+      var open = v.options.filter(function (o) {
+        return o && !o.soldOut;
+      });
+      if (!open.length) return "";
+      var optionsStr = open
+        .map(function (o) {
+          var d = Number(o.priceDelta) || 0;
+          return o.label + "[" + (d >= 0 ? "+" : "-") + Math.abs(d).toFixed(2) + "]";
+        })
+        .join("|");
+      return (
+        ' data-item-custom1-name="' +
+        attrEsc(v.name || "Option") +
+        '" data-item-custom1-options="' +
+        attrEsc(optionsStr) +
+        '" data-item-custom1-value="' +
+        attrEsc(open[0].label) +
+        '"'
+      );
+    }
     var results = document.getElementById("quiz-results-container");
     var resetBtn = document.getElementById("start-apothecary-quiz-btn");
 
@@ -7192,7 +7293,13 @@
           '<div class="card quiz-recommended-card reveal" style="max-width: 540px; margin: 0 auto; padding: 1.5rem; text-align: center; border: 2px solid var(--whiskey); background: var(--ink-3); color: var(--paper); border-radius: var(--radius-md);">' +
           '  <span class="card-cat" style="color: var(--whiskey); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700;"><svg class="yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg> Your Apothecary Prescription</span>' +
           '  <h3 style="font-family: var(--font-heading); margin: 0.5rem 0;">' +
-          attrEsc(match.name) +
+          (match.isBundle
+            ? attrEsc(match.name)
+            : '<a href="' +
+              attrEsc(rootAbsLink("products/" + match.id + ".html")) +
+              '">' +
+              attrEsc(match.name) +
+              "</a>") +
           "</h3>" +
           '  <img src="' +
           attrEsc(itemImage) +
@@ -7221,7 +7328,9 @@
           '"' +
           '    data-item-description="' +
           attrEsc(match.blurb || "") +
-          '">' +
+          '"' +
+          quizVariantAttrs(match) +
+          ">" +
           "    Add Recommendation to Cart ($" +
           recPrice.toFixed(2) +
           ")" +
@@ -7470,7 +7579,7 @@
           score += 20;
         }
 
-        if (prod.outOfStock || prod.stock === 0) {
+        if (prod.outOfStock || prod.inStock === false || prod.stock === 0) {
           score = score * 0.7;
         }
 
@@ -7773,8 +7882,8 @@
       renderSearchChipsHtml(getSearchChips()) +
       "  </div>" +
       '  <div class="search-empty-links">' +
-      '    <a class="search-empty-link" href="shop.html">Browse the full shop &rarr;</a>' +
-      '    <a class="search-empty-link" href="contact.html">Can&rsquo;t find it? Ask us directly &rarr;</a>' +
+      '    <a class="search-empty-link" href="/shop.html">Browse the full shop &rarr;</a>' +
+      '    <a class="search-empty-link" href="/contact.html">Can&rsquo;t find it? Ask us directly &rarr;</a>' +
       "  </div>" +
       "</div>"
     );
@@ -7924,12 +8033,20 @@
           currentItems.push({ id: itemOptId, url: prod.url, type: "product", item: prod });
 
           var priceStr = "$" + prod.price.toFixed(2);
-          var stockBadge = prod.outOfStock
-            ? '<span class="stock-badge out-of-stock">Sold Out</span>'
-            : '<span class="stock-badge in-stock">In Stock</span>';
+          /* The index carries inStock (false when sold out) and comingSoon;
+             a product that is not on sale yet must never offer "+ Add" or
+             claim to be in stock -- the PDP's notify-me button is the CTA. */
+          var soldOut = prod.outOfStock === true || prod.inStock === false || prod.stock === 0;
+          var comingSoon = !!prod.comingSoon;
+          var stockBadge = comingSoon
+            ? '<span class="stock-badge coming-soon">Coming Soon</span>'
+            : soldOut
+              ? '<span class="stock-badge out-of-stock">Sold Out</span>'
+              : '<span class="stock-badge in-stock">In Stock</span>';
 
           var hasVariants =
-            !prod.outOfStock &&
+            !soldOut &&
+            !comingSoon &&
             prod.variants &&
             Array.isArray(prod.variants.options) &&
             prod.variants.options.length > 1;
@@ -7940,12 +8057,12 @@
             '" role="option" aria-selected="false" data-item-index="' +
             globalIdx +
             '" data-url="' +
-            attrEsc(safeLinkUrl(prod.url)) +
+            attrEsc(rootAbsLink(prod.url)) +
             '">';
-          html += '  <a href="' + attrEsc(safeLinkUrl(prod.url)) + '" class="search-item-main">';
+          html += '  <a href="' + attrEsc(rootAbsLink(prod.url)) + '" class="search-item-main">';
           html +=
             '    <img src="' +
-            attrEsc(prod.image) +
+            attrEsc(rootAbsImage(prod.image)) +
             '" alt="' +
             attrEsc(prod.name) +
             '" class="search-item-thumb" width="52" height="52" loading="lazy">';
@@ -7961,7 +8078,12 @@
           html += "    </div>";
           html += "  </a>";
           html += '  <div class="search-item-action" data-product-id="' + attrEsc(prod.id) + '">';
-          if (!prod.outOfStock) {
+          if (comingSoon) {
+            html +=
+              '    <a class="btn btn-secondary btn-sm search-add-btn search-notify-link" href="' +
+              attrEsc(rootAbsLink(prod.url)) +
+              '">Notify me</a>';
+          } else if (!soldOut) {
             if (hasVariants) {
               var pickerId = "search-variant-picker-" + attrEsc(prod.id);
               var variantName = prod.variants.name || "Option";
@@ -7991,7 +8113,7 @@
                 prod.price.toFixed(2) +
                 '"' +
                 ' data-item-image="' +
-                attrEsc(prod.image) +
+                attrEsc(rootAbsImage(prod.image)) +
                 '"' +
                 ' data-item-description="' +
                 attrEsc(prod.blurb || "") +
@@ -8028,9 +8150,9 @@
             '" role="option" aria-selected="false" data-item-index="' +
             globalIdx +
             '" data-url="' +
-            attrEsc(safeLinkUrl(art.url)) +
+            attrEsc(rootAbsLink(art.url)) +
             '">';
-          html += '  <a href="' + attrEsc(safeLinkUrl(art.url)) + '" class="search-item-main">';
+          html += '  <a href="' + attrEsc(rootAbsLink(art.url)) + '" class="search-item-main">';
           html +=
             '    <div class="search-faq-icon" aria-hidden="true"><svg class="yl-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>';
           html += '    <div class="search-item-info">';
@@ -8075,9 +8197,9 @@
             '" role="option" aria-selected="false" data-item-index="' +
             globalIdx +
             '" data-url="' +
-            attrEsc(safeLinkUrl(ev.url)) +
+            attrEsc(rootAbsLink(ev.url)) +
             '">';
-          html += '  <a href="' + attrEsc(safeLinkUrl(ev.url)) + '" class="search-item-main">';
+          html += '  <a href="' + attrEsc(rootAbsLink(ev.url)) + '" class="search-item-main">';
           html +=
             '    <div class="search-event-badge"><span class="event-badge-day">' +
             escapeSearchHtml(ev.dateLabel || ev.date || "") +
@@ -8129,9 +8251,9 @@
             '" role="option" aria-selected="false" data-item-index="' +
             globalIdx +
             '" data-url="' +
-            attrEsc(safeLinkUrl(f.url)) +
+            attrEsc(rootAbsLink(f.url)) +
             '">';
-          html += '  <a href="' + attrEsc(safeLinkUrl(f.url)) + '" class="search-item-main">';
+          html += '  <a href="' + attrEsc(rootAbsLink(f.url)) + '" class="search-item-main">';
           html +=
             '    <div class="search-faq-icon" aria-hidden="true"><svg class="yl-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>';
           html += '    <div class="search-item-info">';
@@ -8157,12 +8279,12 @@
 
       // Screen reader announcement
       if (resultCount) {
+        var hasJournal = (getSearchIndex().journal || []).length > 0;
         var summary =
           "Found " +
           results.products.length +
           " products, " +
-          results.journal.length +
-          " articles, " +
+          (hasJournal ? results.journal.length + " articles, " : "") +
           results.events.length +
           " events, and " +
           results.faq.length +
@@ -8215,7 +8337,7 @@
          "javascript:" entry here executes on Enter even though the same
          string is inert in the href above (the CSP blocks that one). Refuse
          to navigate rather than sanitising into a broken URL. */
-      var target = activeItemMeta ? safeLinkUrl(activeItemMeta.url) : "";
+      var target = activeItemMeta ? safeLinkUrl(rootAbsLink(activeItemMeta.url)) : "";
       if (target) {
         closeModal();
         window.location.href = target;
@@ -8975,6 +9097,9 @@
     if (!product || !Array.isArray(product.pairsWith) || !product.pairsWith.length) {
       return "";
     }
+    /* The current product is part of the ritual's "Add All": a coming-soon
+       or sold-out product must not be sold through the side door. */
+    if (product.comingSoon || product.stock === 0) return "";
     var map = pMap || getProductMap();
     var pairedItems = product.pairsWith
       .map(function (id) {
@@ -9010,7 +9135,7 @@
       (typeof product.price === "number" ? product.price.toFixed(2) : "0.00") +
       '">' +
       '<div class="pdp-ritual-item-thumb"><img src="' +
-      attrEsc(product.image || "") +
+      attrEsc(rootAbsImage(product.image || "")) +
       '" alt="" width="44" height="44" loading="lazy"></div>' +
       '<div class="pdp-ritual-item-details">' +
       '<span class="pdp-ritual-item-tag">This Item</span>' +
@@ -9035,7 +9160,7 @@
         (typeof p.price === "number" ? p.price.toFixed(2) : "0.00") +
         '">' +
         '<div class="pdp-ritual-item-thumb"><img src="' +
-        attrEsc(p.image || "") +
+        attrEsc(rootAbsImage(p.image || "")) +
         '" alt="" width="44" height="44" loading="lazy"></div>' +
         '<div class="pdp-ritual-item-details">' +
         '<span class="pdp-ritual-item-tag">Pairing ' +
@@ -9104,6 +9229,48 @@
   /**
    * Initializes PDP and modal ritual sections, dynamic bundle pricing, and 1-click add to cart.
    */
+  /* A cart line for a ritual/cross-sell add. Products sold only as a
+     variant (size, scent, blend) used to land with no variant at all and the
+     Worker refused the whole checkout ("Product not purchasable"). The line
+     now carries the option the shopper is looking at (the checked radio on
+     the product's own page) or, for a partner, its first available option at
+     the base price -- the same default the product page pre-selects. */
+  function ritualCartLine(product, section) {
+    var line = {
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      image: product.image,
+      category: product.category,
+      qty: 1
+    };
+    var variants = product.variants;
+    if (!variants || !Array.isArray(variants.options) || !variants.options.length) return line;
+    var chosen = null;
+    var thisItem = section ? section.querySelector(".pdp-ritual-checkbox[disabled]") : null;
+    var thisRow = thisItem && thisItem.closest ? thisItem.closest(".pdp-ritual-item") : null;
+    var current = thisRow ? thisRow.getAttribute("data-product-id") : null;
+    var radio = document.querySelector('.pdp-variant-group input[type="radio"]:checked');
+    if (radio && document.body.classList.contains("pdp-page") && current === product.id) {
+      var radioLabel = radio.value;
+      chosen = variants.options.find(function (o) {
+        return o && o.label === radioLabel;
+      });
+    }
+    if (!chosen) {
+      chosen = variants.options.find(function (o) {
+        return o && !o.soldOut;
+      });
+    }
+    if (!chosen) return line;
+    var delta = Number(chosen.priceDelta) || 0;
+    line.variantName = variants.name || "Option";
+    line.variantLabel = chosen.label;
+    line.variantDelta = delta;
+    line.price = product.price + delta;
+    return line;
+  }
+
   function initPdpRitualSection(containerEl) {
     if (typeof document === "undefined") return;
     var section = containerEl || document.getElementById("pdpRitualSection");
@@ -9205,15 +9372,8 @@
                 return p && p.id === prodId;
               });
             }
-            if (product) {
-              itemsToAdd.push({
-                id: product.id,
-                name: product.name,
-                price: product.price,
-                image: product.image,
-                category: product.category,
-                qty: 1
-              });
+            if (product && !product.comingSoon && product.stock !== 0) {
+              itemsToAdd.push(ritualCartLine(product, section));
             }
           }
         });
@@ -9242,6 +9402,16 @@
     if (typeof document === "undefined") return;
     var stickyBar = document.getElementById("pdpStickyBar");
     if (!stickyBar) return;
+    /* The bar is 65-141px tall depending on its variant control; the body
+       reserve was a fixed 72px, so on narrow phones the bar sat over the last
+       footer line for good. Measure it instead. */
+    function syncStickyReserve() {
+      var h = stickyBar.offsetHeight || 0;
+      if (!h) return;
+      document.body.style.paddingBottom = h + 12 + "px";
+      document.documentElement.style.scrollPaddingBottom = h + 24 + "px";
+    }
+    window.addEventListener("resize", syncStickyReserve, { passive: true });
 
     var primaryCta =
       document.querySelector(".pdp-actions") ||
@@ -9256,6 +9426,7 @@
             var hasScrolledPast = !entry.isIntersecting && entry.boundingClientRect.top < 0;
             if (hasScrolledPast && isMobile) {
               stickyBar.classList.add("is-visible");
+              syncStickyReserve();
               stickyBar.setAttribute("aria-hidden", "false");
             } else {
               stickyBar.classList.remove("is-visible");
@@ -9353,6 +9524,9 @@
 
   /* ---------- Product page: quantity, gallery, dispatch promise ---------- */
   function initPdpPage() {
+    /* The PDP heart is static markup (aria-pressed="false"); reflect the
+       saved state on load or the first tap silently un-saves the item. */
+    if (typeof syncWishButtons === "function") syncWishButtons();
     if (typeof document === "undefined") return;
     var layout = document.querySelector(".pdp-layout");
     if (!layout) return;
@@ -9404,6 +9578,7 @@
               width: 800,
               height: 800,
               loading: "eager",
+              sizes: "(max-width: 820px) 100vw, 50vw",
               alt: alt
             });
             var wrap = document.createElement("div");

@@ -355,7 +355,7 @@
             "categories": [],
             "matchBundles": true,
             "matchFeatured": false,
-            "scoreWeight": 6
+            "scoreWeight": 4
           },
           {
             "value": "ritual-bath",
@@ -370,7 +370,7 @@
             ],
             "matchBundles": false,
             "matchFeatured": false,
-            "scoreWeight": 5
+            "scoreWeight": 4
           }
         ]
       }

@@ -1077,6 +1077,15 @@
     return ids;
   }
 
+  function catalogProduct(id) {
+    var data = window.YL_PRODUCTS;
+    var list = data && Array.isArray(data.products) ? data.products : [];
+    for (var i = 0; i < list.length; i++) {
+      if (list[i] && list[i].id === id) return list[i];
+    }
+    return null;
+  }
+
   function sanitizeStoredItems(rawItems) {
     var known = knownItemIds();
     var kept = [];
@@ -1098,6 +1107,22 @@
       if (known && !known[it.id]) {
         dropped++;
         return;
+      }
+      /* A share link or an old cart can carry a product that is not on sale:
+         coming soon, or a variant that has since sold out (verify-B H-3). */
+      var live = catalogProduct(it.id);
+      if (live && (live.comingSoon || live.stock === 0)) {
+        dropped++;
+        return;
+      }
+      if (live && live.variants && Array.isArray(live.variants.options) && it.variantLabel) {
+        var opt = live.variants.options.find(function (o) {
+          return o && o.label === it.variantLabel;
+        });
+        if (!opt || opt.soldOut) {
+          dropped++;
+          return;
+        }
       }
       it.price = price;
       it.qty = clampQty(it.qty, it.maxQty);
@@ -1338,6 +1363,7 @@
       if (action === "inc") changeQty(key, 1);
       else if (action === "dec") changeQty(key, -1);
       else if (action === "remove") removeLine(key);
+      else if (action === "undo") undoRemove();
     });
 
     // aria-live region for screen-reader cart announcements.
@@ -1479,7 +1505,10 @@
         !root.YL_CONTENT ||
         !root.YL_CONTENT.site ||
         root.YL_CONTENT.site.enableDispatchCountdown !== false;
-      if (dispatchEnabled) {
+      var dispatchHasPhysical = state.items.some(function (it) {
+        return it.id !== GIFT_CARD_ID;
+      });
+      if (dispatchEnabled && dispatchHasPhysical) {
         var status = calculateDispatchStatus();
         dispatchEl.innerHTML =
           '<div class="yl-cart-dispatch-badge">' +
@@ -1602,13 +1631,18 @@
 
     var sub = subtotal(state.items);
     var physSub = physicalSubtotal(state.items);
+    /* A gift-card-only cart has nothing to ship: no milestone bar, no
+       pickup toggle, no dispatch countdown (verify-B H-5). */
+    var hasPhysical = state.items.some(function (it) {
+      return it.id !== GIFT_CARD_ID;
+    });
     var milestoneStatus = calculateMilestoneStatus(
       physSub,
       getShippingMilestones(),
       state.isPickup
     );
     var shipHTML = "";
-    if (milestoneStatus.message) {
+    if (milestoneStatus.message && hasPhysical) {
       var pinsHTML = "";
       if (milestoneStatus.milestones && milestoneStatus.maxThreshold > 0) {
         pinsHTML = milestoneStatus.milestones
@@ -1947,14 +1981,18 @@
 
     var storageNoticeHTML = state.storageNotice
       ? '<p class="yl-cart-storage-notice">' + escapeHtml(state.storageNotice) + "</p>"
-      : "";
+      : state.undoItem
+        ? '<p class="yl-cart-storage-notice yl-cart-undo-notice">Removed ' +
+          escapeHtml(state.undoItem.item.name || "item") +
+          '. <button type="button" class="yl-cart-undo-btn" data-cart-action="undo">Undo</button></p>'
+        : "";
 
     footEl.innerHTML =
       upsellHTML() +
       volumeNudgesHTML +
       loyaltyHTML +
       giftOrderHTML +
-      pickupHTML +
+      (hasPhysical ? pickupHTML : "") +
       shipHTML +
       giftCardHTML +
       totalsHTML +
@@ -2072,15 +2110,20 @@
       shareBtn.addEventListener("click", function () {
         var url = generateShareCartUrl(state.items);
         if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
-          navigator.clipboard.writeText(url).then(function () {
-            state.shareCartNotice = "Link Copied to Clipboard!";
-            render();
-            announce("Cart share link copied to clipboard");
-            setTimeout(function () {
-              state.shareCartNotice = "";
+          navigator.clipboard
+            .writeText(url)
+            .catch(function () {
+              prompt("Copy your cart share link:", url);
+            })
+            .then(function () {
+              state.shareCartNotice = "Link Copied to Clipboard!";
               render();
-            }, 3000);
-          });
+              announce("Cart share link copied to clipboard");
+              setTimeout(function () {
+                state.shareCartNotice = "";
+                render();
+              }, 3000);
+            });
         } else {
           prompt("Copy your cart share link:", url);
         }
@@ -2307,11 +2350,35 @@
   }
 
   function removeLine(key) {
+    var idx = -1;
+    state.items.forEach(function (it, i) {
+      if (idx === -1 && lineKey(it) === key) idx = i;
+    });
+    if (idx !== -1) {
+      /* Removal used to be instant and final; keep the line for one Undo. */
+      state.undoItem = { item: state.items[idx], index: idx };
+      if (state.undoTimer) clearTimeout(state.undoTimer);
+      state.undoTimer = setTimeout(function () {
+        state.undoItem = null;
+        render();
+      }, 8000);
+    }
     state.items = state.items.filter(function (it) {
       return lineKey(it) !== key;
     });
     save();
     render();
+  }
+
+  function undoRemove() {
+    if (!state.undoItem) return;
+    var entry = state.undoItem;
+    state.undoItem = null;
+    if (state.undoTimer) clearTimeout(state.undoTimer);
+    state.items.splice(Math.min(entry.index, state.items.length), 0, entry.item);
+    save();
+    render();
+    announce(entry.item.name + " put back in your cart");
   }
 
   /* One checkout request at a time, ever. The old guard was the button's own
@@ -2487,6 +2554,9 @@
       else footEl.appendChild(existing);
     }
     existing.textContent = msg;
+    if (typeof existing.scrollIntoView === "function") {
+      existing.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
   }
 
   function escapeHtml(s) {
@@ -2637,6 +2707,8 @@
     updateBadges();
     if (state.loadNotice) {
       announce(state.loadNotice);
+      /* Say it on screen too, not only to the live region (verify-B M-12). */
+      state.storageNotice = state.loadNotice;
       state.loadNotice = "";
     }
 
@@ -2709,7 +2781,10 @@
       id: "custom-box",
       name: "Build-Your-Own Box (" + box.productIds.length + " items)",
       price: box.price,
-      image: null,
+      image: (function () {
+        var first = box.productIds.length ? catalogProduct(box.productIds[0]) : null;
+        return first && first.image ? first.image : "assets/img/gift-card.png";
+      })(),
       variantLabel: "",
       variantDelta: 0,
       boxProductIds: box.productIds.slice(),

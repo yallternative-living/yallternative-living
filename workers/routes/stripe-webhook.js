@@ -51,6 +51,7 @@ import {
   scheduleRecoveryEmail
 } from "./retention-emails.js";
 import { recordOrder } from "../state/retention.js";
+import { giftNoteLink, giftNotesOf } from "./gift-note.js";
 import { claimEvent, markEventDone, releaseEvent } from "../state/webhook-events.js";
 import { ensureSchema } from "../state/migrations.js";
 
@@ -126,6 +127,40 @@ export async function verifyStripeSignature(rawBody, signatureHeader, secret, no
 }
 
 /* ------------------------------------------------------------- handlers */
+
+/**
+ * A gift order gets the owner an email with the signed link to the printable
+ * gift note (routes/gift-note.js). Nothing is sent when the order carries no
+ * gift text, and nothing can be signed without MAGIC_LINK_SECRET -- in that
+ * case the note is still readable on the order in Stripe.
+ */
+export async function emailGiftNoteLink(session, env) {
+  const notes = giftNotesOf(session);
+  if (!notes.length) return null;
+  if (!env || !env.MAGIC_LINK_SECRET) {
+    console.error("gift-note: MAGIC_LINK_SECRET is not set; no print link emailed for", session.id);
+    return { skipped: "no-secret" };
+  }
+  const to = env.ORDER_NOTIFY_EMAIL || env.RESTOCK_NOTIFY_EMAIL || REPLY_TO;
+  const siteOrigin = env.SITE_ORIGIN || "https://yallternativeliving.com";
+  const link = await giftNoteLink(env.MAGIC_LINK_SECRET, session.id, siteOrigin);
+  const count = notes.length;
+  const subject = `Gift note to print -- order ${session.id}`;
+  const text =
+    `A gift order just came through with ${count} ${count === 1 ? "note" : "notes"} to print.\n\n` +
+    `Open this link, press Print, and slip the card into the parcel:\n${link}\n\n` +
+    `The link works for six months and can be printed more than once. The note is also on the order in Stripe.`;
+  const html =
+    `<p>A gift order just came through with ${count} ${count === 1 ? "note" : "notes"} to print.</p>` +
+    `<p><a href="${link}">Open the printable gift note</a>, press Print, and slip the card into the parcel.</p>` +
+    `<p style="color:#6b5f52;font-size:13px;">The link works for six months and can be printed more than once. The note is also on the order in Stripe.</p>`;
+  await sendEmail(
+    env,
+    { from: fromAddress(env), to, reply_to: REPLY_TO, subject, text, html },
+    `gift-note-email-${session.id}`
+  );
+  return { emailed: to, notes: count };
+}
 
 function buyerEmailOf(session) {
   const email =
@@ -450,6 +485,11 @@ export async function processStripeEvent(event, env, ctx) {
       outcome.loyalty = await creditPoints(session, env, ctx);
     } catch (err) {
       failures.push(`loyalty: ${err && err.message}`);
+    }
+    try {
+      outcome.giftNote = await emailGiftNoteLink(session, env);
+    } catch (err) {
+      failures.push(`gift-note: ${err && err.message}`);
     }
   } else if (event.type === "checkout.session.expired") {
     const session = event.data.object || {};

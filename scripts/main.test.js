@@ -1374,10 +1374,17 @@ assert(
   mainJsSource.indexOf("attrEsc(safeImageSrc(post.image))") !== -1,
   "the UGC feed image src goes through safeImageSrc"
 );
+/* rootAbsLink() sanitises through safeLinkUrl() and then makes the path
+   root-absolute, because the modal also renders on /products/<id>.html where
+   "products/x.html" would otherwise resolve to /products/products/x.html. */
+assert(
+  /function rootAbsLink\(url\) \{\s*var s = safeLinkUrl\(url\);/.test(mainJsSource),
+  "rootAbsLink sanitises through safeLinkUrl before making the path root-absolute"
+);
 ["prod", "art", "ev", "f"].forEach((v) => {
   assert(
-    mainJsSource.indexOf("attrEsc(safeLinkUrl(" + v + ".url))") !== -1,
-    `search result URLs for ${v} go through safeLinkUrl`
+    mainJsSource.indexOf("attrEsc(rootAbsLink(" + v + ".url))") !== -1,
+    `search result URLs for ${v} go through rootAbsLink (and so safeLinkUrl)`
   );
   assert(
     mainJsSource.indexOf("attrEsc(" + v + ".url)") === -1,
@@ -1386,7 +1393,9 @@ assert(
 });
 assert(
   mainJsSource.indexOf("window.location.href = activeItemMeta.url") === -1 &&
-    mainJsSource.indexOf("var target = activeItemMeta ? safeLinkUrl(activeItemMeta.url)") !== -1,
+    mainJsSource.indexOf(
+      "var target = activeItemMeta ? safeLinkUrl(rootAbsLink(activeItemMeta.url))"
+    ) !== -1,
   "the search modal's navigation sink runs the URL through safeLinkUrl"
 );
 
@@ -1914,7 +1923,7 @@ assert(
   "announcementBar renders custom text"
 );
 assert(
-  renderedBar && renderedBar.innerHTML.includes('href="shop.html"'),
+  renderedBar && renderedBar.innerHTML.includes('href="/shop.html"'),
   "announcementBar wraps link when provided"
 );
 
