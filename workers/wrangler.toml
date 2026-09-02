@@ -86,7 +86,7 @@ LOYALTY_REWARD_CENTS = "500"
 # CMS welcomeCode instead, and the birthday/loyalty jobs log and do nothing
 # rather than minting codes against a coupon id that is not there.
 # STRIPE_WELCOME_COUPON_ID = "promo_coupon_id_here"
-# STRIPE_BIRTHDAY_COUPON_ID = "promo_coupon_id_here"
+STRIPE_BIRTHDAY_COUPON_ID = "xOE7mT0X"   # "Birthday $5", $5.00 off once (created 2026-09-02)
 # STRIPE_LOYALTY_COUPON_ID = "promo_coupon_id_here"
 
 # Optional: a verified Resend sender used for the retention sends only. Falls
