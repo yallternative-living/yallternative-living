@@ -1637,5 +1637,60 @@ eq(
   "privacy.html script build markers stay paired"
 );
 
+/* ---------- Scroll reveal: the paint guard must not be a coin flip ----------
+   main.js is the eighth deferred script on these pages, so it starts within a
+   few milliseconds either side of the first paint. The old guard asked only
+   "has anything painted at all", so which side of that line it landed on
+   decided whether the entrance animation played -- and scripts/reveal-check.js
+   failed on index.html with "paint entries = 2" and "first .reveal was not
+   armed" whenever the coin came up the wrong way. */
+assert(typeof main.paintIsStale === "function", "paintIsStale is exported for testing");
+eq(main.PAINT_PROTECTION_MS, 200, "the paint-protection budget is 200ms");
+
+eq(
+  main.paintIsStale(300, 304),
+  false,
+  "a paint four milliseconds old is not stale -- nobody has read anything yet"
+);
+eq(
+  main.paintIsStale(300, 300 + main.PAINT_PROTECTION_MS),
+  false,
+  "a paint exactly at the budget is still inside it"
+);
+eq(
+  main.paintIsStale(300, 300 + main.PAINT_PROTECTION_MS + 1),
+  true,
+  "a paint past the budget is stale, and what it put on screen is left alone"
+);
+eq(
+  main.paintIsStale(200, 1800),
+  true,
+  "the slow load -- a script arriving 1.6s after the paint -- still protects"
+);
+
+/* The paint buffer is filled asynchronously, so an empty one is not proof of a
+   blank page. It is only trusted while the page is young. */
+eq(main.paintIsStale(null, 120), false, "no paint reported early on means nothing has painted");
+eq(
+  main.paintIsStale(null, main.ASSUME_PAINTED_AFTER_MS + 1),
+  true,
+  "an empty paint buffer a second into the page is not believed"
+);
+eq(main.paintIsStale(undefined, 50), false, "an absent timestamp early on is not stale");
+
+/* Unusable inputs must fail safe -- toward leaving visible content alone. */
+eq(main.paintIsStale(NaN, 500), true, "an unusable paint timestamp is treated as stale");
+eq(main.paintIsStale(Infinity, 500), true, "an infinite paint timestamp is treated as stale");
+eq(main.paintIsStale(100, NaN), true, "an unusable clock is treated as stale");
+
+assert(
+  mainJsSource.indexOf('return performance.getEntriesByType("paint").length > 0;') === -1,
+  "hasPainted is no longer a bare 'did anything paint' check"
+);
+assert(
+  mainJsSource.indexOf("return paintIsStale(firstPaintTime, performance.now());") !== -1,
+  "hasPainted decides on how old the paint is"
+);
+
 console.log(`\nmain.test.js: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

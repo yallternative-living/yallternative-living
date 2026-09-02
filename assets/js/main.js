@@ -178,13 +178,48 @@
     return sharedRevealIO;
   }
 
-  /* Has the browser put anything on screen yet? Before the first paint the
-     page is still blank, so hiding an element costs nothing and the entrance
-     animation plays exactly as designed. Measured on this site, that is the
-     normal case: DOMContentLoaded lands at ~124ms and first paint at ~180ms.
-     After a paint, though, the reader is already looking at the content --
-     that is the slow load where this deferred script arrives late, and
-     hiding what is on screen is the bug this guards against. */
+  /* How old does a paint have to be before hiding what it put on screen
+     counts as blinking content out from under the reader?
+
+     This used to be a bare "has anything painted at all", and that question
+     conflates two opposite situations. main.js is the eighth deferred script
+     on these pages, behind ~150KB of catalogue data, so on a normal load it
+     starts within a few milliseconds either side of the first paint. Whether
+     it landed a moment before or a moment after decided, by coin flip,
+     whether the entrance animation played at all -- and the reveal gate's
+     "above-fold elements are armed" check flipped with it. Nobody has read
+     anything in four milliseconds; that is the fast path, and arming is
+     right. The failure this guard exists for is the slow load, where the
+     script arrives seconds later over content the reader has been looking at
+     the whole time.
+
+     A budget separates them. 200ms is comfortably longer than the jitter
+     between paint and script start on a warm load, and far shorter than the
+     delay that makes a late arrival visible -- roughly the point at which a
+     reader has registered what is on screen, and well under the 600ms the
+     entrance transition itself takes. */
+  var PAINT_PROTECTION_MS = 200;
+
+  /* The paint buffer is also populated asynchronously by the compositor -- an
+     empty array has been observed here more than 300ms after the paint it was
+     supposed to report. So an empty buffer is not proof of a blank page; it is
+     only usable as one while the page is still young. Past this point, believe
+     the clock instead: a script that has not begun running a full second into
+     the page is, by any measure, the late arrival this guard is for. */
+  var ASSUME_PAINTED_AFTER_MS = 1000;
+
+  /* Split out so the decision can be tested without a browser. `firstPaintTime`
+     is null when the buffer reports no paint. An unusable timestamp is treated
+     as stale, because leaving visible content alone is always the safe answer. */
+  function paintIsStale(firstPaintTime, now) {
+    if (!isFinite(now)) return true;
+    if (firstPaintTime === null || firstPaintTime === undefined) {
+      return now > ASSUME_PAINTED_AFTER_MS;
+    }
+    if (!isFinite(firstPaintTime)) return true;
+    return now - firstPaintTime > PAINT_PROTECTION_MS;
+  }
+
   function hasPainted() {
     try {
       /* An entry type the browser does not implement comes back as an empty
@@ -201,7 +236,14 @@
         PerformanceObserver.supportedEntryTypes &&
         PerformanceObserver.supportedEntryTypes.indexOf("paint") !== -1;
       if (!supportsPaintTiming) return true;
-      return performance.getEntriesByType("paint").length > 0;
+      var entries = performance.getEntriesByType("paint");
+      var firstPaintTime = null;
+      for (var i = 0; i < entries.length; i++) {
+        if (firstPaintTime === null || entries[i].startTime < firstPaintTime) {
+          firstPaintTime = entries[i].startTime;
+        }
+      }
+      return paintIsStale(firstPaintTime, performance.now());
     } catch (e) {
       return true;
     }
@@ -8003,6 +8045,9 @@
       saveWishlist: saveWishlist,
       attrEsc: attrEsc,
       safeUrl: safeUrl,
+      paintIsStale: paintIsStale,
+      PAINT_PROTECTION_MS: PAINT_PROTECTION_MS,
+      ASSUME_PAINTED_AFTER_MS: ASSUME_PAINTED_AFTER_MS,
       safeImageSrc: safeImageSrc,
       safeLinkUrl: safeLinkUrl,
       renderMarkdown: renderMarkdown,
