@@ -540,7 +540,7 @@ window.YL_SEARCH_INDEX = {
       "comingSoon": false,
       "estimatedBatchDate": null,
       "featured": false,
-      "blurb": "Pumice, pink salt, and sugar for the grease and grime; coconut and olive oil so your hands don't pay for it. A 2 oz tin built for hands that work for a living.",
+      "blurb": "Pumice, pink salt, and sugar for the grease and grime; coconut and olive oil so your hands don't pay for it. It lathers, so there is a sudsing surfactant base in the mix too, listed in full on the label. A 2 oz tin built for hands that work for a living.",
       "ingredients": [
         "Pumice",
         "Himalayan Pink Salt",
@@ -1553,7 +1553,7 @@ window.YL_SEARCH_INDEX = {
     {
       "id": "faq-0",
       "question": "Where do you ship from?",
-      "answer": "Straight out of Landrum, SC. Processing time isn't the same for every item, so check the product description for the specifics before you order.",
+      "answer": "Straight out of Landrum, SC. Most orders ship in 1–3 business days. Anything still waiting on a batch is marked Coming Soon on its product page, with the batch date right there.",
       "category": "General",
       "keywords": [],
       "url": "faq.html#faq-0"
@@ -1593,7 +1593,7 @@ window.YL_SEARCH_INDEX = {
     {
       "id": "faq-5",
       "question": "Do you offer free shipping?",
-      "answer": "Yes! We offer free shipping on all orders over $40. It will automatically apply at checkout.",
+      "answer": "Yes! Free shipping on any order of $40 or more. It applies automatically at checkout.",
       "category": "General",
       "keywords": [],
       "url": "faq.html#faq-5"

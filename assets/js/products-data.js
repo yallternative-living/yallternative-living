@@ -616,7 +616,7 @@ window.YL_PRODUCTS = {
         "assets/img/hand-scrub-alt2.jpg",
         "assets/img/hand-scrub-alt3.jpg"
       ],
-      "blurb": "Pumice, pink salt, and sugar for the grease and grime; coconut and olive oil so your hands don't pay for it. A 2 oz tin built for hands that work for a living.",
+      "blurb": "Pumice, pink salt, and sugar for the grease and grime; coconut and olive oil so your hands don't pay for it. It lathers, so there is a sudsing surfactant base in the mix too, listed in full on the label. A 2 oz tin built for hands that work for a living.",
       "etsyUrl": "https://www.etsy.com/listing/4342208406/bourbon-vanilla-hand-scrub-exfoliating",
       "rating": {
         "value": 5,
@@ -635,6 +635,7 @@ window.YL_PRODUCTS = {
         "Bourbon Vanilla Fragrance",
         "Preservative"
       ],
+      "ingredientsNote": "Essential-oil free, but not a mild formula: the sudsing base brings sodium lauryl sulfate, denatured alcohol and methylisothiazolinone with it. If your skin is reactive, or you already know MI is one of yours, this is not the tin for you.",
       "scent": "Bourbon & Vanilla",
       "variants": {
         "name": "Size",
@@ -667,7 +668,7 @@ window.YL_PRODUCTS = {
       "usageGuide": {
         "howToApply": "Scoop a nickel-sized amount onto damp hands. Work thoroughly into palms, knuckles, and cuticles in circular motions, then rinse clean with warm water.",
         "storage": "Keep lid closed between uses to prevent excess water from entering the tin. Shelf life is 6–12 months.",
-        "patchTest": "Exfoliating scrub with pumice and pink salt. Test a small amount on hands before first heavy use; avoid open cuts."
+        "patchTest": "Exfoliating scrub with pumice and pink salt in a sudsing surfactant base that contains methylisothiazolinone, a known contact allergen. Test a small amount on hands before first heavy use, skip it entirely if you know you react to MI, and avoid open cuts."
       },
       "keywords": [
         "hand scrub",
@@ -766,7 +767,7 @@ window.YL_PRODUCTS = {
         "assets/img/backroad-soak-alt3.jpg"
       ],
       "blurb": "Peppermint, lavender, black pepper, and ylang ylang for whatever the backroads (or the day) put you through. Stir a scoop into a warm bath, soak 20 to 30 minutes, come out looser than you went in.",
-      "etsyUrl": "https://www.etsy.com/listing/4333988264/backroad-recovery-epsom-salt-muscle-soak",
+      "etsyUrl": "https://www.etsy.com/listing/4333988264/backroad-recovery-epsom-salt-soak",
       "rating": {
         "value": 5,
         "count": 3
@@ -942,7 +943,7 @@ window.YL_PRODUCTS = {
       "usageGuide": {
         "howToApply": "Shake vigorously before each use. Mist evenly across exposed skin and outer clothing before heading outdoors. Reapply every 2 hours as needed.",
         "storage": "Store in a cool spot out of direct car heat and direct sun. Shelf life is 12 months.",
-        "patchTest": "DEET-free formula with pure essential oils. Spray a small test patch on forearm 24 hours before first full outdoor use."
+        "patchTest": "DEET-free: essential oils in an alcohol base with a preservative to keep it shelf-stable. Spray a small test patch on forearm 24 hours before first full outdoor use."
       },
       "keywords": [
         "bug spray",
@@ -1093,7 +1094,7 @@ window.YL_PRODUCTS = {
         "Vegetable Glycerin",
         "Preservative"
       ],
-      "ingredientsNote": "Shake gently before each use. Mist doorways, corners, or yourself: anywhere the energy feels stuck. Safe around pets when dry.",
+      "ingredientsNote": "Shake gently before each use. Mist doorways, corners, or yourself: anywhere the energy feels stuck. Keep pets out of the room while you spray and off misted surfaces or fabric until it is fully dry. Not one for a house with cats.",
       "scent": "Fresh & Clean",
       "variants": {
         "name": "Size",
@@ -1454,7 +1455,7 @@ window.YL_PRODUCTS = {
   "faq": [
     {
       "question": "Where do you ship from?",
-      "answer": "Straight out of Landrum, SC. Processing time isn't the same for every item, so check the product description for the specifics before you order."
+      "answer": "Straight out of Landrum, SC. Most orders ship in 1–3 business days. Anything still waiting on a batch is marked Coming Soon on its product page, with the batch date right there."
     },
     {
       "question": "What's your return policy?",
@@ -1474,7 +1475,7 @@ window.YL_PRODUCTS = {
     },
     {
       "question": "Do you offer free shipping?",
-      "answer": "Yes! We offer free shipping on all orders over $40. It will automatically apply at checkout."
+      "answer": "Yes! Free shipping on any order of $40 or more. It applies automatically at checkout."
     },
     {
       "question": "What is the shelf life of your salves and soaks?",
