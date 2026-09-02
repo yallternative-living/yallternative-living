@@ -1683,28 +1683,61 @@ function buildSiteData() {
       "magic",
       "talisman"
     ],
+    /* Policy and service intents are FOUR groups, deliberately, and every
+       term in each is chosen so that its INDIVIDUAL words stay on-intent.
+
+       Both halves of that matter. These used to be a single "shipping"
+       grab-bag holding "refund", "gift card balance", "balance" and
+       "landrum" side by side, and because a reverse match pulls in every
+       sibling of whatever group it matched -- tokenised down to single
+       words -- typing "refund" injected "gift", "card", "balance" and
+       "landrum" into the query. A return-policy question came back as six
+       gift sets and four farmers' markets with the return-policy FAQ
+       nowhere in the results (live audit M1).
+
+       The tokenisation itself is deliberate and is not the thing to change:
+       the ingredient and intent groups rely on it ("body butter" has to
+       contribute "body" and "butter" for shea-butter to rank first, which
+       scripts/global-search.test.js pins). So the rule here is that a
+       policy group may not carry a term with an off-intent word in it --
+       no "free shipping" (leaks "free" into every fragrance-free product),
+       no "money back" or "final sale" (leaks "money", "back", "final",
+       "sale"), and no place names. */
     shipping: [
       "delivery",
-      "returns",
-      "exchange",
-      "order tracking",
-      "cost",
-      "free shipping",
-      "ship",
-      "landrum",
       "dispatch",
-      "transit",
-      "track order",
+      "postage",
+      "courier",
+      "shipped",
+      "ships",
+      "shipment",
+      "transit"
+    ],
+    returns: [
+      "return",
+      "returns",
+      "return policy",
+      "refund",
+      "refunds",
+      "refunded",
+      "exchange",
+      "exchanges",
+      "exchanged"
+    ],
+    tracking: [
+      "track",
+      "tracked",
+      "order tracking",
       "track my order",
       "where is my order",
-      "order status",
-      "tracking",
-      "refund",
-      "cancel order",
+      "order status"
+    ],
+    gift_card_balance: [
       "gift card balance",
-      "balance",
-      "processing time",
-      "how long"
+      "check balance",
+      "card balance",
+      "remaining balance",
+      "redeem gift card"
     ],
 
     // Tier 3: product types and forms (added 2026-09-02 from shopper-vocabulary research;

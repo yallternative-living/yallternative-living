@@ -210,6 +210,12 @@
   if (EMAIL_RE.test(emailFromUrl)) {
     claim(emailFromUrl, false);
   } else {
-    showForm("Pop in the email you just subscribed with and we'll make your code.");
+    /* Kit's confirmation redirect does not pass the address along, so we
+       genuinely do not have it here -- say so, rather than looking like we
+       forgot (live audit nit). */
+    showForm(
+      "Kit didn't pass your address along with the redirect, so pop it in once " +
+        "more and we'll make your code."
+    );
   }
 })();

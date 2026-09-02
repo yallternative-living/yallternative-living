@@ -148,8 +148,66 @@
         if (firstLink) firstLink.focus();
       }
     });
+    /* The drawer was five links and then roughly 900px of nothing, and it
+       omitted FAQ, Reviews and Policies entirely -- they existed only in the
+       footer, which is a long scroll away on a phone (live audit L5). These
+       are appended rather than written into all 17 pages' markup because the
+       same <ul> is the desktop bar, where eight links would not fit; CSS
+       hides .nav-secondary above the drawer breakpoint. No-JS visitors lose
+       nothing: the footer still carries all three. */
+    (function addSecondaryNavLinks() {
+      if (navLinks.querySelector(".nav-secondary")) return;
+      var onProductPage = /\/products\//.test(window.location.pathname);
+      var prefix = onProductPage ? "/" : "";
+      var extras = [
+        { href: prefix + "faq.html", label: "FAQ" },
+        { href: prefix + "reviews.html", label: "Reviews" },
+        { href: prefix + "policies.html", label: "Policies" }
+      ];
+      var heading = document.createElement("li");
+      heading.className = "nav-secondary nav-secondary-heading";
+      heading.setAttribute("aria-hidden", "true");
+      heading.textContent = "More";
+      navLinks.appendChild(heading);
+      extras.forEach(function (item) {
+        var li = document.createElement("li");
+        li.className = "nav-secondary";
+        var a = document.createElement("a");
+        a.href = item.href;
+        a.textContent = item.label;
+        li.appendChild(a);
+        navLinks.appendChild(li);
+      });
+    })();
+
     navLinks.querySelectorAll("a").forEach(function (a) {
       a.addEventListener("click", closeNav);
+    });
+
+    /* Tab used to walk off the end of the open drawer onto document.body for
+       one stop before wrapping back round to the logo (live audit L8). The
+       inert-everything-else approach keeps Tab inside the header, but the
+       header is not the drawer -- so wrap explicitly, the same way the
+       wishlist and restock dialogs do. */
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "Tab") return;
+      if (!navLinks.classList.contains("open")) return;
+      var stops = [].slice
+        .call(navLinks.querySelectorAll("a"))
+        .filter(function (el) {
+          return !el.hasAttribute("hidden") && el.getAttribute("aria-hidden") !== "true";
+        })
+        .concat([navToggle]);
+      if (!stops.length) return;
+      var first = stops[0];
+      var last = stops[stops.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     });
     document.addEventListener("keydown", function (e) {
       if (e.key === "Escape" && navLinks.classList.contains("open")) {
@@ -3622,6 +3680,46 @@
       return (b.date || "").localeCompare(a.date || "");
     });
 
+    /* The static chips offered "5 / 4 / 3 star only" and stopped there: 3
+       stars was permanently empty (0 of 22) and there was no 2- or 1-star
+       chip at all, which to a skeptical shopper reads as curation (live
+       audit L2). Render every level from the real data, with its real count,
+       and disable the ones nothing sits in -- an honest zero says far more
+       than a missing chip. Counts come from the same pool the distribution
+       bar is computed from; nothing about the reviews themselves changes. */
+    var chipRow = document.querySelector(".review-rating-chips");
+    if (chipRow) {
+      var starCounts = [0, 0, 0, 0, 0];
+      allReviews.forEach(function (r) {
+        var v = Math.round((r && r.rating) || 0);
+        if (v >= 1 && v <= 5) starCounts[v - 1]++;
+      });
+      var chipHtml =
+        '<button class="filter-pill active" type="button" data-rating="all" aria-pressed="true">All ratings (' +
+        allReviews.length +
+        ")</button>";
+      for (var star = 5; star >= 1; star--) {
+        var starCount = starCounts[star - 1];
+        chipHtml +=
+          '<button class="filter-pill" type="button" data-rating="' +
+          star +
+          '" aria-pressed="false"' +
+          (starCount === 0 ? ' disabled aria-disabled="true"' : "") +
+          ' aria-label="' +
+          star +
+          " star, " +
+          starCount +
+          (starCount === 1 ? " review" : " reviews") +
+          '">' +
+          star +
+          "\u2605 (" +
+          starCount +
+          ")</button>";
+      }
+      chipRow.innerHTML = chipHtml;
+      ratingChips = document.querySelectorAll(".review-rating-chips button");
+    }
+
     /* Distribution bar goes above the grid, computed once from the full
        on-page pool (see reviewDistributionHTML's own comment for why it
        does not track the search/rating filters below). */
@@ -4174,7 +4272,7 @@
       "<p>Still stuck? " +
       (safeRef ? "Send us <strong>" + safeRef + "</strong> " : "Send us your order reference ") +
       "and the email you paid with, and a real person will check where it stands " +
-      "<strong>within one business day</strong>.</p>" +
+      "<strong>within two business days</strong>.</p>" +
       '<p><a class="btn btn-primary" href="' +
       orderStatusMailtoHref(reference) +
       '">Email us about this order</a></p>' +
@@ -4191,7 +4289,7 @@
       "by one person, and that same person can check on it directly. " +
       (safeRef ? "Send us <strong>" + safeRef + "</strong> " : "Send us your order reference ") +
       "and we&rsquo;ll check where it stands and write back " +
-      "<strong>within one business day</strong>.</p>" +
+      "<strong>within two business days</strong>.</p>" +
       '<p><a class="btn btn-primary" href="' +
       orderStatusMailtoHref(reference) +
       '">Email us about this order</a></p>' +
@@ -5219,6 +5317,36 @@
     }
   }
 
+  /* Past events bake the hours into dateLabel ("August 29-30, 2026 - Sat &
+     Sun, 11am-7pm"); the upcoming one did not, so the only event a shopper
+     might actually turn up to was the one that never said what time (live
+     audit L10). The time IS in the data -- ev.date is a full ISO stamp with
+     the event's own UTC offset, which the countdown already reads. Take the
+     clock time from the string literally rather than through Date, so a
+     visitor in another timezone is told the market's local hours and not
+     their own. */
+  function eventStartTimeLabel(isoDate) {
+    var m = /T(\d{2}):(\d{2})/.exec(String(isoDate || ""));
+    if (!m) return "";
+    var hour = parseInt(m[1], 10);
+    var minute = m[2];
+    if (isNaN(hour)) return "";
+    var suffix = hour >= 12 ? "pm" : "am";
+    var display = hour % 12;
+    if (display === 0) display = 12;
+    return display + (minute === "00" ? "" : ":" + minute) + suffix;
+  }
+
+  function eventDateLabelWithTime(ev) {
+    var label = (ev && ev.dateLabel) || "";
+    if (!label) return label;
+    // Already carries hours (every past event does) -- leave it alone.
+    if (/\d\s*(?:am|pm)/i.test(label)) return label;
+    var start = eventStartTimeLabel(ev && ev.date);
+    if (!start) return label;
+    return label + " \u00b7 from " + start;
+  }
+
   function eventCardHTML(ev, opts) {
     var isPast = Boolean(opts && opts.past);
     var gCalUrl = generateGoogleCalendarUrl(ev);
@@ -5277,7 +5405,7 @@
       (attrEsc(ev.date) || "") +
       '">' +
       '<svg class="yl-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> ' +
-      attrEsc(ev.dateLabel) +
+      attrEsc(eventDateLabelWithTime(ev)) +
       "</time></p>" +
       '<p class="event-location">' +
       (ev.location
@@ -6072,21 +6200,38 @@
 
         if (countEl) {
           if (!sortedProducts.length) {
+            /* "that criteria" is one criterion, "--" is not a dash the rest
+               of the site uses, and the copy told the shopper to reset with
+               no control in the filter bar to reset with. The control does
+               exist -- #resetFiltersBtn, rendered by renderCards() in the
+               empty grid immediately below this line -- so say where it is
+               (live audit L3). */
             countEl.textContent =
               "No goods match" +
-              (q ? ' "' + state.query.trim() + '"' : " that criteria") +
-              " -- try resetting your filters.";
+              (q ? ' "' + state.query.trim() + '"' : " those filters") +
+              " \u2014 try resetting your filters with the button below.";
           } else {
             var label = state.filter === "all" ? "goods" : catLabel[state.filter] || "goods";
             var concernNote =
               state.concern !== "all"
                 ? " for " + (concernLabel[state.concern] || state.concern).toLowerCase()
                 : "";
+            /* Denominator is the size of the thing being counted, not the
+               whole catalog: "Showing 3 of 20 salves & balms" counted salves
+               against every product on the site, while the gift-set branch
+               above correctly counted sets against sets, and the mismatch
+               read as a bug (live audit nit). */
+            var categoryTotal =
+              state.filter === "all"
+                ? allProducts.length
+                : allProducts.filter(function (p) {
+                    return p && p.category === state.filter;
+                  }).length;
             countEl.textContent =
               "Showing " +
               sortedProducts.length +
               " of " +
-              allProducts.length +
+              categoryTotal +
               " " +
               label.toLowerCase() +
               concernNote;
@@ -7757,6 +7902,18 @@
     return result;
   }
 
+  /* Expanding a token pulls in its synonym group, and a reverse match pulls
+     in every SIBLING of whatever group the token was found in -- tokenised
+     down to single words. That is only safe while a group holds one intent.
+     It did not: "shipping" was a grab-bag carrying "refund", "gift card
+     balance", "balance" and "landrum" together, so typing "refund" injected
+     "gift", "card", "balance" and "landrum" and answered a return-policy
+     question with six gift sets and four farmers' markets (live audit M1).
+     The fix is upstream, in the groups themselves (searchSynonymDefaults in
+     scripts/build-site-data.js, now four separate policy intents); the
+     tokenisation here is deliberate and load-bearing for the ingredient and
+     intent groups, where "body butter" genuinely has to contribute "body"
+     and "butter" for shea-butter to rank first. */
   function expandTokensWithSynonyms(tokens, synonymsMap) {
     if (!tokens || !tokens.length) return [];
     var synMap = synonymsMap || getSearchIndex().synonyms || {};

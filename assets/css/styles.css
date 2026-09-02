@@ -775,6 +775,41 @@ section {
   }
 }
 
+/* The 4.9-across-32 line is our whole Etsy shop; the list below it is the
+   subset for goods still sold here (live audit M7). */
+.reviews-scope-note {
+  max-width: 62ch;
+  margin: 12px auto 0;
+  font-size: 0.86rem;
+}
+
+/* FAQ, Reviews and Policies live only in the footer, which is a long scroll
+   away on a phone -- and the drawer was five links followed by ~900px of
+   nothing (live audit L5). main.js appends them to the same <ul>, so they
+   have to stay out of the desktop bar, where eight links do not fit. */
+.nav-secondary {
+  display: none;
+}
+
+.nav-secondary-heading {
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--paper-dim);
+  opacity: 0.7;
+  margin-top: 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--hide);
+  width: 100%;
+}
+
+@media (max-width: 1024px) {
+  .nav-links .nav-secondary {
+    display: block;
+  }
+}
+
 .nav-cta {
   display: flex;
   align-items: center;

@@ -1937,26 +1937,39 @@ window.YL_SEARCH_INDEX = {
     ],
     "shipping": [
       "delivery",
-      "returns",
-      "exchange",
-      "order tracking",
-      "cost",
-      "free shipping",
-      "ship",
-      "landrum",
       "dispatch",
-      "transit",
-      "track order",
+      "postage",
+      "courier",
+      "shipped",
+      "ships",
+      "shipment",
+      "transit"
+    ],
+    "returns": [
+      "return",
+      "returns",
+      "return policy",
+      "refund",
+      "refunds",
+      "refunded",
+      "exchange",
+      "exchanges",
+      "exchanged"
+    ],
+    "tracking": [
+      "track",
+      "tracked",
+      "order tracking",
       "track my order",
       "where is my order",
-      "order status",
-      "tracking",
-      "refund",
-      "cancel order",
+      "order status"
+    ],
+    "gift_card_balance": [
       "gift card balance",
-      "balance",
-      "processing time",
-      "how long"
+      "check balance",
+      "card balance",
+      "remaining balance",
+      "redeem gift card"
     ],
     "salve": [
       "salves",
