@@ -352,9 +352,18 @@ function recordFail(msg) {
       recordPass("Search modal OPENS when '/' key is pressed on non-input page context");
     else recordFail("Search modal failed to open when '/' key pressed on bare page");
 
-    // Close search modal for next suite
+    // Close search modal for next suite, and wait until it is actually
+    // closed: under load the 150ms sleep used to race the dialog's close and
+    // the header trigger was then still behind the open modal.
     await page.keyboard.press("Escape");
-    await sleep(150);
+    await page.waitForFunction(
+      () => {
+        const m = document.getElementById("global-search-modal");
+        return !m || !(m.hasAttribute("open") || m.open);
+      },
+      { timeout: 5000 }
+    );
+    await sleep(100);
 
     // =========================================================================
     // SUITE 3: Rapid 1-Click Add to Cart & State Concurrency
@@ -373,9 +382,20 @@ function recordFail(msg) {
       }
     });
 
-    // Open search modal and search for "salve"
+    // Open search modal and search for "salve". Wait for the dialog to be
+    // open and its input focused (openModal focuses on a 50ms timer) before
+    // typing, and start from an empty query so nothing left over from the
+    // shortcut vectors above can be prepended to it.
+    await page.waitForSelector("#globalSearchTrigger", { visible: true, timeout: 5000 });
     await page.click("#globalSearchTrigger");
-    await sleep(150);
+    await page.waitForSelector("#global-search-modal[open]", { visible: true, timeout: 5000 });
+    await page.waitForFunction(
+      () => document.activeElement && document.activeElement.id === "globalSearchInput",
+      { timeout: 5000 }
+    );
+    await page.$eval("#globalSearchInput", (el) => {
+      el.value = "";
+    });
     await page.type("#globalSearchInput", "salve", { delay: 20 });
     // The results render on a debounce; under a loaded CI runner a fixed
     // 350ms sleep raced it and reported zero products. Wait for the products
