@@ -1,5 +1,6 @@
 # Dev-time only -- never ships to the deployed site.
-node_modules/
+# no trailing slash: a symlink named node_modules must be ignored too
+node_modules
 
 # Secrets. Netlify publishes the whole repository (publish = "."), so a
 # committed .env would be downloadable from the live domain. docs/DEVELOPMENT.md
