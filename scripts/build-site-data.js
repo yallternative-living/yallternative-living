@@ -885,6 +885,7 @@ function buildSiteData() {
           type: evt.type,
           location: evt.location,
           zip: evt.zip,
+          emoji: evt.emoji,
           url: evt.url,
           note: evt.note
         });
@@ -2103,7 +2104,9 @@ function buildSiteData() {
     "404.html",
     "thank-you.html",
     "welcome.html",
-    "journal.html"
+    "journal.html",
+    "reviews.html",
+    "order-status.html"
   ].forEach(function (page) {
     const filePath = path.join(ROOT, page);
     if (!fs.existsSync(filePath)) return;
@@ -3279,7 +3282,11 @@ function renderRitualSectionHtml(product, productsMap, categoryLabelMap) {
     .map(function (id) {
       return map[id];
     })
-    .filter(Boolean);
+    .filter(function (p) {
+      // Never offer something that cannot be bought: "Add All" used to drop
+      // a Coming-Soon product into the cart from the static ritual markup.
+      return p && !p.comingSoon && p.stock !== 0;
+    });
 
   if (!pairedProducts.length) {
     return "";

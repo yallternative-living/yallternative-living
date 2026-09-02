@@ -101,10 +101,16 @@ var BLOCKED_PATHS = [
   "/netlify/*",
   "/package.json",
   "/package-lock.json",
-  "/*.md",
+  // One rule per file, not "/*.md": Netlify only honours a trailing "*"
+  // splat, so a "/*.md" rule matched nothing and README.md was served
+  // (200, text/markdown) on the live domain. qa-check.js asserts every
+  // git-tracked top-level .md file appears here.
+  "/README.md",
+  "/AGENTS.md",
+  "/PROJECT.md",
+  "/TEST_INFRA.md",
   "/.eslintrc.json",
-  "/run-launch-checks.command",
-  "/TEST_INFRA.md"
+  "/run-launch-checks.command"
 ];
 var PAGES = [
   "index.html",

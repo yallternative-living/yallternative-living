@@ -624,6 +624,11 @@ section {
     letter-spacing: 0.03em;
     line-height: 1.1;
     white-space: nowrap;
+    /* Never paint over the controls to the right. `.brand` shrinks
+       (min-width: 0) but nowrap text ignores that box, and at 375-430px the
+       six header controls left it drawing under the wishlist heart. */
+    overflow: hidden;
+    text-overflow: ellipsis;
     font-variation-settings:
       "opsz" 40,
       "wght" 420;
@@ -651,7 +656,10 @@ section {
     @media (max-width: 480px) {
       font-size: 0.95rem;
     }
-    @media (max-width: 360px) {
+    /* Below 420px there is no room for the wordmark beside the six header
+       controls (measured: 36px of overlap on a 375/390px phone). The logo
+       mark carries the brand there. */
+    @media (max-width: 420px) {
       display: none;
     }
   }
@@ -739,15 +747,27 @@ section {
     overflow-y: auto;
     transform: translateY(-12px);
     opacity: 0;
+    /* `visibility: hidden` keeps the closed drawer's links out of the tab
+       order and out of the accessibility tree. It must NOT be animated on
+       the way open: main.js focuses the first link in the same task as it
+       adds `.open`, and an interpolating visibility is still `hidden` at
+       that instant, so the focus() call would silently do nothing and a
+       keyboard user's Tab would leave the menu they just opened. So the
+       open direction flips visibility instantly (delay 0 below) and only
+       the close direction waits for the fade to finish. */
+    visibility: hidden;
     pointer-events: none;
     transition:
       transform 0.25s ease,
-      opacity 0.2s ease;
+      opacity 0.2s ease,
+      visibility 0s linear 0.2s;
 
     &.open {
       transform: translateY(0);
       opacity: 1;
+      visibility: visible;
       pointer-events: auto;
+      transition-delay: 0s;
     }
     & a {
       font-size: 1.1rem;
@@ -760,6 +780,10 @@ section {
   align-items: center;
   gap: 10px;
   flex-shrink: 0;
+
+  @media (max-width: 480px) {
+    gap: 4px;
+  }
 
   @media (max-width: 600px) {
     gap: 6px;
@@ -3820,9 +3844,10 @@ body > .skiptranslate {
   .skip-link,
   .announcement-bar,
   .thank-you-badge-wrap,
-  .thank-you-card,
   .thank-you-actions,
-  .thank-you-support-callout,
+  .thank-you-sub-actions,
+  .btn-copy-ref,
+  .birthday-club-section,
   .review-prompt-section,
   dialog.gift-modal,
   .shop-search {
@@ -3832,6 +3857,25 @@ body > .skiptranslate {
   html {
     background: #fff !important;
     color: #000 !important;
+  }
+  /* The order confirmation is the one page people print. Keep the receipt
+     card and the support line, and drop the dark hero so page one is not a
+     solid block of ink. */
+  .thank-you-hero,
+  .thank-you-hero *,
+  .thank-you-card,
+  .thank-you-card *,
+  .thank-you-support-callout,
+  .thank-you-support-callout * {
+    background: transparent !important;
+    color: #000 !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+  .thank-you-card,
+  .thank-you-support-callout,
+  .thank-you-session-row {
+    border: 1px solid #999 !important;
   }
   .card {
     border: 1px solid #ccc !important;
@@ -3937,6 +3981,9 @@ dialog.gift-modal[open]::backdrop {
 
 .gift-modal-header {
   margin-bottom: 24px;
+  /* Leave room for the absolutely-positioned close button so a long title
+     does not run underneath it on a phone. */
+  padding-right: 44px;
 }
 .gift-modal-header h2 {
   font-size: 2rem;
@@ -4909,7 +4956,7 @@ dialog.restock-alert-modal {
 
 /* ── Thank You / Order Confirmation Page (SOTA 2026) ── */
 .thank-you-hero {
-  padding: 48px 0 64px;
+  padding: 48px 0 56px;
 }
 .thank-you-badge-wrap {
   display: flex;
@@ -4946,13 +4993,13 @@ dialog.restock-alert-modal {
   line-height: 1.6;
 }
 
-/* Order Receipt & Details Card (Left-Aligned Content inside Centered Card) */
+/* Order Receipt & Details Card */
 .thank-you-card {
   background: var(--ink-2);
   border: 1px solid var(--hide);
   border-radius: var(--radius-lg, 16px);
   padding: 28px 32px;
-  max-width: 600px;
+  max-width: 580px;
   margin: 0 auto 32px;
   text-align: left;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
@@ -4993,10 +5040,18 @@ dialog.restock-alert-modal {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px 16px;
   padding: 20px 0 16px;
 }
+/* Several blocks here set their own `display`, which beats the UA's
+   `[hidden]` rule -- the Order Reference row rendered (empty, with a live
+   Copy button) on every URL without a session because of exactly that. */
+.thank-you-hero [hidden] {
+  display: none !important;
+}
 .amount-group .amount-label {
-  font-size: 0.76rem;
+  font-size: 0.74rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--paper-dim);
@@ -5012,13 +5067,25 @@ dialog.restock-alert-modal {
   line-height: 1.1;
   margin-top: 4px;
 }
+.receipt-discount-note {
+  display: block;
+  width: fit-content;
+  font-size: 0.75rem;
+  color: var(--whiskey);
+  background: oklch(from var(--whiskey) l c h / 0.12);
+  border: 1px solid oklch(from var(--whiskey) l c h / 0.25);
+  padding: 3px 8px;
+  border-radius: 4px;
+  margin-top: 6px;
+  font-weight: 600;
+}
 .receipt-secure-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   font-size: 0.76rem;
   color: var(--whiskey);
-  background: var(--ink-3);
+  background: var(--ink-1);
   padding: 6px 12px;
   border-radius: 6px;
   border: 1px solid var(--hide);
@@ -5028,22 +5095,57 @@ dialog.restock-alert-modal {
 .thank-you-session-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
+  gap: 12px;
   padding: 10px 14px;
-  background: var(--ink-3);
+  background: var(--ink-1);
   border: 1px solid var(--hide);
   border-radius: 8px;
   font-size: 0.8rem;
   margin-bottom: 20px;
 }
+.session-label-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+  text-align: left;
+}
 .session-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   color: var(--paper-dim);
-  font-weight: 600;
+  font-weight: 700;
 }
 .session-code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   color: var(--whiskey);
-  word-break: break-all;
+  font-size: 0.8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 360px;
+}
+.btn-copy-ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: var(--ink-2);
+  border: 1px solid var(--hide);
+  color: var(--paper);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+.btn-copy-ref:hover {
+  border-color: var(--whiskey);
+  color: var(--whiskey);
+  background: var(--ink-3);
 }
 
 /* Timeline Tracker inside Receipt Card */
@@ -5058,21 +5160,22 @@ dialog.restock-alert-modal {
 .thank-you-timeline .timeline-step {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   flex: 0 0 auto;
 }
 .thank-you-timeline .timeline-marker {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 0.75rem;
   font-weight: 700;
-  background: var(--ink-3);
+  background: var(--ink-1);
   border: 1.5px solid var(--hide);
   color: var(--paper-dim);
+  flex-shrink: 0;
 }
 .thank-you-timeline .step-complete .timeline-marker {
   background: var(--whiskey);
@@ -5083,16 +5186,16 @@ dialog.restock-alert-modal {
   border-color: var(--whiskey);
   background: oklch(from var(--whiskey) l c h / 0.15);
   color: var(--whiskey);
-  box-shadow: 0 0 10px oklch(from var(--whiskey) l c h / 0.3);
+  box-shadow: 0 0 12px oklch(from var(--whiskey) l c h / 0.35);
 }
 .thank-you-timeline .timeline-title {
-  font-size: 0.8rem;
-  font-weight: 600;
+  font-size: 0.82rem;
+  font-weight: 700;
   display: block;
   color: var(--paper);
 }
 .thank-you-timeline .timeline-sub {
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   color: var(--paper-dim);
   display: block;
 }
@@ -5100,35 +5203,59 @@ dialog.restock-alert-modal {
   flex: 1 1 auto;
   height: 2px;
   background: var(--hide);
-  margin: 0 4px;
+  margin: 0 6px;
 }
 .thank-you-timeline .timeline-line.complete {
   background: var(--whiskey);
 }
 
+.thank-you-actions-wrap {
+  margin: 0 auto;
+  max-width: 580px;
+}
 .thank-you-actions {
   display: flex;
   justify-content: center;
   gap: 14px;
   margin: 0 auto;
+  flex-wrap: wrap;
 }
+.thank-you-sub-actions {
+  margin-top: 14px;
+  text-align: center;
+}
+.thank-you-home-link {
+  font-size: 0.88rem;
+  color: var(--paper-dim);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+.thank-you-home-link:hover {
+  color: var(--whiskey);
+  text-decoration: underline;
+}
+
 .thank-you-support-callout {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
-  margin: 28px auto 0;
+  margin: 24px auto 0;
   padding: 14px 20px;
   background: var(--ink-2);
   border: 1px solid var(--hide);
-  border-radius: var(--radius, 8px);
+  border-radius: var(--radius, 10px);
   text-align: left;
-  font-size: 0.88rem;
+  font-size: 0.86rem;
   color: var(--paper-dim);
-  max-width: 600px;
+  max-width: 580px;
 }
 .thank-you-support-callout .support-callout-icon {
   font-size: 1.25rem;
-  line-height: 1;
+  color: var(--whiskey);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
 }
 .thank-you-support-callout p {
   margin: 0;
@@ -5143,12 +5270,40 @@ dialog.restock-alert-modal {
 }
 
 @media (max-width: 600px) {
+  .thank-you-hero {
+    padding: 32px 0 44px;
+  }
   .thank-you-card {
-    padding: 20px;
+    padding: 20px 18px;
+  }
+  .session-code {
+    /* On a phone, wrap the reference instead of cutting it to 22
+       characters: the shopper may need to read it to support, and the Copy
+       button handles the rest. */
+    max-width: none;
+    white-space: normal;
+    word-break: break-all;
   }
   .thank-you-timeline {
+    position: relative;
     flex-direction: column;
     align-items: flex-start;
+    gap: 16px;
+    padding-left: 6px;
+  }
+  .thank-you-timeline::before {
+    content: '';
+    position: absolute;
+    left: 20px;
+    top: 24px;
+    bottom: 24px;
+    width: 2px;
+    background: var(--hide);
+    z-index: 1;
+  }
+  .thank-you-timeline .timeline-step {
+    position: relative;
+    z-index: 2;
     gap: 12px;
   }
   .thank-you-timeline .timeline-line {
@@ -5160,6 +5315,7 @@ dialog.restock-alert-modal {
   }
   .thank-you-actions .btn {
     width: 100%;
+    justify-content: center;
   }
 }
 
@@ -6085,6 +6241,14 @@ dialog.global-search-modal::backdrop {
   color: var(--paper);
   padding: 12px 0;
 }
+/* The dialog has its own clear and close buttons; WebKit's built-in cancel
+   "x" on type=search made three of them in a row once you typed. */
+.global-search-input::-webkit-search-cancel-button,
+.global-search-input::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
 
 .global-search-input::placeholder {
   color: var(--paper-dim);
@@ -6943,6 +7107,25 @@ a.pdp-ritual-item-name:focus-visible {
   color: var(--whiskey);
 }
 
+/* main.js toggles the `hidden` attribute; the display rule below would
+   otherwise beat it and the "Unlocks Free Tracked Shipping!" badge stayed
+   on screen for ritual totals under the threshold. */
+/* A product card's Add to Cart is a primary touch target on a phone. */
+@media (max-width: 768px) {
+  .card .yl-add-item {
+    min-height: 44px;
+  }
+}
+/* Landing on shop.html#<product-id> (every generated product page
+   redirects there) scrolls the card into view and marks it for a moment. */
+.card.is-deep-linked {
+  outline: 2px solid var(--whiskey);
+  outline-offset: 4px;
+  transition: outline-color 0.6s ease;
+}
+.pdp-ritual-shipping-badge[hidden] {
+  display: none !important;
+}
 .pdp-ritual-shipping-badge {
   font-size: 0.82rem;
   color: #4ade80;

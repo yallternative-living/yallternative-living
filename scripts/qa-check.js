@@ -796,6 +796,53 @@ try {
   fail("security header sync check", e.message);
 }
 
+/* ---------- 10b) Every tracked top-level .md is blocked on Netlify ---------- */
+section("Top-level Markdown files are blocked by an explicit Netlify rule");
+try {
+  // Netlify honours only a trailing "*" splat, so a "/*.md" rule matches
+  // nothing: README.md was served with a 200 on the live domain while the
+  // rule sat in netlify.toml looking like it covered it. Each file needs its
+  // own rule. `git ls-files` is the honest list of what a deploy ships;
+  // fall back to the directory listing when git is unavailable.
+  var mdFiles = [];
+  try {
+    mdFiles = require("child_process")
+      .execSync("git ls-files -- '*.md'", { cwd: ROOT, encoding: "utf8" })
+      .split("\n")
+      .filter(function (f) {
+        return f && f.indexOf("/") === -1;
+      });
+  } catch (gitErr) {
+    mdFiles = fs.readdirSync(ROOT).filter(function (f) {
+      return /\.md$/i.test(f);
+    });
+  }
+  if (mdFiles.length === 0) {
+    fail("no top-level .md files found", "the repo has README.md at minimum -- the listing broke");
+  }
+  var netlifyText = fs.readFileSync(path.join(ROOT, "netlify.toml"), "utf8");
+  if (/from\s*=\s*"\/\*\.md"/.test(netlifyText)) {
+    fail('netlify.toml still carries a "/*.md" rule', "Netlify never matches it; list each file");
+  }
+  mdFiles.forEach(function (f) {
+    var ruleRe = new RegExp(
+      '\\[\\[redirects\\]\\]\\s*\\n\\s*from = "/' +
+        f.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") +
+        '"\\s*\\n\\s*to = "/404\\.html"\\s*\\n\\s*status = 404'
+    );
+    if (ruleRe.test(netlifyText)) {
+      ok("/" + f + " has an explicit 404 rule in netlify.toml");
+    } else {
+      fail(
+        "/" + f + " is not blocked on Netlify",
+        "add it to BLOCKED_PATHS in scripts/build-security-headers.js and rebuild"
+      );
+    }
+  });
+} catch (e) {
+  fail("top-level .md block-rule check", e.message);
+}
+
 /* ---------- 11) aggregateRating JSON-LD sanity (shop.html) ---------- */
 section("Per-product aggregateRating JSON-LD");
 var shopHtml = fs.readFileSync(path.join(ROOT, "shop.html"), "utf8");
@@ -2724,7 +2771,25 @@ try {
         pdpHtml.indexOf('class="pdp-ritual-section reveal"') === -1 &&
         pdpHtml.indexOf('class="reveal pdp-ritual-section"') === -1;
 
-      if (hasRitualSection && hasRitualId && hasRitualTitle && hasAddBtn && hasTotalPrice) {
+      // The build drops partners that cannot be bought (Coming Soon / no
+      // stock), so a product whose every partner is unbuyable renders no
+      // section at all -- and must not: "Add All" used to add one.
+      var buyablePartners = (p.pairsWith || []).filter(function (pairedId) {
+        var q = PRODUCTS.find(function (cand) {
+          return cand && cand.id === pairedId;
+        });
+        return q && !q.comingSoon && q.stock !== 0;
+      });
+      if (buyablePartners.length === 0) {
+        if (!hasRitualSection && !hasRitualId && !hasAddBtn) {
+          ok(p.id + ": PDP renders no ritual section (every partner is unbuyable)");
+        } else {
+          fail(
+            p.id + ": PDP offers a ritual whose partners cannot be bought",
+            "Coming-Soon / out-of-stock partners must be filtered out of the ritual markup"
+          );
+        }
+      } else if (hasRitualSection && hasRitualId && hasRitualTitle && hasAddBtn && hasTotalPrice) {
         ok(p.id + ": PDP renders complete ritual cross-sell markup");
       } else {
         fail(

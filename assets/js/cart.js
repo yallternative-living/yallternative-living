@@ -62,6 +62,22 @@
   // Parse Snipcart-style custom-field options ("M[+0.00]|L[+2.00]") and return
   // the price delta for a chosen label. Keeps the cart reading the exact same
   // attribute the buttons already emit.
+  /* Gift-card amount bounds, the same numbers gift-card.js clamps to and
+     workers/checkout.js enforces (GIFT_CARD_MIN / GIFT_CARD_MAX). */
+  var GIFT_CARD_MIN_DOLLARS = 10;
+  var GIFT_CARD_MAX_DOLLARS = 500;
+
+  /* Buttons on the generated product pages carry document-relative image
+     paths ("assets/img/x.jpg"), which resolve to /products/assets/... from
+     there -- every thumbnail in the drawer 404ed on a product page. The site
+     lives at the domain root, so make them root-relative once. */
+  function rootRelativeImage(src) {
+    var s = String(src || "").trim();
+    if (!s) return "";
+    if (/^(?:[a-z]+:)?\/\//i.test(s) || s.charAt(0) === "/" || s.indexOf("data:") === 0) return s;
+    return "/" + s.replace(/^(?:\.\.\/)+/, "").replace(/^\.\//, "");
+  }
+
   function deltaForLabel(optionsStr, label) {
     if (!optionsStr || !label) return 0;
     var parts = optionsStr.split("|");
@@ -978,6 +994,33 @@
     return root.YL_EVENTS && Array.isArray(root.YL_EVENTS.upcoming) ? root.YL_EVENTS.upcoming : [];
   }
 
+  /* Map a deep-link value (event id, event name, or the full label) to the
+     canonical pickup label of an UPCOMING market, or null. */
+  function resolvePickupMarket(value) {
+    var wanted = String(value || "")
+      .trim()
+      .toLowerCase();
+    if (!wanted) return null;
+    try {
+      wanted = decodeURIComponent(wanted);
+    } catch {
+      /* keep the raw value */
+    }
+    var upcoming = upcomingPickupEvents();
+    for (var i = 0; i < upcoming.length; i++) {
+      var evt = upcoming[i];
+      var label = pickupLabelFor(evt);
+      if (
+        (evt.id && String(evt.id).toLowerCase() === wanted) ||
+        (evt.name && String(evt.name).toLowerCase() === wanted) ||
+        label.toLowerCase() === wanted
+      ) {
+        return label;
+      }
+    }
+    return null;
+  }
+
   /* Cart storage was a bare JSON array, which left no room to say anything
      about the payload -- including which version wrote it. It is now
      {version, items}; a bare array is still read (and rewritten on the next
@@ -1462,7 +1505,7 @@
         return (
           '<div class="yl-cart-line yl-cart-item">' +
           '<img class="yl-cart-thumb" src="' +
-          escapeAttr(it.image || "") +
+          escapeAttr(rootRelativeImage(it.image)) +
           '" alt="" width="60" height="60" loading="lazy">' +
           '<div class="yl-cart-details">' +
           '<div class="yl-cart-title-row">' +
@@ -1721,9 +1764,16 @@
             " each!</div>"
         );
       } else if (count >= minQ) {
+        /* Name the NEXT perk, whatever it is: once the $40 tier is reached
+           this line kept saying "for FREE SHIPPING!" while the meter beside
+           it was already counting toward the free pocket salve. */
+        var nextPerk =
+          milestoneStatus.nextMilestone && milestoneStatus.nextMilestone.reward
+            ? milestoneStatus.nextMilestone.reward
+            : "free shipping";
         var shipExtra =
           milestoneStatus.remaining > 0 && !state.isPickup && milestoneStatus.maxThreshold > 0
-            ? " · Add " + money(milestoneStatus.remaining) + " for FREE SHIPPING!"
+            ? " · Add " + money(milestoneStatus.remaining) + " for " + nextPerk + "!"
             : "";
         nudgeMessages.push(
           '<div class="yl-cart-salve-nudge yl-cart-salve-nudge-active"><svg class="yl-cart-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> <strong>Mix &amp; Match:</strong> ' +
@@ -2158,7 +2208,7 @@
       id: d.itemId,
       name: d.itemName,
       price: parseFloat(d.itemPrice) || 0,
-      image: d.itemImage || "",
+      image: rootRelativeImage(d.itemImage),
       category: d.itemCategories || "",
       variantName: variantName,
       variantLabel: variantLabel,
@@ -2167,6 +2217,20 @@
       qty: 1
     };
     if (d.itemId === GIFT_CARD_ID) {
+      /* The amount IS the label. workers/checkout.js prices a gift card by
+         parsing "Preset $NN" (resolveGiftCardAmountCents) and clamping it to
+         the allowed range, so the cart must do the same: a custom $37 card
+         used to sit in the drawer at the $10 base price -- its label was not
+         one of the six preset options, so the option-delta lookup found
+         nothing -- and then Stripe charged the real $37. */
+      var presetAmount = /^Preset \$(\d+(?:\.\d{1,2})?)$/.exec(variantLabel.trim());
+      if (presetAmount) {
+        item.price = Math.min(
+          GIFT_CARD_MAX_DOLLARS,
+          Math.max(GIFT_CARD_MIN_DOLLARS, parseFloat(presetAmount[1]))
+        );
+        item.variantDelta = 0;
+      }
       // Every gift-card add is its own line (see lineKey()); capture the
       // recipient/sender/message fields gift-card.js keeps in sync on the
       // button so they travel through to Stripe as metadata at checkout.
@@ -2522,9 +2586,17 @@
     if (typeof window !== "undefined" && window.location && window.location.search) {
       var params = new URLSearchParams(window.location.search);
       var market = params.get("pickup_market") || params.get("pickup");
-      if (market && siteCfg.enableLocalPickup !== false) {
+      /* Only a market that is actually on the calendar switches pickup on,
+         and it is stored under the same label the pickup <select> and the
+         Worker (findPickupEvent) match on. Any slug used to flip isPickup
+         with the raw text as the "market": a past event's card, or a typed
+         URL, showed $0 shipping in the drawer and then the Worker -- which
+         only honours upcoming markets -- charged shipping at Stripe. */
+      var matchedPickup =
+        market && siteCfg.enableLocalPickup !== false ? resolvePickupMarket(market) : null;
+      if (matchedPickup) {
         state.isPickup = true;
-        state.pickupMarket = decodeURIComponent(market);
+        state.pickupMarket = matchedPickup;
         save();
         render();
       }

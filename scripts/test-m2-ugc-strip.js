@@ -154,44 +154,43 @@ async function runTests() {
   // ----------------------------------------------------
   // TEST SECTION 3: Live DOM Rendering (enableSocialFeed = true)
   // ----------------------------------------------------
-  console.log("\n3. Live DOM Rendering (enableSocialFeed = true)");
+  // The expectation follows the CMS flag actually committed in content.json:
+  // the section must be VISIBLE with every post rendered when it is on, and
+  // fully HIDDEN with zero cards when it is off. Asserting "visible" no
+  // matter what turned this into a test of the fixture, not of the site.
+  const liveFlag = JSON.parse(
+    fs.readFileSync(path.join(ROOT, "assets", "data", "content.json"), "utf8")
+  ).site.enableSocialFeed;
+  const feedOn = liveFlag !== false;
+  console.log(`\n3. Live DOM Rendering (content.json enableSocialFeed = ${feedOn})`);
 
-  // index.html
-  await page.goto(`${URL_BASE}/index.html`, { waitUntil: "networkidle2" });
-  const homeFeedVisible = await page.$eval(
-    "#homeSocialFeed",
-    (el) => getComputedStyle(el).display !== "none"
-  );
-  assert(
-    homeFeedVisible,
-    "index.html #homeSocialFeed is visible (display != 'none') when enableSocialFeed is true"
-  );
-
-  const homeCardsCount = await page.$$eval("#socialFeedGrid .ugc-card", (cards) => cards.length);
-  assert(
-    homeCardsCount === socialFeedJson.posts.length,
-    `index.html rendered ${homeCardsCount} UGC cards (matches social-feed.json count of ${socialFeedJson.posts.length})`
-  );
-
-  // shop.html
-  await page.goto(`${URL_BASE}/shop.html`, { waitUntil: "networkidle2" });
-  const shopFeedVisible = await page.$eval(
-    "#shopSocialFeed",
-    (el) => getComputedStyle(el).display !== "none"
-  );
-  assert(
-    shopFeedVisible,
-    "shop.html #shopSocialFeed is visible (display != 'none') when enableSocialFeed is true"
-  );
-
-  const shopCardsCount = await page.$$eval(
-    "#shopSocialFeedGrid .ugc-card",
-    (cards) => cards.length
-  );
-  assert(
-    shopCardsCount === socialFeedJson.posts.length,
-    `shop.html rendered ${shopCardsCount} UGC cards (matches social-feed.json count of ${socialFeedJson.posts.length})`
-  );
+  for (const target of [
+    { page: "index.html", section: "#homeSocialFeed", grid: "#socialFeedGrid" },
+    { page: "shop.html", section: "#shopSocialFeed", grid: "#shopSocialFeedGrid" }
+  ]) {
+    await page.goto(`${URL_BASE}/${target.page}`, { waitUntil: "networkidle2" });
+    const visible = await page.$eval(
+      target.section,
+      (el) => getComputedStyle(el).display !== "none"
+    );
+    const cards = await page.$$eval(`${target.grid} .ugc-card`, (c) => c.length);
+    if (feedOn) {
+      assert(
+        visible,
+        `${target.page} ${target.section} is visible (display != 'none') when enableSocialFeed is true`
+      );
+      assert(
+        cards === socialFeedJson.posts.length,
+        `${target.page} rendered ${cards} UGC cards (matches social-feed.json count of ${socialFeedJson.posts.length})`
+      );
+    } else {
+      assert(
+        !visible,
+        `${target.page} ${target.section} stays hidden when enableSocialFeed is false`
+      );
+      assert(cards === 0, `${target.page} renders no UGC cards when enableSocialFeed is false`);
+    }
+  }
 
   // ----------------------------------------------------
   // TEST SECTION 4: CMS Toggle Behavior (enableSocialFeed = false)
@@ -279,6 +278,31 @@ async function runTests() {
   // TEST SECTION 5: Aspect Ratios & Image Layout Attributes
   // ----------------------------------------------------
   console.log("\n5. Aspect Ratios & Image Layout Attributes");
+  /* These are checks on the rendered cards, so the cards have to exist even
+     while the CMS flag is off. Rather than skip (a check that stops
+     checking), serve content-data.js with the flag forced on for this one
+     load, so main.js renders the strip exactly as it would in production. */
+  if (!feedOn) {
+    const contentDataSrc = fs.readFileSync(
+      path.join(ROOT, "assets", "js", "content-data.js"),
+      "utf8"
+    );
+    // sw.js precached content-data.js on the earlier loads, and a request the
+    // service worker answers never reaches page-level interception.
+    await page.setBypassServiceWorker(true);
+    await page.setRequestInterception(true);
+    page.on("request", function forceFeedOn(req) {
+      if (/\/assets\/js\/content-data\.js/.test(req.url())) {
+        req.respond({
+          status: 200,
+          contentType: "text/javascript",
+          body: contentDataSrc + "\n;window.YL_CONTENT.site.enableSocialFeed = true;\n"
+        });
+        return;
+      }
+      req.continue();
+    });
+  }
   await page.goto(`${URL_BASE}/index.html`, { waitUntil: "networkidle2" });
 
   /* $$eval hands back an empty array when the selector matches nothing, and

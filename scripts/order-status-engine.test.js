@@ -543,7 +543,11 @@ console.log("  ✓ Both the reference and the email are required and shape-check
     missText.includes("We couldn't find an order with that reference and email"),
     "404 says exactly that, and blames neither field"
   );
-  assert.ok(missHtml.includes("order-lookup-unavailable"), "404 still offers the contact hand-off");
+  assert.ok(missHtml.includes("order-lookup-help"), "404 still offers the contact hand-off");
+  assert.ok(
+    !missHtml.includes("order-lookup-unavailable") && !missText.includes("reach the order system"),
+    "404 does not claim the order system was unreachable -- it answered"
+  );
   assert.ok(
     missHtml.includes("mailto:y.allternative.living@gmail.com?subject="),
     "...with a pre-filled mail subject"

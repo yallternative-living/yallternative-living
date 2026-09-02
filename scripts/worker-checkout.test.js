@@ -1004,6 +1004,281 @@ async function runWorkerCheckoutTests() {
     );
   }
 
+  /* ==========================================================
+     Test 21: POST /api/order-summary -- settled totals for thank-you.html
+     ========================================================== */
+  {
+    const SENSITIVE = {
+      customer_details: { email: "shopper@example.com", name: "Pat Shopper" },
+      customer_email: "shopper@example.com",
+      shipping_details: { address: { line1: "1 Main St", postal_code: "29356" } },
+      line_items: { data: [{ description: "Sleep Salve" }] },
+      payment_intent: "pi_secret_123"
+    };
+    const sessions = {
+      // Promo code typed on the Stripe page: $62 -> $55.80.
+      cs_test_promo00001: {
+        id: "cs_test_promo00001",
+        amount_total: 5580,
+        amount_subtotal: 6200,
+        total_details: { amount_discount: 620 },
+        currency: "usd",
+        payment_status: "paid",
+        status: "complete",
+        metadata: {},
+        ...SENSITIVE
+      },
+      // Gift card covering the whole order: Stripe reports it as a discount,
+      // the Worker recorded the gift-card portion in metadata.
+      cs_test_giftcd00001: {
+        id: "cs_test_giftcd00001",
+        amount_total: 0,
+        amount_subtotal: 6200,
+        total_details: { amount_discount: 6200 },
+        currency: "usd",
+        payment_status: "paid",
+        status: "complete",
+        metadata: {
+          gift_card_redeemed_code: "YL-SECRET-CODE",
+          gift_card_amount_applied_cents: "6200"
+        },
+        ...SENSITIVE
+      },
+      // Abandoned on the Stripe page: exists, but no money was taken.
+      cs_test_unpaid00001: {
+        id: "cs_test_unpaid00001",
+        amount_total: 6200,
+        amount_subtotal: 6200,
+        total_details: { amount_discount: 0 },
+        currency: "usd",
+        payment_status: "unpaid",
+        status: "open",
+        ...SENSITIVE
+      }
+    };
+    const calls = [];
+    const makeEnv = async (overrides) => {
+      const env = await makeLedgerEnv();
+      env.STRIPE_SECRET_KEY = "sk_test_mock";
+      env.fetchImpl = async (url, init) => {
+        calls.push({ url, init });
+        if (url.includes("/checkout/sessions/cs_test_stripedown")) {
+          return {
+            ok: false,
+            status: 500,
+            json: async () => ({ error: { message: "Stripe exploded: internal detail" } })
+          };
+        }
+        const id = url.split("/checkout/sessions/")[1];
+        const session = sessions[id];
+        if (!session) {
+          return {
+            ok: false,
+            status: 404,
+            json: async () => ({ error: { message: "No such checkout.session" } })
+          };
+        }
+        return { ok: true, status: 200, json: async () => session };
+      };
+      return Object.assign(env, overrides || {});
+    };
+    const post = (body, headers) =>
+      new Request("https://yallternativeliving.com/api/order-summary", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Origin: "https://yallternativeliving.com",
+          ...(headers || {})
+        },
+        body: JSON.stringify(body)
+      });
+
+    // Happy path: promo code.
+    {
+      const env = await makeEnv();
+      const res = await worker.fetch(post({ sessionId: "cs_test_promo00001" }), env, {
+        waitUntil: () => {}
+      });
+      eq(res.status, 200, "order-summary: paid session answers 200");
+      eq(res.headers.get("Cache-Control"), "no-store", "order-summary: response is no-store");
+      const data = await res.json();
+      eq(data.found, true, "order-summary: found: true");
+      eq(data.amountTotalCents, 5580, "order-summary: settled total reflects the promo code");
+      eq(data.amountDiscountCents, 620, "order-summary: discount amount reported");
+      eq(data.giftCardAppliedCents, 0, "order-summary: no gift-card portion on a promo order");
+      eq(data.paymentStatus, "paid", "order-summary: paymentStatus passed through, not defaulted");
+      eq(data.status, "complete", "order-summary: status passed through, not defaulted");
+      const text = JSON.stringify(data);
+      for (const needle of [
+        "shopper@example.com",
+        "Pat Shopper",
+        "1 Main St",
+        "Sleep Salve",
+        "pi_secret",
+        "29356"
+      ]) {
+        eq(text.includes(needle), false, `order-summary: never leaks "${needle}"`);
+      }
+      // The route must actually talk to Stripe the way stripe.js pins it.
+      const call = calls[calls.length - 1];
+      eq(call.init.method, "GET", "order-summary: reads the session with GET");
+      eq(
+        call.init.headers.Authorization,
+        "Bearer sk_test_mock",
+        "order-summary: sends the secret key"
+      );
+      eq(
+        typeof call.init.headers["Stripe-Version"],
+        "string",
+        "order-summary: pins a Stripe-Version"
+      );
+      eq(
+        call.url.includes("expand"),
+        false,
+        "order-summary: does not expand line items or payment intent"
+      );
+    }
+
+    // Gift card: the amount is labelled, the code is not exposed.
+    {
+      const env = await makeEnv();
+      const res = await worker.fetch(post({ sessionId: "cs_test_giftcd00001" }), env, {
+        waitUntil: () => {}
+      });
+      const data = await res.json();
+      eq(res.status, 200, "order-summary: gift-card session answers 200");
+      eq(data.amountTotalCents, 0, "order-summary: $0.00 charged when the gift card covers it all");
+      eq(
+        data.amountDiscountCents,
+        6200,
+        "order-summary: Stripe's discount figure includes the gift card"
+      );
+      eq(data.giftCardAppliedCents, 6200, "order-summary: gift-card portion reported separately");
+      eq(
+        JSON.stringify(data).includes("YL-SECRET-CODE"),
+        false,
+        "order-summary: gift-card code never leaves the Worker"
+      );
+    }
+
+    // Unpaid / abandoned session: indistinguishable from an unknown id.
+    {
+      const env = await makeEnv();
+      const res = await worker.fetch(post({ sessionId: "cs_test_unpaid00001" }), env, {
+        waitUntil: () => {}
+      });
+      const data = await res.json();
+      eq(res.status, 404, "order-summary: unpaid session is not_found");
+      eq(data.found, false, "order-summary: unpaid session found: false");
+      eq(data.error, "not_found", "order-summary: unpaid uses the same error as unknown");
+      eq(data.amountTotalCents, undefined, "order-summary: unpaid session exposes no totals");
+    }
+
+    // Unknown id at Stripe.
+    {
+      const env = await makeEnv();
+      const res = await worker.fetch(post({ sessionId: "cs_test_nope00000001" }), env, {
+        waitUntil: () => {}
+      });
+      eq(res.status, 404, "order-summary: unknown session answers 404");
+      eq((await res.json()).error, "not_found", "order-summary: unknown session is not_found");
+    }
+
+    // Malformed id never reaches Stripe.
+    {
+      const env = await makeEnv();
+      const before = calls.length;
+      const res = await worker.fetch(post({ sessionId: "hello" }), env, { waitUntil: () => {} });
+      eq(res.status, 400, "order-summary: malformed id answers 400");
+      eq(
+        (await res.json()).error,
+        "invalid_session_id",
+        "order-summary: malformed id is invalid_session_id"
+      );
+      eq(calls.length, before, "order-summary: malformed id costs no Stripe request");
+    }
+
+    // Stripe failure is internal: generic 500, no Stripe string.
+    {
+      const env = await makeEnv();
+      const silent = console.error;
+      console.error = () => {};
+      let res;
+      try {
+        res = await worker.fetch(post({ sessionId: "cs_test_stripedown001" }), env, {
+          waitUntil: () => {}
+        });
+      } finally {
+        console.error = silent;
+      }
+      eq(res.status, 500, "order-summary: Stripe 5xx surfaces as 500, not not_found");
+      const body = await res.text();
+      eq(
+        body.includes("Stripe exploded"),
+        false,
+        "order-summary: raw Stripe error never reaches the shopper"
+      );
+    }
+
+    // Missing key is an internal failure too.
+    {
+      const env = await makeEnv({ STRIPE_SECRET_KEY: "" });
+      const silent = console.error;
+      console.error = () => {};
+      let res;
+      try {
+        res = await worker.fetch(post({ sessionId: "cs_test_promo00001" }), env, {
+          waitUntil: () => {}
+        });
+      } finally {
+        console.error = silent;
+      }
+      eq(res.status, 500, "order-summary: missing STRIPE_SECRET_KEY answers 500");
+    }
+
+    // GET is not a thing on this Worker, order-summary included.
+    {
+      const env = await makeEnv();
+      const res = await worker.fetch(
+        new Request(
+          "https://yallternativeliving.com/api/order-summary?sessionId=cs_test_promo00001",
+          {
+            method: "GET",
+            headers: { Origin: "https://yallternativeliving.com" }
+          }
+        ),
+        env,
+        { waitUntil: () => {} }
+      );
+      eq(res.status, 405, "order-summary: GET answers 405 like every other route");
+    }
+
+    // Same-origin fetch sends no Origin header; that must still work.
+    {
+      const env = await makeEnv();
+      const req = new Request("https://yallternativeliving.com/api/order-summary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: "cs_test_promo00001" })
+      });
+      const res = await worker.fetch(req, env, { waitUntil: () => {} });
+      eq(res.status, 200, "order-summary: request without an Origin header is served");
+    }
+
+    // Cross-site origin is refused before any Stripe call.
+    {
+      const env = await makeEnv();
+      const before = calls.length;
+      const res = await worker.fetch(
+        post({ sessionId: "cs_test_promo00001" }, { Origin: "https://evil.example" }),
+        env,
+        { waitUntil: () => {} }
+      );
+      eq(res.status, 403, "order-summary: foreign origin is forbidden");
+      eq(calls.length, before, "order-summary: foreign origin costs no Stripe request");
+    }
+  }
+
   console.log(`\nworker-checkout.test.js: ${passed} passed, ${failed} failed`);
   if (require.main === module) {
     process.exit(failed ? 1 : 0);

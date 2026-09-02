@@ -151,6 +151,7 @@ import { isGiftCardCode } from "./routes/gift-cards.js";
 import { handleGiftCardBalance } from "./routes/gift-card-balance.js";
 import { handleStripeWebhook } from "./routes/stripe-webhook.js";
 import { handleOrderStatus } from "./routes/order-status.js";
+import { handleOrderSummary } from "./routes/order-summary.js";
 import { handleRestock } from "./routes/restock.js";
 import { giftCardLedger, LedgerError } from "./state/gift-card-ledger.js";
 
@@ -832,6 +833,7 @@ const ROUTES = {
   "/gift-card-balance": handleGiftCardBalance,
   "/stripe-webhook": handleStripeWebhook,
   "/order-status": handleOrderStatus,
+  "/order-summary": handleOrderSummary,
   "/restock": handleRestock
 };
 

@@ -222,6 +222,9 @@ async function runAdversarialSuite() {
           const gmapsLink = card.querySelector('a.event-map-link[href*="google.com/maps"]');
           const appleMapsLink = card.querySelector('a.event-map-link[href*="maps.apple.com"]');
           return {
+            // Past markets are a record, not a call to action: no pickup,
+            // calendar, RSVP or directions on those cards.
+            isPast: !!card.closest("#pastEvents"),
             hasPickupBtn: !!pickupBtn,
             pickupHref: pickupBtn ? pickupBtn.getAttribute("href") : null,
             hasGcalBtn: !!gcalBtn,
@@ -240,10 +243,25 @@ async function runAdversarialSuite() {
       // Every `.every()` below is guarded by a count assertion: on an empty
       // array `.every()` returns true, so a page that renders no event cards
       // at all used to pass all four of these checks (audit "vacuous passes").
+      const upcomingCards = cardButtons.filter((c) => !c.isPast);
+      const pastCards = cardButtons.filter((c) => c.isPast);
       check(
-        `[${vp.name}] All event cards have Reserve/Pickup deep-link buttons with #shop-catalog anchor`,
-        cardButtons.length >= 1 &&
-          cardButtons.every(
+        `[${vp.name}] Past event cards carry no pickup, calendar or directions actions`,
+        pastCards.length >= 1 &&
+          pastCards.every(
+            (c) =>
+              !c.hasPickupBtn &&
+              !c.hasGcalBtn &&
+              !c.hasIcsBtn &&
+              !c.hasGmapsLink &&
+              !c.hasAppleMapsLink
+          ),
+        `${pastCards.length} past cards`
+      );
+      check(
+        `[${vp.name}] All upcoming event cards have Reserve/Pickup deep-link buttons with #shop-catalog anchor`,
+        upcomingCards.length >= 1 &&
+          upcomingCards.every(
             (c) =>
               c.hasPickupBtn &&
               c.pickupHref.includes("shop.html?pickup_market=") &&
@@ -252,9 +270,9 @@ async function runAdversarialSuite() {
       );
 
       check(
-        `[${vp.name}] All event cards have Add to Google Calendar buttons with TEMPLATE action`,
-        cardButtons.length >= 1 &&
-          cardButtons.every(
+        `[${vp.name}] All upcoming event cards have Add to Google Calendar buttons with TEMPLATE action`,
+        upcomingCards.length >= 1 &&
+          upcomingCards.every(
             (c) =>
               c.hasGcalBtn &&
               c.gcalHref.includes("calendar.google.com") &&
@@ -263,9 +281,9 @@ async function runAdversarialSuite() {
       );
 
       check(
-        `[${vp.name}] All event cards have iCal / Apple Calendar (.ics) data URI links with download attributes`,
-        cardButtons.length >= 1 &&
-          cardButtons.every(
+        `[${vp.name}] All upcoming event cards have iCal / Apple Calendar (.ics) data URI links with download attributes`,
+        upcomingCards.length >= 1 &&
+          upcomingCards.every(
             (c) =>
               c.hasIcsBtn &&
               c.icsHref.startsWith("data:text/calendar;charset=utf-8,") &&
@@ -274,9 +292,9 @@ async function runAdversarialSuite() {
       );
 
       check(
-        `[${vp.name}] All event cards render Google Maps and Apple Maps direction links`,
-        cardButtons.length >= 1 &&
-          cardButtons.every(
+        `[${vp.name}] All upcoming event cards render Google Maps and Apple Maps direction links`,
+        upcomingCards.length >= 1 &&
+          upcomingCards.every(
             (c) =>
               c.hasGmapsLink &&
               c.hasAppleMapsLink &&
@@ -612,24 +630,34 @@ async function runAdversarialSuite() {
 
     // 3.4 Fallback / Unknown parameter deep link test
     console.log("\n  [Fallback / Unknown Market Deep Link Test]");
-    const fallbackPage = await browser.newPage();
+    // A fresh context: the cart persists in localStorage, and the valid
+    // deep-link test above legitimately left pickup switched on.
+    const fallbackContext = await browser.createBrowserContext();
+    const fallbackPage = await fallbackContext.newPage();
     await fallbackPage.goto(
       `${baseUrl}/shop.html?pickup_market=custom-pop-up-market#shop-catalog`,
       { waitUntil: "networkidle0" }
     );
+    // An unlisted market must be ignored outright. The banner used to render
+    // for ANY slug ("Pre-order booth pickup activated: custom-pop-up-market")
+    // and tick the pickup box, promising free pickup at a booth the Worker
+    // would never honour (findPickupEvent only matches upcoming markets).
     const fallbackBanner = await fallbackPage.$("#pickupMarketBanner");
+    check("Deep link with an unlisted market renders no pickup banner", fallbackBanner === null);
+    const fallbackPickup = await fallbackPage.evaluate(() => {
+      const cb = document.getElementById("yl-cart-pickup-checkbox");
+      const state = window.YLCart && window.YLCart.getState ? window.YLCart.getState() : null;
+      return {
+        checked: cb ? cb.checked === true : false,
+        isPickup: state ? state.isPickup === true : false
+      };
+    });
     check(
-      "Deep link with unlisted/custom market still renders notification banner",
-      !!fallbackBanner
+      "Deep link with an unlisted market does not pre-select pickup",
+      !fallbackPickup.checked && !fallbackPickup.isPickup
     );
-    if (fallbackBanner) {
-      const fbText = await fallbackPage.$eval("#pickupMarketBanner", (el) => el.textContent);
-      check(
-        "Banner gracefully falls back to parameter text",
-        fbText.includes("custom-pop-up-market")
-      );
-    }
     await fallbackPage.close();
+    await fallbackContext.close();
 
     // 3.5 Uncheck Pickup & Re-Navigation Flow
     console.log("\n  [Adversarial Pickup Toggle & Navigation Flow]");

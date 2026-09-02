@@ -544,6 +544,7 @@ collections:
               - { name: type, label: "Type (e.g. Farmers Market, Fair, Pride Event)", widget: string }
               - { name: location, label: "Location (e.g. Landrum, SC)", widget: string }
               - { name: zip, label: "ZIP code of the market (optional)", widget: string, required: false, pattern: ['^$|^[0-9]{5}$', "Enter a 5-digit ZIP code, or leave blank."], hint: "Only matters if you let customers pick up orders here. Sales tax is charged based on where the customer actually receives their order, and each county charges a little differently -- this ZIP is how the right amount gets worked out. Leave blank and pickup orders use the customer's home address instead, which may be slightly off." }
+              - { name: emoji, label: "Event Emoji / Icon (optional)", widget: string, required: false, pattern: ['^$|^.{1,16}$', "One emoji only (or leave blank)."], hint: "One emoji (e.g. 🦇, ✨, 🎪, 🏳️‍🌈). Shown next to this event in the countdown ticker at the top of the home page and in the countdown banner on the home and events pages -- only for the NEXT upcoming event." }
               - { name: url, label: "Link (optional -- event or info page)", widget: string, required: false }
               - { name: note, label: "Note (optional)", widget: text, required: false }
           - name: past

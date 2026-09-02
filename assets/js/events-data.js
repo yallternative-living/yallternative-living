@@ -14,7 +14,7 @@ window.YL_EVENTS = {
       "type": "Artisan Fair",
       "location": "Landrum, SC",
       "zip": "29356",
-      "url": "https://yallternativeliving.com",
+      "emoji": "✨",
       "note": "Pop-up market table with handmade salves, soaks & soaps."
     }
   ],

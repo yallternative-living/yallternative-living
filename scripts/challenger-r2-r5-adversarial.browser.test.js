@@ -582,7 +582,10 @@ async function testRitualInteractivity() {
   // ---------------------------------------------------------------------------
   console.log("\n>>> VECTOR 5: Concurrency & Rapid Stress Testing on Ritual Add Button");
 
-  await page.goto(`${BASE}/products/sugar-scrub.html`, { waitUntil: "networkidle0" });
+  // frankincense-salve: both partners (hand-scrub, miracle-balm) are buyable.
+  // sugar-scrub used to be the fixture, but every one of its partners is
+  // Coming Soon, so the build now renders no ritual section for it at all.
+  await page.goto(`${BASE}/products/frankincense-salve.html`, { waitUntil: "networkidle0" });
   await page.evaluate(() => {
     localStorage.removeItem("yl_cart");
     if (window.YLCart && typeof window.YLCart.clear === "function") {
@@ -608,7 +611,7 @@ async function testRitualInteractivity() {
     };
   });
 
-  // sugar-scrub has 2 pairings (3 items total). 5 additions -> total quantity = 15, items array length = 3 (quantities incremented)
+  // frankincense-salve has 2 pairings (3 items total). 5 additions -> total quantity = 15, items array length = 3 (quantities incremented)
   assert(
     stressCart.items.length === 3,
     `Items array has 3 distinct product IDs without duplicates (got ${stressCart.items.length})`

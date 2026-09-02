@@ -30,6 +30,9 @@ assets/data/.fuse_hidden*
 assets/data/shop_jsonld.tmp.json
 *.tmp
 tmp/
+# Local render probes and screenshots. Netlify publishes the repository root
+# and there is no 404 rule for /scratch/*, so this must never be committed.
+scratch/
 
 # Local reports
 audit_report.md

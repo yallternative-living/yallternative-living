@@ -495,7 +495,7 @@
   var reviewForms = document.querySelectorAll(".review-form");
   reviewForms.forEach(function (form) {
     form.addEventListener("submit", function (e) {
-      var hp = form.querySelector('input[name="review_website"]');
+      var hp = form.querySelector('input[name="review_website"], input[name="_gotcha"]');
       if (hp && hp.value) {
         e.preventDefault();
         return;
@@ -1124,7 +1124,13 @@
            inherited text in a row of solid buttons. btn-outline is this
            design system's secondary variant (what the old class name was
            reaching for) and keeps it visibly distinct from Add to Cart. */
-        '<a href="#gift-cards" class="btn btn-outline btn-sm' +
+        /* The configurator dialog (#giftCardModal) only exists on shop.html.
+           Anywhere else, "#gift-cards" was a dead link that just rewrote the
+           URL; send those clicks to the shop, which opens the dialog on that
+           hash at load. */
+        '<a href="' +
+        (document.getElementById("giftCardModal") ? "#gift-cards" : "shop.html#gift-cards") +
+        '" class="btn btn-outline btn-sm' +
         (extraClass ? " " + extraClass : "") +
         '">Configure Card</a>'
       );
@@ -1652,7 +1658,7 @@
       '<button class="wish-drawer-close" id="wishClose" type="button" aria-label="Close saved items">&times;</button></div>' +
       '<div class="wish-drawer-body" id="wishBody"></div>' +
       '<div class="wish-drawer-foot">' +
-      '<button class="btn btn-primary btn-block cart-toggle" type="button">View Cart &amp; Checkout</button>' +
+      '<button class="btn btn-primary btn-block" type="button" data-yl-cart-open>View Cart &amp; Checkout</button>' +
       '<p class="muted">Saved items live in this browser only. Tap "Add to Cart" on anything above, then check out securely right here.</p>' +
       "</div>";
     document.body.appendChild(backdrop);
@@ -2889,20 +2895,28 @@
 
     var hour = parseInt(partMap.hour, 10);
     var minute = parseInt(partMap.minute, 10);
+    var weekdayIndex = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(
+      String(partMap.weekday || "").slice(0, 3)
+    );
+    var isBusinessDay = weekdayIndex >= 1 && weekdayIndex <= 5;
 
-    // Landrum, SC 2:00 PM (14:00) ET cutoff
-    var diffMins;
-    if (hour < 14) {
-      diffMins = 14 * 60 - (hour * 60 + minute);
-    } else {
-      diffMins = 24 * 60 - (hour * 60 + minute) + 14 * 60;
-    }
-    var h = Math.floor(diffMins / 60);
-    var m = diffMins % 60;
-
+    /* Landrum, SC 2:00 PM (14:00) ET cutoff -- the same promise cart.js
+       makes (calculateDispatchStatus). This badge used to say "for dispatch
+       tomorrow" at the very moment the cart drawer beside it said "to ship
+       today", and counted down to a Saturday cutoff that does not exist. */
     var zapIcon =
       '<svg class="yl-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>';
-    var text = "Order within " + h + "h " + m + "m for dispatch tomorrow";
+    var text;
+    if (isBusinessDay && hour < 14) {
+      var diffMins = 14 * 60 - (hour * 60 + minute);
+      var h = Math.floor(diffMins / 60);
+      var m = diffMins % 60;
+      text = "Order within " + h + "h " + m + "m to ship today";
+    } else {
+      var nextDay =
+        weekdayIndex === 5 || weekdayIndex === 6 || weekdayIndex === 0 ? "Monday" : "tomorrow";
+      text = "Ships " + nextDay + " · Order by 2 PM ET";
+    }
 
     return (
       '<div class="dispatch-badge-wrap">' +
@@ -3652,7 +3666,7 @@
             container.appendChild(miss);
             var wrap = doc.createElement("div");
             container.appendChild(wrap);
-            wrap.innerHTML = orderStatusFallbackHTML(typedReference);
+            wrap.innerHTML = orderStatusNotFoundHelpHTML(typedReference);
           }
           return "not_found";
         }
@@ -3691,6 +3705,31 @@
   function orderStatusMailtoHref(reference) {
     var subject = reference ? "Order status: " + reference : "Order status request";
     return "mailto:y.allternative.living@gmail.com?subject=" + attrEsc(encodeURIComponent(subject));
+  }
+
+  /* A 404 is an answer, not an outage: the Worker looked and nothing
+     matched that reference AND that email. The most likely cause is the
+     email (a different address from the one typed at checkout comes back
+     as not found on purpose), so say that -- the "we couldn't reach the
+     order system" hand-off below used to render here too and told the
+     shopper the lookup was down when it had just worked. */
+  function orderStatusNotFoundHelpHTML(reference) {
+    var safeRef = attrEsc(reference || "");
+    return (
+      '<div class="order-lookup-help" role="status">' +
+      "<h2>Double-check and try again</h2>" +
+      "<p>The reference starts with <code>cs_live_</code> and is in the confirmation email " +
+      "from Stripe. The email address has to be the one typed at checkout &mdash; a different " +
+      "address, even your own, comes back as not found.</p>" +
+      "<p>Still stuck? " +
+      (safeRef ? "Send us <strong>" + safeRef + "</strong> " : "Send us your order reference ") +
+      "and the email you paid with, and a real person will check where it stands " +
+      "<strong>within one business day</strong>.</p>" +
+      '<p><a class="btn btn-primary" href="' +
+      orderStatusMailtoHref(reference) +
+      '">Email us about this order</a></p>' +
+      "</div>"
+    );
   }
 
   function orderStatusFallbackHTML(reference) {
@@ -3854,7 +3893,7 @@
             '<div class="events-carousel-inner">' +
             displayPast
               .map(function (ev, index) {
-                var cardHtml = eventCardHTML(ev);
+                var cardHtml = eventCardHTML(ev, { past: true });
                 if (index === 0) {
                   return cardHtml.replace(
                     'class="card event-card reveal"',
@@ -3906,7 +3945,7 @@
                   '<div class="grid grid-3">' +
                   sortedPast
                     .map(function (ev) {
-                      return eventCardHTML(ev);
+                      return eventCardHTML(ev, { past: true });
                     })
                     .join("") +
                   "</div>" +
@@ -4325,11 +4364,14 @@
         };
       }
     }
-    return {
-      event: null,
-      matchedLabel: decoded,
-      marketName: decoded
-    };
+    /* No upcoming market matched. This used to fall through with the raw
+       slug as the "market", so a link from a PAST event card (or any
+       hand-typed ?pickup_market=whatever) ticked the pickup box and told the
+       shopper "Free Local Pickup pre-selected" for a booth that no longer
+       exists -- the Worker (findPickupEvent) only honours upcoming markets,
+       so that order would have been charged shipping at Stripe after the
+       page promised it was free. Unknown means unknown: do nothing. */
+    return null;
   }
 
   function handlePickupMarketDeepLink() {
@@ -4405,7 +4447,8 @@
     }
   }
 
-  function eventCardHTML(ev) {
+  function eventCardHTML(ev, opts) {
+    var isPast = Boolean(opts && opts.past);
     var gCalUrl = generateGoogleCalendarUrl(ev);
     var icsUri = generateIcsDataUri(ev);
     var icsFilename = getEventIcsFilename(ev);
@@ -4413,8 +4456,44 @@
     var appleMapsUrl = generateAppleMapsDirUrl(ev);
     var pickupParam = encodeURIComponent(ev.id || ev.name || "Pop-up Market");
 
+    /* Search results deep-link to events.html#<id>, so the card carries it. */
+    var idAttr = ev.id ? ' id="' + attrEsc(ev.id) + '"' : "";
+
+    /* A past market is a record of where the table has been. It gets no
+       "Reserve / Pick Up", calendar or RSVP buttons and no directions --
+       every one of those used to be rendered for past dates too, offering
+       pickup at a booth that had already been packed up. */
+    var actionsHtml = isPast
+      ? ""
+      : '<div class="event-actions-row" style="display:flex; flex-direction:column; gap:6px; margin-top:12px;">' +
+        (safeUrl(ev.url)
+          ? '<a class="btn btn-primary btn-sm btn-block" href="' +
+            attrEsc(safeUrl(ev.url)) +
+            '" target="_blank" rel="noopener">More Info / RSVP<span class="sr-only"> (opens in new tab)</span></a>'
+          : "") +
+        '<a class="btn btn-outline btn-sm btn-block" href="shop.html?pickup_market=' +
+        pickupParam +
+        '#shop-catalog">' +
+        '<svg class="yl-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg> Reserve / Pick Up at This Booth' +
+        "</a>" +
+        '<a class="btn btn-outline btn-sm btn-block" href="' +
+        attrEsc(gCalUrl) +
+        '" target="_blank" rel="noopener">' +
+        '<svg class="yl-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> Add to Google Calendar<span class="sr-only"> (opens in new tab)</span>' +
+        "</a>" +
+        '<a class="btn btn-outline btn-sm btn-block" href="' +
+        attrEsc(icsUri) +
+        '" download="' +
+        attrEsc(icsFilename) +
+        '">' +
+        '<svg class="yl-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> iCal / Apple Calendar (.ics)' +
+        "</a>" +
+        "</div>";
+
     return (
-      '<article class="card event-card reveal">' +
+      '<article class="card event-card reveal"' +
+      idAttr +
+      ">" +
       '<div class="card-body">' +
       '<span class="card-cat">' +
       attrEsc(ev.type || "Pop-Up Market") +
@@ -4434,38 +4513,17 @@
           "<span>" +
           attrEsc(ev.location) +
           "</span>" +
-          '<span class="event-directions-links"> · <a class="event-map-link" href="' +
-          attrEsc(gMapsUrl) +
-          '" target="_blank" rel="noopener">Google Maps<span class="sr-only"> directions (opens in new tab)</span></a> · <a class="event-map-link" href="' +
-          attrEsc(appleMapsUrl) +
-          '" target="_blank" rel="noopener">Apple Maps<span class="sr-only"> directions (opens in new tab)</span></a></span>'
+          (isPast
+            ? ""
+            : '<span class="event-directions-links"> · <a class="event-map-link" href="' +
+              attrEsc(gMapsUrl) +
+              '" target="_blank" rel="noopener">Google Maps<span class="sr-only"> directions (opens in new tab)</span></a> · <a class="event-map-link" href="' +
+              attrEsc(appleMapsUrl) +
+              '" target="_blank" rel="noopener">Apple Maps<span class="sr-only"> directions (opens in new tab)</span></a></span>')
         : "") +
       "</p>" +
       (ev.note ? '<p class="event-desc">' + attrEsc(ev.note) + "</p>" : "") +
-      '<div class="event-actions-row" style="display:flex; flex-direction:column; gap:6px; margin-top:12px;">' +
-      (safeUrl(ev.url)
-        ? '<a class="btn btn-primary btn-sm btn-block" href="' +
-          attrEsc(safeUrl(ev.url)) +
-          '" target="_blank" rel="noopener">More Info / RSVP<span class="sr-only"> (opens in new tab)</span></a>'
-        : "") +
-      '<a class="btn btn-outline btn-sm btn-block" href="shop.html?pickup_market=' +
-      pickupParam +
-      '#shop-catalog">' +
-      '<svg class="yl-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg> Reserve / Pick Up at This Booth' +
-      "</a>" +
-      '<a class="btn btn-outline btn-sm btn-block" href="' +
-      attrEsc(gCalUrl) +
-      '" target="_blank" rel="noopener">' +
-      '<svg class="yl-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> Add to Google Calendar<span class="sr-only"> (opens in new tab)</span>' +
-      "</a>" +
-      '<a class="btn btn-outline btn-sm btn-block" href="' +
-      attrEsc(icsUri) +
-      '" download="' +
-      attrEsc(icsFilename) +
-      '">' +
-      '<svg class="yl-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> iCal / Apple Calendar (.ics)' +
-      "</a>" +
-      "</div>" +
+      actionsHtml +
       "</div>" +
       "</article>"
     );
@@ -5174,6 +5232,16 @@
         b.classList.toggle("active", isActive);
         b.setAttribute("aria-pressed", isActive ? "true" : "false");
       });
+      /* No element carries the category id, so the browser cannot scroll to
+         it; bring the filtered grid into view ourselves. */
+      var catalogAnchor = document.getElementById("shop-catalog") || row;
+      window.requestAnimationFrame(function () {
+        try {
+          catalogAnchor.scrollIntoView({ block: "start" });
+        } catch {
+          /* older engines: leave the page where it is */
+        }
+      });
     }
 
     render();
@@ -5315,6 +5383,27 @@
     var possibleProdId = window.location.hash.replace("#", "");
     var matchedItem = getProductMap().get(possibleProdId);
     if (matchedItem) {
+      /* Bring the card itself into view first. Every generated product page
+         redirects here, so this is how a shared product link lands -- and it
+         used to land at the top of the shop with the card thousands of
+         pixels down, so closing the lightbox left the shopper nowhere. */
+      var landTries = 0;
+      (function landOnCard() {
+        var card = document.querySelector('.card[data-id="' + possibleProdId + '"]');
+        if (!card) {
+          if (landTries++ < 20) setTimeout(landOnCard, 100);
+          return;
+        }
+        try {
+          card.scrollIntoView({ block: "center" });
+        } catch {
+          /* older engines: no smooth options, fall through */
+        }
+        card.classList.add("is-deep-linked");
+        setTimeout(function () {
+          card.classList.remove("is-deep-linked");
+        }, 4000);
+      })();
       setTimeout(function () {
         if (typeof window.openLightbox === "function") {
           // Same shape as the gallery: p.image is the primary, p.images are
@@ -5898,7 +5987,6 @@
     var daysSpan = document.getElementById("yl-countdown-days");
     var hoursSpan = document.getElementById("yl-countdown-hours");
     var minsSpan = document.getElementById("yl-countdown-minutes");
-    var secsSpan = document.getElementById("yl-countdown-seconds");
     var eventDetailsSpan = document.getElementById("heroEventDetails");
 
     /* .countdown-card has no rule in styles.css -- the card is drawn entirely
@@ -5911,6 +5999,12 @@
 
     function update() {
       var rem = targetTime - Date.now();
+      var iconHtml = nextEvt.emoji
+        ? '<span class="ticker-emoji" aria-hidden="true" style="margin-right: 4px;">' +
+          attrEsc(nextEvt.emoji) +
+          "</span>"
+        : '<svg class="yl-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg> ';
+
       if (rem <= 0) {
         if (tickerContainer) {
           var timerEl = document.getElementById("heroCountdownTimer");
@@ -5920,15 +6014,21 @@
              Match the events-page banner, which already says "Happening Now". */
           var badgeEl = tickerContainer.querySelector(".ticker-badge");
           if (badgeEl) {
-            badgeEl.innerHTML =
-              '<svg class="yl-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg> HAPPENING NOW:';
+            badgeEl.innerHTML = iconHtml + "HAPPENING NOW:";
           }
         }
         if (bannerContainer) {
+          var happeningCatHtml = nextEvt.emoji
+            ? '<span aria-hidden="true" style="margin-right: 4px;">' +
+              attrEsc(nextEvt.emoji) +
+              "</span>Happening Now"
+            : "Happening Now";
           bannerContainer.innerHTML =
             '<div class="countdown-card" style="' +
             countdownCardStyle +
-            '"><span class="card-cat" style="color: var(--whiskey); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;">Happening Now</span>' +
+            '"><span class="card-cat" style="color: var(--whiskey); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;">' +
+            happeningCatHtml +
+            "</span>" +
             '<h3 style="margin: 0.4rem 0 0.6rem; font-family: var(--font-heading);">' +
             attrEsc(nextEvt.name) +
             "</h3>" +
@@ -5937,22 +6037,30 @@
         return;
       }
 
+      if (tickerContainer) {
+        var tickerBadgeEl = tickerContainer.querySelector(".ticker-badge");
+        if (tickerBadgeEl) {
+          tickerBadgeEl.innerHTML = iconHtml + "NEXT POP-UP:";
+        }
+      }
+
       var totalSec = Math.floor(rem / 1000);
       var d = Math.floor(totalSec / (3600 * 24));
       totalSec %= 3600 * 24;
       var h = Math.floor(totalSec / 3600);
       totalSec %= 3600;
       var m = Math.floor(totalSec / 60);
-      var s = totalSec % 60;
 
-      var hStr = String(h);
-      var mStr = String(m);
-      var sStr = String(s);
+      /* Days, hours and minutes only -- a market weeks away does not need a
+         seconds hand ticking in the header. The markup ships "00"; keep the
+         width stable instead of letting the numbers jitter between one and
+         two digits. */
+      var hStr = (h < 10 ? "0" : "") + h;
+      var mStr = (m < 10 ? "0" : "") + m;
 
       if (daysSpan) daysSpan.textContent = String(d);
       if (hoursSpan) hoursSpan.textContent = hStr;
       if (minsSpan) minsSpan.textContent = mStr;
-      if (secsSpan) secsSpan.textContent = sStr;
       if (eventDetailsSpan)
         eventDetailsSpan.textContent =
           nextEvt.name + (nextEvt.location ? " (" + nextEvt.location + ")" : "");
@@ -5964,14 +6072,19 @@
           hStr +
           (h === 1 ? " Hour, " : " Hours, ") +
           mStr +
-          " Mins, " +
-          sStr +
-          " Secs";
+          (m === 1 ? " Min" : " Mins");
+        var nextAppCatHtml = nextEvt.emoji
+          ? '<span aria-hidden="true" style="margin-right: 4px;">' +
+            attrEsc(nextEvt.emoji) +
+            "</span>Next Live Appearance"
+          : "Next Live Appearance";
         bannerContainer.innerHTML =
           '<div class="countdown-card" style="' +
           countdownCardStyle +
           '">' +
-          '  <span class="card-cat" style="color: var(--whiskey); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;">Next Live Appearance</span>' +
+          '  <span class="card-cat" style="color: var(--whiskey); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;">' +
+          nextAppCatHtml +
+          "</span>" +
           '  <h3 style="margin: 0.4rem 0 0.6rem; font-family: var(--font-heading);">' +
           attrEsc(nextEvt.name) +
           "</h3>" +
@@ -5986,7 +6099,8 @@
     }
 
     update();
-    /* This used to be a bare setInterval, so a 1Hz timer kept running against
+    /* Minutes are the finest unit shown, so a 30s tick is plenty. This used
+       to be a bare 1Hz setInterval, so a timer kept running against
        detached nodes for the life of the tab once the events page re-rendered
        its banner or a soft navigation replaced the hero ticker. Stop as soon
        as neither element is the one still mounted under its id. */
@@ -6000,7 +6114,7 @@
         return;
       }
       update();
-    }, 1000);
+    }, 30000);
   }
   if (siteFlagEnabled("enableCountdownTicker")) initCountdownTicker();
 
@@ -8046,7 +8160,11 @@
       .map(function (id) {
         return map ? map.get(id) : null;
       })
-      .filter(Boolean);
+      .filter(function (p) {
+        /* Never offer something that cannot be bought: "Add All" used to
+           drop a Coming-Soon product into the cart. */
+        return p && !p.comingSoon && p.stock !== 0;
+      });
     if (!pairedItems.length) return "";
 
     var total = typeof product.price === "number" ? product.price : 0;
@@ -8351,13 +8469,18 @@
           mainPrice.textContent = formattedPrice;
         }
       }
+      /* The add buttons carry the BASE price plus the chosen label; cart.js
+         looks the label up in data-item-custom1-options and adds its delta
+         (the same path the shop cards use). Writing base+delta here as well
+         applied the delta twice: 1oz (-$6) showed $13.99 on the bar and
+         landed in the cart at $7.99. */
       if (stickyAddBtn && stickyAddBtn.classList.contains("yl-add-item")) {
         stickyAddBtn.setAttribute("data-item-custom1-value", val);
-        stickyAddBtn.setAttribute("data-item-price", newPrice.toFixed(2));
+        stickyAddBtn.setAttribute("data-item-price", basePrice.toFixed(2));
       }
       if (mainAddBtn && mainAddBtn.classList.contains("yl-add-item")) {
         mainAddBtn.setAttribute("data-item-custom1-value", val);
-        mainAddBtn.setAttribute("data-item-price", newPrice.toFixed(2));
+        mainAddBtn.setAttribute("data-item-price", basePrice.toFixed(2));
       }
     }
 

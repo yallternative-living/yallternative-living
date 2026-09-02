@@ -110,10 +110,11 @@ function createStaticServer(port = 8082) {
     }
 
     /* "0 broken links" out of 0 links is not a pass. The homepage header,
-       footer and product grid carry well over twenty internal links, so an
-       empty crawl means the anchors, the selector or the page failed to
-       render -- exactly the regression this check exists to catch. */
-    const MIN_INTERNAL_LINKS = 20;
+       footer and featured grid carry well over fifteen internal links (18
+       with the social feed switched off, 21 with it on), so an empty or
+       near-empty crawl means the anchors, the selector or the page failed
+       to render -- exactly the regression this check exists to catch. */
+    const MIN_INTERNAL_LINKS = 15;
     if (linksChecked < MIN_INTERNAL_LINKS) {
       console.log(
         `❌ Only ${linksChecked} internal links found on the homepage ` +
@@ -137,19 +138,56 @@ function createStaticServer(port = 8082) {
 
     const menuToggle = await page.$(".nav-toggle");
     if (menuToggle) {
-      await menuToggle.click();
-      await new Promise((r) => setTimeout(r, 500)); // wait for transition
-      const isActive = await page.$eval(
-        ".nav-links",
+      // The closed drawer is `visibility: hidden`, and the tab order depends
+      // on it, so what is checked here is the real state and not `display`
+      // (which is `flex` whether the drawer is open or closed -- the old
+      // `display !== "none"` check could not fail).
+      const closedState = await page.$eval(".nav-links", (el) => ({
         // eslint-disable-next-line no-undef
-        (el) => el.classList.contains("active") || window.getComputedStyle(el).display !== "none"
-      );
+        visibility: window.getComputedStyle(el).visibility,
+        open: el.classList.contains("open")
+      }));
+      await menuToggle.click();
+      // main.js moves focus into the first link in the SAME task as it adds
+      // `.open`. If the CSS ever animates `visibility` on the way open, that
+      // focus() silently no-ops (the element is still hidden at that instant)
+      // and a keyboard user's next Tab leaves the menu they just opened.
+      const openState = await page.evaluate(() => {
+        // eslint-disable-next-line no-undef
+        const nav = document.querySelector(".nav-links");
+        return {
+          open: nav.classList.contains("open"),
+          // eslint-disable-next-line no-undef
+          visibility: window.getComputedStyle(nav).visibility,
+          // eslint-disable-next-line no-undef
+          focusInside: nav.contains(document.activeElement),
+          // eslint-disable-next-line no-undef
+          expanded: document.querySelector(".nav-toggle").getAttribute("aria-expanded")
+        };
+      });
 
-      if (isActive) {
-        console.log("✅ Mobile menu toggle works.");
-      } else {
-        console.log("❌ Mobile menu did not become active/visible after clicking toggle.");
+      if (closedState.open || closedState.visibility !== "hidden") {
+        console.log(
+          `❌ Mobile menu should start closed and hidden (open=${closedState.open}, visibility=${closedState.visibility}).`
+        );
         exitCode = 1;
+      } else if (!openState.open || openState.visibility !== "visible") {
+        console.log(
+          `❌ Mobile menu did not open after clicking toggle (open=${openState.open}, visibility=${openState.visibility}).`
+        );
+        exitCode = 1;
+      } else if (!openState.focusInside) {
+        console.log(
+          "❌ Mobile menu opened but focus did not move into it (keyboard users lose the menu)."
+        );
+        exitCode = 1;
+      } else if (openState.expanded !== "true") {
+        console.log(
+          `❌ Mobile menu toggle aria-expanded is "${openState.expanded}", expected "true".`
+        );
+        exitCode = 1;
+      } else {
+        console.log("✅ Mobile menu opens, becomes visible, and receives focus.");
       }
     } else {
       console.log("❌ Mobile menu toggle button not found.");
@@ -379,11 +417,15 @@ function createStaticServer(port = 8082) {
           await orderInput.type("cs_test_123456789");
           await orderEmailInput.type("shopper@example.com");
           await page.click("#order-lookup-btn");
+          /* 30s, not 10s: the lookup itself is one fetch with no retries,
+             but inside the full integration run (several Chromiums at once)
+             this step lost the race on two of four runs and passed alone
+             every time. The assertion below still fails if nothing renders. */
           await page.waitForSelector(
             "#order-timeline-container .timeline-step, #order-timeline-container .order-lookup-unavailable",
             {
               visible: true,
-              timeout: 10000
+              timeout: 30000
             }
           );
           const hasResult = await page.evaluate(() => {

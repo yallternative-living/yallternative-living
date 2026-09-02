@@ -23,7 +23,7 @@ window.YL_CONTENT = {
     "giftUpId": "YOUR_GIFTUP_ID",
     "umamiWebsiteId": "YOUR_UMAMI_WEBSITE_ID",
     "enableJournal": false,
-    "enableSocialFeed": true,
+    "enableSocialFeed": false,
     "enableRestockAlerts": true,
     "enableCustomBoxBuilder": true,
     "enableScentFilter": true,

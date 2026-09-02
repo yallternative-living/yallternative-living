@@ -87,7 +87,25 @@
   force = true
 
 [[redirects]]
-  from = "/*.md"
+  from = "/README.md"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/AGENTS.md"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/PROJECT.md"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/TEST_INFRA.md"
   to = "/404.html"
   status = 404
   force = true
@@ -100,12 +118,6 @@
 
 [[redirects]]
   from = "/run-launch-checks.command"
-  to = "/404.html"
-  status = 404
-  force = true
-
-[[redirects]]
-  from = "/TEST_INFRA.md"
   to = "/404.html"
   status = 404
   force = true

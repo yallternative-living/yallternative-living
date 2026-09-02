@@ -386,12 +386,13 @@ assert(
   "parsePickupMarketParam matches upcoming event by location substring"
 );
 
-// Fallback for unlisted/unknown market
-const fallbackMatch = main.parsePickupMarketParam("Charleston Farmers Market", eventsData);
+// An unlisted market is ignored, not echoed back: the old fallback object
+// let any slug (a past market, a typo, an invented name) tick the pickup box
+// and promise free pickup the Worker would never honour.
 eq(
-  fallbackMatch.matchedLabel,
-  "Charleston Farmers Market",
-  "parsePickupMarketParam returns raw decoded string for unknown market"
+  main.parsePickupMarketParam("Charleston Farmers Market", eventsData),
+  null,
+  "parsePickupMarketParam returns null for a market that is not upcoming"
 );
 
 /* -------------------------------------------------------------------------- */
@@ -413,8 +414,19 @@ const sampleEvent = eventsData.upcoming[0];
 const cardHtml = main.eventCardHTML(sampleEvent);
 
 assert(
-  cardHtml.includes('<article class="card event-card reveal">'),
+  cardHtml.includes('<article class="card event-card reveal"'),
   "Card has semantic article wrapper"
+);
+assert(
+  cardHtml.includes('id="' + sampleEvent.id + '"'),
+  "Card carries the event id so search results can deep-link to events.html#<id>"
+);
+const pastCardHtml = main.eventCardHTML(sampleEvent, { past: true });
+assert(
+  !pastCardHtml.includes("pickup_market=") &&
+    !pastCardHtml.includes("calendar.google.com") &&
+    !pastCardHtml.includes("event-map-link"),
+  "A past event card offers no pickup, calendar or directions actions"
 );
 assert(cardHtml.includes(sampleEvent.name), "Card contains event name");
 assert(

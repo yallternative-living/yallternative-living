@@ -893,10 +893,14 @@ const netlifyToml = fs.readFileSync(path.join(__dirname, "..", "netlify.toml"), 
   "/netlify/*",
   "/package.json",
   "/package-lock.json",
-  "/*.md",
+  // Per-file rules: Netlify never matched the old "/*.md" glob, so README.md
+  // was served on the live domain (see qa-check "Top-level Markdown files").
+  "/README.md",
+  "/AGENTS.md",
+  "/PROJECT.md",
+  "/TEST_INFRA.md",
   "/.eslintrc.json",
-  "/run-launch-checks.command",
-  "/TEST_INFRA.md"
+  "/run-launch-checks.command"
 ].forEach(function (blocked) {
   const idx = netlifyToml.indexOf('from = "' + blocked + '"');
   assert(idx !== -1, "netlify.toml has a redirect rule for " + blocked);

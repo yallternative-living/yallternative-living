@@ -505,11 +505,18 @@ const adversarialParams = [
 ];
 
 adversarialParams.forEach((tc) => {
-  const result = main.parsePickupMarketParam(tc.input, eventsData);
-  assert(
-    result && typeof result.marketName === "string",
-    `parsePickupMarketParam safely returned fallback object without throwing for ${tc.desc}`
-  );
+  // An unknown market is ignored (null), never echoed back as a "market":
+  // the old fallback object let a past or invented slug tick the pickup box
+  // and promise free pickup at a booth the Worker would never honour.
+  let result;
+  let threw = null;
+  try {
+    result = main.parsePickupMarketParam(tc.input, eventsData);
+  } catch (e) {
+    threw = e;
+  }
+  assert(threw === null, `parsePickupMarketParam does not throw for ${tc.desc}`);
+  assert(result === null, `parsePickupMarketParam ignores an unknown market for ${tc.desc}`);
   assert(
     !Object.prototype.hasOwnProperty.call(Object.prototype, "marketName"),
     `Global prototype was not polluted by ${tc.desc}`
@@ -527,6 +534,18 @@ assert(main.parsePickupMarketParam("", eventsData) === null, "parsePickupMarketP
 // 3.3 DOM Deep-Link Hydration & XSS banner injection test
 mockWindow.location.search = "?pickup_market=%3Cscript%3Ealert(%22XSS%22)%3C%2Fscript%3E";
 main.handlePickupMarketDeepLink();
+assert(
+  mockDocument.getElementById("pickupMarketBanner") === null,
+  "handlePickupMarketDeepLink injects nothing for a market that is not on the calendar"
+);
+
+// A real upcoming market does hydrate the banner. The deep link reads the
+// calendar from window.YL_EVENTS, the way events-data.js publishes it.
+mockWindow.YL_EVENTS = eventsData;
+const upcomingForBanner = eventsData.upcoming[0];
+assert(upcomingForBanner && upcomingForBanner.id, "fixture has an upcoming event to deep-link to");
+mockWindow.location.search = "?pickup_market=" + encodeURIComponent(upcomingForBanner.id);
+main.handlePickupMarketDeepLink();
 
 const banner = mockDocument.getElementById("pickupMarketBanner");
 assert(banner !== null, "handlePickupMarketDeepLink injected pickupMarketBanner element");
@@ -536,9 +555,10 @@ assert(
 );
 assert(banner.getAttribute("aria-live") === "polite", "pickupMarketBanner has aria-live='polite'");
 assert(
-  banner.innerHTML.includes("&lt;script&gt;alert(&quot;XSS&quot;)&lt;/script&gt;") &&
-    !banner.innerHTML.includes('<script>alert("XSS")</script>'),
-  "pickupMarketBanner securely sanitized XSS payload via attrEsc"
+  banner.innerHTML.includes(
+    main.attrEsc ? main.attrEsc(upcomingForBanner.name) : upcomingForBanner.name
+  ) && !banner.innerHTML.includes("<script"),
+  "pickupMarketBanner names the matched market and carries no script markup"
 );
 
 // Clean up banner

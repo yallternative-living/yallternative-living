@@ -510,7 +510,16 @@ function createStaticServer(port = 8089) {
         await page.evaluate((y) => {
           window.scrollTo(0, y + 600);
         }, ctaBottom);
-        await new Promise((r) => setTimeout(r, 400));
+        // The bar flips on an IntersectionObserver callback, which lands
+        // whenever the compositor gets to it -- a fixed sleep raced it and
+        // lost under CPU contention. Wait for the state (bounded), then
+        // assert; the assertion below still fails if it never arrives.
+        await page
+          .waitForFunction(
+            () => document.getElementById("pdpStickyBar").classList.contains("is-visible"),
+            { timeout: 3000 }
+          )
+          .catch(() => {});
 
         const scrolledVisible = await page.$eval("#pdpStickyBar", (el) =>
           el.classList.contains("is-visible")
@@ -533,7 +542,12 @@ function createStaticServer(port = 8089) {
         await page.evaluate(() => {
           window.scrollTo(0, 0);
         });
-        await new Promise((r) => setTimeout(r, 400));
+        await page
+          .waitForFunction(
+            () => !document.getElementById("pdpStickyBar").classList.contains("is-visible"),
+            { timeout: 3000 }
+          )
+          .catch(() => {});
 
         const backTopVisible = await page.$eval("#pdpStickyBar", (el) =>
           el.classList.contains("is-visible")
@@ -660,10 +674,13 @@ function createStaticServer(port = 8089) {
 
         assert.strictEqual(stickyVal, "1oz", "Sticky select must sync to 1oz");
         assert.strictEqual(stickyPrice, "$13.99", "Sticky price must update to $13.99");
+        // The button keeps the BASE price; cart.js adds the label's delta from
+        // data-item-custom1-options. Writing 13.99 here as well made the cart
+        // apply -$6 twice and charge $7.99.
         assert.strictEqual(
           stickyAddBtnPrice,
-          "13.99",
-          "Sticky button data-item-price must update to 13.99"
+          "19.99",
+          "Sticky button data-item-price must stay at the 19.99 base price"
         );
         assert.strictEqual(
           stickyAddBtnVal,
@@ -695,6 +712,18 @@ function createStaticServer(port = 8089) {
         assert.strictEqual(stickyVal2, "2oz", "Sticky select must sync back to 2oz");
         assert.strictEqual(stickyPrice2, "$19.99", "Sticky price must update back to $19.99");
 
+        // Add the 1oz variant from the sticky bar: a non-zero delta is what
+        // exposes the double-application bug (base+delta on the button AND
+        // the delta again in cart.js), so the cart line is checked below.
+        await page.evaluate(() => {
+          const stickySel = document.querySelector(".pdp-sticky-variant-select");
+          if (stickySel) {
+            stickySel.value = "1oz";
+            stickySel.dispatchEvent(new Event("change", { bubbles: true }));
+          }
+        });
+        await new Promise((r) => setTimeout(r, 200));
+
         // Click sticky add button and verify cart drawer opens with the selected variant
         await page.click(".pdp-sticky-add-btn");
         await new Promise((r) => setTimeout(r, 400));
@@ -709,6 +738,23 @@ function createStaticServer(port = 8089) {
           return window.YLCart ? window.YLCart.count() : 0;
         });
         assert.ok(cartItemCount >= 1, "Cart item count must increase after sticky Add to Cart");
+        const stickyLine = await page.evaluate(() => {
+          try {
+            const items = JSON.parse(window.localStorage.getItem("yl-cart-v1") || "{}").items || [];
+            const it = items.find((i) => i.id === "frankincense-salve");
+            // Round to cents: 19.99 + -6 is 13.989999... in floating point.
+            return it
+              ? Math.round((Number(it.price) + Number(it.variantDelta || 0)) * 100) / 100
+              : null;
+          } catch (e) {
+            return null;
+          }
+        });
+        assert.strictEqual(
+          stickyLine,
+          13.99,
+          "The sticky-bar add lands in the cart at the sticky price (base + delta once)"
+        );
 
         await page.close();
       }

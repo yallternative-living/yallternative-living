@@ -403,9 +403,13 @@ eq(main.pickFeatured([]), [], "pickFeatured handles empty array");
 
 /* 3. addToCartHTML */
 const giftCard = { id: "yallternative-gift-card" };
+/* The mock document has no #giftCardModal, i.e. this is any page but
+   shop.html: the link must carry the shopper TO the shop, where the dialog
+   opens on that hash. A bare "#gift-cards" here was a dead link on the
+   home page. */
 assert(
-  main.addToCartHTML(giftCard).includes('href="#gift-cards"'),
-  "addToCartHTML special-cases gift cards"
+  main.addToCartHTML(giftCard).includes('href="shop.html#gift-cards"'),
+  "addToCartHTML special-cases gift cards (off-shop: links to the shop's configurator)"
 );
 
 const soldOut = { id: "salve-1", name: "Salve", price: 15, stock: 0 };
@@ -1150,9 +1154,11 @@ assert(
   testStickyAddBtn.getAttribute("data-item-custom1-value") === "4oz",
   "sticky add button custom1 value updates to 4oz"
 );
+/* The buttons keep the BASE price; cart.js adds the label's delta from
+   data-item-custom1-options. Writing base+delta here used to double it. */
 assert(
-  testStickyAddBtn.getAttribute("data-item-price") === "19.99",
-  "sticky add button price updates to 19.99"
+  testStickyAddBtn.getAttribute("data-item-price") === "13.99",
+  "sticky add button keeps the base price (cart.js adds the variant delta)"
 );
 assert(testMainSelect.value === "4oz", "main variant selector synchronizes to 4oz");
 assert(testMainPriceEl.textContent === "$19.99", "main PDP price updates to $19.99");
@@ -1161,8 +1167,8 @@ assert(
   "main add button custom1 value updates to 4oz"
 );
 assert(
-  testMainAddBtn.getAttribute("data-item-price") === "19.99",
-  "main add button price updates to 19.99"
+  testMainAddBtn.getAttribute("data-item-price") === "13.99",
+  "main add button keeps the base price (cart.js adds the variant delta)"
 );
 
 // Test Two-way Variant Synchronization: main select changes back to 2oz ($13.99)
@@ -1180,7 +1186,7 @@ assert(
 );
 assert(
   testStickyAddBtn.getAttribute("data-item-price") === "13.99",
-  "sticky add button price updates back to 13.99"
+  "sticky add button still carries the base price after switching back"
 );
 
 // Restore mockDocument
@@ -1570,9 +1576,10 @@ const privacySrc = fs404.readFileSync(path404.join(repoRoot, "privacy.html"), "u
 /* Every form that collects something has to be described. */
 [
   ["Contact form", /Contact form/],
-  ["product review", /Product review form/],
-  ["shop review", /Shop review form/],
+  ["review", /Review form/],
   ["restock alert", /Restock &amp; launch alerts/],
+  ["order lookup", /Order lookup/],
+  ["gift card balance", /Gift card balance check/],
   ["gift card recipient", /Gift card recipient details/],
   ["newsletter", /Newsletter signup/],
   ["live chat", /Live chat/]

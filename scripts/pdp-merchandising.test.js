@@ -394,7 +394,17 @@ productsData.products.forEach((p) => {
   const pFile = path.join(ROOT, "products", `${p.id}.html`);
   const html = fs.readFileSync(pFile, "utf8");
 
-  if (Array.isArray(p.pairsWith) && p.pairsWith.length > 0) {
+  /* The build drops partners that cannot be bought (Coming Soon / no
+     stock); a product whose every partner is unbuyable gets no section. */
+  const buyablePartners = (Array.isArray(p.pairsWith) ? p.pairsWith : [])
+    .map((id) => productsData.products.find((q) => q.id === id))
+    .filter((q) => q && !q.comingSoon && q.stock !== 0);
+  if (Array.isArray(p.pairsWith) && p.pairsWith.length > 0 && buyablePartners.length === 0) {
+    assert(
+      !html.includes('class="pdp-ritual-section"'),
+      `products/${p.id}.html renders no ritual section when every partner is unbuyable`
+    );
+  } else if (Array.isArray(p.pairsWith) && p.pairsWith.length > 0) {
     assert(
       html.includes('class="pdp-ritual-section"'),
       `products/${p.id}.html renders pdp-ritual-section`
