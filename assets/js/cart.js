@@ -1378,8 +1378,12 @@
       }
     });
 
-    // Event delegation for qty +/- and remove.
-    itemsEl.addEventListener("click", function (e) {
+    /* Delegated from the DRAWER, not from .yl-cart-items. The undo button
+       lives in the footer (`.yl-cart-foot`), so an items-only listener never
+       saw it: removing a line and clicking Undo did nothing, the notice
+       stayed on screen, and the shopper had no signal it had failed (live
+       audit H1). The drawer root contains both regions. */
+    drawer.addEventListener("click", function (e) {
       var btn = e.target.closest("[data-cart-action]");
       if (!btn) return;
       var key = btn.getAttribute("data-key");
