@@ -565,8 +565,34 @@ it("Product domain queries isolate top product results correctly", () => {
   });
 });
 
+/* The Journal is a switchable feature (content.json site.enableJournal). When
+   it is off the build emits no journal entries into the search index, so the
+   engine must return none -- a ">0" assertion here would only ever hold while
+   the switch is on. Both journal-domain tests read the switch instead. */
+const JOURNAL_ENABLED = (() => {
+  try {
+    const site = JSON.parse(
+      require("fs").readFileSync(
+        require("path").join(__dirname, "..", "assets", "data", "content.json"),
+        "utf8"
+      )
+    ).site;
+    return !(site && site.enableJournal === false);
+  } catch {
+    return true;
+  }
+})();
+
 it("Journal domain query 'small batch difference' ranks journal article at top", () => {
   const res = mainJs.searchGlobal("small batch difference");
+  if (!JOURNAL_ENABLED) {
+    assert.strictEqual(
+      res.journal.length,
+      0,
+      "Journal results must be empty while the Journal is off"
+    );
+    return;
+  }
   assert.ok(res.journal.length > 0, "Journal results must not be empty");
   assert.strictEqual(res.journal[0].id, "small-batch-difference");
 });
@@ -595,7 +621,15 @@ it("FAQ domain query 'shelf life potency' ranks shelf life FAQ at top", () => {
 it("Cross-content universal query 'magnesium' returns simultaneous results across multiple domains", () => {
   const res = mainJs.searchGlobal("magnesium");
   assert.ok(res.products.length > 0, "Must return magnesium products");
-  assert.ok(res.journal.length > 0, "Must return magnesium journal article");
+  if (JOURNAL_ENABLED) {
+    assert.ok(res.journal.length > 0, "Must return magnesium journal article");
+  } else {
+    assert.strictEqual(
+      res.journal.length,
+      0,
+      "Journal results must be empty while the Journal is off"
+    );
+  }
   assert.strictEqual(
     res.totalCount,
     res.products.length + res.journal.length + res.events.length + res.faq.length,
