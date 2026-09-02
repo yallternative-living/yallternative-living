@@ -384,12 +384,25 @@ async function main() {
     assert.strictEqual(items[1].variantLabel, "Extra:Colon:Payload");
   });
 
-  runTest("R4.7: parseSharedCartParam supports bundles", () => {
-    const bundleStr = "starter-self-care-set:1,bundle-starter-self-care-set:1";
+  runTest("R4.7: parseSharedCartParam supports bundles, with the choices they need", () => {
+    /* The set contains the frankincense salve and the hand scrub, which both
+       come in two sizes, so a shared bundle must carry a size for each (live
+       audit 2026-09-02, B-C1). A token without them is dropped rather than
+       rebuilt as a size-less set. */
+    const choiceless = cart.parseSharedCartParam(
+      "starter-self-care-set:1,bundle-starter-self-care-set:1",
+      catalogData
+    );
+    assert.strictEqual(choiceless.length, 0);
+    const choices = "~frankincense-salve=1oz|hand-scrub=2%20oz";
+    const bundleStr =
+      "starter-self-care-set:1:" + choices + ",bundle-starter-self-care-set:1:" + choices;
     const items = cart.parseSharedCartParam(bundleStr, catalogData);
     assert.strictEqual(items.length, 2);
-    assert.strictEqual(items[0].id, "starter-self-care-set");
-    assert.strictEqual(items[1].id, "starter-self-care-set");
+    assert.strictEqual(items[0].id, "bundle-starter-self-care-set");
+    assert.strictEqual(items[1].id, "bundle-starter-self-care-set");
+    assert.strictEqual(items[0].bundleVariants["frankincense-salve"], "1oz");
+    assert.strictEqual(items[1].bundleVariants["hand-scrub"], "2 oz");
   });
 
   runTest(

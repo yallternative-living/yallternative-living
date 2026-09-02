@@ -277,6 +277,31 @@ check("Policy query 'shipping' reaches the FAQ domain", () => {
   assert.ok(faq.length > 0, "FAQ entries returned for a shipping question");
 });
 
+/* Live audit M1. "shipping" used to be one synonym grab-bag holding "refund",
+   "gift card balance", "balance" and "landrum", and a reverse match injected
+   every sibling of that group -- tokenised down to single words -- into the
+   query. Searching "refund" therefore led with six gift sets and four farmers'
+   markets, and the return-policy FAQ never appeared at all. */
+check("Policy query 'refund' leads with the return-policy FAQ and nothing else", () => {
+  const res = mainJs.searchGlobal("refund");
+  assert.ok(res.faq.length > 0, "the FAQ domain answers a refund question");
+  assert.ok(
+    /return policy/i.test(res.faq[0].question),
+    'first FAQ hit is the return policy (got "' + (res.faq[0] && res.faq[0].question) + '")'
+  );
+  assert.strictEqual(res.products.length, 0, "no gift cards or gift sets are dragged in");
+  assert.strictEqual(res.events.length, 0, "no farmers' markets are dragged in by 'landrum'");
+});
+
+check("A policy synonym group leaks no token from another intent", () => {
+  const expanded = mainJs.expandTokensWithSynonyms(mainJs.tokenizeQuery("refund"));
+  assert.ok(expanded.includes("return"), "refund still reaches the returns intent");
+  assert.ok(!expanded.includes("gift"), "no gift-card token leaks in");
+  assert.ok(!expanded.includes("card"), "no gift-card token leaks in");
+  assert.ok(!expanded.includes("balance"), "no gift-card token leaks in");
+  assert.ok(!expanded.includes("landrum"), "no location token leaks in");
+});
+
 check("Location query 'farmers market' reaches the events domain", () => {
   const events = mainJs.searchGlobal("farmers market").events;
   assert.ok(events.length > 0, "Events returned for a market query");

@@ -706,10 +706,29 @@ function testShareCartAndMerging() {
     eq(with1oz[0].variantDelta, -6.0, "Variant delta correctly parsed for 1oz");
     eq(with1oz[0].variantLabel, "1oz", "Variant label correctly set");
 
-    // Bundle slug parsing
-    const withBundle = cartEngine.parseSharedCartParam("starter-self-care-set:1", mockCatalog);
+    // Bundle slug parsing. The set contains the frankincense salve, which has
+    // sizes, so a shared bundle needs a size choice or it is dropped rather
+    // than rebuilt size-less (live audit 2026-09-02, B-C1).
+    const choicelessBundle = cartEngine.parseSharedCartParam(
+      "starter-self-care-set:1",
+      mockCatalog
+    );
+    eq(choicelessBundle.length, 0, "Bundle without its required size choice is dropped");
+    const withBundle = cartEngine.parseSharedCartParam(
+      "starter-self-care-set:1:~frankincense-salve=1oz",
+      mockCatalog
+    );
     eq(withBundle.length, 1, "Bundle resolved from catalog");
-    eq(withBundle[0].id, "starter-self-care-set", "Bundle id preserved");
+    eq(
+      withBundle[0].id,
+      "bundle-starter-self-care-set",
+      "Bundle line id carries the bundle- prefix"
+    );
+    eq(
+      withBundle[0].bundleVariants["frankincense-salve"],
+      "1oz",
+      "Bundle keeps the shared size choice"
+    );
   }
 
   // 2.2 Merging into existing cart list with addToList

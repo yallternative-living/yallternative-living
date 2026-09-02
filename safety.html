@@ -132,7 +132,7 @@
   </div>
 
   <!-- FIRST THINGS FIRST -->
-  <section>
+  <section class="safety-steps-section">
     <div class="container safety-prose">
       <h2>First, look after yourself</h2>
       <ol class="safety-steps">
@@ -152,7 +152,7 @@
     </div>
   </section>
 
-  <hr class="rule">
+  <hr class="rule safety-rule-tight">
 
   <!-- THE FORM -->
   <section id="reaction-report">
@@ -164,6 +164,13 @@
         <h3>Report filed. Thank you.</h3>
         <p>Your reference number is <strong class="safety-reference" id="safetyReference"></strong>. Write it down &mdash; we&#39;ve emailed it to you as well. Quote it if you write to us about this again.</p>
         <p>A person reads every report. If you said we could follow up, we may write with a question or two.</p>
+      </div>
+
+      <!-- Shown when the Worker accepted the request but did NOT file
+           anything (the honeypot path). It must never read like a receipt. -->
+      <div class="safety-result safety-result-error" id="safetyEmailUs" hidden>
+        <h3>This one didn&#39;t go through.</h3>
+        <p>Nothing was saved and nothing was emailed. Please write to <a href="mailto:y.allternative.living@gmail.com">y.allternative.living@gmail.com</a> and tell us what happened &mdash; a person reads every one of these. If you still have the jar or the label, mention the lot number.</p>
       </div>
 
       <div class="safety-result safety-result-error" id="safetyFormError" role="alert" hidden></div>

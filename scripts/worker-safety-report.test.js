@@ -365,22 +365,62 @@ async function testHoneypot() {
   const worker = workerModule.default || workerModule;
   const env = await makeEnv();
 
+  /* This route does NOT get the silent honeypot the newsletter routes get.
+     It used to: it answered {ok:true, reference:"YL-AE-...."} and the page
+     said "Report filed. Thank you ... we've emailed it to you as well" while
+     nothing was stored and nothing was sent, so any false positive on the
+     hidden field told someone reporting a skin reaction that their MoCRA
+     report was on file (live audit M11). It still stores and sends nothing;
+     it just stops pretending. */
   await withResend(async (calls) => {
     const res = await worker.fetch(
       postJson({ ...BASE_REPORT, website_hp: "http://spam.example" }),
       env,
       noCtx
     );
-    eq(res.status, 200, "a filled honeypot gets the SAME status a person gets");
+    eq(res.status, 200, "a filled honeypot is still accepted with a 200");
     const body = await res.json();
-    assert(body.ok === true, "…the same success shape");
+    assert(body.ok === true, "…still the accepted shape");
+    eq(body.filed, false, "…but it says plainly that nothing was filed");
+    eq(body.reference, undefined, "…and mints no reference number to pretend with");
     assert(
-      typeof body.reference === "string" && /^YL-AE-/.test(body.reference),
-      "…and a reference-shaped string, so the bot cannot tell it was caught"
+      typeof body.message === "string" && /y\.allternative\.living@gmail\.com/.test(body.message),
+      "…and points the reporter at a human instead"
+    );
+    assert(
+      !/filed|logged|emailed it to you/i.test(body.message),
+      "…without claiming the report was filed or emailed"
     );
     eq(calls.resend.length, 0, "nothing is emailed for a honeypot hit");
     const stored = await env.STATE_DB.prepare("SELECT COUNT(*) AS n FROM adverse_events").first();
     eq(stored.n, 0, "and nothing is written to adverse_events");
+  });
+
+  /* The no-JS form post has to say the same thing. It used to 303 to
+     #safetySuccess, i.e. the "Report filed. Thank you." panel. */
+  await withResend(async () => {
+    const res = await worker.fetch(
+      new Request("https://yallternativeliving.com/api/safety-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          ...BASE_REPORT,
+          website_hp: "http://spam.example"
+        }).toString()
+      }),
+      env,
+      noCtx
+    );
+    eq(res.status, 303, "the no-JS honeypot post still redirects back to the page");
+    const location = res.headers.get("Location") || "";
+    assert(
+      location.includes("report=email-us") && location.endsWith("#safetyEmailUs"),
+      `no-JS honeypot lands on the "email us" panel, not the receipt (got ${location})`
+    );
+    assert(
+      !location.includes("safetySuccess") && !location.includes("ref="),
+      "no-JS honeypot carries no reference and never targets the success panel"
+    );
   });
 }
 

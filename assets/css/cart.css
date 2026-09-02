@@ -267,6 +267,14 @@
   color: var(--rose);
   background: oklch(from var(--rose) l c h / 0.15);
 }
+/* The chosen size/scent inside a gift set, and the contents of a
+   build-your-own box -- both used to be invisible on the line (live audit
+   C1 / M9). */
+.yl-cart-line-contents {
+  display: block;
+  line-height: 1.35;
+}
+
 .yl-cart-variant {
   font-size: 0.78rem;
   color: var(--paper-dim);
@@ -372,6 +380,24 @@
 }
 .yl-cart-upsell {
   margin-bottom: 12px;
+  position: relative;
+}
+
+/* The row scrolls, but at a fixed 195px per card two items came to 400px in
+   ~376px of drawer, so the second was cut flush against the edge with
+   nothing to say the row continued -- and in dark theme the 4px scrollbar is
+   effectively invisible (live audit L7). Narrow the cards so two fit, and
+   fade the right edge when a third is waiting. */
+.yl-cart-upsell::after {
+  content: "";
+  position: absolute;
+  right: -2px;
+  bottom: 6px;
+  height: 62px;
+  width: 26px;
+  pointer-events: none;
+  border-radius: 0 10px 10px 0;
+  background: linear-gradient(90deg, transparent, var(--ink-2));
 }
 .yl-cart-upsell-title {
   margin: 0 0 8px;
@@ -404,7 +430,18 @@
   border-radius: 4px;
 }
 .yl-cart-upsell-item {
-  flex: 0 0 195px;
+  /* Longhand on purpose: a math function in the `flex` shorthand's basis
+     slot is dropped as invalid by the engine, which is how these went back
+     to sizing off their own content. */
+  flex-grow: 0;
+  flex-shrink: 0;
+  flex-basis: 160px;
+  /* A flex item's default `min-width: auto` is its min-content width, which
+     for these is the longest word in the product name -- so the basis above
+     was silently ignored and the cards sized off their own text (318px for
+     "Miracle Frankincense Salve"). The inner .yl-cart-upsell-name already
+     ellipsises; this is what lets it. */
+  min-width: 0;
   scroll-snap-align: start;
   display: flex;
   align-items: center;
@@ -682,7 +719,7 @@
 .yl-cart-milestones,
 .yl-cart-ship {
   margin-bottom: 14px;
-  padding: 12px 18px 30px;
+  padding: 12px 18px 46px;
   background: var(--ink-3);
   border: 1px solid var(--hide);
   border-radius: 8px;
@@ -710,10 +747,17 @@
   border-radius: 999px;
   background: var(--ink-2);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  margin: 0 8px 12px 8px;
+  margin: 0 8px 6px 8px;
 }
+/* `>` matters. The track element carries BOTH classes
+   (`yl-cart-milestones-track yl-cart-ship-bar`, see cart.js), and the
+   milestone pins are appended inside it -- so a descendant selector here gave
+   every "$40"/"$60" pin LABEL the progress bar's own whiskey-to-rose
+   gradient, display:block, height:100% and border-radius:999px. That is what
+   the audit saw as "low-contrast pink discs sitting on the progress track"
+   (live audit L7); the labels are text, not bar segments. */
 .yl-cart-milestones-fill,
-.yl-cart-ship-bar span {
+.yl-cart-ship-bar > span {
   display: block;
   height: 100%;
   background: linear-gradient(90deg, var(--whiskey), var(--rose));
@@ -721,10 +765,15 @@
   transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow: 0 0 8px oklch(from var(--whiskey) l c h / 0.4);
 }
+/* The pins used to sit ON the track (top:50% + a -50% Y translate), i.e. a
+   dim disc on top of the whiskey-to-rose fill, which is where the "$40 / $60
+   markers you can barely see" reading came from (live audit L7). Hang them
+   under the track instead, where they have the drawer background behind
+   them and the label has room. */
 .yl-cart-milestone-pin {
   position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  top: 100%;
+  transform: translate(-50%, 3px);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -736,9 +785,9 @@
   height: 18px;
   padding: 3px;
   background: var(--ink-2);
-  border: 2px solid var(--hide);
+  border: 2px solid var(--paper-dim);
   border-radius: 50%;
-  color: var(--paper-dim);
+  color: var(--paper);
   transition: all 0.25s ease;
   box-sizing: border-box;
 }
@@ -776,8 +825,8 @@
 :root[data-theme="light"] .yl-cart-milestone-pin .yl-cart-icon,
 :root:not([data-theme="dark"]):not([data-theme="light"]) .yl-cart-milestone-pin .yl-cart-icon {
   background: var(--ink-2);
-  border-color: var(--hide);
-  color: var(--paper-dim);
+  border-color: var(--paper-dim);
+  color: var(--paper);
 }
 :root[data-theme="light"] .yl-cart-milestone-pin.is-reached .yl-cart-icon,
 :root:not([data-theme="dark"]):not([data-theme="light"])

@@ -56,7 +56,117 @@
     if (item.id === "custom-box") {
       return item.id + "|" + (item.boxProductIds || []).join(",");
     }
+    /* A gift set whose members carry a size/scent/blend is identified by the
+       choices too: "Pride Set / tee M" and "Pride Set / tee L" are two
+       different things to pick, pack and ship, so they must not merge into
+       one qty-2 line (live audit C1). */
+    var bundleKey = bundleVariantKey(item.bundleVariants);
+    if (bundleKey) return item.id + "|" + bundleKey;
     return item.id + "|" + (item.variantLabel || "");
+  }
+
+  /* The per-member choices a gift set was added with, as a stable string.
+     Key order is sorted so two carts that recorded the same choices in a
+     different order still collapse onto one line. */
+  function bundleVariantKey(bundleVariants) {
+    var clean = normalizeBundleVariants(bundleVariants);
+    if (!clean) return "";
+    return Object.keys(clean)
+      .sort()
+      .map(function (pid) {
+        return pid + "=" + clean[pid];
+      })
+      .join(";");
+  }
+
+  /* Only ever a flat {productId: optionLabel} map of non-empty strings.
+     localStorage and the ?cart= link are both shopper-writable, so anything
+     else (nested objects, numbers, prototype junk) is discarded rather than
+     carried into the checkout payload. */
+  function normalizeBundleVariants(raw) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+    var out = Object.create(null);
+    var found = false;
+    Object.keys(raw).forEach(function (pid) {
+      var label = raw[pid];
+      if (typeof pid !== "string" || !pid.trim()) return;
+      if (typeof label !== "string" || !label.trim()) return;
+      out[pid] = label;
+      found = true;
+    });
+    if (!found) return null;
+    // A plain object, not the null-prototype accumulator: this gets
+    // JSON.stringify'd into the checkout body and stored in localStorage.
+    var plain = {};
+    Object.keys(out)
+      .sort()
+      .forEach(function (pid) {
+        plain[pid] = out[pid];
+      });
+    return plain;
+  }
+
+  /* Which members of a gift set still need a choice, straight from the
+     catalog. The bundle records only list productIds, so a product that
+     grows an option starts being asked about here with no data migration --
+     and workers/checkout.js derives the same list server-side. */
+  function bundleVariantMembersFor(bundle, catalog) {
+    if (!bundle || !Array.isArray(bundle.productIds)) return [];
+    var cat = catalog || getCatalog() || {};
+    var products = Array.isArray(cat.products) ? cat.products : [];
+    var byId = new Map();
+    products.forEach(function (p) {
+      if (p && p.id) byId.set(p.id, p);
+    });
+    var members = [];
+    bundle.productIds.forEach(function (id) {
+      var p = byId.get(id);
+      if (!p || !p.variants || !Array.isArray(p.variants.options) || !p.variants.options.length) {
+        return;
+      }
+      members.push({ productId: id, product: p, options: p.variants.options });
+    });
+    return members;
+  }
+
+  /* The bundle behind a cart line id ("bundle-pride-set" or "pride-set"). */
+  function catalogBundle(id) {
+    var cat = getCatalog() || {};
+    var bundles = Array.isArray(cat.bundles) ? cat.bundles : [];
+    var bare = String(id || "").indexOf("bundle-") === 0 ? String(id).slice(7) : String(id || "");
+    for (var i = 0; i < bundles.length; i++) {
+      if (bundles[i] && bundles[i].id === bare) return bundles[i];
+    }
+    return null;
+  }
+
+  /* A gift set is its members at a discount, so a member upgrade (the 4 oz
+     hand scrub, the 24 oz soak) moves the set's price. Same arithmetic as
+     bundlesHTML() in main.js and resolveBundlePriceDollars() in
+     workers/checkout.js -- the Worker is the one that actually charges. */
+  function bundleLinePrice(bundle, bundleVariants, catalog) {
+    if (!bundle || !Array.isArray(bundle.productIds)) return 0;
+    var cat = catalog || getCatalog() || {};
+    var products = Array.isArray(cat.products) ? cat.products : [];
+    var byId = new Map();
+    products.forEach(function (p) {
+      if (p && p.id) byId.set(p.id, p);
+    });
+    var chosen = normalizeBundleVariants(bundleVariants) || {};
+    var full = 0;
+    for (var i = 0; i < bundle.productIds.length; i++) {
+      var p = byId.get(bundle.productIds[i]);
+      if (!p) return 0;
+      full += p.originalPrice || p.price || 0;
+      var label = chosen[bundle.productIds[i]];
+      if (label && p.variants && Array.isArray(p.variants.options)) {
+        var opt = p.variants.options.find(function (o) {
+          return o && o.label === label;
+        });
+        if (opt && typeof opt.priceDelta === "number") full += opt.priceDelta;
+      }
+    }
+    return Math.round(full * (1 - (bundle.discountPercent || 0) / 100) * 100) / 100;
   }
 
   // Parse Snipcart-style custom-field options ("M[+0.00]|L[+2.00]") and return
@@ -339,6 +449,12 @@
         if (it.id === "custom-box" && Array.isArray(it.boxProductIds)) {
           o.boxProductIds = it.boxProductIds.slice();
         }
+        /* A gift set carries the choice made for each of its variant-bearing
+           members. The Worker re-derives which members need one and rejects
+           an unknown or sold-out label with a 400 the drawer surfaces, so
+           this is a claim to be checked, never a price input. */
+        var bundleChoices = normalizeBundleVariants(it.bundleVariants);
+        if (bundleChoices) o.bundleVariants = bundleChoices;
         if (it.id === GIFT_CARD_ID) {
           if (it.giftRecipientEmail) o.giftRecipientEmail = it.giftRecipientEmail;
           if (it.giftSenderName) o.giftSenderName = it.giftSenderName;
@@ -662,7 +778,24 @@
     var compact = items
       .map(function (it) {
         var parts = [it.id, it.qty];
-        if (it.variantLabel) parts.push(it.variantLabel);
+        /* Gift-set choices ride in the third field behind a "~" marker, as
+           "~productId=Label|productId=Label". Each half is percent-encoded so
+           a label containing a separator (or the marker itself) survives the
+           round trip -- parseSharedCartParam decodes and then re-validates
+           every pair against the catalog. */
+        var bundleChoices = normalizeBundleVariants(it.bundleVariants);
+        if (bundleChoices) {
+          parts.push(
+            "~" +
+              Object.keys(bundleChoices)
+                .map(function (pid) {
+                  return encodeURIComponent(pid) + "=" + encodeURIComponent(bundleChoices[pid]);
+                })
+                .join("|")
+          );
+        } else if (it.variantLabel) {
+          parts.push(it.variantLabel);
+        }
         return parts.join(":");
       })
       .join(",");
@@ -699,6 +832,61 @@
       var variantLabel = parts.slice(2).join(":") || "";
       var product = pMap.get(id);
       if (!product) return;
+
+      /* Gift set: the third field is "~pid=Label|pid=Label" (see
+         generateShareCartUrl). Every pair is re-checked against the real
+         catalog options here -- an unknown or sold-out label drops the whole
+         line rather than rebuilding a set nobody can pack. A set that needs
+         choices and arrives without them is dropped for the same reason. */
+      var sharedBundle = Array.isArray(product.productIds) && !product.variants ? product : null;
+      if (sharedBundle) {
+        var members = bundleVariantMembersFor(sharedBundle, cat);
+        var picked = {};
+        if (variantLabel.charAt(0) === "~") {
+          variantLabel
+            .slice(1)
+            .split("|")
+            .forEach(function (pair) {
+              var eq = pair.indexOf("=");
+              if (eq === -1) return;
+              var pid, label;
+              try {
+                pid = decodeURIComponent(pair.slice(0, eq));
+                label = decodeURIComponent(pair.slice(eq + 1));
+              } catch {
+                return;
+              }
+              if (pid && label) picked[pid] = label;
+            });
+        }
+        var ok = true;
+        members.forEach(function (m) {
+          var chosen = picked[m.productId];
+          var opt = chosen
+            ? m.options.find(function (o) {
+                return o && o.label === chosen;
+              })
+            : null;
+          if (!opt || opt.soldOut) ok = false;
+        });
+        if (!ok) return;
+        var bundleChoices = members.length ? normalizeBundleVariants(picked) : null;
+        var bundleFirst = pMap.get(sharedBundle.productIds[0]);
+        items.push({
+          id: "bundle-" + sharedBundle.id,
+          name: sharedBundle.name,
+          price: bundleLinePrice(sharedBundle, bundleChoices, cat),
+          image: (bundleFirst && bundleFirst.image) || sharedBundle.image || "",
+          category: "bundle",
+          variantName: "",
+          variantLabel: "",
+          variantDelta: 0,
+          bundleVariants: bundleChoices,
+          maxQty: null,
+          qty: clampQty(isNaN(rawQty) ? 1 : rawQty, null)
+        });
+        return;
+      }
 
       var maxQty = product.stock && product.stock > 0 ? product.stock : null;
       var qty = clampQty(isNaN(rawQty) ? 1 : rawQty, maxQty);
@@ -940,6 +1128,10 @@
   if (typeof module !== "undefined" && module.exports) {
     module.exports = {
       lineKey: lineKey,
+      bundleVariantKey: bundleVariantKey,
+      normalizeBundleVariants: normalizeBundleVariants,
+      bundleVariantMembersFor: bundleVariantMembersFor,
+      bundleLinePrice: bundleLinePrice,
       deltaForLabel: deltaForLabel,
       clampQty: clampQty,
       startQtyFromAttr: startQtyFromAttr,
@@ -1147,6 +1339,31 @@
           dropped++;
           return;
         }
+      }
+      /* Same rule for a gift set: a saved Pride Set whose tee size has since
+         sold out -- or one saved before the set asked for a size at all --
+         is dropped rather than sent to a checkout that would reject it, or
+         (worse) shipped with fulfilment guessing the size. */
+      var liveBundle = catalogBundle(it.id);
+      if (liveBundle) {
+        var members = bundleVariantMembersFor(liveBundle);
+        var picked = normalizeBundleVariants(it.bundleVariants) || {};
+        var bundleOk = true;
+        members.forEach(function (m) {
+          var label = picked[m.productId];
+          var chosenOpt = label
+            ? m.options.find(function (o) {
+                return o && o.label === label;
+              })
+            : null;
+          if (!chosenOpt || chosenOpt.soldOut) bundleOk = false;
+        });
+        if (!bundleOk) {
+          dropped++;
+          return;
+        }
+        it.bundleVariants = members.length ? picked : null;
+        if (!it.bundleVariants) delete it.bundleVariants;
       }
       it.price = price;
       it.qty = clampQty(it.qty, it.maxQty);
@@ -1378,8 +1595,12 @@
       }
     });
 
-    // Event delegation for qty +/- and remove.
-    itemsEl.addEventListener("click", function (e) {
+    /* Delegated from the DRAWER, not from .yl-cart-items. The undo button
+       lives in the footer (`.yl-cart-foot`), so an items-only listener never
+       saw it: removing a line and clicking Undo did nothing, the notice
+       stayed on screen, and the shopper had no signal it had failed (live
+       audit H1). The drawer root contains both regions. */
+    drawer.addEventListener("click", function (e) {
       var btn = e.target.closest("[data-cart-action]");
       if (!btn) return;
       var key = btn.getAttribute("data-key");
@@ -1568,6 +1789,28 @@
         var uPrice = unitPrice(it, state.items);
         var line = uPrice * it.qty;
         var variantText = it.variantLabel ? escapeHtml(it.variantLabel) : "";
+        /* What is actually IN this line. A gift set lists the size/scent
+           picked for each member (live audit C1) and a build-your-own box
+           lists its contents (live audit M9) -- the box used to read only
+           "Build-Your-Own Box (3 items)", with the picker already reset, so
+           there was no way to check what you had chosen. */
+        var lineContents = "";
+        var lineBundleChoices = normalizeBundleVariants(it.bundleVariants);
+        if (lineBundleChoices) {
+          lineContents = Object.keys(lineBundleChoices)
+            .map(function (pid) {
+              var member = catalogProduct(pid);
+              return (member ? member.name : pid) + ": " + lineBundleChoices[pid];
+            })
+            .join(" · ");
+        } else if (it.id === "custom-box" && Array.isArray(it.boxProductIds)) {
+          lineContents = it.boxProductIds
+            .map(function (pid) {
+              var boxed = catalogProduct(pid);
+              return boxed ? boxed.name : pid;
+            })
+            .join(" · ");
+        }
         var activeRule = getActiveRuleForItem(it, state.items);
         var isDiscounted = !!activeRule;
         var baseUnitPrice =
@@ -1614,6 +1857,11 @@
           "</button>" +
           "</div>" +
           (variantText ? '<span class="yl-cart-variant">Variant: ' + variantText + "</span>" : "") +
+          (lineContents
+            ? '<span class="yl-cart-variant yl-cart-line-contents">' +
+              escapeHtml(lineContents) +
+              "</span>"
+            : "") +
           (recipientText || "") +
           (isDiscounted
             ? '<span class="yl-cart-badge" style="display:inline-block; font-size:0.72rem; color:var(--whiskey); font-weight:600; margin-top:2px;">' +
@@ -2601,7 +2849,7 @@
   function addItem(item) {
     if (!item || !item.id) return;
     ensureDrawer();
-    state.items = addToList(state.items, {
+    var line = {
       id: item.id,
       name: item.name || item.id,
       price: Number(item.price) || 0,
@@ -2612,7 +2860,10 @@
       variantDelta: Number(item.variantDelta) || 0,
       maxQty: item.maxQty || null,
       qty: Number(item.qty) > 0 ? Number(item.qty) : 1
-    });
+    };
+    var addBundleChoices = normalizeBundleVariants(item.bundleVariants);
+    if (addBundleChoices) line.bundleVariants = addBundleChoices;
+    state.items = addToList(state.items, line);
     save();
     render();
     openDrawer();

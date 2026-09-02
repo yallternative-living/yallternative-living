@@ -111,11 +111,12 @@
         <span class="hero-separator" aria-hidden="true">·</span>
         <div class="shop-rating-inline">
           <span class="stars" aria-hidden="true">★★★★★</span>
-          <span class="rating-text"><b>4.9 out of 5 on Etsy</b> (32 reviews · 105+ sales)</span>
+          <span class="rating-text"><b>4.9 out of 5 on Etsy</b> across 32 reviews · 105+ sales</span>
         </div>
       </div>
       <h1>Customer Reviews &amp; Social Proof</h1>
       <p class="lede">Real feedback from real folks across the Carolinas and beyond. Every review is written by genuine customers who have experienced our small-batch salves, soaks, body care, and apparel.</p>
+      <p class="muted reviews-scope-note">That 4.9 is our whole Etsy shop, 32 reviews and counting. The 22 below are the ones left for goods we still sell here, copied across word for word; the rest were for listings that have since retired.</p>
     </div>
   </div>
 
@@ -127,14 +128,20 @@
           <label for="reviewSearchInput" class="sr-only">Search reviews by keyword, product, or reviewer</label>
           <div class="search-input-wrap">
             <svg class="icon-search" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input type="search" id="reviewSearchInput" placeholder="Search reviews (e.g. salve, knuckles, soak)..." autocomplete="off">
+            <input type="search" id="reviewSearchInput" placeholder="Search reviews (e.g. salve, soak, bug)..." autocomplete="off">
           </div>
         </div>
         <div class="filter-row review-rating-chips" role="group" aria-label="Filter reviews by star rating">
-          <button class="filter-pill active" type="button" data-rating="all" aria-pressed="true">All Ratings</button>
-          <button class="filter-pill" type="button" data-rating="5" aria-pressed="false">5★ Only</button>
-          <button class="filter-pill" type="button" data-rating="4" aria-pressed="false">4★ Only</button>
-          <button class="filter-pill" type="button" data-rating="3" aria-pressed="false">3★ Only</button>
+          <!-- main.js rebuilds this row from the real star distribution, so
+               every level shows with its true count and an empty one is
+               visibly empty rather than missing (live audit L2). These are
+               the no-JS fallback. -->
+          <button class="filter-pill active" type="button" data-rating="all" aria-pressed="true">All ratings</button>
+          <button class="filter-pill" type="button" data-rating="5" aria-pressed="false">5★</button>
+          <button class="filter-pill" type="button" data-rating="4" aria-pressed="false">4★</button>
+          <button class="filter-pill" type="button" data-rating="3" aria-pressed="false">3★</button>
+          <button class="filter-pill" type="button" data-rating="2" aria-pressed="false">2★</button>
+          <button class="filter-pill" type="button" data-rating="1" aria-pressed="false">1★</button>
         </div>
       </div>
 
