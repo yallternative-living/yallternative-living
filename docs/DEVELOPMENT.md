@@ -227,11 +227,14 @@ themed for **dark (default) and light mode** via `[data-theme]` + a
 <link rel="manifest" href="site.webmanifest">
 <meta name="theme-color" content="#c65a6d">
 
-<!-- Fonts are self-hosted (assets/fonts/) -- see @font-face rules in
-     assets/css/styles.css. Preloading the primary weight of each
-     avoids a flash of invisible text on first paint. -->
-<link rel="preload" as="font" type="font/woff2" href="assets/fonts/fraunces-normal.woff2" crossorigin>
-<link rel="preload" as="font" type="font/woff2" href="assets/fonts/figtree-normal.woff2" crossorigin>
+<!-- Fonts come from Google Fonts (Gloock + DM Sans). The stylesheet is
+     preloaded and first attached as media="print" so it never blocks
+     first paint; a one-line inline script flips it to "all" on load, and
+     the <noscript> fallback attaches it directly. There is no assets/fonts/. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Gloock&family=DM+Sans:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=DM+Sans:wght@400;500;700&display=swap" media="print" id="gfontsStylesheet">
 <link rel="stylesheet" href="assets/css/styles.css">
 
 <script>

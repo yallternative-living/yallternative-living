@@ -844,7 +844,11 @@ function createStaticServer(port = 8082) {
       { timeout: 5000 }
     );
 
-    // Focus an input and verify '/' does NOT open modal and enters '/' in input
+    // Focus an input and verify '/' does NOT open modal and enters '/' in input.
+    // The main page may still be on order-status.html from the H-6 block, and
+    // that page carries no newsletter footer, so anchor this check on index.html
+    // where #footer_email is guaranteed to exist.
+    await page.goto(`${url}/index.html`, { waitUntil: "networkidle2" });
     const footerEmail = await page.$("#footer_email");
     if (footerEmail) {
       await page.click("#footer_email");
