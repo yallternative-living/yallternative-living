@@ -245,7 +245,18 @@ check("Empty, whitespace and non-string queries return an empty envelope", () =>
 check("A single query segments across products, journal, events and FAQ", () => {
   const res = mainJs.searchGlobal("Sleep Salve");
   assert.ok(res.products.length > 0, "products domain populated");
-  assert.ok(res.journal.length > 0, "journal domain populated");
+  // The Journal is a switchable feature (content.json site.enableJournal):
+  // when it is off the build emits no journal entries into the search index,
+  // and the search must return none -- asserting "> 0" here would only be
+  // true while the switch is on. Read the switch instead of hardcoding it.
+  const siteConfig = JSON.parse(
+    require("fs").readFileSync(path.join(__dirname, "..", "assets", "data", "content.json"), "utf8")
+  ).site;
+  if (siteConfig && siteConfig.enableJournal === false) {
+    assert.strictEqual(res.journal.length, 0, "journal domain empty while the Journal is off");
+  } else {
+    assert.ok(res.journal.length > 0, "journal domain populated");
+  }
   assert.ok(res.events.length > 0, "events domain populated");
   assert.ok(res.faq.length > 0, "faq domain populated");
   assert.strictEqual(

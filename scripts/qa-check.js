@@ -2573,10 +2573,11 @@ try {
         item.brand &&
         item.brand["@type"] === "Brand" &&
         item.brand.name === "Y'allternative Living" &&
-        Array.isArray(item.image) &&
-        item.image.length >= 1 &&
-        item.image.every(function (img) {
-          return /^https?:\/\//.test(img);
+        // schema.org allows `image` as one URL or an array of URLs; the
+        // generator emits a string for single-image products.
+        (Array.isArray(item.image) ? item.image : [item.image]).length >= 1 &&
+        (Array.isArray(item.image) ? item.image : [item.image]).every(function (img) {
+          return typeof img === "string" && /^https?:\/\//.test(img);
         });
 
       if (itemValid && offerValid) {
