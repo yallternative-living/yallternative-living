@@ -304,6 +304,30 @@ if (!fs.existsSync(productsDataPath)) {
 if (fs.existsSync(productsDataPath) && !PRODUCTS.length)
   fail("products-data.js", "no products found");
 var REQUIRED_FIELDS = ["id", "name", "category", "price", "image", "blurb"];
+
+/* The only product categories with nothing to declare: printed apparel and the
+   digital gift card. Everything else is something applied to skin and must
+   list what is in it -- the PDP, the JSON-LD and the label all read from that
+   array. Keep this list, not the individual product ids: a new salve must fail
+   the check, a new t-shirt must not need an entry here. */
+var INGREDIENTS_EXEMPT_CATEGORIES = ["apparel", "gift-cards"];
+var exemptCategoriesInUse = PRODUCTS.filter(function (p) {
+  return INGREDIENTS_EXEMPT_CATEGORIES.indexOf(p.category) !== -1;
+});
+if (exemptCategoriesInUse.length)
+  ok(
+    "ingredients allowlist covers " +
+      exemptCategoriesInUse.length +
+      " product(s) in " +
+      JSON.stringify(INGREDIENTS_EXEMPT_CATEGORIES)
+  );
+else
+  fail(
+    "ingredients allowlist " +
+      JSON.stringify(INGREDIENTS_EXEMPT_CATEGORIES) +
+      " matches no product -- delete it rather than leaving a dead exemption"
+  );
+
 PRODUCTS.forEach(function (p) {
   var missing = REQUIRED_FIELDS.filter(function (f) {
     return p[f] === undefined || p[f] === null || p[f] === "";
@@ -344,6 +368,27 @@ PRODUCTS.forEach(function (p) {
         p.id + ": stock must be a non-negative integer (or omitted entirely if not tracked)",
         JSON.stringify(p.stock)
       );
+  }
+
+  /* An `ingredients` array used to be checked only when it was already there,
+     so a product that shipped without one was silently exempt -- the check
+     could not catch the case it exists for (audit "vacuous passes"). Every
+     product the shop makes is now required to list its ingredients; the only
+     exemptions are the two categories that have none to list, and the
+     allowlist is asserted rather than assumed, so a new category cannot join
+     it by accident. */
+  if (!(p.ingredients && p.ingredients.length)) {
+    if (INGREDIENTS_EXEMPT_CATEGORIES.indexOf(p.category) !== -1) {
+      ok(p.id + ": ingredients not required (category '" + p.category + "' is exempt)");
+    } else {
+      fail(
+        p.id +
+          ": every product outside " +
+          JSON.stringify(INGREDIENTS_EXEMPT_CATEGORIES) +
+          " must list ingredients",
+        "category '" + p.category + "' has no ingredients array"
+      );
+    }
   }
 
   if (p.ingredients && p.ingredients.length) {
@@ -1575,11 +1620,31 @@ if (
   fail("order-status-modal", "missing #order-status-modal on thank-you.html or shop.html");
 }
 
+/* Alt-Points are switched off end to end. Nothing ever credits them (the only
+   balance was localStorage), and the redeem endpoint that used to mint a real
+   Stripe coupon for anyone who asked now answers 410 (audit C-1). So the
+   drawer no longer shows a points total, promises "you'll earn N", or offers a
+   redeem button.
+
+   This check used to require #cart-points-count to be present, which meant
+   removing the dead UI turned the gate red -- a test arguing for keeping a
+   feature that mints money for free. Inverted: the assertion is now that the
+   redeem path stays gone until a real server-side ledger exists. */
 var cartJsText = fs.readFileSync(path.join(ROOT, "assets/js/cart.js"), "utf8");
-if (/cart-points-count/.test(cartJsText)) {
-  ok("cart.js contains #cart-points-count Alt-Points drawer calculations");
+var redeemMarkup = /data-redeem-points/.test(cartJsText);
+var redeemFetch = /fetch\s*\(\s*["'`][^"'`]*redeem-points/.test(cartJsText);
+if (!redeemMarkup && !redeemFetch) {
+  ok("cart.js ships no Alt-Points redeem button and never calls redeem-points");
 } else {
-  fail("assets/js/cart.js", "missing Alt-Points calculations");
+  fail(
+    "assets/js/cart.js re-introduces Alt-Points redemption",
+    [
+      redeemMarkup ? "data-redeem-points markup found" : null,
+      redeemFetch ? "fetch() to redeem-points found" : null
+    ]
+      .filter(Boolean)
+      .join("; ") + " -- redeem-points answers 410 and no ledger credits points"
+  );
 }
 
 if (
@@ -2312,8 +2377,21 @@ try {
   fail("Global Search Suite QA assertions", e.message);
 }
 
-/* ---------- Google Merchant Rich Product JSON-LD & BreadcrumbList (R5) ---------- */
-section("Google Merchant Rich Product JSON-LD & BreadcrumbList (R5)");
+/* ---------- Structured data home: shop.html ItemList, PDPs are doorways (R5 / H-15) ----------
+   The 19 products/*.html pages used to carry full Product + Offer +
+   BreadcrumbList JSON-LD while ALSO canonicalising to shop.html, sitting
+   outside sitemap.xml and redirecting to shop.html#id on load. Search engines
+   saw 19 doorway pages and no product rich results (audit H-15). The decision
+   was to keep the PDPs as the redirect targets they already are -- explicitly
+   noindex, no structured data at all -- and move the whole Product/Offer
+   payload onto shop.html's ItemList, which is the page that is actually
+   indexed.
+
+   So this section asserts both halves: that a PDP carries NO JSON-LD (a
+   regression that starts emitting it re-creates the doorway problem), and that
+   shop.html's ItemList carries one priced, availability-bearing offer per
+   product (a regression that drops it loses every rich result the site has). */
+section("Structured data: shop.html ItemList + noindex PDP doorways (R5)");
 try {
   var pdpFiles = fs.readdirSync(path.join(ROOT, "products")).filter(function (f) {
     return f.endsWith(".html");
@@ -2333,215 +2411,44 @@ try {
     }
 
     var html = fs.readFileSync(prodHtmlPath, "utf8");
-    var blocks = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g) || [];
 
-    if (blocks.length < 2) {
+    // 1. The page declares itself a doorway: noindex, follow.
+    if (/<meta name="robots" content="noindex, follow">/.test(html)) {
+      ok(prod.id + ': PDP is <meta name="robots" content="noindex, follow">');
+    } else {
       fail(
-        prod.id + " PDP JSON-LD blocks",
-        "Expected at least 2 JSON-LD blocks (Product & BreadcrumbList), found " + blocks.length
+        prod.id + ": PDP must declare noindex, follow",
+        (html.match(/<meta name="robots"[^>]*>/) || ["no robots meta at all"])[0]
       );
-      return;
     }
 
-    var parsedLdBlocks = [];
-    blocks.forEach(function (b, idx) {
-      var jsonText = b
-        .replace(/^<script[^>]*>/, "")
-        .replace(/<\/script>$/, "")
-        .trim();
-      try {
-        parsedLdBlocks.push(JSON.parse(jsonText));
-      } catch (err) {
-        fail(prod.id + " JSON-LD block #" + (idx + 1) + " JSON parse error", err.message);
-      }
-    });
-
-    var productLd = parsedLdBlocks.find(function (ld) {
-      return ld["@type"] === "Product";
-    });
-    var breadcrumbLd = parsedLdBlocks.find(function (ld) {
-      return ld["@type"] === "BreadcrumbList";
-    });
-
-    // 1. Validate Product JSON-LD Schema
-    if (!productLd) {
-      fail(prod.id + " Product JSON-LD", "Missing @type: Product block");
+    // 2. ...and canonicalises to the page that IS indexed.
+    if (
+      html.indexOf('<link rel="canonical" href="https://yallternativeliving.com/shop.html">') !== -1
+    ) {
+      ok(prod.id + ": PDP canonical points at shop.html");
     } else {
-      var prodValid =
-        productLd["@context"] === "https://schema.org" &&
-        productLd.name === prod.name &&
-        productLd.sku === (prod.sku || prod.id) &&
-        productLd.mpn === (prod.mpn || prod.sku || prod.id) &&
-        productLd.brand &&
-        productLd.brand["@type"] === "Brand" &&
-        productLd.brand.name === "Y'allternative Living" &&
-        Array.isArray(productLd.image) &&
-        productLd.image.length >= 1 &&
-        productLd.image.every(function (img) {
-          return /^https?:\/\//.test(img);
-        }) &&
-        productLd.url === "https://yallternativeliving.com/products/" + prod.id + ".html";
-
-      if (prodValid) {
-        ok(prod.id + ": Product schema structure & metadata valid");
-      } else {
-        fail(prod.id + ": Product schema invalid metadata", JSON.stringify(productLd));
-      }
-
-      // Validate Offers
-      var offers = productLd.offers;
-      if (!offers) {
-        fail(prod.id + ": Product offers", "Missing offers object");
-      } else {
-        var isAggregate = offers["@type"] === "AggregateOffer";
-        var isSingle = offers["@type"] === "Offer";
-        var offerTypeValid = isAggregate || isSingle;
-
-        // Determine expected availability
-        var expectedAvailability = "https://schema.org/InStock";
-        if (prod.inStock === false || prod.stock === 0) {
-          expectedAvailability = "https://schema.org/OutOfStock";
-        } else if (
-          prod.comingSoon === true ||
-          (prod.image && String(prod.image).indexOf("placeholder") !== -1)
-        ) {
-          expectedAvailability = "https://schema.org/PreOrder";
-        }
-
-        var commonOffersValid =
-          offerTypeValid &&
-          offers.priceCurrency === "USD" &&
-          offers.priceValidUntil === "2027-12-31" &&
-          offers.itemCondition === "https://schema.org/NewCondition" &&
-          offers.availability === expectedAvailability &&
-          offers.url === "https://yallternativeliving.com/products/" + prod.id + ".html" &&
-          offers.seller &&
-          offers.seller["@type"] === "Organization" &&
-          offers.seller.name === "Y'allternative Living";
-
-        // Validate Merchant Return Policy
-        var returnPolicy = offers.hasMerchantReturnPolicy;
-        var returnPolicyValid =
-          returnPolicy &&
-          returnPolicy["@type"] === "MerchantReturnPolicy" &&
-          returnPolicy.applicableCountry === "US" &&
-          returnPolicy.returnPolicyCategory ===
-            "https://schema.org/MerchantReturnFiniteReturnWindow" &&
-          returnPolicy.merchantReturnDays === 30 &&
-          returnPolicy.returnMethod === "https://schema.org/ReturnByMail" &&
-          returnPolicy.returnFees === "https://schema.org/FreeReturn" &&
-          returnPolicy.returnLink === "https://yallternativeliving.com/policies.html";
-
-        // Validate Shipping Details (Flat rate + Free shipping threshold)
-        var shipping = offers.shippingDetails;
-        var shippingValid =
-          Array.isArray(shipping) &&
-          shipping.length === 2 &&
-          shipping[0]["@type"] === "OfferShippingDetails" &&
-          shipping[0].shippingRate &&
-          shipping[0].shippingRate.value === "10.00" &&
-          shipping[0].shippingRate.currency === "USD" &&
-          shipping[0].shippingDestination &&
-          shipping[0].shippingDestination.addressCountry === "US" &&
-          shipping[0].deliveryTime &&
-          shipping[0].deliveryTime.handlingTime &&
-          shipping[0].deliveryTime.handlingTime.minValue === 1 &&
-          shipping[0].deliveryTime.handlingTime.maxValue === 3 &&
-          shipping[0].deliveryTime.transitTime &&
-          shipping[0].deliveryTime.transitTime.minValue === 2 &&
-          shipping[0].deliveryTime.transitTime.maxValue === 5 &&
-          shipping[1]["@type"] === "OfferShippingDetails" &&
-          shipping[1].shippingRate &&
-          shipping[1].shippingRate.value === "0.00" &&
-          shipping[1].shippingRate.currency === "USD" &&
-          shipping[1].freeShippingThreshold &&
-          shipping[1].freeShippingThreshold.eligibleTransactionVolume &&
-          shipping[1].freeShippingThreshold.eligibleTransactionVolume.price === "40.00" &&
-          shipping[1].freeShippingThreshold.eligibleTransactionVolume.priceCurrency === "USD" &&
-          shipping[1].deliveryTime &&
-          shipping[1].deliveryTime.handlingTime &&
-          shipping[1].deliveryTime.handlingTime.minValue === 1 &&
-          shipping[1].deliveryTime.handlingTime.maxValue === 3 &&
-          shipping[1].deliveryTime.transitTime &&
-          shipping[1].deliveryTime.transitTime.minValue === 2 &&
-          shipping[1].deliveryTime.transitTime.maxValue === 5;
-
-        if (commonOffersValid && returnPolicyValid && shippingValid) {
-          ok(
-            prod.id +
-              ": Offer (" +
-              offers["@type"] +
-              ") with return policy & 2-tier shipping details valid"
-          );
-        } else {
-          fail(
-            prod.id + ": Offer structure / shipping / return policy invalid",
-            JSON.stringify(offers)
-          );
-        }
-      }
-
-      // Validate Rating Consistency
-      if (prod.rating) {
-        var ar = productLd.aggregateRating;
-        if (
-          ar &&
-          ar["@type"] === "AggregateRating" &&
-          Number(ar.ratingValue) === prod.rating.value &&
-          Number(ar.reviewCount) === prod.rating.count
-        ) {
-          ok(prod.id + ": AggregateRating JSON-LD matches product rating data");
-        } else {
-          fail(
-            prod.id + ": AggregateRating mismatch with products-data.js",
-            JSON.stringify(ar) + " vs " + JSON.stringify(prod.rating)
-          );
-        }
-      } else {
-        if (productLd.aggregateRating === undefined) {
-          ok(prod.id + ": No ungrounded aggregateRating fabricated");
-        } else {
-          fail(
-            prod.id + ": Fabricated aggregateRating found on unrated product",
-            JSON.stringify(productLd.aggregateRating)
-          );
-        }
-      }
+      fail(
+        prod.id + ": PDP canonical must point at shop.html",
+        (html.match(/<link rel="canonical"[^>]*>/) || ["no canonical at all"])[0]
+      );
     }
 
-    // 2. Validate BreadcrumbList JSON-LD Schema
-    if (!breadcrumbLd) {
-      fail(prod.id + " BreadcrumbList JSON-LD", "Missing @type: BreadcrumbList block");
+    // 3. No structured data on a noindex doorway.
+    var blocks = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g) || [];
+    if (blocks.length === 0) {
+      ok(prod.id + ": PDP emits no JSON-LD (structured data lives on shop.html)");
     } else {
-      var items = breadcrumbLd.itemListElement;
-      var breadcrumbValid =
-        breadcrumbLd["@context"] === "https://schema.org" &&
-        Array.isArray(items) &&
-        items.length === 4 &&
-        items[0]["@type"] === "ListItem" &&
-        items[0].position === 1 &&
-        items[0].name === "Home" &&
-        items[0].item === "https://yallternativeliving.com/index.html" &&
-        items[1]["@type"] === "ListItem" &&
-        items[1].position === 2 &&
-        items[1].name === "Shop" &&
-        items[1].item === "https://yallternativeliving.com/shop.html" &&
-        items[2]["@type"] === "ListItem" &&
-        items[2].position === 3 &&
-        items[2].item === "https://yallternativeliving.com/shop.html#category-" + prod.category &&
-        items[3]["@type"] === "ListItem" &&
-        items[3].position === 4 &&
-        items[3].name === prod.name &&
-        items[3].item === "https://yallternativeliving.com/products/" + prod.id + ".html";
-
-      if (breadcrumbValid) {
-        ok(prod.id + ": 4-tier BreadcrumbList JSON-LD well-formed");
-      } else {
-        fail(prod.id + ": 4-tier BreadcrumbList JSON-LD invalid", JSON.stringify(items));
-      }
+      fail(
+        prod.id + ": noindex PDP must not emit JSON-LD",
+        blocks.length + " block(s) found -- this re-creates the doorway-page problem"
+      );
     }
 
-    // 3. Validate Visible 4-Tier Breadcrumb Navigation in HTML
+    // 4. The visible breadcrumb still has to work for a human who lands here.
+    //    Category and product anchors are plain ids now (shop.html#salves,
+    //    shop.html#frankincense-salve); the old "#category-" prefix pointed at
+    //    an anchor nothing on shop.html ever handled.
     var visibleBreadcrumbMatch = html.match(/<p class="breadcrumb">([\s\S]*?)<\/p>/);
     if (!visibleBreadcrumbMatch) {
       fail(prod.id + ": Visible breadcrumb element", 'Missing <p class="breadcrumb">');
@@ -2549,8 +2456,7 @@ try {
       var crumbHtml = visibleBreadcrumbMatch[1];
       var hasHome = crumbHtml.indexOf('<a href="../index.html">Home</a>') !== -1;
       var hasShop = crumbHtml.indexOf('<a href="../shop.html">Shop</a>') !== -1;
-      var hasCategory =
-        crumbHtml.indexOf('href="../shop.html#category-' + prod.category + '"') !== -1;
+      var hasCategory = crumbHtml.indexOf('href="../shop.html#' + prod.category + '"') !== -1;
       var hasProdName = crumbHtml.indexOf(escapeHtml(prod.name)) !== -1;
 
       if (hasHome && hasShop && hasCategory && hasProdName) {
@@ -2563,8 +2469,162 @@ try {
       }
     }
   });
+
+  /* ---- shop.html ItemList: one priced offer per product ---- */
+  var shopPageHtml = fs.readFileSync(path.join(ROOT, "shop.html"), "utf8");
+  var shopLdBlocks =
+    shopPageHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g) || [];
+  var shopLd = [];
+  shopLdBlocks.forEach(function (b, idx) {
+    var jsonText = b
+      .replace(/^<script[^>]*>/, "")
+      .replace(/<\/script>$/, "")
+      .trim();
+    try {
+      shopLd.push(JSON.parse(jsonText));
+    } catch (err) {
+      fail("shop.html JSON-LD block #" + (idx + 1) + " JSON parse error", err.message);
+    }
+  });
+
+  var shopItemList = shopLd.find(function (ld) {
+    return ld["@type"] === "ItemList";
+  });
+
+  if (!shopItemList || !Array.isArray(shopItemList.itemListElement)) {
+    fail(
+      "shop.html ItemList",
+      "No @type: ItemList block with an itemListElement array -- the site's only " +
+        "indexable structured product data is gone"
+    );
+  } else if (shopItemList.itemListElement.length !== PRODUCTS.length) {
+    fail(
+      "shop.html ItemList covers every product",
+      "ItemList has " +
+        shopItemList.itemListElement.length +
+        " entries, catalogue has " +
+        PRODUCTS.length
+    );
+  } else {
+    ok("shop.html ItemList carries all " + PRODUCTS.length + " products");
+
+    var bySku = {};
+    shopItemList.itemListElement.forEach(function (entry) {
+      if (entry && entry.item && entry.item.sku) bySku[entry.item.sku] = entry;
+    });
+
+    PRODUCTS.forEach(function (prod) {
+      var entry = bySku[prod.id];
+      if (!entry) {
+        fail(prod.id + ": missing from shop.html ItemList", "no ListItem with sku " + prod.id);
+        return;
+      }
+
+      var item = entry.item;
+      var offers = item.offers;
+      if (!offers) {
+        fail(
+          prod.id + ": shop.html ItemList entry has no offers",
+          JSON.stringify(item).slice(0, 200)
+        );
+        return;
+      }
+
+      // A single-price product gets an Offer; one with priced variants gets an
+      // AggregateOffer. Either way a price has to be there -- an offer with no
+      // price is invisible in Google Merchant.
+      var isAggregate = offers["@type"] === "AggregateOffer";
+      var isSingle = offers["@type"] === "Offer";
+      var priceStr = isAggregate ? offers.lowPrice : offers.price;
+      var priceOk = typeof priceStr === "string" && /^\d+\.\d{2}$/.test(priceStr);
+      if (isAggregate) {
+        priceOk =
+          priceOk &&
+          typeof offers.highPrice === "string" &&
+          /^\d+\.\d{2}$/.test(offers.highPrice) &&
+          typeof offers.offerCount === "number" &&
+          offers.offerCount >= 2;
+      }
+
+      // Availability is derived from the real catalogue flags, not from
+      // whether the image path happens to contain "placeholder".
+      var expectedAvailability = "https://schema.org/InStock";
+      if (prod.inStock === false || prod.stock === 0) {
+        expectedAvailability = "https://schema.org/OutOfStock";
+      } else if (prod.comingSoon === true) {
+        expectedAvailability = "https://schema.org/PreOrder";
+      }
+
+      var offerValid =
+        (isAggregate || isSingle) &&
+        priceOk &&
+        offers.priceCurrency === "USD" &&
+        offers.availability === expectedAvailability &&
+        offers.itemCondition === "https://schema.org/NewCondition" &&
+        offers.url === "https://yallternativeliving.com/shop.html#" + prod.id &&
+        offers.seller &&
+        offers.seller["@type"] === "Organization" &&
+        offers.seller.name === "Y'allternative Living";
+
+      var itemValid =
+        item["@type"] === "Product" &&
+        item.name === prod.name &&
+        item.url === "https://yallternativeliving.com/shop.html#" + prod.id &&
+        item.brand &&
+        item.brand["@type"] === "Brand" &&
+        item.brand.name === "Y'allternative Living" &&
+        Array.isArray(item.image) &&
+        item.image.length >= 1 &&
+        item.image.every(function (img) {
+          return /^https?:\/\//.test(img);
+        });
+
+      if (itemValid && offerValid) {
+        ok(
+          prod.id +
+            ": shop.html ItemList entry carries a valid " +
+            offers["@type"] +
+            " (" +
+            priceStr +
+            " USD, " +
+            expectedAvailability.replace("https://schema.org/", "") +
+            ")"
+        );
+      } else {
+        fail(
+          prod.id + ": shop.html ItemList entry invalid",
+          JSON.stringify({ item: { name: item.name, url: item.url }, offers: offers }).slice(0, 300)
+        );
+      }
+
+      // Ratings must still be backed by real data wherever they appear.
+      if (prod.rating) {
+        var ar = item.aggregateRating;
+        if (
+          ar &&
+          ar["@type"] === "AggregateRating" &&
+          Number(ar.ratingValue) === prod.rating.value &&
+          Number(ar.reviewCount) === prod.rating.count
+        ) {
+          ok(prod.id + ": AggregateRating in shop.html matches product rating data");
+        } else {
+          fail(
+            prod.id + ": AggregateRating mismatch in shop.html ItemList",
+            JSON.stringify(ar) + " vs " + JSON.stringify(prod.rating)
+          );
+        }
+      } else if (item.aggregateRating !== undefined) {
+        fail(
+          prod.id + ": Fabricated aggregateRating on an unrated product",
+          JSON.stringify(item.aggregateRating)
+        );
+      } else {
+        ok(prod.id + ": No ungrounded aggregateRating fabricated");
+      }
+    });
+  }
 } catch (e) {
-  fail("Google Merchant JSON-LD QA check failed", e.message);
+  fail("Structured data QA check failed", e.message);
 }
 
 /* ---------- Complete the Ritual Smart Cross-Sells (R2) ---------- */

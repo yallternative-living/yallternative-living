@@ -70,8 +70,21 @@ per-transaction fee.
    the restricted one later.
 4. **Developers → Webhooks → Add endpoint** → paste
    `https://yallternativeliving.com/.netlify/functions/fulfill-gift-card`
-   → choose the event `checkout.session.completed` → copy the
-   **Signing secret** (`whsec_...`).
+   → choose **three** events, not one:
+   - `checkout.session.completed` (delivers the gift card)
+   - `checkout.session.expired` (cleans up the temporary coupon behind an
+     abandoned gift-card checkout — without it they pile up in your Stripe
+     account forever)
+   - `charge.refunded` (puts a refunded order's gift-card balance back)
+
+   Do **not** also tick `refund.created`: it fires for the same money and the
+   code deliberately ignores it. Then copy the **Signing secret**
+   (`whsec_...`).
+
+   > Keep that signing secret. **Rotating it changes every gift-card code the
+   > site would generate** — codes are derived from it — so a rotation makes
+   > cards already in customers' inboxes underivable. Rotate only with a plan
+   > for the cards already out there.
 
 **B. Cloudflare account — you create it, I set it up**
 
@@ -83,16 +96,33 @@ Stripe key, so it needs to be your account, not mine.
 2. **Manage Account → Members → Invite** → my email. That lets me work
    inside your account without it ever becoming mine — remove my
    access any time.
-3. Send me your **Secret key** and **Signing secret** from Part A. Wait
-   for me to confirm it's connected, then move to Part C.
+3. **Do not send anyone your Secret key or Signing secret** — not by email,
+   not by text, not in a chat. A Stripe secret key can charge cards and move
+   money; once it has been in a message thread it is compromised, and the only
+   safe response is to roll it. Paste it yourself, into the dashboard, where
+   it is going to live:
+
+   - **Secret key** → Cloudflare: your Worker → **Settings → Variables and
+     Secrets** → add `STRIPE_SECRET_KEY` as a **Secret**.
+   - **Secret key** and **Signing secret** → Netlify: **Project configuration
+     → Environment variables** → add `STRIPE_SECRET_KEY` and
+     `STRIPE_WEBHOOK_SECRET`.
+
+   Because you invited me into your Cloudflare account in step 2, I can see
+   that the variables are set and finish the wiring without ever seeing their
+   values. Tell me when they are in, then move to Part C. (If a key ever does
+   end up in a message: **Developers → API keys → Roll key** in Stripe,
+   immediately.)
 
 **C. Test, then go live**
 
 1. Run a test purchase — one regular product and one gift card — with
    [Stripe's test cards](https://docs.stripe.com/testing). Confirm it
    reaches the thank-you page and the gift-card email arrives.
-2. Switch Stripe to **Live Mode** (same toggle) and send me the
-   **live** Secret key to swap in.
+2. Switch Stripe to **Live Mode** (same toggle), copy the **live** Secret key,
+   and paste it yourself into Cloudflare and Netlify exactly as in Part B
+   step 3 — replacing the `sk_test_...` value. Same rule: the live key never
+   travels through a message to anyone, including me.
 
 **D. Sales tax — you almost certainly need this on**
 
@@ -148,10 +178,19 @@ silently never arrives.
    up to 24 hours.
 2. **API Keys → Create API Key** → copy it (`re_...`).
 3. In Netlify: **Project configuration → Environment variables** → add
-   three values: the **Secret key** and **Signing secret** from Step 3,
-   plus this Resend key. Just pasting, nothing technical — the gift-card
-   email turns itself on once all three are filled in AND the domain
+   three values, pasting them yourself (they are secrets — see Step 3):
+   `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` and `RESEND_API_KEY`. The
+   gift-card email turns itself on once all three are filled in AND the domain
    above shows Verified.
+
+   Optional extras in the same place, only if you want to change a default:
+   `FROM_EMAIL` (the address gift-card emails come from),
+   `RESTOCK_NOTIFY_EMAIL` (where "tell me when this is back" requests land)
+   and `GIFT_CARD_FROM_EMAIL` (which defaults to
+   `orders@yallternativeliving.com`). Whatever you set has to be a sender
+   address Resend has verified for your domain. The full list of every
+   variable, and which function reads it, is in
+   `docs/DEVELOPMENT.md` section 8a.
 
 ---
 

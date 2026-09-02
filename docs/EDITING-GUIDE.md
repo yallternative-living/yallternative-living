@@ -187,15 +187,33 @@ Tucked neatly at the bottom of **1. Products, Bundles & FAQ**:
 1. Click **6. Site Images & Page Wording**.
 2. Update homepage headlines, About page story text, or swap non-product photos (homepage hero banner, About bio photo, site logos).
 3. Under **⚙️ Site Settings**, you can toggle features on or off anytime with simple checkboxes:
-   - Restock Email Alerts
+   - Restock Email Alerts (a request now really is emailed to the shop -- it
+     used to be accepted and discarded)
    - Apothecary Recommendation Quiz
-   - Alt-Points Loyalty Calculator
    - Local Market Pickup
    - Live Event Countdown Ticker
-   - Order Status Lookup Modal
    - Scent Filter
-   - Apothecary Journal Blog
+   - Apothecary Journal Blog (currently **off**: the nav link, the page, the
+     RSS feed and the search index all stay empty until you switch it on)
    - UGC Social Feed
+
+   **Two switches in that panel no longer switch anything.** They are still
+   drawn by the dashboard, but the features behind them have been withdrawn,
+   so ticking or unticking them changes nothing on the live site. They should
+   be removed from the dashboard next time `admin/config.yml` is touched:
+
+   - **Show Customer Rewards Points** (`enableLoyaltyPoints`, and the four
+     related "Rewards Currency" fields). Nothing ever credited points -- the
+     only balance was in the shopper's own browser -- and the redeem button
+     called an endpoint that minted real store credit for anyone who asked.
+     The earn message, the cart counter and the redeem button are all removed
+     until there is a real, server-side points ledger. Offer a discount code
+     instead; that is a reward the shop can actually honour.
+   - **Show Order Lookup Tool** (`enableOrderStatusLookup`). The lookup
+     answered every enquiry with the same invented "Order Confirmed" order,
+     whatever was typed into it, and the toggle was read by nothing even then.
+     `/order-status` is now an honest contact hand-off: it takes the order
+     reference and points the customer at email.
 
 ---
 

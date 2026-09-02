@@ -15,7 +15,9 @@ const puppeteer = require("puppeteer");
 const { chromium, firefox, webkit } = require("playwright");
 
 const ROOT = path.resolve(__dirname, "..");
-const PORT = 8085;
+// Ephemeral port: this suite now runs inside run-integration-tests.js's worker
+// pool alongside test-m2-ugc-strip.js, which owns the fixed port 8085.
+const PORT = 0;
 
 function createServer(port = PORT) {
   const server = http.createServer((req, res) => {
@@ -56,7 +58,7 @@ function createServer(port = PORT) {
   });
 
   return new Promise((resolve) => {
-    server.listen(port, () => resolve(server));
+    server.listen(port, "127.0.0.1", () => resolve(server));
   });
 }
 
@@ -168,7 +170,7 @@ async function runAdversarialSuite() {
   console.log("================================================================================\n");
 
   const server = await createServer(PORT);
-  const baseUrl = `http://localhost:${PORT}`;
+  const baseUrl = `http://127.0.0.1:${server.address().port}`;
 
   let browser;
   try {
@@ -235,45 +237,52 @@ async function runAdversarialSuite() {
         });
       });
 
+      // Every `.every()` below is guarded by a count assertion: on an empty
+      // array `.every()` returns true, so a page that renders no event cards
+      // at all used to pass all four of these checks (audit "vacuous passes").
       check(
         `[${vp.name}] All event cards have Reserve/Pickup deep-link buttons with #shop-catalog anchor`,
-        cardButtons.every(
-          (c) =>
-            c.hasPickupBtn &&
-            c.pickupHref.includes("shop.html?pickup_market=") &&
-            c.pickupHref.endsWith("#shop-catalog")
-        )
+        cardButtons.length >= 1 &&
+          cardButtons.every(
+            (c) =>
+              c.hasPickupBtn &&
+              c.pickupHref.includes("shop.html?pickup_market=") &&
+              c.pickupHref.endsWith("#shop-catalog")
+          )
       );
 
       check(
         `[${vp.name}] All event cards have Add to Google Calendar buttons with TEMPLATE action`,
-        cardButtons.every(
-          (c) =>
-            c.hasGcalBtn &&
-            c.gcalHref.includes("calendar.google.com") &&
-            c.gcalHref.includes("action=TEMPLATE")
-        )
+        cardButtons.length >= 1 &&
+          cardButtons.every(
+            (c) =>
+              c.hasGcalBtn &&
+              c.gcalHref.includes("calendar.google.com") &&
+              c.gcalHref.includes("action=TEMPLATE")
+          )
       );
 
       check(
         `[${vp.name}] All event cards have iCal / Apple Calendar (.ics) data URI links with download attributes`,
-        cardButtons.every(
-          (c) =>
-            c.hasIcsBtn &&
-            c.icsHref.startsWith("data:text/calendar;charset=utf-8,") &&
-            c.icsDownload.endsWith(".ics")
-        )
+        cardButtons.length >= 1 &&
+          cardButtons.every(
+            (c) =>
+              c.hasIcsBtn &&
+              c.icsHref.startsWith("data:text/calendar;charset=utf-8,") &&
+              c.icsDownload.endsWith(".ics")
+          )
       );
 
       check(
         `[${vp.name}] All event cards render Google Maps and Apple Maps direction links`,
-        cardButtons.every(
-          (c) =>
-            c.hasGmapsLink &&
-            c.hasAppleMapsLink &&
-            c.gmapsHref.includes("destination=") &&
-            c.appleMapsHref.includes("daddr=")
-        )
+        cardButtons.length >= 1 &&
+          cardButtons.every(
+            (c) =>
+              c.hasGmapsLink &&
+              c.hasAppleMapsLink &&
+              c.gmapsHref.includes("destination=") &&
+              c.appleMapsHref.includes("daddr=")
+          )
       );
 
       // Check no horizontal scroll overflow

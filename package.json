@@ -5,14 +5,14 @@
   "description": "Dev-time build tooling for the Y'allternative Living static site. Nothing here ships to the live site -- the deployed site is still 100% static HTML/CSS/JS with zero runtime dependencies. This just powers a few local maintenance scripts.",
   "license": "UNLICENSED",
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "scripts": {
     "build-data": "node scripts/build-site-data.js && npm run format",
     "optimize-images": "node scripts/optimize-images.js",
     "build-security-headers": "node scripts/build-security-headers.js",
     "sync-etsy": "node scripts/apply-etsy-snapshot.js",
-    "test": "node scripts/run-unit-tests.js && node scripts/qa-check.js",
+    "test": "node scripts/run-test.js",
     "test:smoke": "node scripts/smoke-test.js",
     "test:integration": "node scripts/run-integration-tests.js",
     "lint": "eslint scripts assets/js workers cms-auth netlify",
@@ -21,15 +21,14 @@
     "test:cross-browser": "node scripts/cross-browser-check.js"
   },
   "devDependencies": {
+    "axe-core": "^4.12.1",
     "eslint": "^8.57.0",
     "playwright": "^1.56.0",
     "prettier": "^3.3.3",
+    "puppeteer": "^25.3.0",
     "sharp": "^0.35.3"
   },
   "dependencies": {
-    "@axe-core/puppeteer": "^4.12.1",
-    "axe-core": "^4.12.1",
-    "puppeteer": "^25.3.0",
     "resend": "^6.17.2"
   }
 }

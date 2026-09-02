@@ -1,7 +1,7 @@
 /**
  * @fileoverview Empirical Adversarial Test Suite for R2 ("Complete the Ritual") and R5 (Google Merchant JSON-LD).
  *
- * Vector 1: R5 Google Merchant JSON-LD Schema Validation across all 19 PDPs
+ * Vector 1: R5 structured data -- shop.html ItemList offers plus noindex PDP doorways
  * Vector 2: R2 "Complete the Ritual" Interactive DOM State, Checkbox Toggling, Recalculation & Badge Triggers
  * Vector 3: R2 "Add All" / "Add Selected" / "Add Item" Cart Engine Synchronization & Milestone Triggers
  * Vector 4: R2 Shop Modal / Quick-View Ritual Section Interactivity
@@ -107,8 +107,18 @@ function stopServer() {
 // -----------------------------------------------------------------------------
 function testGoogleMerchantJsonLd() {
   console.log("\n================================================================================");
-  console.log("VECTOR 1: R5 Google Merchant JSON-LD Schema Validation Across All 19 PDPs");
+  console.log("VECTOR 1: R5 Structured Data -- shop.html ItemList + noindex PDP doorways");
   console.log("================================================================================");
+
+  /* This vector used to walk all 19 products/*.html and validate a full
+     Product + Offer + BreadcrumbList payload on each. Those pages also
+     canonicalised to shop.html, sat outside sitemap.xml and redirected on
+     load, so the rich data lived on 19 doorway pages and no rich result ever
+     appeared (audit H-15). The structured data now lives on shop.html, the
+     page that is actually indexed, and the PDPs are explicitly noindex with
+     no JSON-LD at all. Both halves are asserted: a PDP that starts emitting
+     schema again is a regression, and so is a shop ItemList that loses its
+     offers. */
 
   const productsDir = path.join(ROOT, "products");
   const htmlFiles = fs.readdirSync(productsDir).filter((f) => f.endsWith(".html"));
@@ -120,308 +130,136 @@ function testGoogleMerchantJsonLd() {
   const productMap = new Map(productsData.map((p) => [p.id, p]));
 
   const validUrlRegex = /^https:\/\/[a-zA-Z0-9-._~:/?#[\]@!$&'()*+,;=]+$/;
-  const isoDateRegex = /^\d{4}-\d{2}-\d{2}$/;
 
   htmlFiles.forEach((file) => {
-    const filePath = path.join(productsDir, file);
-    const content = fs.readFileSync(filePath, "utf8");
+    const content = fs.readFileSync(path.join(productsDir, file), "utf8");
     const prodId = file.replace(".html", "");
     const rawProd = productMap.get(prodId);
 
-    // Extract all JSON-LD blocks
-    const jsonLdRegex = /<script\s+type="application\/ld\+json">([\s\S]*?)<\/script>/gi;
-    let match;
-    const schemas = [];
-    while ((match = jsonLdRegex.exec(content)) !== null) {
-      try {
-        schemas.push(JSON.parse(match[1]));
-      } catch (err) {
-        assert(false, `[${file}] Invalid JSON in ld+json script tag: ${err.message}`);
-      }
-    }
+    assert(Boolean(rawProd), `[${file}] has a matching entry in products.json`);
 
+    const jsonLdRegex = /<script\s+type="application\/ld\+json">([\s\S]*?)<\/script>/gi;
+    const blocks = content.match(jsonLdRegex) || [];
     assert(
-      schemas.length >= 2,
-      `[${file}] Contains at least 2 JSON-LD schemas (found ${schemas.length})`
+      blocks.length === 0,
+      `[${file}] noindex doorway emits no JSON-LD (found ${blocks.length})`
     );
 
-    const productSchema = schemas.find((s) => s["@type"] === "Product");
-    const breadcrumbSchema = schemas.find((s) => s["@type"] === "BreadcrumbList");
+    assert(
+      content.includes('<meta name="robots" content="noindex, follow">'),
+      `[${file}] declares <meta name="robots" content="noindex, follow">`
+    );
+    assert(
+      content.includes('<link rel="canonical" href="https://yallternativeliving.com/shop.html">'),
+      `[${file}] canonicalises to shop.html`
+    );
 
-    assert(Boolean(productSchema), `[${file}] Schema.org Product schema is present`);
-    assert(Boolean(breadcrumbSchema), `[${file}] Schema.org BreadcrumbList schema is present`);
-
-    if (productSchema) {
-      // 1. Root Product properties
+    // The visible breadcrumb is what a human landing here uses. Category and
+    // product anchors are plain ids now; the old "#category-" prefix pointed
+    // at an anchor nothing on shop.html handled.
+    const crumbMatch = content.match(/<p class="breadcrumb">([\s\S]*?)<\/p>/);
+    assert(Boolean(crumbMatch), `[${file}] renders a visible breadcrumb`);
+    if (crumbMatch && rawProd) {
+      const crumb = crumbMatch[1];
       assert(
-        productSchema["@context"] === "https://schema.org",
-        `[${file}] Product @context is https://schema.org`
+        crumb.includes('<a href="../index.html">Home</a>') &&
+          crumb.includes('<a href="../shop.html">Shop</a>') &&
+          crumb.includes(`href="../shop.html#${rawProd.category}"`),
+        `[${file}] breadcrumb is Home > Shop > Category(#${rawProd && rawProd.category}) > Product`
       );
-      assert(
-        typeof productSchema.name === "string" && productSchema.name.trim().length > 0,
-        `[${file}] Product name is valid non-empty string`
-      );
-      assert(
-        typeof productSchema.description === "string" &&
-          productSchema.description.trim().length > 0,
-        `[${file}] Product description is valid non-empty string`
-      );
-      assert(
-        validUrlRegex.test(productSchema.url),
-        `[${file}] Product url '${productSchema.url}' is valid absolute HTTPS URL`
-      );
-      assert(
-        typeof productSchema.sku === "string" && productSchema.sku.trim().length > 0,
-        `[${file}] Product sku '${productSchema.sku}' is non-empty`
-      );
-      assert(
-        typeof productSchema.mpn === "string" && productSchema.mpn.trim().length > 0,
-        `[${file}] Product mpn '${productSchema.mpn}' is non-empty`
-      );
-
-      // Brand
-      assert(
-        productSchema.brand && productSchema.brand["@type"] === "Brand",
-        `[${file}] Product brand is @type: Brand`
-      );
-      assert(
-        productSchema.brand && productSchema.brand.name === "Y'allternative Living",
-        `[${file}] Product brand name is "Y'allternative Living"`
-      );
-
-      // Images
-      assert(
-        Array.isArray(productSchema.image) && productSchema.image.length > 0,
-        `[${file}] Product image array has at least 1 image`
-      );
-      productSchema.image.forEach((imgUrl) => {
-        assert(
-          validUrlRegex.test(imgUrl),
-          `[${file}] Image URL '${imgUrl}' is valid absolute HTTPS URL`
-        );
-      });
-
-      // Offers / AggregateOffer
-      const offers = productSchema.offers;
-      assert(Boolean(offers), `[${file}] Product offers object exists`);
-      if (offers) {
-        const isAggregate = offers["@type"] === "AggregateOffer";
-        const isOffer = offers["@type"] === "Offer";
-        assert(
-          isAggregate || isOffer,
-          `[${file}] Offers type is Offer or AggregateOffer (got ${offers["@type"]})`
-        );
-
-        if (isAggregate) {
-          assert(
-            !isNaN(parseFloat(offers.lowPrice)) && !isNaN(parseFloat(offers.highPrice)),
-            `[${file}] AggregateOffer has numeric lowPrice (${offers.lowPrice}) and highPrice (${offers.highPrice})`
-          );
-          assert(
-            parseFloat(offers.lowPrice) <= parseFloat(offers.highPrice),
-            `[${file}] AggregateOffer lowPrice <= highPrice`
-          );
-          assert(
-            Number.isInteger(offers.offerCount) && offers.offerCount > 1,
-            `[${file}] AggregateOffer offerCount is integer > 1 (${offers.offerCount})`
-          );
-        } else {
-          assert(
-            !isNaN(parseFloat(offers.price)),
-            `[${file}] Offer price is numeric (${offers.price})`
-          );
-        }
-
-        assert(offers.priceCurrency === "USD", `[${file}] priceCurrency is "USD"`);
-        assert(
-          isoDateRegex.test(offers.priceValidUntil),
-          `[${file}] priceValidUntil '${offers.priceValidUntil}' is ISO YYYY-MM-DD format`
-        );
-        assert(
-          offers.itemCondition === "https://schema.org/NewCondition",
-          `[${file}] itemCondition is NewCondition URI`
-        );
-
-        // Stock availability
-        const validAvailabilities = [
-          "https://schema.org/InStock",
-          "https://schema.org/OutOfStock",
-          "https://schema.org/PreOrder"
-        ];
-        assert(
-          validAvailabilities.includes(offers.availability),
-          `[${file}] availability '${offers.availability}' is valid Schema.org URI`
-        );
-
-        if (rawProd) {
-          if (rawProd.inStock === false || rawProd.stock === 0) {
-            assert(
-              offers.availability === "https://schema.org/OutOfStock",
-              `[${file}] Correctly marked OutOfStock`
-            );
-          } else if (
-            rawProd.comingSoon === true ||
-            (rawProd.image && rawProd.image.includes("placeholder"))
-          ) {
-            assert(
-              offers.availability === "https://schema.org/PreOrder",
-              `[${file}] Correctly marked PreOrder`
-            );
-          } else {
-            assert(
-              offers.availability === "https://schema.org/InStock",
-              `[${file}] Correctly marked InStock`
-            );
-          }
-        }
-
-        // Return policy
-        const returnPolicy = offers.hasMerchantReturnPolicy;
-        assert(Boolean(returnPolicy), `[${file}] hasMerchantReturnPolicy is present in offer`);
-        if (returnPolicy) {
-          assert(
-            returnPolicy["@type"] === "MerchantReturnPolicy",
-            `[${file}] returnPolicy @type is MerchantReturnPolicy`
-          );
-          assert(
-            returnPolicy.applicableCountry === "US",
-            `[${file}] returnPolicy applicableCountry is US`
-          );
-          assert(
-            returnPolicy.returnPolicyCategory ===
-              "https://schema.org/MerchantReturnFiniteReturnWindow",
-            `[${file}] returnPolicyCategory is MerchantReturnFiniteReturnWindow URI`
-          );
-          assert(returnPolicy.merchantReturnDays === 30, `[${file}] merchantReturnDays is 30`);
-          assert(
-            returnPolicy.returnMethod === "https://schema.org/ReturnByMail",
-            `[${file}] returnMethod is ReturnByMail URI`
-          );
-          assert(
-            returnPolicy.returnFees === "https://schema.org/FreeReturn",
-            `[${file}] returnFees is FreeReturn URI`
-          );
-          assert(
-            validUrlRegex.test(returnPolicy.returnLink),
-            `[${file}] returnLink '${returnPolicy.returnLink}' is valid HTTPS URL`
-          );
-        }
-
-        // Shipping Details
-        const shipping = offers.shippingDetails;
-        assert(
-          Array.isArray(shipping) && shipping.length === 2,
-          `[${file}] shippingDetails contains standard and free shipping tiers (length 2)`
-        );
-        if (Array.isArray(shipping) && shipping.length === 2) {
-          const standardTier = shipping[0];
-          const freeTier = shipping[1];
-
-          assert(
-            standardTier["@type"] === "OfferShippingDetails",
-            `[${file}] Standard shipping @type is OfferShippingDetails`
-          );
-          assert(
-            standardTier.shippingRate &&
-              standardTier.shippingRate.value === "10.00" &&
-              standardTier.shippingRate.currency === "USD",
-            `[${file}] Standard shipping rate is $10.00 USD`
-          );
-          assert(
-            standardTier.shippingDestination &&
-              standardTier.shippingDestination.addressCountry === "US",
-            `[${file}] Standard shipping destination is US`
-          );
-          assert(
-            standardTier.deliveryTime &&
-              standardTier.deliveryTime.handlingTime.minValue === 1 &&
-              standardTier.deliveryTime.handlingTime.maxValue === 3,
-            `[${file}] Handling time is 1-3 DAYS`
-          );
-          assert(
-            standardTier.deliveryTime &&
-              standardTier.deliveryTime.transitTime.minValue === 2 &&
-              standardTier.deliveryTime.transitTime.maxValue === 5,
-            `[${file}] Transit time is 2-5 DAYS`
-          );
-
-          assert(
-            freeTier["@type"] === "OfferShippingDetails",
-            `[${file}] Free shipping @type is OfferShippingDetails`
-          );
-          assert(
-            freeTier.shippingRate &&
-              freeTier.shippingRate.value === "0.00" &&
-              freeTier.shippingRate.currency === "USD",
-            `[${file}] Free shipping rate is $0.00 USD`
-          );
-          assert(
-            freeTier.freeShippingThreshold &&
-              freeTier.freeShippingThreshold.eligibleTransactionVolume.price === "40.00",
-            `[${file}] Free shipping threshold is $40.00 USD`
-          );
-        }
-      }
-
-      // AggregateRating
-      if (productSchema.aggregateRating) {
-        assert(
-          productSchema.aggregateRating["@type"] === "AggregateRating",
-          `[${file}] aggregateRating @type is AggregateRating`
-        );
-        assert(
-          !isNaN(parseFloat(productSchema.aggregateRating.ratingValue)),
-          `[${file}] ratingValue is valid number`
-        );
-        assert(
-          Number.isInteger(productSchema.aggregateRating.reviewCount),
-          `[${file}] reviewCount is integer`
-        );
-        assert(productSchema.aggregateRating.bestRating === "5", `[${file}] bestRating is "5"`);
-        assert(productSchema.aggregateRating.worstRating === "1", `[${file}] worstRating is "1"`);
-      }
-    }
-
-    // BreadcrumbList validation
-    if (breadcrumbSchema) {
-      assert(
-        breadcrumbSchema["@context"] === "https://schema.org",
-        `[${file}] Breadcrumb @context is https://schema.org`
-      );
-      const items = breadcrumbSchema.itemListElement;
-      assert(
-        Array.isArray(items) && items.length === 4,
-        `[${file}] BreadcrumbList has exactly 4 tiers (Home > Shop > Category > Product)`
-      );
-      if (Array.isArray(items) && items.length === 4) {
-        assert(
-          items[0].position === 1 &&
-            items[0].name === "Home" &&
-            items[0].item.endsWith("/index.html"),
-          `[${file}] Tier 1 is Home`
-        );
-        assert(
-          items[1].position === 2 &&
-            items[1].name === "Shop" &&
-            items[1].item.endsWith("/shop.html"),
-          `[${file}] Tier 2 is Shop`
-        );
-        assert(
-          items[2].position === 3 && items[2].item.includes("/shop.html#category-"),
-          `[${file}] Tier 3 is Category link`
-        );
-        assert(
-          items[3].position === 4 && items[3].item.endsWith(`/products/${prodId}.html`),
-          `[${file}] Tier 4 is Product page link`
-        );
-      }
     }
   });
+
+  // ---- shop.html: the one indexed page, carrying the whole catalogue ----
+  const shopHtml = fs.readFileSync(path.join(ROOT, "shop.html"), "utf8");
+  const shopBlocks =
+    shopHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g) || [];
+  const shopSchemas = [];
+  shopBlocks.forEach((b, idx) => {
+    try {
+      shopSchemas.push(
+        JSON.parse(
+          b
+            .replace(/^<script[^>]*>/, "")
+            .replace(/<\/script>$/, "")
+            .trim()
+        )
+      );
+    } catch (err) {
+      assert(false, `[shop.html] JSON-LD block #${idx + 1} parses: ${err.message}`);
+    }
+  });
+
+  const itemList = shopSchemas.find((s) => s["@type"] === "ItemList");
+  assert(Boolean(itemList), "shop.html carries an @type: ItemList block");
+
+  if (itemList && Array.isArray(itemList.itemListElement)) {
+    assert(
+      itemList.itemListElement.length === productsData.length,
+      `shop.html ItemList covers all ${productsData.length} products (found ${itemList.itemListElement.length})`
+    );
+
+    const bySku = new Map(
+      itemList.itemListElement
+        .filter((e) => e && e.item && e.item.sku)
+        .map((e) => [e.item.sku, e.item])
+    );
+
+    productsData.forEach((prod) => {
+      const item = bySku.get(prod.id);
+      if (!item) {
+        assert(false, `[shop.html] ItemList has an entry for ${prod.id}`);
+        return;
+      }
+
+      assert(item["@type"] === "Product", `[shop.html] ${prod.id} entry is a Product`);
+      assert(item.name === prod.name, `[shop.html] ${prod.id} name matches products.json`);
+      assert(
+        validUrlRegex.test(item.url) && item.url.endsWith(`/shop.html#${prod.id}`),
+        `[shop.html] ${prod.id} url is the shop anchor (${item.url})`
+      );
+
+      const offers = item.offers;
+      assert(Boolean(offers), `[shop.html] ${prod.id} carries an offer`);
+      if (!offers) return;
+
+      const isAggregate = offers["@type"] === "AggregateOffer";
+      const price = isAggregate ? offers.lowPrice : offers.price;
+      assert(
+        isAggregate || offers["@type"] === "Offer",
+        `[shop.html] ${prod.id} offer is Offer or AggregateOffer (${offers["@type"]})`
+      );
+      assert(
+        typeof price === "string" && /^\d+\.\d{2}$/.test(price),
+        `[shop.html] ${prod.id} offer carries a price (${price})`
+      );
+      assert(offers.priceCurrency === "USD", `[shop.html] ${prod.id} offer is priced in USD`);
+
+      let expectedAvailability = "https://schema.org/InStock";
+      if (prod.inStock === false || prod.stock === 0) {
+        expectedAvailability = "https://schema.org/OutOfStock";
+      } else if (prod.comingSoon === true) {
+        expectedAvailability = "https://schema.org/PreOrder";
+      }
+      assert(
+        offers.availability === expectedAvailability,
+        `[shop.html] ${prod.id} availability is derived from the catalogue flags ` +
+          `(${offers.availability}, expected ${expectedAvailability})`
+      );
+    });
+  }
 }
 
 // -----------------------------------------------------------------------------
 // VECTOR 2, 3, 4, 5: R2 PDP & MODAL RITUAL INTERACTIVE TESTS (PUPPETEER)
 // -----------------------------------------------------------------------------
+//
+// From here on, `document`, `window` and `localStorage` appear only inside
+// callbacks handed to page.evaluate()/$eval(), which Puppeteer serialises and
+// runs in the page rather than in Node. Declaring those three names is the
+// correct fix; a file-wide `eslint-disable no-undef` would also silence a real
+// typo in the Node half of this suite (VECTOR 1 runs entirely in Node).
+/* global document, window, localStorage */
 async function testRitualInteractivity() {
   console.log("\n================================================================================");
   console.log("VECTOR 2 & 3: R2 'Complete the Ritual' PDP Checkbox & Cart Synchronization");

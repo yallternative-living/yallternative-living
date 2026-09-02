@@ -60,6 +60,11 @@ preview_urls = false
 # (e.g. "*.yallternativeliving.com"). NOT a secret -- safe to commit.
 # REQUIRED: sveltia-auth.js fails CLOSED, so if this is empty no login will
 # succeed (the token is never delivered). Keep it set to the real site host(s).
+#
+# Write BARE HOSTS here, no scheme and no port. sveltia-auth.js compares the
+# full opener origin and prefixes each entry with "https://" itself, so a
+# plaintext or off-port opener can never match. An opener that turns out not to
+# match also gets its freshly issued token revoked at GitHub (POST /revoke).
 ALLOWED_DOMAINS = "yallternativeliving.com,www.yallternativeliving.com"
 
 # GITHUB_HOSTNAME is only needed for GitHub Enterprise; github.com is the

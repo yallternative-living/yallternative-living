@@ -5,8 +5,8 @@
  * Exhaustively stress-tests:
  * 1. Multi-facet filtering on shop.html (category + concern + scent + search query + sort combinations,
  *    deep linking ?concern=..., ?category=..., clicking #resetFiltersBtn to verify 19 products restoration & 0 layout shift).
- * 2. Printable gift certificate on thank-you.html (parameter parsing, alias params, XSS sanitization,
- *    @media print layout CSS rules, copy button feedback and clipboard interaction).
+ * 2. The URL-parameter gift certificate on thank-you.html stays deleted (audit H-7),
+ *    with no element of that UI reachable from query parameters alone).
  * 3. Order status modal reorder flow (DOM rendering, order lookup, item breakdown, 1-click reorder button click,
  *    out-of-stock item filtration, and automatic cart drawer opening).
  * 4. Share cart URL generation and hydration (URL format generation, URL param ?cart= hydration on shop.html,
@@ -328,179 +328,44 @@ async function runEmpiricalChallengerTests() {
     /* =========================================================================
        SECTION 2: THANK-YOU.HTML PRINTABLE GIFT CERTIFICATE
        ========================================================================= */
-    console.log("\n--- 2. Testing Printable Gift Certificate on thank-you.html ---");
-
-    // 2.1 Parameter parsing & DOM rendering
-    const testCertParams = new URLSearchParams({
-      session_id: "cs_test_gift_cert_12345",
-      amount: "45.00",
-      code: "GIFT-EMPID-9876",
-      to: "Avery Jackson",
-      from: "Sam Southern",
-      message: "Enjoy the soothing herbal goodness!"
-    }).toString();
-
-    await page.goto(`${baseUrl}/thank-you.html?${testCertParams}`, { waitUntil: "networkidle0" });
-
-    const certData = await page.evaluate(() => {
-      const section = document.getElementById("giftCertificateSection");
-      const codeEl = document.getElementById("giftCertCode");
-      const valEl = document.getElementById("giftCertValue");
-      const toEl = document.getElementById("giftCertRecipient");
-      const fromEl = document.getElementById("giftCertSender");
-      const msgEl = document.getElementById("giftCertMessage");
-
-      return {
-        sectionHidden: section ? section.hidden : true,
-        code: codeEl ? codeEl.textContent.trim() : "",
-        val: valEl ? valEl.textContent.trim() : "",
-        to: toEl ? toEl.textContent.trim() : "",
-        from: fromEl ? fromEl.textContent.trim() : "",
-        msg: msgEl ? msgEl.textContent.trim() : ""
-      };
+    /* The printable gift certificate that used to live here rendered a
+       $500-looking certificate on the real domain from nothing but URL
+       parameters -- ?gift_code=&amount=&sender= -- while the Worker's success
+       URL never carried them, so a real purchase never produced one (audit
+       H-7). It was deleted rather than fixed. What is asserted instead is that
+       it stays deleted: no element of that UI may come back without a verified
+       session behind it. */
+    console.log("\n--- 2. Verifying the URL-parameter gift certificate stays deleted ---");
+    await page.goto(
+      `${baseUrl}/thank-you.html?gift_code=YALL-TEST-9988&amount=50000&sender=Attacker&recipient=Victim`,
+      {
+        waitUntil: "networkidle0"
+      }
+    );
+    const certRemnants = await page.evaluate(() => {
+      const ids = [
+        "giftCertificateSection",
+        "giftCertificateCard",
+        "giftCertCode",
+        "giftCertValue",
+        "giftCertRecipient",
+        "giftCertSender",
+        "giftCertMessage",
+        "printGiftCertBtn",
+        "copyGiftCertCodeBtn"
+      ];
+      return ids.filter((id) => document.getElementById(id) !== null);
     });
-
-    assert(!certData.sectionHidden, "Gift certificate section is unhidden when gift code present");
     assert(
-      certData.code === "GIFT-EMPID-9876",
-      `Gift cert code matches: expected GIFT-EMPID-9876, got ${certData.code}`
+      certRemnants.length === 0,
+      `thank-you.html renders no URL-parameter gift certificate (found: ${certRemnants.join(", ") || "none"})`
     );
+    const certTextLeak = await page.evaluate(() => document.body.textContent);
     assert(
-      certData.val === "$45.00",
-      `Gift cert amount matches: expected $45.00, got ${certData.val}`
-    );
-    assert(
-      certData.to === "Avery Jackson",
-      `Recipient matches: expected Avery Jackson, got ${certData.to}`
-    );
-    assert(
-      certData.from === "Sam Southern",
-      `Sender matches: expected Sam Southern, got ${certData.from}`
-    );
-    assert(
-      certData.msg === "Enjoy the soothing herbal goodness!",
-      `Message matches: got ${certData.msg}`
-    );
-    pass("Gift certificate correctly parses URL parameters and renders structured fields.");
-
-    // 2.2 Alias parameter testing (?gift_code=...&val=...&recipient=...&sender=...&note=...)
-    const aliasCertParams = new URLSearchParams({
-      session_id: "cs_test_alias_789",
-      amount: "75.00",
-      gift_code: "ALIAS-GIFT-5555",
-      recipient: "Taylor Swift",
-      sender: "Dolly Parton",
-      note: "From Tennessee with love!"
-    }).toString();
-
-    await page.goto(`${baseUrl}/thank-you.html?${aliasCertParams}`, { waitUntil: "networkidle0" });
-    const aliasCertData = await page.evaluate(() => {
-      return {
-        code: document.getElementById("giftCertCode")?.textContent.trim(),
-        val: document.getElementById("giftCertValue")?.textContent.trim(),
-        to: document.getElementById("giftCertRecipient")?.textContent.trim(),
-        from: document.getElementById("giftCertSender")?.textContent.trim(),
-        msg: document.getElementById("giftCertMessage")?.textContent.trim()
-      };
-    });
-    assert(aliasCertData.code === "ALIAS-GIFT-5555", "Alias gift_code parsed");
-    assert(aliasCertData.val === "$75.00", "Alias amount parsed");
-    assert(aliasCertData.to === "Taylor Swift", "Alias recipient parsed");
-    assert(aliasCertData.from === "Dolly Parton", "Alias sender parsed");
-    assert(aliasCertData.msg === "From Tennessee with love!", "Alias note parsed");
-    pass(
-      "Gift certificate alias query parameters (gift_code, recipient, sender, note) fully supported."
+      !/YALL-TEST-9988/.test(certTextLeak),
+      "thank-you.html does not echo a gift code supplied in the query string"
     );
 
-    // 2.3 XSS and Special Character Safety
-    const xssParams = new URLSearchParams({
-      session_id: "cs_test_xss_999",
-      amount: "25.00",
-      code: "<script>window.__xss_cert_code = true;</script>",
-      to: "<img src=x onerror=window.__xss_to=true>",
-      from: "<b>Sender</b>",
-      message: "<script>window.__xss_msg = true;</script>"
-    }).toString();
-
-    await page.goto(`${baseUrl}/thank-you.html?${xssParams}`, { waitUntil: "networkidle0" });
-    const xssCheck = await page.evaluate(() => {
-      return {
-        hasScriptInjected: !!window.__xss_cert_code || !!window.__xss_to || !!window.__xss_msg,
-        codeText: document.getElementById("giftCertCode")?.textContent,
-        toText: document.getElementById("giftCertRecipient")?.textContent,
-        msgText: document.getElementById("giftCertMessage")?.textContent
-      };
-    });
-    assert(!xssCheck.hasScriptInjected, "No XSS script execution occurred");
-    assert(
-      xssCheck.codeText.includes("<script>"),
-      "Raw markup text is safely escaped/textContent-assigned"
-    );
-    pass("Gift certificate parameter injection is strictly XSS-safe.");
-
-    // 2.4 @media print CSS Stylesheet Verification
-    await page.emulateMediaType("print");
-    const printStyles = await page.evaluate(() => {
-      const actions = document.querySelector(".gift-cert-actions");
-      const card = document.getElementById("giftCertificateCard");
-      const header = document.querySelector(".site-header");
-      const footer = document.querySelector(".site-footer");
-
-      const getComputedDisplay = (el) => (el ? window.getComputedStyle(el).display : null);
-      const getComputedBreak = (el) =>
-        el
-          ? window.getComputedStyle(el).breakInside || window.getComputedStyle(el).pageBreakInside
-          : null;
-
-      return {
-        actionsDisplay: getComputedDisplay(actions),
-        cardBreakInside: getComputedBreak(card),
-        headerDisplay: getComputedDisplay(header),
-        footerDisplay: getComputedDisplay(footer)
-      };
-    });
-    await page.emulateMediaType("screen");
-
-    assert(
-      printStyles.actionsDisplay === "none",
-      `Print actions hidden in print media (got ${printStyles.actionsDisplay})`
-    );
-    assert(
-      printStyles.cardBreakInside === "avoid" || printStyles.cardBreakInside === "avoid-page",
-      `Gift certificate card has break-inside: avoid in print media (got ${printStyles.cardBreakInside})`
-    );
-    pass("Print media styles verified: action buttons hidden, page-break-inside avoid configured.");
-
-    // 2.5 Copy Button Feedback Verification
-    await page.goto(`${baseUrl}/thank-you.html?${testCertParams}`, { waitUntil: "networkidle0" });
-    const copyResult = await page.evaluate(async () => {
-      const copyBtn = document.getElementById("copyGiftCertCodeBtn");
-      const feedbackEl = document.getElementById("giftCertCopyFeedback");
-      if (!copyBtn) return { success: false, reason: "No copyBtn" };
-
-      copyBtn.click();
-      await new Promise((r) => setTimeout(r, 100));
-
-      return {
-        success: true,
-        btnHtml: copyBtn.innerHTML,
-        feedbackText: feedbackEl ? feedbackEl.textContent : ""
-      };
-    });
-    assert(copyResult.success, "Copy button clicked successfully");
-    assert(
-      copyResult.btnHtml.includes("Copied!"),
-      `Button displays 'Copied!' state: got ${copyResult.btnHtml}`
-    );
-    assert(
-      copyResult.feedbackText.includes("GIFT-EMPID-9876"),
-      `Feedback announces code: got ${copyResult.feedbackText}`
-    );
-    pass("Copy certificate code button triggers instant visual and accessible feedback.");
-
-    /* =========================================================================
-       SECTION 3: ORDER STATUS MODAL AND 1-CLICK REORDER FLOW
-       ========================================================================= */
     console.log("\n--- 3. Testing Order Status Modal & 1-Click Reorder Flow ---");
 
     // 3.1 Open order status modal and lookup order

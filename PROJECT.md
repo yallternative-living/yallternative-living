@@ -7,7 +7,7 @@ Data flow:
 2. Build compiler `scripts/build-site-data.js` compiles JSON into derived client data globals (`assets/js/products-data.js`, `assets/js/events-data.js`, etc.), updates static HTML comment markers, compiles 19 individual product detail pages (`products/*.html`), and generates sitemap/robots/llms.
 3. Client runtime: `assets/js/main.js` (DOM interactions, theme, search, wishlist, carousels, sticky bar, variant switching), `assets/js/cart.js` (client-side cart state, volume discounts, multi-tier shipping/gift meters, Stripe checkout payload).
 4. Cloudflare Worker: `workers/checkout.js` (server-side cart validation, tax calculation, Stripe Checkout session creation, promotion codes, and free gift metadata).
-5. Testing stack: Node.js parallel unit test runners (`scripts/run-unit-tests.js`), static quality validation (`scripts/qa-check.js`), Puppeteer integration suites (`scripts/run-integration-tests.js`), axe-core WCAG 2.2 AA audit (`scripts/a11y-check.js`), and Playwright multi-browser test (`scripts/cross-browser-check.js`).
+5. Testing stack: `npm test` -> `scripts/run-test.js`, which runs the Node-only unit pool (`scripts/run-unit-tests.js`, 27 suites plus `verify-pdp-metadata.js` and `verify-build-reproducibility.js`) and the static QA gate (`scripts/qa-check.js`, 721 assertions) independently, failing if either does. `npm run test:integration` -> `scripts/run-integration-tests.js` runs the browser pool: the Puppeteer harnesses plus every `scripts/*.browser.test.js`, the axe-core WCAG 2.2 AA audit (`scripts/a11y-check.js`) and the scroll-reveal gate. `npm run test:cross-browser` -> `scripts/cross-browser-check.js` adds Firefox and WebKit. See `TEST_INFRA.md`.
 
 ## Feature Inventory
 | # | Feature | Description | Milestone | Source |
@@ -35,12 +35,26 @@ Data flow:
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| M1 | Google Merchant Rich Product JSON-LD (R5) | `scripts/build-site-data.js`, `scripts/build-site-data.test.js`, `scripts/qa-check.js` | None | PLANNED |
-| M2 | Multi-Tier Free Shipping & Gift Progress Meter (R3) | `assets/js/cart.js`, `assets/css/cart.css`, `scripts/cart-engine.test.js`, `scripts/cart.test.js`, `workers/checkout.js` | None | PLANNED |
-| M3 | "Recently Viewed Products" Carousel (R4) | `assets/js/main.js`, `assets/css/styles.css`, `shop.html`, `scripts/main.test.js` | None | PLANNED |
-| M4 | "Complete the Ritual" Smart Cross-Sells (R2) | `assets/data/products.json`, `admin/config.yml`, `scripts/build-site-data.js`, `assets/js/main.js`, `assets/css/styles.css`, `scripts/pdp-merchandising.test.js` | M1, M2 | PLANNED |
-| M5 | Mobile Sticky Add-to-Cart Bottom Bar on PDPs (R1) | `scripts/build-site-data.js`, `assets/js/main.js`, `assets/css/styles.css`, `scripts/main.test.js` | M1, M2 | PLANNED |
-| M6 | E2E Integration, Cross-Browser & A11y Verification | `scripts/puppeteer_tests.js`, `scripts/extended_qa_test.js`, `scripts/a11y-check.js`, `scripts/cross-browser-check.js` | M1, M2, M3, M4, M5 | PLANNED |
+| M1 | Google Merchant Rich Product JSON-LD (R5) | `scripts/build-site-data.js`, `scripts/build-site-data.test.js`, `scripts/qa-check.js` | None | SHIPPED (relocated -- see note below) |
+| M2 | Multi-Tier Free Shipping & Gift Progress Meter (R3) | `assets/js/cart.js`, `assets/css/cart.css`, `scripts/cart-engine.test.js`, `scripts/cart.test.js`, `workers/checkout.js` | None | SHIPPED |
+| M3 | "Recently Viewed Products" Carousel (R4) | `assets/js/main.js`, `assets/css/styles.css`, `shop.html`, `scripts/main.test.js` | None | SHIPPED |
+| M4 | "Complete the Ritual" Smart Cross-Sells (R2) | `assets/data/products.json`, `admin/config.yml`, `scripts/build-site-data.js`, `assets/js/main.js`, `assets/css/styles.css`, `scripts/pdp-merchandising.test.js` | M1, M2 | SHIPPED |
+| M5 | Mobile Sticky Add-to-Cart Bottom Bar on PDPs (R1) | `scripts/build-site-data.js`, `assets/js/main.js`, `assets/css/styles.css`, `scripts/main.test.js` | M1, M2 | SHIPPED |
+| M6 | E2E Integration, Cross-Browser & A11y Verification | `scripts/puppeteer_tests.js`, `scripts/extended_qa_test.js`, `scripts/a11y-check.js`, `scripts/cross-browser-check.js` | M1, M2, M3, M4, M5 | SHIPPED |
+
+Every milestone above is in production; the table read PLANNED for all six long
+after they shipped. Statuses here are only meaningful if they are maintained.
+
+**M1's structured data moved.** The `Product`, `Offer` and `BreadcrumbList`
+JSON-LD is no longer emitted onto the 19 `products/*.html` pages. Those pages
+canonicalise to `shop.html`, are absent from `sitemap.xml` and redirect on
+load, so search engines saw 19 doorway pages and the site got no product rich
+results at all. The payload now lives in a single `ItemList` on `shop.html` --
+the page that is actually indexed -- with one `Offer` or `AggregateOffer` per
+product carrying price, currency and availability, and the product pages are
+explicitly `noindex, follow` with no JSON-LD. `scripts/qa-check.js` asserts
+both halves. The R5.x rows in the Feature Inventory describe the data, which is
+unchanged; only its home is different.
 
 ## Interface Contracts
 
@@ -80,7 +94,10 @@ Data flow:
 - `assets/css/styles.css` — Global stylesheet and component styles
 - `assets/css/cart.css` — Cart drawer styling
 - `workers/checkout.js` — Cloudflare Worker for checkout & Stripe API
-- `scripts/*.test.js` — Unit test suites
+- `scripts/*.test.js` — Node-only unit test suites (`npm test`)
+- `scripts/*.browser.test.js` — Puppeteer/Playwright suites (`npm run test:integration`)
+- `scripts/run-test.js` — `npm test` orchestrator: unit pool + static QA, exit code is the OR
+- `cms-auth/sveltia-auth.js` — GitHub OAuth Worker for the CMS at `/admin`
 - `scripts/qa-check.js` — Static QA assertions
 - `scripts/puppeteer_tests.js` — Multi-viewport Puppeteer integration tests
 - `scripts/extended_qa_test.js` — Rapid click and edge case integration tests

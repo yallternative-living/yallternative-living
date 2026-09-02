@@ -9,7 +9,7 @@
  * Dimension 5: Axe-Core WCAG 2.2 AA Audits on Rendered Journal List, Post Detail, & Active Cart Drawer
  * Dimension 6: Playwright Multi-Engine Cross-Browser Compatibility (Chromium, Firefox, WebKit)
  *
- * Run: node scripts/m4-adversarial-challenger.test.js
+ * Run: node scripts/m4-adversarial-challenger.browser.test.js
  */
 
 /* global window, document, getComputedStyle */
@@ -18,12 +18,12 @@ const fs = require("fs");
 const path = require("path");
 const http = require("http");
 const puppeteer = require("puppeteer");
-let playwright;
-try {
-  playwright = require("playwright");
-} catch (e) {
-  playwright = null;
-}
+// Required unguarded on purpose. This used to sit in a try/catch that set
+// `playwright = null`, and Dimension 6 then logged "skipping" and passed --
+// so the three-engine gate quietly reported green on any machine where the
+// engines were not installed, which is every machine but the CI `browser`
+// job (audit H-19). A missing engine is now a failure, not a skip.
+const playwright = require("playwright");
 
 const ROOT = path.resolve(__dirname, "..");
 
@@ -146,10 +146,55 @@ const MIME = {
   ".xml": "application/xml"
 };
 
+/* The Apothecary Journal is a content switch (content.json site.enableJournal).
+   With it off, the build emits zero posts into journal-data.js and journal.html
+   renders a "coming soon" notice -- so every dimension of this suite, which
+   exists to test the journal, would have nothing to drive.
+
+   Rather than skipping (a suite that quietly asserts nothing is worse than no
+   suite) or hard-coding the flag's current value, the harness serves a
+   journal-enabled FIXTURE: the two generated files the feature reads are
+   replaced in flight with `enableJournal: true` and the posts from the
+   unfiltered assets/data/journal.json. Everything else is served from disk.
+   The suite therefore tests the journal feature itself, in either switch
+   position, and challenger-m4-stress.browser.test.js separately asserts that
+   the SWITCH is honoured (no posts, no feed items) when it is off.
+
+   Dimension 4 Test 1 asserts the switched-OFF page, so it flips
+   `serveJournalEnabled` to false for the duration and gets the real files. */
+let serveJournalEnabled = true;
+
+function journalEnabledFixture(reqPath) {
+  if (!serveJournalEnabled) return null;
+  if (reqPath === "/assets/js/journal-data.js") {
+    const journal = fs.readFileSync(path.join(ROOT, "assets/data/journal.json"), "utf8");
+    return `window.YL_JOURNAL = ${journal};`;
+  }
+  if (reqPath === "/assets/js/content-data.js") {
+    const content = JSON.parse(
+      fs.readFileSync(path.join(ROOT, "assets/data/content.json"), "utf8")
+    );
+    content.site.enableJournal = true;
+    return `window.YL_CONTENT = ${JSON.stringify(content)};`;
+  }
+  return null;
+}
+
 function createStaticServer(port) {
   const server = http.createServer((req, res) => {
     let reqPath = decodeURIComponent(req.url.split("?")[0]);
     if (reqPath === "/") reqPath = "/index.html";
+
+    const fixture = journalEnabledFixture(reqPath);
+    if (fixture !== null) {
+      res.writeHead(200, {
+        "Content-Type": "text/javascript",
+        "Cache-Control": "no-store"
+      });
+      res.end(fixture);
+      return;
+    }
+
     let filePath = path.join(ROOT, reqPath);
     if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
       filePath = path.join(ROOT, "404.html");
@@ -337,15 +382,14 @@ async function runAdversarialStressSuite() {
             ? drawer.hasAttribute("data-open") ||
               (typeof drawer.matches === "function" && drawer.matches(":popover-open"))
             : false;
-          const pointsCountEl = document.getElementById("cart-points-count");
-          const pointsEarned = pointsCountEl ? pointsCountEl.textContent.trim() : null;
+          const pointsCounterPresent = !!document.getElementById("cart-points-count");
           const scrollAfter = window.scrollY;
 
           return {
             count,
             items,
             isOpen,
-            pointsEarned,
+            pointsCounterPresent,
             scrollAfter
           };
         });
@@ -371,8 +415,9 @@ async function runAdversarialStressSuite() {
           `Page scroll remained perfectly stable without jump (delta: ${Math.abs(afterClickState.scrollAfter - scrollBefore)}px)`
         );
         assert(
-          afterClickState.pointsEarned === "19",
-          `Alt-Points earned correctly computed for $19.99 salve (expected '19', got: '${afterClickState.pointsEarned}')`
+          afterClickState.pointsCounterPresent === false,
+          "Cart drawer shows no Alt-Points counter: nothing credits the points and " +
+            "redeem-points answers 410 (audit C-1), so the promise was withdrawn"
         );
 
         // Close drawer and navigate to second post (#post-small-batch-difference)
@@ -401,15 +446,17 @@ async function runAdversarialStressSuite() {
         const multiItemState = await page.evaluate(() => {
           const items = window.YLCart.items();
           const count = window.YLCart.count();
-          const pointsCountEl = document.getElementById("cart-points-count");
-          const pointsEarned = pointsCountEl ? pointsCountEl.textContent.trim() : null;
-          const subtotalText = document.querySelector(".yl-cart-subtotal-val")?.textContent?.trim();
+          const pointsCounterPresent = !!document.getElementById("cart-points-count");
+          const subtotalEl =
+            document.querySelector(".yl-cart-subtotal-val") ||
+            document.querySelector(".yl-cart-subtotal strong");
+          const subtotalText = subtotalEl ? subtotalEl.textContent.trim() : null;
 
           return {
             count,
             itemsCount: items.length,
             itemIds: items.map((i) => i.id),
-            pointsEarned,
+            pointsCounterPresent,
             subtotalText
           };
         });
@@ -421,8 +468,11 @@ async function runAdversarialStressSuite() {
           `Cart contains both resolved items ['sleep-salve', 'frankincense-salve'] (got: ${JSON.stringify(multiItemState.itemIds)})`
         );
         assert(
-          multiItemState.pointsEarned === "39",
-          `Total cart subtotal ($39.98) accurately earns 39 Alt-Points (got: '${multiItemState.pointsEarned}')`
+          multiItemState.pointsCounterPresent === false &&
+            typeof multiItemState.subtotalText === "string" &&
+            multiItemState.subtotalText.includes("39.98"),
+          "Cart drawer quotes the real $39.98 subtotal and no Alt-Points counter " +
+            `(got: '${multiItemState.subtotalText}', counter present: ${multiItemState.pointsCounterPresent})`
         );
 
         // Rapid multi-click stress testing: click Add button 5 times rapidly
@@ -587,9 +637,12 @@ async function runAdversarialStressSuite() {
     // =========================================================================
     console.log("\n>>> DIMENSION 4: Tag Filter Interactivity & SPA Hash Navigation");
 
-    // Test 1: Default state (enableJournal=false -> Coming Soon)
+    // Test 1: switched-OFF state -> Coming Soon. Served the real generated
+    // files, not the journal-enabled fixture, so this exercises the actual
+    // gate rather than the harness.
     {
       const page = await browser.newPage();
+      serveJournalEnabled = false;
       try {
         await page.goto(`http://127.0.0.1:${PORT}/journal.html`, { waitUntil: "networkidle2" });
         await sleep(300);
@@ -603,6 +656,7 @@ async function runAdversarialStressSuite() {
           "When enableJournal is false, journalApp displays 'Journal Coming Soon' notice"
         );
       } finally {
+        serveJournalEnabled = true;
         await page.close();
       }
     }
@@ -781,7 +835,7 @@ async function runAdversarialStressSuite() {
     // =========================================================================
     console.log("\n>>> DIMENSION 6: Playwright Cross-Browser Testing (Chromium, Firefox, WebKit)");
 
-    if (playwright) {
+    {
       const engines = [
         { name: "Chromium", type: playwright.chromium },
         { name: "Firefox", type: playwright.firefox },
@@ -830,8 +884,6 @@ async function runAdversarialStressSuite() {
           if (pwBrowser) await pwBrowser.close();
         }
       }
-    } else {
-      console.log("  (Playwright not available, skipping Playwright multi-engine run)");
     }
   } finally {
     if (browser) await browser.close();

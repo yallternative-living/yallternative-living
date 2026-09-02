@@ -1,12 +1,15 @@
 #!/bin/bash
 # Y'allternative Living -- full local launch check.
 #
-# Runs everything that verifies the site before a push: static QA + unit
-# tests (303+ checks, including the Stripe Tax and market-pickup logic in
-# workers/checkout.js), lint, formatting, and the Puppeteer browser tests
-# across viewports. The last one needs a real Chrome + disk space, which
-# is why it can't run in a sandboxed environment -- this file exists so it
-# runs here instead, on your machine.
+# Runs every gate CI runs, in the same order CI runs them: the fast smoke
+# gate, the unit pool plus the static QA gate, lint, formatting, the browser
+# integration suites across viewports, and the Playwright cross-browser run.
+#
+# The last two need a real Chrome (and, for cross-browser, Firefox and WebKit)
+# plus disk space, which is why they can't run in a sandboxed environment --
+# this file exists so they run here instead, on your machine. If the
+# cross-browser step reports missing engines, install them once with:
+#   npx playwright install --with-deps chromium firefox webkit
 #
 # Double-click this file in Finder, or run from Terminal:
 #   bash run-launch-checks.command
@@ -37,10 +40,12 @@ run_step() {
   fi
 }
 
+run_step "Fast smoke gate (npm run test:smoke)" npm run test:smoke
 run_step "Static QA + unit tests (npm test)" npm test
 run_step "Lint (npm run lint)" npm run lint
 run_step "Format check (npm run format:check)" npm run format:check
 run_step "Browser integration tests, all viewports (npm run test:integration)" npm run test:integration
+run_step "Cross-browser tests, Chromium/Firefox/WebKit (npm run test:cross-browser)" npm run test:cross-browser
 
 echo
 echo "============================================"

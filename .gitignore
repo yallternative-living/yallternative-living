@@ -1,6 +1,20 @@
 # Dev-time only -- never ships to the deployed site.
 node_modules/
 
+# Secrets. Netlify publishes the whole repository (publish = "."), so a
+# committed .env would be downloadable from the live domain. docs/DEVELOPMENT.md
+# has always claimed these were ignored; until now they were not.
+.env
+.env.*
+!.env.example
+
+# Deploy-tool local state
+.vercel/
+.netlify/
+
+# Claude Code harness state: worktrees, transcripts and a second package-lock
+.claude/
+
 # OS cruft
 .DS_Store
 

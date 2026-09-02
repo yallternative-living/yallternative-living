@@ -1,10 +1,17 @@
 /**
- * @fileoverview Runs every scripts/*.test.js unit suite across a parallel
- * worker pool and aggregates the results.
+ * @fileoverview Runs every Node-only scripts/*.test.js unit suite across a
+ * parallel worker pool and aggregates the results.
  *
  * These suites cover cart pricing, the Cloudflare Worker's checkout/tax/
  * gift-card math, the build-data compiler, main.js behaviour, the social-feed
  * sync, global search, and the translator.
+ *
+ * SCOPE: `*.browser.test.js` is deliberately excluded. Those suites drive a
+ * real Chromium (Puppeteer) or all three Playwright engines, so they belong to
+ * `scripts/run-integration-tests.js` and the CI `browser` job that installs
+ * the engines -- not to this pool, which the CI `qa` job runs with
+ * PUPPETEER_SKIP_DOWNLOAD set. Seven browser-driven suites used to be globbed
+ * in here, which is why the `qa` job could not pass (audit H-16/H-17).
  *
  * Suites are run concurrently across CPU cores using a worker pool.
  * Output is cleanly buffered per test suite and printed on completion so
@@ -24,9 +31,26 @@ const { spawn } = require("child_process");
 const SCRIPTS_DIR = __dirname;
 const ROOT_DIR = path.resolve(SCRIPTS_DIR, "..");
 
+/**
+ * Node-only gates that predate the `*.test.js` convention and were therefore
+ * referenced by nothing (audit H-19: ~126 KB of tests wired into no npm
+ * script). They run sequentially after the pool because
+ * verify-build-reproducibility.js shells out to the site build six times and
+ * must not race the suites that read generated files.
+ */
+const FIXED_GATES = [
+  "verify-pdp-metadata.js",
+  // Red until the build stops stamping wall-clock time into feed.xml's
+  // <lastBuildDate> and sw.js's CACHE_NAME (audit H-20, owned by the build
+  // agent). Wired in anyway: a gate that is red for a known reason is worth
+  // more than one nobody runs. It also rewrites the generated files as a side
+  // effect, so the tree is dirty after a run until that fix lands.
+  "verify-build-reproducibility.js"
+];
+
 const suites = fs
   .readdirSync(SCRIPTS_DIR)
-  .filter((f) => f.endsWith(".test.js"))
+  .filter((f) => f.endsWith(".test.js") && !f.endsWith(".browser.test.js"))
   .sort();
 
 if (!suites.length) {
@@ -34,9 +58,19 @@ if (!suites.length) {
   process.exit(1);
 }
 
+const missingGates = FIXED_GATES.filter((f) => !fs.existsSync(path.join(SCRIPTS_DIR, f)));
+if (missingGates.length) {
+  missingGates.forEach((f) =>
+    console.error(`Unit gate scripts/${f} is listed in run-unit-tests.js but does not exist.`)
+  );
+  console.error("Refusing to report a pass on a gate that silently vanished.");
+  process.exit(1);
+}
+
 const maxWorkers = Math.max(1, Math.min(os.cpus() ? os.cpus().length : 4, suites.length));
 console.log(
-  `Running ${suites.length} unit test suites in parallel across ${maxWorkers} workers...\n`
+  `Running ${suites.length} unit test suites in parallel across ${maxWorkers} workers, ` +
+    `then ${FIXED_GATES.length} Node-only gates sequentially...\n`
 );
 
 function runSuite(file) {
@@ -116,14 +150,36 @@ function runSuite(file) {
   const workers = Array.from({ length: maxWorkers }, () => worker());
   await Promise.all(workers);
 
+  // Sequential Node-only gates. They are not `*.test.js` and are run last so
+  // the build-driving one cannot race the pool.
+  for (const file of FIXED_GATES) {
+    const res = await runSuite(file);
+    results.push(res);
+    console.log(`--- ${res.file} (${(res.durationMs / 1000).toFixed(2)}s) ---`);
+    if (res.stdout) process.stdout.write(res.stdout);
+    if (res.stderr) process.stderr.write(res.stderr);
+    if (!res.ok) {
+      failures.push(
+        `${res.file}${res.signal ? ` (killed by ${res.signal})` : ` (exit ${res.status})`}`
+      );
+    }
+  }
+
+  const total = suites.length + FIXED_GATES.length;
   console.log("\n==================================================");
   if (failures.length) {
-    console.log(`Unit suites: ${suites.length - failures.length}/${suites.length} passed.`);
+    console.log(`Unit suites: ${total - failures.length}/${total} passed.`);
     failures.forEach((f) => console.log(`  ✗ ${f}`));
+    if (failures.some((f) => f.startsWith("verify-build-reproducibility.js"))) {
+      console.log(
+        "  note: verify-build-reproducibility.js fails while the build stamps wall-clock\n" +
+          "        time into feed.xml <lastBuildDate> and sw.js CACHE_NAME (audit H-20)."
+      );
+    }
     console.log("==================================================");
     process.exit(1);
   }
-  console.log(`Unit suites: ${suites.length}/${suites.length} passed.`);
+  console.log(`Unit suites: ${total}/${total} passed.`);
   console.log("==================================================");
   process.exit(0);
 })().catch((err) => {

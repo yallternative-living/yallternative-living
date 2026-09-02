@@ -7,7 +7,7 @@
  * 3. R4: "Recently Viewed Products" Carousel (Corrupted localStorage, 8-item cap, deduplication, private browsing, PDP filtering)
  * 4. R1 Headless Browser Verification (Puppeteer scroll transitions, rapid resize, variant sync, cart integration)
  *
- * Run: node scripts/challenger-adversarial-suite.test.js
+ * Run: node scripts/challenger-adversarial-suite.browser.test.js
  */
 
 const assert = require("assert");
@@ -17,7 +17,6 @@ const http = require("http");
 const puppeteer = require("puppeteer");
 
 const cart = require("../assets/js/cart.js");
-const catalogData = require("../assets/data/products.json");
 
 let totalTests = 0;
 let passedTests = 0;
@@ -462,6 +461,13 @@ function createStaticServer(port = 8089) {
   // ===========================================================================
   // SECTION 3: R1 - MOBILE STICKY BAR HEADLESS BROWSER INTERACTION SUITE
   // ===========================================================================
+  //
+  // Everything below this point that reads `document` or `window` does so
+  // inside a callback handed to page.evaluate()/$eval(), which Puppeteer
+  // serialises and runs in the page, not in Node. Declaring the two names
+  // ESLint cannot infer from that boundary is the fix; blanket-disabling
+  // no-undef for the file would also hide a genuine typo in the Node half.
+  /* global document, window */
   console.log("\n--- 3. R1: Mobile Sticky Bar Puppeteer Browser Verification ---");
 
   const serverPort = 8089;

@@ -20,8 +20,8 @@ store wasn't live yet, so there was no live-checkout risk to protect against.)
   native-popover drawer, reads the `data-item-*` attributes on the Add-to-Cart
   buttons, one-click upsells from `window.YL_PRODUCTS`, cross-tab sync,
   free-shipping meter, per-item stock cap, gift-card recipient/sender/message
-  fields. Engine logic is unit-tested: `node scripts/cart-engine.test.js`
-  (27 checks).
+  fields. Engine logic is unit-tested by `scripts/cart-engine.test.js` and
+  `scripts/cart.test.js`, both in the `npm test` pool.
 - `workers/checkout.js` — validates prices server-side against `products.json`
   (including gift-card amount clamping), never trusts a client-supplied price.
 - `netlify/functions/fulfill-gift-card.js` — the `checkout.session.completed`
@@ -90,11 +90,21 @@ store wasn't live yet, so there was no live-checkout risk to protect against.)
 - **Do not** treat the success redirect as "paid" — a dropped connection loses
   it. `thank-you.html`'s analytics ping is explicitly best-effort for this
   reason.
-- `netlify/functions/fulfill-gift-card.js` is that webhook: it listens for
-  `checkout.session.completed` and is what actually fulfills gift cards
-  (creates a redeemable Stripe Promotion Code, emails it via Resend). It is
-  **not yet registered** with Stripe — see `workers/README.md`'s deploy steps
-  for this file before gift cards work end to end.
+- `netlify/functions/fulfill-gift-card.js` is that webhook. It now handles
+  **three** events, not one, and all three have to be subscribed in the Stripe
+  dashboard:
+  - `checkout.session.completed` — fulfils gift cards (creates a redeemable
+    Stripe Promotion Code, emails it via Resend) and processes a redemption,
+    rolling any remaining balance onto a fresh code.
+  - `checkout.session.expired` — deletes the ephemeral coupon minted when a
+    gift card was pre-applied to a checkout the shopper abandoned. Without it
+    every abandoned gift-card checkout leaves a permanent coupon behind.
+  - `charge.refunded` — restores the gift-card balance a refunded order
+    consumed. Do **not** also subscribe `refund.created`: it fires for the same
+    money and the handler ignores it on purpose.
+
+  See `docs/DEVELOPMENT.md` section 8a for the endpoint and environment
+  variable reference, and `workers/README.md` for the deploy steps.
 - Nothing currently fulfills *non*-gift-card orders (no inventory decrement,
   no internal order-notification email) — the webhook only handles the gift
   card case because that's the one piece that used to depend on Snipcart.
@@ -125,13 +135,18 @@ Snipcart references") so this can't silently drift back. Re-run
 `/thank-you.html` are all in `sw.js`'s `ASSETS_TO_CACHE`.
 
 ### 10. Test before going live with real money
-- `node scripts/cart-engine.test.js` — passing (27 checks).
-- `npm test` (qa-check) — passing (258 checks).
-- `npm run lint` / `npm run format:check` — passing.
-- `npm run test:integration` (Puppeteer) — needs a real browser; couldn't run
-  in the sandbox this was built in, but the test itself was updated to
-  exercise the real `.yl-add-item` → drawer flow instead of the old Snipcart
-  assertions.
+
+Gate counts drift; run the gates rather than trusting a number written here.
+`TEST_INFRA.md` describes the current layout.
+
+- `npm test` — the Node-only unit pool plus `scripts/qa-check.js` (721 static
+  assertions). Both halves always run and the exit code reflects either
+  failing.
+- `npm run lint` / `npm run format:check`.
+- `npm run test:integration` — the browser pool, including the Puppeteer
+  add-to-cart → drawer flow that replaced the old Snipcart assertions, the
+  XSS/CSP stress harness and the axe-core accessibility gate. Needs a real
+  Chromium; the CI `browser` job installs it.
 - **Still needed, and this is the actual gate before trusting this with real
   money**: deploy `workers/checkout.js` and `fulfill-gift-card.js` with real
   Stripe **test-mode** keys (see `workers/README.md` for both), then manually

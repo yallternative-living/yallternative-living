@@ -2,13 +2,24 @@
  * @fileoverview Runs all integration test suites across isolated local server ports
  * in parallel using a worker pool and aggregates the results.
  *
- * Suites run concurrently:
- * - puppeteer_tests.js (port 8082)
- * - extended_qa_test.js (port 8083)
- * - a11y-check.js (port 8084)
- * - test-m2-ugc-strip.js (port 8085)
- * - security_stress_test.js (port 8086)
- * - reveal-check.js (port 8087)
+ * Two sets of suites run concurrently:
+ *
+ * 1. A fixed list of browser gates that are not named `*.test.js`:
+ *    - puppeteer_tests.js (port 8082)
+ *    - extended_qa_test.js (port 8083)
+ *    - a11y-check.js (port 8084)
+ *    - test-m2-ugc-strip.js (port 8085)
+ *    - security_stress_test.js (port 8086)
+ *    - reveal-check.js (port 8087)
+ *
+ * 2. Every `scripts/*.browser.test.js`, discovered by glob. That suffix is the
+ *    contract: a suite that drives Puppeteer or Playwright carries it and is
+ *    therefore excluded from the Node-only unit pool (run-unit-tests.js) and
+ *    from the CI `qa` job, which sets PUPPETEER_SKIP_DOWNLOAD. Audit H-16/H-17.
+ *
+ * A suite in the fixed list that no longer exists is a hard failure, not a
+ * silent skip -- the previous `.filter(existsSync)` meant deleting a gate made
+ * the board greener (audit H-19).
  *
  * Output is buffered per suite so logs remain clean, readable, and non-interleaved.
  *
@@ -23,19 +34,39 @@ const { spawn } = require("child_process");
 const SCRIPTS_DIR = __dirname;
 const ROOT_DIR = path.resolve(SCRIPTS_DIR, "..");
 
-const suites = [
+const FIXED_SUITES = [
   "puppeteer_tests.js",
   "extended_qa_test.js",
   "security_stress_test.js",
   "test-m2-ugc-strip.js",
   "reveal-check.js",
   "a11y-check.js"
-].filter((f) => fs.existsSync(path.join(SCRIPTS_DIR, f)));
+];
 
-if (!suites.length) {
-  console.error("No integration test suites found in scripts/!");
+const missing = FIXED_SUITES.filter((f) => !fs.existsSync(path.join(SCRIPTS_DIR, f)));
+if (missing.length) {
+  missing.forEach((f) =>
+    console.error(
+      `Integration suite scripts/${f} is listed in run-integration-tests.js but does not exist.`
+    )
+  );
+  console.error("Refusing to report a pass on a gate that silently vanished.");
   process.exit(1);
 }
+
+const browserSuites = fs
+  .readdirSync(SCRIPTS_DIR)
+  .filter((f) => f.endsWith(".browser.test.js"))
+  .sort();
+
+if (!browserSuites.length) {
+  console.error(
+    "No scripts/*.browser.test.js suites found -- the browser-driven suites were renamed or deleted."
+  );
+  process.exit(1);
+}
+
+const suites = FIXED_SUITES.concat(browserSuites);
 
 const maxWorkers = Math.max(1, Math.min(os.cpus() ? os.cpus().length : 4, suites.length));
 console.log(

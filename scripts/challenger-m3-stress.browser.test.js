@@ -6,7 +6,7 @@
  * 3. Accordion DOM state transitions, rapid clicking, keyboard Enter/Space expansion, 320px viewport overflow.
  * 4. Axe-core accessibility and cross-viewport visual layout integrity.
  *
- * Run: node scripts/challenger-m3-stress.test.js
+ * Run: node scripts/challenger-m3-stress.browser.test.js
  */
 
 /* global window, document */
@@ -18,6 +18,10 @@ const puppeteer = require("puppeteer");
 const buildScript = require("./build-site-data.js");
 
 const ROOT = path.resolve(__dirname, "..");
+
+/** Every generated PDP ships Usage, Ingredients and Care accordions. */
+const EXPECTED_ACCORDIONS_PER_PDP = 3;
+
 let passed = 0;
 let failed = 0;
 const findings = [];
@@ -218,13 +222,13 @@ async function runAdversarialStressTests() {
     );
     const accordionCount = (html.match(/<details class="pdp-accordion">/g) || []).length;
     assert(
-      accordionCount === 3,
-      `products/${p.id}.html contains exactly 3 <details class="pdp-accordion"> elements (found: ${accordionCount})`
+      accordionCount === EXPECTED_ACCORDIONS_PER_PDP,
+      `products/${p.id}.html contains exactly ${EXPECTED_ACCORDIONS_PER_PDP} <details class="pdp-accordion"> elements (found: ${accordionCount})`
     );
     const summaryCount = (html.match(/<summary class="pdp-accordion-summary">/g) || []).length;
     assert(
-      summaryCount === 3,
-      `products/${p.id}.html contains exactly 3 <summary class="pdp-accordion-summary"> elements (found: ${summaryCount})`
+      summaryCount === EXPECTED_ACCORDIONS_PER_PDP,
+      `products/${p.id}.html contains exactly ${EXPECTED_ACCORDIONS_PER_PDP} <summary class="pdp-accordion-summary"> elements (found: ${summaryCount})`
     );
 
     // Freshness Badge
@@ -428,7 +432,21 @@ async function runAdversarialStressTests() {
         `PDP '${prodId}' has NO horizontal scroll/overflow on 320px viewport (scrollWidth: ${overflowMetrics.scrollWidth}px, window: ${overflowMetrics.windowWidth}px)`
       );
 
-      // Check all accordion summaries and content bounds within 320px
+      // Check all accordion summaries and content bounds within 320px.
+      //
+      // The count assertion comes first on purpose: bounds.forEach() over an
+      // empty array asserts nothing and accordions.every() over an empty array
+      // is true, so a PDP that rendered no accordions at all used to pass both
+      // the layout and the state-machine checks below.
+      const renderedAccordions = await page.$$eval(
+        ".pdp-accordion",
+        (els) => els.filter((el) => el.querySelector(".pdp-accordion-summary")).length
+      );
+      assert(
+        renderedAccordions === EXPECTED_ACCORDIONS_PER_PDP,
+        `PDP '${prodId}' renders exactly ${EXPECTED_ACCORDIONS_PER_PDP} accordions with summaries (found: ${renderedAccordions})`
+      );
+
       const bounds = await page.evaluate(() => {
         const accordions = Array.from(document.querySelectorAll(".pdp-accordion"));
         return accordions.map((acc, idx) => {
@@ -455,9 +473,15 @@ async function runAdversarialStressTests() {
 
       // B. Accordion Interactive State Machine: Rapid Multi-Toggles
       console.log(`  Testing rapid multi-toggles on ${prodId}...`);
-      const toggleSuccess = await page.evaluate(async () => {
+      const toggleSuccess = await page.evaluate(async (expectedCount) => {
         const accordions = Array.from(document.querySelectorAll(".pdp-accordion"));
         const summaries = accordions.map((a) => a.querySelector(".pdp-accordion-summary"));
+        if (accordions.length !== expectedCount) {
+          return {
+            pass: false,
+            error: `expected ${expectedCount} accordions, found ${accordions.length}`
+          };
+        }
 
         // Open all 3
         for (const s of summaries) s.click();
@@ -488,7 +512,7 @@ async function runAdversarialStressTests() {
         }
 
         return { pass: true };
-      });
+      }, EXPECTED_ACCORDIONS_PER_PDP);
 
       assert(
         toggleSuccess.pass,
