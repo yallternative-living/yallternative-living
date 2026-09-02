@@ -1247,7 +1247,7 @@
 
   /* ---------------- Drawer UI ---------------- */
 
-  var drawer, itemsEl, footEl, liveEl, dispatchEl, dispatchLiveEl;
+  var drawer, itemsEl, footEl, liveEl, dispatchEl, dispatchLiveEl, seasonalNoticeEl;
   var lastDispatchMessage = null;
 
   function ensureDrawer() {
@@ -1268,10 +1268,12 @@
       "<h2>Your Cart</h2>" +
       '<button type="button" class="yl-cart-close" aria-label="Close cart">&times;</button>' +
       "</div>" +
+      '<div class="yl-cart-seasonal-notice" id="yl-cart-seasonal-notice" role="region" aria-label="Seasonal announcement" style="display:none;"></div>' +
       '<div class="yl-cart-dispatch-banner" id="yl-cart-dispatch-banner"></div>' +
       '<div class="yl-cart-items" id="yl-cart-items"></div>' +
       '<div class="yl-cart-foot" id="yl-cart-foot"></div>';
     document.body.appendChild(drawer);
+    seasonalNoticeEl = drawer.querySelector("#yl-cart-seasonal-notice");
     dispatchEl = drawer.querySelector("#yl-cart-dispatch-banner");
     itemsEl = drawer.querySelector("#yl-cart-items");
     footEl = drawer.querySelector("#yl-cart-foot");
@@ -1432,6 +1434,31 @@
 
   function render() {
     ensureDrawer();
+    if (seasonalNoticeEl) {
+      var seasonalCfg =
+        root.YL_CONTENT && root.YL_CONTENT.site && root.YL_CONTENT.site.seasonalNotice;
+      if (seasonalCfg && seasonalCfg.enabled && seasonalCfg.showInCart && seasonalCfg.text) {
+        var noticeText = escapeHtml(seasonalCfg.text);
+        var noticeInner = seasonalCfg.link
+          ? '<a href="' +
+            escapeHtml(seasonalCfg.link) +
+            '" class="yl-cart-seasonal-link">' +
+            noticeText +
+            "</a>"
+          : noticeText;
+        seasonalNoticeEl.innerHTML =
+          '<div class="yl-cart-seasonal-content">' +
+          '<svg class="yl-cart-icon yl-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg> ' +
+          "<span>" +
+          noticeInner +
+          "</span>" +
+          "</div>";
+        seasonalNoticeEl.style.display = "block";
+      } else {
+        seasonalNoticeEl.innerHTML = "";
+        seasonalNoticeEl.style.display = "none";
+      }
+    }
     if (dispatchEl) {
       var dispatchEnabled =
         !root.YL_CONTENT ||
@@ -2121,7 +2148,7 @@
           escapeAttr(p.id) +
           '">' +
           '<img src="' +
-          escapeAttr(p.image || "") +
+          escapeAttr(rootRelativeImage(p.image || "")) +
           '" alt="" width="40" height="40" loading="lazy">' +
           '<div class="yl-cart-upsell-info">' +
           '<span class="yl-cart-upsell-name">' +
@@ -2204,6 +2231,12 @@
     var variantName = d.itemCustom1Name || "";
     var variantDelta = deltaForLabel(d.itemCustom1Options, variantLabel);
     var parsedMax = parseInt(d.itemMaxQuantity, 10);
+    /* Product pages carry a quantity stepper that writes data-item-quantity;
+       everywhere else the attribute is absent and one is added. Bounded here
+       and again by addToList's cap, so a tampered attribute cannot exceed
+       the product's stock or the cart's own hard maximum. */
+    var parsedQty = parseInt(d.itemQuantity, 10);
+    var startQty = !isNaN(parsedQty) && parsedQty > 1 ? Math.min(parsedQty, MAX_QTY) : 1;
     var item = {
       id: d.itemId,
       name: d.itemName,
@@ -2214,7 +2247,7 @@
       variantLabel: variantLabel,
       variantDelta: variantDelta,
       maxQty: !isNaN(parsedMax) && parsedMax > 0 ? parsedMax : null,
-      qty: 1
+      qty: startQty
     };
     if (d.itemId === GIFT_CARD_ID) {
       /* The amount IS the label. workers/checkout.js prices a gift card by
@@ -2663,6 +2696,7 @@
     init: init,
     open: openDrawer,
     close: closeDrawer,
+    render: render,
     clear: clear,
     addItem: addItem,
     addItems: addItems,

@@ -211,8 +211,10 @@ async function runAdversarialStressTests() {
     assert(html.includes('<meta property="og:title"'), `products/${p.id}.html has og:title`);
     assert(html.includes('<meta property="og:image"'), `products/${p.id}.html has og:image`);
     assert(
-      html.includes('<link rel="canonical" href="https://yallternativeliving.com/shop.html">'),
-      `products/${p.id}.html canonical links to /shop.html`
+      html.includes(
+        `<link rel="canonical" href="https://yallternativeliving.com/products/${p.id}.html">`
+      ),
+      `products/${p.id}.html canonicalises to itself (real, indexable page)`
     );
 
     // Usage Accordions structure
@@ -239,10 +241,15 @@ async function runAdversarialStressTests() {
     );
 
     // CTA Button
+    // The primary CTA is a real purchase control now: Add to Cart for a
+    // buyable product, a restock/launch alert when it cannot be bought, or the
+    // gift-card configurator link for the digital card.
     assert(
-      html.includes('class="btn btn-primary btn-lg pdp-cta-btn"') &&
-        html.includes(`href="../shop.html#${p.id}"`),
-      `products/${p.id}.html has Shop CTA button linking to ../shop.html#${p.id}`
+      html.includes("pdp-cta-btn") &&
+        (html.includes('id="pdpAddToCart"') ||
+          html.includes("yl-notify-toggle") ||
+          html.includes('href="../shop.html#gift-cards"')),
+      `products/${p.id}.html has a real primary CTA (add to cart / notify / gift card)`
     );
   });
 

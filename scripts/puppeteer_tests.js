@@ -486,13 +486,25 @@ function createStaticServer(port = 8082) {
       if (window.YLCart && typeof window.YLCart.clear === "function") window.YLCart.clear();
       /* eslint-enable no-undef */
     });
+    /* The badge follows the CMS flag. It is OFF today: the points it
+       advertised could not be redeemed anywhere (the redemption route was
+       removed after audit finding C-1), so showing "Earn N Alt-Points" was a
+       promise the shop could not keep. When the flag is off the badge must
+       be absent; when it is on it must render. */
+    const loyaltyOn =
+      JSON.parse(fs.readFileSync(path.join(__dirname, "..", "assets/data/content.json"), "utf8"))
+        .site.enableLoyaltyPoints !== false;
     const badgeText = await page
       .$eval(".alt-points-badge", (el) => el.textContent.trim())
       .catch(() => null);
-    if (badgeText && badgeText.includes("Earn")) {
+    if (loyaltyOn && badgeText && badgeText.includes("Earn")) {
       console.log(`✅ Product card displays Alt-Points badge ("${badgeText}").`);
+    } else if (!loyaltyOn && badgeText === null) {
+      console.log("✅ Alt-Points badge is absent while the loyalty programme is switched off.");
     } else {
-      console.log(`❌ Alt-Points badge missing or malformed on product card.`);
+      console.log(
+        `❌ Alt-Points badge state does not match content.json (enableLoyaltyPoints=${loyaltyOn}, badge=${JSON.stringify(badgeText)}).`
+      );
       exitCode = 1;
     }
 

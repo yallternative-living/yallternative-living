@@ -99,23 +99,36 @@ productsData.products.forEach((product) => {
     `${product.id}: meta description is 155 characters or fewer`
   );
   assert(
-    html.includes(`<link rel="canonical" href="${DOMAIN}/shop.html">`),
-    `${product.id}: canonical link points to shop.html`
+    html.includes(`<link rel="canonical" href="${DOMAIN}/products/${product.id}.html">`),
+    `${product.id}: canonical link points to the product page itself`
   );
 
-  /* H-15. These pages deliberately redirect to shop.html and canonicalise
-     there, so they are noindex and carry no Product/Offer/BreadcrumbList
-     JSON-LD of their own -- shop.html's ItemList is the one place the
-     catalogue's schema lives. Reversing that decision means deleting these
-     three assertions along with the ones in build-site-data.js. */
+  /* Real, indexable pages since 2026-09-01 (the H-15 doorway decision was
+     reversed): no noindex, no redirect, and the page carries its own
+     Product + BreadcrumbList JSON-LD. */
   assert(
-    html.includes('<meta name="robots" content="noindex, follow">'),
-    `${product.id}: PDP is explicitly noindex, follow`
+    !/<meta name="robots" content="[^"]*noindex/.test(html),
+    `${product.id}: PDP is indexable (no noindex)`
   );
-  assert(
-    !html.includes('type="application/ld+json"'),
-    `${product.id}: PDP emits no JSON-LD (shop.html carries the catalogue schema)`
-  );
+  assert(!html.includes("window.location.replace"), `${product.id}: PDP does not redirect away`);
+  {
+    const ldBlocks = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g) || [];
+    let parsedOk = true;
+    const types = [];
+    ldBlocks.forEach((b) => {
+      try {
+        const ld = JSON.parse(b.replace(/^<script[^>]*>/, "").replace(/<\/script>$/, ""));
+        types.push(ld["@type"]);
+      } catch (e) {
+        parsedOk = false;
+      }
+    });
+    assert(parsedOk, `${product.id}: every JSON-LD block parses`);
+    assert(
+      types.includes("Product") && types.includes("BreadcrumbList"),
+      `${product.id}: PDP carries Product and BreadcrumbList JSON-LD (got ${types.join(", ") || "none"})`
+    );
+  }
   assert(
     !html.includes("#category-"),
     `${product.id}: no dead shop.html#category- breadcrumb anchor`

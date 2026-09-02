@@ -157,6 +157,11 @@ collections:
                 default: false
                 required: false
                 hint: "Check this box to show a 'Coming Soon' badge and hide the purchase options."
+              - name: estimatedBatchDate
+                label: "Estimated Restock / Batch Date (for Coming Soon items)"
+                widget: string
+                required: false
+                hint: "e.g. Early Autumn 2026, Oct 15, Spring 2027"
               - name: category
                 label: Category
                 widget: relation
@@ -775,6 +780,80 @@ collections:
               - { name: loyaltyBadgeEmoji, label: "Rewards Icon Emoji", widget: string, default: "✨", required: false }
               - { name: enableApothecaryQuiz, label: "Show Apothecary Product Quiz", widget: boolean, default: true, required: false, hint: "Guide shoppers to personalized recommendations on the shop page." }
 
+              - name: announcement
+                label: "Top Announcement Banner"
+                widget: object
+                collapsed: true
+                fields:
+                  - { name: enabled, label: "Enable Announcement Banner", widget: boolean, default: true }
+                  - { name: text, label: "Banner Message Text", widget: string, default: "🌙 Free local pick-up at Landrum Farmers Market every Saturday · Free shipping over $45" }
+                  - { name: link, label: "Banner Link (optional)", widget: string, required: false }
+                  - name: accent
+                    label: "Theme Accent Color"
+                    widget: select
+                    options:
+                      - { label: "Default Dark (Plum/Charcoal)", value: "default" }
+                      - { label: "Warm Whiskey Amber", value: "whiskey" }
+                      - { label: "Appalachian Moss Green", value: "moss" }
+                      - { label: "Smoky Lavender", value: "lavender" }
+                      - { label: "Rust & Terracotta", value: "rust" }
+                    default: "default"
+
+              - name: seasonalNotice
+                label: "Seasonal Notice / Hiatus Alert"
+                widget: object
+                collapsed: true
+                fields:
+                  - { name: enabled, label: "Enable Seasonal Notice", widget: boolean, default: false }
+                  - { name: text, label: "Notice Message", widget: string, default: "🌿 Spring Foraging Hiatus: Orders placed after Oct 15 will ship Nov 1." }
+                  - { name: link, label: "Notice Link (optional)", widget: string, required: false, default: "events.html" }
+                  - { name: showInCart, label: "Display in Cart Drawer", widget: boolean, default: true }
+                  - { name: showInHeader, label: "Display under Header / Banner", widget: boolean, default: false }
+
+              - name: social
+                label: "📱 Social Media Profile Links"
+                widget: object
+                collapsed: true
+                fields:
+                  - name: instagram
+                    label: "Instagram Profile URL"
+                    widget: string
+                    required: false
+                    pattern: ['^$|^https?://.*', "Must be a valid URL starting with https://, or leave blank."]
+                  - name: tiktok
+                    label: "TikTok Profile URL"
+                    widget: string
+                    required: false
+                    pattern: ['^$|^https?://.*', "Must be a valid URL starting with https://, or leave blank."]
+                  - name: facebook
+                    label: "Facebook Page URL"
+                    widget: string
+                    required: false
+                    pattern: ['^$|^https?://.*', "Must be a valid URL starting with https://, or leave blank."]
+                  - name: etsy
+                    label: "Etsy Shop URL"
+                    widget: string
+                    required: false
+                    pattern: ['^$|^https?://.*', "Must be a valid URL starting with https://, or leave blank."]
+                  - name: pinterest
+                    label: "Pinterest Profile URL (optional)"
+                    widget: string
+                    required: false
+                    pattern: ['^$|^https?://.*', "Must be a valid URL starting with https://, or leave blank."]
+                  - name: youtube
+                    label: "YouTube Channel URL (optional)"
+                    widget: string
+                    required: false
+                    pattern: ['^$|^https?://.*', "Must be a valid URL starting with https://, or leave blank."]
+
+              - name: ritualDefaults
+                label: "🌿 Global Ritual Cross-Sell Defaults"
+                widget: object
+                collapsed: true
+                fields:
+                  - { name: title, label: "Fallback Ritual Headline", widget: string, default: "Botanical Pairing", hint: "Default headline for 'Complete the Ritual' on products without a custom ritualTitle." }
+                  - { name: subtitle, label: "Fallback Ritual Subtitle", widget: text, default: "Pair this item with complementary botanicals crafted to work together.", hint: "Default subtitle copy for the 'Complete the Ritual' cross-sell section." }
+
           - name: home
             label: Homepage
             widget: object
@@ -964,3 +1043,52 @@ collections:
             collapsed: true
             fields:
               - { name: intro, label: "Intro paragraph (under the title)", widget: text }
+
+  # ==================================================================
+  # 6. APOTHECARY PRODUCT QUIZ
+  # ==================================================================
+  - name: quiz
+    label: "Apothecary Quiz"
+    icon: quiz
+    files:
+      - name: quiz
+        label: "Quiz Questions & Recommendations"
+        file: assets/data/content.json
+        format: json
+        fields:
+          - name: quiz
+            label: "Quiz Questions & Options"
+            widget: object
+            fields:
+              - name: questions
+                label: Questions
+                widget: list
+                fields:
+                  - { name: id, label: "Question ID", widget: string }
+                  - { name: name, label: "Question Field Name", widget: string }
+                  - { name: step, label: "Step Number", widget: number, value_type: int }
+                  - { name: title, label: "Question Title", widget: string }
+                  - { name: subtitle, label: "Question Subtitle", widget: string, required: false }
+                  - name: options
+                    label: Options
+                    widget: list
+                    fields:
+                      - { name: value, label: "Option Key / Value", widget: string }
+                      - { name: label, label: "Option Label", widget: string }
+                      - { name: description, label: "Option Description", widget: string, required: false }
+                      - { name: icon, label: "Icon / Emoji", widget: string, required: false }
+                      - name: recommendedProductIds
+                        label: "Recommended Products"
+                        widget: list
+                        required: false
+                        field: { name: productId, label: Product, widget: relation, collection: products, file: products, search_fields: ["products.*.id", "products.*.name"], value_field: "products.*.id", display_fields: ["products.*.name"] }
+                      - name: categories
+                        label: "Target Categories"
+                        widget: list
+                        required: false
+                        field: { name: category, label: Category, widget: select, options: ["salves", "body-care", "bath-soaks", "sprays", "apparel", "gift-cards"] }
+                      - { name: matchBundles, label: "Match Bundles", widget: boolean, default: false, required: false }
+                      - { name: matchFeatured, label: "Match Featured", widget: boolean, default: false, required: false }
+                      - { name: scoreWeight, label: "Recommendation Weight", widget: number, default: 5, value_type: int }
+
+

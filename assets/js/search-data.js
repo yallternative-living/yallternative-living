@@ -17,6 +17,7 @@ window.YL_SEARCH_INDEX = {
       "image": "assets/img/tank-top.jpg",
       "inStock": true,
       "comingSoon": false,
+      "estimatedBatchDate": null,
       "featured": false,
       "blurb": "Same rainbow stag, same crescent moon, cut for the hottest days of the year. Soft triblend racerback built to be worn hard and washed easy. Original artwork, not something pulled off a mass-print catalog.",
       "ingredients": [],
@@ -75,6 +76,7 @@ window.YL_SEARCH_INDEX = {
       "image": "assets/img/unisex-tshirt.jpg",
       "inStock": true,
       "comingSoon": false,
+      "estimatedBatchDate": null,
       "featured": true,
       "blurb": "The shirt that started the whole shop: a rainbow stag under a crescent moon, screen-printed on soft cotton cut to actually fit everybody. Original artwork, zero mass-production. Wear it to the market, wear it to Pride, wear it everywhere in between.",
       "ingredients": [],
@@ -133,6 +135,7 @@ window.YL_SEARCH_INDEX = {
       "image": "assets/img/frankincense-salve.jpg",
       "inStock": true,
       "comingSoon": false,
+      "estimatedBatchDate": null,
       "featured": true,
       "blurb": "One little tin, a whole lot of jobs: dry cuticles, cracked heels, windburn, razor bumps. Whatever's rough, this goes on it. Calendula, arnica, and five essential oils in a beeswax-shea base, mixed by hand in a 2 oz tin in Landrum, SC.",
       "ingredients": [
@@ -155,12 +158,8 @@ window.YL_SEARCH_INDEX = {
         "sore-muscles"
       ],
       "keywords": [
-        "healing",
-        "skin recovery",
         "dry skin",
         "chapped hands",
-        "rashes",
-        "anti-inflammatory",
         "herbal balm",
         "cuticles",
         "frankincense",
@@ -198,6 +197,7 @@ window.YL_SEARCH_INDEX = {
       "image": "assets/img/miracle-balm.jpg",
       "inStock": true,
       "comingSoon": false,
+      "estimatedBatchDate": null,
       "featured": false,
       "blurb": "No essential oils, no fragrance, nothing to react to. Just a rich little .5 oz balm for lips, cuticles, and anywhere skin needs backup. Gentle enough for the whole family, kids included.",
       "ingredients": [
@@ -222,12 +222,7 @@ window.YL_SEARCH_INDEX = {
         "daily-glow"
       ],
       "keywords": [
-        "pain",
         "sore muscles",
-        "joint ache",
-        "arthritis",
-        "stiffness",
-        "bruises",
         "unscented",
         "sensitive skin",
         "family safe",
@@ -256,6 +251,7 @@ window.YL_SEARCH_INDEX = {
       "image": "assets/img/sleep-salve.jpg",
       "inStock": true,
       "comingSoon": false,
+      "estimatedBatchDate": null,
       "featured": false,
       "blurb": "Rub a little onto your feet or shoulders before bed and let lavender, chamomile, and cedarwood take it from there. Magnesium and arnica in a 2 oz tin, built for overthinkers and night owls who need the day to actually end.",
       "ingredients": [
@@ -275,16 +271,12 @@ window.YL_SEARCH_INDEX = {
       ],
       "keywords": [
         "sleep",
-        "insomnia",
         "bedtime",
         "magnesium",
         "arnica",
-        "restless legs",
         "calm",
         "relax",
         "nighttime",
-        "anxiety",
-        "stress relief",
         "lavender",
         "cedarwood"
       ],
@@ -308,6 +300,7 @@ window.YL_SEARCH_INDEX = {
       "image": "assets/img/beard-salve.jpg",
       "inStock": true,
       "comingSoon": false,
+      "estimatedBatchDate": null,
       "featured": true,
       "blurb": "A 2 oz tin that softens coarse facial hair, calms the itch underneath, and smells like a stiff drink and cedarwood instead of a drugstore aisle. Light hold, zero grease, genuinely good gift material.",
       "ingredients": [
@@ -358,6 +351,7 @@ window.YL_SEARCH_INDEX = {
       "image": "assets/img/shimmer-oil.jpg",
       "inStock": true,
       "comingSoon": false,
+      "estimatedBatchDate": null,
       "featured": true,
       "blurb": "Cedarwood, sweet orange, and patchouli under a black-gold shimmer that photographs as good as it feels. That's the Seduction blend, one of three scents this comes in. Lightweight, fast-absorbing, and built for festivals, Pride, and anywhere else you plan on shining harder than everyone around you.",
       "ingredients": [
@@ -428,6 +422,7 @@ window.YL_SEARCH_INDEX = {
       "image": "assets/img/shea-butter.jpg",
       "inStock": true,
       "comingSoon": false,
+      "estimatedBatchDate": null,
       "featured": false,
       "blurb": "Deep Shea Rest, whipped thick with raw African shea and a lavender-forward blend underneath. Massage it into damp skin after your shower and let it work on cracked heels and winter-dry patches while you sleep. Built as a night ritual, not just a lotion.",
       "ingredients": [
@@ -449,7 +444,6 @@ window.YL_SEARCH_INDEX = {
       ],
       "keywords": [
         "dry skin",
-        "eczema",
         "intense moisture",
         "body butter",
         "shea",
@@ -491,6 +485,7 @@ window.YL_SEARCH_INDEX = {
       "image": "assets/img/hand-scrub.jpg",
       "inStock": true,
       "comingSoon": false,
+      "estimatedBatchDate": null,
       "featured": false,
       "blurb": "Pumice, pink salt, and sugar for the grease and grime; coconut and olive oil so your hands don't pay for it. A 2 oz tin built for hands that work for a living.",
       "ingredients": [
@@ -559,6 +554,7 @@ window.YL_SEARCH_INDEX = {
       "image": "assets/img/lavender-soak.jpg",
       "inStock": true,
       "comingSoon": false,
+      "estimatedBatchDate": null,
       "featured": false,
       "blurb": "Relaxation with a side of rebellion: lavender, black pepper, and rosemary dissolved into a 10 oz bag of Epsom salt and baking soda. Run the bath, toss in a scoop, take up all the space you want.",
       "ingredients": [
@@ -581,7 +577,6 @@ window.YL_SEARCH_INDEX = {
         "epsom salts",
         "relaxation",
         "sleep",
-        "stress relief",
         "calming bath",
         "lavender",
         "mineral soak",
@@ -619,6 +614,7 @@ window.YL_SEARCH_INDEX = {
       "image": "assets/img/backroad-soak.jpg",
       "inStock": true,
       "comingSoon": false,
+      "estimatedBatchDate": null,
       "featured": true,
       "blurb": "Peppermint, lavender, black pepper, and ylang ylang for whatever the backroads (or the day) put you through. Stir a scoop into a warm bath, soak 20 to 30 minutes, come out looser than you went in.",
       "ingredients": [
@@ -639,7 +635,6 @@ window.YL_SEARCH_INDEX = {
       "keywords": [
         "muscle recovery",
         "sore muscles",
-        "joint pain",
         "post workout",
         "gym recovery",
         "epsom salts",
@@ -679,6 +674,7 @@ window.YL_SEARCH_INDEX = {
       "image": "assets/img/protection-keychain.jpg",
       "inStock": true,
       "comingSoon": false,
+      "estimatedBatchDate": null,
       "featured": true,
       "blurb": "A mini spell jar, wax-sealed and clipped to a sturdy keyring. Pick your blend below. Five inches of everyday witchy armor for your keys, bag, or backpack.",
       "ingredients": [
@@ -740,6 +736,7 @@ window.YL_SEARCH_INDEX = {
       "image": "assets/img/bug-spray.jpg",
       "inStock": true,
       "comingSoon": false,
+      "estimatedBatchDate": null,
       "featured": false,
       "blurb": "Tell the mosquitoes to buzz off, naturally. Citronella, lemongrass, and five other essential oils in a 2 oz amber spray, no DEET, no sticky residue, just Southern summer survival.",
       "ingredients": [
@@ -790,6 +787,7 @@ window.YL_SEARCH_INDEX = {
       "image": "assets/img/placeholder-coming-soon.svg",
       "inStock": true,
       "comingSoon": true,
+      "estimatedBatchDate": "Late October 2026",
       "featured": false,
       "blurb": "Rainbow layers of sweet exfoliant that slough off the rough, leave skin soft, and look like a Pride parade in a jar. Glitter-and-grit self-care that means exactly what it says: everybody's welcome.",
       "ingredients": [
@@ -841,6 +839,7 @@ window.YL_SEARCH_INDEX = {
       "image": "assets/img/placeholder-coming-soon.svg",
       "inStock": true,
       "comingSoon": true,
+      "estimatedBatchDate": "Late October 2026",
       "featured": false,
       "blurb": "Whipped light and fluffy in a citrus-peach blend, with rainbow swirls that mean all of it: every color, every one of us. Melts in without the grease and keeps skin soft all day. Everybody's welcome, moisturized.",
       "ingredients": [
@@ -893,6 +892,7 @@ window.YL_SEARCH_INDEX = {
       "image": "assets/img/placeholder-coming-soon.svg",
       "inStock": true,
       "comingSoon": true,
+      "estimatedBatchDate": "Mid-October 2026",
       "featured": false,
       "blurb": "White sage, cedar, and sweetgrass in a fine mist: two pumps at the doorway after a hard conversation, a house guest who overstayed, or just a Monday that won't quit. Inspired by Appalachian folk tradition, no smoke, no residue, no landlord complaints. Amber glass, small-batch blended in Landrum, SC.",
       "ingredients": [
@@ -953,6 +953,7 @@ window.YL_SEARCH_INDEX = {
       "image": "assets/img/placeholder-coming-soon.svg",
       "inStock": true,
       "comingSoon": true,
+      "estimatedBatchDate": "Mid-October 2026",
       "featured": false,
       "blurb": "Dried lavender, chamomile, rose petals, and oat straw in a reusable muslin bag. Drop it in a warm bath, let it steep five minutes, soak until the day stops mattering. Gentler on your tub than loose herbs, and the bag's good for two or three rounds before you compost the whole thing.",
       "ingredients": [
@@ -1016,6 +1017,7 @@ window.YL_SEARCH_INDEX = {
       "image": "assets/img/placeholder-coming-soon.svg",
       "inStock": true,
       "comingSoon": true,
+      "estimatedBatchDate": "Late October 2026",
       "featured": false,
       "blurb": "Named for the old Southern habit of sweeping the porch at dusk to clear out the day's trouble. Lemongrass, palo santo, and black tourmaline-infused water in a 4 oz amber bottle. Mist your space after an argument, a bad day, or just because the vibes are off.",
       "ingredients": [
@@ -1064,6 +1066,7 @@ window.YL_SEARCH_INDEX = {
       "image": "assets/img/gift-card.png",
       "inStock": true,
       "comingSoon": false,
+      "estimatedBatchDate": null,
       "featured": true,
       "blurb": "Can't decide what they'd love? Let them pick. Delivered by email, ready to use on anything in the shop.",
       "ingredients": [],
@@ -1128,6 +1131,7 @@ window.YL_SEARCH_INDEX = {
       "image": "assets/img/frankincense-salve.jpg",
       "inStock": true,
       "comingSoon": false,
+      "estimatedBatchDate": null,
       "featured": false,
       "blurb": "The essential trio for anyone navigating life south of the Mason-Dixon: the do-everything salve folks keep re-ordering, the bourbon-vanilla scrub that gets your hands actually clean, and the bug spray nobody admits they need until August. Three of our most-reviewed goods, one easy yes.",
       "ingredients": [],
@@ -1163,6 +1167,7 @@ window.YL_SEARCH_INDEX = {
       "image": "assets/img/beard-salve.jpg",
       "inStock": true,
       "comingSoon": false,
+      "estimatedBatchDate": null,
       "featured": false,
       "blurb": "Scent-matched on purpose. The beard salve softens the scruff; the hand scrub takes the grease off whatever he was working on. Both in the same bourbon, vanilla and cedarwood, so it reads as one gift, not two things from two different aisles.",
       "ingredients": [],
@@ -1198,6 +1203,7 @@ window.YL_SEARCH_INDEX = {
       "image": "assets/img/sleep-salve.jpg",
       "inStock": true,
       "comingSoon": false,
+      "estimatedBatchDate": null,
       "featured": false,
       "blurb": "For unwinding after the kind of days that leave you running on fumes: massage the lavender shea butter into damp skin after a shower, then work the magnesium sleep salve into feet and shoulders and let lavender, chamomile and cedarwood take it from there. Built for night owls and overthinkers.",
       "ingredients": [],
@@ -1233,6 +1239,7 @@ window.YL_SEARCH_INDEX = {
       "image": "assets/img/unisex-tshirt.jpg",
       "inStock": true,
       "comingSoon": false,
+      "estimatedBatchDate": null,
       "featured": false,
       "blurb": "The flagship rainbow-stag tee plus the shimmer oil built for exactly this: festivals, Pride, and anywhere you plan on shining harder than everyone around you. Pull the 'Y'all Means All' scent and wear the whole thing to the parade. Queer at the root, year-round.",
       "ingredients": [],
@@ -1268,6 +1275,7 @@ window.YL_SEARCH_INDEX = {
       "image": "assets/img/protection-keychain.jpg",
       "inStock": true,
       "comingSoon": false,
+      "estimatedBatchDate": null,
       "featured": false,
       "blurb": "Everyday witchy armor, boxed up: a wax-sealed protection spell jar for your keys, the bug spray that tells mosquitoes to buzz off, naturally, and a lavender soak for taking up all the space you want in the tub. Grit and glitter for the ones who need it.",
       "ingredients": [],
@@ -1303,6 +1311,7 @@ window.YL_SEARCH_INDEX = {
       "image": "assets/img/miracle-balm.jpg",
       "inStock": true,
       "comingSoon": false,
+      "estimatedBatchDate": null,
       "featured": false,
       "blurb": "A soft place to land: the unscented, essential-oil-free Miracle Balm for wherever skin needs backup, paired with our raw-shea body butter for everywhere else. For new parents, sensitive skin, and anybody having a rough go.",
       "ingredients": [],
@@ -1338,6 +1347,7 @@ window.YL_SEARCH_INDEX = {
       "image": "assets/img/frankincense-salve.jpg",
       "inStock": true,
       "comingSoon": false,
+      "estimatedBatchDate": null,
       "featured": false,
       "blurb": "Can't decide? Try a little of everything. Four of our bestselling products bundled together at 15% off: the salve everybody re-orders, the bourbon-vanilla scrub, a lavender soak, and the bug spray that actually works. A full tour of the shop in one box.",
       "ingredients": [],
@@ -1538,7 +1548,7 @@ window.YL_SEARCH_INDEX = {
     {
       "id": "faq-6",
       "question": "What is the shelf life of your salves and soaks?",
-      "answer": "Since our products are all-natural and preservative-free, we recommend using them within 6 to 12 months for the best potency and freshness. Keep them in a cool, dry place away from direct sunlight.",
+      "answer": "Our products are made in small batches with simple, mostly plant-based ingredients, and only the water-based ones carry a gentle preservative so they stay safe on your shelf (every ingredient is listed on each product page). We recommend using them within 6 to 12 months for the best potency and freshness. Keep them in a cool, dry place away from direct sunlight.",
       "category": "General",
       "keywords": [],
       "url": "faq.html#faq-6"

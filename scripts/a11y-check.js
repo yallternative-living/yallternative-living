@@ -114,10 +114,10 @@ function collectPages() {
       `x ${THEMES.length} themes (${pages.length * THEMES.length} scans)...`
   );
 
-  const browser = await puppeteer.launch({
+  let browser = await puppeteer.launch({
     headless: true,
     protocolTimeout: 120000,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"]
+    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
   });
 
   let violationCount = 0;
@@ -125,6 +125,18 @@ function collectPages() {
   try {
     for (const pageName of pages) {
       for (const theme of THEMES) {
+        if (!browser.connected) {
+          browser = await puppeteer.launch({
+            headless: true,
+            protocolTimeout: 120000,
+            args: [
+              "--no-sandbox",
+              "--disable-setuid-sandbox",
+              "--disable-dev-shm-usage",
+              "--disable-gpu"
+            ]
+          });
+        }
         /* A fresh page per theme, with the theme seeded before the document
            loads. Flipping data-theme on an already-scanned page and re-running
            axe does NOT work: axe-core caches resolved ancestor background
@@ -133,60 +145,76 @@ function collectPages() {
            reports ~65 bogus colour-contrast failures per page. Seeding the same
            localStorage key the site's own no-flash bootstrap reads also means
            the theme is in place before first paint, exactly as in a real visit. */
-        const page = await browser.newPage();
-        try {
-          await page.evaluateOnNewDocument((t) => {
-            try {
-              window.localStorage.setItem("yl-theme", t);
-            } catch {
-              /* storage unavailable -- the attribute set after load still applies */
-            }
-          }, theme);
-
-          /* networkidle2, like the rest of the integration suite: the pages
-             preconnect to Google Fonts and the analytics origin, and waiting for
-             networkidle0 means eating a full navigation timeout per page
-             whenever those hang -- minutes of wall clock for a gate that has to
-             run on every push. The rendered DOM axe needs (product grid, UGC
-             feed, cart chrome) is in place either way. */
-          await page.goto(`http://127.0.0.1:${PORT}/${pageName}`, {
-            waitUntil: "networkidle2",
-            timeout: 30000
-          });
-          /* Belt and braces: assert the theme even if storage was unavailable
-             or the page has no theme bootstrap of its own. */
-          await page.evaluate((t) => {
-            document.documentElement.setAttribute("data-theme", t);
-          }, theme);
-          await page.evaluate(axeSource);
-          const result = await page.evaluate(async (tags) => {
-            // eslint-disable-next-line no-undef
-            return await axe.run(document, { runOnly: { type: "tag", values: tags } });
-          }, AXE_TAGS);
-
-          const label = `${pageName} [${theme}]`;
-          if (!result.violations.length) {
-            console.log(`  ✓ ${label}`);
-            continue;
+        let scanned = false;
+        let attempts = 0;
+        while (!scanned && attempts < 3) {
+          attempts++;
+          if (!browser.connected) {
+            browser = await puppeteer.launch({
+              headless: true,
+              protocolTimeout: 120000,
+              args: [
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu"
+              ]
+            });
           }
+          const page = await browser.newPage();
+          try {
+            await page.evaluateOnNewDocument((t) => {
+              try {
+                window.localStorage.setItem("yl-theme", t);
+              } catch {
+                /* storage unavailable -- the attribute set after load still applies */
+              }
+            }, theme);
 
-          violationCount += result.violations.length;
-          console.log(`  ✗ ${label} -- ${result.violations.length} violation(s):`);
-          result.violations.forEach((v) => {
-            console.log(`      [${v.impact}] ${v.id}: ${v.help}`);
-            console.log(`        ${v.helpUrl}`);
-            v.nodes.slice(0, 5).forEach((n) => console.log(`        -> ${n.target.join(", ")}`));
-            if (v.nodes.length > 5) {
-              console.log(`        -> ...and ${v.nodes.length - 5} more node(s)`);
+            await page.goto(`http://127.0.0.1:${PORT}/${pageName}`, {
+              waitUntil: "networkidle2",
+              timeout: 30000
+            });
+            await page.evaluate((t) => {
+              document.documentElement.setAttribute("data-theme", t);
+            }, theme);
+            await page.evaluate(axeSource);
+            const result = await page.evaluate(async (tags) => {
+              // eslint-disable-next-line no-undef
+              return await axe.run(document, { runOnly: { type: "tag", values: tags } });
+            }, AXE_TAGS);
+
+            const label = `${pageName} [${theme}]`;
+            if (!result.violations.length) {
+              console.log(`  ✓ ${label}`);
+            } else {
+              violationCount += result.violations.length;
+              console.log(`  ✗ ${label} -- ${result.violations.length} violation(s):`);
+              result.violations.forEach((v) => {
+                console.log(`      [${v.impact}] ${v.id}: ${v.help}`);
+                console.log(`        ${v.helpUrl}`);
+                v.nodes
+                  .slice(0, 5)
+                  .forEach((n) => console.log(`        -> ${n.target.join(", ")}`));
+                if (v.nodes.length > 5) {
+                  console.log(`        -> ...and ${v.nodes.length - 5} more node(s)`);
+                }
+              });
             }
-          });
-        } finally {
-          await page.close();
+            scanned = true;
+          } catch (err) {
+            if (attempts >= 3) {
+              throw err;
+            }
+            await new Promise((r) => setTimeout(r, 200));
+          } finally {
+            await page.close().catch(() => {});
+          }
         }
       }
     }
   } finally {
-    if (browser) await browser.close();
+    if (browser) await browser.close().catch(() => {});
     if (server) await new Promise((r) => server.close(r));
   }
 

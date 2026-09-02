@@ -1336,6 +1336,69 @@ assert(
       "cart.css: the file header comment is closed before the next comment"
     );
 
+    /* ==========================================================
+       Milestone 2: Cart Drawer Seasonal Workshop / Hiatus Notice
+       ========================================================== */
+    console.log("\n--- Milestone 2: Cart Drawer Seasonal Notice Tests ---");
+    // 1. Enabled with link and showInCart = true
+    mockWindow.YL_CONTENT = {
+      site: {
+        seasonalNotice: {
+          enabled: true,
+          showInCart: true,
+          text: "Spring Foraging Hiatus: Orders ship next week.",
+          link: "events.html"
+        }
+      }
+    };
+    YLCart.render();
+    const seasonalEl = drawer.querySelector("#yl-cart-seasonal-notice");
+    assert(seasonalEl != null, "Drawer contains #yl-cart-seasonal-notice element");
+    eq(
+      seasonalEl.style.display,
+      "block",
+      "Seasonal notice is visible when enabled and showInCart is true"
+    );
+    assert(
+      seasonalEl.innerHTML.includes("Spring Foraging Hiatus: Orders ship next week."),
+      "Seasonal notice renders configured text"
+    );
+    assert(
+      seasonalEl.innerHTML.includes('href="events.html"'),
+      "Seasonal notice renders link when provided"
+    );
+    assert(
+      seasonalEl.innerHTML.includes("yl-cart-seasonal-content"),
+      "Seasonal notice contains .yl-cart-seasonal-content container"
+    );
+
+    // 2. Disabled seasonalNotice (enabled = false)
+    mockWindow.YL_CONTENT = {
+      site: {
+        seasonalNotice: {
+          enabled: false,
+          showInCart: true,
+          text: "Hidden notice"
+        }
+      }
+    };
+    YLCart.render();
+    eq(seasonalEl.style.display, "none", "Seasonal notice is hidden when enabled is false");
+    eq(seasonalEl.innerHTML, "", "Seasonal notice innerHTML is cleared when disabled");
+
+    // 3. showInCart = false
+    mockWindow.YL_CONTENT = {
+      site: {
+        seasonalNotice: {
+          enabled: true,
+          showInCart: false,
+          text: "Header only notice"
+        }
+      }
+    };
+    YLCart.render();
+    eq(seasonalEl.style.display, "none", "Seasonal notice is hidden when showInCart is false");
+
     // Clean up
     mockWindow.YL_PRODUCTS = null;
     storage.clear();

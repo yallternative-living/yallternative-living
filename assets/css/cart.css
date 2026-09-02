@@ -112,6 +112,43 @@
   background: var(--ink-3);
 }
 
+/* ---- Seasonal Workshop / Hiatus Notice ---- */
+.yl-cart-seasonal-notice {
+  flex: 0 0 auto;
+  padding: 10px 20px 0;
+}
+.yl-cart-seasonal-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: oklch(from var(--sage) l c h / 0.15);
+  border: 1px solid oklch(from var(--sage) l c h / 0.35);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--paper);
+  line-height: 1.35;
+  text-align: center;
+}
+.yl-cart-seasonal-content svg {
+  flex-shrink: 0;
+  color: var(--sage);
+}
+.yl-cart-seasonal-content a,
+.yl-cart-seasonal-link {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+:root[data-theme="light"] .yl-cart-seasonal-content,
+:root:not([data-theme="dark"]):not([data-theme="light"]) .yl-cart-seasonal-content {
+  background: oklch(from var(--sage) l c h / 0.1);
+  border-color: oklch(from var(--sage) l c h / 0.3);
+  color: var(--paper);
+}
+
 /* ---- Dispatch Countdown Badge ---- */
 .yl-cart-dispatch-banner {
   flex: 0 0 auto;

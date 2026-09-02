@@ -197,12 +197,8 @@
         "patchTest": "Contains sweet almond oil (tree nut). Apply a dime-sized amount to the inner forearm and wait 24 hours. Discontinue use if redness or irritation occurs."
       },
       "keywords": [
-        "healing",
-        "skin recovery",
         "dry skin",
         "chapped hands",
-        "rashes",
-        "anti-inflammatory",
         "herbal balm",
         "cuticles",
         "frankincense",
@@ -261,12 +257,7 @@
         "patchTest": "Formulated without essential oils or added fragrances for ultra-sensitive skin. As with any botanical balm, test a small dab on inner wrist before first full use."
       },
       "keywords": [
-        "pain",
         "sore muscles",
-        "joint ache",
-        "arthritis",
-        "stiffness",
-        "bruises",
         "unscented",
         "sensitive skin",
         "family safe",
@@ -324,16 +315,12 @@
       },
       "keywords": [
         "sleep",
-        "insomnia",
         "bedtime",
         "magnesium",
         "arnica",
-        "restless legs",
         "calm",
         "relax",
         "nighttime",
-        "anxiety",
-        "stress relief",
         "lavender",
         "cedarwood"
       ],
@@ -539,7 +526,6 @@
       },
       "keywords": [
         "dry skin",
-        "eczema",
         "intense moisture",
         "body butter",
         "shea",
@@ -692,7 +678,6 @@
         "epsom salts",
         "relaxation",
         "sleep",
-        "stress relief",
         "calming bath",
         "lavender",
         "mineral soak",
@@ -764,7 +749,6 @@
       "keywords": [
         "muscle recovery",
         "sore muscles",
-        "joint pain",
         "post workout",
         "gym recovery",
         "epsom salts",
@@ -969,7 +953,8 @@
       "pairsWith": [
         "whipped-body-butter",
         "bath-tea"
-      ]
+      ],
+      "estimatedBatchDate": "Late October 2026"
     },
     {
       "id": "whipped-body-butter",
@@ -1025,7 +1010,8 @@
       "pairsWith": [
         "sugar-scrub",
         "shimmer-oil"
-      ]
+      ],
+      "estimatedBatchDate": "Late October 2026"
     },
     {
       "id": "cleansing-spray",
@@ -1091,7 +1077,8 @@
       "pairsWith": [
         "porch-sweep-spray",
         "protection-keychain"
-      ]
+      ],
+      "estimatedBatchDate": "Mid-October 2026"
     },
     {
       "id": "bath-tea",
@@ -1160,7 +1147,8 @@
       "pairsWith": [
         "lavender-soak",
         "miracle-balm"
-      ]
+      ],
+      "estimatedBatchDate": "Mid-October 2026"
     },
     {
       "id": "porch-sweep-spray",
@@ -1212,7 +1200,8 @@
       "pairsWith": [
         "cleansing-spray",
         "bug-spray"
-      ]
+      ],
+      "estimatedBatchDate": "Late October 2026"
     },
     {
       "id": "yallternative-gift-card",
@@ -1425,7 +1414,7 @@
     },
     {
       "question": "What is the shelf life of your salves and soaks?",
-      "answer": "Since our products are all-natural and preservative-free, we recommend using them within 6 to 12 months for the best potency and freshness. Keep them in a cool, dry place away from direct sunlight."
+      "answer": "Our products are made in small batches with simple, mostly plant-based ingredients, and only the water-based ones carry a gentle preservative so they stay safe on your shelf (every ingredient is listed on each product page). We recommend using them within 6 to 12 months for the best potency and freshness. Keep them in a cool, dry place away from direct sunlight."
     }
   ],
   "concerns": [

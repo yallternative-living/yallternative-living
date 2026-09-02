@@ -931,6 +931,17 @@
      preference order work. If a photo hasn't been run through the
      optimizer yet (e.g. brand new, script not re-run), this just falls
      back to a plain <img> -- nothing breaks. */
+  /* Product pages live under /products/, so a document-relative
+     "assets/img/x.jpg" resolves to /products/assets/... there and 404s.
+     Every image path this file renders goes through this: root-absolute is
+     correct from any page of the site. */
+  function rootAbsImage(src) {
+    var s = String(src || "").trim();
+    if (!s) return "";
+    if (/^(?:[a-z]+:)?\/\//i.test(s) || s.charAt(0) === "/" || s.indexOf("data:") === 0) return s;
+    return "/" + s.replace(/^(?:\.\.\/)+/, "").replace(/^\.\//, "");
+  }
+
   function pictureHTML(p, opts) {
     opts = opts || {};
     // imagePath lets a caller render a photo OTHER than the product's
@@ -962,7 +973,7 @@
     var avifVariants = manifest && manifest.variants && manifest.variants.avif;
     var webpVariants = manifest && manifest.variants && manifest.variants.webp;
     if (!avifVariants && !webpVariants) {
-      return '<img src="' + attrEsc(imagePath) + '"' + imgAttrs + ">";
+      return '<img src="' + attrEsc(rootAbsImage(imagePath)) + '"' + imgAttrs + ">";
     }
 
     if (opts.single) {
@@ -970,11 +981,19 @@
       // per format is enough, no need for a full responsive srcset.
       var sources = "";
       if (avifVariants && avifVariants.length)
-        sources += '<source type="image/avif" srcset="' + attrEsc(avifVariants[0].file) + '">';
+        sources +=
+          '<source type="image/avif" srcset="' + attrEsc(rootAbsImage(avifVariants[0].file)) + '">';
       if (webpVariants && webpVariants.length)
-        sources += '<source type="image/webp" srcset="' + attrEsc(webpVariants[0].file) + '">';
+        sources +=
+          '<source type="image/webp" srcset="' + attrEsc(rootAbsImage(webpVariants[0].file)) + '">';
       return (
-        "<picture>" + sources + '<img src="' + attrEsc(imagePath) + '"' + imgAttrs + "></picture>"
+        "<picture>" +
+        sources +
+        '<img src="' +
+        attrEsc(rootAbsImage(imagePath)) +
+        '"' +
+        imgAttrs +
+        "></picture>"
       );
     }
 
@@ -983,7 +1002,7 @@
     if (avifVariants && avifVariants.length) {
       var avifSrcset = avifVariants
         .map(function (v) {
-          return attrEsc(v.file) + " " + v.width + "w";
+          return attrEsc(rootAbsImage(v.file)) + " " + v.width + "w";
         })
         .join(", ");
       sourcesFull +=
@@ -992,14 +1011,20 @@
     if (webpVariants && webpVariants.length) {
       var webpSrcset = webpVariants
         .map(function (v) {
-          return attrEsc(v.file) + " " + v.width + "w";
+          return attrEsc(rootAbsImage(v.file)) + " " + v.width + "w";
         })
         .join(", ");
       sourcesFull +=
         '<source type="image/webp" srcset="' + webpSrcset + '" sizes="' + attrEsc(sizes) + '">';
     }
     return (
-      "<picture>" + sourcesFull + '<img src="' + attrEsc(imagePath) + '"' + imgAttrs + "></picture>"
+      "<picture>" +
+      sourcesFull +
+      '<img src="' +
+      attrEsc(rootAbsImage(imagePath)) +
+      '"' +
+      imgAttrs +
+      "></picture>"
     );
   }
 
@@ -1391,7 +1416,15 @@
             attrEsc(volumeBadgeText) +
             "</span>"
           : "";
-    if (p.comingSoon) return '<span class="stock-badge low-stock">Coming Soon</span>';
+    if (p.comingSoon) {
+      var batchBadge =
+        p.estimatedBatchDate && typeof p.estimatedBatchDate === "string"
+          ? ' <span class="stock-badge badge-batch-date">Batch: ' +
+            attrEsc(p.estimatedBatchDate) +
+            "</span>"
+          : "";
+      return '<span class="stock-badge low-stock">Coming Soon</span>' + batchBadge;
+    }
     if (typeof p.stock !== "number") return saleBadge;
     if (p.stock === 0) return '<span class="stock-badge sold-out">Sold out</span>';
     if (p.stock <= LOW_STOCK_THRESHOLD)
@@ -2994,9 +3027,13 @@
       attrEsc(catLabel) +
       "</span>" +
       tagPillsHTML(p) +
-      "<h3>" +
+      /* The name links to the product's own page: every product has a real,
+         indexable page now and the card is how shoppers and crawlers reach it. */
+      '<h3><a class="card-title-link" href="products/' +
+      attrEsc(p.id) +
+      '.html">' +
       attrEsc(p.name) +
-      "</h3>" +
+      "</a></h3>" +
       ratingHTML(p) +
       "<p>" +
       attrEsc(p.blurb) +
@@ -5256,43 +5293,80 @@
      (e.g. the /api/checkout Worker being unreachable) are instead handled
      inline by cart.js's own checkout() -- see its catch block. */
 
-  /* ---------- Announcement bar: free shipping threshold ---------- */
-  (function announcementBar() {
-    var data = window.YL_PRODUCTS;
-    if (!data || !data.shop) return;
-    var threshold = data.shop.freeShippingThreshold;
-    if (!threshold || threshold <= 0) return;
-    var message = "✦ Free shipping on orders over $" + threshold + " ✦";
+  /* ---------- Announcement bar: CMS announcement & free shipping ---------- */
+  function announcementBar() {
+    var siteCfg = (window.YL_CONTENT && window.YL_CONTENT.site) || {};
+    var announcement = siteCfg.announcement;
+
+    var message = "";
+    var accent = "default";
+    var link = "";
+
+    if (announcement && typeof announcement === "object") {
+      if (announcement.enabled === false) return;
+      message = (announcement.text && String(announcement.text).trim()) || "";
+      accent = (announcement.accent && String(announcement.accent).trim()) || "default";
+      link = (announcement.link && String(announcement.link).trim()) || "";
+    }
+
+    if (!message) {
+      var data = window.YL_PRODUCTS;
+      var threshold = data && data.shop && data.shop.freeShippingThreshold;
+      if (!threshold || threshold <= 0) return;
+      message = "✦ Free shipping on orders over $" + threshold + " ✦";
+    }
+
+    var accentClass = accent && accent !== "default" ? " announcement-accent-" + accent : "";
 
     /* index.html already ships a sticky announcement bar (the #yl-countdown-
-       ticker pop-up countdown). Blindly prepending a second one stacked two
-       full-width sticky bars in the same colour on top of each other -- ~76px
-       of near-duplicate chrome pushing the hero down, on the one page where
-       the first impression matters most. When that bar is present, fold this
-       message into it as a second segment instead of creating a rival bar. */
+       ticker pop-up countdown). When that bar is present, fold this message into
+       it as a second segment instead of creating a rival bar. */
     var existing = document.getElementById("yl-countdown-ticker");
     if (existing) {
-      /* Purely decorative divider -- the visible rule is drawn by the CSS
-         background, so this carries no text at all. (It used to hold a "·"
-         zeroed out via font-size, which still counted as a text node to
-         anything walking the DOM.) */
+      if (accent && accent !== "default") {
+        existing.classList.add("announcement-accent-" + accent);
+      }
       var sep = document.createElement("span");
       sep.className = "announcement-sep";
       sep.setAttribute("aria-hidden", "true");
       var seg = document.createElement("span");
       seg.className = "announcement-segment";
-      seg.textContent = message;
+      if (link) {
+        var linkEl = document.createElement("a");
+        linkEl.href = link;
+        linkEl.textContent = message;
+        seg.appendChild(linkEl);
+      } else {
+        seg.textContent = message;
+      }
       existing.appendChild(sep);
       existing.appendChild(seg);
       return;
     }
 
     var bar = document.createElement("div");
-    bar.className = "announcement-bar";
-    bar.setAttribute("role", "status");
-    bar.textContent = message;
-    document.body.insertBefore(bar, document.body.firstChild);
-  })();
+    bar.className = "announcement-bar" + accentClass;
+    bar.setAttribute("role", "region");
+    bar.setAttribute("aria-label", "Site announcement");
+    if (link) {
+      var barLink = document.createElement("a");
+      barLink.href = link;
+      barLink.textContent = message;
+      bar.appendChild(barLink);
+    } else {
+      bar.textContent = message;
+    }
+    var header = document.querySelector(".site-header");
+    var skip = document.querySelector(".skip-link");
+    if (header) {
+      header.parentNode.insertBefore(bar, header);
+    } else if (skip && skip.nextSibling) {
+      document.body.insertBefore(bar, skip.nextSibling);
+    } else {
+      document.body.insertBefore(bar, document.body.firstChild);
+    }
+  }
+  announcementBar();
 
   /* A Snipcart-specific cart-drawer enhancement (injecting a shipping-
      progress bar and a cross-sell suggestion into Snipcart's own DOM via
@@ -6264,17 +6338,17 @@
       });
     }
 
-    var step1 = document.getElementById("quiz-step-1");
-    var step2 = document.getElementById("quiz-step-2");
-    var step3 = document.getElementById("quiz-step-3");
+    var quizCfg = (window.YL_CONTENT && window.YL_CONTENT.quiz) || null;
+    var quizQuestions = (quizCfg && (quizCfg.questions || quizCfg.steps)) || null;
+
     var results = document.getElementById("quiz-results-container");
     var resetBtn = document.getElementById("start-apothecary-quiz-btn");
-    var submitBtn = document.getElementById("quiz-submit-btn");
 
     function resetQuiz() {
-      if (step1) step1.style.display = "block";
-      if (step2) step2.style.display = "none";
-      if (step3) step3.style.display = "none";
+      var allSteps = quizSection.querySelectorAll(".quiz-step");
+      for (var s = 0; s < allSteps.length; s++) {
+        allSteps[s].style.display = s === 0 ? "block" : "none";
+      }
       if (results) {
         results.style.display = "none";
         results.innerHTML = "";
@@ -6285,82 +6359,127 @@
       resetBtn.addEventListener("click", resetQuiz);
     }
 
+    // Dynamic Step Navigation (works for any number of steps)
     quizSection.addEventListener("click", function (e) {
+      var allSteps;
       var nextBtn = e.target.closest(".quiz-next-step");
       if (nextBtn) {
         var targetStep = nextBtn.getAttribute("data-next");
-        if (targetStep === "2") {
-          if (step1) step1.style.display = "none";
-          if (step2) step2.style.display = "block";
-        } else if (targetStep === "3") {
-          if (step2) step2.style.display = "none";
-          if (step3) step3.style.display = "block";
+        allSteps = quizSection.querySelectorAll(".quiz-step");
+        for (var i = 0; i < allSteps.length; i++) {
+          allSteps[i].style.display = "none";
         }
+        var nextStepEl = document.getElementById("quiz-step-" + targetStep);
+        if (nextStepEl) nextStepEl.style.display = "block";
         return;
       }
 
       var prevBtn = e.target.closest(".quiz-prev-step");
       if (prevBtn) {
         var prevStep = prevBtn.getAttribute("data-prev");
-        if (prevStep === "1") {
-          if (step2) step2.style.display = "none";
-          if (step1) step1.style.display = "block";
-        } else if (prevStep === "2") {
-          if (step3) step3.style.display = "none";
-          if (step2) step2.style.display = "block";
+        allSteps = quizSection.querySelectorAll(".quiz-step");
+        for (var j = 0; j < allSteps.length; j++) {
+          allSteps[j].style.display = "none";
         }
+        var prevStepEl = document.getElementById("quiz-step-" + prevStep);
+        if (prevStepEl) prevStepEl.style.display = "block";
         return;
       }
     });
 
-    if (submitBtn) {
-      submitBtn.addEventListener("click", function () {
-        var vibe =
-          (quizSection.querySelector('input[name="quiz-vibe"]:checked') || {}).value ||
-          "gothic-calm";
-        var need =
-          (quizSection.querySelector('input[name="quiz-need"]:checked') || {}).value || "hydration";
-        var intent =
-          (quizSection.querySelector('input[name="quiz-intent"]:checked') || {}).value ||
-          "treat-myself";
+    // Quiz Submission & Recommendation Calculation
+    quizSection.addEventListener("click", function (e) {
+      var submitBtn = e.target.closest("#quiz-submit-btn");
+      if (!submitBtn) return;
 
-        var catalog = (window.YL_PRODUCTS && window.YL_PRODUCTS.products) || [];
-        var bundles = (window.YL_PRODUCTS && window.YL_PRODUCTS.bundles) || [];
-        var allItems = catalog.concat(
-          bundles.map(function (b) {
-            return Object.assign({}, b, { isBundle: true });
-          })
-        );
+      var catalog = (window.YL_PRODUCTS && window.YL_PRODUCTS.products) || [];
+      var bundles = (window.YL_PRODUCTS && window.YL_PRODUCTS.bundles) || [];
+      var allItems = catalog.concat(
+        bundles.map(function (b) {
+          return Object.assign({}, b, { isBundle: true });
+        })
+      );
 
-        if (!allItems.length) return;
+      if (!allItems.length) return;
 
-        var gothicCalmSet = new Set([
-          "sleep-salve",
-          "lavender-soak",
-          "bath-tea",
-          "night-ritual-set"
-        ]);
-        var ritualRestSet = new Set([
-          "shea-butter",
-          "bath-tea",
-          "cleansing-spray",
-          "night-ritual-set"
-        ]);
-        var hexingEnergySet = new Set([
-          "protection-keychain",
-          "shimmer-oil",
-          "porch-sweep-spray",
-          "pride-set"
-        ]);
-        var dailySootheSet = new Set([
-          "frankincense-salve",
-          "miracle-balm",
-          "hand-scrub",
-          "bug-spray"
-        ]);
+      var scored = allItems.map(function (item) {
+        var score = 0;
 
-        var scored = allItems.map(function (item) {
-          var score = 0;
+        if (Array.isArray(quizQuestions) && quizQuestions.length > 0) {
+          quizQuestions.forEach(function (q) {
+            var param = q.name || "quiz-" + q.id;
+            var checked = quizSection.querySelector('input[name="' + param + '"]:checked');
+            var val = checked
+              ? checked.value
+              : q.options && q.options[0]
+                ? q.options[0].value
+                : null;
+            var opt =
+              q.options &&
+              q.options.find(function (o) {
+                return o.value === val;
+              });
+            if (!opt) return;
+
+            var weight = typeof opt.scoreWeight === "number" ? opt.scoreWeight : 5;
+
+            if (
+              Array.isArray(opt.recommendedProductIds) &&
+              opt.recommendedProductIds.indexOf(item.id) !== -1
+            ) {
+              score += weight;
+            }
+            if (Array.isArray(opt.categories) && opt.categories.indexOf(item.category) !== -1) {
+              score += weight;
+            }
+            if (
+              opt.matchBundles &&
+              (item.isBundle ||
+                item.id === "yallternative-gift-card" ||
+                item.id === "protection-keychain")
+            ) {
+              score += typeof opt.scoreWeight === "number" ? opt.scoreWeight : 6;
+            }
+            if (opt.matchFeatured && (item.id === "shimmer-oil" || item.featured)) {
+              score += typeof opt.scoreWeight === "number" ? opt.scoreWeight : 3;
+            }
+          });
+        } else {
+          // Backward Compatibility Fallback Sets
+          var vibe =
+            (quizSection.querySelector('input[name="quiz-vibe"]:checked') || {}).value ||
+            "gothic-calm";
+          var need =
+            (quizSection.querySelector('input[name="quiz-need"]:checked') || {}).value ||
+            "hydration";
+          var intent =
+            (quizSection.querySelector('input[name="quiz-intent"]:checked') || {}).value ||
+            "treat-myself";
+
+          var gothicCalmSet = new Set([
+            "sleep-salve",
+            "lavender-soak",
+            "bath-tea",
+            "night-ritual-set"
+          ]);
+          var ritualRestSet = new Set([
+            "shea-butter",
+            "bath-tea",
+            "cleansing-spray",
+            "night-ritual-set"
+          ]);
+          var hexingEnergySet = new Set([
+            "protection-keychain",
+            "shimmer-oil",
+            "porch-sweep-spray",
+            "pride-set"
+          ]);
+          var dailySootheSet = new Set([
+            "frankincense-salve",
+            "miracle-balm",
+            "hand-scrub",
+            "bug-spray"
+          ]);
 
           if (vibe === "gothic-calm" && gothicCalmSet.has(item.id)) score += 5;
           if (vibe === "ritual-rest" && ritualRestSet.has(item.id)) score += 5;
@@ -6394,121 +6513,128 @@
           )
             score += 5;
           if (intent === "treat-myself" && (item.id === "shimmer-oil" || item.featured)) score += 3;
-
-          if (item.comingSoon || item.stock === 0) score -= 20;
-
-          return { item: item, score: score };
-        });
-
-        scored.sort(function (a, b) {
-          return b.score - a.score;
-        });
-        var match = scored[0] ? scored[0].item : allItems[0];
-
-        var rationale =
-          "Prescribed based on your choice of " +
-          vibe.replace("-", " ") +
-          " vibes, " +
-          need.replace("-", " ") +
-          " focus, and " +
-          intent.replace("-", " ") +
-          " intent.";
-        var pMap = getProductMap();
-        var firstBundleProduct =
-          match.isBundle && Array.isArray(match.productIds) && pMap.get(match.productIds[0]);
-        var itemImage =
-          match.image ||
-          (match.images && match.images[0]) ||
-          (firstBundleProduct && firstBundleProduct.image) ||
-          "assets/img/logo.png";
-
-        var getRecPrice = function (item) {
-          if (typeof item.price === "number") return item.price;
-          if (typeof item.bundlePrice === "number") return item.bundlePrice;
-          if (typeof item.regularPrice === "number") return item.regularPrice;
-          if (Array.isArray(item.productIds)) {
-            var fullPrice = item.productIds.reduce(function (sum, id) {
-              var p = pMap.get(id);
-              return sum + (p ? p.originalPrice || p.price || 0 : 0);
-            }, 0);
-            return Math.round(fullPrice * (1 - (item.discountPercent || 0) / 100) * 100) / 100;
-          }
-          return 0;
-        };
-
-        var recPrice = getRecPrice(match);
-        if (typeof recPrice !== "number" || isNaN(recPrice)) {
-          recPrice = 0;
         }
 
-        var loyalty = getLoyaltyConfig();
-        var quizPointsBadgeHTML = loyalty.enabled
-          ? '  <div style="text-align: center; margin-bottom: 12px;"><span class="alt-points-badge">' +
-            attrEsc(loyalty.emoji) +
-            ' Earn <span class="pts-val">' +
-            Math.floor(recPrice * loyalty.rate) +
-            "</span> " +
-            attrEsc(loyalty.name) +
-            "</span></div>"
-          : "";
+        if (item.comingSoon || item.stock === 0) score -= 20;
 
-        if (results) {
-          results.innerHTML =
-            '<div class="card quiz-recommended-card reveal" style="max-width: 540px; margin: 0 auto; padding: 1.5rem; text-align: center; border: 2px solid var(--whiskey); background: var(--ink-3); color: var(--paper); border-radius: var(--radius-md);">' +
-            '  <span class="card-cat" style="color: var(--whiskey); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700;"><svg class="yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg> Your Apothecary Prescription</span>' +
-            '  <h3 style="font-family: var(--font-heading); margin: 0.5rem 0;">' +
-            attrEsc(match.name) +
-            "</h3>" +
-            '  <img src="' +
-            attrEsc(itemImage) +
-            '" alt="' +
-            attrEsc(match.name) +
-            '" style="width: 140px; height: 140px; object-fit: cover; border-radius: var(--radius-sm); margin: 0.5rem auto 1rem; display: block;">' +
-            '  <p style="font-size: 0.9rem; margin-bottom: 0.75rem;">' +
-            attrEsc(match.blurb || "") +
-            "</p>" +
-            '  <p style="font-size: 0.82rem; color: var(--whiskey); font-style: italic; margin-bottom: 0.75rem;">' +
-            attrEsc(rationale) +
-            "</p>" +
-            quizPointsBadgeHTML +
-            '  <button type="button" class="btn btn-primary btn-block yl-add-item"' +
-            '    data-item-id="' +
-            attrEsc(match.isBundle ? "bundle-" + match.id : match.id) +
-            '"' +
-            '    data-item-name="' +
-            attrEsc(match.name) +
-            '"' +
-            '    data-item-price="' +
-            recPrice.toFixed(2) +
-            '"' +
-            '    data-item-image="' +
-            attrEsc(itemImage) +
-            '"' +
-            '    data-item-description="' +
-            attrEsc(match.blurb || "") +
-            '">' +
-            "    Add Recommendation to Cart ($" +
-            recPrice.toFixed(2) +
-            ")" +
-            "  </button>" +
-            '  <button type="button" class="btn btn-link btn-sm" id="quizRetakeBtn" style="margin-top: 1rem; color: var(--paper-muted);">Take Quiz Again</button>' +
-            "</div>";
-
-          if (step3) step3.style.display = "none";
-          results.style.display = "block";
-
-          // The recommendation card ships with the `reveal` class (opacity:0
-          // until observed). Every other dynamically-injected section wires up
-          // its reveal animation after inserting markup; this one never did, so
-          // the finished card rendered fully transparent -- the quiz looked
-          // like it did nothing. Wire it up so the card actually fades in.
-          wireReveal(results);
-
-          var retakeBtn = document.getElementById("quizRetakeBtn");
-          if (retakeBtn) retakeBtn.addEventListener("click", resetQuiz);
-        }
+        return { item: item, score: score };
       });
-    }
+
+      scored.sort(function (a, b) {
+        return b.score - a.score;
+      });
+      var match = scored[0] ? scored[0].item : allItems[0];
+
+      // Formulate Rationale
+      var vibeVal =
+        (quizSection.querySelector('input[name="quiz-vibe"]:checked') || {}).value || "gothic-calm";
+      var needVal =
+        (quizSection.querySelector('input[name="quiz-need"]:checked') || {}).value || "hydration";
+      var intentVal =
+        (quizSection.querySelector('input[name="quiz-intent"]:checked') || {}).value ||
+        "treat-myself";
+      var rationale =
+        "Prescribed based on your choice of " +
+        vibeVal.replace(/-/g, " ") +
+        " vibes, " +
+        needVal.replace(/-/g, " ") +
+        " focus, and " +
+        intentVal.replace(/-/g, " ") +
+        " intent.";
+
+      var pMap = getProductMap();
+      var firstBundleProduct =
+        match.isBundle && Array.isArray(match.productIds) && pMap.get(match.productIds[0]);
+      var itemImage =
+        match.image ||
+        (match.images && match.images[0]) ||
+        (firstBundleProduct && firstBundleProduct.image) ||
+        "assets/img/logo.png";
+
+      var getRecPrice = function (item) {
+        if (typeof item.price === "number") return item.price;
+        if (typeof item.bundlePrice === "number") return item.bundlePrice;
+        if (typeof item.regularPrice === "number") return item.regularPrice;
+        if (Array.isArray(item.productIds)) {
+          var fullPrice = item.productIds.reduce(function (sum, id) {
+            var p = pMap.get(id);
+            return sum + (p ? p.originalPrice || p.price || 0 : 0);
+          }, 0);
+          return Math.round(fullPrice * (1 - (item.discountPercent || 0) / 100) * 100) / 100;
+        }
+        return 0;
+      };
+
+      var recPrice = getRecPrice(match);
+      if (typeof recPrice !== "number" || isNaN(recPrice)) {
+        recPrice = 0;
+      }
+
+      var loyalty = getLoyaltyConfig();
+      var quizPointsBadgeHTML = loyalty.enabled
+        ? '  <div style="text-align: center; margin-bottom: 12px;"><span class="alt-points-badge">' +
+          attrEsc(loyalty.emoji) +
+          ' Earn <span class="pts-val">' +
+          Math.floor(recPrice * loyalty.rate) +
+          "</span> " +
+          attrEsc(loyalty.name) +
+          "</span></div>"
+        : "";
+
+      var allSteps = quizSection.querySelectorAll(".quiz-step");
+      for (var k = 0; k < allSteps.length; k++) {
+        allSteps[k].style.display = "none";
+      }
+
+      if (results) {
+        results.innerHTML =
+          '<div class="card quiz-recommended-card reveal" style="max-width: 540px; margin: 0 auto; padding: 1.5rem; text-align: center; border: 2px solid var(--whiskey); background: var(--ink-3); color: var(--paper); border-radius: var(--radius-md);">' +
+          '  <span class="card-cat" style="color: var(--whiskey); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700;"><svg class="yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg> Your Apothecary Prescription</span>' +
+          '  <h3 style="font-family: var(--font-heading); margin: 0.5rem 0;">' +
+          attrEsc(match.name) +
+          "</h3>" +
+          '  <img src="' +
+          attrEsc(itemImage) +
+          '" alt="' +
+          attrEsc(match.name) +
+          '" style="width: 140px; height: 140px; object-fit: cover; border-radius: var(--radius-sm); margin: 0.5rem auto 1rem; display: block;">' +
+          '  <p style="font-size: 0.9rem; margin-bottom: 0.75rem;">' +
+          attrEsc(match.blurb || "") +
+          "</p>" +
+          '  <p style="font-size: 0.82rem; color: var(--whiskey); font-style: italic; margin-bottom: 0.75rem;">' +
+          attrEsc(rationale) +
+          "</p>" +
+          quizPointsBadgeHTML +
+          '  <button type="button" class="btn btn-primary btn-block yl-add-item"' +
+          '    data-item-id="' +
+          attrEsc(match.isBundle ? "bundle-" + match.id : match.id) +
+          '"' +
+          '    data-item-name="' +
+          attrEsc(match.name) +
+          '"' +
+          '    data-item-price="' +
+          recPrice.toFixed(2) +
+          '"' +
+          '    data-item-image="' +
+          attrEsc(itemImage) +
+          '"' +
+          '    data-item-description="' +
+          attrEsc(match.blurb || "") +
+          '">' +
+          "    Add Recommendation to Cart ($" +
+          recPrice.toFixed(2) +
+          ")" +
+          "  </button>" +
+          '  <button type="button" class="btn btn-link btn-sm" id="quizRetakeBtn" style="margin-top: 1rem; color: var(--paper-muted);">Take Quiz Again</button>' +
+          "</div>";
+
+        results.style.display = "block";
+        wireReveal(results);
+
+        var retakeBtn = document.getElementById("quizRetakeBtn");
+        if (retakeBtn) retakeBtn.addEventListener("click", resetQuiz);
+      }
+    });
   }
   if (siteFlagEnabled("enableApothecaryQuiz")) initApothecaryQuiz();
   /* ==================== GLOBAL SEARCH SUITE (2026 SOTA) ==================== */
@@ -8064,7 +8190,7 @@
           pdpUrl +
           '" tabindex="-1" aria-hidden="true">' +
           '      <img class="recently-viewed-img" src="' +
-          attrEsc(imgSrc) +
+          attrEsc(rootAbsImage(imgSrc)) +
           '" alt="' +
           attrEsc(item.name) +
           '" width="240" height="240" loading="lazy">' +
@@ -8232,7 +8358,13 @@
     });
 
     var unlocksFreeShipping = total >= 40;
-    var title = product.ritualTitle || "Complete the Ritual";
+    var ritualDefaults =
+      (window.YL_CONTENT && window.YL_CONTENT.site && window.YL_CONTENT.site.ritualDefaults) || {};
+    var defaultTitle = ritualDefaults.title || "Botanical Pairing";
+    var defaultSubtitle =
+      ritualDefaults.subtitle ||
+      "Pair this item with complementary botanicals crafted to work together.";
+    var title = product.ritualTitle || defaultTitle;
 
     return (
       '<div class="pdp-ritual-section pdp-ritual-compact" id="modalRitualSection">' +
@@ -8241,6 +8373,11 @@
       '<h4 class="pdp-ritual-title">✦ Complete the Ritual: ' +
       attrEsc(title) +
       " ✦</h4>" +
+      (defaultSubtitle
+        ? '<p class="pdp-ritual-sub" style="font-size:0.82rem; margin: 0.2rem 0 0.5rem; color: var(--paper-dim);">' +
+          attrEsc(defaultSubtitle) +
+          "</p>"
+        : "") +
       "</div>" +
       '<div class="pdp-ritual-card">' +
       '<div class="pdp-ritual-items-grid">' +
@@ -8438,7 +8575,11 @@
     }
 
     var stickySelect = stickyBar.querySelector(".pdp-sticky-variant-select");
+    /* The page's own picker is a radio group (buttons beat a <select> for
+       size/scent on a phone); older markup used a <select>. Both sync. */
     var mainSelect = document.querySelector(".pdp-details .variant-select");
+    var mainGroup = document.querySelector(".pdp-details .pdp-variant-group");
+    var variantCurrent = document.getElementById("pdpVariantCurrent");
     var stickyPrice = stickyBar.querySelector(".pdp-sticky-price");
     var mainPrice =
       document.querySelector(".pdp-details .pdp-price") ||
@@ -8458,6 +8599,13 @@
 
       if (targetSelect && targetSelect.value !== val) {
         targetSelect.value = val;
+      }
+      if (mainGroup) {
+        var radios = mainGroup.querySelectorAll('input[type="radio"]');
+        radios.forEach(function (r) {
+          if (r.value === val && !r.checked) r.checked = true;
+        });
+        if (variantCurrent) variantCurrent.textContent = ": " + val;
       }
       if (stickyPrice) stickyPrice.textContent = formattedPrice;
       if (mainPrice) {
@@ -8497,7 +8645,120 @@
         syncVariant(opt, mainSelect, stickySelect);
       });
     }
+
+    if (mainGroup) {
+      mainGroup.addEventListener("change", function (e) {
+        var radio = e.target;
+        if (!radio || radio.type !== "radio" || !radio.checked) return;
+        syncVariant(radio, mainGroup, stickySelect);
+      });
+      var checked = mainGroup.querySelector('input[type="radio"]:checked');
+      if (checked && variantCurrent) variantCurrent.textContent = ": " + checked.value;
+    }
   }
+
+  /* ---------- Product page: quantity, gallery, dispatch promise ---------- */
+  function initPdpPage() {
+    if (typeof document === "undefined") return;
+    var layout = document.querySelector(".pdp-layout");
+    if (!layout) return;
+
+    // Quantity stepper -> the add button's data-item-quantity (cart.js reads it).
+    var qtyInput = document.getElementById("pdpQty");
+    var addBtn = document.getElementById("pdpAddToCart");
+    function clampQty(n) {
+      var max = parseInt(qtyInput && qtyInput.getAttribute("max"), 10) || 10;
+      if (!isFinite(n) || n < 1) n = 1;
+      if (n > max) n = max;
+      return n;
+    }
+    function applyQty(n) {
+      var q = clampQty(n);
+      if (qtyInput) qtyInput.value = String(q);
+      if (addBtn) addBtn.setAttribute("data-item-quantity", String(q));
+    }
+    if (qtyInput) {
+      qtyInput.addEventListener("change", function () {
+        applyQty(parseInt(qtyInput.value, 10));
+      });
+      document.querySelectorAll(".pdp-qty-btn[data-qty-step]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          applyQty(
+            (parseInt(qtyInput.value, 10) || 1) + parseInt(btn.getAttribute("data-qty-step"), 10)
+          );
+        });
+      });
+    }
+
+    // Gallery: thumbnails swap the main photo; the main photo opens the lightbox.
+    var gallery = document.querySelector(".pdp-gallery");
+    var mainImg = document.getElementById("pdpMainImage");
+    if (gallery && mainImg) {
+      var productId = gallery.getAttribute("data-product-id");
+      var product = getProductMap().get(productId);
+      var thumbs = gallery.querySelectorAll(".pdp-thumb");
+      thumbs.forEach(function (thumb) {
+        thumb.addEventListener("click", function () {
+          var src = thumb.getAttribute("data-image");
+          if (!src) return;
+          var picture = mainImg.closest("picture");
+          if (product) {
+            var idx = parseInt(thumb.getAttribute("data-idx"), 10) || 0;
+            var alt = idx > 0 ? product.name + ", photo " + (idx + 1) : product.name;
+            var html = pictureHTML(product, {
+              imagePath: src.replace(/^\//, ""),
+              width: 800,
+              height: 800,
+              loading: "eager",
+              alt: alt
+            });
+            var wrap = document.createElement("div");
+            wrap.innerHTML = html;
+            var fresh = wrap.firstElementChild;
+            var freshImg = fresh.tagName === "IMG" ? fresh : fresh.querySelector("img");
+            if (freshImg) {
+              freshImg.id = "pdpMainImage";
+              freshImg.className = "pdp-main-image";
+              freshImg.setAttribute("itemprop", "image");
+            }
+            (picture || mainImg).replaceWith(fresh);
+            mainImg = freshImg || fresh;
+          } else {
+            mainImg.src = src;
+          }
+          thumbs.forEach(function (t) {
+            var active = t === thumb;
+            t.classList.toggle("is-active", active);
+            t.setAttribute("aria-pressed", active ? "true" : "false");
+          });
+        });
+      });
+      var openBtn = document.getElementById("pdpGalleryOpen");
+      if (openBtn) {
+        openBtn.addEventListener("click", function () {
+          var all = (gallery.getAttribute("data-images") || "").split("|").filter(Boolean);
+          var current = (document.getElementById("pdpMainImage") || {}).currentSrc || all[0];
+          var activeThumb = gallery.querySelector(".pdp-thumb.is-active");
+          var chosen = activeThumb ? activeThumb.getAttribute("data-image") : all[0];
+          if (typeof window.openLightbox === "function" && all.length) {
+            window.openLightbox(all, chosen || current, productId);
+          }
+        });
+      }
+    }
+
+    // Delivery promise, the same one the shop cards and cart drawer make.
+    var dispatch = document.getElementById("pdpDispatch");
+    var pdpProduct = getProductMap().get(
+      (document.querySelector(".pdp-gallery") || {}).getAttribute
+        ? document.querySelector(".pdp-gallery").getAttribute("data-product-id")
+        : ""
+    );
+    if (dispatch && pdpProduct) {
+      dispatch.innerHTML = getDispatchBadgeHTML(pdpProduct);
+    }
+  }
+  initPdpPage();
 
   initRecentlyViewed();
   initPdpRitualSection();
@@ -8593,6 +8854,8 @@
       renderModalRitualHtml: renderModalRitualHtml,
       initPdpRitualSection: initPdpRitualSection,
       initPdpStickyBar: initPdpStickyBar,
+      announcementBar: announcementBar,
+      initApothecaryQuiz: initApothecaryQuiz,
       _resetState: function () {
         wishCache = null;
         wishSet = null;

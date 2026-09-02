@@ -55,13 +55,70 @@ function createMockElement(tagName = "div") {
         else this._list.add(name);
       }
     },
-    innerHTML: "",
+    get className() {
+      return Array.from(this.classList._list).join(" ");
+    },
+    set className(val) {
+      this.classList._list = new Set(String(val).split(/\s+/).filter(Boolean));
+    },
+    get href() {
+      return attrs.get("href") || "";
+    },
+    set href(val) {
+      attrs.set("href", String(val));
+    },
+    _innerHTML: "",
+    get innerHTML() {
+      if (children.length > 0) {
+        return children
+          .map((c) => {
+            if (c.tagName === "A") {
+              return `<a href="${c.getAttribute("href") || c.href || ""}">${c.textContent || c.innerHTML}</a>`;
+            }
+            return c.innerHTML || c.textContent || "";
+          })
+          .join("");
+      }
+      return this._innerHTML;
+    },
+    set innerHTML(val) {
+      this._innerHTML = val;
+    },
     textContent: "",
-    addEventListener: () => {},
-    removeEventListener: () => {},
+    _listeners: {},
+    addEventListener: function (type, fn) {
+      if (!this._listeners[type]) this._listeners[type] = [];
+      this._listeners[type].push(fn);
+    },
+    removeEventListener: function (type, fn) {
+      const list = this._listeners[type];
+      if (list) this._listeners[type] = list.filter((f) => f !== fn);
+    },
+    dispatchEvent: function (evt) {
+      const fns = this._listeners[evt.type] || [];
+      fns.forEach((fn) => fn(evt));
+    },
+    closest: function (sel) {
+      if (
+        sel === "#quiz-submit-btn" &&
+        (this.id === "quiz-submit-btn" ||
+          (this.attributes && this.attributes.get("id") === "quiz-submit-btn"))
+      )
+        return this;
+      if (sel === ".quiz-next-step" && this.classList.contains("quiz-next-step")) return this;
+      if (sel === ".quiz-prev-step" && this.classList.contains("quiz-prev-step")) return this;
+      return null;
+    },
     appendChild: (child) => {
       children.push(child);
       return child;
+    },
+    insertBefore: (newNode) => {
+      children.unshift(newNode);
+      return newNode;
+    },
+    get children() {
+      return children;
     },
     querySelector: () => createMockElement("div"),
     querySelectorAll: () => []
@@ -98,9 +155,11 @@ pdpRecentlyViewedSectionEl.querySelector = (sel) => {
   return null;
 };
 
+const elementsById = new Map();
 const mockDocument = {
   documentElement: mockDocumentElement,
   getElementById: (id) => {
+    if (elementsById.has(id)) return elementsById.get(id);
     if (id === "themeToggle") return themeToggleEl;
     if (id === "wishBody") return wishBodyEl;
     if (id === "recently-viewed-section") {
@@ -1775,6 +1834,272 @@ assert(
       `the hand-off asserts nothing about an order it never fetched: ${needle}`
     );
   }
+);
+
+/* ---------- Milestone 2: Dynamic Merchandising & Scoring Engine ---------- */
+
+/* 1. Announcement Bar */
+console.log("\n--- Milestone 2: Announcement Bar Tests ---");
+assert(typeof main.announcementBar === "function", "main.js exports announcementBar function");
+
+// Test custom message and accent classes
+const origContent = mockWindow.YL_CONTENT;
+const origProducts = mockWindow.YL_PRODUCTS;
+
+mockWindow.YL_CONTENT = {
+  site: {
+    announcement: {
+      enabled: true,
+      text: "Special Spring Drop ✦ Limited Quantities",
+      link: "shop.html",
+      accent: "moss"
+    }
+  }
+};
+mockDocument.body.children.length = 0;
+main.announcementBar();
+let renderedBar = mockDocument.body.children[0];
+assert(renderedBar != null, "announcementBar renders bar into document body");
+assert(
+  renderedBar && renderedBar.classList.contains("announcement-accent-moss"),
+  "announcementBar applies accent-moss class"
+);
+assert(
+  renderedBar && renderedBar.innerHTML.includes("Special Spring Drop ✦ Limited Quantities"),
+  "announcementBar renders custom text"
+);
+assert(
+  renderedBar && renderedBar.innerHTML.includes('href="shop.html"'),
+  "announcementBar wraps link when provided"
+);
+
+// Test disabled announcement
+mockWindow.YL_CONTENT = {
+  site: {
+    announcement: {
+      enabled: false,
+      text: "Hidden Banner"
+    }
+  }
+};
+mockDocument.body.children.length = 0;
+main.announcementBar();
+eq(mockDocument.body.children.length, 0, "announcementBar renders nothing when enabled is false");
+
+// Test free shipping threshold fallback
+mockWindow.YL_CONTENT = { site: { announcement: { enabled: true, text: "" } } };
+mockWindow.YL_PRODUCTS = { shop: { freeShippingThreshold: 40 } };
+mockDocument.body.children.length = 0;
+main.announcementBar();
+renderedBar = mockDocument.body.children[0];
+assert(renderedBar != null, "announcementBar renders fallback free shipping message");
+assert(
+  renderedBar && renderedBar.textContent.includes("$40"),
+  "announcementBar fallback includes threshold amount"
+);
+
+/* 2. Stock Badge Batch Date */
+console.log("\n--- Milestone 2: Stock Badge Batch Date Tests ---");
+const comingSoonWithBatch = {
+  id: "test-preorder",
+  name: "Pre-order Salve",
+  comingSoon: true,
+  estimatedBatchDate: "October 15, 2026"
+};
+const badgeWithBatchHtml = main.stockBadgeHTML(comingSoonWithBatch);
+assert(
+  badgeWithBatchHtml.includes('class="stock-badge low-stock">Coming Soon</span>'),
+  "stockBadgeHTML renders Coming Soon badge"
+);
+assert(
+  badgeWithBatchHtml.includes(
+    'class="stock-badge badge-batch-date">Batch: October 15, 2026</span>'
+  ),
+  "stockBadgeHTML renders badge-batch-date with estimatedBatchDate"
+);
+
+const comingSoonWithoutBatch = {
+  id: "test-coming-soon",
+  name: "Coming Soon Salve",
+  comingSoon: true
+};
+const badgeWithoutBatchHtml = main.stockBadgeHTML(comingSoonWithoutBatch);
+eq(
+  badgeWithoutBatchHtml,
+  '<span class="stock-badge low-stock">Coming Soon</span>',
+  "stockBadgeHTML renders only Coming Soon when estimatedBatchDate is absent"
+);
+
+/* 3. Modal Ritual Fallback */
+console.log("\n--- Milestone 2: Modal Ritual Fallback Tests ---");
+mockWindow.YL_CONTENT = {
+  site: {
+    ritualDefaults: {
+      title: "Botanical Pairing",
+      subtitle: "Pair this item with complementary botanicals crafted to work together."
+    }
+  }
+};
+const testProductWithoutRitualTitle = {
+  id: "sleep-salve",
+  name: "Sweet Dreams Sleep Salve",
+  price: 14,
+  pairsWith: ["lavender-soak"]
+};
+const testProductMap = new Map([
+  ["lavender-soak", { id: "lavender-soak", name: "Lavender Bath Soak", price: 16, stock: 5 }]
+]);
+const ritualModalHtml = main.renderModalRitualHtml(testProductWithoutRitualTitle, testProductMap);
+assert(
+  ritualModalHtml.includes("✦ Complete the Ritual: Botanical Pairing ✦"),
+  "renderModalRitualHtml uses ritualDefaults.title fallback when ritualTitle is not set"
+);
+assert(
+  ritualModalHtml.includes(
+    "Pair this item with complementary botanicals crafted to work together."
+  ),
+  "renderModalRitualHtml includes ritualDefaults.subtitle"
+);
+
+// Restore original globals
+mockWindow.YL_CONTENT = origContent;
+mockWindow.YL_PRODUCTS = origProducts;
+
+/* 4. Dynamic Apothecary Quiz Scoring */
+console.log("\n--- Milestone 2: Apothecary Quiz Scoring Tests ---");
+assert(
+  typeof main.initApothecaryQuiz === "function",
+  "main.js exports initApothecaryQuiz function"
+);
+
+// Setup mock DOM for apothecary quiz
+const quizSection = createMockElement("section");
+quizSection.id = "apothecary-quiz-section";
+elementsById.set("apothecary-quiz-section", quizSection);
+
+const quizModal = createMockElement("dialog");
+quizModal.id = "apothecary-quiz-modal";
+elementsById.set("apothecary-quiz-modal", quizModal);
+
+const openBtn = createMockElement("button");
+openBtn.id = "open-apothecary-quiz-btn";
+elementsById.set("open-apothecary-quiz-btn", openBtn);
+
+const closeBtn = createMockElement("button");
+closeBtn.id = "close-apothecary-quiz-modal";
+elementsById.set("close-apothecary-quiz-modal", closeBtn);
+
+const resetBtn = createMockElement("button");
+resetBtn.id = "start-apothecary-quiz-btn";
+elementsById.set("start-apothecary-quiz-btn", resetBtn);
+
+const resultsContainer = createMockElement("div");
+resultsContainer.id = "quiz-results-container";
+elementsById.set("quiz-results-container", resultsContainer);
+
+const step1El = createMockElement("div");
+step1El.id = "quiz-step-1";
+step1El.classList.add("quiz-step");
+elementsById.set("quiz-step-1", step1El);
+
+const step2El = createMockElement("div");
+step2El.id = "quiz-step-2";
+step2El.classList.add("quiz-step");
+elementsById.set("quiz-step-2", step2El);
+
+const submitBtn = createMockElement("button");
+submitBtn.id = "quiz-submit-btn";
+elementsById.set("quiz-submit-btn", submitBtn);
+
+// Mock quiz config in window.YL_CONTENT
+mockWindow.YL_CONTENT = {
+  site: {
+    enableLoyaltyPoints: true,
+    loyaltyBadgeEmoji: "✨",
+    loyaltyPointsPerDollar: 1,
+    loyaltyPointsName: "Alt-Points"
+  },
+  quiz: {
+    questions: [
+      {
+        id: "mood",
+        name: "quiz-mood",
+        options: [
+          {
+            value: "calm",
+            label: "Calm",
+            scoreWeight: 10,
+            recommendedProductIds: ["sleep-salve"]
+          }
+        ]
+      }
+    ]
+  }
+};
+
+mockWindow.YL_PRODUCTS = {
+  products: [
+    {
+      id: "sleep-salve",
+      name: "Sweet Dreams Sleep Salve",
+      price: 14,
+      category: "salves",
+      stock: 10,
+      blurb: "Herbal sleep salve with lavender and cedar."
+    },
+    {
+      id: "bath-tea",
+      name: "Botanical Bath Tea",
+      price: 12,
+      category: "soaks",
+      stock: 5,
+      blurb: "Herbal bath tea soak."
+    }
+  ],
+  bundles: []
+};
+
+// Mock radio selection in quizSection
+const mockRadioInput = createMockElement("input");
+mockRadioInput.checked = true;
+mockRadioInput.value = "calm";
+quizSection.querySelector = (sel) => {
+  if (sel.includes('input[name="quiz-mood"]:checked')) return mockRadioInput;
+  if (sel.includes('input[name="quiz-vibe"]:checked')) return { value: "gothic-calm" };
+  if (sel.includes('input[name="quiz-need"]:checked')) return { value: "hydration" };
+  if (sel.includes('input[name="quiz-intent"]:checked')) return { value: "treat-myself" };
+  return null;
+};
+quizSection.querySelectorAll = (sel) => {
+  if (sel === ".quiz-step") return [step1El, step2El];
+  return [];
+};
+
+// Initialize quiz
+main.initApothecaryQuiz();
+
+// Simulate clicking the submit button
+quizSection.dispatchEvent({
+  type: "click",
+  target: submitBtn
+});
+
+assert(resultsContainer.style.display === "block", "Submitting quiz displays results container");
+assert(
+  resultsContainer.innerHTML.includes("Sweet Dreams Sleep Salve"),
+  "Quiz dynamically recommends highest scored product based on questions config"
+);
+assert(
+  resultsContainer.innerHTML.includes("quiz-recommended-card"),
+  "Quiz renders .quiz-recommended-card prescription card"
+);
+assert(
+  resultsContainer.innerHTML.includes("Add Recommendation to Cart ($14.00)"),
+  "Quiz renders add-to-cart button with price"
+);
+assert(
+  resultsContainer.innerHTML.includes('Earn <span class="pts-val">14</span> Alt-Points'),
+  "Quiz renders loyalty points badge"
 );
 
 console.log(`\nmain.test.js: ${passed} passed, ${failed} failed`);

@@ -138,21 +138,32 @@ function testGoogleMerchantJsonLd() {
 
     assert(Boolean(rawProd), `[${file}] has a matching entry in products.json`);
 
+    // Real, indexable product pages (2026-09-02): own Product + BreadcrumbList
+    // JSON-LD, no noindex, self-canonical, no redirect.
     const jsonLdRegex = /<script\s+type="application\/ld\+json">([\s\S]*?)<\/script>/gi;
     const blocks = content.match(jsonLdRegex) || [];
+    const types = blocks.map((b) => {
+      try {
+        return JSON.parse(b.replace(/^<script[^>]*>/i, "").replace(/<\/script>$/i, ""))["@type"];
+      } catch (e) {
+        return "unparseable";
+      }
+    });
     assert(
-      blocks.length === 0,
-      `[${file}] noindex doorway emits no JSON-LD (found ${blocks.length})`
-    );
-
-    assert(
-      content.includes('<meta name="robots" content="noindex, follow">'),
-      `[${file}] declares <meta name="robots" content="noindex, follow">`
+      types.includes("Product") && types.includes("BreadcrumbList"),
+      `[${file}] carries Product and BreadcrumbList JSON-LD (found ${types.join(", ") || "none"})`
     );
     assert(
-      content.includes('<link rel="canonical" href="https://yallternativeliving.com/shop.html">'),
-      `[${file}] canonicalises to shop.html`
+      !/<meta name="robots" content="[^"]*noindex/.test(content),
+      `[${file}] is indexable (no noindex)`
     );
+    assert(
+      content.includes(
+        `<link rel="canonical" href="https://yallternativeliving.com/products/${prodId}.html">`
+      ),
+      `[${file}] canonicalises to itself`
+    );
+    assert(!content.includes("window.location.replace"), `[${file}] does not redirect away`);
 
     // The visible breadcrumb is what a human landing here uses. Category and
     // product anchors are plain ids now; the old "#category-" prefix pointed
@@ -215,8 +226,8 @@ function testGoogleMerchantJsonLd() {
       assert(item["@type"] === "Product", `[shop.html] ${prod.id} entry is a Product`);
       assert(item.name === prod.name, `[shop.html] ${prod.id} name matches products.json`);
       assert(
-        validUrlRegex.test(item.url) && item.url.endsWith(`/shop.html#${prod.id}`),
-        `[shop.html] ${prod.id} url is the shop anchor (${item.url})`
+        validUrlRegex.test(item.url) && item.url.endsWith(`/products/${prod.id}.html`),
+        `[shop.html] ${prod.id} url is the product page (${item.url})`
       );
 
       const offers = item.offers;

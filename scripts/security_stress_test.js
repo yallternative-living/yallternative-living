@@ -298,28 +298,30 @@ function createStaticServer(port = 8083) {
       }
     }
 
-    // 4. Test Product Page Deep-Link Redirection under CSP
-    console.log("--- 4. Testing Product Page Deep-Link Redirection under CSP ---");
+    // 4. Product page under CSP: it is a real page now (no redirect), so it
+    //    must stay on its own URL, render its purchase controls, and raise no
+    //    CSP report while doing so.
+    console.log("--- 4. Testing Product Page under CSP ---");
     consoleErrors = [];
     const productUrl = `${baseUrl}/products/backroad-soak.html`;
     await page.goto(productUrl, { waitUntil: "networkidle2" });
-    try {
-      await page.waitForFunction(
-        () =>
-          window.location.href.includes("/shop.html") && window.location.hash === "#backroad-soak",
-        { timeout: 4000 }
-      );
-    } catch (_e) {
-      // Fall through to assertion
-    }
+    await new Promise((r) => setTimeout(r, 800));
 
     const finalUrl = page.url();
-    const hash = new URL(finalUrl).hash;
+    const pdpRendered = await page.evaluate(
+      () =>
+        !!document.querySelector(".pdp-layout") &&
+        !!document.querySelector("#pdpAddToCart, .pdp-cta-btn")
+    );
 
-    if (finalUrl.includes("/shop.html") && hash === "#backroad-soak") {
-      console.log(`  ✓ Deep-link redirected cleanly to shop.html#backroad-soak under CSP`);
+    if (finalUrl.includes("/products/backroad-soak.html") && pdpRendered) {
+      console.log(
+        `  ✓ Product page stays on its own URL and renders its purchase controls under CSP`
+      );
     } else {
-      console.error(`❌ Deep-link redirection failed or misdirected: ${finalUrl}`);
+      console.error(
+        `❌ Product page did not render in place: url=${finalUrl} rendered=${pdpRendered}`
+      );
       passed = false;
     }
 

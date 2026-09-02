@@ -45,7 +45,7 @@ yourself.
 - **Availability**: In stock
 - **Size**: S, M, L, 1X
 - **Description**: Same rainbow stag, same crescent moon, cut for the hottest days of the year. Soft triblend racerback built to be worn hard and washed easy. Original artwork, not something pulled off a mass-print catalog.
-- **Product page**: https://yallternativeliving.com/shop.html#tank-top
+- **Product page**: https://yallternativeliving.com/products/tank-top.html
 - **Also on Etsy**: https://www.etsy.com/listing/4341507933/yallternative-living-tank-top
 
 ### Y'allternative Living Unisex T-Shirt
@@ -55,7 +55,7 @@ yourself.
 - **Availability**: In stock
 - **Size**: S, M, L, XL
 - **Description**: The shirt that started the whole shop: a rainbow stag under a crescent moon, screen-printed on soft cotton cut to actually fit everybody. Original artwork, zero mass-production. Wear it to the market, wear it to Pride, wear it everywhere in between.
-- **Product page**: https://yallternativeliving.com/shop.html#unisex-tshirt
+- **Product page**: https://yallternativeliving.com/products/unisex-tshirt.html
 - **Also on Etsy**: https://www.etsy.com/listing/4341518675/yallternative-living-unisex-t-shirt
 
 ### Y'all Heal Now Miracle Frankincense Salve
@@ -65,7 +65,7 @@ yourself.
 - **Availability**: In stock
 - **Size**: 2oz, 1oz
 - **Description**: One little tin, a whole lot of jobs: dry cuticles, cracked heels, windburn, razor bumps. Whatever's rough, this goes on it. Calendula, arnica, and five essential oils in a beeswax-shea base, mixed by hand in a 2 oz tin in Landrum, SC.
-- **Product page**: https://yallternativeliving.com/shop.html#frankincense-salve
+- **Product page**: https://yallternativeliving.com/products/frankincense-salve.html
 - **Also on Etsy**: https://www.etsy.com/listing/4398130795/yall-heal-now-miracle-frankincense-salve
 
 ### Y'allternative Miracle Balm
@@ -74,7 +74,7 @@ yourself.
 - **Category**: Salves & Balms
 - **Availability**: In stock
 - **Description**: No essential oils, no fragrance, nothing to react to. Just a rich little .5 oz balm for lips, cuticles, and anywhere skin needs backup. Gentle enough for the whole family, kids included.
-- **Product page**: https://yallternativeliving.com/shop.html#miracle-balm
+- **Product page**: https://yallternativeliving.com/products/miracle-balm.html
 - **Also on Etsy**: https://www.etsy.com/listing/4466572716/yallternative-miracle-balm-multi-use
 
 ### Hush Y'all Magnesium Arnica Sleep Salve
@@ -83,7 +83,7 @@ yourself.
 - **Category**: Salves & Balms
 - **Availability**: In stock
 - **Description**: Rub a little onto your feet or shoulders before bed and let lavender, chamomile, and cedarwood take it from there. Magnesium and arnica in a 2 oz tin, built for overthinkers and night owls who need the day to actually end.
-- **Product page**: https://yallternativeliving.com/shop.html#sleep-salve
+- **Product page**: https://yallternativeliving.com/products/sleep-salve.html
 - **Also on Etsy**: https://www.etsy.com/listing/4398125773/hush-yall-magnesium-arnica-sleep-salve
 
 ### Bourbon Beard Salve
@@ -92,7 +92,7 @@ yourself.
 - **Category**: Body & Skin
 - **Availability**: In stock
 - **Description**: A 2 oz tin that softens coarse facial hair, calms the itch underneath, and smells like a stiff drink and cedarwood instead of a drugstore aisle. Light hold, zero grease, genuinely good gift material.
-- **Product page**: https://yallternativeliving.com/shop.html#beard-salve
+- **Product page**: https://yallternativeliving.com/products/beard-salve.html
 - **Also on Etsy**: https://www.etsy.com/listing/4460199621/bourbon-beard-salve-vanilla-cedarwood
 
 ### Shimmer Body Oil
@@ -102,7 +102,7 @@ yourself.
 - **Availability**: In stock
 - **Scent**: Seduction, Y'all Means All, Coconut Barefoot & Dangerous
 - **Description**: Cedarwood, sweet orange, and patchouli under a black-gold shimmer that photographs as good as it feels. That's the Seduction blend, one of three scents this comes in. Lightweight, fast-absorbing, and built for festivals, Pride, and anywhere else you plan on shining harder than everyone around you.
-- **Product page**: https://yallternativeliving.com/shop.html#shimmer-oil
+- **Product page**: https://yallternativeliving.com/products/shimmer-oil.html
 - **Also on Etsy**: https://www.etsy.com/listing/4502740269/shimmer-body-oil-glitter-body-oil-non
 
 ### Lavender Shea Body Butter
@@ -112,7 +112,7 @@ yourself.
 - **Availability**: In stock
 - **Size**: 4 oz, 8 oz
 - **Description**: Deep Shea Rest, whipped thick with raw African shea and a lavender-forward blend underneath. Massage it into damp skin after your shower and let it work on cracked heels and winter-dry patches while you sleep. Built as a night ritual, not just a lotion.
-- **Product page**: https://yallternativeliving.com/shop.html#shea-butter
+- **Product page**: https://yallternativeliving.com/products/shea-butter.html
 - **Also on Etsy**: https://www.etsy.com/listing/4460110222/lavender-shea-body-butter-raw-african
 
 ### Bourbon Vanilla Hand Scrub
@@ -122,7 +122,7 @@ yourself.
 - **Availability**: In stock
 - **Size**: 2 oz, 4 oz
 - **Description**: Pumice, pink salt, and sugar for the grease and grime; coconut and olive oil so your hands don't pay for it. A 2 oz tin built for hands that work for a living.
-- **Product page**: https://yallternativeliving.com/shop.html#hand-scrub
+- **Product page**: https://yallternativeliving.com/products/hand-scrub.html
 - **Also on Etsy**: https://www.etsy.com/listing/4342208406/bourbon-vanilla-hand-scrub-exfoliating
 
 ### Lavender Epsom Salt Soak
@@ -132,7 +132,7 @@ yourself.
 - **Availability**: In stock
 - **Size**: 10 oz, 24 oz
 - **Description**: Relaxation with a side of rebellion: lavender, black pepper, and rosemary dissolved into a 10 oz bag of Epsom salt and baking soda. Run the bath, toss in a scoop, take up all the space you want.
-- **Product page**: https://yallternativeliving.com/shop.html#lavender-soak
+- **Product page**: https://yallternativeliving.com/products/lavender-soak.html
 - **Also on Etsy**: https://www.etsy.com/listing/4345557444/lavender-epsom-salt-soak-muscle-relief
 
 ### Backroad Recovery Epsom Salt Soak
@@ -142,7 +142,7 @@ yourself.
 - **Availability**: In stock
 - **Size**: 10 oz, 24 oz
 - **Description**: Peppermint, lavender, black pepper, and ylang ylang for whatever the backroads (or the day) put you through. Stir a scoop into a warm bath, soak 20 to 30 minutes, come out looser than you went in.
-- **Product page**: https://yallternativeliving.com/shop.html#backroad-soak
+- **Product page**: https://yallternativeliving.com/products/backroad-soak.html
 - **Also on Etsy**: https://www.etsy.com/listing/4333988264/backroad-recovery-epsom-salt-muscle-soak
 
 ### Protection Potion Keychain
@@ -152,7 +152,7 @@ yourself.
 - **Availability**: In stock
 - **Blend**: Black Lava & Pink Himalayan Salt (Protection + Self Love), Black Lava Salt & Rosemary (Protect + Purify), Black Lava Salt & Myrrh (Protect + Guard)
 - **Description**: A mini spell jar, wax-sealed and clipped to a sturdy keyring. Pick your blend below. Five inches of everyday witchy armor for your keys, bag, or backpack.
-- **Product page**: https://yallternativeliving.com/shop.html#protection-keychain
+- **Product page**: https://yallternativeliving.com/products/protection-keychain.html
 - **Also on Etsy**: https://www.etsy.com/listing/4378341348/protection-potion-keychain-black-lava
 
 ### Bug Off B*tch Natural Bug Spray
@@ -161,7 +161,7 @@ yourself.
 - **Category**: Body & Skin
 - **Availability**: In stock
 - **Description**: Tell the mosquitoes to buzz off, naturally. Citronella, lemongrass, and five other essential oils in a 2 oz amber spray, no DEET, no sticky residue, just Southern summer survival.
-- **Product page**: https://yallternativeliving.com/shop.html#bug-spray
+- **Product page**: https://yallternativeliving.com/products/bug-spray.html
 - **Also on Etsy**: https://www.etsy.com/listing/4335217388/bug-off-btch-natural-bug-spray
 
 ### Y'all Means All Sugar Scrub
@@ -170,7 +170,7 @@ yourself.
 - **Category**: Body & Skin
 - **Availability**: Pre-order / coming soon
 - **Description**: Rainbow layers of sweet exfoliant that slough off the rough, leave skin soft, and look like a Pride parade in a jar. Glitter-and-grit self-care that means exactly what it says: everybody's welcome.
-- **Product page**: https://yallternativeliving.com/shop.html#sugar-scrub
+- **Product page**: https://yallternativeliving.com/products/sugar-scrub.html
 - **Also on Etsy**: https://www.etsy.com/shop/YallternativeLivinCO
 
 ### Y'all Means All Rainbow Whipped Body Butter
@@ -179,7 +179,7 @@ yourself.
 - **Category**: Body & Skin
 - **Availability**: Pre-order / coming soon
 - **Description**: Whipped light and fluffy in a citrus-peach blend, with rainbow swirls that mean all of it: every color, every one of us. Melts in without the grease and keeps skin soft all day. Everybody's welcome, moisturized.
-- **Product page**: https://yallternativeliving.com/shop.html#whipped-body-butter
+- **Product page**: https://yallternativeliving.com/products/whipped-body-butter.html
 - **Also on Etsy**: https://www.etsy.com/shop/YallternativeLivinCO
 
 ### Appalachian Rain Clearing Mist
@@ -189,7 +189,7 @@ yourself.
 - **Availability**: Pre-order / coming soon
 - **Size**: 2 oz, 4 oz
 - **Description**: White sage, cedar, and sweetgrass in a fine mist: two pumps at the doorway after a hard conversation, a house guest who overstayed, or just a Monday that won't quit. Inspired by Appalachian folk tradition, no smoke, no residue, no landlord complaints. Amber glass, small-batch blended in Landrum, SC.
-- **Product page**: https://yallternativeliving.com/shop.html#cleansing-spray
+- **Product page**: https://yallternativeliving.com/products/cleansing-spray.html
 - **Also on Etsy**: https://www.etsy.com/shop/YallternativeLivinCO
 
 ### Moonlit Meadow Bath Tea
@@ -199,7 +199,7 @@ yourself.
 - **Availability**: Pre-order / coming soon
 - **Size**: Single Soak, 3-Pack
 - **Description**: Dried lavender, chamomile, rose petals, and oat straw in a reusable muslin bag. Drop it in a warm bath, let it steep five minutes, soak until the day stops mattering. Gentler on your tub than loose herbs, and the bag's good for two or three rounds before you compost the whole thing.
-- **Product page**: https://yallternativeliving.com/shop.html#bath-tea
+- **Product page**: https://yallternativeliving.com/products/bath-tea.html
 - **Also on Etsy**: https://www.etsy.com/shop/YallternativeLivinCO
 
 ### Porch Sweep Clearing Mist
@@ -208,7 +208,7 @@ yourself.
 - **Category**: Ritual & Home
 - **Availability**: Pre-order / coming soon
 - **Description**: Named for the old Southern habit of sweeping the porch at dusk to clear out the day's trouble. Lemongrass, palo santo, and black tourmaline-infused water in a 4 oz amber bottle. Mist your space after an argument, a bad day, or just because the vibes are off.
-- **Product page**: https://yallternativeliving.com/shop.html#porch-sweep-spray
+- **Product page**: https://yallternativeliving.com/products/porch-sweep-spray.html
 - **Also on Etsy**: https://www.etsy.com/shop/YallternativeLivinCO
 
 ### Digital Gift Card
@@ -218,7 +218,7 @@ yourself.
 - **Availability**: In stock
 - **Amount**: Preset $10, Preset $25, Preset $50, Preset $100, Preset $200, Preset $500
 - **Description**: The perfect gift for the black sheep & bold hearts. Choose any amount from $10 to $500. No expiration date, delivered straight to their inbox.
-- **Product page**: https://yallternativeliving.com/shop.html#yallternative-gift-card
+- **Product page**: https://yallternativeliving.com/products/yallternative-gift-card.html
 
 ## Bundles & gift sets
 

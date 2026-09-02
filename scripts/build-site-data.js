@@ -447,6 +447,135 @@ function validatePairsWith(products, productsMap) {
   return true;
 }
 
+function renderSocialRowHtml(social) {
+  const soc = social || {};
+  const links = [];
+
+  const icons = {
+    instagram: {
+      label: "Instagram (opens in new tab)",
+      svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1"/></svg>'
+    },
+    tiktok: {
+      label: "TikTok (opens in new tab)",
+      svg: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M15 3c.4 2.3 2 4 4.7 4.2v3c-1.7 0-3.3-.5-4.7-1.4v6.7c0 3.1-2.5 5.5-5.6 5.5S3.8 18.6 3.8 15.5c0-3 2.4-5.5 5.6-5.5.4 0 .8 0 1.1.1v3.1c-.3-.1-.7-.2-1.1-.2-1.3 0-2.4 1.1-2.4 2.5s1.1 2.5 2.4 2.5 2.5-1 2.6-2.4V3H15z"/></svg>'
+    },
+    facebook: {
+      label: "Facebook (opens in new tab)",
+      svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 8.5h2.5V5H14c-2 0-3.5 1.6-3.5 3.5V11H8v3.5h2.5V21H14v-6.5h2.3l.7-3.5h-3V9c0-.3.2-.5.5-.5z"/></svg>'
+    },
+    etsy: {
+      label: "Etsy shop (opens in new tab)",
+      svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 8l1-4h14l1 4"/><path d="M4 8h16v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8z"/><path d="M9 12a3 3 0 0 0 6 0"/></svg>'
+    },
+    pinterest: {
+      label: "Pinterest (opens in new tab)",
+      svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2a10 10 0 0 0-3.6 19.3c-.05-.8-.1-2.1.02-3 .12-.8 1-4.2 1-4.2s-.25-.5-.25-1.3c0-1.2.7-2.1 1.6-2.1.75 0 1.1.56 1.1 1.24 0 .76-.48 1.9-.74 2.95-.2.9.46 1.63 1.34 1.63 1.6 0 2.85-1.7 2.85-4.14 0-2.16-1.55-3.68-3.77-3.68-2.57 0-4.08 1.93-4.08 3.92 0 .78.3 1.6.67 2.06a.3.3 0 0 1 .07.29c-.07.3-.23.95-.26 1.09-.04.18-.15.22-.34.13-1.27-.6-2.07-2.45-2.07-3.95 0-3.2 2.33-6.15 6.72-6.15 3.53 0 6.27 2.52 6.27 5.88 0 3.5-2.21 6.33-5.28 6.33-1.03 0-2-.54-2.33-1.17l-.64 2.43c-.23.9-.86 2.02-1.28 2.72A10 10 0 1 0 12 2z"/></svg>'
+    },
+    youtube: {
+      label: "YouTube (opens in new tab)",
+      svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"/><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02" fill="currentColor"/></svg>'
+    }
+  };
+
+  ["instagram", "tiktok", "facebook", "etsy", "pinterest", "youtube"].forEach(function (key) {
+    const rawUrl = soc[key];
+    if (typeof rawUrl === "string" && rawUrl.trim()) {
+      const sanitized = safeUrl(rawUrl.trim());
+      if (sanitized) {
+        const item = icons[key];
+        links.push(
+          '          <a href="' +
+            escapeHtml(sanitized) +
+            '" target="_blank" rel="noopener" aria-label="' +
+            item.label +
+            '">\n            ' +
+            item.svg +
+            "\n          </a>"
+        );
+      }
+    }
+  });
+
+  return '<div class="social-row">\n' + links.join("\n") + "\n        </div>";
+}
+
+function getActiveSocialUrls(social) {
+  const soc = social || {};
+  const urls = [];
+  ["etsy", "facebook", "instagram", "tiktok", "pinterest", "youtube"].forEach(function (key) {
+    const rawUrl = soc[key];
+    if (typeof rawUrl === "string" && rawUrl.trim()) {
+      const sanitized = safeUrl(rawUrl.trim());
+      if (sanitized && urls.indexOf(sanitized) === -1) {
+        urls.push(sanitized);
+      }
+    }
+  });
+  urls.sort();
+  return urls;
+}
+
+function validateQuizData(quiz, productsMap, categoriesMap, bundlesMap) {
+  if (!quiz) return true;
+  const questions = quiz.questions || quiz.steps || [];
+  if (!Array.isArray(questions)) {
+    throw new Error("Quiz questions must be an array");
+  }
+
+  const pMap = productsMap || {};
+  const cMap = categoriesMap || {};
+  const bMap = bundlesMap || {};
+
+  questions.forEach(function (q, qIdx) {
+    if (!q || typeof q !== "object") {
+      throw new Error("Quiz question at index " + qIdx + " must be an object");
+    }
+    const options = q.options || [];
+    if (!Array.isArray(options)) {
+      throw new Error("Quiz question '" + (q.id || qIdx) + "' options must be an array");
+    }
+    options.forEach(function (opt, optIdx) {
+      if (!opt || typeof opt !== "object") {
+        throw new Error(
+          "Quiz question '" + (q.id || qIdx) + "' option at index " + optIdx + " must be an object"
+        );
+      }
+      if (Array.isArray(opt.recommendedProductIds)) {
+        opt.recommendedProductIds.forEach(function (id) {
+          if (!pMap[id] && !bMap[id]) {
+            throw new Error(
+              "Quiz option '" +
+                (opt.value || optIdx) +
+                "' in question '" +
+                (q.id || qIdx) +
+                "' references unknown product/bundle ID: '" +
+                id +
+                "'"
+            );
+          }
+        });
+      }
+      if (Array.isArray(opt.categories)) {
+        opt.categories.forEach(function (cat) {
+          if (cMap && Object.keys(cMap).length && !cMap[cat]) {
+            throw new Error(
+              "Quiz option '" +
+                (opt.value || optIdx) +
+                "' in question '" +
+                (q.id || qIdx) +
+                "' references unknown category ID: '" +
+                cat +
+                "'"
+            );
+          }
+        });
+      }
+    });
+  });
+  return true;
+}
+
 function readText(relPath, label) {
   const full = path.join(ROOT, relPath);
   try {
@@ -791,6 +920,22 @@ function buildSiteData() {
     }
   });
 
+  /* 5f. Quiz -> product referential integrity */
+  const BUNDLES_BY_ID = {};
+  BUNDLES.forEach(function (b) {
+    if (b.id) BUNDLES_BY_ID[b.id] = b;
+  });
+  const CATEGORIES_BY_ID = {};
+  (CATALOG.categories || []).forEach(function (c) {
+    if (c.id) CATEGORIES_BY_ID[c.id] = c;
+  });
+  try {
+    validateQuizData(CONTENT.quiz, PRODUCTS_BY_ID, CATEGORIES_BY_ID, BUNDLES_BY_ID);
+  } catch (e) {
+    console.error("\n[build] Quiz data validation failed: " + e.message);
+    process.exit(1);
+  }
+
   /* 5e. Volume-pricing sanity.
    The rule advertises "N+ for $unitPrice each", so a qualifying product whose
    own price is already at or below unitPrice makes the badge a lie (and the
@@ -1041,6 +1186,7 @@ function buildSiteData() {
       image: p.image,
       inStock: p.inStock !== false && p.stock !== 0,
       comingSoon: !!p.comingSoon,
+      estimatedBatchDate: p.estimatedBatchDate || null,
       featured: !!p.featured,
       blurb: p.blurb || p.description || "",
       ingredients: Array.isArray(p.ingredients) ? p.ingredients : [],
@@ -1072,6 +1218,7 @@ function buildSiteData() {
       image: bundleImg,
       inStock: true,
       comingSoon: false,
+      estimatedBatchDate: null,
       featured: !!b.featured,
       blurb:
         b.description || b.blurb || "Curated botanical bundle with special multi-item savings.",
@@ -1375,7 +1522,7 @@ function buildSiteData() {
       priceValidUntil: "2027-12-31",
       itemCondition: "https://schema.org/NewCondition",
       availability: availability,
-      url: DOMAIN + "/shop.html#" + p.id,
+      url: DOMAIN + "/products/" + p.id + ".html",
       seller: { "@type": "Organization", name: "Y'allternative Living" }
     };
     const offers =
@@ -1395,7 +1542,7 @@ function buildSiteData() {
       name: p.name,
       description: p.blurb,
       image: imageField,
-      url: DOMAIN + "/shop.html#" + p.id,
+      url: DOMAIN + "/products/" + p.id + ".html",
       sku: p.sku || p.id,
       mpn: p.mpn || p.sku || p.id,
       category: CATEGORY_LABEL[p.category] || p.category,
@@ -2088,6 +2235,26 @@ function buildSiteData() {
     );
   });
 
+  // Inject social row into footer template using outer comment tag
+  const reFooterSocial = /(<!--YL:site\.socialRow-->)[\s\S]*?(<!--\/YL:site\.socialRow-->)/;
+  if (reFooterSocial.test(FOOTER_INNER)) {
+    const socialRowHtml = renderSocialRowHtml(CONTENT.site && CONTENT.site.social);
+    FOOTER_INNER = FOOTER_INNER.replace(reFooterSocial, function (match, open, close) {
+      return open + "\n        " + socialRowHtml + "\n" + close;
+    });
+  }
+
+  // Inject etsy link into footer template using comment tag
+  const reFooterEtsy = /(<!--YL:site\.social\.etsy-->)[\s\S]*?(<!--\/YL:site\.social\.etsy-->)/;
+  if (reFooterEtsy.test(FOOTER_INNER)) {
+    const etsyUrl =
+      (CONTENT.site && CONTENT.site.social && CONTENT.site.social.etsy) ||
+      "https://www.etsy.com/shop/YallternativeLivinCO";
+    FOOTER_INNER = FOOTER_INNER.replace(reFooterEtsy, function (match, open, close) {
+      return open + escapeHtml(etsyUrl) + close;
+    });
+  }
+
   const FOOTER_BLOCK = '<footer class="site-footer">\n' + FOOTER_INNER + "\n</footer>";
   const FOOTER_RE = /<footer class="site-footer">[\s\S]*?<\/footer>/;
 
@@ -2180,6 +2347,15 @@ function buildSiteData() {
       return match;
     });
 
+    // Dynamic Schema.org sameAs injection
+    const activeSocialList = getActiveSocialUrls(CONTENT.site && CONTENT.site.social);
+    const sameAsJson = JSON.stringify(activeSocialList, null, 2)
+      .split("\n")
+      .map((line, idx) => (idx === 0 ? line : "  " + line))
+      .join("\n");
+
+    html = html.replace(/"sameAs":\s*\[[\s\S]*?\]/, '"sameAs": ' + sameAsJson);
+
     const updated = html.replace(FOOTER_RE, FOOTER_BLOCK);
     if (updated !== html) writeFile(page, updated);
   });
@@ -2261,6 +2437,19 @@ function buildSiteData() {
         "</lastmod><priority>" +
         p.priority +
         "</priority></url>"
+      );
+    }).join("\n") +
+    "\n" +
+    // Product pages: indexable since 2026-09-01 (see renderProductPdpHtml).
+    PRODUCTS.map(function (p) {
+      return (
+        "  <url><loc>" +
+        DOMAIN +
+        "/products/" +
+        p.id +
+        ".html</loc><lastmod>" +
+        today +
+        "</lastmod><priority>0.8</priority></url>"
       );
     }).join("\n") +
     "\n</urlset>\n";
@@ -2443,7 +2632,7 @@ function buildSiteData() {
     lines.push(
       "- **Description**: " + (p.description || p.blurb || "").replace(/\s+/g, " ").trim()
     );
-    lines.push("- **Product page**: " + DOMAIN + "/shop.html#" + p.id);
+    lines.push("- **Product page**: " + DOMAIN + "/products/" + p.id + ".html");
     if (p.etsyUrl) lines.push("- **Also on Etsy**: " + p.etsyUrl);
     return lines.join("\n");
   }).join("\n\n");
@@ -2783,14 +2972,49 @@ function buildSiteData() {
 
   // Automatically generate individual product OpenGraph HTML pages
   (function generateProductOgPages() {
+    // Real, indexable product pages (see the renderProductPdpHtml header).
+    let pdpManifest = {};
+    try {
+      const manifestText = fs.readFileSync(path.join(ROOT, "assets/js/image-manifest.js"), "utf8");
+      const markerIdx = manifestText.indexOf("window.YL_IMAGES =");
+      if (markerIdx !== -1) {
+        let jsonText = manifestText.substring(
+          manifestText.indexOf("{", markerIdx),
+          manifestText.lastIndexOf("}") + 1
+        );
+        jsonText = jsonText.replace(/([{,]\s*)([A-Za-z_][A-Za-z0-9_]*)\s*:/g, '$1"$2":');
+        pdpManifest = JSON.parse(jsonText);
+      }
+    } catch (e) {
+      console.warn("[build] WARNING: image manifest unavailable for product pages:", e.message);
+    }
+    const pdpFooterInner = readText("assets/data/footer.html", "footer template").replace(
+      /\s+$/,
+      ""
+    );
     PRODUCTS.forEach(function (product) {
       const categoryLabel = CATEGORY_LABEL[product.category] || product.category || "Apothecary";
-      const html = renderProductPdpHtml(
+      let html = renderProductPdpHtml(
         product,
         DOMAIN,
         categoryLabel,
         PRODUCTS_BY_ID,
-        CATEGORY_LABEL
+        CATEGORY_LABEL,
+        CONTENT.site && CONTENT.site.ritualDefaults,
+        {
+          manifest: pdpManifest,
+          footerInner: pdpFooterInner,
+          reviews: SITE_REVIEWS,
+          products: PRODUCTS,
+          shop: CATALOG.shop || {}
+        }
+      );
+      // The shared footer's newsletter form takes its endpoint from the CMS,
+      // exactly as the top-level pages do.
+      html = setFormAction(
+        html,
+        "footer-signup-form",
+        newsletterAction(SITE_CONFIG.kitFormAction, "YOUR_KIT_FORM_ACTION_URL")
       );
       writeFile("products/" + product.id + ".html", html);
     });
@@ -2927,13 +3151,19 @@ function generateProductJsonLd(product, domain, categoryLabel) {
   const availability = schemaAvailability(product);
 
   // Merchant Return Policy (30 days, US)
+  // Mirrors policies.html: sealed products and unworn apparel can be
+  // exchanged within 14 days of delivery, the customer pays the return
+  // postage, and opened body care is final sale. It used to advertise a
+  // 30-day free-return window the shop never offered -- structured data that
+  // contradicts the visible policy is exactly what Google penalises.
   const returnPolicy = {
     "@type": "MerchantReturnPolicy",
     applicableCountry: "US",
     returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
-    merchantReturnDays: 30,
+    merchantReturnDays: 14,
     returnMethod: "https://schema.org/ReturnByMail",
-    returnFees: "https://schema.org/FreeReturn",
+    returnFees: "https://schema.org/ReturnShippingFees",
+    itemCondition: "https://schema.org/NewCondition",
     returnLink: dom + "/policies.html"
   };
 
@@ -3044,6 +3274,12 @@ function generateProductJsonLd(product, domain, categoryLabel) {
       hasMerchantReturnPolicy: returnPolicy,
       shippingDetails: shippingDetails
     };
+  }
+  // A digital gift card is emailed, never shipped or returned; advertising a
+  // shipping rate and a return window on it was audit finding DI-19.
+  if (prodId === "yallternative-gift-card") {
+    delete offers.shippingDetails;
+    delete offers.hasMerchantReturnPolicy;
   }
 
   const jsonLd = {
@@ -3272,12 +3508,17 @@ function renderUsageAccordionsHtml(product) {
   );
 }
 
-function renderRitualSectionHtml(product, productsMap, categoryLabelMap) {
+function renderRitualSectionHtml(product, productsMap, categoryLabelMap, ritualDefaults) {
   if (!product || !Array.isArray(product.pairsWith) || !product.pairsWith.length) {
     return "";
   }
-  const map = productsMap || PRODUCTS_BY_ID || {};
+  const map = productsMap || {};
   const catMap = categoryLabelMap || {};
+  const defaults = ritualDefaults || {};
+  const defaultTitle = defaults.title || "Botanical Pairing";
+  const defaultSubtitle =
+    defaults.subtitle || "Pair this item with complementary botanicals crafted to work together.";
+
   const pairedProducts = product.pairsWith
     .map(function (id) {
       return map[id];
@@ -3298,7 +3539,7 @@ function renderRitualSectionHtml(product, productsMap, categoryLabelMap) {
   });
 
   const formattedTotal = "$" + totalBundlePrice.toFixed(2);
-  const ritualTitle = product.ritualTitle || "Botanical Pairing";
+  const ritualTitle = product.ritualTitle || defaultTitle;
   const allIds = [product.id]
     .concat(
       pairedProducts.map(function (p) {
@@ -3380,7 +3621,9 @@ function renderRitualSectionHtml(product, productsMap, categoryLabelMap) {
     '        <h2 id="ritualHeading" class="pdp-ritual-title">✦ Complete the Ritual: ' +
     escapeHtml(ritualTitle) +
     " ✦</h2>\n" +
-    '        <p class="pdp-ritual-sub">Pair this item with complementary botanicals crafted to work together.</p>\n' +
+    '        <p class="pdp-ritual-sub">' +
+    escapeHtml(defaultSubtitle) +
+    "</p>\n" +
     "      </div>\n" +
     '      <div class="pdp-ritual-card">\n' +
     '        <div class="pdp-ritual-items-grid">\n' +
@@ -3565,11 +3808,844 @@ function renderStickyBarHtml(product, categoryLabel) {
   );
 }
 
-function renderProductPdpHtml(product, domain, categoryLabel, productsById, categoryLabelMap) {
+/* ==========================================================================
+   Product detail pages (products/<id>.html)
+   --------------------------------------------------------------------------
+   Real, indexable pages since 2026-09-01. They were "doorway" stubs before:
+   noindex, canonical to shop.html, no structured data, and an inline
+   redirect to shop.html#<id> on load (audit H-15). That was reversed because
+   Google's product rich results and merchant listings only support pages
+   focused on a single product and exclude noindex pages, and agentic
+   commerce feeds require a product-detail URL per product -- the shop page's
+   ItemList could never earn any of that. shop.html keeps its quick-view
+   modal as a convenience; these pages are the canonical destination.
+
+   Everything here is static so a crawler, an AI shopping agent and a
+   visitor with JS off all see the same product. main.js layers behaviour
+   on top (variant sync, quantity, gallery, wishlist, cart, dispatch badge,
+   recently viewed) and cart.js owns the cart.
+   ========================================================================== */
+
+/** Absolute-root image path ("assets/img/x.jpg" -> "/assets/img/x.jpg"). */
+function rootImage(imgPath) {
+  const clean = String(imgPath || "").replace(/^\/+/, "");
+  return clean ? "/" + clean : "";
+}
+
+/**
+ * Static <picture> from the responsive image manifest (assets/js/image-manifest.js,
+ * parsed by the build). Falls back to a plain <img> when the file has no
+ * generated variants. Paths are root-absolute so the markup is correct from
+ * /products/ as well as the root.
+ */
+function pictureFromManifest(imgPath, manifest, opts) {
+  const o = opts || {};
+  const key = String(imgPath || "").replace(/^\/+/, "");
+  const entry = manifest && manifest[key];
+  const width = o.width || (entry && entry.width) || 800;
+  const height = o.height || (entry && entry.height) || 800;
+  const imgAttrs =
+    ' alt="' +
+    escapeHtml(o.alt || "") +
+    '" width="' +
+    width +
+    '" height="' +
+    height +
+    '"' +
+    (o.loading ? ' loading="' + o.loading + '"' : "") +
+    ' decoding="' +
+    (o.decoding || "async") +
+    '"' +
+    (o.fetchpriority ? ' fetchpriority="' + o.fetchpriority + '"' : "") +
+    (o.className ? ' class="' + escapeHtml(o.className) + '"' : "") +
+    (o.id ? ' id="' + escapeHtml(o.id) + '"' : "") +
+    (o.itemprop ? ' itemprop="' + escapeHtml(o.itemprop) + '"' : "") +
+    (o.sizes ? ' sizes="' + escapeHtml(o.sizes) + '"' : "");
+  const img = '<img src="' + escapeHtml(rootImage(key)) + '"' + imgAttrs + ">";
+  if (!entry || !entry.variants) return img;
+  const srcset = (list) =>
+    (list || [])
+      .map(function (v) {
+        return rootImage(v.file) + " " + v.width + "w";
+      })
+      .join(", ");
+  const avif = srcset(entry.variants.avif);
+  const webp = srcset(entry.variants.webp);
+  if (!avif && !webp) return img;
+  const sizesAttr = o.sizes ? ' sizes="' + escapeHtml(o.sizes) + '"' : "";
+  return (
+    "<picture>" +
+    (avif ? '<source type="image/avif" srcset="' + avif + '"' + sizesAttr + ">" : "") +
+    (webp ? '<source type="image/webp" srcset="' + webp + '"' + sizesAttr + ">" : "") +
+    img +
+    "</picture>"
+  );
+}
+
+/** <link rel="preload"> for the LCP image, matching the <picture>'s AVIF candidates. */
+function preloadFromManifest(imgPath, manifest, sizes) {
+  const key = String(imgPath || "").replace(/^\/+/, "");
+  const entry = manifest && manifest[key];
+  const avif = entry && entry.variants && entry.variants.avif;
+  if (!avif || !avif.length) {
+    return (
+      '  <link rel="preload" as="image" href="' +
+      escapeHtml(rootImage(key)) +
+      '" fetchpriority="high">\n'
+    );
+  }
+  const srcset = avif
+    .map(function (v) {
+      return rootImage(v.file) + " " + v.width + "w";
+    })
+    .join(", ");
+  return (
+    '  <link rel="preload" as="image" type="image/avif" href="' +
+    escapeHtml(rootImage(avif[avif.length - 1].file)) +
+    '" imagesrcset="' +
+    srcset +
+    '" imagesizes="' +
+    escapeHtml(sizes) +
+    '" fetchpriority="high">\n'
+  );
+}
+
+/** The cart's data-item-* contract (see cart.js addItemFromButton). */
+function addToCartAttrs(p, categoryLabel) {
+  const price = typeof p.price === "number" ? p.price.toFixed(2) : "0.00";
+  const options = p.variants && Array.isArray(p.variants.options) ? p.variants.options : [];
+  const available = options.filter(function (o) {
+    return !o.soldOut;
+  });
+  let variantAttrs = "";
+  if (available.length) {
+    const optionsStr = available
+      .map(function (o) {
+        const delta = o.priceDelta || 0;
+        const sign = delta < 0 ? "-" : "+";
+        return escapeHtml(o.label) + "[" + sign + Math.abs(delta).toFixed(2) + "]";
+      })
+      .join("|");
+    variantAttrs =
+      ' data-item-custom1-name="' +
+      escapeHtml((p.variants && p.variants.name) || "Option") +
+      '" data-item-custom1-options="' +
+      optionsStr +
+      '" data-item-custom1-value="' +
+      escapeHtml(available[0].label) +
+      '"';
+  }
+  const maxQty =
+    typeof p.stock === "number" && p.stock > 0 ? ' data-item-max-quantity="' + p.stock + '"' : "";
+  return (
+    ' data-item-id="' +
+    escapeHtml(p.id) +
+    '" data-item-name="' +
+    escapeHtml(p.name) +
+    '" data-item-price="' +
+    price +
+    '" data-item-image="' +
+    escapeHtml(rootImage(p.image)) +
+    '" data-item-categories="' +
+    escapeHtml(categoryLabel || p.category || "") +
+    '"' +
+    variantAttrs +
+    maxQty
+  );
+}
+
+function isSoldOut(p) {
+  const options = p.variants && Array.isArray(p.variants.options) ? p.variants.options : [];
+  const noneAvailable =
+    options.length > 0 &&
+    options.every(function (o) {
+      return o.soldOut;
+    });
+  return p.stock === 0 || p.inStock === false || noneAvailable;
+}
+
+/** "2 oz tin" / "S–XL" / "" -- the identity-and-size line under the title. */
+function productSizeLabel(p) {
+  if (p.variants && p.variants.name === "Size" && Array.isArray(p.variants.options)) {
+    const labels = p.variants.options.map(function (o) {
+      return o.label;
+    });
+    if (labels.length) return "Sizes " + labels.join(" · ");
+  }
+  const m = /(\d+(?:\.\d+)?)\s*(oz|ounce|ml|g)\b/i.exec(
+    (p.blurb || "") + " " + (p.description || "") + " " + (p.name || "")
+  );
+  if (m) return m[1] + " " + m[2].toLowerCase();
+  return "";
+}
+
+function starsHtml(value) {
+  const full = Math.max(0, Math.min(5, Math.round(Number(value) || 0)));
+  let s = "";
+  for (let i = 0; i < 5; i++) s += i < full ? "★" : "☆";
+  return s;
+}
+
+function renderPdpGalleryHtml(p, manifest) {
+  const images = [p.image].concat(Array.isArray(p.images) ? p.images : []).filter(Boolean);
+  const mainAlt = p.name;
+  const main = pictureFromManifest(images[0], manifest, {
+    alt: mainAlt,
+    width: 800,
+    height: 800,
+    loading: "eager",
+    fetchpriority: "high",
+    sizes: "(max-width: 820px) 100vw, 50vw",
+    className: "pdp-main-image",
+    id: "pdpMainImage",
+    itemprop: "image"
+  });
+  let thumbs = "";
+  if (images.length > 1) {
+    thumbs =
+      '        <div class="pdp-thumbs" role="group" aria-label="Product photos">\n' +
+      images
+        .map(function (img, i) {
+          return (
+            '          <button type="button" class="pdp-thumb' +
+            (i === 0 ? " is-active" : "") +
+            '" data-image="' +
+            escapeHtml(rootImage(img)) +
+            '" data-idx="' +
+            i +
+            '" aria-label="Show photo ' +
+            (i + 1) +
+            " of " +
+            images.length +
+            '" aria-pressed="' +
+            (i === 0 ? "true" : "false") +
+            '">' +
+            pictureFromManifest(img, manifest, {
+              alt: "",
+              width: 120,
+              height: 120,
+              loading: "lazy",
+              sizes: "120px"
+            }) +
+            "</button>"
+          );
+        })
+        .join("\n") +
+      "\n        </div>\n";
+  }
+  const allSrcs = images
+    .map(function (img) {
+      return rootImage(img);
+    })
+    .join("|");
+  return (
+    '      <div class="pdp-gallery" data-product-id="' +
+    escapeHtml(p.id) +
+    '" data-images="' +
+    escapeHtml(allSrcs) +
+    '">\n' +
+    '        <button type="button" class="pdp-gallery-main" id="pdpGalleryOpen" aria-label="' +
+    escapeHtml("Enlarge photo of " + p.name) +
+    '">\n' +
+    "          " +
+    main +
+    "\n" +
+    "        </button>\n" +
+    thumbs +
+    "      </div>\n"
+  );
+}
+
+/** Radio-button variant picker (Baymard: buttons beat <select> for size/scent). */
+function renderVariantControlHtml(p) {
+  const options = p.variants && Array.isArray(p.variants.options) ? p.variants.options : [];
+  if (!options.length || p.id === "yallternative-gift-card") return "";
+  const price = typeof p.price === "number" ? p.price.toFixed(2) : "0.00";
+  const name = (p.variants && p.variants.name) || "Option";
+  let firstChecked = false;
+  const items = options
+    .map(function (o, i) {
+      const delta = o.priceDelta || 0;
+      const suffix = delta
+        ? " " + (delta < 0 ? "-$" + Math.abs(delta).toFixed(2) : "+$" + delta.toFixed(2))
+        : "";
+      const id = "pdpVariant" + i;
+      let state = "";
+      if (o.soldOut) {
+        state = " disabled";
+      } else if (!firstChecked) {
+        firstChecked = true;
+        state = " checked";
+      }
+      return (
+        '          <label class="pdp-variant-option' +
+        (o.soldOut ? " is-sold-out" : "") +
+        '" for="' +
+        id +
+        '">\n' +
+        '            <input type="radio" name="pdpVariant" id="' +
+        id +
+        '" value="' +
+        escapeHtml(o.label) +
+        '" data-delta="' +
+        delta +
+        '"' +
+        state +
+        ">\n" +
+        "            <span>" +
+        escapeHtml(o.label) +
+        (o.soldOut
+          ? " <small>sold out</small>"
+          : suffix
+            ? " <small>" + suffix.trim() + "</small>"
+            : "") +
+        "</span>\n" +
+        "          </label>"
+      );
+    })
+    .join("\n");
+  return (
+    '        <fieldset class="pdp-variant-group variant-group" data-base-price="' +
+    price +
+    '">\n' +
+    "          <legend>" +
+    escapeHtml(name) +
+    '<span class="pdp-variant-current" id="pdpVariantCurrent" aria-hidden="true"></span></legend>\n' +
+    items +
+    "\n        </fieldset>\n"
+  );
+}
+
+function renderPdpPurchaseHtml(p, categoryLabel) {
+  if (p.id === "yallternative-gift-card") {
+    return (
+      '        <div class="pdp-actions">\n' +
+      '          <a href="../shop.html#gift-cards" class="btn btn-primary btn-lg pdp-cta-btn">Choose an amount &amp; add to cart</a>\n' +
+      "        </div>\n" +
+      '        <p class="pdp-express muted">Delivered by email within minutes of checkout. Never expires.</p>\n'
+    );
+  }
+  if (p.comingSoon) {
+    return (
+      '        <div class="pdp-actions">\n' +
+      '          <button type="button" class="btn btn-primary btn-lg pdp-cta-btn yl-notify-toggle" data-notify-for="' +
+      escapeHtml(p.id) +
+      '">Notify me when it launches</button>\n' +
+      "        </div>\n" +
+      '        <p class="pdp-express muted">Coming soon. Leave your email and you will hear the moment this batch is ready.</p>\n'
+    );
+  }
+  if (isSoldOut(p)) {
+    return (
+      '        <div class="pdp-actions">\n' +
+      '          <button type="button" class="btn btn-primary btn-lg pdp-cta-btn yl-notify-toggle" data-notify-for="' +
+      escapeHtml(p.id) +
+      '">Notify me when it is back</button>\n' +
+      "        </div>\n" +
+      '        <p class="pdp-express muted">Sold out for now. Small batches come back around; we will email you when this one does.</p>\n'
+    );
+  }
+  return (
+    '        <div class="pdp-actions">\n' +
+    '          <div class="pdp-qty" role="group" aria-label="Quantity">\n' +
+    '            <button type="button" class="pdp-qty-btn" data-qty-step="-1" aria-label="Decrease quantity">&minus;</button>\n' +
+    '            <input type="number" class="pdp-qty-input" id="pdpQty" inputmode="numeric" min="1" max="' +
+    (typeof p.stock === "number" && p.stock > 0 ? Math.min(p.stock, 10) : 10) +
+    '" value="1" aria-label="Quantity">\n' +
+    '            <button type="button" class="pdp-qty-btn" data-qty-step="1" aria-label="Increase quantity">+</button>\n' +
+    "          </div>\n" +
+    '          <button type="button" class="btn btn-primary btn-lg pdp-cta-btn yl-add-item" id="pdpAddToCart"' +
+    addToCartAttrs(p, categoryLabel) +
+    ' data-item-quantity="1">Add to Cart</button>\n' +
+    '          <button type="button" class="wish-btn pdp-wish-btn" data-id="' +
+    escapeHtml(p.id) +
+    '" aria-pressed="false" aria-label="' +
+    escapeHtml("Save " + p.name + " for later") +
+    '"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>\n' +
+    "        </div>\n" +
+    '        <p class="pdp-express muted">Apple Pay, Google Pay, Link and all major cards at checkout, handled by Stripe. Your card never touches our servers.</p>\n'
+  );
+}
+
+function renderPdpTrustHtml(p, shop) {
+  const threshold = shop && shop.freeShippingThreshold ? shop.freeShippingThreshold : 40;
+  const isDigital = p.id === "yallternative-gift-card";
+  const items = isDigital
+    ? [
+        ["mail", "Sent by email, to you or straight to the recipient"],
+        ["lock", "Secure checkout by Stripe"],
+        ["heart", "Queer-owned, Southern-raised, made in Landrum, SC"]
+      ]
+    : [
+        [
+          "truck",
+          "Free tracked shipping over $" +
+            threshold +
+            " · ships from Landrum, SC in 1&ndash;3 business days"
+        ],
+        [
+          "refresh",
+          "Sealed items and unworn apparel exchange within 14 days &middot; damaged or wrong? email within 7 days and we make it right"
+        ],
+        ["lock", "Secure checkout by Stripe · Apple Pay &amp; Google Pay"],
+        ["heart", "Handmade in small batches by one person in Landrum, SC"]
+      ];
+  const icons = {
+    truck:
+      '<svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>',
+    refresh:
+      '<svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>',
+    lock: '<svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
+    heart:
+      '<svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>',
+    mail: '<svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>'
+  };
+  return (
+    '        <ul class="pdp-trust" aria-label="Shipping, returns and checkout">\n' +
+    items
+      .map(function (it) {
+        return "          <li>" + icons[it[0]] + "<span>" + it[1] + "</span></li>";
+      })
+      .join("\n") +
+    "\n        </ul>\n" +
+    (isDigital
+      ? ""
+      : '        <p class="pdp-policy-link"><a href="../policies.html">Full shipping &amp; returns policy</a></p>\n')
+  );
+}
+
+/**
+ * Etsy track record as plain, attributed text. Etsy's Star Seller terms and
+ * trademark policy forbid its badges/logo off-platform; a stated, sourced
+ * figure is allowed and, per Baymard, the count matters more than the average.
+ */
+function renderEtsyProofHtml(shop) {
+  if (!shop || !shop.rating || !shop.reviewCount) return "";
+  const url = shop.etsyShopUrl || "https://www.etsy.com/";
+  return (
+    '        <p class="pdp-etsy-proof">' +
+    '<span class="stars" aria-hidden="true">' +
+    starsHtml(shop.rating) +
+    "</span> " +
+    "<strong>" +
+    Number(shop.rating).toFixed(1) +
+    " out of 5</strong> across " +
+    shop.reviewCount +
+    ' reviews on <a href="' +
+    escapeHtml(url) +
+    '" target="_blank" rel="noopener">our Etsy shop<span class="sr-only"> (opens in new tab)</span></a>' +
+    (shop.sales ? " &middot; " + shop.sales + "+ orders" : "") +
+    "</p>\n"
+  );
+}
+
+function renderPdpReviewsHtml(p, reviews) {
+  const mine = (reviews || []).filter(function (r) {
+    return r && r.productId === p.id && Number(r.rating) >= 1;
+  });
+  const count = mine.length;
+  const avg = count
+    ? mine.reduce(function (s, r) {
+        return s + Number(r.rating);
+      }, 0) / count
+    : 0;
+  const cards = mine
+    .slice()
+    .sort(function (a, b) {
+      return String(b.date || "").localeCompare(String(a.date || ""));
+    })
+    .map(function (r) {
+      const fromEtsy = /\(Etsy\)\s*$/i.test(r.name || "");
+      let dateLabel = "";
+      if (r.date) {
+        const d = new Date(r.date + "T00:00:00Z");
+        if (!isNaN(d.getTime())) {
+          dateLabel = d.toLocaleDateString("en-US", {
+            month: "short",
+            year: "numeric",
+            timeZone: "UTC"
+          });
+        }
+      }
+      return (
+        '          <article class="quote-card review-card">\n' +
+        '            <div class="review-card-top">\n' +
+        '              <span class="stars" aria-hidden="true">' +
+        starsHtml(r.rating) +
+        "</span>\n" +
+        '              <span class="sr-only">Rated ' +
+        Number(r.rating) +
+        " out of 5</span>\n" +
+        (r.verifiedBuyer
+          ? '              <span class="badge badge-verified">Verified buyer</span>\n'
+          : "") +
+        "            </div>\n" +
+        '            <blockquote class="review-text">' +
+        escapeHtml(r.text) +
+        "</blockquote>\n" +
+        '            <footer class="review-meta"><cite>' +
+        escapeHtml(r.name || "Customer") +
+        "</cite>" +
+        (dateLabel ? ' <span class="muted">&middot; ' + dateLabel + "</span>" : "") +
+        (fromEtsy ? ' <span class="muted">&middot; posted on Etsy</span>' : "") +
+        "</footer>\n" +
+        "          </article>"
+      );
+    })
+    .join("\n");
+
+  const summary = count
+    ? '        <p class="pdp-reviews-summary"><span class="stars" aria-hidden="true">' +
+      starsHtml(avg) +
+      "</span> <strong>" +
+      avg.toFixed(1) +
+      " out of 5</strong> from " +
+      count +
+      (count === 1 ? " review" : " reviews") +
+      " of this product</p>\n"
+    : '        <p class="pdp-reviews-summary muted">No reviews of this one yet. Used it? You would be the first.</p>\n';
+
+  const disclosure =
+    count &&
+    mine.some(function (r) {
+      return /\(Etsy\)\s*$/i.test(r.name || "");
+    })
+      ? '        <p class="pdp-reviews-disclosure muted"><small>Reviews marked &ldquo;posted on Etsy&rdquo; were left on our Etsy shop and are reproduced in the reviewer&rsquo;s own words, unedited.</small></p>\n'
+      : "";
+
+  return (
+    '    <section class="pdp-reviews" id="pdpReviews" aria-labelledby="pdpReviewsHeading">\n' +
+    '      <div class="section-head">\n' +
+    '        <h2 id="pdpReviewsHeading">Reviews</h2>\n' +
+    summary +
+    disclosure +
+    "      </div>\n" +
+    (count ? '      <div class="grid grid-3 reviews-list">\n' + cards + "\n      </div>\n" : "") +
+    '      <div class="review-form-wrap">\n' +
+    "        <h3>Write a review of " +
+    escapeHtml(p.name) +
+    "</h3>\n" +
+    '        <p class="review-form-confirm"><span class="glyph" aria-hidden="true">&#10003;</span> Thanks, y\'all! Your review\'s been sent in. Savanna reads every one before it\'s posted, so it might take a few days to show up.</p>\n' +
+    '        <form class="review-form" id="reviewForm" action="https://formspree.io/f/xzebezbl" method="post">\n' +
+    '          <div class="form-hp" aria-hidden="true">\n' +
+    '            <label for="review_website">Leave this field blank</label>\n' +
+    '            <input type="text" id="review_website" name="review_website" tabindex="-1" autocomplete="off" aria-hidden="true">\n' +
+    "          </div>\n" +
+    '          <input type="hidden" name="productId" id="reviewProductId" value="' +
+    escapeHtml(p.id) +
+    '">\n' +
+    '          <input type="hidden" name="product" id="reviewProductName" value="' +
+    escapeHtml(p.name) +
+    '">\n' +
+    '          <div class="form-grid">\n' +
+    '            <div class="field"><label for="review_name">Name or handle</label><input type="text" id="review_name" name="name" required autocomplete="name" placeholder="Savanna or @handle"></div>\n' +
+    '            <div class="field"><label for="review_email">Email <small class="muted">(never published)</small></label><input type="email" id="review_email" name="email" required autocomplete="email" placeholder="you@email.com"></div>\n' +
+    "          </div>\n" +
+    '          <div class="field"><label for="review_rating">Rating</label><select id="review_rating" name="rating" required><option value="">Select a rating</option><option value="5">★★★★★ (5: loved it)</option><option value="4">★★★★☆ (4: really good)</option><option value="3">★★★☆☆ (3: it\'s fine)</option><option value="2">★★☆☆☆ (2: not great)</option><option value="1">★☆☆☆☆ (1: disappointed)</option></select></div>\n' +
+    '          <div class="field field-wide"><label for="review_text">Your review</label><textarea id="review_text" name="review" rows="4" required maxlength="1000" placeholder="How did it feel, smell, or hold up?"></textarea></div>\n' +
+    '          <button class="btn btn-primary" type="submit">Submit review</button>\n' +
+    "        </form>\n" +
+    "      </div>\n" +
+    "    </section>\n"
+  );
+}
+
+function renderRelatedProductsHtml(p, products, categoryLabelMap, manifest) {
+  const list = Array.isArray(products) ? products : [];
+  const sameCat = list.filter(function (q) {
+    return q && q.id !== p.id && q.category === p.category && q.id !== "yallternative-gift-card";
+  });
+  const others = list.filter(function (q) {
+    return (
+      q &&
+      q.id !== p.id &&
+      q.category !== p.category &&
+      q.id !== "yallternative-gift-card" &&
+      q.featured
+    );
+  });
+  const picks = sameCat.concat(others).slice(0, 4);
+  if (!picks.length) return "";
+  const cards = picks
+    .map(function (q) {
+      const range = variantPriceRange(q);
+      const priceText =
+        range.low === range.high
+          ? "$" + range.low.toFixed(2)
+          : "$" + range.low.toFixed(2) + " &ndash; $" + range.high.toFixed(2);
+      const catLabel = (categoryLabelMap && categoryLabelMap[q.category]) || q.category || "";
+      const badge = q.comingSoon
+        ? '<span class="stock-badge coming-soon">Coming Soon</span>'
+        : isSoldOut(q)
+          ? '<span class="stock-badge sold-out">Sold Out</span>'
+          : "";
+      return (
+        '        <article class="card related-card" data-id="' +
+        escapeHtml(q.id) +
+        '">\n' +
+        '          <a class="related-card-link" href="' +
+        escapeHtml(q.id) +
+        '.html">\n' +
+        '            <div class="card-media">' +
+        pictureFromManifest(q.image, manifest, {
+          alt: q.name,
+          width: 600,
+          height: 510,
+          loading: "lazy",
+          sizes: "(max-width: 600px) 90vw, 25vw"
+        }) +
+        "</div>\n" +
+        '            <div class="card-body">\n' +
+        '              <span class="card-cat">' +
+        escapeHtml(catLabel) +
+        "</span>\n" +
+        "              <h3>" +
+        escapeHtml(q.name) +
+        "</h3>\n" +
+        '              <p class="price">' +
+        priceText +
+        "</p>\n" +
+        (badge ? "              " + badge + "\n" : "") +
+        "            </div>\n" +
+        "          </a>\n" +
+        "        </article>"
+      );
+    })
+    .join("\n");
+  return (
+    '    <section class="pdp-related section-tight" aria-labelledby="pdpRelatedHeading">\n' +
+    '      <div class="section-head">\n' +
+    '        <h2 id="pdpRelatedHeading">You might also like</h2>\n' +
+    "      </div>\n" +
+    '      <div class="grid grid-4 related-grid">\n' +
+    cards +
+    "\n      </div>\n" +
+    "    </section>\n"
+  );
+}
+
+/**
+ * Safety and sensitivities. Not a drug claim in sight: a patch-test reminder,
+ * an essential-oil / nut caution where the ingredients call for one, external
+ * use only, and a plain route to report a reaction -- MoCRA makes the maker
+ * responsible for recording adverse events, and that only works if a shopper
+ * can find where to tell her.
+ */
+function renderPdpSafetyHtml(p) {
+  if (!p || p.id === "yallternative-gift-card") return "";
+  const ingredientsText =
+    (Array.isArray(p.ingredients) ? p.ingredients.join(" ") : "") + " " + (p.ingredientsNote || "");
+  const isTopical = /salve|balm|butter|scrub|oil|soak|tea|spray|salt/i.test(
+    p.name + " " + p.category
+  );
+  if (!isTopical && !p.ingredients) return "";
+  const hasEssentialOils =
+    /essential oil/i.test(ingredientsText) || /essential oil/i.test(p.blurb || "");
+  const hasNuts = /almond|nut|shea/i.test(ingredientsText);
+  const notes = [];
+  notes.push(
+    "For external use only. Keep away from eyes and broken skin, and keep out of reach of children."
+  );
+  notes.push(
+    "New to it? Dab a little on your inner forearm and wait 24 hours before using it properly."
+  );
+  if (hasEssentialOils) {
+    notes.push(
+      "Contains essential oils. If you are pregnant, nursing, or using it on a child, check with your doctor first."
+    );
+  }
+  if (hasNuts) {
+    notes.push(
+      "Made with plant butters and oils that can include tree-nut-derived ingredients (see the full ingredient list above). Skip it if you have a nut allergy."
+    );
+  }
+  notes.push("Stop using it if irritation or a rash develops.");
+  // Always visible (not an accordion): safety copy should never be a click away.
+  return (
+    '      <section class="pdp-safety" aria-labelledby="pdpSafetyHeading">\n' +
+    '        <h3 id="pdpSafetyHeading" class="pdp-safety-title">Safety &amp; sensitivities</h3>\n' +
+    '        <ul class="pdp-safety-list">\n' +
+    notes
+      .map(function (n) {
+        return "          <li>" + n + "</li>";
+      })
+      .join("\n") +
+    "\n        </ul>\n" +
+    '        <p class="muted pdp-safety-foot"><small>Had a reaction? <a href="../contact.html">Tell us</a> and we will log it and make it right. Handmade self-care, not medicine: nothing here is meant to diagnose, treat, cure or prevent any condition.</small></p>\n' +
+    "      </section>\n"
+  );
+}
+
+function renderPdpGoodToKnowHtml(p, sizeLabel) {
+  const rows = [];
+  if (sizeLabel) rows.push(["Size", sizeLabel]);
+  if (p.scent) rows.push(["Scent", p.scent]);
+  if (Array.isArray(p.tags) && p.tags.length) {
+    rows.push([
+      "Good to know",
+      p.tags
+        .map(function (t) {
+          return String(t)
+            .replace(/-/g, " ")
+            .replace(/^\w/, function (c) {
+              return c.toUpperCase();
+            });
+        })
+        .join(", ")
+    ]);
+  }
+  rows.push(["Made in", "Landrum, South Carolina, in small batches"]);
+  return (
+    '      <dl class="pdp-facts">\n' +
+    rows
+      .map(function (r) {
+        return (
+          "        <div><dt>" + escapeHtml(r[0]) + "</dt><dd>" + escapeHtml(r[1]) + "</dd></div>"
+        );
+      })
+      .join("\n") +
+    "\n      </dl>\n"
+  );
+}
+
+function renderSiteHeaderHtml() {
+  return (
+    '  <header class="site-header">\n' +
+    '    <nav class="nav" aria-label="Main Navigation">\n' +
+    '      <a class="brand" href="/index.html" aria-label="Y\'allternative Living home">\n' +
+    '        <img class="logo-desktop" src="/assets/img/logo.png" alt="Y\'allternative Living icon" width="48" height="48">\n' +
+    '        <img class="logo-mobile" src="/assets/img/logo.png" alt="Y\'allternative Living logo" height="48" width="48">\n' +
+    '        <span class="brand-word">Y\'allternative<small>Living</small></span>\n' +
+    "      </a>\n" +
+    '      <ul class="nav-links" id="navLinks">\n' +
+    '        <li><a href="/index.html">Home</a></li>\n' +
+    '        <li><a href="/shop.html" class="active">Shop</a></li>\n' +
+    '        <li><a href="/events.html">Events</a></li>\n' +
+    '        <li><a href="/about.html">Our Story</a></li>\n' +
+    '        <li><a href="/contact.html">Contact</a></li>\n' +
+    "      </ul>\n" +
+    '      <div class="nav-cta">\n' +
+    '        <button class="nav-search-btn" id="globalSearchTrigger" type="button" aria-label="Search catalog, articles &amp; FAQ" title="Search (Cmd+K)" aria-haspopup="dialog" aria-expanded="false" aria-controls="global-search-modal">\n' +
+    '          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-search" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>\n' +
+    "        </button>\n" +
+    '        <button class="cart-toggle" type="button" aria-label="View your cart">\n' +
+    '          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="icon-cart" aria-hidden="true"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>\n' +
+    '          <span class="badge cart-count" aria-live="polite"></span>\n' +
+    "        </button>\n" +
+    '        <button type="button" class="theme-toggle" id="themeToggle" role="switch" aria-checked="false" aria-label="Toggle dark and light mode">\n' +
+    '          <span class="knob" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-moon"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-sun"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span>\n' +
+    "        </button>\n" +
+    '        <button type="button" class="nav-toggle" aria-label="Open menu" aria-expanded="false" aria-controls="navLinks">\n' +
+    '          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-menu" aria-hidden="true"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>\n' +
+    "        </button>\n" +
+    "      </div>\n" +
+    "    </nav>\n" +
+    "  </header>\n"
+  );
+}
+
+function renderRestockModalHtml() {
+  return (
+    '  <dialog id="restock-alert-modal" class="restock-alert-modal gift-modal" role="dialog" aria-modal="true" aria-labelledby="restockModalTitle">\n' +
+    '    <button type="button" class="gift-modal-close" id="closeRestockModalBtn" data-action="close-restock-modal" aria-label="Close dialog">&times;</button>\n' +
+    '    <div class="gift-modal-header">\n' +
+    '      <h2 id="restockModalTitle">Restock &amp; Launch Alert</h2>\n' +
+    '      <p class="muted" id="restockModalSubtitle">Get an email as soon as this item is back in stock or ready to ship.</p>\n' +
+    "    </div>\n" +
+    '    <div id="restockModalProductInfo" class="restock-product-preview">\n' +
+    '      <img id="restockProductImg" src="" alt="" width="56" height="56" hidden>\n' +
+    "      <div>\n" +
+    '        <h3 id="restockProductName">Product Name</h3>\n' +
+    '        <span id="restockProductBadge" class="stock-badge coming-soon">Coming Soon</span>\n' +
+    "      </div>\n" +
+    "    </div>\n" +
+    '    <form id="restockAlertForm" class="restock-alert-form" novalidate>\n' +
+    '      <div class="form-hp" aria-hidden="true">\n' +
+    '        <label for="restock-hp-field">Leave this field blank</label>\n' +
+    '        <input type="text" id="restock-hp-field" name="website_hp" tabindex="-1" autocomplete="off">\n' +
+    "      </div>\n" +
+    '      <input type="hidden" id="restockProductId" name="product_id" value="">\n' +
+    '      <input type="hidden" id="restockProductNameInput" name="product_name" value="">\n' +
+    '      <div class="field">\n' +
+    '        <label for="restock-email-input">Email address <span class="req">*</span></label>\n' +
+    '        <input type="email" id="restock-email-input" name="email" placeholder="you@example.com" autocomplete="email" required>\n' +
+    '        <span class="field-error" id="restockEmailError" aria-live="assertive" hidden></span>\n' +
+    "      </div>\n" +
+    '      <button type="submit" id="restockSubmitBtn" class="btn btn-primary btn-block"><span>Notify me</span></button>\n' +
+    "    </form>\n" +
+    '    <div id="restockSuccessMessage" class="restock-success-state" aria-live="polite" hidden>\n' +
+    "      <p><strong>You&rsquo;re on the list.</strong></p>\n" +
+    '      <p class="muted">We\'ll drop an email in your inbox the second this batch lands.</p>\n' +
+    '      <button type="button" class="btn btn-outline btn-sm" id="restockDoneBtn">Close</button>\n' +
+    "    </div>\n" +
+    "  </dialog>\n"
+  );
+}
+
+function renderGlobalSearchModalHtml() {
+  return (
+    '  <dialog id="global-search-modal" class="global-search-modal gift-modal" aria-labelledby="globalSearchModalTitle" aria-modal="true">\n' +
+    '    <div class="global-search-container" role="document">\n' +
+    '      <div class="global-search-header">\n' +
+    '        <div class="global-search-input-wrapper">\n' +
+    '          <svg class="global-search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>\n' +
+    '          <label for="globalSearchInput" id="globalSearchModalTitle" class="sr-only">Search catalog, articles &amp; FAQ</label>\n' +
+    '          <input type="search" id="globalSearchInput" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, journal, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">\n' +
+    '          <button type="button" class="global-search-clear-btn" id="globalSearchClearBtn" aria-label="Clear search query" hidden>\n' +
+    '            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>\n' +
+    "          </button>\n" +
+    "        </div>\n" +
+    '        <button type="button" class="modal-close global-search-close-btn" id="globalSearchCloseBtn" aria-label="Close search dialog">&times;</button>\n' +
+    "      </div>\n" +
+    '      <div id="globalSearchResultCount" class="sr-only" aria-live="polite" aria-atomic="true"></div>\n' +
+    '      <div class="global-search-chips-section" id="globalSearchChipsSection">\n' +
+    '        <p class="global-search-chips-title" id="globalSearchChipsLabel">Popular Searches</p>\n' +
+    '        <div class="global-search-chips-list" role="group" aria-labelledby="globalSearchChipsLabel">\n' +
+    '          <button type="button" class="search-chip" data-search-query="sleep"><span>Bedtime &amp; Sleep</span></button>\n' +
+    '          <button type="button" class="search-chip" data-search-query="sore muscles"><span>Sore Muscles</span></button>\n' +
+    '          <button type="button" class="search-chip" data-search-query="dry skin"><span>Dry Skin</span></button>\n' +
+    '          <button type="button" class="search-chip" data-search-query="bug spray"><span>Bug Defense</span></button>\n' +
+    '          <button type="button" class="search-chip" data-search-query="events"><span>Pop-Up Markets</span></button>\n' +
+    '          <button type="button" class="search-chip" data-search-query="gift card"><span>Gift Cards</span></button>\n' +
+    "        </div>\n" +
+    "      </div>\n" +
+    '      <div class="global-search-results-wrapper" id="globalSearchResultsWrapper">\n' +
+    '        <div id="globalSearchResultsList" class="global-search-results-list" role="listbox" aria-label="Search results" tabindex="-1"></div>\n' +
+    "      </div>\n" +
+    '      <div class="global-search-footer">\n' +
+    '        <span class="search-key-hint"><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>\n' +
+    '        <span class="search-key-hint"><kbd>↵</kbd> Select</span>\n' +
+    '        <span class="search-key-hint"><kbd>ESC</kbd> Close</span>\n' +
+    "      </div>\n" +
+    "    </div>\n" +
+    "  </dialog>\n"
+  );
+}
+
+/**
+ * @param {Object} product
+ * @param {string} domain
+ * @param {string} categoryLabel
+ * @param {Object} productsById
+ * @param {Object} categoryLabelMap
+ * @param {Object} [ritualDefaults] CMS fallback headline/subtitle for the ritual section
+ * @param {Object} [ctx] build context: { manifest, footerInner, reviews, products, shop }
+ *   Optional so the unit tests can call this with the original arguments.
+ */
+function renderProductPdpHtml(
+  product,
+  domain,
+  categoryLabel,
+  productsById,
+  categoryLabelMap,
+  ritualDefaults,
+  ctx
+) {
+  const c = ctx || {};
+  const manifest = c.manifest || {};
+  const shop = c.shop || {};
   const pTitle = escapeHtml(product.name) + " | Y'allternative Living";
   const rawDesc = product.description || product.blurb || "";
-  // Visible copy keeps the full blurb; the meta/og/twitter tags get the
-  // word-boundary-truncated version (<=155 chars).
   const pDesc = escapeHtml(rawDesc);
   const pMetaDesc = escapeHtml(truncateForMeta(rawDesc, 155));
   const pUrl = domain + "/products/" + product.id + ".html";
@@ -3599,10 +4675,63 @@ function renderProductPdpHtml(product, domain, categoryLabel, productsById, cate
         ? "out of stock"
         : "in stock";
 
+  const sizeLabel = productSizeLabel(product);
+  const productReviews = (c.reviews || []).filter(function (r) {
+    return r && r.productId === product.id;
+  });
+  const reviewCount = productReviews.length;
+  const reviewAvg = reviewCount
+    ? productReviews.reduce(function (s, r) {
+        return s + Number(r.rating || 0);
+      }, 0) / reviewCount
+    : 0;
+
+  const productJsonLd = generateProductJsonLd(product, domain, categoryLabel);
+  const breadcrumbJsonLd = generateProductBreadcrumbJsonLd(product, domain, categoryLabel);
+  const jsonLdBlock =
+    '  <script type="application/ld+json">\n' +
+    JSON.stringify(productJsonLd, null, 2).replace(/<\//g, "<\\/") +
+    "\n  </script>\n" +
+    '  <script type="application/ld+json">\n' +
+    JSON.stringify(breadcrumbJsonLd, null, 2).replace(/<\//g, "<\\/") +
+    "\n  </script>\n";
+
+  const stockBadge = product.comingSoon
+    ? '        <span class="stock-badge coming-soon">Coming Soon</span>\n'
+    : isSoldOut(product)
+      ? '        <span class="stock-badge sold-out">Sold Out</span>\n'
+      : typeof product.stock === "number" && product.stock > 0 && product.stock <= 5
+        ? '        <span class="stock-badge low-stock">Only ' +
+          product.stock +
+          " left in this batch</span>\n"
+        : "";
+
+  const ratingSummary = reviewCount
+    ? '        <a class="pdp-rating-summary" href="#pdpReviews"><span class="stars" aria-hidden="true">' +
+      starsHtml(reviewAvg) +
+      "</span> " +
+      reviewAvg.toFixed(1) +
+      " &middot; " +
+      reviewCount +
+      (reviewCount === 1 ? " review" : " reviews") +
+      "</a>\n"
+    : "";
+
   const freshnessBadgeHtml = renderFreshnessBadgeHtml();
   const scentProfileHtml = renderScentProfileHtml(product);
   const usageAccordionsHtml = renderUsageAccordionsHtml(product);
-  const ritualSectionHtml = renderRitualSectionHtml(product, productsById, categoryLabelMap);
+  const ritualSectionHtml = renderRitualSectionHtml(
+    product,
+    productsById,
+    categoryLabelMap,
+    ritualDefaults
+  );
+  const batchDateHtml =
+    product.comingSoon && product.estimatedBatchDate
+      ? '        <div class="pdp-batch-date"><svg class="yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Estimated Batch Date: <strong>' +
+        escapeHtml(product.estimatedBatchDate) +
+        "</strong></div>\n"
+      : "";
   const stickyBarHtml = renderStickyBarHtml(product, categoryLabel);
 
   let ingredientsHtml = "";
@@ -3613,6 +4742,7 @@ function renderProductPdpHtml(product, domain, categoryLabel, productsById, cate
       '        <h2 class="pdp-section-title">' +
       ingLabel +
       "</h2>\n" +
+      '        <p class="muted pdp-ingredients-lead"><small>Listed in descending order of predominance, the way they appear on the label.</small></p>\n' +
       '        <ul class="pdp-ingredients-list">\n' +
       product.ingredients
         .map(function (ing) {
@@ -3628,35 +4758,35 @@ function renderProductPdpHtml(product, domain, categoryLabel, productsById, cate
       "      </div>\n";
   }
 
+  const footerHtml = c.footerInner
+    ? '  <footer class="site-footer">\n' + c.footerInner + "\n  </footer>\n"
+    : "";
+
   return (
     "<!DOCTYPE html>\n" +
     '<html lang="en">\n' +
     "<head>\n" +
     '  <meta charset="UTF-8">\n' +
     '  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
+    '  <meta name="mobile-web-app-capable" content="yes">\n' +
+    '  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">\n' +
+    '  <meta name="apple-mobile-web-app-title" content="Y\'allternative">\n' +
     '  <meta name="color-scheme" content="dark light">\n' +
+    '  <meta name="view-transition" content="same-origin">\n' +
     "  <title>" +
     pTitle +
     "</title>\n" +
     '  <meta name="description" content="' +
     pMetaDesc +
     '">\n' +
-    /* These pages exist for deep links and social unfurls; every one of them
-       redirects to shop.html#id and canonicalises there. Telling crawlers
-       "noindex, follow" states that intent outright instead of leaving 19
-       redirecting doorway pages with a cross-canonical for a search engine to
-       reconcile on its own (H-15). They stay out of sitemap.xml for the same
-       reason. Reverse by deleting this tag, self-canonicalising, dropping the
-       redirect, adding them to PAGES, and putting the Product JSON-LD back
-       (generateProductJsonLd/generateProductBreadcrumbJsonLd below still
-       build it). */
-    '  <meta name="robots" content="noindex, follow">\n' +
     '  <link rel="canonical" href="' +
-    domain +
-    '/shop.html">\n' +
-    '  <link rel="icon" href="../assets/img/favicon-32.png" sizes="32x32" type="image/png">\n' +
-    '  <link rel="stylesheet" href="../assets/css/styles.css?v=2.0">\n' +
-    '  <link rel="stylesheet" href="../assets/css/cart.css">\n' +
+    pUrl +
+    '">\n' +
+    '  <link rel="icon" href="/assets/img/favicon-32.png" sizes="32x32" type="image/png">\n' +
+    '  <link rel="icon" href="/assets/img/favicon-192.png" sizes="192x192" type="image/png">\n' +
+    '  <link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png">\n' +
+    '  <link rel="manifest" href="/site.webmanifest">\n' +
+    '  <meta name="theme-color" content="#c65a6d">\n' +
     "  <!-- OpenGraph -->\n" +
     '  <meta property="og:type" content="product">\n' +
     '  <meta property="og:title" content="' +
@@ -3685,69 +4815,58 @@ function renderProductPdpHtml(product, domain, categoryLabel, productsById, cate
     '">\n' +
     "  <!-- E-commerce OG -->\n" +
     '  <meta property="product:price:amount" content="' +
-    // The advertised price is the cheapest buyable variant, not the base
-    // price: frankincense-salve's 1oz option is -$6, so the base 19.99 here
-    // contradicted the 13.99 shown on the page and in the shop's JSON-LD.
     range.low.toFixed(2) +
     '">\n' +
     '  <meta property="product:price:currency" content="USD">\n' +
     '  <meta property="product:availability" content="' +
     pdpOgAvailability +
     '">\n' +
-    "  <!-- No Product/Offer/BreadcrumbList JSON-LD here on purpose: this page\n" +
-    "       is noindex and canonicalises to shop.html, which carries the whole\n" +
-    "       catalogue's Product schema (see the ItemList block there). Emitting\n" +
-    "       it on both was the doorway-page half of audit finding H-15. -->\n" +
-    "  <!-- Redirect to shop with product deep-link -->\n" +
-    '  <script>window.location.replace("../shop.html#" + window.location.pathname.split("/").pop().replace(".html",""));</script>\n' +
+    '  <link rel="preconnect" href="https://fonts.googleapis.com">\n' +
+    '  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n' +
+    preloadFromManifest(product.image, manifest, "(max-width: 820px) 100vw, 50vw") +
+    '  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Gloock&family=DM+Sans:wght@400;500;700&display=swap">\n' +
+    '  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=DM+Sans:wght@400;500;700&display=swap" media="print" id="gfontsStylesheet">\n' +
+    '  <script>document.getElementById("gfontsStylesheet").addEventListener("load",function(){this.media="all";});</script>\n' +
+    "  <noscript>\n" +
+    '    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=DM+Sans:wght@400;500;700&display=swap">\n' +
+    "  </noscript>\n" +
+    '  <link rel="stylesheet" href="/assets/css/styles.css?v=2.0">\n' +
+    '  <link rel="stylesheet" href="/assets/css/cart.css">\n' +
+    "  <script>\n" +
+    "  // No-flash theme init: runs before paint, before main.js.\n" +
+    "  (function(){\n" +
+    "    var t = localStorage.getItem('yl-theme');\n" +
+    "    if(!t){ t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'; }\n" +
+    "    document.documentElement.setAttribute('data-theme', t);\n" +
+    "  })();\n" +
+    "</script>\n" +
+    jsonLdBlock +
     "</head>\n" +
     '<body class="pdp-page">\n' +
     '  <a href="#main-content" class="skip-link">Skip to main content</a>\n' +
-    '  <header class="site-header">\n' +
-    '    <nav class="nav" aria-label="Main Navigation">\n' +
-    '      <a class="brand" href="../index.html" aria-label="Y\'allternative Living home">\n' +
-    '        <img class="logo-desktop" src="../assets/img/logo.png" alt="Y\'allternative Living icon" width="48" height="48">\n' +
-    '        <span class="brand-word">Y\'allternative<small>Living</small></span>\n' +
-    "      </a>\n" +
-    '      <ul class="nav-links">\n' +
-    '        <li><a href="../index.html">Home</a></li>\n' +
-    '        <li><a href="../shop.html" class="active">Shop</a></li>\n' +
-    '        <li><a href="../events.html">Events</a></li>\n' +
-    '        <li><a href="../about.html">Our Story</a></li>\n' +
-    '        <li><a href="../contact.html">Contact</a></li>\n' +
-    "      </ul>\n" +
-    '      <div class="nav-cta">\n' +
-    '        <button class="nav-search-btn" id="globalSearchTrigger" type="button" aria-label="Search catalog, articles &amp; FAQ" title="Search (Cmd+K)" aria-haspopup="dialog" aria-expanded="false" aria-controls="global-search-modal">\n' +
-    '          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-search" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>\n' +
-    "        </button>\n" +
-    "      </div>\n" +
-    "    </nav>\n" +
-    "  </header>\n" +
+    renderSiteHeaderHtml() +
     '  <main id="main-content" class="container pdp-container">\n' +
     '    <nav class="breadcrumb-nav" aria-label="Breadcrumb">\n' +
     '      <p class="breadcrumb"><a href="../index.html">Home</a> / <a href="../shop.html">Shop</a> / <a href="../shop.html#' +
     escapeHtml(product.category || "apothecary") +
     '">' +
     catLabel +
-    "</a> / <span>" +
+    '</a> / <span aria-current="page">' +
     escapeHtml(product.name) +
     "</span></p>\n" +
     "    </nav>\n" +
     '    <article class="pdp-layout" itemscope itemtype="https://schema.org/Product">\n' +
-    '      <div class="pdp-gallery">\n' +
-    '        <img src="../' +
-    escapeHtml(String(product.image).replace(/^\/+/, "")) +
-    '" alt="' +
-    escapeHtml(product.name) +
-    '" class="pdp-main-image" width="600" height="600" loading="eager" itemprop="image">\n' +
-    "      </div>\n" +
+    renderPdpGalleryHtml(product, manifest) +
     '      <div class="pdp-details">\n' +
-    '        <span class="eyebrow">' +
+    '        <p class="pdp-eyebrow"><span class="eyebrow">' +
     catLabel +
-    "</span>\n" +
+    "</span>" +
+    (sizeLabel ? ' <span class="pdp-size-label">' + escapeHtml(sizeLabel) + "</span>" : "") +
+    "</p>\n" +
     '        <h1 class="pdp-title" itemprop="name">' +
     escapeHtml(product.name) +
     "</h1>\n" +
+    ratingSummary +
     '        <div class="pdp-price-row">\n' +
     '          <span class="price pdp-price" itemprop="offers" itemscope itemtype="https://schema.org/Offer">\n' +
     "            " +
@@ -3758,67 +4877,52 @@ function renderProductPdpHtml(product, domain, categoryLabel, productsById, cate
       ? '          <span class="original-price">$' + product.originalPrice.toFixed(2) + "</span>\n"
       : "") +
     "        </div>\n" +
-    freshnessBadgeHtml +
+    stockBadge +
+    batchDateHtml +
+    '        <div class="pdp-dispatch" id="pdpDispatch"></div>\n' +
     '        <p class="pdp-blurb" itemprop="description">' +
     pDesc +
     "</p>\n" +
+    renderVariantControlHtml(product) +
+    renderPdpPurchaseHtml(product, categoryLabel) +
+    renderPdpTrustHtml(product, shop) +
+    renderEtsyProofHtml(shop) +
+    "      </div>\n" +
+    "    </article>\n" +
+    '    <section class="pdp-info" aria-label="Product details">\n' +
+    '      <div class="pdp-info-main">\n' +
+    freshnessBadgeHtml +
     scentProfileHtml +
     ingredientsHtml +
     usageAccordionsHtml +
-    '        <div class="pdp-actions">\n' +
-    '          <a href="../shop.html#' +
-    escapeHtml(product.id) +
-    '" class="btn btn-primary btn-lg pdp-cta-btn">\n' +
-    "            <span>View &amp; Purchase in Shop</span>\n" +
-    '            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>\n' +
-    "          </a>\n" +
-    "        </div>\n" +
+    renderPdpSafetyHtml(product) +
     "      </div>\n" +
-    "    </article>\n" +
+    '      <aside class="pdp-info-side">\n' +
+    renderPdpGoodToKnowHtml(product, sizeLabel) +
+    "      </aside>\n" +
+    "    </section>\n" +
     ritualSectionHtml +
+    renderPdpReviewsHtml(product, c.reviews) +
+    renderRelatedProductsHtml(product, c.products, categoryLabelMap, manifest) +
+    '    <section class="section-tight recently-viewed-section" id="pdpRecentlyViewedSection" aria-labelledby="pdpRecentlyViewedHeading" hidden>\n' +
+    '      <div class="section-head">\n' +
+    '        <h2 id="pdpRecentlyViewedHeading">Recently Viewed</h2>\n' +
+    "      </div>\n" +
+    '      <div class="recently-viewed-track" id="recentlyViewedTrack" role="region" aria-label="Recently viewed products" tabindex="0"></div>\n' +
+    "    </section>\n" +
     stickyBarHtml +
     "  </main>\n" +
-    '  <dialog id="global-search-modal" class="global-search-modal gift-modal" aria-labelledby="globalSearchModalTitle" aria-modal="true">\n' +
-    '    <div class="global-search-container" role="document">\n' +
-    '      <div class="global-search-header">\n' +
-    '        <div class="global-search-input-wrapper">\n' +
-    '          <svg class="global-search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">\n' +
-    '            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>\n' +
-    "          </svg>\n" +
-    '          <label for="globalSearchInput" id="globalSearchModalTitle" class="sr-only">Search catalog, articles &amp; FAQ</label>\n' +
-    '          <input type="search" id="globalSearchInput" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, journal, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">\n' +
-    '          <button type="button" class="global-search-clear-btn" id="globalSearchClearBtn" aria-label="Clear search query" hidden>\n' +
-    '            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>\n' +
-    "          </button>\n" +
-    "        </div>\n" +
-    '        <button type="button" class="modal-close global-search-close-btn" id="globalSearchCloseBtn" aria-label="Close search dialog">&times;</button>\n' +
-    "      </div>\n" +
-    '      <div id="globalSearchResultCount" class="sr-only" aria-live="polite" aria-atomic="true"></div>\n' +
-    '      <div class="global-search-chips-section" id="globalSearchChipsSection">\n' +
-    '        <p class="global-search-chips-title" id="globalSearchChipsLabel">Popular Searches</p>\n' +
-    '        <div class="global-search-chips-list" role="group" aria-labelledby="globalSearchChipsLabel">\n' +
-    '          <button type="button" class="search-chip" data-search-query="sleep"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><span>Bedtime &amp; Sleep</span></button>\n' +
-    '          <button type="button" class="search-chip" data-search-query="sore muscles"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg><span>Sore Muscles</span></button>\n' +
-    '          <button type="button" class="search-chip" data-search-query="dry skin"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg><span>Dry Skin &amp; Eczema</span></button>\n' +
-    '          <button type="button" class="search-chip" data-search-query="bug spray"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>Bug Defense</span></button>\n' +
-    '          <button type="button" class="search-chip" data-search-query="events"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span>Pop-Up Markets</span></button>\n' +
-    '          <button type="button" class="search-chip" data-search-query="gift card"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 12 20 22 4 22 4 12"></polyline><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg><span>Gift Cards</span></button>\n' +
-    "        </div>\n" +
-    "      </div>\n" +
-    '      <div class="global-search-results-wrapper" id="globalSearchResultsWrapper">\n' +
-    '        <div id="globalSearchResultsList" class="global-search-results-list" role="listbox" aria-label="Search results" tabindex="-1"></div>\n' +
-    "      </div>\n" +
-    '      <div class="global-search-footer">\n' +
-    '        <span class="search-key-hint"><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>\n' +
-    '        <span class="search-key-hint"><kbd>↵</kbd> Select</span>\n' +
-    '        <span class="search-key-hint"><kbd>ESC</kbd> Close</span>\n' +
-    "      </div>\n" +
-    "    </div>\n" +
-    "  </dialog>\n" +
-    '  <script src="../assets/js/products-data.js?v=2.0" defer></script>\n' +
-    '  <script src="../assets/js/cart.js" defer></script>\n' +
-    '  <script src="../assets/js/search-data.js?v=2.0" defer></script>\n' +
-    '  <script src="../assets/js/main.js?v=2.0" defer></script>\n' +
+    renderGlobalSearchModalHtml() +
+    renderRestockModalHtml() +
+    footerHtml +
+    '  <script src="/assets/js/content-data.js?v=2.0" defer></script>\n' +
+    '  <script src="/assets/js/products-data.js?v=2.0" defer></script>\n' +
+    '  <script src="/assets/js/events-data.js?v=2.0" defer></script>\n' +
+    '  <script src="/assets/js/search-data.js?v=2.0" defer></script>\n' +
+    '  <script src="/assets/js/image-manifest.js?v=2.0" defer></script>\n' +
+    '  <script src="/assets/js/site-reviews-data.js?v=2.0" defer></script>\n' +
+    '  <script src="/assets/js/main.js?v=2.0" defer></script>\n' +
+    '  <script src="/assets/js/cart.js" defer></script>\n' +
     "</body>\n" +
     "</html>\n"
   );
@@ -3959,6 +5063,9 @@ if (typeof module !== "undefined" && module.exports) {
     renderScentProfileHtml: renderScentProfileHtml,
     renderUsageAccordionsHtml: renderUsageAccordionsHtml,
     validatePairsWith: validatePairsWith,
+    validateQuizData: validateQuizData,
+    renderSocialRowHtml: renderSocialRowHtml,
+    getActiveSocialUrls: getActiveSocialUrls,
     renderRitualSectionHtml: renderRitualSectionHtml,
     renderStickyBarHtml: renderStickyBarHtml,
     renderProductPdpHtml: renderProductPdpHtml,

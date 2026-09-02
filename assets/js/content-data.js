@@ -11,6 +11,31 @@ window.YL_CONTENT = {
     "logoMobile": "assets/img/logo.png",
     "ogImage": "assets/img/og-image.jpg",
     "footerTagline": "Southern-raised, alt-inspired self-care, salves, soaks, body care, and apparel. Queer-owned and small-batch brewed in Landrum, SC.",
+    "announcement": {
+      "enabled": true,
+      "text": "Free shipping on orders over $40 ✦ Small-batch, handmade with love in Landrum, SC",
+      "link": "shop.html",
+      "accent": "default"
+    },
+    "seasonalNotice": {
+      "enabled": false,
+      "text": "🌿 Spring Foraging Hiatus: Orders placed after Oct 15 will ship Nov 1.",
+      "link": "events.html",
+      "showInCart": true,
+      "showInHeader": false
+    },
+    "social": {
+      "instagram": "https://www.instagram.com/yallternativeliving",
+      "tiktok": "https://www.tiktok.com/@yallternativeliving",
+      "facebook": "https://www.facebook.com/p/Yallternative-Living-61577943406316/",
+      "etsy": "https://www.etsy.com/shop/YallternativeLivinCO",
+      "pinterest": "",
+      "youtube": ""
+    },
+    "ritualDefaults": {
+      "title": "Botanical Pairing",
+      "subtitle": "Pair this item with complementary botanicals crafted to work together."
+    },
     "newsletterTitle": "Join The Inner Circle",
     "newsletterSubtext": "Get market announcements, secret drop dates, and 10% off your first order.",
     "kitFormAction": "https://app.kit.com/forms/9867317/subscriptions",
@@ -159,5 +184,194 @@ window.YL_CONTENT = {
   },
   "policies": {
     "intro": "How we get our goods to you, and what happens if things go wrong. Straightforward answers, no nonsense."
+  },
+  "quiz": {
+    "eyebrow": "✦ INTERACTIVE APOTHECARY ✦",
+    "title": "Find Your Custom Self-Care Match",
+    "subtitle": "Answer 3 quick questions in our popup quiz to discover your personalized salve, soak, or potion prescription.",
+    "buttonText": "Take the Quiz",
+    "modalTitle": "Find Your Custom Self-Care Match",
+    "modalSubtitle": "Answer 3 quick questions to discover your personalized salve, soak, or potion prescription.",
+    "questions": [
+      {
+        "id": "vibe",
+        "name": "quiz-vibe",
+        "step": 1,
+        "title": "Step 1 of 3: Choose Your Current Vibe / Mood",
+        "options": [
+          {
+            "value": "gothic-calm",
+            "label": "Southern Gothic Calm",
+            "description": "Quiet dusk, lavender, sleep & dark cedar",
+            "recommendedProductIds": [
+              "sleep-salve",
+              "lavender-soak",
+              "bath-tea",
+              "night-ritual-set"
+            ],
+            "categories": [],
+            "matchBundles": false,
+            "matchFeatured": false,
+            "scoreWeight": 5
+          },
+          {
+            "value": "ritual-rest",
+            "label": "Ritual Rest",
+            "description": "Heavy shea moisture, bath tea & deep unwind",
+            "recommendedProductIds": [
+              "shea-butter",
+              "bath-tea",
+              "cleansing-spray",
+              "night-ritual-set"
+            ],
+            "categories": [],
+            "matchBundles": false,
+            "matchFeatured": false,
+            "scoreWeight": 5
+          },
+          {
+            "value": "hexing-energy",
+            "label": "Hexing Energy",
+            "description": "Spellwork accessories, shimmer oil & bold vibes",
+            "recommendedProductIds": [
+              "protection-keychain",
+              "shimmer-oil",
+              "porch-sweep-spray",
+              "pride-set"
+            ],
+            "categories": [],
+            "matchBundles": false,
+            "matchFeatured": false,
+            "scoreWeight": 5
+          },
+          {
+            "value": "daily-soothe",
+            "label": "Daily Soothe",
+            "description": "Everyday miracle balms, scrubs & skin armor",
+            "recommendedProductIds": [
+              "frankincense-salve",
+              "miracle-balm",
+              "hand-scrub",
+              "bug-spray"
+            ],
+            "categories": [],
+            "matchBundles": false,
+            "matchFeatured": false,
+            "scoreWeight": 5
+          }
+        ]
+      },
+      {
+        "id": "need",
+        "name": "quiz-need",
+        "step": 2,
+        "title": "Step 2 of 3: Primary Skin or Self-Care Need",
+        "options": [
+          {
+            "value": "hydration",
+            "label": "Hydration & Moisture",
+            "description": "Shea butter, body butter & healing balms",
+            "recommendedProductIds": [],
+            "categories": [
+              "salves",
+              "body"
+            ],
+            "matchBundles": false,
+            "matchFeatured": false,
+            "scoreWeight": 4
+          },
+          {
+            "value": "muscle-soak",
+            "label": "Muscle Soak & Relief",
+            "description": "Epsom salts, sleep salve & tub unwinding",
+            "recommendedProductIds": [
+              "sleep-salve"
+            ],
+            "categories": [
+              "soaks"
+            ],
+            "matchBundles": false,
+            "matchFeatured": false,
+            "scoreWeight": 4
+          },
+          {
+            "value": "herbal-salve",
+            "label": "Herbal Salve & Armor",
+            "description": "Frankincense, beard salve & outdoor protection",
+            "recommendedProductIds": [
+              "bug-spray"
+            ],
+            "categories": [
+              "salves"
+            ],
+            "matchBundles": false,
+            "matchFeatured": false,
+            "scoreWeight": 4
+          },
+          {
+            "value": "apparel-lifestyle",
+            "label": "Apparel & Accessories",
+            "description": "Soft t-shirts, keychains & witchy sprays",
+            "recommendedProductIds": [],
+            "categories": [
+              "apparel",
+              "potions",
+              "ritual"
+            ],
+            "matchBundles": false,
+            "matchFeatured": false,
+            "scoreWeight": 4
+          }
+        ]
+      },
+      {
+        "id": "intent",
+        "name": "quiz-intent",
+        "step": 3,
+        "title": "Step 3 of 3: What is Your Purpose Today?",
+        "options": [
+          {
+            "value": "treat-myself",
+            "label": "Treat Myself",
+            "description": "Indulgent personal self-care ritual",
+            "recommendedProductIds": [
+              "shimmer-oil"
+            ],
+            "categories": [],
+            "matchBundles": false,
+            "matchFeatured": true,
+            "scoreWeight": 3
+          },
+          {
+            "value": "gift-bestie",
+            "label": "Gift for a Bestie",
+            "description": "Thoughtful small-batch gift set or bundle",
+            "recommendedProductIds": [
+              "yallternative-gift-card",
+              "protection-keychain"
+            ],
+            "categories": [],
+            "matchBundles": true,
+            "matchFeatured": false,
+            "scoreWeight": 6
+          },
+          {
+            "value": "ritual-bath",
+            "label": "Ritual Bath & Unwind",
+            "description": "Clearing mists, bath salts & soothing soaks",
+            "recommendedProductIds": [
+              "bath-tea",
+              "cleansing-spray"
+            ],
+            "categories": [
+              "soaks"
+            ],
+            "matchBundles": false,
+            "matchFeatured": false,
+            "scoreWeight": 5
+          }
+        ]
+      }
+    ]
   }
 };

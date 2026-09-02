@@ -208,12 +208,12 @@ productsData.products.forEach((p) => {
     `products/${p.id}.html contains howToApply text`
   );
   assert(
-    html.includes("window.location.replace"),
-    `products/${p.id}.html contains shop deep-link redirect script`
+    !html.includes("window.location.replace"),
+    `products/${p.id}.html is a real page (no redirect to shop.html)`
   );
   assert(
-    html.includes('rel="canonical" href="https://yallternativeliving.com/shop.html"'),
-    `products/${p.id}.html contains canonical link to shop.html`
+    html.includes(`rel="canonical" href="https://yallternativeliving.com/products/${p.id}.html"`),
+    `products/${p.id}.html canonicalises to itself`
   );
 
   if (p.scentProfile) {
@@ -252,12 +252,26 @@ const expectedClasses = [
   ".pdp-ritual-footer",
   ".pdp-ritual-total-price",
   ".pdp-ritual-shipping-badge",
-  ".pdp-ritual-add-btn"
+  ".pdp-ritual-add-btn",
+  ".announcement-accent-whiskey",
+  ".announcement-accent-moss",
+  ".announcement-accent-lavender",
+  ".announcement-accent-rust",
+  ".pdp-batch-date",
+  ".badge-batch-date"
 ];
 
 expectedClasses.forEach((cls) => {
   assert(stylesCss.includes(cls), `styles.css contains required class '${cls}'`);
 });
+
+const cartCssPath = path.join(ROOT, "assets/css/cart.css");
+const cartCss = fs.readFileSync(cartCssPath, "utf8");
+assert(cartCss.includes(".yl-cart-seasonal-notice"), "cart.css contains .yl-cart-seasonal-notice");
+assert(
+  cartCss.includes(".yl-cart-seasonal-content"),
+  "cart.css contains .yl-cart-seasonal-content"
+);
 
 /* 6. Validate "Complete the Ritual" Data Integrity */
 console.log("\n--- 6. Complete the Ritual Data Integrity ---");
@@ -540,6 +554,44 @@ assert(
     "✦ Complete the Ritual: " + mainJs.attrEsc(frankincenseProd.ritualTitle) + " ✦"
   ),
   "renderModalRitualHtml includes ritualTitle"
+);
+
+/* Test ritualDefaults fallback */
+mockWin.YL_CONTENT = {
+  site: {
+    ritualDefaults: {
+      title: "Botanical Pairing",
+      subtitle: "Custom ritual pairing for maximum wellness."
+    }
+  }
+};
+const customRitualProd = {
+  id: "test-prod",
+  name: "Test Prod",
+  price: 15,
+  pairsWith: ["lavender-soak"]
+};
+const ritualFallbackHtml = mainJs.renderModalRitualHtml(customRitualProd, {
+  get: (id) => validMap[id] || { id: "lavender-soak", name: "Lavender Soak", price: 16, stock: 5 }
+});
+assert(
+  ritualFallbackHtml.includes("✦ Complete the Ritual: Botanical Pairing ✦"),
+  "renderModalRitualHtml falls back to ritualDefaults.title when ritualTitle is omitted"
+);
+assert(
+  ritualFallbackHtml.includes("Custom ritual pairing for maximum wellness."),
+  "renderModalRitualHtml renders ritualDefaults.subtitle"
+);
+
+/* Test stockBadgeHTML with estimatedBatchDate */
+const batchBadgeHtml = mainJs.stockBadgeHTML({
+  id: "preorder-item",
+  comingSoon: true,
+  estimatedBatchDate: "October 31, 2026"
+});
+assert(
+  batchBadgeHtml.includes('class="stock-badge badge-batch-date">Batch: October 31, 2026</span>'),
+  "stockBadgeHTML renders badge-batch-date with batch date string"
 );
 
 console.log(`\npdp-merchandising.test.js: ${passed} passed, ${failed} failed`);

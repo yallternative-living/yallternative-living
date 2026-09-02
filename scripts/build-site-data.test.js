@@ -407,22 +407,50 @@ assert(
   "PDP category breadcrumb has no dead #category- prefix"
 );
 
-/* H-15: PDPs redirect to shop.html and canonicalise there, so they carry no
-   Product/Offer/BreadcrumbList schema of their own (shop.html's ItemList
-   does) and they say noindex outright. */
+/* Product pages are real, indexable pages (the H-15 doorway decision was
+   reversed on 2026-09-01): self-canonical, no noindex, no redirect, and they
+   carry their own Product + BreadcrumbList JSON-LD. */
 assert(
-  pdpHtmlOutput.indexOf('type="application/ld+json"') === -1,
-  "PDP emits no JSON-LD (the shop page carries the catalogue schema)"
+  pdpHtmlOutput.indexOf('name="robots"') === -1 || pdpHtmlOutput.indexOf('content="noindex') === -1,
+  "PDP is indexable (no noindex robots meta)"
 );
 assert(
-  pdpHtmlOutput.indexOf('<meta name="robots" content="noindex, follow">') !== -1,
-  "PDP is explicitly noindex, follow"
+  pdpHtmlOutput.indexOf("window.location.replace") === -1,
+  "PDP no longer redirects to shop.html"
 );
 assert(
   pdpHtmlOutput.indexOf(
-    '<link rel="canonical" href="https://yallternativeliving.com/shop.html">'
+    '<link rel="canonical" href="https://yallternativeliving.com/products/' +
+      testApothecaryProd.id +
+      '.html">'
   ) !== -1,
-  "PDP still canonicalises to shop.html"
+  "PDP canonicalises to itself"
+);
+{
+  const ldBlocks =
+    pdpHtmlOutput.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g) || [];
+  const parsed = ldBlocks.map((b) =>
+    JSON.parse(b.replace(/^<script[^>]*>/, "").replace(/<\/script>$/, ""))
+  );
+  assert(
+    parsed.some((ld) => ld["@type"] === "Product" && ld.offers),
+    "PDP carries Product JSON-LD with offers"
+  );
+  assert(
+    parsed.some((ld) => ld["@type"] === "BreadcrumbList"),
+    "PDP carries BreadcrumbList JSON-LD"
+  );
+}
+assert(
+  pdpHtmlOutput.indexOf('class="pdp-variant-group') !== -1 ||
+    !(testApothecaryProd.variants && testApothecaryProd.variants.options),
+  "PDP renders a radio-button variant picker when the product has variants"
+);
+assert(
+  pdpHtmlOutput.indexOf('id="pdpAddToCart"') !== -1 ||
+    testApothecaryProd.comingSoon ||
+    testApothecaryProd.stock === 0,
+  "PDP renders a real Add to Cart button"
 );
 
 /* Meta descriptions are truncated at a word boundary; the visible blurb is
@@ -528,12 +556,13 @@ eq(
     "@type": "MerchantReturnPolicy",
     applicableCountry: "US",
     returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
-    merchantReturnDays: 30,
+    merchantReturnDays: 14,
     returnMethod: "https://schema.org/ReturnByMail",
-    returnFees: "https://schema.org/FreeReturn",
+    returnFees: "https://schema.org/ReturnShippingFees",
+    itemCondition: "https://schema.org/NewCondition",
     returnLink: "https://yallternativeliving.com/policies.html"
   },
-  "generateProductJsonLd attaches 30-day US MerchantReturnPolicy"
+  "generateProductJsonLd's return policy matches policies.html (14-day sealed exchange, customer pays postage)"
 );
 assert(
   Array.isArray(singlePriceLd.offers.shippingDetails) &&
@@ -933,6 +962,181 @@ assert(
 assert(
   netlifyToml.indexOf('from = "/admin/*"') === -1,
   "/admin is still served (no 404 rule for it)"
+);
+
+/* ---------- Quiz Referential Integrity ---------- */
+const testProductsMap = {
+  "sleep-salve": { id: "sleep-salve", name: "Sleep Salve", price: 16 },
+  "lavender-soak": { id: "lavender-soak", name: "Lavender Soak", price: 14 }
+};
+const testBundlesMap = {
+  "night-ritual-set": { id: "night-ritual-set", name: "Night Set" }
+};
+const testCategoriesMap = {
+  salves: "Salves & Balms",
+  soaks: "Soaks"
+};
+const validQuiz = {
+  questions: [
+    {
+      id: "vibe",
+      options: [
+        {
+          value: "gothic-calm",
+          recommendedProductIds: ["sleep-salve", "night-ritual-set"],
+          categories: ["salves"]
+        }
+      ]
+    }
+  ]
+};
+assert(
+  buildScript.validateQuizData(validQuiz, testProductsMap, testCategoriesMap, testBundlesMap) ===
+    true,
+  "validateQuizData passes on valid quiz data"
+);
+
+let threwUnknownProduct = false;
+try {
+  buildScript.validateQuizData(
+    {
+      questions: [
+        {
+          id: "vibe",
+          options: [{ value: "bad", recommendedProductIds: ["non-existent-product"] }]
+        }
+      ]
+    },
+    testProductsMap,
+    testCategoriesMap,
+    testBundlesMap
+  );
+} catch (e) {
+  threwUnknownProduct = true;
+}
+assert(threwUnknownProduct, "validateQuizData throws on unknown product ID");
+
+let threwUnknownCategory = false;
+try {
+  buildScript.validateQuizData(
+    {
+      questions: [
+        {
+          id: "need",
+          options: [{ value: "bad-cat", categories: ["non-existent-category"] }]
+        }
+      ]
+    },
+    testProductsMap,
+    testCategoriesMap,
+    testBundlesMap
+  );
+} catch (e) {
+  threwUnknownCategory = true;
+}
+assert(threwUnknownCategory, "validateQuizData throws on unknown category ID");
+
+/* ---------- Social Link Rendering & Sanitization ---------- */
+const socialConfig = {
+  instagram: "https://www.instagram.com/yallternativeliving",
+  tiktok: "https://www.tiktok.com/@yallternativeliving",
+  facebook: "https://www.facebook.com/p/Yallternative-Living-61577943406316/",
+  etsy: "https://www.etsy.com/shop/YallternativeLivinCO",
+  pinterest: "https://www.pinterest.com/yallternativeliving",
+  youtube: ""
+};
+const socialRowHtml = buildScript.renderSocialRowHtml(socialConfig);
+assert(socialRowHtml.indexOf("instagram.com") !== -1, "renderSocialRowHtml includes Instagram");
+assert(socialRowHtml.indexOf("pinterest.com") !== -1, "renderSocialRowHtml includes Pinterest");
+assert(socialRowHtml.indexOf("youtube") === -1, "renderSocialRowHtml excludes empty YouTube URL");
+
+const maliciousSocial = {
+  instagram: "javascript:alert(1)"
+};
+const sanitizedRowHtml = buildScript.renderSocialRowHtml(maliciousSocial);
+assert(
+  sanitizedRowHtml.indexOf("javascript:") === -1,
+  "renderSocialRowHtml strips javascript: XSS URLs"
+);
+
+const activeSocials = buildScript.getActiveSocialUrls(socialConfig);
+eq(
+  activeSocials,
+  [
+    "https://www.etsy.com/shop/YallternativeLivinCO",
+    "https://www.facebook.com/p/Yallternative-Living-61577943406316/",
+    "https://www.instagram.com/yallternativeliving",
+    "https://www.pinterest.com/yallternativeliving",
+    "https://www.tiktok.com/@yallternativeliving"
+  ],
+  "getActiveSocialUrls returns sorted valid URLs and excludes empty ones"
+);
+
+/* ---------- Ritual Fallback Defaults ---------- */
+const mockProductNoTitle = {
+  id: "lavender-soak",
+  name: "Lavender Soak",
+  price: 14,
+  pairsWith: ["sleep-salve"]
+};
+const mockRitualDefaults = {
+  title: "Custom Fallback Pairing",
+  subtitle: "Custom fallback subtitle copy."
+};
+const ritualHtml = buildScript.renderRitualSectionHtml(
+  mockProductNoTitle,
+  testProductsMap,
+  testCategoriesMap,
+  mockRitualDefaults
+);
+assert(
+  ritualHtml.indexOf("✦ Complete the Ritual: Custom Fallback Pairing ✦") !== -1,
+  "renderRitualSectionHtml uses fallback title from ritualDefaults"
+);
+assert(
+  ritualHtml.indexOf("Custom fallback subtitle copy.") !== -1,
+  "renderRitualSectionHtml uses fallback subtitle from ritualDefaults"
+);
+
+/* ---------- Batch Date Badge in PDP ---------- */
+const comingSoonProductWithDate = {
+  id: "autumn-salve",
+  name: "Autumn Salve",
+  price: 20,
+  comingSoon: true,
+  estimatedBatchDate: "Late October 2026",
+  image: "assets/img/placeholder-coming-soon.svg"
+};
+const pdpHtmlWithBatch = buildScript.renderProductPdpHtml(
+  comingSoonProductWithDate,
+  "https://yallternativeliving.com",
+  "Salves",
+  testProductsMap,
+  testCategoriesMap
+);
+assert(
+  pdpHtmlWithBatch.indexOf("Estimated Batch Date: <strong>Late October 2026</strong>") !== -1,
+  "renderProductPdpHtml renders batch date badge for coming soon item"
+);
+
+const standardProduct = {
+  id: "sleep-salve",
+  name: "Sleep Salve",
+  price: 16,
+  comingSoon: false,
+  estimatedBatchDate: "Late October 2026",
+  image: "assets/img/sleep-salve.jpg"
+};
+const pdpHtmlStandard = buildScript.renderProductPdpHtml(
+  standardProduct,
+  "https://yallternativeliving.com",
+  "Salves",
+  testProductsMap,
+  testCategoriesMap
+);
+assert(
+  pdpHtmlStandard.indexOf("Estimated Batch Date") === -1,
+  "renderProductPdpHtml does not render batch date badge for regular in-stock item"
 );
 
 console.log(`\nbuild-site-data.test.js: ${passed} passed, ${failed} failed`);

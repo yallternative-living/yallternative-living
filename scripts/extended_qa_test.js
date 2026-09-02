@@ -647,11 +647,21 @@ function createStaticServer(port = 8083) {
       });
     }
 
-    const quizDefault = await runQuiz(null);
+    /* "Default" here means the programme switched ON with its default rate
+       and name -- content.json currently ships enableLoyaltyPoints: false, so
+       the flag is set explicitly rather than inherited from the live page. */
+    const quizDefault = await runQuiz(() => {
+      window.YL_CONTENT = window.YL_CONTENT || {};
+      window.YL_CONTENT.site = window.YL_CONTENT.site || {};
+      window.YL_CONTENT.site.enableLoyaltyPoints = true;
+      delete window.YL_CONTENT.site.loyaltyPointsPerDollar;
+      delete window.YL_CONTENT.site.loyaltyPointsName;
+      delete window.YL_CONTENT.site.loyaltyBadgeEmoji;
+    });
     check(quizDefault.hasCard, "Quiz renders a recommendation card", quizDefault);
     check(
       quizDefault.badgeText !== null && quizDefault.price !== null,
-      "Quiz card shows an Alt-Points badge and a price by default",
+      "Quiz card shows an Alt-Points badge and a price when loyalty is on",
       quizDefault
     );
     check(
@@ -677,6 +687,7 @@ function createStaticServer(port = 8083) {
 
     // Custom rate + renamed programme: the badge must follow the config.
     const quizCustom = await runQuiz(() => {
+      window.YL_CONTENT.site.enableLoyaltyPoints = true;
       window.YL_CONTENT.site.loyaltyPointsPerDollar = 5;
       window.YL_CONTENT.site.loyaltyPointsName = "Hex Points";
       window.YL_CONTENT.site.loyaltyBadgeEmoji = "🌙";

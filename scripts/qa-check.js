@@ -2456,21 +2456,22 @@ try {
   fail("Global Search Suite QA assertions", e.message);
 }
 
-/* ---------- Structured data home: shop.html ItemList, PDPs are doorways (R5 / H-15) ----------
-   The 19 products/*.html pages used to carry full Product + Offer +
-   BreadcrumbList JSON-LD while ALSO canonicalising to shop.html, sitting
-   outside sitemap.xml and redirecting to shop.html#id on load. Search engines
-   saw 19 doorway pages and no product rich results (audit H-15). The decision
-   was to keep the PDPs as the redirect targets they already are -- explicitly
-   noindex, no structured data at all -- and move the whole Product/Offer
-   payload onto shop.html's ItemList, which is the page that is actually
-   indexed.
+/* ---------- Structured data: real product pages + shop.html ItemList (R5) ----------
+   Reversed on 2026-09-01. The products/*.html pages used to be "doorways":
+   noindex, canonical to shop.html, no JSON-LD, and a redirect on load
+   (audit H-15), with the whole catalogue's Product/Offer payload on
+   shop.html's ItemList. Google's product rich results and merchant listings
+   only support pages focused on a single product and exclude noindex pages,
+   so that arrangement could never earn them. Product pages are now real,
+   indexable, self-canonical pages carrying their own Product + Breadcrumb
+   JSON-LD; shop.html keeps its ItemList (linking to the product URLs) as the
+   category page.
 
-   So this section asserts both halves: that a PDP carries NO JSON-LD (a
-   regression that starts emitting it re-creates the doorway problem), and that
-   shop.html's ItemList carries one priced, availability-bearing offer per
-   product (a regression that drops it loses every rich result the site has). */
-section("Structured data: shop.html ItemList + noindex PDP doorways (R5)");
+   This section asserts both halves: every PDP is indexable, self-canonical,
+   redirect-free and carries parseable Product + BreadcrumbList schema; and
+   shop.html's ItemList still carries one priced, availability-bearing offer
+   per product pointing at the product page. */
+section("Structured data: indexable product pages + shop.html ItemList (R5)");
 try {
   var pdpFiles = fs.readdirSync(path.join(ROOT, "products")).filter(function (f) {
     return f.endsWith(".html");
@@ -2491,37 +2492,81 @@ try {
 
     var html = fs.readFileSync(prodHtmlPath, "utf8");
 
-    // 1. The page declares itself a doorway: noindex, follow.
-    if (/<meta name="robots" content="noindex, follow">/.test(html)) {
-      ok(prod.id + ': PDP is <meta name="robots" content="noindex, follow">');
+    // 1. Indexable: no noindex, no redirect away from the page.
+    if (/<meta name="robots" content="[^"]*noindex/.test(html)) {
+      fail(prod.id + ": PDP must not be noindex", "product pages are the canonical destination");
+    } else if (html.indexOf("window.location.replace") !== -1) {
+      fail(prod.id + ": PDP must not redirect on load", "the doorway redirect is back");
     } else {
-      fail(
-        prod.id + ": PDP must declare noindex, follow",
-        (html.match(/<meta name="robots"[^>]*>/) || ["no robots meta at all"])[0]
-      );
+      ok(prod.id + ": PDP is indexable and does not redirect");
     }
 
-    // 2. ...and canonicalises to the page that IS indexed.
-    if (
-      html.indexOf('<link rel="canonical" href="https://yallternativeliving.com/shop.html">') !== -1
-    ) {
-      ok(prod.id + ": PDP canonical points at shop.html");
+    // 2. ...and canonicalises to itself.
+    var selfCanonical =
+      '<link rel="canonical" href="https://yallternativeliving.com/products/' + prod.id + '.html">';
+    if (html.indexOf(selfCanonical) !== -1) {
+      ok(prod.id + ": PDP canonical points at itself");
     } else {
       fail(
-        prod.id + ": PDP canonical must point at shop.html",
+        prod.id + ": PDP canonical must point at the product page",
         (html.match(/<link rel="canonical"[^>]*>/) || ["no canonical at all"])[0]
       );
     }
 
-    // 3. No structured data on a noindex doorway.
+    // 3. Product + BreadcrumbList JSON-LD that parses and prices the product.
     var blocks = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g) || [];
-    if (blocks.length === 0) {
-      ok(prod.id + ": PDP emits no JSON-LD (structured data lives on shop.html)");
+    var pdpLd = [];
+    blocks.forEach(function (b) {
+      try {
+        pdpLd.push(
+          JSON.parse(
+            b
+              .replace(/^<script[^>]*>/, "")
+              .replace(/<\/script>$/, "")
+              .trim()
+          )
+        );
+      } catch (err) {
+        fail(prod.id + ": PDP JSON-LD block does not parse", err.message);
+      }
+    });
+    var productLd = pdpLd.find(function (ld) {
+      return ld["@type"] === "Product";
+    });
+    var crumbLd = pdpLd.find(function (ld) {
+      return ld["@type"] === "BreadcrumbList";
+    });
+    if (!productLd) {
+      fail(prod.id + ": PDP must carry Product JSON-LD", blocks.length + " block(s) found");
     } else {
-      fail(
-        prod.id + ": noindex PDP must not emit JSON-LD",
-        blocks.length + " block(s) found -- this re-creates the doorway-page problem"
-      );
+      var pdpOffers = productLd.offers || {};
+      var pdpPriceOk =
+        (pdpOffers["@type"] === "Offer" && typeof pdpOffers.price === "string") ||
+        (pdpOffers["@type"] === "AggregateOffer" && typeof pdpOffers.lowPrice === "string");
+      var pdpUrlOk =
+        productLd.url === "https://yallternativeliving.com/products/" + prod.id + ".html";
+      var digital = prod.id === "yallternative-gift-card";
+      var shippingOk = digital
+        ? !pdpOffers.shippingDetails && !pdpOffers.hasMerchantReturnPolicy
+        : Array.isArray(pdpOffers.shippingDetails) && !!pdpOffers.hasMerchantReturnPolicy;
+      if (pdpPriceOk && pdpUrlOk && pdpOffers.availability && shippingOk) {
+        ok(prod.id + ": PDP Product JSON-LD has a priced offer, availability and its own URL");
+      } else {
+        fail(
+          prod.id + ": PDP Product JSON-LD incomplete",
+          JSON.stringify({
+            url: productLd.url,
+            offerType: pdpOffers["@type"],
+            availability: pdpOffers.availability,
+            shippingOk: shippingOk
+          })
+        );
+      }
+    }
+    if (crumbLd) {
+      ok(prod.id + ": PDP carries BreadcrumbList JSON-LD");
+    } else {
+      fail(prod.id + ": PDP must carry BreadcrumbList JSON-LD", "none found");
     }
 
     // 4. The visible breadcrumb still has to work for a human who lands here.
@@ -2640,7 +2685,7 @@ try {
         offers.priceCurrency === "USD" &&
         offers.availability === expectedAvailability &&
         offers.itemCondition === "https://schema.org/NewCondition" &&
-        offers.url === "https://yallternativeliving.com/shop.html#" + prod.id &&
+        offers.url === "https://yallternativeliving.com/products/" + prod.id + ".html" &&
         offers.seller &&
         offers.seller["@type"] === "Organization" &&
         offers.seller.name === "Y'allternative Living";
@@ -2648,7 +2693,7 @@ try {
       var itemValid =
         item["@type"] === "Product" &&
         item.name === prod.name &&
-        item.url === "https://yallternativeliving.com/shop.html#" + prod.id &&
+        item.url === "https://yallternativeliving.com/products/" + prod.id + ".html" &&
         item.brand &&
         item.brand["@type"] === "Brand" &&
         item.brand.name === "Y'allternative Living" &&
@@ -2923,6 +2968,445 @@ try {
 } catch (e) {
   fail("Mobile Sticky Add-to-Cart Bottom Bar QA check failed", e.message);
 }
+
+/* ---------- 30) Milestone 3: CMS Merchandising, Schema Validation & Quiz Integrity ---------- */
+section("Milestone 3: CMS Merchandising, Schema Validation & Quiz Integrity");
+
+// 1. Sveltia CMS Schema Validation (admin/config.yml)
+(function checkCmsSchemaExpansion() {
+  try {
+    var configYmlPath = path.join(ROOT, "admin/config.yml");
+    if (!fs.existsSync(configYmlPath)) {
+      fail("admin/config.yml", "file missing");
+      return;
+    }
+    var cmsText = fs.readFileSync(configYmlPath, "utf8");
+
+    // announcement schema
+    var hasAnnouncement =
+      /name:\s*announcement\b/.test(cmsText) &&
+      /name:\s*accent\b[\s\S]*?options:\s*[\r\n]+\s*-\s*\{\s*label:[^}]+value:\s*["']?default["']?/i.test(
+        cmsText
+      ) &&
+      /value:\s*["']?whiskey["']?/i.test(cmsText) &&
+      /value:\s*["']?moss["']?/i.test(cmsText) &&
+      /value:\s*["']?lavender["']?/i.test(cmsText) &&
+      /value:\s*["']?rust["']?/i.test(cmsText);
+    if (hasAnnouncement) {
+      ok(
+        "admin/config.yml declares site.announcement with all accent options (whiskey, moss, lavender, rust)"
+      );
+    } else {
+      fail(
+        "admin/config.yml",
+        "missing or incomplete site.announcement schema with accent options"
+      );
+    }
+
+    // seasonalNotice schema
+    var seasonalNoticeBlock = (cmsText.match(
+      /-\s*name:\s*seasonalNotice\b[\s\S]*?(?=\r?\n\s*-\s*name:|$)/i
+    ) || [""])[0];
+    var hasSeasonalNotice =
+      /name:\s*seasonalNotice\b/.test(cmsText) &&
+      /name:\s*showInCart\b/.test(seasonalNoticeBlock) &&
+      /name:\s*showInHeader\b/.test(seasonalNoticeBlock);
+    if (hasSeasonalNotice) {
+      ok("admin/config.yml declares site.seasonalNotice with showInCart and showInHeader toggles");
+    } else {
+      fail("admin/config.yml", "missing site.seasonalNotice schema or toggles");
+    }
+
+    // social schema with regex guards
+    var hasSocial = /name:\s*social\b/.test(cmsText);
+    var socialFields = ["instagram", "tiktok", "facebook", "etsy", "pinterest", "youtube"];
+    var allSocialGuarded = socialFields.every(function (field) {
+      var fieldBlockRegex = new RegExp(
+        "-\\s*name:\\s*" + field + "\\b([\\s\\S]*?)(?=\\r?\\n\\s*-\\s*(?:name:|\\{)|$)",
+        "i"
+      );
+      var match = cmsText.match(fieldBlockRegex);
+      if (!match) return false;
+      return /pattern:\s*\[\s*['"]\^\$?\|?\^https\?:\/\//i.test(match[0]);
+    });
+    if (hasSocial && allSocialGuarded) {
+      ok(
+        "admin/config.yml declares site.social with strict HTTPS regex guards across all 6 channels"
+      );
+    } else {
+      fail("admin/config.yml", "site.social missing or lacks regex URL pattern guards");
+    }
+
+    // ritualDefaults schema
+    var ritualBlock = (cmsText.match(
+      /-\s*name:\s*ritualDefaults\b[\s\S]*?(?=\r?\n\s*-\s*name:|$)/i
+    ) || [""])[0];
+    var hasRitualDefaults =
+      /name:\s*ritualDefaults\b/.test(cmsText) &&
+      /name:\s*title\b/.test(ritualBlock) &&
+      /name:\s*subtitle\b/.test(ritualBlock);
+    if (hasRitualDefaults) {
+      ok("admin/config.yml declares site.ritualDefaults (title, subtitle)");
+    } else {
+      fail("admin/config.yml", "missing site.ritualDefaults schema");
+    }
+
+    // estimatedBatchDate product schema
+    var hasEstimatedBatchDate = /name:\s*estimatedBatchDate\b/.test(cmsText);
+    if (hasEstimatedBatchDate) {
+      ok("admin/config.yml declares products[].estimatedBatchDate widget");
+    } else {
+      fail("admin/config.yml", "missing products[].estimatedBatchDate widget");
+    }
+
+    // quiz schema
+    var hasQuizSchema =
+      /name:\s*quiz\b/.test(cmsText) &&
+      /name:\s*questions\b/.test(cmsText) &&
+      /name:\s*options\b/.test(cmsText) &&
+      /name:\s*recommendedProductIds\b/.test(cmsText) &&
+      /name:\s*categories\b/.test(cmsText) &&
+      /name:\s*scoreWeight\b/.test(cmsText);
+    if (hasQuizSchema) {
+      ok(
+        "admin/config.yml declares top-level quiz schema with questions, options, relation widgets, and scoreWeight"
+      );
+    } else {
+      fail("admin/config.yml", "missing or incomplete top-level quiz schema");
+    }
+  } catch (e) {
+    fail("CMS Schema Validation QA check failed", e.message);
+  }
+})();
+
+// 2. Canonical Data Validation (content.json & products.json)
+(function checkCanonicalDataDefaults() {
+  try {
+    var contentJson = JSON.parse(
+      fs.readFileSync(path.join(ROOT, "assets/data/content.json"), "utf8")
+    );
+    var site = contentJson.site || {};
+
+    // announcement defaults
+    if (
+      site.announcement &&
+      typeof site.announcement.enabled === "boolean" &&
+      typeof site.announcement.text === "string" &&
+      site.announcement.text.trim().length > 0 &&
+      ["default", "whiskey", "moss", "lavender", "rust"].includes(site.announcement.accent)
+    ) {
+      ok(
+        "content.json site.announcement defaults valid (enabled=" +
+          site.announcement.enabled +
+          ", accent=" +
+          site.announcement.accent +
+          ")"
+      );
+    } else {
+      fail("content.json site.announcement invalid", JSON.stringify(site.announcement));
+    }
+
+    // seasonalNotice defaults
+    if (
+      site.seasonalNotice &&
+      typeof site.seasonalNotice.enabled === "boolean" &&
+      typeof site.seasonalNotice.text === "string" &&
+      site.seasonalNotice.text.trim().length > 0 &&
+      typeof site.seasonalNotice.showInCart === "boolean" &&
+      typeof site.seasonalNotice.showInHeader === "boolean"
+    ) {
+      ok(
+        "content.json site.seasonalNotice defaults valid (enabled=" +
+          site.seasonalNotice.enabled +
+          ", showInCart=" +
+          site.seasonalNotice.showInCart +
+          ")"
+      );
+    } else {
+      fail("content.json site.seasonalNotice invalid", JSON.stringify(site.seasonalNotice));
+    }
+
+    // social profile URLs
+    var social = site.social || {};
+    var socialKeys = ["instagram", "tiktok", "facebook", "etsy", "pinterest", "youtube"];
+    var primarySocials = ["instagram", "tiktok", "facebook", "etsy"];
+    var allSocialsValid = socialKeys.every(function (k) {
+      var val = social[k];
+      if (typeof val !== "string") return false;
+      if (val.length === 0) return true;
+      return val.startsWith("https://");
+    });
+    var primaryPopulated = primarySocials.every(function (k) {
+      return typeof social[k] === "string" && social[k].startsWith("https://");
+    });
+    if (allSocialsValid && primaryPopulated) {
+      ok(
+        "content.json site.social contains valid HTTPS profile URLs (primary channels populated, all non-empty URLs use https://)"
+      );
+    } else {
+      fail("content.json site.social invalid", JSON.stringify(social));
+    }
+
+    // ritualDefaults
+    if (
+      site.ritualDefaults &&
+      typeof site.ritualDefaults.title === "string" &&
+      site.ritualDefaults.title.trim().length > 0 &&
+      typeof site.ritualDefaults.subtitle === "string" &&
+      site.ritualDefaults.subtitle.trim().length > 0
+    ) {
+      ok("content.json site.ritualDefaults valid ('" + site.ritualDefaults.title + "')");
+    } else {
+      fail("content.json site.ritualDefaults invalid", JSON.stringify(site.ritualDefaults));
+    }
+
+    // quiz structure
+    var quiz = contentJson.quiz || {};
+    if (
+      typeof quiz.eyebrow === "string" &&
+      typeof quiz.title === "string" &&
+      typeof quiz.subtitle === "string" &&
+      Array.isArray(quiz.questions) &&
+      quiz.questions.length >= 3
+    ) {
+      ok("content.json quiz structure valid with " + quiz.questions.length + " questions");
+    } else {
+      fail("content.json quiz structure missing or incomplete");
+    }
+
+    // products.json estimatedBatchDate on comingSoon products
+    var productsJson = JSON.parse(
+      fs.readFileSync(path.join(ROOT, "assets/data/products.json"), "utf8")
+    );
+    var comingSoonProducts = (productsJson.products || []).filter(function (p) {
+      return p.comingSoon === true;
+    });
+    if (comingSoonProducts.length >= 5) {
+      ok("Found " + comingSoonProducts.length + " coming-soon products in products.json");
+    } else {
+      fail(
+        "products.json comingSoon products count",
+        "Expected >= 5, found " + comingSoonProducts.length
+      );
+    }
+    var allBatchDatesValid = comingSoonProducts.every(function (p) {
+      return typeof p.estimatedBatchDate === "string" && p.estimatedBatchDate.trim().length > 0;
+    });
+    if (allBatchDatesValid) {
+      ok(
+        "All " +
+          comingSoonProducts.length +
+          " coming-soon products define valid non-empty estimatedBatchDate strings"
+      );
+    } else {
+      fail("products.json comingSoon products missing valid estimatedBatchDate");
+    }
+  } catch (e) {
+    fail("Canonical Data Validation QA check failed", e.message);
+  }
+})();
+
+// 3. Footer & HTML Marker Checks (footer.html & built HTML pages)
+(function checkFooterAndSocialMarkers() {
+  try {
+    var footerPath = path.join(ROOT, "assets/data/footer.html");
+    if (!fs.existsSync(footerPath)) {
+      fail("assets/data/footer.html missing");
+      return;
+    }
+    var footerHtml = fs.readFileSync(footerPath, "utf8");
+
+    if (
+      footerHtml.indexOf("<!--YL:site.socialRow-->") !== -1 &&
+      footerHtml.indexOf("<!--/YL:site.socialRow-->") !== -1 &&
+      footerHtml.indexOf("<!--YL:site.social.etsy-->") !== -1 &&
+      footerHtml.indexOf("<!--/YL:site.social.etsy-->") !== -1
+    ) {
+      ok(
+        "assets/data/footer.html contains comment markers <!--YL:site.socialRow--> and <!--YL:site.social.etsy-->"
+      );
+    } else {
+      fail("assets/data/footer.html missing required social comment markers");
+    }
+
+    var contentJson = JSON.parse(
+      fs.readFileSync(path.join(ROOT, "assets/data/content.json"), "utf8")
+    );
+    var social = contentJson.site.social || {};
+    var activeSocialUrls = Object.keys(social)
+      .map(function (k) {
+        return social[k];
+      })
+      .filter(function (url) {
+        return typeof url === "string" && url.startsWith("https://");
+      });
+
+    PAGES.forEach(function (pageFile) {
+      var pagePath = path.join(ROOT, pageFile);
+      if (!fs.existsSync(pagePath)) return;
+      var pageHtml = fs.readFileSync(pagePath, "utf8");
+
+      var hasSocialRow = pageHtml.indexOf('class="social-row"') !== -1;
+      var hasAllActiveLinks = activeSocialUrls.every(function (url) {
+        return pageHtml.indexOf('href="' + url + '"') !== -1;
+      });
+
+      if (hasSocialRow && hasAllActiveLinks) {
+        ok(
+          pageFile +
+            ": contains rendered .social-row with all active social links matching content.json"
+        );
+      } else {
+        fail(pageFile, "missing .social-row or active social link matching content.json");
+      }
+    });
+  } catch (e) {
+    fail("Footer & Social Markers QA check failed", e.message);
+  }
+})();
+
+// 4. Quiz Referential Integrity
+(function checkQuizReferentialIntegrity() {
+  try {
+    var productsJson = JSON.parse(
+      fs.readFileSync(path.join(ROOT, "assets/data/products.json"), "utf8")
+    );
+    var productIds = new Set(
+      (productsJson.products || []).map(function (p) {
+        return p.id;
+      })
+    );
+    var bundleIds = new Set(
+      (productsJson.bundles || []).map(function (b) {
+        return b.id;
+      })
+    );
+    var categoryIds = new Set(
+      (productsJson.categories || []).map(function (c) {
+        return c.id;
+      })
+    );
+    var validItemIds = new Set([...productIds, ...bundleIds]);
+
+    var contentJson = JSON.parse(
+      fs.readFileSync(path.join(ROOT, "assets/data/content.json"), "utf8")
+    );
+    var questions = (contentJson.quiz && contentJson.quiz.questions) || [];
+
+    var allProductRefsValid = true;
+    var allCategoryRefsValid = true;
+    var allWeightsValid = true;
+    var totalOptions = 0;
+
+    questions.forEach(function (q) {
+      (q.options || []).forEach(function (opt) {
+        totalOptions++;
+        (opt.recommendedProductIds || []).forEach(function (id) {
+          if (!validItemIds.has(id)) {
+            allProductRefsValid = false;
+            fail("Quiz option " + opt.value, "references unknown product/bundle ID '" + id + "'");
+          }
+        });
+        (opt.categories || []).forEach(function (cat) {
+          if (!categoryIds.has(cat)) {
+            allCategoryRefsValid = false;
+            fail("Quiz option " + opt.value, "references unknown category ID '" + cat + "'");
+          }
+        });
+        if (typeof opt.scoreWeight !== "number" || opt.scoreWeight <= 0) {
+          allWeightsValid = false;
+          fail("Quiz option " + opt.value, "invalid scoreWeight: " + opt.scoreWeight);
+        }
+      });
+    });
+
+    if (allProductRefsValid && allCategoryRefsValid && allWeightsValid && totalOptions >= 6) {
+      ok(
+        "Quiz referential integrity valid: all " +
+          totalOptions +
+          " options resolve to real catalog products, bundles, and categories with positive score weights"
+      );
+    }
+  } catch (e) {
+    fail("Quiz Referential Integrity QA check failed", e.message);
+  }
+})();
+
+// 5. Announcement Accent Theme Contrast
+(function checkAnnouncementAccentContrast() {
+  try {
+    var ACCENTS = [
+      { name: "whiskey", bgToken: "whiskey", fgToken: "ink" },
+      { name: "moss", bgHex: "#3e5a4a", fgHex: "#f3ead9" },
+      { name: "lavender", bgHex: "#4a385c", fgHex: "#f3ead9" },
+      { name: "rust", bgHex: "#8a381e", fgHex: "#f3ead9" }
+    ];
+
+    ACCENTS.forEach(function (acc) {
+      if (acc.bgToken && acc.fgToken) {
+        ["dark", "light"].forEach(function (themeName) {
+          var tokens = themeName === "dark" ? darkTokens : lightTokens;
+          var fgHex = resolveHex(tokens, tokens[acc.fgToken] || "");
+          var bgHex = resolveHex(tokens, tokens[acc.bgToken] || "");
+          if (!fgHex || !bgHex) {
+            fail(
+              "Announcement accent " + acc.name + " (" + themeName + ")",
+              "cannot resolve tokens"
+            );
+            return;
+          }
+          var ratio = contrastRatio(fgHex, bgHex);
+          var label =
+            "Announcement accent " +
+            acc.name +
+            " [" +
+            themeName +
+            "] (" +
+            fgHex +
+            " on " +
+            bgHex +
+            "): " +
+            ratio.toFixed(2) +
+            ":1";
+          if (ratio >= 4.5) ok(label + " (meets WCAG 2.2 AA >= 4.5:1)");
+          else fail(label, "fails WCAG 2.2 AA contrast");
+        });
+      } else {
+        var ratio = contrastRatio(acc.fgHex, acc.bgHex);
+        var label =
+          "Announcement accent " +
+          acc.name +
+          " (" +
+          acc.fgHex +
+          " on " +
+          acc.bgHex +
+          "): " +
+          ratio.toFixed(2) +
+          ":1";
+        if (ratio >= 4.5) ok(label + " (meets WCAG 2.2 AA >= 4.5:1)");
+        else fail(label, "fails WCAG 2.2 AA contrast");
+      }
+    });
+
+    // Verify CSS classes exist in styles.css
+    var stylesCss = fs.readFileSync(path.join(ROOT, "assets/css/styles.css"), "utf8");
+    var allAccentsStyled = ["whiskey", "moss", "lavender", "rust"].every(function (acc) {
+      return (
+        stylesCss.indexOf(".announcement-accent-" + acc) !== -1 &&
+        stylesCss.indexOf("#yl-countdown-ticker.announcement-accent-" + acc) !== -1
+      );
+    });
+    if (allAccentsStyled) {
+      ok(
+        "assets/css/styles.css contains .announcement-accent-* style rules for all 4 theme accents"
+      );
+    } else {
+      fail("assets/css/styles.css missing .announcement-accent-* style rules");
+    }
+  } catch (e) {
+    fail("Announcement Accent Contrast QA check failed", e.message);
+  }
+})();
 
 /* ---------- Summary ---------- */
 console.log("\n" + "=".repeat(50));
