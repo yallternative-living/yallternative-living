@@ -1469,16 +1469,39 @@ async function handleCheckout(request, env, ctx, origin) {
         params.append(`line_items[${i}][quantity]`, String(li.qty));
       });
 
-      const stripeRes = await fetch("https://api.stripe.com/v1/checkout/sessions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
-          "Content-Type": "application/x-www-form-urlencoded",
-          "Stripe-Version": STRIPE_API_VERSION
-        },
-        body: params
-      });
-      const session = await stripeRes.json();
+      const createSession = async (body) => {
+        const res = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Stripe-Version": STRIPE_API_VERSION
+          },
+          body
+        });
+        return res.json();
+      };
+      let session = await createSession(params);
+      // Stripe refuses `consent_collection.promotions` until the account has
+      // agreed to the Checkout terms at dashboard.stripe.com/settings/checkout.
+      // That refusal took every live checkout down on 2026-09-02. Consent is
+      // only what feeds the abandoned-cart email; a checkout without it is
+      // still a sale, so retry once without the consent fields and say why.
+      if (
+        session.error &&
+        /consent_collection/i.test(String(session.error.message || "")) &&
+        params.has("consent_collection[promotions]")
+      ) {
+        console.warn(
+          "Stripe has not accepted Checkout terms for consent_collection; retrying without it. " +
+            "Agree to the terms at https://dashboard.stripe.com/settings/checkout to enable the " +
+            "marketing opt-in (abandoned-cart recovery emails need it)."
+        );
+        params.delete("consent_collection[promotions]");
+        params.delete("consent_collection[terms_of_service]");
+        params.delete("custom_text[terms_of_service_acceptance][message]");
+        session = await createSession(params);
+      }
       if (session.error) {
         // Log the real Stripe error server-side for debugging, but never echo
         // its message to the browser -- it can carry internal detail.

@@ -2434,10 +2434,12 @@
     }
     if (state.errorSpan) state.errorSpan.hidden = true;
 
-    var site = (window.YL_CONTENT && window.YL_CONTENT.site) || {};
-    var formId = site.formspreeRestockId || "YOUR_FORMSPREE_RESTOCK_ID";
-
-    if (formId === "YOUR_FORMSPREE_RESTOCK_ID") {
+    /* The signup goes to the shop's own Worker (POST /api/restock): it tells
+       the owner and stores the address so the hourly job can email the
+       shopper itself when the product is back. Formspree was the old sink
+       and never fed that job. */
+    var restockEndpoint = "/api/restock";
+    if (!restockEndpoint) {
       showFormFallback(
         state.form,
         "Restock alerts aren't connected yet -- you haven't been added to a list. Email us and we'll tell you when it lands: ",
@@ -2453,10 +2455,14 @@
       else state.submitBtn.textContent = "Saving…";
     }
 
-    fetch("https://formspree.io/f/" + formId, {
+    var restockPayload = {};
+    new FormData(state.form).forEach(function (value, key) {
+      restockPayload[key] = typeof value === "string" ? value : "";
+    });
+    fetch(restockEndpoint, {
       method: "POST",
-      body: new FormData(state.form),
-      headers: { Accept: "application/json" }
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(restockPayload)
     })
       .then(function (res) {
         if (!res.ok) throw new Error("Signup failed");

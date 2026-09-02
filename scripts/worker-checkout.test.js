@@ -151,6 +151,7 @@ async function makeLedgerEnv(cards) {
  */
 async function executeCheckout(body, options = {}) {
   let capturedSessionParams = null;
+  const sessionAttempts = [];
   let capturedCouponParams = null;
   const deletedCoupons = [];
   const expiredSessions = [];
@@ -190,7 +191,22 @@ async function executeCheckout(body, options = {}) {
       return { ok: true, status: 200, json: async () => ({ status: "expired" }) };
     }
     if (u.includes("api.stripe.com/v1/checkout/sessions")) {
+      sessionAttempts.push(new URLSearchParams(opts.body));
       capturedSessionParams = new URLSearchParams(opts.body);
+      if (options.consentRefusedOnce && sessionAttempts.length === 1) {
+        // What Stripe answers until the account agrees to Checkout terms.
+        return {
+          ok: false,
+          json: async () => ({
+            error: {
+              type: "invalid_request_error",
+              message:
+                "To set `consent_collection.promotions`, please visit " +
+                "https://dashboard.stripe.com/settings/checkout to agree to the Terms of Service."
+            }
+          })
+        };
+      }
       if (options.sessionError) {
         return { ok: false, json: async () => ({ error: { message: "nope" } }) };
       }
@@ -222,6 +238,7 @@ async function executeCheckout(body, options = {}) {
       status: res.status,
       data: data,
       sessionParams: capturedSessionParams,
+      sessionAttempts,
       couponParams: capturedCouponParams,
       deletedCoupons,
       expiredSessions,
@@ -234,6 +251,54 @@ async function executeCheckout(body, options = {}) {
 }
 
 async function runWorkerCheckoutTests() {
+  {
+    /* 2026-09-02: Stripe refused every live session because the account had
+       not agreed to Checkout terms for consent_collection. A checkout without
+       the marketing opt-in is still a sale, so the Worker retries once
+       without the consent fields and says why. */
+    const result = await executeCheckout(
+      { items: [{ id: "lavender-soak", qty: 1 }] },
+      { consentRefusedOnce: true }
+    );
+    eq(result.status, 200, "consent refusal: checkout still returns HTTP 200");
+    assert(
+      typeof result.data.url === "string" && result.data.url.includes("checkout.stripe.com"),
+      "consent refusal: a Stripe session URL is returned"
+    );
+    eq(result.sessionAttempts.length, 2, "consent refusal: Stripe was asked twice");
+    eq(
+      result.sessionAttempts[0].get("consent_collection[promotions]"),
+      "auto",
+      "consent refusal: the first attempt asked for the marketing opt-in"
+    );
+    eq(
+      result.sessionAttempts[1].get("consent_collection[promotions]"),
+      null,
+      "consent refusal: the retry dropped consent_collection.promotions"
+    );
+    eq(
+      result.sessionAttempts[1].get("consent_collection[terms_of_service]"),
+      null,
+      "consent refusal: the retry dropped the terms checkbox too"
+    );
+    eq(
+      result.sessionAttempts[1].get("custom_text[terms_of_service_acceptance][message]"),
+      null,
+      "consent refusal: the retry dropped the terms text"
+    );
+    eq(
+      result.sessionAttempts[1].get("line_items[0][quantity]"),
+      result.sessionAttempts[0].get("line_items[0][quantity]"),
+      "consent refusal: everything else on the session is unchanged"
+    );
+    const other = await executeCheckout(
+      { items: [{ id: "lavender-soak", qty: 1 }] },
+      { sessionError: true }
+    );
+    eq(other.status, 400, "an unrelated Stripe refusal is still a 400, not retried");
+    eq(other.sessionAttempts.length, 1, "an unrelated Stripe refusal is not retried");
+  }
+
   console.log("Running workers/checkout.js unit tests...\n");
 
   // Test 1: Basic Gift Order with Message in Stripe Session Metadata
