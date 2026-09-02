@@ -377,7 +377,18 @@ function recordFail(msg) {
     await page.click("#globalSearchTrigger");
     await sleep(150);
     await page.type("#globalSearchInput", "salve", { delay: 20 });
-    await sleep(350);
+    // The results render on a debounce; under a loaded CI runner a fixed
+    // 350ms sleep raced it and reported zero products. Wait for the products
+    // section itself (bounded), then measure.
+    try {
+      await page.waitForFunction(
+        () => document.querySelectorAll(".search-result-item[data-url*='products/']").length >= 2,
+        { timeout: 5000 }
+      );
+    } catch (e) {
+      /* fall through: the assertion below reports the real count */
+    }
+    await sleep(150);
 
     const productResultsCount = await page.evaluate(() => {
       return document.querySelectorAll(".search-result-item[data-url*='products/']").length;
