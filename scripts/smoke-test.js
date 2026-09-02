@@ -257,18 +257,35 @@ function section(title) {
       }
     }
 
-    // 9. Alt-Points loyalty redemption guard
+    // 9. Alt-Points redemption is switched off until a server-side ledger
+    // exists (audit C-1): the network helper must be gone, and the public
+    // entry point must refuse without touching the network.
     if (typeof cart.redeemPoints === "function") {
-      let rejectedUnderMin = false;
+      fail("cart.redeemPoints still exists -- Alt-Points minting must stay unreachable");
+    } else if (typeof cart.redeemLoyaltyPoints !== "function") {
+      fail("cart.redeemLoyaltyPoints is missing -- expected an inert stub that rejects");
+    } else {
+      let rejectedInert = false;
+      const fetchBefore = global.fetch;
+      let fetched = false;
+      global.fetch = async () => {
+        fetched = true;
+        return { ok: true, json: async () => ({}) };
+      };
       try {
-        await cart.redeemPoints(50);
-      } catch {
-        rejectedUnderMin = true;
+        await cart.redeemLoyaltyPoints(500);
+      } catch (e) {
+        rejectedInert = /not available/i.test(String(e && e.message));
+      } finally {
+        global.fetch = fetchBefore;
       }
-      if (rejectedUnderMin) {
-        pass("redeemPoints rejects balance redemptions below the 100 Alt-Points minimum threshold");
+      if (rejectedInert && !fetched) {
+        pass("Alt-Points redemption is inert: rejects as unavailable and makes no network call");
       } else {
-        fail("redeemPoints allowed redemption below minimum threshold");
+        fail(
+          "Alt-Points redemption is not inert",
+          `rejectedAsUnavailable=${rejectedInert} networkCalled=${fetched}`
+        );
       }
     }
   } catch (err) {

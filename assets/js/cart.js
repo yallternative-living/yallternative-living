@@ -903,6 +903,7 @@
       parseSharedCartParam: parseSharedCartParam,
       getWalletPoints: getWalletPoints,
       setWalletPoints: setWalletPoints,
+      redeemLoyaltyPoints: redeemLoyaltyPoints,
       freeShipThreshold: freeShipThreshold,
       getShippingMilestones: getShippingMilestones,
       calculateMilestoneStatus: calculateMilestoneStatus,
