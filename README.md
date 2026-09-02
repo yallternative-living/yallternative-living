@@ -44,7 +44,27 @@ Here is a quick checklist of the external accounts you'll need to set up for lau
 
 - **Architecture**: 100% static HTML/CSS/JS frontend with zero runtime framework dependencies. Fast, mobile-first, and offline-capable via `sw.js`.
 - **Checkout & Cart**: On-site drawer cart (`assets/js/cart.js`) backed by server-side Cloudflare Workers (`workers/checkout.js`) for price-tampering security.
-- **Automated Verification**: Run `npm test` to execute the **330+ unit assertions** across every `scripts/*.test.js` suite (cart and checkout pricing, tax, gift cards, the build-data compiler) plus **330+ static QA assertions** (JSON-LD validation, CSP byte-sync, live WCAG contrast, variant parsing), and `npm run test:integration` for headless Puppeteer browser testing across viewports plus an axe-core accessibility gate (WCAG 2.2 AA, zero violations across all 31 pages).
+- **Automated Verification**:
+  - `npm test` runs the Node-only unit pool -- 27 `scripts/*.test.js` suites
+    covering cart and checkout pricing, tax, gift cards, the build-data
+    compiler, the search engine and the CMS auth Worker -- then two further
+    gates: `verify-pdp-metadata.js` (570 assertions on every product page's
+    OpenGraph and microdata) and `verify-build-reproducibility.js` (five
+    rebuilds, zero diffs). It then runs the static QA gate,
+    `scripts/qa-check.js`, and its 721 assertions: links, images, JSON-LD,
+    pricing, CSP byte-parity across `_headers`/`netlify.toml`/`vercel.json`,
+    and lockfile hygiene. Both halves always run, and the exit code reflects
+    either failing.
+  - `npm run test:integration` runs the browser pool: 11
+    `scripts/*.browser.test.js` challenger suites plus the Puppeteer
+    integration harnesses, an XSS/CSP stress harness that first proves the
+    policy is being enforced, and an axe-core accessibility gate (WCAG 2.2 AA,
+    zero violations across all 34 pages -- 15 top-level plus 19 product pages).
+  - `npm run test:smoke` is the sub-three-second version that runs on every
+    push; `npm run test:cross-browser` adds Firefox and WebKit.
+
+  `TEST_INFRA.md` explains the layout, including why every browser-driven
+  suite is named `*.browser.test.js`.
 
 ---
 

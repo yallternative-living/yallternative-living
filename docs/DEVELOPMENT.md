@@ -579,6 +579,77 @@ sessions and handle gift cards) — but full step-by-step instructions are in
 Etsy still fully works as a second sales channel in parallel — nothing
 here removes or blocks the "or view the listing on Etsy" links.
 
+## 8a. Backend surface: every endpoint, every environment variable
+
+Four HTTP endpoints and one page were shipped with no documentation at all.
+This is the whole backend surface. Nothing else in this repository answers a
+request.
+
+### The endpoints
+
+| Endpoint | Where it runs | Methods | What it does | Security posture |
+|---|---|---|---|---|
+| `/api/checkout` -> `workers/checkout.js` | Cloudflare Worker (Netlify proxies the path) | `POST` | Re-prices the cart server-side from `products.json`, applies volume tiers and gift-card discounts, creates the Stripe Checkout session. | Origin-allowlisted. Never trusts a client price. Holds `STRIPE_SECRET_KEY`. |
+| `/.netlify/functions/fulfill-gift-card` | Netlify function | `POST` (Stripe webhook only) | Mints the redemption code and Promotion Code, emails the recipient, rolls over partial redemptions, restores balance on refund, cleans up the ephemeral coupon on an expired session. | Verifies the Stripe signature against `STRIPE_WEBHOOK_SECRET`. Not callable by hand. |
+| `/.netlify/functions/gift-card-balance` | Netlify function | `POST` (preferred) and `GET` | Looks a gift-card code up and returns its current and original amount. `POST` with a JSON body is preferred **because a `GET ?code=` puts a live gift-card code into browser history, referrer headers and every proxy access log**; `GET` stays supported for older clients. | Origin-allowlisted, `Cache-Control: no-store`. Still an **unthrottled validation oracle** — it will tell anyone whether a code is real. Rate limiting is the outstanding work. |
+| `/.netlify/functions/submit-restock` | Netlify function | `POST` | Forwards a "tell me when this is back" request to **Resend**, so the shop actually receives it. It used to accept the submission and discard it while promising a notification. | Origin-allowlisted. The header comment used to claim rate limiting that did not exist; there still is none. |
+| `/.netlify/functions/redeem-points` | Netlify function | any | **Withdrawn.** Returns `410 Gone` to everything except `OPTIONS`. | It converted "Alt-Points" into a real Stripe promotion code on the caller's word alone, with no server-side ledger, no auth and no rate limit — a loop from a terminal minted unlimited store credit. `410`, not `404`, so the URL is honest about having been withdrawn and stale clients show a real message. Do not re-enable without a ledger that verifies a balance and records the spend atomically. |
+| `order-status.html` | Static page | — | **Not an endpoint.** It makes no request to anything. It is a contact hand-off: it collects the order reference and points the shopper at email. Any "look up my order" UI beyond that would need a real Stripe session lookup behind it. | Nothing to secure; nothing to trust. |
+
+### Stripe webhook events to subscribe
+
+In the Stripe dashboard, the webhook pointing at
+`/.netlify/functions/fulfill-gift-card` must be subscribed to **all three**:
+
+- `checkout.session.completed` — delivers the gift card and processes a
+  redemption. This is the only one older versions of this doc mentioned.
+- `checkout.session.expired` — deletes the ephemeral coupon minted when a gift
+  card was pre-applied to an abandoned checkout. Without it, every abandoned
+  gift-card checkout leaves a permanent coupon in the Stripe account.
+- `charge.refunded` — restores the gift-card balance a refunded order had
+  consumed. Do **not** also subscribe `refund.created`: it fires for the same
+  money, and the handler deliberately ignores it.
+
+### Environment variables, per function
+
+Set on the **Cloudflare Worker** (`workers/checkout.js`, Settings -> Variables
+and Secrets):
+
+| Name | Required | Notes |
+|---|---|---|
+| `STRIPE_SECRET_KEY` | yes | Secret. Test key until launch, live key after. |
+| `STRIPE_TAX_ENABLED` | no | `"true"` turns Stripe Tax on. Off today; several tax caveats in section 18 only bite once it is on. |
+| `SITE_ORIGIN` | no | Overrides the success/cancel URL origin. Defaults to the live domain. |
+
+Set on the **Netlify site** (Site configuration -> Environment variables) — the
+functions read these with `process.env`:
+
+| Name | Used by | Required | Notes |
+|---|---|---|---|
+| `STRIPE_SECRET_KEY` | `fulfill-gift-card`, `gift-card-balance` | yes | Same key as the Worker. |
+| `STRIPE_WEBHOOK_SECRET` | `fulfill-gift-card` | yes | Verifies the Stripe signature. **Rotating it changes every gift-card code the site would derive**: codes are derived from this secret, so a rotation makes previously issued codes underivable. Rotate only with a plan for the cards already in the wild. |
+| `RESEND_API_KEY` | `fulfill-gift-card`, `submit-restock` | yes | Without it, gift-card delivery fails after the customer has already paid. |
+| `FROM_EMAIL` | `fulfill-gift-card` | no | Verified Resend sender. Falls back to `RESEND_FROM_EMAIL`, then a hardcoded default. |
+| `RESEND_FROM_EMAIL` | `fulfill-gift-card` | no | Second fallback for the same thing. Set one or the other, not both. |
+| `GIFT_CARD_FROM_EMAIL` | `submit-restock` (and the withdrawn `redeem-points`) | no | **Defaults to `orders@yallternativeliving.com`, not `gifts@`** — earlier docs said `gifts@`. Whatever you set must be a verified Resend sender. |
+| `RESTOCK_FROM_EMAIL` | `submit-restock` | no | Sender for restock alerts; falls back to `GIFT_CARD_FROM_EMAIL`. |
+| `RESTOCK_NOTIFY_EMAIL` | `submit-restock` | no | Where restock alerts are delivered. Defaults to the shop's own address. |
+| `SITE_ORIGIN` | `fulfill-gift-card` | no | **This is a Netlify environment variable too**, not only a Worker one. |
+
+Set on the **CMS auth Worker** (`cms-auth/sveltia-auth.js`):
+
+| Name | Where | Required | Notes |
+|---|---|---|---|
+| `GITHUB_CLIENT_ID` | Cloudflare Secret | yes | From the GitHub OAuth App. |
+| `GITHUB_CLIENT_SECRET` | Cloudflare Secret | yes | Never in the repo. |
+| `ALLOWED_DOMAINS` | `cms-auth/wrangler.toml` `[vars]` | yes | Comma-separated **bare hosts**, no scheme and no port — the Worker compares the full opener origin and prefixes `https://` itself. Empty means no login can succeed (it fails closed on purpose). |
+| `GITHUB_HOSTNAME` | optional var | no | GitHub Enterprise only. |
+
+The OAuth scope is **not** configurable and the caller's `?scope=` is ignored:
+the Worker always requests `public_repo`, which is all the CMS needs to commit
+to this public repository. If the repository is ever made private that must
+become `repo`.
+
 ## 9. Events page — how to add a market or fair
 
 `events.html` reads from `assets/js/events-data.js`. To add a real,
@@ -729,11 +800,25 @@ CMS commit only updates `assets/data/products.json`, and everything
 derived from it (`products-data.js`, `shop.html`/`contact.html`'s
 JSON-LD, `sitemap.xml`, `llms.txt`) needs regenerating on every deploy,
 not just when a human remembers to run
-`node scripts/build-site-data.js` by hand. The good news: it's still
-**zero `npm install`** — both `scripts/build-site-data.js` and
-`scripts/build-security-headers.js` only use Node's built-in `fs`/`path`/
-`crypto` modules, no external dependencies. Three ready-to-go options
-are already in this folder, all pre-wired with the build command:
+`node scripts/build-site-data.js` by hand.
+
+**The build does need `npm install`.** `scripts/build-site-data.js` and
+`scripts/build-security-headers.js` really do use only Node's built-in
+`fs`/`path`/`crypto`, but they are not the first step: the configured build
+command is
+
+```
+node scripts/optimize-images.js && node scripts/build-site-data.js && node scripts/build-security-headers.js
+```
+
+and `optimize-images.js` requires **sharp**, a devDependency. Netlify installs
+devDependencies by default, which is why this works — but a host or CI job
+configured with `--omit=dev` (or `NODE_ENV=production`) makes the optimizer
+degrade silently and ship full-size photos. `scripts/qa-check.js` asserts that
+the build command and the dependency install stay paired.
+
+Three ready-to-go options are already in this folder, all pre-wired with the
+build command:
 
 - **Netlify** — `netlify.toml` is already configured (the build command
   above, long-cache headers for images/CSS/JS, security headers, and a
@@ -784,8 +869,12 @@ Also included:
 
 - **`404.html`** — a custom not-found page (all three hosts above
   detect this filename automatically, zero config needed).
-- **`.gitignore`** — excludes OS junk files, logs, and local `.env`/
-  `.vercel` folders from version control.
+- **`.gitignore`** — excludes `node_modules/`, OS junk, logs, local
+  `.env`/`.env.*` files (with `!.env.example`), `.vercel/`, `.netlify/` and
+  `.claude/`. The `.env` entries matter more here than on a normal project:
+  Netlify publishes the repository root (`publish = "."`), so a committed
+  `.env` would be downloadable from the live domain. (This paragraph claimed
+  those entries existed for months before they did — they do now.)
 
 **Whichever host you pick, remember to also:** deploy the checkout Worker
 + gift-card webhook with real Stripe keys (section 8) and, once you have
@@ -1133,6 +1222,14 @@ mechanism now, not a stopgap.
 
 Fulfillment is automatic, not manual: once payment completes, `netlify/functions/fulfill-gift-card.js` (the checkout webhook, see section 8) generates a redemption code, creates a matching single-use Stripe Promotion Code for it, and emails it to the recipient — Savanna doesn't have to read orders and hand-create anything. The recipient later enters that code at checkout (`workers/checkout.js` sets `allow_promotion_codes: true`) to redeem it.
 
+**Balances ARE tracked now.** This section used to say gift cards had no
+balance tracking; that has not been true since the ledger landed. A partial
+redemption rolls the remainder onto a fresh code, a refund restores the
+balance, and shoppers can look a card up themselves:
+`POST /.netlify/functions/gift-card-balance` with `{"code":"YALL-..."}`
+returns the code's current and original amounts. See the endpoint reference in
+section 8a.
+
 **Gift cards and sales tax — a known gap, only relevant once tax is on.**
 This site redeems a gift card as a Stripe Promotion Code (an `amount_off`
 coupon), which means Stripe classifies a redemption as a *discount* and
@@ -1203,18 +1300,20 @@ above gets built — not what happens if you paste a Gift Up! ID today
 
 ## 19. Live chat, explained
 
-**[Tawk.to](https://www.tawk.to)** is wired into all seven pages as an
-inert placeholder — genuinely free with no limits on agents, chat
-volume, or number of sites, so there's no cost to having the script in
-place before an account exists. Look right before `</body>` on any
-page for a `Tawk_API` script block with `YOUR_TAWKTO_PROPERTY_ID` and
-`YOUR_TAWKTO_WIDGET_ID` placeholders — as written, that script quietly
-404s and no chat bubble appears, so nothing is broken by leaving it
-alone. The CSP (`scripts/build-security-headers.js`) already
-allowlists `embed.tawk.to` (script) and `*.tawk.to` (connect/frame/img)
-so turning it on later needs no header changes.
+**[Tawk.to](https://www.tawk.to) is LIVE.** This section used to describe an
+inert placeholder; it is not one. Real property and widget IDs are set in
+`assets/data/content.json` (`site.tawkToPropertyId`, `site.tawkToWidgetId`) and
+the widget loads on all 15 top-level pages. **Someone has to answer it** — an
+unanswered chat bubble looks worse than no chat at all. To take it back down,
+blank those two fields in the Website Dashboard (`/admin` → Page Wording →
+Global Site Assets & Configurations); the script block is only emitted when
+both are set.
 
-**What you (Savanna) still need to do to turn it on:**
+The CSP (`scripts/build-security-headers.js`) allowlists `embed.tawk.to`
+(script) and `*.tawk.to` (connect/frame/img). Tawk.to is a third-party
+processor that sees visitor IP and page URL, so it is named in `privacy.html`.
+
+**The steps that were originally needed to turn it on (kept for reference):**
 
 1. [Sign up for a free Tawk.to account](https://www.tawk.to).
 2. From Administration → Chat Widget, copy your real embed script —
@@ -1402,5 +1501,14 @@ The site includes optional birthday capture on the footer newsletter form (`asse
      - Action: *Send Email Sequence: Birthday Treat*.
 3. **Birthday Treat Email Configuration:**
    - Write a warm birthday greeting from Savanna.
-   - Provide a $5 digital voucher code (e.g. `YALL-BDAY-5OFF`) or auto-applied shop link (`https://yallternativeliving.com/shop.html?promo=YALL-BDAY-5OFF`) or 50 bonus Alt-Points.
+   - Provide a $5 digital voucher code (e.g. `YALL-BDAY-5OFF`) or auto-applied shop link (`https://yallternativeliving.com/shop.html?promo=YALL-BDAY-5OFF`).
+
+> **Not "50 bonus Alt-Points".** Alt-Points are switched off end to end: nothing
+> ever credited them (the only balance was the shopper's own `localStorage`),
+> and `/.netlify/functions/redeem-points` — which used to mint a real Stripe
+> promotion code on the word of the caller alone — now answers `410 Gone`. The
+> earn copy, the drawer counter and the redeem button are gone from the cart.
+> Do not offer points as a birthday reward until a server-side ledger exists
+> that can verify a balance and record a spend atomically. A voucher code is a
+> real reward today; points are not.
 
