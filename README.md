@@ -58,8 +58,9 @@ Here is a quick checklist of the external accounts you'll need to set up for lau
   - `npm run test:integration` runs the browser pool: 11
     `scripts/*.browser.test.js` challenger suites plus the Puppeteer
     integration harnesses, an XSS/CSP stress harness that first proves the
-    policy is being enforced, and an axe-core accessibility gate (WCAG 2.2 AA,
-    zero violations across all 34 pages -- 15 top-level plus 19 product pages).
+    policy is being enforced, and an axe-core accessibility gate that allows
+    zero WCAG 2.2 AA violations across all 34 pages (15 top-level plus 19
+    product pages).
   - `npm run test:smoke` is the sub-three-second version that runs on every
     push; `npm run test:cross-browser` adds Firefox and WebKit.
 
