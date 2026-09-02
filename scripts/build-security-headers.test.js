@@ -4,6 +4,7 @@
  */
 
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const { execFileSync } = require("child_process");
 const headers = require("./build-security-headers.js");
@@ -156,11 +157,18 @@ assert(
   "the same script passes once its hash is added to the baseline"
 );
 
-/* End to end: put a page carrying a brand-new inline script into the tree and
+/* End to end: hand the build a page carrying a brand-new inline script and
    prove `node scripts/build-security-headers.js` refuses to run. The check
    happens before anything is written, so _headers/vercel.json/netlify.toml
-   are untouched by the failed run -- asserted here too. */
-const tempPage = path.join(ROOT, "products", "__csp-baseline-test.html");
+   are untouched by the failed run -- asserted here too.
+
+   The probe lives in a temp directory, NOT under products/. The unit suites
+   run in a parallel pool (scripts/run-unit-tests.js), and a stray
+   products/__*.html is counted as a 20th PDP by every suite that globs that
+   folder -- global-search.test.js was the one that flaked. The build script
+   picks the probe up through SECURITY_HEADERS_EXTRA_PAGES instead. */
+const probeDir = fs.mkdtempSync(path.join(os.tmpdir(), "csp-baseline-probe-"));
+const tempPage = path.join(probeDir, "__csp-baseline-test.html");
 const outputs = ["_headers", "vercel.json", "netlify.toml"].map((f) => ({
   file: f,
   before: fs.readFileSync(path.join(ROOT, f), "utf8")
@@ -174,10 +182,28 @@ try {
       '<script>window.__cspBaselineProbe = "not in the baseline";</script>\n' +
       "</body></html>\n"
   );
+
+  // The hook itself: with the variable set, the probe joins the checked set;
+  // without it, the checked set is exactly the site tree.
+  process.env.SECURITY_HEADERS_EXTRA_PAGES = tempPage;
+  try {
+    assert(
+      allPages().indexOf(tempPage) !== -1,
+      "SECURITY_HEADERS_EXTRA_PAGES adds the probe page to the checked set"
+    );
+  } finally {
+    delete process.env.SECURITY_HEADERS_EXTRA_PAGES;
+  }
+  assert(
+    allPages().indexOf(tempPage) === -1,
+    "without SECURITY_HEADERS_EXTRA_PAGES the probe page is not checked"
+  );
+
   try {
     output = execFileSync("node", [path.join(__dirname, "build-security-headers.js")], {
       cwd: ROOT,
       encoding: "utf8",
+      env: Object.assign({}, process.env, { SECURITY_HEADERS_EXTRA_PAGES: tempPage }),
       stdio: ["ignore", "pipe", "pipe"]
     });
   } catch (e) {
@@ -185,7 +211,7 @@ try {
     output = String(e.stdout || "") + String(e.stderr || "");
   }
 } finally {
-  if (fs.existsSync(tempPage)) fs.unlinkSync(tempPage);
+  fs.rmSync(probeDir, { recursive: true, force: true });
 }
 
 assert(exitCode === 1, "build-security-headers.js exits 1 when a page carries a new inline script");

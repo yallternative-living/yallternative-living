@@ -136,7 +136,14 @@ var PAGES = [
    above is the top-level site; the 19 generated product pages are globbed
    because they are created by build-site-data.js from products.json -- a CMS
    commit can add one, and only backroad-soak.html used to be checked, so an
-   inline script on any of the other 18 was hashed by nobody. */
+   inline script on any of the other 18 was hashed by nobody.
+
+   SECURITY_HEADERS_EXTRA_PAGES (env, path.delimiter-separated) appends pages
+   that live OUTSIDE the site tree -- absolute paths are fine. It can only
+   widen the check, never narrow it. It exists so build-security-headers.test.js
+   can prove the gate refuses an unknown inline script without dropping a probe
+   file into products/, where every other suite that globs the PDPs (and runs
+   in parallel with it) would count it as a 20th product page. */
 function allPages() {
   var pages = PAGES.slice();
   var productsDir = path.join(ROOT, "products");
@@ -150,6 +157,12 @@ function allPages() {
         var rel = "products/" + f;
         if (pages.indexOf(rel) === -1) pages.push(rel);
       });
+  }
+  var extra = process.env.SECURITY_HEADERS_EXTRA_PAGES;
+  if (extra) {
+    extra.split(path.delimiter).forEach(function (p) {
+      if (p && pages.indexOf(p) === -1) pages.push(p);
+    });
   }
   return pages;
 }
@@ -213,7 +226,9 @@ function sha256Base64(text) {
 }
 
 function readHtml(page) {
-  var filePath = path.join(ROOT, page);
+  // resolve, not join: SECURITY_HEADERS_EXTRA_PAGES entries may be absolute,
+  // and path.join(ROOT, "/tmp/x") would wrongly produce "<ROOT>/tmp/x".
+  var filePath = path.resolve(ROOT, page);
   try {
     return fs.readFileSync(filePath, "utf8");
   } catch (e) {
