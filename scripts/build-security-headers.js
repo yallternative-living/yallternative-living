@@ -264,6 +264,15 @@ function run() {
      of the emitted CSP: the policy carries hashes that exist, nothing else.
      (One hardcoded hash matching no page had been sitting in the script-src
      for exactly this reason.) */
+  /* Baseline entries flagged "runtime": true are scripts a page's own JS
+     creates after load (today: the speculation-rules JSON main.js appends),
+     so no static page can carry them. They are emitted unconditionally and
+     never counted as stale. */
+  Object.keys(baseline).forEach(function (h) {
+    if (baseline[h] && baseline[h].runtime === true) {
+      allTexts[h.replace(/^sha256-/, "")] = true;
+    }
+  });
   var stale = Object.keys(baseline).filter(function (h) {
     return !allTexts[h.replace(/^sha256-/, "")];
   });

@@ -41,6 +41,12 @@
       "what": "Product-page redirect: sends products/<id>.html to shop.html#<id>.",
       "emittedBy": "scripts/build-site-data.js (renderProductPdpHtml)",
       "pages": "all 19 generated products/*.html"
+    },
+    "sha256-gUmq6gOoZ76O8R+C9JLLJzm46Aj4WygKv4n1nBxUfUk=": {
+      "what": "Speculation-rules JSON that main.js builds at runtime (JSON.stringify of its prerender/prefetch rules object) and appends as <script type=\"speculationrules\">. It is never present in the static HTML, so the page scan cannot see it; 'runtime: true' keeps it in the emitted CSP as belt-and-braces beside the 'inline-speculation-rules' keyword. If the rules object in main.js changes, recompute this hash from JSON.stringify(rules).",
+      "emittedBy": "assets/js/main.js (speculation rules block, appended to <body> at runtime)",
+      "pages": "all pages, at runtime only",
+      "runtime": true
     }
   }
 }
