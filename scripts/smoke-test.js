@@ -533,7 +533,8 @@ function section(title) {
         } catch (e) {
           if (
             e.message.includes("Unexpected token 'export'") ||
-            e.message.includes("Unexpected token 'import'")
+            e.message.includes("Unexpected token 'import'") ||
+            e.message.includes("Cannot use import statement outside a module")
           ) {
             try {
               execSync(`"${process.execPath}" --check "${filePath}"`, { stdio: "pipe" });

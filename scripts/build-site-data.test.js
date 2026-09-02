@@ -905,19 +905,37 @@ const netlifyToml = fs.readFileSync(path.join(__dirname, "..", "netlify.toml"), 
     assert(/status = 404/.test(rule), "netlify.toml returns 404 for " + blocked);
   }
 });
-const checkoutIdx = netlifyToml.indexOf('from = "/api/checkout"');
-assert(checkoutIdx !== -1, "netlify.toml still proxies /api/checkout");
-/* Netlify applies the first MATCHING rule and none of the 404 patterns
-   overlap /api/checkout, so the proxy stays the first [[redirects]] block --
-   which is also what qa-check.js's "Checkout proxy" section parses. */
+/* The Worker answers every /api/* route (checkout, gift-card-balance,
+   stripe-webhook, order-status, restock), so the proxy is a wildcard that
+   forwards the matched remainder with :splat. The retired Netlify Function
+   paths are 410 rules ahead of it; none of them overlap /api/. */
+const checkoutIdx = netlifyToml.indexOf('from = "/api/*"');
+assert(checkoutIdx !== -1, "netlify.toml proxies /api/* to the Worker");
 assert(
   netlifyToml.indexOf('from = "/scripts/*"') > checkoutIdx,
-  "the checkout proxy is still the first redirect rule"
+  "the /api/* proxy precedes the source-blocking 404 rules"
 );
 assert(
-  /from = "\/api\/checkout"\n\s+to = "https:\/\/[^"]+"\n\s+status = 200/.test(netlifyToml),
-  "/api/checkout is still a 200 proxy to the Worker"
+  /from = "\/api\/\*"\n\s+to = "https:\/\/[^"]+\.workers\.dev\/:splat"\n\s+status = 200/.test(
+    netlifyToml
+  ),
+  "/api/* is a 200 proxy to the Worker with :splat forwarding"
 );
+[
+  "/.netlify/functions/gift-card-balance",
+  "/.netlify/functions/redeem-points",
+  "/.netlify/functions/fulfill-gift-card",
+  "/.netlify/functions/submit-restock"
+].forEach(function (retired) {
+  const idx = netlifyToml.indexOf('from = "' + retired + '"');
+  assert(idx !== -1, "netlify.toml has a rule for the retired function " + retired);
+  if (idx !== -1) {
+    assert(
+      /status = 410/.test(netlifyToml.slice(idx, idx + 200)),
+      "netlify.toml returns 410 Gone for " + retired
+    );
+  }
+});
 assert(
   netlifyToml.indexOf('from = "/admin/*"') === -1,
   "/admin is still served (no 404 rule for it)"

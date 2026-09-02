@@ -1555,22 +1555,40 @@ if (!fs.existsSync(submitWorkerPath)) {
   else fail("workers/submit-form.js", "missing email format validation");
 }
 
-/* ---------- 26) Netlify Functions (netlify/functions/*.js) integrity ---------- */
-section("Netlify Functions code integrity (netlify/functions/*.js)");
-var giftCardFuncPath = path.join(ROOT, "netlify/functions/fulfill-gift-card.js");
-if (!fs.existsSync(giftCardFuncPath)) {
-  fail("netlify/functions/fulfill-gift-card.js", "missing file");
+/* ---------- 26) Worker money-path routes (workers/routes/*.js) integrity ----------
+   The Netlify Functions this section used to check were retired: gift-card
+   fulfilment, balance lookup, order status and restock all live in the
+   Cloudflare Worker now (docs/STATE-LAYER.md). Nothing may remain under
+   netlify/functions -- a file there would be deployed by Netlify as a second,
+   unaudited copy of the money path. */
+section("Worker money-path routes integrity (workers/routes/*.js)");
+var retiredFunctionsDir = path.join(ROOT, "netlify/functions");
+if (fs.existsSync(retiredFunctionsDir) && fs.readdirSync(retiredFunctionsDir).length) {
+  fail(
+    "netlify/functions is empty",
+    "found " +
+      fs.readdirSync(retiredFunctionsDir).join(", ") +
+      " -- the money path moved to the Worker"
+  );
 } else {
-  var giftCardFuncText = fs.readFileSync(giftCardFuncPath, "utf8");
-  if (/exports\.handler\s*=/.test(giftCardFuncText))
-    ok("fulfill-gift-card.js: exports handler function");
-  else fail("netlify/functions/fulfill-gift-card.js", "missing exports.handler");
-  if (/crypto\.randomInt/.test(giftCardFuncText))
-    ok("fulfill-gift-card.js: uses crypto.randomInt CSPRNG");
-  else fail("netlify/functions/fulfill-gift-card.js", "missing crypto.randomInt CSPRNG");
-  if (/X-Entity-Ref-ID/.test(giftCardFuncText))
-    ok("fulfill-gift-card.js: sets Resend X-Entity-Ref-ID header");
-  else fail("netlify/functions/fulfill-gift-card.js", "missing Resend idempotency header");
+  ok("netlify/functions carries no code (money path lives in workers/)");
+}
+["gift-cards", "stripe-webhook", "gift-card-balance", "order-status", "restock", "stripe"].forEach(
+  function (routeName) {
+    var routePath = path.join(ROOT, "workers/routes/" + routeName + ".js");
+    if (fs.existsSync(routePath)) ok("workers/routes/" + routeName + ".js exists");
+    else fail("workers/routes/" + routeName + ".js", "missing file");
+  }
+);
+var giftCardRoutePath = path.join(ROOT, "workers/routes/gift-cards.js");
+if (fs.existsSync(giftCardRoutePath)) {
+  var giftCardRouteText = fs.readFileSync(giftCardRoutePath, "utf8");
+  if (/crypto\.getRandomValues|randomGiftCardCode/.test(giftCardRouteText))
+    ok("gift-cards.js: uses a CSPRNG for gift-card codes");
+  else fail("workers/routes/gift-cards.js", "missing CSPRNG code generation");
+  if (/X-Entity-Ref-ID|Idempotency-Key/.test(giftCardRouteText))
+    ok("gift-cards.js: sets a Resend idempotency header on gift-card emails");
+  else fail("workers/routes/gift-cards.js", "missing Resend idempotency header");
 }
 
 /* ---------- 27) Project documentation files integrity (docs/*.md) ---------- */
@@ -1958,13 +1976,11 @@ try {
     fail("Missing one or more SOTA JS modules in assets/js/modules");
   }
 
-  var hasNetlifySubmitRestock = fs.existsSync(
-    path.join(ROOT, "netlify/functions/submit-restock.js")
-  );
-  if (hasNetlifySubmitRestock) {
-    ok("netlify/functions/submit-restock.js exists for first-party restock & review handling");
+  var hasWorkerRestockRoute = fs.existsSync(path.join(ROOT, "workers/routes/restock.js"));
+  if (hasWorkerRestockRoute) {
+    ok("workers/routes/restock.js exists for first-party restock handling (/api/restock)");
   } else {
-    fail("netlify/functions/submit-restock.js missing");
+    fail("workers/routes/restock.js missing");
   }
 
   var hasSyncSocialFeedScript = fs.existsSync(path.join(ROOT, "scripts/sync-social-feed.js"));
@@ -2098,20 +2114,29 @@ try {
   var cartSrc = fs.readFileSync(path.join(ROOT, "assets/js/cart.js"), "utf8");
   var cartMatch = cartSrc.match(/CHECKOUT_URL\s*=\s*"([^"]+)"/);
   var netlifySrc = fs.readFileSync(path.join(ROOT, "netlify.toml"), "utf8");
+  // The Worker answers every /api/* route, so the proxy is a wildcard rule.
+  // Find THAT block (the retired-function 410 rules come first in the file).
   var redirectMatch = netlifySrc.match(
-    /\[\[redirects\]\][\s\S]*?from\s*=\s*"([^"]+)"[\s\S]*?to\s*=\s*"([^"]+)"[\s\S]*?status\s*=\s*(\d+)/
+    /\[\[redirects\]\]\s*\n\s*from\s*=\s*"(\/api\/\*)"[\s\S]*?to\s*=\s*"([^"]+)"[\s\S]*?status\s*=\s*(\d+)/
   );
 
   if (!cartMatch) {
     fail("cart.js declares a CHECKOUT_URL");
   } else if (!redirectMatch) {
-    fail("netlify.toml has a [[redirects]] rule for checkout", "none found");
+    fail("netlify.toml has a [[redirects]] rule for /api/*", "none found");
   } else {
-    if (cartMatch[1] === redirectMatch[1]) {
-      ok("netlify.toml proxies exactly the path cart.js posts to (" + cartMatch[1] + ")");
+    var proxyPrefix = redirectMatch[1].replace(/\*$/, "");
+    if (cartMatch[1].indexOf(proxyPrefix) === 0) {
+      ok(
+        "netlify.toml proxies the prefix cart.js posts under (" +
+          cartMatch[1] +
+          " via " +
+          redirectMatch[1] +
+          ")"
+      );
     } else {
       fail(
-        "netlify.toml proxy path matches cart.js CHECKOUT_URL",
+        "netlify.toml proxy prefix covers cart.js CHECKOUT_URL",
         "cart.js posts to " + cartMatch[1] + ", netlify.toml proxies " + redirectMatch[1]
       );
     }
@@ -2125,10 +2150,15 @@ try {
       fail("checkout rule is a proxy (status 200)", "found status " + redirectMatch[3]);
     }
 
-    if (/^https:\/\/[^/]+\.workers\.dev$/.test(redirectMatch[2])) {
-      ok("checkout proxy targets a Cloudflare workers.dev host over https");
+    // :splat forwards the matched remainder (/checkout, /gift-card-balance,
+    // ...) to the Worker, which accepts paths with or without the /api prefix.
+    if (/^https:\/\/[^/]+\.workers\.dev\/:splat$/.test(redirectMatch[2])) {
+      ok("API proxy targets a Cloudflare workers.dev host over https and forwards :splat");
     } else {
-      fail("checkout proxy targets a workers.dev host over https", "found " + redirectMatch[2]);
+      fail(
+        "API proxy targets a workers.dev host over https with :splat",
+        "found " + redirectMatch[2]
+      );
     }
   }
 } catch (e) {
