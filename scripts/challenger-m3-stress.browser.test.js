@@ -189,25 +189,63 @@ async function runAdversarialStressTests() {
       balanceResult.error
     );
 
-    // Schema.org Product Microdata assertions
+    /* Schema.org: ONE Product entity per page, in JSON-LD.
+       These six assertions used to demand microdata (itemscope/itemprop) on
+       top of the JSON-LD block, so every PDP shipped two Product entities --
+       one complete, one thin (name, image, description and a flat price, no
+       availability, url, brand or sku). Rich Results Test reported both, and
+       on frankincense-salve the microdata claimed a single price while the
+       JSON-LD correctly declared an AggregateOffer of $13.99-$19.99 (audit
+       C, finding L5). The microdata is deleted; the same six facts are
+       asserted below against the vocabulary that stayed, so this group did
+       not stop checking anything. */
     assert(
-      html.includes('itemscope itemtype="https://schema.org/Product"'),
-      `products/${p.id}.html has Product itemtype microdata`
+      !html.includes("itemscope") && !html.includes("itemprop="),
+      `products/${p.id}.html carries no microdata to compete with its JSON-LD Product`
+    );
+    const ldProducts = (
+      html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g) || []
+    )
+      .map((b) => {
+        try {
+          return JSON.parse(b.replace(/^<script[^>]*>/, "").replace(/<\/script>$/, ""));
+        } catch (e) {
+          return null;
+        }
+      })
+      .filter((ld) => ld && ld["@type"] === "Product");
+    assert(
+      ldProducts.length === 1,
+      `products/${p.id}.html has exactly one schema.org Product entity (found ${ldProducts.length})`
+    );
+    const ldProduct = ldProducts[0] || {};
+    assert(
+      ldProduct.name === p.name,
+      `products/${p.id}.html JSON-LD Product name matches the product name`
     );
     assert(
-      html.includes('itemprop="name"') && html.includes(buildScript.escapeHtml(p.name)),
-      `products/${p.id}.html has itemprop="name" matching product name`
-    );
-    assert(html.includes('itemprop="image"'), `products/${p.id}.html has itemprop="image"`);
-    assert(
-      html.includes('itemscope itemtype="https://schema.org/Offer"'),
-      `products/${p.id}.html has Offer itemtype microdata`
+      [].concat(ldProduct.image || []).length > 0,
+      `products/${p.id}.html JSON-LD Product declares at least one image`
     );
     assert(
-      html.includes('itemprop="priceCurrency" content="USD"'),
-      `products/${p.id}.html has USD priceCurrency microdata`
+      !!ldProduct.offers && typeof ldProduct.offers === "object",
+      `products/${p.id}.html JSON-LD Product declares an Offer`
     );
-    assert(html.includes('itemprop="price"'), `products/${p.id}.html has itemprop="price"`);
+    assert(
+      (ldProduct.offers || {}).priceCurrency === "USD",
+      `products/${p.id}.html JSON-LD Offer is priced in USD`
+    );
+    assert(
+      typeof (ldProduct.offers || {}).price === "string" ||
+        typeof (ldProduct.offers || {}).lowPrice === "string",
+      `products/${p.id}.html JSON-LD Offer carries a price`
+    );
+    /* The visible headline price, which main.js rewrites on every variant
+       change through this hook now that itemprop="price" is gone. */
+    assert(
+      /<span class="pdp-price-value">\d+\.\d\d<\/span>/.test(html),
+      `products/${p.id}.html renders a visible headline price`
+    );
 
     // OpenGraph & Meta Tags
     assert(
@@ -300,9 +338,28 @@ async function runAdversarialStressTests() {
     !miracleHtml.includes("scent-notes-grid"),
     "miracle-balm.html does NOT render scent notes grid"
   );
+  /* The intensity bar is a role="meter" now, not a bare <span> carrying an
+     aria-label. ARIA 1.2 prohibits aria-label on the generic role a bare
+     <span> gets, so the old label was being dropped by most screen readers
+     and the scent strength reached nobody (audit C, finding M7). Same words,
+     via the attribute a meter actually exposes. */
   assert(
-    miracleHtml.includes('aria-label="Scent intensity: Unscented (0 out of 5)"'),
-    "miracle-balm.html carries accurate aria-label for unscented"
+    miracleHtml.includes('class="pdp-intensity-bar" role="meter"'),
+    "miracle-balm.html exposes the intensity bar as a meter, not a bare span"
+  );
+  assert(
+    miracleHtml.includes('aria-valuenow="0"') &&
+      miracleHtml.includes('aria-valuemin="0"') &&
+      miracleHtml.includes('aria-valuemax="5"'),
+    "miracle-balm.html intensity meter declares the 0-of-5 value range"
+  );
+  assert(
+    miracleHtml.includes('aria-valuetext="Unscented (0 out of 5)"'),
+    "miracle-balm.html carries accurate value text for unscented"
+  );
+  assert(
+    miracleHtml.includes('aria-label="Scent intensity"'),
+    "miracle-balm.html intensity meter is named"
   );
 
   // Multi-word notes and special character handling in catalog

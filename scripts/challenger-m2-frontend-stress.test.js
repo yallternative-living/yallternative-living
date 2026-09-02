@@ -474,8 +474,12 @@ function setupQuizDOM(questions, selectedValues = {}) {
 
   assert(dom.resultsContainer.style.display === "block", "Scenario 1: Results container displayed");
   assert(
-    dom.resultsContainer.innerHTML.includes("Your Apothecary Prescription"),
-    "Scenario 1: Renders prescription header"
+    /* "Match", not "Prescription": the quiz used to hand the shopper a
+       "prescription" on the same page whose footer says "not medicine", and
+       the build already bans that word as a search synonym for exactly that
+       reason (audit C, finding M1). */
+    dom.resultsContainer.innerHTML.includes("Your Apothecary Match"),
+    "Scenario 1: Renders quiz result header"
   );
   // Shimmer Body Oil scores 10 (treat-myself rec + matchFeatured + hydration category body)
   assert(
@@ -827,7 +831,10 @@ function setupAnnouncementDOM(hasCountdownTicker = false) {
   const bar = mockDocument.body.querySelector(".announcement-bar");
   assert(bar !== null, "announcementBar: renders fallback when text is empty");
   assert(
-    bar.textContent.includes("✦ Free shipping on orders over $40 ✦"),
+    /* "of $40 or more", not "over $40": the Worker waives shipping at
+       >= the threshold, so an exactly-$40.00 cart ships free and the old
+       wording left that case undefined in the prose (audit C, L11). */
+    bar.textContent.includes("✦ Free shipping on orders of $40 or more ✦"),
     "announcementBar: renders free shipping message with threshold value"
   );
   assert(

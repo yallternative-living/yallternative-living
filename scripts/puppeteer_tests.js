@@ -662,7 +662,7 @@ function createStaticServer(port = 8082) {
       const recCard = await page.$(".quiz-recommended-card");
       if (recCard) {
         console.log(
-          "✅ Apothecary Quiz completed 3-step flow and rendered prescription recommendation card."
+          "✅ Apothecary Quiz completed 3-step flow and rendered its recommendation card."
         );
       } else {
         console.log("❌ Apothecary Quiz failed to render recommendation card.");
@@ -1203,6 +1203,83 @@ function createStaticServer(port = 8082) {
       visible: true,
       timeout: 5000
     });
+
+    /* The popup is an ARIA GRID, not a listbox. Each row carries a link and
+       (for products) an "+ Add" button, and the APG says outright that a
+       listbox option cannot host interactive content -- axe-core reported 13
+       serious `nested-interactive` nodes for the old markup, and a negative
+       tabindex would not have cleared it (audit C, finding H5). The row ids
+       and aria-activedescendant behaviour below are deliberately unchanged;
+       only the roles moved. */
+    const gridShape = await page.evaluate(() => {
+      /* eslint-disable no-undef */
+      const list = document.getElementById("globalSearchResultsList");
+      const row = list && list.querySelector(".search-result-item");
+      const input = document.getElementById("globalSearchInput");
+      return {
+        listRole: list && list.getAttribute("role"),
+        listNamed: !!(list && list.getAttribute("aria-label")),
+        inputPopup: input && input.getAttribute("aria-haspopup"),
+        rowRole: row && row.getAttribute("role"),
+        rowId: row && row.id,
+        rowgroups: list ? list.querySelectorAll('[role="rowgroup"]').length : 0,
+        cellsInRow: row ? row.querySelectorAll('[role="gridcell"]').length : 0,
+        optionsLeft: list ? list.querySelectorAll('[role="option"]').length : 0
+      };
+      /* eslint-enable no-undef */
+    });
+    if (
+      gridShape.listRole === "grid" &&
+      gridShape.listNamed &&
+      gridShape.inputPopup === "grid" &&
+      gridShape.rowRole === "row" &&
+      gridShape.rowId === "search-opt-0" &&
+      gridShape.rowgroups >= 1 &&
+      gridShape.cellsInRow >= 1 &&
+      gridShape.optionsLeft === 0
+    ) {
+      console.log(
+        "✅ Search popup uses the APG combobox-with-grid pattern (grid > rowgroup > row > gridcell), no role=option left."
+      );
+    } else {
+      console.log("❌ Search popup ARIA shape is wrong:", gridShape);
+      exitCode = 1;
+    }
+
+    /* The whole point of the grid pattern: the link and the Add button are
+       legitimate focusable content because they sit in separate gridcells,
+       not inside an option. Assert the row actually still carries both. */
+    const productRowControls = await page.evaluate(() => {
+      /* eslint-disable no-undef */
+      const rows = Array.from(
+        document.querySelectorAll("#globalSearchResultsList .search-result-item")
+      );
+      const withAdd = rows.filter((r) => r.querySelector(".search-add-btn"));
+      if (!withAdd.length) return { rowsWithAdd: 0 };
+      const r = withAdd[0];
+      const linkCell = r.querySelector('[role="gridcell"] > a.search-item-main');
+      const actionCell = r.querySelector('.search-item-action[role="gridcell"]');
+      return {
+        rowsWithAdd: withAdd.length,
+        linkInOwnCell: !!linkCell,
+        actionIsCell: !!actionCell,
+        addStillThere: !!(actionCell && actionCell.querySelector(".search-add-btn"))
+      };
+      /* eslint-enable no-undef */
+    });
+    if (
+      productRowControls.rowsWithAdd > 0 &&
+      productRowControls.linkInOwnCell &&
+      productRowControls.actionIsCell &&
+      productRowControls.addStillThere
+    ) {
+      console.log(
+        `✅ ${productRowControls.rowsWithAdd} product row(s) keep the inline link and Add button, in separate gridcells.`
+      );
+    } else {
+      console.log("❌ Product row controls/gridcells wrong:", productRowControls);
+      exitCode = 1;
+    }
 
     // Press ArrowDown to select 1st item
     await page.keyboard.press("ArrowDown");
