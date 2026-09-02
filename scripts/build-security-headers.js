@@ -828,15 +828,18 @@ function run() {
     // ---- the error page answers 404 (audit C, finding L6) ----
     // Genuinely missing paths already 404. The error page itself was
     // fetchable at 200 under both /404 and /404.html, which is a soft-404
-    // signal. force = true is required for the second rule: 404.html is a
-    // real file in the publish root, and without force the file shadows the
-    // rule and is served with its old 200.
+    // signal. force = true is required on BOTH rules: 404.html is a real file
+    // in the publish root, and Netlify resolves the extensionless /404 to that
+    // same file before consulting an unforced rule, so without force each
+    // spelling is served with its old 200 (verified live 2026-09-02: the
+    // unforced /404 rule was ignored while the forced /404.html one held).
     "# The error page itself answers 404, not 200 -- it was fetchable at 200\n" +
     "# under both spellings, which reads as a soft 404 to a crawler.\n" +
     "[[redirects]]\n" +
     '  from = "/404"\n' +
     '  to = "/404.html"\n' +
-    "  status = 404\n\n" +
+    "  status = 404\n" +
+    "  force = true\n\n" +
     "[[redirects]]\n" +
     '  from = "/404.html"\n' +
     '  to = "/404.html"\n' +
