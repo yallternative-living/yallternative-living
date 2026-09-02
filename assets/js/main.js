@@ -2147,9 +2147,13 @@
           trackerHtml +=
             '<span class="custom-box-slot is-filled">' +
             (itemThumb
-              ? '<img src="' +
-                attrEsc(itemThumb) +
-                '" alt="" class="custom-box-slot-thumb" width="20" height="20"> '
+              ? pictureHTML(chosenProd || { image: itemThumb }, {
+                  imagePath: itemThumb,
+                  alt: "",
+                  single: true,
+                  width: 20,
+                  height: 20
+                }) + " "
               : '<svg class="yl-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg> ') +
             attrEsc(chosenProd ? chosenProd.name.split(" ")[0] : "Item") +
             "</span>";
@@ -2191,10 +2195,19 @@
               (atLimit ? " is-disabled" : "") +
               '">' +
               '<div class="custom-box-option-img-wrap">' +
+              /* These render at 46-48 CSS px. A bare <img src="*.jpg">
+                 pulled the 1000-1450px original for every one of the
+                 twelve options (live audit H5); pictureHTML's `single`
+                 mode serves the smallest AVIF/WebP variant in the
+                 manifest instead -- tens of KB rather than hundreds. */
               (imgUrl
-                ? '<img src="' +
-                  attrEsc(imgUrl) +
-                  '" alt="" class="custom-box-option-img" loading="lazy" width="48" height="48">'
+                ? pictureHTML(p, {
+                    imagePath: imgUrl,
+                    alt: "",
+                    single: true,
+                    width: 48,
+                    height: 48
+                  })
                 : '<div class="custom-box-option-img-placeholder"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg></div>') +
               "</div>" +
               '<div class="custom-box-option-body">' +

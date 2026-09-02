@@ -1566,8 +1566,15 @@ section {
   font-size: 1.02rem;
 }
 
+/* margin-top:auto is what keeps every price row in a grid row aligned, but
+   a card with neither a rating nor a stock/volume badge is ~60px shorter
+   than its row-mates and collected all of that slack as one visible hole
+   above the price (live audit nit). A hairline turns the space into a
+   deliberate footer rather than a rendering gap. */
 .card-foot {
   margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid var(--hide);
 
   & .card-foot-row {
     display: flex;
@@ -2277,12 +2284,18 @@ section {
     color: oklch(from var(--paper-dim) calc(l - 0.15) c h);
   }
 
-  & .custom-box-slot-thumb {
+  & .custom-box-slot-thumb,
+  & picture img {
     width: 20px;
     height: 20px;
     border-radius: 50%;
     object-fit: cover;
     border: 1px solid var(--whiskey);
+  }
+
+  & picture {
+    display: inline-flex;
+    flex-shrink: 0;
   }
 }
 
@@ -2349,11 +2362,18 @@ section {
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.custom-box-option-img {
+.custom-box-option-img,
+.custom-box-option-img-wrap img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.custom-box-option-img-wrap picture {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .custom-box-option-img-placeholder {
@@ -3131,11 +3151,28 @@ section {
   }
 }
 
+/* Three controls -- "Coming Soon", "Notify Me When Back in Stock" and
+   "Remove" -- were packed into a single ~284px nowrap row, so both button
+   labels were clipped mid-word ("oming So", "e When Back") and collided
+   (live audit H3). Let the row wrap, give the long notify button a line of
+   its own, and stop .btn's white-space:nowrap from forcing the overflow. */
 .wish-item-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 14px;
+  gap: 8px 14px;
   margin-top: 8px;
+  min-width: 0;
+}
+
+.wish-item-actions .btn {
+  white-space: normal;
+  text-align: center;
+  max-width: 100%;
+}
+
+.wish-item-actions .yl-notify-toggle {
+  flex: 1 1 100%;
 }
 
 .wish-remove {
@@ -4061,10 +4098,32 @@ dialog.gift-modal[open]::backdrop {
   opacity: 1;
 }
 /* ── Gift Card Widget (SOTA 2026) ─────────────────── */
+/* The widget is a two-column grid with THREE children, and auto-placement
+   gave the terms note the whole right column (84px tall, ~400px of dead
+   space beneath it) while the controls were pushed onto row 2 inside the
+   narrow 296px track -- which is why the email/name inputs rendered 141px
+   wide and Add to Cart fell below the fold (live audit M3). Place all three
+   explicitly: preview and controls side by side, terms note underneath. */
+.gift-card-widget > .gift-card-preview {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.gift-card-widget > .gift-card-controls {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.gift-card-widget > .gift-terms-note {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  margin: 0;
+}
+
 .gift-card-widget {
   display: grid;
-  grid-template-columns: 1.2fr 1.8fr;
-  gap: 36px;
+  grid-template-columns: minmax(220px, 1fr) minmax(320px, 1.6fr);
+  gap: 28px 36px;
   background: var(--ink);
   border: 1px solid var(--hide);
   border-radius: var(--radius-large);
@@ -4281,6 +4340,13 @@ dialog.gift-modal[open]::backdrop {
     gap: 28px;
     padding: 24px;
   }
+  /* One column: let the three children fall back to DOM order. */
+  .gift-card-widget > .gift-card-preview,
+  .gift-card-widget > .gift-card-controls,
+  .gift-card-widget > .gift-terms-note {
+    grid-column: 1;
+    grid-row: auto;
+  }
   .preset-grid {
     grid-template-columns: repeat(3, 1fr);
   }
@@ -4496,11 +4562,49 @@ dialog.gift-modal[open]::backdrop {
   border-radius: 50%;
 }
 
-/* Adjust layout on smaller screens */
+/* Adjust layout on smaller screens.
+   .lightbox-modal is display:flex with no flex-direction, so its two in-flow
+   children -- the photo column and the "Complete the Ritual" panel -- sat
+   SIDE BY SIDE at every width. On a 375px screen that left the photo column
+   119px wide (a 119x90 thumbnail with the arrows on top of it), pushed the
+   ritual panel's heading above the viewport and put "Add All to Cart" 73px
+   below the fold with no way to scroll to it (live audit H2). Stack them,
+   and let the dialog itself scroll. */
 @media (max-width: 768px) {
+  .lightbox-modal[open] {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 56px 12px calc(20px + env(safe-area-inset-bottom));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
   .lightbox-content {
-    width: 95%;
-    height: 70vh;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    max-height: 44dvh;
+    flex: 0 0 auto;
+  }
+  .lightbox-content img {
+    width: 100%;
+    max-height: 44dvh;
+  }
+  /* Absolutely positioned, this floated over whatever the column happened to
+     scroll under it. In a stacked layout it belongs in flow. */
+  .lightbox-dots {
+    position: static;
+    transform: none;
+    justify-content: center;
+    flex: 0 0 auto;
+  }
+  .lightbox-ritual-wrap {
+    margin-top: 0;
+    width: 100%;
+    max-width: 100%;
+    flex: 0 0 auto;
   }
   .lightbox-prev,
   .lightbox-next {
@@ -6839,6 +6943,16 @@ dialog.global-search-modal::backdrop {
   color: var(--paper-dim);
 }
 
+/* "↑ ↓ Navigate · ↵ Select · ESC Close" names keys a touch build does not
+   have (live audit L6), and the footer holds nothing else. A laptop with a
+   touchscreen still reports a fine PRIMARY pointer, so it keeps them. Must
+   come after the rule above: same specificity, later wins. */
+@media (pointer: coarse) {
+  .global-search-footer {
+    display: none;
+  }
+}
+
 .search-key-hint {
   display: inline-flex;
   align-items: center;
@@ -8398,6 +8512,26 @@ body:not(:has(.announcement-bar)) .site-header {
 
 .safety-steps > li {
   margin-bottom: 26px;
+}
+
+/* Step 3 and the "Tell us what happened" form were separated by the last
+   step's own margin, an 88px section pad-bottom, a 48px-margin rule and an
+   88px section pad-top -- roughly 235px of nothing, which on a phone read as
+   a broken page (live audit L11). */
+.safety-steps > li:last-child {
+  margin-bottom: 0;
+}
+
+section.safety-steps-section {
+  padding-bottom: 24px;
+}
+
+hr.rule.safety-rule-tight {
+  margin: 24px 0;
+}
+
+hr.rule.safety-rule-tight + #reaction-report {
+  padding-top: 32px;
 }
 
 .safety-steps h3 {
