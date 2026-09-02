@@ -15,7 +15,7 @@
     "test": "node scripts/run-test.js",
     "test:smoke": "node scripts/smoke-test.js",
     "test:integration": "node scripts/run-integration-tests.js",
-    "lint": "eslint scripts assets/js workers cms-auth netlify",
+    "lint": "eslint scripts assets/js workers cms-auth",
     "format": "prettier --write \"scripts/**/*.js\" \"assets/js/*.js\"",
     "format:check": "prettier --check \"scripts/**/*.js\" \"assets/js/*.js\"",
     "test:cross-browser": "node scripts/cross-browser-check.js"
