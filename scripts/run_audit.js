@@ -175,7 +175,16 @@ function createStaticServer(port = 8080) {
       });
 
       const url = `${URL_BASE}/${pageName}`;
-      await page.goto(url, { waitUntil: "networkidle0" });
+      /* networkidle2 + an explicit timeout, for the same reason
+         scripts/a11y-check.js documents: every page preconnects to
+         fonts.googleapis.com, embed.tawk.to and the analytics origin, and
+         networkidle0 waits for ALL of them to go quiet. Wherever those hang
+         -- CI, an offline machine, a filtering proxy -- this tool ate a full
+         30s navigation timeout on each of its 100+ page loads (34 pages x 3
+         viewports) and never finished, which is why the report it produces
+         had gone stale. The rendered DOM the audit inspects is in place
+         either way. */
+      await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
 
       // Run Automated Accessibility (axe-core)
       console.log("Running accessibility audit...");
@@ -341,7 +350,10 @@ function createStaticServer(port = 8080) {
     console.log("\nAuditing Interactive Transitions...");
     const shopPage = await browser.newPage();
     await shopPage.setViewport({ width: 1200, height: 800 });
-    await shopPage.goto(`${URL_BASE}/shop.html`, { waitUntil: "networkidle0" });
+    await shopPage.goto(`${URL_BASE}/shop.html`, {
+      waitUntil: "networkidle2",
+      timeout: 30000
+    });
 
     // Transition Properties Checks
     const transitionStyles = await shopPage.evaluate(() => {
