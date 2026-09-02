@@ -323,9 +323,21 @@ function assert(condition, message) {
     }
 
     /* =========================================================================
-       SUITE 3: Order Status Modal and Reorder Flow (R6)
+       SUITE 3: Order Status Modal (R6, rewritten for audit H-6)
+
+       This suite used to assert the fabricated flow: that typing any
+       `cs_...`-shaped string rendered a fulfilment timeline, an "Order Items
+       Breakdown" and a Reorder button that pushed those invented items into
+       the real cart. None of that was ever fetched from anywhere.
+
+       The modal now posts {sessionId, email} to /api/order-status and reports
+       only what the Cloudflare Worker answers. This harness serves the static
+       site with no Worker behind /api/*, so every submitted lookup takes the
+       network-failure branch -- the contact hand-off. That is the contract
+       asserted here: both fields required, nothing invented, and a way to
+       reach a person when the lookup cannot speak.
        ========================================================================= */
-    console.log("\n--- 3. Order Status Modal & Reorder Flow ---");
+    console.log("\n--- 3. Order Status Modal (real lookup, H-6) ---");
     {
       const page = await browser.newPage();
       await page.setViewport({ width: 1200, height: 800 });
@@ -344,97 +356,106 @@ function assert(condition, message) {
       );
       assert(isModalOpen, "Clicking #openOrderStatusBtn opens #order-status-modal");
 
+      // Both halves of the credential are asked for. A session id on its own
+      // is not authorisation -- ids sit in history, shared links and Referer.
+      const fields = await page.evaluate(() => {
+        return {
+          reference: Boolean(document.getElementById("order-id-input")),
+          email: Boolean(document.getElementById("order-email-input")),
+          reorder: Boolean(document.getElementById("reorderPastOrderBtn")),
+          items: Boolean(document.getElementById("orderItemsContainer")),
+          slip: Boolean(document.getElementById("slipItemsTableBody"))
+        };
+      });
+      assert(fields.reference, "Order status modal asks for the order reference");
+      assert(fields.email, "Order status modal asks for the email used at checkout");
+      assert(!fields.reorder, "The fabricated reorder button is gone (H-6)");
+      assert(!fields.items, "The fabricated order items breakdown is gone (H-6)");
+      assert(!fields.slip, "The fabricated packing slip is gone (H-6)");
+
       // Test Empty Input Validation
       await page.click("#order-lookup-btn");
-      await sleep(100);
+      await sleep(150);
       const errorVisible = await page.$eval(
         "#orderLookupError",
         (el) => !el.hidden && el.textContent.length > 0
       );
       assert(errorVisible, "Empty order status lookup shows validation error");
 
-      // Test Lookup with Valid Session ID (`cs_test_abc123`)
-      const input = await page.$("#order-id-input");
-      await input.click({ clickCount: 3 });
-      await input.type("cs_test_9876543210");
+      // A reference with no email is refused before a request is spent.
+      const refInput = await page.$("#order-id-input");
+      await refInput.click({ clickCount: 3 });
+      await refInput.type("cs_test_9876543210");
       await page.click("#order-lookup-btn");
-      await sleep(200);
-
-      const timelineVisible = await page.$eval("#order-timeline-container", (el) => !el.hidden);
-      const itemsContainerVisible = await page.$eval("#orderItemsContainer", (el) => !el.hidden);
-      const renderedItemsCount = await page.$$eval("#orderItemsList li", (lis) => lis.length);
-
-      assert(timelineVisible, "Valid session ID renders fulfillment timeline steps");
-      assert(
-        itemsContainerVisible,
-        "Valid session ID renders past order items breakdown container"
-      );
-      assert(
-        renderedItemsCount > 0,
-        `Past order items breakdown renders ${renderedItemsCount} items`
-      );
-
-      // Test 1-Click Reorder Button Execution
-      const reorderBtn = await page.$("#reorderPastOrderBtn");
-      assert(!!reorderBtn, "Reorder past order button #reorderPastOrderBtn exists");
-
-      // Verify cart state before reorder
-      const initialCartCount = await page.evaluate(() => {
-        return window.YLCart && typeof window.YLCart.count === "function"
-          ? window.YLCart.count()
-          : 0;
-      });
-
-      await reorderBtn.click();
-      await sleep(400);
-
-      // Verify Modal Closed and Cart Drawer Opened
-      const modalClosedAfterReorder = await page.$eval(
-        "#order-status-modal",
-        (el) => !el.open && !el.hasAttribute("open")
-      );
-      const cartDrawerOpen = await page.$eval(
-        "#yl-cart-drawer",
-        (el) =>
-          el.classList.contains("open") ||
-          el.hasAttribute("open") ||
-          getComputedStyle(el).display !== "none"
-      );
-      const postReorderCount = await page.evaluate(() => {
-        return window.YLCart && typeof window.YLCart.count === "function"
-          ? window.YLCart.count()
-          : 0;
-      });
-
-      assert(modalClosedAfterReorder, "Reorder click closes order status modal");
-      assert(cartDrawerOpen, "Reorder click opens on-site cart drawer");
-      assert(
-        postReorderCount > initialCartCount,
-        `Reorder successfully populated cart (count increased from ${initialCartCount} to ${postReorderCount})`
-      );
-
-      // Test Out-Of-Stock / Coming Soon Filtering in Reorder Flow
-      const oosHandledSafely = await page.evaluate(() => {
-        // Simulate reorder click with catalog containing out-of-stock items
-        try {
-          const reorderBtn = document.getElementById("reorderPastOrderBtn");
-          if (reorderBtn && typeof reorderBtn.onclick === "function") {
-            reorderBtn.onclick();
-            return true;
-          }
-          return false;
-        } catch (e) {
-          return false;
-        }
+      await sleep(150);
+      const refOnlyRejected = await page.evaluate(() => {
+        const err = document.getElementById("orderLookupError");
+        const results = document.getElementById("order-timeline-container");
+        return {
+          errored: Boolean(err && !err.hidden && err.textContent.length > 0),
+          rendered: Boolean(results && !results.hidden)
+        };
       });
       assert(
-        oosHandledSafely,
-        "Reorder click gracefully filters out-of-stock items without runtime exceptions"
+        refOnlyRejected.errored && !refOnlyRejected.rendered,
+        "A reference without an email is refused client-side and renders nothing"
+      );
+
+      // Both fields filled: the lookup runs, finds no Worker on this static
+      // server, and hands off to a person rather than inventing an answer.
+      const emailInput = await page.$("#order-email-input");
+      await emailInput.click({ clickCount: 3 });
+      await emailInput.type("southern_customer@domain.com");
+      await page.click("#order-lookup-btn");
+
+      let handoffText = "";
+      try {
+        await page.waitForSelector("#order-timeline-container .order-lookup-unavailable", {
+          visible: true,
+          timeout: 8000
+        });
+        handoffText = await page.$eval(
+          "#order-timeline-container .order-lookup-unavailable",
+          (el) => el.textContent
+        );
+      } catch (e) {
+        handoffText = "";
+      }
+      assert(
+        handoffText.length > 0,
+        "With no Worker reachable, a submitted lookup renders the contact hand-off"
+      );
+      const handoffHasContact = await page.evaluate(() => {
+        const el = document.querySelector("#order-timeline-container .order-lookup-unavailable");
+        return el ? /mailto:|contact\.html/.test(el.innerHTML) : false;
+      });
+      assert(handoffHasContact, "The hand-off offers a real way to reach the shop");
+
+      // Nothing about an order may be asserted on a branch that fetched nothing.
+      const invented = await page.evaluate(() => {
+        return {
+          steps: document.querySelectorAll("#order-timeline-container .timeline-step").length,
+          rows: document.querySelectorAll(
+            "#order-timeline-container .order-item-row, #order-timeline-container .order-status-items li"
+          ).length,
+          card: Boolean(document.querySelector(".order-status-card")),
+          reorder: Boolean(document.getElementById("reorderPastOrderBtn"))
+        };
+      });
+      assert(
+        invented.steps === 0 && invented.rows === 0 && !invented.card && !invented.reorder,
+        `Unreachable lookup invents no order state (${JSON.stringify(invented)})`
+      );
+
+      // Neither credential is echoed back onto the screen. The reference is
+      // only ever repeated as the visitor typed it; the email never is.
+      const echoed = await page.$eval("#order-timeline-container", (el) => el.textContent || "");
+      assert(
+        !echoed.includes("southern_customer@domain.com"),
+        "The email typed into the lookup is never rendered back"
       );
 
       // Test Modal Escape Key Dismissal & Focus
-      await page.click("#openOrderStatusBtn");
-      await sleep(200);
       await page.keyboard.press("Escape");
       await sleep(200);
       const modalDismissedByEsc = await page.$eval(
@@ -443,37 +464,38 @@ function assert(condition, message) {
       );
       assert(modalDismissedByEsc, "Order status modal dismissed cleanly when pressing Escape key");
 
-      // Test Masked Email Lookup
+      // An email typed into the REFERENCE field is a shape error, not a
+      // lookup: the reference is a Stripe session id and nothing else.
       await page.click("#openOrderStatusBtn");
       await sleep(200);
       await page.$eval("#order-id-input", (el) => {
         el.value = "";
       });
-      const emailInput = await page.$("#order-id-input");
-      await emailInput.type("southern_customer@domain.com");
+      const refInput2 = await page.$("#order-id-input");
+      await refInput2.type("southern_customer@domain.com");
       await page.click("#order-lookup-btn");
-      await sleep(200);
-
-      const maskedTitle = await page.$eval(".order-status-card-header h3", (el) =>
-        el.textContent.trim()
+      await sleep(150);
+      const emailAsRefRejected = await page.$eval(
+        "#orderLookupError",
+        (el) => !el.hidden && /cs_/.test(el.textContent)
       );
       assert(
-        /^[a-z0-9]+\*\*\*.*@/i.test(maskedTitle),
-        `Email address safely masked in order status display: "${maskedTitle}"`
+        emailAsRefRejected,
+        "An email in the reference field is refused with a message naming the cs_ format"
       );
 
       // Test Unrecognized Order Reference
       await page.$eval("#order-id-input", (el) => {
         el.value = "";
       });
-      await emailInput.type("INVALID-UNKNOWN-REF-12345");
+      const refInput3 = await page.$("#order-id-input");
+      await refInput3.type("INVALID-UNKNOWN-REF-12345");
       await page.click("#order-lookup-btn");
-      await sleep(200);
-
-      const unavailableText = await page.$eval(".order-lookup-unavailable", (el) => el.textContent);
+      await sleep(150);
+      const unrecognizedText = await page.$eval("#orderLookupError", (el) => el.textContent);
       assert(
-        unavailableText.includes("could not locate"),
-        `Unrecognized order shows friendly help text: "${unavailableText}"`
+        unrecognizedText.length > 0 && /reference/i.test(unrecognizedText),
+        `Unrecognized order reference shows friendly help text: "${unrecognizedText}"`
       );
 
       await page.close();

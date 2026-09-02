@@ -370,14 +370,20 @@ function createStaticServer(port = 8082) {
         await page.waitForSelector("#order-status-modal", { visible: true, timeout: 5000 });
 
         const orderInput = await page.$("#order-id-input");
-        if (orderInput) {
+        const orderEmailInput = await page.$("#order-email-input");
+        if (orderInput && orderEmailInput) {
+          // Audit H-6: the lookup now takes BOTH the Stripe session id and the
+          // email used at checkout, and posts them to /api/order-status. A
+          // reference on its own is refused client-side, so both are typed
+          // here or nothing is ever submitted.
           await orderInput.type("cs_test_123456789");
+          await orderEmailInput.type("shopper@example.com");
           await page.click("#order-lookup-btn");
           await page.waitForSelector(
             "#order-timeline-container .timeline-step, #order-timeline-container .order-lookup-unavailable",
             {
               visible: true,
-              timeout: 5000
+              timeout: 10000
             }
           );
           const hasResult = await page.evaluate(() => {
@@ -398,7 +404,9 @@ function createStaticServer(port = 8082) {
             exitCode = 1;
           }
         } else {
-          console.log(`❌ #order-id-input not found in the order status modal on ${targetPage}.`);
+          console.log(
+            `❌ #order-id-input / #order-email-input not found in the order status modal on ${targetPage}.`
+          );
           exitCode = 1;
         }
 
@@ -611,10 +619,13 @@ function createStaticServer(port = 8082) {
       exitCode = 1;
     }
 
-    // Order status is an honest hand-off now (audit H-6): the page never
-    // invents an order. A ?session_id= may prefill the reference, nothing is
-    // auto-submitted, and a submitted lookup renders the contact route rather
-    // than a fabricated timeline, item list, reorder button or packing slip.
+    // Order status asks a real endpoint now (audit H-6) and reports only what
+    // it answers; it never invents an order. This static server has no Worker
+    // behind /api/order-status, so a submitted lookup takes the network-failure
+    // branch -- the contact hand-off -- which is exactly what has to be
+    // asserted here: no timeline, no item rows, no reorder, no packing slip.
+    // A ?session_id= may prefill the reference and must not auto-submit; the
+    // email is the other half of the credential and is always typed by hand.
     console.log("--- Testing Order Status honest hand-off (H-6) ---");
     await page.goto(`${url}/order-status.html?session_id=cs_test_sample12345`, {
       waitUntil: "networkidle2"
@@ -628,7 +639,11 @@ function createStaticServer(port = 8082) {
         reorder: Boolean(document.getElementById("reorderPastOrderBtn")),
         slip: Boolean(document.getElementById("slipItemsTableBody")),
         verifyField: Boolean(document.getElementById("order-verify-input")),
-        prefill: (document.getElementById("orderQueryInput") || {}).value || ""
+        referenceInput: Boolean(document.getElementById("orderQueryInput")),
+        emailInput: Boolean(document.getElementById("orderEmailInput")),
+        prefill: (document.getElementById("orderQueryInput") || {}).value || "",
+        emailPrefill: (document.getElementById("orderEmailInput") || {}).value || "",
+        resultText: (document.getElementById("orderTimelineContainer") || {}).textContent || ""
       };
       /* eslint-enable no-undef */
     });
@@ -647,24 +662,46 @@ function createStaticServer(port = 8082) {
       exitCode = 1;
     }
 
-    const lookupForm = await page.$("#orderStatusForm, form.order-status-form");
+    // Both halves of the credential are asked for, on the page itself.
+    if (fabricated.referenceInput && fabricated.emailInput) {
+      console.log("✅ order-status.html asks for both the reference and the checkout email.");
+    } else {
+      console.log(
+        "❌ order-status.html is missing a lookup field: " +
+          JSON.stringify({
+            reference: fabricated.referenceInput,
+            email: fabricated.emailInput
+          })
+      );
+      exitCode = 1;
+    }
+
+    // ?session_id= prefills the reference, leaves the email alone, and submits
+    // nothing on its own.
+    if (
+      fabricated.prefill === "cs_test_sample12345" &&
+      fabricated.emailPrefill === "" &&
+      fabricated.resultText.trim() === ""
+    ) {
+      console.log("✅ ?session_id= prefills the reference without auto-submitting.");
+    } else {
+      console.log(
+        "❌ ?session_id= prefill/auto-submit behaviour is wrong: " + JSON.stringify(fabricated)
+      );
+      exitCode = 1;
+    }
+
+    // The page's own form is #orderStatusPageForm (#orderStatusForm is the
+    // modal's, on thank-you.html and shop.html).
+    const lookupForm = await page.$("#orderStatusPageForm, form.order-status-page-form");
     if (lookupForm) {
-      await page.evaluate(() => {
-        /* eslint-disable no-undef */
-        const input =
-          document.getElementById("orderQueryInput") || document.getElementById("order-id-input");
-        if (input) input.value = "YL-2026-0842";
-        const form =
-          document.getElementById("orderStatusForm") ||
-          document.querySelector("form.order-status-form");
-        if (form) form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-        /* eslint-enable no-undef */
-      });
+      await page.type("#orderEmailInput", "someone@example.com");
+      await page.click("#orderLookupSubmitBtn");
       let handoff = null;
       try {
         handoff = await page.waitForSelector(".order-lookup-unavailable", {
           visible: true,
-          timeout: 5000
+          timeout: 8000
         });
       } catch (e) {
         handoff = null;
@@ -678,6 +715,34 @@ function createStaticServer(port = 8082) {
         );
       } else {
         console.log("❌ Submitted lookup did not render the contact hand-off.");
+        exitCode = 1;
+      }
+
+      // Whatever branch it took, it may not have invented an order on the way.
+      const afterSubmit = await page.evaluate(() => {
+        /* eslint-disable no-undef */
+        return {
+          card: Boolean(document.querySelector(".order-status-card")),
+          rows: document.querySelectorAll(".order-item-row, .order-status-items li").length,
+          steps: document.querySelectorAll("#orderTimelineContainer .timeline-step").length,
+          reorder: Boolean(document.getElementById("reorderPastOrderBtn")),
+          slip: Boolean(document.getElementById("slipItemsTableBody"))
+        };
+        /* eslint-enable no-undef */
+      });
+      if (
+        !afterSubmit.card &&
+        afterSubmit.rows === 0 &&
+        afterSubmit.steps === 0 &&
+        !afterSubmit.reorder &&
+        !afterSubmit.slip
+      ) {
+        console.log("✅ With no Worker reachable, the lookup asserts nothing about an order.");
+      } else {
+        console.log(
+          "❌ Submitted lookup rendered order content with no Worker behind it: " +
+            JSON.stringify(afterSubmit)
+        );
         exitCode = 1;
       }
     } else {

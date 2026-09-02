@@ -366,9 +366,24 @@ async function runEmpiricalChallengerTests() {
       "thank-you.html does not echo a gift code supplied in the query string"
     );
 
-    console.log("\n--- 3. Testing Order Status Modal & 1-Click Reorder Flow ---");
+    /* =========================================================================
+       SECTION 3: ORDER STATUS LOOKUP (rewritten for audit H-6)
 
-    // 3.1 Open order status modal and lookup order
+       This section used to assert the fabricated flow -- that any
+       `cs_...`-shaped string rendered an "Order Items Breakdown" and a Reorder
+       button that pushed hardcoded items into the real cart. Nothing was ever
+       fetched: every one of those assertions was pinning an invention in
+       place.
+
+       The lookup now posts {sessionId, email} to /api/order-status and renders
+       only what the Cloudflare Worker answers. This harness serves the static
+       site with no Worker behind /api/*, so a submitted lookup always takes
+       the network-failure branch: the contact hand-off, and nothing said about
+       an order.
+       ========================================================================= */
+    console.log("\n--- 3. Testing Order Status Lookup (real endpoint, H-6) ---");
+
+    // 3.1 Open order status modal
     await page.goto(`${baseUrl}/shop.html`, { waitUntil: "networkidle0" });
 
     // Open modal via button or global helper
@@ -393,125 +408,137 @@ async function runEmpiricalChallengerTests() {
     assert(modalVisible, "Order status modal opened");
     pass("Order status modal opens on shop.html.");
 
-    // 3.2 Submit Order Lookup
-    await page.evaluate(() => {
-      const input =
-        document.getElementById("order-id-input") || document.getElementById("orderStatusInput");
-      if (input) {
-        input.value = "cs_test_order_empirical_123";
-      }
+    // 3.2 The fabricated furniture is gone from the markup entirely.
+    const fabricatedFurniture = await page.evaluate(() => {
+      return [
+        "orderItemsContainer",
+        "orderItemsList",
+        "reorderPastOrderBtn",
+        "packingSlipContainer",
+        "printPackingSlipBtn",
+        "slipItemsTableBody"
+      ].filter((id) => document.getElementById(id) !== null);
+    });
+    assert(
+      fabricatedFurniture.length === 0,
+      `Order status modal carries no fabricated-order markup (found: ${fabricatedFurniture.join(", ") || "none"})`
+    );
+    pass("Fabricated order items breakdown, reorder button and packing slip are gone (H-6).");
+
+    // 3.3 Both fields exist, and a reference alone will not run a lookup.
+    const lookupFields = await page.evaluate(() => {
+      return {
+        reference: Boolean(document.getElementById("order-id-input")),
+        email: Boolean(document.getElementById("order-email-input"))
+      };
+    });
+    assert(lookupFields.reference, "Order status lookup asks for the order reference");
+    assert(
+      lookupFields.email,
+      "Order status lookup asks for the email used at checkout (a session id is not authorisation)"
+    );
+
+    const refOnly = await page.evaluate(async () => {
+      const input = document.getElementById("order-id-input");
+      const email = document.getElementById("order-email-input");
+      if (input) input.value = "cs_test_orderEmpirical123";
+      if (email) email.value = "";
       const form = document.getElementById("orderStatusForm");
-      if (form) {
-        form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
-      }
-    });
-    await new Promise((r) => setTimeout(r, 200));
-
-    const orderItemsRendered = await page.evaluate(() => {
-      const container = document.getElementById("orderItemsContainer");
-      const list = document.getElementById("orderItemsList");
-      const rows = list ? list.querySelectorAll(".order-item-row") : [];
-      const reorderBtn = document.getElementById("reorderPastOrderBtn");
+      if (form) form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+      await new Promise((r) => setTimeout(r, 200));
+      const err = document.getElementById("orderLookupError");
+      const results = document.getElementById("order-timeline-container");
       return {
-        containerVisible: container && !container.hidden,
-        rowCount: rows.length,
-        hasReorderBtn: !!reorderBtn
+        errored: Boolean(err && !err.hidden && err.textContent.length > 0),
+        rendered: Boolean(results && !results.hidden)
       };
     });
-    assert(orderItemsRendered.containerVisible, "Order items container is visible after lookup");
     assert(
-      orderItemsRendered.rowCount > 0,
-      `Order item rows rendered: ${orderItemsRendered.rowCount}`
+      refOnly.errored && !refOnly.rendered,
+      "A reference with no email is refused client-side, before a request is spent"
     );
+    pass("Both halves of the credential are required before the lookup runs.");
+
+    // 3.4 With both fields filled and no Worker reachable, the lookup hands
+    //     off to a person and asserts nothing about an order.
+    await page.evaluate(() => {
+      const input = document.getElementById("order-id-input");
+      const email = document.getElementById("order-email-input");
+      if (input) input.value = "cs_test_orderEmpirical123";
+      if (email) email.value = "empirical@example.com";
+      const form = document.getElementById("orderStatusForm");
+      if (form) form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+    });
+
+    let handoffFound = false;
+    try {
+      await page.waitForSelector("#order-timeline-container .order-lookup-unavailable", {
+        visible: true,
+        timeout: 8000
+      });
+      handoffFound = true;
+    } catch (e) {
+      handoffFound = false;
+    }
     assert(
-      orderItemsRendered.hasReorderBtn,
-      "Reorder past order button #reorderPastOrderBtn exists"
-    );
-    pass(
-      `Order status lookup rendered ${orderItemsRendered.rowCount} items with #reorderPastOrderBtn.`
+      handoffFound,
+      "With no Worker behind /api/order-status, the lookup renders the contact hand-off"
     );
 
-    // 3.3 Click 1-Click Reorder Button
-    const reorderResult = await page.evaluate(async () => {
-      const reorderBtn = document.getElementById("reorderPastOrderBtn");
-      if (reorderBtn) reorderBtn.click();
-      await new Promise((r) => setTimeout(r, 250));
-
-      const drawer = document.getElementById("yl-cart-drawer");
-      const isDrawerOpen =
-        drawer &&
-        (drawer.matches(":popover-open") ||
-          drawer.getAttribute("data-open") === "true" ||
-          drawer.classList.contains("open") ||
-          window.getComputedStyle(drawer).display !== "none");
-      const cartItems =
-        window.YLCart && typeof window.YLCart.items === "function"
-          ? window.YLCart.items()
-          : JSON.parse(localStorage.getItem("yl-cart-items") || "[]");
-
+    const lookupOutcome = await page.evaluate(() => {
+      const container = document.getElementById("order-timeline-container");
+      const handoff = container ? container.querySelector(".order-lookup-unavailable") : null;
       return {
-        isDrawerOpen,
-        cartItemsCount: cartItems.length,
-        itemIds: cartItems.map((i) => i.id)
+        hasContact: handoff ? /mailto:|contact\.html/.test(handoff.innerHTML) : false,
+        steps: container ? container.querySelectorAll(".timeline-step").length : 0,
+        rows: container
+          ? container.querySelectorAll(".order-item-row, .order-status-items li").length
+          : 0,
+        statusCard: Boolean(document.querySelector(".order-status-card")),
+        reorderBtn: Boolean(document.getElementById("reorderPastOrderBtn")),
+        echoesEmail: container
+          ? (container.textContent || "").includes("empirical@example.com")
+          : false
       };
     });
-
-    assert(reorderResult.isDrawerOpen, "Cart drawer opened automatically after reorder click");
+    assert(lookupOutcome.hasContact, "The hand-off offers a real way to reach the shop");
     assert(
-      reorderResult.cartItemsCount > 0,
-      `Cart items populated from reorder: ${reorderResult.cartItemsCount}`
+      lookupOutcome.steps === 0 && lookupOutcome.rows === 0 && !lookupOutcome.statusCard,
+      `Unreachable lookup invents no timeline or line items (${JSON.stringify(lookupOutcome)})`
     );
-    pass(`Reorder button successfully hydrated cart and opened cart drawer automatically.`);
+    assert(
+      !lookupOutcome.reorderBtn,
+      "No reorder button appears for an order that was never fetched"
+    );
+    assert(
+      !lookupOutcome.echoesEmail,
+      "The email typed into the lookup is never rendered back onto the page"
+    );
+    pass("Unreachable lookup hands off to a person and asserts nothing about an order.");
 
-    // 3.4 Out-of-Stock Handling during Reorder
-    const oosReorderCheck = await page.evaluate(() => {
-      // Mock catalog with 1 out of stock item and 1 active item
-      const originalCatalog = window.YL_PRODUCTS;
-      const testCatalog = {
-        products: [
-          {
-            id: "frankincense-salve",
-            name: "Frankincense Salve",
-            price: 19.99,
-            inStock: true,
-            comingSoon: false
-          },
-          { id: "miracle-balm", name: "Miracle Balm", price: 8.0, inStock: false, comingSoon: true }
-        ]
-      };
-      window.YL_PRODUCTS = testCatalog;
-
-      if (window.YLCart && typeof window.YLCart.clear === "function") {
-        window.YLCart.clear();
-      }
-
-      const reorderBtn = document.getElementById("reorderPastOrderBtn");
-      if (reorderBtn && typeof reorderBtn.onclick === "function") {
-        reorderBtn.onclick();
-      }
-
-      const cartItems =
-        window.YLCart && typeof window.YLCart.items === "function"
-          ? window.YLCart.items()
-          : JSON.parse(localStorage.getItem("yl-cart-items") || "[]");
-
-      // Restore catalog
-      window.YL_PRODUCTS = originalCatalog;
-
+    // 3.5 order-status.html: ?session_id= prefills the reference and never
+    //     auto-submits. The email is the other half of the credential and is
+    //     always typed by whoever holds it.
+    await page.goto(`${baseUrl}/order-status.html?session_id=cs_test_prefill123`, {
+      waitUntil: "networkidle0"
+    });
+    const prefillState = await page.evaluate(() => {
+      const ref = document.getElementById("orderQueryInput");
+      const email = document.getElementById("orderEmailInput");
+      const results = document.getElementById("orderTimelineContainer");
       return {
-        itemCount: cartItems.length,
-        hasInStock: cartItems.some((it) => it.id === "frankincense-salve"),
-        hasOutOfStock: cartItems.some((it) => it.id === "miracle-balm")
+        reference: ref ? ref.value : null,
+        email: email ? email.value : null,
+        rendered: results ? (results.textContent || "").trim() : null
       };
     });
-
     assert(
-      oosReorderCheck.itemCount === 1,
-      "Only 1 in-stock item added to cart during OOS reorder test"
+      prefillState.reference === "cs_test_prefill123",
+      `?session_id= prefills the reference input (got "${prefillState.reference}")`
     );
-    assert(oosReorderCheck.hasInStock, "In-stock item was included in reorder");
-    assert(!oosReorderCheck.hasOutOfStock, "Out-of-stock / coming-soon item was filtered out");
-    pass("Reorder flow correctly validates inventory and filters out out-of-stock items.");
+    assert(prefillState.email === "", "?session_id= leaves the email field empty");
+    assert(prefillState.rendered === "", "?session_id= renders nothing -- it never auto-submits");
+    pass("order-status.html prefills the reference from ?session_id= without auto-submitting.");
 
     /* =========================================================================
        SECTION 4: SHARE CART URL GENERATION AND HYDRATION

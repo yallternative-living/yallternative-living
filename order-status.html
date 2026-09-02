@@ -9,7 +9,7 @@
 <meta name="color-scheme" content="dark light">
 <meta name="view-transition" content="same-origin">
 <title>Order Status | Y'allternative Living</title>
-<meta name="description" content="Ask about your Y'allternative Living order. Send us your order number and we'll check on your small-batch salves, soaks or apparel and reply within one business day.">
+<meta name="description" content="Check on a Y'allternative Living order. Enter the reference from your confirmation page and the email you ordered with to see where your small-batch salves, soaks or apparel stand.">
 <link rel="canonical" href="https://yallternativeliving.com/order-status.html">
 
 <meta property="og:type" content="website">
@@ -56,7 +56,7 @@
   "@context": "https://schema.org",
   "@type": "WebPage",
   "name": "Order Status | Y'allternative Living",
-  "description": "Send an order reference to Y'allternative Living and get an answer from a person within one business day.",
+  "description": "Look up a Y'allternative Living order with the reference from your confirmation page and the email used at checkout.",
   "publisher": {
     "@type": "Organization",
     "name": "Y'allternative Living",
@@ -108,34 +108,45 @@
       <div class="order-status-header text-center">
         <span class="eyebrow">Apothecary Dispatch &middot; Landrum, SC</span>
         <h1>Order Status</h1>
-        <p class="lede">Wondering where your order is? Leave us your order number or the email you ordered with, and we'll check on it ourselves and write back within one business day. Nothing here is automated &mdash; it's one person, checking one order.</p>
+        <p class="lede">Enter the reference from your confirmation page along with the email you used at checkout, and we'll pull the order straight from our payment records. If anything looks off &mdash; or the lookup can't reach it &mdash; you'll get a way to reach us and an answer within one business day.</p>
       </div>
 
       <!-- The page's only h2 lives here rather than in the (initially hidden)
            result panel, so the footer's h3s never follow the h1 directly. -->
-      <h2 class="sr-only">Ask us about an order</h2>
+      <h2 class="sr-only">Look up an order</h2>
       <div class="order-lookup-card" id="orderStatusLookupCard">
-        <form id="orderStatusPageForm" class="order-status-page-form" role="search">
+        <!-- Both fields are required and both are sent to the Worker. The
+             email is NOT checked here -- it is compared against the address on
+             the Stripe session server-side, and a wrong email answers exactly
+             the same as a reference that does not exist. -->
+        <form id="orderStatusPageForm" class="order-status-page-form">
           <div class="field" style="margin-bottom: 1rem;">
-            <label for="orderQueryInput"><strong>Order number or email address:</strong></label>
+            <label for="orderQueryInput"><strong>Order reference:</strong></label>
             <div class="search-input-wrap">
               <svg class="icon-search" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
-              <input type="text" id="orderQueryInput" name="q" placeholder="e.g. YL-2026-0842" autocomplete="off" required>
+              <input type="text" id="orderQueryInput" name="reference" placeholder="cs_live_..." autocomplete="off" spellcheck="false" required aria-describedby="orderQueryHint">
             </div>
+            <p class="muted" id="orderQueryHint" style="font-size: 0.85rem; margin-top: 4px;">The Reference ID from your confirmation page and receipt email. It starts with <code>cs_</code>.</p>
           </div>
-          <div id="orderStatusError" class="field-error" hidden style="margin-bottom: 1rem;"></div>
+          <div class="field" style="margin-bottom: 1rem;">
+            <label for="orderEmailInput"><strong>Email used at checkout:</strong></label>
+            <input type="email" id="orderEmailInput" name="email" placeholder="you@example.com" autocomplete="email" required aria-describedby="orderEmailHint">
+            <p class="muted" id="orderEmailHint" style="font-size: 0.85rem; margin-top: 4px;">We check this against the order itself &mdash; a reference on its own isn&rsquo;t enough to open someone&rsquo;s order.</p>
+          </div>
+          <div id="orderStatusError" class="field-error" role="alert" hidden style="margin-bottom: 1rem;"></div>
           <div class="form-actions">
             <button type="submit" class="btn btn-primary" id="orderLookupSubmitBtn">
               <svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              Ask us about this order
+              Look up this order
             </button>
           </div>
         </form>
       </div>
 
       <div id="orderStatusResultSection" class="order-status-result-section" hidden>
-        <!-- Where the contact route is rendered. No order is fetched anywhere
-             on this site, so nothing is ever asserted about one here. -->
+        <!-- Filled by main.js from the Worker's answer, or with the contact
+             hand-off whenever the lookup can't speak. Nothing about an order
+             is ever asserted here without a 200 to back it. -->
         <div id="orderTimelineContainer" aria-live="polite"></div>
       </div>
 
