@@ -56,7 +56,8 @@ window.YL_CONTENT = {
     "enableLocalPickup": true,
     "enableCountdownTicker": true,
     "enableOrderStatusLookup": true,
-    "enableLoyaltyPoints": true,
+    "enableLoyaltyPoints": false,
+    "enableEventJsonLd": true,
     "loyaltyPointsName": "Alt-Points",
     "loyaltyPointsSingular": "Alt-Point",
     "loyaltyPointsPerDollar": 1,
@@ -139,6 +140,14 @@ window.YL_CONTENT = {
       "faqEyebrow": "Got Questions?",
       "faqTitle": "Frequently Asked Questions",
       "faqText": "Everything you need to know about our handmade salves, soaks, shipping, and custom orders."
+    },
+    "safetyNotes": {
+      "externalUse": "For external use only. Keep away from eyes and broken skin, and keep out of reach of children.",
+      "patchTest": "New to it? Dab a little on your inner forearm and wait 24 hours before using it properly.",
+      "essentialOils": "Contains essential oils. If you are pregnant, nursing, or using it on a child, check with your doctor first.",
+      "nutAllergy": "Made with plant butters and oils that can include tree-nut-derived ingredients (see the full ingredient list above). Skip it if you have a nut allergy.",
+      "stopUse": "Stop using it if irritation or a rash develops.",
+      "reactionPrompt": "Had a reaction? Tell us and we will log it and make it right."
     }
   },
   "events": {
@@ -246,7 +255,7 @@ window.YL_CONTENT = {
           },
           {
             "value": "daily-soothe",
-            "label": "Daily Soothe",
+            "label": "Everyday Softness",
             "description": "Everyday miracle balms, scrubs & skin armor",
             "recommendedProductIds": [
               "frankincense-salve",
@@ -270,7 +279,7 @@ window.YL_CONTENT = {
           {
             "value": "hydration",
             "label": "Hydration & Moisture",
-            "description": "Shea butter, body butter & healing balms",
+            "description": "Shea butter, body butter & balms",
             "recommendedProductIds": [],
             "categories": [
               "salves",
@@ -282,7 +291,7 @@ window.YL_CONTENT = {
           },
           {
             "value": "muscle-soak",
-            "label": "Muscle Soak & Relief",
+            "label": "Long-Day Soaks",
             "description": "Epsom salts, sleep salve & tub unwinding",
             "recommendedProductIds": [
               "sleep-salve"
@@ -358,7 +367,7 @@ window.YL_CONTENT = {
           {
             "value": "ritual-bath",
             "label": "Ritual Bath & Unwind",
-            "description": "Clearing mists, bath salts & soothing soaks",
+            "description": "Clearing mists, bath salts & soaks",
             "recommendedProductIds": [
               "bath-tea",
               "cleansing-spray"
@@ -373,5 +382,41 @@ window.YL_CONTENT = {
         ]
       }
     ]
+  },
+  "search": {
+    "chipsTitle": "Popular Searches",
+    "popularChips": [
+      {
+        "label": "Bedtime & Wind-Down",
+        "query": "sleep",
+        "icon": "moon"
+      },
+      {
+        "label": "Bath Soaks",
+        "query": "soak",
+        "icon": "waves"
+      },
+      {
+        "label": "Dry, Rough Skin",
+        "query": "dry skin",
+        "icon": "droplet"
+      },
+      {
+        "label": "Bug Defense",
+        "query": "bug spray",
+        "icon": "shield"
+      },
+      {
+        "label": "Pop-Up Markets",
+        "query": "events",
+        "icon": "calendar"
+      },
+      {
+        "label": "Gift Cards",
+        "query": "gift card",
+        "icon": "gift"
+      }
+    ],
+    "extraSynonyms": []
   }
 };

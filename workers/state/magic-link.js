@@ -31,7 +31,19 @@
 
 const PREFIX = "v1";
 const DEFAULT_TTL_SECONDS = 15 * 60;
+/**
+ * Default ceiling on a token's life. Deliberately short: an order-status or
+ * points link that works for a day is plenty, and a stolen one stops working.
+ */
 const MAX_TTL_SECONDS = 24 * 60 * 60;
+/**
+ * A caller may raise its OWN ceiling up to this, and must say so explicitly
+ * (`maxTtlSeconds`). The retention emails do -- a "check your points" link at
+ * the foot of a day-2 email has to still work when someone digs the email out
+ * three weeks later, and a balance read is not a money-moving operation. Nothing
+ * on the money path passes it, so order-status keeps its 24h cap.
+ */
+const ABSOLUTE_MAX_TTL_SECONDS = 180 * 24 * 60 * 60;
 const MAX_TOKEN_LENGTH = 1024;
 
 const encoder = new TextEncoder();
@@ -88,7 +100,9 @@ function randomId() {
  * minting is free and an unused token simply expires.
  *
  * @param {string} secret env.MAGIC_LINK_SECRET
- * @param {{email: string, purpose: string, ttlSeconds?: number, now?: number}} claims
+ * @param {{email: string, purpose: string, ttlSeconds?: number,
+ *   maxTtlSeconds?: number, now?: number}} claims `maxTtlSeconds` raises this
+ *   call's own ceiling above the 24h default, up to 180 days.
  * @returns {Promise<{token: string, tokenId: string, expiresAt: number, email: string}>}
  *   `expiresAt` is epoch SECONDS, matching the `exp` claim.
  */
@@ -100,10 +114,11 @@ export async function signToken(secret, claims) {
   if (typeof params.purpose !== "string" || !/^[a-z0-9-]{3,32}$/.test(params.purpose)) {
     throw new TypeError("magic-link: purpose must be a short lowercase slug.");
   }
-  const ttl = Math.min(
-    Math.max(Number(params.ttlSeconds) || DEFAULT_TTL_SECONDS, 60),
-    MAX_TTL_SECONDS
+  const ceiling = Math.min(
+    Math.max(Number(params.maxTtlSeconds) || MAX_TTL_SECONDS, 60),
+    ABSOLUTE_MAX_TTL_SECONDS
   );
+  const ttl = Math.min(Math.max(Number(params.ttlSeconds) || DEFAULT_TTL_SECONDS, 60), ceiling);
   const nowSeconds = Math.floor((params.now || Date.now()) / 1000);
   const email = params.email.trim().toLowerCase();
   const payload = {

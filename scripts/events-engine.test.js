@@ -591,5 +591,202 @@ assert(
   "the past-events media-query listener is registered once"
 );
 
+/* -------------------------------------------------------------------------- */
+/* 8. Event JSON-LD structured data (Growth: local discovery §3/§6)          */
+/* -------------------------------------------------------------------------- */
+console.log("\n8. Event JSON-LD structured data:");
+
+const jsonLdEventWithTime = {
+  id: "test-jsonld-time",
+  name: "Test JSON-LD Market",
+  date: "2026-10-17T09:00:00-04:00",
+  location: "Landrum, SC",
+  zip: "29356",
+  note: "Pop-up market table with handmade salves, soaks & soaps."
+};
+const ldWithTime = main.buildEventJsonLd(jsonLdEventWithTime);
+eq(ldWithTime["@context"], "https://schema.org", "buildEventJsonLd sets @context to schema.org");
+eq(ldWithTime["@type"], "Event", "buildEventJsonLd sets @type to Event");
+eq(
+  ldWithTime.name,
+  "Y'allternative Living at Test JSON-LD Market",
+  "buildEventJsonLd names the event 'Y'allternative Living at <event name>'"
+);
+eq(
+  ldWithTime.startDate,
+  "2026-10-17T09:00:00-04:00",
+  "buildEventJsonLd derives the correct EDT (-04:00) offset for an October date"
+);
+eq(
+  ldWithTime.eventStatus,
+  "https://schema.org/EventScheduled",
+  "buildEventJsonLd sets eventStatus to EventScheduled"
+);
+eq(
+  ldWithTime.eventAttendanceMode,
+  "https://schema.org/OfflineEventAttendanceMode",
+  "buildEventJsonLd sets eventAttendanceMode to OfflineEventAttendanceMode"
+);
+assert(
+  !("organizer" in ldWithTime),
+  "buildEventJsonLd never sets organizer -- this shop is a vendor, not the host"
+);
+assert(
+  !("offers" in ldWithTime),
+  "buildEventJsonLd never sets offers -- there is no ticket to buy"
+);
+assert(
+  !("endDate" in ldWithTime),
+  "buildEventJsonLd omits endDate for a single-day event with no ev.endDate"
+);
+eq(
+  ldWithTime.location,
+  {
+    "@type": "Place",
+    address: {
+      "@type": "PostalAddress",
+      addressCountry: "US",
+      addressLocality: "Landrum",
+      addressRegion: "SC",
+      postalCode: "29356"
+    }
+  },
+  "buildEventJsonLd builds a Place/PostalAddress from location + zip, no street (note doesn't start with one)"
+);
+
+// A December date must resolve to EST (-05:00), not EDT.
+const wintertimeEvent = {
+  id: "test-jsonld-winter",
+  name: "Winter Market",
+  date: "2026-12-05T10:00:00-05:00",
+  location: "Landrum, SC"
+};
+eq(
+  main.buildEventJsonLd(wintertimeEvent).startDate,
+  "2026-12-05T10:00:00-05:00",
+  "buildEventJsonLd derives the correct EST (-05:00) offset for a December date, DST-aware"
+);
+
+// Multi-day event: endDate only included when ev.endDate is actually set,
+// and a street address is included when the note genuinely starts with one.
+const jsonLdMultiDay = {
+  id: "test-jsonld-multiday",
+  name: "Test Two-Day Market",
+  date: "2026-08-15",
+  endDate: "2026-08-16",
+  location: "Ladson, SC",
+  zip: "29456",
+  note: "9850 Highway 78, Ladson, SC 29456. Two-day punk flea market."
+};
+const ldMultiDay = main.buildEventJsonLd(jsonLdMultiDay);
+eq(
+  ldMultiDay.startDate,
+  "2026-08-15",
+  "buildEventJsonLd emits a bare YYYY-MM-DD startDate when the source date carries no time"
+);
+eq(
+  ldMultiDay.endDate,
+  "2026-08-16",
+  "buildEventJsonLd includes endDate for a genuine multi-day event (ev.endDate set)"
+);
+eq(
+  ldMultiDay.location.address.streetAddress,
+  "9850 Highway 78",
+  "buildEventJsonLd includes streetAddress when the note actually starts with one"
+);
+
+// A venue-name-first note (doesn't start with a street address) yields no
+// streetAddress at all -- never a guessed one.
+const jsonLdVenueFirst = {
+  id: "test-jsonld-venue",
+  name: "Venue First Market",
+  date: "2026-09-01",
+  location: "Charlotte, NC",
+  zip: "28206",
+  note: "NoDa Brewing Company, 150 W 32nd St, Charlotte, NC 28206."
+};
+assert(
+  !("streetAddress" in main.buildEventJsonLd(jsonLdVenueFirst).location.address),
+  "buildEventJsonLd omits streetAddress when the note starts with a venue name, not a street address"
+);
+
+// buildEventJsonLd / buildEventsJsonLd guard against unusable input.
+eq(main.buildEventJsonLd(null), null, "buildEventJsonLd returns null for a null event");
+eq(
+  main.buildEventJsonLd({ date: "2026-08-15" }),
+  null,
+  "buildEventJsonLd returns null for an event with no name"
+);
+eq(
+  main.buildEventJsonLd({ name: "No Date Market" }),
+  null,
+  "buildEventJsonLd returns null for an event with no parseable date"
+);
+
+const mixedEvents = [
+  jsonLdEventWithTime,
+  { name: "Bad Event", date: "not-a-date" },
+  jsonLdMultiDay
+];
+const builtLdArray = main.buildEventsJsonLd(mixedEvents);
+eq(builtLdArray.length, 2, "buildEventsJsonLd filters out events it can't build valid JSON-LD for");
+eq(
+  builtLdArray.map((ld) => ld.name),
+  ["Y'allternative Living at Test JSON-LD Market", "Y'allternative Living at Test Two-Day Market"],
+  "buildEventsJsonLd preserves order and keeps only the buildable events"
+);
+eq(main.buildEventsJsonLd([]), [], "buildEventsJsonLd returns an empty array for no events");
+eq(main.buildEventsJsonLd(null), [], "buildEventsJsonLd guards a non-array input");
+
+/* -------------------------------------------------------------------------- */
+/* 9. Organizer invite line + event-specific market-date email capture       */
+/* -------------------------------------------------------------------------- */
+console.log("\n9. Organizer invite + market-date email capture:");
+
+const inviteHtml = main.eventInviteOrganizerHTML();
+assert(
+  inviteHtml.indexOf('href="mailto:y.allternative.living@gmail.com') !== -1,
+  "eventInviteOrganizerHTML links to the shop's real inbox"
+);
+assert(
+  inviteHtml.toLowerCase().indexOf("invite") !== -1,
+  "eventInviteOrganizerHTML actually invites organizers to reach out"
+);
+
+const kitSite = { kitFormAction: "https://app.kit.com/forms/9867317/subscriptions" };
+const captureHtml = main.eventEmailCaptureHTML(kitSite);
+assert(
+  captureHtml.indexOf('action="https://app.kit.com/forms/9867317/subscriptions"') !== -1,
+  "eventEmailCaptureHTML posts to the real Kit form action from site.kitFormAction"
+);
+assert(
+  captureHtml.indexOf('name="fields[interest]" value="events"') !== -1,
+  "eventEmailCaptureHTML tags the submission fields[interest]=events"
+);
+assert(
+  captureHtml.indexOf('name="email_address"') !== -1,
+  "eventEmailCaptureHTML posts the field name Kit expects"
+);
+assert(
+  captureHtml.indexOf('class="form-hp"') !== -1,
+  "eventEmailCaptureHTML carries the shared honeypot field"
+);
+
+eq(
+  main.eventEmailCaptureHTML({}),
+  "",
+  "eventEmailCaptureHTML renders nothing when site.kitFormAction is absent"
+);
+eq(
+  main.eventEmailCaptureHTML(null),
+  "",
+  "eventEmailCaptureHTML renders nothing when site config itself is absent"
+);
+eq(
+  main.eventEmailCaptureHTML({ kitFormAction: "javascript:alert(1)" }),
+  "",
+  "eventEmailCaptureHTML refuses a non-https kitFormAction rather than emitting a hostile form action"
+);
+
 console.log(`\nevents-engine.test.js: ${passed} passed, ${failed} failed.`);
 process.exit(failed ? 1 : 0);

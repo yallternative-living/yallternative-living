@@ -5,7 +5,7 @@
  */
 
 /** @const {string} Cache name key, updated on assets release. */
-const CACHE_NAME = "yallternative-cache-v0d2d2e65568d";
+const CACHE_NAME = "yallternative-cache-vdecffc28be46";
 
 /** @const {!Array<string>} Array of absolute URLs to be cached on installation. */
 const ASSETS_TO_CACHE = [
@@ -14,6 +14,7 @@ const ASSETS_TO_CACHE = [
   '/shop.html',
   '/about.html',
   '/contact.html',
+  '/safety.html',
   '/events.html',
   '/faq.html',
   '/policies.html',
@@ -44,6 +45,15 @@ const ASSETS_TO_CACHE = [
   '/assets/js/image-manifest.js',
   '/assets/js/translator.js',
   '/assets/js/gift-card.js',
+  // Self-hosted webfonts (2026-09 perf pass). Precaching them is cheap -- 69KB
+  // of WOFF2 all told -- and it is what makes an offline repeat visit render
+  // in the real typefaces instead of the metric-matched fallback stack. They
+  // were never cacheable while they came from fonts.gstatic.com: those are
+  // opaque cross-origin responses.
+  '/assets/fonts/gloock-400.woff2',
+  '/assets/fonts/dm-sans-400.woff2',
+  '/assets/fonts/dm-sans-500.woff2',
+  '/assets/fonts/dm-sans-700.woff2',
   '/site.webmanifest',
   '/favicon.ico',
   '/assets/img/logo.png',
@@ -150,7 +160,21 @@ self.addEventListener('fetch', event => {
             // instead of kicking off a second fetch.
             let response = isNavigation ? await event.preloadResponse : null;
             if (!response) {
-              response = await fetch(event.request);
+              // cache: "reload" bypasses the *browser's* HTTP cache for this
+              // leg. Without it the network-first strategy was only
+              // network-first in name for code assets: netlify.toml serves
+              // /assets/js/* and /assets/css/* with `max-age=604800` at a
+              // static URL (`main.js?v=2.0` -- a hand-set string, not a
+              // per-deploy hash), so a shopper who visited in the last seven
+              // days had this fetch() silently satisfied from their own disk
+              // cache. The service worker then wrote those stale bytes into
+              // the freshly-rotated CACHE_NAME, defeating the whole point of
+              // the content digest build-site-data.js computes. `reload` still
+              // writes the fresh response back into the HTTP cache, so the
+              // next non-SW consumer benefits too. Navigations are unaffected
+              // either way (Netlify forces must-revalidate on HTML) and the
+              // preloaded response above is used untouched when present.
+              response = await fetch(event.request, { cache: "reload" });
             }
             if (response && response.status === 200) {
               const responseClone = response.clone();

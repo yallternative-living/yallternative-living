@@ -3888,7 +3888,8 @@ body > .skiptranslate {
   max-width: 1040px;
   margin: 0 0 22px;
   font-size: 1.05rem;
-}.shop-cta-actions {
+}
+.shop-cta-actions {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -5292,7 +5293,7 @@ dialog.restock-alert-modal {
     padding-left: 6px;
   }
   .thank-you-timeline::before {
-    content: '';
+    content: "";
     position: absolute;
     left: 20px;
     top: 24px;
@@ -7388,8 +7389,6 @@ a.pdp-ritual-item-name:focus-visible {
   margin-top: 4px;
 }
 
-
-
 /* ── Product detail pages (real pages since 2026-09-01) ─────────── */
 .pdp-eyebrow {
   display: flex;
@@ -7797,4 +7796,721 @@ a.pdp-ritual-item-name:focus-visible {
 }
 .pdp-safety-foot {
   margin: 10px 0 0;
+}
+
+/* =====================================================================
+   LAYOUT-SHIFT RESERVATIONS (performance pass, 2026-09-02)
+   ---------------------------------------------------------------------
+   Every rule below reserves, before the deferred main.js runs, the exact
+   space a JS-rendered block is about to occupy. Measured CLS before this
+   block (mobile 393x851, Fast-4G, 4x CPU): shop.html 0.46, events.html
+   0.62, about/faq/contact/policies/... 0.053. The dominant cost was never
+   the product grid itself -- the grid starts below the fold on a phone and
+   its growth pushes only off-screen content. What actually moved the
+   viewport was (a) the announcement bar main.js inserts ABOVE the header on
+   every page, and (b) the shop toolbar / events countdown banner growing
+   from near-zero to several hundred pixels right at the fold.
+
+   Every reservation is gated on the emptiness of the container main.js
+   fills, so the reserved height disappears in the same frame the real
+   content lands: no double-counting, and no permanent gap once a block
+   renders. The pixel values come from a width sweep in 8px steps
+   (scratchpad/perf/sweep.js) against the current products.json /
+   events.json, re-run it if the catalogue's category or concern pills
+   change enough to re-wrap the toolbar.
+   ===================================================================== */
+
+/* --- 1. Announcement bar (all pages) ---------------------------------
+   assets/js/main.js announcementBar() inserts .announcement-bar directly
+   before .site-header on every page that does not already ship one
+   statically (index.html does, as #yl-countdown-ticker). That insertion
+   moved the entire document down 38-61px depending on width, which on its
+   own is ~0.05 CLS on every content page. Reserve it on the header while
+   no bar exists yet; the :has() test flips off the instant one is inserted
+   AND is already false on index.html, whose bar is in the static markup.
+   If the shop owner ever turns the announcement off in /admin *and*
+   clears shop.freeShippingThreshold, main.js inserts nothing and this
+   leaves a blank strip -- both are set today (content.json
+   site.announcement.enabled, products.json shop.freeShippingThreshold),
+   and a browser without :has() support simply keeps the old behaviour. */
+body:not(:has(.announcement-bar)) .site-header {
+  margin-top: 61px;
+}
+@media (min-width: 376px) {
+  body:not(:has(.announcement-bar)) .site-header {
+    margin-top: 46px;
+  }
+}
+@media (min-width: 712px) {
+  body:not(:has(.announcement-bar)) .site-header {
+    margin-top: 38px;
+  }
+}
+
+/* --- 2. shop.html toolbar -------------------------------------------
+   #filterRow, #concernFilterRow and #scentFieldWrap all ship empty and are
+   filled by buildFilters() in main.js, taking .shop-toolbar from 169px to
+   541px at 393px wide. That is the single largest shift on the page: it
+   sits at the fold, so everything below it (the sort row, the policy note,
+   the grid) is displaced by up to ~370px. The ladder tracks where the
+   category/concern pills re-wrap. */
+.shop-toolbar:has(#filterRow:empty) {
+  min-height: 628px;
+}
+@media (min-width: 336px) {
+  .shop-toolbar:has(#filterRow:empty) {
+    min-height: 587px;
+  }
+}
+@media (min-width: 368px) {
+  .shop-toolbar:has(#filterRow:empty) {
+    min-height: 544px;
+  }
+}
+@media (min-width: 400px) {
+  .shop-toolbar:has(#filterRow:empty) {
+    min-height: 503px;
+  }
+}
+@media (min-width: 408px) {
+  .shop-toolbar:has(#filterRow:empty) {
+    min-height: 460px;
+  }
+}
+@media (min-width: 480px) {
+  .shop-toolbar:has(#filterRow:empty) {
+    min-height: 419px;
+  }
+}
+@media (min-width: 496px) {
+  .shop-toolbar:has(#filterRow:empty) {
+    min-height: 370px;
+  }
+}
+@media (min-width: 568px) {
+  .shop-toolbar:has(#filterRow:empty) {
+    min-height: 327px;
+  }
+}
+@media (min-width: 608px) {
+  .shop-toolbar:has(#filterRow:empty) {
+    min-height: 322px;
+  }
+}
+@media (min-width: 680px) {
+  .shop-toolbar:has(#filterRow:empty) {
+    min-height: 233px;
+  }
+}
+@media (min-width: 904px) {
+  .shop-toolbar:has(#filterRow:empty) {
+    min-height: 253px;
+  }
+}
+@media (min-width: 984px) {
+  .shop-toolbar:has(#filterRow:empty) {
+    min-height: 217px;
+  }
+}
+@media (min-width: 1048px) {
+  .shop-toolbar:has(#filterRow:empty) {
+    min-height: 174px;
+  }
+}
+@media (min-width: 1112px) {
+  .shop-toolbar:has(#filterRow:empty) {
+    min-height: 156px;
+  }
+}
+@media (min-width: 1168px) {
+  .shop-toolbar:has(#filterRow:empty) {
+    min-height: 135px;
+  }
+}
+
+/* --- 3. shop.html result count + product grid ------------------------
+   #shopCount is one line of live-region text (22px at every width).
+   #shopGrid holds 19 cards -- 15,900px tall on a phone, 6,000px at three
+   columns -- so it only ever GROWS past the reservation and can never pull
+   content back up. One row's worth is reserved, which is all the viewport
+   can ever see, and a soft skeleton fills it so a slow connection shows a
+   loading catalogue rather than a blank hole. */
+#shopCount:empty {
+  min-height: 22px;
+}
+#shopGrid:empty,
+#featuredGrid:empty {
+  min-height: 740px;
+}
+@media (min-width: 981px) {
+  #shopGrid:empty,
+  #featuredGrid:empty {
+    min-height: 920px;
+  }
+}
+
+/* --- 4. events.html countdown banner + upcoming grid -----------------
+   #eventsCountdownBanner carried a hand-set inline min-height of 76px that
+   was less than half the 162-191px it actually renders at. #upcomingEvents
+   ships empty and renders one card per upcoming event in events.json.
+   Both sit above the fold, so together they were displacing #pastEvents by
+   ~480px. Unlike the shop grid these are SMALL blocks whose real height is
+   close to the reservation, so the ladders below are sized to the measured
+   render rather than rounded up -- over-reserving here would trade a
+   downward shift for an equally expensive upward one. */
+#eventsCountdownBanner:empty {
+  min-height: 191px;
+}
+@media (min-width: 432px) {
+  #eventsCountdownBanner:empty {
+    min-height: 162px;
+  }
+}
+@media (min-width: 712px) {
+  #eventsCountdownBanner:empty {
+    min-height: 167px;
+  }
+}
+#upcomingEvents:empty {
+  min-height: 391px;
+}
+@media (min-width: 336px) {
+  #upcomingEvents:empty {
+    min-height: 367px;
+  }
+}
+@media (min-width: 464px) {
+  #upcomingEvents:empty {
+    min-height: 344px;
+  }
+}
+@media (min-width: 608px) {
+  #upcomingEvents:empty {
+    min-height: 393px;
+  }
+}
+@media (min-width: 696px) {
+  #upcomingEvents:empty {
+    min-height: 370px;
+  }
+}
+
+/* --- 5. Skeleton shimmer for the reserved grid ------------------------
+   Purely decorative: a pseudo-element, so it costs no markup, is invisible
+   to the accessibility tree, and vanishes the moment the container stops
+   being :empty. Respects prefers-reduced-motion. */
+#shopGrid:empty::before,
+#featuredGrid:empty::before,
+#upcomingEvents:empty::before {
+  content: "";
+  display: block;
+  grid-column: 1 / -1;
+  min-height: inherit;
+  border: 1px solid var(--hide);
+  border-radius: var(--radius-lg, 14px);
+  background: linear-gradient(
+    100deg,
+    var(--ink-2) 30%,
+    color-mix(in srgb, var(--ink-2) 80%, var(--paper) 20%) 50%,
+    var(--ink-2) 70%
+  );
+  background-size: 300% 100%;
+  animation: yl-skeleton-sheen 1.6s ease-in-out infinite;
+}
+@keyframes yl-skeleton-sheen {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #shopGrid:empty::before,
+  #featuredGrid:empty::before,
+  #upcomingEvents:empty::before {
+    animation: none;
+  }
+}
+
+/* ==========================================================
+   Growth features: analytics/reviews/events/search additions.
+   Appended, not merged into the sections above -- see file header
+   convention (another agent appends here too).
+   ========================================================== */
+
+/* Visible review count next to the product card star row (main.js
+   ratingHTML) -- now shown from 1 review instead of 3+. aria-hidden
+   because the adjacent .sr-only span already announces the same count
+   in full sentence form; this is the sighted-only echo of it. */
+.card-rating-count {
+  font-size: 0.78rem;
+  color: var(--paper-dim);
+  margin-left: 4px;
+}
+
+/* Star-distribution summary above the review grid (main.js
+   reviewDistributionHTML), reviews.html and shop.html's #reviews section. */
+.review-distribution {
+  display: grid;
+  gap: 6px;
+  max-width: 420px;
+  margin: 0 0 28px;
+}
+.review-dist-row {
+  display: grid;
+  grid-template-columns: 34px 1fr 28px;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: var(--paper-dim);
+}
+.review-dist-label {
+  text-align: right;
+}
+.review-dist-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--ink-3);
+  overflow: hidden;
+}
+.review-dist-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--success);
+}
+.review-dist-count {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Owner reply under a review (main.js renderReviewCardHtml's ownerReply,
+   admin/config.yml's reviews.ownerReply -- optional, CMS-authored). */
+.review-owner-reply {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-left: 3px solid var(--whiskey);
+  background: var(--ink-3);
+  border-radius: 0 var(--radius-md, 8px) var(--radius-md, 8px) 0;
+  font-size: 0.9rem;
+}
+.review-owner-reply-label {
+  margin: 0 0 4px;
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--whiskey);
+}
+.review-owner-reply p:last-child {
+  margin: 0;
+  color: var(--paper-dim);
+}
+
+/* Global search "no results" suggestion row (main.js renderNoResultsHtml) --
+   sits under the popular-search chips, links to the full shop and contact. */
+.search-empty-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 20px;
+  margin-top: 16px;
+}
+.search-empty-link {
+  font-size: 0.88rem;
+  color: var(--whiskey);
+  text-decoration: underline;
+}
+.search-empty-link:hover,
+.search-empty-link:focus-visible {
+  color: var(--paper);
+}
+
+/* "Invite us to your market" line + the event-specific "email me the next
+   market date" capture, rendered under the upcoming events list by main.js
+   (eventInviteOrganizerHTML / eventEmailCaptureHTML). .events-market-alert-
+   form's honeypot div reuses the shared .form-hp rule defined above. */
+.events-followup-panel {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--hide);
+  text-align: center;
+}
+.events-invite-organizer {
+  color: var(--paper-dim);
+  margin: 0 0 16px;
+}
+.events-invite-organizer a {
+  color: var(--whiskey);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.events-market-alert-form {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  max-width: 420px;
+  margin: 0 auto;
+}
+.events-market-alert-form input[type="email"] {
+  flex: 1 1 220px;
+  padding: 10px 14px;
+  background: var(--ink-2);
+  border: 1px solid var(--hide);
+  border-radius: var(--radius-md, 8px);
+  color: var(--paper);
+  font-size: 0.9rem;
+}
+.events-market-alert-form input[type="email"]:focus {
+  border-color: var(--whiskey);
+  outline: 2px solid var(--whiskey);
+  outline-offset: 1px;
+}
+
+/* =====================================================================
+   SELF-HOSTED WEBFONTS  (performance pass, 2026-09-02)
+   ---------------------------------------------------------------------
+   Gloock and DM Sans now ship from assets/fonts/ (69KB of WOFF2 in total,
+   downloaded by scripts/self-host-fonts.js) instead of fonts.gstatic.com.
+   That removes two cross-origin DNS+TLS handshakes -- fonts.googleapis.com
+   for the CSS and fonts.gstatic.com for the files -- from the critical path.
+
+   These rules live in styles.css, which EVERY page loads, and styles.css is
+   linked after the Google Fonts stylesheet on the pages that still carry
+   one. Later @font-face rules win for the same family/weight/style, so the
+   self-hosted files are the ones actually used site-wide, and gstatic is
+   never asked for a file even on a page whose <head> still references it.
+   The 19 generated products/*.html pages plus welcome.html and
+   thank-you.html still carry the old <head> block: their heads are emitted
+   by scripts/build-site-data.js:4824-4831 (regenerating them needs a
+   build-data run) or owned elsewhere. Until those are converted the CSP
+   keeps https://fonts.googleapis.com in style-src and
+   https://fonts.gstatic.com in font-src -- see the performance-pass note in
+   docs/AUDIT-2026-09-01.md.
+
+   Metric-matched fallbacks: the size-adjust / ascent-override /
+   descent-override numbers below are measured, not guessed. At 100px,
+   "Handgloves Wq 0123" advances 958.60px in DM Sans against 956.15px in
+   Arial (=> 100.26%) and 919.90px in Gloock against 940.19px in Georgia
+   (=> 97.84%); fontBoundingBoxAscent/Descent give 99%/31% for DM Sans and
+   98%/23% for Gloock. Re-derive with scratchpad/perf/font-metrics.js if the
+   families ever change. local() means the fallback face simply drops out on
+   a machine without Arial/Georgia -- the stack behind it still applies.
+   ===================================================================== */
+@font-face {
+  font-family: "Gloock";
+  src: url("../fonts/gloock-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "DM Sans";
+  src: url("../fonts/dm-sans-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "DM Sans";
+  src: url("../fonts/dm-sans-500.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "DM Sans";
+  src: url("../fonts/dm-sans-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "DM Sans Fallback";
+  src:
+    local("Arial"),
+    local("Helvetica Neue"),
+    local("Liberation Sans");
+  size-adjust: 100.26%;
+  ascent-override: 99%;
+  descent-override: 31%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Gloock Fallback";
+  src:
+    local("Georgia"),
+    local("Times New Roman"),
+    local("Liberation Serif");
+  size-adjust: 97.84%;
+  ascent-override: 98%;
+  descent-override: 23%;
+  line-gap-override: 0%;
+}
+
+/* Re-declared here rather than edited in place at :root above -- this file is
+   append-only for this pass. Same values as before with the metric-matched
+   fallback slotted in front of the generic families, so the swap from
+   fallback to real font no longer re-flows the paragraph it happens in.
+   "CleanAmpersand" stays first: it is scoped to unicode-range U+0026 and
+   exists only to borrow the system font's ampersand. */
+:root {
+  --font-display: "CleanAmpersand", "Gloock", "Gloock Fallback", "Georgia", serif;
+  --font-body:
+    "CleanAmpersand", "DM Sans", "DM Sans Fallback", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+}
+
+/* =====================================================================
+   REPORT A REACTION (safety.html)
+   ---------------------------------------------------------------------
+   The MoCRA adverse-event form. The shared .field rules above already
+   cover the inputs, textareas and selects on this page, so what follows
+   is only what the shared rules do not have: fieldset grouping, the
+   checkbox/radio lists, the hint and error lines, and the two result
+   panels. Appended at the end of the file rather than edited in place --
+   this file is append-only for this pass.
+
+   Contrast note: every colour here is a plain token used at full
+   opacity, never `oklch(from var(--x) ... / <alpha>)` over a light
+   surface. That translucent-tint pattern is what produced the 23
+   colour-contrast failures the 2026-09-01 audit had to fix at the token
+   level; there is no reason to reintroduce it for a page whose whole job
+   is being readable by someone having a bad day.
+   ===================================================================== */
+
+.safety-prose,
+.safety-form-wrap {
+  max-width: 760px;
+}
+
+.safety-prose h2,
+.safety-form-wrap h2 {
+  margin-bottom: 16px;
+}
+
+.safety-form-desc {
+  color: var(--paper-dim);
+  margin-bottom: 32px;
+}
+
+/* Numbered first-aid steps. The marker is the browser's own <ol> number,
+   kept rather than replaced so the list still reads as a sequence with
+   images off and in a screen reader's list announcement. */
+.safety-steps {
+  list-style: decimal;
+  padding-left: 1.4em;
+  margin: 0;
+}
+
+.safety-steps > li {
+  margin-bottom: 26px;
+}
+
+.safety-steps h3 {
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0 0 0.35em;
+}
+
+.safety-steps p {
+  margin: 0;
+}
+
+.safety-next {
+  list-style: disc;
+  padding-left: 1.3em;
+  margin: 0 0 24px;
+}
+
+.safety-next > li {
+  margin-bottom: 12px;
+}
+
+.safety-note {
+  color: var(--paper-dim);
+  font-size: 0.95rem;
+}
+
+/* --- the form ------------------------------------------------------- */
+
+.safety-fieldset {
+  border: 1px solid var(--hide);
+  border-radius: var(--radius);
+  padding: 24px 20px 6px;
+  margin: 0 0 28px;
+}
+
+.safety-fieldset > legend {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  padding: 0 8px;
+  color: var(--paper);
+}
+
+/* Two fields side by side where they are a natural pair (the two dates,
+   age + sex). Collapses to one column on a phone. */
+.safety-field-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 0 18px;
+}
+
+.safety-optional {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+  color: var(--paper-dim);
+}
+
+.safety-hint {
+  font-size: 0.85rem;
+  color: var(--paper-dim);
+  margin: -10px 0 0;
+}
+
+.safety-error {
+  font-size: 0.85rem;
+  color: var(--error);
+  font-weight: 600;
+  margin: 6px 0 0;
+}
+
+/* A control the validator has flagged. Not colour alone: the message
+   below it says what is wrong, and aria-invalid carries it to a screen
+   reader -- the border is the third signal, not the only one. */
+.safety-form [aria-invalid="true"] {
+  border-color: var(--error);
+}
+
+/* Checkbox and radio groups. A nested fieldset, so the question is the
+   group's accessible name rather than a paragraph that happens to sit
+   above it. */
+.safety-checkgroup {
+  border: 0;
+  padding: 0;
+  margin: 0 0 22px;
+}
+
+.safety-checkgroup > legend {
+  display: block;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--paper-dim);
+  margin-bottom: 8px;
+  font-weight: 600;
+  padding: 0;
+}
+
+.safety-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.safety-checks-inline {
+  flex-direction: row;
+  gap: 22px;
+}
+
+/* The whole row is the label, so the hit area clears the WCAG 2.2
+   target-size minimum without a hand-set width -- the padding does it. */
+.safety-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 7px 4px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: var(--paper);
+}
+
+.safety-check:hover {
+  background: var(--ink-3);
+}
+
+.safety-check input {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  margin: 2px 0 0;
+  accent-color: var(--whiskey);
+  flex: none;
+}
+
+.safety-check input:focus-visible {
+  outline: 2px solid var(--whiskey);
+  outline-offset: 2px;
+}
+
+.safety-consent {
+  margin-top: 8px;
+}
+
+.safety-privacy-note {
+  margin-top: 16px;
+}
+
+/* --- result panels --------------------------------------------------- */
+
+.safety-result {
+  border: 1px solid var(--hide);
+  border-left-width: 4px;
+  border-radius: var(--radius);
+  padding: 20px 22px;
+  margin-bottom: 28px;
+}
+
+/* `hidden` has to win over the block-level rule above it. This is the
+   same defect the thank-you page shipped: a display value on the class
+   beat the attribute and the panel showed on every load. */
+.safety-result[hidden] {
+  display: none;
+}
+
+.safety-result h3 {
+  margin: 0 0 10px;
+  font-family: var(--font-body);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.safety-result p {
+  margin: 0 0 10px;
+}
+
+.safety-result p:last-child {
+  margin-bottom: 0;
+}
+
+.safety-result-success {
+  border-left-color: var(--success);
+}
+
+.safety-result-error {
+  border-left-color: var(--error);
+}
+
+.safety-reference {
+  font-family: var(--font-display);
+  letter-spacing: 0.12em;
+  font-size: 1.15rem;
+  white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  .safety-fieldset {
+    padding: 20px 14px 4px;
+  }
+
+  .safety-checks-inline {
+    gap: 14px;
+  }
 }

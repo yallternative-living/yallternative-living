@@ -1139,5 +1139,110 @@ assert(
   "renderProductPdpHtml does not render batch date badge for regular in-stock item"
 );
 
+// ---------------------------------------------------------------------------
+// content.json "search" (editable in /admin): extra synonyms and safety notes
+// ---------------------------------------------------------------------------
+(function () {
+  function throwsMatching(fn, re) {
+    try {
+      fn();
+    } catch (e) {
+      return re.test(String(e && e.message));
+    }
+    return false;
+  }
+  const base = { lavender: ["lavendar"], sleep: ["insomnia", "bedtime"] };
+
+  let merged = buildScript.buildSearchSynonyms(base, undefined);
+  eq(merged, base, "buildSearchSynonyms: no extras returns the defaults");
+  merged.lavender.push("x");
+  eq(base.lavender.length, 1, "buildSearchSynonyms: must not mutate the defaults");
+
+  merged = buildScript.buildSearchSynonyms(base, [
+    { key: "Bath Tea", terms: ["Tub tea", "bath sachet", " "] },
+    { key: "sleep", terms: ["lights out", "insomnia"] }
+  ]);
+  eq(
+    merged.bath_tea,
+    ["tub tea", "bath sachet"],
+    "buildSearchSynonyms: CMS key is snake_cased and terms trimmed"
+  );
+  eq(
+    merged.sleep,
+    ["insomnia", "bedtime", "lights out"],
+    "buildSearchSynonyms: existing key gains new terms without duplicates"
+  );
+
+  assert(
+    throwsMatching(() => buildScript.buildSearchSynonyms(base, { key: "x" }), /list/),
+    "buildSearchSynonyms: non-list extras are refused"
+  );
+  assert(
+    throwsMatching(() => buildScript.buildSearchSynonyms(base, [{ terms: ["a"] }]), /needs a key/),
+    "buildSearchSynonyms: entry without a key is refused"
+  );
+  assert(
+    throwsMatching(
+      () => buildScript.buildSearchSynonyms(base, [{ key: "x", terms: [] }]),
+      /no words/
+    ),
+    "buildSearchSynonyms: entry without words is refused"
+  );
+  assert(
+    throwsMatching(
+      () => buildScript.buildSearchSynonyms(base, [{ key: "wound care", terms: ["a"] }]),
+      /treatment claim/
+    ),
+    "buildSearchSynonyms: a claim word in the key is refused"
+  );
+  assert(
+    throwsMatching(
+      () => buildScript.buildSearchSynonyms(base, [{ key: "salve", terms: ["eczema treatment"] }]),
+      /treatment claim/
+    ),
+    "buildSearchSynonyms: a claim word in a term is refused"
+  );
+
+  const notes = buildScript.resolveSafetyNotes({ stopUse: "  Stop if it stings. ", patchTest: "" });
+  eq(
+    notes.stopUse,
+    "Stop if it stings.",
+    "resolveSafetyNotes: CMS text overrides a line (trimmed)"
+  );
+  assert(
+    /24 hours/.test(notes.patchTest),
+    "resolveSafetyNotes: a blank override falls back to the default"
+  );
+  assert(
+    /external use/i.test(buildScript.resolveSafetyNotes(null).externalUse),
+    "resolveSafetyNotes: null overrides give the defaults"
+  );
+
+  const cfg = buildScript.getSearchConfig({
+    search: {
+      chipsTitle: "  Try these ",
+      popularChips: [{ label: "Soaks", query: "soak", icon: "waves" }]
+    }
+  });
+  eq(cfg.chipsTitle, "Try these", "getSearchConfig: title is trimmed");
+  eq(
+    cfg.popularChips,
+    [{ label: "Soaks", query: "soak", icon: "waves" }],
+    "getSearchConfig: valid CMS chips pass through"
+  );
+  const chipHtml = buildScript.renderSearchChipsHtml(
+    [{ label: "A & B", query: '"x', icon: "moon" }],
+    ""
+  );
+  assert(
+    chipHtml.indexOf('data-search-query="&quot;x"') !== -1,
+    "renderSearchChipsHtml: query is attribute-escaped"
+  );
+  assert(
+    chipHtml.indexOf("<span>A &amp; B</span>") !== -1,
+    "renderSearchChipsHtml: label is HTML-escaped"
+  );
+})();
+
 console.log(`\nbuild-site-data.test.js: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

@@ -69,12 +69,19 @@
     var isFreshOrder = isValidSession && hasAmount && claimSession(sessionId);
 
     if (isFreshOrder && typeof window.plausible === "function") {
+      /* FLAT props, not a nested revenue object.
+
+         `window.plausible` here is Umami's Plausible-compatible shim (see
+         main.js), and Umami stores each prop as one scalar key/value pair --
+         it has no concept of a nested object, so `props.revenue = {currency,
+         amount}` was stored as the string "[object Object]" and every Purchase
+         event in the dashboard reported no revenue at all. Umami's own
+         revenue-tracking contract is a numeric `revenue` and a string
+         `currency` at the top level of props, which is what this sends. */
       window.plausible("Purchase", {
         props: {
-          revenue: {
-            currency: currency,
-            amount: amount
-          }
+          revenue: amount,
+          currency: currency
         }
       });
     }
@@ -123,6 +130,15 @@
       }
       if (cardEl) cardEl.hidden = true;
       if (badgeWrapEl) badgeWrapEl.hidden = true;
+    } else {
+      /* The receipt card and the "paid" badge ship hidden in the markup so a
+         session-less visit never paints ~390px of receipt and then yanks it
+         away (that jump measured as a 0.31 layout shift on mobile). Reveal
+         them only once the session id has passed validation. */
+      var cardShow = document.getElementById("thankYouCard");
+      var badgeShow = document.getElementById("thankYouBadgeWrap");
+      if (cardShow) cardShow.hidden = false;
+      if (badgeShow) badgeShow.hidden = false;
     }
 
     var sessionRow = document.getElementById("thankYouSessionRow");
@@ -298,4 +314,100 @@
   } catch {
     /* Never let a query-param hiccup break this page's "thanks!" message. */
   }
+})();
+
+/* ==========================================================
+   Birthday Club -- POST /api/birthday-club
+
+   The form's `action` already points at the Worker, so this page works with
+   JavaScript off (the Worker answers a form post with a 303 back to
+   ?birthday=saved). This block upgrades it to a fetch so nobody loses their
+   place on the page, and reads that query parameter on load so the no-JS path
+   still gets told what happened.
+
+   MM/DD only. No year is collected here, stored, or accepted by the route.
+   ========================================================== */
+(function () {
+  "use strict";
+
+  var form = document.getElementById("birthdayClubForm");
+  var status = document.getElementById("birthdayClubStatus");
+  if (!status) return;
+
+  function say(message, isError) {
+    status.textContent = message;
+    status.hidden = false;
+    /* A failure has to be announced as one, not just coloured differently:
+       role="status" is polite and does not imply severity. */
+    status.setAttribute("role", isError ? "alert" : "status");
+  }
+
+  /* The no-JS round trip lands back here with its result in the URL. */
+  try {
+    var landed = new URLSearchParams(window.location.search).get("birthday");
+    if (landed === "saved") {
+      say("You're in. We'll send something your way on the day.", false);
+    } else if (landed === "error") {
+      say("That didn't save. Check the email and the MM/DD date and try again.", true);
+    }
+  } catch {
+    /* A URL we cannot parse is not worth breaking the page over. */
+  }
+
+  if (!form || typeof fetch !== "function") return;
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var emailInput = document.getElementById("bday_email");
+    var dateInput = document.getElementById("bday_date");
+    var honeypot = form.querySelector('input[name="website_hp"]');
+    if (honeypot && honeypot.value) return; /* silent, same as the restock form */
+
+    var email = emailInput ? emailInput.value.trim() : "";
+    var birthday = dateInput ? dateInput.value.trim() : "";
+    if (!email || !birthday) {
+      say("We need both the email and the MM/DD date.", true);
+      return;
+    }
+
+    var button = form.querySelector('button[type="submit"]');
+    var label = button ? button.textContent : "";
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Saving...";
+    }
+    function restore() {
+      if (!button) return;
+      button.disabled = false;
+      button.textContent = label;
+    }
+
+    fetch(form.action, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ email: email, birthday: birthday })
+    })
+      .then(function (res) {
+        return res.json().then(function (body) {
+          return { ok: res.ok, body: body || {} };
+        });
+      })
+      .then(function (result) {
+        restore();
+        /* Never claim success on a response that did not say so. The footer
+           newsletter form used to show its confirmation for every outcome,
+           including refusals, which is how someone ends up believing they
+           signed up for something they did not. */
+        if (result.ok && result.body.success) {
+          say(result.body.message || "You're in. We'll send something on the day.", false);
+          form.reset();
+        } else {
+          say(result.body.error || "That didn't save. Please try again in a moment.", true);
+        }
+      })
+      .catch(function () {
+        restore();
+        say("We couldn't reach the server. Please try again in a moment.", true);
+      });
+  });
 })();

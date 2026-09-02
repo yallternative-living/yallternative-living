@@ -787,6 +787,139 @@ it("Executes 10,000 diverse synthetic queries with average latency < 1.0ms per q
 });
 
 // =============================================================================
+// SUITE 7: Shop-Grid Quick-Filter Synonym Table -- Adversarial & Precision
+//
+// buildFilters() in main.js (shop.html's #shopSearch box) carries its own
+// SYNONYM_GROUPS / CATEGORY_TERMS table, separate from the searchGlobal()
+// synonyms exercised everywhere above. Neither the table nor the
+// expandQuery()/matchesQuery() functions that read it are exported by
+// main.js, so this loads the real source text for that block (byte for
+// byte, not a re-implementation) the same way scripts/semantic-search.test.js
+// does, then throws the same adversarial payload style at it that the rest
+// of this file uses against searchGlobal().
+// =============================================================================
+console.log("\n--- 7. Shop-Grid Synonym Table: Adversarial & Precision ---");
+
+function loadShopGridSearchEngine() {
+  const src = fs.readFileSync(path.join(ROOT, "assets", "js", "main.js"), "utf8");
+  const startMarker = "var STOPWORDS = new Set([";
+  const fnMarker = "function matchesQuery(p, qContext) {";
+  const startIdx = src.indexOf(startMarker);
+  const fnIdx = src.indexOf(fnMarker, startIdx);
+  let i = src.indexOf("{", fnIdx);
+  let depth = 0;
+  let endIdx = -1;
+  for (; i < src.length; i++) {
+    if (src[i] === "{") depth++;
+    else if (src[i] === "}") {
+      depth--;
+      if (depth === 0) {
+        endIdx = i + 1;
+        break;
+      }
+    }
+  }
+  const snippet = src.slice(startIdx, endIdx);
+
+  const productData = JSON.parse(
+    fs.readFileSync(path.join(ROOT, "assets", "data", "products.json"), "utf8")
+  );
+  const catLabel = {};
+  (productData.categories || []).forEach((c) => {
+    catLabel[c.id] = c.label;
+  });
+  const concernLabel = {};
+  (productData.concerns || []).forEach((c) => {
+    concernLabel[c.id] = c.name;
+  });
+
+  const factory = new Function(
+    "catLabel",
+    "concernLabel",
+    snippet +
+      "\nreturn { expandQuery: expandQuery, matchesQuery: matchesQuery, SYNONYM_GROUPS: SYNONYM_GROUPS, CATEGORY_TERMS: CATEGORY_TERMS };"
+  );
+  return { engine: factory(catLabel, concernLabel), productData };
+}
+
+const fs = require("fs");
+const { engine: shopEngine, productData: shopProducts } = loadShopGridSearchEngine();
+
+function shopRank(query) {
+  const qCtx = shopEngine.expandQuery(query);
+  return shopProducts.products
+    .map((p) => ({ p, res: shopEngine.matchesQuery(p, qCtx) }))
+    .filter((x) => x.res.matched)
+    .sort((a, b) => b.res.score - a.res.score)
+    .map((x) => x.p.id);
+}
+
+xssPayloads.forEach((payload, idx) => {
+  it(`Shop-grid engine: XSS Payload #${idx + 1} handles cleanly without throw`, () => {
+    assert.doesNotThrow(() => {
+      const ids = shopRank(payload);
+      assert.ok(Array.isArray(ids));
+    });
+  });
+});
+
+it("Shop-grid engine: empty, whitespace and non-string queries never throw and match everything (no filter applied)", () => {
+  [null, undefined, "", "   ", 42, {}, []].forEach((q) => {
+    assert.doesNotThrow(
+      () => {
+        const qCtx = shopEngine.expandQuery(q);
+        shopProducts.products.forEach((p) => shopEngine.matchesQuery(p, qCtx));
+      },
+      `query ${JSON.stringify(q)} must not throw`
+    );
+  });
+});
+
+it("Shop-grid engine: a 10,000-character query does not throw or hang", () => {
+  const longQuery = "sleep ".repeat(2000);
+  const start = performance.now();
+  assert.doesNotThrow(() => shopRank(longQuery));
+  assert.ok(performance.now() - start < 500, "resolves well under 500ms");
+});
+
+// --- Precision: a disease-word query must resolve to the RIGHT cosmetic
+// bucket, not merely to "something". Etsy/Amazon shoppers type the symptom,
+// not the ingredient -- the engine's job is translating that into products
+// that actually exist and are actually relevant, never into unrelated
+// goods (apparel, gift cards, bug spray) just because they also matched
+// generic filler tokens. ---
+const disenrolledPairs = [
+  { query: "insomnia", mustNotInclude: ["tank-top", "unisex-tshirt", "bug-spray"] },
+  { query: "eczema", mustNotInclude: ["tank-top", "unisex-tshirt", "bug-spray"] },
+  { query: "arthritis", mustNotInclude: ["tank-top", "unisex-tshirt", "bug-spray"] },
+  { query: "mosquito", mustNotInclude: ["tank-top", "unisex-tshirt", "yallternative-gift-card"] }
+];
+disenrolledPairs.forEach(({ query, mustNotInclude }) => {
+  it(`Shop-grid engine: '${query}' stays on-topic (excludes ${mustNotInclude.join(", ")})`, () => {
+    const ids = shopRank(query);
+    mustNotInclude.forEach((id) => {
+      assert.ok(
+        !ids.includes(id),
+        `'${query}' results (${JSON.stringify(ids)}) must exclude ${id}`
+      );
+    });
+  });
+});
+
+// --- Case/punctuation robustness on the newly added vocabulary ---
+[
+  ["  INSOMNIA!!  ", "sleep-salve"],
+  ["Eczema???", "shea-butter"],
+  ["BOSWELLIA", "frankincense-salve"],
+  ["Gift, For, Him.", "yallternative-gift-card"]
+].forEach(([rawQuery, expectedTop]) => {
+  it(`Shop-grid engine: case/punctuation-noisy '${rawQuery}' still ranks ${expectedTop} first`, () => {
+    const ids = shopRank(rawQuery);
+    assert.strictEqual(ids[0], expectedTop, `got ${JSON.stringify(ids)}`);
+  });
+});
+
+// =============================================================================
 // SUMMARY & EXIT
 // =============================================================================
 console.log("===============================================================================");

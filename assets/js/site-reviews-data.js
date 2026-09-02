@@ -123,6 +123,7 @@ window.YL_SITE_REVIEWS = [
     "text": "Great crisp aroma, though I wish the rosemary scent lingered a bit longer in large open rooms.",
     "date": "2026-08-30",
     "featured": false,
-    "verifiedBuyer": false
+    "verifiedBuyer": false,
+    "ownerReply": "Thanks for the honest read, Avery! Rosemary is a lighter top note by nature -- next batch I'm testing a touch more cedar in the base to help it hang around longer in a big room. Appreciate you telling me instead of just moving on."
   }
 ];

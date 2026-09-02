@@ -18,13 +18,20 @@
  * bypassed (two isolates racing on a cold deploy) the result is identical.
  *
  * BUDGET
- * Cold start costs 1 read + up to 10 writes, once per deploy per isolate,
+ * Cold start costs 1 read + up to 21 writes, once per deploy per isolate,
  * against a free-plan allowance of 100k row writes a day. The steady state is
  * zero queries.
  */
 
-/** Bump when SCHEMA_STATEMENTS changes; the new statements must stay additive. */
-export const SCHEMA_VERSION = 1;
+/**
+ * Bump when SCHEMA_STATEMENTS changes; the new statements must stay additive.
+ * v2 (2026-09-02) added the retention tables -- order_signals, email_queue,
+ * email_suppression, email_contacts, birthday_club, welcome_codes.
+ * v3 (2026-09-02) added adverse_events -- the MoCRA reaction reports behind
+ * /safety. Nothing sweeps that table: its rows are kept for at least three
+ * years (MoCRA's small-business retention period).
+ */
+export const SCHEMA_VERSION = 3;
 
 /** Verbatim from workers/schema.sql. Keep the two in sync -- a test enforces it. */
 export const SCHEMA_STATEMENTS = [
@@ -57,7 +64,84 @@ export const SCHEMA_STATEMENTS = [
      expires_at INTEGER NOT NULL,
      burned_at  INTEGER NOT NULL
    )`,
-  `CREATE INDEX IF NOT EXISTS burned_tokens_expires_at ON burned_tokens (expires_at)`
+  `CREATE INDEX IF NOT EXISTS burned_tokens_expires_at ON burned_tokens (expires_at)`,
+  // --- schema version 2: the retention layer --------------------------------
+  `CREATE TABLE IF NOT EXISTS order_signals (
+     order_id    TEXT PRIMARY KEY,
+     email       TEXT NOT NULL,
+     email_hash  TEXT NOT NULL,
+     product_ids TEXT,
+     categories  TEXT,
+     placed_at   INTEGER NOT NULL
+   )`,
+  `CREATE INDEX IF NOT EXISTS order_signals_email ON order_signals (email, placed_at)`,
+  `CREATE TABLE IF NOT EXISTS email_queue (
+     id         TEXT PRIMARY KEY,
+     kind       TEXT NOT NULL,
+     email      TEXT NOT NULL,
+     payload    TEXT,
+     send_after INTEGER NOT NULL,
+     status     TEXT NOT NULL,
+     attempts   INTEGER NOT NULL DEFAULT 0,
+     created_at INTEGER NOT NULL,
+     sent_at    INTEGER
+   )`,
+  `CREATE INDEX IF NOT EXISTS email_queue_due ON email_queue (status, send_after)`,
+  `CREATE TABLE IF NOT EXISTS email_suppression (
+     email      TEXT PRIMARY KEY,
+     reason     TEXT,
+     created_at INTEGER NOT NULL
+   )`,
+  `CREATE TABLE IF NOT EXISTS email_contacts (
+     unsub_id   TEXT PRIMARY KEY,
+     email      TEXT NOT NULL UNIQUE,
+     created_at INTEGER NOT NULL
+   )`,
+  `CREATE TABLE IF NOT EXISTS birthday_club (
+     email      TEXT PRIMARY KEY,
+     month_day  TEXT NOT NULL CHECK (length(month_day) = 5),
+     consent_at INTEGER NOT NULL,
+     source     TEXT
+   )`,
+  `CREATE INDEX IF NOT EXISTS birthday_club_month_day ON birthday_club (month_day)`,
+  `CREATE TABLE IF NOT EXISTS welcome_codes (
+     email      TEXT PRIMARY KEY,
+     code       TEXT NOT NULL,
+     promo_id   TEXT,
+     expires_at INTEGER NOT NULL,
+     created_at INTEGER NOT NULL
+   )`,
+  // --- schema version 3: MoCRA adverse-event reports -------------------------
+  // Written by workers/routes/safety-report.js, the endpoint behind the /safety
+  // URL printed on the packaging. `serious` is computed server-side from
+  // `outcomes`; `ip_hash` is a salted digest, never an address. KEPT FOR AT
+  // LEAST THREE YEARS (MoCRA's small-business period; six if this shop's
+  // three-year average sales ever cross $1M) -- no sweeper touches this table,
+  // and none may be added.
+  `CREATE TABLE IF NOT EXISTS adverse_events (
+     id              TEXT PRIMARY KEY,
+     created_at      INTEGER NOT NULL,
+     product_id      TEXT,
+     lot             TEXT,
+     channel         TEXT,
+     first_use_date  TEXT,
+     reaction_date   TEXT,
+     body_area       TEXT,
+     description     TEXT NOT NULL,
+     outcomes        TEXT NOT NULL,
+     stopped_use     TEXT,
+     reporter_name   TEXT,
+     reporter_email  TEXT NOT NULL,
+     reporter_phone  TEXT,
+     age_range       TEXT,
+     sex             TEXT,
+     contact_consent INTEGER NOT NULL DEFAULT 0,
+     serious         INTEGER NOT NULL DEFAULT 0,
+     status          TEXT NOT NULL,
+     ip_hash         TEXT
+   )`,
+  `CREATE INDEX IF NOT EXISTS adverse_events_triage ON adverse_events (serious, status, created_at)`,
+  `CREATE INDEX IF NOT EXISTS adverse_events_created_at ON adverse_events (created_at)`
 ];
 
 /** Per-isolate memo of the in-flight or completed migration. */

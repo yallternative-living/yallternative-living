@@ -27,13 +27,8 @@
       "emittedBy": "hand-written in each page's <head>",
       "pages": "all 15 top-level pages"
     },
-    "sha256-0kqeFm4bqiT8bQvy1ltLsg9sxxjyyPTni1L+4ARp8us=": {
-      "what": "Google Fonts stylesheet loader: flips the print-media stylesheet to all once it has loaded.",
-      "emittedBy": "hand-written in each page's <head>",
-      "pages": "all 15 top-level pages"
-    },
-    "sha256-Y0mDoLE/QTaOFwAZeZ4lDbSl/yUCx8wjXTvb9LMvyB8=": {
-      "what": "Tawk.to live-chat loader. The two IDs inside it come from content.json via scripts/build-site-data.js, which now writes them as JSON string literals -- so this hash changes whenever those IDs change in /admin, and the change must be reviewed here before it can ship.",
+    "sha256-Lr8dFbj4IjZN4RrCiLNwFGtVLXJ2839SzBjtbjPY1a8=": {
+      "what": "Tawk.to live-chat loader, deferred. Loads the widget SDK on the visitor's first pointerdown/keydown/scroll/touchstart or after a 5s idle timeout, instead of on every pageview (20 requests to embed.tawk.to measured on a cold mobile load). The two IDs still come from content.json via scripts/build-site-data.js, so this hash still changes whenever they change in /admin.",
       "emittedBy": "scripts/build-site-data.js (site.tawkToPropertyId / site.tawkToWidgetId markers)",
       "pages": "all 15 top-level pages"
     },

@@ -257,7 +257,7 @@
         "patchTest": "Formulated without essential oils or added fragrances for ultra-sensitive skin. As with any botanical balm, test a small dab on inner wrist before first full use."
       },
       "keywords": [
-        "sore muscles",
+        "tired legs",
         "unscented",
         "sensitive skin",
         "family safe",
@@ -742,21 +742,21 @@
         "intensityScore": 4
       },
       "usageGuide": {
-        "howToApply": "Add 1/2 cup into hot bathwater. Inhale clearing herbal vapors and soak for 20–30 minutes to soothe aching muscles and overworked joints.",
+        "howToApply": "Add 1/2 cup into hot bathwater, breathe in the clearing herbal steam, and soak for 20–30 minutes while the day's work washes off.",
         "storage": "Store in a cool, dry location with bag sealed tight. Shelf life is 12 months.",
         "patchTest": "Contains potent peppermint and eucalyptus essential oils. Test on forearm before first full soak; avoid eye contact."
       },
       "keywords": [
-        "muscle recovery",
-        "sore muscles",
+        "post-hike",
+        "tired legs",
         "post workout",
-        "gym recovery",
+        "after the gym",
         "epsom salts",
         "eucalyptus",
         "peppermint",
         "tension bath"
       ],
-      "ritualTitle": "The Trailhead Muscle Recovery Ritual",
+      "ritualTitle": "The Trailhead Wind-Down Ritual",
       "pairsWith": [
         "frankincense-salve",
         "hand-scrub"
@@ -1420,17 +1420,17 @@
   "concerns": [
     {
       "id": "sleep-relaxation",
-      "name": "Sleep & Relaxation",
+      "name": "Wind-Down & Relaxation",
       "icon": "🌙"
     },
     {
       "id": "sore-muscles",
-      "name": "Sore Muscles & Tension",
+      "name": "After a Long Day",
       "icon": "🌿"
     },
     {
       "id": "dry-skin",
-      "name": "Dry Skin & Eczema",
+      "name": "Dry, Rough Skin",
       "icon": "💧"
     },
     {

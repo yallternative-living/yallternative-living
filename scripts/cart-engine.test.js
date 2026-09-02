@@ -48,6 +48,54 @@ eq(cart.clampQty(9, 5), 5, "clampQty over per-product cap");
 eq(cart.clampQty(999, 5), 5, "clampQty per-product cap wins over hard ceiling");
 eq(cart.clampQty(999, 500), 99, "clampQty hard ceiling wins when cap is looser");
 
+/* startQtyFromAttr: parses & clamps a product page's data-item-quantity
+   attribute (addItemFromButton's starting qty for a brand new line). A
+   tampered or malformed value must never bypass the cart's MAX_QTY (99)
+   ceiling here -- addToList()/clampQty() clamp again, against the
+   product's own maxQty, when the line is actually merged. */
+eq(cart.startQtyFromAttr("5"), 5, "startQtyFromAttr honours a valid data-item-quantity");
+eq(cart.startQtyFromAttr("1"), 1, "startQtyFromAttr treats 1 as the default (not >1)");
+eq(cart.startQtyFromAttr("0"), 1, "startQtyFromAttr defaults to 1 for 0");
+eq(
+  cart.startQtyFromAttr(undefined),
+  1,
+  "startQtyFromAttr defaults to 1 when the attribute is absent"
+);
+eq(cart.startQtyFromAttr(""), 1, "startQtyFromAttr defaults to 1 for an empty attribute");
+eq(cart.startQtyFromAttr("abc"), 1, "startQtyFromAttr defaults to 1 for a non-numeric value");
+eq(cart.startQtyFromAttr("-5"), 1, "startQtyFromAttr defaults to 1 for a negative value");
+eq(
+  cart.startQtyFromAttr("500"),
+  99,
+  "startQtyFromAttr clamps a tampered/huge quantity to the cart's MAX_QTY (99)"
+);
+eq(cart.startQtyFromAttr("99"), 99, "startQtyFromAttr allows exactly the MAX_QTY ceiling");
+
+// End-to-end: the exact two-step pipeline addItemFromButton runs -- a
+// data-item-quantity attribute parsed by startQtyFromAttr, then merged into
+// the cart by addToList -- ends up honoured when reasonable and clamped
+// twice over (once against MAX_QTY, once against the product's own stock)
+// when it isn't.
+let qtyPipeline = [];
+qtyPipeline = cart.addToList(qtyPipeline, {
+  id: "bath-tea",
+  qty: cart.startQtyFromAttr("4"),
+  maxQty: null
+});
+eq(qtyPipeline[0].qty, 4, "A reasonable data-item-quantity is honoured end to end");
+
+let qtyPipelineCapped = [];
+qtyPipelineCapped = cart.addToList(qtyPipelineCapped, {
+  id: "bath-tea",
+  qty: cart.startQtyFromAttr("500"),
+  maxQty: 6 // e.g. data-item-max-quantity from a real stock count
+});
+eq(
+  qtyPipelineCapped[0].qty,
+  6,
+  "A tampered data-item-quantity is clamped to the product's own stock cap on merge"
+);
+
 // addToList respects a per-product max-quantity cap on merge.
 let cappedList = [];
 cappedList = cart.addToList(cappedList, { id: "frankincense-salve", qty: 2, maxQty: 3 });
@@ -804,10 +852,20 @@ else global.window.YL_PRODUCTS = savedWindowYlProducts;
   const good = runThankYou("?session_id=cs_test_a1B2c3&amount=42.00&currency=usd");
   eq(good.purchases.length, 1, "thank-you: real cs_test_ session fires one Purchase event");
   eq(good.purchases[0].name, "Purchase", "thank-you: analytics event is named Purchase");
+  /* Flat props, not a nested revenue object -- Umami's revenue report
+     expects a numeric `revenue` and a string `currency`, not
+     `props.revenue = {amount, currency}` (docs/research-2026-09-01/
+     research-L-analytics.md §6: as a nested object, `data.revenue` is
+     never a number, so it never populates Umami's Revenue report). */
   eq(
     good.purchases[0].payload.props.revenue,
-    { currency: "USD", amount: 42 },
-    "thank-you: Purchase carries the redirect's amount and currency"
+    42,
+    "thank-you: Purchase carries the redirect's amount as a flat numeric revenue prop"
+  );
+  eq(
+    good.purchases[0].payload.props.currency,
+    "USD",
+    "thank-you: Purchase carries the redirect's currency as a flat string prop"
   );
   eq(good.cleared, 1, "thank-you: real session clears the cart once");
   eq(

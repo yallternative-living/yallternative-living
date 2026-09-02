@@ -39,6 +39,15 @@ const ROOT_DIR = path.resolve(SCRIPTS_DIR, "..");
  * must not race the suites that read generated files.
  */
 const FIXED_GATES = [
+  // smoke-test.test.js spawns scripts/smoke-test.js, whose first stage runs the
+  // real build-site-data.js against the live tree. Inside the parallel pool
+  // that rewrote every top-level page (twice: footer injection, then the
+  // global-config pass) while the other suites were reading them, and any
+  // suite that read thank-you.html between the two writes failed on copy
+  // that was mid-rewrite (worker-retention's footer-form assertion, found
+  // 2026-09-02). It runs here, after the pool, for the same reason
+  // verify-build-reproducibility.js does.
+  "smoke-test.test.js",
   "verify-pdp-metadata.js",
   // Red until the build stops stamping wall-clock time into feed.xml's
   // <lastBuildDate> and sw.js's CACHE_NAME (audit H-20, owned by the build
@@ -50,7 +59,10 @@ const FIXED_GATES = [
 
 const suites = fs
   .readdirSync(SCRIPTS_DIR)
-  .filter((f) => f.endsWith(".test.js") && !f.endsWith(".browser.test.js"))
+  .filter(
+    (f) =>
+      f.endsWith(".test.js") && !f.endsWith(".browser.test.js") && FIXED_GATES.indexOf(f) === -1
+  )
   .sort();
 
 if (!suites.length) {

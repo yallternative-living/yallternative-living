@@ -45,6 +45,12 @@ import {
   sendEmail
 } from "./gift-cards.js";
 import { giftCardLedger, LedgerError } from "../state/gift-card-ledger.js";
+import {
+  creditLoyaltyForOrder,
+  scheduleOrderSequence,
+  scheduleRecoveryEmail
+} from "./retention-emails.js";
+import { recordOrder } from "../state/retention.js";
 import { claimEvent, markEventDone, releaseEvent } from "../state/webhook-events.js";
 import { ensureSchema } from "../state/migrations.js";
 
@@ -343,13 +349,83 @@ async function handleChargeRefunded(charge, env) {
 }
 
 /**
+ * The order signal the whole retention sequence hangs off.
+ *
+ * ONE LIGHTWEIGHT ROW, not a copy of the order -- Stripe stays the system of
+ * record (docs/STATE-LAYER.md). What is stored is the address, its hash, the
+ * product ids and categories, and the timestamp: exactly what a delayed email
+ * needs to be written days later without calling Stripe back.
+ *
+ * The product ids come from session metadata written at checkout
+ * (`retention_product_ids` / `retention_categories` in workers/checkout.js), so
+ * this costs no extra Stripe request. Both writes are INSERT OR IGNORE, so a
+ * redelivered event records nothing and queues nothing.
+ */
+async function recordAndSchedule(session, env, now = Date.now()) {
+  if (!env.STATE_DB) return null;
+  const email = buyerEmailOf(session);
+  if (!email) return null;
+  const metadata = session.metadata || {};
+  const splitList = (value) =>
+    String(value || "")
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean);
+
+  const signal = await recordOrder(
+    env.STATE_DB,
+    {
+      orderId: session.id,
+      email,
+      productIds: splitList(metadata.retention_product_ids),
+      categories: splitList(metadata.retention_categories)
+    },
+    now
+  );
+  const queued = await scheduleOrderSequence(
+    env.STATE_DB,
+    {
+      order_id: session.id,
+      email,
+      placed_at: now,
+      product_ids: splitList(metadata.retention_product_ids).join(","),
+      categories: splitList(metadata.retention_categories).join(",")
+    },
+    now
+  );
+  return { recorded: signal.recorded, queued };
+}
+
+/**
+ * Points for this order, and a payout if the balance has reached the threshold.
+ *
+ * Runs off the webhook and nowhere else: a credit on the strength of a request
+ * body is exactly the hole audit finding C-1 closed. `credit` is idempotent on
+ * the order id, so a redelivery pays nothing twice.
+ */
+async function creditPoints(session, env, ctx, now = Date.now()) {
+  if (!env.STATE_DB) return null;
+  const email = buyerEmailOf(session);
+  if (!email) return null;
+  // `amount_subtotal` is the goods before shipping and tax -- points are earned
+  // on what was bought, not on the postage.
+  const cents = Number(
+    session.amount_subtotal !== undefined && session.amount_subtotal !== null
+      ? session.amount_subtotal
+      : session.amount_total
+  );
+  if (!Number.isFinite(cents) || cents <= 0) return null;
+  return creditLoyaltyForOrder(env, ctx, { orderId: session.id, email, amountCents: cents }, now);
+}
+
+/**
  * Runs the sub-handlers for one verified event. Each is isolated: a failure is
  * collected, not propagated immediately, so one broken step cannot stop the
  * others from running. Anything collected is re-thrown at the end so Stripe
  * retries the event as a whole -- which is safe because every step is
  * idempotent.
  */
-export async function processStripeEvent(event, env) {
+export async function processStripeEvent(event, env, ctx) {
   const failures = [];
   const outcome = { type: event.type };
 
@@ -365,11 +441,29 @@ export async function processStripeEvent(event, env) {
     } catch (err) {
       failures.push(`gift-card issue: ${err && err.message}`);
     }
-  } else if (event.type === "checkout.session.expired") {
     try {
-      outcome.expired = await handleSessionExpired(event.data.object || {}, env);
+      outcome.retention = await recordAndSchedule(session, env);
+    } catch (err) {
+      failures.push(`retention: ${err && err.message}`);
+    }
+    try {
+      outcome.loyalty = await creditPoints(session, env, ctx);
+    } catch (err) {
+      failures.push(`loyalty: ${err && err.message}`);
+    }
+  } else if (event.type === "checkout.session.expired") {
+    const session = event.data.object || {};
+    try {
+      outcome.expired = await handleSessionExpired(session, env);
     } catch (err) {
       failures.push(`expiry: ${err && err.message}`);
+    }
+    try {
+      // Only when Stripe issued a recovery URL, the shopper left an address,
+      // AND they opted in to promotional email in Checkout's own consent box.
+      outcome.recovery = env.STATE_DB ? await scheduleRecoveryEmail(env.STATE_DB, session) : null;
+    } catch (err) {
+      failures.push(`recovery: ${err && err.message}`);
     }
   } else if (event.type === "charge.refunded") {
     try {
@@ -389,7 +483,7 @@ export async function processStripeEvent(event, env) {
   return outcome;
 }
 
-export async function handleStripeWebhook(request, env, origin) {
+export async function handleStripeWebhook(request, env, origin, ctx) {
   // Startup guard. Without the ledger there is nowhere to record a gift card,
   // and processing an order without it is worse than not processing it: 503
   // is a retryable status, so Stripe holds the event for us.
@@ -446,7 +540,7 @@ export async function handleStripeWebhook(request, env, origin) {
       }
     }
 
-    await processStripeEvent(event, env);
+    await processStripeEvent(event, env, ctx);
     if (hasClaimTable) await markEventDone(env.STATE_DB, event.id);
     return json({ received: true }, 200, origin, env);
   } catch (err) {

@@ -12,6 +12,12 @@ router:
 | `POST /api/stripe-webhook`    | Stripe events: issues cards, commits/releases holds, restores refunds |
 | `POST /api/order-status`      | `{sessionId, email}` -> a real order, rate-limited 5/min per IP       |
 | `POST /api/restock`           | `{email, product}` -> emails the shop                                 |
+| `POST /api/safety-report`     | a reaction report (MoCRA) -> a three-year D1 row + two emails           |
+| `POST /api/order-summary`     | `{sessionId}` -> the settled totals for the thank-you page            |
+| `POST /api/unsubscribe`       | `?t=<token>` -> opts an address out of every marketing send           |
+| `POST /api/welcome-code`      | `{email}` -> a single-use Stripe Promotion Code for a new subscriber  |
+| `POST /api/birthday-club`     | `{email, birthday}` (MM/DD, never a year) -> stored with consent time |
+| `POST /api/loyalty-balance`   | `{email, token}` -> Alt-Points balance; the token is REQUIRED         |
 
 Everything else 404s as JSON. Every response is `Cache-Control: no-store`, and
 CORS is the apex + www allowlist with `Vary: Origin`. Snipcart is fully removed
@@ -318,6 +324,116 @@ Resend silently rejects sends from an unverified domain: the buyer's purchase
 completes, the recipient's gift card never arrives, and nothing surfaces that to
 a human. Confirm it reads "Verified" before relying on this in production.
 
+### 2b. The retention layer (post-purchase email, birthdays, loyalty)
+
+Everything in this section is optional in the sense that checkout works without
+it, and **defined** when it is unset: an unset coupon id means the route reports
+`configured: false` and the job logs and does nothing, rather than minting codes
+against something that is not there.
+
+**Routes** (all four in `workers/routes/retention.js`, all `POST`, all
+rate-limited by IP, all 503 without `STATE_DB`):
+
+| Route                       | Body                     | Notes                                                                                                        |
+| --------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `POST /api/unsubscribe`     | token in `?t=`           | RFC 8058 one-click. The token is an HMAC of the address -- **no PII in the URL**. Also accepts `{token}` JSON. |
+| `POST /api/welcome-code`    | `{email}`                | Mints one Promotion Code per address (`max_redemptions: 1`, first-order only, 45-day expiry).                 |
+| `POST /api/birthday-club`   | `{email, birthday}`      | `MM/DD` only. Accepts a plain form post too and answers it with a 303 back to `thank-you.html`.               |
+| `POST /api/loyalty-balance` | `{email, token}`         | The signed `points` token from a post-purchase email. A balance is never readable by email alone.            |
+
+### 2c. The MoCRA adverse-event route
+
+`POST /api/safety-report` backs `safety.html`, the page behind the
+`https://yallternativeliving.com/safety` URL printed on the packaging. MoCRA
+(21 U.S.C. 364a, FD&C Act section 609(a)) requires the label to carry a contact
+through which a consumer can report an adverse event; this is it.
+
+| Thing              | Where it goes                                                                                      |
+| ------------------ | -------------------------------------------------------------------------------------------------- |
+| The report         | one row in the D1 table `adverse_events` (schema version 3), kept at least three years. **Needs `STATE_DB`; answers 503 without it.** |
+| The owner's copy   | Resend, to `SAFETY_REPORT_EMAIL` -> `RESTOCK_NOTIFY_EMAIL` -> `contact@yallternativeliving.com`.    |
+| The reporter's copy| Resend, an acknowledgement carrying the reference only.                                            |
+
+- `serious` is computed on the server from the outcome checkboxes, never taken
+  from the client. When it is set the owner's subject is prefixed `SERIOUS -- `
+  and the first line of the mail names the **15-business-day** FDA clock and
+  Form FDA 3500A (MedWatch).
+- The reference is `YL-AE-XXXX-XXXX`, the same Crockford base32 alphabet the
+  gift-card codes use.
+- Accepts a JSON fetch or a plain form post (303 back to `safety.html` with the
+  reference in the query), so the page works with JavaScript off.
+- Rate-limited 5/min per IP; a filled `website_hp` honeypot gets the success
+  shape and writes nothing.
+- **The row is the record.** D1 is written first; if that fails the reporter is
+  told the report did not go through. If Resend then refuses, the caller still
+  gets `{ok: true}` and the reference -- the regulatory record exists -- and the
+  refusal is logged with the reference and nothing else. The description, name,
+  address and phone never reach a log line.
+- **Rows are kept for at least three years and nothing sweeps them.** That is
+  MoCRA's small-business retention period (section 612: under $1M average gross
+  annual sales over the prior three years). **If that three-year average ever
+  crosses $1M the period becomes six years** -- change `RECORD_RETENTION_YEARS`
+  in `routes/safety-report.js`, the note on the table in `schema.sql`, the copy
+  on `safety.html` and the paragraph in `privacy.html` together. It is a floor,
+  not a purge date: the cron in `checkout.js` deletes from `webhook_events`,
+  `burned_tokens` and `email_queue`, and `adverse_events` must never be added to
+  that list.
+
+**Tables** (`workers/schema.sql`, applied by `workers/state/migrations.js`):
+`order_signals`, `email_queue`, `email_suppression`, `email_contacts`,
+`birthday_club`, `welcome_codes`. See `docs/STATE-LAYER.md` §4.6.
+
+**Stripe coupons to create by hand** (Dashboard -> Products -> Coupons). These
+are *coupons*, not codes: one coupon backs unlimited single-use Promotion Codes,
+and the codes are what customers actually type.
+
+| Coupon              | Set the id in            | Used by                                    |
+| ------------------- | ------------------------ | ------------------------------------------ |
+| 10% off             | `STRIPE_WELCOME_COUPON_ID`  | `POST /api/welcome-code`                |
+| $5.00 off (USD)     | `STRIPE_BIRTHDAY_COUPON_ID` | the birthday cron                       |
+| $5.00 off (USD)     | `STRIPE_LOYALTY_COUPON_ID`  | loyalty payouts; falls back to the birthday coupon |
+
+**Vars** (`[vars]` in `workers/wrangler.toml`, none of them secret):
+
+| Var                        | Default | What it does                                                        |
+| -------------------------- | ------- | ------------------------------------------------------------------- |
+| `STRIPE_WELCOME_COUPON_ID` | unset   | Unset -> `/api/welcome-code` answers `configured: false` and `welcome.html` falls back to the CMS `site.welcomeCode`. That fallback is the ONLY remaining use of that field. |
+| `STRIPE_BIRTHDAY_COUPON_ID`| unset   | Unset -> the birthday cron logs and mints nothing.                  |
+| `STRIPE_LOYALTY_COUPON_ID` | falls back to the birthday coupon | Unset with no birthday coupon -> points accrue but never pay out. |
+| `LOYALTY_REDEEM_THRESHOLD` | `100`   | Points that trigger an automatic payout.                            |
+| `LOYALTY_REWARD_CENTS`     | `500`   | What a payout is worth. Must match the coupon's own amount.         |
+| `RETENTION_FROM_EMAIL`     | falls back to `GIFT_CARD_FROM_EMAIL` | Verified Resend sender for the retention sends. |
+| `SAFETY_REPORT_EMAIL`      | falls back to `RESTOCK_NOTIFY_EMAIL`, then `contact@yallternativeliving.com` | Where MoCRA reaction reports are emailed. |
+
+Points **per dollar** is deliberately NOT a var: it comes from
+`assets/data/content.json`'s `site.loyaltyPointsPerDollar`, the same CMS field
+the product-card badge reads, so the badge and the credit cannot disagree.
+
+**One extra secret: `MAGIC_LINK_SECRET`.** It signs the unsubscribe tokens and
+the points-balance tokens. With it unset the Worker sends **no marketing email
+at all** -- that is intended, not a bug: an email whose unsubscribe link cannot
+be signed is an email that must not go out.
+
+```bash
+npx wrangler secret put MAGIC_LINK_SECRET   # 32+ random characters
+```
+
+Rotating it invalidates every outstanding unsubscribe and points link. The
+suppression list itself is unaffected -- it is keyed on the address, not the
+token -- but old links stop resolving, so rotate only when you mean to.
+
+**The cron.** `workers/wrangler.toml` has `[triggers] crons = ["7 * * * *"]`.
+One hourly tick runs, in order: the webhook-claim sweep, the burned-token sweep,
+the email-queue sweep, the birthday club and the email-queue drain. Hourly
+rather than daily because the abandoned-checkout recovery mail wants to go out
+within the hour and because an hourly job retries itself; the birthday job is
+gated to 9am America/New_York and is idempotent per member per year, so 24 ticks
+a day still send exactly one birthday code.
+
+**Stripe webhook events.** The endpoint must be subscribed to
+`checkout.session.expired` as well as `checkout.session.completed` -- that is
+the event carrying the recovery URL. See step 4.
+
 ### 3. Set the secrets
 
 In the Cloudflare dashboard (the Worker -> Settings -> Variables and Secrets), or
@@ -327,11 +443,20 @@ with the CLI. Never as `[vars]`, never in a committed file:
 npx wrangler secret put STRIPE_SECRET_KEY      # Checkout Sessions, Coupons, Customers write; Tax Settings read
 npx wrangler secret put STRIPE_WEBHOOK_SECRET  # from step 4 -- also keys the gift-card code derivation
 npx wrangler secret put RESEND_API_KEY         # from the verified Resend account
+npx wrangler secret put MAGIC_LINK_SECRET      # 32+ random chars; signs unsubscribe and points links
 ```
 
 Optional vars: `RESTOCK_NOTIFY_EMAIL` (where restock alerts go; defaults to
-`contact@yallternativeliving.com`) and `GIFT_CARD_FROM_EMAIL` (a different
-verified Resend sender).
+`contact@yallternativeliving.com`), `SAFETY_REPORT_EMAIL` (where MoCRA reaction
+reports go; falls back to `RESTOCK_NOTIFY_EMAIL`, then the same default),
+`GIFT_CARD_FROM_EMAIL` and `RETENTION_FROM_EMAIL` (different verified Resend
+senders), plus the retention vars in step 2b (`STRIPE_*_COUPON_ID`,
+`LOYALTY_REDEEM_THRESHOLD`, `LOYALTY_REWARD_CENTS`).
+
+`MAGIC_LINK_SECRET` is also the salt for the `ip_hash` column on
+`adverse_events`. Rotating it means older and newer rows hash the same visitor
+differently -- harmless (that column only ever groups abuse), but worth knowing
+before anyone reads it as an identifier.
 
 `STRIPE_WEBHOOK_SECRET` is load-bearing twice over: it verifies Stripe's
 signature AND it is the HMAC key the purchased gift-card codes are derived from.

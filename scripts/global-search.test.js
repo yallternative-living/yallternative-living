@@ -292,6 +292,55 @@ it("searchGlobal with empty query returns empty results object with totalCount: 
   assert.strictEqual(resEmpty.faq.length, 0);
 });
 
+it("every standalone product result links to products/<id>.html and carries a numeric price", () => {
+  // A handful of real, varied queries -- not just one -- so a regression in
+  // one product's data doesn't hide behind a single passing query. Curated
+  // bundles (id prefixed "bundle-") intentionally link to their shop.html
+  // anchor instead -- they have no standalone PDP page -- so they're
+  // excluded here rather than asserted against the wrong destination.
+  const queries = ["sleep", "sore muscles", "magnesium", "gift card", "bug spray"];
+  const seen = [];
+  queries.forEach((q) => {
+    const res = mainJs.searchGlobal(q);
+    res.products.filter((p) => !String(p.id).startsWith("bundle-")).forEach((p) => seen.push(p));
+  });
+  assert.ok(
+    seen.length > 0,
+    "at least one standalone product result was returned across the sample queries"
+  );
+  seen.forEach((p) => {
+    assert.ok(
+      typeof p.url === "string" && p.url.startsWith(`products/${p.id}.html`),
+      `product '${p.id}' must link to products/${p.id}.html, got '${p.url}'`
+    );
+    assert.ok(
+      p.url.indexOf("shop.html#") === -1,
+      `product '${p.id}' must not link to the retired shop.html#id anchor form`
+    );
+    assert.ok(
+      typeof p.price === "number" && p.price >= 0,
+      `product '${p.id}' must carry a numeric price, got ${JSON.stringify(p.price)}`
+    );
+  });
+});
+
+it("renderNoResultsHtml suggests the full shop and the contact page", () => {
+  const html = mainJs.renderNoResultsHtml("zzznonexistentquery");
+  assert.ok(html.includes("zzznonexistentquery"), "echoes the searched query back to the shopper");
+  assert.ok(html.includes('href="shop.html"'), "links to the full shop catalog");
+  assert.ok(html.includes('href="contact.html"'), "links to the contact page");
+  assert.ok(html.includes("search-empty-suggestions"), "keeps the existing popular-search chips");
+});
+
+it("renderNoResultsHtml escapes a hostile query rather than injecting it as markup", () => {
+  const html = mainJs.renderNoResultsHtml("<img src=x onerror=alert(1)>");
+  assert.ok(
+    html.indexOf("<img src=x") === -1,
+    "a raw hostile query never reaches the DOM as markup"
+  );
+  assert.ok(html.indexOf("&lt;img") !== -1, "the query is HTML-escaped instead");
+});
+
 // --- SECTION 4: Page Markup, Monoline SVGs & Accessibility Invariants ---
 console.log("\n--- 4. Page Markup, Monoline SVGs & Accessibility ---");
 
@@ -523,6 +572,479 @@ it("renderVariantChipsHtml returns empty string for single-option or non-variant
     variants: null
   };
   assert.strictEqual(mainJs.renderVariantChipsHtml(singleItem), "");
+});
+
+// --- SECTION 7: FDA Compliance -- the shop-grid synonym table is query-side
+// only ---
+//
+// The shop's product claims live on the page: the FDA reads what shoppers
+// see, not what they type. Symptom/condition words (eczema, arthritis,
+// insomnia, sore muscles, anxiety...) are allowed to exist ONLY inside the
+// query-time synonym table (SYNONYM_GROUPS / CATEGORY_TERMS, declared
+// inside buildFilters() in assets/js/main.js) so a shopper's own wording
+// still finds a real cosmetic product -- never inside the product data
+// itself, and never in visible copy like search chips, the search
+// placeholder, or the no-results suggestions. This section checks both
+// halves of that rule: that the table stays query-side-only by construction
+// (nothing outside buildFilters() ever reads it), and that the page copy
+// stays clean of condition words regardless of who last touched it.
+console.log("\n--- 7. FDA Compliance: Query-Side-Only Synonym Table ---");
+
+const mainJsSrc = fs.readFileSync(path.join(ROOT, "assets", "js", "main.js"), "utf8");
+
+function findMatchingBraceEnd(src, openBraceIdx) {
+  let depth = 0;
+  for (let i = openBraceIdx; i < src.length; i++) {
+    if (src[i] === "{") depth++;
+    else if (src[i] === "}") {
+      depth--;
+      if (depth === 0) return i + 1;
+    }
+  }
+  return -1;
+}
+
+it("SYNONYM_GROUPS and CATEGORY_TERMS (buildFilters' table) are referenced only inside buildFilters() -- query time, not product-rendering time", () => {
+  const fnStart = mainJsSrc.indexOf("function buildFilters(");
+  assert.ok(fnStart !== -1, "buildFilters() must still exist in main.js");
+  const braceStart = mainJsSrc.indexOf("{", fnStart);
+  const fnEnd = findMatchingBraceEnd(mainJsSrc, braceStart);
+  assert.ok(fnEnd !== -1, "could not find the end of buildFilters()");
+
+  ["SYNONYM_GROUPS", "CATEGORY_TERMS", "SYNONYM_MAP"].forEach((identifier) => {
+    const totalOccurrences = mainJsSrc.split(identifier).length - 1;
+    const withinBuildFilters = mainJsSrc.slice(fnStart, fnEnd).split(identifier).length - 1;
+    assert.strictEqual(
+      totalOccurrences,
+      withinBuildFilters,
+      `${identifier} appears ${totalOccurrences} time(s) in main.js but only ${withinBuildFilters} inside buildFilters() -- ` +
+        "it must never be read from product-rendering code, only from the query-time filter/search closure"
+    );
+  });
+});
+
+// Words the compliance brief names explicitly as never allowed, even as a
+// query-side synonym: they'd assert a claim (a cure, a treatment, a named
+// disease this shop doesn't formulate for) well past "eczema"/"arthritis"/
+// "insomnia", which are established, precedented cosmetic-adjacent wellness
+// vocabulary already used the same way elsewhere in this codebase.
+const NEVER_EVEN_QUERY_SIDE = [
+  "wound",
+  "infection",
+  "psoriasis",
+  "cure",
+  "cures",
+  "curing",
+  "treat",
+  "treats",
+  "treatment",
+  "diagnose",
+  "diagnosis",
+  "prescription"
+];
+
+it("the shop-grid synonym table never carries a claim word banned even query-side", () => {
+  const fnStart = mainJsSrc.indexOf("function buildFilters(");
+  const braceStart = mainJsSrc.indexOf("{", fnStart);
+  const fnEnd = findMatchingBraceEnd(mainJsSrc, braceStart);
+  const tableStart = mainJsSrc.indexOf("var SYNONYM_GROUPS", fnStart);
+  const tableEnd = mainJsSrc.indexOf("var SYNONYM_MAP = new Map()", tableStart);
+  assert.ok(tableStart > -1 && tableEnd > tableStart && tableEnd < fnEnd, "table slice located");
+  const tableText = mainJsSrc.slice(tableStart, tableEnd).toLowerCase();
+  NEVER_EVEN_QUERY_SIDE.forEach((word) => {
+    assert.ok(
+      tableText.indexOf(word) === -1,
+      `SYNONYM_GROUPS/CATEGORY_TERMS must never contain "${word}", even as a query-side synonym`
+    );
+  });
+});
+
+it("assets/data/products.json never carries a severe medical-claim word in shopper-facing fields", () => {
+  const products = JSON.parse(
+    fs.readFileSync(path.join(ROOT, "assets", "data", "products.json"), "utf8")
+  );
+  const offenders = [];
+  (products.products || []).forEach((p) => {
+    const shopperFacingText = [
+      p.name,
+      p.blurb,
+      ...(p.keywords || []),
+      ...(p.ingredients || []),
+      ...(p.tags || [])
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    NEVER_EVEN_QUERY_SIDE.forEach((word) => {
+      if (shopperFacingText.indexOf(word) !== -1) offenders.push(`${p.id}: "${word}"`);
+    });
+  });
+  assert.deepStrictEqual(
+    offenders,
+    [],
+    `product-facing copy must never carry a medical claim word: ${offenders.join(", ")}`
+  );
+});
+
+const CONDITION_WORDS = [
+  "eczema",
+  "arthritis",
+  "insomnia",
+  "anxiety",
+  "psoriasis",
+  "dermatitis",
+  "infection",
+  "disease"
+];
+
+it("no global-search chip, placeholder or no-results suggestion names a symptom or condition", () => {
+  // These ARE allowed as query-side synonyms (that's the whole point of the
+  // table above) but must never surface as visible copy the FDA would read
+  // as a claim about what a product treats.
+
+  const offenders = [];
+
+  // The #shopSearch (shop-grid) and #globalSearchInput (modal) placeholders.
+  const placeholderSources = [
+    { file: "shop.html", pattern: /id="shopSearch"[^>]*placeholder="([^"]*)"/ },
+    { file: "index.html", pattern: /id="globalSearchInput"[^>]*placeholder="([^"]*)"/ }
+  ];
+  placeholderSources.forEach(({ file, pattern }) => {
+    const html = fs.readFileSync(path.join(ROOT, file), "utf8");
+    const match = html.match(pattern);
+    assert.ok(match, `${file} must still declare its search placeholder`);
+    const text = match[1].toLowerCase();
+    CONDITION_WORDS.forEach((word) => {
+      if (text.indexOf(word) !== -1) offenders.push(`${file} placeholder: "${word}"`);
+    });
+  });
+
+  // The no-results suggestion chips + empty-state copy rendered by the
+  // modal's own renderNoResultsHtml(), exercised exactly the way a shopper
+  // would trigger it (a query with zero matches).
+  const noResultsHtml = mainJs.renderNoResultsHtml("zzzznonexistentquery");
+  CONDITION_WORDS.forEach((word) => {
+    if (noResultsHtml.toLowerCase().indexOf(word) !== -1) {
+      offenders.push(`renderNoResultsHtml() chip/copy: "${word}"`);
+    }
+  });
+
+  assert.deepStrictEqual(
+    offenders,
+    [],
+    "visible search copy must never name a symptom/condition -- found: " + offenders.join(", ")
+  );
+});
+
+// =====================================================================
+// SECTION 8: Shopper vocabulary for every product, including the
+// coming-soon line (bath tea, sugar scrub, whipped body butter, the two
+// clearing mists). The synonym table lives in scripts/build-site-data.js
+// and ships in search-data.js; these queries are what real shoppers type
+// (Etsy/Google vocabulary, misspellings, gift intent, scent families).
+// =====================================================================
+
+const EXPECT_TOP = {
+  "bath tea": "bath-tea",
+  "tub tea": "bath-tea",
+  "herbal bath": "bath-tea",
+  "sugar scrub": "sugar-scrub",
+  "body scrub": "sugar-scrub",
+  exfoliate: "sugar-scrub",
+  "whipped butter": "whipped-body-butter",
+  "body butter": "shea-butter",
+  lotion: "shea-butter",
+  "porch sweep": "porch-sweep-spray",
+  "house blessing": "porch-sweep-spray",
+  "spell jar": "protection-keychain",
+  keychain: "protection-keychain",
+  "key ring": "protection-keychain",
+  "beard oil": "beard-salve",
+  mustache: "beard-salve",
+  "t-shirt": "unisex-tshirt",
+  tee: "unisex-tshirt",
+  "tank top": "tank-top",
+  merch: "unisex-tshirt",
+  unscented: "miracle-balm",
+  "fragrance free": "miracle-balm",
+  kids: "miracle-balm",
+  "hand scrub": "hand-scrub",
+  "tired legs": "backroad-soak",
+  "after the gym": "backroad-soak",
+  "wind down": "sleep-salve",
+  skeeters: "bug-spray",
+  "deet free": "bug-spray",
+  "body oil": "shimmer-oil",
+  glitter: "shimmer-oil",
+  sparkle: "shimmer-oil",
+  "epson salt": "lavender-soak",
+  frankinsense: "frankincense-salve",
+  "shay butter": "shea-butter",
+  salve: "frankincense-salve",
+  balm: "frankincense-salve",
+  "bath salts": "lavender-soak",
+  "foot soak": "lavender-soak",
+  witchy: "protection-keychain",
+  protection: "protection-keychain",
+  goth: "tank-top",
+  floral: "bath-tea",
+  woodsy: "frankincense-salve",
+  "gift card": "yallternative-gift-card",
+  "gift for him": "yallternative-gift-card",
+  "pride gift": "bundle-pride-set",
+  // condition words are translated at query time only (see Section 7)
+  insomnia: "sleep-salve",
+  eczema: "shea-butter",
+  "sore muscles": "backroad-soak"
+};
+
+const EXPECT_TOP3 = {
+  "room spray": ["porch-sweep-spray", "cleansing-spray"],
+  "smudge spray": ["porch-sweep-spray", "cleansing-spray"],
+  "sage spray": ["cleansing-spray"],
+  "linen spray": ["porch-sweep-spray", "cleansing-spray"],
+  "clearing mist": ["cleansing-spray", "porch-sweep-spray"],
+  "pillow spray": ["porch-sweep-spray", "cleansing-spray"],
+  ritual: ["protection-keychain", "cleansing-spray", "porch-sweep-spray"],
+  vegan: ["bug-spray", "cleansing-spray", "hand-scrub"],
+  "plant based": ["bug-spray"],
+  bourbon: ["hand-scrub", "beard-salve"],
+  citrus: ["shimmer-oil", "sugar-scrub", "whipped-body-butter"],
+  "chapped lips": ["miracle-balm", "frankincense-salve"],
+  "cracked heels": ["shea-butter", "frankincense-salve"],
+  chapstick: ["frankincense-salve", "miracle-balm"],
+  "stocking stuffer": ["yallternative-gift-card"],
+  "self care gift": ["yallternative-gift-card"],
+  lavendar: ["lavender-soak", "sleep-salve"]
+};
+
+Object.keys(EXPECT_TOP).forEach((query) => {
+  it(`searchGlobal('${query}') ranks ${EXPECT_TOP[query]} first`, () => {
+    const res = mainJs.searchGlobal(query);
+    const ids = (res.products || []).map((prod) => prod.id);
+    assert.strictEqual(
+      ids[0],
+      EXPECT_TOP[query],
+      `expected ${EXPECT_TOP[query]} first for "${query}", got [${ids.join(", ")}]`
+    );
+  });
+});
+
+Object.keys(EXPECT_TOP3).forEach((query) => {
+  it(`searchGlobal('${query}') surfaces ${EXPECT_TOP3[query].join("+")} in the top 3`, () => {
+    const res = mainJs.searchGlobal(query);
+    const top3 = (res.products || []).slice(0, 3).map((prod) => prod.id);
+    EXPECT_TOP3[query].forEach((id) => {
+      assert.ok(
+        top3.includes(id),
+        `expected ${id} in top 3 for "${query}", got [${top3.join(", ")}]`
+      );
+    });
+  });
+});
+
+it("coming-soon intent ('coming soon', 'preorder', 'waitlist', 'new arrivals') returns only upcoming products first", () => {
+  const upcoming = new Set(
+    (global.window.YL_SEARCH_INDEX.products || [])
+      .filter((prod) => prod.comingSoon)
+      .map((prod) => prod.id)
+  );
+  assert.ok(upcoming.size >= 3, "fixture: expected at least three coming-soon products");
+  ["coming soon", "preorder", "waitlist", "new arrivals"].forEach((query) => {
+    const top3 = (mainJs.searchGlobal(query).products || []).slice(0, 3).map((prod) => prod.id);
+    assert.strictEqual(top3.length, 3, `"${query}" should return at least three products`);
+    top3.forEach((id) => {
+      assert.ok(upcoming.has(id), `"${query}" top result ${id} is not a coming-soon product`);
+    });
+  });
+});
+
+it("market / meet-up queries surface the in-person FAQ answer and an event", () => {
+  ["pop up", "market", "where can i meet you"].forEach((query) => {
+    const res = mainJs.searchGlobal(query);
+    const faqTitles = (res.faq || []).map((f) => (f.question || f.title || "").toLowerCase());
+    assert.ok(
+      faqTitles.some((t) => t.indexOf("meet you in person") !== -1),
+      `"${query}" should surface the in-person FAQ, got [${faqTitles.join(" | ")}]`
+    );
+    assert.ok((res.events || []).length > 0, `"${query}" should surface at least one event`);
+  });
+});
+
+it("shipped synonym table: every entry is a non-empty string and no group carries a treatment claim word", () => {
+  const synonyms = global.window.YL_SEARCH_INDEX.synonyms || {};
+  // "treat yourself" is a gift phrase, so bare "treat" is not banned; "treats"/"treatment" are.
+  const banned = [
+    "wound",
+    "infection",
+    "psoriasis",
+    "cure",
+    "cures",
+    "treats",
+    "treatment",
+    "diagnose",
+    "prescription",
+    "medicine",
+    "medical"
+  ];
+  const offenders = [];
+  Object.keys(synonyms).forEach((key) => {
+    assert.ok(
+      Array.isArray(synonyms[key]) && synonyms[key].length > 0,
+      `synonym group "${key}" must be a non-empty array`
+    );
+    synonyms[key].forEach((entry) => {
+      assert.ok(
+        typeof entry === "string" && entry.trim().length > 0,
+        `synonym group "${key}" has an empty entry`
+      );
+      const tokens = entry.toLowerCase().split(/\s+/);
+      banned.forEach((word) => {
+        if (tokens.includes(word)) offenders.push(key + ": " + entry);
+      });
+    });
+  });
+  assert.deepStrictEqual(
+    offenders,
+    [],
+    "treatment claim words found in the synonym table: " + offenders.join(", ")
+  );
+  assert.ok(
+    Object.keys(synonyms).length >= 45,
+    "expected the expanded synonym table (45+ groups), got " + Object.keys(synonyms).length
+  );
+});
+
+// =====================================================================
+// SECTION 9: Popular-search chips are CMS copy (content.json "search").
+// The build renders them into every page and the PDP template; main.js
+// renders the same list in the no-results state. Both must stay in step
+// and neither may put a condition word on screen.
+// =====================================================================
+
+const buildModule = require(path.join(ROOT, "scripts", "build-site-data.js"));
+
+it("main.js and the build share an identical search-chip icon set", () => {
+  assert.deepStrictEqual(
+    Object.keys(mainJs.SEARCH_CHIP_ICONS).sort(),
+    Object.keys(buildModule.SEARCH_CHIP_ICONS).sort(),
+    "icon names differ between assets/js/main.js and scripts/build-site-data.js"
+  );
+  Object.keys(mainJs.SEARCH_CHIP_ICONS).forEach((k) => {
+    assert.strictEqual(
+      mainJs.SEARCH_CHIP_ICONS[k],
+      buildModule.SEARCH_CHIP_ICONS[k],
+      "icon markup for " + k + " differs"
+    );
+  });
+  assert.deepStrictEqual(
+    mainJs.DEFAULT_SEARCH_CHIPS,
+    buildModule.DEFAULT_SEARCH_CHIPS,
+    "default chips differ"
+  );
+});
+
+it("content.json search.popularChips is valid CMS copy and names no condition", () => {
+  const chips = (siteConfig.search && siteConfig.search.popularChips) || [];
+  assert.ok(chips.length >= 3, "expected at least three popular chips in content.json");
+  chips.forEach((c) => {
+    assert.ok(c.label && c.query, "chip needs label and query: " + JSON.stringify(c));
+    assert.ok(buildModule.SEARCH_CHIP_ICONS[c.icon], "unknown chip icon: " + c.icon);
+    CONDITION_WORDS.forEach((w) => {
+      assert.ok(
+        c.label.toLowerCase().indexOf(w) === -1,
+        "chip label names a condition: " + c.label
+      );
+    });
+  });
+  // The build resolves the same list the page renders.
+  const cfg = buildModule.getSearchConfig(siteConfig);
+  assert.deepStrictEqual(
+    cfg.popularChips.map((c) => c.query),
+    chips.map((c) => c.query.trim()),
+    "getSearchConfig() must keep the CMS chip order"
+  );
+  // And falls back to the built-in six when the CMS list is empty or missing.
+  assert.deepStrictEqual(
+    buildModule.getSearchConfig({}).popularChips,
+    buildModule.DEFAULT_SEARCH_CHIPS
+  );
+  assert.deepStrictEqual(
+    buildModule.getSearchConfig({ search: { popularChips: [{ label: " ", query: "x" }] } })
+      .popularChips,
+    buildModule.DEFAULT_SEARCH_CHIPS
+  );
+  assert.strictEqual(
+    buildModule.getSearchConfig({
+      search: { popularChips: [{ label: "A", query: "a", icon: "nope" }] }
+    }).popularChips[0].icon,
+    "sparkle"
+  );
+});
+
+it("every page and PDP renders the CMS chips inside the search.chips markers with no condition word", () => {
+  const cfg = buildModule.getSearchConfig(siteConfig);
+  const expectedQueries = cfg.popularChips.map((c) => c.query);
+  const pages = fs
+    .readdirSync(ROOT)
+    .filter((f) => f.endsWith(".html"))
+    .concat(fs.readdirSync(path.join(ROOT, "products")).map((f) => "products/" + f));
+  assert.ok(pages.length >= 20, "expected top-level pages plus PDPs, got " + pages.length);
+  pages.forEach((page) => {
+    const html = fs.readFileSync(path.join(ROOT, page), "utf8");
+    const list = /<div class="global-search-chips-list"[^>]*>([\s\S]*?)<\/div>/.exec(html);
+    assert.ok(list, page + ": search chip list missing");
+    const queries = [];
+    const re = /data-search-query="([^"]*)"><svg[\s\S]*?<span>([^<]*)<\/span>/g;
+    let m;
+    while ((m = re.exec(list[1]))) {
+      queries.push(m[1]);
+      CONDITION_WORDS.forEach((w) => {
+        assert.ok(
+          m[2].toLowerCase().indexOf(w) === -1,
+          page + ': chip "' + m[2] + '" names a condition'
+        );
+      });
+    }
+    assert.deepStrictEqual(queries, expectedQueries, page + ": chips do not match content.json");
+    if (page.indexOf("products/") !== 0) {
+      assert.ok(
+        /<!--YL:search\.chips-->/.test(list[1]),
+        page + ": chips are not wrapped in the YL:search.chips marker"
+      );
+    }
+  });
+});
+
+it("main.js no-results chips follow window.YL_CONTENT.search and fall back to the defaults", () => {
+  const saved = mockWindow.YL_CONTENT;
+  mockWindow.YL_CONTENT = {
+    search: { popularChips: [{ label: "Porch Mists", query: "room spray", icon: "leaf" }] }
+  };
+  let html = mainJs.renderNoResultsHtml("zzz");
+  assert.ok(html.indexOf('data-search-query="room spray"') !== -1, "CMS chip not rendered");
+  assert.ok(html.indexOf("Porch Mists") !== -1);
+  assert.ok(
+    html.indexOf('data-search-query="sleep"') === -1,
+    "defaults leaked in beside the CMS list"
+  );
+  mockWindow.YL_CONTENT = {
+    search: { popularChips: [{ label: "<b>x</b>", query: '"><i>', icon: "moon" }] }
+  };
+  html = mainJs.renderNoResultsHtml("zzz");
+  assert.ok(
+    html.indexOf("<b>x</b>") === -1 && html.indexOf("<i>") === -1,
+    "chip copy must be escaped"
+  );
+  mockWindow.YL_CONTENT = undefined;
+  html = mainJs.renderNoResultsHtml("zzz");
+  mainJs.DEFAULT_SEARCH_CHIPS.forEach((c) => {
+    assert.ok(
+      html.indexOf('data-search-query="' + c.query + '"') !== -1,
+      "default chip missing: " + c.query
+    );
+  });
+  mockWindow.YL_CONTENT = saved;
 });
 
 console.log(`\n==================================================`);

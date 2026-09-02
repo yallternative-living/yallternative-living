@@ -66,7 +66,11 @@ var PAGES = [
   "welcome.html",
   "journal.html",
   "reviews.html",
-  "order-status.html"
+  "order-status.html",
+  // The MoCRA adverse-event page. It ships the same chrome as every other
+  // top-level page (Tawk block, search modal, footer, Umami marker), so it
+  // belongs in this list or none of those assertions would ever see it.
+  "safety.html"
 ];
 
 var failures = [];
@@ -3405,6 +3409,321 @@ section("Milestone 3: CMS Merchandising, Schema Validation & Quiz Integrity");
     }
   } catch (e) {
     fail("Announcement Accent Contrast QA check failed", e.message);
+  }
+})();
+
+/* ---------- Report a Reaction (safety.html) -- MoCRA adverse-event page ----------
+   The page whose URL is printed on the packaging. Everything asserted here is
+   something that, if it silently broke, would leave a jar in someone's hand
+   pointing at a dead end: the clean-URL rewrite, the form's endpoint and field
+   names, the eight serious-event checkboxes the FDA definition turns on, and
+   the absence of any inline script (the CSP would refuse one, and this page is
+   the last one that may fail to load).
+
+   Note the shape of these checks: each one reads the real file and asserts the
+   subject EXISTS before asserting anything about it. An `every()` over a
+   selector that matched nothing is how four checks in this repo went green
+   while examining nothing at all (AGENTS.md, "checks that stop checking"). */
+section("Report a Reaction page (safety.html) -- MoCRA adverse-event intake");
+(function checkSafetyPage() {
+  var safetyPath = path.join(ROOT, "safety.html");
+  if (!fs.existsSync(safetyPath)) {
+    fail("safety.html", "missing -- this URL is printed on the packaging and cannot 404");
+    return;
+  }
+  var safetyHtml = fs.readFileSync(safetyPath, "utf8");
+
+  /* --- the same chrome every other top-level page ships (contact.html is the
+     model; the shared PAGES loops above cover the Tawk block, the search modal,
+     the footer and the JSON-LD, so this is what those do not check). --- */
+  var chrome = [
+    ["skip link", '<a href="#main-content" class="skip-link">'],
+    ["header nav", '<header class="site-header">'],
+    ["main landmark", '<main id="main-content">'],
+    ["Umami marker", "<!--YL:site.umamiWebsiteId-->"],
+    ["feature-style marker", "<!--YL:featureStyles-->"],
+    ["cart drawer script", "assets/js/cart.js"],
+    ["main.js", "assets/js/main.js"],
+    ["page script (safety.js)", 'src="assets/js/safety.js"']
+  ];
+  chrome.forEach(function (pair) {
+    if (safetyHtml.indexOf(pair[1]) !== -1) ok("safety.html has the " + pair[0]);
+    else fail("safety.html is missing the " + pair[0], pair[1]);
+  });
+
+  if (/<script src="assets\/js\/safety\.js" defer><\/script>/.test(safetyHtml)) {
+    ok("safety.html loads safety.js deferred");
+  } else {
+    fail("safety.html: safety.js must be loaded with defer", "found no deferred tag");
+  }
+
+  /* --- the theme-init snippet is the ONLY inline script. Anything else would
+     need a new hash in scripts/inline-script-hashes.json, and a page that
+     cannot execute its own form handler under the CSP is a page that silently
+     stops accepting reports. --- */
+  var inlineScripts = (
+    safetyHtml.match(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g) || []
+  ).filter(function (block) {
+    return !/type\s*=\s*["']application\/ld\+json["']/.test(block);
+  });
+  var contactHtmlForTheme = fs.readFileSync(path.join(ROOT, "contact.html"), "utf8");
+  var themeRe = /<script>\s*\n\s*\/\/ No-flash theme init[\s\S]*?<\/script>/;
+  var contactTheme = contactHtmlForTheme.match(themeRe);
+  var safetyTheme = safetyHtml.match(themeRe);
+  if (contactTheme && safetyTheme && contactTheme[0] === safetyTheme[0]) {
+    ok(
+      "safety.html's theme-init script is byte-identical to contact.html's (hash already approved)"
+    );
+  } else {
+    fail(
+      "safety.html theme-init script diverges from contact.html's",
+      "its CSP hash would change -- see scripts/inline-script-hashes.json"
+    );
+  }
+  if (inlineScripts.length === 2) {
+    ok("safety.html ships exactly 2 inline scripts (theme init + the shared Tawk.to loader)");
+  } else {
+    fail(
+      "safety.html inline script count",
+      "expected 2 (theme init + Tawk.to), found " +
+        inlineScripts.length +
+        " -- a new inline script needs a new CSP hash"
+    );
+  }
+
+  /* --- the form itself --- */
+  var formTag = (safetyHtml.match(/<form\b[^>]*class="safety-form"[^>]*>/) || [])[0];
+  if (!formTag) {
+    fail("safety.html .safety-form", "no form with that class -- there is no way to report");
+  } else {
+    if (/action="\/api\/safety-report"/.test(formTag)) {
+      ok("safety.html form posts to /api/safety-report");
+    } else {
+      fail("safety.html form action", formTag);
+    }
+    if (/method="post"/i.test(formTag)) ok("safety.html form is a POST");
+    else fail("safety.html form method", "must be POST -- the Worker refuses anything else");
+  }
+
+  var REQUIRED_FIELDS = [
+    ["product_id", "which product"],
+    ["lot", "lot or batch number"],
+    ["channel", "purchase channel"],
+    ["first_use_date", "date of first use"],
+    ["reaction_date", "date the reaction started"],
+    ["body_area", "where on the body"],
+    ["description", "description of the reaction"],
+    ["outcomes", "what happened next"],
+    ["stopped_use", "whether they stopped using it"],
+    ["reporter_name", "reporter name"],
+    ["email", "reporter email"],
+    ["reporter_phone", "reporter phone"],
+    ["age_range", "age range"],
+    ["sex", "sex"],
+    ["contact_consent", "consent to follow-up"],
+    ["website_hp", "honeypot"]
+  ];
+  var missingFields = REQUIRED_FIELDS.filter(function (pair) {
+    return safetyHtml.indexOf('name="' + pair[0] + '"') === -1;
+  });
+  if (!missingFields.length) {
+    ok(
+      "safety.html carries all " +
+        REQUIRED_FIELDS.length +
+        " MedWatch 3500A fields the Worker reads, honeypot included"
+    );
+  } else {
+    missingFields.forEach(function (pair) {
+      fail("safety.html is missing the " + pair[1] + " field", 'name="' + pair[0] + '"');
+    });
+  }
+
+  if (/name="email"[^>]*required|required[^>]*name="email"/.test(safetyHtml)) {
+    ok("safety.html marks the email field required");
+  } else {
+    fail("safety.html email field", "must be required -- it is how the reference gets back");
+  }
+  if (/name="description"[^>]*required|required[^>]*name="description"/.test(safetyHtml)) {
+    ok("safety.html marks the description field required");
+  } else {
+    fail("safety.html description field", "must be required -- there is no report without one");
+  }
+
+  /* --- the eight outcomes that make an event SERIOUS. These are the values
+     the Worker computes its `serious` flag from; if a checkbox value here is
+     renamed the flag silently stops being set and a 15-business-day FDA
+     deadline is missed with no error anywhere. --- */
+  var SERIOUS_VALUES = [
+    "death",
+    "life-threatening",
+    "hospitalization",
+    "disability",
+    "congenital-anomaly",
+    "infection",
+    "disfigurement",
+    "intervention"
+  ];
+  var missingSerious = SERIOUS_VALUES.filter(function (value) {
+    return safetyHtml.indexOf('name="outcomes" value="' + value + '"') === -1;
+  });
+  if (!missingSerious.length) {
+    ok("safety.html offers all 8 serious-adverse-event outcomes as checkboxes");
+  } else {
+    fail(
+      "safety.html serious-outcome checkboxes missing",
+      missingSerious.join(", ") + " -- the Worker's serious flag reads these exact values"
+    );
+  }
+  ["doctor-visit", "otc-product", "cleared-up"].forEach(function (value) {
+    if (safetyHtml.indexOf('name="outcomes" value="' + value + '"') !== -1) {
+      ok('safety.html offers the "' + value + '" outcome');
+    } else {
+      fail("safety.html is missing the outcome " + value);
+    }
+  });
+
+  var workerRoute = fs.readFileSync(path.join(ROOT, "workers/routes/safety-report.js"), "utf8");
+  var pageValues = (safetyHtml.match(/name="outcomes" value="([a-z-]+)"/g) || []).map(function (m) {
+    return m.replace(/^name="outcomes" value="/, "").replace(/"$/, "");
+  });
+  if (!pageValues.length) {
+    fail("safety.html outcome checkboxes", "none parsed -- the check below would be vacuous");
+  } else {
+    var unknown = pageValues.filter(function (value) {
+      return workerRoute.indexOf('"' + value + '"') === -1;
+    });
+    if (!unknown.length) {
+      ok(
+        "all " +
+          pageValues.length +
+          " outcome values on the page are known to workers/routes/safety-report.js"
+      );
+    } else {
+      fail("safety.html offers outcomes the Worker discards", unknown.join(", "));
+    }
+  }
+
+  /* --- brand-voice / regulatory copy. This is a cosmetics page: it must not
+     read as a drug claim, and it must say what happens to the record. The
+     shared footer disclaimer legitimately contains "treat"/"cure" ("not
+     intended to diagnose, treat, cure, or prevent"), so the page's own <main>
+     is what is scanned. --- */
+  var mainStart = safetyHtml.indexOf('<main id="main-content">');
+  var mainEnd = safetyHtml.indexOf("</main>");
+  if (mainStart === -1 || mainEnd === -1 || mainEnd < mainStart) {
+    fail("safety.html <main>", "could not be isolated -- the copy checks below would be vacuous");
+  } else {
+    var mainCopy = safetyHtml.slice(mainStart, mainEnd);
+    var claimWords = ["treat", "cure", "heal"].filter(function (word) {
+      return new RegExp("\\b" + word, "i").test(mainCopy);
+    });
+    if (!claimWords.length) {
+      ok('safety.html\'s own copy makes no drug claim (no "treat", "cure" or "heal")');
+    } else {
+      fail(
+        "safety.html copy uses drug-claim language",
+        claimWords.join(", ") + " -- this is a cosmetics page, not a medicine one"
+      );
+    }
+    [
+      ["15 business days", /15 business days/i],
+      ["the MedWatch / FDA 3500A form", /3500A|MedWatch/i],
+      ["the retention promise", /three years/i],
+      ["what to do first (stop using it)", /stop using/i],
+      ["emergency guidance (911)", /\b911\b/],
+      ["Poison Control", /1-800-222-1222/]
+    ].forEach(function (pair) {
+      if (pair[1].test(mainCopy)) ok("safety.html tells the reader about " + pair[0]);
+      else fail("safety.html does not mention " + pair[0]);
+    });
+  }
+
+  /* --- the wiring around the page --- */
+  var footerSrc = fs.readFileSync(path.join(ROOT, "assets/data/footer.html"), "utf8");
+  if (/href="\/safety\.html"/.test(footerSrc)) {
+    ok("assets/data/footer.html links to the reaction-report page");
+  } else {
+    fail("footer template has no link to /safety.html");
+  }
+  var pagesWithoutFooterLink = PAGES.filter(function (page) {
+    var full = path.join(ROOT, page);
+    if (!fs.existsSync(full)) return false;
+    return fs.readFileSync(full, "utf8").indexOf('href="/safety.html"') === -1;
+  });
+  if (!pagesWithoutFooterLink.length) {
+    ok("the reaction-report link reached all " + PAGES.length + " built footers");
+  } else {
+    fail(
+      "pages whose footer is missing the reaction-report link",
+      pagesWithoutFooterLink.join(", ") + " -- run npm run build-data"
+    );
+  }
+
+  var netlifyToml = fs.readFileSync(path.join(ROOT, "netlify.toml"), "utf8");
+  if (
+    /from = "\/safety"[\s\S]{0,80}to = "\/safety\.html"[\s\S]{0,40}status = 200/.test(netlifyToml)
+  ) {
+    ok("netlify.toml rewrites /safety to /safety.html (200, not a redirect)");
+  } else {
+    fail(
+      "netlify.toml has no /safety rewrite",
+      "that path is PRINTED ON THE PACKAGING and cannot 404 -- see build-security-headers.js"
+    );
+  }
+
+  var sitemap = path.join(ROOT, "sitemap.xml");
+  if (!fs.existsSync(sitemap)) {
+    fail("sitemap.xml", "missing");
+  } else if (fs.readFileSync(sitemap, "utf8").indexOf("/safety.html</loc>") !== -1) {
+    ok("sitemap.xml lists safety.html");
+  } else {
+    fail("sitemap.xml does not list safety.html", "run npm run build-data");
+  }
+
+  var llms = path.join(ROOT, "llms.txt");
+  if (!fs.existsSync(llms)) {
+    fail("llms.txt", "missing");
+  } else if (/\/safety\.html/.test(fs.readFileSync(llms, "utf8"))) {
+    ok("llms.txt points assistants at the reaction-report page");
+  } else {
+    fail("llms.txt does not mention safety.html", "run npm run build-data");
+  }
+
+  var privacyHtml = fs.readFileSync(path.join(ROOT, "privacy.html"), "utf8");
+  [
+    ["how long reaction reports are kept", /three years/i],
+    ["that the FDA only sees them when the law requires it", /FDA/],
+    ["that Resend delivers the email", /Resend/],
+    ["it carries a link to the reporting page", /href="\/safety\.html"/]
+  ].forEach(function (pair) {
+    if (pair[1].test(privacyHtml)) ok("privacy.html says " + pair[0]);
+    else fail("privacy.html does not say " + pair[0]);
+  });
+
+  /* --- the Worker end --- */
+  var checkoutSrc = fs.readFileSync(path.join(ROOT, "workers/checkout.js"), "utf8");
+  if (/"\/safety-report": handleSafetyReport/.test(checkoutSrc)) {
+    ok("workers/checkout.js routes /safety-report");
+  } else {
+    fail("workers/checkout.js does not route /safety-report", "the form would 404");
+  }
+  if (/POST \/api\/safety-report/.test(checkoutSrc)) {
+    ok("workers/checkout.js documents the route in its header comment");
+  } else {
+    fail("workers/checkout.js header comment does not list /api/safety-report");
+  }
+
+  var migrations = fs.readFileSync(path.join(ROOT, "workers/state/migrations.js"), "utf8");
+  var schemaSql = fs.readFileSync(path.join(ROOT, "workers/schema.sql"), "utf8");
+  if (/CREATE TABLE IF NOT EXISTS adverse_events/.test(migrations)) {
+    ok("workers/state/migrations.js creates the adverse_events table");
+  } else {
+    fail("workers/state/migrations.js has no adverse_events table");
+  }
+  if (/CREATE TABLE IF NOT EXISTS adverse_events/.test(schemaSql)) {
+    ok("workers/schema.sql documents the adverse_events table");
+  } else {
+    fail("workers/schema.sql has no adverse_events table");
   }
 })();
 

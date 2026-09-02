@@ -661,6 +661,55 @@ assert(
   "Multi-rule: Soak celebration banner present"
 );
 
+/* ==========================================================
+   Mix & Match nudge must never say "free shipping" once the $40 tier is
+   already unlocked and a further milestone (here, $60) remains -- the
+   nudge's "next perk" text used to be hardcoded to "free shipping"
+   regardless of which milestone was actually next (see the "Name the NEXT
+   perk, whatever it is" comment in cart.js's drawer renderer). This
+   exercises the exact combination that bug shipped in: a qualifying
+   volume-pricing item AND a multi-tier shippingMilestones config, at a
+   subtotal past the first tier.
+   ========================================================== */
+mockWindow.YL_PRODUCTS = {
+  shop: {
+    shippingMilestones: [
+      { threshold: 40, reward: "Free Tracked Shipping", icon: "truck" },
+      { threshold: 60, reward: "Free Handcrafted Pocket Salve", icon: "gift" }
+    ]
+  }
+};
+storage.set(
+  "yl-cart-v1",
+  JSON.stringify([
+    {
+      id: "frankincense-salve",
+      category: "salves",
+      qty: 3, // 3 * $14.99 volume price = $44.97: past the $40 tier, short of $60
+      price: 19.99,
+      variantDelta: 0,
+      variantLabel: "2oz",
+      name: "Frankincense Salve"
+    }
+  ])
+);
+YLCart.init({ force: true });
+footHTML = drawerFootHTML();
+assert(
+  footHTML.includes(
+    "$14.99/ea 2oz salve volume tier applied! · Add $15.03 for Free Handcrafted Pocket Salve!"
+  ),
+  "Mix & Match nudge names the real next milestone reward once the $40 tier is already crossed"
+);
+assert(
+  !/free shipping/i.test(footHTML),
+  "Nothing in the drawer footer says 'free shipping' once the $40 tier is already unlocked and a further tier remains"
+);
+assert(
+  footHTML.includes("Add $15.03 more to unlock a Free Handcrafted Pocket Salve!"),
+  "The milestone banner itself also names the real next reward, not 'free shipping'"
+);
+
 mockWindow.YL_PRODUCTS = null;
 
 // Milestone 1 Tests: Gifting UI, Share Cart Hydration & Loyalty Wallet in Cart Drawer
@@ -1105,6 +1154,41 @@ assert(
       const el = drawerFoot().querySelector(".yl-cart-error");
       return el ? el.textContent : "";
     }
+
+    /* ==========================================================
+       Checkout Start analytics: fires the moment the checkout POST is
+       issued, carrying item count, subtotal in cents, and isPickup --
+       so a real dashboard can build the Add to Cart -> Checkout Start ->
+       Purchase funnel (docs/research-2026-09-01/research-L-analytics.md
+       §3). window.plausible is never called by this repo's own code --
+       it's the Umami adapter main.js defines -- so this spies on it
+       directly rather than asserting a network call.
+       ========================================================== */
+    const plausibleCalls = [];
+    mockWindow.plausible = (name, opts) => plausibleCalls.push({ name, opts });
+    global.fetch = () =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({ url: "https://checkout.stripe.com/pay/cs_test_xyz" })
+      });
+    checkoutButton()._listeners = {};
+    YLCart.open();
+    checkoutButton()._fire("click");
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    const checkoutStartCall = plausibleCalls.find((c) => c.name === "Checkout Start");
+    assert(
+      checkoutStartCall,
+      "Checkout Start analytics event fires the moment the checkout POST is issued"
+    );
+    eq(
+      checkoutStartCall && checkoutStartCall.opts.props,
+      { itemCount: 1, subtotalCents: 2000, isPickup: false },
+      "Checkout Start carries item count, subtotal in cents, and isPickup"
+    );
+    delete mockWindow.plausible;
 
     let checkoutCalls = 0;
     let lastCheckoutOpts = null;

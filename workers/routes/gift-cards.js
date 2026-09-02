@@ -208,6 +208,17 @@ export async function sendEmail(env, message, idempotencyKey) {
     // logged as a warning, and the webhook still returned 200 (audit H-9).
     throw new Error("RESEND_API_KEY is not configured");
   }
+  // A caller's own `message.headers` are MERGED, not replaced. The retention
+  // sends put `List-Unsubscribe` and `List-Unsubscribe-Post` there, and an
+  // earlier version of this function overwrote the whole object with the
+  // idempotency pair -- which would have silently dropped the one header a
+  // marketing email is required to carry.
+  const messageHeaders = {
+    ...(message && message.headers ? message.headers : {}),
+    ...(idempotencyKey
+      ? { "X-Entity-Ref-ID": idempotencyKey, "Idempotency-Key": idempotencyKey }
+      : {})
+  };
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -217,9 +228,7 @@ export async function sendEmail(env, message, idempotencyKey) {
     },
     body: JSON.stringify({
       ...message,
-      headers: idempotencyKey
-        ? { "X-Entity-Ref-ID": idempotencyKey, "Idempotency-Key": idempotencyKey }
-        : undefined
+      headers: Object.keys(messageHeaders).length ? messageHeaders : undefined
     })
   });
   return { ok: Boolean(res && res.ok), status: res ? res.status : 502 };

@@ -102,6 +102,20 @@
     return q;
   }
 
+  /* Product pages carry a quantity stepper that writes data-item-quantity on
+     the Add to Cart button; everywhere else the attribute is absent and the
+     button adds one. This only decides the STARTING quantity for a brand
+     new line (a tampered/huge value is still capped at MAX_QTY here) --
+     addToList()/clampQty() re-clamp again, against the product's own
+     maxQty, when the line is actually merged into the cart, so a tampered
+     attribute can never exceed either ceiling. Kept a plain function
+     (not routed through clampQty) because the two have different floors:
+     an absent or 1-or-less attribute means "just one," not "clamp to 1." */
+  function startQtyFromAttr(rawQty) {
+    var parsedQty = parseInt(rawQty, 10);
+    return !isNaN(parsedQty) && parsedQty > 1 ? Math.min(parsedQty, MAX_QTY) : 1;
+  }
+
   var QUALIFYING_2OZ_SALVE_PRICE = 14.99;
 
   var DEFAULT_VOLUME_PRICING = [
@@ -904,6 +918,7 @@
       lineKey: lineKey,
       deltaForLabel: deltaForLabel,
       clampQty: clampQty,
+      startQtyFromAttr: startQtyFromAttr,
       isQualifying2ozSalve: isQualifying2ozSalve,
       qualifying2ozSalveCount: qualifying2ozSalveCount,
       unitPrice: unitPrice,
@@ -2231,12 +2246,7 @@
     var variantName = d.itemCustom1Name || "";
     var variantDelta = deltaForLabel(d.itemCustom1Options, variantLabel);
     var parsedMax = parseInt(d.itemMaxQuantity, 10);
-    /* Product pages carry a quantity stepper that writes data-item-quantity;
-       everywhere else the attribute is absent and one is added. Bounded here
-       and again by addToList's cap, so a tampered attribute cannot exceed
-       the product's stock or the cart's own hard maximum. */
-    var parsedQty = parseInt(d.itemQuantity, 10);
-    var startQty = !isNaN(parsedQty) && parsedQty > 1 ? Math.min(parsedQty, MAX_QTY) : 1;
+    var startQty = startQtyFromAttr(d.itemQuantity);
     var item = {
       id: d.itemId,
       name: d.itemName,
@@ -2347,6 +2357,25 @@
       )
     };
     if (controller) opts.signal = controller.signal;
+
+    /* Checkout Start: fired at the moment the checkout POST actually goes
+       out (not on an earlier click that got swallowed by the in-flight
+       guard above), so a real dashboard can build the Add to Cart ->
+       Checkout Start -> Purchase funnel this shop didn't have visibility
+       into before -- see docs/research-2026-09-01/research-L-analytics.md
+       §3. window.plausible is the Umami adapter main.js defines at the top
+       of the page; guarded the same way every other call site in this
+       codebase is (absent under file://, or with an ad/tracker blocker),
+       so a missing adapter can never throw or block checkout itself. */
+    if (typeof window !== "undefined" && typeof window.plausible === "function") {
+      window.plausible("Checkout Start", {
+        props: {
+          itemCount: totalCount(state.items),
+          subtotalCents: Math.round(subtotal(state.items) * 100),
+          isPickup: !!state.isPickup
+        }
+      });
+    }
 
     function settle() {
       clearTimeout(timer);

@@ -221,7 +221,7 @@ var verifiedReview = {
 };
 var verifiedHtml = main.renderReviewCardHtml(verifiedReview, { name: "Test Salve" });
 assert.ok(verifiedHtml.indexOf('class="badge badge-verified"') !== -1, "Contains verified badge");
-assert.ok(verifiedHtml.indexOf("Verified Buyer") !== -1, "Contains Verified Buyer text");
+assert.ok(verifiedHtml.indexOf("Verified buyer") !== -1, "Contains Verified buyer text");
 assert.ok(verifiedHtml.indexOf("★★★★★") !== -1, "Contains 5 stars");
 assert.ok(verifiedHtml.indexOf("&amp;") !== -1, "Escapes ampersand");
 assert.ok(verifiedHtml.indexOf("&lt;product&gt;") !== -1, "Escapes angle brackets");
@@ -241,6 +241,112 @@ var unverifiedHtml = main.renderReviewCardHtml(unverifiedReview, null);
 assert.strictEqual(unverifiedHtml.indexOf("badge-verified"), -1, "Omits verified badge when false");
 assert.ok(unverifiedHtml.indexOf("★★★★☆") !== -1, "Contains 4 stars and 1 empty star");
 console.log("  ✓ renderReviewCardHtml omits verified buyer badge when false");
+
+// 10b. renderReviewCardHtml - orderRef alone earns the badge, a bare
+// verifiedBuyer that isn't strictly `true` does not (e.g. a stray string or
+// number in hand-edited JSON must not silently read as verified).
+var orderRefReview = {
+  id: "test-3",
+  name: "Riley H.",
+  rating: 5,
+  text: "Matched to a real order.",
+  date: "2026-08-18",
+  orderRef: "cs_test_abc123"
+};
+var orderRefHtml = main.renderReviewCardHtml(orderRefReview, null);
+assert.ok(
+  orderRefHtml.indexOf("Verified buyer") !== -1,
+  "orderRef alone renders the Verified buyer badge"
+);
+
+var truthyNotTrueReview = {
+  id: "test-4",
+  name: "Sam B.",
+  rating: 5,
+  text: "No real evidence behind this one.",
+  date: "2026-08-22",
+  verifiedBuyer: "yes"
+};
+var truthyNotTrueHtml = main.renderReviewCardHtml(truthyNotTrueReview, null);
+assert.strictEqual(
+  truthyNotTrueHtml.indexOf("badge-verified"),
+  -1,
+  "verifiedBuyer must be strictly true (or orderRef present) -- a truthy non-boolean earns no badge"
+);
+console.log(
+  "  ✓ renderReviewCardHtml only shows Verified buyer with real evidence (orderRef or verifiedBuyer === true)"
+);
+
+// 10c. renderReviewCardHtml - optional ownerReply block
+var repliedReview = {
+  id: "test-5",
+  name: "Avery G.",
+  rating: 3,
+  text: "Wish it lingered longer.",
+  date: "2026-08-30",
+  verifiedBuyer: false,
+  ownerReply: "Thanks for the honest read! <script>alert(1)</script>"
+};
+var repliedHtml = main.renderReviewCardHtml(repliedReview, null);
+assert.ok(
+  repliedHtml.indexOf('class="review-owner-reply"') !== -1,
+  "Renders the owner-reply block when ownerReply is set"
+);
+assert.ok(
+  repliedHtml.indexOf("Reply from Savanna") !== -1,
+  "Owner-reply block is clearly labelled"
+);
+assert.ok(
+  repliedHtml.indexOf("Thanks for the honest read!") !== -1,
+  "Owner-reply text is rendered"
+);
+assert.ok(
+  repliedHtml.indexOf("<script>alert(1)</script>") === -1 &&
+    repliedHtml.indexOf("&lt;script&gt;") !== -1,
+  "Owner-reply text is HTML-escaped, not raw markup"
+);
+
+var noReplyHtml = main.renderReviewCardHtml(unverifiedReview, null);
+assert.strictEqual(
+  noReplyHtml.indexOf("review-owner-reply"),
+  -1,
+  "Omits the owner-reply block entirely when ownerReply is absent"
+);
+console.log(
+  "  ✓ renderReviewCardHtml renders an optional, clearly-labelled, escaped ownerReply block"
+);
+
+// 10d. reviewDistributionHTML - star-count summary
+var distReviews = [
+  { rating: 5 },
+  { rating: 5 },
+  { rating: 5 },
+  { rating: 4 },
+  { rating: 3 },
+  { rating: 5.4 }, // rounds to 5
+  { rating: 0 }, // out of range, excluded
+  null // guarded, excluded
+];
+var distHtml = main.reviewDistributionHTML(distReviews);
+assert.ok(
+  distHtml.indexOf('class="review-distribution"') !== -1,
+  "Renders the distribution container"
+);
+assert.ok(distHtml.indexOf(">5★<") !== -1, "Distribution lists the 5-star row");
+assert.ok(distHtml.indexOf(">1★<") !== -1, "Distribution lists the 1-star row down to 1");
+// 4 real 5-star reviews (three literal 5s plus the 5.4 that rounds to 5) out
+// of 6 valid reviews -- the fill width is that share of the total.
+assert.ok(
+  distHtml.indexOf('style="width:67%"') !== -1,
+  "5-star bar width reflects its share of the total (4/6 = 67%)"
+);
+assert.strictEqual(main.reviewDistributionHTML([]), "", "Returns empty string for no reviews");
+assert.strictEqual(
+  main.reviewDistributionHTML([{ rating: 0 }, { rating: 9 }]),
+  "",
+  "Returns empty string when nothing in the pool has a valid 1-5 rating"
+);
+console.log("  ✓ reviewDistributionHTML computes a 5-to-1 star breakdown from the visible pool");
 
 // 11. site-reviews.json Schema Assertions
 reviews.forEach(function (r, idx) {

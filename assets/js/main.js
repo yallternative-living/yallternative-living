@@ -2415,6 +2415,16 @@
         if (!res.ok) throw new Error("Signup failed");
         state.form.hidden = true;
         if (state.successMsg) state.successMsg.hidden = false;
+        /* Restock Alert: fires only on a real, confirmed Formspree submit --
+           never on the honeypot's fake-success branch above, and never when
+           the form isn't connected yet (handled by the early return above
+           this fetch). */
+        if (typeof window.plausible === "function") {
+          var prodIdInput = document.getElementById("restockProductId");
+          window.plausible("Restock Alert", {
+            props: { product: prodIdInput ? prodIdInput.value : "unknown" }
+          });
+        }
       })
       .catch(function () {
         if (state.submitBtn) {
@@ -2834,20 +2844,40 @@
      (products-data.js's p.rating, kept in sync by scripts/apply-etsy-
      snapshot.js) -- never a fabricated or shop-wide number. Visual stars
      are aria-hidden with a proper sr-only equivalent, same pattern used
-     for the testimonial stars on index.html and the shop-page trust line. */
+     for the testimonial stars on index.html and the shop-page trust line.
+
+     Threshold used to be 3+ reviews, which hid the star row on most of the
+     catalog (a 1-2 review product showed nothing at all despite having real
+     Etsy history to draw on -- see docs/research-2026-09-01/research-K-
+     reviews-ugc.md §3/§5: the steep conversion lift is 0->a few reviews,
+     not 12->32, so hiding social proof at exactly the volume this shop
+     actually has was the wrong call). Now shows from 1 review, with the
+     count spelled out ("5.0 · 1 review") so a single review never reads as
+     a shop-wide average. */
   function ratingHTML(p) {
-    if (!p.rating || !(p.rating.count >= 3)) return "";
+    if (!p.rating || !(p.rating.count >= 1)) return "";
     var full = Math.max(0, Math.min(5, Math.round(p.rating.value)));
     var stars = "";
     for (var i = 0; i < 5; i++) stars += i < full ? "★" : "☆";
     var reviewWord = p.rating.count === 1 ? "review" : "reviews";
+    var valueText = p.rating.value.toFixed(1);
     return (
       '<div class="card-rating">' +
       '<span aria-hidden="true">' +
       stars +
       "</span>" +
+      /* Visible, but aria-hidden: the sr-only span right after it already
+         announces this same information in full sentence form, so a screen
+         reader would otherwise hear the count twice. */
+      '<span class="card-rating-count" aria-hidden="true">' +
+      valueText +
+      " &middot; " +
+      p.rating.count +
+      " " +
+      reviewWord +
+      "</span>" +
       '<span class="sr-only">Rated ' +
-      p.rating.value.toFixed(1) +
+      valueText +
       " out of 5 stars, " +
       p.rating.count +
       " " +
@@ -3173,16 +3203,33 @@
     var stars = "";
     for (var i = 0; i < 5; i++) stars += i < full ? "★" : "☆";
 
-    var verifiedBadgeHtml = r.verifiedBuyer
+    /* "Verified buyer" only ever renders when there's real evidence behind
+       it: either a matched order reference (orderRef, set once a Formspree
+       submission's email is checked against a real D1 order) or an
+       explicit verifiedBuyer: true set after that same check. A review
+       with neither gets no badge at all -- never a badge asserted on
+       nothing, which is its own FTC violation (16 CFR 465.4). See
+       docs/research-2026-09-01/research-K-reviews-ugc.md §3/§6. */
+    var isVerified = Boolean(r.orderRef) || r.verifiedBuyer === true;
+    var verifiedBadgeHtml = isVerified
       ? '<span class="badge badge-verified" title="Verified Customer">' +
         '<svg class="icon-badge-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2l3.09 2.22 3.79-.37 1.83 3.32 3.24 1.98-.79 3.72.79 3.72-3.24 1.98-1.83 3.32-3.79-.37L12 22l-3.09-2.22-3.79.37-1.83-3.32-3.24-1.98.79-3.72-.79-3.72 3.24-1.98 1.83-3.32 3.79.37L12 2z"/><polyline points="9 12 11 14 15 10"/></svg>' +
-        " Verified Buyer</span>"
+        " Verified buyer</span>"
       : "";
 
     var byline =
       attrEsc(r.name || "A customer") +
       (product ? " · " + attrEsc(product.name) : "") +
       (r.date ? " · " + formatReviewDate(r.date) : "");
+
+    /* Owner replies are optional, CMS-authored copy (admin/config.yml's
+       reviews.ownerReply) -- never generated, always clearly attributed so
+       it reads as a reply, not a second customer review. */
+    var ownerReplyHtml = r.ownerReply
+      ? '<div class="review-owner-reply"><p class="review-owner-reply-label">Reply from Savanna</p><p>' +
+        attrEsc(r.ownerReply) +
+        "</p></div>"
+      : "";
 
     return (
       '<div class="quote-card review-card reveal">' +
@@ -3201,6 +3248,67 @@
       "<footer>" +
       byline +
       "</footer>" +
+      ownerReplyHtml +
+      "</div>"
+    );
+  }
+
+  /* Star-distribution summary (5-star down to 1-star, with counts), shown
+     above the review grid. Computed once from the on-page pool of site
+     reviews itself -- never from the Etsy 4.9/32 figure, which is kept
+     structurally separate everywhere else on this site (see shop.html's
+     own note above #siteReviewsList). Baymard's research found an unbroken
+     wall of 5-stars reads as less credible than a visible distribution,
+     even at small review counts, and about half of shoppers actively hunt
+     for the low end first -- see docs/research-2026-09-01/research-K-
+     reviews-ugc.md §3. Deliberately static (computed once from the full
+     on-page pool, not recomputed against an active search/rating filter):
+     a distribution that changes shape every time someone filters by 5★
+     would just show "100% five-star" and defeat the point. */
+  function reviewDistributionHTML(reviews) {
+    var list = Array.isArray(reviews) ? reviews : [];
+    var counts = [0, 0, 0, 0, 0]; // index 0 = 1-star ... index 4 = 5-star
+    var total = 0;
+    list.forEach(function (r) {
+      var v = Math.round((r && r.rating) || 0);
+      if (v >= 1 && v <= 5) {
+        counts[v - 1]++;
+        total++;
+      }
+    });
+    if (!total) return "";
+
+    var rows = "";
+    var summaryParts = [];
+    for (var star = 5; star >= 1; star--) {
+      var count = counts[star - 1];
+      var pct = Math.round((count / total) * 100);
+      summaryParts.push(count + " " + star + (star === 1 ? "-star" : "-star"));
+      rows +=
+        '<div class="review-dist-row">' +
+        '<span class="review-dist-label">' +
+        star +
+        "★</span>" +
+        '<span class="review-dist-track"><span class="review-dist-fill" style="width:' +
+        pct +
+        '%"></span></span>' +
+        '<span class="review-dist-count">' +
+        count +
+        "</span>" +
+        "</div>";
+    }
+
+    return (
+      '<div class="review-distribution" role="img" aria-label="Rating breakdown out of ' +
+      total +
+      " " +
+      (total === 1 ? "review" : "reviews") +
+      ": " +
+      attrEsc(summaryParts.join(", ")) +
+      '">' +
+      '<div aria-hidden="true">' +
+      rows +
+      "</div>" +
       "</div>"
     );
   }
@@ -3224,6 +3332,22 @@
     var allReviews = (window.YL_SITE_REVIEWS || []).slice().sort(function (a, b) {
       return (b.date || "").localeCompare(a.date || "");
     });
+
+    /* Distribution bar goes above the grid, computed once from the full
+       on-page pool (see reviewDistributionHTML's own comment for why it
+       does not track the search/rating filters below). */
+    var distHtml = reviewDistributionHTML(allReviews);
+    if (distHtml) {
+      var distContainer = document.getElementById("reviewsDistribution");
+      if (!distContainer) {
+        distContainer = document.createElement("div");
+        distContainer.id = "reviewsDistribution";
+        if (reviewsGrid.parentNode) {
+          reviewsGrid.parentNode.insertBefore(distContainer, reviewsGrid);
+        }
+      }
+      distContainer.innerHTML = distHtml;
+    }
 
     var currentRating = "all";
     var currentQuery = "";
@@ -3904,6 +4028,25 @@
           "</div>";
       }
       markReveal(upcomingEl);
+
+      injectEventJsonLd(sortedUpcoming);
+
+      /* "Invite us to your market" + the event-specific email capture,
+         rendered once just after the upcoming list. Re-checks for an
+         existing panel so a second call (there isn't one today, but this
+         mirrors the id-check pattern injectEventJsonLd and the reviews
+         distribution bar both use) updates in place instead of duplicating. */
+      var followupPanel = document.getElementById("eventsFollowupPanel");
+      if (!followupPanel) {
+        followupPanel = document.createElement("div");
+        followupPanel.id = "eventsFollowupPanel";
+        followupPanel.className = "events-followup-panel";
+        if (upcomingEl.parentNode) {
+          upcomingEl.parentNode.insertBefore(followupPanel, upcomingEl.nextSibling);
+        }
+      }
+      var eventsSite = (window.YL_CONTENT && window.YL_CONTENT.site) || {};
+      followupPanel.innerHTML = eventInviteOrganizerHTML() + eventEmailCaptureHTML(eventsSite);
     }
 
     if (pastEl) {
@@ -4375,6 +4518,204 @@
     return "https://maps.apple.com/?daddr=" + encodeURIComponent(dest);
   }
 
+  /* Extracts just the street-address portion (before the first comma) from
+     an event note that actually starts with one -- e.g. "575 Fairgrounds
+     Rd, Spartanburg, SC 29303. Two-day punk flea market" -> "575
+     Fairgrounds Rd". Same "note starts with a street address that contains
+     the event's own zip" signal formatEventMapDestination already uses, so
+     a venue-name-first note ("NoDa Brewing Company, 150 W 32nd St...")
+     correctly yields no street rather than a wrong one. Returns "" when
+     the note doesn't start with a street address, so JSON-LD (below) omits
+     streetAddress entirely instead of guessing. */
+  function getEventStreetAddress(ev) {
+    if (!ev || !ev.note || !ev.zip) return "";
+    var note = String(ev.note);
+    if (!/^\d/.test(note.trim())) return "";
+    if (note.indexOf(ev.zip) === -1) return "";
+    var match = note.match(/^([^.]+?\b\d{5}\b)/);
+    if (!match) return "";
+    var full = match[1].trim();
+    var commaIdx = full.indexOf(",");
+    return commaIdx > 0 ? full.slice(0, commaIdx).trim() : full;
+  }
+
+  /* Resolves the real America/New_York UTC offset ("-04:00" EDT or "-05:00"
+     EST) for a given calendar date, so a market's start time can be
+     serialized as a correct, DST-aware ISO-8601 timestamp regardless of
+     which side of a March/November transition it falls on. Uses noon UTC
+     of that calendar date -- comfortably inside the same Eastern calendar
+     day on either side of midnight, so it can never resolve to the wrong
+     day's offset near a transition. Returns null if Intl can't answer
+     (extremely old engines only; every call site treats null as "omit the
+     offset" rather than guessing). */
+  function getEasternOffsetForDate(dateObj) {
+    try {
+      var parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/New_York",
+        timeZoneName: "shortOffset"
+      }).formatToParts(dateObj);
+      var tzPart = parts.find(function (p) {
+        return p.type === "timeZoneName";
+      });
+      var raw = tzPart ? tzPart.value : "";
+      var m = /GMT([+-])(\d{1,2})(?::?(\d{2}))?/.exec(raw);
+      if (!m) return null;
+      return m[1] + m[2].padStart(2, "0") + ":" + (m[3] || "00");
+    } catch {
+      return null;
+    }
+  }
+
+  /* Builds an ISO-8601 value for one of events.json's date fields, used by
+     buildEventJsonLd below. The CMS's date widget collects date only (no
+     time), so most events have no real start time to report -- those are
+     returned as a bare "YYYY-MM-DD" (a valid, if less precise, ISO-8601
+     date -- Google's own Event docs accept a date-only value; this never
+     fabricates a clock time the shop owner didn't enter). When a date
+     string does carry a time (as the seed data does, e.g.
+     "2026-10-17T09:00:00-04:00"), the real Eastern offset for that
+     specific calendar date is derived fresh via getEasternOffsetForDate
+     rather than trusting whatever offset (if any) the source string
+     already had -- every event here is a Landrum, SC / local market time
+     regardless of what wrote the JSON. */
+  function buildEventDateTimeISO(dateStr) {
+    if (!dateStr) return null;
+    var str = String(dateStr);
+    var datePart = str.slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(datePart)) return null;
+    var timeMatch = /T(\d{2}:\d{2}:\d{2})/.exec(str);
+    if (!timeMatch) return { iso: datePart, hasTime: false };
+
+    var p = datePart.split("-").map(Number);
+    var noonUtc = new Date(Date.UTC(p[0], p[1] - 1, p[2], 12));
+    var offset = getEasternOffsetForDate(noonUtc);
+    return {
+      iso: datePart + "T" + timeMatch[1] + (offset || ""),
+      hasTime: true
+    };
+  }
+
+  /* location as a schema.org Place/PostalAddress -- never an `organizer`
+     (Y'allternative Living is a vendor/exhibitor at these markets, not the
+     host: see docs/research-2026-09-01/research-E-local-discovery.md §3 on
+     why marking this shop as `organizer` of a market it doesn't run is
+     against Google's own content policy) and never an `offers` block
+     (there is no ticket to buy). */
+  function buildEventJsonLdLocation(ev) {
+    var address = { "@type": "PostalAddress", addressCountry: "US" };
+    var loc = ev && ev.location ? String(ev.location) : "";
+    var locParts = loc.split(",");
+    var city = locParts[0] ? locParts[0].trim() : "";
+    var region = locParts[1] ? locParts[1].trim() : "";
+    if (city) address.addressLocality = city;
+    if (region) address.addressRegion = region;
+    if (ev && ev.zip) address.postalCode = ev.zip;
+    var street = getEventStreetAddress(ev);
+    if (street) address.streetAddress = street;
+    return { "@type": "Place", address: address };
+  }
+
+  /* One Event JSON-LD object for one upcoming market -- see
+     docs/research-2026-09-01/research-E-local-discovery.md §3/§6 for the
+     eligibility fields and the organizer/offers omissions. endDate is only
+     included for a genuine multi-day event (ev.endDate set, same rule the
+     CMS field itself documents: "only for multi-day events") -- a
+     single-day market with no known closing time gets a startDate alone
+     rather than a fabricated zero-duration endDate equal to its start. */
+  function buildEventJsonLd(ev) {
+    if (!ev || !ev.name) return null;
+    var start = buildEventDateTimeISO(ev.date);
+    if (!start) return null;
+
+    var ld = {
+      "@context": "https://schema.org",
+      "@type": "Event",
+      name: "Y'allternative Living at " + ev.name,
+      startDate: start.iso,
+      eventStatus: "https://schema.org/EventScheduled",
+      eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+      location: buildEventJsonLdLocation(ev)
+    };
+    if (ev.endDate) {
+      var end = buildEventDateTimeISO(ev.endDate);
+      if (end) ld.endDate = end.iso;
+    }
+    return ld;
+  }
+
+  /* All upcoming events, JSON-LD-ready. Filters out anything buildEventJsonLd
+     can't build a valid startDate for (no name, no parseable date) rather
+     than emitting broken structured data for it. */
+  function buildEventsJsonLd(events) {
+    return (Array.isArray(events) ? events : []).map(buildEventJsonLd).filter(function (ld) {
+      return !!ld;
+    });
+  }
+
+  /* Appends (or updates, on a re-run) a single <script type="application/
+     ld+json"> in <head> carrying every upcoming event. Gated on
+     site.enableEventJsonLd (admin/config.yml, default true) the same way
+     every other content flag in this file is read -- see siteFlagEnabled.
+     A page with no upcoming events, or the flag switched off, appends
+     nothing rather than an empty/misleading script tag. */
+  function injectEventJsonLd(events) {
+    if (typeof document === "undefined" || !document.head) return;
+    if (!siteFlagEnabled("enableEventJsonLd")) return;
+    var ldObjects = buildEventsJsonLd(events);
+    if (!ldObjects.length) return;
+
+    var script = document.getElementById("yl-event-jsonld");
+    if (!script) {
+      script = document.createElement("script");
+      script.id = "yl-event-jsonld";
+      script.type = "application/ld+json";
+      document.head.appendChild(script);
+    }
+    script.textContent = JSON.stringify(ldObjects.length === 1 ? ldObjects[0] : ldObjects);
+  }
+
+  /* "Invite us to your market" -- a plain mailto line under the upcoming
+     events list, for market/Pride organizers browsing the page (a
+     different audience than shoppers). See
+     docs/research-2026-09-01/research-E-local-discovery.md §6 checklist
+     item 8. */
+  function eventInviteOrganizerHTML() {
+    return (
+      '<p class="events-invite-organizer">Run a market, fair, or Pride event and want us at ' +
+      'your table? <a href="mailto:y.allternative.living@gmail.com?subject=' +
+      encodeURIComponent("Invite Y'allternative Living to your market") +
+      '">Invite us</a>.</p>'
+    );
+  }
+
+  /* Event-specific "email me the next market date" capture, distinct from
+     the generic footer newsletter form -- tagged fields[interest]=events so
+     it lands in Kit as its own segment. Same plain-HTML-POST pattern as the
+     footer signup form (works with JS off, no fetch/success-state
+     machinery to build or keep in sync): see index.html's #footerSignup
+     form for the sibling pattern this mirrors. Renders nothing when
+     site.kitFormAction isn't set, exactly like every other Kit-form call
+     site in this codebase -- there is no working form to point at without
+     it. */
+  function eventEmailCaptureHTML(site) {
+    var action = site && typeof site.kitFormAction === "string" ? site.kitFormAction.trim() : "";
+    if (!/^https:\/\//.test(action)) return "";
+    return (
+      '<form class="events-market-alert-form" action="' +
+      attrEsc(action) +
+      '" method="post">' +
+      '<div class="form-hp" aria-hidden="true">' +
+      '<label for="events_alert_website">Leave this field blank</label>' +
+      '<input type="text" id="events_alert_website" name="events_alert_website" tabindex="-1" autocomplete="off" aria-hidden="true">' +
+      "</div>" +
+      '<label for="events_alert_email" class="sr-only">Email address</label>' +
+      '<input type="email" id="events_alert_email" name="email_address" placeholder="you@email.com" required autocomplete="email">' +
+      '<input type="hidden" name="fields[interest]" value="events">' +
+      '<button class="btn btn-outline btn-sm" type="submit">Email Me the Next Market Date</button>' +
+      "</form>"
+    );
+  }
+
   function parsePickupMarketParam(param, events) {
     if (!param) return null;
     var decoded = decodeURIComponent(param).trim();
@@ -4732,20 +5073,67 @@
       "something"
     ]);
 
+    /* SYNONYM_GROUPS holds single-word clusters only (botanical/INCI names,
+       misspellings, plurals, one-word concern terms). expandQuery() below
+       tokenizes the query on whitespace before ever consulting SYNONYM_MAP,
+       so a multi-word member here (e.g. "facial hair") can only ever be
+       *reached* as an expansion sibling of some other single-word member in
+       its own group (typing "beard" pulls in "facial" and "hair" as bonus
+       tokens) -- it can never itself be the trigger a shopper typed, because
+       the tokenized query never contains a space. Phrase-level triggers
+       ("sore muscles", "gift for him") belong in CATEGORY_TERMS instead,
+       which matches against the raw, unsplit query string.
+       Every group is query-side vocabulary only: it widens what a shopper's
+       words match against, it never appears in product copy. Per the FDA
+       compliance rule for this shop, a symptom/condition word may sit in a
+       group so that a shopper's own wording finds a real cosmetic product,
+       but the product's own listed name/blurb/keywords never claim to treat
+       or cure that condition. */
     var SYNONYM_GROUPS = [
-      ["lavender", "lavandula", "lavendula", "lavendar"],
-      ["frankincense", "boswellia", "olibanum"],
-      ["arnica", "arnica montana"],
-      ["calendula", "marigold"],
-      ["shea", "shea butter", "butyrospermum parkii", "butyrospermum"],
+      // ---- Tier 1: botanicals, INCI names, misspellings & plurals ----
+      ["lavender", "lavandula", "lavendula", "lavendar", "lavenders"],
+      ["frankincense", "boswellia", "olibanum", "frankinsense", "frankencense"],
+      ["arnica", "arnika"],
+      ["calendula", "marigold", "calendual"],
+      ["shea", "karite", "butyrospermum", "sheas"],
       ["cedarwood", "cedar"],
-      ["eucalyptus", "blue gum"],
-      ["peppermint", "mentha piperita", "mint"],
-      ["chamomile", "matricaria"],
-      ["sleep", "insomnia", "bedtime", "nighttime", "slumber", "restless", "unwind"],
+      ["eucalyptus", "eucalypt", "eucalyptis"],
+      ["peppermint", "mentha", "mint", "pepermint", "peppermints"],
+      ["chamomile", "camomile", "matricaria"],
+      ["magnesium", "mag", "epsom", "magnesium sulfate"],
+      ["beeswax", "cera", "wax"],
+      ["witchhazel", "hamamelis"],
+      ["patchouli", "patchouly"],
+      ["palo", "santo"],
+      // ---- Tier 2: sleep, calm & wind-down intent ----
+      [
+        "sleep",
+        "insomnia",
+        "insomniac",
+        "bedtime",
+        "nighttime",
+        "slumber",
+        "restless",
+        "unwind",
+        "relax",
+        "relaxing",
+        "relaxation",
+        "calm",
+        "calming",
+        "wind-down",
+        "anxious",
+        "anxiety",
+        "stressed",
+        "stress",
+        "sleepy",
+        "drowsy"
+      ],
+      // ---- Tier 2: soreness, tension & recovery intent ----
       [
         "sore",
+        "sores",
         "ache",
+        "aches",
         "aching",
         "pain",
         "muscles",
@@ -4756,40 +5144,163 @@
         "stiffness",
         "sprain",
         "bruise",
+        "bruises",
         "tension",
-        "arthritis"
+        "tight",
+        "tightness",
+        "arthritis",
+        "cramp",
+        "cramps",
+        "knots",
+        "workout",
+        "recovery"
       ],
-      ["dry", "chapped", "cracked", "flaky", "ashy", "rough", "eczema", "hydration", "moisturizer"],
+      // ---- Tier 2: dry / rough / irritated skin intent ----
+      [
+        "dry",
+        "chapped",
+        "cracked",
+        "flaky",
+        "flaking",
+        "ashy",
+        "rough",
+        "eczema",
+        "hydration",
+        "hydrating",
+        "hydrate",
+        "moisturizer",
+        "moisturizing",
+        "moisturize",
+        "itchy",
+        "itch",
+        "windburn",
+        "cuticles",
+        "peeling",
+        "dehydrated"
+      ],
+      // ---- Tier 2: bug / outdoor-defense intent ----
       [
         "bug",
         "bugs",
         "mosquito",
         "mosquitoes",
+        "mosquitos",
         "tick",
         "ticks",
+        "chiggers",
+        "chigger",
         "gnat",
         "gnats",
         "insects",
         "insect",
         "repellent",
-        "bites"
+        "bites",
+        "bite",
+        "camping",
+        "hiking",
+        "outdoors",
+        "trail"
       ],
-      ["smudge", "cleansing", "energy", "smoke-free", "aura", "protection", "banishing"],
-      ["shimmer", "glow", "glitter", "sparkle", "radiance", "highlight", "highlighter"],
-      ["beard", "mustache", "stubble", "facial hair", "grooming"],
-      ["bath", "soak", "soaking", "tub", "epsom", "salts"],
-      ["gift", "voucher", "present", "gift card", "certificate", "birthday"]
+      // ---- Tier 2: witchy / cleansing / protection intent ----
+      [
+        "smudge",
+        "cleansing",
+        "cleanse",
+        "energy",
+        "smoke-free",
+        "aura",
+        "protection",
+        "banishing",
+        "banish",
+        "witchy",
+        "witch",
+        "spell",
+        "spells",
+        "ritual",
+        "amulet",
+        "amulets",
+        "talisman",
+        "talismans",
+        "warding"
+      ],
+      // ---- Tier 2: shimmer / glow intent ----
+      [
+        "shimmer",
+        "glow",
+        "glitter",
+        "sparkle",
+        "radiance",
+        "highlight",
+        "highlighter",
+        "bronzer",
+        "illuminator"
+      ],
+      // ---- Tier 2: beard / facial-hair grooming intent ----
+      ["beard", "mustache", "stubble", "grooming", "beards"],
+      // ---- Tier 2: bath / soak intent ----
+      ["bath", "soak", "soaking", "tub", "epsom", "salts", "soaks"],
+      // ---- Tier 2: exfoliation intent ----
+      ["scrub", "scrubs", "exfoliant", "exfoliate", "exfoliating", "polish"],
+      // ---- Tier 2: fragrance-free / sensitive-skin intent ----
+      [
+        "unscented",
+        "fragrance-free",
+        "hypoallergenic",
+        "sensitive",
+        "gentle",
+        "allergy",
+        "baby-safe"
+      ],
+      // ---- Tier 2: gifting intent ----
+      [
+        "gift",
+        "gifts",
+        "voucher",
+        "vouchers",
+        "present",
+        "presents",
+        "certificate",
+        "birthday",
+        "gifting"
+      ],
+      // ---- Tier 2: pride / queer / Southern-goth brand vocabulary ----
+      ["pride", "queer", "lgbtq", "rainbow", "stag"],
+      // ---- Tier 2: scent-family vocabulary (matches the p.scent field) ----
+      ["bourbon", "vanilla"],
+      ["citrus", "bright", "citrusy"],
+      ["woodsy", "herbal", "woods"],
+      ["fresh", "clean", "crisp"]
     ];
 
+    /* CATEGORY_TERMS maps a query phrase (checked against the *raw* query
+       string, so multi-word phrases work here even though they can't as
+       SYNONYM_GROUPS members) straight to product ids, adding a flat
+       hypernym bonus in matchesQuery() regardless of what text happens to be
+       in that product's blurb/keywords. Every id below is validated against
+       assets/data/products.json by scripts/semantic-search.test.js -- a
+       stale id here is a silent no-op in the browser (matchesQuery only
+       ever bonuses ids present in the current product list), so the test
+       exists to catch that before a shopper does. */
     var CATEGORY_TERMS = {
+      // ---- sleep / wind-down ----
       sleep: ["sleep-salve", "lavender-soak", "bath-tea"],
       insomnia: ["sleep-salve", "lavender-soak", "bath-tea"],
       bedtime: ["sleep-salve", "lavender-soak", "bath-tea"],
+      relax: ["sleep-salve", "lavender-soak", "bath-tea"],
+      relaxation: ["sleep-salve", "lavender-soak", "bath-tea"],
+      calm: ["sleep-salve", "lavender-soak", "bath-tea"],
+      anxiety: ["sleep-salve", "lavender-soak", "bath-tea"],
+      "stress relief": ["sleep-salve", "lavender-soak", "bath-tea"],
+      // ---- sore muscles / joints / recovery ----
       pain: ["miracle-balm", "backroad-soak", "frankincense-salve"],
       "sore muscles": ["miracle-balm", "backroad-soak", "frankincense-salve"],
       muscle: ["miracle-balm", "backroad-soak", "frankincense-salve"],
       joint: ["miracle-balm", "backroad-soak", "frankincense-salve"],
       arthritis: ["miracle-balm", "backroad-soak", "frankincense-salve"],
+      workout: ["backroad-soak", "miracle-balm", "frankincense-salve"],
+      "post workout": ["backroad-soak", "miracle-balm", "frankincense-salve"],
+      gym: ["backroad-soak", "miracle-balm", "frankincense-salve"],
+      // ---- dry / rough / chapped skin ----
       "dry skin": [
         "shea-butter",
         "whipped-body-butter",
@@ -4811,19 +5322,109 @@
         "sugar-scrub",
         "frankincense-salve"
       ],
+      moisturizer: [
+        "shea-butter",
+        "whipped-body-butter",
+        "hand-scrub",
+        "sugar-scrub",
+        "frankincense-salve"
+      ],
+      hydration: [
+        "shea-butter",
+        "whipped-body-butter",
+        "hand-scrub",
+        "sugar-scrub",
+        "frankincense-salve"
+      ],
+      "hand cream": ["miracle-balm", "shea-butter"],
+      "hand lotion": ["miracle-balm", "shea-butter"],
+      cuticles: ["frankincense-salve", "miracle-balm"],
+      windburn: ["frankincense-salve"],
+      // ---- exfoliation ----
+      exfoliate: ["sugar-scrub", "hand-scrub"],
+      exfoliant: ["sugar-scrub", "hand-scrub"],
+      scrub: ["sugar-scrub", "hand-scrub"],
+      // ---- bug / outdoor defense ----
       bug: ["bug-spray", "miracle-balm"],
       mosquito: ["bug-spray", "miracle-balm"],
       insect: ["bug-spray", "miracle-balm"],
       repellent: ["bug-spray", "miracle-balm"],
+      camping: ["bug-spray"],
+      hiking: ["bug-spray"],
+      outdoor: ["bug-spray"],
+      // ---- witchy / cleansing / protection ----
       smudge: ["cleansing-spray", "porch-sweep-spray", "protection-keychain"],
       energy: ["cleansing-spray", "porch-sweep-spray", "protection-keychain"],
       clearing: ["cleansing-spray", "porch-sweep-spray", "protection-keychain"],
+      witchy: ["protection-keychain", "cleansing-spray", "porch-sweep-spray"],
+      ritual: ["protection-keychain", "cleansing-spray", "porch-sweep-spray"],
+      spell: ["protection-keychain", "cleansing-spray", "porch-sweep-spray"],
+      // ---- beard / grooming ----
       beard: ["beard-salve"],
       grooming: ["beard-salve"],
+      mustache: ["beard-salve"],
+      "beard oil": ["beard-salve"],
+      "beard balm": ["beard-salve"],
+      // ---- shimmer / glow (single-word "glow" stays shimmer-only on
+      //      purpose -- "daily glow" below is the broader concern-based
+      //      phrase so it doesn't dilute that directional precision) ----
       shimmer: ["shimmer-oil"],
       glow: ["shimmer-oil"],
-      gift: ["yallternative-gift-card", "custom-box"],
+      glitter: ["shimmer-oil"],
+      highlighter: ["shimmer-oil"],
+      "daily glow": [
+        "miracle-balm",
+        "beard-salve",
+        "shimmer-oil",
+        "sugar-scrub",
+        "whipped-body-butter"
+      ],
+      // ---- fragrance-free / sensitive skin ----
+      unscented: ["miracle-balm"],
+      "fragrance free": ["miracle-balm"],
+      "sensitive skin": ["miracle-balm"],
+      hypoallergenic: ["miracle-balm"],
+      // ---- vegan / plant-based (tag-based, not a haystack field, so this
+      //      hypernym bonus is the only way these queries reach every
+      //      vegan-tagged product) ----
+      vegan: [
+        "sleep-salve",
+        "shimmer-oil",
+        "hand-scrub",
+        "lavender-soak",
+        "backroad-soak",
+        "bug-spray",
+        "sugar-scrub",
+        "whipped-body-butter",
+        "cleansing-spray",
+        "bath-tea",
+        "porch-sweep-spray"
+      ],
+      // ---- gifting ----
+      gift: ["yallternative-gift-card"],
       voucher: ["yallternative-gift-card"],
+      "gift for him": ["beard-salve", "hand-scrub", "yallternative-gift-card"],
+      "gift for her": [
+        "shea-butter",
+        "shimmer-oil",
+        "sugar-scrub",
+        "whipped-body-butter",
+        "yallternative-gift-card"
+      ],
+      "stocking stuffer": [
+        "miracle-balm",
+        "beard-salve",
+        "protection-keychain",
+        "yallternative-gift-card"
+      ],
+      "self care gift": ["sleep-salve", "lavender-soak", "shea-butter", "yallternative-gift-card"],
+      "bridesmaid gift": ["shimmer-oil", "sugar-scrub", "shea-butter"],
+      "hostess gift": ["cleansing-spray", "porch-sweep-spray", "bath-tea"],
+      // ---- pride / queer apparel ----
+      pride: ["tank-top", "unisex-tshirt", "sugar-scrub", "whipped-body-butter"],
+      queer: ["tank-top", "unisex-tshirt", "sugar-scrub", "whipped-body-butter"],
+      lgbtq: ["tank-top", "unisex-tshirt", "sugar-scrub", "whipped-body-butter"],
+      // ---- apparel ----
       shirt: ["unisex-tshirt", "tank-top"],
       tshirt: ["unisex-tshirt", "tank-top"],
       tank: ["tank-top"]
@@ -4845,7 +5446,7 @@
     });
 
     function expandQuery(rawQuery) {
-      var q = (rawQuery || "").toLowerCase().trim();
+      var q = (typeof rawQuery === "string" ? rawQuery : "").toLowerCase().trim();
       if (!q)
         return { exact: "", tokens: [], expandedTokens: new Set(), hypernymTargets: new Set() };
 
@@ -6856,6 +7457,18 @@
           direct: 6,
           synonym: 3
         });
+        if (prod.categoryLabel) {
+          score += scoreTextMatch(prod.categoryLabel, queryTokens, expandedTokens, {
+            direct: 6,
+            synonym: 3
+          });
+        }
+
+        // "coming soon" / "preorder" / "waitlist" intent: the flag is a boolean, not text,
+        // so give upcoming products a direct hit when the query is about what's next.
+        if (prod.comingSoon && expandedTokens.indexOf("soon") !== -1) {
+          score += 20;
+        }
 
         if (prod.outOfStock || prod.stock === 0) {
           score = score * 0.7;
@@ -7083,6 +7696,90 @@
     return html;
   }
 
+  /* Popular-search chips come from content.json "search" (editable in /admin)
+     via window.YL_CONTENT; the static markup in each page is rendered from the
+     same list by scripts/build-site-data.js. The icon set is duplicated there
+     on purpose (the build cannot load this browser file) and a test keeps the
+     two identical. */
+  var SEARCH_CHIP_ICONS = {
+    moon: '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
+    waves:
+      '<path d="M2 6c2 0 3-1.5 5-1.5S10 6 12 6s3-1.5 5-1.5S20 6 22 6"/><path d="M2 12c2 0 3-1.5 5-1.5S10 12 12 12s3-1.5 5-1.5S20 12 22 12"/><path d="M2 18c2 0 3-1.5 5-1.5S10 18 12 18s3-1.5 5-1.5S20 18 22 18"/>',
+    droplet: '<path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>',
+    shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+    calendar:
+      '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+    gift: '<polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>',
+    sparkle: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/>',
+    leaf: '<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>'
+  };
+
+  var DEFAULT_SEARCH_CHIPS = [
+    { label: "Bedtime & Wind-Down", query: "sleep", icon: "moon" },
+    { label: "Bath Soaks", query: "soak", icon: "waves" },
+    { label: "Dry, Rough Skin", query: "dry skin", icon: "droplet" },
+    { label: "Bug Defense", query: "bug spray", icon: "shield" },
+    { label: "Pop-Up Markets", query: "events", icon: "calendar" },
+    { label: "Gift Cards", query: "gift card", icon: "gift" }
+  ];
+
+  function getSearchChips() {
+    var raw = window.YL_CONTENT && window.YL_CONTENT.search;
+    var list = raw && Array.isArray(raw.popularChips) ? raw.popularChips : [];
+    var chips = [];
+    list.forEach(function (c) {
+      if (!c || typeof c.label !== "string" || typeof c.query !== "string") return;
+      var label = c.label.trim().slice(0, 40);
+      var query = c.query.trim().slice(0, 60);
+      if (!label || !query) return;
+      chips.push({
+        label: label,
+        query: query,
+        icon: SEARCH_CHIP_ICONS[c.icon] ? c.icon : "sparkle"
+      });
+    });
+    return chips.length ? chips.slice(0, 8) : DEFAULT_SEARCH_CHIPS.slice();
+  }
+
+  function renderSearchChipsHtml(chips) {
+    return chips
+      .map(function (c) {
+        return (
+          '<button type="button" class="search-chip" data-search-query="' +
+          escapeSearchHtml(c.query) +
+          '"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+          SEARCH_CHIP_ICONS[c.icon] +
+          "</svg><span>" +
+          escapeSearchHtml(c.label) +
+          "</span></button>"
+        );
+      })
+      .join("");
+  }
+
+  /* Zero-result state for the global search modal. Beyond the popular-search
+     chips, always ends with a suggestion row pointing to the full catalog
+     and the contact page -- a shopper who typed something real and got
+     nothing still has two honest next steps instead of a dead end. */
+  function renderNoResultsHtml(query) {
+    return (
+      '<div class="search-empty-state">' +
+      '  <svg class="yl-icon search-empty-icon" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' +
+      '  <h3 class="search-empty-title">No potion found for &ldquo;' +
+      escapeSearchHtml(query) +
+      "&rdquo;</h3>" +
+      '  <p class="search-empty-text">Looking for bedtime rituals, bath soaks, bug defense, or upcoming pop-up markets? Try one of these popular searches:</p>' +
+      '  <div class="search-empty-suggestions">' +
+      renderSearchChipsHtml(getSearchChips()) +
+      "  </div>" +
+      '  <div class="search-empty-links">' +
+      '    <a class="search-empty-link" href="shop.html">Browse the full shop &rarr;</a>' +
+      '    <a class="search-empty-link" href="contact.html">Can&rsquo;t find it? Ask us directly &rarr;</a>' +
+      "  </div>" +
+      "</div>"
+    );
+  }
+
   function initGlobalSearchModal() {
     var modal = document.getElementById("global-search-modal");
     if (!modal) return;
@@ -7198,22 +7895,7 @@
       selectedIndex = -1;
 
       if (results.totalCount === 0) {
-        resultsList.innerHTML =
-          '<div class="search-empty-state">' +
-          '  <svg class="yl-icon search-empty-icon" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' +
-          '  <h3 class="search-empty-title">No potion found for &ldquo;' +
-          escapeSearchHtml(results.query) +
-          "&rdquo;</h3>" +
-          '  <p class="search-empty-text">Looking for sleep, sore muscles, bug defense, or upcoming pop-up markets? Try one of these popular searches:</p>' +
-          '  <div class="search-empty-suggestions">' +
-          '    <button type="button" class="search-chip" data-search-query="sleep"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><span>Bedtime &amp; Sleep</span></button>' +
-          '    <button type="button" class="search-chip" data-search-query="sore muscles"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg><span>Sore Muscles</span></button>' +
-          '    <button type="button" class="search-chip" data-search-query="dry skin"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg><span>Dry Skin &amp; Eczema</span></button>' +
-          '    <button type="button" class="search-chip" data-search-query="bug spray"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>Bug Defense</span></button>' +
-          '    <button type="button" class="search-chip" data-search-query="events"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span>Pop-Up Markets</span></button>' +
-          '    <button type="button" class="search-chip" data-search-query="gift card"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 12 20 22 4 22 4 12"></polyline><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg><span>Gift Cards</span></button>' +
-          "  </div>" +
-          "</div>";
+        resultsList.innerHTML = renderNoResultsHtml(results.query);
 
         if (resultCount) {
           resultCount.textContent = "No results found for " + results.query;
@@ -8245,6 +8927,18 @@
           .replace(".html", "")
           .replace(/^[#/]/, "");
       }
+      /* Product View: fires once per PDP load, with the product id so a
+         real dashboard can build a "viewed but never added to cart" funnel
+         step alongside the existing Add to Cart / Checkout Start / Purchase
+         events. window.plausible is the Umami adapter defined at the top of
+         this file -- always present once main.js has run, guarded here the
+         same way every other call site is (absent under file://, or with an
+         ad/tracker blocker) so a missing adapter never throws or blocks the
+         page. */
+      if (pathId && typeof window.plausible === "function") {
+        window.plausible("Product View", { props: { product: pathId } });
+      }
+
       var pMap = getProductMap();
       var prod = pMap.get(pathId);
       if (!prod && window.YL_SEARCH_INDEX && Array.isArray(window.YL_SEARCH_INDEX.products)) {
@@ -8812,6 +9506,15 @@
       formatEventMapDestination: formatEventMapDestination,
       generateGoogleMapsDirUrl: generateGoogleMapsDirUrl,
       generateAppleMapsDirUrl: generateAppleMapsDirUrl,
+      getEventStreetAddress: getEventStreetAddress,
+      getEasternOffsetForDate: getEasternOffsetForDate,
+      buildEventDateTimeISO: buildEventDateTimeISO,
+      buildEventJsonLdLocation: buildEventJsonLdLocation,
+      buildEventJsonLd: buildEventJsonLd,
+      buildEventsJsonLd: buildEventsJsonLd,
+      injectEventJsonLd: injectEventJsonLd,
+      eventInviteOrganizerHTML: eventInviteOrganizerHTML,
+      eventEmailCaptureHTML: eventEmailCaptureHTML,
       parsePickupMarketParam: parsePickupMarketParam,
       handlePickupMarketDeepLink: handlePickupMarketDeepLink,
       eventCardHTML: eventCardHTML,
@@ -8823,6 +9526,8 @@
       formatReviewDate: formatReviewDate,
       filterReviews: filterReviews,
       renderReviewCardHtml: renderReviewCardHtml,
+      reviewDistributionHTML: reviewDistributionHTML,
+      ratingHTML: ratingHTML,
       parseOrderStatusQuery: parseOrderStatusQuery,
       maskEmail: maskEmail,
       initOrderStatusPage: initOrderStatusPage,
@@ -8845,6 +9550,11 @@
       getSearchIndex: getSearchIndex,
       formatVariantChipLabel: formatVariantChipLabel,
       renderVariantChipsHtml: renderVariantChipsHtml,
+      renderNoResultsHtml: renderNoResultsHtml,
+      getSearchChips: getSearchChips,
+      renderSearchChipsHtml: renderSearchChipsHtml,
+      SEARCH_CHIP_ICONS: SEARCH_CHIP_ICONS,
+      DEFAULT_SEARCH_CHIPS: DEFAULT_SEARCH_CHIPS,
       initGlobalSearchModal: initGlobalSearchModal,
       initHoverPrefetch: initHoverPrefetch,
       getRecentlyViewed: getRecentlyViewed,

@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Y'allternative">
+<meta name="color-scheme" content="dark light">
+<meta name="view-transition" content="same-origin">
+<title>Report a Reaction | Y'allternative Living</title>
+<meta name="description" content="Had a reaction to something we made? Report it here. A short form for adverse events, kept on file and forwarded to the FDA when the law requires it.">
+<link rel="canonical" href="https://yallternativeliving.com/safety.html">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="Report a Reaction | Y'allternative Living">
+<meta property="og:description" content="Had a reaction to something we made? Report it here. A short form for adverse events, kept on file and forwarded to the FDA when the law requires it.">
+<meta property="og:image" content="https://yallternativeliving.com/assets/img/og-image.jpg">
+<meta property="og:url" content="https://yallternativeliving.com/safety.html">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Report a Reaction | Y'allternative Living">
+<meta name="twitter:description" content="Had a reaction to something we made? Report it here. A short form for adverse events, kept on file and forwarded to the FDA when the law requires it.">
+<meta name="twitter:image" content="https://yallternativeliving.com/assets/img/og-image.jpg">
+
+<link rel="icon" href="assets/img/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="assets/img/favicon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#c65a6d">
+
+<!-- Premium modern typography for the brand's southern-alt vibe -->
+<!-- Gloock + DM Sans are self-hosted from assets/fonts/ -- the @font-face
+     rules, and the metric-matched Arial/Georgia fallbacks that keep the
+     swap from re-flowing anything, are in the SELF-HOSTED WEBFONTS block at
+     the end of assets/css/styles.css. No <link> is needed here at all, and
+     deliberately no rel=preload either: a font preload is fetched at high
+     priority and measurably delayed first paint by ~70ms on a throttled
+     mobile profile, competing with the render-blocking stylesheet and (on
+     the homepage) with the hero image preload below. With font-display:swap
+     and a metric-matched fallback there is nothing to gain by racing it. -->
+<!-- Warm up the analytics origin this page talks to, so the Umami
+     beacon doesn't pay a cold DNS+TLS handshake at the moment it's needed.
+     (Checkout is same-origin now -- assets/js/cart.js posts to /api/checkout
+     on this domain -- so there's no third-party cart origin to warm up.) -->
+<link rel="preconnect" href="https://cloud.umami.is" crossorigin>
+<link rel="stylesheet" href="assets/css/styles.css?v=2.0">
+<link rel="stylesheet" href="assets/css/cart.css">
+
+<script>
+  // No-flash theme init: runs before paint, before main.js.
+  (function(){
+    var t = localStorage.getItem('yl-theme');
+    if(!t){ t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'; }
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
+<!-- Privacy-friendly analytics (Umami: cookieless, no personal data, no
+     fingerprinting, no cross-site tracking -- and unlike a plain page-view
+     counter it also captures the shop's conversion events: Add to Cart,
+     Purchase, Newsletter Signup, and Site Search. https://umami.is/).
+     No cookie-consent banner required. Before this records anything real:
+       1. Create a free Umami Cloud account (or self-host) and add this site.
+       2. Swap the placeholder data-website-id below for the real one. -->
+<!--YL:site.umamiWebsiteId--><!--/YL:site.umamiWebsiteId-->
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://yallternativeliving.com/index.html"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Report a Reaction",
+      "item": "https://yallternativeliving.com/safety.html"
+    }
+  ]
+}
+</script>
+<!--YL:featureStyles--><!--/YL:featureStyles-->
+</head>
+<body>
+<a href="#main-content" class="skip-link">Skip to main content</a>
+<header class="site-header">
+  <nav class="nav">
+    <a class="brand" href="index.html" aria-label="Y'allternative Living home">
+      <img class="logo-desktop" src="/assets/img/logo.png" alt="Y'allternative Living icon" width="48" height="48">
+      <img class="logo-mobile" src="/assets/img/logo.png" alt="Y'allternative Living logo" height="48" width="48">
+      <span class="brand-word">Y'allternative<small>Living</small></span>
+    </a>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="shop.html">Shop</a></li>
+      <li><a href="events.html">Events</a></li>
+      <li><a href="about.html">Our Story</a></li>
+      <li><a href="contact.html">Contact</a></li>
+      <!--YL:nav.journal--><!--/YL:nav.journal-->
+    </ul>
+    <div class="nav-cta">
+      <button class="nav-search-btn" id="globalSearchTrigger" type="button" aria-label="Search catalog, articles &amp; FAQ" title="Search (Cmd+K)" aria-haspopup="dialog" aria-expanded="false" aria-controls="global-search-modal">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-search" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      </button>
+      <button class="cart-toggle" type="button" aria-label="View your cart">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="icon-cart"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
+        <span class="badge cart-count" aria-live="polite"></span>
+      </button>
+      <button type="button" class="theme-toggle" id="themeToggle" role="switch" aria-checked="false" aria-label="Toggle dark and light mode">
+        <span class="knob" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-moon"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-sun"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span>
+      </button>
+      <button type="button" class="nav-toggle" aria-label="Open menu" aria-expanded="false" aria-controls="navLinks">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-menu" aria-hidden="true"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+      </button>
+    </div>
+  </nav>
+</header>
+<main id="main-content">
+
+  <!-- PAGE HERO -->
+  <div class="page-hero">
+    <div class="container">
+      <p class="breadcrumb"><a href="index.html">Home</a> / Report a Reaction</p>
+
+      <h1>Report a Reaction</h1>
+      <p class="lede">If something we made didn&#39;t sit right with your skin, we want to know. This is the form for it. It takes a couple of minutes and a real person reads every single one.</p>
+    </div>
+  </div>
+
+  <!-- FIRST THINGS FIRST -->
+  <section>
+    <div class="container safety-prose">
+      <h2>First, look after yourself</h2>
+      <ol class="safety-steps">
+        <li>
+          <h3>Stop using the product.</h3>
+          <p>Set it aside and keep it &mdash; jar, label, lot number and all. If we need to check a batch, that container is the evidence.</p>
+        </li>
+        <li>
+          <h3>If it&#39;s serious, get medical help right now.</h3>
+          <p>Trouble breathing, swelling of the face, lips, mouth or throat, chest pain, fainting, a rash spreading fast, or anything that frightens you: <strong>call 911</strong> or go to an emergency room. If someone swallowed a product, call Poison Control at <a href="tel:18002221222">1-800-222-1222</a> (free, 24 hours, anywhere in the US). Please don&#39;t wait on us first &mdash; we&#39;re two hands in a Landrum kitchen, not a medical service.</p>
+        </li>
+        <li>
+          <h3>Then come back and tell us.</h3>
+          <p>Once you&#39;re safe and steady, fill in the form below. Nothing here replaces seeing a doctor; it just makes sure the shop knows, on the record.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <!-- THE FORM -->
+  <section id="reaction-report">
+    <div class="container safety-form-wrap">
+      <h2>Tell us what happened</h2>
+      <p class="safety-form-desc">Federal law (the Modernization of Cosmetics Regulation Act) says a body-care label has to carry a way for you to report an adverse event. This page is ours. Fill in what you know &mdash; blanks are fine, and &ldquo;I don&#39;t remember&rdquo; is a real answer. Only your email and a description of what happened are required.</p>
+
+      <div class="safety-result safety-result-success" id="safetySuccess" hidden>
+        <h3>Report filed. Thank you.</h3>
+        <p>Your reference number is <strong class="safety-reference" id="safetyReference"></strong>. Write it down &mdash; we&#39;ve emailed it to you as well. Quote it if you write to us about this again.</p>
+        <p>A person reads every report. If you said we could follow up, we may write with a question or two.</p>
+      </div>
+
+      <div class="safety-result safety-result-error" id="safetyFormError" role="alert" hidden></div>
+
+      <form class="safety-form" id="safetyForm" action="/api/safety-report" method="post" toolname="report-adverse-event" tooldescription="Report an adverse reaction to a Y'allternative Living product. Used for MoCRA adverse-event record-keeping and, where the law requires it, an FDA MedWatch 3500A report.">
+        <div class="form-hp" aria-hidden="true">
+          <label for="website_hp">Leave this field blank</label>
+          <input type="text" id="website_hp" name="website_hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+        </div>
+
+        <fieldset class="safety-fieldset">
+          <legend>The product</legend>
+
+          <div class="field">
+            <label for="safety-product">Which product</label>
+            <select id="safety-product" name="product_id">
+              <option value="">Choose one&hellip;</option>
+              <option value="other">Other, or I&#39;m not sure</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="safety-lot">Lot or batch number <span class="safety-optional">(optional)</span></label>
+            <input type="text" id="safety-lot" name="lot" maxlength="60" autocomplete="off" aria-describedby="safety-lot-hint">
+            <p class="safety-hint" id="safety-lot-hint">Printed on the bottom or back of the label. Skip it if you can&#39;t find it.</p>
+          </div>
+
+          <div class="field">
+            <label for="safety-channel">Where you got it</label>
+            <select id="safety-channel" name="channel">
+              <option value="">Choose one&hellip;</option>
+              <option value="site">This website</option>
+              <option value="etsy">Etsy</option>
+              <option value="in-person">In person, at a market or event</option>
+            </select>
+          </div>
+        </fieldset>
+
+        <fieldset class="safety-fieldset">
+          <legend>What happened</legend>
+
+          <div class="safety-field-row">
+            <div class="field">
+              <label for="safety-first-use">Date you first used it <span class="safety-optional">(optional)</span></label>
+              <input type="date" id="safety-first-use" name="first_use_date">
+            </div>
+            <div class="field">
+              <label for="safety-reaction-date">Date the reaction started <span class="safety-optional">(optional)</span></label>
+              <input type="date" id="safety-reaction-date" name="reaction_date">
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="safety-body-area">Where on the body <span class="safety-optional">(optional)</span></label>
+            <input type="text" id="safety-body-area" name="body_area" maxlength="200" placeholder="Left forearm, both hands, face&hellip;" autocomplete="off">
+          </div>
+
+          <div class="field">
+            <label for="safety-description">Describe the reaction</label>
+            <textarea id="safety-description" name="description" rows="6" maxlength="5000" required aria-describedby="safety-description-hint safety-description-error" placeholder="What it looked and felt like, how fast it came on, how long it lasted, whether it has settled down."></textarea>
+            <p class="safety-hint" id="safety-description-hint">Your own words are exactly right. There&#39;s no wrong way to say it.</p>
+            <p class="safety-error" id="safety-description-error" hidden></p>
+          </div>
+
+          <fieldset class="safety-checkgroup" aria-describedby="safety-outcomes-hint">
+            <legend>What happened next</legend>
+            <p class="safety-hint" id="safety-outcomes-hint">Tick everything that applies. The first eight are what the FDA calls a serious adverse event; if you tick one, we have to report it to them, and we will.</p>
+            <div class="safety-checks">
+              <label class="safety-check"><input type="checkbox" name="outcomes" value="death"> <span>Someone died</span></label>
+              <label class="safety-check"><input type="checkbox" name="outcomes" value="life-threatening"> <span>It was life-threatening</span></label>
+              <label class="safety-check"><input type="checkbox" name="outcomes" value="hospitalization"> <span>Admitted to hospital overnight or longer</span></label>
+              <label class="safety-check"><input type="checkbox" name="outcomes" value="disability"> <span>Lasting or significant disability</span></label>
+              <label class="safety-check"><input type="checkbox" name="outcomes" value="congenital-anomaly"> <span>A congenital anomaly or birth defect</span></label>
+              <label class="safety-check"><input type="checkbox" name="outcomes" value="infection"> <span>An infection</span></label>
+              <label class="safety-check"><input type="checkbox" name="outcomes" value="disfigurement"> <span>Significant disfigurement &mdash; scarring, hair loss, permanent discolouration</span></label>
+              <label class="safety-check"><input type="checkbox" name="outcomes" value="intervention"> <span>A medical or surgical procedure was needed to prevent one of the above</span></label>
+              <label class="safety-check"><input type="checkbox" name="outcomes" value="doctor-visit"> <span>Saw a doctor or went to urgent care</span></label>
+              <label class="safety-check"><input type="checkbox" name="outcomes" value="otc-product"> <span>Used an over-the-counter product from the drugstore</span></label>
+              <label class="safety-check"><input type="checkbox" name="outcomes" value="cleared-up"> <span>Nothing &mdash; it cleared up on its own</span></label>
+            </div>
+          </fieldset>
+
+          <fieldset class="safety-checkgroup">
+            <legend>Did you stop using the product?</legend>
+            <div class="safety-checks safety-checks-inline">
+              <label class="safety-check"><input type="radio" name="stopped_use" value="yes"> <span>Yes</span></label>
+              <label class="safety-check"><input type="radio" name="stopped_use" value="no"> <span>No</span></label>
+            </div>
+          </fieldset>
+        </fieldset>
+
+        <fieldset class="safety-fieldset">
+          <legend>How to reach you</legend>
+
+          <div class="field">
+            <label for="safety-name">Your name <span class="safety-optional">(optional)</span></label>
+            <input type="text" id="safety-name" name="reporter_name" maxlength="120" autocomplete="name">
+          </div>
+
+          <div class="field">
+            <label for="safety-email">Email</label>
+            <input type="email" id="safety-email" name="email" maxlength="254" required autocomplete="email" placeholder="you@email.com" aria-describedby="safety-email-hint safety-email-error">
+            <p class="safety-hint" id="safety-email-hint">We send your reference number here. It&#39;s the only field we truly need besides the description.</p>
+            <p class="safety-error" id="safety-email-error" hidden></p>
+          </div>
+
+          <div class="field">
+            <label for="safety-phone">Phone <span class="safety-optional">(optional)</span></label>
+            <input type="tel" id="safety-phone" name="reporter_phone" maxlength="40" autocomplete="tel">
+          </div>
+
+          <div class="safety-field-row">
+            <div class="field">
+              <label for="safety-age">Age range <span class="safety-optional">(optional)</span></label>
+              <select id="safety-age" name="age_range">
+                <option value="">Choose one&hellip;</option>
+                <option value="under-18">Under 18</option>
+                <option value="18-24">18&ndash;24</option>
+                <option value="25-34">25&ndash;34</option>
+                <option value="35-44">35&ndash;44</option>
+                <option value="45-54">45&ndash;54</option>
+                <option value="55-64">55&ndash;64</option>
+                <option value="65-plus">65 or over</option>
+                <option value="prefer-not-to-say">Prefer not to say</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="safety-sex">Sex <span class="safety-optional">(optional)</span></label>
+              <select id="safety-sex" name="sex">
+                <option value="">Choose one&hellip;</option>
+                <option value="female">Female</option>
+                <option value="male">Male</option>
+                <option value="another-term">Another term fits me better</option>
+                <option value="prefer-not-to-say">Prefer not to say</option>
+              </select>
+            </div>
+          </div>
+
+          <p class="safety-hint">The FDA&#39;s form has boxes for age and sex, which is the only reason they&#39;re here. &ldquo;Prefer not to say&rdquo; is a perfectly good answer and costs you nothing.</p>
+
+          <label class="safety-check safety-consent"><input type="checkbox" id="safety-consent" name="contact_consent" value="yes"> <span>You can email me follow-up questions about this report.</span></label>
+        </fieldset>
+
+        <button type="submit" class="btn btn-primary btn-block" id="safetySubmit">Send Report</button>
+        <p class="safety-hint safety-privacy-note">What you send here is kept on file for at least three years and shared with the FDA only when the law requires it. Details are in our <a href="/privacy.html">privacy policy</a>.</p>
+      </form>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <!-- WHAT HAPPENS NEXT -->
+  <section>
+    <div class="container safety-prose">
+      <h2>What happens after you hit send</h2>
+      <ul class="safety-next">
+        <li><strong>You get a reference number</strong> on this page and by email, straight away.</li>
+        <li><strong>Savanna reads it.</strong> Not a queue, not a bot &mdash; the person who made the batch.</li>
+        <li><strong>We check the batch.</strong> If a lot number points at something, we pull that lot and contact anyone else who bought it.</li>
+        <li><strong>Serious events go to the FDA</strong> within 15 business days, on the MedWatch form (FDA 3500A), as the law requires. You don&#39;t have to do anything for that to happen.</li>
+        <li><strong>We keep the record.</strong> Federal law says a shop our size holds a reaction report for three years. We don&#39;t delete them on a timer, so in practice it&#39;s longer &mdash; a record you still have is never the problem.</li>
+        <li><strong>We make it right.</strong> A refund or a replacement is the least of it. Email <a href="mailto:y.allternative.living@gmail.com">y.allternative.living@gmail.com</a> or use the <a href="/contact.html">contact page</a> any time.</li>
+      </ul>
+      <p class="safety-note">You can also report an adverse event directly to the FDA yourself, whether or not you tell us &mdash; search for &ldquo;MedWatch&rdquo; on fda.gov. Telling us doesn&#39;t sign anything away, and it doesn&#39;t stop you doing that.</p>
+      <p class="safety-note">Every ingredient in every batch is listed on the product page and on the label. If you know you react to something, read those first &mdash; and if a label is ever unclear, that&#39;s on us. Tell us and we&#39;ll fix it.</p>
+    </div>
+  </section>
+
+</main>
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="brand">
+<!--YL:site.logoDesktop-->
+          <img class="logo-desktop" src="/assets/img/logo.png" alt="Y'allternative Living icon" width="48" height="48" loading="lazy" decoding="async">
+<!--/YL:site.logoDesktop-->
+          <span class="brand-word">Y'allternative<small>Living</small></span>
+        </div>
+        <p>Handmade self-care for the black sheep &amp; bold hearts. Mixed, poured, and stirred in small batches.</p>
+      </div>
+      <div>
+        <h3>Explore</h3>
+        <ul>
+          <li><a href="/index.html">Home</a></li>
+          <li><a href="/shop.html">Shop All</a></li>
+          <li><a href="/events.html">Events &amp; Fairs</a></li>
+          <li><a href="/about.html">Our Story</a></li>
+          <li><a href="/faq.html">FAQ</a></li>
+          <li><a href="/reviews.html">Customer Reviews</a></li>
+          <li><a href="/contact.html">Contact</a></li>
+        </ul>
+      </div>
+      <div>
+        <h3>Shop</h3>
+        <ul>
+          <li><a href="/shop.html#apparel">Apparel</a></li>
+          <li><a href="/shop.html#salves">Salves &amp; Balms</a></li>
+          <li><a href="/shop.html#body">Body &amp; Skin</a></li>
+          <li><a href="/shop.html#soaks">Soaks</a></li>
+          <li><a href="/shop.html#potions">Potions &amp; Spellwork</a></li>
+          <li><a href="/shop.html#ritual">Ritual &amp; Home</a></li>
+          <li><a href="/shop.html#gift-cards">Digital Gift Cards</a></li>
+        </ul>
+      </div>
+      <div>
+        <h3>Say Hey</h3>
+        <ul>
+          <li><a href="mailto:y.allternative.living@gmail.com">y.allternative.living@gmail.com</a></li>
+          <li><a href="https://www.etsy.com/shop/YallternativeLivinCO" target="_blank" rel="noopener">Etsy shop ↗<span class="sr-only"> (opens in new tab)</span></a></li>
+          <li>Based in Landrum, SC</li>
+          <li>Find us at markets &amp; Pride events in the Upstate &amp; beyond</li>
+        </ul>
+<!--YL:site.socialRow-->
+        <div class="social-row">
+          <a href="https://www.instagram.com/yallternativeliving" target="_blank" rel="noopener" aria-label="Instagram (opens in new tab)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1"/></svg>
+          </a>
+          <a href="https://www.tiktok.com/@yallternativeliving" target="_blank" rel="noopener" aria-label="TikTok (opens in new tab)">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15 3c.4 2.3 2 4 4.7 4.2v3c-1.7 0-3.3-.5-4.7-1.4v6.7c0 3.1-2.5 5.5-5.6 5.5S3.8 18.6 3.8 15.5c0-3 2.4-5.5 5.6-5.5.4 0 .8 0 1.1.1v3.1c-.3-.1-.7-.2-1.1-.2-1.3 0-2.4 1.1-2.4 2.5s1.1 2.5 2.4 2.5 2.5-1 2.6-2.4V3H15z"/></svg>
+          </a>
+          <a href="https://www.facebook.com/p/Yallternative-Living-61577943406316/" target="_blank" rel="noopener" aria-label="Facebook (opens in new tab)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 8.5h2.5V5H14c-2 0-3.5 1.6-3.5 3.5V11H8v3.5h2.5V21H14v-6.5h2.3l.7-3.5h-3V9c0-.3.2-.5.5-.5z"/></svg>
+          </a>
+          <a href="https://www.etsy.com/shop/YallternativeLivinCO" target="_blank" rel="noopener" aria-label="Etsy shop (opens in new tab)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 8l1-4h14l1 4"/><path d="M4 8h16v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8z"/><path d="M9 12a3 3 0 0 0 6 0"/></svg>
+          </a>
+        </div>
+<!--/YL:site.socialRow-->
+      </div>
+    </div>
+
+    <!-- NEWSLETTER SIGNUP -- plain HTML form that still submits with JS
+         off. Provider: Kit (https://kit.com), chosen for its free
+         10k-subscriber tier and dashboard-configurable post-signup
+         redirect. The action URL comes from site.kitFormAction in
+         content.json (editable at /admin); it is not hand-written here.
+
+         Kit's own embed ships a ck.5.js script tag -- do not add it. It
+         loads from f.convertkit.com, which is deliberately absent from
+         script-src, and it is only needed for Kit's own styled widget.
+         This form posts the field name Kit expects (email_address) to
+         the same endpoint, and app.kit.com is already allowed in both
+         connect-src and form-action. -->
+    <div class="footer-signup reveal" id="footerSignup">
+      <div class="footer-signup-text">
+        <h3>Get 10% Off Your First Order</h3>
+        <p>Drop your email for a welcome code, plus new batch alerts, market dates, and the occasional bad pun. No spam, unsubscribe whenever.</p>
+      </div>
+      <p class="footer-signup-confirm"><span class="glyph" aria-hidden="true">&#10003;</span> You're on the list, y'all! Keep an eye on your inbox.</p>
+      <form class="footer-signup-form" action="https://app.kit.com/forms/9867317/subscriptions" method="post" toolname="subscribe-newsletter" tooldescription="Subscribe to the Y'allternative Living newsletter for updates and discounts.">
+        <div class="form-hp" aria-hidden="true">
+          <label for="footer_website">Leave this field blank</label>
+          <input type="text" id="footer_website" name="footer_website" tabindex="-1" autocomplete="off" aria-hidden="true">
+        </div>
+        <div class="field">
+          <label for="footer_email" class="sr-only">Email address</label>
+          <input type="email" id="footer_email" name="email_address" placeholder="you@email.com" required autocomplete="email">
+        </div>
+        <div class="field footer-birthday-field">
+          <label for="footer_birthday" class="sr-only">Birthday (Optional — for birthday rewards)</label>
+          <input type="text" id="footer_birthday" name="fields[birthday]" placeholder="Birthday: MM/DD (Optional)" pattern="(0[1-9]|1[0-2])\/(0[1-9]|[12][0-9]|3[01])" maxlength="5" title="MM/DD format (e.g. 06/14)" autocomplete="off">
+        </div>
+        <button class="btn btn-primary btn-sm" type="submit">Join The List</button>
+      </form>
+    </div>
+
+
+    <p class="footer-disclaimer">Handmade self-care, not medicine. Nothing sold here is intended to diagnose, treat, cure, or prevent any condition. Got a real skin or health concern? See an actual doctor, then treat yourself to something that smells nice after.</p>
+    <div class="footer-bottom">
+      <span>&copy; <span id="year"></span> Y'allternative Living. Handmade with grit &amp; glitter. &middot; <a href="/policies.html">Shipping &amp; Returns</a> &middot; <a href="/terms.html">Terms of Service</a> &middot; <a href="/privacy.html">Privacy Policy</a> &middot; <a href="/safety.html">Report a Reaction</a></span>
+      <span>Queer-owned &middot; Southern-raised &middot; Alt-inspired</span>
+    </div>
+  </div>
+</footer>
+<dialog id="global-search-modal" class="global-search-modal gift-modal" aria-labelledby="globalSearchModalTitle" aria-modal="true">
+  <div class="global-search-container" role="document">
+    <div class="global-search-header">
+      <div class="global-search-input-wrapper">
+        <svg class="global-search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+        </svg>
+        <label for="globalSearchInput" id="globalSearchModalTitle" class="sr-only">Search catalog, articles &amp; FAQ</label>
+        <input type="search" id="globalSearchInput" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, journal, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <button type="button" class="global-search-clear-btn" id="globalSearchClearBtn" aria-label="Clear search query" hidden>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/></svg>
+        </button>
+      </div>
+      <button type="button" class="modal-close global-search-close-btn" id="globalSearchCloseBtn" aria-label="Close search dialog">&times;</button>
+    </div>
+    <div id="globalSearchResultCount" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+    <div class="global-search-chips-section" id="globalSearchChipsSection">
+      <p class="global-search-chips-title" id="globalSearchChipsLabel"><!--YL:search.chipsTitle-->Popular Searches<!--/YL:search.chipsTitle--></p>
+      <div class="global-search-chips-list" role="group" aria-labelledby="globalSearchChipsLabel">
+        <!--YL:search.chips-->
+        <button type="button" class="search-chip" data-search-query="sleep"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><span>Bedtime &amp; Wind-Down</span></button>
+        <button type="button" class="search-chip" data-search-query="soak"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 6c2 0 3-1.5 5-1.5S10 6 12 6s3-1.5 5-1.5S20 6 22 6"/><path d="M2 12c2 0 3-1.5 5-1.5S10 12 12 12s3-1.5 5-1.5S20 12 22 12"/><path d="M2 18c2 0 3-1.5 5-1.5S10 18 12 18s3-1.5 5-1.5S20 18 22 18"/></svg><span>Bath Soaks</span></button>
+        <button type="button" class="search-chip" data-search-query="dry skin"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg><span>Dry, Rough Skin</span></button>
+        <button type="button" class="search-chip" data-search-query="bug spray"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>Bug Defense</span></button>
+        <button type="button" class="search-chip" data-search-query="events"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span>Pop-Up Markets</span></button>
+        <button type="button" class="search-chip" data-search-query="gift card"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg><span>Gift Cards</span></button>
+        <!--/YL:search.chips-->
+      </div>
+    </div>
+    <div class="global-search-results-wrapper" id="globalSearchResultsWrapper">
+      <div id="globalSearchResultsList" class="global-search-results-list" role="listbox" aria-label="Search results" tabindex="-1"></div>
+    </div>
+    <div class="global-search-footer">
+      <span class="search-key-hint"><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>
+      <span class="search-key-hint"><kbd>↵</kbd> Select</span>
+      <span class="search-key-hint"><kbd>ESC</kbd> Close</span>
+    </div>
+  </div>
+</dialog>
+<script src="assets/js/content-data.js?v=2.0" defer></script>
+<script src="assets/js/products-data.js?v=2.0" defer></script>
+<script src="assets/js/events-data.js?v=2.0" defer></script>
+<script src="assets/js/search-data.js?v=2.0" defer></script>
+<script src="assets/js/main.js?v=2.0" defer></script>
+<script src="assets/js/cart.js" defer></script>
+<script src="assets/js/safety.js" defer></script>
+<!-- Live chat (Tawk.to) -- placeholder, inert until real IDs are set.
+     Free live-chat widget: https://www.tawk.to -- see DEVELOPMENT.md section 19.
+     Replace YOUR_TAWKTO_PROPERTY_ID/YOUR_TAWKTO_WIDGET_ID below with the
+     real embed values from your own Tawk.to dashboard (Administration ->
+     Chat Widget). Until then this script 404s quietly and no widget
+     appears -- nothing is broken by leaving it as-is. -->
+<script type="text/javascript">
+var Tawk_API = Tawk_API || {}, Tawk_LoadStart = new Date();
+(function () {
+  /* Both IDs are injected from content.json by scripts/build-site-data.js.
+     Until Savanna sets real ones, they're still the "YOUR_..." placeholders --
+     in that state this used to build a live embed.tawk.to URL out of them and
+     request it on every single page load, which 404s and buys nothing. Bail
+     out instead, so the widget stays genuinely inert until it's configured. */
+  var propertyId = /*YL:site.tawkToPropertyId*/ "6a9687f6adddbc3447585d73" /*/YL:site.tawkToPropertyId*/;
+  var widgetId = /*YL:site.tawkToWidgetId*/ "1k1e066pc" /*/YL:site.tawkToWidgetId*/;
+  if (!propertyId || !widgetId) return;
+  if (propertyId.indexOf("YOUR_") === 0 || widgetId.indexOf("YOUR_") === 0) return;
+  /* The widget SDK used to be requested on EVERY pageview -- 20 requests to
+     embed.tawk.to plus a wss://*.tawk.to handshake, measured on a cold mobile
+     load -- for the large majority of sessions that never open chat. Hold it
+     until the visitor does something, with an idle-timeout fallback so a
+     visitor who lands and reads without touching anything still gets chat. */
+  var loaded = false;
+  var TRIGGERS = ["pointerdown", "keydown", "scroll", "touchstart"];
+  var opts = { passive: true, capture: true };
+  var timer;
+  function load() {
+    if (loaded) return;
+    loaded = true;
+    TRIGGERS.forEach(function (t) { window.removeEventListener(t, load, opts); });
+    if (timer) clearTimeout(timer);
+    var s1 = document.createElement("script"), s0 = document.getElementsByTagName("script")[0];
+    s1.async = true;
+    s1.src = "https://embed.tawk.to/" + propertyId + "/" + widgetId;
+    s1.charset = "UTF-8";
+    s1.setAttribute("crossorigin", "*");
+    s0.parentNode.insertBefore(s1, s0);
+  }
+  TRIGGERS.forEach(function (t) { window.addEventListener(t, load, opts); });
+  timer = setTimeout(load, 5000);
+})();
+</script>
+</body>
+</html>

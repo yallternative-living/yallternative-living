@@ -11,6 +11,11 @@
  *   POST /api/stripe-webhook     Stripe events               (routes/stripe-webhook.js)
  *   POST /api/order-status       look up a real order        (routes/order-status.js)
  *   POST /api/restock            "tell me when it's back"    (routes/restock.js)
+ *   POST /api/safety-report      report a reaction (MoCRA)     (routes/safety-report.js)
+ *   POST /api/unsubscribe        opt out of marketing email  (routes/retention.js)
+ *   POST /api/welcome-code       mint a single-use welcome code
+ *   POST /api/birthday-club      store an MM/DD birthday
+ *   POST /api/loyalty-balance    read a points balance (token required)
  *
  * WHY ONE WORKER. The state those endpoints need -- the gift-card ledger, the
  * exactly-once webhook claim, the rate-limit counters -- lives in Cloudflare
@@ -129,12 +134,35 @@
  *                                     probe just fails closed (tax stays off).
  *   - STRIPE_WEBHOOK_SECRET  (secret) signing secret for /api/stripe-webhook.
  *                                     Also keys the gift-card code derivation.
- *   - RESEND_API_KEY         (secret) gift-card and restock email.
+ *   - RESEND_API_KEY         (secret) gift-card, restock and reaction-report
+ *                                     email.
  *   - SITE_ORIGIN            (var)    e.g. "https://yallternativeliving.com"
  *   - STRIPE_TAX_ENABLED     (var)    optional override: "true" forces tax on,
  *                                     "false" forces it off. Omit for auto.
  *   - RESTOCK_NOTIFY_EMAIL   (var)    optional; where restock alerts go.
  *   - GIFT_CARD_FROM_EMAIL   (var)    optional; verified Resend sender.
+ *   - SAFETY_REPORT_EMAIL    (var)    optional; where MoCRA reaction reports
+ *                                     go. Falls back to RESTOCK_NOTIFY_EMAIL,
+ *                                     then contact@yallternativeliving.com.
+ *
+ * Retention layer (workers/routes/retention*.js) -- see workers/README.md:
+ *   - MAGIC_LINK_SECRET          (secret) signs unsubscribe and points links.
+ *                                         Without it NO marketing email sends,
+ *                                         on purpose: an email with no working
+ *                                         opt-out is not one we will send.
+ *   - STRIPE_WELCOME_COUPON_ID   (var)    the shared 10%-off Coupon the welcome
+ *                                         Promotion Codes are minted against.
+ *                                         Unset = /api/welcome-code answers
+ *                                         `configured: false` and welcome.html
+ *                                         falls back to the CMS welcomeCode.
+ *   - STRIPE_BIRTHDAY_COUPON_ID  (var)    shared $5-off Coupon, birthday club.
+ *   - STRIPE_LOYALTY_COUPON_ID   (var)    shared $5-off Coupon for points
+ *                                         payouts; falls back to the birthday
+ *                                         coupon when unset.
+ *   - LOYALTY_REDEEM_THRESHOLD   (var)    points that trigger a payout (100).
+ *   - LOYALTY_REWARD_CENTS       (var)    what a payout is worth (500 = $5).
+ *   - RETENTION_FROM_EMAIL       (var)    optional; verified Resend sender for
+ *                                         the retention sends specifically.
  *
  * Bindings (workers/wrangler.toml): GIFT_CARD_LEDGER and RATE_LIMIT_COUNTER
  * (Durable Objects) and STATE_DB (D1). Checkout itself runs without them; the
@@ -153,6 +181,13 @@ import { handleStripeWebhook } from "./routes/stripe-webhook.js";
 import { handleOrderStatus } from "./routes/order-status.js";
 import { handleOrderSummary } from "./routes/order-summary.js";
 import { handleRestock } from "./routes/restock.js";
+import { handleSafetyReport } from "./routes/safety-report.js";
+import {
+  handleBirthdayClub,
+  handleLoyaltyBalance,
+  handleUnsubscribe,
+  handleWelcomeCode
+} from "./routes/retention.js";
 import { giftCardLedger, LedgerError } from "./state/gift-card-ledger.js";
 
 const GIFT_CARD_ID = "yallternative-gift-card";
@@ -834,7 +869,18 @@ const ROUTES = {
   "/stripe-webhook": handleStripeWebhook,
   "/order-status": handleOrderStatus,
   "/order-summary": handleOrderSummary,
-  "/restock": handleRestock
+  "/restock": handleRestock,
+  // MoCRA adverse-event intake -- the endpoint behind the /safety URL printed
+  // on the packaging (routes/safety-report.js). Needs STATE_DB and answers 503
+  // without it: a reaction report received into nowhere is the one outcome
+  // that page must never produce.
+  "/safety-report": handleSafetyReport,
+  // Retention (workers/routes/retention.js). Every one of these needs STATE_DB
+  // and answers 503 without it rather than pretending to have stored anything.
+  "/unsubscribe": handleUnsubscribe,
+  "/welcome-code": handleWelcomeCode,
+  "/birthday-club": handleBirthdayClub,
+  "/loyalty-balance": handleLoyaltyBalance
 };
 
 async function handleCheckout(request, env, ctx, origin) {
@@ -911,6 +957,15 @@ async function handleCheckout(request, env, ctx, origin) {
         ruleCounts.set(rule.id || rule.name || rule.category, count);
       }
 
+      // What the retention layer needs off this order, collected as the line
+      // items are validated so it costs nothing extra: the ids and categories
+      // of what was bought. The webhook copies these into `order_signals` and
+      // they decide which "how to use your …" copy gets sent and whether the
+      // review ask waits 7 days or 12. Ids only -- no names, no quantities, no
+      // prices; Stripe metadata is world-readable in the Dashboard.
+      const retentionProductIds = [];
+      const retentionCategories = [];
+
       const lineItems = items.map((item) => {
         // Custom boxes have no catalog entry of their own -- priced and
         // validated entirely from their contents. Handled before findEntry(),
@@ -926,6 +981,12 @@ async function handleCheckout(request, env, ctx, origin) {
           const contents = ids
             .map((id) => (boxProductMap.get(String(id)) || {}).name || id)
             .join(", ");
+          for (const id of ids) {
+            const boxed = boxProductMap.get(String(id));
+            if (!boxed) continue;
+            retentionProductIds.push(boxed.id || String(id));
+            if (boxed.category) retentionCategories.push(boxed.category);
+          }
           boxLineIndex += 1;
           // Record the exact contents so the packing slip / fulfilment side
           // knows what actually goes in the box.
@@ -1053,8 +1114,23 @@ async function handleCheckout(request, env, ctx, origin) {
             ? TAX_CODE_APPAREL
             : TAX_CODE_GOODS;
 
+        retentionProductIds.push(entry.id);
+        if (entry.category) retentionCategories.push(entry.category);
+
         return { name, image, unitAmount, qty, isGiftCard, taxCode };
       });
+
+      // Stripe caps a metadata VALUE at 500 characters, so these are truncated
+      // rather than silently rejected. Losing the tail of a very long list only
+      // costs the email a product name, never a send.
+      const uniqueRetentionIds = Array.from(new Set(retentionProductIds));
+      const uniqueRetentionCategories = Array.from(new Set(retentionCategories));
+      if (uniqueRetentionIds.length) {
+        metadata.retention_product_ids = truncate(uniqueRetentionIds.join(","), 490);
+      }
+      if (uniqueRetentionCategories.length) {
+        metadata.retention_categories = truncate(uniqueRetentionCategories.join(","), 490);
+      }
 
       const totalCents = lineItems.reduce((sum, li) => sum + li.unitAmount * li.qty, 0);
 
@@ -1127,6 +1203,36 @@ async function handleCheckout(request, env, ctx, origin) {
         `${env.SITE_ORIGIN}/thank-you.html?session_id={CHECKOUT_SESSION_ID}&amount=${((totalCents + shippingCents) / 100).toFixed(2)}&currency=usd`
       );
       params.append("cancel_url", `${env.SITE_ORIGIN}/shop.html`);
+
+      // ---- Abandoned-checkout recovery -----------------------------------
+      // Stripe generates a recovery URL for an EXPIRED session and puts it on
+      // the `checkout.session.expired` event (after_expiration.recovery.url,
+      // valid 30 days). Stripe does not send anything: the mail is ours, and
+      // workers/routes/retention-emails.js sends it 45 minutes later, once,
+      // through Resend. Without this flag there is no URL to send at all.
+      params.append("after_expiration[recovery][enabled]", "true");
+      // The recovery page is a fresh session, so it needs its own permission to
+      // accept a marketing code. It never carries the gift-card discount --
+      // that reservation is released when the original session expires.
+      params.append("after_expiration[recovery][allow_promotion_codes]", "true");
+
+      // ---- Consent -------------------------------------------------------
+      // "auto" shows the marketing opt-in checkbox when Stripe has an address
+      // to attach it to, and reports the answer as session.consent.promotions.
+      // The recovery email is ONLY sent when that reads "opt_in": abandoning a
+      // cart is not consent to be marketed at, and this is the field that keeps
+      // the difference honest.
+      params.append("consent_collection[promotions]", "auto");
+      // A ticked terms box is the standard "product as described" evidence in a
+      // dispute, and it costs one parameter (audit R5 / research-I M3).
+      params.append("consent_collection[terms_of_service]", "required");
+      // Stripe renders this next to the checkbox and linkifies bare URLs, so the
+      // shopper can actually read what they are agreeing to before they tick it.
+      params.append(
+        "custom_text[terms_of_service_acceptance][message]",
+        `I agree to the Terms of Service (${env.SITE_ORIGIN}/terms.html) and the ` +
+          `shipping, returns and refund policies (${env.SITE_ORIGIN}/policies.html).`
+      );
 
       // A pickup order is delivered at the market, so that's where it has to
       // be taxed -- see resolvePickupAddress. Pinning it means handing Stripe
@@ -1461,16 +1567,48 @@ export default {
   },
 
   /**
-   * Cron housekeeping (wrangler.toml `[triggers]`). Nothing schedules this
-   * yet; the handler exists so adding a schedule is a config change rather
-   * than a code change.
+   * Cron (wrangler.toml `[triggers]`, hourly). Four jobs, in this order:
+   *
+   *   1. Sweep settled webhook claims and burned magic-link tokens.
+   *   2. Sweep settled rows out of the email queue.
+   *   3. Run the birthday club -- mint today's codes and queue them. Guarded to
+   *      9am America/New_York and idempotent per member per year, so running it
+   *      every hour sends exactly one code per birthday.
+   *   4. Drain the email queue: everything whose `send_after` has passed.
+   *
+   * Everything here is idempotent, so a missed tick costs a delay and nothing
+   * else, and a doubled tick sends nothing twice. Failures are logged and do
+   * not stop the later steps -- a birthday that cannot be minted must not also
+   * stop the day-2 emails from going out.
    */
   async scheduled(event, env, ctx) {
     if (!env.STATE_DB) return;
     ctx.waitUntil(
       (async () => {
-        const { sweepOldEvents } = await import("./state/webhook-events.js");
-        await sweepOldEvents(env.STATE_DB);
+        const [{ sweepOldEvents }, { sweepBurnedTokens }, { ensureSchema }, retention, jobs] =
+          await Promise.all([
+            import("./state/webhook-events.js"),
+            import("./state/magic-link.js"),
+            import("./state/migrations.js"),
+            import("./state/retention.js"),
+            import("./routes/retention-emails.js")
+          ]);
+        await ensureSchema(env.STATE_DB);
+
+        const steps = [
+          ["webhook-events sweep", () => sweepOldEvents(env.STATE_DB)],
+          ["burned-token sweep", () => sweepBurnedTokens(env.STATE_DB)],
+          ["email-queue sweep", () => retention.sweepEmailQueue(env.STATE_DB)],
+          ["birthday club", () => jobs.runBirthdayClub(env, ctx)],
+          ["email queue drain", () => jobs.drainEmailQueue(env, ctx)]
+        ];
+        for (const [label, run] of steps) {
+          try {
+            await run();
+          } catch (err) {
+            console.error(`cron: ${label} failed:`, err && (err.stack || err.message));
+          }
+        }
       })()
     );
   }

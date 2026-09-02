@@ -1,11 +1,13 @@
 # The state layer — architecture, and the routes built on it
 
-**Status: phase B done.** The bindings are live in `workers/wrangler.toml`, the
-Worker exports the Durable Object classes, and gift cards, the Stripe webhook,
-order status and restock all run on this layer. What is NOT done, and is called
-out as such in §4.5: loyalty points and magic links. Their modules
-(`workers/state/loyalty.js`, `workers/state/magic-link.js`) are still wired into
-nothing, deliberately.
+**Status: phase B done, plus the retention layer.** The bindings are live in
+`workers/wrangler.toml`, the Worker exports the Durable Object classes, and gift
+cards, the Stripe webhook, order status and restock all run on this layer.
+`loyalty.js` and `magic-link.js` are no longer unwired: points are credited from
+`checkout.session.completed`, paid out automatically at a threshold, and read
+back through a token-gated route (§4.5-4.7). Six additive tables and one hourly
+cron carry the post-purchase email sequence, abandoned-checkout recovery, the
+birthday club and the welcome code (§4.6).
 
 **One thing has to happen before the next push to `main`:** `wrangler.toml`
 declares a D1 database whose `database_id` is a placeholder, so `wrangler deploy`
@@ -142,6 +144,10 @@ both spellings so the same build works behind the proxy or on a Cloudflare route
 | `/api/stripe-webhook`    | Stripe event + `Stripe-Signature`           | `200 {received:true}` (`{received:true, duplicate:true}` on a redelivery); `400 {error:"Invalid signature"}`, one fixed string; `500` only when a retry would help; `503` with no state bindings                                                                                |
 | `/api/order-status`      | `{sessionId, email}`                        | `200 {found:true, status, paymentStatus, amountTotal, amountTotalCents, currency, placedAt, sessionId, items:[{name, quantity}], shipping:{city,state}, fulfillment:{status, trackingUrl, shippedAt}}`; `404 {found:false, error:"not_found"}`; `429`                           |
 | `/api/restock`           | `{email, product, website_hp}`              | `200 {success:true, message}`; `400` for an invalid address; `429`; `502` when the mailer refuses; `503` with no `RESEND_API_KEY`                                                                                                                                               |
+| `/api/unsubscribe`       | `?t=<unsub_id>.<sig>`                       | `200 {success:true, message}` — the same answer whether or not the address was known; `400 {error}` for a token that does not verify; `429`; `503` with no `STATE_DB`                                                                                                          |
+| `/api/welcome-code`      | `{email}`                                   | `200 {configured:true, code, expiresAt}`; `200 {configured:false}` when no coupon id is set; `400 {error}` for an unusable address; `429`; `502` when Stripe refuses; `503` with no `STATE_DB`                                                                                 |
+| `/api/birthday-club`     | `{email, birthday}` (`MM/DD`) or a form post | `200 {success:true, message}`; `400 {error}` for a bad address or anything that is not MM/DD (a year is always refused); `429`; `503`. A **form** post gets `303` to `/thank-you.html?birthday=saved` instead of JSON                                                          |
+| `/api/loyalty-balance`   | `{email, token}`                            | `200 {balance, threshold, rewardCents, pointsToReward}`; `403 {error}` for a missing, expired, wrong-purpose or wrong-address token — one message for all four; `429`; `503`                                                                                                   |
 
 Notes that are contract, not detail:
 
@@ -156,7 +162,18 @@ Notes that are contract, not detail:
   code is the exception — that is a typo the shopper can fix, it costs no lookup,
   and it reveals nothing.
 - **The restock honeypot returns the success shape**, sends nothing, and logs
-  nothing.
+  nothing. The birthday-club honeypot behaves identically.
+- **`/api/loyalty-balance` never answers on an email alone.** The signed
+  `points` token from a post-purchase email is required, and it must have been
+  minted for the address in the request. This is audit finding C-1 in read-only
+  form: knowing somebody's address is not authorisation to see what they spent.
+- **No unsubscribe URL contains an address.** The token is
+  `<unsub_id>.<signature>` where `unsub_id` is an HMAC of the address under
+  `MAGIC_LINK_SECRET`, truncated — one-way, unguessable, and resolved back to an
+  address only by `email_contacts` inside the Worker. The signature is checked
+  before any database read, so the endpoint is not an enumeration oracle.
+- **The birthday club stores `MM-DD` and nothing else.** There is no year in the
+  form, no column that could hold one, and the route refuses `1990-06-14`.
 
 Rate limits, per IP, via `checkRateLimit`: 10/min on the balance route, 5/min on
 order status and restock. The IP is the first `X-Forwarded-For` entry (Netlify's
@@ -206,20 +223,84 @@ worker to stop asking.
 for anyone who could POST to it, and there is no server-side points ledger for a
 rebuilt version to spend from. Rebuilding it is §4.5.
 
-### 4.5 Deliberately still unwired
+### 4.5 Previously unwired, now wired
 
-- **`workers/state/loyalty.js`** — the D1 points ledger exists and is tested, but
-  nothing credits or debits it. Nothing yet decides how many points an order
-  earns or whether they expire, and a ledger with an undecided earning rate is
-  worse than none.
-- **`workers/state/magic-link.js`** — HMAC tokens and the single-use burn exist
-  and are tested. They are the missing half of C-1: redeeming points has to be
-  tied to a verified email before a redemption can mint anything. Until both of
-  those land, points redemption stays gone rather than disabled.
-- **The cron sweeps.** `checkout.js` has a `scheduled()` handler that calls
-  `sweepOldEvents`, but `wrangler.toml` has no `[triggers]` block, so nothing
-  runs it. Add `crons = ["17 4 * * *"]` when the `webhook_events` table starts
-  mattering; at current volume it will not for a long time.
+Three things this document used to list as "deliberately unwired" are live:
+
+- **`workers/state/loyalty.js`** now earns and pays out. The earning rate comes
+  from `content.json`'s `site.loyaltyPointsPerDollar` — the same CMS field the
+  product-card badge reads, so the badge and the credit cannot disagree — and
+  the credit happens only from a verified `checkout.session.completed`, keyed on
+  the order id. See §4.7.
+- **`workers/state/magic-link.js`** signs the `points` tokens the
+  `/api/loyalty-balance` route requires, and `signToken` gained an explicit
+  `maxTtlSeconds` so a long-lived read-only link can be minted without raising
+  the 24h ceiling that the order-status flow relies on.
+- **The cron.** `wrangler.toml` now has `[triggers] crons = ["7 * * * *"]` and
+  `scheduled()` runs five jobs (§4.6).
+
+### 4.6 The retention layer
+
+Six additive tables (schema version 2) and one hourly cron.
+
+| Table               | Holds                                                                 | Idempotency                        |
+| ------------------- | --------------------------------------------------------------------- | ---------------------------------- |
+| `order_signals`     | one row per paid order: address, address hash, product ids, categories, timestamp | PK on the Stripe session id |
+| `email_queue`       | scheduled sends: kind, address, JSON payload, `send_after`, status, attempts | PK is `<kind>:<subject>`      |
+| `email_suppression` | opted-out addresses, honoured by every marketing send                  | PK on the address                  |
+| `email_contacts`    | `unsub_id` → address, so an unsubscribe URL can carry no PII           | PK on `unsub_id`                   |
+| `birthday_club`     | address, `MM-DD`, consent timestamp, source                            | PK on the address                  |
+| `welcome_codes`     | the one Promotion Code minted per subscriber                           | PK on the address                  |
+
+`order_signals` is NOT a copy of the order. Stripe stays the system of record
+(§2); this is metadata *about* an order, held so a day-12 email can be written
+without calling Stripe back for data that may have been redacted by then.
+
+**Why a D1 queue and not one Durable Object alarm per order.** Both work. The
+sends are day-scale, so minute precision buys nothing; a DO-per-order costs one
+object and one alarm per order whose state cannot be listed, audited or replayed
+by hand; and a dropped alarm is silent, while an undrained row is visible to
+`wrangler d1 execute "SELECT * FROM email_queue WHERE status = 'pending'"`. The
+`scheduled()` handler already existed for the webhook sweep, so this is a query,
+not a subsystem.
+
+**The cron (`crons = ["7 * * * *"]`)** runs, in order: `sweepOldEvents`,
+`sweepBurnedTokens`, `sweepEmailQueue`, `runBirthdayClub`, `drainEmailQueue`.
+Every step is idempotent and independently try/caught — a birthday that cannot
+be minted must not stop the day-2 emails. Hourly rather than daily because the
+recovery mail wants to go out within the hour and an hourly job retries itself.
+
+**Every marketing send** goes through `sendMarketingEmail`, which refuses a
+suppressed address (checked at SEND time, not enqueue time, so an unsubscribe on
+day 3 stops a review request queued on day 0), adds `List-Unsubscribe` and
+`List-Unsubscribe-Post: List-Unsubscribe=One-Click` (RFC 8058), and adds the
+visible opt-out line. With no `MAGIC_LINK_SECRET` it sends **nothing**: an email
+whose opt-out link cannot be signed must not go out.
+
+**Review requests are never incentivised**, conditionally or otherwise. The FTC
+rule (16 CFR 465, effective 2024-10-21) bans conditioning a reward on the review
+being positive; offering nothing at all is the version that stays clean at this
+volume, and the template says "good, bad, or 'it's fine, I guess'" on purpose.
+
+### 4.7 The retention sequence, event by event
+
+| Trigger                                                      | What happens                                                                                                                                                                          |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/checkout` creates a session                             | `after_expiration[recovery][enabled]=true`, `consent_collection[promotions]=auto`, `consent_collection[terms_of_service]=required` + linked terms text, and `retention_product_ids` / `retention_categories` in metadata |
+| `checkout.session.completed`                                  | one `order_signals` row; queue "how to use your …" at +60h and a review request at +7 days (apparel, gift cards) or +12 days (everything else, mixed orders included)                 |
+| `checkout.session.completed`                                  | credit points on `amount_subtotal` (goods, not postage) at the CMS rate, keyed on the order id; if the balance reaches `LOYALTY_REDEEM_THRESHOLD`, debit it atomically, mint a single-use code and queue the email |
+| `checkout.session.expired`                                    | queue the recovery email at +45 minutes — **only** with a recovery URL, an address AND `consent.promotions === "opt_in"`                                                              |
+| cron, 9am America/New_York                                    | mint and queue a single-use $5 code for every `birthday_club` member whose `MM-DD` is today, idempotent per member per year                                                            |
+| `POST /api/unsubscribe`                                       | add the address to `email_suppression`; every queued send for it is skipped, not retried                                                                                               |
+
+**Loyalty payout order of operations.** The debit runs FIRST, because `debit()`
+is the only atomic step — its balance check lives inside the INSERT, so two
+concurrent webhooks cannot both pay out. Minting after it is safe to retry: a
+repeated debit reports `duplicate` rather than spending again, and the Stripe
+idempotency key returns the SAME promotion code, so a webhook that dies between
+the debit and the email is fully recovered by Stripe's redelivery. A mint that
+Stripe refuses **throws**, which is what puts the event back in the retry loop
+rather than silently swallowing spent points.
 
 ## 5. Dashboard setup (one-time, by hand)
 
@@ -238,8 +319,11 @@ npx wrangler d1 execute yallternative-state --remote --file=workers/schema.sql
 npx wrangler secret put STRIPE_SECRET_KEY      # Checkout Sessions, Coupons, Customers write; Tax Settings read
 npx wrangler secret put STRIPE_WEBHOOK_SECRET  # from the Stripe endpoint below
 npx wrangler secret put RESEND_API_KEY         # from a Resend account with this domain verified
-# optional vars: RESTOCK_NOTIFY_EMAIL, GIFT_CARD_FROM_EMAIL
-# MAGIC_LINK_SECRET is NOT needed yet — magic links are unwired (§4.5)
+npx wrangler secret put MAGIC_LINK_SECRET      # 32+ random chars; signs unsubscribe + points links
+# optional vars: RESTOCK_NOTIFY_EMAIL, GIFT_CARD_FROM_EMAIL, RETENTION_FROM_EMAIL
+# retention vars: STRIPE_WELCOME_COUPON_ID, STRIPE_BIRTHDAY_COUPON_ID,
+#                 STRIPE_LOYALTY_COUPON_ID, LOYALTY_REDEEM_THRESHOLD (100),
+#                 LOYALTY_REWARD_CENTS (500) — see workers/README.md §2b
 ```
 
 Then, by hand:

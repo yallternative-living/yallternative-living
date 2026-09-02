@@ -61,6 +61,58 @@ SITE_ORIGIN = "https://yallternativeliving.com"
 # without checking, "false" is a kill switch. Left unset on purpose.
 # STRIPE_TAX_ENABLED = "false"
 
+# --- Retention layer -------------------------------------------------------
+# Points a customer earns per whole dollar comes from the CMS
+# (content.json site.loyaltyPointsPerDollar), not from here -- the badge on the
+# product card and the points actually credited have to be the same number.
+#
+# These two decide what a payout is worth. 100 points = $5 at 1 point/$1, i.e.
+# a 5% effective return once a customer has spent $100.
+LOYALTY_REDEEM_THRESHOLD = "100"
+LOYALTY_REWARD_CENTS = "500"
+
+# The shared Stripe COUPONS the single-use Promotion Codes are minted against.
+# Create them once in the Stripe Dashboard (Products -> Coupons) and paste the
+# ids here; they are ids, not secrets, and one coupon backs unlimited codes:
+#
+#   * a 10% off coupon              -> STRIPE_WELCOME_COUPON_ID
+#   * a $5.00 off (USD) coupon      -> STRIPE_BIRTHDAY_COUPON_ID
+#                                      (STRIPE_LOYALTY_COUPON_ID falls back to
+#                                       it, so one $5 coupon can serve both)
+#
+# LEFT UNSET ON PURPOSE until those coupons exist. Unset is a defined state:
+# /api/welcome-code answers `{"configured": false}` and welcome.html shows the
+# CMS welcomeCode instead, and the birthday/loyalty jobs log and do nothing
+# rather than minting codes against a coupon id that is not there.
+# STRIPE_WELCOME_COUPON_ID = "promo_coupon_id_here"
+# STRIPE_BIRTHDAY_COUPON_ID = "promo_coupon_id_here"
+# STRIPE_LOYALTY_COUPON_ID = "promo_coupon_id_here"
+
+# Optional: a verified Resend sender used for the retention sends only. Falls
+# back to GIFT_CARD_FROM_EMAIL.
+# RETENTION_FROM_EMAIL = "Y'allternative Living <hello@yallternativeliving.com>"
+
+# ===========================================================================
+# CRON
+#
+# One hourly trigger runs every scheduled job in checkout.js's `scheduled`
+# handler: the webhook-claim and burned-token sweeps, the email-queue sweep,
+# the birthday club and the email-queue drain.
+#
+# HOURLY, NOT DAILY, and that is deliberate:
+#   - the abandoned-checkout recovery mail wants to go out within the hour;
+#   - a daily trigger that fails has to wait 24h for its next chance, while an
+#     hourly one retries by itself;
+#   - the birthday job is idempotent per member per year AND gated to 9am
+#     America/New_York, so 24 ticks a day still send exactly one birthday code.
+# Cron triggers are free on the Workers Free plan and each tick is one indexed
+# D1 query when there is nothing to do.
+#
+# :07 rather than :00 to stay off the crowded top of the hour.
+# ===========================================================================
+[triggers]
+crons = ["7 * * * *"]
+
 # ===========================================================================
 # STATE LAYER (workers/state/*, workers/schema.sql)
 #
@@ -84,7 +136,11 @@ SITE_ORIGIN = "https://yallternativeliving.com"
 # the file, which is what a `class_name` has to point at.
 #
 # Secrets, set in the dashboard or with `npx wrangler secret put NAME`, never as
-# [vars] entries: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, RESEND_API_KEY.
+# [vars] entries: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, RESEND_API_KEY,
+# MAGIC_LINK_SECRET. That last one signs the unsubscribe and points links; with
+# it unset the Worker sends NO marketing email at all, which is the intended
+# behaviour rather than a bug -- an email with no working opt-out link is worse
+# than an unsent one.
 #
 # See workers/README.md for the full deploy checklist and docs/STATE-LAYER.md
 # for the architecture.

@@ -115,3 +115,56 @@ export async function findSessionByPaymentIntent(env, paymentIntentId) {
   const list = await res.json();
   return list && Array.isArray(list.data) && list.data.length ? list.data[0] : null;
 }
+
+/**
+ * Mint a Stripe Promotion Code against an existing Coupon.
+ *
+ * This is the mechanism that makes a discount NOT shareable, and it is a
+ * property of the Promotion Code, not of the Coupon behind it: one shared
+ * coupon (10% off, or $5 off) can back thousands of codes, each with its own
+ * `max_redemptions`, `expires_at` and restrictions
+ * (https://docs.stripe.com/api/promotion_codes/object).
+ *
+ * The `code` string is deliberately NOT supplied -- Stripe generates one, so
+ * two concurrent mints can never collide on a string we chose. `expiresAt` is
+ * epoch SECONDS, as Stripe expects.
+ *
+ * @param {object} env needs STRIPE_SECRET_KEY
+ * @param {{couponId: string, maxRedemptions?: number, expiresAt?: number,
+ *          firstTimeTransaction?: boolean, minimumAmountCents?: number,
+ *          metadata?: object}} options
+ * @param {string} [idempotencyKey] Stripe replays the original response for a
+ *   repeated key, so a retried cron tick or a redelivered webhook re-uses the
+ *   SAME code instead of minting a second one.
+ * @returns {Promise<{id: string, code: string, expiresAt: number|null}|null>}
+ *   null when Stripe refused (including a missing or deleted coupon).
+ */
+export async function createPromotionCode(env, options, idempotencyKey) {
+  const opts = options || {};
+  if (!opts.couponId) return null;
+  const params = new URLSearchParams();
+  params.append("coupon", String(opts.couponId));
+  params.append("max_redemptions", String(Math.max(1, Number(opts.maxRedemptions) || 1)));
+  if (Number.isFinite(Number(opts.expiresAt)) && Number(opts.expiresAt) > 0) {
+    params.append("expires_at", String(Math.round(Number(opts.expiresAt))));
+  }
+  if (opts.firstTimeTransaction) {
+    params.append("restrictions[first_time_transaction]", "true");
+  }
+  if (Number.isFinite(Number(opts.minimumAmountCents)) && Number(opts.minimumAmountCents) > 0) {
+    params.append("restrictions[minimum_amount]", String(Math.round(opts.minimumAmountCents)));
+    params.append("restrictions[minimum_amount_currency]", "usd");
+  }
+  for (const [key, value] of Object.entries(opts.metadata || {})) {
+    // Metadata is world-readable in the Stripe Dashboard and shows up in
+    // exports: hashes and ids only, never the customer's address.
+    params.append(`metadata[${key}]`, String(value).slice(0, 500));
+  }
+  const created = await stripePost(env, "/promotion_codes", params, idempotencyKey);
+  if (!created || typeof created.code !== "string") return null;
+  return {
+    id: String(created.id),
+    code: created.code,
+    expiresAt: Number.isFinite(Number(created.expires_at)) ? Number(created.expires_at) : null
+  };
+}

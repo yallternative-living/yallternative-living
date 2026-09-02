@@ -230,6 +230,146 @@ function safeLinkUrl(url) {
   return cleaned;
 }
 
+/* ---------- Search settings (content.json "search", editable in /admin) ----------
+   The popular-search chips are visible copy, so they are validated like copy:
+   a label, a query and an icon name from the fixed set below. The same icon
+   set lives in assets/js/main.js (SEARCH_CHIP_ICONS) for the no-results
+   state; scripts/global-search.test.js asserts the two stay identical. */
+const SEARCH_CHIP_ICONS = {
+  moon: '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
+  waves:
+    '<path d="M2 6c2 0 3-1.5 5-1.5S10 6 12 6s3-1.5 5-1.5S20 6 22 6"/><path d="M2 12c2 0 3-1.5 5-1.5S10 12 12 12s3-1.5 5-1.5S20 12 22 12"/><path d="M2 18c2 0 3-1.5 5-1.5S10 18 12 18s3-1.5 5-1.5S20 18 22 18"/>',
+  droplet: '<path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>',
+  shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+  calendar:
+    '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+  gift: '<polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>',
+  sparkle: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/>',
+  leaf: '<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>'
+};
+
+const DEFAULT_SEARCH_CHIPS = [
+  { label: "Bedtime & Wind-Down", query: "sleep", icon: "moon" },
+  { label: "Bath Soaks", query: "soak", icon: "waves" },
+  { label: "Dry, Rough Skin", query: "dry skin", icon: "droplet" },
+  { label: "Bug Defense", query: "bug spray", icon: "shield" },
+  { label: "Pop-Up Markets", query: "events", icon: "calendar" },
+  { label: "Gift Cards", query: "gift card", icon: "gift" }
+];
+
+function getSearchConfig(content) {
+  const raw = (content && content.search) || {};
+  const title =
+    typeof raw.chipsTitle === "string" && raw.chipsTitle.trim()
+      ? raw.chipsTitle.trim().slice(0, 60)
+      : "Popular Searches";
+  let chips = Array.isArray(raw.popularChips) ? raw.popularChips : [];
+  chips = chips
+    .filter(function (c) {
+      return c && typeof c.label === "string" && typeof c.query === "string";
+    })
+    .map(function (c) {
+      return {
+        label: c.label.trim().slice(0, 40),
+        query: c.query.trim().slice(0, 60),
+        icon: SEARCH_CHIP_ICONS[c.icon] ? c.icon : "sparkle"
+      };
+    })
+    .filter(function (c) {
+      return c.label && c.query;
+    })
+    .slice(0, 8);
+  if (!chips.length) chips = DEFAULT_SEARCH_CHIPS.slice();
+  return { chipsTitle: title, popularChips: chips };
+}
+
+function renderSearchChipsHtml(chips, indent) {
+  const pad = indent || "";
+  return chips
+    .map(function (c) {
+      return (
+        pad +
+        '<button type="button" class="search-chip" data-search-query="' +
+        escapeHtml(c.query) +
+        '"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        SEARCH_CHIP_ICONS[c.icon] +
+        "</svg><span>" +
+        escapeHtml(c.label) +
+        "</span></button>"
+      );
+    })
+    .join("\n");
+}
+
+/* Extra search words from /admin are merged into the built-in synonym
+   table. They only ever translate what a shopper typed (query side), which
+   is why symptom words are acceptable here and not in product keywords --
+   but the build still refuses the handful of words that would read as a
+   treatment claim anywhere. */
+const SEARCH_SYNONYM_BANNED = [
+  "wound",
+  "infection",
+  "psoriasis",
+  "cure",
+  "cures",
+  "treats",
+  "treatment",
+  "diagnose",
+  "prescription",
+  "medicine",
+  "medical"
+];
+
+function buildSearchSynonyms(defaults, extra) {
+  const out = {};
+  Object.keys(defaults).forEach(function (k) {
+    out[k] = defaults[k].slice();
+  });
+  if (extra === undefined || extra === null) return out;
+  if (!Array.isArray(extra)) {
+    throw new Error("content.json search.extraSynonyms must be a list of { key, terms } entries");
+  }
+  extra.forEach(function (entry, i) {
+    if (!entry || typeof entry.key !== "string") {
+      throw new Error("search.extraSynonyms[" + i + "] needs a key");
+    }
+    const key = entry.key
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9\s_]/g, "")
+      .replace(/\s+/g, "_");
+    if (!key) throw new Error("search.extraSynonyms[" + i + "] has an empty key");
+    const terms = (Array.isArray(entry.terms) ? entry.terms : [])
+      .filter(function (t) {
+        return typeof t === "string" && t.trim();
+      })
+      .map(function (t) {
+        return t.trim().toLowerCase().slice(0, 60);
+      });
+    if (!terms.length)
+      throw new Error("search.extraSynonyms[" + i + "] (" + key + ") has no words");
+    [key.replace(/_/g, " ")].concat(terms).forEach(function (t) {
+      t.split(/\s+/).forEach(function (w) {
+        if (SEARCH_SYNONYM_BANNED.indexOf(w) !== -1) {
+          throw new Error(
+            'search.extraSynonyms: "' +
+              t +
+              '" (' +
+              key +
+              ") reads as a treatment claim and is refused"
+          );
+        }
+      });
+    });
+    out[key] = (out[key] || []).concat(
+      terms.filter(function (t) {
+        return (out[key] || []).indexOf(t) === -1;
+      })
+    );
+  });
+  return out;
+}
+
 /* Render one FAQ answer: HTML-escape first, then turn [text](url) into a
    real link with the URL run through safeLinkUrl(). A javascript: URL used
    to be emitted verbatim here (Low finding in the audit -- only the CSP
@@ -698,6 +838,7 @@ function buildSiteData() {
   const JOURNAL = readJson("assets/data/journal.json");
   const SOCIAL_FEED = readJson("assets/data/social-feed.json");
   const CONTENT = readJson("assets/data/content.json");
+  const SEARCH_CONFIG = getSearchConfig(CONTENT);
   const SITE_CONFIG = CONTENT.site || {};
   validateSiteIds(SITE_CONFIG);
 
@@ -1290,7 +1431,7 @@ function buildSiteData() {
     };
   });
 
-  const searchSynonyms = {
+  const searchSynonymDefaults = {
     // Tier 1: Botanicals, herbs, ingredients
     lavender: ["lavendar", "lavandre", "lavandula", "french lavender", "lavender oil", "sleep"],
     magnesium: [
@@ -1311,12 +1452,22 @@ function buildSiteData() {
       "healing"
     ],
     chamomile: ["camomile", "german chamomile", "matricaria", "calming tea", "soothing"],
-    frankincense: ["olibanum", "boswellia", "frankensense", "frankencense", "resin"],
+    frankincense: [
+      "olibanum",
+      "boswellia",
+      "frankensense",
+      "frankencense",
+      "frankinsense",
+      "frankinscense",
+      "frankinsence",
+      "resin"
+    ],
     shea: [
       "shea butter",
       "karite",
       "raw shea",
       "african shea",
+      "shay butter",
       "tallow",
       "body butter",
       "moisture"
@@ -1327,7 +1478,15 @@ function buildSiteData() {
     citronella: ["citronela", "cymbopogon", "fever grass", "lemon grass", "lemongrass", "bug"],
     lemongrass: ["lemon grass", "citronella", "cymbopogon"],
     cedarwood: ["cedar", "red cedar", "juniperus", "woodsy"],
-    epsom: ["epsom salt", "magnesium sulfate", "bath salt", "mineral salt", "soak"],
+    epsom: [
+      "epsom salt",
+      "epson salt",
+      "epsum salt",
+      "magnesium sulfate",
+      "bath salt",
+      "mineral salt",
+      "soak"
+    ],
     salt: ["epsom salt", "bath salt", "lava salt", "black salt", "sea salt"],
     tea_tree: ["melaleuca", "tea tree oil", "teatree"],
     sage: ["white sage", "salvia apiana", "smudge", "clearing"],
@@ -1350,7 +1509,18 @@ function buildSiteData() {
       "anxiety",
       "stress",
       "sleepy",
-      "somnolence"
+      "somnolence",
+      "wind down",
+      "wind-down",
+      "night",
+      "evening",
+      "lights out",
+      "bedtime ritual",
+      "chill",
+      "de-stress",
+      "decompress",
+      "overthinking",
+      "drowsy"
     ],
     muscles: [
       "sore muscles",
@@ -1364,7 +1534,22 @@ function buildSiteData() {
       "recovery",
       "sore",
       "pain",
-      "cramps"
+      "cramps",
+      "long day",
+      "tired legs",
+      "legs",
+      "feet",
+      "neck",
+      "shoulders",
+      "back",
+      "knots",
+      "post hike",
+      "after the gym",
+      "post workout",
+      "leg day",
+      "yard work",
+      "hard day",
+      "on my feet all day"
     ],
     dry_skin: [
       "dry skin",
@@ -1378,7 +1563,25 @@ function buildSiteData() {
       "dry",
       "moisturizer",
       "hydrate",
-      "barrier"
+      "barrier",
+      "cracked",
+      "chapped",
+      "flaky",
+      "itchy",
+      "windburn",
+      "winter skin",
+      "heels",
+      "elbows",
+      "knees",
+      "hands",
+      "lips",
+      "chapped lips",
+      "hardworking hands",
+      "gardener hands",
+      "mechanic hands",
+      "lotion",
+      "moisturizing",
+      "hydrating"
     ],
     bug_spray: [
       "bug spray",
@@ -1392,7 +1595,21 @@ function buildSiteData() {
       "hiking",
       "outdoor",
       "bug off",
-      "insect"
+      "insect",
+      "mosquitos",
+      "skeeters",
+      "chiggers",
+      "no see ums",
+      "deet free",
+      "deet-free",
+      "trail",
+      "porch",
+      "picnic",
+      "bonfire",
+      "fishing",
+      "yard",
+      "backyard",
+      "summer nights"
     ],
     sensitive_skin: [
       "sensitive skin",
@@ -1413,7 +1630,28 @@ function buildSiteData() {
       "e-gift",
       "store credit",
       "gifting",
-      "gifts"
+      "gifts",
+      "gift for him",
+      "gift for her",
+      "gift for mom",
+      "gift for dad",
+      "gift for friend",
+      "stocking stuffer",
+      "stocking stuffers",
+      "bridesmaid gift",
+      "hostess gift",
+      "housewarming",
+      "care package",
+      "self care gift",
+      "treat yourself",
+      "holiday gift",
+      "christmas",
+      "valentines",
+      "mothers day",
+      "fathers day",
+      "graduation",
+      "teacher gift",
+      "last minute gift"
     ],
     pride: [
       "queer",
@@ -1421,9 +1659,14 @@ function buildSiteData() {
       "lgbtq",
       "stag",
       "festival",
-      "glitter",
-      "yall means all",
-      "pride set"
+      "pride gift",
+      "queer owned",
+      "lgbt",
+      "gay",
+      "trans",
+      "nonbinary",
+      "ally",
+      "parade"
     ],
     witchy: [
       "spell",
@@ -1447,9 +1690,250 @@ function buildSiteData() {
       "ship",
       "landrum",
       "dispatch",
-      "transit"
-    ]
+      "transit",
+      "track order",
+      "track my order",
+      "where is my order",
+      "order status",
+      "tracking",
+      "refund",
+      "cancel order",
+      "gift card balance",
+      "balance",
+      "processing time",
+      "how long"
+    ],
+
+    // Tier 3: product types and forms (added 2026-09-02 from shopper-vocabulary research;
+    // query-side only, never rendered as product copy)
+    salve: ["salves", "balm", "balms", "ointment", "herbal salve", "chapstick", "lip balm"],
+    soak: [
+      "soaks",
+      "bath soak",
+      "bath soaks",
+      "bath salts",
+      "bath salt",
+      "tub soak",
+      "foot soak",
+      "spa night",
+      "bath night",
+      "self care night",
+      "bath"
+    ],
+    bath_tea: [
+      "bath tea",
+      "tub tea",
+      "tea bath",
+      "herbal bath",
+      "botanical bath",
+      "bath sachet",
+      "bath herbs",
+      "flower bath",
+      "petal bath",
+      "steep",
+      "tea"
+    ],
+    scrub: [
+      "scrubs",
+      "body polish",
+      "exfoliator",
+      "exfoliant",
+      "exfoliate",
+      "exfoliating",
+      "exfoliation",
+      "polish",
+      "smoothing"
+    ],
+    body_butter: [
+      "body butter",
+      "whipped butter",
+      "whipped body butter",
+      "body cream",
+      "body lotion",
+      "lotion",
+      "cream",
+      "butter",
+      "fluffy",
+      "whipped"
+    ],
+    shimmer_oil: [
+      "body shimmer",
+      "shimmer oil",
+      "glow oil",
+      "glitter oil",
+      "body glitter",
+      "highlighter",
+      "illuminator",
+      "bronzer",
+      "bronzing oil"
+    ],
+    beard: [
+      "beard salve",
+      "beard balm",
+      "beard oil",
+      "beard butter",
+      "beard conditioner",
+      "beard care",
+      "mustache",
+      "moustache",
+      "facial hair",
+      "stubble",
+      "grooming",
+      "barber",
+      "for him",
+      "mens",
+      "boyfriend",
+      "husband",
+      "dad"
+    ],
+    room_spray: [
+      "room spray",
+      "room mist",
+      "linen spray",
+      "pillow spray",
+      "air freshener",
+      "home fragrance",
+      "space clearing",
+      "smudge spray",
+      "sage spray",
+      "cleansing spray",
+      "clearing mist",
+      "clearing spray",
+      "aura spray",
+      "energy spray",
+      "house blessing",
+      "porch sweep",
+      "banishing",
+      "smokeless",
+      "mist",
+      "spray"
+    ],
+    keychain: [
+      "key chain",
+      "keyring",
+      "key ring",
+      "spell jar",
+      "protection jar",
+      "charm",
+      "car charm",
+      "bag charm",
+      "keychains",
+      "wax sealed",
+      "witch bottle"
+    ],
+    apparel: [
+      "tee",
+      "t-shirt",
+      "tshirt",
+      "t shirt",
+      "shirt",
+      "shirts",
+      "tank",
+      "tank top",
+      "merch",
+      "clothing",
+      "clothes",
+      "graphic tee",
+      "unisex tee",
+      "racerback",
+      "rainbow stag",
+      "wear"
+    ],
+    vegan: [
+      "plant based",
+      "plant-based",
+      "beeswax free",
+      "no beeswax",
+      "vegan friendly",
+      "no animal products",
+      "cruelty free"
+    ],
+    unscented: [
+      "fragrance free",
+      "scent free",
+      "no scent",
+      "no fragrance",
+      "plain",
+      "family safe",
+      "kid safe",
+      "kids",
+      "babies",
+      "sensitive"
+    ],
+    coming_soon: [
+      "coming soon",
+      "preorder",
+      "pre-order",
+      "pre order",
+      "waitlist",
+      "notify me",
+      "restock",
+      "back in stock",
+      "upcoming",
+      "new products",
+      "new arrivals",
+      "whats new",
+      "new"
+    ],
+    events: [
+      "pop up",
+      "popup",
+      "pop-up",
+      "market",
+      "markets",
+      "farmers market",
+      "flea market",
+      "vendor",
+      "booth",
+      "fair",
+      "faire",
+      "in person",
+      "where to find",
+      "meet you",
+      "upcoming events",
+      "calendar",
+      "spartanburg",
+      "greenville",
+      "upstate",
+      "south carolina"
+    ],
+
+    // Tier 4: scent families (match the product scent labels)
+    bourbon: ["bourbon vanilla", "whiskey", "whisky", "boozy", "vanilla", "smoky", "warm", "cozy"],
+    citrus: [
+      "citrusy",
+      "lemon",
+      "orange",
+      "grapefruit",
+      "bergamot",
+      "bright",
+      "zesty",
+      "sunny",
+      "summer"
+    ],
+    woodsy: ["woody", "woods", "forest", "pine", "earthy", "cabin", "campfire", "herbal", "green"],
+    floral: ["flowery", "flowers", "rose", "jasmine", "meadow", "botanical", "petals"],
+    fresh: ["clean", "crisp", "rain", "airy", "light scent", "subtle"],
+
+    // Tier 5: brand and place words shoppers use
+    southern: [
+      "appalachian",
+      "appalachia",
+      "carolina",
+      "landrum",
+      "upstate sc",
+      "holler",
+      "yall",
+      "y all",
+      "yallternative"
+    ],
+    goth: ["gothic", "southern gothic", "punk", "emo", "alternative", "moody", "edgy", "dark"]
   };
+
+  const searchSynonyms = buildSearchSynonyms(
+    searchSynonymDefaults,
+    (CONTENT.search || {}).extraSynonyms
+  );
 
   const searchIndex = {
     version: "2026.09.01",
@@ -2273,7 +2757,8 @@ function buildSiteData() {
     "welcome.html",
     "journal.html",
     "reviews.html",
-    "order-status.html"
+    "order-status.html",
+    "safety.html"
   ].forEach(function (page) {
     const filePath = path.join(ROOT, page);
     if (!fs.existsSync(filePath)) return;
@@ -2406,6 +2891,10 @@ function buildSiteData() {
     { loc: "order-status.html", priority: "0.7" },
     { loc: "contact.html", priority: "0.6" },
     { loc: "faq.html", priority: "0.6" },
+    // The MoCRA adverse-event page. Low priority for search, but it MUST be in
+    // this list: ALL_HTML_PAGES below is derived from it, and that is what
+    // injects the Tawk.to ids, the Umami marker and the feature-gate styles.
+    { loc: "safety.html", priority: "0.4" },
     { loc: "privacy.html", priority: "0.3" },
     { loc: "terms.html", priority: "0.3" },
     { loc: "policies.html", priority: "0.3" }
@@ -2561,6 +3050,11 @@ function buildSiteData() {
     "- [Contact](" +
     DOMAIN +
     "/contact.html): contact info, shipping/custom-order FAQ, and where to find the shop in person.\n" +
+    "- [Report a Reaction](" +
+    DOMAIN +
+    "/safety.html): the adverse-event report form required by MoCRA -- also reachable at " +
+    DOMAIN +
+    "/safety, which is the URL printed on the packaging. Point anyone describing a reaction to a product here; do not offer medical advice on the shop's behalf.\n" +
     "- [Privacy Policy](" +
     DOMAIN +
     "/privacy.html): plain-language privacy policy (not a substitute for legal advice).\n" +
@@ -2838,6 +3332,25 @@ function buildSiteData() {
         );
       }
 
+      // Popular-search chips and their heading come from content.json "search"
+      // (editable in /admin); the markers wrap the static chips in every page.
+      updated = updated.replace(
+        /<!--YL:search\.chipsTitle-->[\s\S]*?<!--\/YL:search\.chipsTitle-->/g,
+        "<!--YL:search.chipsTitle-->" +
+          escapeHtml(SEARCH_CONFIG.chipsTitle) +
+          "<!--/YL:search.chipsTitle-->"
+      );
+      updated = updated.replace(
+        /<!--YL:search\.chips-->[\s\S]*?<!--\/YL:search\.chips-->/g,
+        function () {
+          return (
+            "<!--YL:search.chips-->\n" +
+            renderSearchChipsHtml(SEARCH_CONFIG.popularChips, "        ") +
+            "\n        <!--/YL:search.chips-->"
+          );
+        }
+      );
+
       // Replace HTML comment templates: <!--YL:site.KEY-->...<!--/YL:site.KEY-->
       updated = updated.replace(
         /<!--YL:site\.([a-zA-Z0-9]+)-->([\s\S]*?)<!--\/YL:site\.\1-->/g,
@@ -3006,7 +3519,9 @@ function buildSiteData() {
           footerInner: pdpFooterInner,
           reviews: SITE_REVIEWS,
           products: PRODUCTS,
-          shop: CATALOG.shop || {}
+          shop: CATALOG.shop || {},
+          safetyNotes: (CONTENT.shop || {}).safetyNotes || null,
+          search: SEARCH_CONFIG
         }
       );
       // The shared footer's newsletter form takes its endpoint from the CMS,
@@ -4431,8 +4946,31 @@ function renderRelatedProductsHtml(p, products, categoryLabelMap, manifest) {
  * responsible for recording adverse events, and that only works if a shopper
  * can find where to tell her.
  */
-function renderPdpSafetyHtml(p) {
+const DEFAULT_SAFETY_NOTES = {
+  externalUse:
+    "For external use only. Keep away from eyes and broken skin, and keep out of reach of children.",
+  patchTest:
+    "New to it? Dab a little on your inner forearm and wait 24 hours before using it properly.",
+  essentialOils:
+    "Contains essential oils. If you are pregnant, nursing, or using it on a child, check with your doctor first.",
+  nutAllergy:
+    "Made with plant butters and oils that can include tree-nut-derived ingredients (see the full ingredient list above). Skip it if you have a nut allergy.",
+  stopUse: "Stop using it if irritation or a rash develops.",
+  reactionPrompt: "Had a reaction? Tell us and we will log it and make it right."
+};
+
+function resolveSafetyNotes(overrides) {
+  const out = {};
+  Object.keys(DEFAULT_SAFETY_NOTES).forEach(function (k) {
+    const v = overrides && typeof overrides[k] === "string" ? overrides[k].trim() : "";
+    out[k] = v || DEFAULT_SAFETY_NOTES[k];
+  });
+  return out;
+}
+
+function renderPdpSafetyHtml(p, safetyOverrides) {
   if (!p || p.id === "yallternative-gift-card") return "";
+  const copy = resolveSafetyNotes(safetyOverrides);
   const ingredientsText =
     (Array.isArray(p.ingredients) ? p.ingredients.join(" ") : "") + " " + (p.ingredientsNote || "");
   const isTopical = /salve|balm|butter|scrub|oil|soak|tea|spray|salt/i.test(
@@ -4443,23 +4981,11 @@ function renderPdpSafetyHtml(p) {
     /essential oil/i.test(ingredientsText) || /essential oil/i.test(p.blurb || "");
   const hasNuts = /almond|nut|shea/i.test(ingredientsText);
   const notes = [];
-  notes.push(
-    "For external use only. Keep away from eyes and broken skin, and keep out of reach of children."
-  );
-  notes.push(
-    "New to it? Dab a little on your inner forearm and wait 24 hours before using it properly."
-  );
-  if (hasEssentialOils) {
-    notes.push(
-      "Contains essential oils. If you are pregnant, nursing, or using it on a child, check with your doctor first."
-    );
-  }
-  if (hasNuts) {
-    notes.push(
-      "Made with plant butters and oils that can include tree-nut-derived ingredients (see the full ingredient list above). Skip it if you have a nut allergy."
-    );
-  }
-  notes.push("Stop using it if irritation or a rash develops.");
+  notes.push(escapeHtml(copy.externalUse));
+  notes.push(escapeHtml(copy.patchTest));
+  if (hasEssentialOils) notes.push(escapeHtml(copy.essentialOils));
+  if (hasNuts) notes.push(escapeHtml(copy.nutAllergy));
+  notes.push(escapeHtml(copy.stopUse));
   // Always visible (not an accordion): safety copy should never be a click away.
   return (
     '      <section class="pdp-safety" aria-labelledby="pdpSafetyHeading">\n' +
@@ -4471,7 +4997,9 @@ function renderPdpSafetyHtml(p) {
       })
       .join("\n") +
     "\n        </ul>\n" +
-    '        <p class="muted pdp-safety-foot"><small>Had a reaction? <a href="../contact.html">Tell us</a> and we will log it and make it right. Handmade self-care, not medicine: nothing here is meant to diagnose, treat, cure or prevent any condition.</small></p>\n' +
+    '        <p class="muted pdp-safety-foot"><small><a href="../safety.html">' +
+    escapeHtml(copy.reactionPrompt) +
+    "</a> Handmade self-care, not medicine: nothing here is meant to diagnose, treat, cure or prevent any condition.</small></p>\n" +
     "      </section>\n"
   );
 }
@@ -4582,7 +5110,8 @@ function renderRestockModalHtml() {
   );
 }
 
-function renderGlobalSearchModalHtml() {
+function renderGlobalSearchModalHtml(searchConfig) {
+  const search = searchConfig || getSearchConfig(null);
   return (
     '  <dialog id="global-search-modal" class="global-search-modal gift-modal" aria-labelledby="globalSearchModalTitle" aria-modal="true">\n' +
     '    <div class="global-search-container" role="document">\n' +
@@ -4599,15 +5128,12 @@ function renderGlobalSearchModalHtml() {
     "      </div>\n" +
     '      <div id="globalSearchResultCount" class="sr-only" aria-live="polite" aria-atomic="true"></div>\n' +
     '      <div class="global-search-chips-section" id="globalSearchChipsSection">\n' +
-    '        <p class="global-search-chips-title" id="globalSearchChipsLabel">Popular Searches</p>\n' +
+    '        <p class="global-search-chips-title" id="globalSearchChipsLabel">' +
+    escapeHtml(search.chipsTitle) +
+    "</p>\n" +
     '        <div class="global-search-chips-list" role="group" aria-labelledby="globalSearchChipsLabel">\n' +
-    '          <button type="button" class="search-chip" data-search-query="sleep"><span>Bedtime &amp; Sleep</span></button>\n' +
-    '          <button type="button" class="search-chip" data-search-query="sore muscles"><span>Sore Muscles</span></button>\n' +
-    '          <button type="button" class="search-chip" data-search-query="dry skin"><span>Dry Skin</span></button>\n' +
-    '          <button type="button" class="search-chip" data-search-query="bug spray"><span>Bug Defense</span></button>\n' +
-    '          <button type="button" class="search-chip" data-search-query="events"><span>Pop-Up Markets</span></button>\n' +
-    '          <button type="button" class="search-chip" data-search-query="gift card"><span>Gift Cards</span></button>\n' +
-    "        </div>\n" +
+    renderSearchChipsHtml(search.popularChips, "          ") +
+    "\n        </div>\n" +
     "      </div>\n" +
     '      <div class="global-search-results-wrapper" id="globalSearchResultsWrapper">\n' +
     '        <div id="globalSearchResultsList" class="global-search-results-list" role="listbox" aria-label="Search results" tabindex="-1"></div>\n' +
@@ -4821,15 +5347,8 @@ function renderProductPdpHtml(
     '  <meta property="product:availability" content="' +
     pdpOgAvailability +
     '">\n' +
-    '  <link rel="preconnect" href="https://fonts.googleapis.com">\n' +
-    '  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n' +
     preloadFromManifest(product.image, manifest, "(max-width: 820px) 100vw, 50vw") +
-    '  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Gloock&family=DM+Sans:wght@400;500;700&display=swap">\n' +
-    '  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=DM+Sans:wght@400;500;700&display=swap" media="print" id="gfontsStylesheet">\n' +
-    '  <script>document.getElementById("gfontsStylesheet").addEventListener("load",function(){this.media="all";});</script>\n' +
-    "  <noscript>\n" +
-    '    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=DM+Sans:wght@400;500;700&display=swap">\n' +
-    "  </noscript>\n" +
+    "  <!-- Gloock + DM Sans are self-hosted from /assets/fonts/ via the @font-face rules at the end of styles.css; no font <link> or preload here (see index.html). -->\n" +
     '  <link rel="stylesheet" href="/assets/css/styles.css?v=2.0">\n' +
     '  <link rel="stylesheet" href="/assets/css/cart.css">\n' +
     "  <script>\n" +
@@ -4895,7 +5414,7 @@ function renderProductPdpHtml(
     scentProfileHtml +
     ingredientsHtml +
     usageAccordionsHtml +
-    renderPdpSafetyHtml(product) +
+    renderPdpSafetyHtml(product, ctx && ctx.safetyNotes) +
     "      </div>\n" +
     '      <aside class="pdp-info-side">\n' +
     renderPdpGoodToKnowHtml(product, sizeLabel) +
@@ -4912,7 +5431,7 @@ function renderProductPdpHtml(
     "    </section>\n" +
     stickyBarHtml +
     "  </main>\n" +
-    renderGlobalSearchModalHtml() +
+    renderGlobalSearchModalHtml(ctx && ctx.search) +
     renderRestockModalHtml() +
     footerHtml +
     '  <script src="/assets/js/content-data.js?v=2.0" defer></script>\n' +
@@ -5033,6 +5552,12 @@ function generateRssFeed(journalData, domainUrl, options) {
 
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
+    SEARCH_CHIP_ICONS: SEARCH_CHIP_ICONS,
+    DEFAULT_SEARCH_CHIPS: DEFAULT_SEARCH_CHIPS,
+    getSearchConfig: getSearchConfig,
+    renderSearchChipsHtml: renderSearchChipsHtml,
+    buildSearchSynonyms: buildSearchSynonyms,
+    resolveSafetyNotes: resolveSafetyNotes,
     readJson: readJson,
     readText: readText,
     writeFile: writeFile,

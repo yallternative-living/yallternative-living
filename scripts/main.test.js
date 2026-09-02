@@ -630,6 +630,41 @@ eq(
   "priceHTML ignores originalPrice without an active sale"
 );
 
+/* 1c. ratingHTML -- shows from 1 real review now, not 3+ (docs/research-
+   2026-09-01/research-K-reviews-ugc.md §3/§5). */
+assert(
+  main.ratingHTML({ id: "x", rating: { value: 5, count: 3 } }) !== "",
+  "ratingHTML renders at 3 reviews (the old threshold still works)"
+);
+const oneReviewHtml = main.ratingHTML({ id: "x", rating: { value: 5, count: 1 } });
+assert(oneReviewHtml !== "", "ratingHTML renders from a single real review");
+assert(
+  oneReviewHtml.includes('<div class="card-rating">'),
+  "ratingHTML wraps a single-review card in .card-rating"
+);
+assert(
+  oneReviewHtml.includes('class="card-rating-count"') &&
+    oneReviewHtml.includes("5.0 &middot; 1 review"),
+  "ratingHTML shows a visible '5.0 · 1 review' count, singular, next to the stars"
+);
+assert(
+  oneReviewHtml.includes("Rated 5.0 out of 5 stars, 1 review</span>"),
+  "ratingHTML keeps the sr-only text accurate for a single review (singular 'review')"
+);
+const twoReviewHtml = main.ratingHTML({ id: "x", rating: { value: 4.5, count: 2 } });
+assert(
+  twoReviewHtml.includes("4.5 &middot; 2 reviews"),
+  "ratingHTML pluralizes 'reviews' and formats a non-integer average to one decimal"
+);
+assert(
+  main.ratingHTML({ id: "x", rating: { value: 5, count: 0 } }) === "",
+  "ratingHTML renders nothing at 0 reviews"
+);
+assert(
+  main.ratingHTML({ id: "x" }) === "",
+  "ratingHTML renders nothing with no rating object at all"
+);
+
 const cappedStock = { id: "salve-1", name: "Salve", price: 15.5, stock: 4 };
 assert(
   main.addToCartHTML(cappedStock).includes('data-item-max-quantity="4"'),
@@ -1621,7 +1656,6 @@ const privacySrc = fs404.readFileSync(path404.join(repoRoot, "privacy.html"), "u
   "Kit",
   "Resend",
   "Tawk.to",
-  "Google Fonts",
   "Google Translate",
   "Umami",
   "Etsy"
@@ -1631,6 +1665,17 @@ const privacySrc = fs404.readFileSync(path404.join(repoRoot, "privacy.html"), "u
     `privacy.html names ${processor}, which handles data for this site`
   );
 });
+
+/* Fonts are self-hosted since the 2026-09-02 performance pass, so the page
+   must not tell shoppers that Google Fonts sees their requests. */
+assert(
+  privacySrc.indexOf("Google Fonts") === -1 && privacySrc.indexOf("fonts.googleapis") === -1,
+  "privacy.html no longer claims fonts are loaded from Google"
+);
+assert(
+  /served from our own domain/.test(privacySrc),
+  "privacy.html says the typefaces are served from the site's own domain"
+);
 
 /* Every form that collects something has to be described. */
 [

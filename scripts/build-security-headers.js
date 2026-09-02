@@ -135,6 +135,12 @@ var PAGES = [
   "policies.html",
   "terms.html",
   "welcome.html",
+  // safety.html ships NO inline script of its own -- the theme-init snippet it
+  // copies from contact.html is the only one, and its hash is already in the
+  // baseline. It is listed anyway: a page absent from here is a page whose
+  // inline scripts are never checked, which is exactly the gap this list was
+  // widened to close for faq/journal/reviews/order-status.
+  "safety.html",
   "products/backroad-soak.html"
 ];
 
@@ -353,13 +359,14 @@ function run() {
     // an allowlist entry for something nobody could point at.
     "script-src 'self' https://cloud.umami.is https://embed.tawk.to https://translate.google.com https://translate.googleapis.com 'inline-speculation-rules' " +
       hashes.join(" "),
-    // fonts.googleapis.com: every page's <link> tags pull Cormorant Garamond
-    // + Outfit from Google Fonts (see the top-of-file comment in styles.css)
-    // -- that stylesheet request needs style-src, and the actual font files
-    // it points at come from fonts.gstatic.com, which needs font-src below.
-    "style-src 'self' https://fonts.googleapis.com https://translate.googleapis.com 'unsafe-inline'", // main.js/cart.js/gift-card.js/translator.js all set element.style.* directly (display toggles, carousel transforms, etc.); can't pre-hash those, so this directive stays looser on purpose
+    // Fonts are self-hosted from /assets/fonts/ (styles.css @font-face), so
+    // neither fonts.googleapis.com nor fonts.gstatic.com is needed any more.
+    // embed.tawk.to: the chat widget's script loads its own stylesheet and
+    // font files from that origin; without it the widget renders unstyled
+    // (every page logged a style-src violation for min-widget.css).
+    "style-src 'self' https://embed.tawk.to https://translate.googleapis.com 'unsafe-inline'", // main.js/cart.js/gift-card.js/translator.js all set element.style.* directly (display toggles, carousel transforms, etc.); can't pre-hash those, so this directive stays looser on purpose
     "img-src 'self' data: https://*.tawk.to https://translate.google.com https://translate.googleapis.com https://www.google.com",
-    "font-src 'self' https://fonts.gstatic.com",
+    "font-src 'self' https://embed.tawk.to",
     // Checkout itself never needs an entry here: cart.js POSTs to the
     // same-origin /api/checkout Worker route (covered by 'self'), then
     // does a normal top-level `window.location = url` redirect to Stripe's
@@ -607,6 +614,23 @@ function run() {
         "  force = true\n\n"
       );
     }).join("") +
+    // ---- clean URL for the printed-on-the-label safety page ----
+    // MoCRA requires the LABEL to carry a contact through which a consumer can
+    // report an adverse event, so this shop prints https://yallternativeliving
+    // .com/safety on the packaging. A printed URL cannot be changed after the
+    // jar is sold, so it must never 404: status=200 makes this a rewrite, not a
+    // redirect -- /safety and /safety.html both serve the page, and the page's
+    // own <link rel="canonical"> points search engines at the .html spelling so
+    // the two are not indexed as duplicates. Netlify's own "pretty URLs" would
+    // usually cover this; it is written out because the label is permanent and
+    // a default that can be toggled off in a dashboard is not a guarantee.
+    "# Clean URL for the safety page. This path is PRINTED ON THE PACKAGING\n" +
+    "# (MoCRA adverse-event contact), so it must resolve forever. status=200 is\n" +
+    "# a rewrite: /safety and /safety.html both serve safety.html.\n" +
+    "[[redirects]]\n" +
+    '  from = "/safety"\n' +
+    '  to = "/safety.html"\n' +
+    "  status = 200\n\n" +
     "# Long-lived caching for hashed/never-changing assets. Pages themselves\n" +
     "# (index.html, shop.html, etc.) intentionally aren't cached long here --\n" +
     "# Netlify already serves them with an ETag + must-revalidate by default,\n" +
