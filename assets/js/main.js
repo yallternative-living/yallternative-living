@@ -6413,7 +6413,10 @@
     var delta = Number(opt.priceDelta) || 0;
     var finalPrice = prod.price + delta;
 
-    if (opt.label && opt.label.startsWith("$")) {
+    /* A label that already states its own dollar amount ("$25", or the
+       gift card's "Preset $25" that the Worker parses) is self-describing;
+       appending " - $25.00" would just say the price twice. */
+    if (opt.label && /\$\s*\d/.test(opt.label)) {
       return opt.label;
     }
 

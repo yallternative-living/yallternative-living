@@ -736,13 +736,16 @@ function recordFail(msg) {
       }
 
       // Check specific label formats:
-      // - Gift cards should render as "$10", "$25", "$50", "$100", "$200" without duplicate "- $25.00"
+      // - Gift card options are labelled "Preset $NN" (the Worker parses that
+      //   exact form, see workers/checkout.js); the chip must show the label
+      //   as-is and never append a second "- $NN.00" price to it.
       if (prod.id === "yallternative-gift-card") {
         const giftCardLabels = chipsAnalysis.results.map((r) => r.text);
         const hasDoubleDollar = giftCardLabels.some((txt) => txt.includes("- $"));
-        if (!hasDoubleDollar) {
+        const allPresetForm = giftCardLabels.every((txt) => /^Preset \$\d+$/.test(txt.trim()));
+        if (!hasDoubleDollar && allPresetForm) {
           recordPass(
-            `[${prod.id}] Gift card chip labels clean ($10, $25, $50, $100, $200) without duplicate price append`
+            `[${prod.id}] Gift card chip labels are the bare "Preset $NN" form without a duplicate price append`
           );
         } else {
           recordFail(
@@ -776,7 +779,12 @@ function recordFail(msg) {
     const basketItemsToAdd = [
       { id: "shea-butter", query: "Lavender Shea", label: "8 oz", expectedUnit: 23.0 },
       { id: "lavender-soak", query: "Lavender Epsom", label: "24 oz", expectedUnit: 18.0 },
-      { id: "yallternative-gift-card", query: "Gift Card", label: "$50", expectedUnit: 50.0 },
+      {
+        id: "yallternative-gift-card",
+        query: "Gift Card",
+        label: "Preset $50",
+        expectedUnit: 50.0
+      },
       { id: "frankincense-salve", query: "Frankincense Salve", label: "1oz", expectedUnit: 13.99 }
     ];
 

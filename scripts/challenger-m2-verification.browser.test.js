@@ -349,9 +349,12 @@ async function runAdversarialSuite() {
       check(`ICS for "${ev.name}" contains CALSCALE:GREGORIAN`, ics.includes("CALSCALE:GREGORIAN"));
       check(`ICS for "${ev.name}" contains METHOD:PUBLISH`, ics.includes("METHOD:PUBLISH"));
       check(`ICS for "${ev.name}" contains STATUS:CONFIRMED`, ics.includes("STATUS:CONFIRMED"));
+      // RFC 5545 folds lines longer than 75 octets (CRLF + space), and a long
+      // event name folds the UID line, so unfold before matching.
+      const unfoldedIcs = ics.replace(/\r?\n[ \t]/g, "");
       check(
         `ICS for "${ev.name}" contains UID with domain`,
-        /UID:yl-event-.*@yallternativeliving\.com/.test(ics)
+        /UID:yl-event-.*@yallternativeliving\.com/.test(unfoldedIcs)
       );
 
       // 2.2 Date values & RFC 5545 exclusive end date
@@ -378,9 +381,12 @@ async function runAdversarialSuite() {
         `Google Calendar URL for "${ev.name}" targets calendar.google.com`,
         gcalUrl.startsWith("https://calendar.google.com/calendar/render?action=TEMPLATE")
       );
+      // The dates value is URL-encoded like every other query value, so the
+      // separator arrives as %2F; Google accepts either form.
       check(
         `Google Calendar URL for "${ev.name}" contains valid dates param`,
-        gcalUrl.includes(`dates=${dates.start}/${dates.end}`)
+        gcalUrl.includes(`dates=${dates.start}/${dates.end}`) ||
+          gcalUrl.includes(`dates=${dates.start}%2F${dates.end}`)
       );
       check(
         `Google Calendar URL for "${ev.name}" encodes title and location`,

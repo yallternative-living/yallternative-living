@@ -436,7 +436,47 @@ async function runAdversarialStressSuite() {
         });
         await sleep(200);
 
-        // Click Add to Cart for second featured product (pine-tar-salve -> frankincense-salve, $19.99)
+        // Click Add to Cart for the second post's featured product. Which
+        // product that is, and what it costs, is read from the data the page
+        // renders from (journal.json + products.json) rather than pinned
+        // here: the data-integrity fix repointed this post's feature, and a
+        // hardcoded pair would fail on every legitimate content edit.
+        const journalData = JSON.parse(
+          fs.readFileSync(path.join(__dirname, "..", "assets", "data", "journal.json"), "utf8")
+        );
+        const productsData = JSON.parse(
+          fs.readFileSync(path.join(__dirname, "..", "assets", "data", "products.json"), "utf8")
+        );
+        const journalPosts = Array.isArray(journalData) ? journalData : journalData.posts || [];
+        const productList = Array.isArray(productsData)
+          ? productsData
+          : productsData.products || [];
+        const secondPost = journalPosts.find(
+          (post) => (post.id || post.slug) === "small-batch-difference"
+        );
+        const secondFeaturedRef =
+          (secondPost &&
+            (secondPost.featuredProduct ||
+              secondPost.featured_product ||
+              secondPost.featuredProductId)) ||
+          null;
+        assert(
+          Boolean(secondFeaturedRef),
+          "journal.json post 'small-batch-difference' names a featured product"
+        );
+        const resolveProduct = (ref) =>
+          productList.find(
+            (pr) => pr.id === ref || (Array.isArray(pr.aliases) && pr.aliases.indexOf(ref) !== -1)
+          ) || null;
+        const secondProduct = resolveProduct(secondFeaturedRef);
+        assert(
+          Boolean(secondProduct),
+          `Featured reference '${secondFeaturedRef}' resolves to a catalogue product`
+        );
+        const secondId = secondProduct ? secondProduct.id : secondFeaturedRef;
+        const expectedSubtotal = (
+          19.99 + (secondProduct ? Number(secondProduct.price) : 0)
+        ).toFixed(2);
         await page.evaluate(() => {
           const btn = document.querySelector(".journal-featured-card .yl-add-item");
           if (btn) btn.click();
@@ -464,14 +504,15 @@ async function runAdversarialStressSuite() {
         assert(multiItemState.count === 2, `Cart count is now 2 (got: ${multiItemState.count})`);
         assert(
           multiItemState.itemIds.includes("sleep-salve") &&
-            multiItemState.itemIds.includes("frankincense-salve"),
-          `Cart contains both resolved items ['sleep-salve', 'frankincense-salve'] (got: ${JSON.stringify(multiItemState.itemIds)})`
+            multiItemState.itemIds.includes(secondId) &&
+            secondId !== "sleep-salve",
+          `Cart contains both resolved items ['sleep-salve', '${secondId}'] (got: ${JSON.stringify(multiItemState.itemIds)})`
         );
         assert(
           multiItemState.pointsCounterPresent === false &&
             typeof multiItemState.subtotalText === "string" &&
-            multiItemState.subtotalText.includes("39.98"),
-          "Cart drawer quotes the real $39.98 subtotal and no Alt-Points counter " +
+            multiItemState.subtotalText.includes(expectedSubtotal),
+          `Cart drawer quotes the real $${expectedSubtotal} subtotal and no Alt-Points counter ` +
             `(got: '${multiItemState.subtotalText}', counter present: ${multiItemState.pointsCounterPresent})`
         );
 
