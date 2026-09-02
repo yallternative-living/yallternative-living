@@ -1,30 +1,31 @@
 /**
- * @fileoverview Unit test suite for Cloudflare Worker & Netlify function helpers:
- *   - netlify/functions/fulfill-gift-card.js
- *   - workers/checkout.js
- *   - workers/submit-form.js
+ * @fileoverview Unit test suite for the Cloudflare Workers:
+ *   - workers/checkout.js    (catalog pricing, variants, bundles, custom boxes,
+ *                             volume pricing, shipping, tax, pickup, gift-card
+ *                             metadata, and the gift-card redemption path)
+ *   - workers/submit-form.js (contact form)
+ *
+ * netlify/functions/* is GONE. Its four handlers are Worker routes now
+ * (workers/routes/*), for the reasons in docs/STATE-LAYER.md: the gift-card
+ * ledger and the exactly-once webhook claim live in Cloudflare Durable Objects
+ * and D1, which a Netlify Function cannot reach, and audit H-23 notes the
+ * Netlify free plan pauses every project -- the Stripe webhook included -- at
+ * its monthly credit cap.
+ *
+ * The cases that were about those files and are still worth having moved with
+ * the code they test:
+ *   - Stripe signature verification, gift-card code derivation and
+ *     determinism, HTML escaping in the gift-card emails, and email
+ *     idempotency  -> scripts/worker-state.test.js (section 11)
+ *   - the balance lookup's "a spent card and an unknown code are
+ *     indistinguishable" rule -> scripts/worker-state.test.js (section 10) and
+ *     scripts/adversarial-stress.test.js (R7.5)
+ *   - restock honeypot, validation, escaping and the 503-with-no-mailer rule
+ *     -> scripts/worker-state.test.js (section 13)
+ * Nothing was dropped to make this file pass.
  *
  * Run: node scripts/backend-functions.test.js
  */
-
-const crypto = require("crypto");
-
-// fulfill-gift-card.js captures process.env.STRIPE_WEBHOOK_SECRET into a
-// module-level const at load time, so this MUST be set before the require
-// below -- otherwise verifyStripeSignature short-circuits on "not configured"
-// and the invalid-signature test never reaches the real HMAC comparison.
-process.env.STRIPE_WEBHOOK_SECRET =
-  process.env.STRIPE_WEBHOOK_SECRET || "whsec_test_dummy_secret_for_signature_tests";
-process.env.STRIPE_SECRET_KEY =
-  process.env.STRIPE_SECRET_KEY || "sk_test_dummy_secret_for_signature_tests";
-// fulfill-gift-card.js now refuses to build a Resend client without a key
-// (it used to fall back to the literal "re_test", so a deploy with the
-// variable missing returned 200 while delivering nothing). The suite stubs
-// the network, but the key still has to be present for the client to exist.
-process.env.RESEND_API_KEY = process.env.RESEND_API_KEY || "re_test_dummy_for_stubbed_sends";
-
-const fulfillGiftCard = require("../netlify/functions/fulfill-gift-card.js");
-const submitRestock = require("../netlify/functions/submit-restock.js");
 
 let passed = 0;
 let failed = 0;
@@ -88,218 +89,9 @@ async function throwsAsync(fn, expectedSubstr, label) {
 console.log("Running backend-functions unit tests...\n");
 
 /* ==========================================================
-   1. fulfill-gift-card.js: escapeHtml
+   1. The Worker modules (workers/checkout.js & workers/submit-form.js)
    ========================================================== */
-eq(
-  fulfillGiftCard.escapeHtml("<script>alert(\"xss & 'hello'\")</script>"),
-  "&lt;script&gt;alert(&quot;xss &amp; &#39;hello&#39;&quot;)&lt;/script&gt;",
-  "fulfillGiftCard.escapeHtml escapes HTML special characters"
-);
-eq(
-  fulfillGiftCard.escapeHtml("Clean String 123"),
-  "Clean String 123",
-  "fulfillGiftCard.escapeHtml passes safe strings"
-);
-
-/* ==========================================================
-   2. fulfill-gift-card.js: generateRandomCode
-   ========================================================== */
-const code1 = fulfillGiftCard.generateRandomCode();
-assert(code1.startsWith("YALL-"), "generateRandomCode starts with YALL-");
-assert(code1.length === 13, "generateRandomCode is 13 chars long");
-assert(/^YALL-[A-Z0-9]{8}$/.test(code1), "generateRandomCode matches YALL-[A-Z0-9]{8}");
-
-const codeSet = new Set();
-for (let i = 0; i < 100; i++) {
-  codeSet.add(fulfillGiftCard.generateRandomCode());
-}
-eq(codeSet.size, 100, "generateRandomCode generates 100 unique codes");
-
-/* ==========================================================
-   3. fulfill-gift-card.js: verifyStripeSignature
-   ========================================================== */
-const testSecret = "whsec_test_secret_key_123456789";
-const testPayload = JSON.stringify({
-  id: "evt_123",
-  type: "checkout.session.completed",
-  data: { object: { id: "cs_123" } }
-});
-const testTime = Math.floor(Date.now() / 1000);
-const validHmac = crypto
-  .createHmac("sha256", testSecret)
-  .update(`${testTime}.${testPayload}`)
-  .digest("hex");
-const validHeader = `t=${testTime},v1=${validHmac}`;
-
-// Valid signature
-const parsedEvt = fulfillGiftCard.verifyStripeSignature(testPayload, validHeader, testSecret);
-eq(parsedEvt.id, "evt_123", "verifyStripeSignature accepts valid signature");
-
-// Missing header
-try {
-  fulfillGiftCard.verifyStripeSignature(testPayload, null, testSecret);
-  assert(false, "verifyStripeSignature throws on missing header");
-} catch (e) {
-  assert(
-    e.message.includes("Missing Stripe-Signature header"),
-    "verifyStripeSignature missing header error message"
-  );
-}
-
-// Missing secret
-try {
-  fulfillGiftCard.verifyStripeSignature(testPayload, validHeader, null);
-  assert(false, "verifyStripeSignature throws on missing secret");
-} catch (e) {
-  assert(
-    e.message.includes("STRIPE_WEBHOOK_SECRET is not configured"),
-    "verifyStripeSignature missing secret error message"
-  );
-}
-
-// Malformed header
-try {
-  fulfillGiftCard.verifyStripeSignature(testPayload, "invalid_header", testSecret);
-  assert(false, "verifyStripeSignature throws on malformed header");
-} catch (e) {
-  assert(
-    e.message.includes("Malformed Stripe-Signature header"),
-    "verifyStripeSignature malformed header error message"
-  );
-}
-
-// Expired timestamp
-const oldTime = testTime - 400; // 400s old > 300s tolerance
-const oldHmac = crypto
-  .createHmac("sha256", testSecret)
-  .update(`${oldTime}.${testPayload}`)
-  .digest("hex");
-try {
-  fulfillGiftCard.verifyStripeSignature(testPayload, `t=${oldTime},v1=${oldHmac}`, testSecret);
-  assert(false, "verifyStripeSignature throws on timestamp outside tolerance");
-} catch (e) {
-  assert(
-    e.message.includes("outside tolerance"),
-    "verifyStripeSignature timestamp tolerance error message"
-  );
-}
-
-// Invalid signature mismatch
-const badHmac = crypto
-  .createHmac("sha256", testSecret)
-  .update(`${testTime}.tampered`)
-  .digest("hex");
-try {
-  fulfillGiftCard.verifyStripeSignature(testPayload, `t=${testTime},v1=${badHmac}`, testSecret);
-  assert(false, "verifyStripeSignature throws on signature mismatch");
-} catch (e) {
-  assert(
-    e.message.includes("Signature mismatch"),
-    "verifyStripeSignature signature mismatch error message"
-  );
-}
-
-/* ==========================================================
-   4. fulfill-gift-card.js: createGiftCardPromotionCode
-   ----------------------------------------------------------
-   Each async section below is a named function awaited in order by the
-   runner at the bottom of this file. They used to be bare `(async () =>
-   {...})()` IIFEs fired off back-to-back, which meant they interleaved at
-   their first `await`: section 4 swapped `global.fetch` out from under
-   whatever else was mid-flight, and the summary (which lived at the end of
-   the last IIFE) could print -- and set the exit code -- while assertions
-   from the others were still pending. Sequencing them removes both the
-   shared-mutable-state race and the "green because it exited early" failure
-   mode.
-   ========================================================== */
-async function testCreateGiftCardPromotionCode() {
-  const globalFetch = global.fetch;
-
-  // Coupon API failure
-  global.fetch = async (url) => {
-    if (url.includes("/v1/coupons")) {
-      return { json: async () => ({ error: { message: "Invalid coupon amount" } }) };
-    }
-    return { json: async () => ({}) };
-  };
-  await throwsAsync(
-    () => fulfillGiftCard.createGiftCardPromotionCode("cs_1", 1, 2500, "YALL-TEST"),
-    "Stripe coupon creation failed: Invalid coupon amount",
-    "createGiftCardPromotionCode handles coupon API error"
-  );
-
-  // Promo Code API failure
-  global.fetch = async (url) => {
-    if (url.includes("/v1/coupons")) {
-      return { json: async () => ({ id: "co_123" }) };
-    }
-    if (url.includes("/v1/promotion_codes")) {
-      return { json: async () => ({ error: { message: "Code already exists" } }) };
-    }
-    return { json: async () => ({}) };
-  };
-  await throwsAsync(
-    () => fulfillGiftCard.createGiftCardPromotionCode("cs_1", 1, 2500, "YALL-TEST"),
-    "Stripe promotion code creation failed: Code already exists",
-    "createGiftCardPromotionCode handles promo code API error"
-  );
-
-  // Restore global.fetch
-  global.fetch = globalFetch;
-}
-
-/* ==========================================================
-   5. fulfill-gift-card.js: handler (invalid signature)
-   ========================================================== */
-async function testHandlerInvalidSignature() {
-  const originalConsoleError = console.error;
-  let errorLogged = false;
-  let loggedText = "";
-  console.error = (...args) => {
-    errorLogged = true;
-    loggedText += args.map((a) => String(a && a.message ? a.message : a)).join(" ") + "\n";
-  };
-
-  // Use a FRESH timestamp so we clear the replay-tolerance window (a stale
-  // t=123 would be rejected before any HMAC work), and a wrong signature that
-  // is a full 64-hex-char string (the length of a real sha256 HMAC digest) so
-  // the check actually reaches crypto.timingSafeEqual rather than being
-  // rejected earlier on a length mismatch. With STRIPE_WEBHOOK_SECRET set at
-  // the top of this file, this now exercises the real signature-rejection path.
-  const freshTimestamp = Math.floor(Date.now() / 1000);
-  const wrongSignature = "0".repeat(64);
-  const event = {
-    httpMethod: "POST",
-    body: "{}",
-    headers: {
-      "stripe-signature": `t=${freshTimestamp},v1=${wrongSignature}`
-    }
-  };
-
-  const result = await fulfillGiftCard.handler(event);
-  eq(result.statusCode, 400, "handler returns 400 on invalid signature");
-  eq(result.body, "Invalid signature", "handler returns a fixed invalid-signature message");
-  // The REASON stays server-side. Echoing err.message told an
-  // unauthenticated caller whether their forgery failed on a missing header,
-  // a malformed one, the replay window or the HMAC compare -- a free oracle
-  // for probing the verification path.
-  assert(
-    !/Signature mismatch|Malformed|tolerance|not configured/i.test(result.body),
-    "handler never echoes why the signature was rejected"
-  );
-  assert(errorLogged, "handler logs error on invalid signature");
-  assert(
-    loggedText.includes("Signature mismatch"),
-    "handler still logs the real reason server-side (real HMAC compare was reached)"
-  );
-
-  console.error = originalConsoleError;
-}
-
-/* ==========================================================
-   6. Dynamic import of ESM workers (workers/checkout.js & workers/submit-form.js)
-   ========================================================== */
-async function testWorkersAndNetlifyFunctions() {
+async function testWorkerModules() {
   const checkout = await import("../workers/checkout.js");
   const submitForm = await import("../workers/submit-form.js");
 
@@ -1459,641 +1251,10 @@ async function testWorkersAndNetlifyFunctions() {
 
   global.fetch = globalFetch;
 
-  /* ==========================================================
-     8. submit-restock.js Netlify function
-
-     The endpoint FORWARDS the request by email now. It used to validate the
-     address and then answer "Thank you! We'll notify you when this is back
-     in stock." without sending anything anywhere, so every restock request
-     the site ever collected was dropped while the shopper was told it had
-     been received. These assertions run against a stubbed Resend so a happy
-     path can only pass if a mail was actually dispatched.
-     ========================================================== */
-  const restockSentMails = [];
-  let restockResendOk = true;
-  const savedResendKey = process.env.RESEND_API_KEY;
-  const savedNotifyEmail = process.env.RESTOCK_NOTIFY_EMAIL;
-  process.env.RESEND_API_KEY = "re_test_restock";
-  delete process.env.RESTOCK_NOTIFY_EMAIL;
-  global.fetch = async (url, opts) => {
-    if (String(url).includes("api.resend.com")) {
-      restockSentMails.push(JSON.parse(opts.body));
-      return { ok: restockResendOk, status: restockResendOk ? 200 : 500 };
-    }
-    return { ok: true, json: async () => ({}) };
-  };
-
-  // HTTP method handling: Validate that an OPTIONS request returns a 204 status with CORS headers.
-  let restockRes = await submitRestock.handler({
-    httpMethod: "OPTIONS",
-    headers: { origin: "https://yallternativeliving.com" },
-    body: ""
-  });
-  eq(restockRes.statusCode, 204, "submitRestock returns 204 for OPTIONS");
-  eq(
-    restockRes.headers["Access-Control-Allow-Origin"],
-    "https://yallternativeliving.com",
-    "submitRestock CORS header correct"
-  );
-
-  // HTTP method handling: Validate that a GET request returns a 405 status with an error body.
-  restockRes = await submitRestock.handler({
-    httpMethod: "GET",
-    headers: { origin: "https://yallternativeliving.com" },
-    body: ""
-  });
-  eq(restockRes.statusCode, 405, "submitRestock returns 405 for GET");
-
-  // Payload parsing: Validate that application/json payload works correctly.
-  restockRes = await submitRestock.handler({
-    httpMethod: "POST",
-    headers: { origin: "https://yallternativeliving.com" },
-    body: JSON.stringify({ email: "test@example.com", product: "Item1" })
-  });
-  eq(restockRes.statusCode, 200, "submitRestock parses JSON successfully");
-  assert(
-    JSON.parse(restockRes.body).message.includes("test@example.com"),
-    "submitRestock JSON message includes email"
-  );
-
-  // Payload parsing: Validate that application/x-www-form-urlencoded payload works correctly.
-  restockRes = await submitRestock.handler({
-    httpMethod: "POST",
-    headers: {
-      origin: "https://yallternativeliving.com",
-      "content-type": "application/x-www-form-urlencoded"
-    },
-    body: "email=form%40example.com&product=Item2"
-  });
-  eq(restockRes.statusCode, 200, "submitRestock parses x-www-form-urlencoded successfully");
-  assert(
-    JSON.parse(restockRes.body).message.includes("form@example.com"),
-    "submitRestock form message includes email"
-  );
-
-  // Honeypot logic: Validate that a form submission with `website_hp` field set returns a 200 silent success.
-  restockRes = await submitRestock.handler({
-    httpMethod: "POST",
-    headers: { origin: "https://yallternativeliving.com" },
-    body: JSON.stringify({ email: "bot@example.com", website_hp: "botstuff" })
-  });
-  eq(restockRes.statusCode, 200, "submitRestock silent success for honeypot");
-  eq(
-    JSON.parse(restockRes.body).message,
-    "Request received.",
-    "submitRestock honeypot message correct"
-  );
-
-  // Email validation: Validate that a missing or invalid email address returns a 400 error.
-  restockRes = await submitRestock.handler({
-    httpMethod: "POST",
-    headers: { origin: "https://yallternativeliving.com" },
-    body: JSON.stringify({ email: "not-an-email", product: "Item1" })
-  });
-  eq(restockRes.statusCode, 400, "submitRestock returns 400 for invalid email");
-
-  // Success response: Validate that a valid email and product ID returns a 200 success with properly sanitized email/product.
-  restockRes = await submitRestock.handler({
-    httpMethod: "POST",
-    headers: { origin: "https://yallternativeliving.com" },
-    body: JSON.stringify({ email: "test@example.com", product: "<script>alert('xss')</script>" })
-  });
-  eq(restockRes.statusCode, 200, "submitRestock sanitizes product string");
-  assert(
-    JSON.parse(restockRes.body).message.includes("&lt;script&gt;"),
-    "submitRestock HTML escapes product"
-  );
-
-  // Payload parsing error: Validate that invalid JSON gracefully catches the error and returns a 400.
-  restockRes = await submitRestock.handler({
-    httpMethod: "POST",
-    headers: { origin: "https://yallternativeliving.com" },
-    body: "{ bad json"
-  });
-  eq(restockRes.statusCode, 400, "submitRestock returns 400 for invalid JSON payload");
-
-  /* ----------------------------------------------------------
-     Escape AFTER validating, not before: escape-exactly-once contract.
-     ----------------------------------------------------------
-     The handler used to run escapeHtml() over params.email first and then
-     validate the escaped string; it now validates the raw value and escapes
-     only at the point of interpolation.
-
-     Honesty note on what these assertions can and cannot prove. The two
-     orderings are provably indistinguishable through this handler: escapeHtml
-     only ever emits characters from [A-Za-z0-9#;&], so it can neither
-     introduce nor remove the whitespace, "@" or "." that the address regex
-     keys on -- an address matches before escaping iff it matches after. A
-     differential run over 168 (email, product) pairs against both
-     implementations produced zero divergent responses. So this block is NOT a
-     regression test for the ordering swap itself; no handler-level test can
-     be, and claiming otherwise would be an always-passing assertion dressed
-     up as a guard.
-
-     What it does pin is the contract the new ordering has to keep, and which
-     a future edit can genuinely break: user input reaches the customer-facing
-     message escaped EXACTLY ONCE -- never raw (an XSS hole), never twice (a
-     mangled address like "a&amp;amp;b@example.com" shown back to the user).
-     Verified to have teeth: double-escaping the email slot fails four of the
-     assertions below. */
-  restockRes = await submitRestock.handler({
-    httpMethod: "POST",
-    headers: { origin: "https://yallternativeliving.com" },
-    body: JSON.stringify({ email: "a&b@example.com", product: "Sleep Salve" })
-  });
-  eq(restockRes.statusCode, 200, "submitRestock accepts an email containing an ampersand");
-  const ampMessage = JSON.parse(restockRes.body).message;
-  assert(
-    ampMessage.includes("a&amp;b@example.com"),
-    "submitRestock escapes the ampersand email for HTML output"
-  );
-  assert(
-    !ampMessage.includes("&amp;amp;"),
-    "submitRestock does not double-escape the ampersand email"
-  );
-  eq(
-    ampMessage.split("a&amp;b@example.com").length - 1,
-    1,
-    "submitRestock echoes the escaped email exactly once"
-  );
-
-  /* Missing-product fallback. Both orderings coerce a missing product to ""
-     (escapeHtml starts with `String(str || "")`), so this is a behavior lock,
-     not a bug reproduction: a request with no product must say "this item"
-     and must never leak a stringified "undefined"/"null" into the message. */
-  restockRes = await submitRestock.handler({
-    httpMethod: "POST",
-    headers: { origin: "https://yallternativeliving.com" },
-    body: JSON.stringify({ email: "noproduct@example.com" })
-  });
-  eq(restockRes.statusCode, 200, "submitRestock accepts a request with no product");
-  const noProductMessage = JSON.parse(restockRes.body).message;
-  assert(
-    noProductMessage.includes("this item"),
-    "submitRestock falls back to 'this item' when no product is supplied"
-  );
-  assert(
-    !noProductMessage.includes("undefined"),
-    "submitRestock never leaks the string 'undefined' into the customer message"
-  );
-
-  // Same escape-exactly-once contract on the product slot, which (unlike the
-  // email) is never validated at all -- escaping on output is its only guard.
-  restockRes = await submitRestock.handler({
-    httpMethod: "POST",
-    headers: { origin: "https://yallternativeliving.com" },
-    body: JSON.stringify({ email: "amp@example.com", product: "Salves & Soaks" })
-  });
-  eq(restockRes.statusCode, 200, "submitRestock accepts a product name containing an ampersand");
-  const ampProductMessage = JSON.parse(restockRes.body).message;
-  assert(
-    ampProductMessage.includes("Salves &amp; Soaks"),
-    "submitRestock escapes the ampersand product name"
-  );
-  assert(
-    !ampProductMessage.includes("&amp;amp;"),
-    "submitRestock does not double-escape the product name"
-  );
-
-  /* Moving escapeHtml to the point of interpolation must not have opened a
-     hole. The address regex is deliberately permissive -- it only demands
-     "no-spaces-or-@" + "@" + "no-spaces-or-@" + "." + "no-spaces-or-@" -- so a
-     quoted local part full of markup sails straight through it and IS
-     accepted. Escaping on output is therefore the only thing standing between
-     that input and the echoed message.
-
-     The status code here is asserted outright rather than guarded with
-     `statusCode !== 200 || ...`: that shape passes vacuously the moment
-     validation starts rejecting the address, which would silently retire the
-     escaping check instead of failing. If this 200 ever changes, this test
-     should break loudly and be re-thought. */
-  restockRes = await submitRestock.handler({
-    httpMethod: "POST",
-    headers: { origin: "https://yallternativeliving.com" },
-    body: JSON.stringify({ email: '"<script>x</script>"@example.com', product: "Item" })
-  });
-  eq(restockRes.statusCode, 200, "submitRestock accepts a quoted local part containing markup");
-  const riskyMessage = JSON.parse(restockRes.body).message || "";
-  assert(!riskyMessage.includes("<script>"), "submitRestock never echoes a raw <script> tag");
-  assert(
-    riskyMessage.includes("&lt;script&gt;x&lt;/script&gt;"),
-    "submitRestock escapes angle brackets in the email slot"
-  );
-  assert(
-    !riskyMessage.includes("&amp;lt;"),
-    "submitRestock does not double-escape a markup-bearing email"
-  );
-
-  /* ----------------------------------------------------------
-     The request has to actually go somewhere.
-     ---------------------------------------------------------- */
-  restockSentMails.length = 0;
-  restockRes = await submitRestock.handler({
-    httpMethod: "POST",
-    headers: { origin: "https://yallternativeliving.com" },
-    body: JSON.stringify({ email: "waiting@example.com", product: "Sleep Salve" })
-  });
-  eq(restockRes.statusCode, 200, "submitRestock returns 200 once the alert is dispatched");
-  eq(restockSentMails.length, 1, "submitRestock actually forwards the request by email");
-  eq(
-    restockSentMails[0].to,
-    "contact@yallternativeliving.com",
-    "submitRestock defaults the alert to contact@yallternativeliving.com"
-  );
-  assert(
-    restockSentMails[0].text.includes("waiting@example.com"),
-    "submitRestock alert carries the requester's email"
-  );
-  assert(
-    restockSentMails[0].text.includes("Sleep Salve"),
-    "submitRestock alert carries the product requested"
-  );
-  eq(
-    restockSentMails[0].reply_to,
-    "waiting@example.com",
-    "submitRestock alert replies straight to the shopper"
-  );
-
-  // RESTOCK_NOTIFY_EMAIL overrides the default recipient.
-  process.env.RESTOCK_NOTIFY_EMAIL = "restock@yallternativeliving.com";
-  restockSentMails.length = 0;
-  await submitRestock.handler({
-    httpMethod: "POST",
-    headers: { origin: "https://yallternativeliving.com" },
-    body: JSON.stringify({ email: "waiting@example.com", product: "Bath Tea" })
-  });
-  eq(
-    restockSentMails[0].to,
-    "restock@yallternativeliving.com",
-    "submitRestock honours RESTOCK_NOTIFY_EMAIL"
-  );
-  delete process.env.RESTOCK_NOTIFY_EMAIL;
-
-  // A bot still gets the silent success -- and still sends nothing.
-  restockSentMails.length = 0;
-  await submitRestock.handler({
-    httpMethod: "POST",
-    headers: { origin: "https://yallternativeliving.com" },
-    body: JSON.stringify({ email: "bot@example.com", website_hp: "botstuff" })
-  });
-  eq(restockSentMails.length, 0, "submitRestock sends nothing for a honeypot submission");
-
-  // An unconfigured mailer is an outage, not a success.
-  delete process.env.RESEND_API_KEY;
-  restockSentMails.length = 0;
-  const savedConsoleError = console.error;
-  console.error = () => {};
-  restockRes = await submitRestock.handler({
-    httpMethod: "POST",
-    headers: { origin: "https://yallternativeliving.com" },
-    body: JSON.stringify({ email: "waiting@example.com", product: "Sleep Salve" })
-  });
-  console.error = savedConsoleError;
-  eq(restockRes.statusCode, 503, "submitRestock returns 503 when RESEND_API_KEY is missing");
-  assert(
-    !JSON.parse(restockRes.body).success,
-    "submitRestock never claims success with no mailer configured"
-  );
-  eq(restockSentMails.length, 0, "submitRestock sends nothing with no mailer configured");
-  process.env.RESEND_API_KEY = "re_test_restock";
-
-  // A mailer that rejects the send is reported, not swallowed.
-  restockResendOk = false;
-  console.error = () => {};
-  restockRes = await submitRestock.handler({
-    httpMethod: "POST",
-    headers: { origin: "https://yallternativeliving.com" },
-    body: JSON.stringify({ email: "waiting@example.com", product: "Sleep Salve" })
-  });
-  console.error = savedConsoleError;
-  eq(restockRes.statusCode, 502, "submitRestock reports a failed dispatch instead of faking one");
-  restockResendOk = true;
-
-  if (savedResendKey === undefined) delete process.env.RESEND_API_KEY;
-  else process.env.RESEND_API_KEY = savedResendKey;
-  if (savedNotifyEmail === undefined) delete process.env.RESTOCK_NOTIFY_EMAIL;
-  else process.env.RESTOCK_NOTIFY_EMAIL = savedNotifyEmail;
-  global.fetch = globalFetch;
-}
-
-/* ==========================================================
-   9. fulfill-gift-card.js: deriveGiftCardCode (retry idempotency)
-   ----------------------------------------------------------
-   Stripe retries a webhook delivery on any non-2xx or timeout. The promotion
-   code is created under an Idempotency-Key derived from (session, gift index),
-   and Stripe requires a reused key to carry IDENTICAL parameters -- a second
-   delivery that minted a fresh random `code` was rejected with an
-   idempotency_error, so the retry could neither create nor re-fetch the code
-   and the recipient's email was silently skipped. The code therefore has to be
-   a pure function of (session, index, secret).
-   ========================================================== */
-function testDeriveGiftCardCode() {
-  const secret = "whsec_test_dummy_secret_for_signature_tests";
-  const derive = fulfillGiftCard.deriveGiftCardCode;
-
-  // Determinism: the property the retry path depends on.
-  eq(
-    derive("cs_test_abc123", 1, secret),
-    derive("cs_test_abc123", 1, secret),
-    "deriveGiftCardCode is deterministic for the same session, index and secret"
-  );
-
-  // Format parity with the random generator it replaced.
-  assert(
-    /^YALL-[A-Z0-9]{8}$/.test(derive("cs_test_abc123", 1, secret)),
-    "deriveGiftCardCode matches YALL-[A-Z0-9]{8}"
-  );
-  eq(derive("cs_test_abc123", 1, secret).length, 13, "deriveGiftCardCode is 13 chars long");
-
-  // Distinctness: two gift cards in one order, and two different orders,
-  // must never collide (a collision would make Stripe reject the second
-  // promotion code as a duplicate).
-  assert(
-    derive("cs_test_abc123", 1, secret) !== derive("cs_test_abc123", 2, secret),
-    "deriveGiftCardCode differs across gift indexes in the same session"
-  );
-  assert(
-    derive("cs_test_abc123", 1, secret) !== derive("cs_test_xyz789", 1, secret),
-    "deriveGiftCardCode differs across sessions at the same index"
-  );
-  assert(
-    derive("cs_test_abc123", 1, secret) !== derive("cs_test_abc123", 1, "whsec_other_secret"),
-    "deriveGiftCardCode differs when the signing secret differs"
-  );
-
-  // Spread check: a derivation that always landed on the same character
-  // would still be deterministic but worthless. 200 sessions must not
-  // collapse into a handful of codes.
-  const derivedSet = new Set();
-  for (let i = 0; i < 200; i++) {
-    derivedSet.add(derive("cs_test_session_" + i, 1, secret));
-  }
-  eq(derivedSet.size, 200, "deriveGiftCardCode produces 200 distinct codes for 200 sessions");
-
-  // Missing/empty secret must not throw (the handler passes whatever is in
-  // the environment) -- it still has to return a well-formed code.
-  assert(
-    /^YALL-[A-Z0-9]{8}$/.test(derive("cs_test_abc123", 1, undefined)),
-    "deriveGiftCardCode still returns a well-formed code with no secret"
-  );
-
-  // And it is genuinely a different function from the random generator:
-  // generateRandomCode never repeats, deriveGiftCardCode always does.
-  assert(
-    fulfillGiftCard.generateRandomCode() !== fulfillGiftCard.generateRandomCode(),
-    "generateRandomCode is still non-deterministic (the contrast being tested)"
-  );
-}
-
-/* ==========================================================
-   10. fulfill-gift-card.js: handler mints the derived code, and a retried
-       delivery of the same event sends Stripe the SAME code parameter.
-   ========================================================== */
-async function testHandlerRetryIdempotency() {
-  const secret = process.env.STRIPE_WEBHOOK_SECRET;
-  const globalFetch = global.fetch;
-  const originalLog = console.log;
-  const originalError = console.error;
-  console.log = () => {};
-  console.error = () => {};
-
-  // Every outbound call is intercepted -- Stripe's REST API and the Resend
-  // SDK (which also goes through global fetch) -- so this test does no
-  // network I/O and cannot flake.
-  const promoRequests = [];
-  global.fetch = async (url, options) => {
-    const target = String(url);
-    if (target.includes("/v1/coupons")) {
-      return { json: async () => ({ id: "co_test_123" }) };
-    }
-    if (target.includes("/v1/promotion_codes")) {
-      const params = new URLSearchParams(options.body);
-      promoRequests.push({
-        code: params.get("code"),
-        idempotencyKey: options.headers["Idempotency-Key"]
-      });
-      return { json: async () => ({ code: params.get("code") }) };
-    }
-    // Resend
-    return {
-      ok: true,
-      status: 200,
-      headers: new Map(),
-      json: async () => ({ id: "email_test_123" }),
-      text: async () => '{"id":"email_test_123"}'
-    };
-  };
-
-  const sessionId = "cs_test_retry_idempotency";
-  const payload = JSON.stringify({
-    type: "checkout.session.completed",
-    data: {
-      object: {
-        id: sessionId,
-        metadata: {
-          gift_card_1_amount_cents: "5000",
-          gift_card_1_recipient: "recipient@example.com",
-          gift_card_1_sender: "Sender",
-          gift_card_1_message: "Enjoy"
-        }
-      }
-    }
-  });
-
-  function signedEvent() {
-    // Fresh timestamp per delivery: the signature differs between the
-    // original and the retry, exactly as it does in production, but the
-    // derived code must not.
-    const timestamp = Math.floor(Date.now() / 1000);
-    const signature = crypto
-      .createHmac("sha256", secret)
-      .update(timestamp + "." + payload, "utf8")
-      .digest("hex");
-    return {
-      httpMethod: "POST",
-      body: payload,
-      headers: { "stripe-signature": `t=${timestamp},v1=${signature}` }
-    };
-  }
-
-  const firstDelivery = await fulfillGiftCard.handler(signedEvent());
-  const retryDelivery = await fulfillGiftCard.handler(signedEvent());
-
-  console.log = originalLog;
-  console.error = originalError;
-  global.fetch = globalFetch;
-
-  eq(firstDelivery.statusCode, 200, "handler accepts a validly signed gift-card webhook");
-  eq(retryDelivery.statusCode, 200, "handler accepts a retried delivery of the same webhook");
-  eq(promoRequests.length, 2, "handler requested a promotion code on both deliveries");
-
-  const expectedCode = fulfillGiftCard.deriveGiftCardCode(sessionId, 1, secret);
-  eq(promoRequests[0].code, expectedCode, "handler mints the derived code, not a random one");
-  eq(
-    promoRequests[1].code,
-    promoRequests[0].code,
-    "retried delivery reuses the identical code parameter (no Stripe idempotency_error)"
-  );
-  eq(
-    promoRequests[1].idempotencyKey,
-    promoRequests[0].idempotencyKey,
-    "retried delivery reuses the identical Idempotency-Key"
-  );
-  assert(
-    /^YALL-[A-Z0-9]{8}$/.test(promoRequests[0].code),
-    "handler's promotion code is well-formed"
-  );
-}
-
-/* ==========================================================
-   11. fulfill-gift-card.js: Resend error handling & dual-format email dispatch
-   ========================================================== */
-async function testGiftCardEmailDeliveryAndErrors() {
-  const secret = process.env.STRIPE_WEBHOOK_SECRET;
-  const globalFetch = global.fetch;
-
-  let capturedResendCalls = [];
-  global.fetch = async (url, options) => {
-    const target = String(url);
-    if (target.includes("/v1/coupons")) {
-      return { json: async () => ({ id: "co_test_456" }) };
-    }
-    if (target.includes("/v1/promotion_codes")) {
-      const params = new URLSearchParams(options.body);
-      return { json: async () => ({ code: params.get("code") }) };
-    }
-    if (target.includes("resend.com") || options.headers?.Authorization?.includes("re_")) {
-      const parsedBody = JSON.parse(options.body);
-      capturedResendCalls.push({
-        body: parsedBody,
-        headers: options.headers
-      });
-      return {
-        ok: true,
-        status: 200,
-        headers: new Map(),
-        json: async () => ({ id: "email_success_123" }),
-        text: async () => '{"id":"email_success_123"}'
-      };
-    }
-    return { ok: true, json: async () => ({}) };
-  };
-
-  const sessionId = "cs_test_email_dispatch";
-  const payload = JSON.stringify({
-    type: "checkout.session.completed",
-    data: {
-      object: {
-        id: sessionId,
-        customer_details: { email: "buyer@example.com" },
-        metadata: {
-          gift_card_1_amount_cents: "2500",
-          gift_card_1_recipient: "friend@example.com",
-          gift_card_1_sender: "Alex",
-          gift_card_1_message: "Happy Birthday!"
-        }
-      }
-    }
-  });
-
-  const timestamp = Math.floor(Date.now() / 1000);
-  const signature = crypto
-    .createHmac("sha256", secret)
-    .update(timestamp + "." + payload, "utf8")
-    .digest("hex");
-  const event = {
-    httpMethod: "POST",
-    body: payload,
-    headers: { "stripe-signature": `t=${timestamp},v1=${signature}` }
-  };
-
-  const res = await fulfillGiftCard.handler(event);
-  eq(res.statusCode, 200, "handler succeeds when Resend delivery succeeds");
-  eq(capturedResendCalls.length, 2, "Resend was called for recipient and buyer confirmation");
-
-  const recipientCall = capturedResendCalls[0];
-  const recipient = Array.isArray(recipientCall.body?.to)
-    ? recipientCall.body.to[0]
-    : recipientCall.body?.to;
-  eq(recipient, "friend@example.com", "Recipient email received gift card");
-  assert(
-    recipientCall.body.subject.includes("$25.00"),
-    "Recipient email subject includes formatted dollar amount"
-  );
-  assert(
-    recipientCall.body.html.includes("Happy Birthday!"),
-    "Recipient email contains personal message"
-  );
-  assert(
-    recipientCall.body.text && recipientCall.body.text.includes("Happy Birthday!"),
-    "Recipient email includes plain-text fallback"
-  );
-  const getIdempotencyKey = (call) =>
-    (call.headers &&
-      (call.headers["Idempotency-Key"] ||
-        call.headers["idempotency-key"] ||
-        (typeof call.headers.get === "function" && call.headers.get("idempotency-key")))) ||
-    (call.body &&
-      call.body.headers &&
-      (call.body.headers["Idempotency-Key"] || call.body.headers["idempotency-key"]));
-
-  eq(
-    getIdempotencyKey(recipientCall),
-    `gift-email-${sessionId}-1`,
-    "Recipient email includes Resend Idempotency-Key header"
-  );
-
-  const buyerCall = capturedResendCalls[1];
-  const buyerRecipient = Array.isArray(buyerCall.body?.to)
-    ? buyerCall.body.to[0]
-    : buyerCall.body?.to;
-  eq(buyerRecipient, "buyer@example.com", "Buyer receives confirmation email");
-  assert(
-    buyerCall.body.subject.includes("Gift Card Sent"),
-    "Buyer email subject indicates gift card delivery"
-  );
-  assert(
-    buyerCall.body.html.includes("Gift Voucher Code (Backup Copy)"),
-    "Buyer email includes backup copy of voucher code"
-  );
-  eq(
-    getIdempotencyKey(buyerCall),
-    `gift-buyer-email-${sessionId}-1`,
-    "Buyer email includes Resend Idempotency-Key header"
-  );
-
-  // Resend API Error path -> must return 500 so Stripe retries
-  const originalError = console.error;
-  console.error = () => {};
-  global.fetch = async (url, options) => {
-    const target = String(url);
-    if (target.includes("/v1/coupons")) return { json: async () => ({ id: "co_123" }) };
-    if (target.includes("/v1/promotion_codes")) {
-      const params = new URLSearchParams(options.body);
-      return { json: async () => ({ code: params.get("code") }) };
-    }
-    // Resend returns an API error object (e.g. unverified domain or invalid key)
-    return {
-      ok: false,
-      status: 400,
-      headers: new Map(),
-      json: async () => ({
-        statusCode: 400,
-        name: "validation_error",
-        message: "Domain not verified in Resend"
-      }),
-      text: async () => '{"message":"Domain not verified in Resend"}'
-    };
-  };
-
-  const failRes = await fulfillGiftCard.handler(event);
-  console.error = originalError;
-  eq(
-    failRes.statusCode,
-    500,
-    "handler fails closed with status 500 when Resend email delivery fails"
-  );
-
+  /* submit-restock.js is gone; POST /api/restock replaced it. Its honeypot,
+     validation, HTML-escaping and 503-with-no-mailer cases moved to
+     scripts/worker-state.test.js section 13, where they run against the
+     shipped route rather than a deleted file. */
   global.fetch = globalFetch;
 }
 
@@ -2173,290 +1334,18 @@ async function testMultiQuantityGiftCardCheckout() {
 }
 
 /* ==========================================================
-   13. Stored-Value Gift Card Balance Rollover & Partial Redemption
+   3. Cart toCheckoutPayload with a gift card, and the Worker's redemption path
+
+   The Worker no longer looks a gift card up as a Stripe Promotion Code. The
+   balance is a GiftCardLedger Durable Object row, capped at the order total,
+   converted into a single-use coupon, and HELD against the session -- audit
+   C-2, where the old path discounted the order and debited nothing.
    ========================================================== */
-async function testStoredValueGiftCardRollover() {
-  const globalFetch = global.fetch;
-  const createdCoupons = [];
-  const createdPromos = [];
-  const deactivatedPromos = [];
-
-  global.fetch = async (url, options) => {
-    const target = String(url);
-    if (target.includes("/v1/promotion_codes/promo_old_123")) {
-      const params = new URLSearchParams(options.body);
-      deactivatedPromos.push({ id: "promo_old_123", active: params.get("active") });
-      return { ok: true, json: async () => ({ id: "promo_old_123", active: false }) };
-    }
-    if (target.includes("/v1/coupons")) {
-      const params = new URLSearchParams(options.body);
-      const c = {
-        id: "coupon_new_3000",
-        amount_off: Number(params.get("amount_off")),
-        metadata: {
-          remaining_balance_cents: params.get("metadata[remaining_balance_cents]"),
-          original_code: params.get("metadata[original_code]")
-        }
-      };
-      createdCoupons.push(c);
-      return { ok: true, json: async () => c };
-    }
-    if (target.includes("/v1/promotion_codes")) {
-      const params = new URLSearchParams(options.body);
-      const p = {
-        id: "promo_new_123",
-        code: params.get("code"),
-        coupon: params.get("coupon"),
-        metadata: {
-          remaining_balance_cents: params.get("metadata[remaining_balance_cents]")
-        }
-      };
-      createdPromos.push(p);
-      return { ok: true, json: async () => p };
-    }
-    return { ok: true, json: async () => ({}) };
-  };
-
-  // 1. Partial Spend: $50 initial card, spends $20 -> $30 balance remaining
-  const rolloverRes = await fulfillGiftCard.rolloverGiftCardBalance(
-    "YALL-ROLLOVER-1",
-    "promo_old_123",
-    3000,
-    5000,
-    "shopper@example.com",
-    "cs_test_session_roll"
-  );
-
-  eq(rolloverRes.status, "active", "Rollover status is active for positive balance");
-  eq(rolloverRes.code, "YALL-ROLLOVER-1", "Rollover preserves the EXACT same code");
-  eq(rolloverRes.balanceCents, 3000, "Rollover sets remaining balance to 3000 cents ($30.00)");
-  eq(deactivatedPromos.length, 1, "Spent promotion code was deactivated in Stripe");
-  eq(deactivatedPromos[0].active, "false", "Deactivated promo active flag is false");
-  eq(createdCoupons[0].amount_off, 3000, "Stripe coupon amount_off is 3000 cents");
-  eq(createdPromos[0].code, "YALL-ROLLOVER-1", "Stripe promotion code retains original code");
-
-  // 2. Full Exhaustion: Spends all remaining $30 -> balance 0
-  const exhaustedRes = await fulfillGiftCard.rolloverGiftCardBalance(
-    "YALL-ROLLOVER-1",
-    "promo_new_123",
-    0,
-    5000,
-    "shopper@example.com",
-    "cs_test_session_exhaust"
-  );
-
-  eq(exhaustedRes.status, "exhausted", "Rollover status is exhausted when balance is 0");
-  eq(exhaustedRes.balanceCents, 0, "Exhausted balance is 0 cents");
-
-  global.fetch = globalFetch;
-}
-
-/* ==========================================================
-   14. Webhook Gift Card Partial Redemption & Balance Update Email
-   ========================================================== */
-async function testGiftCardRedemptionWebhook() {
-  const globalFetch = global.fetch;
-  const originalLog = console.log;
-  console.log = () => {};
-
-  const capturedResendCalls = [];
-  global.fetch = async (url, options) => {
-    const target = String(url);
-    if (target.includes("/v1/promotion_codes/promo_used_123")) {
-      return {
-        ok: true,
-        json: async () => ({
-          id: "promo_used_123",
-          code: "YALL-SPEND-1",
-          active: true,
-          coupon: { id: "co_orig", amount_off: 5000 },
-          metadata: { initial_amount_cents: "5000", remaining_balance_cents: "5000" }
-        })
-      };
-    }
-    if (target.includes("/v1/coupons")) {
-      return { ok: true, json: async () => ({ id: "co_new_3000" }) };
-    }
-    if (target.includes("/v1/promotion_codes")) {
-      const params = new URLSearchParams(options.body);
-      return {
-        ok: true,
-        json: async () => ({
-          id: "promo_rolled_123",
-          code: params.get("code") || "YALL-SPEND-1"
-        })
-      };
-    }
-    // Resend Email Capture
-    if (target.includes("resend") || options?.headers?.Authorization?.includes("re_")) {
-      const body = typeof options.body === "string" ? JSON.parse(options.body) : options.body;
-      capturedResendCalls.push({ url: target, body: body, headers: options.headers });
-      return {
-        ok: true,
-        status: 200,
-        headers: new Map(),
-        json: async () => ({ id: "email_bal_update_123" }),
-        text: async () => '{"id":"email_bal_update_123"}'
-      };
-    }
-    return { ok: true, json: async () => ({}) };
-  };
-
-  const redemptionSession = {
-    id: "cs_test_redemption_flow",
-    total_details: { amount_discount: 2000 }, // Spent $20
-    discounts: [{ promotion_code: "promo_used_123" }],
-    customer_details: { email: "customer@example.com" }
-  };
-
-  const result = await fulfillGiftCard.handleGiftCardRedemption(redemptionSession, "sk_test_mock");
-
-  eq(result.code, "YALL-SPEND-1", "handleGiftCardRedemption identifies redeemed code");
-  eq(result.spentCents, 2000, "handleGiftCardRedemption records 2000 cents spent");
-  eq(
-    result.newBalanceCents,
-    3000,
-    "handleGiftCardRedemption computes 3000 cents ($30.00) remaining"
-  );
-
-  eq(capturedResendCalls.length, 1, "Remaining balance notification email sent via Resend");
-  assert(
-    capturedResendCalls[0].body.subject.includes("$30.00 remaining on YALL-SPEND-1"),
-    "Balance update email subject displays remaining balance and code"
-  );
-  assert(
-    capturedResendCalls[0].body.html.includes("$20.00"),
-    "Balance update email HTML details spent amount ($20.00)"
-  );
-  assert(
-    capturedResendCalls[0].body.html.includes("$30.00"),
-    "Balance update email HTML details new available balance ($30.00)"
-  );
-
-  console.log = originalLog;
-  global.fetch = globalFetch;
-}
-
-/* ==========================================================
-   15. Live Balance Lookup Netlify Function (gift-card-balance.js)
-   ========================================================== */
-async function testGiftCardBalanceLookup() {
-  const giftCardBalance = require("../netlify/functions/gift-card-balance.js");
-  const globalFetch = global.fetch;
-
-  global.fetch = async (url) => {
-    const target = String(url);
-    if (target.includes("code=YALL-VALID12")) {
-      return {
-        ok: true,
-        json: async () => ({
-          data: [
-            {
-              id: "promo_val",
-              code: "YALL-VALID12",
-              active: true,
-              coupon: { amount_off: 3500, currency: "usd" },
-              metadata: { initial_amount_cents: "5000" }
-            }
-          ]
-        })
-      };
-    }
-    if (target.includes("code=YALL-EMPTY00")) {
-      return {
-        ok: true,
-        json: async () => ({
-          data: []
-        })
-      };
-    }
-    return { ok: true, json: async () => ({ data: [] }) };
-  };
-
-  // 1. Valid Active Gift Card Lookup
-  const validLookup = await giftCardBalance.lookupGiftCardBalance("yall-valid12", "sk_test_key");
-  eq(validLookup.valid, true, "lookupGiftCardBalance returns valid: true for active card");
-  eq(validLookup.code, "YALL-VALID12", "lookupGiftCardBalance normalizes code to uppercase");
-  eq(validLookup.balance, 35.0, "lookupGiftCardBalance computes balance in dollars ($35.00)");
-  eq(validLookup.balanceCents, 3500, "lookupGiftCardBalance returns balance in cents (3500)");
-  eq(validLookup.formattedBalance, "$35.00", "lookupGiftCardBalance formats balance as $35.00");
-  eq(validLookup.initialAmount, 50.0, "lookupGiftCardBalance returns initial amount ($50.00)");
-
-  // 2. Non-existent / Inactive Card
-  const emptyLookup = await giftCardBalance.lookupGiftCardBalance("YALL-EMPTY00", "sk_test_key");
-  eq(emptyLookup.valid, false, "lookupGiftCardBalance returns valid: false for missing card");
-
-  // 3. Malformed Code
-  const badFormat = await giftCardBalance.lookupGiftCardBalance("INVALID-CODE", "sk_test_key");
-  eq(badFormat.valid, false, "lookupGiftCardBalance rejects malformed code");
-
-  // 4. Netlify Handler HTTP Status Codes
-  let res = await giftCardBalance.handler({
-    httpMethod: "OPTIONS",
-    headers: { origin: "https://yallternativeliving.com" }
-  });
-  eq(res.statusCode, 204, "gift-card-balance handler returns 204 for OPTIONS preflight");
-
-  // POST with a JSON body is the preferred call now: it keeps the code out
-  // of the URL (and therefore out of history, Referer and access logs).
-  res = await giftCardBalance.handler({
-    httpMethod: "POST",
-    headers: { origin: "https://yallternativeliving.com" },
-    body: JSON.stringify({ code: "yall-valid12" })
-  });
-  eq(res.statusCode, 200, "gift-card-balance handler accepts POST with a JSON body");
-  eq(
-    JSON.parse(res.body).balanceCents,
-    3500,
-    "gift-card-balance POST returns the same balance as GET"
-  );
-
-  res = await giftCardBalance.handler({
-    httpMethod: "POST",
-    headers: { origin: "https://yallternativeliving.com" },
-    body: "{not json"
-  });
-  eq(res.statusCode, 400, "gift-card-balance handler rejects an unparseable POST body");
-
-  res = await giftCardBalance.handler({
-    httpMethod: "PUT",
-    headers: { origin: "https://yallternativeliving.com" }
-  });
-  eq(res.statusCode, 405, "gift-card-balance handler still returns 405 for other methods");
-
-  res = await giftCardBalance.handler({
-    httpMethod: "GET",
-    queryStringParameters: { code: "YALL-VALID12" },
-    headers: { origin: "https://yallternativeliving.com" }
-  });
-  eq(res.statusCode, 200, "gift-card-balance handler returns 200 for valid code");
-  eq(
-    res.headers["Cache-Control"],
-    "no-store",
-    "gift-card-balance never lets a balance answer be cached"
-  );
-
-  res = await giftCardBalance.handler({
-    httpMethod: "GET",
-    queryStringParameters: { code: "YALL-EMPTY00" },
-    headers: { origin: "https://yallternativeliving.com" }
-  });
-  eq(res.statusCode, 404, "gift-card-balance handler returns 404 for non-existent code");
-  eq(
-    res.headers["Cache-Control"],
-    "no-store",
-    "gift-card-balance sends no-store on the 404 path too"
-  );
-
-  global.fetch = globalFetch;
-}
-
-/* ==========================================================
-   16. Cart toCheckoutPayload with Gift Card Code & Worker Pre-Application
-   ========================================================== */
-async function testCartAndWorkerGiftCardPreApplication() {
+async function testCartAndWorkerGiftCardRedemption() {
   const cart = require("../assets/js/cart.js");
   const checkout = await import("../workers/checkout.js");
+  const { GiftCardLedger, giftCardLedger } = await import("../workers/state/gift-card-ledger.js");
+  const { makeNamespace } = require("./lib/d1-emulator.js");
   const globalFetch = global.fetch;
 
   // 1. toCheckoutPayload attaches giftCardCode
@@ -2471,9 +1360,20 @@ async function testCartAndWorkerGiftCardPreApplication() {
     "toCheckoutPayload uppercases and includes giftCardCode"
   );
 
-  // 2. workers/checkout.js resolves gift card balance and binds ephemeral coupon
+  // 2. The Worker reads the ledger, caps the discount, and holds the money.
+  const env = {
+    SITE_ORIGIN: "https://yallternativeliving.com",
+    STRIPE_SECRET_KEY: "sk_test_x",
+    GIFT_CARD_LEDGER: makeNamespace(GiftCardLedger)
+  };
+  await giftCardLedger(env, "YALL-GIFT-5000-0000").issue({
+    initialCents: 5000,
+    source: "test"
+  });
+
   let capturedSessionParams = null;
   let capturedCouponParams = null;
+  let promoCodeLookups = 0;
 
   global.fetch = async (url, opts) => {
     const u = String(url);
@@ -2487,71 +1387,61 @@ async function testCartAndWorkerGiftCardPreApplication() {
         })
       };
     }
-    if (u.includes("/v1/promotion_codes?code=YALL-GIFT50")) {
-      return {
-        ok: true,
-        json: async () => ({
-          data: [
-            {
-              id: "promo_gift_50",
-              code: "YALL-GIFT50",
-              active: true,
-              coupon: { id: "co_gift_50", amount_off: 5000 } // $50 card balance
-            }
-          ]
-        })
-      };
+    if (u.includes("/v1/promotion_codes")) {
+      promoCodeLookups++;
+      return { ok: true, json: async () => ({ data: [] }) };
     }
     if (u.includes("/v1/coupons")) {
       capturedCouponParams = new URLSearchParams(opts.body);
-      return {
-        ok: true,
-        json: async () => ({ id: "co_ephemeral_2600" })
-      };
+      return { ok: true, json: async () => ({ id: "co_ephemeral_2600" }) };
     }
     if (u.includes("/v1/checkout/sessions")) {
       capturedSessionParams = new URLSearchParams(opts.body);
       return {
         ok: true,
-        json: async () => ({ url: "https://checkout.stripe.com/c/test_gc" })
+        json: async () => ({ id: "cs_gc_test", url: "https://checkout.stripe.com/c/test_gc" })
       };
     }
     return { ok: true, json: async () => ({}) };
   };
 
-  // $16 salve + $10 shipping = $26 total. $50 gift card applied -> $26 ephemeral discount coupon
+  // $16 salve + $10 shipping = $26 total. A $50 card is capped at $26.
   const req = new Request("https://yallternativeliving.com/api/checkout", {
     method: "POST",
     headers: { Origin: "https://yallternativeliving.com", "Content-Type": "application/json" },
     body: JSON.stringify({
       items: [{ id: "beard-salve", qty: 1 }],
-      giftCardCode: "YALL-GIFT50"
+      giftCardCode: "YALL-GIFT-5000-0000"
     })
   });
 
-  await checkout.default.fetch(
-    req,
-    {
-      SITE_ORIGIN: "https://yallternativeliving.com",
-      STRIPE_SECRET_KEY: "sk_test_x"
-    },
-    null
-  );
+  const res = await checkout.default.fetch(req, env, { waitUntil: () => {} });
+  eq(res.status, 200, "Worker completes a gift-card checkout");
 
+  eq(
+    promoCodeLookups,
+    0,
+    "Worker never asks Stripe for a promotion code -- the balance is the ledger's"
+  );
   eq(
     capturedCouponParams.get("amount_off"),
     "2600",
-    "Worker creates ephemeral coupon for full order amount (2600 cents = $26.00)"
+    "Worker creates an ephemeral coupon for the full order amount (2600 cents = $26.00)"
   );
   eq(capturedCouponParams.get("duration"), "once", "Worker sets ephemeral coupon duration to once");
   eq(
+    capturedCouponParams.get("max_redemptions"),
+    "1",
+    "Worker caps the ephemeral coupon at one redemption, so its id cannot be replayed"
+  );
+  eq(
     capturedSessionParams.get("discounts[0][coupon]"),
     "co_ephemeral_2600",
-    "Worker attaches ephemeral discount coupon to checkout session"
+    "Worker attaches the ephemeral discount coupon to the checkout session"
   );
   eq(
     capturedSessionParams.get("metadata[gift_card_redeemed_code]"),
-    "YALL-GIFT50",
+    "YALL-GIFT-5000-0000",
     "Worker attaches gift_card_redeemed_code to session metadata"
   );
   eq(
@@ -2559,421 +1449,17 @@ async function testCartAndWorkerGiftCardPreApplication() {
     "2600",
     "Worker attaches gift_card_amount_applied_cents (2600) to metadata"
   );
+  eq(
+    capturedSessionParams.get("metadata[gift_card_ephemeral_coupon_id]"),
+    "co_ephemeral_2600",
+    "Worker records the coupon id so an abandoned session can be cleaned up"
+  );
 
-  global.fetch = globalFetch;
-}
+  // 3. The money is HELD, not merely discounted. This is the whole of C-2.
+  const snapshot = await giftCardLedger(env, "YALL-GIFT-5000-0000").getBalance();
+  eq(snapshot.pendingCents, 2600, "the applied amount is held against the card");
+  eq(snapshot.balanceCents, 2400, "and is no longer spendable by a second checkout");
 
-/* ==========================================================
-   17. C-2 / H-5 / H-8: the webhook side of the stored-value ledger.
-   ========================================================== */
-async function testWebhookLedgerFixes() {
-  const globalFetch = global.fetch;
-  const originalLog = console.log;
-  const originalError = console.error;
-  console.log = () => {};
-  console.error = () => {};
-
-  /* ---------- C-2(b): a pre-applied card is actually spent ----------
-     workers/checkout.js converts a redeemed balance into an ephemeral
-     one-off Coupon, so the session carries NO promotion_code at all.
-     findUsedPromotionCode() looked for one, found nothing, and returned
-     null: the balance was never decremented, so the shopper kept the full
-     card after spending it and could spend it again. The session metadata
-     is now what drives the rollover. */
-  {
-    const created = [];
-    const deactivated = [];
-    global.fetch = async (url, options) => {
-      const target = String(url);
-      const method = (options && options.method) || "GET";
-      if (target.includes("/v1/promotion_codes/promo_meta_1")) {
-        if (method === "POST") {
-          deactivated.push(target);
-          return { ok: true, json: async () => ({ id: "promo_meta_1", active: false }) };
-        }
-        return {
-          ok: true,
-          json: async () => ({
-            id: "promo_meta_1",
-            code: "YALL-META01",
-            active: true,
-            coupon: { id: "co_meta", amount_off: 5000 },
-            metadata: { initial_amount_cents: "5000", recipient_email: "buyer@example.com" }
-          })
-        };
-      }
-      if (target.includes("/v1/coupons")) {
-        const params = new URLSearchParams(options.body);
-        created.push({ kind: "coupon", amountOff: Number(params.get("amount_off")) });
-        return { ok: true, json: async () => ({ id: "co_rolled" }) };
-      }
-      if (target.includes("/v1/promotion_codes")) {
-        const params = new URLSearchParams(options.body);
-        created.push({ kind: "promo", code: params.get("code") });
-        return { ok: true, json: async () => ({ id: "promo_rolled", code: params.get("code") }) };
-      }
-      return { ok: true, status: 200, json: async () => ({ id: "email_1" }) };
-    };
-
-    const session = {
-      id: "cs_preapplied_1",
-      // NOTE: no `discounts` array -- an ephemeral coupon leaves none.
-      metadata: {
-        gift_card_redeemed_code: "YALL-META01",
-        gift_card_promo_id: "promo_meta_1",
-        gift_card_amount_applied_cents: "2600",
-        gift_card_original_balance_cents: "5000"
-      },
-      total_details: { amount_discount: 2600 },
-      customer_details: { email: "buyer@example.com" }
-    };
-
-    const result = await fulfillGiftCard.handleGiftCardRedemption(session, "sk_test_mock");
-    assert(result !== null, "Pre-applied gift card is recognised from session metadata");
-    eq(result.code, "YALL-META01", "Redemption identifies the pre-applied code");
-    eq(result.spentCents, 2600, "Redemption spends exactly what checkout recorded");
-    eq(result.newBalanceCents, 2400, "Balance is decremented ($50 - $26 = $24)");
-    eq(deactivated.length, 1, "The spent promotion code is deactivated");
-    eq(
-      created.filter((c) => c.kind === "coupon")[0].amountOff,
-      2400,
-      "The replacement coupon carries the remaining $24, not the original $50"
-    );
-  }
-
-  /* ---------- C-2(b): never mint a replacement while the old code lives */
-  {
-    global.fetch = async (url, options) => {
-      const target = String(url);
-      const method = (options && options.method) || "GET";
-      if (target.includes("/v1/promotion_codes/promo_dead") && method === "POST") {
-        return { ok: false, status: 500, json: async () => ({ error: { message: "boom" } }) };
-      }
-      if (target.includes("/v1/coupons") || target.includes("/v1/promotion_codes")) {
-        failed++;
-        console.error("  ✗ rollover created a code despite a failed deactivation");
-        return { ok: true, json: async () => ({ id: "should_not_exist" }) };
-      }
-      return { ok: true, json: async () => ({}) };
-    };
-    await throwsAsync(
-      () =>
-        fulfillGiftCard.rolloverGiftCardBalance(
-          "YALL-DEAD01",
-          "promo_dead",
-          3000,
-          5000,
-          "shopper@example.com",
-          "cs_dead"
-        ),
-      "Could not deactivate spent promotion code",
-      "A failed deactivation aborts the rollover instead of leaving two live codes"
-    );
-  }
-
-  /* ---------- H-5: refunds restore only what was actually refunded ----------
-     The old version read gift_card_* metadata off the CHARGE (where it never
-     exists), so no refund ever restored anything; and it restored the full
-     applied amount on every delivery, so a repeat event minted money. */
-  {
-    let activePromoMetadata = { initial_amount_cents: "5000" };
-    let activeBalance = 2400;
-    const rollovers = [];
-    const sessionLookups = [];
-
-    global.fetch = async (url, options) => {
-      const target = String(url);
-      const method = (options && options.method) || "GET";
-      if (target.includes("/v1/checkout/sessions")) {
-        sessionLookups.push(target);
-        return {
-          ok: true,
-          json: async () => ({
-            data: [
-              {
-                id: "cs_refunded_1",
-                metadata: {
-                  gift_card_redeemed_code: "YALL-REF001",
-                  gift_card_promo_id: "promo_ref_old",
-                  gift_card_amount_applied_cents: "2600"
-                }
-              }
-            ]
-          })
-        };
-      }
-      if (target.includes("/v1/promotion_codes?") || target.includes("/v1/promotion_codes&")) {
-        return {
-          ok: true,
-          json: async () => ({
-            data: [
-              {
-                id: "promo_ref_active",
-                code: "YALL-REF001",
-                coupon: { id: "co_ref", amount_off: activeBalance },
-                metadata: activePromoMetadata
-              }
-            ]
-          })
-        };
-      }
-      if (target.includes("/v1/promotion_codes/promo_ref_active") && method === "POST") {
-        return { ok: true, json: async () => ({ id: "promo_ref_active", active: false }) };
-      }
-      if (target.includes("/v1/coupons")) {
-        const params = new URLSearchParams(options.body);
-        rollovers.push({
-          amountOff: Number(params.get("amount_off")),
-          restoredMarker: params.get("metadata[restored_for_charge_ch_partial_1]")
-        });
-        return { ok: true, json: async () => ({ id: "co_ref_new" }) };
-      }
-      if (target.includes("/v1/promotion_codes")) {
-        const params = new URLSearchParams(options.body);
-        return { ok: true, json: async () => ({ id: "promo_ref_new", code: params.get("code") }) };
-      }
-      return { ok: true, status: 200, json: async () => ({ id: "email_ref" }) };
-    };
-
-    // 1. A $10 partial refund of a $26 gift-card payment restores $10.
-    const partial = await fulfillGiftCard.handleGiftCardRefund(
-      {
-        id: "ch_partial_1",
-        payment_intent: "pi_refunded_1",
-        amount_refunded: 1000,
-        billing_details: { email: "buyer@example.com" }
-      },
-      "sk_test_mock"
-    );
-    eq(sessionLookups.length, 1, "Refund finds the session from the charge's payment_intent");
-    assert(
-      sessionLookups[0].includes("payment_intent=pi_refunded_1"),
-      "Refund looks the session up by payment_intent"
-    );
-    eq(partial.restoredCents, 1000, "A $10 refund restores $10, not the whole $26 applied");
-    eq(rollovers[0].amountOff, 3400, "Balance goes from $24 to $34");
-    eq(
-      rollovers[0].restoredMarker,
-      "1000",
-      "How much has been restored for this charge is recorded on the new code"
-    );
-
-    // 2. The refund grows to the full $26: only the $16 difference is added.
-    activePromoMetadata = {
-      initial_amount_cents: "5000",
-      restored_for_charge_ch_partial_1: "1000"
-    };
-    activeBalance = 3400;
-    const rest = await fulfillGiftCard.handleGiftCardRefund(
-      {
-        id: "ch_partial_1",
-        payment_intent: "pi_refunded_1",
-        amount_refunded: 2600,
-        billing_details: { email: "buyer@example.com" }
-      },
-      "sk_test_mock"
-    );
-    eq(rest.restoredCents, 1600, "A grown refund restores only the difference");
-    eq(rollovers[1].amountOff, 5000, "Balance reaches the original $50 and stops there");
-
-    // 3. Stripe redelivers the same event: nothing more is restored.
-    activePromoMetadata = {
-      initial_amount_cents: "5000",
-      restored_for_charge_ch_partial_1: "2600"
-    };
-    activeBalance = 5000;
-    const rolloversBefore = rollovers.length;
-    const replay = await fulfillGiftCard.handleGiftCardRefund(
-      {
-        id: "ch_partial_1",
-        payment_intent: "pi_refunded_1",
-        amount_refunded: 2600,
-        billing_details: { email: "buyer@example.com" }
-      },
-      "sk_test_mock"
-    );
-    eq(replay.restoredCents, 0, "A redelivered refund event restores nothing further");
-    eq(rollovers.length, rolloversBefore, "A redelivered refund event mints no new coupon");
-
-    // 4. A refund can never restore more than the card actually paid.
-    activePromoMetadata = { initial_amount_cents: "5000" };
-    activeBalance = 2400;
-    const overRefund = await fulfillGiftCard.handleGiftCardRefund(
-      {
-        id: "ch_partial_1",
-        payment_intent: "pi_refunded_1",
-        amount_refunded: 9999,
-        billing_details: { email: "buyer@example.com" }
-      },
-      "sk_test_mock"
-    );
-    eq(
-      overRefund.restoredCents,
-      2600,
-      "A refund larger than the gift-card share restores only the gift-card share"
-    );
-  }
-
-  /* ---------- H-5: refund.created is no longer processed ---------- */
-  {
-    let refundLookups = 0;
-    global.fetch = async (url) => {
-      if (String(url).includes("/v1/checkout/sessions")) refundLookups++;
-      return { ok: true, json: async () => ({ data: [] }) };
-    };
-    const secret = process.env.STRIPE_WEBHOOK_SECRET;
-    const payload = JSON.stringify({
-      type: "refund.created",
-      data: { object: { id: "re_1", payment_intent: "pi_1", amount: 1000 } }
-    });
-    const timestamp = Math.floor(Date.now() / 1000);
-    const signature = crypto
-      .createHmac("sha256", secret)
-      .update(timestamp + "." + payload, "utf8")
-      .digest("hex");
-    const res = await fulfillGiftCard.handler({
-      httpMethod: "POST",
-      body: payload,
-      headers: { "stripe-signature": `t=${timestamp},v1=${signature}` }
-    });
-    eq(res.statusCode, 200, "refund.created is acknowledged");
-    eq(res.body, "Event ignored", "refund.created is ignored (charge.refunded covers the money)");
-    eq(refundLookups, 0, "refund.created triggers no balance restoration");
-  }
-
-  /* ---------- C-2(c): an abandoned checkout's coupon is deleted ---------- */
-  {
-    const deletes = [];
-    global.fetch = async (url, options) => {
-      const target = String(url);
-      if (target.includes("/v1/coupons/")) {
-        deletes.push({ url: target, method: options && options.method });
-        return { ok: true, json: async () => ({ id: "co_ephemeral_1", deleted: true }) };
-      }
-      return { ok: true, json: async () => ({}) };
-    };
-    const secret = process.env.STRIPE_WEBHOOK_SECRET;
-    const payload = JSON.stringify({
-      type: "checkout.session.expired",
-      data: {
-        object: {
-          id: "cs_expired_1",
-          metadata: { gift_card_ephemeral_coupon_id: "co_ephemeral_1" }
-        }
-      }
-    });
-    const timestamp = Math.floor(Date.now() / 1000);
-    const signature = crypto
-      .createHmac("sha256", secret)
-      .update(timestamp + "." + payload, "utf8")
-      .digest("hex");
-    const res = await fulfillGiftCard.handler({
-      httpMethod: "POST",
-      body: payload,
-      headers: { "stripe-signature": `t=${timestamp},v1=${signature}` }
-    });
-    eq(res.statusCode, 200, "checkout.session.expired is handled");
-    eq(deletes.length, 1, "The abandoned session's ephemeral coupon is deleted");
-    eq(deletes[0].method, "DELETE", "The ephemeral coupon is deleted, not just deactivated");
-    assert(
-      deletes[0].url.includes("co_ephemeral_1"),
-      "The coupon named in session metadata is the one deleted"
-    );
-
-    // A coupon that is already gone is success -- this must be redeliverable.
-    global.fetch = async () => ({ ok: false, status: 404, json: async () => ({}) });
-    const gone = await fulfillGiftCard.deleteEphemeralCoupon("co_already_gone", "sk_test_mock");
-    eq(gone.deleted, true, "Deleting an already-deleted coupon is treated as success");
-  }
-
-  /* ---------- H-8: the webhook expands a multi-unit gift-card line ---------- */
-  {
-    const mintedCodes = [];
-    global.fetch = async (url, options) => {
-      const target = String(url);
-      if (target.includes("/v1/coupons")) {
-        return { ok: true, json: async () => ({ id: "co_multi" }) };
-      }
-      if (target.includes("/v1/promotion_codes")) {
-        const params = new URLSearchParams(options.body);
-        const code = params.get("code");
-        if (code) mintedCodes.push(code);
-        return { ok: true, json: async () => ({ id: "promo_multi", code }) };
-      }
-      return {
-        ok: true,
-        status: 200,
-        headers: new Map(),
-        json: async () => ({ id: "email_multi" }),
-        text: async () => '{"id":"email_multi"}'
-      };
-    };
-
-    const secret = process.env.STRIPE_WEBHOOK_SECRET;
-    const sessionId = "cs_multi_qty_1";
-    const payload = JSON.stringify({
-      type: "checkout.session.completed",
-      data: {
-        object: {
-          id: sessionId,
-          customer_details: { email: "buyer@example.com" },
-          metadata: {
-            gift_card_1_amount_cents: "2500",
-            gift_card_1_qty: "3",
-            gift_card_1_recipient: "recipient@example.com",
-            gift_card_1_sender: "Sender"
-          }
-        }
-      }
-    });
-    const timestamp = Math.floor(Date.now() / 1000);
-    const signature = crypto
-      .createHmac("sha256", secret)
-      .update(timestamp + "." + payload, "utf8")
-      .digest("hex");
-    const res = await fulfillGiftCard.handler({
-      httpMethod: "POST",
-      body: payload,
-      headers: { "stripe-signature": `t=${timestamp},v1=${signature}` }
-    });
-
-    eq(res.statusCode, 200, "A multi-unit gift card line is fulfilled");
-    eq(mintedCodes.length, 3, "qty 3 mints three separate codes from one metadata group");
-    eq(new Set(mintedCodes).size, 3, "The three codes are distinct");
-    eq(
-      mintedCodes[0],
-      fulfillGiftCard.deriveGiftCardCode(sessionId, "1-1", secret),
-      "Unit codes are derived deterministically from (session, line-unit)"
-    );
-
-    // Backwards compatibility: a single card on index 1 still derives the
-    // exact code it did before H-8, so codes already in shoppers' inboxes
-    // stay reproducible on a webhook retry.
-    eq(
-      fulfillGiftCard.deriveGiftCardCode("cs_legacy", 1, secret),
-      fulfillGiftCard.deriveGiftCardCode("cs_legacy", "1", secret),
-      "Index 1 with qty 1 derives the identical code it always has"
-    );
-  }
-
-  /* ---------- RESEND_API_KEY must fail loudly ---------- */
-  {
-    const savedKey = process.env.RESEND_API_KEY;
-    delete process.env.RESEND_API_KEY;
-    throws(
-      () => fulfillGiftCard.getResendClient(),
-      "RESEND_API_KEY is not configured",
-      "getResendClient throws instead of quietly falling back to the 're_test' placeholder"
-    );
-    process.env.RESEND_API_KEY = savedKey;
-    assert(
-      Boolean(fulfillGiftCard.getResendClient()),
-      "getResendClient builds a client when the key is present"
-    );
-  }
-
-  console.log = originalLog;
-  console.error = originalError;
   global.fetch = globalFetch;
 }
 
@@ -2983,18 +1469,9 @@ async function testWebhookLedgerFixes() {
    assertion has actually run.
    ========================================================== */
 (async () => {
-  await testCreateGiftCardPromotionCode();
-  await testHandlerInvalidSignature();
-  await testWorkersAndNetlifyFunctions();
-  testDeriveGiftCardCode();
-  await testHandlerRetryIdempotency();
-  await testGiftCardEmailDeliveryAndErrors();
+  await testWorkerModules();
   await testMultiQuantityGiftCardCheckout();
-  await testStoredValueGiftCardRollover();
-  await testGiftCardRedemptionWebhook();
-  await testGiftCardBalanceLookup();
-  await testCartAndWorkerGiftCardPreApplication();
-  await testWebhookLedgerFixes();
+  await testCartAndWorkerGiftCardRedemption();
 
   console.log(`\nbackend-functions.test.js: ${passed} passed, ${failed} failed`);
   if (failed > 0) process.exit(1);

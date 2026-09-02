@@ -10,8 +10,7 @@ const cart = require("../assets/js/cart.js");
 const checkoutModule = require("../workers/checkout.js");
 const checkoutWorker = checkoutModule.default || checkoutModule;
 const catalogData = require("../assets/data/products.json");
-const redeemPoints = require("../netlify/functions/redeem-points.js");
-const giftCardBalance = require("../netlify/functions/gift-card-balance.js");
+const { makeNamespace } = require("./lib/d1-emulator.js");
 
 let totalTests = 0;
 let passedTests = 0;
@@ -44,10 +43,27 @@ async function runAsyncTest(name, fn) {
 }
 
 // Mock worker checkout execution harness
+/* A Worker env carrying a real GiftCardLedger over an in-memory Durable
+   Object, pre-loaded with `cards` ({code: initialCents}). */
+async function makeAdversarialEnv(cards) {
+  const { GiftCardLedger, giftCardLedger } = await import("../workers/state/gift-card-ledger.js");
+  const env = {
+    STRIPE_SECRET_KEY: "sk_test_mock_adv_secret",
+    SITE_ORIGIN: "https://yallternativeliving.com",
+    STRIPE_TAX_ENABLED: "false",
+    GIFT_CARD_LEDGER: makeNamespace(GiftCardLedger)
+  };
+  for (const [code, cents] of Object.entries(cards || {})) {
+    await giftCardLedger(env, code).issue({ initialCents: cents, source: "test" });
+  }
+  return env;
+}
+
 async function executeWorkerCheckout(body, mockStripe = {}) {
   let capturedSessionParams = null;
   let capturedCouponParams = null;
   let promoCodeRequests = 0;
+  if (!mockStripe.env) mockStripe.env = await makeAdversarialEnv(mockStripe.cards);
 
   const originalFetch = global.fetch;
   global.fetch = async (url, opts = {}) => {
@@ -80,10 +96,10 @@ async function executeWorkerCheckout(body, mockStripe = {}) {
       return { ok: true, json: async () => ({ status: "inactive" }) };
     }
     if (u.includes("/v1/promotion_codes")) {
+      // Counted, never answered. A gift card is a ledger balance now; the
+      // Worker asking Stripe for one would mean it was reading a number
+      // nothing maintains. Several assertions below pin this at zero.
       promoCodeRequests++;
-      if (mockStripe.promoCode) {
-        return { ok: true, json: async () => mockStripe.promoCode };
-      }
       return { ok: true, json: async () => ({ data: [] }) };
     }
     if (u.includes("/v1/coupons")) {
@@ -119,13 +135,7 @@ async function executeWorkerCheckout(body, mockStripe = {}) {
       body: JSON.stringify(body)
     });
 
-    const env = {
-      STRIPE_SECRET_KEY: "sk_test_mock_adv_secret",
-      SITE_ORIGIN: "https://yallternativeliving.com",
-      STRIPE_TAX_ENABLED: "false"
-    };
-
-    const res = await checkoutWorker.fetch(req, env, { waitUntil: () => {} });
+    const res = await checkoutWorker.fetch(req, mockStripe.env, { waitUntil: () => {} });
     const resJson = await res.json();
     return {
       status: res.status,
@@ -576,25 +586,28 @@ async function runMilestone1AdversarialSuite() {
     }
   );
 
-  // 3.2: Voucher Code Collision & Randomness Generator Test
-  runTest(
-    "3.2.1: deriveRewardCode generates 1,000 unique codes with 0 collisions and valid charset",
-    () => {
+  // 3.2: Gift-card code generation -- collisions, charset, and the modulo bias
+  // the audit flagged in the old 8-character derivation.
+  await runAsyncTest(
+    "3.2.1: randomGiftCardCode generates 1,000 unique codes with 0 collisions and an unambiguous charset",
+    async () => {
+      const { randomGiftCardCode, CODE_ALPHABET } = await import("../workers/routes/gift-cards.js");
       const generated = new Set();
-      const voucherFormat = /^YALL-PTS-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$/;
+      const codeFormat = /^YALL-[0-9A-Z]{4}-[0-9A-Z]{4}-[0-9A-Z]{4}$/;
 
       for (let i = 0; i < 1000; i++) {
-        const code = redeemPoints.deriveRewardCode();
+        const code = randomGiftCardCode();
         assert.strictEqual(
-          voucherFormat.test(code),
+          codeFormat.test(code),
           true,
-          `Code ${code} must match unambiguous uppercase alphanumeric format`
+          `Code ${code} must match the YALL-XXXX-XXXX-XXXX format`
         );
-        // Ensure no visually ambiguous characters '0', 'O', '1', 'I'
+        // No visually ambiguous characters: I/L/O/U are not in the alphabet, so
+        // a code read off a printed email cannot be retyped as a different one.
         assert.strictEqual(
-          /[0O1I]/.test(code.slice(9)),
+          /[ILOU]/.test(code.slice(5)),
           false,
-          `Code ${code} must not contain 0, O, 1, or I`
+          `Code ${code} must not contain I, L, O or U`
         );
         assert.strictEqual(
           generated.has(code),
@@ -604,12 +617,22 @@ async function runMilestone1AdversarialSuite() {
         generated.add(code);
       }
       assert.strictEqual(generated.size, 1000, "1,000 generated codes must all be distinct");
+      assert.strictEqual(
+        CODE_ALPHABET.length,
+        32,
+        "the alphabet divides 256, so no byte folds unevenly"
+      );
+      assert.strictEqual(
+        new Set(CODE_ALPHABET).size,
+        32,
+        "no symbol appears twice, which would double its probability"
+      );
     }
   );
 
   // 3.3: Voucher Tampering and Format Filtering in Worker
   await runAsyncTest(
-    "3.3.1: Worker checkout rejects tampered, malicious, or non-matching promo codes without calling Stripe",
+    "3.3.1: Worker checkout rejects tampered or malicious codes without minting anything",
     async () => {
       const invalidCodes = [
         "YALL-",
@@ -630,11 +653,14 @@ async function runMilestone1AdversarialSuite() {
           items: [{ id: "lavender-soak", qty: 1, variant: "10 oz" }],
           gift_card_code: code
         });
-        assert.strictEqual(res.status, 200);
+        // A malformed code is now a refusal the shopper can act on, rather than
+        // a silent fall-through: someone who typed a code and watched the total
+        // stay the same has been told nothing.
+        assert.strictEqual(res.status, 400, `Invalid code "${code}" is refused`);
         assert.strictEqual(
           res.promoCodeRequests,
           0,
-          `Invalid code "${code}" should be filtered by regex before Stripe API`
+          `Invalid code "${code}" must never reach the Stripe API`
         );
         assert.strictEqual(
           res.couponParams,
@@ -642,34 +668,35 @@ async function runMilestone1AdversarialSuite() {
           `Invalid code "${code}" must not generate an ephemeral coupon`
         );
       }
+
+      // A well-formed code for a card that does not exist is refused just as
+      // firmly, and just as cheaply.
+      const ghost = await executeWorkerCheckout({
+        items: [{ id: "lavender-soak", qty: 1, variant: "10 oz" }],
+        gift_card_code: "YALL-GHOS-TGHO-STGH"
+      });
+      assert.strictEqual(ghost.status, 400, "A well-formed code for no card is refused");
+      assert.strictEqual(ghost.couponParams, null, "...and mints no coupon");
     }
   );
 
   // 3.4: Balance Carryover Math Stress
   await runAsyncTest(
-    "3.4.1: Worker checkout applies ephemeral discount capped to total and stores carryover metadata",
+    "3.4.1: Worker caps the discount at the order total and holds exactly that on the ledger",
     async () => {
-      // Lavender soak in products.json is $10.00 + $10 shipping = $20.00 (2000 cents) total
-      // Customer has $100.00 loyalty voucher (10000 cents)
-      const mockBigPromo = {
-        data: [
-          {
-            id: "promo_pts_big",
-            code: "YALL-PTS-BIG100",
-            coupon: { id: "coup_big", amount_off: 10000, currency: "usd" }
-          }
-        ]
-      };
-
+      // Lavender soak in products.json is $10.00 + $10 shipping = $20.00 total.
+      // The card carries $100.00 (10000 cents).
+      const env = await makeAdversarialEnv({ "YALL-BIG1-0000-0000": 10000 });
       const res = await executeWorkerCheckout(
         {
           items: [{ id: "lavender-soak", qty: 1, variant: "10 oz" }],
-          gift_card_code: "YALL-PTS-BIG100"
+          gift_card_code: "YALL-BIG1-0000-0000"
         },
-        { promoCode: mockBigPromo }
+        { env }
       );
 
       assert.strictEqual(res.status, 200);
+      assert.strictEqual(res.promoCodeRequests, 0, "no Stripe promotion-code lookup happens");
       assert.strictEqual(
         res.couponParams.get("amount_off"),
         "2000",
@@ -687,109 +714,158 @@ async function runMilestone1AdversarialSuite() {
       );
       assert.strictEqual(
         res.sessionParams.get("metadata[gift_card_redeemed_code]"),
-        "YALL-PTS-BIG100"
+        "YALL-BIG1-0000-0000"
       );
+
+      const { giftCardLedger } = await import("../workers/state/gift-card-ledger.js");
+      const after = await giftCardLedger(env, "YALL-BIG1-0000-0000").getBalance();
+      assert.strictEqual(after.pendingCents, 2000, "exactly the applied amount is held");
+      assert.strictEqual(after.balanceCents, 8000, "the carryover is still spendable");
     }
   );
 
-  // 3.5: redeem-points.js is a DISABLED endpoint (C-1). There is no
-  // server-side points ledger, so the old handler minted real, cash-like
-  // store credit on the caller's unverified say-so -- a loop of POSTs was
-  // unlimited free money. Every non-OPTIONS request must now answer 410 with
-  // the same body, and nothing may reach Stripe or Resend.
+  // 3.4.2: The double-spend the audit found (C-2). Two checkouts against one
+  // card cannot both get the money -- the ledger serialises them and the loser
+  // is refused rather than silently discounted.
   await runAsyncTest(
-    "3.5.1: netlify/functions/redeem-points.js refuses every request with 410 and never calls Stripe",
+    "3.4.2: two concurrent checkouts on one card cannot both spend it",
     async () => {
-      const originalFetch = global.fetch;
-      let outboundCalls = 0;
-      global.fetch = async (url) => {
-        outboundCalls++;
-        throw new Error(`redeem-points must not call out to ${url}`);
+      const env = await makeAdversarialEnv({ "YALL-ONCE-ONCE-ONCE": 2000 });
+      const first = await executeWorkerCheckout(
+        {
+          items: [{ id: "lavender-soak", qty: 1, variant: "10 oz" }],
+          gift_card_code: "YALL-ONCE-ONCE-ONCE"
+        },
+        { env }
+      );
+      assert.strictEqual(first.status, 200, "the first checkout gets the balance");
+
+      const second = await executeWorkerCheckout(
+        {
+          items: [{ id: "lavender-soak", qty: 1, variant: "10 oz" }],
+          gift_card_code: "YALL-ONCE-ONCE-ONCE"
+        },
+        { env }
+      );
+      assert.strictEqual(second.status, 400, "the second is refused: nothing spendable is left");
+
+      const { giftCardLedger } = await import("../workers/state/gift-card-ledger.js");
+      const after = await giftCardLedger(env, "YALL-ONCE-ONCE-ONCE").getBalance();
+      assert.strictEqual(after.pendingCents, 2000, "only one hold exists");
+      assert.strictEqual(after.balanceCents, 0, "and the card was debited exactly once");
+    }
+  );
+
+  /* 3.5: Alt-Points redemption is GONE, not merely disabled (C-1). The old
+     netlify/functions/redeem-points.js minted real, cash-like store credit on
+     an unauthenticated caller's say-so -- a loop of POSTs was unlimited free
+     money -- and was later stubbed to answer 410. The file is now deleted, so
+     what has to be true is that nothing in the Worker answers for it and the
+     path is 410 at the edge (asserted against the generated netlify.toml in
+     scripts/worker-state.test.js). Here: the Worker must not route it. */
+  await runAsyncTest("3.5.1: the Worker has no points-redemption route at all", async () => {
+    const env = await makeAdversarialEnv();
+    for (const path of ["/api/redeem-points", "/redeem-points", "/api/points"]) {
+      const res = await checkoutWorker.fetch(
+        new Request(`https://yallternativeliving.com${path}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Origin: "https://yallternativeliving.com"
+          },
+          body: JSON.stringify({ points: 500, email: "shopper@example.com" })
+        }),
+        env,
+        { waitUntil: () => {} }
+      );
+      assert.strictEqual(res.status, 404, `${path} must not be a route`);
+      assert.strictEqual(res.headers.get("Cache-Control"), "no-store");
+      // CORS is an allowlist, never a reflection of the caller's Origin.
+      assert.strictEqual(
+        res.headers.get("Access-Control-Allow-Origin"),
+        "https://yallternativeliving.com"
+      );
+      assert.strictEqual(res.headers.get("Vary"), "Origin");
+    }
+
+    const hostile = await checkoutWorker.fetch(
+      new Request("https://yallternativeliving.com/api/gift-card-balance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Origin: "https://attacker.example" },
+        body: "{}"
+      }),
+      env,
+      { waitUntil: () => {} }
+    );
+    assert.strictEqual(hostile.status, 403);
+    assert.strictEqual(
+      hostile.headers.get("Access-Control-Allow-Origin"),
+      "https://yallternativeliving.com",
+      "a hostile Origin is never echoed back"
+    );
+
+    const allowed = await checkoutWorker.fetch(
+      new Request("https://yallternativeliving.com/api/restock", {
+        method: "OPTIONS",
+        headers: { Origin: "https://www.yallternativeliving.com" }
+      }),
+      env,
+      { waitUntil: () => {} }
+    );
+    assert.strictEqual(
+      allowed.headers.get("Access-Control-Allow-Origin"),
+      "https://www.yallternativeliving.com",
+      "the www host is on the allowlist"
+    );
+  });
+
+  // 3.6: the balance route's input handling (ported from the retired
+  // netlify/functions/gift-card-balance.js cases).
+  await runAsyncTest(
+    "3.6.1: /api/gift-card-balance handles empty, null and malformed codes",
+    async () => {
+      const { GiftCardLedger } = await import("../workers/state/gift-card-ledger.js");
+      const { RateLimitCounter } = await import("../workers/state/rate-limit.js");
+      const env = {
+        SITE_ORIGIN: "https://yallternativeliving.com",
+        STRIPE_SECRET_KEY: "sk_test_mock_adv_secret",
+        GIFT_CARD_LEDGER: makeNamespace(GiftCardLedger),
+        RATE_LIMIT_COUNTER: makeNamespace(RateLimitCounter)
+      };
+      const ask = async (payload) => {
+        const res = await checkoutWorker.fetch(
+          new Request("https://yallternativeliving.com/api/gift-card-balance", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Origin: "https://yallternativeliving.com"
+            },
+            body: payload
+          }),
+          env,
+          { waitUntil: () => {} }
+        );
+        return { status: res.status, body: await res.json() };
       };
 
-      try {
-        const requests = [
-          { httpMethod: "GET", headers: {} },
-          { httpMethod: "POST", headers: {}, body: "{corrupt json body" },
-          // Every tier, valid or not: a 400 on a bad tier would still imply
-          // that a good one mints something.
-          { httpMethod: "POST", headers: {}, body: JSON.stringify({ points: 150 }) },
-          { httpMethod: "POST", headers: {}, body: JSON.stringify({ points: -100 }) },
-          { httpMethod: "POST", headers: {}, body: JSON.stringify({ points: 100.5 }) },
-          { httpMethod: "POST", headers: {}, body: JSON.stringify({ points: 100 }) },
-          { httpMethod: "POST", headers: {}, body: JSON.stringify({ points: 200 }) },
-          {
-            httpMethod: "POST",
-            headers: { origin: "https://yallternativeliving.com" },
-            body: JSON.stringify({ points: 500, email: "shopper@example.com" })
-          },
-          { httpMethod: "PUT", headers: {}, body: JSON.stringify({ points: 500 }) },
-          { httpMethod: "DELETE", headers: {} }
-        ];
+      const resEmpty = await ask(JSON.stringify({ code: "" }));
+      assert.strictEqual(resEmpty.body.valid, false);
 
-        for (const req of requests) {
-          const res = await redeemPoints.handler(req);
-          assert.strictEqual(
-            res.statusCode,
-            410,
-            `${req.httpMethod} must be refused with 410 Gone`
-          );
-          assert.deepStrictEqual(JSON.parse(res.body), {
-            error: "Alt-Points redemption is not available yet."
-          });
-          assert.strictEqual(res.headers["Cache-Control"], "no-store");
-        }
+      const resNull = await ask(JSON.stringify({ code: null }));
+      assert.strictEqual(resNull.body.valid, false);
 
-        assert.strictEqual(outboundCalls, 0, "No Stripe or Resend call is reachable at all");
+      const resMissing = await ask(JSON.stringify({}));
+      assert.strictEqual(resMissing.body.valid, false);
 
-        // Preflight still answers, so the browser shows the 410 body rather
-        // than an opaque CORS error.
-        const preflight = await redeemPoints.handler({ httpMethod: "OPTIONS", headers: {} });
-        assert.strictEqual(preflight.statusCode, 204);
+      const resBadFormat = await ask(JSON.stringify({ code: "NOT-A-REAL-FORMAT" }));
+      assert.strictEqual(resBadFormat.body.valid, false);
+      assert.ok(resBadFormat.body.error.includes("Invalid code format"));
 
-        // CORS is an allowlist, never a reflection of the caller's Origin.
-        const hostile = await redeemPoints.handler({
-          httpMethod: "POST",
-          headers: { origin: "https://attacker.example" },
-          body: "{}"
-        });
-        assert.strictEqual(
-          hostile.headers["Access-Control-Allow-Origin"],
-          "https://yallternativeliving.com"
-        );
-        assert.strictEqual(hostile.headers.Vary, "Origin");
+      const resObject = await ask(JSON.stringify({ code: { toString: "nope" } }));
+      assert.strictEqual(resObject.body.valid, false, "a non-string code is refused, not coerced");
 
-        const allowed = await redeemPoints.handler({
-          httpMethod: "POST",
-          headers: { origin: "https://www.yallternativeliving.com" },
-          body: "{}"
-        });
-        assert.strictEqual(
-          allowed.headers["Access-Control-Allow-Origin"],
-          "https://www.yallternativeliving.com"
-        );
-      } finally {
-        global.fetch = originalFetch;
-      }
-    }
-  );
-
-  // 3.6: Netlify function gift-card-balance.js lookup validation
-  await runAsyncTest(
-    "3.6.1: netlify/functions/gift-card-balance.js handles invalid codes and malformed inputs",
-    async () => {
-      const resEmpty = await giftCardBalance.lookupGiftCardBalance("", "sk_test_mock");
-      assert.strictEqual(resEmpty.valid, false);
-
-      const resNull = await giftCardBalance.lookupGiftCardBalance(null, "sk_test_mock");
-      assert.strictEqual(resNull.valid, false);
-
-      const resBadFormat = await giftCardBalance.lookupGiftCardBalance(
-        "NOT-A-REAL-FORMAT",
-        "sk_test_mock"
-      );
-      assert.strictEqual(resBadFormat.valid, false);
-      assert.ok(resBadFormat.error.includes("Invalid code format"));
+      const resGarbage = await ask("{not json");
+      assert.strictEqual(resGarbage.status, 400, "an unparseable body is a 400, not a crash");
     }
   );
 
