@@ -94,9 +94,44 @@ global.localStorage = mockLocalStorage;
 global.navigator = { userAgent: "node" };
 
 const main = require("../assets/js/main.js");
-const eventsData = JSON.parse(
+const mainSource = fs.readFileSync(path.join(__dirname, "..", "assets/js/main.js"), "utf8");
+const shippedEventsData = JSON.parse(
   fs.readFileSync(path.join(__dirname, "../assets/data/events.json"), "utf8")
 );
+
+/* Synthetic markets, not real ones. events.json is live: the build archives a
+   market once its last day has passed, so "summerville-punk-flea-market is
+   upcoming" was a fact with an expiry date, and the day it expired this suite
+   started failing for a reason that had nothing to do with the code it tests.
+   These two exist purely to exercise id / name / location matching. */
+const eventsData = {
+  upcoming: [
+    {
+      id: "test-harbor-night-market",
+      date: "2099-08-15",
+      endDate: "2099-08-16",
+      dateLabel: "August 15-16, 2099",
+      name: "Harbor Night Market",
+      type: "Night Market",
+      location: "Ladson, SC",
+      zip: "29456",
+      url: "https://example.com/harbor-night-market",
+      note: "Two-day night market -- come find our table."
+    },
+    {
+      id: "test-gothic-punk-night-market",
+      date: "2099-08-21",
+      dateLabel: "August 21, 2099",
+      name: "Gothic Punk Night Market",
+      type: "Night Market",
+      location: "Charlotte, NC",
+      zip: "28202",
+      url: "https://example.com/gothic-punk-night-market",
+      note: "One-night market with handmade salves, soaks & soaps."
+    }
+  ],
+  past: []
+};
 
 let passed = 0;
 let failed = 0;
@@ -327,11 +362,11 @@ eq(
 console.log("\n5. Pickup booth deep-linking parameter parsing:");
 
 // Match by ID
-const matchById = main.parsePickupMarketParam("summerville-punk-flea-market", eventsData);
+const matchById = main.parsePickupMarketParam("test-harbor-night-market", eventsData);
 assert(matchById && matchById.event, "parsePickupMarketParam matches upcoming event by id");
 eq(
   matchById.event.name,
-  "Summerville Punk Flea Market",
+  "Harbor Night Market",
   "parsePickupMarketParam returns correct matched event object"
 );
 
@@ -364,6 +399,16 @@ eq(
 /* -------------------------------------------------------------------------- */
 console.log("\n6. Event card HTML rendering (eventCardHTML):");
 
+/* The shipped file still has to have the shape the engine reads. Assert that
+   much against the real data, then render from the synthetic market. */
+assert(
+  Array.isArray(shippedEventsData.upcoming) && Array.isArray(shippedEventsData.past),
+  "events.json exposes upcoming and past arrays"
+);
+shippedEventsData.upcoming.concat(shippedEventsData.past).forEach(function (ev) {
+  assert(!!ev.id && !!ev.date && !!ev.name, "every event in events.json has an id, date and name");
+});
+
 const sampleEvent = eventsData.upcoming[0];
 const cardHtml = main.eventCardHTML(sampleEvent);
 
@@ -391,16 +436,148 @@ assert(
   "Card contains Reserve / Pick Up at This Booth button"
 );
 assert(
-  cardHtml.includes("shop.html?pickup_market=summerville-punk-flea-market#shop-catalog"),
+  cardHtml.includes("shop.html?pickup_market=test-harbor-night-market#shop-catalog"),
   "Card contains deep link to shop.html with pickup_market and #shop-catalog anchor"
 );
 assert(cardHtml.includes("Add to Google Calendar"), "Card contains Add to Google Calendar button");
 assert(cardHtml.includes("iCal / Apple Calendar (.ics)"), "Card contains iCal download button");
 assert(
-  cardHtml.includes('download="summerville-punk-flea-market.ics"'),
+  cardHtml.includes('download="test-harbor-night-market.ics"'),
   "Card iCal link specifies download attribute"
 );
 assert(cardHtml.includes("data:text/calendar;charset=utf-8,"), "Card iCal link points to data URI");
+
+/* -------------------------------------------------------------------------- */
+/* 7. Audit fixes: Eastern "today", RFC 5545 folding, deterministic DTSTAMP,   */
+/*    vetted event URL, encoded Google Calendar date range, no leaked timers.  */
+/* -------------------------------------------------------------------------- */
+console.log("\n7. Timezone, RFC 5545 folding and listener/timer lifetime:");
+
+/* "today" must be the calendar date in Landrum, SC -- not in UTC. Comparing
+   an events.json date against a UTC "today" moved that evening's market into
+   Past Events from 8pm Eastern onwards. */
+assert(typeof main.todayInEastern === "function", "todayInEastern is exported");
+const easternToday = main.todayInEastern();
+assert(/^\d{4}-\d{2}-\d{2}$/.test(easternToday), "todayInEastern returns an ISO calendar date");
+const easternExpected = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/New_York",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit"
+}).format(new Date());
+eq(easternToday, easternExpected, "todayInEastern matches America/New_York, not UTC");
+assert(
+  mainSource.indexOf("new Date().toISOString().slice(0, 10)") === -1 ||
+    mainSource.indexOf("function todayInEastern") !== -1,
+  "no event comparison is left on a UTC today"
+);
+assert(
+  mainSource.indexOf("var todayStr = todayInEastern();") !== -1,
+  "the events page splits upcoming/past on the Eastern date"
+);
+assert(
+  mainSource.indexOf("pickNextEvent(upcomingList, todayInEastern())") !== -1,
+  "the countdown picks the next event on the Eastern date"
+);
+
+/* RFC 5545 3.1: no content line over 75 octets. */
+assert(typeof main.foldIcsLine === "function", "foldIcsLine is exported");
+eq(main.foldIcsLine("SHORT:line"), "SHORT:line", "foldIcsLine leaves a short line alone");
+const longLine = "DESCRIPTION:" + "a".repeat(200);
+const folded = main.foldIcsLine(longLine);
+folded.split("\r\n").forEach((seg, i) => {
+  assert(
+    Buffer.byteLength(seg, "utf8") <= 75,
+    `folded segment ${i} is at most 75 octets (got ${Buffer.byteLength(seg, "utf8")})`
+  );
+  if (i > 0) assert(seg.charAt(0) === " ", `continuation segment ${i} starts with a space`);
+});
+eq(folded.split("\r\n ").join(""), longLine, "unfolding a folded line reproduces it exactly");
+// Multi-byte characters must be counted as octets and never split.
+const emLine = "LOCATION:" + "—".repeat(60);
+const emFolded = main.foldIcsLine(emLine);
+emFolded.split("\r\n").forEach((seg) => {
+  assert(
+    Buffer.byteLength(seg, "utf8") <= 75,
+    "an em-dash run is folded on octets, not characters"
+  );
+});
+eq(emFolded.split("\r\n ").join(""), emLine, "multi-byte folding is lossless");
+
+const longEvent = {
+  id: "long-note-market",
+  name: "Summerville Punk Flea Market",
+  date: "2026-08-15",
+  endDate: "2026-08-16",
+  location: "Ladson, SC",
+  note:
+    "A very long note about the market that runs well past seventy-five octets so the " +
+    "DESCRIPTION property has to be folded to stay inside RFC 5545's line length limit."
+};
+const longIcs = main.generateIcsContent(longEvent);
+longIcs.split("\r\n").forEach((line) => {
+  assert(
+    Buffer.byteLength(line, "utf8") <= 75,
+    `every generated ICS line is at most 75 octets (got ${Buffer.byteLength(line, "utf8")})`
+  );
+});
+assert(longIcs.indexOf("\r\n ") !== -1, "a long DESCRIPTION is actually folded");
+
+/* DTSTAMP was hardcoded to the day the feature shipped. */
+assert(
+  longIcs.indexOf("DTSTAMP:20260815T000000Z") !== -1,
+  "DTSTAMP is derived from the event's own date"
+);
+assert(longIcs.indexOf("20260901T000000Z") === -1, "the hardcoded DTSTAMP is gone");
+eq(main.generateIcsContent(longEvent), longIcs, "ICS generation stays deterministic across calls");
+
+/* ev.url is CMS-editable and is handed to a calendar client. */
+const hostileUrlEvent = {
+  id: "hostile",
+  name: "Hostile Market",
+  date: "2026-08-15",
+  location: "Ladson, SC",
+  note: "Come see us.",
+  url: "javascript:alert(1)"
+};
+const hostileIcs = main.generateIcsContent(hostileUrlEvent);
+assert(
+  hostileIcs.indexOf("javascript:") === -1,
+  "a javascript: event URL never reaches the .ics DESCRIPTION"
+);
+const goodUrlEvent = Object.assign({}, hostileUrlEvent, {
+  url: "https://example.com/market"
+});
+assert(
+  main.generateIcsContent(goodUrlEvent).indexOf("https://example.com/market") !== -1,
+  "a legitimate event URL still reaches the .ics DESCRIPTION"
+);
+
+/* The Google Calendar date range is a URL parameter and must be encoded. */
+const encodedGcal = main.generateGoogleCalendarUrl(longEvent);
+assert(
+  encodedGcal.indexOf("dates=20260815%2F20260817") !== -1,
+  "the Google Calendar dates parameter is percent-encoded"
+);
+assert(
+  encodedGcal.indexOf("dates=20260815/20260817") === -1,
+  "the raw slash is no longer emitted into the query string"
+);
+
+/* Timer and listener lifetime. */
+assert(
+  mainSource.indexOf("setInterval(update, 1000)") === -1,
+  "the countdown no longer starts an unstoppable 1Hz interval"
+);
+assert(
+  mainSource.indexOf("clearInterval(countdownIntervalId)") !== -1,
+  "the countdown clears its interval once the ticker is gone"
+);
+assert(
+  mainSource.indexOf("var pastEventsMqlBound = false;") !== -1 &&
+    mainSource.indexOf("if (!pastEventsMqlBound) {") !== -1,
+  "the past-events media-query listener is registered once"
+);
 
 console.log(`\nevents-engine.test.js: ${passed} passed, ${failed} failed.`);
 process.exit(failed ? 1 : 0);

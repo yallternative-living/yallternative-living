@@ -1,12 +1,19 @@
 /**
- * @fileoverview Unit test suite for Milestone 6: Self-Service Order Status &
- * Fulfillment Packing Slips.
+ * @fileoverview Unit test suite for the order status page (H-6).
+ *
+ * The page used to answer any plausible-looking string with a confirmed order,
+ * a four-step fulfilment timeline, a hardcoded two-item order and a printable
+ * packing slip -- none of it fetched from anywhere. These tests hold the
+ * honest replacement in place: validate the shape, then hand the visitor a
+ * contact route with their reference pre-filled.
  *
  * Tests:
  * 1. Email masking algorithm (maskEmail).
  * 2. Order query validation and parsing (parseOrderStatusQuery).
- * 3. Dedicated order status page lifecycle, DOM progression timeline, and 1-click reorder.
- * 4. Printable fulfillment packing slip invariant: Prominent gift message + strictly ZERO prices.
+ * 3. The page answers with the contact route and never asserts an order state.
+ * 4. The fabricated timeline, packing slip, sample items and reorder are gone.
+ * 5. Only a well-formed ?session_id= pre-fills, and nothing auto-submits.
+ * 6. content.json's enableOrderStatusLookup actually gates the page.
  *
  * Run: node scripts/order-status-engine.test.js
  */
@@ -146,7 +153,7 @@ global.window = mockWindow;
 global.document = mockDocument;
 global.localStorage = mockLocalStorage;
 
-console.log("Running Order Status & Packing Slip Engine Unit Tests (Milestone 6)...\n");
+console.log("Running Order Status Engine Unit Tests (H-6)...\n");
 
 const main = require("./../assets/js/main.js");
 
@@ -198,127 +205,185 @@ const emptyRes = main.parseOrderStatusQuery("");
 assert.strictEqual(emptyRes, null, "Empty query returns null");
 console.log("  ✓ parseOrderStatusQuery accurately validates and categorizes lookup tokens");
 
-// 3. Test DOM Order Status Page Controller & Timeline Rendering
-console.log("\n  --- 3. Testing Order Status Page Lifecycle & Progression Timeline ---");
+// 3. Test DOM Order Status Page Controller: honest contact flow only
+console.log("\n  --- 3. Testing Order Status Page Lifecycle (no fabricated order) ---");
 const form = mockDocument.getElementById("orderStatusPageForm");
 const input = mockDocument.getElementById("orderQueryInput");
-const verifyInput = mockDocument.getElementById("orderVerifyInput");
 const timeline = mockDocument.getElementById("orderTimelineContainer");
-const itemsList = mockDocument.getElementById("orderItemsList");
-const itemsContainer = mockDocument.getElementById("orderItemsContainer");
-const slipTableBody = mockDocument.getElementById("slipItemsTableBody");
-const packingSlip = mockDocument.getElementById("packingSlipContainer");
+const resultSection = mockDocument.getElementById("orderStatusResultSection");
 
 // Run init
 main.initOrderStatusPage();
 
-// Test submit with valid Stripe session
+// Test submit with a valid Stripe session id
 input.value = "cs_live_999888777";
 form.dispatchEvent({ type: "submit", preventDefault() {} });
 
 assert.ok(
-  timeline.innerHTML.includes("order-status-card"),
-  "Timeline container renders order status card"
-);
-assert.ok(
-  timeline.innerHTML.includes("Order Confirmed"),
-  "Timeline contains 'Order Confirmed' step"
-);
-assert.ok(
-  timeline.innerHTML.includes("In the Workshop"),
-  "Timeline contains 'In the Workshop' step"
-);
-assert.ok(
-  timeline.innerHTML.includes("Quality Sealed &amp; Packaged") ||
-    timeline.innerHTML.includes("Quality Sealed & Packaged"),
-  "Timeline contains 'Quality Sealed & Packaged' step"
-);
-assert.ok(
-  timeline.innerHTML.includes("USPS Carrier Dispatch"),
-  "Timeline contains 'USPS Carrier Dispatch' step"
-);
-assert.ok(
-  itemsList.innerHTML.includes("frankincense-salve") ||
-    itemsList.innerHTML.includes("Frankincense"),
-  "Order items list populated"
-);
-assert.ok(packingSlip, "Packing slip element exists");
-assert.strictEqual(itemsContainer.hidden, false, "Order items container is visible");
-console.log("  ✓ Valid order lookup renders 4-step fulfillment timeline and itemized breakdown");
-
-// 4. Test 1-Click Reorder Action
-console.log("\n  --- 4. Testing 1-Click Reorder Action ---");
-const reorderBtn = mockDocument.getElementById("reorderPastOrderBtn");
-mockWindow.YLCart.items = [];
-reorderBtn.dispatchEvent({ type: "click" });
-
-assert.strictEqual(
-  mockWindow.YLCart.items.length,
-  2,
-  "Reorders both items from past order into active cart"
-);
-assert.strictEqual(
-  mockWindow.YLCart.items[0].id,
-  "frankincense-salve",
-  "First reordered item is frankincense-salve"
-);
-assert.strictEqual(
-  mockWindow.YLCart.items[1].id,
-  "miracle-balm",
-  "Second reordered item is miracle-balm"
-);
-assert.strictEqual(mockWindow.YLCart.isOpen, true, "Cart drawer opened after reorder action");
-console.log("  ✓ Reorder Past Order button populates YLCart and opens cart drawer");
-
-// 5. Test Printable Fulfillment Packing Slip Invariants (NO MONETARY AMOUNTS)
-console.log("\n  --- 5. Testing Printable Packing Slip View & Security Invariants ---");
-assert.ok(
-  slipTableBody.innerHTML.includes("salve-frankincense-2oz") ||
-    slipTableBody.innerHTML.includes("frankincense-salve"),
-  "Packing slip table lists item SKU / ID"
-);
-assert.ok(
-  slipTableBody.innerHTML.includes("packing-checkbox"),
-  "Packing slip table includes packing check box"
-);
-
-// Assert STRICT INVARIANT: No dollar sign or currency pricing inside the packing slip table body!
-assert.strictEqual(
-  slipTableBody.innerHTML.includes("$"),
-  false,
-  "Packing slip table body contains NO dollar signs ($)"
-);
-assert.strictEqual(
-  /\$\d+\.\d{2}/.test(slipTableBody.innerHTML),
-  false,
-  "Packing slip contains NO monetary amounts"
-);
-console.log("  ✓ Fulfillment packing slip renders itemized checklist with strictly ZERO prices");
-
-// 6. Test Unknown / Malformed Query Handling
-console.log("\n  --- 6. Testing Unknown Lookup Feedback ---");
-const errorDiv = mockDocument.getElementById("orderStatusError");
-input.value = "unknown_order_id_xyz";
-verifyInput.value = "";
-form.dispatchEvent({ type: "submit", preventDefault() {} });
-assert.strictEqual(
-  errorDiv.hidden,
-  false,
-  "Error is displayed when secondary verification is missing"
-);
-
-verifyInput.value = "customer@example.com";
-form.dispatchEvent({ type: "submit", preventDefault() {} });
-
-assert.ok(
   timeline.innerHTML.includes("order-lookup-unavailable"),
-  "Renders order-lookup-unavailable notice"
+  "Valid-looking reference still renders the contact route, not a status"
 );
 assert.ok(
-  timeline.innerHTML.includes("y.allternative.living@gmail.com"),
-  "Provides direct support email link"
+  timeline.innerHTML.includes("cs_live_999888777"),
+  "The reference the visitor typed is echoed back to them"
 );
-assert.strictEqual(itemsContainer.hidden, true, "Items breakdown is hidden for unknown orders");
-console.log("  ✓ Unrecognized query renders clear support notice and hides items table");
+assert.strictEqual(resultSection.hidden, false, "Result section is revealed");
+assert.ok(timeline.innerHTML.includes("within one business day"), "States the human reply window");
+assert.ok(
+  timeline.innerHTML.includes("mailto:y.allternative.living@gmail.com?subject="),
+  "Contact link pre-fills a mail subject"
+);
+assert.ok(
+  timeline.innerHTML.includes(encodeURIComponent("Order status: cs_live_999888777")),
+  "The reference is pre-filled into the mail subject"
+);
+
+// H-6: nothing about a confirmed order, its contents or its progress may be
+// asserted -- no request is ever made, so every one of these was invented.
+const FABRICATIONS = [
+  "Order Confirmed",
+  "In the Workshop",
+  "Quality Sealed",
+  "USPS Carrier Dispatch",
+  "order-status-card",
+  "timeline-step",
+  "Frankincense",
+  "frankincense-salve",
+  "miracle-balm",
+  "Small-Batch Prep",
+  "Standard Tracked Shipping"
+];
+FABRICATIONS.forEach((needle) => {
+  assert.strictEqual(
+    timeline.innerHTML.includes(needle),
+    false,
+    `Order status page must not fabricate "${needle}"`
+  );
+});
+assert.strictEqual(
+  /\$\d/.test(timeline.innerHTML),
+  false,
+  "Order status page quotes no prices for an order it never fetched"
+);
+console.log("  ✓ Lookup renders only the honest contact route, with the reference pre-filled");
+
+// 4. The fabricated order furniture is gone from main.js and the page
+console.log("\n  --- 4. Testing removal of the invented order, slip and reorder ---");
+const fs = require("fs");
+const path = require("path");
+const repoRoot = path.resolve(__dirname, "..");
+const mainSrc = fs.readFileSync(path.join(repoRoot, "assets/js/main.js"), "utf8");
+["sampleOrderItems", "slipItemsTableBody", "slipGiftMessageText", "reorderPastOrderBtn"].forEach(
+  (needle) => {
+    assert.strictEqual(
+      mainSrc.includes(needle),
+      false,
+      `main.js must no longer reference ${needle}`
+    );
+  }
+);
+const orderStatusHtml = fs.readFileSync(path.join(repoRoot, "order-status.html"), "utf8");
+["packingSlipContainer", "printPackingSlipBtn", "reorderPastOrderBtn", "orderVerifyInput"].forEach(
+  (needle) => {
+    assert.strictEqual(
+      orderStatusHtml.includes(needle),
+      false,
+      `order-status.html must no longer contain ${needle}`
+    );
+  }
+);
+assert.strictEqual(
+  /onclick=/.test(orderStatusHtml),
+  false,
+  "order-status.html carries no inline event handler (the CSP blocks them)"
+);
+assert.strictEqual(
+  (orderStatusHtml.match(/<!--YL:/g) || []).length,
+  (orderStatusHtml.match(/<!--\/YL:/g) || []).length,
+  "order-status.html build markers stay paired"
+);
+console.log("  ✓ Fabricated timeline, packing slip, sample items and reorder are gone");
+
+// 5. Query parameters: only session_id may pre-fill, and nothing auto-submits
+console.log("\n  --- 5. Testing URL parameter handling ---");
+function freshPageWith(search) {
+  Object.keys(elementCache).forEach((k) => delete elementCache[k]);
+  mockWindow.location.search = search;
+  main.initOrderStatusPage();
+  return {
+    input: mockDocument.getElementById("orderQueryInput"),
+    timeline: mockDocument.getElementById("orderTimelineContainer"),
+    result: mockDocument.getElementById("orderStatusResultSection")
+  };
+}
+
+let ctx = freshPageWith("?email=customer%40example.com");
+assert.strictEqual(ctx.input.value, undefined, "?email= never reaches the input (PII reflection)");
+assert.strictEqual(ctx.timeline.innerHTML, "", "?email= never runs a lookup");
+
+ctx = freshPageWith("?q=YL-2026-0842");
+assert.strictEqual(ctx.input.value, undefined, "?q= does not pre-fill");
+assert.strictEqual(ctx.timeline.innerHTML, "", "?q= never runs a lookup");
+
+ctx = freshPageWith("?session_id=cs_live_abc123");
+assert.strictEqual(ctx.input.value, "cs_live_abc123", "?session_id= pre-fills the input");
+assert.strictEqual(ctx.timeline.innerHTML, "", "?session_id= pre-fills but never auto-submits");
+
+ctx = freshPageWith("?session_id=%3Cimg%20src%3Dx%20onerror%3D1%3E");
+assert.strictEqual(ctx.input.value, undefined, "A malformed session_id is refused outright");
+mockWindow.location.search = "";
+console.log("  ✓ Only a well-formed ?session_id= pre-fills, and nothing auto-submits");
+
+// 6. The CMS switch actually gates the page
+console.log("\n  --- 6. Testing enableOrderStatusLookup gate ---");
+assert.strictEqual(typeof main.siteFlagEnabled, "function", "siteFlagEnabled must be exported");
+assert.strictEqual(
+  main.siteFlagEnabled("enableOrderStatusLookup"),
+  true,
+  "An absent flag defaults to on"
+);
+mockWindow.YL_CONTENT = { site: { enableOrderStatusLookup: false } };
+assert.strictEqual(
+  main.siteFlagEnabled("enableOrderStatusLookup"),
+  false,
+  "siteFlagEnabled reads window.YL_CONTENT.site"
+);
+Object.keys(elementCache).forEach((k) => delete elementCache[k]);
+main.initOrderStatusPage();
+const gatedCard = mockDocument.getElementById("orderStatusLookupCard");
+const gatedTimeline = mockDocument.getElementById("orderTimelineContainer");
+const gatedForm = mockDocument.getElementById("orderStatusPageForm");
+assert.strictEqual(gatedCard.hidden, true, "Lookup form is hidden when the switch is off");
+assert.ok(
+  gatedTimeline.innerHTML.includes("y.allternative.living@gmail.com"),
+  "The contact route is shown in its place"
+);
+mockDocument.getElementById("orderQueryInput").value = "YL-2026-0842";
+gatedForm.dispatchEvent({ type: "submit", preventDefault() {} });
+assert.strictEqual(
+  gatedTimeline.innerHTML.includes("YL-2026-0842"),
+  false,
+  "The form is not wired at all when the switch is off"
+);
+mockWindow.YL_CONTENT = undefined;
+console.log("  ✓ enableOrderStatusLookup gates the page section");
+
+// 7. Escaping of whatever the visitor typed
+console.log("\n  --- 7. Testing escaping of the echoed reference ---");
+Object.keys(elementCache).forEach((k) => delete elementCache[k]);
+main.initOrderStatusPage();
+const xssInput = mockDocument.getElementById("orderQueryInput");
+const xssTimeline = mockDocument.getElementById("orderTimelineContainer");
+xssInput.value = '<img src=x onerror="alert(1)">';
+mockDocument
+  .getElementById("orderStatusPageForm")
+  .dispatchEvent({ type: "submit", preventDefault() {} });
+assert.strictEqual(
+  xssTimeline.innerHTML.includes("<img"),
+  false,
+  "A markup payload in the reference is escaped, not rendered"
+);
+assert.ok(xssTimeline.innerHTML.includes("&lt;img"), "...and is shown escaped");
+console.log("  ✓ The echoed reference is escaped");
 
 console.log("\nAll order-status-engine unit tests passed successfully!\n");

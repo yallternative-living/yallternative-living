@@ -718,8 +718,8 @@ const testEv = {
 const gCal = main.generateGoogleCalendarUrl(testEv);
 assert(gCal.includes("action=TEMPLATE"), "generateGoogleCalendarUrl sets action=TEMPLATE");
 assert(
-  gCal.includes("dates=20260815/20260817"),
-  "generateGoogleCalendarUrl sets exclusive multi-day dates"
+  gCal.includes("dates=20260815%2F20260817"),
+  "generateGoogleCalendarUrl percent-encodes the exclusive multi-day date range"
 );
 
 const icsUri = main.generateIcsDataUri(testEv);
@@ -1186,6 +1186,511 @@ assert(
 // Restore mockDocument
 mockDocument.getElementById = originalGetElementById;
 mockDocument.querySelector = originalQuerySelector;
+
+/* ---------- C-5: 404.html must work at any depth, and the translator load ----------
+   Netlify serves 404.html at the requested URL, so a document-relative asset
+   path on /products/anything resolves to /products/assets/... and the page
+   renders unstyled with every escape route broken. Assert every same-origin
+   reference in the file is root-absolute (or a fragment/mailto), and that
+   main.js loads the translator from an absolute path for the same reason. */
+const fs404 = require("fs");
+const path404 = require("path");
+const repoRoot = path404.resolve(__dirname, "..");
+const notFoundSrc = fs404.readFileSync(path404.join(repoRoot, "404.html"), "utf8");
+const relativeRefs = [];
+notFoundSrc.replace(/\s(?:href|src)="([^"]*)"/g, function (_m, url) {
+  if (!url) return _m;
+  if (/^(https?:)?\/\//i.test(url)) return _m;
+  if (url.charAt(0) === "/" || url.charAt(0) === "#") return _m;
+  if (/^(mailto|tel):/i.test(url)) return _m;
+  relativeRefs.push(url);
+  return _m;
+});
+eq(relativeRefs, [], "404.html has no document-relative href/src (C-5)");
+assert(
+  notFoundSrc.indexOf('<link rel="manifest" href="/site.webmanifest">') !== -1,
+  "404.html links the manifest root-absolutely"
+);
+assert(
+  notFoundSrc.indexOf('src="/assets/js/main.js?v=2.0"') !== -1,
+  "404.html loads main.js root-absolutely"
+);
+assert(
+  notFoundSrc.indexOf("<!--YL:site.umamiWebsiteId--><!--/YL:site.umamiWebsiteId-->") !== -1 &&
+    notFoundSrc.indexOf("<!--YL:nav.journal--><!--/YL:nav.journal-->") !== -1,
+  "404.html keeps its build markers intact"
+);
+
+const mainSrc = fs404.readFileSync(path404.join(repoRoot, "assets/js/main.js"), "utf8");
+assert(
+  mainSrc.indexOf('s.src = "/assets/js/translator.js?v=2.0";') !== -1,
+  "main.js loads translator.js from a root-absolute path (C-5)"
+);
+
+/* ---------- site.webmanifest identity ---------- */
+const manifest = JSON.parse(fs404.readFileSync(path404.join(repoRoot, "site.webmanifest"), "utf8"));
+eq(manifest.start_url, "/", "site.webmanifest start_url is root-absolute");
+eq(manifest.scope, "/", "site.webmanifest declares a scope");
+assert(
+  typeof manifest.id === "string" && manifest.id.length > 0,
+  "site.webmanifest declares a stable id"
+);
+
+/* ---------- Escaping, CSP and analytics hardening ---------- */
+
+/* safeImageSrc: the src= counterpart of safeUrl. Catalogue and UGC images are
+   written document-relative in the CMS JSON, so that shape is allowed; a
+   scheme of any kind is not. */
+eq(
+  main.safeImageSrc("assets/img/shea-butter.jpg"),
+  "assets/img/shea-butter.jpg",
+  "safeImageSrc allows a document-relative asset path"
+);
+eq(
+  main.safeImageSrc("/assets/img/x.png"),
+  "/assets/img/x.png",
+  "safeImageSrc allows a root-relative path"
+);
+eq(
+  main.safeImageSrc("https://cdn.example.com/x.png"),
+  "https://cdn.example.com/x.png",
+  "safeImageSrc allows an absolute https image"
+);
+eq(main.safeImageSrc("javascript:alert(1)"), "", "safeImageSrc rejects javascript:");
+eq(main.safeImageSrc("data:text/html,<script>"), "", "safeImageSrc rejects data:");
+eq(main.safeImageSrc('x" onerror="alert(1)'), "", "safeImageSrc rejects an attribute breakout");
+eq(main.safeImageSrc(null), "", "safeImageSrc handles null");
+
+/* Regression guards on the sinks themselves. Each of these is a one-line
+   omission that reads as harmless in review, so assert the call is present at
+   the sink rather than only testing the helper in isolation. */
+const mainJsSource = fs404.readFileSync(path404.join(repoRoot, "assets/js/main.js"), "utf8");
+
+assert(
+  mainJsSource.indexOf("(TAG_LABELS[t] || attrEsc(t))") !== -1,
+  "an unknown product tag is escaped before it reaches the card (main.js tagPillsHTML)"
+);
+assert(
+  mainJsSource.indexOf("attrEsc(safeImageSrc(post.image))") !== -1,
+  "the UGC feed image src goes through safeImageSrc"
+);
+["prod", "art", "ev", "f"].forEach((v) => {
+  assert(
+    mainJsSource.indexOf("attrEsc(safeLinkUrl(" + v + ".url))") !== -1,
+    `search result URLs for ${v} go through safeLinkUrl`
+  );
+  assert(
+    mainJsSource.indexOf("attrEsc(" + v + ".url)") === -1,
+    `no unchecked ${v}.url is left in a search result href`
+  );
+});
+assert(
+  mainJsSource.indexOf("window.location.href = activeItemMeta.url") === -1 &&
+    mainJsSource.indexOf("var target = activeItemMeta ? safeLinkUrl(activeItemMeta.url)") !== -1,
+  "the search modal's navigation sink runs the URL through safeLinkUrl"
+);
+
+/* CSP: the service-worker update toast's buttons were inline onclick handlers,
+   which the site's CSP blocks -- so neither button did anything. */
+assert(
+  mainJsSource.indexOf("onclick=") === -1,
+  "main.js emits no inline onclick handler anywhere (the CSP blocks them)"
+);
+assert(
+  mainJsSource.indexOf('updateBtn.addEventListener("click"') !== -1 &&
+    mainJsSource.indexOf('dismissBtn.addEventListener("click"') !== -1,
+  "the service-worker update toast wires its buttons with addEventListener"
+);
+
+/* Analytics must never carry the raw search string. */
+assert(
+  mainJsSource.indexOf("props: { query: value.trim() }") === -1,
+  "the Site Search event no longer sends the raw query"
+);
+assert(
+  /window\.plausible\("Site Search", \{\s*props: \{\s*length: value\.trim\(\)\.length,\s*hasResults:/.test(
+    mainJsSource
+  ),
+  "the Site Search event sends only {length, hasResults}"
+);
+
+/* Recently viewed: every id becomes a products/<id>.html href, and the list
+   comes out of localStorage. */
+mockLocalStorage.clear();
+main._resetState();
+mockLocalStorage.setItem(
+  "yl-recently-viewed",
+  JSON.stringify([
+    { id: "frankincense-salve", name: "Frankincense Salve", price: 19.99, image: "a.jpg" },
+    {
+      id: '../evil.html?x="><img src=x onerror=alert(1)>',
+      name: "Injected",
+      price: 1,
+      image: "b.jpg"
+    },
+    { id: "backroad-soak", name: "Backroad Soak", price: 18, image: "c.jpg" },
+    { id: "Frank_Salve", name: "Wrong Case", price: 5, image: "d.jpg" }
+  ])
+);
+recentlyViewedTrackEl.innerHTML = "";
+main.renderRecentlyViewedCarousel();
+assert(
+  recentlyViewedTrackEl.innerHTML.indexOf("evil.html") === -1,
+  "a recently-viewed id that is not a plain slug never reaches an href"
+);
+assert(
+  recentlyViewedTrackEl.innerHTML.indexOf("Frank_Salve") === -1,
+  "a recently-viewed id outside /^[a-z0-9-]+$/ is dropped"
+);
+assert(
+  recentlyViewedTrackEl.innerHTML.indexOf('href="products/frankincense-salve.html"') !== -1,
+  "well-formed recently-viewed ids still render their links"
+);
+mockLocalStorage.clear();
+main._resetState();
+
+/* ---------- Volume-tier badge parity with cart.js / workers/checkout.js ----------
+   The badge decides on its own whether "2+ for $14.99 ea" appears on a card,
+   and it used to decide with looser rules than the cart and the Worker (which
+   agree byte for byte). This block runs the same product through both
+   implementations and asserts they never disagree. */
+const cartEngine = require("../assets/js/cart.js");
+const volumeRule = {
+  id: "salves-2oz",
+  name: "2oz Salve Multi-Buy",
+  category: "salves",
+  qualifyingVariant: "2oz",
+  minQuantity: 2,
+  unitPrice: 14.99,
+  label: "2+ for $14.99 each",
+  enabled: true
+};
+
+const savedProducts = mockWindow.YL_PRODUCTS;
+
+function withCatalog(products, fn) {
+  mockWindow.YL_PRODUCTS = { products: products, volumePricing: [volumeRule] };
+  main._resetState();
+  try {
+    return fn();
+  } finally {
+    mockWindow.YL_PRODUCTS = savedProducts;
+    main._resetState();
+  }
+}
+
+const frankincense = {
+  id: "frankincense-salve",
+  name: "Y'all Heal Now Miracle Frankincense Salve",
+  category: "salves",
+  price: 19.99,
+  blurb: "Small-batch frankincense salve.",
+  variants: { options: [{ label: "2oz" }, { label: "1oz", priceDelta: -6 }] }
+};
+const sleepSalve = {
+  id: "sleep-salve",
+  name: "Hush Y'all Magnesium Arnica Sleep Salve",
+  category: "salves",
+  price: 19.99,
+  blurb: "Magnesium and arnica for bedtime."
+};
+const miracleBalm = {
+  id: "miracle-balm",
+  name: "Y'allternative Miracle Balm",
+  category: "salves",
+  price: 8.0,
+  blurb: "All-purpose balm."
+};
+// A hypothetical future variantless salve whose copy names the size, and one
+// priced at or under the tier. Both are the cases the badge got wrong.
+const textMatchSalve = {
+  id: "cedar-salve",
+  name: "Cedar Woods Salve 2oz",
+  category: "salves",
+  price: 19.99,
+  blurb: "Poured into a 2oz tin."
+};
+const cheapSalve = {
+  id: "budget-salve",
+  name: "Budget Salve 2oz",
+  category: "salves",
+  price: 13.99,
+  blurb: "Poured into a 2oz tin."
+};
+const bodyProduct = {
+  id: "shea-butter",
+  name: "Lavender Shea Body Butter",
+  category: "body",
+  price: 16.0,
+  blurb: "Whipped shea."
+};
+
+withCatalog(
+  [frankincense, sleepSalve, miracleBalm, textMatchSalve, cheapSalve, bodyProduct],
+  () => {
+    assert(
+      typeof main.getMatchingVolumeRule === "function",
+      "getMatchingVolumeRule is exported for the parity check"
+    );
+    assert(
+      typeof cartEngine.itemMatchesRule === "function",
+      "cart.js exports itemMatchesRule to compare against"
+    );
+
+    /* Product-level: does any variant of this product qualify? */
+    assert(
+      !!main.getMatchingVolumeRule(frankincense),
+      "frankincense-salve is badged (a 2oz option exists and $14.99 < $19.99)"
+    );
+    assert(
+      !!main.getMatchingVolumeRule(sleepSalve),
+      "sleep-salve is badged (cart.js includes it explicitly)"
+    );
+    assert(
+      main.getMatchingVolumeRule(miracleBalm) === null,
+      "miracle-balm is never badged (cart.js excludes it explicitly)"
+    );
+    assert(
+      !!main.getMatchingVolumeRule(textMatchSalve),
+      "a variantless salve whose copy names the size is badged, matching cart.js's text match"
+    );
+    assert(
+      main.getMatchingVolumeRule(cheapSalve) === null,
+      "a salve priced at or under the tier is not badged -- the tier is not a discount"
+    );
+    assert(
+      main.getMatchingVolumeRule(bodyProduct) === null,
+      "a product outside the rule's category is never badged"
+    );
+
+    /* Selected-variant level: the cart counts an item by its own variantLabel,
+       so the badge must disappear when the shopper picks a non-qualifying one. */
+    assert(
+      !!main.getMatchingVolumeRule(frankincense, "2oz"),
+      "the badge stays on the 2oz selection"
+    );
+    assert(
+      main.getMatchingVolumeRule(frankincense, "1oz") === null,
+      "the badge is hidden on the 1oz selection"
+    );
+    assert(
+      !!main.getMatchingVolumeRule(frankincense, " 2 OZ "),
+      "variant matching normalises whitespace and case, as cart.js does"
+    );
+
+    /* Parity: the two implementations must agree on every case above. */
+    [
+      [frankincense, "2oz"],
+      [frankincense, "1oz"],
+      [sleepSalve, null],
+      [miracleBalm, null],
+      [miracleBalm, "2oz"],
+      [textMatchSalve, null],
+      [cheapSalve, null],
+      [bodyProduct, null]
+    ].forEach(([product, label]) => {
+      const badged = !!main.getMatchingVolumeRule(product, label === null ? undefined : label);
+      const cartItem = { id: product.id, category: product.category, qty: 1 };
+      if (label) cartItem.variantLabel = label;
+      let cartQualifies = cartEngine.itemMatchesRule(cartItem, volumeRule);
+      // The cart has no notion of "this tier is not cheaper than the item";
+      // the Worker applies min(base, unitPrice) instead. The badge must not
+      // advertise a tier in that case, so treat it as a non-match here too.
+      if (product.price <= volumeRule.unitPrice) cartQualifies = false;
+      eq(
+        badged,
+        cartQualifies,
+        `badge and cart agree on ${product.id}${label ? " @" + label : ""}`
+      );
+    });
+  }
+);
+
+/* ---------- CMS feature switches are honoured ---------- */
+const savedContent = mockWindow.YL_CONTENT;
+mockWindow.YL_CONTENT = undefined;
+["enableOrderStatusLookup", "enableCountdownTicker", "enableApothecaryQuiz"].forEach((flag) => {
+  eq(main.siteFlagEnabled(flag), true, `${flag} defaults to on when content.json is absent`);
+});
+mockWindow.YL_CONTENT = {
+  site: {
+    enableOrderStatusLookup: false,
+    enableCountdownTicker: false,
+    enableApothecaryQuiz: false
+  }
+};
+["enableOrderStatusLookup", "enableCountdownTicker", "enableApothecaryQuiz"].forEach((flag) => {
+  eq(main.siteFlagEnabled(flag), false, `${flag} is read from window.YL_CONTENT.site`);
+});
+mockWindow.YL_CONTENT = savedContent;
+["enableOrderStatusLookup", "enableCountdownTicker", "enableApothecaryQuiz"].forEach((flag) => {
+  assert(
+    mainJsSource.indexOf('siteFlagEnabled("' + flag + '")') !== -1,
+    `main.js actually reads ${flag}`
+  );
+});
+const contentJson = JSON.parse(
+  fs404.readFileSync(path404.join(repoRoot, "assets/data/content.json"), "utf8")
+);
+["enableOrderStatusLookup", "enableCountdownTicker", "enableApothecaryQuiz"].forEach((flag) => {
+  assert(
+    Object.prototype.hasOwnProperty.call(contentJson.site, flag),
+    `content.json still declares ${flag}, so main.js has something to read`
+  );
+});
+
+/* ---------- H-14: the privacy policy has to describe the site that exists ----------
+   It claimed no form but the newsletter collected contact information (five
+   others do), and stated as fact that Umami analytics runs (the website id is
+   still a placeholder). It named none of the processors actually handling
+   customer data. These assertions are derived from the code and config, not
+   from a copy of the prose, so a new form or a new third party breaks them. */
+const privacySrc = fs404.readFileSync(path404.join(repoRoot, "privacy.html"), "utf8");
+
+/* Every processor the site actually talks to has to be named on the page. */
+[
+  "Stripe",
+  "Cloudflare",
+  "Netlify",
+  "Formspree",
+  "Kit",
+  "Resend",
+  "Tawk.to",
+  "Google Fonts",
+  "Google Translate",
+  "Umami",
+  "Etsy"
+].forEach((processor) => {
+  assert(
+    privacySrc.indexOf(processor) !== -1,
+    `privacy.html names ${processor}, which handles data for this site`
+  );
+});
+
+/* Every form that collects something has to be described. */
+[
+  ["Contact form", /Contact form/],
+  ["product review", /Product review form/],
+  ["shop review", /Shop review form/],
+  ["restock alert", /Restock &amp; launch alerts/],
+  ["gift card recipient", /Gift card recipient details/],
+  ["newsletter", /Newsletter signup/],
+  ["live chat", /Live chat/]
+].forEach(([label, pattern]) => {
+  assert(pattern.test(privacySrc), `privacy.html describes the ${label} form`);
+});
+
+/* The false claim that nothing else collects contact information is gone. */
+assert(
+  privacySrc.indexOf("There's no other form on this site that collects contact info") === -1,
+  "privacy.html no longer claims the newsletter is the only form that collects contact info"
+);
+
+/* Analytics is conditional, so the page must not state it as running. The
+   website id is still a placeholder, so nothing loads today. */
+const contentSrc = JSON.parse(
+  fs404.readFileSync(path404.join(repoRoot, "assets/data/content.json"), "utf8")
+);
+const umamiConfigured =
+  !!contentSrc.site.umamiWebsiteId && contentSrc.site.umamiWebsiteId.indexOf("YOUR_") !== 0;
+if (!umamiConfigured) {
+  assert(
+    privacySrc.indexOf('We run <a href="https://umami.is/"') === -1,
+    "privacy.html does not assert that Umami is running while its id is a placeholder"
+  );
+  assert(
+    /analytics may be enabled/i.test(privacySrc),
+    "privacy.html says analytics may be enabled rather than that it is"
+  );
+}
+assert(
+  /cookieless/i.test(privacySrc),
+  "privacy.html describes Umami as cookieless if it is enabled"
+);
+
+/* Tawk.to is live on this page and sets its own cookies -- that has to be said. */
+assert(
+  privacySrc.indexOf("tawk.to") !== -1 && /Tawk\.to[\s\S]{0,400}cookies/i.test(privacySrc),
+  "privacy.html says the live chat sets its own cookies"
+);
+
+/* Browser storage: the cart, wishlist, recently viewed and applied gift card. */
+[/wishlist/i, /Your cart/i, /Recently viewed/i, /gift card code you've applied/i].forEach(
+  (pattern) => {
+    assert(pattern.test(privacySrc), `privacy.html lists ${pattern} among what is stored locally`);
+  }
+);
+assert(
+  privacySrc.indexOf("localStorage") !== -1,
+  "privacy.html still names localStorage as where that lives"
+);
+
+/* Build markers must survive the rewrite, in both comment syntaxes. */
+eq(
+  (privacySrc.match(/<!--YL:/g) || []).length,
+  (privacySrc.match(/<!--\/YL:/g) || []).length,
+  "privacy.html HTML build markers stay paired"
+);
+eq(
+  (privacySrc.match(/\/\*YL:/g) || []).length,
+  (privacySrc.match(/\/\*\/YL:/g) || []).length,
+  "privacy.html script build markers stay paired"
+);
+
+/* ---------- Scroll reveal: the paint guard must not be a coin flip ----------
+   main.js is the eighth deferred script on these pages, so it starts within a
+   few milliseconds either side of the first paint. The old guard asked only
+   "has anything painted at all", so which side of that line it landed on
+   decided whether the entrance animation played -- and scripts/reveal-check.js
+   failed on index.html with "paint entries = 2" and "first .reveal was not
+   armed" whenever the coin came up the wrong way. */
+assert(typeof main.paintIsStale === "function", "paintIsStale is exported for testing");
+eq(main.PAINT_PROTECTION_MS, 200, "the paint-protection budget is 200ms");
+
+eq(
+  main.paintIsStale(300, 304),
+  false,
+  "a paint four milliseconds old is not stale -- nobody has read anything yet"
+);
+eq(
+  main.paintIsStale(300, 300 + main.PAINT_PROTECTION_MS),
+  false,
+  "a paint exactly at the budget is still inside it"
+);
+eq(
+  main.paintIsStale(300, 300 + main.PAINT_PROTECTION_MS + 1),
+  true,
+  "a paint past the budget is stale, and what it put on screen is left alone"
+);
+eq(
+  main.paintIsStale(200, 1800),
+  true,
+  "the slow load -- a script arriving 1.6s after the paint -- still protects"
+);
+
+/* The paint buffer is filled asynchronously, so an empty one is not proof of a
+   blank page. It is only trusted while the page is young. */
+eq(main.paintIsStale(null, 120), false, "no paint reported early on means nothing has painted");
+eq(
+  main.paintIsStale(null, main.ASSUME_PAINTED_AFTER_MS + 1),
+  true,
+  "an empty paint buffer a second into the page is not believed"
+);
+eq(main.paintIsStale(undefined, 50), false, "an absent timestamp early on is not stale");
+
+/* Unusable inputs must fail safe -- toward leaving visible content alone. */
+eq(main.paintIsStale(NaN, 500), true, "an unusable paint timestamp is treated as stale");
+eq(main.paintIsStale(Infinity, 500), true, "an infinite paint timestamp is treated as stale");
+eq(main.paintIsStale(100, NaN), true, "an unusable clock is treated as stale");
+
+assert(
+  mainJsSource.indexOf('return performance.getEntriesByType("paint").length > 0;') === -1,
+  "hasPainted is no longer a bare 'did anything paint' check"
+);
+assert(
+  mainJsSource.indexOf("return paintIsStale(firstPaintTime, performance.now());") !== -1,
+  "hasPainted decides on how old the paint is"
+);
 
 console.log(`\nmain.test.js: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

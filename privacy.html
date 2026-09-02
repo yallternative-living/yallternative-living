@@ -178,31 +178,46 @@
 
         <div class="reveal">
           <h2>Just Browsing?</h2>
-          <p>If you're only here to look around, here's the good news: this site doesn't require an account, and it doesn't send anything about you to a server just for visiting. Two small things get saved, and both stay entirely on your own device:</p>
+          <p>If you're only here to look around, here's the good news: this site doesn't require an account, and it doesn't create one for you in the background. A handful of things get saved as you poke around, and all of them live in your browser's <code>localStorage</code> &mdash; on your own device, not on a server:</p>
           <ul>
-            <li><strong>Your theme choice</strong> (dark or light mode) is saved in your browser's <code>localStorage</code> so the site remembers which one you picked next time.</li>
-            <li><strong>Your "Saved For Later" wishlist</strong> (anything you heart on the shop page) is also saved only in your browser's <code>localStorage</code>.</li>
+            <li><strong>Your theme choice</strong> (dark or light mode), so the site remembers which one you picked.</li>
+            <li><strong>Your &ldquo;Saved For Later&rdquo; wishlist</strong> &mdash; anything you heart on the shop page.</li>
+            <li><strong>Your cart</strong> &mdash; which goods, which sizes, how many, and any gift message or recipient email you've typed into a gift card.</li>
+            <li><strong>Recently viewed items</strong>, so the carousel at the bottom of the shop can show you where you've been (the last eight, by product ID).</li>
+            <li><strong>A gift card code you've applied</strong> to your cart, along with its balance, and your Alt-Points total.</li>
+            <li><strong>Your language choice</strong>, if you use the translation tool &mdash; that one is a cookie (<code>googtrans</code>), because that's what Google Translate reads.</li>
           </ul>
-          <p>Neither of those ever gets transmitted to us, to a database, or to anyone else. Clear your browser data (or switch devices or browsers) and both reset, because they were never anywhere but your own machine to begin with.</p>
+          <p>None of that is sent anywhere while you're browsing. The cart is the one to know about: it stays on your device right up until you click Checkout, at which point its contents go to our checkout service so it can build your payment page. Clear your browser data, or switch devices or browsers, and all of it resets, because it was never anywhere but your own machine to begin with.</p>
         </div>
         <hr class="rule">
 
         <div class="reveal">
           <h2>What We Collect Directly</h2>
-          <p>Beyond the local browser storage described above, the only information this site itself directly collects is the email address you choose to give us if you sign up for our email updates (more on that below). There's no other form on this site that collects contact info, account details, or anything else about you.</p>
+          <p>Every form on this site is listed here, along with where what you type actually goes. Nothing on this list is optional to mention and nothing is left off it:</p>
+          <ul>
+            <li><strong>Contact form</strong> (on the Contact page) &mdash; your name, email address and message. Delivered to our inbox by <a href="https://formspree.io/legal/privacy-policy/" target="_blank" rel="noopener">Formspree<span class="sr-only"> (opens in new tab)</span></a>, a form-forwarding service.</li>
+            <li><strong>Product review form</strong> (on a product's page in the shop) &mdash; your name or handle, an optional email address, which product, a star rating and your review. Also delivered through Formspree. We read them by hand and publish approved ones; the email address is never published.</li>
+            <li><strong>Shop review form</strong> (on the Reviews page) &mdash; the same fields, for a review of the whole shop rather than one product. Same route, same handling.</li>
+            <li><strong>Restock &amp; launch alerts</strong> (the &ldquo;Notify me when it's back&rdquo; box in the shop) &mdash; your email address and which item you asked about, again through Formspree.</li>
+            <li><strong>Gift card recipient details</strong> &mdash; if you buy a gift card for someone, the recipient's email address, your name and your message travel with the order through checkout so the code can be emailed to them.</li>
+            <li><strong>Newsletter signup</strong> (in the footer, and on the welcome page) &mdash; your email address, held by our newsletter provider. More on that below.</li>
+            <li><strong>Live chat</strong> &mdash; if you open the chat bubble and start a conversation, whatever you type in it (and, if you offer it, your name and email) is held by our chat provider. More on that below too.</li>
+          </ul>
+          <p>There is no account system, no login, and no profile being assembled anywhere. What you send us is what we have.</p>
         </div>
         <hr class="rule">
 
         <div class="reveal">
           <h2>When You Buy Something</h2>
           <p>Your cart lives right here on this site, but payment itself is handled by <a href="https://stripe.com" target="_blank" rel="noopener">Stripe<span class="sr-only"> (opens in new tab)</span></a>, a third-party payment processor. When you check out, you're taken to a payment page hosted by Stripe -- your card details are entered there, not on our site, and never pass through or get stored on our servers. That means your name, shipping address, email, and payment details are collected and stored by Stripe, not by us directly. We see your order information so we can make and ship your goods, but the sensitive handling (card numbers, etc.) never touches our own servers because we don't run any.</p>
+          <p>Getting you to that Stripe page takes two pieces of plumbing, and both see your order on the way through. The Checkout button posts your cart to a small service of ours running on <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener">Cloudflare Workers<span class="sr-only"> (opens in new tab)</span></a>, which re-prices everything against our own catalogue and asks Stripe for a payment page. After you pay, Stripe notifies a second small service of ours running on <a href="https://www.netlify.com/privacy/" target="_blank" rel="noopener">Netlify Functions<span class="sr-only"> (opens in new tab)</span></a>, which is what issues gift card codes and keeps track of their balances. If your order includes a gift card, that service sends the code by email through <a href="https://resend.com/legal/privacy-policy" target="_blank" rel="noopener">Resend<span class="sr-only"> (opens in new tab)</span></a> &mdash; to you, or to the recipient address you gave us.</p>
           <p>For the full details on how Stripe handles your data, read <a href="https://stripe.com/privacy" target="_blank" rel="noopener">Stripe's own privacy policy<span class="sr-only"> (opens in new tab)</span></a>: they're the ones actually storing and processing that information, so they're the most accurate source on it.</p>
         </div>
         <hr class="rule">
 
         <div class="reveal">
           <h2>Our Email Updates</h2>
-          <p>If you sign up for our email updates, the email address you provide is stored by our email newsletter service and used only to send you the updates you asked for. We don't sell your email address or share it with anyone outside of running that newsletter. You can unsubscribe any time using the link included in any email we send.</p>
+          <p>If you sign up for our email updates, the email address you provide is stored by <a href="https://kit.com/privacy" target="_blank" rel="noopener">Kit<span class="sr-only"> (opens in new tab)</span></a> (the service formerly called ConvertKit), and used only to send you the updates you asked for. The signup form posts straight to Kit, so your address goes to them directly. We don't sell it or share it with anyone outside of running that newsletter, and you can unsubscribe any time using the link included in any email we send.</p>
         </div>
         <hr class="rule">
 
@@ -214,14 +229,36 @@
 
         <div class="reveal">
           <h2>Fonts</h2>
-          <p>This site loads its typefaces from Google Fonts. That means your browser sends a request to Google's servers when a page loads, which may include your IP address. Google's privacy policy for this service is available at <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">policies.google.com/privacy<span class="sr-only"> (opens in new tab)</span></a>. No other font-related third parties are involved.</p>
+          <p>This site loads its typefaces from Google Fonts (<code>fonts.googleapis.com</code> and <code>fonts.gstatic.com</code>). That means your browser sends a request to Google's servers when a page loads, which may include your IP address. Google's privacy policy for this service is available at <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">policies.google.com/privacy<span class="sr-only"> (opens in new tab)</span></a>. No other font-related third parties are involved.</p>
         </div>
         <hr class="rule">
 
         <div class="reveal">
           <h2>Cookies &amp; Analytics</h2>
-          <p>We only use strictly necessary data storage to make the site function for you. Specifically, we use local storage to remember your theme preference (dark or light mode) and your wishlist. If you use the translation tool, a functional cookie is set to remember your language choice. We do not use these functional cookies or local storage for tracking or advertising. We run <a href="https://umami.is/" target="_blank" rel="noopener">Umami<span class="sr-only"> (opens in new tab)</span></a>, a privacy-first analytics tool, to see basic things like how many people visited and which products get added to the cart. Umami doesn't use cookies, doesn't collect or store any personal data, doesn't fingerprint your device, and can't track you across other websites. It just counts anonymous, aggregate activity.</p>
-          <p>That said, the third-party services embedded on this site (Stripe during checkout, Google Translate for language tools, and Etsy once you click through) may set their own cookies or use their own tracking as part of how they operate. Those are governed by those companies' own policies.</p>
+          <p>The browser storage this site uses is the functional kind, listed in full under &ldquo;Just Browsing?&rdquo; above: your theme, your wishlist, your cart, your recently viewed items, an applied gift card, and &mdash; if you use the translation tool &mdash; a cookie holding your language choice. None of it is used for tracking or advertising.</p>
+          <p><strong>Analytics.</strong> This site is built to run <a href="https://umami.is/" target="_blank" rel="noopener">Umami<span class="sr-only"> (opens in new tab)</span></a>, and analytics may be enabled here. If it is: Umami is cookieless, doesn't collect or store personal data, doesn't fingerprint your device, and can't track you across other websites &mdash; it counts anonymous, aggregate activity like how many people visited a page or added something to a cart. Our search box reports only how long a search was and whether it found anything, never what you typed. If analytics is switched off, nothing is loaded and nothing is counted.</p>
+          <p><strong>Live chat.</strong> The chat bubble in the corner is <a href="https://www.tawk.to/privacy-policy/" target="_blank" rel="noopener">Tawk.to<span class="sr-only"> (opens in new tab)</span></a>, and it is live on nearly every page of this site. Unlike the rest of what's here, it loads its own script and sets its own cookies (it uses them to recognise a returning visitor and keep a conversation together), and it can see the page you're on. Anything you type into the chat is held by Tawk.to as well as reaching us.</p>
+          <p><strong>Translation.</strong> Google Translate is opt-in: nothing from Google's translation service loads until you actually pick a language. Once you do, the page text is sent to Google to be translated and the <code>googtrans</code> cookie records your choice.</p>
+          <p>The other third-party services embedded here &mdash; Stripe during checkout, and Etsy once you click through &mdash; may set their own cookies or use their own tracking as part of how they operate. Those are governed by those companies' own policies.</p>
+        </div>
+        <hr class="rule">
+
+        <div class="reveal">
+          <h2>Everyone Who Touches Your Data</h2>
+          <p>We're one person and a workshop, so almost everything here is somebody else's service doing a job we can't do ourselves. This is the whole list, and what each one is for:</p>
+          <ul>
+            <li><a href="https://stripe.com/privacy" target="_blank" rel="noopener">Stripe<span class="sr-only"> (opens in new tab)</span></a> &mdash; payments. Holds your name, shipping address, email and payment details.</li>
+            <li><a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener">Cloudflare Workers<span class="sr-only"> (opens in new tab)</span></a> &mdash; runs our checkout service, which sees your cart on its way to Stripe.</li>
+            <li><a href="https://www.netlify.com/privacy/" target="_blank" rel="noopener">Netlify<span class="sr-only"> (opens in new tab)</span></a> &mdash; hosts this site, and runs the functions that issue gift card codes and track their balances.</li>
+            <li><a href="https://formspree.io/legal/privacy-policy/" target="_blank" rel="noopener">Formspree<span class="sr-only"> (opens in new tab)</span></a> &mdash; delivers the contact, review and restock-alert forms to our inbox.</li>
+            <li><a href="https://kit.com/privacy" target="_blank" rel="noopener">Kit<span class="sr-only"> (opens in new tab)</span></a> (formerly ConvertKit) &mdash; holds newsletter subscribers.</li>
+            <li><a href="https://resend.com/legal/privacy-policy" target="_blank" rel="noopener">Resend<span class="sr-only"> (opens in new tab)</span></a> &mdash; sends gift card emails.</li>
+            <li><a href="https://www.tawk.to/privacy-policy/" target="_blank" rel="noopener">Tawk.to<span class="sr-only"> (opens in new tab)</span></a> &mdash; the live chat widget, and its cookies.</li>
+            <li><a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google<span class="sr-only"> (opens in new tab)</span></a> &mdash; Google Fonts on every page, and Google Translate only if you ask for it.</li>
+            <li><a href="https://umami.is/privacy" target="_blank" rel="noopener">Umami<span class="sr-only"> (opens in new tab)</span></a> &mdash; cookieless analytics, if analytics is enabled.</li>
+            <li><a href="https://www.etsy.com/legal/privacy/" target="_blank" rel="noopener">Etsy<span class="sr-only"> (opens in new tab)</span></a> &mdash; our second storefront, once you click through to it.</li>
+          </ul>
+          <p>If that list ever changes, this page changes with it. That's the deal.</p>
         </div>
         <hr class="rule">
 

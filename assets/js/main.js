@@ -178,13 +178,48 @@
     return sharedRevealIO;
   }
 
-  /* Has the browser put anything on screen yet? Before the first paint the
-     page is still blank, so hiding an element costs nothing and the entrance
-     animation plays exactly as designed. Measured on this site, that is the
-     normal case: DOMContentLoaded lands at ~124ms and first paint at ~180ms.
-     After a paint, though, the reader is already looking at the content --
-     that is the slow load where this deferred script arrives late, and
-     hiding what is on screen is the bug this guards against. */
+  /* How old does a paint have to be before hiding what it put on screen
+     counts as blinking content out from under the reader?
+
+     This used to be a bare "has anything painted at all", and that question
+     conflates two opposite situations. main.js is the eighth deferred script
+     on these pages, behind ~150KB of catalogue data, so on a normal load it
+     starts within a few milliseconds either side of the first paint. Whether
+     it landed a moment before or a moment after decided, by coin flip,
+     whether the entrance animation played at all -- and the reveal gate's
+     "above-fold elements are armed" check flipped with it. Nobody has read
+     anything in four milliseconds; that is the fast path, and arming is
+     right. The failure this guard exists for is the slow load, where the
+     script arrives seconds later over content the reader has been looking at
+     the whole time.
+
+     A budget separates them. 200ms is comfortably longer than the jitter
+     between paint and script start on a warm load, and far shorter than the
+     delay that makes a late arrival visible -- roughly the point at which a
+     reader has registered what is on screen, and well under the 600ms the
+     entrance transition itself takes. */
+  var PAINT_PROTECTION_MS = 200;
+
+  /* The paint buffer is also populated asynchronously by the compositor -- an
+     empty array has been observed here more than 300ms after the paint it was
+     supposed to report. So an empty buffer is not proof of a blank page; it is
+     only usable as one while the page is still young. Past this point, believe
+     the clock instead: a script that has not begun running a full second into
+     the page is, by any measure, the late arrival this guard is for. */
+  var ASSUME_PAINTED_AFTER_MS = 1000;
+
+  /* Split out so the decision can be tested without a browser. `firstPaintTime`
+     is null when the buffer reports no paint. An unusable timestamp is treated
+     as stale, because leaving visible content alone is always the safe answer. */
+  function paintIsStale(firstPaintTime, now) {
+    if (!isFinite(now)) return true;
+    if (firstPaintTime === null || firstPaintTime === undefined) {
+      return now > ASSUME_PAINTED_AFTER_MS;
+    }
+    if (!isFinite(firstPaintTime)) return true;
+    return now - firstPaintTime > PAINT_PROTECTION_MS;
+  }
+
   function hasPainted() {
     try {
       /* An entry type the browser does not implement comes back as an empty
@@ -201,7 +236,14 @@
         PerformanceObserver.supportedEntryTypes &&
         PerformanceObserver.supportedEntryTypes.indexOf("paint") !== -1;
       if (!supportsPaintTiming) return true;
-      return performance.getEntriesByType("paint").length > 0;
+      var entries = performance.getEntriesByType("paint");
+      var firstPaintTime = null;
+      for (var i = 0; i < entries.length; i++) {
+        if (firstPaintTime === null || entries[i].startTime < firstPaintTime) {
+          firstPaintTime = entries[i].startTime;
+        }
+      }
+      return paintIsStale(firstPaintTime, performance.now());
     } catch (e) {
       return true;
     }
@@ -585,6 +627,48 @@
     '<svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
     '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>';
 
+  /* ---------- shared: today's date in the shop's own timezone ----------
+     Every pop-up date in events.json is a plain calendar date in Landrum,
+     South Carolina. Comparing them against new Date().toISOString() compares
+     them against UTC, so from 8pm Eastern (7pm on standard time) the site
+     already believed it was tomorrow: today's market moved itself to "Past
+     Events" while the countdown -- which reads local time -- still had it
+     running. Same technique the dispatch badge already uses. */
+  function todayInEastern() {
+    try {
+      var parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/New_York",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+      }).formatToParts(new Date());
+      var map = {};
+      parts.forEach(function (pt) {
+        map[pt.type] = pt.value;
+      });
+      if (map.year && map.month && map.day) {
+        return map.year + "-" + map.month + "-" + map.day;
+      }
+    } catch (e) {
+      void e;
+    }
+    /* An engine without full ICU (or without America/New_York) falls back to
+       UTC, which is what this used to do everywhere. */
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  /* ---------- shared: read a CMS feature switch ----------
+     window.YL_CONTENT is generated from assets/data/content.json, so it is
+     the authority for every /admin toggle. Several switches shipped read by
+     nothing at all (the order lookup, the countdown ticker, the quiz), which
+     meant flipping one in the dashboard changed nothing in the browser.
+     Absent means on: that is how each of these features shipped, and a page
+     that loads without content-data.js must not silently lose them. */
+  function siteFlagEnabled(name) {
+    var site = (window.YL_CONTENT && window.YL_CONTENT.site) || {};
+    return site[name] !== false;
+  }
+
   /* ---------- shared: escape a value for safe use inside an HTML attribute ---------- */
   function attrEsc(str) {
     if (str == null) return "";
@@ -605,6 +689,22 @@
     if (!url) return "";
     var trimmed = String(url).trim();
     if (/^(https?:)?\/\//i.test(trimmed) || /^\//.test(trimmed)) return trimmed;
+    return "";
+  }
+
+  /* ---------- shared: only allow an image path into src= ----------
+     safeUrl() above is deliberately narrow -- absolute http(s), or a path
+     that starts with "/" -- because it guards link hrefs. Images written in
+     the CMS JSON are legitimately document-relative ("assets/img/x.jpg"), so
+     that one extra shape is accepted here: a plain relative path of ordinary
+     path characters, which cannot carry a scheme, a host, whitespace or a
+     control character. Everything else -- javascript:, data:, vbscript:, a
+     tab-obfuscated scheme -- comes back empty. */
+  function safeImageSrc(url) {
+    var vetted = safeUrl(url);
+    if (vetted) return vetted;
+    var raw = String(url == null ? "" : url).trim();
+    if (/^[A-Za-z0-9][A-Za-z0-9._-]*(?:\/[A-Za-z0-9._-]+)*$/.test(raw)) return raw;
     return "";
   }
 
@@ -1190,33 +1290,72 @@
     ];
   }
 
-  function getMatchingVolumeRule(p) {
+  function normalizeVariantLabel(label) {
+    return String(label == null ? "" : label)
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "");
+  }
+
+  /* Deliberately in step with itemMatchesRule() in assets/js/cart.js, which is
+     itself byte-identical to the copy in workers/checkout.js. The badge's own
+     version used to be looser -- no text match, no miracle-balm/sleep-salve
+     cases, no price comparison -- so a variantless salve, or one priced under
+     the tier, was badged "2+ for $14.99 ea" on the card while the cart and
+     Stripe both refused to honour it.
+
+     `selectedVariantLabel` is the option the shopper currently has chosen. The
+     cart matches an item's own variantLabel, so the card must too: with 1oz
+     selected, a 2oz-only tier does not apply and the badge must go. Omit it to
+     ask the looser "could any option qualify" question the initial render
+     needs. */
+  function productQualifiesForVolumeRule(p, rule, selectedVariantLabel) {
+    var normQ = normalizeVariantLabel(rule.qualifyingVariant);
+    var id = String(p.id || "");
+    if (id === "miracle-balm") return false;
+    if (id === "sleep-salve") return true;
+
+    var options = p.variants && Array.isArray(p.variants.options) ? p.variants.options : [];
+    if (options.length > 0) {
+      if (selectedVariantLabel !== undefined && selectedVariantLabel !== null) {
+        return normalizeVariantLabel(selectedVariantLabel) === normQ;
+      }
+      return options.some(function (opt) {
+        return normalizeVariantLabel(opt.label) === normQ;
+      });
+    }
+
+    /* No variants at all: cart.js falls back to a text match on the product's
+       own copy, so a salve with "2oz" in its name or blurb qualifies. */
+    var text = (
+      String(p.name || "") +
+      " " +
+      String(p.blurb || "") +
+      " " +
+      String(p.description || "")
+    )
+      .toLowerCase()
+      .replace(/\s+/g, "");
+    return text.indexOf(normQ) !== -1;
+  }
+
+  function getMatchingVolumeRule(p, selectedVariantLabel) {
     if (!p || !p.category) return null;
     var rules = getVolumePricingRules();
     for (var i = 0; i < rules.length; i++) {
       var r = rules[i];
-      if (r.category === p.category) {
-        if (r.qualifyingVariant) {
-          if (
-            p.id === "miracle-balm" &&
-            String(r.qualifyingVariant).toLowerCase().indexOf("2oz") !== -1
-          ) {
-            continue;
-          }
-          if (p.variants && Array.isArray(p.variants.options) && p.variants.options.length > 0) {
-            var normQ = String(r.qualifyingVariant).trim().toLowerCase().replace(/\s+/g, "");
-            var hasVariant = p.variants.options.some(function (opt) {
-              var normL = String(opt.label || "")
-                .trim()
-                .toLowerCase()
-                .replace(/\s+/g, "");
-              return normL === normQ;
-            });
-            if (!hasVariant) continue;
-          }
-        }
-        return r;
+      if (r.category !== p.category) continue;
+      /* A tier that is not cheaper than the product is not a deal: the Worker
+         charges min(base, unitPrice), so a salve at or under the tier price
+         pays the same either way and the badge would advertise a discount
+         nobody receives. */
+      if (typeof p.price === "number" && isFinite(Number(r.unitPrice))) {
+        if (Number(r.unitPrice) >= p.price) continue;
       }
+      if (r.qualifyingVariant && !productQualifiesForVolumeRule(p, r, selectedVariantLabel)) {
+        continue;
+      }
+      return r;
     }
     return null;
   }
@@ -1242,7 +1381,9 @@
       p.sale && p.sale.label
         ? '<span class="stock-badge sale-badge">' + attrEsc(p.sale.label) + "</span>"
         : volumeBadgeText
-          ? '<span class="stock-badge sale-badge">' + attrEsc(volumeBadgeText) + "</span>"
+          ? '<span class="stock-badge sale-badge volume-badge">' +
+            attrEsc(volumeBadgeText) +
+            "</span>"
           : "";
     if (p.comingSoon) return '<span class="stock-badge low-stock">Coming Soon</span>';
     if (typeof p.stock !== "number") return saleBadge;
@@ -2377,6 +2518,17 @@
     if (addBtn) {
       addBtn.setAttribute("data-item-custom1-value", opt.value);
     }
+
+    /* The multi-buy badge is per-variant: the cart only counts a 2oz salve
+       toward the 2oz tier, so leaving "2+ for $14.99 ea" on screen after the
+       shopper picks 1oz promises a price the cart will not give them. */
+    var cardId = card.getAttribute("data-id");
+    var volumeProduct = cardId ? getProductMap().get(cardId) : null;
+    var stillQualifies = volumeProduct ? !!getMatchingVolumeRule(volumeProduct, opt.value) : false;
+    var volumeBadge = card.querySelector(".volume-badge");
+    if (volumeBadge) volumeBadge.hidden = !stillQualifies;
+    var volumeNote = card.querySelector(".volume-pricing-note");
+    if (volumeNote) volumeNote.hidden = !stillQualifies;
   });
 
   /* ---------- Conversion tracking (custom events) ----------
@@ -2431,7 +2583,10 @@
       '<div class="tag-pills">' +
       tags
         .map(function (t) {
-          return '<span class="tag-pill">' + (TAG_LABELS[t] || t) + "</span>";
+          /* TAG_LABELS covers the tags the shop uses today, but `tags` is a
+             free-text list in /admin: an unlisted tag fell through to the raw
+             value and landed in the card on the home and shop pages. */
+          return '<span class="tag-pill">' + (TAG_LABELS[t] || attrEsc(t)) + "</span>";
         })
         .join("") +
       "</div>"
@@ -3143,47 +3298,68 @@
     };
   }
 
+  /* ---------- Order status: the honest lookup ----------
+     There is no order API on this site. The page used to answer any
+     syntactically plausible string with "Order Confirmed, payment processed
+     securely via Stripe", a four-step fulfilment timeline, a hardcoded
+     two-item order and a printable packing slip -- none of it fetched from
+     anywhere, all of it fabricated for whatever the visitor typed. It also
+     reflected `?email=` straight back into the input and let a "Reorder"
+     button push those invented items into the real cart.
+
+     What the site can honestly offer is what the old fallback branch already
+     said: mail the reference to a human. That is now the only branch. The
+     reference is pre-filled into the mail subject so the customer does not
+     have to retype it, and the reply window is stated up front. */
+  function orderStatusMailtoHref(reference) {
+    var subject = reference ? "Order status: " + reference : "Order status request";
+    return "mailto:y.allternative.living@gmail.com?subject=" + attrEsc(encodeURIComponent(subject));
+  }
+
+  function orderStatusFallbackHTML(reference) {
+    var safeRef = attrEsc(reference || "");
+    return (
+      '<div class="order-lookup-unavailable" role="status">' +
+      "<h2>We look this one up by hand</h2>" +
+      "<p>Order tracking isn&rsquo;t automated here &mdash; every batch is made and boxed by one " +
+      "person, and every lookup is answered by that same person. " +
+      (safeRef ? "Send us <strong>" + safeRef + "</strong> " : "Send us your order reference ") +
+      "and we&rsquo;ll check where it stands and write back " +
+      "<strong>within one business day</strong>.</p>" +
+      '<p><a class="btn btn-primary" href="' +
+      orderStatusMailtoHref(reference) +
+      '">Email us about this order</a></p>' +
+      '<p class="muted">Prefer to write it yourself? We\'re at ' +
+      '<a href="mailto:y.allternative.living@gmail.com">y.allternative.living@gmail.com</a>.</p>' +
+      "</div>"
+    );
+  }
+
   function initOrderStatusPage() {
     var form = document.getElementById("orderStatusPageForm");
     var input = document.getElementById("orderQueryInput");
-    var verifyInput = document.getElementById("orderVerifyInput");
     var errorDiv = document.getElementById("orderStatusError");
     var resultSection = document.getElementById("orderStatusResultSection");
+    var lookupCard = document.getElementById("orderStatusLookupCard");
     var timelineContainer = document.getElementById("orderTimelineContainer");
-    var itemsContainer = document.getElementById("orderItemsContainer");
-    var itemsList = document.getElementById("orderItemsList");
-    var reorderBtn = document.getElementById("reorderPastOrderBtn");
-
-    var slipOrderRef = document.getElementById("slipOrderRef");
-    var slipOrderDate = document.getElementById("slipOrderDate");
-    var slipGiftBox = document.getElementById("slipGiftBox");
-    var slipGiftMessageText = document.getElementById("slipGiftMessageText");
-    var slipItemsTableBody = document.getElementById("slipItemsTableBody");
 
     if (!form && !timelineContainer) return;
 
-    var sampleOrderItems = [
-      {
-        id: "frankincense-salve",
-        name: "Y'all Heal Now Miracle Frankincense Salve",
-        price: 19.99,
-        qty: 1,
-        variantLabel: "2oz Tin",
-        variantDelta: 0
-      },
-      {
-        id: "miracle-balm",
-        name: "Y'allternative Miracle Balm",
-        price: 8.0,
-        qty: 1,
-        variantLabel: "1oz",
-        variantDelta: 0
+    /* content.json's switch used to be read by nothing at all, so turning the
+       tool off in /admin left it fully working. Off now means: no form, and
+       the contact route shown in its place rather than a dead page. */
+    if (!siteFlagEnabled("enableOrderStatusLookup")) {
+      if (lookupCard) {
+        lookupCard.hidden = true;
+        lookupCard.setAttribute("hidden", "");
       }
-    ];
+      if (resultSection) resultSection.hidden = false;
+      if (timelineContainer) timelineContainer.innerHTML = orderStatusFallbackHTML("");
+      return;
+    }
 
-    function handleLookup(queryVal, verifyVal) {
-      var val = (queryVal || "").trim();
-      var verify = String(verifyVal || (verifyInput && verifyInput.value) || "").trim();
+    function handleLookup(queryVal) {
+      var val = String(queryVal == null ? (input && input.value) || "" : queryVal).trim();
       if (!val) {
         if (errorDiv) {
           errorDiv.textContent = "Please enter your order reference number.";
@@ -3191,200 +3367,40 @@
         }
         return false;
       }
-      if (!verify && !/^cs_[a-zA-Z0-9_]+/i.test(val)) {
-        if (errorDiv) {
-          errorDiv.textContent =
-            "Please enter your purchase email address or billing zip code for security verification.";
-          errorDiv.hidden = false;
-        }
-        return false;
-      }
       if (errorDiv) errorDiv.hidden = true;
+
+      /* Same shape validation as before -- a Stripe session id, an order
+         reference or an email address. An email is masked before it is shown
+         back, so a shared screen never repeats the address in full. */
       var parsed = parseOrderStatusQuery(val);
+      var display = parsed
+        ? parsed.displayId
+        : val.length > 28
+          ? val.substring(0, 28) + "..."
+          : val;
+
       if (resultSection) resultSection.hidden = false;
-
-      if (parsed) {
-        var safeDisplay = attrEsc(parsed.displayId);
-        if (timelineContainer) {
-          timelineContainer.innerHTML =
-            '<div class="order-status-card">' +
-            '  <div class="order-status-card-header">' +
-            '    <div class="order-status-title-group">' +
-            '      <span class="eyebrow" style="margin-bottom:2px; font-size:0.75rem;">Order Reference</span>' +
-            '      <h3 style="margin:0; font-size:1.25rem; font-family:var(--font-display, serif); color:var(--paper);">' +
-            safeDisplay +
-            "</h3>" +
-            "    </div>" +
-            '    <span class="order-status-badge status-in-progress">● Small-Batch Prep</span>' +
-            "  </div>" +
-            '  <div class="timeline-steps">' +
-            '    <div class="timeline-step step-done">' +
-            '      <span class="step-icon"><svg class="yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg></span>' +
-            '      <div class="step-text"><strong>Order Confirmed</strong><span>Payment processed securely via Stripe</span></div>' +
-            "    </div>" +
-            '    <div class="timeline-step step-active">' +
-            '      <span class="step-icon"><svg class="yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path></svg></span>' +
-            '      <div class="step-text"><strong>In the Workshop</strong><span>Handcrafted &amp; prepared in Landrum, SC</span></div>' +
-            "    </div>" +
-            '    <div class="timeline-step step-pending">' +
-            '      <span class="step-icon"><svg class="yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg></span>' +
-            '      <div class="step-text"><strong>Quality Sealed &amp; Packaged</strong><span>Eco-friendly protective packaging</span></div>' +
-            "    </div>" +
-            '    <div class="timeline-step step-pending">' +
-            '      <span class="step-icon"><svg class="yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg></span>' +
-            '      <div class="step-text"><strong>USPS Carrier Dispatch</strong><span>Tracking details sent to your email</span></div>' +
-            "    </div>" +
-            "  </div>" +
-            '  <div class="order-status-meta">' +
-            '    <div class="meta-item"><span class="meta-label">Fulfillment</span><span class="meta-val">Standard Tracked Shipping</span></div>' +
-            '    <div class="meta-item"><span class="meta-label">Apothecary Origin</span><span class="meta-val">Landrum, Upstate SC</span></div>' +
-            "  </div>" +
-            "</div>";
-        }
-
-        if (itemsContainer && itemsList) {
-          itemsList.innerHTML = sampleOrderItems
-            .map(function (item) {
-              return (
-                '<li class="order-item-row">' +
-                "  <div><strong>" +
-                attrEsc(item.name) +
-                "</strong>" +
-                (item.variantLabel
-                  ? ' <span class="muted">(' + attrEsc(item.variantLabel) + ")</span>"
-                  : "") +
-                ' <span class="muted">× ' +
-                item.qty +
-                "</span></div>" +
-                '  <div style="font-weight:600; color:var(--whiskey);">' +
-                (item.price ? "$" + (item.price * item.qty).toFixed(2) : "") +
-                "  </div>" +
-                "</li>"
-              );
-            })
-            .join("");
-          itemsContainer.hidden = false;
-        }
-
-        // Update Fulfillment Packing Slip details (Strictly NO PRICES OR MONEY AMOUNTS)
-        if (slipOrderRef) {
-          slipOrderRef.textContent = parsed.isOrderRef
-            ? parsed.query
-            : "YL-" + parsed.query.slice(-8).toUpperCase();
-        }
-        if (slipOrderDate) {
-          slipOrderDate.textContent = new Date().toISOString().slice(0, 10);
-        }
-        if (slipGiftBox && slipGiftMessageText) {
-          slipGiftMessageText.textContent =
-            "Handcrafted with warmth & care in Landrum, SC. Thank you for supporting small-batch Appalachian makers!";
-        }
-        if (slipItemsTableBody) {
-          slipItemsTableBody.innerHTML = sampleOrderItems
-            .map(function (item) {
-              return (
-                "<tr>" +
-                '  <td style="text-align:center;"><span class="packing-checkbox"></span></td>' +
-                "  <td><strong>" +
-                attrEsc(item.name) +
-                "</strong>" +
-                (item.variantLabel ? " (" + attrEsc(item.variantLabel) + ")" : "") +
-                "</td>" +
-                "  <td><code>" +
-                attrEsc(item.id) +
-                "</code></td>" +
-                '  <td style="text-align:center;"><strong>' +
-                item.qty +
-                "</strong></td>" +
-                "</tr>"
-              );
-            })
-            .join("");
-        }
-      } else {
-        var unkDisplay = attrEsc(val.length > 28 ? val.substring(0, 28) + "..." : val);
-        if (timelineContainer) {
-          timelineContainer.innerHTML =
-            '<div class="order-lookup-unavailable" role="status">' +
-            "  <p>Online order tracking could not locate <strong>" +
-            unkDisplay +
-            "</strong>. Email " +
-            '  <a href="mailto:y.allternative.living@gmail.com">y.allternative.living@gmail.com</a> with your order details and we will verify fulfillment directly with you.</p>' +
-            "</div>";
-        }
-        if (itemsContainer) itemsContainer.hidden = true;
-      }
+      if (timelineContainer) timelineContainer.innerHTML = orderStatusFallbackHTML(display);
       return true;
     }
 
     if (form) {
       form.addEventListener("submit", function (e) {
         e.preventDefault();
-        var val = input ? input.value.trim() : "";
-        handleLookup(val);
+        handleLookup(input ? input.value : "");
       });
     }
 
-    if (reorderBtn) {
-      reorderBtn.onclick = function () {
-        var catalog = (window.YL_PRODUCTS && window.YL_PRODUCTS.products) || [];
-        var validItems = sampleOrderItems
-          .map(function (item) {
-            var p = catalog.find(function (x) {
-              return x.id === item.id;
-            });
-            if (!p || p.comingSoon || p.inStock === false) return null;
-            return {
-              id: p.id,
-              name: p.name,
-              price: p.price,
-              image: p.image,
-              variantLabel: item.variantLabel || "",
-              variantDelta: item.variantDelta || 0,
-              qty: item.qty || 1
-            };
-          })
-          .filter(Boolean);
-
-        if (window.YLCart && typeof window.YLCart.addItems === "function") {
-          window.YLCart.addItems(validItems);
-        } else if (window.YLCart && typeof window.YLCart.addItem === "function") {
-          validItems.forEach(function (it) {
-            window.YLCart.addItem(it);
-          });
-        } else {
-          try {
-            var current = JSON.parse(localStorage.getItem("yl-cart-items") || "[]");
-            validItems.forEach(function (it) {
-              current.push(it);
-            });
-            localStorage.setItem("yl-cart-items", JSON.stringify(current));
-            if (window.YLCart && typeof window.YLCart.init === "function") {
-              window.YLCart.init();
-            }
-          } catch (e) {
-            void e;
-          }
-        }
-
-        if (window.YLCart && typeof window.YLCart.open === "function") {
-          window.YLCart.open();
-        }
-      };
-    }
-
-    // Auto-run lookup if URL search query params exist (?session_id=..., ?order_id=..., ?q=..., ?email=...)
+    /* Only the Stripe session id may pre-fill, and it never submits. `?email=`
+       and `?q=` used to be reflected into the field and looked up on load,
+       which put a customer's address on screen (and into any screenshot or
+       shared link) without them typing it. */
     try {
       if (typeof window !== "undefined" && window.location && window.location.search) {
         var urlParams = new URLSearchParams(window.location.search);
-        var queryParam =
-          urlParams.get("session_id") ||
-          urlParams.get("order_id") ||
-          urlParams.get("q") ||
-          urlParams.get("email");
-        if (queryParam) {
-          if (input) input.value = queryParam;
-          handleLookup(queryParam);
+        var sessionParam = urlParams.get("session_id");
+        if (sessionParam && input && /^cs_[a-zA-Z0-9_]+$/.test(sessionParam)) {
+          input.value = sessionParam;
         }
       }
     } catch (e) {
@@ -3401,7 +3417,7 @@
     var events = window.YL_EVENTS || { upcoming: [], past: [] };
     var rawUpcoming = events.upcoming || [];
     var rawPast = events.past || [];
-    var todayStr = new Date().toISOString().slice(0, 10);
+    var todayStr = todayInEastern();
 
     var upcoming = [];
     var past = [];
@@ -3617,6 +3633,11 @@
     };
   }
 
+  /* setupPastEventsRotation runs again on every past-events re-render, and
+     each run used to add another matchMedia("change") listener that kept a
+     closure over the previous, now-detached cards alive. Bound once. */
+  var pastEventsMqlBound = false;
+
   function setupPastEventsRotation(container) {
     var inner = container.querySelector(".events-carousel-inner");
     var cards = container.querySelectorAll(".event-card");
@@ -3663,13 +3684,16 @@
     }
 
     var mql = window.matchMedia("(max-width: 768px)");
-    mql.addEventListener("change", function () {
-      if (mql.matches) {
-        enterCarouselMode();
-      } else {
-        exitCarouselMode();
-      }
-    });
+    if (!pastEventsMqlBound) {
+      pastEventsMqlBound = true;
+      mql.addEventListener("change", function () {
+        if (mql.matches) {
+          enterCarouselMode();
+        } else {
+          exitCarouselMode();
+        }
+      });
+    }
 
     setupCarouselInteraction(
       container,
@@ -3765,9 +3789,7 @@
       "&text=" +
       encodeURIComponent(title) +
       "&dates=" +
-      dates.start +
-      "/" +
-      dates.end +
+      encodeURIComponent(dates.start + "/" + dates.end) +
       "&details=" +
       encodeURIComponent(details) +
       "&location=" +
@@ -3784,6 +3806,45 @@
       .replace(/\r?\n/g, "\\n");
   }
 
+  /* RFC 5545 3.1: no content line may exceed 75 octets, and a long one is
+     folded by inserting CRLF followed by a single space. Counted in octets,
+     not characters -- an accented place name or an em dash is 2-3 bytes -- and
+     never split inside a multi-byte character, which would corrupt it. */
+  function utf8OctetLength(ch) {
+    var code = ch.codePointAt(0);
+    if (code < 0x80) return 1;
+    if (code < 0x800) return 2;
+    if (code < 0x10000) return 3;
+    return 4;
+  }
+
+  function foldIcsLine(line) {
+    var str = String(line == null ? "" : line);
+    var out = "";
+    var used = 0;
+    var isContinuation = false;
+    for (var i = 0; i < str.length; i++) {
+      var ch = str.charAt(i);
+      var code = str.charCodeAt(i);
+      // Keep a surrogate pair together.
+      if (code >= 0xd800 && code <= 0xdbff && i + 1 < str.length) {
+        ch += str.charAt(i + 1);
+        i++;
+      }
+      var octets = utf8OctetLength(ch);
+      // A folded line's leading space counts toward its own 75.
+      var limit = isContinuation ? 74 : 75;
+      if (used + octets > limit) {
+        out += "\r\n ";
+        used = 1;
+        isContinuation = true;
+      }
+      out += ch;
+      used += octets;
+    }
+    return out;
+  }
+
   function generateIcsContent(ev) {
     if (!ev) return "";
     var dates = getCalendarDates(ev);
@@ -3796,10 +3857,18 @@
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "");
     var uid = "yl-event-" + (slug || "market") + "-" + dates.start + "@yallternativeliving.com";
-    var dtstamp = "20260901T000000Z";
+    /* Was hardcoded to the day this feature shipped, which made every export
+       claim to have been written on 2026-09-01. Derived from the event's own
+       date instead: still deterministic (the same event always produces a
+       byte-identical file, so re-importing updates rather than duplicates),
+       but no longer a lie about when it was produced. */
+    var dtstamp = (dates.start || "19700101") + "T000000Z";
     var description = ev.note || "Handmade small-batch apothecary goods & apparel in Landrum, SC.";
-    if (ev.url) {
-      description += " More info: " + ev.url;
+    /* events.json is CMS-editable, and this URL is handed to whatever calendar
+       client imports the file. Same gate the event card's link uses. */
+    var eventUrl = safeUrl(ev.url);
+    if (eventUrl) {
+      description += " More info: " + eventUrl;
     }
     var location = ev.location
       ? ev.name
@@ -3829,7 +3898,7 @@
       "END:VEVENT",
       "END:VCALENDAR"
     ];
-    return lines.join("\r\n");
+    return lines.map(foldIcsLine).join("\r\n");
   }
 
   function generateIcsDataUri(ev) {
@@ -4098,7 +4167,8 @@
       concern: "all",
       sort: sortSelect ? sortSelect.value : "featured",
       query: "",
-      scent: "all"
+      scent: "all",
+      lastResultCount: 0
     };
 
     /* ---------- Scent filter ----------
@@ -4517,6 +4587,7 @@
 
         renderCards(grid, sortedProducts, { eagerFirst: isFirstRender });
         isFirstRender = false;
+        state.lastResultCount = sortedProducts.length;
 
         if (state.filter === "all") {
           renderBundles(window.YL_PRODUCTS, q, state.concern);
@@ -4655,7 +4726,17 @@
             value !== lastTrackedQuery &&
             typeof window.plausible === "function"
           ) {
-            window.plausible("Site Search", { props: { query: value.trim() } });
+            /* The raw query used to be sent as an event property. Shop
+               search is where people type "eczema on my toddler", their own
+               name, or an order number -- none of which belongs in an
+               analytics dashboard. The two things worth measuring are how
+               much they typed and whether the catalogue had an answer. */
+            window.plausible("Site Search", {
+              props: {
+                length: value.trim().length,
+                hasResults: state.lastResultCount > 0
+              }
+            });
             lastTrackedQuery = value;
           }
         }, 1500);
@@ -4814,10 +4895,34 @@
         toast = document.createElement("div");
         toast.id = "sw-update-toast";
         toast.className = "sw-update-toast";
-        toast.innerHTML =
-          "<span>A new version is available!</span>" +
-          '<button onclick="window.location.reload()" class="btn btn-sm btn-primary" style="margin-left:12px;">Update now</button>' +
-          '<button onclick="this.parentElement.remove()" class="btn btn-sm btn-outline" style="margin-left:6px;" aria-label="Dismiss">&times;</button>';
+        /* Both buttons used to carry inline click attributes, which the CSP
+           blocks outright -- so the only way to dismiss this toast, or to act
+           on it, was to reload the page by hand. Wired as listeners now. */
+        var toastText = document.createElement("span");
+        toastText.textContent = "A new version is available!";
+        toast.appendChild(toastText);
+
+        var updateBtn = document.createElement("button");
+        updateBtn.type = "button";
+        updateBtn.className = "btn btn-sm btn-primary";
+        updateBtn.style.marginLeft = "12px";
+        updateBtn.textContent = "Update now";
+        updateBtn.addEventListener("click", function () {
+          window.location.reload();
+        });
+        toast.appendChild(updateBtn);
+
+        var dismissBtn = document.createElement("button");
+        dismissBtn.type = "button";
+        dismissBtn.className = "btn btn-sm btn-outline";
+        dismissBtn.style.marginLeft = "6px";
+        dismissBtn.setAttribute("aria-label", "Dismiss");
+        dismissBtn.textContent = "\u00d7";
+        dismissBtn.addEventListener("click", function () {
+          if (toast && toast.parentNode) toast.parentNode.removeChild(toast);
+        });
+        toast.appendChild(dismissBtn);
+
         document.body.appendChild(toast);
         // Animate in
         requestAnimationFrame(function () {
@@ -4929,7 +5034,7 @@
           '<div class="ugc-card reveal" role="listitem">' +
           '  <div class="ugc-card-media">' +
           '    <img src="' +
-          attrEsc(post.image) +
+          attrEsc(safeImageSrc(post.image)) +
           '" alt="' +
           attrEsc(altText) +
           '" loading="lazy" decoding="async" width="400" height="400">' +
@@ -5410,7 +5515,7 @@
 
     var upcomingList =
       window.YL_EVENTS && window.YL_EVENTS.upcoming ? window.YL_EVENTS.upcoming : [];
-    var picked = pickNextEvent(upcomingList, new Date().toISOString().slice(0, 10));
+    var picked = pickNextEvent(upcomingList, todayInEastern());
     var nextEvt = picked ? picked.event : null;
     var targetTime = picked ? picked.startTime : 0;
 
@@ -5520,9 +5625,23 @@
     }
 
     update();
-    setInterval(update, 1000);
+    /* This used to be a bare setInterval, so a 1Hz timer kept running against
+       detached nodes for the life of the tab once the events page re-rendered
+       its banner or a soft navigation replaced the hero ticker. Stop as soon
+       as neither element is the one still mounted under its id. */
+    var countdownIntervalId = setInterval(function () {
+      var tickerMounted =
+        !!tickerContainer && document.getElementById("yl-countdown-ticker") === tickerContainer;
+      var bannerMounted =
+        !!bannerContainer && document.getElementById("eventsCountdownBanner") === bannerContainer;
+      if (!tickerMounted && !bannerMounted) {
+        clearInterval(countdownIntervalId);
+        return;
+      }
+      update();
+    }, 1000);
   }
-  initCountdownTicker();
+  if (siteFlagEnabled("enableCountdownTicker")) initCountdownTicker();
 
   /* ---------- R2: Order Status Lookup Modal Controller ---------- */
   function initOrderStatusModal() {
@@ -5561,7 +5680,10 @@
       );
       if (trigger) {
         e.preventDefault();
-        openModal();
+        /* The build hides the trigger with CSS when the switch is off, but a
+           page built before the switch flipped still ships the button. Refuse
+           to open rather than trust the stylesheet. */
+        if (siteFlagEnabled("enableOrderStatusLookup")) openModal();
       }
       var closeBtn = e.target.closest(
         '[data-action="close-order-status"], #closeOrderStatusModalBtn'
@@ -5606,15 +5728,6 @@
       }
     });
 
-    function escapeHtml(str) {
-      return String(str || "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#39;");
-    }
-
     var form = document.getElementById("orderStatusForm");
     var resultsContainer = document.getElementById("order-timeline-container");
     var errorSpan = document.getElementById("orderLookupError");
@@ -5623,9 +5736,7 @@
       form.addEventListener("submit", function (e) {
         e.preventDefault();
         var input = document.getElementById("order-id-input");
-        var verifyInput = document.getElementById("order-verify-input");
         var val = String((input && input.value) || "").trim();
-        var verifyVal = String((verifyInput && verifyInput.value) || "").trim();
         if (!val) {
           if (errorSpan) {
             errorSpan.textContent = "Please enter your order reference number.";
@@ -5633,192 +5744,21 @@
           }
           return;
         }
-        if (!verifyVal && !/^cs_[a-zA-Z0-9_]+/i.test(val)) {
-          if (errorSpan) {
-            errorSpan.textContent =
-              "Please enter your purchase email address or billing zip code for verification.";
-            errorSpan.hidden = false;
-          }
-          return;
-        }
         if (errorSpan) errorSpan.hidden = true;
 
-        var isSessionId = /^cs_[a-zA-Z0-9_]+/i.test(val);
-        var isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(verifyVal || val);
-        var isOrderRef = /^(YL-|ORD-)[a-zA-Z0-9_-]+/i.test(val);
-
-        var displayId = val.length > 24 ? val.substring(0, 24) + "..." : val;
-        var safeDisplay = escapeHtml(displayId);
+        /* Same honest answer as the dedicated page: no order is fetched
+           anywhere, so nothing about one is asserted. See the comment above
+           orderStatusFallbackHTML. */
+        var parsed = parseOrderStatusQuery(val);
+        var display = parsed
+          ? parsed.displayId
+          : val.length > 28
+            ? val.substring(0, 28) + "..."
+            : val;
 
         if (resultsContainer) {
-          resultsContainer.innerHTML = "";
-
-          if (isSessionId || isEmail || isOrderRef) {
-            // Render realistic order status timeline steps for valid Stripe Checkout Session IDs, order refs, or verified email
-            var card = document.createElement("div");
-            card.className = "order-status-card";
-
-            var cardHeader = document.createElement("div");
-            cardHeader.className = "order-status-card-header";
-            cardHeader.innerHTML =
-              '<div class="order-status-title-group">' +
-              '<span class="eyebrow" style="margin-bottom:2px; font-size:0.7rem;">Order Reference</span>' +
-              '<h3 style="margin:0; font-size:1.15rem; font-family:var(--font-display); color:var(--paper);">' +
-              safeDisplay +
-              "</h3>" +
-              "</div>" +
-              '<span class="order-status-badge status-in-progress">● Small-Batch Prep</span>';
-            card.appendChild(cardHeader);
-
-            var steps = document.createElement("div");
-            steps.className = "timeline-steps";
-            steps.innerHTML =
-              '<div class="timeline-step step-done">' +
-              '<span class="step-icon"><svg class="yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg></span>' +
-              '<div class="step-text"><strong>Order Confirmed</strong><span>Payment processed securely via Stripe</span></div>' +
-              "</div>" +
-              '<div class="timeline-step step-active">' +
-              '<span class="step-icon"><svg class="yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path></svg></span>' +
-              '<div class="step-text"><strong>In the Workshop</strong><span>Handcrafted &amp; prepared in Landrum, SC</span></div>' +
-              "</div>" +
-              '<div class="timeline-step step-pending">' +
-              '<span class="step-icon"><svg class="yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg></span>' +
-              '<div class="step-text"><strong>Quality Sealed &amp; Packaged</strong><span>Eco-friendly protective packaging</span></div>' +
-              "</div>" +
-              '<div class="timeline-step step-pending">' +
-              '<span class="step-icon"><svg class="yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg></span>' +
-              '<div class="step-text"><strong>USPS Carrier Dispatch</strong><span>Tracking details sent to your email</span></div>' +
-              "</div>";
-            card.appendChild(steps);
-
-            var meta = document.createElement("div");
-            meta.className = "order-status-meta";
-            meta.innerHTML =
-              '<div class="meta-item"><span class="meta-label">Fulfillment</span><span class="meta-val">Standard Tracked Shipping</span></div>' +
-              '<div class="meta-item"><span class="meta-label">Apothecary Origin</span><span class="meta-val">Landrum, Upstate SC</span></div>';
-            card.appendChild(meta);
-
-            resultsContainer.appendChild(card);
-            resultsContainer.hidden = false;
-
-            // Render past purchased items breakdown and wire 1-click reorder
-            var sampleOrderItems = [
-              {
-                id: "frankincense-salve",
-                name: "Y'all Heal Now Miracle Frankincense Salve",
-                price: 19.99,
-                qty: 1,
-                variantLabel: "2oz",
-                variantDelta: 0
-              },
-              {
-                id: "miracle-balm",
-                name: "Y'allternative Miracle Balm",
-                price: 8.0,
-                qty: 1,
-                variantLabel: "",
-                variantDelta: 0
-              }
-            ];
-
-            var itemsListEl = document.getElementById("orderItemsList");
-            var itemsContainer = document.getElementById("orderItemsContainer");
-            var reorderBtn = document.getElementById("reorderPastOrderBtn");
-            if (itemsListEl && itemsContainer) {
-              itemsListEl.innerHTML = sampleOrderItems
-                .map(function (item) {
-                  return (
-                    '<li class="order-item-row" style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--hide); font-size:0.9rem;">' +
-                    "<div><strong>" +
-                    escapeHtml(item.name) +
-                    "</strong>" +
-                    (item.variantLabel
-                      ? ' <span class="muted">(' + escapeHtml(item.variantLabel) + ")</span>"
-                      : "") +
-                    ' <span class="muted">× ' +
-                    item.qty +
-                    "</span></div>" +
-                    '<div style="font-weight:600; color:var(--whiskey);">' +
-                    (item.price ? "$" + (item.price * item.qty).toFixed(2) : "") +
-                    "</div>" +
-                    "</li>"
-                  );
-                })
-                .join("");
-              itemsContainer.hidden = false;
-            }
-
-            if (reorderBtn) {
-              reorderBtn.onclick = function () {
-                var catalog = (window.YL_PRODUCTS && window.YL_PRODUCTS.products) || [];
-                var validItems = sampleOrderItems
-                  .map(function (item) {
-                    var p = catalog.find(function (x) {
-                      return x.id === item.id;
-                    });
-                    if (!p || p.comingSoon || p.inStock === false) return null;
-                    return {
-                      id: p.id,
-                      name: p.name,
-                      price: p.price,
-                      image: p.image,
-                      variantLabel: item.variantLabel || "",
-                      variantDelta: item.variantDelta || 0,
-                      qty: item.qty || 1
-                    };
-                  })
-                  .filter(Boolean);
-
-                if (window.YLCart && typeof window.YLCart.addItems === "function") {
-                  window.YLCart.addItems(validItems);
-                } else if (window.YLCart && typeof window.YLCart.addItem === "function") {
-                  validItems.forEach(function (it) {
-                    window.YLCart.addItem(it);
-                  });
-                } else {
-                  try {
-                    var current = JSON.parse(localStorage.getItem("yl-cart-items") || "[]");
-                    validItems.forEach(function (it) {
-                      current.push(it);
-                    });
-                    localStorage.setItem("yl-cart-items", JSON.stringify(current));
-                    if (window.YLCart && typeof window.YLCart.init === "function") {
-                      window.YLCart.init();
-                    }
-                  } catch (e) {
-                    void e;
-                  }
-                }
-
-                closeModal();
-                if (window.YLCart && typeof window.YLCart.open === "function") {
-                  window.YLCart.open();
-                }
-              };
-            }
-          } else {
-            var p = document.createElement("p");
-            p.className = "order-lookup-unavailable";
-            p.setAttribute("role", "status");
-            p.textContent = "Online order tracking could not locate " + displayId + ". Email ";
-
-            var a = document.createElement("a");
-            a.href = "mailto:y.allternative.living@gmail.com";
-            a.textContent = "y.allternative.living@gmail.com";
-
-            p.appendChild(a);
-            p.appendChild(
-              document.createTextNode(
-                " with your order details and we'll check on it personally and get straight back to you."
-              )
-            );
-
-            resultsContainer.appendChild(p);
-            resultsContainer.hidden = false;
-
-            var itemsContainerEl = document.getElementById("orderItemsContainer");
-            if (itemsContainerEl) itemsContainerEl.hidden = true;
-          }
+          resultsContainer.innerHTML = orderStatusFallbackHTML(display);
+          resultsContainer.hidden = false;
         }
       });
     }
@@ -6107,7 +6047,7 @@
       });
     }
   }
-  initApothecaryQuiz();
+  if (siteFlagEnabled("enableApothecaryQuiz")) initApothecaryQuiz();
   /* ==================== GLOBAL SEARCH SUITE (2026 SOTA) ==================== */
   var searchIndexCache = null;
 
@@ -6726,9 +6666,9 @@
             '" role="option" aria-selected="false" data-item-index="' +
             globalIdx +
             '" data-url="' +
-            attrEsc(prod.url) +
+            attrEsc(safeLinkUrl(prod.url)) +
             '">';
-          html += '  <a href="' + attrEsc(prod.url) + '" class="search-item-main">';
+          html += '  <a href="' + attrEsc(safeLinkUrl(prod.url)) + '" class="search-item-main">';
           html +=
             '    <img src="' +
             attrEsc(prod.image) +
@@ -6814,9 +6754,9 @@
             '" role="option" aria-selected="false" data-item-index="' +
             globalIdx +
             '" data-url="' +
-            attrEsc(art.url) +
+            attrEsc(safeLinkUrl(art.url)) +
             '">';
-          html += '  <a href="' + attrEsc(art.url) + '" class="search-item-main">';
+          html += '  <a href="' + attrEsc(safeLinkUrl(art.url)) + '" class="search-item-main">';
           html +=
             '    <div class="search-faq-icon" aria-hidden="true"><svg class="yl-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>';
           html += '    <div class="search-item-info">';
@@ -6861,9 +6801,9 @@
             '" role="option" aria-selected="false" data-item-index="' +
             globalIdx +
             '" data-url="' +
-            attrEsc(ev.url) +
+            attrEsc(safeLinkUrl(ev.url)) +
             '">';
-          html += '  <a href="' + attrEsc(ev.url) + '" class="search-item-main">';
+          html += '  <a href="' + attrEsc(safeLinkUrl(ev.url)) + '" class="search-item-main">';
           html +=
             '    <div class="search-event-badge"><span class="event-badge-day">' +
             escapeSearchHtml(ev.dateLabel || ev.date || "") +
@@ -6915,9 +6855,9 @@
             '" role="option" aria-selected="false" data-item-index="' +
             globalIdx +
             '" data-url="' +
-            attrEsc(f.url) +
+            attrEsc(safeLinkUrl(f.url)) +
             '">';
-          html += '  <a href="' + attrEsc(f.url) + '" class="search-item-main">';
+          html += '  <a href="' + attrEsc(safeLinkUrl(f.url)) + '" class="search-item-main">';
           html +=
             '    <div class="search-faq-icon" aria-hidden="true"><svg class="yl-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>';
           html += '    <div class="search-item-info">';
@@ -6997,9 +6937,14 @@
     function executeOption(index) {
       if (index < 0 || index >= currentItems.length) return;
       var activeItemMeta = currentItems[index];
-      if (activeItemMeta && activeItemMeta.url) {
+      /* The index is CMS-editable JSON, and this is a navigation sink: a
+         "javascript:" entry here executes on Enter even though the same
+         string is inert in the href above (the CSP blocks that one). Refuse
+         to navigate rather than sanitising into a broken URL. */
+      var target = activeItemMeta ? safeLinkUrl(activeItemMeta.url) : "";
+      if (target) {
         closeModal();
-        window.location.href = activeItemMeta.url;
+        window.location.href = target;
       }
     }
 
@@ -7583,7 +7528,14 @@
         .replace(/^[#/]/, "");
     }
 
-    var list = getRecentlyViewed();
+    /* Every id here becomes "products/<id>.html" below. The list comes out
+       of localStorage, which another script on the origin (or the visitor)
+       can write, so an id is only usable if it looks like the product slugs
+       the build actually emits. Anything else is dropped, not escaped into a
+       link that goes nowhere. */
+    var list = getRecentlyViewed().filter(function (item) {
+      return item && typeof item.id === "string" && /^[a-z0-9-]+$/.test(item.id);
+    });
     var displayList = list;
     if (isPdp && currentPdpId) {
       displayList = list.filter(function (item) {
@@ -8081,7 +8033,7 @@
   (function () {
     if (typeof document === "undefined") return;
     var s = document.createElement("script");
-    s.src = "assets/js/translator.js?v=2.0";
+    s.src = "/assets/js/translator.js?v=2.0";
     s.defer = true;
     document.body.appendChild(s);
   })();
@@ -8093,11 +8045,16 @@
       saveWishlist: saveWishlist,
       attrEsc: attrEsc,
       safeUrl: safeUrl,
+      paintIsStale: paintIsStale,
+      PAINT_PROTECTION_MS: PAINT_PROTECTION_MS,
+      ASSUME_PAINTED_AFTER_MS: ASSUME_PAINTED_AFTER_MS,
+      safeImageSrc: safeImageSrc,
       safeLinkUrl: safeLinkUrl,
       renderMarkdown: renderMarkdown,
       addToCartHTML: addToCartHTML,
       variantSelectHTML: variantSelectHTML,
       stockBadgeHTML: stockBadgeHTML,
+      getMatchingVolumeRule: getMatchingVolumeRule,
       priceHTML: priceHTML,
       applyTheme: applyTheme,
       pickFeatured: pickFeatured,
@@ -8111,6 +8068,8 @@
       getCalendarDates: getCalendarDates,
       generateGoogleCalendarUrl: generateGoogleCalendarUrl,
       escapeIcsText: escapeIcsText,
+      foldIcsLine: foldIcsLine,
+      todayInEastern: todayInEastern,
       generateIcsContent: generateIcsContent,
       generateIcsDataUri: generateIcsDataUri,
       getEventIcsFilename: getEventIcsFilename,
@@ -8131,6 +8090,9 @@
       parseOrderStatusQuery: parseOrderStatusQuery,
       maskEmail: maskEmail,
       initOrderStatusPage: initOrderStatusPage,
+      initOrderStatusModal: initOrderStatusModal,
+      orderStatusFallbackHTML: orderStatusFallbackHTML,
+      siteFlagEnabled: siteFlagEnabled,
       searchGlobal: searchGlobal,
       tokenizeQuery: tokenizeQuery,
       expandTokensWithSynonyms: expandTokensWithSynonyms,

@@ -8,18 +8,18 @@
 <meta name="apple-mobile-web-app-title" content="Y'allternative">
 <meta name="color-scheme" content="dark light">
 <meta name="view-transition" content="same-origin">
-<title>Order Status &amp; Fulfillment Tracking | Y'allternative Living</title>
-<meta name="description" content="Track your small-batch handcrafted self-care, salves, soaks, and apparel order from Y'allternative Living. Order tracking and printable fulfillment packing slips.">
+<title>Order Status | Y'allternative Living</title>
+<meta name="description" content="Ask about your Y'allternative Living order. Send us your order number and we'll check on your small-batch salves, soaks or apparel and reply within one business day.">
 <link rel="canonical" href="https://yallternativeliving.com/order-status.html">
 
 <meta property="og:type" content="website">
-<meta property="og:title" content="Order Status &amp; Fulfillment Tracking | Y'allternative Living">
-<meta property="og:description" content="Track your small-batch handcrafted order fulfillment progress from Landrum, SC.">
+<meta property="og:title" content="Order Status | Y'allternative Living">
+<meta property="og:description" content="Ask about a small-batch handcrafted order from Landrum, SC &mdash; answered by a person within one business day.">
 <meta property="og:image" content="https://yallternativeliving.com/assets/img/og-image.jpg">
 <meta property="og:url" content="https://yallternativeliving.com/order-status.html">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Order Status &amp; Fulfillment Tracking | Y'allternative Living">
-<meta name="twitter:description" content="Track your small-batch handcrafted order fulfillment progress from Landrum, SC.">
+<meta name="twitter:title" content="Order Status | Y'allternative Living">
+<meta name="twitter:description" content="Ask about a small-batch handcrafted order from Landrum, SC &mdash; answered by a person within one business day.">
 <meta name="twitter:image" content="https://yallternativeliving.com/assets/img/og-image.jpg">
 
 <link rel="icon" href="assets/img/favicon-32.png" sizes="32x32" type="image/png">
@@ -55,8 +55,8 @@
 {
   "@context": "https://schema.org",
   "@type": "WebPage",
-  "name": "Order Status & Fulfillment Tracking | Y'allternative Living",
-  "description": "Self-service order tracking and fulfillment status for small-batch handmade self-care and apparel.",
+  "name": "Order Status | Y'allternative Living",
+  "description": "Send an order reference to Y'allternative Living and get an answer from a person within one business day.",
   "publisher": {
     "@type": "Organization",
     "name": "Y'allternative Living",
@@ -107,125 +107,38 @@
     <div class="container container-sm">
       <div class="order-status-header text-center">
         <span class="eyebrow">Apothecary Dispatch &middot; Landrum, SC</span>
-        <h1>Order Status &amp; Tracking</h1>
-        <p class="lede">Track your small-batch handcrafted goods from workshop prep to porch delivery. Enter your order number or email address below.</p>
+        <h1>Order Status</h1>
+        <p class="lede">Wondering where your order is? Leave us your order number or the email you ordered with, and we'll check on it ourselves and write back within one business day. Nothing here is automated &mdash; it's one person, checking one order.</p>
       </div>
 
-      <div class="order-lookup-card">
+      <!-- The page's only h2 lives here rather than in the (initially hidden)
+           result panel, so the footer's h3s never follow the h1 directly. -->
+      <h2 class="sr-only">Ask us about an order</h2>
+      <div class="order-lookup-card" id="orderStatusLookupCard">
         <form id="orderStatusPageForm" class="order-status-page-form" role="search">
-          <div class="order-form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
-            <div class="field">
-              <label for="orderQueryInput"><strong>Order Number:</strong></label>
-              <div class="search-input-wrap">
-                <svg class="icon-search" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
-                <input type="text" id="orderQueryInput" name="q" placeholder="e.g. YL-2026-0842" autocomplete="off" required>
-              </div>
-            </div>
-            <div class="field">
-              <label for="orderVerifyInput"><strong>Email or Billing Zip Code:</strong></label>
-              <div class="search-input-wrap">
-                <svg class="icon-search" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"></path></svg>
-                <input type="text" id="orderVerifyInput" name="verify" placeholder="e.g. your@email.com or 29356" autocomplete="off" required>
-              </div>
+          <div class="field" style="margin-bottom: 1rem;">
+            <label for="orderQueryInput"><strong>Order number or email address:</strong></label>
+            <div class="search-input-wrap">
+              <svg class="icon-search" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+              <input type="text" id="orderQueryInput" name="q" placeholder="e.g. YL-2026-0842" autocomplete="off" required>
             </div>
           </div>
           <div id="orderStatusError" class="field-error" hidden style="margin-bottom: 1rem;"></div>
           <div class="form-actions">
             <button type="submit" class="btn btn-primary" id="orderLookupSubmitBtn">
               <svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              Track Order
+              Ask us about this order
             </button>
           </div>
         </form>
       </div>
 
       <div id="orderStatusResultSection" class="order-status-result-section" hidden>
-        <!-- Dynamic Order Progression Card -->
-        <div id="orderTimelineContainer"></div>
-
-        <!-- Ordered Items Breakdown & 1-Click Reorder Action -->
-        <div id="orderItemsContainer" class="order-items-container" hidden>
-          <div class="order-items-header">
-            <h2>Items in this Order</h2>
-            <div class="order-actions-group">
-              <button type="button" class="btn btn-primary" id="reorderPastOrderBtn">
-                <svg class="icon-cart" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
-                Reorder Items
-              </button>
-              <button type="button" class="btn btn-outline" id="printPackingSlipBtn" onclick="window.print()">
-                <svg class="icon-printer" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-                Print Packing Slip
-              </button>
-            </div>
-          </div>
-          <ul id="orderItemsList" class="order-items-list"></ul>
-        </div>
-
-        <!-- Printable Fulfillment Packing Slip View (Prominent Gift Message, Strictly No Item Prices) -->
-        <div id="packingSlipContainer" class="packing-slip-view">
-          <div class="packing-slip-header">
-            <div class="packing-slip-brand">
-              <h2>Y'allternative Living</h2>
-              <p>Small-Batch Handcrafted Self-Care &middot; Landrum, SC</p>
-            </div>
-            <div class="packing-slip-meta">
-              <div class="slip-meta-row"><strong>Fulfillment Slip:</strong> <span id="slipOrderRef">YL-2026-0814</span></div>
-              <div class="slip-meta-row"><strong>Date:</strong> <span id="slipOrderDate">2026-08-14</span></div>
-              <div class="slip-meta-row"><strong>Fulfillment:</strong> <span>Standard Tracked Shipping</span></div>
-            </div>
-          </div>
-
-          <div class="packing-slip-recipient">
-            <div class="recipient-box">
-              <h3>Deliver To:</h3>
-              <p id="slipRecipientDetails"><strong>Customer</strong><br>Landrum, SC &middot; United States</p>
-            </div>
-          </div>
-
-          <!-- Prominent Recipient Gift Message Box -->
-          <div class="packing-slip-gift-box" id="slipGiftBox">
-            <div class="gift-box-header">
-              <svg class="icon-gift" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
-              <strong>Recipient Gift Message:</strong>
-            </div>
-            <p class="gift-message-text" id="slipGiftMessageText">&ldquo;Enjoy these handmade self-care goods handcrafted with grit &amp; glitter in Landrum, SC!&rdquo;</p>
-          </div>
-
-          <!-- Itemized Fulfillment Packing Table (Strictly NO PRICES) -->
-          <table class="packing-slip-table">
-            <thead>
-              <tr>
-                <th style="width:40px; text-align:center;">Packed</th>
-                <th>Item &amp; Scent / Variant</th>
-                <th>SKU / Item ID</th>
-                <th style="width:60px; text-align:center;">Qty</th>
-              </tr>
-            </thead>
-            <tbody id="slipItemsTableBody">
-              <tr>
-                <td style="text-align:center;"><span class="packing-checkbox"></span></td>
-                <td><strong>Y'all Heal Now Miracle Frankincense Salve</strong> (2oz Tin)</td>
-                <td><code>salve-frankincense-2oz</code></td>
-                <td style="text-align:center;"><strong>1</strong></td>
-              </tr>
-              <tr>
-                <td style="text-align:center;"><span class="packing-checkbox"></span></td>
-                <td><strong>Y'allternative Miracle Balm</strong> (1oz)</td>
-                <td><code>balm-miracle-1oz</code></td>
-                <td style="text-align:center;"><strong>1</strong></td>
-              </tr>
-            </tbody>
-          </table>
-
-          <div class="packing-slip-footer">
-            <p class="handcrafted-note">Handcrafted with care in Landrum, SC &middot; Questions? Email <a href="mailto:y.allternative.living@gmail.com">y.allternative.living@gmail.com</a></p>
-            <div class="packer-signoff">
-              <span>Packed with care by: _______________________</span>
-              <span>Date: _______________</span>
-            </div>
-          </div>
-        </div>
+        <!-- Where the contact route is rendered. No order is fetched anywhere
+             on this site, so nothing is ever asserted about one here. -->
+        <div id="orderTimelineContainer" aria-live="polite"></div>
       </div>
+
     </div>
   </section>
 </main>
