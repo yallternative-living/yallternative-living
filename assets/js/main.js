@@ -2777,6 +2777,111 @@
      scripts/build-site-data.js from the same real product prices this
      function reads, so the on-page math and the checkout price can never
      disagree. */
+  /* ---------- Gift-set option pickers (live audit C1) ----------
+     A gift set is a single cart line, but its members are real products and
+     some of them are sold in sizes, scents or blends. The set used to check
+     out with no variant field at all: $45 was taken for a Pride Set and the
+     shop never learned the tee size or the oil scent. The members that need
+     a choice are derived from the bundle's productIds at RENDER time -- the
+     bundle records in products.json still only list ids -- and the same
+     derivation runs server-side in workers/checkout.js, which rejects an
+     unknown or sold-out choice before Stripe is ever called. */
+  function bundleVariantMembers(bundle, productsById) {
+    if (!bundle || !Array.isArray(bundle.productIds)) return [];
+    var pMap = getProductMap();
+    var isMap = productsById && typeof productsById.get === "function";
+    var members = [];
+    bundle.productIds.forEach(function (id) {
+      var p = isMap
+        ? productsById.get(id)
+        : productsById && productsById[id]
+          ? productsById[id]
+          : pMap.get(id);
+      if (!p || !p.variants || !Array.isArray(p.variants.options) || !p.variants.options.length) {
+        return;
+      }
+      members.push({
+        productId: id,
+        product: p,
+        variantName: p.variants.name || "Option",
+        options: p.variants.options
+      });
+    });
+    return members;
+  }
+
+  function bundlePriceFor(fullPrice, discountPercent) {
+    return Math.round(fullPrice * (1 - (discountPercent || 0) / 100) * 100) / 100;
+  }
+
+  function bundleVariantSelectId(bundleId, productId) {
+    return "bundle-variant-" + bundleId + "-" + productId;
+  }
+
+  function bundleVariantPickerHTML(bundle, members) {
+    if (!members.length) return "";
+    var fields = members
+      .map(function (m) {
+        var selectId = bundleVariantSelectId(bundle.id, m.productId);
+        var options = m.options
+          .map(function (o) {
+            var delta = Number(o.priceDelta) || 0;
+            var suffix = o.soldOut
+              ? " \u2014 sold out"
+              : delta
+                ? " (" + (delta > 0 ? "+" : "\u2212") + "$" + Math.abs(delta).toFixed(2) + ")"
+                : "";
+            return (
+              '<option value="' +
+              attrEsc(o.label) +
+              '" data-delta="' +
+              delta +
+              '"' +
+              (o.soldOut ? " disabled" : "") +
+              ">" +
+              attrEsc(o.label + suffix) +
+              "</option>"
+            );
+          })
+          .join("");
+        return (
+          '<div class="bundle-variant-field">' +
+          '<label class="bundle-variant-label" for="' +
+          attrEsc(selectId) +
+          '">' +
+          attrEsc(m.product.name) +
+          " \u2014 " +
+          attrEsc(m.variantName) +
+          "</label>" +
+          '<select class="bundle-variant-select" id="' +
+          attrEsc(selectId) +
+          '" data-product-id="' +
+          attrEsc(m.productId) +
+          '" data-variant-name="' +
+          attrEsc(m.variantName) +
+          '" required aria-required="true">' +
+          '<option value="">Choose ' +
+          attrEsc(m.variantName.toLowerCase()) +
+          "\u2026</option>" +
+          options +
+          "</select>" +
+          "</div>"
+        );
+      })
+      .join("");
+    return (
+      '<div class="bundle-variants">' +
+      '<p class="bundle-variants-hint">' +
+      (members.length > 1
+        ? "This set needs a choice for each of these before it can go in the cart."
+        : "This set needs a choice before it can go in the cart.") +
+      "</p>" +
+      fields +
+      '<p class="bundle-variant-error" role="alert" hidden></p>' +
+      "</div>"
+    );
+  }
+
   function bundlesHTML(bundles, productsById) {
     var pMap = getProductMap();
     var isMap = productsById && typeof productsById.get === "function";
@@ -2795,7 +2900,8 @@
           var original = p.originalPrice || p.price;
           return sum + original;
         }, 0);
-        var bundlePrice = Math.round(fullPrice * (1 - (b.discountPercent || 0) / 100) * 100) / 100;
+        var bundlePrice = bundlePriceFor(fullPrice, b.discountPercent);
+        var members = bundleVariantMembers(b, productsById);
         var firstImage = items[0].image;
         var includesList = items
           .map(function (p) {
@@ -2803,7 +2909,9 @@
           })
           .join("");
         return (
-          '<article class="card bundle-card reveal">' +
+          '<article class="card bundle-card reveal" data-bundle-id="' +
+          attrEsc(b.id) +
+          '">' +
           '<div class="card-media">' +
           pictureHTML(items[0], { imagePath: firstImage, alt: b.name }) +
           "</div>" +
@@ -2818,14 +2926,17 @@
           '<ul class="bundle-includes">' +
           includesList +
           "</ul>" +
+          bundleVariantPickerHTML(b, members) +
           '<div class="card-foot">' +
           '<div class="card-foot-row">' +
-          '<span class="price">$' +
+          '<span class="price"><span class="bundle-price-now">$' +
           bundlePrice.toFixed(2) +
-          ' <s class="bundle-full-price">$' +
+          '</span> <s class="bundle-full-price">$' +
           fullPrice.toFixed(2) +
           "</s></span>" +
-          '<button type="button" class="btn btn-primary btn-sm yl-add-item"' +
+          '<button type="button" class="btn btn-primary btn-sm ' +
+          (members.length ? "bundle-add-btn" : "yl-add-item") +
+          '"' +
           ' data-item-id="bundle-' +
           attrEsc(b.id) +
           '"' +
@@ -2841,6 +2952,12 @@
           ' data-item-image="' +
           attrEsc(firstImage) +
           '"' +
+          ' data-bundle-full-price="' +
+          fullPrice.toFixed(2) +
+          '"' +
+          ' data-bundle-discount="' +
+          (Number(b.discountPercent) || 0) +
+          '"' +
           ' data-item-categories="bundle">' +
           "Add Set to Cart" +
           "</button>" +
@@ -2852,6 +2969,98 @@
       })
       .join("");
   }
+
+  /* Read every option picker on one gift-set card: what has been chosen,
+     what is still missing, and what the choices add to the full price. */
+  function bundleCardSelection(card) {
+    var selects = card.querySelectorAll(".bundle-variant-select");
+    var chosen = {};
+    var missing = null;
+    var deltaSum = 0;
+    Array.prototype.forEach.call(selects, function (sel) {
+      var val = sel.value;
+      if (!val) {
+        if (!missing) missing = sel;
+        return;
+      }
+      chosen[sel.getAttribute("data-product-id")] = val;
+      var opt = sel.options[sel.selectedIndex];
+      deltaSum += (opt && Number(opt.getAttribute("data-delta"))) || 0;
+    });
+    return { chosen: chosen, missing: missing, deltaSum: deltaSum, total: selects.length };
+  }
+
+  /* Upgrading a member (the 4 oz hand scrub, the 24 oz soak) genuinely costs
+     more, so the set's price moves with the choice instead of selling an $8
+     upgrade for nothing. resolveBundlePriceDollars() in workers/checkout.js
+     does the identical arithmetic and is what actually charges. */
+  function refreshBundleCardPrice(card) {
+    var btn = card.querySelector(".bundle-add-btn");
+    if (!btn) return null;
+    var baseFull = parseFloat(btn.getAttribute("data-bundle-full-price")) || 0;
+    var discount = Number(btn.getAttribute("data-bundle-discount")) || 0;
+    var sel = bundleCardSelection(card);
+    var full = Math.round((baseFull + sel.deltaSum) * 100) / 100;
+    var now = bundlePriceFor(full, discount);
+    var nowEl = card.querySelector(".bundle-price-now");
+    var fullEl = card.querySelector(".bundle-full-price");
+    if (nowEl) nowEl.textContent = "$" + now.toFixed(2);
+    if (fullEl) fullEl.textContent = "$" + full.toFixed(2);
+    btn.setAttribute("data-item-price", now.toFixed(2));
+    return sel;
+  }
+
+  document.addEventListener("change", function (e) {
+    var sel = e.target && e.target.closest ? e.target.closest(".bundle-variant-select") : null;
+    if (!sel) return;
+    var card = sel.closest(".bundle-card");
+    if (!card) return;
+    refreshBundleCardPrice(card);
+    var err = card.querySelector(".bundle-variant-error");
+    if (err && sel.value) {
+      err.textContent = "";
+      err.hidden = true;
+    }
+  });
+
+  document.addEventListener("click", function (e) {
+    var btn = e.target && e.target.closest ? e.target.closest(".bundle-add-btn") : null;
+    if (!btn) return;
+    var card = btn.closest(".bundle-card");
+    if (!card) return;
+    e.preventDefault();
+    var sel = refreshBundleCardPrice(card);
+    if (!sel) return;
+    var err = card.querySelector(".bundle-variant-error");
+    if (sel.missing) {
+      /* Refuse the add and say which choice is outstanding, rather than
+         disabling a button with no explanation. role="alert" on the notice
+         means a screen reader hears it without moving focus off the set. */
+      var field = sel.missing.closest(".bundle-variant-field");
+      var label = field ? field.querySelector(".bundle-variant-label") : null;
+      if (err) {
+        err.textContent =
+          "Choose " + (label ? label.textContent : "an option") + " before adding this set.";
+        err.hidden = false;
+      }
+      sel.missing.focus();
+      return;
+    }
+    if (err) {
+      err.textContent = "";
+      err.hidden = true;
+    }
+    if (!(window.YLCart && typeof window.YLCart.addItem === "function")) return;
+    window.YLCart.addItem({
+      id: btn.getAttribute("data-item-id"),
+      name: btn.getAttribute("data-item-name"),
+      price: parseFloat(btn.getAttribute("data-item-price")) || 0,
+      image: btn.getAttribute("data-item-image") || "",
+      category: btn.getAttribute("data-item-categories") || "bundle",
+      bundleVariants: sel.chosen,
+      qty: 1
+    });
+  });
 
   function renderBundles(data, query, concern) {
     var bundlesList = document.getElementById("bundlesList");
@@ -7935,6 +8144,83 @@
     return html;
   }
 
+  /* A search hit whose id is "bundle-<id>" is a gift set. The search index
+     records carry no productIds (and variants: null), so the members -- and
+     therefore the choices the set needs -- come from the live catalog, which
+     every page loads. Returns null when the hit is not a set. */
+  function searchBundleRecord(prod) {
+    if (!prod || typeof prod.id !== "string" || prod.id.indexOf("bundle-") !== 0) return null;
+    var bundles = (window.YL_PRODUCTS && window.YL_PRODUCTS.bundles) || [];
+    var bare = prod.id.slice("bundle-".length);
+    for (var i = 0; i < bundles.length; i++) {
+      if (bundles[i] && bundles[i].id === bare) return bundles[i];
+    }
+    return null;
+  }
+
+  function searchBundleMembers(prod) {
+    var bundle = searchBundleRecord(prod);
+    return bundle ? bundleVariantMembers(bundle) : [];
+  }
+
+  /* Same shape as renderVariantChipsHtml() above, but a gift set needs one
+     radiogroup PER member, and the add only fires once every group has an
+     answer -- a set with an unanswered size is exactly the C1 bug. */
+  function renderBundleVariantChipsHtml(prod, members) {
+    if (!members.length) return "";
+    var pickerId = "search-variant-picker-" + attrEsc(prod.id);
+    var html =
+      '    <div class="search-variant-picker search-bundle-picker" id="' +
+      pickerId +
+      '" data-bundle-item-id="' +
+      attrEsc(prod.id) +
+      '" hidden>';
+    members.forEach(function (m) {
+      html +=
+        '      <div class="search-variant-group" role="radiogroup" data-product-id="' +
+        attrEsc(m.productId) +
+        '" aria-label="' +
+        attrEsc(m.variantName + " for " + m.product.name) +
+        '">';
+      html +=
+        '        <span class="search-variant-group-label" aria-hidden="true">' +
+        escapeSearchHtml(m.product.name) +
+        "</span>";
+      html += '        <div class="search-variant-chips">';
+      m.options.forEach(function (opt) {
+        var isSold = !!opt.soldOut;
+        html +=
+          '<button type="button" class="search-variant-chip' +
+          (isSold ? " is-sold-out" : "") +
+          '" role="radio" aria-checked="false"' +
+          ' data-item-id="' +
+          attrEsc(prod.id) +
+          '" data-bundle-product-id="' +
+          attrEsc(m.productId) +
+          '" data-variant-name="' +
+          attrEsc(m.variantName) +
+          '" data-variant-label="' +
+          attrEsc(opt.label) +
+          '" data-variant-delta="' +
+          (Number(opt.priceDelta) || 0) +
+          '"' +
+          (isSold ? ' disabled aria-disabled="true"' : ' tabindex="-1"') +
+          ' aria-label="' +
+          attrEsc(
+            m.product.name + " " + m.variantName + " " + opt.label + (isSold ? " (Sold Out)" : "")
+          ) +
+          '">' +
+          escapeSearchHtml(opt.label + (isSold ? " (Sold Out)" : "")) +
+          "</button>";
+      });
+      html += "        </div>";
+      html += "      </div>";
+    });
+    html += '      <p class="search-bundle-hint" role="status"></p>';
+    html += "    </div>";
+    return html;
+  }
+
   /* Popular-search chips come from content.json "search" (editable in /admin)
      via window.YL_CONTENT; the static markup in each page is rendered from the
      same list by scripts/build-site-data.js. The icon set is duplicated there
@@ -8214,7 +8500,24 @@
               attrEsc(rootAbsLink(prod.url)) +
               '">Notify me</a>';
           } else if (!soldOut) {
-            if (hasVariants) {
+            var bundleMembers = searchBundleMembers(prod);
+            if (bundleMembers.length) {
+              /* A gift set with a size/scent to pick gets the same trigger +
+                 picker pattern as a variant product, so "+ Add" can never
+                 drop an unspecified set straight into the cart. */
+              var bundlePickerId = "search-variant-picker-" + attrEsc(prod.id);
+              html +=
+                '    <button type="button" class="btn btn-primary btn-sm search-add-btn search-variant-trigger"' +
+                ' data-item-id="' +
+                attrEsc(prod.id) +
+                '" data-has-variants="true" aria-expanded="false" aria-controls="' +
+                bundlePickerId +
+                '" aria-label="Choose options for ' +
+                attrEsc(prod.name) +
+                '">' +
+                "+ Add</button>";
+              html += renderBundleVariantChipsHtml(prod, bundleMembers);
+            } else if (hasVariants) {
               var pickerId = "search-variant-picker-" + attrEsc(prod.id);
               var variantName = prod.variants.name || "Option";
               html +=
@@ -8626,6 +8929,98 @@
       }
     });
 
+    /* One gift-set chip click: mark the answer inside its own radiogroup,
+       then either move on to the next unanswered group or -- when they are
+       all answered -- add the set with every choice attached. */
+    function handleBundleChipClick(chip) {
+      var picker = chip.closest(".search-bundle-picker");
+      if (!picker) return;
+      var group = chip.closest(".search-variant-group");
+      if (group) {
+        group.querySelectorAll(".search-variant-chip").forEach(function (c) {
+          c.setAttribute("aria-checked", c === chip ? "true" : "false");
+          c.classList.toggle("is-selected", c === chip);
+        });
+      }
+
+      var groups = Array.from(picker.querySelectorAll(".search-variant-group"));
+      var chosen = {};
+      var pending = null;
+      groups.forEach(function (g) {
+        var picked = g.querySelector('.search-variant-chip[aria-checked="true"]');
+        if (picked) {
+          chosen[g.getAttribute("data-product-id")] = picked.getAttribute("data-variant-label");
+        } else if (!pending) {
+          pending = g;
+        }
+      });
+
+      var hint = picker.querySelector(".search-bundle-hint");
+      if (pending) {
+        var pendingLabel = pending.querySelector(".search-variant-group-label");
+        if (hint) {
+          hint.textContent =
+            "Now pick a " +
+            (pending.getAttribute("aria-label") || "option").split(" for ")[0].toLowerCase() +
+            " for " +
+            (pendingLabel ? pendingLabel.textContent : "the other item") +
+            ".";
+        }
+        var nextChip = pending.querySelector(".search-variant-chip:not([disabled])");
+        if (nextChip) {
+          nextChip.setAttribute("tabindex", "0");
+          nextChip.focus();
+        }
+        return;
+      }
+      if (hint) hint.textContent = "";
+
+      var itemId = picker.getAttribute("data-bundle-item-id");
+      var index = getSearchIndex();
+      var prod = (index.products || []).find(function (p) {
+        return p.id === itemId;
+      });
+      if (!prod) return;
+      var bundle = searchBundleRecord(prod);
+      var pMap = getProductMap();
+      var price = prod.price;
+      if (bundle && Array.isArray(bundle.productIds)) {
+        var full = 0;
+        bundle.productIds.forEach(function (pid) {
+          var member = pMap.get(pid);
+          if (!member) return;
+          full += member.originalPrice || member.price || 0;
+          var label = chosen[pid];
+          if (label && member.variants && Array.isArray(member.variants.options)) {
+            var opt = member.variants.options.find(function (o) {
+              return o && o.label === label;
+            });
+            if (opt && typeof opt.priceDelta === "number") full += opt.priceDelta;
+          }
+        });
+        if (full > 0) price = bundlePriceFor(full, bundle.discountPercent);
+      }
+
+      if (window.YLCart && typeof window.YLCart.addItem === "function") {
+        window.YLCart.addItem({
+          id: prod.id,
+          name: prod.name,
+          price: price,
+          image: prod.image,
+          category: "bundle",
+          bundleVariants: chosen,
+          qty: 1
+        });
+      }
+      chip.classList.add("is-added");
+      var addedText = chip.textContent;
+      chip.textContent = "\u2713 Added";
+      setTimeout(function () {
+        chip.classList.remove("is-added");
+        chip.textContent = addedText;
+      }, 1000);
+    }
+
     // Variant Picker and Add to Cart interactions
     if (resultsList) {
       resultsList.addEventListener("click", function (e) {
@@ -8682,6 +9077,14 @@
           var variantName = chip.getAttribute("data-variant-name") || "";
           var variantLabel = chip.getAttribute("data-variant-label") || "";
           var variantDelta = Number(chip.getAttribute("data-variant-delta")) || 0;
+
+          /* Gift set: record this group's answer, and only add once every
+             group has one. Until then the hint says which choice is still
+             outstanding and focus moves to it. */
+          if (chip.hasAttribute("data-bundle-product-id")) {
+            handleBundleChipClick(chip);
+            return;
+          }
 
           var index = getSearchIndex();
           var prod = (index.products || []).find(function (p) {

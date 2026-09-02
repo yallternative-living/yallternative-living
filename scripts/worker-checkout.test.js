@@ -86,6 +86,24 @@ const mockCatalog = {
       stock: 3
     }
   ],
+  /* Gift sets. `variant-set` deliberately mixes a member that IS sold in
+     sizes (frankincense-salve, including a sold-out 4oz) with one that is
+     not (lavender-soak), which is the exact shape the live Pride Set has and
+     the shape that used to check out with no size anywhere on the order. */
+  bundles: [
+    {
+      id: "variant-set",
+      name: "Variant Duo Set",
+      productIds: ["frankincense-salve", "lavender-soak"],
+      discountPercent: 10
+    },
+    {
+      id: "plain-set",
+      name: "Plain Duo Set",
+      productIds: ["lavender-soak", "last-three-balm"],
+      discountPercent: 10
+    }
+  ],
   shop: {
     freeShippingThreshold: 40,
     shippingMilestones: [
@@ -1342,6 +1360,114 @@ async function runWorkerCheckoutTests() {
       eq(res.status, 403, "order-summary: foreign origin is forbidden");
       eq(calls.length, before, "order-summary: foreign origin costs no Stripe request");
     }
+  }
+
+  /* ---- Gift sets that contain a variant product (live audit C1) --------
+     A set is one Stripe line item, so if its members' sizes/scents are not
+     validated and recorded here they exist nowhere on the order at all. */
+  {
+    // Missing choice -> refused, with a message the drawer can show.
+    const missing = await executeCheckout({
+      items: [{ id: "bundle-variant-set", qty: 1 }]
+    });
+    eq(missing.status, 400, "gift set with no member choice is refused");
+    assert(
+      /choose a size/i.test(missing.data.error || ""),
+      "gift set refusal names the choice that is missing"
+    );
+    eq(missing.sessionParams, null, "refused gift set never reaches Stripe");
+
+    // Unknown label -> refused (no silent fallback to the base option).
+    const unknown = await executeCheckout({
+      items: [{ id: "bundle-variant-set", qty: 1, bundleVariants: { "frankincense-salve": "3oz" } }]
+    });
+    eq(unknown.status, 400, "gift set with an unknown member size is refused");
+
+    // Sold-out label -> refused, exactly as a standalone product would be.
+    const soldOut = await executeCheckout({
+      items: [{ id: "bundle-variant-set", qty: 1, bundleVariants: { "frankincense-salve": "4oz" } }]
+    });
+    eq(soldOut.status, 400, "gift set with a sold-out member size is refused");
+    assert(
+      /sold out/i.test(soldOut.data.error || ""),
+      "sold-out gift-set refusal says the option is sold out"
+    );
+
+    // A choice naming a product that is not in the set at all.
+    const foreign = await executeCheckout({
+      items: [
+        {
+          id: "bundle-variant-set",
+          qty: 1,
+          bundleVariants: { "frankincense-salve": "2oz", "last-three-balm": "2oz" }
+        }
+      ]
+    });
+    eq(foreign.status, 400, "gift set rejects a choice for a product it does not contain");
+
+    // Happy path: priced from the members, choice on the line and in metadata.
+    const ok = await executeCheckout({
+      items: [{ id: "bundle-variant-set", qty: 1, bundleVariants: { "frankincense-salve": "2oz" } }]
+    });
+    eq(ok.status, 200, "gift set with every choice made checks out");
+    eq(
+      ok.sessionParams.get("line_items[0][price_data][unit_amount]"),
+      "3419",
+      "gift set is priced from its members at the bundle discount ($37.99 - 10%)"
+    );
+    eq(
+      ok.sessionParams.get("line_items[0][price_data][product_data][name]"),
+      "Variant Duo Set",
+      "gift set line keeps the set name"
+    );
+    eq(
+      ok.sessionParams.get("line_items[0][price_data][product_data][description]"),
+      "Frankincense Salve — Size: 2oz",
+      "gift set line description carries the chosen member option"
+    );
+    eq(
+      ok.sessionParams.get("metadata[gift_set_1]"),
+      "Variant Duo Set: Frankincense Salve — Size: 2oz",
+      "gift set choices are recorded in session metadata for fulfilment"
+    );
+
+    // The catalog's spelling wins over the client's: "  2OZ " is the 2oz option.
+    const sloppy = await executeCheckout({
+      items: [
+        { id: "bundle-variant-set", qty: 1, bundleVariants: { "frankincense-salve": "  2OZ " } }
+      ]
+    });
+    eq(sloppy.status, 200, "gift set tolerates case/whitespace on a member label");
+    eq(
+      sloppy.sessionParams.get("line_items[0][price_data][product_data][description]"),
+      "Frankincense Salve — Size: 2oz",
+      "gift set line description uses the catalog's label, not the client's"
+    );
+
+    // A cheaper member option moves the set price by the same proportion.
+    const smaller = await executeCheckout({
+      items: [{ id: "bundle-variant-set", qty: 1, bundleVariants: { "frankincense-salve": "1oz" } }]
+    });
+    eq(smaller.status, 200, "gift set accepts a cheaper member option");
+    eq(
+      smaller.sessionParams.get("line_items[0][price_data][unit_amount]"),
+      "2879",
+      "member priceDelta moves the gift-set price before the discount"
+    );
+
+    // A set whose members have no options at all still needs no choices.
+    const plain = await executeCheckout({ items: [{ id: "bundle-plain-set", qty: 1 }] });
+    eq(plain.status, 200, "gift set with no variant members still checks out bare");
+    eq(
+      plain.sessionParams.get("line_items[0][price_data][unit_amount]"),
+      "2430",
+      "gift set with no variant members is priced from its members"
+    );
+    eq(
+      plain.sessionParams.get("line_items[0][price_data][product_data][description]"),
+      null,
+      "gift set with nothing to choose gets no line description"
+    );
   }
 
   console.log(`\nworker-checkout.test.js: ${passed} passed, ${failed} failed`);

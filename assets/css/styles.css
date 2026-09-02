@@ -1428,6 +1428,65 @@ section {
   }
 }
 
+/* ---------- Gift-set option pickers (live audit C1) ----------
+   A set that contains a tee (4 sizes) or the shimmer oil (3 scents) used to
+   render no control at all, so $45 was taken and the shop never learned
+   which size or scent to pack. */
+.bundle-variants {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 4px 0 2px;
+  padding: 12px;
+  border: 1px solid var(--hide);
+  border-radius: var(--radius);
+  background: var(--ink-3);
+}
+
+.bundle-variants-hint {
+  margin: 0;
+  font-size: 0.76rem;
+  color: var(--paper-dim);
+}
+
+.bundle-variant-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bundle-variant-label {
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--paper);
+}
+
+.bundle-variant-select {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--hide);
+  background: var(--ink-2);
+  color: var(--paper);
+  font-family: inherit;
+  font-size: 0.86rem;
+}
+
+.bundle-variant-select:focus-visible {
+  outline: 2px solid var(--whiskey);
+  outline-offset: 1px;
+}
+
+/* Shown only when Add Set is pressed with a choice still outstanding. */
+.bundle-variant-error {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--rose-text, var(--rose));
+}
+
 .bundle-full-price,
 .original-price {
   color: var(--paper-dim);
@@ -6649,6 +6708,37 @@ dialog.global-search-modal::backdrop {
   border-color: var(--hide);
   background: var(--ink-2);
   color: var(--paper-dim);
+}
+
+/* A gift set needs one radiogroup per variant-bearing member, so its picker
+   stacks instead of sitting on one line (live audit C1). */
+.search-bundle-picker.search-variant-picker:not([hidden]),
+.search-item-action.is-expanded .search-bundle-picker {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.search-variant-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+.search-variant-group-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--paper-dim);
+}
+
+.search-bundle-hint {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--whiskey);
+  text-align: right;
 }
 
 .search-variant-chip.is-added {

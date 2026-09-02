@@ -267,6 +267,14 @@
   color: var(--rose);
   background: oklch(from var(--rose) l c h / 0.15);
 }
+/* The chosen size/scent inside a gift set, and the contents of a
+   build-your-own box -- both used to be invisible on the line (live audit
+   C1 / M9). */
+.yl-cart-line-contents {
+  display: block;
+  line-height: 1.35;
+}
+
 .yl-cart-variant {
   font-size: 0.78rem;
   color: var(--paper-dim);
