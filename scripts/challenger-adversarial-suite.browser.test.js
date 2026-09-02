@@ -7,7 +7,7 @@
  * 3. R4: "Recently Viewed Products" Carousel (Corrupted localStorage, 8-item cap, deduplication, private browsing, PDP filtering)
  * 4. R1 Headless Browser Verification (Puppeteer scroll transitions, rapid resize, variant sync, cart integration)
  *
- * Run: node scripts/challenger-adversarial-suite.test.js
+ * Run: node scripts/challenger-adversarial-suite.browser.test.js
  */
 
 const assert = require("assert");
@@ -17,7 +17,6 @@ const http = require("http");
 const puppeteer = require("puppeteer");
 
 const cart = require("../assets/js/cart.js");
-const catalogData = require("../assets/data/products.json");
 
 let totalTests = 0;
 let passedTests = 0;
