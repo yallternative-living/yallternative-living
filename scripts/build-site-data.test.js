@@ -888,6 +888,33 @@ function siteIdsRejected(site) {
   }
   return exited;
 }
+/* "Show live chat" (site.enableLiveChat): off must ship the loader with EMPTY
+   ids -- the loader's first guard then returns before requesting anything --
+   rather than dropping the block, so the every-page/byte-identical gates in
+   qa-check.js and the two approved CSP hashes (on/off) both keep holding. */
+{
+  const ids = { tawkToPropertyId: "6a9687f6adddbc3447585d73", tawkToWidgetId: "1k1e066pc" };
+  const on = buildScript.renderTawkChatHtml(Object.assign({ enableLiveChat: true }, ids));
+  const off = buildScript.renderTawkChatHtml(Object.assign({ enableLiveChat: false }, ids));
+  const unset = buildScript.renderTawkChatHtml(ids);
+  assert(on.indexOf('"6a9687f6adddbc3447585d73"') !== -1, "live chat on: property id is emitted");
+  assert(
+    off.indexOf("6a9687f6adddbc3447585d73") === -1 && off.indexOf("1k1e066pc") === -1,
+    "live chat off: neither Tawk.to id reaches the page"
+  );
+  assert(
+    /var propertyId = \/\*YL:site\.tawkToPropertyId\*\/ "" \/\*\/YL:site\.tawkToPropertyId\*\/;/.test(
+      off
+    ),
+    "live chat off: the loader still ships, with an empty property id literal"
+  );
+  assert(off.indexOf("Tawk_LoadStart") !== -1, "live chat off: the block itself stays on the page");
+  assert(
+    unset.indexOf('"1k1e066pc"') !== -1,
+    "live chat unset (older content.json): treated as on"
+  );
+}
+
 assert(
   siteIdsRejected({ tawkToWidgetId: '"; fetch("https://evil.example"); //' }),
   "build refuses a Tawk.to widget id carrying a JS payload"

@@ -4625,6 +4625,11 @@ function buildSiteData() {
         /\/\*YL:site\.([a-zA-Z0-9]+)\*\/([\s\S]*?)\/\*\/YL:site\.\1\*\//g,
         function (match, key) {
           if (site[key] !== undefined) {
+            /* The hand-written pages carry the same Tawk.to loader the PDPs
+               get from renderTawkChatHtml(); the "Show live chat" switch
+               empties both ids here for the same reason it does there. */
+            const chatKey = key === "tawkToPropertyId" || key === "tawkToWidgetId";
+            const value = chatKey && site.enableLiveChat === false ? "" : site[key];
             /* This lands INSIDE a JavaScript string literal in a CSP-hashed
                inline <script> (the Tawk.to snippet near </body> on 11 pages).
                Concatenating the raw value between two quote characters let a
@@ -4635,7 +4640,7 @@ function buildSiteData() {
                and "<" is escaped so a "</script>" inside the value cannot end
                the block either. */
             return (
-              "/*YL:site." + key + "*/ " + jsStringLiteral(site[key]) + " /*/YL:site." + key + "*/"
+              "/*YL:site." + key + "*/ " + jsStringLiteral(value) + " /*/YL:site." + key + "*/"
             );
           }
           return match;
@@ -6443,6 +6448,16 @@ function renderPdpGoodToKnowHtml(p, sizeLabel) {
    case the loader's own guard bails before it requests anything. */
 function renderTawkChatHtml(site) {
   const s = site || {};
+  /* "Show live chat" switch (site.enableLiveChat, /admin). Off does not remove
+     the block -- it ships the loader with EMPTY ids, which the loader's own
+     first guard turns into a no-op. Removing the block instead would change
+     the page's inline-script set, and qa-check.js asserts the loader is
+     present and byte-identical on every page; leaving it in with empty ids
+     keeps that invariant and keeps the CSP hash set to two known variants
+     (on / off), both approved in scripts/inline-script-hashes.json. */
+  const chatOn = s.enableLiveChat !== false;
+  const propertyId = chatOn ? s.tawkToPropertyId || "" : "";
+  const widgetId = chatOn ? s.tawkToWidgetId || "" : "";
   return (
     "<!-- Live chat (Tawk.to) -- placeholder, inert until real IDs are set.\n" +
     "     Free live-chat widget: https://www.tawk.to -- see DEVELOPMENT.md section 19.\n" +
@@ -6459,10 +6474,10 @@ function renderTawkChatHtml(site) {
     "     request it on every single page load, which 404s and buys nothing. Bail\n" +
     "     out instead, so the widget stays genuinely inert until it's configured. */\n" +
     "  var propertyId = /*YL:site.tawkToPropertyId*/ " +
-    jsStringLiteral(s.tawkToPropertyId || "") +
+    jsStringLiteral(propertyId) +
     " /*/YL:site.tawkToPropertyId*/;\n" +
     "  var widgetId = /*YL:site.tawkToWidgetId*/ " +
-    jsStringLiteral(s.tawkToWidgetId || "") +
+    jsStringLiteral(widgetId) +
     " /*/YL:site.tawkToWidgetId*/;\n" +
     "  if (!propertyId || !widgetId) return;\n" +
     '  if (propertyId.indexOf("YOUR_") === 0 || widgetId.indexOf("YOUR_") === 0) return;\n' +
@@ -7096,6 +7111,7 @@ if (typeof module !== "undefined" && module.exports) {
     schemaAvailability: schemaAvailability,
     stripXmlControlChars: stripXmlControlChars,
     validateSiteIds: validateSiteIds,
+    renderTawkChatHtml: renderTawkChatHtml,
     renderFaqAnswerHtml: renderFaqAnswerHtml,
     safeLinkUrl: safeLinkUrl,
     safeUrl: safeUrl,

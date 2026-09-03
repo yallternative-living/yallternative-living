@@ -1170,6 +1170,14 @@ singletons:
           # is set once and rarely touched again.
           # --- Feature switches -----------------------------------------
           - {
+              name: enableLiveChat,
+              label: "Show live chat (Tawk.to)",
+              widget: boolean,
+              default: true,
+              required: false,
+              hint: "The chat bubble in the bottom corner of every page. Off hides it everywhere; your Tawk.to IDs stay saved for when you turn it back on."
+            }
+          - {
               name: enableJournal,
               label: "Show the Journal (blog)",
               widget: boolean,

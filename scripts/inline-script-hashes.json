@@ -37,6 +37,11 @@
       "emittedBy": "assets/js/main.js (speculation rules block, appended to <body> at runtime)",
       "pages": "all pages, at runtime only",
       "runtime": true
+    },
+    "sha256-eTdZxGpSlYg2xCSKV3aLmdVI8dbjCNlEgcxuVXMx1QY=": {
+      "what": "Tawk.to live-chat loader with BOTH ids empty: what every page ships when the \"Show live chat\" switch (site.enableLiveChat) is off in /admin. The loader's first guard returns before it requests anything. Approved ahead of time so flipping the switch in the CMS can never fail the Netlify build on an unrecognised hash.",
+      "emittedBy": "scripts/build-site-data.js renderTawkChatHtml() and the /*YL:site.tawkTo*Id*/ markers on the hand-written pages",
+      "pages": "all pages, only while site.enableLiveChat is false"
     }
   }
 }

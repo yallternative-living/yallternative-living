@@ -187,7 +187,7 @@ Tucked neatly at the bottom of **1. ⚙️ Shop & Products**:
 #### E. Site Images & Page Wording (Collection 6)
 1. Click **6. ⚙️ Site Settings & Pages**.
 2. Update homepage headlines, About page story text, or swap non-product photos (homepage hero banner, About bio photo, site logos).
-3. Under **⚙️ Site Settings**, you can toggle features on or off anytime with simple checkboxes:
+3. Under **⚙️ Site Settings & Switches** (the first thing in section 6), you can toggle features on or off anytime with simple checkboxes -- including **Show live chat (Tawk.to)**, which hides the chat bubble everywhere without losing your Tawk.to IDs:
    - Restock Email Alerts (a request now really is emailed to the shop -- it
      used to be accepted and discarded)
    - Apothecary Recommendation Quiz

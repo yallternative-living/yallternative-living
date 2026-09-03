@@ -47,6 +47,7 @@ window.YL_CONTENT = {
     "welcomeCode": "YALL10",
     "giftUpId": "YOUR_GIFTUP_ID",
     "umamiWebsiteId": "a134e5d8-e8e5-4a8e-90e9-c21e9dba5acb",
+    "enableLiveChat": true,
     "enableJournal": false,
     "enableSocialFeed": false,
     "enableRestockAlerts": true,
