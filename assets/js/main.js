@@ -1025,6 +1025,14 @@
       .replace(/`/g, "&#96;");
   }
 
+  /* Serializes vars for a data-i18n-vars attribute (see the "TEMPLATES"
+     section of translator.js's file header): JSON.stringify, then attrEsc so
+     the quotes JSON needs -- and anything in a product name, like the
+     apostrophe in "Y'all Means All" -- can't break out of the attribute. */
+  function i18nVarsAttr(vars) {
+    return attrEsc(JSON.stringify(vars));
+  }
+
   /* ---------- shared: "$20" for whole dollars, "$21.60" only when there are cents ----------
      Every product is priced in whole dollars; cents only arise from percentage
      bundle/box discounts, custom gift-card amounts and the totals that include
@@ -1443,8 +1451,16 @@
        Only the active slide is in the tab order -- the inactive ones are
        visually stacked behind it and are reached via the dot buttons, so
        putting all four in the tab order would just add dead stops. */
+    /* aria-label carries the product name in the middle, so no single
+       English phrase can match every product's version of it -- data-i18n-tpl
+       points translator.js at tpl.enlargePhoto instead (see its file
+       header). */
     var slideA11y =
-      ' role="button" aria-label="' + attrEsc("Enlarge photo of " + (p.name || "product")) + '"';
+      ' role="button" data-i18n-tpl-aria-label="tpl.enlargePhoto" data-i18n-vars="' +
+      i18nVarsAttr({ product: p.name || "product" }) +
+      '" aria-label="' +
+      attrEsc("Enlarge photo of " + (p.name || "product")) +
+      '"';
     var slides = allImages
       .map(function (imgPath, i) {
         if (i === 0) {
@@ -1476,6 +1492,9 @@
           '"' +
           ' data-idx="' +
           i +
+          '"' +
+          ' data-i18n-tpl-aria-label="tpl.viewPhotoOf" data-i18n-vars="' +
+          i18nVarsAttr({ n: i + 1, total: allImages.length, product: p.name }) +
           '"' +
           ' aria-label="View photo ' +
           (i + 1) +
@@ -1906,8 +1925,15 @@
       '<span class="variant-select-label">' +
       attrEsc(p.variants.name) +
       "</span>" +
+      /* aria-label carries both the variant name and the product name, so no
+         single English phrase matches every product's version of it --
+         tpl.variantFor fills it in, and re-translates {variant} for free
+         since "Size"/"Scent"/"Blend"/"Amount" are themselves ordinary
+         dictionary phrases (see renderTemplate() in translator.js). */
       '<select class="variant-select" data-base-price="' +
       p.price +
+      '" data-i18n-tpl-aria-label="tpl.variantFor" data-i18n-vars="' +
+      i18nVarsAttr({ variant: p.variants.name, product: p.name }) +
       '" aria-label="' +
       attrEsc(p.variants.name) +
       " for " +
@@ -2007,19 +2033,30 @@
       var active = isWished(itemID);
       btn.classList.toggle("active", active);
       btn.setAttribute("aria-pressed", active ? "true" : "false");
-      var oldLabel = btn.getAttribute("aria-label");
-      if (oldLabel) {
-        if (active) {
-          btn.setAttribute(
-            "aria-label",
-            oldLabel.replace("Save ", "Remove ").replace(" for later", " from saved items")
-          );
-        } else {
-          btn.setAttribute(
-            "aria-label",
-            oldLabel.replace("Remove ", "Save ").replace(" from saved items", " for later")
-          );
-        }
+      if (!btn.hasAttribute("aria-label")) return;
+
+      var product = getProductMap().get(itemID);
+      var name = product ? product.name : "";
+      var tplKey = active ? "tpl.removeFromSaved" : "tpl.saveForLater";
+      var englishLabel = active
+        ? "Remove " + name + " from saved items"
+        : "Save " + name + " for later";
+      /* Recompute from scratch and hand the whole thing back to
+         translator.js, instead of English string-replacing whatever is
+         currently in the attribute. Once this label can actually be
+         translated (tpl.saveForLater / tpl.removeFromSaved -- see
+         translator.js's file-header comment on templates), the attribute
+         holds Spanish/German/etc, not the literal words "Save "/"Remove ",
+         and a plain .replace() would silently stop matching -- the toggle
+         would freeze on whichever state it was first rendered in. Clearing
+         the cached original forces translateNode() to recapture this fresh
+         English text before translating it, exactly like a first render. */
+      btn.setAttribute("aria-label", englishLabel);
+      btn.setAttribute("data-i18n-tpl-aria-label", tplKey);
+      btn.setAttribute("data-i18n-vars", i18nVarsAttr({ product: name }));
+      btn.__ylOriginalAriaLabel = undefined;
+      if (window.YL_TRANSLATOR && typeof window.YL_TRANSLATOR.translateNode === "function") {
+        window.YL_TRANSLATOR.translateNode(btn, window.YL_TRANSLATOR.getCurrentLanguage());
       }
     });
   }
@@ -3328,8 +3365,14 @@
           .join("");
         return (
           '<div class="bundle-variant-field">' +
+          /* "Sleep Salve \u2014 Size": the product name varies per bundle member,
+             so it needs tpl.bundleVariantLabel (see translator.js's file
+             header) -- {variant} is re-translated for free since
+             "Size"/"Scent"/"Blend" are ordinary dictionary phrases too. */
           '<label class="bundle-variant-label" for="' +
           attrEsc(selectId) +
+          '" data-i18n-tpl="tpl.bundleVariantLabel" data-i18n-vars="' +
+          i18nVarsAttr({ product: m.product.name, variant: m.variantName }) +
           '">' +
           attrEsc(m.product.name) +
           " \u2014 " +
@@ -3613,6 +3656,8 @@
     for (var i = 0; i < 5; i++) stars += i < full ? "★" : "☆";
     var reviewWord = p.rating.count === 1 ? "review" : "reviews";
     var valueText = p.rating.value.toFixed(1);
+    var plural = p.rating.count === 1 ? "One" : "Other";
+    var ratingVars = i18nVarsAttr({ value: valueText, count: p.rating.count });
     return (
       '<div class="card-rating">' +
       '<span aria-hidden="true">' +
@@ -3620,15 +3665,26 @@
       "</span>" +
       /* Visible, but aria-hidden: the sr-only span right after it already
          announces this same information in full sentence form, so a screen
-         reader would otherwise hear the count twice. */
-      '<span class="card-rating-count" aria-hidden="true">' +
+         reader would otherwise hear the count twice. Both spans carry a
+         value AND a count in the middle, so no single English phrase
+         matches every product's version of either -- each gets its own
+         tpl.* key (see translator.js's file-header comment). */
+      '<span class="card-rating-count" aria-hidden="true" data-i18n-tpl="tpl.cardRatingVisible' +
+      plural +
+      '" data-i18n-vars="' +
+      ratingVars +
+      '">' +
       valueText +
       " &middot; " +
       p.rating.count +
       " " +
       reviewWord +
       "</span>" +
-      '<span class="sr-only">Rated ' +
+      '<span class="sr-only" data-i18n-tpl="tpl.cardRatingSr' +
+      plural +
+      '" data-i18n-vars="' +
+      ratingVars +
+      '">Rated ' +
       valueText +
       " out of 5 stars, " +
       p.rating.count +
@@ -3804,12 +3860,20 @@
       '">' +
       '<div class="card-media">' +
       cardGalleryHTML(p, { eager: !!opts.eager }) +
+      /* aria-label carries the product name in the middle, so it needs the
+         tpl mechanism (see translator.js's file header); syncWishButtons()
+         above keeps these two attributes in sync every time the button
+         toggles, product name and all. */
       '<button class="wish-btn' +
       (wished ? " active" : "") +
       '" type="button" data-id="' +
       attrEsc(p.id) +
       '" aria-pressed="' +
       (wished ? "true" : "false") +
+      '" data-i18n-tpl-aria-label="' +
+      (wished ? "tpl.removeFromSaved" : "tpl.saveForLater") +
+      '" data-i18n-vars="' +
+      i18nVarsAttr({ product: p.name }) +
       '" aria-label="' +
       (wished
         ? "Remove " + attrEsc(p.name) + " from saved items"
@@ -8328,7 +8392,13 @@
           attrEsc(match.blurb || "") +
           '"' +
           quizVariantAttrs(match) +
-          ">" +
+          /* The price varies per quiz match, so no single English phrase
+             matches every result's version of this button -- tpl.
+             addRecommendation fills it in (see translator.js's file
+             header). */
+          ' data-i18n-tpl="tpl.addRecommendation" data-i18n-vars="' +
+          i18nVarsAttr({ price: formatMoney(recPrice) }) +
+          '">' +
           "    Add Recommendation to Cart (" +
           formatMoney(recPrice) +
           ")" +
@@ -9145,7 +9215,18 @@
         setResultsGridRole(false);
 
         if (resultCount) {
-          resultCount.textContent = "No results found for " + results.query;
+          /* This live region's textContent is reassigned directly (not
+             through markup translator.js's tree walk can attach a
+             data-i18n-tpl attribute to), and it carries the shopper's own
+             query in the middle -- no single English phrase matches every
+             query. window.YL_T (see translator.js's file header) fills in
+             tpl.searchNoResults for whatever language is active right now;
+             falling back to plain English when it is not loaded (e.g. this
+             file's own unit tests). */
+          resultCount.textContent =
+            typeof window !== "undefined" && typeof window.YL_T === "function"
+              ? window.YL_T("tpl.searchNoResults", { query: results.query })
+              : "No results found for " + results.query;
         }
         if (input) {
           input.setAttribute("aria-expanded", "false");
@@ -9461,16 +9542,33 @@
       // Screen reader announcement
       if (resultCount) {
         var hasJournal = (getSearchIndex().journal || []).length > 0;
+        var t = typeof window !== "undefined" ? window.YL_T : null;
+        var summaryVars = {
+          products: results.products.length,
+          journal: hasJournal ? results.journal.length : 0,
+          events: results.events.length,
+          faqs: results.faq.length,
+          query: results.query
+        };
+        /* Same reasoning as the no-results branch above: this is a live
+           region's textContent, reassigned directly, carrying the shopper's
+           own query -- window.YL_T fills in whichever tpl.* key matches
+           whether the journal is in play (see translator.js's file header). */
         var summary =
-          "Found " +
-          results.products.length +
-          " products, " +
-          (hasJournal ? results.journal.length + " articles, " : "") +
-          results.events.length +
-          " events, and " +
-          results.faq.length +
-          " FAQs for " +
-          results.query;
+          typeof t === "function"
+            ? t(
+                hasJournal ? "tpl.searchResultsFoundWithJournal" : "tpl.searchResultsFound",
+                summaryVars
+              )
+            : "Found " +
+              results.products.length +
+              " products, " +
+              (hasJournal ? results.journal.length + " articles, " : "") +
+              results.events.length +
+              " events, and " +
+              results.faq.length +
+              " FAQs for " +
+              results.query;
         resultCount.textContent = summary;
       }
 
@@ -10485,7 +10583,9 @@
       '<div class="pdp-ritual-section pdp-ritual-compact" id="modalRitualSection">' +
       '<div class="pdp-ritual-header">' +
       '<span class="eyebrow">✦ COMPLETE THE RITUAL ✦</span>' +
-      '<h4 class="pdp-ritual-title">✦ Complete the Ritual: ' +
+      '<h4 class="pdp-ritual-title" data-i18n-tpl="tpl.completeTheRitual" data-i18n-vars="' +
+      i18nVarsAttr({ ritual: title }) +
+      '">✦ Complete the Ritual: ' +
       attrEsc(title) +
       " ✦</h4>" +
       (defaultSubtitle

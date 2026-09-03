@@ -177,6 +177,14 @@ function escapeHtml(s) {
     .replace(/`/g, "&#96;");
 }
 
+/* Serializes vars for a data-i18n-vars attribute (see the "TEMPLATES" section
+   of assets/js/translator.js's file header): JSON.stringify, then escapeHtml
+   so the quotes JSON needs -- and anything in a product name, like the
+   apostrophe in "Y'all Means All" -- can't break out of the attribute. */
+function i18nVarsAttr(vars) {
+  return escapeHtml(JSON.stringify(vars));
+}
+
 /* "$20" for whole dollars, "$21.60" only when there are cents -- the rule
    every shopper-visible price follows (main.js formatMoney, cart.js money).
    Machine-facing values (data-item-price, the [+6.00] option tokens, JSON-LD
@@ -543,7 +551,12 @@ const IDENTICAL_BY_DESIGN = {
   "box.catPotions": { fr: "POTIONS is the ordinary French word" },
   "gift.optional": { de: "Optional is the ordinary German word" },
   "reviews.name": { de: "Name is the ordinary German word" },
-  "reviews.general": { es: "General is the ordinary Spanish word" }
+  "reviews.general": { es: "General is the ordinary Spanish word" },
+  "tpl.bundleVariantLabel": {
+    es: "just an em-dash joining two already-translated vars, same as in English",
+    de: "just an em-dash joining two already-translated vars, same as in English",
+    fr: "just an em-dash joining two already-translated vars, same as in English"
+  }
 };
 
 /* Every named entity the built pages actually use, plus the structural four.
@@ -5370,7 +5383,15 @@ function renderRitualSectionHtml(
       "\n" +
       "          </div>\n" +
       '          <div class="pdp-ritual-item-details">\n' +
-      '            <span class="pdp-ritual-item-tag">Step ' +
+      /* "Step 2: Body & Skin" -- the step number varies per product, so this
+         needs its own template even though {category} (pairedCatLabel) is
+         ALSO an ordinary dictionary phrase and gets translated on its own
+         merits: renderTemplate() in translator.js runs every substituted var
+         back through the normal phrase lookup, so the category comes back
+         translated for free. */
+      '            <span class="pdp-ritual-item-tag" data-i18n-tpl="tpl.ritualStepTag" data-i18n-vars="' +
+      i18nVarsAttr({ n: idx + 2, category: pairedCatLabel }) +
+      '">Step ' +
       (idx + 2) +
       ": " +
       escapeHtml(pairedCatLabel) +
@@ -5393,7 +5414,9 @@ function renderRitualSectionHtml(
     '    <section class="pdp-ritual-section" id="pdpRitualSection" aria-labelledby="ritualHeading">\n' +
     '      <div class="pdp-ritual-header">\n' +
     '        <span class="eyebrow">✦ COMPLETE THE RITUAL ✦</span>\n' +
-    '        <h2 id="ritualHeading" class="pdp-ritual-title">✦ Complete the Ritual: ' +
+    '        <h2 id="ritualHeading" class="pdp-ritual-title" data-i18n-tpl="tpl.completeTheRitual" data-i18n-vars="' +
+    i18nVarsAttr({ ritual: ritualTitle }) +
+    '">✦ Complete the Ritual: ' +
     escapeHtml(ritualTitle) +
     " ✦</h2>\n" +
     '        <p class="pdp-ritual-sub">' +
@@ -6017,9 +6040,17 @@ function renderPdpPurchaseHtml(p, categoryLabel) {
     '          <button type="button" class="btn btn-primary btn-lg pdp-cta-btn yl-add-item" id="pdpAddToCart"' +
     addToCartAttrs(p, categoryLabel) +
     ' data-item-quantity="1">Add to Cart</button>\n' +
+    /* aria-label carries a product name in the middle ("Save Sleep Salve for
+       later"), so it needs the tpl mechanism the same as the shop-card
+       version of this button (main.js cardHTML) -- see main.js's
+       syncWishButtons(), which recomputes this same tpl key + vars (instead
+       of English string-replacement) so the wished/not-wished toggle stays
+       correct once this label can actually be translated. */
     '          <button type="button" class="wish-btn pdp-wish-btn" data-id="' +
     escapeHtml(p.id) +
-    '" aria-pressed="false" aria-label="' +
+    '" aria-pressed="false" data-i18n-tpl-aria-label="tpl.saveForLater" data-i18n-vars="' +
+    i18nVarsAttr({ product: p.name }) +
+    '" aria-label="' +
     escapeHtml("Save " + p.name + " for later") +
     '"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>\n' +
     "        </div>\n" +
@@ -6044,7 +6075,16 @@ function renderPdpTrustHtml(p, shop) {
           "calendar",
           p.estimatedBatchDate
             ? "Not for sale yet &middot; estimated batch date " + escapeHtml(p.estimatedBatchDate)
-            : "Not for sale yet &middot; this batch has no date on it we would stand behind"
+            : "Not for sale yet &middot; this batch has no date on it we would stand behind",
+          /* Only the dated branch needs a template: the date varies per
+             product, so no single English phrase matches every product's
+             version of it. The no-date branch is fixed text and translates
+             the ordinary way. */
+          p.estimatedBatchDate
+            ? ' data-i18n-tpl="tpl.notForSaleBatchDate" data-i18n-vars="' +
+              i18nVarsAttr({ date: p.estimatedBatchDate }) +
+              '"'
+            : ""
         ],
         ["mail", "Leave your email above and you will hear the day it lands"],
         ["heart", "Handmade in small batches by one person in Landrum, SC"]
@@ -6090,7 +6130,9 @@ function renderPdpTrustHtml(p, shop) {
     '">\n' +
     items
       .map(function (it) {
-        return "          <li>" + icons[it[0]] + "<span>" + it[1] + "</span></li>";
+        return (
+          "          <li>" + icons[it[0]] + "<span" + (it[2] || "") + ">" + it[1] + "</span></li>"
+        );
       })
       .join("\n") +
     "\n        </ul>\n" +
@@ -6202,12 +6244,22 @@ function renderPdpReviewsHtml(p, reviews, options) {
         " of this one, all from earlier batches. We are not putting a star rating on a batch nobody has held yet.</p>\n"
       : '        <p class="pdp-reviews-summary"><span class="stars" aria-hidden="true">' +
         starsHtml(avg) +
-        "</span> <strong>" +
+        /* Both spans below carry a variable in the middle (the average, the
+           review count) that no single English phrase can stand in for, so
+           each gets its own tpl.* key rather than relying on the whole-node
+           text matcher. See translator.js's file header. */
+        '</span> <strong data-i18n-tpl="tpl.avgOutOf5" data-i18n-vars="' +
+        i18nVarsAttr({ avg: avg.toFixed(1) }) +
+        '">' +
         avg.toFixed(1) +
-        " out of 5</strong> from " +
+        ' out of 5</strong> <span data-i18n-tpl="tpl.pdpReviewsSummary' +
+        (count === 1 ? "One" : "Other") +
+        '" data-i18n-vars="' +
+        i18nVarsAttr({ count: count }) +
+        '">from ' +
         count +
         (count === 1 ? " review" : " reviews") +
-        " of this product</p>\n";
+        " of this product</span></p>\n";
 
   const disclosure =
     count &&
@@ -6226,7 +6278,13 @@ function renderPdpReviewsHtml(p, reviews, options) {
     "      </div>\n" +
     (count ? '      <div class="grid grid-3 reviews-list">\n' + cards + "\n      </div>\n" : "") +
     '      <div class="review-form-wrap">\n' +
-    "        <h3>Write a review of " +
+    /* data-i18n-tpl points translator.js at tpl.writeReviewOf ("Write a
+       review of {product}"); the whole-node text matcher could never match
+       this heading on its own, since no single English phrase equals every
+       product's version of it. */
+    '        <h3 data-i18n-tpl="tpl.writeReviewOf" data-i18n-vars="' +
+    i18nVarsAttr({ product: p.name }) +
+    '">Write a review of ' +
     escapeHtml(p.name) +
     "</h3>\n" +
     '        <p class="review-form-confirm"><span class="glyph" aria-hidden="true">&#10003;</span> Thanks, y\'all! Your review\'s been sent in. Savanna reads every one before it\'s posted, so it might take a few days to show up.</p>\n' +

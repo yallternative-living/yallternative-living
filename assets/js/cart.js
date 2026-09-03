@@ -1163,16 +1163,33 @@
       };
     }
 
+    /* Both branches below carry a dollar amount AND a CMS-authored reward
+       name (products.json shop.shippingMilestones) in the middle, so no
+       single English phrase matches every amount/reward combination --
+       tpl.milestoneFirst / tpl.milestoneNext fill them in (see
+       translator.js's file header). The reward name itself is substituted
+       verbatim, the same as a product name: it is CMS copy, not a
+       dictionary phrase, so there is nothing for renderTemplate() to
+       translate it against. window.YL_T is undefined in this file's own
+       Node test harness (no DOM/window at all there), so the fallback
+       concatenation below is what those tests actually exercise. */
+    var t = typeof window !== "undefined" ? window.YL_T : null;
     var remaining = Math.round((nextMilestone.threshold - currentSub) * 100) / 100;
     var msg = "";
     if (nextIndex === 0) {
-      msg = "Add " + money(remaining) + " for " + nextMilestone.reward + "!";
+      msg =
+        typeof t === "function"
+          ? t("tpl.milestoneFirst", { amount: money(remaining), reward: nextMilestone.reward })
+          : "Add " + money(remaining) + " for " + nextMilestone.reward + "!";
     } else {
       var rewardLabel = nextMilestone.reward;
       if (rewardLabel.toLowerCase().indexOf("free ") !== 0) {
         rewardLabel = "Free " + rewardLabel;
       }
-      msg = "Add " + money(remaining) + " more to unlock a " + rewardLabel + "!";
+      msg =
+        typeof t === "function"
+          ? t("tpl.milestoneNext", { amount: money(remaining), reward: rewardLabel })
+          : "Add " + money(remaining) + " more to unlock a " + rewardLabel + "!";
     }
 
     return {
@@ -2648,7 +2665,7 @@
     });
     save();
     render();
-    announce(p.name + " added to cart");
+    announceAdded(p.name);
   }
 
   /* ---------------- Cart operations ---------------- */
@@ -2700,7 +2717,7 @@
     save();
     render();
     openDrawer();
-    announce(item.name + " added to cart");
+    announceAdded(item.name);
   }
 
   function changeQty(key, delta) {
@@ -2953,6 +2970,22 @@
     if (liveEl) liveEl.textContent = msg;
   }
 
+  /* "{item} added to cart" -- the item name in the middle means no single
+     English phrase matches every product's version of this announcement, so
+     it needs the template mechanism (tpl.itemAddedToCart; see
+     translator.js's file header) rather than a plain dictionary entry.
+     window.YL_T fills it in for whatever language is active right now, and
+     falls back to plain English concatenation when translator.js has not
+     loaded (this file's own unit tests run without a DOM at all). */
+  function announceAdded(name) {
+    var label = name || "Item";
+    var text =
+      typeof window !== "undefined" && typeof window.YL_T === "function"
+        ? window.YL_T("tpl.itemAddedToCart", { item: label })
+        : label + " added to cart";
+    announce(text);
+  }
+
   function showCheckoutError(msg) {
     if (!footEl) return;
     var existing = footEl.querySelector(".yl-cart-error");
@@ -3006,7 +3039,7 @@
     save();
     render();
     openDrawer();
-    announce((item.name || "Item") + " added to cart");
+    announceAdded(item.name);
   }
 
   function addItems(itemsArray) {

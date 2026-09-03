@@ -433,6 +433,46 @@ const SURFACES = [
 const keyOf = (entry) => entry.kind + "|" + entry.text;
 const digest = (s) => crypto.createHash("sha1").update(s, "utf8").digest("hex").slice(0, 10);
 
+/* ---------------------------------------------------------------
+   Template recognition for --sync's "reachable but not in the dictionary"
+   list. A "tpl.*" dictionary phrase like "Add {amount} Gift Card to Cart"
+   never appears literally anywhere -- translator.js fills the {placeholder}s
+   in at runtime (see its file header) -- so without this, every finished
+   string it produces ("Add $25 Gift Card to Cart", "Add $50 Gift Card to
+   Cart", one per amount a shopper could type) would show up here forever,
+   looking like an ever-growing pile of untranslated copy. Turning each
+   template into a regex (escape the literal parts, turn each {name} into a
+   capture group) and matching the live site's strings against it is what
+   lets --sync recognize "this IS covered, just not by an exact-value key"
+   instead of the alternative of hand-maintaining a list of literal example
+   strings to ignore, which would silently go stale the moment a product
+   name or a CMS-authored reward changed.
+   --------------------------------------------------------------- */
+function buildTemplateMatchers(enPhrases) {
+  const matchers = [];
+  Object.keys(enPhrases || {}).forEach((key) => {
+    if (key.indexOf("tpl.") !== 0) return;
+    const template = enPhrases[key];
+    if (typeof template !== "string" || template.indexOf("{") === -1) return;
+    const escaped = template.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const pattern = escaped.replace(/\\\{(\w+)\\\}/g, "(.+?)");
+    try {
+      matchers.push({ key: key, regex: new RegExp("^" + pattern + "$", "u") });
+    } catch {
+      // An unbuildable pattern just means this key can't be recognized here;
+      // it still fails loud in validateDictionaryCoverage if truly dead.
+    }
+  });
+  return matchers;
+}
+
+function matchingTemplateKey(matchers, text) {
+  for (let i = 0; i < matchers.length; i++) {
+    if (matchers[i].regex.test(text)) return matchers[i].key;
+  }
+  return null;
+}
+
 async function collectFrom(browser, boundPort, pageName, surface) {
   const page = await browser.newPage();
   try {
@@ -650,7 +690,17 @@ function readJsonIfPresent(rel) {
     });
   });
 
-  const uncovered = all.filter((r) => !enValues.has(r.text));
+  const templateMatchers = buildTemplateMatchers(en.phrases);
+  const uncoveredAll = all.filter((r) => !enValues.has(r.text));
+  const templateCovered = [];
+  const uncovered = uncoveredAll.filter((r) => {
+    const key = matchingTemplateKey(templateMatchers, r.text);
+    if (key) {
+      templateCovered.push({ text: r.text, key: key });
+      return false;
+    }
+    return true;
+  });
 
   console.log("\n================ --sync ================");
   console.log("Dictionary keys: " + Object.keys(en.phrases).length);
@@ -659,6 +709,19 @@ function readJsonIfPresent(rel) {
     console.log("    (" + r.kind + " x" + r.count + ") " + JSON.stringify(r.text).slice(0, 160));
   });
   if (uncovered.length > 120) console.log("    ...and " + (uncovered.length - 120) + " more");
+  if (templateCovered.length) {
+    console.log(
+      "\n    (" +
+        templateCovered.length +
+        " more matched a tpl.* template and are already covered -- not listed above; " +
+        "e.g. " +
+        templateCovered
+          .slice(0, 3)
+          .map((r) => JSON.stringify(r.text).slice(0, 60) + " -> " + r.key)
+          .join(", ") +
+        ")"
+    );
+  }
 
   console.log("\n[2] Dictionary entries the site no longer shows: " + dead.length);
   dead.forEach((d) => console.log("    " + d));

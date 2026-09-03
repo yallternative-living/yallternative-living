@@ -651,6 +651,231 @@
         "Savanna is stirring up some stories. Check back soon for herbal folklore, batch updates, and behind-the-scenes thoughts."
       ],
       "note": "the journal page's coming-soon placeholder, shown while the journal feature flag is off or has no posts"
+    },
+    {
+      "key": "tpl.addGiftCard",
+      "text": "Add {amount} Gift Card to Cart",
+      "source": "assets/js/gift-card.js",
+      "verify": [
+        "tpl.addGiftCard"
+      ],
+      "note": "gift dialog's primary button; amount comes from the preset/custom picker (live audit LOW-1)"
+    },
+    {
+      "key": "tpl.writeReviewOf",
+      "text": "Write a review of {product}",
+      "source": "scripts/build-site-data.js",
+      "verify": [
+        "tpl.writeReviewOf"
+      ],
+      "note": "PDP review-form heading, one per product page"
+    },
+    {
+      "key": "tpl.enlargePhoto",
+      "text": "Enlarge photo of {product}",
+      "source": "assets/js/main.js",
+      "verify": [
+        "tpl.enlargePhoto"
+      ],
+      "note": "shop-card photo gallery's active-slide button (cardGalleryHTML)"
+    },
+    {
+      "key": "tpl.viewPhotoOf",
+      "text": "View photo {n} of {total} for {product}",
+      "source": "assets/js/main.js",
+      "verify": [
+        "tpl.viewPhotoOf"
+      ],
+      "note": "shop-card photo gallery's dot buttons (cardGalleryHTML)"
+    },
+    {
+      "key": "tpl.variantFor",
+      "text": "{variant} for {product}",
+      "source": "assets/js/main.js",
+      "verify": [
+        "tpl.variantFor"
+      ],
+      "note": "size/scent/blend <select> aria-label; {variant} is itself an ordinary dictionary phrase (tpl.variantSize etc.)"
+    },
+    {
+      "key": "tpl.saveForLater",
+      "text": "Save {product} for later",
+      "source": "assets/js/main.js",
+      "verify": [
+        "tpl.saveForLater"
+      ],
+      "note": "wish-btn aria-label, not-yet-saved state; kept in sync by syncWishButtons()"
+    },
+    {
+      "key": "tpl.removeFromSaved",
+      "text": "Remove {product} from saved items",
+      "source": "assets/js/main.js",
+      "verify": [
+        "tpl.removeFromSaved"
+      ],
+      "note": "wish-btn aria-label, saved state; kept in sync by syncWishButtons()"
+    },
+    {
+      "key": "tpl.cardRatingSrOne",
+      "text": "Rated {value} out of 5 stars, {count} review",
+      "source": "assets/js/main.js",
+      "verify": [
+        "tpl.cardRatingSr"
+      ],
+      "note": "ratingHTML()'s sr-only span, 1-review case; key suffix (One/Other) is built with string concatenation"
+    },
+    {
+      "key": "tpl.cardRatingSrOther",
+      "text": "Rated {value} out of 5 stars, {count} reviews",
+      "source": "assets/js/main.js",
+      "verify": [
+        "tpl.cardRatingSr"
+      ],
+      "note": "ratingHTML()'s sr-only span, multi-review case"
+    },
+    {
+      "key": "tpl.cardRatingVisibleOne",
+      "text": "{value} · {count} review",
+      "source": "assets/js/main.js",
+      "verify": [
+        "tpl.cardRatingVisible"
+      ],
+      "note": "ratingHTML()'s visible (aria-hidden) count span, 1-review case"
+    },
+    {
+      "key": "tpl.cardRatingVisibleOther",
+      "text": "{value} · {count} reviews",
+      "source": "assets/js/main.js",
+      "verify": [
+        "tpl.cardRatingVisible"
+      ],
+      "note": "ratingHTML()'s visible (aria-hidden) count span, multi-review case"
+    },
+    {
+      "key": "tpl.avgOutOf5",
+      "text": "{avg} out of 5",
+      "source": "scripts/build-site-data.js",
+      "verify": [
+        "tpl.avgOutOf5"
+      ],
+      "note": "the <strong> average inside the PDP reviews summary paragraph"
+    },
+    {
+      "key": "tpl.pdpReviewsSummaryOne",
+      "text": "from {count} review of this product",
+      "source": "scripts/build-site-data.js",
+      "verify": [
+        "tpl.pdpReviewsSummary"
+      ],
+      "note": "PDP reviews summary trailing span, 1-review case"
+    },
+    {
+      "key": "tpl.pdpReviewsSummaryOther",
+      "text": "from {count} reviews of this product",
+      "source": "scripts/build-site-data.js",
+      "verify": [
+        "tpl.pdpReviewsSummary"
+      ],
+      "note": "PDP reviews summary trailing span, multi-review case"
+    },
+    {
+      "key": "tpl.bundleVariantLabel",
+      "text": "{product} — {variant}",
+      "source": "assets/js/main.js",
+      "verify": [
+        "tpl.bundleVariantLabel"
+      ],
+      "note": "gift-set bundle variant picker's field label"
+    },
+    {
+      "key": "tpl.notForSaleBatchDate",
+      "text": "Not for sale yet · estimated batch date {date}",
+      "source": "scripts/build-site-data.js",
+      "verify": [
+        "tpl.notForSaleBatchDate"
+      ],
+      "note": "coming-soon PDP trust strip; only the dated branch needs a template"
+    },
+    {
+      "key": "tpl.completeTheRitual",
+      "text": "✦ Complete the Ritual: {ritual} ✦",
+      "source": "scripts/build-site-data.js",
+      "verify": [
+        "tpl.completeTheRitual"
+      ],
+      "note": "PDP ritual-pairing section heading; also used verbatim by the quiz-result modal's compact ritual card in assets/js/main.js"
+    },
+    {
+      "key": "tpl.ritualStepTag",
+      "text": "Step {n}: {category}",
+      "source": "scripts/build-site-data.js",
+      "verify": [
+        "tpl.ritualStepTag"
+      ],
+      "note": "\"Step 2: Body & Skin\" tag on each paired product in the PDP ritual section; {category} is itself an ordinary dictionary phrase"
+    },
+    {
+      "key": "tpl.searchResultsFound",
+      "text": "Found {products} products, {events} events, and {faqs} FAQs for {query}",
+      "source": "assets/js/main.js",
+      "verify": [
+        "tpl.searchResultsFound"
+      ],
+      "note": "global search's live-region result count, no journal posts indexed"
+    },
+    {
+      "key": "tpl.searchResultsFoundWithJournal",
+      "text": "Found {products} products, {journal} articles, {events} events, and {faqs} FAQs for {query}",
+      "source": "assets/js/main.js",
+      "verify": [
+        "tpl.searchResultsFoundWithJournal"
+      ],
+      "note": "global search's live-region result count, journal posts indexed"
+    },
+    {
+      "key": "tpl.searchNoResults",
+      "text": "No results found for {query}",
+      "source": "assets/js/main.js",
+      "verify": [
+        "tpl.searchNoResults"
+      ],
+      "note": "global search's live-region result count, zero results"
+    },
+    {
+      "key": "tpl.addRecommendation",
+      "text": "Add Recommendation to Cart ({price})",
+      "source": "assets/js/main.js",
+      "verify": [
+        "tpl.addRecommendation"
+      ],
+      "note": "apothecary quiz result's primary button"
+    },
+    {
+      "key": "tpl.itemAddedToCart",
+      "text": "{item} added to cart",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "tpl.itemAddedToCart"
+      ],
+      "note": "announceAdded()'s live-region text, used by every add-to-cart path"
+    },
+    {
+      "key": "tpl.milestoneFirst",
+      "text": "Add {amount} for {reward}!",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "tpl.milestoneFirst"
+      ],
+      "note": "calculateMilestoneStatus()'s shipping-progress message, first (only) milestone; {reward} is CMS copy (shop.shippingMilestones), substituted verbatim like a product name"
+    },
+    {
+      "key": "tpl.milestoneNext",
+      "text": "Add {amount} more to unlock a {reward}!",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "tpl.milestoneNext"
+      ],
+      "note": "calculateMilestoneStatus()'s shipping-progress message, a later milestone"
     }
   ]
 }

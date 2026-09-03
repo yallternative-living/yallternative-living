@@ -267,6 +267,66 @@
   // --- Purchase Flow Logic ---
   if (!presetBtns.length || !addGiftCardBtn) return;
 
+  /* The button's label is composed with the amount in the middle ("Add $25
+     Gift Card to Cart"), so the whole-text-node matcher in translator.js can
+     never match it -- no single English phrase equals every amount's version
+     of it (live audit LOW-1). tpl.addGiftCard is the template dictionary key
+     ("Add {amount} Gift Card to Cart"); window.YL_T fills it in for whatever
+     language is active right now, and falls back to plain English
+     concatenation when translator.js has not loaded (e.g. this file's own
+     unit tests, which run without it). lastGiftAmount is remembered so the
+     "yl-language-changed" listener below can re-render the button in the
+     newly selected language without needing the amount passed back in. */
+  var lastGiftAmount = 25;
+
+  function giftButtonText(amount) {
+    if (typeof window !== "undefined" && typeof window.YL_T === "function") {
+      return window.YL_T("tpl.addGiftCard", { amount: "$" + amount });
+    }
+    return "Add $" + amount + " Gift Card to Cart";
+  }
+
+  function renderGiftButtonText(amount) {
+    lastGiftAmount = amount;
+    var btnTextEl = document.getElementById("addGiftCardBtnText");
+    if (btnTextEl) {
+      btnTextEl.textContent = giftButtonText(amount);
+    }
+  }
+
+  if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
+    document.addEventListener("yl-language-changed", function () {
+      renderGiftButtonText(lastGiftAmount);
+    });
+  }
+
+  /* Render once at load, in whatever language is already active, instead of
+     waiting for the first amount change or the next "yl-language-changed"
+     event. Loading the page with ?lang=es (or a saved preference) runs
+     translator.js's init() -- and its language switch, and the event this
+     listens for -- before this script tag has necessarily executed, so
+     without this the button shipped in English until the shopper touched a
+     preset (verified live: shop.html?lang=es showed "Add $25 Gift Card to
+     Cart" at load). The build always marks one preset .active (25 by
+     default); read it instead of assuming, so a custom-picked amount
+     mid-session survives a reload of this script correctly too. */
+  (function renderInitialGiftButtonText() {
+    var activePreset = null;
+    for (var i = 0; i < presetBtns.length; i++) {
+      if (presetBtns[i].classList.contains("active")) {
+        activePreset = presetBtns[i];
+        break;
+      }
+    }
+    var initialAmount =
+      activePreset && activePreset.getAttribute("data-amount")
+        ? parseInt(activePreset.getAttribute("data-amount"), 10)
+        : customGiftAmount && customGiftAmount.value
+          ? parseInt(customGiftAmount.value, 10)
+          : 25;
+    renderGiftButtonText(isNaN(initialAmount) ? 25 : initialAmount);
+  })();
+
   function updateGiftCardAmount(amount) {
     var finalAmount = amount;
     if (finalAmount < 10) finalAmount = 10;
@@ -279,10 +339,7 @@
       customGiftAmount.value = finalAmount;
     }
     addGiftCardBtn.setAttribute("data-item-custom1-value", "Preset $" + finalAmount);
-    var btnTextEl = document.getElementById("addGiftCardBtnText");
-    if (btnTextEl) {
-      btnTextEl.textContent = "Add $" + finalAmount + " Gift Card to Cart";
-    }
+    renderGiftButtonText(finalAmount);
   }
 
   presetBtns.forEach(function (btn) {
@@ -330,10 +387,7 @@
         /* The button kept whatever amount was last committed ("Add $25 Gift
            Card to Cart") while the display and the cart attribute had already
            moved on, so the button contradicted the price beside it. */
-        var btnTextEl = document.getElementById("addGiftCardBtnText");
-        if (btnTextEl) {
-          btnTextEl.textContent = "Add $" + clamped + " Gift Card to Cart";
-        }
+        renderGiftButtonText(clamped);
       }
     });
 

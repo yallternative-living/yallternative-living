@@ -4,6 +4,43 @@
    Lightweight, zero-external-dependency, cookieless translation engine.
    Translates text nodes, data-i18n elements, placeholders, and aria-labels
    in-place using compiled locale dictionaries and brand glossary rules.
+
+   TEMPLATES ("tpl.*" keys) -- for strings JS or the build composes with a
+   variable in the MIDDLE ("Add $25 Gift Card to Cart", "Write a review of
+   Sleep Salve"). The whole-node matcher above only ever sees the FINISHED
+   string, and no single English phrase equals every amount's or product's
+   version of it, so those strings need two extra pieces instead of one
+   dictionary entry:
+     - A "tpl.*" dictionary phrase with {name} placeholders, e.g.
+       "tpl.addGiftCard": "Add {amount} Gift Card to Cart", translated per
+       locale the same as any other phrase.
+     - Two ways to apply it, picked per call site by whether the string can
+       change again after it is first rendered:
+         (a) COMPOSITION TIME -- call the exported t(key, vars) (also
+             window.YL_T) instead of concatenating, wherever the string is
+             built. Required for anything that can be re-rendered by an
+             event handler while already on screen (the gift-card button's
+             amount changes on every keystroke) -- those sites also need to
+             re-run their own render function on the "yl-language-changed"
+             event so a language switch updates already-visible text.
+         (b) TRANSLATION TIME -- mark up the element with
+             data-i18n-tpl="tpl.someKey" (textContent) or
+             data-i18n-tpl-placeholder / -aria-label / -title (that
+             attribute), plus data-i18n-vars='{"product":"...","n":2}' (a
+             JSON object). translateNode() below fills it in with t() on
+             every pass, so it "just works" for anything rendered once and
+             left alone -- an aria-label built in a loop, a heading the
+             build wrote into static HTML -- with no JS-side language
+             awareness needed at all, including for elements the
+             MutationObserver discovers after the fact.
+   Either way the value substituted for each {name} is run back through the
+   normal phrase dictionary first (see renderTemplate()): a var that is ALSO
+   a dictionary phrase (a category name) comes back translated, one that
+   isn't (a product name, protected by the brand glossary; a dollar amount;
+   a bare count) comes back verbatim. Restoring English still restores the
+   exact original text/attribute from the same __ylOriginal* cache every
+   other path here uses, so a template key can never leave a page unable to
+   get back to its authored copy.
    ========================================================== */
 /* global module, global, require */
 (function () {
@@ -261,6 +298,72 @@
   }
 
   /**
+   * Fill {name} placeholders in a template string with `vars[name]`.
+   *
+   * Every substituted value is run back through lookupPhrase() at the same
+   * target language before it lands in the string. That is what lets one
+   * template mechanism serve both kinds of variable this dictionary needs
+   * to carry: a value that is ALSO a dictionary phrase (a category name
+   * like "Body & Skin") comes back translated, while a value that is not --
+   * a product name (protected by the brand glossary), a dollar amount, a
+   * bare count -- comes back unchanged, because lookupPhrase() has nothing
+   * to match it against. No separate "translate this var / don't translate
+   * that one" flag is needed; the dictionary already knows which is which.
+   *
+   * A placeholder with no matching var is left as the literal "{name}"
+   * rather than silently disappearing, so a wiring mistake is visible on
+   * the page instead of vanishing into an empty string.
+   */
+  function renderTemplate(str, vars, targetLang) {
+    if (typeof str !== "string" || !str) return str;
+    if (!vars || typeof vars !== "object") return str;
+    return str.replace(/\{(\w+)\}/g, function (match, name) {
+      if (!Object.prototype.hasOwnProperty.call(vars, name)) return match;
+      var raw = vars[name];
+      if (raw === null || raw === undefined) return match;
+      var value = String(raw);
+      return targetLang && targetLang !== "en" ? lookupPhrase(value, targetLang) : value;
+    });
+  }
+
+  /**
+   * Translate-and-fill a template dictionary key ("tpl.*") -- the
+   * composition-time half of the template mechanism described at the top of
+   * this file. Falls back to the English template when the target locale
+   * has none (including when no locale is loaded at all yet), and to the
+   * bare key when English has none either, so a bad key fails loud -- an
+   * odd "tpl.foo" showing up on the page -- rather than throwing or
+   * quietly returning nothing.
+   *
+   * Exposed on window as YL_T so composition sites (gift-card.js, main.js)
+   * can call it directly instead of concatenating a string the whole-node
+   * matcher in translateNode() could never reach.
+   */
+  function t(key, vars, targetLang) {
+    var lang = targetLang || currentLang;
+    var template = lookupByKey(key, lang);
+    if (!template) return key;
+    return renderTemplate(template, vars, lang);
+  }
+
+  /**
+   * Parse an element's data-i18n-vars attribute (a JSON object literal) for
+   * use with t()/renderTemplate(). Malformed or absent JSON is treated the
+   * same as "no vars" rather than thrown.
+   */
+  function parseI18nVars(node) {
+    if (!node || typeof node.getAttribute !== "function") return null;
+    var raw = node.getAttribute("data-i18n-vars");
+    if (!raw) return null;
+    try {
+      var parsed = JSON.parse(raw);
+      return parsed && typeof parsed === "object" ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Check if an element should be skipped during translation traversal.
    */
   function shouldSkipElement(el) {
@@ -489,6 +592,37 @@
         }
       }
 
+      /* 1b. data-i18n-tpl explicit TEMPLATE translation -- the runtime half
+         of the mechanism described at the top of this file. Where data-i18n
+         (above) points at a fixed dictionary phrase, data-i18n-tpl points at
+         a "tpl.*" phrase containing {placeholders}, filled in from the
+         sibling data-i18n-vars JSON attribute via t(). This is how a string
+         JS or the build assembled with a variable in the middle -- "Write a
+         review of Sleep Salve", "Step 2: Body & Skin" -- gets translated at
+         all: the whole-node text matcher above can never match it, because
+         no single English phrase equals every product's or category's
+         version of it. */
+      if (typeof node.hasAttribute === "function" && node.hasAttribute("data-i18n-tpl")) {
+        var tplKey = node.getAttribute("data-i18n-tpl");
+        if (node.__ylOriginalText === undefined) {
+          node.__ylOriginalText = node.textContent !== null ? node.textContent : "";
+        }
+        if (targetLang === "en") {
+          node.textContent = node.__ylOriginalText;
+        } else {
+          var tplText = t(tplKey, parseI18nVars(node), targetLang);
+          if (tplText && tplText !== tplKey) {
+            node.textContent = tplText;
+            noteLang(node, true);
+            // Same MutationObserver race as the data-i18n seed above.
+            var seededTpl = node.childNodes && node.childNodes[0];
+            if (seededTpl && seededTpl.nodeType === 3) {
+              seededTpl.__ylOriginalText = node.__ylOriginalText;
+            }
+          }
+        }
+      }
+
       // 2. Placeholder attribute
       var hasPlaceholder =
         typeof node.hasAttribute === "function"
@@ -508,13 +642,16 @@
             }
             node.placeholder = node.__ylOriginalPlaceholder;
           } else {
+            var pTplKey = node.getAttribute("data-i18n-tpl-placeholder");
             var pKey =
               typeof node.getAttribute === "function"
                 ? node.getAttribute("data-i18n-placeholder")
                 : null;
-            var pTrans = pKey
-              ? lookupByKey(pKey, targetLang)
-              : lookupPhrase(node.__ylOriginalPlaceholder.trim(), targetLang);
+            var pTrans = pTplKey
+              ? t(pTplKey, parseI18nVars(node), targetLang)
+              : pKey
+                ? lookupByKey(pKey, targetLang)
+                : lookupPhrase(node.__ylOriginalPlaceholder.trim(), targetLang);
             if (pTrans) {
               if (typeof node.setAttribute === "function") {
                 node.setAttribute("placeholder", pTrans);
@@ -534,10 +671,13 @@
           if (targetLang === "en") {
             node.setAttribute("aria-label", node.__ylOriginalAriaLabel);
           } else {
+            var aTplKey = node.getAttribute("data-i18n-tpl-aria-label");
             var aKey = node.getAttribute("data-i18n-aria-label");
-            var aTrans = aKey
-              ? lookupByKey(aKey, targetLang)
-              : lookupPhrase(node.__ylOriginalAriaLabel.trim(), targetLang);
+            var aTrans = aTplKey
+              ? t(aTplKey, parseI18nVars(node), targetLang)
+              : aKey
+                ? lookupByKey(aKey, targetLang)
+                : lookupPhrase(node.__ylOriginalAriaLabel.trim(), targetLang);
             if (aTrans) {
               node.setAttribute("aria-label", aTrans);
             }
@@ -554,10 +694,13 @@
           if (targetLang === "en") {
             node.setAttribute("title", node.__ylOriginalTitle);
           } else {
+            var tTplKey = node.getAttribute("data-i18n-tpl-title");
             var tKey = node.getAttribute("data-i18n-title");
-            var tTrans = tKey
-              ? lookupByKey(tKey, targetLang)
-              : lookupPhrase(node.__ylOriginalTitle.trim(), targetLang);
+            var tTrans = tTplKey
+              ? t(tTplKey, parseI18nVars(node), targetLang)
+              : tKey
+                ? lookupByKey(tKey, targetLang)
+                : lookupPhrase(node.__ylOriginalTitle.trim(), targetLang);
             if (tTrans) {
               node.setAttribute("title", tTrans);
             }
@@ -1110,15 +1253,6 @@
     }
   }
 
-  // Auto-initialize on DOM ready
-  if (typeof document !== "undefined") {
-    if (document.readyState !== "loading") {
-      init();
-    } else {
-      document.addEventListener("DOMContentLoaded", init);
-    }
-  }
-
   // Public Translation API
   var YL_TRANSLATOR = {
     LANGUAGES: LANGUAGES,
@@ -1131,6 +1265,8 @@
     isProtectedTerm: isProtectedTerm,
     lookupPhrase: lookupPhrase,
     lookupByKey: lookupByKey,
+    t: t,
+    renderTemplate: renderTemplate,
     getInitialLanguage: getInitialLanguage,
     initUI: initUI,
     init: init,
@@ -1170,10 +1306,36 @@
   // Attach to window object
   if (typeof window !== "undefined") {
     window.YL_TRANSLATOR = YL_TRANSLATOR;
+    /* Composition-time half of the template mechanism (see file header):
+       code that builds a string with a variable in the middle -- an amount,
+       a count, a product name -- calls this instead of concatenating, so
+       switching language re-renders it correctly instead of leaving it
+       permanently in whatever language was active when it was first typed. */
+    window.YL_T = t;
   }
 
   // Support CommonJS exports for unit testing
   if (typeof module !== "undefined" && module.exports) {
     module.exports = YL_TRANSLATOR;
+  }
+
+  /* Auto-initialize on DOM ready -- deliberately the LAST thing this file
+     does. translator.js is fetched asynchronously (see the file's opening
+     comment on load order), so by the time it runs, document.readyState is
+     almost always already past "loading" and init() fires SYNCHRONOUSLY,
+     right here, including the dispatchEvent("yl-language-changed") inside
+     setLanguage() for the page's initial language. A composition site
+     (gift-card.js) that listens for that event to render its initial state
+     needs window.YL_T to already exist at that moment -- this used to run
+     BEFORE the "Attach to window object" block above, so the very first
+     dispatch always fired with window.YL_T still undefined, and the page's
+     first paint of the gift button stayed English until the shopper touched
+     something (verified live: shop.html?lang=es). */
+  if (typeof document !== "undefined") {
+    if (document.readyState !== "loading") {
+      init();
+    } else {
+      document.addEventListener("DOMContentLoaded", init);
+    }
   }
 })();

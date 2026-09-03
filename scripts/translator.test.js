@@ -533,7 +533,7 @@ const translator = require("../assets/js/translator.js");
 
 async function runAllSuites() {
   console.log("==================================================");
-  console.log("Running translator.js Unit Test Suites (10/10)");
+  console.log("Running translator.js Unit Test Suites (11/11)");
   console.log("==================================================");
 
   let passed = 0;
@@ -1183,6 +1183,143 @@ async function runAllSuites() {
       const state = translator._getInternalState();
       assert.strictEqual(state.googleInitPromise, undefined, "No googleInitPromise in state");
       assert.strictEqual(state.isGoogleLoaded, undefined, "No isGoogleLoaded in state");
+    }
+  );
+
+  // ----------------------------------------------------
+  // Suite 11: template_mechanism ("tpl.*" keys -- runtime-composed strings)
+  // ----------------------------------------------------
+  await suite(
+    "11. template_mechanism: t()/window.YL_T, data-i18n-tpl(-*), fallback, restore",
+    async () => {
+      /* --- t() / window.YL_T: composition-time substitution --- */
+      assert.strictEqual(
+        translator.t("tpl.addGiftCard", { amount: "$25" }, "es"),
+        "Añadir tarjeta regalo de $25 al carrito",
+        "t() fills in the Spanish template with the amount, verbatim"
+      );
+      /* window.YL_T === t is asserted once at module load (translator.js's
+         IIFE runs exactly once per process); this harness's setupEnvironment()
+         swaps in a fresh mock `window` per suite, so re-checking that
+         assignment here would just be testing the harness, not the module.
+         t() (exposed as translator.t on the required module) is the same
+         function window.YL_T points production composition sites at. */
+      assert.strictEqual(
+        translator.t("tpl.addGiftCard", { amount: "$25" }, "en"),
+        "Add $25 Gift Card to Cart",
+        "t() renders the English template plainly when the target language is 'en'"
+      );
+
+      /* A var that is ALSO a dictionary phrase (a category name) comes back
+         translated; a var that is not (a product name, an amount) comes
+         back verbatim -- see renderTemplate()'s comment in translator.js. */
+      assert.strictEqual(
+        translator.t("tpl.ritualStepTag", { n: 2, category: "Body & Skin" }, "es"),
+        "Paso 2: Cuerpo y piel",
+        "a var that is also a dictionary phrase is translated inside the template"
+      );
+      assert.strictEqual(
+        translator.t("tpl.enlargePhoto", { product: "Sleep Salve" }, "es"),
+        "Ampliar foto de Sleep Salve",
+        "a var that is NOT a dictionary phrase (a product name) stays verbatim"
+      );
+
+      /* A placeholder with no matching var is left literal, not dropped. */
+      assert.strictEqual(
+        translator.t("tpl.addGiftCard", {}, "es"),
+        "Añadir tarjeta regalo de {amount} al carrito",
+        "a template var with nothing supplied for it is left as literal {name}"
+      );
+
+      /* Missing translation for a REAL key -- falls back to the English
+         template, not to nothing and not to a crash. Temporarily blank the
+         Spanish entry to prove the fallback path, not just that Spanish
+         happens to have it. */
+      const savedEs = LOCALES.es.phrases["tpl.addGiftCard"];
+      delete LOCALES.es.phrases["tpl.addGiftCard"];
+      assert.strictEqual(
+        translator.t("tpl.addGiftCard", { amount: "$25" }, "es"),
+        "Add $25 Gift Card to Cart",
+        "a locale missing this key falls back to the English template"
+      );
+      LOCALES.es.phrases["tpl.addGiftCard"] = savedEs;
+
+      /* A key that exists in no locale at all (a typo) fails loud -- the
+         bare key comes back -- instead of throwing or silently vanishing. */
+      assert.strictEqual(
+        translator.t("tpl.thisKeyDoesNotExist", { amount: "$25" }, "es"),
+        "tpl.thisKeyDoesNotExist",
+        "a wholly unknown key returns itself rather than throwing"
+      );
+
+      /* --- data-i18n-tpl: the DOM half of the mechanism, standing in for
+         the shop's actual gift-card button (assets/js/gift-card.js calls
+         window.YL_T directly instead, since its amount can change again
+         while the dialog is already open -- see translator.js's file
+         header on templates -- but both paths share this same t()). --- */
+      const giftBtn = new MockElement("span");
+      giftBtn.setAttribute("data-i18n-tpl", "tpl.addGiftCard");
+      giftBtn.setAttribute("data-i18n-vars", JSON.stringify({ amount: "$25" }));
+      giftBtn.textContent = "Add $25 Gift Card to Cart";
+      mockDocument.body.appendChild(giftBtn);
+
+      await translator.setLanguage("es");
+      assert.strictEqual(
+        giftBtn.textContent,
+        "Añadir tarjeta regalo de $25 al carrito",
+        "data-i18n-tpl element translated to Spanish with the amount filled in"
+      );
+      assert.strictEqual(
+        giftBtn.getAttribute("lang"),
+        "es",
+        "a fully-translated template element is marked lang=es like any other"
+      );
+
+      // Switching language again re-renders from the cached ENGLISH original
+      // (not from whatever Spanish is already on screen) -- so it lands on
+      // correct German, not on Spanish-run-through-German-lookup.
+      await translator.setLanguage("de");
+      assert.strictEqual(
+        giftBtn.textContent,
+        "Geschenkkarte über $25 in den Warenkorb",
+        "language switch re-renders the template element in the new language"
+      );
+
+      // Switching back to English restores the exact original text.
+      await translator.setLanguage("en");
+      assert.strictEqual(
+        giftBtn.textContent,
+        "Add $25 Gift Card to Cart",
+        "switching back to English restores the exact original template text"
+      );
+      assert.strictEqual(
+        giftBtn.getAttribute("lang"),
+        null,
+        "lang mark removed once switched back to English"
+      );
+
+      /* --- data-i18n-tpl-aria-label: the attribute-side half, standing in
+         for the shop-card gallery's "Enlarge photo of X" button. --- */
+      const enlargeBtn = new MockElement("div");
+      enlargeBtn.setAttribute("role", "button");
+      enlargeBtn.setAttribute("aria-label", "Enlarge photo of Sleep Salve");
+      enlargeBtn.setAttribute("data-i18n-tpl-aria-label", "tpl.enlargePhoto");
+      enlargeBtn.setAttribute("data-i18n-vars", JSON.stringify({ product: "Sleep Salve" }));
+      mockDocument.body.appendChild(enlargeBtn);
+
+      await translator.setLanguage("es");
+      assert.strictEqual(
+        enlargeBtn.getAttribute("aria-label"),
+        "Ampliar foto de Sleep Salve",
+        "data-i18n-tpl-aria-label translated to Spanish with the product name filled in"
+      );
+
+      await translator.setLanguage("en");
+      assert.strictEqual(
+        enlargeBtn.getAttribute("aria-label"),
+        "Enlarge photo of Sleep Salve",
+        "aria-label template restored to the exact original English on switch back"
+      );
     }
   );
 
