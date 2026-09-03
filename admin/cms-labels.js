@@ -71,7 +71,7 @@
      future Sveltia changes its markup. */
   function hideJournalWhenOff() {
     if (journalEnabled !== false) return;
-    var label = labels.journal || "4. Journal";
+    var label = labels.journal || "Journal";
     var options = document.querySelectorAll('button[role="option"][data-label]');
     for (var i = 0; i < options.length; i++) {
       var opt = options[i];

@@ -12,19 +12,19 @@ Whenever you want to make changes to the live site, open **yourdomain.com/admin*
 
 Your dashboard is organized into 7 focused sections in the left sidebar. The **Journal** sits under the **Collections** heading at the top and shows your list of posts; every other section sits under **Sections** below it and opens straight into its editor when you click it. The numbers match the walkthroughs in this guide, not the order on screen:
 
-1. **1. Shop & Products** — Your daily workspace:
+1. **Shop & Products** — Your daily workspace:
    - **Products (Top Priority)**: Manage your 19 catalog items, edit prices, set size/scent variants, upload photos, add ingredients, and update stock levels.
    - **Multi-buy deals**: Set up mix-and-match multi-buy category tiers (like *Any 2+ 2oz Salves for $15 each*).
    - **Category sales**: Put whole categories on sale at once with percentage discounts (e.g. *15% off Body & Skin*).
    - **Gift bundles**: Create curated gift sets (*Discovery Flight*, *Everyday Armor Kit*) with auto-calculated bundle pricing.
    - **FAQ**: Update questions and answers on shipping, returns, shelf life, and custom orders.
    - **⚙️ Shop settings** (first thing in the form): Etsy sync counters, free shipping threshold, cart reward tiers and Build-Your-Own Box settings — then the products, deals, bundles, FAQ and category filters.
-2. **2. Markets & Pop-Ups** — Add upcoming pop-up markets, craft fairs, and Pride events. Upcoming dates display chronologically, and past appearances automatically archive themselves under "Where We've Been."
-3. **3. Customer Reviews** — Publish customer reviews and choose which glowing testimonials feature on the homepage carousel.
-4. **4. Journal** — Each post is its own entry with a **New Post** button. Write kitchen updates, herbal deep-dives, and community announcements with a visual formatting toolbar.
-5. **5. Social Media Feed** — Feature your favorite Instagram and TikTok posts directly on the homepage.
-6. **6. Site Settings** — Update homepage hero copy, About page story, bio photos, logos, social share images, and toggle site features on or off.
-7. **7. Quiz** — The questions, answer options, and product recommendations behind the Apothecary Recommendation Quiz.
+2. **Markets & Pop-Ups** — Add upcoming pop-up markets, craft fairs, and Pride events. Upcoming dates display chronologically, and past appearances automatically archive themselves under "Where We've Been."
+3. **Customer Reviews** — Publish customer reviews and choose which glowing testimonials feature on the homepage carousel.
+4. **Journal** — Each post is its own entry with a **New Post** button. Write kitchen updates, herbal deep-dives, and community announcements with a visual formatting toolbar.
+5. **Social Media Feed** — Feature your favorite Instagram and TikTok posts directly on the homepage.
+6. **Site Settings** — Update homepage hero copy, About page story, bio photos, logos, social share images, and toggle site features on or off.
+7. **Quiz** — The questions, answer options, and product recommendations behind the Apothecary Recommendation Quiz.
 
 > **💡 The "Hit Save and Done" Rule:** When you click **Save** in `/admin`, the site automatically rebuilds, optimizes your photos, updates search engines, and publishes your changes live to the web within 2 to 3 minutes. You never need to run commands or touch server settings.
 
@@ -52,7 +52,7 @@ Once Steven completes the one-time OAuth app setup (`docs/DEVELOPMENT.md` Sectio
 ### Walkthrough 1: Products, Pricing, Variants & Stock Levels
 
 #### A. Changing a Product's Base Price
-1. In `/admin`, click **1. Shop & Products**.
+1. In `/admin`, click **Shop & Products**.
 2. Under **Products**, click the item you want to edit (e.g., *Y'all Heal Now Miracle Frankincense Salve*).
 3. Find the **Price (USD)** field and type the new price (e.g. `20`).
 4. Click **Save** in the top bar. All bundle discounts, cart calculations, and SEO tags update automatically!
@@ -91,7 +91,7 @@ Multi-buy deals encourage customers to mix and match multiple items within a cat
 - If they add a 3rd qualifying salve, it also receives the $15 rate ($45 total).
 
 #### How to Create or Adjust a Volume Deal:
-1. In `/admin`, open **1. Shop & Products**.
+1. In `/admin`, open **Shop & Products**.
 2. Click to expand **Multi-buy deals** right beneath Products.
 3. Click an existing rule (e.g., `2oz Salve Multi-Buy`) or click **Add Deal**:
    - **Deal ID**: A clean lowercase code with dashes (e.g. `salves-2oz`, `soaks-multi`).
@@ -112,7 +112,7 @@ Multi-buy deals encourage customers to mix and match multiple items within a cat
 
 #### A. Running a Storewide Category Sale (`sales`)
 Put an entire category on sale at once (e.g. 15% off all *Body & Skin*):
-1. In `/admin` → **1. Shop & Products**, open **Category sales**.
+1. In `/admin` → **Shop & Products**, open **Category sales**.
 2. Click **Add Sale**.
 3. **Which category is on sale**: Pick the category from the dropdown (e.g. `Body & Skin`).
 4. **Percent off**: Type the percentage discount (e.g. `15` for 15% off).
@@ -135,7 +135,7 @@ Bundles are pre-curated collections (like the *Grit & Grace Starter Set* or *Dis
 
 - **Dynamic Math (No Price to Type!)**: Bundle prices calculate automatically from the live prices of whatever items are inside, minus your discount percentage. If you update a salve's price, every bundle containing that salve recalculates its price automatically.
 - **How to Create or Edit a Bundle**:
-  1. In `/admin` → **1. Shop & Products**, open **Gift bundles**.
+  1. In `/admin` → **Shop & Products**, open **Gift bundles**.
   2. Click **Add Bundle** or click an existing bundle to edit.
   3. **Bundle name**: Give your gift set a warm name (e.g. `Backwoods Burnout Recovery Kit`).
   4. **Products in this bundle**: Select 2 or more products by typing and clicking their real product names from the searchable dropdown list.
@@ -147,7 +147,7 @@ Bundles are pre-curated collections (like the *Grit & Grace Starter Set* or *Dis
 
 ### Walkthrough 5: Shop Settings, Technical Filters & Navigation
 
-At the top of **1. Shop & Products**:
+At the top of **Shop & Products**:
 
 | Setting | Where to Find It | What It Controls |
 |---|---|---|
@@ -161,33 +161,33 @@ At the top of **1. Shop & Products**:
 
 ### Walkthrough 6: Pop-Ups, Reviews, Blog, Social Feed & Site Settings
 
-#### A. Pop-Up Markets & Pride Events (Collection 2)
-1. Click **2. Markets & Pop-Ups** in the sidebar.
+#### A. Pop-Up Markets & Pride Events (Markets & Pop-Ups)
+1. Click **Markets & Pop-Ups** in the sidebar.
 2. Click **Add Event** under **Upcoming pop-ups**.
 3. Fill in the event title, start date (and end date if multi-day), friendly date label (e.g. `Saturday, Oct 12 · 9am–2pm`), location, and event link.
 4. **⚠️ Crucial Sales Tax Note**: Always enter the **5-digit ZIP code** for any market where customers can select "Local Market Pickup" during online checkout. Sales tax in South Carolina is based on the exact pickup location, so the ZIP code ensures accurate tax calculation.
 
-#### B. Publishing Customer Reviews (Collection 3)
-1. Click **3. Customer Reviews** in the sidebar.
+#### B. Publishing Customer Reviews (Customer Reviews)
+1. Click **Customer Reviews** in the sidebar.
 2. Click **Add Review**.
 3. Enter the customer's name, star rating (1–5), review text, and select the product from the dropdown.
 4. Check **Feature on homepage?** to showcase their review in the homepage testimonial carousel.
 
-#### C. Journal / Blog (Collection 4)
-1. Click **4. Journal** in the sidebar to see the list of posts. Click a post to edit it, or **New Post** (top right) to write one.
-2. (The page title and intro line shown above the post list live under **6. Site Settings → Journal page**.)
+#### C. Journal / Blog (Journal)
+1. Click **Journal** in the sidebar to see the list of posts. Click a post to edit it, or **New Post** (top right) to write one.
+2. (The page title and intro line shown above the post list live under **Site Settings → Journal page**.)
 3. Enter the title, date, and a **Short teaser** (1–2 sentences for card previews).
 4. Write your story in the main content box using the formatting toolbar (bold, italics, headings, bullet lists).
 5. Estimated reading time calculates automatically when published!
 
-#### D. Social Media Feed (Collection 5)
-1. Click **5. Social Media Feed**.
+#### D. Social Media Feed (Social Media Feed)
+1. Click **Social Media Feed**.
 2. Add new Instagram or TikTok post snapshots with photos, captions, and tagged products.
 
-#### E. Site Settings (Collection 6)
-1. Click **6. Site Settings**.
+#### E. Site Settings (Site Settings)
+1. Click **Site Settings**.
 2. Update homepage headlines, About page story text, or swap non-product photos (homepage hero banner, About bio photo, site logos).
-3. Under **⚙️ Site Settings & Switches** (the first thing in section 6), you can toggle features on or off anytime with simple checkboxes -- including **Show live chat (Tawk.to)**, which hides the chat bubble everywhere without losing your Tawk.to IDs:
+3. Under **⚙️ Site Settings & Switches** (the first thing in the Site Settings section), you can toggle features on or off anytime with simple checkboxes -- including **Show live chat (Tawk.to)**, which hides the chat bubble everywhere without losing your Tawk.to IDs:
    - Restock Email Alerts (a request now really is emailed to the shop -- it
      used to be accepted and discarded)
    - Apothecary Recommendation Quiz
@@ -266,10 +266,10 @@ The dashboard gives you control over your entire catalog, promotions, pricing, m
 | **Create gift bundle** | `1. Products` → `Bundles` → Pick products & discount % | Pre-made set with auto-calculated price |
 | **Change free shipping minimum** | `1. Products` → `⚙️ Shop settings` → `Free shipping threshold` | Progress bar & checkout threshold update |
 | **Add market / pop-up date** | `2. Markets` → Add event (include ZIP code!) | Shows on event list & calculates pickup tax |
-| **Feature customer review** | `3. Customer Reviews` → Check "Feature on homepage?" | Displays in homepage testimonials carousel |
+| **Feature customer review** | `Customer Reviews` → Check "Feature on homepage?" | Displays in homepage testimonials carousel |
 | **Publish blog post** | `4. Apothecary Journal` → Add post with visual editor | Live blog article with calculated read time |
-| **Update hero / About story** | `6. Site Settings` | Text and photos update across homepage & About |
-| **Toggle site features** | `6. Site Settings` → `⚙️ Site Settings` | Turn quiz, rewards, ticker, or pickup on/off |
+| **Update hero / About story** | `Site Settings` | Text and photos update across homepage & About |
+| **Toggle site features** | `Site Settings` → `⚙️ Site Settings` | Turn quiz, rewards, ticker, or pickup on/off |
 
 ---
 

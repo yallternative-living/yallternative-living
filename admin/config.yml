@@ -4,16 +4,16 @@
 # ----------------------------------------------------------------------
 # This is the editor Savanna uses at /admin instead of hand-editing JSON
 # files in a text editor. It's split into seven separate top-level
-# sections in the /admin sidebar, on purpose, so Savanna sees exactly
+# sections in the /admin sidebar (in this order), on purpose, so Savanna sees exactly
 # what she can do at a glance instead of hunting through one generic
 # "catalog" menu:
-#   1. Shop & Products              -- assets/data/products.json
-#   2. Markets & Pop-Ups            -- assets/data/events.json
-#   3. Customer Reviews             -- assets/data/site-reviews.json
-#   4. Journal                      -- assets/data/journal/*.json (one post per file)
-#   5. Social Media Feed            -- assets/data/social-feed.json
-#   6. Site Settings               -- assets/data/content.json
-#   7. Quiz                         -- assets/data/quiz.json
+#   - Shop & Products              -- assets/data/products.json
+#   - Markets & Pop-Ups            -- assets/data/events.json
+#   - Customer Reviews             -- assets/data/site-reviews.json
+#   - Journal                      -- assets/data/journal/*.json (one post per file)
+#   - Social Media Feed            -- assets/data/social-feed.json
+#   - Site Settings                -- assets/data/content.json
+#   - Quiz                         -- assets/data/quiz.json
 #
 # Every section except the Journal is a Sveltia `singleton` (one data file
 # each) rather than a one-file `collection`: a file collection always shows
@@ -123,10 +123,10 @@ collections:
   # top of this file). The file name becomes the post's id/URL slug -- the
   # build reads it from the name, never from inside the file.
   - name: journal
-    label: "4. Journal"
+    label: "Journal"
     label_singular: Post
     icon: article
-    description: "Your blog. Click a post to edit it or 'New Post' to write one; Save publishes to the live site in a few minutes. The blog's on/off switch and page heading live under section 6."
+    description: "Your blog. Click a post to edit it or 'New Post' to write one; Save publishes to the live site in a few minutes. The blog's on/off switch and page heading live under Site Settings."
     folder: assets/data/journal
     extension: json
     format: json
@@ -210,7 +210,7 @@ collections:
 
 singletons:
   - name: products
-    label: "1. Shop & Products"
+    label: "Shop & Products"
     icon: storefront
     description: "Your whole shop: products and prices, multi-buy deals, category sales, gift bundles and the FAQ. Click an item to edit it or 'Add' to create one; Save publishes in a few minutes."
     file: assets/data/products.json
@@ -605,7 +605,7 @@ singletons:
             label: "Search keywords"
             widget: list
             required: false
-            hint: "Extra words shoppers might type: occasions, uses, ingredient names, misspellings (e.g. post-hike, cane sugar, stocking stuffer). These are published with the product, so keep symptoms and conditions like eczema or insomnia OUT — put those under 6 → Search settings → Extra search words, which only translate what a shopper typed."
+            hint: "Extra words shoppers might type: occasions, uses, ingredient names, misspellings (e.g. post-hike, cane sugar, stocking stuffer). These are published with the product, so keep symptoms and conditions like eczema or insomnia OUT — put those under Site Settings → Search settings → Extra search words, which only translate what a shopper typed."
           - name: concerns
             label: "Shop concerns"
             widget: relation
@@ -632,7 +632,7 @@ singletons:
             label: "Ritual section headline"
             widget: string
             required: false
-            hint: "e.g. The Deep Rest & Nighttime Ritual. Leave blank to use the default under 6 → Site Settings."
+            hint: "e.g. The Deep Rest & Nighttime Ritual. Leave blank to use the default under Site Settings."
           - name: etsyUrl
             label: "Etsy listing link"
             widget: string
@@ -888,7 +888,7 @@ singletons:
             }
 
   - name: events
-    label: "2. Markets & Pop-Ups"
+    label: "Markets & Pop-Ups"
     icon: event
     description: "Your pop-up schedule: markets, fairs and Pride dates. Once a date passes the event moves itself to 'Where We've Been'. Save publishes in a few minutes."
     file: assets/data/events.json
@@ -1002,7 +1002,7 @@ singletons:
           - { name: id, label: "Event ID", widget: string, required: false }
 
   - name: reviews
-    label: "3. Customer Reviews"
+    label: "Customer Reviews"
     icon: reviews
     description: "Reviews shown on your site. Only add real ones you've approved, and tick 'Feature on homepage?' for the few you want front and center. Kept separate from your Etsy star rating."
     file: assets/data/site-reviews.json
@@ -1104,9 +1104,9 @@ singletons:
             }
 
   - name: social_feed
-    label: "5. Social Media Feed"
+    label: "Social Media Feed"
     icon: photo_camera
-    description: "The photo strip on your homepage: a picture and caption for each Instagram or TikTok post you want to show off. Its on/off switch is under 6 → Site Settings."
+    description: "The photo strip on your homepage: a picture and caption for each Instagram or TikTok post you want to show off. Its on/off switch is under Site Settings."
     file: assets/data/social-feed.json
     format: json
     # No side-by-side preview: for a settings/catalogue form it only re-lists
@@ -1171,7 +1171,7 @@ singletons:
             }
 
   - name: content
-    label: "6. Site Settings"
+    label: "Site Settings"
     icon: tune
     description: "Wording and photos across your pages (homepage, About, Contact, logos) plus the on/off switches for site features. Open a section, edit, Save. Start with 'Site Settings'."
     file: assets/data/content.json
@@ -1213,7 +1213,7 @@ singletons:
               widget: boolean,
               default: true,
               required: false,
-              hint: "The recommendation quiz on the shop page (section 7)."
+              hint: "The recommendation quiz on the shop page (the Quiz section)."
             }
           - {
               name: enableCustomBoxBuilder,
@@ -1221,7 +1221,7 @@ singletons:
               widget: boolean,
               default: true,
               required: false,
-              hint: "Shoppers pick their own mix for a discounted bundle. Sizes and discount are under 1 → Shop settings."
+              hint: "Shoppers pick their own mix for a discounted bundle. Sizes and discount are under Shop & Products → Shop settings."
             }
           - {
               name: enableScentFilter,
@@ -1319,7 +1319,7 @@ singletons:
               widget: boolean,
               default: false,
               required: false,
-              hint: "Shows the blog page and its menu link (section 4)."
+              hint: "Shows the blog page and its menu link (the Journal section)."
             }
           - {
               name: enableSocialFeed,
@@ -1327,7 +1327,7 @@ singletons:
               widget: boolean,
               default: false,
               required: false,
-              hint: "The Instagram/TikTok strip on the homepage (section 5)."
+              hint: "The Instagram/TikTok strip on the homepage (the Social Media Feed section)."
             }
           - {
               name: enableCountdownTicker,
@@ -2098,9 +2098,9 @@ singletons:
   # 7. APOTHECARY PRODUCT QUIZ
   # ==================================================================
   - name: quiz
-    label: "7. Quiz"
+    label: "Quiz"
     icon: quiz
-    description: "The recommendation quiz on the shop page: its banner wording, the questions shoppers answer, and which products each answer recommends. Its on/off switch is under 6 → Site Settings."
+    description: "The recommendation quiz on the shop page: its banner wording, the questions shoppers answer, and which products each answer recommends. Its on/off switch is under Site Settings."
     file: assets/data/quiz.json
     format: json
     # No side-by-side preview: for a settings/catalogue form it only re-lists
