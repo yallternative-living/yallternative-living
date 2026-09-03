@@ -5,9 +5,27 @@
  */
 
 /** @const {string} Cache name key, updated on assets release. */
-const CACHE_NAME = "yallternative-cache-v91eea010ce15";
+const CACHE_NAME = "yallternative-cache-v52634d7b1537";
 
-/** @const {!Array<string>} Array of absolute URLs to be cached on installation. */
+/**
+ * The site not-found page is deliberately NOT on this list. A host answers a
+ * direct request for it with a 404 status -- correctly, that is what it is for
+ * -- and cache.add() rejects on any non-2xx. Under the old cache.addAll() that
+ * one entry rejected the whole batch, so NOTHING was precached in production:
+ * verified on the live site 2026-09-03, where addAll of the shell plus that
+ * page rejected with "Request failed" and cached 0 of 2, and the live cache
+ * held only pages the visitor had already opened. The offline fallback page --
+ * the one asset this worker exists to have ready -- was never in it. The
+ * install handler is per-asset now as well, so re-adding a bad path can only
+ * lose that path.
+ *
+ * Keep prose in this block, not inside the array below: scripts/smoke-test.js
+ * and scripts/qa-check.js both parse the array by pulling every single-quoted
+ * run out of it, so an apostrophe in an inline comment reads as the start of a
+ * cached path.
+ *
+ * @const {!Array<string>} Array of absolute URLs to be cached on installation.
+ */
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -21,7 +39,7 @@ const ASSETS_TO_CACHE = [
   '/policies.html',
   '/terms.html',
   '/privacy.html',
-  '/404.html',
+  /* The not-found page is deliberately absent -- see the note above. */
   '/reviews.html',
   '/order-status.html',
   '/thank-you.html',
@@ -89,9 +107,21 @@ self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        return cache.addAll(ASSETS_TO_CACHE).catch(err => {
-          console.warn('Cache addAll error during service worker install:', err);
-        });
+        /* Per-asset add(), never addAll(). addAll() is all-or-nothing: one URL
+           the host answers with a non-2xx status rejects the entire batch, and
+           the .catch() that used to sit here turned that into a console warning
+           nobody reads -- the worker still installed, still called skipWaiting,
+           and reported healthy with an empty precache. Runtime
+           stale-while-revalidate hid it, because pages a visitor had already
+           opened were cached anyway; the hole only showed up offline, where
+           /offline.html was missing. A failure now costs exactly one asset. */
+        return Promise.all(
+          ASSETS_TO_CACHE.map(url =>
+            cache.add(url).catch(err => {
+              console.warn('Service worker could not precache ' + url + ':', err);
+            })
+          )
+        );
       })
       .then(() => self.skipWaiting())
   );

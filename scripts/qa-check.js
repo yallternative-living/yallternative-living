@@ -2319,6 +2319,43 @@ if (!fs.existsSync(swPath)) {
         fail("sw.js cached asset missing on disk", ma);
       });
     }
+
+    /* Existing on disk is not the same as fetchable from the host. The site's
+       own not-found page exists as a file and is served with a 404 status --
+       that is what makes it the not-found page -- so precaching it can only
+       ever fail. On 2026-09-03 it was on this list and, under cache.addAll(),
+       took the whole 50-asset batch down with it: production had precached
+       nothing at all, /offline.html included, behind a swallowed console
+       warning. Both halves of that are asserted here. */
+    var precached = rawAssets.map(function (quoted) {
+      return quoted.slice(1, -1);
+    });
+    if (precached.indexOf("/404.html") === -1) {
+      ok("sw.js: the 404 page is not precached (the host serves it with a 404 status)");
+    } else {
+      fail(
+        "sw.js ASSETS_TO_CACHE",
+        "includes '/404.html', which the host answers 404 -- it can never be cached"
+      );
+    }
+    if (precached.indexOf("/offline.html") !== -1) {
+      ok("sw.js: /offline.html is precached (the page the worker serves with no network)");
+    } else {
+      fail("sw.js ASSETS_TO_CACHE", "lost '/offline.html' -- the offline fallback is never cached");
+    }
+    /* Comments stripped first -- the note in sw.js explaining why addAll() was
+       abandoned names it, and a gate that trips on its own decision record is
+       worse than no gate. */
+    var swCode = swText.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+    if (/cache\.addAll\s*\(/.test(swCode)) {
+      fail(
+        "sw.js install strategy",
+        "uses cache.addAll(), which is all-or-nothing: one URL the host answers " +
+          "with a non-2xx status empties the entire precache"
+      );
+    } else {
+      ok("sw.js: install precaches per asset, so one bad URL cannot empty the cache");
+    }
   }
 }
 

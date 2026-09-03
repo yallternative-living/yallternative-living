@@ -675,7 +675,14 @@ function section(title) {
       const swText = fs.readFileSync(swPath, "utf8");
       const matchAssets = swText.match(/const\s+ASSETS_TO_CACHE\s*=\s*\[([\s\S]*?)\];/);
       if (matchAssets) {
-        const rawAssets = matchAssets[1].match(/'([^']+)'/g) || [];
+        /* Strip comments first, the way scripts/qa-check.js does: the array is
+           annotated, and an apostrophe in a comment would otherwise parse as
+           the start of a quoted entry and turn the block into nonsense paths --
+           a red gate for a correct precache list. */
+        const assetsBody = matchAssets[1]
+          .replace(/\/\*[\s\S]*?\*\//g, "")
+          .replace(/\/\/[^\n]*/g, "");
+        const rawAssets = assetsBody.match(/'([^']+)'/g) || [];
         let missingSwAssets = 0;
         rawAssets.forEach((quoted) => {
           let assetPath = quoted.slice(1, -1);

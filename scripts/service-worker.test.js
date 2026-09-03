@@ -81,6 +81,8 @@ function loadServiceWorker(options) {
   const cacheStore = options.cacheStore || {};
   const deletedCaches = [];
   let addAllArgs = null;
+  const addedUrls = [];
+  const failedAdds = [];
   let claimed = false;
   let skippedWaiting = false;
   let preloadEnabled = false;
@@ -100,6 +102,16 @@ function loadServiceWorker(options) {
       return Promise.resolve({
         addAll(list) {
           addAllArgs = list;
+          return Promise.resolve();
+        },
+        /* One entry can be made to fail, the way a host answering a precached
+           URL with a non-2xx status makes it fail in production. */
+        add(url) {
+          if (options.failToAdd && String(url) === options.failToAdd) {
+            failedAdds.push(String(url));
+            return Promise.reject(new TypeError("Request failed"));
+          }
+          addedUrls.push(String(url));
           return Promise.resolve();
         },
         put(request, response) {
@@ -185,6 +197,12 @@ function loadServiceWorker(options) {
     get addAllArgs() {
       return addAllArgs;
     },
+    get addedUrls() {
+      return addedUrls;
+    },
+    get failedAdds() {
+      return failedAdds;
+    },
     get claimed() {
       return claimed;
     },
@@ -244,13 +262,67 @@ it("install precaches a non-empty ASSETS_TO_CACHE including the search index", a
   const ev = makeFetchEvent(sw, ORIGIN + "/");
   sw.listeners.install(ev.event);
   return Promise.all(ev.waits).then(() => {
-    assert.ok(Array.isArray(sw.addAllArgs), "install did not call cache.addAll with a list");
-    assert.ok(sw.addAllArgs.length > 20, "precache list is suspiciously short");
+    assert.strictEqual(
+      sw.addAllArgs,
+      null,
+      "install used cache.addAll() -- it is all-or-nothing, so one URL the host " +
+        "answers with a non-2xx status empties the entire precache (see below)"
+    );
+    assert.ok(sw.addedUrls.length > 20, "precache list is suspiciously short");
     assert.ok(
-      sw.addAllArgs.indexOf("/assets/js/search-data.js") !== -1,
+      sw.addedUrls.indexOf("/assets/js/search-data.js") !== -1,
       "precache list lost /assets/js/search-data.js (scripts/qa-check.js asserts this too)"
     );
     assert.ok(sw.skippedWaiting, "install did not call skipWaiting()");
+  });
+});
+
+/* The production bug this replaced. '/404.html' was on the precache list, and
+   Netlify answers a direct request for the not-found page with a 404 status,
+   so cache.addAll() rejected and precached NOTHING -- swallowed into a console
+   warning while the worker installed and reported healthy. Verified live on
+   2026-09-03: the cache held only pages the visitor had already opened, and
+   /offline.html was absent. One unreachable entry must cost one entry. */
+it("one unreachable asset does not empty the whole precache", async () => {
+  const sw = loadServiceWorker({ failToAdd: "/offline.html" });
+  const ev = makeFetchEvent(sw, ORIGIN + "/");
+  sw.listeners.install(ev.event);
+  return Promise.all(ev.waits).then(() => {
+    assert.deepStrictEqual(
+      sw.failedAdds,
+      ["/offline.html"],
+      "the harness did not exercise a failing precache entry"
+    );
+    assert.ok(
+      sw.addedUrls.length > 20,
+      `a single failing entry took the precache down to ${sw.addedUrls.length} asset(s)`
+    );
+    assert.ok(
+      sw.addedUrls.indexOf("/") !== -1,
+      "the app shell was lost alongside the failing entry"
+    );
+    assert.ok(sw.skippedWaiting, "install did not call skipWaiting() after a failed add");
+  });
+});
+
+/* The list itself: the site's own 404 page cannot be precached, because the
+   host serves it with a 404 status by definition. qa-check.js asserts this
+   statically too; here it is asserted against what install actually adds. */
+it("the precache list does not include the site's 404 page", async () => {
+  const sw = loadServiceWorker();
+  const ev = makeFetchEvent(sw, ORIGIN + "/");
+  sw.listeners.install(ev.event);
+  return Promise.all(ev.waits).then(() => {
+    assert.strictEqual(
+      sw.addedUrls.indexOf("/404.html"),
+      -1,
+      "/404.html is back on the precache list -- the host answers it 404, so it " +
+        "can never be cached, and it used to take the whole batch with it"
+    );
+    assert.ok(
+      sw.addedUrls.indexOf("/offline.html") !== -1,
+      "/offline.html must stay precached -- it is what the worker serves when the network is gone"
+    );
   });
 });
 
