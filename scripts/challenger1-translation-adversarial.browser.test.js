@@ -952,12 +952,12 @@ async function runBrowserStressTests() {
     );
     assert.strictEqual(
       cartDrawerCheck.headingText,
-      "Tu Carrito",
+      "Tu carrito",
       `Drawer heading translated (got: "${cartDrawerCheck.headingText}")`
     );
     assert.strictEqual(
       cartDrawerCheck.closeLabel,
-      "Cerrar carrito",
+      "Cerrar el carrito",
       `Close button aria-label translated (got: "${cartDrawerCheck.closeLabel}")`
     );
     console.log(
