@@ -1792,6 +1792,31 @@ section {
   }
 }
 
+/* Centred sections keep their centred headings, but a paragraph that wraps
+   reads left. Centred prose is fine for one line; at two or more, every line
+   starts somewhere different and the eye has to find each one -- the
+   thank-you lede, the CTA bands and the review prompt were all doing it at
+   desktop widths (audit 2026-09-03: 19 paragraphs across 12 pages, two to
+   six lines each).
+
+   `width: fit-content` is what makes one rule serve both cases without
+   knowing the line count: a paragraph that fits on one line shrinks to its
+   text and `margin-inline: auto` centres the block, so it still LOOKS
+   centred; one that wraps grows to its max-width and its lines share a left
+   edge inside that centred column. No JS, no per-page classes. */
+.cta-band p,
+.tight-hero .lede,
+.tight-hero p.muted,
+.thank-you-lede,
+.welcome-footnote,
+.review-prompt-card p,
+.custom-box-head p,
+.events-invite-organizer {
+  width: fit-content;
+  margin-inline: auto;
+  text-align: left;
+}
+
 /* =============== CUSTOMER REVIEWS (site-submitted, shop.html) ===============
    Site-submitted reviews, kept visually + structurally separate from the
    Etsy-sourced "4.9 average / 32 Etsy reviews" line up in .shop-trust --
