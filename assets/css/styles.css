@@ -4268,6 +4268,20 @@ dialog.gift-modal[open]::backdrop {
   margin: 4px 0 0 0;
 }
 
+/* "Purchase Card" / "Check Balance" are .btn.btn-sm pills, so <=360px they
+   inherit .btn's global white-space: normal + text-wrap: balance and wrap
+   to a two-line 102x56px lozenge (audit L3) -- there is no long word here
+   that needs to wrap, only cramped padding. Shrink the padding and font and
+   hold the line instead. */
+@media (max-width: 480px) {
+  .gift-modal-tabs .btn {
+    padding: 7px 9px;
+    font-size: 0.68rem;
+    letter-spacing: normal;
+    white-space: nowrap;
+  }
+}
+
 ::placeholder {
   color: var(--paper-dim);
   opacity: 1;
@@ -4287,6 +4301,13 @@ dialog.gift-modal[open]::backdrop {
 .gift-card-widget > .gift-card-controls {
   grid-column: 2;
   grid-row: 1;
+  /* A grid item's automatic minimum size defaults to its content's
+     min-content width, which -- combined with the CTA button's
+     white-space: nowrap -- floored this column at "Add $500 Gift Card to
+     Cart" (309px) and pushed everything in it past the card's right edge
+     below ~430px wide (audit H1). min-width: 0 lets the column actually
+     shrink to the track size the grid gives it. */
+  min-width: 0;
 }
 
 .gift-card-widget > .gift-terms-note {
@@ -4313,7 +4334,14 @@ dialog.gift-modal[open]::backdrop {
   background: var(--ink) url("../img/gift-card.png") no-repeat center center / cover;
   border: 1.5px solid #d69b5c;
   border-radius: 16px;
-  padding: 16px 18px;
+  /* % padding, plus container-type below: both resolve against this box's
+     own width, and because the aspect-ratio above is locked, a fraction of
+     the width is also a fixed fraction of the height at every size --
+     unlike the fixed 16px/18px this replaces, which was fine at the
+     ~340px+ preview widths it was written for but ate into the artwork's
+     empty top band once the preview shrank under ~260px wide (audit M1). */
+  padding: 2.5% 4%;
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
@@ -4346,13 +4374,23 @@ dialog.gift-modal[open]::backdrop {
   z-index: 2;
 }
 .card-amount-large {
-  font-size: 1.35rem;
+  /* cqi: a % of the preview's own width via the container-type set on
+     .gift-card-preview above. A fixed 1.35rem/29.6px-tall chip 16px off
+     the corner was already 9px into the artwork's "Y'ALLTERNATIVE" wordmark
+     arc (which starts at 26.5% of the card's height -- measured with sharp
+     against assets/img/gift-card.png, 1024x646) once the preview dropped
+     under ~260px wide, and the overlap only grew as the card kept shrinking
+     (audit M1). Scaling with the card instead of the viewport keeps the
+     chip's footprint the same ~15-19% of the card's height at every size
+     from a stacked-mobile 208px preview up past a two-column 620px one, well
+     clear of the 26.5% line with margin to spare.  */
+  font-size: 5cqi;
   font-weight: 700;
   font-family: var(--font-display);
   color: #d69b5c;
   background: rgba(18, 14, 11, 0.88);
   border: 1px solid rgba(214, 155, 92, 0.45);
-  padding: 3px 10px;
+  padding: 1.8cqi 4cqi;
   border-radius: 6px;
   backdrop-filter: blur(4px);
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
@@ -4378,7 +4416,12 @@ dialog.gift-modal[open]::backdrop {
 }
 .preset-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  /* minmax(0, 1fr): a bare `1fr` track keeps an implicit min-content floor,
+     so the one unbreakable word in "Personnalisé" / "カスタム" forced that
+     column wider and squeezed "$25" down to 42.8px in es/fr/ja at <=768px
+     (audit M4). minmax(0, 1fr) removes the floor so all five columns stay
+     equal and the long label wraps or shrinks instead. */
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
 }
 .preset-btn {
@@ -4386,11 +4429,20 @@ dialog.gift-modal[open]::backdrop {
   border: 1px solid var(--hide);
   color: var(--paper);
   border-radius: var(--radius, 8px);
-  padding: 10px 4px;
+  /* 4px horizontal was tight enough that "Custom" (54.8px unwrapped) missed
+     its 54px content box (64px column - padding - the 1px border each
+     side) by 0.8px and broke mid-word into "Custo"/"m" the moment M4's
+     minmax(0, 1fr) let the column shrink to match its siblings, instead of
+     the old auto-widened floor. 2px gives EN "Custom" room to stay on one
+     line while still letting a longer translation (es "Personalizado", fr
+     "Personnalisé", ja "カスタム") wrap without clipping. */
+  padding: 10px 2px;
   font-weight: 600;
   font-size: 0.92rem;
   cursor: pointer;
   transition: all 0.15s ease;
+  min-width: 0;
+  overflow-wrap: anywhere;
   text-align: center;
 }
 .preset-btn:hover {
@@ -4515,11 +4567,25 @@ dialog.gift-modal[open]::backdrop {
   min-height: 48px;
   font-size: 0.96rem;
   font-weight: 700;
+  /* This CTA is always full-width (width: 100% above), so there is never a
+     visual reason for `.btn`'s global white-space: nowrap to hold its label
+     on one line -- it only did the opposite job here: forcing this column
+     to a min-content width of 296-309px ("Add $500 Gift Card to Cart") and
+     pushing the whole widget past the card's edge from ~361px to ~430px
+     wide, a band `.btn`'s own <=360px wrap rule doesn't reach (audit H1).
+     Let it wrap at any width. */
+  white-space: normal;
+  min-width: 0;
 }
 
 @media (max-width: 768px) {
   .gift-card-widget {
-    grid-template-columns: 1fr;
+    /* minmax(0, 1fr): a bare `1fr` track still floors at its content's
+       min-content width, which is exactly the overflow H1 found -- the
+       track would not shrink below the CTA button's unwrapped text even
+       after the button itself was told to wrap, because the grid item's
+       own automatic minimum size follows the same rule one level up. */
+    grid-template-columns: minmax(0, 1fr);
     gap: 28px;
     padding: 24px;
   }
@@ -4531,7 +4597,7 @@ dialog.gift-modal[open]::backdrop {
     grid-row: auto;
   }
   .preset-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   .gift-fields-grid {
     grid-template-columns: 1fr;
