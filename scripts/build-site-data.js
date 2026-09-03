@@ -5337,11 +5337,9 @@ function renderStickyBarHtml(product, categoryLabel, imageManifest) {
     const optionsHtml = p.variants.options
       .map(function (o) {
         const delta = o.priceDelta || 0;
+        /* No price in the label: the price under the picker already
+           updates on change, and "1oz (-$6.00)" read as a mystery discount. */
         let priceSuffix = "";
-        if (delta) {
-          priceSuffix =
-            " (" + (delta < 0 ? "-$" + Math.abs(delta).toFixed(2) : "+$" + delta.toFixed(2)) + ")";
-        }
         let stateAttrs = "";
         if (o.soldOut) {
           stateAttrs = ' disabled aria-disabled="true"';
@@ -5772,7 +5770,10 @@ function renderPdpGalleryHtml(p, manifest) {
   );
 }
 
-/** Radio-button variant picker (Baymard: buttons beat <select> for size/scent). */
+/** Radio-button variant picker (Baymard: buttons beat <select> for size/scent).
+    Labels carry no price: the price under the picker already updates on
+    change, and "1oz -$6.00" read as a mystery discount. data-delta still
+    drives that price math. */
 function renderVariantControlHtml(p) {
   const options = p.variants && Array.isArray(p.variants.options) ? p.variants.options : [];
   if (!options.length || p.id === "yallternative-gift-card") return "";
@@ -5782,9 +5783,6 @@ function renderVariantControlHtml(p) {
   const items = options
     .map(function (o, i) {
       const delta = o.priceDelta || 0;
-      const suffix = delta
-        ? " " + (delta < 0 ? "-$" + Math.abs(delta).toFixed(2) : "+$" + delta.toFixed(2))
-        : "";
       const id = "pdpVariant" + i;
       let state = "";
       if (o.soldOut) {
@@ -5810,11 +5808,7 @@ function renderVariantControlHtml(p) {
         ">\n" +
         "            <span>" +
         escapeHtml(o.label) +
-        (o.soldOut
-          ? " <small>sold out</small>"
-          : suffix
-            ? " <small>" + suffix.trim() + "</small>"
-            : "") +
+        (o.soldOut ? " <small>sold out</small>" : "") +
         "</span>\n" +
         "          </label>"
       );

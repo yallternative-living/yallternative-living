@@ -1859,9 +1859,9 @@
     var options = p.variants.options
       .map(function (o) {
         var delta = o.priceDelta || 0;
-        var priceSuffix = delta
-          ? " (" + (delta < 0 ? "-$" + Math.abs(delta).toFixed(2) : "+$" + delta.toFixed(2)) + ")"
-          : "";
+        /* No price in the label: the card's price updates on change, and
+           "1oz (-$6.00)" read as a mystery discount. */
+        var priceSuffix = "";
         var stateAttrs = "";
         if (o.soldOut) {
           stateAttrs = ' disabled aria-disabled="true"';
@@ -3284,11 +3284,7 @@
         var options = m.options
           .map(function (o) {
             var delta = Number(o.priceDelta) || 0;
-            var suffix = o.soldOut
-              ? " \u2014 sold out"
-              : delta
-                ? " (" + (delta > 0 ? "+" : "\u2212") + "$" + Math.abs(delta).toFixed(2) + ")"
-                : "";
+            var suffix = o.soldOut ? " \u2014 sold out" : "";
             return (
               '<option value="' +
               attrEsc(o.label) +
