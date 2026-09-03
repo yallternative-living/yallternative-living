@@ -3,10 +3,10 @@
   "strings": [
     {
       "key": "announcement.shipping",
-      "text": "Free shipping on orders of $40 or more ✦ Small-batch, handmade with love in Landrum, SC",
+      "text": "Free shipping on orders of $40 or more",
       "source": "assets/data/content.json",
       "verify": [
-        "Free shipping on orders of $40 or more ✦ Small-batch, handmade with love in Landrum, SC"
+        "Free shipping on orders of $40 or more"
       ],
       "note": "site.announcement.text, rendered into the announcement bar by main.js"
     },

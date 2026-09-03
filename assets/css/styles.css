@@ -461,6 +461,20 @@ section {
   position: relative;
   overflow: hidden;
 
+  /* `nowrap` + `overflow: hidden` (the latter clips the ::after sheen to the
+     rounded corners) means a label too long for its button is silently cut at
+     both ends rather than wrapped -- no ellipsis, no reflow, just a missing
+     word. On a 320px screen the gift-card CTA "Choose an amount & add to cart"
+     needed 266px inside a 230px button, so ~18px vanished off each end. Below
+     360px, let a label that cannot fit wrap instead; `balance` keeps the two
+     lines even and puts the "&" with the clause it belongs to. Labels that
+     already fit are unaffected -- there is nothing to wrap. */
+  @media (max-width: 360px) {
+    white-space: normal;
+    text-wrap: balance;
+    text-align: center; /* flex centres the text block; this centres its lines */
+  }
+
   &::after {
     content: "";
     position: absolute;
@@ -985,8 +999,31 @@ section {
     padding: 24px 0 28px;
   }
 
+  /* The global h1 size (clamp(1.65rem, 5vw, 3.2rem)) is set for a full-width
+     heading, but this one lives in the 1.3fr column of .hero-grid -- roughly
+     60% of the container -- so it was running out of words long before it ran
+     out of column. Measured on the live page: at 1440px the title held two
+     lines of 571px and 492px inside a 785px column (73% of the widest line
+     filled, `text-wrap: balance` splitting the leftover evenly), and between
+     roughly 900px and 1100px it needed a *third* line at ~75% fill, because
+     the string is a hair too long to sit in two at 5vw.
+
+     Sizing it to its own column instead of to the viewport fixes both: 4.6vw
+     with a 4.25rem cap fills 88-97% of the widest line from 1200px up and
+     holds the 900-1100px band to two lines at 96-98%. The 4.25rem cap is what
+     the widest case wants -- .container stops growing at 1320px, so above
+     ~1500px the column is a fixed 785px and the type must stop growing too. */
   & h1 {
     margin-bottom: 0.5em;
+    font-size: clamp(2.5rem, 4.6vw, 4.25rem);
+
+    /* Below 900px .hero-grid stacks and the h1 gets the whole container back,
+       where the global size already fits -- restated here (rather than left to
+       the global rule) because the rule above has to be unconditional to win
+       at every width where the two-column layout is in play. */
+    @container (max-width: 900px) {
+      font-size: clamp(1.65rem, 5vw, 3.2rem);
+    }
   }
   & .lede {
     font-size: 1.15rem;
@@ -1383,13 +1420,23 @@ section {
      actually run out of room. Easing the title down there fits nearly all of
      them on one line -- measured over all 26 products, wrapping goes 3/26 ->
      0/26 on a Pixel 7 and 3/26 -> 1/26 on an iPhone 14. A 320px screen still
-     wraps 5; no type size fixes that without shrinking past legibility. */
+     wraps 5; no type size fixes that without shrinking past legibility.
+
+     `pretty` rather than plain `wrap` for the same reason, one step finer: it
+     keeps the greedy line count and fill this rule is after, and only refuses
+     to leave a stub on the last line. Measured over all 27 shop cards at
+     375/430/768/1024/1280/1440: the number of titles that wrap is identical
+     under both, orphaned last lines drop 12 -> 1, and average fill gives up
+     0-3 points. (`balance` also clears the orphans but costs up to 7 points of
+     fill and produces the half-empty first lines described above.) The worst
+     case it fixes: "Y'allternative Living Unisex T-Shirt" broke to a 35px
+     last line -- one syllable, alone, under a 217px line. */
   & h3 {
     margin: 0;
     font-family: var(--font-body);
     font-weight: 700;
     font-size: 1.02rem;
-    text-wrap: wrap;
+    text-wrap: pretty;
 
     @media (max-width: 600px) {
       font-size: 0.9rem;
@@ -3708,7 +3755,15 @@ hr.rule {
      keep the bar to a single line; the same message still appears on the
      product cards and live in the cart drawer's shipping meter, so nothing is
      actually lost. .announcement-segment only exists on pages where the two
-     bars merged, so the standalone bar on every other page is untouched. */
+     bars merged, so the standalone bar on every other page is untouched.
+
+     1100px is now the measured cutoff rather than a rough one: countdown +
+     separator + "Free shipping on orders of $40 or more" needs 1068px of bar
+     to sit on one line, and a three-digit day count still clears 1101px. (It
+     used to need ~1400px, because site.announcement.text carried a second
+     "Small-batch, handmade with love in Landrum, SC" clause -- so the bar
+     really was wrapping to two lines on every laptop between 1100px and
+     ~1450px, the exact thing this rule exists to prevent.) */
   @media (max-width: 1100px) {
     & .announcement-sep,
     & .announcement-segment {
@@ -5040,6 +5095,13 @@ dialog.gift-modal[open]::backdrop {
   font-weight: 600;
   color: var(--paper);
   list-style: none;
+  /* Same reasoning as the card titles above: a question that wraps was
+     leaving its last word alone ("Where can I meet you in / person?" broke
+     61px under a 186px line). `pretty` only refuses the stub -- it does not
+     balance -- so the line count and the left-aligned fill are unchanged.
+     Not `balance`: these sit in a flex row beside a chevron, and evening the
+     lines would pull the question away from the row's left edge. */
+  text-wrap: pretty;
   transition:
     color 0.2s ease,
     background 0.2s ease;

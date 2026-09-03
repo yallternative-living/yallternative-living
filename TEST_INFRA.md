@@ -29,7 +29,7 @@ Node-only. The naming is the contract the runners glob on, and it is why the CI
 
 - **Unit pool** -- `npm test` -> `scripts/run-test.js`, which runs BOTH of:
   - `scripts/run-unit-tests.js`: every `scripts/*.test.js` that is not
-    `*.browser.test.js` (27 suites), in a parallel worker pool, then two
+    `*.browser.test.js` (41 suites), in a parallel worker pool, then two
     Node-only gates sequentially: `verify-pdp-metadata.js` (570 assertions on
     PDP OpenGraph/microdata) and `verify-build-reproducibility.js` (rebuilds
     the site five times and diffs every generated file).
@@ -43,7 +43,7 @@ Node-only. The naming is the contract the runners glob on, and it is why the CI
 
 - **Integration pool** -- `npm run test:integration` ->
   `scripts/run-integration-tests.js`: a fixed list of browser gates plus every
-  `scripts/*.browser.test.js` (11 suites), each on its own port or an ephemeral
+  `scripts/*.browser.test.js` (16 suites), each on its own port or an ephemeral
   one, in a worker pool. A suite on the fixed list that has gone missing is a
   hard failure, not a silent skip.
   - `scripts/puppeteer_tests.js` (8082): multi-viewport nav, link integrity,
@@ -55,8 +55,15 @@ Node-only. The naming is the contract the runners glob on, and it is why the CI
   - `scripts/test-m2-ugc-strip.js` (8085), `scripts/security_stress_test.js`
     (8086, XSS payloads under the real site CSP with a positive control that
     proves the policy is enforced), `scripts/reveal-check.js` (8087).
-  - The `*.browser.test.js` suites: the challenger/adversarial harnesses for
-    the PDP sticky bar, ritual cross-sells, search interaction, variant
+  - `scripts/text-layout.browser.test.js` (ephemeral port): 20 pages x 6
+    viewports (320-1440px), measuring the line boxes of every heading, button
+    label, form label and accordion summary. Two gates: no string may be
+    clipped by its own box (a hard zero -- `.btn` is `nowrap` + `overflow:
+    hidden`, so an over-long label is cut at both ends rather than wrapped),
+    and orphaned last lines are held to a measured budget so they cannot creep
+    back after the `text-wrap: pretty` fixes.
+  - The other `*.browser.test.js` suites: the challenger/adversarial harnesses
+    for the PDP sticky bar, ritual cross-sells, search interaction, variant
     pickers, the journal, and the M1-M4 milestone stress runs.
 
 - **Smoke gate** -- `npm run test:smoke` -> `scripts/smoke-test.js`: four

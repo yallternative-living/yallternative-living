@@ -13,7 +13,7 @@ window.YL_CONTENT = {
     "footerTagline": "Southern-raised, alt-inspired self-care, salves, soaks, body care, and apparel. Queer-owned and small-batch brewed in Landrum, SC.",
     "announcement": {
       "enabled": true,
-      "text": "Free shipping on orders of $40 or more ✦ Small-batch, handmade with love in Landrum, SC",
+      "text": "Free shipping on orders of $40 or more",
       "link": "shop.html",
       "accent": "default"
     },
