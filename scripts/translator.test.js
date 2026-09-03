@@ -263,6 +263,25 @@ class MockElement extends MockNode {
     return results.length > 0 ? results[0] : null;
   }
 
+  /**
+   * Minimal closest(): supports the "[attr]" presence form, which is the only
+   * shape translator.js uses ("[lang]"). Present so the language-marking
+   * cleanup pass runs here instead of being silently skipped by its
+   * `typeof el.closest !== "function"` guard -- an untested branch in a mock
+   * that quietly lacks the method is exactly the "absent subject is a pass"
+   * failure TEST_INFRA.md warns about.
+   */
+  closest(selector) {
+    const m = /^\[([a-zA-Z-]+)\]$/.exec(selector);
+    if (!m) throw new Error("MockElement.closest only implements [attr]: " + selector);
+    let curr = this;
+    while (curr && curr.nodeType === 1) {
+      if (curr.hasAttribute(m[1])) return curr;
+      curr = curr.parentNode;
+    }
+    return null;
+  }
+
   querySelectorAll(selector) {
     const matches = [];
     function matchNode(node) {
@@ -568,9 +587,17 @@ async function runAllSuites() {
 
     const toggleBtn = wrap.querySelector(".lang-toggle");
     assert.ok(toggleBtn, ".lang-toggle button must exist");
-    assert.strictEqual(toggleBtn.getAttribute("aria-label"), "Select language");
+    /* The accessible name carries the CURRENT language. A bare "Select
+       language" overrode the visible "EN" badge, leaving a screen-reader user
+       unable to tell which language was active. */
+    assert.strictEqual(
+      toggleBtn.getAttribute("aria-label"),
+      "Select language, current language English"
+    );
     assert.strictEqual(toggleBtn.getAttribute("aria-expanded"), "false");
     assert.strictEqual(toggleBtn.getAttribute("aria-haspopup"), "listbox");
+    /* aria-haspopup says a popup exists; aria-controls says which one. */
+    assert.strictEqual(toggleBtn.getAttribute("aria-controls"), "langDropdown");
     assert.strictEqual(toggleBtn.type, "button");
 
     const dropdown = wrap.querySelector(".lang-dropdown");
@@ -761,6 +788,24 @@ async function runAllSuites() {
       badgeSpan.setAttribute("data-i18n-title", "announcement.shipping");
       container.appendChild(badgeSpan);
 
+      /* 6. Language marking fixtures (see applyLangMarks in translator.js).
+         a) fully translated element with an untranslated CHILD element -- the
+            child would inherit the parent's lang without a counter-mark.
+         b) one element holding both a translated and an untranslated text
+            node -- no single lang attribute can describe that, so it must be
+            left alone rather than described wrongly. */
+      const leakHeading = new MockElement("h3");
+      leakHeading.appendChild(new MockTextNode("Shop "));
+      const leakChild = new MockElement("span");
+      leakChild.appendChild(new MockTextNode("Zzznope untranslatable string"));
+      leakHeading.appendChild(leakChild);
+      container.appendChild(leakHeading);
+
+      const mixedPara = new MockElement("p");
+      mixedPara.appendChild(new MockTextNode("Contact"));
+      mixedPara.appendChild(new MockTextNode("Zzznope untranslatable string"));
+      container.appendChild(mixedPara);
+
       mockDocument.body.appendChild(container);
       mockDocument.title = "Self-Care For The Black Sheep & Bold Hearts";
 
@@ -793,6 +838,50 @@ async function runAllSuites() {
         "document.title translated to Spanish"
       );
 
+      /* Language marking. The document element stays English (suite 8); the
+         mark goes on the elements whose text was genuinely replaced, so a
+         screen reader switches voice for those and only those. */
+      assert.strictEqual(
+        p.getAttribute("lang"),
+        "es",
+        "element whose text node was replaced is marked lang=es"
+      );
+      assert.strictEqual(
+        cartBtn.getAttribute("lang"),
+        "es",
+        "data-i18n element whose text was replaced is marked lang=es"
+      );
+      assert.strictEqual(
+        menuBtn.getAttribute("lang"),
+        null,
+        "element with only a translated aria-label is NOT marked (no text was replaced)"
+      );
+      assert.strictEqual(
+        searchInput.getAttribute("lang"),
+        null,
+        "element with only a translated placeholder is NOT marked"
+      );
+      assert.strictEqual(
+        container.getAttribute("lang"),
+        null,
+        "ancestor holding no text of its own is not marked"
+      );
+      assert.strictEqual(
+        leakHeading.getAttribute("lang"),
+        "es",
+        "fully translated heading is marked lang=es"
+      );
+      assert.strictEqual(
+        leakChild.getAttribute("lang"),
+        "en",
+        "untranslated child under a marked ancestor is counter-marked lang=en"
+      );
+      assert.strictEqual(
+        mixedPara.getAttribute("lang"),
+        null,
+        "element with both translated and untranslated text of its own is left unmarked"
+      );
+
       // Translate back to English (en) -> verify exact original restoration
       await translator.setLanguage("en");
 
@@ -816,6 +905,31 @@ async function runAllSuites() {
         mockDocument.title,
         "Self-Care For The Black Sheep & Bold Hearts",
         "document.title restored to English"
+      );
+
+      /* Every mark this engine added comes off again -- including the
+         counter-marks. A leftover lang attribute is a wrong announcement that
+         outlives the translation that justified it. */
+      assert.strictEqual(p.getAttribute("lang"), null, "lang mark removed on switch back");
+      assert.strictEqual(
+        cartBtn.getAttribute("lang"),
+        null,
+        "data-i18n lang mark removed on switch back"
+      );
+      assert.strictEqual(
+        leakHeading.getAttribute("lang"),
+        null,
+        "heading lang mark removed on switch back"
+      );
+      assert.strictEqual(
+        leakChild.getAttribute("lang"),
+        null,
+        "counter-mark removed on switch back"
+      );
+      assert.strictEqual(
+        mockDocument.documentElement.getAttribute("lang"),
+        "en",
+        "document element was never touched in the first place"
       );
     }
   );
@@ -974,10 +1088,16 @@ async function runAllSuites() {
         "ja",
         "Language saved to localStorage['yl-lang']"
       );
+      /* NOT "ja". Dictionary coverage is 10-20% of a page, so declaring the
+         whole document Japanese made a screen reader apply Japanese phonetics
+         to the English 80-90% -- WCAG 2.1 SC 3.1.1 (Level A). The document
+         stays English and only the elements whose text was actually replaced
+         are marked; see suite 4. Raise coverage to ~100% and this pin is the
+         thing to revisit. */
       assert.strictEqual(
         mockDocument.documentElement.getAttribute("lang"),
-        "ja",
-        "html[lang] set to ja"
+        "en",
+        "html[lang] stays en while page coverage is partial"
       );
       assert.strictEqual(
         mockDocument.documentElement.getAttribute("dir"),

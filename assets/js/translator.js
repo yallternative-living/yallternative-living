@@ -28,6 +28,19 @@
   var observer = null;
   var isTranslating = false;
 
+  /* Per-element bookkeeping for the lang marking pass -- see applyLangMarks().
+     Reset at the top of every translateTree() call. */
+  var langHits = null;
+  var langMisses = null;
+  /* Every element this engine has stamped a lang attribute onto, so the switch
+     back to English can put each one back exactly as it was. */
+  var langMarkedElements = [];
+
+  /* Handle of the pending "have the dictionaries landed yet?" timer. Only ever
+     non-null when init() ran before locales-data.js did AND a non-English
+     language was requested -- see waitForLocales(). */
+  var pendingLocalesWatch = null;
+
   // Cached inverted dictionaries for fast O(1) text-to-key lookup
   var englishPhraseToKey = null;
   var normalizedPhraseToKey = null;
@@ -298,6 +311,99 @@
   }
 
   /**
+   * Note that one of an element's own text nodes was, or was not, replaced.
+   *
+   * Language marking is per-element and not per-text-node because `lang` is an
+   * HTML attribute and text nodes cannot carry one. Protected terms (brand
+   * names, INCI botanicals) are counted as NEITHER: they are proper nouns that
+   * read the same in every locale, so letting them count as a miss would stop
+   * a fully translated heading from being marked.
+   */
+  function noteLang(el, wasTranslated) {
+    if (!el || el.nodeType !== 1 || !langHits || !langMisses) return;
+    var bucket = wasTranslated ? langHits : langMisses;
+    bucket.set(el, (bucket.get(el) || 0) + 1);
+  }
+
+  /**
+   * Stamp a lang attribute on an element, remembering what was there before.
+   */
+  function markLang(el, langCode) {
+    if (!el || typeof el.setAttribute !== "function") return;
+    if (el.__ylOriginalLang === undefined) {
+      el.__ylOriginalLang = typeof el.getAttribute === "function" ? el.getAttribute("lang") : null;
+    }
+    if (!el.__ylLangMarked) {
+      el.__ylLangMarked = true;
+      langMarkedElements.push(el);
+    }
+    el.setAttribute("lang", langCode);
+  }
+
+  /**
+   * Undo every lang attribute this engine has stamped.
+   */
+  function clearLangMarks() {
+    for (var i = 0; i < langMarkedElements.length; i++) {
+      var el = langMarkedElements[i];
+      if (!el || typeof el.setAttribute !== "function") continue;
+      if (el.__ylOriginalLang === null || el.__ylOriginalLang === undefined) {
+        if (typeof el.removeAttribute === "function") el.removeAttribute("lang");
+      } else {
+        el.setAttribute("lang", el.__ylOriginalLang);
+      }
+      el.__ylLangMarked = false;
+      el.__ylOriginalLang = undefined;
+    }
+    langMarkedElements.length = 0;
+  }
+
+  /**
+   * Mark the elements this pass actually translated -- and only those.
+   *
+   * WHY THIS IS NOT `<html lang="es">`. The obvious implementation sets the
+   * language on the document element. That is only honest when the document is
+   * in that language. Dictionary coverage here is 10-20% of the text nodes on
+   * a page (audit 2026-09-02 S3), so `<html lang="es">` told every screen
+   * reader to apply Spanish phonetics to the 80-90% of the page that is still
+   * English -- WCAG 2.1 SC 3.1.1 Language of Page, Level A, and strictly worse
+   * for a blind visitor than leaving the document in English. So the document
+   * stays `lang="en"` and the mark goes on the elements whose text was
+   * genuinely replaced. Raise coverage and this scales with it for free; if it
+   * ever reaches the whole page, revisit the document-level attribute then.
+   *
+   * Two rules:
+   *   - An element is marked only when EVERY one of its own text nodes was
+   *     replaced. Mixed English/Spanish inside one element cannot be described
+   *     by a single attribute, so it is left alone rather than described
+   *     wrongly.
+   *   - An element still holding English text underneath something we just
+   *     marked is stamped `lang="en"`, because it would otherwise inherit the
+   *     new language from that ancestor.
+   *
+   * Attributes are deliberately out of scope: a translated aria-label on an
+   * element whose text is English has no per-attribute language in HTML, and
+   * marking the element for it would mispronounce the text.
+   */
+  function applyLangMarks(targetLang) {
+    if (!langHits || !langMisses || targetLang === "en") return;
+
+    langHits.forEach(function (count, el) {
+      if (!count) return;
+      if (langMisses.get(el)) return;
+      markLang(el, targetLang);
+    });
+
+    langMisses.forEach(function (count, el) {
+      if (!count || typeof el.closest !== "function") return;
+      var nearest = el.closest("[lang]");
+      if (nearest && nearest !== el && nearest.__ylLangMarked) {
+        markLang(el, "en");
+      }
+    });
+  }
+
+  /**
    * Translate a single node (text node or element attributes/data-i18n).
    */
   function translateNode(node, targetLang) {
@@ -325,6 +431,7 @@
         return;
       }
 
+      var textParent = node.parentNode && node.parentNode.nodeType === 1 ? node.parentNode : null;
       var translated = lookupPhrase(trimmed, targetLang);
       if (translated && translated !== trimmed) {
         var leadingMatch = raw.match(/^(\s*)/);
@@ -332,6 +439,9 @@
         var leading = leadingMatch ? leadingMatch[1] : "";
         var trailing = trailingMatch ? trailingMatch[1] : "";
         node.nodeValue = leading + translated + trailing;
+        noteLang(textParent, true);
+      } else {
+        noteLang(textParent, false);
       }
       return;
     }
@@ -356,6 +466,25 @@
           var transText = lookupByKey(key, targetLang);
           if (transText) {
             node.textContent = transText;
+            noteLang(node, true);
+            /* Assigning textContent DESTROYS the old text node and creates a
+               new one -- a childList mutation. The MutationObserver receives
+               that record a microtask later, by which time the isTranslating
+               guard set in setLanguage() has already been cleared by its
+               synchronous finally block, so the observer translates the new
+               node and caches its TRANSLATED value as __ylOriginalText. The
+               switch back to English then restores it to the translation and
+               the string is stuck in the target language forever.
+
+               Seed the cache with the real English original so the observer
+               finds it already populated and leaves it alone. Currently
+               unreachable -- nothing in the shipped markup carries data-i18n
+               -- but adopting data-i18n is the obvious fix for the coverage
+               gap, and this path is where it lands. */
+            var seeded = node.childNodes && node.childNodes[0];
+            if (seeded && seeded.nodeType === 3) {
+              seeded.__ylOriginalText = lookupByKey(key, "en") || node.__ylOriginalText || "";
+            }
           }
         }
       }
@@ -464,6 +593,12 @@
   function translateTree(rootEl, targetLang) {
     if (!rootEl) return;
 
+    /* Per-call bookkeeping for applyLangMarks(). The MutationObserver calls
+       this once per added subtree, so it has to be scoped to the call, not to
+       the language switch. */
+    langHits = typeof Map === "function" ? new Map() : null;
+    langMisses = typeof Map === "function" ? new Map() : null;
+
     // Check if translating root document
     if (
       typeof document !== "undefined" &&
@@ -514,6 +649,8 @@
     } else {
       walkChildren(rootEl, targetLang);
     }
+
+    applyLangMarks(targetLang);
   }
 
   /**
@@ -564,6 +701,29 @@
   }
 
   /**
+   * Human-readable name for a language code, for accessible names.
+   */
+  function languageName(code) {
+    for (var i = 0; i < LANGUAGES.length; i++) {
+      if (LANGUAGES[i].code === code) return LANGUAGES[i].name;
+    }
+    return code;
+  }
+
+  /**
+   * The toggle button's accessible name.
+   *
+   * It used to be the bare "Select language", which OVERRODE the visible "EN"
+   * badge -- so a screen-reader user could operate the control but could not
+   * tell which language was active, the one piece of state the button exists
+   * to show (audit 2026-09-02 S4). Naming the current language fixes that
+   * without changing the visible chrome.
+   */
+  function toggleLabelFor(code) {
+    return "Select language, current language " + languageName(code);
+  }
+
+  /**
    * Update active CSS class and ARIA states in language dropdown.
    */
   function updateUIState(langCode) {
@@ -587,6 +747,11 @@
     if (indicator) {
       indicator.textContent = langCode.toUpperCase();
     }
+
+    var toggle = document.querySelector(".lang-toggle");
+    if (toggle && typeof toggle.setAttribute === "function") {
+      toggle.setAttribute("aria-label", toggleLabelFor(langCode));
+    }
   }
 
   /**
@@ -601,15 +766,18 @@
 
     currentLang = target;
 
-    // Update document lang & dir attributes
+    /* The document element's lang is deliberately NOT changed -- see
+       applyLangMarks(). The page's content language is still English; only the
+       elements this engine actually replaced get marked, and they get marked
+       during the walk below.
+
+       dir IS still a document-level property: it describes layout, not
+       pronunciation, and a page whose text is 80-90% English must not be laid
+       out right-to-left on the strength of a partial translation. Every locale
+       that ships today declares "ltr", so this is a no-op; the day an RTL
+       locale is added, it needs the same per-element treatment lang has. */
     if (typeof document !== "undefined" && document.documentElement) {
-      document.documentElement.setAttribute("lang", target);
-      var locales = getLocales();
-      if (locales && locales[target] && locales[target].meta && locales[target].meta.dir) {
-        document.documentElement.setAttribute("dir", locales[target].meta.dir);
-      } else {
-        document.documentElement.setAttribute("dir", "ltr");
-      }
+      document.documentElement.setAttribute("dir", "ltr");
     }
 
     // Update local storage preference
@@ -627,6 +795,10 @@
     // Perform DOM in-place translation
     isTranslating = true;
     try {
+      /* Marks from the previous language are meaningless under the new one:
+         a string that had an es entry may have no ja entry. Drop them all and
+         let this pass re-earn each one. */
+      clearLangMarks();
       if (typeof document !== "undefined" && document.body) {
         translateTree(document.body, target);
       }
@@ -683,9 +855,12 @@
     var toggleBtn = document.createElement("button");
     toggleBtn.className = "lang-toggle";
     toggleBtn.type = "button";
-    toggleBtn.setAttribute("aria-label", "Select language");
+    toggleBtn.setAttribute("aria-label", toggleLabelFor(currentLang));
     toggleBtn.setAttribute("aria-expanded", "false");
     toggleBtn.setAttribute("aria-haspopup", "listbox");
+    /* Names the listbox this button expands, which aria-haspopup on its own
+       does not. Must match dropdown.id below. */
+    toggleBtn.setAttribute("aria-controls", "langDropdown");
     toggleBtn.innerHTML =
       globeSVG + '<span class="lang-current-code">' + currentLang.toUpperCase() + "</span>";
 
@@ -848,7 +1023,71 @@
   }
 
   /**
+   * Are the compiled dictionaries actually here?
+   *
+   * getLocales() answers {} rather than throwing when locales-data.js has not
+   * executed yet, so "we have a locales object" is not the same question as
+   * "we can translate anything". This asserts the subject exists: an English
+   * index to look phrases up in, and at least one non-English locale to
+   * translate them into. buildLookupIndices() over an empty object produces
+   * empty indices and every lookup then silently returns its input.
+   *
+   * @return {boolean}
+   */
+  function localesReady() {
+    var locales = getLocales();
+    if (!locales || !locales.en || !locales.en.phrases) return false;
+    for (var code in locales) {
+      if (code !== "en" && locales[code] && locales[code].phrases) return true;
+    }
+    return false;
+  }
+
+  /* How often, and for how long, to keep looking for late dictionaries. 50ms x
+     100 = 5s, which covers a slow 3G fetch of the 71KB locales-data.js with
+     room to spare; after that we stop rather than spin forever. */
+  var LOCALES_WATCH_INTERVAL_MS = 50;
+  var LOCALES_WATCH_MAX_ATTEMPTS = 100;
+
+  /**
+   * Re-run init() once the dictionaries arrive.
+   *
+   * assets/js/main.js appends locales-data.js before translator.js with
+   * .async = false, so in the shipped page this never fires. It exists because
+   * "translator.js executed first and therefore this page is permanently
+   * untranslated" was a silent, unrecoverable state (audit 2026-09-02 S4), and
+   * a page that loads these two files some other way -- a test harness, a
+   * future partial hydration, a stale service-worker entry -- must not be able
+   * to re-enter it. init() is idempotent: initUI() returns early when
+   * #langSelectorWrap exists, initMutationObserver() returns early when the
+   * observer is live, and buildLookupIndices() simply rebuilds.
+   *
+   * Costs nothing in the normal case: only armed when a non-English language
+   * was asked for AND the dictionaries were missing at init time.
+   */
+  function waitForLocales() {
+    if (pendingLocalesWatch !== null || typeof setTimeout !== "function") return;
+    var attempts = 0;
+    function tick() {
+      attempts++;
+      if (localesReady()) {
+        pendingLocalesWatch = null;
+        init();
+        return;
+      }
+      if (attempts >= LOCALES_WATCH_MAX_ATTEMPTS) {
+        pendingLocalesWatch = null;
+        return;
+      }
+      pendingLocalesWatch = setTimeout(tick, LOCALES_WATCH_INTERVAL_MS);
+    }
+    pendingLocalesWatch = setTimeout(tick, LOCALES_WATCH_INTERVAL_MS);
+  }
+
+  /**
    * Initialize localization engine and UI.
+   *
+   * Safe to call more than once -- see waitForLocales().
    */
   async function init() {
     buildLookupIndices();
@@ -860,7 +1099,14 @@
     updateUIState(lang);
 
     if (lang !== "en") {
-      await setLanguage(lang);
+      if (localesReady()) {
+        await setLanguage(lang);
+      } else {
+        /* Do NOT call setLanguage() here. It would walk the whole tree
+           translating nothing and mark the document as switched, and nothing
+           would ever revisit it. Wait for the dictionaries instead. */
+        waitForLocales();
+      }
     }
   }
 
@@ -898,6 +1144,15 @@
     _resetInternalState: function () {
       currentLang = "en";
       isTranslating = false;
+      clearLangMarks();
+      if (pendingLocalesWatch !== null) {
+        try {
+          clearTimeout(pendingLocalesWatch);
+        } catch {
+          // ignore
+        }
+        pendingLocalesWatch = null;
+      }
       englishPhraseToKey = null;
       normalizedPhraseToKey = null;
       glossaryTermsSet = null;

@@ -722,14 +722,40 @@ async function runBrowserStressTests() {
         }, targetLang);
         switchDurations.push(Date.now() - t0);
 
-        const currentDomLang = await page.evaluate(() =>
-          document.documentElement.getAttribute("lang")
-        );
+        /* The DOCUMENT is never relabelled -- coverage is 10-20%, so
+           <html lang="es"> was a WCAG 3.1.1 (Level A) failure that told a
+           screen reader to read the English 80-90% with Spanish phonetics.
+           What must be true instead: the document stays English, and the
+           elements whose text was replaced carry the mark -- which is also a
+           stronger assertion than the old one, because it fails if the engine
+           stops translating while still flipping an attribute. */
+        const langState = await page.evaluate((code) => {
+          return {
+            docLang: document.documentElement.getAttribute("lang"),
+            /* Scoped to body on purpose: <html lang="en"> is authored markup
+               and would satisfy a bare [lang="en"] count for the wrong
+               reason. */
+            marked: document.querySelectorAll('body [lang="' + code + '"]').length,
+            anyMarks: document.querySelectorAll("body [lang]").length
+          };
+        }, targetLang);
         assert.strictEqual(
-          currentDomLang,
-          targetLang,
-          `Page ${testPath} lang attribute matches '${targetLang}'`
+          langState.docLang,
+          "en",
+          `Page ${testPath} keeps <html lang="en"> while switching to '${targetLang}'`
         );
+        if (targetLang === "en") {
+          assert.strictEqual(
+            langState.anyMarks,
+            0,
+            `Page ${testPath} carries no leftover element lang marks after restoring English (found ${langState.anyMarks})`
+          );
+        } else {
+          assert.ok(
+            langState.marked > 0,
+            `Page ${testPath} marks translated elements lang='${targetLang}' (found ${langState.marked})`
+          );
+        }
       }
 
       // Check restored English snapshot

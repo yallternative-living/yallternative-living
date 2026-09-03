@@ -248,6 +248,7 @@ async function runChallenger2Tests() {
     let currentLang = await page.evaluate(() => ({
       engineLang: window.YL_TRANSLATOR ? window.YL_TRANSLATOR.getCurrentLanguage() : null,
       htmlLang: document.documentElement.getAttribute("lang"),
+      markedEs: document.querySelectorAll('[lang="es"]').length,
       indicatorText: document.querySelector(".lang-current-code")
         ? document.querySelector(".lang-current-code").textContent.trim()
         : null,
@@ -256,7 +257,12 @@ async function runChallenger2Tests() {
 
     assert(currentLang.stored === "es", "localStorage['yl-lang'] remains 'es' on shop.html");
     assert(currentLang.engineLang === "es", "YL_TRANSLATOR active language is 'es' on shop.html");
-    assert(currentLang.htmlLang === "es", "<html lang='es'> correctly set on shop.html");
+    /* NOT <html lang="es">. Coverage is partial, so the document stays English
+       (WCAG 3.1.1) and only the elements actually replaced are marked. Both
+       halves are asserted: a document that stopped being marked at all would
+       otherwise pass the first half trivially. */
+    assert(currentLang.htmlLang === "en", "<html lang> stays 'en' on shop.html");
+    assert(currentLang.markedEs > 0, "translated elements are marked lang='es' on shop.html");
     assert(currentLang.indicatorText === "ES", "Dropdown indicator shows 'ES' on shop.html");
     pass(
       "Navigated from index.html -> shop.html: Language 'es' successfully persisted and hydrated."
@@ -267,11 +273,13 @@ async function runChallenger2Tests() {
     currentLang = await page.evaluate(() => ({
       engineLang: window.YL_TRANSLATOR ? window.YL_TRANSLATOR.getCurrentLanguage() : null,
       htmlLang: document.documentElement.getAttribute("lang"),
+      markedEs: document.querySelectorAll('[lang="es"]').length,
       stored: localStorage.getItem("yl-lang")
     }));
     assert(currentLang.stored === "es", "localStorage['yl-lang'] remains 'es' on PDP");
     assert(currentLang.engineLang === "es", "YL_TRANSLATOR active language is 'es' on PDP");
-    assert(currentLang.htmlLang === "es", "<html lang='es'> correctly set on PDP");
+    assert(currentLang.htmlLang === "en", "<html lang> stays 'en' on PDP");
+    assert(currentLang.markedEs > 0, "translated elements are marked lang='es' on PDP");
     pass(
       "Navigated to product page /products/miracle-balm.html: Language 'es' successfully persisted."
     );
@@ -288,12 +296,14 @@ async function runChallenger2Tests() {
     currentLang = await page.evaluate(() => ({
       engineLang: window.YL_TRANSLATOR ? window.YL_TRANSLATOR.getCurrentLanguage() : null,
       htmlLang: document.documentElement.getAttribute("lang"),
+      markedDe: document.querySelectorAll('[lang="de"]').length,
       indicatorText: document.querySelector(".lang-current-code")
         ? document.querySelector(".lang-current-code").textContent.trim()
         : null
     }));
     assert(currentLang.engineLang === "de", "YL_TRANSLATOR active language is 'de' on about.html");
-    assert(currentLang.htmlLang === "de", "<html lang='de'> correctly set on about.html");
+    assert(currentLang.htmlLang === "en", "<html lang> stays 'en' on about.html");
+    assert(currentLang.markedDe > 0, "translated elements are marked lang='de' on about.html");
     assert(currentLang.indicatorText === "DE", "Dropdown indicator shows 'DE' on about.html");
     pass("Navigated to /about.html: Language 'de' successfully persisted and hydrated.");
 
@@ -310,6 +320,7 @@ async function runChallenger2Tests() {
     let urlParamState = await page.evaluate(() => ({
       engineLang: window.YL_TRANSLATOR ? window.YL_TRANSLATOR.getCurrentLanguage() : null,
       htmlLang: document.documentElement.getAttribute("lang"),
+      marked: document.querySelectorAll('[lang="fr"]').length,
       indicatorText: document.querySelector(".lang-current-code")
         ? document.querySelector(".lang-current-code").textContent.trim()
         : null,
@@ -321,8 +332,12 @@ async function runChallenger2Tests() {
       `Expected engine lang 'fr', got '${urlParamState.engineLang}'`
     );
     assert(
-      urlParamState.htmlLang === "fr",
-      `Expected html[lang='fr'], got '${urlParamState.htmlLang}'`
+      urlParamState.htmlLang === "en",
+      `Expected html[lang] to stay 'en' under partial coverage, got '${urlParamState.htmlLang}'`
+    );
+    assert(
+      urlParamState.marked > 0,
+      `Expected at least one element marked lang='fr', got ${urlParamState.marked}`
     );
     assert(
       urlParamState.indicatorText === "FR",
@@ -335,6 +350,7 @@ async function runChallenger2Tests() {
     urlParamState = await page.evaluate(() => ({
       engineLang: window.YL_TRANSLATOR ? window.YL_TRANSLATOR.getCurrentLanguage() : null,
       htmlLang: document.documentElement.getAttribute("lang"),
+      marked: document.querySelectorAll('[lang="ja"]').length,
       indicatorText: document.querySelector(".lang-current-code")
         ? document.querySelector(".lang-current-code").textContent.trim()
         : null
@@ -344,8 +360,12 @@ async function runChallenger2Tests() {
       `Expected engine lang 'ja', got '${urlParamState.engineLang}'`
     );
     assert(
-      urlParamState.htmlLang === "ja",
-      `Expected html[lang='ja'], got '${urlParamState.htmlLang}'`
+      urlParamState.htmlLang === "en",
+      `Expected html[lang] to stay 'en' under partial coverage, got '${urlParamState.htmlLang}'`
+    );
+    assert(
+      urlParamState.marked > 0,
+      `Expected at least one element marked lang='ja', got ${urlParamState.marked}`
     );
     assert(
       urlParamState.indicatorText === "JA",
@@ -358,6 +378,7 @@ async function runChallenger2Tests() {
     urlParamState = await page.evaluate(() => ({
       engineLang: window.YL_TRANSLATOR ? window.YL_TRANSLATOR.getCurrentLanguage() : null,
       htmlLang: document.documentElement.getAttribute("lang"),
+      marked: document.querySelectorAll('[lang="zh"]').length,
       indicatorText: document.querySelector(".lang-current-code")
         ? document.querySelector(".lang-current-code").textContent.trim()
         : null
@@ -367,8 +388,12 @@ async function runChallenger2Tests() {
       `Expected engine lang 'zh', got '${urlParamState.engineLang}'`
     );
     assert(
-      urlParamState.htmlLang === "zh",
-      `Expected html[lang='zh'], got '${urlParamState.htmlLang}'`
+      urlParamState.htmlLang === "en",
+      `Expected html[lang] to stay 'en' under partial coverage, got '${urlParamState.htmlLang}'`
+    );
+    assert(
+      urlParamState.marked > 0,
+      `Expected at least one element marked lang='zh', got ${urlParamState.marked}`
     );
     assert(
       urlParamState.indicatorText === "ZH",
@@ -455,6 +480,7 @@ async function runChallenger2Tests() {
         return {
           currentLang: window.YL_TRANSLATOR.getCurrentLanguage(),
           htmlLang: document.documentElement.getAttribute("lang"),
+          marked: document.querySelectorAll('[lang="ja"]').length,
           navCartText: (document.querySelector("[data-i18n='nav.cart']") || {}).textContent,
           title: document.title
         };
@@ -467,7 +493,11 @@ async function runChallenger2Tests() {
       offlineSwitchResult.currentLang === "ja",
       `Offline language switch to 'ja' succeeded (got ${offlineSwitchResult.currentLang})`
     );
-    assert(offlineSwitchResult.htmlLang === "ja", `Offline html[lang] updated to 'ja'`);
+    assert(offlineSwitchResult.htmlLang === "en", `Offline html[lang] stays 'en'`);
+    assert(
+      offlineSwitchResult.marked > 0,
+      `Offline switch marked ${offlineSwitchResult.marked} elements lang='ja'`
+    );
     pass(
       "Offline translation switch to Japanese (ja) succeeded completely without network access."
     );

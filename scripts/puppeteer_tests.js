@@ -1443,13 +1443,15 @@ function createStaticServer(port = 8082) {
       ariaLabel: btn.getAttribute("aria-label"),
       ariaExpanded: btn.getAttribute("aria-expanded"),
       ariaHasPopup: btn.getAttribute("aria-haspopup"),
+      ariaControls: btn.getAttribute("aria-controls"),
       currentCode: (btn.querySelector(".lang-current-code") || {}).textContent
     }));
 
     if (
-      toggleAria.ariaLabel === "Select language" &&
+      toggleAria.ariaLabel === "Select language, current language English" &&
       toggleAria.ariaExpanded === "false" &&
       toggleAria.ariaHasPopup === "listbox" &&
+      toggleAria.ariaControls === "langDropdown" &&
       toggleAria.currentCode === "EN"
     ) {
       console.log(
@@ -1475,13 +1477,18 @@ function createStaticServer(port = 8082) {
 
     // 10.4 Select Spanish (es)
     await page.click('.lang-option[data-lang="es"]');
-    await page.waitForFunction("document.documentElement.getAttribute('lang') === 'es'", {
-      timeout: 3000
-    });
+    /* Waits on the per-element marks, not on <html lang>: the document stays
+       English on purpose while coverage is partial (WCAG 3.1.1). */
+    await page.waitForFunction(
+      /* eslint-disable-next-line no-undef */
+      () => document.querySelector('[lang="es"]') !== null,
+      { timeout: 3000 }
+    );
 
     const esState = await page.evaluate(() => {
       /* eslint-disable no-undef */
       const docLang = document.documentElement.getAttribute("lang");
+      const markedEs = document.querySelectorAll('[lang="es"]').length;
       const savedLang = localStorage.getItem("yl-lang");
       const currentCode = document.querySelector(".lang-current-code")?.textContent;
       const navLinks = Array.from(document.querySelectorAll(".nav-links a")).map((a) =>
@@ -1492,19 +1499,20 @@ function createStaticServer(port = 8082) {
         document.querySelector(".brand")?.textContent.trim() ||
         "";
       const cookies = document.cookie;
-      return { docLang, savedLang, currentCode, navLinks, brandLogo, cookies };
+      return { docLang, markedEs, savedLang, currentCode, navLinks, brandLogo, cookies };
       /* eslint-enable no-undef */
     });
 
     if (
-      esState.docLang === "es" &&
+      esState.docLang === "en" &&
+      esState.markedEs > 0 &&
       esState.savedLang === "es" &&
       esState.currentCode === "ES" &&
       esState.navLinks.includes("Tienda") &&
       esState.brandLogo.includes("Y'allternative")
     ) {
       console.log(
-        "✅ Spanish translation verified in-place: lang=es, code=ES, 'Tienda' translated, brand preserved."
+        `✅ Spanish translation verified in-place: <html lang> still en, ${esState.markedEs} elements marked lang=es, code=ES, 'Tienda' translated, brand preserved.`
       );
     } else {
       console.log("❌ Spanish translation state mismatch:", esState);
@@ -1527,29 +1535,37 @@ function createStaticServer(port = 8082) {
     await page.click(".lang-toggle");
     await page.waitForSelector(".lang-dropdown.open", { timeout: 3000 });
     await page.click('.lang-option[data-lang="en"]');
-    await page.waitForFunction("document.documentElement.getAttribute('lang') === 'en'", {
-      timeout: 3000
-    });
+    /* Restoring English means the marks come OFF again -- a leftover lang
+       attribute is a wrong announcement outliving its translation. */
+    await page.waitForFunction(
+      /* eslint-disable-next-line no-undef */
+      () => document.querySelector('[lang="es"]') === null,
+      { timeout: 3000 }
+    );
 
     const enState = await page.evaluate(() => {
       /* eslint-disable no-undef */
       const docLang = document.documentElement.getAttribute("lang");
+      const markedEs = document.querySelectorAll('[lang="es"]').length;
       const savedLang = localStorage.getItem("yl-lang");
       const currentCode = document.querySelector(".lang-current-code")?.textContent;
       const navLinks = Array.from(document.querySelectorAll(".nav-links a")).map((a) =>
         a.textContent.trim()
       );
-      return { docLang, savedLang, currentCode, navLinks };
+      return { docLang, markedEs, savedLang, currentCode, navLinks };
       /* eslint-enable no-undef */
     });
 
     if (
       enState.docLang === "en" &&
+      enState.markedEs === 0 &&
       enState.savedLang === "en" &&
       enState.currentCode === "EN" &&
       enState.navLinks.includes("Shop")
     ) {
-      console.log("✅ English cleanly restored in-place: lang=en, code=EN, 'Shop' restored.");
+      console.log(
+        "✅ English cleanly restored in-place: lang=en, 0 leftover element marks, code=EN, 'Shop' restored."
+      );
     } else {
       console.log("❌ English restoration state mismatch:", enState);
       exitCode = 1;

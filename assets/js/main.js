@@ -10483,18 +10483,36 @@
   initPdpStickyBar();
   initHoverPrefetch();
 
-  /* ---------- Load translator & locales ---------- */
+  /* ---------- Load translator & locales ----------
+     ORDER MATTERS, AND `defer` DOES NOT BUY IT. A script element created
+     with document.createElement is async BY DEFAULT: the HTML spec makes
+     "force-async" true for such elements, `defer` is ignored entirely, and the
+     two files execute in network-completion order. locales-data.js is 71KB and
+     translator.js is 28KB, so translator.js won that race 10 cold loads out of
+     10 (audit 2026-09-02 S4). When it wins, translator.js builds its lookup
+     index against an empty window.YL_LOCALES and translates nothing, while
+     still flipping the header badge to "ES" -- a visitor arriving on a shared
+     /?lang=es link got an English page claiming to be Spanish, and nothing
+     ever re-ran.
+
+     Setting .async = false is the documented way to opt a dynamically inserted
+     script back into ordered execution: the two are appended in dependency
+     order below (dictionaries first, engine second) and now execute in that
+     order. translator.js additionally re-runs init() if YL_LOCALES turns up
+     late, so a page that loads these some other way still recovers. */
   (function () {
     if (typeof document === "undefined") return;
     if (!window.YL_LOCALES && !document.querySelector('script[src*="locales-data.js"]')) {
       var sLoc = document.createElement("script");
       sLoc.src = "/assets/js/locales-data.js?v=2.0";
+      sLoc.async = false;
       sLoc.defer = true;
       document.body.appendChild(sLoc);
     }
     if (!window.YL_TRANSLATOR && !document.querySelector('script[src*="translator.js"]')) {
       var s = document.createElement("script");
       s.src = "/assets/js/translator.js?v=2.0";
+      s.async = false;
       s.defer = true;
       document.body.appendChild(s);
     }
