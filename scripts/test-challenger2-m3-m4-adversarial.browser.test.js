@@ -655,17 +655,25 @@ console.log("===================================================================
   console.log(`     • p95 Duration   : ${p95Duration} ms (${(p95Duration / 1000).toFixed(3)}s)`);
   console.log(`     • SLA Threshold  : 3000 ms (3.0s)`);
 
+  /* These three are back at the values they had before the translator
+     branch: 3000 / 3000 / 1500. That commit raised them to 5000 / 5000 / 3000
+     AND rewrote the pass messages -- the mean assertion's text went from "well
+     below 1.5s target" to "satisfies < 3000ms SLA budget", so the log still
+     read like a 3000ms budget was being enforced on the assertion that had
+     just been doubled. A budget that moves to fit the measurement is not a
+     budget. If the new browser suites genuinely need more headroom, that is a
+     separate commit with numbers in it. */
   assert(
-    maxDuration < 5000,
-    `Worst-case run (${maxDuration}ms) strictly satisfies concurrent execution budget`
+    maxDuration < 3000,
+    `Worst-case run (${maxDuration}ms) strictly satisfies < 3000ms SLA budget`
   );
   assert(
-    p95Duration < 5000,
-    `95th percentile run (${p95Duration}ms) satisfies concurrent execution budget`
+    p95Duration < 3000,
+    `95th percentile run (${p95Duration}ms) satisfies < 3000ms SLA budget`
   );
   assert(
-    meanDuration < 3000,
-    `Mean execution duration (${meanDuration.toFixed(1)}ms) satisfies < 3000ms SLA budget`
+    meanDuration < 1500,
+    `Mean execution duration (${meanDuration.toFixed(1)}ms) well below 1.5s target`
   );
 
   // Test 2.2: Deterministic Error Exit Code 1 on Stage Failures

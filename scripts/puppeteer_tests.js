@@ -427,12 +427,18 @@ function createStaticServer(port = 8082) {
              this step lost the race on two of four runs and passed alone
              every time. The assertion below still fails if nothing renders. */
           await page.waitForSelector(
-            "#order-timeline-container .timeline-step, #order-timeline-container .order-lookup-unavailable, #order-timeline-container .order-status-not-found, #order-timeline-container .order-status-rate-limited",
+            "#order-timeline-container .timeline-step, #order-timeline-container .order-lookup-unavailable",
             {
               visible: true,
               timeout: 30000
             }
           );
+          /* Back to main's acceptance set. The translator branch added
+             .order-status-not-found and .order-status-rate-limited here, which
+             means a lookup that finds nothing now satisfies a test whose whole
+             point is that a rendered 3-step timeline OR an explicit
+             "unavailable" state appears. "The server told us nothing" is the
+             outcome this is supposed to catch, not a passing state. */
           const hasResult = await page.evaluate(() => {
             /* eslint-disable no-undef */
             const steps = document.querySelectorAll(
@@ -441,10 +447,7 @@ function createStaticServer(port = 8082) {
             const unavailable = document.querySelector(
               "#order-timeline-container .order-lookup-unavailable"
             );
-            const notFound = document.querySelector(
-              "#order-timeline-container .order-status-not-found"
-            );
-            return steps >= 3 || unavailable !== null || notFound !== null;
+            return steps >= 3 || unavailable !== null;
             /* eslint-enable no-undef */
           });
           if (hasResult) {
