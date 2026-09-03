@@ -892,6 +892,11 @@ function truncateForMeta(text, maxLen) {
 
 let PRODUCTS_BY_ID = {};
 
+/* The shop's canonical origin. Module-scoped because both the in-build DOMAIN
+   constant (canonical URLs, sitemap, JSON-LD) and the analytics tag's
+   data-domains allow-list have to agree about what "this site" is. */
+const SITE_ORIGIN = "https://yallternativeliving.com";
+
 /* Umami analytics, emitted only when the CMS holds a real website id. Both
    halves (the preconnect and the script) come from here so the hand-written
    pages and the generated PDPs cannot drift apart -- the PDPs, where Add to
@@ -901,11 +906,53 @@ function umamiIsConfigured(site) {
   const val = String(site.umamiWebsiteId).trim();
   return Boolean(val && val !== "YOUR_UMAMI_WEBSITE_ID");
 }
+
+/* The hostnames that ARE this shop. data-domains is a client-side allow-list
+   matched against window.location.hostname: on anything else the tracker
+   disables itself entirely -- no pageview, no events, no request. That is what
+   keeps localhost, 127.0.0.1 (the port the Puppeteer suites serve on), Netlify
+   deploy previews at *.netlify.app and any agent's local checkout out of the
+   production dataset. It is not a nicety: Umami's server-side bot filter is the
+   `isbot` User-Agent matcher, and Chrome's modern headless mode sends an
+   ordinary Chrome User-Agent, so nothing upstream would have caught a test run.
+   Umami Cloud's IP-filter feature, the other lever, starts at the Pro plan.
+   Derived from DOMAIN so it cannot drift from the canonical URLs. */
+function umamiDomains() {
+  const host = SITE_ORIGIN.replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+  return host + ",www." + host;
+}
+
+/* Tracker attributes, and why each one is there:
+   - data-domains: see umamiDomains() above.
+   - data-exclude-search: the tracker drops the query string from the recorded
+     URL *and* the recorded referrer before anything is sent. This site puts a
+     Stripe Checkout Session id in thank-you.html?session_id=, a subscriber's
+     address in welcome.html?email= and an adverse-reaction report reference in
+     safety.html?ref=, and the in-page history.replaceState() scrubs those pages
+     perform all run too late to help -- the tracker reads location.href when its
+     own script evaluates. Excluding the search string is the layer that fails
+     closed if none of our own JavaScript runs at all.
+   - data-exclude-hash: the fragment is dropped too. Nothing secret lives in a
+     hash here, but it keeps /shop.html and /shop.html#apparel from splitting
+     into two rows in the Pages report, and it closes the channel rather than
+     leaving it open for whatever a later feature decides to put there.
+   - data-do-not-track: Umami IGNORES the browser's Do Not Track signal unless
+     this is explicitly set to "true". A shop whose privacy page says it does
+     not track people should not be quietly counting the ones who asked not to
+     be. Costs a slice of the numbers; that is the point.
+   - data-before-send: names window.ylAnalyticsBeforeSend (assets/js/main.js),
+     which puts the utm_* campaign parameters back so Etsy/Instagram/market-QR
+     attribution still works, drops prerendered pageviews, and scrubs event
+     properties. Umami resolves the name on window at send time, so it does not
+     matter that main.js runs after this tag on some pages. */
 function umamiScriptHtml(site) {
   return umamiIsConfigured(site)
     ? '<script defer src="https://cloud.umami.is/script.js" data-website-id="' +
         escapeHtml(String(site.umamiWebsiteId).trim()) +
-        '"></script>'
+        '" data-domains="' +
+        escapeHtml(umamiDomains()) +
+        '" data-exclude-search="true" data-exclude-hash="true"' +
+        ' data-do-not-track="true" data-before-send="ylAnalyticsBeforeSend"></script>'
     : "";
 }
 function umamiPreconnectHtml(site) {
@@ -1308,7 +1355,7 @@ function buildSiteData() {
   // There's no live domain yet -- every generated absolute URL below uses this
   // placeholder. Update this ONE constant (and re-run the script) once a real
   // domain exists, instead of hand-editing every file again.
-  const DOMAIN = "https://yallternativeliving.com";
+  const DOMAIN = SITE_ORIGIN;
   /* ---------- 1) assets/js/products-data.js ----------
    A thin `window.YL_PRODUCTS = ...;` wrapper around the exact same data
    in assets/data/products.json (the real, canonical, CMS-edited source
@@ -6144,6 +6191,15 @@ function renderProductPdpHtml(
     (umamiPreconnectHtml(ctx && ctx.site)
       ? "  " + umamiPreconnectHtml(ctx && ctx.site) + "\n"
       : "") +
+    /* The tracker tag belongs HERE, in <head>, and not at the end of <body>
+       where it used to sit. Deferred scripts run in document order, so a tag
+       after main.js meant window.umami did not exist yet when the PDP fired its
+       "Product View" event -- the adapter swallowed it and every one of the 20
+       product pages reported a bare pageview and nothing else (measured
+       2026-09-02). Head placement matches the hand-written pages, so the two
+       templates behave identically. main.js also buffers events now, so this
+       is belt and braces rather than the only thing holding it up. */
+    (umamiScriptHtml(ctx && ctx.site) ? "  " + umamiScriptHtml(ctx && ctx.site) + "\n" : "") +
     '  <link rel="icon" href="/assets/img/favicon-32.png" sizes="32x32" type="image/png">\n' +
     '  <link rel="icon" href="/assets/img/favicon-192.png" sizes="192x192" type="image/png">\n' +
     '  <link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png">\n' +
@@ -6292,7 +6348,6 @@ function renderProductPdpHtml(
     /* Live chat, same deferred loader the hand-written pages carry. It was
        missing from all 20 PDPs -- the pages where a shopper actually has a
        question (audit C, finding L3). */
-    (umamiScriptHtml(ctx && ctx.site) ? "  " + umamiScriptHtml(ctx && ctx.site) + "\n" : "") +
     renderTawkChatHtml(ctx && ctx.site) +
     "</body>\n" +
     "</html>\n"

@@ -7,22 +7,229 @@
 (function () {
   "use strict";
 
+  /* ---------- Analytics: the URL/property scrubber ----------
+     Umami reports the FULL page URL, query string included, and this shop puts
+     things in query strings that must never reach a third-party dashboard:
+     thank-you.html?session_id=cs_live_... is a Stripe Checkout Session id (the
+     token /api/order-summary looks an order up with), welcome.html?email= can
+     carry a subscriber's address, and safety.html?report=received&ref=... carries
+     the reference number of an adverse-reaction report. The in-page
+     history.replaceState() scrubs those pages already do are far too late to
+     help: the tracker reads location.href when its own script evaluates, which
+     is before any of our deferred files run (measured 2026-09-02 -- the raw
+     session id and the raw email were both in the pageview payload).
+
+     So the defence is two-layered and fails CLOSED:
+       1. data-exclude-search="true" on the tracker tag makes the tracker itself
+          drop the query string off both the URL and the referrer before this
+          hook ever sees the payload. If main.js never loads, nothing leaks.
+       2. this hook, named by data-before-send, puts back ONLY the campaign
+          parameters on the allow-list below, so Etsy/Instagram/market-QR
+          attribution still works. Anything not on that list cannot come back.
+
+     It also scrubs event properties, so a future call site that passes an email,
+     an order reference or a gift message cannot quietly publish it. */
+  var ANALYTICS_ALLOWED_PARAMS = [
+    "utm_source",
+    "utm_medium",
+    "utm_campaign",
+    "utm_content",
+    "utm_term"
+  ];
+  /* Property KEYS that may never be reported, whatever they hold. */
+  var ANALYTICS_BLOCKED_KEY =
+    /email|phone|address|zip|postal|message|note|code|token|session|order|customer|query|term|recipient|sender/i;
+  /* ...and property VALUES that are personal no matter what they are called. */
+  var ANALYTICS_EMAILISH = /[^\s@]+@[^\s@]+\.[^\s@]+/;
+  /* Underscores are part of the id, not a boundary: a real Checkout Session is
+     cs_live_a1b2c3..., so a pattern that stopped at the first underscore matched
+     nothing at all (caught by scripts/analytics.test.js before it shipped). */
+  var ANALYTICS_STRIPE_ISH = /\b(cs|pi|ch|cus|sub|seti|pm|price|prod)_[A-Za-z0-9_]{6,}/;
+  var ANALYTICS_MAX_VALUE_LEN = 120;
+
+  /* The query string as it was when the page loaded. Read once, here, because
+     three separate features scrub window.location.search later on and the
+     campaign parameters would be gone by the time the pageview is sent. */
+  var analyticsInitialSearch = "";
+  try {
+    analyticsInitialSearch = (typeof window !== "undefined" && window.location.search) || "";
+  } catch {
+    analyticsInitialSearch = "";
+  }
+
+  /** Rebuilds a query string holding only the allow-listed campaign params. */
+  function analyticsAllowedQuery(search) {
+    var kept = [];
+    try {
+      var params = new URLSearchParams(search || "");
+      ANALYTICS_ALLOWED_PARAMS.forEach(function (key) {
+        var value = params.get(key);
+        if (value) kept.push(encodeURIComponent(key) + "=" + encodeURIComponent(value));
+      });
+    } catch {
+      return "";
+    }
+    return kept.length ? "?" + kept.join("&") : "";
+  }
+
+  /** True when this value is personal enough that it must not be reported. */
+  function analyticsValueIsPersonal(value) {
+    if (typeof value !== "string") return false;
+    return (
+      value.length > ANALYTICS_MAX_VALUE_LEN ||
+      ANALYTICS_EMAILISH.test(value) ||
+      ANALYTICS_STRIPE_ISH.test(value)
+    );
+  }
+
+  /**
+   * Umami's data-before-send hook. Returns the payload to send, or null to
+   * drop it. Every exit path is either a scrubbed payload or nothing at all --
+   * a throw in here must never turn into an unscrubbed send.
+   */
+  function analyticsBeforeSend(type, payload) {
+    try {
+      /* This site injects Speculation Rules with eagerness "moderate", so the
+         browser PRERENDERS a link after ~200ms of hover -- the whole page runs,
+         tracker included, for a page the shopper may never actually open. Umami
+         has no prerender awareness of its own (no reference to
+         document.prerendering anywhere in cloud.umami.is/script.js), so every
+         hovered product link would be reported as a visit: inflated traffic,
+         a meaningless bounce rate, and, on the free Hobby tier's 100K
+         events/month, quota spent on views nobody made. Drop anything sent
+         while prerendering; analyticsWatchPrerender re-fires the pageview if
+         and when the shopper actually activates the page. */
+      if (typeof document !== "undefined" && document.prerendering) return null;
+      if (!payload || typeof payload !== "object") return payload;
+      if (typeof payload.url === "string") {
+        var url = payload.url;
+        var hashAt = url.indexOf("#");
+        var hash = hashAt === -1 ? "" : url.slice(hashAt);
+        var base = hashAt === -1 ? url : url.slice(0, hashAt);
+        var queryAt = base.indexOf("?");
+        if (queryAt !== -1) base = base.slice(0, queryAt);
+        payload.url = base + analyticsAllowedQuery(analyticsInitialSearch) + hash;
+      }
+      if (typeof payload.referrer === "string") {
+        /* A same-site referrer is the previous page's full URL -- including its
+           query string, which is how a session id would leak sideways off
+           thank-you.html. The tracker's exclude-search already cuts this; this
+           is the belt to that pair of braces. */
+        var ref = payload.referrer;
+        var refQueryAt = ref.indexOf("?");
+        if (refQueryAt !== -1) payload.referrer = ref.slice(0, refQueryAt);
+      }
+      if (payload.data && typeof payload.data === "object") {
+        Object.keys(payload.data).forEach(function (key) {
+          if (ANALYTICS_BLOCKED_KEY.test(key) || analyticsValueIsPersonal(payload.data[key])) {
+            delete payload.data[key];
+          }
+        });
+      }
+      return payload;
+    } catch {
+      return null;
+    }
+  }
+  if (typeof window !== "undefined") {
+    /* Named on the tracker tag as data-before-send="ylAnalyticsBeforeSend".
+       Umami looks the function up on window at send time, not at load time, so
+       it does not matter that this file runs after the tracker's own script. */
+    window.ylAnalyticsBeforeSend = analyticsBeforeSend;
+  }
+
+  /** The other half of the prerender rule above: count the visit on activation. */
+  function analyticsWatchPrerender() {
+    if (typeof document === "undefined" || !document.prerendering) return;
+    if (typeof document.addEventListener !== "function") return;
+    document.addEventListener(
+      "prerenderingchange",
+      function () {
+        try {
+          if (window.umami && typeof window.umami.track === "function") window.umami.track();
+        } catch {
+          /* best-effort */
+        }
+      },
+      { once: true }
+    );
+  }
+  analyticsWatchPrerender();
+
   /* ---------- Analytics event adapter ----------
      The site's conversion events (Add to Cart, Purchase, Newsletter Signup,
      Site Search) were written against Plausible's window.plausible(name, {props})
      API. Analytics now runs on Umami -- cookieless, free, no consent banner, and
      it supports these same custom events. Rather than rewrite every call site,
      this thin adapter keeps the window.plausible(...) signature and forwards to
-     umami.track(). If Umami's script hasn't loaded yet (it's `defer`) or a user
-     blocks it, window.umami is simply absent and the event is skipped -- it must
-     never throw or block the actual add-to-cart / checkout / search. */
+     umami.track(). If a visitor blocks the tracker, window.umami never appears
+     and the event is dropped -- it must never throw or block the actual
+     add-to-cart / checkout / search.
+
+     The queue is not decoration. On all 20 generated product pages the tracker
+     tag used to be emitted AFTER main.js, so window.umami did not exist yet when
+     the PDP fired "Product View" and the event was thrown away on every product
+     page on the site (measured 2026-09-02: a PDP load produced a pageview and
+     nothing else). The tag order is fixed too, but an event fired before the
+     tracker is ready is a documented Umami footgun and this makes it survivable
+     rather than silent. The queue is bounded and gives up after a few seconds,
+     so a blocked tracker costs nothing but a handful of held strings. */
+  var ANALYTICS_QUEUE_MAX = 10;
+  var ANALYTICS_FLUSH_TRIES = 20;
+  var ANALYTICS_FLUSH_MS = 250;
+  var analyticsQueue = [];
+  var analyticsFlushTimer = null;
+  var analyticsFlushTries = 0;
+
+  function analyticsTracker() {
+    return typeof window !== "undefined" && window.umami && typeof window.umami.track === "function"
+      ? window.umami
+      : null;
+  }
+
+  function analyticsFlush() {
+    var tracker = analyticsTracker();
+    if (!tracker) return false;
+    var queued = analyticsQueue;
+    analyticsQueue = [];
+    queued.forEach(function (entry) {
+      try {
+        tracker.track(entry[0], entry[1]);
+      } catch {
+        /* best-effort */
+      }
+    });
+    return true;
+  }
+
+  function analyticsScheduleFlush() {
+    if (analyticsFlushTimer || typeof setTimeout !== "function") return;
+    analyticsFlushTimer = setTimeout(function tick() {
+      analyticsFlushTimer = null;
+      analyticsFlushTries += 1;
+      if (analyticsFlush()) return;
+      if (analyticsFlushTries < ANALYTICS_FLUSH_TRIES && analyticsQueue.length) {
+        analyticsFlushTimer = setTimeout(tick, ANALYTICS_FLUSH_MS);
+      } else {
+        /* Gave up: the tracker is blocked or absent. Drop what is held rather
+           than keeping a visitor's activity in memory for the whole session. */
+        analyticsQueue = [];
+      }
+    }, ANALYTICS_FLUSH_MS);
+  }
+
   if (typeof window !== "undefined" && typeof window.plausible !== "function") {
     window.plausible = function (name, options) {
       try {
-        if (window.umami && typeof window.umami.track === "function") {
-          var props = options && options.props ? options.props : undefined;
-          window.umami.track(name, props);
+        var props = options && options.props ? options.props : undefined;
+        var tracker = analyticsTracker();
+        if (tracker) {
+          analyticsFlush();
+          tracker.track(name, props);
+          return;
         }
+        if (analyticsQueue.length < ANALYTICS_QUEUE_MAX) analyticsQueue.push([name, props]);
+        analyticsScheduleFlush();
       } catch {
         /* analytics is best-effort -- swallow everything */
       }
@@ -1759,10 +1966,18 @@
   function toggleWish(id) {
     var list = getWishlist().slice();
     var i = list.indexOf(id);
-    if (i === -1) list.push(id);
+    var added = i === -1;
+    if (added) list.push(id);
     else list.splice(i, 1);
     saveWishlist(list);
     syncWishButtons(id);
+    /* Only the add half. A wishlist save is the strongest "I want this but not
+       today" signal the shop gets, and it is the natural companion to Product
+       View in a "looked, saved, never bought" report. The product id only --
+       no list contents, nothing that would describe this shopper. */
+    if (added && id && typeof window.plausible === "function") {
+      window.plausible("Wishlist Add", { props: { product: id } });
+    }
   }
 
   /**
@@ -2751,6 +2966,15 @@
     if (volumeBadge) volumeBadge.hidden = !stillQualifies;
     var volumeNote = card.querySelector(".volume-pricing-note");
     if (volumeNote) volumeNote.hidden = !stillQualifies;
+
+    /* Which size/scent people actually pick, before they add anything. Two
+       properties, both drawn from the catalogue rather than from anything the
+       shopper typed. */
+    if (cardId && typeof window.plausible === "function") {
+      window.plausible("Variant Selected", {
+        props: { product: cardId, variant: opt.value || "default" }
+      });
+    }
   });
 
   /* ---------- Conversion tracking (custom events) ----------
@@ -2774,6 +2998,66 @@
       }
     });
   });
+  /* ---------- Outbound clicks, installs and dead links ----------
+     Three things the shop had no visibility into at all. Each one is a single
+     delegated listener or a single browser event, each carries at most one
+     property, and each is guarded the same way every other call site here is.
+     (Property count matters: Umami Cloud's free tier bills every stored event
+     property as an event against the 100K/month allowance.) */
+
+  /* Where people go when they leave. The label is looked up in a fixed map, so
+     an outbound link to somewhere unexpected reports "other" rather than
+     publishing a URL nobody vetted. */
+  var OUTBOUND_DESTINATIONS = {
+    "etsy.com": "etsy",
+    "www.etsy.com": "etsy",
+    "instagram.com": "instagram",
+    "www.instagram.com": "instagram",
+    "tiktok.com": "tiktok",
+    "www.tiktok.com": "tiktok",
+    "facebook.com": "facebook",
+    "www.facebook.com": "facebook"
+  };
+
+  function outboundDestination(href) {
+    try {
+      var url = new URL(href, window.location.href);
+      if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+      if (url.hostname === window.location.hostname) return null;
+      return OUTBOUND_DESTINATIONS[url.hostname] || "other";
+    } catch {
+      return null;
+    }
+  }
+
+  document.addEventListener("click", function (e) {
+    var link = e.target.closest ? e.target.closest("a[href]") : null;
+    if (!link || typeof window.plausible !== "function") return;
+    var destination = outboundDestination(link.getAttribute("href") || "");
+    if (!destination) return;
+    window.plausible("Outbound Click", { props: { destination: destination } });
+  });
+
+  /* Fired by the browser after the shopper installs the PWA. Nothing prompts
+     for the install today; this counts the ones who do it from the browser's
+     own menu, which is the only way to find out whether it is worth prompting. */
+  if (typeof window.addEventListener === "function") {
+    window.addEventListener("appinstalled", function () {
+      if (typeof window.plausible === "function") window.plausible("PWA Installed");
+    });
+  }
+
+  /* A 404 is already a pageview, but a pageview does not say "this was a dead
+     link" -- you would have to know 404.html's title to spot one. As its own
+     event it can be a Goal, and the path plus the referrer Umami records
+     alongside it is exactly what is needed to find the broken link. The path
+     only: the query string is scrubbed before anything is sent. */
+  if (document.body && document.body.getAttribute("data-yl-page") === "404") {
+    if (typeof window.plausible === "function") {
+      window.plausible("404", { props: { path: window.location.pathname } });
+    }
+  }
+
   /* The one event that actually matters more than "added to cart" is
      "paid". That fires from thank-you.html (the Stripe success redirect
      target, see workers/checkout.js's success_url) rather than from here --
@@ -5243,6 +5527,12 @@
               false
             );
             if (emailInput) emailInput.value = "";
+            /* Confirmed saves only -- never the honeypot branch, never a
+               refusal. No properties: the only thing anyone could attach here
+               is the address that was just typed in. */
+            if (typeof window.plausible === "function") {
+              window.plausible("Market Alert Signup");
+            }
           } else {
             say(result.body.error || "That didn't save. Please try again in a moment.", true);
           }
@@ -6632,6 +6922,10 @@
         updateBtn.style.marginLeft = "12px";
         updateBtn.textContent = "Update now";
         updateBtn.addEventListener("click", function () {
+          /* Umami sends with keepalive:true, so this survives the reload that
+             follows on the very next line -- and the reload is not waiting on
+             it either way. */
+          if (typeof window.plausible === "function") window.plausible("App Updated");
           window.location.reload();
         });
         toast.appendChild(updateBtn);
@@ -7899,6 +8193,16 @@
 
         results.style.display = "block";
         wireReveal(results);
+        /* Fires where the recommendation is actually painted, not where it is
+           scored, so an abandoned quiz never counts. The catalogue id of what
+           it recommended is the whole point -- it says which answers the quiz
+           is really steering people toward. The answers themselves are not
+           reported. */
+        if (typeof window.plausible === "function") {
+          window.plausible("Quiz Completed", {
+            props: { result: (match && match.id) || "unknown" }
+          });
+        }
 
         var retakeBtn = document.getElementById("quizRetakeBtn");
         if (retakeBtn) retakeBtn.addEventListener("click", resetQuiz);
@@ -10592,6 +10896,8 @@
       initPdpStickyBar: initPdpStickyBar,
       announcementBar: announcementBar,
       initApothecaryQuiz: initApothecaryQuiz,
+      analyticsBeforeSend: analyticsBeforeSend,
+      analyticsAllowedQuery: analyticsAllowedQuery,
       _resetState: function () {
         wishCache = null;
         wishSet = null;

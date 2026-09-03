@@ -10,10 +10,7 @@
     <meta name="view-transition" content="same-origin" />
     <title>Privacy Policy | Y'allternative Living</title>
     <meta name="robots" content="index, follow" />
-    <meta
-      name="description"
-      content="Plain-language privacy info for Y'allternative Living: what happens with your data when you browse, buy something, sign up for emails, or shop our Etsy."
-    />
+    <meta name="description" content="Plain-language privacy info for Y'allternative Living: what happens with your data when you browse, buy something, sign up for emails, or shop our Etsy.">
     <link rel="canonical" href="https://yallternativeliving.com/privacy.html" />
 
     <meta property="og:type" content="website" />
@@ -52,22 +49,18 @@
      beacon doesn't pay a cold DNS+TLS handshake at the moment it's needed.
      (Checkout is same-origin now -- assets/js/cart.js posts to /api/checkout
      on this domain -- so there's no third-party cart origin to warm up.) -->
-    <!--YL:site.umamiPreconnect-->
-    <link rel="preconnect" href="https://cloud.umami.is" crossorigin />
-    <!--/YL:site.umamiPreconnect-->
+    <!--YL:site.umamiPreconnect--><link rel="preconnect" href="https://cloud.umami.is" crossorigin><!--/YL:site.umamiPreconnect-->
     <link rel="stylesheet" href="assets/css/styles.css?v=2.0" />
     <link rel="stylesheet" href="assets/css/cart.css" />
 
     <script>
-      // No-flash theme init: runs before paint, before main.js.
-      (function () {
-        var t = localStorage.getItem("yl-theme");
-        if (!t) {
-          t = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
-        }
-        document.documentElement.setAttribute("data-theme", t);
-      })();
-    </script>
+  // No-flash theme init: runs before paint, before main.js.
+  (function(){
+    var t = localStorage.getItem('yl-theme');
+    if(!t){ t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'; }
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
     <!-- Privacy-friendly analytics (Umami: cookieless, no personal data, no
      fingerprinting, no cross-site tracking -- and unlike a plain page-view
      counter it also captures the shop's conversion events: Add to Cart,
@@ -75,13 +68,7 @@
      No cookie-consent banner required. Before this records anything real:
        1. Create a free Umami Cloud account (or self-host) and add this site.
        2. Swap the placeholder data-website-id below for the real one. -->
-    <!--YL:site.umamiWebsiteId-->
-    <script
-      defer
-      src="https://cloud.umami.is/script.js"
-      data-website-id="a134e5d8-e8e5-4a8e-90e9-c21e9dba5acb"
-    ></script>
-    <!--/YL:site.umamiWebsiteId-->
+    <!--YL:site.umamiWebsiteId--><script defer src="https://cloud.umami.is/script.js" data-website-id="a134e5d8-e8e5-4a8e-90e9-c21e9dba5acb" data-domains="yallternativeliving.com,www.yallternativeliving.com" data-exclude-search="true" data-exclude-hash="true" data-do-not-track="true" data-before-send="ylAnalyticsBeforeSend"></script><!--/YL:site.umamiWebsiteId-->
     <style>
       /* Page-specific styling for privacy.html only. */
       .policy-prose {
@@ -143,11 +130,11 @@
           "addressCountry": "US"
         },
         "sameAs": [
-          "https://www.etsy.com/shop/YallternativeLivinCO",
-          "https://www.facebook.com/p/Yallternative-Living-61577943406316/",
-          "https://www.instagram.com/yallternativeliving",
-          "https://www.tiktok.com/@yallternativeliving"
-        ],
+    "https://www.etsy.com/shop/YallternativeLivinCO",
+    "https://www.facebook.com/p/Yallternative-Living-61577943406316/",
+    "https://www.instagram.com/yallternativeliving",
+    "https://www.tiktok.com/@yallternativeliving"
+  ],
         "priceRange": "$"
       }
     </script>
@@ -171,70 +158,15 @@
         ]
       }
     </script>
-    <!--YL:featureStyles-->
-    <!--/YL:featureStyles-->
+    <!--YL:featureStyles--><!--/YL:featureStyles-->
   </head>
   <body>
     <a href="#main-content" class="skip-link">Skip to main content</a>
     <header class="site-header">
       <nav class="nav" aria-label="Main Navigation">
         <a class="brand" href="index.html" aria-label="Y&#39;allternative Living home">
-          <picture
-            ><source
-              type="image/avif"
-              srcset="
-                /assets/img/logo-48.avif   48w,
-                /assets/img/logo-96.avif   96w,
-                /assets/img/logo-144.avif 144w,
-                /assets/img/logo-192.avif 192w
-              "
-              sizes="48px" />
-            <source
-              type="image/webp"
-              srcset="
-                /assets/img/logo-48.webp   48w,
-                /assets/img/logo-96.webp   96w,
-                /assets/img/logo-144.webp 144w,
-                /assets/img/logo-192.webp 192w
-              "
-              sizes="48px" />
-            <img
-              src="/assets/img/logo.png"
-              alt="Y&#39;allternative Living icon"
-              width="48"
-              height="48"
-              decoding="async"
-              class="logo-desktop"
-              sizes="48px"
-          /></picture>
-          <picture
-            ><source
-              type="image/avif"
-              srcset="
-                /assets/img/logo-48.avif   48w,
-                /assets/img/logo-96.avif   96w,
-                /assets/img/logo-144.avif 144w,
-                /assets/img/logo-192.avif 192w
-              "
-              sizes="48px" />
-            <source
-              type="image/webp"
-              srcset="
-                /assets/img/logo-48.webp   48w,
-                /assets/img/logo-96.webp   96w,
-                /assets/img/logo-144.webp 144w,
-                /assets/img/logo-192.webp 192w
-              "
-              sizes="48px" />
-            <img
-              src="/assets/img/logo.png"
-              alt="Y&#39;allternative Living logo"
-              width="48"
-              height="48"
-              decoding="async"
-              class="logo-mobile"
-              sizes="48px"
-          /></picture>
+          <picture><source type="image/avif" srcset="/assets/img/logo-48.avif 48w, /assets/img/logo-96.avif 96w, /assets/img/logo-144.avif 144w, /assets/img/logo-192.avif 192w" sizes="48px"><source type="image/webp" srcset="/assets/img/logo-48.webp 48w, /assets/img/logo-96.webp 96w, /assets/img/logo-144.webp 144w, /assets/img/logo-192.webp 192w" sizes="48px"><img src="/assets/img/logo.png" alt="Y&#39;allternative Living icon" width="48" height="48" decoding="async" class="logo-desktop" sizes="48px"></picture>
+          <picture><source type="image/avif" srcset="/assets/img/logo-48.avif 48w, /assets/img/logo-96.avif 96w, /assets/img/logo-144.avif 144w, /assets/img/logo-192.avif 192w" sizes="48px"><source type="image/webp" srcset="/assets/img/logo-48.webp 48w, /assets/img/logo-96.webp 96w, /assets/img/logo-144.webp 144w, /assets/img/logo-192.webp 192w" sizes="48px"><img src="/assets/img/logo.png" alt="Y&#39;allternative Living logo" width="48" height="48" decoding="async" class="logo-mobile" sizes="48px"></picture>
           <span class="brand-word">Y'allternative<small>Living</small></span>
         </a>
         <ul class="nav-links" id="navLinks">
@@ -371,9 +303,7 @@
           <span class="eyebrow">Privacy Policy</span>
           <h1>Privacy Policy</h1>
           <p class="lede">
-            <!--YL:privacy.intro-->We don&#39;t like small print any more than you do, so here&#39;s
-            what actually happens with your information when you spend time on this site: no jargon,
-            no funny business.<!--/YL:privacy.intro-->
+            <!--YL:privacy.intro-->We don&#39;t like small print any more than you do, so here&#39;s what actually happens with your information when you spend time on this site: no jargon, no funny business.<!--/YL:privacy.intro-->
           </p>
         </div>
       </div>
@@ -558,7 +488,8 @@
                 which we have to report to the FDA within 15 business days on the MedWatch form.
                 Nothing else goes to them, nothing goes to anyone else, and none of it is ever used
                 for marketing, sold, or fed to any analytics tool. That page fires no analytics
-                events at all.
+                events at all &mdash; it is counted as a page view like any other page, and nothing
+                about the report, including its reference number, goes with it.
               </p>
               <p>
                 You can ask us what we hold on you and, outside what the law makes us keep, ask us
@@ -668,10 +599,20 @@
                 >
                 for analytics. Umami is cookieless, doesn't collect or store personal data, doesn't
                 fingerprint your device, and can't track you across other websites &mdash; it counts
-                anonymous, aggregate activity like how many people visited a page or added something
-                to a cart. Our search box reports only how long a search was and whether it found
-                anything, never what you typed. If we ever switch analytics off, nothing loads and
-                nothing is counted.
+                anonymous, aggregate activity: which pages get looked at, which products get added
+                to a cart or saved to a wishlist, which quiz answer came out, when a checkout is
+                started and whether it went through, and the total of a completed order. Never who.
+              </p>
+              <p>
+                Two specifics worth spelling out. <strong>We strip the query string</strong> off
+                every web address before it is counted, so the order reference in a receipt link,
+                the address in a mailing-list link, and the reference number on a reaction report
+                are never sent &mdash; the only thing we add back is the campaign tag on a link we
+                published ourselves, so we can tell whether a post or a market QR code brought
+                anyone here. And <strong>our search box reports only how long a search was and
+                whether it found anything</strong>, never what you typed. If your browser sends a
+                &ldquo;Do Not Track&rdquo; signal we count nothing at all, and if we ever switch
+                analytics off, nothing loads and nothing is counted.
               </p>
               <p>
                 <strong>Live chat.</strong> The chat bubble in the corner is
@@ -841,145 +782,69 @@
       </section>
     </main>
     <footer class="site-footer">
-      <div class="container">
-        <div class="footer-grid">
-          <div class="footer-brand">
-            <div class="brand">
-              <!--YL:site.logoDesktop-->
-              <picture
-                ><source
-                  type="image/avif"
-                  srcset="
-                    /assets/img/logo-48.avif   48w,
-                    /assets/img/logo-96.avif   96w,
-                    /assets/img/logo-144.avif 144w,
-                    /assets/img/logo-192.avif 192w
-                  "
-                  sizes="48px" />
-                <source
-                  type="image/webp"
-                  srcset="
-                    /assets/img/logo-48.webp   48w,
-                    /assets/img/logo-96.webp   96w,
-                    /assets/img/logo-144.webp 144w,
-                    /assets/img/logo-192.webp 192w
-                  "
-                  sizes="48px" />
-                <img
-                  src="/assets/img/logo.png"
-                  alt="Y&#39;allternative Living icon"
-                  width="48"
-                  height="48"
-                  loading="lazy"
-                  decoding="async"
-                  class="logo-desktop"
-                  sizes="48px"
-              /></picture>
-              <!--/YL:site.logoDesktop-->
-              <span class="brand-word">Y'allternative<small>Living</small></span>
-            </div>
-            <p>
-              Handmade self-care for the black sheep &amp; bold hearts. Mixed, poured, and stirred
-              in small batches.
-            </p>
-          </div>
-          <div>
-            <h3>Explore</h3>
-            <ul>
-              <li><a href="/index.html">Home</a></li>
-              <li><a href="/shop.html">Shop All</a></li>
-              <li><a href="/events.html">Events &amp; Fairs</a></li>
-              <li><a href="/about.html">Our Story</a></li>
-              <li><a href="/faq.html">FAQ</a></li>
-              <li><a href="/reviews.html">Customer Reviews</a></li>
-              <li><a href="/contact.html">Contact</a></li>
-            </ul>
-          </div>
-          <div>
-            <h3>Shop</h3>
-            <ul>
-              <li><a href="/shop.html#apparel">Apparel</a></li>
-              <li><a href="/shop.html#salves">Salves &amp; Balms</a></li>
-              <li><a href="/shop.html#body">Body &amp; Skin</a></li>
-              <li><a href="/shop.html#soaks">Soaks</a></li>
-              <li><a href="/shop.html#potions">Potions &amp; Spellwork</a></li>
-              <li><a href="/shop.html#ritual">Ritual &amp; Home</a></li>
-              <li><a href="/shop.html#gift-cards">Digital Gift Cards</a></li>
-            </ul>
-          </div>
-          <div>
-            <h3>Say Hey</h3>
-            <ul>
-              <li>
-                <a href="mailto:y.allternative.living@gmail.com">y.allternative.living@gmail.com</a>
-              </li>
-              <li>
-                <a
-                  href="https://www.etsy.com/shop/YallternativeLivinCO"
-                  target="_blank"
-                  rel="noopener"
-                  >Etsy shop ↗<span class="sr-only"> (opens in new tab)</span></a
-                >
-              </li>
-              <li>Based in Landrum, SC</li>
-              <li>Find us at markets &amp; Pride events in the Upstate &amp; beyond</li>
-            </ul>
-            <!--YL:site.socialRow-->
-            <div class="social-row">
-              <a
-                href="https://www.instagram.com/yallternativeliving"
-                target="_blank"
-                rel="noopener"
-                aria-label="Instagram (opens in new tab)"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-                  <rect x="3" y="3" width="18" height="18" rx="5" />
-                  <circle cx="12" cy="12" r="4" />
-                  <circle cx="17.2" cy="6.8" r="1" />
-                </svg>
-              </a>
-              <a
-                href="https://www.tiktok.com/@yallternativeliving"
-                target="_blank"
-                rel="noopener"
-                aria-label="TikTok (opens in new tab)"
-              >
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path
-                    d="M15 3c.4 2.3 2 4 4.7 4.2v3c-1.7 0-3.3-.5-4.7-1.4v6.7c0 3.1-2.5 5.5-5.6 5.5S3.8 18.6 3.8 15.5c0-3 2.4-5.5 5.6-5.5.4 0 .8 0 1.1.1v3.1c-.3-.1-.7-.2-1.1-.2-1.3 0-2.4 1.1-2.4 2.5s1.1 2.5 2.4 2.5 2.5-1 2.6-2.4V3H15z"
-                  />
-                </svg>
-              </a>
-              <a
-                href="https://www.facebook.com/p/Yallternative-Living-61577943406316/"
-                target="_blank"
-                rel="noopener"
-                aria-label="Facebook (opens in new tab)"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-                  <path
-                    d="M14 8.5h2.5V5H14c-2 0-3.5 1.6-3.5 3.5V11H8v3.5h2.5V21H14v-6.5h2.3l.7-3.5h-3V9c0-.3.2-.5.5-.5z"
-                  />
-                </svg>
-              </a>
-              <a
-                href="https://www.etsy.com/shop/YallternativeLivinCO"
-                target="_blank"
-                rel="noopener"
-                aria-label="Etsy shop (opens in new tab)"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-                  <path d="M4 8l1-4h14l1 4" />
-                  <path d="M4 8h16v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8z" />
-                  <path d="M9 12a3 3 0 0 0 6 0" />
-                </svg>
-              </a>
-            </div>
-            <!--/YL:site.socialRow-->
-          </div>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="brand">
+<!--YL:site.logoDesktop-->
+          <picture><source type="image/avif" srcset="/assets/img/logo-48.avif 48w, /assets/img/logo-96.avif 96w, /assets/img/logo-144.avif 144w, /assets/img/logo-192.avif 192w" sizes="48px"><source type="image/webp" srcset="/assets/img/logo-48.webp 48w, /assets/img/logo-96.webp 96w, /assets/img/logo-144.webp 144w, /assets/img/logo-192.webp 192w" sizes="48px"><img src="/assets/img/logo.png" alt="Y&#39;allternative Living icon" width="48" height="48" loading="lazy" decoding="async" class="logo-desktop" sizes="48px"></picture>
+<!--/YL:site.logoDesktop-->
+          <span class="brand-word">Y'allternative<small>Living</small></span>
         </div>
+        <p>Handmade self-care for the black sheep &amp; bold hearts. Mixed, poured, and stirred in small batches.</p>
+      </div>
+      <div>
+        <h3>Explore</h3>
+        <ul>
+          <li><a href="/index.html">Home</a></li>
+          <li><a href="/shop.html">Shop All</a></li>
+          <li><a href="/events.html">Events &amp; Fairs</a></li>
+          <li><a href="/about.html">Our Story</a></li>
+          <li><a href="/faq.html">FAQ</a></li>
+          <li><a href="/reviews.html">Customer Reviews</a></li>
+          <li><a href="/contact.html">Contact</a></li>
+        </ul>
+      </div>
+      <div>
+        <h3>Shop</h3>
+        <ul>
+          <li><a href="/shop.html#apparel">Apparel</a></li>
+          <li><a href="/shop.html#salves">Salves &amp; Balms</a></li>
+          <li><a href="/shop.html#body">Body &amp; Skin</a></li>
+          <li><a href="/shop.html#soaks">Soaks</a></li>
+          <li><a href="/shop.html#potions">Potions &amp; Spellwork</a></li>
+          <li><a href="/shop.html#ritual">Ritual &amp; Home</a></li>
+          <li><a href="/shop.html#gift-cards">Digital Gift Cards</a></li>
+        </ul>
+      </div>
+      <div>
+        <h3>Say Hey</h3>
+        <ul>
+          <li><a href="mailto:y.allternative.living@gmail.com">y.allternative.living@gmail.com</a></li>
+          <li><a href="https://www.etsy.com/shop/YallternativeLivinCO" target="_blank" rel="noopener">Etsy shop ↗<span class="sr-only"> (opens in new tab)</span></a></li>
+          <li>Based in Landrum, SC</li>
+          <li>Find us at markets &amp; Pride events in the Upstate &amp; beyond</li>
+        </ul>
+<!--YL:site.socialRow-->
+        <div class="social-row">
+          <a href="https://www.instagram.com/yallternativeliving" target="_blank" rel="noopener" aria-label="Instagram (opens in new tab)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1"/></svg>
+          </a>
+          <a href="https://www.tiktok.com/@yallternativeliving" target="_blank" rel="noopener" aria-label="TikTok (opens in new tab)">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15 3c.4 2.3 2 4 4.7 4.2v3c-1.7 0-3.3-.5-4.7-1.4v6.7c0 3.1-2.5 5.5-5.6 5.5S3.8 18.6 3.8 15.5c0-3 2.4-5.5 5.6-5.5.4 0 .8 0 1.1.1v3.1c-.3-.1-.7-.2-1.1-.2-1.3 0-2.4 1.1-2.4 2.5s1.1 2.5 2.4 2.5 2.5-1 2.6-2.4V3H15z"/></svg>
+          </a>
+          <a href="https://www.facebook.com/p/Yallternative-Living-61577943406316/" target="_blank" rel="noopener" aria-label="Facebook (opens in new tab)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 8.5h2.5V5H14c-2 0-3.5 1.6-3.5 3.5V11H8v3.5h2.5V21H14v-6.5h2.3l.7-3.5h-3V9c0-.3.2-.5.5-.5z"/></svg>
+          </a>
+          <a href="https://www.etsy.com/shop/YallternativeLivinCO" target="_blank" rel="noopener" aria-label="Etsy shop (opens in new tab)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 8l1-4h14l1 4"/><path d="M4 8h16v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8z"/><path d="M9 12a3 3 0 0 0 6 0"/></svg>
+          </a>
+        </div>
+<!--/YL:site.socialRow-->
+      </div>
+    </div>
 
-        <!-- NEWSLETTER SIGNUP -- plain HTML form that still submits with JS
+    <!-- NEWSLETTER SIGNUP -- plain HTML form that still submits with JS
          off. Provider: Kit (https://kit.com), chosen for its free
          10k-subscriber tier and dashboard-configurable post-signup
          redirect. The action URL comes from site.kitFormAction in
@@ -992,83 +857,37 @@
          This form posts the field name Kit expects (email_address) to
          the same endpoint, and app.kit.com is already allowed in both
          connect-src and form-action. -->
-        <div class="footer-signup reveal" id="footerSignup">
-          <div class="footer-signup-text">
-            <h3>Get 10% Off Your First Order</h3>
-            <p>
-              Drop your email for a welcome code, plus new batch alerts, market dates, and the
-              occasional bad pun. No spam, unsubscribe whenever.
-            </p>
-          </div>
-          <p class="footer-signup-confirm">
-            <span class="glyph" aria-hidden="true">&#10003;</span> You're on the list, y'all! Keep
-            an eye on your inbox.
-          </p>
-          <form
-            class="footer-signup-form"
-            action="https://app.kit.com/forms/9867317/subscriptions"
-            method="post"
-            toolname="subscribe-newsletter"
-            tooldescription="Subscribe to the Y'allternative Living newsletter for updates and discounts."
-          >
-            <div class="form-hp" aria-hidden="true">
-              <label for="footer_website">Leave this field blank</label>
-              <input
-                type="text"
-                id="footer_website"
-                name="footer_website"
-                tabindex="-1"
-                autocomplete="off"
-                aria-hidden="true"
-              />
-            </div>
-            <div class="field">
-              <label for="footer_email" class="sr-only">Email address</label>
-              <input
-                type="email"
-                id="footer_email"
-                name="email_address"
-                placeholder="you@email.com"
-                required
-                autocomplete="email"
-              />
-            </div>
-            <div class="field footer-birthday-field">
-              <label for="footer_birthday" class="sr-only"
-                >Birthday (Optional — for birthday rewards)</label
-              >
-              <input
-                type="text"
-                id="footer_birthday"
-                name="fields[birthday]"
-                placeholder="Birthday: MM/DD (Optional)"
-                pattern="(0[1-9]|1[0-2])\/(0[1-9]|[12][0-9]|3[01])"
-                maxlength="5"
-                title="MM/DD format (e.g. 06/14)"
-                autocomplete="off"
-              />
-            </div>
-            <button class="btn btn-primary btn-sm" type="submit">Join The List</button>
-          </form>
-        </div>
-
-        <p class="footer-disclaimer">
-          Handmade self-care, not medicine. Nothing sold here is intended to diagnose, treat, cure,
-          or prevent any condition. Got a real skin or health concern? See an actual doctor, then
-          treat yourself to something that smells nice after.
-        </p>
-        <div class="footer-bottom">
-          <span
-            >&copy; <span id="year"></span> Y'allternative Living. Handmade with grit &amp; glitter.
-            &middot; <a href="/policies.html">Shipping &amp; Returns</a> &middot;
-            <a href="/terms.html">Terms of Service</a> &middot;
-            <a href="/privacy.html">Privacy Policy</a> &middot;
-            <a href="/safety.html">Report a Reaction</a></span
-          >
-          <span>Queer-owned &middot; Southern-raised &middot; Alt-inspired</span>
-        </div>
+    <div class="footer-signup reveal" id="footerSignup">
+      <div class="footer-signup-text">
+        <h3>Get 10% Off Your First Order</h3>
+        <p>Drop your email for a welcome code, plus new batch alerts, market dates, and the occasional bad pun. No spam, unsubscribe whenever.</p>
       </div>
-    </footer>
+      <p class="footer-signup-confirm"><span class="glyph" aria-hidden="true">&#10003;</span> You're on the list, y'all! Keep an eye on your inbox.</p>
+      <form class="footer-signup-form" action="https://app.kit.com/forms/9867317/subscriptions" method="post" toolname="subscribe-newsletter" tooldescription="Subscribe to the Y'allternative Living newsletter for updates and discounts.">
+        <div class="form-hp" aria-hidden="true">
+          <label for="footer_website">Leave this field blank</label>
+          <input type="text" id="footer_website" name="footer_website" tabindex="-1" autocomplete="off" aria-hidden="true">
+        </div>
+        <div class="field">
+          <label for="footer_email" class="sr-only">Email address</label>
+          <input type="email" id="footer_email" name="email_address" placeholder="you@email.com" required autocomplete="email">
+        </div>
+        <div class="field footer-birthday-field">
+          <label for="footer_birthday" class="sr-only">Birthday (Optional — for birthday rewards)</label>
+          <input type="text" id="footer_birthday" name="fields[birthday]" placeholder="Birthday: MM/DD (Optional)" pattern="(0[1-9]|1[0-2])\/(0[1-9]|[12][0-9]|3[01])" maxlength="5" title="MM/DD format (e.g. 06/14)" autocomplete="off">
+        </div>
+        <button class="btn btn-primary btn-sm" type="submit">Join The List</button>
+      </form>
+    </div>
+
+
+    <p class="footer-disclaimer">Handmade self-care, not medicine. Nothing sold here is intended to diagnose, treat, cure, or prevent any condition. Got a real skin or health concern? See an actual doctor, then treat yourself to something that smells nice after.</p>
+    <div class="footer-bottom">
+      <span>&copy; <span id="year"></span> Y'allternative Living. Handmade with grit &amp; glitter. &middot; <a href="/policies.html">Shipping &amp; Returns</a> &middot; <a href="/terms.html">Terms of Service</a> &middot; <a href="/privacy.html">Privacy Policy</a> &middot; <a href="/safety.html">Report a Reaction</a></span>
+      <span>Queer-owned &middot; Southern-raised &middot; Alt-inspired</span>
+    </div>
+  </div>
+</footer>
     <dialog
       id="global-search-modal"
       class="global-search-modal gift-modal"
@@ -1153,118 +972,15 @@
           <p class="global-search-chips-title" id="globalSearchChipsLabel">
             <!--YL:search.chipsTitle-->Popular Searches<!--/YL:search.chipsTitle-->
           </p>
-          <div
-            class="global-search-chips-list"
-            role="group"
-            aria-labelledby="globalSearchChipsLabel"
-          >
+          <div class="global-search-chips-list" role="group" aria-labelledby="globalSearchChipsLabel">
             <!--YL:search.chips-->
-            <button type="button" class="search-chip" data-search-query="sleep">
-              <svg
-                class="yl-icon"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg
-              ><span>Bedtime &amp; Wind-Down</span>
-            </button>
-            <button type="button" class="search-chip" data-search-query="soak">
-              <svg
-                class="yl-icon"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M2 6c2 0 3-1.5 5-1.5S10 6 12 6s3-1.5 5-1.5S20 6 22 6" />
-                <path d="M2 12c2 0 3-1.5 5-1.5S10 12 12 12s3-1.5 5-1.5S20 12 22 12" />
-                <path d="M2 18c2 0 3-1.5 5-1.5S10 18 12 18s3-1.5 5-1.5S20 18 22 18" /></svg
-              ><span>Bath Soaks</span>
-            </button>
-            <button type="button" class="search-chip" data-search-query="dry skin">
-              <svg
-                class="yl-icon"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" /></svg
-              ><span>Dry, Rough Skin</span>
-            </button>
-            <button type="button" class="search-chip" data-search-query="bug spray">
-              <svg
-                class="yl-icon"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg
-              ><span>Bug Defense</span>
-            </button>
-            <button type="button" class="search-chip" data-search-query="events">
-              <svg
-                class="yl-icon"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-              >
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                <line x1="16" y1="2" x2="16" y2="6" />
-                <line x1="8" y1="2" x2="8" y2="6" />
-                <line x1="3" y1="10" x2="21" y2="10" /></svg
-              ><span>Pop-Up Markets</span>
-            </button>
-            <button type="button" class="search-chip" data-search-query="gift card">
-              <svg
-                class="yl-icon"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-              >
-                <polyline points="20 12 20 22 4 22 4 12" />
-                <rect x="2" y="7" width="20" height="5" />
-                <line x1="12" y1="22" x2="12" y2="7" />
-                <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" />
-                <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" /></svg
-              ><span>Gift Cards</span>
-            </button>
-            <!--/YL:search.chips-->
+        <button type="button" class="search-chip" data-search-query="sleep"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><span>Bedtime &amp; Wind-Down</span></button>
+        <button type="button" class="search-chip" data-search-query="soak"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 6c2 0 3-1.5 5-1.5S10 6 12 6s3-1.5 5-1.5S20 6 22 6"/><path d="M2 12c2 0 3-1.5 5-1.5S10 12 12 12s3-1.5 5-1.5S20 12 22 12"/><path d="M2 18c2 0 3-1.5 5-1.5S10 18 12 18s3-1.5 5-1.5S20 18 22 18"/></svg><span>Bath Soaks</span></button>
+        <button type="button" class="search-chip" data-search-query="dry skin"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg><span>Dry, Rough Skin</span></button>
+        <button type="button" class="search-chip" data-search-query="bug spray"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>Bug Defense</span></button>
+        <button type="button" class="search-chip" data-search-query="events"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span>Pop-Up Markets</span></button>
+        <button type="button" class="search-chip" data-search-query="gift card"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg><span>Gift Cards</span></button>
+        <!--/YL:search.chips-->
           </div>
         </div>
         <div class="global-search-results-wrapper" id="globalSearchResultsWrapper">
@@ -1290,46 +1006,39 @@
      Chat Widget). Until then this script 404s quietly and no widget
      appears -- nothing is broken by leaving it as-is. -->
     <script type="text/javascript">
-      var Tawk_API = Tawk_API || {},
-        Tawk_LoadStart = new Date();
-      (function () {
-        /* Both IDs are injected from content.json by scripts/build-site-data.js.
+var Tawk_API = Tawk_API || {}, Tawk_LoadStart = new Date();
+(function () {
+  /* Both IDs are injected from content.json by scripts/build-site-data.js.
      Until Savanna sets real ones, they're still the "YOUR_..." placeholders --
      in that state this used to build a live embed.tawk.to URL out of them and
      request it on every single page load, which 404s and buys nothing. Bail
      out instead, so the widget stays genuinely inert until it's configured. */
-        var propertyId =
-          /*YL:site.tawkToPropertyId*/ "6a9687f6adddbc3447585d73"; /*/YL:site.tawkToPropertyId*/
-        var widgetId = /*YL:site.tawkToWidgetId*/ "1k1e066pc"; /*/YL:site.tawkToWidgetId*/
-        if (!propertyId || !widgetId) return;
-        if (propertyId.indexOf("YOUR_") === 0 || widgetId.indexOf("YOUR_") === 0) return;
-        /* The widget SDK used to be requested on EVERY pageview -- 20 requests to
+  var propertyId = /*YL:site.tawkToPropertyId*/ "6a9687f6adddbc3447585d73" /*/YL:site.tawkToPropertyId*/;
+  var widgetId = /*YL:site.tawkToWidgetId*/ "1k1e066pc" /*/YL:site.tawkToWidgetId*/;
+  if (!propertyId || !widgetId) return;
+  if (propertyId.indexOf("YOUR_") === 0 || widgetId.indexOf("YOUR_") === 0) return;
+  /* The widget SDK used to be requested on EVERY pageview -- 20 requests to
      embed.tawk.to plus a wss://*.tawk.to handshake, measured on a cold mobile
      load -- for the large majority of sessions that never open chat. Hold it
      until the visitor does something (scroll, tap, key). There is deliberately
      no idle-timeout fallback: the widget's iframe landing with no user input
      counted as a 0.047 layout shift on every page in the 2026-09-02
      measurement, and a shopper who wants chat will have scrolled first. */
-        var loaded = false;
-        var TRIGGERS = ["pointerdown", "keydown", "scroll", "touchstart"];
-        var opts = { passive: true, capture: true };
-        function load() {
-          if (loaded) return;
-          loaded = true;
-          TRIGGERS.forEach(function (t) {
-            window.removeEventListener(t, load, opts);
-          });
-          var s1 = document.createElement("script"),
-            s0 = document.getElementsByTagName("script")[0];
-          s1.async = true;
-          s1.src = "https://embed.tawk.to/" + propertyId + "/" + widgetId;
-          s1.charset = "UTF-8";
-          s0.parentNode.insertBefore(s1, s0);
-        }
-        TRIGGERS.forEach(function (t) {
-          window.addEventListener(t, load, opts);
-        });
-      })();
-    </script>
+  var loaded = false;
+  var TRIGGERS = ["pointerdown", "keydown", "scroll", "touchstart"];
+  var opts = { passive: true, capture: true };
+  function load() {
+    if (loaded) return;
+    loaded = true;
+    TRIGGERS.forEach(function (t) { window.removeEventListener(t, load, opts); });
+    var s1 = document.createElement("script"), s0 = document.getElementsByTagName("script")[0];
+    s1.async = true;
+    s1.src = "https://embed.tawk.to/" + propertyId + "/" + widgetId;
+    s1.charset = "UTF-8";
+    s0.parentNode.insertBefore(s1, s0);
+  }
+  TRIGGERS.forEach(function (t) { window.addEventListener(t, load, opts); });
+})();
+</script>
   </body>
 </html>

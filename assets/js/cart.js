@@ -2390,6 +2390,14 @@
     if (shareBtn) {
       shareBtn.addEventListener("click", function () {
         var url = generateShareCartUrl(state.items);
+        /* Fired here, on the click, rather than in the clipboard .then below:
+           the link is produced either way -- when navigator.clipboard is
+           missing (any insecure context, some webviews) the fallback prompt()
+           shows the shopper the same URL to copy by hand. Hooking only the
+           clipboard branch would have counted the good browsers and silently
+           ignored the rest. The item count only; the share URL encodes the
+           cart contents and is not reported. */
+        track("Cart Shared", { itemCount: totalCount(state.items) });
         if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
           navigator.clipboard
             .writeText(url)
@@ -2772,6 +2780,11 @@
           err.clearGiftCard = true;
           if (!err.shopperMessage) err.shopperMessage = GIFT_CARD_CONFLICT;
         }
+        /* Carried so the single .catch below can tell an infrastructure
+           failure from a refusal the shopper caused. The server's own message
+           is NOT reported: it can quote what the shopper typed (a gift card
+           code, a promo code), and none of that belongs in a dashboard. */
+        err.checkoutStatus = status;
         throw err;
       })
       .catch(function (err) {
@@ -2791,7 +2804,43 @@
         var msg = (err && err.shopperMessage) || GENERIC_CHECKOUT_ERROR;
         announce("Checkout error: " + msg);
         showCheckoutError(msg);
+        /* Checkout Failed closes the funnel's worst blind spot: Checkout Start
+           fires, Purchase never does, and until now nothing said whether the
+           shopper changed their mind or the Worker turned them away. The reason
+           is a CLASS, not a message -- a closed set of strings this file
+           chooses, so no server text and nothing the shopper typed can ride
+           along. */
+        track("Checkout Failed", { reason: checkoutFailureReason(err) });
       });
+  }
+
+  /** Maps a checkout rejection onto a small, fixed set of reason labels. */
+  function checkoutFailureReason(err) {
+    if (!err) return "unknown";
+    if (err.name === "AbortError") return "timeout";
+    if (err.clearGiftCard) return "gift-card";
+    var status = err.checkoutStatus;
+    if (typeof status !== "number" || status === 0) return "network";
+    if (status === 200) return "no-session-url";
+    if (status === 400) return "rejected";
+    if (status === 429) return "rate-limited";
+    if (status >= 500) return "server-error";
+    return "http-" + status;
+  }
+
+  /* One guarded door for every analytics call in this file. window.plausible is
+     the Umami adapter main.js installs; it is absent under file://, absent for
+     anyone running a tracker blocker, and absent if main.js itself failed to
+     load. None of those may throw, and none of them may delay the money path --
+     every call site below is fire-and-forget. */
+  function track(name, props) {
+    try {
+      if (typeof window !== "undefined" && typeof window.plausible === "function") {
+        window.plausible(name, props ? { props: props } : undefined);
+      }
+    } catch {
+      /* analytics is best-effort */
+    }
   }
 
   function clear() {
@@ -2919,6 +2968,10 @@
     announce(
       "Gift card " + normalized.code + " applied (" + money(normalized.balance) + " available)"
     );
+    /* No properties at all. The code is a bearer credential and the balance is
+       money sitting on someone's card; neither is worth a dashboard row. That
+       a gift card got redeemed at all is the thing worth counting. */
+    track("Gift Card Applied");
     return true;
   }
 
@@ -3034,6 +3087,11 @@
       var toggle = e.target.closest(".cart-toggle, [data-yl-cart-open]");
       if (toggle) {
         e.preventDefault();
+        /* Deliberately NOT inside openDrawer(): five of that function's six
+           callers are auto-opens straight after an add, so hooking it there
+           would have counted every Add to Cart twice over. This is the branch
+           where the shopper actually reached for the cart. */
+        track("Cart Opened", { itemCount: totalCount(state.items) });
         openDrawer();
       }
     });

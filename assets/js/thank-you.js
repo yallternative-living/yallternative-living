@@ -64,7 +64,13 @@
     var rawAmount = params.get("amount");
     var amount = rawAmount === null ? NaN : parseFloat(rawAmount);
     var hasAmount = isFinite(amount) && amount >= 0 && amount <= MAX_ORDER_AMOUNT;
-    var currency = (params.get("currency") || "usd").toUpperCase();
+    /* Umami's Revenue report reads `currency` as an ISO 4217 code and quietly
+       falls back to USD for anything it does not recognise, so a hand-typed
+       ?currency=... could not corrupt the figures -- but it could still put a
+       junk string in the payload. The Worker only ever emits usd; anything that
+       is not a plain three-letter code is treated as absent. */
+    var rawCurrency = (params.get("currency") || "usd").toUpperCase();
+    var currency = /^[A-Z]{3}$/.test(rawCurrency) ? rawCurrency : "USD";
 
     /* Nothing below books revenue, empties the cart or says "paid" on the
        strength of the URL alone: a session id and an amount are hints, and
