@@ -353,7 +353,6 @@ through which a consumer can report an adverse event; this is it.
 | ------------------ | -------------------------------------------------------------------------------------------------- |
 | The report         | one row in the D1 table `adverse_events` (schema version 3), kept at least three years. **Needs `STATE_DB`; answers 503 without it.** |
 | The owner's copy   | Resend, to `SAFETY_REPORT_EMAIL` -> `RESTOCK_NOTIFY_EMAIL` -> `contact@yallternativeliving.com`.    |
-| `ORDER_NOTIFY_EMAIL` | optional (`[vars]`) | falls back to `RESTOCK_NOTIFY_EMAIL`, then the contact address | Where the per-order copy and the "gift note to print" email go. |
 | The reporter's copy| Resend, an acknowledgement carrying the reference only.                                            |
 
 - `serious` is computed on the server from the outcome checkboxes, never taken
@@ -446,8 +445,8 @@ the event carrying the recovery URL. See step 4.
 
 ### 2d. The order digest and the size/scent question
 
-Two automations that hang off orders. Neither is on the money path: both are
-best-effort, both are gated by a CMS switch, and neither can stop a checkout.
+Three automations that hang off orders. None is on the money path: all are
+best-effort, each is gated by a CMS switch, and none can stop a checkout.
 
 **The daily order digest** (`workers/routes/order-digest.js`, run from the
 hourly cron). One email a day with the pick list: per order, the session id, the
@@ -482,12 +481,23 @@ sender and message, verbatim); the FULL shipping address, or
 `Local pick-up at <market>`; the order date; and the payment's link in the
 Stripe Dashboard. Subject: `New order $30 -- 1× <first line> +N more`.
 
-- **Not on the money path.** The event carries no line items, so the step reads
-  the session back once with `expand[]=line_items`; if that read fails the
-  email still goes out and says the lines are missing. A Resend refusal is
-  logged and swallowed -- it never makes Stripe replay the event. Keyed
-  `owner-order-email-<session id>` at Resend, so a redelivery sends one copy.
-- **Always on.** No CMS switch; the only gate is the recipient
+- **Not on the money path.** Only the checks that need no network run before
+  the webhook answers; the rest is handed to `ctx.waitUntil`, like the revenue
+  report. The event carries no line items, so the step lists them from
+  `/checkout/sessions/{id}/line_items` in pages of 100 under a 5-second
+  deadline; if that read fails or times out the email still goes out and says
+  the lines are missing, and a list with `has_more` says "+more" rather than
+  a wrong count. A Resend refusal is logged and swallowed -- it never makes
+  Stripe replay the event. Keyed `owner-order-email-<session id>` at Resend,
+  so a redelivery sends one copy.
+- **What it prints where.** The address is the one Checkout collected for
+  shipping and nothing else -- an all-gift-card order has none and is marked
+  `Digital delivery -- no shipping`, never the card's billing address. A
+  `pickup_market_rejected` flag from `checkout.js` is called out. Every line
+  of a gift message is quoted in the plain-text body, and a buyer name is kept
+  to one line, so neither can pose as the real Ship-to block.
+- **Off** when `site.enableOrderEmails` is `false` ("Email me each order as
+  it's paid" in `/admin`); the other gate is the recipient
   (`ORDER_NOTIFY_EMAIL` -> `RESTOCK_NOTIFY_EMAIL` -> the contact address).
 
 **The size/scent confirmation** (`emailSizeConfirmation` in

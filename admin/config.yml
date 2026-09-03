@@ -1178,6 +1178,14 @@ singletons:
               hint: "The chat bubble in the bottom corner of every page. Off hides it everywhere; your Tawk.to IDs stay saved for when you turn it back on."
             }
           - {
+              name: enableOrderEmails,
+              label: "Email me each order as it's paid",
+              widget: boolean,
+              default: true,
+              required: false,
+              hint: "One fulfilment email per paid order, with the items, gift note and address."
+            }
+          - {
               name: enableJournal,
               label: "Show the Journal (blog)",
               widget: boolean,

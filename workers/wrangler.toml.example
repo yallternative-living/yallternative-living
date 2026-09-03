@@ -7,6 +7,10 @@ compatibility_date = "2026-01-01"
 
 [vars]
 SITE_ORIGIN = "https://yallternativeliving.com"
+# The shop mailbox: one fulfilment email per paid order, the "gift note to
+# print" link, the daily digest. Falls back to RESTOCK_NOTIFY_EMAIL, then the
+# contact address.
+ORDER_NOTIFY_EMAIL = "you@example.com"
 
 # Sales tax needs no config: the Worker checks Stripe hourly and enables
 # automatic_tax once Tax -> Settings/Registrations are done in the Dashboard.

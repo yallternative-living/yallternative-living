@@ -33,7 +33,12 @@
  */
 
 import { escapeHtml, json } from "./http.js";
-import { deleteCoupon, findSessionByPaymentIntent, stripeGet } from "./stripe.js";
+import {
+  deleteCoupon,
+  findSessionByPaymentIntent,
+  STRIPE_API_BASE,
+  STRIPE_API_VERSION
+} from "./stripe.js";
 import {
   balanceUpdateEmailBody,
   buyerEmailBody,
@@ -61,6 +66,11 @@ import { claimAnalyticsSend, ORDER_PAID, releaseAnalyticsSend } from "../state/a
 
 /** Stripe tolerates clock drift but nothing older than this, to block replay. */
 export const WEBHOOK_TOLERANCE_SECONDS = 300;
+
+/** How long the owner's order copy waits on Stripe for the line items. */
+export const OWNER_EMAIL_STRIPE_TIMEOUT_MS = 5000;
+/** Pages of 100 line items read for it; the cart allows 50, so one suffices. */
+const OWNER_EMAIL_LINE_ITEM_PAGES = 2;
 
 const REPLY_TO = "contact@yallternativeliving.com";
 
@@ -227,26 +237,89 @@ function dollars(cents) {
 }
 
 /**
- * The session's line items. Stripe hands the webhook a session WITHOUT them,
- * so unless the caller already expanded them (the daily digest's list call
- * does) this is one GET on the session. Null when they cannot be read: the
- * caller still sends, minus the per-line prices, rather than sending nothing.
+ * A field that must stay on one line. CR and LF survive checkout.js's
+ * stripControlChars (it keeps them on purpose, for gift messages), and a buyer
+ * name or gift sender that broke onto a line of its own could pass for one of
+ * this email's own headings in the plain-text body.
+ */
+function oneLine(value) {
+  return String(value === null || value === undefined ? "" : value)
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * A free-text block, every line quoted. The message is printed verbatim, but a
+ * line that reads "Ship to:" inside it is visibly the buyer's words, never the
+ * real address block.
+ */
+function quoted(value) {
+  return String(value === null || value === undefined ? "" : value)
+    .split(/\r\n|\r|\n/)
+    .map((line) => `  > ${line}`)
+    .join("\n");
+}
+
+/**
+ * The session's line items, and whether there are more than were read.
+ *
+ * Stripe hands the webhook a session WITHOUT them. `expand[]=line_items` on
+ * the session returns ten and a `has_more`, and the cart allows fifty
+ * (checkout.js MAX_LINE_ITEMS), so the list endpoint is read in pages of 100
+ * instead. A session that arrives with them already expanded (the daily
+ * digest's list call) is used as-is.
+ *
+ * One AbortController deadline covers every page, as the analytics send has.
+ * The webhook is not waiting on this -- it runs behind ctx.waitUntil -- but a
+ * Stripe that never answers must not hold the isolate open either.
+ *
+ * @returns {Promise<{items: Array|null, truncated: boolean}>} null items when
+ *   nothing could be read; the caller still sends, and says so.
  */
 async function lineItemsFor(session, env) {
-  const own = session.line_items && Array.isArray(session.line_items.data);
-  if (own) return session.line_items.data;
-  if (!env.STRIPE_SECRET_KEY || typeof session.id !== "string") return null;
+  const own = session.line_items;
+  if (own && Array.isArray(own.data)) return { items: own.data, truncated: own.has_more === true };
+  if (!env.STRIPE_SECRET_KEY || typeof session.id !== "string") {
+    return { items: null, truncated: false };
+  }
+  const controller = typeof AbortController === "function" ? new AbortController() : null;
+  const timer = controller
+    ? setTimeout(() => controller.abort(), OWNER_EMAIL_STRIPE_TIMEOUT_MS)
+    : null;
+  const items = [];
+  const partial = () => ({ items: items.length ? items : null, truncated: items.length > 0 });
   try {
-    const full = await stripeGet(
-      env,
-      `/checkout/sessions/${encodeURIComponent(session.id)}?expand[]=line_items`
-    );
-    return full && full.line_items && Array.isArray(full.line_items.data)
-      ? full.line_items.data
-      : null;
+    let startingAfter = null;
+    for (let page = 0; page < OWNER_EMAIL_LINE_ITEM_PAGES; page++) {
+      const params = new URLSearchParams({ limit: "100" });
+      if (startingAfter) params.set("starting_after", startingAfter);
+      const res = await fetch(
+        `${STRIPE_API_BASE}/checkout/sessions/${encodeURIComponent(session.id)}/line_items?${params}`,
+        {
+          headers: {
+            Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+            "Stripe-Version": STRIPE_API_VERSION
+          },
+          signal: controller ? controller.signal : undefined
+        }
+      );
+      if (!res || !res.ok) return partial();
+      const list = await res.json();
+      const data = list && Array.isArray(list.data) ? list.data : [];
+      items.push(...data);
+      if (!list || list.has_more !== true || !data.length) return { items, truncated: false };
+      startingAfter = data[data.length - 1].id;
+    }
+    return { items, truncated: true };
   } catch (err) {
-    console.warn("Non-fatal: could not read the line items for", session.id, err && err.message);
-    return null;
+    console.warn(
+      "Non-fatal: could not read the line items for",
+      session.id,
+      err && err.name === "AbortError" ? "(timed out)" : err && err.message
+    );
+    return partial();
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 
@@ -260,9 +333,8 @@ function describeLineItems(items) {
     const rawQty = Number(item && item.quantity);
     const qty = Number.isFinite(rawQty) && rawQty > 0 ? Math.round(rawQty) : 1;
     const label =
-      String(
-        (item && item.description) || (item && item.price && item.price.nickname) || ""
-      ).trim() || "(unnamed line)";
+      oneLine((item && item.description) || (item && item.price && item.price.nickname)) ||
+      "(unnamed line)";
     const subtotal = Number(item && item.amount_subtotal);
     const lineCents = Number.isFinite(subtotal) ? subtotal : Number(item && item.amount_total);
     const unit = Number(item && item.price && item.price.unit_amount);
@@ -278,24 +350,25 @@ function describeLineItems(items) {
 /**
  * What is inside a build-your-own box (`custom_box_N`) and what was chosen
  * inside a gift set (`gift_set_N`) -- both live only in session metadata,
- * because each is one Stripe line.
+ * because each is one Stripe line. In line order, so box 10 follows box 9.
  */
 function contentsOf(session) {
   const metadata = session.metadata || {};
-  const rows = [];
-  for (const key of Object.keys(metadata).sort()) {
-    const box = /^custom_box_(\d+)$/.exec(key);
-    const set = /^gift_set_(\d+)$/.exec(key);
-    const value = String(metadata[key] || "").trim();
-    if (!value) continue;
-    if (box) rows.push(`Box ${box[1]} contents: ${value}`);
-    else if (set) rows.push(`Set choices: ${value}`);
-  }
-  return rows;
+  return Object.keys(metadata)
+    .map((key) => /^(custom_box|gift_set)_(\d+)$/.exec(key))
+    .filter(Boolean)
+    .sort((a, b) => a[1].localeCompare(b[1]) || Number(a[2]) - Number(b[2]))
+    .map((m) => ({ kind: m[1], n: m[2], value: oneLine(metadata[m[0]]) }))
+    .filter((row) => row.value)
+    .map((row) =>
+      row.kind === "custom_box"
+        ? `Box ${row.n} contents: ${row.value}`
+        : `Set choices: ${row.value}`
+    );
 }
 
 /**
- * Every gift note on the order, verbatim, for the owner's copy.
+ * Every gift note on the order, for the owner's copy.
  *
  * Wider than gift-note.js's `giftNotesOf`, on purpose: that one feeds a
  * printed card, so it trims a recipient to the part before the "@" and skips
@@ -317,8 +390,8 @@ function giftNoteRowsOf(session) {
   }
   for (const prefix of Array.from(prefixes).sort()) {
     const row = {
-      recipient: String(metadata[`${prefix}_recipient`] || "").trim(),
-      sender: String(metadata[`${prefix}_sender`] || "").trim(),
+      recipient: oneLine(metadata[`${prefix}_recipient`]),
+      sender: oneLine(metadata[`${prefix}_sender`]),
       message: String(metadata[`${prefix}_message`] || "").trim()
     };
     if (row.recipient || row.sender || row.message) rows.push(row);
@@ -327,28 +400,25 @@ function giftNoteRowsOf(session) {
 }
 
 /**
- * The FULL shipping address, as lines. Stripe moved it to
- * `collected_information.shipping_details`; older sessions carry the top-level
- * `shipping_details`. Both are read, with the billing address as a last resort.
+ * The address Checkout COLLECTED FOR SHIPPING, as lines, or none. Stripe moved
+ * it to `collected_information.shipping_details`; older sessions carry the
+ * top-level `shipping_details`. Both are read. The billing address under
+ * `customer_details` is deliberately NOT a fallback: checkout.js only asks
+ * for a shipping address when there is something to ship, so a digital
+ * (all-gift-card) order has none, and printing the card's billing address
+ * under "Ship to" would send the owner to the post office with nothing.
  */
 function shipToLinesOf(session) {
   const collected =
     (session.collected_information && session.collected_information.shipping_details) || null;
   const details = collected || session.shipping_details || null;
-  const customer = session.customer_details || {};
-  const address = (details && details.address) || customer.address || null;
+  const address = details && details.address;
   if (!address) return [];
   const cityLine =
     [address.city, address.state].filter(Boolean).join(", ") +
     (address.postal_code ? ` ${address.postal_code}` : "");
-  return [
-    (details && details.name) || customer.name,
-    address.line1,
-    address.line2,
-    cityLine,
-    address.country
-  ]
-    .map((part) => String(part || "").trim())
+  return [details.name, address.line1, address.line2, cityLine, address.country]
+    .map(oneLine)
     .filter(Boolean);
 }
 
@@ -361,7 +431,7 @@ function paymentIntentIdOf(session) {
       : "";
 }
 
-/** "Sep 3, 2026, 2:15 PM" in the shop's own time zone. */
+/** "Sep 3, 2026, 2:15 PM ET" -- the shop's own clock. */
 function placedAtOf(session) {
   const created = Number(session.created);
   if (!Number.isFinite(created) || created <= 0) return "";
@@ -381,31 +451,35 @@ function placedAtOf(session) {
  * The owner's copy of one order: plain text is the real one, the HTML mirrors
  * it. Exported so the suites can look at the body without a fetch stub.
  *
- * @param {object} session   the Checkout Session off the event
- * @param {Array|null} items line items, or null when Stripe could not be read
+ * @param {object} session      the Checkout Session off the event
+ * @param {Array|null} items    line items, or null when Stripe could not be read
+ * @param {{truncated?: boolean, giftNoteEmailed?: boolean}} [opts]
+ *   `truncated`: Stripe had more lines than were read; `giftNoteEmailed`: the
+ *   "Gift note to print" email went out for this order, so it can be pointed at
  */
-export function ownerOrderEmail(session, items) {
+export function ownerOrderEmail(session, items, opts = {}) {
   const metadata = session.metadata || {};
   const lines = Array.isArray(items) ? describeLineItems(items) : null;
+  const truncated = opts.truncated === true;
   const totals = session.total_details || {};
   const totalCents = Number(session.amount_total);
-  const giftCardCents = Number(metadata.gift_card_amount_applied_cents || 0);
-  const discountCents = Math.max(
-    0,
-    Number(totals.amount_discount || 0) - Math.max(0, giftCardCents)
-  );
+  const giftCardCents = Math.max(0, Number(metadata.gift_card_amount_applied_cents || 0));
+  const discountCents = Math.max(0, Number(totals.amount_discount || 0) - giftCardCents);
   const shippingCents = Number(totals.amount_shipping || 0);
   const taxCents = Number(totals.amount_tax || 0);
-  const discountCode = String(metadata.discount_code || "").trim();
-  const pickupMarket = String(metadata.pickup_market || "").trim();
+  const discountCode = oneLine(metadata.discount_code);
+  const pickupMarket = oneLine(metadata.pickup_market);
+  const pickupRejected = metadata.pickup_market_rejected === "true";
   const shipTo = pickupMarket ? [] : shipToLinesOf(session);
+  // Nothing collected for shipping and nothing charged for it: a digital order.
+  // Nothing collected but shipping charged is a session shape this code does
+  // not expect, and says so rather than guessing.
+  const isDigital = !pickupMarket && !shipTo.length && !(shippingCents > 0);
   const contents = contentsOf(session);
   const notes = giftNoteRowsOf(session);
   const isGift = metadata.is_gift_order === "true" || notes.length > 0;
-  const buyerName = String(
-    (session.customer_details && session.customer_details.name) || ""
-  ).trim();
-  const buyerEmail = buyerEmailOf(session) || "";
+  const buyerName = oneLine(session.customer_details && session.customer_details.name);
+  const buyerEmail = oneLine(buyerEmailOf(session));
   const paymentIntentId = paymentIntentIdOf(session);
   const dashboardLink = paymentIntentId
     ? `https://dashboard.stripe.com/payments/${encodeURIComponent(paymentIntentId)}`
@@ -414,8 +488,13 @@ export function ownerOrderEmail(session, items) {
 
   const total = Number.isFinite(totalCents) ? dollars(totalCents) : "";
   const lead = lines && lines.length ? `${lines[0].qty}× ${lines[0].label}` : `order ${session.id}`;
-  const more = lines && lines.length > 1 ? ` +${lines.length - 1} more` : "";
-  const subject = `New order${total ? ` ${total}` : ""} -- ${lead}${more}`;
+  // "+N more" only when N is known: a truncated read says "more" and no number.
+  const more = truncated ? " +more" : lines && lines.length > 1 ? ` +${lines.length - 1} more` : "";
+  const headline =
+    Number.isFinite(totalCents) && totalCents === 0
+      ? "New order (paid by gift card)"
+      : `New order${total ? ` ${total}` : ""}`;
+  const subject = `${headline} -- ${lead}${more}`;
 
   const lineText = (line) =>
     `  ${line.qty}× ${line.label}` +
@@ -433,18 +512,24 @@ export function ownerOrderEmail(session, items) {
     ]);
   }
   if (giftCardCents > 0) moneyRows.push(["Gift card", `-${dollars(giftCardCents)} applied`]);
-  if (!pickupMarket)
+  if (!pickupMarket && !isDigital) {
     moneyRows.push(["Shipping", shippingCents > 0 ? dollars(shippingCents) : "Free"]);
+  }
   if (taxCents > 0) moneyRows.push(["Tax", dollars(taxCents)]);
   if (total) moneyRows.push(["Total", total]);
   const pad = (label) => `${label}:`.padEnd(11);
+  const MORE_LINES = "... and more lines -- see the Stripe Dashboard";
+  const NO_LINES = "(Line items could not be read from Stripe -- open the order for them.)";
+  const PICKUP_REJECTED =
+    "Buyer asked for a market pick-up that did not match the calendar -- this order ships.";
+  const DIGITAL = "Digital delivery -- no shipping";
+  const NO_ADDRESS = "(no address on the session -- see Stripe)";
+  const PRINT_POINTER = 'A printable copy is in the "Gift note to print" email.';
 
   const textParts = [`New order${placedAt ? ` -- ${placedAt}` : ""}`, ""];
-  if (lines) {
-    textParts.push(...lines.map(lineText));
-  } else {
-    textParts.push("  (Line items could not be read from Stripe -- open the order for them.)");
-  }
+  if (lines) textParts.push(...lines.map(lineText));
+  else textParts.push(`  ${NO_LINES}`);
+  if (truncated) textParts.push(`  ${MORE_LINES}`);
   textParts.push(...contents.map((row) => `  ${row}`));
   textParts.push("", ...moneyRows.map(([label, value]) => `${pad(label)} ${value}`), "");
   textParts.push(
@@ -453,28 +538,27 @@ export function ownerOrderEmail(session, items) {
   if (isGift) {
     textParts.push("", "Gift note");
     if (!notes.length) textParts.push("  Marked as a gift -- no note text.");
-    for (const note of notes) {
+    notes.forEach((note, i) => {
+      if (i) textParts.push("");
       if (note.recipient) textParts.push(`  To: ${note.recipient}`);
       if (note.sender) textParts.push(`  From: ${note.sender}`);
-      if (note.message) textParts.push(`  "${note.message}"`);
-      if (notes.length > 1) textParts.push("");
-    }
-    if (notes.length) textParts.push('  (A printable copy is in the "Gift note to print" email.)');
+      if (note.message) textParts.push(quoted(note.message));
+    });
+    if (opts.giftNoteEmailed) textParts.push(`  (${PRINT_POINTER})`);
   }
   textParts.push("");
-  if (pickupMarket) {
-    textParts.push(`Local pick-up at ${pickupMarket}`);
-  } else if (shipTo.length) {
-    textParts.push("Ship to:", ...shipTo.map((part) => `  ${part}`));
-  } else {
-    textParts.push("Ship to: (no address on the session -- see Stripe)");
-  }
+  if (pickupRejected) textParts.push(PICKUP_REJECTED);
+  if (pickupMarket) textParts.push(`Local pick-up at ${pickupMarket}`);
+  else if (shipTo.length) textParts.push("Ship to:", ...shipTo.map((part) => `  ${part}`));
+  else if (isDigital) textParts.push(DIGITAL);
+  else textParts.push(`Ship to: ${NO_ADDRESS}`);
   textParts.push("");
   if (dashboardLink) textParts.push(`Stripe: ${dashboardLink}`);
   textParts.push(`Session: ${session.id}`);
   const text = textParts.join("\n") + "\n";
 
   const p = (body, style) => `<p style="margin:6px 0;${style || ""}">${body}</p>`;
+  const h2 = (label) => `<h2 style="font-size:15px;margin:16px 0 6px;">${label}</h2>`;
   const htmlLines = lines
     ? lines
         .map(
@@ -486,7 +570,8 @@ export function ownerOrderEmail(session, items) {
             "</li>"
         )
         .join("")
-    : "<li>(Line items could not be read from Stripe -- open the order for them.)</li>";
+    : `<li>${escapeHtml(NO_LINES)}</li>`;
+  const htmlMore = truncated ? `<li>${escapeHtml(MORE_LINES)}</li>` : "";
   const htmlContents = contents.map((row) => `<li>${escapeHtml(row)}</li>`).join("");
   const htmlMoney = moneyRows
     .map(
@@ -496,7 +581,7 @@ export function ownerOrderEmail(session, items) {
     )
     .join("");
   const htmlGift = isGift
-    ? '<h2 style="font-size:15px;margin:16px 0 6px;">Gift note</h2>' +
+    ? h2("Gift note") +
       (notes.length
         ? notes
             .map(
@@ -507,25 +592,25 @@ export function ownerOrderEmail(session, items) {
                 (note.message ? p(escapeHtml(note.message), "white-space:pre-wrap;") : "") +
                 "</div>"
             )
-            .join("") +
-          p(
-            'A printable copy is in the "Gift note to print" email.',
-            "color:#6b5f52;font-size:13px;"
-          )
-        : p("Marked as a gift -- no note text."))
+            .join("")
+        : p("Marked as a gift -- no note text.")) +
+      (opts.giftNoteEmailed ? p(escapeHtml(PRINT_POINTER), "color:#6b5f52;font-size:13px;") : "")
     : "";
-  const htmlShip = pickupMarket
-    ? p(`<strong>Local pick-up at</strong> ${escapeHtml(pickupMarket)}`)
-    : shipTo.length
-      ? '<h2 style="font-size:15px;margin:16px 0 6px;">Ship to</h2>' +
-        p(shipTo.map((part) => escapeHtml(part)).join("<br>"))
-      : p("<strong>Ship to:</strong> (no address on the session -- see Stripe)");
+  const htmlShip =
+    (pickupRejected ? p(escapeHtml(PICKUP_REJECTED), "color:#8a3b12;") : "") +
+    (pickupMarket
+      ? p(`<strong>Local pick-up at</strong> ${escapeHtml(pickupMarket)}`)
+      : shipTo.length
+        ? h2("Ship to") + p(shipTo.map((part) => escapeHtml(part)).join("<br>"))
+        : isDigital
+          ? p(`<strong>${escapeHtml(DIGITAL)}</strong>`)
+          : p(`<strong>Ship to:</strong> ${escapeHtml(NO_ADDRESS)}`));
 
   const html =
     '<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;color:#1b1712;">' +
     `<h1 style="font-size:19px;">${escapeHtml(subject)}</h1>` +
     (placedAt ? p(escapeHtml(placedAt), "color:#6b5f52;") : "") +
-    `<ul style="margin:0;padding-left:18px;">${htmlLines}${htmlContents}</ul>` +
+    `<ul style="margin:0;padding-left:18px;">${htmlLines}${htmlMore}${htmlContents}</ul>` +
     `<table style="margin:12px 0;border-collapse:collapse;font-size:14px;">${htmlMoney}</table>` +
     p(
       `<strong>Buyer:</strong> ${escapeHtml(buyerName || "(no name)")}` +
@@ -548,42 +633,21 @@ export function ownerOrderEmail(session, items) {
 }
 
 /**
- * Every paid order gets the owner one email with what the bench needs: each
- * line with its quantity, size or scent and price, what was discounted, what
- * shipping cost, the total, the buyer, the gift note itself, the FULL shipping
- * address or the pick-up market, and the payment in the Stripe Dashboard. The
- * public order-status route and the daily digest stop at city and state on
- * purpose; this is the fulfilment copy, and it goes to the shop inbox only.
- *
- * ONE STRIPE READ, OFF THE MONEY PATH. The event carries no `line_items` and
- * nothing else in this handler fetches them, so `lineItemsFor` reads the
- * session back with them expanded. That read and the send both sit inside the
- * non-fatal wrapper below: if Stripe is slow the email still goes out from what
- * the event carries and says the lines are missing; if Resend refuses, the
- * refusal is logged and swallowed, like the buyer's backup copy of a gift card.
- * The owner also has Stripe's own merchant notice, so a lost courtesy email is
- * not worth replaying the money path for. `owner-order-email-<session>` is the
- * Resend idempotency key, so a redelivered event sends one copy.
- *
- * Always on -- the only gate is the recipient, which walks the same ladder as
- * the gift-note email and ends at the contact address.
+ * The deferred half of emailOwnerOrderNotice: the switch, the line items, the
+ * send. NEVER REJECTS -- every failure is logged and becomes an outcome,
+ * because this runs behind ctx.waitUntil where nothing would catch it.
  */
-export async function emailOwnerOrderNotice(session, env) {
-  if (!isFulfillable(session)) {
-    return { skipped: `payment-status-${session.payment_status || "unknown"}` };
-  }
-  const to = env.ORDER_NOTIFY_EMAIL || env.RESTOCK_NOTIFY_EMAIL || REPLY_TO;
-  if (!to) return { skipped: "no-recipient" };
-  if (!env.RESEND_API_KEY) {
-    console.error(
-      "stripe-webhook: RESEND_API_KEY is not configured; no owner copy for",
-      session.id
-    );
-    return { skipped: "no-resend-key" };
-  }
-  const items = await lineItemsFor(session, env);
-  const body = ownerOrderEmail(session, items);
+async function sendOwnerOrderNotice(session, env, ctx, to) {
   try {
+    const site = await loadSiteSettings(env, ctx);
+    if (site.enableOrderEmails === false) return { skipped: "disabled" };
+    const { items, truncated } = await lineItemsFor(session, env);
+    const body = ownerOrderEmail(session, items, {
+      truncated,
+      // The same condition emailGiftNoteLink sends on: note TEXT, and a secret
+      // to sign the link with. A recipient or sender alone gets no print email.
+      giftNoteEmailed: giftNotesOf(session).length > 0 && Boolean(env.MAGIC_LINK_SECRET)
+    });
     const delivery = await sendEmail(
       env,
       { from: fromAddress(env), to, reply_to: REPLY_TO, ...body },
@@ -597,8 +661,54 @@ export async function emailOwnerOrderNotice(session, env) {
     return { emailed: to, ok: delivery.ok, lines: items ? items.length : null };
   } catch (err) {
     console.warn("Non-fatal: owner order email failed:", err && err.message);
-    return { emailed: to, ok: false, lines: items ? items.length : null };
+    return { emailed: to, ok: false };
   }
+}
+
+/**
+ * Every paid order gets the owner one email with what the bench needs: each
+ * line with its quantity, size or scent and price, what was discounted, what
+ * shipping cost, the total, the buyer, the gift note itself, the FULL shipping
+ * address (or the pick-up market, or "digital delivery"), and the payment in
+ * the Stripe Dashboard. The public order-status route and the daily digest
+ * stop at city and state on purpose; this is the fulfilment copy, and it goes
+ * to the shop inbox only.
+ *
+ * OFF THE MONEY PATH, like reportRevenue: the checks that need nothing from
+ * the network run here, and everything else -- the CMS switch, the line-item
+ * read, the send -- is handed to ctx.waitUntil, so Stripe gets its 200 as fast
+ * as it did before this email existed and a slow Stripe or Resend can neither
+ * delay nor fail the webhook. sendOwnerOrderNotice never rejects; a refusal is
+ * logged and swallowed, like the buyer's backup copy of a gift card. The owner
+ * also has Stripe's own merchant notice, so a lost courtesy email is not worth
+ * replaying the money path for. `owner-order-email-<session>` is the Resend
+ * idempotency key, so a redelivered event sends one copy.
+ *
+ * Without a ctx there is nothing to hand the work to, so it is awaited -- that
+ * is the test harness, never production.
+ *
+ * Gated by `site.enableOrderEmails` (default on) and by the recipient, which
+ * walks the same ladder as the gift-note email and ends at the contact address.
+ */
+export async function emailOwnerOrderNotice(session, env, ctx) {
+  if (!isFulfillable(session)) {
+    return { skipped: `payment-status-${session.payment_status || "unknown"}` };
+  }
+  const to = env.ORDER_NOTIFY_EMAIL || env.RESTOCK_NOTIFY_EMAIL || REPLY_TO;
+  if (!to) return { skipped: "no-recipient" };
+  if (!env.RESEND_API_KEY) {
+    console.error(
+      "stripe-webhook: RESEND_API_KEY is not configured; no owner copy for",
+      session.id
+    );
+    return { skipped: "no-resend-key" };
+  }
+  const attempt = sendOwnerOrderNotice(session, env, ctx, to);
+  if (ctx && typeof ctx.waitUntil === "function") {
+    ctx.waitUntil(attempt);
+    return { queued: true, emailed: to };
+  }
+  return attempt;
 }
 
 /**
@@ -1009,11 +1119,12 @@ export async function processStripeEvent(event, env, ctx) {
     /* Deliberately NOT pushed to `failures`, for the same reason as the
        revenue step below: the owner's copy is a courtesy on top of Stripe's
        own merchant notice, and a lost one must never make Stripe replay the
-       money path. emailOwnerOrderNotice swallows its own send failure; the
-       catch is here because "does not throw" is a promise the next edit could
-       break. */
+       money path. The work itself runs behind ctx.waitUntil and swallows its
+       own failures; the catch is here because "does not throw" is a promise
+       the next edit could break. After the gift-card steps on purpose: the
+       cards are minted and the buyer told before anything is queued. */
     try {
-      outcome.ownerNotice = await emailOwnerOrderNotice(session, env);
+      outcome.ownerNotice = await emailOwnerOrderNotice(session, env, ctx);
     } catch (err) {
       console.warn("Non-fatal: owner order email threw (ignored):", err && err.message);
       outcome.ownerNotice = { ok: false, reason: "threw" };
