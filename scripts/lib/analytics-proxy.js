@@ -1,34 +1,48 @@
 /**
- * @fileoverview The first-party paths the analytics tracker is served from and
- * sends to. ONE definition, required by both build scripts.
+ * @fileoverview The analytics loader and the first-party fallback paths.
+ * ONE definition, required by both build scripts, qa-check and the tests.
  *
- * WHY A PROXY AT ALL
- * List-based content blockers (uBlock Origin's EasyPrivacy, Brave, most DNS
- * filters, and the owner's own router) match on HOSTNAME. `cloud.umami.is` and
- * `gateway.umami.is` are both on those lists, so for a blocked visitor the
- * script never loads and nothing is ever counted. Serving both through our own
- * origin is Umami's documented workaround: the browser only ever talks to
- * yallternativeliving.com, which no list can block without blocking the shop.
+ * THE SHAPE, SINCE 2026-09-02
+ * The page carries a tag pointing at ANALYTICS_LOADER_PATH -- an ordinary file
+ * of ours -- with the tracker's data-* attributes on it. That loader
+ * (assets/js/porch-light.js) injects exactly one of two copies of the tracker:
+ *
+ *   1. DIRECT first: UMAMI_SCRIPT_URL, with no data-host-url, so the browser
+ *      posts to UMAMI_SEND_URL itself. The visitor's real IP reaches Umami, so
+ *      their session id and their country are their own.
+ *   2. FIRST-PARTY only on the direct copy's `error` event: ANALYTICS_SCRIPT_PATH
+ *      with data-host-url = ANALYTICS_HOST_URL, which the status=200 rewrite
+ *      rules in netlify.toml / vercel.json proxy through to Umami.
+ *
+ * WHY BOTH
+ * List-based blockers match HOSTNAMES, and both Umami hosts are on those lists
+ * (the shop owner's own router blocks them at DNS), so route 1 alone counts
+ * nothing for a blocked visitor. But route 2 is not free: Umami derives the
+ * session id AND the geography from whatever IP opened the connection, which
+ * through a Netlify proxy is Netlify's edge. Confirmed empirically on
+ * 2026-09-02 -- a send carrying payload.ip=1.1.1.1 was still recorded against
+ * the connecting request's country, so no relay of ours could fix it either.
+ *
+ * Direct-first pays route 2's cost only for the visitors who would otherwise be
+ * invisible. Everyone else is measured exactly as they were. Sessions that came
+ * the long way are marked with data-tag=FALLBACK_TAG so the two populations can
+ * be told apart in the dashboard. See docs/ANALYTICS.md §7.
  *
  * WHY THESE PATH NAMES
- * A first-party proxy at `/analytics/...` or `/umami/...` is defeated by the
- * same lists a day later, because the generic path rules catch it. The names
- * below are deliberately unremarkable and specific to this shop -- no filter
- * list will ever ship a rule for `/porch-light/`. They contain none of the
- * words the blockers' generic rules key on (analytics, umami, stats, track,
- * collect, metrics, pixel, beacon).
+ * A first-party proxy at `/analytics/…` or `/umami/…` is caught by the same
+ * lists' generic path rules a release later. The names below carry none of the
+ * words those rules key on and are specific enough to this shop that no list
+ * will ship a rule for them.
  *
  * WHY `/api/send` IS PART OF IT AND NOT NEGOTIABLE
  * The tracker builds its collection URL by string concatenation:
  *   `${(data-host-url || "https://gateway.umami.is").replace(/\/$/, "")}/api/send`
  * (read verbatim out of the live cloud.umami.is/script.js, 2026-09-02). The
- * `/api/send` suffix is hardcoded, so the only thing we choose is the prefix.
- * `POST /porch-light/api/send` is about as unremarkable as a request gets.
+ * `/api/send` suffix is hardcoded; the only thing we choose is the prefix.
  *
  * NOTE THE COLLISION THAT IS *NOT* HAPPENING: `/porch-light/api/send` is a
  * different path from the Cloudflare Worker's `/api/*` proxy. Analytics does
- * not touch the money path, does not consume the Worker's request budget, and
- * a broken analytics rule cannot take checkout down.
+ * not touch the money path and cannot consume the Worker's request budget.
  *
  * ANALYTICS_HOST_URL is RELATIVE on purpose. An absolute
  * "https://yallternativeliving.com" would make every send from
@@ -38,21 +52,31 @@
  * against whichever host the visitor actually loaded, so both spellings work.
  */
 
-/** The one path prefix. Everything below is derived from it. */
+/** Our own file, the only analytics script the page itself references. */
+const ANALYTICS_LOADER_PATH = "/assets/js/porch-light.js";
+
+/** The one path prefix the fallback route lives under. */
 const ANALYTICS_PROXY_PREFIX = "/porch-light";
 
-/** `<script src>` on every page. Rewritten (200) to UMAMI_SCRIPT_URL. */
+/** Route 2's `<script src>`. Rewritten (200) to UMAMI_SCRIPT_URL. */
 const ANALYTICS_SCRIPT_PATH = ANALYTICS_PROXY_PREFIX + "/script.js";
 
-/** `data-host-url` on the tag. Relative -- see the file comment. */
+/** Route 2's `data-host-url`. Relative -- see the file comment. */
 const ANALYTICS_HOST_URL = ANALYTICS_PROXY_PREFIX;
 
-/** Where the tracker therefore POSTs. Rewritten (200) to UMAMI_SEND_URL. */
+/** Where route 2 therefore POSTs. Rewritten (200) to UMAMI_SEND_URL. */
 const ANALYTICS_SEND_PATH = ANALYTICS_HOST_URL + "/api/send";
 
-/** Umami Cloud's real origins. Only the proxy rules may name these. */
-const UMAMI_SCRIPT_URL = "https://cloud.umami.is/script.js";
-const UMAMI_SEND_URL = "https://gateway.umami.is/api/send";
+/** Umami Cloud's real origins. Route 1 uses them from the browser; the proxy
+    rules use them server-side; the CSP has to allow both. */
+const UMAMI_SCRIPT_ORIGIN = "https://cloud.umami.is";
+const UMAMI_SEND_ORIGIN = "https://gateway.umami.is";
+const UMAMI_SCRIPT_URL = UMAMI_SCRIPT_ORIGIN + "/script.js";
+const UMAMI_SEND_URL = UMAMI_SEND_ORIGIN + "/api/send";
+
+/** data-tag on the fallback copy only, so the Sessions view can separate the
+    visitors whose country and session id are the proxy's from everyone else. */
+const FALLBACK_TAG = "fallback";
 
 /**
  * Words a blocker's generic path rules key on. The paths above must contain
@@ -71,11 +95,15 @@ const BLOCKLIST_BAIT_WORDS = [
 ];
 
 module.exports = {
+  ANALYTICS_LOADER_PATH,
   ANALYTICS_PROXY_PREFIX,
   ANALYTICS_SCRIPT_PATH,
   ANALYTICS_HOST_URL,
   ANALYTICS_SEND_PATH,
+  UMAMI_SCRIPT_ORIGIN,
+  UMAMI_SEND_ORIGIN,
   UMAMI_SCRIPT_URL,
   UMAMI_SEND_URL,
+  FALLBACK_TAG,
   BLOCKLIST_BAIT_WORDS
 };

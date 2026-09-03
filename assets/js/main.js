@@ -215,9 +215,21 @@
      nothing else). The tag order is fixed too, but an event fired before the
      tracker is ready is a documented Umami footgun and this makes it survivable
      rather than silent. The queue is bounded and gives up after a few seconds,
-     so a blocked tracker costs nothing but a handful of held strings. */
+     so a blocked tracker costs nothing but a handful of held strings.
+
+     THE QUEUE IS NOW LOAD-BEARING RATHER THAN INSURANCE. Since 2026-09-02 the
+     page no longer carries the tracker tag at all: it carries
+     assets/js/porch-light.js, which injects the tracker itself -- the direct
+     cloud.umami.is copy first, and the first-party /porch-light/ copy only if
+     that one fails to load. A dynamically injected script is async, so
+     window.umami is reliably NOT there when this file runs, and on the fallback
+     path it arrives only after a failed request has errored out. Hence the
+     larger retry budget below: 40 x 250ms is ten seconds, which covers a DNS
+     failure or a blocker's refusal plus the second script's own fetch. It also
+     means the flush works for whichever copy lands, because it polls for
+     window.umami rather than assuming which one put it there. */
   var ANALYTICS_QUEUE_MAX = 10;
-  var ANALYTICS_FLUSH_TRIES = 20;
+  var ANALYTICS_FLUSH_TRIES = 40;
   var ANALYTICS_FLUSH_MS = 250;
   var analyticsQueue = [];
   var analyticsFlushTimer = null;

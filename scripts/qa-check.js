@@ -1596,11 +1596,10 @@ try {
 if (!cspText) {
   fail("CSP domain coverage", "couldn't read _headers -- run npm run build-security-headers first");
 } else {
-  /* Umami is deliberately NOT in this list any more. The tracker is served
-     and sends through a first-party path on this domain (see
-     scripts/lib/analytics-proxy.js), so 'self' covers it and naming a Umami
-     host here would mean the proxy had been dropped. The inverse assertion --
-     that neither host appears -- is a few lines below. */
+  /* Umami is checked below rather than here: a substring match on "umami.is"
+     is satisfied by cloud.umami.is alone, which is exactly how this site
+     shipped analytics that recorded nothing. The two hosts live in different
+     directives and both are mandatory. */
   var REQUIRED_CSP_SUBSTRINGS = [
     ["formspree.io", "Formspree (review submission form)"],
     ["embed.tawk.to", "Tawk.to (live chat script-src)"],
@@ -1639,58 +1638,69 @@ if (!cspText) {
           " is wired into the site but not allowlisted -- it'll be silently blocked by the browser"
       );
   });
-  /* Analytics is first-party now, and this pair of checks is the guard on
-     that -- in BOTH directions, because both directions have already gone
-     wrong here once.
+  /* Analytics takes one of TWO routes, chosen at runtime by
+     assets/js/porch-light.js, and the policy has to allow both. Four
+     assertions, none optional, because each failure is silent and each is
+     silent in a different way:
 
-     Before the proxy, the tracker was served from cloud.umami.is and POSTed to
-     gateway.umami.is; only the first was allow-listed, so the browser refused
-     every pageview and every event and the dashboard read zero for weeks while
-     nothing anywhere reported an error. The lesson was not "add the second
-     host", it was "the script origin and the collection origin are different
-     things and a substring match on umami.is proves neither".
+       script-src cloud.umami.is  -- missing: the direct copy never loads, so
+         EVERY visitor is demoted to the proxy and nobody's session id or
+         country is their own. The dashboard still fills up. Nothing says why.
+       connect-src gateway.umami.is -- missing: the direct copy loads
+         perfectly and the browser refuses every pageview and every event it
+         sends. This is not hypothetical; it is how this shop's dashboard read
+         zero from the day analytics was switched on until 2026-09-02.
+       'self' in both -- missing: the loader itself, or the fallback route,
+         stops working, and blocked visitors go back to being uncounted.
 
-     Now both are paths on this origin, so the correct policy names NEITHER
-     host and relies on 'self'. A Umami host reappearing means someone
-     removed the proxy; 'self' going missing means the tracker is blocked
-     again. Both are failures, so both are checked. */
+     Note that a substring match on "umami.is" would pass on cloud.umami.is
+     alone, which is exactly the check that let the outage above ship. The
+     script origin and the collection origin are different hosts in different
+     directives, so they are named separately here. */
   var connectSrcMatch = /connect-src ([^;]*)/.exec(cspText);
   var scriptSrcMatch = /script-src ([^;]*)/.exec(cspText);
   if (!connectSrcMatch || !scriptSrcMatch) {
     fail("CSP analytics directives", "could not find connect-src and script-src in _headers");
   } else {
-    if (connectSrcMatch[1].indexOf("umami.is") === -1) {
-      ok("CSP connect-src names no Umami host (the tracker POSTs to a first-party path)");
+    if (connectSrcMatch[1].indexOf(analyticsProxy.UMAMI_SEND_ORIGIN) !== -1) {
+      ok(
+        "CSP connect-src allows " +
+          analyticsProxy.UMAMI_SEND_ORIGIN +
+          " (where the direct tracker POSTs)"
+      );
     } else {
       fail(
-        "CSP connect-src still names a Umami host",
-        "the tracker POSTs to " +
-          analyticsProxy.ANALYTICS_SEND_PATH +
-          " on this origin, which 'self' covers. A Umami host here means the " +
-          "first-party proxy in netlify.toml/vercel.json was removed -- if that was deliberate, " +
-          "gateway.umami.is belongs in connect-src AND cloud.umami.is in script-src, and this " +
-          "check has to be inverted on purpose. connect-src was: " +
+        "CSP connect-src does not allow " + analyticsProxy.UMAMI_SEND_ORIGIN,
+        "the direct route posts every pageview and event there. cloud.umami.is is only where " +
+          "the script is DOWNLOADED from -- allowing just that loads the tracker and then blocks " +
+          "all of its data. connect-src was: " +
           connectSrcMatch[1].trim()
       );
     }
-    if (scriptSrcMatch[1].indexOf("umami.is") === -1) {
-      ok("CSP script-src names no Umami host (the tracker is served first-party)");
+    if (scriptSrcMatch[1].indexOf(analyticsProxy.UMAMI_SCRIPT_ORIGIN) !== -1) {
+      ok(
+        "CSP script-src allows " +
+          analyticsProxy.UMAMI_SCRIPT_ORIGIN +
+          " (the direct tracker copy, tried first)"
+      );
     } else {
       fail(
-        "CSP script-src still names a Umami host",
-        "the tracker tag loads " + analyticsProxy.ANALYTICS_SCRIPT_PATH + " from this origin"
+        "CSP script-src does not allow " + analyticsProxy.UMAMI_SCRIPT_ORIGIN,
+        "without it the direct copy never loads and every visitor falls back to the proxy at " +
+          analyticsProxy.ANALYTICS_SCRIPT_PATH +
+          ", where the session and country are Netlify's"
       );
     }
     [
-      [connectSrcMatch, "connect-src"],
-      [scriptSrcMatch, "script-src"]
-    ].forEach(function (pair) {
-      if (pair[0][1].indexOf("'self'") !== -1) {
-        ok("CSP " + pair[1] + " allows 'self', which is what serves the tracker now");
+      [connectSrcMatch, "connect-src", analyticsProxy.ANALYTICS_SEND_PATH],
+      [scriptSrcMatch, "script-src", analyticsProxy.ANALYTICS_LOADER_PATH]
+    ].forEach(function (triple) {
+      if (triple[0][1].indexOf("'self'") !== -1) {
+        ok("CSP " + triple[1] + " allows 'self', which serves " + triple[2]);
       } else {
         fail(
-          "CSP " + pair[1] + " does not allow 'self'",
-          "analytics is served from this origin -- without 'self' the browser blocks it"
+          "CSP " + triple[1] + " does not allow 'self'",
+          triple[2] + " is served from this origin -- without 'self' the browser blocks it"
         );
       }
     });

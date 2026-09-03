@@ -25,41 +25,60 @@ Every one of these is a deliberate choice with a cost on the other side. They
 are written down so the next person can disagree with the reasoning rather than
 guess at it.
 
-### The tracker is served from this site's own address
+### The tracker is loaded direct first, and proxied only if that fails
 
-`<script src="/porch-light/script.js" data-host-url="/porch-light">`, proxied to
-Umami Cloud by `status = 200` rewrite rules in `netlify.toml` and `vercel.json`.
-The browser never talks to `cloud.umami.is` or `gateway.umami.is`.
+Every page loads one script of ours, `/assets/js/porch-light.js`, carrying the
+tracker's `data-*` attributes. That loader injects **exactly one** of two copies:
 
-**Why.** List-based blockers match **hostnames**. Both Umami hosts are on those
-lists, and the shop owner's own router blocks them at the DNS level — so for
-every visitor running a blocker, a filtering resolver, or Brave, the old setup
-counted exactly nothing. This is Umami's own documented workaround
-(`docs.umami.is/docs/bypass-ad-blockers`), extended to the collection endpoint,
-which their page covers only for self-hosters.
+1. **Direct** — `https://cloud.umami.is/script.js` with **no** `data-host-url`,
+   so it posts straight to `gateway.umami.is` from the visitor's own browser.
+2. **First-party**, only if the direct copy fires an `error` event —
+   `/porch-light/script.js` with `data-host-url="/porch-light"`, proxied to Umami
+   by `status = 200` rewrites in `netlify.toml` and `vercel.json`, and marked
+   `data-tag="fallback"`.
 
-**Why these path names.** `/analytics/…` or `/umami/…` would be caught by the
-same lists' generic path rules within a release or two. `/porch-light/` carries
-none of the words those rules key on and is specific enough to this shop that no
-list will ever ship a rule for it. The `/api/send` suffix is not a choice: the
-tracker hardcodes `<data-host-url>/api/send`. All of it is defined once, in
-`scripts/lib/analytics-proxy.js`, because the tag and the rewrite rules have to
-agree and a disagreement is silent — the tracker loads and POSTs into a 404.
+**Why the fallback exists.** List-based blockers match **hostnames**. Both Umami
+hosts are on those lists, and the shop owner's own router blocks them at DNS —
+so without route 2, every visitor running a blocker or a filtering resolver
+counted exactly nothing. A `<script>` fires `error` when the request is refused
+*and* when it fails to resolve, so one handler catches both without a timer.
 
-**What it costs, and this is not small — read §7 before trusting a visitor
-count or a country.**
+**Why it is the fallback and not the default.** Route 2 is not free: Umami builds
+the session id from the IP that opened the connection and geolocates the same
+address, which through a Netlify proxy is Netlify's edge. Proxying everybody
+would have traded correct visitor counts and correct geography **for everybody**
+to recover the blocked minority. Direct-first pays that cost only for the
+visitors who would otherwise be invisible. §7 has the measurements and the
+upstream references.
 
-It does _not_ cost a round trip per page view: `cloud.umami.is` serves the script
-with `cache-control: public, max-age=86400, must-revalidate`, Netlify passes an
+**Why these path names.** A first-party proxy at `/analytics/…` or `/umami/…`
+would be caught by the same lists' generic path rules within a release or two.
+`/porch-light/` carries none of the words those rules key on and is specific
+enough to this shop that no list will ever ship a rule for it. The `/api/send`
+suffix is not a choice: the tracker hardcodes `<data-host-url>/api/send`. All of
+it is defined once, in `scripts/lib/analytics-proxy.js`, because the loader, the
+emitted tag, the rewrite rules and the CSP all have to agree — and a
+disagreement is silent in the worst way. A missing `cloud.umami.is` in
+`script-src` does not break analytics; it quietly demotes **every** visitor to
+route 2.
+
+**The CSP allows both routes**, and all four entries are mandatory:
+`script-src 'self' https://cloud.umami.is` and
+`connect-src 'self' https://gateway.umami.is`. `npm test` asserts each one
+separately, with the reason it matters in the failure message.
+
+The direct route costs nothing extra. The fallback route does not cost a round
+trip per page view either: `cloud.umami.is` serves the script with
+`cache-control: public, max-age=86400, must-revalidate`, Netlify passes an
 upstream response's own headers through on a proxy rule, and nothing in
-`_headers` matches `/porch-light/…` to override it. So a returning visitor
-fetches the tracker from their own browser cache for a day at a time.
+`_headers` matches `/porch-light/…` to override it.
 
-`sw.js` has an explicit skip for `/porch-light/` for exactly this reason: the
-script ends in `.js`, and the service worker's network-first branch would
-otherwise refetch it with `cache: "reload"` on **every** page load — bypassing
-that 24-hour cache — and then keep a third-party script in this site's own cache
-across deploys. A test pins the skip.
+`sw.js` has an explicit skip for `/porch-light/`: the script ends in `.js`, and
+the service worker's network-first branch would otherwise refetch it with
+`cache: "reload"` on **every** page load — bypassing that 24-hour cache — and
+then keep a third-party script in this site's own cache across deploys. A test
+pins the skip.
+
 
 ### Do Not Track and Global Privacy Control are not honoured
 
@@ -75,8 +94,9 @@ Honouring them was measurably only costing the shop numbers.
 **What is done instead** is not collecting the data in the first place: no
 cookies, no cross-site identity, no `identify()`, no personal data in any
 payload, and the query string stripped before anything is sent. `privacy.html`
-says all of this in plain words, including that the counter is first-party and a
-domain blocker will not see it. A privacy page that promised DNT and a site that
+says all of this in plain words, including that the counter is loaded from
+Umami directly and from this site’s own address if something blocks that, so a
+domain blocker will not stop it. A privacy page that promised DNT and a site that
 ignored it would be worse than either choice; a page that quietly stopped being
 true would be worse still.
 
@@ -253,8 +273,9 @@ Session in D1 — so a redelivered webhook, a refreshed thank-you page and a
 blocked tracker all book exactly the same thing: the truth, once.
 
 **Retention** (Reports → Retention) groups visitors by the day they first
-arrived. Most useful in the week after a market or a post. See §7 — the proxy
-makes this less trustworthy than it looks.
+arrived. Most useful in the week after a market or a post. Read it with the
+`fallback` tag filtered **out** — see §7 for why those sessions are not really
+sessions.
 
 **Journey** (Reports → Journey) wants three to seven steps of pages or events.
 A good first one: `/index.html` → `/shop.html` → `Product View` → `Add to Cart`.
@@ -325,15 +346,27 @@ A local test cannot prove this. Two minutes on the live site can.
 
 1. Open **https://yallternativeliving.com** with DevTools on the **Network** tab.
 2. Add something to the cart.
-3. Look for a `POST` to **`/porch-light/api/send`**. It must return **200**, and
-   the Console must show **no** `Refused to connect` / `Refused to load` CSP
-   violation.
+3. Find the `POST` that carries the event. On an ordinary browser with no
+   blocker it goes to **`https://gateway.umami.is/api/send`** — that is the
+   healthy default, and it means your own IP and country reached Umami. It must
+   return **200**, with **no** `Refused to connect` / `Refused to load` in the
+   Console.
 4. Open the Umami dashboard's **Realtime** view. Your visit should be there
    within a few seconds, along with an `Add to Cart` event.
+5. **Now check the other route.** In DevTools → Network, right-click the
+   `cloud.umami.is` script request → **Block request domain**, and reload. The
+   POST must now go to **`/porch-light/api/send`** and return **200**, and the
+   event must still land in Realtime — this time tagged `fallback`. Unblock it
+   afterwards. Both routes are load-bearing; only testing the one your own
+   browser happens to take is how half of this goes unnoticed.
 
-If step 3 shows a 404, the proxy rule did not deploy — check `netlify.toml`.
-If it shows a CSP violation, `script-src`/`connect-src` lost `'self'`.
-If the POST is 200 but Realtime is empty, see §6.
+If step 3 goes to `/porch-light/api/send` on a browser with **no** blocker,
+something is stopping `cloud.umami.is` for you — often a DNS filter on your
+network — and every visitor behind the same filter is on the fallback too.
+If step 5 shows a 404, the proxy rule did not deploy — check `netlify.toml`.
+If either step shows a CSP violation, the policy lost one of its four required
+entries; see §6.
+If a POST is 200 but Realtime is empty, see §6.
 
 **Revenue needs its own check, and it needs a real order.** After the first live
 purchase since this change, confirm the Revenue report shows the order's amount
@@ -357,10 +390,11 @@ That browser stops being counted on this site, permanently, until you run
 device you browse the shop from. This is the only self-exclusion Umami offers on
 the Hobby plan — dashboard IP filters start at the Pro plan.
 
-**This matters more than it used to.** Before the first-party proxy, a
-DNS-blocking router kept the owner's own visits out for free. It no longer does:
-the tracker is served from the shop's own domain, so a blocker that works by
-blocking other companies' domains cannot see it. Run the line above.
+**This matters more than it used to.** A DNS-blocking router used to keep the
+owner's own visits out for free. It no longer does: when the direct copy of the
+tracker fails to load, the loader falls back to serving it from the shop's own
+domain, which a domain blocker cannot see. Run the line above — it is honoured
+by the tracker itself, on either route.
 
 **Development, testing and previews.** Handled automatically. The tracker tag
 carries `data-domains="yallternativeliving.com,www.yallternativeliving.com"`, and
@@ -379,101 +413,116 @@ attribute goes missing.
 
 ## 6. If the dashboard goes quiet
 
-Check in this order. The first two are new since the proxy landed.
+Two routes means two ways for it to go quiet, and one of them is silent.
 
-1. **Is `/porch-light/api/send` still a 200?** Load the site with DevTools open
-   and watch the Network tab. A 404 means the rewrite rule in `netlify.toml` did
-   not survive a deploy — `npm run build-security-headers` regenerates it, and
-   `scripts/analytics.test.js` asserts it exists in all three config files.
+1. **Which route is the browser taking?** Load the site with DevTools open. A
+   `POST` to `gateway.umami.is` is the direct route; one to
+   `/porch-light/api/send` is the fallback. Neither, and nothing loaded at all —
+   check the `<script src="/assets/js/porch-light.js">` tag is on the page and
+   that `data-domains` names the hostname you are actually on.
 
-2. **Has Umami moved its collection host again?** The proxy points at
-   `https://gateway.umami.is/api/send`. Umami has moved that host repeatedly with
-   no changelog and no migration notice — `analytics.umami.is`, then
-   `api-gateway-eu.umami.dev`, then `api-gateway.umami.dev`, now this one
-   (umami-software/umami discussion #2719; still undocumented). Re-read the host
-   literal out of `https://cloud.umami.is/script.js` and update
-   `UMAMI_SEND_URL` in `scripts/lib/analytics-proxy.js`. Before the proxy this
-   would have shown up as a browser CSP violation; now it is a server-side
-   failure on Netlify's side of the hop, so **nothing appears in the console** —
-   the request just returns non-200.
+2. **CSP.** Four entries, all mandatory:
+   `script-src 'self' https://cloud.umami.is` and
+   `connect-src 'self' https://gateway.umami.is`. Losing the `cloud.umami.is`
+   entry does **not** show up as an outage — every visitor is silently demoted
+   to the fallback route and the dashboard keeps filling up with proxied
+   sessions. Losing `gateway.umami.is` blocks every direct send with a console
+   violation. `npm test` asserts each of the four separately.
 
-3. **CSP.** `script-src` and `connect-src` must both allow `'self'` and must
-   name **no** Umami host. `npm test` asserts both directions.
+3. **Has Umami moved its collection host again?** Umami has moved it repeatedly
+   with no changelog and no migration notice — `analytics.umami.is`, then
+   `api-gateway-eu.umami.dev`, then `api-gateway.umami.dev`, now
+   `gateway.umami.is` (umami-software/umami discussion #2719; still
+   undocumented). Re-read the host literal out of
+   `https://cloud.umami.is/script.js`, then update **both**
+   `UMAMI_SEND_ORIGIN`/`UMAMI_SEND_URL` in `scripts/lib/analytics-proxy.js` and
+   re-run `npm run build-security-headers`. A move breaks the direct route with
+   a visible CSP violation **and** the fallback route silently, on Netlify's
+   side of the hop, where nothing reaches the browser console.
 
-4. **Revenue only.** If page views are fine but the Revenue report is empty, it
+4. **Is `/porch-light/api/send` still a 200?** Only reachable by testing the
+   fallback deliberately (§4 step 5). A 404 means the rewrite rule in
+   `netlify.toml` did not survive a deploy — `npm run build-security-headers`
+   regenerates it, and `scripts/analytics.test.js` asserts it exists in all
+   three config files.
+
+5. **Revenue only.** If page views are fine but the Revenue report is empty, it
    is the webhook, not the tracker: check `UMAMI_WEBSITE_ID` in
    `workers/wrangler.toml` is set and deployed, then `npx wrangler tail` for a
    line beginning `analytics:`.
 
 ---
 
-## 7. What the proxy costs — read this before trusting a visitor count
+## 7. What the fallback route costs, and how to see who took it
 
-**This was verified from primary sources, and the answer is not the comfortable
-one.** It does not stop the proxy being worth having, but it changes which
-numbers on the dashboard can be believed.
+**This was verified from primary sources and then measured directly.** It does
+not stop the fallback being worth having — without it those visitors produce no
+rows at all — but it means one slice of the data is weaker than the rest, and it
+is worth knowing which slice.
 
 Umami builds a session id as `hash(websiteId, clientIP, userAgent, monthlySalt)`
 and derives country/region/city from the same IP. It picks that IP from the first
 header present in a fixed list (`src/lib/ip.ts` on `master`), and that list ranks
 `cf-connecting-ip` **above** `x-nf-client-connection-ip` and `x-forwarded-for`.
 
-`gateway.umami.is` sits behind Cloudflare, and Cloudflare's documented behaviour
-is to set `CF-Connecting-IP` to "the client IP address connecting to Cloudflare"
-— which, through this proxy, is **Netlify's edge, not the shopper**. Netlify does
-forward the real visitor IP in `x-nf-client-connection-ip` (confirmed by a
-Netlify engineer on their own forum), but Umami never looks at it, because
-`.find()` stops at the first header that is present. The same failure is reported
-upstream as umami-software/umami issue #3579.
+`gateway.umami.is` sits behind Cloudflare, whose documented behaviour is to set
+`CF-Connecting-IP` to "the client IP address connecting to Cloudflare" — which,
+through the proxy, is **Netlify's edge, not the shopper**. Netlify does forward
+the real visitor IP in `x-nf-client-connection-ip` (confirmed by a Netlify
+engineer on their own forum), but Umami never looks at it: `.find()` stops at
+the first header that is present. The same failure is reported upstream as
+umami-software/umami issue #3579.
 
-**So, of the numbers on the dashboard:**
+**And it cannot be fixed by relaying it ourselves.** Umami's collection endpoint
+accepts an `ip` field in the payload with no authentication, which looked like an
+escape hatch — a Worker could read the forwarded header and stamp it in. Measured
+on 2026-09-02: a send carrying `payload.ip=1.1.1.1` (an Australian address) was
+recorded with country **US**, i.e. the connecting request's location. Umami Cloud
+geolocates the request, not the payload. So a Worker relay would restore nothing
+and would additionally put every page view through the checkout Worker's request
+budget. Ruled out.
 
-| Trustworthy                                                                                     | Not trustworthy                                     |
-| ----------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| Views, Pages, Referrers, Events, Goals, UTM, Attribution, **Revenue** (server-side, IP-independent) | Visitors, Visits, Bounce rate, Average visit time   |
-| Browser / OS / device / screen (parsed from the User-Agent, which is forwarded intact)          | Countries, Regions, Cities — these will read as Netlify's edge locations |
-|                                                                                                  | Retention and Journey, which are built from sessions |
+**So, for visitors on the fallback route only:**
 
-**Why it was still shipped.** Before the proxy, a blocked visitor produced *no*
-rows at all — no page view, no `Add to Cart`, no funnel step. The trade is
-"correct visitor counts over an unknown fraction of traffic" against "complete
-event and conversion data over all of it", and for a shop whose questions are
-which products get looked at and whether the funnel converts, the second is worth
-more. Revenue, the number that matters most, is now IP-independent anyway.
+| Still trustworthy | Not trustworthy |
+| --- | --- |
+| Views, Pages, Referrers, Events, Goals, UTM, Attribution, **Revenue** (server-side, IP-independent) | Visitors, Visits, Bounce rate, Average visit time |
+| Browser / OS / device / screen (parsed from the User-Agent, which is forwarded intact) | Countries, Regions, Cities — these read as Netlify's edge locations |
+| | Retention and Journey, which are built from sessions |
 
-**Netlify redirect rules cannot fix this.** They accept static request headers
-(`headers = {X-From = "Netlify"}`) but there is no placeholder for a per-request
-value, so the visitor's IP cannot be stamped on the proxied request.
+**Visitors on the direct route are unaffected.** Their browser talks to Umami
+itself, so their IP, their session and their country are their own — exactly as
+before any of this existed.
 
-**How to reverse it, if the owner would rather have honest visitor counts.**
-Three edits, one commit:
+### Telling the two populations apart
 
-1. In `scripts/build-site-data.js`, drop `data-host-url` from
-   `umamiScriptHtml()` — the tracker then posts straight to
-   `gateway.umami.is` again. Leave the proxied `src` alone if you like; it costs
-   nothing.
-2. In `scripts/build-security-headers.js`, put `https://cloud.umami.is` back in
-   `script-src` and `https://gateway.umami.is` in `connect-src`.
-3. Invert the assertions in `scripts/analytics.test.js` §3 and the CSP block in
-   `scripts/qa-check.js` — both are written to be inverted deliberately rather
-   than deleted, and both say so.
+The fallback copy carries **`data-tag="fallback"`**; the direct copy carries no
+tag at all. Umami records the tag on every event, so:
 
-Then `npm run build-data && npm run build-security-headers && npm test`.
+- **Sessions → filter → Tag `fallback`** shows the proxied population. Their
+  country and visitor counts are the ones to discount.
+- The same filter is available on every report, so any figure can be read with
+  the proxied traffic excluded — filter Tag **is not** `fallback` — or on its own.
+- The proportion of `fallback` events is also the shop's live **blocker rate**,
+  which is a genuinely useful number and one Umami offers no other way to get.
 
-**The option that would get both**, if it is ever worth the complexity: proxy the
-send through the shop's own Cloudflare Worker instead of straight to Umami, and
-have it forward the visitor's IP. Umami's collection endpoint accepts `ip` and
-`userAgent` in the payload with no authentication (`getClientInfo` in
-`src/lib/detect.ts`), so a Worker that reads `x-nf-client-connection-ip` and
-stamps it in could restore sessions exactly. Not done here for two reasons: it
-would put every page view through the Worker that runs checkout, coupling
-analytics traffic to the money path's request budget; and passing `payload.ip`
-makes Umami skip its header-based geo and fall through to a MaxMind database
-lookup, which is **not** a path the official `@umami/node` client exercises, so
-whether Umami Cloud even has that database loaded is unverified. Betting revenue
-reporting on it without a live probe would be the wrong kind of clever.
+There is no server-side signal to distinguish them, and Umami has no built-in
+notion of "proxied traffic", so without this tag the two would be
+indistinguishable. If the tag is ever removed, that visibility goes with it.
 
----
+### If the trade stops being worth it
+
+Two dials, both one commit:
+
+- **Drop the fallback entirely** (direct only, blocked visitors uncounted):
+  delete `injectFallback` and its `error` handler from
+  `assets/js/porch-light.js`, remove the two proxy rules from
+  `analyticsProxyRules()` in `scripts/build-security-headers.js`, and invert the
+  matching assertions in `scripts/analytics.test.js` §2c and `scripts/qa-check.js`.
+- **Make the proxy the default again** (all visitors proxied, all counts
+  degraded): set `data-host-url` on the direct copy too. Not recommended — that
+  is the arrangement this section exists to explain away.
+
 
 ## 8. Other known limits
 

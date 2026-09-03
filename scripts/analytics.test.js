@@ -22,14 +22,15 @@
  *     exist yet when the PDP fired "Product View", so the one event product
  *     pages exist to record was dropped on all twenty of them.
  *
- *  2b. THE FIRST-PARTY PROXY. The tag's src and its data-host-url are paths on
- *     this origin, and the rewrite rules that make those paths resolve live in
- *     netlify.toml and vercel.json. Three separate files have to agree, and a
- *     disagreement is silent: the tracker loads and POSTs into a 404. So the
- *     tag is compared against the rules here rather than each being checked
- *     alone. The CSP is checked the other way round -- it must NOT name a
- *     Umami host, because naming one would mean the proxy had been abandoned
- *     without anyone saying so.
+ *  2b. THE TWO ROUTES. The page loads assets/js/porch-light.js, which injects
+ *     the tracker from cloud.umami.is first and falls back to the first-party
+ *     /porch-light/script.js only when that fails. Both routes have to work, so
+ *     four files have to agree: the loader, the tag the build emits, the proxy
+ *     rules in netlify.toml/vercel.json, and the CSP. A disagreement is silent
+ *     in the worst way -- the fallback route quietly 404s, or the direct route
+ *     is quietly blocked and EVERY visitor is demoted to the proxy, where their
+ *     session id and country become Netlify's. So the pieces are compared
+ *     against each other here rather than each being checked alone.
  *
  *  3. THE EVENTS. Every event this site sends, its exact property keys, and --
  *     the point of the whole file -- that not one of them carries personal
@@ -40,11 +41,15 @@
 const fs = require("fs");
 const path = require("path");
 const {
+  ANALYTICS_LOADER_PATH,
   ANALYTICS_SCRIPT_PATH,
   ANALYTICS_HOST_URL,
   ANALYTICS_SEND_PATH,
+  UMAMI_SCRIPT_ORIGIN,
+  UMAMI_SEND_ORIGIN,
   UMAMI_SCRIPT_URL,
   UMAMI_SEND_URL,
+  FALLBACK_TAG,
   BLOCKLIST_BAIT_WORDS
 } = require("./lib/analytics-proxy");
 
@@ -346,9 +351,11 @@ assert(PDPS.length >= 19, `found ${PDPS.length} product pages to check`);
 const TRACKED = TOP_LEVEL_PAGES.filter((f) => f !== "offline.html").concat(PDPS);
 
 const REQUIRED_TAG_ATTRS = [
-  'src="' + ANALYTICS_SCRIPT_PATH + '"',
+  /* The page references OUR loader, never a tracker directly. data-host-url is
+     deliberately absent here: the loader adds it to the fallback copy only, so
+     the direct copy posts to gateway.umami.is with the visitor's real IP. */
+  'src="' + ANALYTICS_LOADER_PATH + '"',
   'data-website-id="' + websiteId + '"',
-  'data-host-url="' + ANALYTICS_HOST_URL + '"',
   'data-domains="yallternativeliving.com,www.yallternativeliving.com"',
   'data-exclude-search="true"',
   'data-exclude-hash="true"',
@@ -361,7 +368,7 @@ const REQUIRED_TAG_ATTRS = [
 
 let taggedPages = 0;
 const tagRe = new RegExp(
-  '<script[^>]*src="' + ANALYTICS_SCRIPT_PATH.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + '"[^>]*>'
+  '<script[^>]*src="' + ANALYTICS_LOADER_PATH.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + '"[^>]*>'
 );
 TRACKED.forEach((page) => {
   const src = read(page);
@@ -385,21 +392,28 @@ TRACKED.forEach((page) => {
     tag[0].indexOf("data-do-not-track") === -1,
     `${page} tracker tag does not set data-do-not-track (see privacy.html)`
   );
-  /* The whole point of the proxy: no page may LOAD anything from a Umami
-     host. Comments and the privacy page's link to umami.is/privacy are fine
-     -- what must not come back is a resource fetched from one, because that is
-     a page the blockers can still switch off. Comments are stripped first so a
-     comment explaining the proxy cannot fail the check that proves it. */
+  assert(
+    tag[0].indexOf("data-host-url") === -1,
+    `${page} tracker tag sets no data-host-url -- the direct route must post to Umami itself`
+  );
+  assert(
+    tag[0].indexOf("data-tag") === -1,
+    `${page} tracker tag sets no data-tag -- "${FALLBACK_TAG}" belongs to the fallback copy only`
+  );
+  /* No page may NAME a Umami host in its own markup. Both routes are chosen at
+     runtime by the loader, so a hardcoded tracker URL in a page is either a
+     stale hand-edit or a second copy of the tracker. Comments and the privacy
+     page's link to umami.is/privacy are fine, so comments are stripped first. */
   const markup = src.replace(/<!--[\s\S]*?-->/g, "");
   assert(
     markup.indexOf("cloud.umami.is") === -1 && markup.indexOf("gateway.umami.is") === -1,
-    `${page} loads nothing from a Umami host -- it all goes through the first-party path`
+    `${page} hardcodes no Umami host -- the loader picks the route at runtime`
   );
 });
 eq(taggedPages, TRACKED.length, "every tracked page actually has the tag");
 
 assert(
-  read("offline.html").indexOf(ANALYTICS_SCRIPT_PATH) === -1 &&
+  read("offline.html").indexOf(ANALYTICS_LOADER_PATH) === -1 &&
     read("offline.html").indexOf("umami.is") === -1,
   "offline.html loads no tracker -- it is the page you see with no network"
 );
@@ -408,16 +422,84 @@ assert(
    does not exist when main.js fires its load-time events. */
 PDPS.concat(["index.html", "shop.html"]).forEach((page) => {
   const src = read(page);
-  const tagAt = src.indexOf(ANALYTICS_SCRIPT_PATH);
+  const tagAt = src.indexOf(ANALYTICS_LOADER_PATH);
   const mainAt = src.indexOf("assets/js/main.js");
-  assert(tagAt !== -1 && mainAt !== -1, `${page} has both a tracker tag and main.js`);
+  assert(tagAt !== -1 && mainAt !== -1, `${page} has both the analytics loader and main.js`);
   assert(
     tagAt < mainAt,
-    `${page} loads the tracker BEFORE main.js, so window.umami exists when main.js fires an event`
+    `${page} runs the analytics loader BEFORE main.js, so the tracker request is already in flight`
   );
 });
 
-/* --------------------------------------------- 2b. the first-party proxy */
+/* ------------------------------- 2b. the loader, and the two routes it picks */
+
+/* The loader is the only analytics file the pages reference, so it is the one
+   place both routes are actually decided. Everything asserted about it here was
+   wrong in an earlier draft of this change and would have failed silently:
+   loading both copies would double-count every visitor, loading the fallback
+   first would throw away everyone's real IP, and forgetting the hostname gate
+   would put the Puppeteer suites back in the production dataset. */
+const loaderJs = read(ANALYTICS_LOADER_PATH.replace(/^\//, ""));
+
+assert(loaderJs.indexOf(UMAMI_SCRIPT_URL) !== -1, "the loader knows the direct tracker URL");
+assert(loaderJs.indexOf(ANALYTICS_SCRIPT_PATH) !== -1, "...and the first-party fallback path");
+/* Direct FIRST. If the fallback were injected first, every visitor would be
+   measured through the proxy and nobody's country or session id would be their
+   own -- the exact cost this arrangement exists to avoid. */
+assert(
+  loaderJs.indexOf(UMAMI_SCRIPT_URL) < loaderJs.indexOf(ANALYTICS_SCRIPT_PATH),
+  "the loader declares the DIRECT route before the fallback"
+);
+/* One copy, ever. Two would double every pageview and every event. */
+assert(
+  /var settled = false/.test(loaderJs) && /if \(settled\) return/.test(loaderJs),
+  "the loader guards against injecting both copies"
+);
+/* The fallback is reached from the direct script's error event -- not a timer.
+   A blocker cancels the request and a filtering resolver fails it; both fire
+   error and neither fires load. */
+assert(
+  /addEventListener\("error"/.test(loaderJs),
+  "the fallback is triggered by the direct script's error event"
+);
+/* data-host-url and data-tag go on the fallback copy ONLY. */
+assert(
+  loaderJs.indexOf('setAttribute("data-host-url", FALLBACK_HOST_URL)') !== -1,
+  "the loader sets data-host-url on the fallback copy"
+);
+assert(
+  loaderJs.indexOf('setAttribute("data-tag", FALLBACK_TAG)') !== -1,
+  `the loader tags fallback sessions, so the dashboard can separate them`
+);
+assert(
+  loaderJs.indexOf('var FALLBACK_TAG = "' + FALLBACK_TAG + '"') !== -1,
+  `the loader's fallback tag is "${FALLBACK_TAG}", the value docs/ANALYTICS.md tells the owner to filter on`
+);
+/* Hostname gate BEFORE either request. Umami's own data-domains check disables
+   the tracker after it has loaded; this stops localhost, 127.0.0.1 and
+   *.netlify.app requesting it at all. */
+assert(
+  loaderJs.indexOf('getAttribute("data-domains")') !== -1 &&
+    loaderJs.indexOf("domains.indexOf(host) === -1") !== -1,
+  "the loader refuses to inject anything on a hostname outside data-domains"
+);
+assert(
+  loaderJs.indexOf("domains.indexOf(host) === -1") < loaderJs.indexOf("function injectDirect"),
+  "...and it does that check before either injection function runs"
+);
+/* Every data-* attribute is copied, rather than a hand-listed subset that a
+   new attribute could silently fall out of. */
+assert(
+  /name\.indexOf\("data-"\) === 0/.test(loaderJs),
+  "the loader copies every data-* attribute onto whichever copy it injects"
+);
+/* It must never grow tracking of its own. */
+assert(
+  loaderJs.indexOf("fetch(") === -1 && loaderJs.indexOf("XMLHttpRequest") === -1,
+  "the loader sends nothing itself -- it only injects a script"
+);
+
+/* --------------------------------------------- 2c. the first-party fallback */
 
 /* The paths must not carry a word a blocker's generic path rules key on --
    moving the tracker to /analytics/script.js would be defeated by the same
@@ -483,38 +565,40 @@ assert(
 
 /* ------------------------------------------------------------------ 3. CSP */
 
-/* Inverted since the proxy landed, and the inversion is the assertion.
+/* BOTH ROUTES, in both directives. The page cannot know in advance which one
+   it will take, so a policy that allows only one does not "prefer" that one --
+   it silently disables the other.
 
-   The tracker is fetched from ANALYTICS_SCRIPT_PATH and POSTs to
-   ANALYTICS_SEND_PATH -- both on this origin, both covered by 'self'. So
-   neither Umami host belongs in the policy any more, and one appearing again
-   means somebody quietly dropped the proxy.
+   Missing https://cloud.umami.is in script-src demotes EVERY visitor to the
+   proxy, where their session id and country become Netlify's edge, and nothing
+   in the dashboard says so. Missing https://gateway.umami.is in connect-src is
+   worse and has already happened here: the direct script loads perfectly and
+   the browser refuses every pageview and every event it sends, which is how
+   this shop's dashboard read zero for weeks. Missing 'self' breaks the loader
+   and the fallback together.
 
-   The history is why this is checked at all rather than assumed: the tracker
-   builds its collection URL as (data-host-url || "https://gateway.umami.is")
-   + "/api/send", and while the site set no data-host-url and the CSP named
-   only cloud.umami.is (the SCRIPT origin), the browser refused every pageview
-   and every event and the dashboard read zero for weeks. If the proxy is ever
-   removed, BOTH hosts have to come back -- script-src for cloud.umami.is,
-   connect-src for gateway.umami.is -- and this assertion has to be inverted
-   again deliberately, not deleted. */
+   So all four are asserted, per file, and none of them is optional. */
 ["_headers", "netlify.toml", "vercel.json"].forEach((file) => {
   const src = read(file);
   const connect = /connect-src ([^;"]*)/.exec(src);
   assert(connect, `${file} declares a connect-src`);
   if (!connect) return;
   assert(
-    connect[1].indexOf("umami.is") === -1 && connect[1].indexOf("'self'") !== -1,
-    `${file} connect-src covers the tracker with 'self' and names no Umami host`
+    connect[1].indexOf(UMAMI_SEND_ORIGIN) !== -1,
+    `${file} connect-src allows ${UMAMI_SEND_ORIGIN} -- where the DIRECT route POSTs`
+  );
+  assert(
+    connect[1].indexOf("'self'") !== -1,
+    `${file} connect-src allows 'self' -- where the FALLBACK route POSTs (${ANALYTICS_SEND_PATH})`
   );
   const scriptSrc = /script-src ([^;"]*)/.exec(src);
   assert(
-    scriptSrc && scriptSrc[1].indexOf("umami.is") === -1,
-    `${file} script-src names no Umami host -- the tracker is served first-party`
+    scriptSrc && scriptSrc[1].indexOf(UMAMI_SCRIPT_ORIGIN) !== -1,
+    `${file} script-src allows ${UMAMI_SCRIPT_ORIGIN} -- the DIRECT tracker copy`
   );
   assert(
     scriptSrc && scriptSrc[1].indexOf("'self'") !== -1,
-    `${file} script-src allows 'self', which is what serves ${ANALYTICS_SCRIPT_PATH}`
+    `${file} script-src allows 'self' -- the loader and the FALLBACK tracker copy`
   );
 });
 

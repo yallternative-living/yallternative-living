@@ -448,16 +448,21 @@ function run() {
     // it's inert until a real Tawk.to property/widget ID replaces the
     // placeholder, but the origin is allowlisted now so turning it on
     // later doesn't also require touching this file.
-    // Analytics needs NO third-party origin here any more, and that is the
-    // point. The tracker tag's src and its data-host-url are both first-party
-    // paths on this domain (scripts/lib/analytics-proxy.js), rewritten to Umami
-    // Cloud by the status=200 proxy rules further down this file. The browser
-    // only ever fetches and POSTs to yallternativeliving.com, so 'self' covers
-    // the tracker in script-src and its collection endpoint in connect-src.
-    // If the proxy is ever removed, BOTH https://cloud.umami.is (script-src)
-    // and https://gateway.umami.is (connect-src) have to come back -- allowing
-    // only the first is the bug that made this site's dashboard read zero for
-    // weeks, because the script loads from one host and posts to the other.
+    // Analytics has TWO routes and the policy has to allow both, because the
+    // page does not know in advance which one it will take. Every page loads
+    // assets/js/porch-light.js ('self'), which injects the tracker from
+    // https://cloud.umami.is first and falls back to the first-party
+    // /porch-light/script.js ('self') only when that fails -- see
+    // scripts/lib/analytics-proxy.js.
+    //
+    // BOTH HOSTS ARE REQUIRED, AND THEY ARE REQUIRED IN DIFFERENT DIRECTIVES.
+    // https://cloud.umami.is is where the script is DOWNLOADED from (script-src).
+    // https://gateway.umami.is is where the direct copy POSTS (connect-src).
+    // Allowing only the first is precisely the bug that made this shop's
+    // dashboard read zero for weeks: the tracker loaded perfectly and the
+    // browser refused every pageview and every event. Removing either one now
+    // does not disable analytics -- it silently demotes every visitor to the
+    // proxied route, where their session id and country become Netlify's.
     // 'inline-speculation-rules': allows the inline speculation-rules block
     // that main.js injects for instant navigations (prerender/prefetch on
     // hover). This keyword ONLY permits speculation-rules scripts -- it does
@@ -474,7 +479,9 @@ function run() {
     // loaded by the deferred inline snippet on first pointerdown/scroll and
     // the two Tawk IDs in content.json are real, so this fires for any visitor
     // who touches the page.
-    "script-src 'self' https://embed.tawk.to https://cdn.jsdelivr.net/emojione/ 'inline-speculation-rules' " +
+    "script-src 'self' " +
+      analyticsProxy.UMAMI_SCRIPT_ORIGIN +
+      " https://embed.tawk.to https://cdn.jsdelivr.net/emojione/ 'inline-speculation-rules' " +
       hashes.join(" "),
     // Fonts are self-hosted from /assets/fonts/ (styles.css @font-face), so
     // neither fonts.googleapis.com nor fonts.gstatic.com is needed any more.
@@ -498,23 +505,23 @@ function run() {
        the required origins from content.json instead of pinning this list, so
        pasting an app.convertkit.com form URL into the CMS fails the build
        here rather than silently breaking signups in the browser. */
-    /* No Umami host here on purpose -- see the script-src note above. The
-       tracker POSTs to the first-party ANALYTICS_SEND_PATH, which 'self'
-       covers, and the proxy rule below is what forwards it to
-       https://gateway.umami.is/api/send server-side.
-
-       That collection host is worth knowing about even though the browser
-       never sees it. cloud.umami.is/script.js builds its URL as
+    /* gateway.umami.is is where the DIRECT copy of the tracker posts, and it
+       is NOT the host the script came from. cloud.umami.is/script.js builds its
+       collection URL as
          (data-host-url || "https://gateway.umami.is") + "/api/send"
-       and Umami has moved that default repeatedly with no changelog and no
+       so the direct route (no data-host-url) needs this entry and the fallback
+       route (data-host-url = a first-party path) needs 'self'. Both are here.
+
+       Umami has moved this collection host repeatedly with no changelog and no
        migration notice -- analytics.umami.is, then api-gateway-eu.umami.dev,
        then api-gateway.umami.dev, now gateway.umami.is (umami-software/umami
-       discussion #2719, still undocumented). Pinning data-host-url to our own
-       path is what makes that churn a one-line change in
-       scripts/lib/analytics-proxy.js instead of a silent outage: if the
-       dashboard goes quiet, the proxy TARGET is now the first thing to check,
-       not the CSP. */
-    "connect-src 'self' https://*.tawk.to wss://*.tawk.to https://formspree.io https://app.kit.com",
+       discussion #2719, still undocumented). If it moves again, the direct
+       route breaks in the browser with a visible CSP violation AND the proxy
+       rule below breaks server-side with none -- so check this directive and
+       UMAMI_SEND_URL in scripts/lib/analytics-proxy.js together. */
+    "connect-src 'self' " +
+      analyticsProxy.UMAMI_SEND_ORIGIN +
+      " https://*.tawk.to wss://*.tawk.to https://formspree.io https://app.kit.com",
     "frame-src https://*.tawk.to",
     "frame-ancestors 'none'",
     "base-uri 'self'",
@@ -991,9 +998,10 @@ function run() {
   console.log(
     "CSP covers " +
       hashes.length +
-      " inline script hash(es). Analytics needs no third-party origin: it is proxied through " +
+      " inline script hash(es). Analytics allows both routes: cloud.umami.is/gateway.umami.is " +
+      "direct, falling back to " +
       analyticsProxy.ANALYTICS_PROXY_PREFIX +
-      "/ on this domain."
+      "/ on this domain when a blocker stops the first."
   );
   console.log(
     "IMPORTANT -- this could not be verified against a live checkout in a real browser during"

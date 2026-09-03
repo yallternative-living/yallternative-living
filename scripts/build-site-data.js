@@ -75,7 +75,7 @@ const crypto = require("crypto");
    two would load a tracker that posts into a 404, so they come from one file.
    scripts/analytics.test.js asserts the emitted tag and the emitted rules
    still agree. */
-const { ANALYTICS_SCRIPT_PATH, ANALYTICS_HOST_URL } = require("./lib/analytics-proxy");
+const { ANALYTICS_LOADER_PATH } = require("./lib/analytics-proxy");
 const ROOT = path.join(__dirname, "..");
 
 /* Read + parse one of the canonical assets/data/*.json source files.
@@ -1296,15 +1296,19 @@ function umamiDomains() {
 }
 
 /* Tracker attributes, and why each one is there:
-   - src / data-host-url: BOTH are first-party paths on this origin, proxied to
-     Umami Cloud by the status=200 rewrites in netlify.toml and vercel.json
-     (scripts/build-security-headers.js). The paths themselves are defined once
-     in scripts/lib/analytics-proxy.js -- read that file for why they are named
-     the way they are. The browser never talks to cloud.umami.is or
-     gateway.umami.is, which is what makes the tracker survive a list-based
-     blocker AND is why the CSP no longer needs either host: 'self' covers both.
-     data-host-url is RELATIVE so www. and the apex both send to their own
-     origin instead of one of them going cross-origin into connect-src 'self'.
+   - src: this tag does NOT load the tracker. It loads our own
+     assets/js/porch-light.js, which injects exactly one of two copies: the
+     direct cloud.umami.is one first, and the first-party /porch-light/ one
+     only if that fails to load. Read that file, and docs/ANALYTICS.md §7, for
+     why -- the short version is that proxying everybody would cost everybody
+     their real session id and country to recover the blocked minority, so the
+     proxy is the fallback rather than the default.
+
+     Every data-* attribute below is copied verbatim onto whichever copy the
+     loader injects, so this list stays the single description of the tracker's
+     configuration. The loader adds two of its own to the fallback copy only:
+     data-host-url (the first-party send path) and data-tag="fallback", which
+     is what lets the dashboard tell proxied sessions apart from real ones.
    - data-domains: see umamiDomains() above.
    - data-performance: Core Web Vitals (LCP, INP, CLS, FCP, TTFB) measured on
      real visitors' devices instead of guessed at from a lab run. One extra
@@ -1344,11 +1348,9 @@ function umamiDomains() {
 function umamiScriptHtml(site) {
   return umamiIsConfigured(site)
     ? '<script defer src="' +
-        escapeHtml(ANALYTICS_SCRIPT_PATH) +
+        escapeHtml(ANALYTICS_LOADER_PATH) +
         '" data-website-id="' +
         escapeHtml(String(site.umamiWebsiteId).trim()) +
-        '" data-host-url="' +
-        escapeHtml(ANALYTICS_HOST_URL) +
         '" data-domains="' +
         escapeHtml(umamiDomains()) +
         '" data-exclude-search="true" data-exclude-hash="true"' +
