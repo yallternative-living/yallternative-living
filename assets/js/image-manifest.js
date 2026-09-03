@@ -1513,7 +1513,7 @@ window.YL_IMAGES = {
     key: "assets/img/apple-touch-icon.png",
     width: 180,
     height: 180,
-    size: 36967,
+    size: 10774,
     variants: {
       avif: [
         {
@@ -1741,6 +1741,78 @@ window.YL_IMAGES = {
         {
           width: 192,
           file: "assets/img/logo-192.webp"
+        }
+      ]
+    }
+  },
+  "assets/img/placeholder-coming-soon-1200.png": {
+    key: "assets/img/placeholder-coming-soon-1200.png",
+    width: 1200,
+    height: 1200,
+    size: 28948,
+    variants: {
+      avif: [
+        {
+          width: 480,
+          file: "assets/img/placeholder-coming-soon-1200-480.avif"
+        },
+        {
+          width: 800,
+          file: "assets/img/placeholder-coming-soon-1200-800.avif"
+        },
+        {
+          width: 1200,
+          file: "assets/img/placeholder-coming-soon-1200.avif"
+        }
+      ],
+      webp: [
+        {
+          width: 480,
+          file: "assets/img/placeholder-coming-soon-1200-480.webp"
+        },
+        {
+          width: 800,
+          file: "assets/img/placeholder-coming-soon-1200-800.webp"
+        },
+        {
+          width: 1200,
+          file: "assets/img/placeholder-coming-soon-1200.webp"
+        }
+      ]
+    }
+  },
+  "assets/img/placeholder-coming-soon-og.jpg": {
+    key: "assets/img/placeholder-coming-soon-og.jpg",
+    width: 1200,
+    height: 630,
+    size: 18826,
+    variants: {
+      avif: [
+        {
+          width: 480,
+          file: "assets/img/placeholder-coming-soon-og-480.avif"
+        },
+        {
+          width: 800,
+          file: "assets/img/placeholder-coming-soon-og-800.avif"
+        },
+        {
+          width: 1200,
+          file: "assets/img/placeholder-coming-soon-og.avif"
+        }
+      ],
+      webp: [
+        {
+          width: 480,
+          file: "assets/img/placeholder-coming-soon-og-480.webp"
+        },
+        {
+          width: 800,
+          file: "assets/img/placeholder-coming-soon-og-800.webp"
+        },
+        {
+          width: 1200,
+          file: "assets/img/placeholder-coming-soon-og.webp"
         }
       ]
     }
