@@ -1190,7 +1190,7 @@ singletons:
                   name: text,
                   label: "Banner wording",
                   widget: string,
-                  default: "🌙 Free local pick-up at Landrum Farmers Market every Saturday · Free shipping over $45"
+                  default: "🌙 Free local pick-up at Landrum Farmers Market every Saturday · Free shipping on orders of $40 or more"
                 }
               - { name: link, label: "Banner link", widget: string, required: false }
               - name: accent
