@@ -117,6 +117,15 @@ function loadServiceWorker(options) {
         put(request, response) {
           cachePuts.push({ url: String(request.url || request), response });
           return Promise.resolve();
+        },
+        /* Real Cache instances have their own match(), separate from the
+           top-level caches.match() below -- sw.js's activate handler opens
+           the cache and calls match() on it directly to check whether
+           /offline.html survived install, without needing to know this
+           worker's own CACHE_NAME is also the one caches.match() searches. */
+        match(request) {
+          const key = String(request.url || request);
+          return Promise.resolve(cacheStore[key] || undefined);
         }
       });
     },
@@ -144,11 +153,20 @@ function loadServiceWorker(options) {
       this.method = (init && init.method) || "GET";
       this.headers = { get: () => null };
     },
-    Response: {
-      error() {
-        return { __networkError: true };
+    /* A real constructor, not just the static .error() this harness used to
+       stub alone: sw.js's synthesized offline fallback calls `new
+       Response(html, { status, headers })` directly. */
+    Response: (function () {
+      function ResponseCtor(body, init) {
+        this.__body = body;
+        this.status = (init && init.status) || 200;
+        this.headers = (init && init.headers) || {};
       }
-    },
+      ResponseCtor.error = function () {
+        return { __networkError: true };
+      };
+      return ResponseCtor;
+    })(),
     caches,
     fetch(request, init) {
       fetchCalls.push({ url: String(request.url || request), init: init || null });
@@ -423,6 +441,59 @@ it("offline falls back to the cached copy rather than erroring", async () => {
   });
 });
 
+/* rendered audit M-? (2026-09-03): a host answering /offline.html with a
+   non-2xx at install left it out of the precache. The old fallback chain
+   then tried caches.match('/index.html') -- but index.html's asset links
+   are root-RELATIVE, so serving it under any other path (a product page, a
+   typo) resolved them against the wrong directory and rendered raw,
+   unstyled markup. A synthesized, fully self-contained page replaces that
+   index.html leg entirely. */
+it("an offline navigation with /offline.html missing gets the synthesized fallback, not index.html", async () => {
+  const sw = loadServiceWorker({
+    networkFails: true,
+    // Neither the requested page nor /offline.html is cached; index.html
+    // IS, so this also proves it is no longer consulted.
+    cacheStore: { "/index.html": { __body: "raw index.html markup", status: 200 } }
+  });
+  const ev = makeFetchEvent(sw, ORIGIN + "/products/never-visited.html", {
+    mode: "navigate"
+  });
+  sw.listeners.fetch(ev.event);
+  return Promise.all(ev.responses).then(([res]) => {
+    assert.ok(
+      !res.__networkError,
+      "fell through to Response.error() instead of the synthesized page"
+    );
+    assert.notStrictEqual(
+      res.__body,
+      "raw index.html markup",
+      "served cached index.html under the wrong path -- exactly the unstyled-page bug"
+    );
+    assert.ok(/You're offline/.test(res.__body), "synthesized fallback does not say it's offline");
+    assert.ok(/href="\/"/.test(res.__body), "synthesized fallback has no link home");
+    assert.strictEqual(res.status, 200);
+    assert.ok(
+      !/href="assets\//.test(res.__body) && !/src="assets\//.test(res.__body),
+      "synthesized fallback must not reference any root-relative asset -- the whole point is a page nothing else can break"
+    );
+  });
+});
+
+it("an offline navigation still prefers the cached /offline.html page over the synthesized one", async () => {
+  const offlinePage = { __body: "the real offline.html", status: 200 };
+  const sw = loadServiceWorker({
+    networkFails: true,
+    cacheStore: { "/offline.html": offlinePage }
+  });
+  const ev = makeFetchEvent(sw, ORIGIN + "/products/never-visited.html", {
+    mode: "navigate"
+  });
+  sw.listeners.fetch(ev.event);
+  return Promise.all(ev.responses).then(([res]) => {
+    assert.strictEqual(res.__body, "the real offline.html");
+  });
+});
+
 /* ---------- 4. The stale-while-revalidate branch is left alone ---------- */
 it("images keep the plain stale-while-revalidate fetch (no cache override)", async () => {
   const sw = loadServiceWorker();
@@ -455,6 +526,48 @@ it("activate enables navigation preload, purges stale caches and claims clients"
     assert.ok(sw.preloadEnabled, "navigationPreload.enable() was not called");
     assert.deepStrictEqual(sw.deletedCaches.sort(), ["other", "yallternative-cache-vOLD"]);
     assert.ok(sw.claimed, "clients.claim() was not called");
+  });
+});
+
+/* /offline.html is the one asset this worker exists to have ready. install's
+   per-asset add() already survives it failing (see the tests above); this
+   retries it on every activate too, so a precache that came up without it
+   self-heals the next time the worker updates rather than staying broken
+   until the site's next deploy bumps CACHE_NAME. */
+it("activate retries precaching /offline.html when it is missing from the cache", async () => {
+  const sw = loadServiceWorker({ cacheStore: {} });
+  const ev = makeFetchEvent(sw, ORIGIN + "/");
+  sw.listeners.activate(ev.event);
+  return Promise.all(ev.waits).then(() => {
+    assert.ok(
+      sw.addedUrls.indexOf("/offline.html") !== -1,
+      "activate did not retry adding the missing /offline.html to the cache"
+    );
+  });
+});
+
+it("activate does not re-add /offline.html when it is already cached", async () => {
+  const sw = loadServiceWorker({
+    cacheStore: { "/offline.html": { __body: "already cached", status: 200 } }
+  });
+  const ev = makeFetchEvent(sw, ORIGIN + "/");
+  sw.listeners.activate(ev.event);
+  return Promise.all(ev.waits).then(() => {
+    assert.strictEqual(
+      sw.addedUrls.indexOf("/offline.html"),
+      -1,
+      "activate re-fetched /offline.html even though it was already cached"
+    );
+  });
+});
+
+it("activate survives the /offline.html retry itself failing", async () => {
+  const sw = loadServiceWorker({ cacheStore: {}, failToAdd: "/offline.html" });
+  const ev = makeFetchEvent(sw, ORIGIN + "/");
+  sw.listeners.activate(ev.event);
+  return Promise.all(ev.waits).then(() => {
+    assert.deepStrictEqual(sw.failedAdds, ["/offline.html"]);
+    assert.ok(sw.claimed, "a failed retry must not stop clients.claim() from running");
   });
 });
 

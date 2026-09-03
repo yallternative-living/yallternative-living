@@ -98,6 +98,43 @@ const ASSETS_TO_CACHE = [
 ];
 
 /**
+ * The absolute-last-resort offline page: served only when /offline.html
+ * ITSELF is missing from the cache (a failed precache add at install that
+ * the 'activate' retry below has not yet run or has also failed). The old
+ * fallback for this case was caches.match('/index.html'), but index.html's
+ * asset links are root-RELATIVE ("assets/css/styles.css", no leading
+ * slash) -- fine at "/", broken under any other path (a product page, a
+ * typo), where the browser resolves them against the wrong directory and
+ * the page renders raw and unstyled. This string is the entire response:
+ * no stylesheet, script or image request it could ever fail to resolve, so
+ * no request path can break it. Kept in sync with offline.html's tone, not
+ * its markup -- this is the fallback for when THAT page is unavailable.
+ *
+ * @const {string}
+ */
+const OFFLINE_FALLBACK_HTML =
+  '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">' +
+  '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
+  '<meta name="robots" content="noindex, nofollow">' +
+  "<title>You're offline | Y'allternative Living</title>" +
+  "<style>" +
+  "body{margin:0;min-height:100vh;display:flex;flex-direction:column;" +
+  "align-items:center;justify-content:center;padding:48px 20px;" +
+  "background:#17130f;color:#f3ead9;" +
+  "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;" +
+  "text-align:center;box-sizing:border-box}" +
+  "@media (prefers-color-scheme:light){body{background:#faf5ea;color:#1b1712}}" +
+  "h1{font-size:1.5rem;margin:0 0 12px}" +
+  "p{max-width:40ch;margin:0 0 24px;line-height:1.5}" +
+  "a{color:inherit;font-weight:700;text-decoration:underline}" +
+  "</style></head><body>" +
+  "<h1>You're offline right now</h1>" +
+  "<p>This page isn't saved on your device yet, so we can't show it without " +
+  "a connection. Everything comes back the moment you're online.</p>" +
+  '<p><a href="/">Go home</a></p>' +
+  "</body></html>";
+
+/**
  * Event listener for service worker 'install' phase.
  * Opens the cache and adds all required static assets to it.
  *
@@ -156,6 +193,23 @@ self.addEventListener('activate', event => {
           }
         })
       );
+      // Self-heal a precache that came up without /offline.html -- the one
+      // asset this worker exists to have ready, and the one whose absence
+      // the fetch handler above has to synthesize a page around. install's
+      // per-asset add() already logs a failure here; this gives it another
+      // chance every time the worker activates, rather than only at the one
+      // moment the original install ran.
+      try {
+        const cache = await caches.open(CACHE_NAME);
+        const hasOfflinePage = await cache.match('/offline.html');
+        if (!hasOfflinePage) {
+          await cache.add('/offline.html').catch(err => {
+            console.warn('Service worker could not precache /offline.html on retry:', err);
+          });
+        }
+      } catch (err) {
+        /* not fatal -- the fetch handler's synthesized fallback still covers this */
+      }
       await self.clients.claim();
     })()
   );
@@ -254,7 +308,15 @@ self.addEventListener('fetch', event => {
             // uses root-absolute paths and says what is going on.
             if (cached) return cached;
             if (!isNavigation) return Response.error();
-            return (await caches.match('/offline.html')) || (await caches.match('/index.html')) || Response.error();
+            const offlinePage = await caches.match('/offline.html');
+            if (offlinePage) return offlinePage;
+            // /offline.html itself is missing from the cache -- see
+            // OFFLINE_FALLBACK_HTML above for why this no longer falls
+            // through to index.html.
+            return new Response(OFFLINE_FALLBACK_HTML, {
+              status: 200,
+              headers: { 'Content-Type': 'text/html; charset=utf-8' }
+            });
           }
         })()
       );
