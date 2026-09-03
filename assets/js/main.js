@@ -6885,6 +6885,51 @@
      inline by cart.js's own checkout() -- see its catch block. */
 
   /* ---------- Announcement bar: CMS announcement & free shipping ---------- */
+  /* The ≤1100px CSS rule (see .announcement-bar in styles.css) hides the
+     folded-in free-shipping segment based on the COUNTDOWN STRING's measured
+     width alone. But the event name and location in that string are CMS
+     data -- Savanna can type "Spartanburg Punk Flea Market (Spartanburg,
+     SC)" as easily as "Faire" -- so a name/location long enough wraps the
+     bar to two lines anywhere from 1101px up to however wide that string
+     runs (measured well past 1300px for a long one). No fixed breakpoint can
+     guess every future event name, so this measures the ACTUAL rendered bar
+     instead: after every countdown update() (and on resize, debounced) it
+     compares the bar's full height against `.announcement-content`'s own
+     (the badge+timer alone, which does not change when its siblings wrap),
+     and adds `is-crowded` -- which hides the same two elements the ≤1100px
+     rule does -- the moment the segment would push the bar past one line,
+     at ANY width. The ≤1100px rule stays as the floor for browsers without
+     JS or before this first runs. */
+  function updateAnnouncementCrowding() {
+    var bar = document.getElementById("yl-countdown-ticker");
+    if (!bar) return;
+    var segEl = bar.querySelector(".announcement-segment");
+    if (!segEl) return; // nothing folded in on this page -- nothing to crowd
+    var contentEl = bar.querySelector(".announcement-content");
+    if (!contentEl) return;
+    // Measure from a clean, uncrowded state each time: the event name may
+    // have gotten SHORTER since the last check (a countdown reaching single
+    // digits, or a soft-nav to a different upcoming event).
+    bar.classList.remove("is-crowded");
+    var oneLineHeight = contentEl.offsetHeight;
+    // A few px of slack for sub-pixel rounding between the two measurements,
+    // not a magic line-height guess.
+    if (oneLineHeight > 0 && bar.scrollHeight > oneLineHeight + 4) {
+      bar.classList.add("is-crowded");
+    }
+  }
+  (function () {
+    var resizeTimer = null;
+    window.addEventListener(
+      "resize",
+      function () {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(updateAnnouncementCrowding, 150);
+      },
+      { passive: true }
+    );
+  })();
+
   function announcementBar() {
     var siteCfg = (window.YL_CONTENT && window.YL_CONTENT.site) || {};
     var announcement = siteCfg.announcement;
@@ -6938,6 +6983,7 @@
       if (typeof seg.insertBefore === "function") seg.insertBefore(sep, seg.firstChild);
       else existing.appendChild(sep);
       existing.appendChild(seg);
+      updateAnnouncementCrowding();
       return;
     }
 
@@ -7667,6 +7713,7 @@
         bannerContainer.innerHTML =
           '<p class="muted center">Check back soon for upcoming market appearances!</p>';
       }
+      updateAnnouncementCrowding();
       return;
     }
 
@@ -7726,6 +7773,7 @@
             "</h3>" +
             '<p style="margin: 0;">Pop-up in progress today!</p></div>';
         }
+        updateAnnouncementCrowding();
         return;
       }
 
@@ -7794,6 +7842,7 @@
           "</p>" +
           "</div>";
       }
+      updateAnnouncementCrowding();
     }
 
     update();

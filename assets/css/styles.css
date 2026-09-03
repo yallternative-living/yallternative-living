@@ -3835,6 +3835,22 @@ hr.rule {
     }
   }
 
+  /* The 1100px floor above is measured against the countdown string alone,
+     but the event name and location folded into that string are CMS data --
+     Savanna can type a name long enough to wrap the bar to two lines well
+     above 1100px (rendered audit M3: "Spartanburg Punk Flea Market
+     (Spartanburg, SC)" wrapped it from 1101px up to 1327px). assets/js/main.js
+     measures the actual rendered bar after every countdown update (and on
+     resize, debounced) and adds this class -- same effect as the @media rule
+     above, just triggered by measurement instead of a fixed width, so a long
+     name never grows the bar past one line at ANY width. */
+  &.is-crowded {
+    & .announcement-sep,
+    & .announcement-segment {
+      display: none;
+    }
+  }
+
   /* The bar's link was a 676x14px strip -- a full-width tap target 14px tall
      on a phone, sitting between the skip link and the brand link in the tab
      order (audit C, finding L10). axe exempts it as inline text, so this is

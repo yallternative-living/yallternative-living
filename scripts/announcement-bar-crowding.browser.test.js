@@ -1,0 +1,192 @@
+/* eslint-env node, browser */
+/**
+ * @fileoverview Browser suite for the folded-in announcement bar (rendered
+ * audit M3): the free-shipping segment main.js appends to #yl-countdown-ticker
+ * hides itself below 1100px via a measured CSS floor (see .announcement-bar
+ * in styles.css), but the countdown string it shares the bar with carries a
+ * CMS-authored event name and location. "Spartanburg Punk Flea Market
+ * (Spartanburg, SC)" wrapped the bar to two lines from 1101px up to 1327px --
+ * no fixed breakpoint can guess every future event name, so main.js instead
+ * measures the actual rendered bar (after every countdown update, and on
+ * resize, debounced) and adds an `is-crowded` class that hides the same two
+ * elements the ≤1100px rule does.
+ *
+ * This drives the real page (index.html, which ships the countdown ticker
+ * statically) at four widths from just past the old 1100px floor up past
+ * where a long name used to wrap, injects long event names, and asserts the
+ * bar never grows past one line.
+ *
+ * Run: node scripts/announcement-bar-crowding.browser.test.js
+ */
+
+const http = require("http");
+const fs = require("fs");
+const path = require("path");
+const puppeteer = require("puppeteer");
+
+const ROOT = path.resolve(__dirname, "..");
+
+const MIME = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".avif": "image/avif",
+  ".webp": "image/webp",
+  ".svg": "image/svg+xml",
+  ".ico": "image/x-icon",
+  ".woff2": "font/woff2",
+  ".webmanifest": "application/manifest+json",
+  ".xml": "application/xml"
+};
+
+function createServer() {
+  const server = http.createServer((req, res) => {
+    let reqPath = decodeURIComponent(req.url.split("?")[0].split("#")[0]);
+    if (reqPath === "/") reqPath = "/index.html";
+    let filePath = path.join(ROOT, reqPath);
+    if (
+      !filePath.startsWith(ROOT) ||
+      !fs.existsSync(filePath) ||
+      fs.statSync(filePath).isDirectory()
+    ) {
+      filePath = path.join(ROOT, "404.html");
+    }
+    fs.readFile(filePath, (err, data) => {
+      if (err) {
+        res.writeHead(500);
+        res.end("Server error");
+        return;
+      }
+      res.writeHead(200, {
+        "Content-Type": MIME[path.extname(filePath).toLowerCase()] || "application/octet-stream"
+      });
+      res.end(data);
+    });
+  });
+  return new Promise((resolve) => server.listen(0, "127.0.0.1", () => resolve(server)));
+}
+
+let passed = 0;
+let failed = 0;
+const errors = [];
+
+function check(desc, ok, extra = "") {
+  if (ok) {
+    passed++;
+    console.log(`  ✓ ${desc}`);
+  } else {
+    failed++;
+    const msg = `  ✗ ${desc}${extra ? " -- " + extra : ""}`;
+    console.error(msg);
+    errors.push(msg);
+  }
+}
+
+/* Real event names measured by the audit: the short one events.json ships,
+   and the long one that wrapped the bar from 1101px to 1327px. */
+const LONG_NAME = "Spartanburg Punk Flea Market";
+const LONG_LOCATION = "Spartanburg, SC";
+const WIDTHS = [1101, 1200, 1327, 1440];
+
+async function run() {
+  const server = await createServer();
+  const base = `http://127.0.0.1:${server.address().port}`;
+  let browser;
+
+  try {
+    browser = await puppeteer.launch({
+      headless: "new",
+      args: ["--no-sandbox", "--disable-setuid-sandbox"]
+    });
+    const page = await browser.newPage();
+
+    for (const width of WIDTHS) {
+      await page.setViewport({ width, height: 900, deviceScaleFactor: 1 });
+      await page.goto(base + "/index.html", { waitUntil: "networkidle2", timeout: 45000 });
+
+      const before = await page.evaluate(() => {
+        const bar = document.getElementById("yl-countdown-ticker");
+        if (!bar) return null;
+        return {
+          hasSegment: !!bar.querySelector(".announcement-segment"),
+          height: bar.getBoundingClientRect().height
+        };
+      });
+      if (!before) {
+        check(`@${width}px: #yl-countdown-ticker exists`, false, "element missing from index.html");
+        continue;
+      }
+      if (!before.hasSegment) {
+        // The free-shipping segment did not fold in on this run (e.g. no
+        // threshold configured) -- nothing for the crowding logic to guard,
+        // so there is nothing to assert at this width.
+        check(`@${width}px: skipped, no .announcement-segment folded in`, true);
+        continue;
+      }
+
+      // Inject the long name/location a real CMS event could carry, the same
+      // way initCountdownTicker()'s update() would (textContent, not
+      // innerHTML), then force the same debounced resize path production
+      // relies on -- rather than reaching into main.js's closure directly.
+      await page.evaluate(
+        (name, location) => {
+          const nameEl = document.getElementById("heroEventDetails");
+          if (nameEl) nameEl.textContent = name + " (" + location + ")";
+          window.dispatchEvent(new Event("resize"));
+        },
+        LONG_NAME,
+        LONG_LOCATION
+      );
+      // Debounce is 150ms; give it margin.
+      await new Promise((resolve) => setTimeout(resolve, 400));
+
+      const after = await page.evaluate(() => {
+        const bar = document.getElementById("yl-countdown-ticker");
+        const seg = bar.querySelector(".announcement-segment");
+        return {
+          isCrowded: bar.classList.contains("is-crowded"),
+          height: bar.getBoundingClientRect().height,
+          segmentVisible:
+            !!seg &&
+            seg.getBoundingClientRect().width > 0 &&
+            getComputedStyle(seg).display !== "none"
+        };
+      });
+
+      // One line at 0.75rem/1.2 line-height plus the bar's own padding is
+      // ~38px (see .announcement-bar min-height in styles.css); two lines
+      // roughly doubles that. 60px is comfortably below "two lines" and
+      // comfortably above rounding/sub-pixel noise on one.
+      check(
+        `@${width}px: bar stays one line with the long event name ("${LONG_NAME}")`,
+        after.height < 60,
+        `height=${after.height}px, is-crowded=${after.isCrowded}, segmentVisible=${after.segmentVisible}`
+      );
+      if (after.height >= 60) {
+        check(`@${width}px: is-crowded was added`, after.isCrowded);
+        check(`@${width}px: the free-shipping segment is hidden`, !after.segmentVisible);
+      }
+    }
+  } finally {
+    if (browser) await browser.close();
+    await new Promise((resolve) => server.close(resolve));
+  }
+
+  console.log("\n================================================================");
+  console.log(`announcement-bar-crowding.browser.test.js: ${passed} passed, ${failed} failed`);
+  console.log("================================================================");
+  if (failed > 0) {
+    console.error("\nFAILURES:");
+    errors.forEach((e) => console.error(e));
+    process.exit(1);
+  }
+}
+
+run().catch((err) => {
+  console.error("FATAL ERROR IN announcement-bar-crowding.browser.test.js:", err);
+  process.exit(1);
+});
