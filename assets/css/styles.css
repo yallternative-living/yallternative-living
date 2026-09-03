@@ -4330,24 +4330,16 @@ dialog.gift-modal[open]::backdrop {
   background: radial-gradient(circle, rgba(214, 155, 92, 0.1) 0%, transparent 70%);
   pointer-events: none;
 }
+/* Only the amount chip lives here now, pinned to the top-right corner where
+   a card's value is printed; the boxed "DIGITAL GIFT CARD" label that used
+   to share the row overlapped the artwork's wordmark and repeated the
+   section heading. */
 .card-brand-top {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   width: 100%;
   z-index: 2;
-}
-.gift-card-preview .card-badge {
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: #d69b5c;
-  background: rgba(18, 14, 11, 0.88);
-  border: 1px solid rgba(214, 155, 92, 0.45);
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-weight: 700;
-  backdrop-filter: blur(4px);
 }
 .card-amount-large {
   font-size: 1.35rem;

@@ -7678,10 +7678,16 @@
     /* .countdown-card has no rule in styles.css -- the card is drawn entirely
        by these inline styles. The "in progress today" branch below used to
        emit the bare class with nothing on it, so from 9am on a market day the
-       banner dropped its panel, border and centering and rendered as raw
-       text. Shared here so both states of the same card stay identical. */
+       banner dropped its panel, border and rendered as raw text. Shared here
+       so both states of the same card stay identical.
+
+       Left-aligned, not centred: the card sits directly under the
+       left-aligned "Upcoming Pop-Ups" heading and above left-aligned event
+       cards, and every page title and section heading on the site shares
+       that left edge. A centred block there put two alignment axes on one
+       screen (2026-09-03). */
     var countdownCardStyle =
-      "background: var(--ink-3); color: var(--paper); border: 1px solid var(--hide); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.5rem; text-align: center;";
+      "background: var(--ink-3); color: var(--paper); border: 1px solid var(--hide); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.5rem; text-align: left;";
 
     function update() {
       var rem = targetTime - Date.now();

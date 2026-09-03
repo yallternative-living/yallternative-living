@@ -1201,12 +1201,14 @@
     <div class="gift-card-widget">
       <!-- Visual Preview Card -->
       <div class="gift-card-preview" id="giftCardPreview">
+        <!-- Amount only. A boxed "DIGITAL GIFT CARD" label used to sit
+             beside it, over the artwork's wordmark -- redundant under the
+             section heading and overlapping the logo (2026-09-03). -->
         <div class="card-brand-top">
-          <span class="card-badge">DIGITAL GIFT CARD</span>
           <div class="card-amount-large" id="giftCardAmountDisplay" aria-live="polite">$25</div>
         </div>
       </div>
-      <p class="muted gift-terms-note" style="font-size: 0.8rem; margin: 10px 0 0;">Emailed within minutes. Never expires, no fees. Redeemable for merchandise on this site; not redeemable for cash except where the law requires (California residents can cash out balances under $15). <a href="/terms.html#gift-cards">Gift card terms</a>.</p>
+      <p class="muted gift-terms-note" style="font-size: 0.8rem; margin: 10px 0 0;">Emailed within minutes. Never expires, no fees. Redeemable for merchandise on this site; not redeemable for cash except where state law requires. <a href="/terms.html#gift-cards">Gift card terms</a>.</p>
 
       <!-- Form controls -->
       <div class="gift-card-controls">
@@ -1225,8 +1227,11 @@
             <div class="custom-amount-input-wrap">
               <span class="currency-prefix">$</span>
               <input type="number" id="customGiftAmount" name="customGiftAmount" aria-label="Custom Gift Card Amount" min="10" max="500" value="25" step="1" aria-describedby="customGiftAmountNote">
-              <p class="muted" id="customGiftAmountNote" style="font-size: 0.8rem; margin: 6px 0 0;">Any whole-dollar amount from $10 to $500.</p>
             </div>
+            <!-- Outside the 180px input row on purpose: inside it, the note was
+                 a flex item squeezed beside the field and broke into four lines
+                 ("Any whole- / dollar amount / from $10 to / $500."). -->
+            <p class="muted" id="customGiftAmountNote" style="font-size: 0.8rem; margin: 6px 0 0;">Any whole-dollar amount from $10 to $500.</p>
           </div>
           <p class="muted" style="font-size: 0.8rem; margin: 8px 0 0;">A stored-value code, not a single-use voucher: spend it over one or more orders and whatever is left stays on the code. Never expires, no fees. Check a balance any time on the tab above.</p>
         </div>
