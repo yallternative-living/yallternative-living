@@ -1224,16 +1224,19 @@
           
           <div class="custom-input-wrap" id="customAmountGroup" style="display: none;">
             <label for="customGiftAmount">Custom Amount ($10 - $500)</label>
-            <div class="custom-amount-input-wrap">
-              <span class="currency-prefix">$</span>
-              <input type="number" id="customGiftAmount" name="customGiftAmount" aria-label="Custom Gift Card Amount" min="10" max="500" value="25" step="1" aria-describedby="customGiftAmountNote">
-            </div>
-            <!-- Outside the 180px input row on purpose: inside it, the note was
-                 a flex item squeezed beside the field and broke into four lines
+            <!-- Input and note share a row that wraps: beside the field on
+                 desktop, under it on a phone. The note used to live INSIDE the
+                 180px input wrap, squeezed beside the field into four lines
                  ("Any whole- / dollar amount / from $10 to / $500."). -->
-            <p class="muted" id="customGiftAmountNote" style="font-size: 0.8rem; margin: 6px 0 0;">Any whole-dollar amount from $10 to $500.</p>
+            <div class="custom-amount-row">
+              <div class="custom-amount-input-wrap">
+                <span class="currency-prefix">$</span>
+                <input type="number" id="customGiftAmount" name="customGiftAmount" aria-label="Custom Gift Card Amount" min="10" max="500" value="25" step="1" aria-describedby="customGiftAmountNote">
+              </div>
+              <p class="muted" id="customGiftAmountNote">Any whole-dollar amount from $10 to $500.</p>
+            </div>
           </div>
-          <p class="muted" style="font-size: 0.8rem; margin: 8px 0 0;">A stored-value code, not a single-use voucher: spend it over one or more orders and whatever is left stays on the code. Never expires, no fees. Check a balance any time on the tab above.</p>
+          <p class="muted" style="font-size: 0.8rem; margin: 8px 0 0;">Spend it over one or more orders — whatever is left stays on the code. Never expires, no fees. Check a balance any time on the tab above.</p>
         </div>
 
         <div class="gift-fields-grid">
