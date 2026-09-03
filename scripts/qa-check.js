@@ -35,6 +35,11 @@
 var fs = require("fs");
 var path = require("path");
 var { execSync } = require("child_process");
+/* The first-party analytics paths. They are served by proxy rules in
+   netlify.toml / vercel.json, not by files in the repo, so the link checker
+   below has to know about them -- and the CSP checks further down assert that
+   NO Umami host is allow-listed precisely because these paths exist. */
+var analyticsProxy = require("./lib/analytics-proxy");
 
 /* Mirrors escapeHtml() in scripts/build-site-data.js -- this check
    independently re-derives the expected FAQ HTML and diffs it against
@@ -195,6 +200,11 @@ PAGES.forEach(function (page) {
     if (/^(https?:|mailto:|tel:|#|data:|\/\/)/.test(target)) return;
     var clean = target.split("#")[0].split("?")[0];
     if (!clean) return;
+    /* Served by a proxy rule, not by a file in the publish root. Asserted for
+       real -- that the rule exists in all three config files -- by
+       scripts/analytics.test.js; skipping it here without that would just be
+       an exemption. */
+    if (clean === analyticsProxy.ANALYTICS_SCRIPT_PATH) return;
     if (!fs.existsSync(path.join(ROOT, clean))) badLinks.push(page + " -> " + target);
   });
 });
@@ -1586,8 +1596,12 @@ try {
 if (!cspText) {
   fail("CSP domain coverage", "couldn't read _headers -- run npm run build-security-headers first");
 } else {
+  /* Umami is deliberately NOT in this list any more. The tracker is served
+     and sends through a first-party path on this domain (see
+     scripts/lib/analytics-proxy.js), so 'self' covers it and naming a Umami
+     host here would mean the proxy had been dropped. The inverse assertion --
+     that neither host appears -- is a few lines below. */
   var REQUIRED_CSP_SUBSTRINGS = [
-    ["umami.is", "Umami (cookieless analytics + conversion events)"],
     ["formspree.io", "Formspree (review submission form)"],
     ["embed.tawk.to", "Tawk.to (live chat script-src)"],
     ["*.tawk.to", "Tawk.to (connect/frame/img-src)"]
@@ -1625,42 +1639,61 @@ if (!cspText) {
           " is wired into the site but not allowlisted -- it'll be silently blocked by the browser"
       );
   });
-  /* The check above is a substring match on "umami.is", which cloud.umami.is
-     satisfies on its own -- and that is exactly how the site shipped analytics
-     that recorded nothing. The tracker is SERVED from cloud.umami.is but POSTs
-     to a different host: it builds its collection URL as
-       (data-host-url || "https://gateway.umami.is") + "/api/send"
-     and the site sets no data-host-url. With only the script origin in
-     connect-src, the browser refused every pageview and every event.
-     Umami has moved this collection host more than once with no notice
-     (analytics.umami.is -> api-gateway-eu.umami.dev -> api-gateway.umami.dev ->
-     gateway.umami.is, umami-software/umami discussion #2719) and does not
-     document it, so if the dashboard ever goes quiet, re-read the host literal
-     out of the live script and check this directive first. */
+  /* Analytics is first-party now, and this pair of checks is the guard on
+     that -- in BOTH directions, because both directions have already gone
+     wrong here once.
+
+     Before the proxy, the tracker was served from cloud.umami.is and POSTed to
+     gateway.umami.is; only the first was allow-listed, so the browser refused
+     every pageview and every event and the dashboard read zero for weeks while
+     nothing anywhere reported an error. The lesson was not "add the second
+     host", it was "the script origin and the collection origin are different
+     things and a substring match on umami.is proves neither".
+
+     Now both are paths on this origin, so the correct policy names NEITHER
+     host and relies on 'self'. A Umami host reappearing means someone
+     removed the proxy; 'self' going missing means the tracker is blocked
+     again. Both are failures, so both are checked. */
   var connectSrcMatch = /connect-src ([^;]*)/.exec(cspText);
   var scriptSrcMatch = /script-src ([^;]*)/.exec(cspText);
   if (!connectSrcMatch || !scriptSrcMatch) {
     fail("CSP analytics directives", "could not find connect-src and script-src in _headers");
   } else {
-    if (connectSrcMatch[1].indexOf("https://gateway.umami.is") !== -1) {
-      ok("CSP connect-src allows https://gateway.umami.is (where the tracker POSTs)");
+    if (connectSrcMatch[1].indexOf("umami.is") === -1) {
+      ok("CSP connect-src names no Umami host (the tracker POSTs to a first-party path)");
     } else {
       fail(
-        "CSP connect-src does not allow https://gateway.umami.is",
-        "the Umami tracker POSTs every pageview and event to gateway.umami.is/api/send. " +
-          "cloud.umami.is is only where the script is DOWNLOADED from -- allowing just that " +
-          "loads the tracker and then blocks all of its data. connect-src was: " +
+        "CSP connect-src still names a Umami host",
+        "the tracker POSTs to " +
+          analyticsProxy.ANALYTICS_SEND_PATH +
+          " on this origin, which 'self' covers. A Umami host here means the " +
+          "first-party proxy in netlify.toml/vercel.json was removed -- if that was deliberate, " +
+          "gateway.umami.is belongs in connect-src AND cloud.umami.is in script-src, and this " +
+          "check has to be inverted on purpose. connect-src was: " +
           connectSrcMatch[1].trim()
       );
     }
-    if (scriptSrcMatch[1].indexOf("https://cloud.umami.is") !== -1) {
-      ok("CSP script-src allows https://cloud.umami.is (where the tracker is served from)");
+    if (scriptSrcMatch[1].indexOf("umami.is") === -1) {
+      ok("CSP script-src names no Umami host (the tracker is served first-party)");
     } else {
       fail(
-        "CSP script-src does not allow https://cloud.umami.is",
-        "the tracker tag on every page loads cloud.umami.is/script.js"
+        "CSP script-src still names a Umami host",
+        "the tracker tag loads " + analyticsProxy.ANALYTICS_SCRIPT_PATH + " from this origin"
       );
     }
+    [
+      [connectSrcMatch, "connect-src"],
+      [scriptSrcMatch, "script-src"]
+    ].forEach(function (pair) {
+      if (pair[0][1].indexOf("'self'") !== -1) {
+        ok("CSP " + pair[1] + " allows 'self', which is what serves the tracker now");
+      } else {
+        fail(
+          "CSP " + pair[1] + " does not allow 'self'",
+          "analytics is served from this origin -- without 'self' the browser blocks it"
+        );
+      }
+    });
   }
   // Regression guard: Google Translate was replaced with a self-hosted,
   // cookieless in-place client localization engine (assets/js/translator.js).

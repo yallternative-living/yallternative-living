@@ -39,11 +39,14 @@
      mobile profile, competing with the render-blocking stylesheet and (on
      the homepage) with the hero image preload below. With font-display:swap
      and a metric-matched fallback there is nothing to gain by racing it. -->
-<!-- Warm up the analytics origin this page talks to, so the Umami
-     beacon doesn't pay a cold DNS+TLS handshake at the moment it's needed.
-     (Checkout is same-origin now -- assets/js/cart.js posts to /api/checkout
-     on this domain -- so there's no third-party cart origin to warm up.) -->
-<!--YL:site.umamiPreconnect--><link rel="preconnect" href="https://cloud.umami.is" crossorigin><!--/YL:site.umamiPreconnect-->
+<!-- No preconnect here any more, and the empty marker is deliberate.
+     Analytics is served through a first-party path on this domain now
+     (scripts/lib/analytics-proxy.js), so there is no third-party origin to
+     warm up -- and the old preconnect to cloud.umami.is opened a TLS
+     connection to Umami on every page load, before anything had decided to
+     count anything. Checkout is same-origin too (assets/js/cart.js posts to
+     /api/checkout). Leave the marker; build-site-data.js owns what goes in it. -->
+<!--YL:site.umamiPreconnect--><!--/YL:site.umamiPreconnect-->
 <link rel="stylesheet" href="assets/css/styles.css?v=2.0">
 <link rel="stylesheet" href="assets/css/cart.css">
 
@@ -62,7 +65,7 @@
      No cookie-consent banner required. Before this records anything real:
        1. Create a free Umami Cloud account (or self-host) and add this site.
        2. Swap the placeholder data-website-id below for the real one. -->
-<!--YL:site.umamiWebsiteId--><script defer src="https://cloud.umami.is/script.js" data-website-id="a134e5d8-e8e5-4a8e-90e9-c21e9dba5acb" data-domains="yallternativeliving.com,www.yallternativeliving.com" data-exclude-search="true" data-exclude-hash="true" data-do-not-track="true" data-before-send="ylAnalyticsBeforeSend"></script><!--/YL:site.umamiWebsiteId-->
+<!--YL:site.umamiWebsiteId--><script defer src="/porch-light/script.js" data-website-id="a134e5d8-e8e5-4a8e-90e9-c21e9dba5acb" data-host-url="/porch-light" data-domains="yallternativeliving.com,www.yallternativeliving.com" data-exclude-search="true" data-exclude-hash="true" data-performance="true" data-before-send="ylAnalyticsBeforeSend"></script><!--/YL:site.umamiWebsiteId-->
 <style>
   /* Page-specific styling for privacy.html only. */
   .policy-prose{ max-width: 760px; margin: 0 auto; }
@@ -253,7 +256,8 @@
           <h2>Cookies &amp; Analytics</h2>
           <p>The browser storage this site uses is the functional kind, listed in full under &ldquo;Just Browsing?&rdquo; above: your theme, your wishlist, your cart, your recently viewed items, an applied gift card, and your language choice (in local storage). None of it is used for tracking or advertising, and none of it sets a cookie.</p>
           <p><strong>Analytics.</strong> This site runs <a href="https://umami.is/" target="_blank" rel="noopener" >Umami<span class="sr-only"> (opens in new tab)</span></a > for analytics. Umami is cookieless, doesn't collect or store personal data, doesn't fingerprint your device, and can't track you across other websites &mdash; it counts anonymous, aggregate activity: which pages get looked at, which products get added to a cart or saved to a wishlist, which quiz answer came out, when a checkout is started and whether it went through, and the total of a completed order. Never who. </p>
-          <p> Two specifics worth spelling out. <strong>We strip the query string</strong> off every web address before it is counted, so the order reference in a receipt link, the address in a mailing-list link, and the reference number on a reaction report are never sent &mdash; the only thing we add back is the campaign tag on a link we published ourselves, so we can tell whether a post or a market QR code brought anyone here. And <strong>our search box reports only how long a search was and whether it found anything</strong>, never what you typed. If your browser sends a &ldquo;Do Not Track&rdquo; signal we count nothing at all, and if we ever switch analytics off, nothing loads and nothing is counted. </p>
+          <p> Two specifics worth spelling out. <strong>We strip the query string</strong> off every web address before it is counted, so the order reference in a receipt link, the address in a mailing-list link, and the reference number on a reaction report are never sent &mdash; and what we add back is a short, fixed list: the campaign tag on a link we published ourselves, so we can tell whether a post or a market QR code brought anyone here; the shop filter you arrived on, like &ldquo;apparel&rdquo; or &ldquo;eczema&rdquo;; and the click tag a social network or ad network attaches to its own links. That last one is a random string standing for one click, not for you, and it is never joined to anything else. And <strong>our search box reports only how long a search was and whether it found anything</strong>, never what you typed. </p>
+          <p> Two things we would rather say plainly than leave you to find out. We do <strong>not</strong> act on the browser&rsquo;s old &ldquo;Do Not Track&rdquo; setting: the browsers that shipped it have since retired it, and it was never a consent signal for counting that stores nothing about a person. What we do instead is not collect the data in the first place &mdash; everything above describes what is actually sent, and there is nothing else. And the counter is served from this site&rsquo;s own web address rather than the analytics company&rsquo;s, so a blocker that works by blocking other companies&rsquo; domains will not see it. If we ever switch analytics off, nothing loads and nothing is counted. </p>
           <p><strong>Live chat.</strong> The chat bubble in the corner is <a href="https://www.tawk.to/privacy-policy/" target="_blank" rel="noopener">Tawk.to<span class="sr-only"> (opens in new tab)</span></a>, and it is live on every page of this site, product pages included &mdash; the one exception is the offline fallback page you only see when your connection drops. Unlike the rest of what's here, it loads its own script and sets its own cookies (it uses them to recognize a returning visitor and keep a conversation together), and it can see the page you're on. Anything you type into the chat is held by Tawk.to as well as reaching us.</p>
           <p><strong>Translation.</strong> Translations are self-hosted and run locally in your browser with zero cookies, zero third-party scripts, and zero network requests to Google or any external service. Your language preference is saved solely in your browser's local storage (<code>localStorage['yl-lang']</code>).</p>
           <p>The other third-party services embedded here &mdash; Stripe during checkout, and Etsy once you click through &mdash; may set their own cookies or use their own tracking as part of how they operate. Those are governed by those companies' own policies.</p>

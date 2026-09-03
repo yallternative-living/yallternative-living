@@ -22,6 +22,15 @@
  *     exist yet when the PDP fired "Product View", so the one event product
  *     pages exist to record was dropped on all twenty of them.
  *
+ *  2b. THE FIRST-PARTY PROXY. The tag's src and its data-host-url are paths on
+ *     this origin, and the rewrite rules that make those paths resolve live in
+ *     netlify.toml and vercel.json. Three separate files have to agree, and a
+ *     disagreement is silent: the tracker loads and POSTs into a 404. So the
+ *     tag is compared against the rules here rather than each being checked
+ *     alone. The CSP is checked the other way round -- it must NOT name a
+ *     Umami host, because naming one would mean the proxy had been abandoned
+ *     without anyone saying so.
+ *
  *  3. THE EVENTS. Every event this site sends, its exact property keys, and --
  *     the point of the whole file -- that not one of them carries personal
  *     data. An assertion here that stops examining anything is worse than no
@@ -30,6 +39,14 @@
 
 const fs = require("fs");
 const path = require("path");
+const {
+  ANALYTICS_SCRIPT_PATH,
+  ANALYTICS_HOST_URL,
+  ANALYTICS_SEND_PATH,
+  UMAMI_SCRIPT_URL,
+  UMAMI_SEND_URL,
+  BLOCKLIST_BAIT_WORDS
+} = require("./lib/analytics-proxy");
 
 const ROOT = path.resolve(__dirname, "..");
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), "utf8");
@@ -156,12 +173,39 @@ eq(allowed("?email=buyer%40example.com"), "", "a subscriber address is dropped")
 eq(allowed("?report=received&ref=YL-SR-8842"), "", "a reaction-report reference is dropped");
 eq(allowed("?cart=salve-2oz~2_soak~1"), "", "a shared-cart payload is dropped");
 eq(allowed("?pickup_market=landrum-fall"), "", "a pickup market is dropped");
-eq(allowed("?category=apparel&concern=all"), "", "shop filters are dropped");
+/* The shop's own landing filters come back: their values are a fixed
+   vocabulary from the site's own nav, so they cannot carry anything a shopper
+   typed, and without them every filtered landing collapses into one /shop row
+   that says nothing about what people arrived looking for. */
+eq(
+  allowed("?category=apparel&concern=all"),
+  "?category=apparel&concern=all",
+  "the shop's own landing filters survive"
+);
+eq(
+  allowed("?category=apparel&session_id=cs_live_deadbeefcafe"),
+  "?category=apparel",
+  "a filter next to an order token keeps the filter and drops the token"
+);
 eq(allowed("?subscribed=1"), "", "the newsletter return flag is dropped");
+/* Owner decision 2026-09-02: the six click ids Umami's Attribution report
+   reads automatically come back. fbclid in particular is appended by Facebook
+   and Instagram to ORDINARY organic links, so dropping it was throwing away
+   the attribution for this shop's biggest referrer. They do not fragment the
+   Pages report -- Umami stores url_path and url_query in separate columns
+   (umami-software/umami src/app/api/send/route.ts). They are the one thing on
+   the allow-list that is per-click random, which is why the privacy page names
+   them; nothing here ever calls umami.identify(), so they are never joined to
+   a person. */
 eq(
   allowed("?gclid=abc123&fbclid=xyz789"),
-  "",
-  "ad-click ids are dropped -- they identify one person's click, and this shop buys no ads"
+  "?gclid=abc123&fbclid=xyz789",
+  "the ad-click ids Umami reads for Attribution survive"
+);
+eq(
+  allowed("?msclkid=m1&ttclid=t1&li_fat_id=l1&twclid=w1"),
+  "?msclkid=m1&ttclid=t1&li_fat_id=l1&twclid=w1",
+  "...and so do the other four"
 );
 eq(
   allowed("?utm_source=instagram&utm_medium=bio&utm_campaign=fall"),
@@ -302,32 +346,61 @@ assert(PDPS.length >= 19, `found ${PDPS.length} product pages to check`);
 const TRACKED = TOP_LEVEL_PAGES.filter((f) => f !== "offline.html").concat(PDPS);
 
 const REQUIRED_TAG_ATTRS = [
+  'src="' + ANALYTICS_SCRIPT_PATH + '"',
   'data-website-id="' + websiteId + '"',
+  'data-host-url="' + ANALYTICS_HOST_URL + '"',
   'data-domains="yallternativeliving.com,www.yallternativeliving.com"',
   'data-exclude-search="true"',
   'data-exclude-hash="true"',
-  'data-do-not-track="true"',
+  /* Core Web Vitals from real visitors (tracker v3.1.0+). Costs one extra
+     event per page load against the free tier's 100K/month -- see
+     docs/ANALYTICS.md before turning it off to save quota. */
+  'data-performance="true"',
   'data-before-send="ylAnalyticsBeforeSend"'
 ];
 
 let taggedPages = 0;
+const tagRe = new RegExp(
+  '<script[^>]*src="' + ANALYTICS_SCRIPT_PATH.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + '"[^>]*>'
+);
 TRACKED.forEach((page) => {
   const src = read(page);
-  const tag = /<script[^>]*cloud\.umami\.is\/script\.js[^>]*><\/script>/.exec(src);
+  const tag = tagRe.exec(src);
   if (!tag) {
     failed++;
-    console.error(`  ✗ ${page} carries the Umami tracker tag`);
+    console.error(`  ✗ ${page} carries the analytics tracker tag`);
     return;
   }
   taggedPages++;
   REQUIRED_TAG_ATTRS.forEach((attr) => {
     assert(tag[0].indexOf(attr) !== -1, `${page} tracker tag carries ${attr.split("=")[0]}`);
   });
+  /* data-do-not-track must stay OFF. Umami only consults the browser's Do Not
+     Track header when this attribute is literally "true"; the owner's call
+     (2026-09-02) is not to, because the browsers that shipped DNT retired it
+     and it is not a consent signal for cookieless counting that stores nothing
+     about a person. The privacy page says so in as many words -- if this
+     assertion is ever flipped, that page has to be flipped with it. */
+  assert(
+    tag[0].indexOf("data-do-not-track") === -1,
+    `${page} tracker tag does not set data-do-not-track (see privacy.html)`
+  );
+  /* The whole point of the proxy: no page may LOAD anything from a Umami
+     host. Comments and the privacy page's link to umami.is/privacy are fine
+     -- what must not come back is a resource fetched from one, because that is
+     a page the blockers can still switch off. Comments are stripped first so a
+     comment explaining the proxy cannot fail the check that proves it. */
+  const markup = src.replace(/<!--[\s\S]*?-->/g, "");
+  assert(
+    markup.indexOf("cloud.umami.is") === -1 && markup.indexOf("gateway.umami.is") === -1,
+    `${page} loads nothing from a Umami host -- it all goes through the first-party path`
+  );
 });
 eq(taggedPages, TRACKED.length, "every tracked page actually has the tag");
 
 assert(
-  read("offline.html").indexOf("cloud.umami.is") === -1,
+  read("offline.html").indexOf(ANALYTICS_SCRIPT_PATH) === -1 &&
+    read("offline.html").indexOf("umami.is") === -1,
   "offline.html loads no tracker -- it is the page you see with no network"
 );
 
@@ -335,7 +408,7 @@ assert(
    does not exist when main.js fires its load-time events. */
 PDPS.concat(["index.html", "shop.html"]).forEach((page) => {
   const src = read(page);
-  const tagAt = src.indexOf("cloud.umami.is/script.js");
+  const tagAt = src.indexOf(ANALYTICS_SCRIPT_PATH);
   const mainAt = src.indexOf("assets/js/main.js");
   assert(tagAt !== -1 && mainAt !== -1, `${page} has both a tracker tag and main.js`);
   assert(
@@ -344,26 +417,104 @@ PDPS.concat(["index.html", "shop.html"]).forEach((page) => {
   );
 });
 
+/* --------------------------------------------- 2b. the first-party proxy */
+
+/* The paths must not carry a word a blocker's generic path rules key on --
+   moving the tracker to /analytics/script.js would be defeated by the same
+   lists a day later. */
+BLOCKLIST_BAIT_WORDS.forEach((word) => {
+  assert(
+    ANALYTICS_SCRIPT_PATH.indexOf(word) === -1 && ANALYTICS_SEND_PATH.indexOf(word) === -1,
+    `the proxy paths avoid the blocker-bait word "${word}"`
+  );
+});
+
+/* The tracker hardcodes `<data-host-url>/api/send` (read out of the live
+   cloud.umami.is/script.js on 2026-09-02:
+     `${(x||"https://gateway.umami.is").replace(/\/$/,"")}/api/send`),
+   so this is the path the browser will actually POST to. If it and the rule
+   below ever disagree, every event 404s and nothing says so. */
+eq(ANALYTICS_SEND_PATH, ANALYTICS_HOST_URL + "/api/send", "the send path is host-url + /api/send");
+
+/* Relative, so www. and the apex each send to their own origin. An absolute
+   URL would make one of them a cross-origin POST, which connect-src 'self'
+   refuses -- the same class of bug that made this dashboard read zero. */
+assert(
+  ANALYTICS_HOST_URL.charAt(0) === "/" && ANALYTICS_HOST_URL.indexOf("//") === -1,
+  "data-host-url is a relative path, so both www. and the apex stay same-origin"
+);
+
+const netlifyToml = read("netlify.toml");
+const vercelJson = JSON.parse(read("vercel.json"));
+
+[
+  [ANALYTICS_SCRIPT_PATH, UMAMI_SCRIPT_URL],
+  [ANALYTICS_SEND_PATH, UMAMI_SEND_URL]
+].forEach(([from, to]) => {
+  const block = new RegExp(
+    '\\[\\[redirects\\]\\]\\s*\\n\\s*from = "' +
+      from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") +
+      '"\\s*\\n\\s*to = "' +
+      to.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") +
+      '"\\s*\\n\\s*status = 200\\s*\\n\\s*force = true'
+  );
+  assert(block.test(netlifyToml), `netlify.toml proxies ${from} to ${to} (status 200, forced)`);
+
+  const rewrite = (vercelJson.rewrites || []).find((r) => r.source === from);
+  assert(rewrite && rewrite.destination === to, `vercel.json rewrites ${from} to ${to}`);
+});
+
+/* Ordering, not just presence. The clean-URL 301s further down netlify.toml
+   are generated from the page list; if a proxy rule ever ended up after them
+   and one of them grew a wildcard, the tracker's POST would be redirected and
+   analytics would stop with no error anywhere. */
+assert(
+  netlifyToml.indexOf('from = "' + ANALYTICS_SEND_PATH + '"') <
+    netlifyToml.indexOf('from = "/shop"'),
+  "the analytics proxy rules sit above the clean-URL redirects in netlify.toml"
+);
+
+/* And they are explicit paths, never a splat: a wildcard here would proxy
+   arbitrary paths of this site through to Umami. */
+assert(
+  ANALYTICS_SCRIPT_PATH.indexOf("*") === -1 && ANALYTICS_SEND_PATH.indexOf("*") === -1,
+  "the proxy rules are explicit paths, not splats"
+);
+
 /* ------------------------------------------------------------------ 3. CSP */
 
-/* The tracker builds its collection URL as
-   (data-host-url || "https://gateway.umami.is") + "/api/send". The site sets no
-   data-host-url, so every pageview and event POSTs to gateway.umami.is. With
-   only cloud.umami.is (the SCRIPT origin) in connect-src, the browser refused
-   every one of them and the dashboard stayed empty. */
+/* Inverted since the proxy landed, and the inversion is the assertion.
+
+   The tracker is fetched from ANALYTICS_SCRIPT_PATH and POSTs to
+   ANALYTICS_SEND_PATH -- both on this origin, both covered by 'self'. So
+   neither Umami host belongs in the policy any more, and one appearing again
+   means somebody quietly dropped the proxy.
+
+   The history is why this is checked at all rather than assumed: the tracker
+   builds its collection URL as (data-host-url || "https://gateway.umami.is")
+   + "/api/send", and while the site set no data-host-url and the CSP named
+   only cloud.umami.is (the SCRIPT origin), the browser refused every pageview
+   and every event and the dashboard read zero for weeks. If the proxy is ever
+   removed, BOTH hosts have to come back -- script-src for cloud.umami.is,
+   connect-src for gateway.umami.is -- and this assertion has to be inverted
+   again deliberately, not deleted. */
 ["_headers", "netlify.toml", "vercel.json"].forEach((file) => {
   const src = read(file);
   const connect = /connect-src ([^;"]*)/.exec(src);
   assert(connect, `${file} declares a connect-src`);
   if (!connect) return;
   assert(
-    connect[1].indexOf("https://gateway.umami.is") !== -1,
-    `${file} connect-src allows https://gateway.umami.is -- the host the tracker actually POSTs to`
+    connect[1].indexOf("umami.is") === -1 && connect[1].indexOf("'self'") !== -1,
+    `${file} connect-src covers the tracker with 'self' and names no Umami host`
   );
   const scriptSrc = /script-src ([^;"]*)/.exec(src);
   assert(
-    scriptSrc && scriptSrc[1].indexOf("https://cloud.umami.is") !== -1,
-    `${file} script-src still allows the origin the tracker is served from`
+    scriptSrc && scriptSrc[1].indexOf("umami.is") === -1,
+    `${file} script-src names no Umami host -- the tracker is served first-party`
+  );
+  assert(
+    scriptSrc && scriptSrc[1].indexOf("'self'") !== -1,
+    `${file} script-src allows 'self', which is what serves ${ANALYTICS_SCRIPT_PATH}`
   );
 });
 
@@ -391,10 +542,17 @@ const EVENTS = {
   404: [mainJs, ["path"]],
   "Cart Opened": [cartJs, ["itemCount"]],
   "Cart Shared": [cartJs, ["itemCount"]],
+  "Shared Cart Opened": [cartJs, ["itemCount"]],
   "Gift Card Applied": [cartJs, []],
   "Checkout Start": [cartJs, ["itemCount", "subtotalCents", "isPickup"]],
   "Checkout Failed": [cartJs, ["reason"]],
-  Purchase: [thankYouJs, ["revenue", "currency"]]
+  /* No properties, and that is the assertion. Revenue is booked once by the
+     Stripe webhook ("Order Paid", workers/routes/stripe-webhook.js) off the
+     amount Stripe actually captured; sending it from the browser as well would
+     double-count every order whose shopper makes it back to the thank-you
+     page, and would miss every order whose shopper does not. Purchase is the
+     funnel's last step and nothing more. */
+  Purchase: [thankYouJs, []]
 };
 
 Object.keys(EVENTS).forEach((name) => {
@@ -458,8 +616,21 @@ assert(
 /* Purchase specifically: it may only be sent once the Worker has confirmed the
    order, and the revenue must be the Worker's figure rather than the URL's. */
 assert(
-  /function confirmOrder\(confirmedAmount\)/.test(thankYouJs),
+  /function confirmOrder\(\)/.test(thankYouJs),
   "Purchase is sent from confirmOrder(), not from page load"
+);
+/* ...and it takes no amount any more, because it books no amount. A
+   confirmOrder that still accepted the Worker's figure would be one edit away
+   from double-counting every order against the server-side "Order Paid". */
+assert(
+  !/window\.plausible\("Purchase",/.test(thankYouJs),
+  "the client Purchase event carries no properties -- revenue is the webhook's job"
+);
+/* No `revenue:` or `currency:` PROPERTY anywhere in the file. The prose
+   comment explaining why is expected and welcome; a property key is not. */
+assert(
+  !/[{,]\s*(revenue|currency)\s*:/.test(thankYouJs),
+  "thank-you.js builds no revenue/currency property at all"
 );
 assert(
   /summary\.status !== "complete"\) return showUnconfirmed\(\)/.test(thankYouJs),

@@ -23,18 +23,60 @@
        1. data-exclude-search="true" on the tracker tag makes the tracker itself
           drop the query string off both the URL and the referrer before this
           hook ever sees the payload. If main.js never loads, nothing leaks.
-       2. this hook, named by data-before-send, puts back ONLY the campaign
-          parameters on the allow-list below, so Etsy/Instagram/market-QR
-          attribution still works. Anything not on that list cannot come back.
+       2. this hook, named by data-before-send, puts back ONLY the parameters
+          on the allow-list below, so Etsy/Instagram/market-QR attribution and
+          the shop's own landing filters still work. Anything not on that list
+          cannot come back.
 
      It also scrubs event properties, so a future call site that passes an email,
      an order reference or a gift message cannot quietly publish it. */
+  /* An ALLOW-list, not a block-list, and it stays that way: a parameter that
+     nobody has thought about must not reach a dashboard by default. Everything
+     on it is here because a report reads it.
+
+       utm_* .......... the five campaign tags. Umami's UTM and Attribution
+                        reports parse these straight off the landing URL.
+       category ....... which shop filter someone landed on (?category=apparel).
+       concern ........ which skin concern they landed on (?concern=eczema).
+                        Both are a fixed vocabulary from the shop's own nav, so
+                        they cannot carry anything a shopper typed, and they are
+                        the difference between "a lot of people land on /shop"
+                        and "a lot of people land on /shop looking for eczema".
+       *clid / li_fat_id  the six ad-click ids Umami's Attribution report reads
+                        automatically (confirmed in umami-software/umami
+                        src/app/api/send/route.ts, which stores gclid and fbclid
+                        in their own columns). Owner decision 2026-09-02: let
+                        them through. They are NOT only an ads thing -- Facebook
+                        and Instagram append fbclid to ordinary organic links,
+                        so stripping it was throwing away the attribution for
+                        the shop's single biggest referrer. They do not fragment
+                        the Pages report: Umami stores url_path and url_query in
+                        separate columns, so /shop.html stays one row.
+
+     What they are NOT is harmless in the abstract -- a click id is unique to
+     one click, so this is the one entry here that puts a per-visit random
+     string in the record. It identifies a click, not a person, it is never
+     joined to anything, and nothing on this site ever calls umami.identify().
+     The privacy page says this in as many words; if that ever stops being
+     true, this list is the thing to change first.
+
+     Everything NOT on this list is dropped, including ?session_id= (a Stripe
+     order-lookup token), ?email=, ?ref= (an adverse-reaction report number)
+     and ?cart= (someone's basket). That is the part that must not regress. */
   var ANALYTICS_ALLOWED_PARAMS = [
     "utm_source",
     "utm_medium",
     "utm_campaign",
     "utm_content",
-    "utm_term"
+    "utm_term",
+    "category",
+    "concern",
+    "gclid",
+    "fbclid",
+    "msclkid",
+    "ttclid",
+    "li_fat_id",
+    "twclid"
   ];
   /* Property KEYS that may never be reported, whatever they hold. */
   var ANALYTICS_BLOCKED_KEY =

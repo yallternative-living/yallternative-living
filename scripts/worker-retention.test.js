@@ -1637,18 +1637,23 @@ function testFrontEnd() {
   console.log("\n12. thank-you.js, thank-you.html and welcome.html");
   const thankYouJs = fs.readFileSync(path.join(ROOT, "assets", "js", "thank-you.js"), "utf8");
 
-  // The Umami revenue shape. Umami stores one scalar per prop key, so a nested
-  // object was recorded as "[object Object]" and no Purchase ever carried
-  // revenue. Assert the fix is present AND the broken shape is gone.
-  const purchaseCall = /window\.plausible\("Purchase",\s*\{[\s\S]*?\n\s{6}\}\);/.exec(thankYouJs);
-  assert(purchaseCall !== null, "thank-you.js still fires the Purchase event");
-  const purchaseBlock = purchaseCall ? purchaseCall[0] : "";
-  /* revenue is the Worker-confirmed total (confirmOrder), falling back to the URL hint */
-  assert(/revenue:\s*(amount|revenue)/.test(purchaseBlock), "revenue is a flat number");
-  assert(/currency:\s*currency/.test(purchaseBlock), "currency is a flat string");
+  // Purchase is still fired -- it is the last step of the conversion funnel --
+  // but it carries NOTHING. The money is booked once, server-side, by the
+  // Stripe webhook ("Order Paid", workers/routes/stripe-webhook.js) off the
+  // amount Stripe actually captured. Sending revenue from here as well would
+  // double-count every order whose shopper returns to this page, and would
+  // miss every order whose shopper does not.
   assert(
-    !/revenue:\s*\{/.test(purchaseBlock),
-    "and the nested revenue object Umami could not read is gone"
+    /window\.plausible\("Purchase"\)/.test(thankYouJs),
+    "thank-you.js still fires the Purchase event"
+  );
+  assert(
+    !/window\.plausible\("Purchase",/.test(thankYouJs),
+    "and it passes no properties -- booking revenue is the webhook's job now"
+  );
+  assert(
+    !/[{,]\s*(revenue|currency)\s*:/.test(thankYouJs),
+    "no revenue or currency property is built anywhere in thank-you.js"
   );
   assert(
     thankYouJs.includes("claimSession(sessionId)"),

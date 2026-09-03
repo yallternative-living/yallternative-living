@@ -917,15 +917,17 @@ else global.window.YL_PRODUCTS = savedWindowYlProducts;
   const good = runThankYou("?session_id=cs_test_a1B2c3&amount=42.00&currency=usd");
   eq(good.purchases.length, 1, "thank-you: real cs_test_ session fires one Purchase event");
   eq(good.purchases[0].name, "Purchase", "thank-you: analytics event is named Purchase");
-  /* Flat props, not a nested revenue object -- Umami's revenue report
-     expects a numeric `revenue` and a string `currency`, not
-     `props.revenue = {amount, currency}` (docs/research-2026-09-01/
-     research-L-analytics.md §6: as a nested object, `data.revenue` is
-     never a number, so it never populates Umami's Revenue report). */
+  /* NO revenue and NO currency on the client Purchase event any more. The
+     money is booked once, server-side, by the Stripe webhook ("Order Paid" --
+     workers/routes/stripe-webhook.js), off the amount Stripe actually
+     captured. Sending it from here as well would double-count every order
+     whose shopper makes it back to this page, because Umami's Revenue report
+     sums the property wherever it finds it. Purchase stays as the funnel's
+     last step and carries nothing at all. */
   eq(
-    good.purchases[0].payload.props.revenue,
-    42,
-    "thank-you: Purchase carries the Worker-confirmed total as a flat numeric revenue prop"
+    good.purchases[0].payload,
+    undefined,
+    "thank-you: Purchase carries no properties -- revenue is booked server-side"
   );
   eq(
     good.els.thankYouEyebrow.textContent,
@@ -963,9 +965,9 @@ else global.window.YL_PRODUCTS = savedWindowYlProducts;
     "thank-you: a failed confirmation shows no total"
   );
   eq(
-    good.purchases[0].payload.props.currency,
-    "USD",
-    "thank-you: Purchase carries the redirect's currency as a flat string prop"
+    JSON.stringify(good.purchases.map((p) => p.name)),
+    JSON.stringify(["Purchase"]),
+    "thank-you: the only analytics event this page fires is Purchase"
   );
   eq(good.cleared, 1, "thank-you: real session clears the cart once");
   eq(
@@ -1004,9 +1006,9 @@ else global.window.YL_PRODUCTS = savedWindowYlProducts;
     "thank-you: a missing URL amount still books the confirmed total"
   );
   eq(
-    noAmount.purchases[0].payload.props.revenue,
-    42,
-    "thank-you: ...and it is the Worker's figure"
+    noAmount.purchases[0].payload,
+    undefined,
+    "thank-you: ...and it still carries no revenue property"
   );
   eq(
     noAmount.els.thankYouAmountDisplay.textContent,
@@ -1026,9 +1028,9 @@ else global.window.YL_PRODUCTS = savedWindowYlProducts;
   // Implausible URL amounts never reach analytics: the Worker's figure does.
   const huge = runThankYou("?session_id=cs_test_huge&amount=99999.99");
   eq(
-    huge.purchases[0].payload.props.revenue,
-    42,
-    "thank-you: an amount over $10,000 in the URL is ignored"
+    huge.purchases[0].payload,
+    undefined,
+    "thank-you: an implausible ?amount= in the URL reaches analytics either way -- it is not read"
   );
   const hugeUnconfirmed = runThankYou("?session_id=cs_test_huge2&amount=99999.99", null, {
     summary: { found: false }

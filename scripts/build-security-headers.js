@@ -55,6 +55,11 @@
 var fs = require("fs");
 var path = require("path");
 var crypto = require("crypto");
+/* The first-party analytics paths, shared with build-site-data.js (which puts
+   them on the tracker tag). The proxy rules emitted from them are what make
+   those paths resolve; see scripts/lib/analytics-proxy.js for why they exist
+   and why they are named the way they are. */
+var analyticsProxy = require("./lib/analytics-proxy");
 
 var ROOT = path.join(__dirname, "..");
 
@@ -186,6 +191,16 @@ function shippedHtmlPages() {
       });
   }
   return pages;
+}
+
+/* The two first-party analytics proxy rules, as [from, to] pairs. One source
+   for netlify.toml's [[redirects]] and vercel.json's rewrites, so the two
+   platforms cannot describe different proxies. */
+function analyticsProxyRules() {
+  return [
+    [analyticsProxy.ANALYTICS_SCRIPT_PATH, analyticsProxy.UMAMI_SCRIPT_URL],
+    [analyticsProxy.ANALYTICS_SEND_PATH, analyticsProxy.UMAMI_SEND_URL]
+  ];
 }
 
 /* [["/shop", "/shop.html"], ["/products/bug-spray", "/products/bug-spray.html"], ...] */
@@ -433,9 +448,16 @@ function run() {
     // it's inert until a real Tawk.to property/widget ID replaces the
     // placeholder, but the origin is allowlisted now so turning it on
     // later doesn't also require touching this file.
-    // cloud.umami.is: Umami analytics (cookieless page views + the shop's
-    // conversion events -- replaced Plausible). See the analytics tag in every
-    // page's head.
+    // Analytics needs NO third-party origin here any more, and that is the
+    // point. The tracker tag's src and its data-host-url are both first-party
+    // paths on this domain (scripts/lib/analytics-proxy.js), rewritten to Umami
+    // Cloud by the status=200 proxy rules further down this file. The browser
+    // only ever fetches and POSTs to yallternativeliving.com, so 'self' covers
+    // the tracker in script-src and its collection endpoint in connect-src.
+    // If the proxy is ever removed, BOTH https://cloud.umami.is (script-src)
+    // and https://gateway.umami.is (connect-src) have to come back -- allowing
+    // only the first is the bug that made this site's dashboard read zero for
+    // weeks, because the script loads from one host and posts to the other.
     // 'inline-speculation-rules': allows the inline speculation-rules block
     // that main.js injects for instant navigations (prerender/prefetch on
     // hover). This keyword ONLY permits speculation-rules scripts -- it does
@@ -452,7 +474,7 @@ function run() {
     // loaded by the deferred inline snippet on first pointerdown/scroll and
     // the two Tawk IDs in content.json are real, so this fires for any visitor
     // who touches the page.
-    "script-src 'self' https://cloud.umami.is https://embed.tawk.to https://cdn.jsdelivr.net/emojione/ 'inline-speculation-rules' " +
+    "script-src 'self' https://embed.tawk.to https://cdn.jsdelivr.net/emojione/ 'inline-speculation-rules' " +
       hashes.join(" "),
     // Fonts are self-hosted from /assets/fonts/ (styles.css @font-face), so
     // neither fonts.googleapis.com nor fonts.gstatic.com is needed any more.
@@ -476,29 +498,23 @@ function run() {
        the required origins from content.json instead of pinning this list, so
        pasting an app.convertkit.com form URL into the CMS fails the build
        here rather than silently breaking signups in the browser. */
-    /* https://gateway.umami.is is where the Umami tracker actually POSTs.
-       This is NOT the host the script is served from. cloud.umami.is/script.js
-       builds its collection URL as
-         (data-host-url || "https://gateway.umami.is") + "/api/send"
-       and gateway.umami.is is the only host literal in the file -- so with only
-       cloud.umami.is allow-listed here, the tracker loaded fine and then had
-       every single pageview and event refused by CSP. The shop's dashboard
-       recorded nothing at all from the day analytics was switched on until this
-       entry was added (measured 2026-09-02 by serving the built tree under this
-       exact policy: "Refused to connect ... https://gateway.umami.is/api/send"
-       on all 14 pages probed, zero payloads delivered).
+    /* No Umami host here on purpose -- see the script-src note above. The
+       tracker POSTs to the first-party ANALYTICS_SEND_PATH, which 'self'
+       covers, and the proxy rule below is what forwards it to
+       https://gateway.umami.is/api/send server-side.
 
-       Umami has moved this collection host repeatedly without a changelog or a
+       That collection host is worth knowing about even though the browser
+       never sees it. cloud.umami.is/script.js builds its URL as
+         (data-host-url || "https://gateway.umami.is") + "/api/send"
+       and Umami has moved that default repeatedly with no changelog and no
        migration notice -- analytics.umami.is, then api-gateway-eu.umami.dev,
        then api-gateway.umami.dev, now gateway.umami.is (umami-software/umami
-       discussion #2719, still not in the official docs). It is not documented
-       anywhere that this host is stable. If the dashboard ever goes quiet with
-       no other change, check the browser console for a connect-src violation
-       here FIRST, and re-read the host literal out of the live script.
-
-       cloud.umami.is stays: it is the script's own origin and the value we
-       would set as data-host-url if we ever pinned the collection host. */
-    "connect-src 'self' https://cloud.umami.is https://gateway.umami.is https://*.tawk.to wss://*.tawk.to https://formspree.io https://app.kit.com",
+       discussion #2719, still undocumented). Pinning data-host-url to our own
+       path is what makes that churn a one-line change in
+       scripts/lib/analytics-proxy.js instead of a silent outage: if the
+       dashboard goes quiet, the proxy TARGET is now the first thing to check,
+       not the CSP. */
+    "connect-src 'self' https://*.tawk.to wss://*.tawk.to https://formspree.io https://app.kit.com",
     "frame-src https://*.tawk.to",
     "frame-ancestors 'none'",
     "base-uri 'self'",
@@ -626,6 +642,20 @@ function run() {
     buildCommand:
       "node scripts/optimize-images.js && node scripts/build-site-data.js && node scripts/build-security-headers.js",
     outputDirectory: ".",
+    // The Vercel twin of netlify.toml's analytics proxy rules above. Vercel
+    // rewrites are the equivalent of a Netlify status=200 redirect: the path
+    // stays first-party in the browser and Vercel fetches the target
+    // server-side. Same two explicit paths, same targets, same source
+    // constants -- a build-security-headers.test.js assertion compares the two
+    // files so this cannot quietly fall behind netlify.toml.
+    //
+    // Netlify is the production host; this file exists so a Vercel deploy is
+    // not silently missing analytics. (The /api/* Worker proxy has never had a
+    // Vercel twin either -- checkout would need one before this file could
+    // actually serve the shop.)
+    rewrites: analyticsProxyRules().map(function (pair) {
+      return { source: pair[0], destination: pair[1] };
+    }),
     headers: [
       { source: "/(.*)", headers: vercelHeaders },
       // Vercel applies header rules in the order listed, and for
@@ -775,6 +805,49 @@ function run() {
     '"\n' +
     "  status = 200\n" +
     "  force = true\n\n" +
+    // ---- the first-party analytics proxy ----
+    // Two explicit paths, never a splat, and deliberately ABOVE the clean-URL
+    // 301s further down: an extensionless-twin rule that ever grew a wildcard
+    // would otherwise redirect the tracker's POST and silently end analytics.
+    //
+    // status = 200 makes both of these PROXIES, not redirects -- Netlify
+    // fetches Umami server-side and returns the response, so the browser only
+    // ever sees yallternativeliving.com. That is the whole point: list-based
+    // blockers match hostnames, and cloud.umami.is / gateway.umami.is are both
+    // on those lists (the shop owner's own router blocks them at DNS).
+    //
+    // force = true because Netlify's core routing would otherwise try to
+    // resolve these paths against the published tree first, and there is no
+    // /porch-light directory in the repo -- an unforced rule would 404.
+    //
+    // CAVEAT, MEASURED FROM UMAMI'S SOURCE, NOT GUESSED: Umami resolves the
+    // visitor's IP from the first header present in a fixed list
+    // (src/lib/ip.ts on master) that puts `cf-connecting-ip` AHEAD of
+    // `x-nf-client-connection-ip` and `x-forwarded-for`. gateway.umami.is is
+    // behind Cloudflare, which sets cf-connecting-ip to whoever opened the
+    // connection -- which through this hop is Netlify, not the shopper. See
+    // docs/ANALYTICS.md "What the proxy costs" before reading visitor counts
+    // or the country breakdown as gospel.
+    "# The analytics tracker is served and sends through THIS origin. Blockers\n" +
+    "# match hostnames, so a first-party path is what keeps the shop countable.\n" +
+    "# Two explicit paths, never a splat, and above the clean-URL rules below.\n" +
+    "# Paths are defined once in scripts/lib/analytics-proxy.js -- the tracker\n" +
+    "# tag in every page's <head> is generated from the same constants.\n" +
+    analyticsProxyRules()
+      .map(function (pair) {
+        return (
+          "[[redirects]]\n" +
+          '  from = "' +
+          pair[0] +
+          '"\n' +
+          '  to = "' +
+          pair[1] +
+          '"\n' +
+          "  status = 200\n" +
+          "  force = true\n\n"
+        );
+      })
+      .join("") +
     // Netlify publishes this whole repository, so without these every build
     // script, audit document, Worker source and lockfile in the tree is a live
     // URL on the real domain (audit: Medium, SEO/content -- 1.5 MB of scripts/
@@ -915,7 +988,13 @@ function run() {
   console.log("wrote netlify.toml");
 
   console.log("");
-  console.log("CSP covers " + hashes.length + " inline script hash(es) + Umami (cloud.umami.is).");
+  console.log(
+    "CSP covers " +
+      hashes.length +
+      " inline script hash(es). Analytics needs no third-party origin: it is proxied through " +
+      analyticsProxy.ANALYTICS_PROXY_PREFIX +
+      "/ on this domain."
+  );
   console.log(
     "IMPORTANT -- this could not be verified against a live checkout in a real browser during"
   );
@@ -953,6 +1032,7 @@ if (typeof module !== "undefined" && module.exports) {
     BLOCKED_PATHS: BLOCKED_PATHS,
     CLEAN_URL_SKIP: CLEAN_URL_SKIP,
     shippedHtmlPages: shippedHtmlPages,
-    cleanUrlRedirects: cleanUrlRedirects
+    cleanUrlRedirects: cleanUrlRedirects,
+    analyticsProxyRules: analyticsProxyRules
   };
 }
