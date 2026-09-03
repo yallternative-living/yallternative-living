@@ -1383,7 +1383,22 @@ singletons:
           # Hidden on purpose: copy fallback text, set once, not a Savanna control.
           - name: ritualDefaults
             label: "🌿 Complete the Ritual defaults"
-            widget: hidden
+            widget: object
+            collapsed: true
+            hint: "Used on any product that doesn't have its own ritual headline."
+            fields:
+              - {
+                  name: title,
+                  label: "Default headline",
+                  widget: string,
+                  default: "Botanical Pairing"
+                }
+              - {
+                  name: subtitle,
+                  label: "Default subtitle",
+                  widget: text,
+                  default: "Pair this item with complementary botanicals crafted to work together."
+                }
 
           # --- Branding -------------------------------------------------
           - {
