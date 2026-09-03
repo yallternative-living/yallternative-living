@@ -892,6 +892,28 @@ function truncateForMeta(text, maxLen) {
 
 let PRODUCTS_BY_ID = {};
 
+/* Umami analytics, emitted only when the CMS holds a real website id. Both
+   halves (the preconnect and the script) come from here so the hand-written
+   pages and the generated PDPs cannot drift apart -- the PDPs, where Add to
+   Cart actually happens, shipped without analytics until 2026-09-02. */
+function umamiIsConfigured(site) {
+  if (!site || site.umamiWebsiteId === undefined) return false;
+  const val = String(site.umamiWebsiteId).trim();
+  return Boolean(val && val !== "YOUR_UMAMI_WEBSITE_ID");
+}
+function umamiScriptHtml(site) {
+  return umamiIsConfigured(site)
+    ? '<script defer src="https://cloud.umami.is/script.js" data-website-id="' +
+        escapeHtml(String(site.umamiWebsiteId).trim()) +
+        '"></script>'
+    : "";
+}
+function umamiPreconnectHtml(site) {
+  return umamiIsConfigured(site)
+    ? '<link rel="preconnect" href="https://cloud.umami.is" crossorigin>'
+    : "";
+}
+
 function buildSiteData() {
   PRODUCTS_BY_ID = {};
   const CATALOG = readJson("assets/data/products.json");
@@ -3861,14 +3883,11 @@ function buildSiteData() {
         /<!--YL:site\.umamiWebsiteId-->([\s\S]*?)<!--\/YL:site\.umamiWebsiteId-->/g,
         function (match) {
           if (site.umamiWebsiteId === undefined) return match;
-          const val = String(site.umamiWebsiteId).trim();
-          const isReal = val && val !== "YOUR_UMAMI_WEBSITE_ID";
-          const body = isReal
-            ? '<script defer src="https://cloud.umami.is/script.js" data-website-id="' +
-              escapeHtml(val) +
-              '"></script>'
-            : "";
-          return "<!--YL:site.umamiWebsiteId-->" + body + "<!--/YL:site.umamiWebsiteId-->";
+          return (
+            "<!--YL:site.umamiWebsiteId-->" +
+            umamiScriptHtml(site) +
+            "<!--/YL:site.umamiWebsiteId-->"
+          );
         }
       );
 
@@ -3885,12 +3904,11 @@ function buildSiteData() {
         /<!--YL:site\.umamiPreconnect-->([\s\S]*?)<!--\/YL:site\.umamiPreconnect-->/g,
         function (match) {
           if (site.umamiWebsiteId === undefined) return match;
-          const val = String(site.umamiWebsiteId).trim();
-          const isReal = val && val !== "YOUR_UMAMI_WEBSITE_ID";
-          const body = isReal
-            ? '<link rel="preconnect" href="https://cloud.umami.is" crossorigin>'
-            : "";
-          return "<!--YL:site.umamiPreconnect-->" + body + "<!--/YL:site.umamiPreconnect-->";
+          return (
+            "<!--YL:site.umamiPreconnect-->" +
+            umamiPreconnectHtml(site) +
+            "<!--/YL:site.umamiPreconnect-->"
+          );
         }
       );
 
@@ -6123,6 +6141,9 @@ function renderProductPdpHtml(
     '  <link rel="canonical" href="' +
     pUrl +
     '">\n' +
+    (umamiPreconnectHtml(ctx && ctx.site)
+      ? "  " + umamiPreconnectHtml(ctx && ctx.site) + "\n"
+      : "") +
     '  <link rel="icon" href="/assets/img/favicon-32.png" sizes="32x32" type="image/png">\n' +
     '  <link rel="icon" href="/assets/img/favicon-192.png" sizes="192x192" type="image/png">\n' +
     '  <link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png">\n' +
@@ -6271,6 +6292,7 @@ function renderProductPdpHtml(
     /* Live chat, same deferred loader the hand-written pages carry. It was
        missing from all 20 PDPs -- the pages where a shopper actually has a
        question (audit C, finding L3). */
+    (umamiScriptHtml(ctx && ctx.site) ? "  " + umamiScriptHtml(ctx && ctx.site) + "\n" : "") +
     renderTawkChatHtml(ctx && ctx.site) +
     "</body>\n" +
     "</html>\n"

@@ -5,7 +5,7 @@
  */
 
 /** @const {string} Cache name key, updated on assets release. */
-const CACHE_NAME = "yallternative-cache-v78b722f45910";
+const CACHE_NAME = "yallternative-cache-v790752f8e4cb";
 
 /** @const {!Array<string>} Array of absolute URLs to be cached on installation. */
 const ASSETS_TO_CACHE = [

@@ -42,7 +42,7 @@
      beacon doesn't pay a cold DNS+TLS handshake at the moment it's needed.
      (Checkout is same-origin now -- assets/js/cart.js posts to /api/checkout
      on this domain -- so there's no third-party cart origin to warm up.) -->
-<!--YL:site.umamiPreconnect--><!--/YL:site.umamiPreconnect-->
+<!--YL:site.umamiPreconnect--><link rel="preconnect" href="https://cloud.umami.is" crossorigin><!--/YL:site.umamiPreconnect-->
 <link rel="stylesheet" href="assets/css/styles.css?v=2.0">
 <link rel="stylesheet" href="assets/css/cart.css">
 
@@ -69,7 +69,7 @@
      No cookie-consent banner required. Before this records anything real:
        1. Create a free Umami Cloud account (or self-host) and add this site.
        2. Swap the placeholder data-website-id below for the real one. -->
-<!--YL:site.umamiWebsiteId--><!--/YL:site.umamiWebsiteId-->
+<!--YL:site.umamiWebsiteId--><script defer src="https://cloud.umami.is/script.js" data-website-id="a134e5d8-e8e5-4a8e-90e9-c21e9dba5acb"></script><!--/YL:site.umamiWebsiteId-->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
