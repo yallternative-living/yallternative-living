@@ -210,7 +210,7 @@ collections:
 
 singletons:
   - name: products
-    label: "1. Products, Bundles & FAQ"
+    label: "1. ⚙️ Shop & Products"
     icon: storefront
     description: "Your whole shop: products and prices, multi-buy deals, category sales, gift bundles and the FAQ. Click an item to edit it or 'Add' to create one; Save publishes in a few minutes."
     file: assets/data/products.json
@@ -222,6 +222,119 @@ singletons:
       # then merchandising, then the rarely-touched ones; `id` is last on
       # purpose. Order here only affects the editor, not the site.
       # ==================================================================
+      - name: shop
+        label: "⚙️ Shop settings"
+        widget: object
+        collapsed: true
+        hint: "Etsy counters, free shipping, cart rewards and the Build-Your-Own Box. You rarely need this."
+        fields:
+          - { name: name, label: "Shop name", widget: string }
+          - { name: etsyShopUrl, label: "Etsy shop link", widget: string }
+          - {
+              name: rating,
+              label: "Etsy star rating",
+              widget: number,
+              value_type: float,
+              hint: "Your shop's real Etsy rating, 0–5, e.g. 4.9."
+            }
+          - {
+              name: reviewCount,
+              label: "Etsy review count",
+              widget: number,
+              value_type: int,
+              hint: "Your real Etsy review count, e.g. 320."
+            }
+          - {
+              name: sales,
+              label: "Etsy sales count",
+              widget: number,
+              value_type: int,
+              hint: "Your real Etsy sales count, e.g. 1200."
+            }
+          - {
+              name: freeShippingThreshold,
+              label: "Free shipping threshold ($)",
+              widget: number,
+              value_type: int,
+              hint: "Orders at or above this amount ship free, e.g. 45. Set to 0 to turn free shipping off."
+            }
+          - name: shippingMilestones
+            label: "Cart reward tiers"
+            widget: list
+            label_singular: "Reward tier"
+            required: false
+            collapsed: true
+            summary: "${{fields.threshold}} — {{fields.reward}}"
+            hint: "Perks unlocked as the cart grows, e.g. $40 free shipping, $60 free pocket salve, $80 10% off."
+            fields:
+              - {
+                  name: threshold,
+                  label: "Cart total ($)",
+                  widget: number,
+                  value_type: int,
+                  min: 1,
+                  hint: "Order value that unlocks this perk, e.g. 40."
+                }
+              - {
+                  name: reward,
+                  label: "Perk name",
+                  widget: string,
+                  hint: "e.g. Free Tracked Shipping, Free Pocket Salve, Free Vinyl Sticker"
+                }
+              - {
+                  name: icon,
+                  label: "Badge icon",
+                  widget: select,
+                  default: "gift",
+                  options:
+                    [
+                      { label: "Shipping Truck", value: "truck" },
+                      { label: "Gift / Perk", value: "gift" },
+                      { label: "Star / Sparkle", value: "sparkle" },
+                      { label: "Heart", value: "heart" }
+                    ]
+                }
+          - name: customBox
+            label: "Build-Your-Own Box"
+            widget: object
+            required: false
+            collapsed: true
+            hint: "The pick-your-own bundle on the shop page. Its price is always worked out from the real prices of what the shopper picks, minus the discount below."
+            fields:
+              - {
+                  name: minItems,
+                  label: "Minimum items in a box",
+                  widget: number,
+                  value_type: int,
+                  default: 3
+                }
+              - {
+                  name: maxItems,
+                  label: "Maximum items in a box",
+                  widget: number,
+                  value_type: int,
+                  default: 5
+                }
+              - {
+                  name: discountPercent,
+                  label: "Discount (%)",
+                  widget: number,
+                  value_type: int,
+                  default: 10,
+                  hint: "Percent off the combined price of the chosen items."
+                }
+              - name: eligibleCategories
+                label: "Categories shoppers can pick from"
+                widget: relation
+                multiple: true
+                collection: _singletons
+                file: products
+                value_field: categories.*.id
+                display_fields: ["categories.*.label"]
+                search_fields: ["categories.*.label"]
+                default: ["salves", "body", "soaks", "potions", "ritual"]
+                hint: "Apparel and gift cards are usually left out."
+
       - name: products
         label: Products
         widget: list
@@ -768,119 +881,6 @@ singletons:
               hint: "Leave blank on a new category. Never change it once products use it."
             }
 
-      - name: shop
-        label: "⚙️ Shop settings"
-        widget: object
-        collapsed: true
-        hint: "Etsy counters, free shipping, cart rewards and the Build-Your-Own Box. You rarely need this."
-        fields:
-          - { name: name, label: "Shop name", widget: string }
-          - { name: etsyShopUrl, label: "Etsy shop link", widget: string }
-          - {
-              name: rating,
-              label: "Etsy star rating",
-              widget: number,
-              value_type: float,
-              hint: "Your shop's real Etsy rating, 0–5, e.g. 4.9."
-            }
-          - {
-              name: reviewCount,
-              label: "Etsy review count",
-              widget: number,
-              value_type: int,
-              hint: "Your real Etsy review count, e.g. 320."
-            }
-          - {
-              name: sales,
-              label: "Etsy sales count",
-              widget: number,
-              value_type: int,
-              hint: "Your real Etsy sales count, e.g. 1200."
-            }
-          - {
-              name: freeShippingThreshold,
-              label: "Free shipping threshold ($)",
-              widget: number,
-              value_type: int,
-              hint: "Orders at or above this amount ship free, e.g. 45. Set to 0 to turn free shipping off."
-            }
-          - name: shippingMilestones
-            label: "Cart reward tiers"
-            widget: list
-            label_singular: "Reward tier"
-            required: false
-            collapsed: true
-            summary: "${{fields.threshold}} — {{fields.reward}}"
-            hint: "Perks unlocked as the cart grows, e.g. $40 free shipping, $60 free pocket salve, $80 10% off."
-            fields:
-              - {
-                  name: threshold,
-                  label: "Cart total ($)",
-                  widget: number,
-                  value_type: int,
-                  min: 1,
-                  hint: "Order value that unlocks this perk, e.g. 40."
-                }
-              - {
-                  name: reward,
-                  label: "Perk name",
-                  widget: string,
-                  hint: "e.g. Free Tracked Shipping, Free Pocket Salve, Free Vinyl Sticker"
-                }
-              - {
-                  name: icon,
-                  label: "Badge icon",
-                  widget: select,
-                  default: "gift",
-                  options:
-                    [
-                      { label: "Shipping Truck", value: "truck" },
-                      { label: "Gift / Perk", value: "gift" },
-                      { label: "Star / Sparkle", value: "sparkle" },
-                      { label: "Heart", value: "heart" }
-                    ]
-                }
-          - name: customBox
-            label: "Build-Your-Own Box"
-            widget: object
-            required: false
-            collapsed: true
-            hint: "The pick-your-own bundle on the shop page. Its price is always worked out from the real prices of what the shopper picks, minus the discount below."
-            fields:
-              - {
-                  name: minItems,
-                  label: "Minimum items in a box",
-                  widget: number,
-                  value_type: int,
-                  default: 3
-                }
-              - {
-                  name: maxItems,
-                  label: "Maximum items in a box",
-                  widget: number,
-                  value_type: int,
-                  default: 5
-                }
-              - {
-                  name: discountPercent,
-                  label: "Discount (%)",
-                  widget: number,
-                  value_type: int,
-                  default: 10,
-                  hint: "Percent off the combined price of the chosen items."
-                }
-              - name: eligibleCategories
-                label: "Categories shoppers can pick from"
-                widget: relation
-                multiple: true
-                collection: _singletons
-                file: products
-                value_field: categories.*.id
-                display_fields: ["categories.*.label"]
-                search_fields: ["categories.*.label"]
-                default: ["salves", "body", "soaks", "potions", "ritual"]
-                hint: "Apparel and gift cards are usually left out."
-
   - name: events
     label: "2. Markets, Fairs & Pride Dates"
     icon: event
@@ -1147,7 +1147,7 @@ singletons:
             }
 
   - name: content
-    label: "6. Site Images & Page Wording"
+    label: "6. ⚙️ Site Settings & Pages"
     icon: tune
     description: "Wording and photos across your pages (homepage, About, Contact, logos) plus the on/off switches for site features. Open a section, edit, Save. Start with 'Site Settings'."
     file: assets/data/content.json
@@ -1158,196 +1158,16 @@ singletons:
       # then the paste-once connection codes at the very bottom. Order only
       # affects the editor, not the site.
       - name: site
-        label: "⚙️ Site Settings"
+        label: "⚙️ Site Settings & Switches"
         widget: object
         collapsed: true
-        hint: "Logos, banners, feature switches and the codes that connect your newsletter, forms, chat and stats. Most of this is set once."
+        summary: "On/off switches first, then banners, logos and the connection codes"
+        hint: "The on/off switches for site features come first. Below them: banners, logos, newsletter wording, social links, and the connection codes for your newsletter, forms, chat and stats -- those are set once and rarely touched."
         fields:
-          # --- Branding -------------------------------------------------
-          - {
-              name: logoDesktop,
-              label: "Desktop logo",
-              widget: image,
-              hint: "Shown in the header and footer on desktop screens."
-            }
-          - {
-              name: logoMobile,
-              label: "Mobile logo",
-              widget: image,
-              hint: "Shown in the menu drawer on phones."
-            }
-          - {
-              name: ogImage,
-              label: "Link preview image",
-              widget: image,
-              hint: "The picture that shows when someone shares your site's link (Facebook, texts, iMessage)."
-            }
-          # --- Banners --------------------------------------------------
-          - name: announcement
-            label: "Announcement banner"
-            widget: object
-            collapsed: true
-            hint: "The bar across the very top of every page."
-            fields:
-              - {
-                  name: enabled,
-                  label: "Show the banner",
-                  widget: boolean,
-                  default: true
-                }
-              - {
-                  name: text,
-                  label: "Banner wording",
-                  widget: string,
-                  default: "🌙 Free local pick-up at Landrum Farmers Market every Saturday · Free shipping on orders of $40 or more"
-                }
-              - { name: link, label: "Banner link", widget: string, required: false }
-              - name: accent
-                label: "Banner color"
-                widget: select
-                options:
-                  - { label: "Default Dark (Plum/Charcoal)", value: "default" }
-                  - { label: "Warm Whiskey Amber", value: "whiskey" }
-                  - { label: "Appalachian Moss Green", value: "moss" }
-                  - { label: "Smoky Lavender", value: "lavender" }
-                  - { label: "Rust & Terracotta", value: "rust" }
-                default: "default"
-
-          - name: seasonalNotice
-            label: "Seasonal notice"
-            widget: object
-            collapsed: true
-            hint: "A hiatus or shipping-delay alert, e.g. during a foraging break."
-            fields:
-              - {
-                  name: enabled,
-                  label: "Show the notice",
-                  widget: boolean,
-                  default: false
-                }
-              - {
-                  name: text,
-                  label: "Notice wording",
-                  widget: string,
-                  default: "🌿 Spring Foraging Hiatus: Orders placed after Oct 15 will ship Nov 1."
-                }
-              - {
-                  name: link,
-                  label: "Notice link",
-                  widget: string,
-                  required: false,
-                  default: "events.html"
-                }
-              - {
-                  name: showInCart,
-                  label: "Show in the cart",
-                  widget: boolean,
-                  default: true
-                }
-              - {
-                  name: showInHeader,
-                  label: "Show under the header",
-                  widget: boolean,
-                  default: false
-                }
-
-          # --- Footer, newsletter & birthday club wording ---------------
-          - { name: footerTagline, label: "Footer message", widget: text, required: false }
-          - {
-              name: newsletterTitle,
-              label: "Newsletter headline",
-              widget: string,
-              required: false
-            }
-          - {
-              name: newsletterSubtext,
-              label: "Newsletter description",
-              widget: text,
-              required: false
-            }
-          - {
-              name: welcomeCode,
-              label: "Newsletter welcome code",
-              widget: string,
-              required: false,
-              hint: "The 10% off code new subscribers see on the welcome page. Leave blank and the page points them at your email instead of showing a code that doesn't work."
-            }
-          - {
-              name: birthdayTitle,
-              label: "Birthday Club headline",
-              widget: string,
-              required: false,
-              default: "Join The Birthday Club"
-            }
-          - {
-              name: birthdaySubtext,
-              label: "Birthday Club offer",
-              widget: text,
-              required: false,
-              default: "Get a $5 gift voucher delivered to your inbox on your birthday."
-            }
-
-          # --- Social profile links ---------------------------------------
-          - name: social
-            label: "📱 Social profile links"
-            widget: object
-            collapsed: true
-            fields:
-              - name: instagram
-                label: "Instagram"
-                widget: string
-                required: false
-                pattern:
-                  [
-                    "^$|^https?://.*",
-                    "Must be a valid URL starting with https://, or leave blank."
-                  ]
-              - name: tiktok
-                label: "TikTok"
-                widget: string
-                required: false
-                pattern:
-                  [
-                    "^$|^https?://.*",
-                    "Must be a valid URL starting with https://, or leave blank."
-                  ]
-              - name: facebook
-                label: "Facebook"
-                widget: string
-                required: false
-                pattern:
-                  [
-                    "^$|^https?://.*",
-                    "Must be a valid URL starting with https://, or leave blank."
-                  ]
-              - name: etsy
-                label: "Etsy shop"
-                widget: string
-                required: false
-                pattern:
-                  [
-                    "^$|^https?://.*",
-                    "Must be a valid URL starting with https://, or leave blank."
-                  ]
-              - name: pinterest
-                label: "Pinterest"
-                widget: string
-                required: false
-                pattern:
-                  [
-                    "^$|^https?://.*",
-                    "Must be a valid URL starting with https://, or leave blank."
-                  ]
-              - name: youtube
-                label: "YouTube"
-                widget: string
-                required: false
-                pattern:
-                  [
-                    "^$|^https?://.*",
-                    "Must be a valid URL starting with https://, or leave blank."
-                  ]
-
+          # Switches first: this is the part of the form Savanna opens most
+          # often and used to be ~200 lines down, under the logos, banners,
+          # newsletter copy and social links. Everything below the switches
+          # is set once and rarely touched again.
           # --- Feature switches -----------------------------------------
           - {
               name: enableJournal,
@@ -1559,6 +1379,191 @@ singletons:
                   widget: text,
                   default: "Pair this item with complementary botanicals crafted to work together."
                 }
+
+          # --- Branding -------------------------------------------------
+          - {
+              name: logoDesktop,
+              label: "Desktop logo",
+              widget: image,
+              hint: "Shown in the header and footer on desktop screens."
+            }
+          - {
+              name: logoMobile,
+              label: "Mobile logo",
+              widget: image,
+              hint: "Shown in the menu drawer on phones."
+            }
+          - {
+              name: ogImage,
+              label: "Link preview image",
+              widget: image,
+              hint: "The picture that shows when someone shares your site's link (Facebook, texts, iMessage)."
+            }
+          # --- Banners --------------------------------------------------
+          - name: announcement
+            label: "Announcement banner"
+            widget: object
+            collapsed: true
+            hint: "The bar across the very top of every page."
+            fields:
+              - {
+                  name: enabled,
+                  label: "Show the banner",
+                  widget: boolean,
+                  default: true
+                }
+              - {
+                  name: text,
+                  label: "Banner wording",
+                  widget: string,
+                  default: "🌙 Free local pick-up at Landrum Farmers Market every Saturday · Free shipping on orders of $40 or more"
+                }
+              - { name: link, label: "Banner link", widget: string, required: false }
+              - name: accent
+                label: "Banner color"
+                widget: select
+                options:
+                  - { label: "Default Dark (Plum/Charcoal)", value: "default" }
+                  - { label: "Warm Whiskey Amber", value: "whiskey" }
+                  - { label: "Appalachian Moss Green", value: "moss" }
+                  - { label: "Smoky Lavender", value: "lavender" }
+                  - { label: "Rust & Terracotta", value: "rust" }
+                default: "default"
+
+          - name: seasonalNotice
+            label: "Seasonal notice"
+            widget: object
+            collapsed: true
+            hint: "A hiatus or shipping-delay alert, e.g. during a foraging break."
+            fields:
+              - {
+                  name: enabled,
+                  label: "Show the notice",
+                  widget: boolean,
+                  default: false
+                }
+              - {
+                  name: text,
+                  label: "Notice wording",
+                  widget: string,
+                  default: "🌿 Spring Foraging Hiatus: Orders placed after Oct 15 will ship Nov 1."
+                }
+              - {
+                  name: link,
+                  label: "Notice link",
+                  widget: string,
+                  required: false,
+                  default: "events.html"
+                }
+              - {
+                  name: showInCart,
+                  label: "Show in the cart",
+                  widget: boolean,
+                  default: true
+                }
+              - {
+                  name: showInHeader,
+                  label: "Show under the header",
+                  widget: boolean,
+                  default: false
+                }
+
+          # --- Footer, newsletter & birthday club wording ---------------
+          - { name: footerTagline, label: "Footer message", widget: text, required: false }
+          - {
+              name: newsletterTitle,
+              label: "Newsletter headline",
+              widget: string,
+              required: false
+            }
+          - {
+              name: newsletterSubtext,
+              label: "Newsletter description",
+              widget: text,
+              required: false
+            }
+          - {
+              name: welcomeCode,
+              label: "Newsletter welcome code",
+              widget: string,
+              required: false,
+              hint: "The 10% off code new subscribers see on the welcome page. Leave blank and the page points them at your email instead of showing a code that doesn't work."
+            }
+          - {
+              name: birthdayTitle,
+              label: "Birthday Club headline",
+              widget: string,
+              required: false,
+              default: "Join The Birthday Club"
+            }
+          - {
+              name: birthdaySubtext,
+              label: "Birthday Club offer",
+              widget: text,
+              required: false,
+              default: "Get a $5 gift voucher delivered to your inbox on your birthday."
+            }
+
+          # --- Social profile links ---------------------------------------
+          - name: social
+            label: "📱 Social profile links"
+            widget: object
+            collapsed: true
+            fields:
+              - name: instagram
+                label: "Instagram"
+                widget: string
+                required: false
+                pattern:
+                  [
+                    "^$|^https?://.*",
+                    "Must be a valid URL starting with https://, or leave blank."
+                  ]
+              - name: tiktok
+                label: "TikTok"
+                widget: string
+                required: false
+                pattern:
+                  [
+                    "^$|^https?://.*",
+                    "Must be a valid URL starting with https://, or leave blank."
+                  ]
+              - name: facebook
+                label: "Facebook"
+                widget: string
+                required: false
+                pattern:
+                  [
+                    "^$|^https?://.*",
+                    "Must be a valid URL starting with https://, or leave blank."
+                  ]
+              - name: etsy
+                label: "Etsy shop"
+                widget: string
+                required: false
+                pattern:
+                  [
+                    "^$|^https?://.*",
+                    "Must be a valid URL starting with https://, or leave blank."
+                  ]
+              - name: pinterest
+                label: "Pinterest"
+                widget: string
+                required: false
+                pattern:
+                  [
+                    "^$|^https?://.*",
+                    "Must be a valid URL starting with https://, or leave blank."
+                  ]
+              - name: youtube
+                label: "YouTube"
+                widget: string
+                required: false
+                pattern:
+                  [
+                    "^$|^https?://.*",
+                    "Must be a valid URL starting with https://, or leave blank."
+                  ]
 
           # --- Connection codes (paste once, rarely touched) ------------
           - {

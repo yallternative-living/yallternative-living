@@ -124,7 +124,13 @@
     var ledeEl = document.getElementById("thankYouLede");
     var cardEl = document.getElementById("thankYouCard");
     var badgeWrapEl = document.getElementById("thankYouBadgeWrap");
-    var badgeText = cardEl ? cardEl.querySelector(".receipt-status-badge span") : null;
+    /* The badge's FIRST span is the 8px pulse dot (aria-hidden), not the
+       label. Selecting "span" landed "Payment Received" inside the dot, where
+       it wrapped at 8px wide and overlapped the real label beside it -- a
+       doubled, staggered "Payment Received" on every confirmed order. */
+    var badgeText = cardEl
+      ? cardEl.querySelector(".receipt-status-badge span:not(.status-pulse)")
+      : null;
 
     /* Reached when the Worker cannot vouch for the session: no total, no
        "paid" wording, and a pointer at the two records that do exist. */

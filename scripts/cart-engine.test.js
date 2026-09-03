@@ -882,7 +882,15 @@ else global.window.YL_PRODUCTS = savedWindowYlProducts;
           addEventListener: () => {},
           setAttribute: () => {},
           removeAttribute: () => {},
-          querySelector: () => (id === "thankYouCard" ? element("badgeText") : null),
+          /* The card holds two spans: the pulse dot and the label. Honour the
+             selector so a test can tell them apart -- the plain "span"
+             selector lands on the dot, exactly as the real DOM does. */
+          querySelector: (sel) =>
+            id !== "thankYouCard"
+              ? null
+              : /:not\(\.status-pulse\)/.test(sel)
+                ? element("badgeText")
+                : element("badgePulse"),
           classList: { add: () => {}, remove: () => {}, contains: () => false }
         };
       }
@@ -995,6 +1003,22 @@ else global.window.YL_PRODUCTS = savedWindowYlProducts;
     "thank-you: order total renders the Worker-confirmed amount"
   );
   eq(good.els.thankYouSessionRow.hidden, false, "thank-you: reference id shown for a real session");
+  /* Seen on a live order 2026-09-03: "Payment Received" rendered twice,
+     staggered and overlapping. The badge's first <span> is the 8px pulse dot,
+     and querySelector(".receipt-status-badge span") wrote the label into it,
+     where it wrapped at 8px and sat beside the real label. */
+  eq(
+    good.els.badgeText.textContent,
+    "Payment Received",
+    "thank-you: the paid label goes into the badge's label span"
+  );
+  /* With the right selector the dot is never even looked up; the old one
+     looked it up and filled it. Either way its text must stay empty. */
+  eq(
+    (good.els.badgePulse || { textContent: "" }).textContent,
+    "",
+    "thank-you: the pulse dot stays empty -- text in it renders as a second, overlapping label"
+  );
 
   // A hand-crafted session_id is not a completed order.
   const forged = runThankYou("?session_id=not-a-session&amount=42.00");
