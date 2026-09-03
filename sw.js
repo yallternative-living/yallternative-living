@@ -154,6 +154,21 @@ self.addEventListener('fetch', event => {
     return;
   }
 
+  // The analytics proxy (scripts/lib/analytics-proxy.js). Same-origin paths,
+  // but not this site's code: they are rewritten straight through to Umami
+  // Cloud by netlify.toml. Left entirely to the browser.
+  //
+  // The send endpoint is a POST and the method guard above already skips it.
+  // The SCRIPT is the reason this rule exists: it ends in .js, so without it
+  // the network-first branch below would fetch it with `cache: "reload"` --
+  // bypassing the browser's HTTP cache on EVERY page load, turning a script
+  // Umami serves with `max-age=86400` into a real origin round trip per view
+  // -- and would then write a third-party file into this site's own cache,
+  // where the offline branch would keep serving it after a deploy.
+  if (url.pathname.startsWith('/porch-light/')) {
+    return;
+  }
+
   // Handle local same-origin assets
   if (event.request.url.startsWith(self.location.origin)) {
     url.search = "";

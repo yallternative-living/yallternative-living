@@ -718,6 +718,7 @@ else global.window.YL_PRODUCTS = savedWindowYlProducts;
   const fs = require("fs");
   const path = require("path");
   const vm = require("vm");
+  const { ANALYTICS_SCRIPT_PATH, ANALYTICS_SEND_PATH } = require("./lib/analytics-proxy.js");
 
   const listeners = {};
   const swCaches = {
@@ -784,6 +785,23 @@ else global.window.YL_PRODUCTS = savedWindowYlProducts;
     respondedTo("https://example.test/api/checkout"),
     false,
     "sw.js does not intercept the /api/ checkout proxy"
+  );
+  /* The analytics proxy is same-origin but is not this site's code: those two
+     paths are rewritten straight through to Umami Cloud. The script ends in
+     .js, so without an explicit skip the network-first branch would fetch it
+     with cache:"reload" on every page load -- bypassing the browser's HTTP
+     cache on a file Umami serves with max-age=86400 -- and would write a
+     third-party script into this site's own cache, where the offline branch
+     would go on serving it after a deploy. */
+  eq(
+    respondedTo("https://example.test" + ANALYTICS_SCRIPT_PATH),
+    false,
+    "sw.js does not intercept the proxied analytics script"
+  );
+  eq(
+    respondedTo("https://example.test" + ANALYTICS_SEND_PATH),
+    false,
+    "sw.js does not intercept the proxied analytics send path"
   );
   eq(
     respondedTo("https://example.test/assets/js/cart.js"),
