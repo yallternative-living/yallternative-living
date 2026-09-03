@@ -412,6 +412,17 @@ p {
   }
 }
 
+/* order-status.html pairs this with `.container` (`class="container
+   container-sm"`) to narrow the whole column -- header and lookup card
+   alike -- for a single-purpose lookup page. Neither class had a rule
+   anywhere in this file (rendered audit): the lookup card rendered at the
+   full 1256px `.container` width (1198px inputs) at 1440px, and the header
+   above it stayed left-aligned instead of centred. `.container`'s own
+   margin: 0 auto still centres this narrower max-width. */
+.container-sm {
+  max-width: 560px;
+}
+
 section {
   padding: 88px 0;
   position: relative;
@@ -431,6 +442,14 @@ section {
 }
 
 .center {
+  text-align: center;
+}
+/* order-status.html's header block reaches for `.text-center` rather than
+   the existing `.center` above (rendered audit: neither existed in this
+   file, so the header rendered left-aligned under the centred nav/footer
+   either way). Added as its own utility rather than rewriting the markup
+   to reuse `.center`. */
+.text-center {
   text-align: center;
 }
 .muted {
@@ -1950,7 +1969,15 @@ section {
   border: 1px solid var(--hide);
   border-radius: var(--radius-md, 8px);
   color: var(--paper);
-  font-size: 0.95rem;
+  /* 1rem/16px: `.search-input-wrap input[type="text"]` (this element wrapped
+     in `.search-input-wrap`, e.g. order-status.html's #orderQueryInput) is
+     MORE specific than `.field input` (an extra [type="text"] attribute
+     selector), so it was the one actually deciding this element's font-size
+     and kept it at 15.2px even after that rule's own fix -- iOS Safari
+     auto-zooms the page on focus below 16px (rendered audit). Same fix,
+     same reasoning, wherever this wrapper is used (the global search modal,
+     on every page, has the identical input). */
+  font-size: 1rem;
   transition:
     border-color 0.2s ease,
     box-shadow 0.2s ease;
@@ -2376,7 +2403,13 @@ section {
     padding: 13px 14px;
     border-radius: var(--radius);
     font-family: var(--font-body);
-    font-size: 0.95rem;
+    /* 1rem/16px, not the 15.2px 0.95rem used to compute to: iOS Safari
+       auto-zooms the page on focus for any input whose computed font-size
+       is under 16px (rendered audit: order-status.html's #orderQueryInput /
+       #orderEmailInput measured 15.2px). Applies everywhere this rule does,
+       not only on phones -- desktop has no reason to run a size iOS would
+       reject, and it keeps one rule instead of a duplicate mobile-only one. */
+    font-size: 1rem;
     transition: border-color 0.25s ease;
 
     &:focus-visible {
