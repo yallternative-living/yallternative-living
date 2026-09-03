@@ -1842,6 +1842,28 @@ section {
   text-align: start;
 }
 
+/* 404, welcome and thank-you inherit `.hero .lede`'s 78ch measure (built
+   for the two-line home-page lede) via `& .lede` above -- wildly wide for
+   these pages' much shorter one-to-two-sentence ledes, which is why a short
+   one orphaned a trailing word or two onto its own line (rendered audit:
+   404.html's "...maybe a link's just a little rusty." wrapped [952, 88]px
+   from 1024px up; thank-you.html's lede wrapped [805, 802, 89]px at 900px).
+   ~60ch keeps these short paragraphs to two lines that actually look
+   balanced. Equal specificity to `.hero .lede` (two classes each, via
+   `.tight-hero .lede`) -- wins on source order alone, since this is later.
+
+   `text-wrap: balance`, not the global `p { text-wrap: pretty }`: pretty
+   only avoids the single-word-orphan worst case, and the thank-you lede (two
+   full sentences) still needs 3 lines at 60ch -- pretty's own best split
+   still left one at 195px against a 753px widest (26%). balance actively
+   evens every line's length instead of just dodging the worst break, so
+   whatever line count the measure forces comes out close to even. */
+.tight-hero .lede,
+.thank-you-lede {
+  max-width: 60ch;
+  text-wrap: balance;
+}
+
 /* =============== CUSTOMER REVIEWS (site-submitted, shop.html) ===============
    Site-submitted reviews, kept visually + structurally separate from the
    Etsy-sourced "4.9 average / 32 Etsy reviews" line up in .shop-trust --
