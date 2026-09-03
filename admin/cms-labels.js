@@ -104,6 +104,17 @@
       } else if (/^(Creating|Editing) Files$/.test(text) && span.closest("h2")) {
         var label = currentSingletonLabel();
         if (label) setText(span, text.replace("Files", label));
+      } else if (/^Files › /.test(text) && span.closest("h2")) {
+        /* The editor breadcrumb is one string, "Files › 6. ⚙️ Site Settings"
+           (with Sveltia's isolate marks around each part): same group name
+           as the sidebar heading, so the same rename, leading word only. */
+        for (var n = span.firstChild; n; n = n.nextSibling) {
+          if (n.nodeType === 3 && /Files/.test(n.textContent)) {
+            var next = n.textContent.replace(/^(\u2068?)Files(\u2069?)/, "$1" + GROUP_LABEL + "$2");
+            if (next !== n.textContent) n.textContent = next;
+            break;
+          }
+        }
       }
     }
   }

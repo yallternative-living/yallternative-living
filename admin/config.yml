@@ -215,6 +215,12 @@ singletons:
     description: "Your whole shop: products and prices, multi-buy deals, category sales, gift bundles and the FAQ. Click an item to edit it or 'Add' to create one; Save publishes in a few minutes."
     file: assets/data/products.json
     format: json
+    # No side-by-side preview: for a settings/catalogue form it only re-lists
+    # every field as label + value beside the field itself -- twice the
+    # screen for the same information (2026-09-03). The Journal keeps its
+    # preview, where rendered post text is actually useful.
+    editor:
+      preview: false
     fields:
       # ==================================================================
       # 1. PRODUCTS (Top Priority - Daily Catalog Management)
@@ -887,6 +893,12 @@ singletons:
     description: "Your pop-up schedule: markets, fairs and Pride dates. Once a date passes the event moves itself to 'Where We've Been'. Save publishes in a few minutes."
     file: assets/data/events.json
     format: json
+    # No side-by-side preview: for a settings/catalogue form it only re-lists
+    # every field as label + value beside the field itself -- twice the
+    # screen for the same information (2026-09-03). The Journal keeps its
+    # preview, where rendered post text is actually useful.
+    editor:
+      preview: false
     fields:
       - name: upcoming
         label: "Upcoming pop-ups"
@@ -995,6 +1007,12 @@ singletons:
     description: "Reviews shown on your site. Only add real ones you've approved, and tick 'Feature on homepage?' for the few you want front and center. Kept separate from your Etsy star rating."
     file: assets/data/site-reviews.json
     format: json
+    # No side-by-side preview: for a settings/catalogue form it only re-lists
+    # every field as label + value beside the field itself -- twice the
+    # screen for the same information (2026-09-03). The Journal keeps its
+    # preview, where rendered post text is actually useful.
+    editor:
+      preview: false
     fields:
       - name: reviews
         label: "On-site reviews"
@@ -1091,6 +1109,12 @@ singletons:
     description: "The photo strip on your homepage: a picture and caption for each Instagram or TikTok post you want to show off. Its on/off switch is under 6 → Site Settings."
     file: assets/data/social-feed.json
     format: json
+    # No side-by-side preview: for a settings/catalogue form it only re-lists
+    # every field as label + value beside the field itself -- twice the
+    # screen for the same information (2026-09-03). The Journal keeps its
+    # preview, where rendered post text is actually useful.
+    editor:
+      preview: false
     fields:
       - name: posts
         label: Posts
@@ -1152,6 +1176,12 @@ singletons:
     description: "Wording and photos across your pages (homepage, About, Contact, logos) plus the on/off switches for site features. Open a section, edit, Save. Start with 'Site Settings'."
     file: assets/data/content.json
     format: json
+    # No side-by-side preview: for a settings/catalogue form it only re-lists
+    # every field as label + value beside the field itself -- twice the
+    # screen for the same information (2026-09-03). The Journal keeps its
+    # preview, where rendered post text is actually useful.
+    editor:
+      preview: false
     fields:
       # Everyday items first (logos, banners, footer/newsletter wording,
       # social links, feature switches), then the emails the shop sends,
@@ -1172,41 +1202,14 @@ singletons:
           # newsletter copy and social links. Everything below the switches
           # is set once and rarely touched again.
           # --- Feature switches -----------------------------------------
-          - {
-              name: enableLiveChat,
-              label: "Show live chat (Tawk.to)",
-              widget: boolean,
-              default: true,
-              required: false,
-              hint: "The chat bubble in the bottom corner of every page. Off hides it everywhere; your Tawk.to IDs stay saved for when you turn it back on."
-            }
-          - {
-              name: enableOrderEmails,
-              label: "Email me each order as it's paid",
-              widget: boolean,
-              default: true,
-              required: false,
-              hint: "One fulfilment email per paid order, with the items, gift note and address."
-            }
-          - {
-              name: enableJournal,
-              label: "Show the Journal (blog)",
-              widget: boolean,
-              default: false,
-              required: false,
-              hint: "Shows the blog page and its menu link (section 4)."
-            }
-          - {
-              name: enableSocialFeed,
-              label: "Show social media feed",
-              widget: boolean,
-              default: false,
-              required: false,
-              hint: "The Instagram/TikTok strip on the homepage (section 5)."
-            }
+          # Sveltia cannot draw sub-headings inside an object, so the group
+          # rides in the label ("Shop ·", "Site ·", "Emails to me ·") and the
+          # list is ordered by group. The email switches proper follow under
+          # "Emails the shop sends on its own".
+
           - {
               name: enableApothecaryQuiz,
-              label: "Show the product quiz",
+              label: "Shop · Show the product quiz",
               widget: boolean,
               default: true,
               required: false,
@@ -1214,7 +1217,7 @@ singletons:
             }
           - {
               name: enableCustomBoxBuilder,
-              label: "Show Build-Your-Own Box",
+              label: "Shop · Show Build-Your-Own Box",
               widget: boolean,
               default: true,
               required: false,
@@ -1222,7 +1225,7 @@ singletons:
             }
           - {
               name: enableScentFilter,
-              label: "Show scent filter",
+              label: "Shop · Show scent filter",
               widget: boolean,
               default: true,
               required: false,
@@ -1230,7 +1233,7 @@ singletons:
             }
           - {
               name: enableIngredientsModal,
-              label: "Show ingredients info",
+              label: "Shop · Show ingredients info",
               widget: boolean,
               default: true,
               required: false,
@@ -1238,39 +1241,105 @@ singletons:
             }
           - {
               name: enableLocalPickup,
-              label: "Show free local pick-up",
+              label: "Shop · Show free local pick-up",
               widget: boolean,
               default: true,
               required: false,
               hint: "Offers free pick-up at a pop-up market as a cart option."
             }
           - {
-              name: enableCountdownTicker,
-              label: "Show event countdown ticker",
-              widget: boolean,
-              default: true,
-              required: false,
-              hint: "Counts down to your next market or pop-up."
-            }
-          - {
-              name: enableEventJsonLd,
-              label: "List markets in Google event search",
-              widget: boolean,
-              default: true,
-              required: false,
-              hint: "Gives Google what it needs to show your upcoming markets in its event results. No guarantee, and safe to leave on."
-            }
-          - {
               name: enableRestockAlerts,
-              label: "Show launch-alert sign-up",
+              label: "Shop · Show launch-alert sign-up",
               widget: boolean,
               default: true,
               required: false,
               hint: "Adds an 'email me when it launches' sign-up to Coming Soon products."
             }
           - {
+              name: enableLoyaltyPoints,
+              label: "Shop · Show Customer Rewards Points",
+              widget: boolean,
+              default: true,
+              required: false,
+              hint: "Shows earned points on price tags and in the cart."
+            }
+          # Hidden on purpose: naming/rate constants for the rewards program, set once
+          # and not part of Savanna's everyday editing (enableLoyaltyPoints above is
+          # her on/off switch). widget: hidden keeps default seeding a first deploy but
+          # drops the UI control; the current value still round-trips on every save.
+          - {
+              name: loyaltyPointsName,
+              label: "Shop · Rewards points name (plural)",
+              widget: hidden,
+              default: "Alt-Points",
+              required: false
+            }
+          - {
+              name: loyaltyPointsSingular,
+              label: "Shop · Rewards points name (singular)",
+              widget: hidden,
+              default: "Alt-Point",
+              required: false
+            }
+          - {
+              name: loyaltyPointsPerDollar,
+              label: "Shop · Points per $1 spent",
+              widget: hidden,
+              default: 1,
+              required: false
+            }
+          - {
+              name: loyaltyBadgeEmoji,
+              label: "Shop · Rewards emoji",
+              widget: hidden,
+              default: "✨",
+              required: false
+            }
+
+
+          - {
+              name: enableOrderStatusLookup,
+              label: "Shop · Show Order Lookup Tool",
+              widget: boolean,
+              default: true,
+              required: false,
+              hint: "Lets customers check order progress and shipping status."
+            }
+          - {
+              name: enableLiveChat,
+              label: "Site · Show live chat (Tawk.to)",
+              widget: boolean,
+              default: true,
+              required: false,
+              hint: "The chat bubble in the bottom corner of every page. Off hides it everywhere; your Tawk.to IDs stay saved for when you turn it back on."
+            }
+          - {
+              name: enableJournal,
+              label: "Site · Show the Journal (blog)",
+              widget: boolean,
+              default: false,
+              required: false,
+              hint: "Shows the blog page and its menu link (section 4)."
+            }
+          - {
+              name: enableSocialFeed,
+              label: "Site · Show social media feed",
+              widget: boolean,
+              default: false,
+              required: false,
+              hint: "The Instagram/TikTok strip on the homepage (section 5)."
+            }
+          - {
+              name: enableCountdownTicker,
+              label: "Site · Show event countdown ticker",
+              widget: boolean,
+              default: true,
+              required: false,
+              hint: "Counts down to your next market or pop-up."
+            }
+          - {
               name: enableDispatchCountdown,
-              label: "Show 'order by' shipping countdown",
+              label: "Site · Show 'order by' shipping countdown",
               widget: boolean,
               default: false,
               required: false,
@@ -1284,62 +1353,28 @@ singletons:
           # scripted save against a scratch copy of this config; see DEVELOPMENT.md
           # section 18b.
           - name: dispatch
-            label: "Shipping cutoff"
+            label: "Site · Shipping cutoff"
             widget: hidden
             required: false
           - {
-              name: enableOrderStatusLookup,
-              label: "Show Order Lookup Tool",
+              name: enableEventJsonLd,
+              label: "Site · List markets in Google event search",
               widget: boolean,
               default: true,
               required: false,
-              hint: "Lets customers check order progress and shipping status."
+              hint: "Gives Google what it needs to show your upcoming markets in its event results. No guarantee, and safe to leave on."
             }
           - {
-              name: enableLoyaltyPoints,
-              label: "Show Customer Rewards Points",
+              name: enableOrderEmails,
+              label: "Emails to me · Email me each order as it's paid",
               widget: boolean,
               default: true,
               required: false,
-              hint: "Shows earned points on price tags and in the cart."
-            }
-          # Hidden on purpose: naming/rate constants for the rewards program, set once
-          # and not part of Savanna's everyday editing (enableLoyaltyPoints above is
-          # her on/off switch). widget: hidden keeps default seeding a first deploy but
-          # drops the UI control; the current value still round-trips on every save.
-          - {
-              name: loyaltyPointsName,
-              label: "Rewards points name (plural)",
-              widget: hidden,
-              default: "Alt-Points",
-              required: false
-            }
-          - {
-              name: loyaltyPointsSingular,
-              label: "Rewards points name (singular)",
-              widget: hidden,
-              default: "Alt-Point",
-              required: false
-            }
-          - {
-              name: loyaltyPointsPerDollar,
-              label: "Points per $1 spent",
-              widget: hidden,
-              default: 1,
-              required: false
-            }
-          - {
-              name: loyaltyBadgeEmoji,
-              label: "Rewards emoji",
-              widget: hidden,
-              default: "✨",
-              required: false
-            }
-
-          # --- Emails the shop sends on its own -------------------------
+              hint: "One fulfilment email per paid order, with the items, gift note and address."
+            }          # --- Emails the shop sends on its own -------------------------
           - {
               name: enableLowStockAlerts,
-              label: "Email me when stock runs low",
+              label: "Emails to me · Email me when stock runs low",
               widget: boolean,
               default: true,
               required: false,
@@ -1347,7 +1382,7 @@ singletons:
             }
           - {
               name: enableOrderDigest,
-              label: "Email me a daily order digest",
+              label: "Emails to me · Email me a daily order digest",
               widget: boolean,
               default: true,
               required: false,
@@ -1355,7 +1390,7 @@ singletons:
             }
           - {
               name: enableMarketReminders,
-              label: "Remind subscribers before a market",
+              label: "Emails to me · Remind subscribers before a market",
               widget: boolean,
               default: true,
               required: false,
@@ -1363,7 +1398,7 @@ singletons:
             }
           - {
               name: enableReactionExport,
-              label: "Email me monthly reaction reports",
+              label: "Emails to me · Email me monthly reaction reports",
               widget: boolean,
               default: true,
               required: false,
@@ -2068,6 +2103,12 @@ singletons:
     description: "The recommendation quiz on the shop page: its banner wording, the questions shoppers answer, and which products each answer recommends. Its on/off switch is under 6 → Site Settings."
     file: assets/data/quiz.json
     format: json
+    # No side-by-side preview: for a settings/catalogue form it only re-lists
+    # every field as label + value beside the field itself -- twice the
+    # screen for the same information (2026-09-03). The Journal keeps its
+    # preview, where rendered post text is actually useful.
+    editor:
+      preview: false
     fields:
       - { name: eyebrow, label: "Banner eyebrow", widget: string, hint: "The small line above the banner title." }
       - { name: title, label: "Banner title", widget: string }
