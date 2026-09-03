@@ -7158,7 +7158,7 @@
         );
       })
       .join("");
-    wireReveal(gridElem);
+    wireReveal(sectionElem);
   }
 
   renderUgcFeed(socialFeedGrid, homeSocialFeedSection);

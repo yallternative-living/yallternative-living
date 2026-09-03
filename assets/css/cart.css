@@ -365,8 +365,25 @@
      on its own so the button is always reachable. */
   overflow-y: auto;
   max-height: min(62dvh, 560px);
-  padding: 16px 20px calc(16px + env(safe-area-inset-bottom));
+  /* The bottom padding lives on the sticky ::after strip below, not here:
+     the sticky Checkout button pins to the scrollport's content edge, and a
+     real padding-bottom left a strip under it where the totals text scrolled
+     past half-covered. */
+  --yl-cart-foot-pad-b: calc(16px + env(safe-area-inset-bottom, 0px));
+  padding: 16px 20px 0;
   border-top: 1px solid var(--hide);
+  background: var(--ink-2);
+}
+/* Last flow child, so it is plain bottom padding when the footer fits, and
+   an opaque floor under the pinned Checkout button when the footer scrolls
+   (the button sits --yl-cart-foot-pad-b above the scrollport edge, this
+   fills the gap so nothing shows through). */
+.yl-cart-foot::after {
+  content: "";
+  display: block;
+  position: sticky;
+  bottom: 0;
+  height: var(--yl-cart-foot-pad-b);
   background: var(--ink-2);
 }
 
@@ -375,7 +392,8 @@
 @media (max-height: 480px) {
   .yl-cart-foot {
     max-height: min(70dvh, 560px);
-    padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
+    --yl-cart-foot-pad-b: calc(8px + env(safe-area-inset-bottom, 0px));
+    padding: 8px 16px 0;
   }
 }
 .yl-cart-upsell {
@@ -1063,14 +1081,21 @@
   font-variant-numeric: tabular-nums;
   font-weight: 700;
 }
-/* Full-width, ≥52px tap target -- impossible to miss on mobile. */
+/* Full-width, ≥52px tap target -- impossible to miss on mobile. Sticky at the
+   bottom of the footer scroll container so mobile shoppers always see the
+   checkout CTA without hunting below upsells. */
 .yl-cart-checkout {
+  position: sticky;
+  bottom: var(--yl-cart-foot-pad-b, 0px);
+  z-index: 5;
   min-height: 52px;
   font-size: 1rem;
   font-weight: 700;
   letter-spacing: 0.03em;
   border-radius: var(--radius, 8px);
-  box-shadow: 0 4px 16px oklch(from var(--rose) l c h / 0.35);
+  box-shadow:
+    0 -4px 12px rgba(0, 0, 0, 0.35),
+    0 4px 16px oklch(from var(--rose) l c h / 0.35);
   transition:
     transform 0.15s ease,
     box-shadow 0.15s ease;
