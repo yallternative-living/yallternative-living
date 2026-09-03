@@ -14,11 +14,11 @@ Your dashboard is organized into 7 focused sections in the left sidebar. The **J
 
 1. **1. Products, Bundles & FAQ** — Your daily workspace:
    - **Products (Top Priority)**: Manage your 19 catalog items, edit prices, set size/scent variants, upload photos, add ingredients, and update stock levels.
-   - **Volume Pricing Rules (Promotions & Deals)**: Set up mix-and-match multi-buy category tiers (like *Any 2+ 2oz Salves for $15 each*).
-   - **Category Sales**: Put whole categories on sale at once with percentage discounts (e.g. *15% off Body & Skin*).
-   - **Bundles / Pre-made Gift Sets**: Create curated gift sets (*Discovery Flight*, *Everyday Armor Kit*) with auto-calculated bundle pricing.
-   - **FAQ (Shop & Contact Accordion)**: Update questions and answers on shipping, returns, shelf life, and custom orders.
-   - **Shop Filter Categories & Shop Settings**: Category filter buttons, Etsy sync counters, free shipping threshold, and Build-Your-Own Box settings (neatly tucked at the bottom).
+   - **Multi-buy deals**: Set up mix-and-match multi-buy category tiers (like *Any 2+ 2oz Salves for $15 each*).
+   - **Category sales**: Put whole categories on sale at once with percentage discounts (e.g. *15% off Body & Skin*).
+   - **Gift bundles**: Create curated gift sets (*Discovery Flight*, *Everyday Armor Kit*) with auto-calculated bundle pricing.
+   - **FAQ**: Update questions and answers on shipping, returns, shelf life, and custom orders.
+   - **Product categories & Shop settings**: Category filter buttons, Etsy sync counters, free shipping threshold, and Build-Your-Own Box settings (neatly tucked at the bottom).
 2. **2. Markets, Fairs & Pride Dates** — Add upcoming pop-up markets, craft fairs, and Pride events. Upcoming dates display chronologically, and past appearances automatically archive themselves under "Where We've Been."
 3. **3. Customer Reviews** — Publish customer reviews and choose which glowing testimonials feature on the homepage carousel.
 4. **4. Journal** — Each post is its own entry with a **New Post** button. Write kitchen updates, herbal deep-dives, and community announcements with a visual formatting toolbar.
@@ -59,8 +59,8 @@ Once Steven completes the one-time OAuth app setup (`docs/DEVELOPMENT.md` Sectio
 
 #### B. Adding Sizes, Scents, or Style Variants (with `priceDelta`)
 For products available in different sizes (e.g. 1oz vs 2oz salve, 4oz vs 8oz soak) or scent blends:
-1. Open the product and expand the **Size/Scent/Blend Variants** section.
-2. Set **Variant Type Label** to `Size`, `Scent`, `Blend`, or `Option`.
+1. Open the product and expand the **Variants** section.
+2. Set **Variant type** to `Size`, `Scent`, `Blend`, or `Option`.
 3. Under **Options**:
    - **Base Option (Required Rule)**: Exactly **one** option must have a **Price difference** of `0`. This represents your base price entered above (e.g., Option name `2oz`, Price difference `0`).
    - **Additional Options (+ / - Deltas)**: Enter how much more or less the other sizes cost compared to the base price:
@@ -73,11 +73,11 @@ Manage stock with complete transparency and urgency without artificial hype:
 
 | Desired Storefront Experience | What Customers See | How to Configure in `/admin` |
 |---|---|---|
-| **1. Made-to-Order / Unlimited** | Standard active "Add to Cart" button | Leave **Stock Count** blank (empty) and ensure **In Stock** is checked. |
-| **2. Low-Stock Urgency Badge** | "Only 3 left! — order soon" warning badge on card | Enter a number from `1` to `5` in **Stock Count**. |
-| **3. Entire Product Sold Out** | "Sold Out" badge; buy button replaced with "Email Me When Restocked" signup | Enter `0` in **Stock Count** OR uncheck **In Stock**. |
+| **1. Made-to-Order / Unlimited** | Standard active "Add to Cart" button | Leave **Stock count** blank (empty) and ensure **In stock** is checked. |
+| **2. Low-Stock Urgency Badge** | "Only 3 left! — order soon" warning badge on card | Enter a number from `1` to `5` in **Stock count**. |
+| **3. Entire Product Sold Out** | "Sold Out" badge; buy button replaced with "Email Me When Restocked" signup | Enter `0` in **Stock count** OR uncheck **In stock**. |
 | **4. Single Variant Sold Out** | Size dropdown displays option greyed out (e.g. "1oz — sold out"; unclickable) | Expand **Variants → Options**, find that option, and switch **Sold out?** to `ON`. *Never delete the option, so customers know you make it and it will return!* |
-| **5. Coming Soon / Launch Signup** | "Coming Soon" badge; buy button replaced with "Email Me When It Launches" signup | Switch **Coming Soon Product** to `ON` (checked). |
+| **5. Coming Soon / Launch Signup** | "Coming Soon" badge; buy button replaced with "Email Me When It Launches" signup | Switch **Coming soon** to `ON` (checked). |
 
 ---
 
@@ -92,18 +92,18 @@ Multi-buy deals encourage customers to mix and match multiple items within a cat
 
 #### How to Create or Adjust a Volume Deal:
 1. In `/admin`, open **1. Products, Bundles & FAQ**.
-2. Click to expand **Volume Pricing Rules (Multi-Buy Deals)** right beneath Products.
-3. Click an existing rule (e.g., `2oz Salve Multi-Buy`) or click **Add Volume Pricing Rule**:
-   - **Rule ID**: A clean lowercase code with dashes (e.g. `salves-2oz`, `soaks-multi`).
-   - **Rule Name**: A descriptive title for your reference (e.g. `2oz Salve Multi-Buy`).
+2. Click to expand **Multi-buy deals** right beneath Products.
+3. Click an existing rule (e.g., `2oz Salve Multi-Buy`) or click **Add Deal**:
+   - **Deal ID**: A clean lowercase code with dashes (e.g. `salves-2oz`, `soaks-multi`).
+   - **Deal name**: A descriptive title for your reference (e.g. `2oz Salve Multi-Buy`).
    - **Category**: Select the category from the dropdown (e.g. `Salves & Balms`).
-   - **Qualifying Variant** *(optional)*:
+   - **Qualifying variant** *(optional)*:
      - Type a specific variant label (e.g. `2oz`) if the deal only applies to that specific size. (1oz jars or balves in other sizes remain unaffected).
      - Leave blank if *all* products and sizes in that category qualify.
-   - **Minimum Quantity**: The quantity threshold needed to activate the discount (e.g. `2`).
-   - **Discounted Unit Price ($ USD)**: The discounted unit price (e.g. `15`).
-   - **Promotional Label**: The badge copy shown on product cards and cart summaries (e.g. `2+ for $15 each`).
-   - **Rule Enabled**: Toggle `ON` to run the deal, or toggle `OFF` to pause the promotion anytime without deleting your setup.
+   - **Minimum quantity**: The quantity threshold needed to activate the discount (e.g. `2`).
+   - **Discounted unit price ($)**: The discounted unit price (e.g. `15`).
+   - **Deal badge wording**: The badge copy shown on product cards and cart summaries (e.g. `2+ for $15 each`).
+   - **Deal enabled**: Toggle `ON` to run the deal, or toggle `OFF` to pause the promotion anytime without deleting your setup.
 4. Click **Save**.
 
 ---
@@ -112,7 +112,7 @@ Multi-buy deals encourage customers to mix and match multiple items within a cat
 
 #### A. Running a Storewide Category Sale (`sales`)
 Put an entire category on sale at once (e.g. 15% off all *Body & Skin*):
-1. In `/admin` → **1. Products, Bundles & FAQ**, open **Category Sales**.
+1. In `/admin` → **1. Products, Bundles & FAQ**, open **Category sales**.
 2. Click **Add Sale**.
 3. **Which category is on sale**: Pick the category from the dropdown (e.g. `Body & Skin`).
 4. **Percent off**: Type the percentage discount (e.g. `15` for 15% off).
@@ -122,7 +122,7 @@ Put an entire category on sale at once (e.g. 15% off all *Body & Skin*):
 #### B. Single-Product Sale
 Put just one item on flash sale:
 1. In **Products**, open the item.
-2. Expand the **Sale (optional)** box.
+2. Expand the **Sale** box.
 3. Enter the **Sale price ($)** (e.g. `15.00`) and the **Sale name shoppers see** (e.g. `Flash Sale`).
 4. In **Original price**, enter the regular price (e.g. `20`) so the crossed-out comparison price appears.
 5. Click **Save**.
@@ -135,12 +135,12 @@ Bundles are pre-curated collections (like the *Grit & Grace Starter Set* or *Dis
 
 - **Dynamic Math (No Price to Type!)**: Bundle prices calculate automatically from the live prices of whatever items are inside, minus your discount percentage. If you update a salve's price, every bundle containing that salve recalculates its price automatically.
 - **How to Create or Edit a Bundle**:
-  1. In `/admin` → **1. Products, Bundles & FAQ**, open **Bundles / Pre-made Gift Sets**.
+  1. In `/admin` → **1. Products, Bundles & FAQ**, open **Gift bundles**.
   2. Click **Add Bundle** or click an existing bundle to edit.
-  3. **Bundle Name**: Give your gift set a warm name (e.g. `Backwoods Burnout Recovery Kit`).
+  3. **Bundle name**: Give your gift set a warm name (e.g. `Backwoods Burnout Recovery Kit`).
   4. **Products in this bundle**: Select 2 or more products by typing and clicking their real product names from the searchable dropdown list.
-  5. **Discount Percent**: Enter the discount percentage (e.g. `10` for 10% off, or `15` for 15% off).
-  6. **Bundle Description**: Write a vivid description of who it's for and what's inside.
+  5. **Discount percent**: Enter the discount percentage (e.g. `10` for 10% off, or `15` for 15% off).
+  6. **Bundle description**: Write a vivid description of who it's for and what's inside.
   7. Click **Save**.
 
 ---
@@ -151,11 +151,11 @@ Tucked neatly at the bottom of **1. Products, Bundles & FAQ**:
 
 | Setting | Where to Find It | What It Controls |
 |---|---|---|
-| **Free Shipping Threshold** | `⚙️ Shop Metadata & Shipping Settings` | Set the dollar amount where shipping becomes free (default is `$40`). Set to `0` to disable free shipping. |
-| **Etsy Live Counters** | `⚙️ Shop Metadata & Shipping Settings` | Update your live Etsy star rating (e.g. `4.9`), review count (e.g. `32`), and total sales (e.g. `105`) to keep your site trust badges synced. |
-| **Build-Your-Own Box** | `⚙️ Shop Metadata & Shipping Settings` | Set minimum items (e.g. `3`), maximum items (e.g. `5`), discount percent (e.g. `10%`), and select eligible categories for custom boxes. |
-| **Shop Filter Categories** | `Shop Filter Categories (Technical)` | Add or rename category buttons across the top of `/shop.html`. |
-| **Shop FAQ** | `FAQ (Shop & Contact Accordion)` | Add or edit question & answer pairs displayed in the FAQ accordion on the Shop and Contact pages. |
+| **Free shipping threshold** | `⚙️ Shop settings` | Set the dollar amount where shipping becomes free (default is `$40`). Set to `0` to disable free shipping. |
+| **Etsy Live Counters** | `⚙️ Shop settings` | Update your live Etsy star rating (e.g. `4.9`), review count (e.g. `32`), and total sales (e.g. `105`) to keep your site trust badges synced. |
+| **Build-Your-Own Box** | `⚙️ Shop settings` | Set minimum items (e.g. `3`), maximum items (e.g. `5`), discount percent (e.g. `10%`), and select eligible categories for custom boxes. |
+| **Product categories** | `Product categories` | Add or rename category buttons across the top of `/shop.html`. |
+| **Shop FAQ** | `FAQ` | Add or edit question & answer pairs displayed in the FAQ accordion on the Shop and Contact pages. |
 
 ---
 
@@ -224,7 +224,7 @@ Tucked neatly at the bottom of **1. Products, Bundles & FAQ**:
 - **Local / Direct Image Addition:** If you or Steven add images directly to `assets/img/`, name them cleanly (e.g. `sleep-salve.jpg`, `sleep-salve-alt1.jpg`), then run `npm run optimize-images`.
 - **Replacing Placeholder Photos:** Five products currently have temporary placeholder badges (`Y'all Means All Sugar Scrub`, `Y'all Means All Rainbow Whipped Body Butter`, `Appalachian Rain Clearing Mist`, `Moonlit Meadow Bath Tea`, and `Porch Sweep Clearing Mist`). To launch them:
   1. Upload the real product photo in `/admin`.
-  2. Switch **Coming Soon Product** to `OFF`.
+  2. Switch **Coming soon** to `OFF`.
   3. Hit **Save**. The product is immediately live and buyable!
 
 ---
@@ -259,12 +259,12 @@ The dashboard gives you control over your entire catalog, promotions, pricing, m
 | **Change product price** | `1. Products` → Click product → `Price` | Instant price update on card, modal & checkout |
 | **Add size/scent option** | `1. Products` → `Variants` → Add option with `priceDelta` | Dropdown picker appears on product page |
 | **Mark one size sold out** | `1. Products` → `Variants` → Switch `Sold out?` to ON | Size shows as greyed-out "(Sold out)" in picker |
-| **Mark whole item sold out** | `1. Products` → Set `Stock Count` to 0 or uncheck `In Stock` | Shows "Sold Out" badge & Restock Email signup |
-| **Show low stock urgency** | `1. Products` → Set `Stock Count` to 1, 2, 3, 4, or 5 | Shows "Only X left! — order soon" badge |
-| **Set up 2+ Multi-Buy Deal** | `1. Products` → `Volume Pricing Rules` | Shoppers mixing qualifying items get auto unit discounts |
-| **Run category % off sale** | `1. Products` → `Category Sales` | Sale banner, strikethrough prices & cart discounts |
+| **Mark whole item sold out** | `1. Products` → Set `Stock count` to 0 or uncheck `In stock` | Shows "Sold Out" badge & Restock Email signup |
+| **Show low stock urgency** | `1. Products` → Set `Stock count` to 1, 2, 3, 4, or 5 | Shows "Only X left! — order soon" badge |
+| **Set up 2+ Multi-Buy Deal** | `1. Products` → `Multi-buy deals` | Shoppers mixing qualifying items get auto unit discounts |
+| **Run category % off sale** | `1. Products` → `Category sales` | Sale banner, strikethrough prices & cart discounts |
 | **Create gift bundle** | `1. Products` → `Bundles` → Pick products & discount % | Pre-made set with auto-calculated price |
-| **Change free shipping minimum** | `1. Products` → `Shop Settings` → `Free shipping threshold` | Progress bar & checkout threshold update |
+| **Change free shipping minimum** | `1. Products` → `⚙️ Shop settings` → `Free shipping threshold` | Progress bar & checkout threshold update |
 | **Add market / pop-up date** | `2. Markets` → Add event (include ZIP code!) | Shows on event list & calculates pickup tax |
 | **Feature customer review** | `3. Customer Reviews` → Check "Feature on homepage?" | Displays in homepage testimonials carousel |
 | **Publish blog post** | `4. Apothecary Journal` → Add post with visual editor | Live blog article with calculated read time |
