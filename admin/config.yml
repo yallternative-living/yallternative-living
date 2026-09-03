@@ -229,7 +229,7 @@ singletons:
       # purpose. Order here only affects the editor, not the site.
       # ==================================================================
       - name: shop
-        label: "⚙️ Shop settings"
+        label: "Shop details & shipping"
         widget: object
         collapsed: true
         hint: "Etsy counters, free shipping, cart rewards and the Build-Your-Own Box. You rarely need this."
@@ -1188,7 +1188,7 @@ singletons:
       # then the paste-once connection codes at the very bottom. Order only
       # affects the editor, not the site.
       - name: site
-        label: "⚙️ Site Settings & Switches"
+        label: "Switches & branding"
         widget: object
         # Open by default: this is the block Savanna comes here for, and a
         # collapsed Sveltia object reads like a text field showing one value
@@ -1221,7 +1221,7 @@ singletons:
               widget: boolean,
               default: true,
               required: false,
-              hint: "Shoppers pick their own mix for a discounted bundle. Sizes and discount are under Shop & Products → Shop settings."
+              hint: "Shoppers pick their own mix for a discounted bundle. Sizes and discount are under Shop & Products → Shop details & shipping."
             }
           - {
               name: enableScentFilter,
@@ -1417,7 +1417,7 @@ singletons:
 
           # Hidden on purpose: copy fallback text, set once, not a Savanna control.
           - name: ritualDefaults
-            label: "🌿 Complete the Ritual defaults"
+            label: "Complete the Ritual defaults"
             widget: object
             collapsed: true
             hint: "Used on any product that doesn't have its own ritual headline."
@@ -1561,7 +1561,7 @@ singletons:
 
           # --- Social profile links ---------------------------------------
           - name: social
-            label: "📱 Social profile links"
+            label: "Social profile links"
             widget: object
             collapsed: true
             fields:
@@ -2024,7 +2024,7 @@ singletons:
             }
 
       - name: search
-        label: "🔎 Search settings"
+        label: "Search settings"
         widget: object
         collapsed: true
         summary: "▸ Click the arrow to open -- search suggestions and synonyms"

@@ -22,7 +22,7 @@
   var ISOLATE = /[⁨⁩]/g; // Sveltia wraps interpolated names in FSI/PDI marks
   var labels = {};
   /* site.enableJournal from content.json. While the Journal is switched off
-     (section 6 -> Site Settings & Switches), its sidebar entry is hidden so
+     (section 6 -> Switches & branding), its sidebar entry is hidden so
      the list shows only what is live; nothing is deleted -- turning the
      switch back on brings the entry back on the next load. `null` until the
      file has been read, which leaves the entry visible. */

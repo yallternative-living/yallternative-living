@@ -235,7 +235,7 @@ Once the site is live, everything below is yours to edit at
 Once you're in:
 
 1. Visit `/admin` → sign in (either method above).
-2. **⚙️ Site Settings & Switches** (first thing in the Site Settings section):
+2. **Switches & branding** (first thing in the Site Settings section):
    - **Integration codes** — Kit link, all 3 Formspree IDs, live chat
      IDs, analytics ID.
    - **Feature switches (on/off)** — Journal, Social Feed, Restock Alerts,

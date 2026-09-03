@@ -18,7 +18,7 @@ Your dashboard is organized into 7 focused sections in the left sidebar. The **J
    - **Category sales**: Put whole categories on sale at once with percentage discounts (e.g. *15% off Body & Skin*).
    - **Gift bundles**: Create curated gift sets (*Discovery Flight*, *Everyday Armor Kit*) with auto-calculated bundle pricing.
    - **FAQ**: Update questions and answers on shipping, returns, shelf life, and custom orders.
-   - **⚙️ Shop settings** (first thing in the form): Etsy sync counters, free shipping threshold, cart reward tiers and Build-Your-Own Box settings — then the products, deals, bundles, FAQ and category filters.
+   - **Shop details & shipping** (first thing in the form): Etsy sync counters, free shipping threshold, cart reward tiers and Build-Your-Own Box settings — then the products, deals, bundles, FAQ and category filters.
 2. **Markets & Pop-Ups** — Add upcoming pop-up markets, craft fairs, and Pride events. Upcoming dates display chronologically, and past appearances automatically archive themselves under "Where We've Been."
 3. **Customer Reviews** — Publish customer reviews and choose which glowing testimonials feature on the homepage carousel.
 4. **Journal** — Each post is its own entry with a **New Post** button. Write kitchen updates, herbal deep-dives, and community announcements with a visual formatting toolbar.
@@ -151,9 +151,9 @@ At the top of **Shop & Products**:
 
 | Setting | Where to Find It | What It Controls |
 |---|---|---|
-| **Free shipping threshold** | `⚙️ Shop settings` | Set the dollar amount where shipping becomes free (default is `$40`). Set to `0` to disable free shipping. |
-| **Etsy Live Counters** | `⚙️ Shop settings` | Update your live Etsy star rating (e.g. `4.9`), review count (e.g. `32`), and total sales (e.g. `105`) to keep your site trust badges synced. |
-| **Build-Your-Own Box** | `⚙️ Shop settings` | Set minimum items (e.g. `3`), maximum items (e.g. `5`), discount percent (e.g. `10%`), and select eligible categories for custom boxes. |
+| **Free shipping threshold** | `Shop details & shipping` | Set the dollar amount where shipping becomes free (default is `$40`). Set to `0` to disable free shipping. |
+| **Etsy Live Counters** | `Shop details & shipping` | Update your live Etsy star rating (e.g. `4.9`), review count (e.g. `32`), and total sales (e.g. `105`) to keep your site trust badges synced. |
+| **Build-Your-Own Box** | `Shop details & shipping` | Set minimum items (e.g. `3`), maximum items (e.g. `5`), discount percent (e.g. `10%`), and select eligible categories for custom boxes. |
 | **Product categories** | `Product categories` | Add or rename category buttons across the top of `/shop.html`. |
 | **Shop FAQ** | `FAQ` | Add or edit question & answer pairs displayed in the FAQ accordion on the Shop and Contact pages. |
 
@@ -187,7 +187,7 @@ At the top of **Shop & Products**:
 #### E. Site Settings (Site Settings)
 1. Click **Site Settings**.
 2. Update homepage headlines, About page story text, or swap non-product photos (homepage hero banner, About bio photo, site logos).
-3. Under **⚙️ Site Settings & Switches** (the first thing in the Site Settings section), you can toggle features on or off anytime with simple checkboxes -- including **Show live chat (Tawk.to)**, which hides the chat bubble everywhere without losing your Tawk.to IDs:
+3. Under **Switches & branding** (the first thing in the Site Settings section), you can toggle features on or off anytime with simple checkboxes -- including **Show live chat (Tawk.to)**, which hides the chat bubble everywhere without losing your Tawk.to IDs:
    - Restock Email Alerts (a request now really is emailed to the shop -- it
      used to be accepted and discarded)
    - Apothecary Recommendation Quiz
@@ -264,7 +264,7 @@ The dashboard gives you control over your entire catalog, promotions, pricing, m
 | **Set up 2+ Multi-Buy Deal** | `1. Products` → `Multi-buy deals` | Shoppers mixing qualifying items get auto unit discounts |
 | **Run category % off sale** | `1. Products` → `Category sales` | Sale banner, strikethrough prices & cart discounts |
 | **Create gift bundle** | `1. Products` → `Bundles` → Pick products & discount % | Pre-made set with auto-calculated price |
-| **Change free shipping minimum** | `1. Products` → `⚙️ Shop settings` → `Free shipping threshold` | Progress bar & checkout threshold update |
+| **Change free shipping minimum** | `1. Products` → `Shop details & shipping` → `Free shipping threshold` | Progress bar & checkout threshold update |
 | **Add market / pop-up date** | `2. Markets` → Add event (include ZIP code!) | Shows on event list & calculates pickup tax |
 | **Feature customer review** | `Customer Reviews` → Check "Feature on homepage?" | Displays in homepage testimonials carousel |
 | **Publish blog post** | `4. Apothecary Journal` → Add post with visual editor | Live blog article with calculated read time |
