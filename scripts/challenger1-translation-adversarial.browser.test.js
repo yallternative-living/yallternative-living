@@ -784,42 +784,90 @@ async function runBrowserStressTests() {
     // -------------------------------------------------------------
     // Test 2.2: Brand Glossary Protection on Live PDP (Porch Sweep)
     // -------------------------------------------------------------
-    console.log("\n--- Test 2.2: Brand Glossary Protection on Live PDP (Porch Sweep) ---");
+    console.log("\n--- Test 2.2: Brand Glossary Protection on Live PDPs ---");
 
-    await page.goto(`${baseUrl}/products/porch-sweep-spray.html`, {
-      waitUntil: "domcontentloaded"
-    });
-    await page.waitForSelector("#langSelectorWrap", { timeout: 3000 });
-
+    /* This used to run on porch-sweep-spray.html alone, compute hasBotanicals,
+       never assert it, and then log "& botanicals preserved intact" -- a claim
+       that could not have been true, because that page contains no INCI name
+       at all. The INCI half is now checked on the PDP that actually ships
+       those terms, and the English baseline is asserted FIRST so a page that
+       stopped containing the subject fails instead of passing vacuously. */
+    const glossaryPdps = [
+      {
+        path: "/products/porch-sweep-spray.html",
+        h1Term: "Porch Sweep",
+        bodyTerms: ["Porch Sweep", "Y'allternative Living"]
+      },
+      {
+        path: "/products/miracle-balm.html",
+        h1Term: "Miracle Balm",
+        bodyTerms: ["Calendula officinalis", "Butyrospermum parkii", "Y'allternative"]
+      }
+    ];
     const targetLanguages = ["es", "de", "fr", "ja", "zh"];
-    for (const lang of targetLanguages) {
-      await page.evaluate(async (code) => {
-        await window.YL_TRANSLATOR.setLanguage(code);
-      }, lang);
 
-      const pdpCheck = await page.evaluate(() => {
+    for (const pdp of glossaryPdps) {
+      await page.goto(`${baseUrl}${pdp.path}`, { waitUntil: "domcontentloaded" });
+      await page.waitForSelector("#langSelectorWrap", { timeout: 3000 });
+
+      const baseline = await page.evaluate((terms) => {
         const h1 = document.querySelector("h1");
         const bodyText = document.body.innerText;
-        return {
-          h1Text: h1 ? h1.textContent.trim() : "",
-          hasPorchSweep: bodyText.includes("Porch Sweep"),
-          hasYallternative:
-            bodyText.includes("Y'allternative Living") || bodyText.includes("Y'allternative"),
-          hasBotanicals:
-            bodyText.includes("Lavandula angustifolia") ||
-            bodyText.includes("Calendula") ||
-            bodyText.includes("Arnica")
-        };
+        const found = {};
+        terms.forEach((t) => {
+          found[t] = bodyText.split(t).length - 1;
+        });
+        return { h1Text: h1 ? h1.textContent.trim() : "", found };
+      }, pdp.bodyTerms);
+
+      /* Assert the subject exists in English before asserting it survives
+         translation -- otherwise "still absent" reads as "preserved". */
+      assert.ok(
+        baseline.h1Text.includes(pdp.h1Term),
+        `${pdp.path} baseline H1 contains '${pdp.h1Term}' (got: '${baseline.h1Text}')`
+      );
+      pdp.bodyTerms.forEach((term) => {
+        assert.ok(
+          baseline.found[term] > 0,
+          `${pdp.path} baseline body contains protected term '${term}'`
+        );
       });
 
-      assert.ok(
-        pdpCheck.h1Text.includes("Porch Sweep"),
-        `PDP H1 retains 'Porch Sweep' in '${lang}' (got: '${pdpCheck.h1Text}')`
-      );
-      assert.ok(pdpCheck.hasPorchSweep, `PDP body retains 'Porch Sweep' in '${lang}'`);
-      console.log(
-        `  ✓ PDP ${lang.toUpperCase()}: Brand term 'Porch Sweep' & botanicals preserved intact`
-      );
+      for (const lang of targetLanguages) {
+        await page.evaluate(async (code) => {
+          await window.YL_TRANSLATOR.setLanguage(code);
+        }, lang);
+
+        const pdpCheck = await page.evaluate((terms) => {
+          const h1 = document.querySelector("h1");
+          const bodyText = document.body.innerText;
+          const found = {};
+          terms.forEach((t) => {
+            found[t] = bodyText.split(t).length - 1;
+          });
+          return { h1Text: h1 ? h1.textContent.trim() : "", found };
+        }, pdp.bodyTerms);
+
+        assert.strictEqual(
+          pdpCheck.h1Text,
+          baseline.h1Text,
+          `${pdp.path} H1 is byte-identical under '${lang}'`
+        );
+        pdp.bodyTerms.forEach((term) => {
+          assert.strictEqual(
+            pdpCheck.found[term],
+            baseline.found[term],
+            `${pdp.path} keeps all ${baseline.found[term]} occurrences of '${term}' under '${lang}'`
+          );
+        });
+        console.log(
+          `  ✓ ${pdp.path} ${lang.toUpperCase()}: ${pdp.bodyTerms.length} protected terms preserved with unchanged occurrence counts`
+        );
+      }
+
+      await page.evaluate(async () => {
+        await window.YL_TRANSLATOR.setLanguage("en");
+      });
     }
 
     // -------------------------------------------------------------
@@ -827,56 +875,142 @@ async function runBrowserStressTests() {
     // -------------------------------------------------------------
     console.log("\n--- Test 2.3: Dynamic Cart Drawer Injection in Spanish ---");
 
+    /* Every selector below is one that exists. The previous version of this
+       test looked for #cartDrawer, .cart-checkout-btn, #checkoutBtn and
+       [data-i18n='cart.checkout'] -- none of which are in this codebase -- and
+       called window.YL_CART, which is undefined (the global is YLCart), so the
+       add-to-cart never happened either. It then printed two green ticks over
+       an empty string. The real markup, built by assets/js/cart.js
+       ensureDrawer()/render(), is .yl-cart-drawer > .yl-cart-head h2 and
+       .yl-cart-foot > .yl-cart-checkout. */
     await page.goto(`${baseUrl}/shop.html`, { waitUntil: "domcontentloaded" });
     await page.waitForSelector("#langSelectorWrap", { timeout: 3000 });
 
-    // Switch to Spanish
+    // Switch to Spanish BEFORE the drawer exists: this is a MutationObserver test.
     await page.evaluate(async () => {
       await window.YL_TRANSLATOR.setLanguage("es");
     });
 
-    // Simulate adding an item to cart and opening drawer
+    const cartApiPresent = await page.evaluate(
+      () => Boolean(window.YLCart) && typeof window.YLCart.addItem === "function"
+    );
+    assert.ok(
+      cartApiPresent,
+      "window.YLCart.addItem exists -- without it the drawer is never built and every assertion below would be vacuous"
+    );
+
     await page.evaluate(() => {
-      if (window.YL_CART && typeof window.YL_CART.addItem === "function") {
-        window.YL_CART.addItem({
-          id: "porch-sweep-spray",
-          name: "Porch Sweep Clearing Mist",
-          price: 18.0,
-          quantity: 1
-        });
-      }
+      window.YLCart.addItem({
+        id: "porch-sweep-spray",
+        name: "Porch Sweep Clearing Mist",
+        price: 18.0,
+        qty: 1
+      });
     });
 
+    await page.waitForSelector(".yl-cart-drawer .yl-cart-foot .yl-cart-checkout", {
+      timeout: 3000
+    });
     await new Promise((r) => setTimeout(r, 300));
 
     const cartDrawerCheck = await page.evaluate(() => {
-      const drawer = document.getElementById("cartDrawer");
-      const checkoutBtn = document.querySelector(
-        ".cart-checkout-btn, #checkoutBtn, [data-i18n='cart.checkout']"
-      );
+      const drawer = document.querySelector(".yl-cart-drawer");
+      const foot = drawer ? drawer.querySelector(".yl-cart-foot") : null;
+      const checkoutBtn = foot ? foot.querySelector(".yl-cart-checkout") : null;
+      const heading = drawer ? drawer.querySelector(".yl-cart-head h2") : null;
+      const closeBtn = drawer ? drawer.querySelector(".yl-cart-close") : null;
       return {
         drawerExists: Boolean(drawer),
-        checkoutText: checkoutBtn ? checkoutBtn.textContent.trim() : ""
+        footExists: Boolean(foot),
+        checkoutMatched: Boolean(checkoutBtn),
+        checkoutText: checkoutBtn ? checkoutBtn.textContent.trim() : "",
+        checkoutLang: checkoutBtn ? checkoutBtn.getAttribute("lang") : null,
+        headingText: heading ? heading.textContent.trim() : "",
+        closeLabel: closeBtn ? closeBtn.getAttribute("aria-label") : ""
       };
     });
 
+    assert.ok(cartDrawerCheck.drawerExists, ".yl-cart-drawer was injected after addItem()");
+    assert.ok(cartDrawerCheck.footExists, ".yl-cart-foot exists inside the drawer");
+    assert.ok(
+      cartDrawerCheck.checkoutMatched,
+      ".yl-cart-checkout button matched inside .yl-cart-foot"
+    );
+    assert.ok(
+      cartDrawerCheck.checkoutText.length > 0,
+      "checkout button has text to assert over (an empty string is a failure, not a pass)"
+    );
+    assert.strictEqual(
+      cartDrawerCheck.checkoutText,
+      "Pagar",
+      `Checkout button translated by the MutationObserver (got: "${cartDrawerCheck.checkoutText}")`
+    );
+    assert.strictEqual(
+      cartDrawerCheck.checkoutLang,
+      "es",
+      "translated checkout button is marked lang=es"
+    );
+    assert.strictEqual(
+      cartDrawerCheck.headingText,
+      "Tu Carrito",
+      `Drawer heading translated (got: "${cartDrawerCheck.headingText}")`
+    );
+    assert.strictEqual(
+      cartDrawerCheck.closeLabel,
+      "Cerrar carrito",
+      `Close button aria-label translated (got: "${cartDrawerCheck.closeLabel}")`
+    );
     console.log(
-      `  ✓ Cart drawer rendered under ES. Checkout copy: "${cartDrawerCheck.checkoutText}"`
+      `  ✓ Cart drawer injected under ES and translated by the observer: heading "${cartDrawerCheck.headingText}", checkout "${cartDrawerCheck.checkoutText}", close "${cartDrawerCheck.closeLabel}"`
     );
 
     // Switch back to English and check cart drawer text
     await page.evaluate(async () => {
       await window.YL_TRANSLATOR.setLanguage("en");
     });
+    await new Promise((r) => setTimeout(r, 300));
 
-    const cartRestoredText = await page.evaluate(() => {
-      const checkoutBtn = document.querySelector(
-        ".cart-checkout-btn, #checkoutBtn, [data-i18n='cart.checkout']"
-      );
-      return checkoutBtn ? checkoutBtn.textContent.trim() : "";
+    const cartRestored = await page.evaluate(() => {
+      const drawer = document.querySelector(".yl-cart-drawer");
+      const checkoutBtn = drawer ? drawer.querySelector(".yl-cart-foot .yl-cart-checkout") : null;
+      const heading = drawer ? drawer.querySelector(".yl-cart-head h2") : null;
+      const closeBtn = drawer ? drawer.querySelector(".yl-cart-close") : null;
+      return {
+        checkoutMatched: Boolean(checkoutBtn),
+        checkoutText: checkoutBtn ? checkoutBtn.textContent.trim() : "",
+        headingText: heading ? heading.textContent.trim() : "",
+        closeLabel: closeBtn ? closeBtn.getAttribute("aria-label") : "",
+        leftoverEsMarks: document.querySelectorAll('[lang="es"]').length
+      };
     });
 
-    console.log(`  ✓ Cart drawer restored to English: "${cartRestoredText}"`);
+    assert.ok(
+      cartRestored.checkoutMatched,
+      "checkout button still matched after restoring English"
+    );
+    assert.strictEqual(
+      cartRestored.checkoutText,
+      "Checkout",
+      `Checkout button restored to English (got: "${cartRestored.checkoutText}")`
+    );
+    assert.strictEqual(
+      cartRestored.headingText,
+      "Your Cart",
+      `Drawer heading restored to English (got: "${cartRestored.headingText}")`
+    );
+    assert.strictEqual(
+      cartRestored.closeLabel,
+      "Close cart",
+      `Close button aria-label restored (got: "${cartRestored.closeLabel}")`
+    );
+    assert.strictEqual(
+      cartRestored.leftoverEsMarks,
+      0,
+      `No lang="es" marks survive the switch back (found ${cartRestored.leftoverEsMarks})`
+    );
+    console.log(
+      `  ✓ Cart drawer restored to English: heading "${cartRestored.headingText}", checkout "${cartRestored.checkoutText}", 0 leftover lang marks`
+    );
 
     // -------------------------------------------------------------
     // Test 2.4: Zero Uncaught Exceptions Check
