@@ -1627,6 +1627,43 @@ if (!cspText) {
           " is wired into the site but not allowlisted -- it'll be silently blocked by the browser"
       );
   });
+  /* The check above is a substring match on "umami.is", which cloud.umami.is
+     satisfies on its own -- and that is exactly how the site shipped analytics
+     that recorded nothing. The tracker is SERVED from cloud.umami.is but POSTs
+     to a different host: it builds its collection URL as
+       (data-host-url || "https://gateway.umami.is") + "/api/send"
+     and the site sets no data-host-url. With only the script origin in
+     connect-src, the browser refused every pageview and every event.
+     Umami has moved this collection host more than once with no notice
+     (analytics.umami.is -> api-gateway-eu.umami.dev -> api-gateway.umami.dev ->
+     gateway.umami.is, umami-software/umami discussion #2719) and does not
+     document it, so if the dashboard ever goes quiet, re-read the host literal
+     out of the live script and check this directive first. */
+  var connectSrcMatch = /connect-src ([^;]*)/.exec(cspText);
+  var scriptSrcMatch = /script-src ([^;]*)/.exec(cspText);
+  if (!connectSrcMatch || !scriptSrcMatch) {
+    fail("CSP analytics directives", "could not find connect-src and script-src in _headers");
+  } else {
+    if (connectSrcMatch[1].indexOf("https://gateway.umami.is") !== -1) {
+      ok("CSP connect-src allows https://gateway.umami.is (where the tracker POSTs)");
+    } else {
+      fail(
+        "CSP connect-src does not allow https://gateway.umami.is",
+        "the Umami tracker POSTs every pageview and event to gateway.umami.is/api/send. " +
+          "cloud.umami.is is only where the script is DOWNLOADED from -- allowing just that " +
+          "loads the tracker and then blocks all of its data. connect-src was: " +
+          connectSrcMatch[1].trim()
+      );
+    }
+    if (scriptSrcMatch[1].indexOf("https://cloud.umami.is") !== -1) {
+      ok("CSP script-src allows https://cloud.umami.is (where the tracker is served from)");
+    } else {
+      fail(
+        "CSP script-src does not allow https://cloud.umami.is",
+        "the tracker tag on every page loads cloud.umami.is/script.js"
+      );
+    }
+  }
   // Regression guard: Snipcart was fully removed in favor of a same-origin
   // cart + Stripe Checkout (see docs/STRIPE-MIGRATION.md). Stripe's hosted
   // checkout page is reached via a top-level redirect, not a fetch/frame/

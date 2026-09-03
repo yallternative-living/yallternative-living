@@ -501,7 +501,29 @@ function run() {
        widget bundle, so the entry above never covered it -- with it missing
        the widget loads, draws, accepts a language, and then translates
        nothing, silently. Added 2026-09-02 alongside the M-2 CSP trim. */
-    "connect-src 'self' https://cloud.umami.is https://*.tawk.to wss://*.tawk.to https://translate.googleapis.com https://translate-pa.googleapis.com https://formspree.io https://app.kit.com",
+    /* https://gateway.umami.is is where the Umami tracker actually POSTs.
+       This is NOT the host the script is served from. cloud.umami.is/script.js
+       builds its collection URL as
+         (data-host-url || "https://gateway.umami.is") + "/api/send"
+       and gateway.umami.is is the only host literal in the file -- so with only
+       cloud.umami.is allow-listed here, the tracker loaded fine and then had
+       every single pageview and event refused by CSP. The shop's dashboard
+       recorded nothing at all from the day analytics was switched on until this
+       entry was added (measured 2026-09-02 by serving the built tree under this
+       exact policy: "Refused to connect ... https://gateway.umami.is/api/send"
+       on all 14 pages probed, zero payloads delivered).
+
+       Umami has moved this collection host repeatedly without a changelog or a
+       migration notice -- analytics.umami.is, then api-gateway-eu.umami.dev,
+       then api-gateway.umami.dev, now gateway.umami.is (umami-software/umami
+       discussion #2719, still not in the official docs). It is not documented
+       anywhere that this host is stable. If the dashboard ever goes quiet with
+       no other change, check the browser console for a connect-src violation
+       here FIRST, and re-read the host literal out of the live script.
+
+       cloud.umami.is stays: it is the script's own origin and the value we
+       would set as data-host-url if we ever pinned the collection host. */
+    "connect-src 'self' https://cloud.umami.is https://gateway.umami.is https://*.tawk.to wss://*.tawk.to https://translate.googleapis.com https://translate-pa.googleapis.com https://formspree.io https://app.kit.com",
     /* https://translate.google.com dropped from frame-src 2026-09-02 (live
        audit M-2 -- frame-src is one of the two directives where a dead entry
        actually costs something). translator.js builds the widget with
