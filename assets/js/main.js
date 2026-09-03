@@ -148,8 +148,66 @@
         if (firstLink) firstLink.focus();
       }
     });
+    /* The drawer was five links and then roughly 900px of nothing, and it
+       omitted FAQ, Reviews and Policies entirely -- they existed only in the
+       footer, which is a long scroll away on a phone (live audit L5). These
+       are appended rather than written into all 17 pages' markup because the
+       same <ul> is the desktop bar, where eight links would not fit; CSS
+       hides .nav-secondary above the drawer breakpoint. No-JS visitors lose
+       nothing: the footer still carries all three. */
+    (function addSecondaryNavLinks() {
+      if (navLinks.querySelector(".nav-secondary")) return;
+      var onProductPage = /\/products\//.test(window.location.pathname);
+      var prefix = onProductPage ? "/" : "";
+      var extras = [
+        { href: prefix + "faq.html", label: "FAQ" },
+        { href: prefix + "reviews.html", label: "Reviews" },
+        { href: prefix + "policies.html", label: "Policies" }
+      ];
+      var heading = document.createElement("li");
+      heading.className = "nav-secondary nav-secondary-heading";
+      heading.setAttribute("aria-hidden", "true");
+      heading.textContent = "More";
+      navLinks.appendChild(heading);
+      extras.forEach(function (item) {
+        var li = document.createElement("li");
+        li.className = "nav-secondary";
+        var a = document.createElement("a");
+        a.href = item.href;
+        a.textContent = item.label;
+        li.appendChild(a);
+        navLinks.appendChild(li);
+      });
+    })();
+
     navLinks.querySelectorAll("a").forEach(function (a) {
       a.addEventListener("click", closeNav);
+    });
+
+    /* Tab used to walk off the end of the open drawer onto document.body for
+       one stop before wrapping back round to the logo (live audit L8). The
+       inert-everything-else approach keeps Tab inside the header, but the
+       header is not the drawer -- so wrap explicitly, the same way the
+       wishlist and restock dialogs do. */
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "Tab") return;
+      if (!navLinks.classList.contains("open")) return;
+      var stops = [].slice
+        .call(navLinks.querySelectorAll("a"))
+        .filter(function (el) {
+          return !el.hasAttribute("hidden") && el.getAttribute("aria-hidden") !== "true";
+        })
+        .concat([navToggle]);
+      if (!stops.length) return;
+      var first = stops[0];
+      var last = stops[stops.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     });
     document.addEventListener("keydown", function (e) {
       if (e.key === "Escape" && navLinks.classList.contains("open")) {
@@ -2185,9 +2243,13 @@
           trackerHtml +=
             '<span class="custom-box-slot is-filled">' +
             (itemThumb
-              ? '<img src="' +
-                attrEsc(itemThumb) +
-                '" alt="" class="custom-box-slot-thumb" width="20" height="20"> '
+              ? pictureHTML(chosenProd || { image: itemThumb }, {
+                  imagePath: itemThumb,
+                  alt: "",
+                  single: true,
+                  width: 20,
+                  height: 20
+                }) + " "
               : '<svg class="yl-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg> ') +
             attrEsc(chosenProd ? chosenProd.name.split(" ")[0] : "Item") +
             "</span>";
@@ -2234,10 +2296,19 @@
               (atLimit ? " is-disabled" : "") +
               '">' +
               '<div class="custom-box-option-img-wrap">' +
+              /* These render at 46-48 CSS px. A bare <img src="*.jpg">
+                 pulled the 1000-1450px original for every one of the
+                 twelve options (live audit H5); pictureHTML's `single`
+                 mode serves the smallest AVIF/WebP variant in the
+                 manifest instead -- tens of KB rather than hundreds. */
               (imgUrl
-                ? '<img src="' +
-                  attrEsc(imgUrl) +
-                  '" alt="" class="custom-box-option-img" loading="lazy" width="48" height="48">'
+                ? pictureHTML(p, {
+                    imagePath: imgUrl,
+                    alt: "",
+                    single: true,
+                    width: 48,
+                    height: 48
+                  })
                 : '<div class="custom-box-option-img-placeholder"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg></div>') +
               "</div>" +
               '<div class="custom-box-option-body">' +
@@ -2826,6 +2897,111 @@
      scripts/build-site-data.js from the same real product prices this
      function reads, so the on-page math and the checkout price can never
      disagree. */
+  /* ---------- Gift-set option pickers (live audit C1) ----------
+     A gift set is a single cart line, but its members are real products and
+     some of them are sold in sizes, scents or blends. The set used to check
+     out with no variant field at all: $45 was taken for a Pride Set and the
+     shop never learned the tee size or the oil scent. The members that need
+     a choice are derived from the bundle's productIds at RENDER time -- the
+     bundle records in products.json still only list ids -- and the same
+     derivation runs server-side in workers/checkout.js, which rejects an
+     unknown or sold-out choice before Stripe is ever called. */
+  function bundleVariantMembers(bundle, productsById) {
+    if (!bundle || !Array.isArray(bundle.productIds)) return [];
+    var pMap = getProductMap();
+    var isMap = productsById && typeof productsById.get === "function";
+    var members = [];
+    bundle.productIds.forEach(function (id) {
+      var p = isMap
+        ? productsById.get(id)
+        : productsById && productsById[id]
+          ? productsById[id]
+          : pMap.get(id);
+      if (!p || !p.variants || !Array.isArray(p.variants.options) || !p.variants.options.length) {
+        return;
+      }
+      members.push({
+        productId: id,
+        product: p,
+        variantName: p.variants.name || "Option",
+        options: p.variants.options
+      });
+    });
+    return members;
+  }
+
+  function bundlePriceFor(fullPrice, discountPercent) {
+    return Math.round(fullPrice * (1 - (discountPercent || 0) / 100) * 100) / 100;
+  }
+
+  function bundleVariantSelectId(bundleId, productId) {
+    return "bundle-variant-" + bundleId + "-" + productId;
+  }
+
+  function bundleVariantPickerHTML(bundle, members) {
+    if (!members.length) return "";
+    var fields = members
+      .map(function (m) {
+        var selectId = bundleVariantSelectId(bundle.id, m.productId);
+        var options = m.options
+          .map(function (o) {
+            var delta = Number(o.priceDelta) || 0;
+            var suffix = o.soldOut
+              ? " \u2014 sold out"
+              : delta
+                ? " (" + (delta > 0 ? "+" : "\u2212") + "$" + Math.abs(delta).toFixed(2) + ")"
+                : "";
+            return (
+              '<option value="' +
+              attrEsc(o.label) +
+              '" data-delta="' +
+              delta +
+              '"' +
+              (o.soldOut ? " disabled" : "") +
+              ">" +
+              attrEsc(o.label + suffix) +
+              "</option>"
+            );
+          })
+          .join("");
+        return (
+          '<div class="bundle-variant-field">' +
+          '<label class="bundle-variant-label" for="' +
+          attrEsc(selectId) +
+          '">' +
+          attrEsc(m.product.name) +
+          " \u2014 " +
+          attrEsc(m.variantName) +
+          "</label>" +
+          '<select class="bundle-variant-select" id="' +
+          attrEsc(selectId) +
+          '" data-product-id="' +
+          attrEsc(m.productId) +
+          '" data-variant-name="' +
+          attrEsc(m.variantName) +
+          '" required aria-required="true">' +
+          '<option value="">Choose ' +
+          attrEsc(m.variantName.toLowerCase()) +
+          "\u2026</option>" +
+          options +
+          "</select>" +
+          "</div>"
+        );
+      })
+      .join("");
+    return (
+      '<div class="bundle-variants">' +
+      '<p class="bundle-variants-hint">' +
+      (members.length > 1
+        ? "This set needs a choice for each of these before it can go in the cart."
+        : "This set needs a choice before it can go in the cart.") +
+      "</p>" +
+      fields +
+      '<p class="bundle-variant-error" role="alert" hidden></p>' +
+      "</div>"
+    );
+  }
+
   function bundlesHTML(bundles, productsById) {
     var pMap = getProductMap();
     var isMap = productsById && typeof productsById.get === "function";
@@ -2844,7 +3020,8 @@
           var original = p.originalPrice || p.price;
           return sum + original;
         }, 0);
-        var bundlePrice = Math.round(fullPrice * (1 - (b.discountPercent || 0) / 100) * 100) / 100;
+        var bundlePrice = bundlePriceFor(fullPrice, b.discountPercent);
+        var members = bundleVariantMembers(b, productsById);
         var firstImage = items[0].image;
         var includesList = items
           .map(function (p) {
@@ -2852,7 +3029,9 @@
           })
           .join("");
         return (
-          '<article class="card bundle-card reveal">' +
+          '<article class="card bundle-card reveal" data-bundle-id="' +
+          attrEsc(b.id) +
+          '">' +
           '<div class="card-media">' +
           pictureHTML(items[0], { imagePath: firstImage, alt: b.name }) +
           "</div>" +
@@ -2867,14 +3046,17 @@
           '<ul class="bundle-includes">' +
           includesList +
           "</ul>" +
+          bundleVariantPickerHTML(b, members) +
           '<div class="card-foot">' +
           '<div class="card-foot-row">' +
-          '<span class="price">$' +
+          '<span class="price"><span class="bundle-price-now">$' +
           bundlePrice.toFixed(2) +
-          ' <s class="bundle-full-price">$' +
+          '</span> <s class="bundle-full-price">$' +
           fullPrice.toFixed(2) +
           "</s></span>" +
-          '<button type="button" class="btn btn-primary btn-sm yl-add-item"' +
+          '<button type="button" class="btn btn-primary btn-sm ' +
+          (members.length ? "bundle-add-btn" : "yl-add-item") +
+          '"' +
           ' data-item-id="bundle-' +
           attrEsc(b.id) +
           '"' +
@@ -2890,6 +3072,12 @@
           ' data-item-image="' +
           attrEsc(firstImage) +
           '"' +
+          ' data-bundle-full-price="' +
+          fullPrice.toFixed(2) +
+          '"' +
+          ' data-bundle-discount="' +
+          (Number(b.discountPercent) || 0) +
+          '"' +
           ' data-item-categories="bundle">' +
           "Add Set to Cart" +
           "</button>" +
@@ -2901,6 +3089,98 @@
       })
       .join("");
   }
+
+  /* Read every option picker on one gift-set card: what has been chosen,
+     what is still missing, and what the choices add to the full price. */
+  function bundleCardSelection(card) {
+    var selects = card.querySelectorAll(".bundle-variant-select");
+    var chosen = {};
+    var missing = null;
+    var deltaSum = 0;
+    Array.prototype.forEach.call(selects, function (sel) {
+      var val = sel.value;
+      if (!val) {
+        if (!missing) missing = sel;
+        return;
+      }
+      chosen[sel.getAttribute("data-product-id")] = val;
+      var opt = sel.options[sel.selectedIndex];
+      deltaSum += (opt && Number(opt.getAttribute("data-delta"))) || 0;
+    });
+    return { chosen: chosen, missing: missing, deltaSum: deltaSum, total: selects.length };
+  }
+
+  /* Upgrading a member (the 4 oz hand scrub, the 24 oz soak) genuinely costs
+     more, so the set's price moves with the choice instead of selling an $8
+     upgrade for nothing. resolveBundlePriceDollars() in workers/checkout.js
+     does the identical arithmetic and is what actually charges. */
+  function refreshBundleCardPrice(card) {
+    var btn = card.querySelector(".bundle-add-btn");
+    if (!btn) return null;
+    var baseFull = parseFloat(btn.getAttribute("data-bundle-full-price")) || 0;
+    var discount = Number(btn.getAttribute("data-bundle-discount")) || 0;
+    var sel = bundleCardSelection(card);
+    var full = Math.round((baseFull + sel.deltaSum) * 100) / 100;
+    var now = bundlePriceFor(full, discount);
+    var nowEl = card.querySelector(".bundle-price-now");
+    var fullEl = card.querySelector(".bundle-full-price");
+    if (nowEl) nowEl.textContent = "$" + now.toFixed(2);
+    if (fullEl) fullEl.textContent = "$" + full.toFixed(2);
+    btn.setAttribute("data-item-price", now.toFixed(2));
+    return sel;
+  }
+
+  document.addEventListener("change", function (e) {
+    var sel = e.target && e.target.closest ? e.target.closest(".bundle-variant-select") : null;
+    if (!sel) return;
+    var card = sel.closest(".bundle-card");
+    if (!card) return;
+    refreshBundleCardPrice(card);
+    var err = card.querySelector(".bundle-variant-error");
+    if (err && sel.value) {
+      err.textContent = "";
+      err.hidden = true;
+    }
+  });
+
+  document.addEventListener("click", function (e) {
+    var btn = e.target && e.target.closest ? e.target.closest(".bundle-add-btn") : null;
+    if (!btn) return;
+    var card = btn.closest(".bundle-card");
+    if (!card) return;
+    e.preventDefault();
+    var sel = refreshBundleCardPrice(card);
+    if (!sel) return;
+    var err = card.querySelector(".bundle-variant-error");
+    if (sel.missing) {
+      /* Refuse the add and say which choice is outstanding, rather than
+         disabling a button with no explanation. role="alert" on the notice
+         means a screen reader hears it without moving focus off the set. */
+      var field = sel.missing.closest(".bundle-variant-field");
+      var label = field ? field.querySelector(".bundle-variant-label") : null;
+      if (err) {
+        err.textContent =
+          "Choose " + (label ? label.textContent : "an option") + " before adding this set.";
+        err.hidden = false;
+      }
+      sel.missing.focus();
+      return;
+    }
+    if (err) {
+      err.textContent = "";
+      err.hidden = true;
+    }
+    if (!(window.YLCart && typeof window.YLCart.addItem === "function")) return;
+    window.YLCart.addItem({
+      id: btn.getAttribute("data-item-id"),
+      name: btn.getAttribute("data-item-name"),
+      price: parseFloat(btn.getAttribute("data-item-price")) || 0,
+      image: btn.getAttribute("data-item-image") || "",
+      category: btn.getAttribute("data-item-categories") || "bundle",
+      bundleVariants: sel.chosen,
+      qty: 1
+    });
+  });
 
   function renderBundles(data, query, concern) {
     var bundlesList = document.getElementById("bundlesList");
@@ -3448,6 +3728,46 @@
     var allReviews = (window.YL_SITE_REVIEWS || []).slice().sort(function (a, b) {
       return (b.date || "").localeCompare(a.date || "");
     });
+
+    /* The static chips offered "5 / 4 / 3 star only" and stopped there: 3
+       stars was permanently empty (0 of 22) and there was no 2- or 1-star
+       chip at all, which to a skeptical shopper reads as curation (live
+       audit L2). Render every level from the real data, with its real count,
+       and disable the ones nothing sits in -- an honest zero says far more
+       than a missing chip. Counts come from the same pool the distribution
+       bar is computed from; nothing about the reviews themselves changes. */
+    var chipRow = document.querySelector(".review-rating-chips");
+    if (chipRow) {
+      var starCounts = [0, 0, 0, 0, 0];
+      allReviews.forEach(function (r) {
+        var v = Math.round((r && r.rating) || 0);
+        if (v >= 1 && v <= 5) starCounts[v - 1]++;
+      });
+      var chipHtml =
+        '<button class="filter-pill active" type="button" data-rating="all" aria-pressed="true">All ratings (' +
+        allReviews.length +
+        ")</button>";
+      for (var star = 5; star >= 1; star--) {
+        var starCount = starCounts[star - 1];
+        chipHtml +=
+          '<button class="filter-pill" type="button" data-rating="' +
+          star +
+          '" aria-pressed="false"' +
+          (starCount === 0 ? ' disabled aria-disabled="true"' : "") +
+          ' aria-label="' +
+          star +
+          " star, " +
+          starCount +
+          (starCount === 1 ? " review" : " reviews") +
+          '">' +
+          star +
+          "\u2605 (" +
+          starCount +
+          ")</button>";
+      }
+      chipRow.innerHTML = chipHtml;
+      ratingChips = document.querySelectorAll(".review-rating-chips button");
+    }
 
     /* Distribution bar goes above the grid, computed once from the full
        on-page pool (see reviewDistributionHTML's own comment for why it
@@ -4001,7 +4321,7 @@
       "<p>Still stuck? " +
       (safeRef ? "Send us <strong>" + safeRef + "</strong> " : "Send us your order reference ") +
       "and the email you paid with, and a real person will check where it stands " +
-      "<strong>within one business day</strong>.</p>" +
+      "<strong>within two business days</strong>.</p>" +
       '<p><a class="btn btn-primary" href="' +
       orderStatusMailtoHref(reference) +
       '">Email us about this order</a></p>' +
@@ -4018,7 +4338,7 @@
       "by one person, and that same person can check on it directly. " +
       (safeRef ? "Send us <strong>" + safeRef + "</strong> " : "Send us your order reference ") +
       "and we&rsquo;ll check where it stands and write back " +
-      "<strong>within one business day</strong>.</p>" +
+      "<strong>within two business days</strong>.</p>" +
       '<p><a class="btn btn-primary" href="' +
       orderStatusMailtoHref(reference) +
       '">Email us about this order</a></p>' +
@@ -5046,6 +5366,36 @@
     }
   }
 
+  /* Past events bake the hours into dateLabel ("August 29-30, 2026 - Sat &
+     Sun, 11am-7pm"); the upcoming one did not, so the only event a shopper
+     might actually turn up to was the one that never said what time (live
+     audit L10). The time IS in the data -- ev.date is a full ISO stamp with
+     the event's own UTC offset, which the countdown already reads. Take the
+     clock time from the string literally rather than through Date, so a
+     visitor in another timezone is told the market's local hours and not
+     their own. */
+  function eventStartTimeLabel(isoDate) {
+    var m = /T(\d{2}):(\d{2})/.exec(String(isoDate || ""));
+    if (!m) return "";
+    var hour = parseInt(m[1], 10);
+    var minute = m[2];
+    if (isNaN(hour)) return "";
+    var suffix = hour >= 12 ? "pm" : "am";
+    var display = hour % 12;
+    if (display === 0) display = 12;
+    return display + (minute === "00" ? "" : ":" + minute) + suffix;
+  }
+
+  function eventDateLabelWithTime(ev) {
+    var label = (ev && ev.dateLabel) || "";
+    if (!label) return label;
+    // Already carries hours (every past event does) -- leave it alone.
+    if (/\d\s*(?:am|pm)/i.test(label)) return label;
+    var start = eventStartTimeLabel(ev && ev.date);
+    if (!start) return label;
+    return label + " \u00b7 from " + start;
+  }
+
   function eventCardHTML(ev, opts) {
     var isPast = Boolean(opts && opts.past);
     var gCalUrl = generateGoogleCalendarUrl(ev);
@@ -5104,7 +5454,7 @@
       (attrEsc(ev.date) || "") +
       '">' +
       '<svg class="yl-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> ' +
-      attrEsc(ev.dateLabel) +
+      attrEsc(eventDateLabelWithTime(ev)) +
       "</time></p>" +
       '<p class="event-location">' +
       (ev.location
@@ -5899,21 +6249,38 @@
 
         if (countEl) {
           if (!sortedProducts.length) {
+            /* "that criteria" is one criterion, "--" is not a dash the rest
+               of the site uses, and the copy told the shopper to reset with
+               no control in the filter bar to reset with. The control does
+               exist -- #resetFiltersBtn, rendered by renderCards() in the
+               empty grid immediately below this line -- so say where it is
+               (live audit L3). */
             countEl.textContent =
               "No goods match" +
-              (q ? ' "' + state.query.trim() + '"' : " that criteria") +
-              " -- try resetting your filters.";
+              (q ? ' "' + state.query.trim() + '"' : " those filters") +
+              " \u2014 try resetting your filters with the button below.";
           } else {
             var label = state.filter === "all" ? "goods" : catLabel[state.filter] || "goods";
             var concernNote =
               state.concern !== "all"
                 ? " for " + (concernLabel[state.concern] || state.concern).toLowerCase()
                 : "";
+            /* Denominator is the size of the thing being counted, not the
+               whole catalog: "Showing 3 of 20 salves & balms" counted salves
+               against every product on the site, while the gift-set branch
+               above correctly counted sets against sets, and the mismatch
+               read as a bug (live audit nit). */
+            var categoryTotal =
+              state.filter === "all"
+                ? allProducts.length
+                : allProducts.filter(function (p) {
+                    return p && p.category === state.filter;
+                  }).length;
             countEl.textContent =
               "Showing " +
               sortedProducts.length +
               " of " +
-              allProducts.length +
+              categoryTotal +
               " " +
               label.toLowerCase() +
               concernNote;
@@ -7597,6 +7964,18 @@
     return result;
   }
 
+  /* Expanding a token pulls in its synonym group, and a reverse match pulls
+     in every SIBLING of whatever group the token was found in -- tokenised
+     down to single words. That is only safe while a group holds one intent.
+     It did not: "shipping" was a grab-bag carrying "refund", "gift card
+     balance", "balance" and "landrum" together, so typing "refund" injected
+     "gift", "card", "balance" and "landrum" and answered a return-policy
+     question with six gift sets and four farmers' markets (live audit M1).
+     The fix is upstream, in the groups themselves (searchSynonymDefaults in
+     scripts/build-site-data.js, now four separate policy intents); the
+     tokenisation here is deliberate and load-bearing for the ingredient and
+     intent groups, where "body butter" genuinely has to contribute "body"
+     and "butter" for shea-butter to rank first. */
   function expandTokensWithSynonyms(tokens, synonymsMap) {
     if (!tokens || !tokens.length) return [];
     var synMap = synonymsMap || getSearchIndex().synonyms || {};
@@ -7997,6 +8376,83 @@
     return html;
   }
 
+  /* A search hit whose id is "bundle-<id>" is a gift set. The search index
+     records carry no productIds (and variants: null), so the members -- and
+     therefore the choices the set needs -- come from the live catalog, which
+     every page loads. Returns null when the hit is not a set. */
+  function searchBundleRecord(prod) {
+    if (!prod || typeof prod.id !== "string" || prod.id.indexOf("bundle-") !== 0) return null;
+    var bundles = (window.YL_PRODUCTS && window.YL_PRODUCTS.bundles) || [];
+    var bare = prod.id.slice("bundle-".length);
+    for (var i = 0; i < bundles.length; i++) {
+      if (bundles[i] && bundles[i].id === bare) return bundles[i];
+    }
+    return null;
+  }
+
+  function searchBundleMembers(prod) {
+    var bundle = searchBundleRecord(prod);
+    return bundle ? bundleVariantMembers(bundle) : [];
+  }
+
+  /* Same shape as renderVariantChipsHtml() above, but a gift set needs one
+     radiogroup PER member, and the add only fires once every group has an
+     answer -- a set with an unanswered size is exactly the C1 bug. */
+  function renderBundleVariantChipsHtml(prod, members) {
+    if (!members.length) return "";
+    var pickerId = "search-variant-picker-" + attrEsc(prod.id);
+    var html =
+      '    <div class="search-variant-picker search-bundle-picker" id="' +
+      pickerId +
+      '" data-bundle-item-id="' +
+      attrEsc(prod.id) +
+      '" hidden>';
+    members.forEach(function (m) {
+      html +=
+        '      <div class="search-variant-group" role="radiogroup" data-product-id="' +
+        attrEsc(m.productId) +
+        '" aria-label="' +
+        attrEsc(m.variantName + " for " + m.product.name) +
+        '">';
+      html +=
+        '        <span class="search-variant-group-label" aria-hidden="true">' +
+        escapeSearchHtml(m.product.name) +
+        "</span>";
+      html += '        <div class="search-variant-chips">';
+      m.options.forEach(function (opt) {
+        var isSold = !!opt.soldOut;
+        html +=
+          '<button type="button" class="search-variant-chip' +
+          (isSold ? " is-sold-out" : "") +
+          '" role="radio" aria-checked="false"' +
+          ' data-item-id="' +
+          attrEsc(prod.id) +
+          '" data-bundle-product-id="' +
+          attrEsc(m.productId) +
+          '" data-variant-name="' +
+          attrEsc(m.variantName) +
+          '" data-variant-label="' +
+          attrEsc(opt.label) +
+          '" data-variant-delta="' +
+          (Number(opt.priceDelta) || 0) +
+          '"' +
+          (isSold ? ' disabled aria-disabled="true"' : ' tabindex="-1"') +
+          ' aria-label="' +
+          attrEsc(
+            m.product.name + " " + m.variantName + " " + opt.label + (isSold ? " (Sold Out)" : "")
+          ) +
+          '">' +
+          escapeSearchHtml(opt.label + (isSold ? " (Sold Out)" : "")) +
+          "</button>";
+      });
+      html += "        </div>";
+      html += "      </div>";
+    });
+    html += '      <p class="search-bundle-hint" role="status"></p>';
+    html += "    </div>";
+    return html;
+  }
+
   /* Popular-search chips come from content.json "search" (editable in /admin)
      via window.YL_CONTENT; the static markup in each page is rendered from the
      same list by scripts/build-site-data.js. The icon set is duplicated there
@@ -8329,7 +8785,24 @@
               attrEsc(rootAbsLink(prod.url)) +
               '">Notify me</a>';
           } else if (!soldOut) {
-            if (hasVariants) {
+            var bundleMembers = searchBundleMembers(prod);
+            if (bundleMembers.length) {
+              /* A gift set with a size/scent to pick gets the same trigger +
+                 picker pattern as a variant product, so "+ Add" can never
+                 drop an unspecified set straight into the cart. */
+              var bundlePickerId = "search-variant-picker-" + attrEsc(prod.id);
+              html +=
+                '    <button type="button" class="btn btn-primary btn-sm search-add-btn search-variant-trigger"' +
+                ' data-item-id="' +
+                attrEsc(prod.id) +
+                '" data-has-variants="true" aria-expanded="false" aria-controls="' +
+                bundlePickerId +
+                '" aria-label="Choose options for ' +
+                attrEsc(prod.name) +
+                '">' +
+                "+ Add</button>";
+              html += renderBundleVariantChipsHtml(prod, bundleMembers);
+            } else if (hasVariants) {
               var pickerId = "search-variant-picker-" + attrEsc(prod.id);
               var variantName = prod.variants.name || "Option";
               html +=
@@ -8755,6 +9228,98 @@
       }
     });
 
+    /* One gift-set chip click: mark the answer inside its own radiogroup,
+       then either move on to the next unanswered group or -- when they are
+       all answered -- add the set with every choice attached. */
+    function handleBundleChipClick(chip) {
+      var picker = chip.closest(".search-bundle-picker");
+      if (!picker) return;
+      var group = chip.closest(".search-variant-group");
+      if (group) {
+        group.querySelectorAll(".search-variant-chip").forEach(function (c) {
+          c.setAttribute("aria-checked", c === chip ? "true" : "false");
+          c.classList.toggle("is-selected", c === chip);
+        });
+      }
+
+      var groups = Array.from(picker.querySelectorAll(".search-variant-group"));
+      var chosen = {};
+      var pending = null;
+      groups.forEach(function (g) {
+        var picked = g.querySelector('.search-variant-chip[aria-checked="true"]');
+        if (picked) {
+          chosen[g.getAttribute("data-product-id")] = picked.getAttribute("data-variant-label");
+        } else if (!pending) {
+          pending = g;
+        }
+      });
+
+      var hint = picker.querySelector(".search-bundle-hint");
+      if (pending) {
+        var pendingLabel = pending.querySelector(".search-variant-group-label");
+        if (hint) {
+          hint.textContent =
+            "Now pick a " +
+            (pending.getAttribute("aria-label") || "option").split(" for ")[0].toLowerCase() +
+            " for " +
+            (pendingLabel ? pendingLabel.textContent : "the other item") +
+            ".";
+        }
+        var nextChip = pending.querySelector(".search-variant-chip:not([disabled])");
+        if (nextChip) {
+          nextChip.setAttribute("tabindex", "0");
+          nextChip.focus();
+        }
+        return;
+      }
+      if (hint) hint.textContent = "";
+
+      var itemId = picker.getAttribute("data-bundle-item-id");
+      var index = getSearchIndex();
+      var prod = (index.products || []).find(function (p) {
+        return p.id === itemId;
+      });
+      if (!prod) return;
+      var bundle = searchBundleRecord(prod);
+      var pMap = getProductMap();
+      var price = prod.price;
+      if (bundle && Array.isArray(bundle.productIds)) {
+        var full = 0;
+        bundle.productIds.forEach(function (pid) {
+          var member = pMap.get(pid);
+          if (!member) return;
+          full += member.originalPrice || member.price || 0;
+          var label = chosen[pid];
+          if (label && member.variants && Array.isArray(member.variants.options)) {
+            var opt = member.variants.options.find(function (o) {
+              return o && o.label === label;
+            });
+            if (opt && typeof opt.priceDelta === "number") full += opt.priceDelta;
+          }
+        });
+        if (full > 0) price = bundlePriceFor(full, bundle.discountPercent);
+      }
+
+      if (window.YLCart && typeof window.YLCart.addItem === "function") {
+        window.YLCart.addItem({
+          id: prod.id,
+          name: prod.name,
+          price: price,
+          image: prod.image,
+          category: "bundle",
+          bundleVariants: chosen,
+          qty: 1
+        });
+      }
+      chip.classList.add("is-added");
+      var addedText = chip.textContent;
+      chip.textContent = "\u2713 Added";
+      setTimeout(function () {
+        chip.classList.remove("is-added");
+        chip.textContent = addedText;
+      }, 1000);
+    }
+
     // Variant Picker and Add to Cart interactions
     if (resultsList) {
       resultsList.addEventListener("click", function (e) {
@@ -8811,6 +9376,14 @@
           var variantName = chip.getAttribute("data-variant-name") || "";
           var variantLabel = chip.getAttribute("data-variant-label") || "";
           var variantDelta = Number(chip.getAttribute("data-variant-delta")) || 0;
+
+          /* Gift set: record this group's answer, and only add once every
+             group has one. Until then the hint says which choice is still
+             outstanding and focus moves to it. */
+          if (chip.hasAttribute("data-bundle-product-id")) {
+            handleBundleChipClick(chip);
+            return;
+          }
 
           var index = getSearchIndex();
           var prod = (index.products || []).find(function (p) {

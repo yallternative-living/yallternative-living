@@ -1873,28 +1873,61 @@ function buildSiteData() {
       "magic",
       "talisman"
     ],
+    /* Policy and service intents are FOUR groups, deliberately, and every
+       term in each is chosen so that its INDIVIDUAL words stay on-intent.
+
+       Both halves of that matter. These used to be a single "shipping"
+       grab-bag holding "refund", "gift card balance", "balance" and
+       "landrum" side by side, and because a reverse match pulls in every
+       sibling of whatever group it matched -- tokenised down to single
+       words -- typing "refund" injected "gift", "card", "balance" and
+       "landrum" into the query. A return-policy question came back as six
+       gift sets and four farmers' markets with the return-policy FAQ
+       nowhere in the results (live audit M1).
+
+       The tokenisation itself is deliberate and is not the thing to change:
+       the ingredient and intent groups rely on it ("body butter" has to
+       contribute "body" and "butter" for shea-butter to rank first, which
+       scripts/global-search.test.js pins). So the rule here is that a
+       policy group may not carry a term with an off-intent word in it --
+       no "free shipping" (leaks "free" into every fragrance-free product),
+       no "money back" or "final sale" (leaks "money", "back", "final",
+       "sale"), and no place names. */
     shipping: [
       "delivery",
-      "returns",
-      "exchange",
-      "order tracking",
-      "cost",
-      "free shipping",
-      "ship",
-      "landrum",
       "dispatch",
-      "transit",
-      "track order",
+      "postage",
+      "courier",
+      "shipped",
+      "ships",
+      "shipment",
+      "transit"
+    ],
+    returns: [
+      "return",
+      "returns",
+      "return policy",
+      "refund",
+      "refunds",
+      "refunded",
+      "exchange",
+      "exchanges",
+      "exchanged"
+    ],
+    tracking: [
+      "track",
+      "tracked",
+      "order tracking",
       "track my order",
       "where is my order",
-      "order status",
-      "tracking",
-      "refund",
-      "cancel order",
+      "order status"
+    ],
+    gift_card_balance: [
       "gift card balance",
-      "balance",
-      "processing time",
-      "how long"
+      "check balance",
+      "card balance",
+      "remaining balance",
+      "redeem gift card"
     ],
 
     // Tier 3: product types and forms (added 2026-09-02 from shopper-vocabulary research;
@@ -4267,22 +4300,42 @@ function generateProductJsonLd(product, domain, categoryLabel) {
   // Determine item availability (flags only -- see schemaAvailability()).
   const availability = schemaAvailability(product);
 
-  // Merchant Return Policy (30 days, US)
-  // Mirrors policies.html: sealed products and unworn apparel can be
-  // exchanged within 14 days of delivery, the customer pays the return
-  // postage, and opened body care is final sale. It used to advertise a
-  // 30-day free-return window the shop never offered -- structured data that
-  // contradicts the visible policy is exactly what Google penalises.
-  const returnPolicy = {
-    "@type": "MerchantReturnPolicy",
-    applicableCountry: "US",
-    returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
-    merchantReturnDays: 14,
-    returnMethod: "https://schema.org/ReturnByMail",
-    returnFees: "https://schema.org/ReturnShippingFees",
-    itemCondition: "https://schema.org/NewCondition",
-    returnLink: dom + "/policies.html"
-  };
+  // Merchant Return Policy -- gated by category, because the shop does not
+  // have one policy. policies.html says two different things:
+  //   "all opened or used salves, scrubs, balms, and soaks are FINAL SALE.
+  //    We cannot accept returns on body care items once the seal is broken."
+  //   "Unworn apparel and completely sealed, unopened products can be
+  //    exchanged within 14 days of delivery."
+  // A blanket 14-day MerchantReturnFiniteReturnWindow on all 19 products
+  // therefore advertised a return right on exactly the goods where it is
+  // refused -- and this is the data Google Shopping reads (live audit M4).
+  // Apparel keeps the real 14-day window; body care declares
+  // MerchantReturnNotPermitted, which is the honest structured-data shape
+  // for a final-sale item (the goodwill exchange on a still-sealed jar is an
+  // email conversation, not an advertised return right, and schema.org has
+  // no way to say "only while the seal is intact"). Per schema.org,
+  // merchantReturnDays / returnMethod / returnFees are only meaningful with
+  // a finite window, so they are omitted from the not-permitted shape rather
+  // than left behind to contradict it.
+  const FINAL_SALE_CATEGORIES = ["salves", "body", "soaks", "ritual", "potions"];
+  const returnPolicy =
+    FINAL_SALE_CATEGORIES.indexOf((product && product.category) || "") !== -1
+      ? {
+          "@type": "MerchantReturnPolicy",
+          applicableCountry: "US",
+          returnPolicyCategory: "https://schema.org/MerchantReturnNotPermitted",
+          returnLink: dom + "/policies.html"
+        }
+      : {
+          "@type": "MerchantReturnPolicy",
+          applicableCountry: "US",
+          returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+          merchantReturnDays: 14,
+          returnMethod: "https://schema.org/ReturnByMail",
+          returnFees: "https://schema.org/ReturnShippingFees",
+          itemCondition: "https://schema.org/NewCondition",
+          returnLink: dom + "/policies.html"
+        };
 
   // Shipping Details (Flat $10, Free over $40)
   const shippingDetails = [
@@ -5211,13 +5264,17 @@ function isSoldOut(p) {
   return p.stock === 0 || p.inStock === false || noneAvailable;
 }
 
-/** "2 oz tin" / "S–XL" / "" -- the identity-and-size line under the title. */
+/** "2 oz tin" / "Sizes: S · M · L" / "" -- the identity-and-size line
+    under the title. The label used to read "Sizes Single Soak · 3-Pack" with
+    no separator after the word, and the "Good to know" table then rendered it
+    as "Size: Sizes Single Soak · 3-Pack" (live audit nit). */
 function productSizeLabel(p) {
   if (p.variants && p.variants.name === "Size" && Array.isArray(p.variants.options)) {
     const labels = p.variants.options.map(function (o) {
       return o.label;
     });
-    if (labels.length) return "Sizes " + labels.join(" · ");
+    if (labels.length === 1) return labels[0];
+    if (labels.length) return "Sizes: " + labels.join(" · ");
   }
   const m = /(\d*\.?\d+)\s*(oz|ounce|ml|g)\b/i.exec(
     (p.blurb || "") + " " + (p.description || "") + " " + (p.name || "")
@@ -5793,7 +5850,17 @@ function renderPdpSafetyHtml(p, safetyOverrides) {
 
 function renderPdpGoodToKnowHtml(p, sizeLabel) {
   const rows = [];
-  if (sizeLabel) rows.push(["Size", sizeLabel]);
+  /* productSizeLabel() prefixes a multi-option list with "Sizes: " for the
+     eyebrow line, where it stands on its own. In this table the term already
+     names the row, so a plural list becomes "Sizes" and the prefix comes off
+     -- the row used to read "Size: Sizes Single Soak · 3-Pack". */
+  if (sizeLabel) {
+    if (sizeLabel.indexOf("Sizes: ") === 0) {
+      rows.push(["Sizes", sizeLabel.slice("Sizes: ".length)]);
+    } else {
+      rows.push(["Size", sizeLabel]);
+    }
+  }
   if (p.scent) rows.push(["Scent", p.scent]);
   if (Array.isArray(p.tags) && p.tags.length) {
     rows.push([

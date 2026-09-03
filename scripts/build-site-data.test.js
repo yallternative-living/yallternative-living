@@ -569,8 +569,37 @@ eq(
   "https://schema.org/InStock",
   "In-stock product availability is InStock"
 );
+/* The return policy is gated by category, because policies.html has two.
+   Opened salves, scrubs, balms and soaks are FINAL SALE; only unworn apparel
+   and still-sealed goods can be exchanged, within 14 days, at the buyer's
+   postage cost. Every PDP used to advertise the 14-day window regardless --
+   a return right promised to Google Shopping on exactly the products where
+   the shop refuses it (live audit M4). */
 eq(
   singlePriceLd.offers.hasMerchantReturnPolicy,
+  {
+    "@type": "MerchantReturnPolicy",
+    applicableCountry: "US",
+    returnPolicyCategory: "https://schema.org/MerchantReturnNotPermitted",
+    returnLink: "https://yallternativeliving.com/policies.html"
+  },
+  "a final-sale category (salves) declares MerchantReturnNotPermitted, with no window/method/fee to contradict it"
+);
+
+const apparelLd = buildScript.generateProductJsonLd(
+  {
+    id: "test-tee",
+    name: "Test Tee",
+    category: "apparel",
+    price: 25,
+    image: "assets/img/test-tee.jpg",
+    inStock: true
+  },
+  "https://yallternativeliving.com",
+  "Apparel"
+);
+eq(
+  apparelLd.offers.hasMerchantReturnPolicy,
   {
     "@type": "MerchantReturnPolicy",
     applicableCountry: "US",
@@ -581,7 +610,7 @@ eq(
     itemCondition: "https://schema.org/NewCondition",
     returnLink: "https://yallternativeliving.com/policies.html"
   },
-  "generateProductJsonLd's return policy matches policies.html (14-day sealed exchange, customer pays postage)"
+  "apparel keeps the real 14-day exchange window policies.html actually offers"
 );
 assert(
   Array.isArray(singlePriceLd.offers.shippingDetails) &&

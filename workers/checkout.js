@@ -557,7 +557,103 @@ function findVariantOption(entry, variantLabel) {
 // (Previously this was baked into a generated snipcart-products.json
 // manifest at build time; there's no equivalent static artifact anymore,
 // so it's recomputed here, server-side, on every checkout instead.)
-function resolveBundlePriceDollars(catalog, bundle) {
+/**
+ * Which members of a gift set are sold in sizes/scents/blends, and therefore
+ * need a choice from the shopper before the set can be packed.
+ *
+ * Derived from the bundle's own productIds against the live catalog -- the
+ * bundle records carry no variant slot of their own, and the client derives
+ * the identical list in main.js's bundleVariantMembers(). A product that
+ * grows an option starts being required here on the next catalog fetch,
+ * with no data migration and nothing for the client to assert.
+ */
+function bundleVariantMembers(catalog, bundle) {
+  if (!bundle || !Array.isArray(bundle.productIds)) return [];
+  const productMap = productMapOf(catalog);
+  const members = [];
+  for (const id of bundle.productIds) {
+    const p = productMap.get(id);
+    if (!hasVariantOptions(p)) continue;
+    members.push({ productId: id, product: p });
+  }
+  return members;
+}
+
+/**
+ * Validate the per-member choices a gift-set line arrived with.
+ *
+ * Until the 2026-09-02 live audit a gift set checked out as `{id, qty}` with
+ * no variant field anywhere in the payload, and this Worker never asked:
+ * $45 was taken for a Pride Set containing a tee (4 sizes) and an oil
+ * (3 scents), and the order carried neither. Every choice is now matched
+ * against the catalog's real option list -- an unknown label, a sold-out
+ * one, or a missing one is a 400 the cart drawer surfaces, never a silent
+ * fallback to "the first size".
+ *
+ * Returns [{productId, productName, variantName, label, priceDelta}] using
+ * the CATALOG's spelling of every label, which is what reaches Stripe.
+ */
+function resolveBundleVariantChoices(catalog, bundle, rawChoices) {
+  const members = bundleVariantMembers(catalog, bundle);
+  if (!members.length) return [];
+  const choices =
+    rawChoices && typeof rawChoices === "object" && !Array.isArray(rawChoices) ? rawChoices : {};
+  const setName = bundle.name || bundle.id;
+
+  // A choice naming something that is not a variant-bearing member of THIS
+  // set is a tampered or stale payload, not a harmless extra.
+  const memberIds = new Set(members.map((m) => m.productId));
+  for (const key of Object.keys(choices)) {
+    if (!memberIds.has(key)) {
+      throw new ClientError(`"${key}" is not part of the ${setName}.`);
+    }
+  }
+
+  const resolved = [];
+  for (const m of members) {
+    const variantName = (m.product.variants && m.product.variants.name) || "Option";
+    const requested = choices[m.productId];
+    if (requested === undefined || requested === null || requested === "") {
+      throw new ClientError(
+        `Please choose a ${variantName.toLowerCase()} for the ${m.product.name} in the ${setName}.`
+      );
+    }
+    const opt = findVariantOption(m.product, requested);
+    if (!opt) {
+      throw new ClientError(
+        `That ${variantName.toLowerCase()} isn't available for the ${m.product.name} in the ${setName}.`
+      );
+    }
+    if (opt.soldOut) {
+      throw new ClientError(
+        `${m.product.name} (${opt.label}) is sold out, so the ${setName} can't be made up that way.`
+      );
+    }
+    resolved.push({
+      productId: m.productId,
+      productName: m.product.name,
+      variantName,
+      label: opt.label,
+      priceDelta: typeof opt.priceDelta === "number" ? opt.priceDelta : 0
+    });
+  }
+  return resolved;
+}
+
+// Bundles in products.json never carry their own `price` field -- like
+// main.js's bundlesHTML() and scripts/build-site-data.js's bundlePricing(),
+// their price is always computed live from their real component products'
+// prices, so it can't drift out of sync after a product's price changes.
+// (Previously this was baked into a generated snipcart-products.json
+// manifest at build time; there's no equivalent static artifact anymore,
+// so it's recomputed here, server-side, on every checkout instead.)
+//
+// A chosen member option that costs more (the 4 oz hand scrub, the 24 oz
+// soak) is added to the full price BEFORE the discount, so upgrading inside
+// a set costs the same proportion it costs outside one -- otherwise the
+// picker would hand out an $8 upgrade for free. The deltas come from the
+// catalog options resolved above, never from the payload.
+function resolveBundlePriceDollars(catalog, bundle, variantChoices) {
   if (!bundle || !Array.isArray(bundle.productIds) || !bundle.productIds.length) return null;
   const productMap = productMapOf(catalog);
   let fullPrice = 0;
@@ -565,6 +661,11 @@ function resolveBundlePriceDollars(catalog, bundle) {
     const p = productMap.get(id);
     if (!p || typeof p.price !== "number") return null; // referential integrity issue -- fail closed
     fullPrice += typeof p.originalPrice === "number" ? p.originalPrice : p.price;
+  }
+  if (Array.isArray(variantChoices)) {
+    for (const choice of variantChoices) {
+      fullPrice += Number(choice.priceDelta) || 0;
+    }
   }
   return Math.round(fullPrice * (1 - (bundle.discountPercent || 0) / 100) * 100) / 100;
 }
@@ -646,7 +747,14 @@ function isQualifying2ozSalve(item, catalog) {
 // Resolve a validated unit price (in cents) for an item, honoring a chosen
 // variant's priceDelta when one is supplied and valid. `isBundle` picks the
 // bundle-pricing path above instead of a plain product's own `price` field.
-function resolveUnitAmountCents(catalog, entry, variantLabel, isBundle, ruleCountsOrSalveCount) {
+function resolveUnitAmountCents(
+  catalog,
+  entry,
+  variantLabel,
+  isBundle,
+  ruleCountsOrSalveCount,
+  bundleVariantChoices
+) {
   let matchedDiscountCents = null;
   if (!isBundle && entry) {
     const rules = getVolumePricingRules(catalog);
@@ -686,7 +794,7 @@ function resolveUnitAmountCents(catalog, entry, variantLabel, isBundle, ruleCoun
 
   let price;
   if (isBundle) {
-    price = resolveBundlePriceDollars(catalog, entry);
+    price = resolveBundlePriceDollars(catalog, entry, bundleVariantChoices);
   } else {
     price = typeof entry.price === "number" ? entry.price : null;
   }
@@ -952,6 +1060,7 @@ async function handleCheckout(request, env, ctx, origin) {
       let giftLineIndex = 0;
 
       let boxLineIndex = 0;
+      let bundleLineIndex = 0;
       const boxProductMap = productMapOf(catalog);
 
       const volumeRules = getVolumePricingRules(catalog);
@@ -1004,6 +1113,7 @@ async function handleCheckout(request, env, ctx, origin) {
           return {
             name: `Build-Your-Own Box (${ids.length} items)`,
             image: null,
+            description: contents || null,
             unitAmount,
             qty: boxQty,
             isGiftCard: false,
@@ -1031,9 +1141,21 @@ async function handleCheckout(request, env, ctx, origin) {
 
         const isGiftCard = item.id === GIFT_CARD_ID;
         const isBundle = !isGiftCard && bundleMapOf(catalog).has(entry.id);
+        // Throws a ClientError (-> 400 with the message) when a gift set
+        // arrives with a missing, unknown or sold-out member choice.
+        const bundleChoices = isBundle
+          ? resolveBundleVariantChoices(catalog, entry, item.bundleVariants)
+          : [];
         const unitAmount = isGiftCard
           ? resolveGiftCardAmountCents(item.variant)
-          : resolveUnitAmountCents(catalog, entry, item.variant, isBundle, ruleCounts);
+          : resolveUnitAmountCents(
+              catalog,
+              entry,
+              item.variant,
+              isBundle,
+              ruleCounts,
+              bundleChoices
+            );
         if (unitAmount === null || unitAmount < 0) {
           throw new ClientError(`Product not purchasable: ${item.id}`);
         }
@@ -1071,6 +1193,23 @@ async function handleCheckout(request, env, ctx, origin) {
           entry.image && env.SITE_ORIGIN
             ? `${env.SITE_ORIGIN}/${String(entry.image).replace(/^\/+/, "")}`
             : null;
+
+        /* What was actually chosen inside a gift set, in the catalog's own
+           words. It goes on the Stripe line item description (so it is on
+           the receipt and on anything generated from the session) AND in
+           session metadata, because a set is one line and the size/scent
+           would otherwise exist nowhere on the order. */
+        let description = null;
+        if (isBundle && bundleChoices.length) {
+          description = bundleChoices
+            .map((c) => `${c.productName} — ${c.variantName}: ${c.label}`)
+            .join(" · ");
+          bundleLineIndex += 1;
+          metadata[`gift_set_${bundleLineIndex}`] = truncate(
+            `${entry.name}: ${description}`,
+            MAX_GIFT_TEXT_LEN
+          );
+        }
 
         // Gift-card recipient/sender/message never affect price -- they're
         // pure metadata, attached at the session level (indexed so multiple
@@ -1127,7 +1266,7 @@ async function handleCheckout(request, env, ctx, origin) {
         retentionProductIds.push(entry.id);
         if (entry.category) retentionCategories.push(entry.category);
 
-        return { name, image, unitAmount, qty, isGiftCard, taxCode };
+        return { name, image, description, unitAmount, qty, isGiftCard, taxCode };
       });
 
       // Stripe caps a metadata VALUE at 500 characters, so these are truncated
@@ -1179,6 +1318,7 @@ async function handleCheckout(request, env, ctx, origin) {
         lineItems.push({
           name: FREE_GIFT_LINE_NAME,
           image: null,
+          description: null,
           unitAmount: 0,
           qty: 1,
           isGiftCard: false,
@@ -1456,6 +1596,12 @@ async function handleCheckout(request, env, ctx, origin) {
       lineItems.forEach((li, i) => {
         params.append(`line_items[${i}][price_data][currency]`, "usd");
         params.append(`line_items[${i}][price_data][product_data][name]`, li.name);
+        if (li.description) {
+          params.append(
+            `line_items[${i}][price_data][product_data][description]`,
+            truncate(li.description, 500)
+          );
+        }
         if (li.image) {
           params.append(`line_items[${i}][price_data][product_data][images][0]`, li.image);
         }

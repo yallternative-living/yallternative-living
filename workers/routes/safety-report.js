@@ -352,23 +352,51 @@ export async function handleSafetyReport(request, env, origin) {
     // No-JS fallback: a 303 back to the page carries the outcome in the query
     // string. The reference is an opaque handle, not personal data, so it is
     // safe in a URL -- nothing else from the form ever goes there.
-    const query =
-      payload && payload.ok ? `report=received&ref=${payload.reference}` : "report=error";
+    let query = "report=error";
+    let hash = "reaction-report";
+    if (payload && payload.ok && payload.filed === false) {
+      query = "report=email-us";
+      hash = "safetyEmailUs";
+    } else if (payload && payload.ok) {
+      query = `report=received&ref=${payload.reference}`;
+      hash = "safetySuccess";
+    }
     return new Response(null, {
       status: 303,
       headers: {
         // The success hash targets the confirmation panel so a browser with
         // JavaScript off still shows it (styles.css: #safetySuccess:target).
-        Location: `${siteOrigin}/safety.html?${query}#${payload && payload.ok ? "safetySuccess" : "reaction-report"}`,
+        Location: `${siteOrigin}/safety.html?${query}#${hash}`,
         "Cache-Control": "no-store"
       }
     });
   };
 
-  // Silent honeypot, same shape as the restock and birthday routes: a bot that
-  // can tell it was caught is a bot that stops filling the field in.
+  /* Honeypot. Everywhere else on this site a caught bot gets the same answer
+     a person gets, because a bot that can tell it was caught stops filling
+     the field in. This route is the exception, and it has to be.
+     It answered `{ok: true, reference: "YL-AE-...."}` -- and the page then
+     said "Report filed. Thank you. ... we've emailed it to you as well" --
+     while nothing was stored and nothing was sent (live audit M11). Any false
+     positive on that hidden field (an autofill extension, an over-eager
+     password manager, a translation proxy that rehydrates the off-screen
+     input) told someone reporting a skin reaction that their MoCRA report was
+     on file when it had been discarded.
+     So: still 200, still stores nothing, still sends nothing, still mints no
+     reference -- but it says the report did NOT go through and points at a
+     human. Losing a little bot-blindness is the right trade on an
+     adverse-event channel. */
   if (data.website_hp || data.safety_hp) {
-    return done({ ok: true, reference: safetyReference() }, 200);
+    return done(
+      {
+        ok: true,
+        filed: false,
+        message:
+          "We could not file this report automatically and nothing was saved. " +
+          "Please email y.allternative.living@gmail.com and tell us what happened."
+      },
+      200
+    );
   }
 
   let row;

@@ -27,6 +27,7 @@
   if (!form) return;
 
   var successPanel = document.getElementById("safetySuccess");
+  var emailUsPanel = document.getElementById("safetyEmailUs");
   var referenceOut = document.getElementById("safetyReference");
   var formError = document.getElementById("safetyFormError");
   var submitBtn = document.getElementById("safetySubmit");
@@ -179,6 +180,24 @@
     form.hidden = true;
   }
 
+  /* The Worker accepted the request but filed nothing (the honeypot path).
+     The form stays on screen -- a false positive on that hidden field is
+     exactly the case this exists for, and the person may well want to try
+     again -- but nothing here may read like a receipt (live audit M11). */
+  function showEmailUs() {
+    showFormError("");
+    if (emailUsPanel) {
+      emailUsPanel.hidden = false;
+      emailUsPanel.setAttribute("tabindex", "-1");
+      emailUsPanel.focus();
+      return;
+    }
+    showFormError(
+      "We could not file that report and nothing was saved. Please email " +
+        "y.allternative.living@gmail.com and tell us what happened."
+    );
+  }
+
   /* ------------------------------------------------------------ the no-JS
      return trip. The Worker's 303 lands back here with the outcome in the
      query string; render it the same way an in-page submit would, then scrub
@@ -195,6 +214,8 @@
     if (!state) return;
     if (state === "received") {
       showSuccess(params.get("ref") || "");
+    } else if (state === "email-us") {
+      showEmailUs();
     } else {
       showFormError(
         "We could not file that report. Please try again, or email " +
@@ -242,6 +263,10 @@
       })
       .then(function (result) {
         if (result.ok && result.payload && result.payload.ok) {
+          if (result.payload.filed === false) {
+            showEmailUs();
+            return;
+          }
           showSuccess(result.payload.reference);
           return;
         }
