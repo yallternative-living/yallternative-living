@@ -514,6 +514,46 @@ async function run() {
           undone.noticeStillThere === false
         );
       }
+
+      // Removing the LAST line used to clear the footer along with the notice,
+      // so the one shopper who most needed Undo (their whole cart, one tap)
+      // never got it. Verified live on 2026-09-02 right after H1 shipped.
+      const lastLine = await page.evaluate(async () => {
+        // One at a time: each removal re-renders the drawer, so a button
+        // grabbed before the previous click is detached by the time it runs.
+        for (let guard = 0; guard < 5; guard++) {
+          const btn = document.querySelector('.yl-cart-remove[data-cart-action="remove"]');
+          if (!btn) break;
+          btn.click();
+          await new Promise((r) => setTimeout(r, 50));
+        }
+        return {
+          count: window.YLCart.count(),
+          emptyState: Boolean(document.querySelector(".yl-cart-empty")),
+          noticeVisible: Boolean(document.querySelector(".yl-cart-undo-notice")),
+          undoBtn: Boolean(document.querySelector(".yl-cart-foot .yl-cart-undo-btn"))
+        };
+      });
+      check(
+        `[${vp.name}] emptying the cart shows the empty state`,
+        lastLine.count === 0 && lastLine.emptyState
+      );
+      check(`[${vp.name}] the Undo notice survives emptying the cart`, lastLine.noticeVisible);
+      check(`[${vp.name}] the Undo button renders in the foot of an empty cart`, lastLine.undoBtn);
+      const lastUndone = await page.evaluate(() => {
+        const btn = document.querySelector(".yl-cart-undo-btn");
+        if (!btn) return null;
+        btn.click();
+        return {
+          count: window.YLCart.count(),
+          emptyState: Boolean(document.querySelector(".yl-cart-empty"))
+        };
+      });
+      check(
+        `[${vp.name}] Undo brings the last line back and leaves the empty state`,
+        Boolean(lastUndone && lastUndone.count === 1 && !lastUndone.emptyState),
+        JSON.stringify(lastUndone)
+      );
       await page.close();
     }
 

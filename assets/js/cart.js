@@ -1778,7 +1778,16 @@
     }
     if (!state.items.length) {
       itemsEl.innerHTML = '<p class="yl-cart-empty">Your cart is empty.</p>';
-      footEl.innerHTML = "";
+      /* Keep the Undo offer when the removed line was the LAST one. Clearing
+         the footer here used to drop the "Removed ... Undo" notice exactly
+         when a shopper had just lost their whole cart with one tap (verified
+         live 2026-09-02 after the H1 fix shipped: two-line carts could undo,
+         one-line carts could not). */
+      footEl.innerHTML = state.undoItem
+        ? '<p class="yl-cart-storage-notice yl-cart-undo-notice">Removed ' +
+          escapeHtml(state.undoItem.item.name || "item") +
+          '. <button type="button" class="yl-cart-undo-btn" data-cart-action="undo">Undo</button></p>'
+        : "";
       updateBadges();
       return;
     }
