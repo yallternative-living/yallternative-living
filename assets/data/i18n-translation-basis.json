@@ -396,6 +396,9 @@
     "order.emailUsed": "c82227e9da",
     "order.lookUpText": "3c6ef2c678",
     "order.status": "a15b0b10d1",
-    "legal.englishGoverns": "4b0f0c35ac"
+    "legal.englishGoverns": "4b0f0c35ac",
+    "gift.lede": "020a5723d9",
+    "gift.spendNote": "2ab81b1568",
+    "gift.termsNote": "678ec02ea1"
   }
 }
