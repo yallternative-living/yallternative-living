@@ -56,6 +56,20 @@ ORDER_NOTIFY_EMAIL = "y.allternative.living@gmail.com"   # where "gift note to p
 # policy.
 SITE_ORIGIN = "https://yallternativeliving.com"
 
+# The Umami website id, so the Stripe webhook can book each paid order's
+# revenue server-side ("Order Paid" -- workers/routes/analytics.js). It is the
+# same value as assets/data/content.json site.umamiWebsiteId, and it is
+# duplicated here ON PURPOSE: the Worker has no filesystem and no access to the
+# site build, and revenue reporting that silently stopped because a static
+# build changed would be the worst kind of failure. It is an id, not a secret --
+# it is on every page of the site in the tracker tag.
+#
+# Unset is a defined state: the webhook logs once and books nothing, exactly
+# like the unset coupon ids above. If the id is ever rotated in the CMS, change
+# it in BOTH places in the same commit; scripts/worker-analytics.test.js fails
+# the build when the two disagree.
+UMAMI_WEBSITE_ID = "a134e5d8-e8e5-4a8e-90e9-c21e9dba5acb"
+
 # Sales tax needs no config here: the Worker asks Stripe hourly and turns
 # automatic_tax on by itself once Tax -> Settings/Registrations are filled in
 # on the Stripe Dashboard. This var is only an override -- "true" forces it on

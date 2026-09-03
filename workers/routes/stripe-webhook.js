@@ -56,6 +56,8 @@ import { loadOrderCatalog, productsNeedingChoice, sizeConfirmationEmail } from "
 import { loadSiteSettings } from "../state/site-data.js";
 import { claimEvent, markEventDone, releaseEvent } from "../state/webhook-events.js";
 import { ensureSchema } from "../state/migrations.js";
+import { buildOrderPaidPayload, sendToUmami } from "./analytics.js";
+import { claimAnalyticsSend, ORDER_PAID, releaseAnalyticsSend } from "../state/analytics-sends.js";
 
 /** Stripe tolerates clock drift but nothing older than this, to block replay. */
 export const WEBHOOK_TOLERANCE_SECONDS = 300;
@@ -492,6 +494,83 @@ async function creditPoints(session, env, ctx, now = Date.now()) {
 }
 
 /**
+ * Books this order's revenue in Umami, once, from the server.
+ *
+ * THIS FUNCTION MUST NEVER THROW AND MUST NEVER BE AWAITED IN A WAY THAT CAN
+ * FAIL THE WEBHOOK. It is the only step here that talks to a third party that
+ * has nothing to do with the order being fulfilled. Everything it can go wrong
+ * about -- no binding, no website id, an unusable amount, a timeout, a rejected
+ * User-Agent -- returns a reason and logs it. A thrown error here would make
+ * the webhook answer non-2xx, which makes Stripe redeliver, which re-runs the
+ * money path. Analytics is not allowed to cost that.
+ *
+ * `payment_status` is checked explicitly rather than trusted from the event
+ * type: `checkout.session.completed` fires for a session that COMPLETED, which
+ * for an asynchronous payment method can mean "unpaid, we will tell you later".
+ * Only "paid" is money. ("no_payment_required" -- a 100%-gift-card order -- is
+ * deliberately NOT reported: Stripe captured nothing, so booking it as revenue
+ * would inflate the takings by the value of a card the shop had already been
+ * paid for once.)
+ *
+ * @returns {Promise<object|null>} an outcome for the webhook's own log/response.
+ */
+async function reportRevenue(session, env, ctx) {
+  if (!env.STATE_DB) return { sent: false, reason: "no-state-db" };
+  if (session.payment_status !== "paid") {
+    return { sent: false, reason: `payment-status-${session.payment_status || "unknown"}` };
+  }
+  const websiteId = String(env.UMAMI_WEBSITE_ID || "").trim();
+  /* Read from the Worker's own env, never from the site build: the Worker has
+     no filesystem and no access to assets/data/content.json, and a Worker that
+     silently stopped reporting revenue because a static build changed would be
+     the worst kind of failure. Unset is a defined state -- log once and do
+     nothing, exactly like the unset coupon ids. */
+  if (!websiteId) {
+    console.warn("stripe-webhook: UMAMI_WEBSITE_ID is not set -- revenue is not being reported");
+    return { sent: false, reason: "not-configured" };
+  }
+
+  const body = buildOrderPaidPayload(session, websiteId);
+  if (!body) return { sent: false, reason: "unusable-amount" };
+
+  /* Claimed BEFORE the send and never released afterwards. A redelivered
+     Stripe event (or a retry after some later step threw) must not book the
+     same money twice -- an analytics send is not idempotent at the far end,
+     and an overstated Revenue report is worse than a missing row because it
+     looks right. */
+  let claimed = false;
+  try {
+    claimed = await claimAnalyticsSend(env.STATE_DB, ORDER_PAID, session.id);
+  } catch (err) {
+    console.error("analytics: could not claim the revenue send:", err && err.message);
+    return { sent: false, reason: "claim-failed" };
+  }
+  if (!claimed) return { sent: false, reason: "already-sent" };
+
+  /* Fire and forget. waitUntil keeps the isolate alive until the POST settles
+     without holding the webhook's response, so Stripe gets its 200 at the same
+     speed it did before analytics existed. */
+  const attempt = sendToUmami(body).then(async (outcome) => {
+    if (!outcome.sent) {
+      console.error(`analytics: "Order Paid" was not recorded (${outcome.reason})`);
+      /* Only give the claim back when the request provably never left. A send
+         that timed out or returned a bad status may well have been recorded at
+         the other end, and re-sending it would double-count. */
+      if (outcome.reason === "no-fetch") {
+        try {
+          await releaseAnalyticsSend(env.STATE_DB, ORDER_PAID, session.id);
+        } catch {
+          /* best-effort */
+        }
+      }
+    }
+    return outcome;
+  });
+  if (ctx && typeof ctx.waitUntil === "function") ctx.waitUntil(attempt);
+  return { sent: true, queued: true, revenue: body.payload.data.revenue };
+}
+
+/**
  * Runs the sub-handlers for one verified event. Each is isolated: a failure is
  * collected, not propagated immediately, so one broken step cannot stop the
  * others from running. Anything collected is re-thrown at the end so Stripe
@@ -533,6 +612,18 @@ export async function processStripeEvent(event, env, ctx) {
       outcome.sizeConfirmation = await emailSizeConfirmation(session, env, ctx);
     } catch (err) {
       failures.push(`size-confirmation: ${err && err.message}`);
+    }
+    /* Deliberately NOT pushed to `failures`. Every other step above is part of
+       fulfilling the order, so a failure there should make Stripe redeliver.
+       This one is a number on a dashboard: it must never be the reason the
+       money path runs again. reportRevenue does not throw, and the catch is
+       here anyway because "does not throw" is a promise the next edit could
+       break. */
+    try {
+      outcome.revenue = await reportRevenue(session, env, ctx);
+    } catch (err) {
+      console.error("analytics: revenue reporting threw (ignored):", err && err.message);
+      outcome.revenue = { sent: false, reason: "threw" };
     }
   } else if (event.type === "checkout.session.expired") {
     const session = event.data.object || {};
