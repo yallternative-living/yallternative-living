@@ -980,6 +980,21 @@ section {
 }
 
 /* =============== HERO =============== */
+/* A plain, unstyled wrapper around `.hero` -- ITS ONLY JOB is establishing
+   the `@container` size context every rule below queries. It cannot live on
+   `.hero` itself: a size container query is resolved against the nearest
+   ANCESTOR container, explicitly excluding the element that establishes the
+   containment, so `.hero { container-type: inline-size; @container (...) {
+   padding: ... } }` (querying itself) silently never matches -- confirmed
+   empirically in Chromium, not just per-spec. Wrapping keeps `.hero` and its
+   descendants (`.hero-grid`, `.hero-art`, the h1) all on equal footing as
+   descendants of `.hero-frame`, so every one of their container queries
+   resolves the same way. No layout impact: it carries no box styling beyond
+   containment, and `.hero`'s own width/margin are unchanged, so it sizes
+   identically to `.hero`'s old self-established container. */
+.hero-frame {
+  container-type: inline-size;
+}
 .hero {
   min-height: 55dvh; /* dynamic viewport height accounts for dynamic browser chrome */
   display: flex;
@@ -989,13 +1004,19 @@ section {
     radial-gradient(ellipse at 20% 20%, rgba(181, 73, 91, 0.18), transparent 55%),
     radial-gradient(ellipse at 80% 80%, rgba(201, 138, 75, 0.14), transparent 55%), var(--ink);
   border-bottom: 1px solid var(--hide);
-  container-type: inline-size;
 
-  @media (max-width: 900px) {
+  /* @container, not @media: `.hero-grid` stacks off `.hero-frame`'s inline
+     size (see above), keyed to the SAME ≤900px measure -- `.hero` queries
+     the very same wrapper. A `@media (max-width: 900px)` here instead keyed
+     off the viewport, and a classic (non-overlay) scrollbar eats ~15-17px of
+     that -- so a 901-916px viewport (900-916px container) fell between the
+     two: the grid had already stacked to one column but the hero kept its
+     two-column padding and min-height, mismatched (rendered audit M2). */
+  @container (max-width: 900px) {
     min-height: auto;
     padding: 32px 0 36px;
   }
-  @media (max-width: 480px) {
+  @container (max-width: 480px) {
     padding: 24px 0 28px;
   }
 
@@ -1056,7 +1077,7 @@ section {
      different label lengths ("Shop Salves, Soaks & More" vs "Read Our
      Story") look ragged however they're aligned, and matching their
      width settles that while giving each a bigger tap target. */
-  @media (max-width: 480px) {
+  @container (max-width: 480px) {
     & .lede {
       font-size: 1rem;
       margin-bottom: 16px;
