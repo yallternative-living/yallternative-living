@@ -210,7 +210,7 @@ collections:
 
 singletons:
   - name: products
-    label: "1. ⚙️ Shop & Products"
+    label: "1. Shop & Products"
     icon: storefront
     description: "Your whole shop: products and prices, multi-buy deals, category sales, gift bundles and the FAQ. Click an item to edit it or 'Add' to create one; Save publishes in a few minutes."
     file: assets/data/products.json
@@ -1171,7 +1171,7 @@ singletons:
             }
 
   - name: content
-    label: "6. ⚙️ Site Settings"
+    label: "6. Site Settings"
     icon: tune
     description: "Wording and photos across your pages (homepage, About, Contact, logos) plus the on/off switches for site features. Open a section, edit, Save. Start with 'Site Settings'."
     file: assets/data/content.json
