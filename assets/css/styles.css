@@ -3483,6 +3483,21 @@ section {
   margin: 28px auto 0;
   font-size: 0.84rem;
   color: var(--paper-dim);
+  /* Already inherits the global `p { text-wrap: pretty }`, but pretty only
+     avoids the single-word-orphan worst case -- at 390px this still wrapped
+     to a 34px "a link." stub on its own last line (rendered audit). balance
+     evens out every line the 46ch measure forces instead of just dodging
+     the worst break. */
+  text-wrap: balance;
+}
+
+/* Same orphan, same fix: #welcomeCodeStatus (the "couldn't reach the
+   server" / "pass your address along" status message) wrapped to a 78px
+   last line at 390px. It has no max-width of its own -- `.tight-hero
+   p.muted` above only sets width: fit-content -- so balance is the whole
+   fix here, redistributing whatever line count that natural width forces. */
+#welcomeCodeStatus {
+  text-wrap: balance;
 }
 
 /* =============== EVENTS =============== */
