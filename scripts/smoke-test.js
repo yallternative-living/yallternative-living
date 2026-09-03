@@ -556,7 +556,7 @@ function section(title) {
       { file: "assets/data/events.json", keys: ["upcoming", "past"] },
       { file: "assets/data/site-reviews.json", keys: ["reviews"] },
       { file: "assets/data/content.json", keys: ["site", "home", "about", "contact", "shop"] },
-      { file: "assets/data/journal.json", keys: ["posts"] },
+      { file: "assets/data/quiz.json", keys: ["questions"] },
       { file: "assets/data/social-feed.json", keys: ["posts"] }
     ];
     let jsonParsedCount = 0;

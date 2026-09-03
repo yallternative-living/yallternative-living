@@ -101,8 +101,8 @@ global.navigator = { userAgent: "node" };
 const productsData = JSON.parse(
   fs.readFileSync(path.join(__dirname, "../assets/data/products.json"), "utf8")
 );
-const journalData = JSON.parse(
-  fs.readFileSync(path.join(__dirname, "../assets/data/journal.json"), "utf8")
+const journalData = require("./build-site-data.js").loadJournal(
+  JSON.parse(fs.readFileSync(path.join(__dirname, "../assets/data/content.json"), "utf8"))
 );
 const configYml = fs.readFileSync(path.join(__dirname, "../admin/config.yml"), "utf8");
 

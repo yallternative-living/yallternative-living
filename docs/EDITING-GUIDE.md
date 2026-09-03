@@ -10,7 +10,7 @@ Nothing in this dashboard touches customer credit card numbers or sensitive paym
 
 Whenever you want to make changes to the live site, open **yourdomain.com/admin** in any web browser and log in (see [How to Log In](#2-how-to-log-in) below).
 
-Your dashboard is organized into 6 focused collections in the left sidebar:
+Your dashboard is organized into 7 focused sections in the left sidebar. The **Journal** sits under the **Collections** heading at the top and shows your list of posts; every other section sits under **Files** below it and opens straight into its editor when you click it (the editor's header says "Files" for those, but the highlighted item in the sidebar tells you where you are). The numbers match the walkthroughs in this guide, not the order on screen:
 
 1. **1. Products, Bundles & FAQ** — Your daily workspace:
    - **Products (Top Priority)**: Manage your 19 catalog items, edit prices, set size/scent variants, upload photos, add ingredients, and update stock levels.
@@ -21,9 +21,10 @@ Your dashboard is organized into 6 focused collections in the left sidebar:
    - **Shop Filter Categories & Shop Settings**: Category filter buttons, Etsy sync counters, free shipping threshold, and Build-Your-Own Box settings (neatly tucked at the bottom).
 2. **2. Markets, Fairs & Pride Dates** — Add upcoming pop-up markets, craft fairs, and Pride events. Upcoming dates display chronologically, and past appearances automatically archive themselves under "Where We've Been."
 3. **3. Customer Reviews** — Publish customer reviews and choose which glowing testimonials feature on the homepage carousel.
-4. **4. Apothecary Journal (Blog)** — Write kitchen updates, herbal deep-dives, and community announcements with a visual formatting toolbar.
+4. **4. Journal** — Each post is its own entry with a **New Post** button. Write kitchen updates, herbal deep-dives, and community announcements with a visual formatting toolbar.
 5. **5. Social Media Feed** — Feature your favorite Instagram and TikTok posts directly on the homepage.
 6. **6. Site Images & Page Wording** — Update homepage hero copy, About page story, bio photos, logos, social share images, and toggle site features on or off.
+7. **7. Quiz** — The questions, answer options, and product recommendations behind the Apothecary Recommendation Quiz.
 
 > **💡 The "Hit Save and Done" Rule:** When you click **Save** in `/admin`, the site automatically rebuilds, optimizes your photos, updates search engines, and publishes your changes live to the web within 2 to 3 minutes. You never need to run commands or touch server settings.
 
@@ -172,9 +173,9 @@ Tucked neatly at the bottom of **1. Products, Bundles & FAQ**:
 3. Enter the customer's name, star rating (1–5), review text, and select the product from the dropdown.
 4. Check **Feature on homepage?** to showcase their review in the homepage testimonial carousel.
 
-#### C. Apothecary Journal / Blog (Collection 4)
-1. Click **4. Apothecary Journal**.
-2. Click **Add Journal Post**.
+#### C. Journal / Blog (Collection 4)
+1. Click **4. Journal** in the sidebar to see the list of posts. Click a post to edit it, or **New Post** (top right) to write one.
+2. (The page title and intro line shown above the post list live under **6. Site Images & Page Wording → Journal page**.)
 3. Enter the title, date, and a **Short teaser** (1–2 sentences for card previews).
 4. Write your story in the main content box using the formatting toolbar (bold, italics, headings, bullet lists).
 5. Estimated reading time calculates automatically when published!

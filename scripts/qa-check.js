@@ -1283,10 +1283,10 @@ section("Content integrity: claims the rest of the site contradicts");
      an earlier version of this check that read only content.json reported
      green while the shipped page still said "prescription" twice. Assert
      the bytes production serves as well as the CMS source. */
-  var quiz = content.quiz || {};
+  var quiz = JSON.parse(fs.readFileSync(path.join(ROOT, "assets/data/quiz.json"), "utf8"));
   var quizCopy = [quiz.subtitle, quiz.modalSubtitle].join(" ");
   if (!quizCopy.trim()) {
-    fail("quiz copy is empty in content.json", "nothing to check for M1");
+    fail("quiz copy is empty in quiz.json", "nothing to check for M1");
   } else if (/prescription/i.test(quizCopy)) {
     fail(
       "content.json's quiz copy offers a 'prescription'",
@@ -2082,36 +2082,49 @@ if (!fs.existsSync(configYmlPath)) {
   // collections config.yml actually defines (see the "2. Markets... 3.
   // Customer Reviews... 4. Page Wording" comment near the top of that
   // file) after a swarm audit flagged events/reviews/content as unchecked.
+  var journalPostFiles = fs.existsSync(path.join(ROOT, "assets/data/journal"))
+    ? fs
+        .readdirSync(path.join(ROOT, "assets/data/journal"))
+        .filter(function (f) {
+          return f.endsWith(".json");
+        })
+        .map(function (f) {
+          return "assets/data/journal/" + f;
+        })
+    : [];
+  if (!journalPostFiles.length) fail("assets/data/journal", "no journal post files found");
   [
     "assets/data/products.json",
     "assets/data/events.json",
     "assets/data/site-reviews.json",
     "assets/data/content.json",
-    "assets/data/journal.json",
+    "assets/data/quiz.json",
     "assets/data/social-feed.json"
-  ].forEach(function (relPath) {
-    var full = path.join(ROOT, relPath);
-    if (!fs.existsSync(full)) return; // already reported missing in section 1 above
-    try {
-      var topLevelKeys = Object.keys(JSON.parse(fs.readFileSync(full, "utf8")));
-      topLevelKeys.forEach(function (key) {
-        var fieldRe = new RegExp("-\\s*\\{?\\s*name:\\s*" + key + "\\b");
-        if (fieldRe.test(configYml))
-          ok("config.yml defines a field for " + relPath + "'s \"" + key + '" key');
-        else
-          fail(
-            "admin/config.yml",
-            'no "- name: ' +
-              key +
-              '" field found -- ' +
-              relPath +
-              " has this top-level key but the CMS has no field for it"
-          );
-      });
-    } catch (e) {
-      /* already reported as a failure in section 1 ("Source data files") above */
-    }
-  });
+  ]
+    .concat(journalPostFiles)
+    .forEach(function (relPath) {
+      var full = path.join(ROOT, relPath);
+      if (!fs.existsSync(full)) return; // already reported missing in section 1 above
+      try {
+        var topLevelKeys = Object.keys(JSON.parse(fs.readFileSync(full, "utf8")));
+        topLevelKeys.forEach(function (key) {
+          var fieldRe = new RegExp("-\\s*\\{?\\s*name:\\s*" + key + "\\b");
+          if (fieldRe.test(configYml))
+            ok("config.yml defines a field for " + relPath + "'s \"" + key + '" key');
+          else
+            fail(
+              "admin/config.yml",
+              'no "- name: ' +
+                key +
+                '" field found -- ' +
+                relPath +
+                " has this top-level key but the CMS has no field for it"
+            );
+        });
+      } catch (e) {
+        /* already reported as a failure in section 1 ("Source data files") above */
+      }
+    });
 }
 
 /* ---------- 22) Admin CSP (/admin/*) stays in sync across all 3 header
@@ -3929,8 +3942,8 @@ section("Milestone 3: CMS Merchandising, Schema Validation & Quiz Integrity");
       fail("content.json site.ritualDefaults invalid", JSON.stringify(site.ritualDefaults));
     }
 
-    // quiz structure
-    var quiz = contentJson.quiz || {};
+    // quiz structure (assets/data/quiz.json, merged into YL_CONTENT.quiz by the build)
+    var quiz = JSON.parse(fs.readFileSync(path.join(ROOT, "assets/data/quiz.json"), "utf8"));
     if (
       typeof quiz.eyebrow === "string" &&
       typeof quiz.title === "string" &&
@@ -4057,10 +4070,8 @@ section("Milestone 3: CMS Merchandising, Schema Validation & Quiz Integrity");
     );
     var validItemIds = new Set([...productIds, ...bundleIds]);
 
-    var contentJson = JSON.parse(
-      fs.readFileSync(path.join(ROOT, "assets/data/content.json"), "utf8")
-    );
-    var questions = (contentJson.quiz && contentJson.quiz.questions) || [];
+    var quizJson = JSON.parse(fs.readFileSync(path.join(ROOT, "assets/data/quiz.json"), "utf8"));
+    var questions = quizJson.questions || [];
 
     var allProductRefsValid = true;
     var allCategoryRefsValid = true;

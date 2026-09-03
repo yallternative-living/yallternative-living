@@ -211,6 +211,46 @@ window.YL_CONTENT = {
   "policies": {
     "intro": "How we get our goods to you, and what happens if things go wrong. Straightforward answers, no nonsense."
   },
+  "journal": {
+    "title": "Apothecary Journal",
+    "lede": "Stories, science, and small-batch updates straight from the kitchen."
+  },
+  "search": {
+    "chipsTitle": "Popular Searches",
+    "popularChips": [
+      {
+        "label": "Bedtime & Wind-Down",
+        "query": "sleep",
+        "icon": "moon"
+      },
+      {
+        "label": "Bath Soaks",
+        "query": "soak",
+        "icon": "waves"
+      },
+      {
+        "label": "Dry, Rough Skin",
+        "query": "dry skin",
+        "icon": "droplet"
+      },
+      {
+        "label": "Bug Defense",
+        "query": "bug spray",
+        "icon": "shield"
+      },
+      {
+        "label": "Pop-Up Markets",
+        "query": "events",
+        "icon": "calendar"
+      },
+      {
+        "label": "Gift Cards",
+        "query": "gift card",
+        "icon": "gift"
+      }
+    ],
+    "extraSynonyms": []
+  },
   "quiz": {
     "eyebrow": "✦ INTERACTIVE APOTHECARY ✦",
     "title": "Find Your Custom Self-Care Match",
@@ -399,41 +439,5 @@ window.YL_CONTENT = {
         ]
       }
     ]
-  },
-  "search": {
-    "chipsTitle": "Popular Searches",
-    "popularChips": [
-      {
-        "label": "Bedtime & Wind-Down",
-        "query": "sleep",
-        "icon": "moon"
-      },
-      {
-        "label": "Bath Soaks",
-        "query": "soak",
-        "icon": "waves"
-      },
-      {
-        "label": "Dry, Rough Skin",
-        "query": "dry skin",
-        "icon": "droplet"
-      },
-      {
-        "label": "Bug Defense",
-        "query": "bug spray",
-        "icon": "shield"
-      },
-      {
-        "label": "Pop-Up Markets",
-        "query": "events",
-        "icon": "calendar"
-      },
-      {
-        "label": "Gift Cards",
-        "query": "gift card",
-        "icon": "gift"
-      }
-    ],
-    "extraSynonyms": []
   }
 };

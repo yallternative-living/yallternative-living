@@ -327,7 +327,7 @@ eq(main.safeLinkUrl(null), "", "safeLinkUrl handles null input");
 // post written as plain paragraphs never changes appearance.
 //
 // Deliberately checked against FIXTURES rather than the live
-// assets/data/journal.json: the real posts are editable content and may
+// assets/data/journal/*.json: the real posts are editable content and may
 // legitimately start using headings/bold/lists (they now do), which would
 // make a live-data assertion fail for a non-bug. The property worth locking
 // down is about plain text, not about whatever happens to be published.
@@ -340,7 +340,7 @@ const plainTextPosts = [
   "A single paragraph with no formatting at all.",
   "First paragraph.\n\nSecond paragraph.\n\nThird one.",
   // Trailing spaces before the break: exactly how the pre-Markdown posts in
-  // journal.json were written, and a case a naive trim() would break.
+  // journal/*.json were written, and a case a naive trim() would break.
   "Ends with a space before the break. \n\nAnd continues here.",
   // Apostrophes/ampersands must still be escaped the same way.
   "We've all been there & it's fine.",

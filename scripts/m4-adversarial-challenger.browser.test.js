@@ -155,7 +155,7 @@ const MIME = {
    suite) or hard-coding the flag's current value, the harness serves a
    journal-enabled FIXTURE: the two generated files the feature reads are
    replaced in flight with `enableJournal: true` and the posts from the
-   unfiltered assets/data/journal.json. Everything else is served from disk.
+   unfiltered assets/data/journal/ posts. Everything else is served from disk.
    The suite therefore tests the journal feature itself, in either switch
    position, and challenger-m4-stress.browser.test.js separately asserts that
    the SWITCH is honoured (no posts, no feed items) when it is off.
@@ -167,7 +167,11 @@ let serveJournalEnabled = true;
 function journalEnabledFixture(reqPath) {
   if (!serveJournalEnabled) return null;
   if (reqPath === "/assets/js/journal-data.js") {
-    const journal = fs.readFileSync(path.join(ROOT, "assets/data/journal.json"), "utf8");
+    const journal = JSON.stringify(
+      require(path.join(ROOT, "scripts/build-site-data.js")).loadJournal(
+        JSON.parse(fs.readFileSync(path.join(ROOT, "assets/data/content.json"), "utf8"))
+      )
+    );
     return `window.YL_JOURNAL = ${journal};`;
   }
   if (reqPath === "/assets/js/content-data.js") {
@@ -438,11 +442,13 @@ async function runAdversarialStressSuite() {
 
         // Click Add to Cart for the second post's featured product. Which
         // product that is, and what it costs, is read from the data the page
-        // renders from (journal.json + products.json) rather than pinned
+        // renders from (journal/*.json + products.json) rather than pinned
         // here: the data-integrity fix repointed this post's feature, and a
         // hardcoded pair would fail on every legitimate content edit.
-        const journalData = JSON.parse(
-          fs.readFileSync(path.join(__dirname, "..", "assets", "data", "journal.json"), "utf8")
+        const journalData = require("./build-site-data.js").loadJournal(
+          JSON.parse(
+            fs.readFileSync(path.join(__dirname, "..", "assets", "data", "content.json"), "utf8")
+          )
         );
         const productsData = JSON.parse(
           fs.readFileSync(path.join(__dirname, "..", "assets", "data", "products.json"), "utf8")
@@ -462,7 +468,7 @@ async function runAdversarialStressSuite() {
           null;
         assert(
           Boolean(secondFeaturedRef),
-          "journal.json post 'small-batch-difference' names a featured product"
+          "journal post 'small-batch-difference' names a featured product"
         );
         const resolveProduct = (ref) =>
           productList.find(

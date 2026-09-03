@@ -227,8 +227,8 @@ global.navigator = { userAgent: "node" };
 const productsData = JSON.parse(
   fs.readFileSync(path.join(ROOT, "assets/data/products.json"), "utf8")
 );
-const journalData = JSON.parse(
-  fs.readFileSync(path.join(ROOT, "assets/data/journal.json"), "utf8")
+const journalData = require(path.join(ROOT, "scripts/build-site-data.js")).loadJournal(
+  JSON.parse(fs.readFileSync(path.join(ROOT, "assets/data/content.json"), "utf8"))
 );
 global.window.YL_PRODUCTS = productsData;
 global.window.YL_JOURNAL = journalData;

@@ -141,7 +141,9 @@ if (!lastBuild) {
   console.error(`  ✗ feed.xml has no <lastBuildDate>`);
   nondeterministicChanges++;
 } else {
-  const journal = JSON.parse(fs.readFileSync(path.join(ROOT, "assets/data/journal.json"), "utf8"));
+  const journal = require(path.join(ROOT, "scripts/build-site-data.js")).loadJournal(
+    JSON.parse(fs.readFileSync(path.join(ROOT, "assets/data/content.json"), "utf8"))
+  );
   const dates = (journal.posts || [])
     .map((post) => new Date(post.date))
     .filter((d) => !isNaN(d.getTime()));

@@ -117,6 +117,48 @@ function readJson(relPath) {
   }
 }
 
+/* Journal posts are one JSON file each in assets/data/journal/ -- a Sveltia
+   folder collection, so /admin shows a real post list with a "New post"
+   button instead of one giant file. The FILE NAME is the post id (the CMS
+   names a new file from its title); an `id` key inside a file is ignored so
+   a renamed file can never disagree with itself. The page title and lede
+   live in content.json's `journal` key, edited under "Site Images & Page
+   Wording". Posts come back newest first so journal.html, feed.xml and the
+   search index read like a blog without each sorting on its own. */
+const JOURNAL_DIR = "assets/data/journal";
+function listJournalFiles() {
+  const dir = path.join(ROOT, JOURNAL_DIR);
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter(function (f) {
+      return f.endsWith(".json");
+    })
+    .sort()
+    .map(function (f) {
+      return JOURNAL_DIR + "/" + f;
+    });
+}
+function loadJournal(content) {
+  const wording = (content && content.journal) || {};
+  const posts = listJournalFiles().map(function (rel) {
+    const post = readJson(rel);
+    post.id = path.basename(rel, ".json");
+    return post;
+  });
+  posts.sort(function (a, b) {
+    return (
+      String(b.date || "").localeCompare(String(a.date || "")) ||
+      String(a.title || "").localeCompare(String(b.title || ""))
+    );
+  });
+  return {
+    title: wording.title || "Apothecary Journal",
+    lede: wording.lede || "Stories, science, and small-batch updates straight from the kitchen.",
+    posts: posts
+  };
+}
+
 function escapeHtml(s) {
   // Escapes the full set of HTML-significant characters, not just &/</>.
   // This runs on data pulled from assets/data/*.json (editable via the
@@ -1394,9 +1436,12 @@ function buildSiteData() {
   }
 
   const SITE_REVIEWS = readJson("assets/data/site-reviews.json").reviews || [];
-  const JOURNAL = readJson("assets/data/journal.json");
   const SOCIAL_FEED = readJson("assets/data/social-feed.json");
   const CONTENT = readJson("assets/data/content.json");
+  /* The quiz has its own file so /admin can offer it as its own section;
+     main.js still reads it as YL_CONTENT.quiz, so it is merged back here. */
+  CONTENT.quiz = readJson("assets/data/quiz.json");
+  const JOURNAL = loadJournal(CONTENT);
   const BRAND_GLOSSARY = readJson("assets/data/brand-glossary.json");
   const LOCALES = {};
   SUPPORTED_LOCALES.forEach(function (lang) {
@@ -1515,19 +1560,13 @@ function buildSiteData() {
     }
   });
 
-  /* 5. Process Journal Posts & Guards */
-  const USED_JOURNAL_IDS = new Set();
-  ((JOURNAL && JOURNAL.posts) || []).forEach(function (post, idx) {
-    if (!post.id) {
-      if (!post.title) {
-        console.error(
-          "\n[build] Journal post at index " + idx + " in journal.json has no title or id."
-        );
-        process.exit(1);
-      }
-      post.id = generateUniqueId(USED_JOURNAL_IDS, post.title, "post", idx);
-    } else {
-      USED_JOURNAL_IDS.add(post.id);
+  /* 5. Journal post guards (ids come from the file names, see loadJournal) */
+  JOURNAL.posts.forEach(function (post) {
+    if (!post.title || !post.date) {
+      console.error(
+        "\n[build] " + JOURNAL_DIR + "/" + post.id + ".json needs both a title and a date."
+      );
+      process.exit(1);
     }
   });
 
@@ -1863,7 +1902,7 @@ function buildSiteData() {
   const journalDataJs =
     "/**\n" +
     " * @fileoverview Auto-generated Apothecary Journal data.\n" +
-    " * Wrap of assets/data/journal.json into a global variable YL_JOURNAL.\n" +
+    " * Wrap of assets/data/journal/*.json (plus content.json's journal wording) into YL_JOURNAL.\n" +
     " * Posts are only included while site.enableJournal is on in content.json.\n" +
     " * Do not hand-edit this file.\n" +
     " * @const {!Object}\n" +
@@ -3492,11 +3531,9 @@ function buildSiteData() {
   injectPageCopy("terms.html", "terms");
   injectPageCopy("policies.html", "policies");
 
-  // Dynamically inject Journal title/subheading from journal.json
+  // Inject the Journal title/subheading (content.json's `journal` key)
   function injectJournalCopy() {
-    const journalPath = path.join(ROOT, "assets/data/journal.json");
-    if (!fs.existsSync(journalPath)) return;
-    const journal = JSON.parse(fs.readFileSync(journalPath, "utf8"));
+    const journal = JOURNAL;
 
     const pagePath = path.join(ROOT, "journal.html");
     if (!fs.existsSync(pagePath)) return;
@@ -3662,9 +3699,6 @@ function buildSiteData() {
     if (CONTENT[pageKey] && CONTENT[pageKey].ogImage) {
       pageOgImage = CONTENT[pageKey].ogImage;
     }
-    if (page === "journal.html" && JOURNAL && JOURNAL.image) {
-      pageOgImage = JOURNAL.image;
-    }
 
     let finalOgImage =
       pageOgImage || (CONTENT.site && CONTENT.site.ogImage) || "assets/img/og-image.jpg";
@@ -3717,19 +3751,21 @@ function buildSiteData() {
         }
       });
     };
-    ["journal.json", "events.json", "site-reviews.json"].forEach((f) => {
-      const p = path.join(ROOT, "assets", "data", f);
-      if (!fs.existsSync(p)) return;
-      try {
-        const data = JSON.parse(fs.readFileSync(p, "utf8"));
-        // Only finished events count: an upcoming market's date would be a
-        // future lastmod, and comparing against "now" would reintroduce the
-        // wall clock this function exists to remove.
-        pick(f === "events.json" ? data.past : data);
-      } catch {
-        /* a malformed file is reported elsewhere; it just contributes no date */
-      }
-    });
+    listJournalFiles()
+      .concat(["assets/data/events.json", "assets/data/site-reviews.json"])
+      .forEach((f) => {
+        const p = path.join(ROOT, f);
+        if (!fs.existsSync(p)) return;
+        try {
+          const data = JSON.parse(fs.readFileSync(p, "utf8"));
+          // Only finished events count: an upcoming market's date would be a
+          // future lastmod, and comparing against "now" would reintroduce the
+          // wall clock this function exists to remove.
+          pick(f.endsWith("events.json") ? data.past : data);
+        } catch {
+          /* a malformed file is reported elsewhere; it just contributes no date */
+        }
+      });
     dates.sort();
     return dates.length ? dates[dates.length - 1] : "2026-09-01";
   }
@@ -3812,7 +3848,7 @@ function buildSiteData() {
     "shop.html": ["assets/data/products.json", "assets/data/site-reviews.json"],
     "events.html": ["assets/data/events.json"],
     "reviews.html": ["assets/data/site-reviews.json"],
-    "journal.html": ["assets/data/journal.json"]
+    "journal.html": listJournalFiles()
   };
   const sitemapXml =
     '<?xml version="1.0" encoding="UTF-8"?>\n' +
@@ -6946,6 +6982,8 @@ function generateRssFeed(journalData, domainUrl, options) {
 
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
+    loadJournal,
+    listJournalFiles,
     SEARCH_CHIP_ICONS: SEARCH_CHIP_ICONS,
     DEFAULT_SEARCH_CHIPS: DEFAULT_SEARCH_CHIPS,
     getSearchConfig: getSearchConfig,

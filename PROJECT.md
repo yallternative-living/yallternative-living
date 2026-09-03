@@ -3,7 +3,7 @@
 ## Architecture
 - **Tech Stack**: 100% Static HTML/CSS/JS with zero runtime framework dependencies.
 - **Data Pipeline**:
-  - Single Source of Truth in `assets/data/`: `content.json`, `products.json`, `events.json`, `site-reviews.json`, `journal.json`, `social-feed.json`.
+  - Single Source of Truth in `assets/data/`: `content.json`, `products.json`, `events.json`, `site-reviews.json`, `journal/*.json` (one post per file), `quiz.json`, `social-feed.json`.
   - Sveltia CMS configuration in `admin/config.yml`.
   - Compiler `scripts/build-site-data.js` transforms JSON files into derived JS data objects (`assets/js/*-data.js`), replaces HTML comment markers (`<!--YL:...-->`), compiles `assets/data/footer.html` into all 15 HTML pages, compiles `products/*.html`, and updates SEO/discovery files (`sitemap.xml`, `llms.txt`).
   - Client-side runtime in `assets/js/main.js` and `assets/js/cart.js`.
@@ -54,7 +54,7 @@
    - `subtitle`: string ("Pair this item with complementary botanicals crafted to work together.")
 5. **`products[].estimatedBatchDate`**:
    - string (e.g. "Late October 2026", optional)
-6. **`content.json.quiz`**:
+6. **`assets/data/quiz.json`** (merged into `YL_CONTENT.quiz` by the build):
    - `title`: string
    - `subtitle`: string
    - `eyebrow`: string

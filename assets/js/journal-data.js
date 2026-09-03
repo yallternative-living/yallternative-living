@@ -1,6 +1,6 @@
 /**
  * @fileoverview Auto-generated Apothecary Journal data.
- * Wrap of assets/data/journal.json into a global variable YL_JOURNAL.
+ * Wrap of assets/data/journal/*.json (plus content.json's journal wording) into YL_JOURNAL.
  * Posts are only included while site.enableJournal is on in content.json.
  * Do not hand-edit this file.
  * @const {!Object}

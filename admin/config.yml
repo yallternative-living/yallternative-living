@@ -3,16 +3,28 @@
 # Y'ALLTERNATIVE LIVING -- Sveltia CMS configuration
 # ----------------------------------------------------------------------
 # This is the editor Savanna uses at /admin instead of hand-editing JSON
-# files in a text editor. It's split into six separate top-level
-# sections in the /admin sidebar -- each its own collection below, on
-# purpose, so Savanna sees exactly what she can do at a glance instead
-# of hunting through one generic "catalog" menu:
+# files in a text editor. It's split into seven separate top-level
+# sections in the /admin sidebar, on purpose, so Savanna sees exactly
+# what she can do at a glance instead of hunting through one generic
+# "catalog" menu:
 #   1. Products, Bundles & FAQ      -- assets/data/products.json
 #   2. Markets, Fairs & Pride Dates -- assets/data/events.json
 #   3. Customer Reviews             -- assets/data/site-reviews.json
-#   4. Apothecary Journal (Blog)    -- assets/data/journal.json
+#   4. Journal                      -- assets/data/journal/*.json (one post per file)
 #   5. Social Media Feed            -- assets/data/social-feed.json
 #   6. Site Images & Page Wording   -- assets/data/content.json
+#   7. Quiz                         -- assets/data/quiz.json
+#
+# Every section except the Journal is a Sveltia `singleton` (one data file
+# each) rather than a one-file `collection`: a file collection always shows
+# a middle "list of files" page with a single row in it, so every section
+# took two clicks and looked like a duplicate. A singleton opens its editor
+# straight from the sidebar. Sveltia only lists singletons directly when at
+# least one regular collection exists (with none it folds them back into a
+# single "Files" collection -- the very thing this avoids); the Journal is
+# that collection, and it is the one section that genuinely is a list.
+# Relation widgets that point at the products file therefore use
+# `collection: _singletons`.
 # Full setup instructions (GitHub repo, first login) are in DEVELOPMENT.md
 # section 20 -- read that before changing anything here. For the
 # click-by-click version, see docs/SETUP-GUIDE.md Step 9.
@@ -102,1965 +114,1960 @@ media_libraries:
       max_file_size: 26214400 # 25 MB (25 * 1024 * 1024)
 
 collections:
+  # The Journal is a FOLDER collection (one JSON file per post) rather than a
+  # singleton: it is the one section that really is a list of things, so
+  # /admin shows a proper post list with a "New Post" button. It also keeps
+  # sections 1-3 and 5-7 listed directly in the sidebar (see the note at the
+  # top of this file). The file name becomes the post's id/URL slug -- the
+  # build reads it from the name, never from inside the file.
+  - name: journal
+    label: "4. Journal"
+    label_singular: Post
+    icon: article
+    description: "Your blog. Each post is its own entry: click one to edit it, or use 'New Post' to write one -- it just needs a title, a date, and its text (a photo is optional). Save and it publishes. The page title and intro line above the list live under 6 → Journal page. If the blog is switched off, turn it on under 6 → Site Settings."
+    folder: assets/data/journal
+    extension: json
+    format: json
+    create: true
+    delete: true
+    slug: "{{slug}}"
+    identifier_field: title
+    summary: "{{title}} ({{date}})"
+    sortable_fields:
+      fields: [date, title]
+      default:
+        field: date
+        direction: descending
+    fields:
+      - { name: title, label: "Title", widget: string }
+      - {
+          name: date,
+          label: "Publish Date",
+          widget: datetime,
+          default: "{{now}}",
+          format: "YYYY-MM-DD",
+          date_format: "MM/DD/YYYY",
+          time_format: false
+        }
+      - { name: image, label: "Featured Image", widget: image, required: false }
+      - name: readingTime
+        label: "Reading Time (e.g. 4 min read)"
+        widget: string
+        required: false
+        hint: "Estimated reading time (e.g. 4 min read). Leave blank to auto-calculate from word count."
+      - name: tags
+        label: Topical Tags
+        widget: list
+        required: false
+        field: { name: tag, label: Tag, widget: string }
+        hint: "Topical tags for this article (e.g. Apothecary, Botanical Care, Self-Care)."
+      - name: featuredProductId
+        label: "Featured Product in this Article (optional)"
+        widget: relation
+        required: false
+        collection: _singletons
+        file: products
+        value_field: products.*.id
+        display_fields: ["products.*.name"]
+        search_fields: ["products.*.name"]
+        hint: "Pick a product featured in this article to display the inline 1-click cart card."
+      # Left as a plain box on purpose: this teaser is printed inside a
+      # small card on journal.html (and into llms.txt as a one-line
+      # summary), so headings/bullets there would break the layout and
+      # bold/link marks would just show up as literal ** and [ ].
+      - {
+          name: excerpt,
+          label: "Short teaser (the blurb on the blog list page)",
+          widget: text,
+          hint: "One or two plain sentences that make someone want to open the post. Formatting isn't used here."
+        }
+      # widget: markdown = Sveltia's rich-text editor: a real toolbar
+      # (bold, italic, links, headings, bullet + numbered lists) with a
+      # "raw" tab for anyone who'd rather type. It saves MARKDOWN TEXT
+      # into the post's own JSON file, not HTML, which is exactly what the site's
+      # renderMarkdown() in assets/js/main.js renders -- and because
+      # the site escapes everything before formatting it, nothing typed
+      # here can turn into live code on the page.
+      #   - "markdown" and "richtext" are the same editor in the pinned
+      #     Sveltia 0.172.4 (admin/index.html); "markdown" is used here
+      #     because it names the format actually stored in the file, and
+      #     it's the spelling Netlify/Decap CMS understands too.
+      #   - buttons/editor_components are trimmed to exactly what the
+      #     site can draw, so nothing Savanna can click comes out broken
+      #     on the page: no strikethrough, inline code, block quotes,
+      #     code blocks or in-post images. (Heading 2/3 here render as
+      #     the post's section/sub-section headings; Heading 1 is left
+      #     out because the post title already fills that slot.)
+      - name: content
+        label: "The post itself"
+        widget: markdown
+        buttons:
+          [bold, italic, link, heading-two, heading-three, bulleted-list, numbered-list]
+        editor_components: []
+        hint: "Write the post here — the toolbar gives you bold, italic, links, headings and lists, and it looks on the website the way it looks in this box. Leave a blank line between paragraphs."
+
+singletons:
   - name: products
     label: "1. Products, Bundles & FAQ"
     icon: storefront
     description: "Your whole shop lives here — products and prices, promotions & volume deals, gift bundles, and FAQ. Tap any item to edit it, or use the 'Add' button to create a new one. Hit Save and the site updates itself within a couple of minutes."
-    files:
+    file: assets/data/products.json
+    format: json
+    fields:
+      # ==================================================================
+      # 1. PRODUCTS (Top Priority - Daily Catalog Management)
+      # ==================================================================
       - name: products
-        label: Products, Bundles & FAQ
-        file: assets/data/products.json
-        format: json
+        label: Products
+        widget: list
+        label_singular: Product
+        summary: "{{fields.name}} — ${{fields.price}} ({{fields.category}})"
         fields:
-          # ==================================================================
-          # 1. PRODUCTS (Top Priority - Daily Catalog Management)
-          # ==================================================================
-          - name: products
-            label: Products
-            widget: list
-            label_singular: Product
-            summary: "{{fields.name}} — ${{fields.price}} ({{fields.category}})"
-            fields:
-              # `id` and `description` exist in products.json and are declared here
-              # so a CMS save preserves them. `id` is the cart line-item key and the
-              # wishlist/review/bundle reference key.
-              - name: id
-                label: "Product ID (leave blank for new products; don't change it on existing ones)"
-                widget: string
-                required: false
-                hint: >-
-                  Leave this blank on a new product and it's created for you
-                  from the name. It's how bundles and reviews find this product
-                  (you'll copy it when setting those up) — but once a product is
-                  live, changing it here breaks those links, so don't.
-              - name: name
-                label: "Product Name (shown everywhere on the site)"
-                widget: string
-                hint: "Names are read as claims: avoid heal, cure, relief, recovery, sleep, treat, repel or a condition name. 'Comfort Salve', 'Night Salve', 'Reset Soak' say the same thing without the legal risk."
-              - name: description
-                label: "Search & share blurb (shown in Google results and link previews)"
-                widget: text
-                required: false
-                hint: "If you leave this blank, the main product description below is used instead."
-              - name: featured
-                label: Featured Product
-                widget: boolean
-                default: false
-                required: false
-                hint: "Check this box to feature this product on the homepage grid."
-              - name: bestseller
-                label: Bestseller Product
-                widget: boolean
-                default: false
-                required: false
-                hint: "Check this box to highlight this item with a 'Bestseller' badge in the catalog."
-              - name: comingSoon
-                label: Coming Soon Product
-                widget: boolean
-                default: false
-                required: false
-                hint: "Check this box to show a 'Coming Soon' badge and hide the purchase options."
-              - name: estimatedBatchDate
-                label: "Estimated Restock / Batch Date (for Coming Soon items)"
-                widget: string
-                required: false
-                hint: "e.g. Early Autumn 2026, Oct 15, Spring 2027"
-              - name: category
-                label: Category
-                widget: relation
-                collection: products
-                file: products
-                value_field: categories.*.id
-                display_fields: ["categories.*.label"]
-                search_fields: ["categories.*.label"]
-                hint: "Choose the shop category this product belongs to. This list is your real Categories list (below) — add one there and it appears here."
-              - {
-                  name: price,
-                  label: "Price (USD, e.g. 16 or 16.50)",
-                  widget: number,
-                  value_type: float,
-                  min: 0,
-                  step: 0.01
-                }
-              - name: sale
-                label: "Sale (optional — put just this one product on sale)"
-                widget: object
-                required: false
-                collapsed: true
-                fields:
-                  - { name: price, label: "Sale price ($)", widget: number, value_type: float }
-                  - {
-                      name: label,
-                      label: "Sale name shoppers see (e.g. Spring Sale)",
-                      widget: string
-                    }
-              - {
-                  name: originalPrice,
-                  label: "Original price — the crossed-out 'was' price (usually filled in for you when on sale)",
-                  widget: number,
-                  value_type: float,
-                  required: false
-                }
-              - name: image
-                label: Main Photo
-                widget: image
-                hint: The hero photo shown on the product card and in the gallery's first slot.
-              - name: images
-                label: "Extra Gallery Photos (optional)"
-                widget: list
-                label_singular: Photo
-                required: false
-                field: { name: photo, label: Photo, widget: image }
-              - name: blurb
-                label: "Product description (the main text shoppers read)"
-                widget: text
-                hint: "Keep it honest — describe what it is and how it's made. Avoid health or medical claims."
-              - name: etsyUrl
-                label: "Real Etsy Listing URL (optional)"
-                widget: string
-                required: false
-                hint: "Etsy listing URL -- optional (e.g. leave blank for digital gift cards or site-only items)."
-              - name: rating
-                label: "This product's own Etsy rating (optional — only if this exact item has its own Etsy reviews)"
-                widget: object
-                required: false
-                collapsed: true
-                fields:
-                  - {
-                      name: value,
-                      label: "Star rating (0–5, from this item's Etsy page)",
-                      widget: number,
-                      value_type: float
-                    }
-                  - {
-                      name: count,
-                      label: "Number of reviews (from this item's Etsy page)",
-                      widget: number,
-                      value_type: int
-                    }
-              - name: stock
-                label: "Stock Count (leave blank for unlimited stock)"
-                widget: number
-                value_type: int
-                min: 0
-                required: false
-                hint: >-
-                  Leave blank for unlimited/made-to-order stock.
-                  Set to 0 to show "Sold Out" and disable checkout.
-                  Set to a number 1-5 to show a warning badge (e.g. "Only 3 left").
-                  (Note: This is manually updated and does not auto-sync with Etsy).
-              - name: ingredients
-                label: "Ingredients / Materials list (optional)"
-                widget: list
-                required: false
-                hint: >-
-                  Copy these from this product's own Etsy listing description.
-                  Don't use Etsy's generic "Materials" tag -- it's often the
-                  same boilerplate copied across unrelated items. Never make up
-                  an ingredient.
-              - name: ingredientsLabel
-                label: 'Ingredients Section Label (optional -- defaults to "Ingredients")'
-                widget: string
-                required: false
-                hint: Use something like "Materials" for non-body-care items (e.g. the keychain).
-              - name: ingredientsNote
-                label: 'Ingredients Caveat (optional, e.g. "No essential oils, no added fragrance.")'
-                widget: string
-                required: false
-              - name: scent
-                label: "Scent Profile (optional)"
-                widget: string
-                required: false
-                hint: "One short scent name, e.g. Lavender, Bourbon Vanilla, Frankincense, or Unscented. Products sharing a name get grouped together in the shop's scent filter. Leave blank if it doesn't apply."
-              - name: scentProfile
-                label: "Scent Notes & Intensity (Apothecary)"
-                widget: object
-                required: false
-                collapsed: true
-                fields:
-                  - {
-                      name: top,
-                      label: "Top Notes (e.g. Lavender, Rosemary)",
-                      widget: string,
-                      required: false
-                    }
-                  - {
-                      name: heart,
-                      label: "Heart Notes (e.g. Chamomile, Tea Tree)",
-                      widget: string,
-                      required: false
-                    }
-                  - {
-                      name: base,
-                      label: "Base Notes (e.g. Frankincense, Earthy Beeswax)",
-                      widget: string,
-                      required: false
-                    }
-                  - name: intensity
-                    label: Scent Intensity
-                    widget: select
-                    required: false
-                    options:
-                      - { label: "Unscented", value: "Unscented" }
-                      - { label: "Subtle", value: "Subtle" }
-                      - { label: "Medium", value: "Medium" }
-                      - { label: "Strong", value: "Strong" }
-                      - { label: "Bold", value: "Bold" }
-                  - {
-                      name: intensityScore,
-                      label: "Intensity Score (0-5)",
-                      widget: number,
-                      value_type: int,
-                      min: 0,
-                      max: 5,
-                      required: false
-                    }
-              - name: usageGuide
-                label: "Usage & Care Guidelines"
-                widget: object
-                required: false
-                collapsed: true
-                fields:
-                  - {
-                      name: howToApply,
-                      label: "How to Apply / Use / Wear",
-                      widget: text,
-                      required: false
-                    }
-                  - {
-                      name: storage,
-                      label: "Storage & Shelf Life / Garment Care",
-                      widget: text,
-                      required: false
-                    }
-                  - {
-                      name: patchTest,
-                      label: "Patch Test Guidelines / Allergen Info",
-                      widget: text,
-                      required: false
-                    }
-              - name: variants
-                label: "Size/Scent/Blend Variants (optional -- leave blank for a single-option product)"
-                widget: object
-                required: false
-                collapsed: true
-                fields:
-                  - {
-                      name: name,
-                      label: 'Variant Type Label (e.g. "Size" or "Scent")',
-                      widget: string
-                    }
-                  - name: options
-                    label: Options
-                    widget: list
-                    label_singular: Option
-                    summary: "{{fields.label}} ({{fields.priceDelta}})"
-                    hint: >-
-                      One option must have a price difference of 0 -- that's the
-                      base price you set above. For the others, enter how much
-                      more or less they cost (use your real Etsy prices, not a
-                      guess).
-                    fields:
-                      - name: label
-                        label: 'Option name (e.g. "8 oz" or "Lavender")'
-                        widget: string
-                        hint: "Don't use the characters [ ] or | here — they'll break the cart."
-                      - {
-                          name: priceDelta,
-                          label: "Price difference from the base price (0 = same; use a negative number to charge less)",
-                          widget: number,
-                          value_type: float,
-                          default: 0
-                        }
-                      - {
-                          name: soldOut,
-                          label: 'Sold out? (shows greyed out as "sold out" in the shop''s picker and can''t be ordered — flip it back off when you restock; don''t delete the option, or shoppers can''t see it ever existed)',
-                          widget: boolean,
-                          required: false,
-                          default: false
-                        }
-              - name: tags
-                label: Tags (Sensitivity / Allergen)
-                widget: select
-                multiple: true
-                required: false
-                options:
-                  - { label: "Vegan", value: "vegan" }
-                  - { label: "Unscented", value: "unscented" }
-                  - { label: "Essential Oil Free", value: "essential-oil-free" }
-                  - { label: "Sensitive Skin Safe", value: "sensitive-safe" }
-                  - { label: "Cruelty-Free", value: "cruelty-free" }
-                  - { label: "Organic Ingredients", value: "organic" }
-                  - { label: "Locally Sourced / Foraged", value: "locally-sourced" }
-              - name: keywords
-                label: "Search Keywords & Colloquial Tags (Optional)"
-                widget: list
-                required: false
-                hint: "Extra words shoppers might type for this product: occasions, uses, ingredient names, misspellings (e.g. 'post-hike', 'cane sugar', 'stocking stuffer'). Keep symptoms and conditions OUT of here: keywords are published with the product, so a word like 'eczema' or 'insomnia' reads as a claim about what the product does. Words like that belong in Search Settings > Extra search words, which only translate what a shopper typed."
-              - name: concerns
-                label: "Shop Concerns / Symptoms"
-                widget: relation
-                multiple: true
-                required: false
-                collection: products
-                file: products
-                value_field: concerns.*.id
-                display_fields: ["concerns.*.icon", "concerns.*.name"]
-                search_fields: ["concerns.*.name"]
-                hint: "Select customer concerns/symptoms this product helps with (e.g. Sore Muscles, Dry Skin)."
-              - name: pairsWith
-                label: "Pairs Well With / Complete the Ritual (Optional)"
-                widget: relation
-                multiple: true
-                required: false
-                collection: products
-                file: products
-                value_field: products.*.id
-                display_fields: ["products.*.name"]
-                search_fields: ["products.*.name"]
-                hint: "Choose complementary botanical products for 'Complete the Ritual' cross-sell bundles."
-              - name: ritualTitle
-                label: "Ritual Cross-Sell Title (Optional)"
-                widget: string
-                required: false
-                hint: "Headline for the Complete the Ritual section (e.g. 'The Deep Rest & Nighttime Ritual')."
-              - name: inStock
-                label: In Stock
-                widget: boolean
-                default: true
-                required: false
-                hint: "Uncheck to show a 'Sold Out' badge and email notification form instead of Add to Cart."
-
-          # ==================================================================
-          # 2. PROMOTIONS & DEALS (Volume Pricing Rules & Category Sales)
-          # ==================================================================
-          - name: volumePricing
-            label: "Volume Pricing Rules (Multi-Buy Deals)"
-            widget: list
-            label_singular: "Volume Pricing Rule"
+          # `id` and `description` exist in products.json and are declared here
+          # so a CMS save preserves them. `id` is the cart line-item key and the
+          # wishlist/review/bundle reference key.
+          - name: id
+            label: "Product ID (leave blank for new products; don't change it on existing ones)"
+            widget: string
+            required: false
+            hint: >-
+              Leave this blank on a new product and it's created for you
+              from the name. It's how bundles and reviews find this product
+              (you'll copy it when setting those up) — but once a product is
+              live, changing it here breaks those links, so don't.
+          - name: name
+            label: "Product Name (shown everywhere on the site)"
+            widget: string
+            hint: "Names are read as claims: avoid heal, cure, relief, recovery, sleep, treat, repel or a condition name. 'Comfort Salve', 'Night Salve', 'Reset Soak' say the same thing without the legal risk."
+          - name: description
+            label: "Search & share blurb (shown in Google results and link previews)"
+            widget: text
+            required: false
+            hint: "If you leave this blank, the main product description below is used instead."
+          - name: featured
+            label: Featured Product
+            widget: boolean
+            default: false
+            required: false
+            hint: "Check this box to feature this product on the homepage grid."
+          - name: bestseller
+            label: Bestseller Product
+            widget: boolean
+            default: false
+            required: false
+            hint: "Check this box to highlight this item with a 'Bestseller' badge in the catalog."
+          - name: comingSoon
+            label: Coming Soon Product
+            widget: boolean
+            default: false
+            required: false
+            hint: "Check this box to show a 'Coming Soon' badge and hide the purchase options."
+          - name: estimatedBatchDate
+            label: "Estimated Restock / Batch Date (for Coming Soon items)"
+            widget: string
+            required: false
+            hint: "e.g. Early Autumn 2026, Oct 15, Spring 2027"
+          - name: category
+            label: Category
+            widget: relation
+            collection: _singletons
+            file: products
+            value_field: categories.*.id
+            display_fields: ["categories.*.label"]
+            search_fields: ["categories.*.label"]
+            hint: "Choose the shop category this product belongs to. This list is your real Categories list (below) — add one there and it appears here."
+          - {
+              name: price,
+              label: "Price (USD, e.g. 16 or 16.50)",
+              widget: number,
+              value_type: float,
+              min: 0,
+              step: 0.01
+            }
+          - name: sale
+            label: "Sale (optional — put just this one product on sale)"
+            widget: object
             required: false
             collapsed: true
-            summary: "{{fields.name}} — {{fields.label}} ({{fields.category}})"
-            hint: "Configure category volume discounts (e.g. 2+ 2oz Salves for $14.99 each). Multiple rules can run concurrently."
             fields:
-              - {
-                  name: id,
-                  label: "Rule ID (e.g. salves-2oz)",
-                  widget: string,
-                  hint: "Unique identifier for this rule."
-                }
-              - { name: name, label: "Rule Name (e.g. 2oz Salve Multi-Buy)", widget: string }
-              - name: category
-                label: "Category"
-                widget: relation
-                collection: products
-                file: products
-                value_field: categories.*.id
-                display_fields: ["categories.*.label"]
-                search_fields: ["categories.*.label"]
-                hint: "Pick the category this volume pricing rule applies to."
-              - {
-                  name: qualifyingVariant,
-                  label: "Qualifying Variant (e.g. 2oz)",
-                  widget: string,
-                  required: false,
-                  hint: "Variant size/label to qualify for this rule (e.g. 2oz). Leave blank to apply to all variants in the category."
-                }
-              - {
-                  name: minQuantity,
-                  label: "Minimum Quantity (e.g. 2)",
-                  widget: number,
-                  value_type: int,
-                  default: 2
-                }
-              - {
-                  name: unitPrice,
-                  label: "Discounted Unit Price ($ USD, e.g. 14.99)",
-                  widget: number,
-                  value_type: float,
-                  step: 0.01
-                }
+              - { name: price, label: "Sale price ($)", widget: number, value_type: float }
               - {
                   name: label,
-                  label: "Promotional Label (e.g. 2+ for $14.99 each)",
+                  label: "Sale name shoppers see (e.g. Spring Sale)",
                   widget: string
                 }
-              - { name: enabled, label: "Rule Enabled", widget: boolean, default: true }
-
-          - name: sales
-            label: Category Sales
+          - {
+              name: originalPrice,
+              label: "Original price — the crossed-out 'was' price (usually filled in for you when on sale)",
+              widget: number,
+              value_type: float,
+              required: false
+            }
+          - name: image
+            label: Main Photo
+            widget: image
+            hint: The hero photo shown on the product card and in the gallery's first slot.
+          - name: images
+            label: "Extra Gallery Photos (optional)"
             widget: list
-            label_singular: Sale
+            label_singular: Photo
+            required: false
+            field: { name: photo, label: Photo, widget: image }
+          - name: blurb
+            label: "Product description (the main text shoppers read)"
+            widget: text
+            hint: "Keep it honest — describe what it is and how it's made. Avoid health or medical claims."
+          - name: etsyUrl
+            label: "Real Etsy Listing URL (optional)"
+            widget: string
+            required: false
+            hint: "Etsy listing URL -- optional (e.g. leave blank for digital gift cards or site-only items)."
+          - name: rating
+            label: "This product's own Etsy rating (optional — only if this exact item has its own Etsy reviews)"
+            widget: object
+            required: false
             collapsed: true
-            summary: "{{fields.label}}"
-            hint: "Put a whole category on sale at once — e.g. 15% off everything in Body & Skin."
             fields:
-              - name: category
-                label: "Which category is on sale"
-                widget: relation
-                collection: products
-                file: products
-                value_field: categories.*.id
-                display_fields: ["categories.*.label"]
-                search_fields: ["categories.*.label"]
-                hint: "Pick the category to discount."
               - {
-                  name: percentOff,
-                  label: "Percent off (e.g. 15)",
+                  name: value,
+                  label: "Star rating (0–5, from this item's Etsy page)",
+                  widget: number,
+                  value_type: float
+                }
+              - {
+                  name: count,
+                  label: "Number of reviews (from this item's Etsy page)",
                   widget: number,
                   value_type: int
                 }
-              - {
-                  name: label,
-                  label: "Sale name shoppers see (e.g. Body Care Sale)",
-                  widget: string
-                }
-
-          # ==================================================================
-          # 3. CURATED GIFT SETS (Pre-made Bundles)
-          # ==================================================================
-          - name: bundles
-            label: "Bundles / Pre-made Gift Sets"
-            widget: list
-            label_singular: Bundle
-            summary: "{{fields.name}} — {{fields.discountPercent}}% off"
+          - name: stock
+            label: "Stock Count (leave blank for unlimited stock)"
+            widget: number
+            value_type: int
+            min: 0
             required: false
             hint: >-
-              The bundle's price is always worked out automatically from the
-              current prices of the products you list below, minus this
-              discount -- there's no price to type in here.
+              Leave blank for unlimited/made-to-order stock.
+              Set to 0 to show "Sold Out" and disable checkout.
+              Set to a number 1-5 to show a warning badge (e.g. "Only 3 left").
+              (Note: This is manually updated and does not auto-sync with Etsy).
+          - name: ingredients
+            label: "Ingredients / Materials list (optional)"
+            widget: list
+            required: false
+            hint: >-
+              Copy these from this product's own Etsy listing description.
+              Don't use Etsy's generic "Materials" tag -- it's often the
+              same boilerplate copied across unrelated items. Never make up
+              an ingredient.
+          - name: ingredientsLabel
+            label: 'Ingredients Section Label (optional -- defaults to "Ingredients")'
+            widget: string
+            required: false
+            hint: Use something like "Materials" for non-body-care items (e.g. the keychain).
+          - name: ingredientsNote
+            label: 'Ingredients Caveat (optional, e.g. "No essential oils, no added fragrance.")'
+            widget: string
+            required: false
+          - name: scent
+            label: "Scent Profile (optional)"
+            widget: string
+            required: false
+            hint: "One short scent name, e.g. Lavender, Bourbon Vanilla, Frankincense, or Unscented. Products sharing a name get grouped together in the shop's scent filter. Leave blank if it doesn't apply."
+          - name: scentProfile
+            label: "Scent Notes & Intensity (Apothecary)"
+            widget: object
+            required: false
+            collapsed: true
             fields:
               - {
-                  name: id,
-                  label: "Bundle ID (leave blank for new bundles; don't change it on existing ones)",
+                  name: top,
+                  label: "Top Notes (e.g. Lavender, Rosemary)",
                   widget: string,
                   required: false
                 }
-              - { name: name, label: "Bundle Name", widget: string }
-              - name: productIds
-                label: "Products in this bundle (pick 2 or more)"
-                widget: relation
-                multiple: true
-                min: 2
-                collection: products
-                file: products
-                value_field: products.*.id
-                display_fields: ["products.*.name"]
-                search_fields: ["products.*.name"]
-                hint: "Start typing a product name and pick it from the list."
               - {
-                  name: discountPercent,
-                  label: "Discount Percent (0-90, e.g. 10 for 10% off)",
+                  name: heart,
+                  label: "Heart Notes (e.g. Chamomile, Tea Tree)",
+                  widget: string,
+                  required: false
+                }
+              - {
+                  name: base,
+                  label: "Base Notes (e.g. Frankincense, Earthy Beeswax)",
+                  widget: string,
+                  required: false
+                }
+              - name: intensity
+                label: Scent Intensity
+                widget: select
+                required: false
+                options:
+                  - { label: "Unscented", value: "Unscented" }
+                  - { label: "Subtle", value: "Subtle" }
+                  - { label: "Medium", value: "Medium" }
+                  - { label: "Strong", value: "Strong" }
+                  - { label: "Bold", value: "Bold" }
+              - {
+                  name: intensityScore,
+                  label: "Intensity Score (0-5)",
                   widget: number,
                   value_type: int,
                   min: 0,
-                  max: 90
+                  max: 5,
+                  required: false
                 }
-              - { name: blurb, label: Bundle Description, widget: text }
-              - name: concerns
-                label: "Bundle Concerns / Benefits"
-                widget: relation
-                multiple: true
-                required: false
-                collection: products
-                file: products
-                value_field: concerns.*.id
-                display_fields: ["concerns.*.icon", "concerns.*.name"]
-                search_fields: ["concerns.*.name"]
-                hint: "Select customer concerns this curated gift set addresses."
-
-          # ==================================================================
-          # 4. SHOP FAQ (Accordion Items)
-          # ==================================================================
-          - name: faq
-            label: "FAQ (Shop & Contact Accordion)"
-            widget: list
-            label_singular: Question
-            summary: "{{fields.question}}"
-            hint: "Frequently asked questions displayed in the FAQ accordion on the Contact page and Shop page."
-            fields:
-              - { name: question, label: Question, widget: string }
-              - { name: answer, label: Answer, widget: text }
-
-          # ==================================================================
-          # 5. TECHNICAL & SHOP SETTINGS (Rare / Setup Items - Collapsed by Default)
-          # ==================================================================
-          - name: concerns
-            label: "Shop Concern Filters"
-            widget: list
-            label_singular: Concern
+          - name: usageGuide
+            label: "Usage & Care Guidelines"
+            widget: object
+            required: false
             collapsed: true
-            summary: "{{fields.name}}"
-            hint: "Shop filter tags categorized by customer need (e.g. Sleep & Relaxation, Sore Muscles)."
             fields:
               - {
-                  name: id,
-                  label: "Concern ID",
-                  widget: string,
-                  required: false,
-                  hint: "Identifier used as internal reference key."
+                  name: howToApply,
+                  label: "How to Apply / Use / Wear",
+                  widget: text,
+                  required: false
                 }
-              - { name: name, label: "Concern Name", widget: string }
-              - { name: icon, label: "Icon / Emoji", widget: string, required: false }
-
-          - name: categories
-            label: "Product Categories (Filter Buttons)"
-            widget: list
-            label_singular: Category
+              - {
+                  name: storage,
+                  label: "Storage & Shelf Life / Garment Care",
+                  widget: text,
+                  required: false
+                }
+              - {
+                  name: patchTest,
+                  label: "Patch Test Guidelines / Allergen Info",
+                  widget: text,
+                  required: false
+                }
+          - name: variants
+            label: "Size/Scent/Blend Variants (optional -- leave blank for a single-option product)"
+            widget: object
+            required: false
             collapsed: true
-            summary: "{{fields.label}}"
-            hint: >-
-              These become the filter buttons across the top of the shop page.
-              Just type the name — the behind-the-scenes code is created for you.
             fields:
               - {
-                  name: id,
-                  label: "Category ID (leave blank for new categories; don't change on existing)",
-                  widget: string,
-                  required: false,
-                  hint: "Identifier used as internal reference key."
-                }
-              - {
-                  name: label,
-                  label: "Category name (the filter button on the shop page)",
+                  name: name,
+                  label: 'Variant Type Label (e.g. "Size" or "Scent")',
                   widget: string
                 }
-
-          - name: shop
-            label: "⚙️ Shop Metadata & Shipping Settings"
-            widget: object
-            collapsed: true
-            hint: "Shop search metadata, Etsy counters, free shipping threshold, and Build-Your-Own Box configuration."
-            fields:
-              - { name: name, label: Shop Name, widget: string }
-              - { name: etsyShopUrl, label: Etsy Shop URL, widget: string }
-              - {
-                  name: rating,
-                  label: "Etsy star rating (e.g. 4.9)",
-                  widget: number,
-                  value_type: float,
-                  hint: "Your shop's real Etsy rating, from 0 to 5. Decimals are fine."
-                }
-              - {
-                  name: reviewCount,
-                  label: "Number of Etsy reviews (e.g. 320)",
-                  widget: number,
-                  value_type: int,
-                  hint: "Your real Etsy review count — a whole number."
-                }
-              - {
-                  name: sales,
-                  label: "Number of Etsy sales (e.g. 1200)",
-                  widget: number,
-                  value_type: int,
-                  hint: "Your real Etsy sales count — a whole number."
-                }
-              - {
-                  name: freeShippingThreshold,
-                  label: "Free shipping threshold ($)",
-                  widget: number,
-                  value_type: int,
-                  hint: "Orders at or above this amount ship free. Set to 0 to turn free shipping off."
-                }
-              - name: shippingMilestones
-                label: "Cart Milestone Rewards (Multi-Tier Free Shipping & Gifts)"
+              - name: options
+                label: Options
                 widget: list
-                label_singular: "Milestone Reward Tier"
-                required: false
-                collapsed: true
-                summary: "${{fields.threshold}} — {{fields.reward}}"
-                hint: "Add or edit rewards unlocked as cart value increases (e.g. $40 Free Shipping, $60 Free Pocket Salve, $80 10% Off)."
+                label_singular: Option
+                summary: "{{fields.label}} ({{fields.priceDelta}})"
+                hint: >-
+                  One option must have a price difference of 0 -- that's the
+                  base price you set above. For the others, enter how much
+                  more or less they cost (use your real Etsy prices, not a
+                  guess).
                 fields:
+                  - name: label
+                    label: 'Option name (e.g. "8 oz" or "Lavender")'
+                    widget: string
+                    hint: "Don't use the characters [ ] or | here — they'll break the cart."
                   - {
-                      name: threshold,
-                      label: "Cart Total Amount ($)",
+                      name: priceDelta,
+                      label: "Price difference from the base price (0 = same; use a negative number to charge less)",
                       widget: number,
-                      value_type: int,
-                      min: 1,
-                      hint: "Order value required to unlock this perk."
+                      value_type: float,
+                      default: 0
                     }
                   - {
-                      name: reward,
-                      label: "Reward / Perk Name",
-                      widget: string,
-                      hint: "e.g. Free Tracked Shipping, Free Handcrafted Pocket Salve, Free Vinyl Sticker"
+                      name: soldOut,
+                      label: 'Sold out? (shows greyed out as "sold out" in the shop''s picker and can''t be ordered — flip it back off when you restock; don''t delete the option, or shoppers can''t see it ever existed)',
+                      widget: boolean,
+                      required: false,
+                      default: false
                     }
-                  - {
-                      name: icon,
-                      label: "Icon / Badge Style",
-                      widget: select,
-                      default: "gift",
-                      options:
-                        [
-                          { label: "Shipping Truck", value: "truck" },
-                          { label: "Gift / Perk", value: "gift" },
-                          { label: "Star / Sparkle", value: "sparkle" },
-                          { label: "Heart", value: "heart" }
-                        ]
-                    }
-              - name: customBox
-                label: "Build-Your-Own Box"
-                widget: object
-                required: false
-                collapsed: true
-                hint: "Settings for the pick-your-own bundle on the shop page. The box price is always worked out from the real prices of whatever the shopper picks, minus the discount below."
-                fields:
-                  - {
-                      name: minItems,
-                      label: "Minimum items in a box",
-                      widget: number,
-                      value_type: int,
-                      default: 3
-                    }
-                  - {
-                      name: maxItems,
-                      label: "Maximum items in a box",
-                      widget: number,
-                      value_type: int,
-                      default: 5
-                    }
-                  - {
-                      name: discountPercent,
-                      label: "Discount (%)",
-                      widget: number,
-                      value_type: int,
-                      default: 10,
-                      hint: "Percent off the combined price of the chosen items."
-                    }
-                  - name: eligibleCategories
-                    label: "Categories shoppers can pick from"
-                    widget: relation
-                    multiple: true
-                    collection: products
-                    file: products
-                    value_field: categories.*.id
-                    display_fields: ["categories.*.label"]
-                    search_fields: ["categories.*.label"]
-                    default: ["salves", "body", "soaks", "potions", "ritual"]
-                    hint: "Tick the categories a shopper can choose from. Apparel and gift cards are usually left out."
+          - name: tags
+            label: Tags (Sensitivity / Allergen)
+            widget: select
+            multiple: true
+            required: false
+            options:
+              - { label: "Vegan", value: "vegan" }
+              - { label: "Unscented", value: "unscented" }
+              - { label: "Essential Oil Free", value: "essential-oil-free" }
+              - { label: "Sensitive Skin Safe", value: "sensitive-safe" }
+              - { label: "Cruelty-Free", value: "cruelty-free" }
+              - { label: "Organic Ingredients", value: "organic" }
+              - { label: "Locally Sourced / Foraged", value: "locally-sourced" }
+          - name: keywords
+            label: "Search Keywords & Colloquial Tags (Optional)"
+            widget: list
+            required: false
+            hint: "Extra words shoppers might type for this product: occasions, uses, ingredient names, misspellings (e.g. 'post-hike', 'cane sugar', 'stocking stuffer'). Keep symptoms and conditions OUT of here: keywords are published with the product, so a word like 'eczema' or 'insomnia' reads as a claim about what the product does. Words like that belong in Search Settings > Extra search words, which only translate what a shopper typed."
+          - name: concerns
+            label: "Shop Concerns / Symptoms"
+            widget: relation
+            multiple: true
+            required: false
+            collection: _singletons
+            file: products
+            value_field: concerns.*.id
+            display_fields: ["concerns.*.icon", "concerns.*.name"]
+            search_fields: ["concerns.*.name"]
+            hint: "Select customer concerns/symptoms this product helps with (e.g. Sore Muscles, Dry Skin)."
+          - name: pairsWith
+            label: "Pairs Well With / Complete the Ritual (Optional)"
+            widget: relation
+            multiple: true
+            required: false
+            collection: _singletons
+            file: products
+            value_field: products.*.id
+            display_fields: ["products.*.name"]
+            search_fields: ["products.*.name"]
+            hint: "Choose complementary botanical products for 'Complete the Ritual' cross-sell bundles."
+          - name: ritualTitle
+            label: "Ritual Cross-Sell Title (Optional)"
+            widget: string
+            required: false
+            hint: "Headline for the Complete the Ritual section (e.g. 'The Deep Rest & Nighttime Ritual')."
+          - name: inStock
+            label: In Stock
+            widget: boolean
+            default: true
+            required: false
+            hint: "Uncheck to show a 'Sold Out' badge and email notification form instead of Add to Cart."
+
+      # ==================================================================
+      # 2. PROMOTIONS & DEALS (Volume Pricing Rules & Category Sales)
+      # ==================================================================
+      - name: volumePricing
+        label: "Volume Pricing Rules (Multi-Buy Deals)"
+        widget: list
+        label_singular: "Volume Pricing Rule"
+        required: false
+        collapsed: true
+        summary: "{{fields.name}} — {{fields.label}} ({{fields.category}})"
+        hint: "Configure category volume discounts (e.g. 2+ 2oz Salves for $14.99 each). Multiple rules can run concurrently."
+        fields:
+          - {
+              name: id,
+              label: "Rule ID (e.g. salves-2oz)",
+              widget: string,
+              hint: "Unique identifier for this rule."
+            }
+          - { name: name, label: "Rule Name (e.g. 2oz Salve Multi-Buy)", widget: string }
+          - name: category
+            label: "Category"
+            widget: relation
+            collection: _singletons
+            file: products
+            value_field: categories.*.id
+            display_fields: ["categories.*.label"]
+            search_fields: ["categories.*.label"]
+            hint: "Pick the category this volume pricing rule applies to."
+          - {
+              name: qualifyingVariant,
+              label: "Qualifying Variant (e.g. 2oz)",
+              widget: string,
+              required: false,
+              hint: "Variant size/label to qualify for this rule (e.g. 2oz). Leave blank to apply to all variants in the category."
+            }
+          - {
+              name: minQuantity,
+              label: "Minimum Quantity (e.g. 2)",
+              widget: number,
+              value_type: int,
+              default: 2
+            }
+          - {
+              name: unitPrice,
+              label: "Discounted Unit Price ($ USD, e.g. 14.99)",
+              widget: number,
+              value_type: float,
+              step: 0.01
+            }
+          - {
+              name: label,
+              label: "Promotional Label (e.g. 2+ for $14.99 each)",
+              widget: string
+            }
+          - { name: enabled, label: "Rule Enabled", widget: boolean, default: true }
+
+      - name: sales
+        label: Category Sales
+        widget: list
+        label_singular: Sale
+        collapsed: true
+        summary: "{{fields.label}}"
+        hint: "Put a whole category on sale at once — e.g. 15% off everything in Body & Skin."
+        fields:
+          - name: category
+            label: "Which category is on sale"
+            widget: relation
+            collection: _singletons
+            file: products
+            value_field: categories.*.id
+            display_fields: ["categories.*.label"]
+            search_fields: ["categories.*.label"]
+            hint: "Pick the category to discount."
+          - {
+              name: percentOff,
+              label: "Percent off (e.g. 15)",
+              widget: number,
+              value_type: int
+            }
+          - {
+              name: label,
+              label: "Sale name shoppers see (e.g. Body Care Sale)",
+              widget: string
+            }
+
+      # ==================================================================
+      # 3. CURATED GIFT SETS (Pre-made Bundles)
+      # ==================================================================
+      - name: bundles
+        label: "Bundles / Pre-made Gift Sets"
+        widget: list
+        label_singular: Bundle
+        summary: "{{fields.name}} — {{fields.discountPercent}}% off"
+        required: false
+        hint: >-
+          The bundle's price is always worked out automatically from the
+          current prices of the products you list below, minus this
+          discount -- there's no price to type in here.
+        fields:
+          - {
+              name: id,
+              label: "Bundle ID (leave blank for new bundles; don't change it on existing ones)",
+              widget: string,
+              required: false
+            }
+          - { name: name, label: "Bundle Name", widget: string }
+          - name: productIds
+            label: "Products in this bundle (pick 2 or more)"
+            widget: relation
+            multiple: true
+            min: 2
+            collection: _singletons
+            file: products
+            value_field: products.*.id
+            display_fields: ["products.*.name"]
+            search_fields: ["products.*.name"]
+            hint: "Start typing a product name and pick it from the list."
+          - {
+              name: discountPercent,
+              label: "Discount Percent (0-90, e.g. 10 for 10% off)",
+              widget: number,
+              value_type: int,
+              min: 0,
+              max: 90
+            }
+          - { name: blurb, label: Bundle Description, widget: text }
+          - name: concerns
+            label: "Bundle Concerns / Benefits"
+            widget: relation
+            multiple: true
+            required: false
+            collection: _singletons
+            file: products
+            value_field: concerns.*.id
+            display_fields: ["concerns.*.icon", "concerns.*.name"]
+            search_fields: ["concerns.*.name"]
+            hint: "Select customer concerns this curated gift set addresses."
+
+      # ==================================================================
+      # 4. SHOP FAQ (Accordion Items)
+      # ==================================================================
+      - name: faq
+        label: "FAQ (Shop & Contact Accordion)"
+        widget: list
+        label_singular: Question
+        summary: "{{fields.question}}"
+        hint: "Frequently asked questions displayed in the FAQ accordion on the Contact page and Shop page."
+        fields:
+          - { name: question, label: Question, widget: string }
+          - { name: answer, label: Answer, widget: text }
+
+      # ==================================================================
+      # 5. TECHNICAL & SHOP SETTINGS (Rare / Setup Items - Collapsed by Default)
+      # ==================================================================
+      - name: concerns
+        label: "Shop Concern Filters"
+        widget: list
+        label_singular: Concern
+        collapsed: true
+        summary: "{{fields.name}}"
+        hint: "Shop filter tags categorized by customer need (e.g. Sleep & Relaxation, Sore Muscles)."
+        fields:
+          - {
+              name: id,
+              label: "Concern ID",
+              widget: string,
+              required: false,
+              hint: "Identifier used as internal reference key."
+            }
+          - { name: name, label: "Concern Name", widget: string }
+          - { name: icon, label: "Icon / Emoji", widget: string, required: false }
+
+      - name: categories
+        label: "Product Categories (Filter Buttons)"
+        widget: list
+        label_singular: Category
+        collapsed: true
+        summary: "{{fields.label}}"
+        hint: >-
+          These become the filter buttons across the top of the shop page.
+          Just type the name — the behind-the-scenes code is created for you.
+        fields:
+          - {
+              name: id,
+              label: "Category ID (leave blank for new categories; don't change on existing)",
+              widget: string,
+              required: false,
+              hint: "Identifier used as internal reference key."
+            }
+          - {
+              name: label,
+              label: "Category name (the filter button on the shop page)",
+              widget: string
+            }
+
+      - name: shop
+        label: "⚙️ Shop Metadata & Shipping Settings"
+        widget: object
+        collapsed: true
+        hint: "Shop search metadata, Etsy counters, free shipping threshold, and Build-Your-Own Box configuration."
+        fields:
+          - { name: name, label: Shop Name, widget: string }
+          - { name: etsyShopUrl, label: Etsy Shop URL, widget: string }
+          - {
+              name: rating,
+              label: "Etsy star rating (e.g. 4.9)",
+              widget: number,
+              value_type: float,
+              hint: "Your shop's real Etsy rating, from 0 to 5. Decimals are fine."
+            }
+          - {
+              name: reviewCount,
+              label: "Number of Etsy reviews (e.g. 320)",
+              widget: number,
+              value_type: int,
+              hint: "Your real Etsy review count — a whole number."
+            }
+          - {
+              name: sales,
+              label: "Number of Etsy sales (e.g. 1200)",
+              widget: number,
+              value_type: int,
+              hint: "Your real Etsy sales count — a whole number."
+            }
+          - {
+              name: freeShippingThreshold,
+              label: "Free shipping threshold ($)",
+              widget: number,
+              value_type: int,
+              hint: "Orders at or above this amount ship free. Set to 0 to turn free shipping off."
+            }
+          - name: shippingMilestones
+            label: "Cart Milestone Rewards (Multi-Tier Free Shipping & Gifts)"
+            widget: list
+            label_singular: "Milestone Reward Tier"
+            required: false
+            collapsed: true
+            summary: "${{fields.threshold}} — {{fields.reward}}"
+            hint: "Add or edit rewards unlocked as cart value increases (e.g. $40 Free Shipping, $60 Free Pocket Salve, $80 10% Off)."
+            fields:
+              - {
+                  name: threshold,
+                  label: "Cart Total Amount ($)",
+                  widget: number,
+                  value_type: int,
+                  min: 1,
+                  hint: "Order value required to unlock this perk."
+                }
+              - {
+                  name: reward,
+                  label: "Reward / Perk Name",
+                  widget: string,
+                  hint: "e.g. Free Tracked Shipping, Free Handcrafted Pocket Salve, Free Vinyl Sticker"
+                }
+              - {
+                  name: icon,
+                  label: "Icon / Badge Style",
+                  widget: select,
+                  default: "gift",
+                  options:
+                    [
+                      { label: "Shipping Truck", value: "truck" },
+                      { label: "Gift / Perk", value: "gift" },
+                      { label: "Star / Sparkle", value: "sparkle" },
+                      { label: "Heart", value: "heart" }
+                    ]
+                }
+          - name: customBox
+            label: "Build-Your-Own Box"
+            widget: object
+            required: false
+            collapsed: true
+            hint: "Settings for the pick-your-own bundle on the shop page. The box price is always worked out from the real prices of whatever the shopper picks, minus the discount below."
+            fields:
+              - {
+                  name: minItems,
+                  label: "Minimum items in a box",
+                  widget: number,
+                  value_type: int,
+                  default: 3
+                }
+              - {
+                  name: maxItems,
+                  label: "Maximum items in a box",
+                  widget: number,
+                  value_type: int,
+                  default: 5
+                }
+              - {
+                  name: discountPercent,
+                  label: "Discount (%)",
+                  widget: number,
+                  value_type: int,
+                  default: 10,
+                  hint: "Percent off the combined price of the chosen items."
+                }
+              - name: eligibleCategories
+                label: "Categories shoppers can pick from"
+                widget: relation
+                multiple: true
+                collection: _singletons
+                file: products
+                value_field: categories.*.id
+                display_fields: ["categories.*.label"]
+                search_fields: ["categories.*.label"]
+                default: ["salves", "body", "soaks", "potions", "ritual"]
+                hint: "Tick the categories a shopper can choose from. Apparel and gift cards are usually left out."
 
   - name: events
     label: "2. Markets, Fairs & Pride Dates"
     icon: event
     description: "Your pop-up schedule — add upcoming markets, fairs, and Pride dates. Once a date passes it moves itself down to 'Where We've Been', so you never have to clean up old ones. Save and the site updates itself."
-    files:
-      - name: events
-        label: Markets, Fairs & Pride Dates
-        file: assets/data/events.json
-        format: json
+    file: assets/data/events.json
+    format: json
+    fields:
+      - name: upcoming
+        label: "Upcoming pop-ups (confirmed dates only -- customers may show up in person!)"
+        widget: list
+        label_singular: Event
+        required: false
+        summary: "{{fields.dateLabel}} — {{fields.name}} ({{fields.location}})"
         fields:
-          - name: upcoming
-            label: "Upcoming pop-ups (confirmed dates only -- customers may show up in person!)"
-            widget: list
-            label_singular: Event
-            required: false
-            summary: "{{fields.dateLabel}} — {{fields.name}} ({{fields.location}})"
-            fields:
-              - {
-                  name: id,
-                  label: "Event ID / Slug (leave blank for new events)",
-                  widget: string,
-                  required: false,
-                  hint: "Internal identifier used for search indexing and page anchor links."
-                }
-              - {
-                  name: date,
-                  label: "Event Date (start)",
-                  widget: datetime,
-                  format: "YYYY-MM-DD",
-                  date_format: "MM/DD/YYYY",
-                  time_format: false,
-                  hint: "The event's date (or the FIRST day for a multi-day event). Drives sorting and the countdown to opening."
-                }
-              - {
-                  name: endDate,
-                  label: "End Date (only for multi-day events)",
-                  widget: datetime,
-                  format: "YYYY-MM-DD",
-                  date_format: "MM/DD/YYYY",
-                  time_format: false,
-                  required: false,
-                  hint: "Leave blank for single-day events. For a two-day market, set this to the LAST day so it stays listed through the whole event."
-                }
-              - {
-                  name: dateLabel,
-                  label: 'Date shown on the page (e.g. "Sat, Sep 12, 2026 · 9am-2pm")',
-                  widget: string
-                }
-              - { name: name, label: "Event Name (e.g. Landrum Farmers Market)", widget: string }
-              - {
-                  name: type,
-                  label: "Type (e.g. Farmers Market, Fair, Pride Event)",
-                  widget: string
-                }
-              - { name: location, label: "Location (e.g. Landrum, SC)", widget: string }
-              - {
-                  name: zip,
-                  label: "ZIP code of the market (optional)",
-                  widget: string,
-                  required: false,
-                  pattern: ["^$|^[0-9]{5}$", "Enter a 5-digit ZIP code, or leave blank."],
-                  hint: "Only matters if you let customers pick up orders here. Sales tax is charged based on where the customer actually receives their order, and each county charges a little differently -- this ZIP is how the right amount gets worked out. Leave blank and pickup orders use the customer's home address instead, which may be slightly off."
-                }
-              - {
-                  name: emoji,
-                  label: "Event Emoji / Icon (optional)",
-                  widget: string,
-                  required: false,
-                  pattern: ["^$|^.{1,16}$", "One emoji only (or leave blank)."],
-                  hint: "One emoji (e.g. 🦇, ✨, 🎪, 🏳️‍🌈). Shown next to this event in the countdown ticker at the top of the home page and in the countdown banner on the home and events pages -- only for the NEXT upcoming event."
-                }
-              - {
-                  name: url,
-                  label: "Link (optional -- event or info page)",
-                  widget: string,
-                  required: false
-                }
-              - { name: note, label: "Note (optional)", widget: text, required: false }
-          - name: past
-            label: 'Past appearances (optional -- shown under "Where We''ve Been")'
-            widget: list
-            label_singular: Event
-            required: false
-            summary: "{{fields.dateLabel}} — {{fields.name}} ({{fields.location}})"
-            fields:
-              - { name: id, label: "Event ID / Slug", widget: string, required: false }
-              - {
-                  name: date,
-                  label: "Event Date (optional -- used for sorting)",
-                  widget: datetime,
-                  format: "YYYY-MM-DD",
-                  date_format: "MM/DD/YYYY",
-                  time_format: false,
-                  required: false
-                }
-              - { name: dateLabel, label: 'Date shown (e.g. "June 2026")', widget: string }
-              - { name: name, label: "Event Name", widget: string }
-              - { name: type, label: "Type (optional)", widget: string, required: false }
-              - { name: location, label: "Location (optional)", widget: string, required: false }
-              - { name: url, label: "Link (optional)", widget: string, required: false }
-              - { name: note, label: "Note (optional)", widget: text, required: false }
+          - {
+              name: id,
+              label: "Event ID / Slug (leave blank for new events)",
+              widget: string,
+              required: false,
+              hint: "Internal identifier used for search indexing and page anchor links."
+            }
+          - {
+              name: date,
+              label: "Event Date (start)",
+              widget: datetime,
+              format: "YYYY-MM-DD",
+              date_format: "MM/DD/YYYY",
+              time_format: false,
+              hint: "The event's date (or the FIRST day for a multi-day event). Drives sorting and the countdown to opening."
+            }
+          - {
+              name: endDate,
+              label: "End Date (only for multi-day events)",
+              widget: datetime,
+              format: "YYYY-MM-DD",
+              date_format: "MM/DD/YYYY",
+              time_format: false,
+              required: false,
+              hint: "Leave blank for single-day events. For a two-day market, set this to the LAST day so it stays listed through the whole event."
+            }
+          - {
+              name: dateLabel,
+              label: 'Date shown on the page (e.g. "Sat, Sep 12, 2026 · 9am-2pm")',
+              widget: string
+            }
+          - { name: name, label: "Event Name (e.g. Landrum Farmers Market)", widget: string }
+          - {
+              name: type,
+              label: "Type (e.g. Farmers Market, Fair, Pride Event)",
+              widget: string
+            }
+          - { name: location, label: "Location (e.g. Landrum, SC)", widget: string }
+          - {
+              name: zip,
+              label: "ZIP code of the market (optional)",
+              widget: string,
+              required: false,
+              pattern: ["^$|^[0-9]{5}$", "Enter a 5-digit ZIP code, or leave blank."],
+              hint: "Only matters if you let customers pick up orders here. Sales tax is charged based on where the customer actually receives their order, and each county charges a little differently -- this ZIP is how the right amount gets worked out. Leave blank and pickup orders use the customer's home address instead, which may be slightly off."
+            }
+          - {
+              name: emoji,
+              label: "Event Emoji / Icon (optional)",
+              widget: string,
+              required: false,
+              pattern: ["^$|^.{1,16}$", "One emoji only (or leave blank)."],
+              hint: "One emoji (e.g. 🦇, ✨, 🎪, 🏳️‍🌈). Shown next to this event in the countdown ticker at the top of the home page and in the countdown banner on the home and events pages -- only for the NEXT upcoming event."
+            }
+          - {
+              name: url,
+              label: "Link (optional -- event or info page)",
+              widget: string,
+              required: false
+            }
+          - { name: note, label: "Note (optional)", widget: text, required: false }
+      - name: past
+        label: 'Past appearances (optional -- shown under "Where We''ve Been")'
+        widget: list
+        label_singular: Event
+        required: false
+        summary: "{{fields.dateLabel}} — {{fields.name}} ({{fields.location}})"
+        fields:
+          - { name: id, label: "Event ID / Slug", widget: string, required: false }
+          - {
+              name: date,
+              label: "Event Date (optional -- used for sorting)",
+              widget: datetime,
+              format: "YYYY-MM-DD",
+              date_format: "MM/DD/YYYY",
+              time_format: false,
+              required: false
+            }
+          - { name: dateLabel, label: 'Date shown (e.g. "June 2026")', widget: string }
+          - { name: name, label: "Event Name", widget: string }
+          - { name: type, label: "Type (optional)", widget: string, required: false }
+          - { name: location, label: "Location (optional)", widget: string, required: false }
+          - { name: url, label: "Link (optional)", widget: string, required: false }
+          - { name: note, label: "Note (optional)", widget: text, required: false }
 
   - name: reviews
     label: "3. Customer Reviews"
     icon: reviews
     description: "Customer reviews shown on your site. Only add real ones you've approved, and tick 'Feature on homepage' for the few you want front and center. (These are separate from your Etsy star rating — they're never merged into it.)"
-    files:
+    file: assets/data/site-reviews.json
+    format: json
+    fields:
       - name: reviews
-        label: Customer Reviews (on-site)
-        file: assets/data/site-reviews.json
-        format: json
+        label: "On-site reviews (only add REAL ones you've approved -- kept separate from your Etsy star rating, never merged into it)"
+        widget: list
+        label_singular: Review
+        required: false
+        summary: "{{fields.name}} — {{fields.rating}}★"
         fields:
-          - name: reviews
-            label: "On-site reviews (only add REAL ones you've approved -- kept separate from your Etsy star rating, never merged into it)"
-            widget: list
-            label_singular: Review
+          # `id` exists on saved reviews -- declared so a CMS save
+          # doesn't strip it. Auto-generated by the build if blank.
+          - {
+              name: id,
+              label: "Review ID (leave blank -- auto-generated)",
+              widget: string,
+              required: false
+            }
+          - {
+              name: name,
+              label: 'Reviewer name/handle (add "(Etsy)" if it''s from an Etsy review)',
+              widget: string
+            }
+          - {
+              name: rating,
+              label: "Rating (1-5)",
+              widget: number,
+              value_type: int,
+              min: 1,
+              max: 5
+            }
+          - {
+              name: text,
+              label: "Review text (keep it close to what they actually wrote)",
+              widget: text
+            }
+          # relation -> pick the product by name instead of typing its id.
+          - name: productId
+            label: "Which product? (optional)"
+            widget: relation
             required: false
-            summary: "{{fields.name}} — {{fields.rating}}★"
-            fields:
-              # `id` exists on saved reviews -- declared so a CMS save
-              # doesn't strip it. Auto-generated by the build if blank.
-              - {
-                  name: id,
-                  label: "Review ID (leave blank -- auto-generated)",
-                  widget: string,
-                  required: false
-                }
-              - {
-                  name: name,
-                  label: 'Reviewer name/handle (add "(Etsy)" if it''s from an Etsy review)',
-                  widget: string
-                }
-              - {
-                  name: rating,
-                  label: "Rating (1-5)",
-                  widget: number,
-                  value_type: int,
-                  min: 1,
-                  max: 5
-                }
-              - {
-                  name: text,
-                  label: "Review text (keep it close to what they actually wrote)",
-                  widget: text
-                }
-              # relation -> pick the product by name instead of typing its id.
-              - name: productId
-                label: "Which product? (optional)"
-                widget: relation
-                required: false
-                collection: products
-                file: products
-                value_field: products.*.id
-                display_fields: ["products.*.name"]
-                search_fields: ["products.*.name"]
-                hint: "Pick the product this review is about, or leave blank for a general/whole-shop review."
-              - {
-                  name: date,
-                  label: "Publish Date",
-                  widget: datetime,
-                  format: "YYYY-MM-DD",
-                  date_format: "MM/DD/YYYY",
-                  time_format: false,
-                  required: false,
-                  hint: "Select the date the review was written/published."
-                }
-              - {
-                  name: featured,
-                  label: "Feature on homepage?",
-                  widget: boolean,
-                  default: false,
-                  required: false,
-                  hint: "Check this to highlight this review on the homepage testimonials grid."
-                }
-              - {
-                  name: verifiedBuyer,
-                  label: "Verified Buyer?",
-                  widget: boolean,
-                  default: true,
-                  required: false,
-                  hint: "Check if this review came from a confirmed purchaser or verified market attendee."
-                }
-              - {
-                  name: orderRef,
-                  label: "Matched order reference (optional)",
-                  widget: string,
-                  required: false,
-                  hint: "The order/session reference this review was matched against (e.g. from the order-status lookup or the Stripe session id). The 'Verified buyer' badge shows automatically once this is filled in, even if the box above is left unchecked -- leave both blank if you haven't actually matched this review to a real order yet."
-                }
-              - {
-                  name: ownerReply,
-                  label: "Reply from Savanna (optional)",
-                  widget: text,
-                  required: false,
-                  hint: 'A short, on-brand reply shown under this review as "Reply from Savanna" -- good for saying thanks, or for responding to a lower rating.'
-                }
-
-  - name: journal
-    label: "4. Apothecary Journal (Blog)"
-    icon: article
-    description: "Your blog. Write updates, stories, and announcements — each post just needs a title, a date, and its text (a photo is optional). Save and it publishes. If the blog is switched off, turn it on under section 6 → Site Settings."
-    files:
-      - name: journal
-        label: Apothecary Journal
-        file: assets/data/journal.json
-        format: json
-        fields:
-          - name: title
-            label: "Journal Page Title (e.g. Apothecary Journal)"
-            widget: string
-          - name: lede
-            label: "Journal Page Subheading (e.g. Stories, science, and small-batch updates...)"
-            widget: text
-          - name: posts
-            label: Journal Posts
-            widget: list
-            label_singular: Post
-            required: false
-            summary: "{{fields.title}} ({{fields.date}})"
-            fields:
-              - {
-                  name: id,
-                  label: "Post ID (leave blank -- auto-generated from the title)",
-                  widget: string,
-                  required: false
-                }
-              - { name: title, label: "Title", widget: string }
-              - {
-                  name: date,
-                  label: "Publish Date",
-                  widget: datetime,
-                  format: "YYYY-MM-DD",
-                  date_format: "MM/DD/YYYY",
-                  time_format: false
-                }
-              - { name: image, label: "Featured Image", widget: image, required: false }
-              - name: readingTime
-                label: "Reading Time (e.g. 4 min read)"
-                widget: string
-                required: false
-                hint: "Estimated reading time (e.g. 4 min read). Leave blank to auto-calculate from word count."
-              - name: tags
-                label: Topical Tags
-                widget: list
-                required: false
-                field: { name: tag, label: Tag, widget: string }
-                hint: "Topical tags for this article (e.g. Apothecary, Botanical Care, Self-Care)."
-              - name: featuredProductId
-                label: "Featured Product in this Article (optional)"
-                widget: relation
-                required: false
-                collection: products
-                file: products
-                value_field: products.*.id
-                display_fields: ["products.*.name"]
-                search_fields: ["products.*.name"]
-                hint: "Pick a product featured in this article to display the inline 1-click cart card."
-              # Left as a plain box on purpose: this teaser is printed inside a
-              # small card on journal.html (and into llms.txt as a one-line
-              # summary), so headings/bullets there would break the layout and
-              # bold/link marks would just show up as literal ** and [ ].
-              - {
-                  name: excerpt,
-                  label: "Short teaser (the blurb on the blog list page)",
-                  widget: text,
-                  hint: "One or two plain sentences that make someone want to open the post. Formatting isn't used here."
-                }
-              # widget: markdown = Sveltia's rich-text editor: a real toolbar
-              # (bold, italic, links, headings, bullet + numbered lists) with a
-              # "raw" tab for anyone who'd rather type. It saves MARKDOWN TEXT
-              # into journal.json, not HTML, which is exactly what the site's
-              # renderMarkdown() in assets/js/main.js renders -- and because
-              # the site escapes everything before formatting it, nothing typed
-              # here can turn into live code on the page.
-              #   - "markdown" and "richtext" are the same editor in the pinned
-              #     Sveltia 0.172.4 (admin/index.html); "markdown" is used here
-              #     because it names the format actually stored in the file, and
-              #     it's the spelling Netlify/Decap CMS understands too.
-              #   - buttons/editor_components are trimmed to exactly what the
-              #     site can draw, so nothing Savanna can click comes out broken
-              #     on the page: no strikethrough, inline code, block quotes,
-              #     code blocks or in-post images. (Heading 2/3 here render as
-              #     the post's section/sub-section headings; Heading 1 is left
-              #     out because the post title already fills that slot.)
-              - name: content
-                label: "The post itself"
-                widget: markdown
-                buttons:
-                  [bold, italic, link, heading-two, heading-three, bulleted-list, numbered-list]
-                editor_components: []
-                hint: "Write the post here — the toolbar gives you bold, italic, links, headings and lists, and it looks on the website the way it looks in this box. Leave a blank line between paragraphs."
+            collection: _singletons
+            file: products
+            value_field: products.*.id
+            display_fields: ["products.*.name"]
+            search_fields: ["products.*.name"]
+            hint: "Pick the product this review is about, or leave blank for a general/whole-shop review."
+          - {
+              name: date,
+              label: "Publish Date",
+              widget: datetime,
+              format: "YYYY-MM-DD",
+              date_format: "MM/DD/YYYY",
+              time_format: false,
+              required: false,
+              hint: "Select the date the review was written/published."
+            }
+          - {
+              name: featured,
+              label: "Feature on homepage?",
+              widget: boolean,
+              default: false,
+              required: false,
+              hint: "Check this to highlight this review on the homepage testimonials grid."
+            }
+          - {
+              name: verifiedBuyer,
+              label: "Verified Buyer?",
+              widget: boolean,
+              default: true,
+              required: false,
+              hint: "Check if this review came from a confirmed purchaser or verified market attendee."
+            }
+          - {
+              name: orderRef,
+              label: "Matched order reference (optional)",
+              widget: string,
+              required: false,
+              hint: "The order/session reference this review was matched against (e.g. from the order-status lookup or the Stripe session id). The 'Verified buyer' badge shows automatically once this is filled in, even if the box above is left unchecked -- leave both blank if you haven't actually matched this review to a real order yet."
+            }
+          - {
+              name: ownerReply,
+              label: "Reply from Savanna (optional)",
+              widget: text,
+              required: false,
+              hint: 'A short, on-brand reply shown under this review as "Reply from Savanna" -- good for saying thanks, or for responding to a lower rating.'
+            }
 
   - name: social_feed
     label: "5. Social Media Feed"
     icon: photo_camera
     description: "The photo strip on your homepage — add a picture and caption for each Instagram/TikTok-style post you want to show off. If it's switched off, turn it on under section 6 → Site Settings."
-    files:
-      - name: social_feed
-        label: Social Media Feed
-        file: assets/data/social-feed.json
-        format: json
+    file: assets/data/social-feed.json
+    format: json
+    fields:
+      - name: posts
+        label: Social Feed Posts
+        widget: list
+        label_singular: Social Post
+        required: false
+        summary: "{{fields.caption}}"
         fields:
-          - name: posts
-            label: Social Feed Posts
-            widget: list
-            label_singular: Social Post
+          - {
+              name: id,
+              label: "Post ID (leave blank -- auto-generated)",
+              widget: string,
+              required: false
+            }
+          - { name: image, label: "Post Image", widget: image }
+          - { name: caption, label: "Caption", widget: text }
+          - {
+              name: author,
+              label: "Author Name / Handle (optional)",
+              widget: string,
+              required: false
+            }
+          - {
+              name: handle,
+              label: "Social Handle (e.g. @user, optional)",
+              widget: string,
+              required: false
+            }
+          # relation -> pick the tagged product by name, not by typing its id.
+          - name: productId
+            label: "Tagged product (optional)"
+            widget: relation
             required: false
-            summary: "{{fields.caption}}"
-            fields:
-              - {
-                  name: id,
-                  label: "Post ID (leave blank -- auto-generated)",
-                  widget: string,
-                  required: false
-                }
-              - { name: image, label: "Post Image", widget: image }
-              - { name: caption, label: "Caption", widget: text }
-              - {
-                  name: author,
-                  label: "Author Name / Handle (optional)",
-                  widget: string,
-                  required: false
-                }
-              - {
-                  name: handle,
-                  label: "Social Handle (e.g. @user, optional)",
-                  widget: string,
-                  required: false
-                }
-              # relation -> pick the tagged product by name, not by typing its id.
-              - name: productId
-                label: "Tagged product (optional)"
-                widget: relation
-                required: false
-                collection: products
-                file: products
-                value_field: products.*.id
-                display_fields: ["products.*.name"]
-                search_fields: ["products.*.name"]
-                hint: "Pick a product to tag in this post, or leave blank."
-              - {
-                  name: productName,
-                  label: "Tagged Product Name (optional)",
-                  widget: string,
-                  required: false,
-                  hint: "The name shown on the tag. Leave blank to just use the product's own name."
-                }
-              - {
-                  name: url,
-                  label: "Original Post Link (optional)",
-                  widget: string,
-                  required: false
-                }
+            collection: _singletons
+            file: products
+            value_field: products.*.id
+            display_fields: ["products.*.name"]
+            search_fields: ["products.*.name"]
+            hint: "Pick a product to tag in this post, or leave blank."
+          - {
+              name: productName,
+              label: "Tagged Product Name (optional)",
+              widget: string,
+              required: false,
+              hint: "The name shown on the tag. Leave blank to just use the product's own name."
+            }
+          - {
+              name: url,
+              label: "Original Post Link (optional)",
+              widget: string,
+              required: false
+            }
 
   - name: content
     label: "6. Site Images & Page Wording"
     icon: tune
     description: "The wording and photos across your pages — homepage, About, Contact, your logos, and the on/off switches for features. Open a section, change the text or pick a new photo, and Save. Start with 'Site Settings' for logos, the social-share image, and feature switches."
-    files:
-      - name: content
-        label: Site Images & Page Content
-        file: assets/data/content.json
-        format: json
+    file: assets/data/content.json
+    format: json
+    fields:
+      - name: site
+        label: "⚙️ Site Settings, Branding & Integrations"
+        widget: object
+        collapsed: true
         fields:
-          - name: site
-            label: "⚙️ Site Settings, Branding & Integrations"
+          - {
+              name: logoDesktop,
+              label: "Desktop Logo Image (Header & Footer)",
+              widget: image,
+              hint: "Main brand logo image shown in the website header and footer on desktop screens."
+            }
+          - {
+              name: logoMobile,
+              label: "Mobile Logo Image (Navigation)",
+              widget: image,
+              hint: "Brand logo image shown in the mobile navigation menu drawer."
+            }
+          - {
+              name: ogImage,
+              label: "Social Share / Link Preview Image",
+              widget: image,
+              hint: "The preview picture that shows up when someone shares a link to your site (Facebook, text messages, iMessage, etc.)."
+            }
+          - { name: footerTagline, label: "Footer Message", widget: text, required: false }
+          - {
+              name: newsletterTitle,
+              label: "Newsletter Headline",
+              widget: string,
+              required: false
+            }
+          - {
+              name: newsletterSubtext,
+              label: "Newsletter Description",
+              widget: text,
+              required: false
+            }
+          - {
+              name: birthdayTitle,
+              label: "Birthday Club Headline",
+              widget: string,
+              required: false,
+              default: "Join The Birthday Club"
+            }
+          - {
+              name: birthdaySubtext,
+              label: "Birthday Club Offer Description",
+              widget: text,
+              required: false,
+              default: "Get a $5 gift voucher delivered to your inbox on your birthday."
+            }
+          - {
+              name: kitFormAction,
+              label: "Newsletter sign-up link (from Kit / ConvertKit)",
+              widget: string,
+              required: false,
+              hint: "Paste the form link from your Kit account here."
+            }
+          # These IDs are pasted from another dashboard and land inside an
+          # attribute or a JavaScript string on every page, so they are
+          # checked here AND at build time (validateSiteIds in
+          # scripts/build-site-data.js): a value that is not a plausible ID
+          # is a typo or an injection attempt, and the deploy stops.
+          - {
+              name: tawkToPropertyId,
+              label: "Live chat — Property ID (from Tawk.to, optional)",
+              widget: string,
+              required: false,
+              pattern:
+                [
+                  "^$|^[A-Za-z0-9]{1,40}$",
+                  "Copy the Property ID exactly from Tawk.to: letters and numbers only, no spaces or punctuation."
+                ],
+              hint: "Turns on the live-chat bubble. Leave blank to skip live chat."
+            }
+          - {
+              name: tawkToWidgetId,
+              label: "Live chat — Widget ID (from Tawk.to, optional)",
+              widget: string,
+              required: false,
+              pattern:
+                [
+                  "^$|^[A-Za-z0-9]{1,40}$",
+                  "Copy the Widget ID exactly from Tawk.to: letters and numbers only, no spaces or punctuation."
+                ],
+              hint: "The second Tawk.to code, paired with the Property ID above."
+            }
+          - {
+              name: formspreeContactId,
+              label: "Contact form ID (from Formspree)",
+              widget: string,
+              required: false,
+              pattern:
+                [
+                  "^$|^[A-Za-z0-9_-]{1,64}$",
+                  "Just the short form code from the Formspree URL (letters, numbers, - and _) -- not the whole web address."
+                ],
+              hint: "Makes the Contact page's message form work."
+            }
+          - {
+              name: formspreeReviewId,
+              label: "Reviews form ID (from Formspree)",
+              widget: string,
+              required: false,
+              pattern:
+                [
+                  "^$|^[A-Za-z0-9_-]{1,64}$",
+                  "Just the short form code from the Formspree URL (letters, numbers, - and _) -- not the whole web address."
+                ],
+              hint: "Makes the 'leave a review' form work."
+            }
+          - {
+              name: formspreeRestockId,
+              label: "Launch-alert form ID (from Formspree)",
+              widget: string,
+              required: false,
+              pattern:
+                [
+                  "^$|^[A-Za-z0-9_-]{1,64}$",
+                  "Just the short form code from the Formspree URL (letters, numbers, - and _) -- not the whole web address."
+                ],
+              hint: "Makes the 'email me when it launches' sign-ups work."
+            }
+          - {
+              name: welcomeCode,
+              label: "Newsletter welcome discount code",
+              widget: string,
+              required: false,
+              hint: "The 10% off code new subscribers get. Shown on the welcome page they land on after confirming. Leave blank and the page points them at your email instead of showing a code that does not work."
+            }
+          # Hidden on purpose (widget: hidden = stored, but no UI control).
+          # Gift Up! is only half-built: setting a real ID generates a
+          # working Gift Up! widget, but nothing hides the built-in
+          # gift-card button, so both would render at once. The field
+          # stays declared so the CMS round-trips the value instead of
+          # dropping it on save -- unhide it (widget: string) only after
+          # the bypass in main.js exists. See DEVELOPMENT.md section 18.
+          - {
+              name: giftUpId,
+              label: "Gift Card Account Code (Gift Up!)",
+              widget: hidden,
+              required: false,
+              pattern:
+                [
+                  "^(YOUR_GIFTUP_ID|[A-Za-z0-9-]{0,64})$",
+                  "Gift Up! account codes are letters, numbers and hyphens only."
+                ]
+            }
+          - {
+              name: umamiWebsiteId,
+              label: "Website analytics ID (from Umami, optional)",
+              widget: string,
+              required: false,
+              pattern:
+                [
+                  "^(YOUR_UMAMI_WEBSITE_ID|[A-Za-z0-9-]{0,64})$",
+                  "Paste the Website ID from Umami: letters, numbers and hyphens only."
+                ],
+              hint: "Turns on private, cookie-free visitor stats. Leave blank to skip."
+            }
+          - {
+              name: enableJournal,
+              label: "Show Apothecary Journal (Blog)",
+              widget: boolean,
+              default: false,
+              required: false,
+              hint: "Show or hide the blog page."
+            }
+          - {
+              name: enableSocialFeed,
+              label: "Show Social Media Feed",
+              widget: boolean,
+              default: false,
+              required: false,
+              hint: "Show or hide the Instagram/TikTok social feed on the homepage."
+            }
+          - {
+              name: enableRestockAlerts,
+              label: "Show 'Email Me When It Launches' Signup",
+              widget: boolean,
+              default: true,
+              required: false,
+              hint: "Adds an email signup to any product marked Coming Soon, so shoppers can be told when it lands."
+            }
+          - {
+              name: enableCustomBoxBuilder,
+              label: "Show Build-Your-Own Box",
+              widget: boolean,
+              default: true,
+              required: false,
+              hint: "Let shoppers pick their own mix of goods for a discounted bundle. Sizes and discount are set under Shop Settings."
+            }
+          - {
+              name: enableScentFilter,
+              label: "Show Scent Filter",
+              widget: boolean,
+              default: true,
+              required: false,
+              hint: "Adds scent buttons to the shop filters. Only appears once at least two products have a Scent set on them."
+            }
+          - {
+              name: enableIngredientsModal,
+              label: "Show Botanical Ingredients Info",
+              widget: boolean,
+              default: true,
+              required: false,
+              hint: "Show the interactive ingredients list on product cards."
+            }
+          - {
+              name: enableLocalPickup,
+              label: "Show Free Local Market Pick-up",
+              widget: boolean,
+              default: true,
+              required: false,
+              hint: "Offer a free local pop-up market pickup option in the cart."
+            }
+          - {
+              name: enableCountdownTicker,
+              label: "Show Event Countdown Ticker",
+              widget: boolean,
+              default: true,
+              required: false,
+              hint: "Display the countdown timer for your next upcoming market or pop-up."
+            }
+          - {
+              name: enableEventJsonLd,
+              label: "Make Upcoming Markets Show Up In Google's Event Search",
+              widget: boolean,
+              default: true,
+              required: false,
+              hint: "Adds the structured data Google needs to make your upcoming markets eligible for its Event search results. Doesn't guarantee a listing, just makes it possible. Safe to leave on."
+            }
+          - {
+              name: enableDispatchCountdown,
+              label: "Show the 'order by' shipping countdown",
+              widget: boolean,
+              default: false,
+              required: false,
+              hint: "Off by default. When on, the 'Order within 2h 10m to ship today' badge shows on product cards, product pages and the cart, counting down to the Shipping cutoff below. Turn it on only when you can keep that promise every business day."
+            }
+          - name: dispatch
+            label: "Shipping cutoff"
+            widget: object
+            collapsed: true
+            required: false
+            hint: "Orders placed before this time on a business day ship the same day; the countdown and the 'Order by' wording use it. Eastern time."
+            fields:
+              - { name: cutoffHour, label: "Cutoff hour (0-23, Eastern)", widget: number, value_type: int, min: 0, max: 23, default: 14, required: false }
+              - { name: cutoffMinute, label: "Cutoff minute (0-59)", widget: number, value_type: int, min: 0, max: 59, default: 0, required: false }
+          - {
+              name: enableLowStockAlerts,
+              label: "Email me when a product runs low",
+              widget: boolean,
+              default: true,
+              required: false,
+              hint: "Once a day, a note listing every product at or under the low-stock number in Automation settings."
+            }
+          - {
+              name: enableOrderDigest,
+              label: "Email me a daily order digest with pick lists",
+              widget: boolean,
+              default: true,
+              required: false,
+              hint: "Every morning: each order from the last day with what to pack, sizes, gift notes to print and pickup markets."
+            }
+          - {
+              name: enableMarketReminders,
+              label: "Remind market-date subscribers the day before a market",
+              widget: boolean,
+              default: true,
+              required: false,
+              hint: "People who signed up on the Events page get one email the day before each upcoming market."
+            }
+          - {
+              name: enableReactionExport,
+              label: "Email me a monthly export of reaction reports",
+              widget: boolean,
+              default: true,
+              required: false,
+              hint: "On the 1st, a spreadsheet of last month's Report a Reaction submissions, for the MoCRA file."
+            }
+          - name: automations
+            label: "Automation settings"
+            widget: object
+            collapsed: true
+            required: false
+            hint: "Numbers and wording for the emails the shop sends on its own. Switch each one on or off with the toggles above."
+            fields:
+              - { name: lowStockThreshold, label: "Low-stock number (email me when stock is at or under this)", widget: number, value_type: int, min: 0, max: 100, default: 3, required: false }
+              - { name: orderDigestHour, label: "Send the order digest at this hour (0-23, Eastern)", widget: number, value_type: int, min: 0, max: 23, default: 7, required: false }
+              - { name: marketReminderHour, label: "Send market reminders at this hour (0-23, Eastern)", widget: number, value_type: int, min: 0, max: 23, default: 9, required: false }
+              - { name: restockEmailIntro, label: "Back-in-stock email: opening line", widget: text, required: false }
+              - { name: marketReminderIntro, label: "Market reminder email: opening line", widget: text, required: false }
+              - { name: sizeConfirmationIntro, label: "Size/scent confirmation email: opening line", widget: text, required: false }
+          - {
+              name: enableOrderStatusLookup,
+              label: "Show Order Lookup Tool",
+              widget: boolean,
+              default: true,
+              required: false,
+              hint: "Let customers check order progress and shipping status."
+            }
+          - {
+              name: enableLoyaltyPoints,
+              label: "Show Customer Rewards Points",
+              widget: boolean,
+              default: true,
+              required: false,
+              hint: "Show earned points on product price tags and in the cart."
+            }
+          - {
+              name: loyaltyPointsName,
+              label: "Rewards Currency Name (Plural)",
+              widget: string,
+              default: "Alt-Points",
+              required: false,
+              hint: "e.g. Alt-Points, Grit Points, Coven Bucks"
+            }
+          - {
+              name: loyaltyPointsSingular,
+              label: "Rewards Currency Name (Singular)",
+              widget: string,
+              default: "Alt-Point",
+              required: false,
+              hint: "e.g. Alt-Point, Grit Point, Coven Buck"
+            }
+          - {
+              name: loyaltyPointsPerDollar,
+              label: "Points Earned Per $1 Spent",
+              widget: number,
+              default: 1,
+              value_type: int,
+              required: false
+            }
+          - {
+              name: loyaltyBadgeEmoji,
+              label: "Rewards Icon Emoji",
+              widget: string,
+              default: "✨",
+              required: false
+            }
+          - {
+              name: enableApothecaryQuiz,
+              label: "Show Apothecary Product Quiz",
+              widget: boolean,
+              default: true,
+              required: false,
+              hint: "Guide shoppers to personalized recommendations on the shop page."
+            }
+
+          - name: announcement
+            label: "Top Announcement Banner"
             widget: object
             collapsed: true
             fields:
               - {
-                  name: logoDesktop,
-                  label: "Desktop Logo Image (Header & Footer)",
-                  widget: image,
-                  hint: "Main brand logo image shown in the website header and footer on desktop screens."
+                  name: enabled,
+                  label: "Enable Announcement Banner",
+                  widget: boolean,
+                  default: true
                 }
               - {
-                  name: logoMobile,
-                  label: "Mobile Logo Image (Navigation)",
-                  widget: image,
-                  hint: "Brand logo image shown in the mobile navigation menu drawer."
-                }
-              - {
-                  name: ogImage,
-                  label: "Social Share / Link Preview Image",
-                  widget: image,
-                  hint: "The preview picture that shows up when someone shares a link to your site (Facebook, text messages, iMessage, etc.)."
-                }
-              - { name: footerTagline, label: "Footer Message", widget: text, required: false }
-              - {
-                  name: newsletterTitle,
-                  label: "Newsletter Headline",
+                  name: text,
+                  label: "Banner Message Text",
                   widget: string,
-                  required: false
+                  default: "🌙 Free local pick-up at Landrum Farmers Market every Saturday · Free shipping over $45"
                 }
-              - {
-                  name: newsletterSubtext,
-                  label: "Newsletter Description",
-                  widget: text,
-                  required: false
-                }
-              - {
-                  name: birthdayTitle,
-                  label: "Birthday Club Headline",
-                  widget: string,
-                  required: false,
-                  default: "Join The Birthday Club"
-                }
-              - {
-                  name: birthdaySubtext,
-                  label: "Birthday Club Offer Description",
-                  widget: text,
-                  required: false,
-                  default: "Get a $5 gift voucher delivered to your inbox on your birthday."
-                }
-              - {
-                  name: kitFormAction,
-                  label: "Newsletter sign-up link (from Kit / ConvertKit)",
-                  widget: string,
-                  required: false,
-                  hint: "Paste the form link from your Kit account here."
-                }
-              # These IDs are pasted from another dashboard and land inside an
-              # attribute or a JavaScript string on every page, so they are
-              # checked here AND at build time (validateSiteIds in
-              # scripts/build-site-data.js): a value that is not a plausible ID
-              # is a typo or an injection attempt, and the deploy stops.
-              - {
-                  name: tawkToPropertyId,
-                  label: "Live chat — Property ID (from Tawk.to, optional)",
-                  widget: string,
-                  required: false,
-                  pattern:
-                    [
-                      "^$|^[A-Za-z0-9]{1,40}$",
-                      "Copy the Property ID exactly from Tawk.to: letters and numbers only, no spaces or punctuation."
-                    ],
-                  hint: "Turns on the live-chat bubble. Leave blank to skip live chat."
-                }
-              - {
-                  name: tawkToWidgetId,
-                  label: "Live chat — Widget ID (from Tawk.to, optional)",
-                  widget: string,
-                  required: false,
-                  pattern:
-                    [
-                      "^$|^[A-Za-z0-9]{1,40}$",
-                      "Copy the Widget ID exactly from Tawk.to: letters and numbers only, no spaces or punctuation."
-                    ],
-                  hint: "The second Tawk.to code, paired with the Property ID above."
-                }
-              - {
-                  name: formspreeContactId,
-                  label: "Contact form ID (from Formspree)",
-                  widget: string,
-                  required: false,
-                  pattern:
-                    [
-                      "^$|^[A-Za-z0-9_-]{1,64}$",
-                      "Just the short form code from the Formspree URL (letters, numbers, - and _) -- not the whole web address."
-                    ],
-                  hint: "Makes the Contact page's message form work."
-                }
-              - {
-                  name: formspreeReviewId,
-                  label: "Reviews form ID (from Formspree)",
-                  widget: string,
-                  required: false,
-                  pattern:
-                    [
-                      "^$|^[A-Za-z0-9_-]{1,64}$",
-                      "Just the short form code from the Formspree URL (letters, numbers, - and _) -- not the whole web address."
-                    ],
-                  hint: "Makes the 'leave a review' form work."
-                }
-              - {
-                  name: formspreeRestockId,
-                  label: "Launch-alert form ID (from Formspree)",
-                  widget: string,
-                  required: false,
-                  pattern:
-                    [
-                      "^$|^[A-Za-z0-9_-]{1,64}$",
-                      "Just the short form code from the Formspree URL (letters, numbers, - and _) -- not the whole web address."
-                    ],
-                  hint: "Makes the 'email me when it launches' sign-ups work."
-                }
-              - {
-                  name: welcomeCode,
-                  label: "Newsletter welcome discount code",
-                  widget: string,
-                  required: false,
-                  hint: "The 10% off code new subscribers get. Shown on the welcome page they land on after confirming. Leave blank and the page points them at your email instead of showing a code that does not work."
-                }
-              # Hidden on purpose (widget: hidden = stored, but no UI control).
-              # Gift Up! is only half-built: setting a real ID generates a
-              # working Gift Up! widget, but nothing hides the built-in
-              # gift-card button, so both would render at once. The field
-              # stays declared so the CMS round-trips the value instead of
-              # dropping it on save -- unhide it (widget: string) only after
-              # the bypass in main.js exists. See DEVELOPMENT.md section 18.
-              - {
-                  name: giftUpId,
-                  label: "Gift Card Account Code (Gift Up!)",
-                  widget: hidden,
-                  required: false,
-                  pattern:
-                    [
-                      "^(YOUR_GIFTUP_ID|[A-Za-z0-9-]{0,64})$",
-                      "Gift Up! account codes are letters, numbers and hyphens only."
-                    ]
-                }
-              - {
-                  name: umamiWebsiteId,
-                  label: "Website analytics ID (from Umami, optional)",
-                  widget: string,
-                  required: false,
-                  pattern:
-                    [
-                      "^(YOUR_UMAMI_WEBSITE_ID|[A-Za-z0-9-]{0,64})$",
-                      "Paste the Website ID from Umami: letters, numbers and hyphens only."
-                    ],
-                  hint: "Turns on private, cookie-free visitor stats. Leave blank to skip."
-                }
-              - {
-                  name: enableJournal,
-                  label: "Show Apothecary Journal (Blog)",
-                  widget: boolean,
-                  default: false,
-                  required: false,
-                  hint: "Show or hide the blog page."
-                }
-              - {
-                  name: enableSocialFeed,
-                  label: "Show Social Media Feed",
-                  widget: boolean,
-                  default: false,
-                  required: false,
-                  hint: "Show or hide the Instagram/TikTok social feed on the homepage."
-                }
-              - {
-                  name: enableRestockAlerts,
-                  label: "Show 'Email Me When It Launches' Signup",
-                  widget: boolean,
-                  default: true,
-                  required: false,
-                  hint: "Adds an email signup to any product marked Coming Soon, so shoppers can be told when it lands."
-                }
-              - {
-                  name: enableCustomBoxBuilder,
-                  label: "Show Build-Your-Own Box",
-                  widget: boolean,
-                  default: true,
-                  required: false,
-                  hint: "Let shoppers pick their own mix of goods for a discounted bundle. Sizes and discount are set under Shop Settings."
-                }
-              - {
-                  name: enableScentFilter,
-                  label: "Show Scent Filter",
-                  widget: boolean,
-                  default: true,
-                  required: false,
-                  hint: "Adds scent buttons to the shop filters. Only appears once at least two products have a Scent set on them."
-                }
-              - {
-                  name: enableIngredientsModal,
-                  label: "Show Botanical Ingredients Info",
-                  widget: boolean,
-                  default: true,
-                  required: false,
-                  hint: "Show the interactive ingredients list on product cards."
-                }
-              - {
-                  name: enableLocalPickup,
-                  label: "Show Free Local Market Pick-up",
-                  widget: boolean,
-                  default: true,
-                  required: false,
-                  hint: "Offer a free local pop-up market pickup option in the cart."
-                }
-              - {
-                  name: enableCountdownTicker,
-                  label: "Show Event Countdown Ticker",
-                  widget: boolean,
-                  default: true,
-                  required: false,
-                  hint: "Display the countdown timer for your next upcoming market or pop-up."
-                }
-              - {
-                  name: enableEventJsonLd,
-                  label: "Make Upcoming Markets Show Up In Google's Event Search",
-                  widget: boolean,
-                  default: true,
-                  required: false,
-                  hint: "Adds the structured data Google needs to make your upcoming markets eligible for its Event search results. Doesn't guarantee a listing, just makes it possible. Safe to leave on."
-                }
-              - {
-                  name: enableDispatchCountdown,
-                  label: "Show the 'order by' shipping countdown",
-                  widget: boolean,
-                  default: false,
-                  required: false,
-                  hint: "Off by default. When on, the 'Order within 2h 10m to ship today' badge shows on product cards, product pages and the cart, counting down to the Shipping cutoff below. Turn it on only when you can keep that promise every business day."
-                }
-              - name: dispatch
-                label: "Shipping cutoff"
-                widget: object
-                collapsed: true
-                required: false
-                hint: "Orders placed before this time on a business day ship the same day; the countdown and the 'Order by' wording use it. Eastern time."
-                fields:
-                  - { name: cutoffHour, label: "Cutoff hour (0-23, Eastern)", widget: number, value_type: int, min: 0, max: 23, default: 14, required: false }
-                  - { name: cutoffMinute, label: "Cutoff minute (0-59)", widget: number, value_type: int, min: 0, max: 59, default: 0, required: false }
-              - {
-                  name: enableLowStockAlerts,
-                  label: "Email me when a product runs low",
-                  widget: boolean,
-                  default: true,
-                  required: false,
-                  hint: "Once a day, a note listing every product at or under the low-stock number in Automation settings."
-                }
-              - {
-                  name: enableOrderDigest,
-                  label: "Email me a daily order digest with pick lists",
-                  widget: boolean,
-                  default: true,
-                  required: false,
-                  hint: "Every morning: each order from the last day with what to pack, sizes, gift notes to print and pickup markets."
-                }
-              - {
-                  name: enableMarketReminders,
-                  label: "Remind market-date subscribers the day before a market",
-                  widget: boolean,
-                  default: true,
-                  required: false,
-                  hint: "People who signed up on the Events page get one email the day before each upcoming market."
-                }
-              - {
-                  name: enableReactionExport,
-                  label: "Email me a monthly export of reaction reports",
-                  widget: boolean,
-                  default: true,
-                  required: false,
-                  hint: "On the 1st, a spreadsheet of last month's Report a Reaction submissions, for the MoCRA file."
-                }
-              - name: automations
-                label: "Automation settings"
-                widget: object
-                collapsed: true
-                required: false
-                hint: "Numbers and wording for the emails the shop sends on its own. Switch each one on or off with the toggles above."
-                fields:
-                  - { name: lowStockThreshold, label: "Low-stock number (email me when stock is at or under this)", widget: number, value_type: int, min: 0, max: 100, default: 3, required: false }
-                  - { name: orderDigestHour, label: "Send the order digest at this hour (0-23, Eastern)", widget: number, value_type: int, min: 0, max: 23, default: 7, required: false }
-                  - { name: marketReminderHour, label: "Send market reminders at this hour (0-23, Eastern)", widget: number, value_type: int, min: 0, max: 23, default: 9, required: false }
-                  - { name: restockEmailIntro, label: "Back-in-stock email: opening line", widget: text, required: false }
-                  - { name: marketReminderIntro, label: "Market reminder email: opening line", widget: text, required: false }
-                  - { name: sizeConfirmationIntro, label: "Size/scent confirmation email: opening line", widget: text, required: false }
-              - {
-                  name: enableOrderStatusLookup,
-                  label: "Show Order Lookup Tool",
-                  widget: boolean,
-                  default: true,
-                  required: false,
-                  hint: "Let customers check order progress and shipping status."
-                }
-              - {
-                  name: enableLoyaltyPoints,
-                  label: "Show Customer Rewards Points",
-                  widget: boolean,
-                  default: true,
-                  required: false,
-                  hint: "Show earned points on product price tags and in the cart."
-                }
-              - {
-                  name: loyaltyPointsName,
-                  label: "Rewards Currency Name (Plural)",
-                  widget: string,
-                  default: "Alt-Points",
-                  required: false,
-                  hint: "e.g. Alt-Points, Grit Points, Coven Bucks"
-                }
-              - {
-                  name: loyaltyPointsSingular,
-                  label: "Rewards Currency Name (Singular)",
-                  widget: string,
-                  default: "Alt-Point",
-                  required: false,
-                  hint: "e.g. Alt-Point, Grit Point, Coven Buck"
-                }
-              - {
-                  name: loyaltyPointsPerDollar,
-                  label: "Points Earned Per $1 Spent",
-                  widget: number,
-                  default: 1,
-                  value_type: int,
-                  required: false
-                }
-              - {
-                  name: loyaltyBadgeEmoji,
-                  label: "Rewards Icon Emoji",
-                  widget: string,
-                  default: "✨",
-                  required: false
-                }
-              - {
-                  name: enableApothecaryQuiz,
-                  label: "Show Apothecary Product Quiz",
-                  widget: boolean,
-                  default: true,
-                  required: false,
-                  hint: "Guide shoppers to personalized recommendations on the shop page."
-                }
+              - { name: link, label: "Banner Link (optional)", widget: string, required: false }
+              - name: accent
+                label: "Theme Accent Color"
+                widget: select
+                options:
+                  - { label: "Default Dark (Plum/Charcoal)", value: "default" }
+                  - { label: "Warm Whiskey Amber", value: "whiskey" }
+                  - { label: "Appalachian Moss Green", value: "moss" }
+                  - { label: "Smoky Lavender", value: "lavender" }
+                  - { label: "Rust & Terracotta", value: "rust" }
+                default: "default"
 
-              - name: announcement
-                label: "Top Announcement Banner"
-                widget: object
-                collapsed: true
-                fields:
-                  - {
-                      name: enabled,
-                      label: "Enable Announcement Banner",
-                      widget: boolean,
-                      default: true
-                    }
-                  - {
-                      name: text,
-                      label: "Banner Message Text",
-                      widget: string,
-                      default: "🌙 Free local pick-up at Landrum Farmers Market every Saturday · Free shipping over $45"
-                    }
-                  - { name: link, label: "Banner Link (optional)", widget: string, required: false }
-                  - name: accent
-                    label: "Theme Accent Color"
-                    widget: select
-                    options:
-                      - { label: "Default Dark (Plum/Charcoal)", value: "default" }
-                      - { label: "Warm Whiskey Amber", value: "whiskey" }
-                      - { label: "Appalachian Moss Green", value: "moss" }
-                      - { label: "Smoky Lavender", value: "lavender" }
-                      - { label: "Rust & Terracotta", value: "rust" }
-                    default: "default"
-
-              - name: seasonalNotice
-                label: "Seasonal Notice / Hiatus Alert"
-                widget: object
-                collapsed: true
-                fields:
-                  - {
-                      name: enabled,
-                      label: "Enable Seasonal Notice",
-                      widget: boolean,
-                      default: false
-                    }
-                  - {
-                      name: text,
-                      label: "Notice Message",
-                      widget: string,
-                      default: "🌿 Spring Foraging Hiatus: Orders placed after Oct 15 will ship Nov 1."
-                    }
-                  - {
-                      name: link,
-                      label: "Notice Link (optional)",
-                      widget: string,
-                      required: false,
-                      default: "events.html"
-                    }
-                  - {
-                      name: showInCart,
-                      label: "Display in Cart Drawer",
-                      widget: boolean,
-                      default: true
-                    }
-                  - {
-                      name: showInHeader,
-                      label: "Display under Header / Banner",
-                      widget: boolean,
-                      default: false
-                    }
-
-              - name: social
-                label: "📱 Social Media Profile Links"
-                widget: object
-                collapsed: true
-                fields:
-                  - name: instagram
-                    label: "Instagram Profile URL"
-                    widget: string
-                    required: false
-                    pattern:
-                      [
-                        "^$|^https?://.*",
-                        "Must be a valid URL starting with https://, or leave blank."
-                      ]
-                  - name: tiktok
-                    label: "TikTok Profile URL"
-                    widget: string
-                    required: false
-                    pattern:
-                      [
-                        "^$|^https?://.*",
-                        "Must be a valid URL starting with https://, or leave blank."
-                      ]
-                  - name: facebook
-                    label: "Facebook Page URL"
-                    widget: string
-                    required: false
-                    pattern:
-                      [
-                        "^$|^https?://.*",
-                        "Must be a valid URL starting with https://, or leave blank."
-                      ]
-                  - name: etsy
-                    label: "Etsy Shop URL"
-                    widget: string
-                    required: false
-                    pattern:
-                      [
-                        "^$|^https?://.*",
-                        "Must be a valid URL starting with https://, or leave blank."
-                      ]
-                  - name: pinterest
-                    label: "Pinterest Profile URL (optional)"
-                    widget: string
-                    required: false
-                    pattern:
-                      [
-                        "^$|^https?://.*",
-                        "Must be a valid URL starting with https://, or leave blank."
-                      ]
-                  - name: youtube
-                    label: "YouTube Channel URL (optional)"
-                    widget: string
-                    required: false
-                    pattern:
-                      [
-                        "^$|^https?://.*",
-                        "Must be a valid URL starting with https://, or leave blank."
-                      ]
-
-              - name: ritualDefaults
-                label: "🌿 Global Ritual Cross-Sell Defaults"
-                widget: object
-                collapsed: true
-                fields:
-                  - {
-                      name: title,
-                      label: "Fallback Ritual Headline",
-                      widget: string,
-                      default: "Botanical Pairing",
-                      hint: "Default headline for 'Complete the Ritual' on products without a custom ritualTitle."
-                    }
-                  - {
-                      name: subtitle,
-                      label: "Fallback Ritual Subtitle",
-                      widget: text,
-                      default: "Pair this item with complementary botanicals crafted to work together.",
-                      hint: "Default subtitle copy for the 'Complete the Ritual' cross-sell section."
-                    }
-
-          - name: home
-            label: Homepage
+          - name: seasonalNotice
+            label: "Seasonal Notice / Hiatus Alert"
             widget: object
             collapsed: true
             fields:
               - {
-                  name: promoBanner,
-                  label: "Promo Banner Text (top bar)",
+                  name: enabled,
+                  label: "Enable Seasonal Notice",
+                  widget: boolean,
+                  default: false
+                }
+              - {
+                  name: text,
+                  label: "Notice Message",
+                  widget: string,
+                  default: "🌿 Spring Foraging Hiatus: Orders placed after Oct 15 will ship Nov 1."
+                }
+              - {
+                  name: link,
+                  label: "Notice Link (optional)",
+                  widget: string,
+                  required: false,
+                  default: "events.html"
+                }
+              - {
+                  name: showInCart,
+                  label: "Display in Cart Drawer",
+                  widget: boolean,
+                  default: true
+                }
+              - {
+                  name: showInHeader,
+                  label: "Display under Header / Banner",
+                  widget: boolean,
+                  default: false
+                }
+
+          - name: social
+            label: "📱 Social Media Profile Links"
+            widget: object
+            collapsed: true
+            fields:
+              - name: instagram
+                label: "Instagram Profile URL"
+                widget: string
+                required: false
+                pattern:
+                  [
+                    "^$|^https?://.*",
+                    "Must be a valid URL starting with https://, or leave blank."
+                  ]
+              - name: tiktok
+                label: "TikTok Profile URL"
+                widget: string
+                required: false
+                pattern:
+                  [
+                    "^$|^https?://.*",
+                    "Must be a valid URL starting with https://, or leave blank."
+                  ]
+              - name: facebook
+                label: "Facebook Page URL"
+                widget: string
+                required: false
+                pattern:
+                  [
+                    "^$|^https?://.*",
+                    "Must be a valid URL starting with https://, or leave blank."
+                  ]
+              - name: etsy
+                label: "Etsy Shop URL"
+                widget: string
+                required: false
+                pattern:
+                  [
+                    "^$|^https?://.*",
+                    "Must be a valid URL starting with https://, or leave blank."
+                  ]
+              - name: pinterest
+                label: "Pinterest Profile URL (optional)"
+                widget: string
+                required: false
+                pattern:
+                  [
+                    "^$|^https?://.*",
+                    "Must be a valid URL starting with https://, or leave blank."
+                  ]
+              - name: youtube
+                label: "YouTube Channel URL (optional)"
+                widget: string
+                required: false
+                pattern:
+                  [
+                    "^$|^https?://.*",
+                    "Must be a valid URL starting with https://, or leave blank."
+                  ]
+
+          - name: ritualDefaults
+            label: "🌿 Global Ritual Cross-Sell Defaults"
+            widget: object
+            collapsed: true
+            fields:
+              - {
+                  name: title,
+                  label: "Fallback Ritual Headline",
+                  widget: string,
+                  default: "Botanical Pairing",
+                  hint: "Default headline for 'Complete the Ritual' on products without a custom ritualTitle."
+                }
+              - {
+                  name: subtitle,
+                  label: "Fallback Ritual Subtitle",
+                  widget: text,
+                  default: "Pair this item with complementary botanicals crafted to work together.",
+                  hint: "Default subtitle copy for the 'Complete the Ritual' cross-sell section."
+                }
+
+      - name: home
+        label: Homepage
+        widget: object
+        collapsed: true
+        fields:
+          - {
+              name: promoBanner,
+              label: "Promo Banner Text (top bar)",
+              widget: string,
+              required: false
+            }
+          - {
+              name: heroTitle,
+              label: "Hero headline (the big line on the homepage)",
+              widget: string
+            }
+          - { name: heroText, label: "Hero paragraph (under the headline)", widget: text }
+          - {
+              name: heroImage,
+              label: "Homepage Hero Photo",
+              widget: image,
+              hint: "Main photo shown at the top of the homepage hero banner."
+            }
+          - {
+              name: featureImage,
+              label: "Homepage Story / Feature Photo",
+              widget: image,
+              hint: "Photo shown next to the 'Handmade In Small Batches' section on the homepage."
+            }
+          - name: badges
+            label: "Trust Badges (the 4 icons under the hero)"
+            widget: object
+            collapsed: true
+            fields:
+              - { name: badge1Title, label: "Badge 1 — Title", widget: string }
+              - { name: badge1Text, label: "Badge 1 — Text", widget: text }
+              - { name: badge2Title, label: "Badge 2 — Title", widget: string }
+              - { name: badge2Text, label: "Badge 2 — Text", widget: text }
+              - { name: badge3Title, label: "Badge 3 — Title", widget: string }
+              - { name: badge3Text, label: "Badge 3 — Text", widget: text }
+              - { name: badge4Title, label: "Badge 4 — Title", widget: string }
+              - { name: badge4Text, label: "Badge 4 — Text", widget: text }
+          - name: featured
+            label: "“Small Batch, Big Feels” Section"
+            widget: object
+            collapsed: true
+            fields:
+              - {
+                  name: eyebrow,
+                  label: "Small label above heading",
                   widget: string,
                   required: false
                 }
+              - { name: title, label: "Section heading", widget: string }
+              - { name: text, label: "Section subtext", widget: text, required: false }
+          - name: story
+            label: "“Made By Hand” Story Section"
+            widget: object
+            collapsed: true
+            fields:
               - {
-                  name: heroTitle,
-                  label: "Hero headline (the big line on the homepage)",
+                  name: eyebrow,
+                  label: "Small label above heading",
+                  widget: string,
+                  required: false
+                }
+              - { name: title, label: "Section heading", widget: string }
+              - {
+                  name: body,
+                  label: "Story paragraphs (leave a blank line between paragraphs)",
+                  widget: text
+                }
+          - name: reviews
+            label: "Customer Reviews Heading"
+            widget: object
+            collapsed: true
+            fields:
+              - {
+                  name: eyebrow,
+                  label: "Small label above heading",
+                  widget: string,
+                  required: false
+                }
+              - { name: title, label: "Section heading", widget: string }
+          - name: community
+            label: "“Spotted In The Wild” Social Section"
+            widget: object
+            collapsed: true
+            fields:
+              - {
+                  name: eyebrow,
+                  label: "Small label above heading",
+                  widget: string,
+                  required: false
+                }
+              - { name: title, label: "Section heading", widget: string }
+              - { name: text, label: "Section subtext", widget: text, required: false }
+          - name: findUs
+            label: "“We Pop Up In The Wild” Section"
+            widget: object
+            collapsed: true
+            fields:
+              - {
+                  name: eyebrow,
+                  label: "Small label above heading",
+                  widget: string,
+                  required: false
+                }
+              - { name: title, label: "Section heading", widget: string }
+              - { name: text, label: "Section paragraph", widget: text, required: false }
+
+      - name: about
+        label: About page
+        widget: object
+        collapsed: true
+        fields:
+          - { name: heroTitle, label: "About headline", widget: string }
+          - { name: heroIntro, label: "About intro line (under the headline)", widget: text }
+          - {
+              name: bioHeading,
+              label: 'Your-story heading (e.g. "Hey Y''all, I''m Savanna")',
+              widget: string
+            }
+          - name: bio
+            label: "Your story"
+            widget: text
+            hint: "Separate paragraphs with a blank line -- each becomes its own paragraph on the page."
+          - {
+              name: bioImage,
+              label: "About Page Main Bio Photo",
+              widget: image,
+              hint: "Primary photo of Savanna / kitchen shown next to 'Hey Y'all, I'm Savanna' on the About page."
+            }
+          - {
+              name: secondaryImage,
+              label: "About Page Secondary Photo",
+              widget: image,
+              hint: "Secondary photo shown next to the 'Backroads, Porch Lights' section on the About page."
+            }
+          - name: community
+            label: "“Find Us In The Wild” Section"
+            widget: object
+            collapsed: true
+            fields:
+              - { name: title, label: "Section heading", widget: string }
+              - { name: text, label: "Section paragraph", widget: text }
+              - { name: quote, label: "Highlighted quote line", widget: text, required: false }
+          - name: closing
+            label: "Closing Call-To-Action Band"
+            widget: object
+            collapsed: true
+            fields:
+              - { name: title, label: "Heading", widget: string }
+              - { name: text, label: "Subtext", widget: text, required: false }
+
+      - name: shop
+        label: Shop page
+        widget: object
+        collapsed: true
+        fields:
+          - { name: heroTitle, label: "Shop Headline", widget: string, required: false }
+          - name: safetyNotes
+            label: "Product page safety notes (shown on every topical product)"
+            widget: object
+            collapsed: true
+            required: false
+            hint: "The 'Safety & sensitivities' box on each product page. The essential-oil and nut lines only appear on products whose ingredient list calls for them."
+            fields:
+              - { name: externalUse, label: "External use line", widget: text, required: false }
+              - { name: patchTest, label: "Patch test line", widget: text, required: false }
+              - { name: essentialOils, label: "Essential oils / pregnancy line", widget: text, required: false }
+              - { name: nutAllergy, label: "Nut-derived ingredients line", widget: text, required: false }
+              - { name: stopUse, label: "Stop-use line", widget: text, required: false }
+              - { name: reactionPrompt, label: "Reaction prompt (links to the Report a Reaction page)", widget: string, required: false }
+          - { name: heroIntro, label: "Shop Subheading", widget: text, required: false }
+          - {
+              name: giftCardImage,
+              label: "Shop Gift Card Banner Image",
+              widget: image,
+              hint: "Background photo shown for the Digital Gift Card banner on the Shop page."
+            }
+          - name: sections
+            label: "Section Headings & Bands"
+            widget: object
+            collapsed: true
+            fields:
+              - { name: giftSetsTitle, label: "“Gift Sets” heading", widget: string }
+              - {
+                  name: faqBannerTitle,
+                  label: "“Got Questions?” banner heading",
                   widget: string
                 }
-              - { name: heroText, label: "Hero paragraph (under the headline)", widget: text }
+              - { name: customTitle, label: "Custom Orders band — heading", widget: string }
+              - { name: customText, label: "Custom Orders band — subtext", widget: text }
+              - { name: reviewsTitle, label: "“Customer Reviews” heading", widget: string }
               - {
-                  name: heroImage,
-                  label: "Homepage Hero Photo",
-                  widget: image,
-                  hint: "Main photo shown at the top of the homepage hero banner."
-                }
-              - {
-                  name: featureImage,
-                  label: "Homepage Story / Feature Photo",
-                  widget: image,
-                  hint: "Photo shown next to the 'Handmade In Small Batches' section on the homepage."
-                }
-              - name: badges
-                label: "Trust Badges (the 4 icons under the hero)"
-                widget: object
-                collapsed: true
-                fields:
-                  - { name: badge1Title, label: "Badge 1 — Title", widget: string }
-                  - { name: badge1Text, label: "Badge 1 — Text", widget: text }
-                  - { name: badge2Title, label: "Badge 2 — Title", widget: string }
-                  - { name: badge2Text, label: "Badge 2 — Text", widget: text }
-                  - { name: badge3Title, label: "Badge 3 — Title", widget: string }
-                  - { name: badge3Text, label: "Badge 3 — Text", widget: text }
-                  - { name: badge4Title, label: "Badge 4 — Title", widget: string }
-                  - { name: badge4Text, label: "Badge 4 — Text", widget: text }
-              - name: featured
-                label: "“Small Batch, Big Feels” Section"
-                widget: object
-                collapsed: true
-                fields:
-                  - {
-                      name: eyebrow,
-                      label: "Small label above heading",
-                      widget: string,
-                      required: false
-                    }
-                  - { name: title, label: "Section heading", widget: string }
-                  - { name: text, label: "Section subtext", widget: text, required: false }
-              - name: story
-                label: "“Made By Hand” Story Section"
-                widget: object
-                collapsed: true
-                fields:
-                  - {
-                      name: eyebrow,
-                      label: "Small label above heading",
-                      widget: string,
-                      required: false
-                    }
-                  - { name: title, label: "Section heading", widget: string }
-                  - {
-                      name: body,
-                      label: "Story paragraphs (leave a blank line between paragraphs)",
-                      widget: text
-                    }
-              - name: reviews
-                label: "Customer Reviews Heading"
-                widget: object
-                collapsed: true
-                fields:
-                  - {
-                      name: eyebrow,
-                      label: "Small label above heading",
-                      widget: string,
-                      required: false
-                    }
-                  - { name: title, label: "Section heading", widget: string }
-              - name: community
-                label: "“Spotted In The Wild” Social Section"
-                widget: object
-                collapsed: true
-                fields:
-                  - {
-                      name: eyebrow,
-                      label: "Small label above heading",
-                      widget: string,
-                      required: false
-                    }
-                  - { name: title, label: "Section heading", widget: string }
-                  - { name: text, label: "Section subtext", widget: text, required: false }
-              - name: findUs
-                label: "“We Pop Up In The Wild” Section"
-                widget: object
-                collapsed: true
-                fields:
-                  - {
-                      name: eyebrow,
-                      label: "Small label above heading",
-                      widget: string,
-                      required: false
-                    }
-                  - { name: title, label: "Section heading", widget: string }
-                  - { name: text, label: "Section paragraph", widget: text, required: false }
-
-          - name: about
-            label: About page
-            widget: object
-            collapsed: true
-            fields:
-              - { name: heroTitle, label: "About headline", widget: string }
-              - { name: heroIntro, label: "About intro line (under the headline)", widget: text }
-              - {
-                  name: bioHeading,
-                  label: 'Your-story heading (e.g. "Hey Y''all, I''m Savanna")',
-                  widget: string
-                }
-              - name: bio
-                label: "Your story"
-                widget: text
-                hint: "Separate paragraphs with a blank line -- each becomes its own paragraph on the page."
-              - {
-                  name: bioImage,
-                  label: "About Page Main Bio Photo",
-                  widget: image,
-                  hint: "Primary photo of Savanna / kitchen shown next to 'Hey Y'all, I'm Savanna' on the About page."
-                }
-              - {
-                  name: secondaryImage,
-                  label: "About Page Secondary Photo",
-                  widget: image,
-                  hint: "Secondary photo shown next to the 'Backroads, Porch Lights' section on the About page."
-                }
-              - name: community
-                label: "“Find Us In The Wild” Section"
-                widget: object
-                collapsed: true
-                fields:
-                  - { name: title, label: "Section heading", widget: string }
-                  - { name: text, label: "Section paragraph", widget: text }
-                  - { name: quote, label: "Highlighted quote line", widget: text, required: false }
-              - name: closing
-                label: "Closing Call-To-Action Band"
-                widget: object
-                collapsed: true
-                fields:
-                  - { name: title, label: "Heading", widget: string }
-                  - { name: text, label: "Subtext", widget: text, required: false }
-
-          - name: shop
-            label: Shop page
-            widget: object
-            collapsed: true
-            fields:
-              - { name: heroTitle, label: "Shop Headline", widget: string, required: false }
-              - name: safetyNotes
-                label: "Product page safety notes (shown on every topical product)"
-                widget: object
-                collapsed: true
-                required: false
-                hint: "The 'Safety & sensitivities' box on each product page. The essential-oil and nut lines only appear on products whose ingredient list calls for them."
-                fields:
-                  - { name: externalUse, label: "External use line", widget: text, required: false }
-                  - { name: patchTest, label: "Patch test line", widget: text, required: false }
-                  - { name: essentialOils, label: "Essential oils / pregnancy line", widget: text, required: false }
-                  - { name: nutAllergy, label: "Nut-derived ingredients line", widget: text, required: false }
-                  - { name: stopUse, label: "Stop-use line", widget: text, required: false }
-                  - { name: reactionPrompt, label: "Reaction prompt (links to the Report a Reaction page)", widget: string, required: false }
-              - { name: heroIntro, label: "Shop Subheading", widget: text, required: false }
-              - {
-                  name: giftCardImage,
-                  label: "Shop Gift Card Banner Image",
-                  widget: image,
-                  hint: "Background photo shown for the Digital Gift Card banner on the Shop page."
-                }
-              - name: sections
-                label: "Section Headings & Bands"
-                widget: object
-                collapsed: true
-                fields:
-                  - { name: giftSetsTitle, label: "“Gift Sets” heading", widget: string }
-                  - {
-                      name: faqBannerTitle,
-                      label: "“Got Questions?” banner heading",
-                      widget: string
-                    }
-                  - { name: customTitle, label: "Custom Orders band — heading", widget: string }
-                  - { name: customText, label: "Custom Orders band — subtext", widget: text }
-                  - { name: reviewsTitle, label: "“Customer Reviews” heading", widget: string }
-                  - {
-                      name: ugcEyebrow,
-                      label: "Community section — small label",
-                      widget: string,
-                      required: false
-                    }
-                  - { name: ugcTitle, label: "Community section — heading", widget: string }
-                  - {
-                      name: ugcText,
-                      label: "Community section — subtext",
-                      widget: text,
-                      required: false
-                    }
-                  - {
-                      name: faqEyebrow,
-                      label: "FAQ section — small label",
-                      widget: string,
-                      required: false
-                    }
-                  - { name: faqTitle, label: "FAQ section — heading", widget: string }
-                  - { name: faqText, label: "FAQ section — subtext", widget: text, required: false }
-
-          - name: events
-            label: Events page
-            widget: object
-            collapsed: true
-            fields:
-              - { name: heroTitle, label: "Events Headline", widget: string, required: false }
-              - { name: heroIntro, label: "Events Subheading", widget: text, required: false }
-              - name: sections
-                label: "Section Headings"
-                widget: object
-                collapsed: true
-                fields:
-                  - { name: upcomingTitle, label: "“Upcoming Pop-Ups” heading", widget: string }
-                  - { name: recentTitle, label: "“Recent Appearances” heading", widget: string }
-                  - { name: followTitle, label: "Follow-along band — heading", widget: string }
-                  - {
-                      name: followText,
-                      label: "Follow-along band — subtext",
-                      widget: text,
-                      required: false
-                    }
-
-          - name: contact
-            label: Contact page
-            widget: object
-            collapsed: true
-            fields:
-              - { name: heroTitle, label: "Contact Headline", widget: string, required: false }
-              - { name: heroIntro, label: "Contact Subheading", widget: text, required: false }
-              - {
-                  name: image,
-                  label: "Contact Page Feature Photo",
-                  widget: image,
-                  hint: "Photo shown alongside the contact form on the Contact page."
-                }
-              - { name: email, label: "Direct Email Address", widget: string, required: false }
-              - {
-                  name: namePlaceholder,
-                  label: "Name box — faint example text",
-                  widget: string,
-                  required: false,
-                  hint: "The greyed-out hint inside the Name box before someone types."
-                }
-              - {
-                  name: emailPlaceholder,
-                  label: "Email box — faint example text",
+                  name: ugcEyebrow,
+                  label: "Community section — small label",
                   widget: string,
                   required: false
                 }
+              - { name: ugcTitle, label: "Community section — heading", widget: string }
               - {
-                  name: messagePlaceholder,
-                  label: "Message box — faint example text",
+                  name: ugcText,
+                  label: "Community section — subtext",
                   widget: text,
                   required: false
                 }
-              - name: sections
-                label: "Section Headings & Bands"
-                widget: object
-                collapsed: true
-                fields:
-                  - { name: formTitle, label: "“Send a Message” heading", widget: string }
-                  - { name: formDesc, label: "Form helper text", widget: text, required: false }
-                  - { name: directTitle, label: "“Direct & Socials” heading", widget: string }
-                  - { name: findTitle, label: "“Find Us In Person” heading", widget: string }
-                  - {
-                      name: findText1,
-                      label: "Find Us — paragraph 1",
-                      widget: text,
-                      required: false
-                    }
-                  - {
-                      name: findText2,
-                      label: "Find Us — paragraph 2",
-                      widget: text,
-                      required: false
-                    }
-                  - { name: closingTitle, label: "Closing band — heading", widget: string }
-                  - {
-                      name: closingText,
-                      label: "Closing band — subtext",
-                      widget: text,
-                      required: false
-                    }
-
-          - name: faq
-            label: FAQ page
-            widget: object
-            collapsed: true
-            fields:
-              - { name: heroTitle, label: "FAQ Headline", widget: string, required: false }
-              - { name: heroIntro, label: "FAQ Subheading", widget: text, required: false }
-
-          - name: privacy
-            label: "Privacy Policy page"
-            widget: object
-            collapsed: true
-            fields:
-              - { name: intro, label: "Intro paragraph (under the title)", widget: text }
               - {
-                  name: lastUpdated,
-                  label: '"Last updated" date',
+                  name: faqEyebrow,
+                  label: "FAQ section — small label",
                   widget: string,
-                  hint: 'Shown at the bottom, e.g. "July 16, 2026". Update this whenever you change the policy wording (the detailed clauses are managed in code — ask your developer to edit those).'
+                  required: false
                 }
-          - name: terms
-            label: "Terms of Service page"
+              - { name: faqTitle, label: "FAQ section — heading", widget: string }
+              - { name: faqText, label: "FAQ section — subtext", widget: text, required: false }
+
+      - name: events
+        label: Events page
+        widget: object
+        collapsed: true
+        fields:
+          - { name: heroTitle, label: "Events Headline", widget: string, required: false }
+          - { name: heroIntro, label: "Events Subheading", widget: text, required: false }
+          - name: sections
+            label: "Section Headings"
             widget: object
             collapsed: true
             fields:
-              - { name: intro, label: "Intro paragraph (under the title)", widget: text }
+              - { name: upcomingTitle, label: "“Upcoming Pop-Ups” heading", widget: string }
+              - { name: recentTitle, label: "“Recent Appearances” heading", widget: string }
+              - { name: followTitle, label: "Follow-along band — heading", widget: string }
               - {
-                  name: lastUpdated,
-                  label: '"Last updated" date',
-                  widget: string,
-                  hint: 'Shown at the bottom, e.g. "July 18, 2026". Update this whenever you change the terms wording (the detailed clauses are managed in code).'
+                  name: followText,
+                  label: "Follow-along band — subtext",
+                  widget: text,
+                  required: false
                 }
-          - name: policies
-            label: "Shipping & Returns page"
+
+      - name: contact
+        label: Contact page
+        widget: object
+        collapsed: true
+        fields:
+          - { name: heroTitle, label: "Contact Headline", widget: string, required: false }
+          - { name: heroIntro, label: "Contact Subheading", widget: text, required: false }
+          - {
+              name: image,
+              label: "Contact Page Feature Photo",
+              widget: image,
+              hint: "Photo shown alongside the contact form on the Contact page."
+            }
+          - { name: email, label: "Direct Email Address", widget: string, required: false }
+          - {
+              name: namePlaceholder,
+              label: "Name box — faint example text",
+              widget: string,
+              required: false,
+              hint: "The greyed-out hint inside the Name box before someone types."
+            }
+          - {
+              name: emailPlaceholder,
+              label: "Email box — faint example text",
+              widget: string,
+              required: false
+            }
+          - {
+              name: messagePlaceholder,
+              label: "Message box — faint example text",
+              widget: text,
+              required: false
+            }
+          - name: sections
+            label: "Section Headings & Bands"
             widget: object
             collapsed: true
             fields:
-              - { name: intro, label: "Intro paragraph (under the title)", widget: text }
+              - { name: formTitle, label: "“Send a Message” heading", widget: string }
+              - { name: formDesc, label: "Form helper text", widget: text, required: false }
+              - { name: directTitle, label: "“Direct & Socials” heading", widget: string }
+              - { name: findTitle, label: "“Find Us In Person” heading", widget: string }
+              - {
+                  name: findText1,
+                  label: "Find Us — paragraph 1",
+                  widget: text,
+                  required: false
+                }
+              - {
+                  name: findText2,
+                  label: "Find Us — paragraph 2",
+                  widget: text,
+                  required: false
+                }
+              - { name: closingTitle, label: "Closing band — heading", widget: string }
+              - {
+                  name: closingText,
+                  label: "Closing band — subtext",
+                  widget: text,
+                  required: false
+                }
+
+      - name: faq
+        label: FAQ page
+        widget: object
+        collapsed: true
+        fields:
+          - { name: heroTitle, label: "FAQ Headline", widget: string, required: false }
+          - { name: heroIntro, label: "FAQ Subheading", widget: text, required: false }
+
+      - name: privacy
+        label: "Privacy Policy page"
+        widget: object
+        collapsed: true
+        fields:
+          - { name: intro, label: "Intro paragraph (under the title)", widget: text }
+          - {
+              name: lastUpdated,
+              label: '"Last updated" date',
+              widget: string,
+              hint: 'Shown at the bottom, e.g. "July 16, 2026". Update this whenever you change the policy wording (the detailed clauses are managed in code — ask your developer to edit those).'
+            }
+      - name: terms
+        label: "Terms of Service page"
+        widget: object
+        collapsed: true
+        fields:
+          - { name: intro, label: "Intro paragraph (under the title)", widget: text }
+          - {
+              name: lastUpdated,
+              label: '"Last updated" date',
+              widget: string,
+              hint: 'Shown at the bottom, e.g. "July 18, 2026". Update this whenever you change the terms wording (the detailed clauses are managed in code).'
+            }
+      - name: policies
+        label: "Shipping & Returns page"
+        widget: object
+        collapsed: true
+        fields:
+          - { name: intro, label: "Intro paragraph (under the title)", widget: text }
 
   # ==================================================================
   # 6. APOTHECARY PRODUCT QUIZ
   # ==================================================================
-          - name: search
-            label: "🔎 Search Settings (popular chips & extra search words)"
-            widget: object
-            collapsed: true
-            required: false
-            hint: "The chips under the site search box and the words the search understands. Nothing here is shown on a product, so this is the right place for the words shoppers actually type."
-            fields:
-              - { name: chipsTitle, label: "Chips heading", widget: string, required: false, default: "Popular Searches" }
-              - name: popularChips
-                label: "Popular search chips (shown in the search box and on the no-results screen)"
-                widget: list
-                required: false
-                collapsed: true
-                summary: "{{fields.label}} → {{fields.query}}"
-                hint: "Keep condition names (eczema, insomnia, arthritis) out of the label: the label is visible copy. The query can be anything the search understands."
-                fields:
-                  - { name: label, label: "Chip text", widget: string }
-                  - { name: query, label: "Search it runs", widget: string }
-                  - name: icon
-                    label: Icon
-                    widget: select
-                    default: sparkle
-                    options: [moon, waves, droplet, shield, calendar, gift, sparkle, leaf]
-              - name: extraSynonyms
-                label: "Extra search words"
-                widget: list
-                required: false
-                collapsed: true
-                summary: "{{fields.key}}: {{fields.terms}}"
-                hint: "When a shopper types any of the words in a group, the search also looks for the group's key word. Example: key 'bath_tea', words 'tub tea, bath sachet'. Use underscores in the key for two-word ideas (dry_skin, bug_spray). These translate what a shopper typed and never appear on a product, so symptom words are fine here; wound, infection, cure and treat are still refused by the build."
-                fields:
-                  - { name: key, label: "Key word the search should look for", widget: string }
-                  - { name: terms, label: "Words shoppers type", widget: list, allow_add: true }
-  - name: quiz
-    label: "Apothecary Quiz"
-    icon: quiz
-    files:
-      - name: quiz
-        label: "Quiz Questions & Recommendations"
-        file: assets/data/content.json
-        format: json
+      - name: search
+        label: "🔎 Search Settings (popular chips & extra search words)"
+        widget: object
+        collapsed: true
+        required: false
+        hint: "The chips under the site search box and the words the search understands. Nothing here is shown on a product, so this is the right place for the words shoppers actually type."
         fields:
-          - name: quiz
-            label: "Quiz Questions & Options"
-            widget: object
+          - { name: chipsTitle, label: "Chips heading", widget: string, required: false, default: "Popular Searches" }
+          - name: popularChips
+            label: "Popular search chips (shown in the search box and on the no-results screen)"
+            widget: list
+            required: false
+            collapsed: true
+            summary: "{{fields.label}} → {{fields.query}}"
+            hint: "Keep condition names (eczema, insomnia, arthritis) out of the label: the label is visible copy. The query can be anything the search understands."
             fields:
-              - name: questions
-                label: Questions
+              - { name: label, label: "Chip text", widget: string }
+              - { name: query, label: "Search it runs", widget: string }
+              - name: icon
+                label: Icon
+                widget: select
+                default: sparkle
+                options: [moon, waves, droplet, shield, calendar, gift, sparkle, leaf]
+          - name: extraSynonyms
+            label: "Extra search words"
+            widget: list
+            required: false
+            collapsed: true
+            summary: "{{fields.key}}: {{fields.terms}}"
+            hint: "When a shopper types any of the words in a group, the search also looks for the group's key word. Example: key 'bath_tea', words 'tub tea, bath sachet'. Use underscores in the key for two-word ideas (dry_skin, bug_spray). These translate what a shopper typed and never appear on a product, so symptom words are fine here; wound, infection, cure and treat are still refused by the build."
+            fields:
+              - { name: key, label: "Key word the search should look for", widget: string }
+              - { name: terms, label: "Words shoppers type", widget: list, allow_add: true }
+      - name: journal
+        label: "Journal page (title and intro line above the post list)"
+        widget: object
+        collapsed: true
+        fields:
+          - { name: title, label: "Journal Page Title (e.g. Apothecary Journal)", widget: string }
+          - {
+              name: lede,
+              label: "Journal Page Subheading (e.g. Stories, science, and small-batch updates...)",
+              widget: text
+            }
+
+  - name: quiz
+    label: "7. Quiz"
+    icon: quiz
+    description: "The Apothecary Recommendation Quiz: its banner wording, the questions shoppers answer, and which products each answer recommends. The on/off switch for the quiz itself is under 6 → Site Settings."
+    file: assets/data/quiz.json
+    format: json
+    fields:
+      - { name: eyebrow, label: "Banner eyebrow (small line above the title)", widget: string }
+      - { name: title, label: "Banner title", widget: string }
+      - { name: subtitle, label: "Banner subtitle", widget: text }
+      - { name: buttonText, label: "Button text (opens the quiz)", widget: string }
+      - { name: modalTitle, label: "Quiz window title", widget: string }
+      - { name: modalSubtitle, label: "Quiz window subtitle", widget: text }
+      - name: questions
+        label: Questions
+        widget: list
+        fields:
+          - { name: id, label: "Question ID", widget: string }
+          - { name: name, label: "Question Field Name", widget: string }
+          - { name: step, label: "Step Number", widget: number, value_type: int }
+          - { name: title, label: "Question Title", widget: string }
+          - { name: subtitle, label: "Question Subtitle", widget: string, required: false }
+          - name: options
+            label: Options
+            widget: list
+            fields:
+              - { name: value, label: "Option Key / Value", widget: string }
+              - { name: label, label: "Option Label", widget: string }
+              - {
+                  name: description,
+                  label: "Option Description",
+                  widget: string,
+                  required: false
+                }
+              - { name: icon, label: "Icon / Emoji", widget: string, required: false }
+              - name: recommendedProductIds
+                label: "Recommended Products"
                 widget: list
-                fields:
-                  - { name: id, label: "Question ID", widget: string }
-                  - { name: name, label: "Question Field Name", widget: string }
-                  - { name: step, label: "Step Number", widget: number, value_type: int }
-                  - { name: title, label: "Question Title", widget: string }
-                  - { name: subtitle, label: "Question Subtitle", widget: string, required: false }
-                  - name: options
-                    label: Options
-                    widget: list
-                    fields:
-                      - { name: value, label: "Option Key / Value", widget: string }
-                      - { name: label, label: "Option Label", widget: string }
-                      - {
-                          name: description,
-                          label: "Option Description",
-                          widget: string,
-                          required: false
-                        }
-                      - { name: icon, label: "Icon / Emoji", widget: string, required: false }
-                      - name: recommendedProductIds
-                        label: "Recommended Products"
-                        widget: list
-                        required: false
-                        field:
-                          {
-                            name: productId,
-                            label: Product,
-                            widget: relation,
-                            collection: products,
-                            file: products,
-                            search_fields: ["products.*.id", "products.*.name"],
-                            value_field: "products.*.id",
-                            display_fields: ["products.*.name"]
-                          }
-                      - name: categories
-                        label: "Target Categories"
-                        widget: list
-                        required: false
-                        field:
-                          {
-                            name: category,
-                            label: Category,
-                            widget: select,
-                            options:
-                              [
-                                "salves",
-                                "body-care",
-                                "bath-soaks",
-                                "sprays",
-                                "apparel",
-                                "gift-cards"
-                              ]
-                          }
-                      - {
-                          name: matchBundles,
-                          label: "Match Bundles",
-                          widget: boolean,
-                          default: false,
-                          required: false
-                        }
-                      - {
-                          name: matchFeatured,
-                          label: "Match Featured",
-                          widget: boolean,
-                          default: false,
-                          required: false
-                        }
-                      - {
-                          name: scoreWeight,
-                          label: "Recommendation Weight",
-                          widget: number,
-                          default: 5,
-                          value_type: int
-                        }
+                required: false
+                field:
+                  {
+                    name: productId,
+                    label: Product,
+                    widget: relation,
+                    collection: _singletons,
+                    file: products,
+                    search_fields: ["products.*.id", "products.*.name"],
+                    value_field: "products.*.id",
+                    display_fields: ["products.*.name"]
+                  }
+              - name: categories
+                label: "Target Categories"
+                widget: list
+                required: false
+                field:
+                  {
+                    name: category,
+                    label: Category,
+                    widget: select,
+                    options:
+                      [
+                        "salves",
+                        "body-care",
+                        "bath-soaks",
+                        "sprays",
+                        "apparel",
+                        "gift-cards"
+                      ]
+                  }
+              - {
+                  name: matchBundles,
+                  label: "Match Bundles",
+                  widget: boolean,
+                  default: false,
+                  required: false
+                }
+              - {
+                  name: matchFeatured,
+                  label: "Match Featured",
+                  widget: boolean,
+                  default: false,
+                  required: false
+                }
+              - {
+                  name: scoreWeight,
+                  label: "Recommendation Weight",
+                  widget: number,
+                  default: 5,
+                  value_type: int
+                }
