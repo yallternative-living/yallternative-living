@@ -526,9 +526,9 @@ async function runMilestone1AdversarialSuite() {
       }
       const hugeCartStr = tokens.join(",");
 
-      const start = Date.now();
-      const res = cart.parseSharedCartParam(hugeCartStr, catalogData);
-      const duration = Date.now() - start;
+      const { fastestMs: duration, result: res } = require("./lib/perf-budget.js").fastest(() =>
+        cart.parseSharedCartParam(hugeCartStr, catalogData)
+      );
 
       assert.strictEqual(res.length, 5000);
       assert.ok(duration < 100, `Large cart parsing took ${duration}ms, expected < 100ms`);

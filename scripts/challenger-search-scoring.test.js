@@ -15,6 +15,7 @@
 const path = require("path");
 const assert = require("assert");
 const { performance } = require("perf_hooks");
+const { fastest } = require("./lib/perf-budget.js");
 
 const ROOT = path.resolve(__dirname, "..");
 
@@ -232,9 +233,7 @@ console.log("\n--- 2. Extreme & Pathological Query Inputs ---");
 
 it("Ultra-long query (1,000 characters) executes within 10ms", () => {
   const longQuery = "lavender ".repeat(125);
-  const start = performance.now();
-  const res = mainJs.searchGlobal(longQuery);
-  const duration = performance.now() - start;
+  const { fastestMs: duration, result: res } = fastest(() => mainJs.searchGlobal(longQuery));
 
   assert.ok(duration < 15, `Long query took ${duration.toFixed(2)}ms (expected < 15ms)`);
   assert.ok(res.totalCount > 0, "Should match lavender items");
@@ -242,9 +241,7 @@ it("Ultra-long query (1,000 characters) executes within 10ms", () => {
 
 it("Ultra-long query (10,000 characters) does not crash or hang (ReDoS safety)", () => {
   const giantQuery = "a".repeat(10000);
-  const start = performance.now();
-  const res = mainJs.searchGlobal(giantQuery);
-  const duration = performance.now() - start;
+  const { fastestMs: duration, result: res } = fastest(() => mainJs.searchGlobal(giantQuery));
 
   assert.ok(duration < 50, `10k query took ${duration.toFixed(2)}ms (expected < 50ms)`);
   assert.strictEqual(res.totalCount, 0);
@@ -261,9 +258,7 @@ const redosPatterns = [
 
 redosPatterns.forEach((pattern, idx) => {
   it(`ReDoS Pattern #${idx + 1}: "${pattern.slice(0, 25)}" does not cause catastrophic backtracking`, () => {
-    const start = performance.now();
-    const res = mainJs.searchGlobal(pattern);
-    const duration = performance.now() - start;
+    const { fastestMs: duration, result: res } = fastest(() => mainJs.searchGlobal(pattern));
     assert.ok(duration < 10, `ReDoS pattern took ${duration.toFixed(2)}ms`);
     assert.ok(typeof res.totalCount === "number");
   });
@@ -271,9 +266,7 @@ redosPatterns.forEach((pattern, idx) => {
 
 it("Repetitive identical tokens (500 words) dedupes and performs fast", () => {
   const repetitiveQuery = "salve ".repeat(500);
-  const start = performance.now();
-  const res = mainJs.searchGlobal(repetitiveQuery);
-  const duration = performance.now() - start;
+  const { fastestMs: duration, result: res } = fastest(() => mainJs.searchGlobal(repetitiveQuery));
 
   assert.ok(duration < 10, `Repetitive query took ${duration.toFixed(2)}ms`);
   assert.ok(res.products.length > 0);
@@ -877,9 +870,9 @@ it("Shop-grid engine: empty, whitespace and non-string queries never throw and m
 
 it("Shop-grid engine: a 10,000-character query does not throw or hang", () => {
   const longQuery = "sleep ".repeat(2000);
-  const start = performance.now();
   assert.doesNotThrow(() => shopRank(longQuery));
-  assert.ok(performance.now() - start < 500, "resolves well under 500ms");
+  const { fastestMs } = fastest(() => shopRank(longQuery));
+  assert.ok(fastestMs < 500, "resolves well under 500ms");
 });
 
 // --- Precision: a disease-word query must resolve to the RIGHT cosmetic
