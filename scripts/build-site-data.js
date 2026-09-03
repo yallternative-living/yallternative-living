@@ -3425,9 +3425,19 @@ function buildSiteData() {
     }
   }
 
+  /* Page copy is keyed by page name at the top of content.json, except the
+     three legal pages, which /admin shows as one "Legal pages" block and so
+     live under content.legal.{privacy,terms,policies}. Marker names on the
+     pages are unchanged: they use the page key, not the JSON path. */
+  function pageCopy(pageKey) {
+    if (CONTENT[pageKey]) return CONTENT[pageKey];
+    if (CONTENT.legal && CONTENT.legal[pageKey]) return CONTENT.legal[pageKey];
+    return null;
+  }
+
   function injectPageCopy(page, pageKey) {
     let html = readText(page, page + " page");
-    const section = CONTENT[pageKey] || {};
+    const section = pageCopy(pageKey) || {};
     // Flatten nested content objects into dotted marker keys so page copy can
     // be organized into grouped sub-objects in /admin (e.g. home.badges.badge1)
     // while still resolving to <!--YL:home.badges.badge1--> markers here.
@@ -3787,8 +3797,8 @@ function buildSiteData() {
     // in social previews, especially twitter summary_large_image. Pages
     // without an explicit ogImage fall through to the branded site.ogImage.
     let pageOgImage = null;
-    if (CONTENT[pageKey] && CONTENT[pageKey].ogImage) {
-      pageOgImage = CONTENT[pageKey].ogImage;
+    if (pageCopy(pageKey) && pageCopy(pageKey).ogImage) {
+      pageOgImage = pageCopy(pageKey).ogImage;
     }
 
     let finalOgImage =

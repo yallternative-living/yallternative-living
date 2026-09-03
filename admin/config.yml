@@ -215,12 +215,6 @@ singletons:
     description: "Your whole shop: products and prices, multi-buy deals, category sales, gift bundles and the FAQ. Click an item to edit it or 'Add' to create one; Save publishes in a few minutes."
     file: assets/data/products.json
     format: json
-    # No side-by-side preview: for a settings/catalogue form it only re-lists
-    # every field as label + value beside the field itself -- twice the
-    # screen for the same information (2026-09-03). The Journal keeps its
-    # preview, where rendered post text is actually useful.
-    editor:
-      preview: false
     fields:
       # ==================================================================
       # 1. PRODUCTS (Top Priority - Daily Catalog Management)
@@ -893,12 +887,6 @@ singletons:
     description: "Your pop-up schedule: markets, fairs and Pride dates. Once a date passes the event moves itself to 'Where We've Been'. Save publishes in a few minutes."
     file: assets/data/events.json
     format: json
-    # No side-by-side preview: for a settings/catalogue form it only re-lists
-    # every field as label + value beside the field itself -- twice the
-    # screen for the same information (2026-09-03). The Journal keeps its
-    # preview, where rendered post text is actually useful.
-    editor:
-      preview: false
     fields:
       - name: upcoming
         label: "Upcoming pop-ups"
@@ -1007,12 +995,6 @@ singletons:
     description: "Reviews shown on your site. Only add real ones you've approved, and tick 'Feature on homepage?' for the few you want front and center. Kept separate from your Etsy star rating."
     file: assets/data/site-reviews.json
     format: json
-    # No side-by-side preview: for a settings/catalogue form it only re-lists
-    # every field as label + value beside the field itself -- twice the
-    # screen for the same information (2026-09-03). The Journal keeps its
-    # preview, where rendered post text is actually useful.
-    editor:
-      preview: false
     fields:
       - name: reviews
         label: "On-site reviews"
@@ -1109,12 +1091,6 @@ singletons:
     description: "The photo strip on your homepage: a picture and caption for each Instagram or TikTok post you want to show off. Its on/off switch is under Site Settings."
     file: assets/data/social-feed.json
     format: json
-    # No side-by-side preview: for a settings/catalogue form it only re-lists
-    # every field as label + value beside the field itself -- twice the
-    # screen for the same information (2026-09-03). The Journal keeps its
-    # preview, where rendered post text is actually useful.
-    editor:
-      preview: false
     fields:
       - name: posts
         label: Posts
@@ -1176,12 +1152,6 @@ singletons:
     description: "Wording and photos across your pages (homepage, About, Contact, logos) plus the on/off switches for site features. Open a section, edit, Save. Start with 'Site Settings'."
     file: assets/data/content.json
     format: json
-    # No side-by-side preview: for a settings/catalogue form it only re-lists
-    # every field as label + value beside the field itself -- twice the
-    # screen for the same information (2026-09-03). The Journal keeps its
-    # preview, where rendered post text is actually useful.
-    editor:
-      preview: false
     fields:
       # Everyday items first (logos, banners, footer/newsletter wording,
       # social links, feature switches), then the emails the shop sends,
@@ -2060,39 +2030,40 @@ singletons:
               - { name: key, label: "Key word the search should look for", widget: string }
               - { name: terms, label: "Words shoppers type", widget: list, allow_add: true }
 
-      - name: privacy
-        label: "Privacy Policy page"
+      - name: legal
+        label: "Legal pages"
         widget: object
         collapsed: true
-        summary: "▸ Click the arrow to open -- privacy policy page"
+        summary: "▸ Click the arrow to open -- privacy, terms, shipping & returns"
+        hint: "The intro line and \"last updated\" date on each legal page. The clauses themselves are managed in code."
         fields:
-          - { name: intro, label: "Intro paragraph", widget: text, hint: "Sits under the page title." }
-          - {
-              name: lastUpdated,
-              label: "“Last updated” date",
-              widget: string,
-              hint: "Shown at the bottom, e.g. July 16, 2026. Update it whenever you change the wording (the detailed clauses are managed in code — ask your developer)."
-            }
-      - name: terms
-        label: "Terms of Service page"
-        widget: object
-        collapsed: true
-        summary: "▸ Click the arrow to open -- terms of service page"
-        fields:
-          - { name: intro, label: "Intro paragraph", widget: text, hint: "Sits under the page title." }
-          - {
-              name: lastUpdated,
-              label: "“Last updated” date",
-              widget: string,
-              hint: "Shown at the bottom, e.g. July 18, 2026. Update it whenever you change the wording (the detailed clauses are managed in code — ask your developer)."
-            }
-      - name: policies
-        label: "Shipping & Returns page"
-        widget: object
-        collapsed: true
-        summary: "▸ Click the arrow to open -- shipping & returns page"
-        fields:
-          - { name: intro, label: "Intro paragraph", widget: text, hint: "Sits under the page title." }
+          - name: privacy
+            label: "Privacy Policy"
+            widget: object
+            fields:
+              - { name: intro, label: "Intro paragraph", widget: text, hint: "Sits under the page title." }
+              - {
+                  name: lastUpdated,
+                  label: "“Last updated” date",
+                  widget: string,
+                  hint: "Shown at the bottom, e.g. July 16, 2026. Update it whenever you change the wording (the detailed clauses are managed in code — ask your developer)."
+                }
+          - name: terms
+            label: "Terms of Service"
+            widget: object
+            fields:
+              - { name: intro, label: "Intro paragraph", widget: text, hint: "Sits under the page title." }
+              - {
+                  name: lastUpdated,
+                  label: "“Last updated” date",
+                  widget: string,
+                  hint: "Shown at the bottom, e.g. July 18, 2026. Update it whenever you change the wording (the detailed clauses are managed in code — ask your developer)."
+                }
+          - name: policies
+            label: "Shipping & Returns"
+            widget: object
+            fields:
+              - { name: intro, label: "Intro paragraph", widget: text, hint: "Sits under the page title." }
 
   # ==================================================================
   # 7. APOTHECARY PRODUCT QUIZ
@@ -2103,12 +2074,6 @@ singletons:
     description: "The recommendation quiz on the shop page: its banner wording, the questions shoppers answer, and which products each answer recommends. Its on/off switch is under Site Settings."
     file: assets/data/quiz.json
     format: json
-    # No side-by-side preview: for a settings/catalogue form it only re-lists
-    # every field as label + value beside the field itself -- twice the
-    # screen for the same information (2026-09-03). The Journal keeps its
-    # preview, where rendered post text is actually useful.
-    editor:
-      preview: false
     fields:
       - { name: eyebrow, label: "Banner eyebrow", widget: string, hint: "The small line above the banner title." }
       - { name: title, label: "Banner title", widget: string }

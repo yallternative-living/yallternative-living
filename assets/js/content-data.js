@@ -201,16 +201,18 @@ window.YL_CONTENT = {
     "heroTitle": "Frequently Asked Questions",
     "heroIntro": "Got questions about shipping, returns, ingredients, custom orders, or where to find us? We've got answers. Take a look below, and if you still need help, reach out on our contact page."
   },
-  "privacy": {
-    "intro": "We don't like small print any more than you do, so here's what actually happens with your information when you spend time on this site: no jargon, no funny business.",
-    "lastUpdated": "September 2, 2026"
-  },
-  "terms": {
-    "intro": "Every shop's got rules, and here are ours. By visiting our site or buying something from us, you agree to the following terms and conditions.",
-    "lastUpdated": "July 18, 2026"
-  },
-  "policies": {
-    "intro": "How we get our goods to you, and what happens if things go wrong. Straightforward answers, no nonsense."
+  "legal": {
+    "privacy": {
+      "intro": "We don't like small print any more than you do, so here's what actually happens with your information when you spend time on this site: no jargon, no funny business.",
+      "lastUpdated": "September 2, 2026"
+    },
+    "terms": {
+      "intro": "Every shop's got rules, and here are ours. By visiting our site or buying something from us, you agree to the following terms and conditions.",
+      "lastUpdated": "July 18, 2026"
+    },
+    "policies": {
+      "intro": "How we get our goods to you, and what happens if things go wrong. Straightforward answers, no nonsense."
+    }
   },
   "journal": {
     "title": "Apothecary Journal",
