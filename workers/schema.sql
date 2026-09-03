@@ -305,3 +305,26 @@ CREATE TABLE IF NOT EXISTS job_state (
   value       TEXT NOT NULL,
   updated_at  INTEGER NOT NULL
 );
+
+-- ---------------------------------------------------------------------------
+-- v5 (2026-09-02): the analytics send claim.
+--
+-- One row per thing that has been reported to Umami from the server, keyed
+-- "<kind>:<stripe id>" -- today only "order-paid:<checkout session id>", the
+-- revenue event workers/routes/stripe-webhook.js sends so the Revenue report
+-- counts orders whose shopper blocks the tracker or never returns to the
+-- thank-you page.
+--
+-- Deliberately NOT the webhook_events claim. That one is released when a
+-- handler fails so Stripe's retry can re-run every (idempotent) step; an
+-- analytics send is not idempotent at the far end, so a redelivery would book
+-- the same order's revenue twice. This claim is never released once the
+-- request has been made.
+--
+-- Swept after 90 days by the hourly cron (workers/state/analytics-sends.js).
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS analytics_sends (
+  send_key    TEXT PRIMARY KEY,
+  created_at  INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS analytics_sends_created_at ON analytics_sends (created_at);

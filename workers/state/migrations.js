@@ -33,8 +33,10 @@
  * v4 (2026-09-02) added the automation tables -- restock_signups,
  * market_alert_subscribers and job_state (the once-per-day marker the cron's
  * daily and monthly jobs check before running).
+ * v5 (2026-09-02) added analytics_sends -- the once-per-order claim that stops
+ * a redelivered Stripe event booking the same revenue in Umami twice.
  */
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 /** Verbatim from workers/schema.sql. Keep the two in sync -- a test enforces it. */
 export const SCHEMA_STATEMENTS = [
@@ -166,7 +168,13 @@ export const SCHEMA_STATEMENTS = [
   job         TEXT PRIMARY KEY,
   value       TEXT NOT NULL,
   updated_at  INTEGER NOT NULL
-)`
+)`,
+  // v5: the analytics send claim (see workers/schema.sql for the rationale)
+  `CREATE TABLE IF NOT EXISTS analytics_sends (
+  send_key    TEXT PRIMARY KEY,
+  created_at  INTEGER NOT NULL
+)`,
+  `CREATE INDEX IF NOT EXISTS analytics_sends_created_at ON analytics_sends (created_at)`
 ];
 
 /** Per-isolate memo of the in-flight or completed migration. */

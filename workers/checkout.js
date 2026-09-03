@@ -1816,6 +1816,15 @@ export default {
         const steps = [
           ["webhook-events sweep", () => sweepOldEvents(env.STATE_DB)],
           ["burned-token sweep", () => sweepBurnedTokens(env.STATE_DB)],
+          /* One row per paid order, kept 90 days so a very late Stripe
+             redelivery still cannot double-book revenue in Umami. Without a
+             sweeper this table would be the only one in the schema that grows
+             forever. */
+          [
+            "analytics-send sweep",
+            async () =>
+              (await import("./state/analytics-sends.js")).sweepAnalyticsSends(env.STATE_DB)
+          ],
           ["email-queue sweep", () => retention.sweepEmailQueue(env.STATE_DB)],
           ["birthday club", () => jobs.runBirthdayClub(env, ctx)],
           [

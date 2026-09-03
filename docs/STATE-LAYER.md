@@ -302,6 +302,68 @@ the debit and the email is fully recovered by Stripe's redelivery. A mint that
 Stripe refuses **throws**, which is what puts the event back in the retry loop
 rather than silently swallowing spent points.
 
+### 4.8 Revenue reporting (schema version 5)
+
+One additive table, `analytics_sends`, and one step in the Stripe webhook.
+
+| Table             | Holds                                                   | Idempotency                |
+| ----------------- | ------------------------------------------------------- | -------------------------- |
+| `analytics_sends` | one row per thing reported to analytics from the server | PK on `<kind>:<stripe id>` |
+
+On `checkout.session.completed` with `payment_status === "paid"`,
+`workers/routes/stripe-webhook.js` books the order's revenue in Umami — an
+`Order Paid` event carrying `{ revenue, currency }` and nothing else, built by
+`workers/routes/analytics.js` from `amount_total` on the session Stripe itself
+says was paid. The browser used to do this and still fires `Purchase` as the
+funnel's last step, but with **no properties**: a client-side figure misses
+every shopper who closes the tab on the Stripe redirect or blocks the tracker,
+and keeping both would double-count everyone else.
+
+**Why not the `webhook_events` claim.** That claim is _released_ when a handler
+fails, so Stripe's retry can re-run every step — correct, because every step is
+idempotent. An analytics send is not idempotent at the far end: Umami would book
+the same money twice and the Revenue report would overstate the shop's takings
+while looking perfectly plausible. So `analytics_sends` is keyed on the Checkout
+Session id, is taken _before_ the request, and is never released once the request
+has gone out. It is released in exactly one case — the send was never attempted
+because `UMAMI_WEBSITE_ID` is unset — so configuring the id later and replaying
+the event still books the order.
+
+**What must never happen.** A failure here must not reach the webhook's response.
+A non-2xx makes Stripe redeliver, which re-runs the money path, and no dashboard
+number is worth that. The send is fire-and-forget behind `ctx.waitUntil` with a
+3-second `AbortController` timeout, every failure is logged rather than thrown,
+and the call site is deliberately outside the `failures` array the other steps
+push to.
+
+**No personal data leaves the Worker.** Not the buyer's address, not their name,
+and not the Stripe session id — that id is the token `/api/order-summary` looks
+an order up with, and it is used here only as the local claim key. The event's
+`hostname` and `url` are constants (`yallternativeliving.com`,
+`/thank-you.html`) so it lands on the same website row the browser's events do.
+
+**A 100%-gift-card order is deliberately not booked.** Stripe reports it as
+`payment_status: "no_payment_required"`; nothing was captured, and the card
+itself was already counted as revenue when it was bought.
+
+**Two operational gotchas, both of which fail silently.**
+
+1. `UMAMI_WEBSITE_ID` is a `[vars]` entry in `workers/wrangler.toml`, duplicated
+   from `assets/data/content.json` → `site.umamiWebsiteId` on purpose: the Worker
+   has no filesystem and must not depend on the site build.
+   `scripts/worker-analytics.test.js` fails when the two disagree.
+2. Umami runs every collection request through the npm `isbot` package and
+   answers `200 {"beep":"boop"}` — recording nothing — for a User-Agent it
+   classifies as a bot. Umami's own documented example, `Mozilla/5.0 (Server)`,
+   _is_ classified as a bot. The string in `analytics.js` was chosen by testing
+   candidates against the real package, and the test suite re-checks it on every
+   run so an `isbot` update cannot switch revenue reporting off quietly.
+   `sendToUmami` also reads the response body and reports `bot-filtered` rather
+   than calling a `beep:boop` a success.
+
+Swept after 90 days by the hourly cron, so it is not the one table in the schema
+that grows forever.
+
 ## 5. Dashboard setup (one-time, by hand)
 
 `workers/README.md` has this as a numbered checklist with the reasoning; the

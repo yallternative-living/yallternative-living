@@ -1061,13 +1061,26 @@ a database of customer order history gets added later).
 
 Every event the site sends, its properties, the Umami dashboard setup, and the
 UTM naming convention for Instagram / Etsy / market QR codes live in
-[`docs/ANALYTICS.md`](ANALYTICS.md). Two things worth knowing from here:
+[`docs/ANALYTICS.md`](ANALYTICS.md). Four things worth knowing from here:
 
 - **Keeping your own visits out of the numbers.** Run
   `localStorage.setItem("umami.disabled", 1)` in the browser console on the live
   site. That browser stops being counted until you run
   `localStorage.removeItem("umami.disabled")`. Once per browser, per device.
-  It is the only self-exclusion Umami offers on the free plan.
+  It is the only self-exclusion Umami offers on the free plan — and since the
+  tracker is now served first-party (below), it is the only one that works at
+  all: a DNS-blocking router no longer keeps your own visits out.
+- **The tracker is proxied through this origin.** `/porch-light/script.js` and
+  `/porch-light/api/send` are `status = 200` rewrites to Umami Cloud, generated
+  by `scripts/build-security-headers.js` from the constants in
+  `scripts/lib/analytics-proxy.js`. The tag in every page's `<head>` is built
+  from the same constants. Change one and `npm test` fails, because a mismatch is
+  otherwise silent: the tracker loads and posts into a 404. **The CSP names no
+  Umami host** — `'self'` covers both — which is the reverse of what it used to
+  assert, and `docs/ANALYTICS.md` §7 has the cost of that arrangement in full.
+- **Revenue is booked by the Worker, not the browser.** `workers/routes/analytics.js`,
+  called from the Stripe webhook. `UMAMI_WEBSITE_ID` in `workers/wrangler.toml`
+  must match `site.umamiWebsiteId` in `assets/data/content.json`; a test enforces it.
 - **Local and preview traffic is already excluded.** The tracker tag carries
   `data-domains`, so it disables itself on anything that is not the production
   hostname — `localhost`, the `127.0.0.1` port the Puppeteer suites serve on, and

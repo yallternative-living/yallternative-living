@@ -406,6 +406,14 @@ and the codes are what customers actually type.
 | `LOYALTY_REWARD_CENTS`     | `500`   | What a payout is worth. Must match the coupon's own amount.         |
 | `RETENTION_FROM_EMAIL`     | falls back to `GIFT_CARD_FROM_EMAIL` | Verified Resend sender for the retention sends. |
 | `SAFETY_REPORT_EMAIL`      | falls back to `RESTOCK_NOTIFY_EMAIL`, then `contact@yallternativeliving.com` | Where MoCRA reaction reports are emailed. |
+| `UMAMI_WEBSITE_ID`         | set (same value as the CMS) | The Umami website the webhook books each paid order's revenue against ("Order Paid" — `routes/analytics.js`). Unset -> the webhook logs once and books nothing; the site's own page views are unaffected. |
+
+`UMAMI_WEBSITE_ID` is the one var that is deliberately duplicated from the site
+(`assets/data/content.json` → `site.umamiWebsiteId`). The Worker has no
+filesystem and no access to the build, and revenue reporting that stopped
+because a static build changed would be the worst kind of failure — so it is
+pinned here and `scripts/worker-analytics.test.js` fails when the two disagree.
+It is an id, not a secret: it is on every page of the site in the tracker tag.
 
 Points **per dollar** is deliberately NOT a var: it comes from
 `assets/data/content.json`'s `site.loyaltyPointsPerDollar`, the same CMS field

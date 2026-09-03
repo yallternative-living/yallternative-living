@@ -6,10 +6,12 @@
 
    This page is the Stripe Checkout success_url target (see
    workers/checkout.js). Two things happen here:
-     1. Fire a best-effort "Purchase" analytics event using the amount/
-        currency the Worker embedded in the redirect URL at the moment it
-        created the Stripe session (see docs/STRIPE-MIGRATION.md step 6 --
-        this is ONLY for analytics, never proof of payment).
+     1. Fire a best-effort "Purchase" analytics event -- the last step of the
+        conversion funnel, with NO properties. The money is not booked here:
+        workers/routes/stripe-webhook.js sends the revenue from the server,
+        off the amount Stripe actually captured, so orders from shoppers who
+        block the tracker or never come back still count and no order is
+        counted twice. See docs/ANALYTICS.md.
      2. Clear the local cart, since the order that was in it just went
         through.
    Both are once per order, keyed off the redirect's session_id (see
@@ -36,12 +38,8 @@
      Worker's success_url always carries a real Stripe Checkout Session id
      (cs_live_… / cs_test_…, see workers/checkout.js). Anything else in that
      parameter is a hand-typed or shared URL rather than a completed order,
-     and must not book revenue in analytics or empty a shopper's cart. The
-     amount is held to the same standard: it is only ever an analytics hint,
-     so an absent, non-numeric, negative or absurd value is treated as "no
-     amount" rather than reported as an order total. */
+     and must not book revenue in analytics or empty a shopper's cart. */
   var SESSION_ID_RE = /^cs_(live|test)_[A-Za-z0-9]+$/;
-  var MAX_ORDER_AMOUNT = 10000;
 
   function claimSession(sessionId) {
     if (!sessionId) return false;
@@ -61,16 +59,13 @@
     var sessionId = (params.get("session_id") || "").trim();
     var isValidSession = SESSION_ID_RE.test(sessionId);
 
-    var rawAmount = params.get("amount");
-    var amount = rawAmount === null ? NaN : parseFloat(rawAmount);
-    var hasAmount = isFinite(amount) && amount >= 0 && amount <= MAX_ORDER_AMOUNT;
-    /* Umami's Revenue report reads `currency` as an ISO 4217 code and quietly
-       falls back to USD for anything it does not recognise, so a hand-typed
-       ?currency=... could not corrupt the figures -- but it could still put a
-       junk string in the payload. The Worker only ever emits usd; anything that
-       is not a plain three-letter code is treated as absent. */
-    var rawCurrency = (params.get("currency") || "usd").toUpperCase();
-    var currency = /^[A-Z]{3}$/.test(rawCurrency) ? rawCurrency : "USD";
+    /* ?amount= and ?currency= are still on the redirect URL (the Worker puts
+       them there when it creates the session) and are deliberately NOT read
+       any more. They were only ever an analytics hint, and analytics no longer
+       takes its figure from the browser at all -- the Stripe webhook books the
+       captured amount server-side. Everything on screen comes from
+       /api/order-summary. Reading them again would be re-opening the hole
+       verify-D H-1 closed, where a hand-typed ?amount=9999 painted a receipt. */
 
     /* Nothing below books revenue, empties the cart or says "paid" on the
        strength of the URL alone: a session id and an amount are hints, and
@@ -78,25 +73,26 @@
        "Payment Received" receipt (verify-D H-1). The Worker's
        /api/order-summary is the only proof; confirmOrder() runs once it has
        answered paid + complete, and the page says so honestly until then. */
-    function confirmOrder(confirmedAmount) {
+    function confirmOrder() {
       if (!claimSession(sessionId)) return;
-      var revenue = isFinite(confirmedAmount) ? confirmedAmount : hasAmount ? amount : 0;
       if (typeof window.plausible === "function") {
-        /* FLAT props, not a nested revenue object.
+        /* NO `revenue` AND NO `currency` HERE ANY MORE, on purpose.
 
-         `window.plausible` here is Umami's Plausible-compatible shim (see
-         main.js), and Umami stores each prop as one scalar key/value pair --
-         it has no concept of a nested object, so `props.revenue = {currency,
-         amount}` was stored as the string "[object Object]" and every Purchase
-         event in the dashboard reported no revenue at all. Umami's own
-         revenue-tracking contract is a numeric `revenue` and a string
-         `currency` at the top level of props, which is what this sends. */
-        window.plausible("Purchase", {
-          props: {
-            revenue: revenue,
-            currency: currency
-          }
-        });
+         Revenue is booked once, server-side, by the Stripe webhook
+         (workers/routes/stripe-webhook.js sends "Order Paid" with the amount
+         Stripe actually captured). That is the only figure that is complete:
+         this page never runs for a shopper who blocks the tracker, closes the
+         tab on the Stripe redirect, or pays and never comes back -- and every
+         one of those is a real order with real money in it.
+
+         Keeping `revenue` here as well would double-count every order that
+         DOES land on this page, because Umami's Revenue report sums the
+         property wherever it finds it and has no idea the two events describe
+         one payment. So the split is: the server owns the money, the browser
+         owns the funnel. `Purchase` stays exactly where it was as the last
+         step of the Product View -> ... -> Purchase funnel, and it now carries
+         no properties at all. */
+        window.plausible("Purchase");
       }
       if (window.YLCart && typeof window.YLCart.clear === "function") {
         window.YLCart.clear();
@@ -215,7 +211,7 @@
               if (eyebrowEl) eyebrowEl.textContent = "Order Confirmed \u00b7 Receipt Issued";
               if (badgeText) badgeText.textContent = "Payment Received";
               if (cardEl) cardEl.classList.remove("is-pending");
-              confirmOrder(summary.amountTotalCents / 100);
+              confirmOrder();
               if (amountDisplay) {
                 amountDisplay.textContent = "$" + (summary.amountTotalCents / 100).toFixed(2);
               }

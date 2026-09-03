@@ -3037,6 +3037,15 @@
 
     var catalog = getCatalog();
     var parsedItems = parseSharedCartParam(cartParam, catalog);
+    /* The other half of "Cart Shared": that event says a basket was sent, this
+       one says somebody opened it. Without the pair, a shared cart looks like
+       a dead end in the funnel even when it is the shop's best channel.
+       Reported BEFORE the early return below, so a link whose products have
+       since been retired still shows up -- itemCount 0 is the signal that a
+       share link went stale, and it is the only thing sent. The basket itself
+       never leaves the browser: ?cart= is not on ANALYTICS_ALLOWED_PARAMS, so
+       the URL scrubber in main.js drops it from the page view too. */
+    track("Shared Cart Opened", { itemCount: parsedItems.length });
     if (!parsedItems.length) return false;
 
     parsedItems.forEach(function (item) {

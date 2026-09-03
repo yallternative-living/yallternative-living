@@ -70,6 +70,12 @@
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+/* The first-party analytics paths. Shared with build-security-headers.js,
+   which emits the proxy rules these paths depend on -- a mismatch between the
+   two would load a tracker that posts into a 404, so they come from one file.
+   scripts/analytics.test.js asserts the emitted tag and the emitted rules
+   still agree. */
+const { ANALYTICS_SCRIPT_PATH, ANALYTICS_HOST_URL } = require("./lib/analytics-proxy");
 const ROOT = path.join(__dirname, "..");
 
 /* Read + parse one of the canonical assets/data/*.json source files.
@@ -1290,7 +1296,23 @@ function umamiDomains() {
 }
 
 /* Tracker attributes, and why each one is there:
+   - src / data-host-url: BOTH are first-party paths on this origin, proxied to
+     Umami Cloud by the status=200 rewrites in netlify.toml and vercel.json
+     (scripts/build-security-headers.js). The paths themselves are defined once
+     in scripts/lib/analytics-proxy.js -- read that file for why they are named
+     the way they are. The browser never talks to cloud.umami.is or
+     gateway.umami.is, which is what makes the tracker survive a list-based
+     blocker AND is why the CSP no longer needs either host: 'self' covers both.
+     data-host-url is RELATIVE so www. and the apex both send to their own
+     origin instead of one of them going cross-origin into connect-src 'self'.
    - data-domains: see umamiDomains() above.
+   - data-performance: Core Web Vitals (LCP, INP, CLS, FCP, TTFB) measured on
+     real visitors' devices instead of guessed at from a lab run. One extra
+     request per page load, which on the free Hobby tier costs one of the
+     100,000 events a month -- roughly doubling the pageview spend. Worth it for
+     a shop whose visitors are mostly on phones on rural connections; set it
+     back to "false" (or drop the attribute) if the quota ever gets tight.
+     Requires tracker v3.1.0+.
    - data-exclude-search: the tracker drops the query string from the recorded
      URL *and* the recorded referrer before anything is sent. This site puts a
      Stripe Checkout Session id in thank-you.html?session_id=, a subscriber's
@@ -1303,10 +1325,17 @@ function umamiDomains() {
      hash here, but it keeps /shop.html and /shop.html#apparel from splitting
      into two rows in the Pages report, and it closes the channel rather than
      leaving it open for whatever a later feature decides to put there.
-   - data-do-not-track: Umami IGNORES the browser's Do Not Track signal unless
-     this is explicitly set to "true". A shop whose privacy page says it does
-     not track people should not be quietly counting the ones who asked not to
-     be. Costs a slice of the numbers; that is the point.
+   - data-do-not-track is deliberately ABSENT. Umami ignores the browser's Do
+     Not Track header unless that attribute is set to "true", and this shop
+     does not set it: DNT was retired by the browsers that shipped it (Firefox
+     removed the setting, Safari removed it in 2018), it carries no legal force
+     over cookieless aggregate measurement that stores no personal data, and
+     the only thing honouring it achieved here was a smaller number. What the
+     privacy page promises instead is what the code actually does -- no
+     cookies, no cross-site identity, no personal data in any payload -- plus
+     the localStorage switch that turns analytics off completely
+     (`localStorage.setItem("umami.disabled", 1)`), which is honoured by the
+     tracker itself. Owner decision, 2026-09-02.
    - data-before-send: names window.ylAnalyticsBeforeSend (assets/js/main.js),
      which puts the utm_* campaign parameters back so Etsy/Instagram/market-QR
      attribution still works, drops prerendered pageviews, and scrubs event
@@ -1314,18 +1343,28 @@ function umamiDomains() {
      matter that main.js runs after this tag on some pages. */
 function umamiScriptHtml(site) {
   return umamiIsConfigured(site)
-    ? '<script defer src="https://cloud.umami.is/script.js" data-website-id="' +
+    ? '<script defer src="' +
+        escapeHtml(ANALYTICS_SCRIPT_PATH) +
+        '" data-website-id="' +
         escapeHtml(String(site.umamiWebsiteId).trim()) +
+        '" data-host-url="' +
+        escapeHtml(ANALYTICS_HOST_URL) +
         '" data-domains="' +
         escapeHtml(umamiDomains()) +
         '" data-exclude-search="true" data-exclude-hash="true"' +
-        ' data-do-not-track="true" data-before-send="ylAnalyticsBeforeSend"></script>'
+        ' data-performance="true" data-before-send="ylAnalyticsBeforeSend"></script>'
     : "";
 }
-function umamiPreconnectHtml(site) {
-  return umamiIsConfigured(site)
-    ? '<link rel="preconnect" href="https://cloud.umami.is" crossorigin>'
-    : "";
+/* Deliberately empty now, and the marker stays so the slot is still there.
+   The tracker is served from THIS origin (see umamiScriptHtml above), which
+   the browser is already connected to, so a preconnect would buy nothing --
+   and the old `<link rel="preconnect" href="https://cloud.umami.is">` opened a
+   TLS connection to Umami on every page load, handing them the visitor's IP
+   and the SNI for their hostname before any decision to track had been made.
+   The proxy removes that; emitting nothing here is what removes it from the
+   already-built pages. */
+function umamiPreconnectHtml() {
+  return "";
 }
 
 function buildSiteData() {
