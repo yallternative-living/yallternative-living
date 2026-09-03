@@ -106,6 +106,88 @@ function collectPages() {
   return top.sort().concat(products.sort());
 }
 
+/* Per-scan budget for axe results that axe itself could not decide. Measured,
+   not guessed: every entry below was read off a full run. The default applies
+   to any page not named. Raising a number here is a claim that a new piece of
+   the UI cannot be machine-checked -- make it deliberately, with a reason. */
+const INCOMPLETE_BASELINE_DEFAULT = 0;
+const INCOMPLETE_BASELINE = {
+  "404.html [dark]": 10,
+  "404.html [light]": 10,
+  "about.html [dark]": 13,
+  "about.html [light]": 13,
+  "contact.html [dark]": 16,
+  "contact.html [light]": 16,
+  "events.html [dark]": 21,
+  "events.html [light]": 21,
+  "faq.html [dark]": 10,
+  "faq.html [light]": 10,
+  "index.html [dark]": 38,
+  "index.html [light]": 38,
+  "journal.html [dark]": 10,
+  "journal.html [light]": 10,
+  "offline.html [dark]": 2,
+  "offline.html [light]": 2,
+  "order-status.html [dark]": 6,
+  "order-status.html [light]": 6,
+  "policies.html [dark]": 18,
+  "policies.html [light]": 18,
+  "privacy.html [dark]": 18,
+  "privacy.html [light]": 18,
+  "products/backroad-soak.html [dark]": 17,
+  "products/backroad-soak.html [light]": 17,
+  "products/bath-tea.html [dark]": 8,
+  "products/bath-tea.html [light]": 8,
+  "products/beard-salve.html [dark]": 14,
+  "products/beard-salve.html [light]": 14,
+  "products/bug-spray.html [dark]": 20,
+  "products/bug-spray.html [light]": 20,
+  "products/cleansing-spray.html [dark]": 12,
+  "products/cleansing-spray.html [light]": 12,
+  "products/cream-deodorant.html [dark]": 17,
+  "products/cream-deodorant.html [light]": 17,
+  "products/frankincense-salve.html [dark]": 25,
+  "products/frankincense-salve.html [light]": 25,
+  "products/hand-scrub.html [dark]": 23,
+  "products/hand-scrub.html [light]": 23,
+  "products/lavender-soak.html [dark]": 18,
+  "products/lavender-soak.html [light]": 18,
+  "products/miracle-balm.html [dark]": 18,
+  "products/miracle-balm.html [light]": 18,
+  "products/porch-sweep-spray.html [dark]": 15,
+  "products/porch-sweep-spray.html [light]": 15,
+  "products/protection-keychain.html [dark]": 21,
+  "products/protection-keychain.html [light]": 21,
+  "products/shea-butter.html [dark]": 21,
+  "products/shea-butter.html [light]": 21,
+  "products/shimmer-oil.html [dark]": 16,
+  "products/shimmer-oil.html [light]": 16,
+  "products/sleep-salve.html [dark]": 21,
+  "products/sleep-salve.html [light]": 21,
+  "products/sugar-scrub.html [dark]": 18,
+  "products/sugar-scrub.html [light]": 18,
+  "products/tank-top.html [dark]": 16,
+  "products/tank-top.html [light]": 16,
+  "products/unisex-tshirt.html [dark]": 16,
+  "products/unisex-tshirt.html [light]": 16,
+  "products/whipped-body-butter.html [dark]": 17,
+  "products/whipped-body-butter.html [light]": 17,
+  "products/yallternative-gift-card.html [dark]": 15,
+  "products/yallternative-gift-card.html [light]": 15,
+  "reviews.html [dark]": 39,
+  "reviews.html [light]": 39,
+  "safety.html [dark]": 12,
+  "safety.html [light]": 12,
+  "shop.html [dark]": 104,
+  "shop.html [light]": 104,
+  "terms.html [dark]": 18,
+  "terms.html [light]": 18,
+  "thank-you.html [dark]": 14,
+  "thank-you.html [light]": 14,
+  "welcome.html [dark]": 13,
+  "welcome.html [light]": 13
+};
+
 (async () => {
   const pages = collectPages();
   if (!pages.length) {
@@ -128,6 +210,9 @@ function collectPages() {
   });
 
   let violationCount = 0;
+  /* label -> { rules: [...], nodes: n }, filled in the scan loop and checked
+     against INCOMPLETE_BASELINE once every page has been scanned. */
+  const incompleteByPage = {};
 
   try {
     for (const pageName of pages) {
@@ -192,6 +277,39 @@ function collectPages() {
             }, AXE_TAGS);
 
             const label = `${pageName} [${theme}]`;
+
+            /* axe "incomplete" results are checks axe could not finish, not
+               checks that passed. This gate only ever failed on `violations`,
+               so they were invisible -- and the language selector put 7 nodes
+               permanently into that bucket: its .lang-dropdown composites a
+               backdrop-filter over an rgba() background, and axe reports
+               "background colour could not be determined because it is
+               overlapped by another element" rather than a contrast number.
+               Seven nodes of the picker's own contrast were therefore outside
+               the gate entirely, in both themes.
+
+               Incompletes are reported, never failed on: axe cannot decide
+               them, so neither can this script, and failing on an undecidable
+               result would be a gate that lies in the other direction. What IS
+               enforced is that the count does not grow -- a new incomplete is
+               a new blind spot, and the baseline below is what makes adding
+               one a deliberate act rather than an accident. */
+            const incomplete = result.incomplete || [];
+            const incompleteNodes = incomplete.reduce((n, v) => n + v.nodes.length, 0);
+            incompleteByPage[label] = {
+              rules: incomplete.map((v) => v.id).sort(),
+              nodes: incompleteNodes
+            };
+            if (incomplete.length) {
+              console.log(
+                `  ~ ${label} -- ${incompleteNodes} node(s) axe could not decide, ` +
+                  `across ${incomplete.length} rule(s): ${incomplete
+                    .map((v) => v.id)
+                    .sort()
+                    .join(", ")}`
+              );
+            }
+
             if (!result.violations.length) {
               console.log(`  ✓ ${label}`);
             } else {
@@ -225,7 +343,49 @@ function collectPages() {
     if (server) await new Promise((r) => server.close(r));
   }
 
+  /* Incomplete budget. Reported above per page, enforced here in aggregate:
+     any page whose undecidable-node count exceeds its pin fails the run, so a
+     new blind spot has to be looked at and re-pinned rather than absorbed. */
+  const overBudget = [];
+  Object.keys(incompleteByPage)
+    .sort()
+    .forEach((label) => {
+      const seen = incompleteByPage[label].nodes;
+      const budget = Object.prototype.hasOwnProperty.call(INCOMPLETE_BASELINE, label)
+        ? INCOMPLETE_BASELINE[label]
+        : INCOMPLETE_BASELINE_DEFAULT;
+      if (seen > budget) {
+        overBudget.push(
+          `${label}: ${seen} node(s) axe could not decide, baseline ${budget} ` +
+            `(rules: ${incompleteByPage[label].rules.join(", ") || "none"})`
+        );
+      }
+    });
+  const totalIncomplete = Object.keys(incompleteByPage).reduce(
+    (n, k) => n + incompleteByPage[k].nodes,
+    0
+  );
+  const scansWithIncomplete = Object.keys(incompleteByPage).filter(
+    (k) => incompleteByPage[k].nodes > 0
+  ).length;
+
   console.log("\n==================================================");
+  console.log(
+    `Incomplete (axe could not decide): ${totalIncomplete} node(s) across ` +
+      `${scansWithIncomplete} of ${Object.keys(incompleteByPage).length} scans. ` +
+      "These are not failures; the budget below is what keeps them from growing."
+  );
+  if (overBudget.length) {
+    console.log("\nIncomplete budget EXCEEDED:");
+    overBudget.forEach((line) => console.log(`  - ${line}`));
+    console.log(
+      "\nLook at what axe stopped being able to measure, fix it if it is real, " +
+        "and only then raise INCOMPLETE_BASELINE in scripts/a11y-check.js."
+    );
+    console.log("==================================================");
+    process.exit(1);
+  }
+
   if (violationCount) {
     console.log(
       `Accessibility gate FAILED: ${violationCount} violation(s) across ${pages.length} pages ` +
