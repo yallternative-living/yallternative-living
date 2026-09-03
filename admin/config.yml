@@ -7,12 +7,12 @@
 # sections in the /admin sidebar, on purpose, so Savanna sees exactly
 # what she can do at a glance instead of hunting through one generic
 # "catalog" menu:
-#   1. Products, Bundles & FAQ      -- assets/data/products.json
-#   2. Markets, Fairs & Pride Dates -- assets/data/events.json
+#   1. Shop & Products              -- assets/data/products.json
+#   2. Markets & Pop-Ups            -- assets/data/events.json
 #   3. Customer Reviews             -- assets/data/site-reviews.json
 #   4. Journal                      -- assets/data/journal/*.json (one post per file)
 #   5. Social Media Feed            -- assets/data/social-feed.json
-#   6. Site Images & Page Wording   -- assets/data/content.json
+#   6. Site Settings               -- assets/data/content.json
 #   7. Quiz                         -- assets/data/quiz.json
 #
 # Every section except the Journal is a Sveltia `singleton` (one data file
@@ -882,7 +882,7 @@ singletons:
             }
 
   - name: events
-    label: "2. Markets, Fairs & Pride Dates"
+    label: "2. Markets & Pop-Ups"
     icon: event
     description: "Your pop-up schedule: markets, fairs and Pride dates. Once a date passes the event moves itself to 'Where We've Been'. Save publishes in a few minutes."
     file: assets/data/events.json
@@ -1147,7 +1147,7 @@ singletons:
             }
 
   - name: content
-    label: "6. ⚙️ Site Settings & Pages"
+    label: "6. ⚙️ Site Settings"
     icon: tune
     description: "Wording and photos across your pages (homepage, About, Contact, logos) plus the on/off switches for site features. Open a section, edit, Save. Start with 'Site Settings'."
     file: assets/data/content.json
@@ -1160,8 +1160,11 @@ singletons:
       - name: site
         label: "⚙️ Site Settings & Switches"
         widget: object
-        collapsed: true
-        summary: "On/off switches first, then banners, logos and the connection codes"
+        # Open by default: this is the block Savanna comes here for, and a
+        # collapsed Sveltia object reads like a text field showing one value
+        # rather than a drawer (2026-09-03).
+        collapsed: false
+        summary: "▸ Click the arrow to open -- on/off switches first, then banners, logos and connection codes"
         hint: "The on/off switches for site features come first. Below them: banners, logos, newsletter wording, social links, and the connection codes for your newsletter, forms, chat and stats -- those are set once and rarely touched."
         fields:
           # Switches first: this is the part of the form Savanna opens most
@@ -1273,15 +1276,17 @@ singletons:
               required: false,
               hint: "Shows 'Order within 2h 10m to ship today' on cards, product pages and the cart, counting down to the cutoff below. Turn it on only if you can keep that promise every business day."
             }
+          # Hidden on purpose: a set-once pair Steven configures, not something Savanna
+          # tunes day to day (the "order by" countdown switch above is her control).
+          # widget: hidden drops the object's own UI but keeps cutoffHour/cutoffMinute
+          # in content.json untouched on every save -- proven against the pinned CMS
+          # build (0.172.4) with a source read of Sveltia's save/serialize.js plus a
+          # scripted save against a scratch copy of this config; see DEVELOPMENT.md
+          # section 18b.
           - name: dispatch
             label: "Shipping cutoff"
-            widget: object
-            collapsed: true
+            widget: hidden
             required: false
-            hint: "Orders placed before this time (Eastern) on a business day ship the same day."
-            fields:
-              - { name: cutoffHour, label: "Cutoff hour (0–23)", widget: number, value_type: int, min: 0, max: 23, default: 14, required: false }
-              - { name: cutoffMinute, label: "Cutoff minute (0–59)", widget: number, value_type: int, min: 0, max: 59, default: 0, required: false }
           - {
               name: enableOrderStatusLookup,
               label: "Show Order Lookup Tool",
@@ -1298,34 +1303,35 @@ singletons:
               required: false,
               hint: "Shows earned points on price tags and in the cart."
             }
+          # Hidden on purpose: naming/rate constants for the rewards program, set once
+          # and not part of Savanna's everyday editing (enableLoyaltyPoints above is
+          # her on/off switch). widget: hidden keeps default seeding a first deploy but
+          # drops the UI control; the current value still round-trips on every save.
           - {
               name: loyaltyPointsName,
               label: "Rewards points name (plural)",
-              widget: string,
+              widget: hidden,
               default: "Alt-Points",
-              required: false,
-              hint: "e.g. Alt-Points, Grit Points, Coven Bucks"
+              required: false
             }
           - {
               name: loyaltyPointsSingular,
               label: "Rewards points name (singular)",
-              widget: string,
+              widget: hidden,
               default: "Alt-Point",
-              required: false,
-              hint: "e.g. Alt-Point, Grit Point, Coven Buck"
+              required: false
             }
           - {
               name: loyaltyPointsPerDollar,
               label: "Points per $1 spent",
-              widget: number,
+              widget: hidden,
               default: 1,
-              value_type: int,
               required: false
             }
           - {
               name: loyaltyBadgeEmoji,
               label: "Rewards emoji",
-              widget: string,
+              widget: hidden,
               default: "✨",
               required: false
             }
@@ -1363,38 +1369,21 @@ singletons:
               required: false,
               hint: "On the 1st, a spreadsheet of last month's Report a Reaction submissions, for the MoCRA file."
             }
+          # Hidden on purpose: thresholds and opening lines for the automation emails
+          # above are set once by Steven, not tuned here day to day. Converting the
+          # object's widget from object to hidden drops its six subfields from the
+          # form; the CMS has no per-key view of a hidden object's contents, so it
+          # writes the whole stored object back unchanged rather than field-by-field --
+          # proven empirically (see the risk note in DEVELOPMENT.md section 18b).
           - name: automations
             label: "Automation settings"
-            widget: object
-            collapsed: true
+            widget: hidden
             required: false
-            hint: "Numbers and wording for the emails above; the switches turn each one on or off."
-            fields:
-              - { name: lowStockThreshold, label: "Low-stock number", widget: number, value_type: int, min: 0, max: 100, default: 3, required: false, hint: "Email me when a product's stock is at or under this, e.g. 3." }
-              - { name: orderDigestHour, label: "Order digest hour (0–23, Eastern)", widget: number, value_type: int, min: 0, max: 23, default: 7, required: false }
-              - { name: marketReminderHour, label: "Market reminder hour (0–23, Eastern)", widget: number, value_type: int, min: 0, max: 23, default: 9, required: false }
-              - { name: restockEmailIntro, label: "Back-in-stock email opening line", widget: text, required: false }
-              - { name: marketReminderIntro, label: "Market reminder opening line", widget: text, required: false }
-              - { name: sizeConfirmationIntro, label: "Size/scent confirmation opening line", widget: text, required: false }
 
+          # Hidden on purpose: copy fallback text, set once, not a Savanna control.
           - name: ritualDefaults
             label: "🌿 Complete the Ritual defaults"
-            widget: object
-            collapsed: true
-            hint: "Used on any product that doesn't have its own ritual headline."
-            fields:
-              - {
-                  name: title,
-                  label: "Default headline",
-                  widget: string,
-                  default: "Botanical Pairing"
-                }
-              - {
-                  name: subtitle,
-                  label: "Default subtitle",
-                  widget: text,
-                  default: "Pair this item with complementary botanicals crafted to work together."
-                }
+            widget: hidden
 
           # --- Branding -------------------------------------------------
           - {
@@ -1582,89 +1571,60 @@ singletons:
                   ]
 
           # --- Connection codes (paste once, rarely touched) ------------
-          - {
-              name: kitFormAction,
-              label: "Kit newsletter form link",
-              widget: string,
-              required: false,
-              hint: "Paste the form link from your Kit (ConvertKit) account. You rarely need to change this."
-            }
-          # These IDs are pasted from another dashboard and land inside an
-          # attribute or a JavaScript string on every page, so they are
-          # checked here AND at build time (validateSiteIds in
-          # scripts/build-site-data.js): a value that is not a plausible ID
-          # is a typo or an injection attempt, and the deploy stops.
+          # Hidden on purpose: these are pasted once from another dashboard and
+          # essentially never touched again. `pattern` no longer does anything once a
+          # field is hidden -- Sveltia only runs pattern validation on fields with a
+          # visible widget (confirmed by reading validateAnyField in Sveltia's own
+          # source, which explicitly skips 'hidden' fields) -- so the real safety net is
+          # now build time only: validateSiteIds in scripts/build-site-data.js still
+          # stops the deploy on an implausible value. Left declared (not deleted) so the
+          # CMS keeps writing back whatever is already saved instead of dropping it --
+          # same reasoning as giftUpId below. If Savanna ever needs to change one of
+          # these herself, unhide it (widget: string) first; until then, only a
+          # developer editing content.json (or temporarily unhiding the field) can
+          # change it.
+          - { name: kitFormAction, label: "Kit newsletter form link", widget: hidden, required: false }
           - {
               name: tawkToPropertyId,
               label: "Tawk.to Property ID",
-              widget: string,
+              widget: hidden,
               required: false,
-              pattern:
-                [
-                  "^$|^[A-Za-z0-9]{1,40}$",
-                  "Copy the Property ID exactly from Tawk.to: letters and numbers only, no spaces or punctuation."
-                ],
-              hint: "Turns on the live-chat bubble. Leave blank for no chat."
+              pattern: ["^$|^[A-Za-z0-9]{1,40}$", "Copy the Property ID exactly from Tawk.to: letters and numbers only, no spaces or punctuation."]
             }
           - {
               name: tawkToWidgetId,
               label: "Tawk.to Widget ID",
-              widget: string,
+              widget: hidden,
               required: false,
-              pattern:
-                [
-                  "^$|^[A-Za-z0-9]{1,40}$",
-                  "Copy the Widget ID exactly from Tawk.to: letters and numbers only, no spaces or punctuation."
-                ],
-              hint: "The second Tawk.to code, paired with the Property ID above."
+              pattern: ["^$|^[A-Za-z0-9]{1,40}$", "Copy the Widget ID exactly from Tawk.to: letters and numbers only, no spaces or punctuation."]
             }
           - {
               name: formspreeContactId,
               label: "Formspree contact form ID",
-              widget: string,
+              widget: hidden,
               required: false,
-              pattern:
-                [
-                  "^$|^[A-Za-z0-9_-]{1,64}$",
-                  "Just the short form code from the Formspree URL (letters, numbers, - and _) -- not the whole web address."
-                ],
-              hint: "Makes the Contact page's message form work."
+              pattern: ["^$|^[A-Za-z0-9_-]{1,64}$", "Just the short form code from the Formspree URL (letters, numbers, - and _) -- not the whole web address."]
             }
           - {
               name: formspreeReviewId,
               label: "Formspree review form ID",
-              widget: string,
+              widget: hidden,
               required: false,
-              pattern:
-                [
-                  "^$|^[A-Za-z0-9_-]{1,64}$",
-                  "Just the short form code from the Formspree URL (letters, numbers, - and _) -- not the whole web address."
-                ],
-              hint: "Makes the 'leave a review' form work."
+              pattern: ["^$|^[A-Za-z0-9_-]{1,64}$", "Just the short form code from the Formspree URL (letters, numbers, - and _) -- not the whole web address."]
             }
           - {
               name: formspreeRestockId,
               label: "Formspree launch-alert form ID",
-              widget: string,
+              widget: hidden,
               required: false,
-              pattern:
-                [
-                  "^$|^[A-Za-z0-9_-]{1,64}$",
-                  "Just the short form code from the Formspree URL (letters, numbers, - and _) -- not the whole web address."
-                ],
-              hint: "Makes the 'email me when it launches' sign-ups work."
+              pattern: ["^$|^[A-Za-z0-9_-]{1,64}$", "Just the short form code from the Formspree URL (letters, numbers, - and _) -- not the whole web address."]
             }
           - {
               name: umamiWebsiteId,
               label: "Umami analytics ID",
-              widget: string,
+              widget: hidden,
               required: false,
-              pattern:
-                [
-                  "^(YOUR_UMAMI_WEBSITE_ID|[A-Za-z0-9-]{0,64})$",
-                  "Paste the Website ID from Umami: letters, numbers and hyphens only."
-                ],
-              hint: "Turns on private, cookie-free visitor stats. Leave blank to skip."
+              pattern: ["^(YOUR_UMAMI_WEBSITE_ID|[A-Za-z0-9-]{0,64})$", "Paste the Website ID from Umami: letters, numbers and hyphens only."]
             }
           # Hidden on purpose (widget: hidden = stored, but no UI control).
           # Gift Up! is only half-built: setting a real ID generates a
@@ -1689,6 +1649,7 @@ singletons:
         label: Homepage
         widget: object
         collapsed: true
+        summary: "▸ Click the arrow to open -- hero headline, story, photos"
         fields:
           - {
               name: heroTitle,
@@ -1708,13 +1669,6 @@ singletons:
               label: "Story photo",
               widget: image,
               hint: "Shown next to the 'Handmade In Small Batches' section."
-            }
-          - {
-              name: promoBanner,
-              label: "Promo bar wording",
-              widget: string,
-              required: false,
-              hint: "The thin bar at the top of the homepage."
             }
           - name: badges
             label: "Trust badges"
@@ -1804,6 +1758,7 @@ singletons:
         label: About page
         widget: object
         collapsed: true
+        summary: "▸ Click the arrow to open -- About page story and bio photos"
         fields:
           - { name: heroTitle, label: "About headline", widget: string }
           - { name: heroIntro, label: "About intro line", widget: text, hint: "Sits under the headline." }
@@ -1849,6 +1804,7 @@ singletons:
         label: Shop page
         widget: object
         collapsed: true
+        summary: "▸ Click the arrow to open -- shop page heading and intro"
         fields:
           - { name: heroTitle, label: "Shop headline", widget: string, required: false }
           - { name: heroIntro, label: "Shop subheading", widget: text, required: false }
@@ -1911,6 +1867,7 @@ singletons:
         label: Events page
         widget: object
         collapsed: true
+        summary: "▸ Click the arrow to open -- events page heading and intro"
         fields:
           - { name: heroTitle, label: "Events headline", widget: string, required: false }
           - { name: heroIntro, label: "Events subheading", widget: text, required: false }
@@ -1933,6 +1890,7 @@ singletons:
         label: Contact page
         widget: object
         collapsed: true
+        summary: "▸ Click the arrow to open -- contact page wording"
         fields:
           - { name: heroTitle, label: "Contact headline", widget: string, required: false }
           - { name: heroIntro, label: "Contact subheading", widget: text, required: false }
@@ -1995,6 +1953,7 @@ singletons:
         label: FAQ page
         widget: object
         collapsed: true
+        summary: "▸ Click the arrow to open -- FAQ page heading and intro"
         fields:
           - { name: heroTitle, label: "FAQ headline", widget: string, required: false }
           - { name: heroIntro, label: "FAQ subheading", widget: text, required: false }
@@ -2003,6 +1962,7 @@ singletons:
         label: "Journal page"
         widget: object
         collapsed: true
+        summary: "▸ Click the arrow to open -- journal page heading and intro"
         hint: "The heading and intro line above the list of posts."
         fields:
           - { name: title, label: "Page title", widget: string, hint: "e.g. Apothecary Journal" }
@@ -2017,6 +1977,7 @@ singletons:
         label: "🔎 Search settings"
         widget: object
         collapsed: true
+        summary: "▸ Click the arrow to open -- search suggestions and synonyms"
         required: false
         hint: "The chips under the site search box and the words the search understands. Nothing here is shown on a product, so this is the right place for the words shoppers actually type."
         fields:
@@ -2053,6 +2014,7 @@ singletons:
         label: "Privacy Policy page"
         widget: object
         collapsed: true
+        summary: "▸ Click the arrow to open -- privacy policy page"
         fields:
           - { name: intro, label: "Intro paragraph", widget: text, hint: "Sits under the page title." }
           - {
@@ -2065,6 +2027,7 @@ singletons:
         label: "Terms of Service page"
         widget: object
         collapsed: true
+        summary: "▸ Click the arrow to open -- terms of service page"
         fields:
           - { name: intro, label: "Intro paragraph", widget: text, hint: "Sits under the page title." }
           - {
@@ -2077,6 +2040,7 @@ singletons:
         label: "Shipping & Returns page"
         widget: object
         collapsed: true
+        summary: "▸ Click the arrow to open -- shipping & returns page"
         fields:
           - { name: intro, label: "Intro paragraph", widget: text, hint: "Sits under the page title." }
 

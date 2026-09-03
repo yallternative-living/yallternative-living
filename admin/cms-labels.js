@@ -21,6 +21,12 @@
   var GROUP_LABEL = "Sections";
   var ISOLATE = /[⁨⁩]/g; // Sveltia wraps interpolated names in FSI/PDI marks
   var labels = {};
+  /* site.enableJournal from content.json. While the Journal is switched off
+     (section 6 -> Site Settings & Switches), its sidebar entry is hidden so
+     the list shows only what is live; nothing is deleted -- turning the
+     switch back on brings the entry back on the next load. `null` until the
+     file has been read, which leaves the entry visible. */
+  var journalEnabled = null;
 
   /* Top-level section labels (2-space "- name:" items under singletons: /
      collections:). Deeper fields are indented further, so they never match. */
@@ -41,12 +47,50 @@
       });
   }
 
+  function loadJournalSwitch() {
+    /* content.json sits beside the site, not beside the config, so resolve
+       from the page origin -- /admin/ and the preview harness both work. */
+    var url = new URL("/assets/data/content.json", location.href).toString();
+    return fetch(url, { cache: "no-store" })
+      .then(function (r) {
+        return r.ok ? r.json() : null;
+      })
+      .then(function (data) {
+        var site = data && data.site;
+        journalEnabled = site && typeof site.enableJournal === "boolean" ? site.enableJournal : null;
+      })
+      .catch(function () {
+        journalEnabled = null;
+      });
+  }
+
+  /* The sidebar is a listbox: each collection is a button[role="option"]
+     carrying its label in data-label (Sveltia 0.172). The Journal is also
+     the FIRST collection, so it is where the CMS lands on login; with the
+     switch off, send that landing to the shop instead. Both are no-ops if a
+     future Sveltia changes its markup. */
+  function hideJournalWhenOff() {
+    if (journalEnabled !== false) return;
+    var label = labels.journal || "4. Journal";
+    var options = document.querySelectorAll('button[role="option"][data-label]');
+    for (var i = 0; i < options.length; i++) {
+      var opt = options[i];
+      if (opt.getAttribute("data-label").replace(ISOLATE, "").trim() !== label) continue;
+      var item = opt.closest(".option") || opt;
+      if (item.style.display !== "none") item.style.display = "none";
+    }
+    if (/^#\/collections\/journal(\/|$)/.test(location.hash)) {
+      location.hash = "#/collections/_singletons/entries/products";
+    }
+  }
+
   function currentSingletonLabel() {
     var m = /#\/collections\/_singletons\/entries\/([\w-]+)/.exec(location.hash);
     return m && labels[m[1]] ? labels[m[1]] : null;
   }
 
   function rename() {
+    hideJournalWhenOff();
     var spans = document.querySelectorAll("span.truncated-text");
     for (var i = 0; i < spans.length; i++) {
       var span = spans[i];
@@ -84,7 +128,7 @@
     });
   }
 
-  loadLabels().then(function () {
+  Promise.all([loadLabels(), loadJournalSwitch()]).then(function () {
     rename();
     new MutationObserver(schedule).observe(document.body, {
       childList: true,
