@@ -55,19 +55,24 @@ console.log("Running smoke-test.js unit verification suite...\n");
    machine inflates a single wall-clock reading far past anything the code
    did (see scripts/lib/perf-budget.js). Every run must still exit 0. */
 const { fastest } = require("./lib/perf-budget.js");
-let result;
+const runs = [];
 const { fastestMs } = fastest(() => {
   const r = spawnSync(process.execPath, [SMOKE_TEST_SCRIPT], {
     cwd: ROOT,
     encoding: "utf8",
     env: process.env
   });
-  if (!result || r.status !== 0) result = r;
+  runs.push(r);
   return r;
 }, 3);
 const durationMs = Math.round(fastestMs);
+const result = runs[0];
 
-eq(result.status, 0, "smoke-test.js exits with status code 0 on clean repository");
+eq(
+  runs.map((r) => r.status),
+  [0, 0, 0],
+  "smoke-test.js exits with status code 0 on every run against a clean repository"
+);
 
 // Test 2: Performance SLA (< 3000ms)
 assert(

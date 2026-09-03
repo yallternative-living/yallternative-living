@@ -1402,7 +1402,7 @@ window.YL_SEARCH_INDEX = {
       "comingSoon": false,
       "estimatedBatchDate": null,
       "featured": false,
-      "blurb": "Can't decide? Try a little of everything. Four of our bestselling products bundled together at 15% off: the salve everybody re-orders, the bourbon-vanilla scrub, a lavender soak, and the bug spray that actually works. A full tour of the shop in one box.",
+      "blurb": "Can't decide? Try a little of everything. Four of our bestselling products bundled together for less than buying them one by one: the salve everybody re-orders, the bourbon-vanilla scrub, a lavender soak, and the bug spray that actually works. A full tour of the shop in one box.",
       "ingredients": [],
       "scent": "",
       "tags": [

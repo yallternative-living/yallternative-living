@@ -1619,6 +1619,30 @@ eq(
   "drawer and Worker agree once an upgrade is chosen"
 );
 
+/* ---- A saved cart is re-priced from the live catalog on load ----
+   Red-team finding (2026-09-03): a cart saved before a price change kept the
+   old price in the drawer while the Worker charged the new one. */
+global.window.YL_PRODUCTS = bundleCatalog;
+const stale = cart.sanitizeStoredItems([
+  { id: "salve-1", price: 19.99, qty: 1 },
+  { id: "shea-1", price: 17, variantLabel: "8 oz", variantDelta: 3, qty: 2 },
+  { id: "bundle-night", price: 34.2, qty: 1, bundleVariants: { "shea-1": "4 oz" } },
+  { id: "gone-product", price: 5, qty: 1 }
+]);
+eq(stale.dropped, 1, "sanitizeStoredItems drops a line the catalog no longer has");
+eq(
+  stale.items.map(function (it) {
+    return [it.id, it.price, it.variantDelta || 0];
+  }),
+  [
+    ["salve-1", 20, 0],
+    ["shea-1", 18, 5],
+    ["bundle-night", 34, 0]
+  ],
+  "sanitizeStoredItems replaces stored prices and variant deltas with today's catalog values"
+);
+delete global.window.YL_PRODUCTS;
+
 Promise.all(asyncChecks).then(
   () => {
     console.log(`\ncart-engine.test.js: ${passed} passed, ${failed} failed`);

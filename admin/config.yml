@@ -674,6 +674,7 @@ singletons:
               widget: number,
               value_type: float,
               min: 1,
+              required: false,
               hint: "What the whole set costs, e.g. 34. Keep it a few dollars under the products' own prices added up, or the set is no saving."
             }
           - {

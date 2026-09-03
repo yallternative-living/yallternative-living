@@ -1189,6 +1189,7 @@
   // Expose the pure helpers to Node for testing without touching the DOM layer.
   if (typeof module !== "undefined" && module.exports) {
     module.exports = {
+      sanitizeStoredItems: sanitizeStoredItems,
       lineKey: lineKey,
       bundleVariantKey: bundleVariantKey,
       normalizeBundleVariants: normalizeBundleVariants,
@@ -1231,6 +1232,11 @@
   }
 
   // Everything below needs a browser; bail cleanly under Node (tests).
+  /* Defined above the no-DOM return so sanitizeStoredItems() (exported for
+     its test) can run without a page. Ids the catalog will never list: a build-your-own box is priced by the
+     Worker from its contents, and the gift card is a fixed SKU. */
+  var PSEUDO_ITEM_IDS = ["custom-box", GIFT_CARD_ID];
+
   if (typeof document === "undefined") return;
 
   /* ---------------- State + persistence ---------------- */
@@ -1265,10 +1271,6 @@
     PICKUP_KEY,
     PICKUP_MARKET_KEY
   ];
-
-  /* Ids the catalog will never list: a build-your-own box is priced by the
-     Worker from its contents, and the gift card is a fixed SKU. */
-  var PSEUDO_ITEM_IDS = ["custom-box", GIFT_CARD_ID];
 
   /* Shown when there are no upcoming markets to choose from (see render()). */
   var FALLBACK_PICKUP_LABEL = "Landrum SC Farmers Market (Saturdays 9am-12pm)";
@@ -1428,6 +1430,24 @@
         }
         it.bundleVariants = members.length ? picked : null;
         if (!it.bundleVariants) delete it.bundleVariants;
+      }
+      /* Re-price from the live catalog. A saved cart carries the price that
+         was current when the line was added; the Worker charges today's.
+         Before this, a cart saved before a price change showed the old
+         number in the drawer and was billed the new one at Stripe (red-team
+         finding 1, 2026-09-03). The stored price only survives for a line
+         the catalog cannot vouch for, which `known` has already dropped. */
+      if (liveBundle) {
+        price = bundleLinePrice(liveBundle, it.bundleVariants, null) || price;
+      } else if (live && typeof live.price === "number") {
+        price = live.price;
+        if (live.variants && Array.isArray(live.variants.options) && it.variantLabel) {
+          var liveOpt = live.variants.options.find(function (o) {
+            return o && o.label === it.variantLabel;
+          });
+          it.variantDelta =
+            liveOpt && typeof liveOpt.priceDelta === "number" ? liveOpt.priceDelta : 0;
+        }
       }
       it.price = price;
       it.qty = clampQty(it.qty, it.maxQty);

@@ -668,10 +668,20 @@ console.log("===================================================================
      statistics are still printed above; the worst case warns instead of
      failing. See scripts/lib/perf-budget.js. */
   assert(minDuration < 3000, `Fastest run (${minDuration}ms) satisfies the < 3000ms SLA budget`);
-  if (maxDuration >= 3000) {
+  /* The worst case still matters -- a regression that bites one run in
+     three (a retry, a cold cache) never shows in the fastest run -- and CI
+     runs this suite on a quiet runner (.github/workflows/test.yml), so it
+     is a hard gate there. On a developer's machine, where the other
+     sessions decide the worst case, it warns instead. */
+  if (process.env.CI) {
+    assert(
+      maxDuration < 3000,
+      `Worst-case run (${maxDuration}ms) satisfies the < 3000ms SLA budget on CI`
+    );
+  } else if (maxDuration >= 3000) {
     console.warn(
       `  ⚠ Slowest run was ${maxDuration}ms (budget 3000ms) -- the machine was busy; ` +
-        `not a failure unless the fastest run is slow too.`
+        `not a failure here (it is on CI) unless the fastest run is slow too.`
     );
   }
 

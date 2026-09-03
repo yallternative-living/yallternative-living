@@ -1755,6 +1755,9 @@ function buildSiteData() {
   (CATALOG.categories || []).forEach(function (c) {
     if (c.id) CATEGORIES_BY_ID[c.id] = c;
   });
+  /* Before any derived file is written: a bad bundle price must not leave
+     products-data.js rewritten while the HTML, sitemap and feed are stale. */
+  assertBundlePricesSane(BUNDLES, PRODUCTS_BY_ID);
   try {
     validateQuizData(CONTENT.quiz, PRODUCTS_BY_ID, CATEGORIES_BY_ID, BUNDLES_BY_ID);
   } catch (e) {
@@ -2738,7 +2741,6 @@ function buildSiteData() {
       );
     }
   });
-  assertBundlePricesSane(BUNDLES, PRODUCTS_BY_ID);
 
   /* ---------- 3) shop.html Product/ItemList JSON-LD ---------- */
   const itemListElement = PRODUCTS.map(function (p, i) {
@@ -4211,10 +4213,23 @@ function buildSiteData() {
         return PRODUCTS_BY_ID[id] ? PRODUCTS_BY_ID[id].name : id;
       })
       .join(", ");
+    const pricing = bundlePricing(b, PRODUCTS_BY_ID);
+    const savingPct =
+      pricing && pricing.fullPrice > 0
+        ? Math.round(((pricing.fullPrice - pricing.bundlePrice) / pricing.fullPrice) * 100)
+        : 0;
     return [
       "### " + b.name,
       "- **ID / slug**: `" + b.id + "`",
-      b.discountPercent ? "- **Bundle discount**: " + b.discountPercent + "% off" : "",
+      pricing
+        ? "- **Price**: " +
+          formatMoney(pricing.bundlePrice) +
+          " (" +
+          formatMoney(pricing.fullPrice) +
+          " bought separately" +
+          (savingPct ? ", " + savingPct + "% off" : "") +
+          ")"
+        : "",
       names ? "- **Includes**: " + names : "",
       b.blurb ? "- **Description**: " + b.blurb.replace(/\s+/g, " ").trim() : ""
     ]
