@@ -1057,6 +1057,25 @@ shop starts collecting more customer data than it does today (e.g. if
 Stripe's dashboard is configured to also handle marketing consent, or if
 a database of customer order history gets added later).
 
+### Analytics — see `docs/ANALYTICS.md`
+
+Every event the site sends, its properties, the Umami dashboard setup, and the
+UTM naming convention for Instagram / Etsy / market QR codes live in
+[`docs/ANALYTICS.md`](ANALYTICS.md). Two things worth knowing from here:
+
+- **Keeping your own visits out of the numbers.** Run
+  `localStorage.setItem("umami.disabled", 1)` in the browser console on the live
+  site. That browser stops being counted until you run
+  `localStorage.removeItem("umami.disabled")`. Once per browser, per device.
+  It is the only self-exclusion Umami offers on the free plan.
+- **Local and preview traffic is already excluded.** The tracker tag carries
+  `data-domains`, so it disables itself on anything that is not the production
+  hostname — `localhost`, the `127.0.0.1` port the Puppeteer suites serve on, and
+  Netlify deploy previews included. Do not remove that attribute to "test
+  analytics locally": a single integration run would otherwise post hundreds of
+  page views into the real dataset, and Umami's bot filter does not catch
+  headless Chrome. `scripts/analytics.test.js` fails the build if it goes missing.
+
 ## 15. Performance: responsive images + self-hosted fonts
 
 Two changes, both aimed at real Core Web Vitals wins, not just theory:
