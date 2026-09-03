@@ -1,0 +1,518 @@
+{
+  "note": "User-visible strings the site assembles at runtime. They appear in no .html file on disk, so without this list the dictionary coverage gate in scripts/build-site-data.js would report them as dead entries. `verify` holds literal fragments that must still exist in `source`; the gate re-checks them on every build, which is what stops this list from outliving the copy it describes. Regenerate the candidate strings by rendering the site with: node scripts/extract-i18n-strings.js --json out.json",
+  "strings": [
+    {
+      "key": "announcement.shipping",
+      "text": "Free shipping on orders of $40 or more ✦ Small-batch, handmade with love in Landrum, SC",
+      "source": "assets/data/content.json",
+      "verify": [
+        "Free shipping on orders of $40 or more ✦ Small-batch, handmade with love in Landrum, SC"
+      ],
+      "note": "site.announcement.text, rendered into the announcement bar by main.js"
+    },
+    {
+      "key": "box.addToCart",
+      "text": "Add Box to Cart",
+      "source": "assets/js/main.js",
+      "verify": [
+        "Add Box to Cart"
+      ]
+    },
+    {
+      "key": "box.catBody",
+      "text": "BODY",
+      "source": "assets/data/products.json",
+      "verify": [
+        "\"category\": \"body\""
+      ],
+      "note": "product category, upper-cased by main.js for the box picker"
+    },
+    {
+      "key": "box.catPotions",
+      "text": "POTIONS",
+      "source": "assets/data/products.json",
+      "verify": [
+        "\"category\": \"potions\""
+      ],
+      "note": "product category, upper-cased by main.js for the box picker"
+    },
+    {
+      "key": "box.catSalves",
+      "text": "SALVES",
+      "source": "assets/data/products.json",
+      "verify": [
+        "\"category\": \"salves\""
+      ],
+      "note": "product category, upper-cased by main.js for the box picker"
+    },
+    {
+      "key": "box.catSoaks",
+      "text": "SOAKS",
+      "source": "assets/data/products.json",
+      "verify": [
+        "\"category\": \"soaks\""
+      ],
+      "note": "product category, upper-cased by main.js for the box picker"
+    },
+    {
+      "key": "box.eyebrow",
+      "text": "✦ BUILD YOUR OWN BOX ✦",
+      "source": "assets/js/main.js",
+      "verify": [
+        "✦ BUILD YOUR OWN BOX ✦"
+      ]
+    },
+    {
+      "key": "box.item1",
+      "text": "+ Item 1",
+      "source": "assets/js/main.js",
+      "verify": [
+        "\"+ Item \""
+      ],
+      "note": "template plus slot index"
+    },
+    {
+      "key": "box.item2",
+      "text": "+ Item 2",
+      "source": "assets/js/main.js",
+      "verify": [
+        "\"+ Item \""
+      ],
+      "note": "template plus slot index"
+    },
+    {
+      "key": "box.item3",
+      "text": "+ Item 3",
+      "source": "assets/js/main.js",
+      "verify": [
+        "\"+ Item \""
+      ],
+      "note": "template plus slot index"
+    },
+    {
+      "key": "box.needsChoice",
+      "text": "This set needs a choice before it can go in the cart.",
+      "source": "assets/js/main.js",
+      "verify": [
+        "This set needs a choice before it can go in the cart."
+      ]
+    },
+    {
+      "key": "box.needsChoiceEach",
+      "text": "This set needs a choice for each of these before it can go in the cart.",
+      "source": "assets/js/main.js",
+      "verify": [
+        "This set needs a choice for each of these before it can go in the cart."
+      ]
+    },
+    {
+      "key": "box.nothingPicked",
+      "text": "Nothing picked yet — select at least 3 items to unlock discount.",
+      "source": "assets/js/main.js",
+      "verify": [
+        "Nothing picked yet &mdash; select at least "
+      ],
+      "note": "template plus the minimum item count"
+    },
+    {
+      "key": "box.optional",
+      "text": "+ Optional",
+      "source": "assets/js/main.js",
+      "verify": [
+        "+ Optional"
+      ]
+    },
+    {
+      "key": "box.progress",
+      "text": "Box progress",
+      "source": "assets/js/main.js",
+      "verify": [
+        "Box progress"
+      ]
+    },
+    {
+      "key": "box.text",
+      "text": "Choose any 3–5 handcrafted goods and unlock 10% off your entire custom bundle.",
+      "source": "assets/js/main.js",
+      "verify": [
+        "<p class=\"muted\">Choose any ",
+        " handcrafted goods and unlock "
+      ],
+      "note": "template plus the min/max item count and discount percentage"
+    },
+    {
+      "key": "box.title",
+      "text": "Pick & Mix Your Box",
+      "source": "assets/js/main.js",
+      "verify": [
+        "Pick & Mix Your Box"
+      ]
+    },
+    {
+      "key": "cart.chooseMarket",
+      "text": "Choose Upcoming Market Location:",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "Choose Upcoming Market Location:"
+      ]
+    },
+    {
+      "key": "cart.close",
+      "text": "Close cart",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "Close cart"
+      ]
+    },
+    {
+      "key": "cart.empty",
+      "text": "Your cart is empty.",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "Your cart is empty."
+      ]
+    },
+    {
+      "key": "cart.estimatedTotal",
+      "text": "Estimated total (before tax)",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "Estimated total (before tax)"
+      ]
+    },
+    {
+      "key": "cart.freePocketSalve",
+      "text": "Free Handcrafted Pocket Salve",
+      "source": "assets/data/products.json",
+      "verify": [
+        "\"Free Handcrafted Pocket Salve\""
+      ],
+      "note": "the reward label on the cart's gift milestone"
+    },
+    {
+      "key": "cart.giftCardCode",
+      "text": "Gift card code",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "Gift card code"
+      ]
+    },
+    {
+      "key": "cart.giftNoteLabel",
+      "text": "Gift note message",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "Gift note message"
+      ]
+    },
+    {
+      "key": "cart.giftNotePlaceholder",
+      "text": "Add a free gift note for the packing slip (Max 500 characters)...",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "Add a free gift note for the packing slip (Max 500 characters)..."
+      ]
+    },
+    {
+      "key": "cart.haveGiftCard",
+      "text": "Have a gift card or voucher code?",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "Have a gift card or voucher code?"
+      ]
+    },
+    {
+      "key": "cart.isGift",
+      "text": "This order is a gift",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "This order is a gift"
+      ]
+    },
+    {
+      "key": "cart.marketPickup",
+      "text": "Local SC Market Pick-up (Free)",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "Local SC Market Pick-up (Free)"
+      ]
+    },
+    {
+      "key": "cart.milestones",
+      "text": "Shipping and reward milestones",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "Shipping and reward milestones"
+      ]
+    },
+    {
+      "key": "cart.removeItem",
+      "text": "Remove item",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "Remove item"
+      ]
+    },
+    {
+      "key": "cart.seasonalNotice",
+      "text": "Seasonal announcement",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "Seasonal announcement"
+      ]
+    },
+    {
+      "key": "cart.shareCart",
+      "text": "Share Cart with Friend",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "Share Cart with Friend"
+      ]
+    },
+    {
+      "key": "cart.shareCartLink",
+      "text": "Share cart link",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "Share cart link"
+      ]
+    },
+    {
+      "key": "cart.skipShipping",
+      "text": "Skip shipping & collect at our next market booth",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "Skip shipping & collect at our next market booth"
+      ]
+    },
+    {
+      "key": "cart.subtotal",
+      "text": "Subtotal",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "Subtotal"
+      ]
+    },
+    {
+      "key": "cart.taxesNote",
+      "text": "Promo codes, gift cards & taxes applied at checkout.",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "Promo codes, gift cards & taxes applied at checkout."
+      ]
+    },
+    {
+      "key": "cart.title",
+      "text": "Your Cart",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "Your Cart"
+      ]
+    },
+    {
+      "key": "nav.savedItems",
+      "text": "Open your saved items",
+      "source": "assets/js/main.js",
+      "verify": [
+        "Open your saved items"
+      ]
+    },
+    {
+      "key": "pdp.allergyNote",
+      "text": "Have a sensitivity or allergy? Double-check this list before use, and message us with any questions.",
+      "source": "assets/js/main.js",
+      "verify": [
+        "Have a sensitivity or allergy? Double-check this list before use, and message us with any questions."
+      ]
+    },
+    {
+      "key": "pdp.closeLightbox",
+      "text": "Close lightbox",
+      "source": "assets/js/main.js",
+      "verify": [
+        "Close lightbox"
+      ]
+    },
+    {
+      "key": "pdp.nextImage",
+      "text": "Next image",
+      "source": "assets/js/main.js",
+      "verify": [
+        "Next image"
+      ]
+    },
+    {
+      "key": "pdp.photoViewer",
+      "text": "Product photo viewer",
+      "source": "assets/js/main.js",
+      "verify": [
+        "Product photo viewer"
+      ]
+    },
+    {
+      "key": "pdp.previousImage",
+      "text": "Previous image",
+      "source": "assets/js/main.js",
+      "verify": [
+        "Previous image"
+      ]
+    },
+    {
+      "key": "pdp.youMightAlsoLike",
+      "text": "You Might Also Like",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "You Might Also Like"
+      ]
+    },
+    {
+      "key": "quiz.resultsTitle",
+      "text": "Your Apothecary Match",
+      "source": "assets/js/main.js",
+      "verify": [
+        "Your Apothecary Match"
+      ]
+    },
+    {
+      "key": "quiz.retake",
+      "text": "Take Quiz Again",
+      "source": "assets/js/main.js",
+      "verify": [
+        "Take Quiz Again"
+      ]
+    },
+    {
+      "key": "search.askUs",
+      "text": "Can’t find it? Ask us directly →",
+      "source": "assets/js/main.js",
+      "verify": [
+        "Can’t find it? Ask us directly →"
+      ]
+    },
+    {
+      "key": "search.browseShop",
+      "text": "Browse the full shop →",
+      "source": "assets/js/main.js",
+      "verify": [
+        "Browse the full shop →"
+      ]
+    },
+    {
+      "key": "search.emptyText",
+      "text": "Looking for bedtime rituals, bath soaks, bug defense, or upcoming pop-up markets? Try one of these popular searches:",
+      "source": "assets/js/main.js",
+      "verify": [
+        "Looking for bedtime rituals, bath soaks, bug defense, or upcoming pop-up markets? Try one of these popular searches:"
+      ]
+    },
+    {
+      "key": "search.faqHelp",
+      "text": "FAQ & Help",
+      "source": "assets/js/main.js",
+      "verify": [
+        "FAQ & Help"
+      ]
+    },
+    {
+      "key": "search.marketsEvents",
+      "text": "Markets & Events",
+      "source": "assets/js/main.js",
+      "verify": [
+        "Markets & Events"
+      ]
+    },
+    {
+      "key": "search.results",
+      "text": "Search results",
+      "source": "assets/js/main.js",
+      "verify": [
+        "Search results"
+      ]
+    },
+    {
+      "key": "shop.addSetToCart",
+      "text": "Add Set to Cart",
+      "source": "assets/js/main.js",
+      "verify": [
+        "Add Set to Cart"
+      ]
+    },
+    {
+      "key": "shop.addShort",
+      "text": "+ Add",
+      "source": "assets/js/main.js",
+      "verify": [
+        "+ Add"
+      ]
+    },
+    {
+      "key": "shop.bestseller",
+      "text": "bestseller",
+      "source": "assets/data/products.json",
+      "verify": [
+        "\"bestseller\""
+      ],
+      "note": "a product tag, rendered as a card badge"
+    },
+    {
+      "key": "shop.chooseBlend",
+      "text": "Choose blend…",
+      "source": "assets/js/main.js",
+      "verify": [
+        "<option value=\"\">Choose "
+      ],
+      "note": "template plus the lower-cased variant name (Blend)"
+    },
+    {
+      "key": "shop.chooseScent",
+      "text": "Choose scent…",
+      "source": "assets/js/main.js",
+      "verify": [
+        "<option value=\"\">Choose "
+      ],
+      "note": "template plus the lower-cased variant name (Scent)"
+    },
+    {
+      "key": "shop.chooseSize",
+      "text": "Choose size…",
+      "source": "assets/js/main.js",
+      "verify": [
+        "<option value=\"\">Choose "
+      ],
+      "note": "template plus the lower-cased variant name (Size)"
+    },
+    {
+      "key": "shop.eoFree",
+      "text": "EO-Free",
+      "source": "assets/js/main.js",
+      "verify": [
+        "EO-Free"
+      ]
+    },
+    {
+      "key": "shop.freeShippingAt40",
+      "text": "Free shipping at $40",
+      "source": "assets/js/main.js",
+      "verify": [
+        "Free shipping at $"
+      ],
+      "note": "template plus shop.freeShippingThreshold from products.json"
+    },
+    {
+      "key": "shop.inStock",
+      "text": "In Stock",
+      "source": "assets/js/main.js",
+      "verify": [
+        "In Stock"
+      ]
+    },
+    {
+      "key": "shop.sensitiveSafe",
+      "text": "Sensitive Safe",
+      "source": "assets/js/main.js",
+      "verify": [
+        "Sensitive Safe"
+      ]
+    }
+  ]
+}

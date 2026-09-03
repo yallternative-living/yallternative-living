@@ -730,14 +730,22 @@ async function runAllSuites() {
         );
       });
 
+      /* These used to name keys from the first, hand-imagined dictionary --
+         nav.about, nav.cart ("Cart"), nav.search ("Search"),
+         home.exploreShop ("Explore the Shop"). None of those strings existed
+         anywhere in the shipped markup, so the suite was pinning the dictionary
+         to a site that did not exist. The dictionary is now generated from the
+         rendered pages (scripts/extract-i18n-strings.js) and gated against them
+         (validateDictionaryCoverage in scripts/build-site-data.js), so these
+         name keys whose English really is on the site. */
       const requiredKeys = [
         "nav.shop",
-        "nav.about",
-        "nav.cart",
-        "nav.search",
+        "nav.faq",
+        "cart.title",
+        "search.popularTitle",
         "announcement.shipping",
         "home.heroTitle",
-        "home.exploreShop"
+        "footer.joinTheList"
       ];
 
       expectedLangs.forEach((code) => {
@@ -763,19 +771,19 @@ async function runAllSuites() {
 
       // 2. data-i18n attribute
       const cartBtn = new MockElement("button");
-      cartBtn.setAttribute("data-i18n", "nav.cart");
-      cartBtn.textContent = "Cart";
+      cartBtn.setAttribute("data-i18n", "cart.title");
+      cartBtn.textContent = "Your Cart";
       container.appendChild(cartBtn);
 
       // 3. placeholder attribute
       const searchInput = new MockElement("input");
-      searchInput.setAttribute("placeholder", "Search products, ingredients, scents...");
+      searchInput.setAttribute("placeholder", "Search salves, soaks, events, FAQ… (Cmd+K)");
       searchInput.setAttribute("data-i18n-placeholder", "search.placeholder");
       container.appendChild(searchInput);
 
       // 4. aria-label attribute
       const menuBtn = new MockElement("button");
-      menuBtn.setAttribute("aria-label", "Open navigation menu");
+      menuBtn.setAttribute("aria-label", "Open menu");
       menuBtn.setAttribute("data-i18n-aria-label", "nav.openMenu");
       container.appendChild(menuBtn);
 
@@ -817,15 +825,19 @@ async function runAllSuites() {
         "   Tienda   ",
         "Text node translated to Spanish with whitespace preserved"
       );
-      assert.strictEqual(cartBtn.textContent, "Carrito", "data-i18n element translated to Spanish");
+      assert.strictEqual(
+        cartBtn.textContent,
+        "Tu carrito",
+        "data-i18n element translated to Spanish"
+      );
       assert.strictEqual(
         searchInput.getAttribute("placeholder"),
-        "Buscar productos, ingredientes, aromas...",
+        "Busca bálsamos, sales, eventos, preguntas… (Cmd+K)",
         "Placeholder translated to Spanish"
       );
       assert.strictEqual(
         menuBtn.getAttribute("aria-label"),
-        "Abrir menú de navegación",
+        "Abrir menú",
         "aria-label translated to Spanish"
       );
       assert.ok(
@@ -834,7 +846,7 @@ async function runAllSuites() {
       );
       assert.strictEqual(
         mockDocument.title,
-        "Cuidado Personal para Black Sheep & Bold Hearts",
+        "Autocuidado para Black Sheep & Bold Hearts",
         "document.title translated to Spanish"
       );
 
@@ -888,17 +900,17 @@ async function runAllSuites() {
       assert.strictEqual(textNode.nodeValue, "   Shop   ", "Text node cleanly restored to English");
       assert.strictEqual(
         cartBtn.textContent,
-        "Cart",
+        "Your Cart",
         "data-i18n element cleanly restored to English"
       );
       assert.strictEqual(
         searchInput.getAttribute("placeholder"),
-        "Search products, ingredients, scents...",
+        "Search salves, soaks, events, FAQ… (Cmd+K)",
         "Placeholder restored to English"
       );
       assert.strictEqual(
         menuBtn.getAttribute("aria-label"),
-        "Open navigation menu",
+        "Open menu",
         "aria-label restored to English"
       );
       assert.strictEqual(
@@ -1018,7 +1030,7 @@ async function runAllSuites() {
       const dynamicCard = new MockElement("div");
       dynamicCard.className = "cart-drawer-item";
       const titleP = new MockElement("p");
-      const textNode = new MockTextNode("Explore the Shop");
+      const textNode = new MockTextNode("Add to Cart");
       titleP.appendChild(textNode);
       dynamicCard.appendChild(titleP);
 
@@ -1034,7 +1046,7 @@ async function runAllSuites() {
 
       assert.strictEqual(
         textNode.nodeValue,
-        "Explorar la Tienda",
+        "Añadir al carrito",
         "Dynamic added DOM subtree automatically translated in-place by MutationObserver"
       );
     }

@@ -134,6 +134,11 @@
     "neverTranslateBrandName": true,
     "preserveINCI": true,
     "preserveProprietaryScents": true,
-    "preserveFolkloreIdioms": true
+    "preserveFolkloreIdioms": true,
+    "preserveINCIScope": "ingredient-lists-only",
+    "notes": {
+      "preserveINCI": "INCI binomials are preserved where an ingredient is DECLARED -- a product page ingredient list, a label. They are not to be substituted into marketing copy: rendering \"Calendula, arnica, magnesium, shea\" as \"Calendula officinalis, Arnica montana, Butyrospermum parkii\" inside a sentence whose joke is \"stuff you can actually pronounce\" inverts the line it is translating (2026-09-01 audit, claims drift). assets/data/locales/*.json holds UI copy only and carries no ingredient declarations, so no INCI binomial belongs in it; scripts/i18n-claims.test.js asserts that.",
+      "neverTranslateBrandName": "A brand or product name is reproduced verbatim where the English uses it, and is never INSERTED into a locale that the English does not name. The first dictionary added \"Y'allternative Living\" to cart copy that had no brand name in English."
+    }
   }
 }

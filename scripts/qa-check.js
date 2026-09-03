@@ -4963,6 +4963,183 @@ section("Milestone 4: Self-Hosted Localization Suite & Static QA Invariants");
   }
 })();
 
+/* ---------- Dictionary coverage ---------- */
+section("Localization: dictionary coverage");
+(function checkDictionaryCoverage() {
+  /* The 2026-09-01 audit found 120 of 206 English dictionary values (58%)
+     matching nothing on any page: the dictionary had been authored against an
+     imagined shop, and nothing checked it against the real markup. The gate
+     that catches that now lives in scripts/build-site-data.js and runs on every
+     build; this re-asserts it from the static gate as well, so a dictionary
+     edit committed without re-running the build cannot reach CI green. */
+  var buildData;
+  try {
+    buildData = require("./build-site-data.js");
+  } catch (err) {
+    fail("build-site-data.js", "could not be required: " + err.message);
+    return;
+  }
+  if (typeof buildData.validateDictionaryCoverage !== "function") {
+    fail("build-site-data.js", "does not export validateDictionaryCoverage");
+    return;
+  }
+
+  var LANGS = ["en", "es", "de", "fr", "ja", "zh"];
+  var locales = {};
+  var loadFailed = false;
+  LANGS.forEach(function (lang) {
+    try {
+      locales[lang] = JSON.parse(
+        fs.readFileSync(path.join(ROOT, "assets/data/locales", lang + ".json"), "utf8")
+      );
+    } catch (err) {
+      loadFailed = true;
+      fail("assets/data/locales/" + lang + ".json", "unreadable: " + err.message);
+    }
+  });
+  if (loadFailed) return;
+
+  var runtimeManifest = null;
+  var basis = null;
+  try {
+    runtimeManifest = JSON.parse(
+      fs.readFileSync(path.join(ROOT, "assets/data/i18n-runtime-strings.json"), "utf8")
+    );
+  } catch (err) {
+    fail("assets/data/i18n-runtime-strings.json", "unreadable: " + err.message);
+    return;
+  }
+  try {
+    basis = JSON.parse(
+      fs.readFileSync(path.join(ROOT, "assets/data/i18n-translation-basis.json"), "utf8")
+    );
+  } catch (err) {
+    fail("assets/data/i18n-translation-basis.json", "unreadable: " + err.message);
+    return;
+  }
+
+  /* Count the subject before asserting over it: a dictionary that had somehow
+     become empty would otherwise sail through every loop below. */
+  var keyCount = Object.keys(locales.en.phrases || {}).length;
+  if (keyCount >= 300) {
+    ok("en.json carries " + keyCount + " dictionary keys");
+  } else {
+    fail("assets/data/locales/en.json", "only " + keyCount + " keys -- expected 300 or more");
+    return;
+  }
+  var runtimeCount = (runtimeManifest.strings || []).length;
+  if (runtimeCount > 0) {
+    ok("i18n-runtime-strings.json declares " + runtimeCount + " runtime-only string(s)");
+  } else {
+    fail("assets/data/i18n-runtime-strings.json", "declares no strings");
+  }
+  var basisCount = Object.keys(basis.basis || {}).length;
+  if (basisCount === keyCount) {
+    ok("i18n-translation-basis.json records a basis for all " + basisCount + " key(s)");
+  } else {
+    fail(
+      "assets/data/i18n-translation-basis.json",
+      "records " + basisCount + " key(s) but en.json has " + keyCount
+    );
+  }
+
+  try {
+    buildData.validateDictionaryCoverage(locales, runtimeManifest, basis);
+    ok(
+      "every English dictionary value is reachable in the built site or the runtime " +
+        "manifest, every locale is complete, and no English value has drifted from its " +
+        "recorded translation basis"
+    );
+  } catch (err) {
+    fail("dictionary coverage", err.message);
+  }
+
+  /* The three keys the audit found identical in all five locales
+     (pdp.completeTheRitual, pdp.botanicalPairing, quiz.title). They were dead
+     entries -- none of those English strings existed on the site -- so they are
+     now keyed to the strings the pages really show. Pinned by the real string,
+     not by key name, so renaming a key cannot quietly retire the check. */
+  var mustDiffer = [
+    "✦ COMPLETE THE RITUAL ✦",
+    "Pair this item with complementary botanicals crafted to work together.",
+    "Find Your Custom Self-Care Match"
+  ];
+  mustDiffer.forEach(function (englishText) {
+    var key = null;
+    Object.keys(locales.en.phrases).forEach(function (k) {
+      if (locales.en.phrases[k] === englishText) key = k;
+    });
+    if (!key) {
+      fail("dictionary", "no key holds the English string " + JSON.stringify(englishText));
+      return;
+    }
+    var same = LANGS.slice(1).filter(function (lang) {
+      return locales[lang].phrases[key] === englishText;
+    });
+    if (same.length === 0) {
+      ok("'" + key + "' is translated in all five non-English locales");
+    } else {
+      fail("'" + key + "'", "still identical to English in: " + same.join(", "));
+    }
+  });
+
+  /* The four pages whose body copy stays English carry a line saying so.
+     Asserted on the built HTML rather than on a template, because it is the
+     shipped page a shopper reads. */
+  var LEGAL_PAGES = ["terms.html", "privacy.html", "policies.html", "safety.html"];
+  var governsText =
+    "Heads up: we keep this page in English on purpose. If your browser or our " +
+    "language picker shows it another way, the English text is the one that counts.";
+  var governsKey = null;
+  Object.keys(locales.en.phrases).forEach(function (k) {
+    if (locales.en.phrases[k] === governsText) governsKey = k;
+  });
+  if (governsKey) {
+    ok("the governing-language line is a dictionary entry ('" + governsKey + "')");
+    /* It may be translated -- but the translation has to still SAY that the
+       English governs, so every locale must name English. Checking for the
+       endonym is the cheap version of that and catches the failure that
+       matters: a locale that quietly drops the clause or inverts it. */
+    var englishWord = {
+      es: ["inglés"],
+      de: ["Englisch", "englische"],
+      fr: ["anglais"],
+      ja: ["英語"],
+      zh: ["英文", "英语"]
+    };
+    LANGS.slice(1).forEach(function (lang) {
+      var value = locales[lang].phrases[governsKey] || "";
+      var hit = englishWord[lang].some(function (w) {
+        return value.indexOf(w) !== -1;
+      });
+      if (hit) {
+        ok("the governing-language line still names English in " + lang);
+      } else {
+        fail(
+          "governing-language line [" + lang + "]",
+          "does not mention English, so it no longer says the English text governs: " +
+            JSON.stringify(value)
+        );
+      }
+    });
+  } else {
+    fail("dictionary", "no key holds the governing-language line");
+  }
+  LEGAL_PAGES.forEach(function (page) {
+    var p = path.join(ROOT, page);
+    if (!fs.existsSync(p)) {
+      fail(page, "file not found");
+      return;
+    }
+    var html = fs.readFileSync(p, "utf8");
+    if (html.indexOf("legal-lang-note") !== -1 && html.indexOf(governsText) !== -1) {
+      ok(page + " states that the English version governs");
+    } else {
+      fail(page, "missing the 'English version governs' line");
+    }
+  });
+})();
+
 /* ---------- Summary ---------- */
 console.log("\n" + "=".repeat(50));
 console.log(passCount + " checks passed, " + failures.length + " failed.");
