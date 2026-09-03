@@ -141,7 +141,7 @@ window.YL_PRODUCTS = {
       "description": "",
       "featured": true,
       "category": "salves",
-      "price": 19.99,
+      "price": 20,
       "originalPrice": null,
       "image": "assets/img/frankincense-salve.jpg",
       "images": [
@@ -282,7 +282,7 @@ window.YL_PRODUCTS = {
       "id": "sleep-salve",
       "name": "Hush Y'all Magnesium Arnica Sleep Salve",
       "category": "salves",
-      "price": 19.99,
+      "price": 20,
       "image": "assets/img/sleep-salve.jpg",
       "images": [
         "assets/img/sleep-salve-alt1.jpg"
@@ -1336,8 +1336,8 @@ window.YL_PRODUCTS = {
       "category": "salves",
       "qualifyingVariant": "2oz",
       "minQuantity": 2,
-      "unitPrice": 14.99,
-      "label": "2+ for $14.99 each",
+      "unitPrice": 15,
+      "label": "2+ for $15 each",
       "enabled": true
     }
   ],

@@ -280,7 +280,7 @@ assert(
   featuredCardSleep.includes('href="shop.html#sleep-salve"'),
   "Renders link to shop.html#sleep-salve"
 );
-assert(featuredCardSleep.includes("$19.99"), "Renders product price formatted with dollar sign");
+assert(featuredCardSleep.includes("$20.00"), "Renders product price formatted with dollar sign");
 assert(featuredCardSleep.includes("Lavender"), "Renders product scent badge");
 assert(
   featuredCardSleep.includes("btn btn-sm btn-primary yl-add-item"),
@@ -291,7 +291,7 @@ assert(
   "Button contains data-item-id attribute"
 );
 assert(
-  featuredCardSleep.includes('data-item-price="19.99"'),
+  featuredCardSleep.includes('data-item-price="20.00"'),
   "Button contains data-item-price attribute"
 );
 assert(

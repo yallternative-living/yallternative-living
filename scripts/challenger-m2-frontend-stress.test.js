@@ -32,6 +32,10 @@ const ROOT = path.resolve(__dirname, "..");
 const contentJson = JSON.parse(
   fs.readFileSync(path.join(ROOT, "assets/data/content.json"), "utf8")
 );
+// The quiz lives in its own file; the build merges it back as YL_CONTENT.quiz.
+contentJson.quiz = JSON.parse(
+  fs.readFileSync(path.join(__dirname, "../assets/data/quiz.json"), "utf8")
+);
 const productsJson = JSON.parse(
   fs.readFileSync(path.join(ROOT, "assets/data/products.json"), "utf8")
 );

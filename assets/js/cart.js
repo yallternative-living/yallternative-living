@@ -226,7 +226,7 @@
     return !isNaN(parsedQty) && parsedQty > 1 ? Math.min(parsedQty, MAX_QTY) : 1;
   }
 
-  var QUALIFYING_2OZ_SALVE_PRICE = 14.99;
+  var QUALIFYING_2OZ_SALVE_PRICE = 15;
 
   var DEFAULT_VOLUME_PRICING = [
     {
@@ -236,7 +236,7 @@
       qualifyingVariant: "2oz",
       minQuantity: 2,
       unitPrice: QUALIFYING_2OZ_SALVE_PRICE,
-      label: "2+ for $14.99 each",
+      label: "2+ for $15 each",
       enabled: true
     }
   ];

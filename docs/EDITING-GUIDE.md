@@ -14,7 +14,7 @@ Your dashboard is organized into 7 focused sections in the left sidebar. The **J
 
 1. **1. Products, Bundles & FAQ** — Your daily workspace:
    - **Products (Top Priority)**: Manage your 19 catalog items, edit prices, set size/scent variants, upload photos, add ingredients, and update stock levels.
-   - **Volume Pricing Rules (Promotions & Deals)**: Set up mix-and-match multi-buy category tiers (like *Any 2+ 2oz Salves for $14.99 each*).
+   - **Volume Pricing Rules (Promotions & Deals)**: Set up mix-and-match multi-buy category tiers (like *Any 2+ 2oz Salves for $15 each*).
    - **Category Sales**: Put whole categories on sale at once with percentage discounts (e.g. *15% off Body & Skin*).
    - **Bundles / Pre-made Gift Sets**: Create curated gift sets (*Discovery Flight*, *Everyday Armor Kit*) with auto-calculated bundle pricing.
    - **FAQ (Shop & Contact Accordion)**: Update questions and answers on shipping, returns, shelf life, and custom orders.
@@ -54,7 +54,7 @@ Once Steven completes the one-time OAuth app setup (`docs/DEVELOPMENT.md` Sectio
 #### A. Changing a Product's Base Price
 1. In `/admin`, click **1. Products, Bundles & FAQ**.
 2. Under **Products**, click the item you want to edit (e.g., *Y'all Heal Now Miracle Frankincense Salve*).
-3. Find the **Price (USD)** field and type the new price (e.g. `19.99`).
+3. Find the **Price (USD)** field and type the new price (e.g. `20`).
 4. Click **Save** in the top bar. All bundle discounts, cart calculations, and SEO tags update automatically!
 
 #### B. Adding Sizes, Scents, or Style Variants (with `priceDelta`)
@@ -64,7 +64,7 @@ For products available in different sizes (e.g. 1oz vs 2oz salve, 4oz vs 8oz soa
 3. Under **Options**:
    - **Base Option (Required Rule)**: Exactly **one** option must have a **Price difference** of `0`. This represents your base price entered above (e.g., Option name `2oz`, Price difference `0`).
    - **Additional Options (+ / - Deltas)**: Enter how much more or less the other sizes cost compared to the base price:
-     - For a smaller size that costs less (e.g. 1oz Salve for $13.99 when base is $19.99): enter `-6.00`.
+     - For a smaller size that costs less (e.g. 1oz Salve for $14 when base is $20): enter `-6`.
      - For a larger size that costs more (e.g. 8oz Soak for $24.00 when 4oz base is $14.00): enter `10.00`.
    - **⚠️ Character Trap**: Never use the characters `[`, `]`, or `|` inside option names (e.g. write `2 oz Glass Jar`, **not** `2 oz [Jar]`), as those symbols are used internally by the shopping cart.
 
@@ -83,12 +83,12 @@ Manage stock with complete transparency and urgency without artificial hype:
 
 ### Walkthrough 2: Multi-Buy Volume Deals (`volumePricing`)
 
-Multi-buy deals encourage customers to mix and match multiple items within a category to unlock volume savings (e.g., *Buy 2 or more 2oz Salves for $14.99 each*, regularly $19.99 each).
+Multi-buy deals encourage customers to mix and match multiple items within a category to unlock volume savings (e.g., *Buy 2 or more 2oz Salves for $15 each*, regularly $20 each).
 
 #### How Multi-Buy Works in the Cart:
-- If a customer adds 1x *Frankincense Salve (2oz)* ($19.99), it rings up at $19.99.
-- As soon as they add 1x *Sleep Salve (2oz)* ($19.99), the cart detects 2 qualifying items in `salves`, drops BOTH to $14.99 each, and totals $29.98 with a cheerful savings announcement!
-- If they add a 3rd qualifying salve, it also receives the $14.99 rate ($44.97 total).
+- If a customer adds 1x *Frankincense Salve (2oz)* ($20), it rings up at $20.
+- As soon as they add 1x *Sleep Salve (2oz)* ($20), the cart detects 2 qualifying items in `salves`, drops BOTH to $15 each, and totals $30 with a cheerful savings announcement!
+- If they add a 3rd qualifying salve, it also receives the $15 rate ($45 total).
 
 #### How to Create or Adjust a Volume Deal:
 1. In `/admin`, open **1. Products, Bundles & FAQ**.
@@ -101,8 +101,8 @@ Multi-buy deals encourage customers to mix and match multiple items within a cat
      - Type a specific variant label (e.g. `2oz`) if the deal only applies to that specific size. (1oz jars or balves in other sizes remain unaffected).
      - Leave blank if *all* products and sizes in that category qualify.
    - **Minimum Quantity**: The quantity threshold needed to activate the discount (e.g. `2`).
-   - **Discounted Unit Price ($ USD)**: The discounted unit price (e.g. `14.99`).
-   - **Promotional Label**: The badge copy shown on product cards and cart summaries (e.g. `2+ for $14.99 each`).
+   - **Discounted Unit Price ($ USD)**: The discounted unit price (e.g. `15`).
+   - **Promotional Label**: The badge copy shown on product cards and cart summaries (e.g. `2+ for $15 each`).
    - **Rule Enabled**: Toggle `ON` to run the deal, or toggle `OFF` to pause the promotion anytime without deleting your setup.
 4. Click **Save**.
 
@@ -124,7 +124,7 @@ Put just one item on flash sale:
 1. In **Products**, open the item.
 2. Expand the **Sale (optional)** box.
 3. Enter the **Sale price ($)** (e.g. `15.00`) and the **Sale name shoppers see** (e.g. `Flash Sale`).
-4. In **Original price**, enter the regular price (e.g. `19.99`) so the crossed-out comparison price appears.
+4. In **Original price**, enter the regular price (e.g. `20`) so the crossed-out comparison price appears.
 5. Click **Save**.
 
 ---

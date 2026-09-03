@@ -816,8 +816,8 @@ async function main() {
   await runAsyncTest(
     "R7.7: Worker caps the gift-card discount at the order total and holds it on the ledger",
     async () => {
-      // Basket: Frankincense Salve ($19.99) + $10 shipping = $29.99 ($2999 cents)
-      // Gift Card: $50.00 ($5000 cents) -> discount capped at $29.99 ($2999 cents)
+      // Basket: Frankincense Salve ($20.00) + $10 shipping = $30.00 ($3000 cents)
+      // Gift Card: $50.00 ($5000 cents) -> discount capped at $30.00 ($3000 cents)
       const env = await makeStressEnv({ "YALL-GIFT-5000-0000": 5000 });
       const res = await executeWorkerCheckout(
         {
@@ -828,15 +828,15 @@ async function main() {
       );
 
       assert.strictEqual(res.status, 200);
-      assert.strictEqual(res.couponParams.get("amount_off"), "2999");
+      assert.strictEqual(res.couponParams.get("amount_off"), "3000");
       assert.strictEqual(res.couponParams.get("duration"), "once");
       assert.strictEqual(res.couponParams.get("max_redemptions"), "1");
       assert.strictEqual(res.couponParams.get("metadata[gift_card_code]"), "YALL-GIFT-5000-0000");
 
       const { giftCardLedger } = await import("../workers/state/gift-card-ledger.js");
       const after = await giftCardLedger(env, "YALL-GIFT-5000-0000").getBalance();
-      assert.strictEqual(after.pendingCents, 2999, "exactly the applied amount is held");
-      assert.strictEqual(after.balanceCents, 2001, "the remainder is still spendable");
+      assert.strictEqual(after.pendingCents, 3000, "exactly the applied amount is held");
+      assert.strictEqual(after.balanceCents, 2000, "the remainder is still spendable");
     }
   );
 

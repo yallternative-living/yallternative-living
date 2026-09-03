@@ -675,7 +675,7 @@ function resolveBundlePriceDollars(catalog, bundle, variantChoices) {
   return Math.round(fullPrice * (1 - (bundle.discountPercent || 0) / 100) * 100) / 100;
 }
 
-const QUALIFYING_2OZ_SALVE_PRICE_CENTS = 1499;
+const QUALIFYING_2OZ_SALVE_PRICE_CENTS = 1500;
 
 const DEFAULT_VOLUME_PRICING = [
   {
@@ -685,7 +685,7 @@ const DEFAULT_VOLUME_PRICING = [
     qualifyingVariant: "2oz",
     minQuantity: 2,
     unitPrice: QUALIFYING_2OZ_SALVE_PRICE_CENTS / 100,
-    label: "2+ for $14.99 each",
+    label: "2+ for $15 each",
     enabled: true
   }
 ];

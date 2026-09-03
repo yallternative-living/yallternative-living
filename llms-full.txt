@@ -60,7 +60,7 @@ yourself.
 
 ### Y'all Heal Now Miracle Frankincense Salve
 - **ID / slug**: `frankincense-salve`
-- **Price**: $13.99 - $19.99 USD
+- **Price**: $14.00 - $20.00 USD
 - **Category**: Salves & Balms
 - **Availability**: In stock
 - **Size**: 2oz, 1oz
@@ -79,7 +79,7 @@ yourself.
 
 ### Hush Y'all Magnesium Arnica Sleep Salve
 - **ID / slug**: `sleep-salve`
-- **Price**: $19.99 USD
+- **Price**: $20.00 USD
 - **Category**: Salves & Balms
 - **Availability**: In stock
 - **Description**: Rub a little onto your feet or shoulders before bed and let lavender, chamomile, and cedarwood take it from there. Magnesium and arnica in a 2 oz tin, built for overthinkers and night owls who need the day to actually end.

@@ -319,7 +319,7 @@ async function testWorkerModules() {
     products: [
       {
         id: "frankincense-salve",
-        price: 19.99,
+        price: 20,
         category: "salves",
         variants: {
           name: "Size",
@@ -336,7 +336,7 @@ async function testWorkerModules() {
         id: "sleep-salve",
         name: "Hush Y'all Magnesium Arnica Sleep Salve",
         blurb: "A 2oz tin of magnesium and arnica.",
-        price: 19.99,
+        price: 20,
         category: "salves"
       },
       { id: "beard-salve", price: 14.0, category: "body" },
@@ -347,23 +347,23 @@ async function testWorkerModules() {
 
   eq(
     checkout.resolveUnitAmountCents(salveCatalog, salveCatalog.products[0], "2oz", false, 1),
-    1999,
-    "resolveUnitAmountCents 1x 2oz Frankincense (single unit) is 1999 cents"
+    2000,
+    "resolveUnitAmountCents 1x 2oz Frankincense (single unit) is 2000 cents"
   );
   eq(
     checkout.resolveUnitAmountCents(salveCatalog, salveCatalog.products[0], "2oz", false, 2),
-    1499,
-    "resolveUnitAmountCents 2x 2oz Frankincense (volume tier) is 1499 cents"
+    1500,
+    "resolveUnitAmountCents 2x 2oz Frankincense (volume tier) is 1500 cents"
   );
   eq(
     checkout.resolveUnitAmountCents(salveCatalog, salveCatalog.products[0], "1oz", false, 2),
-    1399,
-    "resolveUnitAmountCents 1oz Frankincense is 1399 cents (excluded from volume tier)"
+    1400,
+    "resolveUnitAmountCents 1oz Frankincense is 1400 cents (excluded from volume tier)"
   );
   eq(
     checkout.resolveUnitAmountCents(salveCatalog, salveCatalog.products[1], null, false, 2),
-    1499,
-    "resolveUnitAmountCents 2oz Sleep Salve (volume tier) is 1499 cents"
+    1500,
+    "resolveUnitAmountCents 2oz Sleep Salve (volume tier) is 1500 cents"
   );
   eq(
     checkout.resolveUnitAmountCents(salveCatalog, salveCatalog.products[2], null, false, 2),
@@ -1065,7 +1065,7 @@ async function testWorkerModules() {
       {
         id: "frankincense-salve",
         name: "Y'all Heal Now Miracle Frankincense Salve",
-        price: 19.99,
+        price: 20,
         category: "salves",
         variants: {
           name: "Size",
@@ -1079,7 +1079,7 @@ async function testWorkerModules() {
         id: "sleep-salve",
         name: "Hush Y'all Magnesium Arnica Sleep Salve",
         blurb: "A 2oz tin of magnesium and arnica.",
-        price: 19.99,
+        price: 20,
         category: "salves"
       },
       {
@@ -1099,28 +1099,28 @@ async function testWorkerModules() {
     shop: { freeShippingThreshold: 40 }
   };
 
-  // 1. Single 2oz Frankincense -> 1999 cents
+  // 1. Single 2oz Frankincense -> 2000 cents
   p = await captureParams([{ id: "frankincense-salve", qty: 1, variant: "2oz" }], {
     _stub: { catalog: fullSalveCatalog }
   });
   eq(
     p.get("line_items[0][price_data][unit_amount]"),
-    "1999",
-    "Worker: 1x 2oz Frankincense is 1999 cents"
+    "2000",
+    "Worker: 1x 2oz Frankincense is 2000 cents"
   );
 
-  // 2. 2x 2oz Frankincense -> 1499 cents each
+  // 2. 2x 2oz Frankincense -> 1500 cents each
   p = await captureParams([{ id: "frankincense-salve", qty: 2, variant: "2oz" }], {
     _stub: { catalog: fullSalveCatalog }
   });
   eq(
     p.get("line_items[0][price_data][unit_amount]"),
-    "1499",
-    "Worker: 2x 2oz Frankincense is 1499 cents each"
+    "1500",
+    "Worker: 2x 2oz Frankincense is 1500 cents each"
   );
   eq(p.get("line_items[0][quantity]"), "2", "Worker: quantity is 2");
 
-  // 3. Mixed 1x Frankincense (2oz) + 1x Sleep Salve (2oz) -> 1499 cents each
+  // 3. Mixed 1x Frankincense (2oz) + 1x Sleep Salve (2oz) -> 1500 cents each
   p = await captureParams(
     [
       { id: "frankincense-salve", qty: 1, variant: "2oz" },
@@ -1130,16 +1130,16 @@ async function testWorkerModules() {
   );
   eq(
     p.get("line_items[0][price_data][unit_amount]"),
-    "1499",
-    "Worker: Mixed bundle Frankincense is 1499 cents"
+    "1500",
+    "Worker: Mixed bundle Frankincense is 1500 cents"
   );
   eq(
     p.get("line_items[1][price_data][unit_amount]"),
-    "1499",
-    "Worker: Mixed bundle Sleep Salve is 1499 cents"
+    "1500",
+    "Worker: Mixed bundle Sleep Salve is 1500 cents"
   );
 
-  // 4. 1x 1oz Frankincense + 1x 2oz Sleep Salve -> 1399 cents + 1999 cents
+  // 4. 1x 1oz Frankincense + 1x 2oz Sleep Salve -> 1400 cents + 2000 cents
   p = await captureParams(
     [
       { id: "frankincense-salve", qty: 1, variant: "1oz" },
@@ -1149,13 +1149,13 @@ async function testWorkerModules() {
   );
   eq(
     p.get("line_items[0][price_data][unit_amount]"),
-    "1399",
-    "Worker: 1oz Frankincense is 1399 cents (no volume tier)"
+    "1400",
+    "Worker: 1oz Frankincense is 1400 cents (no volume tier)"
   );
   eq(
     p.get("line_items[1][price_data][unit_amount]"),
-    "1999",
-    "Worker: 2oz Sleep Salve is 1999 cents (no volume tier)"
+    "2000",
+    "Worker: 2oz Sleep Salve is 2000 cents (no volume tier)"
   );
 
   // 5. Client Price Tampering Defense
@@ -1164,8 +1164,8 @@ async function testWorkerModules() {
   });
   eq(
     p.get("line_items[0][price_data][unit_amount]"),
-    "1999",
-    "Worker: Client price tampering ignored, charges 1999 cents"
+    "2000",
+    "Worker: Client price tampering ignored, charges 2000 cents"
   );
 
   // 6. Multi-Rule Volume Pricing (Salves + Soaks concurrently in Worker)
@@ -1174,7 +1174,7 @@ async function testWorkerModules() {
       {
         id: "frankincense-salve",
         name: "Y'all Heal Now Miracle Frankincense Salve",
-        price: 19.99,
+        price: 20,
         category: "salves",
         variants: {
           name: "Size",
@@ -1207,8 +1207,8 @@ async function testWorkerModules() {
           category: "salves",
           qualifyingVariant: "2oz",
           minQuantity: 2,
-          unitPrice: 14.99,
-          label: "2+ for $14.99 each",
+          unitPrice: 15,
+          label: "2+ for $15 each",
           enabled: true
         },
         {
@@ -1234,8 +1234,8 @@ async function testWorkerModules() {
   );
   eq(
     p.get("line_items[0][price_data][unit_amount]"),
-    "1499",
-    "Worker: Multi-rule Frankincense 2oz discounted to 1499 cents"
+    "1500",
+    "Worker: Multi-rule Frankincense 2oz discounted to 1500 cents"
   );
   eq(p.get("line_items[0][quantity]"), "2", "Worker: Salve quantity is 2");
   eq(

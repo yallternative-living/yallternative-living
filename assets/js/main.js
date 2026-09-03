@@ -1672,8 +1672,8 @@
         category: "salves",
         qualifyingVariant: "2oz",
         minQuantity: 2,
-        unitPrice: 14.99,
-        label: "2+ for $14.99 each",
+        unitPrice: 15,
+        label: "2+ for $15 each",
         enabled: true
       }
     ];

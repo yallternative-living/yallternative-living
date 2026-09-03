@@ -74,78 +74,78 @@ async function runAllTests() {
   console.log("Starting Adversarial 2oz Salve Volume Pricing Tests...\n");
 
   /* =========================================================================
-     TEST SCENARIO 1: 1x 2oz Frankincense ($19.99) - Single Base
+     TEST SCENARIO 1: 1x 2oz Frankincense ($20.00) - Single Base
      ========================================================================= */
-  console.log("--- Scenario 1: 1x 2oz Frankincense ($19.99) ---");
+  console.log("--- Scenario 1: 1x 2oz Frankincense ($20.00) ---");
   const basket1 = [
     {
       id: "frankincense-salve",
       category: "salves",
-      price: 19.99,
+      price: 20,
       variantDelta: 0,
       variantLabel: "2oz",
       qty: 1
     }
   ];
   eq(cart.qualifying2ozSalveCount(basket1), 1, "Scenario 1: count is 1");
-  eq(cart.unitPrice(basket1[0], basket1), 19.99, "Scenario 1: cart unitPrice is $19.99");
-  eq(cart.subtotal(basket1), 19.99, "Scenario 1: cart subtotal is $19.99");
+  eq(cart.unitPrice(basket1[0], basket1), 20, "Scenario 1: cart unitPrice is $20.00");
+  eq(cart.subtotal(basket1), 20, "Scenario 1: cart subtotal is $20.00");
 
   const checkout1 = await runWorkerCheckout([{ id: "frankincense-salve", qty: 1, variant: "2oz" }]);
   eq(checkout1.res.status, 200, "Scenario 1: worker returns 200");
   eq(
     checkout1.capturedStripeBody.get("line_items[0][price_data][unit_amount]"),
-    "1999",
-    "Scenario 1: worker unit amount is 1999 cents"
+    "2000",
+    "Scenario 1: worker unit amount is 2000 cents"
   );
   eq(checkout1.capturedStripeBody.get("line_items[0][quantity]"), "1", "Scenario 1: quantity is 1");
 
   /* =========================================================================
-     TEST SCENARIO 2: 2x 2oz Frankincense ($29.98) - Multi-Buy Tier
+     TEST SCENARIO 2: 2x 2oz Frankincense ($30.00) - Multi-Buy Tier
      ========================================================================= */
-  console.log("--- Scenario 2: 2x 2oz Frankincense ($29.98) ---");
+  console.log("--- Scenario 2: 2x 2oz Frankincense ($30.00) ---");
   const basket2 = [
     {
       id: "frankincense-salve",
       category: "salves",
-      price: 19.99,
+      price: 20,
       variantDelta: 0,
       variantLabel: "2oz",
       qty: 2
     }
   ];
   eq(cart.qualifying2ozSalveCount(basket2), 2, "Scenario 2: count is 2");
-  eq(cart.unitPrice(basket2[0], basket2), 14.99, "Scenario 2: cart unitPrice is $14.99");
-  eq(cart.subtotal(basket2), 29.98, "Scenario 2: cart subtotal is $29.98");
+  eq(cart.unitPrice(basket2[0], basket2), 15, "Scenario 2: cart unitPrice is $15.00");
+  eq(cart.subtotal(basket2), 30, "Scenario 2: cart subtotal is $30.00");
 
   const checkout2 = await runWorkerCheckout([{ id: "frankincense-salve", qty: 2, variant: "2oz" }]);
   eq(checkout2.res.status, 200, "Scenario 2: worker returns 200");
   eq(
     checkout2.capturedStripeBody.get("line_items[0][price_data][unit_amount]"),
-    "1499",
-    "Scenario 2: worker unit amount is 1499 cents"
+    "1500",
+    "Scenario 2: worker unit amount is 1500 cents"
   );
   eq(checkout2.capturedStripeBody.get("line_items[0][quantity]"), "2", "Scenario 2: quantity is 2");
 
   /* =========================================================================
-     TEST SCENARIO 3: 1x 2oz Frankincense + 1x 2oz Sleep Salve ($29.98) - Mix & Match
+     TEST SCENARIO 3: 1x 2oz Frankincense + 1x 2oz Sleep Salve ($30.00) - Mix & Match
      ========================================================================= */
-  console.log("--- Scenario 3: 1x 2oz Frankincense + 1x 2oz Sleep Salve ($29.98) ---");
+  console.log("--- Scenario 3: 1x 2oz Frankincense + 1x 2oz Sleep Salve ($30.00) ---");
   const basket3 = [
     {
       id: "frankincense-salve",
       category: "salves",
-      price: 19.99,
+      price: 20,
       variantDelta: 0,
       variantLabel: "2oz",
       qty: 1
     },
-    { id: "sleep-salve", category: "salves", price: 19.99, variantDelta: 0, qty: 1 }
+    { id: "sleep-salve", category: "salves", price: 20, variantDelta: 0, qty: 1 }
   ];
   eq(cart.qualifying2ozSalveCount(basket3), 2, "Scenario 3: count is 2");
-  eq(cart.unitPrice(basket3[0], basket3), 14.99, "Scenario 3: Frankincense unitPrice is $14.99");
-  eq(cart.unitPrice(basket3[1], basket3), 14.99, "Scenario 3: Sleep Salve unitPrice is $14.99");
-  eq(cart.subtotal(basket3), 29.98, "Scenario 3: cart subtotal is $29.98");
+  eq(cart.unitPrice(basket3[0], basket3), 15, "Scenario 3: Frankincense unitPrice is $15.00");
+  eq(cart.unitPrice(basket3[1], basket3), 15, "Scenario 3: Sleep Salve unitPrice is $15.00");
+  eq(cart.subtotal(basket3), 30, "Scenario 3: cart subtotal is $30.00");
 
   const checkout3 = await runWorkerCheckout([
     { id: "frankincense-salve", qty: 1, variant: "2oz" },
@@ -154,34 +154,34 @@ async function runAllTests() {
   eq(checkout3.res.status, 200, "Scenario 3: worker returns 200");
   eq(
     checkout3.capturedStripeBody.get("line_items[0][price_data][unit_amount]"),
-    "1499",
-    "Scenario 3: Frankincense unit amount is 1499 cents"
+    "1500",
+    "Scenario 3: Frankincense unit amount is 1500 cents"
   );
   eq(
     checkout3.capturedStripeBody.get("line_items[1][price_data][unit_amount]"),
-    "1499",
-    "Scenario 3: Sleep Salve unit amount is 1499 cents"
+    "1500",
+    "Scenario 3: Sleep Salve unit amount is 1500 cents"
   );
 
   /* =========================================================================
-     TEST SCENARIO 4: 3x 2oz Qualifying Salves ($44.97) - Multi-Buy Tier
+     TEST SCENARIO 4: 3x 2oz Qualifying Salves ($45.00) - Multi-Buy Tier
      ========================================================================= */
-  console.log("--- Scenario 4: 3x 2oz Qualifying Salves ($44.97) ---");
+  console.log("--- Scenario 4: 3x 2oz Qualifying Salves ($45.00) ---");
   const basket4 = [
     {
       id: "frankincense-salve",
       category: "salves",
-      price: 19.99,
+      price: 20,
       variantDelta: 0,
       variantLabel: "2oz",
       qty: 2
     },
-    { id: "sleep-salve", category: "salves", price: 19.99, variantDelta: 0, qty: 1 }
+    { id: "sleep-salve", category: "salves", price: 20, variantDelta: 0, qty: 1 }
   ];
   eq(cart.qualifying2ozSalveCount(basket4), 3, "Scenario 4: count is 3");
-  eq(cart.unitPrice(basket4[0], basket4), 14.99, "Scenario 4: Frankincense unitPrice is $14.99");
-  eq(cart.unitPrice(basket4[1], basket4), 14.99, "Scenario 4: Sleep Salve unitPrice is $14.99");
-  eq(cart.subtotal(basket4), 44.97, "Scenario 4: cart subtotal is $44.97");
+  eq(cart.unitPrice(basket4[0], basket4), 15, "Scenario 4: Frankincense unitPrice is $15.00");
+  eq(cart.unitPrice(basket4[1], basket4), 15, "Scenario 4: Sleep Salve unitPrice is $15.00");
+  eq(cart.subtotal(basket4), 45, "Scenario 4: cart subtotal is $45.00");
 
   const checkout4 = await runWorkerCheckout([
     { id: "frankincense-salve", qty: 2, variant: "2oz" },
@@ -190,8 +190,8 @@ async function runAllTests() {
   eq(checkout4.res.status, 200, "Scenario 4: worker returns 200");
   eq(
     checkout4.capturedStripeBody.get("line_items[0][price_data][unit_amount]"),
-    "1499",
-    "Scenario 4: Frankincense unit amount is 1499 cents"
+    "1500",
+    "Scenario 4: Frankincense unit amount is 1500 cents"
   );
   eq(
     checkout4.capturedStripeBody.get("line_items[0][quantity]"),
@@ -200,8 +200,8 @@ async function runAllTests() {
   );
   eq(
     checkout4.capturedStripeBody.get("line_items[1][price_data][unit_amount]"),
-    "1499",
-    "Scenario 4: Sleep Salve unit amount is 1499 cents"
+    "1500",
+    "Scenario 4: Sleep Salve unit amount is 1500 cents"
   );
   eq(
     checkout4.capturedStripeBody.get("line_items[1][quantity]"),
@@ -210,22 +210,22 @@ async function runAllTests() {
   );
 
   /* =========================================================================
-     TEST SCENARIO 5: 4x 2oz Qualifying Salves ($59.96) - Multi-Buy Tier
+     TEST SCENARIO 5: 4x 2oz Qualifying Salves ($60.00) - Multi-Buy Tier
      ========================================================================= */
-  console.log("--- Scenario 5: 4x 2oz Qualifying Salves ($59.96) ---");
+  console.log("--- Scenario 5: 4x 2oz Qualifying Salves ($60.00) ---");
   const basket5 = [
     {
       id: "frankincense-salve",
       category: "salves",
-      price: 19.99,
+      price: 20,
       variantDelta: 0,
       variantLabel: "2oz",
       qty: 2
     },
-    { id: "sleep-salve", category: "salves", price: 19.99, variantDelta: 0, qty: 2 }
+    { id: "sleep-salve", category: "salves", price: 20, variantDelta: 0, qty: 2 }
   ];
   eq(cart.qualifying2ozSalveCount(basket5), 4, "Scenario 5: count is 4");
-  eq(cart.subtotal(basket5), 59.96, "Scenario 5: cart subtotal is $59.96");
+  eq(cart.subtotal(basket5), 60, "Scenario 5: cart subtotal is $60.00");
 
   const checkout5 = await runWorkerCheckout([
     { id: "frankincense-salve", qty: 2, variant: "2oz" },
@@ -234,34 +234,34 @@ async function runAllTests() {
   eq(checkout5.res.status, 200, "Scenario 5: worker returns 200");
   eq(
     checkout5.capturedStripeBody.get("line_items[0][price_data][unit_amount]"),
-    "1499",
-    "Scenario 5: Frankincense unit amount is 1499 cents"
+    "1500",
+    "Scenario 5: Frankincense unit amount is 1500 cents"
   );
   eq(
     checkout5.capturedStripeBody.get("line_items[1][price_data][unit_amount]"),
-    "1499",
-    "Scenario 5: Sleep Salve unit amount is 1499 cents"
+    "1500",
+    "Scenario 5: Sleep Salve unit amount is 1500 cents"
   );
 
   /* =========================================================================
-     TEST SCENARIO 6: 1x 1oz Frankincense ($13.99) + 1x 2oz Sleep Salve ($19.99) -> $33.98 (no discount)
+     TEST SCENARIO 6: 1x 1oz Frankincense ($14.00) + 1x 2oz Sleep Salve ($20.00) -> $34.00 (no discount)
      ========================================================================= */
-  console.log("--- Scenario 6: 1x 1oz Frankincense ($13.99) + 1x 2oz Sleep Salve ($19.99) ---");
+  console.log("--- Scenario 6: 1x 1oz Frankincense ($14.00) + 1x 2oz Sleep Salve ($20.00) ---");
   const basket6 = [
     {
       id: "frankincense-salve",
       category: "salves",
-      price: 19.99,
+      price: 20,
       variantDelta: -6.0,
       variantLabel: "1oz",
       qty: 1
     },
-    { id: "sleep-salve", category: "salves", price: 19.99, variantDelta: 0, qty: 1 }
+    { id: "sleep-salve", category: "salves", price: 20, variantDelta: 0, qty: 1 }
   ];
   eq(cart.qualifying2ozSalveCount(basket6), 1, "Scenario 6: qualifying 2oz count is 1");
-  eq(cart.unitPrice(basket6[0], basket6), 13.99, "Scenario 6: 1oz Frankincense is $13.99");
-  eq(cart.unitPrice(basket6[1], basket6), 19.99, "Scenario 6: 2oz Sleep Salve is $19.99");
-  eq(cart.subtotal(basket6), 33.98, "Scenario 6: cart subtotal is $33.98");
+  eq(cart.unitPrice(basket6[0], basket6), 14, "Scenario 6: 1oz Frankincense is $14.00");
+  eq(cart.unitPrice(basket6[1], basket6), 20, "Scenario 6: 2oz Sleep Salve is $20.00");
+  eq(cart.subtotal(basket6), 34, "Scenario 6: cart subtotal is $34.00");
 
   const checkout6 = await runWorkerCheckout([
     { id: "frankincense-salve", qty: 1, variant: "1oz" },
@@ -270,52 +270,52 @@ async function runAllTests() {
   eq(checkout6.res.status, 200, "Scenario 6: worker returns 200");
   eq(
     checkout6.capturedStripeBody.get("line_items[0][price_data][unit_amount]"),
-    "1399",
-    "Scenario 6: 1oz Frankincense is 1399 cents"
+    "1400",
+    "Scenario 6: 1oz Frankincense is 1400 cents"
   );
   eq(
     checkout6.capturedStripeBody.get("line_items[1][price_data][unit_amount]"),
-    "1999",
-    "Scenario 6: 2oz Sleep Salve is 1999 cents"
+    "2000",
+    "Scenario 6: 2oz Sleep Salve is 2000 cents"
   );
 
   /* =========================================================================
-     TEST SCENARIO 7: 2x 1oz Frankincense ($13.99 ea = $27.98) -> $27.98 (no discount)
+     TEST SCENARIO 7: 2x 1oz Frankincense ($14.00 ea = $28.00) -> $28.00 (no discount)
      ========================================================================= */
-  console.log("--- Scenario 7: 2x 1oz Frankincense ($27.98) ---");
+  console.log("--- Scenario 7: 2x 1oz Frankincense ($28.00) ---");
   const basket7 = [
     {
       id: "frankincense-salve",
       category: "salves",
-      price: 19.99,
+      price: 20,
       variantDelta: -6.0,
       variantLabel: "1oz",
       qty: 2
     }
   ];
   eq(cart.qualifying2ozSalveCount(basket7), 0, "Scenario 7: qualifying 2oz count is 0");
-  eq(cart.unitPrice(basket7[0], basket7), 13.99, "Scenario 7: 1oz unitPrice is $13.99");
-  eq(cart.subtotal(basket7), 27.98, "Scenario 7: subtotal is $27.98");
+  eq(cart.unitPrice(basket7[0], basket7), 14, "Scenario 7: 1oz unitPrice is $14.00");
+  eq(cart.subtotal(basket7), 28, "Scenario 7: subtotal is $28.00");
 
   const checkout7 = await runWorkerCheckout([{ id: "frankincense-salve", qty: 2, variant: "1oz" }]);
   eq(checkout7.res.status, 200, "Scenario 7: worker returns 200");
   eq(
     checkout7.capturedStripeBody.get("line_items[0][price_data][unit_amount]"),
-    "1399",
-    "Scenario 7: 1oz Frankincense is 1399 cents"
+    "1400",
+    "Scenario 7: 1oz Frankincense is 1400 cents"
   );
   eq(checkout7.capturedStripeBody.get("line_items[0][quantity]"), "2", "Scenario 7: quantity is 2");
 
   /* =========================================================================
-     TEST SCENARIO 8: 1x Beard Salve ($14.00) + 1x 2oz Frankincense ($19.99) -> $33.99 (no discount)
+     TEST SCENARIO 8: 1x Beard Salve ($14.00) + 1x 2oz Frankincense ($20.00) -> $34.00 (no discount)
      ========================================================================= */
-  console.log("--- Scenario 8: 1x Beard Salve + 1x 2oz Frankincense ($33.99) ---");
+  console.log("--- Scenario 8: 1x Beard Salve + 1x 2oz Frankincense ($34.00) ---");
   const basket8 = [
     { id: "beard-salve", category: "body", price: 14.0, variantDelta: 0, qty: 1 },
     {
       id: "frankincense-salve",
       category: "salves",
-      price: 19.99,
+      price: 20,
       variantDelta: 0,
       variantLabel: "2oz",
       qty: 1
@@ -323,12 +323,8 @@ async function runAllTests() {
   ];
   eq(cart.qualifying2ozSalveCount(basket8), 1, "Scenario 8: qualifying 2oz count is 1");
   eq(cart.unitPrice(basket8[0], basket8), 14.0, "Scenario 8: Beard Salve unitPrice is $14.00");
-  eq(
-    cart.unitPrice(basket8[1], basket8),
-    19.99,
-    "Scenario 8: 2oz Frankincense unitPrice is $19.99"
-  );
-  eq(cart.subtotal(basket8), 33.99, "Scenario 8: subtotal is $33.99");
+  eq(cart.unitPrice(basket8[1], basket8), 20, "Scenario 8: 2oz Frankincense unitPrice is $20.00");
+  eq(cart.subtotal(basket8), 34, "Scenario 8: subtotal is $34.00");
 
   const checkout8 = await runWorkerCheckout([
     { id: "beard-salve", qty: 1 },
@@ -342,8 +338,8 @@ async function runAllTests() {
   );
   eq(
     checkout8.capturedStripeBody.get("line_items[1][price_data][unit_amount]"),
-    "1999",
-    "Scenario 8: Frankincense is 1999 cents"
+    "2000",
+    "Scenario 8: Frankincense is 2000 cents"
   );
 
   /* =========================================================================
@@ -365,17 +361,17 @@ async function runAllTests() {
   eq(checkout9.capturedStripeBody.get("line_items[0][quantity]"), "2", "Scenario 9: quantity is 2");
 
   /* =========================================================================
-     TEST SCENARIO 10: 1x Miracle Balm ($8.00) + 1x 2oz Sleep Salve ($19.99) -> $27.99 (no discount)
+     TEST SCENARIO 10: 1x Miracle Balm ($8.00) + 1x 2oz Sleep Salve ($20.00) -> $28.00 (no discount)
      ========================================================================= */
-  console.log("--- Scenario 10: 1x Miracle Balm + 1x 2oz Sleep Salve ($27.99) ---");
+  console.log("--- Scenario 10: 1x Miracle Balm + 1x 2oz Sleep Salve ($28.00) ---");
   const basket10 = [
     { id: "miracle-balm", category: "salves", price: 8.0, variantDelta: 0, qty: 1 },
-    { id: "sleep-salve", category: "salves", price: 19.99, variantDelta: 0, qty: 1 }
+    { id: "sleep-salve", category: "salves", price: 20, variantDelta: 0, qty: 1 }
   ];
   eq(cart.qualifying2ozSalveCount(basket10), 1, "Scenario 10: qualifying count is 1");
   eq(cart.unitPrice(basket10[0], basket10), 8.0, "Scenario 10: Miracle Balm unitPrice is $8.00");
-  eq(cart.unitPrice(basket10[1], basket10), 19.99, "Scenario 10: Sleep Salve unitPrice is $19.99");
-  eq(cart.subtotal(basket10), 27.99, "Scenario 10: subtotal is $27.99");
+  eq(cart.unitPrice(basket10[1], basket10), 20, "Scenario 10: Sleep Salve unitPrice is $20.00");
+  eq(cart.subtotal(basket10), 28, "Scenario 10: subtotal is $28.00");
 
   const checkout10 = await runWorkerCheckout([
     { id: "miracle-balm", qty: 1 },
@@ -389,8 +385,8 @@ async function runAllTests() {
   );
   eq(
     checkout10.capturedStripeBody.get("line_items[1][price_data][unit_amount]"),
-    "1999",
-    "Scenario 10: Sleep Salve is 1999 cents"
+    "2000",
+    "Scenario 10: Sleep Salve is 2000 cents"
   );
 
   /* =========================================================================
@@ -405,8 +401,8 @@ async function runAllTests() {
   eq(attack11A.res.status, 200, "Attack 11A: worker succeeds");
   eq(
     attack11A.capturedStripeBody.get("line_items[0][price_data][unit_amount]"),
-    "1999",
-    "Attack 11A: price override ignored; charges 1999 cents"
+    "2000",
+    "Attack 11A: price override ignored; charges 2000 cents"
   );
 
   // Attack 11B: Negative delta tampering
@@ -416,8 +412,8 @@ async function runAllTests() {
   eq(attack11B.res.status, 200, "Attack 11B: worker succeeds");
   eq(
     attack11B.capturedStripeBody.get("line_items[0][price_data][unit_amount]"),
-    "1999",
-    "Attack 11B: variantDelta override ignored; charges 1999 cents"
+    "2000",
+    "Attack 11B: variantDelta override ignored; charges 2000 cents"
   );
 
   // Attack 11C: Invalid variant name injection.
@@ -454,11 +450,11 @@ async function runAllTests() {
     "Attack 11D: Beard Salve is charged 1400 cents"
   );
 
-  // Verify Frankincense is charged full base price (1999 cents) because server ignored spoofed category on beard-salve
+  // Verify Frankincense is charged full base price (2000 cents) because server ignored spoofed category on beard-salve
   eq(
     attack11D.capturedStripeBody.get("line_items[1][price_data][unit_amount]"),
-    "1999",
-    "Attack 11D: Frankincense charged full base price 1999 cents (server ignored spoofed category on beard-salve)"
+    "2000",
+    "Attack 11D: Frankincense charged full base price 2000 cents (server ignored spoofed category on beard-salve)"
   );
 
   // Attack 11E: Miracle Balm variant spoofing
@@ -508,8 +504,8 @@ async function runAllTests() {
       category: "salves",
       qualifyingVariant: "2oz",
       minQuantity: 2,
-      unitPrice: 14.99,
-      label: "2+ for $14.99 each",
+      unitPrice: 15,
+      label: "2+ for $15 each",
       enabled: true
     },
     {
@@ -570,8 +566,8 @@ async function runAllTests() {
     eq(res12.status, 200, "Scenario 12: worker returns 200 for multi-rule checkout");
     eq(
       customStripeBody.get("line_items[0][price_data][unit_amount]"),
-      "1499",
-      "Scenario 12: 2x 2oz Frankincense charged 1499 cents each"
+      "1500",
+      "Scenario 12: 2x 2oz Frankincense charged 1500 cents each"
     );
     eq(
       customStripeBody.get("line_items[1][price_data][unit_amount]"),

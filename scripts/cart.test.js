@@ -493,7 +493,7 @@ storage.set(
       id: "frankincense-salve",
       category: "salves",
       qty: 1,
-      price: 19.99,
+      price: 20,
       variantDelta: 0,
       variantLabel: "2oz",
       name: "Frankincense Salve"
@@ -503,13 +503,13 @@ storage.set(
 YLCart.init({ force: true });
 let itemsHTML = drawerItemsHTML();
 footHTML = drawerFootHTML();
-assert(itemsHTML.includes("$19.99"), "1x 2oz salve renders at $19.99");
+assert(itemsHTML.includes("$20.00"), "1x 2oz salve renders at $20.00");
 assert(
-  !itemsHTML.includes("2+ for $14.99 applied"),
-  "1x 2oz salve does not have 2+ for $14.99 applied badge"
+  !itemsHTML.includes("2+ for $15 applied"),
+  "1x 2oz salve does not have 2+ for $15 applied badge"
 );
 assert(
-  footHTML.includes("Add 1 more 2oz salve to get both for $14.99 each"),
+  footHTML.includes("Add 1 more 2oz salve to get both for $15.00 each"),
   "1x 2oz salve renders mix-and-match nudge in footer"
 );
 
@@ -521,7 +521,7 @@ storage.set(
       id: "frankincense-salve",
       category: "salves",
       qty: 2,
-      price: 19.99,
+      price: 20,
       variantDelta: 0,
       variantLabel: "2oz",
       name: "Frankincense Salve"
@@ -531,12 +531,12 @@ storage.set(
 YLCart.init({ force: true });
 itemsHTML = drawerItemsHTML();
 footHTML = drawerFootHTML();
-assert(itemsHTML.includes("$29.98"), "2x 2oz salve renders $29.98 total");
-assert(itemsHTML.includes("$14.99 ea"), "2x 2oz salve renders $14.99 ea unit price");
-assert(itemsHTML.includes("2+ for $14.99 applied"), "2x 2oz salve renders applied badge");
-assert(footHTML.includes("$29.98"), "2x 2oz salve renders $29.98 subtotal in footer");
+assert(itemsHTML.includes("$30.00"), "2x 2oz salve renders $30.00 total");
+assert(itemsHTML.includes("$15.00 ea"), "2x 2oz salve renders $15.00 ea unit price");
+assert(itemsHTML.includes("2+ for $15 applied"), "2x 2oz salve renders applied badge");
+assert(footHTML.includes("$30.00"), "2x 2oz salve renders $30.00 subtotal in footer");
 assert(
-  footHTML.includes("$14.99/ea 2oz salve volume tier applied"),
+  footHTML.includes("$15.00/ea 2oz salve volume tier applied"),
   "2x 2oz salve renders celebration banner in footer"
 );
 
@@ -548,7 +548,7 @@ storage.set(
       id: "frankincense-salve",
       category: "salves",
       qty: 1,
-      price: 19.99,
+      price: 20,
       variantDelta: 0,
       variantLabel: "2oz",
       name: "Frankincense Salve"
@@ -557,7 +557,7 @@ storage.set(
       id: "sleep-salve",
       category: "salves",
       qty: 1,
-      price: 19.99,
+      price: 20,
       variantDelta: 0,
       variantLabel: "2oz",
       name: "Sleep Salve"
@@ -567,13 +567,10 @@ storage.set(
 YLCart.init({ force: true });
 itemsHTML = drawerItemsHTML();
 footHTML = drawerFootHTML();
+assert(itemsHTML.includes("2+ for $15 applied"), "Mix & match renders applied badge on both lines");
+assert(footHTML.includes("$30.00"), "Mix & match renders $30.00 subtotal in footer");
 assert(
-  itemsHTML.includes("2+ for $14.99 applied"),
-  "Mix & match renders applied badge on both lines"
-);
-assert(footHTML.includes("$29.98"), "Mix & match renders $29.98 subtotal in footer");
-assert(
-  footHTML.includes("$14.99/ea 2oz salve volume tier applied"),
+  footHTML.includes("$15.00/ea 2oz salve volume tier applied"),
   "Mix & match renders celebration banner in footer"
 );
 
@@ -587,8 +584,8 @@ mockWindow.YL_PRODUCTS = {
         category: "salves",
         qualifyingVariant: "2oz",
         minQuantity: 2,
-        unitPrice: 14.99,
-        label: "2+ for $14.99 each",
+        unitPrice: 15,
+        label: "2+ for $15 each",
         enabled: true
       },
       {
@@ -603,7 +600,7 @@ mockWindow.YL_PRODUCTS = {
     ]
   },
   products: [
-    { id: "frankincense-salve", category: "salves", price: 19.99 },
+    { id: "frankincense-salve", category: "salves", price: 20 },
     { id: "lavender-soak", category: "soaks", price: 18.0 },
     { id: "ritual-soak", category: "soaks", price: 18.0 }
   ]
@@ -616,7 +613,7 @@ storage.set(
       id: "frankincense-salve",
       category: "salves",
       qty: 2,
-      price: 19.99,
+      price: 20,
       variantDelta: 0,
       variantLabel: "2oz",
       name: "Frankincense Salve"
@@ -644,16 +641,16 @@ itemsHTML = drawerItemsHTML();
 footHTML = drawerFootHTML();
 
 assert(
-  itemsHTML.includes("2+ for $14.99 applied"),
-  "Multi-rule: Salves have 2+ for $14.99 badge in drawer"
+  itemsHTML.includes("2+ for $15 applied"),
+  "Multi-rule: Salves have 2+ for $15 badge in drawer"
 );
 assert(
   itemsHTML.includes("2+ for $16 applied"),
   "Multi-rule: Soaks have 2+ for $16 applied badge in drawer"
 );
-assert(footHTML.includes("$61.98"), "Multi-rule: Drawer renders combined subtotal $61.98");
+assert(footHTML.includes("$62.00"), "Multi-rule: Drawer renders combined subtotal $62.00");
 assert(
-  footHTML.includes("$14.99/ea 2oz salve volume tier applied"),
+  footHTML.includes("$15.00/ea 2oz salve volume tier applied"),
   "Multi-rule: Salve celebration banner present"
 );
 assert(
@@ -685,8 +682,8 @@ storage.set(
     {
       id: "frankincense-salve",
       category: "salves",
-      qty: 3, // 3 * $14.99 volume price = $44.97: past the $40 tier, short of $60
-      price: 19.99,
+      qty: 3, // 3 * $15.00 volume price = $45.00: past the $40 tier, short of $60
+      price: 20,
       variantDelta: 0,
       variantLabel: "2oz",
       name: "Frankincense Salve"
@@ -697,7 +694,7 @@ YLCart.init({ force: true });
 footHTML = drawerFootHTML();
 assert(
   footHTML.includes(
-    "$14.99/ea 2oz salve volume tier applied! · Add $15.03 for Free Handcrafted Pocket Salve!"
+    "$15.00/ea 2oz salve volume tier applied! · Add $15.00 for Free Handcrafted Pocket Salve!"
   ),
   "Mix & Match nudge names the real next milestone reward once the $40 tier is already crossed"
 );
@@ -706,7 +703,7 @@ assert(
   "Nothing in the drawer footer says 'free shipping' once the $40 tier is already unlocked and a further tier remains"
 );
 assert(
-  footHTML.includes("Add $15.03 more to unlock a Free Handcrafted Pocket Salve!"),
+  footHTML.includes("Add $15.00 more to unlock a Free Handcrafted Pocket Salve!"),
   "The milestone banner itself also names the real next reward, not 'free shipping'"
 );
 
@@ -730,7 +727,7 @@ mockWindow.YL_PRODUCTS = {
     {
       id: "frankincense-salve",
       name: "Frankincense Salve",
-      price: 19.99,
+      price: 20,
       category: "salves",
       variants: {
         name: "Size",
