@@ -135,7 +135,7 @@
             <span class="amount-label">Order Total</span>
             <div class="amount-val" id="thankYouAmountDisplay"></div>
           </div>
-          <div class="receipt-secure-pill">
+          <div class="receipt-secure-pill" id="thankYouSecurePill" hidden>
             <svg class="yl-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
             <span>Paid securely through Stripe</span>
           </div>
@@ -154,14 +154,14 @@
         </div>
 
         <!-- Fulfillment Flow Tracker -->
-        <div class="thank-you-timeline">
+        <div class="thank-you-timeline" id="thankYouTimeline" hidden>
           <div class="timeline-step step-complete">
             <div class="timeline-marker">
               <svg class="yl-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
             </div>
             <div class="timeline-text">
               <span class="timeline-title">Order Placed</span>
-              <span class="timeline-sub">Payment confirmed</span>
+              <span class="timeline-sub" id="thankYouTimelineStep1Sub">Payment confirmed</span>
             </div>
           </div>
           <div class="timeline-line complete"></div>

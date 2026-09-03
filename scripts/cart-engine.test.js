@@ -979,6 +979,25 @@ else global.window.YL_PRODUCTS = savedWindowYlProducts;
     "Order Confirmation",
     "thank-you: an unconfirmed session is not called confirmed"
   );
+  /* live audit MEDIUM-1: the static receipt card kept asserting "paid" (the
+     "Paid securely through Stripe" pill, and the timeline's "Order Placed --
+     Payment confirmed" step) right next to showUnconfirmed()'s "Not
+     confirmed yet" badge and "couldn't confirm this order" lede. */
+  eq(
+    unconfirmed.els.thankYouSecurePill.hidden,
+    true,
+    "thank-you: an unconfirmed session hides the 'Paid securely through Stripe' pill"
+  );
+  eq(
+    unconfirmed.els.thankYouTimeline.hidden,
+    true,
+    "thank-you: an unconfirmed session hides the fulfillment timeline"
+  );
+  eq(
+    unconfirmed.els.thankYouTimelineStep1Sub.textContent,
+    "Awaiting confirmation",
+    "thank-you: an unconfirmed session's timeline step no longer says 'Payment confirmed'"
+  );
   const offline = runThankYou("?session_id=cs_live_net1&amount=10.00", null, { summary: null });
   eq(offline.purchases.length, 0, "thank-you: a failed confirmation request fires no Purchase");
   eq(
@@ -1003,6 +1022,21 @@ else global.window.YL_PRODUCTS = savedWindowYlProducts;
     "thank-you: order total renders the Worker-confirmed amount"
   );
   eq(good.els.thankYouSessionRow.hidden, false, "thank-you: reference id shown for a real session");
+  eq(
+    good.els.thankYouSecurePill.hidden,
+    false,
+    "thank-you: a confirmed, paid session shows the 'Paid securely through Stripe' pill"
+  );
+  eq(
+    good.els.thankYouTimeline.hidden,
+    false,
+    "thank-you: a confirmed, paid session shows the fulfillment timeline"
+  );
+  eq(
+    good.els.thankYouTimelineStep1Sub.textContent,
+    "Payment confirmed",
+    "thank-you: a confirmed, paid session's timeline step says 'Payment confirmed'"
+  );
   /* Seen on a live order 2026-09-03: "Payment Received" rendered twice,
      staggered and overlapping. The badge's first <span> is the 8px pulse dot,
      and querySelector(".receipt-status-badge span") wrote the label into it,

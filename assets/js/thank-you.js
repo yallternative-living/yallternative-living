@@ -132,6 +132,17 @@
       ? cardEl.querySelector(".receipt-status-badge span:not(.status-pulse)")
       : null;
 
+    /* The two receipt-card pieces that flatly assert "paid" no matter what:
+       the "Paid securely through Stripe" pill and the timeline's first step
+       ("Order Placed \u2014 Payment confirmed", rendered with a completed
+       checkmark). Both ship `hidden` in the HTML and are only earned once
+       the Worker actually confirms payment below -- showUnconfirmed() must
+       never let them stand next to "Not confirmed yet" / "couldn't confirm
+       this order". */
+    var securePillEl = document.getElementById("thankYouSecurePill");
+    var timelineEl = document.getElementById("thankYouTimeline");
+    var timelineStep1SubEl = document.getElementById("thankYouTimelineStep1Sub");
+
     /* Reached when the Worker cannot vouch for the session: no total, no
        "paid" wording, and a pointer at the two records that do exist. */
     function showUnconfirmed() {
@@ -139,6 +150,9 @@
       if (badgeWrapEl) badgeWrapEl.hidden = true;
       if (cardEl) cardEl.classList.remove("is-pending");
       if (badgeText) badgeText.textContent = "Not confirmed yet";
+      if (securePillEl) securePillEl.hidden = true;
+      if (timelineEl) timelineEl.hidden = true;
+      if (timelineStep1SubEl) timelineStep1SubEl.textContent = "Awaiting confirmation";
       if (ledeEl) {
         ledeEl.textContent =
           "We couldn't confirm this order from here just now. If you just checked out, " +
@@ -183,6 +197,11 @@
         cardEl.hidden = false;
       }
       if (badgeWrapEl) badgeWrapEl.hidden = false;
+      /* Still unconfirmed at this point too -- the fetch below hasn't
+         answered yet -- so the "paid" pill and timeline stay hidden until
+         the confirmed branch earns them back. */
+      if (securePillEl) securePillEl.hidden = true;
+      if (timelineEl) timelineEl.hidden = true;
     }
 
     var sessionRow = document.getElementById("thankYouSessionRow");
@@ -225,6 +244,9 @@
               if (eyebrowEl) eyebrowEl.textContent = "Order Confirmed \u00b7 Receipt Issued";
               if (badgeText) badgeText.textContent = "Payment Received";
               if (cardEl) cardEl.classList.remove("is-pending");
+              if (securePillEl) securePillEl.hidden = false;
+              if (timelineEl) timelineEl.hidden = false;
+              if (timelineStep1SubEl) timelineStep1SubEl.textContent = "Payment confirmed";
               confirmOrder();
               if (amountDisplay) {
                 amountDisplay.textContent = money(summary.amountTotalCents / 100);
