@@ -101,12 +101,19 @@ async function runTests() {
     }
   };
 
-  optimizeScript.writeManifest(testManifest);
+  await optimizeScript.writeManifest(testManifest);
   check(writtenPath.endsWith("image-manifest.js"), "writeManifest writes to correct path");
   check(writtenData.includes("window.YL_IMAGES ="), "writeManifest includes window assignment");
+  /* Unquoted: writeManifest now runs its JSON.stringify output through
+     prettier (same config `npm run format` uses) before writing, so an
+     identifier-shaped key like `width` loses its quotes -- matching the
+     committed, prettier-formatted assets/js/image-manifest.js exactly,
+     whether this script is run directly (Netlify's build) or as part of
+     `npm run build-data` (which also runs `npm run format` afterwards). */
+  check(writtenData.includes("width: 1200"), "writeManifest serializes manifest object correctly");
   check(
-    writtenData.includes('"width": 1200'),
-    "writeManifest serializes manifest object correctly"
+    !writtenData.includes('"width":'),
+    "writeManifest output is prettier-formatted, not raw JSON"
   );
 
   fs.writeFileSync = originalWriteFileSync;

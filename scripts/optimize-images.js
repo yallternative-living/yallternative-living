@@ -65,6 +65,17 @@ try {
   process.exit(0);
 }
 
+// Same degrade-instead-of-dying reasoning as sharp above: prettier is a
+// devDependency too, and a host that skips devDependencies must still be
+// able to finish a build (with an unformatted manifest, see writeManifest())
+// rather than crash.
+let prettier;
+try {
+  prettier = require("prettier");
+} catch (err) {
+  prettier = null;
+}
+
 const ROOT = path.join(__dirname, "..");
 const IMG_DIR = path.join(ROOT, "assets", "img");
 const MANIFEST_PATH = path.join(ROOT, "assets", "js", "image-manifest.js");
@@ -183,9 +194,21 @@ async function optimizeOne(filename) {
 /**
  * Writes the image manifest file with a descriptive JSDoc header.
  *
+ * Formatted with prettier (same config `npm run format` uses) before it
+ * touches disk. Netlify's build runs this script directly, with no `npm run
+ * format` step after it (see netlify.toml / vercel.json), while a local
+ * `npm run build-data` runs build-site-data.js and then `npm run format`.
+ * Those two pipelines used to disagree on quoted-vs-unquoted object keys
+ * (raw `JSON.stringify` quotes every key; prettier's default `quoteProps:
+ * "as-needed"` drops the quotes on the identifier-shaped ones), so the
+ * sha256 digest scripts/build-site-data.js's updateServiceWorker() computes
+ * over this file -- to name the service-worker cache -- never matched what a
+ * real Netlify deploy actually shipped. Formatting here, at the source,
+ * makes both pipelines emit the exact same bytes.
+ *
  * @param {!Object} manifest The manifest object containing image details and responsive sizes.
  */
-function writeManifest(manifest) {
+async function writeManifest(manifest) {
   const header =
     "/**\n" +
     " * @fileoverview Auto-generated image manifest mapping original product photos\n" +
@@ -194,11 +217,23 @@ function writeManifest(manifest) {
     " * @const {!Object}\n" +
     " */\n";
   const body = "window.YL_IMAGES = " + JSON.stringify(manifest, null, 2) + ";\n";
+  let output = header + body;
+  if (prettier) {
+    try {
+      const config = (await prettier.resolveConfig(MANIFEST_PATH)) || {};
+      output = await prettier.format(output, { ...config, filepath: MANIFEST_PATH });
+    } catch (err) {
+      console.warn(
+        "[optimize-images] prettier formatting failed -- writing an unformatted manifest: " +
+          (err && err.message)
+      );
+    }
+  }
   const dir = path.dirname(MANIFEST_PATH);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
-  fs.writeFileSync(MANIFEST_PATH, header + body);
+  fs.writeFileSync(MANIFEST_PATH, output);
 }
 
 function loadExistingManifest() {
@@ -314,7 +349,7 @@ async function run() {
 
     entry = await optimizeOne(filename);
     manifest[entry.key] = entry;
-    writeManifest(manifest); // persist after every photo, not just at the end
+    await writeManifest(manifest); // persist after every photo, not just at the end
 
     beforeSize = entry.size || currentSize;
     beforeTotal += beforeSize;
@@ -351,7 +386,7 @@ async function run() {
     );
   }
 
-  writeManifest(manifest);
+  await writeManifest(manifest);
 
   console.log("");
   console.log("wrote assets/js/image-manifest.js (" + files.length + " photos)");
