@@ -4808,7 +4808,19 @@ section("Milestone 4: Self-Hosted Localization Suite & Static QA Invariants");
     fail("assets/js/locales-data.js", "missing bundle file -- run npm run build-data");
   }
 
-  // 5. Valid <link rel="alternate" hreflang="..."> tags across all indexable static HTML files and 19 PDPs
+  /* 5. NO hreflang anywhere.
+     The branch that added the translator also advertised five localised
+     sites to search engines: x-default + en + five ?lang= alternates on 33
+     pages, plus 224 <xhtml:link> elements in sitemap.xml. Every claim was
+     false -- /shop.html?lang=es serves the byte-identical English file, with
+     an English <title> and <meta description> the client-side engine never
+     touches, and it canonicalises away from itself, which is exactly what
+     Google's rule says an hreflang alternate must not do. The 2026-09-02
+     audit (S5) called it: ship the picker, drop the SEO layer.
+
+     These assertions are the inverse of the ones they replace, and they are
+     written so an absent subject fails: the page list is asserted non-empty
+     before anything is asserted over it. */
   var allHtmlPages = PAGES.map(function (p) {
     return path.join(ROOT, p);
   });
@@ -4821,66 +4833,78 @@ section("Milestone 4: Self-Hosted Localization Suite & Static QA Invariants");
     });
   }
 
-  var indexablePages = allHtmlPages.filter(function (filePath) {
-    var content = fs.readFileSync(filePath, "utf8");
-    return !/<meta name="robots" content="[^"]*noindex/i.test(content);
-  });
-
-  var hreflangs = ["x-default", "en", "es", "de", "fr", "ja", "zh"];
-  var missingHreflangPages = [];
-
-  indexablePages.forEach(function (filePath) {
-    var relPath = path.relative(ROOT, filePath);
-    var content = fs.readFileSync(filePath, "utf8");
-    var missingInPage = [];
-    hreflangs.forEach(function (langCode) {
-      var re = new RegExp(
-        '<link\\s+rel="alternate"\\s+hreflang="' + langCode + '"\\s+href="[^"]+"',
-        "i"
-      );
-      if (!re.test(content)) {
-        missingInPage.push(langCode);
-      }
-    });
-    if (missingInPage.length > 0) {
-      missingHreflangPages.push(relPath + " (missing: " + missingInPage.join(", ") + ")");
-    }
-  });
-
-  if (missingHreflangPages.length === 0) {
-    ok(
-      "All " +
-        indexablePages.length +
-        " indexable HTML pages (13 static + 19 PDPs) declare valid hreflang tags for all 6 languages + x-default"
-    );
+  if (allHtmlPages.length >= 30) {
+    ok("hreflang scan has " + allHtmlPages.length + " HTML pages to examine");
   } else {
-    fail("Pages missing hreflang tags", missingHreflangPages.join("; "));
+    fail(
+      "hreflang scan page list",
+      "expected >= 30 pages (13 static + 19 PDPs), found " + allHtmlPages.length
+    );
   }
 
-  // 6. Valid sitemap.xml declaring xmlns:xhtml="http://www.w3.org/1999/xhtml" and <xhtml:link> elements
+  var hreflangPages = allHtmlPages.filter(function (filePath) {
+    return /<link\s+rel="alternate"\s+hreflang=/i.test(fs.readFileSync(filePath, "utf8"));
+  });
+
+  if (hreflangPages.length === 0) {
+    ok(
+      "None of the " +
+        allHtmlPages.length +
+        " HTML pages carries an hreflang alternate (the ?lang= SEO layer is not shipped)"
+    );
+  } else {
+    fail(
+      "Pages still carrying hreflang tags",
+      hreflangPages
+        .map(function (f) {
+          return path.relative(ROOT, f);
+        })
+        .join("; ") + " -- run npm run build-data, which strips them"
+    );
+  }
+
+  // 6. sitemap.xml carries canonical URLs only -- no ?lang= alternates.
   var sitemapPath = path.join(ROOT, "sitemap.xml");
   if (fs.existsSync(sitemapPath)) {
     var sitemapContent = fs.readFileSync(sitemapPath, "utf8");
-    if (sitemapContent.indexOf('xmlns:xhtml="http://www.w3.org/1999/xhtml"') !== -1) {
-      ok('sitemap.xml declares xmlns:xhtml="http://www.w3.org/1999/xhtml" namespace');
+
+    var locCount = (sitemapContent.match(/<loc>/g) || []).length;
+    if (locCount >= 30) {
+      ok("sitemap.xml lists " + locCount + " canonical URLs");
     } else {
-      fail(
-        "sitemap.xml",
-        'missing xmlns:xhtml="http://www.w3.org/1999/xhtml" namespace declaration'
-      );
+      fail("sitemap.xml", "expected >= 30 <loc> entries, found " + locCount);
     }
 
-    var xhtmlLinkCount = (sitemapContent.match(/<xhtml:link\s+rel="alternate"/g) || []).length;
-    if (xhtmlLinkCount >= 100) {
-      ok("sitemap.xml contains " + xhtmlLinkCount + " <xhtml:link> alternate localization links");
+    var xhtmlLinkCount = (sitemapContent.match(/<xhtml:link/g) || []).length;
+    if (xhtmlLinkCount === 0) {
+      ok("sitemap.xml contains no <xhtml:link> localization alternates");
     } else {
       fail(
         "sitemap.xml alternate links",
-        "expected >= 100 <xhtml:link> elements, found " + xhtmlLinkCount
+        "expected 0 <xhtml:link> elements, found " + xhtmlLinkCount
       );
+    }
+
+    if (sitemapContent.indexOf("?lang=") === -1) {
+      ok("sitemap.xml references no ?lang= URLs");
+    } else {
+      fail("sitemap.xml", "still references ?lang= URLs");
     }
   } else {
     fail("sitemap.xml", "file not found");
+  }
+
+  // 6b. robots.txt keeps crawlers off the ?lang= duplicates.
+  var robotsPath = path.join(ROOT, "robots.txt");
+  if (fs.existsSync(robotsPath)) {
+    var robotsContent = fs.readFileSync(robotsPath, "utf8");
+    if (/^Disallow: \/\*\?lang=$/m.test(robotsContent)) {
+      ok("robots.txt disallows /*?lang= (no crawlable duplicate of every page)");
+    } else {
+      fail("robots.txt", "missing 'Disallow: /*?lang=' -- run npm run build-data");
+    }
+  } else {
+    fail("robots.txt", "file not found");
   }
 
   // 7. sw.js includes /assets/js/locales-data.js and /assets/js/translator.js in ASSETS_TO_CACHE

@@ -1296,48 +1296,22 @@ assert(
   );
 })();
 
-/* 27. Localization & Multilingual SEO */
+/* 27. Localization */
 (function testLocalizationAndSeo() {
-  // 1. generateHreflangTags
-  const sampleUrl = "https://yallternativeliving.com/shop.html";
-  const hreflang = buildScript.generateHreflangTags(sampleUrl, "  ");
+  /* 1. There is no hreflang layer, and no way to bring one back by accident.
+     generateHreflangTags used to live here and emit x-default + en + five
+     ?lang= alternates per page. The 2026-09-02 audit (S5) established that
+     every one of those annotations was false -- the alternate URLs serve the
+     identical English file and canonicalise away from themselves -- so the
+     function is gone along with the export. Asserting its absence is what
+     stops it reappearing; the built-output side is covered by qa-check. */
   assert(
-    hreflang.includes('hreflang="x-default" href="https://yallternativeliving.com/shop.html"'),
-    "generateHreflangTags includes x-default"
+    typeof buildScript.generateHreflangTags === "undefined",
+    "generateHreflangTags is no longer exported (the ?lang= SEO layer is not shipped)"
   );
   assert(
-    hreflang.includes('hreflang="en" href="https://yallternativeliving.com/shop.html"'),
-    "generateHreflangTags includes en"
-  );
-  assert(
-    hreflang.includes('hreflang="es" href="https://yallternativeliving.com/shop.html?lang=es"'),
-    "generateHreflangTags includes es"
-  );
-  assert(
-    hreflang.includes('hreflang="de" href="https://yallternativeliving.com/shop.html?lang=de"'),
-    "generateHreflangTags includes de"
-  );
-  assert(
-    hreflang.includes('hreflang="fr" href="https://yallternativeliving.com/shop.html?lang=fr"'),
-    "generateHreflangTags includes fr"
-  );
-  assert(
-    hreflang.includes('hreflang="ja" href="https://yallternativeliving.com/shop.html?lang=ja"'),
-    "generateHreflangTags includes ja"
-  );
-  assert(
-    hreflang.includes('hreflang="zh" href="https://yallternativeliving.com/shop.html?lang=zh"'),
-    "generateHreflangTags includes zh"
-  );
-
-  // URL with existing query param
-  const urlWithParam = "https://yallternativeliving.com/shop.html?category=salves";
-  const hreflangParam = buildScript.generateHreflangTags(urlWithParam, "");
-  assert(
-    hreflangParam.includes(
-      'hreflang="es" href="https://yallternativeliving.com/shop.html?category=salves&amp;lang=es"'
-    ),
-    "generateHreflangTags handles URLs with existing query params"
+    Array.isArray(buildScript.SUPPORTED_LOCALES) && buildScript.SUPPORTED_LOCALES.length === 6,
+    "SUPPORTED_LOCALES still drives the six locale dictionaries"
   );
 
   // 2. validateLocalesAndGlossary
@@ -1433,14 +1407,20 @@ assert(
   // 4. sitemap.xml verification
   const sitemapPath = path.join(__dirname, "../sitemap.xml");
   const sitemapContent = fs.readFileSync(sitemapPath, "utf8");
+  /* The sitemap lists canonical URLs only. It used to carry 224
+     <xhtml:link> alternates across 32 <url> entries -- an annotation set that
+     was never reciprocal (the ?lang= URLs had no <url> entries of their own)
+     and pointed at URLs that canonicalise away from themselves. Asserting a
+     non-empty <loc> list first so "no alternates" cannot pass on an empty or
+     truncated sitemap. */
+  const locCount = (sitemapContent.match(/<loc>/g) || []).length;
+  assert(locCount >= 30, "sitemap.xml lists " + locCount + " canonical URLs (>= 30)");
   assert(
-    sitemapContent.includes('xmlns:xhtml="http://www.w3.org/1999/xhtml"'),
-    "sitemap.xml declares xmlns:xhtml"
+    !sitemapContent.includes("xmlns:xhtml"),
+    "sitemap.xml no longer declares the xhtml namespace"
   );
-  assert(
-    sitemapContent.includes('<xhtml:link rel="alternate" hreflang="es"'),
-    "sitemap.xml includes xhtml:link hreflang alternates"
-  );
+  assert(!sitemapContent.includes("<xhtml:link"), "sitemap.xml carries no xhtml:link alternates");
+  assert(!sitemapContent.includes("?lang="), "sitemap.xml references no ?lang= URLs");
 })();
 
 console.log(`\nbuild-site-data.test.js: ${passed} passed, ${failed} failed`);
