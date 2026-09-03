@@ -1552,6 +1552,72 @@ else global.window.YL_PRODUCTS = savedWindowYlProducts;
     "every bonus tier is named, in configured order"
   );
 }
+/* ---- Bundle pricing: explicit price, upgrades, and cross-file agreement ----
+   bundleLinePrice() (the drawer), resolveBundlePriceDollars() (the Worker,
+   which actually charges) and bundlePricing() (the card) implement the same
+   rule in three files. If they drift, the drawer quotes one price and the
+   customer is billed another, so this pins all three to the same answers. */
+const bundleCatalog = {
+  products: [
+    { id: "salve-1", price: 20 },
+    {
+      id: "shea-1",
+      price: 18,
+      variants: {
+        name: "Size",
+        options: [
+          { label: "4 oz", priceDelta: 0 },
+          { label: "8 oz", priceDelta: 5 }
+        ]
+      }
+    }
+  ],
+  bundles: [{ id: "night", productIds: ["salve-1", "shea-1"], discountPercent: 10, price: 34 }]
+};
+const fixedBundle = bundleCatalog.bundles[0];
+const percentBundle = { id: "night-pct", productIds: ["salve-1", "shea-1"], discountPercent: 10 };
+
+eq(
+  cart.bundleLinePrice(fixedBundle, null, bundleCatalog),
+  34,
+  "bundleLinePrice uses the set's own price, not the percentage"
+);
+eq(
+  cart.bundleLinePrice(fixedBundle, { "shea-1": "8 oz" }, bundleCatalog),
+  39,
+  "bundleLinePrice adds an 8 oz upgrade to the set price at face value"
+);
+eq(
+  cart.bundleLinePrice(percentBundle, null, bundleCatalog),
+  34.2,
+  "bundleLinePrice falls back to the percentage when the set has no price"
+);
+eq(
+  cart.bundleLinePrice(percentBundle, { "shea-1": "8 oz" }, bundleCatalog),
+  38.7,
+  "bundleLinePrice still discounts the upgrade on the percentage path"
+);
+
+const checkoutWorker = require("../workers/checkout.js");
+const buildScript = require("./build-site-data.js");
+const bundleProductsMap = { "salve-1": { price: 20 }, "shea-1": { price: 18 } };
+eq(
+  [
+    cart.bundleLinePrice(fixedBundle, null, bundleCatalog),
+    checkoutWorker.resolveBundlePriceDollars(bundleCatalog, fixedBundle),
+    buildScript.bundlePricing(fixedBundle, bundleProductsMap).bundlePrice
+  ],
+  [34, 34, 34],
+  "drawer, Worker and card agree on the set price"
+);
+eq(
+  [
+    cart.bundleLinePrice(fixedBundle, { "shea-1": "8 oz" }, bundleCatalog),
+    checkoutWorker.resolveBundlePriceDollars(bundleCatalog, fixedBundle, [{ priceDelta: 5 }])
+  ],
+  [39, 39],
+  "drawer and Worker agree once an upgrade is chosen"
+);
 
 Promise.all(asyncChecks).then(
   () => {

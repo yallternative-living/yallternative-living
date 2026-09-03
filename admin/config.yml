@@ -649,12 +649,12 @@ singletons:
         label_singular: Bundle
         collapsed: true
         minimize_collapsed: true
-        summary: "{{fields.name}} — {{fields.discountPercent}}% off"
+        summary: "{{fields.name}} — ${{fields.price}}"
         required: false
         hint: >-
-          Pre-made gift sets. The price is always worked out from the
-          current prices of the products inside, minus the discount —
-          there's no price to type in.
+          Pre-made gift sets. Type the set's price; the crossed-out "was"
+          price is added up from the products inside. If a customer picks a
+          bigger size in the set, that size's extra cost is added on top.
         fields:
           - { name: name, label: "Bundle name", widget: string }
           - name: productIds
@@ -669,13 +669,21 @@ singletons:
             search_fields: ["products.*.name"]
             hint: "Pick 2 or more — start typing a product name."
           - {
+              name: price,
+              label: "Set price ($)",
+              widget: number,
+              value_type: float,
+              min: 1,
+              hint: "What the whole set costs, e.g. 34. Keep it a few dollars under the products' own prices added up, or the set is no saving."
+            }
+          - {
               name: discountPercent,
-              label: "Discount percent",
+              label: "Discount percent (backup)",
               widget: number,
               value_type: int,
               min: 0,
               max: 90,
-              hint: "0–90, e.g. 10 for 10% off"
+              hint: "Only used if the set price above is left empty. Leave as is."
             }
           - { name: blurb, label: "Bundle description", widget: text }
           - name: concerns

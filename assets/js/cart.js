@@ -153,20 +153,43 @@
       if (p && p.id) byId.set(p.id, p);
     });
     var chosen = normalizeBundleVariants(bundleVariants) || {};
-    var full = 0;
+    var baseSum = 0;
+    var deltaSum = 0;
     for (var i = 0; i < bundle.productIds.length; i++) {
       var p = byId.get(bundle.productIds[i]);
       if (!p) return 0;
-      full += p.originalPrice || p.price || 0;
+      baseSum += p.originalPrice || p.price || 0;
       var label = chosen[bundle.productIds[i]];
       if (label && p.variants && Array.isArray(p.variants.options)) {
         var opt = p.variants.options.find(function (o) {
           return o && o.label === label;
         });
-        if (opt && typeof opt.priceDelta === "number") full += opt.priceDelta;
+        if (opt && typeof opt.priceDelta === "number") deltaSum += opt.priceDelta;
       }
     }
-    return Math.round(full * (1 - (bundle.discountPercent || 0) / 100) * 100) / 100;
+    return bundlePriceDollars(bundle, baseSum, deltaSum);
+  }
+
+  /* A bundle's price is either set outright (`price`) or worked out as a
+   percentage off the sum of its parts (`discountPercent`, the older form
+   and still the fallback). A chosen member option that costs more (the
+   8 oz shea, the 24 oz soak) is added ON TOP:
+     - explicit price: at face value, so a $5 upgrade costs $5;
+     - percentage: folded into the full price before the discount, which is
+       what that model has always done.
+   Either way the picker never hands out a free upgrade. The identical rule
+   lives in assets/js/cart.js, workers/checkout.js and
+   scripts/build-site-data.js and the three MUST agree -- the Worker is the
+   one that actually charges, and a mismatch means the drawer quotes a price
+   the customer is not billed. */
+  function bundlePriceDollars(bundle, baseSum, deltaSum) {
+    var deltas = Number(deltaSum) || 0;
+    var fixed = bundle && bundle.price;
+    if (typeof fixed === "number" && isFinite(fixed) && fixed > 0) {
+      return Math.round((fixed + deltas) * 100) / 100;
+    }
+    var pct = (bundle && bundle.discountPercent) || 0;
+    return Math.round((baseSum + deltas) * (1 - pct / 100) * 100) / 100;
   }
 
   // Parse Snipcart-style custom-field options ("M[+0.00]|L[+2.00]") and return

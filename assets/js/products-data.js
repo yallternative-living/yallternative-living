@@ -1352,6 +1352,7 @@ window.YL_PRODUCTS = {
         "bug-spray"
       ],
       "discountPercent": 10,
+      "price": 36,
       "blurb": "The essential trio for anyone navigating life south of the Mason-Dixon: the do-everything salve folks keep re-ordering, the bourbon-vanilla scrub that gets your hands actually clean, and the bug spray nobody admits they need until August. Three of our most-reviewed goods, one easy yes.",
       "concerns": [
         "dry-skin",
@@ -1367,6 +1368,7 @@ window.YL_PRODUCTS = {
         "hand-scrub"
       ],
       "discountPercent": 10,
+      "price": 22,
       "blurb": "Scent-matched on purpose. The beard salve softens the scruff; the hand scrub takes the grease off whatever he was working on. Both in the same bourbon, vanilla and cedarwood, so it reads as one gift, not two things from two different aisles.",
       "concerns": [
         "dry-skin",
@@ -1382,6 +1384,7 @@ window.YL_PRODUCTS = {
         "shea-butter"
       ],
       "discountPercent": 10,
+      "price": 34,
       "blurb": "For unwinding after the kind of days that leave you running on fumes: massage the lavender shea butter into damp skin after a shower, then work the magnesium sleep salve into feet and shoulders and let lavender, chamomile and cedarwood take it from there. Built for night owls and overthinkers.",
       "concerns": [
         "sleep-relaxation",
@@ -1397,6 +1400,7 @@ window.YL_PRODUCTS = {
         "shimmer-oil"
       ],
       "discountPercent": 10,
+      "price": 45,
       "blurb": "The flagship rainbow-stag tee plus the shimmer oil built for exactly this: festivals, Pride, and anywhere you plan on shining harder than everyone around you. Pull the 'Y'all Means All' scent and wear the whole thing to the parade. Queer at the root, year-round.",
       "concerns": [
         "daily-glow"
@@ -1411,6 +1415,7 @@ window.YL_PRODUCTS = {
         "lavender-soak"
       ],
       "discountPercent": 10,
+      "price": 25,
       "blurb": "Everyday witchy armor, boxed up: a wax-sealed protection spell jar for your keys, the bug spray that tells mosquitoes to buzz off, naturally, and a lavender soak for taking up all the space you want in the tub. Grit and glitter for the ones who need it.",
       "concerns": [
         "outdoor-defense",
@@ -1426,6 +1431,7 @@ window.YL_PRODUCTS = {
         "shea-butter"
       ],
       "discountPercent": 10,
+      "price": 23,
       "blurb": "A soft place to land: the unscented, essential-oil-free Miracle Balm for wherever skin needs backup, paired with our raw-shea body butter for everywhere else. For new parents, sensitive skin, and anybody having a rough go.",
       "concerns": [
         "dry-skin",
@@ -1443,6 +1449,7 @@ window.YL_PRODUCTS = {
         "bug-spray"
       ],
       "discountPercent": 15,
+      "price": 42,
       "blurb": "Can't decide? Try a little of everything. Four of our bestselling products bundled together at 15% off: the salve everybody re-orders, the bourbon-vanilla scrub, a lavender soak, and the bug spray that actually works. A full tour of the shop in one box.",
       "concerns": [
         "dry-skin",

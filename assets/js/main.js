@@ -3280,8 +3280,24 @@
     return members;
   }
 
-  function bundlePriceFor(fullPrice, discountPercent) {
-    return Math.round(fullPrice * (1 - (discountPercent || 0) / 100) * 100) / 100;
+  /* A set's price is either set outright (`price`) or worked out as a
+     percentage off the sum of its parts (`discountPercent`, the older form
+     and still the fallback). A chosen member upgrade (the 8 oz shea, the
+     24 oz soak) is added ON TOP: at face value against an explicit price,
+     folded in before the discount on the percentage path. Either way the
+     picker never gives an upgrade away. bundleLinePrice() in cart.js,
+     resolveBundlePriceDollars() in workers/checkout.js and bundlePricing()
+     in scripts/build-site-data.js run the identical rule and the four MUST
+     agree -- the Worker is what actually charges, so a mismatch means the
+     card advertises a price the customer is not billed. */
+  function bundlePriceFor(bundle, baseSum, deltaSum) {
+    var deltas = Number(deltaSum) || 0;
+    var fixed = bundle && bundle.price;
+    if (typeof fixed === "number" && isFinite(fixed) && fixed > 0) {
+      return Math.round((fixed + deltas) * 100) / 100;
+    }
+    var pct = (bundle && bundle.discountPercent) || 0;
+    return Math.round(((Number(baseSum) || 0) + deltas) * (1 - pct / 100) * 100) / 100;
   }
 
   function bundleVariantSelectId(bundleId, productId) {
@@ -3366,7 +3382,7 @@
           var original = p.originalPrice || p.price;
           return sum + original;
         }, 0);
-        var bundlePrice = bundlePriceFor(fullPrice, b.discountPercent);
+        var bundlePrice = bundlePriceFor(b, fullPrice, 0);
         var members = bundleVariantMembers(b, productsById);
         var firstImage = items[0].image;
         var includesList = items
@@ -3424,6 +3440,9 @@
           ' data-bundle-discount="' +
           (Number(b.discountPercent) || 0) +
           '"' +
+          (typeof b.price === "number" && isFinite(b.price) && b.price > 0
+            ? ' data-bundle-price="' + b.price.toFixed(2) + '"'
+            : "") +
           ' data-item-categories="bundle">' +
           "Add Set to Cart" +
           "</button>" +
@@ -3465,9 +3484,14 @@
     if (!btn) return null;
     var baseFull = parseFloat(btn.getAttribute("data-bundle-full-price")) || 0;
     var discount = Number(btn.getAttribute("data-bundle-discount")) || 0;
+    var setPrice = parseFloat(btn.getAttribute("data-bundle-price"));
     var sel = bundleCardSelection(card);
     var full = Math.round((baseFull + sel.deltaSum) * 100) / 100;
-    var now = bundlePriceFor(full, discount);
+    var now = bundlePriceFor(
+      { price: isFinite(setPrice) ? setPrice : undefined, discountPercent: discount },
+      baseFull,
+      sel.deltaSum
+    );
     var nowEl = card.querySelector(".bundle-price-now");
     var fullEl = card.querySelector(".bundle-full-price");
     if (nowEl) nowEl.textContent = formatMoney(now);
@@ -6522,7 +6546,7 @@
                 var p = pMap ? pMap.get(id) : null;
                 return sum + (p ? p.originalPrice || p.price || 0 : 0);
               }, 0);
-              var bundlePrice = Math.round(full * (1 - (b.discountPercent || 0) / 100) * 100) / 100;
+              var bundlePrice = bundlePriceFor(b, full, 0);
               return Object.assign({}, b, { price: bundlePrice });
             }),
             state.sort
@@ -8181,7 +8205,7 @@
             var p = pMap.get(id);
             return sum + (p ? p.originalPrice || p.price || 0 : 0);
           }, 0);
-          return Math.round(fullPrice * (1 - (item.discountPercent || 0) / 100) * 100) / 100;
+          return bundlePriceFor(item, fullPrice, 0);
         }
         return 0;
       };
@@ -9654,20 +9678,21 @@
       var pMap = getProductMap();
       var price = prod.price;
       if (bundle && Array.isArray(bundle.productIds)) {
-        var full = 0;
+        var baseSum = 0;
+        var deltaSum = 0;
         bundle.productIds.forEach(function (pid) {
           var member = pMap.get(pid);
           if (!member) return;
-          full += member.originalPrice || member.price || 0;
+          baseSum += member.originalPrice || member.price || 0;
           var label = chosen[pid];
           if (label && member.variants && Array.isArray(member.variants.options)) {
             var opt = member.variants.options.find(function (o) {
               return o && o.label === label;
             });
-            if (opt && typeof opt.priceDelta === "number") full += opt.priceDelta;
+            if (opt && typeof opt.priceDelta === "number") deltaSum += opt.priceDelta;
           }
         });
-        if (full > 0) price = bundlePriceFor(full, bundle.discountPercent);
+        if (baseSum > 0) price = bundlePriceFor(bundle, baseSum, deltaSum);
       }
 
       if (window.YLCart && typeof window.YLCart.addItem === "function") {
@@ -10890,6 +10915,7 @@
   /* ---------- Node.js / Unit Test Export ---------- */
   if (typeof module !== "undefined" && module.exports) {
     module.exports = {
+      bundlePriceFor,
       getWishlist: getWishlist,
       saveWishlist: saveWishlist,
       attrEsc: attrEsc,

@@ -178,6 +178,27 @@ async function testWorkerModules() {
     "resolveBundlePriceDollars returns null for empty bundle"
   );
 
+  /* A hand-set price wins over the percentage, and a chosen upgrade is added
+     to it at FACE value -- the drawer (cart.js bundleLinePrice) and the build
+     card must land on these same numbers or the customer is billed something
+     other than the price they were quoted. */
+  const fixedPriceBundle = Object.assign({}, mockCatalog.bundles[0], { price: 25 });
+  eq(
+    checkout.resolveBundlePriceDollars(mockCatalog, fixedPriceBundle),
+    25,
+    "resolveBundlePriceDollars prefers an explicit bundle price over the percentage"
+  );
+  eq(
+    checkout.resolveBundlePriceDollars(mockCatalog, fixedPriceBundle, [{ priceDelta: 5 }]),
+    30,
+    "resolveBundlePriceDollars adds a variant upgrade to the explicit price at face value"
+  );
+  eq(
+    checkout.resolveBundlePriceDollars(mockCatalog, mockCatalog.bundles[0], [{ priceDelta: 5 }]),
+    31.5,
+    "resolveBundlePriceDollars still discounts the upgrade on the percentage path"
+  );
+
   /* resolveCustomBoxCents -- build-your-own box.
      The contents come from the client, so these cases are the security
      boundary: every one of them must fail closed rather than produce a

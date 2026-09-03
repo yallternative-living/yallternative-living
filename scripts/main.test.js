@@ -2277,5 +2277,54 @@ if (eventLdEnabled && runtimeEventLd.length) {
   );
 }
 
+/* ---- Bundle pricing agrees with the cart, the Worker and the build ----
+   bundlePriceFor() here draws the shop card, bundleLinePrice() in cart.js
+   the drawer, resolveBundlePriceDollars() in workers/checkout.js the actual
+   charge, and bundlePricing() in the build the static card. All four run the
+   same rule; if they drift, the card advertises a price nobody is billed.
+   (This drift is exactly what shipped once: the card kept quoting the old
+   percentage price after the sets moved to hand-set prices.) */
+const bundleWithPrice = {
+  id: "night",
+  productIds: ["salve-1", "shea-1"],
+  discountPercent: 10,
+  price: 34
+};
+const bundleWithoutPrice = {
+  id: "night-pct",
+  productIds: ["salve-1", "shea-1"],
+  discountPercent: 10
+};
+eq(main.bundlePriceFor(bundleWithPrice, 38, 0), 34, "bundlePriceFor uses the set's own price");
+eq(
+  main.bundlePriceFor(bundleWithPrice, 38, 5),
+  39,
+  "bundlePriceFor adds an upgrade to the set price at face value"
+);
+eq(
+  main.bundlePriceFor(bundleWithoutPrice, 38, 0),
+  34.2,
+  "bundlePriceFor falls back to the percentage when the set has no price"
+);
+eq(
+  main.bundlePriceFor(bundleWithoutPrice, 38, 5),
+  38.7,
+  "bundlePriceFor still discounts an upgrade on the percentage path"
+);
+eq(
+  main.bundlePriceFor(bundleWithPrice, 38, 0),
+  require("../workers/checkout.js").resolveBundlePriceDollars(
+    {
+      products: [
+        { id: "salve-1", price: 20 },
+        { id: "shea-1", price: 18 }
+      ],
+      bundles: [bundleWithPrice]
+    },
+    bundleWithPrice
+  ),
+  "shop card and the Worker that charges agree on the set price"
+);
+
 console.log(`\nmain.test.js: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

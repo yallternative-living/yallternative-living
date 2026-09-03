@@ -653,26 +653,40 @@ function resolveBundleVariantChoices(catalog, bundle, rawChoices) {
 // manifest at build time; there's no equivalent static artifact anymore,
 // so it's recomputed here, server-side, on every checkout instead.)
 //
-// A chosen member option that costs more (the 4 oz hand scrub, the 24 oz
-// soak) is added to the full price BEFORE the discount, so upgrading inside
-// a set costs the same proportion it costs outside one -- otherwise the
-// picker would hand out an $8 upgrade for free. The deltas come from the
-// catalog options resolved above, never from the payload.
+// A bundle's price is either set outright (`price`) or worked out as a
+// percentage off the sum of its parts (`discountPercent`, the older form
+// and still the fallback). A chosen member option that costs more (the
+// 8 oz shea, the 24 oz soak) is added ON TOP:
+//   - explicit price: at face value, so a $5 upgrade costs $5;
+//   - percentage: folded into the full price before the discount, which is
+//     what that model has always done.
+// Either way the picker never hands out a free upgrade. The identical rule
+// lives in assets/js/cart.js, workers/checkout.js and
+// scripts/build-site-data.js and the three MUST agree -- the Worker is the
+// one that actually charges, and a mismatch means the drawer quotes a price
+// the customer is not billed.
+// The deltas come from the catalog options resolved above, never from the
+// payload.
 function resolveBundlePriceDollars(catalog, bundle, variantChoices) {
   if (!bundle || !Array.isArray(bundle.productIds) || !bundle.productIds.length) return null;
   const productMap = productMapOf(catalog);
-  let fullPrice = 0;
+  let baseSum = 0;
   for (const id of bundle.productIds) {
     const p = productMap.get(id);
     if (!p || typeof p.price !== "number") return null; // referential integrity issue -- fail closed
-    fullPrice += typeof p.originalPrice === "number" ? p.originalPrice : p.price;
+    baseSum += typeof p.originalPrice === "number" ? p.originalPrice : p.price;
   }
+  let deltaSum = 0;
   if (Array.isArray(variantChoices)) {
     for (const choice of variantChoices) {
-      fullPrice += Number(choice.priceDelta) || 0;
+      deltaSum += Number(choice.priceDelta) || 0;
     }
   }
-  return Math.round(fullPrice * (1 - (bundle.discountPercent || 0) / 100) * 100) / 100;
+  const fixed = bundle.price;
+  if (typeof fixed === "number" && Number.isFinite(fixed) && fixed > 0) {
+    return Math.round((fixed + deltaSum) * 100) / 100;
+  }
+  return Math.round((baseSum + deltaSum) * (1 - (bundle.discountPercent || 0) / 100) * 100) / 100;
 }
 
 const QUALIFYING_2OZ_SALVE_PRICE_CENTS = 1500;

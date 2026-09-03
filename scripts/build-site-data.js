@@ -967,11 +967,25 @@ function generateUniqueId(existingSet, rawName, fallbackPrefix, index) {
   existingSet.add(candidate);
   return candidate;
 }
-/* A bundle's real price is always computed from its real component
-   products' base prices -- never hand-set -- so it's impossible for a
-   bundle's price to silently drift out of sync after a product's price
-   changes. Returns null (and lets the caller decide how to fail loudly)
-   if a bundle references a product ID that doesn't exist. */
+/* A bundle's price is either set outright (`price`) or worked out as a
+   percentage off the sum of its parts (`discountPercent`, the older form
+   and still the fallback). A chosen member option that costs more (the
+   8 oz shea, the 24 oz soak) is added ON TOP:
+     - explicit price: at face value, so a $5 upgrade costs $5;
+     - percentage: folded into the full price before the discount, which is
+       what that model has always done.
+   Either way the picker never hands out a free upgrade. The identical rule
+   lives in assets/js/cart.js, workers/checkout.js and
+   scripts/build-site-data.js and the three MUST agree -- the Worker is the
+   one that actually charges, and a mismatch means the drawer quotes a price
+   the customer is not billed.
+
+   fullPrice stays the sum of the parts either way -- it is the crossed-out
+   "was" price on the card. A hand-set price CAN drift out of sync after a
+   component's price changes, which the percentage form could not, so
+   assertBundlePricesSane() below refuses to build a set that has stopped
+   being a saving. Returns null (and lets the caller fail loudly) if a
+   bundle references a product ID that doesn't exist. */
 function bundlePricing(b, productsMap) {
   const map = productsMap || PRODUCTS_BY_ID || {};
   const missing = b.productIds.filter(function (id) {
@@ -982,8 +996,58 @@ function bundlePricing(b, productsMap) {
     const original = map[id].originalPrice || map[id].price;
     return sum + original;
   }, 0);
-  const bundlePrice = Math.round(fullPrice * (1 - (b.discountPercent || 0) / 100) * 100) / 100;
+  const fixed = b.price;
+  const bundlePrice =
+    typeof fixed === "number" && Number.isFinite(fixed) && fixed > 0
+      ? Math.round(fixed * 100) / 100
+      : Math.round(fullPrice * (1 - (b.discountPercent || 0) / 100) * 100) / 100;
   return { fullPrice: fullPrice, bundlePrice: bundlePrice };
+}
+
+/* A hand-set bundle price is a number somebody typed, so it can quietly stop
+   making sense after a component's price moves: a set that costs the same as
+   (or more than) buying the pieces separately is worse than no set at all,
+   and one that has drifted to a huge discount is usually a typo. Fail the
+   build on the first, warn on the second. MIN/MAX bracket the 5-20% the
+   handmade market actually runs at. */
+const BUNDLE_DISCOUNT_MIN_PCT = 5;
+const BUNDLE_DISCOUNT_MAX_PCT = 20;
+function assertBundlePricesSane(bundles, productsMap) {
+  (bundles || []).forEach(function (b) {
+    const pricing = bundlePricing(b, productsMap);
+    if (!pricing) return; // referential integrity is reported separately
+    const { fullPrice, bundlePrice } = pricing;
+    if (!(bundlePrice < fullPrice)) {
+      throw new Error(
+        'Bundle "' +
+          b.id +
+          '" costs $' +
+          bundlePrice.toFixed(2) +
+          " but its parts add up to $" +
+          fullPrice.toFixed(2) +
+          " -- a gift set must be cheaper than buying the pieces separately.\n" +
+          "        Lower the bundle's price in products.json (or /admin) and rebuild."
+      );
+    }
+    const pct = ((fullPrice - bundlePrice) / fullPrice) * 100;
+    if (pct < BUNDLE_DISCOUNT_MIN_PCT || pct > BUNDLE_DISCOUNT_MAX_PCT) {
+      console.warn(
+        '[build] Bundle "' +
+          b.id +
+          '" now saves ' +
+          pct.toFixed(1) +
+          "% ($" +
+          bundlePrice.toFixed(2) +
+          " of $" +
+          fullPrice.toFixed(2) +
+          "), outside the usual " +
+          BUNDLE_DISCOUNT_MIN_PCT +
+          "-" +
+          BUNDLE_DISCOUNT_MAX_PCT +
+          "%. Check the price is still what you meant."
+      );
+    }
+  });
 }
 
 function validatePairsWith(products, productsMap) {
@@ -2674,6 +2738,7 @@ function buildSiteData() {
       );
     }
   });
+  assertBundlePricesSane(BUNDLES, PRODUCTS_BY_ID);
 
   /* ---------- 3) shop.html Product/ItemList JSON-LD ---------- */
   const itemListElement = PRODUCTS.map(function (p, i) {
@@ -6994,6 +7059,7 @@ function generateRssFeed(journalData, domainUrl, options) {
 
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
+    assertBundlePricesSane,
     formatMoney: formatMoney,
     loadJournal,
     listJournalFiles,

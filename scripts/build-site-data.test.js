@@ -233,6 +233,51 @@ eq(
   "bundlePricing calculates component sum and discount"
 );
 
+/* A hand-set `price` wins over discountPercent; fullPrice stays the sum of
+   the parts, because it is the crossed-out "was" price on the card. */
+eq(
+  buildScript.bundlePricing(
+    { productIds: ["salve-1", "soak-1"], discountPercent: 10, price: 30 },
+    mockProductsMap
+  ),
+  { fullPrice: 35.0, bundlePrice: 30 },
+  "bundlePricing prefers an explicit bundle price over the percentage"
+);
+eq(
+  buildScript.bundlePricing(
+    { productIds: ["salve-1", "soak-1"], discountPercent: 10, price: 0 },
+    mockProductsMap
+  ),
+  { fullPrice: 35.0, bundlePrice: 31.5 },
+  "bundlePricing falls back to the percentage when the price is absent or 0"
+);
+
+/* assertBundlePricesSane: a set that is not a saving must stop the build. */
+function bundleSaneError(bundle) {
+  try {
+    buildScript.assertBundlePricesSane([bundle], mockProductsMap);
+    return null;
+  } catch (e) {
+    return e.message;
+  }
+}
+assert(
+  /must be cheaper/.test(
+    bundleSaneError({ id: "no-saving", productIds: ["salve-1", "soak-1"], price: 35 }) || ""
+  ),
+  "assertBundlePricesSane throws when the set costs the same as its parts"
+);
+assert(
+  /must be cheaper/.test(
+    bundleSaneError({ id: "costlier", productIds: ["salve-1", "soak-1"], price: 40 }) || ""
+  ),
+  "assertBundlePricesSane throws when the set costs more than its parts"
+);
+assert(
+  bundleSaneError({ id: "fine", productIds: ["salve-1", "soak-1"], price: 31 }) === null,
+  "assertBundlePricesSane accepts a set priced inside the usual discount band"
+);
+
 const invalidBundle = {
   productIds: ["salve-1", "non-existent-product"]
 };
