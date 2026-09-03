@@ -353,7 +353,7 @@ through which a consumer can report an adverse event; this is it.
 | ------------------ | -------------------------------------------------------------------------------------------------- |
 | The report         | one row in the D1 table `adverse_events` (schema version 3), kept at least three years. **Needs `STATE_DB`; answers 503 without it.** |
 | The owner's copy   | Resend, to `SAFETY_REPORT_EMAIL` -> `RESTOCK_NOTIFY_EMAIL` -> `contact@yallternativeliving.com`.    |
-| `ORDER_NOTIFY_EMAIL` | optional (`[vars]`) | falls back to `RESTOCK_NOTIFY_EMAIL`, then the contact address | Where the "gift note to print" email goes for an order that carries a gift message. |
+| `ORDER_NOTIFY_EMAIL` | optional (`[vars]`) | falls back to `RESTOCK_NOTIFY_EMAIL`, then the contact address | Where the per-order copy and the "gift note to print" email go. |
 | The reporter's copy| Resend, an acknowledgement carrying the reference only.                                            |
 
 - `serious` is computed on the server from the outcome checkboxes, never taken
@@ -472,6 +472,24 @@ comes in more than one size or scent with nothing chosen is flagged
 - **A quiet day sends nothing.** Set the var `ORDER_DIGEST_WHEN_EMPTY = "true"`
   if you would rather get a "No new orders" note than wonder whether it ran.
 
+**The per-order copy** (`emailOwnerOrderNotice` in `routes/stripe-webhook.js`,
+on `checkout.session.completed`). The moment a session is paid (or fully
+covered by a gift card), the shop inbox gets one email with what the bench
+needs: every line with its quantity, size or scent, unit price and line total;
+box contents and gift-set choices from metadata; discount, gift card applied,
+shipping and total; the buyer's name and email; the gift note itself (recipient,
+sender and message, verbatim); the FULL shipping address, or
+`Local pick-up at <market>`; the order date; and the payment's link in the
+Stripe Dashboard. Subject: `New order $30 -- 1× <first line> +N more`.
+
+- **Not on the money path.** The event carries no line items, so the step reads
+  the session back once with `expand[]=line_items`; if that read fails the
+  email still goes out and says the lines are missing. A Resend refusal is
+  logged and swallowed -- it never makes Stripe replay the event. Keyed
+  `owner-order-email-<session id>` at Resend, so a redelivery sends one copy.
+- **Always on.** No CMS switch; the only gate is the recipient
+  (`ORDER_NOTIFY_EMAIL` -> `RESTOCK_NOTIFY_EMAIL` -> the contact address).
+
 **The size/scent confirmation** (`emailSizeConfirmation` in
 `routes/stripe-webhook.js`, on `checkout.session.completed`). A bundle and a
 build-your-own box are each ONE line, and neither lets the shopper pick a size:
@@ -486,7 +504,7 @@ have no variants, gets nothing.
 
 | Var                       | Default | What it does                                                          |
 | ------------------------- | ------- | --------------------------------------------------------------------- |
-| `ORDER_NOTIFY_EMAIL`      | falls back to `RESTOCK_NOTIFY_EMAIL`, then `contact@yallternativeliving.com` | Where the digest and the gift-note link go. |
+| `ORDER_NOTIFY_EMAIL`      | falls back to `RESTOCK_NOTIFY_EMAIL`, then `contact@yallternativeliving.com` | Where the per-order copy, the digest and the gift-note link go. |
 | `ORDER_DIGEST_WHEN_EMPTY` | unset   | `"true"` sends the digest on days with no orders too.                 |
 
 Both read `assets/data/products.json` for names, a bundle's `productIds` and a

@@ -510,12 +510,17 @@ const onePage = (sessions) => [{ data: sessions, has_more: false }];
     RESEND_API_KEY: "re_test_digest",
     STRIPE_WEBHOOK_SECRET: "whsec_digest"
   });
+  // The same event also sends the owner her per-order copy
+  // (scripts/worker-gift-note.test.js covers it); only the size question is
+  // this section's subject, so the Resend calls are picked out by their key.
+  const sizeMails = (calls) =>
+    calls.resend.filter((c) => /^size-confirm-/.test(c.headers["Idempotency-Key"] || ""));
 
   {
     await withMocks({}, async (calls) => {
       const out = await webhook.processStripeEvent(completed(BUNDLE_ORDER), hookEnv(), null);
-      eq(calls.resend.length, 1, "a bundle with an unresolved size gets exactly one email");
-      const mail = calls.resend[0];
+      eq(sizeMails(calls).length, 1, "a bundle with an unresolved size gets exactly one email");
+      const mail = sizeMails(calls)[0];
       eq(mail.body.to, BUYER.email, "it goes to the buyer");
       eq(
         mail.body.reply_to,
@@ -563,7 +568,7 @@ const onePage = (sessions) => [{ data: sessions, has_more: false }];
   {
     await withMocks({}, async (calls) => {
       const out = await webhook.processStripeEvent(completed(PLAIN_ORDER), hookEnv(), null);
-      eq(calls.resend.length, 0, "a plain order is never asked anything");
+      eq(sizeMails(calls).length, 0, "a plain order is never asked anything");
       eq(out.sizeConfirmation, null, "and the step reports nothing to do");
     });
   }
@@ -574,7 +579,7 @@ const onePage = (sessions) => [{ data: sessions, has_more: false }];
     });
     await withMocks({}, async (calls) => {
       await webhook.processStripeEvent(completed(noVariants), hookEnv(), null);
-      eq(calls.resend.length, 0, "a bundle whose contents have no variants asks nothing");
+      eq(sizeMails(calls).length, 0, "a bundle whose contents have no variants asks nothing");
     });
   }
   {
@@ -585,7 +590,7 @@ const onePage = (sessions) => [{ data: sessions, has_more: false }];
     });
     await withMocks({}, async (calls) => {
       const out = await webhook.processStripeEvent(completed(noEmail), hookEnv(), null);
-      eq(calls.resend.length, 0, "no buyer address, no email");
+      eq(sizeMails(calls).length, 0, "no buyer address, no email");
       eq(out.sizeConfirmation, { skipped: "no-buyer-email" }, "and it says why");
     });
   }
