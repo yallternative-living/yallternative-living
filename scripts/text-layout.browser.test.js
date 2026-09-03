@@ -45,7 +45,7 @@ const ROOT = path.resolve(__dirname, "..");
    variant label naming a product whose name is itself longer than the column).
    Lower it whenever a fix removes some; a rise means new copy or a new rule
    introduced one. */
-const ORPHAN_BUDGET = 16;
+const ORPHAN_BUDGET = 4;
 
 const PAGES = [
   "/index.html",
@@ -139,11 +139,32 @@ function check(desc, ok, extra = "") {
 /** Runs in the page. Returns one entry per string that clips or orphans. */
 const COLLECT = function () {
   function lineBoxes(el) {
-    const range = document.createRange();
-    range.selectNodeContents(el);
-    const rects = Array.from(range.getClientRects())
-      .filter((r) => r.width >= 0.5 && r.height >= 0.5)
-      .sort((a, b) => a.top - b.top);
+    // Measure text nodes one at a time so visually-hidden text can be left
+    // out: a screen-reader-only span is a 1x1 clipped box, but the text
+    // INSIDE it still lays out at full width (the "(opens in new tab)" after
+    // "TikTok" measures 125px), and a whole-element range reported a clip
+    // that no one can see. A text node is skipped when any ancestor up to
+    // the measured element is a clipped box 2px or smaller.
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const rects = [];
+    let node;
+    while ((node = walker.nextNode())) {
+      let hidden = false;
+      for (let a = node.parentElement; a && a !== el; a = a.parentElement) {
+        const b = a.getBoundingClientRect();
+        if (b.width <= 2 && b.height <= 2) {
+          hidden = true;
+          break;
+        }
+      }
+      if (hidden) continue;
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      Array.from(range.getClientRects()).forEach((r) => {
+        if (r.width > 0.5 && r.height > 0.5) rects.push(r);
+      });
+    }
+    rects.sort((a, b) => a.top - b.top);
     const lines = [];
     rects.forEach((rect) => {
       const mid = rect.top + rect.height / 2;
@@ -170,6 +191,9 @@ const COLLECT = function () {
   }
 
   const out = [];
+  const PRODUCT_NAMES = new Set(
+    ((window.YL_PRODUCTS || {}).products || []).map((p) => p && p.name).filter(Boolean)
+  );
   const SELECTOR = "h1,h2,h3,h4,.btn,button,.eyebrow,.tag,figcaption,label,summary,th,dt";
   document.querySelectorAll(SELECTOR).forEach((el) => {
     const rect = el.getBoundingClientRect();
@@ -190,10 +214,18 @@ const COLLECT = function () {
     if (text.length < 3) return;
 
     // Text that lives in nested block children is measured on those children.
-    const hasBlockChild = Array.from(el.children).some((c) => {
-      const d = getComputedStyle(c).display;
-      return d === "block" || d === "flex" || d === "grid" || d === "list-item";
-    });
+    // Not inside a flex/grid parent, though: those blockify their children,
+    // so a <button class="btn"> (inline-flex) with an <svg> icon computed as
+    // having a "block" child and was skipped -- which exempted every icon
+    // button and every <summary> from the clipping gate (red-team M-2).
+    const ownDisplay = cs.display;
+    const blockifies = /flex|grid/.test(ownDisplay);
+    const hasBlockChild =
+      !blockifies &&
+      Array.from(el.children).some((c) => {
+        const d = getComputedStyle(c).display;
+        return d === "block" || d === "flex" || d === "grid" || d === "list-item";
+      });
     if (hasBlockChild) return;
 
     const lines = lineBoxes(el);
@@ -203,7 +235,20 @@ const COLLECT = function () {
 
     const flags = [];
     if (/hidden|clip/.test(cs.overflowX) && widest > rect.width + 1) flags.push("clipped");
-    if (lines.length >= 2 && last / widest < 0.3) flags.push("orphan");
+    // Orphans are budgeted for SITE copy. A product name is catalogue data
+    // the owner renames in /admin; counting those made a content commit able
+    // to turn this gate red (red-team M-3), so a string that is a product
+    // name -- alone or with a " -- Size/Scent/Blend" variant suffix -- is
+    // measured for clipping but not for orphans.
+    // "startsWith": variant labels append " -- Size", and the box-builder's
+    // option labels run the name straight into its category and price.
+    const isProductName = Array.from(PRODUCT_NAMES).some((n) => text.startsWith(n));
+    // A <label> wrapping a control (checkbox rows, the ritual picker cards)
+    // is a row, not a run of copy; its "lines" are its parts.
+    const isControlRow = el.tagName === "LABEL" && el.querySelector("input,select,textarea");
+    if (!isProductName && !isControlRow && lines.length >= 2 && last / widest < 0.3) {
+      flags.push("orphan");
+    }
     if (!flags.length) return;
 
     out.push({
@@ -284,7 +329,7 @@ async function run() {
     `orphaned last lines stay within budget (${orphans.length}/${ORPHAN_BUDGET})`,
     orphans.length <= ORPHAN_BUDGET,
     orphans.length > ORPHAN_BUDGET
-      ? `${orphans.length - ORPHAN_BUDGET} new orphan(s); fix them or lower nothing until they are`
+      ? `${orphans.length - ORPHAN_BUDGET} more than the budget -- fix the new one(s) rather than raising it`
       : ""
   );
   if (orphans.length < ORPHAN_BUDGET) {

@@ -4756,17 +4756,35 @@ function buildSiteData() {
     const journalLine = "  '/journal.html',\n";
     swContent = swContent.replace(/[ \t]*'\/journal\.html',\n/, "");
     if (SITE_CONFIG.enableJournal) {
-      swContent = swContent.replace(/([ \t]*'\/404\.html',\n)/, function (m, before) {
-        return before + journalLine;
+      /* Anchored on '/offline.html' -- the one entry that can never leave the
+         list, since it is what the worker exists to serve. This used to
+         anchor on '/404.html', which was removed from the precache on
+         2026-09-03 (the host serves it with a 404 status); for a while
+         switching the Journal on silently precached nothing (red-team H-1).
+         A build with the Journal on now refuses to continue if the line did
+         not land. */
+      const before = swContent;
+      swContent = swContent.replace(/([ \t]*'\/offline\.html',\n)/, function (m, line) {
+        return line + journalLine;
       });
+      if (swContent === before) {
+        throw new Error(
+          "sw.js: could not re-insert '/journal.html' into ASSETS_TO_CACHE -- the '/offline.html' anchor is missing"
+        );
+      }
     }
 
     const listMatch = /const ASSETS_TO_CACHE\s*=\s*\[([\s\S]*?)\];/.exec(swContent);
     const precached = [];
     if (listMatch) {
-      const entryRe = /['"]([^'"]+)['"]/g;
+      /* Comments stripped first, and single quotes only -- the array is
+         annotated, and a double-quoted `sizes="48px"` in one of those notes
+         was being hashed as a phantom 50th entry. qa-check.js and
+         smoke-test.js parse the same array the same way. */
+      const listBody = listMatch[1].replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+      const entryRe = /'([^']+)'/g;
       let m;
-      while ((m = entryRe.exec(listMatch[1]))) precached.push(m[1]);
+      while ((m = entryRe.exec(listBody))) precached.push(m[1]);
     }
     const hash = crypto.createHash("sha256");
     precached.forEach(function (entry) {

@@ -1012,8 +1012,12 @@ section {
      with a 4.25rem cap fills 88-97% of the widest line from 1200px up and
      holds the 900-1100px band to two lines at 96-98%. The 4.25rem cap is what
      the widest case wants -- .container stops growing at 1320px, so above
-     ~1500px the column is a fixed 785px and the type must stop growing too. */
-  & h1 {
+     ~1500px the column is a fixed 785px and the type must stop growing too.
+
+     Scoped to .hero-grid, not .hero: 404, welcome and thank-you also use
+     .hero (as .tight-hero) with a full-width h1 and their own sizes
+     (.thank-you-title); a bare `& h1` was overriding those too (red-team M-1). */
+  & .hero-grid h1 {
     margin-bottom: 0.5em;
     font-size: clamp(2.5rem, 4.6vw, 4.25rem);
 
@@ -1814,7 +1818,7 @@ section {
 .events-invite-organizer {
   width: fit-content;
   margin-inline: auto;
-  text-align: left;
+  text-align: start;
 }
 
 /* =============== CUSTOMER REVIEWS (site-submitted, shop.html) ===============
@@ -8562,7 +8566,11 @@ body:not(:has(.announcement-bar)) .site-header {
 }
 .events-invite-organizer {
   color: var(--paper-dim);
-  margin: 0 0 16px;
+  /* `auto` inline margins on purpose: the fit-content rule near .cta-band
+     centres this paragraph as a block, and a plain `margin: 0 0 16px` here
+     (same specificity, later in the file) was resetting them -- the line
+     sat flush left with 749px of empty panel beside it (red-team H-2). */
+  margin: 0 auto 16px;
 }
 .events-invite-organizer a {
   color: var(--whiskey);

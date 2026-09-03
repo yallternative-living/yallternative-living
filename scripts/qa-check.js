@@ -2347,7 +2347,7 @@ if (!fs.existsSync(swPath)) {
        abandoned names it, and a gate that trips on its own decision record is
        worse than no gate. */
     var swCode = swText.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
-    if (/cache\.addAll\s*\(/.test(swCode)) {
+    if (/\.addAll\s*\(|\[\s*["']addAll["']\s*\]|\.addAll\s*\.\s*(call|apply)\b/.test(swCode)) {
       fail(
         "sw.js install strategy",
         "uses cache.addAll(), which is all-or-nothing: one URL the host answers " +
