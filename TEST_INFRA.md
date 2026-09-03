@@ -94,3 +94,85 @@ repository:
 - **Test against the shipped code, not a copy of it.** A suite that
   re-implements the engine it is testing, or requires it in a try/catch and
   skips when it is missing, reports only on itself.
+
+---
+
+# Translation Architecture Migration -- test coverage
+
+Appended. The "What a passing suite has to mean" section above is not
+optional context for this feature: an earlier draft of this file deleted those
+three rules, and the same commit shipped a suite that violated all three
+(`challenger1` Test 2.3 printed two green ticks over an empty string, from
+selectors that do not exist in this repository). They are the rules this
+section is held to.
+
+## What is asserted, and where
+
+- **`scripts/translator.test.js`** (unit pool, 10 suites). Requires the real
+  `assets/js/translator.js` and `assets/js/locales-data.js` -- not a
+  re-implementation -- against a mock DOM. Covers selector injection and its
+  ARIA contract, the full keyboard flow, dictionary structure (6 locales x 206
+  phrases), in-place translation of text nodes / `data-i18n` / `placeholder` /
+  `aria-label` / `title`, glossary protection, `MutationObserver` handling,
+  event dispatch, persistence and `?lang=`, fallback on an invalid code, and
+  the zero-network / zero-cookie invariants. It also pins the language marking:
+  `<html lang>` stays `"en"`, only fully translated elements are marked, mixed
+  content is left alone, untranslated children under a marked ancestor are
+  counter-marked `lang="en"`, and every mark is removed on the way back.
+
+- **`scripts/translator-script-order.browser.test.js`** (integration pool, 20
+  assertions). Loads `/?lang=es` with `locales-data.js` held back 1800ms by
+  Puppeteer request interception and asserts the nav turns Spanish. Its first
+  four assertions are harness controls -- the request was seen, the nav has
+  links to assert over, the dictionaries are still in flight at the sample
+  point, and the nav is still English at that point -- because an interception
+  that silently stopped matching would make every later assertion pass for the
+  wrong reason. A second scenario drives the late-`YL_LOCALES` recovery path
+  directly. Reverting both halves of the fix turns 20 passed / 0 failed into
+  13 passed / 7 failed.
+
+- **`scripts/challenger1-translation-adversarial.browser.test.js`**. 768
+  Node-level stress assertions plus a browser half: 18 rapid switches per page
+  across three pages with a byte-identical English restoration check; brand
+  and INCI preservation on two PDPs, compared by exact occurrence count
+  against an asserted English baseline; and the cart drawer built *after* the
+  switch to Spanish, so the `MutationObserver` is genuinely under test.
+
+- **`scripts/translation-privacy-flow.browser.test.js`**. Zero requests to any
+  Google Translate origin, zero `googtrans` cookies, cross-page persistence,
+  `?lang=` initialisation, and a real offline switch through the service
+  worker.
+
+- **`scripts/puppeteer_tests.js`** section 10. Selector injection, the ARIA
+  contract including `aria-controls` and the language-carrying accessible
+  name, click-to-open, switch to Spanish, and clean restoration.
+
+- **`scripts/qa-check.js`** (1008 static assertions total). For this feature:
+  CSP three-way byte parity with the Google Translate origins gone, zero
+  legacy Google Translate CSS, six valid dictionaries at 206 phrases each, 58
+  glossary terms, `locales-data.js` and `translator.js` both precached in
+  `sw.js` -- and the inverse SEO assertions: no page carries an `hreflang`
+  alternate, `sitemap.xml` has zero `<xhtml:link>` and zero `?lang=`, and
+  `robots.txt` carries `Disallow: /*?lang=`.
+
+- **`scripts/a11y-check.js`**. axe-core WCAG 2.2 AA over every page in both
+  themes, 0 violations allowed.
+
+## What is NOT covered, and why that matters
+
+Naming the gaps is part of the contract; a coverage table with a tick in every
+cell is how the last one went wrong.
+
+- **Dictionary coverage itself is not gated.** Nothing asserts that a
+  dictionary entry corresponds to any string on any page, which is why 58% of
+  entries match nothing and coverage sits at 10-21%. The single assertion that
+  would catch it -- "every English dictionary value appears at least once in
+  the built site" -- is not written yet.
+- **The language selector's contrast is outside the a11y gate.** Its
+  `backdrop-filter` makes axe report 7 nodes as `incomplete` for
+  `color-contrast`, and the gate fails only on `violations`.
+- **RTL is unexercised.** No shipped locale declares `dir: "rtl"`.
+- **No cross-browser coverage of translation.** Every translation suite drives
+  Puppeteer, i.e. Chromium only; `cross-browser-check.js` does not exercise
+  the selector.
+- **Worker/checkout strings are not translated and not tested as such.**

@@ -1,42 +1,36 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Y'allternative" />
-    <meta name="color-scheme" content="dark light" />
-    <meta name="view-transition" content="same-origin" />
-    <title>Privacy Policy | Y'allternative Living</title>
-    <meta name="robots" content="index, follow" />
-    <meta name="description" content="Plain-language privacy info for Y'allternative Living: what happens with your data when you browse, buy something, sign up for emails, or shop our Etsy.">
-    <link rel="canonical" href="https://yallternativeliving.com/privacy.html" />
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Y'allternative">
+<meta name="color-scheme" content="dark light">
+<meta name="view-transition" content="same-origin">
+<title>Privacy Policy | Y'allternative Living</title>
+<meta name="robots" content="index, follow">
+<meta name="description" content="Plain-language privacy info for Y'allternative Living: what happens with your data when you browse, buy something, sign up for emails, or shop our Etsy.">
+<link rel="canonical" href="https://yallternativeliving.com/privacy.html">
 
-    <meta property="og:type" content="website" />
-    <meta property="og:title" content="Privacy Policy | Y'allternative Living" />
-    <meta
-      property="og:description"
-      content="Plain-language privacy info for Y'allternative Living: what happens with your data when you browse, buy something, sign up for our emails, or shop our Etsy."
-    />
-    <meta property="og:image" content="https://yallternativeliving.com/assets/img/og-image.jpg" />
-    <meta property="og:url" content="https://yallternativeliving.com/privacy.html" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Privacy Policy | Y'allternative Living" />
-    <meta
-      name="twitter:description"
-      content="Plain-language privacy info for Y'allternative Living: what happens with your data when you browse, buy something, sign up for our emails, or shop our Etsy."
-    />
-    <meta name="twitter:image" content="https://yallternativeliving.com/assets/img/og-image.jpg" />
+<meta property="og:type" content="website">
+<meta property="og:title" content="Privacy Policy | Y'allternative Living">
+<meta property="og:description" content="Plain-language privacy info for Y'allternative Living: what happens with your data when you browse, buy something, sign up for our emails, or shop our Etsy.">
+<meta property="og:image" content="https://yallternativeliving.com/assets/img/og-image.jpg">
+<meta property="og:url" content="https://yallternativeliving.com/privacy.html">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Privacy Policy | Y'allternative Living">
+<meta name="twitter:description" content="Plain-language privacy info for Y'allternative Living: what happens with your data when you browse, buy something, sign up for our emails, or shop our Etsy.">
+<meta name="twitter:image" content="https://yallternativeliving.com/assets/img/og-image.jpg">
 
-    <link rel="icon" href="assets/img/favicon-32.png" sizes="32x32" type="image/png" />
-    <link rel="icon" href="assets/img/favicon-192.png" sizes="192x192" type="image/png" />
-    <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png" />
-    <link rel="manifest" href="site.webmanifest" />
-    <meta name="theme-color" content="#c65a6d" />
+<link rel="icon" href="assets/img/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="assets/img/favicon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#c65a6d">
 
-    <!-- Premium modern typography for the brand's southern-alt vibe -->
-    <!-- Gloock + DM Sans are self-hosted from assets/fonts/ -- the @font-face
+<!-- Premium modern typography for the brand's southern-alt vibe -->
+<!-- Gloock + DM Sans are self-hosted from assets/fonts/ -- the @font-face
      rules, and the metric-matched Arial/Georgia fallbacks that keep the
      swap from re-flowing anything, are in the SELF-HOSTED WEBFONTS block at
      the end of assets/css/styles.css. No <link> is needed here at all, and
@@ -45,15 +39,15 @@
      mobile profile, competing with the render-blocking stylesheet and (on
      the homepage) with the hero image preload below. With font-display:swap
      and a metric-matched fallback there is nothing to gain by racing it. -->
-    <!-- Warm up the analytics origin this page talks to, so the Umami
+<!-- Warm up the analytics origin this page talks to, so the Umami
      beacon doesn't pay a cold DNS+TLS handshake at the moment it's needed.
      (Checkout is same-origin now -- assets/js/cart.js posts to /api/checkout
      on this domain -- so there's no third-party cart origin to warm up.) -->
-    <!--YL:site.umamiPreconnect--><link rel="preconnect" href="https://cloud.umami.is" crossorigin><!--/YL:site.umamiPreconnect-->
-    <link rel="stylesheet" href="assets/css/styles.css?v=2.0" />
-    <link rel="stylesheet" href="assets/css/cart.css" />
+<!--YL:site.umamiPreconnect--><link rel="preconnect" href="https://cloud.umami.is" crossorigin><!--/YL:site.umamiPreconnect-->
+<link rel="stylesheet" href="assets/css/styles.css?v=2.0">
+<link rel="stylesheet" href="assets/css/cart.css">
 
-    <script>
+<script>
   // No-flash theme init: runs before paint, before main.js.
   (function(){
     var t = localStorage.getItem('yl-theme');
@@ -61,727 +55,268 @@
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
-    <!-- Privacy-friendly analytics (Umami: cookieless, no personal data, no
+<!-- Privacy-friendly analytics (Umami: cookieless, no personal data, no
      fingerprinting, no cross-site tracking -- and unlike a plain page-view
      counter it also captures the shop's conversion events: Add to Cart,
      Purchase, Newsletter Signup, and Site Search. https://umami.is/).
      No cookie-consent banner required. Before this records anything real:
        1. Create a free Umami Cloud account (or self-host) and add this site.
        2. Swap the placeholder data-website-id below for the real one. -->
-    <!--YL:site.umamiWebsiteId--><script defer src="https://cloud.umami.is/script.js" data-website-id="a134e5d8-e8e5-4a8e-90e9-c21e9dba5acb" data-domains="yallternativeliving.com,www.yallternativeliving.com" data-exclude-search="true" data-exclude-hash="true" data-do-not-track="true" data-before-send="ylAnalyticsBeforeSend"></script><!--/YL:site.umamiWebsiteId-->
-    <style>
-      /* Page-specific styling for privacy.html only. */
-      .policy-prose {
-        max-width: 760px;
-        margin: 0 auto;
-      }
-      .policy-prose h2 {
-        font-size: 1.4rem;
-        margin-top: 0;
-      }
-      .policy-prose ul {
-        list-style: disc;
-        margin: 0 0 1em;
-        padding-left: 1.3em;
-      }
-      .policy-prose li {
-        color: var(--paper-dim);
-        margin-bottom: 0.5em;
-      }
-      .policy-prose .rule {
-        margin: 36px 0;
-      }
-      .policy-notice {
-        max-width: 760px;
-        margin: 0 auto 8px;
-        padding: 20px 24px;
-        background: var(--ink-2);
-        border: 1px solid var(--hide);
-        border-radius: var(--radius-lg);
-      }
-      .policy-notice p {
-        margin: 0;
-        font-size: 0.92rem;
-      }
-      .policy-notice p + p {
-        margin-top: 10px;
-      }
-      .policy-updated {
-        font-size: 0.82rem;
-        color: var(--paper-dim);
-        text-align: center;
-        margin-top: 40px;
-      }
-    </style>
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "LocalBusiness",
-        "@id": "https://yallternativeliving.com/#business",
-        "name": "Y'allternative Living",
-        "description": "Queer-owned, Southern-raised handmade self-care. Small-batch salves, soaks, body care and apparel out of Landrum, SC.",
-        "image": "https://yallternativeliving.com/assets/img/logo.png",
-        "url": "https://yallternativeliving.com/",
-        "email": "y.allternative.living@gmail.com",
-        "address": {
-          "@type": "PostalAddress",
-          "addressLocality": "Landrum",
-          "addressRegion": "SC",
-          "addressCountry": "US"
-        },
-        "sameAs": [
+<!--YL:site.umamiWebsiteId--><script defer src="https://cloud.umami.is/script.js" data-website-id="a134e5d8-e8e5-4a8e-90e9-c21e9dba5acb" data-domains="yallternativeliving.com,www.yallternativeliving.com" data-exclude-search="true" data-exclude-hash="true" data-do-not-track="true" data-before-send="ylAnalyticsBeforeSend"></script><!--/YL:site.umamiWebsiteId-->
+<style>
+  /* Page-specific styling for privacy.html only. */
+  .policy-prose{ max-width: 760px; margin: 0 auto; }
+  .policy-prose h2{ font-size: 1.4rem; margin-top: 0; }
+  .policy-prose ul{ list-style: disc; margin: 0 0 1em; padding-left: 1.3em; }
+  .policy-prose li{ color: var(--paper-dim); margin-bottom: .5em; }
+  .policy-prose .rule{ margin: 36px 0; }
+  .policy-notice{
+    max-width: 760px; margin: 0 auto 8px; padding: 20px 24px;
+    background: var(--ink-2); border: 1px solid var(--hide); border-radius: var(--radius-lg);
+  }
+  .policy-notice p{ margin: 0; font-size: .92rem; }
+  .policy-notice p + p{ margin-top: 10px; }
+  .policy-updated{ font-size: .82rem; color: var(--paper-dim); text-align: center; margin-top: 40px; }
+</style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  "@id": "https://yallternativeliving.com/#business",
+  "name": "Y'allternative Living",
+  "description": "Queer-owned, Southern-raised handmade self-care. Small-batch salves, soaks, body care and apparel out of Landrum, SC.",
+  "image": "https://yallternativeliving.com/assets/img/logo.png",
+  "url": "https://yallternativeliving.com/",
+  "email": "y.allternative.living@gmail.com",
+  "address": {
+    "@type": "PostalAddress",
+    "addressLocality": "Landrum",
+    "addressRegion": "SC",
+    "addressCountry": "US"
+  },
+  "sameAs": [
     "https://www.etsy.com/shop/YallternativeLivinCO",
     "https://www.facebook.com/p/Yallternative-Living-61577943406316/",
     "https://www.instagram.com/yallternativeliving",
     "https://www.tiktok.com/@yallternativeliving"
   ],
-        "priceRange": "$"
-      }
-    </script>
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "BreadcrumbList",
-        "itemListElement": [
-          {
-            "@type": "ListItem",
-            "position": 1,
-            "name": "Home",
-            "item": "https://yallternativeliving.com/index.html"
-          },
-          {
-            "@type": "ListItem",
-            "position": 2,
-            "name": "Privacy Policy",
-            "item": "https://yallternativeliving.com/privacy.html"
-          }
-        ]
-      }
-    </script>
-    <!--YL:featureStyles--><!--/YL:featureStyles-->
-  </head>
-  <body>
-    <a href="#main-content" class="skip-link">Skip to main content</a>
-    <header class="site-header">
-      <nav class="nav" aria-label="Main Navigation">
-        <a class="brand" href="index.html" aria-label="Y&#39;allternative Living home">
-          <picture><source type="image/avif" srcset="/assets/img/logo-48.avif 48w, /assets/img/logo-96.avif 96w, /assets/img/logo-144.avif 144w, /assets/img/logo-192.avif 192w" sizes="48px"><source type="image/webp" srcset="/assets/img/logo-48.webp 48w, /assets/img/logo-96.webp 96w, /assets/img/logo-144.webp 144w, /assets/img/logo-192.webp 192w" sizes="48px"><img src="/assets/img/logo.png" alt="Y&#39;allternative Living icon" width="48" height="48" decoding="async" class="logo-desktop" sizes="48px"></picture>
-          <picture><source type="image/avif" srcset="/assets/img/logo-48.avif 48w, /assets/img/logo-96.avif 96w, /assets/img/logo-144.avif 144w, /assets/img/logo-192.avif 192w" sizes="48px"><source type="image/webp" srcset="/assets/img/logo-48.webp 48w, /assets/img/logo-96.webp 96w, /assets/img/logo-144.webp 144w, /assets/img/logo-192.webp 192w" sizes="48px"><img src="/assets/img/logo.png" alt="Y&#39;allternative Living logo" width="48" height="48" decoding="async" class="logo-mobile" sizes="48px"></picture>
-          <span class="brand-word">Y'allternative<small>Living</small></span>
-        </a>
-        <ul class="nav-links" id="navLinks">
-          <li><a href="index.html">Home</a></li>
-          <li><a href="shop.html">Shop</a></li>
-          <li><a href="events.html">Events</a></li>
-          <li><a href="about.html">Our Story</a></li>
-          <li><a href="contact.html">Contact</a></li>
-          <!--YL:nav.journal--><!--/YL:nav.journal-->
-        </ul>
-        <div class="nav-cta">
-          <button
-            class="nav-search-btn"
-            id="globalSearchTrigger"
-            type="button"
-            aria-label="Search catalog, articles &amp; FAQ"
-            title="Search (Cmd+K)"
-            aria-haspopup="dialog"
-            aria-expanded="false"
-            aria-controls="global-search-modal"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              width="20"
-              height="20"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              class="icon-search"
-              aria-hidden="true"
-            >
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-          </button>
-          <button class="cart-toggle" type="button" aria-label="View your cart">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              class="icon-cart"
-            >
-              <circle cx="8" cy="21" r="1" />
-              <circle cx="19" cy="21" r="1" />
-              <path
-                d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"
-              />
-            </svg>
-            <span class="badge cart-count" aria-live="polite"></span>
-          </button>
-          <button
-            type="button"
-            class="theme-toggle"
-            id="themeToggle"
-            role="switch"
-            aria-checked="false"
-            aria-label="Toggle dark and light mode"
-          >
-            <span class="knob" aria-hidden="true"
-              ><svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                class="icon-moon"
-              >
-                <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" /></svg
-              ><svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                class="icon-sun"
-              >
-                <circle cx="12" cy="12" r="4" />
-                <path d="M12 2v2" />
-                <path d="M12 20v2" />
-                <path d="m4.93 4.93 1.41 1.41" />
-                <path d="m17.66 17.66 1.41 1.41" />
-                <path d="M2 12h2" />
-                <path d="M20 12h2" />
-                <path d="m6.34 17.66-1.41 1.41" />
-                <path d="m19.07 4.93-1.41 1.41" /></svg
-            ></span>
-          </button>
-          <button
-            type="button"
-            class="nav-toggle"
-            aria-label="Open menu"
-            aria-expanded="false"
-            aria-controls="navLinks"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              class="icon-menu"
-              aria-hidden="true"
-            >
-              <line x1="4" x2="20" y1="12" y2="12" />
-              <line x1="4" x2="20" y1="6" y2="6" />
-              <line x1="4" x2="20" y1="18" y2="18" />
-            </svg>
-          </button>
+  "priceRange": "$"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://yallternativeliving.com/index.html"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Privacy Policy",
+      "item": "https://yallternativeliving.com/privacy.html"
+    }
+  ]
+}
+</script>
+<!--YL:featureStyles--><!--/YL:featureStyles-->
+</head>
+<body>
+<a href="#main-content" class="skip-link">Skip to main content</a>
+<header class="site-header">
+  <nav class="nav" aria-label="Main Navigation">
+    <a class="brand" href="index.html" aria-label="Y&#39;allternative Living home">
+      <picture><source type="image/avif" srcset="/assets/img/logo-48.avif 48w, /assets/img/logo-96.avif 96w, /assets/img/logo-144.avif 144w, /assets/img/logo-192.avif 192w" sizes="48px"><source type="image/webp" srcset="/assets/img/logo-48.webp 48w, /assets/img/logo-96.webp 96w, /assets/img/logo-144.webp 144w, /assets/img/logo-192.webp 192w" sizes="48px"><img src="/assets/img/logo.png" alt="Y&#39;allternative Living icon" width="48" height="48" decoding="async" class="logo-desktop" sizes="48px"></picture>
+      <picture><source type="image/avif" srcset="/assets/img/logo-48.avif 48w, /assets/img/logo-96.avif 96w, /assets/img/logo-144.avif 144w, /assets/img/logo-192.avif 192w" sizes="48px"><source type="image/webp" srcset="/assets/img/logo-48.webp 48w, /assets/img/logo-96.webp 96w, /assets/img/logo-144.webp 144w, /assets/img/logo-192.webp 192w" sizes="48px"><img src="/assets/img/logo.png" alt="Y&#39;allternative Living logo" width="48" height="48" decoding="async" class="logo-mobile" sizes="48px"></picture>
+      <span class="brand-word">Y'allternative<small>Living</small></span>
+    </a>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="shop.html">Shop</a></li>
+      <li><a href="events.html">Events</a></li>
+      <li><a href="about.html">Our Story</a></li>
+      <li><a href="contact.html">Contact</a></li>
+      <!--YL:nav.journal--><!--/YL:nav.journal-->
+    </ul>
+    <div class="nav-cta">
+      <button class="nav-search-btn" id="globalSearchTrigger" type="button" aria-label="Search catalog, articles &amp; FAQ" title="Search (Cmd+K)" aria-haspopup="dialog" aria-expanded="false" aria-controls="global-search-modal">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-search" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      </button>
+      <button class="cart-toggle" type="button" aria-label="View your cart">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="icon-cart"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
+        <span class="badge cart-count" aria-live="polite"></span>
+      </button>
+      <button type="button" class="theme-toggle" id="themeToggle" role="switch" aria-checked="false" aria-label="Toggle dark and light mode">
+        <span class="knob" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-moon"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-sun"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span>
+      </button>
+      <button type="button" class="nav-toggle" aria-label="Open menu" aria-expanded="false" aria-controls="navLinks">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-menu" aria-hidden="true"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+      </button>
+    </div>
+  </nav>
+</header>
+<main id="main-content">
+
+  <!-- PAGE HERO -->
+  <div class="page-hero">
+    <div class="container">
+      <p class="breadcrumb"><a href="index.html">Home</a> / Privacy Policy</p>
+      <span class="eyebrow">Privacy Policy</span>
+      <h1>Privacy Policy</h1>
+      <p class="lede"><!--YL:privacy.intro-->We don&#39;t like small print any more than you do, so here&#39;s what actually happens with your information when you spend time on this site: no jargon, no funny business.<!--/YL:privacy.intro--></p>
+    </div>
+  </div>
+
+
+  <!-- POLICY BODY -->
+  <section class="section-tight">
+    <div class="container">
+      <div class="policy-prose">
+
+        <div class="reveal">
+          <h2>Just Browsing?</h2>
+          <p>If you're only here to look around, here's the good news: this site doesn't require an account, and it doesn't create one for you in the background. A handful of things get saved as you poke around, and all of them live in your browser's <code>localStorage</code> &mdash; on your own device, not on a server:</p>
+          <ul>
+            <li><strong>Your theme choice</strong> (dark or light mode), so the site remembers which one you picked.</li>
+            <li><strong>Your &ldquo;Saved For Later&rdquo; wishlist</strong> &mdash; anything you heart on the shop page.</li>
+            <li><strong>Your cart</strong> &mdash; which goods, which sizes, how many, and any gift message or recipient email you've typed into a gift card.</li>
+            <li><strong>Recently viewed items</strong>, so the carousel at the bottom of the shop can show you where you've been (the last eight, by product ID).</li>
+            <li><strong>A gift card code you've applied</strong> to your cart, along with its balance, and your Alt-Points total.</li>
+            <li><strong>Your language choice</strong>, if you use the translation tool (stored locally in <code>localStorage['yl-lang']</code>, zero cookies).</li>
+          </ul>
+          <p>None of that is sent anywhere while you're browsing. The cart is the one to know about: it stays on your device right up until you click Checkout, at which point its contents go to our checkout service so it can build your payment page. Clear your browser data, or switch devices or browsers, and all of it resets, because it was never anywhere but your own machine to begin with.</p>
         </div>
-      </nav>
-    </header>
-    <main id="main-content">
-      <!-- PAGE HERO -->
-      <div class="page-hero">
-        <div class="container">
-          <p class="breadcrumb"><a href="index.html">Home</a> / Privacy Policy</p>
-          <span class="eyebrow">Privacy Policy</span>
-          <h1>Privacy Policy</h1>
-          <p class="lede">
-            <!--YL:privacy.intro-->We don&#39;t like small print any more than you do, so here&#39;s what actually happens with your information when you spend time on this site: no jargon, no funny business.<!--/YL:privacy.intro-->
-          </p>
+        <hr class="rule">
+
+        <div class="reveal">
+          <h2>What We Collect Directly</h2>
+          <p>Every form on this site is listed here, along with where what you type actually goes. Nothing on this list is optional to mention and nothing is left off it:</p>
+          <ul>
+            <li><strong>Contact form</strong> (on the Contact page) &mdash; your name, email address and message. Delivered to our inbox by <a href="https://formspree.io/legal/privacy-policy/" target="_blank" rel="noopener">Formspree<span class="sr-only"> (opens in new tab)</span></a>, a form-forwarding service.</li>
+            <li><strong>Review form</strong> (at the bottom of the Shop page, on the Reviews page, and on every product page) &mdash; your name or handle, an optional email address, which product (or the whole shop), a star rating and your review. Also delivered through Formspree. We read them by hand and publish approved ones; the email address is never published.</li>
+            <li><strong>Restock &amp; launch alerts</strong> (the &ldquo;Notify me when it's back&rdquo; box in the shop) &mdash; your email address and which item you asked about. That goes to our small service on <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener">Cloudflare Workers<span class="sr-only"> (opens in new tab)</span></a>, which emails it to us through <a href="https://resend.com/legal/privacy-policy" target="_blank" rel="noopener">Resend<span class="sr-only"> (opens in new tab)</span></a>. Nothing is kept once that email is sent.</li>
+            <li><strong>Market-date reminders</strong> (the &ldquo;Email me the next market date&rdquo; box on the Events page) &mdash; your email address, and nothing else. It is stored by that same small service on Cloudflare Workers, which uses it for exactly one thing: one email the day before each market we're at, sent through Resend. Every one of those emails has an unsubscribe link in it, and unsubscribing from any email we send stops these too.</li>
+            <li><strong>Order lookup</strong> (&ldquo;Track Order Status&rdquo; in the shop, on the order confirmation page and on the Order Status page) &mdash; your order reference and the email you used at checkout. Our Cloudflare service checks them against Stripe and shows you your order's status; it stores neither.</li>
+            <li><strong>Gift card balance check</strong> (in the shop) &mdash; the gift card code you type. Looked up by the same Cloudflare service, which holds gift card balances; the code is not kept anywhere else.</li>
+            <li><strong>Gift card recipient details</strong> &mdash; if you buy a gift card for someone, the recipient's email address, your name and your message travel with the order through checkout so the code can be emailed to them.</li>
+            <li><strong>Newsletter signup</strong> (in the footer, and on the welcome page) &mdash; your email address, held by our newsletter provider. More on that below.</li>
+            <li><strong>Birthday club</strong> (optional, on the order confirmation page) &mdash; the month and day of your birthday only, never the year, held with your newsletter subscription so we can send a birthday treat. We deliberately do not collect your birth year or any other date.</li>
+            <li><strong>Reaction reports</strong> (the <a href="/safety.html">Report a Reaction</a> page) &mdash; what you tell us about a reaction to something we made: the product and lot, when you used it, what happened, your name, email, an optional phone number, and an optional age range and sex. Federal law requires a body-care label to carry a way to report this, and requires us to keep the report. More on it just below.</li>
+            <li><strong>Live chat</strong> &mdash; if you open the chat bubble and start a conversation, whatever you type in it (and, if you offer it, your name and email) is held by our chat provider. More on that below too.</li>
+          </ul>
+          <p>There is no account system, no login, and no profile being assembled anywhere. What you send us is what we have.</p>
+          <p>This site sells body care and apparel to adults and is not directed at children. We do not knowingly collect personal information from anyone under 13; if you believe a child has sent us something, email us and we will delete it.</p>
         </div>
+        <hr class="rule">
+
+        <div class="reveal">
+          <h2>Reaction Reports</h2>
+          <p>A reaction report is the one thing on this page we are not free to throw away. The Modernization of Cosmetics Regulation Act requires every body-care label to carry a way for you to report an adverse event &mdash; that is what the <a href="/safety.html">Report a Reaction</a> page is &mdash; and it requires us to keep what you send. So we do: <strong>every reaction report is kept for at least three years</strong> from the day it arrives &mdash; the period the law sets for a business our size. Nothing deletes them on a timer, so in practice it is longer; a record we still have is never the problem.</p>
+          <p>What you type there goes to the same small service of ours on <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener">Cloudflare Workers<span class="sr-only"> (opens in new tab)</span></a> that handles checkout, which stores it in a database on Cloudflare and emails a copy to us through <a href="https://resend.com/legal/privacy-policy" target="_blank" rel="noopener">Resend<span class="sr-only"> (opens in new tab)</span></a>. Resend delivers that email and your acknowledgement; it does not keep a copy on our behalf. We do not store the IP address you sent it from &mdash; only a one-way scramble of it, so we can spot a flood of junk without holding the address itself.</p>
+          <p><strong>We share reaction reports with the FDA only when the law requires it.</strong> That means a serious adverse event &mdash; death, a life-threatening reaction, hospitalisation, lasting disability, a birth defect, an infection, significant disfigurement, or a medical or surgical procedure to prevent one of those &mdash; which we have to report to the FDA within 15 business days on the MedWatch form. Nothing else goes to them, nothing goes to anyone else, and none of it is ever used for marketing, sold, or fed to any analytics tool. That page fires no analytics events at all &mdash; it is counted as a page view like any other page, and nothing about the report, including its reference number, goes with it.</p>
+          <p>You can ask us what we hold on you and, outside what the law makes us keep, ask us to delete it &mdash; see &ldquo;Questions, Or Want Something Deleted?&rdquo; below.</p>
+        </div>
+        <hr class="rule">
+
+        <div class="reveal">
+          <h2>When You Buy Something</h2>
+          <p>Your cart lives right here on this site, but payment itself is handled by <a href="https://stripe.com" target="_blank" rel="noopener">Stripe<span class="sr-only"> (opens in new tab)</span></a>, a third-party payment processor. When you check out, you're taken to a payment page hosted by Stripe -- your card details are entered there, not on our site, and never pass through or get stored on our servers. That means your name, shipping address, email, and payment details are collected and stored by Stripe, not by us directly. We see your order information so we can make and ship your goods, but the sensitive handling (card numbers, etc.) never touches our own servers because we don't run any.</p>
+          <p>Getting you to that Stripe page takes two pieces of plumbing, and both see your order on the way through. The Checkout button posts your cart to a small service of ours running on <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener">Cloudflare Workers<span class="sr-only"> (opens in new tab)</span></a>, which re-prices everything against our own catalogue and asks Stripe for a payment page. After you pay, Stripe notifies that same Cloudflare service, which is what issues gift card codes and keeps track of their balances (in a small database on Cloudflare that holds only the codes, their balances and a record of which Stripe events it has already handled). If your order includes a gift card, that service sends the code by email through <a href="https://resend.com/legal/privacy-policy" target="_blank" rel="noopener">Resend<span class="sr-only"> (opens in new tab)</span></a> &mdash; to you, or to the recipient address you gave us.</p>
+          <p>For the full details on how Stripe handles your data, read <a href="https://stripe.com/privacy" target="_blank" rel="noopener">Stripe's own privacy policy<span class="sr-only"> (opens in new tab)</span></a>: they're the ones actually storing and processing that information, so they're the most accurate source on it.</p>
+        </div>
+        <hr class="rule">
+
+        <div class="reveal">
+          <h2>Our Email Updates</h2>
+          <p>If you sign up for our email updates, the email address you provide is stored by <a href="https://kit.com/privacy" target="_blank" rel="noopener">Kit<span class="sr-only"> (opens in new tab)</span></a> (the service formerly called ConvertKit), and used only to send you the updates you asked for. The signup form posts straight to Kit, so your address goes to them directly. We don't sell it or share it with anyone outside of running that newsletter, and you can unsubscribe any time using the link included in any email we send.</p>
+        </div>
+        <hr class="rule">
+
+        <div class="reveal">
+          <h2>Shopping On Etsy</h2>
+          <p>Some of our goods are also listed on our <a href="https://www.etsy.com/shop/YallternativeLivinCO" target="_blank" rel="noopener">Etsy shop<span class="sr-only"> (opens in new tab)</span></a>, and this site links out there as another way to buy. Once you click through to Etsy, you're on Etsy's platform and subject to <a href="https://www.etsy.com/legal/privacy/" target="_blank" rel="noopener">Etsy's own privacy policy<span class="sr-only"> (opens in new tab)</span></a>, which is separate from this one and out of our hands.</p>
+        </div>
+        <hr class="rule">
+
+        <div class="reveal">
+          <h2>Fonts</h2>
+          <p>The typefaces on this site are served from our own domain, so loading a page does not send a font request to Google or to any other font provider. No font-related third parties are involved.</p>
+        </div>
+        <hr class="rule">
+
+        <div class="reveal">
+          <h2>Cookies &amp; Analytics</h2>
+          <p>The browser storage this site uses is the functional kind, listed in full under &ldquo;Just Browsing?&rdquo; above: your theme, your wishlist, your cart, your recently viewed items, an applied gift card, and your language choice (in local storage). None of it is used for tracking or advertising, and none of it sets a cookie.</p>
+          <p><strong>Analytics.</strong> This site runs <a href="https://umami.is/" target="_blank" rel="noopener" >Umami<span class="sr-only"> (opens in new tab)</span></a > for analytics. Umami is cookieless, doesn't collect or store personal data, doesn't fingerprint your device, and can't track you across other websites &mdash; it counts anonymous, aggregate activity: which pages get looked at, which products get added to a cart or saved to a wishlist, which quiz answer came out, when a checkout is started and whether it went through, and the total of a completed order. Never who. </p>
+          <p> Two specifics worth spelling out. <strong>We strip the query string</strong> off every web address before it is counted, so the order reference in a receipt link, the address in a mailing-list link, and the reference number on a reaction report are never sent &mdash; the only thing we add back is the campaign tag on a link we published ourselves, so we can tell whether a post or a market QR code brought anyone here. And <strong>our search box reports only how long a search was and whether it found anything</strong>, never what you typed. If your browser sends a &ldquo;Do Not Track&rdquo; signal we count nothing at all, and if we ever switch analytics off, nothing loads and nothing is counted. </p>
+          <p><strong>Live chat.</strong> The chat bubble in the corner is <a href="https://www.tawk.to/privacy-policy/" target="_blank" rel="noopener">Tawk.to<span class="sr-only"> (opens in new tab)</span></a>, and it is live on every page of this site, product pages included &mdash; the one exception is the offline fallback page you only see when your connection drops. Unlike the rest of what's here, it loads its own script and sets its own cookies (it uses them to recognize a returning visitor and keep a conversation together), and it can see the page you're on. Anything you type into the chat is held by Tawk.to as well as reaching us.</p>
+          <p><strong>Translation.</strong> Translations are self-hosted and run locally in your browser with zero cookies, zero third-party scripts, and zero network requests to Google or any external service. Your language preference is saved solely in your browser's local storage (<code>localStorage['yl-lang']</code>).</p>
+          <p>The other third-party services embedded here &mdash; Stripe during checkout, and Etsy once you click through &mdash; may set their own cookies or use their own tracking as part of how they operate. Those are governed by those companies' own policies.</p>
+        </div>
+        <hr class="rule">
+
+        <div class="reveal">
+          <h2>Everyone Who Touches Your Data</h2>
+          <p>We're one person and a workshop, so almost everything here is somebody else's service doing a job we can't do ourselves. This is the whole list, and what each one is for:</p>
+          <ul>
+            <li><a href="https://stripe.com/privacy" target="_blank" rel="noopener">Stripe<span class="sr-only"> (opens in new tab)</span></a> &mdash; payments. Holds your name, shipping address, email and payment details.</li>
+            <li><a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener">Cloudflare Workers<span class="sr-only"> (opens in new tab)</span></a> &mdash; runs our checkout service: it sees your cart on its way to Stripe, issues gift card codes and holds their balances, answers order lookups, forwards restock alerts, and stores reaction reports for at least three years.</li>
+            <li><a href="https://www.netlify.com/privacy/" target="_blank" rel="noopener">Netlify<span class="sr-only"> (opens in new tab)</span></a> &mdash; hosts this site and passes checkout traffic through to the Cloudflare service.</li>
+            <li><a href="https://formspree.io/legal/privacy-policy/" target="_blank" rel="noopener">Formspree<span class="sr-only"> (opens in new tab)</span></a> &mdash; delivers the contact and review forms to our inbox.</li>
+            <li><a href="https://kit.com/privacy" target="_blank" rel="noopener">Kit<span class="sr-only"> (opens in new tab)</span></a> (formerly ConvertKit) &mdash; holds newsletter subscribers.</li>
+            <li><a href="https://resend.com/legal/privacy-policy" target="_blank" rel="noopener">Resend<span class="sr-only"> (opens in new tab)</span></a> &mdash; sends gift card emails, restock-alert emails and the two emails a reaction report generates (our copy and your acknowledgement).</li>
+            <li><a href="https://www.tawk.to/privacy-policy/" target="_blank" rel="noopener">Tawk.to<span class="sr-only"> (opens in new tab)</span></a> &mdash; the live chat widget, and its cookies.</li>
+            <li><a href="https://umami.is/privacy" target="_blank" rel="noopener">Umami<span class="sr-only"> (opens in new tab)</span></a> &mdash; cookieless analytics, if analytics is enabled.</li>
+            <li><a href="https://www.etsy.com/legal/privacy/" target="_blank" rel="noopener">Etsy<span class="sr-only"> (opens in new tab)</span></a> &mdash; our second storefront, once you click through to it.</li>
+          </ul>
+          <p>If that list ever changes, this page changes with it. That's the deal.</p>
+        </div>
+        <hr class="rule">
+
+        <div class="reveal">
+          <h2>Children's Privacy</h2>
+          <p>This site and everything we sell is intended for adults, not for children. It isn't directed at anyone under 13, and we don't knowingly collect information from kids.</p>
+        </div>
+        <hr class="rule">
+
+        <div class="reveal">
+          <h2>Your Rights</h2>
+          <p>We're a tiny handmade business, not a compliance department, so we won't claim any formal certification here. But if you're in the EU, the UK, California, or anywhere else with specific data rights you'd like to exercise (access, correction, deletion, whatever it may be), email us and we'll do our honest best to help.</p>
+        </div>
+        <hr class="rule">
+
+        <div class="reveal">
+          <h2>Questions, Or Want Something Deleted?</h2>
+          <p>There's no self-serve portal or automated system here. Just us. If you have questions about this policy, want to know what we have on file, or want your email address (or anything else we hold) deleted, email <a href="mailto:y.allternative.living@gmail.com">y.allternative.living@gmail.com</a> and we'll take care of it by hand.</p>
+        </div>
+        <hr class="rule">
+
+        <div class="reveal">
+          <h2>Changes To This Policy</h2>
+          <p>If how this site handles data ever changes (a new tool, a new feature, actual analytics down the line), we'll update this page to keep it accurate rather than let it go stale.</p>
+          <p class="policy-updated">Last updated: <!--YL:privacy.lastUpdated-->September 2, 2026<!--/YL:privacy.lastUpdated--></p>
+        </div>
+
       </div>
+    </div>
+  </section>
 
-      <!-- POLICY BODY -->
-      <section class="section-tight">
-        <div class="container">
-          <div class="policy-prose">
-            <div class="reveal">
-              <h2>Just Browsing?</h2>
-              <p>
-                If you're only here to look around, here's the good news: this site doesn't require
-                an account, and it doesn't create one for you in the background. A handful of things
-                get saved as you poke around, and all of them live in your browser's
-                <code>localStorage</code> &mdash; on your own device, not on a server:
-              </p>
-              <ul>
-                <li>
-                  <strong>Your theme choice</strong> (dark or light mode), so the site remembers
-                  which one you picked.
-                </li>
-                <li>
-                  <strong>Your &ldquo;Saved For Later&rdquo; wishlist</strong> &mdash; anything you
-                  heart on the shop page.
-                </li>
-                <li>
-                  <strong>Your cart</strong> &mdash; which goods, which sizes, how many, and any
-                  gift message or recipient email you've typed into a gift card.
-                </li>
-                <li>
-                  <strong>Recently viewed items</strong>, so the carousel at the bottom of the shop
-                  can show you where you've been (the last eight, by product ID).
-                </li>
-                <li>
-                  <strong>A gift card code you've applied</strong> to your cart, along with its
-                  balance, and your Alt-Points total.
-                </li>
-                <li>
-                  <strong>Your language choice</strong>, if you use the translation tool &mdash;
-                  that one is a cookie (<code>googtrans</code>), because that's what Google
-                  Translate reads.
-                </li>
-              </ul>
-              <p>
-                None of that is sent anywhere while you're browsing. The cart is the one to know
-                about: it stays on your device right up until you click Checkout, at which point its
-                contents go to our checkout service so it can build your payment page. Clear your
-                browser data, or switch devices or browsers, and all of it resets, because it was
-                never anywhere but your own machine to begin with.
-              </p>
-            </div>
-            <hr class="rule" />
+  <!-- CLOSING -->
+  <section class="cta-band">
+    <div class="container">
+      <span class="eyebrow">Keep Shopping</span>
+      <h2>Back To The Good Stuff</h2>
+      <p>Questions about any of this? <a href="contact.html">Reach out</a> any time. Otherwise, head on back to <a href="index.html">the homepage</a> or go treat yourself.</p>
+      <a class="btn btn-primary" href="shop.html">Shop The Collection</a>
+    </div>
+  </section>
 
-            <div class="reveal">
-              <h2>What We Collect Directly</h2>
-              <p>
-                Every form on this site is listed here, along with where what you type actually
-                goes. Nothing on this list is optional to mention and nothing is left off it:
-              </p>
-              <ul>
-                <li>
-                  <strong>Contact form</strong> (on the Contact page) &mdash; your name, email
-                  address and message. Delivered to our inbox by
-                  <a
-                    href="https://formspree.io/legal/privacy-policy/"
-                    target="_blank"
-                    rel="noopener"
-                    >Formspree<span class="sr-only"> (opens in new tab)</span></a
-                  >, a form-forwarding service.
-                </li>
-                <li>
-                  <strong>Review form</strong> (at the bottom of the Shop page, on the Reviews page,
-                  and on every product page) &mdash; your name or handle, an optional email address,
-                  which product (or the whole shop), a star rating and your review. Also delivered
-                  through Formspree. We read them by hand and publish approved ones; the email
-                  address is never published.
-                </li>
-                <li>
-                  <strong>Restock &amp; launch alerts</strong> (the &ldquo;Notify me when it's
-                  back&rdquo; box in the shop) &mdash; your email address and which item you asked
-                  about. That goes to our small service on
-                  <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener"
-                    >Cloudflare Workers<span class="sr-only"> (opens in new tab)</span></a
-                  >, which emails it to us through
-                  <a href="https://resend.com/legal/privacy-policy" target="_blank" rel="noopener"
-                    >Resend<span class="sr-only"> (opens in new tab)</span></a
-                  >. Nothing is kept once that email is sent.
-                </li>
-                <li>
-                  <strong>Market-date reminders</strong> (the &ldquo;Email me the next market
-                  date&rdquo; box on the Events page) &mdash; your email address, and nothing else.
-                  It is stored by that same small service on Cloudflare Workers, which uses it for
-                  exactly one thing: one email the day before each market we're at, sent through
-                  Resend. Every one of those emails has an unsubscribe link in it, and unsubscribing
-                  from any email we send stops these too.
-                </li>
-                <li>
-                  <strong>Order lookup</strong> (&ldquo;Track Order Status&rdquo; in the shop, on
-                  the order confirmation page and on the Order Status page) &mdash; your order
-                  reference and the email you used at checkout. Our Cloudflare service checks them
-                  against Stripe and shows you your order's status; it stores neither.
-                </li>
-                <li>
-                  <strong>Gift card balance check</strong> (in the shop) &mdash; the gift card code
-                  you type. Looked up by the same Cloudflare service, which holds gift card
-                  balances; the code is not kept anywhere else.
-                </li>
-                <li>
-                  <strong>Gift card recipient details</strong> &mdash; if you buy a gift card for
-                  someone, the recipient's email address, your name and your message travel with the
-                  order through checkout so the code can be emailed to them.
-                </li>
-                <li>
-                  <strong>Newsletter signup</strong> (in the footer, and on the welcome page)
-                  &mdash; your email address, held by our newsletter provider. More on that below.
-                </li>
-                <li>
-                  <strong>Birthday club</strong> (optional, on the order confirmation page) &mdash;
-                  the month and day of your birthday only, never the year, held with your newsletter
-                  subscription so we can send a birthday treat. We deliberately do not collect your
-                  birth year or any other date.
-                </li>
-                <li>
-                  <strong>Reaction reports</strong> (the
-                  <a href="/safety.html">Report a Reaction</a> page) &mdash; what you tell us about
-                  a reaction to something we made: the product and lot, when you used it, what
-                  happened, your name, email, an optional phone number, and an optional age range
-                  and sex. Federal law requires a body-care label to carry a way to report this, and
-                  requires us to keep the report. More on it just below.
-                </li>
-                <li>
-                  <strong>Live chat</strong> &mdash; if you open the chat bubble and start a
-                  conversation, whatever you type in it (and, if you offer it, your name and email)
-                  is held by our chat provider. More on that below too.
-                </li>
-              </ul>
-              <p>
-                There is no account system, no login, and no profile being assembled anywhere. What
-                you send us is what we have.
-              </p>
-              <p>
-                This site sells body care and apparel to adults and is not directed at children. We
-                do not knowingly collect personal information from anyone under 13; if you believe a
-                child has sent us something, email us and we will delete it.
-              </p>
-            </div>
-            <hr class="rule" />
-
-            <div class="reveal">
-              <h2>Reaction Reports</h2>
-              <p>
-                A reaction report is the one thing on this page we are not free to throw away. The
-                Modernization of Cosmetics Regulation Act requires every body-care label to carry a
-                way for you to report an adverse event &mdash; that is what the
-                <a href="/safety.html">Report a Reaction</a> page is &mdash; and it requires us to
-                keep what you send. So we do:
-                <strong>every reaction report is kept for at least three years</strong> from the day
-                it arrives &mdash; the period the law sets for a business our size. Nothing deletes
-                them on a timer, so in practice it is longer; a record we still have is never the
-                problem.
-              </p>
-              <p>
-                What you type there goes to the same small service of ours on
-                <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener"
-                  >Cloudflare Workers<span class="sr-only"> (opens in new tab)</span></a
-                >
-                that handles checkout, which stores it in a database on Cloudflare and emails a copy
-                to us through
-                <a href="https://resend.com/legal/privacy-policy" target="_blank" rel="noopener"
-                  >Resend<span class="sr-only"> (opens in new tab)</span></a
-                >. Resend delivers that email and your acknowledgement; it does not keep a copy on
-                our behalf. We do not store the IP address you sent it from &mdash; only a one-way
-                scramble of it, so we can spot a flood of junk without holding the address itself.
-              </p>
-              <p>
-                <strong
-                  >We share reaction reports with the FDA only when the law requires it.</strong
-                >
-                That means a serious adverse event &mdash; death, a life-threatening reaction,
-                hospitalisation, lasting disability, a birth defect, an infection, significant
-                disfigurement, or a medical or surgical procedure to prevent one of those &mdash;
-                which we have to report to the FDA within 15 business days on the MedWatch form.
-                Nothing else goes to them, nothing goes to anyone else, and none of it is ever used
-                for marketing, sold, or fed to any analytics tool. That page fires no analytics
-                events at all &mdash; it is counted as a page view like any other page, and nothing
-                about the report, including its reference number, goes with it.
-              </p>
-              <p>
-                You can ask us what we hold on you and, outside what the law makes us keep, ask us
-                to delete it &mdash; see &ldquo;Questions, Or Want Something Deleted?&rdquo; below.
-              </p>
-            </div>
-            <hr class="rule" />
-
-            <div class="reveal">
-              <h2>When You Buy Something</h2>
-              <p>
-                Your cart lives right here on this site, but payment itself is handled by
-                <a href="https://stripe.com" target="_blank" rel="noopener"
-                  >Stripe<span class="sr-only"> (opens in new tab)</span></a
-                >, a third-party payment processor. When you check out, you're taken to a payment
-                page hosted by Stripe -- your card details are entered there, not on our site, and
-                never pass through or get stored on our servers. That means your name, shipping
-                address, email, and payment details are collected and stored by Stripe, not by us
-                directly. We see your order information so we can make and ship your goods, but the
-                sensitive handling (card numbers, etc.) never touches our own servers because we
-                don't run any.
-              </p>
-              <p>
-                Getting you to that Stripe page takes two pieces of plumbing, and both see your
-                order on the way through. The Checkout button posts your cart to a small service of
-                ours running on
-                <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener"
-                  >Cloudflare Workers<span class="sr-only"> (opens in new tab)</span></a
-                >, which re-prices everything against our own catalogue and asks Stripe for a
-                payment page. After you pay, Stripe notifies that same Cloudflare service, which is
-                what issues gift card codes and keeps track of their balances (in a small database
-                on Cloudflare that holds only the codes, their balances and a record of which Stripe
-                events it has already handled). If your order includes a gift card, that service
-                sends the code by email through
-                <a href="https://resend.com/legal/privacy-policy" target="_blank" rel="noopener"
-                  >Resend<span class="sr-only"> (opens in new tab)</span></a
-                >
-                &mdash; to you, or to the recipient address you gave us.
-              </p>
-              <p>
-                For the full details on how Stripe handles your data, read
-                <a href="https://stripe.com/privacy" target="_blank" rel="noopener"
-                  >Stripe's own privacy policy<span class="sr-only"> (opens in new tab)</span></a
-                >: they're the ones actually storing and processing that information, so they're the
-                most accurate source on it.
-              </p>
-            </div>
-            <hr class="rule" />
-
-            <div class="reveal">
-              <h2>Our Email Updates</h2>
-              <p>
-                If you sign up for our email updates, the email address you provide is stored by
-                <a href="https://kit.com/privacy" target="_blank" rel="noopener"
-                  >Kit<span class="sr-only"> (opens in new tab)</span></a
-                >
-                (the service formerly called ConvertKit), and used only to send you the updates you
-                asked for. The signup form posts straight to Kit, so your address goes to them
-                directly. We don't sell it or share it with anyone outside of running that
-                newsletter, and you can unsubscribe any time using the link included in any email we
-                send.
-              </p>
-            </div>
-            <hr class="rule" />
-
-            <div class="reveal">
-              <h2>Shopping On Etsy</h2>
-              <p>
-                Some of our goods are also listed on our
-                <a
-                  href="https://www.etsy.com/shop/YallternativeLivinCO"
-                  target="_blank"
-                  rel="noopener"
-                  >Etsy shop<span class="sr-only"> (opens in new tab)</span></a
-                >, and this site links out there as another way to buy. Once you click through to
-                Etsy, you're on Etsy's platform and subject to
-                <a href="https://www.etsy.com/legal/privacy/" target="_blank" rel="noopener"
-                  >Etsy's own privacy policy<span class="sr-only"> (opens in new tab)</span></a
-                >, which is separate from this one and out of our hands.
-              </p>
-            </div>
-            <hr class="rule" />
-
-            <div class="reveal">
-              <h2>Fonts</h2>
-              <p>
-                The typefaces on this site are served from our own domain, so loading a page does
-                not send a font request to Google or to any other font provider. No font-related
-                third parties are involved.
-              </p>
-            </div>
-            <hr class="rule" />
-
-            <div class="reveal">
-              <h2>Cookies &amp; Analytics</h2>
-              <p>
-                The browser storage this site uses is the functional kind, listed in full under
-                &ldquo;Just Browsing?&rdquo; above: your theme, your wishlist, your cart, your
-                recently viewed items, an applied gift card, and &mdash; if you use the translation
-                tool &mdash; a cookie holding your language choice. None of it is used for tracking
-                or advertising.
-              </p>
-              <p>
-                <strong>Analytics.</strong> This site runs
-                <a href="https://umami.is/" target="_blank" rel="noopener"
-                  >Umami<span class="sr-only"> (opens in new tab)</span></a
-                >
-                for analytics. Umami is cookieless, doesn't collect or store personal data, doesn't
-                fingerprint your device, and can't track you across other websites &mdash; it counts
-                anonymous, aggregate activity: which pages get looked at, which products get added
-                to a cart or saved to a wishlist, which quiz answer came out, when a checkout is
-                started and whether it went through, and the total of a completed order. Never who.
-              </p>
-              <p>
-                Two specifics worth spelling out. <strong>We strip the query string</strong> off
-                every web address before it is counted, so the order reference in a receipt link,
-                the address in a mailing-list link, and the reference number on a reaction report
-                are never sent &mdash; the only thing we add back is the campaign tag on a link we
-                published ourselves, so we can tell whether a post or a market QR code brought
-                anyone here. And <strong>our search box reports only how long a search was and
-                whether it found anything</strong>, never what you typed. If your browser sends a
-                &ldquo;Do Not Track&rdquo; signal we count nothing at all, and if we ever switch
-                analytics off, nothing loads and nothing is counted.
-              </p>
-              <p>
-                <strong>Live chat.</strong> The chat bubble in the corner is
-                <a href="https://www.tawk.to/privacy-policy/" target="_blank" rel="noopener"
-                  >Tawk.to<span class="sr-only"> (opens in new tab)</span></a
-                >, and it is live on every page of this site, product pages included &mdash; the one
-                exception is the offline fallback page you only see when your connection drops.
-                Unlike the rest of what's here, it loads its own script and sets its own cookies (it
-                uses them to recognize a returning visitor and keep a conversation together), and it
-                can see the page you're on. Anything you type into the chat is held by Tawk.to as
-                well as reaching us.
-              </p>
-              <p>
-                <strong>Translation.</strong> Google Translate is opt-in: nothing from Google's
-                translation service loads until you actually pick a language. Once you do, the page
-                text is sent to Google to be translated and the <code>googtrans</code> cookie
-                records your choice.
-              </p>
-              <p>
-                The other third-party services embedded here &mdash; Stripe during checkout, and
-                Etsy once you click through &mdash; may set their own cookies or use their own
-                tracking as part of how they operate. Those are governed by those companies' own
-                policies.
-              </p>
-            </div>
-            <hr class="rule" />
-
-            <div class="reveal">
-              <h2>Everyone Who Touches Your Data</h2>
-              <p>
-                We're one person and a workshop, so almost everything here is somebody else's
-                service doing a job we can't do ourselves. This is the whole list, and what each one
-                is for:
-              </p>
-              <ul>
-                <li>
-                  <a href="https://stripe.com/privacy" target="_blank" rel="noopener"
-                    >Stripe<span class="sr-only"> (opens in new tab)</span></a
-                  >
-                  &mdash; payments. Holds your name, shipping address, email and payment details.
-                </li>
-                <li>
-                  <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener"
-                    >Cloudflare Workers<span class="sr-only"> (opens in new tab)</span></a
-                  >
-                  &mdash; runs our checkout service: it sees your cart on its way to Stripe, issues
-                  gift card codes and holds their balances, answers order lookups, forwards restock
-                  alerts, and stores reaction reports for at least three years.
-                </li>
-                <li>
-                  <a href="https://www.netlify.com/privacy/" target="_blank" rel="noopener"
-                    >Netlify<span class="sr-only"> (opens in new tab)</span></a
-                  >
-                  &mdash; hosts this site and passes checkout traffic through to the Cloudflare
-                  service.
-                </li>
-                <li>
-                  <a
-                    href="https://formspree.io/legal/privacy-policy/"
-                    target="_blank"
-                    rel="noopener"
-                    >Formspree<span class="sr-only"> (opens in new tab)</span></a
-                  >
-                  &mdash; delivers the contact and review forms to our inbox.
-                </li>
-                <li>
-                  <a href="https://kit.com/privacy" target="_blank" rel="noopener"
-                    >Kit<span class="sr-only"> (opens in new tab)</span></a
-                  >
-                  (formerly ConvertKit) &mdash; holds newsletter subscribers.
-                </li>
-                <li>
-                  <a href="https://resend.com/legal/privacy-policy" target="_blank" rel="noopener"
-                    >Resend<span class="sr-only"> (opens in new tab)</span></a
-                  >
-                  &mdash; sends gift card emails, restock-alert emails and the two emails a reaction
-                  report generates (our copy and your acknowledgement).
-                </li>
-                <li>
-                  <a href="https://www.tawk.to/privacy-policy/" target="_blank" rel="noopener"
-                    >Tawk.to<span class="sr-only"> (opens in new tab)</span></a
-                  >
-                  &mdash; the live chat widget, and its cookies.
-                </li>
-                <li>
-                  <a href="https://policies.google.com/privacy" target="_blank" rel="noopener"
-                    >Google<span class="sr-only"> (opens in new tab)</span></a
-                  >
-                  &mdash; Google Translate, only if you ask for it.
-                </li>
-                <li>
-                  <a href="https://umami.is/privacy" target="_blank" rel="noopener"
-                    >Umami<span class="sr-only"> (opens in new tab)</span></a
-                  >
-                  &mdash; cookieless analytics, if analytics is enabled.
-                </li>
-                <li>
-                  <a href="https://www.etsy.com/legal/privacy/" target="_blank" rel="noopener"
-                    >Etsy<span class="sr-only"> (opens in new tab)</span></a
-                  >
-                  &mdash; our second storefront, once you click through to it.
-                </li>
-              </ul>
-              <p>If that list ever changes, this page changes with it. That's the deal.</p>
-            </div>
-            <hr class="rule" />
-
-            <div class="reveal">
-              <h2>Children's Privacy</h2>
-              <p>
-                This site and everything we sell is intended for adults, not for children. It isn't
-                directed at anyone under 13, and we don't knowingly collect information from kids.
-              </p>
-            </div>
-            <hr class="rule" />
-
-            <div class="reveal">
-              <h2>Your Rights</h2>
-              <p>
-                We're a tiny handmade business, not a compliance department, so we won't claim any
-                formal certification here. But if you're in the EU, the UK, California, or anywhere
-                else with specific data rights you'd like to exercise (access, correction, deletion,
-                whatever it may be), email us and we'll do our honest best to help.
-              </p>
-            </div>
-            <hr class="rule" />
-
-            <div class="reveal">
-              <h2>Questions, Or Want Something Deleted?</h2>
-              <p>
-                There's no self-serve portal or automated system here. Just us. If you have
-                questions about this policy, want to know what we have on file, or want your email
-                address (or anything else we hold) deleted, email
-                <a href="mailto:y.allternative.living@gmail.com">y.allternative.living@gmail.com</a>
-                and we'll take care of it by hand.
-              </p>
-            </div>
-            <hr class="rule" />
-
-            <div class="reveal">
-              <h2>Changes To This Policy</h2>
-              <p>
-                If how this site handles data ever changes (a new tool, a new feature, actual
-                analytics down the line), we'll update this page to keep it accurate rather than let
-                it go stale.
-              </p>
-              <p class="policy-updated">
-                Last updated:
-                <!--YL:privacy.lastUpdated-->September 2, 2026<!--/YL:privacy.lastUpdated-->
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- CLOSING -->
-      <section class="cta-band">
-        <div class="container">
-          <span class="eyebrow">Keep Shopping</span>
-          <h2>Back To The Good Stuff</h2>
-          <p>
-            Questions about any of this? <a href="contact.html">Reach out</a> any time. Otherwise,
-            head on back to <a href="index.html">the homepage</a> or go treat yourself.
-          </p>
-          <a class="btn btn-primary" href="shop.html">Shop The Collection</a>
-        </div>
-      </section>
-    </main>
-    <footer class="site-footer">
+</main>
+<footer class="site-footer">
   <div class="container">
     <div class="footer-grid">
       <div class="footer-brand">
@@ -888,92 +423,26 @@
     </div>
   </div>
 </footer>
-    <dialog
-      id="global-search-modal"
-      class="global-search-modal gift-modal"
-      aria-labelledby="globalSearchModalTitle"
-      aria-modal="true"
-    >
-      <div class="global-search-container" role="document">
-        <div class="global-search-header">
-          <div class="global-search-input-wrapper">
-            <svg
-              class="global-search-icon"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.3-4.3" />
-            </svg>
-            <label for="globalSearchInput" id="globalSearchModalTitle" class="sr-only"
-              >Search catalog, articles &amp; FAQ</label
-            >
-            <input
-              type="search"
-              id="globalSearchInput"
-              class="global-search-input"
-              role="combobox"
-              aria-expanded="false"
-              aria-autocomplete="list"
-              aria-haspopup="grid"
-              aria-controls="globalSearchResultsList"
-              aria-activedescendant=""
-              placeholder="Search salves, soaks, events, FAQ… (Cmd+K)"
-              autocomplete="off"
-              autocorrect="off"
-              autocapitalize="off"
-              spellcheck="false"
-            />
-            <button
-              type="button"
-              class="global-search-clear-btn"
-              id="globalSearchClearBtn"
-              aria-label="Clear search query"
-              hidden
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-              >
-                <line x1="18" y1="6" x2="6" y2="18" />
-              </svg>
-            </button>
-          </div>
-          <button
-            type="button"
-            class="modal-close global-search-close-btn"
-            id="globalSearchCloseBtn"
-            aria-label="Close search dialog"
-          >
-            &times;
-          </button>
-        </div>
-        <div
-          id="globalSearchResultCount"
-          class="sr-only"
-          aria-live="polite"
-          aria-atomic="true"
-        ></div>
-        <div class="global-search-chips-section" id="globalSearchChipsSection">
-          <p class="global-search-chips-title" id="globalSearchChipsLabel">
-            <!--YL:search.chipsTitle-->Popular Searches<!--/YL:search.chipsTitle-->
-          </p>
-          <div class="global-search-chips-list" role="group" aria-labelledby="globalSearchChipsLabel">
-            <!--YL:search.chips-->
+<dialog id="global-search-modal" class="global-search-modal gift-modal" aria-labelledby="globalSearchModalTitle" aria-modal="true">
+  <div class="global-search-container" role="document">
+    <div class="global-search-header">
+      <div class="global-search-input-wrapper">
+        <svg class="global-search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+        </svg>
+        <label for="globalSearchInput" id="globalSearchModalTitle" class="sr-only">Search catalog, articles &amp; FAQ</label>
+        <input type="search" id="globalSearchInput" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-haspopup="grid" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, events, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <button type="button" class="global-search-clear-btn" id="globalSearchClearBtn" aria-label="Clear search query" hidden>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/></svg>
+        </button>
+      </div>
+      <button type="button" class="modal-close global-search-close-btn" id="globalSearchCloseBtn" aria-label="Close search dialog">&times;</button>
+    </div>
+    <div id="globalSearchResultCount" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+    <div class="global-search-chips-section" id="globalSearchChipsSection">
+      <p class="global-search-chips-title" id="globalSearchChipsLabel"><!--YL:search.chipsTitle-->Popular Searches<!--/YL:search.chipsTitle--></p>
+      <div class="global-search-chips-list" role="group" aria-labelledby="globalSearchChipsLabel">
+        <!--YL:search.chips-->
         <button type="button" class="search-chip" data-search-query="sleep"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><span>Bedtime &amp; Wind-Down</span></button>
         <button type="button" class="search-chip" data-search-query="soak"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 6c2 0 3-1.5 5-1.5S10 6 12 6s3-1.5 5-1.5S20 6 22 6"/><path d="M2 12c2 0 3-1.5 5-1.5S10 12 12 12s3-1.5 5-1.5S20 12 22 12"/><path d="M2 18c2 0 3-1.5 5-1.5S10 18 12 18s3-1.5 5-1.5S20 18 22 18"/></svg><span>Bath Soaks</span></button>
         <button type="button" class="search-chip" data-search-query="dry skin"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg><span>Dry, Rough Skin</span></button>
@@ -981,31 +450,31 @@
         <button type="button" class="search-chip" data-search-query="events"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span>Pop-Up Markets</span></button>
         <button type="button" class="search-chip" data-search-query="gift card"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg><span>Gift Cards</span></button>
         <!--/YL:search.chips-->
-          </div>
-        </div>
-        <div class="global-search-results-wrapper" id="globalSearchResultsWrapper">
-          <div id="globalSearchResultsList" class="global-search-results-list" tabindex="-1"></div>
-        </div>
-        <div class="global-search-footer">
-          <span class="search-key-hint"><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>
-          <span class="search-key-hint"><kbd>↵</kbd> Select</span>
-          <span class="search-key-hint"><kbd>ESC</kbd> Close</span>
-        </div>
       </div>
-    </dialog>
-    <script src="assets/js/content-data.js?v=2.0" defer></script>
-    <script src="assets/js/products-data.js?v=2.0" defer></script>
-    <script src="assets/js/events-data.js?v=2.0" defer></script>
-    <script src="assets/js/search-data.js?v=2.0" defer></script>
-    <script src="assets/js/main.js?v=2.0" defer></script>
-    <script src="assets/js/cart.js" defer></script>
-    <!-- Live chat (Tawk.to) -- placeholder, inert until real IDs are set.
+    </div>
+    <div class="global-search-results-wrapper" id="globalSearchResultsWrapper">
+      <div id="globalSearchResultsList" class="global-search-results-list" tabindex="-1"></div>
+    </div>
+    <div class="global-search-footer">
+      <span class="search-key-hint"><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>
+      <span class="search-key-hint"><kbd>↵</kbd> Select</span>
+      <span class="search-key-hint"><kbd>ESC</kbd> Close</span>
+    </div>
+  </div>
+</dialog>
+<script src="assets/js/content-data.js?v=2.0" defer></script>
+<script src="assets/js/products-data.js?v=2.0" defer></script>
+<script src="assets/js/events-data.js?v=2.0" defer></script>
+<script src="assets/js/search-data.js?v=2.0" defer></script>
+<script src="assets/js/main.js?v=2.0" defer></script>
+<script src="assets/js/cart.js" defer></script>
+<!-- Live chat (Tawk.to) -- placeholder, inert until real IDs are set.
      Free live-chat widget: https://www.tawk.to -- see DEVELOPMENT.md section 19.
      Replace YOUR_TAWKTO_PROPERTY_ID/YOUR_TAWKTO_WIDGET_ID below with the
      real embed values from your own Tawk.to dashboard (Administration ->
      Chat Widget). Until then this script 404s quietly and no widget
      appears -- nothing is broken by leaving it as-is. -->
-    <script type="text/javascript">
+<script type="text/javascript">
 var Tawk_API = Tawk_API || {}, Tawk_LoadStart = new Date();
 (function () {
   /* Both IDs are injected from content.json by scripts/build-site-data.js.
@@ -1040,5 +509,5 @@ var Tawk_API = Tawk_API || {}, Tawk_LoadStart = new Date();
   TRIGGERS.forEach(function (t) { window.addEventListener(t, load, opts); });
 })();
 </script>
-  </body>
+</body>
 </html>

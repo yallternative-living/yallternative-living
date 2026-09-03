@@ -3973,7 +3973,9 @@ hr.rule {
   background: none;
   border: none;
   color: var(--paper-dim);
-  padding: 8px 16px;
+  padding: 10px 16px;
+  min-height: 44px;
+  box-sizing: border-box;
   text-align: left;
   font-family: var(--font-body);
   font-size: 0.85rem;
@@ -3996,33 +3998,6 @@ hr.rule {
     color: var(--whiskey);
     font-weight: 700;
   }
-}
-
-/* Hide standard Google Translate widget elements */
-.skiptranslate,
-#google_translate_element,
-iframe.skiptranslate,
-.goog-te-banner-frame,
-#goog-gt-tt,
-.goog-te-balloon-frame {
-  display: none !important;
-  visibility: hidden !important;
-}
-
-/* Neutralize Google Translate's inline banner positioning and body offset injection */
-html.translated-ltr body,
-html.translated-rtl body,
-body.translated-ltr,
-body.translated-rtl,
-body[style*="top:"] {
-  top: 0 !important;
-  position: static !important;
-  padding-top: 0 !important;
-}
-
-/* Fix for Google Translate injecting style elements that add body padding */
-body > .skiptranslate {
-  display: none !important;
 }
 
 /* ── Print Styles ─────────────────────────────────────── */

@@ -92,7 +92,11 @@ function createStaticServer(port = 8083) {
       }
     }
 
-    browser = await puppeteer.launch({ headless: "new", args: ["--no-sandbox"] });
+    browser = await puppeteer.launch({
+      headless: "new",
+      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+      protocolTimeout: 120000
+    });
     const page = await browser.newPage();
 
     // 1. Wishlist Drawer State Handling Verification

@@ -5,7 +5,7 @@
  */
 
 /** @const {string} Cache name key, updated on assets release. */
-const CACHE_NAME = "yallternative-cache-vc94802c6a600";
+const CACHE_NAME = "yallternative-cache-vb69c08848fbb";
 
 /** @const {!Array<string>} Array of absolute URLs to be cached on installation. */
 const ASSETS_TO_CACHE = [
@@ -45,6 +45,7 @@ const ASSETS_TO_CACHE = [
   '/assets/js/search-data.js',
   '/assets/js/image-manifest.js',
   '/assets/js/translator.js',
+  '/assets/js/locales-data.js',
   '/assets/js/gift-card.js',
   // Self-hosted webfonts (2026-09 perf pass). Precaching them is cheap -- 69KB
   // of WOFF2 all told -- and it is what makes an offline repeat visit render

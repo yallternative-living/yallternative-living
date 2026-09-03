@@ -30,6 +30,15 @@ function eq(actual, expected, label) {
   }
 }
 
+function throwsMatching(fn, re) {
+  try {
+    fn();
+  } catch (e) {
+    return re.test(String(e && e.message));
+  }
+  return false;
+}
+
 console.log("Running build-site-data.js unit tests...\n");
 
 /* 1. slugify */
@@ -1285,6 +1294,133 @@ assert(
     chipHtml.indexOf("<span>A &amp; B</span>") !== -1,
     "renderSearchChipsHtml: label is HTML-escaped"
   );
+})();
+
+/* 27. Localization */
+(function testLocalizationAndSeo() {
+  /* 1. There is no hreflang layer, and no way to bring one back by accident.
+     generateHreflangTags used to live here and emit x-default + en + five
+     ?lang= alternates per page. The 2026-09-02 audit (S5) established that
+     every one of those annotations was false -- the alternate URLs serve the
+     identical English file and canonicalise away from themselves -- so the
+     function is gone along with the export. Asserting its absence is what
+     stops it reappearing; the built-output side is covered by qa-check. */
+  assert(
+    typeof buildScript.generateHreflangTags === "undefined",
+    "generateHreflangTags is no longer exported (the ?lang= SEO layer is not shipped)"
+  );
+  assert(
+    Array.isArray(buildScript.SUPPORTED_LOCALES) && buildScript.SUPPORTED_LOCALES.length === 6,
+    "SUPPORTED_LOCALES still drives the six locale dictionaries"
+  );
+
+  // 2. validateLocalesAndGlossary
+  const validGlossary = {
+    protectedTerms: ["Y'allternative Living", "Porch Sweep Clearing Mist"]
+  };
+  const validLocales = {
+    en: {
+      meta: { name: "English" },
+      phrases: { brand: "Y'allternative Living", prod: "Buy Porch Sweep Clearing Mist today" }
+    },
+    es: {
+      meta: { name: "Español" },
+      phrases: { brand: "Y'allternative Living", prod: "Compre Porch Sweep Clearing Mist hoy" }
+    },
+    de: {
+      meta: { name: "Deutsch" },
+      phrases: {
+        brand: "Y'allternative Living",
+        prod: "Kaufen Sie Porch Sweep Clearing Mist heute"
+      }
+    },
+    fr: {
+      meta: { name: "Français" },
+      phrases: {
+        brand: "Y'allternative Living",
+        prod: "Achetez Porch Sweep Clearing Mist aujourd'hui"
+      }
+    },
+    ja: {
+      meta: { name: "日本語" },
+      phrases: {
+        brand: "Y'allternative Living",
+        prod: "Porch Sweep Clearing Mist を今日購入"
+      }
+    },
+    zh: {
+      meta: { name: "中文" },
+      phrases: {
+        brand: "Y'allternative Living",
+        prod: "今天购买 Porch Sweep Clearing Mist"
+      }
+    }
+  };
+  assert(
+    buildScript.validateLocalesAndGlossary(validLocales, validGlossary) === true,
+    "validateLocalesAndGlossary passes on valid locales and glossary"
+  );
+
+  // Corrupted protected term in non-English locale
+  const invalidLocales = JSON.parse(JSON.stringify(validLocales));
+  invalidLocales.es.phrases.prod = "Compre Niebla Limpiadora de Porche hoy"; // translated proprietary name!
+  assert(
+    throwsMatching(
+      () => buildScript.validateLocalesAndGlossary(invalidLocales, validGlossary),
+      /Protected term violation in locale 'es'/
+    ),
+    "validateLocalesAndGlossary fails when protected term is corrupted"
+  );
+
+  // Missing protectedTerms array
+  assert(
+    throwsMatching(
+      () => buildScript.validateLocalesAndGlossary(validLocales, {}),
+      /protectedTerms/
+    ),
+    "validateLocalesAndGlossary fails when protectedTerms is missing"
+  );
+
+  // Missing locale
+  const missingLocales = { en: validLocales.en };
+  assert(
+    throwsMatching(
+      () => buildScript.validateLocalesAndGlossary(missingLocales, validGlossary),
+      /Locale 'es' is missing/
+    ),
+    "validateLocalesAndGlossary fails when a supported locale is missing"
+  );
+
+  // 3. Compiled locales-data.js verification
+  const localesBundlePath = path.join(__dirname, "../assets/js/locales-data.js");
+  assert(fs.existsSync(localesBundlePath), "assets/js/locales-data.js exists on disk");
+  const localesBundle = require("../assets/js/locales-data.js");
+  assert(
+    localesBundle.LOCALES && localesBundle.LOCALES.en,
+    "locales-data.js exports LOCALES with en"
+  );
+  assert(
+    localesBundle.BRAND_GLOSSARY && localesBundle.BRAND_GLOSSARY.protectedTerms.length > 0,
+    "locales-data.js exports BRAND_GLOSSARY"
+  );
+
+  // 4. sitemap.xml verification
+  const sitemapPath = path.join(__dirname, "../sitemap.xml");
+  const sitemapContent = fs.readFileSync(sitemapPath, "utf8");
+  /* The sitemap lists canonical URLs only. It used to carry 224
+     <xhtml:link> alternates across 32 <url> entries -- an annotation set that
+     was never reciprocal (the ?lang= URLs had no <url> entries of their own)
+     and pointed at URLs that canonicalise away from themselves. Asserting a
+     non-empty <loc> list first so "no alternates" cannot pass on an empty or
+     truncated sitemap. */
+  const locCount = (sitemapContent.match(/<loc>/g) || []).length;
+  assert(locCount >= 30, "sitemap.xml lists " + locCount + " canonical URLs (>= 30)");
+  assert(
+    !sitemapContent.includes("xmlns:xhtml"),
+    "sitemap.xml no longer declares the xhtml namespace"
+  );
+  assert(!sitemapContent.includes("<xhtml:link"), "sitemap.xml carries no xhtml:link alternates");
+  assert(!sitemapContent.includes("?lang="), "sitemap.xml references no ?lang= URLs");
 })();
 
 console.log(`\nbuild-site-data.test.js: ${passed} passed, ${failed} failed`);

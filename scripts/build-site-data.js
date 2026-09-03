@@ -383,6 +383,58 @@ function renderFaqAnswerHtml(answer) {
   });
 }
 
+/* ---------- Localization ----------
+   The locale codes whose dictionaries assets/data/locales/ ships. This drives
+   the dictionary load and the build-time validation below. It deliberately
+   does NOT drive any SEO annotation -- see the note on hreflang at the
+   robots.txt block. */
+const SUPPORTED_LOCALES = ["en", "es", "de", "fr", "ja", "zh"];
+
+function validateLocalesAndGlossary(locales, glossary) {
+  if (!glossary || !Array.isArray(glossary.protectedTerms) || !glossary.protectedTerms.length) {
+    throw new Error("brand-glossary.json must define a non-empty protectedTerms array.");
+  }
+  const protectedTerms = glossary.protectedTerms;
+  const nonEnglishLocales = ["es", "de", "fr", "ja", "zh"];
+
+  if (!locales || !locales.en || !locales.en.phrases) {
+    throw new Error("Canonical English locale (en.json) is missing or has no phrases.");
+  }
+
+  const enPhrases = locales.en.phrases;
+
+  nonEnglishLocales.forEach(function (lang) {
+    const loc = locales[lang];
+    if (!loc || !loc.phrases) {
+      throw new Error("Locale '" + lang + "' is missing or has no phrases.");
+    }
+
+    Object.keys(enPhrases).forEach(function (key) {
+      const enText = enPhrases[key];
+      const targetText = loc.phrases[key];
+      if (!targetText) return;
+      protectedTerms.forEach(function (term) {
+        if (enText.indexOf(term) !== -1) {
+          if (targetText.indexOf(term) === -1) {
+            throw new Error(
+              "Protected term violation in locale '" +
+                lang +
+                "' for key '" +
+                key +
+                "': expected protected term '" +
+                term +
+                "' to be preserved verbatim in '" +
+                targetText +
+                "'."
+            );
+          }
+        }
+      });
+    });
+  });
+  return true;
+}
+
 /* ---------- CMS integration IDs ----------
    Every one of these lands in either an HTML attribute or a JavaScript
    string literal inside a CSP-hashed inline script, and all of them are
@@ -989,6 +1041,13 @@ function buildSiteData() {
   const JOURNAL = readJson("assets/data/journal.json");
   const SOCIAL_FEED = readJson("assets/data/social-feed.json");
   const CONTENT = readJson("assets/data/content.json");
+  const BRAND_GLOSSARY = readJson("assets/data/brand-glossary.json");
+  const LOCALES = {};
+  SUPPORTED_LOCALES.forEach(function (lang) {
+    LOCALES[lang] = readJson("assets/data/locales/" + lang + ".json");
+  });
+  validateLocalesAndGlossary(LOCALES, BRAND_GLOSSARY);
+
   const SEARCH_CONFIG = getSearchConfig(CONTENT);
   const SITE_CONFIG = CONTENT.site || {};
   validateSiteIds(SITE_CONFIG);
@@ -1467,6 +1526,40 @@ function buildSiteData() {
     JSON.stringify(SOCIAL_FEED, null, 2) +
     ";\n";
   writeFile("assets/js/social-feed-data.js", socialFeedDataJs);
+
+  /* ---------- assets/js/locales-data.js ----------
+   window.YL_LOCALES and window.YL_BRAND_GLOSSARY wrapper around
+   assets/data/locales/*.json and assets/data/brand-glossary.json.
+   Precached in sw.js for zero-network, offline translation. */
+  const localesDataJs =
+    "/**\n" +
+    " * @fileoverview Auto-generated localization dictionaries and brand glossary.\n" +
+    " * Wrap of assets/data/locales/*.json and assets/data/brand-glossary.json.\n" +
+    " * Do not hand-edit this file.\n" +
+    " * @const {!Object}\n" +
+    " */\n" +
+    "/* global module */\n" +
+    "(function () {\n" +
+    "  var LOCALES = " +
+    JSON.stringify(LOCALES, null, 2) +
+    ";\n" +
+    "  var BRAND_GLOSSARY = " +
+    JSON.stringify(BRAND_GLOSSARY, null, 2) +
+    ";\n\n" +
+    "  if (typeof window !== 'undefined') {\n" +
+    "    window.YL_LOCALES = LOCALES;\n" +
+    "    window.YL_BRAND_GLOSSARY = BRAND_GLOSSARY;\n" +
+    "  }\n\n" +
+    "  if (typeof module !== 'undefined' && module.exports) {\n" +
+    "    module.exports = {\n" +
+    "      LOCALES: LOCALES,\n" +
+    "      BRAND_GLOSSARY: BRAND_GLOSSARY,\n" +
+    "      YL_LOCALES: LOCALES,\n" +
+    "      YL_BRAND_GLOSSARY: BRAND_GLOSSARY\n" +
+    "    };\n" +
+    "  }\n" +
+    "})();\n";
+  writeFile("assets/js/locales-data.js", localesDataJs);
 
   /* ---------- assets/js/search-data.js (Global Search Index) ---------- */
   const searchProducts = PRODUCTS.map(function (p) {
@@ -3376,31 +3469,33 @@ function buildSiteData() {
       // (PAGES keeps the real "index.html" filename because it's reused below
       // to read the actual files for canonical-tag injection.)
       const locPath = p.loc === "index.html" ? "" : p.loc;
+      const fullUrl = DOMAIN + "/" + locPath;
       return (
-        "  <url><loc>" +
-        DOMAIN +
-        "/" +
-        locPath +
-        "</loc><lastmod>" +
+        "  <url>\n" +
+        "    <loc>" +
+        fullUrl +
+        "</loc>\n" +
+        "    <lastmod>" +
         pageLastmod([p.loc].concat(SHARED_SOURCES, PAGE_EXTRA_SOURCES[p.loc] || [])) +
-        "</lastmod><priority>" +
+        "</lastmod>\n    <priority>" +
         p.priority +
-        "</priority></url>"
+        "</priority>\n  </url>"
       );
     }).join("\n") +
     "\n" +
     // Product pages: indexable since 2026-09-01 (see renderProductPdpHtml).
     PRODUCTS.map(function (p) {
+      const fullUrl = DOMAIN + "/products/" + p.id + ".html";
       return (
-        "  <url><loc>" +
-        DOMAIN +
-        "/products/" +
-        p.id +
-        ".html</loc><lastmod>" +
+        "  <url>\n" +
+        "    <loc>" +
+        fullUrl +
+        "</loc>\n" +
+        "    <lastmod>" +
         pageLastmod(
           ["products/" + p.id + ".html", "assets/data/products.json"].concat(SHARED_SOURCES)
         ) +
-        "</lastmod><priority>0.8</priority></url>"
+        "</lastmod>\n    <priority>0.8</priority>\n  </url>"
       );
     }).join("\n") +
     "\n</urlset>\n";
@@ -3426,7 +3521,15 @@ function buildSiteData() {
     // the netlify.toml rule generated by build-security-headers.js stops
     // /cms-auth/ being served at all.
     "Disallow: /admin/\n" +
-    "Disallow: /cms-auth/\n\n" +
+    "Disallow: /cms-auth/\n" +
+    /* ?lang= switches the client-side UI translator and is meant to be
+       shareable, but every ?lang= URL serves the byte-identical English file
+       and canonicalises back to it. Crawling them adds 165 duplicate URLs and
+       nothing else. The pages carry no hreflang annotation pointing here
+       either (see the strip in the page-rewrite pass); this is the other half
+       of that decision. Wildcard-in-the-middle Disallow patterns are
+       supported by Google, Bing and the RFC 9309 crawlers this file names. */
+    "Disallow: /*?lang=\n\n" +
     "# Explicit allow list for known AI crawlers (mid-2026). This is a small\n" +
     "# business marketing/commerce site that WANTS visibility -- being included\n" +
     "# in AI answers, shopping-agent recommendations, and model training all\n" +
@@ -3760,6 +3863,33 @@ function buildSiteData() {
       }
 
       let updated = html;
+
+      /* No hreflang. This used to inject x-default + en + five ?lang=
+         alternates into every page, and the sitemap carried the matching
+         xhtml:link set -- 165 new crawlable URLs claiming five localised
+         sites. All five claims were false: /shop.html?lang=es serves the
+         identical English file, with an English <title> and <meta
+         description> the client-side engine never touches, and it
+         canonicalises away from itself, which is the one thing Google's rule
+         says hreflang and canonical must not do. The sitemap annotations were
+         not reciprocal either (the ?lang= URLs never had <url> entries of
+         their own), so the whole cluster was destined to be discarded -- the
+         good outcome; the bad one was 165 duplicate URLs that look like
+         doorway generation.
+
+         ?lang= still works as a shareable convenience. It is just no longer
+         advertised to crawlers: robots.txt disallows it below.
+
+         The strip stays rather than simply not injecting, so a rebuild
+         removes the tags from the 33 pages that already carry them and any
+         hand-added one cannot survive a build. scripts/qa-check.js asserts
+         the result. Real multilingual SEO means real per-locale pages
+         (/es/shop.html) with translated titles, self-referential canonicals
+         and reciprocal sitemap entries -- a separate project that needs
+         ~100% dictionary coverage first. */
+      if (page.endsWith(".html") && page !== "assets/data/footer.html") {
+        updated = updated.replace(/\n?<link rel="alternate" hreflang="[^"]*" href="[^"]*">/g, "");
+      }
 
       /* ---------- feature gates ----------
        The quiz, countdown ticker and order-lookup tool all shipped hardcoded
@@ -6501,6 +6631,8 @@ if (typeof module !== "undefined" && module.exports) {
     renderRitualSectionHtml: renderRitualSectionHtml,
     renderStickyBarHtml: renderStickyBarHtml,
     renderProductPdpHtml: renderProductPdpHtml,
+    SUPPORTED_LOCALES: SUPPORTED_LOCALES,
+    validateLocalesAndGlossary: validateLocalesAndGlossary,
     buildSiteData: buildSiteData
   };
 }

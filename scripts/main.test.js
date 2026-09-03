@@ -1369,6 +1369,10 @@ assert(
   mainSrc.indexOf('s.src = "/assets/js/translator.js?v=2.0";') !== -1,
   "main.js loads translator.js from a root-absolute path (C-5)"
 );
+assert(
+  mainSrc.indexOf('sLoc.src = "/assets/js/locales-data.js?v=2.0";') !== -1,
+  "main.js loads locales-data.js from a root-absolute path"
+);
 
 /* ---------- site.webmanifest identity ---------- */
 const manifest = JSON.parse(fs404.readFileSync(path404.join(repoRoot, "site.webmanifest"), "utf8"));
@@ -1708,7 +1712,6 @@ const privacySrc = fs404.readFileSync(path404.join(repoRoot, "privacy.html"), "u
   "Kit",
   "Resend",
   "Tawk.to",
-  "Google Translate",
   "Umami",
   "Etsy"
 ].forEach((processor) => {
@@ -1727,6 +1730,21 @@ assert(
 assert(
   /served from our own domain/.test(privacySrc),
   "privacy.html says the typefaces are served from the site's own domain"
+);
+
+/* Translations are self-hosted and cookieless, so the page must not claim
+   Google Translate processes visitor data or sets cookies. */
+assert(
+  privacySrc.indexOf("Google Translate") === -1 && privacySrc.indexOf("translate.google") === -1,
+  "privacy.html no longer names Google Translate as a third-party processor"
+);
+assert(
+  /Translations are self-hosted and run locally in your browser with zero cookies/.test(privacySrc),
+  "privacy.html explains that translations are self-hosted and cookieless"
+);
+assert(
+  /localStorage\['yl-lang'\]/.test(privacySrc),
+  "privacy.html mentions localStorage['yl-lang'] for saving language preferences"
 );
 
 /* Every form that collects something has to be described. */

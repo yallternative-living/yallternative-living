@@ -2,6 +2,7 @@ User-agent: *
 Allow: /
 Disallow: /admin/
 Disallow: /cms-auth/
+Disallow: /*?lang=
 
 # Explicit allow list for known AI crawlers (mid-2026). This is a small
 # business marketing/commerce site that WANTS visibility -- being included

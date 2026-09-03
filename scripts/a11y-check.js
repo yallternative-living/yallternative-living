@@ -84,7 +84,13 @@ function createStaticServer(port) {
   });
   return new Promise((resolve, reject) => {
     server.listen(port, "127.0.0.1", () => resolve(server));
-    server.on("error", reject);
+    server.on("error", (err) => {
+      if (err.code === "EADDRINUSE" && port !== 0) {
+        server.listen(0, "127.0.0.1", () => resolve(server));
+      } else {
+        reject(err);
+      }
+    });
   });
 }
 
@@ -109,6 +115,7 @@ function collectPages() {
 
   const axeSource = fs.readFileSync(require.resolve("axe-core/axe.min.js"), "utf8");
   const server = await createStaticServer(PORT);
+  const boundPort = server.address().port;
   console.log(
     `Starting Accessibility Gate (axe-core, WCAG 2.2 AA) on ${pages.length} pages ` +
       `x ${THEMES.length} themes (${pages.length * THEMES.length} scans)...`
@@ -171,7 +178,7 @@ function collectPages() {
               }
             }, theme);
 
-            await page.goto(`http://127.0.0.1:${PORT}/${pageName}`, {
+            await page.goto(`http://127.0.0.1:${boundPort}/${pageName}`, {
               waitUntil: "networkidle2",
               timeout: 30000
             });
@@ -231,6 +238,7 @@ function collectPages() {
     `Accessibility gate PASSED: 0 violations across ${pages.length} pages x ${THEMES.length} themes.`
   );
   console.log("==================================================");
+  process.exit(0);
 })().catch((err) => {
   console.error("Accessibility gate crashed:", err);
   process.exit(1);

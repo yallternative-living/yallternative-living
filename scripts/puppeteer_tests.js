@@ -398,6 +398,9 @@ function createStaticServer(port = 8082) {
     for (const targetPage of ["thank-you.html", "shop.html"]) {
       await page.goto(`${url}/${targetPage}`, { waitUntil: "networkidle2" });
       await page
+        .waitForFunction("typeof window.YALLTERNATIVE === 'object'", { timeout: 10000 })
+        .catch(() => null);
+      await page
         .waitForSelector('[data-action="open-order-status"], #openOrderStatusBtn', {
           timeout: 5000
         })
@@ -410,6 +413,8 @@ function createStaticServer(port = 8082) {
         const orderInput = await page.$("#order-id-input");
         const orderEmailInput = await page.$("#order-email-input");
         if (orderInput && orderEmailInput) {
+          // Wait for thank-you.js 100ms focus timer to settle before typing
+          await new Promise((r) => setTimeout(r, 200));
           // Audit H-6: the lookup now takes BOTH the Stripe session id and the
           // email used at checkout, and posts them to /api/order-status. A
           // reference on its own is refused client-side, so both are typed
@@ -428,6 +433,12 @@ function createStaticServer(port = 8082) {
               timeout: 30000
             }
           );
+          /* Back to main's acceptance set. The translator branch added
+             .order-status-not-found and .order-status-rate-limited here, which
+             means a lookup that finds nothing now satisfies a test whose whole
+             point is that a rendered 3-step timeline OR an explicit
+             "unavailable" state appears. "The server told us nothing" is the
+             outcome this is supposed to catch, not a passing state. */
           const hasResult = await page.evaluate(() => {
             /* eslint-disable no-undef */
             const steps = document.querySelectorAll(
@@ -1406,6 +1417,160 @@ function createStaticServer(port = 8082) {
       );
     } else {
       console.log("❌ Monoline SVG invariant violation in search modal:", emojiCheck);
+      exitCode = 1;
+    }
+
+    // 10. Language Switcher UI & In-Place Translation Flow (M4)
+    console.log("--- Testing Language Switcher & Localization Flow (M4) ---");
+    await page.goto(`${url}/index.html`, { waitUntil: "networkidle2" });
+
+    let googleTranslateNetworkCalls = 0;
+    page.on("request", (req) => {
+      const reqUrl = req.url();
+      if (reqUrl.includes("translate.google") || reqUrl.includes("translate.googleapis")) {
+        googleTranslateNetworkCalls++;
+      }
+    });
+
+    // 10.1 Verify language selector injection
+    const langWrapExists = await page.$("#langSelectorWrap");
+    if (langWrapExists) {
+      console.log("✅ #langSelectorWrap injected successfully into nav.");
+    } else {
+      console.log("❌ #langSelectorWrap missing from header nav.");
+      exitCode = 1;
+    }
+
+    // 10.2 Verify toggle button ARIA attributes
+    const toggleAria = await page.$eval(".lang-toggle", (btn) => ({
+      ariaLabel: btn.getAttribute("aria-label"),
+      ariaExpanded: btn.getAttribute("aria-expanded"),
+      ariaHasPopup: btn.getAttribute("aria-haspopup"),
+      ariaControls: btn.getAttribute("aria-controls"),
+      currentCode: (btn.querySelector(".lang-current-code") || {}).textContent
+    }));
+
+    if (
+      toggleAria.ariaLabel === "Select language, current language English" &&
+      toggleAria.ariaExpanded === "false" &&
+      toggleAria.ariaHasPopup === "listbox" &&
+      toggleAria.ariaControls === "langDropdown" &&
+      toggleAria.currentCode === "EN"
+    ) {
+      console.log(
+        "✅ .lang-toggle ARIA contract verified (expanded=false, haspopup=listbox, code=EN)."
+      );
+    } else {
+      console.log("❌ .lang-toggle ARIA contract violation:", toggleAria);
+      exitCode = 1;
+    }
+
+    // 10.3 Open dropdown via click
+    await page.click(".lang-toggle");
+    await page.waitForSelector(".lang-dropdown.open", { timeout: 3000 });
+    const isExpanded = await page.$eval(".lang-toggle", (btn) => btn.getAttribute("aria-expanded"));
+    if (isExpanded === "true") {
+      console.log(
+        "✅ .lang-toggle click opened dropdown (aria-expanded=true, .lang-dropdown.open)."
+      );
+    } else {
+      console.log("❌ .lang-toggle click failed to update aria-expanded to true.");
+      exitCode = 1;
+    }
+
+    // 10.4 Select Spanish (es)
+    await page.click('.lang-option[data-lang="es"]');
+    /* Waits on the per-element marks, not on <html lang>: the document stays
+       English on purpose while coverage is partial (WCAG 3.1.1). */
+    await page.waitForFunction(
+      /* eslint-disable-next-line no-undef */
+      () => document.querySelector('[lang="es"]') !== null,
+      { timeout: 3000 }
+    );
+
+    const esState = await page.evaluate(() => {
+      /* eslint-disable no-undef */
+      const docLang = document.documentElement.getAttribute("lang");
+      const markedEs = document.querySelectorAll('[lang="es"]').length;
+      const savedLang = localStorage.getItem("yl-lang");
+      const currentCode = document.querySelector(".lang-current-code")?.textContent;
+      const navLinks = Array.from(document.querySelectorAll(".nav-links a")).map((a) =>
+        a.textContent.trim()
+      );
+      const brandLogo =
+        document.querySelector(".brand-word")?.textContent.trim() ||
+        document.querySelector(".brand")?.textContent.trim() ||
+        "";
+      const cookies = document.cookie;
+      return { docLang, markedEs, savedLang, currentCode, navLinks, brandLogo, cookies };
+      /* eslint-enable no-undef */
+    });
+
+    if (
+      esState.docLang === "en" &&
+      esState.markedEs > 0 &&
+      esState.savedLang === "es" &&
+      esState.currentCode === "ES" &&
+      esState.navLinks.includes("Tienda") &&
+      esState.brandLogo.includes("Y'allternative")
+    ) {
+      console.log(
+        `✅ Spanish translation verified in-place: <html lang> still en, ${esState.markedEs} elements marked lang=es, code=ES, 'Tienda' translated, brand preserved.`
+      );
+    } else {
+      console.log("❌ Spanish translation state mismatch:", esState);
+      exitCode = 1;
+    }
+
+    // 10.5 Verify zero googtrans cookies & zero Google Translate network calls
+    if (!esState.cookies.includes("googtrans") && googleTranslateNetworkCalls === 0) {
+      console.log(
+        "✅ Zero Google Translate network calls & zero googtrans cookies verified in browser."
+      );
+    } else {
+      console.log(
+        `❌ Privacy invariant violation: googtrans in cookies (${esState.cookies}) or network calls (${googleTranslateNetworkCalls}).`
+      );
+      exitCode = 1;
+    }
+
+    // 10.6 Switch back to English (en)
+    await page.click(".lang-toggle");
+    await page.waitForSelector(".lang-dropdown.open", { timeout: 3000 });
+    await page.click('.lang-option[data-lang="en"]');
+    /* Restoring English means the marks come OFF again -- a leftover lang
+       attribute is a wrong announcement outliving its translation. */
+    await page.waitForFunction(
+      /* eslint-disable-next-line no-undef */
+      () => document.querySelector('[lang="es"]') === null,
+      { timeout: 3000 }
+    );
+
+    const enState = await page.evaluate(() => {
+      /* eslint-disable no-undef */
+      const docLang = document.documentElement.getAttribute("lang");
+      const markedEs = document.querySelectorAll('[lang="es"]').length;
+      const savedLang = localStorage.getItem("yl-lang");
+      const currentCode = document.querySelector(".lang-current-code")?.textContent;
+      const navLinks = Array.from(document.querySelectorAll(".nav-links a")).map((a) =>
+        a.textContent.trim()
+      );
+      return { docLang, markedEs, savedLang, currentCode, navLinks };
+      /* eslint-enable no-undef */
+    });
+
+    if (
+      enState.docLang === "en" &&
+      enState.markedEs === 0 &&
+      enState.savedLang === "en" &&
+      enState.currentCode === "EN" &&
+      enState.navLinks.includes("Shop")
+    ) {
+      console.log(
+        "✅ English cleanly restored in-place: lang=en, 0 leftover element marks, code=EN, 'Shop' restored."
+      );
+    } else {
+      console.log("❌ English restoration state mismatch:", enState);
       exitCode = 1;
     }
   } catch (e) {

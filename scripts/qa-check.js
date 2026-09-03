@@ -1590,9 +1590,7 @@ if (!cspText) {
     ["umami.is", "Umami (cookieless analytics + conversion events)"],
     ["formspree.io", "Formspree (review submission form)"],
     ["embed.tawk.to", "Tawk.to (live chat script-src)"],
-    ["*.tawk.to", "Tawk.to (connect/frame/img-src)"],
-    ["translate.google.com", "Google Translate element.js (translator.js, user-triggered)"],
-    ["translate.googleapis.com", "Google Translate el_main bundle + translation XHRs"]
+    ["*.tawk.to", "Tawk.to (connect/frame/img-src)"]
   ];
   /* The newsletter endpoint is derived, not pinned. This list used to require
      BOTH app.kit.com and app.convertkit.com -- the second was dead (nothing in
@@ -1663,6 +1661,17 @@ if (!cspText) {
         "the tracker tag on every page loads cloud.umami.is/script.js"
       );
     }
+  }
+  // Regression guard: Google Translate was replaced with a self-hosted,
+  // cookieless in-place client localization engine (assets/js/translator.js).
+  // No external Google Translate origins or scripts are permitted in the CSP.
+  if (!/translate\.google/i.test(cspText)) {
+    ok("CSP has no leftover Google Translate references (self-hosted localization)");
+  } else {
+    fail(
+      "CSP still references Google Translate",
+      "expected Google Translate to be fully removed from CSP"
+    );
   }
   // Regression guard: Snipcart was fully removed in favor of a same-origin
   // cart + Stripe Checkout (see docs/STRIPE-MIGRATION.md). Stripe's hosted
@@ -4691,6 +4700,266 @@ section("SERP-safe titles and meta descriptions");
     });
   } else if (checked) {
     ok("every title and description is unique across " + checked + " pages");
+  }
+})();
+
+/* ---------- Milestone 4: Self-Hosted Localization Suite & Static QA Invariants ---------- */
+section("Milestone 4: Self-Hosted Localization Suite & Static QA Invariants");
+(function checkLocalizationInvariants() {
+  // 1. Zero Google Translate domains in deploy configs (_headers, netlify.toml, vercel.json)
+  var deployFiles = ["_headers", "netlify.toml", "vercel.json"];
+  var forbiddenDomains = [
+    "translate.google.com",
+    "translate.googleapis.com",
+    "translate-pa.googleapis.com"
+  ];
+  deployFiles.forEach(function (file) {
+    var filePath = path.join(ROOT, file);
+    if (!fs.existsSync(filePath)) {
+      fail(file, "deploy config file missing");
+      return;
+    }
+    var content = fs.readFileSync(filePath, "utf8");
+    forbiddenDomains.forEach(function (domain) {
+      if (content.indexOf(domain) === -1) {
+        ok(file + ": zero occurrences of " + domain);
+      } else {
+        fail(file + " contains legacy Google Translate domain", domain);
+      }
+    });
+  });
+
+  // 2. CSP byte-parity between _headers, netlify.toml, and vercel.json
+  try {
+    var cspHeaders = extractHeadersFileCSP();
+    var cspVercel = extractVercelCSP();
+    var cspNetlify = extractNetlifyCSP();
+    if (cspHeaders && cspHeaders === cspVercel && cspVercel === cspNetlify) {
+      ok("M4: CSP byte-parity strictly maintained across _headers, vercel.json, and netlify.toml");
+    } else {
+      fail("M4: CSP drift detected between _headers, vercel.json, and netlify.toml");
+    }
+  } catch (e) {
+    fail("M4: CSP byte-parity check failed", e.message);
+  }
+
+  // 3. Zero legacy Google Translate CSS hacks in assets/css/styles.css
+  var stylesPath = path.join(ROOT, "assets/css/styles.css");
+  if (fs.existsSync(stylesPath)) {
+    var stylesContent = fs.readFileSync(stylesPath, "utf8");
+    var legacyCssHacks = [
+      ".skiptranslate",
+      "#google_translate_element",
+      ".goog-te-banner-frame",
+      "html.translated-ltr body",
+      "body.translated-ltr",
+      ".goog-te-combo"
+    ];
+    legacyCssHacks.forEach(function (hack) {
+      if (stylesContent.indexOf(hack) === -1) {
+        ok("styles.css: zero legacy Google Translate CSS hack (" + hack + ")");
+      } else {
+        fail("styles.css contains legacy Google Translate CSS hack", hack);
+      }
+    });
+  } else {
+    fail("assets/css/styles.css", "missing stylesheet file");
+  }
+
+  // 4. assets/data/locales/*.json exist and validate brand glossary terms
+  var expectedLocales = ["en", "es", "de", "fr", "ja", "zh"];
+  expectedLocales.forEach(function (lang) {
+    var localePath = path.join(ROOT, "assets/data/locales", lang + ".json");
+    if (fs.existsSync(localePath)) {
+      try {
+        var parsedLocale = JSON.parse(fs.readFileSync(localePath, "utf8"));
+        if (parsedLocale.meta && parsedLocale.meta.code === lang && parsedLocale.phrases) {
+          var phraseCount = Object.keys(parsedLocale.phrases).length;
+          if (phraseCount >= 40) {
+            ok(
+              "assets/data/locales/" +
+                lang +
+                ".json: valid dictionary with " +
+                phraseCount +
+                " phrases"
+            );
+          } else {
+            fail("assets/data/locales/" + lang + ".json", "too few phrases (" + phraseCount + ")");
+          }
+        } else {
+          fail("assets/data/locales/" + lang + ".json", "invalid schema structure");
+        }
+      } catch (err) {
+        fail("assets/data/locales/" + lang + ".json", "JSON parse error: " + err.message);
+      }
+    } else {
+      fail("assets/data/locales/" + lang + ".json", "locale file not found");
+    }
+  });
+
+  // Brand glossary validation
+  var glossaryPath = path.join(ROOT, "assets/data/brand-glossary.json");
+  if (fs.existsSync(glossaryPath)) {
+    try {
+      var glossary = JSON.parse(fs.readFileSync(glossaryPath, "utf8"));
+      if (Array.isArray(glossary.protectedTerms) && glossary.categories && glossary.rules) {
+        ok(
+          "assets/data/brand-glossary.json: structural schema valid with " +
+            glossary.protectedTerms.length +
+            " protected terms"
+        );
+        var requiredTerms = [
+          "Y'allternative Living",
+          "Porch Sweep",
+          "Cathedral Dust",
+          "Bless Your Heart",
+          "Unbothered",
+          "Calendula officinalis",
+          "Arnica montana",
+          "Boswellia carterii",
+          "Lavandula angustifolia",
+          "Magnesium chloride"
+        ];
+        requiredTerms.forEach(function (term) {
+          if (glossary.protectedTerms.indexOf(term) !== -1) {
+            ok("Brand glossary protects term: " + term);
+          } else {
+            fail("Brand glossary missing protected term", term);
+          }
+        });
+      } else {
+        fail("assets/data/brand-glossary.json", "missing protectedTerms, categories, or rules");
+      }
+    } catch (err) {
+      fail("assets/data/brand-glossary.json", "JSON parse error: " + err.message);
+    }
+  } else {
+    fail("assets/data/brand-glossary.json", "file not found");
+  }
+
+  // Locales-data.js compiled bundle validation
+  var localesBundlePath = path.join(ROOT, "assets/js/locales-data.js");
+  if (fs.existsSync(localesBundlePath)) {
+    ok("assets/js/locales-data.js exists on disk");
+  } else {
+    fail("assets/js/locales-data.js", "missing bundle file -- run npm run build-data");
+  }
+
+  /* 5. NO hreflang anywhere.
+     The branch that added the translator also advertised five localised
+     sites to search engines: x-default + en + five ?lang= alternates on 33
+     pages, plus 224 <xhtml:link> elements in sitemap.xml. Every claim was
+     false -- /shop.html?lang=es serves the byte-identical English file, with
+     an English <title> and <meta description> the client-side engine never
+     touches, and it canonicalises away from itself, which is exactly what
+     Google's rule says an hreflang alternate must not do. The 2026-09-02
+     audit (S5) called it: ship the picker, drop the SEO layer.
+
+     These assertions are the inverse of the ones they replace, and they are
+     written so an absent subject fails: the page list is asserted non-empty
+     before anything is asserted over it. */
+  var allHtmlPages = PAGES.map(function (p) {
+    return path.join(ROOT, p);
+  });
+  var productsDir = path.join(ROOT, "products");
+  if (fs.existsSync(productsDir)) {
+    fs.readdirSync(productsDir).forEach(function (f) {
+      if (f.endsWith(".html")) {
+        allHtmlPages.push(path.join(productsDir, f));
+      }
+    });
+  }
+
+  if (allHtmlPages.length >= 30) {
+    ok("hreflang scan has " + allHtmlPages.length + " HTML pages to examine");
+  } else {
+    fail(
+      "hreflang scan page list",
+      "expected >= 30 pages (13 static + 19 PDPs), found " + allHtmlPages.length
+    );
+  }
+
+  var hreflangPages = allHtmlPages.filter(function (filePath) {
+    return /<link\s+rel="alternate"\s+hreflang=/i.test(fs.readFileSync(filePath, "utf8"));
+  });
+
+  if (hreflangPages.length === 0) {
+    ok(
+      "None of the " +
+        allHtmlPages.length +
+        " HTML pages carries an hreflang alternate (the ?lang= SEO layer is not shipped)"
+    );
+  } else {
+    fail(
+      "Pages still carrying hreflang tags",
+      hreflangPages
+        .map(function (f) {
+          return path.relative(ROOT, f);
+        })
+        .join("; ") + " -- run npm run build-data, which strips them"
+    );
+  }
+
+  // 6. sitemap.xml carries canonical URLs only -- no ?lang= alternates.
+  var sitemapPath = path.join(ROOT, "sitemap.xml");
+  if (fs.existsSync(sitemapPath)) {
+    var sitemapContent = fs.readFileSync(sitemapPath, "utf8");
+
+    var locCount = (sitemapContent.match(/<loc>/g) || []).length;
+    if (locCount >= 30) {
+      ok("sitemap.xml lists " + locCount + " canonical URLs");
+    } else {
+      fail("sitemap.xml", "expected >= 30 <loc> entries, found " + locCount);
+    }
+
+    var xhtmlLinkCount = (sitemapContent.match(/<xhtml:link/g) || []).length;
+    if (xhtmlLinkCount === 0) {
+      ok("sitemap.xml contains no <xhtml:link> localization alternates");
+    } else {
+      fail(
+        "sitemap.xml alternate links",
+        "expected 0 <xhtml:link> elements, found " + xhtmlLinkCount
+      );
+    }
+
+    if (sitemapContent.indexOf("?lang=") === -1) {
+      ok("sitemap.xml references no ?lang= URLs");
+    } else {
+      fail("sitemap.xml", "still references ?lang= URLs");
+    }
+  } else {
+    fail("sitemap.xml", "file not found");
+  }
+
+  // 6b. robots.txt keeps crawlers off the ?lang= duplicates.
+  var robotsPath = path.join(ROOT, "robots.txt");
+  if (fs.existsSync(robotsPath)) {
+    var robotsContent = fs.readFileSync(robotsPath, "utf8");
+    if (/^Disallow: \/\*\?lang=$/m.test(robotsContent)) {
+      ok("robots.txt disallows /*?lang= (no crawlable duplicate of every page)");
+    } else {
+      fail("robots.txt", "missing 'Disallow: /*?lang=' -- run npm run build-data");
+    }
+  } else {
+    fail("robots.txt", "file not found");
+  }
+
+  // 7. sw.js includes /assets/js/locales-data.js and /assets/js/translator.js in ASSETS_TO_CACHE
+  var swPath = path.join(ROOT, "sw.js");
+  if (fs.existsSync(swPath)) {
+    var swContent = fs.readFileSync(swPath, "utf8");
+    if (swContent.indexOf("'/assets/js/locales-data.js'") !== -1) {
+      ok("sw.js ASSETS_TO_CACHE includes '/assets/js/locales-data.js'");
+    } else {
+      fail("sw.js", "missing '/assets/js/locales-data.js' in ASSETS_TO_CACHE");
+    }
+    if (swContent.indexOf("'/assets/js/translator.js'") !== -1) {
+      ok("sw.js ASSETS_TO_CACHE includes '/assets/js/translator.js'");
+    } else {
+      fail("sw.js", "missing '/assets/js/translator.js' in ASSETS_TO_CACHE");
+    }
+  } else {
+    fail("sw.js", "file not found");
   }
 })();
 
