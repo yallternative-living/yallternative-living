@@ -450,6 +450,321 @@ function validateLocalesAndGlossary(locales, glossary) {
   return true;
 }
 
+/* ---------- Dictionary coverage gate ----------
+
+   The first cut of the locale files was authored against an imagined shop:
+   120 of its 206 English values (58%) matched nothing on any page, because
+   the lookup in assets/js/translator.js is exact string equality on a node's
+   trimmed text. "Your cart is empty" never fired because the DOM says "Your
+   cart is empty."; "Patch Test" never fired because the DOM says "Patch
+   Test:". Nothing caught it: validateLocalesAndGlossary only checks that a
+   translation keeps its protected terms, and it `return`s early on a missing
+   key, so a locale missing half its entries passed.
+
+   These four rules are the check that would have caught all of it:
+
+     1. every English value is reachable -- it appears verbatim in a built
+        HTML file, or in the runtime manifest of strings that only
+        main.js/cart.js render;
+     2. every locale carries every key, non-empty;
+     3. every locale value differs from English, unless the key/locale pair is
+        on IDENTICAL_BY_DESIGN below with a stated reason;
+     4. every English value still matches the digest recorded in
+        assets/data/i18n-translation-basis.json, so editing a page's copy
+        cannot quietly leave five stale translations behind reporting green.
+
+   All four are static and browserless on purpose: they have to run inside
+   `npm run build-data` and CI's `qa` job, which sets PUPPETEER_SKIP_DOWNLOAD.
+   scripts/extract-i18n-strings.js is the browser-driven authoring tool that
+   produces the candidate strings; this is the gate that keeps them honest. */
+
+/* Locale values that are legitimately identical to the English. Every entry
+   needs a reason -- "the word is the same in that language" is a reason,
+   "we did not get to it" is not. */
+const IDENTICAL_BY_DESIGN = {
+  "nav.shop": { de: "Shop is the ordinary German retail word" },
+  "nav.contact": { fr: "Contact is the ordinary French word" },
+  "nav.faq": { de: "FAQ is used as-is", fr: "FAQ is used as-is" },
+  "nav.slashShop": { de: "breadcrumb of nav.shop" },
+  "nav.slashFaq": { de: "breadcrumb of nav.faq", fr: "breadcrumb of nav.faq" },
+  "search.esc": {
+    es: "ESC is the key legend printed on the keyboard",
+    de: "ESC is the key legend printed on the keyboard",
+    ja: "ESC is the key legend printed on the keyboard",
+    zh: "ESC is the key legend printed on the keyboard"
+  },
+  "shop.vegan": { de: "Vegan is the ordinary German word", fr: "Vegan is used as-is" },
+  "cart.subtotal": { es: "Subtotal is the ordinary Spanish word" },
+  "box.optional": { de: "Optional is the ordinary German word" },
+  "box.catPotions": { fr: "POTIONS is the ordinary French word" },
+  "gift.optional": { de: "Optional is the ordinary German word" },
+  "reviews.name": { de: "Name is the ordinary German word" },
+  "reviews.general": { es: "General is the ordinary Spanish word" }
+};
+
+/* Every named entity the built pages actually use, plus the structural four.
+   This list is not decoration: "Next Step &rarr;" is a single text node in the
+   DOM and the dictionary key for it is "Next Step →", so a decoder that stops
+   at &amp; reports a live string as a dead one. */
+const HTML_ENTITIES = {
+  "&amp;": "&",
+  "&lt;": "<",
+  "&gt;": ">",
+  "&quot;": '"',
+  "&middot;": "·",
+  "&times;": "×",
+  "&mdash;": "—",
+  "&ndash;": "–",
+  "&minus;": "−",
+  "&copy;": "©",
+  "&rsquo;": "’",
+  "&lsquo;": "‘",
+  "&rdquo;": "”",
+  "&ldquo;": "“",
+  "&hellip;": "…",
+  "&rarr;": "→",
+  "&larr;": "←",
+  "&bull;": "•",
+  "&deg;": "°",
+  "&apos;": "'",
+  "&nbsp;": " "
+};
+
+function decodeHtmlEntities(html) {
+  let out = html;
+  Object.keys(HTML_ENTITIES).forEach(function (ent) {
+    out = out.split(ent).join(HTML_ENTITIES[ent]);
+  });
+  out = out.replace(/&#(\d+);/g, function (_m, dec) {
+    return String.fromCodePoint(Number(dec));
+  });
+  out = out.replace(/&#x([0-9a-fA-F]+);/g, function (_m, hex) {
+    return String.fromCodePoint(parseInt(hex, 16));
+  });
+  return out;
+}
+
+function collectBuiltHtml() {
+  const files = fs
+    .readdirSync(ROOT)
+    .filter(function (f) {
+      return f.endsWith(".html");
+    })
+    .map(function (f) {
+      return path.join(ROOT, f);
+    });
+  const productsDir = path.join(ROOT, "products");
+  if (fs.existsSync(productsDir)) {
+    fs.readdirSync(productsDir)
+      .filter(function (f) {
+        return f.endsWith(".html");
+      })
+      .forEach(function (f) {
+        files.push(path.join(productsDir, f));
+      });
+  }
+  return files.map(function (p) {
+    /* Comments are stripped because build-site-data wraps replaceable copy in
+       <!--YL:key--> markers, which land in the middle of a sentence that the
+       browser still exposes as one text node. */
+    const raw = fs.readFileSync(p, "utf8").replace(/<!--[\s\S]*?-->/g, "");
+    return { name: path.relative(ROOT, p), text: decodeHtmlEntities(raw) };
+  });
+}
+
+function digestEnglish(value) {
+  return crypto.createHash("sha1").update(value, "utf8").digest("hex").slice(0, 10);
+}
+
+function validateDictionaryCoverage(locales, runtimeManifest, basisDoc) {
+  const problems = [];
+  const enPhrases = locales.en.phrases;
+  const keys = Object.keys(enPhrases);
+  if (!keys.length) {
+    throw new Error("Canonical English locale has no phrases -- nothing to gate.");
+  }
+
+  const manifestStrings = (runtimeManifest && runtimeManifest.strings) || [];
+  if (!manifestStrings.length) {
+    throw new Error(
+      "assets/data/i18n-runtime-strings.json declares no strings. The cart drawer, " +
+        "search results and quiz results exist only at runtime, so an empty manifest " +
+        "means this gate would report them as dead dictionary entries."
+    );
+  }
+  const runtimeTexts = new Set(
+    manifestStrings.map(function (s) {
+      return s.text;
+    })
+  );
+
+  /* The manifest is only trustworthy while the copy it describes still exists.
+     Without this, editing a string in cart.js would leave the manifest
+     asserting a string nothing renders, and rule 1 would keep passing over a
+     dictionary entry that can never match again. Each entry names the file that
+     decides its wording and the literal fragments of that file which have to
+     survive -- for a string the site assembles from data plus a template
+     ("+ Item 1", "SALVES") the fragments are the template and the datum, since
+     the finished string is a literal nowhere. */
+  const sourceCache = {};
+  function readSource(rel) {
+    if (!Object.prototype.hasOwnProperty.call(sourceCache, rel)) {
+      const p = path.join(ROOT, rel);
+      sourceCache[rel] = fs.existsSync(p) ? fs.readFileSync(p, "utf8") : null;
+    }
+    return sourceCache[rel];
+  }
+  manifestStrings.forEach(function (entry) {
+    const src = entry.source ? readSource(entry.source) : null;
+    if (src === null) {
+      problems.push(
+        "runtime manifest entry '" +
+          entry.key +
+          "' names a source that does not exist: " +
+          JSON.stringify(entry.source)
+      );
+      return;
+    }
+    const decoded = decodeHtmlEntities(src);
+    const fragments =
+      Array.isArray(entry.verify) && entry.verify.length ? entry.verify : [entry.text];
+    const missing = fragments.filter(function (frag) {
+      return src.indexOf(frag) === -1 && decoded.indexOf(frag) === -1;
+    });
+    if (missing.length) {
+      problems.push(
+        "runtime manifest entry '" +
+          entry.key +
+          "' no longer matches " +
+          entry.source +
+          " -- missing " +
+          JSON.stringify(missing)
+      );
+    }
+  });
+
+  // Rule 1: reachability.
+  const pages = collectBuiltHtml();
+  if (!pages.length) {
+    throw new Error("No built HTML pages found -- refusing to report dictionary coverage.");
+  }
+  const unreachable = [];
+  keys.forEach(function (key) {
+    const value = enPhrases[key];
+    if (runtimeTexts.has(value)) return;
+    const found = pages.some(function (page) {
+      return page.text.indexOf(value) !== -1;
+    });
+    if (!found) unreachable.push(key + " = " + JSON.stringify(value));
+  });
+  if (unreachable.length) {
+    problems.push(
+      unreachable.length +
+        " English dictionary value(s) appear nowhere in the built site and are not " +
+        "declared as runtime strings, so the translator can never match them:\n    " +
+        unreachable.join("\n    ")
+    );
+  }
+
+  // Rules 2 and 3: completeness, and difference from English.
+  SUPPORTED_LOCALES.slice(1).forEach(function (lang) {
+    const phrases = locales[lang] && locales[lang].phrases;
+    if (!phrases) {
+      problems.push("locale '" + lang + "' has no phrases");
+      return;
+    }
+    const missing = [];
+    const identical = [];
+    keys.forEach(function (key) {
+      const value = phrases[key];
+      if (typeof value !== "string" || !value.trim()) {
+        missing.push(key);
+        return;
+      }
+      if (value === enPhrases[key]) {
+        const allowed = IDENTICAL_BY_DESIGN[key] && IDENTICAL_BY_DESIGN[key][lang];
+        if (!allowed) identical.push(key + " = " + JSON.stringify(value));
+      }
+    });
+    const extra = Object.keys(phrases).filter(function (k) {
+      return !Object.prototype.hasOwnProperty.call(enPhrases, k);
+    });
+    if (missing.length) {
+      problems.push(
+        "locale '" +
+          lang +
+          "' is missing or has empty values for " +
+          missing.length +
+          " key(s): " +
+          missing.slice(0, 12).join(", ") +
+          (missing.length > 12 ? ", ..." : "")
+      );
+    }
+    if (extra.length) {
+      problems.push(
+        "locale '" +
+          lang +
+          "' has " +
+          extra.length +
+          " key(s) that en.json does not: " +
+          extra.slice(0, 12).join(", ")
+      );
+    }
+    if (identical.length) {
+      problems.push(
+        "locale '" +
+          lang +
+          "' leaves " +
+          identical.length +
+          " value(s) identical to English with no entry in IDENTICAL_BY_DESIGN:\n    " +
+          identical.join("\n    ")
+      );
+    }
+  });
+
+  // Rule 4: the English has not drifted away from what was translated.
+  const basis = (basisDoc && basisDoc.basis) || null;
+  if (!basis) {
+    throw new Error(
+      "assets/data/i18n-translation-basis.json is missing or has no `basis` map. " +
+        "Without it nothing detects an English string that changed after it was translated."
+    );
+  }
+  const stale = [];
+  keys.forEach(function (key) {
+    const recorded = basis[key];
+    const actual = digestEnglish(enPhrases[key]);
+    if (recorded === undefined) {
+      stale.push(key + " (no recorded basis)");
+    } else if (recorded !== actual) {
+      stale.push(key + " -> " + JSON.stringify(enPhrases[key]));
+    }
+  });
+  if (stale.length) {
+    problems.push(
+      stale.length +
+        " key(s) whose English changed since the five translations were authored " +
+        "against it. Re-translate them, then re-record with " +
+        "`node scripts/extract-i18n-strings.js --record-basis`:\n    " +
+        stale.join("\n    ")
+    );
+  }
+
+  if (problems.length) {
+    throw new Error("Dictionary coverage gate failed:\n  - " + problems.join("\n  - "));
+  }
+  console.log(
+    "[build] dictionary coverage: " +
+      keys.length +
+      " key(s) x " +
+      SUPPORTED_LOCALES.length +
+      " locales, all reachable in " +
+      pages.length +
+      " built pages or the runtime manifest"
+  );
+  return true;
+}
+
 /* ---------- CMS integration IDs ----------
    Every one of these lands in either an HTML attribute or a JavaScript
    string literal inside a CSP-hashed inline script, and all of them are
@@ -993,6 +1308,8 @@ function buildSiteData() {
     LOCALES[lang] = readJson("assets/data/locales/" + lang + ".json");
   });
   validateLocalesAndGlossary(LOCALES, BRAND_GLOSSARY);
+  const I18N_RUNTIME_STRINGS = readJson("assets/data/i18n-runtime-strings.json");
+  const I18N_TRANSLATION_BASIS = readJson("assets/data/i18n-translation-basis.json");
 
   const SEARCH_CONFIG = getSearchConfig(CONTENT);
   const SITE_CONFIG = CONTENT.site || {};
@@ -4258,6 +4575,11 @@ function buildSiteData() {
     );
   })();
 
+  /* Runs LAST, against the HTML this build just wrote -- a dictionary entry is
+     only "reachable" with respect to the pages that actually shipped, so
+     checking it against the previous build's output would prove nothing. */
+  validateDictionaryCoverage(LOCALES, I18N_RUNTIME_STRINGS, I18N_TRANSLATION_BASIS);
+
   console.log(
     "\nDone. Regenerated derived files + page copy from the JSON sources in assets/data/."
   );
@@ -6574,6 +6896,9 @@ if (typeof module !== "undefined" && module.exports) {
     SUPPORTED_LOCALES: SUPPORTED_LOCALES,
     generateHreflangTags: generateHreflangTags,
     validateLocalesAndGlossary: validateLocalesAndGlossary,
+    validateDictionaryCoverage: validateDictionaryCoverage,
+    IDENTICAL_BY_DESIGN: IDENTICAL_BY_DESIGN,
+    decodeHtmlEntities: decodeHtmlEntities,
     buildSiteData: buildSiteData
   };
 }
