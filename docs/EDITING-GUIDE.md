@@ -10,7 +10,7 @@ Nothing in this dashboard touches customer credit card numbers or sensitive paym
 
 Whenever you want to make changes to the live site, open **yourdomain.com/admin** in any web browser and log in (see [How to Log In](#2-how-to-log-in) below).
 
-Your dashboard is organized into 7 focused sections in the left sidebar. The **Journal** sits under the **Collections** heading at the top and shows your list of posts; every other section sits under **Files** below it and opens straight into its editor when you click it (the editor's header says "Files" for those, but the highlighted item in the sidebar tells you where you are). The numbers match the walkthroughs in this guide, not the order on screen:
+Your dashboard is organized into 7 focused sections in the left sidebar. The **Journal** sits under the **Collections** heading at the top and shows your list of posts; every other section sits under **Sections** below it and opens straight into its editor when you click it. The numbers match the walkthroughs in this guide, not the order on screen:
 
 1. **1. Products, Bundles & FAQ** — Your daily workspace:
    - **Products (Top Priority)**: Manage your 19 catalog items, edit prices, set size/scent variants, upload photos, add ingredients, and update stock levels.

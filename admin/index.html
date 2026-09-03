@@ -40,5 +40,9 @@
       integrity="sha384-Sj4Mfbg9OjjwG2ZE/YeUYu7xbZRTXGFg/wa/nszj3KzItKuRLEmGqSpV5C9YI2Ge"
       crossorigin="anonymous"
     ></script>
+    <!-- Same-origin helper (allowed by the /admin CSP's script-src 'self'):
+         renames Sveltia's hardcoded "Files" wording to the section's own
+         label. Safe to remove; the stock UI just says "Files" again. -->
+    <script src="cms-labels.js" defer></script>
   </body>
 </html>

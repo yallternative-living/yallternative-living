@@ -24,7 +24,9 @@
 # single "Files" collection -- the very thing this avoids); the Journal is
 # that collection, and it is the one section that genuinely is a list.
 # Relation widgets that point at the products file therefore use
-# `collection: _singletons`.
+# `collection: _singletons`. Sveltia labels the singleton group and every
+# singleton editor header "Files" with no config option to change it;
+# admin/cms-labels.js renames those to "Sections" / the section's own label.
 # Full setup instructions (GitHub repo, first login) are in DEVELOPMENT.md
 # section 20 -- read that before changing anything here. For the
 # click-by-click version, see docs/SETUP-GUIDE.md Step 9.
