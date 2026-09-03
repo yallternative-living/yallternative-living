@@ -128,6 +128,33 @@ async function run() {
         continue;
       }
 
+      // The regression this suite missed on its first day: the crowding
+      // check compared the bar's padded height with a bare 14px line box, so
+      // `is-crowded` was stuck on and the free-shipping segment was hidden
+      // at EVERY width on the home page -- and this suite passed, because a
+      // hidden segment cannot wrap. With the site's own event name the
+      // segment must be visible and the bar one line at every width the
+      // ≤1100px CSS rule does not already cover.
+      const normal = await page.evaluate(() => {
+        const bar = document.getElementById("yl-countdown-ticker");
+        const seg = bar.querySelector(".announcement-segment");
+        return {
+          isCrowded: bar.classList.contains("is-crowded"),
+          height: bar.getBoundingClientRect().height,
+          segmentVisible:
+            !!seg &&
+            seg.getBoundingClientRect().width > 0 &&
+            getComputedStyle(seg).display !== "none"
+        };
+      });
+      if (width > 1100) {
+        check(
+          `@${width}px: with the real event name the free-shipping segment is visible on one line`,
+          normal.segmentVisible && normal.height < 60,
+          `height=${normal.height}px, is-crowded=${normal.isCrowded}, segmentVisible=${normal.segmentVisible}`
+        );
+      }
+
       // Inject the long name/location a real CMS event could carry, the same
       // way initCountdownTicker()'s update() would (textContent, not
       // innerHTML), then force the same debounced resize path production

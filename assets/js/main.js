@@ -2053,7 +2053,12 @@
          English text before translating it, exactly like a first render. */
       btn.setAttribute("aria-label", englishLabel);
       btn.setAttribute("data-i18n-tpl-aria-label", tplKey);
-      btn.setAttribute("data-i18n-vars", i18nVarsAttr({ product: name }));
+      /* Raw JSON here, not i18nVarsAttr(): that helper entity-escapes for an
+         HTML string, and setAttribute() does no decoding -- the stored value
+         was `{&quot;product&quot;:…}`, JSON.parse threw, and every card's
+         save button read "Guardar {product} para más tarde" in five
+         languages (live audit 2026-09-03). */
+      btn.setAttribute("data-i18n-vars", JSON.stringify({ product: name }));
       btn.__ylOriginalAriaLabel = undefined;
       if (window.YL_TRANSLATOR && typeof window.YL_TRANSLATOR.translateNode === "function") {
         window.YL_TRANSLATOR.translateNode(btn, window.YL_TRANSLATOR.getCurrentLanguage());
@@ -6974,13 +6979,22 @@
     // Measure from a clean, uncrowded state each time: the event name may
     // have gotten SHORTER since the last check (a countdown reaching single
     // digits, or a soft-nav to a different upcoming event).
+    /* Like against like. The first version compared bar.scrollHeight (which
+       carries the bar's min-height and padding) with the bare 14px line box
+       of .announcement-content, so 38 > 18 was always true and the segment
+       was hidden at every width on the home page (live audit 2026-09-03).
+       The one-line baseline is the BAR's own height with the segment hidden
+       -- the countdown alone always fits one line above 1100px -- and the
+       question is whether showing the segment makes the bar taller. */
+    bar.classList.add("is-crowded");
+    var oneLineHeight = bar.offsetHeight;
     bar.classList.remove("is-crowded");
-    var oneLineHeight = contentEl.offsetHeight;
     // A few px of slack for sub-pixel rounding between the two measurements,
     // not a magic line-height guess.
     if (oneLineHeight > 0 && bar.scrollHeight > oneLineHeight + 4) {
       bar.classList.add("is-crowded");
     }
+    void contentEl;
   }
   (function () {
     var resizeTimer = null;

@@ -1855,7 +1855,8 @@ section {
 .welcome-footnote,
 .review-prompt-card p,
 .custom-box-head p,
-.events-invite-organizer {
+.events-invite-organizer,
+.hero-order-status .lede {
   width: fit-content;
   margin-inline: auto;
   text-align: start;

@@ -5943,6 +5943,8 @@ function renderPdpGalleryHtml(p, manifest) {
     '">\n' +
     '        <button type="button" class="pdp-gallery-main" id="pdpGalleryOpen" aria-label="' +
     escapeHtml("Enlarge photo of " + p.name) +
+    '" data-i18n-tpl-aria-label="tpl.enlargePhoto" data-i18n-vars="' +
+    escapeHtml(JSON.stringify({ product: p.name })) +
     '">\n' +
     "          " +
     main +

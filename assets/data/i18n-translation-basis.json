@@ -206,7 +206,9 @@
     "nav.slashShop": "d51ef0893c",
     "nav.toggleTheme": "f84b9c1fda",
     "nav.viewCart": "9b371a6a7b",
+    "notFound.backHome": "a9dde94933",
     "notFound.body": "1dd07fb0ce",
+    "notFound.shopCollection": "4ad0f745b2",
     "notFound.title": "e0e765992d",
     "offline.body": "b15537f4fa",
     "offline.title": "6ca1e428db",
@@ -466,6 +468,7 @@
     "thankYou.paidSecurely": "066ad8d352",
     "thankYou.paymentReceived": "eaf5e99c99",
     "thankYou.questionsAboutOrder": "a3df986038",
+    "thankYou.reviewOnEtsy": "74a0cb1e3f",
     "thankYou.saveBirthday": "703fec645b",
     "thankYou.sortItOutSuffix": "9b1ab6322c",
     "thankYou.timelineAtWorkbench": "af4a844503",
@@ -479,6 +482,7 @@
     "thankYou.writeReviewOnSite": "6a2b79c304",
     "tpl.addGiftCard": "abc436fd6d",
     "tpl.addRecommendation": "3e217f4d0a",
+    "tpl.avgOutOf5": "d4024c0034",
     "tpl.bundleVariantLabel": "ea3ed84cf8",
     "tpl.cardRatingSrOne": "61f424af8a",
     "tpl.cardRatingSrOther": "eecc75f044",
@@ -511,7 +515,6 @@
     "welcome.sortYouOutSuffix": "50320faab3",
     "welcome.tenPercentPromise": "f4d5f18f91",
     "welcome.title": "eb8e3a2092",
-    "welcome.unsubscribeNote": "420afcc96d",
-    "tpl.avgOutOf5": "d4024c0034"
+    "welcome.unsubscribeNote": "420afcc96d"
   }
 }
