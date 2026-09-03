@@ -606,13 +606,13 @@ async function runAllTests() {
     "Contains thumbnail image element"
   );
   assert(sleepCardHtml.includes('href="shop.html#sleep-salve"'), "Links to shop.html#sleep-salve");
-  assert(sleepCardHtml.includes("$19.99"), "Contains formatted price $19.99");
+  assert(sleepCardHtml.includes("$20<"), "Contains formatted price $20");
   assert(
     sleepCardHtml.includes('class="btn btn-sm btn-primary yl-add-item"'),
     "Add button has .btn.btn-sm.btn-primary.yl-add-item"
   );
   assert(sleepCardHtml.includes('data-item-id="sleep-salve"'), "Button has data-item-id");
-  assert(sleepCardHtml.includes('data-item-price="19.99"'), "Button has data-item-price");
+  assert(sleepCardHtml.includes('data-item-price="20.00"'), "Button has data-item-price");
   assert(
     sleepCardHtml.includes('data-item-name="Hush Y&#39;all Magnesium Arnica Sleep Salve"') ||
       sleepCardHtml.includes("Hush Y'all Magnesium Arnica Sleep Salve"),

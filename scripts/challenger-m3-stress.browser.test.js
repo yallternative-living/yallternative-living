@@ -243,7 +243,7 @@ async function runAdversarialStressTests() {
     /* The visible headline price, which main.js rewrites on every variant
        change through this hook now that itemprop="price" is gone. */
     assert(
-      /<span class="pdp-price-value">\d+\.\d\d<\/span>/.test(html),
+      /<span class="pdp-price-value">\d+(\.\d\d)?<\/span>/.test(html),
       `products/${p.id}.html renders a visible headline price`
     );
 

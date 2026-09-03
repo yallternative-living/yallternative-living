@@ -307,14 +307,14 @@ async function testRitualInteractivity() {
   );
 
   const initialTotal = await page.$eval("#pdpRitualTotalPrice", (el) => el.textContent.trim());
-  assert(initialTotal === "$47.99", `Initial 3-item ritual total is $47.99 (got ${initialTotal})`);
+  assert(initialTotal === "$48", `Initial 3-item ritual total is $47.99 (got ${initialTotal})`);
 
   const initialBtnText = await page.$eval("#pdpRitualAddBtn", (el) => el.textContent.trim());
   assert(
     initialBtnText.includes("Add All to Cart"),
     `Initial button text is 'Add All to Cart' (got '${initialBtnText}')`
   );
-  assert(initialBtnText.includes("$47.99"), `Initial button displays price '$47.99'`);
+  assert(initialBtnText.includes("$48"), `Initial button displays price '$47.99'`);
 
   const initialBadgeHidden = await page.$eval(
     "#pdpRitualShippingBadge",
@@ -344,7 +344,7 @@ async function testRitualInteractivity() {
     el.textContent.trim()
   );
   assert(
-    totalAfter1Uncheck === "$29.99",
+    totalAfter1Uncheck === "$30",
     `Recalculated total for 2 items is $29.99 (got ${totalAfter1Uncheck})`
   );
 
@@ -353,7 +353,7 @@ async function testRitualInteractivity() {
     btnText2Items.includes("Add Selected (2) to Cart"),
     `Button text updated to 'Add Selected (2) to Cart' (got '${btnText2Items}')`
   );
-  assert(btnText2Items.includes("$29.99"), `Button displays updated price '$29.99'`);
+  assert(btnText2Items.includes("$30"), `Button displays updated price '$29.99'`);
 
   const badge2Items = await page.$eval(
     "#pdpRitualShippingBadge",
@@ -377,7 +377,7 @@ async function testRitualInteractivity() {
     el.textContent.trim()
   );
   assert(
-    totalAfter2Uncheck === "$19.99",
+    totalAfter2Uncheck === "$20",
     `Recalculated total for 1 item is $19.99 (got ${totalAfter2Uncheck})`
   );
 
@@ -386,7 +386,7 @@ async function testRitualInteractivity() {
     btnText1Item.includes("Add Item to Cart"),
     `Button text updated to 'Add Item to Cart' (got '${btnText1Item}')`
   );
-  assert(btnText1Item.includes("$19.99"), `Button displays updated price '$19.99'`);
+  assert(btnText1Item.includes("$20"), `Button displays updated price '$19.99'`);
 
   const badge1Item = await page.$eval(
     "#pdpRitualShippingBadge",
@@ -404,7 +404,7 @@ async function testRitualInteractivity() {
   await new Promise((r) => setTimeout(r, 100));
 
   const restoredTotal = await page.$eval("#pdpRitualTotalPrice", (el) => el.textContent.trim());
-  assert(restoredTotal === "$47.99", `Restored 3-item total is $47.99 (got ${restoredTotal})`);
+  assert(restoredTotal === "$48", `Restored 3-item total is $47.99 (got ${restoredTotal})`);
   const restoredBtn = await page.$eval("#pdpRitualAddBtn", (el) => el.textContent.trim());
   assert(restoredBtn.includes("Add All to Cart"), `Restored button text is 'Add All to Cart'`);
   const restoredBadge = await page.$eval(
@@ -458,7 +458,7 @@ async function testRitualInteractivity() {
   );
   assert(cartState.count === 3, `Cart total count is 3 (got ${cartState.count})`);
   assert(
-    Math.abs(cartState.subtotal - 47.99) < 0.01,
+    Math.abs(cartState.subtotal - 48) < 0.01,
     `Cart subtotal matches $47.99 (got $${cartState.subtotal})`
   );
 
@@ -513,7 +513,7 @@ async function testRitualInteractivity() {
     `Cart has 2 items after Add Selected (got ${cartState2.items.length})`
   );
   assert(
-    Math.abs(cartState2.subtotal - 29.99) < 0.01,
+    Math.abs(cartState2.subtotal - 30) < 0.01,
     `Cart subtotal matches $29.99 (got $${cartState2.subtotal})`
   );
 
@@ -526,7 +526,7 @@ async function testRitualInteractivity() {
 
   const countdownMsg = await page.$eval(".yl-cart-milestones-msg", (el) => el.textContent.trim());
   assert(
-    countdownMsg.includes("10.01") || countdownMsg.includes("10.0"),
+    countdownMsg.includes("Add $10 "),
     `Milestone countdown correctly calculates distance to $40 milestone (got: '${countdownMsg}')`
   );
 
@@ -568,10 +568,7 @@ async function testRitualInteractivity() {
     const modalPrice = await page.$eval("#lightboxRitualWrap #pdpRitualTotalPrice", (el) =>
       el.textContent.trim()
     );
-    assert(
-      modalPrice === "$37.99",
-      `Modal ritual bundle initial total is $37.99 (got ${modalPrice})`
-    );
+    assert(modalPrice === "$38", `Modal ritual bundle initial total is $37.99 (got ${modalPrice})`);
 
     // Uncheck one item in modal (miracle balm $8.00)
     await modalCheckboxes[2].click();
@@ -581,7 +578,7 @@ async function testRitualInteractivity() {
       el.textContent.trim()
     );
     assert(
-      modalRecalcPrice === "$29.99",
+      modalRecalcPrice === "$30",
       `Modal ritual bundle recalculates to $29.99 on checkbox toggle`
     );
 

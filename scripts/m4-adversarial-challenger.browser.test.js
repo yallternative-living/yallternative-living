@@ -407,8 +407,8 @@ async function runAdversarialStressSuite() {
           `Item ID correctly resolved to 'sleep-salve' via alias 'magnesium-body-butter' (got: ${afterClickState.items[0]?.id})`
         );
         assert(
-          afterClickState.items[0].price === 19.99,
-          `Item price correctly parsed as 19.99 (got: ${afterClickState.items[0]?.price})`
+          afterClickState.items[0].price === 20,
+          `Item price correctly parsed as 20 (got: ${afterClickState.items[0]?.price})`
         );
         assert(
           afterClickState.isOpen,
@@ -480,9 +480,8 @@ async function runAdversarialStressSuite() {
           `Featured reference '${secondFeaturedRef}' resolves to a catalogue product`
         );
         const secondId = secondProduct ? secondProduct.id : secondFeaturedRef;
-        const expectedSubtotal = (
-          19.99 + (secondProduct ? Number(secondProduct.price) : 0)
-        ).toFixed(2);
+        // Whole-dollar display: every catalogue price is an integer.
+        const expectedSubtotal = String(20 + (secondProduct ? Number(secondProduct.price) : 0));
         await page.evaluate(() => {
           const btn = document.querySelector(".journal-featured-card .yl-add-item");
           if (btn) btn.click();
@@ -563,14 +562,14 @@ async function runAdversarialStressSuite() {
         {
           id: "sleep-salve",
           name: "Sleep Salve (2oz)",
-          price: 19.99,
+          price: 20,
           category: "salves",
           image: "assets/img/sleep.jpg"
         },
         {
           id: "frankincense-salve",
           name: "Frankincense Salve",
-          price: 19.99,
+          price: 20,
           category: "salves",
           image: "assets/img/frank.jpg"
         },

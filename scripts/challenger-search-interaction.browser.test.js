@@ -905,10 +905,10 @@ function recordFail(msg) {
     }
 
     const has1ozChip = chipDetails.some(
-      (c) => c.variantLabel === "1oz" && c.variantDelta === "-6" && c.price === "13.99"
+      (c) => c.variantLabel === "1oz" && c.variantDelta === "-6" && c.price === "14.00"
     );
     if (has1ozChip) {
-      recordPass("1oz variant chip carries delta -6 and price $13.99");
+      recordPass("1oz variant chip carries delta -6 and price $14");
     } else {
       recordFail("1oz variant chip missing correct delta / price attributes");
     }
@@ -919,7 +919,7 @@ function recordFail(msg) {
     await page.keyboard.press("Space");
     await sleep(300);
 
-    // Verify cart state updated with 1oz Frankincense Salve at $13.99
+    // Verify cart state updated with 1oz Frankincense Salve at $14
     const cartStateAfter1oz = await page.evaluate(() => {
       try {
         const items = (function () {

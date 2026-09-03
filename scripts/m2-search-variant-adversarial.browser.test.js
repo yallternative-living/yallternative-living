@@ -763,9 +763,9 @@ function recordFail(msg) {
       // - Salve 1oz should show "1oz - $13.99"
       if (prod.id === "frankincense-salve") {
         const salve1oz = chipsAnalysis.results.find((r) => r.label === "1oz");
-        if (salve1oz && salve1oz.text.includes("$13.99")) {
+        if (salve1oz && salve1oz.text.includes("$14")) {
           recordPass(
-            `[${prod.id}] 1oz Frankincense Salve chip label displays exact negative delta price '$13.99'`
+            `[${prod.id}] 1oz Frankincense Salve chip label displays exact negative delta price '$14'`
           );
         } else {
           recordFail(
@@ -791,7 +791,7 @@ function recordFail(msg) {
         label: "Preset $50",
         expectedUnit: 50.0
       },
-      { id: "frankincense-salve", query: "Frankincense Salve", label: "1oz", expectedUnit: 13.99 }
+      { id: "frankincense-salve", query: "Frankincense Salve", label: "1oz", expectedUnit: 14 }
     ];
 
     for (const item of basketItemsToAdd) {
@@ -840,7 +840,7 @@ function recordFail(msg) {
       };
     });
 
-    const expectedBasketSubtotal = 23.0 + 18.0 + 50.0 + 13.99; // $104.99
+    const expectedBasketSubtotal = 23.0 + 18.0 + 50.0 + 14; // $105
     if (
       basketSummary.itemsCount === 4 &&
       Math.abs(basketSummary.subtotalVal - expectedBasketSubtotal) < 0.01

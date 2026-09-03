@@ -209,8 +209,8 @@ function createStaticServer(port = 8089) {
       const formatted = cart.money(res.remaining);
       assert.match(
         formatted,
-        /^\$\d+\.\d{2}$/,
-        `Money string must format as $XX.YY without float artifact: ${formatted}`
+        /^\$\d+(\.\d{2})?$/,
+        `Money string must format as $XX or $XX.YY without float artifact: ${formatted}`
       );
     }
   });
@@ -673,14 +673,14 @@ function createStaticServer(port = 8089) {
         );
 
         assert.strictEqual(stickyVal, "1oz", "Sticky select must sync to 1oz");
-        assert.strictEqual(stickyPrice, "$13.99", "Sticky price must update to $13.99");
+        assert.strictEqual(stickyPrice, "$14", "Sticky price must update to $13.99");
         // The button keeps the BASE price; cart.js adds the label's delta from
         // data-item-custom1-options. Writing 13.99 here as well made the cart
         // apply -$6 twice and charge $7.99.
         assert.strictEqual(
           stickyAddBtnPrice,
-          "19.99",
-          "Sticky button data-item-price must stay at the 19.99 base price"
+          "20.00",
+          "Sticky button data-item-price must stay at the 20.00 base price"
         );
         assert.strictEqual(
           stickyAddBtnVal,
@@ -693,8 +693,8 @@ function createStaticServer(port = 8089) {
           el.textContent.trim()
         );
         assert.ok(
-          mainPriceText.includes("13.99"),
-          `Main price must update to 13.99 (got ${mainPriceText})`
+          mainPriceText.includes("$14"),
+          `Main price must update to $14 (got ${mainPriceText})`
         );
 
         // Switch back to 2oz
@@ -710,7 +710,7 @@ function createStaticServer(port = 8089) {
         const stickyVal2 = await page.$eval(".pdp-sticky-variant-select", (el) => el.value);
         const stickyPrice2 = await page.$eval(".pdp-sticky-price", (el) => el.textContent.trim());
         assert.strictEqual(stickyVal2, "2oz", "Sticky select must sync back to 2oz");
-        assert.strictEqual(stickyPrice2, "$19.99", "Sticky price must update back to $19.99");
+        assert.strictEqual(stickyPrice2, "$20", "Sticky price must update back to $19.99");
 
         // Add the 1oz variant from the sticky bar: a non-zero delta is what
         // exposes the double-application bug (base+delta on the button AND
@@ -752,7 +752,7 @@ function createStaticServer(port = 8089) {
         });
         assert.strictEqual(
           stickyLine,
-          13.99,
+          14,
           "The sticky-bar add lands in the cart at the sticky price (base + delta once)"
         );
 
