@@ -1351,8 +1351,15 @@ assert(
   notFoundSrc.indexOf('src="/assets/js/main.js?v=2.0"') !== -1,
   "404.html loads main.js root-absolutely"
 );
+/* The marker PAIR has to survive, not its emptiness. This used to assert the
+   analytics marker was empty -- which was true only while the Umami website id
+   was still the placeholder, so the day a real id was configured (commit
+   8ccc9f0) the build correctly filled the marker in and this assertion started
+   failing for doing its job backwards. An assertion about a feature being off
+   is not an assertion that the markers are intact. */
 assert(
-  notFoundSrc.indexOf("<!--YL:site.umamiWebsiteId--><!--/YL:site.umamiWebsiteId-->") !== -1 &&
+  notFoundSrc.indexOf("<!--YL:site.umamiWebsiteId-->") !== -1 &&
+    notFoundSrc.indexOf("<!--/YL:site.umamiWebsiteId-->") !== -1 &&
     notFoundSrc.indexOf("<!--YL:nav.journal--><!--/YL:nav.journal-->") !== -1,
   "404.html keeps its build markers intact"
 );
