@@ -49,6 +49,12 @@ agree and a disagreement is silent — the tracker loads and POSTs into a 404.
 **What it costs, and this is not small — read §7 before trusting a visitor
 count or a country.**
 
+It does _not_ cost a round trip per page view: `cloud.umami.is` serves the
+script with `cache-control: public, max-age=86400, must-revalidate`, Netlify
+passes an upstream response's own headers through on a proxy rule, and nothing
+in `_headers` matches `/porch-light/…` to override it. So a returning visitor
+fetches the tracker from their own browser cache for a day at a time.
+
 ### Do Not Track and Global Privacy Control are not honoured
 
 `data-do-not-track` is absent from the tag, and the before-send hook does not
