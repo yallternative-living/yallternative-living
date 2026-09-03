@@ -437,6 +437,39 @@
   // them to the Stripe session as metadata -- never as anything that
   // affects price (price for gift cards is derived server-side from the
   // "Preset $NN" variant label alone, see workers/checkout.js).
+  /* The six codes assets/js/translator.js ships, which are also six of the
+     values Stripe Checkout accepts for `locale`. Kept as a literal list rather
+     than read off the translator: cart.js has to work on a page where
+     translator.js failed to load, and an unvalidated string here would end up
+     in an outbound Stripe parameter. */
+  var CHECKOUT_LOCALES = ["en", "es", "de", "fr", "ja", "zh"];
+
+  /* What language the shopper is reading the shop in, so Stripe Checkout does
+     not drop them back into English halfway through the funnel. Prefers the
+     translator's live value (which honours a ?lang= link for the current page)
+     and falls back to the same localStorage key translator.js writes. Anything
+     unrecognised, or storage that throws, yields "en". */
+  function checkoutLocale() {
+    var raw = null;
+    try {
+      if (root.YL_TRANSLATOR && typeof root.YL_TRANSLATOR.getCurrentLanguage === "function") {
+        raw = root.YL_TRANSLATOR.getCurrentLanguage();
+      }
+    } catch (e) {
+      raw = null;
+    }
+    if (!raw) {
+      try {
+        raw = root.localStorage ? root.localStorage.getItem("yl-lang") : null;
+      } catch (e) {
+        raw = null;
+      }
+    }
+    if (typeof raw !== "string") return "en";
+    var code = raw.trim().toLowerCase();
+    return CHECKOUT_LOCALES.indexOf(code) !== -1 ? code : "en";
+  }
+
   function toCheckoutPayload(items, pickupMarket, giftCardCode, isGiftOrder, giftMessage) {
     var payload = {
       items: (items || []).map(function (it) {
@@ -461,7 +494,8 @@
           if (it.giftMessage) o.giftMessage = it.giftMessage;
         }
         return o;
-      })
+      }),
+      locale: checkoutLocale()
     };
     if (pickupMarket) {
       payload.pickupMarket = pickupMarket;
@@ -1144,6 +1178,8 @@
       totalCount: totalCount,
       addToList: addToList,
       toCheckoutPayload: toCheckoutPayload,
+      checkoutLocale: checkoutLocale,
+      CHECKOUT_LOCALES: CHECKOUT_LOCALES,
       checkGiftCardBalance: checkGiftCardBalance,
       normalizeGiftCardCode: normalizeGiftCardCode,
       generateShareCartUrl: generateShareCartUrl,

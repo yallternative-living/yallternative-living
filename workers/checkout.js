@@ -211,6 +211,11 @@ const TAX_CODE_SHIPPING = "txcd_92010001"; // Shipping
 
 const MAX_QTY_PER_ITEM = 99;
 const MAX_LINE_ITEMS = 50;
+// The six languages assets/js/translator.js offers, every one of which is also
+// a value Stripe Checkout accepts for `locale`. This Worker's own JSON error
+// strings stay English on purpose -- cart.js renders them, and translating
+// them here would put shop copy in two places at once.
+const CHECKOUT_LOCALES = new Set(["en", "es", "de", "fr", "ja", "zh"]);
 const MAX_GIFT_TEXT_LEN = 500;
 // Stripe's own limit is 50 metadata keys per object; stop short of it so the
 // session-level keys (pickup, discount, gift flags, gift-card redemption)
@@ -1045,6 +1050,22 @@ async function handleCheckout(request, env, ctx, origin) {
         }
       }
       const isPickup = Boolean(pickupEvent);
+
+      // The language the shopper was reading the shop in, sent by cart.js from
+      // the same `yl-lang` preference assets/js/translator.js writes. Without
+      // it Stripe renders Checkout from Accept-Language, so someone browsing
+      // the site in Japanese could land on an English payment page -- the one
+      // step in the funnel where confusion costs an order. Validated against
+      // the allow-list here rather than trusted: this value goes straight into
+      // an outbound Stripe parameter, and `locale` is an enum Stripe rejects
+      // the whole session for if it is unknown. All six of our codes are in
+      // that enum (en, es, de, fr, ja, zh). Anything else is dropped, which
+      // leaves Stripe on its default browser-locale behaviour.
+      const rawLocale = body && body.locale;
+      const checkoutLocale =
+        typeof rawLocale === "string" && CHECKOUT_LOCALES.has(rawLocale.trim().toLowerCase())
+          ? rawLocale.trim().toLowerCase()
+          : null;
       const rawDiscount =
         body && (body.discount_code !== undefined ? body.discount_code : body.discountCode);
       if (rawDiscount && typeof rawDiscount === "string") {
@@ -1372,6 +1393,13 @@ async function handleCheckout(request, env, ctx, origin) {
       // The recovery email is ONLY sent when that reads "opt_in": abandoning a
       // cart is not consent to be marketed at, and this is the field that keeps
       // the difference honest.
+      // Render Checkout in the language the shopper was already reading.
+      // Omitted entirely when the client sent nothing recognisable, which
+      // leaves Stripe on its default "use the browser's locale" behaviour.
+      if (checkoutLocale) {
+        params.append("locale", checkoutLocale);
+      }
+
       params.append("consent_collection[promotions]", "auto");
       // A ticked terms box is the standard "product as described" evidence in a
       // dispute, and it costs one parameter (audit R5 / research-I M3).

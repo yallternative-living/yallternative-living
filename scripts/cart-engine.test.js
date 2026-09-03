@@ -129,7 +129,13 @@ eq(list.length, 2, "addToList keeps different variants separate");
 list = cart.addToList(list, { id: "tank", variantLabel: "M", qty: 500 });
 eq(list[0].qty, 99, "addToList caps merged qty at 99");
 
-// toCheckoutPayload = only {id, qty, variant} (never client price)
+/* toCheckoutPayload = only {id, qty, variant} per line (never a client price),
+   plus a top-level `locale`. The locale is the language the shopper is reading
+   the shop in; the Worker validates it against the same six-code allow-list and
+   forwards it as Stripe Checkout's `locale`, so a shopper browsing in Japanese
+   is not handed an English payment page. It is asserted here as part of the
+   payload SHAPE precisely so that adding another field to a checkout request
+   stays a deliberate act -- everything in this object crosses the network. */
 eq(
   cart.toCheckoutPayload([
     { id: "tank", variantLabel: "M", price: 25, variantDelta: 0, qty: 2 },
@@ -139,9 +145,10 @@ eq(
     items: [
       { id: "tank", qty: 2, variant: "M" },
       { id: "salve", qty: 1 }
-    ]
+    ],
+    locale: "en"
   },
-  "toCheckoutPayload shape (no prices leaked)"
+  "toCheckoutPayload shape (no prices leaked, language carried)"
 );
 
 // Gift cards: lineKey must be unique per add (via lineId), so two gift
@@ -193,7 +200,8 @@ eq(
         giftMessage: "Happy birthday!"
       },
       { id: "tank-top", qty: 1, variant: "M" }
-    ]
+    ],
+    locale: "en"
   },
   "toCheckoutPayload: gift metadata attached only to gift-card line"
 );

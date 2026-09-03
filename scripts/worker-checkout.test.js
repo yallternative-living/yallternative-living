@@ -1470,6 +1470,82 @@ async function runWorkerCheckoutTests() {
     );
   }
 
+  /* Stripe Checkout locale.
+     The shop can be read in six languages, but Checkout used to render from
+     Accept-Language, so a shopper browsing in Japanese could be handed an
+     English payment page at the one step where confusion costs the order.
+     cart.js now sends the language it is displaying and the Worker forwards it
+     as Stripe's `locale`. Two things have to stay true: a real code reaches
+     Stripe, and anything else is DROPPED rather than passed through -- `locale`
+     is an enum, and Stripe rejects the entire session for an unknown value. */
+  {
+    const supported = ["en", "es", "de", "fr", "ja", "zh"];
+    for (const code of supported) {
+      const result = await executeCheckout({
+        items: [{ id: "lavender-soak", qty: 1 }],
+        locale: code
+      });
+      eq(result.status, 200, `locale ${code}: checkout returns HTTP 200`);
+      eq(result.sessionParams.get("locale"), code, `locale ${code}: forwarded to Stripe`);
+    }
+
+    const upper = await executeCheckout({
+      items: [{ id: "lavender-soak", qty: 1 }],
+      locale: "JA"
+    });
+    eq(upper.sessionParams.get("locale"), "ja", "locale JA: normalised to lower case");
+
+    const padded = await executeCheckout({
+      items: [{ id: "lavender-soak", qty: 1 }],
+      locale: "  fr  "
+    });
+    eq(padded.sessionParams.get("locale"), "fr", "locale with surrounding space is trimmed");
+
+    const rejected = ["es-MX", "pt-BR", "klingon", "", "../../etc/passwd", "en;drop"];
+    for (const bad of rejected) {
+      const result = await executeCheckout({
+        items: [{ id: "lavender-soak", qty: 1 }],
+        locale: bad
+      });
+      eq(result.status, 200, `locale ${JSON.stringify(bad)}: checkout still succeeds`);
+      eq(
+        result.sessionParams.get("locale"),
+        null,
+        `locale ${JSON.stringify(bad)}: not forwarded to Stripe`
+      );
+    }
+
+    for (const bad of [42, true, null, { code: "es" }, ["es"]]) {
+      const result = await executeCheckout({
+        items: [{ id: "lavender-soak", qty: 1 }],
+        locale: bad
+      });
+      eq(
+        result.sessionParams.get("locale"),
+        null,
+        `non-string locale ${JSON.stringify(bad)}: not forwarded to Stripe`
+      );
+    }
+
+    const absent = await executeCheckout({ items: [{ id: "lavender-soak", qty: 1 }] });
+    eq(
+      absent.sessionParams.get("locale"),
+      null,
+      "no locale sent: Stripe is left on its own browser-locale default"
+    );
+
+    /* The Worker's own JSON errors are consumed and displayed by cart.js, so
+       they stay English no matter what locale the session is rendered in --
+       translating them here would put shop copy in two places at once. */
+    const emptyCart = await executeCheckout({ items: [], locale: "ja" });
+    eq(emptyCart.status, 400, "empty cart under a ja locale is still a 400");
+    eq(
+      emptyCart.data.error,
+      "Cart is empty or invalid.",
+      "Worker error strings stay English regardless of the checkout locale"
+    );
+  }
+
   console.log(`\nworker-checkout.test.js: ${passed} passed, ${failed} failed`);
   if (require.main === module) {
     process.exit(failed ? 1 : 0);

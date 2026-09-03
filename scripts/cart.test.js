@@ -1483,6 +1483,81 @@ assert(
     YLCart.render();
     eq(seasonalEl.style.display, "none", "Seasonal notice is hidden when showInCart is false");
 
+    /* ---- Checkout locale ------------------------------------------------
+       The shop reads in six languages but Stripe Checkout used to render from
+       Accept-Language, so a shopper browsing in Japanese could be handed an
+       English payment page at the one step where confusion costs the order.
+       The payload now carries the language the shop is being displayed in,
+       read from the same `yl-lang` key assets/js/translator.js writes, and
+       validated here rather than at the Worker alone: `locale` is a Stripe
+       enum, and an unknown value fails the whole session. */
+    {
+      const cartInternals = require("../assets/js/cart.js");
+      const { toCheckoutPayload, checkoutLocale, CHECKOUT_LOCALES } = cartInternals;
+      assert(typeof checkoutLocale === "function", "cart.js exports checkoutLocale");
+      eq(
+        CHECKOUT_LOCALES,
+        ["en", "es", "de", "fr", "ja", "zh"],
+        "checkout locale allow-list is exactly the six languages the picker offers"
+      );
+
+      const savedTranslator = mockWindow.YL_TRANSLATOR;
+      mockWindow.YL_TRANSLATOR = null;
+
+      mockLocalStorage.removeItem("yl-lang");
+      eq(checkoutLocale(), "en", "no stored preference falls back to en");
+
+      CHECKOUT_LOCALES.forEach((code) => {
+        mockLocalStorage.setItem("yl-lang", code);
+        eq(checkoutLocale(), code, `stored preference ${code} is used verbatim`);
+      });
+
+      mockLocalStorage.setItem("yl-lang", "JA");
+      eq(checkoutLocale(), "ja", "stored preference is normalised to lower case");
+      mockLocalStorage.setItem("yl-lang", "  fr  ");
+      eq(checkoutLocale(), "fr", "stored preference is trimmed");
+
+      ["es-MX", "pt-BR", "klingon", "", "<script>", "../../etc/passwd"].forEach((bad) => {
+        mockLocalStorage.setItem("yl-lang", bad);
+        eq(
+          checkoutLocale(),
+          "en",
+          `unrecognised stored value ${JSON.stringify(bad)} falls back to en`
+        );
+      });
+
+      /* The live translator wins over storage: a ?lang= link changes the
+         language of the page being read without rewriting storage first. */
+      mockLocalStorage.setItem("yl-lang", "es");
+      mockWindow.YL_TRANSLATOR = { getCurrentLanguage: () => "de" };
+      eq(checkoutLocale(), "de", "the translator's live language beats the stored one");
+      mockWindow.YL_TRANSLATOR = {
+        getCurrentLanguage: () => {
+          throw new Error("translator exploded");
+        }
+      };
+      eq(checkoutLocale(), "es", "a throwing translator falls back to the stored preference");
+      mockWindow.YL_TRANSLATOR = null;
+
+      mockLocalStorage.setItem("yl-lang", "zh");
+      const payload = toCheckoutPayload([{ id: "lavender-soak", qty: 1 }], null, null, false, "");
+      eq(payload.locale, "zh", "the checkout payload carries the shopper's language");
+      assert(
+        Array.isArray(payload.items) && payload.items.length === 1,
+        "adding the locale did not disturb the line items"
+      );
+
+      mockLocalStorage.setItem("yl-lang", "not-a-language");
+      eq(
+        toCheckoutPayload([{ id: "lavender-soak", qty: 1 }], null, null, false, "").locale,
+        "en",
+        "an unrecognised stored language never reaches the payload"
+      );
+
+      mockLocalStorage.removeItem("yl-lang");
+      mockWindow.YL_TRANSLATOR = savedTranslator;
+    }
+
     // Clean up
     mockWindow.YL_PRODUCTS = null;
     storage.clear();
