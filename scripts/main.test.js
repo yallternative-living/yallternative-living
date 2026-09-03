@@ -616,17 +616,17 @@ assert(
 );
 eq(
   main.priceHTML(onSale),
-  '<span class="price">$19.00 <s class="original-price">$20.00</s></span>',
+  '<span class="price">$19 <s class="original-price">$20</s></span>',
   "priceHTML strikes through the pre-sale price during a sale"
 );
 eq(
   main.priceHTML({ id: "x", price: 8 }),
-  '<span class="price">$8.00</span>',
+  '<span class="price">$8</span>',
   "priceHTML renders a plain price when no sale is active"
 );
 eq(
   main.priceHTML({ id: "x", price: 8, originalPrice: 10 }),
-  '<span class="price">$8.00</span>',
+  '<span class="price">$8</span>',
   "priceHTML ignores originalPrice without an active sale"
 );
 /* A card must never advertise the CEILING. frankincense-salve's base is
@@ -650,7 +650,7 @@ eq(
     price: 10,
     variants: { name: "Size", options: [{ label: "2 oz" }, { label: "4 oz", priceDelta: 4 }] }
   }),
-  '<span class="price">$10.00</span>',
+  '<span class="price">$10</span>',
   "priceHTML leaves a base-is-cheapest product alone"
 );
 eq(
@@ -2209,7 +2209,7 @@ assert(
   "Quiz renders .quiz-recommended-card prescription card"
 );
 assert(
-  resultsContainer.innerHTML.includes("Add Recommendation to Cart ($14.00)"),
+  resultsContainer.innerHTML.includes("Add Recommendation to Cart ($14)"),
   "Quiz renders add-to-cart button with price"
 );
 assert(

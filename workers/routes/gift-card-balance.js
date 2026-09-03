@@ -89,7 +89,12 @@ export async function handleGiftCardBalance(request, env, origin) {
       code: snapshot.code,
       balanceCents: snapshot.balanceCents,
       balance: balanceDollars,
-      formattedBalance: `$${balanceDollars.toFixed(2)}`,
+      // Whole dollars read as "$25", cents only when there are cents ("$12.34"),
+      // the same rule every price on the site follows (main.js formatMoney).
+      formattedBalance:
+        snapshot.balanceCents % 100 === 0
+          ? `$${snapshot.balanceCents / 100}`
+          : `$${balanceDollars.toFixed(2)}`,
       // Money this card is holding for a checkout that has not been paid yet.
       // It is already out of `balanceCents`; it is reported so the drawer can
       // explain a balance that looks lower than the shopper expects.

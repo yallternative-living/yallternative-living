@@ -280,7 +280,10 @@ assert(
   featuredCardSleep.includes('href="shop.html#sleep-salve"'),
   "Renders link to shop.html#sleep-salve"
 );
-assert(featuredCardSleep.includes("$20.00"), "Renders product price formatted with dollar sign");
+assert(
+  featuredCardSleep.includes("$20</span>"),
+  "Renders product price formatted with dollar sign"
+);
 assert(featuredCardSleep.includes("Lavender"), "Renders product scent badge");
 assert(
   featuredCardSleep.includes("btn btn-sm btn-primary yl-add-item"),

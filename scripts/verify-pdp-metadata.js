@@ -105,9 +105,15 @@ productsData.products.forEach((product) => {
           return o && !o.soldOut;
         })
       : null;
-  const expectedSelectedPrice = (
-    firstOpen ? product.price + (Number(firstOpen.priceDelta) || 0) : advertisedLowPrice(product)
-  ).toFixed(2);
+  /* The visible headline follows the site's display rule (formatMoney in
+     scripts/build-site-data.js): whole dollars with no cents, two decimals
+     only when the amount has cents. */
+  const selectedPriceValue = firstOpen
+    ? product.price + (Number(firstOpen.priceDelta) || 0)
+    : advertisedLowPrice(product);
+  const selectedCents = Math.round(selectedPriceValue * 100);
+  const expectedSelectedPrice =
+    selectedCents % 100 === 0 ? String(selectedCents / 100) : (selectedCents / 100).toFixed(2);
   /* Mirrors rasterImagePath() in scripts/build-site-data.js: og:/twitter:
      images are never SVG, because no social card renderer draws one. The
      five coming-soon products' placeholder SVG maps to its 1200x630 JPEG

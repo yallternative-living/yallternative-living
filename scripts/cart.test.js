@@ -293,7 +293,7 @@ assert(
 mockWindow.YL_PRODUCTS = { shop: { freeShippingThreshold: 75 } };
 footHTML = drawerFootHTML();
 assert(
-  footHTML.includes("Add $25.00 for Free Tracked Shipping!"),
+  footHTML.includes("Add $25 for Free Tracked Shipping!"),
   "freeShipThreshold uses configured 75 (a $50 cart is $25.00 short)"
 );
 assert(
@@ -321,7 +321,7 @@ assert(
   "freeShipThreshold ignores the stale YL_FREE_SHIP global (reads products.json config only)"
 );
 assert(
-  !footHTML.includes("Add $450.00"),
+  !footHTML.includes("Add $450"),
   "freeShipThreshold does not resurrect YL_FREE_SHIP as the threshold source"
 );
 
@@ -372,7 +372,7 @@ YLCart.init({ force: true });
 footHTML = drawerFootHTML();
 
 assert(
-  footHTML.includes("Add $15.00 for Free Tracked Shipping!"),
+  footHTML.includes("Add $15 for Free Tracked Shipping!"),
   "Multi-tier DOM: $25 subtotal shows countdown to $40 shipping threshold"
 );
 assert(
@@ -417,7 +417,7 @@ YLCart.init({ force: true });
 footHTML = drawerFootHTML();
 
 assert(
-  footHTML.includes("Add $20.00 more to unlock a Free Handcrafted Pocket Salve!"),
+  footHTML.includes("Add $20 more to unlock a Free Handcrafted Pocket Salve!"),
   "Multi-tier DOM: $40 subtotal unlocks shipping and prompts for gift milestone"
 );
 assert(
@@ -503,13 +503,13 @@ storage.set(
 YLCart.init({ force: true });
 let itemsHTML = drawerItemsHTML();
 footHTML = drawerFootHTML();
-assert(itemsHTML.includes("$20.00"), "1x 2oz salve renders at $20.00");
+assert(itemsHTML.includes("$20</span>"), "1x 2oz salve renders at $20");
 assert(
   !itemsHTML.includes("2+ for $15 applied"),
   "1x 2oz salve does not have 2+ for $15 applied badge"
 );
 assert(
-  footHTML.includes("Add 1 more 2oz salve to get both for $15.00 each"),
+  footHTML.includes("Add 1 more 2oz salve to get both for $15 each"),
   "1x 2oz salve renders mix-and-match nudge in footer"
 );
 
@@ -531,12 +531,12 @@ storage.set(
 YLCart.init({ force: true });
 itemsHTML = drawerItemsHTML();
 footHTML = drawerFootHTML();
-assert(itemsHTML.includes("$30.00"), "2x 2oz salve renders $30.00 total");
-assert(itemsHTML.includes("$15.00 ea"), "2x 2oz salve renders $15.00 ea unit price");
+assert(itemsHTML.includes("$30</span>"), "2x 2oz salve renders $30 total");
+assert(itemsHTML.includes("$15 ea"), "2x 2oz salve renders $15 ea unit price");
 assert(itemsHTML.includes("2+ for $15 applied"), "2x 2oz salve renders applied badge");
-assert(footHTML.includes("$30.00"), "2x 2oz salve renders $30.00 subtotal in footer");
+assert(footHTML.includes("$30</strong>"), "2x 2oz salve renders $30 subtotal in footer");
 assert(
-  footHTML.includes("$15.00/ea 2oz salve volume tier applied"),
+  footHTML.includes("$15/ea 2oz salve volume tier applied"),
   "2x 2oz salve renders celebration banner in footer"
 );
 
@@ -568,9 +568,9 @@ YLCart.init({ force: true });
 itemsHTML = drawerItemsHTML();
 footHTML = drawerFootHTML();
 assert(itemsHTML.includes("2+ for $15 applied"), "Mix & match renders applied badge on both lines");
-assert(footHTML.includes("$30.00"), "Mix & match renders $30.00 subtotal in footer");
+assert(footHTML.includes("$30</strong>"), "Mix & match renders $30 subtotal in footer");
 assert(
-  footHTML.includes("$15.00/ea 2oz salve volume tier applied"),
+  footHTML.includes("$15/ea 2oz salve volume tier applied"),
   "Mix & match renders celebration banner in footer"
 );
 
@@ -648,13 +648,13 @@ assert(
   itemsHTML.includes("2+ for $16 applied"),
   "Multi-rule: Soaks have 2+ for $16 applied badge in drawer"
 );
-assert(footHTML.includes("$62.00"), "Multi-rule: Drawer renders combined subtotal $62.00");
+assert(footHTML.includes("$62</strong>"), "Multi-rule: Drawer renders combined subtotal $62");
 assert(
-  footHTML.includes("$15.00/ea 2oz salve volume tier applied"),
+  footHTML.includes("$15/ea 2oz salve volume tier applied"),
   "Multi-rule: Salve celebration banner present"
 );
 assert(
-  footHTML.includes("$16.00/ea soak volume tier applied"),
+  footHTML.includes("$16/ea soak volume tier applied"),
   "Multi-rule: Soak celebration banner present"
 );
 
@@ -694,7 +694,7 @@ YLCart.init({ force: true });
 footHTML = drawerFootHTML();
 assert(
   footHTML.includes(
-    "$15.00/ea 2oz salve volume tier applied! · Add $15.00 for Free Handcrafted Pocket Salve!"
+    "$15/ea 2oz salve volume tier applied! · Add $15 for Free Handcrafted Pocket Salve!"
   ),
   "Mix & Match nudge names the real next milestone reward once the $40 tier is already crossed"
 );
@@ -703,7 +703,7 @@ assert(
   "Nothing in the drawer footer says 'free shipping' once the $40 tier is already unlocked and a further tier remains"
 );
 assert(
-  footHTML.includes("Add $15.00 more to unlock a Free Handcrafted Pocket Salve!"),
+  footHTML.includes("Add $15 more to unlock a Free Handcrafted Pocket Salve!"),
   "The milestone banner itself also names the real next reward, not 'free shipping'"
 );
 
@@ -926,11 +926,11 @@ assert(
        applies and the card must cover all $30 -- the Worker caps its coupon
        at subtotal + shipping too. */
     assert(
-      footHTML.includes("<span>Shipping</span><strong>$10.00"),
+      footHTML.includes("<span>Shipping</span><strong>$10"),
       "Shipping line charges $10.00 below the threshold"
     );
     assert(
-      footHTML.includes("-$30.00"),
+      footHTML.includes("-$30"),
       "Gift card is capped on subtotal + shipping, not the subtotal alone"
     );
     assert(
@@ -988,11 +988,11 @@ assert(
     YLCart.init({ force: true });
     footHTML = drawerFootHTML();
     assert(
-      footHTML.includes("<span>Shipping</span><strong>$10.00"),
+      footHTML.includes("<span>Shipping</span><strong>$10"),
       "A $10 cart is under the threshold and is quoted $10.00 shipping"
     );
     assert(
-      footHTML.includes("Estimated total (before tax)</span><strong>$20.00"),
+      footHTML.includes("Estimated total (before tax)</span><strong>$20"),
       "Estimated total adds shipping to the subtotal"
     );
 

@@ -122,7 +122,7 @@ function createStaticServer(port = 8089) {
       assert.strictEqual(res.remaining, 40);
       assert.strictEqual(res.progressPercent, 0);
       assert.strictEqual(res.nextMilestone.threshold, 40);
-      assert.strictEqual(res.message, "Add $40.00 for Free Tracked Shipping!");
+      assert.strictEqual(res.message, "Add $40 for Free Tracked Shipping!");
     }
   );
 
@@ -152,7 +152,7 @@ function createStaticServer(port = 8089) {
       assert.strictEqual(res.remaining, 20.0);
       assert.strictEqual(res.progressPercent, 67);
       assert.strictEqual(res.nextMilestone.threshold, 60);
-      assert.strictEqual(res.message, "Add $20.00 more to unlock a Free Handcrafted Pocket Salve!");
+      assert.strictEqual(res.message, "Add $20 more to unlock a Free Handcrafted Pocket Salve!");
     }
   );
 
@@ -258,7 +258,7 @@ function createStaticServer(port = 8089) {
     const at30 = cart.calculateMilestoneStatus(30, sorted, false);
     assert.strictEqual(at30.remaining, 20);
     assert.strictEqual(at30.nextMilestone.threshold, 50);
-    assert.strictEqual(at30.message, "Add $20.00 more to unlock a Free Shipping!");
+    assert.strictEqual(at30.message, "Add $20 more to unlock a Free Shipping!");
   });
 
   // ===========================================================================

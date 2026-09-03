@@ -5,6 +5,14 @@
      Netlify function that used to serve this answers 410 now. */
   var BALANCE_URL = "/api/gift-card-balance";
 
+  /* "$25" for whole dollars, "$12.34" only when there are cents -- the same
+     rule as YLCart.money() and main.js formatMoney(). Kept local because
+     the unit harness runs this file without the cart. */
+  function money(n) {
+    var cents = Math.round((Number(n) || 0) * 100);
+    return cents % 100 === 0 ? "$" + cents / 100 : "$" + (cents / 100).toFixed(2);
+  }
+
   /* Cards are issued as YALL-XXXX-XXXX-XXXX -- twelve characters over an
      A-Z2-9 alphabet with the ambiguous letters dropped. Shoppers type them in
      lowercase and paste them with the dashes eaten by their mail client, and
@@ -122,19 +130,18 @@
             balanceResult.innerHTML = errorBox("Too many attempts, try again in a minute.");
           } else if (data && data.valid && data.balance > 0) {
             // Server-supplied text, interpolated into innerHTML: escape it.
-            var formatted = escapeHtml(
-              data.formattedBalance || "$" + Number(data.balance).toFixed(2)
-            );
+            // Server-supplied text, interpolated into innerHTML: escape it.
+            var formatted = escapeHtml(data.formattedBalance || money(data.balance));
             var initial = data.initialAmount
-              ? " (of $" + Number(data.initialAmount).toFixed(2) + " initial)"
+              ? " (of " + money(data.initialAmount) + " initial)"
               : "";
             /* Money a checkout in progress is holding is already out of the
                balance; say so, or the card looks short (verify-D M-5). */
             var pendingCents = Number(data.pendingCents) || 0;
             var pendingNote =
               pendingCents > 0
-                ? '<p class="muted" style="font-size: 0.82rem; margin: 0 0 12px 0;">$' +
-                  (pendingCents / 100).toFixed(2) +
+                ? '<p class="muted" style="font-size: 0.82rem; margin: 0 0 12px 0;">' +
+                  money(pendingCents / 100) +
                   " is held by a checkout that is still in progress; it comes back to the card if that checkout is abandoned.</p>"
                 : "";
 
@@ -195,7 +202,7 @@
             balanceResult.innerHTML =
               '<div style="background: rgba(255, 255, 255, 0.05); border: 1px solid var(--hide); border-radius: var(--radius); padding: 14px; margin-top: 12px; text-align: center;">' +
               '  <p style="margin: 0; color: #e66550; font-weight: 500;">Card Fully Redeemed</p>' +
-              '  <p class="muted" style="font-size: 0.82rem; margin: 4px 0 0 0;">This gift code has a remaining balance of <strong>$0.00</strong>.</p>' +
+              '  <p class="muted" style="font-size: 0.82rem; margin: 4px 0 0 0;">This gift code has a remaining balance of <strong>$0</strong>.</p>' +
               "</div>";
           } else {
             balanceResult.innerHTML = errorBox(

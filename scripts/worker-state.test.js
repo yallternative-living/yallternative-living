@@ -988,7 +988,7 @@ async function testBalanceRoute() {
   eq(found.status, 200, "a real code returns 200");
   eq(foundBody.valid, true, "...with valid: true");
   eq(foundBody.balanceCents, 5000, "...the ledger balance in cents");
-  eq(foundBody.formattedBalance, "$50.00", "...a formatted balance for the drawer");
+  eq(foundBody.formattedBalance, "$50", "...a formatted balance for the drawer");
   eq(foundBody.code, "YALL-BAL1-BAL1-BAL1", "...and the canonical code, upper-cased");
   eq(
     found.headers.get("Cache-Control"),

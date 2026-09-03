@@ -618,7 +618,7 @@ eq(
 // Milestone calculations & copy across edge cases
 // Subtotal $0 -> "Add $40.00 for Free Tracked Shipping!"
 let s0 = cart.calculateMilestoneStatus(0, customMilestones, false);
-eq(s0.message, "Add $40.00 for Free Tracked Shipping!", "Milestone at $0 subtotal");
+eq(s0.message, "Add $40 for Free Tracked Shipping!", "Milestone at $0 subtotal");
 eq(s0.progressPercent, 0, "Progress percent at $0 subtotal");
 eq(s0.remaining, 40, "Remaining distance at $0 subtotal");
 eq(s0.isAllUnlocked, false, "Not unlocked at $0 subtotal");
@@ -626,7 +626,7 @@ eq(s0.nextMilestone.threshold, 40, "Next milestone at $0 subtotal is $40");
 
 // Subtotal $25 -> "Add $15.00 for Free Tracked Shipping!"
 let s25 = cart.calculateMilestoneStatus(25, customMilestones, false);
-eq(s25.message, "Add $15.00 for Free Tracked Shipping!", "Milestone at $25 subtotal");
+eq(s25.message, "Add $15 for Free Tracked Shipping!", "Milestone at $25 subtotal");
 eq(s25.progressPercent, 42, "Progress percent at $25 subtotal (25/60 = 42%)");
 eq(s25.remaining, 15, "Remaining distance at $25 subtotal ($40 - $25 = $15)");
 eq(s25.nextMilestone.threshold, 40, "Next milestone at $25 is $40");
@@ -635,7 +635,7 @@ eq(s25.nextMilestone.threshold, 40, "Next milestone at $25 is $40");
 let s40 = cart.calculateMilestoneStatus(40, customMilestones, false);
 eq(
   s40.message,
-  "Add $20.00 more to unlock a Free Handcrafted Pocket Salve!",
+  "Add $20 more to unlock a Free Handcrafted Pocket Salve!",
   "Milestone at $40 subtotal unlocks tier 1, targets tier 2"
 );
 eq(s40.progressPercent, 67, "Progress percent at $40 subtotal (40/60 = 67%)");
@@ -991,7 +991,7 @@ else global.window.YL_PRODUCTS = savedWindowYlProducts;
   );
   eq(
     good.els.thankYouAmountDisplay.textContent,
-    "$42.00",
+    "$42",
     "thank-you: order total renders the Worker-confirmed amount"
   );
   eq(good.els.thankYouSessionRow.hidden, false, "thank-you: reference id shown for a real session");
@@ -1026,7 +1026,7 @@ else global.window.YL_PRODUCTS = savedWindowYlProducts;
   );
   eq(
     noAmount.els.thankYouAmountDisplay.textContent,
-    "$42.00",
+    "$42",
     "thank-you: no $25.00 placeholder -- the confirmed total is printed instead"
   );
   const noAmountUnconfirmed = runThankYou("?session_id=cs_test_noamount2", null, {
@@ -1154,7 +1154,7 @@ else global.window.YL_PRODUCTS = savedWindowYlProducts;
       code: "YALL-ABC1-DEF2-GH34",
       balanceCents: 1000,
       balance: 10,
-      formattedBalance: "$10.00"
+      formattedBalance: "$10"
     })
   });
 
@@ -1400,7 +1400,7 @@ else global.window.YL_PRODUCTS = savedWindowYlProducts;
       code: "YALL-ABC1-DEF2-GH34",
       balanceCents: 1000,
       balance: 10,
-      formattedBalance: "$10.00"
+      formattedBalance: "$10"
     })
   });
 
@@ -1420,7 +1420,7 @@ else global.window.YL_PRODUCTS = savedWindowYlProducts;
         true,
         "gift-card.js displays the normalised code, not what was typed"
       );
-      eq(out.html.includes("$10.00"), true, "gift-card.js displays the formatted balance");
+      eq(out.html.includes("$10</div>"), true, "gift-card.js displays the formatted balance");
       eq(out.btn.disabled, false, "gift-card.js re-enables the Check Balance button");
 
       /* gift-card.js's normaliser must agree with cart.js's character for

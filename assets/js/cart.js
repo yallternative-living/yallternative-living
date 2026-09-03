@@ -1018,8 +1018,13 @@
     return dollars > 0 ? dollars : 0;
   }
 
+  /* "$20" for whole dollars, "$21.60" only when there are cents -- the same
+     rule as main.js formatMoney(), gift-card.js and thank-you.js. Products
+     are priced in whole dollars; cents come from percentage discounts,
+     custom gift-card amounts and the totals that include them. */
   function money(n) {
-    return "$" + (Math.round(n * 100) / 100).toFixed(2);
+    var cents = Math.round((Number(n) || 0) * 100);
+    return cents % 100 === 0 ? "$" + cents / 100 : "$" + (cents / 100).toFixed(2);
   }
 
   /* Multi-tier shipping and reward milestones from products.json
@@ -1866,10 +1871,7 @@
         if (isDiscounted) {
           var rawLabel =
             activeRule.label ||
-            activeRule.minQuantity +
-              "+ for $" +
-              Number(activeRule.unitPrice).toFixed(2) +
-              " applied";
+            activeRule.minQuantity + "+ for " + money(activeRule.unitPrice) + " applied";
           badgeLabel = rawLabel.replace(/\s*(each|ea)$/i, "") + " applied";
           if (rawLabel.indexOf("applied") !== -1) {
             badgeLabel = rawLabel;
@@ -2139,7 +2141,7 @@
             ? "soak"
             : escapeHtml(rule.category);
       var variantPart = rule.qualifyingVariant ? escapeHtml(rule.qualifyingVariant) + " " : "";
-      var priceFormatted = "$" + Number(rule.unitPrice).toFixed(2);
+      var priceFormatted = money(rule.unitPrice);
 
       if (count > 0 && count < minQ) {
         var needed = minQ - count;
@@ -2235,8 +2237,8 @@
           '    <span class="yl-cart-giftcard-applied-code"><svg class="yl-cart-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 12 20 22 4 22 4 12"></polyline><rect x="2" y="7" width="20" height="5"></rect><line x1="12" y1="22" x2="12" y2="7"></line><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path></svg> ' +
           escapeHtml(state.appliedGiftCard.code) +
           "</span>" +
-          '    <span class="yl-cart-giftcard-applied-bal">$' +
-          Number(state.appliedGiftCard.balance).toFixed(2) +
+          '    <span class="yl-cart-giftcard-applied-bal">' +
+          money(state.appliedGiftCard.balance) +
           " available</span>" +
           "  </div>" +
           '  <button type="button" class="yl-cart-giftcard-remove" aria-label="Remove gift card">Remove</button>' +

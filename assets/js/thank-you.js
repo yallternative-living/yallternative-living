@@ -22,6 +22,14 @@
 (function () {
   "use strict";
 
+  /* "$25" for whole dollars, "$12.34" only when there are cents -- the same
+     rule as YLCart.money() and main.js formatMoney(). Kept local because
+     the unit harness runs this file without the cart. */
+  function money(n) {
+    var cents = Math.round((Number(n) || 0) * 100);
+    return cents % 100 === 0 ? "$" + cents / 100 : "$" + (cents / 100).toFixed(2);
+  }
+
   /* Both of those are once-per-order actions, but nothing stopped this page
      from running them again on every load of the same URL. Refreshing the
      thank-you page (or hitting Back to it after shopping on) re-fired the
@@ -213,7 +221,7 @@
               if (cardEl) cardEl.classList.remove("is-pending");
               confirmOrder();
               if (amountDisplay) {
-                amountDisplay.textContent = "$" + (summary.amountTotalCents / 100).toFixed(2);
+                amountDisplay.textContent = money(summary.amountTotalCents / 100);
               }
               if (amountGroup) amountGroup.hidden = false;
 
@@ -239,16 +247,10 @@
                 el.hidden = false;
               }
               if (giftCents > 0) {
-                note(
-                  "thankYouGiftCardNote",
-                  "Gift card applied: -$" + (giftCents / 100).toFixed(2)
-                );
+                note("thankYouGiftCardNote", "Gift card applied: -" + money(giftCents / 100));
               }
               if (promoCents > 0) {
-                note(
-                  "thankYouDiscountNote",
-                  "Promo code applied: -$" + (promoCents / 100).toFixed(2)
-                );
+                note("thankYouDiscountNote", "Promo code applied: -" + money(promoCents / 100));
               }
             })
             .catch(function () {

@@ -177,6 +177,17 @@ function escapeHtml(s) {
     .replace(/`/g, "&#96;");
 }
 
+/* "$20" for whole dollars, "$21.60" only when there are cents -- the rule
+   every shopper-visible price follows (main.js formatMoney, cart.js money).
+   Machine-facing values (data-item-price, the [+6.00] option tokens, JSON-LD
+   and Open Graph prices) keep toFixed(2). */
+function formatMoney(n) {
+  const v = Number(n);
+  if (!isFinite(v)) return "$0";
+  const cents = Math.round(v * 100);
+  return cents % 100 === 0 ? "$" + cents / 100 : "$" + (cents / 100).toFixed(2);
+}
+
 /* ---------- JSON embedded in HTML ----------
    The contents of a <script> element are RAW TEXT: the HTML parser never
    decodes entities inside them, but it DOES end the element at the first
@@ -1967,7 +1978,7 @@ function buildSiteData() {
       categoryLabel: CATEGORY_LABEL[p.category] || p.category || "Apothecary",
       price: p.price,
       originalPrice: p.originalPrice || null,
-      formattedPrice: "$" + p.price.toFixed(2),
+      formattedPrice: formatMoney(p.price),
       image: p.image,
       inStock: p.inStock !== false && p.stock !== 0,
       comingSoon: !!p.comingSoon,
@@ -1999,7 +2010,7 @@ function buildSiteData() {
       categoryLabel: "Gift Sets & Bundles",
       price: pricing.bundlePrice,
       originalPrice: pricing.fullPrice,
-      formattedPrice: "$" + pricing.bundlePrice.toFixed(2),
+      formattedPrice: formatMoney(pricing.bundlePrice),
       image: bundleImg,
       inStock: true,
       comingSoon: false,
@@ -3999,8 +4010,8 @@ function buildSiteData() {
     return (
       "- **" +
       p.name +
-      "** -- $" +
-      p.price.toFixed(2) +
+      "** -- " +
+      formatMoney(p.price) +
       " -- " +
       (CATEGORY_LABEL[p.category] || p.category) +
       " -- " +
@@ -4099,8 +4110,8 @@ function buildSiteData() {
     const range = variantPriceRange(p);
     const priceStr =
       range.low === range.high
-        ? "$" + range.low.toFixed(2)
-        : "$" + range.low.toFixed(2) + " - $" + range.high.toFixed(2);
+        ? formatMoney(range.low)
+        : formatMoney(range.low) + " - " + formatMoney(range.high);
     const inStock = !(p.image && p.image.indexOf("placeholder") !== -1) && !p.comingSoon;
     const lines = [
       "### " + p.name,
@@ -4180,7 +4191,7 @@ function buildSiteData() {
     "yourself.\n\n" +
     "## Shipping & returns\n\n" +
     (freeShip
-      ? "- **Free US shipping** on orders of $" + freeShip.toFixed(2) + " or more.\n"
+      ? "- **Free US shipping** on orders of " + formatMoney(freeShip) + " or more.\n"
       : "") +
     "- Ships within the US. Processing time is typically 1-2 business days for in-stock items.\n" +
     "- Exchanges within 14 days for eligible items; opened body-care products are final sale.\n" +
@@ -5183,7 +5194,7 @@ function renderRitualSectionHtml(
     totalBundlePrice += typeof p.price === "number" ? p.price : 0;
   });
 
-  const formattedTotal = "$" + totalBundlePrice.toFixed(2);
+  const formattedTotal = formatMoney(totalBundlePrice);
   const ritualTitle = product.ritualTitle || defaultTitle;
   const allIds = [product.id]
     .concat(
@@ -5225,8 +5236,8 @@ function renderRitualSectionHtml(
     '            <span class="pdp-ritual-item-name">' +
     escapeHtml(product.name) +
     "</span>\n" +
-    '            <span class="pdp-ritual-item-price">$' +
-    (typeof product.price === "number" ? product.price.toFixed(2) : "0.00") +
+    '            <span class="pdp-ritual-item-price">' +
+    formatMoney(product.price) +
     "</span>\n" +
     "          </div>\n" +
     "        </label>\n";
@@ -5266,8 +5277,8 @@ function renderRitualSectionHtml(
       '.html" class="pdp-ritual-item-name">' +
       escapeHtml(paired.name) +
       "</a>\n" +
-      '            <span class="pdp-ritual-item-price">$' +
-      (typeof paired.price === "number" ? paired.price.toFixed(2) : "0.00") +
+      '            <span class="pdp-ritual-item-price">' +
+      formatMoney(paired.price) +
       "</span>\n" +
       "          </div>\n" +
       "        </label>\n";
@@ -5475,8 +5486,8 @@ function renderStickyBarHtml(product, categoryLabel, imageManifest) {
     '          <p class="pdp-sticky-title">' +
     escapeHtml(p.name) +
     "</p>\n" +
-    '          <p class="pdp-sticky-price">$' +
-    price +
+    '          <p class="pdp-sticky-price">' +
+    formatMoney(p.price) +
     "</p>\n" +
     "        </div>\n" +
     (product.id === "yallternative-gift-card" || product.comingSoon ? "" : variantWrapHtml) +
@@ -5944,8 +5955,8 @@ function renderPdpTrustHtml(p, shop) {
       : [
           [
             "truck",
-            "Free tracked shipping at $" +
-              threshold +
+            "Free tracked shipping at " +
+              formatMoney(threshold) +
               "+ · ships from Landrum, SC in 1&ndash;3 business days"
           ],
           [
@@ -6161,8 +6172,8 @@ function renderRelatedProductsHtml(p, products, categoryLabelMap, manifest) {
       const range = variantPriceRange(q);
       const priceText =
         range.low === range.high
-          ? "$" + range.low.toFixed(2)
-          : "$" + range.low.toFixed(2) + " &ndash; $" + range.high.toFixed(2);
+          ? formatMoney(range.low)
+          : formatMoney(range.low) + " &ndash; " + formatMoney(range.high);
       const catLabel = (categoryLabelMap && categoryLabelMap[q.category]) || q.category || "";
       const badge = q.comingSoon
         ? '<span class="stock-badge coming-soon">Coming Soon</span>'
@@ -6590,7 +6601,8 @@ function renderProductPdpHtml(
   /* .pdp-price-value replaces the old itemprop="price" span: main.js's
      variant picker rewrites this number on every size change and needs a
      hook, but it must not be a second schema.org entity (finding L5). */
-  const priceDisplayHtml = '$<span class="pdp-price-value">' + selectedPrice.toFixed(2) + "</span>";
+  const priceDisplayHtml =
+    '$<span class="pdp-price-value">' + formatMoney(selectedPrice).slice(1) + "</span>";
 
   const pdpAvailability = schemaAvailability(product);
   const pdpOgAvailability =
@@ -6816,7 +6828,7 @@ function renderProductPdpHtml(
     "\n" +
     "          </span>\n" +
     (product.originalPrice
-      ? '          <span class="original-price">$' + product.originalPrice.toFixed(2) + "</span>\n"
+      ? '          <span class="original-price">' + formatMoney(product.originalPrice) + "</span>\n"
       : "") +
     "        </div>\n" +
     stockBadge +
@@ -6982,6 +6994,7 @@ function generateRssFeed(journalData, domainUrl, options) {
 
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
+    formatMoney: formatMoney,
     loadJournal,
     listJournalFiles,
     SEARCH_CHIP_ICONS: SEARCH_CHIP_ICONS,

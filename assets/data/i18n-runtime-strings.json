@@ -494,9 +494,9 @@
       "text": "Free shipping at $40",
       "source": "assets/js/main.js",
       "verify": [
-        "Free shipping at $"
+        "Free shipping at "
       ],
-      "note": "template plus shop.freeShippingThreshold from products.json"
+      "note": "template plus shop.freeShippingThreshold from products.json, formatted by formatMoney()"
     },
     {
       "key": "shop.inStock",

@@ -695,7 +695,7 @@ async function main() {
       const lower = await ask("yall-acti-ve25-0000");
       assert.strictEqual(lower.status, 200);
       assert.strictEqual(lower.body.balance, 25.0);
-      assert.strictEqual(lower.body.formattedBalance, "$25.00");
+      assert.strictEqual(lower.body.formattedBalance, "$25");
       assert.strictEqual(lower.body.code, "YALL-ACTI-VE25-0000");
       assert.strictEqual(lower.body.expires, null);
 

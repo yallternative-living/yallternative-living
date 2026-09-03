@@ -1025,6 +1025,19 @@
       .replace(/`/g, "&#96;");
   }
 
+  /* ---------- shared: "$20" for whole dollars, "$21.60" only when there are cents ----------
+     Every product is priced in whole dollars; cents only arise from percentage
+     bundle/box discounts, custom gift-card amounts and the totals that include
+     them. cart.js money(), gift-card.js and thank-you.js apply the same rule.
+     Machine-facing values (data-item-price, the [+6.00] option tokens, JSON-LD)
+     keep toFixed(2). */
+  function formatMoney(n) {
+    var v = Number(n);
+    if (!isFinite(v)) return "$0";
+    var cents = Math.round(v * 100);
+    return cents % 100 === 0 ? "$" + cents / 100 : "$" + (cents / 100).toFixed(2);
+  }
+
   /* ---------- shared: only allow http(s)/relative links into href= ----------
      attrEsc() alone stops attribute-breakout but not a same-quote-safe
      `javascript:` URL, which still executes on click. Used for event/social
@@ -1762,7 +1775,7 @@
     if (volumeRule) {
       var rawLabel =
         volumeRule.label ||
-        volumeRule.minQuantity + "+ for $" + Number(volumeRule.unitPrice).toFixed(2) + " ea";
+        volumeRule.minQuantity + "+ for " + formatMoney(volumeRule.unitPrice) + " ea";
       volumeBadgeText = rawLabel.replace(/\s*each$/i, " ea");
     }
 
@@ -1828,14 +1841,13 @@
 
   function priceHTML(p) {
     if (p.id === "yallternative-gift-card") {
-      return '<span class="price">From $' + p.price.toFixed(2) + "</span>";
+      return '<span class="price">From ' + formatMoney(p.price) + "</span>";
     }
     var from = pricePrefixFrom(p);
     var html =
-      '<span class="price">' +
-      (from === null ? "$" + p.price.toFixed(2) : "From $" + from.toFixed(2));
+      '<span class="price">' + (from === null ? formatMoney(p.price) : "From " + formatMoney(from));
     if (p.sale && typeof p.originalPrice === "number" && p.originalPrice > p.price) {
-      html += ' <s class="original-price">$' + p.originalPrice.toFixed(2) + "</s>";
+      html += ' <s class="original-price">' + formatMoney(p.originalPrice) + "</s>";
     }
     return html + "</span>";
   }
@@ -2589,8 +2601,8 @@
                 : "") +
               "</div>" +
               '<div class="custom-box-option-meta">' +
-              '<span class="custom-box-option-price">$' +
-              p.price.toFixed(2) +
+              '<span class="custom-box-option-price">' +
+              formatMoney(p.price) +
               "</span>" +
               '<div class="custom-box-checkbox-wrap">' +
               '<input type="checkbox" value="' +
@@ -2619,20 +2631,20 @@
             maxItems +
             " chosen</span> " +
             (count >= minItems
-              ? '<span class="custom-box-price-tag"><s class="custom-box-full-price">$' +
-                fullPrice().toFixed(2) +
-                "</s> <strong>$" +
-                boxPrice().toFixed(2) +
+              ? '<span class="custom-box-price-tag"><s class="custom-box-full-price">' +
+                formatMoney(fullPrice()) +
+                "</s> <strong>" +
+                formatMoney(boxPrice()) +
                 "</strong></span>" +
                 (saving > 0
-                  ? ' <span class="custom-box-saving">Save $' +
-                    saving.toFixed(2) +
+                  ? ' <span class="custom-box-saving">Save ' +
+                    formatMoney(saving) +
                     " (" +
                     pct +
                     "% off)</span>"
                   : "")
-              : '<span class="custom-box-price-tag"><strong>$' +
-                fullPrice().toFixed(2) +
+              : '<span class="custom-box-price-tag"><strong>' +
+                formatMoney(fullPrice()) +
                 "</strong></span>" +
                 ' <span class="custom-box-saving">Pick ' +
                 (minItems - count) +
@@ -2993,7 +3005,7 @@
     // Visible price only -- purely informational, shown to the shopper
     // before they click Add to Cart.
     var priceEl = card.querySelector(".card-foot .price");
-    if (priceEl) priceEl.textContent = "$" + newPrice.toFixed(2);
+    if (priceEl) priceEl.textContent = formatMoney(newPrice);
     var loyalty = getLoyaltyConfig();
     var pointsValEl = card.querySelector(".alt-points-badge .pts-val");
     if (pointsValEl) {
@@ -3383,10 +3395,10 @@
           bundleVariantPickerHTML(b, members) +
           '<div class="card-foot">' +
           '<div class="card-foot-row">' +
-          '<span class="price"><span class="bundle-price-now">$' +
-          bundlePrice.toFixed(2) +
-          '</span> <s class="bundle-full-price">$' +
-          fullPrice.toFixed(2) +
+          '<span class="price"><span class="bundle-price-now">' +
+          formatMoney(bundlePrice) +
+          '</span> <s class="bundle-full-price">' +
+          formatMoney(fullPrice) +
           "</s></span>" +
           '<button type="button" class="btn btn-primary btn-sm ' +
           (members.length ? "bundle-add-btn" : "yl-add-item") +
@@ -3458,8 +3470,8 @@
     var now = bundlePriceFor(full, discount);
     var nowEl = card.querySelector(".bundle-price-now");
     var fullEl = card.querySelector(".bundle-full-price");
-    if (nowEl) nowEl.textContent = "$" + now.toFixed(2);
-    if (fullEl) fullEl.textContent = "$" + full.toFixed(2);
+    if (nowEl) nowEl.textContent = formatMoney(now);
+    if (fullEl) fullEl.textContent = formatMoney(full);
     btn.setAttribute("data-item-price", now.toFixed(2));
     return sel;
   }
@@ -3805,10 +3817,9 @@
       (function () {
         var vRule = getMatchingVolumeRule(p);
         if (!vRule) return "";
-        var baseFormatted = "$" + p.price.toFixed(2) + " each";
+        var baseFormatted = formatMoney(p.price) + " each";
         var promoFormatted =
-          vRule.label ||
-          vRule.minQuantity + "+ for $" + Number(vRule.unitPrice).toFixed(2) + " each";
+          vRule.label || vRule.minQuantity + "+ for " + formatMoney(vRule.unitPrice) + " each";
         return (
           '<p class="volume-pricing-note" style="font-size: 0.75rem; color: var(--whiskey); margin: 0 0 6px 0; text-align: center; font-weight: 600;">' +
           baseFormatted +
@@ -3818,8 +3829,8 @@
         );
       })() +
       (p.id !== "yallternative-gift-card" && freeShipThreshold > 0
-        ? '<p style="font-size: 0.72rem; color: var(--whiskey); margin: 0 0 6px 0; text-align: center; font-weight: 600;">Free shipping at $' +
-          freeShipThreshold +
+        ? '<p style="font-size: 0.72rem; color: var(--whiskey); margin: 0 0 6px 0; text-align: center; font-weight: 600;">Free shipping at ' +
+          formatMoney(freeShipThreshold) +
           "</p>"
         : "") +
       getDispatchBadgeHTML(p) +
@@ -4347,18 +4358,21 @@
     return "Paid, being packed";
   }
 
-  /** Cents + ISO currency -> "$42.00". Falls back when Intl has no currency data. */
+  /** Cents + ISO currency -> "$42" / "$42.50" for USD (formatMoney, like every other
+      price on the site); Intl for other currencies, with a plain fallback when Intl
+      has no data for the code. */
   function formatOrderAmount(cents, currency) {
     var value = Number(cents);
     if (!isFinite(value)) return "";
     var code = String(currency || "usd").toUpperCase();
+    if (code === "USD") return formatMoney(value / 100);
     try {
       return new Intl.NumberFormat(undefined, { style: "currency", currency: code }).format(
         value / 100
       );
     } catch (e) {
       void e;
-      return (code === "USD" ? "$" : code + " ") + (value / 100).toFixed(2);
+      return code + " " + (value / 100).toFixed(2);
     }
   }
 
@@ -6869,7 +6883,7 @@
       /* "or more", not "over": workers/checkout.js waives shipping at
          >= the threshold, so a cart of exactly $40.00 ships free while the
          old wording left that case undefined (audit C, finding L11). */
-      message = "✦ Free shipping on orders of $" + threshold + " or more ✦";
+      message = "✦ Free shipping on orders of " + formatMoney(threshold) + " or more ✦";
     }
 
     var accentClass = accent && accent !== "default" ? " announcement-accent-" + accent : "";
@@ -7240,7 +7254,9 @@
     var featProd = findFeaturedProduct(productId);
     if (!featProd) return "";
 
-    var priceFormatted =
+    var priceFormatted = formatMoney(featProd.price);
+    /* cart.js parses data-item-price: keep the machine value at two decimals. */
+    var priceAttr =
       typeof featProd.price === "number"
         ? featProd.price.toFixed(2)
         : String(featProd.price || "0.00");
@@ -7278,7 +7294,7 @@
       attrEsc(featProd.blurb || featProd.description || "") +
       "</p>" +
       '        <div class="journal-featured-action">' +
-      '          <span class="journal-featured-price">$' +
+      '          <span class="journal-featured-price">' +
       priceFormatted +
       "</span>" +
       '          <button type="button" class="btn btn-sm btn-primary yl-add-item" ' +
@@ -7289,7 +7305,7 @@
       attrEsc(featProd.name) +
       '" ' +
       '            data-item-price="' +
-      priceFormatted +
+      priceAttr +
       '" ' +
       '            data-item-image="' +
       attrEsc(featProd.image) +
@@ -8234,8 +8250,8 @@
           '"' +
           quizVariantAttrs(match) +
           ">" +
-          "    Add Recommendation to Cart ($" +
-          recPrice.toFixed(2) +
+          "    Add Recommendation to Cart (" +
+          formatMoney(recPrice) +
           ")" +
           "  </button>" +
           '  <button type="button" class="btn btn-link btn-sm" id="quizRetakeBtn" style="margin-top: 1rem; color: var(--paper-muted);">Take Quiz Again</button>' +
@@ -8664,7 +8680,7 @@
       });
 
     if (hasDeltas || delta !== 0) {
-      return opt.label + " - $" + finalPrice.toFixed(2);
+      return opt.label + " - " + formatMoney(finalPrice);
     }
 
     return opt.label;
@@ -8699,7 +8715,7 @@
       var chipText = formatVariantChipLabel(prod, opt);
       var chipAriaLabel =
         opt.label +
-        (delta !== 0 ? " ($" + finalPrice.toFixed(2) + ")" : "") +
+        (delta !== 0 ? " (" + formatMoney(finalPrice) + ")" : "") +
         (isSold ? " (Sold Out)" : "");
 
       html +=
@@ -9082,7 +9098,7 @@
              it must not advertise the ceiling either (audit C, L8). */
           var searchFrom = pricePrefixFrom(prod);
           var priceStr =
-            searchFrom === null ? "$" + prod.price.toFixed(2) : "From $" + searchFrom.toFixed(2);
+            searchFrom === null ? formatMoney(prod.price) : "From " + formatMoney(searchFrom);
           /* The index carries inStock (false when sold out) and comingSoon;
              a product that is not on sale yet must never offer "+ Add" or
              claim to be in stock -- the PDP's notify-me button is the CTA. */
@@ -10167,9 +10183,7 @@
           imgSrc = "../" + imgSrc;
         }
         var pdpUrl = (isPdp ? "" : "products/") + attrEsc(item.id) + ".html";
-        var priceDisplay = item.priceRange
-          ? attrEsc(item.priceRange)
-          : "$" + (typeof item.price === "number" ? item.price.toFixed(2) : "0.00");
+        var priceDisplay = item.priceRange ? attrEsc(item.priceRange) : formatMoney(item.price);
 
         return (
           '<div class="card recently-viewed-card" data-id="' +
@@ -10338,8 +10352,8 @@
       '<span class="pdp-ritual-item-name">' +
       attrEsc(product.name) +
       "</span>" +
-      '<span class="pdp-ritual-item-price">$' +
-      (typeof product.price === "number" ? product.price.toFixed(2) : "0.00") +
+      '<span class="pdp-ritual-item-price">' +
+      formatMoney(product.price) +
       "</span>" +
       "</div>" +
       "</label>";
@@ -10371,8 +10385,8 @@
         '<span class="pdp-ritual-item-name">' +
         attrEsc(p.name) +
         "</span>" +
-        '<span class="pdp-ritual-item-price">$' +
-        (typeof p.price === "number" ? p.price.toFixed(2) : "0.00") +
+        '<span class="pdp-ritual-item-price">' +
+        formatMoney(p.price) +
         "</span>" +
         "</div>" +
         "</label>";
@@ -10407,8 +10421,8 @@
       '<div class="pdp-ritual-footer">' +
       '<div class="pdp-ritual-total-wrap">' +
       '<span class="pdp-ritual-total-label">Bundle:</span>' +
-      '<span class="pdp-ritual-total-price" id="pdpRitualTotalPrice">$' +
-      total.toFixed(2) +
+      '<span class="pdp-ritual-total-price" id="pdpRitualTotalPrice">' +
+      formatMoney(total) +
       "</span>" +
       '<span class="pdp-ritual-shipping-badge" id="pdpRitualShippingBadge"' +
       (unlocksFreeShipping ? "" : ' hidden=""') +
@@ -10418,8 +10432,8 @@
       attrEsc(allIds) +
       '">' +
       '<svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>' +
-      '<span>Add All to Cart · <span class="ritual-btn-price">$' +
-      total.toFixed(2) +
+      '<span>Add All to Cart · <span class="ritual-btn-price">' +
+      formatMoney(total) +
       "</span></span>" +
       "</button>" +
       "</div>" +
@@ -10505,8 +10519,8 @@
         }
       });
 
-      if (totalPriceEl) totalPriceEl.textContent = "$" + sum.toFixed(2);
-      if (btnPriceEl) btnPriceEl.textContent = "$" + sum.toFixed(2);
+      if (totalPriceEl) totalPriceEl.textContent = formatMoney(sum);
+      if (btnPriceEl) btnPriceEl.textContent = formatMoney(sum);
 
       if (addBtn) {
         var iconSvg =
@@ -10514,26 +10528,26 @@
         if (count === totalAvailable) {
           addBtn.innerHTML =
             iconSvg +
-            '<span>Add All to Cart · <span class="ritual-btn-price">$' +
-            sum.toFixed(2) +
+            '<span>Add All to Cart · <span class="ritual-btn-price">' +
+            formatMoney(sum) +
             "</span></span>";
         } else if (count > 1) {
           addBtn.innerHTML =
             iconSvg +
             "<span>Add Selected (" +
             count +
-            ') to Cart · <span class="ritual-btn-price">$' +
-            sum.toFixed(2) +
+            ') to Cart · <span class="ritual-btn-price">' +
+            formatMoney(sum) +
             "</span></span>";
         } else if (count === 1) {
           addBtn.innerHTML =
             iconSvg +
-            '<span>Add Item to Cart · <span class="ritual-btn-price">$' +
-            sum.toFixed(2) +
+            '<span>Add Item to Cart · <span class="ritual-btn-price">' +
+            formatMoney(sum) +
             "</span></span>";
         } else {
           addBtn.innerHTML =
-            iconSvg + '<span>Select Items · <span class="ritual-btn-price">$0.00</span></span>';
+            iconSvg + '<span>Select Items · <span class="ritual-btn-price">$0</span></span>';
         }
         addBtn.disabled = count === 0;
       }
@@ -10662,7 +10676,7 @@
       var delta = parseFloat(selectedOpt.getAttribute("data-delta")) || 0;
       var basePrice = parseFloat(selectEl.getAttribute("data-base-price")) || 0;
       var newPrice = basePrice + delta;
-      var formattedPrice = "$" + newPrice.toFixed(2);
+      var formattedPrice = formatMoney(newPrice);
 
       if (targetSelect && targetSelect.value !== val) {
         targetSelect.value = val;
@@ -10681,7 +10695,8 @@
            span is now just the number, with the "$" as its sibling text. */
         var priceVal = mainPrice.querySelector(".pdp-price-value");
         if (priceVal) {
-          priceVal.textContent = newPrice.toFixed(2);
+          /* The "$" is the span's sibling text, so write just the digits. */
+          priceVal.textContent = formatMoney(newPrice).slice(1);
         } else {
           mainPrice.textContent = formattedPrice;
         }
@@ -10878,6 +10893,7 @@
       getWishlist: getWishlist,
       saveWishlist: saveWishlist,
       attrEsc: attrEsc,
+      formatMoney: formatMoney,
       safeUrl: safeUrl,
       paintIsStale: paintIsStale,
       PAINT_PROTECTION_MS: PAINT_PROTECTION_MS,

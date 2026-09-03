@@ -31,7 +31,7 @@ yourself.
 
 ## Shipping & returns
 
-- **Free US shipping** on orders of $40.00 or more.
+- **Free US shipping** on orders of $40 or more.
 - Ships within the US. Processing time is typically 1-2 business days for in-stock items.
 - Exchanges within 14 days for eligible items; opened body-care products are final sale.
 - Full policy: https://yallternativeliving.com/policies.html
@@ -40,7 +40,7 @@ yourself.
 
 ### Y'allternative Living Tank Top
 - **ID / slug**: `tank-top`
-- **Price**: $30.00 USD
+- **Price**: $30 USD
 - **Category**: Apparel
 - **Availability**: In stock
 - **Size**: S, M, L, 1X
@@ -50,7 +50,7 @@ yourself.
 
 ### Y'allternative Living Unisex T-Shirt
 - **ID / slug**: `unisex-tshirt`
-- **Price**: $31.00 USD
+- **Price**: $31 USD
 - **Category**: Apparel
 - **Availability**: In stock
 - **Size**: S, M, L, XL
@@ -60,7 +60,7 @@ yourself.
 
 ### Y'all Heal Now Miracle Frankincense Salve
 - **ID / slug**: `frankincense-salve`
-- **Price**: $14.00 - $20.00 USD
+- **Price**: $14 - $20 USD
 - **Category**: Salves & Balms
 - **Availability**: In stock
 - **Size**: 2oz, 1oz
@@ -70,7 +70,7 @@ yourself.
 
 ### Y'allternative Miracle Balm
 - **ID / slug**: `miracle-balm`
-- **Price**: $8.00 USD
+- **Price**: $8 USD
 - **Category**: Salves & Balms
 - **Availability**: In stock
 - **Description**: No essential oils, no fragrance, nothing to react to. Just a rich little .5 oz balm for lips, cuticles, and anywhere skin needs backup. Gentle enough for the whole family, kids included.
@@ -79,7 +79,7 @@ yourself.
 
 ### Hush Y'all Magnesium Arnica Sleep Salve
 - **ID / slug**: `sleep-salve`
-- **Price**: $20.00 USD
+- **Price**: $20 USD
 - **Category**: Salves & Balms
 - **Availability**: In stock
 - **Description**: Rub a little onto your feet or shoulders before bed and let lavender, chamomile, and cedarwood take it from there. Magnesium and arnica in a 2 oz tin, built for overthinkers and night owls who need the day to actually end.
@@ -88,7 +88,7 @@ yourself.
 
 ### Bourbon Beard Salve
 - **ID / slug**: `beard-salve`
-- **Price**: $14.00 USD
+- **Price**: $14 USD
 - **Category**: Body & Skin
 - **Availability**: In stock
 - **Description**: A 2 oz tin that softens coarse facial hair, calms the itch underneath, and smells like a stiff drink and cedarwood instead of a drugstore aisle. Light hold, zero grease, genuinely good gift material.
@@ -97,7 +97,7 @@ yourself.
 
 ### Feral but FRESH Cream Deodorant
 - **ID / slug**: `cream-deodorant`
-- **Price**: $15.00 USD
+- **Price**: $15 USD
 - **Category**: Body & Skin
 - **Availability**: In stock
 - **Description**: A rich, scoopable cream deodorant handmade for long-lasting freshness and odor control without aluminum. This buttery formula melts into the skin, spreads easily, and dries down with a smooth, non-greasy feel. Scented with a fresh, earthy blend of lavender, cedarwood, orange, and tea tree. 2 oz amber glass jar.
@@ -106,7 +106,7 @@ yourself.
 
 ### Shimmer Body Oil
 - **ID / slug**: `shimmer-oil`
-- **Price**: $19.00 USD
+- **Price**: $19 USD
 - **Category**: Body & Skin
 - **Availability**: In stock
 - **Scent**: Seduction, Y'all Means All, Coconut Barefoot & Dangerous
@@ -116,7 +116,7 @@ yourself.
 
 ### Lavender Shea Body Butter
 - **ID / slug**: `shea-butter`
-- **Price**: $18.00 - $23.00 USD
+- **Price**: $18 - $23 USD
 - **Category**: Body & Skin
 - **Availability**: In stock
 - **Size**: 4 oz, 8 oz
@@ -126,7 +126,7 @@ yourself.
 
 ### Bourbon Vanilla Hand Scrub
 - **ID / slug**: `hand-scrub`
-- **Price**: $10.00 - $14.00 USD
+- **Price**: $10 - $14 USD
 - **Category**: Body & Skin
 - **Availability**: In stock
 - **Size**: 2 oz, 4 oz
@@ -136,7 +136,7 @@ yourself.
 
 ### Lavender Epsom Salt Soak
 - **ID / slug**: `lavender-soak`
-- **Price**: $10.00 - $18.00 USD
+- **Price**: $10 - $18 USD
 - **Category**: Soaks
 - **Availability**: In stock
 - **Size**: 10 oz, 24 oz
@@ -146,7 +146,7 @@ yourself.
 
 ### Backroad Recovery Epsom Salt Soak
 - **ID / slug**: `backroad-soak`
-- **Price**: $10.00 - $18.00 USD
+- **Price**: $10 - $18 USD
 - **Category**: Soaks
 - **Availability**: In stock
 - **Size**: 10 oz, 24 oz
@@ -156,7 +156,7 @@ yourself.
 
 ### Protection Potion Keychain
 - **ID / slug**: `protection-keychain`
-- **Price**: $8.00 USD
+- **Price**: $8 USD
 - **Category**: Potions & Spellwork
 - **Availability**: In stock
 - **Blend**: Black Lava & Pink Himalayan Salt (Protection + Self Love), Black Lava Salt & Rosemary (Protect + Purify), Black Lava Salt & Myrrh (Protect + Guard)
@@ -166,7 +166,7 @@ yourself.
 
 ### Bug Off B*tch Natural Bug Spray
 - **ID / slug**: `bug-spray`
-- **Price**: $10.00 USD
+- **Price**: $10 USD
 - **Category**: Body & Skin
 - **Availability**: In stock
 - **Description**: Tell the mosquitoes to buzz off, naturally. Citronella, lemongrass, and five other essential oils in a 2 oz amber spray, no DEET, no sticky residue, just Southern summer survival.
@@ -175,7 +175,7 @@ yourself.
 
 ### Y'all Means All Sugar Scrub
 - **ID / slug**: `sugar-scrub`
-- **Price**: $14.00 USD
+- **Price**: $14 USD
 - **Category**: Body & Skin
 - **Availability**: Pre-order / coming soon
 - **Description**: Rainbow layers of sweet exfoliant that slough off the rough, leave skin soft, and look like a Pride parade in a jar. Glitter-and-grit self-care that means exactly what it says: everybody's welcome.
@@ -184,7 +184,7 @@ yourself.
 
 ### Y'all Means All Rainbow Whipped Body Butter
 - **ID / slug**: `whipped-body-butter`
-- **Price**: $18.00 USD
+- **Price**: $18 USD
 - **Category**: Body & Skin
 - **Availability**: Pre-order / coming soon
 - **Description**: Whipped light and fluffy in a citrus-peach blend, with rainbow swirls that mean all of it: every color, every one of us. Melts in without the grease and keeps skin soft all day. Everybody's welcome, moisturized.
@@ -193,7 +193,7 @@ yourself.
 
 ### Appalachian Rain Clearing Mist
 - **ID / slug**: `cleansing-spray`
-- **Price**: $14.00 - $22.00 USD
+- **Price**: $14 - $22 USD
 - **Category**: Ritual & Home
 - **Availability**: Pre-order / coming soon
 - **Size**: 2 oz, 4 oz
@@ -203,7 +203,7 @@ yourself.
 
 ### Moonlit Meadow Bath Tea
 - **ID / slug**: `bath-tea`
-- **Price**: $12.00 - $24.00 USD
+- **Price**: $12 - $24 USD
 - **Category**: Ritual & Home
 - **Availability**: Pre-order / coming soon
 - **Size**: Single Soak, 3-Pack
@@ -213,7 +213,7 @@ yourself.
 
 ### Porch Sweep Clearing Mist
 - **ID / slug**: `porch-sweep-spray`
-- **Price**: $16.00 USD
+- **Price**: $16 USD
 - **Category**: Ritual & Home
 - **Availability**: Pre-order / coming soon
 - **Description**: Named for the old Southern habit of sweeping the porch at dusk to clear out the day's trouble. Lemongrass, palo santo, and black tourmaline-infused water in a 4 oz amber bottle. Mist your space after an argument, a bad day, or just because the vibes are off.
@@ -222,7 +222,7 @@ yourself.
 
 ### Digital Gift Card
 - **ID / slug**: `yallternative-gift-card`
-- **Price**: $10.00 - $500.00 USD
+- **Price**: $10 - $500 USD
 - **Category**: Gift Cards
 - **Availability**: In stock
 - **Amount**: Preset $10, Preset $25, Preset $50, Preset $100, Preset $200, Preset $500
