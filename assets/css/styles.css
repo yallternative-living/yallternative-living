@@ -1017,12 +1017,18 @@ section {
     margin-bottom: 0.5em;
     font-size: clamp(2.5rem, 4.6vw, 4.25rem);
 
-    /* Below 900px .hero-grid stacks and the h1 gets the whole container back,
-       where the global size already fits -- restated here (rather than left to
-       the global rule) because the rule above has to be unconditional to win
-       at every width where the two-column layout is in play. */
+    /* Below 900px .hero-grid stacks and the h1 gets the whole container. The
+       first pass restored the global 5vw here on the theory that a full-width
+       column needs no help; measured, it did: 62% fill on every tablet width
+       (an iPad at 806-834px held two lines of ~450px and ~390px in a 727-755px
+       column, the lede running wider than the headline above it) and 59-60%
+       at 520-640px. The column doubled at the stack but the type did not
+       grow to meet it. 7.5vw fills 88-93% from 390px to 900px, still on two
+       lines at every width (8.4vw tipped tablets and 390-430px phones into
+       three); phones go from 26.4px to 29-32px. 320px is unchanged at three
+       lines -- the string has no two-line break there below legibility. */
     @container (max-width: 900px) {
-      font-size: clamp(1.65rem, 5vw, 3.2rem);
+      font-size: clamp(1.65rem, 7.5vw, 4.25rem);
     }
   }
   & .lede {
@@ -1107,9 +1113,17 @@ section {
   position: relative;
   justify-self: end;
 
+  /* Once the grid stacks, the copy above this stays hard left (see the note
+     on .hero) -- so the photo does too. Centring it under a left-aligned
+     headline, lede and button row put one element on a different axis from
+     the other four, and on an iPad-width screen a 320px portrait floating in
+     the middle of a 727px column read as misplaced rather than deliberate.
+     Sharing the left edge makes the hero one column. (Widening the centred
+     photo instead was tried: at 460px it became the tallest thing on the
+     screen and pushed the value strip a full viewport down.) */
   @container (max-width: 900px) {
-    margin: 0 auto 16px;
-    justify-self: center;
+    margin: 0 0 16px;
+    justify-self: start;
   }
 
   & picture {
