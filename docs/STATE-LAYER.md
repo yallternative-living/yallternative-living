@@ -287,7 +287,8 @@ volume, and the template says "good, bad, or 'it's fine, I guess'" on purpose.
 | Trigger                                                      | What happens                                                                                                                                                                          |
 | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/api/checkout` creates a session                             | `after_expiration[recovery][enabled]=true`, `consent_collection[promotions]=auto`, `consent_collection[terms_of_service]=required` + linked terms text, and `retention_product_ids` / `retention_categories` in metadata |
-| `checkout.session.completed`                                  | one `order_signals` row; queue "how to use your …" at +60h and a review request at +7 days (apparel, gift cards) or +12 days (everything else, mixed orders included)                 |
+| `checkout.session.completed`                                  | one `order_signals` row; queue "how to use your …" and a review request, both counted from DISPATCH — assumed 3 days out, then +4 days (CMS-adjustable) and +7 days (apparel, gift cards) or +12 days (everything else, mixed orders included). A gift-card-only order assumes no dispatch delay |
+| `payment_intent.updated` with a shipped `fulfillment_status`  | send the ship notice once per order (`order_emails`), then re-anchor both queued rows on the real dispatch moment                                                                       |
 | `checkout.session.completed`                                  | credit points on `amount_subtotal` (goods, not postage) at the CMS rate, keyed on the order id; if the balance reaches `LOYALTY_REDEEM_THRESHOLD`, debit it atomically, mint a single-use code and queue the email |
 | `checkout.session.expired`                                    | queue the recovery email at +45 minutes — **only** with a recovery URL, an address AND `consent.promotions === "opt_in"`                                                              |
 | cron, 9am America/New_York                                    | mint and queue a single-use $5 code for every `birthday_club` member whose `MM-DD` is today, idempotent per member per year                                                            |
@@ -363,6 +364,56 @@ itself was already counted as revenue when it was bought.
 
 Swept after 90 days by the hourly cron, so it is not the one table in the schema
 that grows forever.
+
+### 4.9 The ship notice (schema version 6)
+
+One additive table, `order_emails`, and one more webhook event.
+
+| Table          | Holds                                                        | Idempotency                |
+| -------------- | ------------------------------------------------------------ | -------------------------- |
+| `order_emails` | one row per transactional order email already delivered      | PK on `<kind>:<stripe id>` |
+
+The shop marks an order shipped by writing `fulfillment_status` (and usually
+`tracking_url`) onto the order's **PaymentIntent** — the same three keys
+`/api/order-status` has always read back. That write fires
+`payment_intent.updated`, and `workers/routes/ship-notice.js` turns it into the
+"your order is on its way" email. Before it, the fulfilment metadata was
+readable only by a customer who came back to order-status.html unprompted with
+their `cs_…` reference in hand, while thank-you.html promised "we'll follow up
+once it ships" and the returns policy told them to quote a tracking number
+nothing had sent them.
+
+**It is transactional, so it does not go through the queue.** Everything
+`drainEmailQueue` touches is a marketing send by construction — suppression
+check, `List-Unsubscribe`, visible opt-out line. A tracking number is owed to
+someone who unsubscribed, so the notice goes straight out through `sendEmail`
+from the webhook rather than waiting for the next hourly tick.
+
+**Why not the `webhook_events` claim.** That one is keyed on the _event_. A shop
+that sets the status, pastes the tracking link a minute later and fixes a typo
+in it the next day produces three `payment_intent.updated` events for one
+parcel, each with its own id. `order_emails` is keyed on the PaymentIntent, so
+the second and third do nothing — and they cost two D1 reads, not a Stripe call,
+because the "already sent?" check runs before the session lookup.
+
+**Why not `analytics_sends` either.** That claim is taken _before_ the side
+effect and never released, because an overstated revenue figure is worse than a
+missing one. Here the trade runs the other way: a customer who is never told
+their parcel shipped is worse than a rare duplicate. So the row is written
+_after_ Resend accepts the message, a refusal is pushed onto the webhook's
+`failures` array so Stripe redelivers, and the Resend `Idempotency-Key`
+(`ship-notice-<pi id>`) closes the only window that leaves — two deliveries in
+flight at once.
+
+**It also fixes the post-purchase clock.** The how-to-use and review emails are
+about a thing somebody is holding, but they were scheduled from `placed_at`:
+"how to get the most out of your salve" landed 2.5 days after checkout while the
+shipping policy still promised dispatch within 1–3 _business_ days, so a Friday
+order was asked about a jar that had not been packed. They are now measured from
+dispatch — assumed at 3 days (the top of that stated window) when the order is
+queued, then corrected by `reanchorOrderSequence` the moment the ship notice
+goes out. A gift-card-only order skips the assumption entirely: it was delivered
+by the same webhook that recorded it.
 
 ## 5. Dashboard setup (one-time, by hand)
 

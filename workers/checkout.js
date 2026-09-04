@@ -1839,6 +1839,13 @@ export default {
             async () =>
               (await import("./state/analytics-sends.js")).sweepAnalyticsSends(env.STATE_DB)
           ],
+          /* One row per order that has been told it shipped, kept 90 days so a
+             late edit to the fulfilment metadata cannot send the notice twice.
+             Same reason as the row above: without a sweeper it grows forever. */
+          [
+            "order-email sweep",
+            async () => (await import("./state/order-emails.js")).sweepOrderEmails(env.STATE_DB)
+          ],
           ["email-queue sweep", () => retention.sweepEmailQueue(env.STATE_DB)],
           ["birthday club", () => jobs.runBirthdayClub(env, ctx)],
           [

@@ -602,7 +602,7 @@ request.
 ### Stripe webhook events to subscribe
 
 In the Stripe dashboard, the webhook pointing at
-`/.netlify/functions/fulfill-gift-card` must be subscribed to **all three**:
+`/.netlify/functions/fulfill-gift-card` must be subscribed to **all four**:
 
 - `checkout.session.completed` — delivers the gift card and processes a
   redemption. This is the only one older versions of this doc mentioned.
@@ -612,6 +612,10 @@ In the Stripe dashboard, the webhook pointing at
 - `charge.refunded` — restores the gift-card balance a refunded order had
   consumed. Do **not** also subscribe `refund.created`: it fires for the same
   money, and the handler deliberately ignores it.
+- `payment_intent.updated` — sends the ship notice when `fulfillment_status` is
+  written onto the PaymentIntent, and re-anchors the post-purchase email
+  sequence on the real dispatch date. See "Marking an order shipped" in
+  `workers/README.md` for the three metadata keys.
 
 ### Environment variables, per function
 

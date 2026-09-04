@@ -5,14 +5,28 @@
  *
  * THE SEQUENCE
  *   checkout.session.completed -> order_signals row
- *                              -> "how to use your <product>"   at day 2.5
- *                              -> review request                at day 7
- *                                 (apparel / gift cards) or day 12 (salves,
+ *                              -> "how to use your <product>"   at dispatch + 4d
+ *                              -> review request                at dispatch + 7d
+ *                                 (apparel / gift cards) or +12d (salves,
  *                                 soaks, body butter -- long enough for a few
  *                                 real uses; see research-J §6)
+ *   payment_intent.updated     -> both of the above re-anchored on the real
+ *                                 dispatch moment (routes/ship-notice.js)
  *   checkout.session.expired   -> recovery link                 at +45 minutes
  *   cron, daily                -> birthday code                 on the day
  *   loyalty balance >= threshold -> $5 code, debited atomically
+ *
+ * EVERY POST-PURCHASE DELAY IS MEASURED FROM DISPATCH, NOT FROM PAYMENT.
+ * These emails talk to someone holding the thing -- "here's how to use it",
+ * "how's it treating you" -- so the clock has to start when the parcel leaves,
+ * not when the card clears. They were hung off `placed_at` originally, which
+ * put "how to get the most out of your salve" in the inbox 2.5 days after
+ * checkout while policies.html was still promising to dispatch within 1-3
+ * BUSINESS days: a Friday order was asked about a jar that had not been packed
+ * yet. Nothing here knows about delivery, so dispatch is the best anchor
+ * available, and it arrives two ways -- assumed at enqueue time, then corrected
+ * by `reanchorOrderSequence` the moment the shop actually marks the order
+ * shipped.
  *
  * EVERY SEND IN THIS FILE IS A MARKETING SEND, and all of them go through
  * `sendMarketingEmail`, which does three things no caller may skip:
@@ -37,13 +51,14 @@
 import { escapeHtml } from "./http.js";
 import { fromAddress, sendEmail } from "./gift-cards.js";
 import { createPromotionCode } from "./stripe.js";
-import { loadPointsPerDollar, loadProductIndex } from "../state/site-data.js";
+import { loadPointsPerDollar, loadProductIndex, loadSiteSettings } from "../state/site-data.js";
 import { balance, credit, debit } from "../state/loyalty.js";
 import { signToken } from "../state/magic-link.js";
 import {
   birthdaysOn,
   dueEmails,
   enqueueEmail,
+  getOrderSignal,
   getQueuedEmail,
   hashEmail,
   isSuppressed,
@@ -52,6 +67,7 @@ import {
   markEmailSkipped,
   normalizeEmail,
   rememberContact,
+  rescheduleQueuedEmail,
   unsubscribeId,
   unsubscribeToken
 } from "../state/retention.js";
@@ -60,8 +76,86 @@ const REPLY_TO = "contact@yallternativeliving.com";
 const HOUR = 3600000;
 const DAY = 24 * HOUR;
 
-/** Day 2-3, per research-J §8's cadence table. Sent 60h after the order. */
-export const USAGE_GUIDE_DELAY_MS = 60 * HOUR;
+/**
+ * How long after DISPATCH the how-to-use email waits: research-J §8's day-2-3
+ * cadence, plus enough ground transit for the parcel to have landed first.
+ * The default behind the `usageGuideDelayDays` CMS field.
+ */
+export const USAGE_GUIDE_AFTER_DISPATCH_MS = 4 * DAY;
+
+/** The range the CMS field is clamped to. Zero is legitimate: "on dispatch". */
+export const USAGE_GUIDE_DELAY_MAX_DAYS = 60;
+
+/**
+ * The how-to-use delay Savanna has set, in ms.
+ *
+ * `site.usageGuideDelayDays` is a number field at /admin. Anything unset, blank
+ * or unparseable falls back to the default rather than to zero -- a fat-fingered
+ * field must not turn a considered email into one that arrives while the parcel
+ * is still on the van.
+ *
+ * @param {object} site the `site` object from content.json
+ */
+export function usageGuideDelayMs(site) {
+  const raw = (site || {}).usageGuideDelayDays;
+  // Tested BEFORE Number(), because Number("") and Number(null) are both 0 --
+  // a field the CMS cleared would otherwise read as a deliberate "on dispatch"
+  // and mail the guide while the parcel was still on the van.
+  if (raw === "" || raw === null || raw === undefined) return USAGE_GUIDE_AFTER_DISPATCH_MS;
+  const days = Number(raw);
+  if (!Number.isFinite(days) || days < 0) return USAGE_GUIDE_AFTER_DISPATCH_MS;
+  return Math.min(days, USAGE_GUIDE_DELAY_MAX_DAYS) * DAY;
+}
+
+/**
+ * The how-to-use email's on/off switch (`site.enableUsageGuideEmails`).
+ *
+ * ABSENT MEANS ON, which is how every other `enable*` switch in content.json
+ * behaves and how this email shipped. Read at SEND time, not at enqueue time,
+ * for the same reason the suppression list is: turning it off has to stop the
+ * guides already sitting in the queue, not just future ones.
+ */
+export function usageGuideEnabled(site) {
+  return (site || {}).enableUsageGuideEmails !== false;
+}
+
+/**
+ * What we assume dispatch was, until the shop tells us otherwise.
+ *
+ * The top of the window policies.html promises ("most orders ship in 1-3
+ * business days"), so an order nobody ever marks shipped -- the fulfilment
+ * metadata is typed by hand, and a busy week is exactly when it gets skipped --
+ * still cannot be asked about before the shop's own stated dispatch date.
+ * Deliberately pessimistic: an email that lands a day late reads as considered,
+ * one that lands before the box does reads as a bot.
+ */
+export const ASSUMED_DISPATCH_MS = 3 * DAY;
+
+/**
+ * Categories that are never packed, so their "dispatch" is the checkout itself.
+ *
+ * A gift card is minted and emailed by the same webhook that records the order
+ * (issuePurchasedCards in routes/stripe-webhook.js); it has no parcel, no
+ * tracking and no ship notice to re-anchor it later. Charging it the assumed
+ * dispatch window would delay a how-to-use email for something the recipient
+ * already had in their inbox before the tab closed.
+ */
+export const INSTANT_DELIVERY_CATEGORIES = ["gift-cards"];
+
+/**
+ * How long to assume this order sat before it was dispatched.
+ *
+ * A MIXED order is treated as shipped goods even when a gift card is in it:
+ * something in the box still has to be packed, and the later email is the safe
+ * error in the same way the slow review delay is.
+ */
+function assumedDispatchMs(categories) {
+  const list = String(categories || "")
+    .split(",")
+    .filter(Boolean);
+  if (list.length && list.every((c) => INSTANT_DELIVERY_CATEGORIES.includes(c))) return 0;
+  return ASSUMED_DISPATCH_MS;
+}
 
 /** Recovery is a "within the hour" touch -- see research-I S1. */
 export const RECOVERY_DELAY_MS = 45 * 60 * 1000;
@@ -409,17 +503,41 @@ function categoryDelayDays(categories) {
 }
 
 /**
+ * When each post-purchase row is due, given the moment the parcel left.
+ *
+ * The one place the two delays are turned into timestamps, so the enqueue and
+ * the later re-anchor cannot drift apart on the arithmetic.
+ */
+function sequenceDueAt(dispatchAt, categories, guideDelayMs) {
+  const guide = Number.isFinite(guideDelayMs) ? guideDelayMs : USAGE_GUIDE_AFTER_DISPATCH_MS;
+  return {
+    "usage-guide": dispatchAt + guide,
+    "review-request": dispatchAt + categoryDelayDays(categories) * DAY
+  };
+}
+
+/**
  * Queues the post-purchase sequence for one recorded order. Both rows are
  * INSERT OR IGNORE, so a redelivered webhook queues nothing.
  *
+ * Scheduled against ASSUMED dispatch, because at this point the order has been
+ * paid for and nothing more: it has not been packed, and the shop has not typed
+ * a fulfilment status onto it yet. `reanchorOrderSequence` corrects both rows
+ * when that happens.
+ *
  * @returns {Promise<{usageGuide: boolean, reviewRequest: boolean}>}
  */
-export async function scheduleOrderSequence(db, signal, now = Date.now()) {
+export async function scheduleOrderSequence(db, signal, now = Date.now(), site = null) {
   const orderId = signal.order_id || signal.orderId;
   const placedAt = Number(signal.placed_at || signal.placedAt || now);
   const productIds = String(signal.product_ids || signal.productIds || "");
   const categories = String(signal.categories || "");
   const email = signal.email;
+  const due = sequenceDueAt(
+    placedAt + assumedDispatchMs(categories),
+    categories,
+    usageGuideDelayMs(site)
+  );
 
   const usage = await enqueueEmail(
     db,
@@ -428,7 +546,7 @@ export async function scheduleOrderSequence(db, signal, now = Date.now()) {
       kind: "usage-guide",
       email,
       payload: { orderId, productIds },
-      sendAfter: placedAt + USAGE_GUIDE_DELAY_MS
+      sendAfter: due["usage-guide"]
     },
     now
   );
@@ -439,11 +557,56 @@ export async function scheduleOrderSequence(db, signal, now = Date.now()) {
       kind: "review-request",
       email,
       payload: { orderId, productIds },
-      sendAfter: placedAt + categoryDelayDays(categories) * DAY
+      sendAfter: due["review-request"]
     },
     now
   );
   return { usageGuide: usage.queued, reviewRequest: review.queued };
+}
+
+/**
+ * Moves this order's post-purchase rows onto the REAL dispatch moment.
+ *
+ * Called from the ship notice (routes/ship-notice.js), because that is the one
+ * point in the system where somebody has said out loud that the parcel is gone.
+ * The passed `dispatchAt` is the moment the notice went out rather than the
+ * `shipped_at` metadata string beside it: that field is free text the shop types
+ * by hand, and a mistyped date that parses is far more dangerous here than no
+ * date at all -- it would pull a review request forward into the week of the
+ * order.
+ *
+ * Both directions are allowed. An order dispatched the same afternoon is asked
+ * about EARLIER than the pessimistic assumption booked, and one that sat for a
+ * week is asked about later; a `dispatchAt` before the order was even placed is
+ * ignored in favour of the original schedule, because it cannot be real.
+ *
+ * Only pending rows move. A guide already sent stays sent, and a row the drain
+ * has given up on is not quietly revived.
+ *
+ * @returns {Promise<{usageGuide: boolean, reviewRequest: boolean}>} which rows moved
+ */
+export async function reanchorOrderSequence(
+  db,
+  orderId,
+  dispatchAt,
+  now = Date.now(),
+  site = null
+) {
+  const signal = await getOrderSignal(db, orderId);
+  if (!signal) return { usageGuide: false, reviewRequest: false };
+
+  const placedAt = Number(signal.placed_at) || now;
+  const dispatched = Number(dispatchAt);
+  const anchor = Number.isFinite(dispatched) ? Math.max(dispatched, placedAt) : placedAt;
+  const due = sequenceDueAt(anchor, signal.categories, usageGuideDelayMs(site));
+
+  const usage = await rescheduleQueuedEmail(db, `usage-guide:${orderId}`, due["usage-guide"]);
+  const review = await rescheduleQueuedEmail(
+    db,
+    `review-request:${orderId}`,
+    due["review-request"]
+  );
+  return { usageGuide: usage.moved, reviewRequest: review.moved };
 }
 
 /**
@@ -472,7 +635,7 @@ async function pointsUrlFor(config, email) {
  * longer produce a sensible email (a recovery row with no URL, say), which the
  * drain records as `skipped` rather than retrying forever.
  */
-async function renderQueuedEmail(env, ctx, row, productIndex) {
+async function renderQueuedEmail(env, ctx, row, productIndex, site) {
   const config = retentionConfig(env);
   let payload = {};
   try {
@@ -486,6 +649,9 @@ async function renderQueuedEmail(env, ctx, row, productIndex) {
   const products = ids.map((id) => productIndex.get(id)).filter(Boolean);
 
   if (row.kind === "usage-guide") {
+    // Savanna's switch, read here rather than at enqueue time so turning it off
+    // stops the guides already queued behind it.
+    if (!usageGuideEnabled(site)) return null;
     if (!products.some((p) => p && p.usageGuide)) return null;
     return usageGuideEmail(products, config.siteOrigin, await pointsUrlFor(config, row.email));
   }
@@ -536,12 +702,14 @@ export async function drainEmailQueue(env, ctx, now = Date.now(), limit = 25) {
   const rows = await dueEmails(db, now, limit);
   if (!rows.length) return summary;
 
-  // One catalogue fetch for the whole batch, not one per row.
+  // One catalogue fetch for the whole batch, not one per row -- and one
+  // settings fetch, for the same reason.
   const productIndex = await loadProductIndex(env, ctx);
+  const site = await loadSiteSettings(env, ctx);
 
   for (const row of rows) {
     summary.processed++;
-    const message = await renderQueuedEmail(env, ctx, row, productIndex);
+    const message = await renderQueuedEmail(env, ctx, row, productIndex, site);
     if (!message) {
       await markEmailSkipped(db, row.id, now);
       summary.skipped++;

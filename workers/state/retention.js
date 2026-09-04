@@ -179,6 +179,30 @@ export async function enqueueEmail(db, args, now = Date.now()) {
 }
 
 /**
+ * Moves one queued send to a new due time.
+ *
+ * PENDING ROWS ONLY, and that clause is the whole safety story: a row already
+ * `sent` must not be resurrected by a later reschedule, and a row the drain has
+ * marked `failed` after five refusals is evidence of a configuration problem,
+ * not work to retry on a new date. `attempts` is deliberately untouched -- the
+ * send is the same send, just later.
+ *
+ * @param {object} db D1 binding
+ * @param {string} id the queue row's id, e.g. `usage-guide:cs_test_123`
+ * @param {number} sendAfter epoch ms
+ * @returns {Promise<{moved: boolean}>} false when there was no pending row
+ */
+export async function rescheduleQueuedEmail(db, id, sendAfter) {
+  const when = Number(sendAfter);
+  if (!Number.isFinite(when)) throw new TypeError("retention: sendAfter must be a number.");
+  const res = await db
+    .prepare("UPDATE email_queue SET send_after = ? WHERE id = ? AND status = 'pending'")
+    .bind(Math.round(when), String(id))
+    .run();
+  return { moved: (res && res.meta && res.meta.changes) > 0 };
+}
+
+/**
  * Pending rows whose time has come, oldest first. Served entirely by
  * `email_queue_due (status, send_after)`.
  *

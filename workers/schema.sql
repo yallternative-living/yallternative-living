@@ -328,3 +328,29 @@ CREATE TABLE IF NOT EXISTS analytics_sends (
   created_at  INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS analytics_sends_created_at ON analytics_sends (created_at);
+
+-- ---------------------------------------------------------------------------
+-- v6 (2026-09-04): the transactional order-email record.
+--
+-- One row per order email that has actually been delivered, keyed
+-- "<kind>:<stripe id>" -- today only "ship-notice:<payment intent id>", the
+-- "your order is on its way" mail workers/routes/ship-notice.js sends when the
+-- shop writes `fulfillment_status` onto the PaymentIntent.
+--
+-- Keyed on the ORDER and not the event, because every later metadata edit (the
+-- tracking link pasted a minute after the status, a typo fixed the next day) is
+-- another `payment_intent.updated` with its own event id for the same parcel.
+--
+-- Deliberately NOT analytics_sends: that claim is taken BEFORE the side effect
+-- and never released, because over-counting revenue is worse than missing it.
+-- Here the row is written AFTER Resend accepts the message, so a refused send
+-- leaves no row and Stripe's redelivery tries again -- a customer never told
+-- their order shipped is worse than a rare duplicate.
+--
+-- Swept after 90 days by the hourly cron (workers/state/order-emails.js).
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS order_emails (
+  send_key    TEXT PRIMARY KEY,
+  created_at  INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS order_emails_created_at ON order_emails (created_at);

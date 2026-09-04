@@ -183,3 +183,20 @@ export async function createPromotionCode(env, options, idempotencyKey) {
     expiresAt: Number.isFinite(Number(created.expires_at)) ? Number(created.expires_at) : null
   };
 }
+
+/**
+ * The address the buyer typed into Checkout.
+ *
+ * Lives here rather than in one route because three of them need the SAME
+ * answer: the webhook writes it onto the retention signal, the ship notice
+ * mails it, and the owner's order copy prints it. Checkout fills
+ * `customer_details.email` for every session; `customer_email` is the older
+ * spelling and is still set when the session was created with one.
+ *
+ * @returns {string|null} the trimmed address, or null when there is none
+ */
+export function buyerEmailOf(session) {
+  const source = session || {};
+  const email = (source.customer_details && source.customer_details.email) || source.customer_email;
+  return typeof email === "string" && email.trim() ? email.trim() : null;
+}

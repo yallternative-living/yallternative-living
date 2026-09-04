@@ -159,6 +159,52 @@ At the top of **Shop & Products**:
 
 ---
 
+### Walkthrough 5b: Marking an order shipped
+
+This is the one thing in the shop that is done in **Stripe**, not in the CMS —
+and it is what sends your customer their tracking number.
+
+1. Open the payment in Stripe (**Payments** → click the order).
+2. Scroll to **Metadata** and click **Edit metadata**.
+3. Add these, then **Save**:
+
+| Key | Value |
+|---|---|
+| `fulfillment_status` | `shipped` |
+| `tracking_url` | the carrier's tracking link (starts with `https://`) |
+| `shipped_at` | the date, however you like to write it |
+
+Saving that does three things at once: the customer gets a "your order just left
+Landrum" email with the tracking button in it, their order-status page starts
+saying **Shipped**, and the "how to use it" email is re-timed to arrive a few
+days after the box does instead of a few days after they paid.
+
+**Put the status and the tracking link in the same save.** The email only sends
+once per order — on purpose, so fixing a typo later cannot mail somebody twice —
+so a tracking link added afterwards will show on their order page but will not
+have been in the email they already got.
+
+If you never mark an order shipped, nothing breaks: the customer just does not
+get that email, and the "how to use it" one goes out on an assumed 3-day
+shipping window instead of a real one.
+
+#### The two customer-email settings
+
+Both live in **Site Settings → ⚙️ Site Settings**, near the "Emails to me"
+switches:
+
+- **Send a "how to use it" note after delivery** — off stops it completely,
+  including the ones already waiting in the queue. Products with the
+  **Usage & care** section left blank are skipped either way.
+- **Days after shipping to send it** — counted from the day you mark the order
+  shipped, not from when it was paid for. Four days is the default, which lands
+  it just after most parcels do.
+
+The tracking email itself has no switch: it is a fact about somebody's parcel,
+so it always sends.
+
+---
+
 ### Walkthrough 6: Pop-Ups, Reviews, Blog, Social Feed & Site Settings
 
 #### A. Pop-Up Markets & Pride Events (Markets & Pop-Ups)
@@ -270,6 +316,9 @@ The dashboard gives you control over your entire catalog, promotions, pricing, m
 | **Publish blog post** | `4. Apothecary Journal` → Add post with visual editor | Live blog article with calculated read time |
 | **Update hero / About story** | `Site Settings` | Text and photos update across homepage & About |
 | **Toggle site features** | `Site Settings` → `⚙️ Site Settings` | Turn quiz, rewards, ticker, or pickup on/off |
+| **Edit the "how to use it" email** | `1. Products` → Click product → `Usage & care` | Same copy the product page shows and the after-delivery email sends |
+| **Turn that email off, or move it** | `Site Settings` → `⚙️ Site Settings` → `Emails to customers · …` | Switch it off entirely, or change how many days after shipping it goes |
+| **Tell a customer it shipped** | Stripe → the payment → `Metadata` | Sends the tracking email and updates their order status page (see below) |
 
 ---
 
