@@ -1893,17 +1893,13 @@ window.YL_SEARCH_INDEX = {
     ],
     "bug_spray": [
       "bug spray",
-      "mosquito",
       "bugs",
-      "bites",
       "gnats",
-      "ticks",
       "camping",
       "hiking",
       "outdoor",
       "bug off",
       "insect",
-      "mosquitos",
       "skeeters",
       "chiggers",
       "no see ums",
@@ -2339,6 +2335,13 @@ window.YL_SEARCH_INDEX = {
     "medicine",
     "medical",
     "repel",
-    "repellent"
+    "repellent",
+    "mosquito",
+    "mosquitos",
+    "mosquitoes",
+    "tick",
+    "ticks",
+    "bite",
+    "bites"
   ]
 };

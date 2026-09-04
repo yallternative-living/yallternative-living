@@ -3288,7 +3288,22 @@
     {
       concern: "outdoor-defense",
       invitation: "If you're looking for something kind to porch nights and trail days, ",
-      terms: ["repel", "repellent"]
+      /* The pests joined repel/repellent on 2026-09-04. The invitation is
+         unchanged and stays unchanged on purpose: it is product-independent by
+         design, it names a porch and a trail rather than anything that repels
+         anything, and a shelf whose wording moves with its word list is a
+         shelf that can drift into a claim. */
+      terms: [
+        "repel",
+        "repellent",
+        "mosquito",
+        "mosquitos",
+        "mosquitoes",
+        "tick",
+        "ticks",
+        "bite",
+        "bites"
+      ]
     }
   ];
 
@@ -6433,23 +6448,24 @@
         "peeling",
         "dehydrated"
       ],
-      // ---- Tier 2: bug / outdoor-defense intent ----
+      /* ---- Tier 2: bug / outdoor-defense intent ----
+         No pest and no bite. FIFRA is not the FD&C Act: 7 USC 136(u) makes an
+         article a pesticide when it is intended for "repelling ... any pest",
+         and 40 CFR 152.15 reaches the claim "(by labeling or otherwise)", so
+         naming the pest IS the claim and there is no lay register that escapes
+         it. "mosquito"/"mosquitoes"/"mosquitos"/"tick"/"ticks"/"bites"/"bite"
+         went to the router on 2026-09-04, where "repellent" already was; brief
+         7(g), the bug-spray paragraph. "bug" and "insect" stay: they name no
+         pest and no effect, and "bug spray" is the shop's own product form. */
       [
         "bug",
         "bugs",
-        "mosquito",
-        "mosquitoes",
-        "mosquitos",
-        "tick",
-        "ticks",
         "chiggers",
         "chigger",
         "gnat",
         "gnats",
         "insects",
         "insect",
-        "bites",
-        "bite",
         "camping",
         "hiking",
         "outdoors",
@@ -6593,7 +6609,6 @@
       scrub: ["sugar-scrub", "hand-scrub"],
       // ---- bug / outdoor defense ----
       bug: ["bug-spray", "miracle-balm"],
-      mosquito: ["bug-spray", "miracle-balm"],
       insect: ["bug-spray", "miracle-balm"],
       camping: ["bug-spray"],
       hiking: ["bug-spray"],

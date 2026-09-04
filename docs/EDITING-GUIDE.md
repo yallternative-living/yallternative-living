@@ -108,14 +108,22 @@ gets a list of anything it decided not to add.
 ### When somebody searches a medical word
 
 Some shoppers will type a condition or a medicine word into the search box —
-"psoriasis", "cure", "pain", "wound salve". You do not have to write anything
-for that, and you should not try to. The site already recognises those words. It
-shows a short note above the results that says we make comfort products, not
-medicines, and that nothing here is meant to diagnose, treat, cure or prevent
-anything, and it points the shopper at the right shelf — dry, rough skin, or
-wind-down, or after a long day — by name, not by condition. Their ordinary words
-still work while it does: "wound salve" still brings back the salves, because
-only the medical word is set aside.
+"psoriasis", "cure", "pain", "wound salve" — and some will type a bug word,
+"mosquito bites" or "ticks". You do not have to write anything for that, and you
+should not try to. The site already recognises those words. It shows a short
+note above the results that says we make comfort products, not medicines, and
+that nothing here is meant to diagnose, treat, cure or prevent anything, and it
+points the shopper at the right shelf — dry, rough skin, or wind-down, or after
+a long day, or porch nights and trail days — by name, not by condition and not
+by bug. Their ordinary words still work while it does: "wound salve" still
+brings back the salves and "bug spray" still brings back the bug spray, because
+only the medical or bug word is set aside.
+
+The bug words are on that list for a different law than the rest, which is why
+they are there even though nobody would call a mosquito a disease: naming the
+pest is what turns a spray into a regulated pesticide, so the site treats
+"mosquito", "tick" and "bites" the same way it treats "eczema". That is also
+why the bug spray's own description is on Steven's list to look at.
 
 **That list of words is not something to add to.** It is not a menu, it is not
 in your dashboard, and it must never turn into a row of buttons or a "popular

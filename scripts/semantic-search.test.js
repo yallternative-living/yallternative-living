@@ -196,8 +196,13 @@ check("Directional precision: 'beard salve' surfaces beard-salve and no sprays",
   assert.ok(!ids.includes("cleansing-spray"), "Does NOT surface cleansing-spray");
 });
 
-check("Concern query 'bug bites' ranks bug-spray first", () => {
-  assert.strictEqual(productIds("bug bites")[0], "bug-spray");
+/* WAS "Concern query 'bug bites' ranks bug-spray first". "bites" went to the
+   router on 2026-09-04 (brief 7(g), the bug-spray paragraph: 7 USC 136(u) plus
+   40 CFR 152.15 make naming the pest the claim, however it is made). "bug
+   spray" is the shop's own product form, names no pest, and is what a shopper
+   types; the router word's engine-level pin is with the other router words. */
+check("Concern query 'bug spray' ranks bug-spray first", () => {
+  assert.strictEqual(productIds("bug spray")[0], "bug-spray");
 });
 
 // ---------------------------------------------------------------------------
@@ -564,8 +569,13 @@ assertTop1("exfoliate", "sugar-scrub");
 assertTop1("scrub", "sugar-scrub");
 
 // --- Bug / outdoor-defense intent (real Etsy/Amazon vocabulary: camping,
-//     hiking, chiggers -- the very Southern cousin of ticks and gnats) ---
-assertTop1("mosquito", "bug-spray");
+//     hiking, chiggers -- the very Southern cousin of gnats).
+//     WAS assertTop1("mosquito", "bug-spray"): "mosquito" is a router word
+//     since 2026-09-04 and is not wired to a product any more. "chiggers" and
+//     "gnats" stay -- they are on no ban list in the brief, and the 2026-09-01
+//     review's own rewrite table offers "porch nights, trail days" for exactly
+//     this shelf. ---
+assertTop1("bug spray", "bug-spray");
 assertTop1("chiggers", "bug-spray");
 assertTop1("camping", "bug-spray");
 assertTop1("hiking", "bug-spray");

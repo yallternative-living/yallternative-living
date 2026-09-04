@@ -62,7 +62,19 @@ const RENDERED_WORD_ALLOWLIST = {
   treat: "the same footer disclaimer, and the router note itself",
   cure: "the same footer disclaimer, and the router note itself",
   medicine: 'the router note ("we make comfort products, not medicines")',
-  medicines: "the router note"
+  medicines: "the router note",
+  /* Added 2026-09-04 with the pest words. Both are the OWNER'S copy, not the
+     build's, and this suite has no business rewriting either: "mosquitoes" is
+     the bug spray's blurb ("Tell the mosquitoes to buzz off, naturally") and
+     the gift-set blurb that quotes it, and "bites" is a republished Etsy
+     review ("No bites!!"). Brief 7(g) puts a repellency word on surfaces 1, 2
+     and 3 -- surface 1 is her prose, and 7(e) already has the republished
+     reviews as an open decision for her. What the router can do is stop the
+     SITE wiring the word to a jar, which is what this suite tests; what it
+     cannot do is edit her listing. Flagged, not fixed, and the day either one
+     is reworded this entry stops matching and the suite gets quieter. */
+  mosquitoes: "the bug spray's own blurb -- the owner's copy, flagged in the 2026-09-01 review",
+  bites: 'a republished Etsy review ("No bites!!") -- brief 7(e) is the open decision on those'
 };
 
 function createTestServer() {
@@ -202,6 +214,8 @@ function check(cond, msg, detail) {
     const LEDE =
       "We make comfort products, not medicines — nothing here is meant to diagnose, treat, cure or prevent anything.";
     const INVITE = "If you're looking for something kind to dry, rough skin, start here.";
+    const OUTDOOR_INVITE =
+      "If you're looking for something kind to porch nights and trail days, start here.";
 
     // --- 1. "psoriasis": recognised, answered, and matched against nothing ---
     console.log('\n[1] "psoriasis" -- a named disease, alone');
@@ -345,6 +359,55 @@ function check(cond, msg, detail) {
       JSON.stringify(cureItchy.countText)
     );
 
+    // --- 3b. "mosquito bites": a pesticidal query, both words routed ---
+    console.log('\n[3b] "mosquito bites" -- FIFRA, not the FD&C Act');
+    const mosquitoBites = await search("mosquito bites");
+    check(mosquitoBites.noteVisible, "the note is visible");
+    check(
+      mosquitoBites.noteText.indexOf(LEDE) === 0,
+      "with the same fixed wording as a disease query -- the note is product-independent",
+      JSON.stringify(mosquitoBites.noteText)
+    );
+    check(
+      mosquitoBites.noteText.indexOf(OUTDOOR_INVITE) !== -1,
+      "and the outdoor-defense invitation, which names a porch and a trail, not a pest",
+      JSON.stringify(mosquitoBites.noteText)
+    );
+    check(
+      /shop\.html\?concern=outdoor-defense$/.test(mosquitoBites.linkHref || ""),
+      "the link points at the cosmetically-named outdoor shelf",
+      String(mosquitoBites.linkHref)
+    );
+    check(
+      mosquitoBites.cardIds.length === 0,
+      "zero product tiles -- both words were routed, so nothing ordinary was typed",
+      mosquitoBites.cardIds.join(", ")
+    );
+    check(
+      !mosquitoBites.hasEmptyStatePanel,
+      "and not the empty-state panel: the search was answered, not failed"
+    );
+    check(
+      mosquitoBites.countText.indexOf("mosquito") === -1,
+      "the count line does not quote the pest back",
+      JSON.stringify(mosquitoBites.countText)
+    );
+    check(
+      mosquitoBites.robots.some((c) => c.indexOf("noindex") !== -1),
+      "and the view is noindexed like any other routed query",
+      JSON.stringify(mosquitoBites.robots)
+    );
+
+    /* The lay half of the same rule: "bug spray" is the shop's own product
+       form, it names no pest, and it must still find the bug spray. */
+    const bugSpray = await search("bug spray");
+    check(!bugSpray.noteVisible, '"bug spray" alone shows no note -- it names no pest');
+    check(
+      bugSpray.cardIds.includes("bug-spray"),
+      '"bug spray" still finds the bug spray (' + bugSpray.cardIds.length + " tiles)",
+      bugSpray.cardIds.join(", ")
+    );
+
     // --- 4. nothing PRESENTS the words ---
     console.log("\n[4] recognised, never presented");
     await search("");
@@ -372,7 +435,13 @@ function check(cond, msg, detail) {
       "insomnia",
       "arthritis",
       "infection",
-      "repellent"
+      "repellent",
+      /* The pest words the shop's own copy does NOT say. "mosquitoes" and
+         "bites" are in the allowlist above because her blurb and a republished
+         review say them; "tick" and "ticks" appear nowhere rendered, and must
+         not start. */
+      "tick",
+      "ticks"
     ].forEach((disease) => {
       check(
         rendered.indexOf(disease) === -1,

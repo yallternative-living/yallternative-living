@@ -2535,19 +2535,22 @@ function buildSiteData() {
       "moisturizing",
       "hydrating"
     ],
+    /* No pest is named here, and that is a FIFRA rule rather than an FD&C one.
+       7 USC 136(u) makes an article a pesticide when it is intended for
+       "repelling ... any pest", and 40 CFR 152.15 reaches the claim however it
+       is made -- "(by labeling or otherwise)". "mosquito", "mosquitos",
+       "bites" and "ticks" left this group on 2026-09-04 for the router, where
+       "repellent" had already gone; brief section 7(g)'s bug-spray paragraph.
+       What is left is where a person is, not what is biting her. */
     bug_spray: [
       "bug spray",
-      "mosquito",
       "bugs",
-      "bites",
       "gnats",
-      "ticks",
       "camping",
       "hiking",
       "outdoor",
       "bug off",
       "insect",
-      "mosquitos",
       "skeeters",
       "chiggers",
       "no see ums",

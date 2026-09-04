@@ -265,16 +265,25 @@ function product(over) {
   /* The asymmetry, stated once, in both directions. Lay vocabulary only: the
      named diseases that used to sit in this list are asserted the other way
      round two blocks below. */
-  ["itchy skin", "itch", "rash", "bites", "mosquito", "sore muscles"].forEach(function (word) {
+  /* "bites" and "mosquito" stood in this list until 2026-09-04. They are
+     router words now: brief 7(g)'s bug-spray paragraph puts repel, repellent,
+     mosquito, tick and bites on all three ban surfaces AND in the router,
+     because 7 USC 136(u) plus 40 CFR 152.15 make naming the pest the claim,
+     "(by labeling or otherwise)". "bug spray" replaces them as the outdoor
+     query a shopper actually types -- it names the product form, not the pest. */
+  ["itchy skin", "itch", "rash", "sore muscles"].forEach(function (word) {
     assert(!rules.querySideHit(word), "query side allows " + JSON.stringify(word));
     assert(!!rules.productSideHit(word), "product side refuses " + JSON.stringify(word));
   });
 
   /* Two of the allowed query words are legal on BOTH surfaces, and that is not
      an oversight: "flaky" and "tired legs" are the exact register the 2026-09-01
-     review told the owner to prefer over "eczema" and "sore muscles". A word
-     being safe to publish does not stop it being worth recognising. */
-  ["flaky", "tired legs"].forEach(function (word) {
+     review told the owner to prefer over "eczema" and "sore muscles", and
+     "bug spray" and "porch nights" are what replaced "mosquito" and "bites" in
+     QUERY_SIDE_ALLOWED on 2026-09-04: a product form and a place, naming no
+     pest and no effect, so FIFRA has nothing to bite on. A word being safe to
+     publish does not stop it being worth recognising. */
+  ["flaky", "tired legs", "bug spray", "porch nights"].forEach(function (word) {
     assert(!rules.querySideHit(word), "query side allows " + JSON.stringify(word));
     assert(
       !rules.productSideHit(word),
@@ -292,7 +301,13 @@ function product(over) {
     "infection",
     "pain",
     "arthritis",
-    "repellent"
+    "repellent",
+    "mosquito",
+    "mosquitoes",
+    "tick",
+    "ticks",
+    "bite",
+    "bites"
   ].forEach(function (word) {
     const hit = rules.querySideHit(word);
     assert(!!hit, "the router word " + JSON.stringify(word) + " is refused on the query side");
@@ -323,7 +338,7 @@ function product(over) {
     ["eczema", "psoriasis", "dermatitis"],
     "the emitted shape is a plain array of strings, in declaration order"
   );
-  ["eczema", "psoriasis", "insomnia"].forEach(function (word) {
+  ["eczema", "psoriasis", "insomnia", "mosquito", "bites", "tick"].forEach(function (word) {
     assert(
       !rules.QUERY_SIDE_ALLOWED.some(function (a) {
         return a.term === word;
@@ -331,6 +346,19 @@ function product(over) {
       JSON.stringify(word) + " is no longer advertised as an allowed synonym"
     );
   });
+  /* Every pest word reaches the outdoor-defense shelf, and none of them reaches
+     it by being a synonym for a jar. The shelf's own invitation is asserted in
+     scripts/medical-query-router.browser.test.js, where it is rendered. */
+  ["mosquito", "mosquitos", "mosquitoes", "tick", "ticks", "bite", "bites"].forEach(
+    function (word) {
+      assert(
+        rules.MEDICAL_QUERY_TERMS.some(function (e) {
+          return e.term === word && /136\(u\)|pest|plural|misspelled/.test(e.why);
+        }),
+        JSON.stringify(word) + " is on the router with a FIFRA reason"
+      );
+    }
+  );
   ["cure", "treats", "treatment", "medicine", "medical", "prescription", "diagnose"].forEach(
     function (word) {
       assert(!!rules.querySideHit(word), "neither side allows " + JSON.stringify(word));

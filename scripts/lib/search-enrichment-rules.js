@@ -33,9 +33,9 @@
  *   vocabulary ("itchy skin", "dry patches", "sore feet", "can't sleep") is
  *   explicitly ALLOWED there, because that is what shoppers actually type.
  *
- *   ROUTER -- `MEDICAL_QUERY_TERMS`, added 2026-09-04. Named diseases and
- *   treatment/structure-function words are NOT synonyms for anything: they map
- *   to NO product. They are recognised so the site can answer with a fixed
+ *   ROUTER -- `MEDICAL_QUERY_TERMS`, added 2026-09-04. Named diseases,
+ *   treatment/structure-function words and pesticide-claim words are NOT
+ *   synonyms for anything: they map to NO product. They are recognised so the site can answer with a fixed
  *   non-claim note and a cosmetically-named shelf, which is an affirmative
  *   denial of intended use rather than evidence of one. See the note on that
  *   array below for the constraint that keeps it lawful.
@@ -85,9 +85,9 @@ const QUERY_SIDE_BANNED = [
   { term: "fda approved", why: "a cosmetic is never FDA-approved; the phrase is false on its face" }
 ];
 
-/* LAY symptom, sensory and pest words that ARE allowed on the query side, and
-   the concern vocabulary each is meant to route to. This list is not consulted
-   as an allow-list by the filter -- the filter allows anything the banned lists
+/* LAY symptom and sensory words that ARE allowed on the query side, and the
+   concern vocabulary each is meant to route to. This list is not consulted as
+   an allow-list by the filter -- the filter allows anything the banned lists
    do not name -- it exists so the intent is written down, so the prompt can
    show the model what good looks like, and so scripts/search-enrich.test.js can
    pin the asymmetry ("itchy skin" is a legal synonym and an illegal keyword).
@@ -96,7 +96,20 @@ const QUERY_SIDE_BANNED = [
    pain. A named disease and a structure-function word are router business now
    (MEDICAL_QUERY_TERMS below); brief section 7(b) and the matrix in 7(g).
    "rash" and "itch" stay, because they are what a person says about their own
-   skin rather than a diagnosis, and they carry real traffic. */
+   skin rather than a diagnosis, and they carry real traffic.
+
+   NOR, SINCE 2026-09-04, ARE THE PEST WORDS. "mosquito" and "bites" were here
+   until the bug-spray paragraph of brief section 7(g) was read properly: FIFRA
+   does not work like the FD&C Act. 7 USC 136(u) makes an article a pesticide
+   if it is "intended for preventing, destroying, repelling, or mitigating any
+   pest", and 40 CFR 152.15 makes the trigger a claim made "(by labeling or
+   otherwise)" -- which EPA applies to web sites, advertising and testimonials.
+   There is no lay/clinical distinction to hide behind: naming the pest IS the
+   claim. So repel and repellent were never the whole list, and mosquito, tick
+   and bites join them on the router. This is not a claim that surface 3 is
+   riskier than the brief said; it is that the brief's rule for these five
+   words was "all three ban lists and the router", and only two of them were
+   there. */
 const QUERY_SIDE_ALLOWED = [
   { term: "itchy skin", routesTo: "dry-skin" },
   { term: "itch", routesTo: "dry-skin" },
@@ -109,8 +122,8 @@ const QUERY_SIDE_ALLOWED = [
   { term: "tired legs", routesTo: "sore-muscles" },
   { term: "sore muscles", routesTo: "sore-muscles" },
   { term: "can't sleep", routesTo: "sleep-relaxation" },
-  { term: "bites", routesTo: "outdoor-defense" },
-  { term: "mosquito", routesTo: "outdoor-defense" }
+  { term: "bug spray", routesTo: "outdoor-defense" },
+  { term: "porch nights", routesTo: "outdoor-defense" }
 ];
 
 /* ---------------------------------------------------------------------------
@@ -217,7 +230,35 @@ const MEDICAL_QUERY_TERMS = [
     term: "repellent",
     why: '7 USC 136(u); 40 CFR 152.15 reaches claims made "by labeling or otherwise"',
     brief: "7(g)"
-  }
+  },
+  /* THE PESTS, added 2026-09-04 with repel/repellent's own rationale.
+     A repellency claim is judged on the pest that is named, not on the verb:
+     40 CFR 152.25(f)(3)(ii) spells out that even the exempt minimum-risk
+     products may make a claim "only for the pest, as a pest", which is an
+     admission that naming the pest is the claim being regulated. "mosquito"
+     and "bites" were lay query vocabulary until now; the brief puts them, with
+     "tick", on all three ban surfaces AND in the router. Misspellings and
+     plurals are listed individually because containsPhrase() matches whole
+     words -- "mosquito" does not catch "mosquitoes". */
+  {
+    term: "mosquito",
+    why: "7 USC 136(u): naming the pest is the repellency claim",
+    brief: "7(g)"
+  },
+  { term: "mosquitos", why: "same, as commonly misspelled", brief: "7(g)" },
+  { term: "mosquitoes", why: "same, plural", brief: "7(g)" },
+  {
+    term: "tick",
+    why: "7 USC 136(u); 40 CFR 152.25(f)(3)(ii) also bans the Lyme-disease framing outright",
+    brief: "7(g)"
+  },
+  { term: "ticks", why: "same, plural", brief: "7(g)" },
+  {
+    term: "bite",
+    why: "7 USC 136(u): what a repellent is claimed to prevent",
+    brief: "7(g)"
+  },
+  { term: "bites", why: "same, plural", brief: "7(g)" }
 ];
 
 /**
