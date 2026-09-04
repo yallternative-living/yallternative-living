@@ -89,6 +89,19 @@ const PROVIDERS = {
     models: ["qwen/qwen3.8-27b"],
     keyEnv: "GROQ_API_KEY"
   },
+  /* Vertex AI in express mode: a Google Cloud API key (restricted to the
+     Vertex AI API) on a billing-enabled project, so usage lands on the Cloud
+     bill where Google Cloud credits apply -- AI Studio keys bill through a
+     separate pipeline those credits cannot touch (Gemini API billing docs,
+     2026-09-04). No project or location in the path; the key rides in the
+     x-goog-api-key header. Speaks the native generateContent API rather than
+     an OpenAI shim, so structured output is generationConfig.responseSchema. */
+  vertex: {
+    base: "https://aiplatform.googleapis.com/v1",
+    models: ["gemini-3.8-flash", "gemini-3.5-flash"],
+    keyEnv: "VERTEX_API_KEY",
+    transport: "gemini-native"
+  },
   mock: {
     base: null,
     models: ["mock-deterministic"],
@@ -123,6 +136,31 @@ function firstNumber(values, fallback) {
   return fallback;
 }
 
+/**
+ * The subset of JSON Schema that Vertex's `responseSchema` accepts: type,
+ * properties, required, items, enum, description, nullable. Everything an
+ * OpenAI-style strict schema adds (additionalProperties, $schema, strict) is
+ * dropped rather than rejected by the API. Pure; the input is not mutated.
+ */
+function toGeminiSchema(schema) {
+  if (Array.isArray(schema)) return schema.map(toGeminiSchema);
+  if (!schema || typeof schema !== "object") return schema;
+  const out = {};
+  Object.keys(schema).forEach(function (key) {
+    if (key === "additionalProperties" || key === "$schema" || key === "strict") return;
+    const value = schema[key];
+    if (key === "properties" && value && typeof value === "object") {
+      out.properties = {};
+      Object.keys(value).forEach(function (name) {
+        out.properties[name] = toGeminiSchema(value[name]);
+      });
+      return;
+    }
+    out[key] = key === "items" ? toGeminiSchema(value) : value;
+  });
+  return out;
+}
+
 /** Resolve provider id, base URL, model list and limits from options then env. */
 function resolveConfig(options, env) {
   const opts = options || {};
@@ -143,6 +181,7 @@ function resolveConfig(options, env) {
     base: String(opts.baseUrl || e.LLM_BASE_URL || preset.base || "").replace(/\/+$/, ""),
     models: requested.length ? requested : preset.models.slice(),
     keyEnv: preset.keyEnv,
+    transport: preset.transport || "openai",
     apiKey: preset.keyEnv ? opts.apiKey || e[preset.keyEnv] || "" : "",
     maxCalls: firstNumber([opts.maxCalls, e.LLM_MAX_CALLS], DEFAULT_MAX_CALLS),
     timeoutMs: firstNumber([opts.timeoutMs, e.LLM_TIMEOUT_MS], DEFAULT_TIMEOUT_MS),
@@ -257,8 +296,71 @@ function createClient(options, env) {
     if (!cfg.base) throw new Error("No base URL resolved for provider " + cfg.provider);
   }
 
+  /** The request for one transport: URL, headers and body. */
+  function buildRequest(model, spec) {
+    if (cfg.transport === "gemini-native") {
+      return {
+        url: cfg.base + "/publishers/google/models/" + model + ":generateContent",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": cfg.apiKey },
+        body: {
+          systemInstruction: { parts: [{ text: spec.system }] },
+          contents: [{ role: "user", parts: [{ text: spec.user }] }],
+          generationConfig: {
+            temperature: spec.temperature === undefined ? 0.2 : spec.temperature,
+            responseMimeType: "application/json",
+            responseSchema: toGeminiSchema(spec.schema)
+          }
+        }
+      };
+    }
+    return {
+      url: cfg.base + "/chat/completions",
+      headers: {
+        "Content-Type": "application/json",
+        /* The key rides in a header, never in the URL: a URL turns up in
+           logs, redirects and error text that nothing masks. */
+        Authorization: "Bearer " + cfg.apiKey
+      },
+      body: {
+        model: model,
+        messages: [
+          { role: "system", content: spec.system },
+          { role: "user", content: spec.user }
+        ],
+        temperature: spec.temperature === undefined ? 0.2 : spec.temperature,
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: spec.schemaName || "structured_output",
+            strict: true,
+            schema: spec.schema
+          }
+        }
+      }
+    };
+  }
+
+  /** The model's text out of either transport's response shape. */
+  function contentOf(json) {
+    if (cfg.transport === "gemini-native") {
+      const cand = json && json.candidates && json.candidates[0];
+      const parts = cand && cand.content && cand.content.parts;
+      return Array.isArray(parts)
+        ? parts
+            .map(function (p) {
+              return p && typeof p.text === "string" ? p.text : "";
+            })
+            .join("")
+        : null;
+    }
+    return json && json.choices && json.choices[0] && json.choices[0].message
+      ? json.choices[0].message.content
+      : null;
+  }
+
   /** One HTTP attempt. Throws errors carrying {status, retryable}. */
-  async function requestOnce(model, body) {
+  async function requestOnce(model, spec) {
+    const req = buildRequest(model, spec);
     const controller = typeof AbortController === "function" ? new AbortController() : null;
     const timer = controller
       ? setTimeout(function () {
@@ -266,15 +368,10 @@ function createClient(options, env) {
         }, cfg.timeoutMs)
       : null;
     try {
-      const res = await doFetch(cfg.base + "/chat/completions", {
+      const res = await doFetch(req.url, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          /* The key rides in a header, never in the URL: a URL turns up in
-             logs, redirects and error text that nothing masks. */
-          Authorization: "Bearer " + cfg.apiKey
-        },
-        body: JSON.stringify(Object.assign({ model: model }, body)),
+        headers: req.headers,
+        body: JSON.stringify(req.body),
         signal: controller ? controller.signal : undefined
       });
       if (!res.ok) {
@@ -355,22 +452,6 @@ function createClient(options, env) {
       return mockResponder(spec, environment);
     }
 
-    const body = {
-      messages: [
-        { role: "system", content: spec.system },
-        { role: "user", content: spec.user }
-      ],
-      temperature: spec.temperature === undefined ? 0.2 : spec.temperature,
-      response_format: {
-        type: "json_schema",
-        json_schema: {
-          name: spec.schemaName || "structured_output",
-          strict: true,
-          schema: spec.schema
-        }
-      }
-    };
-
     let lastError = null;
     while (modelIndex < cfg.models.length) {
       const model = cfg.models[modelIndex];
@@ -378,11 +459,8 @@ function createClient(options, env) {
         if (telemetry.calls >= cfg.maxCalls) throw callCapError(cfg.maxCalls);
         telemetry.calls++;
         try {
-          const json = await requestOnce(model, body);
-          const content =
-            json && json.choices && json.choices[0] && json.choices[0].message
-              ? json.choices[0].message.content
-              : null;
+          const json = await requestOnce(model, spec);
+          const content = contentOf(json);
           if (!content) throw new Error("Response carried no message content");
           telemetry.model = model;
           return JSON.parse(content);
@@ -453,6 +531,7 @@ module.exports = {
   DEFAULT_MAX_CALLS: DEFAULT_MAX_CALLS,
   resolveConfig: resolveConfig,
   isRetryableStatus: isRetryableStatus,
+  toGeminiSchema: toGeminiSchema,
   backoffMs: backoffMs,
   mockTranslate: mockTranslate,
   defaultMockResponder: defaultMockResponder,

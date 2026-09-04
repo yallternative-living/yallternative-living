@@ -330,7 +330,9 @@ differ by a base URL and a model id:
 | `I18N_MODELS` | `gemini-3.8-flash,gemini-flash-latest` | Comma-separated, first is the one we mean. |
 | `I18N_MAX_CALLS` | none | Optional per-run provider-call cap (owner removed the default 2026-09-04). A retry storm is bounded by the circuit breaker instead: three transient batch failures in a row pause the run for a minute, a fourth stops it and leaves the rest for the next scheduled run. |
 | `I18N_BATCH_SIZE` | `20` | Strings per locale per call. |
-| `LLM_MODELS`, `LLM_MAX_CALLS`, `LLM_PROVIDER`, `LLM_BASE_URL`, `LLM_TIMEOUT_MS`, `LLM_MAX_RETRIES` | see `scripts/lib/llm.js` | The shared client's own names; the `I18N_*` ones win for this bot. |
+| `LLM_PROVIDER` | `vertex` in the workflows (`gemini` is the client default) | `vertex` = a paid Google Cloud API key on Vertex AI express mode (usage on the Cloud bill, where Google Cloud credits apply); `gemini` = an AI Studio key, billed separately and outside those credits; `groq`; `mock`. |
+| `VERTEX_API_KEY` | repo secret | The Google Cloud API key for `vertex`, restricted to the Vertex AI API. |
+| `LLM_MODELS`, `LLM_MAX_CALLS`, `LLM_BASE_URL`, `LLM_TIMEOUT_MS`, `LLM_MAX_RETRIES` | see `scripts/lib/llm.js` | The shared client's own names; the `I18N_*` ones win for this bot. |
 | `LLM_MOCK_CORRUPT` | — | Test hook. With `--provider mock`, makes the mock drop protected terms from any string containing this substring, which is how the reject-and-drop path is proved offline. |
 
 **The model list is a list on purpose.** `gemini-3.8-flash` is pinned first,

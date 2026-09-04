@@ -82,7 +82,10 @@ jobs:
       # gemini-3.5-flash sits between them: on 2026-09-04 the free tier answered
       # 503 "high demand" on 3.8 AND on the alias (which pointed at the same
       # 3.8), so a second stable id is the actual fallback.
-      I18N_MODELS: "gemini-3.8-flash,gemini-3.5-flash,gemini-flash-latest"
+      # On Vertex the AI Studio alias "gemini-flash-latest" does not exist, so
+      # the list is the two stable ids; switch LLM_PROVIDER back to gemini and
+      # the alias can return.
+      I18N_MODELS: "gemini-3.8-flash,gemini-3.5-flash"
       # A dry run does everything and commits nothing. `false && x` is false, so
       # a push always evaluates to false and only a manual run can set it.
       DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
@@ -135,6 +138,10 @@ jobs:
       # NOT on the auto-redaction list, so never `curl -v`, never `set -x`.
       - name: Translate, gate every string, write the dictionaries
         env:
+          # The paid Google Cloud key (Vertex AI express mode) is the provider;
+          # GEMINI_API_KEY stays as the one-line fallback (LLM_PROVIDER=gemini).
+          LLM_PROVIDER: vertex
+          VERTEX_API_KEY: ${{ secrets.VERTEX_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           node scripts/i18n-translate.js \

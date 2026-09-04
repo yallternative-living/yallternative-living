@@ -124,6 +124,10 @@ jobs:
       # exits 2 -- so a non-zero here means nothing was changed, by design.
       - name: Generate the search vocabulary, screen it, let the build vote
         env:
+          # The paid Google Cloud key (Vertex AI express mode) is the provider;
+          # GEMINI_API_KEY stays as the one-line fallback (LLM_PROVIDER=gemini).
+          LLM_PROVIDER: vertex
+          VERTEX_API_KEY: ${{ secrets.VERTEX_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           node scripts/search-enrich.js \

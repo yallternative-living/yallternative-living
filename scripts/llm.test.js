@@ -224,6 +224,91 @@ async function main() {
   }
 
   // -------------------------------------------------------------------------
+  // 2a. The Vertex transport: native generateContent, key in a header.
+  // -------------------------------------------------------------------------
+  {
+    const seen = [];
+    const client = llm.createClient(
+      {
+        provider: "vertex",
+        apiKey: "cloud-key",
+        sleep: async function () {},
+        fetchImpl: async function (url, init) {
+          seen.push({ url: String(url), init: init });
+          return {
+            ok: true,
+            json: async function () {
+              return {
+                candidates: [
+                  {
+                    content: {
+                      parts: [{ text: JSON.stringify({ items: [{ id: "a", text: "hola" }] }) }]
+                    }
+                  }
+                ]
+              };
+            }
+          };
+        }
+      },
+      {}
+    );
+    const out = await client.completeJSON(spec());
+    assertEqual(
+      out.items[0].text,
+      "hola",
+      "a Vertex reply is read out of candidates[0].content.parts"
+    );
+    assertEqual(
+      seen[0].url,
+      "https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-3.8-flash:generateContent",
+      "the express-mode URL: no project, no location, model in the path"
+    );
+    assertEqual(
+      seen[0].init.headers["x-goog-api-key"],
+      "cloud-key",
+      "the key rides in x-goog-api-key"
+    );
+    assert(!("Authorization" in seen[0].init.headers), "and not as a Bearer token");
+    const body = JSON.parse(seen[0].init.body);
+    assertEqual(
+      body.systemInstruction.parts[0].text,
+      "s",
+      "the system prompt is a systemInstruction"
+    );
+    assertEqual(body.contents[0].role, "user", "the payload is the user turn");
+    assertEqual(
+      body.generationConfig.responseMimeType,
+      "application/json",
+      "structured output via generationConfig"
+    );
+    assert(body.generationConfig.responseSchema, "with a responseSchema");
+    assert(
+      JSON.stringify(body.generationConfig.responseSchema).indexOf("additionalProperties") === -1,
+      "that has had the OpenAI-only keys stripped"
+    );
+    assert(!("model" in body), "and no model field in the body -- it is in the path");
+  }
+  assertEqual(
+    JSON.stringify(
+      llm.toGeminiSchema({
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          a: { type: "array", items: { type: "string" }, additionalProperties: false }
+        },
+        required: ["a"]
+      })
+    ),
+    JSON.stringify({
+      type: "object",
+      properties: { a: { type: "array", items: { type: "string" } } },
+      required: ["a"]
+    }),
+    "toGeminiSchema drops additionalProperties at every depth and keeps the rest in order"
+  );
+
+  // -------------------------------------------------------------------------
   // 2b. A key the provider refuses outright: stop calling, say so once.
   // -------------------------------------------------------------------------
   {
