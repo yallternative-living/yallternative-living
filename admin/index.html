@@ -30,14 +30,14 @@
          Access-Control-Allow-Origin: *).
 
          The hash below is sha384 of
-         https://unpkg.com/@sveltia/cms@0.172.4/dist/sveltia-cms.js
-         (1,975,506 bytes), confirmed byte-identical from jsdelivr. WHEN YOU
+         https://unpkg.com/@sveltia/cms@0.205.3/dist/sveltia-cms.js
+         (2,093,968 bytes), confirmed byte-identical from jsdelivr. Bumped 0.172.4 -> 0.205.3 on 2026-09-04 for upstream #914 (an optional select inside a list froze the browser -- two such fields live in config.yml). WHEN YOU
          BUMP THE VERSION YOU MUST RECOMPUTE IT, or /admin will not load:
            curl -sL https://unpkg.com/@sveltia/cms@<version>/dist/sveltia-cms.js \
              | openssl dgst -sha384 -binary | openssl base64 -A -->
     <script
-      src="https://unpkg.com/@sveltia/cms@0.172.4/dist/sveltia-cms.js"
-      integrity="sha384-Sj4Mfbg9OjjwG2ZE/YeUYu7xbZRTXGFg/wa/nszj3KzItKuRLEmGqSpV5C9YI2Ge"
+      src="https://unpkg.com/@sveltia/cms@0.205.3/dist/sveltia-cms.js"
+      integrity="sha384-nJp2Dh7SpuCR2Zy7FKZadG+wayQb0XSkgx8UcxbVG+qCWiY52kKZeaz8Uwy4uWSs"
       crossorigin="anonymous"
     ></script>
     <!-- Same-origin helper (allowed by the /admin CSP's script-src 'self'):
