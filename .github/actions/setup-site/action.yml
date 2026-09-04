@@ -1,0 +1,85 @@
+name: "Set up the site toolchain"
+description: >
+  Node, npm dependencies and (optionally) a real Chrome for Puppeteer, in the
+  order that actually works. Factored out because more than one workflow needs
+  it and the ordering is easy to get subtly wrong.
+
+# WHY A COMPOSITE ACTION AND NOT COPY-PASTE. The i18n bot needs a real Chrome
+# (scripts/extract-i18n-strings.js renders the built site to learn what the
+# translator can reach) and so will the bots that come after it. The install
+# order below is NOT the obvious one and the failure it avoids is silent, so it
+# should exist once rather than be re-derived per workflow.
+#
+# This action deliberately does NOT check out the repository: a step that
+# rewrites the working tree belongs in the caller, where it is visible.
+#
+# .github/workflows/test.yml still does its own setup. It is a different shape
+# -- Playwright engines rather than Puppeteer, two jobs with different browser
+# needs -- and folding it in here would trade duplication for a pile of inputs.
+
+inputs:
+  node-version:
+    description: "Exact Node version. Pin the PATCH, never float the major."
+    required: false
+    default: "24.20.0"
+  chrome:
+    description: "Install and verify a real Chrome for Puppeteer."
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    # Pin the PATCH, do not float "24". Node 24.16.0 shipped an upstream
+    # readable-stream.destroy() regression that broke extract-zip/yauzl inside
+    # @puppeteer/browsers: the Chrome ZIP extracted 7 of 308 files, threw
+    # nothing, and npm exited 0 (actions/runner-images#14173,
+    # puppeteer/puppeteer#14957). This repo is on puppeteer 25.3.0, whose
+    # @puppeteer/browsers >= 3.0.0 replaced extract-zip, so it is not exposed --
+    # but the failure is STICKY: the half-written directory makes every later
+    # `npm ci` skip the reinstall, and actions/cache then persists the corrupt
+    # directory into the cache key. Pin anyway.
+    - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: "npm"
+
+    # ORDER MATTERS, and it is not the obvious one: install dependencies with
+    # the browser download SUPPRESSED, then restore the browser cache, then
+    # install Chrome into the restored directory. Downloading before the cache
+    # restore wastes the cache entirely. This is the Puppeteer maintainers' own
+    # pattern from puppeteer/.github/workflows/ci.yml; there is no official
+    # pptr.dev Actions guide.
+    - run: npm ci
+      shell: bash
+      env:
+        PUPPETEER_SKIP_DOWNLOAD: "true"
+
+    - if: inputs.chrome == 'true'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/puppeteer
+        key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+        # Without restore-keys any lockfile change is a total cache miss.
+        restore-keys: |
+          puppeteer-${{ runner.os }}-
+
+    # An explicit install, because since puppeteer 25.8.0 the postinstall exit
+    # code went from 1 to 0 on a download failure -- a green `npm ci` no longer
+    # proves Chrome is on disk. Modern package managers also block install
+    # scripts by default, which skips the download silently and surfaces much
+    # later as "Could not find Chrome".
+    - if: inputs.chrome == 'true'
+      run: npx puppeteer browsers install chrome
+      shell: bash
+
+    # Fail loudly here rather than in the middle of an extraction.
+    - if: inputs.chrome == 'true'
+      run: npx puppeteer browsers list
+      shell: bash
+
+    # Nothing is installed via apt. The ubuntu-24.04 image ships Chrome's full
+    # dependency closure plus unzip and xvfb, and Puppeteer's own CI runs on it
+    # with zero apt steps. pptr.dev's apt list is stale for 24.04 anyway
+    # (libasound2 is libasound2t64 there, and the old name has no installation
+    # candidate).
