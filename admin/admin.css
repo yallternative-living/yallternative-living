@@ -12,10 +12,17 @@
    version bump cannot silently unstyle this -- and if a future release
    changes the labels, the row simply looks the way it does today. */
 
+/* No width rule: Sveltia already stretches an object drawer's toggle across
+   its row (measured 760px). A list row's toggle is natively ~50px and shares
+   its row with the drag handle, the item count or the Add/Expand/Collapse
+   buttons -- forcing 100% there squeezed "20 Products" onto two lines, and
+   leaving it at 50px wrapped the label onto three. So: size to the label,
+   never wrap it, never shrink. */
 button[aria-label="Expand"],
 button[aria-label="Collapse"] {
-  width: 100%;
   min-height: 34px;
+  white-space: nowrap;
+  flex-shrink: 0;
   padding: 0 10px;
   gap: 6px;
   /* !important because Sveltia's own button rules are more specific; the
