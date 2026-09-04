@@ -1,0 +1,330 @@
+name: search enrichment bot
+
+# Writes the search vocabulary the owner would not think to write -- "that bug
+# stuff", "stocking stuffer", "post hike", ingredient names, misspellings -- and
+# commits it to assets/data/search-enrichment.json, which is bot-owned.
+# assets/data/products.json is READ and never written: it is the owner's file
+# and the CMS's, and the whole point of the enrichment file existing is that
+# nothing here ever touches hers.
+#
+# The pipeline, which is the same one a maintainer runs by hand:
+#   node scripts/build-site-data.js   so search-data.js has today's synonym keys
+#   node scripts/search-enrich.js     one batched call, screen, write, re-build
+#   node scripts/build-site-data.js   the merge is regenerated for the commit
+#   npm test                          everything else must still pass
+#   commit + push
+#
+# `paths:` is products.json ALONE. Nothing else changes what a good search word
+# for a product would be, and the digest inside the enrichment file means a run
+# triggered by anything else would do nothing but burn minutes. `paths` and
+# `paths-ignore` cannot both be used for the same event, and path filters are
+# not evaluated for tag pushes.
+# https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#onpushpull_requestpaths
+on:
+  push:
+    branches: [main]
+    paths:
+      - "assets/data/products.json"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run everything, commit nothing, upload the would-be file as an artifact"
+        type: boolean
+        default: true
+
+# QUEUE, do not cancel: this job COMMITS, and a run killed between the write and
+# the verifying build would leave a file no build had ever accepted. `queue: max`
+# (up to 100 pending, FIFO) shipped 2026-05-07; the older `queue: single`
+# default is lossy. `queue: max` with `cancel-in-progress: true` is a validation
+# error. If a future runner rejects `queue:`, fall back to
+# `cancel-in-progress: false` -- lossier, never a killed commit.
+# https://github.blog/changelog/2026-05-07-github-actions-concurrency-groups-now-allow-larger-queues/
+#
+# Its own group, NOT the i18n bot's: both fire on a products.json push and there
+# is no reason to serialise them behind each other. They can therefore push in
+# the same minute, which is what the rebase-and-retry loop at the bottom is for.
+concurrency:
+  group: search-enrich-main
+  queue: max
+
+# Deny everything at workflow level; grant the two scopes on the one job.
+# "If you specify the access for any of these permissions, all of those that are
+# not specified are set to `none`."
+# https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#permissions
+permissions: {}
+
+jobs:
+  enrich:
+    # Skip the bot's own commits. Strictly redundant -- GitHub does not start a
+    # workflow run from a push made with the repository's GITHUB_TOKEN -- but it
+    # is the only thing standing between the shop and a loop on the day somebody
+    # swaps in a GitHub App token to get CI triggering back. head_commit is null
+    # on workflow_dispatch, hence the first clause.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.head_commit.author.name != 'github-actions[bot]'
+    # Pin the image. `ubuntu-latest` still maps to 24.04, but 26.04 is in preview
+    # with a gradual migration, and a job that commits should not move under you.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write # push the enrichment file and the regenerated index
+      issues: write # open the declined-items tracking issue
+    env:
+      # Pinned id first, rolling alias last. Re-pinning is this one line;
+      # scripts/lib/llm.js reports loudly when the alias had to be used.
+      SEARCH_ENRICH_MODELS: "gemini-3.8-flash,gemini-flash-latest"
+      # `false && x` is false, so a push always evaluates to false and only a
+      # manual run can set this.
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+      SUMMARY_PATH: /tmp/search-enrich-summary.json
+    steps:
+      # Full-SHA pins: "Pinning an action to a full-length commit SHA is
+      # currently the only way to use an action as an immutable release."
+      # https://docs.github.com/en/actions/reference/security/secure-use
+      # Pinning also pins you BEHIND security fixes -- bump deliberately.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.ref_name }}
+
+      # NO CHROME. Every step below is Node-only: the site build renders no
+      # pages, the enrichment bot makes one HTTPS call, and `npm test` runs the
+      # unit pool plus the static QA gate, both of which exclude the
+      # `*.browser.test.js` suites. So the shared action is used with
+      # chrome: false, which is exactly `setup-node` + `npm ci` with
+      # PUPPETEER_SKIP_DOWNLOAD -- the ~150MB Chromium download is skipped and
+      # the install order that matters for the Chrome case still applies here.
+      - uses: ./.github/actions/setup-site
+        with:
+          node-version: "24.20.0"
+          chrome: "false"
+
+      # The same build Netlify runs, minus optimize-images (every AVIF/WebP
+      # variant is committed and this job must not commit image files) and
+      # build-security-headers (it rewrites netlify.toml/_headers/vercel.json,
+      # which have nothing to do with search and would widen this commit).
+      #
+      # Run FIRST because the bot reads assets/js/search-data.js to learn which
+      # synonym keys already exist, and shows them to the model so it reuses a
+      # group instead of minting a fifth way to say "gift". If this build fails,
+      # the tree was already broken before the bot ran: stop.
+      - name: Build the site so the bot sees today's synonym keys
+        run: node scripts/build-site-data.js
+
+      # The only step that sees the key. Environment secrets would scope it to
+      # main, but on GitHub Free those are "only available in public
+      # repositories" -- decide alongside repo visibility.
+      # https://docs.github.com/en/actions/reference/security/secrets
+      # Masking is best-effort: "Because there are multiple ways a secret value
+      # can be transformed, this redaction is not guaranteed." A Gemini key is
+      # NOT on the auto-redaction list, so never `curl -v`, never `set -x`.
+      #
+      # This step writes the enrichment file and then runs the build itself. If
+      # the build refuses the file the script restores it, re-runs the build and
+      # exits 2 -- so a non-zero here means nothing was changed, by design.
+      - name: Generate the search vocabulary, screen it, let the build vote
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          node scripts/search-enrich.js \
+            ${{ env.DRY_RUN == 'true' && '--dry-run' || '' }} \
+            --summary "$SUMMARY_PATH" > /dev/null
+
+      # Everything below re-asserts the gates the deploy will run. If any fails
+      # the job stops and NOTHING is committed -- the working tree goes away with
+      # the runner. That is the whole abort mechanism: the commit step is last.
+      - name: Regenerate the merged search index
+        run: node scripts/build-site-data.js
+
+      - name: Re-run the full test suite
+        run: npm test
+
+      - name: Summarise the run
+        id: summary
+        run: |
+          {
+            echo "### search enrichment bot"
+            echo ""
+            node -e '
+              const s = require(process.env.SUMMARY_PATH);
+              console.log("- " + s.generated + " product(s) enriched, " + s.unchanged +
+                " left alone, " + s.removed.length + " removed");
+              console.log("- " + s.dropped.length + " item(s) declined by the word policy");
+              console.log("- provider " + s.provider + ", model " + s.modelUsed + ", " +
+                s.calls + " call(s)");
+              if (s.buildVeto) console.log("- **the build refused the file; it was restored**");
+              if (s.fallbackWarning) console.log("- **" + s.fallbackWarning + "**");
+            '
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # --- dry run: show the work, commit nothing --------------------------
+      # The summary carries the whole would-be file under `wouldWrite`, because
+      # a dry run writes nothing at all and `git diff` would therefore be empty.
+      - name: Collect the dry-run artifact
+        if: env.DRY_RUN == 'true'
+        run: |
+          mkdir -p /tmp/search-enrich-artifact
+          cp "$SUMMARY_PATH" /tmp/search-enrich-artifact/summary.json
+          node -e '
+            const fs = require("fs");
+            const s = require(process.env.SUMMARY_PATH);
+            fs.writeFileSync("/tmp/search-enrich-artifact/would-be-enrichment.json",
+              JSON.stringify(s.wouldWrite || {}, null, 2) + "\n");
+          '
+
+      - name: Upload the dry-run artifact
+        if: env.DRY_RUN == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: search-enrich-dry-run
+          path: /tmp/search-enrich-artifact
+          retention-days: 14
+
+      # --- the real thing --------------------------------------------------
+      - name: Commit and push
+        if: env.DRY_RUN != 'true'
+        run: |
+          # api.github.com/users/github-actions[bot] returns id 41898282, type
+          # Bot. This exact name/email pair ships in the actions/checkout README
+          # under "Push a commit using the built-in token"; the +41898282 prefix
+          # exists so squash-merges do not render two distinct users
+          # (actions/checkout#1707).
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # The enrichment file is the source; assets/js/search-data.js is where
+          # it is merged, and sw.js carries the precache digest that covers that
+          # file, so all three move together and the tree stays self-consistent.
+          # Nothing else the build regenerates is added: Netlify runs the same
+          # build on deploy, and a wider `git add` would fold unrelated page
+          # churn into a commit that should read as a search-vocabulary diff.
+          git add assets/data/search-enrichment.json assets/js/search-data.js sw.js
+          if git diff --staged --quiet; then
+            echo "Nothing to commit -- every product's vocabulary is already current."
+            exit 0
+          fi
+          MSG=$(node -e '
+            const s = require(process.env.SUMMARY_PATH);
+            const bits = [];
+            if (s.generated) bits.push(s.generated + " product(s) enriched");
+            if (s.removed.length) bits.push(s.removed.length + " removed");
+            const head = "search: " + (bits.join(", ") || "vocabulary update") +
+              " (" + s.modelUsed + ")";
+            const body = [
+              "",
+              "Search vocabulary only. assets/data/products.json is untouched: the",
+              "owner\x27s own keywords lead every list and the bot only ever appends,",
+              "in assets/js/search-data.js and nowhere else.",
+              "",
+              s.dropped.length + " proposed item(s) were declined by the word policy in",
+              "scripts/lib/search-enrichment-rules.js and are in no file; see the",
+              "tracking issue for each one and the reason."
+            ];
+            if (s.deferredToNextRun) {
+              body.push("");
+              body.push(s.deferredToNextRun + " product(s) hit the per-run call cap and wait for the next run.");
+            }
+            if (s.fallbackWarning) {
+              body.push("");
+              body.push(s.fallbackWarning);
+            }
+            body.push("");
+            body.push("search-enrich-bot: automated");
+            console.log(head + "\n" + body.join("\n"));
+          ')
+          # NO [skip ci] AND NO [skip netlify]: Netlify honours both strings and
+          # this push has to deploy.
+          # https://docs.netlify.com/deploy/manage-deploys/manage-deploys-overview/
+          git commit -m "$MSG"
+          # The i18n bot fires on the same products.json push and pushes its own
+          # dictionaries, so a non-fast-forward here is EXPECTED rather than a
+          # sign that anything is wrong. Rebase onto whatever landed and retry.
+          # Three attempts: two bots cannot lose a race three times without
+          # something else being broken, and an infinite loop on a runner is
+          # worse than a failed run somebody looks at.
+          for attempt in 1 2 3; do
+            if git push; then
+              echo "pushed on attempt $attempt"
+              exit 0
+            fi
+            echo "push rejected on attempt $attempt -- rebasing onto origin/${GITHUB_REF_NAME}"
+            git pull --rebase origin "$GITHUB_REF_NAME" || exit 1
+            # The rebase can only conflict if something else edited the same
+            # three generated files. Re-running the build after it would hide
+            # that, so a conflict fails the run and the next push recomputes.
+          done
+          echo "::error::could not push after 3 attempts; the next run will recompute from HEAD"
+          exit 1
+
+      # --- report what the policy refused ----------------------------------
+      # One issue, found by an exact title, updated rather than duplicated. Runs
+      # on a dry run too: knowing what WOULD be declined is the point of one.
+      # Never fails the run -- a declined word is data, not a break. Uses the
+      # preinstalled gh CLI rather than a fourth third-party action to pin.
+      - name: File or update the declined-items issue
+        if: always() && steps.summary.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: "Search enrichment: items the bot declined"
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          BODY=$(node -e '
+            const s = require(process.env.SUMMARY_PATH);
+            if (!s.dropped.length && !s.fallbackWarning && !s.buildVeto) process.exit(0);
+            const lines = [
+              "Updated automatically by `.github/workflows/search-enrich.yml`.",
+              "",
+              "These are words the model proposed and the policy in",
+              "`scripts/lib/search-enrichment-rules.js` refused. They are in NO file --",
+              "not the enrichment file, not the search index, and never products.json.",
+              "Nothing here is broken; this is the filter doing its job. Read it when you",
+              "want to know whether the policy is too tight, or when a reason mentions",
+              "TODO(legal-brief), which means the build and the policy currently disagree.",
+              ""
+            ];
+            if (s.buildVeto) {
+              lines.push("**The build refused the generated file and it was restored:**");
+              lines.push("");
+              lines.push("```");
+              lines.push(String(s.buildVeto).slice(0, 1500));
+              lines.push("```");
+              lines.push("");
+            }
+            if (s.fallbackWarning) {
+              lines.push("**Model fallback:** " + s.fallbackWarning);
+              lines.push("");
+            }
+            lines.push("| product | proposed | why it was declined |");
+            lines.push("| --- | --- | --- |");
+            const cell = (v) => String(v).replace(/\|/g, "\\|").replace(/\n/g, " ");
+            s.dropped.slice(0, 100).forEach(function (d) {
+              lines.push("| `" + cell(d.id) + "` | " + cell(d.item).slice(0, 80) + " | " +
+                cell(d.reason).slice(0, 200) + " |");
+            });
+            if (s.dropped.length > 100) {
+              lines.push("");
+              lines.push("...and " + (s.dropped.length - 100) + " more.");
+            }
+            lines.push("");
+            lines.push("Run: " + process.env.RUN_URL);
+            console.log(lines.join("\n"));
+          ')
+          if [ -z "$BODY" ]; then
+            echo "Nothing was declined -- no issue to file."
+            exit 0
+          fi
+          # Matched on the exact title rather than through GitHub's search
+          # syntax: the title contains a colon, which `in:title` reads as an
+          # operator, and a fuzzy match would comment on the wrong issue.
+          EXISTING=$(gh issue list --state open --limit 100 --json number,title | node -e '
+            let raw = "";
+            process.stdin.on("data", (c) => (raw += c));
+            process.stdin.on("end", () => {
+              const hit = JSON.parse(raw).find((i) => i.title === process.env.TITLE);
+              if (hit) console.log(hit.number);
+            });
+          ')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+          else
+            gh issue create --title "$TITLE" --body "$BODY"
+          fi

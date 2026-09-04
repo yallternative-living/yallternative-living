@@ -91,6 +91,9 @@ global.navigator = { userAgent: "node" };
 require(path.join(ROOT, "assets", "js", "search-data.js"));
 
 const mainJs = require(path.join(ROOT, "assets", "js", "main.js"));
+/* Surface 4's word list, read rather than re-typed: the compliance section
+   below pins the shop-grid tables against it. */
+const searchRules = require(path.join(ROOT, "scripts", "lib", "search-enrichment-rules.js"));
 
 let passed = 0;
 let failed = 0;
@@ -172,12 +175,15 @@ it("tokenizeQuery handles empty, whitespace, and punctuation cleanly", () => {
 });
 
 it("expandTokensWithSynonyms expands 2-tier botanical and concern synonyms", () => {
+  /* The fixture is lay vocabulary because the shipped table is: "insomnia"
+     and "pain" used to stand here and are medicalQueryTerms words now (brief
+     7(b)). The mechanism under test is unchanged. */
   const synonyms = {
-    sleep: ["insomnia", "bedtime", "rest", "night", "lavender", "slumber"],
-    muscles: ["sore", "pain", "ache", "arnica", "tension", "magnesium"]
+    sleep: ["restless", "bedtime", "rest", "night", "lavender", "slumber"],
+    muscles: ["sore", "tension", "ache", "arnica", "stiffness", "magnesium"]
   };
   const expandedSleep = mainJs.expandTokensWithSynonyms(["sleep"], synonyms);
-  assert.ok(expandedSleep.includes("insomnia"), "sleep should expand to insomnia");
+  assert.ok(expandedSleep.includes("restless"), "sleep should expand to restless");
   assert.ok(expandedSleep.includes("bedtime"), "sleep should expand to bedtime");
   assert.ok(expandedSleep.includes("lavender"), "sleep should expand to lavender");
 
@@ -626,11 +632,74 @@ it("SYNONYM_GROUPS and CATEGORY_TERMS (buildFilters' table) are referenced only 
   });
 });
 
-// Words the compliance brief names explicitly as never allowed, even as a
-// query-side synonym: they'd assert a claim (a cure, a treatment, a named
-// disease this shop doesn't formulate for) well past "eczema"/"arthritis"/
-// "insomnia", which are established, precedented cosmetic-adjacent wellness
-// vocabulary already used the same way elsewhere in this codebase.
+/* Words that may not be wired to a product on ANY surface, query side
+   included. This used to be a hand-typed twelve, with a comment reasoning that
+   "eczema"/"arthritis"/"insomnia" were "established, precedented
+   cosmetic-adjacent wellness vocabulary" and could stay. The legal brief of
+   2026-09-04 rejects that reasoning at section 7(b): a named disease is a named
+   disease, and eczema-in / psoriasis-out was an asymmetry with no principle
+   behind it. The list is now READ from the rules module rather than re-typed,
+   so surface 4 and this gate cannot drift apart -- adding a word to the router
+   automatically forbids wiring it to a jar. */
+const ROUTER_WORDS = searchRules.MEDICAL_QUERY_TERMS.map((e) => e.term);
+
+/* The shop-grid table is PARSED rather than grepped. The old version searched
+   the raw source slice for a substring, which was fine for a list of twelve
+   long words and is not fine for a list of thirty-three that includes "heal",
+   "treat", "pain", "tick" and "bite": a substring check on source text finds
+   those inside prose, inside comments and inside innocent longer words, and
+   the failure mode of a gate that cries wolf is that somebody deletes it. The
+   two tables are declared as plain literals, so evaluating the slice gives the
+   real objects, and the rules module's own containsPhrase() does the
+   whole-word match the router itself uses. */
+function loadShopGridTables() {
+  const fnStart = mainJsSrc.indexOf("function buildFilters(");
+  const braceStart = mainJsSrc.indexOf("{", fnStart);
+  const fnEnd = findMatchingBraceEnd(mainJsSrc, braceStart);
+  const tableStart = mainJsSrc.indexOf("var SYNONYM_GROUPS", fnStart);
+  const tableEnd = mainJsSrc.indexOf("var SYNONYM_MAP = new Map()", tableStart);
+  assert.ok(tableStart > -1 && tableEnd > tableStart && tableEnd < fnEnd, "table slice located");
+  return new Function(
+    mainJsSrc.slice(tableStart, tableEnd) +
+      "\nreturn { SYNONYM_GROUPS: SYNONYM_GROUPS, CATEGORY_TERMS: CATEGORY_TERMS };"
+  )();
+}
+
+it("the shop-grid synonym table wires no medicalQueryTerms word to a product", () => {
+  const tables = loadShopGridTables();
+  const offenders = [];
+  tables.SYNONYM_GROUPS.forEach((group, i) => {
+    group.forEach((member) => {
+      ROUTER_WORDS.forEach((word) => {
+        if (searchRules.containsPhrase(member, word)) {
+          offenders.push(`SYNONYM_GROUPS[${i}] "${member}" <- "${word}"`);
+        }
+      });
+    });
+  });
+  Object.keys(tables.CATEGORY_TERMS).forEach((key) => {
+    ROUTER_WORDS.forEach((word) => {
+      if (searchRules.containsPhrase(key, word)) {
+        offenders.push(`CATEGORY_TERMS["${key}"] <- "${word}"`);
+      }
+    });
+  });
+  assert.deepStrictEqual(
+    offenders,
+    [],
+    "CATEGORY_TERMS maps a typed phrase straight onto PRODUCT IDS, so a router word as a key " +
+      "is a literal disease-to-product mapping in a shipped file (brief 7(b), C-657/11 para 58). " +
+      "Recognise the word in the router; never wire it to a jar. Offenders: " +
+      offenders.join(", ")
+  );
+});
+
+/* The owner's own copy is judged by a much shorter list, and deliberately so.
+   This one is hers -- scripts/lib/search-enrichment-rules.js says in its header
+   that products.json is never filtered or rewritten -- and the router list
+   holds words her live listings legitimately contain ("Y'all Heal Now", the bug
+   spray's "mosquito repellent"). Those are the 2026-09-01 review's business,
+   not a test's. What a test can hold is the severe end. */
 const NEVER_EVEN_QUERY_SIDE = [
   "wound",
   "infection",
@@ -638,29 +707,12 @@ const NEVER_EVEN_QUERY_SIDE = [
   "cure",
   "cures",
   "curing",
-  "treat",
   "treats",
   "treatment",
   "diagnose",
   "diagnosis",
   "prescription"
 ];
-
-it("the shop-grid synonym table never carries a claim word banned even query-side", () => {
-  const fnStart = mainJsSrc.indexOf("function buildFilters(");
-  const braceStart = mainJsSrc.indexOf("{", fnStart);
-  const fnEnd = findMatchingBraceEnd(mainJsSrc, braceStart);
-  const tableStart = mainJsSrc.indexOf("var SYNONYM_GROUPS", fnStart);
-  const tableEnd = mainJsSrc.indexOf("var SYNONYM_MAP = new Map()", tableStart);
-  assert.ok(tableStart > -1 && tableEnd > tableStart && tableEnd < fnEnd, "table slice located");
-  const tableText = mainJsSrc.slice(tableStart, tableEnd).toLowerCase();
-  NEVER_EVEN_QUERY_SIDE.forEach((word) => {
-    assert.ok(
-      tableText.indexOf(word) === -1,
-      `SYNONYM_GROUPS/CATEGORY_TERMS must never contain "${word}", even as a query-side synonym`
-    );
-  });
-});
 
 it("assets/data/products.json never carries a severe medical-claim word in shopper-facing fields", () => {
   const products = JSON.parse(
@@ -794,9 +846,13 @@ const EXPECT_TOP = {
   "gift card": "yallternative-gift-card",
   "gift for him": "yallternative-gift-card",
   "pride gift": "bundle-pride-set",
-  // condition words are translated at query time only (see Section 7)
-  insomnia: "sleep-salve",
-  eczema: "shea-butter",
+  /* WAS `insomnia: "sleep-salve"` and `eczema: "shea-butter"`, with the note
+     "condition words are translated at query time only". Since 2026-09-04 they
+     are not translated at all: both are medicalQueryTerms words that map to no
+     product (brief 7(b)), and the pin that they now find NOTHING lives in
+     EXPECT_NOTHING below. LAY symptom vocabulary is what stays here. */
+  restless: "sleep-salve",
+  "itchy skin": "shea-butter",
   "sore muscles": "backroad-soak"
 };
 
@@ -820,6 +876,31 @@ const EXPECT_TOP3 = {
   "self care gift": ["yallternative-gift-card"],
   lavendar: ["lavender-soak", "sleep-salve"]
 };
+
+/* The other half of the change that took "insomnia" and "eczema" out of
+   EXPECT_TOP. A medicalQueryTerms word must find nothing at all in the engine
+   -- the note is what answers it (brief 7(b), 7(c)) -- and the lay phrase
+   beside it in EXPECT_TOP must still find the same shelf it always did. */
+const EXPECT_NOTHING = [
+  "insomnia",
+  "eczema",
+  "anxiety",
+  "arthritis",
+  "psoriasis",
+  "wound",
+  // the pest words, on the router since 2026-09-04 (brief 7(g), FIFRA)
+  "mosquito",
+  "mosquitoes",
+  "ticks",
+  "mosquito bites"
+];
+
+EXPECT_NOTHING.forEach((query) => {
+  it(`searchGlobal('${query}') is a router word and returns no product`, () => {
+    const ids = (mainJs.searchGlobal(query).products || []).map((prod) => prod.id);
+    assert.deepStrictEqual(ids, [], `'${query}' must map to no product, got [${ids.join(", ")}]`);
+  });
+});
 
 Object.keys(EXPECT_TOP).forEach((query) => {
   it(`searchGlobal('${query}') ranks ${EXPECT_TOP[query]} first`, () => {
@@ -876,20 +957,14 @@ it("market / meet-up queries surface the in-person FAQ answer and an event", () 
 
 it("shipped synonym table: every entry is a non-empty string and no group carries a treatment claim word", () => {
   const synonyms = global.window.YL_SEARCH_INDEX.synonyms || {};
-  // "treat yourself" is a gift phrase, so bare "treat" is not banned; "treats"/"treatment" are.
-  const banned = [
-    "wound",
-    "infection",
-    "psoriasis",
-    "cure",
-    "cures",
-    "treats",
-    "treatment",
-    "diagnose",
-    "prescription",
-    "medicine",
-    "medical"
-  ];
+  /* WAS an eleven-word hand-typed list with the note "'treat yourself' is a
+     gift phrase, so bare 'treat' is not banned". The 2026-09-04 brief closes
+     that: "treat" is a 21 USC 321(g)(1)(B) verb wherever it stands, the phrase
+     left `gift_cards` in the same commit as the disease words, and the ban list
+     here is the router's own thirty-three, read rather than re-typed. Keys are
+     checked as well as terms -- a key IS a synonym, the build's
+     buildSearchSynonyms() tokenises it into the query alongside its group. */
+  const banned = ROUTER_WORDS;
   const offenders = [];
   Object.keys(synonyms).forEach((key) => {
     assert.ok(
@@ -901,16 +976,25 @@ it("shipped synonym table: every entry is a non-empty string and no group carrie
         typeof entry === "string" && entry.trim().length > 0,
         `synonym group "${key}" has an empty entry`
       );
-      const tokens = entry.toLowerCase().split(/\s+/);
       banned.forEach((word) => {
-        if (tokens.includes(word)) offenders.push(key + ": " + entry);
+        if (searchRules.containsPhrase(entry, word)) {
+          offenders.push(key + ': "' + entry + '" <- "' + word + '"');
+        }
       });
+    });
+    banned.forEach((word) => {
+      if (searchRules.containsPhrase(key.replace(/_/g, " "), word)) {
+        offenders.push("key " + key + ' <- "' + word + '"');
+      }
     });
   });
   assert.deepStrictEqual(
     offenders,
     [],
-    "treatment claim words found in the synonym table: " + offenders.join(", ")
+    "assets/js/search-data.js wires a medicalQueryTerms word to a product group. " +
+      "Surface 4 recognises those words and maps them to NO product (brief 7(b), 7(c)); " +
+      "a synonym entry maps one to a jar. Offenders: " +
+      offenders.join(", ")
   );
   assert.ok(
     Object.keys(synonyms).length >= 45,

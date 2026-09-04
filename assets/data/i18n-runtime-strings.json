@@ -422,6 +422,21 @@
       ]
     },
     {
+      "key": "search.medicalQueryNote",
+      "text": "We make comfort products, not medicines — nothing here is meant to diagnose, treat, cure or prevent anything. If you're looking for something kind to dry, rough skin, start here.",
+      "source": "assets/js/main.js",
+      "verify": [
+        "We make comfort products, not medicines",
+        "nothing here is meant to diagnose, treat, cure or prevent anything.",
+        "If you're looking for something kind to dry, rough skin, ",
+        "If you're looking for something kind to a wind-down evening, ",
+        "If you're looking for something kind to a body that worked hard today, ",
+        "If you're looking for something kind to porch nights and trail days, ",
+        "start here"
+      ],
+      "note": "the medical-query router note (MEDICAL_NOTE_LEDE + one routed invitation + the \"start here\" link), rendered above the shop grid and the search modal results. Declared here so this gate re-checks the wording against main.js on every build; it has NO dictionary key on purpose -- see the router block in main.js and TEST_INFRA.md."
+    },
+    {
       "key": "search.results",
       "text": "Search results",
       "source": "assets/js/main.js",

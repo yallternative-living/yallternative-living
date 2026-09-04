@@ -160,10 +160,17 @@ check("Botanical Latin name 'boswellia' resolves to frankincense-salve", () => {
   assert.strictEqual(productIds("boswellia")[0], "frankincense-salve");
 });
 
-check("Symptom synonym 'insomnia' matches Sleep Salve & Lavender Soak", () => {
-  const ids = productIds("insomnia");
-  assert.ok(ids.includes("sleep-salve"), "Matches sleep-salve for insomnia");
-  assert.ok(ids.includes("lavender-soak"), "Matches lavender-soak for insomnia");
+/* WAS: "Symptom synonym 'insomnia' matches Sleep Salve & Lavender Soak".
+   Its premise was a disease-to-product mapping in the shipped synonym table,
+   which brief section 7(b) says may not exist; "insomnia" is a
+   medicalQueryTerms word now and maps to no product at all. What has to keep
+   working is the LAY half -- surface 3's whole justification is that it
+   carries the traffic -- so that is what this asserts instead. */
+check("A named disease matches nothing; the lay wording still finds the sleep goods", () => {
+  assert.deepStrictEqual(productIds("insomnia"), [], "'insomnia' maps to no product");
+  const ids = productIds("restless");
+  assert.ok(ids.includes("sleep-salve"), "Matches sleep-salve for 'restless'");
+  assert.ok(ids.includes("lavender-soak"), "Matches lavender-soak for 'restless'");
 });
 
 // ---------------------------------------------------------------------------
@@ -189,8 +196,13 @@ check("Directional precision: 'beard salve' surfaces beard-salve and no sprays",
   assert.ok(!ids.includes("cleansing-spray"), "Does NOT surface cleansing-spray");
 });
 
-check("Concern query 'bug bites' ranks bug-spray first", () => {
-  assert.strictEqual(productIds("bug bites")[0], "bug-spray");
+/* WAS "Concern query 'bug bites' ranks bug-spray first". "bites" went to the
+   router on 2026-09-04 (brief 7(g), the bug-spray paragraph: 7 USC 136(u) plus
+   40 CFR 152.15 make naming the pest the claim, however it is made). "bug
+   spray" is the shop's own product form, names no pest, and is what a shopper
+   types; the router word's engine-level pin is with the other router words. */
+check("Concern query 'bug spray' ranks bug-spray first", () => {
+  assert.strictEqual(productIds("bug spray")[0], "bug-spray");
 });
 
 // ---------------------------------------------------------------------------
@@ -219,10 +231,14 @@ check("tokenizeQuery lowercases, strips punctuation and de-duplicates", () => {
 
 check("expandTokensWithSynonyms is a superset of its input and adds real synonyms", () => {
   const index = mainJs.getSearchIndex();
-  const tokens = mainJs.tokenizeQuery("insomnia");
+  /* WAS driven by "insomnia" -> "sleep". The mechanism is what is under test,
+     not the word, and the word is a medicalQueryTerms one that no longer
+     appears in the shipped table (brief 7(b)). "restless" is the lay member of
+     the same group and exercises the identical reverse lookup. */
+  const tokens = mainJs.tokenizeQuery("restless");
   const expanded = mainJs.expandTokensWithSynonyms(tokens, index.synonyms);
   tokens.forEach((t) => assert.ok(expanded.includes(t), `keeps original token "${t}"`));
-  assert.ok(expanded.includes("sleep"), "expands insomnia -> sleep");
+  assert.ok(expanded.includes("sleep"), "expands restless -> sleep");
   assert.ok(expanded.length > tokens.length, "expansion actually widened the token set");
 });
 
@@ -379,13 +395,22 @@ function loadShopGridSearchEngine() {
     concernLabel[c.id] = c.name;
   });
 
+  /* The sliced snippet now calls medicalQueryRoute(), which is declared far
+     above STOPWORDS and is therefore not in the slice. It is injected as a
+     parameter rather than sliced in a second time, and the one that goes in is
+     main.js's OWN export -- so this harness exercises the shipped router
+     against the shipped index, not a copy of either. That is the point of the
+     change it is testing: the stripping is a property of the engine now, so a
+     test that reached the engine without it would be testing something that no
+     longer exists. */
   const factory = new Function(
     "catLabel",
     "concernLabel",
+    "medicalQueryRoute",
     snippet +
       "\nreturn { expandQuery: expandQuery, matchesQuery: matchesQuery, SYNONYM_GROUPS: SYNONYM_GROUPS, CATEGORY_TERMS: CATEGORY_TERMS };"
   );
-  const engine = factory(catLabel, concernLabel);
+  const engine = factory(catLabel, concernLabel, mainJs.medicalQueryRoute);
 
   function rank(query) {
     const qCtx = engine.expandQuery(query);
@@ -411,6 +436,21 @@ function assertTop1(query, expectedId) {
       ids[0],
       expectedId,
       `top result for '${query}' should be ${expectedId}, got ${ids[0]} (full: ${JSON.stringify(ids)})`
+    );
+  });
+}
+
+/* The other half of the 2026-09-04 policy, and the one worth having its own
+   helper: a medicalQueryTerms word must find NOTHING in the engine. Not a
+   narrow set, not a sensible set -- nothing. Surface 4 answers it with a note
+   that denies intended use; wiring it to a jar is what brief section 7(b)
+   refuses. */
+function assertNone(query) {
+  check(`Shop-grid: '${query}' is a router word and matches no product`, () => {
+    assert.deepStrictEqual(
+      rank(query),
+      [],
+      `'${query}' must map to no product; got ${JSON.stringify(rank(query))}`
     );
   });
 }
@@ -447,21 +487,123 @@ check("SYNONYM_GROUPS is a non-empty list of non-empty string arrays", () => {
   });
 });
 
-// --- Symptom/condition-word queries still resolve to real cosmetic goods,
-//     never to nothing and never to the whole catalogue -----------------
-check(
-  "Disease-word queries (insomnia, eczema, arthritis) resolve narrowly, not to the whole catalog",
-  () => {
-    ["insomnia", "eczema", "arthritis"].forEach((q) => {
-      const ids = rank(q);
-      assert.ok(ids.length > 0, `'${q}' returns results`);
-      assert.ok(
-        ids.length < shopGrid.productData.products.length,
-        `'${q}' (${ids.length} results) must not just be the entire catalogue (${shopGrid.productData.products.length})`
-      );
-    });
-  }
-);
+// --- Disease words resolve to NOTHING; their lay counterparts still resolve
+//     narrowly ----------------------------------------------------------
+//
+// WAS: "Disease-word queries (insomnia, eczema, arthritis) resolve narrowly,
+// not to the whole catalog" -- which asserted that each of them returned at
+// least one product. That was the disease-to-product mapping itself, stated as
+// a requirement. Brief section 7(b): a named disease maps to no product, and
+// the note (surface 4) is what answers the shopper. The half of the old
+// assertion worth keeping is that the ordinary words did not degrade, so the
+// lay counterpart of each disease word is pinned right beside it.
+check("Disease words resolve to nothing, and their lay counterparts still resolve narrowly", () => {
+  ["insomnia", "eczema", "arthritis"].forEach((q) => {
+    assert.deepStrictEqual(rank(q), [], `'${q}' is a router word and maps to no product`);
+  });
+  ["restless", "flaky", "sore muscles"].forEach((q) => {
+    const ids = rank(q);
+    assert.ok(ids.length > 0, `'${q}' returns results`);
+    assert.ok(
+      ids.length < shopGrid.productData.products.length,
+      `'${q}' (${ids.length} results) must not just be the entire catalogue (${shopGrid.productData.products.length})`
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 8b. The router is part of the ENGINE, not part of the two UI call sites.
+//
+// It ran in render() and in the modal's triggerSearch() until 2026-09-05, which
+// left the exported functions matching a disease word for anyone who called
+// them directly. Nothing a shopper could reach did that; "nothing reaches it"
+// is a statement about today's call sites, and surface 4's promise is that a
+// medicalQueryTerms word maps to no product -- which is a property of the
+// engine or it is not a property at all (brief 7(b), 7(c)).
+//
+// Both engines are pinned, because there are two: searchGlobal() answers the
+// modal, expandQuery()/matchesQuery() answer the shop grid, and they share
+// nothing but medicalQueryRoute().
+// ---------------------------------------------------------------------------
+console.log("\n--- 8b. The router runs inside the engines ---");
+
+check("searchGlobal() strips the medical tokens and reports what it stripped", () => {
+  const routed = mainJs.searchGlobal("wound salve");
+  assert.strictEqual(routed.query, "salve", "the matched query is what is left after stripping");
+  assert.ok(routed.medical, "and the envelope carries the detection result");
+  assert.ok(routed.medical.terms.includes("wound"), "naming the word it recognised");
+  assert.deepStrictEqual(
+    routed.products.map((p) => p.id),
+    mainJs.searchGlobal("salve").products.map((p) => p.id),
+    '"wound salve" finds exactly what "salve" finds -- the ordinary word still works'
+  );
+});
+
+check("searchGlobal() on an all-medical query returns nothing, and says why", () => {
+  const routed = mainJs.searchGlobal("psoriasis");
+  assert.strictEqual(routed.query, "", "nothing ordinary was typed");
+  assert.strictEqual(routed.totalCount, 0, "so nothing at all is returned");
+  assert.deepStrictEqual(routed.products, [], "and no product");
+  assert.ok(routed.medical, "but the caller is told a note is owed");
+  assert.deepStrictEqual(routed.medical.terms, ["psoriasis"]);
+});
+
+check("searchGlobal() leaves an ordinary query alone", () => {
+  const plain = mainJs.searchGlobal("itchy skin");
+  assert.strictEqual(plain.medical, null, "lay vocabulary is not medical vocabulary");
+  assert.strictEqual(plain.query, "itchy skin", "and reaches the index untouched");
+  assert.ok(plain.products.length > 0);
+  /* SAME SET, not same order, and the reason is worth writing down: the router
+     removes only the medical tokens, so "cure for itchy skin" reaches the index
+     as "for itchy skin" and the leftover connective moves two mid-list products
+     past each other. The shop grid does not show this because "for" is in its
+     STOPWORDS; searchGlobal()'s tokenizer keeps it. That is pre-existing --
+     the modal passed exactly this string in before the router moved -- and it
+     is why the browser suite pins the identical-list invariant on the grid. */
+  const withVerb = mainJs.searchGlobal("cure for itchy skin");
+  assert.ok(withVerb.medical, "the note is still owed");
+  assert.deepStrictEqual(
+    withVerb.products.map((p) => p.id).sort(),
+    plain.products.map((p) => p.id).sort(),
+    "a statutory verb wrapped around it finds the same products"
+  );
+});
+
+check("expandQuery() strips before it tokenises, and flags the medical-only case", () => {
+  const routed = shopGrid.engine.expandQuery("wound salve");
+  assert.strictEqual(routed.exact, "salve");
+  assert.strictEqual(routed.medicalOnly, false, "an ordinary word survived");
+  assert.ok(routed.medical && routed.medical.terms.includes("wound"));
+
+  const onlyMedical = shopGrid.engine.expandQuery("psoriasis");
+  assert.strictEqual(onlyMedical.exact, "");
+  assert.strictEqual(onlyMedical.medicalOnly, true);
+
+  const plain = shopGrid.engine.expandQuery("itchy skin");
+  assert.strictEqual(plain.medical, null);
+  assert.strictEqual(plain.medicalOnly, false);
+});
+
+check("matchesQuery() refuses every product for a medical-only query", () => {
+  /* The guard that matters most: an empty `exact` means "match everything" to
+     matchesQuery(), so without this a shopper who typed one disease word would
+     have been shown the whole catalogue. */
+  const onlyMedical = shopGrid.engine.expandQuery("psoriasis");
+  shopGrid.productData.products.forEach((p) => {
+    assert.strictEqual(
+      shopGrid.engine.matchesQuery(p, onlyMedical).matched,
+      false,
+      `${p.id} must not match a medical-only query`
+    );
+  });
+  const empty = shopGrid.engine.expandQuery("");
+  assert.strictEqual(empty.medicalOnly, false, "an EMPTY query is not a medical-only one");
+  assert.strictEqual(
+    shopGrid.engine.matchesQuery(shopGrid.productData.products[0], empty).matched,
+    true,
+    "and still means 'show everything', which is what an empty filter box does"
+  );
+});
 
 // --- Botanicals, INCI names & common misspellings ---------------------
 assertTop1("boswellia", "frankincense-salve");
@@ -477,18 +619,28 @@ assertTop3Includes("witch hazel", "porch-sweep-spray");
 //     never appear in the product data itself -- see the compliance suite
 //     in scripts/global-search.test.js and scripts/challenger-search-
 //     scoring.test.js) ---
-assertTop1("insomnia", "sleep-salve");
+// WAS assertTop1("insomnia", ...) and assertTop1("anxiety", ...): both are
+// named-disease/structure-function words on the router now (brief 7(b), 7(g)),
+// so they must find nothing here. "restless" and "stressed" are the lay words
+// that carry the same intent and the same traffic.
+assertNone("insomnia");
+assertNone("anxiety");
+assertTop1("restless", "sleep-salve");
 assertTop1("insomniac", "sleep-salve");
-assertTop1("anxiety", "sleep-salve");
 assertTop1("relax", "sleep-salve");
 assertTop1("calm", "sleep-salve");
 assertTop1("stressed", "sleep-salve");
 assertTop1("sleepy", "sleep-salve");
 
 // --- Sore muscles / joints / workout recovery intent ---
-assertTop1("arthritis", "backroad-soak");
-assertTop3Includes("arthritis", "frankincense-salve");
+// WAS assertTop1("arthritis", "backroad-soak") + assertTop3Includes(
+// "arthritis", "frankincense-salve"): a named disease wired to two product
+// ids. FTC took a civil penalty on this exact word (Gravity Defyer), and it is
+// a router word now. "sore muscles" below is the lay phrase that finds the
+// same shelf, and it already pinned frankincense-salve's neighbourhood.
+assertNone("arthritis");
 assertTop1("sore muscles", "backroad-soak");
+assertTop3Includes("sore muscles", "frankincense-salve");
 assertTop3Includes("sore muscles", "miracle-balm");
 assertTop1("workout recovery", "backroad-soak");
 assertTop1("post workout", "backroad-soak");
@@ -498,8 +650,15 @@ assertTop1("tightness", "backroad-soak");
 assertTop1("cramps", "backroad-soak");
 
 // --- Dry / rough / chapped skin intent ---
-assertTop1("eczema", "shea-butter");
-assertTop3Includes("eczema", "whipped-body-butter");
+// WAS assertTop1("eczema", "shea-butter") + assertTop3Includes("eczema",
+// "whipped-body-butter"). 21 CFR 347 reserves the eczema indication to
+// colloidal oatmeal; this shop has none, so the word maps to no product and
+// the note answers instead (brief 7(b), 7(g)). "itchy skin" is the lay phrase
+// the brief names explicitly as staying on the query side, and it finds the
+// same two butters.
+assertNone("eczema");
+assertTop1("itchy skin", "shea-butter");
+assertTop3Includes("itchy skin", "whipped-body-butter");
 assertTop1("cuticles", "frankincense-salve");
 assertTop3Includes("cuticles", "miracle-balm");
 assertTop1("windburn", "frankincense-salve");
@@ -513,8 +672,15 @@ assertTop1("exfoliate", "sugar-scrub");
 assertTop1("scrub", "sugar-scrub");
 
 // --- Bug / outdoor-defense intent (real Etsy/Amazon vocabulary: camping,
-//     hiking, chiggers -- the very Southern cousin of ticks and gnats) ---
-assertTop1("mosquito", "bug-spray");
+//     hiking, chiggers -- the very Southern cousin of gnats).
+//     WAS assertTop1("mosquito", "bug-spray"): "mosquito" is a router word
+//     since 2026-09-04 and is not wired to a product any more. "chiggers" and
+//     "gnats" stay -- they are on no ban list in the brief, and the 2026-09-01
+//     review's own rewrite table offers "porch nights, trail days" for exactly
+//     this shelf. ---
+assertTop1("bug spray", "bug-spray");
+assertNone("mosquito");
+assertNone("tick bites");
 assertTop1("chiggers", "bug-spray");
 assertTop1("camping", "bug-spray");
 assertTop1("hiking", "bug-spray");

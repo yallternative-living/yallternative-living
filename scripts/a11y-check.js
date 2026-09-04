@@ -116,12 +116,7 @@ const INCOMPLETE_BASELINE_DEFAULT = 0;
    axe reports "unable to determine if aria-controls referenced ID exists
    while using aria-haspopup" as needs-review, the same verdict it already
    gives #globalSearchTrigger. The dropdown is in the DOM at init, so the
-   reference is valid; the numbers below were re-read off a full run.
-
-   A value may be a plain number, or `{ base, per: { selector, nodes } }` for a
-   page whose undecidable count is driven by how much CONTENT it is showing. A
-   flat number is wrong there: it pins a property of the calendar, not of the
-   code, and goes red the next time Savanna books a market. See events.html. */
+   reference is valid; the numbers below were re-read off a full run. */
 const INCOMPLETE_BASELINE = {
   "404.html [dark]": 11,
   "404.html [light]": 11,
@@ -129,25 +124,22 @@ const INCOMPLETE_BASELINE = {
   "about.html [light]": 14,
   "contact.html [dark]": 17,
   "contact.html [light]": 17,
-  /* 2026-09-04: this went red when four September markets were added
-     (b9c75d8) and the count jumped 22 -> 38. Nothing regressed. Every
-     `.event-actions-row .btn` contributes at most one undecidable node,
-     because axe answers "Element's background color could not be determined
-     due to a pseudo element" for it -- the card behind it is opaque
-     (rgb(30,24,21)), so this is the `.btn` pseudo-element, a site-wide
-     pattern already baked into every other page's number here, not anything
-     specific to events. Four new cards meant sixteen more buttons.
-
-     So the 21 is the page CHROME (header, breadcrumb, h1, lede, language
-     picker, search trigger) and the rest scales with the markets on the
-     calendar. Measured: 38 undecidable across 19 such buttons, of which 17
-     are the buttons themselves -- the allowance is deliberately one per
-     button rather than 17/19, because which buttons resolve depends on where
-     they land, and a budget that has to be re-measured per booking is the
-     thing this replaces. A genuinely new blind spot on this page still trips
-     it; another market no longer does. */
-  "events.html [dark]": { base: 21, per: { selector: ".event-actions-row .btn", nodes: 1 } },
-  "events.html [light]": { base: 21, per: { selector: ".event-actions-row .btn", nodes: 1 } },
+  /* events.html scales with the CMS data: every event card renders a row of
+     action buttons whose contrast axe cannot decide over the card gradient
+     (one undecidable node per button, measured 2026-09-04: 19 buttons, 38
+     nodes, 19 of them page chrome). A flat number here turned CI red the
+     day four September pop-ups were added -- exactly the edit the owner
+     makes without a developer -- so the pin is a base for the page chrome
+     plus one node per rendered button. Adding an event never moves it;
+     a new undecidable element on the page still does. */
+  "events.html [dark]": {
+    base: 19,
+    perElement: [{ selector: ".event-actions-row .btn", allowance: 1 }]
+  },
+  "events.html [light]": {
+    base: 19,
+    perElement: [{ selector: ".event-actions-row .btn", allowance: 1 }]
+  },
   "faq.html [dark]": 11,
   "faq.html [light]": 11,
   "index.html [dark]": 39,
@@ -324,24 +316,26 @@ const INCOMPLETE_BASELINE = {
                one a deliberate act rather than an accident. */
             const incomplete = result.incomplete || [];
             const incompleteNodes = incomplete.reduce((n, v) => n + v.nodes.length, 0);
-            /* Counted here, with the page still open, because a content-scaled
-               budget needs to know how much content this scan actually saw. */
-            const pin = INCOMPLETE_BASELINE[label];
-            let budget = INCOMPLETE_BASELINE_DEFAULT;
-            if (typeof pin === "number") {
-              budget = pin;
-            } else if (pin && typeof pin === "object") {
-              const found = await page.evaluate(
-                (sel) => document.querySelectorAll(sel).length,
-                pin.per.selector
-              );
-              budget = pin.base + found * pin.per.nodes;
-            }
             incompleteByPage[label] = {
               rules: incomplete.map((v) => v.id).sort(),
               nodes: incompleteNodes,
-              budget
+              extra: 0
             };
+            /* A pin may be an object: a base for the page chrome plus an
+               allowance per element matching a selector, for pages whose
+               node count follows CMS data (see the events.html entry). The
+               elements are counted on the page axe just scanned. */
+            const pin = INCOMPLETE_BASELINE[label];
+            if (pin && typeof pin === "object") {
+              const counts = await page.evaluate(
+                (selectors) => selectors.map((sel) => document.querySelectorAll(sel).length),
+                pin.perElement.map((e) => e.selector)
+              );
+              incompleteByPage[label].extra = counts.reduce(
+                (n, c, i) => n + c * pin.perElement[i].allowance,
+                0
+              );
+            }
             if (incomplete.length) {
               console.log(
                 `  ~ ${label} -- ${incompleteNodes} node(s) axe could not decide, ` +
@@ -393,7 +387,11 @@ const INCOMPLETE_BASELINE = {
     .sort()
     .forEach((label) => {
       const seen = incompleteByPage[label].nodes;
-      const budget = incompleteByPage[label].budget;
+      const pin = Object.prototype.hasOwnProperty.call(INCOMPLETE_BASELINE, label)
+        ? INCOMPLETE_BASELINE[label]
+        : INCOMPLETE_BASELINE_DEFAULT;
+      const budget =
+        pin && typeof pin === "object" ? pin.base + incompleteByPage[label].extra : pin;
       if (seen > budget) {
         overBudget.push(
           `${label}: ${seen} node(s) axe could not decide, baseline ${budget} ` +

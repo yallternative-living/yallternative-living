@@ -1174,17 +1174,38 @@ section {
     display: block;
     max-width: 320px;
 
+    /* Once the grid stacks, a fixed-width portrait pinned to the left edge
+       left most of the row empty and read as misplaced (owner screenshot,
+       2026-09-04, and the same thing at tablet width). The stacked hero
+       fills the column instead, like every stacked hero layout: on a phone
+       the portrait runs full width at its own aspect (~470px tall at 390px
+       wide), and on the wider 481-900px band -- where a full-width portrait
+       would be ~950px tall and push everything below it a screen down -- it
+       is cropped to 4:3 with the framing kept on the face and the shirt
+       print (object-position). There is no longer an edge to misalign. */
     @container (max-width: 900px) {
-      max-width: 320px;
-    }
-    @container (max-width: 480px) {
-      max-width: 240px;
+      max-width: none;
+      width: 100%;
     }
   }
   & img {
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow);
     border: 1px solid var(--hide);
+
+    @container (max-width: 900px) {
+      width: 100%;
+      height: auto;
+    }
+    @container (min-width: 481px) and (max-width: 900px) {
+      /* Square, not 4:3: the face and the shirt print span ~80% of the
+         portrait's height, and a 4:3 window shows only 56% of it -- it cut
+         the top of the head AND the bottom of the print. A square shows
+         75%, framed from the eyes down so the print stays whole. */
+      aspect-ratio: 1 / 1;
+      object-fit: cover;
+      object-position: 50% 34%;
+    }
   }
 }
 
@@ -2859,6 +2880,53 @@ section {
       border-color: var(--whiskey);
     }
   }
+}
+
+/* =============== MEDICAL-QUERY NOTE ===============
+   The note main.js renders above the results when a shopper searches a
+   medical word (see the MEDICAL-QUERY ROUTER block in assets/js/main.js).
+
+   Quiet, but never quiet enough to miss: FTC's Health Products Compliance
+   Guidance and 16 CFR 465.1(c)(4) both turn on whether the reader can see a
+   disclosure WITHOUT doing anything, so this is normal-weight body copy in
+   the page's own foreground colour, in normal flow above the grid. It is
+   never collapsed, never behind a control, and has no max-height, no
+   opacity trick and no animation that could leave it half-drawn. The dashed
+   rule and the muted panel are the shop's existing empty-state treatment,
+   so it reads as part of the page rather than as an error. */
+.yl-medical-note {
+  background: var(--ink-2);
+  border: 1px dashed var(--hide);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  margin: 0 0 20px;
+}
+
+.yl-medical-note-text {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--paper);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+/* The grid is deliberately empty when the shopper typed only medical words:
+   the note above it IS the answer. Without this it would keep drawing the
+   :empty loading skeleton (see the CLS reservations further down this file)
+   and read as a catalogue that never arrives. */
+#shopGrid.yl-grid-answered:empty {
+  min-height: 0;
+}
+
+#shopGrid.yl-grid-answered:empty::before {
+  content: none;
+}
+
+.yl-medical-note-link {
+  color: var(--whiskey);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  white-space: nowrap;
 }
 
 /* =============== FILTER PILLS + SORT (shop page) =============== */

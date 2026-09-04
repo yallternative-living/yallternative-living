@@ -437,6 +437,92 @@ function buildSearchSynonyms(defaults, extra) {
   return out;
 }
 
+/* ==== BEGIN search-enrichment merge (scripts/search-enrich.js owns the data) ====
+   assets/data/search-enrichment.json is written by the enrichment bot and by
+   nothing else. It exists so the search index can carry the words a shopper
+   actually types -- "that bug stuff", "stocking stuffer", "post hike",
+   misspellings -- WITHOUT any of them being written back into products.json,
+   which is the owner's file and stays hers.
+
+   Two surfaces, merged in two different places and on two different rules:
+
+     keywords       appended to the product's own `keywords` HERE, in the
+                    search index only. The owner's words come first and win
+                    every tie, so if she later types a word the bot suggested,
+                    hers is the one that survives the dedupe. products.json and
+                    assets/js/products-data.js never see any of this.
+     querySynonyms  merged through buildSearchSynonyms() -- the SAME call
+                    content.json's search.extraSynonyms goes through, so
+                    SEARCH_SYNONYM_BANNED still throws on a bot entry exactly
+                    as it would on one the owner typed. That throw is the last
+                    line of defence and is meant to stay able to veto: the bot
+                    re-runs this build after it writes and restores the
+                    previous file if the build refuses its work.
+
+   A missing or unparseable file is not an error. The site shipped without this
+   file for its whole life; the search index simply falls back to the owner's
+   own keywords. A HALF-WRITTEN one cannot be read here at all -- the bot writes
+   to a temp file and renames. */
+const SEARCH_ENRICHMENT_PATH = "assets/data/search-enrichment.json";
+
+function readSearchEnrichment(relPath) {
+  const full = path.join(ROOT, relPath || SEARCH_ENRICHMENT_PATH);
+  let raw;
+  try {
+    raw = fs.readFileSync(full, "utf8");
+  } catch {
+    return {};
+  }
+  try {
+    const doc = JSON.parse(raw);
+    return doc && typeof doc === "object" && !Array.isArray(doc) ? doc : {};
+  } catch (e) {
+    console.warn(
+      "[build] " +
+        (relPath || SEARCH_ENRICHMENT_PATH) +
+        " is not valid JSON -- ignoring it and using only the owner's own keywords. (" +
+        e.message +
+        ")"
+    );
+    return {};
+  }
+}
+
+/** Owner's keywords first, then the bot's, case-insensitively deduped. */
+function mergeEnrichedKeywords(ownKeywords, botKeywords) {
+  const out = [];
+  const seen = new Set();
+  [Array.isArray(ownKeywords) ? ownKeywords : [], Array.isArray(botKeywords) ? botKeywords : []]
+    .reduce(function (a, b) {
+      return a.concat(b);
+    }, [])
+    .forEach(function (k) {
+      if (typeof k !== "string") return;
+      const trimmed = k.trim();
+      const key = trimmed.toLowerCase();
+      if (!trimmed || seen.has(key)) return;
+      seen.add(key);
+      out.push(trimmed);
+    });
+  return out;
+}
+
+/** Every product's querySynonyms, flattened into the extraSynonyms shape. */
+function enrichedQuerySynonyms(enrichment, productIds) {
+  const live = productIds ? new Set(productIds) : null;
+  const out = [];
+  Object.keys(enrichment || {}).forEach(function (id) {
+    if (live && !live.has(id)) return;
+    const entries = (enrichment[id] || {}).querySynonyms;
+    if (!Array.isArray(entries)) return;
+    entries.forEach(function (entry) {
+      out.push(entry);
+    });
+  });
+  return out;
+}
+/* ==== END search-enrichment merge ==== */
+
 /* Render one FAQ answer: HTML-escape first, then turn [text](url) into a
    real link with the URL run through safeLinkUrl(). A javascript: URL used
    to be emitted verbatim here (Low finding in the audit -- only the CSP
@@ -633,8 +719,36 @@ function digestEnglish(value) {
   return crypto.createHash("sha1").update(value, "utf8").digest("hex").slice(0, 10);
 }
 
+/* Rules 1 and 4 are WARNINGS for `auto.*` keys and hard failures for everything
+   else. The reasoning, because this is a real if narrow relaxation of a gate
+   that was written strict on purpose:
+
+   `auto.*` keys are minted by scripts/i18n-new-strings.js from product copy and
+   filled by scripts/i18n-translate.js -- they are the bot's, not a human's. The
+   owner edits a blurb in the CMS at /admin; that commit lands on main; Netlify
+   builds it immediately, BEFORE the bot's workflow has finished re-translating.
+   For one deploy cycle the old English is unreachable (rule 1) and the recorded
+   digest is stale (rule 4), both at once, for a key nobody typed. Under the old
+   gate that is a FAILED DEPLOY and a failed-deploy email for every product edit
+   -- and the owner cannot tell "expected, the bot is a minute behind" from "the
+   site is broken", which is exactly the experience this pipeline exists to
+   remove. The cost of warning instead is one deploy showing a stale or English
+   string, and assets/js/translator.js already falls back to English on any text
+   it cannot match, so nothing renders wrong; it renders untranslated.
+
+   Hand-authored keys keep the hard gate unchanged. Those are the ones a human
+   edits without a bot watching, and an unreachable one is the exact bug the
+   rule was written for: 120 of the first dictionary's 206 values matched
+   nothing on any page. Rules 2 and 3 stay hard for every key, bot-minted
+   included -- a locale missing a key, or carrying English in a locale slot, is
+   never a timing artefact. */
+function isBotManagedKey(key) {
+  return String(key).indexOf("auto.") === 0;
+}
+
 function validateDictionaryCoverage(locales, runtimeManifest, basisDoc) {
   const problems = [];
+  const warnings = [];
   const enPhrases = locales.en.phrases;
   const keys = Object.keys(enPhrases);
   if (!keys.length) {
@@ -706,13 +820,16 @@ function validateDictionaryCoverage(locales, runtimeManifest, basisDoc) {
     throw new Error("No built HTML pages found -- refusing to report dictionary coverage.");
   }
   const unreachable = [];
+  const unreachableBotKeys = [];
   keys.forEach(function (key) {
     const value = enPhrases[key];
     if (runtimeTexts.has(value)) return;
     const found = pages.some(function (page) {
       return page.text.indexOf(value) !== -1;
     });
-    if (!found) unreachable.push(key + " = " + JSON.stringify(value));
+    if (found) return;
+    if (isBotManagedKey(key)) unreachableBotKeys.push(key + " = " + JSON.stringify(value));
+    else unreachable.push(key + " = " + JSON.stringify(value));
   });
   if (unreachable.length) {
     problems.push(
@@ -720,6 +837,15 @@ function validateDictionaryCoverage(locales, runtimeManifest, basisDoc) {
         " English dictionary value(s) appear nowhere in the built site and are not " +
         "declared as runtime strings, so the translator can never match them:\n    " +
         unreachable.join("\n    ")
+    );
+  }
+  if (unreachableBotKeys.length) {
+    warnings.push(
+      unreachableBotKeys.length +
+        " bot-minted auto.* value(s) appear nowhere in the built site. Expected for one " +
+        "deploy cycle after a CMS copy edit -- the i18n bot re-translates and re-keys them " +
+        "on its own run. If they are still here after that run, something is wrong:\n    " +
+        unreachableBotKeys.join("\n    ")
     );
   }
 
@@ -747,6 +873,14 @@ function validateDictionaryCoverage(locales, runtimeManifest, basisDoc) {
       return !Object.prototype.hasOwnProperty.call(enPhrases, k);
     });
     if (missing.length) {
+      /* The `auto.` prefix is minted by scripts/i18n-new-strings.js, so a run
+         of missing auto.* keys is not a mistake -- it is the expected state
+         between discovery and translation, and saying so here is the
+         difference between "the build is broken" and "the next step has not
+         run yet". */
+      const fromDiscovery = missing.filter(function (k) {
+        return k.indexOf("auto.") === 0;
+      });
       problems.push(
         "locale '" +
           lang +
@@ -754,7 +888,13 @@ function validateDictionaryCoverage(locales, runtimeManifest, basisDoc) {
           missing.length +
           " key(s): " +
           missing.slice(0, 12).join(", ") +
-          (missing.length > 12 ? ", ..." : "")
+          (missing.length > 12 ? ", ... (+" + (missing.length - 12) + " more)" : "") +
+          (fromDiscovery.length
+            ? "\n    " +
+              fromDiscovery.length +
+              " of them are auto.* keys that `npm run i18n:new -- --write` just added; " +
+              "the translation step fills them in. Re-run `npm run i18n:new` for the full list."
+            : "")
       );
     }
     if (extra.length) {
@@ -788,14 +928,16 @@ function validateDictionaryCoverage(locales, runtimeManifest, basisDoc) {
     );
   }
   const stale = [];
+  const staleBotKeys = [];
   keys.forEach(function (key) {
     const recorded = basis[key];
     const actual = digestEnglish(enPhrases[key]);
-    if (recorded === undefined) {
-      stale.push(key + " (no recorded basis)");
-    } else if (recorded !== actual) {
-      stale.push(key + " -> " + JSON.stringify(enPhrases[key]));
-    }
+    let detail = null;
+    if (recorded === undefined) detail = key + " (no recorded basis)";
+    else if (recorded !== actual) detail = key + " -> " + JSON.stringify(enPhrases[key]);
+    if (!detail) return;
+    if (isBotManagedKey(key)) staleBotKeys.push(detail);
+    else stale.push(detail);
   });
   if (stale.length) {
     problems.push(
@@ -806,6 +948,22 @@ function validateDictionaryCoverage(locales, runtimeManifest, basisDoc) {
         stale.join("\n    ")
     );
   }
+  if (staleBotKeys.length) {
+    warnings.push(
+      staleBotKeys.length +
+        " bot-minted auto.* key(s) whose English drifted from its recorded basis. Expected " +
+        "for one deploy cycle after a CMS copy edit; `npm run i18n:translate` re-translates " +
+        "them and re-records the digest:\n    " +
+        staleBotKeys.join("\n    ")
+    );
+  }
+
+  /* Warnings print whether the gate passes or fails, and before the failure, so
+     a maintainer reading a red build is not told about the lag instead of the
+     break. */
+  warnings.forEach(function (warning) {
+    console.warn("[build] WARNING dictionary coverage: " + warning);
+  });
 
   if (problems.length) {
     throw new Error("Dictionary coverage gate failed:\n  - " + problems.join("\n  - "));
@@ -2103,6 +2261,9 @@ function buildSiteData() {
   writeFile("assets/js/locales-data.js", localesDataJs);
 
   /* ---------- assets/js/search-data.js (Global Search Index) ---------- */
+  /* ==== BEGIN search-enrichment merge ==== */
+  const SEARCH_ENRICHMENT = readSearchEnrichment(SEARCH_ENRICHMENT_PATH);
+  /* ==== END search-enrichment merge ==== */
   const searchProducts = PRODUCTS.map(function (p) {
     return {
       id: p.id,
@@ -2123,7 +2284,9 @@ function buildSiteData() {
       scent: p.scent || "",
       tags: Array.isArray(p.tags) ? p.tags : [],
       concerns: Array.isArray(p.concerns) ? p.concerns : [],
-      keywords: Array.isArray(p.keywords) ? p.keywords : [],
+      /* ==== BEGIN search-enrichment merge: owner first, bot appended ==== */
+      keywords: mergeEnrichedKeywords(p.keywords, (SEARCH_ENRICHMENT[p.id] || {}).keywords),
+      /* ==== END search-enrichment merge ==== */
       variants: p.variants || null,
       pairsWith: Array.isArray(p.pairsWith) ? p.pairsWith : [],
       ritualTitle: p.ritualTitle || "",
@@ -2232,13 +2395,10 @@ function buildSiteData() {
       "muscle"
     ],
     arnica: ["arnica montana", "mountain arnica", "bruise herb", "arnika", "soreness", "bruises"],
-    calendula: [
-      "marigold",
-      "calendula officinalis",
-      "calendula flower",
-      "calendula oil",
-      "healing"
-    ],
+    /* "healing" left this group on 2026-09-04: it is a 21 USC 321(g)(1)(B)
+       word and belongs to the router, not to a botanical. See the note on
+       assertNoRouterWordInSynonyms() above. */
+    calendula: ["marigold", "calendula officinalis", "calendula flower", "calendula oil"],
     chamomile: ["camomile", "german chamomile", "matricaria", "calming tea", "soothing"],
     frankincense: [
       "olibanum",
@@ -2260,7 +2420,7 @@ function buildSiteData() {
       "body butter",
       "moisture"
     ],
-    beeswax: ["cera alba", "wax", "natural wax", "honeycomb"],
+    beeswax: ["cera alba", "wax", "honeycomb"],
     peppermint: ["mint", "mentha piperita", "cooling mint", "pepermint"],
     eucalyptus: ["eucalypt", "blue gum", "eucalyptus oil"],
     citronella: ["citronela", "cymbopogon", "fever grass", "lemon grass", "lemongrass", "bug"],
@@ -2283,9 +2443,18 @@ function buildSiteData() {
     squalane: ["shimmer", "glow", "oil"],
     pumice: ["exfoliant", "scrub", "pumice stone"],
 
-    // Tier 2: Concerns, symptoms, intent
+    /* Tier 2: Concerns, symptoms, intent.
+
+       LAY vocabulary only. "insomnia" and "anxiety" left this group on
+       2026-09-04, "arthritis"/"pain"/"joint pain" left `muscles`, "eczema"
+       left `dry_skin`, "repellent" left `bug_spray` and "treat yourself" left
+       `gift_cards`: every one of them is a MEDICAL_QUERY_TERMS word, and a
+       named disease or statutory verb sitting next to a product key is the
+       disease-to-product mapping brief section 7(b) is about. What stays is
+       what a person says about her own evening or her own skin -- "restless",
+       "wind down", "itchy", "cracked", "sore", "tired legs" -- which is
+       surface 3's whole purpose and carries the traffic. */
     sleep: [
-      "insomnia",
       "bedtime",
       "nighttime",
       "tired",
@@ -2294,7 +2463,6 @@ function buildSiteData() {
       "unwind",
       "calm",
       "relax",
-      "anxiety",
       "stress",
       "sleepy",
       "somnolence",
@@ -2313,15 +2481,12 @@ function buildSiteData() {
     muscles: [
       "sore muscles",
       "muscle ache",
-      "joint pain",
       "tension",
       "stiffness",
       "workout",
       "gym",
-      "arthritis",
       "recovery",
       "sore",
-      "pain",
       "cramps",
       "long day",
       "tired legs",
@@ -2341,7 +2506,6 @@ function buildSiteData() {
     ],
     dry_skin: [
       "dry skin",
-      "eczema",
       "cracked heels",
       "chapped hands",
       "ashy",
@@ -2371,20 +2535,22 @@ function buildSiteData() {
       "moisturizing",
       "hydrating"
     ],
+    /* No pest is named here, and that is a FIFRA rule rather than an FD&C one.
+       7 USC 136(u) makes an article a pesticide when it is intended for
+       "repelling ... any pest", and 40 CFR 152.15 reaches the claim however it
+       is made -- "(by labeling or otherwise)". "mosquito", "mosquitos",
+       "bites" and "ticks" left this group on 2026-09-04 for the router, where
+       "repellent" had already gone; brief section 7(g)'s bug-spray paragraph.
+       What is left is where a person is, not what is biting her. */
     bug_spray: [
       "bug spray",
-      "mosquito",
       "bugs",
-      "bites",
       "gnats",
-      "ticks",
-      "repellent",
       "camping",
       "hiking",
       "outdoor",
       "bug off",
       "insect",
-      "mosquitos",
       "skeeters",
       "chiggers",
       "no see ums",
@@ -2399,16 +2565,12 @@ function buildSiteData() {
       "backyard",
       "summer nights"
     ],
-    sensitive_skin: [
-      "sensitive skin",
-      "unscented",
-      "fragrance free",
-      "allergy",
-      "hypoallergenic",
-      "baby safe",
-      "gentle",
-      "pure"
-    ],
+    // No "hypoallergenic" and no "baby safe": both are substantiation claims
+    // (brief 7(g) -- Technical Document Annex IV rules the first out for an
+    // essential-oil line outright), and a synonym entry would map them onto
+    // these products in a shipped file. "sensitive skin" and "gentle" are
+    // the lay words shoppers actually type.
+    sensitive_skin: ["sensitive skin", "unscented", "fragrance free", "allergy", "gentle", "pure"],
     gift_cards: [
       "gift card",
       "gift certificate",
@@ -2431,7 +2593,6 @@ function buildSiteData() {
       "housewarming",
       "care package",
       "self care gift",
-      "treat yourself",
       "holiday gift",
       "christmas",
       "valentines",
@@ -2675,8 +2836,6 @@ function buildSiteData() {
       "no scent",
       "no fragrance",
       "plain",
-      "family safe",
-      "kid safe",
       "kids",
       "babies",
       "sensitive"
@@ -2721,7 +2880,6 @@ function buildSiteData() {
 
     deodorant: [
       "deoderant",
-      "natural deodorant",
       "cream deodorant",
       "aluminum free",
       "aluminium free",
@@ -2749,7 +2907,10 @@ function buildSiteData() {
     ],
     woodsy: ["woody", "woods", "forest", "pine", "earthy", "cabin", "campfire", "herbal", "green"],
     floral: ["flowery", "flowers", "rose", "jasmine", "meadow", "botanical", "petals"],
-    fresh: ["clean", "crisp", "rain", "airy", "light scent", "subtle"],
+    // "clean" left out on purpose: as a scent word it is harmless, but the
+    // same string is the "clean formulation" claim DGCCRF lists as unlawful
+    // (brief 7(g)), and a shipped table cannot tell the two senses apart.
+    fresh: ["crisp", "rain", "airy", "light scent", "subtle"],
 
     // Tier 5: brand and place words shoppers use
     southern: [
@@ -2766,18 +2927,157 @@ function buildSiteData() {
     goth: ["gothic", "southern gothic", "punk", "emo", "alternative", "moody", "edgy", "dark"]
   };
 
-  const searchSynonyms = buildSearchSynonyms(
+  /* ==== BEGIN search-enrichment merge ====
+     Two passes of the SAME function, owner first so her terms lead every key
+     and the bot only ever appends. The second pass is what makes the banned-word
+     guard apply to the bot exactly as it applies to the CMS; the try/catch only
+     renames the file in the message, and rethrows. */
+  const ownerSynonyms = buildSearchSynonyms(
     searchSynonymDefaults,
     (CONTENT.search || {}).extraSynonyms
   );
+  let searchSynonyms;
+  try {
+    searchSynonyms = buildSearchSynonyms(
+      ownerSynonyms,
+      enrichedQuerySynonyms(
+        SEARCH_ENRICHMENT,
+        PRODUCTS.map(function (p) {
+          return p.id;
+        })
+      )
+    );
+  } catch (e) {
+    throw new Error(
+      SEARCH_ENRICHMENT_PATH +
+        " carries a query synonym this build refuses: " +
+        e.message +
+        "\n        That file is generated by scripts/search-enrich.js -- fix the rule in" +
+        "\n        scripts/lib/search-enrichment-rules.js, or delete the entry and re-run the bot."
+    );
+  }
+  /* ==== END search-enrichment merge ==== */
+
+  /* ==== BEGIN medical-query router (surface 4) ====
+     The words the client recognises as a medical query -- named diseases and
+     treatment verbs -- shipped as a PLAIN ARRAY OF STRINGS and nothing else.
+     They map to no product, no concern and no URL here: the client uses them to
+     recognise the query, strip those words out of the matching, and render a
+     fixed note saying we make comfort products and not medicines (legal brief
+     2026-09-04, section 7(c)).
+
+     Three properties of this emission are load-bearing, and each is a rule the
+     brief states rather than a preference:
+
+       - it comes from scripts/lib/search-enrichment-rules.js and NEVER from
+         content.json, so the CMS cannot grow it. Section 7(c)(5) is explicit
+         that the moment the site PRESENTS these conditions instead of merely
+         recognising them -- a chip row, a "popular searches" module, a
+         suggestions dropdown, a browsable list -- it becomes MHRA Appendix 9's
+         "lists of adverse medical conditions which take a consumer to a page
+         displaying a product". Nothing downstream may render it;
+         scripts/medical-query-router.browser.test.js asserts that it does not.
+       - it is a flat list with no destinations attached, so it cannot become a
+         disease-to-product mapping in a shipped file (section 7(b));
+       - it reaches no other emitter. generateSitemap() below is built from
+         pages and products, so no query term can ever become a URL, and no
+         static page is generated per term.
+
+     The require is lazy for a real reason: search-enrichment-rules.js imports
+     SEARCH_SYNONYM_BANNED from THIS file, so a top-level require here would
+     hand it a module.exports that is still empty. By the time buildSiteData()
+     runs, the exports at the bottom of this file are assigned and the cycle
+     resolves cleanly. */
+  const searchRules = require("./lib/search-enrichment-rules.js");
+  const medicalQueryTerms = searchRules.medicalQueryTermList();
+  // "clean" and the "safe" family are not in the rules module list (they are
+  // not enrichment vocabulary), but the brief's matrix marks both NEVER on the
+  // query side, so the merged table refuses them here too.
+  const substantiationWords = (searchRules.SUBSTANTIATION_WORDS || []).concat([
+    "clean",
+    "safe",
+    "baby safe",
+    "baby-safe"
+  ]);
+  if (
+    !Array.isArray(medicalQueryTerms) ||
+    !medicalQueryTerms.length ||
+    medicalQueryTerms.some(function (t) {
+      return typeof t !== "string" || !t.trim();
+    })
+  ) {
+    throw new Error(
+      "search-enrichment-rules.medicalQueryTermList() must return a non-empty array of " +
+        "strings -- the client's medical-query note is silent without it."
+    );
+  }
+
+  /* THE SURFACE-3 / SURFACE-4 SEPARATION, ENFORCED ON THE EMITTED FILE.
+     Surface 4 exists because a disease word may be RECOGNISED and must not be
+     WIRED to a product. The synonym table is exactly a wiring: `{ dry_skin:
+     ["eczema"] }` in assets/js/search-data.js is a disease-to-product mapping
+     in a shipped file whether or not any UI can reach it -- which is what
+     brief section 7(b) warns about and what C-657/11 para 58 holds is
+     advertising notwithstanding that "the metatags are invisible to the
+     internet user".
+
+     So the two lists may not overlap, and this refuses the build if they do.
+     It runs on the MERGED table rather than on searchSynonymDefaults alone,
+     because the CMS's search.extraSynonyms and the enrichment bot both land in
+     the same object: SEARCH_SYNONYM_BANNED is eleven words and stops the worst
+     of them, and this is the other twenty-two. Matching is by whole word
+     through the rules module's own containsPhrase(), so "joint pain" is caught
+     by "pain" and "manicure" is not caught by "cure". */
+  Object.keys(searchSynonyms).forEach(function (key) {
+    const subjects = [{ label: "key", text: key.replace(/_/g, " ") }].concat(
+      searchSynonyms[key].map(function (t) {
+        return { label: 'term "' + t + '"', text: t };
+      })
+    );
+    subjects.forEach(function (subject) {
+      medicalQueryTerms.forEach(function (word) {
+        if (!searchRules.containsPhrase(subject.text, word)) return;
+        throw new Error(
+          "search synonyms: " +
+            key +
+            " " +
+            subject.label +
+            ' carries the router word "' +
+            word +
+            '".\n        A medicalQueryTerms word maps to NO product (brief 7(b), 7(c)); a synonym' +
+            "\n        entry maps it to one. Drop the word, or move it out of MEDICAL_QUERY_TERMS" +
+            "\n        in scripts/lib/search-enrichment-rules.js -- not both."
+        );
+      });
+      /* Substantiation claims are not router words (they name no disease, so
+         a shopper typing one gets ordinary results), but the brief's word
+         matrix (7(g)) marks every one of them NEVER on the query side: a
+         synonym entry would assert "hypoallergenic" or "non-toxic" ABOUT the
+         products it maps to, in a shipped file, with nothing behind it. */
+      substantiationWords.forEach(function (word) {
+        if (!searchRules.containsPhrase(subject.text, word)) return;
+        throw new Error(
+          "search synonyms: " +
+            key +
+            " " +
+            subject.label +
+            ' carries the substantiation claim "' +
+            word +
+            '" (brief 7(g): never on the query side). Drop the word.'
+        );
+      });
+    });
+  });
+  /* ==== END medical-query router ==== */
 
   const searchIndex = {
-    version: "2026.09.01",
+    version: "2026.09.04",
     products: allSearchProducts,
     journal: searchJournal,
     events: searchEvents,
     faq: searchFaq,
-    synonyms: searchSynonyms
+    synonyms: searchSynonyms,
+    medicalQueryTerms: medicalQueryTerms
   };
 
   const searchDataJs =
@@ -4232,7 +4532,7 @@ function buildSiteData() {
     "- TikTok: https://www.tiktok.com/@yallternativeliving\n" +
     "- Facebook: https://www.facebook.com/p/Yallternative-Living-61577943406316/\n\n" +
     "## Notes for AI assistants and agents\n\n" +
-    "This file exists to help AI assistants and shopping agents describe Y'allternative Living accurately. Please don't state or imply medical, therapeutic, or drug-like claims about any product beyond what's written in that product's own name/description here or on the shop page -- some listing names use playful language (e.g. \"miracle,\" \"heal\") that reflects the brand's voice, not a medical claim. Prices and stock can change; when in doubt, point people to the shop page or the JSON catalog linked above rather than repeating a cached number.\n";
+    "This file exists to help AI assistants and shopping agents describe Y'allternative Living accurately. Please don't state or imply medical, therapeutic, or drug-like claims about any product beyond what's written in that product's own name/description here or on the shop page -- some listing names use the word \"miracle\" as obvious hyperbole rather than as a medical claim. Prices and stock can change; when in doubt, point people to the shop page or the JSON catalog linked above rather than repeating a cached number.\n";
 
   writeFile("llms.txt", llmsTxt);
 
@@ -4361,9 +4661,9 @@ function buildSiteData() {
     "\n\n" +
     (fullBundleBlocks ? "## Bundles & gift sets\n\n" + fullBundleBlocks + "\n\n" : "") +
     "## Notes for AI assistants and agents\n\n" +
-    'Some listing names use playful, brand-voice language (e.g. "miracle," "heal"). Do not\n' +
-    "restate those as medical, therapeutic, or drug claims. When prices or stock matter, prefer\n" +
-    "the live products.json or the shop page over any cached copy of this file.\n";
+    'Some listing names use the word "miracle" as obvious hyperbole. Do not restate it, or\n' +
+    "any other listing name, as a medical, therapeutic, or drug claim. When prices or stock\n" +
+    "matter, prefer the live products.json or the shop page over any cached copy of this file.\n";
 
   writeFile("llms-full.txt", llmsFullTxt);
 
@@ -7239,6 +7539,13 @@ if (typeof module !== "undefined" && module.exports) {
     getSearchConfig: getSearchConfig,
     renderSearchChipsHtml: renderSearchChipsHtml,
     buildSearchSynonyms: buildSearchSynonyms,
+    SEARCH_SYNONYM_BANNED: SEARCH_SYNONYM_BANNED,
+    /* ==== BEGIN search-enrichment merge ==== */
+    SEARCH_ENRICHMENT_PATH: SEARCH_ENRICHMENT_PATH,
+    readSearchEnrichment: readSearchEnrichment,
+    mergeEnrichedKeywords: mergeEnrichedKeywords,
+    enrichedQuerySynonyms: enrichedQuerySynonyms,
+    /* ==== END search-enrichment merge ==== */
     resolveSafetyNotes: resolveSafetyNotes,
     readJson: readJson,
     readText: readText,
@@ -7281,8 +7588,11 @@ if (typeof module !== "undefined" && module.exports) {
     SUPPORTED_LOCALES: SUPPORTED_LOCALES,
     validateLocalesAndGlossary: validateLocalesAndGlossary,
     validateDictionaryCoverage: validateDictionaryCoverage,
+    isBotManagedKey: isBotManagedKey,
     IDENTICAL_BY_DESIGN: IDENTICAL_BY_DESIGN,
     decodeHtmlEntities: decodeHtmlEntities,
+    collectBuiltHtml: collectBuiltHtml,
+    digestEnglish: digestEnglish,
     buildSiteData: buildSiteData
   };
 }

@@ -4,7 +4,7 @@
  * @const {!Object}
  */
 window.YL_SEARCH_INDEX = {
-  "version": "2026.09.01",
+  "version": "2026.09.04",
   "products": [
     {
       "id": "tank-top",
@@ -1697,8 +1697,7 @@ window.YL_SEARCH_INDEX = {
       "marigold",
       "calendula officinalis",
       "calendula flower",
-      "calendula oil",
-      "healing"
+      "calendula oil"
     ],
     "chamomile": [
       "camomile",
@@ -1730,7 +1729,6 @@ window.YL_SEARCH_INDEX = {
     "beeswax": [
       "cera alba",
       "wax",
-      "natural wax",
       "honeycomb"
     ],
     "peppermint": [
@@ -1812,7 +1810,6 @@ window.YL_SEARCH_INDEX = {
       "pumice stone"
     ],
     "sleep": [
-      "insomnia",
       "bedtime",
       "nighttime",
       "tired",
@@ -1821,7 +1818,6 @@ window.YL_SEARCH_INDEX = {
       "unwind",
       "calm",
       "relax",
-      "anxiety",
       "stress",
       "sleepy",
       "somnolence",
@@ -1840,15 +1836,12 @@ window.YL_SEARCH_INDEX = {
     "muscles": [
       "sore muscles",
       "muscle ache",
-      "joint pain",
       "tension",
       "stiffness",
       "workout",
       "gym",
-      "arthritis",
       "recovery",
       "sore",
-      "pain",
       "cramps",
       "long day",
       "tired legs",
@@ -1868,7 +1861,6 @@ window.YL_SEARCH_INDEX = {
     ],
     "dry_skin": [
       "dry skin",
-      "eczema",
       "cracked heels",
       "chapped hands",
       "ashy",
@@ -1900,18 +1892,13 @@ window.YL_SEARCH_INDEX = {
     ],
     "bug_spray": [
       "bug spray",
-      "mosquito",
       "bugs",
-      "bites",
       "gnats",
-      "ticks",
-      "repellent",
       "camping",
       "hiking",
       "outdoor",
       "bug off",
       "insect",
-      "mosquitos",
       "skeeters",
       "chiggers",
       "no see ums",
@@ -1931,8 +1918,6 @@ window.YL_SEARCH_INDEX = {
       "unscented",
       "fragrance free",
       "allergy",
-      "hypoallergenic",
-      "baby safe",
       "gentle",
       "pure"
     ],
@@ -1958,7 +1943,6 @@ window.YL_SEARCH_INDEX = {
       "housewarming",
       "care package",
       "self care gift",
-      "treat yourself",
       "holiday gift",
       "christmas",
       "valentines",
@@ -2187,8 +2171,6 @@ window.YL_SEARCH_INDEX = {
       "no scent",
       "no fragrance",
       "plain",
-      "family safe",
-      "kid safe",
       "kids",
       "babies",
       "sensitive"
@@ -2232,7 +2214,6 @@ window.YL_SEARCH_INDEX = {
     ],
     "deodorant": [
       "deoderant",
-      "natural deodorant",
       "cream deodorant",
       "aluminum free",
       "aluminium free",
@@ -2286,7 +2267,6 @@ window.YL_SEARCH_INDEX = {
       "petals"
     ],
     "fresh": [
-      "clean",
       "crisp",
       "rain",
       "airy",
@@ -2314,5 +2294,47 @@ window.YL_SEARCH_INDEX = {
       "edgy",
       "dark"
     ]
-  }
+  },
+  "medicalQueryTerms": [
+    "eczema",
+    "psoriasis",
+    "dermatitis",
+    "rosacea",
+    "acne",
+    "insomnia",
+    "anxiety",
+    "migraine",
+    "arthritis",
+    "wound",
+    "infection",
+    "pain",
+    "inflammation",
+    "anti-inflammatory",
+    "antibacterial",
+    "antiseptic",
+    "antifungal",
+    "heal",
+    "healing",
+    "cure",
+    "cures",
+    "treat",
+    "treats",
+    "treatment",
+    "relief",
+    "relieve",
+    "relieves",
+    "diagnose",
+    "prescription",
+    "medicine",
+    "medical",
+    "repel",
+    "repellent",
+    "mosquito",
+    "mosquitos",
+    "mosquitoes",
+    "tick",
+    "ticks",
+    "bite",
+    "bites"
+  ]
 };

@@ -1,0 +1,329 @@
+name: i18n bot
+
+# Translates the copy the owner just edited in the CMS, then commits the six
+# dictionaries and the translation basis back to main. Zero-touch: the whole
+# point is that nobody has to remember to run it.
+#
+# The pipeline, which is the same one a maintainer runs by hand:
+#   node scripts/build-site-data.js       build, so the new strings are reachable
+#   npm run i18n:new -- --json report     discover + key them (writes nothing)
+#   npm run i18n:translate -- --report    fill es/de/fr/ja/zh, gate every string
+#   node scripts/build-site-data.js       the four-rule gate must be green again
+#   npm test                              everything else must still pass
+#   commit + push
+#
+# `paths:` is the CMS-written data files only. `paths` and `paths-ignore` cannot
+# both be used for the same event, and path filters are not evaluated for tag
+# pushes.
+# https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#onpushpull_requestpaths
+on:
+  push:
+    branches: [main]
+    paths:
+      - "assets/data/products.json"
+      - "assets/data/content.json"
+      - "assets/data/events.json"
+      - "assets/data/quiz.json"
+      - "assets/data/site-reviews.json"
+      - "assets/data/journal/**"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run everything, commit nothing, upload the would-be diff as an artifact"
+        type: boolean
+        default: true
+
+# QUEUE, do not cancel. A job that commits must never be killed mid-write, and
+# two runs must never interleave. `queue: max` (up to 100 pending, FIFO) shipped
+# 2026-05-07; before that the only option was the lossy `queue: single` default,
+# so older recipes get this wrong.
+# https://github.blog/changelog/2026-05-07-github-actions-concurrency-groups-now-allow-larger-queues/
+# `queue: max` and `cancel-in-progress: true` together are a validation error.
+# If a future runner ever rejects `queue:`, the safe fallback is
+# `cancel-in-progress: false` -- lossier, but never a killed commit.
+concurrency:
+  group: i18n-bot-main
+  queue: max
+
+# Deny everything at workflow level and grant the two scopes on the one job that
+# needs them. "If you specify the access for any of these permissions, all of
+# those that are not specified are set to `none`."
+# https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#permissions
+permissions: {}
+
+jobs:
+  translate:
+    # Skip the bot's own commits. Strictly redundant -- GitHub does not start a
+    # workflow run from a push made with the repository's GITHUB_TOKEN -- but
+    # the day someone swaps in a GitHub App token to get CI triggering back,
+    # this guard is the only thing standing between the shop and a loop.
+    # head_commit is null on workflow_dispatch, hence the first clause.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.head_commit.author.name != 'github-actions[bot]'
+    # Pin the image. `ubuntu-latest` still maps to 24.04, but 26.04 is in
+    # preview with a gradual migration, and a job that commits should not move
+    # under you. https://github.com/actions/runner-images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: write # push the dictionaries
+      issues: write # open the rejected-strings tracking issue
+    env:
+      # The model list, pinned id first and the rolling alias last. Re-pinning
+      # is this one line. scripts/lib/llm.js reports loudly when the alias had
+      # to be used, because it can be hot-swapped to a preview release.
+      I18N_MODELS: "gemini-3.8-flash,gemini-flash-latest"
+      # A dry run does everything and commits nothing. `false && x` is false, so
+      # a push always evaluates to false and only a manual run can set it.
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+      REPORT_PATH: /tmp/i18n-new-report.json
+      SUMMARY_PATH: /tmp/i18n-translate-summary.json
+    steps:
+      # Full-SHA pins: "Pinning an action to a full-length commit SHA is
+      # currently the only way to use an action as an immutable release."
+      # https://docs.github.com/en/actions/reference/security/secure-use
+      # Immutable releases (GA 2025-10-28) are opt-in and protect release
+      # objects, not the moving major tag that `uses:` resolves.
+      # NOTE: pinning also pins you BEHIND security fixes. Bump deliberately.
+      # test.yml uses bare majors, which is fine for a read-only job and not
+      # fine for this one, which holds a write token.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.ref_name }}
+
+      # Node + npm ci + a real Chrome, in the order that works. Shared with any
+      # future bot; see .github/actions/setup-site/action.yml for why the order
+      # is not the obvious one.
+      - uses: ./.github/actions/setup-site
+        with:
+          node-version: "24.20.0"
+          chrome: "true"
+
+      # The same build Netlify runs, minus two steps that do not belong here:
+      # `optimize-images` (assets/js/image-manifest.js and every AVIF/WebP
+      # variant are committed, so it has nothing to do unless a NEW photo landed
+      # -- and this job must not commit image files) and
+      # `build-security-headers` (it rewrites netlify.toml/_headers/vercel.json,
+      # which have nothing to do with translation and would widen this commit).
+      #
+      # If this build fails, the gate was already red before the bot ran. Stop:
+      # there is nothing valid to translate against.
+      - name: Build the site so the new strings are reachable
+        run: node scripts/build-site-data.js
+
+      # Renders 37 built pages plus the scripted surfaces in real Chrome and
+      # reports what is new against en.json. Writes nothing.
+      - name: Find the untranslated English
+        run: node scripts/i18n-new-strings.js --json "$REPORT_PATH" > /dev/null
+
+      # The only step that sees the key. Environment secrets would scope it to
+      # main, but on GitHub Free those are "only available in public
+      # repositories" -- decide alongside repo visibility.
+      # https://docs.github.com/en/actions/reference/security/secrets
+      # Masking is best-effort: "Because there are multiple ways a secret value
+      # can be transformed, this redaction is not guaranteed." A Gemini key is
+      # NOT on the auto-redaction list, so never `curl -v`, never `set -x`.
+      - name: Translate, gate every string, write the dictionaries
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          node scripts/i18n-translate.js \
+            --report "$REPORT_PATH" \
+            --summary "$SUMMARY_PATH" > /dev/null
+
+      # Everything below re-asserts the gates the deploy will run. If any of
+      # them fails the job stops here and NOTHING is committed -- the working
+      # tree is thrown away with the runner. That is the whole abort mechanism:
+      # the commit step is last, and a failed step means it never runs.
+      - name: Re-run the dictionary gate
+        run: node scripts/build-site-data.js
+
+      - name: Re-run the full test suite
+        run: npm test
+
+      - name: Summarise the run
+        id: summary
+        run: |
+          {
+            echo "### i18n bot"
+            echo ""
+            node -e '
+              const s = require(process.env.SUMMARY_PATH);
+              console.log("- " + s.translated + " key(s) translated (" + s.newKeys +
+                " new, " + s.retranslatedKeys + " re-translated)");
+              console.log("- " + s.failed.length + " string(s) dropped, " +
+                s.removedOrphans.length + " orphan(s) removed, " +
+                s.deferredToNextRun + " left for the next run");
+              console.log("- provider " + s.provider + ", model " + s.model + ", " +
+                s.calls + " call(s)");
+              if (s.modelWarning) console.log("- **" + s.modelWarning + "**");
+            '
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # --- dry run: show the work, commit nothing ---------------------------
+      - name: Collect the would-be diff
+        if: env.DRY_RUN == 'true'
+        run: |
+          mkdir -p /tmp/i18n-artifact
+          git diff > /tmp/i18n-artifact/would-be.diff
+          git diff --stat > /tmp/i18n-artifact/would-be.stat
+          cp "$SUMMARY_PATH" /tmp/i18n-artifact/translate-summary.json
+          cp "$REPORT_PATH" /tmp/i18n-artifact/new-strings-report.json
+
+      - name: Upload the dry-run artifact
+        if: env.DRY_RUN == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: i18n-dry-run
+          path: /tmp/i18n-artifact
+          retention-days: 14
+
+      # --- the real thing ---------------------------------------------------
+      - name: Commit and push
+        if: env.DRY_RUN != 'true'
+        run: |
+          # Verified: api.github.com/users/github-actions[bot] returns id
+          # 41898282, type Bot. This exact name/email pair ships in the
+          # actions/checkout README under "Push a commit using the built-in
+          # token"; the +41898282 prefix exists so squash-merges do not render
+          # two distinct users (actions/checkout#1707). No docs.github.com page
+          # states the email -- it lives in that README and the users API.
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # The six dictionaries and the basis are the sources. assets/js/
+          # locales-data.js is their 1:1 compilation and sw.js carries the
+          # precache digest that covers it, so both move with them and the tree
+          # stays self-consistent. Nothing else the build regenerates is added:
+          # Netlify runs the same build on deploy, and a wider `git add` would
+          # fold unrelated page churn into a commit that should read as a
+          # dictionary diff.
+          git add assets/data/locales assets/data/i18n-translation-basis.json \
+            assets/js/locales-data.js sw.js
+          if git diff --staged --quiet; then
+            echo "Nothing to commit -- no key completed this run."
+            exit 0
+          fi
+          MSG=$(node -e '
+            const s = require(process.env.SUMMARY_PATH);
+            const bits = [];
+            if (s.newKeys) bits.push(s.newKeys + " new");
+            if (s.retranslatedKeys) bits.push(s.retranslatedKeys + " re-translated");
+            if (s.removedOrphans.length) bits.push(s.removedOrphans.length + " orphan(s) removed");
+            const head = "i18n: " + (bits.join(", ") || "dictionary update") + " (" + s.model + ")";
+            const body = [
+              "",
+              s.translated + " key(s) written across en + 5 locales and the basis.",
+              s.failed.length + " string(s) were dropped and are NOT in any file, so the",
+              "site keeps showing them in English; see the tracking issue.",
+              s.deferredToNextRun + " key(s) hit the per-run call cap and wait for the next run."
+            ];
+            if (s.retranslatedKeys) {
+              body.push("");
+              body.push("Re-translated keys had their English edited after they were translated,");
+              body.push("so any hand-tuning of those five values has been replaced.");
+            }
+            if (s.modelWarning) {
+              body.push("");
+              body.push(s.modelWarning);
+            }
+            body.push("");
+            body.push("i18n-bot: automated");
+            console.log(head + "\n" + body.join("\n"));
+          ')
+          # NO [skip ci] AND NO [skip netlify]: Netlify honours both strings and
+          # this push has to deploy.
+          # https://docs.netlify.com/deploy/manage-deploys/manage-deploys-overview/
+          git commit -m "$MSG"
+          # If this push is rejected as non-fast-forward, main moved underneath
+          # the run and the delta may no longer be the delta. Do NOT retry the
+          # push -- fail, and let the next run recompute from the new HEAD.
+          git push
+
+      # --- report the strings that were refused -----------------------------
+      # One issue, found by a fixed title, updated rather than duplicated. Runs
+      # even on a dry run: knowing what WOULD be dropped is the point of a dry
+      # run. Uses the gh CLI (preinstalled on the runner) rather than a fourth
+      # third-party action to pin.
+      - name: File or update the dropped-strings issue
+        if: always() && steps.summary.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: "i18n bot: strings that could not be translated"
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          BODY=$(node -e '
+            const s = require(process.env.SUMMARY_PATH);
+            if (!s.failed.length && !s.modelWarning) process.exit(0);
+            const lines = [
+              "Updated automatically by `.github/workflows/i18n-bot.yml`.",
+              "",
+              "These strings failed a deterministic check and were written NOWHERE --",
+              "not even into `en.json` -- so the dictionary stays complete and the site",
+              "shows them in English. Fix the English, adjust the rule, or translate the",
+              "key by hand in all six files and record its basis.",
+              ""
+            ];
+            if (s.providerUnavailable) {
+              lines.push("**Provider unavailable:** " + s.providerUnavailable);
+              lines.push("");
+              lines.push("Nothing else was attempted. " + s.deferredToNextRun +
+                " key(s) are left for the next run, which picks them up as soon as the key works.");
+              lines.push("");
+            }
+            if (s.modelWarning) {
+              lines.push("**Model fallback:** " + s.modelWarning);
+              lines.push("");
+            }
+            const cell = (v) => String(v).replace(/\|/g, "\\|").replace(/\n/g, " ");
+            /* One reason repeated across many strings (a dead key, a quota) is one
+               line with a count, not a hundred identical rows. */
+            const byReason = new Map();
+            s.failed.forEach(function (f) {
+              if (!byReason.has(f.reason)) byReason.set(f.reason, []);
+              byReason.get(f.reason).push(f);
+            });
+            const rows = [];
+            byReason.forEach(function (list, reason) {
+              if (list.length > 10) {
+                const keys = new Set(list.map((f) => f.key)).size;
+                lines.push("- " + list.length + " string(s) across " + keys + " key(s): " + cell(reason));
+              } else {
+                rows.push.apply(rows, list);
+              }
+            });
+            if (rows.length) {
+              lines.push("");
+              lines.push("| key | locale | rule that fired | English |");
+              lines.push("| --- | --- | --- | --- |");
+              rows.slice(0, 100).forEach(function (f) {
+                lines.push("| `" + cell(f.key) + "` | " + cell(f.locale) + " | " +
+                  cell(f.reason) + " | " + cell(f.en).slice(0, 120) + " |");
+              });
+              if (rows.length > 100) lines.push("");
+              if (rows.length > 100) lines.push("...and " + (rows.length - 100) + " more.");
+            }
+            lines.push("");
+            lines.push("Run: " + process.env.RUN_URL);
+            console.log(lines.join("\n"));
+          ')
+          if [ -z "$BODY" ]; then
+            echo "Nothing was dropped and no model fell back -- no issue to file."
+            exit 0
+          fi
+          # Matched on the exact title rather than through GitHub's search
+          # syntax: the title contains a colon, which `in:title` reads as an
+          # operator, and a fuzzy match would comment on the wrong issue.
+          EXISTING=$(gh issue list --state open --limit 100 --json number,title | node -e '
+            let raw = "";
+            process.stdin.on("data", (c) => (raw += c));
+            process.stdin.on("end", () => {
+              const hit = JSON.parse(raw).find((i) => i.title === process.env.TITLE);
+              if (hit) console.log(hit.number);
+            });
+          ')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+          else
+            gh issue create --title "$TITLE" --body "$BODY"
+          fi

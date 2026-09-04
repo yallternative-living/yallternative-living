@@ -86,21 +86,11 @@ function check(desc, ok, extra = "") {
   }
 }
 
-/* Both names are FIXTURES, deliberately not read from events.json.
-   
-   The visibility half of this suite used to run against whatever event the
-   CMS happened to ship next, which made it a test of Savanna's calendar
-   rather than of the crowding logic: on 2026-09-04 she added "Boomtown Arts
-   & Heritage FestAVL (Asheville, NC)" (46 chars), the bar legitimately ran
-   out of room at 1101px, the segment was correctly hidden -- and this suite
-   went red reporting a bug that did not exist. A gate that fails when the
-   shop books a market with a long name is not measuring the code.
-   
-   So both halves inject their own name now. SHORT_NAME must leave the
-   segment visible (that is what catches `is-crowded` sticking on, the
-   regression this suite exists for -- a hidden segment can never wrap, so
-   the one-line assertion alone would pass vacuously). LONG_NAME must not
-   wrap the bar. Neither depends on the calendar. */
+/* Both names are FIXTURES, deliberately not read from events.json, so that
+   what this suite measures is the crowding logic and not Savanna's calendar.
+   LONG_NAME is the one the audit measured wrapping the bar from 1101px to
+   1327px; SHORT_NAME is short enough that the segment must fit at every width
+   above the CSS floor. */
 const SHORT_NAME = "Faire";
 const SHORT_LOCATION = "Landrum, SC";
 const LONG_NAME = "Spartanburg Punk Flea Market";
@@ -147,20 +137,9 @@ async function run() {
       // check compared the bar's padded height with a bare 14px line box, so
       // `is-crowded` was stuck on and the free-shipping segment was hidden
       // at EVERY width on the home page -- and this suite passed, because a
-      // hidden segment cannot wrap. With a name short enough to leave room,
-      // the segment must be visible and the bar one line at every width the
+      // hidden segment cannot wrap. With the site's own event name the
+      // segment must be visible and the bar one line at every width the
       // ≤1100px CSS rule does not already cover.
-      await page.evaluate(
-        (name, location) => {
-          const nameEl = document.getElementById("heroEventDetails");
-          if (nameEl) nameEl.textContent = name + " (" + location + ")";
-          window.dispatchEvent(new Event("resize"));
-        },
-        SHORT_NAME,
-        SHORT_LOCATION
-      );
-      await new Promise((resolve) => setTimeout(resolve, 400));
-
       const normal = await page.evaluate(() => {
         const bar = document.getElementById("yl-countdown-ticker");
         const seg = bar.querySelector(".announcement-segment");
@@ -174,10 +153,56 @@ async function run() {
         };
       });
       if (width > 1100) {
+        // Two different invariants, because the event name is CMS data and
+        // its length is not ours to assume. Whatever the name, the bar must
+        // stay one line, and if the segment is hidden it must be hidden BY
+        // the crowding logic (is-crowded on), never by accident. Only at the
+        // widest width do we insist the segment is actually visible: that is
+        // the assertion that catches the stuck-on regression above, and it
+        // is the one width where any plausible name fits. Asserting
+        // visibility at 1101px as well is what kept CI red from 2026-09-03
+        // (4391330) onward: with "Autumn Apothecary Faire (Landrum, SC)" on
+        // a Linux runner's fonts, and later with "Boomtown Arts & Heritage
+        // FestAVL (Asheville, NC)" everywhere, the three segments genuinely
+        // do not fit at 1101px -- and the logic hiding the segment there was
+        // doing exactly its job.
+        check(
+          `@${width}px: with the real event name the bar is one line and any hidden segment is hidden by is-crowded`,
+          normal.height < 60 && (normal.segmentVisible || normal.isCrowded),
+          `height=${normal.height}px, is-crowded=${normal.isCrowded}, segmentVisible=${normal.segmentVisible}`
+        );
+        /* The stuck-on regression needs a width where the segment MUST be
+           visible, and the real event name cannot promise one -- at 1440px it
+           happens to fit today, but that is still the calendar answering, not
+           the code. So this half supplies its own short name and then holds
+           the assertion at EVERY width above the floor, which is strictly more
+           than the widest-width-only version it replaces. */
+        await page.evaluate(
+          (name, location) => {
+            const nameEl = document.getElementById("heroEventDetails");
+            if (nameEl) nameEl.textContent = name + " (" + location + ")";
+            window.dispatchEvent(new Event("resize"));
+          },
+          SHORT_NAME,
+          SHORT_LOCATION
+        );
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        const shortName = await page.evaluate(() => {
+          const bar = document.getElementById("yl-countdown-ticker");
+          const seg = bar.querySelector(".announcement-segment");
+          return {
+            isCrowded: bar.classList.contains("is-crowded"),
+            height: bar.getBoundingClientRect().height,
+            segmentVisible:
+              !!seg &&
+              seg.getBoundingClientRect().width > 0 &&
+              getComputedStyle(seg).display !== "none"
+          };
+        });
         check(
           `@${width}px: with a short event name the free-shipping segment is visible on one line`,
-          normal.segmentVisible && normal.height < 60,
-          `height=${normal.height}px, is-crowded=${normal.isCrowded}, segmentVisible=${normal.segmentVisible}`
+          shortName.segmentVisible && shortName.height < 60,
+          `height=${shortName.height}px, is-crowded=${shortName.isCrowded}, segmentVisible=${shortName.segmentVisible}`
         );
       }
 

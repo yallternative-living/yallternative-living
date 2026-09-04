@@ -36,6 +36,10 @@
  *   node scripts/extract-i18n-strings.js                  # summary to stdout
  *   node scripts/extract-i18n-strings.js --json out.json  # full machine report
  *   node scripts/extract-i18n-strings.js --sync           # incremental diff
+ *
+ * Set YL_I18N_BASE_URL to render a copy of the built site somebody else is
+ * already serving instead of starting a server here; scripts/i18n-new-strings.js
+ * --base <url> sets it for you.
  */
 
 /* global document, window, NodeFilter, Node */
@@ -473,11 +477,11 @@ function matchingTemplateKey(matchers, text) {
   return null;
 }
 
-async function collectFrom(browser, boundPort, pageName, surface) {
+async function collectFrom(browser, origin, pageName, surface) {
   const page = await browser.newPage();
   try {
     await page.setViewport({ width: 1280, height: 900 });
-    await page.goto("http://127.0.0.1:" + boundPort + "/" + pageName, {
+    await page.goto(origin + "/" + pageName, {
       waitUntil: "networkidle2",
       timeout: 45000
     });
@@ -543,8 +547,17 @@ function readJsonIfPresent(rel) {
     process.exit(1);
   }
 
-  const server = await createStaticServer(PORT);
-  const boundPort = server.address().port;
+  /* Normally this serves the working tree itself on 8087 (falling back to an
+     ephemeral port when that one is busy, which it is whenever reveal-check.js
+     is running). YL_I18N_BASE_URL -- set by `scripts/i18n-new-strings.js
+     --base <url>` -- points the browser at a copy someone else is already
+     serving instead, which is what an unattended run wants when it has no
+     port to spare. The page list still comes from the local tree, so the
+     served copy has to be the same build. */
+  const baseUrl = (process.env.YL_I18N_BASE_URL || "").trim().replace(/\/+$/, "");
+  const server = baseUrl ? null : await createStaticServer(PORT);
+  const origin = baseUrl || "http://127.0.0.1:" + server.address().port;
+  if (baseUrl) console.log("Rendering the site served at " + origin);
   const browser = await puppeteer.launch({
     headless: true,
     protocolTimeout: 120000,
@@ -577,7 +590,7 @@ function readJsonIfPresent(rel) {
   try {
     console.log("Extracting static strings from " + pages.length + " built pages...");
     for (const pageName of pages) {
-      const { before } = await collectFrom(browser, boundPort, pageName, null);
+      const { before } = await collectFrom(browser, origin, pageName, null);
       before.forEach((e) => record(e, pageName, null));
     }
 
@@ -587,7 +600,7 @@ function readJsonIfPresent(rel) {
         console.log("  ! " + surface.name + ": page " + surface.page + " not built -- skipped");
         continue;
       }
-      const { before, after } = await collectFrom(browser, boundPort, surface.page, surface);
+      const { before, after } = await collectFrom(browser, origin, surface.page, surface);
       const baseline = new Set(before.map(keyOf));
       let newCount = 0;
       after.forEach((e) => {
@@ -608,7 +621,7 @@ function readJsonIfPresent(rel) {
     }
   } finally {
     await browser.close().catch(() => {});
-    await new Promise((r) => server.close(r));
+    if (server) await new Promise((r) => server.close(r));
   }
 
   const all = Array.from(registry.values()).sort((a, b) => b.count - a.count);

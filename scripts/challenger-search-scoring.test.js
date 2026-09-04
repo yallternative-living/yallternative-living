@@ -456,10 +456,25 @@ const symptomTypoTests = [
   { typo: "citronela", canonical: "citronella", expectedId: "bug-spray" },
   { typo: "arnika", canonical: "arnica", expectedId: "sleep-salve" },
   { typo: "camomile", canonical: "chamomile", expectedId: "sleep-salve" },
-  { typo: "insomnia", canonical: "sleep", expectedId: "sleep-salve" },
-  { typo: "eczema", canonical: "dry_skin", expectedId: "shea-butter" },
+  /* WAS `{ typo: "insomnia", canonical: "sleep" }` and `{ typo: "eczema",
+     canonical: "dry_skin" }`. Neither was a misspelling: both were named
+     diseases mapped onto a product group, which brief section 7(b) refuses in
+     a shipped file. They are medicalQueryTerms words now and find nothing;
+     routerWordsFindNothing below pins that. The LAY words that reach the same
+     two groups stay here, because the thing this table is really testing --
+     that a shopper's own spelling still lands -- is unchanged. */
+  { typo: "restless", canonical: "sleep", expectedId: "sleep-salve" },
+  { typo: "flaky", canonical: "dry_skin", expectedId: "shea-butter" },
   { typo: "chapped", canonical: "dry_skin", expectedId: "shea-butter" }
 ];
+
+/* The words that came out of the table above, asserted from the other side. */
+["insomnia", "eczema", "arthritis", "anxiety"].forEach((word) => {
+  it(`Router word: "${word}" maps to no product in searchGlobal()`, () => {
+    const ids = mainJs.searchGlobal(word).products.map((p) => p.id);
+    assert.deepStrictEqual(ids, [], `'${word}' must find nothing, got: ${ids.join(", ")}`);
+  });
+});
 
 symptomTypoTests.forEach(({ typo, canonical, expectedId }) => {
   it(`Misspelling / Symptom: "${typo}" -> maps to canonical "${canonical}" and finds "${expectedId}"`, () => {
@@ -703,8 +718,8 @@ it("Executes 10,000 diverse synthetic queries with average latency < 1.0ms per q
     "citronela",
     "arnika",
     "camomile",
-    "insomnia",
-    "eczema",
+    "restless",
+    "flaky",
     "sore muscles",
     "dry skin",
     "restless legs",
@@ -826,13 +841,22 @@ function loadShopGridSearchEngine() {
     concernLabel[c.id] = c.name;
   });
 
+  /* The sliced snippet now calls medicalQueryRoute(), which is declared far
+     above STOPWORDS and is therefore not in the slice. It is injected as a
+     parameter rather than sliced in a second time, and the one that goes in is
+     main.js's OWN export -- so this harness exercises the shipped router
+     against the shipped index, not a copy of either. That is the point of the
+     change it is testing: the stripping is a property of the engine now, so a
+     test that reached the engine without it would be testing something that no
+     longer exists. */
   const factory = new Function(
     "catLabel",
     "concernLabel",
+    "medicalQueryRoute",
     snippet +
       "\nreturn { expandQuery: expandQuery, matchesQuery: matchesQuery, SYNONYM_GROUPS: SYNONYM_GROUPS, CATEGORY_TERMS: CATEGORY_TERMS };"
   );
-  return { engine: factory(catLabel, concernLabel), productData };
+  return { engine: factory(catLabel, concernLabel, mainJs.medicalQueryRoute), productData };
 }
 
 const fs = require("fs");
@@ -875,17 +899,21 @@ it("Shop-grid engine: a 10,000-character query does not throw or hang", () => {
   assert.ok(fastestMs < 500, "resolves well under 500ms");
 });
 
-// --- Precision: a disease-word query must resolve to the RIGHT cosmetic
+// --- Precision: a LAY symptom query must resolve to the RIGHT cosmetic
 // bucket, not merely to "something". Etsy/Amazon shoppers type the symptom,
 // not the ingredient -- the engine's job is translating that into products
 // that actually exist and are actually relevant, never into unrelated
 // goods (apparel, gift cards, bug spray) just because they also matched
-// generic filler tokens. ---
+// generic filler tokens.
+//
+// WAS keyed on "insomnia", "eczema" and "arthritis". Those are router words
+// now and return nothing, which would have made every assertion here pass
+// vacuously -- a test that cannot fail is worse than no test (H-19). The lay
+// phrase that carries each intent is what is exercised instead. ---
 const disenrolledPairs = [
-  { query: "insomnia", mustNotInclude: ["tank-top", "unisex-tshirt", "bug-spray"] },
-  { query: "eczema", mustNotInclude: ["tank-top", "unisex-tshirt", "bug-spray"] },
-  { query: "arthritis", mustNotInclude: ["tank-top", "unisex-tshirt", "bug-spray"] },
-  { query: "mosquito", mustNotInclude: ["tank-top", "unisex-tshirt", "yallternative-gift-card"] }
+  { query: "restless", mustNotInclude: ["tank-top", "unisex-tshirt", "bug-spray"] },
+  { query: "flaky", mustNotInclude: ["tank-top", "unisex-tshirt", "bug-spray"] },
+  { query: "sore muscles", mustNotInclude: ["tank-top", "unisex-tshirt", "bug-spray"] }
 ];
 disenrolledPairs.forEach(({ query, mustNotInclude }) => {
   it(`Shop-grid engine: '${query}' stays on-topic (excludes ${mustNotInclude.join(", ")})`, () => {
@@ -901,8 +929,11 @@ disenrolledPairs.forEach(({ query, mustNotInclude }) => {
 
 // --- Case/punctuation robustness on the newly added vocabulary ---
 [
-  ["  INSOMNIA!!  ", "sleep-salve"],
-  ["Eczema???", "shea-butter"],
+  // WAS "  INSOMNIA!!  " and "Eczema???": the point of the pair is that case
+  // and punctuation are normalised away, and the lay words normalise the same
+  // way without wiring a disease to a jar (brief 7(b)).
+  ["  RESTLESS!!  ", "sleep-salve"],
+  ["Flaky???", "shea-butter"],
   ["BOSWELLIA", "frankincense-salve"],
   ["Gift, For, Him.", "yallternative-gift-card"]
 ].forEach(([rawQuery, expectedTop]) => {

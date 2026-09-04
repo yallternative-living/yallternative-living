@@ -1,0 +1,200 @@
+name: Copy claims review
+
+# Reads ONLY the wording the owner just changed in the CMS and, if any of it
+# reads as a health or bug-repellent promise, leaves her a note. It commits
+# nothing, edits nothing, and cannot fail a deploy -- Netlify does not wait on
+# this workflow, and this workflow never pushes.
+#
+# The five CMS-written data files plus the journal. `paths` and `paths-ignore`
+# cannot both be used for the same event, and path filters are not evaluated for
+# tag pushes.
+# https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#onpushpull_requestpaths
+on:
+  push:
+    branches: [main]
+    paths:
+      - "assets/data/products.json"
+      - "assets/data/content.json"
+      - "assets/data/events.json"
+      - "assets/data/quiz.json"
+      - "assets/data/site-reviews.json"
+      - "assets/data/journal/**"
+  workflow_dispatch:
+    inputs:
+      base:
+        description: "Compare from this ref (default: the previous commit)"
+        type: string
+        required: false
+      head:
+        description: "Compare to this ref (default: the checked-out commit)"
+        type: string
+        required: false
+
+# Cancel-in-progress is safe HERE and would not be in i18n-bot.yml: nothing is
+# committed, nothing is pushed, and a superseded run's report is stale by
+# definition. The newest push is the one whose wording matters.
+concurrency:
+  group: claims-review-${{ github.ref }}
+  cancel-in-progress: true
+
+# Deny everything at workflow level and grant the two scopes on the one job that
+# needs them. "If you specify the access for any of these permissions, all of
+# those that are not specified are set to `none`."
+# https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#permissions
+permissions: {}
+
+jobs:
+  review:
+    # Skip the bot's own commits, exactly as i18n-bot.yml does. GitHub does not
+    # start a run from a push made with GITHUB_TOKEN, so this is belt and
+    # braces -- but the i18n bot commits to this repo on a schedule nobody
+    # controls, and reviewing a machine's dictionary diff for health claims is
+    # noise at best. head_commit is null on workflow_dispatch.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.head_commit.author.name != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read # read the two versions of the data files
+      issues: write # file or update the one tracking issue
+    env:
+      # Pinned id first, the rolling alias last; scripts/lib/llm.js reports
+      # loudly when the alias had to be used. Re-pinning is this one line.
+      CLAIMS_MODELS: "gemini-3.8-flash,gemini-flash-latest"
+      SUMMARY_JSON: /tmp/claims-review.json
+      REPORT_MD: /tmp/claims-review.md
+      EMAIL_JSON: /tmp/claims-email.json
+    steps:
+      # Full-SHA pins: "Pinning an action to a full-length commit SHA is
+      # currently the only way to use an action as an immutable release."
+      # https://docs.github.com/en/actions/reference/security/secure-use
+      #
+      # fetch-depth 2 is the whole clone this job needs: the diff is HEAD
+      # against its parent. A manual run may name any ref, so that case takes
+      # the full history. The quotes matter -- GitHub expressions treat 0 as
+      # falsy, so an unquoted `&& 0 || 2` silently yields 2.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: ${{ github.event_name == 'workflow_dispatch' && '0' || '2' }}
+
+      # No Chrome and no site build: this job reads two versions of five JSON
+      # files. .github/actions/setup-site exists for the bots that render the
+      # site; using it here would install a 150MB browser to read a diff.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24.20.0"
+          cache: "npm"
+
+      - run: npm ci
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: "true"
+
+      # The only step that sees the model key. Masking is best-effort --
+      # "Because there are multiple ways a secret value can be transformed,
+      # this redaction is not guaranteed" -- and a Gemini key is not on the
+      # auto-redaction list, so never `set -x` here.
+      #
+      # `|| true` is deliberate and is the point of the whole workflow: this
+      # check must never be the reason a deploy or a run goes red. The script
+      # already exits 0 on findings; this covers the case where it exits 2 on a
+      # real error, which is worth a red step and not a red pipeline.
+      - name: Read what changed and review it
+        id: review
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OWNER_GITHUB_LOGIN: ${{ vars.OWNER_GITHUB_LOGIN }}
+        run: |
+          set -o pipefail
+          node scripts/claims-review.js \
+            --base "${{ github.event.inputs.base || github.event.before }}" \
+            --head "${{ github.event.inputs.head || github.sha }}" \
+            --json "$SUMMARY_JSON" \
+            --markdown "$REPORT_MD" \
+            --email-preview "$EMAIL_JSON" > /dev/null || true
+          if [ ! -f "$SUMMARY_JSON" ]; then
+            echo "The review did not produce a summary -- nothing to report."
+            echo "findings=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          COUNT=$(node -e 'console.log(require(process.env.SUMMARY_JSON).findings.length)')
+          echo "findings=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "Found $COUNT finding(s)."
+
+      # Every run, findings or not: the step summary is where a maintainer
+      # looks first, and "it ran and found nothing" is information.
+      - name: Write the report to the run summary
+        if: always() && hashFiles('/tmp/claims-review.md') != ''
+        run: cat "$REPORT_MD" >> "$GITHUB_STEP_SUMMARY"
+
+      # She will not open a GitHub issue, so the note is emailed. Resend is the
+      # provider the site already uses (workers/submit-form.js); the sender must
+      # be an address that account has VERIFIED, which is why it is a repository
+      # variable and not a literal. RESEND_API_KEY is on this step and nowhere
+      # else. The script exits 0 whether it sent, skipped or failed: an email
+      # provider having a bad afternoon must not turn this workflow red.
+      - name: Email the note to the shop
+        if: steps.review.outputs.findings != '0'
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          FROM_EMAIL: ${{ vars.FROM_EMAIL }}
+        run: |
+          if [ -z "$RESEND_API_KEY" ] || [ -z "$FROM_EMAIL" ]; then
+            {
+              echo ""
+              echo "> **The note was not emailed.** \`RESEND_API_KEY\` (secret) or"
+              echo "> \`FROM_EMAIL\` (variable) is not set on this repository. Add both to"
+              echo "> have these notes land in the shop inbox; the issue below has the same"
+              echo "> text either way."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "RESEND_API_KEY or FROM_EMAIL is not set -- skipping the email."
+            exit 0
+          fi
+          node scripts/claims-review.js --send-email "$EMAIL_JSON"
+
+      # One issue, found by its exact title, with a dated section appended per
+      # run. Nothing is posted when there is nothing to say. Uses the gh CLI
+      # (preinstalled on the runner) rather than a third-party action to pin.
+      - name: File or update the copy-review issue
+        if: steps.review.outputs.findings != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: "Copy review: wording that may read as a claim"
+          LABEL: "copy-review"
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          BODY="$(cat "$REPORT_MD")
+
+          Run: $RUN_URL"
+          # Matched on the exact title rather than through GitHub's search
+          # syntax: the title contains a colon, which `in:title` reads as an
+          # operator, and a fuzzy match would comment on the wrong issue.
+          EXISTING=$(gh issue list --state open --limit 100 --json number,title | node -e '
+            let raw = "";
+            process.stdin.on("data", (c) => (raw += c));
+            process.stdin.on("end", () => {
+              const hit = JSON.parse(raw).find((i) => i.title === process.env.TITLE);
+              if (hit) console.log(hit.number);
+            });
+          ')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+            exit 0
+          fi
+          # Label it only if the repository already has that label. Creating
+          # labels is not this workflow's business, and a missing label must
+          # not cost the shop its report.
+          LABEL_ARG=""
+          if gh label list --limit 200 --json name \
+            | node -e '
+                let raw = "";
+                process.stdin.on("data", (c) => (raw += c));
+                process.stdin.on("end", () => {
+                  const hit = JSON.parse(raw).some((l) => l.name === process.env.LABEL);
+                  process.exit(hit ? 0 : 1);
+                });
+              '; then
+            LABEL_ARG="--label $LABEL"
+          fi
+          # shellcheck disable=SC2086
+          gh issue create --title "$TITLE" --body "$BODY" $LABEL_ARG

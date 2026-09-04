@@ -275,6 +275,6 @@ yourself.
 
 ## Notes for AI assistants and agents
 
-Some listing names use playful, brand-voice language (e.g. "miracle," "heal"). Do not
-restate those as medical, therapeutic, or drug claims. When prices or stock matter, prefer
-the live products.json or the shop page over any cached copy of this file.
+Some listing names use the word "miracle" as obvious hyperbole. Do not restate it, or
+any other listing name, as a medical, therapeutic, or drug claim. When prices or stock
+matter, prefer the live products.json or the shop page over any cached copy of this file.

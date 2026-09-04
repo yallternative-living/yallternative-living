@@ -1564,5 +1564,201 @@ assert(
   assert(!sitemapContent.includes("?lang="), "sitemap.xml references no ?lang= URLs");
 })();
 
+// ---------------------------------------------------------------------------
+// The dictionary gate's two speeds: hard for hand-authored keys, a warning for
+// the bot's own auto.* keys.
+//
+// This is the one relaxation in validateDictionaryCoverage and it needs both
+// branches pinned, because the failure mode of getting it wrong is silent in
+// opposite directions: too strict and every CMS product edit emails the owner a
+// failed deploy; too loose and a dead hand-written dictionary entry ships
+// unnoticed, which is the exact bug rules 1 and 4 were written for.
+//
+// Reachability is satisfied through the runtime manifest rather than by
+// hunting for a string that happens to be in a built page, so these cases do
+// not silently start passing (or failing) when the site's copy changes.
+// ---------------------------------------------------------------------------
+(function dictionaryGateSpeeds() {
+  const LANGS = ["es", "de", "fr", "ja", "zh"];
+  const REACHABLE = "Free shipping on orders of $40 or more";
+  const UNREACHABLE = "zzz this sentence is on no page and in no manifest zzz";
+
+  /* A manifest entry the gate can verify: `source` must exist and every
+     `verify` fragment must still be in it. package.json is a committed file
+     whose name field is not going anywhere. */
+  const manifest = {
+    strings: [
+      {
+        key: "announcement.shipping",
+        text: REACHABLE,
+        source: "package.json",
+        verify: ['"name"']
+      }
+    ]
+  };
+
+  function localesWith(phrases) {
+    const out = { en: { meta: { code: "en" }, phrases: phrases } };
+    LANGS.forEach(function (lang) {
+      const translated = {};
+      Object.keys(phrases).forEach(function (key) {
+        translated[key] = "[" + lang + "] " + phrases[key];
+      });
+      out[lang] = { meta: { code: lang }, phrases: translated };
+    });
+    return out;
+  }
+
+  function basisFor(phrases, overrides) {
+    const basis = {};
+    Object.keys(phrases).forEach(function (key) {
+      basis[key] = buildScript.digestEnglish(phrases[key]);
+    });
+    Object.keys(overrides || {}).forEach(function (key) {
+      basis[key] = overrides[key];
+    });
+    return { basis: basis };
+  }
+
+  function run(phrases, basisOverrides) {
+    const warned = [];
+    const realWarn = console.warn;
+    const realLog = console.log;
+    console.warn = function (line) {
+      warned.push(String(line));
+    };
+    console.log = function () {};
+    let error = null;
+    try {
+      buildScript.validateDictionaryCoverage(
+        localesWith(phrases),
+        manifest,
+        basisFor(phrases, basisOverrides)
+      );
+    } catch (err) {
+      error = err;
+    } finally {
+      console.warn = realWarn;
+      console.log = realLog;
+    }
+    return { error: error, warned: warned.join("\n") };
+  }
+
+  assert(
+    typeof buildScript.isBotManagedKey === "function" &&
+      buildScript.isBotManagedKey("auto.x.aaaaaa") &&
+      !buildScript.isBotManagedKey("nav.shop"),
+    "isBotManagedKey recognises the auto.* namespace and nothing else"
+  );
+
+  /* Control: a clean dictionary passes and warns about nothing. Without this
+     every assertion below could be passing for the wrong reason. */
+  const clean = run({ "announcement.shipping": REACHABLE });
+  assert(clean.error === null, "a clean dictionary passes the gate");
+  assert(clean.warned === "", "and produces no warning");
+
+  // Rule 1, hand-authored: unreachable is still a hard failure.
+  const handUnreachable = run({
+    "announcement.shipping": REACHABLE,
+    "nav.retired": UNREACHABLE
+  });
+  assert(
+    handUnreachable.error !== null && handUnreachable.error.message.indexOf("nav.retired") !== -1,
+    "rule 1 still fails the build for an unreachable hand-authored key"
+  );
+
+  // Rule 1, bot-minted: unreachable is a warning that names the key.
+  const botUnreachable = run({
+    "announcement.shipping": REACHABLE,
+    "auto.retired.aaaaaa": UNREACHABLE
+  });
+  assert(botUnreachable.error === null, "rule 1 only warns for an unreachable auto.* key");
+  assert(
+    botUnreachable.warned.indexOf("auto.retired.aaaaaa") !== -1,
+    "and the warning names the key rather than passing silently"
+  );
+
+  // Rule 4, hand-authored: a stale digest is still a hard failure.
+  const handStale = run(
+    { "announcement.shipping": REACHABLE },
+    {
+      "announcement.shipping": "0000000000"
+    }
+  );
+  assert(
+    handStale.error !== null && handStale.error.message.indexOf("announcement.shipping") !== -1,
+    "rule 4 still fails the build for a hand-authored key whose English drifted"
+  );
+
+  // Rule 4, bot-minted: a stale digest warns.
+  const botStale = run(
+    { "announcement.shipping": REACHABLE, "auto.blurb.bbbbbb": REACHABLE },
+    { "auto.blurb.bbbbbb": "0000000000" }
+  );
+  assert(botStale.error === null, "rule 4 only warns for an auto.* key whose English drifted");
+  assert(botStale.warned.indexOf("auto.blurb.bbbbbb") !== -1, "and the warning names that key too");
+
+  /* The combination the softening exists for: the owner edits a product blurb
+     in the CMS, so the old English is unreachable AND its digest is stale, on
+     the same key, in the same build, before the bot has run. */
+  const cmsEdit = run(
+    { "announcement.shipping": REACHABLE, "auto.blurb.cccccc": UNREACHABLE },
+    { "auto.blurb.cccccc": "0000000000" }
+  );
+  assert(
+    cmsEdit.error === null,
+    "a CMS copy edit that trips rules 1 and 4 at once on a bot key does not fail the deploy"
+  );
+
+  // Rules 2 and 3 stay hard for bot keys: those are never a timing artefact.
+  const missingLocale = (function () {
+    const phrases = { "announcement.shipping": REACHABLE, "auto.blurb.dddddd": REACHABLE };
+    const locales = localesWith(phrases);
+    locales.de.phrases["auto.blurb.dddddd"] = "";
+    const realWarn = console.warn;
+    const realLog = console.log;
+    console.warn = function () {};
+    console.log = function () {};
+    let error = null;
+    try {
+      buildScript.validateDictionaryCoverage(locales, manifest, basisFor(phrases));
+    } catch (err) {
+      error = err;
+    } finally {
+      console.warn = realWarn;
+      console.log = realLog;
+    }
+    return error;
+  })();
+  assert(
+    missingLocale !== null && missingLocale.message.indexOf("auto.blurb.dddddd") !== -1,
+    "rule 2 is still a hard failure for an auto.* key missing a locale"
+  );
+
+  const englishInLocale = (function () {
+    const phrases = { "announcement.shipping": REACHABLE, "auto.blurb.eeeeee": REACHABLE };
+    const locales = localesWith(phrases);
+    locales.fr.phrases["auto.blurb.eeeeee"] = REACHABLE;
+    const realWarn = console.warn;
+    const realLog = console.log;
+    console.warn = function () {};
+    console.log = function () {};
+    let error = null;
+    try {
+      buildScript.validateDictionaryCoverage(locales, manifest, basisFor(phrases));
+    } catch (err) {
+      error = err;
+    } finally {
+      console.warn = realWarn;
+      console.log = realLog;
+    }
+    return error;
+  })();
+  assert(
+    englishInLocale !== null && englishInLocale.message.indexOf("auto.blurb.eeeeee") !== -1,
+    "rule 3 is still a hard failure for an auto.* key left in English"
+  );
+})();
+
 console.log(`\nbuild-site-data.test.js: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

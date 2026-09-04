@@ -49,6 +49,91 @@ Once Steven completes the one-time OAuth app setup (`docs/DEVELOPMENT.md` Sectio
 
 ---
 
+### A note on the other five languages
+
+Your shop shows up in Spanish, German, French, Japanese and Chinese as well as
+English, and you do not have to do anything about it. When you save a change to
+a product name, blurb, description or any other wording in `/admin`, a helper
+runs on its own and writes the five translations within about ten minutes.
+Until it finishes, that one piece of wording simply shows in English to a
+shopper who has picked another language — nothing looks broken and nothing
+needs fixing. If a sentence ever cannot be translated safely (for example, it
+would turn a nice description into a health claim, which the law is strict
+about for skincare), it is left in English on purpose and Steven gets a note
+about it. You never need to translate anything by hand.
+
+---
+
+### A note on wording, and the check that reads it
+
+After you save, a check reads only the wording you just changed — not the whole
+shop, and never anything you left alone. If something in it reads like a health
+promise ("brings the itch right down", "helps with eczema") or a bug-repellent
+promise ("keeps the mosquitoes off"), you get an email with your own sentence
+quoted, one plain line about why that particular wording is the kind the FDA or
+the EPA cares about, and one or two ways to say the same thing that sound like
+you. That is all it does. **It never changes your words**, it cannot stop your
+edit going live, and there is nothing to approve or dismiss — if the note is
+not useful, ignore it.
+
+Two things it will not pester you about. The four wordings from the September
+review that are still your decision — "Y'all Heal Now", "Sleep Salve",
+"Backroad Recovery" and the bug spray — are listed at the bottom of the note as
+things you already know about, never as something new. And a save with nothing
+worth flagging sends you nothing at all, so an email from it means there is
+genuinely something to look at.
+
+---
+
+### A note on search words
+
+You do not have to guess what a shopper will type. Fill in **Search keywords**
+on a product with whatever comes to mind and leave the rest alone — after you
+save, the site adds more search words for you, on its own, within a few minutes.
+It adds the plain-language ones people actually use ("that bug stuff"), the
+occasions ("stocking stuffer", "post hike"), the ingredient names, and the
+common misspellings.
+
+**Your own keywords always win.** They come first, nothing you wrote is ever
+changed or removed, and if the site had already added a word you later type
+yourself, yours is the one that stays. None of the added words are written into
+your product — they exist only so the search box can find the right thing.
+
+Symptoms and conditions still stay out of Search keywords, exactly as the hint
+under the field says: those go under **Site Settings → Search settings → Extra
+search words**, which only translate what a shopper typed and are never shown
+anywhere. The site follows the same rule when it adds words for you, and Steven
+gets a list of anything it decided not to add.
+
+### When somebody searches a medical word
+
+Some shoppers will type a condition or a medicine word into the search box —
+"psoriasis", "cure", "pain", "wound salve" — and some will type a bug word,
+"mosquito bites" or "ticks". You do not have to write anything for that, and you
+should not try to. The site already recognises those words. It shows a short
+note above the results that says we make comfort products, not medicines, and
+that nothing here is meant to diagnose, treat, cure or prevent anything, and it
+points the shopper at the right shelf — dry, rough skin, or wind-down, or after
+a long day, or porch nights and trail days — by name, not by condition and not
+by bug. Their ordinary words still work while it does: "wound salve" still
+brings back the salves and "bug spray" still brings back the bug spray, because
+only the medical or bug word is set aside.
+
+The bug words are on that list for a different law than the rest, which is why
+they are there even though nobody would call a mosquito a disease: naming the
+pest is what turns a spray into a regulated pesticide, so the site treats
+"mosquito", "tick" and "bites" the same way it treats "eczema". That is also
+why the bug spray's own description is on Steven's list to look at.
+
+**That list of words is not something to add to.** It is not a menu, it is not
+in your dashboard, and it must never turn into a row of buttons or a "popular
+searches" list with conditions on it. Recognising the word somebody typed is
+fine; offering a list of conditions to click is the thing that would get the
+shop in trouble. If you think a word is missing, tell Steven rather than putting
+it anywhere yourself.
+
+---
+
 ### Walkthrough 1: Products, Pricing, Variants & Stock Levels
 
 #### A. Changing a Product's Base Price
