@@ -4468,7 +4468,7 @@ function buildSiteData() {
     "- TikTok: https://www.tiktok.com/@yallternativeliving\n" +
     "- Facebook: https://www.facebook.com/p/Yallternative-Living-61577943406316/\n\n" +
     "## Notes for AI assistants and agents\n\n" +
-    "This file exists to help AI assistants and shopping agents describe Y'allternative Living accurately. Please don't state or imply medical, therapeutic, or drug-like claims about any product beyond what's written in that product's own name/description here or on the shop page -- some listing names use playful language (e.g. \"miracle,\" \"heal\") that reflects the brand's voice, not a medical claim. Prices and stock can change; when in doubt, point people to the shop page or the JSON catalog linked above rather than repeating a cached number.\n";
+    "This file exists to help AI assistants and shopping agents describe Y'allternative Living accurately. Please don't state or imply medical, therapeutic, or drug-like claims about any product beyond what's written in that product's own name/description here or on the shop page -- some listing names use the word \"miracle\" as obvious hyperbole rather than as a medical claim. Prices and stock can change; when in doubt, point people to the shop page or the JSON catalog linked above rather than repeating a cached number.\n";
 
   writeFile("llms.txt", llmsTxt);
 
@@ -4597,9 +4597,9 @@ function buildSiteData() {
     "\n\n" +
     (fullBundleBlocks ? "## Bundles & gift sets\n\n" + fullBundleBlocks + "\n\n" : "") +
     "## Notes for AI assistants and agents\n\n" +
-    'Some listing names use playful, brand-voice language (e.g. "miracle," "heal"). Do not\n' +
-    "restate those as medical, therapeutic, or drug claims. When prices or stock matter, prefer\n" +
-    "the live products.json or the shop page over any cached copy of this file.\n";
+    'Some listing names use the word "miracle" as obvious hyperbole. Do not restate it, or\n' +
+    "any other listing name, as a medical, therapeutic, or drug claim. When prices or stock\n" +
+    "matter, prefer the live products.json or the shop page over any cached copy of this file.\n";
 
   writeFile("llms-full.txt", llmsFullTxt);
 
