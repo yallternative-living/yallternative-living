@@ -7,6 +7,51 @@
 window.YL_EVENTS = {
   "upcoming": [
     {
+      "id": "boomtown-arts-heritage-avl-fest-2026-09-05",
+      "date": "2026-09-05",
+      "dateLabel": "September 5, 2026 · Saturday, 10am–10pm",
+      "name": "Boomtown Arts & Heritage FestAVL",
+      "type": "Arts Festival",
+      "location": "Asheville, NC",
+      "zip": "28801",
+      "emoji": "🎨",
+      "url": "https://www.boomtownfestavl.com/",
+      "note": "Pack Square Park, 121 College St, Asheville, NC 28801. Free downtown arts & music festival — come find our table."
+    },
+    {
+      "id": "mrb-renaissance-festival-2026-09-12",
+      "date": "2026-09-12",
+      "dateLabel": "September 12, 2026 · Saturday, 11:30am–11pm",
+      "name": "MRB Renaissance Festival",
+      "type": "Festival",
+      "location": "Mills River, NC",
+      "zip": "28759",
+      "url": "https://www.millsriverbrewingco.com/events/mountain-mayhem-renaissance-festival",
+      "note": "Mills River Brewing Co, 336 Banner Farm Rd, Mills River, NC 28759. Free family-friendly renaissance festival with medieval combat, live music & 40+ vendors."
+    },
+    {
+      "id": "saturday-night-lights-2026-09-19",
+      "date": "2026-09-19",
+      "dateLabel": "September 19, 2026 · Saturday, 4pm–9pm",
+      "name": "Saturday Night Lights",
+      "type": "Festival",
+      "location": "Mill Spring, NC",
+      "zip": "28756",
+      "url": "https://resort.tryon.com/events/saturday-night-lights-september19-thwdz",
+      "note": "Tryon International, 25 International Blvd, Mill Spring, NC 28756. Free family fun & live entertainment, followed by Grand Prix show jumping."
+    },
+    {
+      "id": "fall-family-festival-market-2026-09-26",
+      "date": "2026-09-26",
+      "dateLabel": "September 26, 2026 · Saturday, 3pm–8pm",
+      "name": "Fall Family Festival & Market",
+      "type": "Craft Show",
+      "location": "Moore, SC",
+      "zip": "29369",
+      "url": "https://www.facebook.com/events/1701695287526740/",
+      "note": "The Gathering Farm, 140 Waldon Road, Moore, SC 29369. First-ever fall festival with 40+ craft vendors."
+    },
+    {
       "id": "autumn-apothecary-faire",
       "date": "2026-10-17T09:00:00-04:00",
       "dateLabel": "October 17, 2026",
