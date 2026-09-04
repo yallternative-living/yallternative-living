@@ -124,8 +124,22 @@ const INCOMPLETE_BASELINE = {
   "about.html [light]": 14,
   "contact.html [dark]": 17,
   "contact.html [light]": 17,
-  "events.html [dark]": 22,
-  "events.html [light]": 22,
+  /* events.html scales with the CMS data: every event card renders a row of
+     action buttons whose contrast axe cannot decide over the card gradient
+     (one undecidable node per button, measured 2026-09-04: 19 buttons, 38
+     nodes, 19 of them page chrome). A flat number here turned CI red the
+     day four September pop-ups were added -- exactly the edit the owner
+     makes without a developer -- so the pin is a base for the page chrome
+     plus one node per rendered button. Adding an event never moves it;
+     a new undecidable element on the page still does. */
+  "events.html [dark]": {
+    base: 19,
+    perElement: [{ selector: ".event-actions-row .btn", allowance: 1 }]
+  },
+  "events.html [light]": {
+    base: 19,
+    perElement: [{ selector: ".event-actions-row .btn", allowance: 1 }]
+  },
   "faq.html [dark]": 11,
   "faq.html [light]": 11,
   "index.html [dark]": 39,
@@ -304,8 +318,24 @@ const INCOMPLETE_BASELINE = {
             const incompleteNodes = incomplete.reduce((n, v) => n + v.nodes.length, 0);
             incompleteByPage[label] = {
               rules: incomplete.map((v) => v.id).sort(),
-              nodes: incompleteNodes
+              nodes: incompleteNodes,
+              extra: 0
             };
+            /* A pin may be an object: a base for the page chrome plus an
+               allowance per element matching a selector, for pages whose
+               node count follows CMS data (see the events.html entry). The
+               elements are counted on the page axe just scanned. */
+            const pin = INCOMPLETE_BASELINE[label];
+            if (pin && typeof pin === "object") {
+              const counts = await page.evaluate(
+                (selectors) => selectors.map((sel) => document.querySelectorAll(sel).length),
+                pin.perElement.map((e) => e.selector)
+              );
+              incompleteByPage[label].extra = counts.reduce(
+                (n, c, i) => n + c * pin.perElement[i].allowance,
+                0
+              );
+            }
             if (incomplete.length) {
               console.log(
                 `  ~ ${label} -- ${incompleteNodes} node(s) axe could not decide, ` +
@@ -357,9 +387,11 @@ const INCOMPLETE_BASELINE = {
     .sort()
     .forEach((label) => {
       const seen = incompleteByPage[label].nodes;
-      const budget = Object.prototype.hasOwnProperty.call(INCOMPLETE_BASELINE, label)
+      const pin = Object.prototype.hasOwnProperty.call(INCOMPLETE_BASELINE, label)
         ? INCOMPLETE_BASELINE[label]
         : INCOMPLETE_BASELINE_DEFAULT;
+      const budget =
+        pin && typeof pin === "object" ? pin.base + incompleteByPage[label].extra : pin;
       if (seen > budget) {
         overBudget.push(
           `${label}: ${seen} node(s) axe could not decide, baseline ${budget} ` +
