@@ -1,3 +1,4 @@
+/* eslint-env browser */
 /**
  * @fileoverview Friendlier section names inside Sveltia CMS.
  *
@@ -10,10 +11,53 @@
  *   - the sidebar group heading "Files" becomes "Sections";
  *   - the editor header "Editing Files" / "Creating Files" uses the section's
  *     own label from config.yml, found via the #/collections/_singletons/...
- *     route the CMS is on.
- * It only ever rewrites text that reads exactly "Files" in those two places,
- * so if a future Sveltia release changes its markup or wording this does
- * nothing and the stock UI shows through unchanged.
+ *     route the CMS is on;
+ *   - the same rename applies to the "Files › ..." editor breadcrumb.
+ * It only ever rewrites text that reads exactly "Files" (or "Files › ...")
+ * in those spots, so if a future Sveltia release changes its markup or
+ * wording this does nothing and the stock UI shows through unchanged.
+ *
+ * While site.enableJournal is off, this also hides the Journal row from the
+ * sidebar (nothing is deleted -- flipping the switch back on brings the row
+ * back on the next load).
+ *
+ * IMPORTANT -- no forced redirect away from Journal (2026-09-04):
+ * An earlier version of this file also force-navigated away from Journal
+ * (`location.hash = "#/collections/_singletons/entries/products"`) whenever
+ * login landed there with the switch off, so the owner would land on Shop &
+ * Products instead of a hidden, dead-end row. That line has been removed
+ * after tracing today's "I don't see a Site Settings category" report to it.
+ *
+ * What's actually going on is a pre-existing Sveltia 0.172.4 (also
+ * reproduced against the latest 0.205.2 release from unpkg, so it is not
+ * fixed by bumping the pin) bug: once ANY singleton entry has been opened in
+ * a browser session, the NEXT DIFFERENT singleton entry opened in that same
+ * session renders with an empty field list (no console error -- it just
+ * silently comes up blank, Save disabled). This reproduces with cms-labels.js
+ * removed from the page entirely, and with a plain, unscripted pair of
+ * sidebar clicks -- it has nothing to do with this file's MutationObserver,
+ * its hideJournalWhenOff() logic, or the breadcrumb rename (all individually
+ * ruled out; see the bisection notes shipped alongside this file). The old
+ * redirect line just happened to be the thing silently opening a FIRST
+ * singleton entry (Shop & Products) on every login, which made whatever the
+ * owner opened next -- in practice, Site Settings -- the broken "next
+ * different singleton" and thus permanently empty for the rest of that
+ * session.
+ *
+ * Removing the auto-redirect avoids that trap: the owner's own first click
+ * is now the session's first singleton entry again, so it (and everything
+ * they open after it, as long as they don't revisit an already-open one)
+ * renders normally. The trade-off is that with the switch off, login no
+ * longer auto-lands on Shop & Products -- it stays on Sveltia's own default
+ * (the Journal collection list), just with that row hidden from the sidebar.
+ * This is a real product-behavior regression from the previous version, not
+ * a cosmetic one; it should be tracked (e.g. "restore the Shop & Products
+ * auto-redirect once the underlying Sveltia bug is fixed or worked around")
+ * rather than treated as done. See DEVELOPMENT.md / the bisection notes
+ * before re-adding any equivalent of the old redirect -- every mechanism
+ * tried (a direct location.hash write, the same write deferred 300ms, and a
+ * synthetic click on the target sidebar button) reproduced the identical
+ * failure, so this is not a timing race to paper over with a longer delay.
  */
 (function () {
   "use strict";
@@ -65,10 +109,11 @@
   }
 
   /* The sidebar is a listbox: each collection is a button[role="option"]
-     carrying its label in data-label (Sveltia 0.172). The Journal is also
-     the FIRST collection, so it is where the CMS lands on login; with the
-     switch off, send that landing to the shop instead. Both are no-ops if a
-     future Sveltia changes its markup. */
+     carrying its label in data-label (Sveltia 0.172). Hide the Journal row
+     while its switch is off. This is deliberately CSS-only (no navigation):
+     see the file-level comment above for why a forced redirect away from
+     Journal is not safe to do here. No-op if a future Sveltia changes its
+     markup. */
   function hideJournalWhenOff() {
     if (journalEnabled !== false) return;
     var label = labels.journal || "Journal";
@@ -78,9 +123,6 @@
       if (opt.getAttribute("data-label").replace(ISOLATE, "").trim() !== label) continue;
       var item = opt.closest(".option") || opt;
       if (item.style.display !== "none") item.style.display = "none";
-    }
-    if (/^#\/collections\/journal(\/|$)/.test(location.hash)) {
-      location.hash = "#/collections/_singletons/entries/products";
     }
   }
 
@@ -110,7 +152,7 @@
            as the sidebar heading, so the same rename, leading word only. */
         for (var n = span.firstChild; n; n = n.nextSibling) {
           if (n.nodeType === 3 && /Files/.test(n.textContent)) {
-            var next = n.textContent.replace(/^(\u2068?)Files(\u2069?)/, "$1" + GROUP_LABEL + "$2");
+            var next = n.textContent.replace(/^(⁨?)Files(⁩?)/, "$1" + GROUP_LABEL + "$2");
             if (next !== n.textContent) n.textContent = next;
             break;
           }
@@ -138,6 +180,49 @@
       rename();
     });
   }
+
+  /* Sveltia 0.172.4 (and 0.205.2) renders the SECOND singleton entry opened
+     in one page session with an empty field list -- no error, Save stays
+     disabled. Bisected 2026-09-03 with no other script loaded: click Shop &
+     Products then Site Settings -> 0/5 renders; open Site Settings first ->
+     5/5. Until it is fixed upstream, opening a DIFFERENT singleton than the
+     one this page load opened first reloads the page, so every section
+     opens as the session's first entry.
+
+     Only the singleton entry route counts. The first cut also matched the
+     list routes ("#/collections/journal", "#/collections/_singletons"), so
+     going back to the list registered as "an entry" and every step reloaded
+     two or three times (validated 2026-09-04). Nothing reloads while the
+     user is inside the same section, on a list, or in a Journal post.
+
+     Never reload over an unsaved edit: if Sveltia's Save button is enabled
+     at the moment of the switch, the edit has not been backed up yet, and a
+     reload would discard it silently. In that case the switch proceeds
+     without a reload (the second-entry bug may then show, and a plain
+     browser reload recovers it) -- losing the edit is the worse outcome. */
+  var SINGLETON_ENTRY = /^#\/collections\/_singletons\/entries\/([\w-]+)/;
+  var openedEntry = null;
+  function hasUnsavedEdit() {
+    var buttons = document.querySelectorAll("button");
+    for (var i = 0; i < buttons.length; i++) {
+      var b = buttons[i];
+      if (/^\s*Save\s*$/.test(b.textContent.replace(ISOLATE, "")) && !b.disabled) return true;
+    }
+    return false;
+  }
+  function reloadOnSectionSwitch() {
+    var m = SINGLETON_ENTRY.exec(location.hash);
+    if (!m) return;
+    if (openedEntry === null) {
+      openedEntry = m[1];
+      return;
+    }
+    if (m[1] === openedEntry) return;
+    if (hasUnsavedEdit()) return;
+    location.reload();
+  }
+  reloadOnSectionSwitch();
+  window.addEventListener("hashchange", reloadOnSectionSwitch);
 
   Promise.all([loadLabels(), loadJournalSwitch()]).then(function () {
     rename();
