@@ -35,8 +35,11 @@
  * daily and monthly jobs check before running).
  * v5 (2026-09-02) added analytics_sends -- the once-per-order claim that stops
  * a redelivered Stripe event booking the same revenue in Umami twice.
+ * v6 (2026-09-04) added order_emails -- the record of transactional order mail
+ * already delivered, so the ship notice goes out once per parcel however many
+ * times the shop edits the fulfilment metadata behind it.
  */
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 /** Verbatim from workers/schema.sql. Keep the two in sync -- a test enforces it. */
 export const SCHEMA_STATEMENTS = [
@@ -174,7 +177,14 @@ export const SCHEMA_STATEMENTS = [
   send_key    TEXT PRIMARY KEY,
   created_at  INTEGER NOT NULL
 )`,
-  `CREATE INDEX IF NOT EXISTS analytics_sends_created_at ON analytics_sends (created_at)`
+  `CREATE INDEX IF NOT EXISTS analytics_sends_created_at ON analytics_sends (created_at)`,
+  // v6: the transactional order-email record (see workers/schema.sql for the
+  // rationale -- in particular why it is not analytics_sends)
+  `CREATE TABLE IF NOT EXISTS order_emails (
+  send_key    TEXT PRIMARY KEY,
+  created_at  INTEGER NOT NULL
+)`,
+  `CREATE INDEX IF NOT EXISTS order_emails_created_at ON order_emails (created_at)`
 ];
 
 /** Per-isolate memo of the in-flight or completed migration. */

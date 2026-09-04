@@ -3569,6 +3569,23 @@ section {
   text-wrap: balance;
 }
 
+/* Two more orphans the text-layout gate measured at 320px: reviews.html's
+   "Email (private -- we never publish this)" and safety.html's "Date the
+   reaction started (optional)". Both are a short label followed by a
+   parenthetical in a smaller face inside `.field`, and the parenthetical is
+   what drops to a line of its own on the narrowest phone.
+
+   UNLIKE the two fixes above, `pretty` clears this one too -- measured, both
+   land the gate on 3/4. `balance` is chosen anyway because these are two-line
+   labels, not body copy: pretty only guarantees the last line is not a lone
+   short word, while balance evens BOTH lines, which is what a label wants and
+   is the documented use for a block this short. Note a label is not a `p`, so
+   neither applies by default here -- the global `p { text-wrap: pretty }`
+   never reached these. */
+.field label {
+  text-wrap: balance;
+}
+
 /* =============== EVENTS =============== */
 .event-card {
   & .card-body {
