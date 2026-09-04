@@ -644,19 +644,21 @@ Stripe Dashboard -> Developers -> Webhooks -> Add endpoint:
 https://yallternativeliving.com/api/stripe-webhook
 ```
 
-Subscribe to exactly these four:
+Subscribe to exactly these three:
 
 - `checkout.session.completed` -- issues the cards an order bought and commits
   the hold on a card an order spent,
 - `checkout.session.expired` -- releases the hold and deletes the ephemeral
   coupon an abandoned checkout leaves behind,
 - `charge.refunded` -- puts a refunded order's gift-card share back on the card.
-  Do NOT also select `refund.created`: it fires for the same money,
-- `payment_intent.updated` -- sends the "your order is on its way" email when
-  the shop marks an order shipped (see **Marking an order shipped** below).
-  Stripe never actually sends this event -- a metadata edit fires nothing --
-  so the hourly cron sweep in `routes/ship-notice.js` is the real trigger;
-  the branch is kept in case Stripe ever adds the event.
+  Do NOT also select `refund.created`: it fires for the same money.
+
+There is no fourth. The "your order is on its way" email is NOT webhook-driven:
+Stripe has no `payment_intent.updated` event and fires nothing when
+PaymentIntent metadata is edited, so it is sent by the Worker's hourly cron
+instead (see **Marking an order shipped** below). `routes/stripe-webhook.js`
+keeps a dormant branch for that event name in case Stripe ever adds it; there
+is nothing to select for it in the Dashboard.
 
 ### Marking an order shipped
 

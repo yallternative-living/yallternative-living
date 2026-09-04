@@ -337,14 +337,15 @@ CREATE INDEX IF NOT EXISTS analytics_sends_created_at ON analytics_sends (create
 -- "your order is on its way" mail workers/routes/ship-notice.js sends when the
 -- shop writes `fulfillment_status` onto the PaymentIntent.
 --
--- Keyed on the ORDER and not the event, because every later metadata edit (the
--- tracking link pasted a minute after the status, a typo fixed the next day) is
--- another `payment_intent.updated` with its own event id for the same parcel.
+-- Keyed on the ORDER, because the notice is not webhook-driven at all: Stripe
+-- fires no event when PaymentIntent metadata is edited, so the hourly cron
+-- sweep in routes/ship-notice.js re-reads every recent shipped order on every
+-- pass for weeks, and every pass after the first must find this row and stop.
 --
 -- Deliberately NOT analytics_sends: that claim is taken BEFORE the side effect
 -- and never released, because over-counting revenue is worse than missing it.
 -- Here the row is written AFTER Resend accepts the message, so a refused send
--- leaves no row and Stripe's redelivery tries again -- a customer never told
+-- leaves no row and the next hourly pass tries again -- a customer never told
 -- their order shipped is worse than a rare duplicate.
 --
 -- Swept after 90 days by the hourly cron (workers/state/order-emails.js).

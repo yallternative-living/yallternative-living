@@ -10,8 +10,9 @@
  *                                 (apparel / gift cards) or +12d (salves,
  *                                 soaks, body butter -- long enough for a few
  *                                 real uses; see research-J §6)
- *   payment_intent.updated     -> both of the above re-anchored on the real
- *                                 dispatch moment (routes/ship-notice.js)
+ *   hourly ship-notice sweep   -> both of the above re-anchored on the real
+ *                                 dispatch moment (routes/ship-notice.js; no
+ *                                 Stripe event fires for a metadata edit)
  *   checkout.session.expired   -> recovery link                 at +45 minutes
  *   cron, daily                -> birthday code                 on the day
  *   loyalty balance >= threshold -> $5 code, debited atomically

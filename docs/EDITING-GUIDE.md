@@ -259,10 +259,14 @@ and it is what sends your customer their tracking number.
 | `tracking_url` | the carrier's tracking link (starts with `https://`) |
 | `shipped_at` | the date, however you like to write it |
 
-Saving that does three things at once: the customer gets a "your order just left
-Landrum" email with the tracking button in it, their order-status page starts
-saying **Shipped**, and the "how to use it" email is re-timed to arrive a few
-days after the box does instead of a few days after they paid.
+Saving that does three things. Their order-status page starts saying **Shipped**
+straight away. Then, **within the hour** — the site checks Stripe for newly
+shipped orders once an hour, because Stripe does not announce this kind of edit
+on its own — the customer gets a "your order just left Landrum" email with the
+tracking button in it, and the "how to use it" email is re-timed to arrive a few
+days after the box does instead of a few days after they paid. So if you mark
+something shipped at 2:05 and the customer has nothing by 2:10, that is normal;
+by 3:10 it should be there.
 
 **Put the status and the tracking link in the same save.** The email only sends
 once per order — on purpose, so fixing a typo later cannot mail somebody twice —
