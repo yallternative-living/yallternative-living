@@ -160,10 +160,17 @@ check("Botanical Latin name 'boswellia' resolves to frankincense-salve", () => {
   assert.strictEqual(productIds("boswellia")[0], "frankincense-salve");
 });
 
-check("Symptom synonym 'insomnia' matches Sleep Salve & Lavender Soak", () => {
-  const ids = productIds("insomnia");
-  assert.ok(ids.includes("sleep-salve"), "Matches sleep-salve for insomnia");
-  assert.ok(ids.includes("lavender-soak"), "Matches lavender-soak for insomnia");
+/* WAS: "Symptom synonym 'insomnia' matches Sleep Salve & Lavender Soak".
+   Its premise was a disease-to-product mapping in the shipped synonym table,
+   which brief section 7(b) says may not exist; "insomnia" is a
+   medicalQueryTerms word now and maps to no product at all. What has to keep
+   working is the LAY half -- surface 3's whole justification is that it
+   carries the traffic -- so that is what this asserts instead. */
+check("A named disease matches nothing; the lay wording still finds the sleep goods", () => {
+  assert.deepStrictEqual(productIds("insomnia"), [], "'insomnia' maps to no product");
+  const ids = productIds("restless");
+  assert.ok(ids.includes("sleep-salve"), "Matches sleep-salve for 'restless'");
+  assert.ok(ids.includes("lavender-soak"), "Matches lavender-soak for 'restless'");
 });
 
 // ---------------------------------------------------------------------------
@@ -219,10 +226,14 @@ check("tokenizeQuery lowercases, strips punctuation and de-duplicates", () => {
 
 check("expandTokensWithSynonyms is a superset of its input and adds real synonyms", () => {
   const index = mainJs.getSearchIndex();
-  const tokens = mainJs.tokenizeQuery("insomnia");
+  /* WAS driven by "insomnia" -> "sleep". The mechanism is what is under test,
+     not the word, and the word is a medicalQueryTerms one that no longer
+     appears in the shipped table (brief 7(b)). "restless" is the lay member of
+     the same group and exercises the identical reverse lookup. */
+  const tokens = mainJs.tokenizeQuery("restless");
   const expanded = mainJs.expandTokensWithSynonyms(tokens, index.synonyms);
   tokens.forEach((t) => assert.ok(expanded.includes(t), `keeps original token "${t}"`));
-  assert.ok(expanded.includes("sleep"), "expands insomnia -> sleep");
+  assert.ok(expanded.includes("sleep"), "expands restless -> sleep");
   assert.ok(expanded.length > tokens.length, "expansion actually widened the token set");
 });
 
@@ -415,6 +426,21 @@ function assertTop1(query, expectedId) {
   });
 }
 
+/* The other half of the 2026-09-04 policy, and the one worth having its own
+   helper: a medicalQueryTerms word must find NOTHING in the engine. Not a
+   narrow set, not a sensible set -- nothing. Surface 4 answers it with a note
+   that denies intended use; wiring it to a jar is what brief section 7(b)
+   refuses. */
+function assertNone(query) {
+  check(`Shop-grid: '${query}' is a router word and matches no product`, () => {
+    assert.deepStrictEqual(
+      rank(query),
+      [],
+      `'${query}' must map to no product; got ${JSON.stringify(rank(query))}`
+    );
+  });
+}
+
 function assertTop3Includes(query, expectedId) {
   check(`Shop-grid: '${query}' surfaces ${expectedId} in the top 3`, () => {
     const top3 = rank(query).slice(0, 3);
@@ -447,21 +473,29 @@ check("SYNONYM_GROUPS is a non-empty list of non-empty string arrays", () => {
   });
 });
 
-// --- Symptom/condition-word queries still resolve to real cosmetic goods,
-//     never to nothing and never to the whole catalogue -----------------
-check(
-  "Disease-word queries (insomnia, eczema, arthritis) resolve narrowly, not to the whole catalog",
-  () => {
-    ["insomnia", "eczema", "arthritis"].forEach((q) => {
-      const ids = rank(q);
-      assert.ok(ids.length > 0, `'${q}' returns results`);
-      assert.ok(
-        ids.length < shopGrid.productData.products.length,
-        `'${q}' (${ids.length} results) must not just be the entire catalogue (${shopGrid.productData.products.length})`
-      );
-    });
-  }
-);
+// --- Disease words resolve to NOTHING; their lay counterparts still resolve
+//     narrowly ----------------------------------------------------------
+//
+// WAS: "Disease-word queries (insomnia, eczema, arthritis) resolve narrowly,
+// not to the whole catalog" -- which asserted that each of them returned at
+// least one product. That was the disease-to-product mapping itself, stated as
+// a requirement. Brief section 7(b): a named disease maps to no product, and
+// the note (surface 4) is what answers the shopper. The half of the old
+// assertion worth keeping is that the ordinary words did not degrade, so the
+// lay counterpart of each disease word is pinned right beside it.
+check("Disease words resolve to nothing, and their lay counterparts still resolve narrowly", () => {
+  ["insomnia", "eczema", "arthritis"].forEach((q) => {
+    assert.deepStrictEqual(rank(q), [], `'${q}' is a router word and maps to no product`);
+  });
+  ["restless", "flaky", "sore muscles"].forEach((q) => {
+    const ids = rank(q);
+    assert.ok(ids.length > 0, `'${q}' returns results`);
+    assert.ok(
+      ids.length < shopGrid.productData.products.length,
+      `'${q}' (${ids.length} results) must not just be the entire catalogue (${shopGrid.productData.products.length})`
+    );
+  });
+});
 
 // --- Botanicals, INCI names & common misspellings ---------------------
 assertTop1("boswellia", "frankincense-salve");
@@ -477,18 +511,28 @@ assertTop3Includes("witch hazel", "porch-sweep-spray");
 //     never appear in the product data itself -- see the compliance suite
 //     in scripts/global-search.test.js and scripts/challenger-search-
 //     scoring.test.js) ---
-assertTop1("insomnia", "sleep-salve");
+// WAS assertTop1("insomnia", ...) and assertTop1("anxiety", ...): both are
+// named-disease/structure-function words on the router now (brief 7(b), 7(g)),
+// so they must find nothing here. "restless" and "stressed" are the lay words
+// that carry the same intent and the same traffic.
+assertNone("insomnia");
+assertNone("anxiety");
+assertTop1("restless", "sleep-salve");
 assertTop1("insomniac", "sleep-salve");
-assertTop1("anxiety", "sleep-salve");
 assertTop1("relax", "sleep-salve");
 assertTop1("calm", "sleep-salve");
 assertTop1("stressed", "sleep-salve");
 assertTop1("sleepy", "sleep-salve");
 
 // --- Sore muscles / joints / workout recovery intent ---
-assertTop1("arthritis", "backroad-soak");
-assertTop3Includes("arthritis", "frankincense-salve");
+// WAS assertTop1("arthritis", "backroad-soak") + assertTop3Includes(
+// "arthritis", "frankincense-salve"): a named disease wired to two product
+// ids. FTC took a civil penalty on this exact word (Gravity Defyer), and it is
+// a router word now. "sore muscles" below is the lay phrase that finds the
+// same shelf, and it already pinned frankincense-salve's neighbourhood.
+assertNone("arthritis");
 assertTop1("sore muscles", "backroad-soak");
+assertTop3Includes("sore muscles", "frankincense-salve");
 assertTop3Includes("sore muscles", "miracle-balm");
 assertTop1("workout recovery", "backroad-soak");
 assertTop1("post workout", "backroad-soak");
@@ -498,8 +542,15 @@ assertTop1("tightness", "backroad-soak");
 assertTop1("cramps", "backroad-soak");
 
 // --- Dry / rough / chapped skin intent ---
-assertTop1("eczema", "shea-butter");
-assertTop3Includes("eczema", "whipped-body-butter");
+// WAS assertTop1("eczema", "shea-butter") + assertTop3Includes("eczema",
+// "whipped-body-butter"). 21 CFR 347 reserves the eczema indication to
+// colloidal oatmeal; this shop has none, so the word maps to no product and
+// the note answers instead (brief 7(b), 7(g)). "itchy skin" is the lay phrase
+// the brief names explicitly as staying on the query side, and it finds the
+// same two butters.
+assertNone("eczema");
+assertTop1("itchy skin", "shea-butter");
+assertTop3Includes("itchy skin", "whipped-body-butter");
 assertTop1("cuticles", "frankincense-salve");
 assertTop3Includes("cuticles", "miracle-balm");
 assertTop1("windburn", "frankincense-salve");

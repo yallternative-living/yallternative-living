@@ -6328,11 +6328,27 @@
        ("sore muscles", "gift for him") belong in CATEGORY_TERMS instead,
        which matches against the raw, unsplit query string.
        Every group is query-side vocabulary only: it widens what a shopper's
-       words match against, it never appears in product copy. Per the FDA
-       compliance rule for this shop, a symptom/condition word may sit in a
-       group so that a shopper's own wording finds a real cosmetic product,
-       but the product's own listed name/blurb/keywords never claim to treat
-       or cure that condition. */
+       words match against, it never appears in product copy. A LAY symptom or
+       sensory word may sit in a group so that a shopper's own wording finds a
+       real cosmetic product -- "itchy", "cracked", "restless", "sore", "tired
+       legs" -- and the product's own name/blurb/keywords still claim nothing.
+
+       A NAMED DISEASE MAY NOT, and stopped on 2026-09-04. "insomnia",
+       "anxiety", "arthritis", "pain" and "eczema" left these two tables that
+       day, together with the CATEGORY_TERMS keys of the same names and
+       "stress relief" (the "relief" in it is a 21 CFR 347/358 monograph verb).
+       CATEGORY_TERMS is the sharper half of the problem: it maps a typed
+       phrase straight onto PRODUCT IDS, so `eczema: ["shea-butter", ...]` was
+       a literal disease-to-product mapping in a shipped file -- brief section
+       7(b), and Case C-657/11 para 58, which holds that it is "irrelevant"
+       that such a mapping is invisible to the user. Those words are surface 4
+       now: the router above recognises them, strips them out of the query, and
+       answers with the note. Recognising a condition is lawful; wiring it to a
+       jar is the thing that is not.
+
+       scripts/global-search.test.js pins both tables against
+       MEDICAL_QUERY_TERMS, read from scripts/lib/search-enrichment-rules.js
+       rather than re-typed, so the two lists cannot drift back together. */
     var SYNONYM_GROUPS = [
       // ---- Tier 1: botanicals, INCI names, misspellings & plurals ----
       ["lavender", "lavandula", "lavendula", "lavendar", "lavenders"],
@@ -6352,7 +6368,6 @@
       // ---- Tier 2: sleep, calm & wind-down intent ----
       [
         "sleep",
-        "insomnia",
         "insomniac",
         "bedtime",
         "nighttime",
@@ -6366,7 +6381,6 @@
         "calming",
         "wind-down",
         "anxious",
-        "anxiety",
         "stressed",
         "stress",
         "sleepy",
@@ -6379,7 +6393,6 @@
         "ache",
         "aches",
         "aching",
-        "pain",
         "muscles",
         "muscle",
         "joint",
@@ -6392,7 +6405,6 @@
         "tension",
         "tight",
         "tightness",
-        "arthritis",
         "cramp",
         "cramps",
         "knots",
@@ -6408,7 +6420,6 @@
         "flaking",
         "ashy",
         "rough",
-        "eczema",
         "hydration",
         "hydrating",
         "hydrate",
@@ -6437,7 +6448,6 @@
         "gnats",
         "insects",
         "insect",
-        "repellent",
         "bites",
         "bite",
         "camping",
@@ -6533,31 +6543,19 @@
       underarm: ["cream-deodorant"],
       // ---- sleep / wind-down ----
       sleep: ["sleep-salve", "lavender-soak", "bath-tea"],
-      insomnia: ["sleep-salve", "lavender-soak", "bath-tea"],
       bedtime: ["sleep-salve", "lavender-soak", "bath-tea"],
       relax: ["sleep-salve", "lavender-soak", "bath-tea"],
       relaxation: ["sleep-salve", "lavender-soak", "bath-tea"],
       calm: ["sleep-salve", "lavender-soak", "bath-tea"],
-      anxiety: ["sleep-salve", "lavender-soak", "bath-tea"],
-      "stress relief": ["sleep-salve", "lavender-soak", "bath-tea"],
       // ---- sore muscles / joints / recovery ----
-      pain: ["miracle-balm", "backroad-soak", "frankincense-salve"],
       "sore muscles": ["miracle-balm", "backroad-soak", "frankincense-salve"],
       muscle: ["miracle-balm", "backroad-soak", "frankincense-salve"],
       joint: ["miracle-balm", "backroad-soak", "frankincense-salve"],
-      arthritis: ["miracle-balm", "backroad-soak", "frankincense-salve"],
       workout: ["backroad-soak", "miracle-balm", "frankincense-salve"],
       "post workout": ["backroad-soak", "miracle-balm", "frankincense-salve"],
       gym: ["backroad-soak", "miracle-balm", "frankincense-salve"],
       // ---- dry / rough / chapped skin ----
       "dry skin": [
-        "shea-butter",
-        "whipped-body-butter",
-        "hand-scrub",
-        "sugar-scrub",
-        "frankincense-salve"
-      ],
-      eczema: [
         "shea-butter",
         "whipped-body-butter",
         "hand-scrub",
@@ -6597,7 +6595,6 @@
       bug: ["bug-spray", "miracle-balm"],
       mosquito: ["bug-spray", "miracle-balm"],
       insect: ["bug-spray", "miracle-balm"],
-      repellent: ["bug-spray", "miracle-balm"],
       camping: ["bug-spray"],
       hiking: ["bug-spray"],
       outdoor: ["bug-spray"],

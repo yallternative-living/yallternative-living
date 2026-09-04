@@ -2395,13 +2395,10 @@ function buildSiteData() {
       "muscle"
     ],
     arnica: ["arnica montana", "mountain arnica", "bruise herb", "arnika", "soreness", "bruises"],
-    calendula: [
-      "marigold",
-      "calendula officinalis",
-      "calendula flower",
-      "calendula oil",
-      "healing"
-    ],
+    /* "healing" left this group on 2026-09-04: it is a 21 USC 321(g)(1)(B)
+       word and belongs to the router, not to a botanical. See the note on
+       assertNoRouterWordInSynonyms() above. */
+    calendula: ["marigold", "calendula officinalis", "calendula flower", "calendula oil"],
     chamomile: ["camomile", "german chamomile", "matricaria", "calming tea", "soothing"],
     frankincense: [
       "olibanum",
@@ -2446,9 +2443,18 @@ function buildSiteData() {
     squalane: ["shimmer", "glow", "oil"],
     pumice: ["exfoliant", "scrub", "pumice stone"],
 
-    // Tier 2: Concerns, symptoms, intent
+    /* Tier 2: Concerns, symptoms, intent.
+
+       LAY vocabulary only. "insomnia" and "anxiety" left this group on
+       2026-09-04, "arthritis"/"pain"/"joint pain" left `muscles`, "eczema"
+       left `dry_skin`, "repellent" left `bug_spray` and "treat yourself" left
+       `gift_cards`: every one of them is a MEDICAL_QUERY_TERMS word, and a
+       named disease or statutory verb sitting next to a product key is the
+       disease-to-product mapping brief section 7(b) is about. What stays is
+       what a person says about her own evening or her own skin -- "restless",
+       "wind down", "itchy", "cracked", "sore", "tired legs" -- which is
+       surface 3's whole purpose and carries the traffic. */
     sleep: [
-      "insomnia",
       "bedtime",
       "nighttime",
       "tired",
@@ -2457,7 +2463,6 @@ function buildSiteData() {
       "unwind",
       "calm",
       "relax",
-      "anxiety",
       "stress",
       "sleepy",
       "somnolence",
@@ -2476,15 +2481,12 @@ function buildSiteData() {
     muscles: [
       "sore muscles",
       "muscle ache",
-      "joint pain",
       "tension",
       "stiffness",
       "workout",
       "gym",
-      "arthritis",
       "recovery",
       "sore",
-      "pain",
       "cramps",
       "long day",
       "tired legs",
@@ -2504,7 +2506,6 @@ function buildSiteData() {
     ],
     dry_skin: [
       "dry skin",
-      "eczema",
       "cracked heels",
       "chapped hands",
       "ashy",
@@ -2541,7 +2542,6 @@ function buildSiteData() {
       "bites",
       "gnats",
       "ticks",
-      "repellent",
       "camping",
       "hiking",
       "outdoor",
@@ -2594,7 +2594,6 @@ function buildSiteData() {
       "housewarming",
       "care package",
       "self care gift",
-      "treat yourself",
       "holiday gift",
       "christmas",
       "valentines",
@@ -3004,6 +3003,46 @@ function buildSiteData() {
         "strings -- the client's medical-query note is silent without it."
     );
   }
+
+  /* THE SURFACE-3 / SURFACE-4 SEPARATION, ENFORCED ON THE EMITTED FILE.
+     Surface 4 exists because a disease word may be RECOGNISED and must not be
+     WIRED to a product. The synonym table is exactly a wiring: `{ dry_skin:
+     ["eczema"] }` in assets/js/search-data.js is a disease-to-product mapping
+     in a shipped file whether or not any UI can reach it -- which is what
+     brief section 7(b) warns about and what C-657/11 para 58 holds is
+     advertising notwithstanding that "the metatags are invisible to the
+     internet user".
+
+     So the two lists may not overlap, and this refuses the build if they do.
+     It runs on the MERGED table rather than on searchSynonymDefaults alone,
+     because the CMS's search.extraSynonyms and the enrichment bot both land in
+     the same object: SEARCH_SYNONYM_BANNED is eleven words and stops the worst
+     of them, and this is the other twenty-two. Matching is by whole word
+     through the rules module's own containsPhrase(), so "joint pain" is caught
+     by "pain" and "manicure" is not caught by "cure". */
+  Object.keys(searchSynonyms).forEach(function (key) {
+    const subjects = [{ label: "key", text: key.replace(/_/g, " ") }].concat(
+      searchSynonyms[key].map(function (t) {
+        return { label: 'term "' + t + '"', text: t };
+      })
+    );
+    subjects.forEach(function (subject) {
+      medicalQueryTerms.forEach(function (word) {
+        if (!searchRules.containsPhrase(subject.text, word)) return;
+        throw new Error(
+          "search synonyms: " +
+            key +
+            " " +
+            subject.label +
+            ' carries the router word "' +
+            word +
+            '".\n        A medicalQueryTerms word maps to NO product (brief 7(b), 7(c)); a synonym' +
+            "\n        entry maps it to one. Drop the word, or move it out of MEDICAL_QUERY_TERMS" +
+            "\n        in scripts/lib/search-enrichment-rules.js -- not both."
+        );
+      });
+    });
+  });
   /* ==== END medical-query router ==== */
 
   const searchIndex = {

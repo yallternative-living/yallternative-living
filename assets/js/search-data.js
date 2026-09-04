@@ -1697,8 +1697,7 @@ window.YL_SEARCH_INDEX = {
       "marigold",
       "calendula officinalis",
       "calendula flower",
-      "calendula oil",
-      "healing"
+      "calendula oil"
     ],
     "chamomile": [
       "camomile",
@@ -1812,7 +1811,6 @@ window.YL_SEARCH_INDEX = {
       "pumice stone"
     ],
     "sleep": [
-      "insomnia",
       "bedtime",
       "nighttime",
       "tired",
@@ -1821,7 +1819,6 @@ window.YL_SEARCH_INDEX = {
       "unwind",
       "calm",
       "relax",
-      "anxiety",
       "stress",
       "sleepy",
       "somnolence",
@@ -1840,15 +1837,12 @@ window.YL_SEARCH_INDEX = {
     "muscles": [
       "sore muscles",
       "muscle ache",
-      "joint pain",
       "tension",
       "stiffness",
       "workout",
       "gym",
-      "arthritis",
       "recovery",
       "sore",
-      "pain",
       "cramps",
       "long day",
       "tired legs",
@@ -1868,7 +1862,6 @@ window.YL_SEARCH_INDEX = {
     ],
     "dry_skin": [
       "dry skin",
-      "eczema",
       "cracked heels",
       "chapped hands",
       "ashy",
@@ -1905,7 +1898,6 @@ window.YL_SEARCH_INDEX = {
       "bites",
       "gnats",
       "ticks",
-      "repellent",
       "camping",
       "hiking",
       "outdoor",
@@ -1958,7 +1950,6 @@ window.YL_SEARCH_INDEX = {
       "housewarming",
       "care package",
       "self care gift",
-      "treat yourself",
       "holiday gift",
       "christmas",
       "valentines",

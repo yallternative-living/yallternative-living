@@ -3139,6 +3139,77 @@ try {
     } else {
       fail("assets/js/search-data.js", "missing window.YL_SEARCH_INDEX assignment");
     }
+
+    /* SURFACE 3 AND SURFACE 4 MAY NOT OVERLAP, CHECKED ON THE SHIPPED FILE.
+       The build refuses to emit an overlap (scripts/build-site-data.js, the
+       guard beside medicalQueryTermList()), and this is the same assertion made
+       against the artefact that is actually on disk -- because the file that
+       ships is the one a regulator reads, and a build guard proves nothing
+       about a search-data.js that was hand-edited, restored from a branch, or
+       written by a build that no longer exists.
+
+       What it forbids: a medicalQueryTerms word as a synonym KEY or as a synonym
+       TERM. Surface 4 recognises a disease word and maps it to NO product; a
+       synonym entry maps it to one, which is the disease-to-product mapping in
+       a shipped file that the 2026-09-04 brief warns about at section 7(b) and
+       that C-657/11 para 58 treats as advertising notwithstanding that it is
+       "invisible to the internet user". */
+    try {
+      var searchRules = require(path.join(ROOT, "scripts/lib/search-enrichment-rules.js"));
+      var routerWords = searchRules.medicalQueryTermList();
+      var indexSandbox = { window: {} };
+      new Function("window", searchDataSrc)(indexSandbox.window);
+      var shippedSynonyms = (indexSandbox.window.YL_SEARCH_INDEX || {}).synonyms || {};
+      var synonymOffenders = [];
+      Object.keys(shippedSynonyms).forEach(function (key) {
+        var subjects = [{ label: "key " + key, text: key.replace(/_/g, " ") }].concat(
+          (shippedSynonyms[key] || []).map(function (t) {
+            return { label: key + ' term "' + t + '"', text: String(t) };
+          })
+        );
+        subjects.forEach(function (subject) {
+          routerWords.forEach(function (word) {
+            if (searchRules.containsPhrase(subject.text, word)) {
+              synonymOffenders.push(subject.label + ' <- "' + word + '"');
+            }
+          });
+        });
+      });
+      if (!routerWords.length) {
+        fail("search-data.js router/synonym separation", "medicalQueryTermList() is empty");
+      } else if (synonymOffenders.length) {
+        fail(
+          "search-data.js router/synonym separation",
+          "a medicalQueryTerms word is wired to a product group: " + synonymOffenders.join(", ")
+        );
+      } else {
+        ok(
+          "assets/js/search-data.js wires none of the " +
+            routerWords.length +
+            " medicalQueryTerms words to a synonym key or term"
+        );
+      }
+
+      var shippedRouterWords = (indexSandbox.window.YL_SEARCH_INDEX || {}).medicalQueryTerms;
+      if (Array.isArray(shippedRouterWords) && shippedRouterWords.length === routerWords.length) {
+        ok(
+          "assets/js/search-data.js ships the router's word list (" +
+            shippedRouterWords.length +
+            " words), so the note is never silent"
+        );
+      } else {
+        fail(
+          "search-data.js medicalQueryTerms",
+          "shipped list is " +
+            JSON.stringify(shippedRouterWords) +
+            ", expected " +
+            routerWords.length +
+            " words from search-enrichment-rules.js"
+        );
+      }
+    } catch (e) {
+      fail("search-data.js router/synonym separation", e.message);
+    }
   } else {
     fail("assets/js/search-data.js", "file not found on disk");
   }
