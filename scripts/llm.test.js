@@ -177,13 +177,15 @@ async function main() {
   // -------------------------------------------------------------------------
   {
     let calls = 0;
+    let lastBody = null;
     const client = llm.createClient(
       {
         provider: "gemini",
         apiKey: "x",
         sleep: async function () {},
-        fetchImpl: async function () {
+        fetchImpl: async function (url, init) {
           calls++;
+          lastBody = JSON.parse(init.body);
           if (calls < 3) return errorReply(429);
           return reply([{ id: "a", text: "hola" }]);
         }
@@ -192,6 +194,11 @@ async function main() {
     );
     const out = await client.completeJSON(spec());
     assertEqual(out.items[0].text, "hola", "a 429 is retried with backoff and then succeeds");
+    assertEqual(
+      lastBody.reasoning_effort,
+      "high",
+      "the OpenAI-style transport asks for high reasoning"
+    );
     assertEqual(client.telemetry.retries, 2, "both retries are counted");
     assertEqual(client.telemetry.model, "gemini-3.8-flash", "the pinned model produced the answer");
     assertEqual(client.fallbackWarning(), null, "retrying the pinned model is not a fallback");
@@ -288,6 +295,23 @@ async function main() {
       "that has had the OpenAI-only keys stripped"
     );
     assert(!("model" in body), "and no model field in the body -- it is in the path");
+    assertEqual(
+      body.generationConfig.thinkingConfig && body.generationConfig.thinkingConfig.thinkingLevel,
+      "high",
+      "Gemini 3.x thinking runs at high by default (owner decision 2026-09-04)"
+    );
+  }
+  {
+    const noThink = llm.resolveConfig(
+      { provider: "vertex", apiKey: "k" },
+      { LLM_THINKING: "none" }
+    );
+    assertEqual(noThink.thinking, "none", "LLM_THINKING=none is honoured");
+    assertEqual(
+      llm.resolveConfig({ provider: "gemini", apiKey: "k" }, {}).thinking,
+      "high",
+      "and the default is high on every provider"
+    );
   }
   assertEqual(
     JSON.stringify(

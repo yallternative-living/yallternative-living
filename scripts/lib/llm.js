@@ -185,7 +185,13 @@ function resolveConfig(options, env) {
     apiKey: preset.keyEnv ? opts.apiKey || e[preset.keyEnv] || "" : "",
     maxCalls: firstNumber([opts.maxCalls, e.LLM_MAX_CALLS], DEFAULT_MAX_CALLS),
     timeoutMs: firstNumber([opts.timeoutMs, e.LLM_TIMEOUT_MS], DEFAULT_TIMEOUT_MS),
-    maxRetries: firstNumber([opts.maxRetries, e.LLM_MAX_RETRIES], DEFAULT_MAX_RETRIES)
+    maxRetries: firstNumber([opts.maxRetries, e.LLM_MAX_RETRIES], DEFAULT_MAX_RETRIES),
+    /* Gemini 3.x thinking level: minimal | low | medium | high (the model's
+       own default is medium). "high" by owner decision 2026-09-04 -- these
+       are a few hundred short strings a month, and a translation that
+       weighs a claim word is worth the thinking tokens. Set LLM_THINKING to
+       "none" to send no thinking field at all. */
+    thinking: String(opts.thinking || e.LLM_THINKING || "high").toLowerCase()
   };
 }
 
@@ -305,11 +311,16 @@ function createClient(options, env) {
         body: {
           systemInstruction: { parts: [{ text: spec.system }] },
           contents: [{ role: "user", parts: [{ text: spec.user }] }],
-          generationConfig: {
-            temperature: spec.temperature === undefined ? 0.2 : spec.temperature,
-            responseMimeType: "application/json",
-            responseSchema: toGeminiSchema(spec.schema)
-          }
+          generationConfig: Object.assign(
+            {
+              temperature: spec.temperature === undefined ? 0.2 : spec.temperature,
+              responseMimeType: "application/json",
+              responseSchema: toGeminiSchema(spec.schema)
+            },
+            cfg.thinking && cfg.thinking !== "none"
+              ? { thinkingConfig: { thinkingLevel: cfg.thinking } }
+              : {}
+          )
         }
       };
     }
@@ -321,22 +332,25 @@ function createClient(options, env) {
            logs, redirects and error text that nothing masks. */
         Authorization: "Bearer " + cfg.apiKey
       },
-      body: {
-        model: model,
-        messages: [
-          { role: "system", content: spec.system },
-          { role: "user", content: spec.user }
-        ],
-        temperature: spec.temperature === undefined ? 0.2 : spec.temperature,
-        response_format: {
-          type: "json_schema",
-          json_schema: {
-            name: spec.schemaName || "structured_output",
-            strict: true,
-            schema: spec.schema
+      body: Object.assign(
+        cfg.thinking && cfg.thinking !== "none" ? { reasoning_effort: cfg.thinking } : {},
+        {
+          model: model,
+          messages: [
+            { role: "system", content: spec.system },
+            { role: "user", content: spec.user }
+          ],
+          temperature: spec.temperature === undefined ? 0.2 : spec.temperature,
+          response_format: {
+            type: "json_schema",
+            json_schema: {
+              name: spec.schemaName || "structured_output",
+              strict: true,
+              schema: spec.schema
+            }
           }
         }
-      }
+      )
     };
   }
 
