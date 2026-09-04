@@ -791,3 +791,156 @@ green in a clean worktree at HEAD with these files added.
   in the suite is driven through an injected client, and the proof run used the
   mock provider; nobody has yet watched `gemini-3.8-flash` answer this prompt
   with a real key. What IS proved is that the run survives whatever it says.
+
+---
+
+# The 2026-09-04 research brief, as rules
+
+The brief ("Search, keywords and claims: where the line actually is") is a
+document. This section is the part of it that became code, what it cost, and the
+two places the implementation deliberately differs from the brief's own wording.
+
+## Translation gate: what the five locales now refuse
+
+`scripts/lib/i18n-claims-rules.js`, gated by `scripts/i18n-claims.test.js`
+(228 pins, up from 59). The source-parity design is unchanged: a banned word is
+an offence unless the key's own English contains one of its licensed triggers,
+protected brand terms are stripped from the English first, and a term with no
+trigger list can never be licensed by anything.
+
+| Group | Added | Licensed by |
+|---|---|---|
+| Condition names | es eccema, psoriasis, dermatitis, rosácea/rosacea, acné, insomnio, ansiedad, migraña, artritis, infección, inflamación, dolor · de Ekzem, Schuppenflechte, Psoriasis, Dermatitis, Rosazea/Rosacea, Akne, Schlaflosigkeit, Angst, Migräne, Arthritis, Infektion, Entzündung, Schmerz · fr eczéma, psoriasis, dermatite, rosacée, acné, insomnie, anxiété, migraine, arthrite, infection, inflammation, douleur · ja 湿疹, 乾癬, 皮膚炎, 酒さ, ニキビ, 不眠, 不安, 片頭痛, 関節炎, 感染, 炎症, 痛み · zh 湿疹, 银屑病, 牛皮癣, 皮炎, 玫瑰痤疮, 痤疮, 失眠, 焦虑, 偏头痛, 关节炎, 感染, 炎症, 疼痛 | **nothing** |
+| Injury | es herida · de Wunde · fr plaie · ja 傷 · zh 伤口 | `BROKEN_SKIN` -- see below |
+| Regulated register | es cura, alivia · fr soigner · ja 効く, 治す (de heilend/lindert/Heilmittel and zh 治疗/疗效 were already there) | an English treatment verb, which the copy table bans in English too |
+| EU/UK | es hipoalergénic, dermatológicamente, paraben, alérgen, clean · de hypoallergen, dermatologisch, Paraben, Allergen, clean · fr hypoallergén, dermatologiquement, parabèn, paraben, allergèn, clean · ja 低アレルギー, ノンアレルギー, 皮膚科テスト, 皮膚科医テスト, パラベン, アレルゲン, クリーン, clean · zh 低敏, 皮肤科测试, 对羟基苯甲酸酯, 尼泊金, 过敏原, clean | **nothing** |
+
+Kräuterheilmittel and 安心 are re-pinned in both directions, because a table
+that grows is a table that can lose an old rule by accident.
+
+### Two deviations from the brief, both deliberate
+
+**1. The injury family is licensed by an English broken-skin caution.** The
+brief says condition words are licensed by nothing. Three shipped strings say
+otherwise: `pdp.externalUseOnly` reads "keep away from eyes and **broken skin**"
+in English and is already rendered "à l'écart des yeux et **des plaies**" in
+French and "目や**傷**のある部分を避け" in Japanese. A caution telling you NOT to
+use the product somewhere is the opposite of an intended-use claim, so
+herida/Wunde/plaie/傷/伤口 carry a `BROKEN_SKIN` trigger list rather than an
+empty one. The word is still an offence in every string whose English warns
+about nothing, and there is a pin for that. `cut` is deliberately absent from
+the trigger list: "cut with shea butter" must not license a wound word.
+
+**2. es `cura` is licensed by an English treatment verb, not by nothing.**
+`footer.disclaimer` says "diagnose, treat, **cure**, or prevent" in English and
+"diagnosticar, tratar, **curar**" in Spanish -- the disclaimer denies the claims
+it names, which is the whole point of it. Source parity handles it: the Spanish
+is licensed because the English says "cure". No dictionary was edited.
+
+### Shipped translations that a new rule touches
+
+Three, all reported rather than silently accommodated, and none edited:
+
+| Key | Locale | String | What was done |
+|---|---|---|---|
+| `pdp.externalUseOnly` | fr | "Tenir à l'écart des yeux et des **plaies**" | `BROKEN_SKIN` trigger (English says "broken skin") |
+| `pdp.externalUseOnly` | ja | "目や**傷**のある部分を避け" | same |
+| `footer.disclaimer` | es | "diagnosticar, tratar, **curar** ni prevenir" | `TREATS` trigger (English says "cure") |
+
+`pdp.notMedicine` (es curar, ja 治療/治癒, zh 治疗/治愈) was already exempt by key
+and is untouched.
+
+### CLAIM_NOT_INSIDE, and why substring matching needed it
+
+Substrings are what let "Heilmittel" catch "Kräuterheilmittel". They are also
+what makes German "wunderbar" contain *Wunde*, Spanish "manicura" contain
+*cura*, Japanese "傷めない" contain *傷*, and English "cleanser" contain *clean*.
+A gate that fails on "wunderbar" is a gate somebody switches off, so each banned
+term may name the innocent longer words it hides inside, and those are stripped
+before that one term is looked for -- the same move `stripProtectedTerms()`
+already makes on the English. The list is short and provably innocent:
+**"Wundermittel" is not on it**, and a pin asserts it still trips.
+
+### The hedge rule is a prompt rule, and says so
+
+"Never render a hedge as a promise" cannot be gated. There is no string to
+search for when "helps your skin feel softer" comes back as "makes your skin
+softer" -- the failure is a word that is *missing*. It is appended to the prompt
+fragment the rules module already generates from the same arrays the gate reads,
+it tells the model to leave a sentence weaker rather than stronger where the
+language has no natural hedge, and it prints `NOT MACHINE-CHECKED` in the prompt
+itself so nobody downstream mistakes it for a gate. A pin asserts every locale's
+prompt carries it.
+
+## Claims reviewer: four new categories
+
+`scripts/lib/copy-claims-rules.js`, pinned by `scripts/claims-review.test.js`
+(196 pins, up from 153). A term may now carry a `pattern` -- a regular
+expression -- with `term` kept as the label a finding quotes, because three of
+these rules are about a shape rather than a word. Patterns run before plain
+terms so the better-explained finding wins the span; an unparseable pattern
+throws, for the same reason an unknown category id already does. The JSON
+overlay can add patterns, so the next brief needs no code.
+
+| Category | Flags | Does NOT flag |
+|---|---|---|
+| `monograph` [R7] | "Temporarily protects minor cuts, scrapes and burns." | "Protects your hands from a long day in the garden." |
+| `ingredient` [R7] | "Contains calendula, known for soothing irritated skin." | "Made with lavender, because we like how it smells." |
+| `collocation` [R7] | "Soothes inflamed, irritated and itching skin." / "Calms the itch underneath." | "A soothing scent." / "A soothing soak, a calm evening." |
+| `agency` [R3] | "MoCRA-compliant." / "FDA-registered." | -- (no safe rewording exists; the sentence goes) |
+| `marketing`, new terms | "Clean beauty, clean ingredients." | "Apply with clean, dry fingers." / "gets your hands actually clean" |
+| `drug`, new terms | "Anti-microbial and anti-bacterial." | -- |
+
+The `collocation` negatives are the load-bearing pins. "Soothing" is on every
+indie safe-word list, Lush's copy is built out of it, and the shop's own
+approved rewrites use it; a reviewer that flags "soothing scent" is a reviewer
+she stops reading. It fires only when the word is pointed at a symptom or an
+inflamed body part -- which is precisely what FDA quoted at Om Botanical.
+
+**The live-catalogue canary.** A pin asserts that **exactly one** string in
+`assets/data/products.json` trips a new category today: the beard salve's "calms
+the itch underneath", which both reviews already named and which is the owner's
+call. If that count moves, either the catalogue changed or a pattern got greedy.
+
+**Republished reviews go through the same table**, as they already did --
+§ 255.2(a) converts a review into the shop's own claim -- and now reach the new
+categories, with the rule that actually fired kept alongside the S4B testimonial
+label. Two live reviews would report if they were edited: "No bites!!"
+(`bites`, pesticide) and "This is all natural" (`all natural`, marketing).
+
+**The second pass's category enum is generated from the table.** It used to be
+hard-coded, so a category a brief added could be flagged deterministically and
+then rejected by the schema on the model pass -- half-wired in a way nobody
+would notice until a report was quietly missing something.
+
+## llms.txt: the puffery argument, narrowed
+
+The AI-guidance note vouched for "miracle" **and** "heal" as brand voice.
+655/2013 Annex criterion 3(5) and US puffery doctrine both hold for "Miracle" --
+nothing about it is falsifiable. Neither holds for "Heal", which is a literal
+assertion naming a § 321(g)(1)(B) concept, in a name that travels without its
+context through the page title, the URL and every listing. The note now covers
+"miracle" only and asserts nothing about "heal" in either direction; the rename
+is the owner's pending decision and no product name or line of her copy was
+touched. `llms-full.txt` gained "or any other listing name" so nothing else
+inherits the defence.
+
+## What this round does NOT do
+
+- **No dictionary, product name, blurb or review was edited.** Three shipped
+  translations trip a new rule and all three are reported above, not fixed.
+- **Nothing pins the llms.txt sentence.** `grep playful` found only the two
+  build strings and the two generated files. Adding a pin would mean editing
+  `scripts/build-site-data.test.js` or `qa-check.js` while another agent is
+  working in that file; the gap is named here instead. A future pin belongs in
+  `build-site-data.test.js` and should assert "miracle" is present and "heal" is
+  absent from the guidance paragraph.
+- **The condition lists are the brief's, not an exhaustive medical vocabulary.**
+  es "antiinflamatorio", fr "anti-inflammatoire" and zh 抗炎 are not in the
+  translation table; the English side of that family is, in the copy table.
+- **Nothing here touches surfaces 3 and 4.** `querySynonyms`,
+  `SEARCH_SYNONYM_BANNED` and the `medicalQueryTerms` router the brief proposes
+  are the search bot's half of the work and are not in these files.
+- **Still no API key on this machine.** Every prompt change above is unmeasured
+  against a real model; what is proved is that the gate is green on the shipped
+  data and that the prompt is generated from the same arrays the gate reads.
