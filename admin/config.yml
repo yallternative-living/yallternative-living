@@ -58,6 +58,11 @@ backend:
   # doesn't exist anymore, which would make every /admin login fail).
   repo: yallternative-living/yallternative-living
   branch: main
+  # Only the token sign-in is offered. "Sign In with GitHub" needs the
+  # OAuth service in cms-auth/ (base_url below, still commented out), so
+  # today it is a button on her login screen that cannot succeed.
+  # Add `oauth` back in the same commit that uncomments base_url.
+  auth_methods: [token]
   # base_url = the "Sign in with GitHub" login service for /admin.
   #
   # This used to be left unset so Netlify could act as the default OAuth
@@ -83,6 +88,9 @@ backend:
   # base_url: https://yallternative-cms-auth.YOUR-SUBDOMAIN.workers.dev
 
 site_url: https://yallternativeliving.com
+
+# Shown on the login screen and in the browser tab, instead of "Sveltia CMS".
+app_title: "Y'allternative Living"
 display_url: https://yallternativeliving.com
 logo_url: /assets/img/logo.png
 
@@ -186,7 +194,7 @@ collections:
           [bold, italic, link, heading-two, heading-three, bulleted-list, numbered-list]
         editor_components: []
         hint: "The toolbar gives you bold, italic, links, headings and lists, and it looks on the site the way it looks here. Leave a blank line between paragraphs."
-      - { name: image, label: "Featured photo", widget: image, required: false }
+      - { name: image, label: "Featured photo", widget: image, choose_url: false, required: false }
       - name: tags
         label: Topics
         widget: list
@@ -212,8 +220,9 @@ collections:
 singletons:
   - name: products
     label: "Shop & Products"
+    # Adds a "View on Live Site" button to this section's editor.
+    preview_path: "shop.html"
     icon: storefront
-    description: "Your whole shop: products and prices, multi-buy deals, category sales, gift bundles and the FAQ. Click an item to edit it or 'Add' to create one; Save publishes in a few minutes."
     file: assets/data/products.json
     format: json
     # No side-by-side preview: on a settings/catalogue form it only re-lists
@@ -234,6 +243,8 @@ singletons:
         widget: object
         collapsed: true
         hint: "Etsy counters, free shipping, cart rewards and the Build-Your-Own Box. You rarely need this."
+        # Was `description:` on the section, where Sveltia renders it nowhere.
+        comment: "Your whole shop: products and prices, multi-buy deals, category sales, gift bundles and the FAQ. Click an item to edit it or 'Add' to create one; Save publishes in a few minutes."
         fields:
           - { name: name, label: "Shop name", widget: string }
           - { name: etsyShopUrl, label: "Etsy shop link", widget: string }
@@ -348,6 +359,9 @@ singletons:
         label_singular: Product
         collapsed: true
         summary: "{{fields.name}} — ${{fields.price}} ({{fields.category}})"
+        # Photo beside each collapsed row; new items land on top.
+        thumbnail: image
+        add_to_top: true
         fields:
           - name: name
             label: "Product name"
@@ -374,13 +388,14 @@ singletons:
           - name: image
             label: "Main photo"
             widget: image
+            choose_url: false
             hint: "Shown on the product card and first in the gallery."
           - name: images
             label: "Extra gallery photos"
             widget: list
             label_singular: Photo
             required: false
-            field: { name: photo, label: Photo, widget: image }
+            field: { name: photo, label: Photo, widget: image, choose_url: false }
           - name: blurb
             label: "Product description"
             widget: text
@@ -894,8 +909,9 @@ singletons:
 
   - name: events
     label: "Markets & Pop-Ups"
+    # Adds a "View on Live Site" button to this section's editor.
+    preview_path: "events.html"
     icon: event
-    description: "Your pop-up schedule: markets, fairs and Pride dates. Once a date passes the event moves itself to 'Where We've Been'. Save publishes in a few minutes."
     file: assets/data/events.json
     format: json
     # No side-by-side preview: on a settings/catalogue form it only re-lists
@@ -913,6 +929,8 @@ singletons:
         collapsed: true
         summary: "{{fields.dateLabel}} — {{fields.name}} ({{fields.location}})"
         hint: "Confirmed dates only — customers may show up in person."
+        # Was `description:` on the section, where Sveltia renders it nowhere.
+        comment: "Your pop-up schedule: markets, fairs and Pride dates. Once a date passes the event moves itself to 'Where We've Been'. Save publishes in a few minutes."
         fields:
           - { name: name, label: "Event name", widget: string, hint: "e.g. Landrum Farmers Market" }
           - {
@@ -1008,8 +1026,9 @@ singletons:
 
   - name: reviews
     label: "Customer Reviews"
+    # Adds a "View on Live Site" button to this section's editor.
+    preview_path: "reviews.html"
     icon: reviews
-    description: "Reviews shown on your site. Only add real ones you've approved, and tick 'Feature on homepage?' for the few you want front and center. Kept separate from your Etsy star rating."
     file: assets/data/site-reviews.json
     format: json
     # No side-by-side preview: on a settings/catalogue form it only re-lists
@@ -1027,6 +1046,8 @@ singletons:
         collapsed: true
         summary: "{{fields.name}} — {{fields.rating}}★"
         hint: "Real, approved reviews only. These never merge into your Etsy star rating."
+        # Was `description:` on the section, where Sveltia renders it nowhere.
+        comment: "Reviews shown on your site. Only add real ones you've approved, and tick 'Feature on homepage?' for the few you want front and center. Kept separate from your Etsy star rating."
         fields:
           - {
               name: name,
@@ -1110,8 +1131,9 @@ singletons:
 
   - name: social_feed
     label: "Social Media Feed"
+    # Adds a "View on Live Site" button to this section's editor.
+    preview_path: "index.html"
     icon: photo_camera
-    description: "The photo strip on your homepage: a picture and caption for each Instagram or TikTok post you want to show off. Its on/off switch is under Site Settings."
     file: assets/data/social-feed.json
     format: json
     # No side-by-side preview: on a settings/catalogue form it only re-lists
@@ -1128,8 +1150,12 @@ singletons:
         required: false
         collapsed: true
         summary: "{{fields.caption}}"
+        thumbnail: image
+        add_to_top: true
+        # Was `description:` on the section, where Sveltia renders it nowhere.
+        comment: "The photo strip on your homepage: a picture and caption for each Instagram or TikTok post you want to show off. Its on/off switch is under Site Settings."
         fields:
-          - { name: image, label: "Photo", widget: image }
+          - { name: image, label: "Photo", widget: image, choose_url: false }
           - { name: caption, label: "Caption", widget: text }
           - {
               name: author,
@@ -1177,8 +1203,9 @@ singletons:
 
   - name: content
     label: "Site Settings"
+    # Adds a "View on Live Site" button to this section's editor.
+    preview_path: "index.html"
     icon: tune
-    description: "Wording and photos across your pages (homepage, About, Contact, logos) plus the on/off switches for site features. Open a section, edit, Save. Start with 'Site Settings'."
     file: assets/data/content.json
     format: json
     # No side-by-side preview: on a settings/catalogue form it only re-lists
@@ -1201,6 +1228,8 @@ singletons:
         collapsed: false
         summary: "on/off switches first, then banners, logos and connection codes"
         hint: "The on/off switches for site features come first. Below them: banners, logos, newsletter wording, social links, and the connection codes for your newsletter, forms, chat and stats -- those are set once and rarely touched."
+        # Was `description:` on the section, where Sveltia renders it nowhere.
+        comment: "Wording and photos across your pages (homepage, About, Contact, logos) plus the on/off switches for site features. Open a section, edit, Save. Start with 'Site Settings'."
         fields:
           # Switches first: this is the part of the form Savanna opens most
           # often and used to be ~200 lines down, under the logos, banners,
@@ -1445,18 +1474,21 @@ singletons:
               name: logoDesktop,
               label: "Desktop logo",
               widget: image,
+              choose_url: false,
               hint: "Shown in the header and footer on desktop screens."
             }
           - {
               name: logoMobile,
               label: "Mobile logo",
               widget: image,
+              choose_url: false,
               hint: "Shown in the menu drawer on phones."
             }
           - {
               name: ogImage,
               label: "Link preview image",
               widget: image,
+              choose_url: false,
               hint: "The picture that shows when someone shares your site's link (Facebook, texts, iMessage)."
             }
           # --- Banners --------------------------------------------------
@@ -1717,12 +1749,14 @@ singletons:
               name: heroImage,
               label: "Hero photo",
               widget: image,
+              choose_url: false,
               hint: "The main photo at the top of the homepage."
             }
           - {
               name: featureImage,
               label: "Story photo",
               widget: image,
+              choose_url: false,
               hint: "Shown next to the 'Handmade In Small Batches' section."
             }
           - name: badges
@@ -1831,12 +1865,14 @@ singletons:
               name: bioImage,
               label: "Main bio photo",
               widget: image,
+              choose_url: false,
               hint: "Shown next to your story heading."
             }
           - {
               name: secondaryImage,
               label: "Second photo",
               widget: image,
+              choose_url: false,
               hint: "Shown next to the 'Backroads, Porch Lights' section."
             }
           - name: community
@@ -1867,6 +1903,7 @@ singletons:
               name: giftCardImage,
               label: "Gift card banner photo",
               widget: image,
+              choose_url: false,
               hint: "Background photo for the Digital Gift Card banner."
             }
           - name: sections
@@ -1953,6 +1990,7 @@ singletons:
               name: image,
               label: "Contact photo",
               widget: image,
+              choose_url: false,
               hint: "Shown alongside the contact form."
             }
           - { name: email, label: "Email address", widget: string, required: false }
@@ -2105,8 +2143,9 @@ singletons:
   # ==================================================================
   - name: quiz
     label: "Quiz"
+    # Adds a "View on Live Site" button to this section's editor.
+    preview_path: "shop.html"
     icon: quiz
-    description: "The recommendation quiz on the shop page: its banner wording, the questions shoppers answer, and which products each answer recommends. Its on/off switch is under Site Settings."
     file: assets/data/quiz.json
     format: json
     # No side-by-side preview: on a settings/catalogue form it only re-lists
@@ -2116,7 +2155,12 @@ singletons:
     editor:
       preview: false
     fields:
-      - { name: eyebrow, label: "Banner eyebrow", widget: string, hint: "The small line above the banner title." }
+      - name: eyebrow
+        label: "Banner eyebrow"
+        widget: string
+        hint: "The small line above the banner title."
+        # Was `description:` on the section, where Sveltia renders it nowhere.
+        comment: "The recommendation quiz on the shop page: its banner wording, the questions shoppers answer, and which products each answer recommends. Its on/off switch is under Site Settings."
       - { name: title, label: "Banner title", widget: string }
       - { name: subtitle, label: "Banner subtitle", widget: text }
       - { name: buttonText, label: "Button text", widget: string, hint: "The button that opens the quiz." }
