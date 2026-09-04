@@ -280,6 +280,247 @@ function changesBetween(baseDoc, headDoc, fields) {
 }
 
 // ---------------------------------------------------------------------------
+// 4b. The 2026-09-04 research brief's categories (§7(d)(3)).
+//
+// The collocation rule is the one that needs pinning in BOTH directions and is
+// pinned hardest: "soothing" is on every indie safe-word list and the shop's
+// own approved rewrites use it, so a reviewer that flags "soothing scent" is a
+// reviewer that gets ignored -- while "soothes inflamed" is the exact string
+// FDA quoted at Om Botanical. The negative pins below are the load-bearing
+// ones.
+// ---------------------------------------------------------------------------
+{
+  function scan(text, isReview) {
+    return rules.scanText(text, { terms: TERMS, isReview: !!isReview }).matches;
+  }
+  function categoriesOf(text) {
+    return scan(text)
+      .map(function (m) {
+        return m.category;
+      })
+      .sort();
+  }
+  function flags(text) {
+    return scan(text).length > 0;
+  }
+
+  /* Borrowed monograph wording. Each phrase belongs to a listed active at a
+     listed strength, and the salve has neither. */
+  const monograph = [
+    ["Temporarily protects minor cuts, scrapes and burns.", "temporarily protects"],
+    [
+      "Relieves minor skin irritation and itching due to dryness.",
+      "relieves minor skin irritation"
+    ],
+    ["For the treatment of acne.", "for the treatment of"],
+    ["Controls the symptoms of a rough patch.", "controls the symptoms of"]
+  ];
+  monograph.forEach(function (row) {
+    assert(
+      categoriesOf(row[0]).indexOf("monograph") !== -1,
+      "monograph: " + row[1] + " is flagged",
+      row[0]
+    );
+  });
+  assert(
+    !flags("Protects your hands from a long day in the garden."),
+    "monograph: plain protection language is not monograph wording"
+  );
+  assert(
+    !flags("Made for the end of a long week, and the symptoms of a Monday."),
+    "monograph: 'the symptoms of a Monday' is a joke, not 'controls the symptoms of'"
+  );
+
+  /* Ingredient-to-product extrapolation. */
+  assert(
+    categoriesOf("Contains calendula, known for soothing irritated skin.").indexOf("ingredient") !==
+      -1,
+    "ingredient: 'contains X, known for soothing' is flagged"
+  );
+  assert(
+    categoriesOf("Arnica has long been used to heal bruises.").indexOf("ingredient") !== -1,
+    "ingredient: the Bodywell shape -- 'traditionally used to ... heal' -- is flagged"
+  );
+  assert(
+    !flags("Made with lavender, because we like how it smells."),
+    "ingredient: naming an ingredient without borrowing its reputation is fine"
+  );
+  assert(
+    !flags("Shea butter is prized for how rich it feels going on."),
+    "ingredient: 'prized for how it feels' is sensory, not therapeutic"
+  );
+  /* An extrapolation that also reads as a collocation reports ONCE, as the
+     extrapolation, because that is the finding that explains itself. */
+  const both = scan("Contains calendula, known for soothing irritated skin.");
+  assertEqual(both.length, 1, "an extrapolation is reported once, not twice");
+  assertEqual(both[0].category, "ingredient", "and the extrapolation wins the span");
+  assert(
+    /655\/2013/.test(both[0].reason) && /intended use/.test(both[0].reason),
+    "and it cites 655/2013 criterion 3(6) and FDA's therapeutic-ingredient limb",
+    both[0].reason
+  );
+
+  /* The collocation rule: POSITIVE. */
+  [
+    "Soothes inflamed, irritated and itching skin.",
+    "Calms the itch underneath.",
+    "Soothes the pain in tired feet.",
+    "Calms redness after a shave.",
+    "Soothes sore muscles."
+  ].forEach(function (text) {
+    assert(
+      categoriesOf(text).indexOf("collocation") !== -1 || flags(text),
+      "collocation: " + JSON.stringify(text) + " is flagged"
+    );
+  });
+
+  /* The collocation rule: NEGATIVE, and these matter more. */
+  [
+    "A soothing scent for the end of a long day.",
+    "A soothing soak, a calm evening, and nothing to do.",
+    "Calming lavender and a cup of tea.",
+    "Soothing, in the way a porch swing is soothing.",
+    "The most soothing thing in the shop."
+  ].forEach(function (text) {
+    assertEqual(
+      scan(text).length,
+      0,
+      "collocation: " + JSON.stringify(text) + " must NOT be flagged"
+    );
+  });
+
+  /* The new NEVER terms. */
+  [
+    ["MoCRA-compliant, we promise.", "MoCRA-compliant"],
+    ["FDA-registered facility.", "FDA-registered"],
+    ["FDA safety-substantiated formula.", "FDA safety-substantiated"],
+    ["Anti-microbial and anti-bacterial.", "anti-microbial"],
+    ["Anti-fungal, too.", "anti-fungal"],
+    ["Non-toxic and chemical-free.", "non-toxic"],
+    ["Hypoallergenic and dermatologist-tested.", "hypoallergenic"],
+    ["Clean beauty, clean ingredients.", "clean beauty"]
+  ].forEach(function (row) {
+    assert(flags(row[0]), "never term: " + row[1] + " is flagged", row[0]);
+  });
+  /* MoCRA's reason has to say WHY, or the finding is a scolding. */
+  const mocra = scan("MoCRA-compliant, we promise.")[0];
+  assert(
+    /364d/.test(mocra.reason) && /records/.test(mocra.reason),
+    "MoCRA findings explain that the duty runs to records, not to words",
+    mocra.reason
+  );
+
+  /* "clean" is only a claim about the FORMULA. The literal sense is in the
+     live catalogue right now and must stay unflagged. */
+  [
+    "Scoop out a small amount with clean, dry fingers.",
+    "The bourbon-vanilla scrub that gets your hands actually clean.",
+    "Apply to clean skin."
+  ].forEach(function (text) {
+    assertEqual(scan(text).length, 0, "'clean' in the literal sense is not a claim: " + text);
+  });
+
+  /* Republished review text goes through the SAME table (§ 255.2(a)), and the
+     new categories reach it too. */
+  const reviewScan = scan("It soothes the pain and contains calendula, known for healing.", true);
+  assert(reviewScan.length >= 1, "a review is scanned against the new categories as well");
+  assert(
+    reviewScan.every(function (m) {
+      return m.category === "testimonial" && m.citation === "S4B";
+    }),
+    "and every finding in it is reported as the shop's own claim"
+  );
+  assert(
+    reviewScan.some(function (m) {
+      return m.ruleCategory === "ingredient" || m.ruleCategory === "collocation";
+    }),
+    "with the rule that actually fired kept alongside the testimonial label"
+  );
+
+  /* The live catalogue, as a canary: exactly one string trips a NEW category
+     today, and it is the marginal case both reviews already named. If this
+     count moves, something changed in products.json or in the patterns. */
+  const NEW_CATEGORIES = ["monograph", "ingredient", "collocation"];
+  const liveHits = [];
+  (function walk(node, at) {
+    if (typeof node === "string") {
+      if (node.length < 3) return;
+      rules.scanText(node, { terms: TERMS, allowlist: ALLOWLIST }).matches.forEach(function (m) {
+        if (NEW_CATEGORIES.indexOf(m.category) !== -1) liveHits.push(at + ": " + m.quote);
+      });
+      return;
+    }
+    if (Array.isArray(node)) {
+      node.forEach(function (v, i) {
+        walk(v, at + "[" + i + "]");
+      });
+    } else if (node && typeof node === "object") {
+      Object.keys(node).forEach(function (k) {
+        walk(node[k], at + "." + k);
+      });
+    }
+  })(PRODUCTS, "products.json");
+  assertEqual(
+    liveHits.length,
+    1,
+    "exactly one live string trips a new category: " + JSON.stringify(liveHits)
+  );
+  assert(
+    /calms the itch underneath/.test(liveHits[0] || ""),
+    "and it is the beard salve's 'calms the itch underneath', which is the owner's call",
+    liveHits[0]
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 4c. Patterns as data: the overlay can add one, and a broken one is loud.
+// ---------------------------------------------------------------------------
+{
+  const overlaid = rules.loadTable({
+    env: {},
+    overlay: {
+      categories: {
+        collocation: {
+          add: [
+            {
+              term: "takes the ache out",
+              pattern: "\\btakes?\\s+the\\s+(?:ache|sting)\\s+out\\b",
+              reason: "a paraphrase of a symptom claim is still a symptom claim"
+            }
+          ]
+        }
+      }
+    }
+  });
+  const overlaidTerms = rules.flattenTerms(overlaid);
+  assertEqual(
+    rules.scanText("Takes the ache out of a long day.", { terms: overlaidTerms }).matches.length,
+    1,
+    "a research brief can add a pattern through the overlay"
+  );
+  assertEqual(
+    rules.scanText("Takes the ache out of a long day.", { terms: TERMS }).matches.length,
+    0,
+    "and the base table is unchanged by it"
+  );
+
+  let threw = null;
+  try {
+    rules.loadTable({
+      env: {},
+      overlay: { categories: { collocation: { add: [{ term: "bad", pattern: "soothes(" }] } } }
+    });
+  } catch (err) {
+    threw = err;
+  }
+  assert(
+    threw !== null && /invalid `pattern`/.test(threw.message),
+    "an unparseable pattern is an error, not a rule that matches nothing forever",
+    threw && threw.message
+  );
+}
+
+// ---------------------------------------------------------------------------
 // 5. The known-pending allowlist, against the live catalogue.
 // ---------------------------------------------------------------------------
 {

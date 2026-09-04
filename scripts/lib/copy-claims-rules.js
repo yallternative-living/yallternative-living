@@ -23,6 +23,25 @@
  *   S4B  Republished reviews -- a testimonial the shop republishes is treated
  *        as the shop's own claim.
  *
+ * The 4 September 2026 research brief adds three categories and a handful of
+ * terms, and its own section numbers are the new tags:
+ *
+ *   R3   MoCRA -- every operative verb in 21 U.S.C. § 364d runs to internal
+ *        conduct. Saying "MoCRA-compliant" or "FDA-registered" out loud
+ *        converts a recordkeeping duty into a public representation testable
+ *        under § 362(a) and FTC § 5, with no MoCRA defence.
+ *   R7   §7(d)(3), what a claims reviewer must flag: borrowed OTC-monograph
+ *        wording, ingredient-to-product extrapolation, and "soothes"/"calms"
+ *        in collocation with a body target -- but never standing alone.
+ *
+ * PATTERNS. Three of those rules are about a SHAPE, not a word: "contains X,
+ * known for soothing" cannot be a term because X is any ingredient, and
+ * "soothes inflamed" must fire while "soothing scent" must not. A term may
+ * therefore carry a `pattern` -- a case-insensitive regular expression source
+ * string -- with `term` kept as the human-readable label a finding quotes. A
+ * pattern is tried before the plain terms, so the longer, better-explained
+ * finding wins the span instead of a bare word inside it.
+ *
  * THREE PARTS, and the reason they are separate:
  *
  *   (a) CLAIM_TABLE   hard terms. A hit is a DEFINITE finding: no judgement
@@ -53,9 +72,11 @@
  *   }
  *
  * An overlay entry may be a bare string (it inherits the category's default
- * reason) or an object. Nothing in the merge is clever: add appends, remove
- * filters, and an unknown category id is an error rather than a silent no-op,
- * because a typo in a research brief must not quietly disable a rule.
+ * reason) or an object, and an object may carry a `pattern` as well as a
+ * `term`. Nothing in the merge is clever: add appends, remove filters, and an
+ * unknown category id is an error rather than a silent no-op, because a typo in
+ * a research brief must not quietly disable a rule. An unparseable pattern is
+ * an error for the same reason.
  */
 
 /* ---------------------------------------------------------------
@@ -77,6 +98,22 @@ const R_REPELLENT =
 const R_UNSUPPORTED =
   "an absolute product promise the formula cannot support -- the FTC treats these as express " +
   "efficacy claims";
+const R_MONOGRAPH =
+  "this is wording an OTC drug monograph reserves to a listed active at a listed strength -- " +
+  "borrowing the sentence without the active is what FDA charged Om Botanical and Little Moon " +
+  "Essentials for, and copying it from a competitor's label is worse than not trying";
+const R_EXTRAPOLATION =
+  "crediting the finished product with an ingredient's reputation is a claim about the product: " +
+  "EU Reg. 655/2013 Annex criterion 3(6) wants the ingredient shown present at an effective " +
+  "concentration, and FDA treats a well-known therapeutic ingredient as evidence of intended use";
+const R_COLLOCATION =
+  "'soothing' on its own is sensory and fine -- pointed at a symptom or an inflamed body part it " +
+  "becomes a claim about what the product does; FDA cited 'soothes inflamed, irritated and " +
+  "itching skin' in the Om Botanical letter";
+const R_MOCRA =
+  "MoCRA's safety-substantiation duty (21 U.S.C. § 364d) runs to records you keep, not to words " +
+  "you may say; saying it out loud makes it a public representation testable under § 362(a) and " +
+  "FTC § 5, with no MoCRA defence";
 
 /**
  * Hard terms by category. Order matters only for readability; matching sorts
@@ -128,6 +165,12 @@ const CLAIM_TABLE = {
         { term: "antibacterial", reason: R_ACTION },
         { term: "antiseptic", reason: R_ACTION },
         { term: "antifungal", reason: R_ACTION },
+        /* The hyphenated spellings are the ones a handmade-salve brand reaches
+           for, and all three sit on Amazon's own disease list. */
+        { term: "anti-bacterial", reason: R_ACTION },
+        { term: "anti-fungal", reason: R_ACTION },
+        { term: "anti-microbial", reason: R_ACTION },
+        { term: "antimicrobial", reason: R_ACTION },
         { term: "pain", reason: R_SYMPTOM },
         { term: "inflammation", reason: R_SYMPTOM },
         { term: "eczema", reason: R_CONDITION },
@@ -209,10 +252,139 @@ const CLAIM_TABLE = {
           term: "dermatologist tested",
           reason: "only usable with a real test on file, and there is none"
         },
+        {
+          term: "dermatologist-tested",
+          reason: "only usable with a real test on file, and there is none"
+        },
+        {
+          term: "dermatologically tested",
+          reason: "only usable with a real test on file, and there is none"
+        },
         { term: "organic", reason: "'organic' on a cosmetic needs USDA certification" },
         {
           term: "safe",
           reason: "an unqualified safety promise is not supportable for any cosmetic"
+        },
+        {
+          /* "clean" is only a claim when it describes the FORMULA. "Apply to
+             clean, dry skin" and "gets your hands actually clean" are the
+             literal sense and are in the live catalogue right now, so this one
+             has to be a shape rather than a word. */
+          term: "clean (as a formulation claim)",
+          pattern:
+            "\\bclean\\s+(?:beauty|formula|formulation|formulated|ingredients?|skin\\s?care|" +
+            "label|girl\\s+beauty)\\b|\\b(?:formulation|formula)\\s+clean\\b",
+          reason:
+            "'clean' has no legal definition -- DGCCRF lists « formulation clean » among unlawful " +
+            "claims, and an undefined purity promise is unsubstantiable by construction"
+        }
+      ]
+    },
+    {
+      /* --- New 2026-09-04, research brief §3. ---------------------------
+         Kept out of "marketing" because the fix is different: there is no
+         rewording of "FDA-registered" that is safe, the sentence just goes. */
+      id: "agency",
+      label: "Puts a regulator's name behind the product",
+      citation: "R3",
+      severity: "definite",
+      defaultReason: R_MOCRA,
+      terms: [
+        { term: "MoCRA-compliant", reason: R_MOCRA },
+        { term: "MoCRA compliant", reason: R_MOCRA },
+        { term: "FDA-registered", reason: R_MOCRA },
+        { term: "FDA registered", reason: R_MOCRA },
+        { term: "FDA safety-substantiated", reason: R_MOCRA },
+        { term: "FDA safety substantiated", reason: R_MOCRA }
+      ]
+    },
+    {
+      /* --- New 2026-09-04, research brief §7(d)(3). --------------------- */
+      id: "monograph",
+      label: "Borrowed OTC drug-monograph wording",
+      citation: "R7",
+      severity: "definite",
+      defaultReason: R_MONOGRAPH,
+      terms: [
+        {
+          term: "temporarily protects minor cuts, scrapes, burns",
+          pattern: "\\btemporarily\\s+(?:protects|relieves|prevents)\\b",
+          reason:
+            R_MONOGRAPH + " -- 21 CFR § 347.50(b) reserves this to a listed skin protectant active"
+        },
+        {
+          term: "relieves minor skin irritation and itching due to",
+          pattern: "\\b(?:relieves?|helps?\\s+relieve)\\s+minor\\s+skin\\s+irritation\\b",
+          reason:
+            R_MONOGRAPH +
+            " -- 21 CFR § 347.50(b)(4) allows it only with colloidal oatmeal at the listed minimum"
+        },
+        {
+          term: "for the treatment of acne",
+          pattern: "\\bfor\\s+the\\s+treatment\\s+of\\b",
+          reason: R_MONOGRAPH + " -- 21 CFR § 333.350(b)(1) is where this exact phrasing comes from"
+        },
+        {
+          term: "controls the symptoms of",
+          pattern: "\\b(?:controls?|for\\s+relief\\s+of)\\s+the\\s+symptoms\\s+of\\b",
+          reason:
+            R_MONOGRAPH +
+            " -- 21 CFR § 358.750(b)(1) reserves it to coal tar or salicylic acid at strength"
+        }
+      ]
+    },
+    {
+      id: "ingredient",
+      label: "Credits the product with an ingredient's reputation",
+      citation: "R7",
+      severity: "definite",
+      defaultReason: R_EXTRAPOLATION,
+      terms: [
+        {
+          term: "contains X, known for soothing/healing/...",
+          pattern:
+            "\\b(?:contains?|containing|made\\s+with|infused\\s+with|formulated\\s+with|" +
+            "packed\\s+with|rich\\s+in)\\b[^.!?;]{0,60}?\\b(?:known|prized|renowned|celebrated|" +
+            "traditionally\\s+used|long\\s+used|used)\\s+(?:for|to)\\b[^.!?;]{0,60}?" +
+            "(?:sooth|heal|calm|reliev|treat|repair|restor|anti-?inflammat|antibacterial|" +
+            "antiseptic|antifungal|antimicrobial)",
+          reason: R_EXTRAPOLATION
+        },
+        {
+          term: "X is traditionally used to heal/soothe/...",
+          pattern:
+            "\\b(?:is|are|was|were|has|have|had)\\s+(?:\\w+\\s+){0,2}?" +
+            "(?:used|known|prized|valued|revered)\\s+(?:in\\s+[\\w\\s]{0,20}?medicine\\s+)?" +
+            "(?:for|to)\\b[^.!?;]{0,60}?" +
+            "(?:sooth|heal|calm|reliev|treat|repair|restor|anti-?inflammat)",
+          reason:
+            R_EXTRAPOLATION +
+            " -- FDA's Bodywell letter shows even 'traditionally used ... to aid in wound " +
+            "healing' failing"
+        }
+      ]
+    },
+    {
+      id: "collocation",
+      label: "A sensory word pointed at a symptom",
+      citation: "R7",
+      severity: "definite",
+      defaultReason: R_COLLOCATION,
+      terms: [
+        {
+          /* The whole point is the collocation. "soothing scent", "a soothing
+             soak", "calm evening", "calming lavender" must NOT fire; the pins
+             for that are in scripts/claims-review.test.js. */
+          term: "soothes/calms + a symptom or an inflamed body part",
+          pattern:
+            "\\b(?:sooth(?:e|es|ed|ing)|calm(?:s|ed|ing)?)\\s+" +
+            "(?:the\\s+|your\\s+|their\\s+|his\\s+|her\\s+|my\\s+|any\\s+|away\\s+the\\s+|" +
+            "down\\s+the\\s+)?" +
+            "(?:inflamed|irritated|itchy|itching|angry|sore|aching|achy|painful|raw|burning|" +
+            "cracked|chapped|red\\b|redness|itch|itches|pain|ache|aches|soreness|swelling|" +
+            "inflammation|irritation|rash|rashes|flare|flare-ups?|eczema|psoriasis|dermatitis|" +
+            "muscles?|joints?|nerves?)\\b",
+          reason: R_COLLOCATION
         }
       ]
     }
@@ -370,6 +542,63 @@ const REWORDINGS = [
   {
     when: ["itch", "itchy", "calms", "soothe", "soothes"],
     try: ["tames the scratch", "conditions the skin underneath"]
+  },
+  {
+    when: ["anti-bacterial", "anti-fungal", "anti-microbial", "antimicrobial"],
+    try: [
+      "name what is in it, not what it does to microbes",
+      "softens, smooths, conditions -- and list the oils"
+    ]
+  },
+  {
+    when: [
+      "MoCRA-compliant",
+      "MoCRA compliant",
+      "FDA-registered",
+      "FDA registered",
+      "FDA safety-substantiated",
+      "FDA safety substantiated"
+    ],
+    try: [
+      "made in small batches in Landrum, and leave the agencies out of it",
+      "we keep our safety paperwork -- we just do not advertise it as a feature"
+    ]
+  },
+  {
+    when: ["clean (as a formulation claim)"],
+    try: [
+      "a short ingredient list, printed where you can read it",
+      "name the ingredients instead of the promise"
+    ]
+  },
+  {
+    when: [
+      "temporarily protects minor cuts, scrapes, burns",
+      "relieves minor skin irritation and itching due to",
+      "for the treatment of acne",
+      "controls the symptoms of"
+    ],
+    try: [
+      "for rough, dry patches after a long week -- how it feels, not what it treats",
+      "drop the sentence: that wording belongs to a drug with an active in it"
+    ]
+  },
+  {
+    when: [
+      "contains X, known for soothing/healing/...",
+      "X is traditionally used to heal/soothe/..."
+    ],
+    try: [
+      "name the ingredient and stop there -- 'calendula-infused, because we like it'",
+      "say why you chose it, not what it is known to do"
+    ]
+  },
+  {
+    when: ["soothes/calms + a symptom or an inflamed body part"],
+    try: [
+      "keep the sensory word and drop the target: 'a soothing soak', 'soothing scent'",
+      "tames the scratch; conditions the skin underneath"
+    ]
   }
 ];
 
@@ -394,11 +623,32 @@ function normalizeTerm(entry, category) {
   if (!entry || typeof entry.term !== "string" || !entry.term.trim()) {
     throw new Error("A claim term needs a non-empty `term` string");
   }
-  return {
+  const out = {
     term: entry.term,
     reason: entry.reason || category.defaultReason,
     severity: entry.severity || undefined
   };
+  if (entry.pattern !== undefined && entry.pattern !== null) {
+    if (typeof entry.pattern !== "string" || !entry.pattern.trim()) {
+      throw new Error(
+        "Claim term " + JSON.stringify(entry.term) + " has an empty `pattern` -- drop it or fix it"
+      );
+    }
+    try {
+      new RegExp(entry.pattern, "i");
+    } catch (err) {
+      /* Same reasoning as an unknown category id: a broken pattern in a
+         research brief must fail loudly, not match nothing forever. */
+      throw new Error(
+        "Claim term " +
+          JSON.stringify(entry.term) +
+          " has an invalid `pattern`: " +
+          (err && err.message ? err.message : String(err))
+      );
+    }
+    out.pattern = entry.pattern;
+  }
+  return out;
 }
 
 /**
@@ -474,7 +724,16 @@ function loadTable(options) {
   return base;
 }
 
-/** Every term in the table, flattened, longest first so phrases win. */
+/**
+ * Every term in the table, flattened, in the order scanText should try them:
+ * patterns first, then plain terms longest first.
+ *
+ * Both halves of that order are about which finding wins a span. "all natural"
+ * has to beat "natural" or the same words report twice; and a pattern has to
+ * beat the words inside it, so "soothes the pain" is reported once, as a
+ * collocation with the Om Botanical reasoning attached, rather than as a bare
+ * "pain" hit that says nothing about why the sentence went wrong.
+ */
 function flattenTerms(table) {
   const out = [];
   (table.categories || []).forEach(function (category) {
@@ -482,6 +741,7 @@ function flattenTerms(table) {
       out.push({
         term: t.term,
         lower: t.term.toLowerCase(),
+        pattern: t.pattern || null,
         reason: t.reason || category.defaultReason,
         severity: t.severity || category.severity,
         category: category.id,
@@ -491,6 +751,13 @@ function flattenTerms(table) {
     });
   });
   return out.sort(function (a, b) {
+    if (!!a.pattern !== !!b.pattern) return a.pattern ? -1 : 1;
+    /* Patterns keep their declaration order (Array#sort is stable), because
+       "contains calendula, known for soothing irritated skin" is both an
+       extrapolation and a collocation and the extrapolation is the finding
+       worth reading. Ordering by label length would have decided that by
+       accident. */
+    if (a.pattern && b.pattern) return 0;
     return b.lower.length - a.lower.length;
   });
 }
@@ -598,7 +865,9 @@ function scanText(text, options) {
   let haystack = masked.masked;
   const matches = [];
   (opts.terms || []).forEach(function (rule) {
-    const re = new RegExp("\\b" + escapeRegExp(rule.lower) + "\\b", "gi");
+    const re = rule.pattern
+      ? new RegExp(rule.pattern, "gi")
+      : new RegExp("\\b" + escapeRegExp(rule.lower) + "\\b", "gi");
     let m;
     const spans = [];
     while ((m = re.exec(haystack)) !== null) {
@@ -652,6 +921,22 @@ function suggestionsFor(term, categoryId, table) {
     testimonial: [
       "leave this one on Etsy",
       "move it to the reviews page under the disclosure rather than onto the product"
+    ],
+    monograph: [
+      "say how it feels, not what it treats",
+      "drop the sentence -- that wording belongs to a drug with an active in it"
+    ],
+    ingredient: [
+      "name the ingredient and stop there",
+      "say why you chose it, not what it is known to do"
+    ],
+    collocation: [
+      "keep the sensory word and drop the target: 'a soothing soak'",
+      "tames the scratch"
+    ],
+    agency: [
+      "made in small batches in Landrum -- leave the agencies out of it",
+      "drop the sentence; there is no safe way to say this one"
     ]
   };
   return (fallback[categoryId] || []).slice(0, 2);

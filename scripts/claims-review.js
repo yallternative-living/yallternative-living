@@ -386,8 +386,21 @@ function buildSystemPrompt(table) {
     "                 'they will leave you alone', 'sit on the porch in peace'.",
     "  marketing   -- an absolute or unverifiable promise about the formula: purity, safety,",
     "                 gentleness, 'nothing you cannot pronounce' framed as a guarantee.",
+    "  agency      -- putting a regulator's name behind the product: 'MoCRA-compliant',",
+    "                 'FDA-registered', 'FDA safety-substantiated'. None of those is a thing a",
+    "                 cosmetics maker may say, however true the paperwork behind it is.",
+    "  monograph   -- wording lifted from an OTC drug label: 'temporarily protects', 'relieves",
+    "                 minor skin irritation', 'for the treatment of', 'controls the symptoms of'.",
+    "                 Those sentences belong to a drug with a listed active in it.",
+    "  ingredient  -- crediting the product with an ingredient's reputation: 'contains calendula,",
+    "                 known for soothing irritated skin', 'arnica has long been used to heal",
+    "                 bruises'. The ingredient's reputation is not the product's evidence.",
+    "  collocation -- a sensory word pointed at a symptom: 'soothes inflamed skin', 'calms the",
+    "                 itch', 'takes the soreness out'. 'Soothing scent' and 'a soothing soak' are",
+    "                 NOT this and must never be reported.",
     "  testimonial -- a republished customer review that makes any of the above on the shop's",
-    "                 behalf.",
+    "                 behalf. Report it exactly as you would report the shop's own sentence: a",
+    "                 review the shop republishes reads as the shop's own claim.",
     "",
     "WHAT IS NOT A CLAIM, and must never be reported:",
     "  - Puffery. 'Miracle', 'the good stuff', 'the one y'all keep re-ordering', 'best in the",
@@ -418,7 +431,25 @@ function buildUserPayload(entries) {
   });
 }
 
-function findingsSchema() {
+/**
+ * The category enum is GENERATED from the rule table, so a category a research
+ * brief adds is a category the model may return. Hard-coding it meant a new
+ * category could be flagged deterministically and then rejected by the schema
+ * on the second pass, which is the kind of half-wired rule nobody notices.
+ */
+function findingCategories(table) {
+  const ids = ((table && table.categories) || CLAIM_TABLE_CATEGORY_IDS).map(function (c) {
+    return typeof c === "string" ? c : c.id;
+  });
+  if (ids.indexOf(rules.TESTIMONIAL_CATEGORY.id) === -1) ids.push(rules.TESTIMONIAL_CATEGORY.id);
+  return ids;
+}
+
+const CLAIM_TABLE_CATEGORY_IDS = rules.CLAIM_TABLE.categories.map(function (c) {
+  return c.id;
+});
+
+function findingsSchema(table) {
   return {
     type: "object",
     properties: {
@@ -432,7 +463,7 @@ function findingsSchema() {
             why: { type: "string" },
             category: {
               type: "string",
-              enum: ["drug", "pesticide", "marketing", "testimonial"]
+              enum: findingCategories(table)
             },
             confidence: { type: "string", enum: ["high", "medium", "low"] },
             suggestion: { type: "string" }
@@ -543,7 +574,7 @@ async function modelPass(entries, table, client, log) {
     response = await client.completeJSON({
       system: buildSystemPrompt(table),
       user: buildUserPayload(batch),
-      schema: findingsSchema(),
+      schema: findingsSchema(table),
       schemaName: "copy_claim_findings"
     });
   } catch (err) {
@@ -649,7 +680,9 @@ const CITATION_TEXT = {
   S1: "compliance review, section 1 (cosmetic or drug?)",
   S3: "compliance review, section 3 (labels)",
   S4: "compliance review, section 4 (bug spray)",
-  S4B: "compliance review, section 4b (republished reviews)"
+  S4B: "compliance review, section 4b (republished reviews)",
+  R3: "research brief of 4 September 2026, section 3 (MoCRA says nothing you may repeat)",
+  R7: "research brief of 4 September 2026, section 7 (what a copy reviewer flags)"
 };
 
 function citationText(tag) {
