@@ -215,6 +215,75 @@ async function main() {
   }
 
   // -------------------------------------------------------------------------
+  // 2b. A key the provider refuses outright: stop calling, say so once.
+  // -------------------------------------------------------------------------
+  {
+    let sent = 0;
+    const client = llm.createClient(
+      {
+        provider: "gemini",
+        apiKey: "x",
+        models: "gemini-3.8-flash,gemini-flash-latest",
+        maxRetries: 1,
+        sleep: async function () {},
+        fetchImpl: async function () {
+          sent++;
+          return {
+            ok: false,
+            status: 403,
+            text: async function () {
+              return JSON.stringify([
+                {
+                  error: {
+                    code: 403,
+                    message: "Requests to this API generativelanguage.googleapis.com are blocked.",
+                    status: "PERMISSION_DENIED",
+                    details: [
+                      {
+                        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+                        reason: "API_KEY_SERVICE_BLOCKED"
+                      }
+                    ]
+                  }
+                }
+              ]);
+            }
+          };
+        }
+      },
+      {}
+    );
+    let first = null;
+    try {
+      await client.completeJSON(spec());
+    } catch (err) {
+      first = err;
+    }
+    assert(first && first.status === 403, "a blocked key surfaces as the 403 it is");
+    assert(
+      first.message.indexOf("PERMISSION_DENIED (API_KEY_SERVICE_BLOCKED)") !== -1 &&
+        first.message.indexOf("{") === -1,
+      "the error body is folded to status, reason and message, never raw JSON",
+      first.message
+    );
+    assert(client.fallbackWarning() !== null, "the alias was tried before giving up, and reported");
+    const sentAfterFirst = sent;
+    let second = null;
+    try {
+      await client.completeJSON(spec());
+    } catch (err) {
+      second = err;
+    }
+    assertEqual(
+      second && second.code,
+      "LLM_PROVIDER_UNAVAILABLE",
+      "the next call is refused by the client itself"
+    );
+    assertEqual(sent, sentAfterFirst, "without touching the network again");
+    assert(client.unavailable() !== null, "unavailable() names the refusal");
+  }
+
+  // -------------------------------------------------------------------------
   // 3. The model fallback, which must be permanent and loud.
   // -------------------------------------------------------------------------
   {

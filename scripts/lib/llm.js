@@ -236,6 +236,7 @@ function createClient(options, env) {
     modelFallbacks: []
   };
   let modelIndex = 0;
+  let unavailable = null;
 
   if (cfg.provider !== "mock") {
     if (!cfg.apiKey) {
@@ -279,6 +280,28 @@ function createClient(options, env) {
         } catch {
           detail = "";
         }
+        /* A Google-style error body is {error:{status, message, details:[{reason}]}}.
+           Fold it into one line -- "PERMISSION_DENIED (API_KEY_SERVICE_BLOCKED):
+           Requests to this API ... are blocked." -- so a log, an issue row and a
+           test assertion all get the reason without the raw JSON. */
+        let compact = detail;
+        let reason = "";
+        try {
+          const parsed = JSON.parse(detail);
+          const e = Array.isArray(parsed) ? parsed[0] && parsed[0].error : parsed && parsed.error;
+          if (e && (e.status || e.message)) {
+            const info = (e.details || []).find(function (d) {
+              return d && d.reason;
+            });
+            reason = info ? String(info.reason) : "";
+            compact =
+              String(e.status || "error") +
+              (reason ? " (" + reason + ")" : "") +
+              (e.message ? ": " + String(e.message).slice(0, 200) : "");
+          }
+        } catch {
+          /* not JSON -- keep the truncated text */
+        }
         const err = new Error(
           "HTTP " +
             res.status +
@@ -286,9 +309,10 @@ function createClient(options, env) {
             cfg.provider +
             "/" +
             model +
-            (detail ? ": " + detail : "")
+            (compact ? ": " + compact : "")
         );
         err.status = res.status;
+        err.reason = reason;
         err.retryable = isRetryableStatus(res.status);
         throw err;
       }
@@ -306,6 +330,17 @@ function createClient(options, env) {
    * @return {!Promise<!Object>} the parsed object the schema describes.
    */
   async function completeJSON(spec) {
+    /* A key that the provider has refused outright (401/403) will refuse the
+       next call too. Burning the rest of the run's budget on it -- 51 calls,
+       990 identical failures, one unreadable issue (dry run 2026-09-04) --
+       helps nobody, so after every model has been refused the client stops
+       calling and says so with one code the caller can act on. */
+    if (unavailable) {
+      const e = new Error("provider unavailable: " + unavailable.message);
+      e.code = "LLM_PROVIDER_UNAVAILABLE";
+      e.cause = unavailable;
+      throw e;
+    }
     if (telemetry.calls >= cfg.maxCalls) throw callCapError(cfg.maxCalls);
 
     if (cfg.provider === "mock") {
@@ -367,6 +402,9 @@ function createClient(options, env) {
         modelIndex++;
         continue;
       }
+      if (lastError && (lastError.status === 401 || lastError.status === 403)) {
+        unavailable = lastError;
+      }
       throw lastError || new Error("Provider request failed with no error recorded");
     }
     throw lastError || new Error("No models configured");
@@ -380,6 +418,10 @@ function createClient(options, env) {
       return Math.max(0, cfg.maxCalls - telemetry.calls);
     },
     /** Human-readable warning when a non-pinned model produced this run. */
+    /** @return {?Error} the 401/403 that made the client stop calling, or null. */
+    unavailable: function () {
+      return unavailable;
+    },
     fallbackWarning: function () {
       if (!telemetry.modelFallbacks.length) return null;
       return telemetry.modelFallbacks

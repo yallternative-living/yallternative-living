@@ -264,19 +264,45 @@ jobs:
               "key by hand in all six files and record its basis.",
               ""
             ];
+            if (s.providerUnavailable) {
+              lines.push("**Provider unavailable:** " + s.providerUnavailable);
+              lines.push("");
+              lines.push("Nothing else was attempted. " + s.deferredToNextRun +
+                " key(s) are left for the next run, which picks them up as soon as the key works.");
+              lines.push("");
+            }
             if (s.modelWarning) {
               lines.push("**Model fallback:** " + s.modelWarning);
               lines.push("");
             }
-            lines.push("| key | locale | rule that fired | English |");
-            lines.push("| --- | --- | --- | --- |");
-            s.failed.slice(0, 100).forEach(function (f) {
-              const cell = (v) => String(v).replace(/\|/g, "\\|").replace(/\n/g, " ");
-              lines.push("| `" + cell(f.key) + "` | " + cell(f.locale) + " | " +
-                cell(f.reason) + " | " + cell(f.en).slice(0, 120) + " |");
+            const cell = (v) => String(v).replace(/\|/g, "\\|").replace(/\n/g, " ");
+            /* One reason repeated across many strings (a dead key, a quota) is one
+               line with a count, not a hundred identical rows. */
+            const byReason = new Map();
+            s.failed.forEach(function (f) {
+              if (!byReason.has(f.reason)) byReason.set(f.reason, []);
+              byReason.get(f.reason).push(f);
             });
-            if (s.failed.length > 100) lines.push("");
-            if (s.failed.length > 100) lines.push("...and " + (s.failed.length - 100) + " more.");
+            const rows = [];
+            byReason.forEach(function (list, reason) {
+              if (list.length > 10) {
+                const keys = new Set(list.map((f) => f.key)).size;
+                lines.push("- " + list.length + " string(s) across " + keys + " key(s): " + cell(reason));
+              } else {
+                rows.push.apply(rows, list);
+              }
+            });
+            if (rows.length) {
+              lines.push("");
+              lines.push("| key | locale | rule that fired | English |");
+              lines.push("| --- | --- | --- | --- |");
+              rows.slice(0, 100).forEach(function (f) {
+                lines.push("| `" + cell(f.key) + "` | " + cell(f.locale) + " | " +
+                  cell(f.reason) + " | " + cell(f.en).slice(0, 120) + " |");
+              });
+              if (rows.length > 100) lines.push("");
+              if (rows.length > 100) lines.push("...and " + (rows.length - 100) + " more.");
+            }
             lines.push("");
             lines.push("Run: " + process.env.RUN_URL);
             console.log(lines.join("\n"));

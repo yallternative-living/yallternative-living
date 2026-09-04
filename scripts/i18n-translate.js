@@ -654,6 +654,9 @@ async function translateAll(input) {
   const failed = [];
   const failedKeys = new Set();
   let deferredKeys = 0;
+  /* Set when the provider refuses the key outright; the remaining groups are
+     left for the next run rather than reported as 990 identical drops. */
+  let providerUnavailable = null;
 
   for (let g = 0; g < groups.length; g++) {
     const group = groups[g];
@@ -707,6 +710,10 @@ async function translateAll(input) {
         });
       } catch (err) {
         error = err && err.message ? err.message : String(err);
+        if (typeof client.unavailable === "function" && client.unavailable()) {
+          providerUnavailable = "provider unavailable: " + client.unavailable().message;
+          error = providerUnavailable;
+        }
       }
 
       const validated = error
@@ -742,6 +749,14 @@ async function translateAll(input) {
         }
         pending.get(item.key).translations[code] = translated;
       });
+      if (providerUnavailable) break;
+    }
+    if (providerUnavailable) {
+      deferredKeys += groups.slice(g + 1).reduce(function (n, rest) {
+        return n + rest.length;
+      }, 0);
+      log(providerUnavailable + " -- leaving " + deferredKeys + " key(s) for the next run.");
+      break;
     }
   }
 
@@ -777,6 +792,7 @@ async function translateAll(input) {
     accepted: accepted,
     failed: failed,
     deferredKeys: deferredKeys,
+    providerUnavailable: providerUnavailable,
     docs: written
   };
 }
@@ -796,6 +812,7 @@ function summarize(result, client, dryRun) {
     removedOrphans: result.work.orphanRemovals,
     reportedOrphans: result.work.orphanReported,
     deferredToNextRun: result.deferredKeys,
+    providerUnavailable: result.providerUnavailable || null,
     calls: client.telemetry.calls,
     retries: client.telemetry.retries,
     provider: client.telemetry.provider,
@@ -914,6 +931,11 @@ async function runCli(argv) {
       " provider call(s)." +
       (args.dryRun ? "\nDry run: no file was written." : "")
   );
+  if (summary.providerUnavailable) {
+    console.error(
+      "!! " + summary.providerUnavailable + " -- fix the key; nothing else was attempted."
+    );
+  }
   if (summary.failed.length) {
     console.error("Dropped strings (written nowhere, not even to en.json):");
     summary.failed.slice(0, 20).forEach(function (f) {

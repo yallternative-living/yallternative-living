@@ -599,6 +599,88 @@ function stubClient(answer, maxCalls) {
   return client;
 }
 
+/**
+ * A client whose provider refuses the key: the first call throws a 403 and
+ * marks the client unavailable, every later call is refused by the client
+ * itself with LLM_PROVIDER_UNAVAILABLE -- the shape scripts/lib/llm.js has
+ * after a blocked key (dry run 2026-09-04: 51 calls, 990 identical drops).
+ */
+function deadKeyClient() {
+  let dead = null;
+  const client = {
+    telemetry: { provider: "stub", model: "stub", calls: 0, retries: 0, modelFallbacks: [] },
+    fallbackWarning: function () {
+      return null;
+    },
+    callsRemaining: function () {
+      return 100 - client.telemetry.calls;
+    },
+    unavailable: function () {
+      return dead;
+    },
+    completeJSON: async function () {
+      if (dead) {
+        const e = new Error("provider unavailable: " + dead.message);
+        e.code = "LLM_PROVIDER_UNAVAILABLE";
+        throw e;
+      }
+      client.telemetry.calls++;
+      dead = new Error("HTTP 403 from gemini/x: PERMISSION_DENIED (API_KEY_SERVICE_BLOCKED)");
+      dead.status = 403;
+      throw dead;
+    }
+  };
+  return client;
+}
+
+async function deadKeyPins() {
+  const ctx = fixture();
+  const report = {
+    new: [
+      { key: "auto.one.111111", en: "One.", defer: null, kind: "text" },
+      { key: "auto.two.222222", en: "Two.", defer: null, kind: "text" },
+      { key: "auto.three.333333", en: "Three.", defer: null, kind: "text" }
+    ],
+    changed: [],
+    orphaned: []
+  };
+  const client = deadKeyClient();
+  const result = await tool.translateAll({
+    ctx: ctx,
+    report: report,
+    client: client,
+    batchSize: 1
+  });
+  assertEqual(client.telemetry.calls, 1, "a dead key costs exactly one call, not the whole budget");
+  assert(
+    result.providerUnavailable &&
+      result.providerUnavailable.indexOf("API_KEY_SERVICE_BLOCKED") !== -1,
+    "the run records why it stopped",
+    result.providerUnavailable
+  );
+  /* The fixture carries work items of its own, so count from the work list:
+     with batches of one, everything after the first item was never attempted. */
+  assertEqual(
+    result.deferredKeys,
+    result.work.items.length - 1,
+    "the groups never attempted are left for the next run"
+  );
+  assertEqual(
+    result.failed.length,
+    1,
+    "only the string that actually received the refusal is a drop"
+  );
+  assert(
+    Object.keys(result.accepted).length === 0 && !("auto.one.111111" in result.docs.en.phrases),
+    "and nothing reached any dictionary"
+  );
+}
+
+async function runAll() {
+  await runPins();
+  await deadKeyPins();
+}
+
 // ---------------------------------------------------------------------------
 // 7. A whole run: atomicity, the call cap, and the failure list.
 // ---------------------------------------------------------------------------
@@ -787,7 +869,7 @@ async function runPins() {
   );
 }
 
-runPins()
+runAll()
   .then(function () {
     console.log("\n" + passed + " passed, " + failed + " failed");
     process.exit(failed ? 1 : 0);
