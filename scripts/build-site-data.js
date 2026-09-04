@@ -633,8 +633,36 @@ function digestEnglish(value) {
   return crypto.createHash("sha1").update(value, "utf8").digest("hex").slice(0, 10);
 }
 
+/* Rules 1 and 4 are WARNINGS for `auto.*` keys and hard failures for everything
+   else. The reasoning, because this is a real if narrow relaxation of a gate
+   that was written strict on purpose:
+
+   `auto.*` keys are minted by scripts/i18n-new-strings.js from product copy and
+   filled by scripts/i18n-translate.js -- they are the bot's, not a human's. The
+   owner edits a blurb in the CMS at /admin; that commit lands on main; Netlify
+   builds it immediately, BEFORE the bot's workflow has finished re-translating.
+   For one deploy cycle the old English is unreachable (rule 1) and the recorded
+   digest is stale (rule 4), both at once, for a key nobody typed. Under the old
+   gate that is a FAILED DEPLOY and a failed-deploy email for every product edit
+   -- and the owner cannot tell "expected, the bot is a minute behind" from "the
+   site is broken", which is exactly the experience this pipeline exists to
+   remove. The cost of warning instead is one deploy showing a stale or English
+   string, and assets/js/translator.js already falls back to English on any text
+   it cannot match, so nothing renders wrong; it renders untranslated.
+
+   Hand-authored keys keep the hard gate unchanged. Those are the ones a human
+   edits without a bot watching, and an unreachable one is the exact bug the
+   rule was written for: 120 of the first dictionary's 206 values matched
+   nothing on any page. Rules 2 and 3 stay hard for every key, bot-minted
+   included -- a locale missing a key, or carrying English in a locale slot, is
+   never a timing artefact. */
+function isBotManagedKey(key) {
+  return String(key).indexOf("auto.") === 0;
+}
+
 function validateDictionaryCoverage(locales, runtimeManifest, basisDoc) {
   const problems = [];
+  const warnings = [];
   const enPhrases = locales.en.phrases;
   const keys = Object.keys(enPhrases);
   if (!keys.length) {
@@ -706,13 +734,16 @@ function validateDictionaryCoverage(locales, runtimeManifest, basisDoc) {
     throw new Error("No built HTML pages found -- refusing to report dictionary coverage.");
   }
   const unreachable = [];
+  const unreachableBotKeys = [];
   keys.forEach(function (key) {
     const value = enPhrases[key];
     if (runtimeTexts.has(value)) return;
     const found = pages.some(function (page) {
       return page.text.indexOf(value) !== -1;
     });
-    if (!found) unreachable.push(key + " = " + JSON.stringify(value));
+    if (found) return;
+    if (isBotManagedKey(key)) unreachableBotKeys.push(key + " = " + JSON.stringify(value));
+    else unreachable.push(key + " = " + JSON.stringify(value));
   });
   if (unreachable.length) {
     problems.push(
@@ -720,6 +751,15 @@ function validateDictionaryCoverage(locales, runtimeManifest, basisDoc) {
         " English dictionary value(s) appear nowhere in the built site and are not " +
         "declared as runtime strings, so the translator can never match them:\n    " +
         unreachable.join("\n    ")
+    );
+  }
+  if (unreachableBotKeys.length) {
+    warnings.push(
+      unreachableBotKeys.length +
+        " bot-minted auto.* value(s) appear nowhere in the built site. Expected for one " +
+        "deploy cycle after a CMS copy edit -- the i18n bot re-translates and re-keys them " +
+        "on its own run. If they are still here after that run, something is wrong:\n    " +
+        unreachableBotKeys.join("\n    ")
     );
   }
 
@@ -802,14 +842,16 @@ function validateDictionaryCoverage(locales, runtimeManifest, basisDoc) {
     );
   }
   const stale = [];
+  const staleBotKeys = [];
   keys.forEach(function (key) {
     const recorded = basis[key];
     const actual = digestEnglish(enPhrases[key]);
-    if (recorded === undefined) {
-      stale.push(key + " (no recorded basis)");
-    } else if (recorded !== actual) {
-      stale.push(key + " -> " + JSON.stringify(enPhrases[key]));
-    }
+    let detail = null;
+    if (recorded === undefined) detail = key + " (no recorded basis)";
+    else if (recorded !== actual) detail = key + " -> " + JSON.stringify(enPhrases[key]);
+    if (!detail) return;
+    if (isBotManagedKey(key)) staleBotKeys.push(detail);
+    else stale.push(detail);
   });
   if (stale.length) {
     problems.push(
@@ -820,6 +862,22 @@ function validateDictionaryCoverage(locales, runtimeManifest, basisDoc) {
         stale.join("\n    ")
     );
   }
+  if (staleBotKeys.length) {
+    warnings.push(
+      staleBotKeys.length +
+        " bot-minted auto.* key(s) whose English drifted from its recorded basis. Expected " +
+        "for one deploy cycle after a CMS copy edit; `npm run i18n:translate` re-translates " +
+        "them and re-records the digest:\n    " +
+        staleBotKeys.join("\n    ")
+    );
+  }
+
+  /* Warnings print whether the gate passes or fails, and before the failure, so
+     a maintainer reading a red build is not told about the lag instead of the
+     break. */
+  warnings.forEach(function (warning) {
+    console.warn("[build] WARNING dictionary coverage: " + warning);
+  });
 
   if (problems.length) {
     throw new Error("Dictionary coverage gate failed:\n  - " + problems.join("\n  - "));
@@ -7295,6 +7353,7 @@ if (typeof module !== "undefined" && module.exports) {
     SUPPORTED_LOCALES: SUPPORTED_LOCALES,
     validateLocalesAndGlossary: validateLocalesAndGlossary,
     validateDictionaryCoverage: validateDictionaryCoverage,
+    isBotManagedKey: isBotManagedKey,
     IDENTICAL_BY_DESIGN: IDENTICAL_BY_DESIGN,
     decodeHtmlEntities: decodeHtmlEntities,
     collectBuiltHtml: collectBuiltHtml,
