@@ -907,7 +907,9 @@ singletons:
               label: "Concern ID",
               widget: string,
               required: false,
-              hint: "Leave blank on a new one. Never change it once products use it."
+              # Safe to lock now that the build fills a blank one in.
+              readonly: true,
+              hint: "Made for you from the name. Products use it to find this filter."
             }
 
       - name: categories

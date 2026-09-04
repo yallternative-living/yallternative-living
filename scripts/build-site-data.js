@@ -1586,6 +1586,29 @@ function buildSiteData() {
 
   /* 2. Process Products & Guards */
   PRODUCTS_BY_ID = {};
+  /* Concern filters carry the same "Leave blank on a new one" promise in
+     /admin as products and bundles, but nothing ever generated one -- a
+     blank id shipped a filter pill whose data-concern was "undefined", so it
+     matched no product and the filter did nothing (found alongside the event
+     ids, 2026-09-04). Same helper, same rules: slugified from the name,
+     unique within the file, an existing id is never rewritten. */
+  const USED_CONCERN_IDS = new Set();
+  (Array.isArray(CATALOG.concerns) ? CATALOG.concerns : []).forEach(function (c, idx) {
+    if (!c.id) {
+      if (!c.name) {
+        console.error("\n[build] Concern at index " + idx + " in products.json has no name or id.");
+        process.exit(1);
+      }
+      c.id = generateUniqueId(USED_CONCERN_IDS, c.name, "concern", idx);
+    } else {
+      if (USED_CONCERN_IDS.has(c.id)) {
+        console.error("\n[build] Duplicate concern ID found: '" + c.id + "'.");
+        process.exit(1);
+      }
+      USED_CONCERN_IDS.add(c.id);
+    }
+  });
+
   const USED_PRODUCT_IDS = new Set();
   const SALES = CATALOG.sales || [];
   const salesByCategory = {};

@@ -963,6 +963,27 @@ function siteIdsRejected(site) {
   );
 }
 
+/* Concern filters promise "Leave blank on a new one" in /admin; before
+   2026-09-04 nothing generated one, so a blank id shipped a filter pill with
+   data-concern="undefined" that matched nothing. */
+{
+  const gen = buildScript.generateUniqueId;
+  const used = new Set();
+  assert(
+    gen(used, "Dry, Rough Skin", "concern", 0) === "dry-rough-skin",
+    "a concern with no id gets one slugified from its name"
+  );
+  assert(
+    gen(used, "Dry, Rough Skin", "concern", 1) === "dry-rough-skin-2",
+    "two concerns with the same name get distinct ids"
+  );
+  const kept = new Set(["sleep-relaxation"]);
+  assert(
+    !kept.has("wind-down") && gen(kept, "Wind Down", "concern", 2) === "wind-down",
+    "an existing concern id is left alone and never collides"
+  );
+}
+
 assert(
   siteIdsRejected({ tawkToWidgetId: '"; fetch("https://evil.example"); //' }),
   "build refuses a Tawk.to widget id carrying a JS payload"
