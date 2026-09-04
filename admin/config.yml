@@ -1,4 +1,5 @@
-# yaml-language-server: $schema=https://unpkg.com/@sveltia/cms/schema/sveltia-cms.json
+# yaml-language-server: $schema=https://unpkg.com/@sveltia/cms@0.205.3/schema/sveltia-cms.json
+# ^ pinned to the version in admin/index.html; bump both together.
 #
 # Y'ALLTERNATIVE LIVING -- Sveltia CMS configuration
 # ----------------------------------------------------------------------
@@ -592,6 +593,10 @@ singletons:
             label: "Sensitivity & allergen tags"
             widget: select
             multiple: true
+            # Seven options: above Sveltia's default threshold of 5 they
+            # collapse into a multi-select dropdown, which hides what is
+            # ticked. Raised so they stay checkboxes.
+            dropdown_threshold: 12
             required: false
             options:
               - { label: "Vegan", value: "vegan" }
@@ -1194,7 +1199,7 @@ singletons:
         # collapsed Sveltia object reads like a text field showing one value
         # rather than a drawer (2026-09-03).
         collapsed: false
-        summary: "▸ Click the arrow to open -- on/off switches first, then banners, logos and connection codes"
+        summary: "on/off switches first, then banners, logos and connection codes"
         hint: "The on/off switches for site features come first. Below them: banners, logos, newsletter wording, social links, and the connection codes for your newsletter, forms, chat and stats -- those are set once and rarely touched."
         fields:
           # Switches first: this is the part of the form Savanna opens most
@@ -1699,7 +1704,7 @@ singletons:
         label: Homepage
         widget: object
         collapsed: true
-        summary: "▸ Click the arrow to open -- hero headline, story, photos"
+        summary: "hero headline, story, photos"
         fields:
           - {
               name: heroTitle,
@@ -1808,7 +1813,7 @@ singletons:
         label: About page
         widget: object
         collapsed: true
-        summary: "▸ Click the arrow to open -- About page story and bio photos"
+        summary: "About page story and bio photos"
         fields:
           - { name: heroTitle, label: "About headline", widget: string }
           - { name: heroIntro, label: "About intro line", widget: text, hint: "Sits under the headline." }
@@ -1854,7 +1859,7 @@ singletons:
         label: Shop page
         widget: object
         collapsed: true
-        summary: "▸ Click the arrow to open -- shop page heading and intro"
+        summary: "shop page heading and intro"
         fields:
           - { name: heroTitle, label: "Shop headline", widget: string, required: false }
           - { name: heroIntro, label: "Shop subheading", widget: text, required: false }
@@ -1917,7 +1922,7 @@ singletons:
         label: Events page
         widget: object
         collapsed: true
-        summary: "▸ Click the arrow to open -- events page heading and intro"
+        summary: "events page heading and intro"
         fields:
           - { name: heroTitle, label: "Events headline", widget: string, required: false }
           - { name: heroIntro, label: "Events subheading", widget: text, required: false }
@@ -1940,7 +1945,7 @@ singletons:
         label: Contact page
         widget: object
         collapsed: true
-        summary: "▸ Click the arrow to open -- contact page wording"
+        summary: "contact page wording"
         fields:
           - { name: heroTitle, label: "Contact headline", widget: string, required: false }
           - { name: heroIntro, label: "Contact subheading", widget: text, required: false }
@@ -2003,7 +2008,7 @@ singletons:
         label: FAQ page
         widget: object
         collapsed: true
-        summary: "▸ Click the arrow to open -- FAQ page heading and intro"
+        summary: "FAQ page heading and intro"
         fields:
           - { name: heroTitle, label: "FAQ headline", widget: string, required: false }
           - { name: heroIntro, label: "FAQ subheading", widget: text, required: false }
@@ -2012,7 +2017,7 @@ singletons:
         label: "Journal page"
         widget: object
         collapsed: true
-        summary: "▸ Click the arrow to open -- journal page heading and intro"
+        summary: "journal page heading and intro"
         hint: "The heading and intro line above the list of posts."
         fields:
           - { name: title, label: "Page title", widget: string, hint: "e.g. Apothecary Journal" }
@@ -2027,7 +2032,7 @@ singletons:
         label: "Search settings"
         widget: object
         collapsed: true
-        summary: "▸ Click the arrow to open -- search suggestions and synonyms"
+        summary: "search suggestions and synonyms"
         required: false
         hint: "The chips under the site search box and the words the search understands. Nothing here is shown on a product, so this is the right place for the words shoppers actually type."
         fields:
@@ -2058,13 +2063,13 @@ singletons:
             hint: "When a shopper types any word in a group, the search also looks for the group's key word — e.g. key 'bath_tea', words 'tub tea, bath sachet'. Use underscores for two-word keys (dry_skin, bug_spray). These only translate what a shopper typed and never appear on a product, so symptom words are fine here; wound, infection, cure and treat are still rejected when the site publishes."
             fields:
               - { name: key, label: "Key word the search should look for", widget: string }
-              - { name: terms, label: "Words shoppers type", widget: list, allow_add: true }
+              - { name: terms, label: "Words shoppers type", widget: list }
 
       - name: legal
         label: "Legal pages"
         widget: object
         collapsed: true
-        summary: "▸ Click the arrow to open -- privacy, terms, shipping & returns"
+        summary: "privacy, terms, shipping & returns"
         hint: "The intro line and \"last updated\" date on each legal page. The clauses themselves are managed in code."
         fields:
           - name: privacy

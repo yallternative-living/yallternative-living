@@ -1,0 +1,49 @@
+/* Small, same-origin stylesheet for /admin (allowed by the admin CSP's
+   style-src 'self'). It does not restyle Sveltia -- it fixes one affordance.
+
+   Sveltia draws a collapsed object as a full-width row whose only content is
+   a 24px chevron: <button aria-label="Expand" aria-expanded="false">. The
+   whole row is already clickable (measured 760x24), but nothing about it
+   says so, and the owner reported not knowing the arrow was a control. This
+   gives that row a border, a background, a hover state and the words "Click
+   to open" / "Click to close", so it reads as the button it already is.
+
+   Hooks are ARIA attributes, not Sveltia's hashed svelte-* classes, so a
+   version bump cannot silently unstyle this -- and if a future release
+   changes the labels, the row simply looks the way it does today. */
+
+button[aria-label="Expand"],
+button[aria-label="Collapse"] {
+  width: 100%;
+  min-height: 34px;
+  padding: 0 10px;
+  gap: 6px;
+  /* !important because Sveltia's own button rules are more specific; the
+     height and ::after label below land without it, the paint does not. */
+  border: 1px solid rgba(127, 127, 127, 0.4) !important;
+  border-radius: 6px !important;
+  background: rgba(127, 127, 127, 0.1) !important;
+}
+
+button[aria-label="Expand"]:hover,
+button[aria-label="Collapse"]:hover {
+  border-color: rgba(127, 127, 127, 0.75) !important;
+  background: rgba(127, 127, 127, 0.2) !important;
+}
+
+/* The label rides in ::after so it is decoration: the button already carries
+   an accessible name ("Expand"/"Collapse"), which screen readers announce
+   along with its aria-expanded state. */
+button[aria-label="Expand"]::after {
+  content: "Click to open";
+}
+
+button[aria-label="Collapse"]::after {
+  content: "Click to close";
+}
+
+button[aria-label="Expand"]::after,
+button[aria-label="Collapse"]::after {
+  font-size: 0.85em;
+  opacity: 0.75;
+}
