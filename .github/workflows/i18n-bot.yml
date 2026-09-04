@@ -17,6 +17,11 @@ name: i18n bot
 # pushes.
 # https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#onpushpull_requestpaths
 on:
+  # Four times a day: picks up keys an earlier run left behind (a provider
+  # 503 storm, a dead key that has since been fixed). A run with nothing to
+  # do commits nothing.
+  schedule:
+    - cron: "23 */6 * * *"
   push:
     branches: [main]
     paths:
@@ -60,6 +65,7 @@ jobs:
     # head_commit is null on workflow_dispatch, hence the first clause.
     if: >-
       github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'schedule' ||
       github.event.head_commit.author.name != 'github-actions[bot]'
     # Pin the image. `ubuntu-latest` still maps to 24.04, but 26.04 is in
     # preview with a gradual migration, and a job that commits should not move
@@ -73,7 +79,10 @@ jobs:
       # The model list, pinned id first and the rolling alias last. Re-pinning
       # is this one line. scripts/lib/llm.js reports loudly when the alias had
       # to be used, because it can be hot-swapped to a preview release.
-      I18N_MODELS: "gemini-3.8-flash,gemini-flash-latest"
+      # gemini-3.5-flash sits between them: on 2026-09-04 the free tier answered
+      # 503 "high demand" on 3.8 AND on the alias (which pointed at the same
+      # 3.8), so a second stable id is the actual fallback.
+      I18N_MODELS: "gemini-3.8-flash,gemini-3.5-flash,gemini-flash-latest"
       # A dry run does everything and commits nothing. `false && x` is false, so
       # a push always evaluates to false and only a manual run can set it.
       DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
@@ -254,7 +263,7 @@ jobs:
         run: |
           BODY=$(node -e '
             const s = require(process.env.SUMMARY_PATH);
-            if (!s.failed.length && !s.modelWarning) process.exit(0);
+            if (!s.failed.length && !s.modelWarning && !s.providerDegraded && !s.providerUnavailable) process.exit(0);
             const lines = [
               "Updated automatically by `.github/workflows/i18n-bot.yml`.",
               "",
@@ -264,6 +273,15 @@ jobs:
               "key by hand in all six files and record its basis.",
               ""
             ];
+            if (s.providerDegraded) {
+              lines.push("**Provider degraded:** " + s.providerDegraded + " -- " + s.deferredToNextRun +
+                " key(s) are left for the next scheduled run.");
+              lines.push("");
+            } else if (s.transientErrors) {
+              lines.push("**" + s.transientErrors + " transient provider error(s)** (429/5xx); the keys they" +
+                " touched are left for the next scheduled run, not dropped.");
+              lines.push("");
+            }
             if (s.providerUnavailable) {
               lines.push("**Provider unavailable:** " + s.providerUnavailable);
               lines.push("");

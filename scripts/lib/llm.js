@@ -98,7 +98,11 @@ const PROVIDERS = {
 
 const DEFAULT_TIMEOUT_MS = 60000;
 const DEFAULT_MAX_RETRIES = 3;
-const DEFAULT_MAX_CALLS = 80;
+/* No cap by default (owner decision 2026-09-04: a real run needs ~50 calls
+   and a retry storm should be bounded by the circuit breaker in the caller,
+   not by a number that also stops honest work). Set LLM_MAX_CALLS /
+   I18N_MAX_CALLS to put one back. */
+const DEFAULT_MAX_CALLS = Infinity;
 
 function splitList(value) {
   return String(value || "")
@@ -151,8 +155,11 @@ function isRetryableStatus(status) {
 }
 
 /** Exponential backoff with deterministic jitter, in milliseconds. */
-function backoffMs(attempt) {
-  return Math.min(30000, 1000 * Math.pow(2, attempt)) + attempt * 137;
+function backoffMs(attempt, status) {
+  const base = Math.min(30000, 1000 * Math.pow(2, attempt)) + attempt * 137;
+  /* 503 "high demand" from Gemini's free tier clears in tens of seconds, not
+     in one: wait noticeably longer before each retry of that one status. */
+  return status === 503 ? base + 5000 * (attempt + 1) : base;
 }
 
 function defaultSleep(ms) {
@@ -384,7 +391,7 @@ function createClient(options, env) {
           const retryable = err && (err.retryable || err.name === "AbortError" || !err.status);
           if (retryable && attempt < cfg.maxRetries) {
             telemetry.retries++;
-            await sleep(backoffMs(attempt));
+            await sleep(backoffMs(attempt, err && err.status));
             continue;
           }
           break;

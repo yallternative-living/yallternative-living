@@ -657,6 +657,23 @@ async function translateAll(input) {
   /* Set when the provider refuses the key outright; the remaining groups are
      left for the next run rather than reported as 990 identical drops. */
   let providerUnavailable = null;
+  /* Transient provider trouble (429, 5xx) is not a verdict on a string: the
+     key is left for the next run instead of being reported as a drop. After
+     three batches in a row fail that way the run pauses once (a minute),
+     and if the next batch still fails it stops -- "provider degraded" --
+     rather than grinding through every batch of a storm. */
+  const transientKeys = new Set();
+  let transientErrors = 0;
+  let consecutiveTransient = 0;
+  let pausedOnce = false;
+  let providerDegraded = null;
+  const wait =
+    input.sleep ||
+    function (ms) {
+      return new Promise(function (resolve) {
+        setTimeout(resolve, ms);
+      });
+    };
 
   for (let g = 0; g < groups.length; g++) {
     const group = groups[g];
@@ -700,6 +717,7 @@ async function translateAll(input) {
 
       let response = null;
       let error = null;
+      let transient = false;
       try {
         response = await client.completeJSON({
           system: buildSystemPrompt(code, ctx),
@@ -713,8 +731,29 @@ async function translateAll(input) {
         if (typeof client.unavailable === "function" && client.unavailable()) {
           providerUnavailable = "provider unavailable: " + client.unavailable().message;
           error = providerUnavailable;
+        } else if (err && (err.retryable || err.status === 429 || err.status >= 500)) {
+          transient = true;
         }
       }
+
+      if (transient) {
+        transientErrors++;
+        consecutiveTransient++;
+        forLocale.forEach(function (item) {
+          transientKeys.add(item.key);
+        });
+        log("transient provider error, key(s) left for the next run: " + error);
+        if (consecutiveTransient >= 3 && !pausedOnce) {
+          pausedOnce = true;
+          log("three transient failures in a row -- pausing 60s before trying again");
+          await wait(60000);
+        } else if (consecutiveTransient >= 4) {
+          providerDegraded = "provider degraded: " + error;
+          break;
+        }
+        continue;
+      }
+      if (!error) consecutiveTransient = 0;
 
       const validated = error
         ? { ok: false, error: error }
@@ -751,14 +790,25 @@ async function translateAll(input) {
       });
       if (providerUnavailable) break;
     }
-    if (providerUnavailable) {
+    if (providerUnavailable || providerDegraded) {
       deferredKeys += groups.slice(g + 1).reduce(function (n, rest) {
         return n + rest.length;
       }, 0);
-      log(providerUnavailable + " -- leaving " + deferredKeys + " key(s) for the next run.");
+      log(
+        (providerUnavailable || providerDegraded) +
+          " -- leaving " +
+          deferredKeys +
+          " key(s) for the next run."
+      );
       break;
     }
   }
+  /* A key that hit a transient error in any locale is incomplete and would be
+     dropped silently by the atomicity rule below; count it as deferred, not
+     as accepted or failed, unless it was already reported as a failure. */
+  transientKeys.forEach(function (key) {
+    if (!failedKeys.has(key)) deferredKeys++;
+  });
 
   /* Atomic promotion. A key that failed anywhere is dropped entirely -- not
      written to en.json either, so the dictionary stays complete and the site
@@ -793,6 +843,8 @@ async function translateAll(input) {
     failed: failed,
     deferredKeys: deferredKeys,
     providerUnavailable: providerUnavailable,
+    providerDegraded: providerDegraded,
+    transientErrors: transientErrors,
     docs: written
   };
 }
@@ -813,6 +865,8 @@ function summarize(result, client, dryRun) {
     reportedOrphans: result.work.orphanReported,
     deferredToNextRun: result.deferredKeys,
     providerUnavailable: result.providerUnavailable || null,
+    providerDegraded: result.providerDegraded || null,
+    transientErrors: result.transientErrors || 0,
     calls: client.telemetry.calls,
     retries: client.telemetry.retries,
     provider: client.telemetry.provider,
@@ -931,6 +985,15 @@ async function runCli(argv) {
       " provider call(s)." +
       (args.dryRun ? "\nDry run: no file was written." : "")
   );
+  if (summary.providerDegraded) {
+    console.error("!! " + summary.providerDegraded + " -- the next run picks the rest up.");
+  } else if (summary.transientErrors) {
+    console.error(
+      "!! " +
+        summary.transientErrors +
+        " transient provider error(s); those keys are left for the next run."
+    );
+  }
   if (summary.providerUnavailable) {
     console.error(
       "!! " + summary.providerUnavailable + " -- fix the key; nothing else was attempted."

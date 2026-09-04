@@ -328,7 +328,7 @@ differ by a base URL and a model id:
 | `GEMINI_API_KEY` | — | The AI Studio key. Free tier, no billing account. Required unless `--provider mock`. |
 | `GROQ_API_KEY` | — | Optional second vendor (`--provider groq`). |
 | `I18N_MODELS` | `gemini-3.8-flash,gemini-flash-latest` | Comma-separated, first is the one we mean. |
-| `I18N_MAX_CALLS` | `80` | Per-run provider-call cap. 198 keys x 5 locales / 20 per call = 50. |
+| `I18N_MAX_CALLS` | none | Optional per-run provider-call cap (owner removed the default 2026-09-04). A retry storm is bounded by the circuit breaker instead: three transient batch failures in a row pause the run for a minute, a fourth stops it and leaves the rest for the next scheduled run. |
 | `I18N_BATCH_SIZE` | `20` | Strings per locale per call. |
 | `LLM_MODELS`, `LLM_MAX_CALLS`, `LLM_PROVIDER`, `LLM_BASE_URL`, `LLM_TIMEOUT_MS`, `LLM_MAX_RETRIES` | see `scripts/lib/llm.js` | The shared client's own names; the `I18N_*` ones win for this bot. |
 | `LLM_MOCK_CORRUPT` | — | Test hook. With `--provider mock`, makes the mock drop protected terms from any string containing this substring, which is how the reject-and-drop path is proved offline. |

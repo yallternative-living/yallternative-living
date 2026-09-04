@@ -95,6 +95,15 @@ function errorReply(status) {
     "the rolling alias is last, as the survival path"
   );
   assertEqual(def.maxCalls, llm.DEFAULT_MAX_CALLS, "the call cap has a default");
+  assertEqual(
+    def.maxCalls,
+    Infinity,
+    "and that default is no cap at all (owner decision 2026-09-04)"
+  );
+  assert(
+    llm.backoffMs(0, 503) > llm.backoffMs(0, 429),
+    "a 503 waits longer than other retryable statuses"
+  );
 
   assertEqual(
     llm.resolveConfig({}, { LLM_MODELS: "one, two ,three" }).models.join("|"),

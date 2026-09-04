@@ -676,9 +676,69 @@ async function deadKeyPins() {
   );
 }
 
+/** A provider in a 503 storm: every call is a retryable 503. */
+function stormClient() {
+  const client = {
+    telemetry: { provider: "stub", model: "stub", calls: 0, retries: 0, modelFallbacks: [] },
+    fallbackWarning: function () {
+      return null;
+    },
+    callsRemaining: function () {
+      return Infinity;
+    },
+    unavailable: function () {
+      return null;
+    },
+    completeJSON: async function () {
+      client.telemetry.calls++;
+      const e = new Error("HTTP 503 from gemini/x: UNAVAILABLE: high demand");
+      e.status = 503;
+      e.retryable = true;
+      throw e;
+    }
+  };
+  return client;
+}
+
+async function stormPins() {
+  const ctx = fixture();
+  const report = {
+    new: [
+      { key: "auto.one.111111", en: "One.", defer: null, kind: "text" },
+      { key: "auto.two.222222", en: "Two.", defer: null, kind: "text" },
+      { key: "auto.three.333333", en: "Three.", defer: null, kind: "text" }
+    ],
+    changed: [],
+    orphaned: []
+  };
+  const client = stormClient();
+  const waits = [];
+  const result = await tool.translateAll({
+    ctx: ctx,
+    report: report,
+    client: client,
+    batchSize: 1,
+    sleep: async function (ms) {
+      waits.push(ms);
+    }
+  });
+  assertEqual(client.telemetry.calls, 4, "three failures, one pause, a fourth failure, then stop");
+  assertEqual(waits.length, 1, "the pause happened once");
+  assert(waits[0] >= 60000, "and it was a real pause, not a retry backoff");
+  assert(
+    result.providerDegraded && result.providerDegraded.indexOf("503") !== -1,
+    "the run records the storm",
+    result.providerDegraded
+  );
+  assertEqual(result.failed.length, 0, "a transient error drops nothing");
+  assertEqual(result.deferredKeys, result.work.items.length, "every key is left for the next run");
+  assert(!("auto.one.111111" in result.docs.en.phrases), "and nothing was written");
+}
+
 async function runAll() {
   await runPins();
   await deadKeyPins();
+  await stormPins();
 }
 
 // ---------------------------------------------------------------------------
