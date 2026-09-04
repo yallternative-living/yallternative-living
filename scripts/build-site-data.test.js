@@ -134,6 +134,54 @@ eq(
   "generateUniqueId falls back to prefix when rawName is undefined"
 );
 
+/* 3b. ensureEventId -- events.json has no built-in id like
+   products/bundles/reviews/social posts, so this is the guard that keeps
+   "events.html#" + ev.id from shipping as "events.html#undefined". */
+const eventIds1 = new Set();
+const marketNoId = { name: "Landrum Farmers Market", date: "2026-09-12" };
+eq(
+  buildScript.ensureEventId(marketNoId, eventIds1, 0),
+  "landrum-farmers-market-2026-09-12",
+  "ensureEventId assigns a slug to an event with no id"
+);
+assert(
+  marketNoId.id === "landrum-farmers-market-2026-09-12",
+  "ensureEventId writes the id onto the event"
+);
+assert(
+  eventIds1.has("landrum-farmers-market-2026-09-12"),
+  "ensureEventId adds the new id to the used set"
+);
+
+const eventIds2 = new Set();
+const marketA = { name: "Pride Market", date: "2026-06-06" };
+const marketB = { name: "Pride Market", date: "2026-10-31" };
+buildScript.ensureEventId(marketA, eventIds2, 0);
+buildScript.ensureEventId(marketB, eventIds2, 1);
+assert(marketA.id !== marketB.id, "ensureEventId gives two same-named events distinct ids");
+eq(
+  marketA.id,
+  "pride-market-2026-06-06",
+  "ensureEventId's slug for the first same-named event includes its date"
+);
+eq(
+  marketB.id,
+  "pride-market-2026-10-31",
+  "ensureEventId's slug for the second same-named event includes its date"
+);
+
+const eventIds3 = new Set(["hand-picked-slug"]);
+const marketWithId = { name: "Renamed Market", date: "2026-11-01", id: "hand-picked-slug" };
+eq(
+  buildScript.ensureEventId(marketWithId, eventIds3, 0),
+  "hand-picked-slug",
+  "ensureEventId never rewrites an id that's already there"
+);
+assert(
+  marketWithId.id === "hand-picked-slug",
+  "ensureEventId leaves the existing id on the event untouched"
+);
+
 /* 4. variantPriceRange */
 const noVariants = { price: 20.0 };
 eq(

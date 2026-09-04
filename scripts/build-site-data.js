@@ -980,6 +980,25 @@ function generateUniqueId(existingSet, rawName, fallbackPrefix, index) {
   existingSet.add(candidate);
   return candidate;
 }
+
+/* Unlike products/bundles/reviews/social posts, events.json has never had
+   its own id auto-generation -- a blank id shipped "events.html#undefined"
+   (search results, the ICS UID and the event card's own `id` attribute all
+   read ev.id; see build-site-data's searchEvents mapping and
+   assets/js/main.js's eventCardHTML). Assign one from name + date rather
+   than name alone, so two recurring markets that share a name but not a
+   date get distinct slugs without falling through to the counter suffix
+   (which is stable only as long as array order doesn't change), and never
+   touch an id that's already there. */
+function ensureEventId(evt, usedIds, idx) {
+  if (!evt.id) {
+    const base = [evt.name, evt.date].filter(Boolean).join(" ");
+    evt.id = generateUniqueId(usedIds, base, "event", idx);
+  } else {
+    usedIds.add(evt.id);
+  }
+  return evt.id;
+}
 /* A bundle's price is either set outright (`price`) or worked out as a
    percentage off the sum of its parts (`discountPercent`, the older form
    and still the fallback). A chosen member option that costs more (the
@@ -1841,6 +1860,17 @@ function buildSiteData() {
     } else {
       USED_SOCIAL_IDS.add(post.id);
     }
+  });
+
+  /* 6b. Process Event IDs & Guards (see ensureEventId above). Runs before
+     archiving so a market that's about to move to "past" already carries
+     its own id instead of a blank one. */
+  const USED_EVENT_IDS = new Set();
+  (EVENTS && Array.isArray(EVENTS.upcoming) ? EVENTS.upcoming : []).forEach(function (evt, idx) {
+    ensureEventId(evt, USED_EVENT_IDS, idx);
+  });
+  (EVENTS && Array.isArray(EVENTS.past) ? EVENTS.past : []).forEach(function (evt, idx) {
+    ensureEventId(evt, USED_EVENT_IDS, idx);
   });
 
   /* 7. Auto-Archive Past Events & Sort Upcoming Events Chronologically */
@@ -7205,6 +7235,7 @@ if (typeof module !== "undefined" && module.exports) {
     safeUrl: safeUrl,
     slugify: slugify,
     generateUniqueId: generateUniqueId,
+    ensureEventId: ensureEventId,
     bundlePricing: bundlePricing,
     variantPriceRange: variantPriceRange,
     stripMarkersInsideAttributes: stripMarkersInsideAttributes,
