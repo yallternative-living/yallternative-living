@@ -109,7 +109,14 @@ const PROVIDERS = {
   }
 };
 
-const DEFAULT_TIMEOUT_MS = 60000;
+/* 180s, raised from 60s on 2026-09-04. With LLM_THINKING=high a batch of 20
+   strings routinely takes gemini-3.8-flash past a minute, and the abort that
+   followed was indistinguishable from a dead model: three retries, then a
+   PERMANENT fall through to the alias for the rest of the run. Two nine-locale
+   runs produced their entire output on gemini-3.5-flash that way, correctly
+   warned about it in the summary, and nobody would have known why. The timeout
+   exists to stop a hung socket, not to referee how long a model may think. */
+const DEFAULT_TIMEOUT_MS = 180000;
 const DEFAULT_MAX_RETRIES = 3;
 /* No cap by default (owner decision 2026-09-04: a real run needs ~50 calls
    and a retry storm should be bounded by the circuit breaker in the caller,
@@ -186,12 +193,28 @@ function resolveConfig(options, env) {
     maxCalls: firstNumber([opts.maxCalls, e.LLM_MAX_CALLS], DEFAULT_MAX_CALLS),
     timeoutMs: firstNumber([opts.timeoutMs, e.LLM_TIMEOUT_MS], DEFAULT_TIMEOUT_MS),
     maxRetries: firstNumber([opts.maxRetries, e.LLM_MAX_RETRIES], DEFAULT_MAX_RETRIES),
-    /* Gemini 3.x thinking level: minimal | low | medium | high (the model's
-       own default is medium). "high" by owner decision 2026-09-04 -- these
-       are a few hundred short strings a month, and a translation that
-       weighs a claim word is worth the thinking tokens. Set LLM_THINKING to
-       "none" to send no thinking field at all. */
-    thinking: String(opts.thinking || e.LLM_THINKING || "high").toLowerCase()
+    /* Gemini 3.x thinking level: minimal | low | medium | high. "medium" is
+       the model's own default and, as of 2026-09-04, ours.
+
+       It was "high", on the reasoning that a translation weighing a claim
+       word is worth the thinking tokens. That was measured on 2026-09-04 and
+       did not hold up: the same claim-bearing English (calm / soothe / heal /
+       pain / broken skin / the not-medicine disclaimer) through the same
+       prompt and model produced 0 gate failures and 0 claim offences at BOTH
+       "high" and "none", and 0 failures on a 60-key UI sample either way --
+       at 2.3x to 3.6x the latency for "high". The outputs differed, but as
+       paraphrase, with neither arm closer to the English.
+
+       The claim safety net is the deterministic gate, not the thinking
+       budget, exactly as the header above says. And the latency was not free:
+       at "high" a 20-string batch ran past the old 60s timeout, which is what
+       drove the silent model downgrade the fallback rules below now prevent.
+
+       What the measurement CANNOT see is register quality a Spanish- or
+       Korean-reading human would judge, so this is "no measured benefit", not
+       "no benefit". Set LLM_THINKING to raise it for a run, or to "none" to
+       send no thinking field at all. */
+    thinking: String(opts.thinking || e.LLM_THINKING || "medium").toLowerCase()
   };
 }
 
@@ -489,10 +512,29 @@ function createClient(options, env) {
           break;
         }
       }
-      /* Out of retries on this model. If there is another id in the list, fall
-         through to it permanently and record it loudly -- see the file header
-         on why the rolling alias is a degraded mode, not an upgrade. */
-      if (modelIndex + 1 < cfg.models.length) {
+      /* Out of retries on this model. Fall through to the next id ONLY when
+         the failure says something about the id itself -- a 400/404/501 means
+         it is gone or misspelled, which is the single case the alias exists
+         for.
+
+         A timeout, an aborted request or a socket error says nothing about
+         the model except that this attempt did not come back. Treating those
+         as "the pinned model is dead" is how two nine-locale runs on
+         2026-09-04 produced their entire output on the alias: at
+         LLM_THINKING=high a 20-string batch ran past the 60s timeout, three
+         retries aborted the same way, and the run switched models PERMANENTLY
+         on its first slow batch. The timeout is now 180s, but the
+         classification was the real defect -- a slow model must never be
+         silently swapped for a different one. Those failures are re-thrown as
+         retryable so the caller defers the keys to the next run instead. */
+      const identityFailure =
+        lastError &&
+        typeof lastError.status === "number" &&
+        lastError.status >= 400 &&
+        lastError.status < 500 &&
+        lastError.status !== 408 &&
+        lastError.status !== 429;
+      if (identityFailure && modelIndex + 1 < cfg.models.length) {
         telemetry.modelFallbacks.push({
           from: model,
           to: cfg.models[modelIndex + 1],
@@ -503,6 +545,11 @@ function createClient(options, env) {
       }
       if (lastError && (lastError.status === 401 || lastError.status === 403)) {
         unavailable = lastError;
+      }
+      if (lastError && !lastError.status) {
+        /* No HTTP status at all: an abort, a DNS failure, a dropped socket.
+           The caller's transient path leaves these keys for the next run. */
+        lastError.retryable = true;
       }
       throw lastError || new Error("Provider request failed with no error recorded");
     }

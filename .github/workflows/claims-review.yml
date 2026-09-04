@@ -105,9 +105,12 @@ jobs:
           # The paid Google Cloud key (Vertex AI express mode) is the provider;
           # GEMINI_API_KEY stays as the one-line fallback (LLM_PROVIDER=gemini).
           LLM_PROVIDER: vertex
-          # Gemini 3.x thinking level (the code default is also high; stated
+          # Gemini 3.x thinking level (the code default is also medium; stated
           # here so the run log shows it). none | minimal | low | medium | high
-          LLM_THINKING: high
+          # Lowered from high on 2026-09-04: measured on claim-bearing copy,
+          # high produced 0 gate failures and 0 claim offences -- and so did
+          # none -- at 2.3-3.6x the latency. See scripts/lib/llm.js.
+          LLM_THINKING: medium
           VERTEX_API_KEY: ${{ secrets.VERTEX_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OWNER_GITHUB_LOGIN: ${{ vars.OWNER_GITHUB_LOGIN }}

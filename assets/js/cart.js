@@ -460,12 +460,33 @@
   // them to the Stripe session as metadata -- never as anything that
   // affects price (price for gift cards is derived server-side from the
   // "Preset $NN" variant label alone, see workers/checkout.js).
-  /* The six codes assets/js/translator.js ships, which are also six of the
-     values Stripe Checkout accepts for `locale`. Kept as a literal list rather
-     than read off the translator: cart.js has to work on a page where
+  /* The nine codes assets/js/translator.js ships. Kept as a literal list
+     rather than read off the translator: cart.js has to work on a page where
      translator.js failed to load, and an unvalidated string here would end up
-     in an outbound Stripe parameter. */
-  var CHECKOUT_LOCALES = ["en", "es", "de", "fr", "ja", "zh"];
+     in an outbound Stripe parameter. These are SITE codes, not Stripe's own
+     spelling of them -- workers/checkout.js maps es to es-419 and pt to
+     pt-BR on the way out, because a cached copy of this file can outlive any
+     mapping written here. */
+  var CHECKOUT_LOCALES = ["en", "es", "de", "fr", "ja", "zh", "vi", "ko", "pt"];
+
+  /* Render a dictionary key through the translator, with the English as the
+     fallback when the engine is not on the page (the Node harness, or a page
+     where translator.js failed to load). Same shape as the milestone copy
+     used already; extracted because the audit found seven more strings that
+     were concatenated in English and unreachable by both the matcher and
+     t(). A key the engine cannot resolve comes back as the key itself, which
+     is refused here -- the English is always better than "tpl.something". */
+  function tr(key, vars, fallbackEn) {
+    var t = typeof window !== "undefined" ? window.YL_T : null;
+    if (typeof t !== "function") return fallbackEn;
+    var out;
+    try {
+      out = t(key, vars || {});
+    } catch (e) {
+      return fallbackEn;
+    }
+    return typeof out === "string" && out && out !== key ? out : fallbackEn;
+  }
 
   /* What language the shopper is reading the shop in, so Stripe Checkout does
      not drop them back into English halfway through the funnel. Prefers the
@@ -1140,18 +1161,34 @@
         if (!label) return "";
         return label.toLowerCase().indexOf("free ") === 0 ? label : "Free " + label;
       });
-      var allMsg =
-        list.length > 1
-          ? "🎉 All perks unlocked! Free Shipping" +
-            (bonusRewards.filter(Boolean).length
-              ? " + " + bonusRewards.filter(Boolean).join(" + ")
-              : "") +
-            "!"
-          : "🎉 You've unlocked " +
-            (list[0].reward.toLowerCase().indexOf("free") === 0
-              ? list[0].reward.toLowerCase()
-              : list[0].reward) +
-            "!";
+      /* Through t() like the two countdown branches below it, because this
+         is the line a shopper reads at the HIGHEST-value cart in the shop,
+         and it was the one line in the drawer that flipped back to English
+         the moment an order crossed $60 (audit 2026-09-04). Reward names are
+         CMS copy, substituted verbatim like a product name. */
+      var tAll = typeof window !== "undefined" ? window.YL_T : null;
+      var extras = bonusRewards.filter(Boolean).join(" + ");
+      var singleReward =
+        list[0].reward.toLowerCase().indexOf("free") === 0
+          ? list[0].reward.toLowerCase()
+          : list[0].reward;
+      var allMsg;
+      if (list.length > 1 && extras) {
+        allMsg =
+          typeof tAll === "function"
+            ? tAll("tpl.milestoneAllUnlocked", { rewards: extras })
+            : "🎉 All perks unlocked! Free Shipping + " + extras + "!";
+      } else if (list.length > 1) {
+        allMsg =
+          typeof tAll === "function"
+            ? tAll("cart.milestoneAllUnlockedShipping")
+            : "🎉 All perks unlocked! Free Shipping!";
+      } else {
+        allMsg =
+          typeof tAll === "function"
+            ? tAll("tpl.milestoneSingleUnlocked", { reward: singleReward })
+            : "🎉 You've unlocked " + singleReward + "!";
+      }
       return {
         message: allMsg,
         progressPercent: 100,
@@ -1942,8 +1979,14 @@
            two lines at roughly 2:1 against the drawer. --paper-dim is the
            site's muted *text* token and clears AA. */
         var recipientText = it.giftRecipientEmail
-          ? '<span class="yl-cart-recipient" style="display:block; font-size:0.75rem; color:var(--paper-dim);">For: ' +
-            escapeHtml(it.giftRecipientEmail) +
+          ? '<span class="yl-cart-recipient" style="display:block; font-size:0.75rem; color:var(--paper-dim);">' +
+            escapeHtml(
+              tr(
+                "tpl.cartRecipient",
+                { email: it.giftRecipientEmail },
+                "For: " + it.giftRecipientEmail
+              )
+            ) +
             "</span>"
           : "";
 
@@ -1963,7 +2006,11 @@
           '<svg class="yl-cart-icon yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>' +
           "</button>" +
           "</div>" +
-          (variantText ? '<span class="yl-cart-variant">Variant: ' + variantText + "</span>" : "") +
+          (variantText
+            ? '<span class="yl-cart-variant">' +
+              tr("tpl.cartVariant", { variant: variantText }, "Variant: " + variantText) +
+              "</span>"
+            : "") +
           (lineContents
             ? '<span class="yl-cart-variant yl-cart-line-contents">' +
               escapeHtml(lineContents) +
@@ -2205,18 +2252,36 @@
 
       if (count > 0 && count < minQ) {
         var needed = minQ - count;
-        var pluralUnit = minQ === 2 ? "both" : "all " + minQ;
+        var pluralUnit =
+          minQ === 2
+            ? tr("cart.both", null, "both")
+            : tr("tpl.allN", { n: String(minQ) }, "all " + minQ);
         nudgeMessages.push(
-          '<div class="yl-cart-salve-nudge"><svg class="yl-cart-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path></svg> <strong>Mix &amp; Match:</strong> Add ' +
-            needed +
-            " more " +
-            variantPart +
-            catNoun +
-            " to get " +
-            pluralUnit +
-            " for " +
-            priceFormatted +
-            " each!</div>"
+          '<div class="yl-cart-salve-nudge"><svg class="yl-cart-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path></svg> <strong>' +
+            escapeHtml(tr("cart.mixMatchLabel", null, "Mix & Match:")) +
+            "</strong> " +
+            escapeHtml(
+              tr(
+                "tpl.mixMatchNeed",
+                {
+                  needed: String(needed),
+                  item: variantPart + catNoun,
+                  all: pluralUnit,
+                  price: priceFormatted
+                },
+                "Add " +
+                  needed +
+                  " more " +
+                  variantPart +
+                  catNoun +
+                  " to get " +
+                  pluralUnit +
+                  " for " +
+                  priceFormatted +
+                  " each!"
+              )
+            ) +
+            "</div>"
         );
       } else if (count >= minQ) {
         /* Name the NEXT perk, whatever it is: once the $40 tier is reached
@@ -2228,16 +2293,24 @@
             : "free shipping";
         var shipExtra =
           milestoneStatus.remaining > 0 && !state.isPickup && milestoneStatus.maxThreshold > 0
-            ? " · Add " + money(milestoneStatus.remaining) + " for " + nextPerk + "!"
+            ? " · " +
+              tr(
+                "tpl.mixMatchNext",
+                { amount: money(milestoneStatus.remaining), perk: nextPerk },
+                "Add " + money(milestoneStatus.remaining) + " for " + nextPerk + "!"
+              )
             : "";
         nudgeMessages.push(
-          '<div class="yl-cart-salve-nudge yl-cart-salve-nudge-active"><svg class="yl-cart-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> <strong>Mix &amp; Match:</strong> ' +
-            priceFormatted +
-            "/ea " +
-            variantPart +
-            catNoun +
-            " volume tier applied!" +
-            shipExtra +
+          '<div class="yl-cart-salve-nudge yl-cart-salve-nudge-active"><svg class="yl-cart-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> <strong>' +
+            escapeHtml(tr("cart.mixMatchLabel", null, "Mix & Match:")) +
+            "</strong> " +
+            escapeHtml(
+              tr(
+                "tpl.mixMatchApplied",
+                { price: priceFormatted, item: variantPart + catNoun },
+                priceFormatted + "/ea " + variantPart + catNoun + " volume tier applied!"
+              ) + shipExtra
+            ) +
             "</div>"
         );
       }
@@ -2332,7 +2405,7 @@
       money(sub) +
       "</strong></div>" +
       '<div class="yl-cart-subtotal yl-cart-total-shipping"><span>Shipping</span><strong>' +
-      (shippingCost > 0 ? money(shippingCost) : "Free") +
+      (shippingCost > 0 ? money(shippingCost) : escapeHtml(tr("cart.shippingFree", null, "Free"))) +
       "</strong></div>" +
       (gcDiscount > 0
         ? '<div class="yl-cart-discount-line"><span>Gift Card Discount (' +
@@ -2599,8 +2672,14 @@
           '<span class="yl-cart-upsell-name">' +
           escapeHtml(p.name) +
           "</span>" +
-          '<span class="yl-cart-upsell-add">+ Add ' +
-          money(Number(p.price) || 0) +
+          '<span class="yl-cart-upsell-add">' +
+          escapeHtml(
+            tr(
+              "tpl.upsellAdd",
+              { price: money(Number(p.price) || 0) },
+              "+ Add " + money(Number(p.price) || 0)
+            )
+          ) +
           "</span>" +
           "</div>" +
           "</button>"
@@ -2776,8 +2855,14 @@
      re-render it away, and render() reads it back. */
   var checkoutInFlight = false;
   var CHECKOUT_TIMEOUT_MS = 20000;
-  var GENERIC_CHECKOUT_ERROR =
+  var GENERIC_CHECKOUT_ERROR_EN =
     "Sorry -- checkout isn't available right now. Please try again in a moment.";
+  /* Read at the moment of failure, not at load: the shopper may have switched
+     language since cart.js ran, and this is the last thing they see when
+     payment does not go through -- in a role="alert" (audit 2026-09-04). */
+  function genericCheckoutError() {
+    return tr("cart.checkoutUnavailable", null, GENERIC_CHECKOUT_ERROR_EN);
+  }
 
   function checkout() {
     if (!state.items.length) return;
@@ -2899,8 +2984,8 @@
            recovers even if this render replaced the node the click came
            from. */
         render();
-        var msg = (err && err.shopperMessage) || GENERIC_CHECKOUT_ERROR;
-        announce("Checkout error: " + msg);
+        var msg = (err && err.shopperMessage) || genericCheckoutError();
+        announce(tr("tpl.checkoutErrorAnnounce", { message: msg }, "Checkout error: " + msg));
         showCheckoutError(msg);
         /* Checkout Failed closes the funnel's worst blind spot: Checkout Start
            fires, Purchase never does, and until now nothing said whether the

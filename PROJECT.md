@@ -91,14 +91,34 @@ was never licensed for this shop. It is replaced by a self-hosted,
 build-compiled dictionary engine.
 
 1. **Build-time compilation (`scripts/build-site-data.js`)**
-   - Canonical dictionaries `assets/data/locales/{en,es,de,fr,ja,zh}.json`
-     (206 phrases each) plus `assets/data/brand-glossary.json`.
-   - Compiled to `assets/js/locales-data.js` (~71KB), which sets
-     `window.YL_LOCALES` and `window.YL_BRAND_GLOSSARY`.
+   - Canonical dictionaries `assets/data/locales/{en,es,de,fr,ja,zh,vi,ko,pt}.json`
+     (703 phrases each) plus `assets/data/brand-glossary.json`.
+   - **Nine locales, chosen for who can actually buy.** `workers/checkout.js`
+     allows US shipping only and there is no `hreflang` layer, so a locale is
+     worth what it is worth to a US resident who does not read English
+     comfortably -- not to that language's home market. That is why `es` is
+     Latin American rather than peninsular (and reaches Stripe as `es-419`),
+     `pt` is Brazilian (`pt-BR`), and `vi`/`ko` are here at all: Vietnamese and
+     Korean are two of the largest limited-English populations in the South,
+     concentrated in Houston, the Gulf Coast, and Gwinnett County GA. Arabic
+     and Haitian Creole are deliberately absent: Stripe Checkout has no locale
+     for either, so the funnel would drop to English at the payment step, and
+     the site is LTR throughout.
+   - Compiled to a small always-loaded core plus one file per dictionary:
+     `assets/js/locales-data.js` (~7KB: `window.YL_BRAND_GLOSSARY` and
+     `window.YL_LOCALE_MANIFEST`) and `assets/js/locales/<code>.js`
+     (34-43KB each), which register themselves into `window.YL_LOCALES`.
+     One bundle used to hold all of them -- 234KB parsed on every page view,
+     by every visitor, most of whom read the shop in English.
    - `validateLocalesAndGlossary()` fails the build when a translation drops a
      protected term the English string contains.
-   - `locales-data.js` and `translator.js` are added to `sw.js`
-     `ASSETS_TO_CACHE`, so switching language works offline.
+   - `locales-data.js`, `locales/en.js` (the index every lookup starts from)
+     and `translator.js` are in `sw.js` `ASSETS_TO_CACHE`. The other eight
+     dictionaries are NOT precached: each is fetched when a shopper first
+     reads the shop in that language and cached by the fetch handler, so
+     switching back to a language they have used works offline. Switching
+     offline to a language this browser has never displayed does not -- the
+     engine fails closed to English rather than claiming it.
    - **No SEO layer.** There is deliberately no `hreflang` injection and no
      `<xhtml:link>` in `sitemap.xml`; `robots.txt` carries
      `Disallow: /*?lang=`. See "Why there is no hreflang" below.
@@ -118,12 +138,25 @@ build-compiled dictionary engine.
    - Preference in `localStorage['yl-lang']`, overridable per-visit with
      `?lang=xx`. Both reads and both writes are in `try/catch`; translation
      still works with `localStorage` throwing.
+   - **The initial language is detected, not defaulted.** Precedence is
+     `?lang=` > stored choice > `navigator.languages` > English. Region
+     subtags drop to the base language, which is right for every language
+     shipped: `es-MX` and `es-419` both land on the Latin American Spanish,
+     `pt-BR`/`pt-PT` on the Brazilian, `zh-TW` on the Simplified dictionary
+     (closer than English; there is no Traditional one). A DETECTED language
+     is never written to storage -- writing a guess would turn it into a
+     decision the shopper never made and could not see -- so changing the
+     device language changes the shop. A stored `en` on a Spanish-language
+     phone still wins: choosing English is a choice.
    - `assets/js/main.js` injects both scripts with **`.async = false`**.
      `defer` does nothing on a dynamically created script -- the spec sets
      force-async -- and without the ordering the 28KB engine beat the 71KB
      dictionaries on 10 cold loads out of 10, translating nothing while still
-     flipping the header badge. `translator.js` also re-runs `init()` if
-     `YL_LOCALES` arrives late.
+     flipping the header badge. The core is ~7KB now, which removes the size
+     half of that race; the ordering still matters because the core creates
+     `window.YL_LOCALES` and carries the protected terms. `setLanguage()`
+     fetches the dictionary it needs BEFORE claiming the language, and
+     `translator.js` still re-runs `init()` if dictionaries arrive late.
    - Accessible language selector in `.nav-cta`: `aria-haspopup="listbox"`,
      `aria-controls="langDropdown"`, maintained `aria-expanded`,
      ArrowUp/Down/Home/End/Escape/Tab with correct focus return, 42-44px

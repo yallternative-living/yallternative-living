@@ -541,14 +541,14 @@ function renderFaqAnswerHtml(answer) {
    the dictionary load and the build-time validation below. It deliberately
    does NOT drive any SEO annotation -- see the note on hreflang at the
    robots.txt block. */
-const SUPPORTED_LOCALES = ["en", "es", "de", "fr", "ja", "zh"];
+const SUPPORTED_LOCALES = ["en", "es", "de", "fr", "ja", "zh", "vi", "ko", "pt"];
 
 function validateLocalesAndGlossary(locales, glossary) {
   if (!glossary || !Array.isArray(glossary.protectedTerms) || !glossary.protectedTerms.length) {
     throw new Error("brand-glossary.json must define a non-empty protectedTerms array.");
   }
   const protectedTerms = glossary.protectedTerms;
-  const nonEnglishLocales = ["es", "de", "fr", "ja", "zh"];
+  const nonEnglishLocales = SUPPORTED_LOCALES.slice(1);
 
   if (!locales || !locales.en || !locales.en.phrases) {
     throw new Error("Canonical English locale (en.json) is missing or has no phrases.");
@@ -622,26 +622,104 @@ function validateLocalesAndGlossary(locales, glossary) {
 const IDENTICAL_BY_DESIGN = {
   "nav.shop": { de: "Shop is the ordinary German retail word" },
   "nav.contact": { fr: "Contact is the ordinary French word" },
-  "nav.faq": { de: "FAQ is used as-is", fr: "FAQ is used as-is" },
+  "nav.faq": {
+    de: "FAQ is used as-is",
+    fr: "FAQ is used as-is",
+    ko: "FAQ is used as-is",
+    pt: "FAQ is used as-is"
+  },
   "nav.slashShop": { de: "breadcrumb of nav.shop" },
-  "nav.slashFaq": { de: "breadcrumb of nav.faq", fr: "breadcrumb of nav.faq" },
+  "nav.slashFaq": {
+    de: "breadcrumb of nav.faq",
+    fr: "breadcrumb of nav.faq",
+    ko: "breadcrumb of nav.faq",
+    pt: "breadcrumb of nav.faq"
+  },
   "search.esc": {
     es: "ESC is the key legend printed on the keyboard",
     de: "ESC is the key legend printed on the keyboard",
     ja: "ESC is the key legend printed on the keyboard",
-    zh: "ESC is the key legend printed on the keyboard"
+    zh: "ESC is the key legend printed on the keyboard",
+    vi: "ESC is the key legend printed on the keyboard",
+    ko: "ESC is the key legend printed on the keyboard",
+    pt: "ESC is the key legend printed on the keyboard"
+  },
+  /* Two product names and a file extension. Nothing in it is language. */
+  "events.icalAppleCalendar": {
+    es: "iCal and Apple Calendar are product names, .ics is a file extension",
+    vi: "iCal and Apple Calendar are product names, .ics is a file extension",
+    ko: "iCal and Apple Calendar are product names, .ics is a file extension",
+    pt: "iCal and Apple Calendar are product names, .ics is a file extension"
   },
   "shop.vegan": { de: "Vegan is the ordinary German word", fr: "Vegan is used as-is" },
-  "cart.subtotal": { es: "Subtotal is the ordinary Spanish word" },
+  "cart.subtotal": {
+    es: "Subtotal is the ordinary Spanish word",
+    pt: "Subtotal is the ordinary Portuguese word"
+  },
+  "footer.explore": { pt: "Explore is the ordinary Portuguese imperative" },
+  "footer.emailLabel": { vi: "Email is the ordinary Vietnamese word" },
+  "box.item1": { pt: "Item is the ordinary Portuguese word" },
+  "box.item2": { pt: "Item is the ordinary Portuguese word" },
+  "box.item3": { pt: "Item is the ordinary Portuguese word" },
   "box.optional": { de: "Optional is the ordinary German word" },
   "box.catPotions": { fr: "POTIONS is the ordinary French word" },
   "gift.optional": { de: "Optional is the ordinary German word" },
   "reviews.name": { de: "Name is the ordinary German word" },
   "reviews.general": { es: "General is the ordinary Spanish word" },
+  /* Page furniture and loanwords the 2026-09-04 nine-locale expansion added.
+     Each is a word the target language uses as-is; the alternative was
+     inventing a translation nobody writes ("Bestseller" is Bestseller in
+     German, and a French breadcrumb reading "/ Journal" is a French
+     breadcrumb). Keys are auto.* because discovery minted them; if the
+     English changes the key changes with it and the stale entry goes inert,
+     which the gate reports rather than hides. */
+  "auto.festival.9f8f3e": {
+    de: "Festival is the ordinary German word",
+    es: "Festival is the ordinary Spanish word",
+    fr: "Festival is the ordinary French word",
+    pt: "Festival is the ordinary Portuguese word"
+  },
+  "auto.events.a26238": { de: "breadcrumb; Events is used as-is in German" },
+  "auto.journal.2ce617": {
+    de: "breadcrumb; Journal is used as-is in German",
+    fr: "breadcrumb; Journal is the ordinary French word"
+  },
+  "auto.apothecaryJournal.04917a": { de: "Apothecary Journal reads as-is in German" },
+  "auto.apothecaryJournalYallternativeLiving.a3343f": {
+    de: "page title: the section name plus the protected brand"
+  },
+  "auto.bestseller.df042d": {
+    de: "Bestseller is the ordinary German word",
+    fr: "Bestseller is used as-is in French"
+  },
+  "auto.faqYallternativeLiving.1b057b": {
+    de: "page title: FAQ (used as-is) plus the protected brand",
+    fr: "page title: FAQ (used as-is) plus the protected brand",
+    ja: "page title: FAQ (used as-is) plus the protected brand",
+    ko: "page title: FAQ (used as-is) plus the protected brand",
+    pt: "page title: FAQ (used as-is) plus the protected brand",
+    vi: "page title: FAQ (used as-is) plus the protected brand"
+  },
+  "auto.landrumSouthCarolina.526b7e": {
+    de: "a place name; German writes the Carolinas unchanged",
+    vi: "a place name; Vietnamese writes it unchanged"
+  },
+  "auto.socialMedia.3d84a8": { de: "Social Media is the ordinary German term" },
+  "auto.contact.8508af": { fr: "breadcrumb; Contact is the ordinary French word" },
+  "auto.contactYallternativeLiving.2072b3": {
+    fr: "page title: Contact (the ordinary French word) plus the protected brand"
+  },
+  "auto.message.68f414": { fr: "Message is the ordinary French word" },
+  "cart.mixMatchLabel": { de: "Mix & Match is the term German retail uses as-is" },
   "tpl.bundleVariantLabel": {
     es: "just an em-dash joining two already-translated vars, same as in English",
     de: "just an em-dash joining two already-translated vars, same as in English",
-    fr: "just an em-dash joining two already-translated vars, same as in English"
+    fr: "just an em-dash joining two already-translated vars, same as in English",
+    ja: "just an em-dash joining two already-translated vars, same as in English",
+    zh: "just an em-dash joining two already-translated vars, same as in English",
+    vi: "just an em-dash joining two already-translated vars, same as in English",
+    ko: "just an em-dash joining two already-translated vars, same as in English",
+    pt: "just an em-dash joining two already-translated vars, same as in English"
   }
 };
 
@@ -2226,39 +2304,101 @@ function buildSiteData() {
     ";\n";
   writeFile("assets/js/social-feed-data.js", socialFeedDataJs);
 
-  /* ---------- assets/js/locales-data.js ----------
-   window.YL_LOCALES and window.YL_BRAND_GLOSSARY wrapper around
-   assets/data/locales/*.json and assets/data/brand-glossary.json.
-   Precached in sw.js for zero-network, offline translation. */
+  /* ---------- assets/js/locales-data.js + assets/js/locales/<code>.js ----------
+   Split, on purpose, and the split is the point.
+
+   One bundle held every dictionary: 234KB at 515 keys x 6 locales, precached
+   by sw.js, downloaded in full by every visitor -- including the English ones
+   who are most of them, and who need none of it. At 713 keys x 9 locales that
+   file lands near half a megabyte. So what ships now is:
+
+     locales-data.js        the glossary, the protected terms and the manifest
+                            of what exists. Small, precached, always loaded.
+     locales/<code>.js      one dictionary, fetched only when somebody reads
+                            the shop in that language.
+
+   An English visitor now downloads none of the phrase data; a Spanish one
+   downloads en (the index the matcher looks strings up in) and es. sw.js
+   needs no new rule: its fetch handler is network-first-then-cache for every
+   same-origin .js, so a locale file is cached the first time it is used and
+   works offline afterwards. The one thing that changes for a shopper is that
+   switching OFFLINE to a language they have never used before cannot work --
+   the bytes were never fetched. That is the trade, and it is written into
+   TEST_INFRA.md rather than left to be discovered. */
+  const localeManifest = SUPPORTED_LOCALES.map(function (code) {
+    const meta = (LOCALES[code] && LOCALES[code].meta) || {};
+    return {
+      code: code,
+      name: meta.name || code,
+      dir: meta.dir || "ltr",
+      src: "/assets/js/locales/" + code + ".js"
+    };
+  });
+
   const localesDataJs =
     "/**\n" +
-    " * @fileoverview Auto-generated localization dictionaries and brand glossary.\n" +
-    " * Wrap of assets/data/locales/*.json and assets/data/brand-glossary.json.\n" +
-    " * Do not hand-edit this file.\n" +
+    " * @fileoverview Auto-generated brand glossary and locale manifest.\n" +
+    " * The dictionaries themselves are one file each, in assets/js/locales/.\n" +
+    " * Wrap of assets/data/brand-glossary.json and the meta block of\n" +
+    " * assets/data/locales/*.json. Do not hand-edit this file.\n" +
     " * @const {!Object}\n" +
     " */\n" +
     "/* global module */\n" +
     "(function () {\n" +
-    "  var LOCALES = " +
-    JSON.stringify(LOCALES, null, 2) +
+    "  var LOCALE_MANIFEST = " +
+    JSON.stringify(localeManifest, null, 2) +
     ";\n" +
     "  var BRAND_GLOSSARY = " +
     JSON.stringify(BRAND_GLOSSARY, null, 2) +
     ";\n\n" +
     "  if (typeof window !== 'undefined') {\n" +
-    "    window.YL_LOCALES = LOCALES;\n" +
+    "    /* The registry the per-locale files write into. Created here rather\n" +
+    "       than by whichever file happens to land first. */\n" +
+    "    window.YL_LOCALES = window.YL_LOCALES || {};\n" +
+    "    window.YL_LOCALE_MANIFEST = LOCALE_MANIFEST;\n" +
     "    window.YL_BRAND_GLOSSARY = BRAND_GLOSSARY;\n" +
     "  }\n\n" +
     "  if (typeof module !== 'undefined' && module.exports) {\n" +
     "    module.exports = {\n" +
-    "      LOCALES: LOCALES,\n" +
+    "      LOCALE_MANIFEST: LOCALE_MANIFEST,\n" +
     "      BRAND_GLOSSARY: BRAND_GLOSSARY,\n" +
-    "      YL_LOCALES: LOCALES,\n" +
+    "      YL_LOCALE_MANIFEST: LOCALE_MANIFEST,\n" +
     "      YL_BRAND_GLOSSARY: BRAND_GLOSSARY\n" +
     "    };\n" +
     "  }\n" +
     "})();\n";
   writeFile("assets/js/locales-data.js", localesDataJs);
+
+  SUPPORTED_LOCALES.forEach(function (code) {
+    const doc = LOCALES[code];
+    const localeJs =
+      "/**\n" +
+      " * @fileoverview Auto-generated " +
+      code +
+      " dictionary. Wrap of assets/data/locales/" +
+      code +
+      ".json.\n" +
+      " * Loaded on demand by assets/js/translator.js; registers itself into\n" +
+      " * window.YL_LOCALES. Do not hand-edit this file.\n" +
+      " * @const {!Object}\n" +
+      " */\n" +
+      "/* global module */\n" +
+      "(function () {\n" +
+      "  var LOCALE = " +
+      JSON.stringify(doc, null, 2) +
+      ";\n\n" +
+      "  if (typeof window !== 'undefined') {\n" +
+      "    window.YL_LOCALES = window.YL_LOCALES || {};\n" +
+      "    window.YL_LOCALES[" +
+      JSON.stringify(code) +
+      "] = LOCALE;\n" +
+      "  }\n\n" +
+      "  if (typeof module !== 'undefined' && module.exports) {\n" +
+      "    module.exports = LOCALE;\n" +
+      "  }\n" +
+      "})();\n";
+    writeFile("assets/js/locales/" + code + ".js", localeJs);
+  });
 
   /* ---------- assets/js/search-data.js (Global Search Index) ---------- */
   /* ==== BEGIN search-enrichment merge ==== */

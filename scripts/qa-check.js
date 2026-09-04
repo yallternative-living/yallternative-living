@@ -4932,7 +4932,7 @@ section("Milestone 4: Self-Hosted Localization Suite & Static QA Invariants");
   }
 
   // 4. assets/data/locales/*.json exist and validate brand glossary terms
-  var expectedLocales = ["en", "es", "de", "fr", "ja", "zh"];
+  var expectedLocales = ["en", "es", "de", "fr", "ja", "zh", "vi", "ko", "pt"];
   expectedLocales.forEach(function (lang) {
     var localePath = path.join(ROOT, "assets/data/locales", lang + ".json");
     if (fs.existsSync(localePath)) {
@@ -5008,6 +5008,35 @@ section("Milestone 4: Self-Hosted Localization Suite & Static QA Invariants");
     ok("assets/js/locales-data.js exists on disk");
   } else {
     fail("assets/js/locales-data.js", "missing bundle file -- run npm run build-data");
+  }
+
+  /* One dictionary file per locale, and a core that is still a core.
+     locales-data.js is precached and therefore paid for by every visitor
+     including the English majority, so its size is a shipped-bytes assertion,
+     not a tidiness one: the day someone folds the phrase data back into it,
+     this fails rather than the payload quietly tripling. */
+  expectedLocales.forEach(function (code) {
+    var localeFile = path.join(ROOT, "assets/js/locales/" + code + ".js");
+    if (fs.existsSync(localeFile)) {
+      ok("assets/js/locales/" + code + ".js exists on disk");
+    } else {
+      fail("assets/js/locales/" + code + ".js", "missing -- run npm run build-data");
+    }
+  });
+  if (fs.existsSync(localesBundlePath)) {
+    var coreBytes = fs.statSync(localesBundlePath).size;
+    if (coreBytes < 60 * 1024) {
+      ok(
+        "assets/js/locales-data.js is still the small core (" + Math.round(coreBytes / 1024) + "KB)"
+      );
+    } else {
+      fail(
+        "assets/js/locales-data.js",
+        "grew to " +
+          Math.round(coreBytes / 1024) +
+          "KB -- the dictionaries belong in assets/js/locales/<code>.js, not here"
+      );
+    }
   }
 
   /* 5. NO hreflang anywhere.
@@ -5118,6 +5147,28 @@ section("Milestone 4: Self-Hosted Localization Suite & Static QA Invariants");
     } else {
       fail("sw.js", "missing '/assets/js/locales-data.js' in ASSETS_TO_CACHE");
     }
+    /* en is the index every lookup starts from, so it is precached with the
+       core. The other eight are deliberately NOT here -- see the note in
+       sw.js -- and this asserts that too, because quietly precaching all nine
+       would undo the split without failing anything else. */
+    if (swContent.indexOf("'/assets/js/locales/en.js'") !== -1) {
+      ok("sw.js ASSETS_TO_CACHE includes '/assets/js/locales/en.js'");
+    } else {
+      fail("sw.js", "missing '/assets/js/locales/en.js' in ASSETS_TO_CACHE");
+    }
+    var precachedLocales = expectedLocales.filter(function (code) {
+      return code !== "en" && swContent.indexOf("'/assets/js/locales/" + code + ".js'") !== -1;
+    });
+    if (precachedLocales.length === 0) {
+      ok("sw.js precaches no non-English dictionary (they load on demand)");
+    } else {
+      fail(
+        "sw.js",
+        "precaches " +
+          precachedLocales.join(", ") +
+          " -- those are fetched on demand on purpose; precaching them puts every dictionary on every visitor"
+      );
+    }
     if (swContent.indexOf("'/assets/js/translator.js'") !== -1) {
       ok("sw.js ASSETS_TO_CACHE includes '/assets/js/translator.js'");
     } else {
@@ -5149,7 +5200,7 @@ section("Localization: dictionary coverage");
     return;
   }
 
-  var LANGS = ["en", "es", "de", "fr", "ja", "zh"];
+  var LANGS = ["en", "es", "de", "fr", "ja", "zh", "vi", "ko", "pt"];
   var locales = {};
   var loadFailed = false;
   LANGS.forEach(function (lang) {
@@ -5270,10 +5321,22 @@ section("Localization: dictionary coverage");
       de: ["Englisch", "englische"],
       fr: ["anglais"],
       ja: ["英語"],
-      zh: ["英文", "英语"]
+      zh: ["英文", "英语"],
+      vi: ["tiếng Anh", "Tiếng Anh"],
+      ko: ["영어"],
+      pt: ["inglês"]
     };
     LANGS.slice(1).forEach(function (lang) {
       var value = locales[lang].phrases[governsKey] || "";
+      /* A locale with no endonym listed is a gap in THIS table, not a pass:
+         say so instead of throwing, and instead of skipping quietly. */
+      if (!englishWord[lang]) {
+        fail(
+          "governing-language line",
+          "no endonym for '" + lang + "' in qa-check's englishWord table"
+        );
+        return;
+      }
       var hit = englishWord[lang].some(function (w) {
         return value.indexOf(w) !== -1;
       });

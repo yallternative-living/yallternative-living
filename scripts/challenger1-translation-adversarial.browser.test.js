@@ -28,7 +28,19 @@ const ROOT = path.resolve(__dirname, "..");
 
 // Load dictionary and glossary sources directly for cross-validation
 const localesData = require("../assets/js/locales-data.js");
-const LOCALES = localesData.LOCALES || localesData.YL_LOCALES;
+/* locales-data.js is the core only -- glossary and manifest -- since the
+   2026-09-04 split; each dictionary is its own file. Load all nine the way a
+   browser would after visiting every language: this harness exercises the
+   engine, not the loader (scripts/translator-lazy-locales.browser.test.js
+   does that). Reading .LOCALES off the core left this registry EMPTY, and
+   Test 1.4's "Shop -> Tienda" failed on the pool for exactly that reason. */
+const LOCALES = {};
+(localesData.LOCALE_MANIFEST || localesData.YL_LOCALE_MANIFEST || []).forEach((entry) => {
+  LOCALES[entry.code] = require("../assets/js/locales/" + entry.code + ".js");
+});
+if (!Object.keys(LOCALES).length) {
+  throw new Error("no dictionaries loaded -- run `node scripts/build-site-data.js` first");
+}
 const BRAND_GLOSSARY = localesData.BRAND_GLOSSARY || localesData.YL_BRAND_GLOSSARY;
 const translator = require("../assets/js/translator.js");
 
@@ -533,7 +545,7 @@ async function runNodeStressTests() {
     "Rosmarinus officinalis"
   ];
 
-  const targetLangs = ["es", "de", "fr", "ja", "zh"];
+  const targetLangs = ["es", "de", "fr", "ja", "zh", "vi", "ko", "pt"];
 
   for (const term of coreProtectedTerms) {
     testAssert(
@@ -617,8 +629,8 @@ async function runNodeStressTests() {
     ]);
 
     testAssert(
-      titleEl.textContent === "Tienda",
-      `Dynamic batch ${batch}: 'Shop' translated to 'Tienda'`
+      titleEl.textContent === LOCALES.es.phrases["nav.shop"],
+      `Dynamic batch ${batch}: 'Shop' translated to '${LOCALES.es.phrases["nav.shop"]}'`
     );
     testAssert(
       descEl.textContent === "Porch Sweep Clearing Mist",
@@ -804,7 +816,7 @@ async function runBrowserStressTests() {
         bodyTerms: ["Calendula officinalis", "Butyrospermum parkii", "Y'allternative"]
       }
     ];
-    const targetLanguages = ["es", "de", "fr", "ja", "zh"];
+    const targetLanguages = ["es", "de", "fr", "ja", "zh", "vi", "ko", "pt"];
 
     for (const pdp of glossaryPdps) {
       await page.goto(`${baseUrl}${pdp.path}`, { waitUntil: "domcontentloaded" });
@@ -942,7 +954,11 @@ async function runBrowserStressTests() {
     );
     assert.strictEqual(
       cartDrawerCheck.checkoutText,
-      "Pagar",
+      /* Read from the shipped dictionary, not hard-coded: Spanish was
+         retargeted to Latin American on 2026-09-04 and "Pagar" became
+         "Finalizar compra". The assertion is that the ENGINE put the
+         dictionary value on the button, which is what it still proves. */
+      LOCALES.es.phrases["cart.checkout"],
       `Checkout button translated by the MutationObserver (got: "${cartDrawerCheck.checkoutText}")`
     );
     assert.strictEqual(
@@ -952,12 +968,12 @@ async function runBrowserStressTests() {
     );
     assert.strictEqual(
       cartDrawerCheck.headingText,
-      "Tu carrito",
+      LOCALES.es.phrases["cart.title"],
       `Drawer heading translated (got: "${cartDrawerCheck.headingText}")`
     );
     assert.strictEqual(
       cartDrawerCheck.closeLabel,
-      "Cerrar el carrito",
+      LOCALES.es.phrases["cart.close"],
       `Close button aria-label translated (got: "${cartDrawerCheck.closeLabel}")`
     );
     console.log(

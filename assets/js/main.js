@@ -11394,13 +11394,31 @@
      ORDER MATTERS, AND `defer` DOES NOT BUY IT. A script element created
      with document.createElement is async BY DEFAULT: the HTML spec makes
      "force-async" true for such elements, `defer` is ignored entirely, and the
-     two files execute in network-completion order. locales-data.js is 71KB and
-     translator.js is 28KB, so translator.js won that race 10 cold loads out of
-     10 (audit 2026-09-02 S4). When it wins, translator.js builds its lookup
+     two files execute in network-completion order. locales-data.js was 71KB
+     and translator.js 28KB, so translator.js won that race 10 cold loads out
+     of 10 (audit 2026-09-02 S4). When it wins, translator.js builds its lookup
      index against an empty window.YL_LOCALES and translates nothing, while
      still flipping the header badge to "ES" -- a visitor arriving on a shared
      /?lang=es link got an English page claiming to be Spanish, and nothing
      ever re-ran.
+
+     locales-data.js is now the small core -- glossary and manifest, no phrase
+     data -- and the eight NON-English dictionaries are fetched on demand by
+     translator.js itself (assets/js/locales/<code>.js). That removes most of
+     the size half of the race, but the ordering still matters: the core
+     creates window.YL_LOCALES and carries the protected terms, and
+     translator.js reads both.
+
+     ENGLISH IS NOT ON DEMAND, and this is the one that bites. en.js is not
+     merely the index the matcher looks strings up in -- it is where the
+     `tpl.*` TEMPLATES live, and cart.js and main.js render those on an
+     English page: t("tpl.milestoneFirst", ...) with no dictionary loaded
+     returns the KEY, so an English shopper saw the literal text
+     "tpl.milestoneFirst" in the cart drawer. Caught by
+     challenger-m2-cart-ux.browser.test.js on 2026-09-04, before it shipped.
+     So en.js loads here, in order, always. Three files at ~41KB total against
+     the 234KB single bundle this replaced -- and 8 dictionaries that a
+     visitor only pays for in the language they actually read.
 
      Setting .async = false is the documented way to opt a dynamically inserted
      script back into ordered execution: the two are appended in dependency
@@ -11415,6 +11433,13 @@
       sLoc.async = false;
       sLoc.defer = true;
       document.body.appendChild(sLoc);
+    }
+    if (!document.querySelector('script[src*="/locales/en.js"]')) {
+      var sEn = document.createElement("script");
+      sEn.src = "/assets/js/locales/en.js?v=2.0";
+      sEn.async = false;
+      sEn.defer = true;
+      document.body.appendChild(sEn);
     }
     if (!window.YL_TRANSLATOR && !document.querySelector('script[src*="translator.js"]')) {
       var s = document.createElement("script");

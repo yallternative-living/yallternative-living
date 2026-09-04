@@ -1,4 +1,12 @@
-{
+/**
+ * @fileoverview Auto-generated fr dictionary. Wrap of assets/data/locales/fr.json.
+ * Loaded on demand by assets/js/translator.js; registers itself into
+ * window.YL_LOCALES. Do not hand-edit this file.
+ * @const {!Object}
+ */
+/* global module */
+(function () {
+  var LOCALE = {
   "meta": {
     "code": "fr",
     "name": "Français",
@@ -724,4 +732,14 @@
     "tpl.mixMatchApplied": "Palier {item} à {price}/unité appliqué !",
     "tpl.mixMatchNext": "Ajoute {amount} pour {perk} !"
   }
-}
+};
+
+  if (typeof window !== 'undefined') {
+    window.YL_LOCALES = window.YL_LOCALES || {};
+    window.YL_LOCALES["fr"] = LOCALE;
+  }
+
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = LOCALE;
+  }
+})();

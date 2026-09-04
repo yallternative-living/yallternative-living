@@ -115,14 +115,20 @@ section is held to.
 
 ## What is asserted, and where
 
-- **`scripts/translator.test.js`** (unit pool, 10 suites). Requires the real
-  `assets/js/translator.js` and `assets/js/locales-data.js` -- not a
-  re-implementation -- against a mock DOM. Covers selector injection and its
-  ARIA contract, the full keyboard flow, dictionary structure (6 locales x 206
-  phrases), in-place translation of text nodes / `data-i18n` / `placeholder` /
+- **`scripts/translator.test.js`** (unit pool, 11 suites). Requires the real
+  `assets/js/translator.js`, `assets/js/locales-data.js` and every
+  `assets/js/locales/<code>.js` -- not a re-implementation -- against a mock
+  DOM. Covers selector injection and its ARIA contract, the full keyboard
+  flow, dictionary structure (9 locales x 703 phrases), in-place translation of text nodes / `data-i18n` / `placeholder` /
   `aria-label` / `title`, glossary protection, `MutationObserver` handling,
-  event dispatch, persistence and `?lang=`, fallback on an invalid code, and
-  the zero-network / zero-cookie invariants. It also pins the language marking:
+  event dispatch, persistence and `?lang=`, browser-language detection and its
+  precedence (`?lang=` > stored choice > `navigator.languages` > English),
+  fallback on an invalid code, and the zero-network / zero-cookie invariants.
+  Its Spanish assertions read the shipped dictionary rather than hard-coding
+  the copy: they exist to prove the ENGINE put the dictionary value in the
+  right node, and a retranslation must not redden a DOM suite. Each lookup is
+  guarded -- the key must exist, non-empty, and differ from the English -- so
+  an absent subject still fails. It also pins the language marking:
   `<html lang>` stays `"en"`, only fully translated elements are marked, mixed
   content is left alone, untranslated children under a marked ancestor are
   counter-marked `lang="en"`, and every mark is removed on the way back.
@@ -137,6 +143,21 @@ section is held to.
   wrong reason. A second scenario drives the late-`YL_LOCALES` recovery path
   directly. Reverting both halves of the fix turns 20 passed / 0 failed into
   13 passed / 7 failed.
+
+- **`scripts/translator-lazy-locales.browser.test.js`** (integration pool).
+  The dictionaries are one file per language, fetched on demand. Three
+  scenarios: an English visit requests NO `/assets/js/locales/*.js` at all and
+  leaves the registry empty (the whole point of the split, and the assertion
+  that fails if someone folds the phrase data back into the core or preloads
+  every language); switching to Spanish fetches exactly `es` and `en` -- `en`
+  because the matcher looks a node's text up in the English index first -- and
+  a second switch to the same language re-fetches nothing; and a BLOCKED
+  dictionary fetch leaves the page English, `setLanguage` returning `"en"`,
+  the badge not claiming ES, and nothing written to storage. That last one is
+  the point of the suite: on-demand loading puts a network request between
+  "the shopper clicked Español" and "the shop can render Español", which is
+  exactly where the 2026-09-02 audit's "English page announcing itself as
+  Spanish" defect could come back.
 
 - **`scripts/challenger1-translation-adversarial.browser.test.js`**. 768
   Node-level stress assertions plus a browser half: 18 rapid switches per page
@@ -154,11 +175,13 @@ section is held to.
   contract including `aria-controls` and the language-carrying accessible
   name, click-to-open, switch to Spanish, and clean restoration.
 
-- **`scripts/qa-check.js`** (1008 static assertions total). For this feature:
+- **`scripts/qa-check.js`** (1122 static assertions total). For this feature:
   CSP three-way byte parity with the Google Translate origins gone, zero
-  legacy Google Translate CSS, six valid dictionaries at 206 phrases each, 58
-  glossary terms, `locales-data.js` and `translator.js` both precached in
-  `sw.js` -- and the inverse SEO assertions: no page carries an `hreflang`
+  legacy Google Translate CSS, nine valid dictionaries at 703 phrases each, 58
+  glossary terms, one `assets/js/locales/<code>.js` per locale, a size ceiling
+  on the always-loaded `locales-data.js` core, `locales-data.js`,
+  `locales/en.js` and `translator.js` precached in `sw.js` while the other
+  eight dictionaries deliberately are not -- and the inverse SEO assertions: no page carries an `hreflang`
   alternate, `sitemap.xml` has zero `<xhtml:link>` and zero `?lang=`, and
   `robots.txt` carries `Disallow: /*?lang=`.
 
@@ -358,9 +381,35 @@ in the imperative: **re-pin**. Re-pinning is one line of
 and writes obviously-fake `"[de] ..."` values; it is how the pipeline is proved
 end to end offline and what the CI dry run uses. Never commit mock output.
 
+**Nine-locale expansion, 2026-09-04.** `vi`, `ko` and `pt` were added and the
+dictionary went from 515 keys x 6 locales to 703 x 9. Three things about that
+run are worth keeping, because each of them was a defect the run exposed rather
+than a step it performed:
+
+- **The gate was wrong about CJK.** A 0.3x length floor written for alphabetic
+  targets called 20 Korean strings truncated for being Korean -- `Home` is 홈,
+  `Terms of Service` is 이용약관. The floor is 0.1 for ja/zh/ko now, and a
+  source under 12 characters is measured by an absolute allowance instead of a
+  ratio, because `FAQ` -> `Preguntas frecuentes` is 6.67x and correct.
+- **The translate gate and the build gate disagreed.** `IDENTICAL_BY_DESIGN`
+  told the build that `FAQ`, `ESC` and `{product} — {variant}` are honestly
+  identical; the translate gate did not read that table and dropped them as
+  passthroughs. It reads it now -- one list, two gates.
+- **Proper nouns are not copy.** 100 dropped keys on one run were event names
+  and towns from `events.json` and social links that are a platform's name and
+  an arrow. Discovery skips those as `event-atom` and `platform-label`, so they
+  are never proposed again; and a string that is nothing but protected terms
+  is allowed to come back identical, because it has no other honest
+  translation.
+
+Four apparel keys were refused on every run as a Japanese "clean" claim. The
+model was not writing one: クリーン is a substring of スクリーン, and the
+strings describe a screen print. Named as an innocent container in
+`CLAIM_NOT_INSIDE`; all four landed on the next run.
+
 **Recorded proof run, 2026-09-04**, against the real backlog on a clean tree:
 the report's 198 writable NEW entries went through the mock in 50 calls, the
-dictionary went from 515 to 713 keys x 6 locales, `node
+dictionary went from 515 to 713 keys x 6 locales (a mock run, reverted; the real expansion above landed at 703 x 9), `node
 scripts/build-site-data.js` reported the gate GREEN, and `npm test` passed. The
 diff was an append at the end of each of the seven files with all 515 existing
 keys, values, digests and their order untouched, and all six locale files

@@ -1,4 +1,12 @@
-{
+/**
+ * @fileoverview Auto-generated ja dictionary. Wrap of assets/data/locales/ja.json.
+ * Loaded on demand by assets/js/translator.js; registers itself into
+ * window.YL_LOCALES. Do not hand-edit this file.
+ * @const {!Object}
+ */
+/* global module */
+(function () {
+  var LOCALE = {
   "meta": {
     "code": "ja",
     "name": "日本語",
@@ -724,4 +732,14 @@
     "tpl.mixMatchApplied": "{item}の1点あたり{price}のまとめ買い割引が適用されました！",
     "tpl.mixMatchNext": "あと{amount}追加で{perk}！"
   }
-}
+};
+
+  if (typeof window !== 'undefined') {
+    window.YL_LOCALES = window.YL_LOCALES || {};
+    window.YL_LOCALES["ja"] = LOCALE;
+  }
+
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = LOCALE;
+  }
+})();

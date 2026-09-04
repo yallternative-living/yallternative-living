@@ -1,7 +1,8 @@
 /**
- * @fileoverview Step 3 of the translation pipeline: fill es/de/fr/ja/zh for
- * every English string that needs it, refuse anything that fails a
- * deterministic check, and write the six dictionaries plus the basis.
+ * @fileoverview Step 3 of the translation pipeline: fill the eight target
+ * locales (es/de/fr/ja/zh/vi/ko/pt) for every English string that needs it,
+ * refuse anything that fails a deterministic check, and write the nine
+ * dictionaries plus the basis.
  *
  *   1. node scripts/build-site-data.js      build the site
  *   2. npm run i18n:new -- --json r.json    discover, key (writes nothing)
@@ -34,6 +35,12 @@
  *             the claim is void. A hand-tuned translation of superseded
  *             English is worse than a fresh machine one -- but say so in the
  *             commit message, because it is somebody's work.
+ *   RESTYLED  present and faithful to the English, but authored under style
+ *             guidance that has since changed -- LOCALE_GUIDANCE is not
+ *             covered by the basis digest, which records only the English a
+ *             translation was written against. Nothing detects this, so it is
+ *             asked for by hand: `--retranslate es` redoes every key in that
+ *             locale and leaves the other seven alone.
  *   ORPHANED  reachable nowhere any more. `auto.*` keys -- the ones a bot
  *             minted -- are removed from all six locales and the basis.
  *             Hand-authored keys are REPORTED AND NEVER DELETED: a translation
@@ -91,8 +98,8 @@ const BASIS_PATH = "assets/data/i18n-translation-basis.json";
 const GLOSSARY_PATH = "assets/data/brand-glossary.json";
 const LOCALE_DIR = "assets/data/locales";
 
-/** The five targets, in the order build-site-data.js lists them. */
-const TARGET_LOCALES = ["es", "de", "fr", "ja", "zh"];
+/** The eight targets, in the order build-site-data.js lists them. */
+const TARGET_LOCALES = ["es", "de", "fr", "ja", "zh", "vi", "ko", "pt"];
 
 /* 198 backlog keys x 5 locales / 20 per call = 50 calls, which is what the
    shared client's default cap (llm.DEFAULT_MAX_CALLS) leaves room for, retries
@@ -101,6 +108,10 @@ const TARGET_LOCALES = ["es", "de", "fr", "ja", "zh"];
    atomic. The cap is enforced inside scripts/lib/llm.js; this file only
    decides where the boundary falls. */
 const DEFAULT_BATCH_SIZE = 20;
+
+/* One call per target locale is the whole of the available parallelism: the
+   locales of a batch are what overlap, and there are eight of them. */
+const MAX_CONCURRENCY = 8;
 
 /* Characters that exist only in Traditional Chinese. zh.json is Simplified,
    and the one hard measurement available found a model ranked first on
@@ -189,24 +200,109 @@ function checkTranslation(input) {
     return "protected term(s) not preserved verbatim: " + droppedTerms.join(", ");
   }
 
-  /* Identical to English is a passthrough, and gate rule 3 rejects it. The
-     exception is a string with nothing translatable in it, which should not
-     have reached here at all -- discovery skips those -- but if one does, the
-     honest translation is the English. */
+  /* Identical to English is a passthrough, and gate rule 3 rejects it. Two
+     exceptions, and both are somebody else's decision rather than this file's:
+
+     - a string with nothing translatable in it, which should not have reached
+       here at all (discovery skips those), but if one does the honest
+       translation is the English;
+     - a key/locale pair on build-site-data.js's IDENTICAL_BY_DESIGN, which is
+       the same table the build gate checks rule 3 against. "FAQ" in
+       Portuguese is "FAQ" and "ESC" is the legend printed on the key. Reading
+       the build's table rather than keeping a second one here is the point:
+       two lists would drift, and the drift would show up as a key this gate
+       drops forever and the build then fails for missing. */
   if (value.trim() === en.trim() && discovery.hasTranslatableWords(en)) {
-    return "translation is identical to the English (passthrough)";
+    const byDesign = build.IDENTICAL_BY_DESIGN && build.IDENTICAL_BY_DESIGN[input.key];
+    /* A string that is NOTHING BUT protected terms and punctuation has no
+       honest translation other than itself. "Landrum, SC", "Instagram ↗",
+       "Spartanburg Punk Flea Market" -- a place, a platform, an event someone
+       can actually drive to. hasTranslatableWords() sees ordinary words and
+       says yes, which is why this check is here and not there: the question
+       is not "are these words" but "is any of this ours to translate".
+
+       Strip the protected terms first, exactly as the claim gate does before
+       looking for a trigger, and if what remains is punctuation and arrows,
+       the passthrough is the right answer. The 2026-09-04 nine-locale run
+       dropped 44 keys this way -- every one of them a proper noun, refused in
+       all eight languages, and refused again on every future run. */
+    const bare = protectedTerms
+      .slice()
+      .sort(function (a, b) {
+        return String(b).length - String(a).length;
+      })
+      .reduce(function (rest, term) {
+        return term ? rest.split(term).join(" ") : rest;
+      }, String(en));
+    const nothingLeft = !discovery.hasTranslatableWords(bare);
+    if (!(byDesign && byDesign[locale]) && !nothingLeft) {
+      return "translation is identical to the English (passthrough)";
+    }
   }
 
-  /* Length ratio. Sources under 10 characters legitimately expand 200-300% in
-     German (IBM's figures, via W3C), so the ceiling is generous; the floor is
-     what catches a truncated rewrite that dropped half the sentence. */
+  /* Length, which exists to catch a rewrite that dropped half the sentence --
+     not to have an opinion about how a language spells things. The FLOOR and
+     the CEILING answer different questions and are applied separately:
+
+     THE FLOOR IS ALWAYS ON. It is the only thing standing between the
+     dictionary and a provider that answers "T" for "Add to Cart". An earlier
+     version of this fix put short sources in their own branch and took the
+     floor off them entirely -- which is precisely the length where a stub is
+     most likely and most visible, since ≤12 characters is most of the nav,
+     the buttons and the labels.
+
+     CJK COMPRESSES, so its floor is lower. "Home" is 홈. "Terms of Service"
+     is 이용약관. A floor written for alphabetic targets called 20 Korean
+     strings truncated for being Korean; ja and zh only escaped it because
+     their dictionaries predate the rule.
+
+     THE CEILING IS OFF FOR SHORT SOURCES, because a multiple of a tiny number
+     means nothing: "FAQ" is 3 characters and "Preguntas frecuentes" is 20 --
+     6.67x, and correct. IBM's figures (via W3C) put legitimate expansion under
+     10 characters at 200-300%, already past the ceiling. Those are measured by
+     an absolute allowance instead. */
+  const SHORT_SOURCE_CHARS = 12;
+  const SHORT_SOURCE_ALLOWANCE = 24;
+  const CJK_LOCALES = ["ja", "zh", "ko"];
   if (en.length > 0) {
+    const floor = CJK_LOCALES.indexOf(locale) !== -1 ? 0.1 : 0.3;
     const ratio = value.length / en.length;
-    if (ratio < 0.3 || ratio > 3.5) {
+    if (ratio < floor) {
       return (
         "length ratio " +
         ratio.toFixed(2) +
-        "x is outside 0.3x-3.5x (" +
+        "x is below the " +
+        floor +
+        "x floor (" +
+        en.length +
+        " chars of English, " +
+        value.length +
+        " of " +
+        locale +
+        ")"
+      );
+    }
+    if (en.length <= SHORT_SOURCE_CHARS) {
+      if (value.length > en.length + SHORT_SOURCE_ALLOWANCE) {
+        return (
+          "short source grew by " +
+          (value.length - en.length) +
+          " chars, more than the " +
+          SHORT_SOURCE_ALLOWANCE +
+          " allowed (" +
+          en.length +
+          " chars of English, " +
+          value.length +
+          " of " +
+          locale +
+          ")"
+        );
+      }
+    } else if (ratio > 3.5) {
+      return (
+        "length ratio " +
+        ratio.toFixed(2) +
+        "x is above the 3.5x ceiling (" +
         en.length +
         " chars of English, " +
         value.length +
@@ -260,6 +356,13 @@ function buildWorkItems(input) {
   const localePhrases = input.localePhrases;
   const digestFn = input.digestFn;
   const basis = input.basis || {};
+  /* Locales the caller has declared stale for every key -- see --retranslate.
+     Nothing in the data can express this: the basis digest is a claim about
+     the ENGLISH a translation was authored against, and a locale whose style
+     guidance changed has translations that are still faithful to English and
+     still wrong. Retargeting es from neutral-international to Latin American
+     for a US readership is exactly that case. */
+  const retranslate = input.retranslate || [];
 
   const items = [];
   const seen = new Set();
@@ -287,8 +390,19 @@ function buildWorkItems(input) {
       const value = localePhrases[code] ? localePhrases[code][key] : undefined;
       return typeof value !== "string" || !value.trim();
     });
-    if (missing.length) {
-      items.push({ key: key, en: en, reason: "missing", isNew: false, locales: missing });
+    const stale = TARGET_LOCALES.filter(function (code) {
+      return retranslate.indexOf(code) !== -1 && missing.indexOf(code) === -1;
+    });
+    if (missing.length || stale.length) {
+      items.push({
+        key: key,
+        en: en,
+        /* "missing" only when something really is absent, so the summary line
+           and the tracking issue stay truthful about which it was. */
+        reason: missing.length ? "missing" : "restyled",
+        isNew: false,
+        locales: missing.concat(stale)
+      });
       seen.add(key);
     }
   });
@@ -365,12 +479,21 @@ function localesForGroup(group) {
   });
 }
 
+/* Written for the audience that can actually buy: workers/checkout.js allows
+   US shipping only, so every one of these is aimed at a reader inside the
+   United States, not at the language's home market. That is why es is Latin
+   American rather than peninsular, pt is Brazilian rather than European, and
+   vi leans Southern -- and why none of them reach for local slang, which from
+   a South Carolina brand reads as costume rather than welcome. */
 const LOCALE_GUIDANCE = {
-  es: "Neutral international Spanish. No regional slang, no voseo.",
+  es: "Latin American Spanish for readers in the United States. Tuteo (tú) -- never vosotros, never voseo. Where the varieties diverge take the word US and Mexican readers use: computadora not ordenador, celular not móvil, carro not coche, jugo not zumo, ustedes not vosotros, papas not patatas. No regional slang and no Mexicanisms (chido, órale, padrísimo): the largest group of readers is Mexican-origin but many are Salvadoran, Puerto Rican, Cuban or Dominican, and slang that belongs to one of them excludes the rest. US conventions throughout: dollars, ounces and pounds, US address and phone formats.",
   de: "Standard German, du-form to match the brand's voice. Button, nav and label strings must stay SHORT -- German compounds do not wrap, and an over-long button breaks the layout.",
   fr: "Neutral French, tutoiement to match the brand's voice. Keep typographic spacing conventions.",
   ja: "Polite e-commerce Japanese (です・ます). Natural shop register, not a literal gloss. Do not add reassurance words the English does not contain.",
-  zh: "SIMPLIFIED Chinese (mainland). Never Traditional characters."
+  zh: "SIMPLIFIED Chinese (mainland). Never Traditional characters.",
+  vi: "Vietnamese for readers in the United States, whose families are mostly from the south -- prefer the vocabulary used in Vietnamese-American communities over northern standard forms. Address the shopper as “bạn”. FULL diacritics on every word: unaccented Vietnamese is a different word, not a shorter one. Keep button, nav and label strings SHORT; Vietnamese runs longer than English.",
+  ko: "Polite e-commerce Korean (해요체, -요 endings). The register a Korean shop's own site uses, not a literal gloss. Loanwords where a Korean shop would use them, plain Korean where it would not. Do not add reassurance words the English does not contain.",
+  pt: "BRAZILIAN Portuguese, never European. você, not tu. Brazilian spelling and vocabulary throughout, and US conventions for money and units -- these readers are in the United States, paying in dollars."
 };
 
 /**
@@ -561,7 +684,9 @@ function parseArgs(argv) {
     base: null,
     summary: null,
     batchSize: null,
-    maxCalls: null
+    maxCalls: null,
+    retranslate: null,
+    concurrency: null
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -573,9 +698,11 @@ function parseArgs(argv) {
     else if (a === "--summary") args.summary = argv[++i];
     else if (a === "--batch-size") args.batchSize = Number(argv[++i]);
     else if (a === "--max-calls") args.maxCalls = Number(argv[++i]);
+    else if (a === "--retranslate") args.retranslate = argv[++i];
+    else if (a === "--concurrency") args.concurrency = Number(argv[++i]);
     else throw new Error("Unknown argument: " + a);
   }
-  ["report", "provider", "models", "base", "summary"].forEach(function (flag) {
+  ["report", "provider", "models", "base", "summary", "retranslate"].forEach(function (flag) {
     if (argv.indexOf("--" + flag) !== -1 && !args[flag])
       throw new Error("--" + flag + " needs a value");
   });
@@ -584,6 +711,37 @@ function parseArgs(argv) {
   }
   if (argv.indexOf("--max-calls") !== -1 && !(args.maxCalls > 0)) {
     throw new Error("--max-calls needs a positive number");
+  }
+  /* Capped because MAX_CONCURRENCY is every locale this shop has: the
+     parallel axis is the locales of one batch, so a bigger number buys
+     nothing and only makes a rate-limit storm more likely. */
+  if (
+    argv.indexOf("--concurrency") !== -1 &&
+    !(args.concurrency > 0 && args.concurrency <= MAX_CONCURRENCY)
+  ) {
+    throw new Error("--concurrency needs a number between 1 and " + MAX_CONCURRENCY);
+  }
+  /* Validated here rather than in the run, so a typo costs nothing: an
+     unrecognised code would otherwise be silently ignored and the locale it
+     meant to name would keep the translations the flag exists to replace. */
+  if (args.retranslate) {
+    args.retranslate = args.retranslate
+      .split(",")
+      .map(function (code) {
+        return code.trim().toLowerCase();
+      })
+      .filter(Boolean);
+    const unknown = args.retranslate.filter(function (code) {
+      return TARGET_LOCALES.indexOf(code) === -1;
+    });
+    if (unknown.length) {
+      throw new Error(
+        "--retranslate: unknown locale(s) " +
+          unknown.join(", ") +
+          " -- expected one of " +
+          TARGET_LOCALES.join(", ")
+      );
+    }
   }
   return args;
 }
@@ -631,6 +789,18 @@ async function translateAll(input) {
   const ctx = input.ctx;
   const client = input.client;
   const batchSize = input.batchSize || DEFAULT_BATCH_SIZE;
+  /* How many provider calls may be in flight at once. The locales of one
+     group are independent -- different prompt, different dictionary, no
+     shared state until the results are applied -- so this is the axis that
+     parallelises safely. GROUPS stay sequential: the call cap is checked at a
+     group boundary and the transient-error circuit breaker counts consecutive
+     group failures, and both of those mean what they say only in order.
+     Default 1, so an unattended bot run behaves exactly as it did.
+
+     Clamped HERE as well as in parseArgs, because parseArgs only sees the
+     flag: I18N_CONCURRENCY reaches this function unvalidated, and the ceiling
+     has to be a ceiling wherever the number came from. */
+  const concurrency = Math.min(MAX_CONCURRENCY, Math.max(1, input.concurrency || 1));
   const protectedTerms = (ctx.glossary && ctx.glossary.protectedTerms) || [];
   const log = input.log || function () {};
 
@@ -644,7 +814,8 @@ async function translateAll(input) {
     enPhrases: ctx.enDoc.phrases,
     localePhrases: localePhrases,
     basis: ctx.basisDoc.basis,
-    digestFn: build.digestEnglish
+    digestFn: build.digestEnglish,
+    retranslate: input.retranslate || []
   });
 
   const groups = chunk(work.items, batchSize);
@@ -697,12 +868,21 @@ async function translateAll(input) {
       break;
     }
 
-    for (let c = 0; c < codes.length; c++) {
-      const code = codes[c];
+    /* One call per locale, applied in `codes` order, with up to `concurrency`
+       of them in flight.
+     
+       The window is a window and not a fan-out on purpose. Results are
+       consumed in order and nothing beyond the window is ever dispatched, so
+       at --concurrency 1 this is exactly the serial loop it replaces: call,
+       apply, call, apply -- including the early stop, where a dead key or a
+       tripped circuit breaker means the calls after it are never made. Above
+       1, a stop can leave at most concurrency-1 calls already in flight. That
+       is the whole cost of the option, and it is bounded by the flag. */
+    const fetchOne = async function (code) {
       const forLocale = group.filter(function (item) {
         return item.locales.indexOf(code) !== -1;
       });
-      if (!forLocale.length) continue;
+      if (!forLocale.length) return { code: code, forLocale: forLocale, skip: true };
       log(
         "batch " +
           (g + 1) +
@@ -714,27 +894,54 @@ async function translateAll(input) {
           forLocale.length +
           " string(s)"
       );
-
-      let response = null;
-      let error = null;
-      let transient = false;
       try {
-        response = await client.completeJSON({
+        const response = await client.completeJSON({
           system: buildSystemPrompt(code, ctx),
           user: buildUserPayload(code, forLocale),
           schema: batchSchema(),
           schemaName: "translations_" + code,
           protectedTerms: protectedTerms
         });
+        return { code: code, forLocale: forLocale, response: response, error: null };
       } catch (err) {
-        error = err && err.message ? err.message : String(err);
-        if (typeof client.unavailable === "function" && client.unavailable()) {
-          providerUnavailable = "provider unavailable: " + client.unavailable().message;
-          error = providerUnavailable;
-        } else if (err && (err.retryable || err.status === 429 || err.status >= 500)) {
-          transient = true;
-        }
+        const message = err && err.message ? err.message : String(err);
+        const dead =
+          typeof client.unavailable === "function" && client.unavailable()
+            ? client.unavailable()
+            : null;
+        return {
+          code: code,
+          forLocale: forLocale,
+          response: null,
+          error: dead ? "provider unavailable: " + dead.message : message,
+          unavailable: dead ? "provider unavailable: " + dead.message : null,
+          transient: !dead && !!(err && (err.retryable || err.status === 429 || err.status >= 500))
+        };
       }
+    };
+
+    const inFlight = new Map();
+    let dispatched = 0;
+    let stopped = false;
+    const fill = function () {
+      while (!stopped && dispatched < codes.length && inFlight.size < concurrency) {
+        inFlight.set(dispatched, fetchOne(codes[dispatched]));
+        dispatched++;
+      }
+    };
+
+    for (let c = 0; c < codes.length; c++) {
+      fill();
+      if (!inFlight.has(c)) break;
+      const outcome = await inFlight.get(c);
+      inFlight.delete(c);
+      if (outcome.skip) continue;
+      const code = outcome.code;
+      const forLocale = outcome.forLocale;
+      const response = outcome.response;
+      let error = outcome.error;
+      const transient = !!outcome.transient;
+      if (outcome.unavailable) providerUnavailable = outcome.unavailable;
 
       if (transient) {
         transientErrors++;
@@ -743,12 +950,17 @@ async function translateAll(input) {
           transientKeys.add(item.key);
         });
         log("transient provider error, key(s) left for the next run: " + error);
+        /* With --concurrency > 1 the rest of THIS group is already in flight
+           when the breaker trips, so a storm costs at most one group's worth
+           of calls more than it would have serially. Groups after it are
+           still never started. */
         if (consecutiveTransient >= 3 && !pausedOnce) {
           pausedOnce = true;
           log("three transient failures in a row -- pausing 60s before trying again");
           await wait(60000);
         } else if (consecutiveTransient >= 4) {
           providerDegraded = "provider degraded: " + error;
+          stopped = true;
           break;
         }
         continue;
@@ -788,7 +1000,10 @@ async function translateAll(input) {
         }
         pending.get(item.key).translations[code] = translated;
       });
-      if (providerUnavailable) break;
+      if (providerUnavailable) {
+        stopped = true;
+        break;
+      }
     }
     if (providerUnavailable || providerDegraded) {
       deferredKeys += groups.slice(g + 1).reduce(function (n, rest) {
@@ -858,7 +1073,8 @@ function summarize(result, client, dryRun) {
       return result.accepted[k].isNew;
     }).length,
     retranslatedKeys: acceptedKeys.filter(function (k) {
-      return result.accepted[k].reason === "changed";
+      const reason = result.accepted[k].reason;
+      return reason === "changed" || reason === "restyled";
     }).length,
     failed: result.failed,
     removedOrphans: result.work.orphanRemovals,
@@ -894,7 +1110,7 @@ async function runCli(argv) {
     console.error(
       "Usage: node scripts/i18n-translate.js [--report <path>] [--provider gemini|groq|mock]\n" +
         "       [--models a,b] [--dry-run] [--base <url>] [--summary <path>]\n" +
-        "       [--batch-size N] [--max-calls N]"
+        "       [--batch-size N] [--max-calls N] [--retranslate es,pt] [--concurrency N]"
     );
     return 2;
   }
@@ -904,6 +1120,7 @@ async function runCli(argv) {
      workflow reads as an i18n workflow; scripts/lib/llm.js falls back to
      LLM_MODELS / LLM_MAX_CALLS for the bots that come later. */
   const maxCalls = args.maxCalls || Number(process.env.I18N_MAX_CALLS) || undefined;
+  const concurrency = args.concurrency || Number(process.env.I18N_CONCURRENCY) || 1;
 
   let ctx;
   let report;
@@ -930,6 +1147,7 @@ async function runCli(argv) {
       client.telemetry.model +
       ", batches of " +
       batchSize +
+      (concurrency > 1 ? ", " + concurrency + " calls in flight" : "") +
       ", call cap " +
       client.config.maxCalls +
       (args.dryRun ? " (dry run -- nothing will be written)" : "")
@@ -942,6 +1160,8 @@ async function runCli(argv) {
       report: report,
       client: client,
       batchSize: batchSize,
+      retranslate: args.retranslate || [],
+      concurrency: concurrency,
       log: function (line) {
         console.error("  " + line);
       }

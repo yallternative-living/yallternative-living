@@ -1,4 +1,12 @@
-{
+/**
+ * @fileoverview Auto-generated es dictionary. Wrap of assets/data/locales/es.json.
+ * Loaded on demand by assets/js/translator.js; registers itself into
+ * window.YL_LOCALES. Do not hand-edit this file.
+ * @const {!Object}
+ */
+/* global module */
+(function () {
+  var LOCALE = {
   "meta": {
     "code": "es",
     "name": "Español",
@@ -724,4 +732,14 @@
     "tpl.mixMatchApplied": "¡Nivel por volumen de {price} c/u en {item} aplicado!",
     "tpl.mixMatchNext": "¡Agrega {amount} para obtener {perk}!"
   }
-}
+};
+
+  if (typeof window !== 'undefined') {
+    window.YL_LOCALES = window.YL_LOCALES || {};
+    window.YL_LOCALES["es"] = LOCALE;
+  }
+
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = LOCALE;
+  }
+})();
