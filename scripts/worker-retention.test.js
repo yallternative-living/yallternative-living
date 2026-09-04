@@ -143,7 +143,13 @@ async function makeEnv(overrides = {}) {
  */
 async function withMocks(fn, options = {}) {
   const original = global.fetch;
-  const calls = { stripe: [], resend: [], promoBodies: [], sessionBodies: [] };
+  const calls = {
+    stripe: [],
+    resend: [],
+    promoBodies: [],
+    sessionBodies: [],
+    sessionLookups: []
+  };
   let promoSeq = 0;
   global.fetch = async (url, opts) => {
     const u = String(url);
@@ -152,7 +158,11 @@ async function withMocks(fn, options = {}) {
       return { ok: true, clone: () => ({ body: null }), json: async () => mockCatalog };
     }
     if (u.includes("content.json")) {
-      return { ok: true, clone: () => ({ body: null }), json: async () => mockContent };
+      return {
+        ok: true,
+        clone: () => ({ body: null }),
+        json: async () => options.content || mockContent
+      };
     }
     if (u.includes("events.json")) {
       return { ok: true, clone: () => ({ body: null }), json: async () => ({ events: [] }) };
@@ -175,6 +185,15 @@ async function withMocks(fn, options = {}) {
       };
     }
     if (u.includes("api.stripe.com/v1/checkout/sessions")) {
+      // The session LOOKUP (findSessionByPaymentIntent) and the session CREATE
+      // share a path and answer different shapes -- a list versus one object.
+      if (u.includes("payment_intent=")) {
+        calls.sessionLookups.push(u);
+        const found = Object.prototype.hasOwnProperty.call(options, "session")
+          ? options.session
+          : { id: "cs_test_shipped", customer_details: { email: "Parcel@Example.com" } };
+        return { ok: true, status: 200, json: async () => ({ data: found ? [found] : [] }) };
+      }
       calls.sessionBodies.push(new URLSearchParams(body));
       return {
         ok: true,
@@ -609,15 +628,24 @@ async function testTemplates() {
     "the recovery email links the Stripe-issued recovery URL"
   );
 
-  // Delay policy
-  eq(mod.REVIEW_DELAY_DAYS.fast, 7, "apparel and gift cards are asked at day 7");
+  // Delay policy. Every one of these is measured from DISPATCH, not payment.
+  eq(mod.REVIEW_DELAY_DAYS.fast, 7, "apparel and gift cards are asked 7 days after dispatch");
   assert(
     mod.REVIEW_DELAY_DAYS.slow >= 10 && mod.REVIEW_DELAY_DAYS.slow <= 14,
-    "salves, soaks and butter are asked between day 10 and day 14"
+    "salves, soaks and butter are asked between day 10 and day 14 after dispatch"
   );
   assert(
-    mod.USAGE_GUIDE_DELAY_MS >= 2 * 86400000 && mod.USAGE_GUIDE_DELAY_MS <= 3 * 86400000,
-    "the how-to-use email lands on day 2-3"
+    mod.USAGE_GUIDE_AFTER_DISPATCH_MS >= 3 * 86400000 &&
+      mod.USAGE_GUIDE_AFTER_DISPATCH_MS <= 6 * 86400000,
+    "the how-to-use email allows ground transit before it lands"
+  );
+  assert(
+    mod.ASSUMED_DISPATCH_MS >= 3 * 86400000,
+    "an unshipped order is assumed to sit at least as long as policies.html promises (1-3 days)"
+  );
+  assert(
+    mod.USAGE_GUIDE_DELAY_MS === undefined,
+    "the old payment-anchored constant is gone, not left behind describing a schedule nothing uses"
   );
 }
 
@@ -632,6 +660,7 @@ async function testScheduleAndDrain() {
   const env = await makeEnv();
   const db = env.STATE_DB;
   const now = Date.UTC(2026, 8, 1, 12, 0, 0);
+  const ASSUMED_DISPATCH_DAYS = Math.round(mod.ASSUMED_DISPATCH_MS / 86400000);
 
   const queued = await mod.scheduleOrderSequence(
     db,
@@ -653,8 +682,21 @@ async function testScheduleAndDrain() {
     .first();
   eq(
     Math.round((slowDue.send_after - now) / 86400000),
-    mod.REVIEW_DELAY_DAYS.slow,
-    "a salve order waits the slow delay"
+    ASSUMED_DISPATCH_DAYS + mod.REVIEW_DELAY_DAYS.slow,
+    "a salve order waits the slow delay, counted from assumed dispatch"
+  );
+  const slowGuide = await db
+    .prepare("SELECT send_after FROM email_queue WHERE id = ?")
+    .bind("usage-guide:cs_test_slow")
+    .first();
+  eq(
+    slowGuide.send_after,
+    now + mod.ASSUMED_DISPATCH_MS + mod.USAGE_GUIDE_AFTER_DISPATCH_MS,
+    "the how-to-use email clears the shop's own 1-3 day dispatch window first"
+  );
+  assert(
+    slowGuide.send_after - now > 3 * 86400000,
+    "it can no longer land before an order dispatched at the end of that window"
   );
 
   await mod.scheduleOrderSequence(
@@ -674,8 +716,8 @@ async function testScheduleAndDrain() {
     .first();
   eq(
     Math.round((fastDue.send_after - now) / 86400000),
-    mod.REVIEW_DELAY_DAYS.fast,
-    "an apparel order waits the fast delay"
+    ASSUMED_DISPATCH_DAYS + mod.REVIEW_DELAY_DAYS.fast,
+    "an apparel order waits the fast delay, counted from assumed dispatch"
   );
 
   await mod.scheduleOrderSequence(
@@ -695,9 +737,64 @@ async function testScheduleAndDrain() {
     .first();
   eq(
     Math.round((mixedDue.send_after - now) / 86400000),
-    mod.REVIEW_DELAY_DAYS.slow,
+    ASSUMED_DISPATCH_DAYS + mod.REVIEW_DELAY_DAYS.slow,
     "a mixed order takes the slow delay -- asking about a salve too early is the mistake that matters"
   );
+
+  /* A gift card is emailed by the same webhook that records the order: there is
+     no parcel, so charging it the dispatch window would delay a how-to-use note
+     about something the recipient already had before the tab closed. */
+  await mod.scheduleOrderSequence(
+    db,
+    {
+      order_id: "cs_test_card",
+      email: "card@example.com",
+      placed_at: now,
+      product_ids: "yallternative-gift-card",
+      categories: "gift-cards"
+    },
+    now
+  );
+  const cardGuide = await db
+    .prepare("SELECT send_after FROM email_queue WHERE id = ?")
+    .bind("usage-guide:cs_test_card")
+    .first();
+  eq(
+    cardGuide.send_after,
+    now + mod.USAGE_GUIDE_AFTER_DISPATCH_MS,
+    "a gift-card-only order is dispatched at checkout, so it waits no shipping window"
+  );
+
+  await mod.scheduleOrderSequence(
+    db,
+    {
+      order_id: "cs_test_card_plus",
+      email: "cardplus@example.com",
+      placed_at: now,
+      product_ids: "yallternative-gift-card,sleep-salve",
+      categories: "gift-cards,salves"
+    },
+    now
+  );
+  const cardPlusGuide = await db
+    .prepare("SELECT send_after FROM email_queue WHERE id = ?")
+    .bind("usage-guide:cs_test_card_plus")
+    .first();
+  eq(
+    cardPlusGuide.send_after,
+    now + mod.ASSUMED_DISPATCH_MS + mod.USAGE_GUIDE_AFTER_DISPATCH_MS,
+    "a card bought alongside a salve still waits: something in that order gets packed"
+  );
+
+  /* Those two orders exist only to check the arithmetic above. Drop their rows
+     so the drain further down still sees exactly the queue it was written for --
+     a shared fixture table is how a "sent 4 emails" assertion quietly becomes a
+     "sent 6" one every time somebody adds a scheduling case. */
+  await db
+    .prepare(
+      "DELETE FROM email_queue WHERE id LIKE '%:cs_test_card' OR id LIKE '%:cs_test_card_plus'"
+    )
+    .run();
 
   // --- the drain ---------------------------------------------------------
   const later = now + 30 * 86400000;
@@ -1705,6 +1802,316 @@ function testFrontEnd() {
 }
 
 /* ==========================================================================
+   13. The ship notice, and the dispatch anchor it corrects
+   ========================================================================== */
+
+async function testShipNotice() {
+  console.log("\n13. The ship notice (payment_intent.updated)");
+  const worker = (await import("../workers/checkout.js")).default;
+  const mod = await import("../workers/routes/ship-notice.js");
+  const retention = await import("../workers/routes/retention-emails.js");
+  const orderEmails = await import("../workers/state/order-emails.js");
+
+  /* --- the status vocabulary, against the page that shares it ------------ */
+  const mainJs = fs.readFileSync(path.join(ROOT, "assets", "js", "main.js"), "utf8");
+  const plainWords = mainJs.slice(
+    mainJs.indexOf("function orderStatusPlainWords"),
+    mainJs.indexOf("function formatOrderAmount")
+  );
+  assert(plainWords.length > 100, "orderStatusPlainWords was actually found in main.js");
+  for (const status of mod.SHIPPED_STATUSES) {
+    assert(
+      plainWords.includes(`"${status}"`),
+      `order-status.html calls "${status}" shipped too -- the page and the email agree`
+    );
+  }
+  assert(mod.isShippedStatus("  SHIPPED "), "the status match is trimmed and case-insensitive");
+  assert(!mod.isShippedStatus("packing"), "a status that is not one of them does not send");
+  assert(!mod.isShippedStatus(""), "and neither does an empty one");
+
+  /* --- the template ------------------------------------------------------ */
+  const withTracking = mod.shipNoticeEmail("cs_abc123", "https://tools.usps.com/go/x", SITE);
+  assert(withTracking.html.includes("tools.usps.com/go/x"), "the tracking link is in the HTML");
+  assert(withTracking.text.includes("tools.usps.com/go/x"), "and in the plain-text part");
+  assert(withTracking.html.includes("cs_abc123"), "the reference is shown so support can use it");
+  assert(
+    withTracking.html.includes("order-status.html?session_id=cs_abc123"),
+    "the status link prefills the lookup with that reference"
+  );
+  assert(
+    !/unsubscribe/i.test(withTracking.html) && !/unsubscribe/i.test(withTracking.text),
+    "it is transactional: no unsubscribe line anywhere in it"
+  );
+  const noTracking = mod.shipNoticeEmail("cs_abc123", null, SITE);
+  assert(
+    /no tracking link/i.test(noTracking.text),
+    "with no tracking number it says so rather than printing a dead button"
+  );
+  assert(!noTracking.html.includes("Track this shipment"), "and shows no button");
+
+  /* --- the wiring, through the real webhook entrypoint -------------------- */
+  const shipped = (id, metadata, intentId = "pi_test_ship") => ({
+    id,
+    type: "payment_intent.updated",
+    data: { object: { id: intentId, metadata } }
+  });
+
+  const env = await makeEnv();
+  const db = env.STATE_DB;
+  const placedAt = Date.now() - 5 * 86400000;
+  await (
+    await import("../workers/state/retention.js")
+  ).recordOrder(
+    db,
+    {
+      orderId: "cs_test_shipped",
+      email: "parcel@example.com",
+      productIds: "sleep-salve",
+      categories: "salves"
+    },
+    placedAt
+  );
+  await retention.scheduleOrderSequence(
+    db,
+    {
+      order_id: "cs_test_shipped",
+      email: "parcel@example.com",
+      placed_at: placedAt,
+      product_ids: "sleep-salve",
+      categories: "salves"
+    },
+    placedAt
+  );
+  const before = await db
+    .prepare("SELECT id, send_after FROM email_queue WHERE id LIKE '%:cs_test_shipped' ORDER BY id")
+    .all();
+  eq(before.results.length, 2, "the order starts with both post-purchase rows queued");
+
+  await withMocks(async (calls) => {
+    const res = await worker.fetch(
+      webhookRequest(
+        shipped("evt_ship_1", {
+          fulfillment_status: "shipped",
+          tracking_url: "https://tools.usps.com/go/TrackConfirmAction?tLabels=9400"
+        })
+      ),
+      env,
+      noCtx
+    );
+    eq(res.status, 200, "the webhook accepts payment_intent.updated");
+    eq(calls.resend.length, 1, "exactly one email went out");
+    eq(calls.resend[0].message.to, "Parcel@Example.com", "addressed to the buyer");
+    assert(
+      calls.resend[0].message.subject.length > 0 &&
+        calls.resend[0].message.html.includes("tools.usps.com"),
+      "carrying the tracking link the shop pasted into Stripe"
+    );
+    eq(
+      calls.resend[0].headers["Idempotency-Key"],
+      "ship-notice-pi_test_ship",
+      "under a per-order idempotency key, so two deliveries at once cannot double-send"
+    );
+  });
+
+  assert(
+    await orderEmails.orderEmailSent(db, orderEmails.SHIP_NOTICE, "pi_test_ship"),
+    "the send is recorded against the PaymentIntent"
+  );
+
+  /* The whole point of the anchor fix: the sequence now counts from dispatch. */
+  const after = await db
+    .prepare("SELECT id, send_after FROM email_queue WHERE id LIKE '%:cs_test_shipped' ORDER BY id")
+    .all();
+  const dueById = Object.fromEntries(after.results.map((r) => [r.id, r.send_after]));
+  const beforeById = Object.fromEntries(before.results.map((r) => [r.id, r.send_after]));
+  assert(
+    dueById["usage-guide:cs_test_shipped"] > beforeById["usage-guide:cs_test_shipped"],
+    "an order that sat five days before shipping has its how-to-use email pushed back"
+  );
+  assert(
+    dueById["review-request:cs_test_shipped"] > beforeById["review-request:cs_test_shipped"],
+    "and its review request with it"
+  );
+  assert(
+    dueById["usage-guide:cs_test_shipped"] - Date.now() >=
+      retention.USAGE_GUIDE_AFTER_DISPATCH_MS - 60000,
+    "both are now measured from the moment the parcel actually left"
+  );
+
+  /* --- pasting the tracking link later must not write again -------------- */
+  await withMocks(async (calls) => {
+    const res = await worker.fetch(
+      webhookRequest(
+        shipped("evt_ship_2", {
+          fulfillment_status: "shipped",
+          tracking_url: "https://tools.usps.com/go/CORRECTED"
+        })
+      ),
+      env,
+      noCtx
+    );
+    eq(res.status, 200, "a second edit of the same order's metadata is accepted");
+    eq(calls.resend.length, 0, "but sends nothing -- one parcel, one notice");
+    eq(calls.sessionLookups.length, 0, "and does not even ask Stripe who the order belongs to");
+  });
+
+  /* --- every other reason a PaymentIntent changes ------------------------- */
+  await withMocks(async (calls) => {
+    const res = await worker.fetch(
+      webhookRequest(shipped("evt_ship_3", { fulfillment_status: "packing" }, "pi_test_other")),
+      env,
+      noCtx
+    );
+    eq(res.status, 200, "an unrelated PaymentIntent update is accepted");
+    eq(calls.resend.length, 0, "and sends nothing");
+    eq(calls.sessionLookups.length, 0, "without costing a Stripe call");
+  });
+
+  /* --- a hostile tracking_url -------------------------------------------- */
+  await withMocks(async (calls) => {
+    await worker.fetch(
+      webhookRequest(
+        shipped(
+          "evt_ship_4",
+          // eslint-disable-next-line no-script-url
+          { fulfillment_status: "shipped", tracking_url: "javascript:alert(1)" },
+          "pi_test_xss"
+        )
+      ),
+      env,
+      noCtx
+    );
+    eq(calls.resend.length, 1, "the notice still goes out");
+    assert(
+      !calls.resend[0].message.html.includes("javascript:"),
+      "but a javascript: tracking_url is dropped, not linked"
+    );
+    assert(
+      /no tracking link/i.test(calls.resend[0].message.text),
+      "and it falls back to the honest 'no tracking yet' copy"
+    );
+  });
+
+  /* --- a refused send has to be retried, not swallowed -------------------- */
+  const retryEnv = await makeEnv();
+  await withMocks(
+    async (calls) => {
+      const res = await worker.fetch(
+        webhookRequest(shipped("evt_ship_5", { fulfillment_status: "shipped" }, "pi_test_refused")),
+        retryEnv,
+        noCtx
+      );
+      eq(calls.resend.length, 1, "the send was attempted");
+      eq(res.status, 500, "a refusal answers non-2xx so Stripe redelivers");
+    },
+    { resendFails: true }
+  );
+  assert(
+    !(await orderEmails.orderEmailSent(
+      retryEnv.STATE_DB,
+      orderEmails.SHIP_NOTICE,
+      "pi_test_refused"
+    )),
+    "and nothing is recorded, so the retry is free to send properly"
+  );
+}
+
+/* ==========================================================================
+   14. Savanna's switches for the how-to-use email
+   ========================================================================== */
+
+async function testUsageGuideControls() {
+  console.log("\n14. The how-to-use email's CMS switch and timing");
+  const mod = await import("../workers/routes/retention-emails.js");
+
+  eq(mod.usageGuideEnabled({}), true, "absent means on, like every other enable* switch");
+  eq(mod.usageGuideEnabled({ enableUsageGuideEmails: true }), true, "true is on");
+  eq(mod.usageGuideEnabled({ enableUsageGuideEmails: false }), false, "false is off");
+
+  eq(
+    mod.usageGuideDelayMs({}),
+    mod.USAGE_GUIDE_AFTER_DISPATCH_MS,
+    "an unset delay falls back to the default"
+  );
+  eq(mod.usageGuideDelayMs({ usageGuideDelayDays: 7 }), 7 * 86400000, "a set delay is honoured");
+  eq(mod.usageGuideDelayMs({ usageGuideDelayDays: 0 }), 0, "zero means 'on dispatch', not 'unset'");
+  eq(
+    mod.usageGuideDelayMs({ usageGuideDelayDays: "" }),
+    mod.USAGE_GUIDE_AFTER_DISPATCH_MS,
+    "a blank field falls back rather than sending the moment it ships"
+  );
+  eq(
+    mod.usageGuideDelayMs({ usageGuideDelayDays: -3 }),
+    mod.USAGE_GUIDE_AFTER_DISPATCH_MS,
+    "and so does a negative one"
+  );
+  eq(
+    mod.usageGuideDelayMs({ usageGuideDelayDays: 9000 }),
+    mod.USAGE_GUIDE_DELAY_MAX_DAYS * 86400000,
+    "an absurd value is clamped instead of parking the email past the sweeper"
+  );
+
+  // The delay reaches the queue.
+  const env = await makeEnv();
+  const now = Date.UTC(2026, 8, 1, 12, 0, 0);
+  await mod.scheduleOrderSequence(
+    env.STATE_DB,
+    {
+      order_id: "cs_test_delayed",
+      email: "slow@example.com",
+      placed_at: now,
+      product_ids: "sleep-salve",
+      categories: "salves"
+    },
+    now,
+    { usageGuideDelayDays: 9 }
+  );
+  const row = await env.STATE_DB.prepare("SELECT send_after FROM email_queue WHERE id = ?")
+    .bind("usage-guide:cs_test_delayed")
+    .first();
+  eq(
+    row.send_after,
+    now + mod.ASSUMED_DISPATCH_MS + 9 * 86400000,
+    "the CMS number is what the queue row is scheduled on"
+  );
+
+  /* Off is read at SEND time. The row below was queued while the switch was on,
+     and must still be skipped -- the same rule the suppression list follows. */
+  const offEnv = await makeEnv();
+  await mod.scheduleOrderSequence(
+    offEnv.STATE_DB,
+    {
+      order_id: "cs_test_switched_off",
+      email: "quiet@example.com",
+      placed_at: now,
+      product_ids: "sleep-salve",
+      categories: "salves"
+    },
+    now
+  );
+  await withMocks(
+    async (calls) => {
+      const summary = await mod.drainEmailQueue(offEnv, noCtx, now + 400 * 86400000);
+      eq(summary.sent, 1, "only the review request goes out");
+      eq(summary.skipped, 1, "the how-to-use email is skipped");
+      assert(
+        calls.resend.every((c) => !/how to/i.test(c.message.subject)),
+        "nothing that went out is the how-to-use email"
+      );
+    },
+    { content: { site: { loyaltyPointsPerDollar: 2, enableUsageGuideEmails: false } } }
+  );
+  const skipped = await offEnv.STATE_DB.prepare("SELECT status FROM email_queue WHERE id = ?")
+    .bind("usage-guide:cs_test_switched_off")
+    .first();
+  eq(
+    skipped.status,
+    "skipped",
+    "and the row is terminal, not left pending to be retried every hour"
+  );
+}
+
+/* ==========================================================================
    Runner
    ========================================================================== */
 
@@ -1719,6 +2126,8 @@ function testFrontEnd() {
   await testCheckoutSessionParams();
   await testWebhookWiring();
   await testCron();
+  await testShipNotice();
+  await testUsageGuideControls();
   testConfig();
   testFrontEnd();
 

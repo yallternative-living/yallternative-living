@@ -48,8 +48,12 @@ function normalizeEmail(value) {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
 
-/** Only http(s) links are echoed back; a `javascript:` tracking_url would be an XSS gift. */
-function safeUrl(value) {
+/**
+ * Only http(s) links are echoed back; a `javascript:` tracking_url would be an
+ * XSS gift. Exported because routes/ship-notice.js mails the same value the
+ * status page renders, and the two must agree on what counts as a usable link.
+ */
+export function safeUrl(value) {
   if (typeof value !== "string" || value.length > 500) return null;
   try {
     const url = new URL(value);

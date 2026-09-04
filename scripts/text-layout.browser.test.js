@@ -39,13 +39,15 @@ const puppeteer = require("puppeteer");
 
 const ROOT = path.resolve(__dirname, "..");
 
-/* Orphan budget: the count measured on 2026-09-03 after `text-wrap: pretty`
-   landed on .card-body h3 and .faq-accordion-summary. Every survivor is a
-   string with no better break available at that width (an eyebrow at 320px, a
-   variant label naming a product whose name is itself longer than the column).
-   Lower it whenever a fix removes some; a rise means new copy or a new rule
-   introduced one. */
-const ORPHAN_BUDGET = 4;
+/* Orphan budget: re-measured 2026-09-04 after `text-wrap: balance` landed on
+   `.field label`, which cleared the two form labels that had pushed this to 5
+   (reviews.html's "Email (private -- we never publish this)" and safety.html's
+   "Date the reaction started (optional)"). Lowered 4 -> 3 to lock that in, as
+   this gate's own output asks. Every survivor is a string with no better break
+   available at that width (an eyebrow at 320px, a variant label naming a
+   product whose name is itself longer than the column). Lower it whenever a
+   fix removes some; a rise means new copy or a new rule introduced one. */
+const ORPHAN_BUDGET = 3;
 
 const PAGES = [
   "/index.html",

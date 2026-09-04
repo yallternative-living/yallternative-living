@@ -34,6 +34,7 @@
 
 import { escapeHtml, json } from "./http.js";
 import {
+  buyerEmailOf,
   deleteCoupon,
   findSessionByPaymentIntent,
   STRIPE_API_BASE,
@@ -58,6 +59,7 @@ import {
 import { recordOrder } from "../state/retention.js";
 import { giftNoteLink, giftNotesOf } from "./gift-note.js";
 import { loadOrderCatalog, productsNeedingChoice, sizeConfirmationEmail } from "./order-digest.js";
+import { emailShipNotice } from "./ship-notice.js";
 import { loadSiteSettings } from "../state/site-data.js";
 import { claimEvent, markEventDone, releaseEvent } from "../state/webhook-events.js";
 import { ensureSchema } from "../state/migrations.js";
@@ -210,12 +212,6 @@ export async function emailSizeConfirmation(session, env, ctx) {
     `size-confirm-${session.id}`
   );
   return { emailed: to, products: pending.map((p) => p.id), ok: delivery.ok };
-}
-
-function buyerEmailOf(session) {
-  const email =
-    (session.customer_details && session.customer_details.email) || session.customer_email;
-  return typeof email === "string" && email.trim() ? email.trim() : null;
 }
 
 /* ---------------------------------------------------- the owner's order copy */
@@ -939,7 +935,7 @@ async function handleChargeRefunded(charge, env) {
  * this costs no extra Stripe request. Both writes are INSERT OR IGNORE, so a
  * redelivered event records nothing and queues nothing.
  */
-async function recordAndSchedule(session, env, now = Date.now()) {
+async function recordAndSchedule(session, env, ctx, now = Date.now()) {
   if (!env.STATE_DB) return null;
   const email = buyerEmailOf(session);
   if (!email) return null;
@@ -969,7 +965,11 @@ async function recordAndSchedule(session, env, now = Date.now()) {
       product_ids: splitList(metadata.retention_product_ids).join(","),
       categories: splitList(metadata.retention_categories).join(",")
     },
-    now
+    now,
+    // `usageGuideDelayDays` at /admin. The switch beside it is read at send
+    // time by the drain, not here -- turning it off has to stop what is
+    // already queued.
+    await loadSiteSettings(env, ctx)
   );
   return { recorded: signal.recorded, queued };
 }
@@ -1097,7 +1097,7 @@ export async function processStripeEvent(event, env, ctx) {
       failures.push(`gift-card issue: ${err && err.message}`);
     }
     try {
-      outcome.retention = await recordAndSchedule(session, env);
+      outcome.retention = await recordAndSchedule(session, env, ctx);
     } catch (err) {
       failures.push(`retention: ${err && err.message}`);
     }
@@ -1140,6 +1140,21 @@ export async function processStripeEvent(event, env, ctx) {
     } catch (err) {
       console.error("analytics: revenue reporting threw (ignored):", err && err.message);
       outcome.revenue = { sent: false, reason: "threw" };
+    }
+  } else if (event.type === "payment_intent.updated") {
+    /* The shop marking an order shipped, in the only place it can: the three
+       fulfilment keys on the PaymentIntent that order-status.html already
+       reads. `emailShipNotice` returns immediately for every other reason a
+       PaymentIntent might change, which is most of them.
+
+       PUSHED TO `failures` ON PURPOSE, unlike the owner's copy and the revenue
+       ping in the branch above. This one is the customer's only push
+       notification that their parcel exists, and a Resend outage must make
+       Stripe redeliver rather than leave them watching a mailbox. */
+    try {
+      outcome.shipNotice = await emailShipNotice(event.data.object || {}, env, ctx);
+    } catch (err) {
+      failures.push(`ship-notice: ${err && err.message}`);
     }
   } else if (event.type === "checkout.session.expired") {
     const session = event.data.object || {};

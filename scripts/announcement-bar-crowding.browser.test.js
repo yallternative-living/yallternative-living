@@ -86,8 +86,13 @@ function check(desc, ok, extra = "") {
   }
 }
 
-/* Real event names measured by the audit: the short one events.json ships,
-   and the long one that wrapped the bar from 1101px to 1327px. */
+/* Both names are FIXTURES, deliberately not read from events.json, so that
+   what this suite measures is the crowding logic and not Savanna's calendar.
+   LONG_NAME is the one the audit measured wrapping the bar from 1101px to
+   1327px; SHORT_NAME is short enough that the segment must fit at every width
+   above the CSS floor. */
+const SHORT_NAME = "Faire";
+const SHORT_LOCATION = "Landrum, SC";
 const LONG_NAME = "Spartanburg Punk Flea Market";
 const LONG_LOCATION = "Spartanburg, SC";
 const WIDTHS = [1101, 1200, 1327, 1440];
@@ -166,13 +171,39 @@ async function run() {
           normal.height < 60 && (normal.segmentVisible || normal.isCrowded),
           `height=${normal.height}px, is-crowded=${normal.isCrowded}, segmentVisible=${normal.segmentVisible}`
         );
-        if (width >= 1440) {
-          check(
-            `@${width}px: with the real event name the free-shipping segment is visible`,
-            normal.segmentVisible,
-            `height=${normal.height}px, is-crowded=${normal.isCrowded}, segmentVisible=${normal.segmentVisible}`
-          );
-        }
+        /* The stuck-on regression needs a width where the segment MUST be
+           visible, and the real event name cannot promise one -- at 1440px it
+           happens to fit today, but that is still the calendar answering, not
+           the code. So this half supplies its own short name and then holds
+           the assertion at EVERY width above the floor, which is strictly more
+           than the widest-width-only version it replaces. */
+        await page.evaluate(
+          (name, location) => {
+            const nameEl = document.getElementById("heroEventDetails");
+            if (nameEl) nameEl.textContent = name + " (" + location + ")";
+            window.dispatchEvent(new Event("resize"));
+          },
+          SHORT_NAME,
+          SHORT_LOCATION
+        );
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        const shortName = await page.evaluate(() => {
+          const bar = document.getElementById("yl-countdown-ticker");
+          const seg = bar.querySelector(".announcement-segment");
+          return {
+            isCrowded: bar.classList.contains("is-crowded"),
+            height: bar.getBoundingClientRect().height,
+            segmentVisible:
+              !!seg &&
+              seg.getBoundingClientRect().width > 0 &&
+              getComputedStyle(seg).display !== "none"
+          };
+        });
+        check(
+          `@${width}px: with a short event name the free-shipping segment is visible on one line`,
+          shortName.segmentVisible && shortName.height < 60,
+          `height=${shortName.height}px, is-crowded=${shortName.isCrowded}, segmentVisible=${shortName.segmentVisible}`
+        );
       }
 
       // Inject the long name/location a real CMS event could carry, the same

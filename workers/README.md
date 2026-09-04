@@ -644,14 +644,46 @@ Stripe Dashboard -> Developers -> Webhooks -> Add endpoint:
 https://yallternativeliving.com/api/stripe-webhook
 ```
 
-Subscribe to exactly these three:
+Subscribe to exactly these four:
 
 - `checkout.session.completed` -- issues the cards an order bought and commits
   the hold on a card an order spent,
 - `checkout.session.expired` -- releases the hold and deletes the ephemeral
   coupon an abandoned checkout leaves behind,
 - `charge.refunded` -- puts a refunded order's gift-card share back on the card.
-  Do NOT also select `refund.created`: it fires for the same money.
+  Do NOT also select `refund.created`: it fires for the same money,
+- `payment_intent.updated` -- sends the "your order is on its way" email when
+  the shop marks an order shipped (see **Marking an order shipped** below).
+  This one fires for every change to a PaymentIntent, most of which have
+  nothing to do with shipping; `routes/ship-notice.js` returns immediately for
+  those, before it costs a Stripe call.
+
+### Marking an order shipped
+
+There is no fulfilment dashboard: an order is marked shipped by adding metadata
+to its **PaymentIntent** in Stripe (Payments -> the payment -> Metadata ->
+"Edit metadata"). Three keys, all optional except the first:
+
+| Key                  | Value                                        |
+| -------------------- | -------------------------------------------- |
+| `fulfillment_status` | `shipped` (or `delivered` / `fulfilled`)     |
+| `tracking_url`       | the carrier's tracking link, `https://…`     |
+| `shipped_at`         | free text, shown on the order-status page    |
+
+Saving that does three things: order-status.html starts reading "Shipped" with
+a Track button (`state/stripe-orders.js`), the customer gets the ship notice
+(`routes/ship-notice.js`), and the post-purchase sequence is re-anchored on the
+real dispatch date instead of the assumed one (`routes/retention-emails.js`).
+
+Set the status and the tracking link in the SAME save if you can. Only the
+first save sends -- the notice is recorded per order in `order_emails` so a
+later correction to the link cannot mail the customer twice -- so a tracking URL
+added afterwards will show on the status page but will not have been in the
+email.
+
+**It must be on the PaymentIntent, not the Checkout Session or the Charge.**
+That is the object `state/stripe-orders.js` reads and the only one that fires
+`payment_intent.updated`.
 
 Copy the signing secret (`whsec_…`) into `STRIPE_WEBHOOK_SECRET`.
 

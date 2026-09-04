@@ -608,6 +608,11 @@ singletons:
             widget: object
             required: false
             collapsed: true
+            hint:
+              "Shown on the product page AND emailed to the buyer a few days
+              after their order ships, as the 'how to get the most out of your
+              …' note. Write it the way you'd say it to someone holding the jar.
+              Leave all three blank and that product gets no email."
             fields:
               - {
                   name: howToApply,
@@ -1461,6 +1466,26 @@ singletons:
               required: false,
               hint: "One fulfilment email per paid order, with the items, gift note and address."
             }          # --- Emails the shop sends on its own -------------------------
+          # --- Emails the shop sends to customers -----------------------
+          - {
+              name: enableUsageGuideEmails,
+              label: "Emails to customers · Send a 'how to use it' note after delivery",
+              widget: boolean,
+              default: true,
+              required: false,
+              hint: "Uses the Usage & care copy on each product. Turning this off also stops the ones already waiting to go out. Products with that section left blank are skipped either way."
+            }
+          - {
+              name: usageGuideDelayDays,
+              label: "Emails to customers · Days after shipping to send it",
+              widget: number,
+              value_type: int,
+              min: 0,
+              max: 60,
+              default: 4,
+              required: false,
+              hint: "Counted from the day you mark the order shipped in Stripe — not from when it was paid for. Leave a few days so the box lands first. Until you mark an order shipped we assume 3 days, the top of the window on your shipping policy."
+            }
           - {
               name: enableLowStockAlerts,
               label: "Emails to me · Email me when stock runs low",
