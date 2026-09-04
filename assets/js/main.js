@@ -6062,13 +6062,29 @@
         }
       }
 
-      /* Scroll once the notice is in place: it is inside the target, so the
-         catalog's top edge IS the notice. scroll-padding-top (styles.css)
-         keeps that edge clear of the sticky chrome at every width. */
-      try {
-        catalogEl.scrollIntoView({ behavior: "smooth", block: "start" });
-      } catch (err) {
-        // fallback if smooth scroll unavailable
+      /* Land on the catalog the moment the page has loaded, and land
+         INSTANTLY. The notice is inside the target, so the catalog's top edge
+         is the notice, and scroll-padding-top (styles.css) keeps that edge
+         clear of the sticky chrome. Not smooth, and not before load: the
+         page's own `scroll-behavior: smooth` turns the browser's #shop-catalog
+         fragment scroll into a ~350ms animation that starts at load, and a tap
+         during it lands its mousedown and mouseup on different elements as the
+         notice slides under the finger, so no click reaches the dismiss button
+         (challenger-m2-verification's Playwright pass caught exactly that on
+         CI run 33928717814). An instant programmatic scroll at load cancels
+         that animation and puts the notice where it will stay; on a link with
+         no fragment it is the only scroll there is. */
+      var landOnCatalog = function () {
+        try {
+          catalogEl.scrollIntoView({ behavior: "instant", block: "start" });
+        } catch (err) {
+          // fallback if scrollIntoView options are unsupported
+        }
+      };
+      if (document.readyState === "complete" || typeof window.addEventListener !== "function") {
+        landOnCatalog();
+      } else {
+        window.addEventListener("load", landOnCatalog, { once: true });
       }
     }
   }
