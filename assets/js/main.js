@@ -6018,12 +6018,6 @@
     // Catalog scroll & announcement on shop page
     var catalogEl = document.getElementById("shop-catalog") || document.getElementById("shopGrid");
     if (catalogEl) {
-      try {
-        catalogEl.scrollIntoView({ behavior: "smooth", block: "start" });
-      } catch (err) {
-        // fallback if smooth scroll unavailable
-      }
-
       var bannerId = "pickupMarketBanner";
       if (!document.getElementById(bannerId)) {
         var notice = document.createElement("div");
@@ -6040,8 +6034,24 @@
           '<button type="button" class="btn btn-outline btn-sm" id="dismissPickupNotice" aria-label="Dismiss pickup notice">✕</button>' +
           "</div>" +
           "</div>";
-        if (catalogEl.parentNode) {
+        /* Inside the catalog section as its first child, not as the sibling
+           before it. #shop-catalog is the deep link's fragment target, and
+           the browser keeps re-aligning a fragment target on every layout
+           until the page has loaded -- over any scroll we start -- so
+           nothing placed above the section can be on screen at load. Above
+           it, the notice sat just out of view: off the top before, under
+           the sticky header now (measured 2026-09-04 at 1200px: notice at
+           y 36-102 behind a header spanning 38-111, and a tap on its dismiss
+           button landed on .nav-cta). #shopGrid, the fallback target, is the
+           grid itself, so the notice goes inside only when the target is
+           the section. */
+        var host = catalogEl.id === "shop-catalog" ? catalogEl : null;
+        if (host) {
+          host.insertBefore(notice, host.firstChild);
+        } else if (catalogEl.parentNode) {
           catalogEl.parentNode.insertBefore(notice, catalogEl);
+        }
+        if (notice.parentNode) {
           var dismissBtn = notice.querySelector("#dismissPickupNotice");
           if (dismissBtn) {
             dismissBtn.addEventListener("click", function () {
@@ -6050,6 +6060,31 @@
           }
           wireReveal(notice);
         }
+      }
+
+      /* Land on the catalog the moment the page has loaded, and land
+         INSTANTLY. The notice is inside the target, so the catalog's top edge
+         is the notice, and scroll-padding-top (styles.css) keeps that edge
+         clear of the sticky chrome. Not smooth, and not before load: the
+         page's own `scroll-behavior: smooth` turns the browser's #shop-catalog
+         fragment scroll into a ~350ms animation that starts at load, and a tap
+         during it lands its mousedown and mouseup on different elements as the
+         notice slides under the finger, so no click reaches the dismiss button
+         (challenger-m2-verification's Playwright pass caught exactly that on
+         CI run 33928717814). An instant programmatic scroll at load cancels
+         that animation and puts the notice where it will stay; on a link with
+         no fragment it is the only scroll there is. */
+      var landOnCatalog = function () {
+        try {
+          catalogEl.scrollIntoView({ behavior: "instant", block: "start" });
+        } catch (err) {
+          // fallback if scrollIntoView options are unsupported
+        }
+      };
+      if (document.readyState === "complete" || typeof window.addEventListener !== "function") {
+        landOnCatalog();
+      } else {
+        window.addEventListener("load", landOnCatalog, { once: true });
       }
     }
   }
@@ -7315,6 +7350,44 @@
     );
   })();
 
+  /* The header sticks directly BELOW the bar (`.announcement-bar + .site-header
+     { top: var(--announcement-h) }` in styles.css), so the token has to be the
+     bar's real rendered height, not a per-breakpoint guess: the bar's height
+     follows how its copy wraps, and the same 375px viewport renders it at 38px
+     on shop.html (one line of the shipping message) and 61px on index.html
+     (the countdown wraps). A guess either shows a strip of page between bar
+     and header or hides the bar's last line under the header -- measured
+     2026-09-04 with the 61px literal on shop.html at 375px: bar 0-38, header
+     from 61, a 23px gap. The literals in styles.css stay as the fallback for
+     no-JS visitors and for the blank strip on pages that have no bar, where
+     there is nothing to measure. */
+  function syncAnnouncementHeight(bar) {
+    var root = document.documentElement;
+    if (!bar || !bar.offsetHeight || !root || !root.style || !root.style.setProperty) return;
+    root.style.setProperty("--announcement-h", bar.offsetHeight + "px");
+  }
+  function watchAnnouncementHeight(bar) {
+    if (!bar) return;
+    syncAnnouncementHeight(bar);
+    /* Re-measure whenever the bar's box changes: a resize, the crowding
+       class hiding a segment, the countdown copy getting longer or shorter,
+       the web font arriving. ResizeObserver sees all of those; the resize
+       event is the fallback where it does not exist. */
+    if ("ResizeObserver" in window) {
+      new ResizeObserver(function () {
+        syncAnnouncementHeight(bar);
+      }).observe(bar);
+    } else {
+      window.addEventListener(
+        "resize",
+        function () {
+          syncAnnouncementHeight(bar);
+        },
+        { passive: true }
+      );
+    }
+  }
+
   function announcementBar() {
     var siteCfg = (window.YL_CONTENT && window.YL_CONTENT.site) || {};
     var announcement = siteCfg.announcement;
@@ -7395,6 +7468,7 @@
     }
   }
   announcementBar();
+  watchAnnouncementHeight(document.querySelector(".announcement-bar"));
 
   /* A Snipcart-specific cart-drawer enhancement (injecting a shipping-
      progress bar and a cross-sell suggestion into Snipcart's own DOM via
@@ -9433,9 +9507,24 @@
           triggerSearch(input.value);
         }
 
+        /* The fallback below exists for the `setAttribute("open")` path and for
+           browsers whose showModal() does not run the dialog focusing steps.
+           In every current browser showModal() has ALREADY focused this input
+           synchronously -- it is the dialog's first focusable descendant -- so
+           by the time this timer fires, a shopper who pressed Cmd+K or "/" and
+           started typing at once has real characters in here. The old
+           `if (input.value) input.select()` then selected them, and their next
+           keystroke replaced the lot: measured 2026-09-04 by opening the modal
+           and typing "salve" immediately, 16 of 20 trials kept only "e", "ve",
+           "lve" or "alve". So the selection is offered only while the field
+           still holds exactly the value it opened with -- the leftover query a
+           returning shopper wants to overwrite -- and never fresh typing. */
+        var valueAtOpen = input.value;
         setTimeout(function () {
-          input.focus();
-          if (input.value) input.select();
+          if (document.activeElement !== input) input.focus();
+          if (input.value && input.value === valueAtOpen && document.activeElement === input) {
+            input.select();
+          }
         }, 50);
       }
     }

@@ -5,20 +5,20 @@
  * WHY IT IS NOT THE webhook_events CLAIM
  * That one answers "have I started processing this Stripe EVENT id", and it is
  * released when a handler fails so the retry can re-run every idempotent step.
- * A ship notice is keyed on the ORDER, not the event: the shop marks an order
- * shipped by writing `fulfillment_status` onto the PaymentIntent, and every
- * later edit -- pasting the tracking link a minute after the status, fixing a
- * typo in it a day later -- is another `payment_intent.updated` with its own
- * event id for the same parcel. The customer must be told once.
+ * A ship notice is keyed on the ORDER, and is not sent from a webhook at all:
+ * Stripe fires nothing when PaymentIntent metadata is edited, so the hourly
+ * cron sweep (routes/ship-notice.js) re-reads every recent shipped order on
+ * every pass, for weeks. The customer must be told once, however many passes
+ * see the same parcel and however many times the tracking link is corrected.
  *
  * WHY IT IS NOT analytics_sends
  * That claim is taken BEFORE the side effect and never released, because an
  * over-counted revenue figure is worse than a missing one. Here the trade runs
  * the other way: a customer who is never told their order shipped is worse than
  * the small risk of a duplicate. So the row is written AFTER Resend has
- * accepted the message -- a refused send leaves no row, the webhook answers
- * non-2xx, and Stripe's redelivery tries again. The only window that leaves is
- * two deliveries in flight at once, which the Resend `Idempotency-Key` on the
+ * accepted the message -- a refused send leaves no row, and the next hourly
+ * pass of the sweep simply tries that order again. The only window that leaves
+ * is two passes in flight at once, which the Resend `Idempotency-Key` on the
  * send itself closes.
  *
  * COST

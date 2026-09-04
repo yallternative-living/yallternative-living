@@ -386,7 +386,50 @@ function recordFail(msg) {
     // open and its input focused (openModal focuses on a 50ms timer) before
     // typing, and start from an empty query so nothing left over from the
     // shortcut vectors above can be prepended to it.
-    await page.waitForSelector("#globalSearchTrigger", { visible: true, timeout: 10000 });
+    // Puppeteer's `visible` only asks for a non-empty rect that is not
+    // visibility:hidden; `click()` then asks for something stricter -- a client
+    // rect with >= 1px of width and height AFTER clipping to the viewport --
+    // and throws "Node is either not clickable or not an Element" when there
+    // is none. On GitHub's runners that bit twice on 2026-09-04 (main run 312,
+    // PR run 313) and the suite died here at 15 checks. The cause was real:
+    // the "sticky" site header was not sticking (styles.css had switched its
+    // inset to `auto` and made body a scroll container), so after SUITE 2
+    // focused the footer this trigger sat ~5000px above the viewport, and the
+    // click lived or died on Puppeteer's auto-scroll racing the runner's load.
+    // The header is fixed; this wait now guards the invariant it relies on --
+    // the trigger is on screen without scrolling -- and names the geometry if
+    // that ever regresses, instead of leaving a Puppeteer stack trace.
+    const triggerClickable = () => {
+      const el = document.getElementById("globalSearchTrigger");
+      if (!el || !el.isConnected) return false;
+      const vw = document.documentElement.clientWidth;
+      const vh = document.documentElement.clientHeight;
+      return [...el.getClientRects()].some((r) => {
+        const w = Math.min(r.right, vw) - Math.max(r.left, 0);
+        const h = Math.min(r.bottom, vh) - Math.max(r.top, 0);
+        return w >= 1 && h >= 1;
+      });
+    };
+    try {
+      await page.waitForFunction(triggerClickable, { timeout: 10000 });
+    } catch (e) {
+      // Name the actual geometry, so the next person gets a measurement
+      // instead of "10000ms exceeded" and has something to reproduce with.
+      const geometry = await page.evaluate(() => {
+        const el = document.getElementById("globalSearchTrigger");
+        if (!el) return "trigger missing from DOM";
+        const r = el.getBoundingClientRect();
+        const cs = getComputedStyle(el);
+        return (
+          `connected=${el.isConnected} rect=[${Math.round(r.left)},${Math.round(r.top)},` +
+          `${Math.round(r.width)}x${Math.round(r.height)}] viewport=` +
+          `${document.documentElement.clientWidth}x${document.documentElement.clientHeight} ` +
+          `display=${cs.display} visibility=${cs.visibility} scrollY=${Math.round(window.scrollY)} ` +
+          `dialogOpen=${!!document.querySelector("dialog[open]")}`
+        );
+      });
+      throw new Error(`#globalSearchTrigger never became clickable within 10s: ${geometry}`);
+    }
     await page.click("#globalSearchTrigger");
     await page.waitForSelector("#global-search-modal[open]", { visible: true, timeout: 10000 });
     await page.waitForFunction(
@@ -409,6 +452,20 @@ function recordFail(msg) {
       /* fall through: the assertion below reports the real count */
     }
     await sleep(150);
+
+    // The field must hold every character that was typed. This is where the
+    // suite's intermittent failure surfaced (2 of 13 local runs; 16 of 20 in a
+    // direct probe): the modal's 50ms focus fallback ran `input.select()` on
+    // the first characters a fast typist had entered, and the next keystroke
+    // replaced them, leaving "ve" / "lve" / "alve" and a search for the wrong
+    // word. Assert on the value itself so the real defect is named, not just
+    // its downstream symptom ("Insufficient product results").
+    const typedValue = await page.$eval("#globalSearchInput", (el) => el.value);
+    if (typedValue === "salve") {
+      recordPass("Search input holds every typed character ('salve'), none selected-and-replaced");
+    } else {
+      recordFail(`Search input lost keystrokes: typed 'salve', field holds '${typedValue}'`);
+    }
 
     const productResultsState = await page.evaluate(() => {
       const modal = document.getElementById("global-search-modal");

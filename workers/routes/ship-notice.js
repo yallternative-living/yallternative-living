@@ -2,12 +2,15 @@
  * @fileoverview "Your order is on its way" -- the one email between the Stripe
  * receipt and the how-to-use guide.
  *
- * WHAT TRIGGERS IT
+ * WHAT TRIGGERS IT: THE HOURLY CRON, NOT A WEBHOOK.
  * The shop marks an order shipped the way order-status.html already reads it:
  * three metadata keys typed onto the PaymentIntent in the Stripe Dashboard
  * (`fulfillment_status`, `tracking_url`, `shipped_at` -- see
- * state/stripe-orders.js). Writing them fires `payment_intent.updated`, and
- * this is what listens for it.
+ * state/stripe-orders.js). Nothing in Stripe fires when that metadata is
+ * written -- see runShipNoticeSweep below for the event list that proves it --
+ * so the Worker's hourly cron lists recent PaymentIntents and sends for every
+ * one that now reads as shipped and has not been told yet. Expect the email
+ * within the hour of the save, not within seconds.
  *
  * WHY IT EXISTS
  * thank-you.html has always closed with "we'll follow up once it ships" and
@@ -23,14 +26,14 @@
  * and NOT `sendMarketingEmail`: no unsubscribe footer, no suppression check.
  * Someone who opted out of the review request is still owed their tracking
  * number. That is also why it is not queued in `email_queue` -- everything the
- * drain touches is a marketing send by construction, and "your order shipped"
- * should not wait up to an hour for the next cron tick either.
+ * drain touches is a marketing send by construction.
  *
- * SENT ONCE PER PARCEL, NOT ONCE PER EVENT.
- * Pasting the tracking link a minute after the status, and fixing a typo in it
- * the next day, are three separate `payment_intent.updated` events for one
- * parcel. `order_emails` (state/order-emails.js) records the send against the
- * PaymentIntent id, so the second and third do nothing.
+ * SENT ONCE PER PARCEL, NOT ONCE PER TICK.
+ * The sweep sees the same shipped order on every hourly pass for 45 days, and
+ * a typo fixed in the tracking link the next day changes nothing about that.
+ * `order_emails` (state/order-emails.js) records the send against the
+ * PaymentIntent id AFTER Resend accepts it, so every later pass does nothing --
+ * and a refused send records nothing, so the next pass retries it.
  */
 
 import { escapeHtml } from "./http.js";
@@ -109,21 +112,20 @@ export function shipNoticeEmail(reference, trackingUrl, siteOrigin) {
 }
 
 /**
- * The `payment_intent.updated` handler.
+ * Sends the notice for one PaymentIntent, if it is due one.
  *
- * ORDER OF THE CHECKS IS THE COST CONTROL. Stripe sends this event for every
- * change to a PaymentIntent, so the overwhelming majority of deliveries are not
- * about shipping at all. The two that cost nothing -- is the status a shipped
- * one, and have we already written to this order -- both run before the Stripe
- * session lookup, so a repeat edit is two D1 reads and no API call.
+ * Called for every shipped intent the sweep finds, every hour, so ORDER OF THE
+ * CHECKS IS THE COST CONTROL: is the status a shipped one, and has this order
+ * already been written to -- both answered before the Stripe session lookup,
+ * so an order told last week costs one D1 read and no API call per tick.
  *
- * A REFUSED SEND THROWS. The caller pushes that onto the webhook's failure
- * list, the webhook answers non-2xx, and Stripe redelivers for about three
- * days. Nothing has been recorded at that point, so the retry sends properly.
- * This is the same trade the gift-card email makes: the customer learning where
- * their parcel is worth replaying the event for.
+ * A REFUSED SEND THROWS, with nothing recorded. The sweep catches it, counts
+ * it, carries on with the rest, and the next hourly pass tries this order
+ * again. (The dormant webhook branch in stripe-webhook.js catches the same
+ * throw as a failure, which would make Stripe redeliver -- if Stripe ever
+ * sent the event.)
  *
- * @param {object} intent the PaymentIntent from the event
+ * @param {object} intent the PaymentIntent, from the sweep's list
  * @param {object} env    needs STRIPE_SECRET_KEY, RESEND_API_KEY; STATE_DB optional
  * @param {object} [ctx]  the Worker execution context, for the settings fetch
  * @returns {Promise<object>} an outcome for the webhook's own log

@@ -265,7 +265,17 @@ summary:focus-visible,
 
 /* overflow-x is a defensive safety net: nothing here should ever be
    wider than the viewport, but this catches the odd overlooked
-   element before it causes an ugly sideways scroll on a phone. */
+   element before it causes an ugly sideways scroll on a phone.
+
+   `html` keeps `hidden` (it propagates to the viewport, which is what clips
+   the sideways scroll). `body` uses `clip`, NOT `hidden`: once html has a
+   non-visible overflow, body's own overflow no longer propagates, so
+   `overflow-x: hidden` there made body a scroll container in its own right
+   (computed `hidden auto`) -- and position: sticky sticks to its nearest
+   scroll container. body never scrolls (it is exactly as tall as its
+   content), so the "sticky" header scrolled away with the page on every
+   viewport. Measured 2026-09-04: header at top -5111px with scrollY 5149.
+   `clip` clips the same overflow without creating a scroll container. */
 html {
   scroll-behavior: smooth;
   overflow-x: hidden;
@@ -295,7 +305,7 @@ html {
 
 body {
   margin: 0;
-  overflow-x: hidden;
+  overflow-x: clip;
   background: var(--ink);
   color: var(--paper);
   font-family: var(--font-body);
@@ -4032,8 +4042,17 @@ hr.rule {
     margin-block: -5px;
   }
 
+  /* Both bars are sticky, so the header sticks BELOW this one, offset by
+     its height, or the two pile up at top:0 and the header hides the bar.
+     This used to say `top: auto` with the note "fixes stacking overlap when
+     both are sticky" -- and it did, by switching the header's stickiness off
+     entirely: a sticky element with no inset never sticks. From fbf9b1d
+     (2026-09-03) until this fix the site header scrolled away with the page
+     on every page that carries the bar, which main.js gives to all of them.
+     main.js keeps --announcement-h at the bar's measured height; the token's
+     definition next to the no-bar margin rule carries the fallback. */
   & + .site-header {
-    top: auto; /* Fixes stacking overlap when both are sticky */
+    top: var(--announcement-h);
   }
 }
 
@@ -8541,18 +8560,41 @@ a.pdp-ritual-item-name:focus-visible {
    leaves a blank strip -- both are set today (content.json
    site.announcement.enabled, products.json shop.freeShippingThreshold),
    and a browser without :has() support simply keeps the old behaviour. */
-body:not(:has(.announcement-bar)) .site-header {
-  margin-top: 61px;
+/* The bar's height. Two rules read it: the blank strip below stands in for
+   a missing bar, and `.announcement-bar + .site-header` sticks the header
+   this far down so it sits under the bar instead of on top of it. Wherever a
+   bar exists, main.js (syncAnnouncementHeight) overwrites this on :root with
+   the bar's MEASURED height and keeps it current, because the real height
+   follows how the copy wraps, not the viewport alone: at 375px the bar is
+   38px on shop.html and 61px on index.html. These literals are what a no-JS
+   visitor gets, and what the no-bar strip uses (nothing to measure there);
+   they are the bar's usual heights at each breakpoint. */
+:root {
+  --announcement-h: 61px;
 }
 @media (min-width: 376px) {
-  body:not(:has(.announcement-bar)) .site-header {
-    margin-top: 46px;
+  :root {
+    --announcement-h: 46px;
   }
 }
 @media (min-width: 712px) {
-  body:not(:has(.announcement-bar)) .site-header {
-    margin-top: 38px;
+  :root {
+    --announcement-h: 38px;
   }
+}
+body:not(:has(.announcement-bar)) .site-header {
+  margin-top: var(--announcement-h);
+}
+
+/* Now that the chrome really sticks, an in-page jump (#pdpReviews from the
+   review email, an FAQ link, a skip link) must land below it, not under it.
+   80px covers the header at every width measured (73px desktop, 65px phone)
+   with a little to spare; the bar's own height is added only when it exists. */
+html {
+  scroll-padding-top: 80px;
+}
+html:has(.announcement-bar) {
+  scroll-padding-top: calc(var(--announcement-h) + 80px);
 }
 
 /* --- 2. shop.html toolbar -------------------------------------------
@@ -8942,10 +8984,7 @@ body:not(:has(.announcement-bar)) .site-header {
 }
 @font-face {
   font-family: "DM Sans Fallback";
-  src:
-    local("Arial"),
-    local("Helvetica Neue"),
-    local("Liberation Sans");
+  src: local("Arial"), local("Helvetica Neue"), local("Liberation Sans");
   size-adjust: 100.26%;
   ascent-override: 99%;
   descent-override: 31%;
@@ -8953,10 +8992,7 @@ body:not(:has(.announcement-bar)) .site-header {
 }
 @font-face {
   font-family: "Gloock Fallback";
-  src:
-    local("Georgia"),
-    local("Times New Roman"),
-    local("Liberation Serif");
+  src: local("Georgia"), local("Times New Roman"), local("Liberation Serif");
   size-adjust: 97.84%;
   ascent-override: 98%;
   descent-override: 23%;
@@ -8972,8 +9008,8 @@ body:not(:has(.announcement-bar)) .site-header {
 :root {
   --font-display: "CleanAmpersand", "Gloock", "Gloock Fallback", "Georgia", serif;
   --font-body:
-    "CleanAmpersand", "DM Sans", "DM Sans Fallback", -apple-system, BlinkMacSystemFont,
-    "Segoe UI", sans-serif;
+    "CleanAmpersand", "DM Sans", "DM Sans Fallback", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
 }
 
 /* =====================================================================
