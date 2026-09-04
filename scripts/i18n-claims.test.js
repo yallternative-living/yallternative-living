@@ -182,6 +182,207 @@ CODES.slice(1).forEach((code) => {
   );
 }
 
+/* ---------------------------------------------------------------------------
+   1b. The 2026-09-04 research brief's translation rules (§7(d)).
+
+   Three of the four are word rules and are pinned here in both directions. The
+   fourth -- never render a hedge as a promise -- is a prompt rule, because a
+   dropped hedge leaves no string to search for; it is pinned at the bottom by
+   asserting the model is actually told about it.
+   --------------------------------------------------------------------------- */
+{
+  /* (1) A symptom must never come back as a condition. One pin per locale,
+     using the brief's own example: "rough, dry patches" is not eczema. */
+  const symptomEnglish = "A balm for rough, dry patches after a long week.";
+  const inventedCondition = {
+    es: "Un bálsamo para el eccema después de una semana larga.",
+    de: "Ein Balsam gegen Ekzem nach einer langen Woche.",
+    fr: "Un baume contre l'eczéma après une longue semaine.",
+    ja: "長い一週間のあとの湿疹のためのバーム。",
+    zh: "漫长一周后用于湿疹的膏。"
+  };
+  Object.keys(inventedCondition).forEach((code) => {
+    const offenses = claimRules.claimOffenses({
+      key: "test.synthetic",
+      code: code,
+      english: symptomEnglish,
+      translated: inventedCondition[code],
+      protectedTerms: protectedTerms
+    });
+    assert(
+      offenses.length >= 1,
+      "a condition name invented in " + code + " is an offence",
+      JSON.stringify(inventedCondition[code])
+    );
+  });
+
+  /* No English licenses a condition name -- not even English that names the
+     condition, because the owner's own copy may not name one either. */
+  assert(
+    claimRules.claimOffenses({
+      key: "test.synthetic",
+      code: "de",
+      english: "Clinically shown to help with eczema and psoriasis.",
+      translated: "Hilft bei Ekzem und Psoriasis.",
+      protectedTerms: protectedTerms
+    }).length === 2,
+    "condition names are licensed by nothing, including by English that says them"
+  );
+
+  /* The one exception, and its limit: the injury family is licensed by an
+     English broken-skin caution and by nothing else. */
+  assert(
+    claimRules.claimOffenses({
+      key: "test.synthetic",
+      code: "fr",
+      english: "For external use only. Keep away from eyes and broken skin.",
+      translated: "Usage externe uniquement. Tenir à l'écart des yeux et des plaies.",
+      protectedTerms: protectedTerms
+    }).length === 0,
+    "'broken skin' in an English caution licenses 'plaies' in the French caution"
+  );
+  assert(
+    claimRules.claimOffenses({
+      key: "test.synthetic",
+      code: "fr",
+      english: "A balm for hardworking hands.",
+      translated: "Un baume pour les plaies des mains.",
+      protectedTerms: protectedTerms
+    }).length === 1,
+    "and an invented wound is still an offence where the English warns of nothing"
+  );
+
+  /* (2) The regulated register: treatment verbs the brief names. */
+  assert(
+    claimRules.claimOffenses({
+      key: "test.synthetic",
+      code: "fr",
+      english: "A balm for hardworking hands.",
+      translated: "Un baume pour soigner les mains.",
+      protectedTerms: protectedTerms
+    }).length === 1,
+    "fr 'soigner' is an offence against English that treats nothing"
+  );
+  assert(
+    claimRules.claimOffenses({
+      key: "test.synthetic",
+      code: "ja",
+      english: "A balm for hardworking hands.",
+      translated: "手の乾燥に効く、治すバーム。",
+      protectedTerms: protectedTerms
+    }).length === 2,
+    "ja 効く and 治す are both offences against English that promises neither"
+  );
+  /* The audit's two original findings must still fail, in both directions. */
+  assert(
+    claimRules.claimOffenses({
+      key: "test.synthetic",
+      code: "de",
+      english: "Herbal goods for people who like plants.",
+      translated: "Kräuterheilmittel für Pflanzenmenschen.",
+      protectedTerms: protectedTerms
+    }).length === 1,
+    "Kräuterheilmittel is still banned after the table grew"
+  );
+  assert(
+    claimRules.claimOffenses({
+      key: "test.synthetic",
+      code: "zh",
+      english: "Made in small batches.",
+      translated: "让您安心使用。",
+      protectedTerms: protectedTerms
+    }).length === 1,
+    "安心 is still banned in zh after the table grew"
+  );
+
+  /* (3) EU/UK claims, licensed by nothing, in every locale. */
+  const euClaim = {
+    es: "Hipoalergénico y probado dermatológicamente, sin parabenos.",
+    de: "Hypoallergen und dermatologisch getestet, ohne Parabene.",
+    fr: "Hypoallergénique et testé dermatologiquement, sans parabènes.",
+    ja: "低アレルギー、皮膚科テスト済み、パラベンフリー。",
+    zh: "低敏，皮肤科测试，不含对羟基苯甲酸酯。"
+  };
+  Object.keys(euClaim).forEach((code) => {
+    const offenses = claimRules.claimOffenses({
+      key: "test.synthetic",
+      code: code,
+      english: "Hypoallergenic, dermatologically tested and free from parabens.",
+      translated: euClaim[code],
+      protectedTerms: protectedTerms
+    });
+    assert(
+      offenses.length >= 3,
+      "EU/UK claims are offences in " + code + " even when the English makes them",
+      JSON.stringify(offenses)
+    );
+  });
+  assert(
+    claimRules.claimOffenses({
+      key: "test.synthetic",
+      code: "fr",
+      english: "A clean formulation.",
+      translated: "Une formulation clean.",
+      protectedTerms: protectedTerms
+    }).length === 1,
+    "« formulation clean » is an offence -- DGCCRF lists it as an unlawful claim"
+  );
+
+  /* The container list: substring bans must not fire inside innocent words, or
+     the gate becomes the thing somebody switches off. */
+  const innocent = [
+    ["de", "Ein wunderbarer, wundervoller Balsam.", "wunderbar does not contain a wound"],
+    ["es", "Una vela oscura y una manicura.", "oscura/manicura do not contain a cure"],
+    ["ja", "髪を傷めない処方です。", "傷める is damage, not a wound"],
+    ["fr", "Un nettoyant doux -- a gentle cleanser.", "cleanser is not a 'clean' claim"]
+  ];
+  innocent.forEach((row) => {
+    assert(
+      claimRules.claimOffenses({
+        key: "test.synthetic",
+        code: row[0],
+        english: "A wonderful balm, a dark candle, a manicure, a gentle cleanser.",
+        translated: row[1],
+        protectedTerms: protectedTerms
+      }).length === 0,
+      "no false positive [" + row[0] + "]: " + row[2],
+      JSON.stringify(row[1])
+    );
+  });
+  /* ...but the claim inside the innocent word still trips. */
+  assert(
+    claimRules.claimOffenses({
+      key: "test.synthetic",
+      code: "de",
+      english: "A balm for hardworking hands.",
+      translated: "Ein Wundermittel für die Hände.",
+      protectedTerms: protectedTerms
+    }).length === 1,
+    "'Wundermittel' is a claim and is NOT excused by the wunder- container list"
+  );
+
+  /* (4) The hedge rule is a prompt rule. Pin that the model is told, and that
+     the generated fragment still carries the word list it is appended to. */
+  CODES.slice(1).forEach((code) => {
+    const fragment = claimRules.claimPromptFragment(code);
+    assert(
+      /hedge/i.test(fragment),
+      "the " + code + " prompt tells the model not to render a hedge as a promise"
+    );
+    assert(
+      fragment.indexOf("NOT MACHINE-CHECKED") !== -1,
+      "the " + code + " prompt says plainly that the hedge rule is not gated"
+    );
+    (claimRules.CLAIM_WORDS[code] || []).forEach((word) => {
+      assert(
+        fragment.indexOf(JSON.stringify(word)) !== -1,
+        "the " + code + " prompt lists " + word + " for the model",
+        fragment
+      );
+    });
+  });
+}
+
 // ---------------------------------------------------------------------------
 // 2. No INCI binomial anywhere in the UI dictionary.
 // ---------------------------------------------------------------------------
