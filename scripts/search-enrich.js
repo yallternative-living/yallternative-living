@@ -652,10 +652,16 @@ function defaultRunBuild() {
   });
   if (res.error) return { ok: false, error: res.error.message };
   if (res.status === 0) return { ok: true };
+  /* Node prints the message first and then a stack. Keeping the LAST lines
+     would keep the stack and throw away the sentence that says what was wrong,
+     so drop the frames and keep the top of what is left. */
   const detail = String(res.stderr || res.stdout || "")
     .trim()
     .split("\n")
-    .slice(-12)
+    .filter(function (line) {
+      return !/^\s*at\s/.test(line) && !/^Node\.js v/.test(line);
+    })
+    .slice(0, 14)
     .join("\n");
   return { ok: false, error: "scripts/build-site-data.js exited " + res.status + "\n" + detail };
 }
