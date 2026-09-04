@@ -85,8 +85,6 @@ genuinely something to look at.
 
 ---
 
----
-
 ### A note on search words
 
 You do not have to guess what a shopper will type. Fill in **Search keywords**
