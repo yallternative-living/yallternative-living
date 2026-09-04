@@ -437,6 +437,92 @@ function buildSearchSynonyms(defaults, extra) {
   return out;
 }
 
+/* ==== BEGIN search-enrichment merge (scripts/search-enrich.js owns the data) ====
+   assets/data/search-enrichment.json is written by the enrichment bot and by
+   nothing else. It exists so the search index can carry the words a shopper
+   actually types -- "that bug stuff", "stocking stuffer", "post hike",
+   misspellings -- WITHOUT any of them being written back into products.json,
+   which is the owner's file and stays hers.
+
+   Two surfaces, merged in two different places and on two different rules:
+
+     keywords       appended to the product's own `keywords` HERE, in the
+                    search index only. The owner's words come first and win
+                    every tie, so if she later types a word the bot suggested,
+                    hers is the one that survives the dedupe. products.json and
+                    assets/js/products-data.js never see any of this.
+     querySynonyms  merged through buildSearchSynonyms() -- the SAME call
+                    content.json's search.extraSynonyms goes through, so
+                    SEARCH_SYNONYM_BANNED still throws on a bot entry exactly
+                    as it would on one the owner typed. That throw is the last
+                    line of defence and is meant to stay able to veto: the bot
+                    re-runs this build after it writes and restores the
+                    previous file if the build refuses its work.
+
+   A missing or unparseable file is not an error. The site shipped without this
+   file for its whole life; the search index simply falls back to the owner's
+   own keywords. A HALF-WRITTEN one cannot be read here at all -- the bot writes
+   to a temp file and renames. */
+const SEARCH_ENRICHMENT_PATH = "assets/data/search-enrichment.json";
+
+function readSearchEnrichment(relPath) {
+  const full = path.join(ROOT, relPath || SEARCH_ENRICHMENT_PATH);
+  let raw;
+  try {
+    raw = fs.readFileSync(full, "utf8");
+  } catch {
+    return {};
+  }
+  try {
+    const doc = JSON.parse(raw);
+    return doc && typeof doc === "object" && !Array.isArray(doc) ? doc : {};
+  } catch (e) {
+    console.warn(
+      "[build] " +
+        (relPath || SEARCH_ENRICHMENT_PATH) +
+        " is not valid JSON -- ignoring it and using only the owner's own keywords. (" +
+        e.message +
+        ")"
+    );
+    return {};
+  }
+}
+
+/** Owner's keywords first, then the bot's, case-insensitively deduped. */
+function mergeEnrichedKeywords(ownKeywords, botKeywords) {
+  const out = [];
+  const seen = new Set();
+  [Array.isArray(ownKeywords) ? ownKeywords : [], Array.isArray(botKeywords) ? botKeywords : []]
+    .reduce(function (a, b) {
+      return a.concat(b);
+    }, [])
+    .forEach(function (k) {
+      if (typeof k !== "string") return;
+      const trimmed = k.trim();
+      const key = trimmed.toLowerCase();
+      if (!trimmed || seen.has(key)) return;
+      seen.add(key);
+      out.push(trimmed);
+    });
+  return out;
+}
+
+/** Every product's querySynonyms, flattened into the extraSynonyms shape. */
+function enrichedQuerySynonyms(enrichment, productIds) {
+  const live = productIds ? new Set(productIds) : null;
+  const out = [];
+  Object.keys(enrichment || {}).forEach(function (id) {
+    if (live && !live.has(id)) return;
+    const entries = (enrichment[id] || {}).querySynonyms;
+    if (!Array.isArray(entries)) return;
+    entries.forEach(function (entry) {
+      out.push(entry);
+    });
+  });
+  return out;
+}
+/* ==== END search-enrichment merge ==== */
+
 /* Render one FAQ answer: HTML-escape first, then turn [text](url) into a
    real link with the URL run through safeLinkUrl(). A javascript: URL used
    to be emitted verbatim here (Low finding in the audit -- only the CSP
@@ -2175,6 +2261,9 @@ function buildSiteData() {
   writeFile("assets/js/locales-data.js", localesDataJs);
 
   /* ---------- assets/js/search-data.js (Global Search Index) ---------- */
+  /* ==== BEGIN search-enrichment merge ==== */
+  const SEARCH_ENRICHMENT = readSearchEnrichment(SEARCH_ENRICHMENT_PATH);
+  /* ==== END search-enrichment merge ==== */
   const searchProducts = PRODUCTS.map(function (p) {
     return {
       id: p.id,
@@ -2195,7 +2284,9 @@ function buildSiteData() {
       scent: p.scent || "",
       tags: Array.isArray(p.tags) ? p.tags : [],
       concerns: Array.isArray(p.concerns) ? p.concerns : [],
-      keywords: Array.isArray(p.keywords) ? p.keywords : [],
+      /* ==== BEGIN search-enrichment merge: owner first, bot appended ==== */
+      keywords: mergeEnrichedKeywords(p.keywords, (SEARCH_ENRICHMENT[p.id] || {}).keywords),
+      /* ==== END search-enrichment merge ==== */
       variants: p.variants || null,
       pairsWith: Array.isArray(p.pairsWith) ? p.pairsWith : [],
       ritualTitle: p.ritualTitle || "",
@@ -2838,10 +2929,36 @@ function buildSiteData() {
     goth: ["gothic", "southern gothic", "punk", "emo", "alternative", "moody", "edgy", "dark"]
   };
 
-  const searchSynonyms = buildSearchSynonyms(
+  /* ==== BEGIN search-enrichment merge ====
+     Two passes of the SAME function, owner first so her terms lead every key
+     and the bot only ever appends. The second pass is what makes the banned-word
+     guard apply to the bot exactly as it applies to the CMS; the try/catch only
+     renames the file in the message, and rethrows. */
+  const ownerSynonyms = buildSearchSynonyms(
     searchSynonymDefaults,
     (CONTENT.search || {}).extraSynonyms
   );
+  let searchSynonyms;
+  try {
+    searchSynonyms = buildSearchSynonyms(
+      ownerSynonyms,
+      enrichedQuerySynonyms(
+        SEARCH_ENRICHMENT,
+        PRODUCTS.map(function (p) {
+          return p.id;
+        })
+      )
+    );
+  } catch (e) {
+    throw new Error(
+      SEARCH_ENRICHMENT_PATH +
+        " carries a query synonym this build refuses: " +
+        e.message +
+        "\n        That file is generated by scripts/search-enrich.js -- fix the rule in" +
+        "\n        scripts/lib/search-enrichment-rules.js, or delete the entry and re-run the bot."
+    );
+  }
+  /* ==== END search-enrichment merge ==== */
 
   const searchIndex = {
     version: "2026.09.01",
@@ -7311,6 +7428,13 @@ if (typeof module !== "undefined" && module.exports) {
     getSearchConfig: getSearchConfig,
     renderSearchChipsHtml: renderSearchChipsHtml,
     buildSearchSynonyms: buildSearchSynonyms,
+    SEARCH_SYNONYM_BANNED: SEARCH_SYNONYM_BANNED,
+    /* ==== BEGIN search-enrichment merge ==== */
+    SEARCH_ENRICHMENT_PATH: SEARCH_ENRICHMENT_PATH,
+    readSearchEnrichment: readSearchEnrichment,
+    mergeEnrichedKeywords: mergeEnrichedKeywords,
+    enrichedQuerySynonyms: enrichedQuerySynonyms,
+    /* ==== END search-enrichment merge ==== */
     resolveSafetyNotes: resolveSafetyNotes,
     readJson: readJson,
     readText: readText,
