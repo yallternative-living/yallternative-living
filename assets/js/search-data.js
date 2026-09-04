@@ -1729,7 +1729,6 @@ window.YL_SEARCH_INDEX = {
     "beeswax": [
       "cera alba",
       "wax",
-      "natural wax",
       "honeycomb"
     ],
     "peppermint": [
@@ -1919,8 +1918,6 @@ window.YL_SEARCH_INDEX = {
       "unscented",
       "fragrance free",
       "allergy",
-      "hypoallergenic",
-      "baby safe",
       "gentle",
       "pure"
     ],
@@ -2174,8 +2171,6 @@ window.YL_SEARCH_INDEX = {
       "no scent",
       "no fragrance",
       "plain",
-      "family safe",
-      "kid safe",
       "kids",
       "babies",
       "sensitive"
@@ -2219,7 +2214,6 @@ window.YL_SEARCH_INDEX = {
     ],
     "deodorant": [
       "deoderant",
-      "natural deodorant",
       "cream deodorant",
       "aluminum free",
       "aluminium free",
@@ -2273,7 +2267,6 @@ window.YL_SEARCH_INDEX = {
       "petals"
     ],
     "fresh": [
-      "clean",
       "crisp",
       "rain",
       "airy",

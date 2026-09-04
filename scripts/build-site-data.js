@@ -2420,7 +2420,7 @@ function buildSiteData() {
       "body butter",
       "moisture"
     ],
-    beeswax: ["cera alba", "wax", "natural wax", "honeycomb"],
+    beeswax: ["cera alba", "wax", "honeycomb"],
     peppermint: ["mint", "mentha piperita", "cooling mint", "pepermint"],
     eucalyptus: ["eucalypt", "blue gum", "eucalyptus oil"],
     citronella: ["citronela", "cymbopogon", "fever grass", "lemon grass", "lemongrass", "bug"],
@@ -2565,16 +2565,12 @@ function buildSiteData() {
       "backyard",
       "summer nights"
     ],
-    sensitive_skin: [
-      "sensitive skin",
-      "unscented",
-      "fragrance free",
-      "allergy",
-      "hypoallergenic",
-      "baby safe",
-      "gentle",
-      "pure"
-    ],
+    // No "hypoallergenic" and no "baby safe": both are substantiation claims
+    // (brief 7(g) -- Technical Document Annex IV rules the first out for an
+    // essential-oil line outright), and a synonym entry would map them onto
+    // these products in a shipped file. "sensitive skin" and "gentle" are
+    // the lay words shoppers actually type.
+    sensitive_skin: ["sensitive skin", "unscented", "fragrance free", "allergy", "gentle", "pure"],
     gift_cards: [
       "gift card",
       "gift certificate",
@@ -2840,8 +2836,6 @@ function buildSiteData() {
       "no scent",
       "no fragrance",
       "plain",
-      "family safe",
-      "kid safe",
       "kids",
       "babies",
       "sensitive"
@@ -2886,7 +2880,6 @@ function buildSiteData() {
 
     deodorant: [
       "deoderant",
-      "natural deodorant",
       "cream deodorant",
       "aluminum free",
       "aluminium free",
@@ -2914,7 +2907,10 @@ function buildSiteData() {
     ],
     woodsy: ["woody", "woods", "forest", "pine", "earthy", "cabin", "campfire", "herbal", "green"],
     floral: ["flowery", "flowers", "rose", "jasmine", "meadow", "botanical", "petals"],
-    fresh: ["clean", "crisp", "rain", "airy", "light scent", "subtle"],
+    // "clean" left out on purpose: as a scent word it is harmless, but the
+    // same string is the "clean formulation" claim DGCCRF lists as unlawful
+    // (brief 7(g)), and a shipped table cannot tell the two senses apart.
+    fresh: ["crisp", "rain", "airy", "light scent", "subtle"],
 
     // Tier 5: brand and place words shoppers use
     southern: [
@@ -2994,6 +2990,15 @@ function buildSiteData() {
      resolves cleanly. */
   const searchRules = require("./lib/search-enrichment-rules.js");
   const medicalQueryTerms = searchRules.medicalQueryTermList();
+  // "clean" and the "safe" family are not in the rules module list (they are
+  // not enrichment vocabulary), but the brief's matrix marks both NEVER on the
+  // query side, so the merged table refuses them here too.
+  const substantiationWords = (searchRules.SUBSTANTIATION_WORDS || []).concat([
+    "clean",
+    "safe",
+    "baby safe",
+    "baby-safe"
+  ]);
   if (
     !Array.isArray(medicalQueryTerms) ||
     !medicalQueryTerms.length ||
@@ -3042,6 +3047,23 @@ function buildSiteData() {
             '".\n        A medicalQueryTerms word maps to NO product (brief 7(b), 7(c)); a synonym' +
             "\n        entry maps it to one. Drop the word, or move it out of MEDICAL_QUERY_TERMS" +
             "\n        in scripts/lib/search-enrichment-rules.js -- not both."
+        );
+      });
+      /* Substantiation claims are not router words (they name no disease, so
+         a shopper typing one gets ordinary results), but the brief's word
+         matrix (7(g)) marks every one of them NEVER on the query side: a
+         synonym entry would assert "hypoallergenic" or "non-toxic" ABOUT the
+         products it maps to, in a shipped file, with nothing behind it. */
+      substantiationWords.forEach(function (word) {
+        if (!searchRules.containsPhrase(subject.text, word)) return;
+        throw new Error(
+          "search synonyms: " +
+            key +
+            " " +
+            subject.label +
+            ' carries the substantiation claim "' +
+            word +
+            '" (brief 7(g): never on the query side). Drop the word.'
         );
       });
     });

@@ -6512,15 +6512,9 @@
       // ---- Tier 2: exfoliation intent ----
       ["scrub", "scrubs", "exfoliant", "exfoliate", "exfoliating", "polish"],
       // ---- Tier 2: fragrance-free / sensitive-skin intent ----
-      [
-        "unscented",
-        "fragrance-free",
-        "hypoallergenic",
-        "sensitive",
-        "gentle",
-        "allergy",
-        "baby-safe"
-      ],
+      // No "hypoallergenic"/"baby-safe": substantiation claims (brief 7(g)),
+      // refused in the build's table for the same reason.
+      ["unscented", "fragrance-free", "sensitive", "gentle", "allergy"],
       // ---- Tier 2: gifting intent ----
       [
         "gift",
@@ -6539,7 +6533,7 @@
       ["bourbon", "vanilla"],
       ["citrus", "bright", "citrusy"],
       ["woodsy", "herbal", "woods"],
-      ["fresh", "clean", "crisp"]
+      ["fresh", "crisp"]
     ];
 
     /* CATEGORY_TERMS maps a query phrase (checked against the *raw* query
@@ -6554,7 +6548,6 @@
     var CATEGORY_TERMS = {
       // ---- deodorant ----
       deodorant: ["cream-deodorant"],
-      "natural deodorant": ["cream-deodorant"],
       "aluminum free": ["cream-deodorant"],
       underarm: ["cream-deodorant"],
       // ---- sleep / wind-down ----
