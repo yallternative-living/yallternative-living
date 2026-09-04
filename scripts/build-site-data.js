@@ -747,6 +747,14 @@ function validateDictionaryCoverage(locales, runtimeManifest, basisDoc) {
       return !Object.prototype.hasOwnProperty.call(enPhrases, k);
     });
     if (missing.length) {
+      /* The `auto.` prefix is minted by scripts/i18n-new-strings.js, so a run
+         of missing auto.* keys is not a mistake -- it is the expected state
+         between discovery and translation, and saying so here is the
+         difference between "the build is broken" and "the next step has not
+         run yet". */
+      const fromDiscovery = missing.filter(function (k) {
+        return k.indexOf("auto.") === 0;
+      });
       problems.push(
         "locale '" +
           lang +
@@ -754,7 +762,13 @@ function validateDictionaryCoverage(locales, runtimeManifest, basisDoc) {
           missing.length +
           " key(s): " +
           missing.slice(0, 12).join(", ") +
-          (missing.length > 12 ? ", ..." : "")
+          (missing.length > 12 ? ", ... (+" + (missing.length - 12) + " more)" : "") +
+          (fromDiscovery.length
+            ? "\n    " +
+              fromDiscovery.length +
+              " of them are auto.* keys that `npm run i18n:new -- --write` just added; " +
+              "the translation step fills them in. Re-run `npm run i18n:new` for the full list."
+            : "")
       );
     }
     if (extra.length) {
@@ -7283,6 +7297,8 @@ if (typeof module !== "undefined" && module.exports) {
     validateDictionaryCoverage: validateDictionaryCoverage,
     IDENTICAL_BY_DESIGN: IDENTICAL_BY_DESIGN,
     decodeHtmlEntities: decodeHtmlEntities,
+    collectBuiltHtml: collectBuiltHtml,
+    digestEnglish: digestEnglish,
     buildSiteData: buildSiteData
   };
 }
