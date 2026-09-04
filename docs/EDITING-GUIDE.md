@@ -49,6 +49,21 @@ Once Steven completes the one-time OAuth app setup (`docs/DEVELOPMENT.md` Sectio
 
 ---
 
+### A note on the other five languages
+
+Your shop shows up in Spanish, German, French, Japanese and Chinese as well as
+English, and you do not have to do anything about it. When you save a change to
+a product name, blurb, description or any other wording in `/admin`, a helper
+runs on its own and writes the five translations within about ten minutes.
+Until it finishes, that one piece of wording simply shows in English to a
+shopper who has picked another language — nothing looks broken and nothing
+needs fixing. If a sentence ever cannot be translated safely (for example, it
+would turn a nice description into a health claim, which the law is strict
+about for skincare), it is left in English on purpose and Steven gets a note
+about it. You never need to translate anything by hand.
+
+---
+
 ### Walkthrough 1: Products, Pricing, Variants & Stock Levels
 
 #### A. Changing a Product's Base Price

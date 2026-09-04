@@ -65,7 +65,12 @@ Here is a quick checklist of the external accounts you'll need to set up for lau
     push; `npm run test:cross-browser` adds Firefox and WebKit.
 
   `TEST_INFRA.md` explains the layout, including why every browser-driven
-  suite is named `*.browser.test.js`.
+  suite is named `*.browser.test.js`, and documents the automatic translation
+  pipeline (`npm run i18n:new` → `npm run i18n:translate` →
+  `.github/workflows/i18n-bot.yml`): what it translates, the deterministic
+  checks a machine translation has to pass before it is written, the
+  environment variables, how to run the whole thing offline with
+  `--provider mock`, and the one-time first-run checklist.
 
 ---
 

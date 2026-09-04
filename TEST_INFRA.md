@@ -233,16 +233,213 @@ the tree on port 8087 -- the same port `reveal-check.js` uses -- falling back
 to an ephemeral one if it is busy. `--base <url>` skips its server entirely and
 renders a copy somebody else is already serving.
 
+## Step 3: the translation step, and the bot that runs the whole thing
+
+`scripts/i18n-translate.js` (`npm run i18n:translate`) fills es/de/fr/ja/zh and
+writes all seven files -- `en.json`, the five locales and
+`i18n-translation-basis.json`. Note where the English write happens: HERE, not
+in step 2. `i18n:new --write` still exists and still works, but it appends
+English keys the five locales cannot satisfy yet, which is why the build is red
+between the two steps. Letting the translator write `en.json` means a key
+reaches the dictionary only when its five translations are in hand.
+
+    node scripts/build-site-data.js                     build the site
+    npm run i18n:new -- --json /tmp/report.json         discover + key, writes nothing
+    npm run i18n:translate -- --report /tmp/report.json fill five locales, write seven files
+    node scripts/build-site-data.js                     the gate goes green
+    npm test
+    commit
+
+**Atomicity is the rule everything else serves.** A key is written to all seven
+files or to none of them -- never "English plus the four locales that worked".
+A string whose German fails is not translated into four languages; it is not
+translated, and the site keeps showing the English, because the runtime
+translator falls back on any text it cannot match. Failed strings are listed in
+the JSON summary with the locale and the rule that fired.
+
+**The work set** is the union of three things: NEW (a writable entry in the
+report), MISSING (a key in `en.json` whose value in some locale is absent -- and
+only the missing locales are asked for, so a hand-tuned translation is never
+overwritten), and CHANGED (a key whose English drifted from its basis digest; all
+five are re-translated, which does discard hand-tuning of the superseded
+English, and the commit message says so). ORPHANED `auto.*` keys are removed
+from all six locales and the basis; a hand-authored orphan is reported and never
+deleted.
+
+**Every string is checked before it is written**, deterministically, in
+milliseconds, with no second model reviewing the first: placeholders preserved,
+protected glossary terms verbatim, non-empty, not an English passthrough, length
+ratio inside 0.3x-3.5x, no Traditional character in the Simplified `zh` locale,
+and no claim vocabulary the English does not license. The failure modes that
+matter here are lexical and enumerable, and a grep that fails loudly beats a
+reviewer that passes 99% of the time and teaches the maintainer to trust it.
+
+### Source parity, and why the claims table moved
+
+`scripts/lib/i18n-claims-rules.js` now holds the claims vocabulary that used to
+live inside `scripts/i18n-claims.test.js`. Three things read it -- the test, the
+pre-write check, and the model's own negative constraints, which are GENERATED
+from the same array rather than retyped -- so the prompt, the gate and the
+refusal cannot drift apart while all three report green.
+
+It also adds **source parity**: a banned word is permitted when the key's own
+English contains one of its licensed triggers. The live catalogue says "calms
+the itch underneath" and "buzz off, naturally", so a faithful fr/de/zh rendering
+IS apaise/beruhigt/舒缓 and a faithful ja/zh rendering IS 天然 -- under the old
+rule the honest translation was the one that failed. It is not a loosening: a
+claim the English does not make is still refused in every locale, `安心` and
+`効能`/`疗效`/`功效` are licensed by nothing at all, and protected brand terms
+are stripped from the English before the trigger search, so the product named
+"Y'all Heal Now Miracle Frankincense Salve" cannot license "heilend".
+
+Separately, and independently of the bot: two live blurbs sit on the regulatory
+line. "Calms the itch" and "naturally" are choices about the ENGLISH, and the
+EU/JP/CN rules apply to the English storefront too.
+
+### Where the build gate now warns instead of failing
+
+Rules 1 (reachability) and 4 (basis digest) in `validateDictionaryCoverage` are
+WARNINGS for `auto.*` keys and hard failures for every other key. Rules 2 and 3
+stay hard for all keys.
+
+The case is real and happens on every product edit: the owner saves a blurb in
+the CMS, that commit lands on main, and Netlify builds it BEFORE the bot has
+re-translated. For that one deploy the old English is reachable nowhere and its
+digest is stale, both on the same key, and neither is anybody's mistake. Under
+the old gate that is a failed deploy and a failed-deploy email the owner cannot
+tell apart from a real break. The cost of warning is one deploy cycle showing a
+stale or English string; nothing renders wrong, it renders untranslated. Both
+branches are pinned in `scripts/build-site-data.test.js`.
+
+### The engine, and the environment variables
+
+`scripts/lib/llm.js` is the repo's shared LLM client -- not this bot's private
+one, because more bots are coming. One `fetch` at an OpenAI-shaped
+`/chat/completions` with JSON-schema structured output, so Gemini and Groq
+differ by a base URL and a model id:
+
+    const client = llm.createClient({ provider, models, apiKey, baseUrl, maxCalls });
+    const obj = await client.completeJSON({ system, user, schema, schemaName });
+    client.callsRemaining();   // 0 means the per-run budget is spent
+    client.fallbackWarning();  // null, or the sentence a maintainer must read
+
+| Variable | Default | What it is |
+|---|---|---|
+| `GEMINI_API_KEY` | — | The AI Studio key. Free tier, no billing account. Required unless `--provider mock`. |
+| `GROQ_API_KEY` | — | Optional second vendor (`--provider groq`). |
+| `I18N_MODELS` | `gemini-3.8-flash,gemini-flash-latest` | Comma-separated, first is the one we mean. |
+| `I18N_MAX_CALLS` | `80` | Per-run provider-call cap. 198 keys x 5 locales / 20 per call = 50. |
+| `I18N_BATCH_SIZE` | `20` | Strings per locale per call. |
+| `LLM_MODELS`, `LLM_MAX_CALLS`, `LLM_PROVIDER`, `LLM_BASE_URL`, `LLM_TIMEOUT_MS`, `LLM_MAX_RETRIES` | see `scripts/lib/llm.js` | The shared client's own names; the `I18N_*` ones win for this bot. |
+| `LLM_MOCK_CORRUPT` | — | Test hook. With `--provider mock`, makes the mock drop protected terms from any string containing this substring, which is how the reject-and-drop path is proved offline. |
+
+**The model list is a list on purpose.** `gemini-3.8-flash` is pinned first,
+because a pinned id is the only way to know what produced a given commit.
+`gemini-flash-latest` is last: Google documents it as hot-swapped with every new
+release, so the day the pinned id is retired the bot keeps working instead of
+dying on a 404. It is a survival path, not an upgrade -- the alias can point at
+a preview model whose register differs -- so a run that used it says so in the
+summary, in the step summary, in the commit message and on the tracking issue,
+in the imperative: **re-pin**. Re-pinning is one line of
+`.github/workflows/i18n-bot.yml`.
+
+### Running it locally
+
+    export GEMINI_API_KEY=...            # only for a real run
+    node scripts/build-site-data.js
+    npm run i18n:new -- --json /tmp/report.json > /dev/null
+    npm run i18n:translate -- --report /tmp/report.json
+    node scripts/build-site-data.js && npm test
+
+`--dry-run` does everything except write. `--provider mock` needs no key at all
+and writes obviously-fake `"[de] ..."` values; it is how the pipeline is proved
+end to end offline and what the CI dry run uses. Never commit mock output.
+
+**Recorded proof run, 2026-09-04**, against the real backlog on a clean tree:
+the report's 198 writable NEW entries went through the mock in 50 calls, the
+dictionary went from 515 to 713 keys x 6 locales, `node
+scripts/build-site-data.js` reported the gate GREEN, and `npm test` passed. The
+diff was an append at the end of each of the seven files with all 515 existing
+keys, values, digests and their order untouched, and all six locale files
+sharing one key order. Then, with `LLM_MOCK_CORRUPT` set to a fragment of the
+About-page paragraph so the mock would drop `Y'allternative Living` and
+`Landrum, SC` from it, the same run wrote 197 keys and listed 5 failures (one
+key x five locales, reason "protected term(s) not preserved verbatim"); that key
+was absent from all six locales AND from the basis -- 712 keys, not 713 -- and
+the gate was still green. Both trees were reverted afterwards.
+
+That run also found a real defect and it is worth recording why: the fixture in
+`scripts/i18n-new-strings.test.js` asserted over two REAL page strings as
+translation candidates, and the moment the translator wrote them into `en.json`
+they classified as `in-dictionary` and the suite went red. The bot runs `npm
+test` before it commits, so that would have wedged the pipeline permanently on
+its first successful run. A fixture that has to be a non-candidate cannot be
+made of copy the bot is about to absorb.
+
+### The bot
+
+`.github/workflows/i18n-bot.yml` runs the pipeline on any push to `main` that
+touches a file the CMS writes, plus `workflow_dispatch` with a `dry_run` input
+that defaults to true. The commit step is LAST, so a failing build, gate or test
+run after the translation step has written files aborts the job and the tree
+goes away with the runner -- there is no cleanup path to get wrong. No `[skip
+ci]` and no `[skip netlify]`: Netlify honours both and this push has to deploy.
+
+`.github/actions/setup-site` is Node + `npm ci` + a real Chrome, factored out
+for the next bot. The order is not the obvious one: dependencies first with
+`PUPPETEER_SKIP_DOWNLOAD`, THEN the Puppeteer cache restore, THEN an explicit
+`npx puppeteer browsers install chrome` and a `browsers list` that fails loudly
+-- downloading before the cache restore wastes the cache, and since puppeteer
+25.8.0 a green `npm ci` no longer proves Chrome is on disk. `test.yml` keeps its
+own setup: Playwright engines, two jobs, different browser needs.
+
+Strings the checks refused are filed on ONE tracking issue, found by exact title
+and updated rather than duplicated: key, locale, the rule that fired, the
+English.
+
+### First-run checklist (developer, once)
+
+1. Confirm the repository secret `GEMINI_API_KEY` exists (Settings → Secrets and
+   variables → Actions).
+2. Actions → **i18n bot** → Run workflow, `dry_run` **true**. It translates the
+   ~198-key backlog and commits nothing.
+3. Download the `i18n-dry-run` artifact and read `would-be.diff`,
+   `translate-summary.json` and `would-be.stat`. Check: the diff is an append at
+   the end of each file; nothing in `failed` looks like a rule that is simply
+   wrong; `modelWarning` is null (if it is not, the pinned model is gone --
+   re-pin `I18N_MODELS` before going further); `deferredToNextRun` is 0, or plan
+   for a second run.
+4. Spot-check the Japanese and Chinese by eye. Machine translation quality
+   numbers are all measured on longer, richer text than button labels -- treat
+   them as optimistic upper bounds and budget a human read of ja.
+5. Run it again with `dry_run` **false**. It commits and pushes as
+   `github-actions[bot]`.
+6. **Verify Netlify actually deployed that commit** -- this is the one link in
+   the chain that no GitHub documentation confirms. GitHub does not start a
+   *workflow run* from a `GITHUB_TOKEN` push, and the open question is whether
+   the push *webhook* still fires for third parties. The case that it does is
+   strong (GitHub enumerates its non-Actions suppressions one at a time and
+   spells out a Pages carve-out with no equivalent for webhooks; `GITHUB_TOKEN`
+   is not on the `push` webhook exclusion list; Netlify forum threads have users
+   reporting duplicate builds from Actions commit-backs) but it is circumstantial,
+   at roughly 90% confidence. Settle it empirically: GitHub → Settings →
+   Webhooks → the Netlify hook → Recent Deliveries, and look for a `push` with
+   `sender: github-actions[bot]`. If it did not fire, the fix is a Netlify build
+   hook called from the workflow's last step -- five lines.
+7. Only after step 6 should anyone treat the pipeline as unattended.
+
 ## What is NOT covered, and why that matters
 
 Naming the gaps is part of the contract; a coverage table with a tick in every
 cell is how the last one went wrong.
 
-- **Dictionary coverage itself is not gated.** Nothing asserts that a
-  dictionary entry corresponds to any string on any page, which is why 58% of
-  entries match nothing and coverage sits at 10-21%. The single assertion that
-  would catch it -- "every English dictionary value appears at least once in
-  the built site" -- is not written yet.
+- **~~Dictionary coverage itself is not gated.~~** Fixed: that assertion is
+  now rule 1 of `validateDictionaryCoverage`, and rules 2-4 came with it. What
+  remains uncovered is the number the audit actually cared about -- the SHARE
+  of a rendered page that ends up translated. The gate proves every dictionary
+  entry is reachable; nothing proves the reachable text is mostly in the
+  dictionary. `scripts/i18n-new-strings.js` measures the gap (338 new strings
+  against 515 entries on 2026-09-04) but no suite fails on it.
 - **The language selector's contrast is outside the a11y gate.** Its
   `backdrop-filter` makes axe report 7 nodes as `incomplete` for
   `color-contrast`, and the gate fails only on `violations`.
