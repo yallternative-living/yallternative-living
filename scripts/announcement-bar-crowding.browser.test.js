@@ -148,11 +148,31 @@ async function run() {
         };
       });
       if (width > 1100) {
+        // Two different invariants, because the event name is CMS data and
+        // its length is not ours to assume. Whatever the name, the bar must
+        // stay one line, and if the segment is hidden it must be hidden BY
+        // the crowding logic (is-crowded on), never by accident. Only at the
+        // widest width do we insist the segment is actually visible: that is
+        // the assertion that catches the stuck-on regression above, and it
+        // is the one width where any plausible name fits. Asserting
+        // visibility at 1101px as well is what kept CI red from 2026-09-03
+        // (4391330) onward: with "Autumn Apothecary Faire (Landrum, SC)" on
+        // a Linux runner's fonts, and later with "Boomtown Arts & Heritage
+        // FestAVL (Asheville, NC)" everywhere, the three segments genuinely
+        // do not fit at 1101px -- and the logic hiding the segment there was
+        // doing exactly its job.
         check(
-          `@${width}px: with the real event name the free-shipping segment is visible on one line`,
-          normal.segmentVisible && normal.height < 60,
+          `@${width}px: with the real event name the bar is one line and any hidden segment is hidden by is-crowded`,
+          normal.height < 60 && (normal.segmentVisible || normal.isCrowded),
           `height=${normal.height}px, is-crowded=${normal.isCrowded}, segmentVisible=${normal.segmentVisible}`
         );
+        if (width >= 1440) {
+          check(
+            `@${width}px: with the real event name the free-shipping segment is visible`,
+            normal.segmentVisible,
+            `height=${normal.height}px, is-crowded=${normal.isCrowded}, segmentVisible=${normal.segmentVisible}`
+          );
+        }
       }
 
       // Inject the long name/location a real CMS event could carry, the same
