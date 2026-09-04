@@ -944,3 +944,142 @@ inherits the defence.
 - **Still no API key on this machine.** Every prompt change above is unmeasured
   against a real model; what is proved is that the gate is green on the shipped
   data and that the prompt is generated from the same arrays the gate reads.
+
+## The medical-query router (surface 4)
+
+A shopper types "psoriasis" into a shop that sells body butter. Until 2026-09-04
+she got nothing back, and "wound salve" got the salves on the incidental fact
+that "salve" is a word in their names. The legal brief of that date, section
+7(c), picks a third behaviour over both: **recognise the word, match on nothing,
+and answer inline with a fixed note.**
+
+**The four surfaces, after the brief.** The two the enrichment bot writes are
+unchanged in shape; the third is new and belongs to nobody's model.
+
+| Surface | What it is | Rule |
+|---|---|---|
+| 1. Prose | names, blurbs, filter and category labels, URLs, alt text | cosmetic vocabulary only |
+| 2. `keywords` | published with the product in `assets/js/search-data.js` | identical to prose, no softening — FDA has quoted a `Tags:` list as a claim, and C-657/11 holds invisibility "irrelevant" |
+| 3. `querySynonyms` | rewrites what the shopper typed; rendered nowhere | **lay** symptom and sensory words allowed ("itchy skin", "dry patches", "sore feet", "can't sleep") |
+| 4. `medicalQueryTerms` | 33 named diseases and treatment verbs | maps to **no product**; drives the note; never rendered as a list |
+
+**The TODO closed the other way.** `search-enrichment-rules.js` used to carry a
+`TODO(legal-brief)` proposing that "wound", "infection" and "psoriasis" be
+released onto the query side so the policy would match `SEARCH_SYNONYM_BANNED`.
+Section 7(b) says the opposite: the eleven-word ban list stays **exactly** as it
+is, and those three move to surface 4 instead — with "eczema" and "insomnia",
+which the old policy allowed on the query side while the build refused
+"psoriasis", an asymmetry with no principle behind it.
+`QUERY_SIDE_BLOCKED_BY_BUILD_ONLY` is still computed rather than typed and is
+now empty; the test asserts emptiness, so a word added to the build's list and
+to no list in the rules module still surfaces as a red test rather than as a bot
+refusing something it cannot explain.
+
+**Why surface 4 is exempt from the ban list.** The gate exists to stop a word
+being wired to a product. Nothing on this list is wired to a product: its output
+is a note that denies intended use, which is evidence *for* the seller under 21
+CFR 201.128, not against.
+
+**The constraint that makes it lawful, and where it is enforced.** Section
+7(c)(5) is the strongest sentence in the brief: the list must never be rendered
+as a browsable list, a chip row, a "popular searches" module, a suggestion
+dropdown, a sitemap entry or a static page. Presenting conditions is MHRA
+Appendix 9's *"lists of adverse medical conditions which take a consumer to a
+page displaying a product"*; recognising them is not. Four things enforce it:
+
+- the list is emitted from `scripts/lib/search-enrichment-rules.js`, never from
+  `content.json`, so the CMS cannot grow it;
+- it ships as a flat array of strings with no product ids, concern ids or URLs
+  attached, so it cannot become a disease-to-product mapping in a shipped file;
+- `scripts/search-enrich.test.js` asserts no word in it appears in the popular
+  chips or anywhere in `sitemap.xml`;
+- `scripts/medical-query-router.browser.test.js` asserts no word in it appears
+  in the rendered page text, in a chip, or in the modal's suggestion UI —
+  against a documented allowlist of the words the shop's own copy already says
+  ("heal" from the `Y'all Heal Now` product name; diagnose/treat/cure/medicine
+  from the footer disclaimer and the note itself).
+
+**What the client does.** `assets/js/main.js`, the `MEDICAL-QUERY ROUTER` block.
+`medicalQueryRoute()` tokenises the query the way both engines do (lower case,
+non-alphanumerics become gaps, so "anti-inflammatory" and "anti inflammatory"
+are the same two tokens), matches whole words and phrases, and returns the terms
+found, the query with **only those tokens removed**, and the shelf to link to.
+Both search surfaces call it — the shop grid in `render()` and the global search
+dialog in `triggerSearch()`.
+
+- The note is created in JS and inserted before the results container, so it is
+  in normal flow above the results at full width. FTC's HPCG calls hyperlinked
+  disclosures avoidable and 16 CFR 465.1(c)(4) says a disclosure the reader must
+  click or hover to see is not clear and conspicuous, so the browser suite walks
+  every ancestor of the note asserting none of them is hidden, aria-hidden,
+  `display:none`, `visibility:hidden`, `opacity:0`, a closed `<details>` or a
+  closed `<dialog>`, and that it has real height above the grid.
+- **The `medicalOnly` guard is load-bearing.** An empty query means "match
+  everything" to both engines, so without it a shopper who typed one disease
+  word would have been shown the entire catalogue. With it she is shown none of
+  it, and not the "No Apothecary Items Found" panel either — that panel answers
+  a search that failed, and this search was answered.
+- **Nothing echoes the query.** The count line stops quoting the shopper's words
+  back the moment a medical word is recognised, and both zero-result panels
+  (which name the query in a heading) are replaced by the note. A rendered
+  label is exactly what FDA and the CJEU cite.
+- The shelf link uses the shop's own concern ids — `?concern=dry-skin`,
+  `sleep-relaxation`, `sore-muscles`, `outdoor-defense` — so neither the link
+  text ("start here", always) nor the URL can carry a condition name. A word on
+  the list that matches no shelf still gets the note and lands on the shop's
+  concern row, so an addition to the list can never silently lose its note.
+- A runtime `<meta name="robots" content="noindex">` goes in while a medical
+  query is on screen and comes out when it is not. Two callers can ask for it
+  independently, so it leaves only when neither wants it.
+- `.yl-grid-answered` turns off the `:empty` loading skeleton for the one case
+  where an empty grid is the answer rather than a promise.
+
+**Measured, on the shipped build (2026-09-04):**
+
+| Query | Note | Products | Same as |
+|---|---|---|---|
+| `psoriasis` | yes, dry-skin shelf | 0 tiles, no empty-state panel | — |
+| `wound salve` | yes | 4 | identical list to `salve` |
+| `cure for itchy skin` | yes | 11 | identical list to `itchy skin` |
+| `itchy skin` | **no** | 11 | — |
+| `salve` | **no** | 4 | — |
+
+51 checks in `scripts/medical-query-router.browser.test.js`, plus 413 in
+`scripts/search-enrich.test.js`. `scripts/text-layout.browser.test.js` is green
+with the note rendering, and the note was measured at 320/375/768px: no
+horizontal overflow, no clipping.
+
+### What this does NOT do
+
+- **The note is English in all six locales.** It is declared in
+  `assets/data/i18n-runtime-strings.json` (so the coverage gate re-checks its
+  wording against `main.js` on every build, with every routed variant in
+  `verify`) but it has **no dictionary key**, so `translator.js` falls back to
+  English for it. Giving it a key would mean hand-writing "diagnose, treat, cure
+  or prevent" into five languages — into the same locale files the i18n claims
+  gate is being rewritten around this week — and a legal sentence mistranslated
+  into a regulated register (fr *soigner*, de *heilen*, es *curar*) is a worse
+  outcome than an English one. The follow-up is one key plus five translations
+  plus one re-recorded basis digest, authored with the claims gate rather than
+  around it.
+- **`searchSynonymDefaults` still carries "eczema", "insomnia", "anxiety",
+  "arthritis" and "pain".** They are unreachable in the UI — the router strips
+  those tokens before anything matches — but they are still a disease-to-product
+  mapping inside `assets/js/search-data.js`, which is the artefact section 7(b)
+  warns about. Removing them is a two-line edit that breaks assertions in
+  `semantic-search.test.js`, `global-search.test.js` and
+  `challenger-search-scoring.test.js` (all of which assert `insomnia` →
+  `sleep-salve`, `eczema` → `shea-butter`, `arthritis` → `backroad-soak` at the
+  engine level, below the router). That is a deliberate follow-up commit, not an
+  oversight: those three suites were not this round's files.
+- **The router runs in the UI layer, not in `searchGlobal()`.** Calling the
+  exported search functions directly still matches on a disease word. Nothing a
+  shopper can reach does that, but a future caller could.
+- **"mosquito" and "bites" are still lay query vocabulary.** Section 7(g) would
+  put them, with "tick", on the router alongside "repel"/"repellent". They were
+  left where they were because the instruction for this round named the 33 words
+  above and not those; it is a one-line change to the same array when somebody
+  decides it.
+- **Nothing gates the note's WORDING against the brief.** The runtime manifest
+  proves the string still exists in `main.js`; no test proves it still says what
+  a lawyer approved.

@@ -105,6 +105,25 @@ search words**, which only translate what a shopper typed and are never shown
 anywhere. The site follows the same rule when it adds words for you, and Steven
 gets a list of anything it decided not to add.
 
+### When somebody searches a medical word
+
+Some shoppers will type a condition or a medicine word into the search box —
+"psoriasis", "cure", "pain", "wound salve". You do not have to write anything
+for that, and you should not try to. The site already recognises those words. It
+shows a short note above the results that says we make comfort products, not
+medicines, and that nothing here is meant to diagnose, treat, cure or prevent
+anything, and it points the shopper at the right shelf — dry, rough skin, or
+wind-down, or after a long day — by name, not by condition. Their ordinary words
+still work while it does: "wound salve" still brings back the salves, because
+only the medical word is set aside.
+
+**That list of words is not something to add to.** It is not a menu, it is not
+in your dashboard, and it must never turn into a row of buttons or a "popular
+searches" list with conditions on it. Recognising the word somebody typed is
+fine; offering a list of conditions to click is the thing that would get the
+shop in trouble. If you think a word is missing, tell Steven rather than putting
+it anywhere yourself.
+
 ---
 
 ### Walkthrough 1: Products, Pricing, Variants & Stock Levels
