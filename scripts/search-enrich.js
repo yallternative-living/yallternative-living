@@ -18,16 +18,23 @@
  * scripts/build-site-data.js merges them into the search index only. Her
  * keywords come first and win every tie. Nothing here is ever written back.
  *
- * THE TWO SURFACES are the whole design, and scripts/lib/search-enrichment-rules.js
- * is the policy:
+ * THE TWO SURFACES THIS BOT WRITES are the whole design, and
+ * scripts/lib/search-enrichment-rules.js is the policy:
  *
  *   keywords       PUBLISHED with the product in assets/js/search-data.js.
  *                  Full ban list -- no treatment word, no symptom, no
  *                  condition, no pesticide claim, no unsubstantiated "natural".
  *   querySynonyms  only ever rewrite what the shopper TYPED, and are rendered
- *                  nowhere. Symptom and condition words are WANTED here: a
- *                  shopper who types "eczema" should reach the Dry, Rough Skin
- *                  products rather than an empty page.
+ *                  nowhere. LAY symptom and sensory words are WANTED here: a
+ *                  shopper who types "itchy skin" should reach the Dry, Rough
+ *                  Skin products rather than an empty page.
+ *
+ * A named disease ("eczema", "psoriasis") and a treatment verb are neither. As
+ * of the 2026-09-04 legal brief they belong to a THIRD surface this bot does
+ * not write and cannot grow: MEDICAL_QUERY_TERMS, a fixed list in the rules
+ * module that maps to no product at all and drives a non-claim note in the
+ * client. The prompt tells the model to propose none of them, and the filter
+ * refuses them on both surfaces if it does anyway.
  *
  * That asymmetry is the point, and it is enforced deterministically. There is
  * no second model reviewing the first: every failure mode that matters here is
@@ -308,10 +315,11 @@ function buildUserPayload(group, concerns, categories) {
 
 /**
  * The offline responder. Deliberately crude AND deliberately dirty: it emits
- * plausible items alongside four violations -- a condition word as a keyword, a
- * "cures ..." synonym term, a string over the character cap, and a duplicate of
- * one of the owner's own keywords -- so a proof run with no key exercises the
- * drop paths for real instead of asserting they exist.
+ * plausible items alongside five violations -- a condition word as a keyword, a
+ * "cures ..." synonym term, a named disease proposed as a synonym, a string over
+ * the character cap, and a duplicate of one of the owner's own keywords -- so a
+ * proof run with no key exercises the drop paths for real instead of asserting
+ * they exist.
  */
 function mockResponder(spec) {
   const payload = JSON.parse(spec.user);
@@ -345,9 +353,11 @@ function mockResponder(spec) {
         ],
         querySynonyms: [
           { key: "gift", terms: ["secret santa", "white elephant gift"] },
-          /* VIOLATION 4: a banned term beside a legal symptom word. The symptom
-             word survives -- that asymmetry is the thing being proved. */
-          { key: "dry_skin", terms: ["eczema", "cures itch", "psoriasis flare"] },
+          /* VIOLATIONS 4 and 5: a medicine word and two named diseases, beside a
+             LAY symptom phrase. Only the lay phrase survives -- that asymmetry is
+             the thing being proved, and since the 2026-09-04 brief the diseases
+             fall on the router's side of it, not the synonym table's. */
+          { key: "dry_skin", terms: ["itchy skin", "eczema", "cures itch", "psoriasis flare"] },
           {
             key: "mock_" + (p.category || "shop").replace(/[^a-z0-9]+/g, "_"),
             terms: ["mock " + stem]

@@ -6,11 +6,16 @@
  * one filesystem test writes into os.tmpdir(). Nothing here opens a socket and
  * nothing here writes into the repository.
  *
- * The assertions that matter most are the two-surface ones. "eczema" is a legal
+ * The assertions that matter most are the surface ones. "itchy skin" is a legal
  * query synonym and an illegal published keyword, and if that asymmetry ever
  * collapses in either direction this file goes red: collapse it one way and the
- * shop stops answering the word half its customers type, collapse it the other
- * and the shop publishes a condition word next to a salve.
+ * shop stops answering the words half its customers type, collapse it the other
+ * and the shop publishes a symptom word next to a salve.
+ *
+ * Since the 2026-09-04 legal brief there is a third surface, and its assertions
+ * are the ones to read next: a NAMED DISEASE ("eczema", "psoriasis") is illegal
+ * on both of the bot's surfaces and lives in MEDICAL_QUERY_TERMS, which maps to
+ * no product at all.
  *
  * Three things are held against the SHIPPED repo rather than a fixture, because
  * a fixture would only test the fixture:
@@ -222,15 +227,15 @@ function product(over) {
   const entry = rules.screenSynonymEntry({
     entry: {
       key: "Dry Skin",
-      terms: ["eczema", "insomnia", "sore muscles", "cures itch", "psoriasis flare"]
+      terms: ["itchy skin", "eczema", "insomnia", "sore muscles", "cures itch", "psoriasis flare"]
     }
   });
   assert(entry.ok, "a symptom-word synonym entry survives", entry.reason);
   assertEqual(entry.value.key, "dry_skin", "the key is normalised the way the build normalises it");
   assertDeep(
     entry.value.terms,
-    ["eczema", "insomnia", "sore muscles"],
-    "symptom and condition words are KEPT on the query side"
+    ["itchy skin", "sore muscles"],
+    "LAY symptom words are KEPT on the query side"
   );
   const reasons = entry.dropped.map(function (d) {
     return d.item + ": " + d.reason;
@@ -244,19 +249,88 @@ function product(over) {
   );
   assert(
     entry.dropped.some(function (d) {
-      return d.item === "psoriasis flare" && /SEARCH_SYNONYM_BANNED/.test(d.reason);
+      return d.item === "psoriasis flare" && /medicalQueryTerms/.test(d.reason);
     }),
-    "and a word the BUILD refuses is refused, naming the build",
+    "and a named disease is refused, naming the router it belongs to instead",
+    reasons.join(" | ")
+  );
+  assert(
+    entry.dropped.some(function (d) {
+      return d.item === "eczema" && /maps to no product/.test(d.reason);
+    }),
+    "including the one this file used to assert was KEPT here",
     reasons.join(" | ")
   );
 
-  /* The asymmetry, stated once, in both directions. */
-  ["eczema", "insomnia", "itch", "rash", "pain", "bites", "mosquito", "sore muscles"].forEach(
-    function (word) {
-      assert(!rules.querySideHit(word), "query side allows " + JSON.stringify(word));
-      assert(!!rules.productSideHit(word), "product side refuses " + JSON.stringify(word));
-    }
+  /* The asymmetry, stated once, in both directions. Lay vocabulary only: the
+     named diseases that used to sit in this list are asserted the other way
+     round two blocks below. */
+  ["itchy skin", "itch", "rash", "bites", "mosquito", "sore muscles"].forEach(function (word) {
+    assert(!rules.querySideHit(word), "query side allows " + JSON.stringify(word));
+    assert(!!rules.productSideHit(word), "product side refuses " + JSON.stringify(word));
+  });
+
+  /* Two of the allowed query words are legal on BOTH surfaces, and that is not
+     an oversight: "flaky" and "tired legs" are the exact register the 2026-09-01
+     review told the owner to prefer over "eczema" and "sore muscles". A word
+     being safe to publish does not stop it being worth recognising. */
+  ["flaky", "tired legs"].forEach(function (word) {
+    assert(!rules.querySideHit(word), "query side allows " + JSON.stringify(word));
+    assert(
+      !rules.productSideHit(word),
+      "and so does the product side -- it is preferred prose " + JSON.stringify(word)
+    );
+  });
+
+  /* The router: a named disease or a treatment word is refused on BOTH of the
+     bot's surfaces, and the reason says where it went instead. Brief 7(b). */
+  [
+    "eczema",
+    "psoriasis",
+    "insomnia",
+    "wound",
+    "infection",
+    "pain",
+    "arthritis",
+    "repellent"
+  ].forEach(function (word) {
+    const hit = rules.querySideHit(word);
+    assert(!!hit, "the router word " + JSON.stringify(word) + " is refused on the query side");
+    assert(
+      /medicalQueryTerms/.test(hit.why),
+      "  ...with a reason naming the router",
+      hit && hit.why
+    );
+    assert(!!rules.productSideHit(word), "  ...and on the product side");
+  });
+  rules.MEDICAL_QUERY_TERMS.forEach(function (entry) {
+    assert(
+      typeof entry.term === "string" && entry.term.trim().length > 0,
+      "every router entry has a term"
+    );
+    assert(
+      typeof entry.why === "string" && entry.why.length > 8,
+      "every router entry says why: " + entry.term
+    );
+    assert(
+      typeof entry.brief === "string" && /^7\(/.test(entry.brief),
+      "every router entry cites the brief section that put it there: " + entry.term
+    );
+    assert(!!rules.productSideHit(entry.term), "no router word is ever publishable: " + entry.term);
+  });
+  assertDeep(
+    rules.medicalQueryTermList().slice(0, 3),
+    ["eczema", "psoriasis", "dermatitis"],
+    "the emitted shape is a plain array of strings, in declaration order"
   );
+  ["eczema", "psoriasis", "insomnia"].forEach(function (word) {
+    assert(
+      !rules.QUERY_SIDE_ALLOWED.some(function (a) {
+        return a.term === word;
+      }),
+      JSON.stringify(word) + " is no longer advertised as an allowed synonym"
+    );
+  });
   ["cure", "treats", "treatment", "medicine", "medical", "prescription", "diagnose"].forEach(
     function (word) {
       assert(!!rules.querySideHit(word), "neither side allows " + JSON.stringify(word));
@@ -293,11 +367,14 @@ function product(over) {
   );
   assertDeep(
     rules.QUERY_SIDE_BLOCKED_BY_BUILD_ONLY,
-    ["wound", "infection", "psoriasis"],
-    "the pending reconciliation is exactly the three words the TODO names"
+    [],
+    "nothing is refused by the build alone any more -- the policy names every word it does"
   );
-  /* If this ever fails, the brief has landed and been applied to the build:
-     delete the three words from this expectation and from the TODO together. */
+  /* This was ["wound", "infection", "psoriasis"] until the 2026-09-04 brief
+     closed the TODO by moving them into MEDICAL_QUERY_TERMS rather than by
+     shortening SEARCH_SYNONYM_BANNED. If it ever fills up again, somebody added
+     a word to the build's list and to no list in the rules module, and the bot
+     is now refusing a word for a reason it cannot explain. */
   ["Dry Skin", "post-hike!", "  Bug   Spray  ", "níght"].forEach(function (raw) {
     const mine = rules.normalizeSynonymKey(raw);
     const theirs = Object.keys(
@@ -397,8 +474,20 @@ function product(over) {
     "screenBatch drops the banned synonym term"
   );
   assert(
-    JSON.stringify(entry.querySynonyms).indexOf("eczema") !== -1,
-    "and keeps the condition word on the query side -- the asymmetry, end to end"
+    JSON.stringify(entry.querySynonyms).indexOf("eczema") === -1 &&
+      JSON.stringify(entry.querySynonyms).indexOf("psoriasis") === -1,
+    "and drops the named diseases from the query side too -- they are the router's"
+  );
+  assert(
+    JSON.stringify(entry.querySynonyms).indexOf("itchy skin") !== -1,
+    "while the LAY symptom phrase survives there -- the asymmetry, end to end"
+  );
+  assert(
+    screened.dropped.some(function (d) {
+      return d.item === "eczema" && /medicalQueryTerms/.test(d.reason);
+    }),
+    "and the drop log says where the disease word went instead",
+    JSON.stringify(screened.dropped)
   );
   assert(screened.dropped.length >= 4, "every drop is reported", JSON.stringify(screened.dropped));
   screened.dropped.forEach(function (d) {
@@ -667,6 +756,11 @@ function product(over) {
       ["eczema", "psoriasis", "mosquito", "natural", "heal"].forEach(function (word) {
         assert(fragment.indexOf(word) !== -1, "the prompt names " + word);
       });
+      assert(
+        fragment.indexOf("Named diseases and treatment verbs are NOT synonyms") !== -1 &&
+          fragment.indexOf("NO product") !== -1,
+        "and tells the model that the router words are not synonyms and map to no product"
+      );
       assert(
         fragment.indexOf("PUBLISHED") !== -1 && fragment.indexOf("never displayed") !== -1,
         "and states the two-surface rule in both directions"

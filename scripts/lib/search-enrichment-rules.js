@@ -8,8 +8,8 @@
  * purpose: a legal brief on exactly this line is in progress, and updating it
  * must be an edit to an array, not a patch to a filter.
  *
- * THE TWO SURFACES, AND WHY THEY ARE NOT SYMMETRIC. There are two completely
- * different places a search word can land, and they carry different risk:
+ * THE SURFACES, AND WHY THEY ARE NOT SYMMETRIC. There are three different
+ * places a search word can land, and they carry different risk:
  *
  *   PRODUCT SIDE -- `keywords`, which are PUBLISHED with the product in
  *   assets/js/search-data.js. They ship to every visitor, they are readable in
@@ -22,30 +22,37 @@
  *
  *   QUERY SIDE -- `querySynonyms`, which are merged into the same table
  *   content.json's `search.extraSynonyms` feeds. They only ever rewrite what
- *   the SHOPPER typed before matching, and are never rendered anywhere. A
- *   shopper who types "psoriasis" should land on the Dry, Rough Skin products
- *   rather than on an empty result page, and routing her there is not a claim
- *   that anything treats psoriasis. Interim legal finding backing this: FDA has
- *   said nothing about search terms for cosmetics, and the nearest case law
- *   treats invisible query-side input as inert and visible output as where
- *   liability lives. So the query side gets a MUCH SMALLER list -- only the
- *   words that would read as positioning a product as a medicine even in
- *   metadata -- and symptom/condition words are explicitly ALLOWED.
+ *   the SHOPPER typed before matching, and are never rendered anywhere. What
+ *   makes them defensible is NOT that they "live in the code" -- metatags live
+ *   in the code and FDA cites them routinely, and the CJEU has held that
+ *   invisibility to the shopper is "irrelevant" (C-657/11 para 58). It is that
+ *   a synonym table supplements and explains the SHOPPER, not the article:
+ *   under Kordel v. United States, 335 U.S. 345, 348-351, the test is textual
+ *   and functional, and this table makes no representation about any product.
+ *   So the query side gets a much smaller list -- and LAY symptom and sensory
+ *   vocabulary ("itchy skin", "dry patches", "sore feet", "can't sleep") is
+ *   explicitly ALLOWED there, because that is what shoppers actually type.
  *
- * WHAT THE BUILD ENFORCES, AND WHERE IT DISAGREES WITH THE POLICY ABOVE.
- * scripts/build-site-data.js keeps SEARCH_SYNONYM_BANNED and THROWS on any
- * query-side term containing one of those words. It is imported here rather
- * than copied, because a policy that disagreed with the gate would produce a
- * bot whose output fails the deploy.
+ *   ROUTER -- `MEDICAL_QUERY_TERMS`, added 2026-09-04. Named diseases and
+ *   treatment/structure-function words are NOT synonyms for anything: they map
+ *   to NO product. They are recognised so the site can answer with a fixed
+ *   non-claim note and a cosmetically-named shelf, which is an affirmative
+ *   denial of intended use rather than evidence of one. See the note on that
+ *   array below for the constraint that keeps it lawful.
  *
- * TODO(legal-brief): the build refuses three words on the QUERY side that this
- * policy would allow there -- "wound", "infection" and "psoriasis" (see
- * QUERY_SIDE_BLOCKED_BY_BUILD_ONLY, which is computed, not typed). Until the
- * brief lands, the build wins: the bot refuses them too, with a drop reason
- * that names the conflict, so the tracking issue says exactly what is pending.
- * Reconciling is one commit -- shorten SEARCH_SYNONYM_BANNED in
- * scripts/build-site-data.js to the query-side list below -- and must not be
- * done piecemeal from here.
+ * WHAT THE BUILD ENFORCES. scripts/build-site-data.js keeps
+ * SEARCH_SYNONYM_BANNED and THROWS on any query-side term containing one of
+ * those words. It is imported here rather than copied, because a policy that
+ * disagreed with the gate would produce a bot whose output fails the deploy.
+ *
+ * The TODO that used to sit here proposed releasing "wound", "infection" and
+ * "psoriasis" onto the query side to match the build. The legal brief of
+ * 2026-09-04 closed it the OTHER way (brief section 7(b)): SEARCH_SYNONYM_BANNED
+ * stays exactly as it is, and those three words moved into MEDICAL_QUERY_TERMS
+ * instead -- together with "eczema" and "insomnia", which this policy used to
+ * allow on the query side while the build refused "psoriasis", an asymmetry
+ * with no principle behind it. QUERY_SIDE_BLOCKED_BY_BUILD_ONLY is still
+ * computed rather than typed, and is now empty; its test asserts that.
  *
  * NOTHING IN THIS FILE JUDGES THE OWNER'S OWN WORDS. products.json is hers.
  * Her `keywords` are never filtered, never rewritten and never removed; this
@@ -78,25 +85,157 @@ const QUERY_SIDE_BANNED = [
   { term: "fda approved", why: "a cosmetic is never FDA-approved; the phrase is false on its face" }
 ];
 
-/* Symptom, condition and pest words that ARE allowed on the query side, and
+/* LAY symptom, sensory and pest words that ARE allowed on the query side, and
    the concern vocabulary each is meant to route to. This list is not consulted
    as an allow-list by the filter -- the filter allows anything the banned lists
    do not name -- it exists so the intent is written down, so the prompt can
    show the model what good looks like, and so scripts/search-enrich.test.js can
-   pin the asymmetry (eczema is a legal synonym and an illegal keyword). */
+   pin the asymmetry ("itchy skin" is a legal synonym and an illegal keyword).
+
+   What is NOT here any more: eczema, psoriasis, insomnia, wound, infection and
+   pain. A named disease and a structure-function word are router business now
+   (MEDICAL_QUERY_TERMS below); brief section 7(b) and the matrix in 7(g).
+   "rash" and "itch" stay, because they are what a person says about their own
+   skin rather than a diagnosis, and they carry real traffic. */
 const QUERY_SIDE_ALLOWED = [
-  { term: "eczema", routesTo: "dry-skin" },
-  { term: "psoriasis", routesTo: "dry-skin" },
-  { term: "insomnia", routesTo: "sleep-relaxation" },
-  { term: "sore muscles", routesTo: "sore-muscles" },
+  { term: "itchy skin", routesTo: "dry-skin" },
   { term: "itch", routesTo: "dry-skin" },
   { term: "rash", routesTo: "dry-skin" },
-  { term: "pain", routesTo: "sore-muscles" },
-  { term: "wound", routesTo: "dry-skin" },
-  { term: "infection", routesTo: "dry-skin" },
+  { term: "dry patches", routesTo: "dry-skin" },
+  { term: "flaky", routesTo: "dry-skin" },
+  { term: "rough hands", routesTo: "dry-skin" },
+  { term: "sore feet", routesTo: "sore-muscles" },
+  { term: "sore legs", routesTo: "sore-muscles" },
+  { term: "tired legs", routesTo: "sore-muscles" },
+  { term: "sore muscles", routesTo: "sore-muscles" },
+  { term: "can't sleep", routesTo: "sleep-relaxation" },
   { term: "bites", routesTo: "outdoor-defense" },
   { term: "mosquito", routesTo: "outdoor-defense" }
 ];
+
+/* ---------------------------------------------------------------------------
+   THE ROUTER (surface 4). Named diseases and treatment / structure-function
+   words. Every one of these maps to NO PRODUCT: the client recognises the word,
+   strips it out of the matching query, and renders a fixed note saying we make
+   comfort products and not medicines, above whatever the shopper's remaining
+   ordinary words found on their own. That output is an explicit DENIAL of
+   intended use -- evidence for the seller under 21 CFR 201.128, not against.
+
+   That is also why this list is exempt from SEARCH_SYNONYM_BANNED: the gate
+   exists to stop a word being wired to a product, and nothing here is wired to
+   a product.
+
+   THE ONE CONSTRAINT THAT MATTERS (brief section 7(c)(5), the strongest
+   sentence in the brief): this list must NEVER be rendered as a browsable list,
+   a chip row, a "popular searches" module, a suggestion dropdown, a sitemap
+   entry or a static page. The moment the site PRESENTS these conditions rather
+   than RECOGNISING them, it becomes MHRA Appendix 9's "lists of adverse medical
+   conditions which take a consumer to a page displaying a product". It is
+   sourced from this file and never from content.json for exactly that reason:
+   the CMS must not be able to grow it into a feature.
+
+   `why` is the reason the word is here; `brief` is the section that put it
+   there. Sections cited are of the 2026-09-04 research brief. */
+const MEDICAL_QUERY_TERMS = [
+  {
+    term: "eczema",
+    why: "named disease; 21 CFR 347 reserves the indication to colloidal oatmeal",
+    brief: "7(b), 7(g)"
+  },
+  {
+    term: "psoriasis",
+    why: "named disease; 21 CFR 358 subpart H reserves it to coal tar / salicylic acid",
+    brief: "7(b), 7(g)"
+  },
+  { term: "dermatitis", why: "named disease; 21 CFR 358 subpart H", brief: "7(g)" },
+  { term: "rosacea", why: "named disease, with no OTC monograph in existence", brief: "7(g)" },
+  { term: "acne", why: "named disease; 21 CFR 333 subpart D", brief: "7(g)" },
+  {
+    term: "insomnia",
+    why: "named disease; FDA's aromatherapy guidance reads sleep claims as drug claims",
+    brief: "7(b), 7(g)"
+  },
+  {
+    term: "anxiety",
+    why: 'disease/structure-function; FDA quoted a product\'s "Tags: anxiety" as a claim',
+    brief: "7(g)"
+  },
+  { term: "migraine", why: "named disease", brief: "7(g)" },
+  {
+    term: "arthritis",
+    why: "named disease; FTC took a civil penalty on this exact word (Gravity Defyer)",
+    brief: "7(g)"
+  },
+  {
+    term: "wound",
+    why: "21 USC 321(g)(1)(B); wound care is a 21 CFR 347 skin-protectant indication",
+    brief: "7(b), 7(g)"
+  },
+  {
+    term: "infection",
+    why: "disease; antimicrobial territory, and on Amazon's disease list",
+    brief: "7(b), 7(g)"
+  },
+  { term: "pain", why: "an external-analgesic drug indication", brief: "7(g)" },
+  { term: "inflammation", why: "structure-function claim", brief: "7(g)" },
+  { term: "anti-inflammatory", why: "a drug claim on its face", brief: "7(g)" },
+  {
+    term: "antibacterial",
+    why: "drug or pesticide claim; on Amazon's disease list",
+    brief: "7(g)"
+  },
+  { term: "antiseptic", why: "drug claim", brief: "7(g)" },
+  { term: "antifungal", why: "drug claim; on Amazon's disease list", brief: "7(g)" },
+  {
+    term: "heal",
+    why: "21 USC 321(g)(1)(B) concept, in the statute's own vocabulary",
+    brief: "7(g)"
+  },
+  { term: "healing", why: "same as heal", brief: "7(g)" },
+  { term: "cure", why: "statutory verb, 21 USC 321(g)(1)(B)", brief: "7(b), 7(g)" },
+  { term: "cures", why: "statutory verb", brief: "7(b), 7(g)" },
+  {
+    term: "treat",
+    why: 'statutory verb; "intended to treat" is the line itself',
+    brief: "7(b), 7(g)"
+  },
+  { term: "treats", why: "statutory verb", brief: "7(b), 7(g)" },
+  { term: "treatment", why: "statutory noun", brief: "7(b), 7(g)" },
+  { term: "relief", why: "a 21 CFR 347 / 358 monograph verb", brief: "7(g)" },
+  { term: "relieve", why: "monograph verb", brief: "7(g)" },
+  { term: "relieves", why: "monograph verb", brief: "7(g)" },
+  { term: "diagnose", why: "diagnosis is a drug/device intended use", brief: "7(b), 7(g)" },
+  { term: "prescription", why: "asserts a regulated dispensing category", brief: "7(b), 7(g)" },
+  { term: "medicine", why: "positions the product as a medicine", brief: "7(b), 7(g)" },
+  { term: "medical", why: "asserts a medical category", brief: "7(b), 7(g)" },
+  {
+    term: "repel",
+    why: "7 USC 136(u): a repellency claim makes the article a pesticide",
+    brief: "7(g)"
+  },
+  {
+    term: "repellent",
+    why: '7 USC 136(u); 40 CFR 152.15 reaches claims made "by labeling or otherwise"',
+    brief: "7(g)"
+  }
+];
+
+/**
+ * The router's words as a plain array of strings, in declaration order.
+ *
+ * This is what scripts/build-site-data.js emits into the search index bundle,
+ * and it is deliberately the only shape that leaves this file: the client needs
+ * to RECOGNISE these words, and it needs nothing else -- no reasons, no
+ * citations, and above all no product ids. A list with no destinations attached
+ * cannot become a browsable index of conditions by accident.
+ *
+ * @return {!Array<string>}
+ */
+function medicalQueryTermList() {
+  return MEDICAL_QUERY_TERMS.map(function (entry) {
+    return entry.term;
+  });
+}
 
 /* ---------------------------------------------------------------------------
    PRODUCT SIDE. The full list, grouped by the reason it is on it. Every group
@@ -445,29 +584,50 @@ function firstHit(term, list) {
 }
 
 /**
- * The words the BUILD refuses on the query side but this policy would allow.
- * Computed, never typed, so it cannot go stale: the day
- * SEARCH_SYNONYM_BANNED is shortened, this list empties itself and the drop
- * reason it powers stops firing.
+ * The words the BUILD refuses on the query side that this policy does not
+ * refuse itself. Computed, never typed, so it cannot go stale. It was
+ * ["wound", "infection", "psoriasis"] until the 2026-09-04 brief; those three
+ * are now in MEDICAL_QUERY_TERMS, so the policy and the gate agree and this is
+ * EMPTY. Keeping the computation (rather than deleting it) is what makes a
+ * future divergence -- someone adding a word to SEARCH_SYNONYM_BANNED and
+ * nowhere else -- show up in a test instead of in a failed deploy.
  */
 const QUERY_SIDE_BLOCKED_BY_BUILD_ONLY = SEARCH_SYNONYM_BANNED.filter(function (word) {
   const banned = QUERY_SIDE_BANNED.some(function (entry) {
     return entry.term === word;
   });
-  return !banned;
+  const routed = MEDICAL_QUERY_TERMS.some(function (entry) {
+    return entry.term === word;
+  });
+  return !banned && !routed;
 });
 
-/** Query-side rejection = policy list + whatever the build enforces today. */
+/** Router rejection: not a synonym for anything, because it maps to no product. */
+function medicalQueryHit(term) {
+  const hit = firstHit(term, MEDICAL_QUERY_TERMS);
+  if (!hit) return null;
+  return {
+    term: hit.term,
+    why:
+      hit.why +
+      " -- it is a medicalQueryTerms word, handled by the router that maps to no product, " +
+      "and is never a synonym"
+  };
+}
+
+/** Query-side rejection = policy list + the router + whatever the build enforces. */
 function querySideHit(term) {
   const policy = firstHit(term, QUERY_SIDE_BANNED);
   if (policy) return policy;
+  const routed = medicalQueryHit(term);
+  if (routed) return routed;
   const build = firstHit(term, QUERY_SIDE_BLOCKED_BY_BUILD_ONLY);
   if (build) {
     return {
       term: build.term,
       why:
-        "is refused by build-site-data.js SEARCH_SYNONYM_BANNED, which the pending legal " +
-        "brief may relax on the query side -- see TODO(legal-brief) in search-enrichment-rules.js"
+        "is refused by build-site-data.js SEARCH_SYNONYM_BANNED and is named by no list in " +
+        "search-enrichment-rules.js -- add it to QUERY_SIDE_BANNED or MEDICAL_QUERY_TERMS"
     };
   }
   return null;
@@ -628,6 +788,9 @@ function promptFragment() {
   const queryWords = QUERY_SIDE_BANNED.map(function (e) {
     return e.term;
   }).concat(QUERY_SIDE_BLOCKED_BY_BUILD_ONLY);
+  const routerWords = MEDICAL_QUERY_TERMS.map(function (e) {
+    return e.term;
+  });
   return [
     "TWO SURFACES, TWO RULES. This is a cosmetics shop, not a pharmacy.",
     "",
@@ -640,13 +803,17 @@ function promptFragment() {
     }).join("\n"),
     "",
     "2. `querySynonyms` only rewrite what a shopper TYPED and are never displayed, so the",
-    "   symptom and condition words a shopper actually uses ARE wanted here -- " +
+    "   LAY symptom and sensory words a shopper actually uses ARE wanted here -- " +
       QUERY_SIDE_ALLOWED.map(function (a) {
         return a.term;
       }).join(", ") +
       ".",
     "   Never use these, even here: " + queryWords.join(", ") + ".",
-    "   Map that language onto the product's own concern and category vocabulary."
+    "   Named diseases and treatment verbs are NOT synonyms -- do not propose them, here or",
+    "   anywhere: " + routerWords.join(", ") + ".",
+    "   They are handled by a router that maps them to NO product, so proposing one as a",
+    "   synonym would wire a disease word to a salve, which is the one thing this must not do.",
+    "   Map the shopper's language onto the product's own concern and category vocabulary."
   ].join("\n");
 }
 
@@ -656,6 +823,8 @@ module.exports = {
   QUERY_SIDE_BANNED: QUERY_SIDE_BANNED,
   QUERY_SIDE_ALLOWED: QUERY_SIDE_ALLOWED,
   QUERY_SIDE_BLOCKED_BY_BUILD_ONLY: QUERY_SIDE_BLOCKED_BY_BUILD_ONLY,
+  MEDICAL_QUERY_TERMS: MEDICAL_QUERY_TERMS,
+  medicalQueryTermList: medicalQueryTermList,
   PRODUCT_SIDE_BANNED: PRODUCT_SIDE_BANNED,
   TREATMENT_WORDS: TREATMENT_WORDS,
   CONDITION_WORDS: CONDITION_WORDS,
@@ -668,6 +837,7 @@ module.exports = {
   normalizeSynonymKey: normalizeSynonymKey,
   wordsOf: wordsOf,
   containsPhrase: containsPhrase,
+  medicalQueryHit: medicalQueryHit,
   querySideHit: querySideHit,
   productSideHit: productSideHit,
   competitorHit: competitorHit,
