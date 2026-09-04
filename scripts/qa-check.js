@@ -3846,14 +3846,17 @@ section("Milestone 3: CMS Merchandising, Schema Validation & Quiz Integrity");
       );
       var match = cmsText.match(fieldBlockRegex);
       if (!match) return false;
-      return /pattern:\s*\[\s*['"]\^\$?\|?\^https\?:\/\//i.test(match[0]);
+      // Sveltia's built-in URL validation (a real <input type=url> check)
+      // replaced the hand-rolled "^$|^https?://" regex on 2026-09-04.
+      return /\btype:\s*url\b/.test(match[0]);
     });
     if (hasSocial && allSocialGuarded) {
-      ok(
-        "admin/config.yml declares site.social with strict HTTPS regex guards across all 6 channels"
-      );
+      ok("admin/config.yml declares site.social with type: url validation across all 6 channels");
     } else {
-      fail("admin/config.yml", "site.social missing or lacks regex URL pattern guards");
+      fail(
+        "admin/config.yml",
+        "site.social missing or lacks type: url validation on every channel"
+      );
     }
 
     // ritualDefaults schema

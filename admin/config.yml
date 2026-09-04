@@ -100,6 +100,12 @@ logo_url: /assets/img/logo.png
 # .replace(/^\/+/, "") in scripts/build-site-data.js -- so a CMS-uploaded
 # "/assets/img/x.jpg" can't produce a double-slash "domain.com//assets/img" URL,
 # even though existing hand-entered paths are relative "assets/img/x.jpg".)
+# A Journal post's file name -- made from its title -- IS its public URL, and
+# it cannot change later without breaking links. Strip accents so "Café" gives
+# cafe rather than caf. New posts only; existing files are untouched.
+slug:
+  clean_accents: true
+
 media_folder: /assets/img
 public_folder: /assets/img
 
@@ -190,6 +196,9 @@ collections:
       - name: content
         label: "Post text"
         widget: markdown
+        # Rich text only: the "Raw" Markdown tab is one more thing to wonder
+        # about, and nothing it can do is missing from the toolbar below.
+        modes: [rich_text]
         buttons:
           [bold, italic, link, heading-two, heading-three, bulleted-list, numbered-list]
         editor_components: []
@@ -247,7 +256,7 @@ singletons:
         comment: "Your whole shop: products and prices, multi-buy deals, category sales, gift bundles and the FAQ. Click an item to edit it or 'Add' to create one; Save publishes in a few minutes."
         fields:
           - { name: name, label: "Shop name", widget: string }
-          - { name: etsyShopUrl, label: "Etsy shop link", widget: string }
+          - { name: etsyShopUrl, label: "Etsy shop link", widget: string, type: url }
           - {
               name: rating,
               label: "Etsy star rating",
@@ -671,6 +680,9 @@ singletons:
           - name: etsyUrl
             label: "Etsy listing link"
             widget: string
+            # The build reads the /listing/<id> out of this to match the Etsy
+            # rating snapshot, so a mistyped link fails the deploy. Catch it here.
+            type: url
             required: false
             hint: "Leave blank for gift cards or site-only items."
           - name: rating
@@ -1018,6 +1030,7 @@ singletons:
               name: url,
               label: "Link",
               widget: string,
+              type: url,
               required: false,
               hint: "The event's own page or an info page."
             }
@@ -1058,7 +1071,7 @@ singletons:
           - { name: dateLabel, label: "Date as shown", widget: string, hint: "e.g. June 2026" }
           - { name: location, label: "Location", widget: string, required: false }
           - { name: type, label: "Type", widget: string, required: false }
-          - { name: url, label: "Link", widget: string, required: false }
+          - { name: url, label: "Link", widget: string, type: url, required: false }
           - { name: note, label: "Note", widget: text, required: false }
           # readonly: same event id as "Upcoming pop-ups" above -- carried
           # across on archive, and now build-generated if it's ever blank.
@@ -1234,6 +1247,7 @@ singletons:
               name: url,
               label: "Original post link",
               widget: string,
+              type: url,
               required: false
             }
           # readonly: this id is the post's stable reference key; the build
@@ -1653,56 +1667,44 @@ singletons:
                 label: "Instagram"
                 widget: string
                 required: false
-                pattern:
-                  [
-                    "^$|^https?://.*",
-                    "Must be a valid URL starting with https://, or leave blank."
-                  ]
+                # Sveltia's own URL check (a real <input type=url> behind the
+                # scenes); blank still saves because the field is optional.
+                type: url
               - name: tiktok
                 label: "TikTok"
                 widget: string
                 required: false
-                pattern:
-                  [
-                    "^$|^https?://.*",
-                    "Must be a valid URL starting with https://, or leave blank."
-                  ]
+                # Sveltia's own URL check (a real <input type=url> behind the
+                # scenes); blank still saves because the field is optional.
+                type: url
               - name: facebook
                 label: "Facebook"
                 widget: string
                 required: false
-                pattern:
-                  [
-                    "^$|^https?://.*",
-                    "Must be a valid URL starting with https://, or leave blank."
-                  ]
+                # Sveltia's own URL check (a real <input type=url> behind the
+                # scenes); blank still saves because the field is optional.
+                type: url
               - name: etsy
                 label: "Etsy shop"
                 widget: string
                 required: false
-                pattern:
-                  [
-                    "^$|^https?://.*",
-                    "Must be a valid URL starting with https://, or leave blank."
-                  ]
+                # Sveltia's own URL check (a real <input type=url> behind the
+                # scenes); blank still saves because the field is optional.
+                type: url
               - name: pinterest
                 label: "Pinterest"
                 widget: string
                 required: false
-                pattern:
-                  [
-                    "^$|^https?://.*",
-                    "Must be a valid URL starting with https://, or leave blank."
-                  ]
+                # Sveltia's own URL check (a real <input type=url> behind the
+                # scenes); blank still saves because the field is optional.
+                type: url
               - name: youtube
                 label: "YouTube"
                 widget: string
                 required: false
-                pattern:
-                  [
-                    "^$|^https?://.*",
-                    "Must be a valid URL starting with https://, or leave blank."
-                  ]
+                # Sveltia's own URL check (a real <input type=url> behind the
+                # scenes); blank still saves because the field is optional.
+                type: url
 
           # --- Connection codes (paste once, rarely touched) ------------
           # Hidden on purpose: these are pasted once from another dashboard and
@@ -2041,7 +2043,7 @@ singletons:
               accept: "image/jpeg,image/png",
               hint: "Shown alongside the contact form."
             }
-          - { name: email, label: "Email address", widget: string, required: false }
+          - { name: email, label: "Email address", widget: string, type: email, required: false }
           - {
               name: namePlaceholder,
               label: "Name box — faint example text",
