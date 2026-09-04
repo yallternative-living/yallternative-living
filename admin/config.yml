@@ -528,10 +528,11 @@ singletons:
             label: "Ingredients / materials"
             widget: list
             required: false
+            comment: "Never make up an ingredient."
             hint: >-
               Copy these from this product's own Etsy listing description,
               not Etsy's generic 'Materials' tag (often the same boilerplate
-              across unrelated items). Never make up an ingredient.
+              across unrelated items).
           - name: ingredientsLabel
             label: "Ingredients heading"
             widget: string
