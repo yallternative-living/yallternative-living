@@ -7,7 +7,7 @@ name: i18n bot
 # The pipeline, which is the same one a maintainer runs by hand:
 #   node scripts/build-site-data.js       build, so the new strings are reachable
 #   npm run i18n:new -- --json report     discover + key them (writes nothing)
-#   npm run i18n:translate -- --report    fill es/de/fr/ja/zh, gate every string
+#   npm run i18n:translate -- --report    fill the 8 target locales, gate each
 #   node scripts/build-site-data.js       the four-rule gate must be green again
 #   npm test                              everything else must still pass
 #   commit + push
@@ -18,8 +18,14 @@ name: i18n bot
 # https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#onpushpull_requestpaths
 on:
   # Four times a day: picks up keys an earlier run left behind (a provider
-  # 503 storm, a dead key that has since been fixed). A run with nothing to
-  # do commits nothing.
+  # 503 storm, a dead key that has since been fixed, a batch that timed out).
+  # A run with nothing to do commits nothing.
+  #
+  # --concurrency 8 (below) is one call per target locale in flight. The
+  # locales of a batch are independent calls and the results are applied in a
+  # fixed order, so a concurrent run writes byte-identical files to a serial
+  # one -- pinned by scripts/i18n-translate.test.js. Nine locales made the
+  # serial version take hours.
   schedule:
     - cron: "23 */6 * * *"
   push:
@@ -85,6 +91,12 @@ jobs:
       # On Vertex the AI Studio alias "gemini-flash-latest" does not exist, so
       # the list is the two stable ids; switch LLM_PROVIDER back to gemini and
       # the alias can return.
+      # The pin, then the alias. The alias is reached ONLY when the pinned id
+      # answers like an id that is gone (a 4xx that is not 408/429) -- see
+      # scripts/lib/llm.js. A slow or timed-out call keeps the pin and defers
+      # the keys, because "this batch took too long" is not evidence that
+      # gemini-3.8-flash has been retired, and swapping models mid-run
+      # rewrites the register of every string that follows.
       I18N_MODELS: "gemini-3.8-flash,gemini-3.5-flash"
       # A dry run does everything and commits nothing. `false && x` is false, so
       # a push always evaluates to false and only a manual run can set it.
@@ -141,15 +153,19 @@ jobs:
           # The paid Google Cloud key (Vertex AI express mode) is the provider;
           # GEMINI_API_KEY stays as the one-line fallback (LLM_PROVIDER=gemini).
           LLM_PROVIDER: vertex
-          # Gemini 3.x thinking level (the code default is also high; stated
+          # Gemini 3.x thinking level (the code default is also medium; stated
           # here so the run log shows it). none | minimal | low | medium | high
-          LLM_THINKING: high
+          # Lowered from high on 2026-09-04: measured on claim-bearing copy,
+          # high produced 0 gate failures and 0 claim offences -- and so did
+          # none -- at 2.3-3.6x the latency. See scripts/lib/llm.js.
+          LLM_THINKING: medium
           VERTEX_API_KEY: ${{ secrets.VERTEX_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           node scripts/i18n-translate.js \
             --report "$REPORT_PATH" \
-            --summary "$SUMMARY_PATH" > /dev/null
+            --summary "$SUMMARY_PATH" \
+            --concurrency 8 > /dev/null
 
       # Everything below re-asserts the gates the deploy will run. If any of
       # them fails the job stops here and NOTHING is committed -- the working

@@ -69,21 +69,45 @@ function fixture() {
     "tpl.enlarge": "Enlarge photo of {product}"
   };
   const filled = {
-    "nav.home": { es: "Inicio", de: "Startseite", fr: "Accueil", ja: "ホーム", zh: "首页" },
+    "nav.home": {
+      es: "Inicio",
+      de: "Startseite",
+      fr: "Accueil",
+      ja: "ホーム",
+      zh: "首页",
+      vi: "Trang chủ",
+      ko: "홈",
+      pt: "Início"
+    },
     "pdp.addToCart": {
       es: "Añadir al carrito",
       de: "In den Warenkorb",
       fr: "Ajouter au panier",
       ja: "カートに入れる",
-      zh: "加入购物车"
+      zh: "加入购物车",
+      vi: "Thêm vào giỏ hàng",
+      ko: "장바구니에 담기",
+      pt: "Adicionar ao carrinho"
     },
-    "auto.aTinThatCalms.aaaaaa": { es: "", de: "", fr: "", ja: "", zh: "" },
+    "auto.aTinThatCalms.aaaaaa": {
+      es: "",
+      de: "",
+      fr: "",
+      ja: "",
+      zh: "",
+      vi: "",
+      ko: "",
+      pt: ""
+    },
     "tpl.enlarge": {
       es: "Ampliar foto de {product}",
       de: "",
       fr: "Agrandir la photo de {product}",
       ja: "{product}の写真を拡大",
-      zh: "放大{product}的照片"
+      zh: "放大{product}的照片",
+      vi: "Phóng to ảnh của {product}",
+      ko: "{product} 사진 확대",
+      pt: "Ampliar foto de {product}"
     }
   };
   const localeDocs = {};
@@ -261,6 +285,15 @@ function localePhrasesOf(ctx) {
 // ---------------------------------------------------------------------------
 // 3. Work items: what gets translated, and into which locales.
 // ---------------------------------------------------------------------------
+/* One independent statement of what the target set IS, so the assertions
+   below that read tool.TARGET_LOCALES.length are not both sides of the same
+   coin: truncating the list would otherwise leave every one of them green. */
+assertEqual(
+  tool.TARGET_LOCALES.join(","),
+  "es,de,fr,ja,zh,vi,ko,pt",
+  "the eight target locales, in build order"
+);
+
 {
   const ctx = fixture();
   const work = tool.buildWorkItems({
@@ -285,8 +318,8 @@ function localePhrasesOf(ctx) {
   assert(!byKey["nav.home"], "a fully translated key is not work");
   assertEqual(
     byKey["auto.aTinThatCalms.aaaaaa"].locales.length,
-    5,
-    "a key empty everywhere needs all five"
+    tool.TARGET_LOCALES.length,
+    "a key empty everywhere needs every target locale"
   );
   assertEqual(
     byKey["tpl.enlarge"].locales.join(","),
@@ -319,7 +352,11 @@ function localePhrasesOf(ctx) {
   const changedItem = changedWork.items.filter(function (i) {
     return i.key === "nav.home";
   })[0];
-  assertEqual(changedItem.locales.length, 5, "a CHANGED key is re-translated in all five locales");
+  assertEqual(
+    changedItem.locales.length,
+    tool.TARGET_LOCALES.length,
+    "a CHANGED key is re-translated in every target locale"
+  );
   assertEqual(changedItem.reason, "changed", "and is reported as changed, not as missing");
 
   const orphanWork = tool.buildWorkItems({
@@ -338,6 +375,236 @@ function localePhrasesOf(ctx) {
     orphanWork.orphanReported.join(","),
     "nav.retired",
     "a hand-authored orphan is reported, never deleted"
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 2c. The length rule, which is the only thing between the dictionary and a
+// provider that answers "T" for "Add to Cart".
+//
+// The floor and the ceiling answer different questions. An earlier cut of the
+// short-source fix put ≤12-character sources in their own branch and took the
+// FLOOR off them entirely -- at exactly the length where a stub is likeliest
+// and most visible. These cases are the ones that caught it.
+// ---------------------------------------------------------------------------
+{
+  const check = function (en, translated, locale) {
+    return tool.checkTranslation({
+      key: "k",
+      en: en,
+      translated: translated,
+      locale: locale,
+      protectedTerms: []
+    });
+  };
+
+  /* Stubs, at every length, in every script. All must be refused. */
+  [
+    ["Add to Cart", "T", "vi"],
+    ["Contact Us", "x", "pt"],
+    ["Free Gift", "Q", "de"],
+    ["Home", "H", "es"],
+    ["A long English sentence about this product, at length.", "Corto.", "es"],
+    ["Everything you need to know about our salves and soaks.", "はい", "ja"]
+  ].forEach(function (row) {
+    const reason = check(row[0], row[1], row[2]);
+    assert(
+      reason && reason.indexOf("floor") !== -1,
+      "a truncated " + row[2] + " answer for " + JSON.stringify(row[0]) + " is refused",
+      String(reason)
+    );
+  });
+
+  /* Real translations, including the two shapes that made this rule wrong
+     before: CJK compression and a short source that legitimately expands. */
+  [
+    ["Home", "홈", "ko"],
+    ["Terms of Service", "이용약관", "ko"],
+    ["Home", "ホーム", "ja"],
+    ["Free Gift", "선물", "ko"],
+    ["FAQ", "Preguntas frecuentes", "es"],
+    ["Email", "Correo electrónico", "es"],
+    ["Add to Cart", "Añadir al carrito", "es"],
+    ["Shop", "In den Warenkorb legen", "de"]
+  ].forEach(function (row) {
+    assertEqual(
+      check(row[0], row[1], row[2]),
+      null,
+      JSON.stringify(row[1]) + " [" + row[2] + "] is accepted"
+    );
+  });
+
+  /* The ceiling still exists for sources long enough for a multiple to mean
+     something, and the short-source allowance is an allowance, not a licence. */
+  const runaway = check(
+    "Everything you need to know about our handmade salves.",
+    "x".repeat(300),
+    "de"
+  );
+  assert(
+    runaway && runaway.indexOf("ceiling") !== -1,
+    "a 5x rewrite is still refused",
+    String(runaway)
+  );
+  const bloated = check("Shop", "x".repeat(60), "de");
+  assert(
+    bloated && bloated.indexOf("short source grew") !== -1,
+    "and so is a 60-char 'Shop'",
+    String(bloated)
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 2d. Identical to the English: when that is a passthrough and when it is the
+// only honest answer.
+// ---------------------------------------------------------------------------
+{
+  const check = function (key, en, translated, locale, terms) {
+    return tool.checkTranslation({
+      key: key,
+      en: en,
+      translated: translated,
+      locale: locale,
+      protectedTerms: terms || []
+    });
+  };
+
+  /* The default: identical is a passthrough and is refused. */
+  const passthrough = check("nav.shop", "Shop", "Shop", "pt");
+  assert(
+    passthrough && passthrough.indexOf("passthrough") !== -1,
+    "an identical answer is refused by default",
+    String(passthrough)
+  );
+
+  /* Exception 1: the build's own IDENTICAL_BY_DESIGN table, which is the
+     table the build gate checks rule 3 against. Two gates, one list -- read
+     from build-site-data.js here rather than restated, because a second copy
+     would drift and the drift would show up as a key this gate drops forever
+     while the build fails for missing. */
+  const table = build.IDENTICAL_BY_DESIGN;
+  assert(
+    table && table["search.esc"] && table["search.esc"].es,
+    "the by-design table is exported and populated"
+  );
+  assertEqual(
+    check("search.esc", "ESC", "ESC", "es"),
+    null,
+    "a key/locale ON that table is accepted"
+  );
+  assert(
+    check("search.esc", "ESC", "ESC", "is") !== null,
+    "a locale NOT on that key's entry is still refused"
+  );
+
+  /* Exception 2: a string that is nothing but protected terms. "Landrum, SC"
+     has no other honest translation. What must NOT happen is a sentence
+     sliding through because it happens to mention a brand. */
+  const terms = ["Landrum, SC", "Y'allternative Living", "Porch Sweep Clearing Mist"];
+  assertEqual(
+    check("footer.city", "Landrum, SC", "Landrum, SC", "es", terms),
+    null,
+    "a string that is only a protected term may come back identical"
+  );
+  const sentence = check(
+    "pdp.blurb",
+    "Porch Sweep Clearing Mist is made by hand in small batches.",
+    "Porch Sweep Clearing Mist is made by hand in small batches.",
+    "es",
+    terms
+  );
+  assert(
+    sentence && sentence.indexOf("passthrough") !== -1,
+    "but a SENTENCE mentioning one is still a passthrough",
+    String(sentence)
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 3b. --retranslate: a locale whose style guidance changed.
+//
+// The basis digest records the ENGLISH a translation was authored against, so
+// it cannot notice that LOCALE_GUIDANCE moved underneath a locale -- es went
+// from "neutral international Spanish" to Latin American Spanish written for
+// readers in the US, and every one of its 515 strings was still a faithful
+// translation of unchanged English. The flag is the only way to say so.
+// ---------------------------------------------------------------------------
+{
+  const ctx = fixture();
+  const work = tool.buildWorkItems({
+    report: { new: [], changed: [], orphaned: [] },
+    enPhrases: ctx.enDoc.phrases,
+    localePhrases: localePhrasesOf(ctx),
+    basis: ctx.basisDoc.basis,
+    digestFn: build.digestEnglish,
+    retranslate: ["es"]
+  });
+  const byKey = {};
+  work.items.forEach(function (i) {
+    byKey[i.key] = i;
+  });
+
+  /* nav.home is complete in every locale, so without the flag it is not work
+     at all -- section 3 asserts exactly that on the same fixture. */
+  assert(byKey["nav.home"], "a complete key IS work when its locale is named");
+  assertEqual(byKey["nav.home"].locales.join(","), "es", "and only that locale is asked for");
+  assertEqual(byKey["nav.home"].reason, "restyled", "the reason distinguishes it from missing");
+  assertEqual(byKey["nav.home"].isNew, false, "a restyled key is not a new key");
+
+  /* tpl.enlarge is missing de and present in es. Both belong in the request,
+     de once -- a locale must never be asked for twice in one item, which
+     would have the group ask the provider for the same string twice. */
+  const enlarge = byKey["tpl.enlarge"].locales;
+  assertEqual(
+    enlarge.filter(function (c) {
+      return c === "de";
+    }).length,
+    1,
+    "no locale is listed twice"
+  );
+  assert(
+    enlarge.indexOf("es") !== -1 && enlarge.indexOf("de") !== -1,
+    "missing and restyled locales are both requested"
+  );
+  assertEqual(
+    byKey["tpl.enlarge"].reason,
+    "missing",
+    "a key with a genuine gap still reports missing"
+  );
+
+  /* The untouched locales stay untouched: naming es must not drag fr along. */
+  assert(byKey["nav.home"].locales.indexOf("fr") === -1, "an unnamed locale is left alone");
+
+  const unflagged = tool.buildWorkItems({
+    report: { new: [], changed: [], orphaned: [] },
+    enPhrases: ctx.enDoc.phrases,
+    localePhrases: localePhrasesOf(ctx),
+    basis: ctx.basisDoc.basis,
+    digestFn: build.digestEnglish
+  });
+  assert(
+    !unflagged.items.some(function (i) {
+      return i.key === "nav.home";
+    }),
+    "and without the flag that same key is still not work"
+  );
+
+  assertEqual(
+    tool.parseArgs(["--retranslate", " ES , pt "]).retranslate.join(","),
+    "es,pt",
+    "--retranslate takes a comma list, trimmed and lower-cased"
+  );
+  assertEqual(tool.parseArgs([]).retranslate, null, "no flag means no forced locale");
+  let threw = null;
+  try {
+    tool.parseArgs(["--retranslate", "es,klingon"]);
+  } catch (err) {
+    threw = err.message;
+  }
+  assert(
+    threw && threw.indexOf("klingon") !== -1,
+    "an unknown code is rejected rather than silently ignored",
+    threw
   );
 }
 
@@ -735,8 +1002,129 @@ async function stormPins() {
   assert(!("auto.one.111111" in result.docs.en.phrases), "and nothing was written");
 }
 
+// ---------------------------------------------------------------------------
+// 3c. --concurrency: the same run, faster.
+//
+// The locales of one batch are independent calls, so they can overlap; the
+// results are applied in `codes` order afterwards. What has to be true is
+// that overlapping changes NOTHING about the output -- the dictionaries a
+// concurrent run writes are the ones a serial run would have written -- and
+// that the ceiling is actually a ceiling.
+// ---------------------------------------------------------------------------
+async function concurrencyPins() {
+  const report = {
+    new: [
+      { key: "auto.one.111111", en: "One tin.", defer: null, kind: "text" },
+      { key: "auto.two.222222", en: "Two tins.", defer: null, kind: "text" },
+      { key: "auto.three.333333", en: "Three tins.", defer: null, kind: "text" }
+    ],
+    changed: [],
+    orphaned: []
+  };
+
+  /* Counts what is in flight, and answers slowly enough that a serial run
+     could never show more than one. */
+  function countingClient(peak) {
+    let live = 0;
+    /* A real answer, so the runs PRODUCE something: stubClient() with no
+       answer threw inside completeJSON, every key failed identically in all
+       three arms, and the "byte-identical output" assertions below were
+       comparing three empty dictionaries (hostile review, 2026-09-04). */
+    const client = stubClient(function (payload, item) {
+      return "[" + payload.locale + "] " + item.text;
+    });
+    const inner = client.completeJSON;
+    client.completeJSON = async function (spec) {
+      live++;
+      peak.value = Math.max(peak.value, live);
+      await new Promise(function (r) {
+        setTimeout(r, 5);
+      });
+      try {
+        return await inner(spec);
+      } finally {
+        live--;
+      }
+    };
+    return client;
+  }
+
+  const serialPeak = { value: 0 };
+  const parallelPeak = { value: 0 };
+  const cappedPeak = { value: 0 };
+
+  const serial = await tool.translateAll({
+    ctx: fixture(),
+    report: report,
+    client: countingClient(serialPeak)
+  });
+  const parallel = await tool.translateAll({
+    ctx: fixture(),
+    report: report,
+    client: countingClient(parallelPeak),
+    concurrency: 8
+  });
+  const capped = await tool.translateAll({
+    ctx: fixture(),
+    report: report,
+    client: countingClient(cappedPeak),
+    concurrency: 2
+  });
+
+  /* Assert the runs PRODUCED something before comparing them: three
+     identical empty dictionaries would satisfy every equality below. */
+  /* The fixture has 4 keys and the report adds 3, so a run that did its job
+     writes 7 to every locale; and it accepts 5 -- the 3 new keys plus the 2
+     fixture keys that were incomplete (auto.aTinThatCalms is empty
+     everywhere, tpl.enlarge is missing its German). Stated as numbers rather
+     than derived from the result, so an empty run cannot agree with itself. */
+  assertEqual(
+    Object.keys(serial.docs.locales.es.phrases).length,
+    7,
+    "the serial run wrote all 7 keys to the Spanish dictionary"
+  );
+  assertEqual(Object.keys(serial.accepted).length, 5, "and accepted the 5 keys that needed work");
+
+  assertEqual(serialPeak.value, 1, "the default is still one call at a time");
+  assert(parallelPeak.value > 1, "--concurrency actually overlaps calls", parallelPeak.value);
+  assert(cappedPeak.value <= 2, "and never exceeds the number asked for", cappedPeak.value);
+
+  const shape = function (result) {
+    return JSON.stringify({
+      locales: result.docs.locales,
+      en: result.docs.en,
+      basis: result.docs.basis,
+      failed: result.failed,
+      deferred: result.deferredKeys
+    });
+  };
+  assertEqual(
+    shape(parallel),
+    shape(serial),
+    "a concurrent run writes exactly what a serial run would have written"
+  );
+  assertEqual(shape(capped), shape(serial), "and so does a partially concurrent one");
+
+  assertEqual(
+    tool.parseArgs(["--concurrency", "4"]).concurrency,
+    4,
+    "--concurrency takes a number"
+  );
+  assertEqual(tool.parseArgs([]).concurrency, null, "and defaults to unset");
+  [0, -1, 9, NaN].forEach(function (bad) {
+    let threw = null;
+    try {
+      tool.parseArgs(["--concurrency", String(bad)]);
+    } catch (err) {
+      threw = err.message;
+    }
+    assert(threw, "--concurrency " + bad + " is rejected");
+  });
+}
+
 async function runAll() {
   await runPins();
+  await concurrencyPins();
   await deadKeyPins();
   await stormPins();
 }
@@ -870,7 +1258,11 @@ async function runPins() {
       .map(function (f) {
         return f.reason;
       });
-    assertEqual(reasons.length, 5, "the corrupted key failed in all five locales");
+    assertEqual(
+      reasons.length,
+      tool.TARGET_LOCALES.length,
+      "the corrupted key failed in every target locale"
+    );
     assert(
       reasons[0].indexOf("protected term") !== -1,
       "and the reason names the glossary rule",

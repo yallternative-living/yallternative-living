@@ -1494,8 +1494,8 @@ assert(
       assert(typeof checkoutLocale === "function", "cart.js exports checkoutLocale");
       eq(
         CHECKOUT_LOCALES,
-        ["en", "es", "de", "fr", "ja", "zh"],
-        "checkout locale allow-list is exactly the six languages the picker offers"
+        ["en", "es", "de", "fr", "ja", "zh", "vi", "ko", "pt"],
+        "checkout locale allow-list is exactly the nine languages the picker offers"
       );
 
       const savedTranslator = mockWindow.YL_TRANSLATOR;

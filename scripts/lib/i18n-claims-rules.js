@@ -125,9 +125,14 @@ const CLAIM_WORDS = {
     "dermatológicamente",
     "paraben",
     "alérgen",
+    /* "libre de alergias" is "free of allergies" -- a health outcome, not an
+       ingredient statement. The model produced it to avoid "alérgenos". */
+    "libre de alergias",
     "clean"
   ],
   de: [
+    /* "reizfrei" -- "irritation-free" -- was the German for "allergen-free". */
+    "reizfrei",
     "Heilmittel",
     "heilend",
     "lindert",
@@ -156,6 +161,10 @@ const CLAIM_WORDS = {
     "clean"
   ],
   fr: [
+    /* "sans effet indésirable" -- "no adverse effects" -- is a medical safety
+       guarantee. It was the French for "allergen-free" on 2026-09-04. */
+    "effet indésirable",
+    "effets indésirables",
     "remède",
     "remèdes",
     "guérit",
@@ -241,6 +250,117 @@ const CLAIM_WORDS = {
     "对羟基苯甲酸酯",
     "尼泊金",
     "过敏原",
+    "clean"
+  ],
+  /* vi/ko/pt were added 2026-09-04 with the same three groups. The market
+     that made group (3) unlawful is not where these readers are -- they are
+     in the United States, which is the only place this shop ships -- but a
+     condition name is an intended-use claim under 21 U.S.C. § 321(g)(1)(B)
+     wherever it is written, and an unsubstantiated "hypoallergenic" or
+     "dermatologically tested" is an FTC substantiation problem in English and
+     in translation alike. So group (2) and the substantiation words carry
+     over unchanged, and each medicinal-register word is licensed only by the
+     English verb that would have to be there for it to be honest. */
+  vi: [
+    /* "không lo dị ứng" -- "no allergy worries" -- reassurance, not fact. */
+    "không lo dị ứng",
+    "thuốc",
+    "chữa lành",
+    "chữa trị",
+    "điều trị",
+    "trị liệu",
+    "dược",
+    "y học",
+    "làm dịu",
+    "xoa dịu",
+    "công dụng",
+    "chàm",
+    "vẩy nến",
+    "vảy nến",
+    "viêm da",
+    "mụn trứng cá",
+    "mất ngủ",
+    "lo âu",
+    "đau nửa đầu",
+    "viêm khớp",
+    "nhiễm trùng",
+    "viêm",
+    "đau",
+    "vết thương",
+    "không gây dị ứng",
+    "da liễu",
+    "paraben",
+    "dị ứng nguyên",
+    "clean"
+  ],
+  ko: [
+    "치료",
+    "치유",
+    "완화",
+    "진정",
+    "약용",
+    "의약",
+    "효능",
+    "요법",
+    "습진",
+    "건선",
+    "피부염",
+    "주사비",
+    "여드름",
+    "불면증",
+    "불안",
+    "편두통",
+    "관절염",
+    "감염",
+    "염증",
+    "통증",
+    "상처",
+    /* 안심 is 安心: a safety assurance, banned in ja and zh, and it was
+       missing here -- "Sensitive Safe" came back as 민감성 안심 while every
+       other locale rendered it as suitability (audit 2026-09-04). */
+    "안심",
+    /* The REASSURANCE paraphrase of an allergen claim, which is how the
+       model routed around 알레르겐 being banned. */
+    "알레르기 걱정",
+    "저알레르기",
+    "무알레르기",
+    "알레르겐",
+    "피부과 테스트",
+    "파라벤",
+    "clean"
+  ],
+  pt: [
+    /* "livre de irritações" -- "free of irritation" -- the Portuguese the
+       model reached for when "alérgenos" was banned. A health outcome. */
+    "livre de irrita",
+    "remédio",
+    "remédios",
+    "cura",
+    "curativ",
+    "alivia",
+    "aliviar",
+    "medicinal",
+    "calmante",
+    "terapêut",
+    "cicatrizant",
+    "eczema",
+    "psoríase",
+    "dermatite",
+    "rosácea",
+    "acne",
+    "insônia",
+    "ansiedade",
+    "enxaqueca",
+    "artrite",
+    "infecção",
+    "inflamação",
+    "dor",
+    "dores",
+    "ferida",
+    "hipoalergênic",
+    "dermatologicamente",
+    "paraben",
+    "alérgen",
     "clean"
   ]
 };
@@ -333,7 +453,43 @@ const CLAIM_SOURCE_PARITY = {
   改善: ["improve", "improves", "improving", "improvement"],
   舒缓: CALMS,
   傷: BROKEN_SKIN,
-  伤口: BROKEN_SKIN
+  伤口: BROKEN_SKIN,
+  /* vi. "công dụng" is an efficacy assertion, licensed by nothing, for the
+     same reason 効能/功效 are. "giảm đau" is deliberately not a trigger for
+     "đau": relieving pain is not a claim this English makes anywhere. */
+  thuốc: REMEDY.concat(MEDICINAL),
+  "chữa lành": HEALS,
+  "chữa trị": TREATS,
+  "điều trị": TREATS,
+  "trị liệu": THERAPEUTIC,
+  dược: MEDICINAL,
+  "y học": MEDICINAL,
+  "làm dịu": CALMS,
+  "xoa dịu": RELIEVES,
+  "công dụng": [],
+  "vết thương": BROKEN_SKIN,
+  /* ko. 진정 and 완화 are the two words Korean cosmetic copy reaches for
+     without thinking, which is exactly why they need the English to have
+     said calm/soothe or ease/relieve first. */
+  치료: TREATS,
+  치유: HEALS,
+  완화: RELIEVES,
+  진정: CALMS,
+  약용: MEDICINAL,
+  의약: MEDICINAL,
+  효능: [],
+  요법: THERAPEUTIC,
+  상처: BROKEN_SKIN,
+  /* pt. This table is keyed by WORD, not by locale, so the four forms
+     Portuguese shares with Spanish -- cura, curativ, alivia, calmante -- are
+     already above and carry the same licence in both. Only what pt spells
+     differently needs an entry here. */
+  remédio: REMEDY,
+  remédios: REMEDY,
+  aliviar: RELIEVES,
+  terapêut: THERAPEUTIC,
+  cicatrizant: HEALS,
+  ferida: BROKEN_SKIN
   /* Every other term added on 2026-09-04 -- the condition names and the EU/UK
      claims -- is absent from this table on purpose: absent means "licensed by
      nothing", which is the rule the research brief asks for. */
@@ -352,16 +508,56 @@ const CLAIM_SOURCE_PARITY = {
  * Keep this list SHORT and keep it innocent. "Wundermittel" (miracle cure) is
  * deliberately not here: it is a claim, and it should trip the gate.
  */
+/**
+ * Banned terms matched on WORD BOUNDARIES instead of as substrings.
+ *
+ * Substring matching is right for German, which compounds
+ * ("Kräuterheilmittel" has to trip "Heilmittel"), and it is unworkable for a
+ * three-letter Portuguese word. "dor" is inside every -ador/-edor/-idor agent
+ * noun the language forms productively -- hidratador, visualizador,
+ * aplicador -- and inside "dormir", which a shop selling a bedtime salve
+ * writes constantly. Two runs on 2026-09-04 dropped 12 correct strings that
+ * way, and each fix by container list left the next one waiting.
+ *
+ * So the exceptions are enumerated where they belong: on the term, not on the
+ * language around it. \b is ASCII-based in JS, which is exactly right for
+ * these ASCII triggers -- "visualizador" has a word character before "dor",
+ * "a dor de cabeça" does not. Inflections that must still fire get their own
+ * entry ("dores"), because a boundary match will not find them.
+ */
+const CLAIM_WHOLE_WORD = new Set(["dor", "dores"]);
+
 const CLAIM_NOT_INSIDE = {
   /* de: wunderbar / wundervoll / wunderschön are the brand's register. */
   wunde: ["wunderbar", "wundervoll", "wunderschön", "wunderlich"],
-  /* es: a nail service and "dark" are not a cure. */
-  cura: ["manicura", "pedicura", "oscura", "obscura", "procura"],
+  /* es + pt: a nail service and "dark" are not a cure, and neither is
+     "procura" (pt: looks for) or a "curadoria" (pt: curation). */
+  cura: [
+    "manicura",
+    "pedicura",
+    "oscura",
+    "obscura",
+    "procura",
+    "procurar",
+    "procure",
+    "escura",
+    "curadoria"
+  ],
   /* es: "indoloro" is painLESS. */
   dolor: ["indoloro", "indolora"],
+  /* pt "dor" is NOT here: it is matched on word boundaries instead -- see
+     CLAIM_WHOLE_WORD above -- because it lives inside every -ador/-edor
+     agent noun and inside "dormir", and no container list converges. */
+  /* ko: "불안정" is "unstable", not anxiety. */
+  불안: ["불안정"],
   /* ja: 傷め- ("damage", in every conjugation, 傷めない included) and 傷み
      ("spoilage") are not injuries; 感傷 is sentimentality. */
   傷: ["傷め", "傷み", "感傷", "中傷"],
+  /* ja: スクリーン ("screen", as in screen print) contains クリーン. Four
+     apparel strings were refused on every run for describing a screen print,
+     and the first diagnosis was that the model kept choosing the banned word
+     -- it was not; the gate was reading it out of "screen". */
+  クリーン: ["スクリーン"],
   /* every locale: cleanse / cleanser / cleansing / cleaner are the literal
      sense; only the marketing "clean" is the banned claim. */
   clean: ["cleans", "cleaner", "cleaning"]
@@ -372,6 +568,26 @@ const CLAIM_NOT_INSIDE = {
     parity covers most of what this used to, but it is kept: a per-key
     exemption with a written reason is stronger evidence than a word match. */
 const CLAIM_EXEMPT = {
+  /* The English SAYS "100% allergen-free" -- on a gift card, describing a
+     credit -- so the eight translations have to say exactly that and nothing
+     stronger. Banning the literal word in every language without this entry
+     is what produced the escalations above: the model could not say
+     "allergen" and said "no adverse effects" instead. The claim itself is a
+     question for the owner about the ENGLISH storefront, and it is logged as
+     one; this entry only stops the translations being worse than the source. */
+  "auto.digitalCreditAllergenFree.3f9459": {
+    es: ["alérgen"],
+    de: ["allergen"],
+    fr: ["allergèn"],
+    ja: ["アレルゲン", "アレルギー物質"],
+    zh: ["过敏原", "致敏物"],
+    vi: ["dị ứng nguyên", "chất gây dị ứng"],
+    ko: ["알레르겐"],
+    pt: ["alérgen"],
+    reason:
+      "the English reads '100% allergen-free'; the translations must render that claim and " +
+      "not a stronger one -- the source claim is flagged for the owner separately"
+  },
   "pdp.notMedicine": {
     es: ["curar"],
     ja: ["治療", "治癒"],
@@ -462,7 +678,12 @@ function claimOffenses(input) {
   const offenses = [];
   words.forEach(function (word) {
     const lower = word.toLowerCase();
-    if (stripInnocentContainers(value, lower).indexOf(lower) === -1) return;
+    const haystack = stripInnocentContainers(value, lower);
+    if (CLAIM_WHOLE_WORD.has(lower)) {
+      if (!new RegExp("\\b" + escapeRegExp(lower) + "\\b").test(haystack)) return;
+    } else if (haystack.indexOf(lower) === -1) {
+      return;
+    }
     if (keyIsExempt(input.key, code, lower)) return;
     if (englishLicenses(lower, input.english || "", input.protectedTerms)) return;
     offenses.push({ word: word, licensed: false });

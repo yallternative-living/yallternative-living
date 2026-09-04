@@ -37,7 +37,7 @@ const path = require("path");
 const claimRules = require("./lib/i18n-claims-rules.js");
 
 const ROOT = path.resolve(__dirname, "..");
-const CODES = ["en", "es", "de", "fr", "ja", "zh"];
+const CODES = ["en", "es", "de", "fr", "ja", "zh", "vi", "ko", "pt"];
 
 let passed = 0;
 let failed = 0;
@@ -106,7 +106,7 @@ function keyFor(englishText) {
    "heilend". */
 assert(
   Object.keys(claimRules.CLAIM_WORDS).length === CODES.length - 1,
-  "the shared claims table covers all five non-English locales"
+  "the shared claims table covers every non-English locale"
 );
 const protectedTerms = glossary.protectedTerms || [];
 CODES.slice(1).forEach((code) => {
@@ -411,6 +411,10 @@ assert(botanicals.length > 0, "the glossary lists INCI botanicals to check again
 // 3. No locale invents a brand or product name the English does not use.
 // ---------------------------------------------------------------------------
 {
+  const BRAND_CASE_ALLOWLIST = {
+    "footer.tagline": ["Black Sheep & Bold Hearts"],
+    "auto.whileYouWaitOn.8fe280": ["Black Sheep & Bold Hearts"]
+  };
   const brandish = (glossary.protectedTerms || []).concat(
     (glossary.categories && glossary.categories.brand) || []
   );
@@ -420,6 +424,17 @@ assert(botanicals.length > 0, "the glossary lists INCI botanicals to check again
     const en = enPhrases[key];
     brandish.forEach((term) => {
       if (en.indexOf(term) !== -1) return;
+      /* One named exception, not a class-wide one. The footer tagline says
+         "for the black sheep & bold hearts" in lower case -- the collection's
+         words used as a description -- and models reach for the capitalised
+         form because the glossary protects that string. A copy nit, not a
+         fabricated name. It is listed by KEY and TERM so that the day some
+         other copy says "an unbothered kind of calm", the check that
+         "Unbothered" is not invented into eight languages stays on. */
+      const allowed = BRAND_CASE_ALLOWLIST[key] || [];
+      if (allowed.indexOf(term) !== -1 && en.toLowerCase().indexOf(term.toLowerCase()) !== -1) {
+        return;
+      }
       CODES.slice(1).forEach((code) => {
         const value = locales[code].phrases[key] || "";
         if (value.indexOf(term) !== -1) {
@@ -486,11 +501,29 @@ assert(botanicals.length > 0, "the glossary lists INCI botanicals to check again
     /* "(and your sleep)" was dropped from es, de and fr. It is an aside in
        parentheses in every locale, so its presence is checkable without
        knowing the wording. */
-    const sleepWord = { es: "sueño", de: "Schlaf", fr: "sommeil", ja: "睡眠", zh: "睡眠" };
+    const sleepWord = {
+      es: "sueño",
+      de: "Schlaf",
+      fr: "sommeil",
+      /* 睡眠 is the Sino-Japanese noun and 眠り the plain one; a shop writes
+         either, and pinning one of them makes a re-translation look like a
+         regression when it is a synonym. */
+      ja: ["睡眠", "眠り"],
+      zh: "睡眠",
+      vi: "ngủ",
+      /* Korean shop copy uses the plain noun 잠 as readily as the Sino-Korean
+         수면, so either counts as the aside surviving. */
+      /* NOT bare 잠: it matches 잠시 ("a moment") and 잠깐, which are shop
+         boilerplate, so the assertion would pass on a translation that
+         dropped the aside entirely. */
+      ko: ["수면", "잠을", "잠자", "잠 "],
+      pt: "sono"
+    };
     CODES.slice(1).forEach((code) => {
       const value = locales[code].phrases[featuredKey];
+      const wanted = [].concat(sleepWord[code]);
       assert(
-        value.indexOf(sleepWord[code]) !== -1,
+        wanted.some((w) => value.indexOf(w) !== -1),
         "featuredText [" + code + "] keeps the '(and your sleep)' aside",
         JSON.stringify(value)
       );
@@ -519,8 +552,13 @@ assert(botanicals.length > 0, "the glossary lists INCI botanicals to check again
         JSON.stringify(value)
       );
     });
+    /* The premise is "somebody has called you too much". Japanese renders it
+       as 多すぎる or as やりすぎ -- both say it, and which one a model picks
+       is not a fact about whether the premise survived. */
     assert(
-      locales.ja.phrases[heroKey].indexOf("多すぎる") !== -1,
+      ["多すぎる", "やりすぎ"].some(function (w) {
+        return locales.ja.phrases[heroKey].indexOf(w) !== -1;
+      }),
       "heroText [ja] still carries the 'a little too much' premise",
       JSON.stringify(locales.ja.phrases[heroKey])
     );
@@ -581,7 +619,10 @@ assert(botanicals.length > 0, "the glossary lists INCI botanicals to check again
       de: ["Englisch", "englische"],
       fr: ["anglais"],
       ja: ["英語"],
-      zh: ["英文", "英语"]
+      zh: ["英文", "英语"],
+      vi: ["tiếng Anh", "Tiếng Anh"],
+      ko: ["영어"],
+      pt: ["inglês"]
     };
     CODES.slice(1).forEach((code) => {
       const value = locales[code].phrases[governsKey] || "";

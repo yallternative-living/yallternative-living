@@ -1451,8 +1451,8 @@ assert(
     "generateHreflangTags is no longer exported (the ?lang= SEO layer is not shipped)"
   );
   assert(
-    Array.isArray(buildScript.SUPPORTED_LOCALES) && buildScript.SUPPORTED_LOCALES.length === 6,
-    "SUPPORTED_LOCALES still drives the six locale dictionaries"
+    Array.isArray(buildScript.SUPPORTED_LOCALES) && buildScript.SUPPORTED_LOCALES.length === 9,
+    "SUPPORTED_LOCALES still drives the nine locale dictionaries"
   );
 
   // 2. validateLocalesAndGlossary
@@ -1495,6 +1495,27 @@ assert(
         brand: "Y'allternative Living",
         prod: "今天购买 Porch Sweep Clearing Mist"
       }
+    },
+    vi: {
+      meta: { name: "Tiếng Việt" },
+      phrases: {
+        brand: "Y'allternative Living",
+        prod: "Mua Porch Sweep Clearing Mist hôm nay"
+      }
+    },
+    ko: {
+      meta: { name: "한국어" },
+      phrases: {
+        brand: "Y'allternative Living",
+        prod: "오늘 Porch Sweep Clearing Mist 구매하기"
+      }
+    },
+    pt: {
+      meta: { name: "Português" },
+      phrases: {
+        brand: "Y'allternative Living",
+        prod: "Compre Porch Sweep Clearing Mist hoje"
+      }
     }
   };
   assert(
@@ -1532,18 +1553,52 @@ assert(
     "validateLocalesAndGlossary fails when a supported locale is missing"
   );
 
-  // 3. Compiled locales-data.js verification
+  // 3. Compiled locales-data.js + per-locale bundle verification
   const localesBundlePath = path.join(__dirname, "../assets/js/locales-data.js");
   assert(fs.existsSync(localesBundlePath), "assets/js/locales-data.js exists on disk");
   const localesBundle = require("../assets/js/locales-data.js");
   assert(
-    localesBundle.LOCALES && localesBundle.LOCALES.en,
-    "locales-data.js exports LOCALES with en"
-  );
-  assert(
     localesBundle.BRAND_GLOSSARY && localesBundle.BRAND_GLOSSARY.protectedTerms.length > 0,
     "locales-data.js exports BRAND_GLOSSARY"
   );
+  const manifest = localesBundle.LOCALE_MANIFEST;
+  assert(
+    Array.isArray(manifest) && manifest.length === buildScript.SUPPORTED_LOCALES.length,
+    "locales-data.js manifest lists every supported locale"
+  );
+  /* The core file must NOT carry phrase data any more: that is the whole
+     point of the split, and a regression here would silently put half a
+     megabyte back into every first visit. Asserted by size as well as by
+     shape, because an accidental `LOCALES` export would be caught by shape
+     while a stray phrase blob under another name would not. */
+  assert(
+    !localesBundle.LOCALES && !localesBundle.YL_LOCALES,
+    "locales-data.js no longer ships the dictionaries themselves"
+  );
+  const coreBytes = fs.statSync(localesBundlePath).size;
+  assert(
+    coreBytes < 60 * 1024,
+    "locales-data.js is the small always-loaded core (" + Math.round(coreBytes / 1024) + "KB)"
+  );
+  const enPhraseCount = Object.keys(require("../assets/js/locales/en.js").phrases || {}).length;
+  assert(enPhraseCount > 0, "assets/js/locales/en.js carries the English index");
+  manifest.forEach((entry) => {
+    const file = path.join(__dirname, "../assets/js/locales/" + entry.code + ".js");
+    assert(fs.existsSync(file), "assets/js/locales/" + entry.code + ".js exists on disk");
+    const doc = require(file);
+    assert(
+      doc && doc.meta && doc.meta.code === entry.code,
+      "locales/" + entry.code + ".js declares its own meta"
+    );
+    assert(
+      Object.keys(doc.phrases || {}).length === enPhraseCount,
+      "locales/" + entry.code + ".js carries every English key"
+    );
+    assert(
+      entry.src === "/assets/js/locales/" + entry.code + ".js",
+      "the manifest points at " + entry.code + "'s real file"
+    );
+  });
 
   // 4. sitemap.xml verification
   const sitemapPath = path.join(__dirname, "../sitemap.xml");
@@ -1579,7 +1634,7 @@ assert(
 // not silently start passing (or failing) when the site's copy changes.
 // ---------------------------------------------------------------------------
 (function dictionaryGateSpeeds() {
-  const LANGS = ["es", "de", "fr", "ja", "zh"];
+  const LANGS = ["es", "de", "fr", "ja", "zh", "vi", "ko", "pt"];
   const REACHABLE = "Free shipping on orders of $40 or more";
   const UNREACHABLE = "zzz this sentence is on no page and in no manifest zzz";
 

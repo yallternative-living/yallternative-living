@@ -5,7 +5,7 @@
  */
 
 /** @const {string} Cache name key, updated on assets release. */
-const CACHE_NAME = "yallternative-cache-v3c9122362de1";
+const CACHE_NAME = "yallternative-cache-vbf3a6fdb6e09";
 
 /**
  * The site not-found page is deliberately NOT on this list. A host answers a
@@ -64,7 +64,23 @@ const ASSETS_TO_CACHE = [
   '/assets/js/search-data.js',
   '/assets/js/image-manifest.js',
   '/assets/js/translator.js',
+  // The translation core (glossary + manifest, no phrase data) and the
+  // ENGLISH dictionary, which is the index every lookup starts from. The
+  // other eight languages are one file each under /assets/js/locales/ and are
+  // deliberately NOT precached: each is fetched the first time a shopper
+  // actually reads the shop in that language, and the network-first-then-cache
+  // handler below stores it, so switching back to a language they have used
+  // works offline. Precaching all nine would put ~490KB of dictionaries on
+  // every visitor -- most of whom read the shop in English -- and re-download
+  // them on every deploy, because CACHE_NAME rotates per build.
+  //
+  // The trade, stated plainly: going offline and switching to a language this
+  // browser has never displayed cannot work. translator.js fails closed there
+  // -- English copy, English badge -- rather than claiming a language it
+  // cannot render. scripts/translation-privacy-flow.browser.test.js §6.3
+  // asserts both halves of that.
   '/assets/js/locales-data.js',
+  '/assets/js/locales/en.js',
   '/assets/js/gift-card.js',
   // Self-hosted webfonts (2026-09 perf pass). Precaching them is cheap -- 69KB
   // of WOFF2 all told -- and it is what makes an offline repeat visit render

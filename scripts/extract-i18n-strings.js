@@ -52,7 +52,7 @@ const puppeteer = require("puppeteer");
 
 const PORT = 8087;
 const ROOT = path.resolve(__dirname, "..");
-const LOCALE_CODES = ["en", "es", "de", "fr", "ja", "zh"];
+const LOCALE_CODES = ["en", "es", "de", "fr", "ja", "zh", "vi", "ko", "pt"];
 
 const MIME = {
   ".html": "text/html",

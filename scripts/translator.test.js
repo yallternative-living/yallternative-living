@@ -382,9 +382,50 @@ class MockCustomEvent {
 }
 
 // Load dictionaries
+/* The dictionaries are one file per language now; locales-data.js carries the
+   glossary and the manifest of what exists. This suite pre-loads all of them
+   into the registry the way a browser would after visiting every language,
+   because what it is testing is the translation engine, not the loader --
+   suite 12 covers the loader. */
 const localesData = require("../assets/js/locales-data.js");
-const LOCALES = localesData.LOCALES || localesData.YL_LOCALES;
+const LOCALE_MANIFEST = localesData.LOCALE_MANIFEST || localesData.YL_LOCALE_MANIFEST;
+const LOCALES = {};
+LOCALE_MANIFEST.forEach((entry) => {
+  LOCALES[entry.code] = require("../assets/js/locales/" + entry.code + ".js");
+});
 const BRAND_GLOSSARY = localesData.BRAND_GLOSSARY || localesData.YL_BRAND_GLOSSARY;
+
+/**
+ * The Spanish for a key, read from the shipped dictionary.
+ *
+ * These suites used to hard-code the Spanish ("Añadir al carrito"), which made
+ * them a second copy of the dictionary: retargeting es from neutral
+ * international Spanish to Latin American Spanish for US readers changed the
+ * copy and reddened three suites that were testing the DOM engine, not the
+ * wording. What they exist to prove is that the engine PUT THE DICTIONARY
+ * VALUE in the right place, so that is what they now assert against.
+ *
+ * Guarded, because "assert the node equals the dictionary" is worthless if the
+ * dictionary entry is missing: an absent subject must fail, not pass.
+ */
+function es(key) {
+  return phraseIn("es", key);
+}
+
+/** The same, for any locale -- suite 11 switches to German mid-test. */
+function phraseIn(code, key) {
+  const value = LOCALES[code] && LOCALES[code].phrases ? LOCALES[code].phrases[key] : null;
+  assert.ok(
+    typeof value === "string" && value.trim(),
+    `fixture: ${code}.json must carry a non-empty ${key}`
+  );
+  assert.notStrictEqual(
+    value,
+    LOCALES.en.phrases[key],
+    `fixture: ${code}.${key} must differ from the English, or the assertion proves nothing`
+  );
+  return value;
+}
 
 // Setup full browser-like globals
 let mockDocument;
@@ -607,9 +648,9 @@ async function runAllSuites() {
     assert.strictEqual(dropdown.getAttribute("aria-label"), "Select language");
 
     const options = dropdown.querySelectorAll(".lang-option");
-    assert.strictEqual(options.length, 6, "Must contain exactly 6 language option buttons");
+    assert.strictEqual(options.length, 9, "Must contain exactly 9 language option buttons");
 
-    const expectedCodes = ["en", "es", "de", "fr", "ja", "zh"];
+    const expectedCodes = ["en", "es", "de", "fr", "ja", "zh", "vi", "ko", "pt"];
     options.forEach((opt, idx) => {
       const code = expectedCodes[idx];
       assert.strictEqual(opt.getAttribute("role"), "option");
@@ -669,12 +710,17 @@ async function runAllSuites() {
       "ArrowUp moves focus back to first option (en)"
     );
 
+    /* The count, before indexing by it: options[options.length - 1] is
+       simultaneously first and last in a one-option dropdown, which would
+       make both the End and Home assertions below pass on a broken picker. */
+    assert.strictEqual(options.length, 9, "the dropdown still offers nine options");
+
     // Test End key focuses last option
     dropdown.dispatchEvent({ type: "keydown", key: "End", preventDefault: () => {} });
     assert.strictEqual(
       mockDocument.activeElement,
-      options[5],
-      "End key moves focus to last option (zh)"
+      options[options.length - 1],
+      "End key moves focus to last option (pt)"
     );
 
     // Test Home key focuses first option
@@ -713,7 +759,7 @@ async function runAllSuites() {
       const locales = LOCALES;
       assert.ok(locales, "LOCALES data must be loaded");
 
-      const expectedLangs = ["en", "es", "de", "fr", "ja", "zh"];
+      const expectedLangs = ["en", "es", "de", "fr", "ja", "zh", "vi", "ko", "pt"];
       expectedLangs.forEach((code) => {
         assert.ok(locales[code], `Locale ${code} must exist in dictionaries`);
         assert.strictEqual(locales[code].meta.code, code, `Locale ${code} meta.code matches`);
@@ -822,22 +868,22 @@ async function runAllSuites() {
 
       assert.strictEqual(
         textNode.nodeValue,
-        "   Tienda   ",
+        `   ${es("nav.shop")}   `,
         "Text node translated to Spanish with whitespace preserved"
       );
       assert.strictEqual(
         cartBtn.textContent,
-        "Tu carrito",
+        es("cart.regionLabel"),
         "data-i18n element translated to Spanish"
       );
       assert.strictEqual(
         searchInput.getAttribute("placeholder"),
-        "Busca bálsamos, sales, eventos, preguntas… (Cmd+K)",
+        es("search.placeholder"),
         "Placeholder translated to Spanish"
       );
       assert.strictEqual(
         menuBtn.getAttribute("aria-label"),
-        "Abrir menú",
+        es("nav.openMenu"),
         "aria-label translated to Spanish"
       );
       assert.ok(
@@ -1046,7 +1092,7 @@ async function runAllSuites() {
 
       assert.strictEqual(
         textNode.nodeValue,
-        "Añadir al carrito",
+        es("shop.addToCart"),
         "Dynamic added DOM subtree automatically translated in-place by MutationObserver"
       );
     }
@@ -1131,8 +1177,167 @@ async function runAllSuites() {
         "zh",
         "URL ?lang=zh takes precedence over localStorage"
       );
+
+      /* 4. Browser-language detection. The shop is read by people whose
+         phones are not in English, and until now every one of them landed on
+         an English page and had to find the globe icon. What must NOT happen
+         is a detector overriding a decision: an explicit ?lang= and a stored
+         choice both outrank it, including a stored "en" on a Spanish
+         device. */
+      /* Node 21+ ships its own read-only `navigator` global, so a plain
+         assignment here is silently ignored and every case below would test
+         Node's own ["en-US"]. defineProperty is the only way to stand one up. */
+      const savedNavigator = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+      const setNavigator = (value) => {
+        Object.defineProperty(globalThis, "navigator", {
+          value: value,
+          configurable: true,
+          writable: true
+        });
+      };
+      const withLanguages = (tags) => setNavigator({ languages: tags, language: tags[0] });
+      try {
+        mockWindow.location.search = "";
+        mockLocalStorage.removeItem("yl-lang");
+
+        withLanguages(["es-MX", "en-US"]);
+        assert.strictEqual(
+          translator.detectBrowserLanguage(),
+          "es",
+          "es-MX resolves to the Latin American Spanish dictionary"
+        );
+        assert.strictEqual(
+          translator.getInitialLanguage(),
+          "es",
+          "a Spanish-language browser opens the shop in Spanish"
+        );
+
+        withLanguages(["pt-BR"]);
+        assert.strictEqual(translator.detectBrowserLanguage(), "pt", "pt-BR resolves to pt");
+        withLanguages(["zh-TW"]);
+        assert.strictEqual(
+          translator.detectBrowserLanguage(),
+          "zh",
+          "zh-TW gets the Simplified dictionary rather than English"
+        );
+        withLanguages(["vi"]);
+        assert.strictEqual(translator.detectBrowserLanguage(), "vi", "a bare tag matches");
+        withLanguages(["KO-kr"]);
+        assert.strictEqual(translator.detectBrowserLanguage(), "ko", "tags are case-insensitive");
+
+        withLanguages(["en-GB", "fr-FR"]);
+        assert.strictEqual(
+          translator.detectBrowserLanguage(),
+          "en",
+          "the ORDER of navigator.languages decides: English first means English"
+        );
+
+        withLanguages(["is-IS", "fo-FO"]);
+        assert.strictEqual(
+          translator.detectBrowserLanguage(),
+          null,
+          "a language with no dictionary detects nothing"
+        );
+        assert.strictEqual(
+          translator.getInitialLanguage(),
+          "en",
+          "and the shop falls back to English"
+        );
+
+        withLanguages(["es-MX"]);
+        mockLocalStorage.setItem("yl-lang", "en");
+        assert.strictEqual(
+          translator.getInitialLanguage(),
+          "en",
+          "a stored English preference outranks a Spanish device -- a choice is a choice"
+        );
+        mockLocalStorage.setItem("yl-lang", "ja");
+        assert.strictEqual(
+          translator.getInitialLanguage(),
+          "ja",
+          "any stored preference outranks the browser"
+        );
+        mockWindow.location.search = "?lang=de";
+        assert.strictEqual(translator.getInitialLanguage(), "de", "and ?lang= outranks both");
+
+        setNavigator(undefined);
+        mockWindow.location.search = "";
+        mockLocalStorage.removeItem("yl-lang");
+        assert.strictEqual(
+          translator.detectBrowserLanguage(),
+          null,
+          "no navigator at all is not a crash"
+        );
+        assert.strictEqual(translator.getInitialLanguage(), "en", "and still resolves to English");
+
+        setNavigator({
+          get languages() {
+            throw new Error("blocked by privacy settings");
+          },
+          get language() {
+            throw new Error("blocked by privacy settings");
+          }
+        });
+        assert.strictEqual(
+          translator.detectBrowserLanguage(),
+          null,
+          "a navigator that throws is not a crash either"
+        );
+      } finally {
+        if (savedNavigator) Object.defineProperty(globalThis, "navigator", savedNavigator);
+        mockWindow.location.search = "";
+        mockLocalStorage.setItem("yl-lang", "ja");
+      }
     }
   );
+
+  // ----------------------------------------------------
+  // Suite 8b: the switch race -- the LAST request wins, not the last to arrive
+  // ----------------------------------------------------
+  await suite("8b. switch_race: a slower earlier switch cannot overwrite a later one", async () => {
+    /* Two dictionaries, the first held back. The shopper clicks Español and
+         then 한국어 before Spanish has arrived. The page must end in Korean
+         -- what was asked for LAST -- even though Spanish resolves last. */
+    const original = translator.ensureLocale;
+    const registry = global.YL_LOCALES;
+    const stashedEs = registry.es;
+    delete registry.es;
+    let releaseEs = null;
+    const gate = new Promise((resolve) => {
+      releaseEs = resolve;
+    });
+    translator._setEnsureLocaleForTest &&
+      translator._setEnsureLocaleForTest(async (code) => {
+        if (code === "es") {
+          await gate;
+          registry.es = stashedEs;
+        }
+        return true;
+      });
+    try {
+      const first = translator.setLanguage("es");
+      const second = await translator.setLanguage("ko");
+      assert.strictEqual(second, "ko", "the later request applies immediately");
+      assert.strictEqual(translator.getCurrentLanguage(), "ko", "and is the current language");
+      releaseEs();
+      const firstResult = await first;
+      assert.strictEqual(
+        firstResult,
+        "ko",
+        "the earlier, slower request reports what is in effect rather than applying itself"
+      );
+      assert.strictEqual(
+        translator.getCurrentLanguage(),
+        "ko",
+        "the page is still Korean after the Spanish dictionary arrives"
+      );
+    } finally {
+      registry.es = stashedEs;
+      translator._setEnsureLocaleForTest && translator._setEnsureLocaleForTest(null);
+      await translator.setLanguage("en");
+      void original;
+    }
+  });
 
   // ----------------------------------------------------
   // Suite 9: fallback_handling
@@ -1195,7 +1400,7 @@ async function runAllSuites() {
       /* --- t() / window.YL_T: composition-time substitution --- */
       assert.strictEqual(
         translator.t("tpl.addGiftCard", { amount: "$25" }, "es"),
-        "Añadir tarjeta regalo de $25 al carrito",
+        es("tpl.addGiftCard").replace("{amount}", "$25"),
         "t() fills in the Spanish template with the amount, verbatim"
       );
       /* window.YL_T === t is asserted once at module load (translator.js's
@@ -1215,19 +1420,19 @@ async function runAllSuites() {
          back verbatim -- see renderTemplate()'s comment in translator.js. */
       assert.strictEqual(
         translator.t("tpl.ritualStepTag", { n: 2, category: "Body & Skin" }, "es"),
-        "Paso 2: Cuerpo y piel",
+        es("tpl.ritualStepTag").replace("{n}", "2").replace("{category}", es("shop.bodySkin")),
         "a var that is also a dictionary phrase is translated inside the template"
       );
       assert.strictEqual(
         translator.t("tpl.enlargePhoto", { product: "Sleep Salve" }, "es"),
-        "Ampliar foto de Sleep Salve",
+        es("tpl.enlargePhoto").replace("{product}", "Sleep Salve"),
         "a var that is NOT a dictionary phrase (a product name) stays verbatim"
       );
 
       /* A placeholder with no matching var is left literal, not dropped. */
       assert.strictEqual(
         translator.t("tpl.addGiftCard", {}, "es"),
-        "Añadir tarjeta regalo de {amount} al carrito",
+        es("tpl.addGiftCard"),
         "a template var with nothing supplied for it is left as literal {name}"
       );
 
@@ -1266,7 +1471,7 @@ async function runAllSuites() {
       await translator.setLanguage("es");
       assert.strictEqual(
         giftBtn.textContent,
-        "Añadir tarjeta regalo de $25 al carrito",
+        es("tpl.addGiftCard").replace("{amount}", "$25"),
         "data-i18n-tpl element translated to Spanish with the amount filled in"
       );
       assert.strictEqual(
@@ -1281,7 +1486,7 @@ async function runAllSuites() {
       await translator.setLanguage("de");
       assert.strictEqual(
         giftBtn.textContent,
-        "Geschenkkarte über $25 in den Warenkorb",
+        phraseIn("de", "tpl.addGiftCard").replace("{amount}", "$25"),
         "language switch re-renders the template element in the new language"
       );
 
@@ -1310,7 +1515,7 @@ async function runAllSuites() {
       await translator.setLanguage("es");
       assert.strictEqual(
         enlargeBtn.getAttribute("aria-label"),
-        "Ampliar foto de Sleep Salve",
+        es("tpl.enlargePhoto").replace("{product}", "Sleep Salve"),
         "data-i18n-tpl-aria-label translated to Spanish with the product name filled in"
       );
 

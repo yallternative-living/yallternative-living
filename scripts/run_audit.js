@@ -29,7 +29,7 @@ const VIEWPORTS = [
   { name: "mobile", width: 375, height: 667 }
 ];
 
-const LANGUAGES = ["en", "es", "de", "fr", "ja", "zh"];
+const LANGUAGES = ["en", "es", "de", "fr", "ja", "zh", "vi", "ko", "pt"];
 
 const SCREENSHOT_DIR = path.join(__dirname, "../tmp/audit_screenshots");
 fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });

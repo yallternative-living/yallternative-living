@@ -1,4 +1,12 @@
-{
+/**
+ * @fileoverview Auto-generated zh dictionary. Wrap of assets/data/locales/zh.json.
+ * Loaded on demand by assets/js/translator.js; registers itself into
+ * window.YL_LOCALES. Do not hand-edit this file.
+ * @const {!Object}
+ */
+/* global module */
+(function () {
+  var LOCALE = {
   "meta": {
     "code": "zh",
     "name": "中文",
@@ -724,4 +732,14 @@
     "tpl.mixMatchApplied": "已应用 {item} 每件 {price} 阶梯优惠！",
     "tpl.mixMatchNext": "再添加 {amount} 即可解锁 {perk}！"
   }
-}
+};
+
+  if (typeof window !== 'undefined') {
+    window.YL_LOCALES = window.YL_LOCALES || {};
+    window.YL_LOCALES["zh"] = LOCALE;
+  }
+
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = LOCALE;
+  }
+})();

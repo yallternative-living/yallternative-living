@@ -196,8 +196,8 @@ async function main() {
     assertEqual(out.items[0].text, "hola", "a 429 is retried with backoff and then succeeds");
     assertEqual(
       lastBody.reasoning_effort,
-      "high",
-      "the OpenAI-style transport asks for high reasoning"
+      "medium",
+      "the OpenAI-style transport asks for the configured reasoning effort"
     );
     assertEqual(client.telemetry.retries, 2, "both retries are counted");
     assertEqual(client.telemetry.model, "gemini-3.8-flash", "the pinned model produced the answer");
@@ -297,8 +297,9 @@ async function main() {
     assert(!("model" in body), "and no model field in the body -- it is in the path");
     assertEqual(
       body.generationConfig.thinkingConfig && body.generationConfig.thinkingConfig.thinkingLevel,
-      "high",
-      "Gemini 3.x thinking runs at high by default (owner decision 2026-09-04)"
+      "medium",
+      "Gemini 3.x thinking runs at medium by default (measured 2026-09-04: high " +
+        "bought 0 fewer gate failures and 0 fewer claim offences, at 2.3-3.6x the latency)"
     );
   }
   {
@@ -309,8 +310,8 @@ async function main() {
     assertEqual(noThink.thinking, "none", "LLM_THINKING=none is honoured");
     assertEqual(
       llm.resolveConfig({ provider: "gemini", apiKey: "k" }, {}).thinking,
-      "high",
-      "and the default is high on every provider"
+      "medium",
+      "and the default is medium on every provider"
     );
   }
   assertEqual(
@@ -399,6 +400,63 @@ async function main() {
     );
     assertEqual(sent, sentAfterFirst, "without touching the network again");
     assert(client.unavailable() !== null, "unavailable() names the refusal");
+  }
+
+  // -------------------------------------------------------------------------
+  // 2b. A SLOW model is not a dead model.
+  //
+  // The fallback exists for a retired id. A timeout says nothing about the id
+  // -- and treating it as a verdict is how two nine-locale runs on 2026-09-04
+  // produced their whole output on the alias: at LLM_THINKING=high a batch ran
+  // past the 60s timeout, three retries aborted the same way, and the run
+  // swapped models permanently on its first slow batch, quietly changing the
+  // register of every string it went on to write.
+  // -------------------------------------------------------------------------
+  {
+    const seen = [];
+    const client = llm.createClient(
+      {
+        provider: "gemini",
+        apiKey: "x",
+        maxRetries: 2,
+        sleep: async function () {},
+        fetchImpl: async function (url, init) {
+          seen.push(JSON.parse(init.body).model);
+          const abort = new Error("This operation was aborted");
+          abort.name = "AbortError";
+          throw abort;
+        }
+      },
+      {}
+    );
+    let thrown = null;
+    try {
+      await client.completeJSON(spec());
+    } catch (err) {
+      thrown = err;
+    }
+    assert(thrown, "an all-timeouts call fails rather than inventing an answer");
+    assertEqual(
+      client.telemetry.modelFallbacks.length,
+      0,
+      "a timeout does NOT fall through to the alias"
+    );
+    /* The count FIRST: [].every() is true, so without this the whole check
+       passes on a run that dispatched nothing at all -- which is exactly what
+       a future early-return in completeJSON would produce. */
+    assertEqual(seen.length, 3, "three attempts were actually dispatched");
+    assertEqual(
+      seen.every(function (m) {
+        return m === "gemini-3.8-flash";
+      }),
+      true,
+      "every attempt stayed on the pinned model: " + seen.join(",")
+    );
+    assert(
+      thrown && thrown.retryable === true,
+      "and the error is marked retryable, so the caller defers the keys instead of dropping them"
+    );
+    assertEqual(client.fallbackWarning(), null, "nothing to warn about: the pin held");
   }
 
   // -------------------------------------------------------------------------

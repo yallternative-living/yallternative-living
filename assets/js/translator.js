@@ -52,7 +52,10 @@
     { code: "de", name: "Deutsch" },
     { code: "fr", name: "Français" },
     { code: "ja", name: "日本語" },
-    { code: "zh", name: "中文" }
+    { code: "zh", name: "中文" },
+    { code: "vi", name: "Tiếng Việt" },
+    { code: "ko", name: "한국어" },
+    { code: "pt", name: "Português" }
   ];
 
   var globeSVG =
@@ -145,19 +148,135 @@
     "Rosmarinus officinalis"
   ];
 
+  /* Dictionaries are one file per language now (assets/js/locales/<code>.js),
+     fetched the first time somebody reads the shop in that language, and they
+     register themselves into this registry. locales-data.js creates it and
+     carries only the glossary and the manifest.
+
+     Under Node -- the unit suite, and anything else that requires this file
+     directly -- there is no document to append a script to, so the loader
+     falls back to require() into this object. */
+  var nodeRegistry = {};
+  /* Bumped by every setLanguage() call. A switch that finishes fetching after
+     a LATER switch has already been asked for must not apply itself: clicking
+     Español and then 한국어 while Spanish is still in flight used to end with
+     the page in Spanish, the badge on ES, and "es" persisted -- whichever
+     dictionary happened to arrive last won, rather than whichever the shopper
+     asked for last. */
+  var languageRequestSeq = 0;
+  /* One promise per code while its file is in flight, so eight simultaneous
+     asks make one request. A FAILED load is deleted rather than remembered:
+     a dropped connection must not permanently poison a language. */
+  var localeLoads = {};
+
   /**
-   * Retrieve compiled locales dictionary from global or require.
+   * Retrieve the dictionary registry from global or the Node fallback.
    */
   function getLocales() {
     if (typeof window !== "undefined" && window.YL_LOCALES) return window.YL_LOCALES;
     if (typeof global !== "undefined" && global.YL_LOCALES) return global.YL_LOCALES;
-    try {
-      // eslint-disable-next-line global-require
-      var data = require("./locales-data.js");
-      return data.LOCALES || data.YL_LOCALES || {};
-    } catch {
-      return {};
+    return nodeRegistry;
+  }
+
+  /** True when this code's phrases are in hand. */
+  function hasLocale(code) {
+    var locales = getLocales();
+    return !!(locales && locales[code] && locales[code].phrases);
+  }
+
+  /* How long to wait for one dictionary before giving up and staying English.
+     Generous, because the alternative to waiting is a page that says ES and
+     reads English -- the exact failure the 2026-09-02 audit found. */
+  var LOCALE_FETCH_TIMEOUT_MS = 10000;
+
+  /**
+   * Make sure one language's dictionary is loaded. Resolves true/false; never
+   * rejects, because every caller's answer to a failure is the same: stay in
+   * English.
+   */
+  function ensureLocale(code) {
+    if (!code || hasLocale(code)) return Promise.resolve(true);
+    var known = LANGUAGES.some(function (l) {
+      return l.code === code;
+    });
+    if (!known) return Promise.resolve(false);
+
+    if (typeof document === "undefined" || !document.createElement) {
+      /* Node: require it straight in. */
+      try {
+        // eslint-disable-next-line global-require
+        var doc = require("./locales/" + code + ".js");
+        if (doc && doc.phrases) {
+          nodeRegistry[code] = doc;
+          return Promise.resolve(true);
+        }
+      } catch {
+        // fall through to false
+      }
+      return Promise.resolve(false);
     }
+
+    if (localeLoads[code]) return localeLoads[code];
+    localeLoads[code] = new Promise(function (resolve) {
+      var settled = false;
+      var timer = null;
+      function finish() {
+        if (settled) return;
+        settled = true;
+        if (timer !== null) {
+          try {
+            clearTimeout(timer);
+          } catch {
+            // ignore
+          }
+        }
+        /* The OUTCOME is whether the dictionary registered itself -- not
+           whether the tag fired load. A script whose body throws a
+           SyntaxError fires `load`, not `error`, and any 200 that is not
+           valid JS gets here: a branded error shell, a truncated response out
+           of the service-worker cache, a captive-portal interstitial. Keying
+           the memo off `load` meant such a page kept a permanently-false
+           promise for this locale and every later attempt returned it without
+           retrying -- the shopper clicks Español, gets nothing, clicks again
+           on a working connection, and still gets nothing. Only a real
+           registration is remembered. */
+        const registered = hasLocale(code);
+        if (!registered) delete localeLoads[code];
+        resolve(registered);
+      }
+      var script = document.createElement("script");
+      script.src = "/assets/js/locales/" + code + ".js?v=2.0";
+      /* Ordered execution, same reason main.js sets it: these are appended
+         dynamically, which makes them force-async unless told otherwise. */
+      script.async = false;
+      script.onload = finish;
+      script.onerror = finish;
+      if (typeof setTimeout === "function") {
+        timer = setTimeout(function () {
+          /* Give up waiting, but leave the tag alone: it may still land, and
+             removing it here would make a retry append a second request for
+             the same URL. finish() re-reads the registry either way. */
+          finish();
+        }, LOCALE_FETCH_TIMEOUT_MS);
+      }
+      (document.head || document.body || document.documentElement).appendChild(script);
+    });
+    return localeLoads[code];
+  }
+
+  /**
+   * The English index AND the target dictionary, in parallel. English is not
+   * optional: every lookup starts by matching a node's text against en.
+   */
+  /* The unit suite substitutes a loader it can hold back, to prove the
+     switch race below is handled. Null means "use the real one". */
+  var ensureLocaleOverride = null;
+  function ensureLocalesFor(code) {
+    if (code === "en") return Promise.resolve(true);
+    var load = ensureLocaleOverride || ensureLocale;
+    return Promise.all([load("en"), load(code)]).then(function (results) {
+      return results[0] && results[1];
+    });
   }
 
   /**
@@ -536,13 +655,29 @@
 
       var textParent = node.parentNode && node.parentNode.nodeType === 1 ? node.parentNode : null;
       var translated = lookupPhrase(trimmed, targetLang);
-      if (translated && translated !== trimmed) {
+      /* Compared against the node's CURRENT value, not against the cached
+         English. Those are the same thing on a first switch and they are not
+         the same thing on a second one: German's "Shop" IS "Shop", so
+         `translated !== trimmed` was false and the node was left holding
+         whatever the PREVIOUS language had written into it. Switching
+         es -> de left "Tienda" and "Preguntas frecuentes" sitting in a German
+         nav, unmarked, so a screen reader read them in an English voice
+         (6 stale nodes on the homepage, 20 on shop.html; audit 2026-09-04).
+
+         It became reachable in one click rather than two the day the initial
+         language started being DETECTED: a shopper on a Spanish phone who
+         opens the picker once is exactly the audience this engine is for. */
+      if (translated) {
         var leadingMatch = raw.match(/^(\s*)/);
         var trailingMatch = raw.match(/(\s*)$/);
         var leading = leadingMatch ? leadingMatch[1] : "";
         var trailing = trailingMatch ? trailingMatch[1] : "";
-        node.nodeValue = leading + translated + trailing;
-        noteLang(textParent, true);
+        var next = leading + translated + trailing;
+        if (node.nodeValue !== next) node.nodeValue = next;
+        /* Marked only when the text actually differs from the English, which
+           is what <html lang="en"> already covers -- a German "Shop" needs no
+           lang="de" and would only add noise for a screen reader. */
+        noteLang(textParent, translated !== trimmed);
       } else {
         noteLang(textParent, false);
       }
@@ -652,7 +787,11 @@
               : pKey
                 ? lookupByKey(pKey, targetLang)
                 : lookupPhrase(node.__ylOriginalPlaceholder.trim(), targetLang);
-            if (pTrans) {
+            /* t() answers with the KEY when nothing resolves. The text branch
+               above refuses that; these three wrote "tpl.whatever" straight
+               into the attribute -- heard only by a screen-reader user, which
+               is the worst place to be silently wrong (audit 2026-09-04). */
+            if (pTrans && pTrans !== pTplKey) {
               if (typeof node.setAttribute === "function") {
                 node.setAttribute("placeholder", pTrans);
               }
@@ -678,7 +817,7 @@
               : aKey
                 ? lookupByKey(aKey, targetLang)
                 : lookupPhrase(node.__ylOriginalAriaLabel.trim(), targetLang);
-            if (aTrans) {
+            if (aTrans && aTrans !== aTplKey) {
               node.setAttribute("aria-label", aTrans);
             }
           }
@@ -701,7 +840,7 @@
               : tKey
                 ? lookupByKey(tKey, targetLang)
                 : lookupPhrase(node.__ylOriginalTitle.trim(), targetLang);
-            if (tTrans) {
+            if (tTrans && tTrans !== tTplKey) {
               node.setAttribute("title", tTrans);
             }
           }
@@ -900,12 +1039,41 @@
   /**
    * Master language switcher function.
    */
-  async function setLanguage(langCode) {
+  async function setLanguage(langCode, options) {
     var valid = LANGUAGES.some(function (l) {
       return l.code === langCode;
     });
     var target = valid ? langCode : "en";
     var prevLang = currentLang;
+    var persist = !(options && options.persist === false);
+
+    /* Fetch first, claim second. The dictionary for `target` is its own file
+       now, so this is the point where a page can find out it cannot actually
+       render the language it was asked for -- a dead connection, a 404 after
+       a bad deploy, a shopper offline in a language they have never used.
+       Every one of those has the same right answer: stay in English. Flipping
+       the badge to ES over an English page is the failure this whole engine
+       was rewritten to stop doing. */
+    const requestId = ++languageRequestSeq;
+    if (target !== "en" && !(await ensureLocalesFor(target))) {
+      /* Nothing changes: the page keeps the language it is already rendered
+         in. A shopper reading in Japanese who asks for Vietnamese offline
+         keeps their Japanese page rather than being dropped back to English
+         for a language they did not ask to leave.
+
+         The RETURN VALUE is the language now in effect, not the one that was
+         asked for, because every caller uses it to decide what to believe --
+         init() compares it against what it requested, and the UI badge
+         follows it. Returning "en" here would have been a second lie in the
+         family this engine exists to avoid: it would have said English while
+         the page was Japanese. */
+      return currentLang;
+    }
+
+    /* Somebody asked for a different language while this one was fetching.
+       Theirs is the answer the shopper is waiting for; drop this one rather
+       than repainting the page out from under it. */
+    if (requestId !== languageRequestSeq) return currentLang;
 
     currentLang = target;
 
@@ -923,13 +1091,19 @@
       document.documentElement.setAttribute("dir", "ltr");
     }
 
-    // Update local storage preference
-    try {
-      if (typeof localStorage !== "undefined") {
-        localStorage.setItem("yl-lang", target);
+    /* Update the stored preference -- unless this language was DETECTED
+       rather than chosen (see getInitialLanguage). Writing a guess into
+       storage would turn it into a decision: the shopper who later sets their
+       phone to English would keep getting Spanish, from a key they never
+       asked for and cannot see. */
+    if (persist) {
+      try {
+        if (typeof localStorage !== "undefined") {
+          localStorage.setItem("yl-lang", target);
+        }
+      } catch {
+        // ignore storage quota / security errors
       }
-    } catch {
-      // ignore storage quota / security errors
     }
 
     // Update UI controls
@@ -1124,7 +1298,59 @@
   /**
    * Determine initial language preference from URL param or localStorage.
    */
+  /**
+   * The best dictionary we have for the browser's own language preference,
+   * or null.
+   *
+   * `navigator.languages` is an ORDERED list -- ["es-MX", "en-US"] means this
+   * reader prefers Spanish and will accept English -- so the first entry with
+   * a dictionary wins, and a list that leads with any English tag resolves to
+   * English exactly as it should.
+   *
+   * Region subtags are dropped, which is the right answer for every language
+   * this shop ships: es.json IS Latin American Spanish and pt.json IS
+   * Brazilian, so es-MX, es-419, pt-BR and pt-PT all land where they should.
+   * The one imperfect case is zh-TW / zh-HK, whose readers get the Simplified
+   * dictionary -- closer to their language than English is, and the shop has
+   * no Traditional dictionary to offer them.
+   */
+  function detectBrowserLanguage() {
+    var tags = [];
+    try {
+      if (typeof navigator !== "undefined" && navigator) {
+        if (navigator.languages && navigator.languages.length) {
+          tags = Array.prototype.slice.call(navigator.languages);
+        } else if (navigator.language) {
+          tags = [navigator.language];
+        }
+      }
+    } catch {
+      return null;
+    }
+    for (var i = 0; i < tags.length; i++) {
+      var base = String(tags[i] || "")
+        .toLowerCase()
+        .split("-")[0]
+        .trim();
+      if (!base) continue;
+      var matched = LANGUAGES.some(function (l) {
+        return l.code === base;
+      });
+      if (matched) return base;
+    }
+    return null;
+  }
+
   function getInitialLanguage() {
+    return getInitialLanguageSource().lang;
+  }
+
+  /**
+   * The initial language AND where it came from: "url", "stored", "browser"
+   * or "default". init() needs the source, because a detected language must
+   * not be written to storage the way a chosen one is.
+   */
+  function getInitialLanguageSource() {
     var langFromUrl = null;
     if (typeof window !== "undefined" && window.location && window.location.search) {
       try {
@@ -1141,7 +1367,7 @@
         return l.code === langFromUrl.toLowerCase();
       })
     ) {
-      return langFromUrl.toLowerCase();
+      return { lang: langFromUrl.toLowerCase(), source: "url" };
     }
 
     var saved = null;
@@ -1159,10 +1385,27 @@
         return l.code === saved.toLowerCase();
       })
     ) {
-      return saved.toLowerCase();
+      return { lang: saved.toLowerCase(), source: "stored" };
     }
 
-    return "en";
+    /* Nothing chosen and nothing stored: read the shop in the language the
+       device is already set to. A shopper whose phone is in Vietnamese should
+       not have to find a globe icon to be spoken to in Vietnamese.
+
+       Order matters and it is the order above: an explicit ?lang= wins over a
+       stored choice, and a stored choice wins over the browser. Once yl-lang
+       holds anything it is the shopper's own decision -- including a
+       deliberate switch back to English on a Spanish-language phone, which is
+       a real and common preference and must never be overridden by a detector.
+
+       Nothing is written to storage here on purpose: an auto-detected
+       language stays auto-detected, so a shopper who changes their device
+       language later gets the shop in the new one rather than being pinned to
+       a guess this page made once. */
+    var detected = detectBrowserLanguage();
+    if (detected) return { lang: detected, source: "browser" };
+
+    return { lang: "en", source: "default" };
   }
 
   /**
@@ -1234,20 +1477,44 @@
    */
   async function init() {
     buildLookupIndices();
-    var lang = getInitialLanguage();
-    currentLang = lang;
+    var initial = getInitialLanguageSource();
+    var lang = initial.lang;
+    /* Start English and let setLanguage() promote the page once it has the
+       dictionary in hand. Claiming the language up front would put the badge
+       on ES for as long as the fetch takes, and permanently if it fails --
+       the picker showing a language the page is not written in, which is the
+       one thing this engine must never do. */
+    currentLang = "en";
 
     initUI();
     initMutationObserver();
-    updateUIState(lang);
+    updateUIState("en");
 
     if (lang !== "en") {
-      if (localesReady()) {
-        await setLanguage(lang);
-      } else {
-        /* Do NOT call setLanguage() here. It would walk the whole tree
-           translating nothing and mark the document as switched, and nothing
-           would ever revisit it. Wait for the dictionaries instead. */
+      /* setLanguage fetches the dictionary itself and returns "en" if it
+         cannot get it, so the old "translate against nothing" hazard is gone
+         from this path: there is no window in which the badge says ES and the
+         dictionary is absent. What survives from that fix is the recovery
+         watcher below, for a page that had its dictionaries taken away or
+         supplied some other way. */
+      /* Neither a DETECTED language nor a ?lang= link is a decision the
+         shopper made about this browser, so neither is written to storage.
+
+         Detection: writing a guess would turn it into a decision they never
+         made and cannot see, and changing their phone's language would then
+         stop changing the shop.
+
+         ?lang=: PROJECT.md calls it "overridable per-visit" and cart.test.js
+         says it changes the page "without rewriting storage" -- but the code
+         persisted it, so a shared /?lang=de link permanently overwrote the
+         recipient's OWN stored choice. Two statements of intent against one
+         line of code; the line was wrong. A visitor who follows a link and
+         then wants to keep that language has the picker, which does persist. */
+      var applied = await setLanguage(lang, { persist: initial.source === "stored" });
+      if (applied !== lang) {
+        /* Could not fetch it. The page is honest -- English badge, English
+           copy -- and the watcher below covers the case where the
+           dictionaries turn up by some other route. */
         waitForLocales();
       }
     }
@@ -1268,6 +1535,12 @@
     t: t,
     renderTemplate: renderTemplate,
     getInitialLanguage: getInitialLanguage,
+    getInitialLanguageSource: getInitialLanguageSource,
+    detectBrowserLanguage: detectBrowserLanguage,
+    ensureLocale: ensureLocale,
+    _setEnsureLocaleForTest: function (fn) {
+      ensureLocaleOverride = typeof fn === "function" ? fn : null;
+    },
     initUI: initUI,
     init: init,
     _getInternalState: function () {
@@ -1322,7 +1595,11 @@
   /* Auto-initialize on DOM ready -- deliberately the LAST thing this file
      does. translator.js is fetched asynchronously (see the file's opening
      comment on load order), so by the time it runs, document.readyState is
-     almost always already past "loading" and init() fires SYNCHRONOUSLY,
+     almost always already past "loading" and init() fires right here -- ASYNC
+     since the dictionaries went on demand (2026-09-04): for a non-English
+     initial language the dispatchEvent inside setLanguage() lands one fetch
+     later, not synchronously -- and what still has to hold is the ordering
+     that follows,
      right here, including the dispatchEvent("yl-language-changed") inside
      setLanguage() for the page's initial language. A composition site
      (gift-card.js) that listens for that event to render its initial state

@@ -72,6 +72,13 @@
  *                          ("Lavender for Hush Y'all ... Sleep Salve")
  *   review-verbatim        customer review text or author from
  *                          site-reviews.json -- Etsy verbatim, never rewritten
+ *   event-atom             an event's name or town from events.json --
+ *                          "Spartanburg Punk Flea Market", "Asheville, NC".
+ *                          A market a shopper drives to is not copy
+ *   platform-label         a social link that is just the platform's name and
+ *                          an arrow -- "Instagram ↗". The company's name, not
+ *                          ours; narrower than a glossary term, which would
+ *                          also freeze it inside prose
  *   brand-glossary         nothing but protected terms from brand-glossary.json
  *   email-or-url           addresses and links
  *   machine-code           gift-card/session-shaped identifiers
@@ -274,6 +281,74 @@ function splitTopLevel(value) {
  * shop.*), blurbs, descriptions, ingredient notes and usage guides. Those are
  * copy, and copy is exactly what this tool is looking for.
  */
+/**
+ * The proper nouns events.json contributes: an event's name and where it is.
+ *
+ * These reach a built page as whole text nodes -- "Spartanburg Punk Flea
+ * Market", "MRB Renaissance Festival", "Asheville, NC" -- and they are not
+ * copy. They are the name of a market a shopper can drive to and the town it
+ * is in, and translating either would be actively wrong: nobody is looking
+ * for the "Marché aux Puces Punk de Spartanburg".
+ *
+ * Before this existed they classified as candidates, went to the model in
+ * eight languages, came back identical (because there is nothing to
+ * translate), and were refused by the passthrough rule -- 100 dropped keys on
+ * the 2026-09-04 run, and the same 100 on every run after it. products.json
+ * has had this treatment since the beginning (see collectCatalogAtoms); this
+ * is the same rule applied to the other file full of names.
+ *
+ * `type` is deliberately NOT included: "Arts Festival" and "Flea Market" are
+ * descriptions, and a French reader should get "Marché aux puces".
+ */
+/* The social links in the footer and the community strip render as the
+   platform's own name plus an arrow: "Instagram ↗", "TikTok ↗". The name of a
+   company is not copy, and the arrow is furniture.
+
+   These are NOT in brand-glossary.json on purpose. A protected term is
+   preserved verbatim everywhere it appears, and Korean prose legitimately
+   writes 인스타그램 -- protecting the word globally would force the Latin
+   spelling into a sentence where the Korean spelling is correct. The rule is
+   narrower than that: a string which is a platform name ALONE is untouchable,
+   the same word inside a sentence is the translator's business. */
+const PLATFORM_LABELS = [
+  "Instagram",
+  "TikTok",
+  "Facebook",
+  "Pinterest",
+  "YouTube",
+  "Etsy",
+  "Threads",
+  "X"
+];
+
+/** True when `text` is exactly a platform name, give or take a link arrow. */
+function isPlatformLabel(text) {
+  const bare = String(text)
+    .replace(/[↗→›»‣▸\u2192\u2197]/g, "")
+    .trim();
+  return PLATFORM_LABELS.some(function (name) {
+    return bare.toLowerCase() === name.toLowerCase();
+  });
+}
+
+function collectEventAtoms(events) {
+  const atoms = new Set();
+  function add(value) {
+    if (typeof value !== "string") return;
+    const trimmed = value.trim();
+    if (trimmed) atoms.add(trimmed);
+  }
+  const groups = [(events && events.upcoming) || [], (events && events.past) || []];
+  groups.forEach(function (list) {
+    (list || []).forEach(function (e) {
+      if (!e) return;
+      add(e.name);
+      add(e.location);
+    });
+  });
+  return atoms;
+}
+
 function collectCatalogAtoms(catalog) {
   const atoms = new Set();
   function add(value) {
@@ -420,6 +495,8 @@ function skipReason(text, ctx) {
   if (ctx.catalogAtoms.has(text) || ctx.catalogAtoms.has(stripLeadingSeparator(text)))
     return "catalog-atom";
   if (ctx.reviewTexts.has(unquote(text))) return "review-verbatim";
+  if (ctx.eventAtoms && ctx.eventAtoms.has(text)) return "event-atom";
+  if (isPlatformLabel(text)) return "platform-label";
   if (isEmailOrUrl(text)) return "email-or-url";
   if (isMachineCode(text)) return "machine-code";
   if (!hasTranslatableWords(text)) return "no-translatable-words";
@@ -628,6 +705,7 @@ function buildContext(payload) {
   const catalog = readJsonIfPresent("assets/data/products.json") || {};
   const glossary = readJsonIfPresent("assets/data/brand-glossary.json") || { protectedTerms: [] };
   const reviews = readJsonIfPresent("assets/data/site-reviews.json") || { reviews: [] };
+  const events = readJsonIfPresent("assets/data/events.json") || { upcoming: [], past: [] };
 
   const pages = build.collectBuiltHtml();
   if (!pages.length) {
@@ -657,6 +735,7 @@ function buildContext(payload) {
     ),
     templateMatchers: buildTemplateMatchers(enDoc.phrases),
     catalogAtoms: collectCatalogAtoms(catalog),
+    eventAtoms: collectEventAtoms(events),
     reviewTexts: collectReviewTexts(reviews),
     protectedTerms: glossary.protectedTerms || [],
     reachableTexts: new Set(
@@ -852,6 +931,7 @@ module.exports = {
   isMachineCode,
   isGlossaryOnly,
   skipReason,
+  isPlatformLabel,
   deferReason,
   classifyReachable,
   computeChanged,

@@ -211,11 +211,26 @@ const TAX_CODE_SHIPPING = "txcd_92010001"; // Shipping
 
 const MAX_QTY_PER_ITEM = 99;
 const MAX_LINE_ITEMS = 50;
-// The six languages assets/js/translator.js offers, every one of which is also
-// a value Stripe Checkout accepts for `locale`. This Worker's own JSON error
-// strings stay English on purpose -- cart.js renders them, and translating
-// them here would put shop copy in two places at once.
-const CHECKOUT_LOCALES = new Set(["en", "es", "de", "fr", "ja", "zh"]);
+// The nine languages assets/js/translator.js offers. This Worker's own JSON
+// error strings stay English on purpose -- cart.js renders them, and
+// translating them here would put shop copy in two places at once.
+const CHECKOUT_LOCALES = new Set(["en", "es", "de", "fr", "ja", "zh", "vi", "ko", "pt"]);
+/* Site code -> the value Stripe wants, for the two languages where they are
+   not the same string. Stripe's `es` is peninsular Spanish and its `pt` is
+   European Portuguese; our dictionaries are neither. es.json is written for
+   Latin American readers in the United States (Stripe calls that `es-419`)
+   and pt.json is Brazilian (`pt-BR`), so sending the bare code would hand a
+   shopper a payment page in a different variety of their own language than
+   the shop they just read -- vosotros forms and "carrinho" spellings at the
+   one step where confusion costs the order.
+
+   The mapping lives here rather than in cart.js because sw.js precaches
+   cart.js: a returning shopper can be running a cart.js from before this
+   change for as long as their service worker holds it, and that client sends
+   the site code. Doing it Worker-side means every client, cached or fresh,
+   reaches the right Checkout. Codes absent from this map pass through
+   unchanged -- they are already the value Stripe wants. */
+const STRIPE_LOCALES = { es: "es-419", pt: "pt-BR" };
 const MAX_GIFT_TEXT_LEN = 500;
 // Stripe's own limit is 50 metadata keys per object; stop short of it so the
 // session-level keys (pickup, discount, gift flags, gift-card redemption)
@@ -1072,14 +1087,16 @@ async function handleCheckout(request, env, ctx, origin) {
       // step in the funnel where confusion costs an order. Validated against
       // the allow-list here rather than trusted: this value goes straight into
       // an outbound Stripe parameter, and `locale` is an enum Stripe rejects
-      // the whole session for if it is unknown. All six of our codes are in
-      // that enum (en, es, de, fr, ja, zh). Anything else is dropped, which
-      // leaves Stripe on its default browser-locale behaviour.
+      // the whole session for if it is unknown. The allow-list is our nine
+      // SITE codes; STRIPE_LOCALES then maps the two that Stripe spells
+      // differently (es -> es-419, pt -> pt-BR). Anything else is dropped,
+      // which leaves Stripe on its default browser-locale behaviour.
       const rawLocale = body && body.locale;
-      const checkoutLocale =
+      const siteLocale =
         typeof rawLocale === "string" && CHECKOUT_LOCALES.has(rawLocale.trim().toLowerCase())
           ? rawLocale.trim().toLowerCase()
           : null;
+      const checkoutLocale = siteLocale ? STRIPE_LOCALES[siteLocale] || siteLocale : null;
       const rawDiscount =
         body && (body.discount_code !== undefined ? body.discount_code : body.discountCode);
       if (rawDiscount && typeof rawDiscount === "string") {

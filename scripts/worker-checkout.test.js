@@ -1471,7 +1471,7 @@ async function runWorkerCheckoutTests() {
   }
 
   /* Stripe Checkout locale.
-     The shop can be read in six languages, but Checkout used to render from
+     The shop can be read in nine languages, but Checkout used to render from
      Accept-Language, so a shopper browsing in Japanese could be handed an
      English payment page at the one step where confusion costs the order.
      cart.js now sends the language it is displaying and the Worker forwards it
@@ -1479,14 +1479,79 @@ async function runWorkerCheckoutTests() {
      Stripe, and anything else is DROPPED rather than passed through -- `locale`
      is an enum, and Stripe rejects the entire session for an unknown value. */
   {
-    const supported = ["en", "es", "de", "fr", "ja", "zh"];
-    for (const code of supported) {
+    /* Site code -> what Stripe must be sent. Two of the nine differ: es.json
+       is Latin American Spanish written for readers in the US and pt.json is
+       Brazilian, so bare `es` (peninsular) and `pt` (European) would hand the
+       shopper a payment page in the wrong variety of their own language. */
+    const supported = {
+      en: "en",
+      es: "es-419",
+      de: "de",
+      fr: "fr",
+      ja: "ja",
+      zh: "zh",
+      vi: "vi",
+      ko: "ko",
+      pt: "pt-BR"
+    };
+    for (const [code, sent] of Object.entries(supported)) {
       const result = await executeCheckout({
         items: [{ id: "lavender-soak", qty: 1 }],
         locale: code
       });
       eq(result.status, 200, `locale ${code}: checkout returns HTTP 200`);
-      eq(result.sessionParams.get("locale"), code, `locale ${code}: forwarded to Stripe`);
+      eq(result.sessionParams.get("locale"), sent, `locale ${code}: sent to Stripe as ${sent}`);
+    }
+
+    /* Every value the map can emit has to be one Stripe actually accepts --
+       the enum is checked server-side and an unknown value fails the whole
+       session, which is the one error this shop cannot afford to discover in
+       production. List transcribed from the Checkout Session API reference. */
+    const STRIPE_LOCALE_ENUM = new Set([
+      "auto",
+      "bg",
+      "cs",
+      "da",
+      "de",
+      "el",
+      "en",
+      "en-GB",
+      "es",
+      "es-419",
+      "et",
+      "fi",
+      "fil",
+      "fr",
+      "fr-CA",
+      "hr",
+      "hu",
+      "id",
+      "it",
+      "ja",
+      "ko",
+      "lt",
+      "lv",
+      "ms",
+      "mt",
+      "nb",
+      "nl",
+      "pl",
+      "pt",
+      "pt-BR",
+      "ro",
+      "ru",
+      "sk",
+      "sl",
+      "sv",
+      "th",
+      "tr",
+      "vi",
+      "zh",
+      "zh-HK",
+      "zh-TW"
+    ]);
+    for (const sent of Object.values(supported)) {
+      assert(STRIPE_LOCALE_ENUM.has(sent), `${sent} is a value Stripe Checkout accepts for locale`);
     }
 
     const upper = await executeCheckout({
@@ -1501,6 +1566,9 @@ async function runWorkerCheckoutTests() {
     });
     eq(padded.sessionParams.get("locale"), "fr", "locale with surrounding space is trimmed");
 
+    /* Stripe's own spellings are NOT accepted as input: the allow-list is the
+       site's codes, and the es-419/pt-BR mapping happens on the way out. A
+       client sending "pt-BR" is not one of ours. */
     const rejected = ["es-MX", "pt-BR", "klingon", "", "../../etc/passwd", "en;drop"];
     for (const bad of rejected) {
       const result = await executeCheckout({

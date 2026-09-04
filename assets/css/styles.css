@@ -494,14 +494,23 @@ section {
      rounded corners) means a label too long for its button is silently cut at
      both ends rather than wrapped -- no ellipsis, no reflow, just a missing
      word. On a 320px screen the gift-card CTA "Choose an amount & add to cart"
-     needed 266px inside a 230px button, so ~18px vanished off each end. Below
-     360px, let a label that cannot fit wrap instead; `balance` keeps the two
-     lines even and puts the "&" with the clause it belongs to. Labels that
-     already fit are unaffected -- there is nothing to wrap. */
-  @media (max-width: 360px) {
+     needed 266px inside a 230px button, so ~18px vanished off each end. Let a
+     label that cannot fit wrap instead; `balance` keeps the two lines even
+     and puts the "&" with the clause it belongs to. Labels that already fit
+     are unaffected -- there is nothing to wrap.
+
+     The breakpoint was 360px and English-sized. Nine languages moved it: at
+     375px the Vietnamese hero CTA measured 385px inside a 343px column (28px
+     past the viewport), Portuguese and Spanish 379/385px, and the PDP
+     "add all" and custom-box buttons lost 17-25px of label -- price digits
+     included -- with no ellipsis to say so (audit 2026-09-04). 480px covers
+     every phone width the site serves; `max-width: 100%` keeps a wrapped
+     label inside its column rather than merely inside its own box. */
+  @media (max-width: 480px) {
     white-space: normal;
     text-wrap: balance;
     text-align: center; /* flex centres the text block; this centres its lines */
+    max-width: 100%;
   }
 
   &::after {
@@ -4244,12 +4253,25 @@ hr.rule {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  background: rgba(30, 24, 21, 0.85); /* transparent ink-2 matching */
+  background: rgba(30, 24, 21, 0.96); /* near-opaque ink-2: nine rows reach the hero now */
   border: 1px solid var(--hide);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 6px 0;
   min-width: 150px;
+  /* Nine languages at 44px each is 408px of menu. That still fits a modern
+     phone under the header, but not a 568px-tall viewport in landscape, and
+     the dropdown is absolutely positioned -- without a ceiling the last
+     options are simply unreachable. Scroll the menu rather than the page. */
+  /* Measured against the viewport MINUS where the menu starts, not 70vh:
+     at 740x360 the old ceiling put the list's own bottom border 2px below
+     the screen, so the only cue that four more languages existed was a
+     glyph cut in half (audit 2026-09-04). With the bottom edge on-screen the
+     cut-off row reads as "scroll", and the thin scrollbar says so too. */
+  max-height: min(calc(100vh - 130px), 420px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
   z-index: 200;
   display: none;
   flex-direction: column;
@@ -4276,7 +4298,7 @@ hr.rule {
 }
 
 :root[data-theme="light"] .lang-dropdown {
-  background: rgba(241, 233, 216, 0.85); /* transparent ink-2 in light mode */
+  background: rgba(241, 233, 216, 0.96); /* near-opaque paper in light mode */
 }
 
 .lang-option {

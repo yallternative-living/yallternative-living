@@ -891,6 +891,141 @@
         "tpl.milestoneNext"
       ],
       "note": "calculateMilestoneStatus()'s shipping-progress message, a later milestone"
+    },
+    {
+      "key": "tpl.milestoneAllUnlocked",
+      "text": "🎉 All perks unlocked! Free Shipping + {rewards}!",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "tpl.milestoneAllUnlocked"
+      ],
+      "note": "calculateMilestoneStatus() at the top tier, two or more milestones; {rewards} is the CMS reward names joined with ' + ', substituted verbatim"
+    },
+    {
+      "key": "cart.milestoneAllUnlockedShipping",
+      "text": "🎉 All perks unlocked! Free Shipping!",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "cart.milestoneAllUnlockedShipping"
+      ],
+      "note": "calculateMilestoneStatus() at the top tier when shipping is the only perk"
+    },
+    {
+      "key": "tpl.milestoneSingleUnlocked",
+      "text": "🎉 You've unlocked {reward}!",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "tpl.milestoneSingleUnlocked"
+      ],
+      "note": "calculateMilestoneStatus() when there is exactly one milestone; {reward} is CMS copy"
+    },
+    {
+      "key": "cart.checkoutUnavailable",
+      "text": "Sorry -- checkout isn't available right now. Please try again in a moment.",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "cart.checkoutUnavailable"
+      ],
+      "note": "the checkout() failure message when the Worker gives no shopperMessage; rendered in a role=alert"
+    },
+    {
+      "key": "tpl.checkoutErrorAnnounce",
+      "text": "Checkout error: {message}",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "tpl.checkoutErrorAnnounce"
+      ],
+      "note": "the live-region announcement wrapping that message"
+    },
+    {
+      "key": "tpl.upsellAdd",
+      "text": "+ Add {price}",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "tpl.upsellAdd"
+      ],
+      "note": "the 'you might also like' add button; {price} is formatted money"
+    },
+    {
+      "key": "tpl.cartVariant",
+      "text": "Variant: {variant}",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "tpl.cartVariant"
+      ],
+      "note": "a line item's variant label; {variant} is the CMS option label"
+    },
+    {
+      "key": "tpl.cartRecipient",
+      "text": "For: {email}",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "tpl.cartRecipient"
+      ],
+      "note": "a gift-card line's recipient; {email} is what the shopper typed"
+    },
+    {
+      "key": "cart.shippingFree",
+      "text": "Free",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "cart.shippingFree"
+      ],
+      "note": "the shipping value in the totals row when shipping is free"
+    },
+    {
+      "key": "cart.mixMatchLabel",
+      "text": "Mix & Match:",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "cart.mixMatchLabel"
+      ],
+      "note": "the bold label on the volume-tier nudge"
+    },
+    {
+      "key": "cart.both",
+      "text": "both",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "cart.both"
+      ],
+      "note": "the count word in the nudge when the tier is 2"
+    },
+    {
+      "key": "tpl.allN",
+      "text": "all {n}",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "tpl.allN"
+      ],
+      "note": "the count phrase in the nudge when the tier is more than 2"
+    },
+    {
+      "key": "tpl.mixMatchNeed",
+      "text": "Add {needed} more {item} to get {all} for {price} each!",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "tpl.mixMatchNeed"
+      ],
+      "note": "the nudge before the tier is reached; {item} is '2oz salve'-style CMS text, {all} is cart.both or tpl.allN, {price} is money"
+    },
+    {
+      "key": "tpl.mixMatchApplied",
+      "text": "{price}/ea {item} volume tier applied!",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "tpl.mixMatchApplied"
+      ],
+      "note": "the nudge once the tier is reached"
+    },
+    {
+      "key": "tpl.mixMatchNext",
+      "text": "Add {amount} for {perk}!",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "tpl.mixMatchNext"
+      ],
+      "note": "appended to the applied nudge when a further milestone is still ahead; {perk} is CMS copy"
     }
   ]
 }
