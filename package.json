@@ -13,6 +13,7 @@
     "build-security-headers": "node scripts/build-security-headers.js",
     "sync-etsy": "node scripts/apply-etsy-snapshot.js",
     "i18n:new": "node scripts/i18n-new-strings.js",
+    "i18n:translate": "node scripts/i18n-translate.js",
     "test": "node scripts/run-test.js",
     "test:smoke": "node scripts/smoke-test.js",
     "test:integration": "node scripts/run-integration-tests.js",

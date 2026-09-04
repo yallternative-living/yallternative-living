@@ -34,6 +34,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const claimRules = require("./lib/i18n-claims-rules.js");
 
 const ROOT = path.resolve(__dirname, "..");
 const CODES = ["en", "es", "de", "fr", "ja", "zh"];
@@ -89,57 +90,97 @@ function keyFor(englishText) {
 // ---------------------------------------------------------------------------
 // 1. No claim vocabulary anywhere the English does not have it.
 // ---------------------------------------------------------------------------
-const CLAIM_WORDS = {
-  es: ["remedio", "remedios", "curativ", "medicinal", "calmante", "terapéut", "sanador"],
-  de: ["Heilmittel", "heilend", "lindert", "beruhigt", "medizinisch", "therapeutisch"],
-  fr: ["remède", "remèdes", "guérit", "apaise", "apaisant", "soulage", "médicinal", "thérapeut"],
-  ja: ["安心", "天然", "効能", "治療", "改善"],
-  zh: ["安心", "天然", "疗效", "功效", "舒缓", "治疗"]
-};
-
-/* Keys whose English itself uses the word, so the translation has to. Each
-   needs a reason; "we could not phrase it otherwise" is not one. */
-const CLAIM_EXEMPT = {
-  "pdp.notMedicine": {
-    es: ["curar"],
-    ja: ["治療", "治癒"],
-    zh: ["治疗", "治愈"],
-    reason:
-      "the disclaimer denies these claims -- the English reads 'nothing here is meant to " +
-      "diagnose, treat, cure or prevent any condition', so the words have to appear"
-  }
-};
-
-/* Matched case-insensitively. German compounds the word rather than standing it
-   alone -- "Kräuterheilmittel" is the exact form the audit found, and a
-   case-sensitive search for "Heilmittel" walks straight past it. */
+/* The table itself is scripts/lib/i18n-claims-rules.js. It moved out of this
+   file when scripts/i18n-translate.js started needing it: the translator has
+   to refuse a bad string BEFORE it is written, and generates the model's
+   negative constraints from the same array, so a second copy here could put
+   the prompt, the pre-write check and this gate out of step with each other
+   while all three reported green.
+   That module also adds SOURCE PARITY -- a banned word is permitted when the
+   key's own English contains one of its licensed triggers, e.g. "calms the
+   itch" licenses apaise/beruhigt/舒缓 and "buzz off, naturally" licenses 天然.
+   It is not a loosening: a claim the English does not make is still rejected
+   in every locale, and 安心/効能/疗效/功效 are licensed by nothing at all.
+   Protected brand terms are stripped from the English before the trigger
+   search, so "Y'all Heal Now Miracle Frankincense Salve" cannot license
+   "heilend". */
+assert(
+  Object.keys(claimRules.CLAIM_WORDS).length === CODES.length - 1,
+  "the shared claims table covers all five non-English locales"
+);
+const protectedTerms = glossary.protectedTerms || [];
 CODES.slice(1).forEach((code) => {
-  const words = CLAIM_WORDS[code].map((w) => w.toLowerCase());
   const offenders = [];
   keys.forEach((key) => {
     const raw = locales[code].phrases[key] || "";
-    const value = raw.toLowerCase();
-    words.forEach((word) => {
-      if (value.indexOf(word) === -1) return;
-      const exempt = CLAIM_EXEMPT[key] && CLAIM_EXEMPT[key][code];
-      if (
-        exempt &&
-        exempt.some((w) => {
-          const lw = w.toLowerCase();
-          return word.indexOf(lw) !== -1 || lw.indexOf(word) !== -1;
-        })
-      ) {
-        return;
-      }
-      offenders.push(key + ": " + JSON.stringify(word) + " in " + JSON.stringify(raw));
-    });
+    claimRules
+      .claimOffenses({
+        key: key,
+        code: code,
+        english: enPhrases[key],
+        translated: raw,
+        protectedTerms: protectedTerms
+      })
+      .forEach((offense) => {
+        offenders.push(key + ": " + JSON.stringify(offense.word) + " in " + JSON.stringify(raw));
+      });
   });
   assert(
     offenders.length === 0,
-    "locale " + code + " adds no medicinal, soothing or safety claim",
+    "locale " + code + " adds no medicinal, soothing or safety claim the English does not make",
     offenders.join("\n      ")
   );
 });
+
+/* Source parity has to keep REJECTING as well as permitting, or moving the
+   table here would have quietly disarmed rule 1. Both directions, pinned on
+   the audit's own findings: the de "Kräuterheilmittel" that started this file
+   is still an offence against English that says nothing of the kind, and the
+   fr "apaise" that the live beard-salve blurb licenses is not. */
+{
+  const inventedClaim = claimRules.claimOffenses({
+    key: "test.synthetic",
+    code: "de",
+    english: "Herbal goods for people who like plants.",
+    translated: "Kräuterheilmittel für Menschen, die Pflanzen mögen.",
+    protectedTerms: protectedTerms
+  });
+  assert(inventedClaim.length === 1, "a claim the English does not make is still an offence");
+
+  const licensed = claimRules.claimOffenses({
+    key: "test.synthetic",
+    code: "fr",
+    english: "A 2 oz tin that calms the itch underneath.",
+    translated: "Une boîte de 2 oz qui apaise les démangeaisons.",
+    protectedTerms: protectedTerms
+  });
+  assert(licensed.length === 0, "'calms' in the English licenses 'apaise' in the French");
+
+  const brandNamed = claimRules.claimOffenses({
+    key: "test.synthetic",
+    code: "de",
+    english: "Include the Y'all Heal Now Miracle Frankincense Salve.",
+    translated: "Enthält die heilende Y'all Heal Now Miracle Frankincense Salve.",
+    protectedTerms: protectedTerms
+  });
+  assert(
+    brandNamed.length === 1,
+    "a product name containing 'Heal' does not license 'heilend'",
+    JSON.stringify(brandNamed)
+  );
+
+  const neverLicensed = claimRules.claimOffenses({
+    key: "test.synthetic",
+    code: "ja",
+    english: "Safe, gentle, and made in small batches.",
+    translated: "安心してお使いいただけます。",
+    protectedTerms: protectedTerms
+  });
+  assert(
+    neverLicensed.length === 1,
+    "no English licenses 安心 -- a safety assurance is banned in JP"
+  );
+}
 
 // ---------------------------------------------------------------------------
 // 2. No INCI binomial anywhere in the UI dictionary.
