@@ -85,6 +85,30 @@ genuinely something to look at.
 
 ---
 
+---
+
+### A note on search words
+
+You do not have to guess what a shopper will type. Fill in **Search keywords**
+on a product with whatever comes to mind and leave the rest alone — after you
+save, the site adds more search words for you, on its own, within a few minutes.
+It adds the plain-language ones people actually use ("that bug stuff"), the
+occasions ("stocking stuffer", "post hike"), the ingredient names, and the
+common misspellings.
+
+**Your own keywords always win.** They come first, nothing you wrote is ever
+changed or removed, and if the site had already added a word you later type
+yourself, yours is the one that stays. None of the added words are written into
+your product — they exist only so the search box can find the right thing.
+
+Symptoms and conditions still stay out of Search keywords, exactly as the hint
+under the field says: those go under **Site Settings → Search settings → Extra
+search words**, which only translate what a shopper typed and are never shown
+anywhere. The site follows the same rule when it adds words for you, and Steven
+gets a list of anything it decided not to add.
+
+---
+
 ### Walkthrough 1: Products, Pricing, Variants & Stock Levels
 
 #### A. Changing a Product's Base Price

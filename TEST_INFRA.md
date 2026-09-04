@@ -428,6 +428,141 @@ English.
    hook called from the workflow's last step -- five lines.
 7. Only after step 6 should anyone treat the pipeline as unattended.
 
+## The search-enrichment bot, and the two surfaces it writes to
+
+`scripts/search-enrich.js` writes the search vocabulary the owner would not
+think to write down. Nobody types "Bug Off B\*tch Natural Bug Spray"; they type
+"that bug stuff". Nobody types "Digital Gift Card" in December; they type
+"stocking stuffer". A fair share of everyone types "lavendar".
+
+It never touches `assets/data/products.json`. That file is the owner's and the
+CMS's; a bot editing it would put a machine's wording in the middle of her copy
+and re-open the compliance review on every run. The words live in
+`assets/data/search-enrichment.json`, which is bot-owned, and
+`scripts/build-site-data.js` merges them into the search index and nowhere else.
+
+### The two surfaces
+
+This is the whole design, and it is deliberately asymmetric.
+
+| | `keywords` (product side) | `querySynonyms` (query side) |
+| --- | --- | --- |
+| Where it ends up | published in `assets/js/search-data.js`, readable by anyone | merged into the synonym table that rewrites what the shopper TYPED |
+| Rendered anywhere? | yes, it ships with the product | never |
+| Word policy | the FULL list: treatment verbs, symptoms, conditions, pesticide claims, unsubstantiated "natural"/"organic" | a SHORT list: cure, treat, treatment, prescription, medicine, medical, diagnose, "FDA approved" |
+| Symptom words (eczema, insomnia, sore muscles) | refused | **allowed, and wanted** |
+
+The reasoning: FDA reads intended use off "the label, the website and
+advertising", and has cited a product NAME as evidence in warning letters, so a
+published keyword is no safer than a name. A query synonym is different in kind
+— it only routes a shopper who types "psoriasis" to the Dry, Rough Skin products
+instead of an empty page, and that is not a claim that anything treats
+psoriasis. The interim legal finding backing the split: FDA has said nothing
+about search terms for cosmetics, and the nearest case law treats invisible
+query-side input as inert and visible output as where liability lives.
+
+The policy is **data**, in `scripts/lib/search-enrichment-rules.js`: arrays with
+a one-line rationale each (`PRODUCT_SIDE_BANNED` grouped into treatment /
+condition / pesticide / substantiation words, `QUERY_SIDE_BANNED`,
+`QUERY_SIDE_ALLOWED`, `COMPETITOR_BRANDS`, `PREFERRED_VOCABULARY`, `LIMITS`).
+A legal brief on this exact line is in progress; applying it should be an edit to
+a literal, never a patch to a filter. The same arrays generate the prompt
+(`promptFragment()`) and drive the filter, so the instruction the model gets and
+the gate that judges its answer cannot drift — the same reasoning as
+`scripts/lib/i18n-claims-rules.js`.
+
+### TODO(legal-brief): where the build and the policy currently disagree
+
+`SEARCH_SYNONYM_BANNED` in `scripts/build-site-data.js` throws on **wound**,
+**infection** and **psoriasis** on the query side too, which this policy would
+allow there. The build wins until the brief lands: the bot refuses them as well,
+with a drop reason that names the conflict, so the tracking issue says exactly
+what is pending. `QUERY_SIDE_BLOCKED_BY_BUILD_ONLY` is **computed** from the
+build's own array rather than typed, so shortening that array is a one-commit
+reconciliation and this list empties itself. `scripts/search-enrich.test.js`
+pins it at exactly those three words, so it cannot go stale in silence.
+
+### Regeneration, and why two runs make no diff
+
+Each entry records a digest of the copy it was generated from — name, blurb,
+description, ingredients, category, concerns — plus the policy version. A
+product is re-enriched when it is new, when that copy changes, or when the
+policy version moves. A price edit, a stock change or a new photo costs nothing.
+Everything else is carried through verbatim, ids are serialised in alphabetical
+order with a fixed field order, and a product deleted from `products.json` drops
+out on the next run.
+
+### The deterministic filters
+
+There is no second model reviewing the first. Every failure mode that matters
+here is lexical and enumerable, so a filter that names the word it refused beats
+a reviewer that is right 99% of the time. Per item, in order: lowercase and
+trim; at most 40 characters; only characters a search word should have; the
+surface's banned list; competitor brands; not a duplicate of an owner keyword
+(case-insensitively) or of a single token of the product's own name; not a
+duplicate inside the batch. Then caps: 12 keywords and 6 synonym entries per
+product. Every drop is reported as `{id, item, reason}` and goes on one issue.
+
+### The build has the last word
+
+Two checks, not one. Each candidate synonym is first run through the build's own
+`buildSearchSynonyms()`, one entry at a time, so a word the policy missed becomes
+a logged drop rather than a red deploy an hour later. Then the written file faces
+a full `node scripts/build-site-data.js`: on a non-zero exit the previous bytes
+are restored, the build is re-run so the generated files match what is on disk,
+and the run exits 2 having changed nothing. That guard is meant to be able to
+veto the bot, so the bot is written to lose the argument.
+
+### The recorded proof run
+
+`--provider mock`, no key, no network, against the real 20-product catalogue at
+`08c131e`, in a clean worktree. The mock is deliberately dirty: it emits
+`"eczema"` as a keyword, `"cures itch"` as a synonym term, a 68-character string
+and a duplicate of an owner keyword, so the drop paths are exercised rather than
+asserted.
+
+```
+summary: products=20 generated=20 unchanged=0 removed=[] dropped=107
+         modelUsed=mock-deterministic calls=1 fallbackWarning=null
+
+drops, by reason:
+   21x  duplicates a keyword the owner already wrote
+   20x  contains "eczema", which is a symptom or condition; it belongs on the query side only
+   20x  contains "cures", which asserts a medical outcome
+   20x  contains "psoriasis", which is refused by build-site-data.js SEARCH_SYNONYM_BANNED ...
+   20x  is 68 characters, over the 40-char cap
+    3x  contains characters a search word should not have
+    3x  is already a word in the product's own name
+```
+
+- `assets/data/products.json` sha256 identical before and after; the run touched
+  exactly `search-enrichment.json`, `search-data.js` and `sw.js`.
+- Owner's keywords still lead every list: bug-spray kept its 12 words in order
+  and gained 5; sleep-salve kept its 9 and gained 4.
+- No condition or treatment word reached the published surface; `synonyms.dry_skin`
+  still gained `eczema`. That asymmetry, end to end, is the point.
+- A previously-empty query now hits: `"secret santa"` returned **NONE** before
+  and six products after.
+- Second run: 0 calls, 0 generated, byte-identical file.
+- Veto path against the real build: a hand-poisoned entry
+  (`{key:"skin", terms:["treats wounds"]}`) was refused, the file restored
+  byte-for-byte, the generated files rebuilt, and the summary carried the
+  build's own sentence rather than its stack trace.
+
+### What is NOT covered here
+
+- **No live-model run.** There is no API key on the development machine, so
+  every run recorded above is `--provider mock`. What a real model actually
+  proposes — and therefore the true drop rate — is unmeasured. The filters are
+  proved; the model's taste is not.
+- **The workflow has never executed.** `.github/workflows/search-enrich.yml` is
+  unverified in CI: the `queue: max` concurrency, the rebase-and-retry push (it
+  and the i18n bot fire on the same `products.json` push), and whether Netlify's
+  webhook fires for a `GITHUB_TOKEN` push are all first-run questions. Run it
+  once with `dry_run: true` and read the artifact before trusting it.
+- **Search quality is not gated.** Nothing fails if the bot writes twelve words
+  nobody would ever type. The gate is that it writes nothing dangerous.
+
 ## What is NOT covered, and why that matters
 
 Naming the gaps is part of the contract; a coverage table with a tick in every
