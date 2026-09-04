@@ -4,7 +4,7 @@
  * @const {!Object}
  */
 window.YL_SEARCH_INDEX = {
-  "version": "2026.09.01",
+  "version": "2026.09.04",
   "products": [
     {
       "id": "tank-top",
@@ -2314,5 +2314,40 @@ window.YL_SEARCH_INDEX = {
       "edgy",
       "dark"
     ]
-  }
+  },
+  "medicalQueryTerms": [
+    "eczema",
+    "psoriasis",
+    "dermatitis",
+    "rosacea",
+    "acne",
+    "insomnia",
+    "anxiety",
+    "migraine",
+    "arthritis",
+    "wound",
+    "infection",
+    "pain",
+    "inflammation",
+    "anti-inflammatory",
+    "antibacterial",
+    "antiseptic",
+    "antifungal",
+    "heal",
+    "healing",
+    "cure",
+    "cures",
+    "treat",
+    "treats",
+    "treatment",
+    "relief",
+    "relieve",
+    "relieves",
+    "diagnose",
+    "prescription",
+    "medicine",
+    "medical",
+    "repel",
+    "repellent"
+  ]
 };

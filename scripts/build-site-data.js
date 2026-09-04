@@ -2960,13 +2960,60 @@ function buildSiteData() {
   }
   /* ==== END search-enrichment merge ==== */
 
+  /* ==== BEGIN medical-query router (surface 4) ====
+     The words the client recognises as a medical query -- named diseases and
+     treatment verbs -- shipped as a PLAIN ARRAY OF STRINGS and nothing else.
+     They map to no product, no concern and no URL here: the client uses them to
+     recognise the query, strip those words out of the matching, and render a
+     fixed note saying we make comfort products and not medicines (legal brief
+     2026-09-04, section 7(c)).
+
+     Three properties of this emission are load-bearing, and each is a rule the
+     brief states rather than a preference:
+
+       - it comes from scripts/lib/search-enrichment-rules.js and NEVER from
+         content.json, so the CMS cannot grow it. Section 7(c)(5) is explicit
+         that the moment the site PRESENTS these conditions instead of merely
+         recognising them -- a chip row, a "popular searches" module, a
+         suggestions dropdown, a browsable list -- it becomes MHRA Appendix 9's
+         "lists of adverse medical conditions which take a consumer to a page
+         displaying a product". Nothing downstream may render it;
+         scripts/medical-query-router.browser.test.js asserts that it does not.
+       - it is a flat list with no destinations attached, so it cannot become a
+         disease-to-product mapping in a shipped file (section 7(b));
+       - it reaches no other emitter. generateSitemap() below is built from
+         pages and products, so no query term can ever become a URL, and no
+         static page is generated per term.
+
+     The require is lazy for a real reason: search-enrichment-rules.js imports
+     SEARCH_SYNONYM_BANNED from THIS file, so a top-level require here would
+     hand it a module.exports that is still empty. By the time buildSiteData()
+     runs, the exports at the bottom of this file are assigned and the cycle
+     resolves cleanly. */
+  const searchRules = require("./lib/search-enrichment-rules.js");
+  const medicalQueryTerms = searchRules.medicalQueryTermList();
+  if (
+    !Array.isArray(medicalQueryTerms) ||
+    !medicalQueryTerms.length ||
+    medicalQueryTerms.some(function (t) {
+      return typeof t !== "string" || !t.trim();
+    })
+  ) {
+    throw new Error(
+      "search-enrichment-rules.medicalQueryTermList() must return a non-empty array of " +
+        "strings -- the client's medical-query note is silent without it."
+    );
+  }
+  /* ==== END medical-query router ==== */
+
   const searchIndex = {
-    version: "2026.09.01",
+    version: "2026.09.04",
     products: allSearchProducts,
     journal: searchJournal,
     events: searchEvents,
     faq: searchFaq,
-    synonyms: searchSynonyms
+    synonyms: searchSynonyms,
+    medicalQueryTerms: medicalQueryTerms
   };
 
   const searchDataJs =

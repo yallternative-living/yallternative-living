@@ -375,6 +375,39 @@ function product(over) {
      shortening SEARCH_SYNONYM_BANNED. If it ever fills up again, somebody added
      a word to the build's list and to no list in the rules module, and the bot
      is now refusing a word for a reason it cannot explain. */
+  /* The router list has to reach the client, and it has to reach ONLY the
+     client. Held against the shipped artefacts rather than a fixture, because a
+     fixture would only prove the fixture. */
+  const shippedIndex = (function () {
+    const sandbox = { window: {} };
+    const src = fs.readFileSync(path.join(ROOT, "assets/js/search-data.js"), "utf8");
+    new Function("window", src)(sandbox.window);
+    return sandbox.window.YL_SEARCH_INDEX;
+  })();
+  assertDeep(
+    shippedIndex.medicalQueryTerms,
+    rules.medicalQueryTermList(),
+    "assets/js/search-data.js carries the router list, sourced from the rules module"
+  );
+  assert(
+    shippedIndex.medicalQueryTerms.every(function (t) {
+      return typeof t === "string";
+    }),
+    "and carries it as plain strings -- no product ids, no destinations"
+  );
+  const contentJson = JSON.parse(
+    fs.readFileSync(path.join(ROOT, "assets/data/content.json"), "utf8")
+  );
+  const chipText = JSON.stringify((contentJson.search || {}).popularChips || []).toLowerCase();
+  const sitemap = fs.readFileSync(path.join(ROOT, "sitemap.xml"), "utf8").toLowerCase();
+  rules.medicalQueryTermList().forEach(function (term) {
+    assert(
+      chipText.indexOf(term) === -1,
+      "no popular-search chip presents " + JSON.stringify(term) + " (brief 7(c)(5))"
+    );
+    assert(sitemap.indexOf(term) === -1, "and no sitemap URL does either: " + JSON.stringify(term));
+  });
+
   ["Dry Skin", "post-hike!", "  Bug   Spray  ", "níght"].forEach(function (raw) {
     const mine = rules.normalizeSynonymKey(raw);
     const theirs = Object.keys(
