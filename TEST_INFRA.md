@@ -448,3 +448,211 @@ cell is how the last one went wrong.
   Puppeteer, i.e. Chromium only; `cross-browser-check.js` does not exercise
   the selector.
 - **Worker/checkout strings are not translated and not tested as such.**
+
+# The copy claims reviewer
+
+`scripts/claims-review.js` reads the wording the owner just changed in the CMS
+and, if any of it reads as a regulated claim, leaves her a note. It is the
+second unattended bot in this repo and the only one that writes nothing at all:
+no commit, no file, no edit to her copy, and no ability to fail a deploy.
+
+The reason it exists is narrow and worth stating. The 1-2 September 2026
+compliance review found that the shop's real exposure is not the catalogue --
+that was audited once and the decisions are with the owner -- it is the next
+sentence she writes alone at eleven at night. "Brings the itch right down" is a
+drug claim under the FD&C Act and no regex will ever see it.
+
+## What it reads, and what it deliberately does not
+
+Only the strings that were **added or edited** between two git refs of the five
+CMS-written data files plus the journal:
+
+    assets/data/products.json    name, blurb, description, ingredients, scent,
+                                 usage guide, tags, keywords, bundle and deal
+                                 copy, FAQ answers, filter labels
+    assets/data/content.json     page copy, the announcement, notices, the
+                                 automated-email intros
+    assets/data/events.json      event names, types and notes
+    assets/data/quiz.json        every question and answer
+    assets/data/site-reviews.json  review text (its own category -- see below)
+                                 and the owner's replies
+    assets/data/journal/*.json   title, excerpt, body, tags
+
+An unchanged blurb is never reviewed, on any run, ever. A reviewer that
+re-reports the whole catalogue on every price edit is a reviewer she stops
+reading, and the report becomes wallpaper. Identity for the diff is the
+object's `id`, not its array index, so reordering the catalogue is zero changed
+strings rather than twenty.
+
+Everything a pattern matches is filtered again by `looksLikeCopy()`, which
+keeps image paths, URLs, analytics ids, config placeholders and ISO dates out
+of a report about wording.
+
+## Two passes, and why the second one cannot be the only one
+
+1. **The rule table** -- `scripts/lib/copy-claims-rules.js`, deterministic,
+   offline, free. It owns every hard term the compliance review named across
+   three categories (drug/treatment, pesticide/FIFRA, unsubstantiated
+   marketing). A hit is a **definite** finding. It does not depend on a model
+   being reachable or paid for.
+2. **One batched model call** through the shared `scripts/lib/llm.js` --
+   the same client the i18n bot uses, one `/chat/completions` with JSON-schema
+   structured output, retries, the pinned-to-alias fallback and the per-run
+   call cap. It is handed the rule table (so it does not re-report pass 1), the
+   brand voice, and the standing instruction that puffery -- "Miracle", "the
+   one y'all keep re-ordering" -- is not a claim. Its findings are **likely**
+   or **possible**, never definite.
+
+If the second pass fails, is skipped, or has no key, the run still reports the
+deterministic findings and says in the report that the second read-through did
+not happen. That is the whole point of doing it in that order.
+
+Findings are merged and deduplicated: a model finding is dropped when the rule
+table already reported a term for the same string and category and that term
+appears inside the model's quote. A model finding whose quote is not literally
+present in the string, or whose id was never sent, is dropped -- a
+schema-conformant hallucination is the realistic failure mode, not a 500.
+
+## The pending decisions, which are never findings
+
+The wording the review already put in front of the owner -- "Y'all Heal Now
+Miracle Frankincense Salve", "Hush Y'all Magnesium Arnica Sleep Salve",
+"Backroad Recovery Epsom Salt Soak", and the bug spray's name and blurb -- is
+masked out of the scan and listed separately as "already on your list". The
+phrases are read from the live `assets/data/products.json` at run time, so the
+day she renames a product the entry disappears without anybody editing code.
+A claim in the sentence *around* a pending name is still reported: a brand name
+is a name, not a licence, which is the same rule
+`scripts/lib/i18n-claims-rules.js` applies to protected terms.
+
+A republished customer review that makes a claim is its own category
+(compliance review section 4b): the wording is the customer's, but the claim is
+the shop's, and the fix is different -- leave it on Etsy, or move it off the
+product page.
+
+## The rule table's shape, and updating it from a research brief
+
+`CLAIM_TABLE` is data, not code: a list of categories, each with an id, a
+label, a citation tag matching the review's own section numbers (`S1`, `S3`,
+`S4`, `S4B`), a default severity and a list of `{term, reason}` entries. A
+later brief changes the word lists **without touching code** by supplying a
+JSON overlay, named by `COPY_CLAIMS_TABLE` or passed to `loadTable()`:
+
+    {
+      "categories": {
+        "drug":      { "add": [{ "term": "detox", "reason": "..." }],
+                       "remove": ["pain"] },
+        "marketing": { "add": ["clean"] }
+      },
+      "rewordings": [{ "when": ["detox"], "try": ["a long soak, nothing more"] }]
+    }
+
+`add` appends, `remove` filters, a bare string inherits the category's default
+reason, and an unknown category id is an **error** rather than a silent no-op,
+because a typo in a research brief must not quietly disable a rule. The suite
+asserts that every term in the table -- including one an overlay adds -- has a
+rewording to offer, so a finding is never a complaint without a suggestion.
+
+## How the owner actually hears about it
+
+She will not open a GitHub issue, so a run with findings emails her. The
+provider is Resend, the one the site already uses in `workers/submit-form.js`:
+one POST to `https://api.resend.com/emails` with the key in an `Authorization`
+header, never a URL. The recipient is read from `content.json` `contact.email`
+at run time, never hard-coded, so changing it in the CMS changes it here.
+
+- One email per run, never per finding.
+- **Findings only.** A run whose only output is the standing pending-decisions
+  list emails nothing: "still those same four names" every time she edits a
+  price is an email she filters.
+- Rendering and the send/skip decision are unit-tested offline; the network
+  call is a separate CLI mode (`--send-email`) so the workflow can hold
+  `RESEND_API_KEY` on one step and nowhere else.
+- A missing secret is a **visible skip**, written to the run summary, not a
+  silent one; a Resend failure is logged and the run stays green. The issue
+  carries the same text either way.
+
+## Environment
+
+| Name | Kind | Default | What it does |
+| --- | --- | --- | --- |
+| `GEMINI_API_KEY` | secret | none | The second pass. Absent, the run is deterministic-only and says so. |
+| `CLAIMS_MODELS` | env/var | `gemini-3.8-flash,gemini-flash-latest` | Pinned id first, rolling alias last. Re-pinning is this one line. |
+| `CLAIMS_MAX_CALLS` | env | `6` | One call plus the shared client's retries. |
+| `COPY_CLAIMS_TABLE` | env | none | Path to a JSON overlay for the word lists. |
+| `RESEND_API_KEY` | secret | none | **New.** Sends the note. Absent, the email is skipped with a notice. |
+| `FROM_EMAIL` | variable | none | **New.** A sender address VERIFIED in the Resend account. An unverified sender is rejected outright, which is why this is a repository variable and not a literal. |
+| `OWNER_GITHUB_LOGIN` | variable | none | **New, optional.** When set, the issue body @-mentions it so GitHub emails her too. When unset, no mention is rendered. |
+
+`RESEND_API_KEY` and `FROM_EMAIL` are the two settings a maintainer has to add
+for the email half to work at all. Until they are added the workflow is fully
+functional and simply says, in the run summary, that the note was not emailed.
+
+## Running it locally
+
+    # against the last commit, no key needed, deterministic pass only
+    node scripts/claims-review.js --dry-run
+
+    # the full two-pass run offline, with the mock provider
+    node scripts/claims-review.js --provider mock
+
+    # a specific range, JSON and Markdown to disk
+    node scripts/claims-review.js --base <ref> --head <ref> \
+      --json /tmp/review.json --markdown /tmp/review.md
+
+    # a synthetic head from a directory (how the proof run works -- it never
+    # writes to the repo)
+    node scripts/claims-review.js --provider mock --base-dir . --head-dir /tmp/head
+
+    # render the email offline and inspect it; sends nothing
+    node scripts/claims-review.js --provider mock --email-preview /tmp/mail.json
+
+Exit code is 0 whether or not there are findings. Exit 2 is a real error only:
+a bad flag, an unreadable ref, malformed JSON in a data file.
+
+## The recorded proof run (2026-09-04, `--provider mock`, no key)
+
+A synthetic head was built in a temp directory from the live catalogue: one
+added product whose blurb reads "Brings the itch right down and keeps bites
+away, all natural and safe for the whole family", and one existing blurb
+(`hand-scrub`) edited harmlessly. Every other data file was copied byte for
+byte. The repo was not modified.
+
+- **6 changed strings in 1 file.** The other four data files and both journal
+  entries were byte-identical and cost one read each and produced nothing. The
+  beard salve's live "calms the itch underneath" -- the marginal case the
+  review names -- was not reviewed, because it did not change.
+- **3 deterministic findings**, all definite: `all natural` (S3), `bites` (S4),
+  `safe` (S3).
+- **1 second-pass finding**, at `likely`: "brings the itch right down", the
+  implied drug claim the word list cannot express. The mock's second finding
+  ("keeps bites away") was **dropped by the merge** because the rule table had
+  already reported `bites` on the same sentence and category.
+- **5 known-pending entries**, resolved from the live catalogue, all with
+  `touchedThisChange: false` -- the three product names, the bug spray's name
+  and its blurb appear under "already on your list" and **not** under findings.
+- The email envelope rendered with `send: true`, subject "A note about your
+  wording on Porch Night Salve", recipient `y.allternative.living@gmail.com`
+  read from `content.json`. Nothing was sent: no key on the machine.
+- `--dry-run` on the same head returned the 3 deterministic findings and 0
+  model findings, with the report stating the second read-through did not run.
+
+`npm test` (48 suites), `npm run lint` and `npm run format:check` were verified
+green in a clean worktree at HEAD with these files added.
+
+## What this one does NOT do
+
+- **It never edits her copy, and it never blocks a deploy.** Netlify does not
+  wait on this workflow, the workflow never pushes, and the review step is
+  `|| true`.
+- **It does not re-audit the catalogue.** Only what changed. The standing
+  compliance review is a document, not a bot, and the pending decisions are
+  hers.
+- **It does not check Etsy.** The review's findings about the Etsy titles
+  ("Muscle Relief", "muscle soak") are outside this repo entirely.
+- **It does not read printed labels, the safety file or the reaction log.**
+  Those are MoCRA duties on the owner, section 2 of the review.
+- **The second pass is unverified against a real model.** Every model branch
+  in the suite is driven through an injected client, and the proof run used the
+  mock provider; nobody has yet watched `gemini-3.8-flash` answer this prompt
+  with a real key. What IS proved is that the run survives whatever it says.

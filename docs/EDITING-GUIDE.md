@@ -64,6 +64,27 @@ about it. You never need to translate anything by hand.
 
 ---
 
+### A note on wording, and the check that reads it
+
+After you save, a check reads only the wording you just changed — not the whole
+shop, and never anything you left alone. If something in it reads like a health
+promise ("brings the itch right down", "helps with eczema") or a bug-repellent
+promise ("keeps the mosquitoes off"), you get an email with your own sentence
+quoted, one plain line about why that particular wording is the kind the FDA or
+the EPA cares about, and one or two ways to say the same thing that sound like
+you. That is all it does. **It never changes your words**, it cannot stop your
+edit going live, and there is nothing to approve or dismiss — if the note is
+not useful, ignore it.
+
+Two things it will not pester you about. The four wordings from the September
+review that are still your decision — "Y'all Heal Now", "Sleep Salve",
+"Backroad Recovery" and the bug spray — are listed at the bottom of the note as
+things you already know about, never as something new. And a save with nothing
+worth flagging sends you nothing at all, so an email from it means there is
+genuinely something to look at.
+
+---
+
 ### Walkthrough 1: Products, Pricing, Variants & Stock Levels
 
 #### A. Changing a Product's Base Price
