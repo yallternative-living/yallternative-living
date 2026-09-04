@@ -881,7 +881,19 @@ const EXPECT_TOP3 = {
    EXPECT_TOP. A medicalQueryTerms word must find nothing at all in the engine
    -- the note is what answers it (brief 7(b), 7(c)) -- and the lay phrase
    beside it in EXPECT_TOP must still find the same shelf it always did. */
-const EXPECT_NOTHING = ["insomnia", "eczema", "anxiety", "arthritis", "psoriasis", "wound"];
+const EXPECT_NOTHING = [
+  "insomnia",
+  "eczema",
+  "anxiety",
+  "arthritis",
+  "psoriasis",
+  "wound",
+  // the pest words, on the router since 2026-09-04 (brief 7(g), FIFRA)
+  "mosquito",
+  "mosquitoes",
+  "ticks",
+  "mosquito bites"
+];
 
 EXPECT_NOTHING.forEach((query) => {
   it(`searchGlobal('${query}') is a router word and returns no product`, () => {

@@ -960,8 +960,23 @@ unchanged in shape; the third is new and belongs to nobody's model.
 |---|---|---|
 | 1. Prose | names, blurbs, filter and category labels, URLs, alt text | cosmetic vocabulary only |
 | 2. `keywords` | published with the product in `assets/js/search-data.js` | identical to prose, no softening — FDA has quoted a `Tags:` list as a claim, and C-657/11 holds invisibility "irrelevant" |
-| 3. `querySynonyms` | rewrites what the shopper typed; rendered nowhere | **lay** symptom and sensory words allowed ("itchy skin", "dry patches", "sore feet", "can't sleep") |
-| 4. `medicalQueryTerms` | 33 named diseases and treatment verbs | maps to **no product**; drives the note; never rendered as a list |
+| 3. `querySynonyms` | rewrites what the shopper typed; rendered nowhere | **lay** symptom and sensory words allowed ("itchy skin", "dry patches", "sore feet", "can't sleep") — but no named disease, no treatment verb and, since 2026-09-04, no pest word |
+| 4. `medicalQueryTerms` | 40 named diseases, treatment verbs and pest/pesticide words | maps to **no product**; drives the note; never rendered as a list |
+
+**The two lists may not overlap, and three things enforce it.**
+`scripts/build-site-data.js` refuses to emit a synonym table whose key or term
+contains a `medicalQueryTerms` word — on the *merged* table, so it covers
+`content.json`'s `extraSynonyms` and the enrichment bot as well as the defaults,
+matching by whole word through the rules module's own `containsPhrase()` so
+"joint pain" is caught by "pain" and "manicure" is not caught by "cure".
+`scripts/qa-check.js` makes the same assertion against the
+`assets/js/search-data.js` **on disk**, because a build guard proves nothing
+about a file that was hand-edited or restored from a branch, and also pins that
+the shipped router list is the full 40. `scripts/global-search.test.js` pins
+`main.js`'s own `SYNONYM_GROUPS`/`CATEGORY_TERMS` against the same list, parsed
+rather than grepped — that table's `CATEGORY_TERMS` half maps a typed phrase
+straight onto product ids, so `eczema: ["shea-butter", ...]` was the sharper
+half of the problem and is gone.
 
 **The TODO closed the other way.** `search-enrichment-rules.js` used to carry a
 `TODO(legal-brief)` proposing that "wound", "infection" and "psoriasis" be
@@ -1004,8 +1019,29 @@ page displaying a product"*; recognising them is not. Four things enforce it:
 non-alphanumerics become gaps, so "anti-inflammatory" and "anti inflammatory"
 are the same two tokens), matches whole words and phrases, and returns the terms
 found, the query with **only those tokens removed**, and the shelf to link to.
-Both search surfaces call it — the shop grid in `render()` and the global search
-dialog in `triggerSearch()`.
+
+**It is called by the ENGINES, not by the two UI call sites.** It ran in
+`render()` and in the modal's `triggerSearch()` until 2026-09-05, which left
+`searchGlobal()` and `matchesQuery()` matching a disease word for anyone who
+called them directly. Nothing a shopper could reach did that — but "nothing
+reaches it" is a claim about today's call sites, and surface 4's promise is that
+a `medicalQueryTerms` word maps to no product, which is a property of the engine
+or it is not a property at all. Now:
+
+- `expandQuery()` (shop grid) routes first and returns `medical` and
+  `medicalOnly` on the query context; `matchesQuery()` refuses every product
+  when `medicalOnly` is set, which is where the "an empty query means match
+  everything" guard now lives.
+- `searchGlobal()` (modal, and every direct caller) strips before it touches the
+  index and reports what it stripped on the result envelope as `medical`. An
+  empty `query` with a non-null `medical` is the she-typed-only-medical-words
+  case.
+- Both UI call sites **read** that result rather than deriving it a second time
+  from the same list.
+- The engine-level pins are `scripts/semantic-search.test.js` §8b, five checks
+  across both engines, and both sliced-engine harnesses inject
+  `mainJs.medicalQueryRoute` so they exercise the shipped router rather than a
+  copy of it.
 
 - The note is created in JS and inserted before the results container, so it is
   in normal flow above the results at full width. FTC's HPCG calls hyperlinked
@@ -1043,8 +1079,16 @@ dialog in `triggerSearch()`.
 | `cure for itchy skin` | yes | 11 | identical list to `itchy skin` |
 | `itchy skin` | **no** | 11 | — |
 | `salve` | **no** | 4 | — |
+| `mosquito bites` | yes, outdoor-defense shelf | 0 tiles, no empty-state panel | — |
+| `mosquito` | yes, outdoor-defense shelf | 0 tiles | — |
+| `tick` | yes, outdoor-defense shelf | 0 tiles | — |
+| `bug spray` | **no** | 4 | — |
 
-51 checks in `scripts/medical-query-router.browser.test.js`, plus 413 in
+Every row above was re-measured after the router moved into the engines on
+2026-09-05 and is identical before and after — which is the whole acceptance
+criterion for that change.
+
+63 checks in `scripts/medical-query-router.browser.test.js`, plus 483 in
 `scripts/search-enrich.test.js`. `scripts/text-layout.browser.test.js` is green
 with the note rendering, and the note was measured at 320/375/768px: no
 horizontal overflow, no clipping.
@@ -1062,24 +1106,35 @@ horizontal overflow, no clipping.
   outcome than an English one. The follow-up is one key plus five translations
   plus one re-recorded basis digest, authored with the claims gate rather than
   around it.
-- **`searchSynonymDefaults` still carries "eczema", "insomnia", "anxiety",
-  "arthritis" and "pain".** They are unreachable in the UI — the router strips
-  those tokens before anything matches — but they are still a disease-to-product
-  mapping inside `assets/js/search-data.js`, which is the artefact section 7(b)
-  warns about. Removing them is a two-line edit that breaks assertions in
-  `semantic-search.test.js`, `global-search.test.js` and
-  `challenger-search-scoring.test.js` (all of which assert `insomnia` →
-  `sleep-salve`, `eczema` → `shea-butter`, `arthritis` → `backroad-soak` at the
-  engine level, below the router). That is a deliberate follow-up commit, not an
-  oversight: those three suites were not this round's files.
-- **The router runs in the UI layer, not in `searchGlobal()`.** Calling the
-  exported search functions directly still matches on a disease word. Nothing a
-  shopper can reach does that, but a future caller could.
-- **"mosquito" and "bites" are still lay query vocabulary.** Section 7(g) would
-  put them, with "tick", on the router alongside "repel"/"repellent". They were
-  left where they were because the instruction for this round named the 33 words
-  above and not those; it is a one-line change to the same array when somebody
-  decides it.
 - **Nothing gates the note's WORDING against the brief.** The runtime manifest
   proves the string still exists in `main.js`; no test proves it still says what
   a lawyer approved.
+- **Two inflections are deliberately NOT routed: "insomniac" and "anxious".**
+  Both still sit in the shop grid's `SYNONYM_GROUPS` and still find the sleep
+  goods. The 7(g) matrix routes "insomnia" and "anxiety", not their inflected
+  forms, and widening surface 4 past the words a brief actually names is a
+  decision for a brief rather than for a cleanup commit. It is a one-line change
+  to `MEDICAL_QUERY_TERMS` if somebody decides otherwise.
+- **The bug spray's own copy still names the pest.** "Tell the mosquitoes to
+  buzz off, naturally" is the blurb; `mosquito repellent`, `ticks` and `bites`
+  are in its `keywords`, and a republished Etsy review says "No bites!!". Those
+  are surfaces 1 and 2 — the owner's file, which `search-enrichment-rules.js`
+  says in its header it never filters — and brief 7(e) already has the reviews
+  as an open decision for her. The browser suite's rendered-word allowlist names
+  each with that reason rather than going red on her listing. The router stops
+  the *site* wiring the word to a jar; it cannot edit her listing, and it should
+  not pretend to.
+- **"treat yourself" no longer finds the gift cards.** It was a term in the
+  `gift_cards` synonym group and left with the other statutory verbs on
+  2026-09-04. It had already stopped working when the router shipped — "treat"
+  is stripped and "yourself" finds nothing — so this removed a mapping nothing
+  could reach rather than a working query, but a shopper who types it gets a
+  medical note and no products, which is a bad answer to a gift question. The
+  fix is lay gift vocabulary in that group, not a re-exemption for the verb.
+- **The `cure for itchy skin` invariant is pinned on the grid, not the modal.**
+  The router removes only the medical tokens, so the query reaches the index as
+  "for itchy skin". The shop grid has "for" in its `STOPWORDS` and returns a
+  byte-identical list; `searchGlobal()` keeps it, and the leftover connective
+  moves two mid-list products past each other. Same set, different order. This
+  predates the router move — the modal passed exactly this string in before —
+  and the engine pin asserts the set while the browser suite asserts the list.

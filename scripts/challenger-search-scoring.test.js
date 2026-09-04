@@ -841,13 +841,22 @@ function loadShopGridSearchEngine() {
     concernLabel[c.id] = c.name;
   });
 
+  /* The sliced snippet now calls medicalQueryRoute(), which is declared far
+     above STOPWORDS and is therefore not in the slice. It is injected as a
+     parameter rather than sliced in a second time, and the one that goes in is
+     main.js's OWN export -- so this harness exercises the shipped router
+     against the shipped index, not a copy of either. That is the point of the
+     change it is testing: the stripping is a property of the engine now, so a
+     test that reached the engine without it would be testing something that no
+     longer exists. */
   const factory = new Function(
     "catLabel",
     "concernLabel",
+    "medicalQueryRoute",
     snippet +
       "\nreturn { expandQuery: expandQuery, matchesQuery: matchesQuery, SYNONYM_GROUPS: SYNONYM_GROUPS, CATEGORY_TERMS: CATEGORY_TERMS };"
   );
-  return { engine: factory(catLabel, concernLabel), productData };
+  return { engine: factory(catLabel, concernLabel, mainJs.medicalQueryRoute), productData };
 }
 
 const fs = require("fs");
