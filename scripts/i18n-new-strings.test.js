@@ -262,11 +262,26 @@ assertEqual(
 // ---------------------------------------------------------------------------
 // 5. classifyReachable splits and sorts, and loses nothing.
 // ---------------------------------------------------------------------------
+/* The two candidates are SYNTHETIC on purpose. This fixture used to use a real
+   product blurb, which worked right up until the translation step started
+   writing product blurbs into en.json -- at which point the blurb classified as
+   `in-dictionary`, the count dropped to one, and this suite went red on a tree
+   where nothing was wrong. The bot runs `npm test` before it commits, so that
+   would have wedged the pipeline permanently. A candidate has to be a string
+   the dictionary can never legitimately acquire. */
 const reachableFixture = [
   { text: "Skip to main content", kind: "text", pages: ["index.html"] },
   { text: firstProduct.name, kind: "text", pages: ["shop.html"] },
-  { text: "Browse the shop", kind: "text", pages: ["shop.html", "faq.html"] },
-  { text: "Aromatherapy mist for the threshold.", kind: "text", pages: ["shop.html"] }
+  {
+    text: "Blithe wording that exists only in this test fixture.",
+    kind: "text",
+    pages: ["shop.html", "faq.html"]
+  },
+  {
+    text: "A sentence no page carries and no dictionary holds.",
+    kind: "text",
+    pages: ["shop.html"]
+  }
 ];
 const split = tool.classifyReachable(reachableFixture, ctx);
 assertEqual(
@@ -277,7 +292,7 @@ assertEqual(
 assertEqual(split.candidates.length, 2, "two of the four fixtures are candidates");
 assertEqual(
   split.candidates[0].text,
-  "Aromatherapy mist for the threshold.",
+  "A sentence no page carries and no dictionary holds.",
   "candidates come back sorted by text"
 );
 assertEqual(split.candidates[1].pages.length, 2, "a candidate keeps the pages it was seen on");
