@@ -194,7 +194,7 @@ collections:
           [bold, italic, link, heading-two, heading-three, bulleted-list, numbered-list]
         editor_components: []
         hint: "The toolbar gives you bold, italic, links, headings and lists, and it looks on the site the way it looks here. Leave a blank line between paragraphs."
-      - { name: image, label: "Featured photo", widget: image, choose_url: false, required: false }
+      - { name: image, label: "Featured photo", widget: image, choose_url: false, required: false, accept: "image/jpeg,image/png" }
       - name: tags
         label: Topics
         widget: list
@@ -253,6 +253,7 @@ singletons:
               label: "Etsy star rating",
               widget: number,
               value_type: float,
+              before_input: "★",
               hint: "Your shop's real Etsy rating, 0–5, e.g. 4.9."
             }
           - {
@@ -271,9 +272,10 @@ singletons:
             }
           - {
               name: freeShippingThreshold,
-              label: "Free shipping threshold ($)",
+              label: "Free shipping threshold",
               widget: number,
               value_type: int,
+              before_input: "$",
               hint: "Orders at or above this amount ship free, e.g. 45. Set to 0 to turn free shipping off."
             }
           - name: shippingMilestones
@@ -310,7 +312,8 @@ singletons:
                       { label: "Gift / Perk", value: "gift" },
                       { label: "Star / Sparkle", value: "sparkle" },
                       { label: "Heart", value: "heart" }
-                    ]
+                    ],
+                  hint: "The little icon shown next to this reward tier."
                 }
           - name: customBox
             label: "Build-Your-Own Box"
@@ -366,7 +369,8 @@ singletons:
           - name: name
             label: "Product name"
             widget: string
-            hint: "Shown on the card, the product page, the cart and search. Names read as claims — avoid heal, cure, relief, recovery, sleep, treat, repel or a condition name; 'Comfort Salve' or 'Reset Soak' say it without the legal risk."
+            comment: "Names read as claims — avoid heal, cure, relief, recovery, sleep, treat, repel or a condition name; 'Comfort Salve' or 'Reset Soak' say it without the legal risk."
+            hint: "Shown on the card, the product page, the cart and search."
           - name: category
             label: Category
             widget: relation
@@ -378,28 +382,36 @@ singletons:
             hint: "Add or rename categories under 'Product categories', further down this page."
           - {
               name: price,
-              label: "Price (USD)",
+              label: "Price",
               widget: number,
               value_type: float,
               min: 0,
               step: 0.01,
+              before_input: "$",
               hint: "e.g. 16 or 16.50"
             }
           - name: image
             label: "Main photo"
             widget: image
             choose_url: false
+            # scripts/optimize-images.js only generates the responsive
+            # AVIF/WebP variants from .jpg/.png originals -- anything else
+            # ships unoptimized. The one legitimate exception is the shared
+            # "coming soon" placeholder, which is an .svg she never re-uploads
+            # through this field.
+            accept: "image/jpeg,image/png"
             hint: "Shown on the product card and first in the gallery."
           - name: images
             label: "Extra gallery photos"
             widget: list
             label_singular: Photo
             required: false
-            field: { name: photo, label: Photo, widget: image, choose_url: false }
+            field: { name: photo, label: Photo, widget: image, choose_url: false, accept: "image/jpeg,image/png" }
           - name: blurb
             label: "Product description"
             widget: text
-            hint: "The main text shoppers read. Describe what it is and how it's made — no health or medical claims."
+            comment: "No health or medical claims."
+            hint: "The main text shoppers read. Describe what it is and how it's made."
           # `description` exists in products.json and is declared here so a
           # CMS save preserves it (it feeds the meta description / share text).
           - name: description
@@ -453,7 +465,7 @@ singletons:
             collapsed: true
             hint: "Puts just this product on sale. To discount a whole category, use 'Category sales' further down this page."
             fields:
-              - { name: price, label: "Sale price ($)", widget: number, value_type: float }
+              - { name: price, label: "Sale price", widget: number, value_type: float, before_input: "$" }
               - {
                   name: label,
                   label: "Sale name shoppers see",
@@ -466,6 +478,7 @@ singletons:
               widget: number,
               value_type: float,
               required: false,
+              before_input: "$",
               hint: "The crossed-out 'was' price. Usually filled in for you when the product goes on sale."
             }
           - name: variants
@@ -565,6 +578,7 @@ singletons:
                 label: "Scent intensity"
                 widget: select
                 required: false
+                hint: "How strong the scent is, shown as a badge on the product page."
                 options:
                   - { label: "Unscented", value: "Unscented" }
                   - { label: "Subtle", value: "Subtle" }
@@ -613,6 +627,7 @@ singletons:
             # ticked. Raised so they stay checkboxes.
             dropdown_threshold: 12
             required: false
+            hint: "Shown as badges on the product page and usable as shop filters."
             options:
               - { label: "Vegan", value: "vegan" }
               - { label: "Unscented", value: "unscented" }
@@ -731,10 +746,11 @@ singletons:
             }
           - {
               name: unitPrice,
-              label: "Discounted unit price ($)",
+              label: "Discounted unit price",
               widget: number,
               value_type: float,
               step: 0.01,
+              before_input: "$",
               hint: "e.g. 15"
             }
           - {
@@ -817,11 +833,12 @@ singletons:
             hint: "Pick 2 or more — start typing a product name."
           - {
               name: price,
-              label: "Set price ($)",
+              label: "Set price",
               widget: number,
               value_type: float,
               min: 1,
               required: false,
+              before_input: "$",
               hint: "What the whole set costs, e.g. 34. Keep it a few dollars under the products' own prices added up, or the set is no saving."
             }
           - {
@@ -1179,7 +1196,7 @@ singletons:
         # Was `description:` on the section, where Sveltia renders it nowhere.
         comment: "The photo strip on your homepage: a picture and caption for each Instagram or TikTok post you want to show off. Its on/off switch is under Site Settings."
         fields:
-          - { name: image, label: "Photo", widget: image, choose_url: false }
+          - { name: image, label: "Photo", widget: image, choose_url: false, accept: "image/jpeg,image/png" }
           - { name: caption, label: "Caption", widget: text }
           - {
               name: author,
@@ -1496,6 +1513,10 @@ singletons:
               label: "Desktop logo",
               widget: image,
               choose_url: false,
+              # Only .jpg/.png originals get the responsive AVIF/WebP variants
+              # scripts/optimize-images.js generates -- anything else ships
+              # unoptimized (see the note on the product Main photo field).
+              accept: "image/jpeg,image/png",
               hint: "Shown in the header and footer on desktop screens."
             }
           - {
@@ -1503,6 +1524,7 @@ singletons:
               label: "Mobile logo",
               widget: image,
               choose_url: false,
+              accept: "image/jpeg,image/png",
               hint: "Shown in the menu drawer on phones."
             }
           - {
@@ -1510,6 +1532,7 @@ singletons:
               label: "Link preview image",
               widget: image,
               choose_url: false,
+              accept: "image/jpeg,image/png",
               hint: "The picture that shows when someone shares your site's link (Facebook, texts, iMessage)."
             }
           # --- Banners --------------------------------------------------
@@ -1535,6 +1558,7 @@ singletons:
               - name: accent
                 label: "Banner color"
                 widget: select
+                hint: "Sets the announcement banner's background color."
                 options:
                   - { label: "Default Dark (Plum/Charcoal)", value: "default" }
                   - { label: "Warm Whiskey Amber", value: "whiskey" }
@@ -1766,6 +1790,7 @@ singletons:
               label: "Hero photo",
               widget: image,
               choose_url: false,
+              accept: "image/jpeg,image/png",
               hint: "The main photo at the top of the homepage."
             }
           - {
@@ -1773,6 +1798,7 @@ singletons:
               label: "Story photo",
               widget: image,
               choose_url: false,
+              accept: "image/jpeg,image/png",
               hint: "Shown next to the 'Handmade In Small Batches' section."
             }
           - name: badges
@@ -1882,6 +1908,7 @@ singletons:
               label: "Main bio photo",
               widget: image,
               choose_url: false,
+              accept: "image/jpeg,image/png",
               hint: "Shown next to your story heading."
             }
           - {
@@ -1889,6 +1916,7 @@ singletons:
               label: "Second photo",
               widget: image,
               choose_url: false,
+              accept: "image/jpeg,image/png",
               hint: "Shown next to the 'Backroads, Porch Lights' section."
             }
           - name: community
@@ -1920,6 +1948,7 @@ singletons:
               label: "Gift card banner photo",
               widget: image,
               choose_url: false,
+              accept: "image/jpeg,image/png",
               hint: "Background photo for the Digital Gift Card banner."
             }
           - name: sections
@@ -2007,6 +2036,7 @@ singletons:
               label: "Contact photo",
               widget: image,
               choose_url: false,
+              accept: "image/jpeg,image/png",
               hint: "Shown alongside the contact form."
             }
           - { name: email, label: "Email address", widget: string, required: false }
@@ -2098,7 +2128,8 @@ singletons:
             collapsed: true
             minimize_collapsed: true
             summary: "{{fields.label}} → {{fields.query}}"
-            hint: "Shown in the search box and on the no-results screen. Keep condition names (eczema, insomnia, arthritis) out of the chip text — it's visible wording; the search it runs can be anything the search understands."
+            comment: "Keep condition names (eczema, insomnia, arthritis) out of the chip text — it's visible wording."
+            hint: "Shown in the search box and on the no-results screen. The search it runs can be anything the search understands."
             fields:
               - { name: label, label: "Chip text", widget: string }
               - { name: query, label: "Search it runs", widget: string }
@@ -2106,6 +2137,11 @@ singletons:
                 label: Icon
                 widget: select
                 default: sparkle
+                # Eight options: above Sveltia's default threshold of 5 they
+                # collapse into a dropdown, which hides the icon preview. Raised
+                # so they stay a plain button choice.
+                dropdown_threshold: 12
+                hint: "The little icon shown on this search chip."
                 options: [moon, waves, droplet, shield, calendar, gift, sparkle, leaf]
           - name: extraSynonyms
             label: "Extra search words"
@@ -2233,6 +2269,11 @@ singletons:
                     name: category,
                     label: Category,
                     widget: select,
+                    # Six options: above Sveltia's default threshold of 5 they
+                    # collapse into a dropdown. Raised so they stay a plain
+                    # button choice.
+                    dropdown_threshold: 12,
+                    hint: "Which category this answer counts towards.",
                     options:
                       [
                         "salves",
