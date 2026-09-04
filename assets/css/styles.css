@@ -1174,17 +1174,38 @@ section {
     display: block;
     max-width: 320px;
 
+    /* Once the grid stacks, a fixed-width portrait pinned to the left edge
+       left most of the row empty and read as misplaced (owner screenshot,
+       2026-09-04, and the same thing at tablet width). The stacked hero
+       fills the column instead, like every stacked hero layout: on a phone
+       the portrait runs full width at its own aspect (~470px tall at 390px
+       wide), and on the wider 481-900px band -- where a full-width portrait
+       would be ~950px tall and push everything below it a screen down -- it
+       is cropped to 4:3 with the framing kept on the face and the shirt
+       print (object-position). There is no longer an edge to misalign. */
     @container (max-width: 900px) {
-      max-width: 320px;
-    }
-    @container (max-width: 480px) {
-      max-width: 240px;
+      max-width: none;
+      width: 100%;
     }
   }
   & img {
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow);
     border: 1px solid var(--hide);
+
+    @container (max-width: 900px) {
+      width: 100%;
+      height: auto;
+    }
+    @container (min-width: 481px) and (max-width: 900px) {
+      /* Square, not 4:3: the face and the shirt print span ~80% of the
+         portrait's height, and a 4:3 window shows only 56% of it -- it cut
+         the top of the head AND the bottom of the print. A square shows
+         75%, framed from the eyes down so the print stays whole. */
+      aspect-ratio: 1 / 1;
+      object-fit: cover;
+      object-position: 50% 34%;
+    }
   }
 }
 
