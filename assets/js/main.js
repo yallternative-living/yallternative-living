@@ -3207,6 +3207,232 @@
     );
   }
 
+  /* ==================== MEDICAL-QUERY ROUTER ====================
+     Somebody types "psoriasis" into a shop that sells body butter. Three things
+     could happen, and the legal brief of 2026-09-04 (section 7(c)) picks the
+     third:
+
+       1. zero results -- loses the shopper and teaches her nothing;
+       2. silent routing to products -- which is the disease-to-product mapping
+          the EU treats as advertising (Case C-657/11, where the court held that
+          it is "irrelevant" that the words are invisible to the user);
+       3. recognise the word, match on NOTHING, and answer with a fixed note
+          that says we make comfort products and not medicines, above a link to
+          a cosmetically-named shelf.
+
+     The note is not a disclaimer curing a claim -- that would fail FTC's
+     net-impression test. It works only because there is no claim to cure: no
+     product, tile, filter label, URL or published keyword anywhere on this site
+     says a disease word. Keep it that way and the note reads as what it is, an
+     affirmative denial of intended use under 21 CFR 201.128.
+
+     Three implementation rules, all of them load-bearing:
+
+       - the note renders INLINE, above the results, never behind a link, a
+         tooltip or an accordion. FTC's Health Products Compliance Guidance says
+         hyperlinked disclosures are avoidable, and 16 CFR 465.1(c)(4) says a
+         disclosure is not clear and conspicuous if the reader must click or
+         hover to see it;
+       - the words are RECOGNISED, never PRESENTED. The list comes from
+         window.YL_SEARCH_INDEX.medicalQueryTerms (built from
+         scripts/lib/search-enrichment-rules.js) and is rendered nowhere: no
+         chips, no suggestions, no "did you mean". Presenting them is MHRA
+         Appendix 9's "lists of adverse medical conditions which take a consumer
+         to a page displaying a product", which is the one thing this must never
+         become;
+       - the shopper's own words still work. Only the medical tokens are taken
+         out of the matching query, so "wound salve" still finds the salves on
+         "salve" and "cure for itchy skin" still finds everything "itchy skin"
+         finds. A query that was ONLY medical words matches nothing at all --
+         see the guard in render(), because an empty query otherwise means
+         "match everything".
+
+     Nothing here echoes what was typed back into the page. The word stays in
+     the input, where the shopper put it, and reaches no rendered label. */
+  var MEDICAL_NOTE_LEDE =
+    "We make comfort products, not medicines \u2014 nothing here is meant to diagnose, treat, cure or prevent anything.";
+
+  /* Which cosmetically-named shelf a recognised word points at. The shelf names
+     and hrefs are the shop's own concern vocabulary (assets/data/products.json
+     -> concerns), never a condition name, and the link text is always the same
+     three words. A term that is on the router's list but in none of these
+     groups still gets the note; it just lands on the shop's concern row, which
+     is why an addition to the word list can never silently lose its note. */
+  var MEDICAL_QUERY_SHELVES = [
+    {
+      concern: "dry-skin",
+      invitation: "If you're looking for something kind to dry, rough skin, ",
+      terms: [
+        "eczema",
+        "psoriasis",
+        "dermatitis",
+        "rosacea",
+        "acne",
+        "wound",
+        "infection",
+        "antibacterial",
+        "antiseptic",
+        "antifungal"
+      ]
+    },
+    {
+      concern: "sleep-relaxation",
+      invitation: "If you're looking for something kind to a wind-down evening, ",
+      terms: ["insomnia", "anxiety"]
+    },
+    {
+      concern: "sore-muscles",
+      invitation: "If you're looking for something kind to a body that worked hard today, ",
+      terms: ["pain", "inflammation", "anti-inflammatory", "arthritis", "migraine"]
+    },
+    {
+      concern: "outdoor-defense",
+      invitation: "If you're looking for something kind to porch nights and trail days, ",
+      terms: ["repel", "repellent"]
+    }
+  ];
+
+  /* The fallback: the verbatim wording from the brief, pointing at the shop's
+     concern row rather than at any one shelf. */
+  var MEDICAL_QUERY_DEFAULT_SHELF = {
+    concern: null,
+    invitation: "If you're looking for something kind to dry, rough skin, ",
+    href: "shop.html#shop-catalog"
+  };
+
+  function medicalQueryTerms() {
+    var index = (typeof window !== "undefined" && window.YL_SEARCH_INDEX) || null;
+    return index && Array.isArray(index.medicalQueryTerms) ? index.medicalQueryTerms : [];
+  }
+
+  /* The same normal form both search surfaces tokenize with: lower case,
+     everything that is not a letter or a digit becomes a gap. "Anti-Inflammatory"
+     and "anti inflammatory" therefore land on the same two tokens, which is how
+     a multi-word entry in the list matches a phrase a shopper typed. */
+  function medicalTokens(raw) {
+    return String(raw === undefined || raw === null ? "" : raw)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim()
+      .split(" ")
+      .filter(Boolean);
+  }
+
+  /**
+   * Recognise a medical query, and say what to do about it.
+   *
+   * @param {string} rawQuery what the shopper typed, untouched.
+   * @return {?{terms: !Array<string>, strippedQuery: string, href: string,
+   *            invitation: string, concern: ?string}} null when the query is an
+   *     ordinary one -- the overwhelmingly common case, and the one that must
+   *     cost nothing.
+   */
+  function medicalQueryRoute(rawQuery) {
+    var list = medicalQueryTerms();
+    if (!list.length) return null;
+    var tokens = medicalTokens(rawQuery);
+    if (!tokens.length) return null;
+
+    var covered = new Array(tokens.length);
+    var found = [];
+    list.forEach(function (term) {
+      var needle = medicalTokens(term);
+      if (!needle.length || needle.length > tokens.length) return;
+      for (var i = 0; i + needle.length <= tokens.length; i++) {
+        var hit = true;
+        for (var j = 0; j < needle.length; j++) {
+          if (tokens[i + j] !== needle[j]) {
+            hit = false;
+            break;
+          }
+        }
+        if (!hit) continue;
+        if (found.indexOf(term) === -1) found.push(term);
+        for (var k = 0; k < needle.length; k++) covered[i + k] = true;
+      }
+    });
+    if (!found.length) return null;
+
+    var remaining = tokens.filter(function (_t, i) {
+      return !covered[i];
+    });
+
+    var shelf = null;
+    MEDICAL_QUERY_SHELVES.forEach(function (candidate) {
+      if (shelf) return;
+      var match = candidate.terms.some(function (term) {
+        return found.indexOf(term) !== -1;
+      });
+      if (match) shelf = candidate;
+    });
+
+    return {
+      terms: found,
+      strippedQuery: remaining.join(" "),
+      concern: shelf ? shelf.concern : MEDICAL_QUERY_DEFAULT_SHELF.concern,
+      invitation: shelf ? shelf.invitation : MEDICAL_QUERY_DEFAULT_SHELF.invitation,
+      href: shelf ? "shop.html?concern=" + shelf.concern : MEDICAL_QUERY_DEFAULT_SHELF.href
+    };
+  }
+
+  /* The note's markup. One <p>, plain text, one link whose text is never a
+     condition name and whose href never carries one either. */
+  function medicalNoteHtml(route) {
+    return (
+      '<p class="yl-medical-note-text">' +
+      MEDICAL_NOTE_LEDE +
+      " " +
+      route.invitation +
+      '<a class="yl-medical-note-link" href="' +
+      rootAbsLink(route.href) +
+      '">start here</a>.</p>'
+    );
+  }
+
+  /**
+   * Put the note above `anchorEl`, or take it away again. The host element is
+   * created once and then emptied -- never hidden behind anything, never
+   * collapsed, and never a sibling the reader has to open.
+   */
+  function renderMedicalNote(anchorEl, route, id) {
+    if (!anchorEl || !anchorEl.parentNode) return null;
+    var host = document.getElementById(id);
+    if (!host) {
+      if (!route) return null;
+      host = document.createElement("div");
+      host.id = id;
+      host.className = "yl-medical-note";
+      host.setAttribute("role", "status");
+      anchorEl.parentNode.insertBefore(host, anchorEl);
+    }
+    host.innerHTML = route ? medicalNoteHtml(route) : "";
+    host.hidden = !route;
+    return host;
+  }
+
+  /* A results view that answers a medical query must not be indexable: the
+     query stays in ?q= / the input and never becomes a route, and this keeps a
+     crawler that renders JS from filing the rendered page under the word. Two
+     independent callers (the shop grid and the search modal) can each ask for
+     it, so the meta goes away only when neither wants it. */
+  var medicalNoindexWanted = { shop: false, search: false };
+
+  function setMedicalNoindex(source, wanted) {
+    if (typeof document === "undefined" || !document.head) return;
+    medicalNoindexWanted[source] = !!wanted;
+    var any = medicalNoindexWanted.shop || medicalNoindexWanted.search;
+    var tag = document.head.querySelector("meta[data-yl-medical-noindex]");
+    if (any && !tag) {
+      tag = document.createElement("meta");
+      tag.setAttribute("name", "robots");
+      tag.setAttribute("content", "noindex");
+      tag.setAttribute("data-yl-medical-noindex", "");
+      document.head.appendChild(tag);
+    } else if (!any && tag) {
+      tag.parentNode.removeChild(tag);
+    }
+  }
+
   /* ---------- Shop: render products from products.json + filter/sort ---------- */
   var shopGrid = document.getElementById("shopGrid");
   var featuredGrid = document.getElementById("featuredGrid");
@@ -6578,9 +6804,26 @@
 
     function render() {
       var pMap = getProductMap();
-      var q = state.query.trim().toLowerCase();
-      var qCtx = expandQuery(state.query);
+      /* The medical-query router runs BEFORE anything matches on the query, so
+         the words that reach expandQuery() are only the ordinary ones: "wound
+         salve" is matched as "salve", "cure for itchy skin" as "itchy skin".
+         `medicalOnly` is the case where nothing ordinary was typed at all, and
+         it needs its own guard further down -- matchesQuery() answers true for
+         every product when the query is empty, so a shopper who typed one
+         disease word would otherwise be shown the entire catalogue. */
+      var medical = medicalQueryRoute(state.query);
+      var routedQuery = medical ? medical.strippedQuery : state.query;
+      var medicalOnly = !!medical && !routedQuery.trim();
+      var q = routedQuery.trim().toLowerCase();
+      var qCtx = expandQuery(routedQuery);
       var bundlesSection = document.querySelector(".bundles-section");
+      renderMedicalNote(grid, medical, "shopMedicalNote");
+      setMedicalNoindex("shop", !!medical);
+      /* An empty grid normally means "still loading" and draws the skeleton
+         shimmer (see #shopGrid:empty in styles.css). A medical-only query
+         leaves it empty on purpose, and a shimmer there would promise a
+         catalogue that is never coming. */
+      if (grid && grid.classList) grid.classList.toggle("yl-grid-answered", medicalOnly);
 
       if (state.filter === "gift-sets") {
         var filteredBundles = (window.YL_PRODUCTS.bundles || []).filter(function (b) {
@@ -6621,6 +6864,11 @@
             state.sort
           );
         }
+        /* Same guard as the product grid below: a query that was only medical
+           words has nothing ordinary left to match on, and an empty query here
+           would mean "every set". */
+        if (medicalOnly) filteredBundles = [];
+
         grid.innerHTML = bundlesHTML(filteredBundles, pMap);
         wireReveal(grid);
 
@@ -6630,7 +6878,7 @@
           if (!filteredBundles.length) {
             countEl.textContent =
               "No gift sets match" +
-              (q ? ' "' + state.query.trim() + '"' : " that search") +
+              (q && !medical ? ' "' + state.query.trim() + '"' : " that search") +
               " -- try a different filter or clear the search.";
           } else {
             countEl.textContent =
@@ -6684,27 +6932,44 @@
           sortedProducts = sortProducts(matchedProds, state.sort);
         }
 
-        renderCards(grid, sortedProducts, { eagerFirst: isFirstRender });
+        if (medicalOnly) {
+          /* Zero tiles, and NOT the "No Apothecary Items Found" panel: that
+             panel is the right answer to a search that failed, and this search
+             did not fail. It was answered, by the note directly above the
+             empty grid. */
+          sortedProducts = [];
+          grid.innerHTML = "";
+        } else {
+          renderCards(grid, sortedProducts, { eagerFirst: isFirstRender });
+        }
         isFirstRender = false;
         state.lastResultCount = sortedProducts.length;
 
-        if (state.filter === "all") {
+        if (!medicalOnly && state.filter === "all") {
           renderBundles(window.YL_PRODUCTS, q, state.concern);
         } else {
           if (bundlesSection) bundlesSection.style.display = "none";
         }
 
         if (countEl) {
-          if (!sortedProducts.length) {
+          if (medicalOnly) {
+            /* Deliberately empty. Every other branch here quotes the shopper's
+               own words back at her, and the one thing this page must never
+               render is the disease word she typed -- a rendered label is what
+               FDA and the CJEU actually cite. The note above the grid is a
+               live region of its own, so nothing is lost to a screen reader. */
+            countEl.textContent = "";
+          } else if (!sortedProducts.length) {
             /* "that criteria" is one criterion, "--" is not a dash the rest
                of the site uses, and the copy told the shopper to reset with
                no control in the filter bar to reset with. The control does
                exist -- #resetFiltersBtn, rendered by renderCards() in the
                empty grid immediately below this line -- so say where it is
-               (live audit L3). */
+               (live audit L3). The query is quoted back only when the router
+               did not recognise a medical word in it. */
             countEl.textContent =
               "No goods match" +
-              (q ? ' "' + state.query.trim() + '"' : " those filters") +
+              (q && !medical ? ' "' + state.query.trim() + '"' : " those filters") +
               " \u2014 try resetting your filters with the button below.";
           } else {
             var label = state.filter === "all" ? "goods" : catLabel[state.filter] || "goods";
@@ -9160,6 +9425,8 @@
     function triggerSearch(query) {
       var trimmed = (query || "").trim();
       if (!trimmed) {
+        renderMedicalNote(resultsList, null, "globalSearchMedicalNote");
+        setMedicalNoindex("search", false);
         if (chipsSection) chipsSection.hidden = false;
         if (resultsList) resultsList.innerHTML = "";
         setResultsGridRole(false);
@@ -9177,7 +9444,31 @@
       if (chipsSection) chipsSection.hidden = true;
       if (clearBtn) clearBtn.hidden = false;
 
-      var results = searchGlobal(trimmed);
+      /* The same router the shop grid uses, for the same reason: the modal is
+         a search surface too, and a shopper who types a disease word into it
+         must get the note rather than a salve or a dead end. */
+      var medical = medicalQueryRoute(trimmed);
+      renderMedicalNote(resultsList, medical, "globalSearchMedicalNote");
+      setMedicalNoindex("search", !!medical);
+      var routed = medical ? medical.strippedQuery.trim() : trimmed;
+
+      if (medical && !routed) {
+        /* Only medical words were typed. No rows, and no zero-result panel
+           either: that panel names the query in a heading, and the one string
+           this must never render is the word she typed. */
+        if (resultsList) resultsList.innerHTML = "";
+        setResultsGridRole(false);
+        if (resultCount) resultCount.textContent = "";
+        currentItems = [];
+        selectedIndex = -1;
+        if (input) {
+          input.setAttribute("aria-expanded", "false");
+          input.removeAttribute("aria-activedescendant");
+        }
+        return;
+      }
+
+      var results = searchGlobal(routed);
       renderResults(results);
     }
 
@@ -11162,6 +11453,9 @@
       runOrderStatusLookup: runOrderStatusLookup,
       siteFlagEnabled: siteFlagEnabled,
       searchGlobal: searchGlobal,
+      medicalQueryRoute: medicalQueryRoute,
+      medicalNoteHtml: medicalNoteHtml,
+      MEDICAL_NOTE_LEDE: MEDICAL_NOTE_LEDE,
       tokenizeQuery: tokenizeQuery,
       expandTokensWithSynonyms: expandTokensWithSynonyms,
       getSearchIndex: getSearchIndex,
