@@ -1847,6 +1847,13 @@ export default {
             async () => (await import("./state/order-emails.js")).sweepOrderEmails(env.STATE_DB)
           ],
           ["email-queue sweep", () => retention.sweepEmailQueue(env.STATE_DB)],
+          /* The ship notice's real trigger: Stripe fires no event for a
+             metadata edit on a PaymentIntent, so the hourly tick looks for
+             orders marked shipped instead (routes/ship-notice.js). */
+          [
+            "ship-notice sweep",
+            async () => (await import("./routes/ship-notice.js")).runShipNoticeSweep(env, ctx)
+          ],
           ["birthday club", () => jobs.runBirthdayClub(env, ctx)],
           [
             "restock alerts",

@@ -69,16 +69,18 @@ per-transaction fee.
    Ignore "Publishable key" and "Create restricted key" — I'll handle
    the restricted one later.
 4. **Developers → Webhooks → Add endpoint** → paste
-   `https://yallternativeliving.com/.netlify/functions/fulfill-gift-card`
-   → choose **four** events, not one:
+   `https://yallternativeliving.com/api/stripe-webhook`
+   → choose **three** events, not one:
    - `checkout.session.completed` (delivers the gift card)
    - `checkout.session.expired` (cleans up the temporary coupon behind an
      abandoned gift-card checkout — without it they pile up in your Stripe
      account forever)
    - `charge.refunded` (puts a refunded order's gift-card balance back)
-   - `payment_intent.updated` (sends the "your order is on its way" email when
-     you mark an order shipped — see "Marking an order shipped" in
-     `workers/README.md`)
+
+   (You will not find a `payment_intent.updated` event: Stripe has none. The
+   "your order is on its way" email is sent by the Worker's hourly check when
+   you mark an order shipped — see "Marking an order shipped" in
+   `workers/README.md`.)
 
    Do **not** also tick `refund.created`: it fires for the same money and the
    code deliberately ignores it. Then copy the **Signing secret**

@@ -1142,10 +1142,12 @@ export async function processStripeEvent(event, env, ctx) {
       outcome.revenue = { sent: false, reason: "threw" };
     }
   } else if (event.type === "payment_intent.updated") {
-    /* The shop marking an order shipped, in the only place it can: the three
-       fulfilment keys on the PaymentIntent that order-status.html already
-       reads. `emailShipNotice` returns immediately for every other reason a
-       PaymentIntent might change, which is most of them.
+    /* NOTE: Stripe does not send this event -- a metadata edit on a
+       PaymentIntent fires nothing (verified against the event list,
+       2026-09-04). The ship notice is really sent by the hourly cron sweep in
+       routes/ship-notice.js. This branch stays so that, should Stripe ever
+       add the event, the notice arrives within seconds instead of within the
+       hour; it costs nothing while it never fires.
 
        PUSHED TO `failures` ON PURPOSE, unlike the owner's copy and the revenue
        ping in the branch above. This one is the customer's only push

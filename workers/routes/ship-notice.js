@@ -34,7 +34,7 @@
  */
 
 import { escapeHtml } from "./http.js";
-import { buyerEmailOf, findSessionByPaymentIntent } from "./stripe.js";
+import { buyerEmailOf, findSessionByPaymentIntent, stripeGet } from "./stripe.js";
 import { fromAddress, sendEmail } from "./gift-cards.js";
 import { safeUrl } from "../state/stripe-orders.js";
 import { loadSiteSettings } from "../state/site-data.js";
@@ -55,7 +55,11 @@ export const SHIPPED_STATUSES = ["shipped", "delivered", "fulfilled"];
 
 /** @returns {boolean} true when this metadata value means "it has left". */
 export function isShippedStatus(value) {
-  return SHIPPED_STATUSES.includes(String(value || "").trim().toLowerCase());
+  return SHIPPED_STATUSES.includes(
+    String(value || "")
+      .trim()
+      .toLowerCase()
+  );
 }
 
 /**
@@ -183,4 +187,69 @@ export async function emailShipNotice(intent, env, ctx, now = Date.now()) {
     console.warn("ship-notice: could not re-anchor the sequence:", err && err.message);
   }
   return { ...outcome, recorded: true, reanchored };
+}
+
+/* ------------------------------------------------------------- the sweep */
+
+/** How far back the sweep looks. An order older than this that is only now
+    being marked shipped is a correction, not a dispatch worth an email. */
+export const SWEEP_WINDOW_DAYS = 45;
+const SWEEP_PAGE = 100;
+const SWEEP_MAX_PAGES = 10;
+
+/**
+ * The real trigger for the ship notice.
+ *
+ * Stripe fires NO event when the metadata on a PaymentIntent is edited --
+ * checked against the full snapshot-event list on 2026-09-04: the
+ * payment_intent.* events are created, succeeded, payment_failed, canceled,
+ * processing, requires_action, amount_capturable_updated and
+ * partially_funded, and `payment_intent.updated` does not exist (only
+ * `charge.updated` and `transfer.updated` fire on a metadata edit). The
+ * webhook branch that listens for it is therefore never reached; this sweep,
+ * run from the Worker's hourly cron, is what actually sends the email.
+ *
+ * It lists the PaymentIntents of the last SWEEP_WINDOW_DAYS and hands every
+ * one whose `fulfillment_status` reads shipped to emailShipNotice(), which
+ * already refuses to send twice (order_emails) and already returns early for
+ * everything that is not a dispatch. A Resend failure for one order is
+ * logged and does not stop the rest; the next tick retries it, because
+ * nothing was recorded.
+ *
+ * @param {object} env needs STRIPE_SECRET_KEY, RESEND_API_KEY, STATE_DB
+ * @param {object} [ctx]
+ * @param {number} [now]
+ * @returns {Promise<object>} counts for the cron log
+ */
+export async function runShipNoticeSweep(env, ctx, now = Date.now()) {
+  if (!env || !env.STRIPE_SECRET_KEY) return { skipped: "no-stripe-key" };
+  const createdGte = Math.floor(now / 1000) - SWEEP_WINDOW_DAYS * 86400;
+  const counts = { scanned: 0, shipped: 0, sent: 0, skipped: 0, failed: 0 };
+  let startingAfter = null;
+  for (let page = 0; page < SWEEP_MAX_PAGES; page++) {
+    const params = new URLSearchParams({
+      limit: String(SWEEP_PAGE),
+      "created[gte]": String(createdGte)
+    });
+    if (startingAfter) params.set("starting_after", startingAfter);
+    const list = await stripeGet(env, `/payment_intents?${params.toString()}`);
+    if (!list || !Array.isArray(list.data)) break;
+    for (const intent of list.data) {
+      counts.scanned++;
+      const metadata = (intent && intent.metadata) || {};
+      if (!isShippedStatus(metadata.fulfillment_status)) continue;
+      counts.shipped++;
+      try {
+        const outcome = await emailShipNotice(intent, env, ctx, now);
+        if (outcome && outcome.emailed) counts.sent++;
+        else counts.skipped++;
+      } catch (err) {
+        counts.failed++;
+        console.error("ship-notice sweep:", intent && intent.id, err && err.message);
+      }
+    }
+    if (!list.has_more || !list.data.length) break;
+    startingAfter = list.data[list.data.length - 1].id;
+  }
+  return counts;
 }

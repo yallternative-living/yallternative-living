@@ -654,9 +654,9 @@ Subscribe to exactly these four:
   Do NOT also select `refund.created`: it fires for the same money,
 - `payment_intent.updated` -- sends the "your order is on its way" email when
   the shop marks an order shipped (see **Marking an order shipped** below).
-  This one fires for every change to a PaymentIntent, most of which have
-  nothing to do with shipping; `routes/ship-notice.js` returns immediately for
-  those, before it costs a Stripe call.
+  Stripe never actually sends this event -- a metadata edit fires nothing --
+  so the hourly cron sweep in `routes/ship-notice.js` is the real trigger;
+  the branch is kept in case Stripe ever adds the event.
 
 ### Marking an order shipped
 
@@ -682,8 +682,13 @@ added afterwards will show on the status page but will not have been in the
 email.
 
 **It must be on the PaymentIntent, not the Checkout Session or the Charge.**
-That is the object `state/stripe-orders.js` reads and the only one that fires
-`payment_intent.updated`.
+That is the object `state/stripe-orders.js` reads. Stripe fires **no webhook
+event** for a metadata edit on a PaymentIntent (there is no
+`payment_intent.updated`; checked against Stripe's event list 2026-09-04), so
+the notice is sent by the Worker's hourly cron: `runShipNoticeSweep` in
+`routes/ship-notice.js` lists the last 45 days of PaymentIntents and emails
+every order marked shipped that has not been told yet. Expect the customer's
+email within the hour of the save, not within seconds.
 
 Copy the signing secret (`whsec_…`) into `STRIPE_WEBHOOK_SECRET`.
 

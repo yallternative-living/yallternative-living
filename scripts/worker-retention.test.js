@@ -200,6 +200,14 @@ async function withMocks(fn, options = {}) {
         json: async () => ({ id: "cs_test_retention", url: "https://checkout.stripe.com/pay/x" })
       };
     }
+    if (u.includes("api.stripe.com/v1/payment_intents")) {
+      calls.stripe.push(u);
+      return {
+        ok: true,
+        status: 200,
+        json: async () => options.intents || { data: [], has_more: false }
+      };
+    }
     if (u.includes("api.stripe.com")) {
       calls.stripe.push(u);
       return { ok: true, status: 200, json: async () => ({}) };
@@ -1916,6 +1924,40 @@ async function testShipNotice() {
   assert(
     await orderEmails.orderEmailSent(db, orderEmails.SHIP_NOTICE, "pi_test_ship"),
     "the send is recorded against the PaymentIntent"
+  );
+
+  /* --- the sweep: the trigger that actually exists ------------------------
+     Stripe fires no event for a metadata edit, so the hourly cron lists recent
+     PaymentIntents and sends for the ones marked shipped. pi_test_ship was
+     just recorded above, so it must be skipped; pi_sweep_new must be sent;
+     the unshipped one must not cost a call. */
+  await withMocks(
+    async (calls) => {
+      const outcome = await mod.runShipNoticeSweep(env, noCtx);
+      eq(outcome.scanned, 3, "every PaymentIntent in the window is looked at");
+      eq(outcome.shipped, 2, "two of them are marked shipped");
+      eq(outcome.sent, 1, "one had not been told yet");
+      eq(outcome.skipped, 1, "the one already told is left alone");
+      eq(calls.resend.length, 1, "exactly one email went out");
+      eq(
+        calls.resend[0].headers["Idempotency-Key"],
+        "ship-notice-pi_sweep_new",
+        "under the same per-order key the webhook path uses"
+      );
+      const again = await mod.runShipNoticeSweep(env, noCtx);
+      eq(again.sent, 0, "a second tick sends nothing -- the send was recorded");
+      eq(calls.resend.length, 1, "no second email");
+    },
+    {
+      intents: {
+        has_more: false,
+        data: [
+          { id: "pi_sweep_new", metadata: { fulfillment_status: "shipped" } },
+          { id: "pi_test_ship", metadata: { fulfillment_status: "shipped" } },
+          { id: "pi_sweep_pending", metadata: {} }
+        ]
+      }
+    }
   );
 
   /* The whole point of the anchor fix: the sequence now counts from dispatch. */
