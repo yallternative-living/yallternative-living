@@ -564,14 +564,49 @@ async function runAdversarialSuite() {
           const cy = r.top + r.height / 2;
           const at = document.elementFromPoint(cx, cy);
           const ok = !!at && (at === btn || btn.contains(at));
+          /* Everything the next reader needs to tell apart the ways this can
+             go wrong, because CI run 33933162715 gave only the button's rect
+             and "belongs to div" and that left two questions open: was the
+             notice inside #shop-catalog or its sibling, and had the page been
+             scrolled past the landing position or landed short of it. */
+          const section = document.getElementById("shop-catalog");
+          const notice = document.getElementById("pickupMarketBanner");
+          const rectOf = (el) => {
+            if (!el) return "none";
+            const b = el.getBoundingClientRect();
+            return `[top ${Math.round(b.top)}, bottom ${Math.round(b.bottom)}]`;
+          };
+          const placement = !notice
+            ? "no notice"
+            : section && section.contains(notice)
+              ? "inside #shop-catalog"
+              : notice.nextElementSibling === section
+                ? "SIBLING ABOVE #shop-catalog"
+                : "elsewhere";
+          const chrome = `bar ${rectOf(document.querySelector(".announcement-bar"))} header ${rectOf(document.querySelector(".site-header"))}`;
+          const rootStyle = getComputedStyle(document.documentElement);
           return {
             ok,
             why: ok
               ? ""
               : `point (${Math.round(cx)},${Math.round(cy)}) belongs to ` +
-                `${at ? at.tagName.toLowerCase() + (at.id ? "#" + at.id : "") : "nothing"}; ` +
+                `${at ? at.tagName.toLowerCase() + (at.id ? "#" + at.id : at.className ? "." + String(at.className).split(" ")[0] : "") : "nothing"}; ` +
                 `button rect=[${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.width)}x${Math.round(r.height)}] ` +
-                `scrollY=${Math.round(window.scrollY)}`
+                `scrollY=${Math.round(window.scrollY)}; notice ${placement} ${rectOf(notice)}; ` +
+                `#shop-catalog ${rectOf(section)}; ${chrome}; ` +
+                `scroll-padding-top=${rootStyle.scrollPaddingTop} --announcement-h=${rootStyle.getPropertyValue("--announcement-h").trim() || "unset"}; ` +
+                /* The two live suspects for a page scrolled past its landing: a
+                   focus() that pulled the search field to the top, or the cart
+                   drawer opening at load. Both leave a trace here. */
+                `activeElement=${document.activeElement ? document.activeElement.tagName.toLowerCase() + (document.activeElement.id ? "#" + document.activeElement.id : "") : "none"} ` +
+                `cartDrawerOpen=${(() => {
+                  const d = document.getElementById("yl-cart-drawer");
+                  return (
+                    !!d &&
+                    ((typeof d.matches === "function" && d.matches(":popover-open")) ||
+                      d.getAttribute("data-open") === "true")
+                  );
+                })()}`
           };
         });
         if (!dismissHit.ok) {
