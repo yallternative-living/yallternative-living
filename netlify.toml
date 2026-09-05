@@ -15,7 +15,7 @@
   publish = "."
   command = "node scripts/optimize-images.js && node scripts/build-site-data.js && node scripts/build-security-headers.js"
 
-  # Skip the build -- and its minutes -- when nothing that ships changed.
+  # Skip the build -- and its credits -- when nothing that ships changed.
   # git exits 0 when the diff since the last deployed commit touches only
   # the excluded paths (CI workflows, docs, the Cloudflare Worker, tests),
   # and Netlify cancels a build whose ignore command exits 0. Anything else,
@@ -38,11 +38,11 @@
 # package-lock.json but has long honoured the variable below, so it is
 # set too rather than waiting for a bump to bring the download back.
 # Nothing in the build command above opens a browser -- it optimizes
-# images, rebuilds site data and rewrites these headers -- so on every
-# deploy those bytes are build minutes bought and thrown away. Netlify
-# meters builds in minutes and this account's ran out on 2026-09-04;
-# these two lines are minutes back. CI and laptops set neither, so the
-# tests still get real browsers.
+# images, rebuilds site data and rewrites these headers -- so those
+# bytes are credits bought and thrown away. Netlify meters this site in
+# credits, and every build spends them; this account's allowance ran out
+# on 2026-09-04. These two lines are credits back. CI and laptops set
+# neither, so the tests still get real browsers.
 #
 # The Node version for this build is pinned in .nvmrc (Netlify reads that
 # ahead of every other source), not here -- one source of truth.
