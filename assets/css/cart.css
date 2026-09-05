@@ -184,10 +184,21 @@
   min-height: 0;
   padding: 8px 20px;
 }
-.yl-cart-empty {
-  color: var(--paper-dim);
+.yl-cart-empty-state {
   text-align: center;
   padding: 48px 0;
+}
+.yl-cart-empty {
+  color: var(--paper-dim);
+  margin: 0 0 18px;
+}
+/* Rendered as a <button> on shop.html and an <a> elsewhere; the two
+   inherit different line-heights, so pin the height both to each other and
+   to the 44px the rest of the site's tappable controls use. */
+.yl-cart-empty-cta {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
 }
 .yl-cart-line {
   display: flex;

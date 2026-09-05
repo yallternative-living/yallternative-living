@@ -267,6 +267,7 @@
     "cart.title": "장바구니",
     "cart.close": "장바구니 닫기",
     "cart.empty": "장바구니가 비어 있어요.",
+    "cart.keepBrowsing": "계속 둘러보기",
     "cart.seasonalNotice": "시즌 공지",
     "cart.milestones": "배송 및 리워드 달성 기준",
     "cart.freeTrackedShipping": "배송 추적 무료 배송",

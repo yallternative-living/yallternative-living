@@ -267,6 +267,7 @@
     "cart.title": "Seu Carrinho",
     "cart.close": "Fechar carrinho",
     "cart.empty": "Seu carrinho está vazio.",
+    "cart.keepBrowsing": "Continuar explorando",
     "cart.seasonalNotice": "Aviso de temporada",
     "cart.milestones": "Metas de frete e recompensas",
     "cart.freeTrackedShipping": "Frete Rastreado Grátis",

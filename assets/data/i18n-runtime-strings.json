@@ -230,6 +230,15 @@
       ]
     },
     {
+      "key": "cart.keepBrowsing",
+      "text": "Keep browsing",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "Keep browsing"
+      ],
+      "note": "Empty-cart CTA: a close button on shop.html, a link to /shop.html everywhere else"
+    },
+    {
       "key": "cart.marketPickup",
       "text": "Local SC Market Pick-up (Free)",
       "source": "assets/js/cart.js",

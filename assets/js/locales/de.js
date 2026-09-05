@@ -267,6 +267,7 @@
     "cart.title": "Dein Warenkorb",
     "cart.close": "Warenkorb schließen",
     "cart.empty": "Dein Warenkorb ist leer.",
+    "cart.keepBrowsing": "Weiter stöbern",
     "cart.seasonalNotice": "Saisonale Ankündigung",
     "cart.milestones": "Meilensteine für Versand und Belohnungen",
     "cart.freeTrackedShipping": "Kostenloser Versand mit Tracking",

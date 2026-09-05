@@ -1747,6 +1747,7 @@
       else if (action === "dec") changeQty(key, -1);
       else if (action === "remove") removeLine(key);
       else if (action === "undo") undoRemove();
+      else if (action === "close") closeDrawer();
     });
 
     // aria-live region for screen-reader cart announcements.
@@ -1822,6 +1823,14 @@
         closeBtn.focus();
       }
     }
+  }
+
+  /* Netlify's redirect rule forces /shop onto /shop.html, so the pathname is
+     the whole test. The Node harness mocks window without a location. */
+  function onShopPage() {
+    var loc = typeof window !== "undefined" && window.location;
+    var pathname = loc && typeof loc.pathname === "string" ? loc.pathname : "";
+    return /\/shop\.html$/.test(pathname);
   }
 
   function closeDrawer() {
@@ -1915,7 +1924,21 @@
       }
     }
     if (!state.items.length) {
-      itemsEl.innerHTML = '<p class="yl-cart-empty">Your cart is empty.</p>';
+      /* An empty drawer used to be a dead end: the sentence and nothing to
+         tap (2026-09-04 rendered audit, every viewport). On shop.html the
+         shopper is already looking at the catalogue, so the way out is to
+         close the drawer -- a link to /shop.html there would reload the page
+         and throw away their filter and scroll position. Everywhere else
+         (home, product pages, journal) it is a link to the shop. Same label
+         both ways so the dictionary carries one key. */
+      var emptyCta = onShopPage()
+        ? '<button type="button" class="btn btn-outline btn-sm yl-cart-empty-cta" data-cart-action="close">Keep browsing</button>'
+        : '<a class="btn btn-outline btn-sm yl-cart-empty-cta" href="/shop.html">Keep browsing</a>';
+      itemsEl.innerHTML =
+        '<div class="yl-cart-empty-state">' +
+        '<p class="yl-cart-empty">Your cart is empty.</p>' +
+        emptyCta +
+        "</div>";
       /* Keep the Undo offer when the removed line was the LAST one. Clearing
          the footer here used to drop the "Removed ... Undo" notice exactly
          when a shopper had just lost their whole cart with one tap (verified
