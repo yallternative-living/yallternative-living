@@ -567,13 +567,18 @@ function recordFail(msg) {
       recordFail("Add-to-cart button visual feedback missing");
     }
 
-    // Clean up cart drawer state if opened
+    /* Close the drawer the five adds above opened. The second line used to
+       be `drawer.classList.remove("open")`, which cleaned up nothing: the
+       drawer is a popover and marks itself with `data-open`, never that
+       class. YLCart.close() did the real work, so the dead line was invisible
+       -- until an add-to-cart handler landed after this block and reopened
+       the drawer, leaving VECTOR 4 to open its modal underneath one. */
     await page.evaluate(() => {
       if (window.YLCart && typeof window.YLCart.close === "function") {
         window.YLCart.close();
       }
       const drawer = document.getElementById("yl-cart-drawer");
-      if (drawer) drawer.classList.remove("open");
+      if (drawer) drawer.removeAttribute("data-open");
     });
     await sleep(100);
 
@@ -586,10 +591,85 @@ function recordFail(msg) {
     console.log("VECTOR 4: Focus Trapping Integrity (Tab / Shift+Tab & Ancestor Hidden State)");
     console.log("--------------------------------------------------------------------------------");
 
-    // Close and reopen search modal in clean empty state
-    await page.keyboard.press("Escape");
-    await sleep(150);
+    /* Close and reopen the search modal in a clean empty state.
+       This used to be a bare Escape + click, which assumed the Escape reached
+       the search dialog. It does not when the cart drawer VECTOR 3 opened is
+       still up: the drawer is a popover in the top layer, so Escape dismisses
+       THAT, the dialog stays open, and the click on the trigger then lands on
+       the dialog's own backdrop -- which main.js treats as click-outside and
+       closes the modal (`if (e.target === modal) closeModal()`). Every check
+       below then measured a CLOSED modal and reported "focus escaped modal",
+       which is not what happened. That is how this suite failed on CI run 317
+       while passing 11 runs in a row locally: it turns on whether one of the
+       five concurrent add-to-cart handlers lands after the cleanup above.
+       So: put the page in the state these checks are about, and prove it. */
+    await page.evaluate(() => {
+      const drawer = document.getElementById("yl-cart-drawer");
+      if (drawer) {
+        if (typeof drawer.hidePopover === "function") {
+          try {
+            drawer.hidePopover();
+          } catch {
+            /* not open -- hidePopover throws rather than no-opping */
+          }
+        }
+        drawer.removeAttribute("data-open");
+      }
+      const modal = document.getElementById("global-search-modal");
+      if (modal && modal.open) modal.close();
+    });
+    await page.waitForFunction(
+      () => {
+        const modal = document.getElementById("global-search-modal");
+        const drawer = document.getElementById("yl-cart-drawer");
+        const drawerUp =
+          drawer &&
+          ((typeof drawer.matches === "function" && drawer.matches(":popover-open")) ||
+            drawer.getAttribute("data-open") === "true");
+        return modal && !modal.open && !drawerUp;
+      },
+      { timeout: 10000 }
+    );
+    /* And do not click until the trigger is the thing at its own centre. The
+       drawer is a popover: hidePopover() returns before it has finished going
+       away, and a click aimed at the trigger underneath it lands on the
+       drawer instead -- measured 2026-09-05, 1 trial in 3 left the modal shut
+       even after both were closed. Puppeteer clicks coordinates without hit
+       testing, so the wait has to do it. */
+    await page.waitForFunction(
+      () => {
+        const el = document.getElementById("globalSearchTrigger");
+        if (!el) return false;
+        const r = el.getBoundingClientRect();
+        if (r.width < 1 || r.height < 1) return false;
+        const at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        return !!at && (at === el || el.contains(at));
+      },
+      { timeout: 10000 }
+    );
     await page.click("#globalSearchTrigger");
+    let modalReadyForTrapChecks = true;
+    try {
+      await page.waitForSelector("#global-search-modal[open]", { visible: true, timeout: 10000 });
+    } catch {
+      modalReadyForTrapChecks = false;
+    }
+    if (!modalReadyForTrapChecks) {
+      /* Report the precondition, not the focus trap -- and do not throw, so
+         VECTORS 5-9 still run and report. */
+      const state = await page.evaluate(() => {
+        const modal = document.getElementById("global-search-modal");
+        const drawer = document.getElementById("yl-cart-drawer");
+        return (
+          `modalOpen=${!!(modal && modal.open)} drawerPresent=${!!drawer} ` +
+          `drawerDataOpen=${drawer ? drawer.getAttribute("data-open") : "n/a"} ` +
+          `activeElement=${document.activeElement ? document.activeElement.id || document.activeElement.tagName : "none"}`
+        );
+      });
+      recordFail(
+        `VECTOR 4 never got the search modal open, so its focus trap went untested: ${state}`
+      );
+    }
     await sleep(200);
 
     // Empty state focus trap:
@@ -603,7 +683,9 @@ function recordFail(msg) {
       const modal = document.getElementById("global-search-modal");
       return modal && document.activeElement && modal.contains(document.activeElement);
     });
-    if (activeAfterEmptyShiftTab) {
+    if (!modalReadyForTrapChecks) {
+      console.log("  (skipped: the modal never opened -- see the failure above)");
+    } else if (activeAfterEmptyShiftTab) {
       recordPass("Shift+Tab from first element in empty state wraps to element inside modal");
     } else {
       recordFail("Shift+Tab in empty state escaped modal");
@@ -634,7 +716,9 @@ function recordFail(msg) {
       }
     }
 
-    if (!escapedLiveTab) {
+    if (!modalReadyForTrapChecks) {
+      console.log("  (skipped: the modal never opened -- see the failure above)");
+    } else if (!escapedLiveTab) {
       recordPass(
         "Focus strictly remains trapped inside modal during 25 Tab / Shift+Tab cycles across live results"
       );

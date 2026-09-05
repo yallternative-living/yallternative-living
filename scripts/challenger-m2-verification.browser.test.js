@@ -548,13 +548,51 @@ async function runAdversarialSuite() {
           bannerLive === "polite"
         );
 
-        // Dismiss banner
-        await testPage.click("#dismissPickupNotice");
-        const bannerStillExists = await testPage.$("#pickupMarketBanner");
-        check(
-          `Deep link to ${targetEvent.name}: dismiss button removes banner`,
-          bannerStillExists === null
-        );
+        /* Dismiss the banner. The click is only meaningful if the button is
+           actually the thing at its own centre: the site header is sticky, so
+           a notice that has drifted up under it takes the click on the header
+           instead and the banner stays put -- reported as "dismiss button
+           removes banner" failing, which says nothing about why. Check the hit
+           test first and report the geometry when it fails, then wait for the
+           node to go rather than reading the DOM one round trip after the
+           click and calling a slow answer a wrong one. */
+        const dismissHit = await testPage.evaluate(() => {
+          const btn = document.getElementById("dismissPickupNotice");
+          if (!btn) return { ok: false, why: "dismiss button missing from DOM" };
+          const r = btn.getBoundingClientRect();
+          const cx = r.left + r.width / 2;
+          const cy = r.top + r.height / 2;
+          const at = document.elementFromPoint(cx, cy);
+          const ok = !!at && (at === btn || btn.contains(at));
+          return {
+            ok,
+            why: ok
+              ? ""
+              : `point (${Math.round(cx)},${Math.round(cy)}) belongs to ` +
+                `${at ? at.tagName.toLowerCase() + (at.id ? "#" + at.id : "") : "nothing"}; ` +
+                `button rect=[${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.width)}x${Math.round(r.height)}] ` +
+                `scrollY=${Math.round(window.scrollY)}`
+          };
+        });
+        if (!dismissHit.ok) {
+          check(
+            `Deep link to ${targetEvent.name}: dismiss button removes banner`,
+            false,
+            `the dismiss button is not clickable: ${dismissHit.why}`
+          );
+        } else {
+          await testPage.click("#dismissPickupNotice");
+          let bannerGone = true;
+          try {
+            await testPage.waitForFunction(
+              () => document.getElementById("pickupMarketBanner") === null,
+              { timeout: 3000 }
+            );
+          } catch {
+            bannerGone = false;
+          }
+          check(`Deep link to ${targetEvent.name}: dismiss button removes banner`, bannerGone);
+        }
       }
 
       // 3.2 Add product to cart to populate cart drawer footer and verify state

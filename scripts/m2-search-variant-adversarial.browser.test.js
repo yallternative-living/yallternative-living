@@ -214,18 +214,31 @@ function recordFail(msg) {
         recordFail(`[${prod.id}] Trigger aria-controls '${ariaControls}' != '${expectedPickerId}'`);
       }
 
-      // Click trigger to expand variant picker
-      await triggerBtn.click();
+      /* Click the trigger by SELECTOR, not through the handle taken above.
+         The results list is re-rendered on every input event and by the 1200ms
+         "✓ Added" revert the previous product's add-to-cart leaves running, so
+         a handle grabbed a few round trips ago can point at a node that is no
+         longer in the document -- Puppeteer's click() then throws "Node is
+         detached from document" and the whole harness dies mid-product (CI run
+         33932028359, [unisex-tshirt], the fourth of four). A selector is
+         resolved at click time, so a re-render between the checks above and
+         this line costs nothing. Wait for it first: the same re-render can
+         briefly take the button out of the DOM. */
+      const triggerSelector = `${itemActionSelector} .search-variant-trigger`;
+      await page.waitForSelector(triggerSelector, { visible: true, timeout: 10000 });
+      await page.click(triggerSelector);
       await sleep(100);
 
-      const isExpandedClass = await page.evaluate(
-        (el) => el.classList.contains("is-expanded"),
-        actionHandle
-      );
-      const ariaExpandedAfter = await page.evaluate(
-        (el) => el.getAttribute("aria-expanded"),
-        triggerBtn
-      );
+      /* Re-read through selectors for the same reason: a handle that survived
+         the click can still be detached by the next re-render. */
+      const isExpandedClass = await page.evaluate((sel) => {
+        const el = document.querySelector(sel);
+        return !!el && el.classList.contains("is-expanded");
+      }, itemActionSelector);
+      const ariaExpandedAfter = await page.evaluate((sel) => {
+        const el = document.querySelector(sel);
+        return el ? el.getAttribute("aria-expanded") : null;
+      }, triggerSelector);
       const pickerHidden = await page.evaluate((id) => {
         const p = document.getElementById(id);
         return p ? p.hidden : true;
