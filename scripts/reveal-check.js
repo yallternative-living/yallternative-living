@@ -177,9 +177,29 @@ async function assertReal(page, label) {
       console.log("\nmain.js delayed until after first paint:");
       for (const pageName of PAGES) {
         const page = await newPage(browser);
+        /* The delay below is applied by request interception, and interception
+           only sees requests that reach the network. The first page in this
+           browser registers sw.js, which precaches main.js; from the second
+           page on, the service worker answers main.js from its cache, no
+           network request is made, and this handler never runs -- so on four
+           of the five pages the "delayed" scenario silently did not exist.
+           main.js then ran on the fast path, a few ms either side of first
+           paint, where arming visible content is the DESIGNED behaviour, and
+           whether the per-frame sampler caught an opacity-0 frame became a race
+           the CI runner lost (run 33933162715, contact.html, min opacity 0.00)
+           while every local run won it. Measured: pages 2-5 loaded main.js
+           with transferSize 0 and workerStart > 0, interception never fired.
+           Bypass the worker for this pass so the request is real, and assert
+           below that the delay was actually applied -- a scenario that can be
+           voided without a trace has to prove its own subject. */
+        await page.setBypassServiceWorker(true);
+        let mainJsHeldBack = false;
         await page.setRequestInterception(true);
         page.on("request", async (r) => {
-          if (r.url().includes("/main.js")) await sleep(1500);
+          if (r.url().includes("/main.js")) {
+            mainJsHeldBack = true;
+            await sleep(1500);
+          }
           r.continue();
         });
         // Sample every frame so a flash of hidden content is caught, not just
@@ -218,6 +238,14 @@ async function assertReal(page, label) {
             `${pageName}: has reveal content to test`,
             revealCount > 0,
             "no .reveal elements on the page -- these checks would pass vacuously"
+          );
+          /* The subject of this whole pass is a late-arriving main.js. If the
+             request never went through the interceptor, nothing below tests
+             what it claims to, whatever it reports. */
+          check(
+            `${pageName}: main.js really was held back 1500ms (the slow-load scenario exists)`,
+            mainJsHeldBack,
+            "main.js never passed through request interception -- served from a cache or a worker, so the delay was not applied"
           );
           const stillHidden = await hiddenButVisible(page);
           check(
