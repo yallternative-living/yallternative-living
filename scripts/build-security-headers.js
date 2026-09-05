@@ -707,12 +707,12 @@ function run() {
     "[build]\n" +
     '  publish = "."\n' +
     '  command = "node scripts/optimize-images.js && node scripts/build-site-data.js && node scripts/build-security-headers.js"\n' +
-    // Every production deploy costs 15 Netlify credits against a 300-credit
-    // month, i.e. the plan pays for 20 deploys of main. September 2026 ran 66
-    // (990 credits) and the site could not deploy at all once they were
-    // spent. A third of those commits changed nothing Netlify serves -- CI
-    // workflow tweaks, docs, the Cloudflare Worker (deployed by Cloudflare,
-    // not here), test files -- so the build now refuses to spend a deploy on
+    // Netlify meters builds in minutes, and this account's allowance ran
+    // out on 2026-09-04 -- the site could not deploy at all once it was
+    // spent. A large share of the commits that reach main change nothing
+    // Netlify serves -- CI workflow tweaks, docs, the Cloudflare Worker
+    // (deployed by Cloudflare, not here), test files -- so the build now
+    // refuses to spend minutes on
     // them. git's exit code IS the decision: 0 (no difference outside the
     // excluded paths) cancels the build, anything else builds; a missing
     // CACHED_COMMIT_REF (first build, cleared cache) makes git fail, which
@@ -723,7 +723,7 @@ function run() {
     // Generated here, like the rest of this file: a hand-edit does not
     // survive the next run of this script.
     "\n" +
-    "  # Skip the deploy -- and its 15 credits -- when nothing that ships changed.\n" +
+    "  # Skip the build -- and its minutes -- when nothing that ships changed.\n" +
     "  # git exits 0 when the diff since the last deployed commit touches only\n" +
     "  # the excluded paths (CI workflows, docs, the Cloudflare Worker, tests),\n" +
     "  # and Netlify cancels a build whose ignore command exits 0. Anything else,\n" +
@@ -742,10 +742,41 @@ function run() {
     "# warning if sharp is missing anyway, so a mistake here costs unoptimized\n" +
     "# photos rather than a failed deploy.\n" +
     "#\n" +
+    // Netlify meters builds in minutes and this account's ran out on
+    // 2026-09-04, so anything the deploy downloads and never opens is worth
+    // deleting. Asking for devDependencies (above) also installs puppeteer
+    // and playwright -- the browser drivers the tests drive -- and their
+    // install steps fetch browsers. Names verified on 2026-09-05 by reading
+    // node_modules, not the docs: puppeteer 25.3.0 declares postinstall
+    // "node install.mjs", whose downloadBrowsers() returns early when
+    // lib/puppeteer/getConfiguration.js finds PUPPETEER_SKIP_DOWNLOAD --
+    // that exact name, the pre-19.x PUPPETEER_SKIP_CHROMIUM_DOWNLOAD being
+    // gone from 25.x, and the same name CI already sets in
+    // .github/workflows/test.yml. playwright 1.62.1 registers no install
+    // script at all, so it downloads nothing today; playwright-core's
+    // installBrowsersForNpmInstall() still gates on
+    // PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD, so that one is set too and a version
+    // bump cannot quietly put the download back. Both read "1" as true. The
+    // deploy launches no browser; the jobs that do run elsewhere, where
+    // neither variable is set and both tools install a browser as usual.
+    "# Asking for devDependencies also installs puppeteer and playwright, the\n" +
+    "# browser drivers the tests drive. Puppeteer's install step downloads\n" +
+    "# ~170MB of Chrome; playwright ships no install script at the version in\n" +
+    "# package-lock.json but has long honoured the variable below, so it is\n" +
+    "# set too rather than waiting for a bump to bring the download back.\n" +
+    "# Nothing in the build command above opens a browser -- it optimizes\n" +
+    "# images, rebuilds site data and rewrites these headers -- so on every\n" +
+    "# deploy those bytes are build minutes bought and thrown away. Netlify\n" +
+    "# meters builds in minutes and this account's ran out on 2026-09-04;\n" +
+    "# these two lines are minutes back. CI and laptops set neither, so the\n" +
+    "# tests still get real browsers.\n" +
+    "#\n" +
     "# The Node version for this build is pinned in .nvmrc (Netlify reads that\n" +
     "# ahead of every other source), not here -- one source of truth.\n" +
     "[build.environment]\n" +
-    '  NPM_FLAGS = "--include=dev"\n\n' +
+    '  NPM_FLAGS = "--include=dev"\n' +
+    '  PUPPETEER_SKIP_DOWNLOAD = "1"\n' +
+    '  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1"\n\n' +
     // ---- deploy-time HTML post-processing: OFF ----
     // See the CLEAN_URL_SKIP comment near the top of this script. Netlify's
     // post-processing re-serialised every page's HTML with single-quoted
