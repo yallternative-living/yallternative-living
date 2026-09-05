@@ -676,11 +676,7 @@ eq(s75.isAllUnlocked, true, "isAllUnlocked is true at $75");
 
 // Local pickup override
 let sPickup = cart.calculateMilestoneStatus(25, customMilestones, true);
-eq(
-  sPickup.message,
-  "Local SC Market Pick-up Selected ($0 Shipping)",
-  "Local pickup override message"
-);
+eq(sPickup.message, "Local Market Pick-up Selected ($0 Shipping)", "Local pickup override message");
 eq(sPickup.progressPercent, 100, "Progress percent is 100% on pickup");
 
 // Disabled threshold (0)

@@ -270,7 +270,7 @@
     "cart.isGift": "Cette commande est un cadeau",
     "cart.giftNoteLabel": "Message pour le cadeau",
     "cart.giftNotePlaceholder": "Ajoute un mot gratuit pour le bon de livraison (500 caractères max.)...",
-    "cart.marketPickup": "Retrait sur un marché local en SC (Gratuit)",
+    "cart.marketPickup": "Retrait sur un marché local (Gratuit)",
     "cart.skipShipping": "Évite la livraison et récupère ta commande à notre prochain stand",
     "cart.chooseMarket": "Choisis le lieu du prochain marché :",
     "cart.haveGiftCard": "Tu as une carte-cadeau ou un code promo ?",

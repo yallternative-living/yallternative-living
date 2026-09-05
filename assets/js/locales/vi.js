@@ -278,7 +278,7 @@
     "cart.isGift": "Đơn này là quà tặng",
     "cart.giftNoteLabel": "Lời nhắn quà tặng",
     "cart.giftNotePlaceholder": "Thêm lời nhắn quà tặng miễn phí vào phiếu giao hàng (Tối đa 500 ký tự)...",
-    "cart.marketPickup": "Nhận tại chợ phiên địa phương ở SC (Miễn phí)",
+    "cart.marketPickup": "Nhận tại chợ phiên địa phương (Miễn phí)",
     "cart.skipShipping": "Bỏ qua tiền ship & ghé lấy tại gian hàng chợ phiên tới của tụi này",
     "cart.chooseMarket": "Chọn địa điểm chợ phiên sắp tới:",
     "cart.haveGiftCard": "Bạn có thẻ quà tặng hoặc mã giảm giá?",

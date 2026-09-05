@@ -278,7 +278,7 @@
     "cart.isGift": "Este pedido é um presente",
     "cart.giftNoteLabel": "Mensagem do bilhete de presente",
     "cart.giftNotePlaceholder": "Adicione um bilhete de presente gratuito para a nota de envio (Máx. 500 caracteres)...",
-    "cart.marketPickup": "Retirada local na feira em SC (Grátis)",
+    "cart.marketPickup": "Retirada local na feira (Grátis)",
     "cart.skipShipping": "Pule o frete & retire na nossa próxima barraca de feira",
     "cart.chooseMarket": "Escolha o local da próxima feira:",
     "cart.haveGiftCard": "Tem um cartão-presente ou código de cupom?",

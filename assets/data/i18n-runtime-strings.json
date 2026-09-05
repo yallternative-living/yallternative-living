@@ -240,10 +240,10 @@
     },
     {
       "key": "cart.marketPickup",
-      "text": "Local SC Market Pick-up (Free)",
+      "text": "Local Market Pick-up (Free)",
       "source": "assets/js/cart.js",
       "verify": [
-        "Local SC Market Pick-up (Free)"
+        "Local Market Pick-up (Free)"
       ]
     },
     {

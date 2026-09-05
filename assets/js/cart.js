@@ -1113,7 +1113,7 @@
 
     if (isPickup) {
       return {
-        message: "Local SC Market Pick-up Selected ($0 Shipping)",
+        message: "Local Market Pick-up Selected ($0 Shipping)",
         progressPercent: 100,
         nextMilestone: null,
         remaining: 0,
@@ -2237,7 +2237,7 @@
         "    >" +
         '    <span class="yl-cart-pickup-custom-check" aria-hidden="true"></span>' +
         '    <div class="yl-cart-pickup-text">' +
-        '      <span class="yl-cart-pickup-title">Local SC Market Pick-up (Free)</span>' +
+        '      <span class="yl-cart-pickup-title">Local Market Pick-up (Free)</span>' +
         '      <span class="yl-cart-pickup-sub">Skip shipping &amp; collect at our next market booth</span>' +
         "    </div>" +
         "  </label>" +

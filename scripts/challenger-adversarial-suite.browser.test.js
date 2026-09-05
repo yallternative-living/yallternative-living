@@ -239,7 +239,7 @@ function createStaticServer(port = 8089) {
     const res = cart.calculateMilestoneStatus(10.0, milestones, true);
     assert.strictEqual(res.isAllUnlocked, true);
     assert.strictEqual(res.progressPercent, 100);
-    assert.strictEqual(res.message, "Local SC Market Pick-up Selected ($0 Shipping)");
+    assert.strictEqual(res.message, "Local Market Pick-up Selected ($0 Shipping)");
   });
 
   runTest("R3.12: Custom, unsorted, and single-tier milestone configurations", () => {

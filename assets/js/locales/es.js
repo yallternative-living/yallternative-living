@@ -278,7 +278,7 @@
     "cart.isGift": "Este pedido es un regalo",
     "cart.giftNoteLabel": "Mensaje de la nota de regalo",
     "cart.giftNotePlaceholder": "Agrega una nota de regalo gratis para la nota de empaque (máx. 500 caracteres)...",
-    "cart.marketPickup": "Recogida local en el mercado de SC (Gratis)",
+    "cart.marketPickup": "Recogida local en el mercado (Gratis)",
     "cart.skipShipping": "Sáltate el envío y recoge en nuestro próximo puesto del mercado",
     "cart.chooseMarket": "Elige la ubicación del próximo mercado:",
     "cart.haveGiftCard": "¿Tienes una tarjeta de regalo o código de cupón?",

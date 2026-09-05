@@ -278,7 +278,7 @@
     "cart.isGift": "この注文はギフト用です",
     "cart.giftNoteLabel": "ギフトメッセージ",
     "cart.giftNotePlaceholder": "納品書に添える無料のギフトメッセージを入力（最大500文字）...",
-    "cart.marketPickup": "SC現地のマーケット受取（無料）",
+    "cart.marketPickup": "現地のマーケット受取（無料）",
     "cart.skipShipping": "配送をスキップして、次回のマーケットブースで受け取る",
     "cart.chooseMarket": "今後のマーケット開催場所を選択：",
     "cart.haveGiftCard": "ギフトカードやクーポンコードをお持ちですか？",

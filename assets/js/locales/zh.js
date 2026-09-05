@@ -278,7 +278,7 @@
     "cart.isGift": "这份订单是送人的礼物",
     "cart.giftNoteLabel": "礼品留言",
     "cart.giftNotePlaceholder": "在装箱单上添加免费礼品留言（最多 500 个字符）...",
-    "cart.marketPickup": "本地 SC 市集自提（免费）",
+    "cart.marketPickup": "本地市集自提（免费）",
     "cart.skipShipping": "省去运费，在我们下一场市集摊位自取",
     "cart.chooseMarket": "选择接下来的市集地点：",
     "cart.haveGiftCard": "有礼品卡或优惠码？",
