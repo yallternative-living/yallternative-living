@@ -77,7 +77,11 @@
         ]
       },
       "etsyUrl": "https://www.etsy.com/listing/4341507933/yallternative-living-tank-top",
-      "tags": []
+      "tags": [],
+      "rating": {
+        "value": 5,
+        "count": 1
+      }
     },
     {
       "id": "unisex-tshirt",
@@ -114,7 +118,11 @@
       },
       "etsyUrl": "https://www.etsy.com/listing/4341518675/yallternative-living-unisex-t-shirt",
       "tags": [],
-      "featured": true
+      "featured": true,
+      "rating": {
+        "value": 5,
+        "count": 1
+      }
     },
     {
       "id": "frankincense-salve",
@@ -140,7 +148,7 @@
       ],
       "rating": {
         "value": 5,
-        "count": 5
+        "count": 6
       },
       "etsyUrl": "https://www.etsy.com/listing/4398130795/yall-heal-now-miracle-frankincense-salve",
       "tags": [
@@ -171,7 +179,11 @@
         "essential-oil-free",
         "sensitive-safe"
       ],
-      "etsyUrl": "https://www.etsy.com/listing/4466572716/yallternative-miracle-balm-multi-use"
+      "etsyUrl": "https://www.etsy.com/listing/4466572716/yallternative-miracle-balm-multi-use",
+      "rating": {
+        "value": 5,
+        "count": 1
+      }
     },
     {
       "id": "sleep-salve",
@@ -191,7 +203,7 @@
       ],
       "rating": {
         "value": 5,
-        "count": 1
+        "count": 2
       },
       "etsyUrl": "https://www.etsy.com/listing/4398125773/hush-yall-magnesium-arnica-sleep-salve",
       "tags": [
@@ -218,7 +230,11 @@
       ],
       "etsyUrl": "https://www.etsy.com/listing/4460199621/bourbon-beard-salve-vanilla-cedarwood",
       "tags": [],
-      "featured": true
+      "featured": true,
+      "rating": {
+        "value": 5,
+        "count": 1
+      }
     },
     {
       "id": "shimmer-oil",
@@ -264,7 +280,11 @@
       "tags": [
         "vegan"
       ],
-      "featured": true
+      "featured": true,
+      "rating": {
+        "value": 5,
+        "count": 1
+      }
     },
     {
       "id": "shea-butter",
@@ -302,7 +322,7 @@
       },
       "rating": {
         "value": 4,
-        "count": 1
+        "count": 2
       },
       "etsyUrl": "https://www.etsy.com/listing/4460110222/lavender-shea-body-butter-raw-african",
       "tags": []
@@ -347,7 +367,7 @@
       },
       "rating": {
         "value": 5,
-        "count": 2
+        "count": 3
       },
       "etsyUrl": "https://www.etsy.com/listing/4342208406/bourbon-vanilla-hand-scrub-exfoliating",
       "tags": [
@@ -388,7 +408,11 @@
           }
         ]
       },
-      "etsyUrl": "https://www.etsy.com/listing/4345557444/lavender-epsom-salt-soak-muscle-relief"
+      "etsyUrl": "https://www.etsy.com/listing/4345557444/lavender-epsom-salt-soak-muscle-relief",
+      "rating": {
+        "value": 5,
+        "count": 1
+      }
     },
     {
       "id": "backroad-soak",
@@ -426,7 +450,7 @@
       },
       "rating": {
         "value": 5,
-        "count": 3
+        "count": 4
       },
       "etsyUrl": "https://www.etsy.com/listing/4333988264/backroad-recovery-epsom-salt-muscle-soak",
       "featured": true
@@ -470,7 +494,7 @@
       },
       "rating": {
         "value": 5,
-        "count": 1
+        "count": 2
       },
       "etsyUrl": "https://www.etsy.com/listing/4378341348/protection-potion-keychain-black-lava",
       "tags": [],
@@ -499,7 +523,7 @@
       ],
       "rating": {
         "value": 5,
-        "count": 4
+        "count": 5
       },
       "etsyUrl": "https://www.etsy.com/listing/4335217388/bug-off-btch-natural-bug-spray"
     },
@@ -607,7 +631,7 @@
         "Epsom Salt",
         "Baking Soda"
       ],
-      "ingredientsNote": "Comes with a reusable organic cotton muslin bag. Each bag is good for 2\u20133 soaks. Compost when spent.",
+      "ingredientsNote": "Comes with a reusable organic cotton muslin bag. Each bag is good for 2–3 soaks. Compost when spent.",
       "variants": {
         "name": "Size",
         "options": [
@@ -651,9 +675,11 @@
     {
       "id": "yallternative-gift-card",
       "name": "Digital Gift Card",
-      "price": 10.00,
+      "price": 10,
       "category": "gift-cards",
-      "tags": ["Instant Delivery"],
+      "tags": [
+        "Instant Delivery"
+      ],
       "image": "assets/img/gift-card.png",
       "blurb": "Can't decide what they'd love? Let them pick. Delivered by email, ready to use on anything in the shop.",
       "description": "The perfect gift for the black sheep & bold hearts. Choose any amount from $10 to $500. No expiration date, delivered straight to their inbox.",
@@ -661,11 +687,26 @@
       "variants": {
         "name": "Amount",
         "options": [
-          { "label": "$10", "priceDelta": 0 },
-          { "label": "$25", "priceDelta": 15 },
-          { "label": "$50", "priceDelta": 40 },
-          { "label": "$100", "priceDelta": 90 },
-          { "label": "$200", "priceDelta": 190 }
+          {
+            "label": "$10",
+            "priceDelta": 0
+          },
+          {
+            "label": "$25",
+            "priceDelta": 15
+          },
+          {
+            "label": "$50",
+            "priceDelta": 40
+          },
+          {
+            "label": "$100",
+            "priceDelta": 90
+          },
+          {
+            "label": "$200",
+            "priceDelta": 190
+          }
         ]
       },
       "featured": true

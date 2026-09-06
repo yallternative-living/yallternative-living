@@ -3,7 +3,7 @@
    Y'ALLTERNATIVE LIVING -- Etsy sync applier
    ----------------------------------------------------------
    Applies a freshly-gathered snapshot of the live Etsy shop to
-   products-data.js -- the single source of truth this whole site's
+   products.json -- the single source of truth this whole site's
    build pipeline (build-site-data.js) reads from.
 
    IMPORTANT -- how the snapshot gets built:
@@ -59,18 +59,14 @@ if (!Array.isArray(snapshot.listings)) {
   process.exit(1);
 }
 
-var dataPath = path.join(ROOT, "assets/js/products-data.js");
+var dataPath = path.join(ROOT, "assets/data/products.json");
 if (!fs.existsSync(dataPath)) {
-  console.error("Error: products-data.js is missing at " + dataPath);
+  console.error("Error: products.json is missing at " + dataPath);
   console.error("Please run the site data builder first: node scripts/build-site-data.js");
   process.exit(1);
 }
 
-// Same window-stub trick build-site-data.js uses, so this unmodified
-// browser-global file loads fine under plain Node too.
-global.window = {};
-require(dataPath);
-var CATALOG = global.window.YL_PRODUCTS;
+var CATALOG = JSON.parse(fs.readFileSync(dataPath, "utf8"));
 var PRODUCTS = CATALOG.products;
 
 /**
@@ -194,18 +190,7 @@ if (snapshot.complete) {
 
 // ---- write products-data.js back out only if something actually changed ----
 if (ratingChanges.length) {
-  var HEADER =
-    "/* Auto-mirrors assets/data/products.json as a global,\n" +
-    "   so the site works instantly off file:// with zero\n" +
-    "   network/CORS issues, and just as fast once hosted.\n" +
-    "   NOTE: ratings in this file are kept in sync with real per-listing\n" +
-    "   Etsy reviews by scripts/apply-etsy-snapshot.js -- everything else\n" +
-    "   here (photos, blurbs, prices, variants) is still hand-maintained. */\n";
-  var out = HEADER + "window.YL_PRODUCTS = " + JSON.stringify(CATALOG, null, 2) + ";\n";
-  var dir = path.dirname(dataPath);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
+  var out = JSON.stringify(CATALOG, null, 2) + "\n";
   fs.writeFileSync(dataPath, out);
 }
 
@@ -280,5 +265,5 @@ console.log(
 );
 console.log("Full report: scripts/etsy-sync-report.md");
 if (ratingChanges.length) {
-  console.log("\nproducts-data.js changed -- now run: node scripts/build-site-data.js && npm test");
+  console.log("\nproducts.json changed -- now run: node scripts/build-site-data.js && npm test");
 }

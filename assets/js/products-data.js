@@ -1,9 +1,9 @@
-/* Auto-mirrors assets/data/products.json as a global,
-   so the site works instantly off file:// with zero
-   network/CORS issues, and just as fast once hosted.
-   NOTE: ratings in this file are kept in sync with real per-listing
-   Etsy reviews by scripts/apply-etsy-snapshot.js -- everything else
-   here (photos, blurbs, prices, variants) is still hand-maintained. */
+/**
+ * @fileoverview Auto-generated shop products catalog source of truth.
+ * Wrap of assets/data/products.json into a global variable YL_PRODUCTS.
+ * Do not hand-edit this file.
+ * @const {!Object}
+ */
 window.YL_PRODUCTS = {
   "shop": {
     "name": "Y'allternative Living",
