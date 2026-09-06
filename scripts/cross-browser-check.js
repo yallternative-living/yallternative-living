@@ -185,7 +185,10 @@ const REMOVE_PAINT_TIMING = () => {
 async function makeContext(browser, opts) {
   opts = opts || {};
   const context = await browser.newContext(
-    Object.assign({ viewport: { width: 1280, height: 800 }, serviceWorkers: 'block' }, opts.device || {})
+    Object.assign(
+      { viewport: { width: 1280, height: 800 }, serviceWorkers: "block" },
+      opts.device || {}
+    )
   );
   await context.addInitScript(() => {
     try {
