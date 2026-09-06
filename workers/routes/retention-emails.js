@@ -708,13 +708,13 @@ export async function drainEmailQueue(env, ctx, now = Date.now(), limit = 25) {
   const productIndex = await loadProductIndex(env, ctx);
   const site = await loadSiteSettings(env, ctx);
 
-  for (const row of rows) {
+  await Promise.all(rows.map(async (row) => {
     summary.processed++;
     const message = await renderQueuedEmail(env, ctx, row, productIndex, site);
     if (!message) {
       await markEmailSkipped(db, row.id, now);
       summary.skipped++;
-      continue;
+      return;
     }
     let result;
     try {
@@ -741,7 +741,7 @@ export async function drainEmailQueue(env, ctx, now = Date.now(), limit = 25) {
         console.error(`retention: giving up on ${row.id} after ${state.attempts} attempts`);
       }
     }
-  }
+  }));
   return summary;
 }
 
