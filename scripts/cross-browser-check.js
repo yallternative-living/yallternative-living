@@ -185,7 +185,10 @@ const REMOVE_PAINT_TIMING = () => {
 async function makeContext(browser, opts) {
   opts = opts || {};
   const context = await browser.newContext(
-    Object.assign({ viewport: { width: 1280, height: 800 } }, opts.device || {})
+    Object.assign(
+      { viewport: { width: 1280, height: 800 }, serviceWorkers: "block" },
+      opts.device || {}
+    )
   );
   await context.addInitScript(() => {
     try {
@@ -264,7 +267,11 @@ async function runEngine(engine, check, log) {
     {
       const context = await makeContext(browser);
       const page = await context.newPage();
-      await page.route("**/main.js*", (r) => r.abort());
+      let intercepted = false;
+      await page.route("**/main.js*", (r) => {
+        intercepted = true;
+        r.abort();
+      });
       await page.goto(`${BASE}/about.html`, { waitUntil: "domcontentloaded" });
       await sleep(1200);
       const story = await page.evaluate(() => {
@@ -275,6 +282,11 @@ async function runEngine(engine, check, log) {
           words: section ? (section.innerText || "").trim().split(/\s+/).filter(Boolean).length : 0
         };
       });
+      check(
+        `${engine.name}: main.js interception actually fired`,
+        intercepted,
+        "service worker bypassed the route?"
+      );
       check(
         `${engine.name}: about.html renders with main.js blocked`,
         story.opacity === "1" && story.words > 50,
