@@ -731,9 +731,7 @@
     "tpl.allN": "{n}点すべて",
     "tpl.mixMatchNeed": "あと{needed}点{item}を追加すると、{all}が1点あたり{price}になります！",
     "tpl.mixMatchApplied": "{item}の1点あたり{price}のまとめ買い割引が適用されました！",
-    "tpl.mixMatchNext": "あと{amount}追加で{perk}！",
-    "auto.artsFestival.c73a7e": "アートフェスティバル",
-    "auto.moreInfoRsvp.b097db": "詳細 / 参加申し込み"
+    "tpl.mixMatchNext": "あと{amount}追加で{perk}！"
   }
 };
 

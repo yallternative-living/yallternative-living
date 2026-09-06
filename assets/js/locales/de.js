@@ -731,9 +731,7 @@
     "tpl.allN": "alle {n}",
     "tpl.mixMatchNeed": "Pack noch {needed} {item} dazu, um {all} für je {price} zu bekommen!",
     "tpl.mixMatchApplied": "{price}/Stk. Staffelpreis für {item} angewendet!",
-    "tpl.mixMatchNext": "Pack noch {amount} dazu für {perk}!",
-    "auto.artsFestival.c73a7e": "Kunstfestival",
-    "auto.moreInfoRsvp.b097db": "Mehr Infos / RSVP"
+    "tpl.mixMatchNext": "Pack noch {amount} dazu für {perk}!"
   }
 };
 

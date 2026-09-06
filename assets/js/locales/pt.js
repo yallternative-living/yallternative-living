@@ -731,9 +731,7 @@
     "tpl.allN": "todos os {n}",
     "tpl.mixMatchNeed": "Adicione mais {needed} {item} para levar {all} por {price} cada!",
     "tpl.mixMatchApplied": "Faixa de volume de {price}/un. para {item} aplicada!",
-    "tpl.mixMatchNext": "Adicione {amount} para {perk}!",
-    "auto.artsFestival.c73a7e": "Festival de Artes",
-    "auto.moreInfoRsvp.b097db": "Mais informações / RSVP"
+    "tpl.mixMatchNext": "Adicione {amount} para {perk}!"
   }
 };
 
