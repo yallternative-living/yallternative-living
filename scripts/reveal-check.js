@@ -147,28 +147,55 @@ async function assertReal(page, label) {
        guaranteed blank below the hero; content must not depend on the script. */
     {
       console.log("main.js blocked entirely (the original about.html failure):");
-      const page = await newPage(browser);
-      await page.setRequestInterception(true);
-      page.on("request", (r) => (r.url().includes("/main.js") ? r.abort() : r.continue()));
-      await page.goto(`${BASE}/about.html`, { waitUntil: "domcontentloaded", timeout: 60000 });
-      await sleep(1200);
-      const story = await page.evaluate(() => {
-        // The first .reveal here is the photo frame; the copy lives in the
-        // second column, so measure the section as a whole.
-        const section = document.querySelector(".about-founder");
-        const el = document.querySelector(".about-founder .reveal");
-        return {
-          opacity: el ? getComputedStyle(el).opacity : null,
-          words: section ? (section.innerText || "").trim().split(/\s+/).filter(Boolean).length : 0
-        };
-      });
-      check(
-        "about.html story is visible with no main.js",
-        story.opacity === "1",
-        `opacity=${story.opacity}`
-      );
-      check("about.html story actually has its copy", story.words > 50, `${story.words} words`);
-      await page.close();
+      for (const pageName of PAGES) {
+        const page = await newPage(browser);
+        await page.setBypassServiceWorker(true);
+        let mainJsAborted = false;
+        await page.setRequestInterception(true);
+        page.on("request", async (r) => {
+          if (r.url().includes("/main.js")) {
+            mainJsAborted = true;
+            await r.abort().catch(() => {});
+          } else {
+            await r.continue().catch(() => {});
+          }
+        });
+        await page.goto(`${BASE}/${pageName}`, { waitUntil: "domcontentloaded", timeout: 60000 });
+        await sleep(1200);
+
+        check(
+          `${pageName}: main.js really was aborted`,
+          mainJsAborted,
+          "main.js never passed through request interception -- served from a cache or a worker"
+        );
+
+        const stillHidden = await hiddenButVisible(page);
+        check(
+          `${pageName}: nothing on screen left hidden with no main.js`,
+          stillHidden.length === 0,
+          stillHidden.join(", ")
+        );
+
+        if (pageName === "about.html") {
+          const story = await page.evaluate(() => {
+            // The first .reveal here is the photo frame; the copy lives in the
+            // second column, so measure the section as a whole.
+            const section = document.querySelector(".about-founder");
+            const el = document.querySelector(".about-founder .reveal");
+            return {
+              opacity: el ? getComputedStyle(el).opacity : null,
+              words: section ? (section.innerText || "").trim().split(/\s+/).filter(Boolean).length : 0
+            };
+          });
+          check(
+            "about.html story is visible with no main.js",
+            story.opacity === "1",
+            `opacity=${story.opacity}`
+          );
+          check("about.html story actually has its copy", story.words > 50, `${story.words} words`);
+        }
+        await page.close();
+      }
     }
 
     /* ---- 2. Slow load: script lands well after first paint ----

@@ -1429,21 +1429,6 @@ window.YL_SEARCH_INDEX = {
   "journal": [],
   "events": [
     {
-      "id": "boomtown-arts-heritage-avl-fest-2026-09-05",
-      "name": "Boomtown Arts & Heritage FestAVL",
-      "title": "Boomtown Arts & Heritage FestAVL",
-      "date": "2026-09-05",
-      "dateLabel": "September 5, 2026 · Saturday, 10am–10pm",
-      "endDate": null,
-      "type": "Arts Festival",
-      "location": "Asheville, NC",
-      "zip": "28801",
-      "note": "Pack Square Park, 121 College St, Asheville, NC 28801. Free downtown arts & music festival — come find our table.",
-      "description": "Pack Square Park, 121 College St, Asheville, NC 28801. Free downtown arts & music festival — come find our table.",
-      "isUpcoming": true,
-      "url": "events.html#boomtown-arts-heritage-avl-fest-2026-09-05"
-    },
-    {
       "id": "mrb-renaissance-festival-2026-09-12",
       "name": "MRB Renaissance Festival",
       "title": "MRB Renaissance Festival",
@@ -1502,6 +1487,21 @@ window.YL_SEARCH_INDEX = {
       "description": "Pop-up market table with handmade salves, soaks & soaps.",
       "isUpcoming": true,
       "url": "events.html#autumn-apothecary-faire"
+    },
+    {
+      "id": "boomtown-arts-heritage-avl-fest-2026-09-05",
+      "name": "Boomtown Arts & Heritage FestAVL",
+      "title": "Boomtown Arts & Heritage FestAVL",
+      "date": "2026-09-05",
+      "dateLabel": "September 5, 2026 · Saturday, 10am–10pm",
+      "endDate": null,
+      "type": "Arts Festival",
+      "location": "Asheville, NC",
+      "zip": "28801",
+      "note": "Pack Square Park, 121 College St, Asheville, NC 28801. Free downtown arts & music festival — come find our table.",
+      "description": "Pack Square Park, 121 College St, Asheville, NC 28801. Free downtown arts & music festival — come find our table.",
+      "isUpcoming": false,
+      "url": "events.html#boomtown-arts-heritage-avl-fest-2026-09-05"
     },
     {
       "id": "spartanburg-punk-flea-market",
