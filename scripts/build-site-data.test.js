@@ -1617,6 +1617,51 @@ assert(
   );
   assert(!sitemapContent.includes("<xhtml:link"), "sitemap.xml carries no xhtml:link alternates");
   assert(!sitemapContent.includes("?lang="), "sitemap.xml references no ?lang= URLs");
+
+  /* Every <lastmod> is a real date, whatever the clone depth.
+
+     The per-page dates come from `git log`, which lies in a shallow clone:
+     git answers, but with the graft-point date for every file whose real
+     last change is below it. Netlify's build clone is shallow and the deploy
+     runs this script, so that is the path production takes. The guard in
+     gitHistoryIsComplete() makes the script fall back to the content-derived
+     date instead of emitting fabricated per-page ones -- these assertions
+     pin that the output stays well-formed either way. */
+  const lastmods = (sitemapContent.match(/<lastmod>([^<]*)<\/lastmod>/g) || []).map((m) =>
+    m.replace(/<\/?lastmod>/g, "")
+  );
+  eq(lastmods.length, locCount, "sitemap.xml gives every <loc> a <lastmod>");
+  assert(
+    lastmods.every((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)),
+    "sitemap.xml <lastmod> values are all ISO yyyy-mm-dd"
+  );
+  assert(
+    typeof buildScript.gitHistoryIsComplete() === "boolean",
+    "gitHistoryIsComplete() reports a boolean"
+  );
+  /* A shallow clone must be reported as incomplete. Detecting it is the whole
+     point of the guard, so pin the detection against git itself rather than
+     trusting the helper to agree with its own implementation. */
+  let shallowPerGit = null;
+  try {
+    shallowPerGit =
+      require("child_process")
+        .execSync("git rev-parse --is-shallow-repository", {
+          cwd: path.join(__dirname, ".."),
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "ignore"]
+        })
+        .trim() === "true";
+  } catch (e) {
+    shallowPerGit = null;
+  }
+  if (shallowPerGit !== null) {
+    eq(
+      buildScript.gitHistoryIsComplete(),
+      !shallowPerGit,
+      "gitHistoryIsComplete() agrees with git rev-parse --is-shallow-repository"
+    );
+  }
 })();
 
 // ---------------------------------------------------------------------------
