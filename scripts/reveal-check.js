@@ -184,7 +184,9 @@ async function assertReal(page, label) {
             const el = document.querySelector(".about-founder .reveal");
             return {
               opacity: el ? getComputedStyle(el).opacity : null,
-              words: section ? (section.innerText || "").trim().split(/\s+/).filter(Boolean).length : 0
+              words: section
+                ? (section.innerText || "").trim().split(/\s+/).filter(Boolean).length
+                : 0
             };
           });
           check(
