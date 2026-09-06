@@ -731,7 +731,9 @@
     "tpl.allN": "cả {n}",
     "tpl.mixMatchNeed": "Thêm {needed} {item} nữa để nhận {all} chỉ {price} mỗi món!",
     "tpl.mixMatchApplied": "Đã áp dụng mức {price}/món cho {item}!",
-    "tpl.mixMatchNext": "Thêm {amount} để nhận {perk}!"
+    "tpl.mixMatchNext": "Thêm {amount} để nhận {perk}!",
+    "auto.artsFestival.c73a7e": "Lễ hội Nghệ thuật",
+    "auto.moreInfoRsvp.b097db": "Thêm thông tin / RSVP"
   }
 };
 
