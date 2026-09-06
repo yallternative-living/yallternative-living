@@ -723,6 +723,8 @@
     "tpl.allN": "全部 {n}",
     "tpl.mixMatchNeed": "再添加 {needed} 件 {item}，即可以每件 {price} 获得 {all}！",
     "tpl.mixMatchApplied": "已应用 {item} 每件 {price} 阶梯优惠！",
-    "tpl.mixMatchNext": "再添加 {amount} 即可解锁 {perk}！"
+    "tpl.mixMatchNext": "再添加 {amount} 即可解锁 {perk}！",
+    "auto.artsFestival.c73a7e": "艺术节",
+    "auto.moreInfoRsvp.b097db": "更多详情 / 报名"
   }
 }

@@ -723,6 +723,8 @@
     "tpl.allN": "{n}개 모두",
     "tpl.mixMatchNeed": "{item} {needed}개 더 추가하고 {all} 개당 {price}에 만나보세요!",
     "tpl.mixMatchApplied": "{item} 개당 {price} 수량 할인이 적용되었어요!",
-    "tpl.mixMatchNext": "{amount} 더 담고 {perk} 혜택을 받아보세요!"
+    "tpl.mixMatchNext": "{amount} 더 담고 {perk} 혜택을 받아보세요!",
+    "auto.artsFestival.c73a7e": "아트 페스티벌",
+    "auto.moreInfoRsvp.b097db": "상세 정보 / 참석 신청"
   }
 }
