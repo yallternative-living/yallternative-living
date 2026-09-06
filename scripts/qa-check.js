@@ -1530,12 +1530,14 @@ if (!SITE_REVIEWS.length) {
     else seenReviewIds[r.id] = true;
     if (!r.name || typeof r.name !== "string") problems.push("missing/invalid name");
     if (!r.text || typeof r.text !== "string") problems.push("missing/invalid text");
-    if (!(
-      typeof r.rating === "number" &&
-      Number.isInteger(r.rating) &&
-      r.rating >= 1 &&
-      r.rating <= 5
-    )) {
+    if (
+      !(
+        typeof r.rating === "number" &&
+        Number.isInteger(r.rating) &&
+        r.rating >= 1 &&
+        r.rating <= 5
+      )
+    ) {
       problems.push("rating must be an integer 1-5");
     }
     if (
@@ -4919,7 +4921,7 @@ section("Milestone 4: Self-Hosted Localization Suite & Static QA Invariants");
     ".goog-te-combo"
   ];
   if (fs.existsSync(cssDir)) {
-    var cssFiles = fs.readdirSync(cssDir).filter(f => f.endsWith(".css"));
+    var cssFiles = fs.readdirSync(cssDir).filter((f) => f.endsWith(".css"));
     if (cssFiles.length === 0) {
       fail("assets/css", "missing stylesheet files");
     }
