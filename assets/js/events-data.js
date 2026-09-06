@@ -7,18 +7,6 @@
 window.YL_EVENTS = {
   "upcoming": [
     {
-      "id": "boomtown-arts-heritage-avl-fest-2026-09-05",
-      "date": "2026-09-05",
-      "dateLabel": "September 5, 2026 · Saturday, 10am–10pm",
-      "name": "Boomtown Arts & Heritage FestAVL",
-      "type": "Arts Festival",
-      "location": "Asheville, NC",
-      "zip": "28801",
-      "emoji": "🎨",
-      "url": "https://www.boomtownfestavl.com/",
-      "note": "Pack Square Park, 121 College St, Asheville, NC 28801. Free downtown arts & music festival — come find our table."
-    },
-    {
       "id": "mrb-renaissance-festival-2026-09-12",
       "date": "2026-09-12",
       "dateLabel": "September 12, 2026 · Saturday, 11:30am–11pm",
@@ -64,6 +52,18 @@ window.YL_EVENTS = {
     }
   ],
   "past": [
+    {
+      "id": "boomtown-arts-heritage-avl-fest-2026-09-05",
+      "date": "2026-09-05",
+      "dateLabel": "September 5, 2026 · Saturday, 10am–10pm",
+      "name": "Boomtown Arts & Heritage FestAVL",
+      "type": "Arts Festival",
+      "location": "Asheville, NC",
+      "zip": "28801",
+      "emoji": "🎨",
+      "url": "https://www.boomtownfestavl.com/",
+      "note": "Pack Square Park, 121 College St, Asheville, NC 28801. Free downtown arts & music festival — come find our table."
+    },
     {
       "id": "spartanburg-punk-flea-market",
       "date": "2026-08-29",
