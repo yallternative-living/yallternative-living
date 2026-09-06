@@ -4908,27 +4908,34 @@ section("Milestone 4: Self-Hosted Localization Suite & Static QA Invariants");
     fail("M4: CSP byte-parity check failed", e.message);
   }
 
-  // 3. Zero legacy Google Translate CSS hacks in assets/css/styles.css
-  var stylesPath = path.join(ROOT, "assets/css/styles.css");
-  if (fs.existsSync(stylesPath)) {
-    var stylesContent = fs.readFileSync(stylesPath, "utf8");
-    var legacyCssHacks = [
-      ".skiptranslate",
-      "#google_translate_element",
-      ".goog-te-banner-frame",
-      "html.translated-ltr body",
-      "body.translated-ltr",
-      ".goog-te-combo"
-    ];
-    legacyCssHacks.forEach(function (hack) {
-      if (stylesContent.indexOf(hack) === -1) {
-        ok("styles.css: zero legacy Google Translate CSS hack (" + hack + ")");
-      } else {
-        fail("styles.css contains legacy Google Translate CSS hack", hack);
-      }
+  // 3. Zero legacy Google Translate CSS rules in assets/css/*.css
+  var cssDir = path.join(ROOT, "assets/css");
+  var legacyCssRules = [
+    ".skiptranslate",
+    "#google_translate_element",
+    ".goog-te-banner-frame",
+    "html.translated-ltr body",
+    "body.translated-ltr",
+    ".goog-te-combo"
+  ];
+  if (fs.existsSync(cssDir)) {
+    var cssFiles = fs.readdirSync(cssDir).filter((f) => f.endsWith(".css"));
+    if (cssFiles.length === 0) {
+      fail("assets/css", "missing stylesheet files");
+    }
+    cssFiles.forEach(function (cssFile) {
+      var cssPath = path.join(cssDir, cssFile);
+      var cssContent = fs.readFileSync(cssPath, "utf8");
+      legacyCssRules.forEach(function (rule) {
+        if (cssContent.indexOf(rule) === -1) {
+          ok(cssFile + ": zero legacy Google Translate CSS rule (" + rule + ")");
+        } else {
+          fail(cssFile + " contains legacy Google Translate CSS rule", rule);
+        }
+      });
     });
   } else {
-    fail("assets/css/styles.css", "missing stylesheet file");
+    fail("assets/css", "missing css directory");
   }
 
   // 4. assets/data/locales/*.json exist and validate brand glossary terms
