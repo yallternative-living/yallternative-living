@@ -706,7 +706,22 @@ function run() {
     "# arrays in that script instead, then re-run it.\n\n" +
     "[build]\n" +
     '  publish = "."\n' +
-    '  command = "node scripts/optimize-images.js && node scripts/build-site-data.js && node scripts/build-security-headers.js"\n' +
+    // The unshallow in front is what lets sitemap.xml carry real per-page
+    // <lastmod> dates. build-site-data.js asks `git log` when each page's
+    // sources last changed, and git does not fail on a shallow clone -- it
+    // answers with the graft-point date for every file whose real last change
+    // sits below it, so all 32 entries collapse onto one value. That is the
+    // state a 2026-09-02 audit (L-1) flagged and the lastmod block was written
+    // to escape. gitHistoryIsComplete() now refuses to fabricate dates and
+    // preserves the committed ones instead, which is safe but goes stale if no
+    // build ever has full history -- so give the build full history here.
+    //
+    // Failure is a no-op by construction: `--unshallow` on an already-complete
+    // repository is a fatal error, an unauthenticated fetch is another, and
+    // both are swallowed. The build then preserves the committed dates exactly
+    // as it does today. Whether Netlify's clone is shallow has not been read
+    // off a build log, so this is written to cost nothing if it is not.
+    '  command = "git fetch --unshallow 2>/dev/null || true; node scripts/optimize-images.js && node scripts/build-site-data.js && node scripts/build-security-headers.js"\n' +
     // Netlify meters this site in credits -- every build spends them -- and
     // this account's allowance ran out on 2026-09-04; the site could not
     // deploy at all until more were bought. A large share of the commits
