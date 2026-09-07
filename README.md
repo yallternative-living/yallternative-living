@@ -44,6 +44,16 @@ Here is a quick checklist of the external accounts you'll need to set up for lau
 
 - **Architecture**: 100% static HTML/CSS/JS frontend with zero runtime framework dependencies. Fast, mobile-first, and offline-capable via `sw.js`.
 - **Checkout & Cart**: On-site drawer cart (`assets/js/cart.js`) backed by server-side Cloudflare Workers (`workers/checkout.js`) for price-tampering security.
+- **Two services deploy this site, and they bill separately**: **Netlify**
+  builds and publishes the pages shoppers see; **Cloudflare** builds and
+  deploys the checkout Worker. They are configured in two different
+  dashboards, so if someone says "builds are costing too much", the first
+  question is always *which one*. Netlify is already set to build only `main`
+  -- no branch deploys, no pull-request previews (checked 7 September 2026).
+  Cloudflare currently rebuilds the checkout Worker on every push to every
+  branch, including pushes that do not touch it; `workers/README.md`
+  ("Option A", step 6) has the two dashboard settings that stop that, and
+  neither can be set from a file in this repo.
 - **Automated Verification**:
   - `npm test` runs the Node-only unit pool -- 27 `scripts/*.test.js` suites
     covering cart and checkout pricing, tax, gift cards, the build-data
