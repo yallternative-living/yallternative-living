@@ -25,6 +25,19 @@
 #      required. That path is not arbitrary: assets/js/cart.js posts to
 #      "/api/checkout" (see its CHECKOUT_URL constant) and the other pages post
 #      to their own /api/... paths. Change one, change the other.
+#   4. Settings -> Build. Two settings that are pure savings, because right
+#      now every push to every branch spends a build:
+#        - Branch control: build the production branch only. A non-production
+#          branch build runs `wrangler versions upload` and, with
+#          preview_urls = false below, the version it uploads is unreachable
+#          by design -- so those builds cost credits and produce nothing that
+#          can be opened. Merges to main still deploy exactly as now.
+#        - Build watch paths: limit to `workers/*`. This Worker is built out
+#          of that directory (project root above), so a commit touching only
+#          the static site, the scripts or the sitemap currently rebuilds and
+#          redeploys it for no reason.
+#      Both are dashboard-side; there is no wrangler.toml key for either, which
+#      is why they are recorded here with the rest of the by-hand setup.
 
 name = "yallternative-checkout"
 main = "checkout.js"
