@@ -719,9 +719,24 @@ function run() {
     // Failure is a no-op by construction: `--unshallow` on an already-complete
     // repository is a fatal error, an unauthenticated fetch is another, and
     // both are swallowed. The build then preserves the committed dates exactly
-    // as it does today. Whether Netlify's clone is shallow has not been read
-    // off a build log, so this is written to cost nothing if it is not.
-    '  command = "git fetch --unshallow 2>/dev/null || true; node scripts/optimize-images.js && node scripts/build-site-data.js && node scripts/build-security-headers.js"\n' +
+    // as it does today.
+    //
+    // The echo is not decoration, and it deliberately reports the RESULTING
+    // STATE rather than the fetch's exit code -- those two answer different
+    // questions, and only the state matters. `--unshallow` exits non-zero both
+    // when the repository was already complete (dates get computed) and when
+    // the fetch could not run at all (dates get preserved), so the exit code
+    // cannot tell those apart. Without this line a fetch that silently never
+    // works looks exactly like one that works, and the whole thing could be a
+    // no-op for months unnoticed. `sitemap-git-shallow=false` in the deploy log
+    // means the dates in the published sitemap were computed; `=true` means the
+    // committed ones were preserved; `=unknown` means no usable git. That log
+    // line is also the cheapest answer to the question AGENTS.md leaves open --
+    // whether Netlify's build clone is shallow at all, which has never been
+    // read off a build log. The next production deploy states it outright.
+    // No quotes in the command: the values cannot contain spaces, so nothing
+    // here needs TOML escaping that a later edit could get wrong.
+    '  command = "git fetch --unshallow 2>/dev/null || true; echo sitemap-git-shallow=$(git rev-parse --is-shallow-repository 2>/dev/null || echo unknown); node scripts/optimize-images.js && node scripts/build-site-data.js && node scripts/build-security-headers.js"\n' +
     // Netlify meters this site in credits -- every build spends them -- and
     // this account's allowance ran out on 2026-09-04; the site could not
     // deploy at all until more were bought. A large share of the commits
