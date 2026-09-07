@@ -170,6 +170,32 @@ as "try this," not a guarantee.
 5. Every future push to `checkout.js` redeploys automatically -- no
    step 4 of Option B (`wrangler deploy`) ever needs to run by hand
    again.
+6. **Settings -> Build.** Not required to make the Worker work, and worth
+   doing anyway, because "every push" in step 5 means *every push to every
+   branch*, not just `main`. Two settings:
+   - **Branch control** -- build the production branch only. A
+     non-production branch build runs `wrangler versions upload`, and with
+     `preview_urls = false` in `wrangler.toml` the version it uploads has no
+     URL and cannot be opened, so those builds produce nothing. Merges to
+     `main` still deploy exactly as they do now.
+   - **Build watch paths** -- limit to `workers/*`. This Worker is built out
+     of that directory (the project root set in step 2), so a commit touching
+     only the static site, `scripts/` or `sitemap.xml` currently rebuilds and
+     redeploys it for no reason.
+
+   Both are dashboard-side; there is no `wrangler.toml` key for either, which
+   is why they are also written into that file's header comment.
+
+> **Netlify is a separate meter, and it is already frugal.** Cloudflare
+> deploys this Worker; Netlify builds and publishes the static site. They are
+> configured in two different dashboards and spend independently, so an
+> instruction to "stop building branches" has to name one of them. Netlify's
+> **Branches and deploy contexts** currently reads Branch deploys **None** and
+> Deploy Previews **None** (owner's dashboard screenshot, 7 September 2026) --
+> only `main` builds there. On 6 September 2026 every pull request in the
+> #74-#80 run carried a `Workers Builds: yallternative-checkout` check and no
+> Netlify check, which is the same fact seen from GitHub: the per-branch spend
+> that is left is this Worker's, and step 6 above is where it stops.
 
 If anything in Cloudflare's dashboard doesn't match this (menu names
 move around), fall back to Option B.
