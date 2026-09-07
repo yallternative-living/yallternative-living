@@ -125,6 +125,44 @@ function readJson(relPath) {
    live in content.json's `journal` key, edited under "Site Images & Page
    Wording". Posts come back newest first so journal.html, feed.xml and the
    search index read like a blog without each sorting on its own. */
+/* Whether `git log` can answer "when did this file last change?" truthfully.
+
+   A SHALLOW clone is the trap this guards. git is present and answers every
+   query, so the naive check ("did git return a date?") passes -- but a file
+   whose real last change sits below the graft point reports the boundary
+   commit's date instead of its own. Every page then resolves to the same
+   date, which is precisely the all-32-entries-identical state the sitemap's
+   lastmod block was written to escape (live audit 2026-09-02, L-1). It fails
+   silently and it looks plausible, which is the worst combination.
+
+   This is not a local-checkout curiosity. Netlify's build clone is shallow
+   and the deploy runs scripts/build-site-data.js, so the published sitemap
+   takes this path; so does CI, and so does any agent container. Every
+   committed revision of sitemap.xml carries exactly one distinct date.
+
+   Treat an incomplete history as "git cannot answer" and fall back, rather
+   than trusting a number that is wrong. Not a repository at all (a tarball
+   export) lands here too, which is the behaviour that was already intended. */
+let gitHistoryComplete = null;
+function gitHistoryIsComplete() {
+  if (gitHistoryComplete !== null) return gitHistoryComplete;
+  try {
+    const shallow = require("child_process")
+      .execSync("git rev-parse --is-shallow-repository", {
+        cwd: ROOT,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"]
+      })
+      .trim();
+    // Old git answers with the .git/shallow path instead of a boolean; any
+    // answer that is not a plain "false" is treated as not-complete.
+    gitHistoryComplete = shallow === "false";
+  } catch (e) {
+    gitHistoryComplete = false;
+  }
+  return gitHistoryComplete;
+}
+
 const JOURNAL_DIR = "assets/data/journal";
 function listJournalFiles() {
   const dir = path.join(ROOT, JOURNAL_DIR);
@@ -4402,12 +4440,49 @@ function buildSiteData() {
      file's own commit date would stand still while the page changed.
 
      Still deterministic for a given commit, so
-     scripts/verify-build-reproducibility.js stays green. If git is not
-     available (a tarball export, say) every page falls back to the old
-     content-derived date rather than losing the tag. */
+     scripts/verify-build-reproducibility.js stays green.
+
+     When git CANNOT answer truthfully -- no repository (a tarball export), or
+     a SHALLOW one where every file reports the graft-point date -- the dates
+     are not recomputed at all: the values already in sitemap.xml are kept.
+     Recomputing there is what silently rots the file, and it rots it
+     BACKWARDS: a shallow build resolves every page to one stale date and
+     overwrites 32 good entries with it, which is the L-1 state again. A
+     lastmod that moves backwards on its own is worse than one that stands
+     still, so the untrustworthy environment defers to the trustworthy one
+     that last wrote the file. Environments that can compute (a full clone)
+     compute; environments that cannot, preserve. Only a URL with no previous
+     entry -- a genuinely new page -- takes the content-derived date.
+     See gitHistoryIsComplete() for why shallow is the case that bites. */
   const today = contentLastmod();
+  const historyComplete = gitHistoryIsComplete();
+  /* Previous <loc> -> <lastmod>, read back off the file this run will
+     overwrite. Absent or unreadable is fine: every URL then takes `today`. */
+  function previousLastmods() {
+    const map = {};
+    try {
+      const prev = fs.readFileSync(path.join(ROOT, "sitemap.xml"), "utf8");
+      const re = /<loc>([^<]*)<\/loc>\s*<lastmod>(\d{4}-\d{2}-\d{2})<\/lastmod>/g;
+      let m;
+      while ((m = re.exec(prev)) !== null) map[m[1]] = m[2];
+    } catch (e) {
+      /* no previous sitemap; `today` is the floor */
+    }
+    return map;
+  }
+  const carriedLastmods = historyComplete ? {} : previousLastmods();
+  if (!historyComplete) {
+    console.warn(
+      "build-site-data: git history is shallow or unavailable, so per-page " +
+        "<lastmod> dates cannot be derived. Keeping the " +
+        Object.keys(carriedLastmods).length +
+        " date(s) already in sitemap.xml rather than overwriting them with a " +
+        "stale one. Run `git fetch --unshallow` to compute real per-page dates."
+    );
+  }
   const gitDateCache = {};
   function gitLastModified(file) {
+    if (!historyComplete) return "";
     if (Object.prototype.hasOwnProperty.call(gitDateCache, file)) return gitDateCache[file];
     let out = "";
     try {
@@ -4424,13 +4499,17 @@ function buildSiteData() {
     gitDateCache[file] = /^\d{4}-\d{2}-\d{2}$/.test(out) ? out : "";
     return gitDateCache[file];
   }
-  /* Newest git date across a page's inputs, or the content-derived fallback
-     when git answers for none of them. */
-  function pageLastmod(files) {
+  /* Newest git date across a page's inputs. When git answers for none of them
+     -- always the case once history is incomplete -- keep this URL's previous
+     entry, and fall back to the content-derived date only for a URL the
+     sitemap has never carried. */
+  function pageLastmod(files, fullUrl) {
     const dates = files.map(gitLastModified).filter(Boolean);
-    if (!dates.length) return today;
-    dates.sort();
-    return dates[dates.length - 1];
+    if (dates.length) {
+      dates.sort();
+      return dates[dates.length - 1];
+    }
+    return carriedLastmods[fullUrl] || today;
   }
   const SHARED_SOURCES = ["assets/data/content.json", "assets/data/footer.html"];
   const PAGE_EXTRA_SOURCES = {
@@ -4464,7 +4543,7 @@ function buildSiteData() {
         fullUrl +
         "</loc>\n" +
         "    <lastmod>" +
-        pageLastmod([p.loc].concat(SHARED_SOURCES, PAGE_EXTRA_SOURCES[p.loc] || [])) +
+        pageLastmod([p.loc].concat(SHARED_SOURCES, PAGE_EXTRA_SOURCES[p.loc] || []), fullUrl) +
         "</lastmod>\n    <priority>" +
         p.priority +
         "</priority>\n  </url>"
@@ -4481,7 +4560,8 @@ function buildSiteData() {
         "</loc>\n" +
         "    <lastmod>" +
         pageLastmod(
-          ["products/" + p.id + ".html", "assets/data/products.json"].concat(SHARED_SOURCES)
+          ["products/" + p.id + ".html", "assets/data/products.json"].concat(SHARED_SOURCES),
+          fullUrl
         ) +
         "</lastmod>\n    <priority>0.8</priority>\n  </url>"
       );
@@ -7733,6 +7813,7 @@ if (typeof module !== "undefined" && module.exports) {
     decodeHtmlEntities: decodeHtmlEntities,
     collectBuiltHtml: collectBuiltHtml,
     digestEnglish: digestEnglish,
+    gitHistoryIsComplete: gitHistoryIsComplete,
     buildSiteData: buildSiteData
   };
 }
