@@ -6071,15 +6071,82 @@
          during it lands its mousedown and mouseup on different elements as the
          notice slides under the finger, so no click reaches the dismiss button
          (challenger-m2-verification's Playwright pass caught exactly that on
-         CI run 33928717814). An instant programmatic scroll at load cancels
-         that animation and puts the notice where it will stay; on a link with
-         no fragment it is the only scroll there is. */
+         CI run 33928717814); on a link with no fragment it is the only scroll
+         there is.
+
+         `behavior: "instant"` alone did NOT settle it, and the previous note
+         here -- that it "cancels that animation and puts the notice where it
+         will stay" -- was wrong. It governs only this call. The fragment
+         animation is already running when load fires, and it survives: it
+         keeps stepping afterwards and finishes wherever it had got to. That
+         resting place is FINAL, not transient -- measured by sampling four
+         seconds past the miss with the CPU brake released, the page never
+         corrects itself.
+
+         Measured at 20x CPU throttle, 2 runs in 8 landed at scrollY 646 and
+         674 instead of 380, putting the notice and its dismiss button
+         entirely above the viewport -- so the shopper cannot see, let alone
+         dismiss, the banner the link was for. The document position of the
+         catalog was identical (498) in all 32 runs across four throttle
+         levels, which is what rules out a layout shift and pins this on the
+         scroll alone.
+
+         So: take smooth off the root for the landing rather than trying to
+         out-run it, then hold the position until it stops moving, because
+         an animation already in flight can outlive the style change. Any
+         real scroll input ends the hold immediately -- a shopper who starts
+         scrolling must never be dragged back. Bounded by frame count so it
+         can never become a scroll jail. */
       var landOnCatalog = function () {
-        try {
-          catalogEl.scrollIntoView({ behavior: "instant", block: "start" });
-        } catch (err) {
-          // fallback if scrollIntoView options are unsupported
+        var root = document.documentElement;
+        var priorBehavior = root.style.scrollBehavior;
+        var USER_SCROLL = ["wheel", "touchstart", "keydown", "pointerdown"];
+        var live = true;
+        var frames = 0;
+        var stable = 0;
+        var release = function () {
+          if (!live) return;
+          live = false;
+          USER_SCROLL.forEach(function (evt) {
+            window.removeEventListener(evt, release);
+          });
+          root.style.scrollBehavior = priorBehavior;
+        };
+        var place = function () {
+          try {
+            catalogEl.scrollIntoView({ behavior: "instant", block: "start" });
+            return true;
+          } catch (err) {
+            // fallback if scrollIntoView options are unsupported
+            try {
+              catalogEl.scrollIntoView(true);
+            } catch (err2) {
+              return false;
+            }
+            return true;
+          }
+        };
+        root.style.scrollBehavior = "auto";
+        USER_SCROLL.forEach(function (evt) {
+          window.addEventListener(evt, release, { passive: true });
+        });
+        if (!place() || typeof window.requestAnimationFrame !== "function") {
+          release();
+          return;
         }
+        (function hold() {
+          if (!live) return;
+          var before = window.scrollY;
+          place();
+          stable = window.scrollY === before ? stable + 1 : 0;
+          // Three identical frames means the animation is over. The 40-frame
+          // ceiling (~650ms) outlasts the ~350ms fragment scroll either way.
+          if (stable >= 3 || ++frames > 40) {
+            release();
+            return;
+          }
+          window.requestAnimationFrame(hold);
+        })();
       };
       if (document.readyState === "complete" || typeof window.addEventListener !== "function") {
         landOnCatalog();
