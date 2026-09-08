@@ -251,7 +251,25 @@ self.addEventListener('fetch', event => {
   // shopper someone else's gift-card balance or a dead checkout session.
   // Returning BEFORE any caches.match/caches.put and before respondWith()
   // leaves them entirely to the network.
-  if (url.pathname.startsWith('/.netlify/') || url.pathname.startsWith('/api/')) {
+  //
+  // /admin/ (the Sveltia CMS: admin/index.html, admin/config.yml and its
+  // helper scripts) is on the list for a different reason. It is not
+  // personalised, but it is the one part of the site where a stale copy
+  // does real damage: the network-first branch below cached /admin/
+  // navigations and config.yml on every visit, so an offline or flaky
+  // connection could hand the owner an old editor with an old schema and
+  // let it commit against today's data files. The CMS is a tool for the
+  // owner, not a page for shoppers, and it has no offline story -- it
+  // needs GitHub to do anything at all -- so it is never served from, or
+  // written into, this cache. Bare /admin is matched too because Netlify
+  // answers it with a redirect to /admin/ and that first hop is what a
+  // bookmark actually requests.
+  if (
+    url.pathname.startsWith('/.netlify/') ||
+    url.pathname.startsWith('/api/') ||
+    url.pathname === '/admin' ||
+    url.pathname.startsWith('/admin/')
+  ) {
     return;
   }
 

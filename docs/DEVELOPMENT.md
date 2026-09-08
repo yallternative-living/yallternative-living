@@ -1420,8 +1420,13 @@ Everything in sections 7/9/17/18 above that says "edit `products.json`
 by hand" now has a friendlier alternative: a real, no-code editing UI at
 `/admin` on the deployed site, built on **[Sveltia CMS](https://sveltiacms.app)**
 — a form for editing products, bundles, the FAQ, and shop info that
-commits straight to the real `assets/data/products.json` file in the
-GitHub repo, no text editor or JSON syntax required.
+edits the real `assets/data/products.json` file in the GitHub repo, no
+text editor or JSON syntax required. Since 2026-09-08 it runs Sveltia's
+editorial workflow (`publish_mode: editorial_workflow` in
+`admin/config.yml`): **Save** commits to a `cms/...` branch and opens a
+pull request, further saves pile onto that branch, and **Publish** merges
+it into `main` -- so one Netlify build per finished edit rather than one
+per keystroke-and-save. The comment above that line in the config says why.
 
 **Why Sveltia over Decap CMS** (the older, much more widely-known
 option this space defaults to): Decap is still functional but is now in

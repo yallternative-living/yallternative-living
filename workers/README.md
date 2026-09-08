@@ -167,6 +167,23 @@ as "try this," not a guarantee.
 4. **Settings -> Domains & Routes.** Optional -- see Option B step 5. If you do
    add a route, it is `yallternativeliving.com/api/*`, not just
    `/api/checkout`: the Worker answers five paths now.
+
+   _Checked 2026-09-08, and not doable from this repository._ A route (or a
+   custom domain) on a Worker requires the hostname to be a zone on
+   Cloudflare DNS, and `yallternativeliving.com` is not one: its nameservers
+   are Netlify's (`dig NS yallternativeliving.com`), so Cloudflare cannot
+   answer for any name under it and the dashboard will refuse the route.
+   `netlify.toml`'s `/api/*` -> `workers.dev` proxy is therefore the
+   configured and correct path, not a shortcut. Getting rid of the extra hop
+   would take one of two owner-side DNS changes, neither of which is a file
+   in this repo: move the whole domain's nameservers to Cloudflare (then
+   Netlify is reached through Cloudflare's proxy, and the route above just
+   works), or delegate a single subdomain (`api.yallternativeliving.com`)
+   to Cloudflare with an NS record at Netlify and put the route on that,
+   which also means changing the `/api/*` proxy target in
+   `scripts/build-security-headers.js` and the Worker's allowed origins.
+   Audits: this is a known, accepted item -- do not re-raise it unless DNS
+   has moved.
 5. Every future push to `checkout.js` redeploys automatically -- no
    step 4 of Option B (`wrangler deploy`) ever needs to run by hand
    again.
