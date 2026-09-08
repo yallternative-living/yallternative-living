@@ -116,7 +116,7 @@ about its beta status.
 > paths cannot drift apart.
 
 1. `npm i -g wrangler` and `wrangler login`.
-2. `cp wrangler.toml.example wrangler.toml`, confirm `SITE_ORIGIN`.
+2. `wrangler.toml` is committed and is the real config -- do NOT copy `wrangler.toml.example` over it (that would reset the D1 id and the vars). Just confirm `SITE_ORIGIN`.
 3. `wrangler secret put STRIPE_SECRET_KEY` (use a **restricted** key with
    Checkout Sessions + Coupons + Promotion Codes **write**, since
    `fulfill-gift-card.js` creates those, plus Customers write and Tax
@@ -670,16 +670,24 @@ Stripe Dashboard -> Developers -> Webhooks -> Add endpoint:
 https://yallternativeliving.com/api/stripe-webhook
 ```
 
-Subscribe to exactly these three:
+Subscribe to exactly these five:
 
-- `checkout.session.completed` -- issues the cards an order bought and commits
-  the hold on a card an order spent,
+- `checkout.session.completed` -- issues the cards an order bought and settles
+  the hold on a card an order spent, but only once `payment_status` is `paid`;
+  an unpaid completion (a delayed-notification method such as ACH) is recorded
+  as deferred and nothing is minted or debited,
+- `checkout.session.async_payment_succeeded` -- the delayed payment cleared;
+  runs the same steps `completed` would have. Never fires while only card
+  payment is enabled, and costs nothing to subscribe,
+- `checkout.session.async_payment_failed` -- the delayed payment did not clear;
+  handled exactly like an expired session,
 - `checkout.session.expired` -- releases the hold and deletes the ephemeral
   coupon an abandoned checkout leaves behind,
-- `charge.refunded` -- puts a refunded order's gift-card share back on the card.
-  Do NOT also select `refund.created`: it fires for the same money.
+- `charge.refunded` -- puts the gift-card share of an order refunded IN FULL
+  back on the card. A partial refund of the cash half restores nothing to the
+  card. Do NOT also select `refund.created`: it fires for the same money.
 
-There is no fourth. The "your order is on its way" email is NOT webhook-driven:
+There is no sixth. The "your order is on its way" email is NOT webhook-driven:
 Stripe has no `payment_intent.updated` event and fires nothing when
 PaymentIntent metadata is edited, so it is sent by the Worker's hourly cron
 instead (see **Marking an order shipped** below). `routes/stripe-webhook.js`

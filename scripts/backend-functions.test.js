@@ -1426,7 +1426,9 @@ async function testCartAndWorkerGiftCardRedemption() {
     return { ok: true, json: async () => ({}) };
   };
 
-  // $16 salve + $10 shipping = $26 total. A $50 card is capped at $26.
+  // $16 salve; the $10 shipping is a Stripe shipping rate, which an amount_off
+  // coupon never discounts. A $50 card is therefore capped at the $16 of goods
+  // and the shopper pays the postage by card.
   const req = new Request("https://yallternativeliving.com/api/checkout", {
     method: "POST",
     headers: { Origin: "https://yallternativeliving.com", "Content-Type": "application/json" },
@@ -1446,8 +1448,8 @@ async function testCartAndWorkerGiftCardRedemption() {
   );
   eq(
     capturedCouponParams.get("amount_off"),
-    "2600",
-    "Worker creates an ephemeral coupon for the full order amount (2600 cents = $26.00)"
+    "1600",
+    "Worker creates an ephemeral coupon for the goods subtotal (1600 cents = $16.00)"
   );
   eq(capturedCouponParams.get("duration"), "once", "Worker sets ephemeral coupon duration to once");
   eq(
@@ -1467,8 +1469,8 @@ async function testCartAndWorkerGiftCardRedemption() {
   );
   eq(
     capturedSessionParams.get("metadata[gift_card_amount_applied_cents]"),
-    "2600",
-    "Worker attaches gift_card_amount_applied_cents (2600) to metadata"
+    "1600",
+    "Worker attaches gift_card_amount_applied_cents (1600) to metadata"
   );
   eq(
     capturedSessionParams.get("metadata[gift_card_ephemeral_coupon_id]"),
@@ -1478,8 +1480,8 @@ async function testCartAndWorkerGiftCardRedemption() {
 
   // 3. The money is HELD, not merely discounted. This is the whole of C-2.
   const snapshot = await giftCardLedger(env, "YALL-GIFT-5000-0000").getBalance();
-  eq(snapshot.pendingCents, 2600, "the applied amount is held against the card");
-  eq(snapshot.balanceCents, 2400, "and is no longer spendable by a second checkout");
+  eq(snapshot.pendingCents, 1600, "the applied amount is held against the card");
+  eq(snapshot.balanceCents, 3400, "and is no longer spendable by a second checkout");
 
   global.fetch = globalFetch;
 }

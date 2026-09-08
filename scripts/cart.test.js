@@ -923,15 +923,23 @@ assert(
 
     footHTML = drawerFootHTML();
     /* $20 of goods is under the $40 default threshold, so $10 shipping
-       applies and the card must cover all $30 -- the Worker caps its coupon
-       at subtotal + shipping too. */
+       applies. The card covers the $20 of goods and NOT the postage: Stripe
+       applies the Worker's amount_off coupon to line items only, never to the
+       shipping rate, so the drawer must not promise a $30 discount that
+       checkout then honours as $20. */
     assert(
       footHTML.includes("<span>Shipping</span><strong>$10"),
       "Shipping line charges $10.00 below the threshold"
     );
     assert(
-      footHTML.includes("-$30"),
-      "Gift card is capped on subtotal + shipping, not the subtotal alone"
+      footHTML.includes("-$20") && !footHTML.includes("-$30"),
+      "Gift card is capped on the goods subtotal, not subtotal + shipping"
+    );
+    assert(
+      /Estimated total \(before tax\)<\/span><strong>\$10/.test(footHTML.replace(/\s+/g, " ")) ||
+        footHTML.includes("$10.00</strong>") ||
+        footHTML.includes("<strong>$10</strong>"),
+      "The estimate leaves the $10 postage to be paid"
     );
     assert(
       footHTML.includes("Estimated total (before tax)"),

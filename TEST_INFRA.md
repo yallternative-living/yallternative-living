@@ -29,11 +29,11 @@ Node-only. The naming is the contract the runners glob on, and it is why the CI
 
 - **Unit pool** -- `npm test` -> `scripts/run-test.js`, which runs BOTH of:
   - `scripts/run-unit-tests.js`: every `scripts/*.test.js` that is not
-    `*.browser.test.js` (42 suites), in a parallel worker pool, then two
-    Node-only gates sequentially: `verify-pdp-metadata.js` (570 assertions on
+    `*.browser.test.js` (46 suites), in a parallel worker pool, then two
+    Node-only gates sequentially: `verify-pdp-metadata.js` (797 assertions on
     PDP OpenGraph/microdata) and `verify-build-reproducibility.js` (rebuilds
     the site five times and diffs every generated file).
-  - `scripts/qa-check.js`: 721 static assertions -- links, images, JSON-LD,
+  - `scripts/qa-check.js`: 1121 static assertions -- links, images, JSON-LD,
     pricing, CSP parity across `_headers`/`netlify.toml`/`vercel.json`,
     lockfile hygiene, markup contracts.
 
@@ -43,7 +43,7 @@ Node-only. The naming is the contract the runners glob on, and it is why the CI
 
 - **Integration pool** -- `npm run test:integration` ->
   `scripts/run-integration-tests.js`: a fixed list of browser gates plus every
-  `scripts/*.browser.test.js` (16 suites), each on its own port or an ephemeral
+  `scripts/*.browser.test.js` (20 suites), each on its own port or an ephemeral
   one, in a worker pool. A suite on the fixed list that has gone missing is a
   hard failure, not a silent skip.
   - `scripts/puppeteer_tests.js` (8082): multi-viewport nav, link integrity,
@@ -175,7 +175,7 @@ section is held to.
   contract including `aria-controls` and the language-carrying accessible
   name, click-to-open, switch to Spanish, and clean restoration.
 
-- **`scripts/qa-check.js`** (1122 static assertions total). For this feature:
+- **`scripts/qa-check.js`** (1121 static assertions total as of 2026-09-08). For this feature:
   CSP three-way byte parity with the Google Translate origins gone, zero
   legacy Google Translate CSS, nine valid dictionaries at 703 phrases each, 58
   glossary terms, one `assets/js/locales/<code>.js` per locale, a size ceiling
@@ -824,7 +824,7 @@ byte. The repo was not modified.
 - `--dry-run` on the same head returned the 3 deterministic findings and 0
   model findings, with the report stating the second read-through did not run.
 
-`npm test` (48 suites), `npm run lint` and `npm run format:check` were verified
+`npm test` (46 unit suites plus the two Node-only gates and `qa-check.js`), `npm run lint` and `npm run format:check` were verified
 green in a clean worktree at HEAD with these files added.
 
 ## What this one does NOT do

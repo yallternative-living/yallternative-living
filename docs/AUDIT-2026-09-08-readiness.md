@@ -148,3 +148,38 @@ Verified clean: `netlify.toml`, `_headers` and `vercel.json` security headers ar
 7. Optional, after launch: the still-open list in §3, the `core` filter additions, `npm ci`, and either fixing or deleting `live-production-audit.js`.
 
 Items 3 to 5 are doc-only or generated-file changes and cost no Netlify build under the `[build] ignore` rule, except `a11y-check.js:23` which is a comment.
+
+---
+
+## Remediation status (2026-09-08, same day)
+
+Landed on the follow-up branch after the report merged. Everything in-repo
+from §6 is done except the `vercel.json` decision, which is the owner's call
+and is left as it was; steps 1 and 6 need the Stripe and Cloudflare
+dashboards and are still the owner's.
+
+| Finding | Status | What changed |
+| --- | --- | --- |
+| High: hold includes shipping | **Fixed** | `workers/checkout.js` caps the gift-card coupon at the goods subtotal (`totalCents`), never goods + shipping. `assets/js/cart.js` estimates the same way, so the drawer no longer promises a discount checkout cannot honour. |
+| High: hold not reconciled to the real discount | **Fixed** | `GiftCardLedger.commit()` accepts `cents`: a settlement below the hold commits that much and returns the rest to the card in the same transaction; zero releases the hold. `settleRedemption()` passes `total_details.amount_discount` when the session carries it. |
+| High: partial cash refund also refunds the card | **Fixed** | `handleChargeRefunded()` restores the card share only when the charge is refunded in full (`charge.refunded`, or `amount_refunded >= amount`). A partial cash refund restores nothing to the card. |
+| High (conditional): cards minted before payment clears | **Fixed** | `processStripeEvent()` defers the whole fulfilment when `payment_status` is not `paid`/`no_payment_required`, and handles `checkout.session.async_payment_succeeded` (same steps) and `checkout.session.async_payment_failed` (as an expiry). The Stripe webhook must now be subscribed to five events; `workers/README.md` and `docs/DEVELOPMENT.md` list them. |
+| High: owner docs send secrets to Netlify | **Fixed** | `docs/SETUP-GUIDE.md` steps 3 and 6 and `docs/DEVELOPMENT.md` §8 now put every secret on the Cloudflare Worker and point the webhook at `/api/stripe-webhook`. All remaining `netlify/functions` references in the guides are retired. |
+| Medium: `vercel.json` not a functional fallback | **Open, owner's call** | Parity or deletion; nothing changed. |
+| Low: `live-production-audit.js` exits 0 on total failure | **Fixed** | Results go to `tmp/live-audit-results.json` (or `LIVE_AUDIT_RESULTS`); the process exits 1 when any page fails or nothing was checked. |
+| Low: `core` paths filter gaps | **Fixed** | `assets/fonts/**`, `robots.txt`, `site.webmanifest`, `.well-known/**` and `.github/actions/**` added to `.github/workflows/test.yml`. |
+| Low: i18n-bot says "six" | **Fixed** | Commit and issue strings now say nine. |
+| M-deps: README tells you to overwrite `wrangler.toml` | **Fixed** | `workers/README.md` Option B step 2. |
+| Docs drift (counts) | **Fixed** | `README.md`, `AGENTS.md`, `TEST_INFRA.md`, `scripts/a11y-check.js` carry 46 / 20 / 797 / 1121 / 37, the a11y gate is described as green, and the lint scope no longer names `netlify`. |
+
+Tests added or changed: `scripts/worker-state.test.js` (partial and zero
+settlement on the ledger; settle-below-hold through the webhook; unpaid
+completion deferred, `async_payment_succeeded` fulfils, `async_payment_failed`
+releases; refund restores on full refund only), `scripts/worker-checkout.test.js`
+(cap at goods with shipping still charged; small card applied in full), and the
+cap expectations in `cart.test.js`, `backend-functions.test.js`,
+`m1-adversarial-challenger.test.js` and `adversarial-stress.test.js`.
+
+Still the owner's, in order: the four Stripe test-mode orders in §6 step 1
+(now also proving the five-event webhook subscription), then the dashboard
+confirmations in §3 written into `AGENTS.md` with a date.

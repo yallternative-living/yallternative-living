@@ -1597,7 +1597,14 @@ async function handleCheckout(request, env, ctx, origin) {
           throw new ClientError("That gift card has no balance left.");
         }
 
-        appliedGiftCardDiscountCents = Math.min(totalCents + shippingCents, availableCents);
+        // Capped at the GOODS, not goods + shipping. The card reaches Stripe as
+        // an `amount_off` coupon, and Stripe applies coupons to line items only
+        // -- the shipping rate is never discounted. A hold sized to include
+        // shipping debited the card for postage the shopper then paid again by
+        // card (readiness audit 2026-09-08). The webhook also settles the hold
+        // against the discount Stripe actually applied, so this cap is belt
+        // and the settle is braces.
+        appliedGiftCardDiscountCents = Math.min(totalCents, availableCents);
         if (appliedGiftCardDiscountCents > 0) {
           const ephemeralCoupon = await stripePost(env, "/coupons", {
             amount_off: String(appliedGiftCardDiscountCents),

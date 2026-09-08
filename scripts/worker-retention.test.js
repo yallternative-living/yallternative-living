@@ -1463,6 +1463,7 @@ async function testWebhookWiring() {
     data: {
       object: {
         id: "cs_test_hooked",
+        payment_status: "paid",
         amount_subtotal: 5000,
         amount_total: 5000,
         customer_details: { email: "Hooked@Example.com" },

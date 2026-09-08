@@ -55,22 +55,22 @@ Here is a quick checklist of the external accounts you'll need to set up for lau
   ("Option A", step 6) has the two dashboard settings that stop that, and
   neither can be set from a file in this repo.
 - **Automated Verification**:
-  - `npm test` runs the Node-only unit pool -- 27 `scripts/*.test.js` suites
+  - `npm test` runs the Node-only unit pool -- 46 `scripts/*.test.js` suites
     covering cart and checkout pricing, tax, gift cards, the build-data
     compiler, the search engine and the CMS auth Worker -- then two further
-    gates: `verify-pdp-metadata.js` (570 assertions on every product page's
+    gates: `verify-pdp-metadata.js` (797 assertions on every product page's
     OpenGraph and microdata) and `verify-build-reproducibility.js` (five
     rebuilds, zero diffs). It then runs the static QA gate,
-    `scripts/qa-check.js`, and its 721 assertions: links, images, JSON-LD,
+    `scripts/qa-check.js`, and its 1121 assertions: links, images, JSON-LD,
     pricing, CSP byte-parity across `_headers`/`netlify.toml`/`vercel.json`,
     and lockfile hygiene. Both halves always run, and the exit code reflects
     either failing.
-  - `npm run test:integration` runs the browser pool: 11
-    `scripts/*.browser.test.js` challenger suites plus the Puppeteer
+  - `npm run test:integration` runs the browser pool: 20
+    `scripts/*.browser.test.js` suites plus the Puppeteer
     integration harnesses, an XSS/CSP stress harness that first proves the
     policy is being enforced, and an axe-core accessibility gate that allows
-    zero WCAG 2.2 AA violations across all 34 pages (15 top-level plus 19
-    product pages).
+    zero WCAG 2.2 AA violations across all 37 pages (17 top-level plus 20
+    product pages), in both colour themes.
   - `npm run test:smoke` is the sub-three-second version that runs on every
     push; `npm run test:cross-browser` adds Firefox and WebKit.
 

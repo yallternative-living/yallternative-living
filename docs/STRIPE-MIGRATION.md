@@ -24,9 +24,10 @@ store wasn't live yet, so there was no live-checkout risk to protect against.)
   `scripts/cart.test.js`, both in the `npm test` pool.
 - `workers/checkout.js` — validates prices server-side against `products.json`
   (including gift-card amount clamping), never trusts a client-supplied price.
-- `netlify/functions/fulfill-gift-card.js` — the `checkout.session.completed`
-  webhook that emails a redeemable code once someone buys a gift card (see
-  its own header comment and `workers/README.md`).
+- `workers/routes/stripe-webhook.js` — the Stripe webhook (inside the same
+  Worker) that emails a redeemable code once someone buys a gift card (see
+  its own header comment and `workers/README.md`). It began life as
+  `netlify/functions/fulfill-gift-card.js`; that directory is gone.
 - Every page: Snipcart's loader script, preconnect, and `.snipcart-*` classes
   removed; `cart.js`/`cart.css` wired in instead.
 - `scripts/build-site-data.js`, `scripts/build-security-headers.js`,
@@ -76,8 +77,8 @@ store wasn't live yet, so there was no live-checkout risk to protect against.)
 - `gift-card.js` adds to `YLCart` (via the shared `.yl-add-item` click
   handler in `cart.js`) instead of setting `data-item-custom*`.
 - The other half of this — actually turning that metadata into a redeemable
-  code and emailing it — is `netlify/functions/fulfill-gift-card.js` (see
-  step 6, and its own header comment).
+  code and emailing it — is `workers/routes/stripe-webhook.js` (see step 6,
+  and its own header comment).
 
 ### 5. Move the Purchase analytics event — done
 - `main.js` no longer listens for any Snipcart event. `thank-you.html` (the
@@ -90,9 +91,12 @@ store wasn't live yet, so there was no live-checkout risk to protect against.)
 - **Do not** treat the success redirect as "paid" — a dropped connection loses
   it. `thank-you.html`'s analytics ping is explicitly best-effort for this
   reason.
-- `netlify/functions/fulfill-gift-card.js` is that webhook. It now handles
-  **three** events, not one, and all three have to be subscribed in the Stripe
-  dashboard:
+- `workers/routes/stripe-webhook.js` is that webhook (it moved out of
+  `netlify/functions/` when the ledger landed). It handles **five** events,
+  not one -- the three below plus `checkout.session.async_payment_succeeded`
+  and `checkout.session.async_payment_failed` for delayed-notification
+  payment methods -- and all five have to be subscribed in the Stripe
+  dashboard (the current list is in `workers/README.md`):
   - `checkout.session.completed` — fulfils gift cards (creates a redeemable
     Stripe Promotion Code, emails it via Resend) and processes a redemption,
     rolling any remaining balance onto a fresh code.

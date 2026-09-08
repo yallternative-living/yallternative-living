@@ -107,11 +107,14 @@ Stripe key, so it needs to be your account, not mine.
    safe response is to roll it. Paste it yourself, into the dashboard, where
    it is going to live:
 
-   - **Secret key** → Cloudflare: your Worker → **Settings → Variables and
-     Secrets** → add `STRIPE_SECRET_KEY` as a **Secret**.
-   - **Secret key** and **Signing secret** → Netlify: **Project configuration
-     → Environment variables** → add `STRIPE_SECRET_KEY` and
-     `STRIPE_WEBHOOK_SECRET`.
+   - **Secret key** and **Signing secret** → Cloudflare: your Worker →
+     **Settings → Variables and Secrets** → add `STRIPE_SECRET_KEY` and
+     `STRIPE_WEBHOOK_SECRET`, each as a **Secret**.
+   - **Nothing goes into Netlify.** Netlify only serves the pages; the Worker
+     on Cloudflare is the only thing that talks to Stripe. (An older version
+     of this guide put the keys in Netlify's environment variables. That was
+     for Netlify Functions this site no longer has -- a key stored there today
+     is read by nothing and is just a second place it can leak from.)
 
    Because you invited me into your Cloudflare account in step 2, I can see
    that the variables are set and finish the wiring without ever seeing their
@@ -182,11 +185,12 @@ silently never arrives.
    click **Verify** — usually confirms within 15 minutes, occasionally
    up to 24 hours.
 2. **API Keys → Create API Key** → copy it (`re_...`).
-3. In Netlify: **Project configuration → Environment variables** → add
-   three values, pasting them yourself (they are secrets — see Step 3):
-   `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` and `RESEND_API_KEY`. The
-   gift-card email turns itself on once all three are filled in AND the domain
-   above shows Verified.
+3. In Cloudflare: your Worker → **Settings → Variables and Secrets** → add
+   `RESEND_API_KEY` as a **Secret**, pasting it yourself (it is a secret —
+   see Step 3). With `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` already
+   there from Step 3, the gift-card email turns itself on once all three are
+   filled in AND the domain above shows Verified. Not Netlify: nothing on
+   Netlify reads these any more.
 
    Optional extras in the same place, only if you want to change a default:
    `FROM_EMAIL` (the address gift-card emails come from),

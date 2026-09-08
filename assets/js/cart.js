@@ -2373,15 +2373,15 @@
         ? FLAT_SHIPPING
         : 0;
 
-    /* The Worker caps the gift-card coupon at totalCents + shippingCents, so
-       cap it against the same number here -- capping on the subtotal alone
-       under-applied the card by up to $10 in the drawer and then "found" the
-       difference at checkout. */
+    /* The Worker caps the gift-card coupon at the goods subtotal, so cap it
+       against the same number here. Stripe applies the coupon to line items
+       only -- shipping is never discounted -- so a card can cover the goods
+       in full and the shopper still pays postage; the drawer says so rather
+       than promising a total checkout cannot honour. */
     var gcDiscount = 0;
     if (state.appliedGiftCard && state.appliedGiftCard.balance) {
       gcDiscount =
-        Math.round(Math.min(sub + shippingCost, Number(state.appliedGiftCard.balance) || 0) * 100) /
-        100;
+        Math.round(Math.min(sub, Number(state.appliedGiftCard.balance) || 0) * 100) / 100;
     }
     var estimatedTotal = Math.max(0, Math.round((sub + shippingCost - gcDiscount) * 100) / 100);
 

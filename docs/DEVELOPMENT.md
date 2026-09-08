@@ -112,9 +112,9 @@ site/
                          needs to be deployed separately, see workers/README.md
   workers/submit-form.js  Optional Cloudflare Worker alternative to Formspree
                            (section 16) -- not deployed by default
-  netlify/functions/fulfill-gift-card.js  Stripe webhook: emails a
-                         redeemable code once a gift-card order completes
-                         (section 8/18) -- also needs separate setup
+  workers/routes/stripe-webhook.js  Stripe webhook, inside the same
+                         Worker: issues gift cards, settles the ledger,
+                         restores refunds (section 8/18)
   assets/
     css/styles.css     Single shared stylesheet (design tokens + components,
                         @font-face rules)
@@ -414,8 +414,9 @@ every product) but is no longer the only way to buy.
   and the very next checkout charges the new price. Nothing extra to
   remember.
 - Gift cards are a special case: buying one triggers a second backend piece
-  (`netlify/functions/fulfill-gift-card.js`) that emails the recipient a
-  redeemable code once payment actually completes, using
+  (`workers/routes/stripe-webhook.js`, the Stripe webhook inside the same
+  Worker) that emails the recipient a redeemable code once payment actually
+  completes, using
   **[Resend](https://resend.com)** to actually send that email (a separate
   free account/API key from Stripe -- see Part B below). See section 18.
 - Shipping: a flat $10 charge applies below a $40 order subtotal, free above
@@ -593,25 +594,37 @@ request.
 | Endpoint | Where it runs | Methods | What it does | Security posture |
 |---|---|---|---|---|
 | `/api/checkout` -> `workers/checkout.js` | Cloudflare Worker (Netlify proxies the path) | `POST` | Re-prices the cart server-side from `products.json`, applies volume tiers and gift-card discounts, creates the Stripe Checkout session. | Origin-allowlisted. Never trusts a client price. Holds `STRIPE_SECRET_KEY`. |
-| `/.netlify/functions/fulfill-gift-card` | Netlify function | `POST` (Stripe webhook only) | Mints the redemption code and Promotion Code, emails the recipient, rolls over partial redemptions, restores balance on refund, cleans up the ephemeral coupon on an expired session. | Verifies the Stripe signature against `STRIPE_WEBHOOK_SECRET`. Not callable by hand. |
-| `/.netlify/functions/gift-card-balance` | Netlify function | `POST` (preferred) and `GET` | Looks a gift-card code up and returns its current and original amount. `POST` with a JSON body is preferred **because a `GET ?code=` puts a live gift-card code into browser history, referrer headers and every proxy access log**; `GET` stays supported for older clients. | Origin-allowlisted, `Cache-Control: no-store`. Still an **unthrottled validation oracle** — it will tell anyone whether a code is real. Rate limiting is the outstanding work. |
-| `/.netlify/functions/submit-restock` | Netlify function | `POST` | Forwards a "tell me when this is back" request to **Resend**, so the shop actually receives it. It used to accept the submission and discard it while promising a notification. | Origin-allowlisted. The header comment used to claim rate limiting that did not exist; there still is none. |
-| `/.netlify/functions/redeem-points` | Netlify function | any | **Withdrawn.** Returns `410 Gone` to everything except `OPTIONS`. | It converted "Alt-Points" into a real Stripe promotion code on the caller's word alone, with no server-side ledger, no auth and no rate limit — a loop from a terminal minted unlimited store credit. `410`, not `404`, so the URL is honest about having been withdrawn and stale clients show a real message. Do not re-enable without a ledger that verifies a balance and records the spend atomically. |
+| `/api/stripe-webhook` -> `workers/routes/stripe-webhook.js` | Cloudflare Worker (same Worker, same proxy) | `POST` (Stripe webhook only) | Issues the gift cards an order bought, settles the hold on a card an order spent, releases the hold and deletes the ephemeral coupon on an expired or failed session, restores the card share on a full refund. | Verifies the Stripe signature against `STRIPE_WEBHOOK_SECRET`; claims each event id in D1 before any side effect. Not callable by hand. |
+| `/api/gift-card-balance` -> `workers/routes/gift-card-balance.js` | Cloudflare Worker | `POST` | Looks a gift-card code up on the ledger and returns its current and original amount. `POST` with a JSON body only, **because a `GET ?code=` puts a live gift-card code into browser history, referrer headers and every proxy access log**. | Origin-allowlisted, `Cache-Control: no-store`, rate-limited per IP (`workers/state/rate-limit.js`). |
+| `/api/restock` -> `workers/routes/restock.js` | Cloudflare Worker | `POST` | Forwards a "tell me when this is back" request to **Resend**, so the shop actually receives it. | Origin-allowlisted, rate-limited. |
+| `/.netlify/functions/*` | **Gone** | — | The four Netlify Functions this table used to list moved into the Worker above; the directory was deleted and every old URL 404s. `redeem-points` in particular is not coming back: it minted store credit on the caller's word alone, and nothing may replace it without a server-side ledger that verifies a balance and records the spend atomically. | Nothing to secure; nothing answers. |
 | `order-status.html` | Static page | — | **Not an endpoint.** It makes no request to anything. It is a contact hand-off: it collects the order reference and points the shopper at email. Any "look up my order" UI beyond that would need a real Stripe session lookup behind it. | Nothing to secure; nothing to trust. |
 
 ### Stripe webhook events to subscribe
 
 In the Stripe dashboard, the webhook pointing at
-`/.netlify/functions/fulfill-gift-card` must be subscribed to **all three**:
+`https://yallternativeliving.com/api/stripe-webhook` (the Worker, through the
+Netlify proxy — **not** a `/.netlify/functions/` URL, those are gone) must be
+subscribed to **all five**:
 
-- `checkout.session.completed` — delivers the gift card and processes a
-  redemption. This is the only one older versions of this doc mentioned.
+- `checkout.session.completed` — delivers the gift card and settles a
+  redemption, **only when `payment_status` is already `paid`**. A card
+  payment is; a delayed-notification method (ACH, SEPA) is not, and the
+  handler records the session as deferred and does nothing else.
+- `checkout.session.async_payment_succeeded` — the delayed payment cleared;
+  runs exactly the steps `completed` would have. Harmless to subscribe when
+  no such method is enabled: it never fires.
+- `checkout.session.async_payment_failed` — the delayed payment did not
+  clear; treated like an expired session (hold released, coupon deleted).
 - `checkout.session.expired` — deletes the ephemeral coupon minted when a gift
-  card was pre-applied to an abandoned checkout. Without it, every abandoned
-  gift-card checkout leaves a permanent coupon in the Stripe account.
-- `charge.refunded` — restores the gift-card balance a refunded order had
-  consumed. Do **not** also subscribe `refund.created`: it fires for the same
-  money, and the handler deliberately ignores it.
+  card was pre-applied to an abandoned checkout and releases the hold. Without
+  it, every abandoned gift-card checkout leaves a permanent coupon in the
+  Stripe account.
+- `charge.refunded` — restores the gift-card share of an order **refunded in
+  full**. A partial refund of the cash half restores nothing to the card: the
+  charge is the cash, and "give $10 back" is not "give $10 back twice". Do
+  **not** also subscribe `refund.created`: it fires for the same money, and
+  the handler deliberately ignores it.
 
 The ship notice ("your order is on its way") is deliberately **not** on this
 list. Stripe fires no event when PaymentIntent metadata is edited — there is no
@@ -620,31 +633,25 @@ list. Stripe fires no event when PaymentIntent metadata is edited — there is n
 hourly cron instead. See "Marking an order shipped" in `workers/README.md` for
 the three metadata keys and the within-the-hour timing.
 
-### Environment variables, per function
+### Environment variables
 
-Set on the **Cloudflare Worker** (`workers/checkout.js`, Settings -> Variables
-and Secrets):
+Every one of these is set on the **Cloudflare Worker** (`workers/checkout.js`,
+Settings -> Variables and Secrets), and nowhere else. **Netlify holds no
+secrets**: it serves static files and proxies `/api/*` to the Worker. An
+earlier version of this section put the Stripe and Resend secrets in Netlify's
+environment variables for Netlify Functions that no longer exist; a value left
+there today is read by nothing. The authoritative, longer list with defaults
+is `workers/README.md` ("Secrets and variables").
 
 | Name | Required | Notes |
 |---|---|---|
 | `STRIPE_SECRET_KEY` | yes | Secret. Test key until launch, live key after. |
+| `STRIPE_WEBHOOK_SECRET` | yes | Secret. Verifies the Stripe signature. **Rotating it changes every gift-card code the site would derive**: codes are derived from this secret, so a rotation makes previously issued codes underivable. Rotate only with a plan for the cards already in the wild. |
+| `RESEND_API_KEY` | yes | Secret. Without it, gift-card delivery fails after the customer has already paid. |
+| `MAGIC_LINK_SECRET` | yes | Secret, 32+ random characters. Signs the order-status and gift-note links. |
 | `STRIPE_TAX_ENABLED` | no | `"true"` turns Stripe Tax on. Off today; several tax caveats in section 18 only bite once it is on. |
-| `SITE_ORIGIN` | no | Overrides the success/cancel URL origin. Defaults to the live domain. |
-
-Set on the **Netlify site** (Site configuration -> Environment variables) — the
-functions read these with `process.env`:
-
-| Name | Used by | Required | Notes |
-|---|---|---|---|
-| `STRIPE_SECRET_KEY` | `fulfill-gift-card`, `gift-card-balance` | yes | Same key as the Worker. |
-| `STRIPE_WEBHOOK_SECRET` | `fulfill-gift-card` | yes | Verifies the Stripe signature. **Rotating it changes every gift-card code the site would derive**: codes are derived from this secret, so a rotation makes previously issued codes underivable. Rotate only with a plan for the cards already in the wild. |
-| `RESEND_API_KEY` | `fulfill-gift-card`, `submit-restock` | yes | Without it, gift-card delivery fails after the customer has already paid. |
-| `FROM_EMAIL` | `fulfill-gift-card` | no | Verified Resend sender. Falls back to `RESEND_FROM_EMAIL`, then a hardcoded default. |
-| `RESEND_FROM_EMAIL` | `fulfill-gift-card` | no | Second fallback for the same thing. Set one or the other, not both. |
-| `GIFT_CARD_FROM_EMAIL` | `submit-restock` (and the withdrawn `redeem-points`) | no | **Defaults to `orders@yallternativeliving.com`, not `gifts@`** — earlier docs said `gifts@`. Whatever you set must be a verified Resend sender. |
-| `RESTOCK_FROM_EMAIL` | `submit-restock` | no | Sender for restock alerts; falls back to `GIFT_CARD_FROM_EMAIL`. |
-| `RESTOCK_NOTIFY_EMAIL` | `submit-restock` | no | Where restock alerts are delivered. Defaults to the shop's own address. |
-| `SITE_ORIGIN` | `fulfill-gift-card` | no | **This is a Netlify environment variable too**, not only a Worker one. |
+| `SITE_ORIGIN` | no | `wrangler.toml` var. Overrides the success/cancel URL origin. Defaults to the live domain. |
+| `GIFT_CARD_FROM_EMAIL`, `RESTOCK_FROM_EMAIL`, `RESTOCK_NOTIFY_EMAIL`, `SAFETY_REPORT_EMAIL` | no | Sender and destination overrides; every sender must be a verified Resend address. Defaults in `workers/README.md`. |
 
 Set on the **CMS auth Worker** (`cms-auth/sveltia-auth.js`):
 
@@ -833,9 +840,7 @@ build command:
 - **Netlify** — `netlify.toml` is already configured (the build command
   above, long-cache headers for images/CSS/JS, security headers, and a
   CSP that already allows Umami/Tawk/Google Translate + the `/admin`
-  CMS — Stripe itself needs no CSP entry, see section 8). Also where
-  `netlify/functions/fulfill-gift-card.js` deploys from, if you go this
-  route — Netlify auto-detects that folder. Connect
+  CMS — Stripe itself needs no CSP entry, see section 8). Connect
   a GitHub repo for auto-deploys on every push (drag-and-drop onto
   [app.netlify.com/drop](https://app.netlify.com/drop) also still works,
   but skips the build step, so `/admin` edits won't take effect until
@@ -867,12 +872,10 @@ above.
 **Checkout is a separate deploy from all three of the above, regardless
 which one you pick.** `workers/checkout.js` is a Cloudflare Worker — it
 deploys to Cloudflare, not to Netlify/Vercel/GitHub Pages, even if you
-host the static site itself on one of those. Likewise,
-`netlify/functions/fulfill-gift-card.js` specifically needs a Netlify
-site to auto-deploy from (Netlify's functions convention) — if you host
-the static site on Vercel or GitHub Pages instead, that one function
-would need its own separate Netlify site (or a rewrite for whichever
-host's own functions platform) just to run. See section 8 and
+host the static site itself on one of those. The Stripe webhook and the
+gift-card balance endpoint are routes inside that same Worker, so there is
+no second backend to host anywhere -- whichever static host you pick only
+has to proxy `/api/*` to the Worker (see `netlify.toml`). See section 8 and
 `workers/README.md` for the actual deploy steps.
 
 Also included:
@@ -1266,13 +1269,13 @@ mechanism now, not a stopgap.
 
 **Custom Stripe-integrated checkout by default.** The Digital Gift Card is fully integrated as a featured item inside the catalog (`products.json`). When a user clicks "Configure Card" on the shop grid, it triggers a state-of-the-art native `<dialog id="giftCardModal">` modal. This modal allows customers to choose preset amounts ($10, $25, $50, $100, $200) or enter a custom amount (from $10 to $500). They can fill out custom purchase fields (Recipient Email, Sender Name, and an optional Message) and add the gift card directly to the on-site cart, alongside any physical products, checking out in one Stripe session.
 
-Fulfillment is automatic, not manual: once payment completes, `netlify/functions/fulfill-gift-card.js` (the checkout webhook, see section 8) generates a redemption code, creates a matching single-use Stripe Promotion Code for it, and emails it to the recipient — Savanna doesn't have to read orders and hand-create anything. The recipient later enters that code at checkout (`workers/checkout.js` sets `allow_promotion_codes: true`) to redeem it.
+Fulfillment is automatic, not manual: once payment completes, `workers/routes/stripe-webhook.js` (the checkout webhook, see section 8) derives a redemption code, issues it on the gift-card ledger (a Durable Object per code), and emails it to the recipient — Savanna doesn't have to read orders and hand-create anything. The recipient later enters that code at checkout (`workers/checkout.js` sets `allow_promotion_codes: true`) to redeem it.
 
 **Balances ARE tracked now.** This section used to say gift cards had no
 balance tracking; that has not been true since the ledger landed. A partial
 redemption rolls the remainder onto a fresh code, a refund restores the
 balance, and shoppers can look a card up themselves:
-`POST /.netlify/functions/gift-card-balance` with `{"code":"YALL-..."}`
+`POST /api/gift-card-balance` with `{"code":"YALL-..."}`
 returns the code's current and original amounts. See the endpoint reference in
 section 8a.
 
@@ -1552,7 +1555,7 @@ The site includes optional birthday capture on the footer newsletter form (`asse
 > **Not "50 bonus Alt-Points".** Alt-Points are switched off end to end: nothing
 > ever credited them (the only balance was the shopper's own `localStorage`),
 > and `/.netlify/functions/redeem-points` — which used to mint a real Stripe
-> promotion code on the word of the caller alone — now answers `410 Gone`. The
+> promotion code on the word of the caller alone — is deleted; the URL 404s. The
 > earn copy, the drawer counter and the redeem button are gone from the cart.
 > Do not offer points as a birthday reward until a server-side ledger exists
 > that can verify a balance and record a spend atomically. A voucher code is a

@@ -239,6 +239,55 @@ async function testGiftCardLedger() {
     "value is conserved: initial + restored == balance + pending + spent"
   );
 
+  // --- commit below the hold ---------------------------------------------
+  // The webhook settles against what Stripe actually discounted. A hold of
+  // 1000 that Stripe only applied 600 of commits 600 and hands 400 straight
+  // back; the invariant must hold throughout.
+  {
+    const before = await card.getBalance();
+    await card.reserve({ sessionId: "cs_test_D", cents: 1000 });
+    const partial = await card.commit({ sessionId: "cs_test_D", cents: 600 });
+    eq(partial.committed, true, "commit(cents) below the hold still commits");
+    eq(partial.cents, 600, "…for the amount Stripe applied");
+    eq(partial.releasedCents, 400, "…and reports what went back");
+    const after = await card.getBalance();
+    eq(after.spentCents, before.spentCents + 600, "spent grows by the settled amount only");
+    eq(
+      after.balanceCents,
+      before.balanceCents - 600,
+      "the card is down by the settled amount only"
+    );
+    eq(after.pendingCents, before.pendingCents, "nothing of that hold is still pending");
+    const again = await card.commit({ sessionId: "cs_test_D", cents: 600 });
+    eq(again.alreadyCommitted, true, "a redelivered partial commit is a no-op");
+    eq(again.releasedCents, 0, "…that releases nothing twice");
+    eq((await card.audit()).ok, true, "the ledger reconciles after a partial commit");
+
+    // More than the hold can never be settled: the hold is the ceiling.
+    await card.reserve({ sessionId: "cs_test_E", cents: 300 });
+    const over = await card.commit({ sessionId: "cs_test_E", cents: 900 });
+    eq(over.cents, 300, "commit(cents) above the hold settles the hold, not the ask");
+    eq(over.releasedCents, 0, "…and releases nothing");
+
+    // Zero is a release wearing a commit's clothes.
+    await card.reserve({ sessionId: "cs_test_F", cents: 200 });
+    const midpoint = await card.getBalance();
+    const none = await card.commit({ sessionId: "cs_test_F", cents: 0 });
+    eq(none.committed, false, "commit(0) does not commit");
+    eq(none.releasedCents, 200, "…it releases the whole hold");
+    eq(
+      (await card.getBalance()).balanceCents,
+      midpoint.balanceCents + 200,
+      "…and the money is spendable again"
+    );
+    eq(
+      await card.release({ sessionId: "cs_test_F" }),
+      { released: false, reason: "already_resolved" },
+      "…leaving nothing for a later expiry to release"
+    );
+    eq((await card.audit()).ok, true, "the ledger reconciles after a zero commit");
+  }
+
   // --- alarm expiry ------------------------------------------------------
   ctx = makeDurableCtx();
   card = new GiftCardLedger(ctx, {});
@@ -1152,6 +1201,7 @@ async function testWebhookRoute() {
     data: {
       object: {
         id: "cs_purchase_1",
+        payment_status: "paid",
         customer_details: { email: "buyer@example.com" },
         metadata: {
           gift_card_1_amount_cents: "5000",
@@ -1164,12 +1214,16 @@ async function testWebhookRoute() {
     }
   };
   const purchaseBody = JSON.stringify(purchase);
-  const purchaseEnv = await makeRouteEnv();
-  const emails = [];
+  /* A paid session also earns the owner one order notice. It is not part of
+     the gift-card contract under test, so it is addressed somewhere the
+     assertions below can set aside. */
+  const OWNER = "owner@example.test";
+  const purchaseEnv = await makeRouteEnv({ ORDER_NOTIFY_EMAIL: OWNER });
+  const allEmails = [];
   await withFetch(
     async (url, opts) => {
       if (url.includes("api.resend.com")) {
-        emails.push({ ...JSON.parse(opts.body), key: opts.headers["Idempotency-Key"] });
+        allEmails.push({ ...JSON.parse(opts.body), key: opts.headers["Idempotency-Key"] });
         return { ok: true, status: 200, json: async () => ({ id: "email_1" }) };
       }
       return null;
@@ -1186,6 +1240,8 @@ async function testWebhookRoute() {
     }
   );
 
+  eq(allEmails.filter((e) => e.to === OWNER).length, 1, "the owner gets one order notice");
+  const emails = allEmails.filter((e) => e.to !== OWNER);
   eq(emails.length, 4, "two cards mean two recipient emails and two buyer receipts");
   const recipientEmails = emails.filter((e) => e.to === "friend@example.com");
   eq(recipientEmails.length, 2, "both cards reach the recipient");
@@ -1255,7 +1311,7 @@ async function testWebhookRoute() {
   );
 
   /* --- redemption: paying commits the hold ----------------------------- */
-  const spendEnv = await makeRouteEnv();
+  const spendEnv = await makeRouteEnv({ ORDER_NOTIFY_EMAIL: OWNER });
   await giftCardLedger(spendEnv, "YALL-SPND-SPND-SPND").issue({
     initialCents: 5000,
     recipientEmail: "holder@example.com",
@@ -1271,6 +1327,7 @@ async function testWebhookRoute() {
     data: {
       object: {
         id: "cs_spend_1",
+        payment_status: "paid",
         customer_details: { email: "holder@example.com" },
         metadata: {
           gift_card_redeemed_code: "YALL-SPND-SPND-SPND",
@@ -1284,7 +1341,8 @@ async function testWebhookRoute() {
   await withFetch(
     async (url, opts) => {
       if (url.includes("api.resend.com")) {
-        spendEmails.push(JSON.parse(opts.body));
+        const mail = JSON.parse(opts.body);
+        if (mail.to !== OWNER) spendEmails.push(mail);
         return { ok: true, status: 200, json: async () => ({}) };
       }
       return null;
@@ -1306,6 +1364,185 @@ async function testWebhookRoute() {
   eq(afterSpend.spentCents, 2000, "the hold became a permanent debit");
   eq(spendEmails.length, 1, "the card holder is told what is left");
   assert(spendEmails[0].subject.includes("$30.00"), "...and the email quotes the new balance");
+
+  /* --- settle: the hold is charged at what Stripe APPLIED, not what was
+     asked. The coupon discounts line items only; if Stripe applied less than
+     the hold (a shipping-inclusive hold from an older client, a re-priced
+     cart), the difference goes back to the card in the same transaction. --- */
+  const settleEnv = await makeRouteEnv({ ORDER_NOTIFY_EMAIL: OWNER });
+  await giftCardLedger(settleEnv, "YALL-STTL-STTL-STTL").issue({
+    initialCents: 5000,
+    recipientEmail: "holder@example.com",
+    source: "test"
+  });
+  await giftCardLedger(settleEnv, "YALL-STTL-STTL-STTL").reserve({
+    sessionId: "cs_settle_1",
+    cents: 2000
+  });
+  const settleEvent = (id) =>
+    JSON.stringify({
+      id,
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_settle_1",
+          payment_status: "paid",
+          customer_details: { email: "holder@example.com" },
+          total_details: { amount_discount: 1500, amount_shipping: 1000, amount_tax: 0 },
+          metadata: {
+            gift_card_redeemed_code: "YALL-STTL-STTL-STTL",
+            gift_card_amount_applied_cents: "2000"
+          }
+        }
+      }
+    });
+  const settleEmails = [];
+  const resendOnly = async (url, opts) => {
+    if (url.includes("api.resend.com")) {
+      const mail = JSON.parse(opts.body);
+      if (mail.to !== OWNER) settleEmails.push(mail);
+      return { ok: true, status: 200, json: async () => ({}) };
+    }
+    return null;
+  };
+  for (const evtId of ["evt_settle_1", "evt_settle_1_redelivered"]) {
+    const body = settleEvent(evtId);
+    await withFetch(resendOnly, async () => {
+      const res = await worker.fetch(
+        post("/api/stripe-webhook", body, { "Stripe-Signature": signWebhook(body) }),
+        settleEnv,
+        noCtx
+      );
+      eq(res.status, 200, `${evtId}: a session Stripe discounted below the hold is processed`);
+    });
+  }
+  const afterSettle = await giftCardLedger(settleEnv, "YALL-STTL-STTL-STTL").getBalance();
+  eq(afterSettle.spentCents, 1500, "the card is debited what Stripe actually applied");
+  eq(afterSettle.balanceCents, 3500, "the 500 Stripe never applied is spendable again");
+  eq(afterSettle.pendingCents, 0, "and nothing is still held");
+  eq(settleEmails.length, 1, "one balance email, even across a redelivered event");
+  assert(settleEmails[0].subject.includes("$35.00"), "...quoting the settled balance");
+  eq(
+    (await giftCardLedger(settleEnv, "YALL-STTL-STTL-STTL").audit()).ok,
+    true,
+    "ledger reconciles"
+  );
+
+  /* --- delayed payment: nothing is minted or debited until the money
+     clears. `completed` with payment_status "unpaid" is recorded and
+     skipped; `async_payment_succeeded` then runs the whole fulfilment;
+     `async_payment_failed` is an expiry. --- */
+  const asyncEnv = await makeRouteEnv({ ORDER_NOTIFY_EMAIL: OWNER });
+  await giftCardLedger(asyncEnv, "YALL-ASYN-ASYN-ASYN").issue({
+    initialCents: 3000,
+    recipientEmail: "holder@example.com",
+    source: "test"
+  });
+  await giftCardLedger(asyncEnv, "YALL-ASYN-ASYN-ASYN").reserve({
+    sessionId: "cs_async_1",
+    cents: 1000
+  });
+  const asyncSession = (payment_status) => ({
+    id: "cs_async_1",
+    payment_status,
+    customer_details: { email: "buyer@example.com" },
+    metadata: {
+      gift_card_redeemed_code: "YALL-ASYN-ASYN-ASYN",
+      gift_card_amount_applied_cents: "1000",
+      gift_card_1_amount_cents: "2500",
+      gift_card_1_recipient: "friend@example.com",
+      gift_card_1_sender: "Sam"
+    }
+  });
+  const asyncEmails = [];
+  const resendForAsync = async (url, opts) => {
+    if (url.includes("api.resend.com")) {
+      const mail = JSON.parse(opts.body);
+      if (mail.to !== OWNER) asyncEmails.push(mail);
+      return { ok: true, status: 200, json: async () => ({}) };
+    }
+    if (url.includes("/v1/coupons/") && opts.method === "DELETE") {
+      return { ok: true, status: 200, json: async () => ({ deleted: true }) };
+    }
+    return null;
+  };
+  const unpaidBody = JSON.stringify({
+    id: "evt_async_unpaid",
+    type: "checkout.session.completed",
+    data: { object: asyncSession("unpaid") }
+  });
+  await withFetch(resendForAsync, async () => {
+    const res = await worker.fetch(
+      post("/api/stripe-webhook", unpaidBody, { "Stripe-Signature": signWebhook(unpaidBody) }),
+      asyncEnv,
+      noCtx
+    );
+    eq(res.status, 200, "an unpaid completion is acknowledged, not retried");
+  });
+  let asyncState = await giftCardLedger(asyncEnv, "YALL-ASYN-ASYN-ASYN").getBalance();
+  eq(asyncState.pendingCents, 1000, "unpaid: the hold is still a hold");
+  eq(asyncState.spentCents, 0, "unpaid: nothing was debited");
+  eq(asyncEmails.length, 0, "unpaid: no gift card was minted or emailed");
+
+  const paidBody = JSON.stringify({
+    id: "evt_async_paid",
+    type: "checkout.session.async_payment_succeeded",
+    data: { object: asyncSession("paid") }
+  });
+  await withFetch(resendForAsync, async () => {
+    const res = await worker.fetch(
+      post("/api/stripe-webhook", paidBody, { "Stripe-Signature": signWebhook(paidBody) }),
+      asyncEnv,
+      noCtx
+    );
+    eq(res.status, 200, "the delayed payment clearing is processed");
+  });
+  asyncState = await giftCardLedger(asyncEnv, "YALL-ASYN-ASYN-ASYN").getBalance();
+  eq(asyncState.pendingCents, 0, "paid: the hold is settled");
+  eq(asyncState.spentCents, 1000, "paid: the card is debited");
+  assert(
+    asyncEmails.some((m) => m.to === "friend@example.com" || String(m.to).includes("friend@")),
+    "paid: the purchased card reaches its recipient"
+  );
+  assert(
+    asyncEmails.some((m) => String(m.subject).includes("$20.00")),
+    "paid: the spent card's holder is told the new balance"
+  );
+
+  await giftCardLedger(asyncEnv, "YALL-ASYN-ASYN-ASYN").reserve({
+    sessionId: "cs_async_2",
+    cents: 500
+  });
+  const failedBody = JSON.stringify({
+    id: "evt_async_failed",
+    type: "checkout.session.async_payment_failed",
+    data: {
+      object: {
+        id: "cs_async_2",
+        payment_status: "unpaid",
+        metadata: {
+          gift_card_redeemed_code: "YALL-ASYN-ASYN-ASYN",
+          gift_card_amount_applied_cents: "500",
+          gift_card_ephemeral_coupon_id: "coupon_async_failed"
+        }
+      }
+    }
+  });
+  await withFetch(resendForAsync, async (calls) => {
+    const res = await worker.fetch(
+      post("/api/stripe-webhook", failedBody, { "Stripe-Signature": signWebhook(failedBody) }),
+      asyncEnv,
+      noCtx
+    );
+    eq(res.status, 200, "a failed delayed payment is processed");
+    assert(
+      calls.some((c) => c.url.includes("coupon_async_failed") && c.opts.method === "DELETE"),
+      "failed: the ephemeral coupon is deleted"
+    );
+  });
+  asyncState = await giftCardLedger(asyncEnv, "YALL-ASYN-ASYN-ASYN").getBalance();
+  eq(asyncState.pendingCents, 0, "failed: the hold is released");
+  eq(asyncState.balanceCents, 2000, "failed: the money is spendable again");
 
   /* --- expiry: the hold goes back and the coupon is deleted ------------- */
   const expireEnv = await makeRouteEnv();
@@ -1356,7 +1593,10 @@ async function testWebhookRoute() {
   eq(afterExpiry.balanceCents, 4000, "an abandoned checkout puts the whole hold back");
   eq(afterExpiry.pendingCents, 0, "...and holds nothing");
 
-  /* --- refund: restore min(applied, refunded), once (H-5) --------------- */
+  /* --- refund: the card share comes back on a FULL refund only, once (H-5,
+     readiness audit 2026-09-08). The charge is the cash half; a partial cash
+     refund is an instruction about the cash, and restoring the same amount
+     to the card as well paid the shopper twice. --- */
   const refundEnv = await makeRouteEnv();
   await giftCardLedger(refundEnv, "YALL-RFND-RFND-RFND").issue({
     initialCents: 5000,
@@ -1386,11 +1626,19 @@ async function testWebhookRoute() {
     return null;
   };
 
+  // The order was $50: $30 on the card (committed above) and a $20 charge.
+  // A $10 partial refund of the charge is cash back, and ONLY cash back.
   const partial = {
     id: "evt_refund_1",
     type: "charge.refunded",
     data: {
-      object: { id: "ch_1", payment_intent: "pi_1", amount_refunded: 1000 }
+      object: {
+        id: "ch_1",
+        payment_intent: "pi_1",
+        amount: 2000,
+        amount_refunded: 1000,
+        refunded: false
+      }
     }
   };
   const partialBody = JSON.stringify(partial);
@@ -1404,15 +1652,23 @@ async function testWebhookRoute() {
   });
   eq(
     (await giftCardLedger(refundEnv, "YALL-RFND-RFND-RFND").getBalance()).balanceCents,
-    3000,
-    "a $10 refund puts $10 back on a card that had $20 left"
+    2000,
+    "a $10 cash refund puts nothing back on the card -- the shopper got $10, not $20"
   );
 
-  // The same charge refunded further: only the DIFFERENCE goes back.
+  // The charge refunded in full: the whole card share comes back.
   const grown = {
     id: "evt_refund_2",
     type: "charge.refunded",
-    data: { object: { id: "ch_1", payment_intent: "pi_1", amount_refunded: 4000 } }
+    data: {
+      object: {
+        id: "ch_1",
+        payment_intent: "pi_1",
+        amount: 2000,
+        amount_refunded: 2000,
+        refunded: true
+      }
+    }
   };
   const grownBody = JSON.stringify(grown);
   await withFetch(stripeForRefunds, async () => {
@@ -1421,19 +1677,27 @@ async function testWebhookRoute() {
       refundEnv,
       noCtx
     );
-    eq(res.status, 200, "a larger refund on the same charge is processed");
+    eq(res.status, 200, "a full refund of the charge is processed");
   });
   eq(
     (await giftCardLedger(refundEnv, "YALL-RFND-RFND-RFND").getBalance()).balanceCents,
     5000,
-    "restoration is capped at what the card actually paid, and never double-credits"
+    "a full refund restores exactly what the card paid, once"
   );
 
   // A THIRD delivery of the same money must move nothing at all.
   const again = {
     id: "evt_refund_3",
     type: "charge.refunded",
-    data: { object: { id: "ch_1", payment_intent: "pi_1", amount_refunded: 4000 } }
+    data: {
+      object: {
+        id: "ch_1",
+        payment_intent: "pi_1",
+        amount: 2000,
+        amount_refunded: 2000,
+        refunded: true
+      }
+    }
   };
   const againBody = JSON.stringify(again);
   await withFetch(stripeForRefunds, async () => {
@@ -1796,6 +2060,7 @@ async function testEndToEndMoneyPath() {
     data: {
       object: {
         id: "cs_e2e_buy",
+        payment_status: "paid",
         customer_details: { email: "sam@example.com" },
         metadata: {
           gift_card_1_amount_cents: "2500",
@@ -1837,7 +2102,9 @@ async function testEndToEndMoneyPath() {
   eq(balanceRes.status, 200, "e2e: the balance route finds the new card");
   eq((await balanceRes.json()).balanceCents, 2500, "e2e: it is worth what was paid for it");
 
-  /* 4. They spend it on an $18 soak (+$10 shipping = $28). */
+  /* 4. They spend it on two $18 soaks ($36 of goods, +$10 shipping). The
+     card covers goods only -- Stripe never discounts the shipping rate -- so
+     the order has to carry at least $25 of goods for the whole card to go. */
   let couponParams = null;
   await withFetch(
     async (url, opts) => {
@@ -1856,7 +2123,7 @@ async function testEndToEndMoneyPath() {
     async () => {
       const res = await worker.fetch(
         post("/api/checkout", {
-          items: [{ id: "lavender-soak", qty: 1 }],
+          items: [{ id: "lavender-soak", qty: 2 }],
           giftCardCode: issuedCode
         }),
         env,
@@ -1865,7 +2132,7 @@ async function testEndToEndMoneyPath() {
       eq(res.status, 200, "e2e: the card is applied at checkout");
     }
   );
-  eq(couponParams.get("amount_off"), "2500", "e2e: the whole $25 is applied to a $28 order");
+  eq(couponParams.get("amount_off"), "2500", "e2e: the whole $25 is applied to $36 of goods");
 
   const held = await worker.fetch(post("/api/gift-card-balance", { code: issuedCode }), env, noCtx);
   eq(held.status, 404, "e2e: with the balance held, the card reads as having nothing spendable");
@@ -1877,6 +2144,7 @@ async function testEndToEndMoneyPath() {
     data: {
       object: {
         id: "cs_e2e_spend",
+        payment_status: "paid",
         customer_details: { email: "gift@example.com" },
         metadata: {
           gift_card_redeemed_code: issuedCode,

@@ -357,10 +357,27 @@ export class GiftCardLedger {
    * Turns an active hold into a permanent debit. Idempotent: a webhook redelivery
    * of `checkout.session.completed` returns the same answer without moving money.
    *
-   * @param {{sessionId: string}} args
+   * `cents`, when given, is what Stripe ACTUALLY discounted for this session
+   * and may be less than the hold: the coupon discounts line items only, so a
+   * hold sized against a cart Stripe then priced differently would otherwise
+   * debit money the shopper never got credit for. The difference goes straight
+   * back to the spendable balance in the same transaction. It can never settle
+   * MORE than the hold -- the hold is the most the card agreed to pay.
+   *
+   * @param {{sessionId: string, cents?: number}} args
+   * @returns {Promise<{committed: true, alreadyCommitted: boolean, cents: number, releasedCents: number}>}
    */
   async commit(args) {
-    const sessionId = assertId((args || {}).sessionId, "invalid_session", "sessionId");
+    const params = args || {};
+    const sessionId = assertId(params.sessionId, "invalid_session", "sessionId");
+    // 0 is a legal settlement (Stripe applied none of the hold); assertCents
+    // rejects it because nowhere else may move zero cents, so it is special-cased.
+    const settleCents =
+      params.cents === undefined || params.cents === null
+        ? null
+        : params.cents === 0
+          ? 0
+          : assertCents(params.cents, "cents");
     const now = Date.now();
     const result = this.ctx.storage.transactionSync(() => {
       const row = this.sql
@@ -368,12 +385,43 @@ export class GiftCardLedger {
         .toArray()[0];
       if (!row) throw new LedgerError("reservation_not_found", "No reservation for that session.");
       if (row.state === "committed") {
-        return { committed: true, alreadyCommitted: true, cents: row.cents };
+        return { committed: true, alreadyCommitted: true, cents: row.cents, releasedCents: 0 };
       }
       if (row.state !== "active") {
         throw new LedgerError(
           "reservation_not_active",
           `Reservation is ${row.state}; it cannot be committed.`
+        );
+      }
+      const spent = settleCents === null ? row.cents : Math.min(settleCents, row.cents);
+      const unspent = row.cents - spent;
+      if (spent === 0) {
+        // Nothing was spent: this is a release, not a commit, and the row says so.
+        const released = this.#releaseRowSync(row, now, "release", "settled_zero");
+        return {
+          committed: false,
+          alreadyCommitted: false,
+          cents: 0,
+          releasedCents: released.cents
+        };
+      }
+      if (unspent > 0) {
+        // Shrink the hold to what was really spent and hand the rest back.
+        // Recorded as a release so the ledger's history says where the money
+        // went, and the invariant (initial + restored == balance + pending +
+        // spent) holds without a new row kind.
+        this.sql.exec(
+          "UPDATE card SET balance_cents = balance_cents + ? WHERE code = (SELECT code FROM card)",
+          unspent
+        );
+        this.sql.exec("UPDATE reservations SET cents = ? WHERE session_id = ?", spent, sessionId);
+        this.#appendSync(
+          now,
+          "release",
+          unspent,
+          this.#card().balance_cents,
+          "settled_below_hold",
+          sessionId
         );
       }
       this.sql.exec(
@@ -386,7 +434,7 @@ export class GiftCardLedger {
       // story of the card without having to join the reservations table.
       const balance = this.#card().balance_cents;
       this.#appendSync(now, "commit", 0, balance, "order_paid", sessionId);
-      return { committed: true, alreadyCommitted: false, cents: row.cents };
+      return { committed: true, alreadyCommitted: false, cents: spent, releasedCents: unspent };
     });
     await this.#rescheduleAlarm();
     return result;
