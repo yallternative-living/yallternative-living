@@ -528,14 +528,15 @@ function findEntry(catalog, id) {
 
 // Variant labels arrive from the client and are matched against the catalog's
 // own option list, never trusted as free text. Normalisation is deliberately
-// forgiving about the things a copy/paste or a stale cart mangles (case,
-// surrounding and doubled whitespace) and deliberately strict about
-// everything else: "S " is the sold-out "S", but "24 oz" is not "4 oz".
+// forgiving about the things a copy/paste or a stale cart mangles (case and
+// whitespace, ALL of it: "2oz" and "2 oz" are one size, and a cart saved
+// before the catalog's labels were tidied must keep checking out rather than
+// be refused for a space) and deliberately strict about everything else:
+// "S " is the sold-out "S", but "24 oz" is not "4 oz".
 function normalizeVariantLabel(value) {
   return String(value === null || value === undefined ? "" : value)
-    .trim()
     .toLowerCase()
-    .replace(/\s+/g, " ");
+    .replace(/\s+/g, "");
 }
 
 /**

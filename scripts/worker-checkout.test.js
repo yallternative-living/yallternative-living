@@ -1004,6 +1004,19 @@ async function runWorkerCheckoutTests() {
       "Case/whitespace differences still resolve to the catalog label"
     );
 
+    // A cart saved before the catalog's size labels were tidied ("2oz" vs
+    // "2 oz") is the same size, not an unknown one: the space is not a
+    // different product, and a shopper must not be refused over it.
+    const staleSpacing = await executeCheckout({
+      items: [{ id: "frankincense-salve", qty: 1, variant: "2 oz" }]
+    });
+    eq(staleSpacing.status, 200, "A label differing only by an inner space still checks out");
+    eq(
+      staleSpacing.sessionParams.get("line_items[0][price_data][product_data][name]"),
+      "Frankincense Salve (2oz)",
+      "...and is charged and named as the catalog's own option"
+    );
+
     const unknown = await executeCheckout({
       items: [{ id: "frankincense-salve", qty: 1, variant: "24 oz " }]
     });
