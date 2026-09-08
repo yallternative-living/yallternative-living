@@ -1024,12 +1024,17 @@ async function creditPoints(session, env, ctx, now = Date.now()) {
   const email = buyerEmailOf(session);
   if (!email) return null;
   // `amount_subtotal` is the goods before shipping and tax -- points are earned
-  // on what was bought, not on the postage.
-  const cents = Number(
-    session.amount_subtotal !== undefined && session.amount_subtotal !== null
-      ? session.amount_subtotal
-      : session.amount_total
-  );
+  // on what was bought, not on the postage. Minus `total_details.amount_discount`,
+  // which is where Stripe reports both a promo code and a gift card applied at
+  // checkout (the card is an amount_off coupon): points are earned on the money
+  // actually paid for goods, never on a discount, and a card paid for by points
+  // must not earn points back. Shipping and tax stay excluded either way.
+  const hasSubtotal = session.amount_subtotal !== undefined && session.amount_subtotal !== null;
+  let cents = Number(hasSubtotal ? session.amount_subtotal : session.amount_total);
+  if (hasSubtotal) {
+    const discount = Number(session.total_details && session.total_details.amount_discount);
+    if (Number.isFinite(discount) && discount > 0) cents = Math.max(0, cents - discount);
+  }
   if (!Number.isFinite(cents) || cents <= 0) return null;
   return creditLoyaltyForOrder(env, ctx, { orderId: session.id, email, amountCents: cents }, now);
 }

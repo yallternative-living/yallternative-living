@@ -84,6 +84,26 @@ const mockCatalog = {
       price: 9.0,
       category: "salves",
       stock: 3
+    },
+    /* Tracked stock that has run out entirely -- the third way a product can
+       be unsellable after comingSoon and inStock === false. */
+    {
+      id: "stock-zero-salve",
+      name: "Stock Zero Salve",
+      price: 14.0,
+      category: "salves",
+      stock: 0
+    },
+    /* A 2oz salve with ONE unit on hand and no size to pick, so it qualifies
+       for the 2+ multi-buy tier on its name alone (itemMatchesVolumeRule's
+       no-variant text match). qty 2 of it is exactly the over-ask the volume
+       tier must not count. */
+    {
+      id: "last-one-salve",
+      name: "Last One 2oz Salve",
+      price: 19.0,
+      category: "salves",
+      stock: 1
     }
   ],
   /* Gift sets. `variant-set` deliberately mixes a member that IS sold in
@@ -102,9 +122,36 @@ const mockCatalog = {
       name: "Plain Duo Set",
       productIds: ["lavender-soak", "last-three-balm"],
       discountPercent: 10
+    },
+    /* Sets whose members are themselves unsellable (audit 2026-09-08 §4):
+       a bundle's own inStock was the only availability flag checked, so a
+       member that is sold out on its own line could still ship inside one. */
+    {
+      id: "sold-out-member-set",
+      name: "Sold Out Member Set",
+      productIds: ["lavender-soak", "sold-out-soak"],
+      discountPercent: 10
+    },
+    {
+      id: "zero-stock-member-set",
+      name: "Zero Stock Member Set",
+      productIds: ["lavender-soak", "stock-zero-salve"],
+      discountPercent: 10
+    },
+    {
+      id: "coming-soon-member-set",
+      name: "Coming Soon Member Set",
+      productIds: ["lavender-soak", "coming-soon-oil"],
+      discountPercent: 10
     }
   ],
   shop: {
+    customBox: {
+      minItems: 3,
+      maxItems: 5,
+      discountPercent: 10,
+      eligibleCategories: ["salves", "soaks", "body"]
+    },
     freeShippingThreshold: 40,
     shippingMilestones: [
       { threshold: 40, reward: "Free Tracked Shipping", icon: "truck" },
@@ -171,8 +218,13 @@ async function executeCheckout(body, options = {}) {
   let capturedSessionParams = null;
   const sessionAttempts = [];
   let capturedCouponParams = null;
+  let couponMints = 0;
   const deletedCoupons = [];
   const expiredSessions = [];
+  /* `expireResults`: what Stripe answers to each successive /expire call --
+     true (expired), false (refused), or "throw" (the request itself dies).
+     Anything past the end of the list, and the default, is true. */
+  const expireResults = Array.isArray(options.expireResults) ? options.expireResults.slice() : [];
   const promoLookups = [];
 
   const env = options.env
@@ -202,10 +254,16 @@ async function executeCheckout(body, options = {}) {
         return { ok: true, status: 200, json: async () => ({ deleted: true }) };
       }
       capturedCouponParams = new URLSearchParams(opts.body);
+      couponMints += 1;
       return { ok: true, json: async () => ({ id: "ephemeral_coupon_123" }) };
     }
     if (u.includes("/expire")) {
       expiredSessions.push(u);
+      const scripted = expireResults.length ? expireResults.shift() : true;
+      if (scripted === "throw") throw new Error("socket hang up");
+      if (scripted === false) {
+        return { ok: false, status: 500, json: async () => ({ error: { message: "nope" } }) };
+      }
       return { ok: true, status: 200, json: async () => ({ status: "expired" }) };
     }
     if (u.includes("api.stripe.com/v1/checkout/sessions")) {
@@ -263,6 +321,7 @@ async function executeCheckout(body, options = {}) {
           ? Number(capturedCouponParams.get("amount_off"))
           : 0,
       deletedCoupons,
+      couponMints,
       expiredSessions,
       promoLookups,
       env
@@ -1673,6 +1732,220 @@ async function runWorkerCheckoutTests() {
       "Cart is empty or invalid.",
       "Worker error strings stay English regardless of the checkout locale"
     );
+  }
+
+  /* ==========================================================================
+     Audit 2026-09-08 §4, money path (lower severity)
+     ========================================================================== */
+
+  /* ---- 1. A set or box is only as available as its members ---------------
+     Only the bundle's OWN inStock used to be checked; a member that was sold
+     out, out of tracked stock, or not yet released could still be sold inside
+     a set or a build-your-own box. Each is now refused the way the member
+     would be on its own line, naming the member. */
+  {
+    const soldOut = await executeCheckout({
+      items: [{ id: "bundle-sold-out-member-set", qty: 1 }]
+    });
+    eq(soldOut.status, 400, "a set with an inStock === false member is refused");
+    eq(
+      soldOut.data.error,
+      "Sold out: Sold Out Soak, so the Sold Out Member Set can't be made up right now.",
+      "...naming the sold-out member and the set"
+    );
+    eq(soldOut.sessionParams, null, "the refused set never reaches Stripe");
+
+    const zero = await executeCheckout({ items: [{ id: "bundle-zero-stock-member-set", qty: 1 }] });
+    eq(zero.status, 400, "a set with a member whose tracked stock is 0 is refused");
+    eq(
+      zero.data.error,
+      "Sold out: Stock Zero Salve, so the Zero Stock Member Set can't be made up right now.",
+      "...naming the member that is out of stock"
+    );
+
+    const soon = await executeCheckout({
+      items: [{ id: "bundle-coming-soon-member-set", qty: 1 }]
+    });
+    eq(soon.status, 400, "a set with a comingSoon member is refused");
+    eq(
+      soon.data.error,
+      "Not available yet: Coming Soon Botanical Oil, so the Coming Soon Member Set can't be made up right now.",
+      "...naming the unreleased member"
+    );
+
+    // Control: a set whose members are all on sale still checks out at the
+    // member-derived price, so the guard is not refusing everything.
+    const fine = await executeCheckout({ items: [{ id: "bundle-plain-set", qty: 1 }] });
+    eq(fine.status, 200, "a set whose members are all available still checks out");
+    eq(
+      fine.sessionParams.get("line_items[0][price_data][unit_amount]"),
+      "2430",
+      "...at the member-derived bundle price ($18 + $9, less 10%)"
+    );
+
+    // The same three fields guard a build-your-own box.
+    const box = (ids) =>
+      executeCheckout({ items: [{ id: "custom-box", qty: 1, boxProductIds: ids }] });
+
+    const boxSoldOut = await box(["lavender-soak", "frankincense-salve", "sold-out-soak"]);
+    eq(boxSoldOut.status, 400, "a box holding an inStock === false product is refused");
+    eq(boxSoldOut.data.error, "Sold out: Sold Out Soak", "...naming the sold-out product");
+    eq(boxSoldOut.sessionParams, null, "the refused box never reaches Stripe");
+
+    const boxZero = await box(["lavender-soak", "frankincense-salve", "stock-zero-salve"]);
+    eq(boxZero.status, 400, "a box holding a product with tracked stock 0 is refused");
+    eq(boxZero.data.error, "Sold out: Stock Zero Salve", "...naming the out-of-stock product");
+
+    const boxSoon = await box(["lavender-soak", "frankincense-salve", "coming-soon-oil"]);
+    eq(boxSoon.status, 400, "a box holding a comingSoon product is still refused");
+    eq(
+      boxSoon.data.error,
+      "Not available yet: Coming Soon Botanical Oil",
+      "...naming the unreleased product"
+    );
+
+    const boxFine = await box(["lavender-soak", "frankincense-salve", "last-three-balm"]);
+    eq(boxFine.status, 200, "a box of available products still checks out");
+    eq(
+      boxFine.sessionParams.get("line_items[0][price_data][unit_amount]"),
+      "4229",
+      "...priced from the real product prices less the box discount ($46.99 - 10%)"
+    );
+  }
+
+  /* ---- 3. Volume tiers count what will ship, not what was asked for -------
+     The multi-buy count used the client qty; the line's qty was capped to
+     tracked stock afterwards. qty 2 of a stock-1 salve therefore unlocked the
+     "2+ for $15" price on the single unit that shipped. */
+  {
+    const overAsk = await executeCheckout({ items: [{ id: "last-one-salve", qty: 2 }] });
+    eq(overAsk.status, 200, "qty 2 of a stock-1 salve still checks out");
+    eq(
+      overAsk.sessionParams.get("line_items[0][quantity]"),
+      "1",
+      "...clamped to the one unit on hand"
+    );
+    eq(
+      overAsk.sessionParams.get("line_items[0][price_data][unit_amount]"),
+      "1900",
+      "...at the single-unit price: one unit does not unlock the 2+ tier"
+    );
+
+    // Two units that WILL ship, across two lines, still earn the tier: the
+    // cap counts stock, it does not exclude tracked products from the rule.
+    const pair = await executeCheckout({
+      items: [
+        { id: "last-one-salve", qty: 2 },
+        { id: "frankincense-salve", qty: 1, variant: "2oz" }
+      ]
+    });
+    eq(pair.status, 200, "a stock-1 salve plus another 2oz salve checks out");
+    eq(
+      pair.sessionParams.get("line_items[0][price_data][unit_amount]"),
+      "1500",
+      "two units that actually ship unlock the multi-buy price on the capped line"
+    );
+    eq(
+      pair.sessionParams.get("line_items[1][price_data][unit_amount]"),
+      "1500",
+      "...and on the other line"
+    );
+    eq(pair.sessionParams.get("line_items[0][quantity]"), "1", "the capped line still ships 1");
+
+    // Untracked stock: nothing changes, the tier counts the full qty.
+    const plain = await executeCheckout({
+      items: [{ id: "frankincense-salve", qty: 2, variant: "2oz" }]
+    });
+    eq(
+      plain.sessionParams.get("line_items[0][price_data][unit_amount]"),
+      "1500",
+      "qty 2 of a salve with stock to spare still gets the multi-buy price"
+    );
+    eq(plain.sessionParams.get("line_items[0][quantity]"), "2", "...on both units");
+  }
+
+  /* ---- 4. The unwind after a ledger refusal survives a failed expire -----
+     deleteCoupon then expireSession; if the expire fails the session stayed
+     payable with a live coupon and nothing said so. Now: expire is retried
+     once, the coupon is never re-minted, and a session that still will not
+     expire is logged at error level with both ids. */
+  {
+    const race = (expireResults) =>
+      executeCheckout(
+        {
+          items: [{ id: "lavender-soak", qty: 1 }],
+          gift_card_code: "YALL-RACE-RACE-RACE"
+        },
+        {
+          cards: { "YALL-RACE-RACE-RACE": 500 },
+          expireResults,
+          beforeReserve: async (env) => {
+            const { giftCardLedger } = await import("../workers/state/gift-card-ledger.js");
+            await giftCardLedger(env, "YALL-RACE-RACE-RACE").reserve({
+              sessionId: "cs_other_tab",
+              cents: 500
+            });
+          }
+        }
+      );
+
+    const captureErrors = async (fn) => {
+      const errors = [];
+      const original = console.error;
+      console.error = (...args) => errors.push(args.map(String).join(" "));
+      try {
+        return { result: await fn(), errors };
+      } finally {
+        console.error = original;
+      }
+    };
+
+    // First expire refused, retry succeeds.
+    const retried = await captureErrors(() => race([false, true]));
+    eq(retried.result.status, 409, "expire refused once: the shopper still gets the 409");
+    eq(retried.result.expiredSessions.length, 2, "...expireSession was tried a second time");
+    eq(
+      retried.result.deletedCoupons,
+      ["ephemeral_coupon_123"],
+      "...the coupon was deleted before the expiry attempts"
+    );
+    eq(retried.result.couponMints, 1, "...and never minted again");
+    eq(
+      retried.errors.filter((e) => /unwind incomplete/.test(e)).length,
+      0,
+      "a retry that succeeds is not logged as an incomplete unwind"
+    );
+
+    // The request itself dies, then the retry succeeds.
+    const threw = await captureErrors(() => race(["throw", true]));
+    eq(threw.result.status, 409, "expire request that throws: still a 409, not a 500");
+    eq(threw.result.expiredSessions.length, 2, "...and the expiry was retried after the throw");
+    eq(threw.result.deletedCoupons, ["ephemeral_coupon_123"], "...with the coupon still deleted");
+
+    // Both attempts fail: findable in the logs, with both ids.
+    const stuck = await captureErrors(() => race([false, false]));
+    eq(stuck.result.status, 409, "expire refused twice: the shopper still gets the 409");
+    eq(stuck.result.expiredSessions.length, 2, "...exactly two attempts, no infinite retry");
+    eq(stuck.result.deletedCoupons, ["ephemeral_coupon_123"], "...the coupon delete stands");
+    eq(stuck.result.couponMints, 1, "...and the coupon was not re-minted");
+    const incomplete = stuck.errors.find((e) => /unwind incomplete/.test(e));
+    assert(incomplete, "a session that will not expire is logged at error level");
+    assert(
+      incomplete && incomplete.includes("cs_test_mock_session"),
+      "...with the session id, so it can be expired by hand"
+    );
+    assert(
+      incomplete && incomplete.includes("ephemeral_coupon_123"),
+      "...and the coupon id, so it can be checked too"
+    );
+    assert(
+      incomplete && /NOT expired after 2 attempts/.test(incomplete),
+      "...saying the session is the part that is still live"
+    );
+    const { giftCardLedger } = await import("../workers/state/gift-card-ledger.js");
+    const after = await giftCardLedger(stuck.result.env, "YALL-RACE-RACE-RACE").getBalance();
+    eq(after.pendingCents, 500, "only the winning session holds the money");
+    eq(after.balanceCents, 0, "the card was not debited twice");
   }
 
   console.log(`\nworker-checkout.test.js: ${passed} passed, ${failed} failed`);

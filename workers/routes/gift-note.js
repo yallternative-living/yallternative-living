@@ -36,7 +36,21 @@ function bytesToBase64Url(bytes) {
   return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
+/** The floor every HMAC secret on this Worker enforces (state/magic-link.js, state/retention.js). */
+const MIN_SECRET_LENGTH = 16;
+
+function isUsableSecret(secret) {
+  return typeof secret === "string" && secret.length >= MIN_SECRET_LENGTH;
+}
+
 async function hmac(secret, message) {
+  // Same guard as hmacKey() in state/magic-link.js: a short secret is a
+  // configuration error, never something to sign with.
+  if (!isUsableSecret(secret)) {
+    throw new TypeError(
+      `gift-note: MAGIC_LINK_SECRET must be a string of at least ${MIN_SECRET_LENGTH} characters.`
+    );
+  }
   const key = await crypto.subtle.importKey(
     "raw",
     encoder.encode(secret),
@@ -225,10 +239,12 @@ export async function handleGiftNote(request, env) {
   const sessionId = String(url.searchParams.get("session_id") || "").trim();
   const token = String(url.searchParams.get("t") || "").trim();
   const secret = env && env.MAGIC_LINK_SECRET;
-  if (!secret) {
+  // Missing OR too short to sign with: both are the same configuration
+  // error, answered the same way rather than as a 500 from the HMAC guard.
+  if (!isUsableSecret(secret)) {
     return renderMessage(
       "Print links are not set up yet",
-      "MAGIC_LINK_SECRET is not configured on the Worker, so gift-note links cannot be checked. The note is still on the order in Stripe.",
+      `MAGIC_LINK_SECRET is not configured on the Worker (or is shorter than ${MIN_SECRET_LENGTH} characters), so gift-note links cannot be checked. The note is still on the order in Stripe.`,
       503
     );
   }

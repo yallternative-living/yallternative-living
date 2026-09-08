@@ -704,6 +704,70 @@ function resolveBundlePriceDollars(catalog, bundle, variantChoices) {
   return Math.round((baseSum + deltaSum) * (1 - (bundle.discountPercent || 0) / 100) * 100) / 100;
 }
 
+/**
+ * Is this catalog product on sale at all right now? The same three fields the
+ * shop pages render from: `comingSoon` has no working buy button, `inStock ===
+ * false` is not offered, and a tracked `stock` of 0 means nothing is on hand.
+ * Returns the reason a product cannot be sold, or null when it can.
+ */
+function unavailableReasonOf(product) {
+  if (!product) return "Product not found";
+  if (product.comingSoon) return "Not available yet";
+  if (product.inStock === false) return "Sold out";
+  if (typeof product.stock === "number" && Number.isFinite(product.stock) && product.stock <= 0) {
+    return "Sold out";
+  }
+  return null;
+}
+
+/**
+ * A gift set is only sellable when every one of its members is. Until the
+ * 2026-09-08 audit only the bundle's OWN `inStock` was checked, so a member
+ * that had sold out as a standalone product could still be sold inside a set
+ * (the member's variant options were checked; the member itself was not).
+ * Throws the same ClientError a sold-out variant does, naming the member and
+ * the set, so the drawer can show it -- fail closed, never take money for a
+ * set that cannot be made up.
+ */
+function assertBundleMembersAvailable(catalog, bundle) {
+  if (!bundle || !Array.isArray(bundle.productIds)) return;
+  const productMap = productMapOf(catalog);
+  const setName = bundle.name || bundle.id;
+  for (const id of bundle.productIds) {
+    const p = productMap.get(id);
+    const reason = unavailableReasonOf(p);
+    if (!reason) continue;
+    const memberName = (p && p.name) || id;
+    throw new ClientError(
+      `${reason}: ${memberName}, so the ${setName} can't be made up right now.`
+    );
+  }
+}
+
+/**
+ * The quantity of a line the Worker will actually sell, from the client's
+ * `qty` and the catalog entry it resolved to. Two caps, applied in order:
+ * the per-line ceiling (MAX_QTY_PER_ITEM), then the tracked on-hand `stock`
+ * where the CMS records one (null/absent = not tracked, e.g. made to order).
+ * A shopper who asks for 10 of the 3 that exist gets 3 -- charged for what
+ * can actually be shipped. A tracked stock of 0 returns 0; the line-item
+ * path refuses that before pricing, this helper only counts.
+ *
+ * ONE function on purpose: the volume-price tiers count units across the
+ * cart BEFORE each line is priced, and until the 2026-09-08 audit that count
+ * used the raw client qty while the line itself was capped later -- so qty 2
+ * of a stock-1 salve unlocked the multi-buy price on the single unit that
+ * shipped. Both places now count through here, so they cannot disagree.
+ */
+function sellableQty(rawQty, entry) {
+  const parsed = parseInt(rawQty, 10);
+  let qty = Number.isNaN(parsed) || parsed < 1 ? 1 : Math.min(parsed, MAX_QTY_PER_ITEM);
+  if (entry && typeof entry.stock === "number" && Number.isFinite(entry.stock)) {
+    qty = Math.min(qty, Math.max(0, Math.floor(entry.stock)));
+  }
+  return qty;
+}
+
 const QUALIFYING_2OZ_SALVE_PRICE_CENTS = 1500;
 
 const DEFAULT_VOLUME_PRICING = [
@@ -962,7 +1026,11 @@ function resolveCustomBoxCents(catalog, productIds) {
     if (!p || typeof p.price !== "number") {
       throw new ClientError(`Product not found in box: ${rawId}`);
     }
-    if (p.comingSoon) throw new ClientError(`Not available yet: ${rawId}`);
+    // Coming soon, `inStock === false` or a tracked stock of 0: the same
+    // three fields the shop hides a product behind, so a stale builder or an
+    // edited payload cannot put an unsellable product in a box.
+    const unavailable = unavailableReasonOf(p);
+    if (unavailable) throw new ClientError(`${unavailable}: ${p.name || rawId}`);
     if (eligible && eligible.indexOf(p.category) === -1) {
       throw new ClientError(`Not eligible for a custom box: ${rawId}`);
     }
@@ -1118,10 +1186,12 @@ async function handleCheckout(request, env, ctx, origin) {
       const volumeRules = getVolumePricingRules(catalog);
       const ruleCounts = new Map();
       for (const rule of volumeRules) {
+        // Count the units that will actually be sold, not the units asked
+        // for: a tracked `stock` caps each line below (sellableQty), and a
+        // tier unlocked by units that never ship is a discount on nothing.
         const count = items.reduce((sum, item) => {
           if (itemMatchesVolumeRule(item, rule, catalog)) {
-            const q = parseInt(item.qty, 10);
-            return sum + (Number.isNaN(q) || q < 1 ? 1 : Math.min(q, MAX_QTY_PER_ITEM));
+            return sum + sellableQty(item.qty, findEntry(catalog, String(item.id)));
           }
           return sum;
         }, 0);
@@ -1193,6 +1263,10 @@ async function handleCheckout(request, env, ctx, origin) {
 
         const isGiftCard = item.id === GIFT_CARD_ID;
         const isBundle = !isGiftCard && bundleMapOf(catalog).has(entry.id);
+        // A set is only as available as its members: a sold-out or
+        // coming-soon member refuses the whole set, exactly as it would be
+        // refused on its own line.
+        if (isBundle) assertBundleMembersAvailable(catalog, entry);
         // Throws a ClientError (-> 400 with the message) when a gift set
         // arrives with a missing, unknown or sold-out member choice.
         const bundleChoices = isBundle
@@ -1212,21 +1286,15 @@ async function handleCheckout(request, env, ctx, origin) {
           throw new ClientError(`Product not purchasable: ${item.id}`);
         }
 
-        const parsedQty = parseInt(item.qty, 10);
-        let qty =
-          Number.isNaN(parsedQty) || parsedQty < 1 ? 1 : Math.min(parsedQty, MAX_QTY_PER_ITEM);
-
         // `stock` is the on-hand count the CMS tracks (null/absent = not
-        // tracked, e.g. made to order). Where it IS tracked, it caps the
-        // quantity: a shopper who asks for 10 of the 3 that exist gets 3 --
-        // charged for what can actually be shipped -- and 0 means there is
-        // nothing to sell at all.
-        if (typeof entry.stock === "number" && Number.isFinite(entry.stock)) {
-          if (entry.stock <= 0) {
-            throw new ClientError(`Sold out: ${entry.name || item.id}`);
-          }
-          qty = Math.min(qty, Math.floor(entry.stock));
+        // tracked, e.g. made to order). Where it IS tracked, 0 means there is
+        // nothing to sell at all, and otherwise it caps the quantity --
+        // sellableQty() is the same cap the volume-price tiers counted with
+        // above, so a tier can never be unlocked by units that will not ship.
+        if (typeof entry.stock === "number" && Number.isFinite(entry.stock) && entry.stock <= 0) {
+          throw new ClientError(`Sold out: ${entry.name || item.id}`);
         }
+        const qty = sellableQty(item.qty, entry);
 
         // The variant in the line name comes from the catalog option that was
         // matched server-side, never from item.variant -- otherwise a client
@@ -1741,8 +1809,40 @@ async function handleCheckout(request, env, ctx, origin) {
           // longer there: delete the coupon, expire the session (otherwise the
           // shopper could return to the tab and pay the discounted total), and
           // tell the shopper to re-apply.
-          await deleteCoupon(env, appliedGiftCardCouponId);
-          await expireSession(env, session.id);
+          //
+          // The coupon goes first and is never re-minted; a coupon delete
+          // that throws does not stop the expiry below, because expiring the
+          // session is what actually makes it unpayable. Expiry is tried
+          // twice -- a single lost request to Stripe used to leave the tab
+          // payable at the discounted total -- and a session that still will
+          // not expire is logged at error level with the session id AND the
+          // coupon id, so it can be found and expired by hand.
+          const couponId = appliedGiftCardCouponId;
+          let couponDeleted = false;
+          try {
+            couponDeleted = await deleteCoupon(env, couponId);
+          } catch (unwindErr) {
+            console.error(`Gift card unwind: deleting coupon ${couponId} threw:`, unwindErr);
+          }
+          let expired = false;
+          for (let attempt = 1; attempt <= 2 && !expired; attempt++) {
+            try {
+              expired = await expireSession(env, session.id);
+            } catch (unwindErr) {
+              console.error(
+                `Gift card unwind: expiring session ${session.id} threw (attempt ${attempt}):`,
+                unwindErr
+              );
+            }
+          }
+          if (!expired || !couponDeleted) {
+            console.error(
+              `Gift card unwind incomplete for session ${session.id}: ` +
+                `coupon ${couponId} ${couponDeleted ? "deleted" : "NOT deleted"}, ` +
+                `session ${expired ? "expired" : "NOT expired after 2 attempts"}. ` +
+                `Expire the session in the Stripe Dashboard so it cannot be paid.`
+            );
+          }
           console.warn(
             `Gift card ${appliedGiftCardCode} could not be held for ${session.id}: ${err.code}`
           );
