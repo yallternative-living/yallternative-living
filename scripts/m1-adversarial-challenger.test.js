@@ -682,10 +682,10 @@ async function runMilestone1AdversarialSuite() {
 
   // 3.4: Balance Carryover Math Stress
   await runAsyncTest(
-    "3.4.1: Worker caps the discount at the order total and holds exactly that on the ledger",
+    "3.4.1: Worker caps the discount at the order subtotal and holds exactly that on the ledger",
     async () => {
       // Lavender soak in products.json is $10.00 + $10 shipping = $20.00 total.
-      // The card carries $100.00 (10000 cents).
+      // The card carries $100.00 (10000 cents) -> discount capped at $10.00 (1000 cents) subtotal.
       const env = await makeAdversarialEnv({ "YALL-BIG1-0000-0000": 10000 });
       const res = await executeWorkerCheckout(
         {
@@ -699,8 +699,8 @@ async function runMilestone1AdversarialSuite() {
       assert.strictEqual(res.promoCodeRequests, 0, "no Stripe promotion-code lookup happens");
       assert.strictEqual(
         res.couponParams.get("amount_off"),
-        "2000",
-        "Discount capped at $20.00 order total"
+        "1000",
+        "Discount capped at $10.00 order subtotal"
       );
       assert.strictEqual(
         res.sessionParams.get("metadata[gift_card_original_balance_cents]"),
@@ -709,8 +709,8 @@ async function runMilestone1AdversarialSuite() {
       );
       assert.strictEqual(
         res.sessionParams.get("metadata[gift_card_amount_applied_cents]"),
-        "2000",
-        "Applied amount recorded as 2000 cents"
+        "1000",
+        "Applied amount recorded as 1000 cents"
       );
       assert.strictEqual(
         res.sessionParams.get("metadata[gift_card_redeemed_code]"),
@@ -719,8 +719,8 @@ async function runMilestone1AdversarialSuite() {
 
       const { giftCardLedger } = await import("../workers/state/gift-card-ledger.js");
       const after = await giftCardLedger(env, "YALL-BIG1-0000-0000").getBalance();
-      assert.strictEqual(after.pendingCents, 2000, "exactly the applied amount is held");
-      assert.strictEqual(after.balanceCents, 8000, "the carryover is still spendable");
+      assert.strictEqual(after.pendingCents, 1000, "exactly the applied amount is held");
+      assert.strictEqual(after.balanceCents, 9000, "the carryover is still spendable");
     }
   );
 
@@ -730,7 +730,7 @@ async function runMilestone1AdversarialSuite() {
   await runAsyncTest(
     "3.4.2: two concurrent checkouts on one card cannot both spend it",
     async () => {
-      const env = await makeAdversarialEnv({ "YALL-ONCE-ONCE-ONCE": 2000 });
+      const env = await makeAdversarialEnv({ "YALL-ONCE-ONCE-ONCE": 1000 });
       const first = await executeWorkerCheckout(
         {
           items: [{ id: "lavender-soak", qty: 1, variant: "10 oz" }],
@@ -751,7 +751,7 @@ async function runMilestone1AdversarialSuite() {
 
       const { giftCardLedger } = await import("../workers/state/gift-card-ledger.js");
       const after = await giftCardLedger(env, "YALL-ONCE-ONCE-ONCE").getBalance();
-      assert.strictEqual(after.pendingCents, 2000, "only one hold exists");
+      assert.strictEqual(after.pendingCents, 1000, "only one hold exists");
       assert.strictEqual(after.balanceCents, 0, "and the card was debited exactly once");
     }
   );

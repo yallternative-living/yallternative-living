@@ -9,20 +9,24 @@ Etsy and at Upstate SC farmers markets / Pride events.
 Hey Savanna! Welcome to your website. I put this quick guide together at the top of the README to make it super easy for you to manage the shop, update content, and get everything hooked up for launch without having to dig through a bunch of code.
 
 ### 1. How to Edit Your Products, Events & FAQs (No Code Required)
+
 I've set up a simple **Website Dashboard** where you can edit the site's content using friendly forms (so you never have to touch a text editor or type any code):
-* **Where to go:** `https://<your-deployed-domain>/admin` (this link will work once the site is live)
-* **What you can do here:**
-  * **Products:** Add new items, change prices, update descriptions, ingredients, or inventory levels.
-  * **Markets & Events:** Add upcoming market dates or move past dates to "recent appearances."
-  * **FAQ List:** Change the customer questions and answers.
-  * **Shop Info:** Edit the shop description or banner texts.
-* **How it works:** When you make changes and click **Save**, the system automatically sends the updates to the website. The live site will rebuild and update itself in about a minute or two.
-* **For technical setup (if you want me to walk you through it):** See [Section 20 (CMS Auth Setup)](#20-product-editor-sveltia-cms-at-admin-explained).
+
+- **Where to go:** `https://<your-deployed-domain>/admin` (this link will work once the site is live)
+- **What you can do here:**
+  - **Products:** Add new items, change prices, update descriptions, ingredients, or inventory levels.
+  - **Markets & Events:** Add upcoming market dates or move past dates to "recent appearances."
+  - **FAQ List:** Change the customer questions and answers.
+  - **Shop Info:** Edit the shop description or banner texts.
+- **How it works:** When you make changes and click **Save**, the system automatically sends the updates to the website. The live site will rebuild and update itself in about a minute or two.
+- **For technical setup (if you want me to walk you through it):** See [Section 20 (CMS Auth Setup)](#20-product-editor-sveltia-cms-at-admin-explained).
 
 ### 2. Checklist to Launch Your Store (Linking Your Tools)
+
 To start taking payments, sending newsletters, or moderating reviews directly on the site, you'll need to create accounts on these external platforms and link them to the site. **For the click-by-click version of every step below (exact menu paths, a fill-in-the-blank handoff sheet at the end), see [docs/SETUP-GUIDE.md](SETUP-GUIDE.md)** — this list is just the summary.
+
 1. **[ ] Hosting & Domain (Netlify):** Connect your GitHub account to host the site for free and point your custom domain. (Setup steps in [Section 12](#12-deployment)).
-2. **[ ] Customer Checkout & Credit Cards (Stripe + Cloudflare):** Two accounts, not one — but you create both yourself, same as everything else on this list. **(a)** Sign up for Stripe and grab a secret key — same as any account here. **(b)** Sign up for Cloudflare too, then invite me in as a Member. That key doesn't do anything by itself: it has to be installed on a small piece of backend code (`workers/checkout.js`) that also has to be *deployed* inside your Cloudflare account using a command-line tool called Wrangler — that part is genuinely my job, not a form to fill out. Ask me to run it once you've invited me in. (Full steps in [Section 8](#8-the-shopping-system-explained) and `workers/README.md`.)
+2. **[ ] Customer Checkout & Credit Cards (Stripe + Cloudflare):** Two accounts, not one — but you create both yourself, same as everything else on this list. **(a)** Sign up for Stripe and grab a secret key — same as any account here. **(b)** Sign up for Cloudflare too, then invite me in as a Member. That key doesn't do anything by itself: it has to be installed on a small piece of backend code (`workers/checkout.js`) that also has to be _deployed_ inside your Cloudflare account using a command-line tool called Wrangler — that part is genuinely my job, not a form to fill out. Ask me to run it once you've invited me in. (Full steps in [Section 8](#8-the-shopping-system-explained) and `workers/README.md`.)
 3. **[ ] Email Newsletters (Kit):** Collects customer email addresses from the signup box in the footer so you can send them updates. (Setup steps in [Section 13](#13-newsletter-signup-explained)).
 4. **[ ] Contact Form, Customer Reviews & Restock Alerts (Formspree):** Create three separate forms — contact messages, new customer reviews, and "email me when it's back" signups from sold-out products — each sent directly to your email inbox. (Setup steps in [Section 16](#16-on-site-review-submissions-explained)).
 5. **[ ] Gift Card Emails (Resend):** Required for the built-in gift-card system (item 2's checkout Worker uses it) to actually email a redeemable code once someone buys one — not optional unless you replace gift cards entirely with item 6. (Setup steps in `workers/README.md`.)
@@ -31,6 +35,7 @@ To start taking payments, sending newsletters, or moderating reviews directly on
 8. **[ ] Store Management (Sveltia CMS):** Log in to your secure admin panel with GitHub to manage products and content. Log in **today** with a GitHub token ("Sign in with Token"), or set up the permanent one-click "Sign in with GitHub" button. **Netlify is not involved** (its old Git Gateway login is deprecated). See [Section 20](#20-product-editor-sveltia-cms-at-admin-explained).
 
 ### 3. Setting Up Your Website Name (Domain Name)
+
 When you're ready to buy your own custom web address (like `yallternativeliving.com`), just let me know. I've already wired up a script that will automatically update the entire site to use your new address in one click. You or I can follow the steps in [Section 10](#10-seo--ai-agent-optimization-already-in-place) to run it!
 
 ---
@@ -90,7 +95,6 @@ site/
   sitemap.xml          Auto-generated -- see scripts/build-site-data.js
   llms.txt             AI-agent-facing summary -- auto-generated (section 10)
   netlify.toml         Netlify config: headers, caching, CSP
-  vercel.json          Vercel config: same headers/CSP as netlify.toml
   .gitignore
   .github/workflows/test.yml   CI: lint, format check, and the QA suite
                                 on every push and pull request
@@ -101,8 +105,8 @@ site/
   scripts/build-site-data.js   Regenerates every derived file (including
                                 products-data.js itself) from products.json
                                 / events-data.js (section 10)
-  scripts/build-security-headers.js  Regenerates _headers/vercel.json/
-                                      netlify.toml's CSP + security headers
+  scripts/build-security-headers.js  Regenerates _headers and netlify.toml's
+                                       CSP + security headers (section 14)
   scripts/optimize-images.js   Generates responsive WebP variants +
                                 assets/js/image-manifest.js (section 15)
   package.json          Dev-time only (sharp, for optimize-images.js) --
@@ -112,9 +116,10 @@ site/
                          needs to be deployed separately, see workers/README.md
   workers/submit-form.js  Optional Cloudflare Worker alternative to Formspree
                            (section 16) -- not deployed by default
-  netlify/functions/fulfill-gift-card.js  Stripe webhook: emails a
-                         redeemable code once a gift-card order completes
-                         (section 8/18) -- also needs separate setup
+  workers/routes/stripe-webhook.js  Stripe webhook handler: emails a
+                          redeemable code once a gift-card order completes,
+                          handles session expiration and refund restoration
+                          (section 8/18) -- served at /api/stripe-webhook
   assets/
     css/styles.css     Single shared stylesheet (design tokens + components,
                         @font-face rules)
@@ -144,11 +149,12 @@ site/
 
 No build step for the deployed site itself: open `index.html` in a
 browser and it works, and you can deploy by dragging the `site/` folder
-onto Netlify/Vercel/GitHub Pages or uploading via any host's file
-manager. There is now one *optional, dev-time-only* tool (`npm install`
-+ `scripts/optimize-images.js`, see section 15) for regenerating
-responsive photo variants -- it never touches how the live site loads,
-it just pre-generates files that get deployed alongside everything else.
+onto Netlify or uploading via any host's file
+manager. There is now one _optional, dev-time-only_ tool (`npm install`
+
+- `scripts/optimize-images.js`, see section 15) for regenerating
+  responsive photo variants -- it never touches how the live site loads,
+  it just pre-generates files that get deployed alongside everything else.
 
 **Code style (dev-time only, also optional):** `npm install` also pulls
 in ESLint and Prettier for the hand-written JS in `scripts/` and
@@ -206,47 +212,59 @@ themed for **dark (default) and light mode** via `[data-theme]` + a
 ```html
 <!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="view-transition" content="same-origin">
-<title>PAGE TITLE — Y'allternative Living</title>
-<meta name="description" content="PAGE-SPECIFIC 150-160 CHAR DESCRIPTION">
-<!-- No live domain yet -- once deployed, add: <link rel="canonical" href="https://your-domain-here.com/PAGE.html"> -->
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="view-transition" content="same-origin" />
+    <title>PAGE TITLE — Y'allternative Living</title>
+    <meta name="description" content="PAGE-SPECIFIC 150-160 CHAR DESCRIPTION" />
+    <!-- No live domain yet -- once deployed, add: <link rel="canonical" href="https://your-domain-here.com/PAGE.html"> -->
 
-<meta property="og:type" content="website">
-<meta property="og:title" content="PAGE TITLE — Y'allternative Living">
-<meta property="og:description" content="PAGE-SPECIFIC DESCRIPTION">
-<meta property="og:image" content="assets/img/unisex-tshirt.jpg">
-<!-- og:url -- add once deployed: <meta property="og:url" content="https://your-domain-here.com/PAGE.html"> -->
-<meta name="twitter:card" content="summary_large_image">
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="PAGE TITLE — Y'allternative Living" />
+    <meta property="og:description" content="PAGE-SPECIFIC DESCRIPTION" />
+    <meta property="og:image" content="assets/img/unisex-tshirt.jpg" />
+    <!-- og:url -- add once deployed: <meta property="og:url" content="https://your-domain-here.com/PAGE.html"> -->
+    <meta name="twitter:card" content="summary_large_image" />
 
-<link rel="icon" href="assets/img/favicon-32.png" sizes="32x32" type="image/png">
-<link rel="icon" href="assets/img/favicon-192.png" sizes="192x192" type="image/png">
-<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
-<link rel="manifest" href="site.webmanifest">
-<meta name="theme-color" content="#c65a6d">
+    <link rel="icon" href="assets/img/favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="icon" href="assets/img/favicon-192.png" sizes="192x192" type="image/png" />
+    <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png" />
+    <link rel="manifest" href="site.webmanifest" />
+    <meta name="theme-color" content="#c65a6d" />
 
-<!-- Fonts come from Google Fonts (Gloock + DM Sans). The stylesheet is
+    <!-- Fonts come from Google Fonts (Gloock + DM Sans). The stylesheet is
      preloaded and first attached as media="print" so it never blocks
      first paint; a one-line inline script flips it to "all" on load, and
      the <noscript> fallback attaches it directly. There is no assets/fonts/. -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Gloock&family=DM+Sans:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=DM+Sans:wght@400;500;700&display=swap" media="print" id="gfontsStylesheet">
-<link rel="stylesheet" href="assets/css/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Gloock&family=DM+Sans:wght@400;500;700&display=swap"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Gloock&family=DM+Sans:wght@400;500;700&display=swap"
+      media="print"
+      id="gfontsStylesheet"
+    />
+    <link rel="stylesheet" href="assets/css/styles.css" />
 
-<script>
-  // No-flash theme init: runs before paint, before main.js.
-  (function(){
-    var t = localStorage.getItem('yl-theme');
-    if(!t){ t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'; }
-    document.documentElement.setAttribute('data-theme', t);
-  })();
-</script>
-<!-- + a page-specific LocalBusiness / BreadcrumbList JSON-LD <script type="application/ld+json"> block -- see any existing page's <head> for the pattern. -->
-</head>
+    <script>
+      // No-flash theme init: runs before paint, before main.js.
+      (function () {
+        var t = localStorage.getItem("yl-theme");
+        if (!t) {
+          t = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+        }
+        document.documentElement.setAttribute("data-theme", t);
+      })();
+    </script>
+    <!-- + a page-specific LocalBusiness / BreadcrumbList JSON-LD <script type="application/ld+json"> block -- see any existing page's <head> for the pattern. -->
+  </head>
+</html>
 ```
 
 ## 5. Required scripts + header (right after `<body>`, on every page)
@@ -260,34 +278,54 @@ whichever nav link matches the current page; the others should have no
 
 ```html
 <body>
-<a class="skip-link" href="#main">Skip to content</a>
-<header class="site-header">
-  <nav class="nav">
-    <a class="brand" href="index.html" aria-label="Y'allternative Living home">
-      <img src="assets/img/logo.jpg" alt="Y'allternative Living logo" width="42" height="42">
-      <span class="brand-word">Y'allternative<small>Living</small></span>
-    </a>
-    <ul class="nav-links" id="navLinks">
-      <li><a href="index.html">Home</a></li>
-      <li><a href="shop.html">Shop</a></li>
-      <li><a href="events.html">Events</a></li>
-      <li><a href="about.html">Our Story</a></li>
-      <li><a href="contact.html">Contact</a></li>
-    </ul>
-    <div class="nav-cta">
-      <button class="cart-toggle" type="button" aria-label="View your cart">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.5 3h2l2.6 12.6a2 2 0 0 0 2 1.6h8.4a2 2 0 0 0 2-1.6L21 8H6"/></svg>
-        <span class="badge cart-count"></span>
-      </button>
-      <button type="button" class="theme-toggle" id="themeToggle" role="switch" aria-checked="false" aria-label="Toggle dark and light mode">
-        <span class="knob">🌙</span>
-      </button>
-      <a class="btn btn-primary btn-sm" href="https://www.etsy.com/shop/YallternativeLivinCO" target="_blank" rel="noopener"><span>Shop</span> Etsy ↗</a>
-      <button type="button" class="nav-toggle" aria-label="Open menu" aria-expanded="false">☰</button>
-    </div>
-  </nav>
-</header>
-<main id="main">
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <nav class="nav">
+      <a class="brand" href="index.html" aria-label="Y'allternative Living home">
+        <img src="assets/img/logo.jpg" alt="Y'allternative Living logo" width="42" height="42" />
+        <span class="brand-word">Y'allternative<small>Living</small></span>
+      </a>
+      <ul class="nav-links" id="navLinks">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="shop.html">Shop</a></li>
+        <li><a href="events.html">Events</a></li>
+        <li><a href="about.html">Our Story</a></li>
+        <li><a href="contact.html">Contact</a></li>
+      </ul>
+      <div class="nav-cta">
+        <button class="cart-toggle" type="button" aria-label="View your cart">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="9" cy="21" r="1" />
+            <circle cx="19" cy="21" r="1" />
+            <path d="M2.5 3h2l2.6 12.6a2 2 0 0 0 2 1.6h8.4a2 2 0 0 0 2-1.6L21 8H6" />
+          </svg>
+          <span class="badge cart-count"></span>
+        </button>
+        <button
+          type="button"
+          class="theme-toggle"
+          id="themeToggle"
+          role="switch"
+          aria-checked="false"
+          aria-label="Toggle dark and light mode"
+        >
+          <span class="knob">🌙</span>
+        </button>
+        <a
+          class="btn btn-primary btn-sm"
+          href="https://www.etsy.com/shop/YallternativeLivinCO"
+          target="_blank"
+          rel="noopener"
+          ><span>Shop</span> Etsy ↗</a
+        >
+        <button type="button" class="nav-toggle" aria-label="Open menu" aria-expanded="false">
+          ☰
+        </button>
+      </div>
+    </nav>
+  </header>
+  <main id="main"></main>
+</body>
 ```
 
 Note the wishlist heart icon isn't in this markup — it's injected at
@@ -301,7 +339,7 @@ runtime by `main.js` (`initWishNavButton`) as the very first child of
 **The footer is single-source now — don't hand-edit it on individual
 pages.** The entire `<footer class="site-footer">...</footer>` block is
 byte-identical across all 7 pages, so it lives in exactly one file,
-`assets/data/footer.html` (everything *inside* the `<footer>` tag —
+`assets/data/footer.html` (everything _inside_ the `<footer>` tag —
 the outer tag itself is added by the build). To change anything in the
 footer (a new social link, the real Kit newsletter form URL, a policy
 tweak, an added tracking snippet), edit `assets/data/footer.html` once,
@@ -340,6 +378,7 @@ after the footer, before `</body>`:
 ```
 
 Notes:
+
 - `<main id="main">` opens in the header block above and is closed
   right before the footer — everything page-specific goes between them.
 - Every internal link inside the footer is a relative path
@@ -413,8 +452,8 @@ every product) but is no longer the only way to buy.
   next build (`node scripts/build-site-data.js`) picks it up automatically
   and the very next checkout charges the new price. Nothing extra to
   remember.
-- Gift cards are a special case: buying one triggers a second backend piece
-  (`netlify/functions/fulfill-gift-card.js`) that emails the recipient a
+- Gift cards are a special case: buying one triggers the Stripe webhook handler in the Cloudflare Worker
+  (`/api/stripe-webhook`, implemented in `workers/routes/stripe-webhook.js`) that emails the recipient a
   redeemable code once payment actually completes, using
   **[Resend](https://resend.com)** to actually send that email (a separate
   free account/API key from Stripe -- see Part B below). See section 18.
@@ -443,7 +482,7 @@ every product) but is no longer the only way to buy.
   Why the probe exists instead of just always sending `automatic_tax`:
   calling it while Tax is still `pending` makes Stripe **reject the entire
   Checkout Session**. A premature "on" doesn't quietly skip the tax line, it
-  breaks every purchase. Everything uncertain therefore resolves to *off* —
+  breaks every purchase. Everything uncertain therefore resolves to _off_ —
   probe unreachable, key lacking Tax read scope, unexpected response. An
   order that should have charged tax is a bookkeeping problem; an order
   Stripe refuses to create is a lost sale.
@@ -474,17 +513,17 @@ every product) but is no longer the only way to buy.
   rated at 0% unless a registration exists for that state, which is the
   correct outcome for a business with nexus only in SC.
 
-  *Market pickup is handled too.* A pickup order is delivered at the market,
+  _Market pickup is handled too._ A pickup order is delivered at the market,
   so that county's rate applies — not the buyer's home county. Stripe's
   purpose-built feature for this (performance locations) isn't supported by
   Checkout Sessions, so the Worker takes the route that is: it creates a
   Stripe Customer already carrying the market's address, passes that
   `customer` to the session, and skips collecting a shipping address
   (a collected one always wins over the Customer's). `customer_update
-  [address]=never` stops the billing address from displacing it afterward.
+[address]=never` stops the billing address from displacing it afterward.
 
   For this to work, the market needs a **ZIP code** filled in under
-  *Markets, Fairs & Pride Dates* in the CMS — Stripe needs country, state,
+  _Markets, Fairs & Pride Dates_ in the CMS — Stripe needs country, state,
   and a 5-digit ZIP to resolve a US jurisdiction. The state is read off the
   end of the `location` string (`"Flat Rock, NC"` → `NC`), so out-of-state
   markets work without a separate field.
@@ -501,7 +540,7 @@ every product) but is no longer the only way to buy.
   must stay byte-identical to the `<option>` label cart.js builds for the
   pickup dropdown. Change one and change the other; the test suite pins both.
 
-  **Discounts and tax together:** Stripe rates the subtotal *after*
+  **Discounts and tax together:** Stripe rates the subtotal _after_
   discounts, which is the right answer for this site's own markdowns — a
   bundle's `discountPercent` and the custom box's 10% are already baked into
   the price sent to Stripe, and a sale price is a genuinely lower price, so
@@ -519,7 +558,7 @@ environment this was built in.**
    (no fee to sign up; you only pay the per-transaction rate once you're
    live). Stripe starts you in **Test mode** — a toggle in the dashboard —
    where nothing touches a real card until you flip it.
-2. Under **Developers → API keys**, grab a **secret key**. A *restricted*
+2. Under **Developers → API keys**, grab a **secret key**. A _restricted_
    key limited to Checkout Sessions + Coupons + Promotion Codes write
    access is safer than the default full-access secret key, if you want to
    set that up.
@@ -536,10 +575,10 @@ sessions and handle gift cards) — but full step-by-step instructions are in
 4. Sign up for a free **[Resend](https://resend.com)** account and grab an
    API key -- this is what actually sends the gift-card email, and it's
    easy to miss since it's not a Stripe or Netlify product. Set the three
-   environment variables `fulfill-gift-card.js` needs in Netlify's site
-   settings (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and
-   `RESEND_API_KEY`), then register the function as a Stripe webhook
-   endpoint (Developers → Webhooks in the Stripe Dashboard) so gift cards
+   secrets the Worker needs in Cloudflare Workers settings (**Settings → Variables and Secrets**:
+   `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and
+   `RESEND_API_KEY`), then register the Worker endpoint (`https://yallternativeliving.com/api/stripe-webhook`)
+   as a Stripe webhook endpoint (Developers → Webhooks in the Stripe Dashboard) so gift cards
    actually get emailed.
 
 **C. Store details**
@@ -556,7 +595,7 @@ sessions and handle gift cards) — but full step-by-step instructions are in
 `website-gap-analysis.md`)**
 
 7. **First-order discount code** — Stripe supports Coupons + Promotion
-   Codes directly (the same mechanism `fulfill-gift-card.js` already uses
+   Codes directly (the same mechanism the gift-card system uses
    for gift-card redemption codes) — create one in
    **Product catalog → Coupons**, and since `workers/checkout.js` already
    sets `allow_promotion_codes: true`, any code you create there is
@@ -590,19 +629,20 @@ request.
 
 ### The endpoints
 
-| Endpoint | Where it runs | Methods | What it does | Security posture |
-|---|---|---|---|---|
-| `/api/checkout` -> `workers/checkout.js` | Cloudflare Worker (Netlify proxies the path) | `POST` | Re-prices the cart server-side from `products.json`, applies volume tiers and gift-card discounts, creates the Stripe Checkout session. | Origin-allowlisted. Never trusts a client price. Holds `STRIPE_SECRET_KEY`. |
-| `/.netlify/functions/fulfill-gift-card` | Netlify function | `POST` (Stripe webhook only) | Mints the redemption code and Promotion Code, emails the recipient, rolls over partial redemptions, restores balance on refund, cleans up the ephemeral coupon on an expired session. | Verifies the Stripe signature against `STRIPE_WEBHOOK_SECRET`. Not callable by hand. |
-| `/.netlify/functions/gift-card-balance` | Netlify function | `POST` (preferred) and `GET` | Looks a gift-card code up and returns its current and original amount. `POST` with a JSON body is preferred **because a `GET ?code=` puts a live gift-card code into browser history, referrer headers and every proxy access log**; `GET` stays supported for older clients. | Origin-allowlisted, `Cache-Control: no-store`. Still an **unthrottled validation oracle** — it will tell anyone whether a code is real. Rate limiting is the outstanding work. |
-| `/.netlify/functions/submit-restock` | Netlify function | `POST` | Forwards a "tell me when this is back" request to **Resend**, so the shop actually receives it. It used to accept the submission and discard it while promising a notification. | Origin-allowlisted. The header comment used to claim rate limiting that did not exist; there still is none. |
-| `/.netlify/functions/redeem-points` | Netlify function | any | **Withdrawn.** Returns `410 Gone` to everything except `OPTIONS`. | It converted "Alt-Points" into a real Stripe promotion code on the caller's word alone, with no server-side ledger, no auth and no rate limit — a loop from a terminal minted unlimited store credit. `410`, not `404`, so the URL is honest about having been withdrawn and stale clients show a real message. Do not re-enable without a ledger that verifies a balance and records the spend atomically. |
-| `order-status.html` | Static page | — | **Not an endpoint.** It makes no request to anything. It is a contact hand-off: it collects the order reference and points the shopper at email. Any "look up my order" UI beyond that would need a real Stripe session lookup behind it. | Nothing to secure; nothing to trust. |
+| Endpoint                                                          | Where it runs                                | Methods                      | What it does                                                                                                                                     | Security posture                                                                            |
+| ----------------------------------------------------------------- | -------------------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `/api/checkout` -> `workers/checkout.js`                          | Cloudflare Worker (Netlify proxies the path) | `POST`                       | Re-prices the cart server-side from `products.json`, applies volume tiers and gift-card discounts, creates the Stripe Checkout session.          | Origin-allowlisted. Never trusts a client price. Holds `STRIPE_SECRET_KEY`.                 |
+| `/api/stripe-webhook` -> `workers/routes/stripe-webhook.js`       | Cloudflare Worker                            | `POST` (Stripe webhook only) | Mints the redemption code, emails recipient, settles redemptions, restores balance on refund, cleans up ephemeral coupon on expired session.     | Verifies HMAC-SHA-256 signature against `STRIPE_WEBHOOK_SECRET`. Exactly-once claims in D1. |
+| `/api/gift-card-balance` -> `workers/routes/gift-card-balance.js` | Cloudflare Worker                            | `POST` (preferred) and `GET` | Looks a gift-card code up and returns its current and original amount from the Durable Object ledger.                                            | Origin-allowlisted, `Cache-Control: no-store`.                                              |
+| `/api/restock` -> `workers/routes/restock.js`                     | Cloudflare Worker                            | `POST`                       | Records restock notification interest and dispatches notifications via Resend.                                                                   | Origin-allowlisted, sanitized inputs.                                                       |
+| `order-status.html`                                               | Static page                                  | —                            | **Not an endpoint.** It makes no request to anything. It is a contact hand-off: it collects the order reference and points the shopper at email. | Nothing to secure; nothing to trust.                                                        |
+
+_(Note: The legacy `/.netlify/functions/` routes have been completely retired and deleted from the repository. Netlify hosts static assets only.)_
 
 ### Stripe webhook events to subscribe
 
 In the Stripe dashboard, the webhook pointing at
-`/.netlify/functions/fulfill-gift-card` must be subscribed to **all three**:
+`https://yallternativeliving.com/api/stripe-webhook` must be subscribed to **all three**:
 
 - `checkout.session.completed` — delivers the gift card and processes a
   redemption. This is the only one older versions of this doc mentioned.
@@ -625,35 +665,32 @@ the three metadata keys and the within-the-hour timing.
 Set on the **Cloudflare Worker** (`workers/checkout.js`, Settings -> Variables
 and Secrets):
 
-| Name | Required | Notes |
-|---|---|---|
-| `STRIPE_SECRET_KEY` | yes | Secret. Test key until launch, live key after. |
-| `STRIPE_TAX_ENABLED` | no | `"true"` turns Stripe Tax on. Off today; several tax caveats in section 18 only bite once it is on. |
-| `SITE_ORIGIN` | no | Overrides the success/cancel URL origin. Defaults to the live domain. |
+| Name                 | Required | Notes                                                                                               |
+| -------------------- | -------- | --------------------------------------------------------------------------------------------------- |
+| `STRIPE_SECRET_KEY`  | yes      | Secret. Test key until launch, live key after.                                                      |
+| `STRIPE_TAX_ENABLED` | no       | `"true"` turns Stripe Tax on. Off today; several tax caveats in section 18 only bite once it is on. |
+| `SITE_ORIGIN`        | no       | Overrides the success/cancel URL origin. Defaults to the live domain.                               |
 
-Set on the **Netlify site** (Site configuration -> Environment variables) — the
-functions read these with `process.env`:
+Set on the **Cloudflare Worker** (Settings -> Variables and Secrets) — the Worker routes read these from `env`:
 
-| Name | Used by | Required | Notes |
-|---|---|---|---|
-| `STRIPE_SECRET_KEY` | `fulfill-gift-card`, `gift-card-balance` | yes | Same key as the Worker. |
-| `STRIPE_WEBHOOK_SECRET` | `fulfill-gift-card` | yes | Verifies the Stripe signature. **Rotating it changes every gift-card code the site would derive**: codes are derived from this secret, so a rotation makes previously issued codes underivable. Rotate only with a plan for the cards already in the wild. |
-| `RESEND_API_KEY` | `fulfill-gift-card`, `submit-restock` | yes | Without it, gift-card delivery fails after the customer has already paid. |
-| `FROM_EMAIL` | `fulfill-gift-card` | no | Verified Resend sender. Falls back to `RESEND_FROM_EMAIL`, then a hardcoded default. |
-| `RESEND_FROM_EMAIL` | `fulfill-gift-card` | no | Second fallback for the same thing. Set one or the other, not both. |
-| `GIFT_CARD_FROM_EMAIL` | `submit-restock` (and the withdrawn `redeem-points`) | no | **Defaults to `orders@yallternativeliving.com`, not `gifts@`** — earlier docs said `gifts@`. Whatever you set must be a verified Resend sender. |
-| `RESTOCK_FROM_EMAIL` | `submit-restock` | no | Sender for restock alerts; falls back to `GIFT_CARD_FROM_EMAIL`. |
-| `RESTOCK_NOTIFY_EMAIL` | `submit-restock` | no | Where restock alerts are delivered. Defaults to the shop's own address. |
-| `SITE_ORIGIN` | `fulfill-gift-card` | no | **This is a Netlify environment variable too**, not only a Worker one. |
+| Name                    | Used by                                         | Required | Notes                                                                                                        |
+| ----------------------- | ----------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------ |
+| `STRIPE_SECRET_KEY`     | checkout, balance                               | yes      | Secret. Restrict to Checkout Sessions, Coupons, Promotion Codes, Customers (write), and Tax Settings (read). |
+| `STRIPE_WEBHOOK_SECRET` | `routes/stripe-webhook.js`                      | yes      | Secret. Signing secret for `/api/stripe-webhook`. Verifies Stripe webhook HMAC signature.                    |
+| `RESEND_API_KEY`        | `routes/stripe-webhook.js`, `routes/restock.js` | yes      | Secret. Sends transactional gift card and restock emails.                                                    |
+| `FROM_EMAIL`            | `routes/stripe-webhook.js`                      | no       | Verified Resend sender address. Defaults to `orders@yallternativeliving.com`.                                |
+| `GIFT_CARD_FROM_EMAIL`  | `routes/stripe-webhook.js`                      | no       | Sender for gift-card emails. Falls back to `FROM_EMAIL`.                                                     |
+| `RESTOCK_NOTIFY_EMAIL`  | `routes/restock.js`                             | no       | Where restock alert summaries are delivered.                                                                 |
+| `SITE_ORIGIN`           | checkout, webhook                               | no       | Overrides default production site origin (defaults to `https://yallternativeliving.com`).                    |
 
 Set on the **CMS auth Worker** (`cms-auth/sveltia-auth.js`):
 
-| Name | Where | Required | Notes |
-|---|---|---|---|
-| `GITHUB_CLIENT_ID` | Cloudflare Secret | yes | From the GitHub OAuth App. |
-| `GITHUB_CLIENT_SECRET` | Cloudflare Secret | yes | Never in the repo. |
-| `ALLOWED_DOMAINS` | `cms-auth/wrangler.toml` `[vars]` | yes | Comma-separated **bare hosts**, no scheme and no port — the Worker compares the full opener origin and prefixes `https://` itself. Empty means no login can succeed (it fails closed on purpose). |
-| `GITHUB_HOSTNAME` | optional var | no | GitHub Enterprise only. |
+| Name                   | Where                             | Required | Notes                                                                                                                                                                                             |
+| ---------------------- | --------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GITHUB_CLIENT_ID`     | Cloudflare Secret                 | yes      | From the GitHub OAuth App.                                                                                                                                                                        |
+| `GITHUB_CLIENT_SECRET` | Cloudflare Secret                 | yes      | Never in the repo.                                                                                                                                                                                |
+| `ALLOWED_DOMAINS`      | `cms-auth/wrangler.toml` `[vars]` | yes      | Comma-separated **bare hosts**, no scheme and no port — the Worker compares the full opener origin and prefixes `https://` itself. Empty means no login can succeed (it fails closed on purpose). |
+| `GITHUB_HOSTNAME`      | optional var                      | no       | GitHub Enterprise only.                                                                                                                                                                           |
 
 The OAuth scope is **not** configurable and the caller's `?scope=` is ignored:
 the Worker always requests `public_repo`, which is all the CMS needs to commit
@@ -699,7 +736,7 @@ into the `past: [ ... ]` array instead (drop the `date`/keep a
   text on every image, and `fetchpriority="high"` on each page's
   above-the-fold hero image for faster perceived load.
 
-**AI-agent optimization (2026):** this is a small business that *wants*
+**AI-agent optimization (2026):** this is a small business that _wants_
 visibility, so the approach here is "make it easy for AI to find and
 describe accurately," not "block AI crawlers":
 
@@ -709,8 +746,8 @@ describe accurately," not "block AI crawlers":
   Perplexity-User, Google-Extended, CCBot, Bingbot) in addition to the
   wildcard `Allow: /` that already covered them — explicit rather than
   just implicit, so intent reads unambiguously to anyone auditing the
-  file. If you ever want to block AI *training* specifically while still
-  allowing AI *search/citation* crawlers, that's the distinction between
+  file. If you ever want to block AI _training_ specifically while still
+  allowing AI _search/citation_ crawlers, that's the distinction between
   e.g. `GPTBot`/`Google-Extended` (training) vs. `OAI-SearchBot`/
   `Claude-SearchBot`/`Perplexity-User` (live answer citations) — for now
   all are allowed.
@@ -827,25 +864,19 @@ configured with `--omit=dev` (or `NODE_ENV=production`) makes the optimizer
 degrade silently and ship full-size photos. `scripts/qa-check.js` asserts that
 the build command and the dependency install stay paired.
 
-Three ready-to-go options are already in this folder, all pre-wired with the
-build command:
+Netlify is the sole static hosting platform for the site, pre-wired with the build command:
 
-- **Netlify** — `netlify.toml` is already configured (the build command
+- **Netlify** — `netlify.toml` is configured (the build command
   above, long-cache headers for images/CSS/JS, security headers, and a
-  CSP that already allows Umami/Tawk/Google Translate + the `/admin`
-  CMS — Stripe itself needs no CSP entry, see section 8). Also where
-  `netlify/functions/fulfill-gift-card.js` deploys from, if you go this
-  route — Netlify auto-detects that folder. Connect
+  CSP that allows Umami/Tawk + the `/admin`
+  CMS — Stripe itself needs no CSP entry, see section 8). Connect
   a GitHub repo for auto-deploys on every push (drag-and-drop onto
   [app.netlify.com/drop](https://app.netlify.com/drop) also still works,
   but skips the build step, so `/admin` edits won't take effect until
   you redeploy some other way — connecting a repo is the better option
   now that a CMS is in the picture). Publish directory is `.`.
-- **Vercel** — `vercel.json` has the equivalent `buildCommand`,
-  `outputDirectory`, headers, and CSP. Connect the repo in Vercel's
-  dashboard so the build command actually runs (running `vercel` from a
-  local folder without a repo connection skips it, same caveat as
-  Netlify's drag-and-drop above).
+- **Vercel** — Retired. `vercel.json` has been removed from the repository
+  to maintain Netlify as the sole static hosting platform.
 - **GitHub Pages** — no longer wired up. There was a
   `.github/workflows/deploy-pages.yml` that built and published to Pages
   on every push to `main`, but Pages was never actually enabled on the
@@ -859,26 +890,21 @@ build command:
   To bring it back: enable Pages in that setting first, then restore the
   workflow from git history.
 
-**Both of these require a real GitHub repo** now that `/admin`'s
+**Deploying requires a real GitHub repo** now that `/admin`'s
 Sveltia CMS backend is GitHub-based (section 20) — if this project isn't
 in a GitHub repo yet, that's the actual first step, before any of the
 above.
 
-**Checkout is a separate deploy from all three of the above, regardless
-which one you pick.** `workers/checkout.js` is a Cloudflare Worker — it
-deploys to Cloudflare, not to Netlify/Vercel/GitHub Pages, even if you
-host the static site itself on one of those. Likewise,
-`netlify/functions/fulfill-gift-card.js` specifically needs a Netlify
-site to auto-deploy from (Netlify's functions convention) — if you host
-the static site on Vercel or GitHub Pages instead, that one function
-would need its own separate Netlify site (or a rewrite for whichever
-host's own functions platform) just to run. See section 8 and
-`workers/README.md` for the actual deploy steps.
+**The backend is a separate deploy from the static site.** The entire backend
+(checkout session creation, Stripe webhook processing, gift-card ledger, and
+restock routing) runs as a unified Cloudflare Worker in `workers/` — it
+deploys to Cloudflare Workers independently, while Netlify serves only the
+static frontend and proxies `/api/*` requests to the Worker. Netlify has no
+serverless functions. See section 8 and `workers/README.md` for deploy steps.
 
 Also included:
 
-- **`404.html`** — a custom not-found page (all three hosts above
-  detect this filename automatically, zero config needed).
+- **`404.html`** — a custom not-found page (Netlify detects this filename automatically, zero config needed).
 - **`.gitignore`** — excludes `node_modules/`, OS junk, logs, local
   `.env`/`.env.*` files (with `!.env.example`), `.vercel/`, `.netlify/` and
   `.claude/`. The `.env` entries matter more here than on a normal project:
@@ -887,9 +913,10 @@ Also included:
   those entries existed for months before they did — they do now.)
 
 **Whichever host you pick, remember to also:** deploy the checkout Worker
-+ gift-card webhook with real Stripe keys (section 8) and, once you have
-a real domain, find-and-replace `your-domain-here.com` and uncomment the
-canonical/og:url tags (section 10).
+
+- gift-card webhook with real Stripe keys (section 8) and, once you have
+  a real domain, find-and-replace `your-domain-here.com` and uncomment the
+  canonical/og:url tags (section 10).
 
 ## 13. Newsletter signup, explained
 
@@ -923,7 +950,7 @@ is never navigated away to Kit's site.
 - A `?subscribed=1` check in `main.js` still swaps the footer box to the
   subscribed state and cleans the flag out of the URL, for the case where
   Kit's own redirect lands back here.
-- CSP in both `netlify.toml` and `vercel.json` already allows Kit's form
+- CSP in `netlify.toml` (and `_headers`) already allows Kit's form
   domains (`app.kit.com`, `app.convertkit.com`) via the `form-action`
   directive.
 - The same signup box appears identically in the footer of all seven
@@ -1106,16 +1133,19 @@ Two changes, both aimed at real Core Web Vitals wins, not just theory:
 
 **Responsive AVIF & WebP images.** Image assets now render as optimized
 `<picture>` elements serving next-generation AVIF (with WebP fallback) to phones and desktops.
-* **Product Photos:** Rendered dynamically at runtime by `pictureHTML()` in `assets/js/main.js` reading from the manifest.
-* **Static Editorial Images (hero, bio, logos, etc.):** Compiled and statically injected at build time by `node scripts/build-site-data.js` parsing clean outer HTML comments (e.g., `<!--YL:home.heroImage-->...<!--/YL:home.heroImage-->`).
-* **Format & Skip Support:** Supports JPEGs and PNGs. The optimizer (`scripts/optimize-images.js`) caches processed images and runs in milliseconds on subsequent builds by comparing file sizes, completely avoiding deployment timeouts. Real stats: AVIF brings up to **89% smaller** payloads for mobile devices!
+
+- **Product Photos:** Rendered dynamically at runtime by `pictureHTML()` in `assets/js/main.js` reading from the manifest.
+- **Static Editorial Images (hero, bio, logos, etc.):** Compiled and statically injected at build time by `node scripts/build-site-data.js` parsing clean outer HTML comments (e.g., `<!--YL:home.heroImage-->...<!--/YL:home.heroImage-->`).
+- **Format & Skip Support:** Supports JPEGs and PNGs. The optimizer (`scripts/optimize-images.js`) caches processed images and runs in milliseconds on subsequent builds by comparing file sizes, completely avoiding deployment timeouts. Real stats: AVIF brings up to **89% smaller** payloads for mobile devices!
 
 **How to add a new photo and keep this working:**
+
 ```
 1. Drop the new .jpg or .png into assets/img/ (or upload it via /admin).
 2. Run node scripts/build-site-data.js (rebuilds data and wires static images).
 3. npm run optimize-images   (or: node scripts/optimize-images.js to generate the modern variants; it only processes new/modified files).
 ```
+
 That's it — the new photo gets the same responsive treatment
 automatically. If step 3 never happens, nothing breaks: the site falls back to the original image path for any image missing from the manifest.
 `sharp` (the only dependency, see `package.json`) is dev-time only and
@@ -1205,7 +1235,7 @@ since it requires creating an account:**
    refresh the page (or redeploy). No other file changes needed.
 
 The honeypot spam guard and CSP (`form-action` in `scripts/build-
-security-headers.js`, which regenerates `_headers`/`vercel.json`/
+security-headers.js`, which regenerates `_headers` and
 `netlify.toml`) already allow `formspree.io` — nothing else to configure
 there.
 
@@ -1221,8 +1251,7 @@ catalog. Combines with the existing category pills and sort, not
 instead of them.
 
 **Quick FAQ.** The site has exactly one FAQ — a `faq` array in
-`assets/data/products.json` (edit directly, or via `/admin` — section
-20) — and `scripts/build-site-data.js` generates both `contact.html`'s
+`assets/data/products.json` (edit directly, or via `/admin` — section 20) — and `scripts/build-site-data.js` generates both `contact.html`'s
 FAQPage JSON-LD and its visible Q&A prose (`#faq` section) from it, so
 there's only ever one place to add, edit, or reorder a question.
 `shop.html` doesn't keep its own copy anymore; it just links to
@@ -1266,21 +1295,21 @@ mechanism now, not a stopgap.
 
 **Custom Stripe-integrated checkout by default.** The Digital Gift Card is fully integrated as a featured item inside the catalog (`products.json`). When a user clicks "Configure Card" on the shop grid, it triggers a state-of-the-art native `<dialog id="giftCardModal">` modal. This modal allows customers to choose preset amounts ($10, $25, $50, $100, $200) or enter a custom amount (from $10 to $500). They can fill out custom purchase fields (Recipient Email, Sender Name, and an optional Message) and add the gift card directly to the on-site cart, alongside any physical products, checking out in one Stripe session.
 
-Fulfillment is automatic, not manual: once payment completes, `netlify/functions/fulfill-gift-card.js` (the checkout webhook, see section 8) generates a redemption code, creates a matching single-use Stripe Promotion Code for it, and emails it to the recipient — Savanna doesn't have to read orders and hand-create anything. The recipient later enters that code at checkout (`workers/checkout.js` sets `allow_promotion_codes: true`) to redeem it.
+Fulfillment is automatic, not manual: once payment completes, the Stripe webhook handler in `workers/routes/stripe-webhook.js` (listening at `/api/stripe-webhook`, see section 8) generates a redemption code, registers it in the Durable Object ledger, and emails it to the recipient via Resend — Savanna doesn't have to read orders and hand-create anything. The recipient later enters that code at checkout to redeem it.
 
 **Balances ARE tracked now.** This section used to say gift cards had no
 balance tracking; that has not been true since the ledger landed. A partial
 redemption rolls the remainder onto a fresh code, a refund restores the
 balance, and shoppers can look a card up themselves:
-`POST /.netlify/functions/gift-card-balance` with `{"code":"YALL-..."}`
-returns the code's current and original amounts. See the endpoint reference in
+`POST /api/gift-card-balance` with `{"code":"YALL-..."}`
+returns the code's current and original amounts from the Durable Object ledger. See the endpoint reference in
 section 8a.
 
 **Gift cards and sales tax — a known gap, only relevant once tax is on.**
 This site redeems a gift card as a Stripe Promotion Code (an `amount_off`
-coupon), which means Stripe classifies a redemption as a *discount* and
-rates the reduced amount. Tax law generally treats a gift card as a *payment
-method* instead: tax the full price, then let the card pay part of the total
+coupon), which means Stripe classifies a redemption as a _discount_ and
+rates the reduced amount. Tax law generally treats a gift card as a _payment
+method_ instead: tax the full price, then let the card pay part of the total
 including that tax. Combined with the fact that gift cards are correctly
 untaxed at purchase (tax code `txcd_10502000`), an order paid entirely with
 a gift card currently collects no sales tax at either end — purchase or
@@ -1297,7 +1326,7 @@ cheapest first:
    and it costs nothing.
 2. **Tax gift cards at purchase** — change `TAX_CODE_GIFT_CARD` in
    `workers/checkout.js` to `txcd_99999999`. This collects roughly the right
-   *total* tax, just at the wrong moment and from the buyer rather than the
+   _total_ tax, just at the wrong moment and from the buyer rather than the
    recipient. Most states specifically prohibit taxing a gift-card sale, so
    check before choosing this.
 3. **Replace coupons with real stored-value balances**, so a redemption is
@@ -1307,23 +1336,23 @@ cheapest first:
 
 **Optional third-party alternative (Gift Up!) — half-built, not usable yet.** The idea: hand off entirely to **[Gift Up!](https://www.giftup.com)** (a purpose-built gift card platform with its own balance tracking, printable cards, and in-person redemption app -- relevant since this business also sells at farmers markets and Pride events, where the built-in Stripe flow has no in-person path at all) if that's ever preferred over the built-in flow.
 
-**Honest status check:** only half of this actually works, and the hidden placeholder that used to sit in `shop.html` is now gone. The 2026-09-02 live audit (finding N2) found `<div id="giftUpContainer">YOUR_GIFTUP_ID</div>` shipping in production's DOM on every visit to `/shop.html` -- invisible to sighted users, but an unshipped-integration placeholder for a service this shop replaced with its own Cloudflare Worker gift-card system. That element is deleted and `scripts/qa-check.js` asserts it stays deleted, so **step 3 below now also needs the container put back** (a `<!--YL:site.giftUpId-->...<!--/YL:site.giftUpId-->` marker somewhere inside `#giftCardModal`) before a real ID can render anything. The generator side is untouched: `scripts/build-site-data.js` *does* still turn that marker into a real, functional Gift Up! widget embed when a real `giftUpId` is set (verified in the code), and `site.giftUpId` is still declared in `admin/config.yml` so the CMS round-trips it. But nothing checks `giftUpId` anywhere in `main.js` or `cart.js` -- the built-in "Configure Card" button and `#giftCardModal` are generated unconditionally (`addToCartHTML()`), with no bypass logic at all. So pasting a real Gift Up! ID today would show **both** gift-card systems live on the same page, not a clean swap. Because of that, the `giftUpId` field is **hidden in the CMS** (`widget: hidden` in `admin/config.yml`) rather than shown-but-unusable -- the key is still declared so the CMS round-trips its value instead of dropping it on save, but Savanna can't set it by accident. Unhide it (`widget: string`) only after the bypass below exists.
+**Honest status check:** only half of this actually works, and the hidden placeholder that used to sit in `shop.html` is now gone. The 2026-09-02 live audit (finding N2) found `<div id="giftUpContainer">YOUR_GIFTUP_ID</div>` shipping in production's DOM on every visit to `/shop.html` -- invisible to sighted users, but an unshipped-integration placeholder for a service this shop replaced with its own Cloudflare Worker gift-card system. That element is deleted and `scripts/qa-check.js` asserts it stays deleted, so **step 3 below now also needs the container put back** (a `<!--YL:site.giftUpId-->...<!--/YL:site.giftUpId-->` marker somewhere inside `#giftCardModal`) before a real ID can render anything. The generator side is untouched: `scripts/build-site-data.js` _does_ still turn that marker into a real, functional Gift Up! widget embed when a real `giftUpId` is set (verified in the code), and `site.giftUpId` is still declared in `admin/config.yml` so the CMS round-trips it. But nothing checks `giftUpId` anywhere in `main.js` or `cart.js` -- the built-in "Configure Card" button and `#giftCardModal` are generated unconditionally (`addToCartHTML()`), with no bypass logic at all. So pasting a real Gift Up! ID today would show **both** gift-card systems live on the same page, not a clean swap. Because of that, the `giftUpId` field is **hidden in the CMS** (`widget: hidden` in `admin/config.yml`) rather than shown-but-unusable -- the key is still declared so the CMS round-trips its value instead of dropping it on save, but Savanna can't set it by accident. Unhide it (`widget: string`) only after the bypass below exists.
 
 ### Built-in (Stripe) vs. Gift Up! comparison
 
-This table describes the *intended* end state once the bypass logic
+This table describes the _intended_ end state once the bypass logic
 above gets built — not what happens if you paste a Gift Up! ID today
 (see the honest status check above: right now, both would run at once).
 
-| Feature | Built-in (Stripe, Default) | Gift Up! Checkout (Not yet wired) |
-| :--- | :--- | :--- |
-| **How it Works** | Bought as a digital product directly in the main store grid and checkout. | *(Once built)* would bypass the built-in checkout and load a widget from Gift Up!. |
-| **Fulfillment** | **Automatic**: `fulfill-gift-card.js` generates the code and emails it the moment payment completes — no manual step. | **Automatic**: Gift Up! automatically generates the code, tracks the balance, and emails a beautiful, ready-to-print digital gift card to the recipient instantly. |
-| **Redemption** | Customers enter the emailed Stripe Promotion Code at checkout, same cart as everything else. | Gift Up! codes are scanned/validated through Gift Up!'s own system, or inputted at in-person events via the Gift Up! mobile app. |
-| **Cart Integration** | **Unified**: Customers can add a gift card and physical products (like a beard salve) to the same cart and check out once. | **Separated**: Gift cards must be purchased in a separate transaction from physical items. |
-| **Balance tracking** | **None** — a code is single-use and fixed-amount (Stripe Coupon with `max_redemptions: 1`), not a running balance that can be partially spent across multiple orders. | Gift Up! tracks a real running balance, redeemable across multiple partial purchases. |
-| **Fees** | Stripe's standard per-transaction fee only — no separate gift-card platform fee. | Gift Up!'s own transaction fees (usually around 3.49% on free accounts) *on top* of standard payment processing. |
-| **Setup Overhead** | None beyond the checkout Worker + webhook deploy already needed for the rest of the store (section 8). | Requires setting up a Gift Up! account, configuring branding templates, and copying the embed snippet into `shop.html`. |
+| Feature              | Built-in (Stripe, Default)                                                                                                                                            | Gift Up! Checkout (Not yet wired)                                                                                                                                  |
+| :------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **How it Works**     | Bought as a digital product directly in the main store grid and checkout.                                                                                             | _(Once built)_ would bypass the built-in checkout and load a widget from Gift Up!.                                                                                 |
+| **Fulfillment**      | **Automatic**: `workers/routes/stripe-webhook.js` generates the code and emails it the moment payment completes — no manual step.                                     | **Automatic**: Gift Up! automatically generates the code, tracks the balance, and emails a beautiful, ready-to-print digital gift card to the recipient instantly. |
+| **Redemption**       | Customers enter the emailed Stripe Promotion Code at checkout, same cart as everything else.                                                                          | Gift Up! codes are scanned/validated through Gift Up!'s own system, or inputted at in-person events via the Gift Up! mobile app.                                   |
+| **Cart Integration** | **Unified**: Customers can add a gift card and physical products (like a beard salve) to the same cart and check out once.                                            | **Separated**: Gift cards must be purchased in a separate transaction from physical items.                                                                         |
+| **Balance tracking** | **None** — a code is single-use and fixed-amount (Stripe Coupon with `max_redemptions: 1`), not a running balance that can be partially spent across multiple orders. | Gift Up! tracks a real running balance, redeemable across multiple partial purchases.                                                                              |
+| **Fees**             | Stripe's standard per-transaction fee only — no separate gift-card platform fee.                                                                                      | Gift Up!'s own transaction fees (usually around 3.49% on free accounts) _on top_ of standard payment processing.                                                   |
+| **Setup Overhead**   | None beyond the checkout Worker + webhook deploy already needed for the rest of the store (section 8).                                                                | Requires setting up a Gift Up! account, configuring branding templates, and copying the embed snippet into `shop.html`.                                            |
 
 **If Gift Up! is ever wanted, in this order:**
 
@@ -1395,8 +1424,8 @@ deprecated Netlify Identity service. It reads the exact same
 direction) wouldn't require re-learning a schema.
 
 **Honest disclosure — this is pre-1.0 software.** Sveltia's own docs
-say so directly: *"Stable Version Not Yet Available... there might
-still be breaking changes before the stable 1.0 release."* That's a
+say so directly: _"Stable Version Not Yet Available... there might
+still be breaking changes before the stable 1.0 release."_ That's a
 real risk, in the same category as this project's other third-party
 dependencies (Decap/Netlify Identity's own deprecation is exactly the
 kind of thing that can happen to a pre-1.0 tool too) — worth knowing
@@ -1425,14 +1454,14 @@ current docs at that time.
   same section. Nothing secret is in the repo. (It's a top-level folder,
   deliberately not under `workers/`, so it doesn't share the checkout
   Worker's Workers Builds root — see its `wrangler.toml` header.)
-- A path-scoped CSP for `/admin/*` in `_headers`/`vercel.json`/
+- A path-scoped CSP for `/admin/*` in `_headers` and
   `netlify.toml` (separate from, and more permissive than, the main
   site's strict CSP — see the `adminCsp` comment in
   `scripts/build-security-headers.js` for exactly what it allows and
   why). The OAuth login popup (Option B) needs no CSP change: it's a
   `window.open` navigation to the login Worker plus a `postMessage` back,
   neither of which the page's CSP governs.
-- The required build step (section 12) in all three deploy configs, so
+- The required build step (section 12) in the deploy config, so
   a commit from `/admin` automatically regenerates everything derived
   from `products.json` before going live.
 - `npm test` validates `config.yml`'s structure (backend type, the file
@@ -1474,36 +1503,37 @@ current docs at that time.
      (`sveltia-auth.js` + `wrangler.toml`) — a clean-room build of the
      canonical [Sveltia CMS Authenticator](https://github.com/sveltia/sveltia-cms-auth).
      One-time setup (Steven does this once):
-       1. **Create a GitHub OAuth App** — GitHub → **Settings → Developer
-          settings → OAuth Apps → New OAuth App**. This is the short
-          **"OAuth App"** form; it is **not** the long "GitHub App" form
-          (that's the wrong thing — if you land on a page asking for a
-          "Webhook", per-resource "Repository permissions", and a generated
-          `.pem` key, back out; you want plain *OAuth Apps*). Set
-          **Homepage URL** to `https://yallternativeliving.com`. Create it,
-          copy the **Client ID**, then **Generate a new client secret** and
-          copy that. You'll set the **Authorization callback URL** in step 4,
-          once step 2 gives you the Worker URL.
-       2. **Deploy `cms-auth/`** to Cloudflare — same two ways as the
-          checkout Worker (Workers Builds with the project root set to
-          `cms-auth`, or `wrangler deploy` from that folder). See
-          `workers/README.md` → "Sign-in Worker". Cloudflare then shows the
-          Worker's URL, e.g.
-          `https://yallternative-cms-auth.<your-subdomain>.workers.dev`.
-       3. **Add the two secrets** — in that Worker's Cloudflare dashboard,
-          **Settings → Variables and Secrets**, add `GITHUB_CLIENT_ID` and
-          `GITHUB_CLIENT_SECRET` as **Secrets** (from step 1). `ALLOWED_DOMAINS`
-          is already set in `wrangler.toml` (not secret) and restricts token
-          issuance to this site.
-       4. **Connect the three URLs.** Put the Worker URL from step 2 into
-          `admin/config.yml` as `backend.base_url` (replacing the
-          `YOUR-SUBDOMAIN` placeholder already there), commit it, and set the
-          GitHub OAuth App's **Authorization callback URL** (step 1) to
-          `<that-same-Worker-URL>/callback`. These must match exactly.
-     After that, `/admin` shows a real **Sign in with GitHub** button and
-     nobody manages a token. The Worker never sees your data — it only
-     performs the OAuth handshake and hands the browser a token; the client
-     secret lives only as a Cloudflare Secret, never in the repo.
+     1. **Create a GitHub OAuth App** — GitHub → **Settings → Developer
+        settings → OAuth Apps → New OAuth App**. This is the short
+        **"OAuth App"** form; it is **not** the long "GitHub App" form
+        (that's the wrong thing — if you land on a page asking for a
+        "Webhook", per-resource "Repository permissions", and a generated
+        `.pem` key, back out; you want plain _OAuth Apps_). Set
+        **Homepage URL** to `https://yallternativeliving.com`. Create it,
+        copy the **Client ID**, then **Generate a new client secret** and
+        copy that. You'll set the **Authorization callback URL** in step 4,
+        once step 2 gives you the Worker URL.
+     2. **Deploy `cms-auth/`** to Cloudflare — same two ways as the
+        checkout Worker (Workers Builds with the project root set to
+        `cms-auth`, or `wrangler deploy` from that folder). See
+        `workers/README.md` → "Sign-in Worker". Cloudflare then shows the
+        Worker's URL, e.g.
+        `https://yallternative-cms-auth.<your-subdomain>.workers.dev`.
+     3. **Add the two secrets** — in that Worker's Cloudflare dashboard,
+        **Settings → Variables and Secrets**, add `GITHUB_CLIENT_ID` and
+        `GITHUB_CLIENT_SECRET` as **Secrets** (from step 1). `ALLOWED_DOMAINS`
+        is already set in `wrangler.toml` (not secret) and restricts token
+        issuance to this site.
+     4. **Connect the three URLs.** Put the Worker URL from step 2 into
+        `admin/config.yml` as `backend.base_url` (replacing the
+        `YOUR-SUBDOMAIN` placeholder already there), commit it, and set the
+        GitHub OAuth App's **Authorization callback URL** (step 1) to
+        `<that-same-Worker-URL>/callback`. These must match exactly.
+        After that, `/admin` shows a real **Sign in with GitHub** button and
+        nobody manages a token. The Worker never sees your data — it only
+        performs the OAuth handshake and hands the browser a token; the client
+        secret lives only as a Cloudflare Secret, never in the repo.
+
 3. **Visit `https://<your-real-domain>/admin` and sign in** using
    whichever method you set up. You should see forms for Shop Info,
    Categories, Products, Bundles, and FAQ — editing any of them and
@@ -1539,12 +1569,13 @@ browsing the raw JSON.
 The site includes optional birthday capture on the footer newsletter form (`assets/data/footer.html`) and post-purchase screen (`thank-you.html`).
 
 **Data Flow:**
+
 1. Submissions pass `fields[birthday]` in standard `MM/DD` format (e.g. `06/14`) to `site.kitFormAction` (ConvertKit/Kit form endpoint).
 2. **Kit Custom Field Setup (TODO for Savanna / Steven):**
    - In the Kit Dashboard → **Subscribers** → **Custom Fields**, create a text field named `birthday`.
    - In Kit → **Automations** → **Visual Automations**, create a date-triggered rule:
-     - Trigger: *Date occurs on Custom Field `birthday`* (or *1st day of birth month*).
-     - Action: *Send Email Sequence: Birthday Treat*.
+     - Trigger: _Date occurs on Custom Field `birthday`_ (or _1st day of birth month_).
+     - Action: _Send Email Sequence: Birthday Treat_.
 3. **Birthday Treat Email Configuration:**
    - Write a warm birthday greeting from Savanna.
    - Provide a $5 digital voucher code (e.g. `YALL-BDAY-5OFF`) or auto-applied shop link (`https://yallternativeliving.com/shop.html?promo=YALL-BDAY-5OFF`).
@@ -1557,4 +1588,3 @@ The site includes optional birthday capture on the footer newsletter form (`asse
 > Do not offer points as a birthday reward until a server-side ledger exists
 > that can verify a balance and record a spend atomically. A voucher code is a
 > real reward today; points are not.
-

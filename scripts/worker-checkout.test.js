@@ -258,6 +258,10 @@ async function executeCheckout(body, options = {}) {
       sessionParams: capturedSessionParams,
       sessionAttempts,
       couponParams: capturedCouponParams,
+      appliedDiscount:
+        capturedCouponParams && capturedCouponParams.has("amount_off")
+          ? Number(capturedCouponParams.get("amount_off"))
+          : 0,
       deletedCoupons,
       expiredSessions,
       promoLookups,
@@ -499,10 +503,10 @@ async function runWorkerCheckoutTests() {
     eq(after.pendingCents, 500, "...and is held pending payment, not spent");
   }
 
-  // Test 7: a card worth more than the order is capped at total + shipping,
-  // and only that much is held -- the rest stays spendable.
+  // Test 7: a card worth more than the order is capped at line-item subtotal,
+  // excluding shipping, and only that much is held -- the rest stays spendable.
   {
-    // Lavender Soak $18.00 + $10.00 shipping = 2800 cents.
+    // Lavender Soak $18.00 + $10.00 shipping = 2800 cents. Gift card has 5000 cents.
     const result = await executeCheckout(
       {
         items: [{ id: "lavender-soak", qty: 1 }],
@@ -513,8 +517,14 @@ async function runWorkerCheckoutTests() {
 
     eq(
       result.couponParams.get("amount_off"),
-      "2800",
-      "Discount is capped at the order total including shipping"
+      "1800",
+      "Discount is capped at the line-item subtotal, excluding shipping"
+    );
+    eq(result.appliedDiscount, 1800, "Applied discount matches line-item subtotal");
+    eq(
+      result.sessionParams.get("metadata[gift_card_amount_applied_cents]"),
+      "1800",
+      "Session metadata reflects the subtotal discount"
     );
     eq(
       result.sessionParams.get("metadata[gift_card_original_balance_cents]"),
@@ -524,8 +534,42 @@ async function runWorkerCheckoutTests() {
 
     const { giftCardLedger } = await import("../workers/state/gift-card-ledger.js");
     const after = await giftCardLedger(result.env, "YALL-BIGB-IGBI-GBIG").getBalance();
-    eq(after.balanceCents, 2200, "The unspent remainder is still spendable");
-    eq(after.pendingCents, 2800, "Only the applied amount is held");
+    eq(after.balanceCents, 3200, "The unspent remainder is still spendable");
+    eq(after.pendingCents, 1800, "Only the applied subtotal amount is held");
+  }
+
+  // Test 7a: when free shipping applies, the hold is also Math.min(totalCents, availableCents).
+  {
+    // 3x Lavender Soak = $54.00 (qualifies for free shipping over $40 threshold).
+    // Gift card has $50.00 (5000 cents) -> hold is Math.min(5400, 5000) = 5000 cents.
+    const result = await executeCheckout(
+      {
+        items: [{ id: "lavender-soak", qty: 3 }],
+        gift_card_code: "YALL-FREE-SHIP-CARD"
+      },
+      { cards: { "YALL-FREE-SHIP-CARD": 5000 } }
+    );
+
+    eq(
+      result.couponParams.get("amount_off"),
+      "5000",
+      "Free shipping order discount is capped at available card balance"
+    );
+    eq(
+      result.appliedDiscount,
+      5000,
+      "Applied discount matches card balance when subtotal exceeds balance"
+    );
+    eq(
+      result.sessionParams.get("shipping_options[0][shipping_rate_data][fixed_amount][amount]"),
+      "0",
+      "Free shipping rate is $0"
+    );
+
+    const { giftCardLedger } = await import("../workers/state/gift-card-ledger.js");
+    const after = await giftCardLedger(result.env, "YALL-FREE-SHIP-CARD").getBalance();
+    eq(after.balanceCents, 0, "Card is completely held when subtotal exceeds card balance");
+    eq(after.pendingCents, 5000, "Full card balance is held");
   }
 
   // Test 7b (C-2, the actual double-spend): a second checkout that lands

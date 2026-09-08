@@ -5,20 +5,20 @@ cart (`assets/js/cart.js`) POSTs to it and gets back a Stripe Checkout URL, and
 four more endpoints that used to be Netlify Functions now live behind the same
 router:
 
-| Route                         | What it does                                                          |
-| ----------------------------- | --------------------------------------------------------------------- |
-| `POST /api/checkout`          | creates a Stripe Checkout Session; applies a gift card if one is sent |
-| `POST /api/gift-card-balance` | `{code}` -> the balance on the ledger, rate-limited 10/min per IP     |
-| `POST /api/stripe-webhook`    | Stripe events: issues cards, commits/releases holds, restores refunds |
-| `POST /api/order-status`      | `{sessionId, email}` -> a real order, rate-limited 5/min per IP       |
-| `POST /api/restock`           | `{email, product}` -> emails the shop                                 |
-| `POST /api/safety-report`     | a reaction report (MoCRA) -> a three-year D1 row + two emails           |
+| Route                         | What it does                                                                        |
+| ----------------------------- | ----------------------------------------------------------------------------------- |
+| `POST /api/checkout`          | creates a Stripe Checkout Session; applies a gift card if one is sent               |
+| `POST /api/gift-card-balance` | `{code}` -> the balance on the ledger, rate-limited 10/min per IP                   |
+| `POST /api/stripe-webhook`    | Stripe events: issues cards, commits/releases holds, restores refunds               |
+| `POST /api/order-status`      | `{sessionId, email}` -> a real order, rate-limited 5/min per IP                     |
+| `POST /api/restock`           | `{email, product}` -> emails the shop                                               |
+| `POST /api/safety-report`     | a reaction report (MoCRA) -> a three-year D1 row + two emails                       |
 | `GET /api/gift-note`          | the owner's printable 4x6 gift note for an order (signed link from the order email) |
-| `POST /api/order-summary`     | `{sessionId}` -> the settled totals for the thank-you page            |
-| `POST /api/unsubscribe`       | `?t=<token>` -> opts an address out of every marketing send           |
-| `POST /api/welcome-code`      | `{email}` -> a single-use Stripe Promotion Code for a new subscriber  |
-| `POST /api/birthday-club`     | `{email, birthday}` (MM/DD, never a year) -> stored with consent time |
-| `POST /api/loyalty-balance`   | `{email, token}` -> Alt-Points balance; the token is REQUIRED         |
+| `POST /api/order-summary`     | `{sessionId}` -> the settled totals for the thank-you page                          |
+| `POST /api/unsubscribe`       | `?t=<token>` -> opts an address out of every marketing send                         |
+| `POST /api/welcome-code`      | `{email}` -> a single-use Stripe Promotion Code for a new subscriber                |
+| `POST /api/birthday-club`     | `{email, birthday}` (MM/DD, never a year) -> stored with consent time               |
+| `POST /api/loyalty-balance`   | `{email, token}` -> Alt-Points balance; the token is REQUIRED                       |
 
 Everything else 404s as JSON. Every response is `Cache-Control: no-store`, and
 CORS is the apex + www allowlist with `Vary: Origin`. Snipcart is fully removed
@@ -116,10 +116,10 @@ about its beta status.
 > paths cannot drift apart.
 
 1. `npm i -g wrangler` and `wrangler login`.
-2. `cp wrangler.toml.example wrangler.toml`, confirm `SITE_ORIGIN`.
+2. Inspect the committed `wrangler.toml` (do NOT run `cp wrangler.toml.example wrangler.toml`, which would overwrite committed production bindings such as D1 database IDs and Durable Objects), and confirm `SITE_ORIGIN`.
 3. `wrangler secret put STRIPE_SECRET_KEY` (use a **restricted** key with
    Checkout Sessions + Coupons + Promotion Codes **write**, since
-   `fulfill-gift-card.js` creates those, plus Customers write and Tax
+   `workers/routes/stripe-webhook.js` creates those, plus Customers write and Tax
    Settings **read** -- the Worker pins pickup orders to a market address
    via a Customer, and reads Tax Settings to know when to start charging
    sales tax. Without Tax read it just never enables tax; nothing breaks
@@ -171,8 +171,8 @@ as "try this," not a guarantee.
    step 4 of Option B (`wrangler deploy`) ever needs to run by hand
    again.
 6. **Settings -> Build.** Not required to make the Worker work, and worth
-   doing anyway, because "every push" in step 5 means *every push to every
-   branch*, not just `main`. Two settings:
+   doing anyway, because "every push" in step 5 means _every push to every
+   branch_, not just `main`. Two settings:
    - **Branch control** -- build the production branch only. A
      non-production branch build runs `wrangler versions upload`, and with
      `preview_urls = false` in `wrangler.toml` the version it uploads has no
@@ -361,12 +361,12 @@ against something that is not there.
 **Routes** (all four in `workers/routes/retention.js`, all `POST`, all
 rate-limited by IP, all 503 without `STATE_DB`):
 
-| Route                       | Body                     | Notes                                                                                                        |
-| --------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------ |
-| `POST /api/unsubscribe`     | token in `?t=`           | RFC 8058 one-click. The token is an HMAC of the address -- **no PII in the URL**. Also accepts `{token}` JSON. |
-| `POST /api/welcome-code`    | `{email}`                | Mints one Promotion Code per address (`max_redemptions: 1`, first-order only, 45-day expiry).                 |
-| `POST /api/birthday-club`   | `{email, birthday}`      | `MM/DD` only. Accepts a plain form post too and answers it with a 303 back to `thank-you.html`.               |
-| `POST /api/loyalty-balance` | `{email, token}`         | The signed `points` token from a post-purchase email. A balance is never readable by email alone.            |
+| Route                       | Body                | Notes                                                                                                          |
+| --------------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `POST /api/unsubscribe`     | token in `?t=`      | RFC 8058 one-click. The token is an HMAC of the address -- **no PII in the URL**. Also accepts `{token}` JSON. |
+| `POST /api/welcome-code`    | `{email}`           | Mints one Promotion Code per address (`max_redemptions: 1`, first-order only, 45-day expiry).                  |
+| `POST /api/birthday-club`   | `{email, birthday}` | `MM/DD` only. Accepts a plain form post too and answers it with a 303 back to `thank-you.html`.                |
+| `POST /api/loyalty-balance` | `{email, token}`    | The signed `points` token from a post-purchase email. A balance is never readable by email alone.              |
 
 ### 2c. The MoCRA adverse-event route
 
@@ -375,11 +375,11 @@ rate-limited by IP, all 503 without `STATE_DB`):
 (21 U.S.C. 364a, FD&C Act section 609(a)) requires the label to carry a contact
 through which a consumer can report an adverse event; this is it.
 
-| Thing              | Where it goes                                                                                      |
-| ------------------ | -------------------------------------------------------------------------------------------------- |
-| The report         | one row in the D1 table `adverse_events` (schema version 3), kept at least three years. **Needs `STATE_DB`; answers 503 without it.** |
-| The owner's copy   | Resend, to `SAFETY_REPORT_EMAIL` -> `RESTOCK_NOTIFY_EMAIL` -> `contact@yallternativeliving.com`.    |
-| The reporter's copy| Resend, an acknowledgement carrying the reference only.                                            |
+| Thing               | Where it goes                                                                                                                         |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| The report          | one row in the D1 table `adverse_events` (schema version 3), kept at least three years. **Needs `STATE_DB`; answers 503 without it.** |
+| The owner's copy    | Resend, to `SAFETY_REPORT_EMAIL` -> `RESTOCK_NOTIFY_EMAIL` -> `contact@yallternativeliving.com`.                                      |
+| The reporter's copy | Resend, an acknowledgement carrying the reference only.                                                                               |
 
 - `serious` is computed on the server from the outcome checkboxes, never taken
   from the client. When it is set the owner's subject is prefixed `SERIOUS -- `
@@ -411,27 +411,27 @@ through which a consumer can report an adverse event; this is it.
 `birthday_club`, `welcome_codes`. See `docs/STATE-LAYER.md` §4.6.
 
 **Stripe coupons to create by hand** (Dashboard -> Products -> Coupons). These
-are *coupons*, not codes: one coupon backs unlimited single-use Promotion Codes,
+are _coupons_, not codes: one coupon backs unlimited single-use Promotion Codes,
 and the codes are what customers actually type.
 
-| Coupon              | Set the id in            | Used by                                    |
-| ------------------- | ------------------------ | ------------------------------------------ |
-| 10% off             | `STRIPE_WELCOME_COUPON_ID`  | `POST /api/welcome-code`                |
-| $5.00 off (USD)     | `STRIPE_BIRTHDAY_COUPON_ID` | the birthday cron                       |
-| $5.00 off (USD)     | `STRIPE_LOYALTY_COUPON_ID`  | loyalty payouts; falls back to the birthday coupon |
+| Coupon          | Set the id in               | Used by                                            |
+| --------------- | --------------------------- | -------------------------------------------------- |
+| 10% off         | `STRIPE_WELCOME_COUPON_ID`  | `POST /api/welcome-code`                           |
+| $5.00 off (USD) | `STRIPE_BIRTHDAY_COUPON_ID` | the birthday cron                                  |
+| $5.00 off (USD) | `STRIPE_LOYALTY_COUPON_ID`  | loyalty payouts; falls back to the birthday coupon |
 
 **Vars** (`[vars]` in `workers/wrangler.toml`, none of them secret):
 
-| Var                        | Default | What it does                                                        |
-| -------------------------- | ------- | ------------------------------------------------------------------- |
-| `STRIPE_WELCOME_COUPON_ID` | unset   | Unset -> `/api/welcome-code` answers `configured: false` and `welcome.html` falls back to the CMS `site.welcomeCode`. That fallback is the ONLY remaining use of that field. |
-| `STRIPE_BIRTHDAY_COUPON_ID`| unset   | Unset -> the birthday cron logs and mints nothing.                  |
-| `STRIPE_LOYALTY_COUPON_ID` | falls back to the birthday coupon | Unset with no birthday coupon -> points accrue but never pay out. |
-| `LOYALTY_REDEEM_THRESHOLD` | `100`   | Points that trigger an automatic payout.                            |
-| `LOYALTY_REWARD_CENTS`     | `500`   | What a payout is worth. Must match the coupon's own amount.         |
-| `RETENTION_FROM_EMAIL`     | falls back to `GIFT_CARD_FROM_EMAIL` | Verified Resend sender for the retention sends. |
-| `SAFETY_REPORT_EMAIL`      | falls back to `RESTOCK_NOTIFY_EMAIL`, then `contact@yallternativeliving.com` | Where MoCRA reaction reports are emailed. |
-| `UMAMI_WEBSITE_ID`         | set (same value as the CMS) | The Umami website the webhook books each paid order's revenue against ("Order Paid" — `routes/analytics.js`). Unset -> the webhook logs once and books nothing; the site's own page views are unaffected. |
+| Var                         | Default                                                                      | What it does                                                                                                                                                                                              |
+| --------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `STRIPE_WELCOME_COUPON_ID`  | unset                                                                        | Unset -> `/api/welcome-code` answers `configured: false` and `welcome.html` falls back to the CMS `site.welcomeCode`. That fallback is the ONLY remaining use of that field.                              |
+| `STRIPE_BIRTHDAY_COUPON_ID` | unset                                                                        | Unset -> the birthday cron logs and mints nothing.                                                                                                                                                        |
+| `STRIPE_LOYALTY_COUPON_ID`  | falls back to the birthday coupon                                            | Unset with no birthday coupon -> points accrue but never pay out.                                                                                                                                         |
+| `LOYALTY_REDEEM_THRESHOLD`  | `100`                                                                        | Points that trigger an automatic payout.                                                                                                                                                                  |
+| `LOYALTY_REWARD_CENTS`      | `500`                                                                        | What a payout is worth. Must match the coupon's own amount.                                                                                                                                               |
+| `RETENTION_FROM_EMAIL`      | falls back to `GIFT_CARD_FROM_EMAIL`                                         | Verified Resend sender for the retention sends.                                                                                                                                                           |
+| `SAFETY_REPORT_EMAIL`       | falls back to `RESTOCK_NOTIFY_EMAIL`, then `contact@yallternativeliving.com` | Where MoCRA reaction reports are emailed.                                                                                                                                                                 |
+| `UMAMI_WEBSITE_ID`          | set (same value as the CMS)                                                  | The Umami website the webhook books each paid order's revenue against ("Order Paid" — `routes/analytics.js`). Unset -> the webhook logs once and books nothing; the site's own page views are unaffected. |
 
 `UMAMI_WEBSITE_ID` is the one var that is deliberately duplicated from the site
 (`assets/data/content.json` → `site.umamiWebsiteId`). The Worker has no
@@ -538,10 +538,10 @@ link, no suppression check** -- and keyed `size-confirm-<session id>` at Resend,
 so a redelivered webhook asks once. A plain order, or a bundle whose contents
 have no variants, gets nothing.
 
-| Var                       | Default | What it does                                                          |
-| ------------------------- | ------- | --------------------------------------------------------------------- |
+| Var                       | Default                                                                      | What it does                                                    |
+| ------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------- |
 | `ORDER_NOTIFY_EMAIL`      | falls back to `RESTOCK_NOTIFY_EMAIL`, then `contact@yallternativeliving.com` | Where the per-order copy, the digest and the gift-note link go. |
-| `ORDER_DIGEST_WHEN_EMPTY` | unset   | `"true"` sends the digest on days with no orders too.                 |
+| `ORDER_DIGEST_WHEN_EMPTY` | unset                                                                        | `"true"` sends the digest on days with no orders too.           |
 
 Both read `assets/data/products.json` for names, a bundle's `productIds` and a
 product's `variants` -- the same file the shop pages render from, so the pick
@@ -616,16 +616,16 @@ Nothing is deleted -- exporting is not archiving. Goes to `SAFETY_REPORT_EMAIL`,
 then `RESTOCK_NOTIFY_EMAIL`, then `contact@yallternativeliving.com`. Off when
 `site.enableReactionExport` is `false`.
 
-| Setting, var or table                                                                                          | Read by                                     | What it does                                                                                     |
-| -------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `site.enableRestockAlerts`, `enableLowStockAlerts`, `enableMarketReminders`, `enableReactionExport`            | each job                                    | `false` switches that job off without claiming its day or month.                                 |
-| `site.automations.lowStockThreshold` (default 3)                                                               | low-stock note                              | "At or under this" is low.                                                                       |
-| `site.automations.restockEmailIntro`, `marketReminderIntro`                                                    | restock alerts, market reminders            | The opening line of the shopper-facing email.                                                    |
-| `site.automations.marketReminderHour` (default 9)                                                              | market reminders                            | The New York hour the daily pass runs at. The low-stock note is fixed at 08:00.                  |
-| `RESEND_API_KEY` (secret)                                                                                      | all four                                    | No key, no send: the job logs one line and skips without burning its marker.                     |
-| `MAGIC_LINK_SECRET` (secret)                                                                                   | restock alerts, market reminders            | Signs the unsubscribe link. Without it no marketing email is sent at all.                        |
-| `RESTOCK_NOTIFY_EMAIL`, `ORDER_NOTIFY_EMAIL`, `SAFETY_REPORT_EMAIL` (vars)                                     | low-stock note, reaction export             | Owner-side recipients; the fallback order is in each paragraph above.                            |
-| `restock_signups`, `market_alert_subscribers`, `job_state` (D1, schema v4); `adverse_events` (v3)               | the jobs                                    | The tables. `adverse_events` is only ever read by the export and is swept by nothing.            |
+| Setting, var or table                                                                               | Read by                          | What it does                                                                          |
+| --------------------------------------------------------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------- |
+| `site.enableRestockAlerts`, `enableLowStockAlerts`, `enableMarketReminders`, `enableReactionExport` | each job                         | `false` switches that job off without claiming its day or month.                      |
+| `site.automations.lowStockThreshold` (default 3)                                                    | low-stock note                   | "At or under this" is low.                                                            |
+| `site.automations.restockEmailIntro`, `marketReminderIntro`                                         | restock alerts, market reminders | The opening line of the shopper-facing email.                                         |
+| `site.automations.marketReminderHour` (default 9)                                                   | market reminders                 | The New York hour the daily pass runs at. The low-stock note is fixed at 08:00.       |
+| `RESEND_API_KEY` (secret)                                                                           | all four                         | No key, no send: the job logs one line and skips without burning its marker.          |
+| `MAGIC_LINK_SECRET` (secret)                                                                        | restock alerts, market reminders | Signs the unsubscribe link. Without it no marketing email is sent at all.             |
+| `RESTOCK_NOTIFY_EMAIL`, `ORDER_NOTIFY_EMAIL`, `SAFETY_REPORT_EMAIL` (vars)                          | low-stock note, reaction export  | Owner-side recipients; the fallback order is in each paragraph above.                 |
+| `restock_signups`, `market_alert_subscribers`, `job_state` (D1, schema v4); `adverse_events` (v3)   | the jobs                         | The tables. `adverse_events` is only ever read by the export and is swept by nothing. |
 
 Tests: `scripts/worker-restock.test.js`, `scripts/worker-market-alerts.test.js`
 and `scripts/worker-reaction-export.test.js` -- Node only, D1 emulated on
@@ -692,11 +692,11 @@ There is no fulfilment dashboard: an order is marked shipped by adding metadata
 to its **PaymentIntent** in Stripe (Payments -> the payment -> Metadata ->
 "Edit metadata"). Three keys, all optional except the first:
 
-| Key                  | Value                                        |
-| -------------------- | -------------------------------------------- |
-| `fulfillment_status` | `shipped` (or `delivered` / `fulfilled`)     |
-| `tracking_url`       | the carrier's tracking link, `https://…`     |
-| `shipped_at`         | free text, shown on the order-status page    |
+| Key                  | Value                                     |
+| -------------------- | ----------------------------------------- |
+| `fulfillment_status` | `shipped` (or `delivered` / `fulfilled`)  |
+| `tracking_url`       | the carrier's tracking link, `https://…`  |
+| `shipped_at`         | free text, shown on the order-status page |
 
 Saving that does three things: order-status.html starts reading "Shipped" with
 a Track button (`state/stripe-orders.js`), the customer gets the ship notice

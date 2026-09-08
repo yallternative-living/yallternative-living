@@ -36,7 +36,7 @@ var fs = require("fs");
 var path = require("path");
 var { execSync } = require("child_process");
 /* The first-party analytics paths. They are served by proxy rules in
-   netlify.toml / vercel.json, not by files in the repo, so the link checker
+   netlify.toml, not by files in the repo, so the link checker
    below has to know about them -- and the CSP checks further down assert that
    NO Umami host is allow-listed precisely because these paths exist. */
 var analyticsProxy = require("./lib/analytics-proxy");
@@ -768,19 +768,11 @@ if (!domainHits.length) {
 }
 
 /* ---------- 10) Security header configs stay in sync ---------- */
-section("Security header configs (_headers / vercel.json / netlify.toml)");
+section("Security header configs (_headers / netlify.toml)");
 function extractHeadersFileCSP() {
   var text = fs.readFileSync(path.join(ROOT, "_headers"), "utf8");
   var m = text.match(/Content-Security-Policy:\s*(.+)/);
   return m ? m[1].trim() : null;
-}
-function extractVercelCSP() {
-  var json = JSON.parse(fs.readFileSync(path.join(ROOT, "vercel.json"), "utf8"));
-  var group = json.headers && json.headers[0] && json.headers[0].headers;
-  var entry = (group || []).find(function (h) {
-    return h.key === "Content-Security-Policy";
-  });
-  return entry ? entry.value : null;
 }
 function extractNetlifyCSP() {
   var text = fs.readFileSync(path.join(ROOT, "netlify.toml"), "utf8");
@@ -789,21 +781,15 @@ function extractNetlifyCSP() {
 }
 try {
   var cspHeaders = extractHeadersFileCSP();
-  var cspVercel = extractVercelCSP();
   var cspNetlify = extractNetlifyCSP();
-  if (!cspHeaders || !cspVercel || !cspNetlify) {
-    fail("could not extract CSP from all three files", "run npm run build-security-headers first");
-  } else if (cspHeaders === cspVercel && cspVercel === cspNetlify) {
-    ok("_headers, vercel.json, and netlify.toml all carry the identical CSP");
+  if (!cspHeaders || !cspNetlify) {
+    fail("could not extract CSP from both files", "run npm run build-security-headers first");
+  } else if (cspHeaders === cspNetlify) {
+    ok("_headers and netlify.toml carry the identical CSP");
   } else {
     fail(
       "CSP drift between header configs",
-      "_headers " +
-        (cspHeaders === cspVercel ? "==" : "!=") +
-        " vercel.json, " +
-        "vercel.json " +
-        (cspVercel === cspNetlify ? "==" : "!=") +
-        " netlify.toml -- run npm run build-security-headers to resync"
+      "_headers != netlify.toml -- run npm run build-security-headers to resync"
     );
   }
 } catch (e) {
@@ -2127,25 +2113,13 @@ if (!fs.existsSync(configYmlPath)) {
     });
 }
 
-/* ---------- 22) Admin CSP (/admin/*) stays in sync across all 3 header
+/* ---------- 22) Admin CSP (/admin/*) stays in sync across both header
    configs (mirrors section 10's check for the main-site CSP) ---------- */
-section("Admin CSP (/admin/*) configs (_headers / vercel.json / netlify.toml)");
+section("Admin CSP (/admin/*) configs (_headers / netlify.toml)");
 function extractHeadersFileAdminCSP() {
   var text = fs.readFileSync(path.join(ROOT, "_headers"), "utf8");
   var m = text.match(/\/admin\/\*\s*\n\s*Content-Security-Policy:\s*(.+)/);
   return m ? m[1].trim() : null;
-}
-function extractVercelAdminCSP() {
-  var json = JSON.parse(fs.readFileSync(path.join(ROOT, "vercel.json"), "utf8"));
-  var rule = (json.headers || []).find(function (h) {
-    return h.source === "/admin/(.*)";
-  });
-  var entry =
-    rule &&
-    (rule.headers || []).find(function (h) {
-      return h.key === "Content-Security-Policy";
-    });
-  return entry ? entry.value : null;
 }
 function extractNetlifyAdminCSP() {
   var text = fs.readFileSync(path.join(ROOT, "netlify.toml"), "utf8");
@@ -2156,24 +2130,18 @@ function extractNetlifyAdminCSP() {
 }
 try {
   var adminCspHeaders = extractHeadersFileAdminCSP();
-  var adminCspVercel = extractVercelAdminCSP();
   var adminCspNetlify = extractNetlifyAdminCSP();
-  if (!adminCspHeaders || !adminCspVercel || !adminCspNetlify) {
+  if (!adminCspHeaders || !adminCspNetlify) {
     fail(
-      "could not extract /admin/* CSP from all three files",
+      "could not extract /admin/* CSP from both files",
       "run npm run build-security-headers first"
     );
-  } else if (adminCspHeaders === adminCspVercel && adminCspVercel === adminCspNetlify) {
-    ok("_headers, vercel.json, and netlify.toml all carry the identical /admin/* CSP");
+  } else if (adminCspHeaders === adminCspNetlify) {
+    ok("_headers and netlify.toml all carry the identical /admin/* CSP");
   } else {
     fail(
       "/admin/* CSP drift between header configs",
-      "_headers " +
-        (adminCspHeaders === adminCspVercel ? "==" : "!=") +
-        " vercel.json, " +
-        "vercel.json " +
-        (adminCspVercel === adminCspNetlify ? "==" : "!=") +
-        " netlify.toml -- run npm run build-security-headers to resync"
+      "_headers != netlify.toml -- run npm run build-security-headers to resync"
     );
   }
   if (adminCspHeaders && cspHeaders && adminCspHeaders === cspHeaders) {
@@ -4871,8 +4839,8 @@ section("SERP-safe titles and meta descriptions");
 /* ---------- Milestone 4: Self-Hosted Localization Suite & Static QA Invariants ---------- */
 section("Milestone 4: Self-Hosted Localization Suite & Static QA Invariants");
 (function checkLocalizationInvariants() {
-  // 1. Zero Google Translate domains in deploy configs (_headers, netlify.toml, vercel.json)
-  var deployFiles = ["_headers", "netlify.toml", "vercel.json"];
+  // 1. Zero Google Translate domains in deploy configs (_headers, netlify.toml)
+  var deployFiles = ["_headers", "netlify.toml"];
   var forbiddenDomains = [
     "translate.google.com",
     "translate.googleapis.com",
@@ -4894,15 +4862,14 @@ section("Milestone 4: Self-Hosted Localization Suite & Static QA Invariants");
     });
   });
 
-  // 2. CSP byte-parity between _headers, netlify.toml, and vercel.json
+  // 2. CSP byte-parity between _headers and netlify.toml
   try {
     var cspHeaders = extractHeadersFileCSP();
-    var cspVercel = extractVercelCSP();
     var cspNetlify = extractNetlifyCSP();
-    if (cspHeaders && cspHeaders === cspVercel && cspVercel === cspNetlify) {
-      ok("M4: CSP byte-parity strictly maintained across _headers, vercel.json, and netlify.toml");
+    if (cspHeaders && cspHeaders === cspNetlify) {
+      ok("M4: CSP byte-parity strictly maintained across _headers and netlify.toml");
     } else {
-      fail("M4: CSP drift detected between _headers, vercel.json, and netlify.toml");
+      fail("M4: CSP drift detected between _headers and netlify.toml");
     }
   } catch (e) {
     fail("M4: CSP byte-parity check failed", e.message);

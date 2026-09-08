@@ -634,7 +634,6 @@ function section(title) {
 
     // 4. Security headers & CSP byte-for-byte synchronization
     const headersContent = fs.readFileSync(path.join(ROOT, "_headers"), "utf8");
-    const vercelContent = fs.readFileSync(path.join(ROOT, "vercel.json"), "utf8");
     const netlifyContent = fs.readFileSync(path.join(ROOT, "netlify.toml"), "utf8");
 
     // Extract main site CSP
@@ -642,15 +641,6 @@ function section(title) {
       if (type === "headers") {
         const m = content.match(/Content-Security-Policy:\s*([^\r\n]+)/);
         return m ? m[1].trim() : null;
-      }
-      if (type === "vercel") {
-        const json = JSON.parse(content);
-        for (const h of json.headers || []) {
-          if (h.source === "/(.*)") {
-            const cspH = (h.headers || []).find((x) => x.key === "Content-Security-Policy");
-            if (cspH) return cspH.value.trim();
-          }
-        }
       }
       if (type === "netlify") {
         const m = content.match(/Content-Security-Policy\s*=\s*"([^"]+)"/);
@@ -660,13 +650,10 @@ function section(title) {
     }
 
     const cspHeaders = extractCsp(headersContent, "headers");
-    const cspVercel = extractCsp(vercelContent, "vercel");
     const cspNetlify = extractCsp(netlifyContent, "netlify");
 
-    if (cspHeaders && cspHeaders === cspVercel && cspHeaders === cspNetlify) {
-      pass(
-        "Content-Security-Policy rules are byte-identical across _headers, vercel.json, and netlify.toml"
-      );
+    if (cspHeaders && cspHeaders === cspNetlify) {
+      pass("Content-Security-Policy rules are byte-identical across _headers and netlify.toml");
     } else {
       fail("Content-Security-Policy drift detected across server configuration files");
     }

@@ -1414,7 +1414,7 @@ async function testCartAndWorkerGiftCardRedemption() {
     }
     if (u.includes("/v1/coupons")) {
       capturedCouponParams = new URLSearchParams(opts.body);
-      return { ok: true, json: async () => ({ id: "co_ephemeral_2600" }) };
+      return { ok: true, json: async () => ({ id: "co_ephemeral_1600" }) };
     }
     if (u.includes("/v1/checkout/sessions")) {
       capturedSessionParams = new URLSearchParams(opts.body);
@@ -1426,7 +1426,7 @@ async function testCartAndWorkerGiftCardRedemption() {
     return { ok: true, json: async () => ({}) };
   };
 
-  // $16 salve + $10 shipping = $26 total. A $50 card is capped at $26.
+  // $16 salve + $10 shipping = $26 total. A $50 card is capped at $16 subtotal (shipping paid separately).
   const req = new Request("https://yallternativeliving.com/api/checkout", {
     method: "POST",
     headers: { Origin: "https://yallternativeliving.com", "Content-Type": "application/json" },
@@ -1446,8 +1446,8 @@ async function testCartAndWorkerGiftCardRedemption() {
   );
   eq(
     capturedCouponParams.get("amount_off"),
-    "2600",
-    "Worker creates an ephemeral coupon for the full order amount (2600 cents = $26.00)"
+    "1600",
+    "Worker creates an ephemeral coupon for the subtotal (1600 cents = $16.00)"
   );
   eq(capturedCouponParams.get("duration"), "once", "Worker sets ephemeral coupon duration to once");
   eq(
@@ -1457,7 +1457,7 @@ async function testCartAndWorkerGiftCardRedemption() {
   );
   eq(
     capturedSessionParams.get("discounts[0][coupon]"),
-    "co_ephemeral_2600",
+    "co_ephemeral_1600",
     "Worker attaches the ephemeral discount coupon to the checkout session"
   );
   eq(
@@ -1467,19 +1467,19 @@ async function testCartAndWorkerGiftCardRedemption() {
   );
   eq(
     capturedSessionParams.get("metadata[gift_card_amount_applied_cents]"),
-    "2600",
-    "Worker attaches gift_card_amount_applied_cents (2600) to metadata"
+    "1600",
+    "Worker attaches gift_card_amount_applied_cents (1600) to metadata"
   );
   eq(
     capturedSessionParams.get("metadata[gift_card_ephemeral_coupon_id]"),
-    "co_ephemeral_2600",
+    "co_ephemeral_1600",
     "Worker records the coupon id so an abandoned session can be cleaned up"
   );
 
   // 3. The money is HELD, not merely discounted. This is the whole of C-2.
   const snapshot = await giftCardLedger(env, "YALL-GIFT-5000-0000").getBalance();
-  eq(snapshot.pendingCents, 2600, "the applied amount is held against the card");
-  eq(snapshot.balanceCents, 2400, "and is no longer spendable by a second checkout");
+  eq(snapshot.pendingCents, 1600, "the applied amount is held against the card");
+  eq(snapshot.balanceCents, 3400, "and is no longer spendable by a second checkout");
 
   global.fetch = globalFetch;
 }

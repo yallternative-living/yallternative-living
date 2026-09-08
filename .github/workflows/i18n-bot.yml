@@ -1,6 +1,6 @@
 name: i18n bot
 
-# Translates the copy the owner just edited in the CMS, then commits the six
+# Translates the copy the owner just edited in the CMS, then commits the nine
 # dictionaries and the translation basis back to main. Zero-touch: the whole
 # point is that nobody has to remember to run it.
 #
@@ -226,7 +226,7 @@ jobs:
           # states the email -- it lives in that README and the users API.
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # The six dictionaries and the basis are the sources. assets/js/
+          # The nine dictionaries and the basis are the sources. assets/js/
           # locales-data.js is their 1:1 compilation and sw.js carries the
           # precache digest that covers it, so both move with them and the tree
           # stays self-consistent. Nothing else the build regenerates is added:
@@ -248,7 +248,7 @@ jobs:
             const head = "i18n: " + (bits.join(", ") || "dictionary update") + " (" + s.model + ")";
             const body = [
               "",
-              s.translated + " key(s) written across en + 5 locales and the basis.",
+              s.translated + " key(s) written across en + 8 locales and the basis.",
               s.failed.length + " string(s) were dropped and are NOT in any file, so the",
               "site keeps showing them in English; see the tracking issue.",
               s.deferredToNextRun + " key(s) hit the per-run call cap and wait for the next run."
@@ -256,7 +256,7 @@ jobs:
             if (s.retranslatedKeys) {
               body.push("");
               body.push("Re-translated keys had their English edited after they were translated,");
-              body.push("so any hand-tuning of those five values has been replaced.");
+              body.push("so any hand-tuning of those eight values has been replaced.");
             }
             if (s.modelWarning) {
               body.push("");
@@ -296,7 +296,7 @@ jobs:
               "These strings failed a deterministic check and were written NOWHERE --",
               "not even into `en.json` -- so the dictionary stays complete and the site",
               "shows them in English. Fix the English, adjust the rule, or translate the",
-              "key by hand in all six files and record its basis.",
+              "key by hand in all nine files and record its basis.",
               ""
             ];
             if (s.providerDegraded) {

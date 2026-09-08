@@ -1597,7 +1597,9 @@ async function handleCheckout(request, env, ctx, origin) {
           throw new ClientError("That gift card has no balance left.");
         }
 
-        appliedGiftCardDiscountCents = Math.min(totalCents + shippingCents, availableCents);
+        // Gift-card coupons in Stripe Checkout apply strictly to line-item subtotal (totalCents),
+        // not shipping_options. Capping at totalCents prevents over-debiting when shipping is present.
+        appliedGiftCardDiscountCents = Math.min(totalCents, availableCents);
         if (appliedGiftCardDiscountCents > 0) {
           const ephemeralCoupon = await stripePost(env, "/coupons", {
             amount_off: String(appliedGiftCardDiscountCents),

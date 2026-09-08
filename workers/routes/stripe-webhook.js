@@ -720,6 +720,7 @@ export async function emailOwnerOrderNotice(session, env, ctx) {
  * forever would only bury the anomaly under three days of 500s.
  */
 async function settleRedemption(session, env) {
+  if (!isFulfillable(session)) return null;
   const metadata = session.metadata || {};
   const code = metadata.gift_card_redeemed_code;
   const appliedCents = Number(metadata.gift_card_amount_applied_cents || 0);
@@ -762,6 +763,7 @@ async function settleRedemption(session, env) {
  * purchased card into two.
  */
 async function issuePurchasedCards(session, env) {
+  if (!isFulfillable(session)) return [];
   const units = giftCardUnitsFrom(session.metadata);
   if (!units.length) return [];
 
@@ -879,7 +881,8 @@ async function handleChargeRefunded(charge, env) {
 
   const refundedCents = Number(charge.amount_refunded || 0);
   if (!(refundedCents > 0)) return null;
-  const restorableCents = Math.min(appliedCents, refundedCents);
+  const cashPaidCents = Number(charge.amount || session.amount_total || 0);
+  const restorableCents = Math.min(appliedCents, Math.max(0, refundedCents - cashPaidCents));
 
   const ledger = giftCardLedger(env, code);
   const history = await ledger.history();
