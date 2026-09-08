@@ -1556,6 +1556,7 @@ async function testWebhookWiring() {
     data: {
       object: {
         id: "cs_test_discounted",
+        payment_status: "paid",
         amount_subtotal: 5000,
         amount_total: 3000,
         total_details: { amount_discount: 2000, amount_shipping: 0, amount_tax: 0 },
@@ -1592,6 +1593,7 @@ async function testWebhookWiring() {
     data: {
       object: {
         id: "cs_test_shipped_pts",
+        payment_status: "paid",
         amount_subtotal: 3000,
         amount_total: 4200,
         total_details: { amount_discount: 0, amount_shipping: 1000, amount_tax: 200 },
@@ -1617,6 +1619,7 @@ async function testWebhookWiring() {
     data: {
       object: {
         id: "cs_test_covered",
+        payment_status: "paid",
         amount_subtotal: 2500,
         amount_total: 0,
         total_details: { amount_discount: 2500, amount_shipping: 0, amount_tax: 0 },
