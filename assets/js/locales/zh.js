@@ -644,7 +644,7 @@
     "auto.siteNavigation.72d9c4": "网站导航",
     "auto.sizesOzOz.47ada8": "规格：10 oz · 24 oz",
     "auto.sizesOzOz.c78cad": "规格：2 oz · 4 oz",
-    "auto.sizesOzOz.cc4d90": "规格：2oz · 1oz",
+    "auto.sizesOzOz.dc7b47": "规格：2 oz · 1 oz",
     "auto.sizesOzOz.e7fda7": "规格：4 oz · 8 oz",
     "auto.sizesXl.488474": "尺码：S · M · L · XL",
     "auto.smoothDollopOverClean.a18e1d": "取适量轻抹于洗净、擦干的肌肤上，从颈部涂到脚趾。吸收迅速，不留油腻残留。",

@@ -169,11 +169,11 @@ window.YL_SEARCH_INDEX = {
         "name": "Size",
         "options": [
           {
-            "label": "2oz",
+            "label": "2 oz",
             "priceDelta": 0
           },
           {
-            "label": "1oz",
+            "label": "1 oz",
             "priceDelta": -6
           }
         ]

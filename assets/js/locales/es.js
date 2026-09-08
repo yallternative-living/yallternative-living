@@ -644,7 +644,7 @@
     "auto.siteNavigation.72d9c4": "Navegación del sitio",
     "auto.sizesOzOz.47ada8": "Tamaños: 10 oz · 24 oz",
     "auto.sizesOzOz.c78cad": "Tamaños: 2 oz · 4 oz",
-    "auto.sizesOzOz.cc4d90": "Tamaños: 2oz · 1oz",
+    "auto.sizesOzOz.dc7b47": "Tamaños: 2 oz · 1 oz",
     "auto.sizesOzOz.e7fda7": "Tamaños: 4 oz · 8 oz",
     "auto.sizesXl.488474": "Tallas: S · M · L · XL",
     "auto.smoothDollopOverClean.a18e1d": "Aplica una porción sobre la piel limpia y seca con toalla, desde el cuello hasta la punta de los pies. Se absorbe rápidamente sin dejar residuos grasosos.",

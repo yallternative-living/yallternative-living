@@ -656,7 +656,7 @@ function createStaticServer(port = 8089) {
         await page.evaluate(() => {
           const stickySel = document.querySelector(".pdp-sticky-variant-select");
           if (stickySel) {
-            stickySel.value = "1oz";
+            stickySel.value = "1 oz";
             stickySel.dispatchEvent(new Event("change", { bubbles: true }));
           }
         });
@@ -672,7 +672,7 @@ function createStaticServer(port = 8089) {
           el.getAttribute("data-item-custom1-value")
         );
 
-        assert.strictEqual(stickyVal, "1oz", "Sticky select must sync to 1oz");
+        assert.strictEqual(stickyVal, "1 oz", "Sticky select must sync to 1oz");
         assert.strictEqual(stickyPrice, "$14", "Sticky price must update to $13.99");
         // The button keeps the BASE price; cart.js adds the label's delta from
         // data-item-custom1-options. Writing 13.99 here as well made the cart
@@ -684,7 +684,7 @@ function createStaticServer(port = 8089) {
         );
         assert.strictEqual(
           stickyAddBtnVal,
-          "1oz",
+          "1 oz",
           "Sticky button data-item-custom1-value must update to 1oz"
         );
 
@@ -701,7 +701,7 @@ function createStaticServer(port = 8089) {
         await page.evaluate(() => {
           const stickySel = document.querySelector(".pdp-sticky-variant-select");
           if (stickySel) {
-            stickySel.value = "2oz";
+            stickySel.value = "2 oz";
             stickySel.dispatchEvent(new Event("change", { bubbles: true }));
           }
         });
@@ -709,7 +709,7 @@ function createStaticServer(port = 8089) {
 
         const stickyVal2 = await page.$eval(".pdp-sticky-variant-select", (el) => el.value);
         const stickyPrice2 = await page.$eval(".pdp-sticky-price", (el) => el.textContent.trim());
-        assert.strictEqual(stickyVal2, "2oz", "Sticky select must sync back to 2oz");
+        assert.strictEqual(stickyVal2, "2 oz", "Sticky select must sync back to 2oz");
         assert.strictEqual(stickyPrice2, "$20", "Sticky price must update back to $19.99");
 
         // Add the 1oz variant from the sticky bar: a non-zero delta is what
@@ -718,7 +718,7 @@ function createStaticServer(port = 8089) {
         await page.evaluate(() => {
           const stickySel = document.querySelector(".pdp-sticky-variant-select");
           if (stickySel) {
-            stickySel.value = "1oz";
+            stickySel.value = "1 oz";
             stickySel.dispatchEvent(new Event("change", { bubbles: true }));
           }
         });

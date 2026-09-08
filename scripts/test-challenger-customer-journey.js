@@ -319,7 +319,7 @@ async function runEnvironmentTests(envName, baseUrl, browser, isLiveProd) {
     // Click 1oz variant chip
     let chipClicked = await page.evaluate(() => {
       const chip = document.querySelector(
-        "#globalSearchResultsList .search-variant-chip[data-variant-label='1oz']"
+        "#globalSearchResultsList .search-variant-chip[data-variant-label='1 oz']"
       );
       if (chip) {
         chip.click();
@@ -337,7 +337,7 @@ async function runEnvironmentTests(envName, baseUrl, browser, isLiveProd) {
       return items.some(
         (i) =>
           i.id === "frankincense-salve" &&
-          (i.variantLabel === "1oz" || i.variant === "1oz" || (i.name && i.name.includes("1oz")))
+          (i.variantLabel === "1 oz" || i.variant === "1 oz" || (i.name && i.name.includes("1 oz")))
       );
     });
     check(cartHasVariant, "1oz variant item successfully added to cart from search modal");
@@ -637,8 +637,8 @@ async function runEnvironmentTests(envName, baseUrl, browser, isLiveProd) {
     return checked ? checked.value : "";
   });
   check(
-    initialMainVariant === "2oz",
-    `Initial main variant is "2oz" (actual: ${initialMainVariant})`
+    initialMainVariant === "2 oz",
+    `Initial main variant is "2 oz" (actual: ${initialMainVariant})`
   );
 
   let initialStickyVariant = await page.evaluate(() => {
@@ -646,13 +646,13 @@ async function runEnvironmentTests(envName, baseUrl, browser, isLiveProd) {
     return sel ? sel.value : "";
   });
   check(
-    initialStickyVariant === "2oz",
-    `Initial sticky bar variant select is "2oz" (actual: ${initialStickyVariant})`
+    initialStickyVariant === "2 oz",
+    `Initial sticky bar variant select is "2 oz" (actual: ${initialStickyVariant})`
   );
 
-  // Change main form radio to "1oz"
+  // Change main form radio to "1 oz"
   await page.evaluate(() => {
-    const radio1oz = document.querySelector(".pdp-details input[name='pdpVariant'][value='1oz']");
+    const radio1oz = document.querySelector(".pdp-details input[name='pdpVariant'][value='1 oz']");
     if (radio1oz) {
       radio1oz.checked = true;
       radio1oz.dispatchEvent(new Event("change", { bubbles: true }));
@@ -671,8 +671,8 @@ async function runEnvironmentTests(envName, baseUrl, browser, isLiveProd) {
     };
   });
   check(
-    syncedStickySelect.selectVal === "1oz",
-    `Selecting 1oz radio synced sticky select to "1oz" (actual: ${syncedStickySelect.selectVal})`
+    syncedStickySelect.selectVal === "1 oz",
+    `Selecting 1oz radio synced sticky select to "1 oz" (actual: ${syncedStickySelect.selectVal})`
   );
   check(
     syncedStickySelect.stickyPrice === "$13.99",
@@ -683,11 +683,11 @@ async function runEnvironmentTests(envName, baseUrl, browser, isLiveProd) {
     `Main price updated to 13.99 (actual: ${syncedStickySelect.mainPrice})`
   );
 
-  // Change sticky bar select back to "2oz"
+  // Change sticky bar select back to "2 oz"
   await page.evaluate(() => {
     const sel = document.querySelector(".pdp-sticky-variant-select");
     if (sel) {
-      sel.value = "2oz";
+      sel.value = "2 oz";
       sel.dispatchEvent(new Event("change", { bubbles: true }));
     }
   });
@@ -702,8 +702,8 @@ async function runEnvironmentTests(envName, baseUrl, browser, isLiveProd) {
     };
   });
   check(
-    syncedRadioFromSticky.radioVal === "2oz",
-    `Selecting 2oz in sticky bar synced main radio back to "2oz" (actual: ${syncedRadioFromSticky.radioVal})`
+    syncedRadioFromSticky.radioVal === "2 oz",
+    `Selecting 2oz in sticky bar synced main radio back to "2 oz" (actual: ${syncedRadioFromSticky.radioVal})`
   );
   check(
     syncedRadioFromSticky.stickyPrice === "$19.99",

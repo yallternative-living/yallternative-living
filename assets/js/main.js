@@ -1700,9 +1700,9 @@
     return [
       {
         id: "salves-2oz",
-        name: "2oz Salve Multi-Buy",
+        name: "2 oz Salve Multi-Buy",
         category: "salves",
-        qualifyingVariant: "2oz",
+        qualifyingVariant: "2 oz",
         minQuantity: 2,
         unitPrice: 15,
         label: "2+ for $15 each",
@@ -4760,7 +4760,7 @@
       var trackA = doc.createElement("a");
       trackA.className = "btn btn-primary";
       trackA.setAttribute("href", trackingUrl);
-      trackA.setAttribute("rel", "noopener");
+      trackA.setAttribute("rel", "noopener noreferrer");
       trackA.setAttribute("target", "_blank");
       trackA.textContent = "Track this shipment";
       trackP.appendChild(trackA);
@@ -5144,8 +5144,8 @@
           "<p>We keep this page current the second a market or Pride date is locked in. In the meantime, " +
           "follow along on Instagram or TikTok where every table gets announced first.</p>" +
           '<div class="hero-actions" style="justify-content:center;">' +
-          '<a class="btn btn-primary" href="https://www.instagram.com/yallternativeliving" target="_blank" rel="noopener">Instagram ↗<span class="sr-only"> (opens in new tab)</span></a>' +
-          '<a class="btn btn-outline" href="https://www.tiktok.com/@yallternativeliving" target="_blank" rel="noopener">TikTok ↗<span class="sr-only"> (opens in new tab)</span></a>' +
+          '<a class="btn btn-primary" href="https://www.instagram.com/yallternativeliving" target="_blank" rel="noopener noreferrer">Instagram ↗<span class="sr-only"> (opens in new tab)</span></a>' +
+          '<a class="btn btn-outline" href="https://www.tiktok.com/@yallternativeliving" target="_blank" rel="noopener noreferrer">TikTok ↗<span class="sr-only"> (opens in new tab)</span></a>' +
           "</div>" +
           "</div>";
       }
@@ -6208,7 +6208,7 @@
         (safeUrl(ev.url)
           ? '<a class="btn btn-primary btn-sm btn-block" href="' +
             attrEsc(safeUrl(ev.url)) +
-            '" target="_blank" rel="noopener">More Info / RSVP<span class="sr-only"> (opens in new tab)</span></a>'
+            '" target="_blank" rel="noopener noreferrer">More Info / RSVP<span class="sr-only"> (opens in new tab)</span></a>'
           : "") +
         '<a class="btn btn-outline btn-sm btn-block" href="shop.html?pickup_market=' +
         pickupParam +
@@ -6217,7 +6217,7 @@
         "</a>" +
         '<a class="btn btn-outline btn-sm btn-block" href="' +
         attrEsc(gCalUrl) +
-        '" target="_blank" rel="noopener">' +
+        '" target="_blank" rel="noopener noreferrer">' +
         '<svg class="yl-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> Add to Google Calendar<span class="sr-only"> (opens in new tab)</span>' +
         "</a>" +
         '<a class="btn btn-outline btn-sm btn-block" href="' +
@@ -6256,9 +6256,9 @@
             ? ""
             : '<span class="event-directions-links"> · <a class="event-map-link" href="' +
               attrEsc(gMapsUrl) +
-              '" target="_blank" rel="noopener">Google Maps<span class="sr-only"> directions (opens in new tab)</span></a> · <a class="event-map-link" href="' +
+              '" target="_blank" rel="noopener noreferrer">Google Maps<span class="sr-only"> directions (opens in new tab)</span></a> · <a class="event-map-link" href="' +
               attrEsc(appleMapsUrl) +
-              '" target="_blank" rel="noopener">Apple Maps<span class="sr-only"> directions (opens in new tab)</span></a></span>')
+              '" target="_blank" rel="noopener noreferrer">Apple Maps<span class="sr-only"> directions (opens in new tab)</span></a></span>')
         : "") +
       "</p>" +
       (ev.note ? '<p class="event-desc">' + attrEsc(ev.note) + "</p>" : "") +
@@ -7723,7 +7723,7 @@
         var linkHtml = postLink
           ? '<a href="' +
             attrEsc(postLink) +
-            '" target="_blank" rel="noopener" class="ugc-post-link" aria-label="View original post by ' +
+            '" target="_blank" rel="noopener noreferrer" class="ugc-post-link" aria-label="View original post by ' +
             attrEsc(post.handle || "@yallternativeliving") +
             ' (opens in new tab)">View Post &#8599;<span class="sr-only"> (opens in new tab)</span></a>'
           : "";

@@ -14,7 +14,7 @@ Your dashboard is organized into 7 focused sections in the left sidebar. The **J
 
 1. **Shop & Products** — Your daily workspace:
    - **Products (Top Priority)**: Manage your 19 catalog items, edit prices, set size/scent variants, upload photos, add ingredients, and update stock levels.
-   - **Multi-buy deals**: Set up mix-and-match multi-buy category tiers (like *Any 2+ 2oz Salves for $15 each*).
+   - **Multi-buy deals**: Set up mix-and-match multi-buy category tiers (like *Any 2+ 2 oz Salves for $15 each*).
    - **Category sales**: Put whole categories on sale at once with percentage discounts (e.g. *15% off Body & Skin*).
    - **Gift bundles**: Create curated gift sets (*Discovery Flight*, *Everyday Armor Kit*) with auto-calculated bundle pricing.
    - **FAQ**: Update questions and answers on shipping, returns, shelf life, and custom orders.
@@ -143,14 +143,14 @@ it anywhere yourself.
 4. Click **Save** in the top bar. All bundle discounts, cart calculations, and SEO tags update automatically!
 
 #### B. Adding Sizes, Scents, or Style Variants (with `priceDelta`)
-For products available in different sizes (e.g. 1oz vs 2oz salve, 4oz vs 8oz soak) or scent blends:
+For products available in different sizes (e.g. 1 oz vs 2 oz salve, 4 oz vs 8 oz soak) or scent blends:
 1. Open the product and expand the **Variants** section.
 2. Set **Variant type** to `Size`, `Scent`, `Blend`, or `Option`.
 3. Under **Options**:
-   - **Base Option (Required Rule)**: Exactly **one** option must have a **Price difference** of `0`. This represents your base price entered above (e.g., Option name `2oz`, Price difference `0`).
+   - **Base Option (Required Rule)**: Exactly **one** option must have a **Price difference** of `0`. This represents your base price entered above (e.g., Option name `2 oz`, Price difference `0`).
    - **Additional Options (+ / - Deltas)**: Enter how much more or less the other sizes cost compared to the base price:
-     - For a smaller size that costs less (e.g. 1oz Salve for $14 when base is $20): enter `-6`.
-     - For a larger size that costs more (e.g. 8oz Soak for $24.00 when 4oz base is $14.00): enter `10.00`.
+     - For a smaller size that costs less (e.g. 1 oz Salve for $14 when base is $20): enter `-6`.
+     - For a larger size that costs more (e.g. 8 oz Soak for $24.00 when 4 oz base is $14.00): enter `10.00`.
    - **⚠️ Character Trap**: Never use the characters `[`, `]`, or `|` inside option names (e.g. write `2 oz Glass Jar`, **not** `2 oz [Jar]`), as those symbols are used internally by the shopping cart.
 
 #### C. The 5 Inventory & Availability States
@@ -161,29 +161,29 @@ Manage stock with complete transparency and urgency without artificial hype:
 | **1. Made-to-Order / Unlimited** | Standard active "Add to Cart" button | Leave **Stock count** blank (empty) and ensure **In stock** is checked. |
 | **2. Low-Stock Urgency Badge** | "Only 3 left! — order soon" warning badge on card | Enter a number from `1` to `5` in **Stock count**. |
 | **3. Entire Product Sold Out** | "Sold Out" badge; buy button replaced with "Email Me When Restocked" signup | Enter `0` in **Stock count** OR uncheck **In stock**. |
-| **4. Single Variant Sold Out** | Size dropdown displays option greyed out (e.g. "1oz — sold out"; unclickable) | Expand **Variants → Options**, find that option, and switch **Sold out?** to `ON`. *Never delete the option, so customers know you make it and it will return!* |
+| **4. Single Variant Sold Out** | Size dropdown displays option greyed out (e.g. "1 oz — sold out"; unclickable) | Expand **Variants → Options**, find that option, and switch **Sold out?** to `ON`. *Never delete the option, so customers know you make it and it will return!* |
 | **5. Coming Soon / Launch Signup** | "Coming Soon" badge; buy button replaced with "Email Me When It Launches" signup | Switch **Coming soon** to `ON` (checked). |
 
 ---
 
 ### Walkthrough 2: Multi-Buy Volume Deals (`volumePricing`)
 
-Multi-buy deals encourage customers to mix and match multiple items within a category to unlock volume savings (e.g., *Buy 2 or more 2oz Salves for $15 each*, regularly $20 each).
+Multi-buy deals encourage customers to mix and match multiple items within a category to unlock volume savings (e.g., *Buy 2 or more 2 oz Salves for $15 each*, regularly $20 each).
 
 #### How Multi-Buy Works in the Cart:
-- If a customer adds 1x *Frankincense Salve (2oz)* ($20), it rings up at $20.
-- As soon as they add 1x *Sleep Salve (2oz)* ($20), the cart detects 2 qualifying items in `salves`, drops BOTH to $15 each, and totals $30 with a cheerful savings announcement!
+- If a customer adds 1x *Frankincense Salve (2 oz)* ($20), it rings up at $20.
+- As soon as they add 1x *Sleep Salve (2 oz)* ($20), the cart detects 2 qualifying items in `salves`, drops BOTH to $15 each, and totals $30 with a cheerful savings announcement!
 - If they add a 3rd qualifying salve, it also receives the $15 rate ($45 total).
 
 #### How to Create or Adjust a Volume Deal:
 1. In `/admin`, open **Shop & Products**.
 2. Click to expand **Multi-buy deals** right beneath Products.
-3. Click an existing rule (e.g., `2oz Salve Multi-Buy`) or click **Add Deal**:
+3. Click an existing rule (e.g., `2 oz Salve Multi-Buy`) or click **Add Deal**:
    - **Deal ID**: A clean lowercase code with dashes (e.g. `salves-2oz`, `soaks-multi`).
-   - **Deal name**: A descriptive title for your reference (e.g. `2oz Salve Multi-Buy`).
+   - **Deal name**: A descriptive title for your reference (e.g. `2 oz Salve Multi-Buy`).
    - **Category**: Select the category from the dropdown (e.g. `Salves & Balms`).
    - **Qualifying variant** *(optional)*:
-     - Type a specific variant label (e.g. `2oz`) if the deal only applies to that specific size. (1oz jars or balves in other sizes remain unaffected).
+     - Type a specific variant label (e.g. `2 oz`) if the deal only applies to that specific size. (1 oz jars or balves in other sizes remain unaffected).
      - Leave blank if *all* products and sizes in that category qualify.
    - **Minimum quantity**: The quantity threshold needed to activate the discount (e.g. `2`).
    - **Discounted unit price ($)**: The discounted unit price (e.g. `15`).

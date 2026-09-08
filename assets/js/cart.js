@@ -254,9 +254,9 @@
   var DEFAULT_VOLUME_PRICING = [
     {
       id: "salves-2oz",
-      name: "2oz Salve Multi-Buy",
+      name: "2 oz Salve Multi-Buy",
       category: "salves",
-      qualifyingVariant: "2oz",
+      qualifyingVariant: "2 oz",
       minQuantity: 2,
       unitPrice: QUALIFYING_2OZ_SALVE_PRICE,
       label: "2+ for $15 each",

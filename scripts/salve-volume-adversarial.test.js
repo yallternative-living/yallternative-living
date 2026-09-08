@@ -83,7 +83,7 @@ async function runAllTests() {
       category: "salves",
       price: 20,
       variantDelta: 0,
-      variantLabel: "2oz",
+      variantLabel: "2 oz",
       qty: 1
     }
   ];
@@ -91,7 +91,9 @@ async function runAllTests() {
   eq(cart.unitPrice(basket1[0], basket1), 20, "Scenario 1: cart unitPrice is $20.00");
   eq(cart.subtotal(basket1), 20, "Scenario 1: cart subtotal is $20.00");
 
-  const checkout1 = await runWorkerCheckout([{ id: "frankincense-salve", qty: 1, variant: "2oz" }]);
+  const checkout1 = await runWorkerCheckout([
+    { id: "frankincense-salve", qty: 1, variant: "2 oz" }
+  ]);
   eq(checkout1.res.status, 200, "Scenario 1: worker returns 200");
   eq(
     checkout1.capturedStripeBody.get("line_items[0][price_data][unit_amount]"),
@@ -110,7 +112,7 @@ async function runAllTests() {
       category: "salves",
       price: 20,
       variantDelta: 0,
-      variantLabel: "2oz",
+      variantLabel: "2 oz",
       qty: 2
     }
   ];
@@ -118,7 +120,9 @@ async function runAllTests() {
   eq(cart.unitPrice(basket2[0], basket2), 15, "Scenario 2: cart unitPrice is $15.00");
   eq(cart.subtotal(basket2), 30, "Scenario 2: cart subtotal is $30.00");
 
-  const checkout2 = await runWorkerCheckout([{ id: "frankincense-salve", qty: 2, variant: "2oz" }]);
+  const checkout2 = await runWorkerCheckout([
+    { id: "frankincense-salve", qty: 2, variant: "2 oz" }
+  ]);
   eq(checkout2.res.status, 200, "Scenario 2: worker returns 200");
   eq(
     checkout2.capturedStripeBody.get("line_items[0][price_data][unit_amount]"),
@@ -137,7 +141,7 @@ async function runAllTests() {
       category: "salves",
       price: 20,
       variantDelta: 0,
-      variantLabel: "2oz",
+      variantLabel: "2 oz",
       qty: 1
     },
     { id: "sleep-salve", category: "salves", price: 20, variantDelta: 0, qty: 1 }
@@ -148,7 +152,7 @@ async function runAllTests() {
   eq(cart.subtotal(basket3), 30, "Scenario 3: cart subtotal is $30.00");
 
   const checkout3 = await runWorkerCheckout([
-    { id: "frankincense-salve", qty: 1, variant: "2oz" },
+    { id: "frankincense-salve", qty: 1, variant: "2 oz" },
     { id: "sleep-salve", qty: 1 }
   ]);
   eq(checkout3.res.status, 200, "Scenario 3: worker returns 200");
@@ -173,7 +177,7 @@ async function runAllTests() {
       category: "salves",
       price: 20,
       variantDelta: 0,
-      variantLabel: "2oz",
+      variantLabel: "2 oz",
       qty: 2
     },
     { id: "sleep-salve", category: "salves", price: 20, variantDelta: 0, qty: 1 }
@@ -184,7 +188,7 @@ async function runAllTests() {
   eq(cart.subtotal(basket4), 45, "Scenario 4: cart subtotal is $45.00");
 
   const checkout4 = await runWorkerCheckout([
-    { id: "frankincense-salve", qty: 2, variant: "2oz" },
+    { id: "frankincense-salve", qty: 2, variant: "2 oz" },
     { id: "sleep-salve", qty: 1 }
   ]);
   eq(checkout4.res.status, 200, "Scenario 4: worker returns 200");
@@ -219,7 +223,7 @@ async function runAllTests() {
       category: "salves",
       price: 20,
       variantDelta: 0,
-      variantLabel: "2oz",
+      variantLabel: "2 oz",
       qty: 2
     },
     { id: "sleep-salve", category: "salves", price: 20, variantDelta: 0, qty: 2 }
@@ -228,7 +232,7 @@ async function runAllTests() {
   eq(cart.subtotal(basket5), 60, "Scenario 5: cart subtotal is $60.00");
 
   const checkout5 = await runWorkerCheckout([
-    { id: "frankincense-salve", qty: 2, variant: "2oz" },
+    { id: "frankincense-salve", qty: 2, variant: "2 oz" },
     { id: "sleep-salve", qty: 2 }
   ]);
   eq(checkout5.res.status, 200, "Scenario 5: worker returns 200");
@@ -253,7 +257,7 @@ async function runAllTests() {
       category: "salves",
       price: 20,
       variantDelta: -6.0,
-      variantLabel: "1oz",
+      variantLabel: "1 oz",
       qty: 1
     },
     { id: "sleep-salve", category: "salves", price: 20, variantDelta: 0, qty: 1 }
@@ -264,7 +268,7 @@ async function runAllTests() {
   eq(cart.subtotal(basket6), 34, "Scenario 6: cart subtotal is $34.00");
 
   const checkout6 = await runWorkerCheckout([
-    { id: "frankincense-salve", qty: 1, variant: "1oz" },
+    { id: "frankincense-salve", qty: 1, variant: "1 oz" },
     { id: "sleep-salve", qty: 1 }
   ]);
   eq(checkout6.res.status, 200, "Scenario 6: worker returns 200");
@@ -289,7 +293,7 @@ async function runAllTests() {
       category: "salves",
       price: 20,
       variantDelta: -6.0,
-      variantLabel: "1oz",
+      variantLabel: "1 oz",
       qty: 2
     }
   ];
@@ -297,7 +301,9 @@ async function runAllTests() {
   eq(cart.unitPrice(basket7[0], basket7), 14, "Scenario 7: 1oz unitPrice is $14.00");
   eq(cart.subtotal(basket7), 28, "Scenario 7: subtotal is $28.00");
 
-  const checkout7 = await runWorkerCheckout([{ id: "frankincense-salve", qty: 2, variant: "1oz" }]);
+  const checkout7 = await runWorkerCheckout([
+    { id: "frankincense-salve", qty: 2, variant: "1 oz" }
+  ]);
   eq(checkout7.res.status, 200, "Scenario 7: worker returns 200");
   eq(
     checkout7.capturedStripeBody.get("line_items[0][price_data][unit_amount]"),
@@ -317,7 +323,7 @@ async function runAllTests() {
       category: "salves",
       price: 20,
       variantDelta: 0,
-      variantLabel: "2oz",
+      variantLabel: "2 oz",
       qty: 1
     }
   ];
@@ -328,7 +334,7 @@ async function runAllTests() {
 
   const checkout8 = await runWorkerCheckout([
     { id: "beard-salve", qty: 1 },
-    { id: "frankincense-salve", qty: 1, variant: "2oz" }
+    { id: "frankincense-salve", qty: 1, variant: "2 oz" }
   ]);
   eq(checkout8.res.status, 200, "Scenario 8: worker returns 200");
   eq(
@@ -396,7 +402,7 @@ async function runAllTests() {
 
   // Attack 11A: Client price manipulation
   const attack11A = await runWorkerCheckout([
-    { id: "frankincense-salve", variant: "2oz", qty: 1, price: 1.0, unitAmount: 100 }
+    { id: "frankincense-salve", variant: "2 oz", qty: 1, price: 1.0, unitAmount: 100 }
   ]);
   eq(attack11A.res.status, 200, "Attack 11A: worker succeeds");
   eq(
@@ -407,7 +413,7 @@ async function runAllTests() {
 
   // Attack 11B: Negative delta tampering
   const attack11B = await runWorkerCheckout([
-    { id: "frankincense-salve", variant: "2oz", qty: 1, variantDelta: -15.0 }
+    { id: "frankincense-salve", variant: "2 oz", qty: 1, variantDelta: -15.0 }
   ]);
   eq(attack11B.res.status, 200, "Attack 11B: worker succeeds");
   eq(
@@ -441,7 +447,7 @@ async function runAllTests() {
   // Attacker attempts to pass category: "salves" on beard-salve
   const attack11D = await runWorkerCheckout([
     { id: "beard-salve", qty: 2, category: "salves" },
-    { id: "frankincense-salve", variant: "2oz", qty: 1 }
+    { id: "frankincense-salve", variant: "2 oz", qty: 1 }
   ]);
   eq(attack11D.res.status, 200, "Attack 11D: worker responds");
   eq(
@@ -458,7 +464,7 @@ async function runAllTests() {
   );
 
   // Attack 11E: Miracle Balm variant spoofing
-  const attack11E = await runWorkerCheckout([{ id: "miracle-balm", variant: "2oz", qty: 2 }]);
+  const attack11E = await runWorkerCheckout([{ id: "miracle-balm", variant: "2 oz", qty: 2 }]);
   eq(
     attack11E.res.status,
     200,
@@ -502,7 +508,7 @@ async function runAllTests() {
       id: "salves-2oz",
       name: "2oz Salve Multi-Buy",
       category: "salves",
-      qualifyingVariant: "2oz",
+      qualifyingVariant: "2 oz",
       minQuantity: 2,
       unitPrice: 15,
       label: "2+ for $15 each",
@@ -549,7 +555,7 @@ async function runAllTests() {
       headers: { Origin: "https://yallternativeliving.com", "Content-Type": "application/json" },
       body: JSON.stringify({
         items: [
-          { id: "frankincense-salve", qty: 2, variant: "2oz" },
+          { id: "frankincense-salve", qty: 2, variant: "2 oz" },
           { id: "beard-salve", qty: 2 }
         ]
       })

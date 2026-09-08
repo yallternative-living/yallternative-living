@@ -644,7 +644,7 @@
     "auto.siteNavigation.72d9c4": "Điều hướng trang",
     "auto.sizesOzOz.47ada8": "Cỡ: 10 oz · 24 oz",
     "auto.sizesOzOz.c78cad": "Cỡ: 2 oz · 4 oz",
-    "auto.sizesOzOz.cc4d90": "Cỡ: 2oz · 1oz",
+    "auto.sizesOzOz.dc7b47": "Cỡ: 2 oz · 1 oz",
     "auto.sizesOzOz.e7fda7": "Cỡ: 4 oz · 8 oz",
     "auto.sizesXl.488474": "Cỡ: S · M · L · XL",
     "auto.smoothDollopOverClean.a18e1d": "Thoa một lượng vừa đủ lên làn da sạch, đã lau ráo bằng khăn từ cổ đến chân. Thấm nhanh mà không để lại nhờn rít.",

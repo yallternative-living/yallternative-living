@@ -759,7 +759,7 @@ singletons:
         summary: "{{fields.label}} — {{fields.name}}"
         hint: "Category volume discounts, e.g. any 2+ 2 oz salves for $15 each. Several deals can run at once."
         fields:
-          - { name: name, label: "Deal name", widget: string, hint: "For your reference, e.g. 2oz Salve Multi-Buy" }
+          - { name: name, label: "Deal name", widget: string, hint: "For your reference, e.g. 2 oz Salve Multi-Buy" }
           - name: category
             label: "Category"
             widget: relation
@@ -773,7 +773,7 @@ singletons:
               label: "Qualifying variant",
               widget: string,
               required: false,
-              hint: "e.g. 2oz. Leave blank to count every size in the category."
+              hint: "e.g. 2 oz. Leave blank to count every size in the category."
             }
           - {
               name: minQuantity,

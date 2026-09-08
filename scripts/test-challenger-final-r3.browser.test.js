@@ -558,7 +558,7 @@ async function runEmpiricalChallengerTests() {
         window.YLCart.addItem({
           id: "frankincense-salve",
           qty: 2,
-          variantLabel: "2oz",
+          variantLabel: "2 oz",
           price: 19.99
         });
         window.YLCart.addItem({ id: "beard-salve", qty: 1, variantLabel: "", price: 18.0 });
@@ -626,7 +626,7 @@ async function runEmpiricalChallengerTests() {
     const salveItem = hydrationResult.items.find((i) => i.id === "frankincense-salve");
     const soapItem = hydrationResult.items.find((i) => i.id === "beard-salve");
     assert(salveItem && salveItem.qty === 2, "Frankincense salve hydrated with qty 2");
-    assert(salveItem.variantLabel === "2oz", "Frankincense salve hydrated with variant '2oz'");
+    assert(salveItem.variantLabel === "2 oz", "Frankincense salve hydrated with variant '2 oz'");
     assert(soapItem && soapItem.qty === 1, "Beard salve hydrated with qty 1");
     pass(
       "Shared cart URL (?cart=...) accurately parsed, hydrated items/variants/quantities, and opened drawer."

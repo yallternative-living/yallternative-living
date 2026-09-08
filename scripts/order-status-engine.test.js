@@ -525,7 +525,11 @@ console.log("  ✓ Both the reference and the email are required and shape-check
     "https://tools.usps.com/go/TrackConfirmAction?tLabels=9400123",
     "...pointing at the Worker's trackingUrl"
   );
-  assert.strictEqual(trackLinks[0].getAttribute("rel"), "noopener", "...with rel=noopener");
+  assert.strictEqual(
+    trackLinks[0].getAttribute("rel"),
+    "noopener noreferrer",
+    "...with rel=noopener noreferrer"
+  );
   console.log("  ✓ Status words map correctly and a tracking link is offered when present");
 
   // 6. Response branches

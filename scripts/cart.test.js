@@ -495,7 +495,7 @@ storage.set(
       qty: 1,
       price: 20,
       variantDelta: 0,
-      variantLabel: "2oz",
+      variantLabel: "2 oz",
       name: "Frankincense Salve"
     }
   ])
@@ -509,7 +509,7 @@ assert(
   "1x 2oz salve does not have 2+ for $15 applied badge"
 );
 assert(
-  footHTML.includes("Add 1 more 2oz salve to get both for $15 each"),
+  footHTML.includes("Add 1 more 2 oz salve to get both for $15 each"),
   "1x 2oz salve renders mix-and-match nudge in footer"
 );
 
@@ -523,7 +523,7 @@ storage.set(
       qty: 2,
       price: 20,
       variantDelta: 0,
-      variantLabel: "2oz",
+      variantLabel: "2 oz",
       name: "Frankincense Salve"
     }
   ])
@@ -536,7 +536,7 @@ assert(itemsHTML.includes("$15 ea"), "2x 2oz salve renders $15 ea unit price");
 assert(itemsHTML.includes("2+ for $15 applied"), "2x 2oz salve renders applied badge");
 assert(footHTML.includes("$30</strong>"), "2x 2oz salve renders $30 subtotal in footer");
 assert(
-  footHTML.includes("$15/ea 2oz salve volume tier applied"),
+  footHTML.includes("$15/ea 2 oz salve volume tier applied"),
   "2x 2oz salve renders celebration banner in footer"
 );
 
@@ -550,7 +550,7 @@ storage.set(
       qty: 1,
       price: 20,
       variantDelta: 0,
-      variantLabel: "2oz",
+      variantLabel: "2 oz",
       name: "Frankincense Salve"
     },
     {
@@ -559,7 +559,7 @@ storage.set(
       qty: 1,
       price: 20,
       variantDelta: 0,
-      variantLabel: "2oz",
+      variantLabel: "2 oz",
       name: "Sleep Salve"
     }
   ])
@@ -570,7 +570,7 @@ footHTML = drawerFootHTML();
 assert(itemsHTML.includes("2+ for $15 applied"), "Mix & match renders applied badge on both lines");
 assert(footHTML.includes("$30</strong>"), "Mix & match renders $30 subtotal in footer");
 assert(
-  footHTML.includes("$15/ea 2oz salve volume tier applied"),
+  footHTML.includes("$15/ea 2 oz salve volume tier applied"),
   "Mix & match renders celebration banner in footer"
 );
 
@@ -685,7 +685,7 @@ storage.set(
       qty: 3, // 3 * $15.00 volume price = $45.00: past the $40 tier, short of $60
       price: 20,
       variantDelta: 0,
-      variantLabel: "2oz",
+      variantLabel: "2 oz",
       name: "Frankincense Salve"
     }
   ])
@@ -694,7 +694,7 @@ YLCart.init({ force: true });
 footHTML = drawerFootHTML();
 assert(
   footHTML.includes(
-    "$15/ea 2oz salve volume tier applied! · Add $15 for Free Handcrafted Pocket Salve!"
+    "$15/ea 2 oz salve volume tier applied! · Add $15 for Free Handcrafted Pocket Salve!"
   ),
   "Mix & Match nudge names the real next milestone reward once the $40 tier is already crossed"
 );

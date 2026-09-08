@@ -521,7 +521,7 @@ async function runMilestone1AdversarialSuite() {
     () => {
       const tokens = [];
       for (let i = 0; i < 2500; i++) {
-        tokens.push("frankincense-salve:1:2oz");
+        tokens.push("frankincense-salve:1:2 oz");
         tokens.push("lavender-soak:2");
       }
       const hugeCartStr = tokens.join(",");

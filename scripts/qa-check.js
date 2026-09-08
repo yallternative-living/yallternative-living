@@ -342,6 +342,25 @@ else
       " matches no product -- delete it rather than leaving a dead exemption"
   );
 
+/* Size labels are matched byte-for-byte: workers/checkout.js resolves a
+   client's variant against the catalog's own label (whitespace collapsed, not
+   stripped), cart.js drops a stored line whose label no longer matches, and
+   the label is printed into the Stripe line-item name. One spelling only,
+   then -- "2 oz" with a space and lowercase unit, the form every other size
+   already used when the 2026-09-08 audit (DI-15) found "2oz"/"1oz" beside
+   "10 oz". Returns the offending fragments, empty when the label conforms. */
+var OZ_LABEL_RE = /(\d)(\s*)(oz)\b/gi;
+function malformedOzFragments(label) {
+  var bad = [];
+  var m;
+  OZ_LABEL_RE.lastIndex = 0;
+  while ((m = OZ_LABEL_RE.exec(String(label)))) {
+    if (m[2] !== " " || m[3] !== "oz") bad.push(m[0]);
+  }
+  return bad;
+}
+var ozLabelCount = 0;
+
 PRODUCTS.forEach(function (p) {
   var missing = REQUIRED_FIELDS.filter(function (f) {
     return p[f] === undefined || p[f] === null || p[f] === "";
@@ -461,12 +480,29 @@ PRODUCTS.forEach(function (p) {
             p.id + ": variant option label contains [ ] or | (breaks the custom1-options syntax)",
             o.label
           );
+        if (/\d\s*oz\b/i.test(String(o.label))) {
+          ozLabelCount++;
+          var badOz = malformedOzFragments(o.label);
+          if (badOz.length)
+            fail(
+              p.id + ': size label must use the "N oz" form (one space, lowercase unit)',
+              JSON.stringify(o.label) + " -- " + badOz.join(", ")
+            );
+        }
       });
       if (labels.length && !dupeLabels.length)
         ok(p.id + ": variants well-formed (" + v.name + ": " + labels.join(", ") + ")");
     }
   }
 });
+if (ozLabelCount > 0) {
+  ok("every ounce size label (" + ozLabelCount + ') uses the spaced "N oz" form');
+} else {
+  fail(
+    "size-label form check found nothing to check",
+    "no variant option label matches /\\d+\\s*oz/i -- the salves and soaks are sold by the ounce, so an empty match means the labels moved, not that the rule is satisfied"
+  );
+}
 
 /* ---------- 6a) Sales schema sanity ---------- */
 section("Sales schema sanity");
@@ -477,6 +513,30 @@ try {
   var catIds = (RAW_CATALOG.categories || []).map(function (c) {
     return c.id;
   });
+  /* The same "N oz" rule as the products-data.js loop above, run on the JSON
+     the CMS actually writes: products-data.js is derived from it, and a build
+     that has not been re-run yet is exactly when the two disagree. */
+  var rawOzBad = [];
+  var rawOzCount = 0;
+  (RAW_CATALOG.products || []).forEach(function (p) {
+    var opts = p && p.variants && Array.isArray(p.variants.options) ? p.variants.options : [];
+    opts.forEach(function (o) {
+      if (!o || !/\d\s*oz\b/i.test(String(o.label))) return;
+      rawOzCount++;
+      var frag = malformedOzFragments(o.label);
+      if (frag.length) rawOzBad.push(p.id + " " + JSON.stringify(o.label));
+    });
+  });
+  if (rawOzBad.length) {
+    fail(
+      'products.json: size labels must use the "N oz" form (one space, lowercase unit)',
+      rawOzBad.join(", ")
+    );
+  } else if (rawOzCount > 0) {
+    ok("products.json: every ounce size label (" + rawOzCount + ') uses the spaced "N oz" form');
+  } else {
+    fail("products.json size-label form check found nothing to check", "no /\\d+\\s*oz/i labels");
+  }
   (RAW_CATALOG.products || []).forEach(function (p) {
     if (p.sale) {
       if (typeof p.sale.price !== "number" || p.sale.price >= p.price) {
@@ -541,6 +601,19 @@ try {
           fail(
             "Volume pricing rule '" + (r.id || idx) + "': enabled must be a boolean if specified"
           );
+        }
+        // The rule's qualifying size is shown in the cart nudge ("Add 1 more
+        // 2 oz salve...") and in /admin's hint text, so it keeps the same
+        // "N oz" spelling as the variant labels it selects.
+        if (r.qualifyingVariant && /\d\s*oz\b/i.test(String(r.qualifyingVariant))) {
+          var badRuleOz = malformedOzFragments(r.qualifyingVariant);
+          if (badRuleOz.length)
+            fail(
+              "Volume pricing rule '" +
+                (r.id || idx) +
+                '\': qualifyingVariant must use the "N oz" form',
+              JSON.stringify(r.qualifyingVariant)
+            );
         }
       });
       ok("Volume pricing rules schema is valid (" + volRules.length + " rules)");
@@ -4599,6 +4672,105 @@ section("Report a Reaction page (safety.html) -- MoCRA adverse-event intake");
     ok("llms.txt points assistants at the reaction-report page");
   } else {
     fail("llms.txt does not mention safety.html", "run npm run build-data");
+  }
+
+  /* llms.txt product lines are "- **Name** -- PRICE -- Category -- blurb"
+     (build-site-data.js productLines). A comingSoon product is not for sale,
+     so its price slot reads "(coming soon)" and carries no dollar figure --
+     the 2026-09-08 audit (DI-16) found all five listed at full price with no
+     availability marker. Every buyable product must still show a price, so
+     the marker cannot leak onto in-stock lines either. */
+  if (fs.existsSync(llms) && typeof RAW_CATALOG === "object" && RAW_CATALOG) {
+    var llmsLines = fs.readFileSync(llms, "utf8").split("\n");
+    var llmsProducts = Array.isArray(RAW_CATALOG.products) ? RAW_CATALOG.products : [];
+    var llmsSoon = llmsProducts.filter(function (p) {
+      return p && p.comingSoon === true;
+    });
+    if (!llmsProducts.length) {
+      fail("llms.txt availability check has no subject", "products.json lists no products");
+    }
+    var llmsBad = [];
+    llmsProducts.forEach(function (p) {
+      var line = llmsLines.find(function (l) {
+        return l.indexOf("- **" + p.name + "** -- ") === 0;
+      });
+      if (!line) {
+        llmsBad.push(p.id + " (no product line)");
+        return;
+      }
+      var priceSlot = line.split(" -- ")[1] || "";
+      if (p.comingSoon === true) {
+        if (priceSlot !== "(coming soon)" || /\$\s*\d/.test(priceSlot))
+          llmsBad.push(p.id + ' (coming soon, price slot is "' + priceSlot + '")');
+      } else if (!/^\$\d/.test(priceSlot) || /coming soon/i.test(priceSlot)) {
+        llmsBad.push(p.id + ' (on sale, price slot is "' + priceSlot + '")');
+      }
+    });
+    if (llmsBad.length) {
+      fail("llms.txt availability markers", llmsBad.join("; ") + " -- run npm run build-data");
+    } else if (llmsSoon.length) {
+      ok(
+        "llms.txt marks all " +
+          llmsSoon.length +
+          ' coming-soon products "(coming soon)" with no price, and prices the other ' +
+          (llmsProducts.length - llmsSoon.length)
+      );
+    } else {
+      ok("llms.txt prices every product (no coming-soon products to mark right now)");
+    }
+  }
+
+  /* External links open in a new tab with rel="noopener noreferrer" -- both
+     tokens. noopener alone severs window.opener; noreferrer also stops the
+     shopper's URL (which can carry ?cart= share payloads and order-status
+     tokens) being sent to Etsy, Instagram and the map providers as a
+     Referer. The 2026-09-01 audit (L-crawl) found 233 links with noopener
+     only. Checked on every top-level page and every generated product page;
+     the source lives in the page files, assets/data/footer.html, main.js and
+     build-site-data.js, so a miss here means one of those regressed. */
+  var relPages = PAGES.slice();
+  var relProductsDir = path.join(ROOT, "products");
+  if (fs.existsSync(relProductsDir)) {
+    fs.readdirSync(relProductsDir).forEach(function (f) {
+      if (/\.html$/.test(f)) relPages.push("products/" + f);
+    });
+  }
+  var blankAnchors = 0;
+  var relMisses = [];
+  relPages.forEach(function (rel) {
+    var full = path.join(ROOT, rel);
+    if (!fs.existsSync(full)) return;
+    var html = fs.readFileSync(full, "utf8");
+    var tagRe = /<a\b[^>]*>/gi;
+    var tag;
+    while ((tag = tagRe.exec(html))) {
+      if (!/\btarget\s*=\s*["']_blank["']/i.test(tag[0])) continue;
+      blankAnchors++;
+      var relAttr = /\brel\s*=\s*["']([^"']*)["']/i.exec(tag[0]);
+      var tokens = relAttr ? relAttr[1].toLowerCase().split(/\s+/) : [];
+      if (tokens.indexOf("noopener") === -1 || tokens.indexOf("noreferrer") === -1) {
+        relMisses.push(rel + ": " + tag[0].slice(0, 120));
+      }
+    }
+  });
+  if (!blankAnchors) {
+    fail(
+      "external-link rel check has no subject",
+      'no <a target="_blank"> found on any page -- the footer alone links Etsy, Instagram and TikTok'
+    );
+  } else if (relMisses.length) {
+    fail(
+      relMisses.length + ' target="_blank" link(s) lack rel="noopener noreferrer"',
+      relMisses.slice(0, 8).join(" | ") + (relMisses.length > 8 ? " | ..." : "")
+    );
+  } else {
+    ok(
+      "all " +
+        blankAnchors +
+        ' target="_blank" links across ' +
+        relPages.length +
+        ' pages carry rel="noopener noreferrer"'
+    );
   }
 
   var privacyHtml = fs.readFileSync(path.join(ROOT, "privacy.html"), "utf8");

@@ -774,9 +774,9 @@ const QUALIFYING_2OZ_SALVE_PRICE_CENTS = 1500;
 const DEFAULT_VOLUME_PRICING = [
   {
     id: "salves-2oz",
-    name: "2oz Salve Multi-Buy",
+    name: "2 oz Salve Multi-Buy",
     category: "salves",
-    qualifyingVariant: "2oz",
+    qualifyingVariant: "2 oz",
     minQuantity: 2,
     unitPrice: QUALIFYING_2OZ_SALVE_PRICE_CENTS / 100,
     label: "2+ for $15 each",
