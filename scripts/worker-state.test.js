@@ -1214,16 +1214,12 @@ async function testWebhookRoute() {
     }
   };
   const purchaseBody = JSON.stringify(purchase);
-  /* A paid session also earns the owner one order notice. It is not part of
-     the gift-card contract under test, so it is addressed somewhere the
-     assertions below can set aside. */
-  const OWNER = "owner@example.test";
-  const purchaseEnv = await makeRouteEnv({ ORDER_NOTIFY_EMAIL: OWNER });
-  const allEmails = [];
+  const purchaseEnv = await makeRouteEnv();
+  const emails = [];
   await withFetch(
     async (url, opts) => {
       if (url.includes("api.resend.com")) {
-        allEmails.push({ ...JSON.parse(opts.body), key: opts.headers["Idempotency-Key"] });
+        emails.push({ ...JSON.parse(opts.body), key: opts.headers["Idempotency-Key"] });
         return { ok: true, status: 200, json: async () => ({ id: "email_1" }) };
       }
       return null;
@@ -1240,10 +1236,9 @@ async function testWebhookRoute() {
     }
   );
 
-  eq(allEmails.filter((e) => e.to === OWNER).length, 1, "the owner gets one order notice");
-  const emails = allEmails.filter((e) => e.to !== OWNER);
-  eq(emails.length, 4, "two cards mean two recipient emails and two buyer receipts");
-  const recipientEmails = emails.filter((e) => e.to === "friend@example.com");
+  const cardEmails = emails.filter((e) => !e.key.startsWith("owner-order-email-"));
+  eq(cardEmails.length, 4, "two cards mean two recipient emails and two buyer receipts");
+  const recipientEmails = cardEmails.filter((e) => e.to === "friend@example.com");
   eq(recipientEmails.length, 2, "both cards reach the recipient");
   assert(
     recipientEmails.every((e) => /YALL-[0-9A-Z]{4}-[0-9A-Z]{4}-[0-9A-Z]{4}/.test(e.html)),
@@ -1311,7 +1306,7 @@ async function testWebhookRoute() {
   );
 
   /* --- redemption: paying commits the hold ----------------------------- */
-  const spendEnv = await makeRouteEnv({ ORDER_NOTIFY_EMAIL: OWNER });
+  const spendEnv = await makeRouteEnv();
   await giftCardLedger(spendEnv, "YALL-SPND-SPND-SPND").issue({
     initialCents: 5000,
     recipientEmail: "holder@example.com",
@@ -1341,8 +1336,7 @@ async function testWebhookRoute() {
   await withFetch(
     async (url, opts) => {
       if (url.includes("api.resend.com")) {
-        const mail = JSON.parse(opts.body);
-        if (mail.to !== OWNER) spendEmails.push(mail);
+        spendEmails.push(JSON.parse(opts.body));
         return { ok: true, status: 200, json: async () => ({}) };
       }
       return null;
@@ -1362,13 +1356,15 @@ async function testWebhookRoute() {
   eq(afterSpend.balanceCents, 3000, "the balance is down by what was spent");
   eq(afterSpend.pendingCents, 0, "nothing is still held");
   eq(afterSpend.spentCents, 2000, "the hold became a permanent debit");
-  eq(spendEmails.length, 1, "the card holder is told what is left");
-  assert(spendEmails[0].subject.includes("$30.00"), "...and the email quotes the new balance");
+  const cardHolderEmails = spendEmails.filter((e) => e.to === "holder@example.com");
+  eq(cardHolderEmails.length, 1, "the card holder is told what is left");
+  assert(cardHolderEmails[0].subject.includes("$30.00"), "...and the email quotes the new balance");
 
   /* --- settle: the hold is charged at what Stripe APPLIED, not what was
      asked. The coupon discounts line items only; if Stripe applied less than
      the hold (a shipping-inclusive hold from an older client, a re-priced
      cart), the difference goes back to the card in the same transaction. --- */
+  const OWNER = "owner@example.test";
   const settleEnv = await makeRouteEnv({ ORDER_NOTIFY_EMAIL: OWNER });
   await giftCardLedger(settleEnv, "YALL-STTL-STTL-STTL").issue({
     initialCents: 5000,
@@ -1501,7 +1497,7 @@ async function testWebhookRoute() {
   eq(asyncState.pendingCents, 0, "paid: the hold is settled");
   eq(asyncState.spentCents, 1000, "paid: the card is debited");
   assert(
-    asyncEmails.some((m) => m.to === "friend@example.com" || String(m.to).includes("friend@")),
+    asyncEmails.some((m) => String(m.to).includes("friend@")),
     "paid: the purchased card reaches its recipient"
   );
   assert(
@@ -1712,6 +1708,214 @@ async function testWebhookRoute() {
     5000,
     "a re-delivered refund event mints no money"
   );
+
+  /* --- split-tender refund: cash refunds do not duplicate to gift card (R1) -- */
+  {
+    const splitEnv = await makeRouteEnv();
+    const splitCardCode = "YALL-SPLT-RFND-CARD";
+    await giftCardLedger(splitEnv, splitCardCode).issue({
+      initialCents: 5000,
+      recipientEmail: "holder@example.com",
+      source: "test"
+    });
+    // Order: $20 gift card applied + $30 cash paid = $50 total
+    await giftCardLedger(splitEnv, splitCardCode).reserve({
+      sessionId: "cs_split_refund",
+      cents: 2000
+    });
+    await giftCardLedger(splitEnv, splitCardCode).commit({ sessionId: "cs_split_refund" });
+    // Balance is now 3000 cents (5000 - 2000)
+    eq((await giftCardLedger(splitEnv, splitCardCode).getBalance()).balanceCents, 3000);
+
+    const splitSession = {
+      id: "cs_split_refund",
+      amount_total: 3000,
+      metadata: {
+        gift_card_redeemed_code: splitCardCode,
+        gift_card_amount_applied_cents: "2000"
+      }
+    };
+
+    const stripeForSplitRefunds = async (url) => {
+      if (url.includes("/checkout/sessions?payment_intent=")) {
+        return { ok: true, status: 200, json: async () => ({ data: [splitSession] }) };
+      }
+      if (url.includes("api.resend.com")) {
+        return { ok: true, status: 200, json: async () => ({}) };
+      }
+      return null;
+    };
+
+    // 1. Partial cash refund: $10 refunded to credit card (cashPaid = $30).
+    // refundedCents ($10) <= cashPaidCents ($30) -> $0 restorable to gift card.
+    const partialCashRefund = {
+      id: "evt_split_rfnd_1",
+      type: "charge.refunded",
+      data: {
+        object: {
+          id: "ch_split_1",
+          payment_intent: "pi_split_1",
+          amount: 3000,
+          amount_refunded: 1000,
+          refunded: false
+        }
+      }
+    };
+    const partialBody = JSON.stringify(partialCashRefund);
+    await withFetch(stripeForSplitRefunds, async () => {
+      const res = await worker.fetch(
+        post("/api/stripe-webhook", partialBody, { "Stripe-Signature": signWebhook(partialBody) }),
+        splitEnv,
+        noCtx
+      );
+      eq(res.status, 200, "partial cash refund webhook is processed");
+    });
+    eq(
+      (await giftCardLedger(splitEnv, splitCardCode).getBalance()).balanceCents,
+      3000,
+      "partial cash refund ($10) does NOT restore to gift card (cashPaid covers it)"
+    );
+
+    // 2. Full cash refund: the $30 charge refunded in full is "undo the
+    // order", and only then does the $20 card share come back.
+    const fullCashRefund = {
+      id: "evt_split_rfnd_2",
+      type: "charge.refunded",
+      data: {
+        object: {
+          id: "ch_split_1",
+          payment_intent: "pi_split_1",
+          amount: 3000,
+          amount_refunded: 3000,
+          refunded: true
+        }
+      }
+    };
+    const fullBody = JSON.stringify(fullCashRefund);
+    await withFetch(stripeForSplitRefunds, async () => {
+      const res = await worker.fetch(
+        post("/api/stripe-webhook", fullBody, { "Stripe-Signature": signWebhook(fullBody) }),
+        splitEnv,
+        noCtx
+      );
+      eq(res.status, 200, "full cash refund webhook is processed");
+    });
+    eq(
+      (await giftCardLedger(splitEnv, splitCardCode).getBalance()).balanceCents,
+      5000,
+      "a full cash refund restores the whole $20 card share, once"
+    );
+
+    // 3. Stripe never refunds more than the charge, so there is no "excess"
+    // case: a redelivery of the full refund is the only thing that can follow,
+    // and it must move nothing.
+    const redelivered = {
+      id: "evt_split_rfnd_3",
+      type: "charge.refunded",
+      data: {
+        object: {
+          id: "ch_split_1",
+          payment_intent: "pi_split_1",
+          amount: 3000,
+          amount_refunded: 3000,
+          refunded: true
+        }
+      }
+    };
+    const redeliveredBody = JSON.stringify(redelivered);
+    await withFetch(stripeForSplitRefunds, async () => {
+      const res = await worker.fetch(
+        post("/api/stripe-webhook", redeliveredBody, {
+          "Stripe-Signature": signWebhook(redeliveredBody)
+        }),
+        splitEnv,
+        noCtx
+      );
+      eq(res.status, 200, "a redelivered full refund is acknowledged");
+    });
+    eq(
+      (await giftCardLedger(splitEnv, splitCardCode).getBalance()).balanceCents,
+      5000,
+      "...and restores nothing twice"
+    );
+  }
+
+  /* --- unpaid session gating: settleRedemption & issuePurchasedCards (R1) -- */
+  {
+    const unpaidEnv = await makeRouteEnv();
+    const cardCode = "YALL-UNPD-UNPD-UNPD";
+    await giftCardLedger(unpaidEnv, cardCode).issue({
+      initialCents: 5000,
+      recipientEmail: "holder@example.com",
+      source: "test"
+    });
+    await giftCardLedger(unpaidEnv, cardCode).reserve({
+      sessionId: "cs_unpaid_1",
+      cents: 2000
+    });
+    // Hold is active: balance 3000, pending 2000, spent 0
+    let cardState = await giftCardLedger(unpaidEnv, cardCode).getBalance();
+    eq(cardState.balanceCents, 3000);
+    eq(cardState.pendingCents, 2000);
+
+    const unpaidSession = {
+      id: "evt_unpaid_1",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_unpaid_1",
+          payment_status: "unpaid",
+          customer_details: { email: "buyer@example.com" },
+          metadata: {
+            gift_card_redeemed_code: cardCode,
+            gift_card_amount_applied_cents: "2000",
+            gift_card_1_amount_cents: "2500",
+            gift_card_1_qty: "1",
+            gift_card_1_recipient: "friend@example.com",
+            gift_card_1_sender: "Buyer",
+            gift_card_1_message: "Here is your gift"
+          }
+        }
+      }
+    };
+    const unpaidBody = JSON.stringify(unpaidSession);
+    const emailedList = [];
+    await withFetch(
+      async (url, opts) => {
+        if (url.includes("api.resend.com")) {
+          emailedList.push(JSON.parse(opts.body));
+          return { ok: true, status: 200, json: async () => ({ id: "email_unpaid" }) };
+        }
+        return null;
+      },
+      async () => {
+        const res = await worker.fetch(
+          post("/api/stripe-webhook", unpaidBody, { "Stripe-Signature": signWebhook(unpaidBody) }),
+          unpaidEnv,
+          noCtx
+        );
+        eq(res.status, 200, "webhook acknowledges unpaid checkout.session.completed");
+      }
+    );
+
+    // Assert settleRedemption did not commit:
+    cardState = await giftCardLedger(unpaidEnv, cardCode).getBalance();
+    eq(cardState.balanceCents, 3000, "balance remained held, not committed");
+    eq(cardState.pendingCents, 2000, "hold remains pending on unpaid session");
+    eq(cardState.spentCents, 0, "no funds were permanently debited");
+
+    // Assert issuePurchasedCards did not issue cards or send emails:
+    eq(emailedList.length, 0, "no gift card emails sent on unpaid session");
+
+    // Direct function verification with processStripeEvent:
+    const { processStripeEvent } = await import("../workers/routes/stripe-webhook.js");
+    const outcome = await processStripeEvent(unpaidSession, unpaidEnv, noCtx);
+    eq(outcome.redemption, null, "settleRedemption returns null when session is unpaid");
+    assert(
+      Array.isArray(outcome.issued) && outcome.issued.length === 0,
+      "issuePurchasedCards returns [] when session is unpaid"
+    );
+  }
 
   /* --- unrelated events, and the startup guard -------------------------- */
   const ignored = JSON.stringify({ id: "evt_ignored", type: "payment_intent.created", data: {} });
@@ -2102,9 +2306,7 @@ async function testEndToEndMoneyPath() {
   eq(balanceRes.status, 200, "e2e: the balance route finds the new card");
   eq((await balanceRes.json()).balanceCents, 2500, "e2e: it is worth what was paid for it");
 
-  /* 4. They spend it on two $18 soaks ($36 of goods, +$10 shipping). The
-     card covers goods only -- Stripe never discounts the shipping rate -- so
-     the order has to carry at least $25 of goods for the whole card to go. */
+  /* 4. They spend it on an $18 soak (+$10 shipping = $28). */
   let couponParams = null;
   await withFetch(
     async (url, opts) => {
@@ -2123,7 +2325,7 @@ async function testEndToEndMoneyPath() {
     async () => {
       const res = await worker.fetch(
         post("/api/checkout", {
-          items: [{ id: "lavender-soak", qty: 2 }],
+          items: [{ id: "lavender-soak", qty: 1 }],
           giftCardCode: issuedCode
         }),
         env,
@@ -2132,10 +2334,15 @@ async function testEndToEndMoneyPath() {
       eq(res.status, 200, "e2e: the card is applied at checkout");
     }
   );
-  eq(couponParams.get("amount_off"), "2500", "e2e: the whole $25 is applied to $36 of goods");
+  eq(
+    couponParams.get("amount_off"),
+    "1800",
+    "e2e: discount is capped at $18 subtotal (shipping paid separately)"
+  );
 
   const held = await worker.fetch(post("/api/gift-card-balance", { code: issuedCode }), env, noCtx);
-  eq(held.status, 404, "e2e: with the balance held, the card reads as having nothing spendable");
+  eq(held.status, 200, "e2e: with $18 held, the card still has the unheld remainder spendable");
+  eq((await held.json()).balanceCents, 700, "e2e: remaining balance is $7");
 
   /* 5. The order is paid; the hold becomes a debit. */
   const spend = JSON.stringify({
@@ -2148,7 +2355,7 @@ async function testEndToEndMoneyPath() {
         customer_details: { email: "gift@example.com" },
         metadata: {
           gift_card_redeemed_code: issuedCode,
-          gift_card_amount_applied_cents: "2500"
+          gift_card_amount_applied_cents: "1800"
         }
       }
     }
@@ -2168,8 +2375,9 @@ async function testEndToEndMoneyPath() {
 
   const { giftCardLedger } = await import("../workers/state/gift-card-ledger.js");
   const finalState = await giftCardLedger(env, issuedCode).getBalance();
-  eq(finalState.balanceCents, 0, "e2e: the card is spent");
-  eq(finalState.spentCents, 2500, "e2e: ...and the ledger says where it went");
+  eq(finalState.balanceCents, 700, "e2e: the unspent remainder stays on the card");
+  eq(finalState.spentCents, 1800, "e2e: ...and the ledger says where it went");
+  eq(finalState.pendingCents, 0, "e2e: nothing is still held");
   const audit = await giftCardLedger(env, issuedCode).audit();
   eq(audit.ok, true, "e2e: the ledger reconciles against its own append-only history");
 }

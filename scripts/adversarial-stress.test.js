@@ -814,11 +814,10 @@ async function main() {
   );
 
   await runAsyncTest(
-    "R7.7: Worker caps the gift-card discount at the order total and holds it on the ledger",
+    "R7.7: Worker caps the gift-card discount at the order subtotal and holds it on the ledger",
     async () => {
-      // Basket: Frankincense Salve ($20.00) of goods; the $10 shipping is a
-      // Stripe shipping rate, which an amount_off coupon never discounts.
-      // Gift Card: $50.00 ($5000 cents) -> discount capped at $20.00 ($2000 cents)
+      // Basket: Frankincense Salve ($20.00) + $10 shipping = $30.00 ($3000 cents)
+      // Gift Card: $50.00 ($5000 cents) -> discount capped at $20.00 ($2000 cents) subtotal
       const env = await makeStressEnv({ "YALL-GIFT-5000-0000": 5000 });
       const res = await executeWorkerCheckout(
         {

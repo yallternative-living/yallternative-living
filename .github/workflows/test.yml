@@ -3,7 +3,7 @@ name: QA checks
 # Runs ESLint, Prettier's format check, and the site's own automated QA
 # suite (scripts/smoke-test.js, scripts/qa-check.js, "npm test") on every push and pull request --
 # catches a broken build, a dead link, a malformed variant/rating, CSP
-# drift between _headers/vercel.json/netlify.toml, or a lint/format issue
+# drift between _headers/netlify.toml, or a lint/format issue
 # before it ever reaches a real deploy, instead of relying on someone
 # remembering to run these by hand first.
 #
@@ -103,7 +103,6 @@ jobs:
               - 'cms-auth/**'
               - '_headers'
               - 'netlify.toml'
-              - 'vercel.json'
               - 'sw.js'
               - 'sitemap.xml'
               - 'robots.txt'

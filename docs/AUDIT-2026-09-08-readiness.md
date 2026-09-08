@@ -153,10 +153,16 @@ Items 3 to 5 are doc-only or generated-file changes and cost no Netlify build un
 
 ## Remediation status (2026-09-08, same day)
 
-Landed on the follow-up branch after the report merged. Everything in-repo
-from §6 is done except the `vercel.json` decision, which is the owner's call
-and is left as it was; steps 1 and 6 need the Stripe and Cloudflare
-dashboards and are still the owner's.
+Landed on the follow-up branch after the report merged, merged over the
+owner's own same-day remediation on `main` (`edd8baf`), which covered the
+same ground and retired `vercel.json`. One difference between the two is
+worth recording: `edd8baf` restored the card share as
+`min(applied, max(0, refunded − charge.amount))`, and Stripe never refunds
+more than the charge, so that formula returns nothing on any real refund
+and its tests only passed by refunding more than was charged. The rule that
+survives is the one below: the whole card share on a full refund of the
+charge, nothing on a partial one. Steps 1 and 6 of §6 need the Stripe and
+Cloudflare dashboards and are still the owner's.
 
 | Finding | Status | What changed |
 | --- | --- | --- |
@@ -165,7 +171,7 @@ dashboards and are still the owner's.
 | High: partial cash refund also refunds the card | **Fixed** | `handleChargeRefunded()` restores the card share only when the charge is refunded in full (`charge.refunded`, or `amount_refunded >= amount`). A partial cash refund restores nothing to the card. |
 | High (conditional): cards minted before payment clears | **Fixed** | `processStripeEvent()` defers the whole fulfilment when `payment_status` is not `paid`/`no_payment_required`, and handles `checkout.session.async_payment_succeeded` (same steps) and `checkout.session.async_payment_failed` (as an expiry). The Stripe webhook must now be subscribed to five events; `workers/README.md` and `docs/DEVELOPMENT.md` list them. |
 | High: owner docs send secrets to Netlify | **Fixed** | `docs/SETUP-GUIDE.md` steps 3 and 6 and `docs/DEVELOPMENT.md` §8 now put every secret on the Cloudflare Worker and point the webhook at `/api/stripe-webhook`. All remaining `netlify/functions` references in the guides are retired. |
-| Medium: `vercel.json` not a functional fallback | **Open, owner's call** | Parity or deletion; nothing changed. |
+| Medium: `vercel.json` not a functional fallback | **Fixed on `main`** | Deleted outright in `edd8baf` (the owner's own same-day remediation), with the generator, the QA gate and the docs reduced to `_headers` + `netlify.toml`. |
 | Low: `live-production-audit.js` exits 0 on total failure | **Fixed** | Results go to `tmp/live-audit-results.json` (or `LIVE_AUDIT_RESULTS`); the process exits 1 when any page fails or nothing was checked. |
 | Low: `core` paths filter gaps | **Fixed** | `assets/fonts/**`, `robots.txt`, `site.webmanifest`, `.well-known/**` and `.github/actions/**` added to `.github/workflows/test.yml`. |
 | Low: i18n-bot says "six" | **Fixed** | Commit and issue strings now say nine. |

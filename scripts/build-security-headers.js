@@ -7,10 +7,10 @@
    This is a static site: response headers (CSP, HSTS, etc.) can't be
    set from HTML alone -- they have to come from whatever actually
    serves the files. So instead of a single universal fix, this script
-   writes all three static-host header config formats this repo ships:
+   writes both static-host header config formats for Netlify (the sole
+   static hosting platform):
 
      _headers      -- Netlify / Cloudflare Pages format
-     vercel.json   -- Vercel format
      netlify.toml  -- Netlify format (Netlify actually honors BOTH this
                       and _headers for overlapping paths, which used to
                       mean two hand-maintained files could silently say
@@ -34,7 +34,7 @@
 
    It reads every inline <script> out of every page this site ships --
    all the top-level HTML files plus every generated products/*.html --
-   hashes them, and rewrites _headers + vercel.json + netlify.toml to
+   hashes them, and rewrites _headers + netlify.toml to
    match. Safe to run any time; it doesn't touch products, images, or
    anything else.
 
@@ -127,7 +127,7 @@ var BLOCKED_PATHS = [
    An orphan page and an empty feed that a reader can subscribe to and never
    hear from are worse than a clean 404, so while the flag is off they are
    served as 404s. Turning the flag back on and redeploying removes these two
-   rules automatically: Netlify and Vercel both run this script on every
+   rules automatically: Netlify runs this script on every
    build, right after build-site-data.js. scripts/qa-check.js asserts the flag
    and these rules agree, so the two cannot drift. */
 var JOURNAL_PATHS = ["/journal.html", "/feed.xml"];
@@ -194,8 +194,7 @@ function shippedHtmlPages() {
 }
 
 /* The two first-party analytics proxy rules, as [from, to] pairs. One source
-   for netlify.toml's [[redirects]] and vercel.json's rewrites, so the two
-   platforms cannot describe different proxies. */
+   for netlify.toml's [[redirects]]. */
 function analyticsProxyRules() {
   return [
     [analyticsProxy.ANALYTICS_SCRIPT_PATH, analyticsProxy.UMAMI_SCRIPT_URL],
@@ -380,8 +379,8 @@ function run() {
   });
 
   /* ---------- the gate ----------
-     Runs before anything is written, so a failure leaves _headers,
-     vercel.json and netlify.toml exactly as they were. */
+     Runs before anything is written, so a failure leaves _headers
+     and netlify.toml exactly as they were. */
   var baseline = readBaseline();
   var unapproved = findUnapprovedHashes(pageScripts, baseline);
   if (unapproved.length) {
@@ -629,62 +628,6 @@ function run() {
   fs.writeFileSync(path.join(ROOT, "_headers"), headersFile);
   console.log("wrote _headers (Netlify / Cloudflare Pages)");
 
-  // ---------- vercel.json ----------
-  var vercelHeaders = [{ key: "Content-Security-Policy", value: csp }].concat(
-    otherHeaders.map(function (pair) {
-      return { key: pair[0], value: pair[1] };
-    })
-  );
-  var vercelJson = {
-    // Build command runs before every deploy so a commit that only
-    // changed assets/data/products.json (e.g. one made by the Sveltia
-    // CMS at /admin) still ships with a freshly-regenerated products-
-    // data.js, shop.html/contact.html JSON-LD, sitemap.xml, and llms.txt
-    // -- see DEVELOPMENT.md section 20 and the big comment atop
-    // scripts/build-site-data.js for why this became required once the
-    // CMS could write to products.json without a human remembering to
-    // run that script by hand first. No npm install needed first: this
-    // script and build-site-data.js only use Node's built-in fs/path/
-    // crypto modules, zero external dependencies.
-    buildCommand:
-      "node scripts/optimize-images.js && node scripts/build-site-data.js && node scripts/build-security-headers.js",
-    outputDirectory: ".",
-    // The Vercel twin of netlify.toml's analytics proxy rules above. Vercel
-    // rewrites are the equivalent of a Netlify status=200 redirect: the path
-    // stays first-party in the browser and Vercel fetches the target
-    // server-side. Same two explicit paths, same targets, same source
-    // constants -- a build-security-headers.test.js assertion compares the two
-    // files so this cannot quietly fall behind netlify.toml.
-    //
-    // Netlify is the production host; this file exists so a Vercel deploy is
-    // not silently missing analytics. (The /api/* Worker proxy has never had a
-    // Vercel twin either -- checkout would need one before this file could
-    // actually serve the shop.)
-    rewrites: analyticsProxyRules().map(function (pair) {
-      return { source: pair[0], destination: pair[1] };
-    }),
-    headers: [
-      { source: "/(.*)", headers: vercelHeaders },
-      // Vercel applies header rules in the order listed, and for
-      // overlapping paths a later matching rule's header value is what
-      // actually gets sent -- this /admin/(.*) block comes after the
-      // catch-all above specifically so its CSP wins for /admin routes.
-      // (This ordering behavior was NOT independently re-verified against
-      // a live Vercel deploy during development -- if /admin ever shows
-      // the wrong CSP in production, check Vercel's current docs on
-      // multiple matching header rules.)
-      {
-        source: "/admin/(.*)",
-        headers: [
-          { key: "Content-Security-Policy", value: adminCsp },
-          { key: "X-Robots-Tag", value: ADMIN_ROBOTS_TAG }
-        ]
-      }
-    ]
-  };
-  fs.writeFileSync(path.join(ROOT, "vercel.json"), JSON.stringify(vercelJson, null, 2) + "\n");
-  console.log("wrote vercel.json");
-
   // ---------- netlify.toml ----------
   // The build config + per-path cache-control rules rarely change and
   // aren't security-sensitive, so they stay as plain text here -- only
@@ -702,7 +645,7 @@ function run() {
     "#\n" +
     "# Auto-generated by scripts/build-security-headers.js -- don't hand-edit the\n" +
     '# [[headers]] for = "/*" block below, it\'ll just get overwritten and could\n' +
-    "# drift out of sync with _headers/vercel.json again. Edit the csp/otherHeaders\n" +
+    "# drift out of sync with _headers again. Edit the csp/otherHeaders\n" +
     "# arrays in that script instead, then re-run it.\n\n" +
     "[build]\n" +
     '  publish = "."\n' +
@@ -1060,7 +1003,7 @@ function run() {
     "  [headers.values]\n" +
     '    Cache-Control = "public, max-age=0, must-revalidate"\n\n' +
     "# Baseline security headers on every page -- identical policy to\n" +
-    "# _headers and vercel.json (see this script's csp/otherHeaders).\n" +
+    "# _headers (see this script's csp/otherHeaders).\n" +
     "[[headers]]\n" +
     '  for = "/*"\n' +
     "  [headers.values]\n" +

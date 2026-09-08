@@ -1414,7 +1414,7 @@ async function testCartAndWorkerGiftCardRedemption() {
     }
     if (u.includes("/v1/coupons")) {
       capturedCouponParams = new URLSearchParams(opts.body);
-      return { ok: true, json: async () => ({ id: "co_ephemeral_2600" }) };
+      return { ok: true, json: async () => ({ id: "co_ephemeral_1600" }) };
     }
     if (u.includes("/v1/checkout/sessions")) {
       capturedSessionParams = new URLSearchParams(opts.body);
@@ -1426,9 +1426,7 @@ async function testCartAndWorkerGiftCardRedemption() {
     return { ok: true, json: async () => ({}) };
   };
 
-  // $16 salve; the $10 shipping is a Stripe shipping rate, which an amount_off
-  // coupon never discounts. A $50 card is therefore capped at the $16 of goods
-  // and the shopper pays the postage by card.
+  // $16 salve + $10 shipping = $26 total. A $50 card is capped at $16 subtotal (shipping paid separately).
   const req = new Request("https://yallternativeliving.com/api/checkout", {
     method: "POST",
     headers: { Origin: "https://yallternativeliving.com", "Content-Type": "application/json" },
@@ -1449,7 +1447,7 @@ async function testCartAndWorkerGiftCardRedemption() {
   eq(
     capturedCouponParams.get("amount_off"),
     "1600",
-    "Worker creates an ephemeral coupon for the goods subtotal (1600 cents = $16.00)"
+    "Worker creates an ephemeral coupon for the subtotal (1600 cents = $16.00)"
   );
   eq(capturedCouponParams.get("duration"), "once", "Worker sets ephemeral coupon duration to once");
   eq(
@@ -1459,7 +1457,7 @@ async function testCartAndWorkerGiftCardRedemption() {
   );
   eq(
     capturedSessionParams.get("discounts[0][coupon]"),
-    "co_ephemeral_2600",
+    "co_ephemeral_1600",
     "Worker attaches the ephemeral discount coupon to the checkout session"
   );
   eq(
@@ -1474,7 +1472,7 @@ async function testCartAndWorkerGiftCardRedemption() {
   );
   eq(
     capturedSessionParams.get("metadata[gift_card_ephemeral_coupon_id]"),
-    "co_ephemeral_2600",
+    "co_ephemeral_1600",
     "Worker records the coupon id so an abandoned session can be cleaned up"
   );
 

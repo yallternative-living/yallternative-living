@@ -1,18 +1,20 @@
 # E2E Test Infra: Y'allternative Living E-Commerce Quick Wins Suite
 
 ## Test Philosophy
+
 - Opaque-box, requirement-driven testing covering all 5 Quick Wins (R1-R5).
 - Methodology: Category-Partition + Boundary Value Analysis + Pairwise Combinations + Real-World Workloads.
 - No reliance on internal implementation details; assertions target user-visible DOM, events, JSON-LD schemas, and cart states.
 
 ## Feature Inventory
-| # | Feature | Source (Requirement) | Tier 1 (Coverage) | Tier 2 (Boundary) | Tier 3 (Cross-Feature) | Tier 4 (Real-World) |
-|---|---------|----------------------|:-----------------:|:-----------------:|:---------------------:|:-------------------:|
-| 1 | R1: Mobile Sticky Add-to-Cart | ORIGINAL_REQUEST §R1 | 5 | 5 | ✓ | ✓ |
-| 2 | R2: Complete the Ritual Cross-Sells | ORIGINAL_REQUEST §R2 | 5 | 5 | ✓ | ✓ |
-| 3 | R3: Multi-Tier Shipping & Gift Progress | ORIGINAL_REQUEST §R3 | 5 | 5 | ✓ | ✓ |
-| 4 | R4: Recently Viewed Products Carousel | ORIGINAL_REQUEST §R4 | 5 | 5 | ✓ | ✓ |
-| 5 | R5: Google Merchant Rich JSON-LD | ORIGINAL_REQUEST §R5 | 5 | 5 | ✓ | ✓ |
+
+| #   | Feature                                 | Source (Requirement) | Tier 1 (Coverage) | Tier 2 (Boundary) | Tier 3 (Cross-Feature) | Tier 4 (Real-World) |
+| --- | --------------------------------------- | -------------------- | :---------------: | :---------------: | :--------------------: | :-----------------: |
+| 1   | R1: Mobile Sticky Add-to-Cart           | ORIGINAL_REQUEST §R1 |         5         |         5         |           ✓            |          ✓          |
+| 2   | R2: Complete the Ritual Cross-Sells     | ORIGINAL_REQUEST §R2 |         5         |         5         |           ✓            |          ✓          |
+| 3   | R3: Multi-Tier Shipping & Gift Progress | ORIGINAL_REQUEST §R3 |         5         |         5         |           ✓            |          ✓          |
+| 4   | R4: Recently Viewed Products Carousel   | ORIGINAL_REQUEST §R4 |         5         |         5         |           ✓            |          ✓          |
+| 5   | R5: Google Merchant Rich JSON-LD        | ORIGINAL_REQUEST §R5 |         5         |         5         |           ✓            |          ✓          |
 
 R5 note: the Product/Offer payload lives in `shop.html`'s `ItemList`, not on the
 19 `products/*.html` pages. Those are `noindex` doorway pages that redirect to
@@ -33,8 +35,8 @@ Node-only. The naming is the contract the runners glob on, and it is why the CI
     Node-only gates sequentially: `verify-pdp-metadata.js` (797 assertions on
     PDP OpenGraph/microdata) and `verify-build-reproducibility.js` (rebuilds
     the site five times and diffs every generated file).
-  - `scripts/qa-check.js`: 1121 static assertions -- links, images, JSON-LD,
-    pricing, CSP parity across `_headers`/`netlify.toml`/`vercel.json`,
+  - `scripts/qa-check.js`: 1129 static assertions -- links, images, JSON-LD,
+    pricing, CSP parity across `_headers` and `netlify.toml`,
     lockfile hygiene, markup contracts.
 
   The two run independently and `npm test` exits non-zero if either fails. It
@@ -43,7 +45,7 @@ Node-only. The naming is the contract the runners glob on, and it is why the CI
 
 - **Integration pool** -- `npm run test:integration` ->
   `scripts/run-integration-tests.js`: a fixed list of browser gates plus every
-  `scripts/*.browser.test.js` (20 suites), each on its own port or an ephemeral
+  `scripts/*.browser.test.js` (20 suites, 26 total integration suites), each on its own port or an ephemeral
   one, in a worker pool. A suite on the fixed list that has gone missing is a
   hard failure, not a silent skip.
   - `scripts/puppeteer_tests.js` (8082): multi-viewport nav, link integrity,
@@ -59,7 +61,7 @@ Node-only. The naming is the contract the runners glob on, and it is why the CI
     viewports (320-1440px), measuring the line boxes of every heading, button
     label, form label and accordion summary. Two gates: no string may be
     clipped by its own box (a hard zero -- `.btn` is `nowrap` + `overflow:
-    hidden`, so an over-long label is cut at both ends rather than wrapped),
+hidden`, so an over-long label is cut at both ends rather than wrapped),
     and orphaned last lines are held to a measured budget so they cannot creep
     back after the `text-wrap: pretty` fixes.
   - The other `*.browser.test.js` suites: the challenger/adversarial harnesses
@@ -81,6 +83,7 @@ Node-only. The naming is the contract the runners glob on, and it is why the CI
   gates check.
 
 ## Coverage Goals
+
 - Tier 1: >= 5 test cases per feature (Total >= 25)
 - Tier 2: >= 5 boundary/corner test cases per feature (Total >= 25)
 - Tier 3: Pairwise feature combination tests (Total >= 5)
@@ -163,7 +166,7 @@ section is held to.
   Node-level stress assertions plus a browser half: 18 rapid switches per page
   across three pages with a byte-identical English restoration check; brand
   and INCI preservation on two PDPs, compared by exact occurrence count
-  against an asserted English baseline; and the cart drawer built *after* the
+  against an asserted English baseline; and the cart drawer built _after_ the
   switch to Spanish, so the `MutationObserver` is genuinely under test.
 
 - **`scripts/translation-privacy-flow.browser.test.js`**. Zero requests to any
@@ -175,8 +178,8 @@ section is held to.
   contract including `aria-controls` and the language-carrying accessible
   name, click-to-open, switch to Spanish, and clean restoration.
 
-- **`scripts/qa-check.js`** (1121 static assertions total as of 2026-09-08). For this feature:
-  CSP three-way byte parity with the Google Translate origins gone, zero
+- **`scripts/qa-check.js`** (1129 static assertions total). For this feature:
+  CSP byte parity across `_headers` and `netlify.toml` with the Google Translate origins gone, zero
   legacy Google Translate CSS, nine valid dictionaries at 703 phrases each, 58
   glossary terms, one `assets/js/locales/<code>.js` per locale, a size ceiling
   on the always-loaded `locales-data.js` core, `locales-data.js`,
@@ -346,18 +349,18 @@ differ by a base URL and a model id:
     client.callsRemaining();   // 0 means the per-run budget is spent
     client.fallbackWarning();  // null, or the sentence a maintainer must read
 
-| Variable | Default | What it is |
-|---|---|---|
-| `GEMINI_API_KEY` | — | The AI Studio key. Free tier, no billing account. Required unless `--provider mock`. |
-| `GROQ_API_KEY` | — | Optional second vendor (`--provider groq`). |
-| `I18N_MODELS` | `gemini-3.8-flash,gemini-flash-latest` | Comma-separated, first is the one we mean. |
-| `I18N_MAX_CALLS` | none | Optional per-run provider-call cap (owner removed the default 2026-09-04). A retry storm is bounded by the circuit breaker instead: three transient batch failures in a row pause the run for a minute, a fourth stops it and leaves the rest for the next scheduled run. |
-| `I18N_BATCH_SIZE` | `20` | Strings per locale per call. |
-| `LLM_PROVIDER` | `vertex` in the workflows (`gemini` is the client default) | `vertex` = a paid Google Cloud API key on Vertex AI express mode (usage on the Cloud bill, where Google Cloud credits apply); `gemini` = an AI Studio key, billed separately and outside those credits; `groq`; `mock`. |
-| `LLM_THINKING` | `high` | Gemini 3.x thinking level: `minimal`, `low`, `medium`, `high`, or `none` to send no thinking field (the model default is `medium`). Vertex: `generationConfig.thinkingConfig.thinkingLevel`; OpenAI-style transports: `reasoning_effort`. |
-| `VERTEX_API_KEY` | repo secret | The Google Cloud API key for `vertex`, restricted to the Vertex AI API. |
-| `LLM_MODELS`, `LLM_MAX_CALLS`, `LLM_BASE_URL`, `LLM_TIMEOUT_MS`, `LLM_MAX_RETRIES` | see `scripts/lib/llm.js` | The shared client's own names; the `I18N_*` ones win for this bot. |
-| `LLM_MOCK_CORRUPT` | — | Test hook. With `--provider mock`, makes the mock drop protected terms from any string containing this substring, which is how the reject-and-drop path is proved offline. |
+| Variable                                                                           | Default                                                    | What it is                                                                                                                                                                                                                                                                |
+| ---------------------------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GEMINI_API_KEY`                                                                   | —                                                          | The AI Studio key. Free tier, no billing account. Required unless `--provider mock`.                                                                                                                                                                                      |
+| `GROQ_API_KEY`                                                                     | —                                                          | Optional second vendor (`--provider groq`).                                                                                                                                                                                                                               |
+| `I18N_MODELS`                                                                      | `gemini-3.8-flash,gemini-flash-latest`                     | Comma-separated, first is the one we mean.                                                                                                                                                                                                                                |
+| `I18N_MAX_CALLS`                                                                   | none                                                       | Optional per-run provider-call cap (owner removed the default 2026-09-04). A retry storm is bounded by the circuit breaker instead: three transient batch failures in a row pause the run for a minute, a fourth stops it and leaves the rest for the next scheduled run. |
+| `I18N_BATCH_SIZE`                                                                  | `20`                                                       | Strings per locale per call.                                                                                                                                                                                                                                              |
+| `LLM_PROVIDER`                                                                     | `vertex` in the workflows (`gemini` is the client default) | `vertex` = a paid Google Cloud API key on Vertex AI express mode (usage on the Cloud bill, where Google Cloud credits apply); `gemini` = an AI Studio key, billed separately and outside those credits; `groq`; `mock`.                                                   |
+| `LLM_THINKING`                                                                     | `high`                                                     | Gemini 3.x thinking level: `minimal`, `low`, `medium`, `high`, or `none` to send no thinking field (the model default is `medium`). Vertex: `generationConfig.thinkingConfig.thinkingLevel`; OpenAI-style transports: `reasoning_effort`.                                 |
+| `VERTEX_API_KEY`                                                                   | repo secret                                                | The Google Cloud API key for `vertex`, restricted to the Vertex AI API.                                                                                                                                                                                                   |
+| `LLM_MODELS`, `LLM_MAX_CALLS`, `LLM_BASE_URL`, `LLM_TIMEOUT_MS`, `LLM_MAX_RETRIES` | see `scripts/lib/llm.js`                                   | The shared client's own names; the `I18N_*` ones win for this bot.                                                                                                                                                                                                        |
+| `LLM_MOCK_CORRUPT`                                                                 | —                                                          | Test hook. With `--provider mock`, makes the mock drop protected terms from any string containing this substring, which is how the reject-and-drop path is proved offline.                                                                                                |
 
 **The model list is a list on purpose.** `gemini-3.8-flash` is pinned first,
 because a pinned id is the only way to know what produced a given commit.
@@ -468,8 +471,8 @@ English.
    `github-actions[bot]`.
 6. **Verify Netlify actually deployed that commit** -- this is the one link in
    the chain that no GitHub documentation confirms. GitHub does not start a
-   *workflow run* from a `GITHUB_TOKEN` push, and the open question is whether
-   the push *webhook* still fires for third parties. The case that it does is
+   _workflow run_ from a `GITHUB_TOKEN` push, and the open question is whether
+   the push _webhook_ still fires for third parties. The case that it does is
    strong (GitHub enumerates its non-Actions suppressions one at a time and
    spells out a Pages carve-out with no equivalent for webhooks; `GITHUB_TOKEN`
    is not on the `push` webhook exclusion list; Netlify forum threads have users
@@ -497,12 +500,12 @@ and re-open the compliance review on every run. The words live in
 
 This is the whole design, and it is deliberately asymmetric.
 
-| | `keywords` (product side) | `querySynonyms` (query side) |
-| --- | --- | --- |
-| Where it ends up | published in `assets/js/search-data.js`, readable by anyone | merged into the synonym table that rewrites what the shopper TYPED |
-| Rendered anywhere? | yes, it ships with the product | never |
-| Word policy | the FULL list: treatment verbs, symptoms, conditions, pesticide claims, unsubstantiated "natural"/"organic" | a SHORT list: cure, treat, treatment, prescription, medicine, medical, diagnose, "FDA approved" |
-| Symptom words (eczema, insomnia, sore muscles) | refused | **allowed, and wanted** |
+|                                                | `keywords` (product side)                                                                                   | `querySynonyms` (query side)                                                                    |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Where it ends up                               | published in `assets/js/search-data.js`, readable by anyone                                                 | merged into the synonym table that rewrites what the shopper TYPED                              |
+| Rendered anywhere?                             | yes, it ships with the product                                                                              | never                                                                                           |
+| Word policy                                    | the FULL list: treatment verbs, symptoms, conditions, pesticide claims, unsubstantiated "natural"/"organic" | a SHORT list: cure, treat, treatment, prescription, medicine, medical, diagnose, "FDA approved" |
+| Symptom words (eczema, insomnia, sore muscles) | refused                                                                                                     | **allowed, and wanted**                                                                         |
 
 The reasoning: FDA reads intended use off "the label, the website and
 advertising", and has cited a product NAME as evidence in warning letters, so a
@@ -708,7 +711,7 @@ Miracle Frankincense Salve", "Hush Y'all Magnesium Arnica Sleep Salve",
 masked out of the scan and listed separately as "already on your list". The
 phrases are read from the live `assets/data/products.json` at run time, so the
 day she renames a product the entry disappears without anybody editing code.
-A claim in the sentence *around* a pending name is still reported: a brand name
+A claim in the sentence _around_ a pending name is still reported: a brand name
 is a name, not a licence, which is the same rule
 `scripts/lib/i18n-claims-rules.js` applies to protected terms.
 
@@ -761,15 +764,15 @@ at run time, never hard-coded, so changing it in the CMS changes it here.
 
 ## Environment
 
-| Name | Kind | Default | What it does |
-| --- | --- | --- | --- |
-| `GEMINI_API_KEY` | secret | none | The second pass. Absent, the run is deterministic-only and says so. |
-| `CLAIMS_MODELS` | env/var | `gemini-3.8-flash,gemini-flash-latest` | Pinned id first, rolling alias last. Re-pinning is this one line. |
-| `CLAIMS_MAX_CALLS` | env | `6` | One call plus the shared client's retries. |
-| `COPY_CLAIMS_TABLE` | env | none | Path to a JSON overlay for the word lists. |
-| `RESEND_API_KEY` | secret | none | **New.** Sends the note. Absent, the email is skipped with a notice. |
-| `FROM_EMAIL` | variable | none | **New.** A sender address VERIFIED in the Resend account. An unverified sender is rejected outright, which is why this is a repository variable and not a literal. |
-| `OWNER_GITHUB_LOGIN` | variable | none | **New, optional.** When set, the issue body @-mentions it so GitHub emails her too. When unset, no mention is rendered. |
+| Name                 | Kind     | Default                                | What it does                                                                                                                                                       |
+| -------------------- | -------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GEMINI_API_KEY`     | secret   | none                                   | The second pass. Absent, the run is deterministic-only and says so.                                                                                                |
+| `CLAIMS_MODELS`      | env/var  | `gemini-3.8-flash,gemini-flash-latest` | Pinned id first, rolling alias last. Re-pinning is this one line.                                                                                                  |
+| `CLAIMS_MAX_CALLS`   | env      | `6`                                    | One call plus the shared client's retries.                                                                                                                         |
+| `COPY_CLAIMS_TABLE`  | env      | none                                   | Path to a JSON overlay for the word lists.                                                                                                                         |
+| `RESEND_API_KEY`     | secret   | none                                   | **New.** Sends the note. Absent, the email is skipped with a notice.                                                                                               |
+| `FROM_EMAIL`         | variable | none                                   | **New.** A sender address VERIFIED in the Resend account. An unverified sender is rejected outright, which is why this is a repository variable and not a literal. |
+| `OWNER_GITHUB_LOGIN` | variable | none                                   | **New, optional.** When set, the issue body @-mentions it so GitHub emails her too. When unset, no mention is rendered.                                            |
 
 `RESEND_API_KEY` and `FROM_EMAIL` are the two settings a maintainer has to add
 for the email half to work at all. Until they are added the workflow is fully
@@ -824,7 +827,7 @@ byte. The repo was not modified.
 - `--dry-run` on the same head returned the 3 deterministic findings and 0
   model findings, with the report stating the second read-through did not run.
 
-`npm test` (46 unit suites plus the two Node-only gates and `qa-check.js`), `npm run lint` and `npm run format:check` were verified
+`npm test` (48 suites), `npm run lint` and `npm run format:check` were verified
 green in a clean worktree at HEAD with these files added.
 
 ## What this one does NOT do
@@ -860,12 +863,12 @@ an offence unless the key's own English contains one of its licensed triggers,
 protected brand terms are stripped from the English first, and a term with no
 trigger list can never be licensed by anything.
 
-| Group | Added | Licensed by |
-|---|---|---|
-| Condition names | es eccema, psoriasis, dermatitis, rosácea/rosacea, acné, insomnio, ansiedad, migraña, artritis, infección, inflamación, dolor · de Ekzem, Schuppenflechte, Psoriasis, Dermatitis, Rosazea/Rosacea, Akne, Schlaflosigkeit, Angst, Migräne, Arthritis, Infektion, Entzündung, Schmerz · fr eczéma, psoriasis, dermatite, rosacée, acné, insomnie, anxiété, migraine, arthrite, infection, inflammation, douleur · ja 湿疹, 乾癬, 皮膚炎, 酒さ, ニキビ, 不眠, 不安, 片頭痛, 関節炎, 感染, 炎症, 痛み · zh 湿疹, 银屑病, 牛皮癣, 皮炎, 玫瑰痤疮, 痤疮, 失眠, 焦虑, 偏头痛, 关节炎, 感染, 炎症, 疼痛 | **nothing** |
-| Injury | es herida · de Wunde · fr plaie · ja 傷 · zh 伤口 | `BROKEN_SKIN` -- see below |
-| Regulated register | es cura, alivia · fr soigner · ja 効く, 治す (de heilend/lindert/Heilmittel and zh 治疗/疗效 were already there) | an English treatment verb, which the copy table bans in English too |
-| EU/UK | es hipoalergénic, dermatológicamente, paraben, alérgen, clean · de hypoallergen, dermatologisch, Paraben, Allergen, clean · fr hypoallergén, dermatologiquement, parabèn, paraben, allergèn, clean · ja 低アレルギー, ノンアレルギー, 皮膚科テスト, 皮膚科医テスト, パラベン, アレルゲン, クリーン, clean · zh 低敏, 皮肤科测试, 对羟基苯甲酸酯, 尼泊金, 过敏原, clean | **nothing** |
+| Group              | Added                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Licensed by                                                         |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Condition names    | es eccema, psoriasis, dermatitis, rosácea/rosacea, acné, insomnio, ansiedad, migraña, artritis, infección, inflamación, dolor · de Ekzem, Schuppenflechte, Psoriasis, Dermatitis, Rosazea/Rosacea, Akne, Schlaflosigkeit, Angst, Migräne, Arthritis, Infektion, Entzündung, Schmerz · fr eczéma, psoriasis, dermatite, rosacée, acné, insomnie, anxiété, migraine, arthrite, infection, inflammation, douleur · ja 湿疹, 乾癬, 皮膚炎, 酒さ, ニキビ, 不眠, 不安, 片頭痛, 関節炎, 感染, 炎症, 痛み · zh 湿疹, 银屑病, 牛皮癣, 皮炎, 玫瑰痤疮, 痤疮, 失眠, 焦虑, 偏头痛, 关节炎, 感染, 炎症, 疼痛 | **nothing**                                                         |
+| Injury             | es herida · de Wunde · fr plaie · ja 傷 · zh 伤口                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | `BROKEN_SKIN` -- see below                                          |
+| Regulated register | es cura, alivia · fr soigner · ja 効く, 治す (de heilend/lindert/Heilmittel and zh 治疗/疗效 were already there)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | an English treatment verb, which the copy table bans in English too |
+| EU/UK              | es hipoalergénic, dermatológicamente, paraben, alérgen, clean · de hypoallergen, dermatologisch, Paraben, Allergen, clean · fr hypoallergén, dermatologiquement, parabèn, paraben, allergèn, clean · ja 低アレルギー, ノンアレルギー, 皮膚科テスト, 皮膚科医テスト, パラベン, アレルゲン, クリーン, clean · zh 低敏, 皮肤科测试, 对羟基苯甲酸酯, 尼泊金, 过敏原, clean                                                                                                                                                                                                                          | **nothing**                                                         |
 
 Kräuterheilmittel and 安心 are re-pinned in both directions, because a table
 that grows is a table that can lose an old rule by accident.
@@ -893,11 +896,11 @@ is licensed because the English says "cure". No dictionary was edited.
 
 Three, all reported rather than silently accommodated, and none edited:
 
-| Key | Locale | String | What was done |
-|---|---|---|---|
-| `pdp.externalUseOnly` | fr | "Tenir à l'écart des yeux et des **plaies**" | `BROKEN_SKIN` trigger (English says "broken skin") |
-| `pdp.externalUseOnly` | ja | "目や**傷**のある部分を避け" | same |
-| `footer.disclaimer` | es | "diagnosticar, tratar, **curar** ni prevenir" | `TREATS` trigger (English says "cure") |
+| Key                   | Locale | String                                        | What was done                                      |
+| --------------------- | ------ | --------------------------------------------- | -------------------------------------------------- |
+| `pdp.externalUseOnly` | fr     | "Tenir à l'écart des yeux et des **plaies**"  | `BROKEN_SKIN` trigger (English says "broken skin") |
+| `pdp.externalUseOnly` | ja     | "目や**傷**のある部分を避け"                  | same                                               |
+| `footer.disclaimer`   | es     | "diagnosticar, tratar, **curar** ni prevenir" | `TREATS` trigger (English says "cure")             |
 
 `pdp.notMedicine` (es curar, ja 治療/治癒, zh 治疗/治愈) was already exempt by key
 and is untouched.
@@ -905,8 +908,8 @@ and is untouched.
 ### CLAIM_NOT_INSIDE, and why substring matching needed it
 
 Substrings are what let "Heilmittel" catch "Kräuterheilmittel". They are also
-what makes German "wunderbar" contain *Wunde*, Spanish "manicura" contain
-*cura*, Japanese "傷めない" contain *傷*, and English "cleanser" contain *clean*.
+what makes German "wunderbar" contain _Wunde_, Spanish "manicura" contain
+_cura_, Japanese "傷めない" contain _傷_, and English "cleanser" contain _clean_.
 A gate that fails on "wunderbar" is a gate somebody switches off, so each banned
 term may name the innocent longer words it hides inside, and those are stripped
 before that one term is looked for -- the same move `stripProtectedTerms()`
@@ -917,7 +920,7 @@ already makes on the English. The list is short and provably innocent:
 
 "Never render a hedge as a promise" cannot be gated. There is no string to
 search for when "helps your skin feel softer" comes back as "makes your skin
-softer" -- the failure is a word that is *missing*. It is appended to the prompt
+softer" -- the failure is a word that is _missing_. It is appended to the prompt
 fragment the rules module already generates from the same arrays the gate reads,
 it tells the model to leave a sentence weaker rather than stronger where the
 language has no natural hedge, and it prints `NOT MACHINE-CHECKED` in the prompt
@@ -934,14 +937,14 @@ terms so the better-explained finding wins the span; an unparseable pattern
 throws, for the same reason an unknown category id already does. The JSON
 overlay can add patterns, so the next brief needs no code.
 
-| Category | Flags | Does NOT flag |
-|---|---|---|
-| `monograph` [R7] | "Temporarily protects minor cuts, scrapes and burns." | "Protects your hands from a long day in the garden." |
-| `ingredient` [R7] | "Contains calendula, known for soothing irritated skin." | "Made with lavender, because we like how it smells." |
-| `collocation` [R7] | "Soothes inflamed, irritated and itching skin." / "Calms the itch underneath." | "A soothing scent." / "A soothing soak, a calm evening." |
-| `agency` [R3] | "MoCRA-compliant." / "FDA-registered." | -- (no safe rewording exists; the sentence goes) |
-| `marketing`, new terms | "Clean beauty, clean ingredients." | "Apply with clean, dry fingers." / "gets your hands actually clean" |
-| `drug`, new terms | "Anti-microbial and anti-bacterial." | -- |
+| Category               | Flags                                                                          | Does NOT flag                                                       |
+| ---------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------- |
+| `monograph` [R7]       | "Temporarily protects minor cuts, scrapes and burns."                          | "Protects your hands from a long day in the garden."                |
+| `ingredient` [R7]      | "Contains calendula, known for soothing irritated skin."                       | "Made with lavender, because we like how it smells."                |
+| `collocation` [R7]     | "Soothes inflamed, irritated and itching skin." / "Calms the itch underneath." | "A soothing scent." / "A soothing soak, a calm evening."            |
+| `agency` [R3]          | "MoCRA-compliant." / "FDA-registered."                                         | -- (no safe rewording exists; the sentence goes)                    |
+| `marketing`, new terms | "Clean beauty, clean ingredients."                                             | "Apply with clean, dry fingers." / "gets your hands actually clean" |
+| `drug`, new terms      | "Anti-microbial and anti-bacterial."                                           | --                                                                  |
 
 The `collocation` negatives are the load-bearing pins. "Soothing" is on every
 indie safe-word list, Lush's copy is built out of it, and the shop's own
@@ -1008,16 +1011,16 @@ and answer inline with a fixed note.**
 **The four surfaces, after the brief.** The two the enrichment bot writes are
 unchanged in shape; the third is new and belongs to nobody's model.
 
-| Surface | What it is | Rule |
-|---|---|---|
-| 1. Prose | names, blurbs, filter and category labels, URLs, alt text | cosmetic vocabulary only |
-| 2. `keywords` | published with the product in `assets/js/search-data.js` | identical to prose, no softening — FDA has quoted a `Tags:` list as a claim, and C-657/11 holds invisibility "irrelevant" |
-| 3. `querySynonyms` | rewrites what the shopper typed; rendered nowhere | **lay** symptom and sensory words allowed ("itchy skin", "dry patches", "sore feet", "can't sleep") — but no named disease, no treatment verb and, since 2026-09-04, no pest word |
-| 4. `medicalQueryTerms` | 40 named diseases, treatment verbs and pest/pesticide words | maps to **no product**; drives the note; never rendered as a list |
+| Surface                | What it is                                                  | Rule                                                                                                                                                                              |
+| ---------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Prose               | names, blurbs, filter and category labels, URLs, alt text   | cosmetic vocabulary only                                                                                                                                                          |
+| 2. `keywords`          | published with the product in `assets/js/search-data.js`    | identical to prose, no softening — FDA has quoted a `Tags:` list as a claim, and C-657/11 holds invisibility "irrelevant"                                                         |
+| 3. `querySynonyms`     | rewrites what the shopper typed; rendered nowhere           | **lay** symptom and sensory words allowed ("itchy skin", "dry patches", "sore feet", "can't sleep") — but no named disease, no treatment verb and, since 2026-09-04, no pest word |
+| 4. `medicalQueryTerms` | 40 named diseases, treatment verbs and pest/pesticide words | maps to **no product**; drives the note; never rendered as a list                                                                                                                 |
 
 **The two lists may not overlap, and three things enforce it.**
 `scripts/build-site-data.js` refuses to emit a synonym table whose key or term
-contains a `medicalQueryTerms` word — on the *merged* table, so it covers
+contains a `medicalQueryTerms` word — on the _merged_ table, so it covers
 `content.json`'s `extraSynonyms` and the enrichment bot as well as the defaults,
 matching by whole word through the rules module's own `containsPhrase()` so
 "joint pain" is caught by "pain" and "manicure" is not caught by "cure".
@@ -1044,15 +1047,15 @@ refusing something it cannot explain.
 
 **Why surface 4 is exempt from the ban list.** The gate exists to stop a word
 being wired to a product. Nothing on this list is wired to a product: its output
-is a note that denies intended use, which is evidence *for* the seller under 21
+is a note that denies intended use, which is evidence _for_ the seller under 21
 CFR 201.128, not against.
 
 **The constraint that makes it lawful, and where it is enforced.** Section
 7(c)(5) is the strongest sentence in the brief: the list must never be rendered
 as a browsable list, a chip row, a "popular searches" module, a suggestion
 dropdown, a sitemap entry or a static page. Presenting conditions is MHRA
-Appendix 9's *"lists of adverse medical conditions which take a consumer to a
-page displaying a product"*; recognising them is not. Four things enforce it:
+Appendix 9's _"lists of adverse medical conditions which take a consumer to a
+page displaying a product"_; recognising them is not. Four things enforce it:
 
 - the list is emitted from `scripts/lib/search-enrichment-rules.js`, never from
   `content.json`, so the CMS cannot grow it;
@@ -1124,17 +1127,17 @@ or it is not a property at all. Now:
 
 **Measured, on the shipped build (2026-09-04):**
 
-| Query | Note | Products | Same as |
-|---|---|---|---|
-| `psoriasis` | yes, dry-skin shelf | 0 tiles, no empty-state panel | — |
-| `wound salve` | yes | 4 | identical list to `salve` |
-| `cure for itchy skin` | yes | 11 | identical list to `itchy skin` |
-| `itchy skin` | **no** | 11 | — |
-| `salve` | **no** | 4 | — |
-| `mosquito bites` | yes, outdoor-defense shelf | 0 tiles, no empty-state panel | — |
-| `mosquito` | yes, outdoor-defense shelf | 0 tiles | — |
-| `tick` | yes, outdoor-defense shelf | 0 tiles | — |
-| `bug spray` | **no** | 4 | — |
+| Query                 | Note                       | Products                      | Same as                        |
+| --------------------- | -------------------------- | ----------------------------- | ------------------------------ |
+| `psoriasis`           | yes, dry-skin shelf        | 0 tiles, no empty-state panel | —                              |
+| `wound salve`         | yes                        | 4                             | identical list to `salve`      |
+| `cure for itchy skin` | yes                        | 11                            | identical list to `itchy skin` |
+| `itchy skin`          | **no**                     | 11                            | —                              |
+| `salve`               | **no**                     | 4                             | —                              |
+| `mosquito bites`      | yes, outdoor-defense shelf | 0 tiles, no empty-state panel | —                              |
+| `mosquito`            | yes, outdoor-defense shelf | 0 tiles                       | —                              |
+| `tick`                | yes, outdoor-defense shelf | 0 tiles                       | —                              |
+| `bug spray`           | **no**                     | 4                             | —                              |
 
 Every row above was re-measured after the router moved into the engines on
 2026-09-05 and is identical before and after — which is the whole acceptance
@@ -1154,7 +1157,7 @@ horizontal overflow, no clipping.
   English for it. Giving it a key would mean hand-writing "diagnose, treat, cure
   or prevent" into five languages — into the same locale files the i18n claims
   gate is being rewritten around this week — and a legal sentence mistranslated
-  into a regulated register (fr *soigner*, de *heilen*, es *curar*) is a worse
+  into a regulated register (fr _soigner_, de _heilen_, es _curar_) is a worse
   outcome than an English one. The follow-up is one key plus five translations
   plus one re-recorded basis digest, authored with the claims gate rather than
   around it.
@@ -1174,7 +1177,7 @@ horizontal overflow, no clipping.
   says in its header it never filters — and brief 7(e) already has the reviews
   as an open decision for her. The browser suite's rendered-word allowlist names
   each with that reason rather than going red on her listing. The router stops
-  the *site* wiring the word to a jar; it cannot edit her listing, and it should
+  the _site_ wiring the word to a jar; it cannot edit her listing, and it should
   not pretend to.
 - **"treat yourself" no longer finds the gift cards.** It was a term in the
   `gift_cards` synonym group and left with the other statutory verbs on

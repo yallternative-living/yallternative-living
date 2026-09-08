@@ -20,7 +20,7 @@
  * headless Chromium happened to resolve (light, since prefers-color-scheme
  * defaults to light in a headless profile). Half the palette was therefore
  * ungated: a colour-contrast regression in dark mode could ship green. Both
- * themes are asserted here, so 37 pages (17 top-level + 20 products) means 74 scans.
+ * themes are asserted here, so 37 pages means 74 scans.
  *
  * Manages its own static server on port 8084, so nothing external needs to be
  * running first.

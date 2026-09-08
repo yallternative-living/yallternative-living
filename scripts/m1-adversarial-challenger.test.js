@@ -682,11 +682,10 @@ async function runMilestone1AdversarialSuite() {
 
   // 3.4: Balance Carryover Math Stress
   await runAsyncTest(
-    "3.4.1: Worker caps the discount at the order total and holds exactly that on the ledger",
+    "3.4.1: Worker caps the discount at the order subtotal and holds exactly that on the ledger",
     async () => {
-      // Lavender soak in products.json is $10.00 of goods; the $10 shipping is
-      // a Stripe shipping rate, which an amount_off coupon never touches, so
-      // the cap is the goods. The card carries $100.00 (10000 cents).
+      // Lavender soak in products.json is $10.00 + $10 shipping = $20.00 total.
+      // The card carries $100.00 (10000 cents) -> discount capped at $10.00 (1000 cents) subtotal.
       const env = await makeAdversarialEnv({ "YALL-BIG1-0000-0000": 10000 });
       const res = await executeWorkerCheckout(
         {
@@ -701,7 +700,7 @@ async function runMilestone1AdversarialSuite() {
       assert.strictEqual(
         res.couponParams.get("amount_off"),
         "1000",
-        "Discount capped at the $10.00 of goods, not goods + shipping"
+        "Discount capped at $10.00 order subtotal"
       );
       assert.strictEqual(
         res.sessionParams.get("metadata[gift_card_original_balance_cents]"),
@@ -731,7 +730,6 @@ async function runMilestone1AdversarialSuite() {
   await runAsyncTest(
     "3.4.2: two concurrent checkouts on one card cannot both spend it",
     async () => {
-      // $10 of goods on a $10 card: the first checkout takes all of it.
       const env = await makeAdversarialEnv({ "YALL-ONCE-ONCE-ONCE": 1000 });
       const first = await executeWorkerCheckout(
         {

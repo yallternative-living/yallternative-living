@@ -1,6 +1,6 @@
 # Y'allternative Living Website — Setup Guide
 
-The click-by-click launch checklist. For the technical *why* behind any
+The click-by-click launch checklist. For the technical _why_ behind any
 step, see the matching section in [DEVELOPMENT.md](DEVELOPMENT.md).
 
 Create every account below yourself, not me on your behalf — your
@@ -70,12 +70,18 @@ per-transaction fee.
    the restricted one later.
 4. **Developers → Webhooks → Add endpoint** → paste
    `https://yallternativeliving.com/api/stripe-webhook`
-   → choose **three** events, not one:
-   - `checkout.session.completed` (delivers the gift card)
+   → choose **five** events, not one:
+   - `checkout.session.completed` (delivers the gift card once the payment
+     has actually gone through)
+   - `checkout.session.async_payment_succeeded` and
+     `checkout.session.async_payment_failed` (only matter if you ever turn on
+     a bank-transfer style payment method that settles days later; harmless
+     to tick now, and the site is ready for them)
    - `checkout.session.expired` (cleans up the temporary coupon behind an
      abandoned gift-card checkout — without it they pile up in your Stripe
      account forever)
-   - `charge.refunded` (puts a refunded order's gift-card balance back)
+   - `charge.refunded` (puts a fully refunded order's gift-card balance back;
+     a partial refund of the card payment leaves the gift card alone)
 
    (You will not find a `payment_intent.updated` event: Stripe has none. The
    "your order is on its way" email is sent by the Worker's hourly check when
@@ -108,13 +114,10 @@ Stripe key, so it needs to be your account, not mine.
    it is going to live:
 
    - **Secret key** and **Signing secret** → Cloudflare: your Worker →
-     **Settings → Variables and Secrets** → add `STRIPE_SECRET_KEY` and
-     `STRIPE_WEBHOOK_SECRET`, each as a **Secret**.
-   - **Nothing goes into Netlify.** Netlify only serves the pages; the Worker
-     on Cloudflare is the only thing that talks to Stripe. (An older version
-     of this guide put the keys in Netlify's environment variables. That was
-     for Netlify Functions this site no longer has -- a key stored there today
-     is read by nothing and is just a second place it can leak from.)
+     **Settings → Variables and Secrets** → add both as **Secrets**:
+     - `STRIPE_SECRET_KEY` (your Stripe Secret key, e.g. `sk_test_...`)
+     - `STRIPE_WEBHOOK_SECRET` (your Stripe Signing secret, e.g. `whsec_...`)
+       (Note: Netlify hosts only the static website and requires no Stripe secrets.)
 
    Because you invited me into your Cloudflare account in step 2, I can see
    that the variables are set and finish the wiring without ever seeing their
@@ -127,10 +130,12 @@ Stripe key, so it needs to be your account, not mine.
 1. Run a test purchase — one regular product and one gift card — with
    [Stripe's test cards](https://docs.stripe.com/testing). Confirm it
    reaches the thank-you page and the gift-card email arrives.
-2. Switch Stripe to **Live Mode** (same toggle), copy the **live** Secret key,
-   and paste it yourself into Cloudflare and Netlify exactly as in Part B
-   step 3 — replacing the `sk_test_...` value. Same rule: the live key never
-   travels through a message to anyone, including me.
+2. Switch Stripe to **Live Mode** (same toggle), copy the **live** Secret key
+   and the **live** Webhook Signing secret, and paste them yourself into
+   Cloudflare (your Worker → **Settings → Variables and Secrets**) exactly as in
+   Part B step 3 — replacing the `sk_test_...` and `whsec_...` values. Netlify is
+   NOT involved. Same rule: the live key never travels through a message to anyone,
+   including me.
 
 **D. Sales tax — you almost certainly need this on**
 
@@ -186,19 +191,20 @@ silently never arrives.
    up to 24 hours.
 2. **API Keys → Create API Key** → copy it (`re_...`).
 3. In Cloudflare: your Worker → **Settings → Variables and Secrets** → add
-   `RESEND_API_KEY` as a **Secret**, pasting it yourself (it is a secret —
-   see Step 3). With `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` already
-   there from Step 3, the gift-card email turns itself on once all three are
-   filled in AND the domain above shows Verified. Not Netlify: nothing on
-   Netlify reads these any more.
+   `RESEND_API_KEY` as a **Secret** (pasting it yourself — see Step 3).
+   The gift-card email turns itself on once all three secrets (`STRIPE_SECRET_KEY`,
+   `STRIPE_WEBHOOK_SECRET`, and `RESEND_API_KEY`) are set in Cloudflare AND the
+   domain above shows Verified in Resend. Netlify does NOT host functions and
+   holds none of these secrets.
 
-   Optional extras in the same place, only if you want to change a default:
+   Optional extras in Cloudflare (Workers Settings → Variables and Secrets),
+   only if you want to change a default:
    `FROM_EMAIL` (the address gift-card emails come from),
    `RESTOCK_NOTIFY_EMAIL` (where "tell me when this is back" requests land)
    and `GIFT_CARD_FROM_EMAIL` (which defaults to
    `orders@yallternativeliving.com`). Whatever you set has to be a sender
    address Resend has verified for your domain. The full list of every
-   variable, and which function reads it, is in
+   variable, and which Worker route reads it, is in
    `docs/DEVELOPMENT.md` section 8a.
 
 ---
@@ -278,4 +284,4 @@ Once you're in:
 11. Tawk.to Widget ID: `_____________________`
 12. Umami Website ID: `_____________________`
 
-*No Stripe Publishable Key is needed anywhere on this site.*
+_No Stripe Publishable Key is needed anywhere on this site._

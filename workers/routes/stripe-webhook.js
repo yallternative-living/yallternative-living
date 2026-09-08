@@ -720,6 +720,8 @@ export async function emailOwnerOrderNotice(session, env, ctx) {
  * forever would only bury the anomaly under three days of 500s.
  */
 async function settleRedemption(session, env) {
+  // The router already defers an unpaid session; this is belt to that brace.
+  if (!isFulfillable(session)) return null;
   const metadata = session.metadata || {};
   const code = metadata.gift_card_redeemed_code;
   const appliedCents = Number(metadata.gift_card_amount_applied_cents || 0);
@@ -784,6 +786,7 @@ async function settleRedemption(session, env) {
  * purchased card into two.
  */
 async function issuePurchasedCards(session, env) {
+  if (!isFulfillable(session)) return [];
   const units = giftCardUnitsFrom(session.metadata);
   if (!units.length) return [];
 

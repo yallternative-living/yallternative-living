@@ -26,7 +26,7 @@
  *     the tracker from cloud.umami.is first and falls back to the first-party
  *     /porch-light/script.js only when that fails. Both routes have to work, so
  *     four files have to agree: the loader, the tag the build emits, the proxy
- *     rules in netlify.toml/vercel.json, and the CSP. A disagreement is silent
+ *     rules in netlify.toml, and the CSP. A disagreement is silent
  *     in the worst way -- the fallback route quietly 404s, or the direct route
  *     is quietly blocked and EVERY visitor is demoted to the proxy, where their
  *     session id and country become Netlify's. So the pieces are compared
@@ -527,7 +527,6 @@ assert(
 );
 
 const netlifyToml = read("netlify.toml");
-const vercelJson = JSON.parse(read("vercel.json"));
 
 [
   [ANALYTICS_SCRIPT_PATH, UMAMI_SCRIPT_URL],
@@ -541,9 +540,6 @@ const vercelJson = JSON.parse(read("vercel.json"));
       '"\\s*\\n\\s*status = 200\\s*\\n\\s*force = true'
   );
   assert(block.test(netlifyToml), `netlify.toml proxies ${from} to ${to} (status 200, forced)`);
-
-  const rewrite = (vercelJson.rewrites || []).find((r) => r.source === from);
-  assert(rewrite && rewrite.destination === to, `vercel.json rewrites ${from} to ${to}`);
 });
 
 /* Ordering, not just presence. The clean-URL 301s further down netlify.toml
@@ -578,7 +574,7 @@ assert(
    and the fallback together.
 
    So all four are asserted, per file, and none of them is optional. */
-["_headers", "netlify.toml", "vercel.json"].forEach((file) => {
+["_headers", "netlify.toml"].forEach((file) => {
   const src = read(file);
   const connect = /connect-src ([^;"]*)/.exec(src);
   assert(connect, `${file} declares a connect-src`);
