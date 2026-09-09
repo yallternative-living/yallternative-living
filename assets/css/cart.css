@@ -1063,6 +1063,56 @@
   line-height: 1.3;
 }
 
+/* Gift card and promo code side by side ("beside", not stacked) while both
+   are just a prompt; an applied panel takes the full row so its code and
+   terms have room. One Stripe discount per session: with a card applied the
+   promo panel goes idle and says so (.yl-cart-promo-idle). */
+.yl-cart-codes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+.yl-cart-codes > .yl-cart-giftcard-wrap {
+  /* Two to a row (the drawer is at most 420px wide); the prompt text wraps
+     inside its half rather than pushing the other one down. */
+  flex: 1 1 calc(50% - 4px);
+  min-width: 0;
+  margin: 0;
+}
+.yl-cart-codes .yl-cart-giftcard-toggle {
+  white-space: normal;
+  align-items: flex-start;
+}
+.yl-cart-codes .yl-cart-giftcard-toggle .yl-cart-icon {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+.yl-cart-codes > .yl-cart-giftcard-wrap:has(.yl-cart-giftcard-applied),
+.yl-cart-codes > .yl-cart-giftcard-wrap:has(.yl-cart-giftcard-form[style*="flex"]) {
+  flex-basis: 100%;
+}
+.yl-cart-promo-applied .yl-cart-giftcard-applied-info {
+  min-width: 0;
+}
+.yl-cart-promo-idle {
+  background: oklch(from var(--paper-dim) l c h / 0.08);
+  border-color: var(--hide);
+}
+.yl-cart-promo-idle .yl-cart-giftcard-applied-code {
+  color: var(--paper-dim);
+}
+.yl-cart-promo-notice,
+.yl-cart-promo-hint {
+  font-size: 0.74rem;
+  color: var(--paper-dim);
+  line-height: 1.35;
+  white-space: normal;
+}
+.yl-cart-promo-hint {
+  margin-top: 2px;
+}
+
 .yl-cart-discount-line {
   display: flex;
   justify-content: space-between;

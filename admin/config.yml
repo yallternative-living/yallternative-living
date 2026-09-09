@@ -1722,6 +1722,30 @@ singletons:
               hint: "The 10% off code new subscribers see on the welcome page. Leave blank and the page points them at your email instead of showing a code that doesn't work."
             }
           - {
+              name: enablePromoCodes,
+              label: "Shop · Accept promo codes in the cart",
+              widget: boolean,
+              default: true,
+              required: false,
+              hint: "Adds a 'Have a code?' box to the cart that checks the code and shows the discount before checkout. Codes are created in Stripe, not here: Stripe Dashboard -> Products -> Coupons -> New (a percentage off or a fixed dollar amount off, in USD) -> then on that coupon, Promotion codes -> New, and type the code shoppers will enter (letters, numbers and dashes, e.g. YALL10). Coupons limited to specific Stripe products do not work here, and a promo code cannot be combined with a gift card (one or the other per order). Off, the box disappears; Stripe's own code box at checkout still works. Step-by-step in docs/SETUP-GUIDE.md."
+            }
+          - {
+              name: promoCodePrompt,
+              label: "Shop · Promo code prompt",
+              widget: string,
+              required: false,
+              default: "Have a code?",
+              hint: "The short link in the cart that opens the promo code box. Keep it a question and keep it short -- it sits beside the gift card one."
+            }
+          - {
+              name: promoCodeGiftCardNotice,
+              label: "Shop · Promo code + gift card notice",
+              widget: string,
+              required: false,
+              default: "Promo codes and gift cards can't be combined. Remove the gift card to use a code.",
+              hint: "Shown in the cart when a shopper has a gift card applied and tries to use a promo code too. Stripe allows one discount per order, so this explains why the code waits until the gift card is removed."
+            }
+          - {
               name: birthdayTitle,
               label: "Birthday Club headline",
               widget: string,

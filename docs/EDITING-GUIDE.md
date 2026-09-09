@@ -281,6 +281,39 @@ site's copy, new wording is picked up by the translation run described in
 
 ---
 
+### Walkthrough 5a: Promo codes (discount codes)
+
+Promo codes are **not** created in the dashboard -- they live in Stripe, which
+is what actually takes the money off. The click-by-click for making one is in
+`docs/SETUP-GUIDE.md`, Step 3, part E. What the dashboard controls is how the
+shop *presents* them:
+
+| Setting | Where to Find It | What It Controls |
+|---|---|---|
+| **Accept promo codes in the cart** | `Site Settings` -> `⚙️ Site Settings` -> `Shop · Accept promo codes in the cart` | ON (the default) adds a "Have a code?" box to the cart, beside the gift card one. The shop checks the code with Stripe the moment it is typed and shows the discount and the new total *before* checkout, so nobody finds out on the payment page. OFF hides the box; Stripe's own code field on the payment page still works. |
+| **Promo code prompt** | same screen -> `Shop · Promo code prompt` | The words on that box ("Have a code?"). Keep it short -- it shares a row with the gift card prompt. |
+| **Promo code + gift card notice** | same screen -> `Shop · Promo code + gift card notice` | The sentence shown when someone has a gift card applied and enters a promo code too. Stripe allows **one** discount per order, so the code waits (it is kept, greyed out) until the gift card is removed. |
+
+Things worth knowing:
+
+- A code is checked twice: once in the cart (so the total is right) and again
+  at checkout (so the total Stripe charges is the one the cart showed). A code
+  that stops working in between -- expired, used up, or the cart dropped under
+  its minimum -- is taken off with a plain sentence, never silently charged at
+  full price.
+- The cart re-checks a code on its own when the cart changes, so a
+  "$50 minimum" code that was applied at $60 comes off (and says why) if the
+  shopper removes something.
+- What shoppers see when a code does not work is written in the site, not by
+  Stripe: "That code isn't valid", "This code needs a subtotal of at least
+  $50", "That code has expired or has already been used". No Stripe wording,
+  and never the code's internal ids.
+- Coupons in Stripe that are limited to specific Stripe *products* do not work
+  here (the shop builds its prices at checkout time rather than from Stripe's
+  product catalog) -- make coupons that apply to the whole order.
+- Free shipping is not something a code can grant: Stripe discounts the goods,
+  never the postage. Use the free-shipping threshold for that.
+
 ### Walkthrough 5b: Marking an order shipped
 
 This is the one thing in the shop that is done in **Stripe**, not in the CMS —
@@ -482,6 +515,8 @@ The dashboard gives you control over your entire catalog, promotions, pricing, m
 | **Publish blog post** | `4. Apothecary Journal` → Add post with visual editor | Live blog article with calculated read time |
 | **Update hero / About story** | `Site Settings` | Text and photos update across homepage & About |
 | **Toggle site features** | `Site Settings` → `⚙️ Site Settings` | Turn quiz, rewards, ticker, or pickup on/off |
+| **Make a promo code** | Stripe → `Products` → `Coupons` → `New` → then `Promotion codes` → `New` (see SETUP-GUIDE Step 3E) | Shoppers can type it in the cart's "Have a code?" box and see the discount before checkout |
+| **Turn the cart's code box off** | `Site Settings` → `⚙️ Site Settings` → untick `Shop · Accept promo codes in the cart` | The box disappears; Stripe's own code field at checkout still works |
 | **Edit the "how to use it" email** | `1. Products` → Click product → `Usage & care` | Same copy the product page shows and the after-delivery email sends |
 | **Turn that email off, or move it** | `Site Settings` → `⚙️ Site Settings` → `Emails to customers · …` | Switch it off entirely, or change how many days after shipping it goes |
 | **Tell a customer it shipped** | Stripe → the payment → `Metadata` | Sends the tracking email and updates their order status page and their Your Orders page (see below) |

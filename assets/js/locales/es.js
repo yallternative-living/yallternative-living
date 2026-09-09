@@ -733,7 +733,30 @@
     "tpl.mixMatchApplied": "¡Nivel por volumen de {price} c/u en {item} aplicado!",
     "tpl.mixMatchNext": "¡Agrega {amount} para obtener {perk}!",
     "auto.artsFestival.c73a7e": "Festival de artes",
-    "auto.moreInfoRsvp.b097db": "Más información / RSVP"
+    "auto.moreInfoRsvp.b097db": "Más información / RSVP",
+    "cart.havePromoCode": "¿Tienes un código?",
+    "cart.promoGiftCardNotice": "Los códigos promocionales y las tarjetas de regalo no se pueden combinar. Quita la tarjeta de regalo para usar un código.",
+    "cart.promoPlaceholder": "Código promocional",
+    "cart.remove": "Quitar",
+    "cart.checking": "Comprobando…",
+    "cart.promoRemove": "Quitar código promocional",
+    "cart.promoRemoved": "Código promocional quitado",
+    "cart.promoEnterCode": "Introduce un código promocional.",
+    "cart.promoUnknown": "Ese código no es válido.",
+    "cart.promoExpired": "Ese código ha caducado o ya se ha usado.",
+    "tpl.promoMinimum": "Este código requiere un subtotal mínimo de {amount}.",
+    "cart.promoNotApplicable": "Ese código no se aplica a nada de este carrito.",
+    "cart.promoMalformed": "Los códigos solo llevan letras y números, hasta 40 caracteres.",
+    "cart.promoLooksLikeGiftCard": "Eso parece una tarjeta de regalo: introdúcela en la casilla de tarjeta de regalo.",
+    "cart.promoDisabled": "Los códigos promocionales no están disponibles ahora mismo.",
+    "cart.promoThrottled": "Demasiados intentos, vuelve a intentarlo en un minuto.",
+    "cart.promoUnavailable": "Ahora mismo no se pueden comprobar los códigos. Inténtalo de nuevo en un momento.",
+    "cart.promoRejected": "Ese código no se pudo aplicar a este pedido.",
+    "cart.promoFirstOrder": "solo primer pedido",
+    "tpl.promoDiscountLine": "Código promocional ({code})",
+    "tpl.promoApplied": "Código promocional {code} aplicado ({amount} de descuento)",
+    "tpl.promoPercentOff": "{percent}% de descuento",
+    "tpl.promoAmountOff": "{amount} de descuento"
   }
 };
 

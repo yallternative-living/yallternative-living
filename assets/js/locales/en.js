@@ -733,7 +733,30 @@
     "tpl.mixMatchApplied": "{price}/ea {item} volume tier applied!",
     "tpl.mixMatchNext": "Add {amount} for {perk}!",
     "auto.artsFestival.c73a7e": "Arts Festival",
-    "auto.moreInfoRsvp.b097db": "More Info / RSVP"
+    "auto.moreInfoRsvp.b097db": "More Info / RSVP",
+    "cart.havePromoCode": "Have a code?",
+    "cart.promoGiftCardNotice": "Promo codes and gift cards can't be combined. Remove the gift card to use a code.",
+    "cart.promoPlaceholder": "Promo code",
+    "cart.remove": "Remove",
+    "cart.checking": "Checking…",
+    "cart.promoRemove": "Remove promo code",
+    "cart.promoRemoved": "Promo code removed",
+    "cart.promoEnterCode": "Please enter a promo code.",
+    "cart.promoUnknown": "That code isn't valid.",
+    "cart.promoExpired": "That code has expired or has already been used.",
+    "tpl.promoMinimum": "This code needs a subtotal of at least {amount}.",
+    "cart.promoNotApplicable": "That code doesn't apply to anything in this cart.",
+    "cart.promoMalformed": "Codes are letters and numbers only, up to 40 characters.",
+    "cart.promoLooksLikeGiftCard": "That looks like a gift card — enter it in the gift card box instead.",
+    "cart.promoDisabled": "Promo codes aren't available right now.",
+    "cart.promoThrottled": "Too many attempts, try again in a minute.",
+    "cart.promoUnavailable": "Codes can't be checked right now. Try again in a moment.",
+    "cart.promoRejected": "That code couldn't be applied to this order.",
+    "cart.promoFirstOrder": "first order only",
+    "tpl.promoDiscountLine": "Promo code ({code})",
+    "tpl.promoApplied": "Promo code {code} applied ({amount} off)",
+    "tpl.promoPercentOff": "{percent}% off",
+    "tpl.promoAmountOff": "{amount} off"
   }
 };
 

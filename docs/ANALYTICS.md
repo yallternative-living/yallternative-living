@@ -193,6 +193,8 @@ Twenty-one from the browser, one from the server.
 | `Cart Shared`        | `itemCount`                            | The "share cart" button is used                        |
 | `Shared Cart Opened` | `itemCount`                            | Someone arrives on a `?cart=` link. `itemCount` 0 means the link had gone stale |
 | `Gift Card Applied`  | —                                      | A gift card is successfully applied to a cart          |
+| `Promo Code Applied` | —                                      | A promo code checks out against `/api/promo-preview` and is applied to a cart (the code itself is never sent) |
+| `Promo Code Rejected`| `reason`                               | A promo code is refused -- by the preview, by a re-check after the cart changed, or by checkout |
 | `Checkout Start`     | `itemCount`, `subtotalCents`, `isPickup` | The checkout POST leaves the browser                 |
 | `Checkout Failed`    | `reason`                               | The Worker or the network refused the checkout         |
 | `Purchase`           | **none**                               | The funnel's last step, after `/api/order-summary` confirms the order is paid and complete |
@@ -209,9 +211,17 @@ Twenty-one from the browser, one from the server.
 | `Language Changed`   | `language`                             | The translator switches language                       |
 
 `Checkout Failed`'s `reason` is one of a fixed set — `timeout`, `gift-card`,
-`network`, `no-session-url`, `rejected`, `rate-limited`, `server-error`, or
-`http-<status>`. It is never the server's own error text, because that text can
-quote something the shopper typed.
+`promo-code`, `network`, `no-session-url`, `rejected`, `rate-limited`,
+`server-error`, or `http-<status>`. It is never the server's own error text,
+because that text can quote something the shopper typed.
+
+`Promo Code Rejected`'s `reason` is likewise a closed set the drawer maps the
+Worker's answer onto — `unknown`, `expired`, `minimum_not_met`,
+`not_applicable`, `malformed`, `gift_card` (a gift-card string typed into the
+promo box), `gift_card_conflict` (one discount per order), `disabled` (the CMS
+switch), `rate_limited`, `unavailable`, `cart_invalid`, `rejected` (Stripe
+refused the code at session creation), `network`, or `other`. The code the
+shopper typed is never a property.
 
 **No event carries an email address, a name, an address, a gift message, a gift
 card code, an order reference or a search query.** This is enforced in code, not

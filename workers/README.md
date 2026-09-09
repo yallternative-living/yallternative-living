@@ -9,6 +9,7 @@ router:
 | ----------------------------- | ----------------------------------------------------------------------------------- |
 | `POST /api/checkout`          | creates a Stripe Checkout Session; applies a gift card if one is sent               |
 | `POST /api/gift-card-balance` | `{code}` -> the balance on the ledger, rate-limited 10/min per IP                   |
+| `POST /api/promo-preview`     | `{code, items}` -> does this Stripe promotion code work, and for how much (5/min)   |
 | `POST /api/stripe-webhook`    | Stripe events: issues cards, commits/releases holds, restores refunds               |
 | `POST /api/order-status`      | `{sessionId, email}` -> a real order, rate-limited 5/min per IP                     |
 | `POST /api/restock`           | `{email, product}` -> emails the shop                                               |

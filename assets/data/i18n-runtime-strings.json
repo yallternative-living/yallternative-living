@@ -821,6 +821,154 @@
       "source": "assets/js/main.js",
       "verify": ["tpl.photo"],
       "note": "lightbox live region when a product has a single photo"
+    },
+    {
+      "key": "cart.havePromoCode",
+      "text": "Have a code?",
+      "source": "assets/data/content.json",
+      "verify": ["Have a code?"],
+      "note": "site.promoCodePrompt, the promo-code disclosure in the cart drawer (cart.js falls back to the same text)"
+    },
+    {
+      "key": "cart.promoGiftCardNotice",
+      "text": "Promo codes and gift cards can't be combined. Remove the gift card to use a code.",
+      "source": "assets/data/content.json",
+      "verify": [
+        "Promo codes and gift cards can't be combined. Remove the gift card to use a code."
+      ],
+      "note": "site.promoCodeGiftCardNotice, the one-discount rule shown when a gift card is applied"
+    },
+    {
+      "key": "cart.promoPlaceholder",
+      "text": "Promo code",
+      "source": "assets/js/cart.js",
+      "verify": ["Promo code"]
+    },
+    {
+      "key": "cart.remove",
+      "text": "Remove",
+      "source": "assets/js/cart.js",
+      "verify": ["Remove"]
+    },
+    {
+      "key": "cart.checking",
+      "text": "Checking…",
+      "source": "assets/js/cart.js",
+      "verify": ["Checking…"]
+    },
+    {
+      "key": "cart.promoRemove",
+      "text": "Remove promo code",
+      "source": "assets/js/cart.js",
+      "verify": ["Remove promo code"]
+    },
+    {
+      "key": "cart.promoRemoved",
+      "text": "Promo code removed",
+      "source": "assets/js/cart.js",
+      "verify": ["Promo code removed"]
+    },
+    {
+      "key": "cart.promoEnterCode",
+      "text": "Please enter a promo code.",
+      "source": "assets/js/cart.js",
+      "verify": ["Please enter a promo code."]
+    },
+    {
+      "key": "cart.promoUnknown",
+      "text": "That code isn't valid.",
+      "source": "assets/js/cart.js",
+      "verify": ["That code isn't valid."]
+    },
+    {
+      "key": "cart.promoExpired",
+      "text": "That code has expired or has already been used.",
+      "source": "assets/js/cart.js",
+      "verify": ["That code has expired or has already been used."]
+    },
+    {
+      "key": "tpl.promoMinimum",
+      "text": "This code needs a subtotal of at least {amount}.",
+      "source": "assets/js/cart.js",
+      "verify": ["tpl.promoMinimum"],
+      "note": "the minimum-amount restriction on a Stripe promotion code; {amount} is formatted money"
+    },
+    {
+      "key": "cart.promoNotApplicable",
+      "text": "That code doesn't apply to anything in this cart.",
+      "source": "assets/js/cart.js",
+      "verify": ["That code doesn't apply to anything in this cart."]
+    },
+    {
+      "key": "cart.promoMalformed",
+      "text": "Codes are letters and numbers only, up to 40 characters.",
+      "source": "assets/js/cart.js",
+      "verify": ["Codes are letters and numbers only, up to 40 characters."]
+    },
+    {
+      "key": "cart.promoLooksLikeGiftCard",
+      "text": "That looks like a gift card — enter it in the gift card box instead.",
+      "source": "assets/js/cart.js",
+      "verify": ["That looks like a gift card — enter it in the gift card box instead."]
+    },
+    {
+      "key": "cart.promoDisabled",
+      "text": "Promo codes aren't available right now.",
+      "source": "assets/js/cart.js",
+      "verify": ["Promo codes aren't available right now."]
+    },
+    {
+      "key": "cart.promoThrottled",
+      "text": "Too many attempts, try again in a minute.",
+      "source": "assets/js/cart.js",
+      "verify": ["Too many attempts, try again in a minute."],
+      "note": "the Worker's 5-a-minute limiter on /api/promo-preview (and the gift-card lookup's, which sends the same sentence)"
+    },
+    {
+      "key": "cart.promoUnavailable",
+      "text": "Codes can't be checked right now. Try again in a moment.",
+      "source": "assets/js/cart.js",
+      "verify": ["Codes can't be checked right now. Try again in a moment."]
+    },
+    {
+      "key": "cart.promoRejected",
+      "text": "That code couldn't be applied to this order.",
+      "source": "assets/js/cart.js",
+      "verify": ["That code couldn't be applied to this order."]
+    },
+    {
+      "key": "cart.promoFirstOrder",
+      "text": "first order only",
+      "source": "assets/js/cart.js",
+      "verify": ["first order only"]
+    },
+    {
+      "key": "tpl.promoDiscountLine",
+      "text": "Promo code ({code})",
+      "source": "assets/js/cart.js",
+      "verify": ["tpl.promoDiscountLine"],
+      "note": "the discount line in the cart totals"
+    },
+    {
+      "key": "tpl.promoApplied",
+      "text": "Promo code {code} applied ({amount} off)",
+      "source": "assets/js/cart.js",
+      "verify": ["tpl.promoApplied"],
+      "note": "the live-region announcement when a code is applied"
+    },
+    {
+      "key": "tpl.promoPercentOff",
+      "text": "{percent}% off",
+      "source": "assets/js/cart.js",
+      "verify": ["tpl.promoPercentOff"],
+      "note": "the terms line under an applied percent-off code"
+    },
+    {
+      "key": "tpl.promoAmountOff",
+      "text": "{amount} off",
+      "source": "assets/js/cart.js",
+      "verify": ["tpl.promoAmountOff"],
+      "note": "the terms line under an applied amount-off code; {amount} is formatted money"
     }
   ]
 }

@@ -733,7 +733,30 @@
     "tpl.mixMatchApplied": "Đã áp dụng mức {price}/món cho {item}!",
     "tpl.mixMatchNext": "Thêm {amount} để nhận {perk}!",
     "auto.artsFestival.c73a7e": "Lễ hội Nghệ thuật",
-    "auto.moreInfoRsvp.b097db": "Thêm thông tin / RSVP"
+    "auto.moreInfoRsvp.b097db": "Thêm thông tin / RSVP",
+    "cart.havePromoCode": "Bạn có mã giảm giá?",
+    "cart.promoGiftCardNotice": "Mã giảm giá và thẻ quà tặng không dùng chung được. Hãy bỏ thẻ quà tặng để dùng mã.",
+    "cart.promoPlaceholder": "Mã giảm giá",
+    "cart.remove": "Bỏ",
+    "cart.checking": "Đang kiểm tra…",
+    "cart.promoRemove": "Bỏ mã giảm giá",
+    "cart.promoRemoved": "Đã bỏ mã giảm giá",
+    "cart.promoEnterCode": "Vui lòng nhập mã giảm giá.",
+    "cart.promoUnknown": "Mã này không hợp lệ.",
+    "cart.promoExpired": "Mã này đã hết hạn hoặc đã được sử dụng.",
+    "tpl.promoMinimum": "Mã này cần tổng phụ ít nhất {amount}.",
+    "cart.promoNotApplicable": "Mã này không áp dụng cho sản phẩm nào trong giỏ hàng.",
+    "cart.promoMalformed": "Mã chỉ gồm chữ và số, tối đa 40 ký tự.",
+    "cart.promoLooksLikeGiftCard": "Có vẻ đây là thẻ quà tặng — hãy nhập vào ô thẻ quà tặng.",
+    "cart.promoDisabled": "Hiện không dùng được mã giảm giá.",
+    "cart.promoThrottled": "Quá nhiều lần thử, hãy thử lại sau một phút.",
+    "cart.promoUnavailable": "Hiện không kiểm tra được mã. Hãy thử lại sau giây lát.",
+    "cart.promoRejected": "Không áp dụng được mã này cho đơn hàng.",
+    "cart.promoFirstOrder": "chỉ đơn hàng đầu tiên",
+    "tpl.promoDiscountLine": "Mã giảm giá ({code})",
+    "tpl.promoApplied": "Đã áp dụng mã {code} (giảm {amount})",
+    "tpl.promoPercentOff": "giảm {percent}%",
+    "tpl.promoAmountOff": "giảm {amount}"
   }
 };
 

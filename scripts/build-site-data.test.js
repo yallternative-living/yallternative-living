@@ -2012,9 +2012,9 @@ assert(
   assert(!!posting, "journal page carries BlogPosting JSON-LD");
   eq(posting && posting.url, url, "BlogPosting url is the page");
   eq(
-    posting && posting.mainEntityOfPage && posting.mainEntityOfPage["@id"],
+    posting && posting.mainEntityOfPage,
     url,
-    "BlogPosting mainEntityOfPage is the page"
+    "BlogPosting mainEntityOfPage is the page URL (a plain string, so the page node is not duplicated)"
   );
   eq(
     posting && posting.headline,

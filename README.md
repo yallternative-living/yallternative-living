@@ -72,7 +72,7 @@ Here is a quick checklist of the external accounts you'll need to set up for lau
   neither can be set from a file in this repo.
 - **Automated Verification**:
   - `npm test` runs the Node-only unit pool -- 50 non-browser `scripts/*.test.js` suites
-    (52 with verification gates) covering cart and checkout pricing, tax, gift cards,
+    (52 with verification gates) covering cart and checkout pricing, tax, gift cards, promo codes,
     the order history, the build-data compiler, the journal Markdown renderer, the search engine and the
     CMS auth Worker -- then two further
     gates: `verify-pdp-metadata.js` (797 assertions on every product page's
@@ -85,7 +85,7 @@ Here is a quick checklist of the external accounts you'll need to set up for lau
     either failing.
   - `npm run test:integration` runs the browser pool: 22
     `scripts/*.browser.test.js` suites (the challengers, the minified-build
-    proof and the order-history page) and the Puppeteer
+    proof, the promo-code drawer and the order-history page) and the Puppeteer
     integration harnesses (28 total integration suites), an XSS/CSP stress harness that first proves the
     policy is being enforced, and an axe-core accessibility gate that allows
     zero WCAG 2.2 AA violations across all 40 pages (18 top-level, 20

@@ -203,6 +203,38 @@ async function makeLedgerEnv(cards) {
 }
 
 /**
+ * A Stripe-shaped promotion code with its coupon expanded, the way the
+ * Worker's lookup returns one. `percent` OR `amountCents`; `restrictions`
+ * and `active`/`expiresAt` are passed through.
+ */
+function mockPromo(code, opts = {}) {
+  const coupon = {
+    id: `coupon_${code}`,
+    object: "coupon",
+    valid: opts.couponValid !== false,
+    duration: "once",
+    currency: opts.amountCents ? opts.currency || "usd" : null,
+    percent_off: opts.percent || null,
+    amount_off: opts.amountCents || null
+  };
+  return {
+    id: `promo_${code}`,
+    object: "promotion_code",
+    code,
+    active: opts.active !== false,
+    expires_at: opts.expiresAt || null,
+    max_redemptions: opts.maxRedemptions || null,
+    times_redeemed: opts.timesRedeemed || 0,
+    restrictions: {
+      first_time_transaction: Boolean(opts.firstTimeOnly),
+      minimum_amount: opts.minimumCents || null,
+      minimum_amount_currency: opts.minimumCents ? "usd" : null
+    },
+    coupon
+  };
+}
+
+/**
  * Drive one checkout through the real Worker.
  *
  * @param {object} body    the JSON the cart would POST
@@ -213,6 +245,11 @@ async function makeLedgerEnv(cards) {
  *                      before the Worker reserves -- how a concurrent second
  *                      spender is simulated
  *   `sessionError`     make Stripe refuse the session
+ *   `promoCodes`       {CODE: promotion code object} Stripe answers the
+ *                      promo lookup with (see mockPromo); anything else is
+ *                      an empty list
+ *   `promoLookupDown`  the promo lookup itself fails (Stripe unreachable)
+ *   `promoRefused`     Stripe refuses the session, naming the promotion code
  */
 async function executeCheckout(body, options = {}) {
   let capturedSessionParams = null;
@@ -242,11 +279,23 @@ async function executeCheckout(body, options = {}) {
       return { ok: true, clone: () => ({ body: null }), json: async () => mockEvents };
     }
     if (u.includes("api.stripe.com/v1/promotion_codes")) {
-      /* Recorded, never answered. A gift card is a ledger balance now; a
-         Worker that still asked Stripe for one would be reading a number
-         nothing maintains. The assertions below check this stays empty. */
+      /* Recorded, and answered ONLY from `options.promoCodes` -- the promo
+         codes Stripe "has" for this run, keyed by their customer-facing
+         string. A gift card is a ledger balance now; a Worker that asked
+         Stripe for one would be reading a number nothing maintains, and the
+         gift-card assertions below check this list stays empty for them. */
       promoLookups.push(u);
-      return { ok: false, status: 404, json: async () => ({ error: "Not found" }) };
+      if (options.promoLookupDown) {
+        return { ok: false, status: 500, json: async () => ({ error: { message: "down" } }) };
+      }
+      const wanted = new URL(u).searchParams.get("code");
+      const known = options.promoCodes || {};
+      const match = Object.keys(known).find((c) => c.toUpperCase() === String(wanted || ""));
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ object: "list", data: match ? [known[match]] : [] })
+      };
     }
     if (u.includes("api.stripe.com/v1/coupons")) {
       if (method === "DELETE") {
@@ -285,6 +334,21 @@ async function executeCheckout(body, options = {}) {
       }
       if (options.sessionError) {
         return { ok: false, json: async () => ({ error: { message: "nope" } }) };
+      }
+      if (options.promoRefused) {
+        // What Stripe answers when a restriction on the promotion code fails
+        // at session creation (first-time-customer, currency, etc.).
+        return {
+          ok: false,
+          json: async () => ({
+            error: {
+              type: "invalid_request_error",
+              param: "discounts[0][promotion_code]",
+              message:
+                "This promotion code cannot be redeemed because the customer is not eligible."
+            }
+          })
+        };
       }
       if (options.beforeReserve) await options.beforeReserve(env);
       return {
@@ -785,11 +849,17 @@ async function runWorkerCheckoutTests() {
   }
 
   // Test 10: Discount Code Parsing & Session Metadata (snake_case discount_code)
+  // A code Stripe knows is looked up server-side and attached to the session
+  // itself (routes/promo-preview.js); the full contract is in
+  // scripts/worker-promo-preview.test.js.
   {
-    const result = await executeCheckout({
-      items: [{ id: "lavender-soak", qty: 1 }],
-      discount_code: "WELCOME10"
-    });
+    const result = await executeCheckout(
+      {
+        items: [{ id: "lavender-soak", qty: 1 }],
+        discount_code: "WELCOME10"
+      },
+      { promoCodes: { WELCOME10: mockPromo("WELCOME10", { percent: 10 }) } }
+    );
 
     eq(result.status, 200, "Discount code checkout returns HTTP 200");
     eq(
@@ -797,14 +867,28 @@ async function runWorkerCheckoutTests() {
       "WELCOME10",
       "metadata.discount_code captures snake_case discount_code"
     );
+    eq(
+      result.sessionParams.get("discounts[0][promotion_code]"),
+      "promo_WELCOME10",
+      "the validated code is attached to the session as its one discount"
+    );
+    eq(
+      result.sessionParams.get("allow_promotion_codes"),
+      null,
+      "...and Stripe's own code box is off (Stripe forbids both)"
+    );
+    eq(result.data.promo, { code: "WELCOME10", applied: true, estimatedDiscountCents: 180 });
   }
 
   // Test 11: Discount Code Parsing & Case Normalization (camelCase discountCode)
   {
-    const result = await executeCheckout({
-      items: [{ id: "lavender-soak", qty: 1 }],
-      discountCode: "gothspring20"
-    });
+    const result = await executeCheckout(
+      {
+        items: [{ id: "lavender-soak", qty: 1 }],
+        discountCode: "gothspring20"
+      },
+      { promoCodes: { GOTHSPRING20: mockPromo("GOTHSPRING20", { percent: 20 }) } }
+    );
 
     eq(
       result.sessionParams.get("metadata[discount_code]"),
@@ -813,7 +897,9 @@ async function runWorkerCheckoutTests() {
     );
   }
 
-  // Test 12: Discount Code Sanitization & 100 Character Clamping
+  // Test 12: Discount Code Sanitization & 100 Character Clamping. A code
+  // this shape is nothing Stripe could hold, so the checkout is refused with
+  // the reason named -- and what is echoed back is the sanitized code.
   {
     const longCode = "SAVE_" + "Z".repeat(150);
     const unprintable = "CODE\x00\x08TEST\x1F";
@@ -822,8 +908,11 @@ async function runWorkerCheckoutTests() {
       discount_code: longCode + unprintable
     });
 
-    const code = result.sessionParams.get("metadata[discount_code]");
-    assert(code != null, "Discount code is present in metadata");
+    eq(result.status, 400, "An unknown discount code refuses the checkout");
+    eq(result.data.promo && result.data.promo.reason, "unknown", "...naming the reason");
+    eq(result.sessionParams, null, "...before any Stripe session is created");
+    const code = result.data.promo && result.data.promo.code;
+    assert(code != null, "Discount code is echoed in the structured refusal");
     assert(code.length <= 100, "Discount code clamped to maximum 100 characters");
     assert(!code.includes("\x00"), "Null bytes stripped from discount_code");
     assert(!code.includes("\x1F"), "Control characters stripped from discount_code");
@@ -844,16 +933,19 @@ async function runWorkerCheckoutTests() {
 
   // Test 14: Comprehensive End-to-End Parameter & Metadata Integrity
   {
-    const result = await executeCheckout({
-      items: [
-        { id: "lavender-soak", qty: 2 },
-        { id: "frankincense-salve", qty: 1, variant: "2oz" }
-      ],
-      is_gift_order: true,
-      gift_message: "Happy Holidays from the South!",
-      pickup_market: PICKUP_LABEL,
-      discount_code: "HOLIDAY25"
-    });
+    const result = await executeCheckout(
+      {
+        items: [
+          { id: "lavender-soak", qty: 2 },
+          { id: "frankincense-salve", qty: 1, variant: "2oz" }
+        ],
+        is_gift_order: true,
+        gift_message: "Happy Holidays from the South!",
+        pickup_market: PICKUP_LABEL,
+        discount_code: "HOLIDAY25"
+      },
+      { promoCodes: { HOLIDAY25: mockPromo("HOLIDAY25", { percent: 25 }) } }
+    );
 
     eq(result.status, 200, "Comprehensive checkout returns HTTP 200");
     eq(
@@ -2440,4 +2532,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { runWorkerCheckoutTests, executeCheckout };
+module.exports = { runWorkerCheckoutTests, executeCheckout, mockPromo, mockCatalog };

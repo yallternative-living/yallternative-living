@@ -733,7 +733,30 @@
     "tpl.mixMatchApplied": "已应用 {item} 每件 {price} 阶梯优惠！",
     "tpl.mixMatchNext": "再添加 {amount} 即可解锁 {perk}！",
     "auto.artsFestival.c73a7e": "艺术节",
-    "auto.moreInfoRsvp.b097db": "更多详情 / 报名"
+    "auto.moreInfoRsvp.b097db": "更多详情 / 报名",
+    "cart.havePromoCode": "有优惠码吗？",
+    "cart.promoGiftCardNotice": "优惠码与礼品卡不能同时使用。请移除礼品卡后再使用优惠码。",
+    "cart.promoPlaceholder": "优惠码",
+    "cart.remove": "移除",
+    "cart.checking": "正在检查…",
+    "cart.promoRemove": "移除优惠码",
+    "cart.promoRemoved": "已移除优惠码",
+    "cart.promoEnterCode": "请输入优惠码。",
+    "cart.promoUnknown": "该优惠码无效。",
+    "cart.promoExpired": "该优惠码已过期或已被使用。",
+    "tpl.promoMinimum": "此优惠码需要小计至少 {amount}。",
+    "cart.promoNotApplicable": "该优惠码不适用于购物车中的任何商品。",
+    "cart.promoMalformed": "优惠码只能包含字母和数字，最多 40 个字符。",
+    "cart.promoLooksLikeGiftCard": "这看起来是礼品卡，请在礼品卡栏中输入。",
+    "cart.promoDisabled": "优惠码目前不可用。",
+    "cart.promoThrottled": "尝试次数过多，请一分钟后再试。",
+    "cart.promoUnavailable": "目前无法验证优惠码，请稍后再试。",
+    "cart.promoRejected": "该优惠码无法用于此订单。",
+    "cart.promoFirstOrder": "仅限首单",
+    "tpl.promoDiscountLine": "优惠码（{code}）",
+    "tpl.promoApplied": "已应用优惠码 {code}（减 {amount}）",
+    "tpl.promoPercentOff": "{percent}% 折扣",
+    "tpl.promoAmountOff": "减 {amount}"
   }
 };
 
