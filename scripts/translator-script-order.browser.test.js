@@ -79,17 +79,28 @@ function createServer() {
     if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
       filePath = path.join(ROOT, "404.html");
     }
-    fs.readFile(filePath, (err, data) => {
-      if (err) {
-        res.writeHead(500);
-        res.end("Server error");
-        return;
-      }
-      res.writeHead(200, {
-        "Content-Type": MIME[path.extname(filePath).toLowerCase()] || "application/octet-stream"
+    /* A read that fails answers 500 with a body that names the cause. On
+       2026-09-09 a CI run of Scenario A saw a document with no <html lang>,
+       no nav and no script requests -- the shape of an error body, not the
+       site -- and "Server error" said nothing about why. One retry covers a
+       transient EMFILE/EAGAIN on a loaded runner; a second failure is
+       reported with its code so the log can be believed. */
+    const serve = (attempt) => {
+      fs.readFile(filePath, (err, data) => {
+        if (err) {
+          if (attempt < 2) return setTimeout(() => serve(attempt + 1), 50);
+          console.error(`  [server] ${req.url} -> ${err.code || err.message} (${filePath})`);
+          res.writeHead(500);
+          res.end(`Server error: ${err.code || err.message}`);
+          return;
+        }
+        res.writeHead(200, {
+          "Content-Type": MIME[path.extname(filePath).toLowerCase()] || "application/octet-stream"
+        });
+        res.end(data);
       });
-      res.end(data);
-    });
+    };
+    serve(1);
   });
   return new Promise((resolve) => server.listen(PORT, "127.0.0.1", () => resolve(server)));
 }
@@ -177,6 +188,18 @@ async function main() {
 
       const startedAt = Date.now();
       await page.goto(`${base}/?lang=es`, { waitUntil: "domcontentloaded" });
+      /* The subject must be the site page before anything is sampled: a
+         document without the nav is a harness failure, and naming it here
+         beats fourteen assertions each reporting "[]". */
+      const landed = await page
+        .waitForSelector("#navLinks a", { timeout: 5000 })
+        .then(() => true)
+        .catch(() => false);
+      check(
+        "control: the site page loaded (nav present)",
+        landed,
+        `document: ${await page.evaluate(() => document.documentElement.outerHTML.slice(0, 160))}`
+      );
 
       /* Harness control. If this ever passes trivially -- because the
          interception silently stopped matching, or the page stopped requesting
