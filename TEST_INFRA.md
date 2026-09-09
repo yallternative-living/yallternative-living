@@ -35,7 +35,7 @@ Node-only. The naming is the contract the runners glob on, and it is why the CI
     Node-only gates sequentially: `verify-pdp-metadata.js` (797 assertions on
     PDP OpenGraph/microdata) and `verify-build-reproducibility.js` (rebuilds
     the site five times and diffs every generated file).
-  - `scripts/qa-check.js`: 1129 static assertions -- links, images, JSON-LD,
+  - `scripts/qa-check.js`: 1162 static assertions -- links, images, JSON-LD,
     pricing, CSP parity across `_headers` and `netlify.toml`,
     lockfile hygiene, markup contracts.
 
@@ -55,7 +55,7 @@ Node-only. The naming is the contract the runners glob on, and it is why the CI
     writes is committed, so every other suite exercises the readable source.
     This one copies the tree to a scratch directory, runs the real minifier
     there (`--root`), pins its contract (every owned file smaller and carrying
-    the marker, `sw.js` and all 37 HTML pages byte-identical, a second run a
+    the marker, `sw.js` and all 39 HTML pages byte-identical, a second run a
     no-op), then serves the copy and drives it: home loads with zero page
     errors and no failed asset request -- with a positive control that throws
     a page error and asserts the listener saw it -- the shop renders one card
@@ -195,7 +195,7 @@ section is held to.
   contract including `aria-controls` and the language-carrying accessible
   name, click-to-open, switch to Spanish, and clean restoration.
 
-- **`scripts/qa-check.js`** (1129 static assertions total). For this feature:
+- **`scripts/qa-check.js`** (1162 static assertions total). For this feature:
   CSP byte parity across `_headers` and `netlify.toml` with the Google Translate origins gone, zero
   legacy Google Translate CSS, nine valid dictionaries at 703 phrases each, 58
   glossary terms, one `assets/js/locales/<code>.js` per locale, a size ceiling

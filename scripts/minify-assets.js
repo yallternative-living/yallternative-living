@@ -58,6 +58,17 @@ const esbuild = require("esbuild");
 const args = process.argv.slice(2);
 const rootFlag = args.indexOf("--root");
 const ROOT = rootFlag !== -1 ? path.resolve(args[rootFlag + 1]) : path.resolve(__dirname, "..");
+/* In place, the repository is the deploy artifact and the tests read source:
+   minified files must never land in a commit. Without `--root` this only runs
+   where Netlify sets NETLIFY=true (its build image), so `npm run minify` on a
+   developer machine stops here instead of rewriting the tree. */
+if (rootFlag === -1 && process.env.NETLIFY !== "true") {
+  console.error(
+    "minify-assets: refusing to minify the repository in place. Pass --root <copy> " +
+      "to minify a scratch copy; Netlify's build runs it with NETLIFY=true."
+  );
+  process.exit(2);
+}
 
 const JS_TARGET = "es2020";
 const JS_DIRS = ["assets/js", "assets/js/locales"];
@@ -136,7 +147,15 @@ async function main() {
     .concat(...CSS_DIRS.map((d) => listFiles(d, ".css")));
   if (!files.length) throw new Error("minify-assets: found nothing to minify");
 
-  const html = fs.readdirSync(ROOT).filter((f) => f.endsWith(".html"));
+  // Every HTML page at every depth the build emits: top level, products/, journal/.
+  const html = [""].concat(["products", "journal"]).flatMap((dir) => {
+    const abs = path.join(ROOT, dir);
+    if (!fs.existsSync(abs)) return [];
+    return fs
+      .readdirSync(abs)
+      .filter((f) => f.endsWith(".html"))
+      .map((f) => (dir ? path.join(dir, f) : f));
+  });
   const htmlBefore = fingerprint(html);
   const swBefore = fs.existsSync(path.join(ROOT, "sw.js"))
     ? fs.readFileSync(path.join(ROOT, "sw.js"))
@@ -183,7 +202,7 @@ async function main() {
   if (!html.length || fingerprint(html) !== htmlBefore) {
     throw new Error("minify-assets: a top-level HTML page changed -- CSP hashes would break");
   }
-  console.log(`\n  sw.js untouched; ${html.length} top-level HTML pages untouched.`);
+  console.log(`\n  sw.js untouched; ${html.length} HTML pages untouched.`);
 }
 
 function fingerprint(relPaths) {

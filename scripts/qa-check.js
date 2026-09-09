@@ -2890,6 +2890,35 @@ try {
    broke every Netlify deploy from that day on -- with the site's own test
    suite still passing green the whole time. One lockfile, kept in step
    with package.json. */
+/* ---------- minified output never reaches the repository ----------
+   scripts/minify-assets.js runs on Netlify and stamps every file it writes
+   with a marker; the repository is readable source and the tests read it.
+   format:check catches a minified main.js, verify-build-reproducibility
+   catches the generated data files, and NOTHING caught assets/css (red team,
+   2026-09-09) -- once committed, the marker makes minify skip the file
+   forever and the readable CSS is simply gone. */
+section("Minified output is not committed");
+(function () {
+  var marker = "/*! minified by scripts/minify-assets.js */";
+  ["assets/js", "assets/js/locales", "assets/css"].forEach(function (dir) {
+    var abs = path.join(ROOT, dir);
+    if (!fs.existsSync(abs)) return;
+    fs.readdirSync(abs)
+      .filter(function (f) {
+        return /\.(js|css)$/.test(f);
+      })
+      .forEach(function (f) {
+        var rel = dir + "/" + f;
+        var text = fs.readFileSync(path.join(abs, f), "utf8");
+        if (text.trimEnd().endsWith(marker)) {
+          fail(rel, "carries the minify marker -- minified output was committed");
+        } else {
+          ok(rel + " is readable source");
+        }
+      });
+  });
+})();
+
 section("Lockfile hygiene (one package manager, in sync with package.json)");
 try {
   var rivalLockfiles = ["pnpm-lock.yaml", "yarn.lock", "bun.lockb"].filter(function (f) {

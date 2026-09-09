@@ -95,11 +95,15 @@ function ownedFiles(root) {
 }
 function htmlFiles(root) {
   const top = fs.readdirSync(root).filter((f) => f.endsWith(".html"));
-  const pdp = fs
-    .readdirSync(path.join(root, "products"))
-    .filter((f) => f.endsWith(".html"))
-    .map((f) => path.join("products", f));
-  return top.concat(pdp).sort();
+  const nested = ["products", "journal"].flatMap((dir) => {
+    const abs = path.join(root, dir);
+    if (!fs.existsSync(abs)) return [];
+    return fs
+      .readdirSync(abs)
+      .filter((f) => f.endsWith(".html"))
+      .map((f) => path.join(dir, f));
+  });
+  return top.concat(nested).sort();
 }
 function fingerprint(root, rels) {
   const h = crypto.createHash("sha256");

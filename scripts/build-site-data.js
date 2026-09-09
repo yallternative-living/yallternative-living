@@ -4255,9 +4255,8 @@ function buildSiteData() {
 
     /* Blog + BlogPosting JSON-LD, generated from the same posts the page
        renders. The Journal had no structured data at all (2026-09-09
-       audit); a post lives at journal.html#post-<id>, so the page carries
-       one Blog node listing every published post rather than pretending
-       each fragment is its own page. Empty while the Journal is off, so
+       audit). Every post now has its own page at journal/<slug>.html with
+       its own BlogPosting; this Blog node on the index lists them all. Empty while the Journal is off, so
        the noindexed page does not advertise posts it does not show. */
     const reLd = /(<!--YL:journal\.jsonLd-->)[\s\S]*?(<!--\/YL:journal\.jsonLd-->)/;
     if (reLd.test(updated)) {
@@ -7980,7 +7979,9 @@ function journalPostingNode(post, dom) {
     "@type": "BlogPosting",
     "@id": url,
     url: url,
-    mainEntityOfPage: { "@type": "WebPage", "@id": url },
+    // A plain URL, not a WebPage node with the same @id as the posting: two
+    // types on one IRI is tolerated by Google but is not what it means.
+    mainEntityOfPage: url,
     headline: post.title || "Journal Entry",
     description: post.excerpt || post.summary || "",
     datePublished: post.date || undefined,

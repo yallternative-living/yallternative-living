@@ -21,6 +21,10 @@ node_modules
 # into an excluded directory, so a rule inside one can never re-include.
 .claude/*
 !.claude/skills/
+# ...but never harness state, wherever it lands.
+.claude/**/settings.local.json
+.claude/**/*.jsonl
+.claude/**/worktrees/
 
 # OS cruft
 .DS_Store
