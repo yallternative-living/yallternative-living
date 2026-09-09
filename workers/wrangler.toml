@@ -235,3 +235,59 @@ database_id = "7039063c-e2dd-41c3-bcb6-f17ac785e972"
 # type = "ratelimit"
 # namespace_id = "1001"
 # simple = { limit = 30, period = 60 }
+
+# ===========================================================================
+# STAGING -- `npx wrangler deploy --env staging` (never deployed by Workers
+# Builds, which only reads the top-level config). A second Worker with its own
+# name, vars, Durable Object storage and dashboard secrets, meant to run on
+# Stripe TEST-mode keys. workers/README.md section 7 has the click-by-click
+# setup. Nothing above this line changes for production.
+#
+# Wrangler does not inherit `vars` or bindings into an environment, which is
+# why they are repeated here rather than referenced.
+# ===========================================================================
+[env.staging]
+name = "yallternative-checkout-staging"
+workers_dev = true
+preview_urls = false
+
+[env.staging.vars]
+ORDER_NOTIFY_EMAIL = "y.allternative.living@gmail.com"
+# The preview site this Worker serves. Used for CORS and for reading the
+# catalogue, so it must be the origin the preview pages are actually served
+# from -- a Netlify branch deploy or deploy preview URL. Change per preview.
+SITE_ORIGIN = "https://staging--yallternativeliving.netlify.app"
+UMAMI_WEBSITE_ID = ""
+STRIPE_TAX_ENABLED = "false"
+LOYALTY_REDEEM_THRESHOLD = "100"
+LOYALTY_REWARD_CENTS = "500"
+# Test-mode coupon ids, if any are created in the Stripe test-mode Dashboard.
+# Unset is a defined state (see the production comment above).
+# STRIPE_WELCOME_COUPON_ID = ""
+# STRIPE_BIRTHDAY_COUPON_ID = ""
+
+# No hourly jobs on staging: the Worker must not send digests, birthday codes
+# or reminders from a test deployment.
+[env.staging.triggers]
+crons = []
+
+[[env.staging.durable_objects.bindings]]
+name = "GIFT_CARD_LEDGER"
+class_name = "GiftCardLedger"
+
+[[env.staging.durable_objects.bindings]]
+name = "RATE_LIMIT_COUNTER"
+class_name = "RateLimitCounter"
+
+[[env.staging.migrations]]
+tag = "v1"
+new_sqlite_classes = ["GiftCardLedger", "RateLimitCounter"]
+
+# Bind only once the database exists -- a made-up id fails the deploy:
+#   npx wrangler d1 create yallternative-state-staging   # prints database_id
+# then paste it below and uncomment. Without this binding the Worker degrades
+# as documented above (no exactly-once claim table, no retention layer).
+# [[env.staging.d1_databases]]
+# binding = "STATE_DB"
+# database_name = "yallternative-state-staging"
+# database_id = "paste-the-id-here"

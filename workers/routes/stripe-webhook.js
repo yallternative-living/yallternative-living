@@ -62,6 +62,7 @@ import { loadOrderCatalog, productsNeedingChoice, sizeConfirmationEmail } from "
 import { emailShipNotice } from "./ship-notice.js";
 import { loadSiteSettings } from "../state/site-data.js";
 import { claimEvent, markEventDone, releaseEvent } from "../state/webhook-events.js";
+import { alertOwner } from "./alerts.js";
 import { ensureSchema } from "../state/migrations.js";
 import { buildOrderPaidPayload, sendToUmami } from "./analytics.js";
 import { claimAnalyticsSend, ORDER_PAID, releaseAnalyticsSend } from "../state/analytics-sends.js";
@@ -1329,6 +1330,28 @@ export async function handleStripeWebhook(request, env, origin, ctx) {
     return json({ received: true }, 200, origin, env);
   } catch (err) {
     console.error("Webhook processing error:", err && (err.stack || err.message));
+    // Stripe will retry, but a handler that throws on every retry -- Resend
+    // down, a ledger that will not settle -- is exactly the failure nobody
+    // sees. Keyed on the event type so a storm is one email, not hundreds.
+    const object = (event.data && event.data.object) || {};
+    alertOwner(env, ctx, {
+      key: `webhook:${event.type}`,
+      subject: `Stripe webhook "${event.type}" failed`,
+      details: {
+        "event id": event.id,
+        "checkout session":
+          typeof object.id === "string" && object.id.startsWith("cs_") ? object.id : "",
+        "payment intent":
+          typeof object.payment_intent === "string"
+            ? object.payment_intent
+            : typeof object.id === "string" && object.id.startsWith("pi_")
+              ? object.id
+              : "",
+        error: err && err.message,
+        "what happens":
+          "Stripe retries this event for up to three days; if the cause is fixed nothing more is needed"
+      }
+    });
     if (claimed) {
       // Give the claim back, or Stripe's retries all no-op against a row that
       // says "someone is already handling this".

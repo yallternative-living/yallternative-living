@@ -691,6 +691,7 @@ Set on the **Cloudflare Worker** (Settings -> Variables and Secrets) — the Wor
 | `FROM_EMAIL`            | `routes/stripe-webhook.js`                      | no       | Verified Resend sender address. Defaults to `orders@yallternativeliving.com`.                                |
 | `GIFT_CARD_FROM_EMAIL`  | `routes/stripe-webhook.js`                      | no       | Sender for gift-card emails. Falls back to `FROM_EMAIL`.                                                     |
 | `RESTOCK_NOTIFY_EMAIL`  | `routes/restock.js`                             | no       | Where restock alert summaries are delivered.                                                                 |
+| `ORDER_NOTIFY_EMAIL`    | `routes/order-digest.js`, `routes/alerts.js`    | no       | Owner mailbox: per-order copy, digest, gift-note link, and the fallback for `site.alertEmail` (owner alerts). |
 | `SITE_ORIGIN`           | checkout, webhook                               | no       | Overrides default production site origin (defaults to `https://yallternativeliving.com`).                    |
 
 Set on the **CMS auth Worker** (`cms-auth/sveltia-auth.js`):
