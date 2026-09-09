@@ -4106,65 +4106,6 @@ hr.rule {
   font-weight: 600;
 }
 
-/* ── Cart cross-sell ──────────────────────────────────── */
-.cart-cross-sell {
-  padding: 0.75rem 1rem;
-  border-top: 1px solid oklch(from var(--paper) l c h / 0.1);
-  font-family: var(--font-body);
-  font-size: 0.8rem;
-
-  &__heading {
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-size: 0.7rem;
-    color: var(--paper-dim);
-    margin-bottom: 0.5rem;
-  }
-
-  &__item {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-  }
-
-  &__img {
-    width: 48px;
-    height: 48px;
-    border-radius: var(--radius);
-    object-fit: cover;
-  }
-
-  &__info {
-    flex: 1;
-  }
-
-  &__name {
-    font-weight: 600;
-    font-size: 0.82rem;
-  }
-
-  &__price {
-    color: var(--paper-dim);
-    font-size: 0.78rem;
-  }
-
-  &__add {
-    padding: 0.35rem 0.75rem;
-    background: var(--whiskey);
-    color: var(--ink);
-    border: none;
-    border-radius: var(--radius);
-    font-size: 0.75rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: opacity 0.2s;
-    &:hover {
-      opacity: 0.85;
-    }
-  }
-}
-
 /* ── Product tag pills ────────────────────────────────── */
 .tag-pills {
   display: flex;
