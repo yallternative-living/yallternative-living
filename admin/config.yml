@@ -929,7 +929,7 @@ singletons:
         collapsed: true
         minimize_collapsed: true
         summary: "{{fields.question}}"
-        hint: "Questions and answers shown on the Shop and Contact pages."
+        hint: "Questions and answers on the FAQ page (the shop page links to it). An answer can carry a link, written like [events page](events.html)."
         fields:
           - { name: question, label: Question, widget: string }
           - { name: answer, label: Answer, widget: text }

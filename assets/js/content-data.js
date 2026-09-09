@@ -226,7 +226,7 @@ window.YL_CONTENT = {
   },
   "faq": {
     "heroTitle": "Frequently Asked Questions",
-    "heroIntro": "Got questions about shipping, returns, ingredients, custom orders, or where to find us? We've got answers. Take a look below, and if you still need help, reach out on our contact page."
+    "heroIntro": "Got questions about shipping, returns, paying, gift cards, ingredients, custom orders, or where to find us? We have answers. Take a look below, and if you still need help, reach out on our contact page."
   },
   "legal": {
     "privacy": {
