@@ -679,7 +679,21 @@ function run() {
     // read off a build log. The next production deploy states it outright.
     // No quotes in the command: the values cannot contain spaces, so nothing
     // here needs TOML escaping that a later edit could get wrong.
-    '  command = "git fetch --unshallow 2>/dev/null || true; echo sitemap-git-shallow=$(git rev-parse --is-shallow-repository 2>/dev/null || echo unknown); node scripts/optimize-images.js && node scripts/build-site-data.js && node scripts/build-security-headers.js"\n' +
+    //
+    // minify-assets.js is LAST, and it is the one step whose output is never
+    // committed. The repository is the deploy artifact (publish = "."), so
+    // the committed assets/js and assets/css stay readable source that every
+    // test runs against; the minified bytes exist only in Netlify's publish
+    // directory. It runs after build-site-data.js because that regenerates
+    // the *-data.js files it shrinks, and after build-security-headers.js
+    // so the headers are written from the source tree the tests know. It
+    // never touches sw.js (the live-site deploy check greps its CACHE_NAME
+    // line) or any HTML (inline scripts are CSP-hashed), and file names do
+    // not change, so the sw.js precache list and every ?v=2.0 reference
+    // stay valid. scripts/minified-build.browser.test.js drives the site
+    // from a minified copy of the tree so a breaking minifier upgrade fails
+    // CI rather than the next deploy.
+    '  command = "git fetch --unshallow 2>/dev/null || true; echo sitemap-git-shallow=$(git rev-parse --is-shallow-repository 2>/dev/null || echo unknown); node scripts/optimize-images.js && node scripts/build-site-data.js && node scripts/build-security-headers.js && node scripts/minify-assets.js"\n' +
     // Netlify meters this site in credits -- every build spends them -- and
     // this account's allowance ran out on 2026-09-04; the site could not
     // deploy at all until more were bought. A large share of the commits

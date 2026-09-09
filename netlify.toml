@@ -13,7 +13,7 @@
 
 [build]
   publish = "."
-  command = "git fetch --unshallow 2>/dev/null || true; echo sitemap-git-shallow=$(git rev-parse --is-shallow-repository 2>/dev/null || echo unknown); node scripts/optimize-images.js && node scripts/build-site-data.js && node scripts/build-security-headers.js"
+  command = "git fetch --unshallow 2>/dev/null || true; echo sitemap-git-shallow=$(git rev-parse --is-shallow-repository 2>/dev/null || echo unknown); node scripts/optimize-images.js && node scripts/build-site-data.js && node scripts/build-security-headers.js && node scripts/minify-assets.js"
 
   # Skip the build -- and its credits -- when nothing that ships changed.
   # git exits 0 when the diff since the last deployed commit touches only
