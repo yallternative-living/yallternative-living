@@ -574,7 +574,12 @@
        only sent when no card is applied, so the Worker never has to choose
        and the drawer has already said "one or the other" by this point. */
     var cleanPromo = normalizePromoCode(discountCode);
-    if (cleanPromo && !payload.giftCardCode) {
+    var cartHoldsGiftCard = payload.items.some(function (o) {
+      return o && o.id === GIFT_CARD_ID;
+    });
+    /* Nor while the cart holds a gift card the code would discount (the
+       Worker refuses that cart with `promo.reason: "gift_card_purchase"`). */
+    if (cleanPromo && !payload.giftCardCode && !cartHoldsGiftCard) {
       payload.discountCode = cleanPromo;
       payload.discount_code = cleanPromo;
     }
@@ -1296,7 +1301,11 @@
     if (!kind) return null;
     var minimum = Number(raw.minimumAmountCents);
     var estimated = Number(raw.estimatedDiscountCents);
+    var checkedAt = Number(raw.checkedAt);
     return {
+      /* When the Worker last confirmed this code, so a page load does not
+         re-ask Stripe for a code confirmed a minute ago. */
+      checkedAt: checkedAt > 0 ? checkedAt : Date.now(),
       code: code,
       kind: kind,
       percentOff: kind === "percent" ? Math.min(percentOff, 100) : null,
@@ -1337,6 +1346,7 @@
     "malformed",
     "gift_card",
     "gift_card_conflict",
+    "gift_card_purchase",
     "disabled",
     "rate_limited",
     "unavailable",
@@ -1359,6 +1369,7 @@
     "not_applicable",
     "malformed",
     "gift_card",
+    "gift_card_purchase",
     "disabled",
     "rejected"
   ];
@@ -1483,6 +1494,8 @@
 
   var GC_STORAGE_KEY = "yl_applied_gift_card";
   var PROMO_STORAGE_KEY = "yl_applied_promo";
+  /* A stored code confirmed within this long is trusted on page load. */
+  var PROMO_RECHECK_MS = 15 * 60 * 1000;
   var GIFT_ORDER_KEY = "yl_is_gift_order";
   var GIFT_MESSAGE_KEY = "yl_gift_message";
   var PICKUP_KEY = "yl_cart_is_pickup";
@@ -2602,7 +2615,8 @@
        than checkout can honour. The CMS switch (site.enablePromoCodes)
        hides the whole thing and sends nothing. */
     var enablePromoCodes = siteCfg.enablePromoCodes !== false;
-    var promoActive = enablePromoCodes && !!state.appliedPromo && !state.appliedGiftCard;
+    var promoActive =
+      enablePromoCodes && !!state.appliedPromo && !state.appliedGiftCard && !buyingGiftCard();
     var promoDiscount = promoActive ? promoDiscountFor(state.appliedPromo, sub) : 0;
     var estimatedTotal = Math.max(
       0,
@@ -3197,7 +3211,17 @@
       .then(function (out) {
         var res = out.res;
         var data = out.data;
-        if (res && res.ok && data && data.url) {
+        /* A 200 whose `promo.applied` is false would land the shopper on a
+           full-price Stripe page after the drawer showed money coming off.
+           The Worker refuses such carts with a 400 now; this keeps an older
+           Worker from redirecting past the discount either way. */
+        var promoSkipped =
+          state.appliedPromo &&
+          data &&
+          data.promo &&
+          data.promo.applied === false &&
+          data.promo.reason;
+        if (res && res.ok && data && data.url && !promoSkipped) {
           settle();
           window.location = data.url;
           return;
@@ -3580,6 +3604,8 @@
         );
       case "gift_card_conflict":
         return promoGiftCardNotice();
+      case "gift_card_purchase":
+        return promoGiftCardPurchaseNotice();
       case "disabled":
         return tr(
           "cart.promoDisabled",
@@ -3602,6 +3628,23 @@
   }
   /* The one-or-the-other sentence. CMS-editable (site.promoCodeGiftCardNotice)
      so the owner can reword it; the dictionary translates the default. */
+  /* Codes never discount the shop's own gift cards (workers/routes/promo-
+     preview.js explains the arbitrage). Not CMS-editable: it states a rule
+     the Worker enforces, not a preference. */
+  function promoGiftCardPurchaseNotice() {
+    return tr(
+      "cart.promoGiftCardPurchase",
+      null,
+      "Codes can't be used to buy gift cards. Take the gift card out of the cart to use one."
+    );
+  }
+  /* True while the cart holds the gift-card product: a code stays idle
+     exactly as it does behind an applied card. */
+  function buyingGiftCard() {
+    return state.items.some(function (it) {
+      return it && String(it.id) === GIFT_CARD_ID;
+    });
+  }
   function promoGiftCardNotice() {
     var siteCfg = (root.YL_CONTENT && root.YL_CONTENT.site) || {};
     var custom =
@@ -3629,9 +3672,11 @@
     var tagIcon =
       '<svg class="yl-cart-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>';
     var promo = state.appliedPromo;
+    var buyingCard = buyingGiftCard();
     var html = '<div class="yl-cart-giftcard-wrap yl-cart-promo-wrap">';
-    if (promo && state.appliedGiftCard) {
-      /* Applied, but idle: the gift card holds the session's one discount. */
+    if (promo && (state.appliedGiftCard || buyingCard)) {
+      /* Applied, but idle: the gift card holds the session's one discount,
+         or the cart holds a gift card a code must not discount. */
       html +=
         '<div class="yl-cart-giftcard-applied yl-cart-promo-applied yl-cart-promo-idle">' +
         '  <div class="yl-cart-giftcard-applied-info">' +
@@ -3641,7 +3686,7 @@
         escapeHtml(promo.code) +
         "</span>" +
         '    <span class="yl-cart-giftcard-applied-bal yl-cart-promo-notice">' +
-        escapeHtml(promoGiftCardNotice()) +
+        escapeHtml(state.appliedGiftCard ? promoGiftCardNotice() : promoGiftCardPurchaseNotice()) +
         "</span>" +
         "  </div>" +
         '  <button type="button" class="yl-cart-giftcard-remove yl-cart-promo-remove" aria-label="' +
@@ -3717,7 +3762,11 @@
         "  </div>" +
         (state.appliedGiftCard
           ? '  <div class="yl-cart-promo-hint">' + escapeHtml(promoGiftCardNotice()) + "</div>"
-          : "") +
+          : buyingCard
+            ? '  <div class="yl-cart-promo-hint">' +
+              escapeHtml(promoGiftCardPurchaseNotice()) +
+              "</div>"
+            : "") +
         (state.promoError
           ? '  <div class="yl-cart-giftcard-msg yl-cart-promo-msg" role="alert">' +
             escapeHtml(state.promoError) +
@@ -3871,7 +3920,7 @@
   function revalidatePromo() {
     promoRevalidateTimer = null;
     var promo = state.appliedPromo;
-    if (!promo || state.appliedGiftCard || !state.items.length) return;
+    if (!promo || state.appliedGiftCard || buyingGiftCard() || !state.items.length) return;
     checkPromoCode(promo.code, state.items)
       .then(function (data) {
         if (!state.appliedPromo || state.appliedPromo.code !== promo.code) return;
@@ -4007,6 +4056,19 @@
     load();
     ensureDrawer();
     updateBadges();
+    /* A code restored from storage is re-checked once when its last check
+       is older than PROMO_RECHECK_MS: it may have expired or been used up
+       overnight, and until the cart changes nothing else would ask. Not on
+       every page load -- each check is a Stripe lookup and a slot of the
+       5-a-minute limiter. The Worker has the final word at checkout. */
+    if (
+      state.appliedPromo &&
+      state.items.length &&
+      Date.now() - Number(state.appliedPromo.checkedAt || 0) > PROMO_RECHECK_MS
+    ) {
+      promoCartSig = cartSignature(state.items);
+      setTimeout(revalidatePromo, 0);
+    }
     if (state.loadNotice) {
       announce(state.loadNotice);
       /* Say it on screen too, not only to the live region (verify-B M-12). */

@@ -138,6 +138,8 @@ async function withMocks(fn, options = {}) {
     if (u.includes("events.json")) return jsonRes({ events: [] });
     if (/checkout\/sessions\/[^/]+\/line_items/.test(u)) {
       calls.lineItemUrls.push(u);
+      if (options.lineItemsDown) return jsonRes({}, 503);
+      if (options.lineItemsGone) return jsonRes({ error: { message: "no such session" } }, 404);
       return jsonRes({ data: options.lineItems || [], has_more: false });
     }
     if (u.includes("api.stripe.com/v1/checkout/sessions")) {
@@ -316,6 +318,36 @@ async function testMagicLinkSubject() {
     .replace(/=+$/, "");
   const bothCheck = await mod.verifyToken(SIGNING_SECRET, `v1.${both}.${sig}`);
   eq(bothCheck.valid, false, "a payload with both e and s is malformed even when signed");
+
+  // Sealing: the link carries the hash encrypted, so the URL names nobody.
+  const sealed = await mod.sealSubject(SIGNING_SECRET, hash);
+  assert(/^[a-f0-9]{120}$/.test(sealed), "a sealed SHA-256 is 120 hex characters");
+  assert(!sealed.includes(hash.slice(0, 16)), "and does not contain the hash");
+  eq(await mod.openSubject(SIGNING_SECRET, sealed), hash, "it opens back to the hash");
+  assert(
+    (await mod.sealSubject(SIGNING_SECRET, hash)) !== sealed,
+    "two seals of one hash differ (fresh IV), so two links never look alike"
+  );
+  eq(
+    await mod.openSubject("a-different-secret-entirely", sealed),
+    null,
+    "another secret opens nothing"
+  );
+  eq(
+    await mod.openSubject(
+      SIGNING_SECRET,
+      sealed.slice(0, -2) + (sealed.endsWith("00") ? "01" : "00")
+    ),
+    null,
+    "a tampered byte opens nothing"
+  );
+  eq(await mod.openSubject(SIGNING_SECRET, hash), null, "a bare hash is not a sealed subject");
+  const sealedToken = await mod.signToken(SIGNING_SECRET, { subject: sealed, purpose: "orders" });
+  eq(
+    (await mod.verifyToken(SIGNING_SECRET, sealedToken.token, { purpose: "orders" })).subject,
+    sealed,
+    "a sealed subject fits the token's subject rule"
+  );
 }
 
 /* ==========================================================================
@@ -450,6 +482,32 @@ async function testOrdersState() {
     false,
     "and spends no write when nothing changed"
   );
+  // A refund outranks the sweep: the hourly ship-notice pass revisits every
+  // shipped intent for 45 days and must not flip "refunded" back.
+  await mod.recordOrderRow(db, {
+    sessionId: "cs_test_refunded",
+    email: "refund@example.com",
+    paymentIntent: "pi_refund",
+    amountTotal: 1800,
+    items: []
+  });
+  eq(await mod.markRefunded(db, "pi_refund"), true, "markRefunded marks the order");
+  eq(
+    await mod.mergeShipment(db, {
+      paymentIntent: "pi_refund",
+      status: "shipped",
+      trackingUrl: "https://tools.usps.com/go/9"
+    }),
+    false,
+    "a later sweep does not overwrite Refunded"
+  );
+  eq(
+    (await db.prepare("SELECT status FROM orders WHERE payment_intent = 'pi_refund'").first())
+      .status,
+    "refunded",
+    "...it stays Refunded"
+  );
+  eq(await mod.markRefunded(db, "pi_refund"), false, "and marking it again is a no-op");
   eq(
     await mod.mergeShipment(db, {
       paymentIntent: "pi_one",
@@ -598,6 +656,110 @@ async function testCheckoutAndWebhook() {
     "an unpaid completion writes nothing -- the history holds paid orders only"
   );
 
+  // Red team: Stripe unreachable while the webhook reads the lines. The row
+  // is written without them AND the event fails, so Stripe redelivers; the
+  // redelivery fills the lines in. Before, the row froze at "[]" for good.
+  await withMocks(
+    async () => {
+      const res = await worker.fetch(
+        webhookRequest(completedEvent("evt_o4", "cs_test_blip", "blip@example.com")),
+        env,
+        noCtx
+      );
+      eq(res.status, 500, "line items unreadable (Stripe 503): the event is NOT acknowledged");
+    },
+    { lineItemsDown: true }
+  );
+  const blip = await db.prepare("SELECT * FROM orders WHERE session_id = 'cs_test_blip'").first();
+  assert(blip, "...but the order row exists already");
+  eq(blip.line_items_json, "[]", "...with no lines yet");
+  await withMocks(
+    async () => {
+      const res = await worker.fetch(
+        webhookRequest(completedEvent("evt_o4", "cs_test_blip", "blip@example.com")),
+        env,
+        noCtx
+      );
+      eq(res.status, 200, "the redelivery is acknowledged");
+    },
+    { lineItems: items }
+  );
+  const healed = await db
+    .prepare("SELECT line_items_json FROM orders WHERE session_id = 'cs_test_blip'")
+    .first();
+  eq(JSON.parse(healed.line_items_json).length, items.length, "...and fills the lines in");
+  // Stripe ANSWERING that there is nothing to read (a 4xx) is not transient:
+  // failing the event would fail it identically for three days of retries.
+  await withMocks(
+    async () => {
+      const res = await worker.fetch(
+        webhookRequest(completedEvent("evt_o5", "cs_test_gone", "gone@example.com")),
+        env,
+        noCtx
+      );
+      eq(res.status, 200, "line items answered 404: the event IS acknowledged");
+    },
+    { lineItemsGone: true }
+  );
+  eq(
+    (
+      await db
+        .prepare("SELECT line_items_json FROM orders WHERE session_id = 'cs_test_gone'")
+        .first()
+    ).line_items_json,
+    "[]",
+    "...with the row written and no lines"
+  );
+
+  // A full refund reaches the page as "Refunded"; a partial one changes nothing.
+  const refundEvent = (id, extra) => ({
+    id,
+    type: "charge.refunded",
+    data: {
+      object: {
+        id: "ch_blip",
+        amount: 5100,
+        payment_intent: "pi_cs_test_blip",
+        ...extra
+      }
+    }
+  });
+  const stripeSession = {
+    session: {
+      id: "cs_test_blip",
+      metadata: {},
+      customer_details: { email: "blip@example.com" }
+    }
+  };
+  await withMocks(async () => {
+    const res = await worker.fetch(
+      webhookRequest(refundEvent("evt_r1", { amount_refunded: 500, refunded: false })),
+      env,
+      noCtx
+    );
+    eq(res.status, 200, "a partial refund is acknowledged");
+  }, stripeSession);
+  eq(
+    (await db.prepare("SELECT status FROM orders WHERE session_id = 'cs_test_blip'").first())
+      .status,
+    "processing",
+    "...and leaves the status alone"
+  );
+  await withMocks(async () => {
+    const res = await worker.fetch(
+      webhookRequest(refundEvent("evt_r2", { amount_refunded: 5100, refunded: true })),
+      env,
+      noCtx
+    );
+    eq(res.status, 200, "a full refund is acknowledged");
+  }, stripeSession);
+  eq(
+    (await db.prepare("SELECT status FROM orders WHERE session_id = 'cs_test_blip'").first())
+      .status,
+    "refunded",
+    "...and the order reads Refunded on the customer's page"
+  );
+
   // --- the ship-notice sweep folds status + tracking in --------------------
   const ship = await import("../workers/routes/ship-notice.js");
   await withMocks(
@@ -686,7 +848,14 @@ async function testRequestLink() {
     amountTotal: 1800,
     items: []
   });
-  await suppressEmail(db, "quiet@example.com", "unsubscribe");
+  await suppressEmail(db, "quiet@example.com", "bounce");
+  await recordOrderRow(db, {
+    sessionId: "cs_test_unsub",
+    email: "unsub@example.com",
+    amountTotal: 1800,
+    items: []
+  });
+  await suppressEmail(db, "unsub@example.com", "unsubscribe");
 
   const bad = await worker.fetch(post("/api/orders/request-link", { email: "nope" }), env, noCtx);
   eq(bad.status, 400, "an unusable address is a 400");
@@ -754,10 +923,36 @@ async function testRequestLink() {
       ctx
     );
     await ctx.settle();
-    eq(res.status, 200, "an unsubscribed address gets the same 200");
+    eq(res.status, 200, "a BOUNCED address gets the same 200");
     eq(await res.json(), bodies.known, "the same body");
-    eq(calls.resend.length, 0, "and no email -- the suppression list is respected");
+    eq(calls.resend.length, 0, "and no email -- nobody is there to read it");
   });
+
+  await withMocks(async (calls) => {
+    const ctx = collectingCtx();
+    const res = await worker.fetch(
+      post("/api/orders/request-link", { email: "unsub@example.com" }),
+      env,
+      ctx
+    );
+    await ctx.settle();
+    eq(res.status, 200, "an UNSUBSCRIBED address gets the same 200");
+    eq(
+      calls.resend.length,
+      1,
+      "and the link still goes out: it is transactional and was asked for a moment ago"
+    );
+  });
+
+  // Red team: a third limiter, per address per day. 3 per 10 minutes alone
+  // let callers rotating their own addresses send one inbox 432 links a day.
+  eq(routes.ORDERS_LINK_DAILY_LIMIT, { limit: 10, period: 86400 }, "10 links per address per day");
+  assert(
+    [...env.RATE_LIMIT_COUNTER._instances.keys()].some((k) =>
+      k.startsWith("86400:10:orders-link:d:")
+    ),
+    "the daily per-address counter was consulted for the requests above"
+  );
 
   await withMocks(
     async (calls) => {
@@ -851,7 +1046,7 @@ async function testList() {
   const worker = (await import("../workers/checkout.js")).default;
   const routes = await import("../workers/routes/orders.js");
   const { recordOrderRow } = await import("../workers/state/orders.js");
-  const { signToken } = await import("../workers/state/magic-link.js");
+  const { sealSubject, signToken } = await import("../workers/state/magic-link.js");
   const { hashEmail, recordOrder } = await import("../workers/state/retention.js");
   const { credit } = await import("../workers/state/loyalty.js");
   const env = await makeEnv();
@@ -903,9 +1098,11 @@ async function testList() {
   await recordOrder(db, { orderId: "cs_test_alice_1", email: "alice@example.com" }, 1000);
   await credit(db, { email: "alice@example.com", points: 40, orderId: "cs_test_alice_1" });
 
-  const mint = (subject, extra = {}) =>
+  // Minted the way the route mints: the hash is sealed before it becomes the
+  // subject (magic-link.js sealSubject), so the link never carries it bare.
+  const mint = async (subject, extra = {}) =>
     signToken(SIGNING_SECRET, {
-      subject,
+      subject: await sealSubject(SIGNING_SECRET, subject),
       purpose: routes.ORDERS_TOKEN_PURPOSE,
       ttlSeconds: routes.ORDERS_TOKEN_TTL_SECONDS,
       ...extra
@@ -960,6 +1157,12 @@ async function testList() {
       noCtx
     );
     eq(res.status, 403, "THE SAME TOKEN A SECOND TIME IS REFUSED -- it was burned");
+    const posted = await worker.fetch(
+      post(`/api/orders?token=${encodeURIComponent((await mint(alice)).token)}`, {}),
+      env,
+      noCtx
+    );
+    eq(posted.status, 405, "POST /api/orders is not a second door to the same handler");
   });
   const burned = await db.prepare("SELECT COUNT(*) AS n FROM burned_tokens").first();
   eq(burned.n, 1, "one burned_tokens row records the use");

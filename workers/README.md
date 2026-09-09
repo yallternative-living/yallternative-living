@@ -9,7 +9,7 @@ router:
 | ----------------------------- | ----------------------------------------------------------------------------------- |
 | `POST /api/checkout`          | creates a Stripe Checkout Session; applies a gift card if one is sent               |
 | `POST /api/gift-card-balance` | `{code}` -> the balance on the ledger, rate-limited 10/min per IP                   |
-| `POST /api/promo-preview`     | `{code, items}` -> does this Stripe promotion code work, and for how much (5/min)   |
+| `POST /api/promo-preview`     | `{code, items}` -> does this Stripe promotion code work, and for how much (5/min; never on a cart holding a gift card) |
 | `POST /api/stripe-webhook`    | Stripe events: issues cards, commits/releases holds, restores refunds               |
 | `POST /api/order-status`      | `{sessionId, email}` -> a real order, rate-limited 5/min per IP                     |
 | `POST /api/restock`           | `{email, product}` -> emails the shop                                               |
@@ -398,13 +398,17 @@ when the owner switches the page off in /admin (`site.enableOrderHistory`).
 
 | Route                           | Body / query | Notes                                                                                                                                                                                                                                                                                                              |
 | ------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `POST /api/orders/request-link` | `{email}`    | Rate-limited 3 per 10 minutes per client AND per address hash. Answers the same neutral `200` whether the address has orders, has none, is unsubscribed, or the send failed -- the email goes out behind `waitUntil`, so even the timing matches. Transactional (no unsubscribe footer) but the suppression list is honoured. |
-| `GET /api/orders?token=`        | `?token=`    | Verifies the `orders`-purpose token, burns it (`burned_tokens`), lists that hash's orders newest-first (25 at most) and the points balance when `enableLoyaltyPoints` is on. Every refusal -- expired, replayed, tampered, wrong purpose -- is the same `403`. `Cache-Control: no-store`.                             |
+| `POST /api/orders/request-link` | `{email}`    | Rate-limited 3 per 10 minutes per client AND per address hash, plus 10 per day per address. Answers the same neutral `200` whether the address has orders, has none, bounced, or the send failed -- the email goes out behind `waitUntil`, so even the timing matches. Transactional (no unsubscribe footer): an unsubscribed address still gets it; a bounced one (`email_suppression.reason = 'bounce'`, which nothing writes yet -- there is no bounce webhook) would not. |
+| `GET /api/orders?token=`        | `?token=`    | Verifies the `orders`-purpose token, opens its sealed subject (the address hash, AES-GCM under a key derived from `MAGIC_LINK_SECRET` -- the URL never carries the bare hash), lists that hash's orders newest-first (25 at most) and the points balance when `enableLoyaltyPoints` is on, then burns the token (`burned_tokens`) last, so an error mid-read does not spend the link. Every refusal -- expired, replayed, tampered, wrong purpose -- is the same `403`. `Cache-Control: no-store`. |
 
-**The token carries a SHA-256 of the address, never the address**
-(`workers/state/magic-link.js`, the `subject` claim), so the emailed URL, the
-browser history it lands in and any proxy log hold no PII. The page scrubs it
-from the address bar on load (`assets/js/orders.js`). 24 hours, one use.
+**The token carries a SEALED SHA-256 of the address, never the address**
+(`workers/state/magic-link.js`: the `subject` claim is the hash encrypted
+with AES-GCM under a key derived from `MAGIC_LINK_SECRET`, a fresh IV per
+link), so the emailed URL, the browser history it lands in and any proxy log
+hold nothing that names the customer -- a bare hash would still be the
+address to anyone with a list of likely addresses to hash. The page scrubs
+it from the address bar on load (`assets/js/orders.js`). 24 hours, one use,
+burned after the list is read so an error mid-request does not spend it.
 
 **Storage** is one additive table, `orders` (schema v9, `workers/state/orders.js`):
 `session_id`, `email_hash`, `payment_intent`, `created`, `amount_total`,

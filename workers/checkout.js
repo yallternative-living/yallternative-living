@@ -1620,7 +1620,11 @@ const ROUTES = {
   // pricer is handed in rather than imported there, so the route file and
   // this one never import each other.
   "/promo-preview": (request, env, origin, ctx) =>
-    handlePromoPreview(request, env, origin, ctx, { loadCatalog, priceCart }),
+    handlePromoPreview(request, env, origin, ctx, {
+      loadCatalog,
+      priceCart,
+      availabilityForCheckout
+    }),
   "/stripe-webhook": handleStripeWebhook,
   "/order-status": handleOrderStatus,
   "/order-summary": handleOrderSummary,
@@ -1866,8 +1870,15 @@ async function handleCheckout(request, env, ctx, origin) {
       params.append("after_expiration[recovery][enabled]", "true");
       // The recovery page is a fresh session, so it needs its own permission to
       // accept a marketing code. It never carries the gift-card discount --
-      // that reservation is released when the original session expires.
-      params.append("after_expiration[recovery][allow_promotion_codes]", "true");
+      // that reservation is released when the original session expires. OFF
+      // when the cart holds a gift card: the recovery session recreates the
+      // same lines, and a code typed there would discount the card exactly as
+      // the promo block below refuses (red team, 2026-09-09).
+      const cartHasGiftCardLine = lineItems.some((li) => li.isGiftCard);
+      params.append(
+        "after_expiration[recovery][allow_promotion_codes]",
+        cartHasGiftCardLine ? "false" : "true"
+      );
 
       // ---- Consent -------------------------------------------------------
       // "auto" shows the marketing opt-in checkbox when Stripe has an address
@@ -2097,20 +2108,36 @@ async function handleCheckout(request, env, ctx, origin) {
       // code that no longer works is a refusal with the reason named, not a
       // silent full-price session -- the shopper watched the drawer take
       // money off, and charging them without it is worse than a retry.
+      // A code never discounts the shop's own gift cards: Stripe applies the
+      // session discount to every line and the card is minted at face value
+      // (routes/gift-cards.js), so a 10% code on a $25 card would sell $25 of
+      // stored value for $22.50 -- and a reusable code makes that a loop.
+      // Refused here, and Stripe's own code box stays off for such a cart
+      // (`cartHasGiftCardLine`, computed with the recovery flag above).
       let appliedPromotionCodeId = null;
       let promoOutcome = null;
       if (metadata.discount_code) {
         const promoCode = metadata.discount_code;
         const promoCodesOn = (await loadSiteSettings(env, ctx)).enablePromoCodes !== false;
-        if (appliedGiftCardCouponId) {
-          promoOutcome = { code: promoCode, applied: false, reason: "gift_card_conflict" };
-          metadata.discount_code_skipped = "gift_card";
+        const refuse = (reason, message) => {
+          throw new ClientError(message, 400, {
+            promo: { code: promoCode, applied: false, reason }
+          });
+        };
+        if (cartHasGiftCardLine) {
+          refuse("gift_card_purchase", PROMO_COPY.gift_card_purchase);
+        } else if (appliedGiftCardCouponId) {
+          // The drawer never sends a code while a card is applied; a client
+          // that does anyway is told which of the two it has to drop rather
+          // than sent to a full-price page (the card keeps the one slot).
+          refuse("gift_card_conflict", PROMO_COPY.gift_card_conflict);
         } else if (!promoCodesOn) {
-          // The owner switched codes off in the CMS (site.enablePromoCodes):
-          // the drawer shows no code box, so this is an older client or a
-          // hand-made request. Today's behaviour is kept -- the code stays in
-          // metadata and Stripe's own box stays on -- and the answer says so.
-          promoOutcome = { code: promoCode, applied: false, reason: "disabled" };
+          // The owner switched codes off in the CMS (site.enablePromoCodes)
+          // after this tab loaded its drawer. A 200 without the discount
+          // would land the shopper on a full-price Stripe page after the
+          // drawer showed money coming off; a refusal that says why lets
+          // the drawer clear the code and the shopper click again.
+          refuse("disabled", PROMO_COPY.disabled);
         } else {
           const found = await findPromotionCode(env, promoCode);
           if (found === null) {
@@ -2150,12 +2177,14 @@ async function handleCheckout(request, env, ctx, origin) {
         // `allow_promotion_codes`, so the code box on the hosted page is off
         // when a code is already attached.
         params.append("discounts[0][promotion_code]", appliedPromotionCodeId);
-      } else {
+      } else if (!cartHasGiftCardLine) {
         // Marketing codes ONLY. A gift card is never entered here any more --
         // it is not a promotion code, it is a ledger balance -- and the webhook
         // ignores promotion codes entirely. Stripe will not accept a session
         // that carries both `discounts` and `allow_promotion_codes`, so this is
-        // an either/or in any case.
+        // an either/or in any case. Off when the cart holds a gift card: a
+        // code typed on Stripe's page would discount the card exactly as the
+        // refusal above prevents in the drawer.
         params.append("allow_promotion_codes", "true");
       }
       // Stripe hard-caps a session at 50 metadata keys and silently rejects
@@ -2448,7 +2477,9 @@ export default {
         return json({ error: "Something went wrong. Please try again." }, 500, origin, env);
       }
     }
-    if (request.method !== "POST") {
+    // /orders is GET-only (handled above); as a POST it would fall through to
+    // the same token-burning handler by a second method.
+    if (request.method !== "POST" || route === "/orders") {
       return json({ error: "Method Not Allowed" }, 405, origin, env);
     }
     // Reject cross-site callers outright. A request with NO Origin header is

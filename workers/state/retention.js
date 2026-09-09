@@ -297,12 +297,22 @@ export async function sweepEmailQueue(db, days = 90, now = Date.now()) {
  */
 export async function suppressEmail(db, email, reason = "unsubscribe", now = Date.now()) {
   const key = normalizeEmail(email);
+  const why = String(reason || "unsubscribe").slice(0, 64);
+  // A bounce outranks an unsubscribe: the first says nobody is there, which
+  // also stops the transactional sends an unsubscribe leaves alone
+  // (routes/orders.js), so a later bounce upgrades the row in place.
   const res = await db
-    .prepare("INSERT OR IGNORE INTO email_suppression (email, reason, created_at) VALUES (?, ?, ?)")
-    .bind(key, String(reason || "unsubscribe").slice(0, 64), now)
+    .prepare(
+      `INSERT INTO email_suppression (email, reason, created_at) VALUES (?, ?, ?)
+         ON CONFLICT(email) DO UPDATE SET reason = 'bounce'
+         WHERE excluded.reason = 'bounce' AND email_suppression.reason IS NOT 'bounce'`
+    )
+    .bind(key, why, now)
     .run();
-  const first = (res && res.meta && res.meta.changes) === 1;
-  return { suppressed: true, alreadySuppressed: !first };
+  // One change for a new row, one for an unsubscribe upgraded to a bounce,
+  // none for a repeat -- so `alreadySuppressed` reads "nothing new here".
+  const changed = (res && res.meta && res.meta.changes) === 1;
+  return { suppressed: true, alreadySuppressed: !changed };
 }
 
 /**
@@ -310,6 +320,29 @@ export async function suppressEmail(db, email, reason = "unsubscribe", now = Dat
  * never at enqueue time, because someone who unsubscribes on day 3 must not get
  * the review request that was queued on day 0.
  */
+/**
+ * Why an address is on the suppression list, or null when it is not. A
+ * transactional message the person just asked for (the order-history link)
+ * still goes to someone who unsubscribed from marketing, but never to an
+ * address that bounced -- there is nobody there to read it.
+ *
+ * @returns {Promise<string|null>} 'unsubscribe' | 'bounce' | 'manual' | null
+ */
+export async function suppressionReason(db, email) {
+  let key;
+  try {
+    key = normalizeEmail(email);
+  } catch {
+    return "invalid";
+  }
+  const row = await db
+    .prepare("SELECT reason FROM email_suppression WHERE email = ?")
+    .bind(key)
+    .first();
+  if (!row) return null;
+  return typeof row.reason === "string" && row.reason ? row.reason : "manual";
+}
+
 export async function isSuppressed(db, email) {
   let key;
   try {

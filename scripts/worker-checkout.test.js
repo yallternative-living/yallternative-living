@@ -278,6 +278,17 @@ async function executeCheckout(body, options = {}) {
     if (u.includes("events.json")) {
       return { ok: true, clone: () => ({ body: null }), json: async () => mockEvents };
     }
+    if (u.includes("content.json")) {
+      /* `options.site`: the site settings content.json serves (the promo
+         switch and friends). Absent, a 404 -- the Worker degrades to its
+         defaults, exactly as it does when Netlify is unreachable. */
+      if (!options.site) return { ok: false, status: 404, json: async () => ({}) };
+      return {
+        ok: true,
+        clone: () => ({ body: null }),
+        json: async () => ({ site: options.site })
+      };
+    }
     if (u.includes("api.stripe.com/v1/promotion_codes")) {
       /* Recorded, and answered ONLY from `options.promoCodes` -- the promo
          codes Stripe "has" for this run, keyed by their customer-facing
@@ -1274,8 +1285,8 @@ async function runWorkerCheckoutTests() {
     );
     eq(
       buyingACard.sessionParams.get("allow_promotion_codes"),
-      "true",
-      "Buying a card with a card falls through to Stripe's promotion-code box"
+      null,
+      "Buying a card: Stripe's promotion-code box is OFF (a code would discount the card)"
     );
     eq(
       buyingACard.sessionParams.get("metadata[gift_card_redeemed_code]"),
@@ -1286,6 +1297,26 @@ async function runWorkerCheckoutTests() {
     const { giftCardLedger } = await import("../workers/state/gift-card-ledger.js");
     const untouched = await giftCardLedger(buyingACard.env, "YALL-CARD-CARD-CARD").getBalance();
     eq(untouched.balanceCents, 5000, "The refused pre-application held none of the card");
+
+    /* Red team 2026-09-09: a promotion code on a cart holding the shop's
+       own gift card is refused outright. Stripe applies a session discount
+       to every line and the card is minted at face value, so a reusable
+       10% code would buy $25 of stored value for $22.50, over and over. */
+    const cardWithCode = await executeCheckout(
+      {
+        items: [{ id: "yallternative-gift-card", qty: 1, variant: "Preset $25" }],
+        discount_code: "WELCOME10"
+      },
+      { promoCodes: { WELCOME10: mockPromo("WELCOME10", { percent: 10 }) } }
+    );
+    eq(cardWithCode.status, 400, "A promo code on a gift-card purchase is refused");
+    eq(cardWithCode.sessionParams, null, "...before any session is created");
+    eq(
+      cardWithCode.data.promo,
+      { code: "WELCOME10", applied: false, reason: "gift_card_purchase" },
+      "...with a structured reason the drawer maps to its own sentence"
+    );
+    eq(cardWithCode.promoLookups.length, 0, "...and Stripe is never asked for the code");
   }
 
   /* ==========================================================

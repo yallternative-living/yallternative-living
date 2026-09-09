@@ -830,6 +830,15 @@
       "note": "site.promoCodePrompt, the promo-code disclosure in the cart drawer (cart.js falls back to the same text)"
     },
     {
+      "key": "cart.promoGiftCardPurchase",
+      "text": "Codes can't be used to buy gift cards. Take the gift card out of the cart to use one.",
+      "source": "assets/js/cart.js",
+      "verify": [
+        "Codes can't be used to buy gift cards. Take the gift card out of the cart to use one."
+      ],
+      "note": "promo box while the cart holds the shop's own gift card (promoGiftCardPurchaseNotice)"
+    },
+    {
       "key": "cart.promoGiftCardNotice",
       "text": "Promo codes and gift cards can't be combined. Remove the gift card to use a code.",
       "source": "assets/data/content.json",

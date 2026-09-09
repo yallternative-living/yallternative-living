@@ -756,7 +756,31 @@
     "tpl.promoDiscountLine": "Código promocional ({code})",
     "tpl.promoApplied": "Código promocional {code} aplicado ({amount} de descuento)",
     "tpl.promoPercentOff": "{percent}% de descuento",
-    "tpl.promoAmountOff": "{amount} de descuento"
+    "tpl.promoAmountOff": "{amount} de descuento",
+    "auto.noReferenceNeededJust.1b12ea": "— no necesitas número de referencia, solo el correo que usaste.",
+    "auto.activeFilters.15363e": "Filtros activos",
+    "auto.allYourOrders.57869d": "Todos tus pedidos",
+    "auto.articleTopics.3b8e87": "Temas de los artículos",
+    "auto.behindTheScenes.a2bcd4": "Detrás de escena",
+    "auto.botanicalCare.802c85": "Cuidado botánico",
+    "auto.category.a3c686": "Categoría",
+    "auto.clearAll.c04316": "Borrar todo",
+    "auto.concern.c79f25": "Preocupación",
+    "auto.emailMeLink.618fa7": "Envíame un enlace por correo",
+    "auto.filterSort.6ea2ee": "Filtrar y ordenar",
+    "auto.getLinkToYour.3d57ac": "Obtén un enlace a tus pedidos",
+    "auto.isSmallBatchJust.4fea3e": "¿Es 'small batch' solo una palabra de moda o realmente hace una diferencia para tu piel? Hablemos de vida útil y de ingredientes reales.",
+    "auto.justTheOneOrder.51ea39": "¿Solo quieres revisar un pedido?",
+    "auto.noAccountNoPassword.edab58": "Sin cuenta ni contraseña. Escribe el correo con el que hiciste tu pedido y te enviaremos un enlace que abre cada pedido realizado con él: qué compraste, dónde está y un botón para pedirlo todo otra vez.",
+    "auto.orderStatus.22edd6": "Estado del pedido",
+    "auto.orderedHereBefore.f04759": "¿Ya compraste aquí antes?",
+    "auto.seeAllYourOrders.bc4480": "Ver todos tus pedidos",
+    "auto.strugglingToTurnYour.c02e86": "¿Te cuesta apagar el cerebro o lidiar con músculos tensos? Aquí está la ciencia (y el folclore) de por qué funciona este dúo.",
+    "auto.takesTheReferenceFrom.297a53": "toma la referencia de tu recibo.",
+    "auto.whatsTheDealWith.f1cb52": "¿De qué se trata una botica en lotes pequeños?",
+    "auto.whyMagnesiumArnicaBelong.8b9520": "Por qué el magnesio y el árnica deben estar en tu rutina antes de dormir",
+    "auto.yourOrders.caeec2": "Tus pedidos",
+    "auto.yourOrdersYallternativeLiving.f3d995": "Tus pedidos | Y'allternative Living"
   }
 };
 
