@@ -70,6 +70,10 @@
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+/* The Markdown renderer for journal post text -- the SAME file journal.html
+   loads in the browser, so a post renders identically on its static page
+   and in the in-page fallback (see the header of assets/js/markdown.js). */
+const renderMarkdown = require("../assets/js/markdown.js").renderMarkdown;
 /* The first-party analytics paths. Shared with build-security-headers.js,
    which emits the proxy rules these paths depend on -- a mismatch between the
    two would load a tracker that posts into a 404, so they come from one file.
@@ -193,6 +197,14 @@ function loadJournal(content) {
   return {
     title: wording.title || "Apothecary Journal",
     lede: wording.lede || "Stories, science, and small-batch updates straight from the kitchen.",
+    /* The static post pages' owner-facing labels (Back link, newer/older
+       pager); content.json's `journal` key, edited under "Site Images & Page
+       Wording". Defaults live in journalWording(). */
+    wording: {
+      backLabel: wording.backLabel || "",
+      newerLabel: wording.newerLabel || "",
+      olderLabel: wording.olderLabel || ""
+    },
     posts: posts
   };
 }
@@ -812,16 +824,17 @@ function collectBuiltHtml() {
     .map(function (f) {
       return path.join(ROOT, f);
     });
-  const productsDir = path.join(ROOT, "products");
-  if (fs.existsSync(productsDir)) {
-    fs.readdirSync(productsDir)
+  ["products", JOURNAL_PAGE_DIR].forEach(function (sub) {
+    const dir = path.join(ROOT, sub);
+    if (!fs.existsSync(dir)) return;
+    fs.readdirSync(dir)
       .filter(function (f) {
         return f.endsWith(".html");
       })
       .forEach(function (f) {
-        files.push(path.join(productsDir, f));
+        files.push(path.join(dir, f));
       });
-  }
+  });
   return files.map(function (p) {
     /* Comments are stripped because build-site-data wraps replaceable copy in
        <!--YL:key--> markers, which land in the middle of a sentence that the
@@ -1122,12 +1135,6 @@ const SITE_ID_RULES = [
     key: "umamiWebsiteId",
     re: /^[A-Za-z0-9-]{0,64}$/,
     placeholders: ["YOUR_UMAMI_WEBSITE_ID"],
-    describe: "letters, digits and hyphens only, up to 64 characters"
-  },
-  {
-    key: "giftUpId",
-    re: /^[A-Za-z0-9-]{0,64}$/,
-    placeholders: ["YOUR_GIFTUP_ID"],
     describe: "letters, digits and hyphens only, up to 64 characters"
   },
   {
@@ -1822,6 +1829,13 @@ function buildSiteData() {
   /* The quiz has its own file so /admin can offer it as its own section;
      main.js still reads it as YL_CONTENT.quiz, so it is merged back here. */
   CONTENT.quiz = readJson("assets/data/quiz.json");
+  /* Phone filter-bar wording (shop.html's Filter / Sort row, its slide-up
+     panel and the active-filter chips). Every field is optional in /admin and
+     a blank one keeps the standard word, so an owner who clears a box by
+     accident does not ship a button with no label. Same shape as
+     resolveSafetyNotes() below. */
+  CONTENT.shop = CONTENT.shop || {};
+  CONTENT.shop.filterUi = resolveShopFilterUi(CONTENT.shop.filterUi);
   const JOURNAL = loadJournal(CONTENT);
   const BRAND_GLOSSARY = readJson("assets/data/brand-glossary.json");
   const LOCALES = {};
@@ -1969,6 +1983,19 @@ function buildSiteData() {
     if (!post.title || !post.date) {
       console.error(
         "\n[build] " + JOURNAL_DIR + "/" + post.id + ".json needs both a title and a date."
+      );
+      process.exit(1);
+    }
+    /* The file name is the post's URL (journal/<id>.html); one the CMS would
+       never write -- spaces, slashes, quotes -- is refused with the file
+       named rather than turned into a page nobody can link to. */
+    if (!JOURNAL_ID_RE.test(post.id)) {
+      console.error(
+        "\n[build] " +
+          JOURNAL_DIR +
+          "/" +
+          post.id +
+          ".json: the file name becomes the post's URL and may only contain letters, digits, dots, dashes and underscores. Rename the file (the CMS names new posts from their title)."
       );
       process.exit(1);
     }
@@ -2525,7 +2552,7 @@ function buildSiteData() {
         .replace(/\s+/g, " ")
         .trim(),
       featuredProductId: post.featuredProductId || "",
-      url: "journal.html#post-" + post.id
+      url: JOURNAL_PAGE_DIR + "/" + encodeURIComponent(post.id) + ".html"
     };
   });
 
@@ -3385,8 +3412,8 @@ function buildSiteData() {
    emitted now. The custom-amount path does not need them: gift-card.js
    builds the label itself ("Preset $" + clamped amount, see
    assets/js/gift-card.js:156,190) and workers/checkout.js re-derives the
-   charge from that label alone via resolveGiftCardAmountCents(), clamped
-   server-side to $10-$500. The labels live in products.json's variants so
+   charge from that label alone via resolveGiftCardAmountCents(), which
+   refuses anything outside $10-$500 rather than clamping it. The labels live in products.json's variants so
    the published catalogue, the button and the Worker's parser all agree --
    they used to read "$200", which the Worker's /^Preset \$(\d+)$/ does not
    match, so it fell back to the $10 floor. */
@@ -4162,6 +4189,7 @@ function buildSiteData() {
   injectPageCopy("privacy.html", "privacy");
   injectPageCopy("terms.html", "terms");
   injectPageCopy("policies.html", "policies");
+  injectPageCopy("orders.html", "orders");
 
   // Inject the Journal title/subheading (content.json's `journal` key)
   function injectJournalCopy() {
@@ -4219,6 +4247,24 @@ function buildSiteData() {
         return p1 + titleTag + p2;
       }
     );
+
+    /* Blog + BlogPosting JSON-LD, generated from the same posts the page
+       renders. The Journal had no structured data at all (2026-09-09
+       audit). Every post now has its own page at journal/<slug>.html with
+       its own BlogPosting; this Blog node on the index lists them all. Empty while the Journal is off, so
+       the noindexed page does not advertise posts it does not show. */
+    const reLd = /(<!--YL:journal\.jsonLd-->)[\s\S]*?(<!--\/YL:journal\.jsonLd-->)/;
+    if (reLd.test(updated)) {
+      const ld = journalPublished ? generateJournalJsonLd(journal, DOMAIN) : null;
+      const ldTag = ld
+        ? '<script type="application/ld+json">\n' +
+          JSON.stringify(ld, null, 2).replace(/<\//g, "<\\/") +
+          "\n</script>"
+        : "";
+      updated = updated.replace(reLd, function (m, p1, p2) {
+        return p1 + ldTag + p2;
+      });
+    }
 
     if (updated !== html) {
       writeFile("journal.html", updated);
@@ -4291,6 +4337,7 @@ function buildSiteData() {
     "journal.html",
     "reviews.html",
     "order-status.html",
+    "orders.html",
     "safety.html"
   ].forEach(function (page) {
     const filePath = path.join(ROOT, page);
@@ -4566,7 +4613,24 @@ function buildSiteData() {
         "</lastmod>\n    <priority>0.8</priority>\n  </url>"
       );
     }).join("\n") +
-    "\n</urlset>\n";
+    "\n" +
+    /* Journal post pages, only while the Journal is switched on. lastmod is
+       the post's own publish date -- the one date about a post that is
+       verifiably its own, and it never depends on git history. */
+    (journalPublished ? JOURNAL.posts : [])
+      .map(function (post) {
+        return (
+          "  <url>\n" +
+          "    <loc>" +
+          journalPostUrl(post, DOMAIN) +
+          "</loc>\n" +
+          "    <lastmod>" +
+          String(post.date).slice(0, 10) +
+          "</lastmod>\n    <priority>0.6</priority>\n  </url>\n"
+        );
+      })
+      .join("") +
+    "</urlset>\n";
   writeFile("sitemap.xml", sitemapXml);
 
   /* ---------- 5c) feed.xml (Apothecary Journal RSS Feed) ---------- */
@@ -4691,7 +4755,9 @@ function buildSiteData() {
   // switched off they must not be advertised to crawlers or LLMs either.
   const journalLines = ((SITE_CONFIG.enableJournal && JOURNAL && JOURNAL.posts) || [])
     .map(function (p) {
-      return "- **" + p.title + "** (" + p.date + "): " + p.excerpt;
+      return (
+        "- [" + p.title + "](" + journalPostUrl(p, DOMAIN) + ") (" + p.date + "): " + p.excerpt
+      );
     })
     .join("\n");
 
@@ -4919,6 +4985,9 @@ function buildSiteData() {
       "thank-you.html",
       "welcome.html",
       "journal.html",
+      // The order-history page is noindexed (its URL carries a one-time
+      // token) and so not in PAGES/sitemap.xml, but it ships the same chrome.
+      "orders.html",
       "assets/data/footer.html"
     ]);
 
@@ -4992,7 +5061,11 @@ function buildSiteData() {
       const FEATURE_SELECTORS = {
         enableApothecaryQuiz: "#apothecary-quiz-section",
         enableCountdownTicker: "#yl-countdown-ticker",
-        enableOrderStatusLookup: "#order-status-modal, #openOrderStatusBtn"
+        enableOrderStatusLookup: "#order-status-modal, #openOrderStatusBtn",
+        // The links TO orders.html (footer, thank-you, order-status). The
+        // page itself reads the same switch at runtime (assets/js/orders.js)
+        // and shows the contact hand-off; the Worker refuses both endpoints.
+        enableOrderHistory: ".orders-history-link"
       };
       updated = updated.replace(
         /<!--YL:featureStyles-->([\s\S]*?)<!--\/YL:featureStyles-->/g,
@@ -5037,10 +5110,17 @@ function buildSiteData() {
           function () {
             const isActive = page === "journal.html";
             const activeClass = isActive ? ' class="active" aria-current="page"' : "";
+            /* 404.html is served at whatever URL was missed, so every one of
+               its links is root-absolute (C-5); a relative link injected here
+               would point at /products/journal.html from a missed product
+               URL. Surfaced the day the Journal was switched on. */
+            const href = page === "404.html" ? "/journal.html" : "journal.html";
             return (
               "<!--YL:nav.journal--><li><a" +
               activeClass +
-              ' href="journal.html">Journal</a></li><!--/YL:nav.journal-->'
+              ' href="' +
+              href +
+              '">Journal</a></li><!--/YL:nav.journal-->'
             );
           }
         );
@@ -5101,7 +5181,6 @@ function buildSiteData() {
       updated = updated.replace(
         /<!--YL:site\.([a-zA-Z0-9]+)-->([\s\S]*?)<!--\/YL:site\.\1-->/g,
         function (match, key) {
-          if (key === "giftUpId") return match; // Handled separately below
           if (key === "umamiWebsiteId") return match; // Handled separately below
           if (key === "umamiPreconnect") return match; // Handled separately below
           if (key === "logoDesktop" && site[key]) {
@@ -5193,34 +5272,6 @@ function buildSiteData() {
         formspreeAction(site.formspreeReviewId, "YOUR_FORMSPREE_FORM_ID")
       );
 
-      // Special handling for Gift Up! ID to generate full HTML script embed
-      updated = updated.replace(
-        /<!--YL:site\.giftUpId-->([\s\S]*?)<!--\/YL:site\.giftUpId-->/g,
-        function (match) {
-          if (site.giftUpId !== undefined) {
-            const val = site.giftUpId.trim();
-            if (val && val !== "YOUR_GIFTUP_ID") {
-              const embed =
-                '\n<div class="gift-up-target" data-site-id="' +
-                escapeHtml(val) +
-                '"></div>\n' +
-                "<script>\n" +
-                "  (function (g, i, f, t, u, p) {\n" +
-                "    t = g.createElement(i);\n" +
-                "    t.async = 1;\n" +
-                '    t.src = "https://giftup.app/dist/commerce-v1.js";\n' +
-                "    u = g.getElementsByTagName(i)[0];\n" +
-                "    u.parentNode.insertBefore(t, u);\n" +
-                '  })(document, "script");\n' +
-                "</script>\n";
-              return "<!--YL:site.giftUpId-->" + embed + "<!--/YL:site.giftUpId-->";
-            }
-            return "<!--YL:site.giftUpId-->YOUR_GIFTUP_ID<!--/YL:site.giftUpId-->";
-          }
-          return match;
-        }
-      );
-
       // Replace JS comment templates: /*YL:site.KEY*/.../*/YL:site.KEY*/
       updated = updated.replace(
         /\/\*YL:site\.([a-zA-Z0-9]+)\*\/([\s\S]*?)\/\*\/YL:site\.\1\*\//g,
@@ -5255,10 +5306,10 @@ function buildSiteData() {
     });
   })();
 
-  // Automatically generate individual product OpenGraph HTML pages
-  (function generateProductOgPages() {
-    // Real, indexable product pages (see the renderProductPdpHtml header).
-    let pdpManifest = {};
+  /* The responsive-image manifest and the shared footer, read once for every
+     generated page below (products/*.html and journal/*.html). */
+  let pdpManifest = {};
+  (function loadPageManifest() {
     try {
       const manifestText = fs.readFileSync(path.join(ROOT, "assets/js/image-manifest.js"), "utf8");
       const markerIdx = manifestText.indexOf("window.YL_IMAGES =");
@@ -5273,10 +5324,12 @@ function buildSiteData() {
     } catch (e) {
       console.warn("[build] WARNING: image manifest unavailable for product pages:", e.message);
     }
-    const pdpFooterInner = readText("assets/data/footer.html", "footer template").replace(
-      /\s+$/,
-      ""
-    );
+  })();
+  const pdpFooterInner = readText("assets/data/footer.html", "footer template").replace(/\s+$/, "");
+
+  // Automatically generate individual product OpenGraph HTML pages
+  (function generateProductOgPages() {
+    // Real, indexable product pages (see the renderProductPdpHtml header).
     PRODUCTS.forEach(function (product) {
       const categoryLabel = CATEGORY_LABEL[product.category] || product.category || "Apothecary";
       let html = renderProductPdpHtml(
@@ -5288,6 +5341,7 @@ function buildSiteData() {
         CONTENT.site && CONTENT.site.ritualDefaults,
         {
           manifest: pdpManifest,
+          enableJournal: !!SITE_CONFIG.enableJournal,
           footerInner: pdpFooterInner,
           reviews: SITE_REVIEWS,
           products: PRODUCTS,
@@ -5309,6 +5363,48 @@ function buildSiteData() {
     });
   })();
 
+  /* ---------- journal/<slug>.html: one static page per published post ----
+     See the renderJournalPostHtml header. Newest first is the order JOURNAL
+     already holds, so the pager's "newer" is the previous entry and "older"
+     the next. Pages for posts that no longer exist -- or every page, once the
+     Journal is switched off -- are removed, so a deleted post cannot keep
+     answering 200 from a stale file. */
+  (function generateJournalPostPages() {
+    const journalDir = path.join(ROOT, JOURNAL_PAGE_DIR);
+    const posts = journalPublished ? JOURNAL.posts : [];
+    posts.forEach(function (post, i) {
+      let html = renderJournalPostHtml(post, JOURNAL, DOMAIN, {
+        manifest: pdpManifest,
+        footerInner: pdpFooterInner,
+        productsById: PRODUCTS_BY_ID,
+        categoryLabelMap: CATEGORY_LABEL,
+        enableJournal: true,
+        site: SITE_CONFIG,
+        search: SEARCH_CONFIG,
+        newer: i > 0 ? posts[i - 1] : null,
+        older: i + 1 < posts.length ? posts[i + 1] : null
+      });
+      html = setFormAction(
+        html,
+        "footer-signup-form",
+        newsletterAction(SITE_CONFIG.kitFormAction, "YOUR_KIT_FORM_ACTION_URL")
+      );
+      writeFile(journalPostPath(post), html);
+    });
+    if (fs.existsSync(journalDir)) {
+      journalPagesToPrune(fs.readdirSync(journalDir), posts, journalPublished).forEach(
+        function (f) {
+          fs.unlinkSync(path.join(journalDir, f));
+          console.log("[build] Removed stale journal page " + JOURNAL_PAGE_DIR + "/" + f);
+        }
+      );
+      if (!fs.readdirSync(journalDir).length) fs.rmdirSync(journalDir);
+    }
+    if (posts.length) {
+      console.log("[build] Generated " + posts.length + " journal post page(s) in journal/");
+    }
+  })();
+
   /* ---------- Final pass: clean injection markers out of attribute values ----
    Runs AFTER every injection/config pass so it can't strip a marker some
    later pass still needs. Any YL:key comment marker that ended up inside a
@@ -5318,9 +5414,12 @@ function buildSiteData() {
   (function cleanAttributeMarkers() {
     const htmlPages = PAGES.map(function (p) {
       return p.loc;
-    }).concat(["404.html", "thank-you.html", "welcome.html", "journal.html"]);
+    }).concat(["404.html", "thank-you.html", "welcome.html", "journal.html", "orders.html"]);
     PRODUCTS.forEach(function (product) {
       htmlPages.push("products/" + product.id + ".html");
+    });
+    (journalPublished ? JOURNAL.posts : []).forEach(function (post) {
+      htmlPages.push(journalPostPath(post));
     });
     htmlPages.forEach(function (page) {
       const full = path.join(ROOT, page);
@@ -5428,7 +5527,50 @@ function buildSiteData() {
 }
 
 /* ---------- Export Internal Helpers & Build Function ---------- */
-function generateProductJsonLd(product, domain, categoryLabel) {
+/**
+ * schema.org Review nodes for the reviews this product actually has in
+ * assets/data/site-reviews.json -- the same ones the page prints. Ten newest,
+ * the site's own display name for the reviewer with the "(Etsy)" source tag
+ * dropped (it is provenance, not part of the name), and the rating on the
+ * 1-5 scale the page uses. None of these existed anywhere on the site
+ * (2026-09-09 audit), which is the review rich-result thrown away on the
+ * one kind of content the shop already owns.
+ */
+function generateProductReviewNodes(productReviews) {
+  return (Array.isArray(productReviews) ? productReviews : [])
+    .filter(function (r) {
+      return r && r.text && Number.isFinite(Number(r.rating));
+    })
+    .slice()
+    .sort(function (a, b) {
+      return String(b.date || "").localeCompare(String(a.date || ""));
+    })
+    .slice(0, 10)
+    .map(function (r) {
+      const node = {
+        "@type": "Review",
+        author: {
+          "@type": "Person",
+          name:
+            String(r.name || "Verified buyer")
+              .replace(/\s*\((?:etsy|site|website)\)\s*$/i, "")
+              .trim() || "Verified buyer"
+        },
+        reviewBody: String(r.text),
+        reviewRating: {
+          "@type": "Rating",
+          ratingValue: clampRating(Number(r.rating), 5),
+          bestRating: "5",
+          worstRating: "1"
+        }
+      };
+      if (r.date && /^\d{4}-\d{2}-\d{2}/.test(String(r.date)))
+        node.datePublished = String(r.date).slice(0, 10);
+      return node;
+    });
+}
+
+function generateProductJsonLd(product, domain, categoryLabel, productReviews) {
   const dom = (domain || "https://yallternativeliving.com").replace(/\/+$/, "");
   const prodId = (product && product.id) || "product";
   const prodName = (product && product.name) || "";
@@ -5658,6 +5800,9 @@ function generateProductJsonLd(product, domain, categoryLabel) {
       worstRating: "1"
     };
   }
+
+  const reviewNodes = generateProductReviewNodes(productReviews);
+  if (reviewNodes.length) jsonLd.review = reviewNodes;
 
   return jsonLd;
 }
@@ -6996,6 +7141,31 @@ const DEFAULT_SAFETY_NOTES = {
   reactionPrompt: "Had a reaction? Tell us and we will log it and make it right."
 };
 
+/* The words on shop.html's phone-only filter bar and bottom sheet (see
+   initShopFilterSheet() in main.js). Editable under Site Settings -> Shop page ->
+   "Phone filter bar wording" in /admin; each lands in one
+   <!--YL:shop.filterUi.*--> marker. Keep this list and the markers in step. */
+const DEFAULT_SHOP_FILTER_UI = {
+  filterButton: "Filter",
+  sortButton: "Sort",
+  sheetTitle: "Filter & sort",
+  categoryHeading: "Category",
+  concernHeading: "Concern",
+  applyButton: "Apply",
+  clearAll: "Clear all",
+  activeFilters: "Active filters",
+  removeFilter: "Remove"
+};
+
+function resolveShopFilterUi(overrides) {
+  const out = {};
+  Object.keys(DEFAULT_SHOP_FILTER_UI).forEach(function (k) {
+    const v = overrides && typeof overrides[k] === "string" ? overrides[k].trim() : "";
+    out[k] = v || DEFAULT_SHOP_FILTER_UI[k];
+  });
+  return out;
+}
+
 function resolveSafetyNotes(overrides) {
   const out = {};
   Object.keys(DEFAULT_SAFETY_NOTES).forEach(function (k) {
@@ -7173,8 +7343,12 @@ function renderTawkChatHtml(site) {
   );
 }
 
-function renderSiteHeaderHtml(manifest) {
+function renderSiteHeaderHtml(manifest, opts) {
   const m = manifest || {};
+  const o = opts || {};
+  /* Which nav link is the current section: "shop" for the product pages (the
+     only caller until the journal post pages existed), "journal" for those. */
+  const active = o.active || "shop";
   return (
     '  <header class="site-header">\n' +
     '    <nav class="nav" aria-label="Main Navigation">\n' +
@@ -7199,10 +7373,21 @@ function renderSiteHeaderHtml(manifest) {
     "      </a>\n" +
     '      <ul class="nav-links" id="navLinks">\n' +
     '        <li><a href="/index.html">Home</a></li>\n' +
-    '        <li><a href="/shop.html" class="active">Shop</a></li>\n' +
+    '        <li><a href="/shop.html"' +
+    (active === "shop" ? ' class="active"' : "") +
+    ">Shop</a></li>\n" +
     '        <li><a href="/events.html">Events</a></li>\n' +
     '        <li><a href="/about.html">Our Story</a></li>\n' +
     '        <li><a href="/contact.html">Contact</a></li>\n' +
+    /* The same Journal link the top-level pages get from their nav.journal
+       marker; product pages had no slot for it, so the Journal was one click
+       further away from every PDP (2026-09-09). Root-absolute like the rest
+       of this header. */
+    (o.enableJournal
+      ? '        <li><a href="/journal.html"' +
+        (active === "journal" ? ' class="active"' : "") +
+        ">Journal</a></li>\n"
+      : "") +
     "      </ul>\n" +
     '      <div class="nav-cta">\n' +
     '        <button class="nav-search-btn" id="globalSearchTrigger" type="button" aria-label="Search catalog, articles &amp; FAQ" title="Search (Cmd+K)" aria-haspopup="dialog" aria-expanded="false" aria-controls="global-search-modal">\n' +
@@ -7384,7 +7569,7 @@ function renderProductPdpHtml(
       }, 0) / reviewCount
     : 0;
 
-  const productJsonLd = generateProductJsonLd(product, domain, categoryLabel);
+  const productJsonLd = generateProductJsonLd(product, domain, categoryLabel, productReviews);
   const breadcrumbJsonLd = generateProductBreadcrumbJsonLd(product, domain, categoryLabel);
   const jsonLdBlock =
     '  <script type="application/ld+json">\n' +
@@ -7551,7 +7736,7 @@ function renderProductPdpHtml(
     "</head>\n" +
     '<body class="pdp-page">\n' +
     '  <a href="#main-content" class="skip-link">Skip to main content</a>\n' +
-    renderSiteHeaderHtml(manifest) +
+    renderSiteHeaderHtml(manifest, { enableJournal: !!c.enableJournal }) +
     '  <main id="main-content" class="container pdp-container">\n' +
     '    <nav class="breadcrumb-nav" aria-label="Breadcrumb">\n' +
     '      <p class="breadcrumb"><a href="../index.html">Home</a> / <a href="../shop.html">Shop</a> / <a href="../shop.html#' +
@@ -7669,6 +7854,552 @@ function xmlText(value) {
 /* options.includeItems -- false while the Journal is switched off in /admin,
    so unpublished posts are not syndicated from a page that is noindexed and
    unlinked. The channel itself keeps existing so subscribers do not 404. */
+/* ---------- Journal post pages: /journal/<slug>.html ----------
+   A post used to live only at journal.html#post-<slug>, rendered by main.js
+   from journal-data.js -- one URL for a crawler, however many posts were
+   written (2026-09-09 audit, "Journal posts are fragments"). Each published
+   post is now also a real static page, built here the way products/*.html
+   are: root-absolute asset paths, the shared header/footer, its own <title>,
+   description, canonical, Open Graph card, BlogPosting + BreadcrumbList
+   JSON-LD, and the post body rendered at build time through the SAME
+   Markdown module the browser loads (assets/js/markdown.js), so the two
+   can never drift. The slug is the post's file name, which the CMS makes
+   from its title on first save (admin/config.yml `slug`). journal.html keeps
+   the old fragment address working by redirecting it (see routeJournal in
+   main.js); feed.xml, sitemap.xml, llms.txt and the Blog JSON-LD all point at
+   these pages. With the Journal switched off no page is written and any
+   page left from an earlier build is removed. */
+const JOURNAL_PAGE_DIR = "journal";
+/* A file name that is not a clean slug would become a URL nobody can link
+   to (spaces, slashes, quotes); the CMS never writes one, but a hand-added
+   file can. Fail the build with the file named rather than emit the page. */
+const JOURNAL_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+const JOURNAL_DEFAULT_WORDING = {
+  backLabel: "← Back to Journal",
+  newerLabel: "Newer post",
+  olderLabel: "Older post"
+};
+const JOURNAL_MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December"
+];
+
+function journalPostPath(post) {
+  return JOURNAL_PAGE_DIR + "/" + post.id + ".html";
+}
+
+function journalPostUrl(post, domainUrl) {
+  const dom = (domainUrl || SITE_ORIGIN).replace(/\/+$/, "");
+  return dom + "/" + JOURNAL_PAGE_DIR + "/" + encodeURIComponent(post.id) + ".html";
+}
+
+/* "2026-07-15" -> "July 15, 2026". Fixed month names, not toLocaleDateString:
+   the output must not depend on the build machine's locale or ICU data. An
+   unparseable date is shown as typed. */
+function formatJournalDate(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso == null ? "" : iso));
+  if (!m) return String(iso == null ? "" : iso);
+  const monthIdx = Number(m[2]) - 1;
+  if (!(monthIdx >= 0 && monthIdx < 12)) return String(iso);
+  return JOURNAL_MONTHS[monthIdx] + " " + Number(m[3]) + ", " + m[1];
+}
+
+function journalReadingTime(post) {
+  if (post.readingTime) return String(post.readingTime);
+  if (post.readTime) return String(post.readTime);
+  const words = String(post.content || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean).length;
+  return Math.max(1, Math.ceil(words / 200)) + " min read";
+}
+
+function journalWording(journalData) {
+  const w = (journalData && journalData.wording) || {};
+  return {
+    backLabel: w.backLabel || JOURNAL_DEFAULT_WORDING.backLabel,
+    newerLabel: w.newerLabel || JOURNAL_DEFAULT_WORDING.newerLabel,
+    olderLabel: w.olderLabel || JOURNAL_DEFAULT_WORDING.olderLabel
+  };
+}
+
+function journalOrgNode(dom) {
+  return {
+    "@type": "Organization",
+    name: "Y'allternative Living",
+    url: dom + "/",
+    logo: { "@type": "ImageObject", url: dom + "/assets/img/logo.png" }
+  };
+}
+
+/* One BlogPosting node, shared by the Blog on journal.html (its blogPost
+   list) and by the post's own page (where it is the top-level entity), so
+   the two descriptions of a post are the same description. */
+function journalPostingNode(post, dom) {
+  const url = journalPostUrl(post, dom);
+  const org = journalOrgNode(dom);
+  const text = String(post.content || "");
+  const node = {
+    "@type": "BlogPosting",
+    "@id": url,
+    url: url,
+    // A plain URL, not a WebPage node with the same @id as the posting: two
+    // types on one IRI is tolerated by Google but is not what it means.
+    mainEntityOfPage: url,
+    headline: post.title || "Journal Entry",
+    description: post.excerpt || post.summary || "",
+    datePublished: post.date || undefined,
+    dateModified: post.updated || post.date || undefined,
+    inLanguage: "en-US",
+    isPartOf: { "@type": "Blog", "@id": dom + "/journal.html#blog" },
+    author: org,
+    publisher: org
+  };
+  if (post.image) node.image = dom + "/" + String(post.image).replace(/^\/+/, "");
+  if (Array.isArray(post.tags) && post.tags.length) node.keywords = post.tags.join(", ");
+  if (text) node.wordCount = text.split(/\s+/).filter(Boolean).length;
+  if (post.featuredProductId) {
+    node.about = {
+      "@type": "Product",
+      url: dom + "/products/" + encodeURIComponent(post.featuredProductId) + ".html"
+    };
+  }
+  return node;
+}
+
+function generateJournalPostJsonLd(post, domainUrl) {
+  const dom = (domainUrl || SITE_ORIGIN).replace(/\/+$/, "");
+  return Object.assign({ "@context": "https://schema.org" }, journalPostingNode(post, dom));
+}
+
+function generateJournalBreadcrumbJsonLd(post, journalData, domainUrl) {
+  const dom = (domainUrl || SITE_ORIGIN).replace(/\/+$/, "");
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: dom + "/" },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: (journalData && journalData.title) || "Journal",
+        item: dom + "/journal.html"
+      },
+      {
+        "@type": "ListItem",
+        position: 3,
+        name: post.title || "Journal Entry",
+        item: journalPostUrl(post, dom)
+      }
+    ]
+  };
+}
+
+/* Topic pills. On journal.html these are buttons that filter the list in
+   place; on a static page they are links to that list, already filtered
+   (main.js reads the #tag= hash). Text and href are both escaped -- a tag is
+   free text typed in /admin. */
+function renderJournalTagLinksHtml(tags) {
+  if (!Array.isArray(tags) || !tags.length) return "";
+  return (
+    '<div class="journal-tags" role="group" aria-label="Article topics">' +
+    tags
+      .filter(function (t) {
+        return t != null && String(t).trim();
+      })
+      .map(function (t) {
+        return (
+          '<a class="journal-tag journal-tag-pill" href="/journal.html#tag=' +
+          escapeHtml(encodeURIComponent(String(t))) +
+          '">' +
+          escapeHtml(t) +
+          "</a>"
+        );
+      })
+      .join("") +
+    "</div>"
+  );
+}
+
+/* The "Featured in this Article" card. Same markup and classes as
+   renderFeaturedProductCardHtml in main.js (styles.css targets them) but with
+   root-absolute paths, the manifest's responsive thumbnail, and the product
+   NAME linking to its own page rather than to shop.html#<id>. The headings
+   are h2/h3 here: the post title is this page's h1 and the body's headings
+   are h2/h3, so h4/h5 would skip a level (axe heading-order is in the gate). */
+function renderJournalFeaturedCardHtml(product, categoryLabel, manifest) {
+  if (!product) return "";
+  const priceAttr =
+    typeof product.price === "number" ? product.price.toFixed(2) : String(product.price || "0.00");
+  const productUrl = "/products/" + encodeURIComponent(product.id) + ".html";
+  const thumb = pictureFromManifest(product.image, manifest, {
+    alt: product.name,
+    width: 100,
+    height: 100,
+    loading: "lazy",
+    className: "journal-featured-thumb",
+    sizes: "100px"
+  });
+  return (
+    '      <aside class="journal-featured-card" aria-labelledby="journalFeaturedHeading">\n' +
+    '        <div class="journal-featured-inner">\n' +
+    '          <div class="journal-featured-header">\n' +
+    '            <span class="journal-featured-pill">Featured in this Article</span>\n' +
+    '            <h2 id="journalFeaturedHeading">Small-Batch Botanical Care</h2>\n' +
+    "          </div>\n" +
+    '          <div class="journal-featured-body">\n' +
+    "            " +
+    thumb +
+    "\n" +
+    '            <div class="journal-featured-details">\n' +
+    '              <div class="journal-featured-badges">' +
+    (categoryLabel
+      ? '<span class="journal-featured-cat">' + escapeHtml(categoryLabel) + "</span>"
+      : "") +
+    (product.scent
+      ? '<span class="journal-featured-scent">' + escapeHtml(product.scent) + "</span>"
+      : "") +
+    "</div>\n" +
+    '              <h3 class="journal-featured-title"><a href="' +
+    escapeHtml(productUrl) +
+    '">' +
+    escapeHtml(product.name) +
+    "</a></h3>\n" +
+    '              <p class="journal-featured-blurb">' +
+    escapeHtml(product.blurb || product.description || "") +
+    "</p>\n" +
+    '              <div class="journal-featured-action">\n' +
+    '                <span class="journal-featured-price">' +
+    escapeHtml(formatMoney(product.price)) +
+    "</span>\n" +
+    '                <button type="button" class="btn btn-sm btn-primary yl-add-item" data-item-id="' +
+    escapeHtml(product.id) +
+    '" data-item-name="' +
+    escapeHtml(product.name) +
+    '" data-item-price="' +
+    escapeHtml(priceAttr) +
+    '" data-item-image="' +
+    escapeHtml(rootImage(product.image)) +
+    '" data-item-categories="' +
+    escapeHtml(product.category || "") +
+    '">' +
+    '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg> + Add to Cart</button>\n' +
+    "              </div>\n" +
+    "            </div>\n" +
+    "          </div>\n" +
+    "        </div>\n" +
+    "      </aside>\n"
+  );
+}
+
+function renderJournalPagerHtml(newer, older, wording) {
+  if (!newer && !older) return "";
+  const link = function (post, label, cls) {
+    if (!post) return '        <span class="journal-pager-empty" aria-hidden="true"></span>\n';
+    return (
+      '        <a class="journal-pager-link ' +
+      cls +
+      '" href="/' +
+      escapeHtml(JOURNAL_PAGE_DIR + "/" + encodeURIComponent(post.id) + ".html") +
+      '">\n' +
+      '          <span class="journal-pager-label">' +
+      escapeHtml(label) +
+      "</span>\n" +
+      '          <span class="journal-pager-title">' +
+      escapeHtml(post.title) +
+      "</span>\n" +
+      "        </a>\n"
+    );
+  };
+  return (
+    '      <nav class="journal-pager" aria-label="More from the Journal">\n' +
+    link(newer, "← " + wording.newerLabel, "journal-pager-newer") +
+    link(older, wording.olderLabel + " →", "journal-pager-older") +
+    "      </nav>\n"
+  );
+}
+
+/* Page-local styles: the reader-view rules journal.html carries inline for
+   its in-page detail, plus what only the static page has (an h1 title, body
+   headings starting at h2, topic pills that are links, and the pager). */
+const JOURNAL_POST_STYLE =
+  "  <style>\n" +
+  "  .journal-detail { max-width: 800px; margin: 20px auto 0; }\n" +
+  "  .journal-detail h1 { font-family: var(--font-display); font-size: 2.5rem; margin-bottom: 8px; }\n" +
+  "  .journal-detail .meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 0.9rem; color: var(--paper-dim); margin-bottom: 24px; }\n" +
+  "  .journal-detail .journal-hero { width: 100%; height: auto; max-height: 450px; object-fit: cover; border-radius: var(--radius-lg); margin-bottom: 32px; border: 1px solid var(--hide); }\n" +
+  "  .journal-detail .content { line-height: 1.8; font-size: 1.1rem; }\n" +
+  "  .journal-detail .content p { margin-bottom: 1.5em; }\n" +
+  "  .journal-detail .content h2 { font-family: var(--font-display); font-size: 1.6rem; margin: 1.8em 0 0.5em; }\n" +
+  "  .journal-detail .content h3 { font-size: 1.2rem; font-weight: 700; margin: 1.5em 0 0.4em; }\n" +
+  "  .journal-detail .content ul, .journal-detail .content ol { margin: 0 0 1.5em; padding-left: 1.5em; }\n" +
+  "  .journal-detail .content ul { list-style: disc; }\n" +
+  "  .journal-detail .content ol { list-style: decimal; }\n" +
+  "  .journal-detail .content li { margin-bottom: 0.5em; }\n" +
+  "  .journal-detail .content a { color: var(--whiskey); text-decoration: underline; }\n" +
+  "  .journal-detail .content a:hover { color: var(--paper); }\n" +
+  "  .journal-detail .content hr { border: 0; border-top: 1px solid var(--hide); margin: 2em 0; }\n" +
+  "  .journal-detail .back-link { margin-bottom: 24px; display: inline-flex; align-items: center; gap: 8px; font-weight: 600; color: var(--whiskey); text-decoration: none; }\n" +
+  "  .journal-detail .back-link:hover { color: var(--paper); }\n" +
+  "  .journal-detail-tags .journal-tag { text-decoration: none; display: inline-block; }\n" +
+  "  .journal-pager { max-width: 800px; margin: 2.5rem auto 0; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }\n" +
+  "  .journal-pager-link { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border: 1px solid var(--hide); border-radius: var(--radius-md, 8px); text-decoration: none; color: var(--paper); background: var(--ink-2); min-height: 44px; }\n" +
+  "  .journal-pager-link:hover, .journal-pager-link:focus-visible { border-color: var(--whiskey); }\n" +
+  "  .journal-pager-older { text-align: right; align-items: flex-end; }\n" +
+  "  .journal-pager-label { font-size: 0.85rem; color: var(--whiskey); font-weight: 600; }\n" +
+  "  .journal-pager-title { font-family: var(--font-display); font-size: 1.05rem; line-height: 1.3; }\n" +
+  "  @media (max-width: 600px) { .journal-pager { grid-template-columns: 1fr; } .journal-pager-older { text-align: left; align-items: flex-start; } }\n" +
+  "  </style>\n";
+
+/**
+ * One static post page. Mirrors renderProductPdpHtml: everything here comes
+ * from CMS-written JSON and is escaped on the way into the page.
+ * @param {Object} post  from loadJournal (id = file name)
+ * @param {Object} journalData  loadJournal() result (title, lede, wording)
+ * @param {string} domain
+ * @param {Object} [ctx] { manifest, footerInner, productsById, categoryLabelMap,
+ *   enableJournal, site, search, newer, older }
+ */
+function renderJournalPostHtml(post, journalData, domain, ctx) {
+  const c = ctx || {};
+  const manifest = c.manifest || {};
+  const dom = (domain || SITE_ORIGIN).replace(/\/+$/, "");
+  const wording = journalWording(journalData);
+  const journalTitle = (journalData && journalData.title) || "Apothecary Journal";
+  const rawTitle = String(post.title || "Journal Entry");
+  const pTitle = escapeHtml(pdpPageTitle(rawTitle));
+  const rawDesc = post.excerpt || post.summary || "";
+  const pMetaDesc = escapeHtml(truncateForMeta(rawDesc, 155));
+  const pUrl = journalPostUrl(post, dom);
+  const imagePath = post.image ? String(post.image).replace(/^\/+/, "") : "";
+  const pImage = escapeHtml(
+    dom + "/" + (imagePath ? rasterImagePath(imagePath, "social") : SITE_OG_IMAGE)
+  );
+  const dateIso = String(post.date || "").slice(0, 10);
+  const readTime = journalReadingTime(post);
+  const body = renderMarkdown(post.content, { headingLevel: 2 });
+  const tagsHtml = renderJournalTagLinksHtml(post.tags);
+  const featured =
+    post.featuredProductId && c.productsById ? c.productsById[post.featuredProductId] : null;
+  const featuredLabel = featured
+    ? (c.categoryLabelMap && c.categoryLabelMap[featured.category]) || featured.category || ""
+    : "";
+  const featuredHtml = renderJournalFeaturedCardHtml(featured, featuredLabel, manifest);
+  const postJsonLd = generateJournalPostJsonLd(post, dom);
+  const crumbJsonLd = generateJournalBreadcrumbJsonLd(post, journalData, dom);
+  /* escapeJsonForScript: "<", ">" and "&" become \uXXXX escapes, so a post
+     title of "<script>" cannot even look like a tag inside the block. */
+  const jsonLdBlock =
+    "  " +
+    jsonLdScriptBlock(postJsonLd, "  ") +
+    "\n" +
+    "  " +
+    jsonLdScriptBlock(crumbJsonLd, "  ") +
+    "\n";
+  const heroHtml = imagePath
+    ? "      " +
+      pictureFromManifest(imagePath, manifest, {
+        alt: rawTitle,
+        className: "journal-hero",
+        sizes: "(max-width: 820px) 100vw, 800px",
+        fetchpriority: "high"
+      }) +
+      "\n"
+    : "";
+  const footerHtml = c.footerInner
+    ? '  <footer class="site-footer">\n' + c.footerInner + "\n  </footer>\n"
+    : "";
+  const clockSvg =
+    '<svg class="journal-clock-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+
+  return (
+    "<!DOCTYPE html>\n" +
+    '<html lang="en">\n' +
+    "<head>\n" +
+    '  <meta charset="UTF-8">\n' +
+    '  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
+    '  <meta name="mobile-web-app-capable" content="yes">\n' +
+    '  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">\n' +
+    '  <meta name="apple-mobile-web-app-title" content="Y\'allternative">\n' +
+    '  <meta name="color-scheme" content="dark light">\n' +
+    '  <meta name="view-transition" content="same-origin">\n' +
+    "  <title>" +
+    pTitle +
+    "</title>\n" +
+    '  <meta name="description" content="' +
+    pMetaDesc +
+    '">\n' +
+    '  <link rel="canonical" href="' +
+    escapeHtml(pUrl) +
+    '">\n' +
+    '  <link rel="alternate" type="application/rss+xml" title="Y\'allternative Living Journal RSS Feed" href="' +
+    dom +
+    '/feed.xml">\n' +
+    (umamiScriptHtml(c.site) ? "  " + umamiScriptHtml(c.site) + "\n" : "") +
+    '  <link rel="icon" href="/assets/img/favicon-32.png" sizes="32x32" type="image/png">\n' +
+    '  <link rel="icon" href="/assets/img/favicon-192.png" sizes="192x192" type="image/png">\n' +
+    '  <link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png">\n' +
+    '  <link rel="manifest" href="/site.webmanifest">\n' +
+    '  <meta name="theme-color" content="#c65a6d">\n' +
+    "  <!-- OpenGraph -->\n" +
+    '  <meta property="og:type" content="article">\n' +
+    '  <meta property="og:title" content="' +
+    pTitle +
+    '">\n' +
+    '  <meta property="og:description" content="' +
+    pMetaDesc +
+    '">\n' +
+    '  <meta property="og:image" content="' +
+    pImage +
+    '">\n' +
+    '  <meta property="og:url" content="' +
+    escapeHtml(pUrl) +
+    '">\n' +
+    '  <meta property="og:site_name" content="Y\'allternative Living">\n' +
+    (dateIso
+      ? '  <meta property="article:published_time" content="' + escapeHtml(dateIso) + '">\n'
+      : "") +
+    (Array.isArray(post.tags) ? post.tags : [])
+      .map(function (t) {
+        return '  <meta property="article:tag" content="' + escapeHtml(t) + '">\n';
+      })
+      .join("") +
+    "  <!-- Twitter -->\n" +
+    '  <meta name="twitter:card" content="summary_large_image">\n' +
+    '  <meta name="twitter:title" content="' +
+    pTitle +
+    '">\n' +
+    '  <meta name="twitter:description" content="' +
+    pMetaDesc +
+    '">\n' +
+    '  <meta name="twitter:image" content="' +
+    pImage +
+    '">\n' +
+    (imagePath ? preloadFromManifest(imagePath, manifest, "(max-width: 820px) 100vw, 800px") : "") +
+    "  <!-- Gloock + DM Sans are self-hosted from /assets/fonts/ via the @font-face rules at the end of styles.css; no font <link> or preload here (see index.html). -->\n" +
+    '  <link rel="stylesheet" href="/assets/css/styles.css?v=2.0">\n' +
+    '  <link rel="stylesheet" href="/assets/css/cart.css">\n' +
+    "  <script>\n" +
+    "  // No-flash theme init: runs before paint, before main.js.\n" +
+    "  (function(){\n" +
+    "    var t = localStorage.getItem('yl-theme');\n" +
+    "    if(!t){ t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'; }\n" +
+    "    document.documentElement.setAttribute('data-theme', t);\n" +
+    "  })();\n" +
+    "</script>\n" +
+    JOURNAL_POST_STYLE +
+    jsonLdBlock +
+    "</head>\n" +
+    '<body class="journal-post-page">\n' +
+    '  <a href="#main-content" class="skip-link">Skip to main content</a>\n' +
+    renderSiteHeaderHtml(manifest, { enableJournal: !!c.enableJournal, active: "journal" }) +
+    '  <main id="main-content">\n' +
+    '    <section class="section-tight">\n' +
+    '      <div class="container">\n' +
+    '      <nav class="breadcrumb-nav" aria-label="Breadcrumb">\n' +
+    '        <p class="breadcrumb"><a href="/index.html">Home</a> / <a href="/journal.html">' +
+    escapeHtml(journalTitle) +
+    '</a> / <span aria-current="page">' +
+    escapeHtml(rawTitle) +
+    "</span></p>\n" +
+    "      </nav>\n" +
+    '      <article class="journal-detail">\n' +
+    '        <a class="back-link" id="journalBackBtn" href="/journal.html">' +
+    escapeHtml(wording.backLabel) +
+    "</a>\n" +
+    "        <h1>" +
+    escapeHtml(rawTitle) +
+    "</h1>\n" +
+    '        <div class="meta">\n' +
+    '          <span class="journal-detail-date">Published on <time datetime="' +
+    escapeHtml(dateIso) +
+    '">' +
+    escapeHtml(formatJournalDate(post.date)) +
+    "</time></span>\n" +
+    '          <span class="journal-meta-sep" aria-hidden="true">·</span>\n' +
+    '          <span class="journal-reading-time">' +
+    clockSvg +
+    " " +
+    escapeHtml(readTime) +
+    "</span>\n" +
+    "        </div>\n" +
+    (tagsHtml ? '        <div class="journal-detail-tags">' + tagsHtml + "</div>\n" : "") +
+    heroHtml +
+    '        <div class="content">' +
+    body +
+    "</div>\n" +
+    featuredHtml +
+    "      </article>\n" +
+    renderJournalPagerHtml(c.newer, c.older, wording) +
+    "      </div>\n" +
+    "    </section>\n" +
+    "  </main>\n" +
+    renderGlobalSearchModalHtml(c.search) +
+    footerHtml +
+    '  <script src="/assets/js/content-data.js?v=2.0" defer></script>\n' +
+    '  <script src="/assets/js/products-data.js?v=2.0" defer></script>\n' +
+    '  <script src="/assets/js/events-data.js?v=2.0" defer></script>\n' +
+    '  <script src="/assets/js/search-data.js?v=2.0" defer></script>\n' +
+    '  <script src="/assets/js/image-manifest.js?v=2.0" defer></script>\n' +
+    '  <script src="/assets/js/main.js?v=2.0" defer></script>\n' +
+    '  <script src="/assets/js/cart.js" defer></script>\n' +
+    renderTawkChatHtml(c.site) +
+    "</body>\n" +
+    "</html>\n"
+  );
+}
+
+/* Which journal/*.html files a build must leave behind: the published posts'
+   pages and nothing else. Pure so the unit tests can exercise the
+   switched-off case without a throwaway checkout. */
+function journalPagesToPrune(existingFiles, posts, enabled) {
+  const keep = {};
+  ((enabled && posts) || []).forEach(function (p) {
+    keep[p.id + ".html"] = true;
+  });
+  return (existingFiles || []).filter(function (f) {
+    return /\.html$/.test(f) && !keep[f];
+  });
+}
+
+/**
+ * Blog JSON-LD for journal.html: one Blog node whose blogPost list carries a
+ * BlogPosting per published post, newest first (the order JOURNAL already
+ * holds). Author and publisher are the shop itself: posts are written in the
+ * shop's voice and no post carries a byline field.
+ */
+function generateJournalJsonLd(journalData, domainUrl) {
+  const dom = (domainUrl || "https://yallternativeliving.com").replace(/\/+$/, "");
+  const posts = ((journalData && journalData.posts) || []).filter(Boolean);
+  const pageUrl = dom + "/journal.html";
+  return {
+    "@context": "https://schema.org",
+    "@type": "Blog",
+    "@id": pageUrl + "#blog",
+    url: pageUrl,
+    name: journalData.title || "Apothecary Journal",
+    description:
+      journalData.lede || "Stories, science, and small-batch updates straight from the kitchen.",
+    inLanguage: "en-US",
+    publisher: journalOrgNode(dom),
+    /* Each entry's url/@id is the post's own static page (journalPostingNode
+       is what that page carries as its top-level entity too). */
+    blogPost: posts.map(function (post) {
+      return journalPostingNode(post, dom);
+    })
+  };
+}
+
 function generateRssFeed(journalData, domainUrl, options) {
   const DOMAIN_URL = domainUrl || "https://yallternativeliving.com";
   const opts = options || {};
@@ -7695,8 +8426,9 @@ function generateRssFeed(journalData, domainUrl, options) {
     .map(function (post) {
       if (!post) return "";
       const postDate = post.date ? new Date(post.date).toUTCString() : new Date().toUTCString();
-      const slug = post.id || post.slug || "";
-      const postUrl = xmlText(DOMAIN_URL + "/journal.html#post-" + encodeURIComponent(slug));
+      // The post's own static page (see renderJournalPostHtml), not the old
+      // journal.html#post-<slug> fragment a feed reader could not tell apart.
+      const postUrl = xmlText(journalPostUrl(post, DOMAIN_URL));
       const title = xmlText(post.title || "Journal Entry");
       const excerpt = xmlText(post.excerpt || post.summary || "");
       const categoriesXml = Array.isArray(post.tags)
@@ -7772,6 +8504,8 @@ if (typeof module !== "undefined" && module.exports) {
     enrichedQuerySynonyms: enrichedQuerySynonyms,
     /* ==== END search-enrichment merge ==== */
     resolveSafetyNotes: resolveSafetyNotes,
+    resolveShopFilterUi: resolveShopFilterUi,
+    DEFAULT_SHOP_FILTER_UI: DEFAULT_SHOP_FILTER_UI,
     readJson: readJson,
     readText: readText,
     writeFile: writeFile,
@@ -7798,6 +8532,19 @@ if (typeof module !== "undefined" && module.exports) {
     newsletterAction: newsletterAction,
     setFormAction: setFormAction,
     generateRssFeed: generateRssFeed,
+    generateJournalJsonLd: generateJournalJsonLd,
+    generateJournalPostJsonLd: generateJournalPostJsonLd,
+    generateJournalBreadcrumbJsonLd: generateJournalBreadcrumbJsonLd,
+    renderJournalPostHtml: renderJournalPostHtml,
+    renderJournalTagLinksHtml: renderJournalTagLinksHtml,
+    renderJournalFeaturedCardHtml: renderJournalFeaturedCardHtml,
+    journalPostUrl: journalPostUrl,
+    journalPostPath: journalPostPath,
+    journalPagesToPrune: journalPagesToPrune,
+    formatJournalDate: formatJournalDate,
+    renderMarkdown: renderMarkdown,
+    JOURNAL_ID_RE: JOURNAL_ID_RE,
+    renderSiteHeaderHtml: renderSiteHeaderHtml,
     generateProductJsonLd: generateProductJsonLd,
     generateProductBreadcrumbJsonLd: generateProductBreadcrumbJsonLd,
     renderFreshnessBadgeHtml: renderFreshnessBadgeHtml,

@@ -203,6 +203,38 @@ async function makeLedgerEnv(cards) {
 }
 
 /**
+ * A Stripe-shaped promotion code with its coupon expanded, the way the
+ * Worker's lookup returns one. `percent` OR `amountCents`; `restrictions`
+ * and `active`/`expiresAt` are passed through.
+ */
+function mockPromo(code, opts = {}) {
+  const coupon = {
+    id: `coupon_${code}`,
+    object: "coupon",
+    valid: opts.couponValid !== false,
+    duration: "once",
+    currency: opts.amountCents ? opts.currency || "usd" : null,
+    percent_off: opts.percent || null,
+    amount_off: opts.amountCents || null
+  };
+  return {
+    id: `promo_${code}`,
+    object: "promotion_code",
+    code,
+    active: opts.active !== false,
+    expires_at: opts.expiresAt || null,
+    max_redemptions: opts.maxRedemptions || null,
+    times_redeemed: opts.timesRedeemed || 0,
+    restrictions: {
+      first_time_transaction: Boolean(opts.firstTimeOnly),
+      minimum_amount: opts.minimumCents || null,
+      minimum_amount_currency: opts.minimumCents ? "usd" : null
+    },
+    coupon
+  };
+}
+
+/**
  * Drive one checkout through the real Worker.
  *
  * @param {object} body    the JSON the cart would POST
@@ -213,6 +245,11 @@ async function makeLedgerEnv(cards) {
  *                      before the Worker reserves -- how a concurrent second
  *                      spender is simulated
  *   `sessionError`     make Stripe refuse the session
+ *   `promoCodes`       {CODE: promotion code object} Stripe answers the
+ *                      promo lookup with (see mockPromo); anything else is
+ *                      an empty list
+ *   `promoLookupDown`  the promo lookup itself fails (Stripe unreachable)
+ *   `promoRefused`     Stripe refuses the session, naming the promotion code
  */
 async function executeCheckout(body, options = {}) {
   let capturedSessionParams = null;
@@ -242,11 +279,23 @@ async function executeCheckout(body, options = {}) {
       return { ok: true, clone: () => ({ body: null }), json: async () => mockEvents };
     }
     if (u.includes("api.stripe.com/v1/promotion_codes")) {
-      /* Recorded, never answered. A gift card is a ledger balance now; a
-         Worker that still asked Stripe for one would be reading a number
-         nothing maintains. The assertions below check this stays empty. */
+      /* Recorded, and answered ONLY from `options.promoCodes` -- the promo
+         codes Stripe "has" for this run, keyed by their customer-facing
+         string. A gift card is a ledger balance now; a Worker that asked
+         Stripe for one would be reading a number nothing maintains, and the
+         gift-card assertions below check this list stays empty for them. */
       promoLookups.push(u);
-      return { ok: false, status: 404, json: async () => ({ error: "Not found" }) };
+      if (options.promoLookupDown) {
+        return { ok: false, status: 500, json: async () => ({ error: { message: "down" } }) };
+      }
+      const wanted = new URL(u).searchParams.get("code");
+      const known = options.promoCodes || {};
+      const match = Object.keys(known).find((c) => c.toUpperCase() === String(wanted || ""));
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ object: "list", data: match ? [known[match]] : [] })
+      };
     }
     if (u.includes("api.stripe.com/v1/coupons")) {
       if (method === "DELETE") {
@@ -286,6 +335,21 @@ async function executeCheckout(body, options = {}) {
       if (options.sessionError) {
         return { ok: false, json: async () => ({ error: { message: "nope" } }) };
       }
+      if (options.promoRefused) {
+        // What Stripe answers when a restriction on the promotion code fails
+        // at session creation (first-time-customer, currency, etc.).
+        return {
+          ok: false,
+          json: async () => ({
+            error: {
+              type: "invalid_request_error",
+              param: "discounts[0][promotion_code]",
+              message:
+                "This promotion code cannot be redeemed because the customer is not eligible."
+            }
+          })
+        };
+      }
       if (options.beforeReserve) await options.beforeReserve(env);
       return {
         ok: true,
@@ -303,7 +367,8 @@ async function executeCheckout(body, options = {}) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Origin: "https://yallternativeliving.com"
+        Origin: "https://yallternativeliving.com",
+        ...(options.headers || {})
       },
       body: JSON.stringify(body)
     });
@@ -784,11 +849,17 @@ async function runWorkerCheckoutTests() {
   }
 
   // Test 10: Discount Code Parsing & Session Metadata (snake_case discount_code)
+  // A code Stripe knows is looked up server-side and attached to the session
+  // itself (routes/promo-preview.js); the full contract is in
+  // scripts/worker-promo-preview.test.js.
   {
-    const result = await executeCheckout({
-      items: [{ id: "lavender-soak", qty: 1 }],
-      discount_code: "WELCOME10"
-    });
+    const result = await executeCheckout(
+      {
+        items: [{ id: "lavender-soak", qty: 1 }],
+        discount_code: "WELCOME10"
+      },
+      { promoCodes: { WELCOME10: mockPromo("WELCOME10", { percent: 10 }) } }
+    );
 
     eq(result.status, 200, "Discount code checkout returns HTTP 200");
     eq(
@@ -796,14 +867,28 @@ async function runWorkerCheckoutTests() {
       "WELCOME10",
       "metadata.discount_code captures snake_case discount_code"
     );
+    eq(
+      result.sessionParams.get("discounts[0][promotion_code]"),
+      "promo_WELCOME10",
+      "the validated code is attached to the session as its one discount"
+    );
+    eq(
+      result.sessionParams.get("allow_promotion_codes"),
+      null,
+      "...and Stripe's own code box is off (Stripe forbids both)"
+    );
+    eq(result.data.promo, { code: "WELCOME10", applied: true, estimatedDiscountCents: 180 });
   }
 
   // Test 11: Discount Code Parsing & Case Normalization (camelCase discountCode)
   {
-    const result = await executeCheckout({
-      items: [{ id: "lavender-soak", qty: 1 }],
-      discountCode: "gothspring20"
-    });
+    const result = await executeCheckout(
+      {
+        items: [{ id: "lavender-soak", qty: 1 }],
+        discountCode: "gothspring20"
+      },
+      { promoCodes: { GOTHSPRING20: mockPromo("GOTHSPRING20", { percent: 20 }) } }
+    );
 
     eq(
       result.sessionParams.get("metadata[discount_code]"),
@@ -812,7 +897,9 @@ async function runWorkerCheckoutTests() {
     );
   }
 
-  // Test 12: Discount Code Sanitization & 100 Character Clamping
+  // Test 12: Discount Code Sanitization & 100 Character Clamping. A code
+  // this shape is nothing Stripe could hold, so the checkout is refused with
+  // the reason named -- and what is echoed back is the sanitized code.
   {
     const longCode = "SAVE_" + "Z".repeat(150);
     const unprintable = "CODE\x00\x08TEST\x1F";
@@ -821,8 +908,11 @@ async function runWorkerCheckoutTests() {
       discount_code: longCode + unprintable
     });
 
-    const code = result.sessionParams.get("metadata[discount_code]");
-    assert(code != null, "Discount code is present in metadata");
+    eq(result.status, 400, "An unknown discount code refuses the checkout");
+    eq(result.data.promo && result.data.promo.reason, "unknown", "...naming the reason");
+    eq(result.sessionParams, null, "...before any Stripe session is created");
+    const code = result.data.promo && result.data.promo.code;
+    assert(code != null, "Discount code is echoed in the structured refusal");
     assert(code.length <= 100, "Discount code clamped to maximum 100 characters");
     assert(!code.includes("\x00"), "Null bytes stripped from discount_code");
     assert(!code.includes("\x1F"), "Control characters stripped from discount_code");
@@ -843,16 +933,19 @@ async function runWorkerCheckoutTests() {
 
   // Test 14: Comprehensive End-to-End Parameter & Metadata Integrity
   {
-    const result = await executeCheckout({
-      items: [
-        { id: "lavender-soak", qty: 2 },
-        { id: "frankincense-salve", qty: 1, variant: "2oz" }
-      ],
-      is_gift_order: true,
-      gift_message: "Happy Holidays from the South!",
-      pickup_market: PICKUP_LABEL,
-      discount_code: "HOLIDAY25"
-    });
+    const result = await executeCheckout(
+      {
+        items: [
+          { id: "lavender-soak", qty: 2 },
+          { id: "frankincense-salve", qty: 1, variant: "2oz" }
+        ],
+        is_gift_order: true,
+        gift_message: "Happy Holidays from the South!",
+        pickup_market: PICKUP_LABEL,
+        discount_code: "HOLIDAY25"
+      },
+      { promoCodes: { HOLIDAY25: mockPromo("HOLIDAY25", { percent: 25 }) } }
+    );
 
     eq(result.status, 200, "Comprehensive checkout returns HTTP 200");
     eq(
@@ -2097,6 +2190,334 @@ async function runWorkerCheckoutTests() {
     eq(after.balanceCents, 0, "the card was not debited twice");
   }
 
+  /* ==========================================================================
+     2026-09-09 audit: tracked stock is per PRODUCT, lines are per option and a
+     box holds several products, so a per-line cap oversold. One allocation
+     across the whole cart, in cart order.
+     ========================================================================== */
+  {
+    // frankincense-salve has stock 8. Two size lines asking 6 each used to
+    // ship 12; the second line now gets what is left.
+    const twoSizes = await executeCheckout({
+      items: [
+        { id: "frankincense-salve", qty: 6, variant: "2oz" },
+        { id: "frankincense-salve", qty: 6, variant: "1oz" }
+      ]
+    });
+    eq(twoSizes.status, 200, "two option lines of one stocked product check out");
+    eq(twoSizes.sessionParams.get("line_items[0][quantity]"), "6", "first line takes 6 of 8");
+    eq(twoSizes.sessionParams.get("line_items[1][quantity]"), "2", "second line gets the 2 left");
+
+    // A second line that finds nothing left is refused BY NAME, structurally,
+    // so the drawer drops that line rather than the whole cart.
+    const nothingLeft = await executeCheckout({
+      items: [
+        { id: "last-three-balm", qty: 3 },
+        { id: "lavender-soak", qty: 1 },
+        { id: "last-three-balm", qty: 1 }
+      ]
+    });
+    eq(nothingLeft.status, 400, "a duplicate line with no stock left is refused");
+    eq(nothingLeft.data.error, "Sold out: Last Three Balm", "...naming the product");
+    eq(
+      nothingLeft.data.unavailable,
+      [{ id: "last-three-balm", reason: "sold_out" }],
+      "...and identifying the line structurally"
+    );
+    eq(nothingLeft.sessionParams, null, "...before anything reaches Stripe");
+
+    // The volume tier counts the ALLOCATED units, same as the lines.
+    const tier = await executeCheckout({
+      items: [
+        { id: "last-one-salve", qty: 1 },
+        { id: "last-one-salve", qty: 1 }
+      ]
+    });
+    eq(tier.status, 400, "the second unit of a stock-1 salve is refused");
+    eq(tier.data.unavailable, [{ id: "last-one-salve", reason: "sold_out" }], "...by name");
+
+    // Boxes: capped by the scarcest tracked content, and they consume it.
+    const fiveBoxes = await executeCheckout({
+      items: [
+        {
+          id: "custom-box",
+          qty: 5,
+          boxProductIds: ["lavender-soak", "frankincense-salve", "last-one-salve"]
+        }
+      ]
+    });
+    eq(fiveBoxes.status, 200, "five boxes holding a stock-1 product still check out");
+    eq(fiveBoxes.sessionParams.get("line_items[0][quantity]"), "1", "...as ONE box");
+
+    const boxAfterLine = await executeCheckout({
+      items: [
+        { id: "last-three-balm", qty: 2 },
+        {
+          id: "custom-box",
+          qty: 3,
+          boxProductIds: ["lavender-soak", "frankincense-salve", "last-three-balm"]
+        }
+      ]
+    });
+    eq(boxAfterLine.status, 200, "a box after a line of the same product checks out");
+    eq(boxAfterLine.sessionParams.get("line_items[0][quantity]"), "2", "the line keeps its 2");
+    eq(boxAfterLine.sessionParams.get("line_items[1][quantity]"), "1", "the box gets the 1 left");
+
+    const boxNothingLeft = await executeCheckout({
+      items: [
+        { id: "last-one-salve", qty: 1 },
+        {
+          id: "custom-box",
+          qty: 1,
+          boxProductIds: ["lavender-soak", "frankincense-salve", "last-one-salve"]
+        }
+      ]
+    });
+    eq(boxNothingLeft.status, 400, "a box whose content was taken by an earlier line is refused");
+    eq(boxNothingLeft.data.error, "Sold out: Last One 2oz Salve", "...naming the content");
+    eq(
+      boxNothingLeft.data.unavailable,
+      [{ id: "custom-box", reason: "member_unavailable", member: "last-one-salve" }],
+      "...and the box line, structurally"
+    );
+
+    // Twice in one box = two units per box.
+    const doubled = await executeCheckout({
+      items: [
+        {
+          id: "custom-box",
+          qty: 4,
+          boxProductIds: ["lavender-soak", "last-three-balm", "last-three-balm"]
+        }
+      ]
+    });
+    eq(doubled.status, 200, "a box listing a product twice checks out");
+    eq(
+      doubled.sessionParams.get("line_items[0][quantity]"),
+      "1",
+      "...capped at floor(3 / 2) boxes"
+    );
+
+    // Untracked stock is unchanged: no cap at all.
+    const untracked = await executeCheckout({
+      items: [
+        { id: "lavender-soak", qty: 40 },
+        { id: "lavender-soak", qty: 40 }
+      ]
+    });
+    eq(untracked.status, 200, "untracked products are not capped");
+    eq(untracked.sessionParams.get("line_items[1][quantity]"), "40", "...on any line");
+  }
+
+  /* ==========================================================================
+     2026-09-09 audit: a gift card amount is parsed, never clamped.
+     ========================================================================== */
+  {
+    const okCard = await executeCheckout({
+      items: [{ id: "yallternative-gift-card", qty: 1, variant: "Preset $25" }]
+    });
+    eq(okCard.status, 200, "a well-formed preset inside the range sells");
+    eq(
+      okCard.sessionParams.get("line_items[0][price_data][unit_amount]"),
+      "2500",
+      "...at its amount"
+    );
+
+    for (const label of ["Preset $999", "Preset $5", "Preset $abc", "", "25", "Preset $25.001"]) {
+      const bad = await executeCheckout({
+        items: [{ id: "yallternative-gift-card", qty: 1, variant: label }]
+      });
+      eq(bad.status, 400, `gift card label ${JSON.stringify(label)} is refused, not clamped`);
+      eq(
+        bad.data.error,
+        "Product not purchasable: yallternative-gift-card",
+        "...as not purchasable"
+      );
+      eq(bad.sessionParams, null, "...before Stripe");
+    }
+  }
+
+  /* ==========================================================================
+     2026-09-09 audit: /checkout is rate limited per client like every other
+     public route, and fails open without a limiter backend.
+     ========================================================================== */
+  {
+    const { RateLimitCounter } = await import("../workers/state/rate-limit.js");
+    const limiterEnv = { RATE_LIMIT_COUNTER: makeNamespace(RateLimitCounter) };
+    const ip = "203.0.113.77";
+    const cart = { items: [{ id: "lavender-soak", qty: 1 }] };
+    let lastStatus = null;
+    for (let i = 0; i < workerModule.CHECKOUT_RATE_LIMIT.limit; i++) {
+      const r = await executeCheckout(cart, {
+        env: limiterEnv,
+        headers: { "X-Forwarded-For": ip }
+      });
+      lastStatus = r.status;
+    }
+    eq(lastStatus, 200, "checkouts up to the limit succeed");
+    const over = await executeCheckout(cart, {
+      env: limiterEnv,
+      headers: { "X-Forwarded-For": ip }
+    });
+    eq(over.status, 429, "one more in the same minute is rate limited");
+    eq(
+      over.data.error,
+      "Too many checkout attempts. Please wait a minute and try again.",
+      "...with shopper-safe copy"
+    );
+    eq(over.sessionParams, null, "...and never reaches Stripe");
+    const other = await executeCheckout(cart, {
+      env: limiterEnv,
+      headers: { "X-Forwarded-For": "198.51.100.9" }
+    });
+    eq(other.status, 200, "another client is not affected");
+    // Spoof attempt: junk prepended to XFF does not pick a new bucket when the
+    // Netlify hop appended the real client after it.
+    const spoof = await executeCheckout(cart, {
+      env: limiterEnv,
+      headers: { "X-Forwarded-For": `10.0.0.${Math.floor(Math.random() * 250)}, ${ip}` }
+    });
+    eq(spoof.status, 429, "a prepended X-Forwarded-For entry does not escape the bucket");
+    const open = await executeCheckout(cart, { headers: { "X-Forwarded-For": ip } });
+    eq(open.status, 200, "with no limiter backend, checkout fails open");
+  }
+
+  /* ---- The inventory ledger sits between the catalog and the cart ---------
+     With STATE_DB bound, the tracked `stock` in products.json is only the
+     SEED: what the ledger has left after earlier sessions' holds is what
+     caps this cart, and the session that goes through holds its units. The
+     full state machine is scripts/worker-inventory.test.js; this is the
+     seam in the checkout flow. Every test above ran WITHOUT STATE_DB and
+     is the fail-open behaviour the ledger must leave intact. */
+  {
+    const { DatabaseSync } = require("node:sqlite");
+    const { makeD1 } = require("./lib/d1-emulator.js");
+    const { applyMigrations, resetSchemaMemo } = await import("../workers/state/migrations.js");
+    const { holdRows, resetInventoryMemo } = await import("../workers/state/inventory.js");
+    resetSchemaMemo();
+    resetInventoryMemo();
+    const db = makeD1(new DatabaseSync(":memory:"));
+    await applyMigrations(db);
+    const first = await executeCheckout(
+      { items: [{ id: "last-three-balm", qty: 2 }] },
+      {
+        env: { STATE_DB: db }
+      }
+    );
+    eq(first.status, 200, "ledger bound: a cart within the count checks out");
+    eq(
+      (await holdRows(db, "cs_test_mock_session")).map((r) => [r.product_id, r.qty, r.state]),
+      [["last-three-balm", 2, "active"]],
+      "...and the session holds the 2 units it will sell"
+    );
+    // The same mock session id is what Stripe answers every time here, so
+    // release it as the expiry webhook would before the next cart.
+    const { releaseInventory } = await import("../workers/state/inventory.js");
+    await releaseInventory(db, "cs_test_mock_session");
+    await db.prepare("DELETE FROM inventory_holds").run();
+    await db
+      .prepare(
+        "UPDATE inventory SET on_hand = 1, reserved = 0 WHERE product_id = 'last-three-balm'"
+      )
+      .run();
+    const capped = await executeCheckout(
+      { items: [{ id: "last-three-balm", qty: 3 }] },
+      {
+        env: { STATE_DB: db }
+      }
+    );
+    eq(
+      capped.status,
+      200,
+      "with 1 left on the ledger (3 in products.json) the cart still goes through"
+    );
+    eq(
+      capped.sessionParams.get("line_items[0][quantity]"),
+      "1",
+      "...for the 1 unit the ledger has, not the 3 the static catalog claims"
+    );
+    await db.prepare("DELETE FROM inventory_holds").run();
+    await db
+      .prepare(
+        "UPDATE inventory SET on_hand = 0, reserved = 0 WHERE product_id = 'last-three-balm'"
+      )
+      .run();
+    const gone = await executeCheckout(
+      { items: [{ id: "last-three-balm", qty: 1 }] },
+      {
+        env: { STATE_DB: db }
+      }
+    );
+    eq(gone.status, 400, "sold out on the ledger while products.json still says 3: refused");
+    eq(
+      gone.data.unavailable,
+      [{ id: "last-three-balm", reason: "sold_out" }],
+      "...with the line named so the drawer drops it"
+    );
+    eq(gone.sessionParams, null, "...before any Stripe session is created");
+  }
+
+  /* ======================================================================
+     Red team, 2026-09-09: sessions expire in 31 minutes; a limiter that
+     throws fails open; the gift-card unwind releases the inventory hold.
+     ====================================================================== */
+  {
+    const plain = await executeCheckout({ items: [{ id: "lavender-soak", qty: 1 }] });
+    const exp = Number(plain.sessionParams.get("expires_at"));
+    const ahead = exp - Math.floor(Date.now() / 1000);
+    assert(
+      ahead >= workerModule.SESSION_EXPIRES_SECONDS - 5 &&
+        ahead <= workerModule.SESSION_EXPIRES_SECONDS + 5,
+      `the session expires ${workerModule.SESSION_EXPIRES_SECONDS}s out (got ${ahead}s)`
+    );
+    assert(ahead >= 30 * 60, "...never under Stripe's 30-minute floor");
+
+    const throwing = makeNamespace(
+      class {
+        async fetch() {
+          throw new Error("Durable Object reset");
+        }
+      }
+    );
+    const survived = await executeCheckout(
+      { items: [{ id: "lavender-soak", qty: 1 }] },
+      { env: { RATE_LIMIT_COUNTER: throwing } }
+    );
+    eq(survived.status, 200, "a rate-limit backend that throws fails OPEN; checkout still works");
+
+    const { DatabaseSync } = require("node:sqlite");
+    const { makeD1 } = require("./lib/d1-emulator.js");
+    const { applyMigrations, resetSchemaMemo } = await import("../workers/state/migrations.js");
+    const { holdRows, resetInventoryMemo } = await import("../workers/state/inventory.js");
+    resetSchemaMemo();
+    resetInventoryMemo();
+    const db = makeD1(new DatabaseSync(":memory:"));
+    await applyMigrations(db);
+    const raced = await executeCheckout(
+      {
+        items: [{ id: "last-three-balm", qty: 2 }],
+        gift_card_code: "YALL-HOLD-HOLD-HOLD"
+      },
+      {
+        cards: { "YALL-HOLD-HOLD-HOLD": 500 },
+        env: { STATE_DB: db },
+        beforeReserve: async (env) => {
+          const { giftCardLedger } = await import("../workers/state/gift-card-ledger.js");
+          await giftCardLedger(env, "YALL-HOLD-HOLD-HOLD").reserve({
+            sessionId: "cs_other_tab",
+            cents: 500
+          });
+        }
+      }
+    );
+    eq(raced.status, 409, "the gift-card race still answers 409");
+    eq(
+      (await holdRows(db, "cs_test_mock_session")).map((r) => [r.product_id, r.qty, r.state]),
+      [["last-three-balm", 2, "released"]],
+      "...and the inventory hold taken for that session is released at once, not in 31 minutes"
+    );
+  }
+
   console.log(`\nworker-checkout.test.js: ${passed} passed, ${failed} failed`);
   if (require.main === module) {
     process.exit(failed ? 1 : 0);
@@ -2111,4 +2532,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { runWorkerCheckoutTests, executeCheckout };
+module.exports = { runWorkerCheckoutTests, executeCheckout, mockPromo, mockCatalog };

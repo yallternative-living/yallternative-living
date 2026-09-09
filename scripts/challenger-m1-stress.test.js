@@ -389,12 +389,14 @@ async function testWorkerAdversarial() {
     eq(res.sessionParams.get("line_items[0][quantity]"), "1", "qty -10 clamped to 1");
     eq(res.sessionParams.get("line_items[1][quantity]"), "1", "qty 0 clamped to 1");
     eq(res.sessionParams.get("line_items[2][quantity]"), "1", "qty NaN clamped to 1");
-    // lavender-soak carries stock: 5 in this fixture, and tracked stock now
-    // caps the line -- you cannot buy 99 of the 5 that exist.
+    // lavender-soak carries stock: 5 in this fixture, and tracked stock caps
+    // the CART, not each line (allocateStock, 2026-09-09): the three lines
+    // above already took one unit each, so this one gets the 2 that are left
+    // -- a per-line cap of 5 would have sold 8 of the 5 that exist.
     eq(
       res.sessionParams.get("line_items[3][quantity]"),
-      "5",
-      "qty 9999999 clamped to the 5 units actually in stock"
+      "2",
+      "qty 9999999 clamped to the 2 units left after the earlier lines"
     );
 
     // With no stock tracked (stock absent), the MAX_QTY_PER_ITEM cap applies.

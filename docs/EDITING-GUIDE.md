@@ -56,7 +56,7 @@ English, and you do not have to do anything about it. When you save a change to
 a product name, blurb, description or any other wording in `/admin`, a helper
 runs on its own and writes the five translations within about ten minutes.
 Until it finishes, that one piece of wording simply shows in English to a
-shopper who has picked another language — nothing looks broken and nothing
+customer who has picked another language — nothing looks broken and nothing
 needs fixing. If a sentence ever cannot be translated safely (for example, it
 would turn a nice description into a health claim, which the law is strict
 about for skincare), it is left in English on purpose and Steven gets a note
@@ -87,7 +87,7 @@ genuinely something to look at.
 
 ### A note on search words
 
-You do not have to guess what a shopper will type. Fill in **Search keywords**
+You do not have to guess what a customer will type. Fill in **Search keywords**
 on a product with whatever comes to mind and leave the rest alone — after you
 save, the site adds more search words for you, on its own, within a few minutes.
 It adds the plain-language ones people actually use ("that bug stuff"), the
@@ -101,19 +101,19 @@ your product — they exist only so the search box can find the right thing.
 
 Symptoms and conditions still stay out of Search keywords, exactly as the hint
 under the field says: those go under **Site Settings → Search settings → Extra
-search words**, which only translate what a shopper typed and are never shown
+search words**, which only translate what a customer typed and are never shown
 anywhere. The site follows the same rule when it adds words for you, and Steven
 gets a list of anything it decided not to add.
 
 ### When somebody searches a medical word
 
-Some shoppers will type a condition or a medicine word into the search box —
+Some customers will type a condition or a medicine word into the search box —
 "psoriasis", "cure", "pain", "wound salve" — and some will type a bug word,
 "mosquito bites" or "ticks". You do not have to write anything for that, and you
 should not try to. The site already recognises those words. It shows a short
 note above the results that says we make comfort products, not medicines, and
 that nothing here is meant to diagnose, treat, cure or prevent anything, and it
-points the shopper at the right shelf — dry, rough skin, or wind-down, or after
+points the customer at the right shelf — dry, rough skin, or wind-down, or after
 a long day, or porch nights and trail days — by name, not by condition and not
 by bug. Their ordinary words still work while it does: "wound salve" still
 brings back the salves and "bug spray" still brings back the bug spray, because
@@ -154,13 +154,21 @@ For products available in different sizes (e.g. 1 oz vs 2 oz salve, 4 oz vs 8 oz
    - **⚠️ Character Trap**: Never use the characters `[`, `]`, or `|` inside option names (e.g. write `2 oz Glass Jar`, **not** `2 oz [Jar]`), as those symbols are used internally by the shopping cart.
 
 #### C. The 5 Inventory & Availability States
-Manage stock with complete transparency and urgency without artificial hype:
+Manage stock with complete transparency and urgency without artificial hype.
+
+**The count runs itself.** **Stock count** is where you *set* a number; the shop then counts it down on its own as orders are paid (and puts units back when a checkout is abandoned or an order is fully refunded). A product you set to `10` that sells 3 shows "Only 7 left" — and, at 0, "Sold Out" — with no edit from you and no publish. Two things follow from that:
+
+- **Saving a new Stock count resets the live count to that number.** Only retype it when you have actually recounted the shelf; re-saving the product with the *same* number leaves the live count alone.
+- **Site settings → Shop → Show live stock counts** (on by default) is the switch for the shop showing the live number. Off, product cards show the count as it was at the last publish; checkout still uses the live one so it can never sell what has already gone.
+
+The "Stock count" field is the only place a count is entered — there is nothing to update elsewhere.
+
 
 | Desired Storefront Experience | What Customers See | How to Configure in `/admin` |
 |---|---|---|
 | **1. Made-to-Order / Unlimited** | Standard active "Add to Cart" button | Leave **Stock count** blank (empty) and ensure **In stock** is checked. |
-| **2. Low-Stock Urgency Badge** | "Only 3 left! — order soon" warning badge on card | Enter a number from `1` to `5` in **Stock count**. |
-| **3. Entire Product Sold Out** | "Sold Out" badge; buy button replaced with "Email Me When Restocked" signup | Enter `0` in **Stock count** OR uncheck **In stock**. |
+| **2. Low-Stock Urgency Badge** | "Only 3 left! — order soon" warning badge on card | Enter a number from `1` to `5` in **Stock count** — or set any number and let sales bring it down to 5. |
+| **3. Entire Product Sold Out** | "Sold Out" badge; buy button replaced with "Email Me When Restocked" signup | Enter `0` in **Stock count** OR uncheck **In stock** — or let the last unit sell; the live count reaching 0 does the same. |
 | **4. Single Variant Sold Out** | Size dropdown displays option greyed out (e.g. "1 oz — sold out"; unclickable) | Expand **Variants → Options**, find that option, and switch **Sold out?** to `ON`. *Never delete the option, so customers know you make it and it will return!* |
 | **5. Coming Soon / Launch Signup** | "Coming Soon" badge; buy button replaced with "Email Me When It Launches" signup | Switch **Coming soon** to `ON` (checked). |
 
@@ -201,14 +209,14 @@ Put an entire category on sale at once (e.g. 15% off all *Body & Skin*):
 2. Click **Add Sale**.
 3. **Which category is on sale**: Pick the category from the dropdown (e.g. `Body & Skin`).
 4. **Percent off**: Type the percentage discount (e.g. `15` for 15% off).
-5. **Sale name shoppers see**: Enter the badge headline (e.g. `Spring Body Care Sale`).
+5. **Sale name customers see**: Enter the badge headline (e.g. `Spring Body Care Sale`).
 6. Click **Save**. Every item in that category automatically shows a sale badge, calculated discount price, and crossed-out regular price.
 
 #### B. Single-Product Sale
 Put just one item on flash sale:
 1. In **Products**, open the item.
 2. Expand the **Sale** box.
-3. Enter the **Sale price ($)** (e.g. `15.00`) and the **Sale name shoppers see** (e.g. `Flash Sale`).
+3. Enter the **Sale price ($)** (e.g. `15.00`) and the **Sale name customers see** (e.g. `Flash Sale`).
 4. In **Original price**, enter the regular price (e.g. `20`) so the crossed-out comparison price appears.
 5. Click **Save**.
 
@@ -242,7 +250,69 @@ At the top of **Shop & Products**:
 | **Product categories** | `Product categories` | Add or rename category buttons across the top of `/shop.html`. |
 | **Shop FAQ** | `FAQ` | Add or edit question & answer pairs displayed in the FAQ accordion on the Shop and Contact pages. |
 
+#### The phone filter bar
+
+On a phone the shop no longer shows every category and concern button above
+the products. Customers get one row -- the search box, a **Filter** button
+(with a little count of how many filters are on) and a **Sort** button -- and
+tapping either slides up a panel holding the same category, concern, scent
+and sort choices. Filters they pick show as small removable chips above the
+products, with a **Clear all** next to them. Tablets and computers still show
+the full row of buttons exactly as before.
+
+The categories, concerns and scents in that panel are the ones you already
+manage (**Product categories**, **Shop concerns**, each product's **Scent**);
+nothing about editing them changes. The words on the row and the panel are
+yours too: **Site Settings → Shop page → Phone filter bar wording**.
+
+| Field | What it is | Standard wording |
+|---|---|---|
+| **Filter button** | Opens the panel. The count of active filters is added for you. | `Filter` |
+| **Sort button** | Opens the panel at the sort choices. | `Sort` |
+| **Panel heading** | The title at the top of the slide-up panel. | `Filter & sort` |
+| **Category group heading** / **Concern group heading** | The small headings above each group of buttons inside the panel. | `Category` / `Concern` |
+| **Apply button** | Closes the panel and shows the results. | `Apply` |
+| **Clear-all button** | Resets every filter and the search box. Shown in the panel and next to the chips. | `Clear all` |
+| **Active filters label** / **Remove-chip word** | Read aloud by screen readers only (the chip row's name, and the word before a chip's name, e.g. "Remove Salves & Balms"). Never shown on screen. | `Active filters` / `Remove` |
+
+Leave any field blank to keep the standard wording. Like the rest of the
+site's copy, new wording is picked up by the translation run described in
+"A note on the other five languages" above -- write it in English only.
+
 ---
+
+### Walkthrough 5a: Promo codes (discount codes)
+
+Promo codes are **not** created in the dashboard -- they live in Stripe, which
+is what actually takes the money off. The click-by-click for making one is in
+`docs/SETUP-GUIDE.md`, Step 3, part E. What the dashboard controls is how the
+shop *presents* them:
+
+| Setting | Where to Find It | What It Controls |
+|---|---|---|
+| **Accept promo codes in the cart** | `Site Settings` -> `⚙️ Site Settings` -> `Shop · Accept promo codes in the cart` | ON (the default) adds a "Have a code?" box to the cart, beside the gift card one. The shop checks the code with Stripe the moment it is typed and shows the discount and the new total *before* checkout, so nobody finds out on the payment page. OFF hides the box; Stripe's own code field on the payment page still works. |
+| **Promo code prompt** | same screen -> `Shop · Promo code prompt` | The words on that box ("Have a code?"). Keep it short -- it shares a row with the gift card prompt. |
+| **Promo code + gift card notice** | same screen -> `Shop · Promo code + gift card notice` | The sentence shown when someone has a gift card applied and enters a promo code too. Stripe allows **one** discount per order, so the code waits (it is kept, greyed out) until the gift card is removed. |
+
+Things worth knowing:
+
+- A code is checked twice: once in the cart (so the total is right) and again
+  at checkout (so the total Stripe charges is the one the cart showed). A code
+  that stops working in between -- expired, used up, or the cart dropped under
+  its minimum -- is taken off with a plain sentence, never silently charged at
+  full price.
+- The cart re-checks a code on its own when the cart changes, so a
+  "$50 minimum" code that was applied at $60 comes off (and says why) if the
+  customer removes something.
+- What customers see when a code does not work is written in the site, not by
+  Stripe: "That code isn't valid", "This code needs a subtotal of at least
+  $50", "That code has expired or has already been used". No Stripe wording,
+  and never the code's internal ids.
+- Coupons in Stripe that are limited to specific Stripe *products* do not work
+  here (the shop builds its prices at checkout time rather than from Stripe's
+  product catalog) -- make coupons that apply to the whole order.
+- Free shipping is not something a code can grant: Stripe discounts the goods,
+  never the postage. Use the free-shipping threshold for that.
 
 ### Walkthrough 5b: Marking an order shipped
 
@@ -294,6 +364,38 @@ so it always sends.
 
 ---
 
+### Walkthrough 5c: The "Your Orders" page
+
+`/orders.html` lets a customer who has bought here before see every order
+placed with their email — what they bought, the total, whether it has shipped,
+the tracking link — and put the same things back in their cart with one
+button. **There are no accounts and no passwords.** They type the email they
+ordered with, the shop emails them a link, and the link opens their orders.
+The link works once and dies after 24 hours; if they want to look again they
+ask for a fresh one.
+
+Nothing to set up: it uses the same Resend key that sends gift cards and the
+same signing secret the points links use.
+
+**What you can change (Site Settings → Your Orders page):** the small line
+above the headline, the headline, the intro paragraph, the email box label
+and the note under it, the button text, and the confirmation shown after the
+button is pressed. One rule for the confirmation: keep it neutral — "if we
+have orders for that address, a link is on its way". The page shows exactly
+the same words whether or not that email has ever ordered, so nobody can type
+someone else's address into it to find out if they shop here.
+
+**One switch (Site Settings → ⚙️ Site Settings → Shop · Show the Your Orders
+page):** off hides the links to it in the footer, on the thank-you page and on
+the order-status page, and the page itself shows an "email us" note instead of
+the form. Orders keep being recorded either way, so switching it back on shows
+everything.
+
+**Points:** if **Show Customer Rewards Points** is on, the page also shows the
+customer's Alt-Points balance and how far they are from the next reward code.
+
+---
+
 ### Walkthrough 6: Pop-Ups, Reviews, Blog, Social Feed & Site Settings
 
 #### A. Pop-Up Markets & Pride Events (Markets & Pop-Ups)
@@ -310,10 +412,11 @@ so it always sends.
 
 #### C. Journal / Blog (Journal)
 1. Click **Journal** in the sidebar to see the list of posts. Click a post to edit it, or **New Post** (top right) to write one.
-2. (The page title and intro line shown above the post list live under **Site Settings → Journal page**.)
-3. Enter the title, date, and a **Short teaser** (1–2 sentences for card previews).
+2. (The page title and intro line shown above the post list live under **Site Settings → Journal page**, along with the three small labels every post page carries: the **← Back to Journal** link and the **Newer post** / **Older post** links at the bottom.)
+3. Enter the title, date, and a **Short teaser** (1–2 sentences for card previews; it is also the description search engines and social cards show for the post).
 4. Write your story in the main content box using the formatting toolbar (bold, italics, headings, bullet lists).
 5. Estimated reading time calculates automatically when published!
+6. **Every post gets its own web page**, built from the title the **first** time you save (so "Why Magnesium & Arnica?" becomes `yallternativeliving.com/journal/why-magnesium-arnica.html`) -- that is the address the Journal list, the RSS feed, search engines and social cards all use, so it is the one to share. It never changes afterwards, even if you retitle the post, so a link you have already shared keeps working. You never type the address yourself. The featured product you pick shows as a card on the post page with a link to that product's own page and a one-click **Add to Cart**.
 
 #### D. Social Media Feed (Social Media Feed)
 1. Click **Social Media Feed**.
@@ -329,27 +432,32 @@ so it always sends.
    - Local Market Pickup
    - Live Event Countdown Ticker
    - Scent Filter
-   - Apothecary Journal Blog (currently **off**: the nav link, the page, the
+   - Apothecary Journal Blog (while it is off, the nav link, the page, the post pages, the
      RSS feed and the search index all stay empty until you switch it on)
    - UGC Social Feed
+4. Also under **Site Settings**, in the **Emails to me** group, is
+   **Where shop alerts go**. The checkout system watches itself: if an order
+   doesn't register after a payment goes through, if sales tax could not be switched on for an order,
+   if an hourly job died, or if an email to a customer could not be sent after
+   several tries, it emails a short plain-English alert saying what broke, the
+   order or session it concerns, and what to check. Type the address those
+   alerts should go to, or leave it blank and they go to the shop's order
+   mailbox. You will never get more than one email about the same problem in
+   any six-hour stretch, so a bad night is one message, not fifty. If an alert
+   arrives and you are not sure what it means, forward it to Steven.
 
-   **Two switches in that panel no longer switch anything.** They are still
-   drawn by the dashboard, but the features behind them have been withdrawn,
-   so ticking or unticking them changes nothing on the live site. They should
-   be removed from the dashboard next time `admin/config.yml` is touched:
+   **Two switches in that panel do less than their labels suggest.**
 
    - **Show Customer Rewards Points** (`enableLoyaltyPoints`, and the four
-     related "Rewards Currency" fields). Nothing ever credited points -- the
-     only balance was in the shopper's own browser -- and the redeem button
-     called an endpoint that minted real store credit for anyone who asked.
-     The earn message, the cart counter and the redeem button are all removed
-     until there is a real, server-side points ledger. Offer a discount code
-     instead; that is a reward the shop can actually honour.
-   - **Show Order Lookup Tool** (`enableOrderStatusLookup`). The lookup
-     answered every enquiry with the same invented "Order Confirmed" order,
-     whatever was typed into it, and the toggle was read by nothing even then.
-     `/order-status` is now an honest contact hand-off: it takes the order
-     reference and points the customer at email.
+     related "Rewards Currency" fields). Points are credited server-side from
+     every paid order and paid out automatically as a discount code at the
+     threshold, whatever this switch says; the earn message, the cart counter
+     and the redeem button stay removed. What the switch DOES control is
+     whether the customer's balance is shown on the **Your Orders** page
+     (Walkthrough 5c) -- off hides it there.
+   - **Show Order Lookup Tool** (`enableOrderStatusLookup`). `/order-status`
+     now does a real lookup against Stripe (reference + email); off hides the
+     lookup form and shows the contact route instead.
 
 ---
 
@@ -396,7 +504,9 @@ The dashboard gives you control over your entire catalog, promotions, pricing, m
 | **Mark one size sold out** | `1. Products` → `Variants` → Switch `Sold out?` to ON | Size shows as greyed-out "(Sold out)" in picker |
 | **Mark whole item sold out** | `1. Products` → Set `Stock count` to 0 or uncheck `In stock` | Shows "Sold Out" badge & Restock Email signup |
 | **Show low stock urgency** | `1. Products` → Set `Stock count` to 1, 2, 3, 4, or 5 | Shows "Only X left! — order soon" badge |
-| **Set up 2+ Multi-Buy Deal** | `1. Products` → `Multi-buy deals` | Shoppers mixing qualifying items get auto unit discounts |
+| **Restock a sold-out item** | `1. Products` → Set `Stock count` to the new number | The live count resets to it; badge and buy button follow at once |
+| **Hide live counts on the shop** | `Site settings` → `Shop` → untick `Show live stock counts` | Cards show the last-published count; checkout still uses the live one |
+| **Set up 2+ Multi-Buy Deal** | `1. Products` → `Multi-buy deals` | Customers mixing qualifying items get auto unit discounts |
 | **Run category % off sale** | `1. Products` → `Category sales` | Sale banner, strikethrough prices & cart discounts |
 | **Create gift bundle** | `1. Products` → `Bundles` → Pick products & discount % | Pre-made set with auto-calculated price |
 | **Change free shipping minimum** | `1. Products` → `Shop details & shipping` → `Free shipping threshold` | Progress bar & checkout threshold update |
@@ -405,9 +515,14 @@ The dashboard gives you control over your entire catalog, promotions, pricing, m
 | **Publish blog post** | `4. Apothecary Journal` → Add post with visual editor | Live blog article with calculated read time |
 | **Update hero / About story** | `Site Settings` | Text and photos update across homepage & About |
 | **Toggle site features** | `Site Settings` → `⚙️ Site Settings` | Turn quiz, rewards, ticker, or pickup on/off |
+| **Make a promo code** | Stripe → `Products` → `Coupons` → `New` → then `Promotion codes` → `New` (see SETUP-GUIDE Step 3E) | Customers can type it in the cart's "Have a code?" box and see the discount before checkout |
+| **Turn the cart's code box off** | `Site Settings` → `⚙️ Site Settings` → untick `Shop · Accept promo codes in the cart` | The box disappears; Stripe's own code field at checkout still works |
 | **Edit the "how to use it" email** | `1. Products` → Click product → `Usage & care` | Same copy the product page shows and the after-delivery email sends |
 | **Turn that email off, or move it** | `Site Settings` → `⚙️ Site Settings` → `Emails to customers · …` | Switch it off entirely, or change how many days after shipping it goes |
-| **Tell a customer it shipped** | Stripe → the payment → `Metadata` | Sends the tracking email and updates their order status page (see below) |
+| **Tell a customer it shipped** | Stripe → the payment → `Metadata` | Sends the tracking email and updates their order status page and their Your Orders page (see below) |
+| **Change the wording on the Your Orders page** | `Site Settings` → `Your Orders page` | Headline, intro, labels, button, confirmation (Walkthrough 5c) |
+| **Hide the Your Orders page** | `Site Settings` → `⚙️ Site Settings` → `Shop · Show the Your Orders page` | Off hides its links and shows an "email us" note on the page |
+| **Choose where "something broke" alerts go** | `Site Settings` → `⚙️ Site Settings` → `Emails to me · Where shop alerts go` | Failures behind the scenes are emailed there (blank = the order mailbox), at most one per problem every six hours |
 
 ---
 

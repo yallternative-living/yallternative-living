@@ -29,10 +29,9 @@ To start taking payments, sending newsletters, or moderating reviews directly on
 2. **[ ] Customer Checkout & Credit Cards (Stripe + Cloudflare):** Two accounts, not one — but you create both yourself, same as everything else on this list. **(a)** Sign up for Stripe and grab a secret key — same as any account here. **(b)** Sign up for Cloudflare too, then invite me in as a Member. That key doesn't do anything by itself: it has to be installed on a small piece of backend code (`workers/checkout.js`) that also has to be _deployed_ inside your Cloudflare account using a command-line tool called Wrangler — that part is genuinely my job, not a form to fill out. Ask me to run it once you've invited me in. (Full steps in [Section 8](#8-the-shopping-system-explained) and `workers/README.md`.)
 3. **[ ] Email Newsletters (Kit):** Collects customer email addresses from the signup box in the footer so you can send them updates. (Setup steps in [Section 13](#13-newsletter-signup-explained)).
 4. **[ ] Contact Form, Customer Reviews & Restock Alerts (Formspree):** Create three separate forms — contact messages, new customer reviews, and "email me when it's back" signups from sold-out products — each sent directly to your email inbox. (Setup steps in [Section 16](#16-on-site-review-submissions-explained)).
-5. **[ ] Gift Card Emails (Resend):** Required for the built-in gift-card system (item 2's checkout Worker uses it) to actually email a redeemable code once someone buys one — not optional unless you replace gift cards entirely with item 6. (Setup steps in `workers/README.md`.)
-6. ~~Digital Gift Cards — optional upgrade (Gift Up!)~~ **Not usable yet — nothing to do here.** A possible future paid alternative to item 5's built-in system, but the code that would actually switch to it was never finished, so its CMS field is hidden (`widget: hidden` in `admin/config.yml`) rather than shown-but-unusable. See [Section 18](#18-digital-gift-cards-explained) for the honest status check.
-7. **[ ] Customer Live Chat (Tawk.to - Optional):** Adds a small chat bubble to the bottom of the pages so customers can ask you questions. (Setup steps in [Section 19](#19-live-chat-explained)).
-8. **[ ] Store Management (Sveltia CMS):** Log in to your secure admin panel with GitHub to manage products and content. Log in **today** with a GitHub token ("Sign in with Token"), or set up the permanent one-click "Sign in with GitHub" button. **Netlify is not involved** (its old Git Gateway login is deprecated). See [Section 20](#20-product-editor-sveltia-cms-at-admin-explained).
+5. **[ ] Gift Card Emails (Resend):** Required for the built-in gift-card system (item 2's checkout Worker uses it) to actually email a redeemable code once someone buys one — not optional. (Setup steps in `workers/README.md`.)
+6. **[ ] Customer Live Chat (Tawk.to - Optional):** Adds a small chat bubble to the bottom of the pages so customers can ask you questions. (Setup steps in [Section 19](#19-live-chat-explained)).
+7. **[ ] Store Management (Sveltia CMS):** Log in to your secure admin panel with GitHub to manage products and content. Log in **today** with a GitHub token ("Sign in with Token"), or set up the permanent one-click "Sign in with GitHub" button. **Netlify is not involved** (its old Git Gateway login is deprecated). See [Section 20](#20-product-editor-sveltia-cms-at-admin-explained).
 
 ### 3. Setting Up Your Website Name (Domain Name)
 
@@ -634,8 +633,11 @@ request.
 | `/api/checkout` -> `workers/checkout.js`                          | Cloudflare Worker (Netlify proxies the path) | `POST`                       | Re-prices the cart server-side from `products.json`, applies volume tiers and gift-card discounts, creates the Stripe Checkout session.          | Origin-allowlisted. Never trusts a client price. Holds `STRIPE_SECRET_KEY`.                 |
 | `/api/stripe-webhook` -> `workers/routes/stripe-webhook.js`       | Cloudflare Worker                            | `POST` (Stripe webhook only) | Mints the redemption code, emails recipient, settles redemptions, restores balance on refund, cleans up ephemeral coupon on expired session.     | Verifies HMAC-SHA-256 signature against `STRIPE_WEBHOOK_SECRET`. Exactly-once claims in D1. |
 | `/api/gift-card-balance` -> `workers/routes/gift-card-balance.js` | Cloudflare Worker                            | `POST` (preferred) and `GET` | Looks a gift-card code up and returns its current and original amount from the Durable Object ledger.                                            | Origin-allowlisted, `Cache-Control: no-store`.                                              |
+| `/api/promo-preview` -> `workers/routes/promo-preview.js`         | Cloudflare Worker                            | `POST`                       | `{code, items}` -> whether a Stripe promotion code works for this cart and the estimated discount, priced by checkout's own `priceCart`. Checkout then looks the code up again and attaches it to the session (`discounts[0][promotion_code]`); a gift card takes that one slot instead. | Origin-allowlisted, rate-limited 5/min per client, curated copy only -- no Stripe text or ids. Honours `site.enablePromoCodes`. |
 | `/api/restock` -> `workers/routes/restock.js`                     | Cloudflare Worker                            | `POST`                       | Records restock notification interest and dispatches notifications via Resend.                                                                   | Origin-allowlisted, sanitized inputs.                                                       |
-| `order-status.html`                                               | Static page                                  | —                            | **Not an endpoint.** It makes no request to anything. It is a contact hand-off: it collects the order reference and points the shopper at email. | Nothing to secure; nothing to trust.                                                        |
+| `/api/order-status` -> `workers/routes/order-status.js`           | Cloudflare Worker                            | `POST`                       | `{sessionId, email}` -> one real order from Stripe, for `order-status.html`. A wrong email and an unknown id answer the same 404.                    | Origin-allowlisted, 5/min per IP, never returns the street address or the email.            |
+| `/api/orders/request-link` -> `workers/routes/orders.js`          | Cloudflare Worker                            | `POST`                       | `{email}` -> emails a one-time link to `orders.html`. The same neutral 200 for every address (see section 22).                                   | 3 per 10 min per client and per address hash; suppression list honoured; no PII in the link. |
+| `/api/orders?token=` -> `workers/routes/orders.js`                | Cloudflare Worker                            | `GET`                        | The orders behind that link (newest 25) and the points balance. Burns the token.                                                                 | Token bound to the address hash, single-use, 24h; every refusal one 403; `no-store`.        |
 
 _(Note: The legacy `/.netlify/functions/` routes have been completely retired and deleted from the repository. Netlify hosts static assets only.)_
 
@@ -687,10 +689,12 @@ Set on the **Cloudflare Worker** (Settings -> Variables and Secrets) — the Wor
 | ----------------------- | ----------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------ |
 | `STRIPE_SECRET_KEY`     | checkout, balance                               | yes      | Secret. Restrict to Checkout Sessions, Coupons, Promotion Codes, Customers (write), and Tax Settings (read). |
 | `STRIPE_WEBHOOK_SECRET` | `routes/stripe-webhook.js`                      | yes      | Secret. Signing secret for `/api/stripe-webhook`. Verifies Stripe webhook HMAC signature.                    |
-| `RESEND_API_KEY`        | `routes/stripe-webhook.js`, `routes/restock.js` | yes      | Secret. Sends transactional gift card and restock emails.                                                    |
+| `RESEND_API_KEY`        | `routes/stripe-webhook.js`, `routes/restock.js`, `routes/orders.js` | yes      | Secret. Sends transactional gift card, restock and order-history-link emails.                     |
+| `MAGIC_LINK_SECRET`     | `routes/retention.js`, `routes/orders.js`       | yes      | Secret, 32+ random characters. Signs the points, unsubscribe and order-history links. Already set for the retention layer; the orders page needs nothing extra. |
 | `FROM_EMAIL`            | `routes/stripe-webhook.js`                      | no       | Verified Resend sender address. Defaults to `orders@yallternativeliving.com`.                                |
 | `GIFT_CARD_FROM_EMAIL`  | `routes/stripe-webhook.js`                      | no       | Sender for gift-card emails. Falls back to `FROM_EMAIL`.                                                     |
 | `RESTOCK_NOTIFY_EMAIL`  | `routes/restock.js`                             | no       | Where restock alert summaries are delivered.                                                                 |
+| `ORDER_NOTIFY_EMAIL`    | `routes/order-digest.js`, `routes/alerts.js`    | no       | Owner mailbox: per-order copy, digest, gift-note link, and the fallback for `site.alertEmail` (owner alerts). |
 | `SITE_ORIGIN`           | checkout, webhook                               | no       | Overrides default production site origin (defaults to `https://yallternativeliving.com`).                    |
 
 Set on the **CMS auth Worker** (`cms-auth/sveltia-auth.js`):
@@ -865,10 +869,17 @@ not just when a human remembers to run
 command is
 
 ```
-node scripts/optimize-images.js && node scripts/build-site-data.js && node scripts/build-security-headers.js
+node scripts/optimize-images.js && node scripts/build-site-data.js && node scripts/build-security-headers.js && node scripts/minify-assets.js
 ```
 
-and `optimize-images.js` requires **sharp**, a devDependency. Netlify installs
+and `optimize-images.js` requires **sharp**, a devDependency, while
+`minify-assets.js` requires **esbuild**, another. The minifier is the last
+step on purpose: it shrinks `assets/js/*.js`, `assets/js/locales/*.js` and
+`assets/css/*.css` in place inside Netlify's publish directory and nothing it
+writes is ever committed -- the repository stays readable source, which is
+what every test runs against. It never touches `sw.js` or any HTML, and file
+names do not change. `scripts/minified-build.browser.test.js` is the proof
+that the minified tree still runs the shop. Netlify installs
 devDependencies by default, which is why this works — but a host or CI job
 configured with `--omit=dev` (or `NODE_ENV=production`) makes the optimizer
 degrade silently and ship full-size photos. `scripts/qa-check.js` asserts that
@@ -1341,47 +1352,8 @@ cheapest first:
    check before choosing this.
 3. **Replace coupons with real stored-value balances**, so a redemption is
    applied after tax rather than before. Correct, and much more work — it
-   means either a balance-tracking backend or a platform that provides one
-   (which is exactly what the Gift Up! note below is about).
-
-**Optional third-party alternative (Gift Up!) — half-built, not usable yet.** The idea: hand off entirely to **[Gift Up!](https://www.giftup.com)** (a purpose-built gift card platform with its own balance tracking, printable cards, and in-person redemption app -- relevant since this business also sells at farmers markets and Pride events, where the built-in Stripe flow has no in-person path at all) if that's ever preferred over the built-in flow.
-
-**Honest status check:** only half of this actually works, and the hidden placeholder that used to sit in `shop.html` is now gone. The 2026-09-02 live audit (finding N2) found `<div id="giftUpContainer">YOUR_GIFTUP_ID</div>` shipping in production's DOM on every visit to `/shop.html` -- invisible to sighted users, but an unshipped-integration placeholder for a service this shop replaced with its own Cloudflare Worker gift-card system. That element is deleted and `scripts/qa-check.js` asserts it stays deleted, so **step 3 below now also needs the container put back** (a `<!--YL:site.giftUpId-->...<!--/YL:site.giftUpId-->` marker somewhere inside `#giftCardModal`) before a real ID can render anything. The generator side is untouched: `scripts/build-site-data.js` _does_ still turn that marker into a real, functional Gift Up! widget embed when a real `giftUpId` is set (verified in the code), and `site.giftUpId` is still declared in `admin/config.yml` so the CMS round-trips it. But nothing checks `giftUpId` anywhere in `main.js` or `cart.js` -- the built-in "Configure Card" button and `#giftCardModal` are generated unconditionally (`addToCartHTML()`), with no bypass logic at all. So pasting a real Gift Up! ID today would show **both** gift-card systems live on the same page, not a clean swap. Because of that, the `giftUpId` field is **hidden in the CMS** (`widget: hidden` in `admin/config.yml`) rather than shown-but-unusable -- the key is still declared so the CMS round-trips its value instead of dropping it on save, but Savanna can't set it by accident. Unhide it (`widget: string`) only after the bypass below exists.
-
-### Built-in (Stripe) vs. Gift Up! comparison
-
-This table describes the _intended_ end state once the bypass logic
-above gets built — not what happens if you paste a Gift Up! ID today
-(see the honest status check above: right now, both would run at once).
-
-| Feature              | Built-in (Stripe, Default)                                                                                                                                            | Gift Up! Checkout (Not yet wired)                                                                                                                                  |
-| :------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **How it Works**     | Bought as a digital product directly in the main store grid and checkout.                                                                                             | _(Once built)_ would bypass the built-in checkout and load a widget from Gift Up!.                                                                                 |
-| **Fulfillment**      | **Automatic**: `workers/routes/stripe-webhook.js` generates the code and emails it the moment payment completes — no manual step.                                     | **Automatic**: Gift Up! automatically generates the code, tracks the balance, and emails a beautiful, ready-to-print digital gift card to the recipient instantly. |
-| **Redemption**       | Customers enter the emailed Stripe Promotion Code at checkout, same cart as everything else.                                                                          | Gift Up! codes are scanned/validated through Gift Up!'s own system, or inputted at in-person events via the Gift Up! mobile app.                                   |
-| **Cart Integration** | **Unified**: Customers can add a gift card and physical products (like a beard salve) to the same cart and check out once.                                            | **Separated**: Gift cards must be purchased in a separate transaction from physical items.                                                                         |
-| **Balance tracking** | **None** — a code is single-use and fixed-amount (Stripe Coupon with `max_redemptions: 1`), not a running balance that can be partially spent across multiple orders. | Gift Up! tracks a real running balance, redeemable across multiple partial purchases.                                                                              |
-| **Fees**             | Stripe's standard per-transaction fee only — no separate gift-card platform fee.                                                                                      | Gift Up!'s own transaction fees (usually around 3.49% on free accounts) _on top_ of standard payment processing.                                                   |
-| **Setup Overhead**   | None beyond the checkout Worker + webhook deploy already needed for the rest of the store (section 8).                                                                | Requires setting up a Gift Up! account, configuring branding templates, and copying the embed snippet into `shop.html`.                                            |
-
-**If Gift Up! is ever wanted, in this order:**
-
-0. **Steven builds the bypass first** — teach `addToCartHTML()` /
-   `giftCardModal` in `main.js` to check `window.YL_CONTENT.site.giftUpId`
-   and skip rendering the built-in "Configure Card" button when it's set
-   to a real value. Nothing below matters until this exists; skip
-   straight to it, this isn't a Savanna step.
-1. [Sign up for a free Gift Up! account](https://giftup.app/account/register)
-   and set up your branded gift card design.
-2. Check [Gift Up!'s current pricing](https://www.giftup.com/pricing)
-   for their per-transaction fee before going live.
-3. Unhide the field (`admin/config.yml`, `giftUpId`: `widget: hidden` →
-   `widget: string`), then grab the real embed snippet from your Gift
-   Up! dashboard and enter the account code in `/admin` — copy it
-   exactly, don't hand-type it.
-4. Check the browser console for any CSP "Refused to ..." errors and
-   add whatever domain it names to `scripts/build-security-headers.js`,
-   then re-run that script.
+   means a balance-tracking backend (the gift-card ledger Durable Object in
+   `workers/state/` is the natural home for it).
 
 ## 19. Live chat, explained
 
@@ -1603,3 +1575,60 @@ The site includes optional birthday capture on the footer newsletter form (`asse
 > Do not offer points as a birthday reward until a server-side ledger exists
 > that can verify a balance and record a spend atomically. A voucher code is a
 > real reward today; points are not.
+
+## 22. Your Orders (`orders.html`): order history without accounts
+
+**The gap it fills.** `order-status.html` needs the `cs_…` reference AND the
+email for every lookup — the right privacy posture for one order, and useless
+to a repeat buyer who wants to see what they bought last time, order it again,
+or check where a parcel is without digging out a receipt. Accounts and
+passwords would fix that at the cost of a password database to lose. A magic
+link fixes it for free: the shop already has `MAGIC_LINK_SECRET` (points and
+unsubscribe links) and `RESEND_API_KEY`.
+
+**The flow.**
+
+1. The shopper types the email they ordered with on `orders.html`. The page
+   POSTs `{email}` to `/api/orders/request-link` and shows the confirmation
+   from `content.json` (`orders.confirmation`) — the same wording for every
+   address, because the Worker's answer is the same for every address.
+2. If the shop has orders for that address (and it is not on the suppression
+   list), the Worker mints a 24-hour, single-use token whose subject is the
+   SHA-256 of the address — never the address — and emails
+   `orders.html?token=…` through Resend.
+3. Clicking it, `assets/js/orders.js` reads the token, removes it from the
+   address bar (`history.replaceState`), and GETs `/api/orders?token=…`. The
+   Worker verifies, burns, and returns the newest 25 orders (date, lines with
+   quantity and unit price, total, status, tracking link) plus the points
+   balance when the loyalty switch is on. A second click is a 403 and the
+   form comes back with a note.
+4. **Reorder** resolves each line's `productId` and `variant` against the live
+   catalog (`window.YL_PRODUCTS`) and calls `window.YLCart.addItems` — the
+   same door the shop's own buttons use, so pricing stays server-side at
+   checkout. Gift cards, build-your-own boxes and gift sets with per-member
+   choices are listed but not re-added; sold-out options are skipped and the
+   page says so.
+
+**Where the data lives.** `orders` in D1 (schema v8; `workers/state/orders.js`),
+written by the webhook once per paid session and updated with tracking by the
+hourly ship-notice sweep. `docs/STATE-LAYER.md` §4.10 has the design and the
+reasons; `workers/README.md` §2b-ii has the routes and limits.
+
+**What the owner controls.** Everything the page says — small line, headline,
+intro, email label and hint, button text, confirmation — is under **Site
+Settings → Your Orders page** in `/admin` (`content.json` `orders.*`), and the
+whole feature is one switch, **Shop · Show the Your Orders page**
+(`site.enableOrderHistory`, default on). Off hides every link to the page
+(footer, thank-you page, order-status page — the `.orders-history-link`
+selector in `FEATURE_SELECTORS`), the page shows an "email us" note, and both
+routes answer 404.
+
+**Rules that keep it honest.** `assets/js/orders.js` never assigns
+`innerHTML` from a server string, only renders `http(s)` tracking links, and
+sends no analytics event (`docs/ANALYTICS.md`). The page is `noindex` and
+absent from `sitemap.xml`. `scripts/worker-orders.test.js` pins neutrality,
+both rate limits, mint/verify/burn, cross-address isolation, the list shape,
+the tracking merge and the webhook write; `scripts/orders-page.browser.test.js`
+drives the page with the Worker mocked — form, neutral confirmation (the DOM
+after a known and an unknown address is byte-identical), list rendering,
+token scrubbing, and a Reorder into the real cart.

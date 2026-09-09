@@ -31,11 +31,11 @@ Node-only. The naming is the contract the runners glob on, and it is why the CI
 
 - **Unit pool** -- `npm test` -> `scripts/run-test.js`, which runs BOTH of:
   - `scripts/run-unit-tests.js`: every `scripts/*.test.js` that is not
-    `*.browser.test.js` (46 suites), in a parallel worker pool, then two
+    `*.browser.test.js` (52 suites), in a parallel worker pool, then two
     Node-only gates sequentially: `verify-pdp-metadata.js` (797 assertions on
     PDP OpenGraph/microdata) and `verify-build-reproducibility.js` (rebuilds
     the site five times and diffs every generated file).
-  - `scripts/qa-check.js`: 1129 static assertions -- links, images, JSON-LD,
+  - `scripts/qa-check.js`: 1208 static assertions -- links, images, JSON-LD,
     pricing, CSP parity across `_headers` and `netlify.toml`,
     lockfile hygiene, markup contracts.
 
@@ -45,9 +45,26 @@ Node-only. The naming is the contract the runners glob on, and it is why the CI
 
 - **Integration pool** -- `npm run test:integration` ->
   `scripts/run-integration-tests.js`: a fixed list of browser gates plus every
-  `scripts/*.browser.test.js` (20 suites, 26 total integration suites), each on its own port or an ephemeral
+  `scripts/*.browser.test.js` (23 suites, 29 total integration suites), each on its own port or an ephemeral
   one, in a worker pool. A suite on the fixed list that has gone missing is a
   hard failure, not a silent skip.
+  - `scripts/minified-build.browser.test.js` (ephemeral port): the only suite
+    that runs the bytes Netlify actually serves. The build command's last
+    step, `scripts/minify-assets.js`, minifies `assets/js`, `assets/js/locales`
+    and `assets/css` in place inside the publish directory and nothing it
+    writes is committed, so every other suite exercises the readable source.
+    This one copies the tree to a scratch directory, runs the real minifier
+    there (`--root`), pins its contract (every owned file smaller and carrying
+    the marker, `sw.js` and all 40 HTML pages byte-identical, a second run a
+    no-op), then serves the copy and drives it: home loads with zero page
+    errors and no failed asset request -- with a positive control that throws
+    a page error and asserts the listener saw it -- the shop renders one card
+    per product, Add to Cart opens the drawer, global search returns results,
+    a PDP thumbnail switches the main photo, and the language picker switches
+    the nav to Spanish through the minified dictionaries. It ends by hashing
+    the repository's own assets and pages against the values it read at the
+    start, so a minifier that ever wrote into the working tree fails here
+    before `git status` shows it.
   - `scripts/puppeteer_tests.js` (8082): multi-viewport nav, link integrity,
     cart drawer, reviews filter, quiz, order status, global search.
   - `scripts/extended_qa_test.js` (8083): wishlist state, cart money math,
@@ -64,6 +81,19 @@ Node-only. The naming is the contract the runners glob on, and it is why the CI
 hidden`, so an over-long label is cut at both ends rather than wrapped),
     and orphaned last lines are held to a measured budget so they cannot creep
     back after the `text-wrap: pretty` fixes.
+  - `scripts/orders-page.browser.test.js` (ephemeral port): `orders.html`,
+    the passwordless order history, with every `/api/orders*` call answered
+    by Puppeteer request interception. The form (JavaScript enables the
+    button, a bad address is refused before any request, a good one is
+    POSTed as `{email}`), the neutral confirmation (the DOM after a known and
+    an unknown address is byte-identical), the `?token=` flow (token scrubbed
+    from the address bar, one GET, every field painted, no address anywhere
+    on the page, a `javascript:` tracking link never rendered), Reorder into
+    the REAL cart with quantity and option, and the CMS switch off. Its
+    Worker half is `scripts/worker-orders.test.js` in the unit pool:
+    neutrality, both rate limits, token mint/verify/burn, cross-address
+    isolation, the list shape, the ship-notice tracking merge and the webhook
+    write, all through the real Worker entrypoint on the D1 emulator.
   - The other `*.browser.test.js` suites: the challenger/adversarial harnesses
     for the PDP sticky bar, ritual cross-sells, search interaction, variant
     pickers, the journal, and the M1-M4 milestone stress runs.
@@ -178,7 +208,7 @@ section is held to.
   contract including `aria-controls` and the language-carrying accessible
   name, click-to-open, switch to Spanish, and clean restoration.
 
-- **`scripts/qa-check.js`** (1129 static assertions total). For this feature:
+- **`scripts/qa-check.js`** (1208 static assertions total). For this feature:
   CSP byte parity across `_headers` and `netlify.toml` with the Google Translate origins gone, zero
   legacy Google Translate CSS, nine valid dictionaries at 703 phrases each, 58
   glossary terms, one `assets/js/locales/<code>.js` per locale, a size ceiling
@@ -827,7 +857,7 @@ byte. The repo was not modified.
 - `--dry-run` on the same head returned the 3 deterministic findings and 0
   model findings, with the report stating the second read-through did not run.
 
-`npm test` (48 suites), `npm run lint` and `npm run format:check` were verified
+`npm test` (51 suites), `npm run lint` and `npm run format:check` were verified
 green in a clean worktree at HEAD with these files added.
 
 ## What this one does NOT do

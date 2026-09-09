@@ -42,6 +42,7 @@ import { fromAddress, sendEmail } from "./gift-cards.js";
 import { safeUrl } from "../state/stripe-orders.js";
 import { loadSiteSettings } from "../state/site-data.js";
 import { orderEmailSent, recordOrderEmail, SHIP_NOTICE } from "../state/order-emails.js";
+import { mergeShipment } from "../state/orders.js";
 import { reanchorOrderSequence } from "./retention-emails.js";
 
 const REPLY_TO = "contact@yallternativeliving.com";
@@ -138,6 +139,26 @@ export async function emailShipNotice(intent, env, ctx, now = Date.now()) {
   if (!intentId) return { skipped: "no-payment-intent-id" };
 
   const db = env.STATE_DB || null;
+  /* The customer's order history (state/orders.js) takes the status and the
+     tracking link from the same metadata, BEFORE the already-sent check: a
+     tracking link corrected the day after the notice went out still has to
+     reach the page. Costs a write only when the values changed. Non-fatal --
+     the notice itself is the thing that must not be lost. */
+  if (db) {
+    try {
+      await mergeShipment(
+        db,
+        {
+          paymentIntent: intentId,
+          status: metadata.fulfillment_status,
+          trackingUrl: safeUrl(metadata.tracking_url)
+        },
+        now
+      );
+    } catch (err) {
+      console.warn("ship-notice: could not merge tracking into orders:", err && err.message);
+    }
+  }
   if (db && (await orderEmailSent(db, SHIP_NOTICE, intentId))) {
     return { skipped: "already-sent" };
   }

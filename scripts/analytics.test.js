@@ -624,6 +624,10 @@ const EVENTS = {
   "Cart Shared": [cartJs, ["itemCount"]],
   "Shared Cart Opened": [cartJs, ["itemCount"]],
   "Gift Card Applied": [cartJs, []],
+  /* No properties: the code is the owner's marketing and which one was used
+     is Stripe's report to make. */
+  "Promo Code Applied": [cartJs, []],
+  "Promo Code Rejected": [cartJs, ["reason"]],
   "Checkout Start": [cartJs, ["itemCount", "subtotalCents", "isPickup"]],
   "Checkout Failed": [cartJs, ["reason"]],
   /* No properties, and that is the assertion. Revenue is booked once by the

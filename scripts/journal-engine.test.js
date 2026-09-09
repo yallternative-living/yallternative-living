@@ -355,7 +355,7 @@ assert(
 // Check journal items
 journalData.posts.forEach((post) => {
   const postSlug = post.id || post.slug;
-  const postUrl = `https://yallternativeliving.com/journal.html#post-${postSlug}`;
+  const postUrl = `https://yallternativeliving.com/journal/${postSlug}.html`;
 
   assert(
     rssFeed.includes(`<link>${postUrl}</link>`),

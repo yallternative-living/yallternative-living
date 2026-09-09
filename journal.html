@@ -12,7 +12,109 @@
 <meta name="description" content="Read the latest news, batch alerts, herbal science, and stories from Landrum, SC.">
 <link rel="canonical" href="https://yallternativeliving.com/journal.html">
 <link rel="alternate" type="application/rss+xml" title="Y'allternative Living Journal RSS Feed" href="https://yallternativeliving.com/feed.xml">
-<!--YL:journal.robots--><meta name="robots" content="noindex, follow"><!--/YL:journal.robots-->
+<!--YL:journal.jsonLd--><script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Blog",
+  "@id": "https://yallternativeliving.com/journal.html#blog",
+  "url": "https://yallternativeliving.com/journal.html",
+  "name": "Apothecary Journal",
+  "description": "Stories, science, and small-batch updates straight from the kitchen.",
+  "inLanguage": "en-US",
+  "publisher": {
+    "@type": "Organization",
+    "name": "Y'allternative Living",
+    "url": "https://yallternativeliving.com/",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://yallternativeliving.com/assets/img/logo.png"
+    }
+  },
+  "blogPost": [
+    {
+      "@type": "BlogPosting",
+      "@id": "https://yallternativeliving.com/journal/magnesium-salve-benefits.html",
+      "url": "https://yallternativeliving.com/journal/magnesium-salve-benefits.html",
+      "mainEntityOfPage": "https://yallternativeliving.com/journal/magnesium-salve-benefits.html",
+      "headline": "Why Magnesium & Arnica Belong in Your Bedtime Routine",
+      "description": "Struggling to turn your brain off or dealing with sore muscles? Here is the science (and folklore) behind why this duo works.",
+      "datePublished": "2026-07-15",
+      "dateModified": "2026-07-15",
+      "inLanguage": "en-US",
+      "isPartOf": {
+        "@type": "Blog",
+        "@id": "https://yallternativeliving.com/journal.html#blog"
+      },
+      "author": {
+        "@type": "Organization",
+        "name": "Y'allternative Living",
+        "url": "https://yallternativeliving.com/",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://yallternativeliving.com/assets/img/logo.png"
+        }
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "Y'allternative Living",
+        "url": "https://yallternativeliving.com/",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://yallternativeliving.com/assets/img/logo.png"
+        }
+      },
+      "image": "https://yallternativeliving.com/assets/img/sleep-salve.jpg",
+      "keywords": "Apothecary, Botanical Care, Self-Care",
+      "wordCount": 157,
+      "about": {
+        "@type": "Product",
+        "url": "https://yallternativeliving.com/products/sleep-salve.html"
+      }
+    },
+    {
+      "@type": "BlogPosting",
+      "@id": "https://yallternativeliving.com/journal/small-batch-difference.html",
+      "url": "https://yallternativeliving.com/journal/small-batch-difference.html",
+      "mainEntityOfPage": "https://yallternativeliving.com/journal/small-batch-difference.html",
+      "headline": "What's the Deal with Small Batch Apothecary?",
+      "description": "Is 'small batch' just a trendy buzzword, or does it actually make a difference for your skin? Let's talk about shelf life and real ingredients.",
+      "datePublished": "2026-07-01",
+      "dateModified": "2026-07-01",
+      "inLanguage": "en-US",
+      "isPartOf": {
+        "@type": "Blog",
+        "@id": "https://yallternativeliving.com/journal.html#blog"
+      },
+      "author": {
+        "@type": "Organization",
+        "name": "Y'allternative Living",
+        "url": "https://yallternativeliving.com/",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://yallternativeliving.com/assets/img/logo.png"
+        }
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "Y'allternative Living",
+        "url": "https://yallternativeliving.com/",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://yallternativeliving.com/assets/img/logo.png"
+        }
+      },
+      "image": "https://yallternativeliving.com/assets/img/shea-butter.jpg",
+      "keywords": "Small Batch, Botanical Care, Behind the Scenes",
+      "wordCount": 136,
+      "about": {
+        "@type": "Product",
+        "url": "https://yallternativeliving.com/products/shea-butter.html"
+      }
+    }
+  ]
+}
+</script><!--/YL:journal.jsonLd-->
+<!--YL:journal.robots--><!--/YL:journal.robots-->
 
 <meta property="og:type" content="website">
 <meta property="og:title" content="Apothecary Journal | Y'allternative Living">
@@ -63,7 +165,8 @@
   .journal-detail .content { line-height: 1.8; font-size: 1.1rem; }
   .journal-detail .content p { margin-bottom: 1.5em; }
   /* Formatting Savanna can add from /admin (see the journal "content" field in
-     admin/config.yml, rendered by renderMarkdown() in assets/js/main.js). The
+     admin/config.yml, rendered by assets/js/markdown.js -- the same file the
+     build uses for the static /journal/<slug>.html pages). The
      post's own title is the <h2> above, so headings inside a post start at
      <h3>. Lists need their markers back -- styles.css resets every ul. */
   .journal-detail .content h3 { font-family: var(--font-display); font-size: 1.6rem; margin: 1.8em 0 0.5em; }
@@ -95,7 +198,7 @@
       <li><a href="events.html">Events</a></li>
       <li><a href="about.html">Our Story</a></li>
       <li><a href="contact.html">Contact</a></li>
-      <!--YL:nav.journal--><!--/YL:nav.journal-->
+      <!--YL:nav.journal--><li><a class="active" aria-current="page" href="journal.html">Journal</a></li><!--/YL:nav.journal-->
     </ul>
     <div class="nav-cta">
       <button class="nav-search-btn" id="globalSearchTrigger" type="button" aria-label="Search catalog, articles &amp; FAQ" title="Search (Cmd+K)" aria-haspopup="dialog" aria-expanded="false" aria-controls="global-search-modal">
@@ -154,6 +257,7 @@
           <li><a href="/about.html">Our Story</a></li>
           <li><a href="/faq.html">FAQ</a></li>
           <li><a href="/reviews.html">Customer Reviews</a></li>
+          <li><a href="/orders.html" class="orders-history-link">Your Orders</a></li>
           <li><a href="/contact.html">Contact</a></li>
         </ul>
       </div>
@@ -285,6 +389,7 @@
 <script src="assets/js/journal-data.js?v=2.0" defer></script>
 <script src="assets/js/social-feed-data.js?v=2.0" defer></script>
 <script src="assets/js/search-data.js?v=2.0" defer></script>
+<script src="assets/js/markdown.js?v=2.0" defer></script>
 <script src="assets/js/main.js?v=2.0" defer></script>
 <script src="assets/js/cart.js" defer></script>
 <!-- Live chat (Tawk.to) -- placeholder, inert until real IDs are set.

@@ -137,6 +137,14 @@ would be counted twice.
 
 ### Page views
 
+**`orders.html` sends nothing of its own.** The order-history page
+(`assets/js/orders.js`) fires no event: not on the link request, not on the
+list, not on Reorder. Its pageview is recorded like any other, and the
+one-time `?token=` it opens with never reaches the tracker twice over — the
+tracker drops the query string before sending (`data-exclude-search`, below),
+and the page removes the token from the address bar before it settles. The
+token itself carries a hash of the address, never the address.
+
 One per page load, automatically, plus one **performance** event per page load
 (`data-performance="true"`) carrying Core Web Vitals — LCP, INP, CLS, FCP, TTFB
 and the page's duration — measured on the visitor's real device. Each pageview
@@ -185,6 +193,8 @@ Twenty-one from the browser, one from the server.
 | `Cart Shared`        | `itemCount`                            | The "share cart" button is used                        |
 | `Shared Cart Opened` | `itemCount`                            | Someone arrives on a `?cart=` link. `itemCount` 0 means the link had gone stale |
 | `Gift Card Applied`  | —                                      | A gift card is successfully applied to a cart          |
+| `Promo Code Applied` | —                                      | A promo code checks out against `/api/promo-preview` and is applied to a cart (the code itself is never sent) |
+| `Promo Code Rejected`| `reason`                               | A promo code is refused -- by the preview, by a re-check after the cart changed, or by checkout |
 | `Checkout Start`     | `itemCount`, `subtotalCents`, `isPickup` | The checkout POST leaves the browser                 |
 | `Checkout Failed`    | `reason`                               | The Worker or the network refused the checkout         |
 | `Purchase`           | **none**                               | The funnel's last step, after `/api/order-summary` confirms the order is paid and complete |
@@ -201,9 +211,17 @@ Twenty-one from the browser, one from the server.
 | `Language Changed`   | `language`                             | The translator switches language                       |
 
 `Checkout Failed`'s `reason` is one of a fixed set — `timeout`, `gift-card`,
-`network`, `no-session-url`, `rejected`, `rate-limited`, `server-error`, or
-`http-<status>`. It is never the server's own error text, because that text can
-quote something the shopper typed.
+`promo-code`, `network`, `no-session-url`, `rejected`, `rate-limited`,
+`server-error`, or `http-<status>`. It is never the server's own error text,
+because that text can quote something the shopper typed.
+
+`Promo Code Rejected`'s `reason` is likewise a closed set the drawer maps the
+Worker's answer onto — `unknown`, `expired`, `minimum_not_met`,
+`not_applicable`, `malformed`, `gift_card` (a gift-card string typed into the
+promo box), `gift_card_conflict` (one discount per order), `disabled` (the CMS
+switch), `rate_limited`, `unavailable`, `cart_invalid`, `rejected` (Stripe
+refused the code at session creation), `network`, or `other`. The code the
+shopper typed is never a property.
 
 **No event carries an email address, a name, an address, a gift message, a gift
 card code, an order reference or a search query.** This is enforced in code, not

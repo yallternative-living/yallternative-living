@@ -18,6 +18,8 @@
  *   POST /api/welcome-code       mint a single-use welcome code
  *   POST /api/birthday-club      store an MM/DD birthday
  *   POST /api/loyalty-balance    read a points balance (token required)
+ *   POST /api/orders/request-link email a one-time order-history link (routes/orders.js)
+ *   GET  /api/orders?token=      the orders behind that link, once
  *
  * WHY ONE WORKER. The state those endpoints need -- the gift-card ledger, the
  * exactly-once webhook claim, the rate-limit counters -- lives in Cloudflare
@@ -178,18 +180,28 @@
 import {
   ClientError,
   clientErrorBody,
+  clientIp,
   isAllowedOrigin,
   json,
   preflight,
   stripControlChars
 } from "./routes/http.js";
+import { checkRateLimit } from "./state/rate-limit.js";
 // The Stripe API version used to be "ONE VALUE, FOUR FILES" -- this file plus
 // three Netlify functions, all reading and writing the same Stripe objects,
 // each with its own copy of the string. The functions are retired and the
 // version is pinned once, in routes/stripe.js.
 import { STRIPE_API_VERSION, deleteCoupon, expireSession, stripePost } from "./routes/stripe.js";
 import { isGiftCardCode } from "./routes/gift-cards.js";
+import { alertOwner } from "./routes/alerts.js";
 import { handleGiftCardBalance } from "./routes/gift-card-balance.js";
+import {
+  PROMO_COPY,
+  copyFor as promoCopyFor,
+  evaluatePromotion,
+  findPromotionCode,
+  handlePromoPreview
+} from "./routes/promo-preview.js";
 import { handleStripeWebhook } from "./routes/stripe-webhook.js";
 import { handleOrderStatus } from "./routes/order-status.js";
 import { handleOrderSummary } from "./routes/order-summary.js";
@@ -197,6 +209,7 @@ import { handleRestock } from "./routes/restock.js";
 import { handleSafetyReport } from "./routes/safety-report.js";
 import { handleGiftNote } from "./routes/gift-note.js";
 import { handleMarketAlerts } from "./routes/market-alerts.js";
+import { handleOrdersList, handleOrdersRequestLink } from "./routes/orders.js";
 import {
   handleBirthdayClub,
   handleLoyaltyBalance,
@@ -204,6 +217,17 @@ import {
   handleWelcomeCode
 } from "./routes/retention.js";
 import { giftCardLedger, LedgerError } from "./state/gift-card-ledger.js";
+// Read-only and degrading (an unreachable content.json reads as "codes on"),
+// so the money path gains no new way to fail from it.
+import { loadSiteSettings } from "./state/site-data.js";
+import {
+  availabilityForCheckout,
+  handleInventory,
+  holdsFromAllocation,
+  releaseInventoryForSession,
+  reserveForCheckout,
+  unwindRefusedSession
+} from "./routes/inventory.js";
 
 const GIFT_CARD_ID = "yallternative-gift-card";
 const GIFT_CARD_MIN = 10;
@@ -293,7 +317,22 @@ async function loadCatalog(env, ctx) {
     }
   }
   if (!res.ok) throw new Error("Could not load product catalog");
-  return applySales(await res.json());
+  const catalog = applySales(await res.json());
+  /* When the site served this copy, in the site's own clock (Netlify's Date
+     header survives the edge cache, so a cache hit still reports the ORIGIN
+     fetch). The inventory ledger uses it to refuse a reseed from a catalog
+     older than the last owner correction. Non-enumerable: nothing that
+     serialises or fingerprints the catalog should see it. */
+  const dateHeader =
+    res.headers && typeof res.headers.get === "function" ? res.headers.get("date") : null;
+  const served = Date.parse(dateHeader || "");
+  Object.defineProperty(catalog, "fetchedAt", {
+    value: Number.isFinite(served) ? served : Date.now(),
+    enumerable: false,
+    configurable: true,
+    writable: true
+  });
+  return catalog;
 }
 
 // Same fetch+cache treatment for the market calendar. Only needed when a
@@ -376,6 +415,7 @@ async function isTaxEnabled(env, ctx) {
   // genuine "tax is off" result. Otherwise one transient Stripe blip would
   // pin every SC order to untaxed for the full hour-long cache window.
   let probeSucceeded = false;
+  let probeFailure = "";
   try {
     const res = await fetch("https://api.stripe.com/v1/tax/settings", {
       headers: {
@@ -387,9 +427,30 @@ async function isTaxEnabled(env, ctx) {
       const settings = await res.json();
       active = settings && settings.status === "active";
       probeSucceeded = true;
+    } else {
+      probeFailure = `Stripe answered HTTP ${res.status || "?"}`;
     }
   } catch (e) {
     active = false;
+    probeFailure = (e && e.message) || "network error";
+  }
+
+  if (!probeSucceeded) {
+    // Failing open is the right call for the shopper, but it is invisible to
+    // the shop: every order created while the probe is down is untaxed and
+    // nothing else says so. One alert per six hours, not per checkout.
+    alertOwner(env, ctx, {
+      key: "tax-probe",
+      subject: "Sales-tax check failed -- orders are being created WITHOUT tax",
+      details: {
+        cause: probeFailure,
+        mode,
+        "what happens":
+          "checkout keeps working; Stripe Tax is left off until the check succeeds again",
+        "what to check":
+          "Stripe Dashboard -> Tax -> Settings, and that STRIPE_SECRET_KEY has Tax Settings read"
+      }
+    });
   }
 
   if (cache && ctx) {
@@ -799,6 +860,86 @@ function sellableQty(rawQty, entry) {
   return qty;
 }
 
+function hasTrackedStock(entry) {
+  return Boolean(entry) && typeof entry.stock === "number" && Number.isFinite(entry.stock);
+}
+
+/**
+ * Sellable quantity of EVERY line, allocated against tracked stock across the
+ * whole cart -- one pass, in cart order, so the volume-tier count and the
+ * line items below agree with each other AND with the shelf.
+ *
+ * sellableQty() caps one line. Stock is tracked per PRODUCT, while lines are
+ * per product-and-option and a custom box is a line that holds several
+ * products at once, so a per-line cap alone oversold (2026-09-09 audit): a
+ * tee with `stock: 3` sold as a Small line and a Medium line was capped at 3
+ * twice and sold 6, and five boxes each holding a stock-1 salve went through
+ * with no stock check on the contents at all. Here each line takes what is
+ * left of its product's count after the lines before it, a box takes one
+ * unit of each of its contents per box, and a line that finds nothing left
+ * gets 0 -- which the line-item mapping refuses by name, so the drawer drops
+ * exactly that line.
+ *
+ * @returns {Array<{qty: number, exhausted: (string|null)}>} one entry per
+ *   cart line; `exhausted` names the product that ran out when qty is 0.
+ */
+function allocateStock(items, catalog, availability) {
+  const remaining = new Map();
+  const productMap = productMapOf(catalog);
+  // The ledger's live count where it has one (routes/inventory.js), else the
+  // catalog's own `stock` -- the pre-ledger behaviour, and the fail-open one.
+  const live = availability instanceof Map ? availability : null;
+  const opening = (entry) =>
+    live && live.has(entry.id) ? live.get(entry.id) : Math.max(0, Math.floor(entry.stock));
+  const left = (entry) => (remaining.has(entry.id) ? remaining.get(entry.id) : opening(entry));
+  const take = (entry, wanted) => {
+    if (!hasTrackedStock(entry)) return wanted;
+    const got = Math.min(wanted, left(entry));
+    remaining.set(entry.id, left(entry) - got);
+    return got;
+  };
+
+  return items.map((item) => {
+    const wanted = sellableQty(item && item.qty, null);
+    if (String(item && item.id) === CUSTOM_BOX_ID) {
+      const ids = Array.isArray(item.boxProductIds) ? item.boxProductIds : [];
+      // A product listed twice in one box needs two units per box.
+      const perBox = new Map();
+      for (const rawId of ids) {
+        const member = productMap.get(String(rawId));
+        if (!member || !hasTrackedStock(member)) continue;
+        perBox.set(member.id, { member, units: (perBox.get(member.id) || { units: 0 }).units + 1 });
+      }
+      let qty = wanted;
+      let exhausted = null;
+      for (const { member, units } of perBox.values()) {
+        const boxes = Math.floor(left(member) / units);
+        if (boxes < qty) {
+          qty = boxes;
+          if (qty <= 0) exhausted = member.id;
+        }
+      }
+      qty = Math.max(0, qty);
+      for (const { member, units } of perBox.values()) take(member, qty * units);
+      // `holds`: the tracked units one box takes, so the inventory ledger can
+      // hold qty * units of each once the Stripe session exists.
+      const holds = [...perBox.values()].map(({ member, units }) => ({
+        productId: member.id,
+        name: member.name || member.id,
+        units
+      }));
+      return { qty, exhausted, holds };
+    }
+    const entry = findEntry(catalog, String(item && item.id));
+    if (!entry) return { qty: wanted, exhausted: null, holds: [] };
+    const qty = take(entry, wanted);
+    const holds = hasTrackedStock(entry)
+      ? [{ productId: entry.id, name: entry.name || entry.id, units: 1 }]
+      : [];
+    return { qty, exhausted: qty <= 0 && hasTrackedStock(entry) ? entry.id : null, holds };
+  });
+}
+
 const QUALIFYING_2OZ_SALVE_PRICE_CENTS = 1500;
 
 const DEFAULT_VOLUME_PRICING = [
@@ -950,16 +1091,18 @@ function resolveUnitAmountCents(
   return baseCents;
 }
 
-// Gift card: parse "Preset $NN" and clamp to the allowed range -- see the
-// file-level comment above for why this doesn't go through the normal
-// variants.options lookup.
+// Gift card: parse "Preset $NN" -- see the file-level comment above for why
+// this doesn't go through the normal variants.options lookup. Anything that
+// is not a well-formed preset inside the allowed range is NOT purchasable
+// (null, the same answer an unknown variant gets), never clamped: until the
+// 2026-09-09 audit an unparseable label sold a $10 card and a "$999" label
+// sold a $500 one, the only fallback-to-a-price left in a file whose rule is
+// to fail closed -- and a card issued for an amount nobody chose is a refund.
 function resolveGiftCardAmountCents(variantLabel) {
   const m = /^Preset \$(\d+(?:\.\d{1,2})?)$/.exec(String(variantLabel || "").trim());
   const raw = m ? parseFloat(m[1]) : NaN;
-  const dollars = Number.isFinite(raw)
-    ? Math.min(GIFT_CARD_MAX, Math.max(GIFT_CARD_MIN, raw))
-    : GIFT_CARD_MIN;
-  return Math.round(dollars * 100);
+  if (!Number.isFinite(raw) || raw < GIFT_CARD_MIN || raw > GIFT_CARD_MAX) return null;
+  return Math.round(raw * 100);
 }
 
 function truncate(s, max) {
@@ -1111,6 +1254,354 @@ function resolveFreeShippingThresholdCents(catalog) {
 }
 
 /**
+ * Price and validate every cart line against the catalog -- the ONE place
+ * the shop turns `{id, qty, variant}` into a Stripe line item. handleCheckout
+ * calls it to build the session; priceCart() below calls it so the promo-code
+ * preview (routes/promo-preview.js) estimates a discount over exactly the
+ * amounts Stripe will be sent, never a second implementation of them.
+ *
+ * Throws ClientError for anything that cannot be sold (unknown product,
+ * sold out, bad gift-set choice, bad recipient email). `metadata` is written
+ * to as a side effect (gift-card groups, custom-box contents, gift-set
+ * choices) exactly as it always was; pass a throwaway object when only the
+ * prices matter.
+ *
+ * @returns {{lineItems: object[], retentionProductIds: string[],
+ *   retentionCategories: string[]}}
+ */
+function buildLineItems(catalog, items, allocation, env, metadata) {
+  let giftLineIndex = 0;
+
+  let boxLineIndex = 0;
+  let bundleLineIndex = 0;
+  const boxProductMap = productMapOf(catalog);
+
+  const volumeRules = getVolumePricingRules(catalog);
+  const ruleCounts = new Map();
+  for (const rule of volumeRules) {
+    // Count the units that will actually be sold, not the units asked
+    // for: tracked `stock` caps each line (allocateStock), and a tier
+    // unlocked by units that never ship is a discount on nothing.
+    const count = items.reduce((sum, item, idx) => {
+      if (itemMatchesVolumeRule(item, rule, catalog)) {
+        return sum + allocation[idx].qty;
+      }
+      return sum;
+    }, 0);
+    ruleCounts.set(rule.id || rule.name || rule.category, count);
+  }
+
+  // What the retention layer needs off this order, collected as the line
+  // items are validated so it costs nothing extra: the ids and categories
+  // of what was bought. The webhook copies these into `order_signals` and
+  // they decide which "how to use your …" copy gets sent and whether the
+  // review ask waits 7 days or 12. Ids only -- no names, no quantities, no
+  // prices; Stripe metadata is world-readable in the Dashboard.
+  const retentionProductIds = [];
+  const retentionCategories = [];
+
+  const lineItems = items.map((item, lineIndex) => {
+    const allocated = allocation[lineIndex];
+    // Custom boxes have no catalog entry of their own -- priced and
+    // validated entirely from their contents. Handled before findEntry(),
+    // which would (correctly) fail to find "custom-box" in the catalog.
+    if (String(item.id) === CUSTOM_BOX_ID) {
+      const ids = Array.isArray(item.boxProductIds) ? item.boxProductIds : [];
+      const unitAmount = resolveCustomBoxCents(catalog, ids);
+      // Boxes are capped by their scarcest tracked content, after the
+      // lines before this one took their share (allocateStock). Nothing
+      // left for even one box is refused by the member that ran out.
+      const boxQty = allocated.qty;
+      if (boxQty <= 0) {
+        const ran = boxProductMap.get(String(allocated.exhausted)) || {};
+        throw new ClientError(
+          `Sold out: ${ran.name || allocated.exhausted}`,
+          400,
+          unavailableDetails({
+            id: CUSTOM_BOX_ID,
+            reason: "member_unavailable",
+            member: String(allocated.exhausted)
+          })
+        );
+      }
+      const contents = ids.map((id) => (boxProductMap.get(String(id)) || {}).name || id).join(", ");
+      for (const id of ids) {
+        const boxed = boxProductMap.get(String(id));
+        if (!boxed) continue;
+        retentionProductIds.push(boxed.id || String(id));
+        if (boxed.category) retentionCategories.push(boxed.category);
+      }
+      boxLineIndex += 1;
+      // Record the exact contents so the packing slip / fulfilment side
+      // knows what actually goes in the box.
+      metadata[`custom_box_${boxLineIndex}`] = truncate(contents, MAX_GIFT_TEXT_LEN);
+      return {
+        name: `Build-Your-Own Box (${ids.length} items)`,
+        image: null,
+        description: contents || null,
+        unitAmount,
+        qty: boxQty,
+        isGiftCard: false,
+        // A box only ever holds physical apothecary goods (the builder
+        // excludes apparel and gift cards), so the general goods code is
+        // always right here -- no need to inspect its contents.
+        taxCode: TAX_CODE_GOODS,
+        productId: CUSTOM_BOX_ID,
+        variant: "",
+        kind: "custom-box"
+      };
+    }
+
+    const entry = findEntry(catalog, String(item.id));
+    if (!entry) throw new ClientError(`Product not found: ${item.id}`);
+
+    // Availability, from the same catalog fields the shop pages render
+    // from. A "Coming Soon" card has no working buy button and a sold-out
+    // product isn't offered at all, so an order for one can only come
+    // from a stale cart or an edited payload -- and taking the money for
+    // something that cannot ship is worse than losing the sale.
+    if (entry.comingSoon) {
+      throw new ClientError(
+        `Not available yet: ${entry.name || item.id}`,
+        400,
+        unavailableDetails({ id: String(item.id), reason: "coming_soon" })
+      );
+    }
+    if (entry.inStock === false) {
+      throw new ClientError(
+        `Sold out: ${entry.name || item.id}`,
+        400,
+        unavailableDetails({ id: String(item.id), reason: "sold_out" })
+      );
+    }
+
+    const isGiftCard = item.id === GIFT_CARD_ID;
+    const isBundle = !isGiftCard && bundleMapOf(catalog).has(entry.id);
+    // A set is only as available as its members: a sold-out or
+    // coming-soon member refuses the whole set, exactly as it would be
+    // refused on its own line.
+    if (isBundle) assertBundleMembersAvailable(catalog, entry, String(item.id));
+    // A chosen option that exists but is sold out. resolveUnitAmountCents
+    // refuses it too, with the same "not purchasable" answer an unknown
+    // label gets -- that text is kept (cart.js and the challenger suites
+    // quote it); the structured field is what names the option, so the
+    // drawer can drop exactly that line and say why.
+    if (!isGiftCard && !isBundle) {
+      const chosen = findVariantOption(entry, item.variant);
+      if (chosen && chosen.soldOut) {
+        throw new ClientError(
+          `Product not purchasable: ${item.id}`,
+          400,
+          unavailableDetails({
+            id: String(item.id),
+            variant: chosen.label,
+            reason: "sold_out"
+          })
+        );
+      }
+    }
+    // Throws a ClientError (-> 400 with the message) when a gift set
+    // arrives with a missing, unknown or sold-out member choice.
+    const bundleChoices = isBundle
+      ? resolveBundleVariantChoices(catalog, entry, item.bundleVariants, String(item.id))
+      : [];
+    const unitAmount = isGiftCard
+      ? resolveGiftCardAmountCents(item.variant)
+      : resolveUnitAmountCents(catalog, entry, item.variant, isBundle, ruleCounts, bundleChoices);
+    if (unitAmount === null || unitAmount < 0) {
+      throw new ClientError(`Product not purchasable: ${item.id}`);
+    }
+
+    // `stock` is the on-hand count the CMS tracks (null/absent = not
+    // tracked, e.g. made to order). Where it IS tracked, 0 means there is
+    // nothing to sell at all, and otherwise it caps the quantity --
+    // sellableQty() is the same cap the volume-price tiers counted with
+    // above, so a tier can never be unlocked by units that will not ship.
+    if (typeof entry.stock === "number" && Number.isFinite(entry.stock) && entry.stock <= 0) {
+      throw new ClientError(
+        `Sold out: ${entry.name || item.id}`,
+        400,
+        unavailableDetails({ id: String(item.id), reason: "sold_out" })
+      );
+    }
+    // What is left of a tracked count after the lines before this one:
+    // a second line of the same product (another size, say) that finds
+    // nothing left is refused like any other sold-out line, so the
+    // drawer drops that line and the rest of the order still goes through.
+    const qty = allocated.qty;
+    if (qty <= 0) {
+      const chosenOpt = !isGiftCard && !isBundle ? findVariantOption(entry, item.variant) : null;
+      throw new ClientError(
+        `Sold out: ${entry.name || item.id}`,
+        400,
+        unavailableDetails(
+          Object.assign(
+            { id: String(item.id), reason: "sold_out" },
+            chosenOpt ? { variant: chosenOpt.label } : {}
+          )
+        )
+      );
+    }
+
+    // The variant in the line name comes from the catalog option that was
+    // matched server-side, never from item.variant -- otherwise a client
+    // could put arbitrary text (or a size it isn't buying) on the Stripe
+    // receipt and the packing slip derived from it.
+    const variantOption = !isGiftCard && !isBundle ? findVariantOption(entry, item.variant) : null;
+    const name =
+      entry.name +
+      (isGiftCard
+        ? ` ($${(unitAmount / 100).toFixed(2)})`
+        : variantOption
+          ? ` (${variantOption.label})`
+          : "");
+    const image =
+      entry.image && env.SITE_ORIGIN
+        ? `${env.SITE_ORIGIN}/${String(entry.image).replace(/^\/+/, "")}`
+        : null;
+
+    /* What was actually chosen inside a gift set, in the catalog's own
+       words. It goes on the Stripe line item description (so it is on
+       the receipt and on anything generated from the session) AND in
+       session metadata, because a set is one line and the size/scent
+       would otherwise exist nowhere on the order. */
+    let description = null;
+    if (isBundle && bundleChoices.length) {
+      description = bundleChoices
+        .map((c) => `${c.productName} — ${c.variantName}: ${c.label}`)
+        .join(" · ");
+      bundleLineIndex += 1;
+      metadata[`gift_set_${bundleLineIndex}`] = truncate(
+        `${entry.name}: ${description}`,
+        MAX_GIFT_TEXT_LEN
+      );
+    }
+
+    // Gift-card recipient/sender/message never affect price -- they're
+    // pure metadata, attached at the session level (indexed so multiple
+    // gift cards in one order don't collide).
+    // One metadata GROUP per gift-card line, carrying its quantity --
+    // not one group per unit. Stripe caps a session at 50 metadata keys,
+    // so the old per-unit expansion meant a 10-card order silently lost
+    // the cards past the cap: keys were dropped, the webhook never saw
+    // them, and the buyer paid for codes that were never minted. The
+    // webhook (fulfill-gift-card.js) now expands `_qty` itself when it
+    // derives codes. A single card still writes exactly the keys it
+    // always did, so nothing about the one-card case changes.
+    if (isGiftCard) {
+      giftLineIndex += 1;
+      const prefix = `gift_card_${giftLineIndex}`;
+      // amount_cents is what fulfill-gift-card.js (the Netlify function
+      // listening for checkout.session.completed) reads to know how
+      // much to put on the code it emails -- it's set here, server-
+      // side, from the same clamped unitAmount already computed above,
+      // never from anything the client sent directly.
+      metadata[`${prefix}_amount_cents`] = String(unitAmount);
+      if (qty > 1) metadata[`${prefix}_qty`] = String(qty);
+      if (
+        item.giftRecipientEmail !== undefined &&
+        item.giftRecipientEmail !== null &&
+        item.giftRecipientEmail !== ""
+      ) {
+        // Validated, not just truncated: this address is where a real
+        // stored-value code gets emailed. See validateGiftRecipientEmail.
+        metadata[`${prefix}_recipient`] = truncate(
+          validateGiftRecipientEmail(item.giftRecipientEmail),
+          MAX_GIFT_TEXT_LEN
+        );
+      }
+      if (item.giftSenderName) {
+        const sender = stripControlChars(item.giftSenderName);
+        if (sender) metadata[`${prefix}_sender`] = truncate(sender, MAX_GIFT_TEXT_LEN);
+      }
+      if (item.giftMessage) {
+        const giftNote = stripControlChars(item.giftMessage);
+        if (giftNote) metadata[`${prefix}_message`] = truncate(giftNote, MAX_GIFT_TEXT_LEN);
+      }
+    }
+
+    // Bundles have no category of their own, but every current bundle is
+    // a mix of apothecary goods, so general tangible goods is correct for
+    // them too. Only apparel and gift cards need to differ.
+    const taxCode = isGiftCard
+      ? TAX_CODE_GIFT_CARD
+      : entry.category === "apparel"
+        ? TAX_CODE_APPAREL
+        : TAX_CODE_GOODS;
+
+    retentionProductIds.push(entry.id);
+    if (entry.category) retentionCategories.push(entry.category);
+
+    /* What the order history needs to put this line back in the cart
+       (routes/orders.js, assets/js/orders.js): the catalog id, the
+       option that was matched server-side, and what kind of line it is.
+       A gift set with per-member choices and a gift card are recorded
+       but not reorderable -- their choices live in session metadata. */
+    const kind = isGiftCard
+      ? "gift-card"
+      : isBundle
+        ? bundleChoices.length
+          ? "gift-set"
+          : "bundle"
+        : "product";
+    return {
+      name,
+      image,
+      description,
+      unitAmount,
+      qty,
+      isGiftCard,
+      taxCode,
+      productId: String(entry.id),
+      variant: variantOption ? variantOption.label : "",
+      kind
+    };
+  });
+  return { lineItems, retentionProductIds, retentionCategories };
+}
+
+/**
+ * Did Stripe refuse the session because of the promotion code attached to
+ * it? Stripe names the offending parameter when it can; the message is the
+ * fallback for the restriction errors that carry no `param`.
+ */
+function isPromoRefusal(stripeError) {
+  if (!stripeError || typeof stripeError !== "object") return false;
+  const param = String(stripeError.param || "");
+  if (param.startsWith("discounts")) return true;
+  return /promotion[_ ]code|coupon/i.test(String(stripeError.message || ""));
+}
+
+/**
+ * The priced lines and goods subtotal for a cart, with no session and no
+ * side effects -- what the promo-code preview discounts against. Same
+ * validation as checkout, so an unsellable cart throws the same ClientError
+ * checkout would answer with.
+ *
+ * @param {object} catalog        products.json, sale-adjusted (loadCatalog)
+ * @param {object[]} items        the cart's `{id, qty, variant, ...}` lines
+ * @param {Map<string, number>} [availability] live counts (routes/inventory.js);
+ *   omitted, the catalog's own `stock` caps each line
+ * @returns {{lineItems: object[], subtotalCents: number}}
+ */
+export function priceCart(catalog, items, availability) {
+  if (!Array.isArray(items) || items.length === 0) {
+    throw new ClientError("Cart is empty or invalid.");
+  }
+  if (items.length > MAX_LINE_ITEMS) throw new ClientError("Too many line items.");
+  const allocation = allocateStock(
+    items,
+    catalog,
+    availability instanceof Map ? availability : null
+  );
+  const { lineItems } = buildLineItems(catalog, items, allocation, {}, {});
+  return {
+    lineItems,
+    subtotalCents: lineItems.reduce((sum, li) => sum + li.unitAmount * li.qty, 0)
+  };
+}
+
+/**
  * Which route is this? Accepts both the path Netlify's `/api/*` proxy forwards
  * (`/checkout`, because `:splat` drops the prefix) and the full `/api/checkout`
  * a Cloudflare route on the apex domain would deliver -- see the file header.
@@ -1125,6 +1616,11 @@ export function routeOf(pathname) {
 
 const ROUTES = {
   "/gift-card-balance": handleGiftCardBalance,
+  // "Does this code work, and for how much?" (routes/promo-preview.js). The
+  // pricer is handed in rather than imported there, so the route file and
+  // this one never import each other.
+  "/promo-preview": (request, env, origin, ctx) =>
+    handlePromoPreview(request, env, origin, ctx, { loadCatalog, priceCart }),
   "/stripe-webhook": handleStripeWebhook,
   "/order-status": handleOrderStatus,
   "/order-summary": handleOrderSummary,
@@ -1135,17 +1631,59 @@ const ROUTES = {
   // that page must never produce.
   "/safety-report": handleSafetyReport,
   "/gift-note": handleGiftNote,
+  // Live stock for tracked products (routes/inventory.js). GET, like the
+  // gift note; the shop reads it once per page load and falls back to the
+  // static catalog when it does not answer.
+  "/inventory": handleInventory,
   "/market-alerts": handleMarketAlerts,
   // Retention (workers/routes/retention.js). Every one of these needs STATE_DB
   // and answers 503 without it rather than pretending to have stored anything.
   "/unsubscribe": handleUnsubscribe,
   "/welcome-code": handleWelcomeCode,
   "/birthday-club": handleBirthdayClub,
-  "/loyalty-balance": handleLoyaltyBalance
+  "/loyalty-balance": handleLoyaltyBalance,
+  // The passwordless order history (routes/orders.js). Same STATE_DB +
+  // MAGIC_LINK_SECRET requirement as the retention routes, same 503 without.
+  "/orders/request-link": handleOrdersRequestLink,
+  "/orders": handleOrdersList
 };
+
+/**
+ * Session creation per client per minute. Every other public route already
+ * runs through checkRateLimit; this one -- the only route that creates
+ * Stripe objects (a Customer, a Coupon, a Session) on every call -- did not
+ * (2026-09-09 audit). An honest shopper clicks Checkout a handful of times in
+ * a minute at the very most; a loop hitting it costs Stripe API quota and
+ * clutters the account for free. Fails OPEN like order-status: a limiter
+ * that cannot count must not take checkout offline.
+ */
+export const CHECKOUT_RATE_LIMIT = { limit: 12, period: 60 };
+
+/** How long an unpaid Checkout Session stays payable. Stripe's minimum is 30 minutes. */
+export const SESSION_EXPIRES_SECONDS = 31 * 60;
 
 async function handleCheckout(request, env, ctx, origin) {
   {
+    // `failOpen` covers a missing backend; a backend that THROWS (a Durable
+    // Object reset mid-request) must fail open too, or the limiter takes
+    // checkout down -- the one thing the comment above promises it never does.
+    let limit = { success: true, source: "none" };
+    try {
+      limit = await checkRateLimit(env, `checkout:${clientIp(request)}`, {
+        ...CHECKOUT_RATE_LIMIT,
+        failOpen: true
+      });
+    } catch (err) {
+      console.error("checkout rate limit unavailable, failing open:", err);
+    }
+    if (!limit.success) {
+      return json(
+        { error: "Too many checkout attempts. Please wait a minute and try again." },
+        429,
+        origin,
+        env
+      );
+    }
     try {
       const body = await request.json();
       const items = body && body.items;
@@ -1218,248 +1756,21 @@ async function handleCheckout(request, env, ctx, origin) {
           metadata.discount_code = truncate(cleanDiscount, 100);
         }
       }
-      let giftLineIndex = 0;
+      // What each line can actually ship, allocated across the cart in
+      // order -- the ONE count both the volume tiers and the line items use.
+      // The count is the inventory ledger's live one where it has it
+      // (routes/inventory.js; null when the ledger cannot answer, and then
+      // the catalog's own `stock` caps exactly as it did before the ledger).
+      const availability = await availabilityForCheckout(env, catalog);
+      const allocation = allocateStock(items, catalog, availability);
 
-      let boxLineIndex = 0;
-      let bundleLineIndex = 0;
-      const boxProductMap = productMapOf(catalog);
-
-      const volumeRules = getVolumePricingRules(catalog);
-      const ruleCounts = new Map();
-      for (const rule of volumeRules) {
-        // Count the units that will actually be sold, not the units asked
-        // for: a tracked `stock` caps each line below (sellableQty), and a
-        // tier unlocked by units that never ship is a discount on nothing.
-        const count = items.reduce((sum, item) => {
-          if (itemMatchesVolumeRule(item, rule, catalog)) {
-            return sum + sellableQty(item.qty, findEntry(catalog, String(item.id)));
-          }
-          return sum;
-        }, 0);
-        ruleCounts.set(rule.id || rule.name || rule.category, count);
-      }
-
-      // What the retention layer needs off this order, collected as the line
-      // items are validated so it costs nothing extra: the ids and categories
-      // of what was bought. The webhook copies these into `order_signals` and
-      // they decide which "how to use your …" copy gets sent and whether the
-      // review ask waits 7 days or 12. Ids only -- no names, no quantities, no
-      // prices; Stripe metadata is world-readable in the Dashboard.
-      const retentionProductIds = [];
-      const retentionCategories = [];
-
-      const lineItems = items.map((item) => {
-        // Custom boxes have no catalog entry of their own -- priced and
-        // validated entirely from their contents. Handled before findEntry(),
-        // which would (correctly) fail to find "custom-box" in the catalog.
-        if (String(item.id) === CUSTOM_BOX_ID) {
-          const ids = Array.isArray(item.boxProductIds) ? item.boxProductIds : [];
-          const unitAmount = resolveCustomBoxCents(catalog, ids);
-          const parsedBoxQty = parseInt(item.qty, 10);
-          const boxQty =
-            Number.isNaN(parsedBoxQty) || parsedBoxQty < 1
-              ? 1
-              : Math.min(parsedBoxQty, MAX_QTY_PER_ITEM);
-          const contents = ids
-            .map((id) => (boxProductMap.get(String(id)) || {}).name || id)
-            .join(", ");
-          for (const id of ids) {
-            const boxed = boxProductMap.get(String(id));
-            if (!boxed) continue;
-            retentionProductIds.push(boxed.id || String(id));
-            if (boxed.category) retentionCategories.push(boxed.category);
-          }
-          boxLineIndex += 1;
-          // Record the exact contents so the packing slip / fulfilment side
-          // knows what actually goes in the box.
-          metadata[`custom_box_${boxLineIndex}`] = truncate(contents, MAX_GIFT_TEXT_LEN);
-          return {
-            name: `Build-Your-Own Box (${ids.length} items)`,
-            image: null,
-            description: contents || null,
-            unitAmount,
-            qty: boxQty,
-            isGiftCard: false,
-            // A box only ever holds physical apothecary goods (the builder
-            // excludes apparel and gift cards), so the general goods code is
-            // always right here -- no need to inspect its contents.
-            taxCode: TAX_CODE_GOODS
-          };
-        }
-
-        const entry = findEntry(catalog, String(item.id));
-        if (!entry) throw new ClientError(`Product not found: ${item.id}`);
-
-        // Availability, from the same catalog fields the shop pages render
-        // from. A "Coming Soon" card has no working buy button and a sold-out
-        // product isn't offered at all, so an order for one can only come
-        // from a stale cart or an edited payload -- and taking the money for
-        // something that cannot ship is worse than losing the sale.
-        if (entry.comingSoon) {
-          throw new ClientError(
-            `Not available yet: ${entry.name || item.id}`,
-            400,
-            unavailableDetails({ id: String(item.id), reason: "coming_soon" })
-          );
-        }
-        if (entry.inStock === false) {
-          throw new ClientError(
-            `Sold out: ${entry.name || item.id}`,
-            400,
-            unavailableDetails({ id: String(item.id), reason: "sold_out" })
-          );
-        }
-
-        const isGiftCard = item.id === GIFT_CARD_ID;
-        const isBundle = !isGiftCard && bundleMapOf(catalog).has(entry.id);
-        // A set is only as available as its members: a sold-out or
-        // coming-soon member refuses the whole set, exactly as it would be
-        // refused on its own line.
-        if (isBundle) assertBundleMembersAvailable(catalog, entry, String(item.id));
-        // A chosen option that exists but is sold out. resolveUnitAmountCents
-        // refuses it too, with the same "not purchasable" answer an unknown
-        // label gets -- that text is kept (cart.js and the challenger suites
-        // quote it); the structured field is what names the option, so the
-        // drawer can drop exactly that line and say why.
-        if (!isGiftCard && !isBundle) {
-          const chosen = findVariantOption(entry, item.variant);
-          if (chosen && chosen.soldOut) {
-            throw new ClientError(
-              `Product not purchasable: ${item.id}`,
-              400,
-              unavailableDetails({
-                id: String(item.id),
-                variant: chosen.label,
-                reason: "sold_out"
-              })
-            );
-          }
-        }
-        // Throws a ClientError (-> 400 with the message) when a gift set
-        // arrives with a missing, unknown or sold-out member choice.
-        const bundleChoices = isBundle
-          ? resolveBundleVariantChoices(catalog, entry, item.bundleVariants, String(item.id))
-          : [];
-        const unitAmount = isGiftCard
-          ? resolveGiftCardAmountCents(item.variant)
-          : resolveUnitAmountCents(
-              catalog,
-              entry,
-              item.variant,
-              isBundle,
-              ruleCounts,
-              bundleChoices
-            );
-        if (unitAmount === null || unitAmount < 0) {
-          throw new ClientError(`Product not purchasable: ${item.id}`);
-        }
-
-        // `stock` is the on-hand count the CMS tracks (null/absent = not
-        // tracked, e.g. made to order). Where it IS tracked, 0 means there is
-        // nothing to sell at all, and otherwise it caps the quantity --
-        // sellableQty() is the same cap the volume-price tiers counted with
-        // above, so a tier can never be unlocked by units that will not ship.
-        if (typeof entry.stock === "number" && Number.isFinite(entry.stock) && entry.stock <= 0) {
-          throw new ClientError(
-            `Sold out: ${entry.name || item.id}`,
-            400,
-            unavailableDetails({ id: String(item.id), reason: "sold_out" })
-          );
-        }
-        const qty = sellableQty(item.qty, entry);
-
-        // The variant in the line name comes from the catalog option that was
-        // matched server-side, never from item.variant -- otherwise a client
-        // could put arbitrary text (or a size it isn't buying) on the Stripe
-        // receipt and the packing slip derived from it.
-        const variantOption =
-          !isGiftCard && !isBundle ? findVariantOption(entry, item.variant) : null;
-        const name =
-          entry.name +
-          (isGiftCard
-            ? ` ($${(unitAmount / 100).toFixed(2)})`
-            : variantOption
-              ? ` (${variantOption.label})`
-              : "");
-        const image =
-          entry.image && env.SITE_ORIGIN
-            ? `${env.SITE_ORIGIN}/${String(entry.image).replace(/^\/+/, "")}`
-            : null;
-
-        /* What was actually chosen inside a gift set, in the catalog's own
-           words. It goes on the Stripe line item description (so it is on
-           the receipt and on anything generated from the session) AND in
-           session metadata, because a set is one line and the size/scent
-           would otherwise exist nowhere on the order. */
-        let description = null;
-        if (isBundle && bundleChoices.length) {
-          description = bundleChoices
-            .map((c) => `${c.productName} — ${c.variantName}: ${c.label}`)
-            .join(" · ");
-          bundleLineIndex += 1;
-          metadata[`gift_set_${bundleLineIndex}`] = truncate(
-            `${entry.name}: ${description}`,
-            MAX_GIFT_TEXT_LEN
-          );
-        }
-
-        // Gift-card recipient/sender/message never affect price -- they're
-        // pure metadata, attached at the session level (indexed so multiple
-        // gift cards in one order don't collide).
-        // One metadata GROUP per gift-card line, carrying its quantity --
-        // not one group per unit. Stripe caps a session at 50 metadata keys,
-        // so the old per-unit expansion meant a 10-card order silently lost
-        // the cards past the cap: keys were dropped, the webhook never saw
-        // them, and the buyer paid for codes that were never minted. The
-        // webhook (fulfill-gift-card.js) now expands `_qty` itself when it
-        // derives codes. A single card still writes exactly the keys it
-        // always did, so nothing about the one-card case changes.
-        if (isGiftCard) {
-          giftLineIndex += 1;
-          const prefix = `gift_card_${giftLineIndex}`;
-          // amount_cents is what fulfill-gift-card.js (the Netlify function
-          // listening for checkout.session.completed) reads to know how
-          // much to put on the code it emails -- it's set here, server-
-          // side, from the same clamped unitAmount already computed above,
-          // never from anything the client sent directly.
-          metadata[`${prefix}_amount_cents`] = String(unitAmount);
-          if (qty > 1) metadata[`${prefix}_qty`] = String(qty);
-          if (
-            item.giftRecipientEmail !== undefined &&
-            item.giftRecipientEmail !== null &&
-            item.giftRecipientEmail !== ""
-          ) {
-            // Validated, not just truncated: this address is where a real
-            // stored-value code gets emailed. See validateGiftRecipientEmail.
-            metadata[`${prefix}_recipient`] = truncate(
-              validateGiftRecipientEmail(item.giftRecipientEmail),
-              MAX_GIFT_TEXT_LEN
-            );
-          }
-          if (item.giftSenderName) {
-            const sender = stripControlChars(item.giftSenderName);
-            if (sender) metadata[`${prefix}_sender`] = truncate(sender, MAX_GIFT_TEXT_LEN);
-          }
-          if (item.giftMessage) {
-            const giftNote = stripControlChars(item.giftMessage);
-            if (giftNote) metadata[`${prefix}_message`] = truncate(giftNote, MAX_GIFT_TEXT_LEN);
-          }
-        }
-
-        // Bundles have no category of their own, but every current bundle is
-        // a mix of apothecary goods, so general tangible goods is correct for
-        // them too. Only apparel and gift cards need to differ.
-        const taxCode = isGiftCard
-          ? TAX_CODE_GIFT_CARD
-          : entry.category === "apparel"
-            ? TAX_CODE_APPAREL
-            : TAX_CODE_GOODS;
-
-        retentionProductIds.push(entry.id);
-        if (entry.category) retentionCategories.push(entry.category);
-
-        return { name, image, description, unitAmount, qty, isGiftCard, taxCode };
-      });
+      const { lineItems, retentionProductIds, retentionCategories } = buildLineItems(
+        catalog,
+        items,
+        allocation,
+        env,
+        metadata
+      );
 
       // Stripe caps a metadata VALUE at 500 characters, so these are truncated
       // rather than silently rejected. Losing the tail of a very long list only
@@ -1775,8 +2086,70 @@ async function handleCheckout(request, env, ctx, origin) {
         }
       }
 
+      // ---- Promo code ----------------------------------------------------
+      // The code the drawer previewed (routes/promo-preview.js) is looked up
+      // AGAIN here, never trusted from the client, and attached to the
+      // session itself so Stripe's page opens at the total the drawer showed.
+      // Stripe Checkout takes ONE `discounts` entry and a redeemed gift card
+      // already holds it, so with a card applied the code is not attached:
+      // the response says so structurally (`promo.reason`) and the drawer
+      // explains the one-or-the-other rule before it ever gets this far. A
+      // code that no longer works is a refusal with the reason named, not a
+      // silent full-price session -- the shopper watched the drawer take
+      // money off, and charging them without it is worse than a retry.
+      let appliedPromotionCodeId = null;
+      let promoOutcome = null;
+      if (metadata.discount_code) {
+        const promoCode = metadata.discount_code;
+        const promoCodesOn = (await loadSiteSettings(env, ctx)).enablePromoCodes !== false;
+        if (appliedGiftCardCouponId) {
+          promoOutcome = { code: promoCode, applied: false, reason: "gift_card_conflict" };
+          metadata.discount_code_skipped = "gift_card";
+        } else if (!promoCodesOn) {
+          // The owner switched codes off in the CMS (site.enablePromoCodes):
+          // the drawer shows no code box, so this is an older client or a
+          // hand-made request. Today's behaviour is kept -- the code stays in
+          // metadata and Stripe's own box stays on -- and the answer says so.
+          promoOutcome = { code: promoCode, applied: false, reason: "disabled" };
+        } else {
+          const found = await findPromotionCode(env, promoCode);
+          if (found === null) {
+            throw new ClientError(PROMO_COPY.unavailable, 503, {
+              promo: { code: promoCode, applied: false, reason: "unavailable" }
+            });
+          }
+          const verdict = found
+            ? evaluatePromotion(found, totalCents)
+            : { valid: false, reason: "unknown", error: PROMO_COPY.unknown };
+          if (!verdict.valid) {
+            throw new ClientError(verdict.error, 400, {
+              promo: {
+                code: promoCode,
+                applied: false,
+                reason: verdict.reason,
+                ...(verdict.minimumAmountCents
+                  ? { minimumAmountCents: verdict.minimumAmountCents }
+                  : {})
+              }
+            });
+          }
+          appliedPromotionCodeId = String(found.id);
+          metadata.discount_code = truncate(verdict.code || promoCode, 100);
+          promoOutcome = {
+            code: metadata.discount_code,
+            applied: true,
+            estimatedDiscountCents: verdict.estimatedDiscountCents
+          };
+        }
+      }
+
       if (appliedGiftCardCouponId) {
         params.append("discounts[0][coupon]", appliedGiftCardCouponId);
+      } else if (appliedPromotionCodeId) {
+        // Stripe refuses a session carrying both `discounts` and
+        // `allow_promotion_codes`, so the code box on the hosted page is off
+        // when a code is already attached.
+        params.append("discounts[0][promotion_code]", appliedPromotionCodeId);
       } else {
         // Marketing codes ONLY. A gift card is never entered here any more --
         // it is not a promotion code, it is a ledger balance -- and the webhook
@@ -1811,6 +2184,21 @@ async function handleCheckout(request, env, ctx, origin) {
         if (li.image) {
           params.append(`line_items[${i}][price_data][product_data][images][0]`, li.image);
         }
+        // Read back by the webhook (expand[]=data.price.product) for the
+        // customer's order history; never by the money path.
+        if (li.productId) {
+          params.append(
+            `line_items[${i}][price_data][product_data][metadata][yl_product_id]`,
+            truncate(li.productId, 80)
+          );
+          params.append(`line_items[${i}][price_data][product_data][metadata][yl_kind]`, li.kind);
+          if (li.variant) {
+            params.append(
+              `line_items[${i}][price_data][product_data][metadata][yl_variant]`,
+              truncate(li.variant, 80)
+            );
+          }
+        }
         params.append(`line_items[${i}][price_data][unit_amount]`, String(li.unitAmount));
         if (taxEnabled && !li.noTax) {
           // "exclusive" = the price above is pre-tax and Stripe adds tax on
@@ -1820,6 +2208,14 @@ async function handleCheckout(request, env, ctx, origin) {
         }
         params.append(`line_items[${i}][quantity]`, String(li.qty));
       });
+
+      /* Unpaid sessions expire 31 minutes after creation (Stripe's floor is
+         30). The inventory hold and the gift-card hold both wait on
+         `checkout.session.expired`; at Stripe's 24-hour default one abandoned
+         tab -- or one deliberate POST -- kept a product's whole count off the
+         shelf for a day (red team, 2026-09-09). The cart survives client-side,
+         so a shopper who comes back later simply starts a fresh session. */
+      params.append("expires_at", String(Math.floor(Date.now() / 1000) + SESSION_EXPIRES_SECONDS));
 
       const createSession = async (body) => {
         const res = await fetch("https://api.stripe.com/v1/checkout/sessions", {
@@ -1861,7 +2257,35 @@ async function handleCheckout(request, env, ctx, origin) {
         // A coupon minted for a session that was never created is a live
         // amount_off coupon with no webhook coming to clean it up.
         if (appliedGiftCardCouponId) await deleteCoupon(env, appliedGiftCardCouponId);
+        // A refusal aimed at the promo code (a restriction the lookup cannot
+        // see, e.g. first-time-customer checks Stripe runs on its side) is
+        // the shopper's to fix: the drawer drops the code and says why, and
+        // the next click checks out without it. Stripe's text stays here.
+        if (appliedPromotionCodeId && isPromoRefusal(session.error)) {
+          throw new ClientError(promoCopyFor("rejected"), 400, {
+            promo: { code: metadata.discount_code, applied: false, reason: "rejected" }
+          });
+        }
         throw new Error("Stripe rejected the checkout session");
+      }
+
+      // Hold the tracked units against the session that now exists, BEFORE
+      // the gift-card hold below so a refusal here has only the session and
+      // the coupon to unwind. From here on the webhook is what lets the units
+      // go again: commit on payment, release on expiry, and the hourly stale-
+      // hold sweep as a backstop (routes/inventory.js). A refusal means
+      // another checkout took the last units while this one was being built;
+      // the drawer drops the named line on this 400 (cart.js, `unavailable`).
+      {
+        const held = await reserveForCheckout(
+          env,
+          session.id,
+          holdsFromAllocation(items, allocation, CUSTOM_BOX_ID)
+        );
+        if (!held.ok) {
+          await unwindRefusedSession(env, session.id, appliedGiftCardCouponId);
+          throw new ClientError(`Sold out: ${held.name}`, 400, unavailableDetails(held.refusal));
+        }
       }
 
       // Take the hold LAST, against the session that now exists. Everything up
@@ -1907,6 +2331,17 @@ async function handleCheckout(request, env, ctx, origin) {
               );
             }
           }
+          /* The inventory hold was taken just above, against this same
+             session; it must not wait 31 minutes for the expiry webhook (or
+             35 for the sweep) when the session is being killed right here. */
+          try {
+            await releaseInventoryForSession({ id: session.id }, env, "gift-card-unwind");
+          } catch (unwindErr) {
+            console.error(
+              `Gift card unwind: releasing inventory for ${session.id} threw:`,
+              unwindErr
+            );
+          }
           if (!expired || !couponDeleted) {
             console.error(
               `Gift card unwind incomplete for session ${session.id}: ` +
@@ -1914,6 +2349,22 @@ async function handleCheckout(request, env, ctx, origin) {
                 `session ${expired ? "expired" : "NOT expired after 2 attempts"}. ` +
                 `Expire the session in the Stripe Dashboard so it cannot be paid.`
             );
+            // Keyed on the session: each of these is a separate tab that can
+            // still be paid at the discounted total, and each needs a hand.
+            alertOwner(env, ctx, {
+              key: `gift-card-unwind:${session.id}`,
+              subject: "A gift-card checkout could not be cancelled -- expire it by hand",
+              details: {
+                "checkout session": session.id,
+                "session expired": expired ? "yes" : "NO -- still payable at the discounted total",
+                coupon: couponId,
+                "coupon deleted": couponDeleted ? "yes" : "NO",
+                "gift card": appliedGiftCardCode,
+                "what to do":
+                  "Stripe Dashboard -> Payments -> Checkout Sessions -> open the session -> Expire; " +
+                  "then Products -> Coupons -> delete the coupon if it is still there"
+              }
+            });
           }
           console.warn(
             `Gift card ${appliedGiftCardCode} could not be held for ${session.id}: ${err.code}`
@@ -1922,7 +2373,12 @@ async function handleCheckout(request, env, ctx, origin) {
         }
       }
 
-      return json({ url: session.url }, 200, origin, env);
+      return json(
+        { url: session.url, ...(promoOutcome ? { promo: promoOutcome } : {}) },
+        200,
+        origin,
+        env
+      );
     } catch (err) {
       // Only ClientError messages are safe to show the shopper. Anything else
       // is an internal failure: log it and return a generic message so raw
@@ -1969,6 +2425,27 @@ export default {
       } catch (err) {
         console.error("gift-note failed:", err && err.stack ? err.stack : err);
         return json({ error: "Something went wrong." }, 500, origin, env);
+      }
+    }
+    // The other GET: live stock counts (routes/inventory.js). Public and
+    // read-only, so the origin check below is not needed for it either.
+    if (route === "/inventory" && request.method === "GET") {
+      try {
+        return await handleInventory(request, env, origin, ctx);
+      } catch (err) {
+        console.error("inventory failed:", err && err.stack ? err.stack : err);
+        return json({ error: "Live stock is unavailable." }, 503, origin, env);
+      }
+    }
+    // The third GET: the order history behind a one-time link
+    // (routes/orders.js). The token is the credential; the origin check
+    // below is for POSTs from a browser, which this is not.
+    if (route === "/orders" && request.method === "GET") {
+      try {
+        return await handleOrdersList(request, env, origin, ctx);
+      } catch (err) {
+        console.error("orders failed:", err && err.stack ? err.stack : err);
+        return json({ error: "Something went wrong. Please try again." }, 500, origin, env);
       }
     }
     if (request.method !== "POST") {
@@ -2043,6 +2520,13 @@ export default {
             async () => (await import("./state/order-emails.js")).sweepOrderEmails(env.STATE_DB)
           ],
           ["email-queue sweep", () => retention.sweepEmailQueue(env.STATE_DB)],
+          /* Inventory holds whose Stripe session died without the expiry
+             webhook arriving: released after 25h so a lost event cannot keep
+             the last unit off the shelf (workers/state/inventory.js). */
+          [
+            "inventory hold sweep",
+            async () => (await import("./state/inventory.js")).sweepStaleHolds(env.STATE_DB)
+          ],
           /* The ship notice's real trigger: Stripe fires no event for a
              metadata edit on a PaymentIntent, so the hourly tick looks for
              orders marked shipped instead (routes/ship-notice.js). */
@@ -2078,6 +2562,15 @@ export default {
             await run();
           } catch (err) {
             console.error(`cron: ${label} failed:`, err && (err.stack || err.message));
+            alertOwner(env, ctx, {
+              key: `cron:${label}`,
+              subject: `The hourly "${label}" job failed`,
+              details: {
+                job: label,
+                error: err && err.message,
+                "what happens": "the other hourly jobs still ran; this one is retried next hour"
+              }
+            });
           }
         }
       })()

@@ -857,13 +857,16 @@ async function runAllTests() {
 
       // 4.3 Test Article Detail Navigation & Featured Card 1-Click Cart Addition
       console.log("\n  --- Testing Detail View & Featured Card 1-Click Cart Integration ---");
-      await page.goto(`http://127.0.0.1:${PORT}/journal.html#post-magnesium-salve-benefits`, {
+      // A post is its own static page now (journal/<slug>.html); the old
+      // journal.html#post-<slug> address redirects there (m4-adversarial
+      // proves that), so drive the page directly here.
+      await page.goto(`http://127.0.0.1:${PORT}/journal/magnesium-salve-benefits.html`, {
         waitUntil: "networkidle0"
       });
       await new Promise((r) => setTimeout(r, 150));
 
       // Verify detail elements
-      const detailTitle = await page.$eval(".journal-detail h2", (el) => el.textContent.trim());
+      const detailTitle = await page.$eval(".journal-detail h1", (el) => el.textContent.trim());
       assert(
         detailTitle.includes("Why Magnesium & Arnica Belong in Your Bedtime Routine"),
         "Detail view displays article title"
@@ -926,7 +929,10 @@ async function runAllTests() {
 
       // 4.4 Verify Back to Journal button
       console.log("  Clicking '← Back to Journal' button...");
-      await page.click("#journalBackBtn");
+      await Promise.all([
+        page.waitForNavigation({ waitUntil: "networkidle0" }),
+        page.click("#journalBackBtn")
+      ]);
       await new Promise((r) => setTimeout(r, 150));
       const isListViewRestored = await page.$$eval(".grid .card", (cards) => cards.length >= 2);
       assert(isListViewRestored, "'← Back to Journal' button restores article list view");

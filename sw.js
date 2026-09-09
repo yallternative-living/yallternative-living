@@ -5,7 +5,7 @@
  */
 
 /** @const {string} Cache name key, updated on assets release. */
-const CACHE_NAME = "yallternative-cache-v61a64bb5d8fc";
+const CACHE_NAME = "yallternative-cache-vf34b3ee02b2c";
 
 /**
  * The site not-found page is deliberately NOT on this list. A host answers a
@@ -30,6 +30,7 @@ const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/offline.html',
+  '/journal.html',
   '/shop.html',
   '/about.html',
   '/contact.html',
@@ -42,6 +43,7 @@ const ASSETS_TO_CACHE = [
   /* The not-found page is deliberately absent -- see the note above. */
   '/reviews.html',
   '/order-status.html',
+  '/orders.html',
   '/thank-you.html',
   '/welcome.html',
   '/assets/css/styles.css',
@@ -50,6 +52,7 @@ const ASSETS_TO_CACHE = [
   '/assets/js/porch-light.js',
   '/assets/js/cart.js',
   '/assets/js/thank-you.js',
+  '/assets/js/orders.js',
   '/assets/js/content-data.js',
   '/assets/js/products-data.js',
   '/assets/js/events-data.js',

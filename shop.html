@@ -935,7 +935,7 @@
       <li><a href="events.html">Events</a></li>
       <li><a href="about.html">Our Story</a></li>
       <li><a href="contact.html">Contact</a></li>
-      <!--YL:nav.journal--><!--/YL:nav.journal-->
+      <!--YL:nav.journal--><li><a href="journal.html">Journal</a></li><!--/YL:nav.journal-->
     </ul>
     <div class="nav-cta">
       <button class="nav-search-btn" id="globalSearchTrigger" type="button" aria-label="Search catalog, articles &amp; FAQ" title="Search (Cmd+K)" aria-haspopup="dialog" aria-expanded="false" aria-controls="global-search-modal">
@@ -974,15 +974,34 @@
 
   <section class="section-tight" id="shop-catalog">
     <div class="container">
+      <!-- .shop-controls is a plain block on tablet and desktop. On phones
+           (<=767px) it becomes ONE sticky row -- search, a Filter button with
+           an active-filter badge, a Sort button -- and initShopFilterSheet()
+           in main.js moves the pill rows and selects below into the
+           #shopFilterSheet bottom sheet. The same DOM nodes move (never
+           copies), so every id, class and data-attribute keeps working and
+           a JS-driven click on a hidden pill still filters the grid. -->
+      <div class="shop-controls" id="shopControls">
       <form id="shopSearchForm" class="shop-search" toolname="search-products" tooldescription="Search the shop catalog for products, apparel, or salves" toolautosubmit>
         <label for="shopSearch" class="sr-only">Search products</label>
         <svg class="shop-search-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
         <input type="search" id="shopSearch" placeholder="Search salves, soaks, apparel..." autocomplete="off">
       </form>
+      <div class="shop-mobile-bar" id="shopMobileBar">
+        <button type="button" class="shop-mobile-btn" id="shopFilterOpenBtn" aria-haspopup="dialog" aria-controls="shopFilterSheet" aria-expanded="false">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+          <span><!--YL:shop.filterUi.filterButton-->Filter<!--/YL:shop.filterUi.filterButton--></span>
+          <span class="shop-filter-count" id="shopFilterCount" aria-hidden="true" hidden>0</span>
+        </button>
+        <button type="button" class="shop-mobile-btn" id="shopSortOpenBtn" aria-haspopup="dialog" aria-controls="shopFilterSheet" aria-expanded="false">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16M7 20l-3-3M7 20l3-3M17 20V4M17 4l-3 3M17 4l3 3"/></svg>
+          <span><!--YL:shop.filterUi.sortButton-->Sort<!--/YL:shop.filterUi.sortButton--></span>
+        </button>
+      </div>
       <div class="shop-toolbar">
         <div id="filterRow" class="filter-row"><button class="filter-pill active" type="button" data-filter="all" aria-pressed="true">All</button><button class="filter-pill" type="button" data-filter="apparel" aria-pressed="false">Apparel</button><button class="filter-pill" type="button" data-filter="salves" aria-pressed="false">Salves &amp; Balms</button><button class="filter-pill" type="button" data-filter="body" aria-pressed="false">Body &amp; Skin</button><button class="filter-pill" type="button" data-filter="soaks" aria-pressed="false">Soaks</button><button class="filter-pill" type="button" data-filter="potions" aria-pressed="false">Potions &amp; Spellwork</button><button class="filter-pill" type="button" data-filter="ritual" aria-pressed="false">Ritual &amp; Home</button><button class="filter-pill" type="button" data-filter="gift-sets" aria-pressed="false">Gift Sets</button><button class="filter-pill" type="button" data-filter="gift-cards" aria-pressed="false">Gift Cards</button></div>
         <div id="concernFilterWrap" class="concern-filter-wrap">
-          <div id="concernFilterRow" class="filter-row concern-filter-row" role="region" aria-label="Filter by skin concern"><button class="concern-pill active" type="button" data-concern="all" aria-pressed="true">All Concerns</button><button class="concern-pill" type="button" data-concern="sleep-relaxation" aria-pressed="false"><span class="concern-icon" aria-hidden="true">🌙</span> Wind-Down &amp; Relaxation</button><button class="concern-pill" type="button" data-concern="sore-muscles" aria-pressed="false"><span class="concern-icon" aria-hidden="true">🌿</span> After a Long Day</button><button class="concern-pill" type="button" data-concern="dry-skin" aria-pressed="false"><span class="concern-icon" aria-hidden="true">💧</span> Dry, Rough Skin</button><button class="concern-pill" type="button" data-concern="outdoor-defense" aria-pressed="false"><span class="concern-icon" aria-hidden="true">🏕️</span> Outdoor Defense</button><button class="concern-pill" type="button" data-concern="daily-glow" aria-pressed="false"><span class="concern-icon" aria-hidden="true">✨</span> Daily Glow &amp; Hydration</button></div>
+          <div id="concernFilterRow" class="filter-row concern-filter-row" role="group" aria-label="Filter by skin concern"><button class="concern-pill active" type="button" data-concern="all" aria-pressed="true">All Concerns</button><button class="concern-pill" type="button" data-concern="sleep-relaxation" aria-pressed="false"><span class="concern-icon" aria-hidden="true">🌙</span> Wind-Down &amp; Relaxation</button><button class="concern-pill" type="button" data-concern="sore-muscles" aria-pressed="false"><span class="concern-icon" aria-hidden="true">🌿</span> After a Long Day</button><button class="concern-pill" type="button" data-concern="dry-skin" aria-pressed="false"><span class="concern-icon" aria-hidden="true">💧</span> Dry, Rough Skin</button><button class="concern-pill" type="button" data-concern="outdoor-defense" aria-pressed="false"><span class="concern-icon" aria-hidden="true">🏕️</span> Outdoor Defense</button><button class="concern-pill" type="button" data-concern="daily-glow" aria-pressed="false"><span class="concern-icon" aria-hidden="true">✨</span> Daily Glow &amp; Hydration</button></div>
         </div>
         <div class="shop-sort">
           <!-- Populated by main.js from each product's Scent field; stays empty
@@ -1013,14 +1032,58 @@
           <button type="button" class="btn btn-outline btn-sm" id="openOrderStatusBtn" data-action="open-order-status">Track Order Status</button>
         </div>
       </div>
+      </div>
+      <!-- Removable chips for every non-default filter (category, concern,
+           scent, search). Filled by renderActiveFilters() in main.js; stays
+           hidden while everything is at its default. #shopChipRemoveLabel is
+           the shared, hidden first half of each chip's accessible name
+           ("Remove" + the chip's own label, via aria-labelledby). -->
+      <div class="shop-active-filters" id="shopActiveFilters" role="group" aria-labelledby="shopActiveFiltersLabel" hidden>
+        <span class="sr-only" id="shopActiveFiltersLabel"><!--YL:shop.filterUi.activeFilters-->Active filters<!--/YL:shop.filterUi.activeFilters--></span>
+        <span id="shopChipRemoveLabel" hidden><!--YL:shop.filterUi.removeFilter-->Remove<!--/YL:shop.filterUi.removeFilter--></span>
+        <div class="shop-active-filters-list" id="shopActiveFiltersList"></div>
+        <button type="button" class="shop-chip shop-chip-clear" id="shopClearFiltersBtn"><!--YL:shop.filterUi.clearAll-->Clear all<!--/YL:shop.filterUi.clearAll--></button>
+      </div>
       <p class="shop-count" id="shopCount" aria-live="polite"></p>
       <p class="shop-policy-note">Ships from Landrum, SC (US only for now). Opened salves, scrubs, and soaks are final sale for hygiene reasons. Unworn apparel and sealed items can be exchanged. Anything arrive wrong or damaged? <a href="contact.html">Email us</a> and we'll make it right.</p>
+      <!-- Phone bottom sheet. Empty on disk: on <=767px main.js moves
+           #filterRow, #concernFilterWrap and .shop-sort into the slots below.
+           Never opened on wider viewports. -->
+      <dialog class="shop-filter-sheet" id="shopFilterSheet" aria-labelledby="shopFilterSheetTitle">
+        <div class="shop-sheet-header">
+          <h2 class="shop-sheet-title" id="shopFilterSheetTitle"><!--YL:shop.filterUi.sheetTitle-->Filter &amp; sort<!--/YL:shop.filterUi.sheetTitle--></h2>
+          <button type="button" class="shop-sheet-close" id="shopFilterSheetClose">
+            <span class="sr-only">Close</span>
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+        <div class="shop-sheet-body" id="shopFilterSheetBody">
+          <div class="shop-sheet-group" id="shopSheetCategorySlot">
+            <h3 class="shop-sheet-label"><!--YL:shop.filterUi.categoryHeading-->Category<!--/YL:shop.filterUi.categoryHeading--></h3>
+          </div>
+          <div class="shop-sheet-group" id="shopSheetConcernSlot">
+            <h3 class="shop-sheet-label"><!--YL:shop.filterUi.concernHeading-->Concern<!--/YL:shop.filterUi.concernHeading--></h3>
+          </div>
+          <div class="shop-sheet-group shop-sheet-group-sort" id="shopSheetSortSlot"></div>
+        </div>
+        <div class="shop-sheet-footer">
+          <!-- Wording mirrors #shopClearFiltersBtn (one CMS field, copied by
+               main.js at init); the literal here is the no-JS fallback. -->
+          <button type="button" class="btn btn-outline btn-sm" id="shopSheetClearBtn">Clear all</button>
+          <button type="button" class="btn btn-primary btn-sm" id="shopSheetApplyBtn"><!--YL:shop.filterUi.applyButton-->Apply<!--/YL:shop.filterUi.applyButton--></button>
+        </div>
+      </dialog>
       <!-- Visually-hidden: the product cards below render as h3 (see
            cardHTML() in main.js), and with no visible section title here
            they'd otherwise sit directly under the page's h1 -- a skipped
            heading level for anyone navigating by heading via screen reader. -->
       <h2 class="sr-only">All Products</h2>
       <div id="shopGrid" class="grid grid-3 stagger"></div>
+      <!-- Phone-only home for #openOrderStatusBtn: on <=767px main.js moves
+           the button here, under the grid, so it is not part of the wall
+           above the first product; it moves back into .shop-sort when the
+           viewport grows. -->
+      <div class="shop-order-status-slot" id="shopOrderStatusSlot"></div>
     </div>
   </section>
 
@@ -1180,12 +1243,11 @@
        itself: the codes, balances and redemption all live in the Cloudflare
        Worker (workers/checkout.js, /api/gift-card-balance).
 
-       This modal used to also carry a hidden #giftUpContainer holding the
-       string YOUR_GIFTUP_ID -- an unshipped Gift Up! (giftup.com)
-       integration that the Worker replaced. It shipped to production in the
-       live DOM on every visit to this page, invisible to sighted users and
-       dating a service the shop no longer uses, so it is deleted (audit C,
-       nit N2). scripts/qa-check.js asserts it stays deleted. -->
+       This modal used to also carry a hidden placeholder for a third-party
+       gift-card widget the shop never adopted. It shipped in the live DOM on
+       every visit to this page, so it was deleted (audit C, nit N2) and the
+       integration has since been removed from the project entirely.
+       scripts/qa-check.js asserts the placeholder stays gone. -->
   <dialog id="giftCardModal" class="gift-modal" closedby="any" aria-labelledby="giftCardModalTitle">
     <button type="button" class="gift-modal-close" id="closeGiftModalBtn" aria-label="Close dialog">&times;</button>
 
@@ -1566,6 +1628,7 @@
           <li><a href="/about.html">Our Story</a></li>
           <li><a href="/faq.html">FAQ</a></li>
           <li><a href="/reviews.html">Customer Reviews</a></li>
+          <li><a href="/orders.html" class="orders-history-link">Your Orders</a></li>
           <li><a href="/contact.html">Contact</a></li>
         </ul>
       </div>

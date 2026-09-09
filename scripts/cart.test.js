@@ -1791,6 +1791,542 @@ assert(
       mockWindow.YL_TRANSLATOR = savedTranslator;
     }
 
+    /* ==========================================================
+       Promo codes: previewed by the Worker, applied through
+       YLCart.applyPromoCode, stored as yl_applied_promo, re-estimated
+       locally as the cart changes, one-or-the-other with a gift card,
+       sent as discount_code, and dropped when the Worker refuses it.
+       ========================================================== */
+    {
+      const internals = require("../assets/js/cart.js");
+      const savedContent = mockWindow.YL_CONTENT;
+      mockWindow.YL_CONTENT = { site: { loyaltyPointsPerDollar: 1 } };
+
+      // ---- pure helpers
+      eq(
+        internals.normalizePromoCode(" wel come10 "),
+        "WELCOME10",
+        "normalizePromoCode strips spacing, upper-cases"
+      );
+      eq(internals.normalizePromoCode("A"), "", "normalizePromoCode: one character is not a code");
+      eq(
+        internals.normalizePromoCode("BAD!CODE"),
+        "",
+        "normalizePromoCode: punctuation is refused"
+      );
+      eq(
+        internals.normalizePromoCode("A".repeat(41)),
+        "",
+        "normalizePromoCode: over 40 characters is refused"
+      );
+      eq(internals.normalizePromoCode(42), "", "normalizePromoCode: a non-string is refused");
+      eq(internals.normalizeAppliedPromo(null), null, "normalizeAppliedPromo: nothing is nothing");
+      eq(
+        internals.normalizeAppliedPromo({ code: "X10", kind: "percent" }),
+        null,
+        "normalizeAppliedPromo: a percent code needs a percent"
+      );
+      eq(
+        internals.normalizeAppliedPromo({ code: "X10", kind: "amount", amountOffCents: 0 }),
+        null,
+        "normalizeAppliedPromo: an amount code needs an amount"
+      );
+      eq(
+        internals.normalizeAppliedPromo({
+          valid: false,
+          code: "X10",
+          kind: "percent",
+          percentOff: 10
+        }),
+        null,
+        "normalizeAppliedPromo: a refused verdict is not stored"
+      );
+      eq(
+        internals.normalizeAppliedPromo({
+          valid: true,
+          code: "welcome10",
+          kind: "percent",
+          percentOff: 10,
+          amountOffCents: null,
+          minimumAmountCents: 0,
+          restrictions: { firstTimeOnly: true },
+          estimatedDiscountCents: 180,
+          subtotalCents: 1800
+        }),
+        {
+          code: "WELCOME10",
+          kind: "percent",
+          percentOff: 10,
+          amountOffCents: null,
+          minimumAmountCents: 0,
+          firstTimeOnly: true,
+          estimatedDiscountCents: 180
+        },
+        "normalizeAppliedPromo keeps exactly the code's terms, canonical code, no ids"
+      );
+      const tenPct = { code: "TEN", kind: "percent", percentOff: 10 };
+      const fiveOff = { code: "FIVE", kind: "amount", amountOffCents: 500 };
+      const bigMin = { code: "BIG", kind: "percent", percentOff: 25, minimumAmountCents: 5000 };
+      eq(internals.promoDiscountFor(tenPct, 18), 1.8, "promoDiscountFor: 10% of $18");
+      eq(
+        internals.promoDiscountFor(tenPct, 10.05),
+        1.01,
+        "promoDiscountFor: rounds to the cent like the Worker"
+      );
+      eq(internals.promoDiscountFor(fiveOff, 18), 5, "promoDiscountFor: $5 off $18");
+      eq(
+        internals.promoDiscountFor(fiveOff, 3),
+        3,
+        "promoDiscountFor: $5 off $3 is $3, never negative"
+      );
+      eq(
+        internals.promoDiscountFor(bigMin, 18),
+        0,
+        "promoDiscountFor: nothing under the code's minimum"
+      );
+      eq(
+        internals.promoDiscountFor(bigMin, 54),
+        13.5,
+        "promoDiscountFor: 25% once the minimum is met"
+      );
+      eq(internals.promoDiscountFor(tenPct, 0), 0, "promoDiscountFor: nothing on an empty cart");
+      eq(internals.promoDiscountFor(null, 50), 0, "promoDiscountFor: no code, no discount");
+      eq(
+        internals.promoReasonClass("expired"),
+        "expired",
+        "promoReasonClass passes a known reason"
+      );
+      eq(
+        internals.promoReasonClass("Stripe said no: WELCOME10"),
+        "other",
+        "promoReasonClass never passes free text through"
+      );
+      eq(internals.isFatalPromoReason("expired"), true, "an expired code is dropped");
+      eq(internals.isFatalPromoReason("rate_limited"), false, "a throttled check keeps the code");
+      eq(
+        internals.isFatalPromoReason("unavailable"),
+        false,
+        "an unreachable Worker keeps the code"
+      );
+
+      // ---- the payload: discount_code, and never beside a gift card
+      const withPromo = internals.toCheckoutPayload(
+        [{ id: "a", qty: 1 }],
+        null,
+        null,
+        false,
+        "",
+        " welcome10 "
+      );
+      eq(withPromo.discount_code, "WELCOME10", "toCheckoutPayload sends discount_code, normalized");
+      eq(withPromo.discountCode, "WELCOME10", "...and its camelCase twin");
+      const both = internals.toCheckoutPayload(
+        [{ id: "a", qty: 1 }],
+        null,
+        "YALL-AAAA-BBBB-CCCC",
+        false,
+        "",
+        "WELCOME10"
+      );
+      eq(both.gift_card_code, "YALL-AAAA-BBBB-CCCC", "with a gift card the card is sent");
+      eq(both.discount_code, undefined, "...and the promo code is NOT (one discount per session)");
+      eq(
+        internals.toCheckoutPayload([{ id: "a", qty: 1 }], null, null, false, "", "!!")
+          .discount_code,
+        undefined,
+        "a malformed code is never sent"
+      );
+      eq(
+        internals.toCheckoutPayload([{ id: "a", qty: 1 }], null, null, false, "").discount_code,
+        undefined,
+        "no code, no field"
+      );
+
+      // ---- the drawer
+      storage.clear();
+      storage.set(
+        "yl-cart-v1",
+        JSON.stringify({
+          version: 1,
+          items: [{ id: "physical-item", qty: 1, price: 20, name: "Physical Item" }]
+        })
+      );
+      YLCart.init({ force: true });
+      const promoCalls = [];
+      mockWindow.plausible = (name, opts) => promoCalls.push({ name, opts });
+
+      let foot = drawerFootHTML();
+      assert(
+        foot.includes("yl-cart-promo-toggle") && foot.includes("Have a code?"),
+        "the drawer offers 'Have a code?' beside the gift card prompt"
+      );
+      assert(foot.includes('class="yl-cart-codes"'), "...in the shared codes row");
+      assert(!foot.includes("yl-cart-promo-line"), "no discount line before a code is applied");
+
+      eq(typeof YLCart.applyPromoCode, "function", "YLCart exposes applyPromoCode");
+      eq(
+        YLCart.applyPromoCode({ valid: false, reason: "unknown" }),
+        false,
+        "applyPromoCode rejects a refused verdict"
+      );
+      eq(
+        YLCart.applyPromoCode({
+          valid: true,
+          code: "welcome10",
+          kind: "percent",
+          percentOff: 10,
+          estimatedDiscountCents: 200
+        }),
+        true,
+        "applyPromoCode accepts a valid verdict"
+      );
+      eq(
+        JSON.parse(mockLocalStorage.getItem("yl_applied_promo")),
+        {
+          code: "WELCOME10",
+          kind: "percent",
+          percentOff: 10,
+          amountOffCents: null,
+          minimumAmountCents: 0,
+          firstTimeOnly: false,
+          estimatedDiscountCents: 200
+        },
+        "the applied code persists as yl_applied_promo in its normalized shape"
+      );
+      assert(
+        promoCalls.some((c) => c.name === "Promo Code Applied" && c.opts === undefined),
+        "Promo Code Applied is tracked with no properties"
+      );
+
+      foot = drawerFootHTML();
+      assert(
+        foot.includes("Promo code (WELCOME10)") && foot.includes("-$2"),
+        "the totals show the estimated discount line"
+      );
+      assert(
+        foot.includes("yl-cart-promo-applied") && foot.includes("10% off"),
+        "the applied panel shows the code's terms"
+      );
+      assert(
+        /Estimated total \(before tax\)<\/span><strong>\$28/.test(foot),
+        "estimated total is goods + shipping - promo ($20 + $10 - $2)"
+      );
+
+      // Reload: the code survives, exactly like the gift card.
+      YLCart.init({ force: true });
+      foot = drawerFootHTML();
+      assert(foot.includes("Promo code (WELCOME10)"), "a reload keeps the applied code");
+
+      // A gift card takes the session's one discount: the code goes idle.
+      YLCart.applyGiftCard({ code: "YALL-GOOD1", balance: 50, valid: true });
+      foot = drawerFootHTML();
+      assert(
+        !foot.includes("Promo code (WELCOME10)"),
+        "with a gift card applied the promo line is gone"
+      );
+      assert(
+        foot.includes("yl-cart-promo-idle") && foot.includes("be combined"),
+        "...and the one-or-the-other rule is explained beside the code"
+      );
+      assert(foot.includes("-$20"), "...while the gift card discounts the goods");
+      assert(
+        JSON.parse(mockLocalStorage.getItem("yl_applied_promo")).code === "WELCOME10",
+        "...the code stays stored for when the card is removed"
+      );
+      const gcRemove = drawerFoot().querySelector(".yl-cart-giftcard-remove");
+      gcRemove._listeners = {};
+      YLCart.open();
+      gcRemove._fire("click");
+      YLCart.close();
+      foot = drawerFootHTML();
+      assert(
+        foot.includes("Promo code (WELCOME10)") && foot.includes("-$2"),
+        "removing the gift card brings the code back"
+      );
+
+      // A minimum the cart does not reach: the code stays, the line drops.
+      YLCart.applyPromoCode({
+        valid: true,
+        code: "BIG25",
+        kind: "percent",
+        percentOff: 25,
+        minimumAmountCents: 5000
+      });
+      foot = drawerFootHTML();
+      assert(!foot.includes("yl-cart-promo-line"), "under the minimum there is no discount line");
+      assert(foot.includes("at least $50"), "...and the applied panel says what is needed");
+
+      // The CMS switch: no box, no line, nothing sent.
+      YLCart.applyPromoCode({ valid: true, code: "welcome10", kind: "percent", percentOff: 10 });
+      mockWindow.YL_CONTENT = { site: { enablePromoCodes: false } };
+      foot = drawerFootHTML();
+      assert(
+        !foot.includes("yl-cart-promo-toggle") && !foot.includes("yl-cart-promo-applied"),
+        "site.enablePromoCodes false hides the promo box entirely"
+      );
+      assert(!foot.includes("yl-cart-promo-line"), "...and applies no discount");
+      let sentBody = null;
+      global.fetch = (url, opts) => {
+        sentBody = JSON.parse(opts.body);
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ url: "https://checkout.stripe.com/pay/x" })
+        });
+      };
+      checkoutButton()._listeners = {};
+      YLCart.open();
+      checkoutButton()._fire("click");
+      await new Promise((r) => setTimeout(r, 0));
+      await new Promise((r) => setTimeout(r, 0));
+      eq(sentBody && sentBody.discount_code, undefined, "...and sends no discount_code");
+      mockWindow.YL_CONTENT = { site: { loyaltyPointsPerDollar: 1 } };
+
+      // Checkout carries the code...
+      sentBody = null;
+      checkoutButton()._listeners = {};
+      YLCart.open();
+      checkoutButton()._fire("click");
+      await new Promise((r) => setTimeout(r, 0));
+      await new Promise((r) => setTimeout(r, 0));
+      eq(
+        sentBody && sentBody.discount_code,
+        "WELCOME10",
+        "checkout POSTs the applied code as discount_code"
+      );
+
+      // ...and a Worker refusal naming the code drops it, says why, and
+      // reports the class.
+      promoCalls.length = 0;
+      global.fetch = () =>
+        Promise.resolve({
+          ok: false,
+          status: 400,
+          json: async () => ({
+            error: "That code has expired or has already been used.",
+            promo: { code: "WELCOME10", applied: false, reason: "expired" }
+          })
+        });
+      checkoutButton()._listeners = {};
+      YLCart.open();
+      checkoutButton()._fire("click");
+      await new Promise((r) => setTimeout(r, 0));
+      await new Promise((r) => setTimeout(r, 0));
+      await new Promise((r) => setTimeout(r, 0));
+      eq(
+        mockLocalStorage.getItem("yl_applied_promo"),
+        null,
+        "a code the Worker refuses at checkout is dropped from storage"
+      );
+      foot = drawerFootHTML();
+      assert(
+        foot.includes("yl-cart-promo-msg") && foot.includes("expired"),
+        "...and the reason is shown by the reopened code box"
+      );
+      assert(!foot.includes("yl-cart-promo-line"), "...with no discount line left behind");
+      const failed = promoCalls.find((c) => c.name === "Checkout Failed");
+      eq(
+        failed && failed.opts.props,
+        { reason: "promo-code" },
+        "Checkout Failed reports the promo-code class"
+      );
+      const rejected = promoCalls.find((c) => c.name === "Promo Code Rejected");
+      eq(
+        rejected && rejected.opts.props,
+        { reason: "expired" },
+        "Promo Code Rejected reports the Worker's reason class, never the code"
+      );
+
+      // A Worker that could not ask Stripe (503) keeps the code.
+      YLCart.applyPromoCode({ valid: true, code: "welcome10", kind: "percent", percentOff: 10 });
+      global.fetch = () =>
+        Promise.resolve({
+          ok: false,
+          status: 503,
+          json: async () => ({
+            error: "Codes can't be checked right now.",
+            promo: { code: "WELCOME10", applied: false, reason: "unavailable" }
+          })
+        });
+      checkoutButton()._listeners = {};
+      YLCart.open();
+      checkoutButton()._fire("click");
+      await new Promise((r) => setTimeout(r, 0));
+      await new Promise((r) => setTimeout(r, 0));
+      await new Promise((r) => setTimeout(r, 0));
+      assert(
+        JSON.parse(mockLocalStorage.getItem("yl_applied_promo")).code === "WELCOME10",
+        "an unavailable lookup at checkout keeps the code for the retry"
+      );
+
+      // Applying through the box: the Worker's verdict decides.
+      YLCart.clear();
+      eq(mockLocalStorage.getItem("yl_applied_promo"), null, "clear() drops the applied code");
+      storage.set(
+        "yl-cart-v1",
+        JSON.stringify({
+          version: 1,
+          items: [{ id: "physical-item", qty: 1, price: 20, name: "Physical Item" }]
+        })
+      );
+      YLCart.init({ force: true });
+      const previewBodies = [];
+      global.fetch = (url, opts) => {
+        previewBodies.push({ url, body: JSON.parse(opts.body) });
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ valid: false, reason: "unknown", error: "That code isn't valid." })
+        });
+      };
+      YLCart.open();
+      const promoToggle = drawerFoot().querySelector(".yl-cart-promo-toggle");
+      promoToggle._listeners = {};
+      YLCart.open();
+      promoToggle._fire("click");
+      const promoInput = drawerFoot().querySelector(".yl-cart-promo-input");
+      const promoBtn = drawerFoot().querySelector(".yl-cart-promo-btn");
+      promoInput.value = "nope";
+      promoBtn._listeners = {};
+      YLCart.open();
+      promoBtn._fire("click");
+      await new Promise((r) => setTimeout(r, 0));
+      await new Promise((r) => setTimeout(r, 0));
+      eq(previewBodies.length, 1, "Apply asks /api/promo-preview once");
+      eq(previewBodies[0].url, "/api/promo-preview", "...at the preview route");
+      eq(previewBodies[0].body.code, "NOPE", "...with the normalized code");
+      eq(
+        previewBodies[0].body.items,
+        [{ id: "physical-item", qty: 1 }],
+        "...and the cart's lines, in checkout's own shape"
+      );
+      foot = drawerFootHTML();
+      assert(
+        foot.includes("yl-cart-promo-msg") && foot.includes("valid."),
+        "an unknown code shows the curated sentence"
+      );
+      eq(mockLocalStorage.getItem("yl_applied_promo"), null, "...and stores nothing");
+
+      global.fetch = () =>
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            valid: true,
+            code: "FIVEOFF",
+            kind: "amount",
+            percentOff: null,
+            amountOffCents: 500,
+            minimumAmountCents: 0,
+            restrictions: { firstTimeOnly: false },
+            estimatedDiscountCents: 500,
+            subtotalCents: 2000
+          })
+        });
+      promoInput.value = "fiveoff";
+      promoBtn._listeners = {};
+      YLCart.open();
+      promoBtn._fire("click");
+      await new Promise((r) => setTimeout(r, 0));
+      await new Promise((r) => setTimeout(r, 0));
+      eq(
+        JSON.parse(mockLocalStorage.getItem("yl_applied_promo")).code,
+        "FIVEOFF",
+        "a valid verdict applies the code"
+      );
+      foot = drawerFootHTML();
+      assert(
+        foot.includes("Promo code (FIVEOFF)") && foot.includes("-$5"),
+        "...with its discount line"
+      );
+
+      // A throttled check is not a verdict: the shopper is told to wait.
+      global.fetch = () =>
+        Promise.resolve({
+          ok: false,
+          status: 429,
+          json: async () => ({ valid: false, reason: "rate_limited" })
+        });
+      YLCart.clear();
+      storage.set(
+        "yl-cart-v1",
+        JSON.stringify({
+          version: 1,
+          items: [{ id: "physical-item", qty: 1, price: 20, name: "Physical Item" }]
+        })
+      );
+      YLCart.init({ force: true });
+      YLCart.open();
+      drawerFoot().querySelector(".yl-cart-promo-toggle")._listeners = {};
+      YLCart.open();
+      drawerFoot().querySelector(".yl-cart-promo-toggle")._fire("click");
+      drawerFoot().querySelector(".yl-cart-promo-input").value = "welcome10";
+      drawerFoot().querySelector(".yl-cart-promo-btn")._listeners = {};
+      YLCart.open();
+      drawerFoot().querySelector(".yl-cart-promo-btn")._fire("click");
+      await new Promise((r) => setTimeout(r, 0));
+      await new Promise((r) => setTimeout(r, 0));
+      foot = drawerFootHTML();
+      assert(
+        foot.includes("Too many attempts"),
+        "a 429 says 'too many attempts', never 'not valid'"
+      );
+
+      // Re-validation after the cart changes, debounced, withdrawing a code
+      // that no longer works.
+      YLCart.applyPromoCode({ valid: true, code: "welcome10", kind: "percent", percentOff: 10 });
+      const revalidations = [];
+      global.fetch = (url, opts) => {
+        revalidations.push(JSON.parse(opts.body));
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            valid: false,
+            reason: "expired",
+            error: "That code has expired or has already been used."
+          })
+        });
+      };
+      YLCart.addCustomBox({ productIds: ["p1", "p2", "p3"], price: 30 });
+      YLCart.addCustomBox({ productIds: ["p1", "p2", "p4"], price: 30 });
+      eq(revalidations.length, 0, "a cart change does not re-check the code immediately");
+      await new Promise((r) => setTimeout(r, 1100));
+      eq(revalidations.length, 1, "...one re-check follows once the cart has stopped changing");
+      eq(revalidations[0].code, "WELCOME10", "...for the applied code");
+      eq(revalidations[0].items.length, 3, "...against the cart as it is now");
+      eq(
+        mockLocalStorage.getItem("yl_applied_promo"),
+        null,
+        "a code the re-check refuses is withdrawn"
+      );
+      foot = drawerFootHTML();
+      assert(
+        foot.includes("yl-cart-promo-msg") && foot.includes("expired"),
+        "...with the reason shown by the reopened box"
+      );
+
+      // A re-check that cannot answer (offline) keeps the code and the local estimate.
+      YLCart.applyPromoCode({ valid: true, code: "welcome10", kind: "percent", percentOff: 10 });
+      global.fetch = () => Promise.reject(new TypeError("Failed to fetch"));
+      YLCart.addCustomBox({ productIds: ["p1", "p2", "p5"], price: 30 });
+      await new Promise((r) => setTimeout(r, 1100));
+      eq(
+        JSON.parse(mockLocalStorage.getItem("yl_applied_promo")).code,
+        "WELCOME10",
+        "an unanswered re-check keeps the code"
+      );
+      foot = drawerFootHTML();
+      assert(
+        foot.includes("Promo code (WELCOME10)") && foot.includes("-$11"),
+        "...and the discount is re-estimated locally (10% of $110)"
+      );
+
+      delete mockWindow.plausible;
+      mockWindow.YL_CONTENT = savedContent;
+      global.fetch = undefined;
+    }
+
     // Clean up
     mockWindow.YL_PRODUCTS = null;
     storage.clear();

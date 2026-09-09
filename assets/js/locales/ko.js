@@ -733,7 +733,30 @@
     "tpl.mixMatchApplied": "{item} 개당 {price} 수량 할인이 적용되었어요!",
     "tpl.mixMatchNext": "{amount} 더 담고 {perk} 혜택을 받아보세요!",
     "auto.artsFestival.c73a7e": "아트 페스티벌",
-    "auto.moreInfoRsvp.b097db": "상세 정보 / 참석 신청"
+    "auto.moreInfoRsvp.b097db": "상세 정보 / 참석 신청",
+    "cart.havePromoCode": "코드가 있으신가요?",
+    "cart.promoGiftCardNotice": "프로모션 코드와 기프트 카드는 함께 사용할 수 없습니다. 코드를 사용하려면 기프트 카드를 제거하세요.",
+    "cart.promoPlaceholder": "프로모션 코드",
+    "cart.remove": "제거",
+    "cart.checking": "확인 중…",
+    "cart.promoRemove": "프로모션 코드 제거",
+    "cart.promoRemoved": "프로모션 코드가 제거되었습니다",
+    "cart.promoEnterCode": "프로모션 코드를 입력하세요.",
+    "cart.promoUnknown": "유효하지 않은 코드입니다.",
+    "cart.promoExpired": "이 코드는 만료되었거나 이미 사용되었습니다.",
+    "tpl.promoMinimum": "이 코드는 소계가 {amount} 이상이어야 합니다.",
+    "cart.promoNotApplicable": "이 코드는 장바구니의 어떤 상품에도 적용되지 않습니다.",
+    "cart.promoMalformed": "코드는 영문과 숫자만 사용하며 최대 40자입니다.",
+    "cart.promoLooksLikeGiftCard": "기프트 카드 코드 같습니다. 기프트 카드 입력란에 입력해 주세요.",
+    "cart.promoDisabled": "프로모션 코드는 현재 사용할 수 없습니다.",
+    "cart.promoThrottled": "시도 횟수가 너무 많습니다. 1분 후 다시 시도하세요.",
+    "cart.promoUnavailable": "지금은 코드를 확인할 수 없습니다. 잠시 후 다시 시도하세요.",
+    "cart.promoRejected": "이 코드는 이 주문에 적용할 수 없습니다.",
+    "cart.promoFirstOrder": "첫 주문에만",
+    "tpl.promoDiscountLine": "프로모션 코드 ({code})",
+    "tpl.promoApplied": "프로모션 코드 {code} 적용됨 ({amount} 할인)",
+    "tpl.promoPercentOff": "{percent}% 할인",
+    "tpl.promoAmountOff": "{amount} 할인"
   }
 };
 

@@ -94,16 +94,34 @@ function createStaticServer(port) {
   });
 }
 
+/* The budget for one "<page> [<theme>]" label: its own entry, else the
+   generated-directory entry ("journal/*.html [dark]") for a page under that
+   directory, else the default. */
+function baselineFor(label) {
+  if (Object.prototype.hasOwnProperty.call(INCOMPLETE_BASELINE, label)) {
+    return INCOMPLETE_BASELINE[label];
+  }
+  const m = /^([^/]+)\/[^ ]+\.html (\[\w+\])$/.exec(label);
+  const wildcard = m ? `${m[1]}/*.html ${m[2]}` : null;
+  if (wildcard && Object.prototype.hasOwnProperty.call(INCOMPLETE_BASELINE, wildcard)) {
+    return INCOMPLETE_BASELINE[wildcard];
+  }
+  return INCOMPLETE_BASELINE_DEFAULT;
+}
+
 function collectPages() {
   const top = fs.readdirSync(ROOT).filter((f) => f.endsWith(".html"));
-  const productsDir = path.join(ROOT, "products");
-  const products = fs.existsSync(productsDir)
-    ? fs
-        .readdirSync(productsDir)
-        .filter((f) => f.endsWith(".html"))
-        .map((f) => `products/${f}`)
-    : [];
-  return top.sort().concat(products.sort());
+  // Generated pages: one per product and one per journal post.
+  const generated = ["products", "journal"].flatMap((sub) => {
+    const dir = path.join(ROOT, sub);
+    return fs.existsSync(dir)
+      ? fs
+          .readdirSync(dir)
+          .filter((f) => f.endsWith(".html"))
+          .map((f) => `${sub}/${f}`)
+      : [];
+  });
+  return top.sort().concat(generated.sort());
 }
 
 /* Per-scan budget for axe results that axe itself could not decide. Measured,
@@ -144,12 +162,36 @@ const INCOMPLETE_BASELINE = {
   "faq.html [light]": 11,
   "index.html [dark]": 39,
   "index.html [light]": 39,
-  "journal.html [dark]": 11,
-  "journal.html [light]": 11,
+  /* journal.html scales with the posts, the same way events.html scales with
+     its cards: each post card renders a "Read Post" outline button whose
+     contrast axe cannot decide over its pseudo-element (measured 2026-09-09
+     when the Journal was switched on: 11 chrome nodes + 1 per post). */
+  "journal.html [dark]": {
+    base: 11,
+    perElement: [{ selector: "#journalApp .btn", allowance: 1 }]
+  },
+  "journal.html [light]": {
+    base: 11,
+    perElement: [{ selector: "#journalApp .btn", allowance: 1 }]
+  },
+  /* The journal post pages (journal/<slug>.html) are one entry per THEME,
+     not per post: a post is written in the CMS, and a gate that needed a
+     hand-added line for every new article would fail every publish. All
+     four current scans measure the same 8 nodes -- the search trigger's
+     aria-controls (as on every page) and the header/language-picker
+     contrast axe cannot resolve -- with no post-specific node, so the
+     budget is the page chrome. Measured 2026-09-09. */
+  "journal/*.html [dark]": 8,
+  "journal/*.html [light]": 8,
   "offline.html [dark]": 2,
   "offline.html [light]": 2,
   "order-status.html [dark]": 7,
   "order-status.html [light]": 7,
+  /* orders.html: the passwordless order history. Same chrome as
+     order-status.html and the same seven undecidable nodes (the header
+     controls and the form button over the card gradient); measured 2026-09-09. */
+  "orders.html [dark]": 7,
+  "orders.html [light]": 7,
   "policies.html [dark]": 19,
   "policies.html [light]": 19,
   "privacy.html [dark]": 19,
@@ -202,8 +244,11 @@ const INCOMPLETE_BASELINE = {
   "shop.html [light]": 105,
   "terms.html [dark]": 19,
   "terms.html [light]": 19,
-  "thank-you.html [dark]": 15,
-  "thank-you.html [light]": 15,
+  /* +1 on 2026-09-09: the "All Your Orders" outline button beside "Keep
+     Shopping", whose contrast axe cannot decide over the gradient exactly as
+     it cannot for the button next to it. */
+  "thank-you.html [dark]": 16,
+  "thank-you.html [light]": 16,
   "welcome.html [dark]": 14,
   "welcome.html [light]": 14
 };
@@ -325,7 +370,7 @@ const INCOMPLETE_BASELINE = {
                allowance per element matching a selector, for pages whose
                node count follows CMS data (see the events.html entry). The
                elements are counted on the page axe just scanned. */
-            const pin = INCOMPLETE_BASELINE[label];
+            const pin = baselineFor(label);
             if (pin && typeof pin === "object") {
               const counts = await page.evaluate(
                 (selectors) => selectors.map((sel) => document.querySelectorAll(sel).length),
@@ -387,9 +432,7 @@ const INCOMPLETE_BASELINE = {
     .sort()
     .forEach((label) => {
       const seen = incompleteByPage[label].nodes;
-      const pin = Object.prototype.hasOwnProperty.call(INCOMPLETE_BASELINE, label)
-        ? INCOMPLETE_BASELINE[label]
-        : INCOMPLETE_BASELINE_DEFAULT;
+      const pin = baselineFor(label);
       const budget =
         pin && typeof pin === "object" ? pin.base + incompleteByPage[label].extra : pin;
       if (seen > budget) {

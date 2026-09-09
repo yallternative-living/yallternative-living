@@ -9,6 +9,7 @@ router:
 | ----------------------------- | ----------------------------------------------------------------------------------- |
 | `POST /api/checkout`          | creates a Stripe Checkout Session; applies a gift card if one is sent               |
 | `POST /api/gift-card-balance` | `{code}` -> the balance on the ledger, rate-limited 10/min per IP                   |
+| `POST /api/promo-preview`     | `{code, items}` -> does this Stripe promotion code work, and for how much (5/min)   |
 | `POST /api/stripe-webhook`    | Stripe events: issues cards, commits/releases holds, restores refunds               |
 | `POST /api/order-status`      | `{sessionId, email}` -> a real order, rate-limited 5/min per IP                     |
 | `POST /api/restock`           | `{email, product}` -> emails the shop                                               |
@@ -19,6 +20,8 @@ router:
 | `POST /api/welcome-code`      | `{email}` -> a single-use Stripe Promotion Code for a new subscriber                |
 | `POST /api/birthday-club`     | `{email, birthday}` (MM/DD, never a year) -> stored with consent time               |
 | `POST /api/loyalty-balance`   | `{email, token}` -> Alt-Points balance; the token is REQUIRED                       |
+| `POST /api/orders/request-link` | `{email}` -> emails a one-time order-history link; the SAME 200 for every address  |
+| `GET /api/orders?token=`      | the orders behind that link (newest 25) + points balance; burns the token           |
 
 Everything else 404s as JSON. Every response is `Cache-Control: no-store`, and
 CORS is the apex + www allowlist with `Vary: Origin`. Snipcart is fully removed
@@ -184,6 +187,7 @@ as "try this," not a guarantee.
    `scripts/build-security-headers.js` and the Worker's allowed origins.
    Audits: this is a known, accepted item -- do not re-raise it unless DNS
    has moved.
+
 5. Every future push to `checkout.js` redeploys automatically -- no
    step 4 of Option B (`wrangler deploy`) ever needs to run by hand
    again.
@@ -384,6 +388,35 @@ rate-limited by IP, all 503 without `STATE_DB`):
 | `POST /api/welcome-code`    | `{email}`           | Mints one Promotion Code per address (`max_redemptions: 1`, first-order only, 45-day expiry).                  |
 | `POST /api/birthday-club`   | `{email, birthday}` | `MM/DD` only. Accepts a plain form post too and answers it with a 303 back to `thank-you.html`.                |
 | `POST /api/loyalty-balance` | `{email, token}`    | The signed `points` token from a post-purchase email. A balance is never readable by email alone.              |
+
+### 2b-ii. The order history (`/orders.html`)
+
+**Nothing new to set up.** It runs on the two secrets the retention layer
+already needs -- `MAGIC_LINK_SECRET` signs the link, `RESEND_API_KEY` sends it
+-- plus `STATE_DB`. Both routes answer 503 when either is missing, and 404
+when the owner switches the page off in /admin (`site.enableOrderHistory`).
+
+| Route                           | Body / query | Notes                                                                                                                                                                                                                                                                                                              |
+| ------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `POST /api/orders/request-link` | `{email}`    | Rate-limited 3 per 10 minutes per client AND per address hash. Answers the same neutral `200` whether the address has orders, has none, is unsubscribed, or the send failed -- the email goes out behind `waitUntil`, so even the timing matches. Transactional (no unsubscribe footer) but the suppression list is honoured. |
+| `GET /api/orders?token=`        | `?token=`    | Verifies the `orders`-purpose token, burns it (`burned_tokens`), lists that hash's orders newest-first (25 at most) and the points balance when `enableLoyaltyPoints` is on. Every refusal -- expired, replayed, tampered, wrong purpose -- is the same `403`. `Cache-Control: no-store`.                             |
+
+**The token carries a SHA-256 of the address, never the address**
+(`workers/state/magic-link.js`, the `subject` claim), so the emailed URL, the
+browser history it lands in and any proxy log hold no PII. The page scrubs it
+from the address bar on load (`assets/js/orders.js`). 24 hours, one use.
+
+**Storage** is one additive table, `orders` (schema v9, `workers/state/orders.js`):
+`session_id`, `email_hash`, `payment_intent`, `created`, `amount_total`,
+`currency`, `status`, `line_items_json`, `tracking_url`. Written once per paid
+session by the webhook's `persistOrder` step -- `INSERT OR IGNORE`, so a
+redelivery writes nothing -- and updated by the hourly ship-notice sweep, which
+merges `fulfillment_status` and `tracking_url` in by PaymentIntent (a write only
+when something changed). The lines come from Stripe's line-item list with
+`price.product` expanded: `workers/checkout.js` stamps `yl_product_id`,
+`yl_variant` and `yl_kind` on every line's `product_data.metadata`, which is
+what lets the page's Reorder button put the right size back in the cart. No
+sweeper: an order history that forgets is not one.
 
 ### 2c. The MoCRA adverse-event route
 
@@ -648,6 +681,47 @@ Tests: `scripts/worker-restock.test.js`, `scripts/worker-market-alerts.test.js`
 and `scripts/worker-reaction-export.test.js` -- Node only, D1 emulated on
 `node:sqlite`, Resend and the site JSON stubbed.
 
+### 2f. Owner alerts -- when the Worker itself breaks
+
+Every failure used to be a `console.error` into the Worker's tail log, which is
+ephemeral and which nobody reads. `workers/routes/alerts.js` (`alertOwner`)
+emails the shop instead, through the same Resend helper as everything else.
+Nothing to set up beyond `RESEND_API_KEY`: with the key missing the alert is
+logged only.
+
+| Site                                 | Key                             | When                                                                                     |
+| ------------------------------------ | ------------------------------- | ---------------------------------------------------------------------------------------- |
+| `checkout.js` `isTaxEnabled`         | `tax-probe`                     | The Stripe Tax probe failed (non-2xx or network) and checkout is failing open to no tax. |
+| `checkout.js` gift-card unwind       | `gift-card-unwind:<session id>` | A session could not be expired or its coupon deleted after a ledger race; needs a hand.  |
+| `routes/stripe-webhook.js` top-level | `webhook:<event type>`          | A handler threw after the D1 claim; the claim was released and Stripe will retry.        |
+| `checkout.js` `scheduled`            | `cron:<step label>`             | One hourly step threw; the rest still ran.                                               |
+| `routes/retention-emails.js` drain   | `retention:<kind>`              | A queued customer email hit `MAX_SEND_ATTEMPTS` and was given up on.                     |
+
+Design points, all enforced by `scripts/worker-alerts.test.js`:
+
+- **Never throws, never blocks.** `alertOwner` returns a settled promise and
+  hands the work to `ctx.waitUntil`; every await inside degrades to a
+  `console.error` carrying the marker `owner-alert <key>`, which the email
+  tells the reader to search the Cloudflare log for.
+- **One email per key per six hours.** The claim is one atomic upsert on the
+  existing `job_state` table (`job = "alert:<key>"`) whose `WHERE` only lets
+  the row be taken when the previous send is older than the window, so two
+  isolates racing on the same failure cannot both win; an in-memory memo in
+  front of it stops the repeats within an isolate from touching D1 at all.
+  With no D1 the memo is the only cap, per isolate. No schema change: `job_state`
+  is v4.
+- **Masked.** Any gift-card code in the subject or body is reduced to its last
+  four characters.
+- **Recipient:** `site.alertEmail` in content.json (the CMS field "Emails to
+  me · Where shop alerts go"), falling back to `ORDER_NOTIFY_EMAIL` ->
+  `RESTOCK_NOTIFY_EMAIL` -> `contact@yallternativeliving.com`. The site read
+  uses `state/site-data.js`, so an unreachable content.json falls back to the
+  env ladder rather than dropping the alert.
+
+Add a site: `alertOwner(env, ctx, { key, subject, details })` with a `key` that
+names the PROBLEM, not the occurrence (that is the dedupe unit), and a flat
+`details` object of ids. Do not await it on the money path.
+
 ### 3. Set the secrets
 
 In the Cloudflare dashboard (the Worker -> Settings -> Variables and Secrets), or
@@ -787,6 +861,61 @@ the binding trades exactness for cost: it is free and storage-free, but enforced
 per Cloudflare location rather than globally. Check whether it is offered on this
 account's free plan before relying on it -- the instructions are in
 `wrangler.toml` next to the commented block.
+
+### 7. A staging copy of the Worker (Stripe test keys)
+
+`wrangler.toml` carries an `[env.staging]` block that deploys the same code as
+a second, separately named Worker, `yallternative-checkout-staging`, with its
+own vars, bindings and secrets. Production is untouched: `wrangler deploy`
+with no `--env` still deploys `yallternative-checkout` exactly as before, and
+Workers Builds (Option A) only ever builds the top-level config.
+
+What the block does and does not carry:
+
+- **Vars** are not inherited between environments in wrangler, so the block
+  repeats them, with `SITE_ORIGIN` left as a placeholder for the preview
+  site's URL (see step 3 below).
+- **Durable Objects** bind to the same two classes; each environment gets its
+  own storage, so staging gift cards never touch live balances.
+- **Cron** is switched off (`crons = []`): a staging Worker must not send
+  birthday codes or digests against a shop's real mailbox every hour.
+- **D1** is deliberately NOT bound until a staging database exists. A
+  `[[d1_databases]]` block with a made-up id fails the deploy outright (see the
+  header of `wrangler.toml`), and the Worker degrades cleanly without the
+  binding. Create one, paste its id, uncomment the block.
+- **Secrets are dashboard-only**, per environment: the staging Worker has its
+  own `STRIPE_SECRET_KEY` etc., and they must be Stripe TEST-mode keys.
+
+To stand it up (from `workers/`):
+
+1. `npx wrangler deploy --env staging` -- creates the Worker. Note the
+   `*.workers.dev` URL it prints.
+2. Secrets, in the Cloudflare dashboard: Workers & Pages ->
+   `yallternative-checkout-staging` -> Settings -> Variables and Secrets ->
+   add `STRIPE_SECRET_KEY` (a **test-mode** restricted key, `sk_test_…`, with
+   the same permissions as production), `STRIPE_WEBHOOK_SECRET` (from a
+   test-mode webhook endpoint pointed at
+   `https://yallternative-checkout-staging.<account>.workers.dev/api/stripe-webhook`
+   -- Stripe Dashboard, toggle **Test mode**, then Developers -> Webhooks ->
+   Add endpoint, same events as step 4), `RESEND_API_KEY` (the same key is
+   fine; alerts and order copies then go to the staging `ORDER_NOTIFY_EMAIL`)
+   and `MAGIC_LINK_SECRET` (any 32+ random characters, different from
+   production). Or `npx wrangler secret put NAME --env staging`.
+3. Point a preview site at it. `netlify.toml`'s `/api/*` proxy is generated
+   by `scripts/build-security-headers.js` from the production Worker URL, so a
+   branch deploy or deploy preview forwards to PRODUCTION unless told
+   otherwise. For a staging preview, set that script's Worker origin to the
+   staging URL in the branch being previewed (and `SITE_ORIGIN` in the
+   staging vars to the preview's URL, so the Worker's CORS check and its
+   catalogue reads agree), rebuild, and never merge that change to `main`.
+   Remember every branch deploy spends Netlify build credits (AGENTS.md).
+4. Optional D1: `npx wrangler d1 create yallternative-state-staging`, paste the
+   id into the commented `[[env.staging.d1_databases]]` block, redeploy. The
+   schema applies itself on the first webhook.
+
+Tear it down with `npx wrangler delete --env staging` when the test is done;
+an idle staging Worker with a test key costs nothing but is one more thing
+with a public URL.
 
 ---
 

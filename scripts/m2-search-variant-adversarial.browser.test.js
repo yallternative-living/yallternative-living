@@ -67,6 +67,24 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+/* Search results render after a 150ms debounce plus a synchronous render.
+   A fixed 220ms sleep left ~50ms for that render, which a loaded CI runner
+   does not always have (2026-09-09: one query out of forty missed it and the
+   suite went red on a timing margin, not a defect). Wait out the debounce,
+   then wait for the result card the query is expected to produce, for up to
+   2.5s; the assertion that follows still reports a card that never comes. */
+async function settleSearch(page, expectId) {
+  await sleep(180);
+  const selector = expectId
+    ? `.search-item-action[data-product-id="${expectId}"]`
+    : ".search-item-action";
+  try {
+    await page.waitForSelector(selector, { timeout: 2500 });
+  } catch {
+    /* reported by the caller's own assertion */
+  }
+}
+
 let passedChecks = 0;
 let failedChecks = 0;
 const failures = [];
@@ -173,7 +191,7 @@ function recordFail(msg) {
         }
       }, prod.name);
 
-      await sleep(220); // allow search debounce (150ms)
+      await settleSearch(page, prod.id);
 
       // Verify product card and variant trigger
       const itemActionSelector = `.search-item-action[data-product-id="${prod.id}"]`;
@@ -450,7 +468,7 @@ function recordFail(msg) {
         input.dispatchEvent(new Event("input", { bubbles: true }));
       }
     });
-    await sleep(220);
+    await settleSearch(page, "backroad-soak");
 
     const mutualExclusionResult = await page.evaluate(async () => {
       const triggers = Array.from(document.querySelectorAll(".search-variant-trigger"));
@@ -514,7 +532,7 @@ function recordFail(msg) {
       input.value = "tank top";
       input.dispatchEvent(new Event("input", { bubbles: true }));
     });
-    await sleep(220);
+    await settleSearch(page, "tank-top");
 
     // Expand tank-top variant picker
     await page.evaluate(() => {
@@ -688,7 +706,7 @@ function recordFail(msg) {
         input.value = query;
         input.dispatchEvent(new Event("input", { bubbles: true }));
       }, prod.name);
-      await sleep(220);
+      await settleSearch(page, prod.id);
 
       // Expand picker
       const pickerId = `search-variant-picker-${prod.id}`;
@@ -813,7 +831,7 @@ function recordFail(msg) {
         input.value = q;
         input.dispatchEvent(new Event("input", { bubbles: true }));
       }, item.query);
-      await sleep(220);
+      await settleSearch(page, item.id);
 
       await page.evaluate(
         (id, label) => {
@@ -895,7 +913,7 @@ function recordFail(msg) {
         input.value = "soak";
         input.dispatchEvent(new Event("input", { bubbles: true }));
       });
-      await sleep(220);
+      await settleSearch(page, "backroad-soak");
 
       // Check overflow on modal & results list before expanding pickers
       const initialOverflow = await page.evaluate(() => {
@@ -1002,7 +1020,7 @@ function recordFail(msg) {
         input.value = "Gift Card";
         input.dispatchEvent(new Event("input", { bubbles: true }));
       });
-      await sleep(220);
+      await settleSearch(page, "yallternative-gift-card");
 
       const giftCardChipsWrap = await page.evaluate(() => {
         const trigger = document.querySelector(
@@ -1036,7 +1054,7 @@ function recordFail(msg) {
         input.value = "Protection Potion Keychain";
         input.dispatchEvent(new Event("input", { bubbles: true }));
       });
-      await sleep(220);
+      await settleSearch(page, "protection-keychain");
 
       const keychainChipsWrap = await page.evaluate(() => {
         const trigger = document.querySelector(

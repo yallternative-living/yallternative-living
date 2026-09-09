@@ -20,20 +20,20 @@ window.YL_SOCIAL_FEED = {
       "id": "ugc-2",
       "image": "assets/img/backroad-soak.jpg",
       "caption": "Soak your troubles away. Landrum farmers market starts at 9am tomorrow, see y'all there!",
-      "author": "Landrum Local",
-      "handle": "@backroad_soaker",
+      "author": "Savanna",
+      "handle": "@yallternativeliving",
       "productId": "backroad-soak",
-      "productName": "Backroad Bath Soak",
+      "productName": "Backroad Recovery Epsom Salt Soak",
       "url": "https://www.instagram.com/yallternativeliving"
     },
     {
       "id": "ugc-3",
-      "image": "assets/img/beard-salve.jpg",
+      "image": "assets/img/sleep-salve.jpg",
       "caption": "Hand-poured arnica and magnesium sleep salves cooling down. Get yours before they sell out.",
-      "author": "Bold Hearts",
-      "handle": "@night_ritual_co",
+      "author": "Savanna",
+      "handle": "@yallternativeliving",
       "productId": "sleep-salve",
-      "productName": "Arnica Sleep Salve",
+      "productName": "Hush Y'all Magnesium Arnica Sleep Salve",
       "url": "https://www.instagram.com/yallternativeliving"
     }
   ]

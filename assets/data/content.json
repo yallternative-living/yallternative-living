@@ -1,6 +1,6 @@
 {
   "site": {
-    "logoDesktop": "/assets/img/logo.png",
+    "logoDesktop": "assets/img/logo.png",
     "logoMobile": "assets/img/logo.png",
     "ogImage": "assets/img/og-image.jpg",
     "footerTagline": "Southern-raised, alt-inspired self-care, salves, soaks, body care, and apparel. Queer-owned and small-batch brewed in Landrum, SC.",
@@ -12,7 +12,7 @@
     },
     "seasonalNotice": {
       "enabled": false,
-      "text": "🌿 Spring Foraging Hiatus: Orders placed after Oct 15 will ship Nov 1.",
+      "text": "🌿 Autumn Foraging Hiatus: Orders placed after Oct 15 will ship Nov 1.",
       "link": "events.html",
       "showInCart": true,
       "showInHeader": false
@@ -38,21 +38,25 @@
     "formspreeReviewId": "xzebezbl",
     "formspreeRestockId": "xwlklppo",
     "welcomeCode": "YALL10",
-    "giftUpId": "YOUR_GIFTUP_ID",
+    "enablePromoCodes": true,
+    "promoCodePrompt": "Have a code?",
+    "promoCodeGiftCardNotice": "Promo codes and gift cards can't be combined. Remove the gift card to use a code.",
     "umamiWebsiteId": "a134e5d8-e8e5-4a8e-90e9-c21e9dba5acb",
     "enableLiveChat": true,
     "enableOrderEmails": true,
     "enableUsageGuideEmails": true,
     "usageGuideDelayDays": 4,
-    "enableJournal": false,
+    "enableJournal": true,
     "enableSocialFeed": false,
     "enableRestockAlerts": true,
+    "showLiveStock": true,
     "enableCustomBoxBuilder": true,
     "enableScentFilter": true,
     "enableIngredientsModal": true,
     "enableLocalPickup": true,
     "enableCountdownTicker": true,
     "enableOrderStatusLookup": true,
+    "enableOrderHistory": true,
     "enableLoyaltyPoints": false,
     "enableEventJsonLd": true,
     "loyaltyPointsName": "Alt-Points",
@@ -66,6 +70,7 @@
     "enableOrderDigest": true,
     "enableMarketReminders": true,
     "enableReactionExport": true,
+    "alertEmail": "",
     "automations": {
       "lowStockThreshold": 3,
       "orderDigestHour": 7,
@@ -141,6 +146,17 @@
     "heroTitle": "The Full Collection, Y'all",
     "heroIntro": "All the goods, all the moods. Soft apparel for showing up exactly as yourself, salves & balms for cracked heels and rougher days, body & skin stuff that smells like a good decision, soaks that turn a bathtub into a religious experience, and a potions & spellwork corner for the witchy little accessories you didn't know you needed. The apparel is our own original artwork; every salve, soak, and scrub is mixed, poured, and stirred by hand in small batches right here in Landrum, SC.",
     "giftCardImage": "assets/img/gift-card.png",
+    "filterUi": {
+      "filterButton": "Filter",
+      "sortButton": "Sort",
+      "sheetTitle": "Filter & sort",
+      "categoryHeading": "Category",
+      "concernHeading": "Concern",
+      "applyButton": "Apply",
+      "clearAll": "Clear all",
+      "activeFilters": "Active filters",
+      "removeFilter": "Remove"
+    },
     "sections": {
       "giftSetsTitle": "Gift Sets",
       "faqBannerTitle": "Got Questions?",
@@ -192,6 +208,15 @@
       "closingText": "While you wait on us to write back, go on and treat yourself: salves, soaks, and scents for the black sheep & bold hearts are just a click away."
     }
   },
+  "orders": {
+    "eyebrow": "Apothecary Dispatch · Landrum, SC",
+    "headline": "Your Orders",
+    "lede": "No account, no password. Type the email you ordered with and we'll send a link that opens every order placed with it — what you bought, where it is, and a button to order it all again.",
+    "emailLabel": "Email used at checkout:",
+    "emailHint": "We'll email a one-time link to that address. It opens once and expires in 24 hours.",
+    "buttonText": "Email me a link",
+    "confirmation": "If we have orders for that address, a link is on its way. It works once and expires in 24 hours. Nothing in your inbox? Check spam, then try again in ten minutes."
+  },
   "faq": {
     "heroTitle": "Frequently Asked Questions",
     "heroIntro": "Got questions about shipping, returns, ingredients, custom orders, or where to find us? We've got answers. Take a look below, and if you still need help, reach out on our contact page."
@@ -211,7 +236,10 @@
   },
   "journal": {
     "title": "Apothecary Journal",
-    "lede": "Stories, science, and small-batch updates straight from the kitchen."
+    "lede": "Stories, science, and small-batch updates straight from the kitchen.",
+    "backLabel": "← Back to Journal",
+    "newerLabel": "Newer post",
+    "olderLabel": "Older post"
   },
   "search": {
     "chipsTitle": "Popular Searches",

@@ -11,6 +11,7 @@
     "build-data": "node scripts/build-site-data.js && npm run format",
     "optimize-images": "node scripts/optimize-images.js",
     "build-security-headers": "node scripts/build-security-headers.js",
+    "minify": "node scripts/minify-assets.js",
     "sync-etsy": "node scripts/apply-etsy-snapshot.js",
     "i18n:new": "node scripts/i18n-new-strings.js",
     "i18n:translate": "node scripts/i18n-translate.js",
@@ -24,6 +25,7 @@
   },
   "devDependencies": {
     "axe-core": "^4.12.1",
+    "esbuild": "0.28.2",
     "eslint": "^8.57.0",
     "isbot": "^5.2.2",
     "playwright": "^1.56.0",

@@ -355,3 +355,91 @@ CREATE TABLE IF NOT EXISTS order_emails (
   created_at  INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS order_emails_created_at ON order_emails (created_at);
+
+-- ---------------------------------------------------------------------------
+-- v7 (2026-09-09): the inventory ledger -- the live count behind `stock`.
+--
+-- `stock` in assets/data/products.json is where the owner SETS a count (the
+-- Sveltia CMS "Stock count" field). Until now it was also the only count:
+-- checkout capped quantities against it but nothing wrote it back on a sale,
+-- so a sell-out took effect only after a CMS save -> build -> CDN -> the
+-- Worker's 300s catalog cache. These two tables are what counts DOWN.
+--
+-- inventory: one row per tracked product (a finite numeric `stock` in
+-- products.json). Seeded lazily from the catalog the first time a tracked
+-- product is seen: on_hand = stock, seed_stock = stock. `seed_stock` is the
+-- catalog value the row was last seeded from; when products.json's stock
+-- differs from it, the owner corrected the count and the row is re-seeded
+-- (on_hand = new stock, seed_stock = new stock; active holds keep counting).
+-- available = on_hand - reserved. CHECK (reserved <= on_hand) is the
+-- oversell guard: a reserve that would exceed on-hand fails the statement,
+-- and D1 rolls the whole batch back.
+--
+-- inventory_holds: one row per (session, product), the reserve -> commit ->
+-- release state machine mirrored from the gift-card ledger.
+--   active     reserved at checkout, waiting on the Stripe session
+--   committed  checkout.session.completed (paid): on_hand -= qty, reserved -= qty
+--   released   checkout.session.expired / async_payment_failed / a hold that
+--              outlived its 24h session: reserved -= qty
+--   restocked  charge.refunded in full: on_hand += qty
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS inventory (
+  product_id  TEXT PRIMARY KEY,
+  on_hand     INTEGER NOT NULL CHECK (on_hand >= 0),
+  reserved    INTEGER NOT NULL DEFAULT 0 CHECK (reserved >= 0 AND reserved <= on_hand),
+  seed_stock  INTEGER NOT NULL,
+  seed_at     INTEGER NOT NULL DEFAULT 0,
+  synced_at   INTEGER NOT NULL DEFAULT 0,
+  updated_at  INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS inventory_holds (
+  session_id  TEXT NOT NULL,
+  product_id  TEXT NOT NULL,
+  qty         INTEGER NOT NULL CHECK (qty > 0),
+  state       TEXT NOT NULL CHECK (state IN ('active','committed','released','restocked')),
+  created_at  INTEGER NOT NULL,
+  updated_at  INTEGER NOT NULL,
+  PRIMARY KEY (session_id, product_id)
+);
+CREATE INDEX IF NOT EXISTS inventory_holds_state ON inventory_holds (state, created_at);
+
+-- ---------------------------------------------------------------------------
+-- v9 (2026-09-09): orders -- the customer's own order history (v8 added
+-- seed_at / synced_at to inventory; see workers/state/migrations.js).
+--
+-- Stripe stays the system of record for an order; this is the customer-facing
+-- COPY that /orders.html lists, written once per paid Checkout Session by the
+-- webhook (workers/routes/stripe-webhook.js, persistOrder) so a repeat buyer
+-- can see what they bought, reorder it, and follow a parcel without a
+-- `cs_...` reference in hand. order_signals could not do this job: it holds
+-- product ids and categories for the email sequence, not quantities, unit
+-- prices, totals, status or tracking.
+--
+-- email_hash is SHA-256 of the normalised address (workers/state/retention.js
+-- hashEmail, the same digest order_signals carries) -- the address itself is
+-- never written here. The magic link a customer clicks carries that hash as
+-- its subject, so neither the URL nor this table holds an email; the one
+-- thing that needs the address (the points balance) reads it back from
+-- order_signals, which already stores it for the email sequence.
+--
+-- payment_intent lets the hourly ship-notice sweep (routes/ship-notice.js)
+-- merge fulfillment_status and tracking_url in by the id the owner's Stripe
+-- edit is keyed on, without a session lookup.
+--
+-- Nothing sweeps this table, on purpose: an order history that forgets is
+-- not one. Rows are small (a JSON list of name/qty/unit price per line).
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS orders (
+  session_id      TEXT PRIMARY KEY,
+  email_hash      TEXT NOT NULL,
+  payment_intent  TEXT,
+  created         INTEGER NOT NULL,
+  amount_total    INTEGER NOT NULL,
+  currency        TEXT NOT NULL,
+  status          TEXT NOT NULL,
+  line_items_json TEXT NOT NULL,
+  tracking_url    TEXT,
+  updated_at      INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS orders_email_hash ON orders (email_hash, created);
+CREATE INDEX IF NOT EXISTS orders_payment_intent ON orders (payment_intent);

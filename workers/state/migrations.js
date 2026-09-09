@@ -18,7 +18,7 @@
  * bypassed (two isolates racing on a cold deploy) the result is identical.
  *
  * BUDGET
- * Cold start costs 1 read + up to 21 writes, once per deploy per isolate,
+ * Cold start costs 1 read + up to 24 writes, once per deploy per isolate,
  * against a free-plan allowance of 100k row writes a day. The steady state is
  * zero queries.
  */
@@ -38,8 +38,21 @@
  * v6 (2026-09-04) added order_emails -- the record of transactional order mail
  * already delivered, so the ship notice goes out once per parcel however many
  * times the shop edits the fulfilment metadata behind it.
+ * v7 (2026-09-09) added inventory and inventory_holds -- the live count that
+ * decrements as orders are paid (workers/state/inventory.js), seeded from the
+ * `stock` the owner sets in the CMS.
+ * v8 (2026-09-09) added seed_at / synced_at to inventory (SCHEMA_ALTERS below)
+ * so a stale catalog cannot reseed a row backwards and an un-tracked product
+ * is marked instead of frozen.
+ * v9 (2026-09-09) added orders -- the customer's own order history behind
+ * /orders.html (workers/state/orders.js), written from
+ * checkout.session.completed and keyed by a SHA-256 of the address, never
+ * the address itself. v8 and v9 landed on parallel branches, each bumping
+ * from v7; a database that reached "8" through either one is brought to 9
+ * here, which is safe because every statement is idempotent (CREATE IF NOT
+ * EXISTS, and the ALTERs swallow "duplicate column").
  */
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 9;
 
 /** Verbatim from workers/schema.sql. Keep the two in sync -- a test enforces it. */
 export const SCHEMA_STATEMENTS = [
@@ -184,8 +197,66 @@ export const SCHEMA_STATEMENTS = [
   send_key    TEXT PRIMARY KEY,
   created_at  INTEGER NOT NULL
 )`,
-  `CREATE INDEX IF NOT EXISTS order_emails_created_at ON order_emails (created_at)`
+  `CREATE INDEX IF NOT EXISTS order_emails_created_at ON order_emails (created_at)`,
+  // v7: the inventory ledger (see workers/schema.sql and workers/state/inventory.js
+  // for the state machine and the seed / owner-correction rule)
+  `CREATE TABLE IF NOT EXISTS inventory (
+  product_id  TEXT PRIMARY KEY,
+  on_hand     INTEGER NOT NULL CHECK (on_hand >= 0),
+  reserved    INTEGER NOT NULL DEFAULT 0 CHECK (reserved >= 0 AND reserved <= on_hand),
+  seed_stock  INTEGER NOT NULL,
+  seed_at     INTEGER NOT NULL DEFAULT 0,
+  synced_at   INTEGER NOT NULL DEFAULT 0,
+  updated_at  INTEGER NOT NULL
+)`,
+  `CREATE TABLE IF NOT EXISTS inventory_holds (
+  session_id  TEXT NOT NULL,
+  product_id  TEXT NOT NULL,
+  qty         INTEGER NOT NULL CHECK (qty > 0),
+  state       TEXT NOT NULL CHECK (state IN ('active','committed','released','restocked')),
+  created_at  INTEGER NOT NULL,
+  updated_at  INTEGER NOT NULL,
+  PRIMARY KEY (session_id, product_id)
+)`,
+  `CREATE INDEX IF NOT EXISTS inventory_holds_state ON inventory_holds (state, created_at)`,
+  // v9: the order history (see workers/schema.sql and workers/state/orders.js
+  // for why the address is stored only as a hash, and why nothing sweeps it)
+  `CREATE TABLE IF NOT EXISTS orders (
+  session_id      TEXT PRIMARY KEY,
+  email_hash      TEXT NOT NULL,
+  payment_intent  TEXT,
+  created         INTEGER NOT NULL,
+  amount_total    INTEGER NOT NULL,
+  currency        TEXT NOT NULL,
+  status          TEXT NOT NULL,
+  line_items_json TEXT NOT NULL,
+  tracking_url    TEXT,
+  updated_at      INTEGER NOT NULL
+)`,
+  `CREATE INDEX IF NOT EXISTS orders_email_hash ON orders (email_hash, created)`,
+  `CREATE INDEX IF NOT EXISTS orders_payment_intent ON orders (payment_intent)`
 ];
+
+/**
+ * v8 (2026-09-09): columns added to a table that already exists on the live
+ * database. CREATE TABLE IF NOT EXISTS cannot add them, so these run after
+ * the CREATEs; SQLite has no ADD COLUMN IF NOT EXISTS, so a "duplicate
+ * column" refusal (a fresh database, whose CREATE already carried them) is
+ * the expected no-op and is swallowed. Anything else is a real failure.
+ *   seed_at   -- when (catalog fetch time) the row was last seeded, so an
+ *                isolate holding an OLDER catalog than the last owner
+ *                correction cannot reseed the row backwards.
+ *   synced_at -- last sync that saw the product as tracked, so a product
+ *                the owner un-tracks is marked and re-tracking seeds fresh.
+ */
+const SCHEMA_ALTERS = [
+  `ALTER TABLE inventory ADD COLUMN seed_at INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE inventory ADD COLUMN synced_at INTEGER NOT NULL DEFAULT 0`
+];
+
+function isDuplicateColumn(err) {
+  return /duplicate column/i.test(String((err && err.message) || err));
+}
 
 /** Per-isolate memo of the in-flight or completed migration. */
 let pending = null;
@@ -207,6 +278,13 @@ export async function applyMigrations(db, now = Date.now()) {
 
   for (const statement of SCHEMA_STATEMENTS.slice(1)) {
     await db.prepare(statement).run();
+  }
+  for (const statement of SCHEMA_ALTERS) {
+    try {
+      await db.prepare(statement).run();
+    } catch (err) {
+      if (!isDuplicateColumn(err)) throw err;
+    }
   }
   await db
     .prepare(

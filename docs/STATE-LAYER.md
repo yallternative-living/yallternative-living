@@ -7,7 +7,8 @@ cards, the Stripe webhook, order status and restock all run on this layer.
 `checkout.session.completed`, paid out automatically at a threshold, and read
 back through a token-gated route (§4.5-4.7). Six additive tables and one hourly
 cron carry the post-purchase email sequence, abandoned-checkout recovery, the
-birthday club and the welcome code (§4.6).
+birthday club and the welcome code (§4.6). Schema version 8 adds `orders`, the
+customer's own order history behind a one-time emailed link (§4.10).
 
 **One thing has to happen before the next push to `main`:** `wrangler.toml`
 declares a D1 database whose `database_id` is a placeholder, so `wrangler deploy`
@@ -129,7 +130,9 @@ works either way (§6.1).
 
 ### 4.2 The route contract, as implemented
 
-Everything is `POST`, JSON in and JSON out, `Cache-Control: no-store` on every
+Everything is `POST` (three reads are `GET`: the owner's gift note, live
+stock, and the order history behind a one-time token), JSON in and JSON out,
+`Cache-Control: no-store` on every
 response, CORS limited to the apex and www origins with `Vary: Origin`, `OPTIONS`
 answered as a 204 preflight, and anything else a JSON 404.
 
@@ -148,6 +151,8 @@ both spellings so the same build works behind the proxy or on a Cloudflare route
 | `/api/welcome-code`      | `{email}`                                   | `200 {configured:true, code, expiresAt}`; `200 {configured:false}` when no coupon id is set; `400 {error}` for an unusable address; `429`; `502` when Stripe refuses; `503` with no `STATE_DB`                                                                                 |
 | `/api/birthday-club`     | `{email, birthday}` (`MM/DD`) or a form post | `200 {success:true, message}`; `400 {error}` for a bad address or anything that is not MM/DD (a year is always refused); `429`; `503`. A **form** post gets `303` to `/thank-you.html?birthday=saved` instead of JSON                                                          |
 | `/api/loyalty-balance`   | `{email, token}`                            | `200 {balance, threshold, rewardCents, pointsToReward}`; `403 {error}` for a missing, expired, wrong-purpose or wrong-address token — one message for all four; `429`; `503`                                                                                                   |
+| `/api/orders/request-link` | `{email}`                                 | `200 {ok:true, message}` — the SAME body for a known, unknown, unsubscribed or undeliverable address; `400 {error}` for an unusable address; `429` (3 per 10 min per client and per address hash); `404` when `site.enableOrderHistory` is off; `503` without `STATE_DB`/`MAGIC_LINK_SECRET` |
+| `GET /api/orders?token=` | `?token=` (the emailed one-time link)       | `200 {orders:[{sessionId, placedAt, amountTotalCents, currency, status, trackingUrl, items:[{name, quantity, unitCents, productId, variant, kind, reorderable}]}], loyalty:{balance, threshold, rewardCents, pointsToReward}|null}` newest first, 25 at most, the token burned on the way; `403 {error}` for every bad token, one message; `429`; `404`; `503` |
 
 Notes that are contract, not detail:
 
@@ -416,6 +421,60 @@ dispatch — assumed at 3 days (the top of that stated window) when the order is
 queued, then corrected by `reanchorOrderSequence` the moment the ship notice
 goes out. A gift-card-only order skips the assumption entirely: it was delivered
 by the same webhook that recorded it.
+
+### 4.10 The order history (schema version 8)
+
+One additive table, `orders`, and two routes (`workers/routes/orders.js`).
+
+| Table    | Holds                                                                                              | Idempotency                                   |
+| -------- | -------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `orders` | one row per paid Checkout Session: address HASH, PaymentIntent, date, total, status, lines, tracking | PK on `session_id`; the sweep's UPDATE is conditional |
+
+**Why a copy, when Stripe is the record.** `/api/order-status` is one order
+at a time and needs the `cs_…` reference plus the address for every lookup —
+right for a single order, useless for "what have I bought here?". Stripe has
+no cheap "every session for this address" query, and `order_signals` (§4.6)
+holds product ids and categories for the email sequence, not quantities, unit
+prices, a total, a status or a tracking link. So the webhook's `persistOrder`
+step writes one row per paid session in the shape the page needs, and the page
+reads only this. The lines come from the same line-item read the owner's copy
+uses (memoised per session, with `price.product` expanded so the `yl_product_id`
+/ `yl_variant` / `yl_kind` metadata `workers/checkout.js` stamps on each line
+comes back). An unpaid completion writes nothing; a redelivery writes nothing.
+
+**No address is stored.** `email_hash` is the same SHA-256 `order_signals`
+carries. The one thing that needs the address — the points balance, whose
+ledger is keyed by email — reads it back from `order_signals` by hash
+(`emailForHash`). The magic link carries that hash as its `subject` claim
+(`magic-link.js` grew a `subject` alternative to `email`; a token carrying both
+is malformed even when signed), so the emailed URL holds no PII, and
+`assets/js/orders.js` scrubs it from the address bar before the page settles.
+
+**Neutrality.** `request-link` answers the same `200 {ok, message}` for a
+known address, an unknown one, an unsubscribed one and one whose email Resend
+refused; the send runs behind `ctx.waitUntil`, so the response time is the
+same too. The only other answers are a malformed address (400), the rate
+limit (429 — 3 per 10 minutes per client AND per address hash, both via
+`checkRateLimit`, fail-open like every other public read), the CMS switch
+(404) and a missing binding (503).
+
+**The link.** `signToken({subject: hash, purpose: "orders", ttlSeconds:
+86400})`, sent through `sendEmail` (transactional: no unsubscribe footer,
+but `isSuppressed` is checked first — someone who opted out of marketing has
+asked not to be written to, and this is mail they did not strictly need).
+`GET /api/orders` verifies purpose and signature, then `burnToken` — the same
+`burned_tokens` row the points flow uses, swept by the hourly cron once it
+would have expired anyway — and only then reads. A second click is a 403
+with the same message every other refusal gets.
+
+**Tracking.** `emailShipNotice` (§4.9) calls `mergeShipment` BEFORE its
+already-sent check, keyed on the PaymentIntent the owner edited, so a tracking
+link corrected the day after the notice went out still reaches the page. The
+UPDATE's WHERE clause compares the values, so the sweep's hourly revisits cost
+a read and no write.
+
+**No sweeper**, deliberately: every other table here is operational state
+and is swept; this one is the customer's history.
 
 ## 5. Dashboard setup (one-time, by hand)
 

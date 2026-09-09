@@ -3,7 +3,7 @@
    Zero dependencies, zero build step. Vanilla JS only so the
    whole site stays instant on any connection.
    ========================================================== */
-/* global module */
+/* global module, require */
 (function () {
   "use strict";
 
@@ -1116,157 +1116,37 @@
     return cleaned;
   }
 
-  /* ---------- shared: minimal, escape-first Markdown renderer ----------
-     The Apothecary Journal's post body is written by Savanna in /admin (the
-     `content` field is a rich-text editor there) and rendered on journal.html
-     through innerHTML, so this has exactly two jobs: cover the handful of
-     formatting marks a shop owner actually needs, and never let post text
-     become live markup.
-
-     Why this isn't a vendored library. Self-hosting one would have been fine
-     -- the site's CSP only blocks CDN scripts, and we already self-host the
-     fonts for that same reason (docs/SELF-HOSTING-FONTS.md) -- so this was a
-     trade, not a constraint:
-       - snarkdown (1.9 KB minified, MIT) is the closest fit by size, but its
-         last release was 2020, it passes raw HTML straight through (an
-         `<img src=x onerror=...>` in a post survives verbatim), writes hrefs
-         with no scheme check (`[x](javascript:alert(1))` becomes a live
-         link), and separates paragraphs with `<br />` instead of `<p>` --
-         which on its own would restyle every post already published, since
-         journal.html styles `.content p`. Fixing the first two means forking
-         its single dense minified regex, which throws away the reason to
-         vendor it in the first place.
-       - marked (40 KB minified) and markdown-it (124 KB minified) are each
-         bigger than every file this site ships except main.js itself, for a
-         page that renders a couple of posts. marked doesn't sanitize either
-         (its docs hand you off to DOMPurify); markdown-it is genuinely safe
-         by default (html:false plus a scheme allowlist) but is ~15x the size
-         of the ~8 KB below for the same handful of formatting marks.
-     So: escape with attrEsc() FIRST, then add formatting to text that can no
-     longer contain markup. Anything unsupported degrades to plain text. */
-
-  /* Inline emphasis. Only ever runs on text attrEsc() has already escaped,
-     so there is no "<" left for it to turn into a tag. Sveltia's editor
-     writes **bold** and _italic_; *italic* and __bold__ are accepted too
-     because that's what people type by hand. An underscore inside a word
-     (soap_batch_2) is not emphasis, which is why those two rules check the
-     characters on either side. */
-  function mdEmphasis(escaped) {
-    return escaped
-      .replace(/(^|[^A-Za-z0-9_])__([^\n]+?)__(?![A-Za-z0-9_])/g, "$1<strong>$2</strong>")
-      .replace(/\*\*([^\n]+?)\*\*/g, "<strong>$1</strong>")
-      .replace(/(^|[^A-Za-z0-9_])_([^_\n]+?)_(?![A-Za-z0-9_])/g, "$1<em>$2</em>")
-      .replace(/\*([^*\n]+?)\*/g, "<em>$1</em>");
-  }
-
-  /* [label](url). The URL may not contain whitespace, and may contain at most
-     one nested pair of parentheses -- enough for the Wikipedia-style
-     ".../Arnica_(plant)" links an herbal blog actually uses, while staying a
-     single unambiguous match per link (the two alternatives can't match the
-     same character, so there is nothing here to backtrack over). */
-  var MD_LINK_RE = /\[([^\]\n]*)\]\(((?:[^()\s]|\([^()\s]*\))*)\)/g;
-
-  /* One run of markdown text -> safe HTML. Escaping happens per slice so the
-     URL is checked in its raw form (before "&" becomes "&amp;") and only then
-     escaped for the attribute it lands in. */
-  function mdInline(text) {
-    var html = "";
-    var lastIndex = 0;
-    var match;
-    MD_LINK_RE.lastIndex = 0;
-    while ((match = MD_LINK_RE.exec(text)) !== null) {
-      html += mdEmphasis(attrEsc(text.slice(lastIndex, match.index)));
-      var href = safeLinkUrl(match[2]);
-      var label = mdEmphasis(attrEsc(match[1]));
-      // A rejected URL (javascript:, data:, ...) keeps the words and drops
-      // the link -- it never reaches an href.
-      html += href ? '<a href="' + attrEsc(href) + '">' + label + "</a>" : label;
-      lastIndex = MD_LINK_RE.lastIndex;
+  /* ---------- shared: Markdown renderer for journal post text ----------
+     ONE implementation, in assets/js/markdown.js, shared with the build:
+     scripts/build-site-data.js renders every post into its own static page
+     at /journal/<slug>.html through the same file, so the two can never
+     drift. journal.html loads it as a plain <script> before this one (it
+     publishes window.YL_MARKDOWN); in Node (the unit tests) it is
+     require()d. See that file for what the renderer does and does not
+     support, and why it is not a vendored library. */
+  function markdownModule() {
+    if (window.YL_MARKDOWN) return window.YL_MARKDOWN;
+    if (typeof module !== "undefined" && module.exports && typeof require === "function") {
+      return require("./markdown.js");
     }
-    return html + mdEmphasis(attrEsc(text.slice(lastIndex)));
+    return null;
   }
 
-  /* Block structure: blank-line separated paragraphs (what every post written
-     before this existed already is), "## " headings, "- " bullet lists,
-     "1. " numbered lists, and "***" dividers. Deliberately not a CommonMark
-     parser -- no tables, code blocks, blockquotes or images, all of which are
-     also switched off in the editor (see admin/config.yml's `buttons` and
-     `editor_components` for the journal `content` field). */
   function renderMarkdown(text) {
+    var md = markdownModule();
+    if (md) return md.renderMarkdown(text);
+    /* A page that loads this file without markdown.js (only journal.html
+       ships it) renders the post as the plain, escaped paragraphs every post
+       was before the editor grew a formatting toolbar. Escaping is the part
+       that must never be skipped; the formatting is the part that can be. */
     if (text == null) return "";
-    var lines = String(text).replace(/\r\n?/g, "\n").split("\n");
-    var html = "";
-    var para = [];
-    var items = [];
-    var listTag = "";
-
-    function flushPara() {
-      if (!para.length) return;
-      // Joined with "\n", not " ": a plain-text post then renders the exact
-      // same bytes it did before this function existed.
-      html += "<p>" + mdInline(para.join("\n")) + "</p>";
-      para = [];
-    }
-
-    function flushList() {
-      if (!items.length) return;
-      html +=
-        "<" +
-        listTag +
-        ">" +
-        items
-          .map(function (item) {
-            return "<li>" + mdInline(item) + "</li>";
-          })
-          .join("") +
-        "</" +
-        listTag +
-        ">";
-      items = [];
-      listTag = "";
-    }
-
-    function pushItem(tag, item) {
-      // A "1." right after a "-" starts a second, differently-tagged list.
-      if (listTag && listTag !== tag) flushList();
-      flushPara();
-      listTag = tag;
-      items.push(item);
-    }
-
-    lines.forEach(function (line) {
-      var trimmed = line.trim();
-      var heading = /^(#{1,6})\s+(.+)$/.exec(trimmed);
-      var bullet = /^[-*+]\s+(.+)$/.exec(trimmed);
-      var numbered = /^\d{1,9}[.)]\s+(.+)$/.exec(trimmed);
-
-      if (!trimmed) {
-        flushPara();
-        flushList();
-      } else if (/^(\*{3,}|-{3,}|_{3,})$/.test(trimmed)) {
-        flushPara();
-        flushList();
-        html += "<hr>";
-      } else if (heading) {
-        flushPara();
-        flushList();
-        // The post's own title is the page's <h2>, so headings inside a post
-        // start at <h3> and never skip a level (screen-reader outline).
-        var tag = heading[1].length > 2 ? "h4" : "h3";
-        html += "<" + tag + ">" + mdInline(heading[2]) + "</" + tag + ">";
-      } else if (bullet) {
-        pushItem("ul", bullet[1]);
-      } else if (numbered) {
-        pushItem("ol", numbered[1]);
-      } else {
-        flushList();
-        para.push(line);
-      }
-    });
-
-    flushPara();
-    flushList();
-    return html;
+    return String(text)
+      .replace(/\r\n?/g, "\n")
+      .split("\n\n")
+      .map(function (p) {
+        return "<p>" + attrEsc(p) + "</p>";
+      })
+      .join("");
   }
 
   /* ---------- shared: horizontal swipe gesture ----------
@@ -1817,9 +1697,170 @@
     }
     if (typeof p.stock !== "number") return saleBadge;
     if (p.stock === 0) return '<span class="stock-badge sold-out">Sold out</span>';
-    if (p.stock <= LOW_STOCK_THRESHOLD)
-      return saleBadge + '<span class="stock-badge low-stock">Only ' + p.stock + " left</span>";
+    if (p.stock <= LOW_STOCK_THRESHOLD) return saleBadge + lowStockBadgeHTML(p.stock);
     return saleBadge;
+  }
+
+  function lowStockBadgeHTML(n) {
+    return '<span class="stock-badge low-stock">Only ' + n + " left</span>";
+  }
+
+  /* ---------- Live stock (GET /api/inventory) ----------
+     The CMS "Stock count" is where Savanna SETS a count; the checkout Worker
+     counts it down as orders are paid (workers/state/inventory.js) and
+     answers the live number here, for tracked products only. The static
+     catalog renders first and stays as it is when this fetch fails, is
+     switched off in the CMS (Site settings -> Shop -> Show live stock), or
+     the page is opened off disk -- a live number can only ever replace a
+     count the CMS already tracks, never invent one. */
+  var LIVE_INVENTORY_URL = "/api/inventory";
+
+  /**
+   * Patches the live `available` counts over the static `stock` of every
+   * tracked product in `products` (in place, so every later render reads the
+   * live number). Returns the ids whose count actually changed.
+   */
+  function applyLiveInventory(payload, products) {
+    var live = payload && payload.products;
+    var changed = [];
+    if (!live || typeof live !== "object" || !Array.isArray(products)) return changed;
+    products.forEach(function (p) {
+      if (!p || !p.id || typeof p.stock !== "number") return;
+      var row = live[p.id];
+      if (!row || row.tracked !== true) return;
+      /* Only a NUMBER is a count. Number(null) is 0, and 0 means "Sold out":
+         a broken answer must leave the static stock alone, never stop sales. */
+      if (typeof row.available !== "number" || !isFinite(row.available) || row.available < 0)
+        return;
+      var n = Math.floor(row.available);
+      if (p.stock === n) return;
+      p.stock = n;
+      changed.push(p.id);
+    });
+    return changed;
+  }
+
+  function liveStockEnabled() {
+    var siteCfg = (window.YL_CONTENT && window.YL_CONTENT.site) || {};
+    if (siteCfg.showLiveStock === false) return false;
+    if (typeof fetch !== "function") return false;
+    if (window.location && window.location.protocol === "file:") return false;
+    return true;
+  }
+
+  /** One fetch per page load; `onChanged(ids)` only when a count moved. */
+  function fetchLiveInventory(products, onChanged) {
+    if (!liveStockEnabled()) return;
+    fetch(LIVE_INVENTORY_URL, { headers: { Accept: "application/json" }, cache: "no-store" })
+      .then(function (res) {
+        return res && res.ok ? res.json() : null;
+      })
+      .then(function (payload) {
+        if (!payload) return;
+        var changed = applyLiveInventory(payload, products);
+        if (changed.length && typeof onChanged === "function") onChanged(changed);
+      })
+      .catch(function () {
+        /* The static catalog stands. */
+      });
+  }
+
+  /* Re-renders just the cards whose count moved, in place, so filters,
+     sort and scroll position are untouched. A card already revealed keeps
+     its `in` class, so nothing painted is hidden again (the reveal gate's
+     one rule). */
+  function refreshLiveCards(ids) {
+    var map = getProductMap();
+    ids.forEach(function (id) {
+      var p = map.get(id);
+      if (!p) return;
+      var cards = document.querySelectorAll('article.card[data-id="' + attrEsc(id) + '"]');
+      Array.prototype.forEach.call(cards, function (old) {
+        var holder = document.createElement("div");
+        holder.innerHTML = cardHTML(p, { eager: true });
+        var fresh = holder.firstElementChild;
+        if (!fresh || !old.parentNode) return;
+        if (old.classList.contains("in")) fresh.classList.add("in");
+        /* A keyboard user may be ON this card when the live count lands;
+           replacing the node dropped focus to <body>. Re-find the same
+           control in the fresh card by its classes and put focus back. */
+        var active = document.activeElement;
+        var refocus = null;
+        if (active && old.contains(active)) {
+          var classes = String(active.className || "")
+            .trim()
+            .split(/\s+/)
+            .filter(Boolean);
+          refocus = active.tagName.toLowerCase() + (classes.length ? "." + classes.join(".") : "");
+        }
+        old.parentNode.replaceChild(fresh, old);
+        if (refocus) {
+          var again = null;
+          try {
+            again = fresh.querySelector(refocus);
+          } catch {
+            again = null;
+          }
+          if (again && typeof again.focus === "function") again.focus({ preventScroll: true });
+        }
+      });
+    });
+  }
+
+  /* The PDP is static markup: patch its two Add to Cart buttons and the
+     quantity cap from the live count. Sold out swaps the buttons for the
+     same inert button build-site-data.js renders when the CMS says 0. */
+  function applyLiveStockToPdp(p) {
+    if (!p || typeof p.stock !== "number") return;
+    var buttons = document.querySelectorAll("#pdpAddToCart, .pdp-sticky-add-btn.yl-add-item");
+    var qtyInput = document.getElementById("pdpQty");
+    var actions = document.querySelector(".pdp-actions");
+    if (p.stock <= 0) {
+      Array.prototype.forEach.call(buttons, function (btn) {
+        var inert = document.createElement("button");
+        inert.type = "button";
+        inert.className = btn.className
+          .replace(/\byl-add-item\b/, "")
+          .replace(/\s+/g, " ")
+          .trim();
+        inert.disabled = true;
+        inert.setAttribute("aria-disabled", "true");
+        inert.textContent = "Sold Out";
+        btn.parentNode.replaceChild(inert, btn);
+      });
+      if (qtyInput) qtyInput.disabled = true;
+      Array.prototype.forEach.call(document.querySelectorAll(".pdp-qty-btn"), function (b) {
+        b.disabled = true;
+      });
+    } else {
+      var cap = Math.min(p.stock, 10);
+      Array.prototype.forEach.call(buttons, function (btn) {
+        btn.setAttribute("data-item-max-quantity", String(cap));
+        // The button carries its own quantity too; a stale 5 over a cap of 2
+        // only worked because cart.js re-clamps -- keep them in step anyway.
+        var want = parseInt(btn.getAttribute("data-item-quantity"), 10);
+        if (want > cap) btn.setAttribute("data-item-quantity", String(cap));
+      });
+      if (qtyInput) {
+        qtyInput.setAttribute("max", String(cap));
+        if (parseInt(qtyInput.value, 10) > cap) qtyInput.value = String(cap);
+      }
+    }
+    if (actions) {
+      var badge = actions.querySelector(".pdp-live-stock");
+      var html =
+        p.stock <= 0
+          ? '<span class="stock-badge sold-out">Sold out</span>'
+          : p.stock <= LOW_STOCK_THRESHOLD
+            ? lowStockBadgeHTML(p.stock)
+            : "";
+      if (!badge && html) {
+        badge = document.createElement("div");
+        badge.className = "pdp-live-stock";
+        actions.parentNode.insertBefore(badge, actions);
+      }
+      if (badge) badge.innerHTML = html;
+    }
   }
 
   /* Price with an honest markdown: when a category sale is active
@@ -2304,15 +2345,19 @@
       '<button type="button" class="lightbox-close" aria-label="Close lightbox">&times;</button>' +
       '<div class="lightbox-content">' +
       '  <button type="button" class="lightbox-prev" aria-label="Previous image">&#10094;</button>' +
-      '  <img id="lightboxImage" alt="Enlarged product image">' +
+      '  <div class="lightbox-stage" id="lightboxStage"><img id="lightboxImage" alt="Enlarged product image"></div>' +
       '  <button type="button" class="lightbox-next" aria-label="Next image">&#10095;</button>' +
       "</div>" +
       '<div class="lightbox-dots" id="lightboxDots"></div>' +
-      '<div class="lightbox-ritual-wrap" id="lightboxRitualWrap"></div>';
+      '<div class="lightbox-ritual-wrap" id="lightboxRitualWrap"></div>' +
+      '<div class="sr-only" id="lightboxStatus" aria-live="polite" aria-atomic="true"></div>';
     document.body.appendChild(dialog);
 
     var currentImages = [];
     var currentIndex = 0;
+    var currentProduct = null;
+    var stageEl = dialog.querySelector("#lightboxStage");
+    var statusEl = dialog.querySelector("#lightboxStatus");
     var imgEl = dialog.querySelector("#lightboxImage");
     var dotsContainer = dialog.querySelector("#lightboxDots");
     var ritualWrap = dialog.querySelector("#lightboxRitualWrap");
@@ -2325,7 +2370,50 @@
       if (idx < 0) idx = currentImages.length - 1;
       if (idx >= currentImages.length) idx = 0;
       currentIndex = idx;
-      imgEl.src = currentImages[currentIndex];
+      var total = currentImages.length;
+      var photoLabel = total > 1 ? "Photo " + (currentIndex + 1) + " of " + total : "Photo";
+      var alt = currentProduct
+        ? currentProduct.name + (total > 1 ? ", photo " + (currentIndex + 1) + " of " + total : "")
+        : "Enlarged product image";
+      /* The image list is the JPEG originals (data-images / p.images), but
+         every one of them has AVIF and WebP renditions in the manifest;
+         loading the JPEG here was ~2x the bytes on the most-used
+         interaction on the page. Same <picture> the cards and PDP use. */
+      var manifest =
+        window.YL_IMAGES &&
+        window.YL_IMAGES[String(currentImages[currentIndex]).replace(/^\/+/, "")];
+      if (stageEl && manifest && typeof pictureHTML === "function") {
+        stageEl.innerHTML = pictureHTML(currentProduct || { name: alt }, {
+          imagePath: currentImages[currentIndex],
+          width: manifest.width || 900,
+          height: manifest.height || 900,
+          loading: "eager",
+          decoding: "async",
+          sizes: "(max-width: 900px) 100vw, 900px",
+          alt: alt
+        });
+        imgEl = stageEl.querySelector("img") || imgEl;
+        imgEl.id = "lightboxImage";
+      } else {
+        /* No manifest entry for this photo: a bare <img>, and a FRESH one --
+           setting src on the <img> inside the previous <picture> left its
+           AVIF/WebP <source>s in charge, so the old photo kept showing under
+           the new alt text. */
+        if (stageEl) {
+          stageEl.innerHTML = '<img id="lightboxImage" alt="">';
+          imgEl = stageEl.querySelector("img");
+        }
+        imgEl.src = currentImages[currentIndex];
+        imgEl.alt = alt;
+      }
+      if (statusEl) {
+        statusEl.textContent = photoLabel;
+        statusEl.setAttribute("data-i18n-tpl", total > 1 ? "tpl.photoNofM" : "tpl.photo");
+        statusEl.setAttribute(
+          "data-i18n-vars",
+          JSON.stringify({ n: currentIndex + 1, total: total })
+        );
+      }
 
       // Update dots
       var dots = dotsContainer.querySelectorAll(".lightbox-dot");
@@ -2385,6 +2473,21 @@
 
     window.openLightbox = function (images, startSrc, productId) {
       currentImages = images || [];
+      currentProduct = null;
+      if (productId) {
+        var lbMap = getProductMap();
+        currentProduct = (lbMap && lbMap.get(productId)) || null;
+        if (
+          !currentProduct &&
+          window.YL_SEARCH_INDEX &&
+          Array.isArray(window.YL_SEARCH_INDEX.products)
+        ) {
+          currentProduct =
+            window.YL_SEARCH_INDEX.products.find(function (p) {
+              return p && p.id === productId;
+            }) || null;
+        }
+      }
       // Nothing to enlarge: opening an empty viewer shows the reader a blank
       // modal they then have to dismiss.
       if (!currentImages.length) return;
@@ -3486,12 +3589,9 @@
       renderBundles(data);
       handlePickupMarketDeepLink();
 
-      // A live-inventory overlay used to fetch real-time stock levels from
-      // Snipcart's product API here (/.netlify/functions/inventory) and
-      // patch them over the static products.json numbers. That endpoint
-      // went away with Snipcart -- stock is now whatever's set on each
-      // product in assets/data/products.json (editable via the Sveltia CMS
-      // at /admin), refreshed on every deploy like the rest of the catalog.
+      // The static cards are painted; now the live count, once. Only the
+      // cards whose number moved are re-rendered (see fetchLiveInventory).
+      fetchLiveInventory(data.products, refreshLiveCards);
     } else {
       console.warn("Product data (assets/js/products-data.js) did not load.");
     }
@@ -4221,7 +4321,7 @@
       if (resetBtn) {
         resetBtn.addEventListener("click", function () {
           var searchInput =
-            document.getElementById("shopSearch") || document.getElementById("shopSearchInput");
+            document.getElementById("shopSearch") || document.getElementById("shopSearch");
           if (searchInput) {
             searchInput.value = "";
             searchInput.dispatchEvent(new Event("input"));
@@ -6962,6 +7062,7 @@
     }
 
     function render() {
+      syncShopUrl();
       var pMap = getProductMap();
       /* expandQuery() routes the query itself and hands back what it found, so
          this reads the answer rather than working it out a second time. "wound
@@ -7164,6 +7265,107 @@
         }).length;
         eyebrowProductCount.textContent = activeHandmade;
       }
+      renderActiveFilters();
+    }
+
+    /* ---------- Active-filter chips + phone Filter badge ----------
+       One chip per non-default control (category, concern, scent, search),
+       each removable on its own, plus "Clear all". Rendered on every
+       render() so the chips, the badge on the phone Filter button and the
+       URL (syncShopUrl) can never disagree about what is applied. Removing
+       a chip goes through the control it mirrors -- a click on the "All"
+       pill, a change on the select -- so the pills' own aria-pressed state
+       and every listener attached to them stay the single source of truth.
+       The markup is static in shop.html (hidden on desktop, where the full
+       toolbar is always visible), so this is a no-op off the shop page. */
+    var activeFiltersWrap = document.getElementById("shopActiveFilters");
+    var activeFiltersList = document.getElementById("shopActiveFiltersList");
+    var filterCountBadge = document.getElementById("shopFilterCount");
+    var filterOpenBtn = document.getElementById("shopFilterOpenBtn");
+
+    function activeChips() {
+      var chips = [];
+      if (state.filter !== "all") {
+        chips.push({ kind: "category", label: catLabel[state.filter] || state.filter });
+      }
+      if (state.concern !== "all") {
+        chips.push({ kind: "concern", label: concernLabel[state.concern] || state.concern });
+      }
+      if (state.scent !== "all") chips.push({ kind: "scent", label: state.scent });
+      var q = String(state.query || "").trim();
+      if (q) chips.push({ kind: "q", label: "“" + q + "”" });
+      return chips;
+    }
+
+    function renderActiveFilters() {
+      var chips = activeChips();
+      /* The badge counts filters, not the search: the search box is always
+         on screen next to the button, so its own text is its indicator. */
+      var filterCount = chips.filter(function (c) {
+        return c.kind !== "q";
+      }).length;
+      if (filterCountBadge) {
+        filterCountBadge.textContent = String(filterCount);
+        filterCountBadge.hidden = filterCount === 0;
+      }
+      if (filterOpenBtn) {
+        if (filterCount > 0) {
+          filterOpenBtn.setAttribute("aria-describedby", "shopActiveFiltersLabel shopFilterCount");
+        } else {
+          filterOpenBtn.removeAttribute("aria-describedby");
+        }
+      }
+      if (!activeFiltersWrap || !activeFiltersList) return;
+      activeFiltersWrap.hidden = chips.length === 0;
+      activeFiltersList.innerHTML = chips
+        .map(function (c) {
+          var id = "shopChipLabel-" + c.kind;
+          /* aria-labelledby: the hidden shared "Remove" span first, then the
+             chip's own label -- "Remove Salves & Balms" -- with no string
+             assembled in JS, so both halves stay translatable text nodes. */
+          return (
+            '<button type="button" class="shop-chip" data-chip="' +
+            c.kind +
+            '" aria-labelledby="shopChipRemoveLabel ' +
+            id +
+            '"><span id="' +
+            id +
+            '">' +
+            attrEsc(c.label) +
+            '</span><span class="shop-chip-x" aria-hidden="true">×</span></button>'
+          );
+        })
+        .join("");
+    }
+
+    function clearOneFilter(kind) {
+      var allPill;
+      if (kind === "category") {
+        allPill = row.querySelector('.filter-pill[data-filter="all"]');
+        if (allPill) allPill.click();
+      } else if (kind === "concern" && concernRow) {
+        allPill = concernRow.querySelector('.concern-pill[data-concern="all"]');
+        if (allPill) allPill.click();
+      } else if (kind === "scent" && scentSelect) {
+        scentSelect.value = "all";
+        scentSelect.dispatchEvent(new Event("change"));
+      } else if (kind === "q") {
+        if (searchInput) searchInput.value = "";
+        state.query = "";
+        render();
+      }
+    }
+
+    if (activeFiltersList) {
+      activeFiltersList.addEventListener("click", function (e) {
+        var chip = e.target.closest(".shop-chip[data-chip]");
+        if (!chip) return;
+        var kind = chip.getAttribute("data-chip");
+        clearOneFilter(kind);
+        /* The chip just clicked is gone; keep the keyboard somewhere useful. */
+        var next = activeFiltersList.querySelector(".shop-chip");
+        (next || filterOpenBtn || searchInput || row).focus();
+      });
     }
 
     row.addEventListener("click", function (e) {
@@ -7192,6 +7394,50 @@
       });
     }
 
+    function selectHasOption(select, value) {
+      return Array.prototype.some.call(select.options || [], function (o) {
+        return o.value === value;
+      });
+    }
+
+    /* Mirror the toolbar into the address bar (replaceState: no history
+       spam) so "Soaks + Dry Skin + Price: Low to High" can be shared, saved
+       and returned to with Back -- until 2026-09-09 every click here left
+       the URL at plain /shop.html. Only this toolbar's own keys are touched;
+       anything else on the query string (?lang=, ?market-alerts=) is kept.
+       A category hash (#soaks) is dropped once a category is chosen here,
+       because the hash would win over ?category= on the next load. */
+    var urlSyncReady = false;
+    function syncShopUrl() {
+      if (!urlSyncReady || typeof history === "undefined" || !history.replaceState) return;
+      try {
+        var params = new URLSearchParams(window.location.search);
+        params.delete("filter");
+        var setOrDrop = function (key, value, isDefault) {
+          if (value && !isDefault) params.set(key, value);
+          else params.delete(key);
+        };
+        setOrDrop("category", state.filter, state.filter === "all");
+        setOrDrop("concern", state.concern, state.concern === "all");
+        setOrDrop("scent", state.scent, state.scent === "all");
+        setOrDrop("sort", state.sort, !sortSelect || state.sort === sortSelect.options[0].value);
+        setOrDrop("q", String(state.query || "").trim(), !String(state.query || "").trim());
+        var hash = window.location.hash.replace("#", "");
+        var hashIsCategory = categories.some(function (c) {
+          return c.id === hash;
+        });
+        var query = params.toString();
+        var next =
+          window.location.pathname +
+          (query ? "?" + query : "") +
+          (hash && !hashIsCategory ? "#" + hash : "");
+        var current = window.location.pathname + window.location.search + window.location.hash;
+        if (next !== current) history.replaceState(history.state, "", next);
+      } catch {
+        /* a URL that cannot be written is not worth breaking the shop for */
+      }
+    }
+
     function handleResetFilters() {
       state.filter = "all";
       state.concern = "all";
@@ -7199,7 +7445,7 @@
       state.query = "";
       if (searchInput) searchInput.value = "";
       var shopSearchEl =
-        document.getElementById("shopSearchInput") || document.getElementById("shopSearch");
+        document.getElementById("shopSearch") || document.getElementById("shopSearch");
       if (shopSearchEl) shopSearchEl.value = "";
       if (scentSelect) scentSelect.value = "all";
       var scentSelectEl = document.getElementById("scentSelect");
@@ -7285,7 +7531,7 @@
         state.query = searchInput.value;
         render();
       });
-      var searchForm = document.getElementById("shopSearchForm");
+      var searchForm = document.getElementById("shopSearch");
       if (searchForm) {
         searchForm.addEventListener("submit", function (e) {
           e.preventDefault();
@@ -7335,6 +7581,26 @@
           b.setAttribute("aria-pressed", isActive ? "true" : "false");
         });
       }
+      /* The rest of the toolbar state, so a filtered view survives a share,
+         a bookmark and the back button (syncShopUrl below writes these).
+         Each value is validated against the control's own options. */
+      var urlSort = searchParams.get("sort");
+      if (urlSort && sortSelect && selectHasOption(sortSelect, urlSort)) {
+        sortSelect.value = urlSort;
+        state.sort = urlSort;
+      }
+      var urlScent = searchParams.get("scent");
+      if (urlScent && scentSelect && selectHasOption(scentSelect, urlScent)) {
+        scentSelect.value = urlScent;
+        state.scent = urlScent;
+      }
+      /* ?q= is also the SearchAction target index.html's WebSite JSON-LD
+         advertises to search engines. */
+      var urlQuery = searchParams.get("q");
+      if (urlQuery && searchInput) {
+        searchInput.value = String(urlQuery).slice(0, 120);
+        state.query = searchInput.value;
+      }
     } catch {
       /* Ignore search param parsing failure */
     }
@@ -7364,7 +7630,213 @@
       });
     }
 
+    /* ---------- Phone bottom sheet (<=767px) ----------
+       The toolbar above the grid was a 520px wall of pills at 375px wide,
+       with the first product 1535px down the page. On phones the SAME
+       nodes -- #filterRow, #concernFilterWrap, .shop-sort (scent + sort) and
+       the Track Order button -- are moved into #shopFilterSheet and a slot
+       below the policy note, and moved back to their original places when
+       the viewport grows. Moving rather than cloning keeps every id, class,
+       data-attribute and listener (the delegated click handlers above are
+       on `row` and `concernRow` themselves), so a script or a test that
+       calls .click() on a hidden pill still filters the grid exactly as
+       before; only what a shopper SEES changes. */
+    function initShopFilterSheet() {
+      var sheet = document.getElementById("shopFilterSheet");
+      var controls = document.getElementById("shopControls");
+      var sortOpenBtn = document.getElementById("shopSortOpenBtn");
+      var closeBtn = document.getElementById("shopFilterSheetClose");
+      var applyBtn = document.getElementById("shopSheetApplyBtn");
+      var sheetClearBtn = document.getElementById("shopSheetClearBtn");
+      var chipsClearBtn = document.getElementById("shopClearFiltersBtn");
+      if (!sheet || !controls || !filterOpenBtn) return;
+
+      /* Both Clear buttons say the same CMS word; the chips-row one carries
+         the marker (build-data fills a marker once per page). */
+      if (sheetClearBtn && chipsClearBtn && chipsClearBtn.textContent.trim()) {
+        sheetClearBtn.textContent = chipsClearBtn.textContent.trim();
+      }
+      if (chipsClearBtn) chipsClearBtn.addEventListener("click", handleResetFilters);
+      if (sheetClearBtn) sheetClearBtn.addEventListener("click", handleResetFilters);
+
+      var moves = [
+        { node: document.getElementById("filterRow"), slot: "shopSheetCategorySlot" },
+        { node: document.getElementById("concernFilterWrap"), slot: "shopSheetConcernSlot" },
+        { node: document.querySelector(".shop-toolbar .shop-sort"), slot: "shopSheetSortSlot" },
+        { node: document.getElementById("openOrderStatusBtn"), slot: "shopOrderStatusSlot" }
+      ].filter(function (m) {
+        return m.node && document.getElementById(m.slot);
+      });
+      moves.forEach(function (m) {
+        m.home = m.node.parentNode;
+        m.next = m.node.nextSibling;
+      });
+      var phoneMQ = window.matchMedia("(max-width: 767px)");
+      var onPhone = false;
+
+      function moveIn() {
+        if (onPhone) return;
+        onPhone = true;
+        moves.forEach(function (m) {
+          document.getElementById(m.slot).appendChild(m.node);
+        });
+      }
+      function moveOut() {
+        if (!onPhone) return;
+        onPhone = false;
+        if (sheet.open) closeSheet();
+        moves.forEach(function (m) {
+          if (m.next && m.next.parentNode === m.home) m.home.insertBefore(m.node, m.next);
+          else m.home.appendChild(m.node);
+        });
+      }
+
+      /* The row sticks just under the site header; the header's height is
+         measured, not assumed, because it changes with the announcement bar
+         and with the language a shopper picks. */
+      function syncBarTop() {
+        var header = document.querySelector(".site-header");
+        if (!header) return;
+        var rect = header.getBoundingClientRect();
+        var bottom = Math.max(0, Math.round(rect.bottom));
+        if (bottom > 0 && bottom < 200) controls.style.setProperty("--shop-bar-top", bottom + "px");
+      }
+
+      function applyViewport() {
+        if (phoneMQ.matches) {
+          moveIn();
+          syncBarTop();
+        } else {
+          moveOut();
+        }
+      }
+
+      var lastTrigger = null;
+      var isOpen = false;
+
+      function setExpanded(open) {
+        [filterOpenBtn, sortOpenBtn].forEach(function (b) {
+          if (b) b.setAttribute("aria-expanded", open ? "true" : "false");
+        });
+      }
+
+      function openSheet(trigger, focusTarget) {
+        if (!phoneMQ.matches) return;
+        lastTrigger = trigger || document.activeElement;
+        if (typeof sheet.showModal === "function") {
+          if (!sheet.open) sheet.showModal();
+        } else {
+          sheet.setAttribute("open", "");
+        }
+        isOpen = true;
+        document.body.classList.add("shop-sheet-open");
+        setExpanded(true);
+        var target = focusTarget && !focusTarget.hidden ? focusTarget : closeBtn;
+        if (target && typeof target.focus === "function") {
+          try {
+            target.focus({ preventScroll: true });
+          } catch {
+            target.focus();
+          }
+          /* The sheet body scrolls; a control below the fold (Sort sits under
+             the category and concern groups) would be focused but unseen. */
+          if (target !== closeBtn && typeof target.scrollIntoView === "function") {
+            try {
+              target.scrollIntoView({ block: "center" });
+            } catch {
+              /* older engines: the focus alone is still correct */
+            }
+          }
+        }
+      }
+
+      function afterClose() {
+        if (!isOpen) return;
+        isOpen = false;
+        document.body.classList.remove("shop-sheet-open");
+        setExpanded(false);
+        var back = lastTrigger;
+        lastTrigger = null;
+        /* The phone triggers are display:none at desktop widths, so after a
+           rotate-with-sheet-open the trigger cannot take focus; the search
+           box (always visible) is the nearest sensible landing. */
+        if (
+          back &&
+          typeof back.focus === "function" &&
+          document.contains(back) &&
+          back.offsetParent !== null
+        ) {
+          back.focus();
+        } else {
+          var landing = document.getElementById("shopSearch");
+          if (landing && typeof landing.focus === "function")
+            landing.focus({ preventScroll: true });
+        }
+      }
+
+      function closeSheet() {
+        if (typeof sheet.close === "function" && sheet.open) {
+          sheet.close();
+        } else {
+          sheet.removeAttribute("open");
+          afterClose();
+        }
+      }
+
+      /* Escape fires `cancel` then `close`; close() fires `close`; either
+         way the one `close` handler restores scroll and focus. */
+      sheet.addEventListener("close", afterClose);
+      sheet.addEventListener("click", function (e) {
+        /* A click on the dialog element itself is a click on the backdrop:
+           every real control is inside the header/body/footer wrappers. */
+        if (e.target === sheet) closeSheet();
+      });
+      if (closeBtn) closeBtn.addEventListener("click", closeSheet);
+      if (applyBtn) applyBtn.addEventListener("click", closeSheet);
+
+      filterOpenBtn.addEventListener("click", function () {
+        if (sheet.open) {
+          closeSheet();
+          return;
+        }
+        openSheet(filterOpenBtn, closeBtn);
+      });
+      if (sortOpenBtn) {
+        sortOpenBtn.addEventListener("click", function () {
+          if (sheet.open) {
+            closeSheet();
+            return;
+          }
+          openSheet(sortOpenBtn, sortSelect);
+        });
+      }
+
+      applyViewport();
+      phoneMQ.addEventListener("change", applyViewport);
+      var barTopTimer;
+      window.addEventListener(
+        "resize",
+        function () {
+          clearTimeout(barTopTimer);
+          barTopTimer = setTimeout(function () {
+            if (phoneMQ.matches) syncBarTop();
+          }, 120);
+        },
+        { passive: true }
+      );
+      /* The announcement bar is measured by main.js after fonts settle and
+         the header can grow with it; re-read once everything has loaded. */
+      window.addEventListener("load", function () {
+        if (phoneMQ.matches) syncBarTop();
+      });
+    }
+    initShopFilterSheet();
+
     render();
+    /* Armed only now: the first render must not rewrite the URL the shopper
+       arrived on (a #category link, a shared ?concern= link) -- from here on
+       every toolbar change is mirrored. */
+    urlSyncReady = true;
   }
 
   /* A Snipcart-specific "checkout script failed to load" fallback used to
@@ -7940,6 +8412,13 @@
     var journalPosts = window.YL_JOURNAL.posts || [];
     var currentJournalTagFilter = null;
 
+    /* Each post's own static page (see routeJournal below for the old
+       `#post-<slug>` address). Root-absolute so the same string is right from
+       journal.html and from anywhere the search results render it. */
+    function postPageUrl(post) {
+      return "/journal/" + encodeURIComponent(post.id) + ".html";
+    }
+
     function renderJournalList() {
       /* Switched off, or on with nothing written yet: both get the same
          "coming soon" notice. The page is kept out of the nav, out of
@@ -8002,8 +8481,8 @@
               attrEsc(readTime) +
               "</span>" +
               "  </div>" +
-              '  <h3><a href="#post-' +
-              attrEsc(post.id) +
+              '  <h3><a href="' +
+              attrEsc(postPageUrl(post)) +
               '">' +
               attrEsc(post.title) +
               "</a></h3>" +
@@ -8013,8 +8492,8 @@
               "</p>" +
               '  <div class="card-foot">' +
               '    <div class="card-foot-row">' +
-              '      <a href="#post-' +
-              attrEsc(post.id) +
+              '      <a href="' +
+              attrEsc(postPageUrl(post)) +
               '" class="btn btn-outline btn-sm">Read Post →</a>' +
               "    </div>" +
               "  </div>" +
@@ -8115,11 +8594,46 @@
       wireReveal(journalApp);
     }
 
+    /* Every published post has its own static page at /journal/<slug>.html
+       (built by scripts/build-site-data.js), which is what the cards, the
+       feed, the sitemap and the JSON-LD all link to. The old in-page
+       `#post-<slug>` address is kept alive for anyone who bookmarked or
+       shared one: a hash naming a published post is replaced with the
+       page's real URL (replace, not assign, so Back does not bounce through
+       the fragment). Only a hash for a post that has no page -- a typo, or a
+       post that no longer exists -- is rendered here, and that path shows
+       the list. `#tag=<topic>` is the address the static pages' topic pills
+       link to; it opens the list already filtered. */
+    function decodeHashPart(part) {
+      // A malformed escape ("%E0") throws; treat it as the literal text.
+      try {
+        return decodeURIComponent(part);
+      } catch {
+        return part;
+      }
+    }
+
+    function staticPostUrl(postId) {
+      var post = journalPosts.find(function (p) {
+        return p.id === postId;
+      });
+      return post && enableJournal ? "/journal/" + encodeURIComponent(post.id) + ".html" : "";
+    }
+
     function routeJournal() {
       var hash = window.location.hash || "";
       if (hash.indexOf("#post-") === 0) {
-        var postId = hash.replace("#post-", "");
+        var postId = decodeHashPart(hash.replace("#post-", ""));
+        var target = staticPostUrl(postId);
+        if (target) {
+          window.location.replace(target);
+          return;
+        }
         renderJournalDetail(postId);
+      } else if (hash.indexOf("#tag=") === 0) {
+        var tag = decodeHashPart(hash.slice("#tag=".length));
+        currentJournalTagFilter = tag || null;
+        renderJournalList();
       } else {
         renderJournalList();
       }
@@ -11331,7 +11845,15 @@
        footer line for good. Measure it instead. */
     function syncStickyReserve() {
       var h = stickyBar.offsetHeight || 0;
-      if (!h) return;
+      /* At >=768px the bar is display:none, so its height is 0 -- and the
+         reserve measured on a phone stayed on the body after a rotate or a
+         window resize, leaving ~100px of dead space under every PDP footer.
+         Zero height means no bar, so no reserve. */
+      if (!h) {
+        document.body.style.paddingBottom = "";
+        document.documentElement.style.scrollPaddingBottom = "";
+        return;
+      }
       document.body.style.paddingBottom = h + 12 + "px";
       document.documentElement.style.scrollPaddingBottom = h + 24 + "px";
     }
@@ -11528,7 +12050,53 @@
           });
         });
       });
+      /* Step to the next/previous photo by activating its thumbnail, so the
+         main image, the pressed state and the lightbox's "chosen" photo all
+         move together. Until 2026-09-09 the only way to change the photo
+         on a phone was to hit the 120px thumbnails. */
+      function stepGallery(delta, focus) {
+        if (!thumbs.length) return;
+        var activeIdx = 0;
+        thumbs.forEach(function (t, i) {
+          if (t.classList.contains("is-active")) activeIdx = i;
+        });
+        var next = (activeIdx + delta + thumbs.length) % thumbs.length;
+        thumbs[next].click();
+        if (focus) thumbs[next].focus();
+      }
+      var thumbStrip = gallery.querySelector(".pdp-thumbs");
+      if (thumbStrip && thumbs.length > 1) {
+        thumbStrip.addEventListener("keydown", function (e) {
+          if (!e.target.closest(".pdp-thumb")) return;
+          if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+            e.preventDefault();
+            stepGallery(1, true);
+          } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+            e.preventDefault();
+            stepGallery(-1, true);
+          } else if (e.key === "Home") {
+            e.preventDefault();
+            thumbs[0].click();
+            thumbs[0].focus();
+          } else if (e.key === "End") {
+            e.preventDefault();
+            thumbs[thumbs.length - 1].click();
+            thumbs[thumbs.length - 1].focus();
+          }
+        });
+      }
       var openBtn = document.getElementById("pdpGalleryOpen");
+      if (openBtn && thumbs.length > 1) {
+        attachSwipe(
+          openBtn,
+          function () {
+            stepGallery(1, false);
+          },
+          function () {
+            stepGallery(-1, false);
+          }
+        );
+      }
       if (openBtn) {
         openBtn.addEventListener("click", function () {
           var all = (gallery.getAttribute("data-images") || "").split("|").filter(Boolean);
@@ -11554,6 +12122,18 @@
     }
   }
   initPdpPage();
+
+  /* The PDP's live count: the page's own product, found by its add button. */
+  (function () {
+    if (typeof document === "undefined" || !document.querySelector(".pdp-layout")) return;
+    var addBtn = document.getElementById("pdpAddToCart");
+    var pdpId = addBtn && addBtn.getAttribute("data-item-id");
+    var products = (window.YL_PRODUCTS && window.YL_PRODUCTS.products) || [];
+    if (!pdpId || !products.length) return;
+    fetchLiveInventory(products, function () {
+      applyLiveStockToPdp(getProductMap().get(pdpId));
+    });
+  })();
 
   initRecentlyViewed();
   initPdpRitualSection();
@@ -11639,6 +12219,9 @@
       addToCartHTML: addToCartHTML,
       variantSelectHTML: variantSelectHTML,
       stockBadgeHTML: stockBadgeHTML,
+      lowStockBadgeHTML: lowStockBadgeHTML,
+      applyLiveInventory: applyLiveInventory,
+      LIVE_INVENTORY_URL: LIVE_INVENTORY_URL,
       getMatchingVolumeRule: getMatchingVolumeRule,
       priceHTML: priceHTML,
       applyTheme: applyTheme,

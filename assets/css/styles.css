@@ -1568,6 +1568,12 @@ section {
 
 /* Only ever rendered when Savanna has set a real p.stock number -- see
    stockBadgeHTML() in main.js. Never a fabricated urgency claim. */
+/* The product page's live-stock line (main.js applyLiveStockToPdp), inserted
+   above the Add to Cart row only when the live count is low or gone. */
+.pdp-live-stock {
+  margin-bottom: 0.75rem;
+}
+
 .stock-badge {
   display: inline-block;
   font-size: 0.72rem;
@@ -3195,6 +3201,347 @@ section {
   }
 }
 
+/* =============== PHONE FILTER BAR + BOTTOM SHEET (shop page) ===============
+   At <=767px the nine category pills, six concern pills, the scent and sort
+   selects and the Track Order button (a 520px wall at 375px, first product
+   at 1535px) fold into one sticky row -- search, "Filter" with a badge,
+   "Sort" -- that opens #shopFilterSheet. initShopFilterSheet() in main.js
+   MOVES the existing nodes into the sheet (same ids, same listeners), so
+   .shop-toolbar is simply hidden on phones: what is left in it after the
+   move is nothing, and before main.js runs the pre-rendered pills must not
+   flash and then collapse. Tablet and desktop never see any of this. */
+.shop-mobile-bar,
+.shop-active-filters,
+.shop-order-status-slot {
+  display: none;
+}
+
+.shop-mobile-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--hide);
+  border-radius: 30px;
+  background: var(--ink-2);
+  color: var(--paper);
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  cursor: pointer;
+  flex: 0 0 auto;
+
+  & svg {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+  }
+  &:focus-visible {
+    outline: 2px solid var(--whiskey);
+    outline-offset: 2px;
+  }
+  &[aria-expanded="true"] {
+    border-color: var(--whiskey);
+  }
+}
+
+.shop-filter-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--rose-dim);
+  color: var(--on-fill);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.shop-active-filters-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.shop-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--whiskey);
+  border-radius: 20px;
+  background: oklch(from var(--whiskey) l c h / 0.14);
+  color: var(--paper);
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  max-width: 100%;
+
+  & > span:first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  & .shop-chip-x {
+    font-size: 1.1rem;
+    line-height: 1;
+    color: var(--whiskey);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--whiskey);
+    outline-offset: 2px;
+  }
+}
+.shop-chip-clear {
+  border-color: var(--hide);
+  background: transparent;
+  color: var(--paper-dim);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  &:hover {
+    color: var(--paper);
+  }
+}
+
+/* The sheet itself. Bottom-anchored, slides up; the body scrolls, the
+   header and footer stay put. Closed it is display:none, so the pills it
+   holds on phones take no space and paint nothing, while a JS-driven
+   .click() on one still filters the grid. */
+dialog.shop-filter-sheet {
+  display: none;
+  position: fixed;
+  inset: auto 0 0 0;
+  margin: 0;
+  width: 100%;
+  max-width: 100%;
+  max-height: 88vh;
+  max-height: 88dvh;
+  padding: 0;
+  border: 1px solid var(--hide);
+  border-bottom: 0;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--ink-2);
+  color: var(--paper);
+  box-shadow: 0 -16px 48px rgba(0, 0, 0, 0.5);
+  box-sizing: border-box;
+  overscroll-behavior: contain;
+  transform: translateY(0);
+  opacity: 1;
+  transition:
+    transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.2s ease,
+    display 0.28s allow-discrete;
+}
+dialog.shop-filter-sheet[open] {
+  display: flex;
+  flex-direction: column;
+}
+@starting-style {
+  dialog.shop-filter-sheet[open] {
+    transform: translateY(100%);
+    opacity: 0.6;
+  }
+}
+dialog.shop-filter-sheet::backdrop {
+  background: rgba(10, 8, 6, 0.7);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  opacity: 0;
+  transition:
+    opacity 0.28s ease,
+    display 0.28s allow-discrete;
+}
+dialog.shop-filter-sheet[open]::backdrop {
+  opacity: 1;
+}
+@starting-style {
+  dialog.shop-filter-sheet[open]::backdrop {
+    opacity: 0;
+  }
+}
+:root[data-theme="light"] dialog.shop-filter-sheet::backdrop {
+  background: rgba(40, 30, 20, 0.45);
+}
+@media (prefers-reduced-motion: reduce) {
+  dialog.shop-filter-sheet,
+  dialog.shop-filter-sheet::backdrop {
+    transition: none;
+  }
+}
+
+.shop-sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px 12px 20px;
+  border-bottom: 1px solid var(--hide);
+  flex: 0 0 auto;
+}
+.shop-sheet-title {
+  margin: 0;
+  font-size: 1.15rem;
+  color: var(--paper);
+}
+.shop-sheet-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin: -6px -8px -6px 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--paper);
+  cursor: pointer;
+  & svg {
+    width: 22px;
+    height: 22px;
+  }
+  &:hover {
+    color: var(--whiskey);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--whiskey);
+    outline-offset: 2px;
+  }
+}
+.shop-sheet-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px 20px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.shop-sheet-group:has(#concernFilterRow:empty) {
+  display: none;
+}
+.shop-sheet-label {
+  margin: 0 0 10px;
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--paper-dim);
+  font-weight: 600;
+}
+/* Inside the sheet the concern wrapper's desktop offset and the sort row's
+   full-width Track Order button no longer apply. */
+.shop-sheet-group .concern-filter-wrap {
+  margin-top: 0;
+}
+.shop-sheet-group-sort .shop-sort {
+  gap: 12px;
+  & #scentFieldWrap,
+  & .sort-field-wrap {
+    width: 100%;
+  }
+  & select {
+    flex: 1 1 auto;
+  }
+}
+.shop-sheet-footer {
+  display: flex;
+  gap: 10px;
+  padding: 12px 20px calc(16px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--hide);
+  flex: 0 0 auto;
+  & .btn {
+    flex: 1 1 0;
+  }
+}
+body.shop-sheet-open {
+  overflow: hidden;
+}
+
+@media (max-width: 767px) {
+  .shop-controls {
+    position: sticky;
+    top: var(--shop-bar-top, 65px);
+    z-index: 90;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-block: 8px;
+    margin-bottom: 12px;
+    background: var(--ink);
+    /* Bleed to the container's edges so nothing scrolls past on the sides. */
+    box-shadow:
+      -16px 0 0 var(--ink),
+      16px 0 0 var(--ink);
+  }
+  .shop-controls .shop-search {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+    max-width: none;
+    & input {
+      padding: 11px 12px 11px 38px;
+    }
+  }
+  .shop-mobile-bar {
+    display: flex;
+    gap: 6px;
+    flex: 0 0 auto;
+  }
+  .shop-mobile-btn {
+    padding: 0 12px;
+  }
+  .shop-controls .shop-toolbar {
+    display: none;
+  }
+  .shop-active-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 12px;
+    &[hidden] {
+      display: none;
+    }
+  }
+  .shop-order-status-slot {
+    display: block;
+    margin: 20px 0 0;
+    & .btn {
+      width: 100%;
+    }
+  }
+  .shop-order-status-slot:empty {
+    display: none;
+  }
+}
+@media (max-width: 359px) {
+  /* 320px: the row must stay on one line; the labels stay (an icon-only
+     button is not a translatable one), the buttons just get tighter. */
+  .shop-mobile-btn {
+    font-size: 0.76rem;
+    padding: 0 9px;
+    gap: 4px;
+  }
+  .shop-controls .shop-search input {
+    padding-left: 34px;
+  }
+}
+
 /* =============== WISHLIST / SAVE FOR LATER =============== */
 @keyframes heartPop {
   0% {
@@ -4106,65 +4453,6 @@ hr.rule {
   font-weight: 600;
 }
 
-/* ── Cart cross-sell ──────────────────────────────────── */
-.cart-cross-sell {
-  padding: 0.75rem 1rem;
-  border-top: 1px solid oklch(from var(--paper) l c h / 0.1);
-  font-family: var(--font-body);
-  font-size: 0.8rem;
-
-  &__heading {
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-size: 0.7rem;
-    color: var(--paper-dim);
-    margin-bottom: 0.5rem;
-  }
-
-  &__item {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-  }
-
-  &__img {
-    width: 48px;
-    height: 48px;
-    border-radius: var(--radius);
-    object-fit: cover;
-  }
-
-  &__info {
-    flex: 1;
-  }
-
-  &__name {
-    font-weight: 600;
-    font-size: 0.82rem;
-  }
-
-  &__price {
-    color: var(--paper-dim);
-    font-size: 0.78rem;
-  }
-
-  &__add {
-    padding: 0.35rem 0.75rem;
-    background: var(--whiskey);
-    color: var(--ink);
-    border: none;
-    border-radius: var(--radius);
-    font-size: 0.75rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: opacity 0.2s;
-    &:hover {
-      opacity: 0.85;
-    }
-  }
-}
-
 /* ── Product tag pills ────────────────────────────────── */
 .tag-pills {
   display: flex;
@@ -4933,6 +5221,21 @@ dialog.gift-modal[open]::backdrop {
   width: 90%;
   max-width: 900px;
   height: 80vh;
+}
+/* The photo is now a <picture> inside a stage wrapper (AVIF/WebP via the
+   image manifest); the stage takes the content box so the img rules below
+   keep sizing it exactly as before. */
+.lightbox-content .lightbox-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+.lightbox-content picture {
+  display: contents;
 }
 .lightbox-content img {
   max-width: 100%;
@@ -6706,6 +7009,108 @@ dialog.restock-alert-modal {
   flex-direction: column;
   gap: 28px;
   margin-top: 16px;
+}
+
+/* ---- orders.html: the passwordless order history (assets/js/orders.js) ---- */
+.orders-confirm {
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--hide);
+  border-left: 4px solid var(--whiskey);
+  border-radius: var(--radius-md);
+  background: var(--ink);
+}
+
+.orders-list-heading {
+  margin-bottom: 8px;
+}
+
+.orders-loyalty {
+  padding: 14px 16px;
+  border: 1px solid var(--hide);
+  border-radius: var(--radius-md);
+  background: var(--ink-2);
+  margin-bottom: 8px;
+}
+
+.orders-loyalty p {
+  margin: 0;
+}
+
+.orders-loyalty-balance {
+  font-weight: 700;
+}
+
+.orders-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.orders-card {
+  background: var(--ink-2);
+  border: 1px solid var(--hide);
+  border-radius: var(--radius-lg);
+  padding: 22px 24px;
+}
+
+.orders-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px 16px;
+  margin-bottom: 12px;
+}
+
+.orders-card-title {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.orders-status {
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--whiskey);
+}
+
+.orders-items {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+
+.orders-item {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 16px;
+  padding: 8px 0;
+  border-top: 1px solid var(--hide);
+}
+
+.orders-item-qty {
+  color: var(--paper-dim);
+  white-space: nowrap;
+}
+
+.orders-total {
+  margin: 0 0 14px;
+  font-weight: 700;
+}
+
+.orders-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+}
+
+.orders-reorder-note,
+.orders-notice {
+  margin: 12px 0 0;
 }
 
 .order-actions-group .btn {
@@ -8603,51 +9008,12 @@ html:has(.announcement-bar) {
    541px at 393px wide. That is the single largest shift on the page: it
    sits at the fold, so everything below it (the sort row, the policy note,
    the grid) is displaced by up to ~370px. The ladder tracks where the
-   category/concern pills re-wrap. */
-.shop-toolbar:has(#filterRow:empty) {
-  min-height: 628px;
-}
-@media (min-width: 336px) {
-  .shop-toolbar:has(#filterRow:empty) {
-    min-height: 587px;
-  }
-}
-@media (min-width: 368px) {
-  .shop-toolbar:has(#filterRow:empty) {
-    min-height: 544px;
-  }
-}
-@media (min-width: 400px) {
-  .shop-toolbar:has(#filterRow:empty) {
-    min-height: 503px;
-  }
-}
-@media (min-width: 408px) {
-  .shop-toolbar:has(#filterRow:empty) {
-    min-height: 460px;
-  }
-}
-@media (min-width: 480px) {
-  .shop-toolbar:has(#filterRow:empty) {
-    min-height: 419px;
-  }
-}
-@media (min-width: 496px) {
-  .shop-toolbar:has(#filterRow:empty) {
-    min-height: 370px;
-  }
-}
-@media (min-width: 568px) {
-  .shop-toolbar:has(#filterRow:empty) {
-    min-height: 327px;
-  }
-}
-@media (min-width: 608px) {
-  .shop-toolbar:has(#filterRow:empty) {
-    min-height: 322px;
-  }
-}
-@media (min-width: 680px) {
+   category/concern pills re-wrap.
+   Phones (<=767px) reserve nothing: there the pills live in the closed
+   bottom sheet and .shop-toolbar is display:none (see the phone filter bar
+   block), so the first product row sits right under the sticky
+   search/Filter/Sort row instead of ~520px further down. */
+@media (min-width: 768px) {
   .shop-toolbar:has(#filterRow:empty) {
     min-height: 233px;
   }
@@ -9371,7 +9737,10 @@ hr.rule.safety-rule-tight + #reaction-report {
   max-width: 100%;
 }
 @media (max-width: 360px) {
-  .pdp-sticky-bar {
+  /* .pdp-sticky-inner is the flex container (see above); this rule sat on
+     the bar itself and wrapped nothing, so the variant select stayed
+     squeezed on the narrowest phones. */
+  .pdp-sticky-inner {
     flex-wrap: wrap;
   }
   .pdp-sticky-variant-wrap {

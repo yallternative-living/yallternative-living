@@ -13,7 +13,7 @@
 
 [build]
   publish = "."
-  command = "git fetch --unshallow 2>/dev/null || true; echo sitemap-git-shallow=$(git rev-parse --is-shallow-repository 2>/dev/null || echo unknown); node scripts/optimize-images.js && node scripts/build-site-data.js && node scripts/build-security-headers.js"
+  command = "git fetch --unshallow 2>/dev/null || true; echo sitemap-git-shallow=$(git rev-parse --is-shallow-repository 2>/dev/null || echo unknown); node scripts/optimize-images.js && node scripts/build-site-data.js && node scripts/build-security-headers.js && node scripts/minify-assets.js"
 
   # Skip the build -- and its credits -- when nothing that ships changed.
   # git exits 0 when the diff since the last deployed commit touches only
@@ -177,18 +177,6 @@
   status = 404
   force = true
 
-[[redirects]]
-  from = "/journal.html"
-  to = "/404.html"
-  status = 404
-  force = true
-
-[[redirects]]
-  from = "/feed.xml"
-  to = "/404.html"
-  status = 404
-  force = true
-
 # Clean URL for the safety page. This path is PRINTED ON THE PACKAGING
 # (MoCRA adverse-event contact), so it must resolve forever. status=200 is
 # a rewrite: /safety and /safety.html both serve safety.html.
@@ -259,6 +247,12 @@
 [[redirects]]
   from = "/order-status"
   to = "/order-status.html"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/orders"
+  to = "/orders.html"
   status = 301
   force = true
 
@@ -421,6 +415,18 @@
 [[redirects]]
   from = "/products/yallternative-gift-card"
   to = "/products/yallternative-gift-card.html"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/journal/magnesium-salve-benefits"
+  to = "/journal/magnesium-salve-benefits.html"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/journal/small-batch-difference"
+  to = "/journal/small-batch-difference.html"
   status = 301
   force = true
 

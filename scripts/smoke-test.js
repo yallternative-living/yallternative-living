@@ -317,22 +317,28 @@ function section(title) {
       fail("workers/checkout.js missing required resolver export functions");
     }
 
-    // 2. Gift card bounds enforcement ($10 - $500)
+    // 2. Gift card bounds enforcement ($10 - $500): outside the range, or
+    //    not a preset at all, is NOT purchasable (null) -- never clamped to a
+    //    price nobody chose (2026-09-09 audit).
     const gc10 = workerModule.resolveGiftCardAmountCents("Preset $10");
     const gc25 = workerModule.resolveGiftCardAmountCents("Preset $25");
     const gc500 = workerModule.resolveGiftCardAmountCents("Preset $500");
-    const gcClampLow = workerModule.resolveGiftCardAmountCents("Preset $5");
-    const gcClampHigh = workerModule.resolveGiftCardAmountCents("Preset $9999");
+    const gcTooLow = workerModule.resolveGiftCardAmountCents("Preset $5");
+    const gcTooHigh = workerModule.resolveGiftCardAmountCents("Preset $9999");
+    const gcGarbage = workerModule.resolveGiftCardAmountCents("twenty dollars");
     if (
       gc10 === 1000 &&
       gc25 === 2500 &&
       gc500 === 50000 &&
-      gcClampLow === 1000 &&
-      gcClampHigh === 50000
+      gcTooLow === null &&
+      gcTooHigh === null &&
+      gcGarbage === null
     ) {
-      pass("resolveGiftCardAmountCents parses dollar amounts and clamps to $10–$500 server-side");
+      pass(
+        "resolveGiftCardAmountCents parses dollar amounts and refuses anything outside $10–$500"
+      );
     } else {
-      fail("resolveGiftCardAmountCents bounds clamping failed");
+      fail("resolveGiftCardAmountCents bounds enforcement failed");
     }
 
     // 3. Simulated Checkout Session Execution
@@ -598,16 +604,20 @@ function section(title) {
       "welcome.html",
       "journal.html",
       "reviews.html",
-      "order-status.html"
+      "order-status.html",
+      "orders.html"
     ];
     let jsonLdBlockCount = 0;
     const allHtmlPages = [...TOP_PAGES];
 
-    const productsDir = path.join(ROOT, "products");
-    if (fs.existsSync(productsDir)) {
-      const pFiles = fs.readdirSync(productsDir).filter((f) => f.endsWith(".html"));
-      pFiles.forEach((pf) => allHtmlPages.push(path.join("products", pf)));
-    }
+    // Generated pages: products/<id>.html and journal/<slug>.html.
+    ["products", "journal"].forEach((sub) => {
+      const dir = path.join(ROOT, sub);
+      if (!fs.existsSync(dir)) return;
+      fs.readdirSync(dir)
+        .filter((f) => f.endsWith(".html"))
+        .forEach((f) => allHtmlPages.push(path.join(sub, f)));
+    });
 
     allHtmlPages.forEach((relPage) => {
       const fullPath = path.join(ROOT, relPage);

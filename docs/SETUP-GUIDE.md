@@ -150,6 +150,67 @@ small-seller exemption). Confirm with your accountant, but expect a yes.
 Also add a **ZIP code** to any pickup market (`/admin` → Markets), so
 those orders tax correctly.
 
+**E. Promo codes — made in Stripe, shown in the cart**
+
+A promo code is two things in Stripe: a **coupon** (what it takes off) and a
+**promotion code** (the word shoppers type). The cart's "Have a code?" box
+checks the code with Stripe as soon as it is typed and shows the discount and
+the new total before checkout, so nobody discovers on the payment page that a
+code did nothing. Click by click:
+
+1. Stripe Dashboard → **Products** (left sidebar) → **Coupons** → **+ New**
+   (or **Create coupon**).
+2. **Name**: what you will see on receipts and reports, e.g. `Spring 10% off`.
+3. **Type**: pick **Percentage discount** and enter the percent (e.g. `10`),
+   *or* **Fixed amount discount** and enter the dollars, with the currency
+   set to **USD**. Both kinds work in the cart; anything not in USD is
+   refused as "doesn't apply".
+4. **Duration**: **Once** is right for a shop (it only matters for
+   subscriptions). Leave **Apply to specific products** *unticked* — the
+   shop prices its own goods at checkout, so a coupon pinned to Stripe
+   products never matches anything and the cart says the code doesn't apply.
+5. Optional: **Redemption limits** — a **redeem-by date** and a **maximum
+   number of times** the coupon can be used across everyone. Then
+   **Create coupon**.
+6. On the new coupon's page, find **Promotion codes** → **+ New** (or
+   **Create promotion code**).
+7. **Code**: the word shoppers will type — letters, numbers and dashes, up to
+   40 characters, e.g. `YALL10`, `PRIDE-2026`. Stripe ignores upper/lower
+   case; the cart upper-cases what is typed. Do **not** start it with
+   `YALL-` followed by groups of four — that is the gift-card format and the
+   cart will send the shopper to the gift card box instead.
+8. Optional restrictions on that page — every one of these is honoured by the
+   cart:
+   - **Minimum order value** (e.g. `$50`): under it the cart says
+     "This code needs a subtotal of at least $50" and adds the discount the
+     moment the cart reaches it. The minimum is against the goods, before
+     shipping.
+   - **First-time customers only**: the cart shows "first order only" next
+     to the code; Stripe enforces it at checkout.
+   - **Expiration date** and **limit to a number of uses** for the code
+     itself.
+9. **Create**. The code works immediately. Test it: add something to the
+   cart on the live site, click **Have a code?**, type it, and watch the
+   "Promo code (…)" line and the total change.
+
+Two rules the cart explains to shoppers so you do not have to:
+
+- **One discount per order.** Stripe allows a single discount on a checkout,
+  and a gift card uses that slot. A shopper with a gift card applied who
+  enters a promo code sees "Promo codes and gift cards can't be combined" —
+  the code is kept, greyed out, and comes back if they remove the card. The
+  wording is yours to change in `/admin` → Site Settings.
+- **Codes discount goods, not shipping.** Stripe never applies a coupon to
+  the shipping rate. For free shipping use the free-shipping threshold.
+
+To pause the whole thing, `/admin` → **Site Settings** → **⚙️ Site Settings**
+→ untick **Shop · Accept promo codes in the cart**. The box disappears from
+the cart; Stripe's own code field on the payment page keeps working. To
+retire one code, deactivate the promotion code in Stripe (**Products →
+Coupons → the coupon → Promotion codes → ⋯ → Archive**) — the cart then
+answers "That code has expired or has already been used" and takes it off
+any cart that still has it applied.
+
 ---
 
 ## Step 4: Newsletter (Kit)
@@ -206,6 +267,27 @@ silently never arrives.
    address Resend has verified for your domain. The full list of every
    variable, and which Worker route reads it, is in
    `docs/DEVELOPMENT.md` section 8a.
+4. **Shop alerts use this same key** -- nothing extra to set up. Once
+   `RESEND_API_KEY` is in place, the checkout Worker emails you when
+   something behind the scenes fails (a payment webhook that keeps erroring,
+   sales tax that could not be switched on, an hourly job that died, a
+   customer email given up on). They go to the address in your dashboard
+   under **Site Settings → Emails to me → Where shop alerts go**, or to the
+   shop's order mailbox (`ORDER_NOTIFY_EMAIL`, set in Cloudflare) when that
+   is blank. One email per problem every six hours at most. If the Resend
+   key is missing, the alert is written to the Worker's log instead
+   (Cloudflare → the Worker → **Logs**, search `owner-alert`) -- which is
+   the one place nobody looks, so set the key.
+
+5. **The "Your Orders" page needs nothing extra.** `/orders.html` lets a
+   returning customer email themselves a one-time link to their order
+   history (no account, no password). It runs on this same `RESEND_API_KEY`
+   and on `MAGIC_LINK_SECRET`, the signing secret the points and unsubscribe
+   links already use (`workers/README.md` step 3). If both are set in
+   Cloudflare, the page already works; if either is missing, the page says
+   "temporarily unavailable" rather than pretending. The wording and the
+   on/off switch are in your dashboard (`docs/EDITING-GUIDE.md`,
+   Walkthrough 5c).
 
 ---
 

@@ -25,6 +25,18 @@
   /* The Worker's own words when a concurrent spend beat this session to the
      card. Only a fallback: it sends this text with the 409. */
   var GIFT_CARD_CONFLICT = "That gift card balance changed; please re-apply it.";
+  /* Promo codes (Stripe promotion codes). The drawer asks the Worker whether
+     a code works and for how much BEFORE checkout (workers/routes/promo-
+     preview.js), so the total it shows is the total Stripe's page opens at.
+     The same Worker attaches the code to the session; the drawer never
+     decides a discount, it only previews one. */
+  var PROMO_PREVIEW_URL = "/api/promo-preview";
+  /* The Worker's own limit is 5 lookups a minute per client, so a cart
+     edited line by line waits this long after the last change before it
+     re-checks the code -- and the discount shown in between is recomputed
+     locally from the code's own terms (see promoDiscountFor). */
+  var PROMO_REVALIDATE_MS = 900;
+  var PROMO_CODE_RE = /^[A-Z0-9][A-Z0-9-]{1,39}$/;
   var DEFAULT_FREE_SHIP = 40; // products.json shop.freeShippingThreshold
   var MAX_QTY = 99;
   var GIFT_CARD_ID = "yallternative-gift-card";
@@ -514,7 +526,14 @@
     return CHECKOUT_LOCALES.indexOf(code) !== -1 ? code : "en";
   }
 
-  function toCheckoutPayload(items, pickupMarket, giftCardCode, isGiftOrder, giftMessage) {
+  function toCheckoutPayload(
+    items,
+    pickupMarket,
+    giftCardCode,
+    isGiftOrder,
+    giftMessage,
+    discountCode
+  ) {
     var payload = {
       items: (items || []).map(function (it) {
         var o = { id: it.id, qty: it.qty };
@@ -549,6 +568,15 @@
       var cleanCode = giftCardCode.trim().toUpperCase();
       payload.giftCardCode = cleanCode;
       payload.gift_card_code = cleanCode;
+    }
+    /* ONE discount per Stripe session, and a gift card takes the slot (it
+       reaches Stripe as a coupon; see workers/checkout.js). A promo code is
+       only sent when no card is applied, so the Worker never has to choose
+       and the drawer has already said "one or the other" by this point. */
+    var cleanPromo = normalizePromoCode(discountCode);
+    if (cleanPromo && !payload.giftCardCode) {
+      payload.discountCode = cleanPromo;
+      payload.discount_code = cleanPromo;
     }
     if (isGiftOrder) {
       payload.isGiftOrder = true;
@@ -1240,6 +1268,136 @@
     };
   }
 
+  /* ---------------- Promo codes (pure, unit-testable in Node) ---------------- */
+
+  /* Upper-case a typed code and drop the spacing a paste can carry. "" for
+     anything that could not be a code -- the Worker applies the same rule
+     (normalizePromoCode in workers/routes/promo-preview.js), so nothing that
+     fails here is worth a request. */
+  function normalizePromoCode(raw) {
+    if (typeof raw !== "string") return "";
+    var code = raw.replace(/\s+/g, "").toUpperCase();
+    return PROMO_CODE_RE.test(code) ? code : "";
+  }
+
+  /* The stored shape of an applied code: the Worker's verdict, kept so the
+     discount can be re-estimated locally as the cart changes without a
+     request per keystroke. Anything malformed (an older build, a hand edit
+     of localStorage) is dropped rather than rendered. */
+  function normalizeAppliedPromo(raw) {
+    if (!raw || typeof raw !== "object" || raw.valid === false) return null;
+    var code = normalizePromoCode(raw.code);
+    if (!code) return null;
+    var kind = raw.kind === "percent" || raw.kind === "amount" ? raw.kind : null;
+    var percentOff = Number(raw.percentOff);
+    var amountOffCents = Number(raw.amountOffCents);
+    if (kind === "percent" && !(percentOff > 0)) return null;
+    if (kind === "amount" && !(amountOffCents > 0)) return null;
+    if (!kind) return null;
+    var minimum = Number(raw.minimumAmountCents);
+    var estimated = Number(raw.estimatedDiscountCents);
+    return {
+      code: code,
+      kind: kind,
+      percentOff: kind === "percent" ? Math.min(percentOff, 100) : null,
+      amountOffCents: kind === "amount" ? Math.round(amountOffCents) : null,
+      minimumAmountCents: minimum > 0 ? Math.round(minimum) : 0,
+      firstTimeOnly: Boolean(
+        raw.firstTimeOnly || (raw.restrictions && raw.restrictions.firstTimeOnly)
+      ),
+      estimatedDiscountCents: estimated > 0 ? Math.round(estimated) : 0
+    };
+  }
+
+  /* What a stored code takes off a goods subtotal (dollars), by the same
+     arithmetic the Worker's estimate uses: a percentage of the goods, or a
+     fixed amount capped at the goods, and nothing at all under the code's
+     minimum. Shipping is never discounted -- Stripe applies a promotion
+     code to line items only. */
+  function promoDiscountFor(promo, subtotalDollars) {
+    var p = normalizeAppliedPromo(promo);
+    var subCents = Math.round((Number(subtotalDollars) || 0) * 100);
+    if (!p || subCents <= 0) return 0;
+    if (p.minimumAmountCents > 0 && subCents < p.minimumAmountCents) return 0;
+    var cents =
+      p.kind === "percent"
+        ? Math.round((subCents * p.percentOff) / 100)
+        : Math.min(subCents, p.amountOffCents);
+    return Math.max(0, Math.min(subCents, cents)) / 100;
+  }
+
+  /* The Worker's reasons are a closed set; anything else (a newer Worker, a
+     mangled body) is reported as "other". This is what reaches analytics --
+     never the code, never the server's sentence. */
+  var PROMO_REASONS = [
+    "unknown",
+    "expired",
+    "minimum_not_met",
+    "not_applicable",
+    "malformed",
+    "gift_card",
+    "gift_card_conflict",
+    "disabled",
+    "rate_limited",
+    "unavailable",
+    "cart_invalid",
+    "rejected",
+    "network"
+  ];
+  function promoReasonClass(reason) {
+    return PROMO_REASONS.indexOf(reason) !== -1 ? reason : "other";
+  }
+
+  /* Reasons after which the code is worthless and has to go: keeping it would
+     re-send the same dead code on every retry and fail the same way forever.
+     The others are the Worker or the network being unavailable -- the code
+     may well be fine, so it stays and the local estimate stands. */
+  var PROMO_FATAL_REASONS = [
+    "unknown",
+    "expired",
+    "minimum_not_met",
+    "not_applicable",
+    "malformed",
+    "gift_card",
+    "disabled",
+    "rejected"
+  ];
+  function isFatalPromoReason(reason) {
+    return PROMO_FATAL_REASONS.indexOf(reason) !== -1;
+  }
+
+  /* Ask the Worker whether a code works for THIS cart. Resolves with the
+     verdict either way ({valid: true, ...} or {valid: false, reason, error});
+     rejects only when there is no verdict (network, throttle, non-JSON), with
+     `reason` set so the caller can still say something true. POSTed, like the
+     gift-card lookup: a code in a query string ends up in logs. */
+  function checkPromoCode(code, items) {
+    var clean = normalizePromoCode(code);
+    if (!clean) {
+      return Promise.resolve({ valid: false, reason: "malformed" });
+    }
+    var payload = { code: clean, items: toCheckoutPayload(items).items };
+    return fetch(PROMO_PREVIEW_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(payload)
+    }).then(function (res) {
+      return readJsonSafely(res).then(function (data) {
+        if (res && res.status === 429) {
+          var throttled = new Error(GIFT_CARD_THROTTLED);
+          throttled.reason = "rate_limited";
+          throw throttled;
+        }
+        if (!res || !res.ok || !data || typeof data !== "object") {
+          var down = new Error("Codes can't be checked right now.");
+          down.reason = "unavailable";
+          throw down;
+        }
+        return data;
+      });
+    });
+  }
+
   // Expose the pure helpers to Node for testing without touching the DOM layer.
   if (typeof module !== "undefined" && module.exports) {
     module.exports = {
@@ -1265,6 +1423,12 @@
       CHECKOUT_LOCALES: CHECKOUT_LOCALES,
       checkGiftCardBalance: checkGiftCardBalance,
       normalizeGiftCardCode: normalizeGiftCardCode,
+      normalizePromoCode: normalizePromoCode,
+      normalizeAppliedPromo: normalizeAppliedPromo,
+      promoDiscountFor: promoDiscountFor,
+      promoReasonClass: promoReasonClass,
+      isFatalPromoReason: isFatalPromoReason,
+      checkPromoCode: checkPromoCode,
       generateShareCartUrl: generateShareCartUrl,
       parseSharedCartParam: parseSharedCartParam,
       getWalletPoints: getWalletPoints,
@@ -1301,6 +1465,14 @@
     giftCardOpen: false,
     giftCardError: "",
     giftCardLoading: false,
+    appliedPromo: null,
+    promoOpen: false,
+    promoError: "",
+    promoLoading: false,
+    /* What is typed in the code box. render() rebuilds the footer's HTML, so
+       without this a refused code vanished from the box the moment its
+       error appeared, and the shopper had to retype it to fix a typo. */
+    promoDraft: "",
     isGiftOrder: false,
     giftMessage: "",
     isPickup: false,
@@ -1310,6 +1482,7 @@
   };
 
   var GC_STORAGE_KEY = "yl_applied_gift_card";
+  var PROMO_STORAGE_KEY = "yl_applied_promo";
   var GIFT_ORDER_KEY = "yl_is_gift_order";
   var GIFT_MESSAGE_KEY = "yl_gift_message";
   var PICKUP_KEY = "yl_cart_is_pickup";
@@ -1320,6 +1493,7 @@
   var SYNCED_KEYS = [
     STORAGE_KEY,
     GC_STORAGE_KEY,
+    PROMO_STORAGE_KEY,
     GIFT_ORDER_KEY,
     GIFT_MESSAGE_KEY,
     PICKUP_KEY,
@@ -1549,6 +1723,12 @@
       state.appliedGiftCard = null;
     }
     try {
+      var rawPromo = localStorage.getItem(PROMO_STORAGE_KEY);
+      state.appliedPromo = normalizeAppliedPromo(rawPromo ? JSON.parse(rawPromo) : null);
+    } catch {
+      state.appliedPromo = null;
+    }
+    try {
       state.isGiftOrder = localStorage.getItem(GIFT_ORDER_KEY) === "true";
       state.giftMessage = localStorage.getItem(GIFT_MESSAGE_KEY) || "";
     } catch {
@@ -1617,6 +1797,15 @@
         localStorage.setItem(GC_STORAGE_KEY, JSON.stringify(state.appliedGiftCard));
       } else {
         localStorage.removeItem(GC_STORAGE_KEY);
+      }
+    } catch {
+      /* storage full / blocked */
+    }
+    try {
+      if (state.appliedPromo) {
+        localStorage.setItem(PROMO_STORAGE_KEY, JSON.stringify(state.appliedPromo));
+      } else {
+        localStorage.removeItem(PROMO_STORAGE_KEY);
       }
     } catch {
       /* storage full / blocked */
@@ -2406,7 +2595,20 @@
       gcDiscount =
         Math.round(Math.min(sub, Number(state.appliedGiftCard.balance) || 0) * 100) / 100;
     }
-    var estimatedTotal = Math.max(0, Math.round((sub + shippingCost - gcDiscount) * 100) / 100);
+    /* A promo code counts only while no gift card is applied: Stripe takes
+       ONE discount per session and the card holds it (workers/checkout.js).
+       The code is kept -- remove the card and it is back -- and the promo
+       section below says so instead of quietly showing a smaller number
+       than checkout can honour. The CMS switch (site.enablePromoCodes)
+       hides the whole thing and sends nothing. */
+    var enablePromoCodes = siteCfg.enablePromoCodes !== false;
+    var promoActive = enablePromoCodes && !!state.appliedPromo && !state.appliedGiftCard;
+    var promoDiscount = promoActive ? promoDiscountFor(state.appliedPromo, sub) : 0;
+    var estimatedTotal = Math.max(
+      0,
+      Math.round((sub + shippingCost - gcDiscount - promoDiscount) * 100) / 100
+    );
+    if (promoActive) schedulePromoRevalidate();
 
     var giftCardHTML =
       '<div class="yl-cart-giftcard-wrap">' +
@@ -2446,6 +2648,9 @@
           "</div>") +
       "</div>";
 
+    var promoHTML = enablePromoCodes ? promoSectionHTML(siteCfg, promoDiscount) : "";
+    var codesHTML = '<div class="yl-cart-codes">' + giftCardHTML + promoHTML + "</div>";
+
     var totalsHTML =
       '<div class="yl-cart-subtotal"><span>Subtotal</span><strong>' +
       money(sub) +
@@ -2458,6 +2663,19 @@
           escapeHtml(state.appliedGiftCard.code) +
           ")</span><strong>-" +
           money(gcDiscount) +
+          "</strong></div>"
+        : "") +
+      (promoDiscount > 0
+        ? '<div class="yl-cart-discount-line yl-cart-promo-line"><span>' +
+          escapeHtml(
+            tr(
+              "tpl.promoDiscountLine",
+              { code: state.appliedPromo.code },
+              "Promo code (" + state.appliedPromo.code + ")"
+            )
+          ) +
+          "</span><strong>-" +
+          money(promoDiscount) +
           "</strong></div>"
         : "") +
       /* "Total Due" promised a final number this page cannot know: sales tax
@@ -2492,7 +2710,7 @@
       giftOrderHTML +
       (hasPhysical ? pickupHTML : "") +
       shipHTML +
-      giftCardHTML +
+      codesHTML +
       totalsHTML +
       '<button type="button" class="btn btn-primary btn-block yl-cart-checkout"' +
       (checkoutInFlight ? " disabled" : "") +
@@ -2582,6 +2800,8 @@
         announce("Gift card removed");
       });
     }
+
+    bindPromoControls();
 
     var giftOrderCb = footEl.querySelector("#yl-cart-giftorder-checkbox");
     var giftMsgInput = footEl.querySelector("#yl-cart-giftmessage-input");
@@ -2937,7 +3157,8 @@
           state.isPickup ? state.pickupMarket : null,
           state.appliedGiftCard ? state.appliedGiftCard.code : null,
           state.isGiftOrder,
-          state.giftMessage
+          state.giftMessage,
+          promoCodeToSend()
         )
       )
     };
@@ -2998,7 +3219,7 @@
         var status = res ? res.status : 0;
         var err = new Error("Checkout unavailable");
         if (
-          (status === 400 || status === 409) &&
+          (status === 400 || status === 409 || status === 429) &&
           data &&
           typeof data.error === "string" &&
           data.error.trim()
@@ -3008,6 +3229,15 @@
         if (status === 409) {
           err.clearGiftCard = true;
           if (!err.shopperMessage) err.shopperMessage = GIFT_CARD_CONFLICT;
+        }
+        /* The Worker looked the promo code up again and refused it, saying
+           why (workers/checkout.js `promo`). A dead code leaves state in the
+           .catch below; a Worker that could not ask Stripe (503) keeps it,
+           because the code may be fine and the next click can succeed. */
+        if (data && data.promo && data.promo.applied === false && data.promo.reason) {
+          err.promoReason = promoReasonClass(data.promo.reason);
+          err.clearPromo = isFatalPromoReason(data.promo.reason);
+          if (!err.shopperMessage) err.shopperMessage = promoCopy(data.promo.reason, data.promo);
         }
         /* An availability refusal also says WHICH line, structurally
            (workers/checkout.js unavailableDetails). The .catch below removes
@@ -3032,6 +3262,17 @@
           state.giftCardOpen = false;
           state.giftCardError = "";
           save();
+        }
+        if (err && err.promoReason) {
+          track("Promo Code Rejected", { reason: err.promoReason });
+          if (err.clearPromo) {
+            /* The code is worthless now; the drawer keeps the sentence next
+               to the (reopened) code box so the shopper sees what happened. */
+            state.appliedPromo = null;
+            state.promoOpen = true;
+            state.promoError = err.shopperMessage || promoCopy("rejected");
+            save();
+          }
         }
         /* A line the Worker named as unsellable is removed here, persisted,
            and reported by name; the shopper then clicks Checkout again
@@ -3137,6 +3378,7 @@
     if (!err) return "unknown";
     if (err.name === "AbortError") return "timeout";
     if (err.clearGiftCard) return "gift-card";
+    if (err.promoReason) return "promo-code";
     if (err.unavailable) return "unavailable";
     var status = err.checkoutStatus;
     if (typeof status !== "number" || status === 0) return "network";
@@ -3172,6 +3414,9 @@
     state.appliedGiftCard = null;
     state.giftCardOpen = false;
     state.giftCardError = "";
+    state.appliedPromo = null;
+    state.promoOpen = false;
+    state.promoError = "";
     state.storageNotice = "";
     save();
     render();
@@ -3285,6 +3530,382 @@
     render();
     openDrawer();
     announce(itemsArray.length + " items added to cart");
+  }
+
+  /* ---------------- Promo codes (drawer) ---------------- */
+
+  var PROMO_UNAVAILABLE = "Codes can't be checked right now. Try again in a moment.";
+
+  /* The sentence for a Worker reason, in the shopper's language. The Worker
+     sends its own English in `error`; the dictionary entry for the reason is
+     preferred so the sentence translates, and the Worker's text is the
+     fallback for a reason this build does not know. */
+  function promoCopy(reason, verdict) {
+    var fallback = verdict && typeof verdict.error === "string" ? verdict.error : "";
+    switch (reason) {
+      case "unknown":
+        return tr("cart.promoUnknown", null, fallback || "That code isn't valid.");
+      case "expired":
+        return tr(
+          "cart.promoExpired",
+          null,
+          fallback || "That code has expired or has already been used."
+        );
+      case "minimum_not_met": {
+        var minCents = verdict && Number(verdict.minimumAmountCents);
+        var amount = minCents > 0 ? money(minCents / 100) : "";
+        return tr(
+          "tpl.promoMinimum",
+          { amount: amount },
+          fallback || "This code needs a subtotal of at least " + amount + "."
+        );
+      }
+      case "not_applicable":
+        return tr(
+          "cart.promoNotApplicable",
+          null,
+          fallback || "That code doesn't apply to anything in this cart."
+        );
+      case "malformed":
+        return tr(
+          "cart.promoMalformed",
+          null,
+          fallback || "Codes are letters and numbers only, up to 40 characters."
+        );
+      case "gift_card":
+        return tr(
+          "cart.promoLooksLikeGiftCard",
+          null,
+          fallback || "That looks like a gift card — enter it in the gift card box instead."
+        );
+      case "gift_card_conflict":
+        return promoGiftCardNotice();
+      case "disabled":
+        return tr(
+          "cart.promoDisabled",
+          null,
+          fallback || "Promo codes aren't available right now."
+        );
+      case "rate_limited":
+        return tr("cart.promoThrottled", null, GIFT_CARD_THROTTLED);
+      case "cart_invalid":
+        return fallback || tr("cart.promoUnavailable", null, PROMO_UNAVAILABLE);
+      case "rejected":
+        return tr(
+          "cart.promoRejected",
+          null,
+          fallback || "That code couldn't be applied to this order."
+        );
+      default:
+        return tr("cart.promoUnavailable", null, fallback || PROMO_UNAVAILABLE);
+    }
+  }
+  /* The one-or-the-other sentence. CMS-editable (site.promoCodeGiftCardNotice)
+     so the owner can reword it; the dictionary translates the default. */
+  function promoGiftCardNotice() {
+    var siteCfg = (root.YL_CONTENT && root.YL_CONTENT.site) || {};
+    var custom =
+      typeof siteCfg.promoCodeGiftCardNotice === "string" && siteCfg.promoCodeGiftCardNotice.trim();
+    return (
+      custom || "Promo codes and gift cards can't be combined. Remove the gift card to use a code."
+    );
+  }
+
+  /* What the checkout POST carries as its promo code: the applied one, only
+     while codes are on and no gift card is applied. toCheckoutPayload drops
+     it again if a card is present, so this is belt and that is braces. */
+  function promoCodeToSend() {
+    var siteCfg = (root.YL_CONTENT && root.YL_CONTENT.site) || {};
+    if (siteCfg.enablePromoCodes === false) return null;
+    if (!state.appliedPromo || state.appliedGiftCard) return null;
+    return state.appliedPromo.code;
+  }
+
+  function promoSectionHTML(siteCfg, promoDiscount) {
+    var prompt =
+      typeof siteCfg.promoCodePrompt === "string" && siteCfg.promoCodePrompt.trim()
+        ? siteCfg.promoCodePrompt.trim()
+        : "Have a code?";
+    var tagIcon =
+      '<svg class="yl-cart-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>';
+    var promo = state.appliedPromo;
+    var html = '<div class="yl-cart-giftcard-wrap yl-cart-promo-wrap">';
+    if (promo && state.appliedGiftCard) {
+      /* Applied, but idle: the gift card holds the session's one discount. */
+      html +=
+        '<div class="yl-cart-giftcard-applied yl-cart-promo-applied yl-cart-promo-idle">' +
+        '  <div class="yl-cart-giftcard-applied-info">' +
+        '    <span class="yl-cart-giftcard-applied-code">' +
+        tagIcon +
+        " " +
+        escapeHtml(promo.code) +
+        "</span>" +
+        '    <span class="yl-cart-giftcard-applied-bal yl-cart-promo-notice">' +
+        escapeHtml(promoGiftCardNotice()) +
+        "</span>" +
+        "  </div>" +
+        '  <button type="button" class="yl-cart-giftcard-remove yl-cart-promo-remove" aria-label="' +
+        escapeHtml(tr("cart.promoRemove", null, "Remove promo code")) +
+        '">' +
+        escapeHtml(tr("cart.remove", null, "Remove")) +
+        "</button>" +
+        "</div>";
+    } else if (promo) {
+      var terms =
+        promo.kind === "percent"
+          ? tr("tpl.promoPercentOff", { percent: promo.percentOff }, promo.percentOff + "% off")
+          : tr(
+              "tpl.promoAmountOff",
+              { amount: money(promo.amountOffCents / 100) },
+              money(promo.amountOffCents / 100) + " off"
+            );
+      var detail = terms;
+      if (promo.minimumAmountCents > 0 && !(promoDiscount > 0)) {
+        detail = tr(
+          "tpl.promoMinimum",
+          { amount: money(promo.minimumAmountCents / 100) },
+          "This code needs a subtotal of at least " + money(promo.minimumAmountCents / 100) + "."
+        );
+      } else if (promo.firstTimeOnly) {
+        detail += " · " + tr("cart.promoFirstOrder", null, "first order only");
+      }
+      html +=
+        '<div class="yl-cart-giftcard-applied yl-cart-promo-applied">' +
+        '  <div class="yl-cart-giftcard-applied-info">' +
+        '    <span class="yl-cart-giftcard-applied-code">' +
+        tagIcon +
+        " " +
+        escapeHtml(promo.code) +
+        "</span>" +
+        '    <span class="yl-cart-giftcard-applied-bal yl-cart-promo-terms">' +
+        escapeHtml(detail) +
+        "</span>" +
+        "  </div>" +
+        '  <button type="button" class="yl-cart-giftcard-remove yl-cart-promo-remove" aria-label="' +
+        escapeHtml(tr("cart.promoRemove", null, "Remove promo code")) +
+        '">' +
+        escapeHtml(tr("cart.remove", null, "Remove")) +
+        "</button>" +
+        "</div>";
+    } else {
+      html +=
+        '<button type="button" class="yl-cart-giftcard-toggle yl-cart-promo-toggle" aria-expanded="' +
+        (state.promoOpen ? "true" : "false") +
+        '">' +
+        tagIcon +
+        " " +
+        escapeHtml(prompt) +
+        "</button>" +
+        '<div class="yl-cart-giftcard-form yl-cart-promo-form"' +
+        (state.promoOpen ? ' style="display: flex;"' : ' style="display: none;"') +
+        ">" +
+        '  <div class="yl-cart-giftcard-input-row">' +
+        '    <input type="text" class="yl-cart-giftcard-input yl-cart-promo-input" placeholder="' +
+        escapeHtml(tr("cart.promoPlaceholder", null, "Promo code")) +
+        '" maxlength="48" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="' +
+        escapeHtml(tr("cart.promoPlaceholder", null, "Promo code")) +
+        '" value="' +
+        escapeHtml(state.promoDraft || "") +
+        '">' +
+        '    <button type="button" class="yl-cart-giftcard-btn yl-cart-promo-btn"' +
+        (state.promoLoading ? " disabled" : "") +
+        ">" +
+        (state.promoLoading
+          ? tr("cart.checking", null, "Checking…")
+          : tr("cart.apply", null, "Apply")) +
+        "</button>" +
+        "  </div>" +
+        (state.appliedGiftCard
+          ? '  <div class="yl-cart-promo-hint">' + escapeHtml(promoGiftCardNotice()) + "</div>"
+          : "") +
+        (state.promoError
+          ? '  <div class="yl-cart-giftcard-msg yl-cart-promo-msg" role="alert">' +
+            escapeHtml(state.promoError) +
+            "</div>"
+          : "") +
+        "</div>";
+    }
+    return html + "</div>";
+  }
+
+  function bindPromoControls() {
+    if (!footEl) return;
+    var toggle = footEl.querySelector(".yl-cart-promo-toggle");
+    if (toggle) {
+      toggle.addEventListener("click", function () {
+        state.promoOpen = !state.promoOpen;
+        state.promoError = "";
+        render();
+        if (state.promoOpen) {
+          var inp = footEl.querySelector(".yl-cart-promo-input");
+          if (inp) inp.focus();
+        }
+      });
+    }
+    var applyBtn = footEl.querySelector(".yl-cart-promo-btn");
+    var input = footEl.querySelector(".yl-cart-promo-input");
+    function doApplyPromo() {
+      if (!input) return;
+      var raw = input.value;
+      if (!String(raw || "").trim()) {
+        state.promoError = tr("cart.promoEnterCode", null, "Please enter a promo code.");
+        render();
+        return;
+      }
+      var code = normalizePromoCode(raw);
+      if (!code) {
+        state.promoError = promoCopy("malformed");
+        track("Promo Code Rejected", { reason: "malformed" });
+        render();
+        return;
+      }
+      state.promoLoading = true;
+      state.promoError = "";
+      render();
+      checkPromoCode(code, state.items)
+        .then(function (data) {
+          state.promoLoading = false;
+          if (!applyPromoCode(data)) {
+            var reason = promoReasonClass(data && data.reason);
+            state.promoError = promoCopy(reason, data);
+            track("Promo Code Rejected", { reason: reason });
+            render();
+            restorePromoFocus();
+          }
+        })
+        .catch(function (err) {
+          state.promoLoading = false;
+          var reason = promoReasonClass(err && err.reason ? err.reason : "network");
+          state.promoError = promoCopy(reason);
+          track("Promo Code Rejected", { reason: reason });
+          render();
+          restorePromoFocus();
+        });
+    }
+    if (applyBtn) applyBtn.addEventListener("click", doApplyPromo);
+    if (input) {
+      input.addEventListener("input", function () {
+        state.promoDraft = input.value || "";
+      });
+      input.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          doApplyPromo();
+        }
+      });
+    }
+    var removeBtn = footEl.querySelector(".yl-cart-promo-remove");
+    if (removeBtn) {
+      removeBtn.addEventListener("click", function () {
+        state.appliedPromo = null;
+        state.promoOpen = false;
+        state.promoError = "";
+        state.promoDraft = "";
+        promoCartSig = null;
+        save();
+        render();
+        announce(tr("cart.promoRemoved", null, "Promo code removed"));
+      });
+    }
+  }
+
+  function restorePromoFocus() {
+    if (!footEl) return;
+    var inp = footEl.querySelector(".yl-cart-promo-input");
+    if (inp && typeof inp.focus === "function") inp.focus();
+  }
+
+  /* Attach a Worker verdict to the cart. False (nothing changes) unless the
+     verdict is a valid one; the caller says why. Public on YLCart so a
+     welcome or birthday page can hand its freshly minted code straight to
+     the drawer. */
+  function applyPromoCode(verdict) {
+    var normalized = normalizeAppliedPromo(verdict);
+    if (!normalized) return false;
+    state.appliedPromo = normalized;
+    state.promoOpen = false;
+    state.promoError = "";
+    state.promoDraft = "";
+    promoCartSig = cartSignature(state.items);
+    save();
+    render();
+    var off = money(promoDiscountFor(normalized, subtotal(state.items)));
+    announce(
+      tr(
+        "tpl.promoApplied",
+        { code: normalized.code, amount: off },
+        "Promo code " + normalized.code + " applied (" + off + " off)"
+      )
+    );
+    /* No properties: the code itself is the owner's marketing, and which one
+       was used is Stripe's report to make. That a code was applied is the
+       thing worth counting. */
+    track("Promo Code Applied");
+    return true;
+  }
+
+  /* Re-check the code with the Worker once the cart has stopped changing.
+     The estimate shown in the meantime is promoDiscountFor's, from the
+     code's own terms, so the number is right before the request and the
+     request only confirms (or, past a minimum or an expiry, withdraws) it. */
+  var promoCartSig = null;
+  var promoRevalidateTimer = null;
+  function cartSignature(items) {
+    return (items || [])
+      .map(function (it) {
+        return [it.id, it.variantLabel || "", it.qty, (it.boxProductIds || []).join("+")].join(":");
+      })
+      .join("|");
+  }
+  function schedulePromoRevalidate() {
+    var sig = cartSignature(state.items);
+    if (promoCartSig === null) {
+      promoCartSig = sig;
+      return;
+    }
+    if (sig === promoCartSig) return;
+    promoCartSig = sig;
+    if (promoRevalidateTimer) clearTimeout(promoRevalidateTimer);
+    promoRevalidateTimer = setTimeout(revalidatePromo, PROMO_REVALIDATE_MS);
+  }
+  function revalidatePromo() {
+    promoRevalidateTimer = null;
+    var promo = state.appliedPromo;
+    if (!promo || state.appliedGiftCard || !state.items.length) return;
+    checkPromoCode(promo.code, state.items)
+      .then(function (data) {
+        if (!state.appliedPromo || state.appliedPromo.code !== promo.code) return;
+        if (data && data.valid) {
+          state.appliedPromo = normalizeAppliedPromo(data) || state.appliedPromo;
+          save();
+          render();
+          return;
+        }
+        var reason = promoReasonClass(data && data.reason);
+        track("Promo Code Rejected", { reason: reason });
+        if (reason === "minimum_not_met") {
+          /* Still a live code, just not for this cart: it stays applied, the
+             discount line drops to nothing and the terms say what is needed
+             (promoSectionHTML). Adding the missing amount brings it back
+             without retyping. */
+          state.appliedPromo.minimumAmountCents = Number(data.minimumAmountCents) || 0;
+          save();
+          render();
+          return;
+        }
+        if (!isFatalPromoReason(reason)) return;
+        state.appliedPromo = null;
+        state.promoOpen = true;
+        state.promoError = promoCopy(reason, data);
+        promoCartSig = null;
+        save();
+        render();
+        announce(state.promoError);
+      })
+      .catch(function () {
+        /* Throttled or offline: the local estimate stands and the Worker has
+           the final word at checkout. */
+      });
   }
 
   /* The one supported way to attach a gift card to the cart. gift-card.js
@@ -3492,6 +4113,7 @@
     addItems: addItems,
     addCustomBox: addCustomBox,
     applyGiftCard: applyGiftCard,
+    applyPromoCode: applyPromoCode,
     normalizeGiftCardCode: normalizeGiftCardCode,
     getWalletPoints: getWalletPoints,
     setWalletPoints: setWalletPoints,

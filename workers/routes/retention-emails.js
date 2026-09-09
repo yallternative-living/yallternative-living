@@ -51,6 +51,7 @@
 
 import { escapeHtml } from "./http.js";
 import { fromAddress, sendEmail } from "./gift-cards.js";
+import { alertOwner } from "./alerts.js";
 import { createPromotionCode } from "./stripe.js";
 import { loadPointsPerDollar, loadProductIndex, loadSiteSettings } from "../state/site-data.js";
 import { balance, credit, debit } from "../state/loyalty.js";
@@ -739,6 +740,18 @@ export async function drainEmailQueue(env, ctx, now = Date.now(), limit = 25) {
       summary.failed++;
       if (state.exhausted) {
         console.error(`retention: giving up on ${row.id} after ${state.attempts} attempts`);
+        // The row is now terminal; nothing retries it. Keyed on the kind so
+        // a Resend outage that exhausts a whole queue is one email.
+        alertOwner(env, ctx, {
+          key: `retention:${row.kind}`,
+          subject: `A "${row.kind}" email could not be sent and has been given up on`,
+          details: {
+            "queue row": row.id,
+            kind: row.kind,
+            attempts: state.attempts,
+            "what to check": "Resend -> Emails and Domains (is the domain still verified?)"
+          }
+        });
       }
     }
   }

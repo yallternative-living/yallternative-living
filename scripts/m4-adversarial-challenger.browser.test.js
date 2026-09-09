@@ -161,16 +161,23 @@ const MIME = {
    the SWITCH is honoured (no posts, no feed items) when it is off.
 
    Dimension 4 Test 1 asserts the switched-OFF page, so it flips
-   `serveJournalEnabled` to false for the duration and gets the real files. */
+   `serveJournalEnabled` to false for the duration. Both positions are
+   fixtures now: the OFF fixture used to be "the real files", which was only
+   true while the Journal was switched off in content.json -- the day it was
+   switched on (2026-09-09) that test started asserting Coming Soon against a
+   page full of posts. The switch position under test is never read off the
+   repository's current setting. */
 let serveJournalEnabled = true;
 
-function journalEnabledFixture(reqPath) {
-  if (!serveJournalEnabled) return null;
+function journalFixture(reqPath) {
   if (reqPath === "/assets/js/journal-data.js") {
+    const loaded = require(path.join(ROOT, "scripts/build-site-data.js")).loadJournal(
+      JSON.parse(fs.readFileSync(path.join(ROOT, "assets/data/content.json"), "utf8"))
+    );
+    // Off = the wrapper without its posts, exactly what build-site-data.js
+    // emits while site.enableJournal is false.
     const journal = JSON.stringify(
-      require(path.join(ROOT, "scripts/build-site-data.js")).loadJournal(
-        JSON.parse(fs.readFileSync(path.join(ROOT, "assets/data/content.json"), "utf8"))
-      )
+      serveJournalEnabled ? loaded : Object.assign({}, loaded, { posts: [] })
     );
     return `window.YL_JOURNAL = ${journal};`;
   }
@@ -178,7 +185,7 @@ function journalEnabledFixture(reqPath) {
     const content = JSON.parse(
       fs.readFileSync(path.join(ROOT, "assets/data/content.json"), "utf8")
     );
-    content.site.enableJournal = true;
+    content.site.enableJournal = serveJournalEnabled;
     return `window.YL_CONTENT = ${JSON.stringify(content)};`;
   }
   return null;
@@ -189,7 +196,7 @@ function createStaticServer(port) {
     let reqPath = decodeURIComponent(req.url.split("?")[0]);
     if (reqPath === "/") reqPath = "/index.html";
 
-    const fixture = journalEnabledFixture(reqPath);
+    const fixture = journalFixture(reqPath);
     if (fixture !== null) {
       res.writeHead(200, {
         "Content-Type": "text/javascript",
@@ -258,10 +265,22 @@ async function runAdversarialStressSuite() {
       const page = await browser.newPage();
       try {
         await page.setViewport({ width: vp.width, height: vp.height });
+        /* The old fragment address. main.js replaces it with the post's own
+           static page (journal/<slug>.html), so this also proves the redirect
+           lands on the page the cards, feed and sitemap link to. */
         await page.goto(`http://127.0.0.1:${PORT}/journal.html#post-magnesium-salve-benefits`, {
           waitUntil: "networkidle2"
         });
+        await page.waitForFunction(
+          () => window.location.pathname === "/journal/magnesium-salve-benefits.html",
+          { timeout: 5000 }
+        );
         await sleep(300);
+        assert(
+          (await page.evaluate(() => window.location.pathname)) ===
+            "/journal/magnesium-salve-benefits.html",
+          `${vp.name}: journal.html#post-<slug> redirects to the post's static page`
+        );
 
         const cardMetrics = await page.evaluate(() => {
           const card = document.querySelector(".journal-featured-card");
@@ -429,7 +448,10 @@ async function runAdversarialStressSuite() {
           if (window.YLCart && typeof window.YLCart.close === "function") {
             window.YLCart.close();
           }
-          window.location.hash = "#post-small-batch-difference";
+        });
+        // The second post is its own page now; go there directly.
+        await page.goto(`http://127.0.0.1:${PORT}/journal/small-batch-difference.html`, {
+          waitUntil: "networkidle2"
         });
         await sleep(350);
 
@@ -683,9 +705,9 @@ async function runAdversarialStressSuite() {
     // =========================================================================
     console.log("\n>>> DIMENSION 4: Tag Filter Interactivity & SPA Hash Navigation");
 
-    // Test 1: switched-OFF state -> Coming Soon. Served the real generated
-    // files, not the journal-enabled fixture, so this exercises the actual
-    // gate rather than the harness.
+    // Test 1: switched-OFF state -> Coming Soon, served from the OFF fixture
+    // (content-data.js with enableJournal false, journal-data.js with no
+    // posts) so the assertion holds whichever way the real switch is set.
     {
       const page = await browser.newPage();
       serveJournalEnabled = false;
@@ -767,30 +789,41 @@ async function runAdversarialStressSuite() {
         );
         assert(clearedBanner === null, "Clicking 'Clear Filter' successfully clears tag filter");
 
-        // Navigate to post via card title link
-        await page.evaluate(() => {
-          const link = document.querySelector(
-            '#journalApp article.card h3 a[href="#post-magnesium-salve-benefits"]'
-          );
-          if (link) link.click();
-        });
+        // Navigate to post via card title link -- a real link to the post's
+        // static page now, not a hash the list re-renders on.
+        await Promise.all([
+          page.waitForNavigation({ waitUntil: "networkidle2" }),
+          page.evaluate(() => {
+            const link = document.querySelector(
+              '#journalApp article.card h3 a[href="/journal/magnesium-salve-benefits.html"]'
+            );
+            if (link) link.click();
+          })
+        ]);
         await sleep(300);
 
         const isDetailView = await page.evaluate(() => {
           const detail = document.querySelector(".journal-detail");
           const backBtn = document.getElementById("journalBackBtn");
-          return !!detail && !!backBtn;
+          return (
+            !!detail &&
+            !!backBtn &&
+            window.location.pathname === "/journal/magnesium-salve-benefits.html"
+          );
         });
         assert(
           isDetailView,
-          "Hash navigation to '#post-magnesium-salve-benefits' renders .journal-detail view"
+          "Card link opens journal/magnesium-salve-benefits.html with its .journal-detail view"
         );
 
-        // Click Back button
-        await page.evaluate(() => {
-          const back = document.getElementById("journalBackBtn");
-          if (back) back.click();
-        });
+        // Click Back link
+        await Promise.all([
+          page.waitForNavigation({ waitUntil: "networkidle2" }),
+          page.evaluate(() => {
+            const back = document.getElementById("journalBackBtn");
+            if (back) back.click();
+          })
+        ]);
         await sleep(300);
 
         const backToList = await page.evaluate(
@@ -846,8 +879,8 @@ async function runAdversarialStressSuite() {
           );
         }
 
-        // 2. Audit Detail View with Featured Product Card & Open Cart Drawer
-        await page.goto(`http://127.0.0.1:${PORT}/journal.html#post-magnesium-salve-benefits`, {
+        // 2. Audit Detail View (the post's static page) with Featured Product Card & Open Cart Drawer
+        await page.goto(`http://127.0.0.1:${PORT}/journal/magnesium-salve-benefits.html`, {
           waitUntil: "networkidle2"
         });
         await page.evaluate(() => {
@@ -864,7 +897,7 @@ async function runAdversarialStressSuite() {
 
         assert(
           detailAxeResult.violations.length === 0,
-          `Axe-core WCAG 2.2 AA on journal.html (Detail View + Open Drawer): 0 violations (found: ${detailAxeResult.violations.length})`
+          `Axe-core WCAG 2.2 AA on journal/magnesium-salve-benefits.html (Detail View + Open Drawer): 0 violations (found: ${detailAxeResult.violations.length})`
         );
         if (detailAxeResult.violations.length > 0) {
           detailAxeResult.violations.forEach((v) =>

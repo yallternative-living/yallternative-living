@@ -396,6 +396,34 @@ assert(
   "renderMarkdown can't be broken out of an href attribute"
 );
 
+// --- ONE implementation: main.renderMarkdown delegates to assets/js/markdown.js,
+// the file the build renders the static journal pages through. Every post on
+// disk must come out byte-identical from both entry points.
+(function markdownParity() {
+  const mdModule = require("../assets/js/markdown.js");
+  const fsParity = require("fs");
+  const pathParity = require("path");
+  const postsDir = pathParity.join(__dirname, "../assets/data/journal");
+  const posts = fsParity
+    .readdirSync(postsDir)
+    .filter((f) => f.endsWith(".json"))
+    .sort()
+    .map((f) => JSON.parse(fsParity.readFileSync(pathParity.join(postsDir, f), "utf8")));
+  assert(posts.length > 0, "markdown parity check has posts to compare");
+  posts.forEach((post) => {
+    eq(
+      main.renderMarkdown(post.content),
+      mdModule.renderMarkdown(post.content),
+      'main.js renders "' + post.title + '" exactly as assets/js/markdown.js does'
+    );
+  });
+  const build = require("./build-site-data.js");
+  assert(
+    build.renderMarkdown === mdModule.renderMarkdown,
+    "the build renders posts through the same module function"
+  );
+})();
+
 // --- formatting a shop owner actually uses.
 eq(
   main.renderMarkdown("First para.\n\nSecond para."),
@@ -614,6 +642,60 @@ assert(
     main.stockBadgeHTML({ ...onSale, stock: 3 }).includes("Only 3 left"),
   "stockBadgeHTML shows sale badge alongside a low-stock badge"
 );
+
+/* Live stock (GET /api/inventory): the Worker's live count replaces the
+   static `stock` of tracked products only, in place, and never invents a
+   count for a product the CMS does not track. */
+{
+  const liveProducts = [
+    { id: "tee", stock: 10 },
+    { id: "balm", stock: 3 },
+    { id: "soak", stock: null },
+    { id: "made-to-order" },
+    { id: "same", stock: 4 }
+  ];
+  const changed = main.applyLiveInventory(
+    {
+      products: {
+        tee: { available: 7, tracked: true },
+        balm: { available: 0, tracked: true },
+        soak: { available: 5, tracked: true },
+        "made-to-order": { available: 2, tracked: true },
+        same: { available: 4, tracked: true },
+        unknown: { available: 1, tracked: true }
+      }
+    },
+    liveProducts
+  );
+  eq(changed, ["tee", "balm"], "applyLiveInventory returns only the ids whose count moved");
+  eq(liveProducts[0].stock, 7, "a live count replaces the static one in place");
+  eq(liveProducts[1].stock, 0, "...down to zero, which stockBadgeHTML renders as Sold out");
+  eq(
+    main.stockBadgeHTML(liveProducts[1]),
+    '<span class="stock-badge sold-out">Sold out</span>',
+    "..."
+  );
+  eq(liveProducts[2].stock, null, "an untracked product (stock null) is never given a count");
+  assert(!("stock" in liveProducts[3]), "...nor one with no stock field at all");
+  eq(
+    main.applyLiveInventory({ products: { tee: { available: -2, tracked: true } } }, liveProducts),
+    [],
+    "a negative or non-numeric answer is ignored"
+  );
+  eq(
+    main.applyLiveInventory({ products: { tee: { available: 1, tracked: false } } }, liveProducts),
+    [],
+    "...and so is a row the Worker does not mark tracked"
+  );
+  eq(main.applyLiveInventory(null, liveProducts), [], "no payload, no change");
+  eq(main.applyLiveInventory({ products: [] }, undefined), [], "no products, no change");
+  eq(main.LIVE_INVENTORY_URL, "/api/inventory", "the shop reads the Worker's /api/inventory");
+  eq(
+    main.lowStockBadgeHTML(2),
+    '<span class="stock-badge low-stock">Only 2 left</span>',
+    "one badge string for cards and the PDP"
+  );
+}
 eq(
   main.priceHTML(onSale),
   '<span class="price">$19 <s class="original-price">$20</s></span>',
@@ -1360,8 +1442,17 @@ assert(
 assert(
   notFoundSrc.indexOf("<!--YL:site.umamiWebsiteId-->") !== -1 &&
     notFoundSrc.indexOf("<!--/YL:site.umamiWebsiteId-->") !== -1 &&
-    notFoundSrc.indexOf("<!--YL:nav.journal--><!--/YL:nav.journal-->") !== -1,
+    notFoundSrc.indexOf("<!--YL:nav.journal-->") !== -1 &&
+    notFoundSrc.indexOf("<!--/YL:nav.journal-->") !== -1,
   "404.html keeps its build markers intact"
+);
+/* Same lesson as above, caught the same way: this used to assert the journal
+   marker was EMPTY, which held only while the Journal was switched off. When
+   it is on, the injected link must be root-absolute like every other link on
+   this page (the relativeRefs assertion above catches a relative one). */
+assert(
+  !/<!--YL:nav\.journal-->\s*<li><a[^>]*href="journal\.html"/.test(notFoundSrc),
+  "404.html's Journal nav link, when present, is root-absolute"
 );
 
 const mainSrc = fs404.readFileSync(path404.join(repoRoot, "assets/js/main.js"), "utf8");

@@ -733,7 +733,30 @@
     "tpl.mixMatchApplied": "Palier {item} à {price}/unité appliqué !",
     "tpl.mixMatchNext": "Ajoute {amount} pour {perk} !",
     "auto.artsFestival.c73a7e": "Festival des arts",
-    "auto.moreInfoRsvp.b097db": "Plus d'infos / RSVP"
+    "auto.moreInfoRsvp.b097db": "Plus d'infos / RSVP",
+    "cart.havePromoCode": "Vous avez un code ?",
+    "cart.promoGiftCardNotice": "Les codes promo et les cartes-cadeaux ne se cumulent pas. Retirez la carte-cadeau pour utiliser un code.",
+    "cart.promoPlaceholder": "Code promo",
+    "cart.remove": "Retirer",
+    "cart.checking": "Vérification…",
+    "cart.promoRemove": "Retirer le code promo",
+    "cart.promoRemoved": "Code promo retiré",
+    "cart.promoEnterCode": "Veuillez saisir un code promo.",
+    "cart.promoUnknown": "Ce code n'est pas valide.",
+    "cart.promoExpired": "Ce code a expiré ou a déjà été utilisé.",
+    "tpl.promoMinimum": "Ce code nécessite un sous-total d'au moins {amount}.",
+    "cart.promoNotApplicable": "Ce code ne s'applique à rien dans ce panier.",
+    "cart.promoMalformed": "Les codes ne contiennent que des lettres et des chiffres, 40 caractères maximum.",
+    "cart.promoLooksLikeGiftCard": "On dirait une carte-cadeau : saisissez-la plutôt dans le champ carte-cadeau.",
+    "cart.promoDisabled": "Les codes promo ne sont pas disponibles pour le moment.",
+    "cart.promoThrottled": "Trop de tentatives, réessayez dans une minute.",
+    "cart.promoUnavailable": "Impossible de vérifier les codes pour le moment. Réessayez dans un instant.",
+    "cart.promoRejected": "Ce code n'a pas pu être appliqué à cette commande.",
+    "cart.promoFirstOrder": "première commande uniquement",
+    "tpl.promoDiscountLine": "Code promo ({code})",
+    "tpl.promoApplied": "Code promo {code} appliqué ({amount} de réduction)",
+    "tpl.promoPercentOff": "{percent}% de réduction",
+    "tpl.promoAmountOff": "{amount} de réduction"
   }
 };
 
