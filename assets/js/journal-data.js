@@ -8,6 +8,11 @@
 window.YL_JOURNAL = {
   "title": "Apothecary Journal",
   "lede": "Stories, science, and small-batch updates straight from the kitchen.",
+  "wording": {
+    "backLabel": "← Back to Journal",
+    "newerLabel": "Newer post",
+    "olderLabel": "Older post"
+  },
   "posts": [
     {
       "title": "Why Magnesium & Arnica Belong in Your Bedtime Routine",

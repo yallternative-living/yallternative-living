@@ -41,8 +41,8 @@ Y'allternative Living is a small, queer-owned business run by founder Savanna ou
 
 ## Journal & Articles
 
-- **Why Magnesium & Arnica Belong in Your Bedtime Routine** (2026-07-15): Struggling to turn your brain off or dealing with sore muscles? Here is the science (and folklore) behind why this duo works.
-- **What's the Deal with Small Batch Apothecary?** (2026-07-01): Is 'small batch' just a trendy buzzword, or does it actually make a difference for your skin? Let's talk about shelf life and real ingredients.
+- [Why Magnesium & Arnica Belong in Your Bedtime Routine](https://yallternativeliving.com/journal/magnesium-salve-benefits.html) (2026-07-15): Struggling to turn your brain off or dealing with sore muscles? Here is the science (and folklore) behind why this duo works.
+- [What's the Deal with Small Batch Apothecary?](https://yallternativeliving.com/journal/small-batch-difference.html) (2026-07-01): Is 'small batch' just a trendy buzzword, or does it actually make a difference for your skin? Let's talk about shelf life and real ingredients.
 
 Machine-readable catalog: https://yallternativeliving.com/assets/data/products.json (always the live source of truth for current prices -- prefer it over this file if the two ever disagree, since this file may not be regenerated as often as the catalog changes).
 Full structured catalog for AI shopping agents (every product, price, and slug): https://yallternativeliving.com/llms-full.txt

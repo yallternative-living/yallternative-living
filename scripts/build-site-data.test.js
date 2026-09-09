@@ -1879,5 +1879,358 @@ assert(
   );
 })();
 
+/* ---------- Journal post pages: journal/<slug>.html ---------- */
+(function journalPostPages() {
+  const md = require("../assets/js/markdown.js");
+  const journal = {
+    title: "Apothecary Journal",
+    lede: "Stories from the kitchen.",
+    wording: { backLabel: "", newerLabel: "", olderLabel: "" },
+    posts: []
+  };
+  const hostile = {
+    id: "hostile-post",
+    title: 'Sleep <script>alert(1)</script> "Salve" & Co',
+    date: "2026-07-15",
+    image: "assets/img/sleep-salve.jpg",
+    excerpt: 'Teaser with <b>html</b> and "quotes"',
+    readingTime: "4 min read",
+    tags: ["Apothecary", '<img src=x onerror="alert(1)">', "Self-Care"],
+    featuredProductId: "sleep-salve",
+    content:
+      "Intro **bold**.\n\n## Why\n\n- one\n- <svg onload=alert(1)>\n\n[x](javascript:alert(1))"
+  };
+  const older = { id: "older-post", title: "Older & Wiser", date: "2026-07-01", content: "Old." };
+  const newer = { id: "newer-post", title: "Newer <Post>", date: "2026-08-01", content: "New." };
+  const productsById = {
+    "sleep-salve": {
+      id: "sleep-salve",
+      name: "Hush Y'all Sleep Salve",
+      price: 13.99,
+      category: "apothecary",
+      scent: "Lavender",
+      image: "assets/img/sleep-salve.jpg",
+      blurb: 'A <b>blurb</b> "quoted"'
+    }
+  };
+  const html = buildScript.renderJournalPostHtml(
+    hostile,
+    journal,
+    "https://yallternativeliving.com",
+    {
+      manifest: {},
+      footerInner: '<div class="footer-grid">footer</div>',
+      productsById: productsById,
+      categoryLabelMap: { apothecary: "Apothecary" },
+      enableJournal: true,
+      site: {},
+      newer: newer,
+      older: older
+    }
+  );
+  const url = "https://yallternativeliving.com/journal/hostile-post.html";
+
+  // Escaping: CMS text never becomes markup.
+  assert(
+    html.indexOf("<script>alert(1)</script>") === -1,
+    "journal page escapes a <script> in the title"
+  );
+  assert(
+    html.indexOf('<img src=x onerror="alert(1)">') === -1,
+    "journal page escapes an <img> in a tag"
+  );
+  assert(html.indexOf("<svg onload") === -1, "journal page escapes an <svg> in a list item");
+  assert(html.indexOf("javascript:") === -1, "journal page never emits a javascript: link");
+  assert(
+    html.indexOf("<b>html</b>") === -1 && html.indexOf("<b>blurb</b>") === -1,
+    "excerpt and featured blurb are escaped"
+  );
+  assert(
+    html.indexOf('href="/journal.html#tag=%3Cimg%20src%3Dx%20onerror%3D%22alert(1)%22%3E"') !== -1,
+    "a hostile tag becomes an encoded, escaped #tag= link"
+  );
+  assert(
+    html.indexOf("\\u003c/script\\u003e") !== -1 && html.indexOf("</script>alert") === -1,
+    "a </script> inside JSON-LD is \\u-escaped so it cannot close the block"
+  );
+  const foreignScripts = (html.match(/<script[^>]*>/g) || []).filter(
+    (tag) =>
+      tag !== "<script>" &&
+      tag !== '<script type="application/ld+json">' &&
+      tag !== '<script type="text/javascript">' &&
+      !/^<script src="\/assets\/js\/[^"]+" defer>$/.test(tag)
+  );
+  eq(foreignScripts, [], "every <script> on the journal page is one of the page's own");
+  assert(
+    html.indexOf("<script>alert") === -1,
+    "the hostile title never appears as a tag, not even inside JSON-LD"
+  );
+
+  // Head: own title, description, canonical, social card.
+  assert(
+    html.indexOf(
+      "<title>Sleep &lt;script&gt;alert(1)&lt;/script&gt; &quot;Salve&quot; &amp; Co"
+    ) !== -1,
+    "journal page <title> is the escaped post title"
+  );
+  assert(
+    html.indexOf(
+      '<meta name="description" content="Teaser with &lt;b&gt;html&lt;/b&gt; and &quot;quotes&quot;">'
+    ) !== -1,
+    "meta description is the escaped excerpt"
+  );
+  assert(
+    html.indexOf('<link rel="canonical" href="' + url + '">') !== -1,
+    "journal page canonical is its own URL"
+  );
+  assert(
+    html.indexOf('<meta property="og:url" content="' + url + '">') !== -1,
+    "og:url is the page URL"
+  );
+  assert(html.indexOf('<meta property="og:type" content="article">') !== -1, "og:type is article");
+  assert(
+    html.indexOf(
+      '<meta property="og:image" content="https://yallternativeliving.com/assets/img/sleep-salve.jpg">'
+    ) !== -1,
+    "og:image is the post image, absolute"
+  );
+  assert(
+    html.indexOf('<meta property="article:published_time" content="2026-07-15">') !== -1,
+    "article:published_time is the post date"
+  );
+  assert(
+    html.indexOf('rel="alternate" type="application/rss+xml"') !== -1,
+    "journal page advertises feed.xml"
+  );
+
+  // JSON-LD: BlogPosting whose main entity is the page, plus breadcrumbs.
+  const blocks = (
+    html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g) || []
+  ).map((b) => JSON.parse(b.replace(/^<script[^>]*>/, "").replace(/<\/script>$/, "")));
+  const posting = blocks.find((b) => b["@type"] === "BlogPosting");
+  const crumbs = blocks.find((b) => b["@type"] === "BreadcrumbList");
+  assert(!!posting, "journal page carries BlogPosting JSON-LD");
+  eq(posting && posting.url, url, "BlogPosting url is the page");
+  eq(
+    posting && posting.mainEntityOfPage && posting.mainEntityOfPage["@id"],
+    url,
+    "BlogPosting mainEntityOfPage is the page"
+  );
+  eq(
+    posting && posting.headline,
+    hostile.title,
+    "BlogPosting headline is the raw title (JSON, not HTML)"
+  );
+  eq(posting && posting.datePublished, "2026-07-15", "BlogPosting datePublished");
+  eq(
+    posting && posting.isPartOf && posting.isPartOf["@id"],
+    "https://yallternativeliving.com/journal.html#blog",
+    "BlogPosting isPartOf the Blog on journal.html"
+  );
+  eq(
+    posting && posting.about && posting.about.url,
+    "https://yallternativeliving.com/products/sleep-salve.html",
+    "BlogPosting about = featured product page"
+  );
+  eq(
+    crumbs && crumbs.itemListElement.map((i) => i.item),
+    ["https://yallternativeliving.com/", "https://yallternativeliving.com/journal.html", url],
+    "BreadcrumbList is Home > Journal > post"
+  );
+  const blogLd = buildScript.generateJournalJsonLd(
+    { title: "J", posts: [hostile, older] },
+    "https://yallternativeliving.com"
+  );
+  eq(
+    blogLd.blogPost.map((n) => n.url),
+    [url, "https://yallternativeliving.com/journal/older-post.html"],
+    "journal.html Blog JSON-LD lists the static page URLs"
+  );
+  eq(
+    JSON.stringify(blogLd.blogPost[0]),
+    JSON.stringify(
+      buildScript.generateJournalPostJsonLd(hostile, "https://yallternativeliving.com")
+    ).replace('{"@context":"https://schema.org",', "{"),
+    "the Blog's entry and the page's BlogPosting are the same node"
+  );
+
+  // Body: markdown through the shared module at heading level 2, meta, tags, featured card, pager.
+  assert(
+    html.indexOf(
+      '<div class="content">' + md.renderMarkdown(hostile.content, { headingLevel: 2 }) + "</div>"
+    ) !== -1,
+    "post body is exactly what assets/js/markdown.js renders at headingLevel 2"
+  );
+  assert(
+    html.indexOf("<h2>Why</h2>") !== -1 && html.indexOf("<h3>Why</h3>") === -1,
+    "body headings start at h2 under the h1 title"
+  );
+  assert(
+    html.indexOf(
+      "<h1>Sleep &lt;script&gt;alert(1)&lt;/script&gt; &quot;Salve&quot; &amp; Co</h1>"
+    ) !== -1,
+    "title is the page h1"
+  );
+  assert(
+    html.indexOf('<time datetime="2026-07-15">July 15, 2026</time>') !== -1,
+    "date is a <time> with a readable label"
+  );
+  assert(html.indexOf("4 min read") !== -1, "reading time is printed");
+  assert(
+    html.indexOf(
+      '<a class="journal-tag journal-tag-pill" href="/journal.html#tag=Self-Care">Self-Care</a>'
+    ) !== -1,
+    "tags link to the filtered list"
+  );
+  assert(
+    html.indexOf('<a href="/products/sleep-salve.html">Hush Y&#39;all Sleep Salve</a>') !== -1,
+    "featured card links to the product page"
+  );
+  assert(
+    html.indexOf('data-item-id="sleep-salve"') !== -1 &&
+      html.indexOf('data-item-price="13.99"') !== -1,
+    "featured card add-to-cart carries the product"
+  );
+  assert(
+    html.indexOf(
+      '<a class="back-link" id="journalBackBtn" href="/journal.html">← Back to Journal</a>'
+    ) !== -1,
+    "Back link uses the default wording"
+  );
+  assert(
+    html.indexOf('href="/journal/newer-post.html"') !== -1 &&
+      html.indexOf("Newer &lt;Post&gt;") !== -1,
+    "pager links to the newer post, escaped"
+  );
+  assert(
+    html.indexOf('href="/journal/older-post.html"') !== -1 &&
+      html.indexOf("Older &amp; Wiser") !== -1,
+    "pager links to the older post, escaped"
+  );
+  assert(
+    html.indexOf('<a href="/journal.html" class="active">Journal</a>') !== -1,
+    "header marks Journal as the active section"
+  );
+  assert(
+    html.indexOf('class="active">Shop') === -1,
+    "header does not mark Shop active on a journal page"
+  );
+  assert(html.indexOf("#post-") === -1, "journal page emits no fragment address");
+  assert(
+    html.indexOf('src="/assets/js/main.js') !== -1 && html.indexOf('src="assets/') === -1,
+    "asset paths are root-absolute"
+  );
+
+  // Owner wording from content.json wins over the defaults.
+  const worded = buildScript.renderJournalPostHtml(
+    older,
+    Object.assign({}, journal, {
+      wording: { backLabel: "Go back", newerLabel: "Next up", olderLabel: "Before this" }
+    }),
+    "https://yallternativeliving.com",
+    { newer: hostile, older: null }
+  );
+  assert(
+    worded.indexOf(">Go back</a>") !== -1 && worded.indexOf("← Next up") !== -1,
+    "CMS wording replaces the Back and pager labels"
+  );
+  assert(
+    worded.indexOf("Before this") === -1,
+    "no older link is drawn when there is no older post"
+  );
+  const noImage = buildScript.renderJournalPostHtml(
+    { id: "bare", title: "Bare", date: "2026-01-02", content: "x" },
+    journal,
+    "https://yallternativeliving.com",
+    {}
+  );
+  assert(
+    noImage.indexOf(
+      '<meta property="og:image" content="https://yallternativeliving.com/assets/img/og-image.jpg">'
+    ) !== -1,
+    "a post without a photo falls back to the site card image"
+  );
+  assert(
+    noImage.indexOf('<aside class="journal-featured-card"') === -1 &&
+      noImage.indexOf('<nav class="journal-pager"') === -1,
+    "no featured card or pager without a product or neighbours"
+  );
+
+  // SERP-safe title.
+  const longTitle = buildScript.renderJournalPostHtml(
+    {
+      id: "l",
+      title: "Why Magnesium & Arnica Belong in Your Bedtime Routine",
+      date: "2026-01-01",
+      content: "x"
+    },
+    journal,
+    "https://yallternativeliving.com",
+    {}
+  );
+  const tMatch = /<title>([^<]*)<\/title>/.exec(longTitle);
+  assert(
+    tMatch && buildScript.decodeHtmlEntities(tMatch[1]).length <= 60,
+    "a long post title keeps the <title> within 60 characters"
+  );
+
+  // URL and path helpers, and the file-name guard.
+  eq(
+    buildScript.journalPostUrl({ id: "a b" }, "https://x.test/"),
+    "https://x.test/journal/a%20b.html",
+    "journalPostUrl encodes and trims the domain"
+  );
+  eq(buildScript.journalPostPath({ id: "abc" }), "journal/abc.html", "journalPostPath");
+  assert(
+    buildScript.JOURNAL_ID_RE.test("magnesium-salve-benefits") &&
+      !buildScript.JOURNAL_ID_RE.test("a b") &&
+      !buildScript.JOURNAL_ID_RE.test("../x"),
+    "JOURNAL_ID_RE accepts a slug and rejects spaces and traversal"
+  );
+  eq(buildScript.formatJournalDate("2026-07-05"), "July 5, 2026", "formatJournalDate");
+  eq(
+    buildScript.formatJournalDate("soon"),
+    "soon",
+    "formatJournalDate leaves an unparseable date as typed"
+  );
+
+  // Prune: switched off -> every page goes; on -> only pages without a post.
+  eq(
+    buildScript.journalPagesToPrune(
+      ["a.html", "b.html", "notes.txt"],
+      [{ id: "a" }, { id: "b" }],
+      false
+    ),
+    ["a.html", "b.html"],
+    "journal off: every post page is pruned"
+  );
+  eq(
+    buildScript.journalPagesToPrune(
+      ["a.html", "b.html", "stale.html"],
+      [{ id: "a" }, { id: "b" }],
+      true
+    ),
+    ["stale.html"],
+    "journal on: only a page without a post is pruned"
+  );
+  eq(
+    buildScript.journalPagesToPrune([], [{ id: "a" }], true),
+    [],
+    "nothing to prune in an empty directory"
+  );
+
+  // feed.xml items point at the pages.
+  const feed = buildScript.generateRssFeed(
+    { posts: [older] },
+    "https://yallternativeliving.com",
+    {}
+  );
+  assert(
+    feed.indexOf("<link>https://yallternativeliving.com/journal/older-post.html</link>") !== -1 &&
+      feed.indexOf("#post-") === -1,
+    "feed.xml item links to the static page, not the fragment"
+  );
+})();
+
 console.log(`\nbuild-site-data.test.js: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

@@ -94,16 +94,34 @@ function createStaticServer(port) {
   });
 }
 
+/* The budget for one "<page> [<theme>]" label: its own entry, else the
+   generated-directory entry ("journal/*.html [dark]") for a page under that
+   directory, else the default. */
+function baselineFor(label) {
+  if (Object.prototype.hasOwnProperty.call(INCOMPLETE_BASELINE, label)) {
+    return INCOMPLETE_BASELINE[label];
+  }
+  const m = /^([^/]+)\/[^ ]+\.html (\[\w+\])$/.exec(label);
+  const wildcard = m ? `${m[1]}/*.html ${m[2]}` : null;
+  if (wildcard && Object.prototype.hasOwnProperty.call(INCOMPLETE_BASELINE, wildcard)) {
+    return INCOMPLETE_BASELINE[wildcard];
+  }
+  return INCOMPLETE_BASELINE_DEFAULT;
+}
+
 function collectPages() {
   const top = fs.readdirSync(ROOT).filter((f) => f.endsWith(".html"));
-  const productsDir = path.join(ROOT, "products");
-  const products = fs.existsSync(productsDir)
-    ? fs
-        .readdirSync(productsDir)
-        .filter((f) => f.endsWith(".html"))
-        .map((f) => `products/${f}`)
-    : [];
-  return top.sort().concat(products.sort());
+  // Generated pages: one per product and one per journal post.
+  const generated = ["products", "journal"].flatMap((sub) => {
+    const dir = path.join(ROOT, sub);
+    return fs.existsSync(dir)
+      ? fs
+          .readdirSync(dir)
+          .filter((f) => f.endsWith(".html"))
+          .map((f) => `${sub}/${f}`)
+      : [];
+  });
+  return top.sort().concat(generated.sort());
 }
 
 /* Per-scan budget for axe results that axe itself could not decide. Measured,
@@ -156,6 +174,15 @@ const INCOMPLETE_BASELINE = {
     base: 11,
     perElement: [{ selector: "#journalApp .btn", allowance: 1 }]
   },
+  /* The journal post pages (journal/<slug>.html) are one entry per THEME,
+     not per post: a post is written in the CMS, and a gate that needed a
+     hand-added line for every new article would fail every publish. All
+     four current scans measure the same 8 nodes -- the search trigger's
+     aria-controls (as on every page) and the header/language-picker
+     contrast axe cannot resolve -- with no post-specific node, so the
+     budget is the page chrome. Measured 2026-09-09. */
+  "journal/*.html [dark]": 8,
+  "journal/*.html [light]": 8,
   "offline.html [dark]": 2,
   "offline.html [light]": 2,
   "order-status.html [dark]": 7,
@@ -335,7 +362,7 @@ const INCOMPLETE_BASELINE = {
                allowance per element matching a selector, for pages whose
                node count follows CMS data (see the events.html entry). The
                elements are counted on the page axe just scanned. */
-            const pin = INCOMPLETE_BASELINE[label];
+            const pin = baselineFor(label);
             if (pin && typeof pin === "object") {
               const counts = await page.evaluate(
                 (selectors) => selectors.map((sel) => document.querySelectorAll(sel).length),
@@ -397,9 +424,7 @@ const INCOMPLETE_BASELINE = {
     .sort()
     .forEach((label) => {
       const seen = incompleteByPage[label].nodes;
-      const pin = Object.prototype.hasOwnProperty.call(INCOMPLETE_BASELINE, label)
-        ? INCOMPLETE_BASELINE[label]
-        : INCOMPLETE_BASELINE_DEFAULT;
+      const pin = baselineFor(label);
       const budget =
         pin && typeof pin === "object" ? pin.base + incompleteByPage[label].extra : pin;
       if (seen > budget) {

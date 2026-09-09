@@ -412,6 +412,18 @@
   status = 301
   force = true
 
+[[redirects]]
+  from = "/journal/magnesium-salve-benefits"
+  to = "/journal/magnesium-salve-benefits.html"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/journal/small-batch-difference"
+  to = "/journal/small-batch-difference.html"
+  status = 301
+  force = true
+
 # Long-lived caching for hashed/never-changing assets. Pages themselves
 # (index.html, shop.html, etc.) intentionally aren't cached long here --
 # Netlify already serves them with an ETag + must-revalidate by default,

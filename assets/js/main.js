@@ -3,7 +3,7 @@
    Zero dependencies, zero build step. Vanilla JS only so the
    whole site stays instant on any connection.
    ========================================================== */
-/* global module */
+/* global module, require */
 (function () {
   "use strict";
 
@@ -1116,157 +1116,37 @@
     return cleaned;
   }
 
-  /* ---------- shared: minimal, escape-first Markdown renderer ----------
-     The Apothecary Journal's post body is written by Savanna in /admin (the
-     `content` field is a rich-text editor there) and rendered on journal.html
-     through innerHTML, so this has exactly two jobs: cover the handful of
-     formatting marks a shop owner actually needs, and never let post text
-     become live markup.
-
-     Why this isn't a vendored library. Self-hosting one would have been fine
-     -- the site's CSP only blocks CDN scripts, and we already self-host the
-     fonts for that same reason (docs/SELF-HOSTING-FONTS.md) -- so this was a
-     trade, not a constraint:
-       - snarkdown (1.9 KB minified, MIT) is the closest fit by size, but its
-         last release was 2020, it passes raw HTML straight through (an
-         `<img src=x onerror=...>` in a post survives verbatim), writes hrefs
-         with no scheme check (`[x](javascript:alert(1))` becomes a live
-         link), and separates paragraphs with `<br />` instead of `<p>` --
-         which on its own would restyle every post already published, since
-         journal.html styles `.content p`. Fixing the first two means forking
-         its single dense minified regex, which throws away the reason to
-         vendor it in the first place.
-       - marked (40 KB minified) and markdown-it (124 KB minified) are each
-         bigger than every file this site ships except main.js itself, for a
-         page that renders a couple of posts. marked doesn't sanitize either
-         (its docs hand you off to DOMPurify); markdown-it is genuinely safe
-         by default (html:false plus a scheme allowlist) but is ~15x the size
-         of the ~8 KB below for the same handful of formatting marks.
-     So: escape with attrEsc() FIRST, then add formatting to text that can no
-     longer contain markup. Anything unsupported degrades to plain text. */
-
-  /* Inline emphasis. Only ever runs on text attrEsc() has already escaped,
-     so there is no "<" left for it to turn into a tag. Sveltia's editor
-     writes **bold** and _italic_; *italic* and __bold__ are accepted too
-     because that's what people type by hand. An underscore inside a word
-     (soap_batch_2) is not emphasis, which is why those two rules check the
-     characters on either side. */
-  function mdEmphasis(escaped) {
-    return escaped
-      .replace(/(^|[^A-Za-z0-9_])__([^\n]+?)__(?![A-Za-z0-9_])/g, "$1<strong>$2</strong>")
-      .replace(/\*\*([^\n]+?)\*\*/g, "<strong>$1</strong>")
-      .replace(/(^|[^A-Za-z0-9_])_([^_\n]+?)_(?![A-Za-z0-9_])/g, "$1<em>$2</em>")
-      .replace(/\*([^*\n]+?)\*/g, "<em>$1</em>");
-  }
-
-  /* [label](url). The URL may not contain whitespace, and may contain at most
-     one nested pair of parentheses -- enough for the Wikipedia-style
-     ".../Arnica_(plant)" links an herbal blog actually uses, while staying a
-     single unambiguous match per link (the two alternatives can't match the
-     same character, so there is nothing here to backtrack over). */
-  var MD_LINK_RE = /\[([^\]\n]*)\]\(((?:[^()\s]|\([^()\s]*\))*)\)/g;
-
-  /* One run of markdown text -> safe HTML. Escaping happens per slice so the
-     URL is checked in its raw form (before "&" becomes "&amp;") and only then
-     escaped for the attribute it lands in. */
-  function mdInline(text) {
-    var html = "";
-    var lastIndex = 0;
-    var match;
-    MD_LINK_RE.lastIndex = 0;
-    while ((match = MD_LINK_RE.exec(text)) !== null) {
-      html += mdEmphasis(attrEsc(text.slice(lastIndex, match.index)));
-      var href = safeLinkUrl(match[2]);
-      var label = mdEmphasis(attrEsc(match[1]));
-      // A rejected URL (javascript:, data:, ...) keeps the words and drops
-      // the link -- it never reaches an href.
-      html += href ? '<a href="' + attrEsc(href) + '">' + label + "</a>" : label;
-      lastIndex = MD_LINK_RE.lastIndex;
+  /* ---------- shared: Markdown renderer for journal post text ----------
+     ONE implementation, in assets/js/markdown.js, shared with the build:
+     scripts/build-site-data.js renders every post into its own static page
+     at /journal/<slug>.html through the same file, so the two can never
+     drift. journal.html loads it as a plain <script> before this one (it
+     publishes window.YL_MARKDOWN); in Node (the unit tests) it is
+     require()d. See that file for what the renderer does and does not
+     support, and why it is not a vendored library. */
+  function markdownModule() {
+    if (window.YL_MARKDOWN) return window.YL_MARKDOWN;
+    if (typeof module !== "undefined" && module.exports && typeof require === "function") {
+      return require("./markdown.js");
     }
-    return html + mdEmphasis(attrEsc(text.slice(lastIndex)));
+    return null;
   }
 
-  /* Block structure: blank-line separated paragraphs (what every post written
-     before this existed already is), "## " headings, "- " bullet lists,
-     "1. " numbered lists, and "***" dividers. Deliberately not a CommonMark
-     parser -- no tables, code blocks, blockquotes or images, all of which are
-     also switched off in the editor (see admin/config.yml's `buttons` and
-     `editor_components` for the journal `content` field). */
   function renderMarkdown(text) {
+    var md = markdownModule();
+    if (md) return md.renderMarkdown(text);
+    /* A page that loads this file without markdown.js (only journal.html
+       ships it) renders the post as the plain, escaped paragraphs every post
+       was before the editor grew a formatting toolbar. Escaping is the part
+       that must never be skipped; the formatting is the part that can be. */
     if (text == null) return "";
-    var lines = String(text).replace(/\r\n?/g, "\n").split("\n");
-    var html = "";
-    var para = [];
-    var items = [];
-    var listTag = "";
-
-    function flushPara() {
-      if (!para.length) return;
-      // Joined with "\n", not " ": a plain-text post then renders the exact
-      // same bytes it did before this function existed.
-      html += "<p>" + mdInline(para.join("\n")) + "</p>";
-      para = [];
-    }
-
-    function flushList() {
-      if (!items.length) return;
-      html +=
-        "<" +
-        listTag +
-        ">" +
-        items
-          .map(function (item) {
-            return "<li>" + mdInline(item) + "</li>";
-          })
-          .join("") +
-        "</" +
-        listTag +
-        ">";
-      items = [];
-      listTag = "";
-    }
-
-    function pushItem(tag, item) {
-      // A "1." right after a "-" starts a second, differently-tagged list.
-      if (listTag && listTag !== tag) flushList();
-      flushPara();
-      listTag = tag;
-      items.push(item);
-    }
-
-    lines.forEach(function (line) {
-      var trimmed = line.trim();
-      var heading = /^(#{1,6})\s+(.+)$/.exec(trimmed);
-      var bullet = /^[-*+]\s+(.+)$/.exec(trimmed);
-      var numbered = /^\d{1,9}[.)]\s+(.+)$/.exec(trimmed);
-
-      if (!trimmed) {
-        flushPara();
-        flushList();
-      } else if (/^(\*{3,}|-{3,}|_{3,})$/.test(trimmed)) {
-        flushPara();
-        flushList();
-        html += "<hr>";
-      } else if (heading) {
-        flushPara();
-        flushList();
-        // The post's own title is the page's <h2>, so headings inside a post
-        // start at <h3> and never skip a level (screen-reader outline).
-        var tag = heading[1].length > 2 ? "h4" : "h3";
-        html += "<" + tag + ">" + mdInline(heading[2]) + "</" + tag + ">";
-      } else if (bullet) {
-        pushItem("ul", bullet[1]);
-      } else if (numbered) {
-        pushItem("ol", numbered[1]);
-      } else {
-        flushList();
-        para.push(line);
-      }
-    });
-
-    flushPara();
-    flushList();
-    return html;
+    return String(text)
+      .replace(/\r\n?/g, "\n")
+      .split("\n\n")
+      .map(function (p) {
+        return "<p>" + attrEsc(p) + "</p>";
+      })
+      .join("");
   }
 
   /* ---------- shared: horizontal swipe gesture ----------
@@ -8470,6 +8350,13 @@
     var journalPosts = window.YL_JOURNAL.posts || [];
     var currentJournalTagFilter = null;
 
+    /* Each post's own static page (see routeJournal below for the old
+       `#post-<slug>` address). Root-absolute so the same string is right from
+       journal.html and from anywhere the search results render it. */
+    function postPageUrl(post) {
+      return "/journal/" + encodeURIComponent(post.id) + ".html";
+    }
+
     function renderJournalList() {
       /* Switched off, or on with nothing written yet: both get the same
          "coming soon" notice. The page is kept out of the nav, out of
@@ -8532,8 +8419,8 @@
               attrEsc(readTime) +
               "</span>" +
               "  </div>" +
-              '  <h3><a href="#post-' +
-              attrEsc(post.id) +
+              '  <h3><a href="' +
+              attrEsc(postPageUrl(post)) +
               '">' +
               attrEsc(post.title) +
               "</a></h3>" +
@@ -8543,8 +8430,8 @@
               "</p>" +
               '  <div class="card-foot">' +
               '    <div class="card-foot-row">' +
-              '      <a href="#post-' +
-              attrEsc(post.id) +
+              '      <a href="' +
+              attrEsc(postPageUrl(post)) +
               '" class="btn btn-outline btn-sm">Read Post →</a>' +
               "    </div>" +
               "  </div>" +
@@ -8645,11 +8532,46 @@
       wireReveal(journalApp);
     }
 
+    /* Every published post has its own static page at /journal/<slug>.html
+       (built by scripts/build-site-data.js), which is what the cards, the
+       feed, the sitemap and the JSON-LD all link to. The old in-page
+       `#post-<slug>` address is kept alive for anyone who bookmarked or
+       shared one: a hash naming a published post is replaced with the
+       page's real URL (replace, not assign, so Back does not bounce through
+       the fragment). Only a hash for a post that has no page -- a typo, or a
+       post that no longer exists -- is rendered here, and that path shows
+       the list. `#tag=<topic>` is the address the static pages' topic pills
+       link to; it opens the list already filtered. */
+    function decodeHashPart(part) {
+      // A malformed escape ("%E0") throws; treat it as the literal text.
+      try {
+        return decodeURIComponent(part);
+      } catch {
+        return part;
+      }
+    }
+
+    function staticPostUrl(postId) {
+      var post = journalPosts.find(function (p) {
+        return p.id === postId;
+      });
+      return post && enableJournal ? "/journal/" + encodeURIComponent(post.id) + ".html" : "";
+    }
+
     function routeJournal() {
       var hash = window.location.hash || "";
       if (hash.indexOf("#post-") === 0) {
-        var postId = hash.replace("#post-", "");
+        var postId = decodeHashPart(hash.replace("#post-", ""));
+        var target = staticPostUrl(postId);
+        if (target) {
+          window.location.replace(target);
+          return;
+        }
         renderJournalDetail(postId);
+      } else if (hash.indexOf("#tag=") === 0) {
+        var tag = decodeHashPart(hash.slice("#tag=".length));
+        currentJournalTagFilter = tag || null;
+        renderJournalList();
       } else {
         renderJournalList();
       }

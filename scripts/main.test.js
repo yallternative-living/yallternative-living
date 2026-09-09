@@ -396,6 +396,34 @@ assert(
   "renderMarkdown can't be broken out of an href attribute"
 );
 
+// --- ONE implementation: main.renderMarkdown delegates to assets/js/markdown.js,
+// the file the build renders the static journal pages through. Every post on
+// disk must come out byte-identical from both entry points.
+(function markdownParity() {
+  const mdModule = require("../assets/js/markdown.js");
+  const fsParity = require("fs");
+  const pathParity = require("path");
+  const postsDir = pathParity.join(__dirname, "../assets/data/journal");
+  const posts = fsParity
+    .readdirSync(postsDir)
+    .filter((f) => f.endsWith(".json"))
+    .sort()
+    .map((f) => JSON.parse(fsParity.readFileSync(pathParity.join(postsDir, f), "utf8")));
+  assert(posts.length > 0, "markdown parity check has posts to compare");
+  posts.forEach((post) => {
+    eq(
+      main.renderMarkdown(post.content),
+      mdModule.renderMarkdown(post.content),
+      'main.js renders "' + post.title + '" exactly as assets/js/markdown.js does'
+    );
+  });
+  const build = require("./build-site-data.js");
+  assert(
+    build.renderMarkdown === mdModule.renderMarkdown,
+    "the build renders posts through the same module function"
+  );
+})();
+
 // --- formatting a shop owner actually uses.
 eq(
   main.renderMarkdown("First para.\n\nSecond para."),

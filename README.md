@@ -71,13 +71,15 @@ Here is a quick checklist of the external accounts you'll need to set up for lau
   ("Option A", step 6) has the two dashboard settings that stop that, and
   neither can be set from a file in this repo.
 - **Automated Verification**:
-  - `npm test` runs the Node-only unit pool -- 49 non-browser `scripts/*.test.js` suites
-    (51 with verification gates) covering cart and checkout pricing, tax, gift cards,
-    the build-data compiler, the search engine and the CMS auth Worker -- then two further
+  - `npm test` runs the Node-only unit pool -- 51 non-browser `scripts/*.test.js` suites
+    (53 with verification gates) covering cart and checkout pricing, tax, gift cards,
+    the build-data compiler, the journal Markdown renderer, the search engine and the
+    CMS auth Worker -- then two further
     gates: `verify-pdp-metadata.js` (797 assertions on every product page's
     OpenGraph and microdata) and `verify-build-reproducibility.js` (five
     rebuilds, zero diffs). It then runs the static QA gate,
-    `scripts/qa-check.js`, and its 1132 assertions: links, images, JSON-LD,
+    `scripts/qa-check.js`, and its 1157 assertions: links, images, JSON-LD,
+    the per-post journal pages (`journal/<slug>.html`),
     pricing, CSP byte-parity across `_headers` and `netlify.toml`,
     and lockfile hygiene. Both halves always run, and the exit code reflects
     either failing.
@@ -86,8 +88,8 @@ Here is a quick checklist of the external accounts you'll need to set up for lau
     proof) and the Puppeteer
     integration harnesses (27 total integration suites), an XSS/CSP stress harness that first proves the
     policy is being enforced, and an axe-core accessibility gate that allows
-    zero WCAG 2.2 AA violations across all 37 pages (17 top-level plus 20
-    product pages; 74 scans total).
+    zero WCAG 2.2 AA violations across all 39 pages (17 top-level, 20
+    product pages and one page per journal post -- 2 today; 78 scans total).
   - `npm run test:smoke` is the sub-three-second version that runs on every
     push; `npm run test:cross-browser` adds Firefox and WebKit.
 

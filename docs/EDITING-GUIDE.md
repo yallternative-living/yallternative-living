@@ -347,10 +347,11 @@ so it always sends.
 
 #### C. Journal / Blog (Journal)
 1. Click **Journal** in the sidebar to see the list of posts. Click a post to edit it, or **New Post** (top right) to write one.
-2. (The page title and intro line shown above the post list live under **Site Settings → Journal page**.)
-3. Enter the title, date, and a **Short teaser** (1–2 sentences for card previews).
+2. (The page title and intro line shown above the post list live under **Site Settings → Journal page**, along with the three small labels every post page carries: the **← Back to Journal** link and the **Newer post** / **Older post** links at the bottom.)
+3. Enter the title, date, and a **Short teaser** (1–2 sentences for card previews; it is also the description search engines and social cards show for the post).
 4. Write your story in the main content box using the formatting toolbar (bold, italics, headings, bullet lists).
 5. Estimated reading time calculates automatically when published!
+6. **Every post gets its own web page** at `yallternativeliving.com/journal/<slug>.html` -- that is the address the Journal list, the RSS feed, search engines and social cards all use, so it is the one to share. The `<slug>` is made from the title the **first** time you save (lowercase, words joined with dashes, accents dropped: "Why Magnesium & Arnica?" becomes `why-magnesium-arnica`) and it never changes afterwards, even if you retitle the post, so a link you have already shared keeps working. You never type the address yourself. The featured product you pick shows as a card on the post page with a link to that product's own page and a one-click **Add to Cart**.
 
 #### D. Social Media Feed (Social Media Feed)
 1. Click **Social Media Feed**.
@@ -366,7 +367,7 @@ so it always sends.
    - Local Market Pickup
    - Live Event Countdown Ticker
    - Scent Filter
-   - Apothecary Journal Blog (currently **off**: the nav link, the page, the
+   - Apothecary Journal Blog (while it is off, the nav link, the page, the post pages, the
      RSS feed and the search index all stay empty until you switch it on)
    - UGC Social Feed
 4. Also under **Site Settings**, in the **Emails to me** group, is

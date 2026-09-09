@@ -122,9 +122,10 @@ logo_url: /assets/img/logo.png
 # .replace(/^\/+/, "") in scripts/build-site-data.js -- so a CMS-uploaded
 # "/assets/img/x.jpg" can't produce a double-slash "domain.com//assets/img" URL,
 # even though existing hand-entered paths are relative "assets/img/x.jpg".)
-# A Journal post's file name -- made from its title -- IS its public URL, and
-# it cannot change later without breaking links. Strip accents so "Café" gives
-# cafe rather than caf. New posts only; existing files are untouched.
+# A Journal post's file name -- made from its title -- IS its public URL
+# (journal/<slug>.html, built by scripts/build-site-data.js), and it cannot
+# change later without breaking links. Strip accents so "Café" gives cafe
+# rather than caf. New posts only; existing files are untouched.
 slug:
   clean_accents: true
 
@@ -163,7 +164,7 @@ collections:
     label: "Journal"
     label_singular: Post
     icon: article
-    description: "Your blog. Click a post to edit it or 'New Post' to write one; Save publishes to the live site in a few minutes. The blog's on/off switch and page heading live under Site Settings."
+    description: "Your blog. Click a post to edit it or 'New Post' to write one; Save publishes to the live site in a few minutes. Every post gets its own page at yallternativeliving.com/journal/<slug>.html -- the slug is made from the title the first time you save (lowercase, words joined with dashes, accents dropped, so 'Why Magnesium & Arnica?' becomes why-magnesium-arnica) and it never changes afterwards, so a shared link keeps working even if you retitle the post later. The blog's on/off switch, page heading and the Back / Newer / Older labels live under Site Settings."
     folder: assets/data/journal
     extension: json
     format: json
@@ -202,9 +203,10 @@ collections:
       # (bold, italic, links, headings, bullet + numbered lists) with a
       # "raw" tab for anyone who'd rather type. It saves MARKDOWN TEXT
       # into the post's own JSON file, not HTML, which is exactly what the site's
-      # renderMarkdown() in assets/js/main.js renders -- and because
-      # the site escapes everything before formatting it, nothing typed
-      # here can turn into live code on the page.
+      # assets/js/markdown.js renders (the build writes each post's own page
+      # at journal/<slug>.html through it, and journal.html loads the same
+      # file) -- and because the site escapes everything before formatting
+      # it, nothing typed here can turn into live code on the page.
       #   - "markdown" and "richtext" are the same editor in the pinned
       #     Sveltia 0.172.4 (admin/index.html); "markdown" is used here
       #     because it names the format actually stored in the file, and
@@ -2191,7 +2193,7 @@ singletons:
         widget: object
         collapsed: true
         summary: "journal page heading and intro"
-        hint: "The heading and intro line above the list of posts."
+        hint: "The heading and intro line above the list of posts, plus the small links on each post's own page."
         fields:
           - { name: title, label: "Page title", widget: string, hint: "e.g. Apothecary Journal" }
           - {
@@ -2199,6 +2201,29 @@ singletons:
               label: "Intro line",
               widget: text,
               hint: "e.g. Stories, science, and small-batch updates..."
+            }
+          # Each post's own page (journal/<slug>.html) carries these three
+          # labels; the build falls back to the same defaults when blank.
+          - {
+              name: backLabel,
+              label: "Back link on a post",
+              widget: string,
+              required: false,
+              hint: "The link at the top of every post that returns to the list. e.g. ← Back to Journal"
+            }
+          - {
+              name: newerLabel,
+              label: "Newer-post link label",
+              widget: string,
+              required: false,
+              hint: "Shown above the next-newest post's title at the bottom of a post. e.g. Newer post"
+            }
+          - {
+              name: olderLabel,
+              label: "Older-post link label",
+              widget: string,
+              required: false,
+              hint: "Shown above the next-oldest post's title at the bottom of a post. e.g. Older post"
             }
 
       - name: search

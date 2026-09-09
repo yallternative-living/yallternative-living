@@ -231,7 +231,10 @@ window.YL_CONTENT = {
   },
   "journal": {
     "title": "Apothecary Journal",
-    "lede": "Stories, science, and small-batch updates straight from the kitchen."
+    "lede": "Stories, science, and small-batch updates straight from the kitchen.",
+    "backLabel": "← Back to Journal",
+    "newerLabel": "Newer post",
+    "olderLabel": "Older post"
   },
   "search": {
     "chipsTitle": "Popular Searches",

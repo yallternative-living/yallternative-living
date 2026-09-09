@@ -78,6 +78,25 @@ var PAGES = [
   "safety.html"
 ];
 
+/* The generated pages: one products/<id>.html per product and one
+   journal/<slug>.html per published post. Both directories are built by
+   build-site-data.js and both are shipped, so every check that walks the
+   top-level pages walks these too. Returns "<sub>/<file>" strings; the
+   journal directory is absent while the Journal is switched off. */
+function generatedPages(sub) {
+  var dir = path.join(ROOT, sub);
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter(function (f) {
+      return /\.html$/.test(f);
+    })
+    .sort()
+    .map(function (f) {
+      return sub + "/" + f;
+    });
+}
+
 var failures = [];
 var passCount = 0;
 
@@ -952,16 +971,7 @@ try {
   var shippedPages = fs.readdirSync(ROOT).filter(function (f) {
     return /\.html$/.test(f);
   });
-  var productPagesForRedirects = fs.existsSync(path.join(ROOT, "products"))
-    ? fs.readdirSync(path.join(ROOT, "products")).filter(function (f) {
-        return /\.html$/.test(f);
-      })
-    : [];
-  shippedPages = shippedPages.concat(
-    productPagesForRedirects.map(function (f) {
-      return "products/" + f;
-    })
-  );
+  shippedPages = shippedPages.concat(generatedPages("products"), generatedPages("journal"));
   /* index.html's canonical is the extensionless "/" (nothing to redirect to),
      safety.html keeps its printed-on-the-packaging status=200 rewrite, and
      404.html is asserted separately below with status 404. */
@@ -1022,17 +1032,7 @@ try {
 /* ---------- 10c) brand link + nav label are serializer-proof (C1, N3) ----- */
 section("Header chrome: entity-escaped brand label + named nav landmark");
 (function () {
-  var chromePages = PAGES.slice();
-  var productsDirForChrome = path.join(ROOT, "products");
-  if (fs.existsSync(productsDirForChrome)) {
-    fs.readdirSync(productsDirForChrome)
-      .filter(function (f) {
-        return /\.html$/.test(f);
-      })
-      .forEach(function (f) {
-        chromePages.push("products/" + f);
-      });
-  }
+  var chromePages = PAGES.concat(generatedPages("products"), generatedPages("journal"));
   if (chromePages.length < 30) {
     fail(
       "header-chrome check has almost nothing to scan",
@@ -3262,17 +3262,11 @@ try {
     fail("sw.js caching", "missing '/assets/js/search-data.js' in cache asset list");
   }
 
-  var allPagesToVerify = PAGES.map(function (p) {
-    return path.join(ROOT, p);
-  });
-  var productsDir = path.join(ROOT, "products");
-  if (fs.existsSync(productsDir)) {
-    fs.readdirSync(productsDir).forEach(function (f) {
-      if (f.endsWith(".html")) {
-        allPagesToVerify.push(path.join(productsDir, f));
-      }
-    });
-  }
+  var allPagesToVerify = PAGES.concat(generatedPages("products"), generatedPages("journal")).map(
+    function (p) {
+      return path.join(ROOT, p);
+    }
+  );
 
   var missingTriggers = [];
   var missingModals = [];
@@ -3665,6 +3659,252 @@ try {
 } catch (e) {
   fail("Structured data QA check failed", e.message);
 }
+
+/* ---------- Journal post pages: journal/<slug>.html ----------
+   A post used to exist only as journal.html#post-<slug>, one URL for a crawler
+   however many posts were written. build-site-data.js now writes one static
+   page per published post; this section asserts each is indexable,
+   self-canonical, redirect-free and carries parseable BlogPosting +
+   BreadcrumbList JSON-LD whose main entity is the page itself, that every
+   place a post is advertised (journal.html's Blog JSON-LD, feed.xml,
+   sitemap.xml, llms.txt) points at that page, and -- with the Journal
+   switched off -- that no page is left behind. */
+section("Journal post pages (one indexable page per post)");
+(function checkJournalPostPages() {
+  var contentJson;
+  try {
+    contentJson = JSON.parse(fs.readFileSync(path.join(ROOT, "assets/data/content.json"), "utf8"));
+  } catch (e) {
+    fail("content.json", "unreadable: " + e.message);
+    return;
+  }
+  var journalOn = !!(contentJson.site || {}).enableJournal;
+  var postsDir = path.join(ROOT, "assets/data/journal");
+  var postIds = fs.existsSync(postsDir)
+    ? fs
+        .readdirSync(postsDir)
+        .filter(function (f) {
+          return /\.json$/.test(f);
+        })
+        .map(function (f) {
+          return f.replace(/\.json$/, "");
+        })
+        .sort()
+    : [];
+  var pageFiles = generatedPages("journal").map(function (p) {
+    return p.replace(/^journal\//, "");
+  });
+
+  if (!journalOn) {
+    if (pageFiles.length === 0) {
+      ok("journal is switched off and journal/ holds no post pages");
+    } else {
+      fail(
+        "journal is switched off but " + pageFiles.length + " journal/*.html page(s) remain",
+        pageFiles.join(", ") + " -- re-run npm run build-data"
+      );
+    }
+    return;
+  }
+
+  if (!postIds.length) {
+    fail("journal post pages have no subject", "assets/data/journal/ holds no posts");
+    return;
+  }
+  var stale = pageFiles.filter(function (f) {
+    return postIds.indexOf(f.replace(/\.html$/, "")) === -1;
+  });
+  if (stale.length) {
+    fail("stale journal page(s) not backed by a post", stale.join(", "));
+  } else {
+    ok("journal/ holds no page without a post behind it");
+  }
+
+  var journalHtml = fs.readFileSync(path.join(ROOT, "journal.html"), "utf8");
+  var feedXml = fs.existsSync(path.join(ROOT, "feed.xml"))
+    ? fs.readFileSync(path.join(ROOT, "feed.xml"), "utf8")
+    : "";
+  var sitemapXml = fs.readFileSync(path.join(ROOT, "sitemap.xml"), "utf8");
+  var llmsTxt = fs.readFileSync(path.join(ROOT, "llms.txt"), "utf8");
+  var blogLd = null;
+  (journalHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g) || []).forEach(
+    function (b) {
+      try {
+        var parsed = JSON.parse(
+          b
+            .replace(/^<script[^>]*>/, "")
+            .replace(/<\/script>$/, "")
+            .trim()
+        );
+        if (parsed["@type"] === "Blog") blogLd = parsed;
+      } catch (e) {
+        /* reported by the JSON-LD parse check elsewhere */
+      }
+    }
+  );
+  var blogPostUrls = ((blogLd && blogLd.blogPost) || []).map(function (n) {
+    return n && n.url;
+  });
+
+  postIds.forEach(function (id) {
+    var rel = "journal/" + id + ".html";
+    var full = path.join(ROOT, rel);
+    var url = "https://yallternativeliving.com/" + rel;
+    if (!fs.existsSync(full)) {
+      fail("journal page missing for " + id, rel + " does not exist -- run npm run build-data");
+      return;
+    }
+    var html = fs.readFileSync(full, "utf8");
+    var post;
+    try {
+      post = JSON.parse(fs.readFileSync(path.join(postsDir, id + ".json"), "utf8"));
+    } catch (e) {
+      fail(id + ": post JSON unreadable", e.message);
+      return;
+    }
+
+    if (/<meta name="robots" content="[^"]*noindex/.test(html)) {
+      fail(id + ": journal page must not be noindex", "the page is the post's canonical home");
+    } else if (html.indexOf("window.location.replace") !== -1) {
+      fail(id + ": journal page must not redirect on load", "it is the destination");
+    } else {
+      ok(id + ": journal page is indexable and does not redirect");
+    }
+
+    if (html.indexOf('<link rel="canonical" href="' + url + '">') !== -1) {
+      ok(id + ": canonical points at itself");
+    } else {
+      fail(
+        id + ": canonical must point at " + url,
+        (html.match(/<link rel="canonical"[^>]*>/) || ["no canonical at all"])[0]
+      );
+    }
+
+    var titleMatch = /<title>([^<]*)<\/title>/.exec(html);
+    var descMatch = /<meta name="description" content="([^"]*)">/.exec(html);
+    if (titleMatch && titleMatch[1].trim() && descMatch && descMatch[1].trim()) {
+      ok(id + ": has its own <title> and meta description");
+    } else {
+      fail(id + ": missing <title> or meta description", rel);
+    }
+
+    var ogImage = (/<meta property="og:image" content="([^"]*)">/.exec(html) || [])[1] || "";
+    var ogPath = ogImage.replace(/^https:\/\/yallternativeliving\.com\//, "");
+    if (ogImage && fs.existsSync(path.join(ROOT, ogPath))) {
+      ok(id + ": og:image exists on disk (" + ogPath + ")");
+    } else {
+      fail(id + ": og:image missing or not on disk", ogImage || "no og:image tag");
+    }
+
+    var blocks = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g) || [];
+    var lds = [];
+    blocks.forEach(function (b) {
+      try {
+        lds.push(
+          JSON.parse(
+            b
+              .replace(/^<script[^>]*>/, "")
+              .replace(/<\/script>$/, "")
+              .trim()
+          )
+        );
+      } catch (err) {
+        fail(id + ": journal page JSON-LD block does not parse", err.message);
+      }
+    });
+    var posting = lds.find(function (ld) {
+      return ld["@type"] === "BlogPosting";
+    });
+    var crumbs = lds.find(function (ld) {
+      return ld["@type"] === "BreadcrumbList";
+    });
+    var mainEntity = posting && posting.mainEntityOfPage;
+    var mainEntityId =
+      mainEntity && (typeof mainEntity === "string" ? mainEntity : mainEntity["@id"]);
+    if (
+      posting &&
+      posting.url === url &&
+      mainEntityId === url &&
+      posting.headline === post.title &&
+      posting.datePublished === post.date
+    ) {
+      ok(id + ": BlogPosting JSON-LD names the page as its main entity");
+    } else {
+      fail(
+        id + ": BlogPosting JSON-LD incomplete",
+        JSON.stringify({
+          found: !!posting,
+          url: posting && posting.url,
+          mainEntityOfPage: mainEntityId,
+          headline: posting && posting.headline
+        })
+      );
+    }
+    var crumbItems = (crumbs && crumbs.itemListElement) || [];
+    if (
+      crumbItems.length === 3 &&
+      crumbItems[1].item === "https://yallternativeliving.com/journal.html" &&
+      crumbItems[2].item === url
+    ) {
+      ok(id + ": BreadcrumbList is Home > Journal > post");
+    } else {
+      fail(id + ": BreadcrumbList must be Home > Journal > post", JSON.stringify(crumbItems));
+    }
+
+    // The page must escape what it prints: a raw "<script" in the body that
+    // is not one of the page's own tags means CMS text became markup.
+    var bodyPart = html.slice(html.indexOf("<body"));
+    var scriptTags = bodyPart.match(/<script/g) || [];
+    var ownScripts = bodyPart.match(/<script (src="\/assets\/js\/|type="text\/javascript")/g) || [];
+    if (scriptTags.length === ownScripts.length) {
+      ok(id + ": every <script> in the body is one of the page's own");
+    } else {
+      fail(
+        id + ": unexpected <script> in the page body",
+        scriptTags.length + " found, " + ownScripts.length + " expected"
+      );
+    }
+
+    if (html.indexOf('href="/journal.html"') !== -1) {
+      ok(id + ": links back to journal.html");
+    } else {
+      fail(id + ": has no link back to journal.html", "Back link / breadcrumb missing");
+    }
+
+    if (blogPostUrls.indexOf(url) !== -1) {
+      ok(id + ": journal.html Blog JSON-LD lists the page");
+    } else {
+      fail(id + ": journal.html Blog JSON-LD does not list " + url, JSON.stringify(blogPostUrls));
+    }
+    if (feedXml.indexOf("<link>" + url + "</link>") !== -1) {
+      ok(id + ": feed.xml item links to the page");
+    } else {
+      fail(id + ": feed.xml item does not link to " + url, "re-run npm run build-data");
+    }
+    var smRe = new RegExp(
+      "<loc>" + url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "</loc>\\s*<lastmod>([^<]*)</lastmod>"
+    );
+    var sm = smRe.exec(sitemapXml);
+    if (sm && sm[1] === String(post.date).slice(0, 10)) {
+      ok(id + ": sitemap.xml lists the page with lastmod = post date");
+    } else {
+      fail(
+        id + ": sitemap.xml entry missing or lastmod is not the post date",
+        sm ? sm[1] : "no <loc> for " + url
+      );
+    }
+    if (llmsTxt.indexOf("](" + url + ")") !== -1) {
+      ok(id + ": llms.txt links to the page");
+    } else {
+      fail(id + ": llms.txt does not link to " + url, "re-run npm run build-data");
+    }
+    if (journalHtml.indexOf("#post-" + id) === -1 && html.indexOf("#post-" + id) === -1) {
+      ok(id + ": no fragment (#post-) address is emitted for the post");
+    } else {
+      fail(id + ": a journal.html#post- fragment URL is still emitted", "use the static page URL");
+    }
+  });
+})();
 
 /* ---------- Complete the Ritual Smart Cross-Sells (R2) ---------- */
 section("Complete the Ritual Smart Cross-Sells (R2)");
@@ -4360,13 +4600,7 @@ section("CSP baseline vs shipped pages (every inline script hash must be in _hea
     headersText.split("\n").filter(function (l) {
       return /^\s*Content-Security-Policy:/.test(l);
     })[0] || "";
-  var pageList = PAGES.slice();
-  var productsDir = path.join(ROOT, "products");
-  if (fs.existsSync(productsDir)) {
-    fs.readdirSync(productsDir).forEach(function (f) {
-      if (f.endsWith(".html")) pageList.push("products/" + f);
-    });
-  }
+  var pageList = PAGES.concat(generatedPages("products"), generatedPages("journal"));
   var missing = [];
   var scanned = 0;
   pageList.forEach(function (page) {
@@ -4728,13 +4962,7 @@ section("Report a Reaction page (safety.html) -- MoCRA adverse-event intake");
      only. Checked on every top-level page and every generated product page;
      the source lives in the page files, assets/data/footer.html, main.js and
      build-site-data.js, so a miss here means one of those regressed. */
-  var relPages = PAGES.slice();
-  var relProductsDir = path.join(ROOT, "products");
-  if (fs.existsSync(relProductsDir)) {
-    fs.readdirSync(relProductsDir).forEach(function (f) {
-      if (/\.html$/.test(f)) relPages.push("products/" + f);
-    });
-  }
+  var relPages = PAGES.concat(generatedPages("products"), generatedPages("journal"));
   var blankAnchors = 0;
   var relMisses = [];
   relPages.forEach(function (rel) {
@@ -4842,7 +5070,7 @@ section("journal gate matches the emitted redirect rules");
     fail("content.json", "unreadable: " + e.message);
     return;
   }
-  ["/journal.html", "/feed.xml"].forEach(function (p404) {
+  ["/journal.html", "/feed.xml", "/journal/*"].forEach(function (p404) {
     var blocked = toml.indexOf('from = "' + p404 + '"') !== -1;
     if (enabled && blocked) {
       fail(
@@ -4916,18 +5144,7 @@ section("SERP-safe titles and meta descriptions");
 (function checkSerpText() {
   var TITLE_MAX = 60;
   var DESC_MAX = 155;
-  var serpPages = PAGES.slice();
-  var productDir = path.join(ROOT, "products");
-  if (fs.existsSync(productDir)) {
-    fs.readdirSync(productDir)
-      .filter(function (f) {
-        return f.endsWith(".html");
-      })
-      .sort()
-      .forEach(function (f) {
-        serpPages.push("products/" + f);
-      });
-  }
+  var serpPages = PAGES.concat(generatedPages("products"), generatedPages("journal"));
   var decode = function (str) {
     return String(str)
       .replace(/&#39;/g, "'")
@@ -5198,17 +5415,11 @@ section("Milestone 4: Self-Hosted Localization Suite & Static QA Invariants");
      These assertions are the inverse of the ones they replace, and they are
      written so an absent subject fails: the page list is asserted non-empty
      before anything is asserted over it. */
-  var allHtmlPages = PAGES.map(function (p) {
-    return path.join(ROOT, p);
-  });
-  var productsDir = path.join(ROOT, "products");
-  if (fs.existsSync(productsDir)) {
-    fs.readdirSync(productsDir).forEach(function (f) {
-      if (f.endsWith(".html")) {
-        allHtmlPages.push(path.join(productsDir, f));
-      }
-    });
-  }
+  var allHtmlPages = PAGES.concat(generatedPages("products"), generatedPages("journal")).map(
+    function (p) {
+      return path.join(ROOT, p);
+    }
+  );
 
   if (allHtmlPages.length >= 30) {
     ok("hreflang scan has " + allHtmlPages.length + " HTML pages to examine");

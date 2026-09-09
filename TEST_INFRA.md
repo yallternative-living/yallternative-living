@@ -844,7 +844,7 @@ byte. The repo was not modified.
 - `--dry-run` on the same head returned the 3 deterministic findings and 0
   model findings, with the report stating the second read-through did not run.
 
-`npm test` (48 suites), `npm run lint` and `npm run format:check` were verified
+`npm test` (51 suites), `npm run lint` and `npm run format:check` were verified
 green in a clean worktree at HEAD with these files added.
 
 ## What this one does NOT do

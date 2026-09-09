@@ -609,11 +609,14 @@ function section(title) {
     let jsonLdBlockCount = 0;
     const allHtmlPages = [...TOP_PAGES];
 
-    const productsDir = path.join(ROOT, "products");
-    if (fs.existsSync(productsDir)) {
-      const pFiles = fs.readdirSync(productsDir).filter((f) => f.endsWith(".html"));
-      pFiles.forEach((pf) => allHtmlPages.push(path.join("products", pf)));
-    }
+    // Generated pages: products/<id>.html and journal/<slug>.html.
+    ["products", "journal"].forEach((sub) => {
+      const dir = path.join(ROOT, sub);
+      if (!fs.existsSync(dir)) return;
+      fs.readdirSync(dir)
+        .filter((f) => f.endsWith(".html"))
+        .forEach((f) => allHtmlPages.push(path.join(sub, f)));
+    });
 
     allHtmlPages.forEach((relPage) => {
       const fullPath = path.join(ROOT, relPage);
