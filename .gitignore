@@ -13,8 +13,14 @@ node_modules
 .vercel/
 .netlify/
 
-# Claude Code harness state: worktrees, transcripts and a second package-lock
-.claude/
+# Claude Code harness state: worktrees, transcripts and a second package-lock.
+# Everything directly under .claude/ is local state and stays out -- except
+# .claude/skills/, which is shared guidance committed on purpose (an agent
+# reads it from the branch, so an ignored copy would never be seen). The
+# negation needs `.claude/*` rather than `.claude/`: git does not descend
+# into an excluded directory, so a rule inside one can never re-include.
+.claude/*
+!.claude/skills/
 
 # OS cruft
 .DS_Store
