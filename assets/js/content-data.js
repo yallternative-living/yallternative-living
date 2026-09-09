@@ -54,6 +54,7 @@ window.YL_CONTENT = {
     "enableJournal": true,
     "enableSocialFeed": false,
     "enableRestockAlerts": true,
+    "showLiveStock": true,
     "enableCustomBoxBuilder": true,
     "enableScentFilter": true,
     "enableIngredientsModal": true,

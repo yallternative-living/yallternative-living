@@ -457,9 +457,14 @@ singletons:
             min: 0
             required: false
             hint: >-
-              Blank = unlimited or made to order. 0 shows 'Sold Out' and
-              blocks checkout; 1–5 shows an 'Only 3 left' badge. This
-              doesn't sync with Etsy — update it by hand.
+              Blank = unlimited or made to order. This is where you SET the
+              count — the site counts it down by itself as orders are paid,
+              so 10 here that sells 3 shows 7 on the shop with no edit from
+              you. Saving a new number here resets the live count to that
+              number, so only retype it when you've actually recounted the
+              shelf. 0 shows 'Sold Out' and blocks checkout; 1–5 shows an
+              'Only 3 left' badge. This doesn't sync with Etsy — update it
+              by hand.
           - name: inStock
             label: "In stock"
             widget: boolean
@@ -1375,6 +1380,14 @@ singletons:
               default: true,
               required: false,
               hint: "Adds an 'email me when it launches' sign-up to Coming Soon products."
+            }
+          - {
+              name: showLiveStock,
+              label: "Shop · Show live stock counts",
+              widget: boolean,
+              default: true,
+              required: false,
+              hint: "For products with a Stock count, the shop asks the checkout for the live number (what's left after paid orders) and shows 'Only 3 left' and 'Sold Out' from it. Off, the shop only shows the count as it was at the last publish."
             }
           - {
               name: enableLoyaltyPoints,

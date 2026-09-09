@@ -207,6 +207,13 @@ import {
   handleWelcomeCode
 } from "./routes/retention.js";
 import { giftCardLedger, LedgerError } from "./state/gift-card-ledger.js";
+import {
+  availabilityForCheckout,
+  handleInventory,
+  holdsFromAllocation,
+  reserveForCheckout,
+  unwindRefusedSession
+} from "./routes/inventory.js";
 
 const GIFT_CARD_ID = "yallternative-gift-card";
 const GIFT_CARD_MIN = 10;
@@ -847,11 +854,15 @@ function hasTrackedStock(entry) {
  * @returns {Array<{qty: number, exhausted: (string|null)}>} one entry per
  *   cart line; `exhausted` names the product that ran out when qty is 0.
  */
-function allocateStock(items, catalog) {
+function allocateStock(items, catalog, availability) {
   const remaining = new Map();
   const productMap = productMapOf(catalog);
-  const left = (entry) =>
-    remaining.has(entry.id) ? remaining.get(entry.id) : Math.max(0, Math.floor(entry.stock));
+  // The ledger's live count where it has one (routes/inventory.js), else the
+  // catalog's own `stock` -- the pre-ledger behaviour, and the fail-open one.
+  const live = availability instanceof Map ? availability : null;
+  const opening = (entry) =>
+    live && live.has(entry.id) ? live.get(entry.id) : Math.max(0, Math.floor(entry.stock));
+  const left = (entry) => (remaining.has(entry.id) ? remaining.get(entry.id) : opening(entry));
   const take = (entry, wanted) => {
     if (!hasTrackedStock(entry)) return wanted;
     const got = Math.min(wanted, left(entry));
@@ -881,12 +892,22 @@ function allocateStock(items, catalog) {
       }
       qty = Math.max(0, qty);
       for (const { member, units } of perBox.values()) take(member, qty * units);
-      return { qty, exhausted };
+      // `holds`: the tracked units one box takes, so the inventory ledger can
+      // hold qty * units of each once the Stripe session exists.
+      const holds = [...perBox.values()].map(({ member, units }) => ({
+        productId: member.id,
+        name: member.name || member.id,
+        units
+      }));
+      return { qty, exhausted, holds };
     }
     const entry = findEntry(catalog, String(item && item.id));
-    if (!entry) return { qty: wanted, exhausted: null };
+    if (!entry) return { qty: wanted, exhausted: null, holds: [] };
     const qty = take(entry, wanted);
-    return { qty, exhausted: qty <= 0 && hasTrackedStock(entry) ? entry.id : null };
+    const holds = hasTrackedStock(entry)
+      ? [{ productId: entry.id, name: entry.name || entry.id, units: 1 }]
+      : [];
+    return { qty, exhausted: qty <= 0 && hasTrackedStock(entry) ? entry.id : null, holds };
   });
 }
 
@@ -1228,6 +1249,10 @@ const ROUTES = {
   // that page must never produce.
   "/safety-report": handleSafetyReport,
   "/gift-note": handleGiftNote,
+  // Live stock for tracked products (routes/inventory.js). GET, like the
+  // gift note; the shop reads it once per page load and falls back to the
+  // static catalog when it does not answer.
+  "/inventory": handleInventory,
   "/market-alerts": handleMarketAlerts,
   // Retention (workers/routes/retention.js). Every one of these needs STATE_DB
   // and answers 503 without it rather than pretending to have stored anything.
@@ -1342,7 +1367,11 @@ async function handleCheckout(request, env, ctx, origin) {
 
       // What each line can actually ship, allocated across the cart in
       // order -- the ONE count both the volume tiers and the line items use.
-      const allocation = allocateStock(items, catalog);
+      // The count is the inventory ledger's live one where it has it
+      // (routes/inventory.js; null when the ledger cannot answer, and then
+      // the catalog's own `stock` caps exactly as it did before the ledger).
+      const availability = await availabilityForCheckout(env, catalog);
+      const allocation = allocateStock(items, catalog, availability);
 
       const volumeRules = getVolumePricingRules(catalog);
       const ruleCounts = new Map();
@@ -2014,6 +2043,25 @@ async function handleCheckout(request, env, ctx, origin) {
         throw new Error("Stripe rejected the checkout session");
       }
 
+      // Hold the tracked units against the session that now exists, BEFORE
+      // the gift-card hold below so a refusal here has only the session and
+      // the coupon to unwind. From here on the webhook is what lets the units
+      // go again: commit on payment, release on expiry, and the hourly stale-
+      // hold sweep as a backstop (routes/inventory.js). A refusal means
+      // another checkout took the last units while this one was being built;
+      // the drawer drops the named line on this 400 (cart.js, `unavailable`).
+      {
+        const held = await reserveForCheckout(
+          env,
+          session.id,
+          holdsFromAllocation(items, allocation, CUSTOM_BOX_ID)
+        );
+        if (!held.ok) {
+          await unwindRefusedSession(env, session.id, appliedGiftCardCouponId);
+          throw new ClientError(`Sold out: ${held.name}`, 400, unavailableDetails(held.refusal));
+        }
+      }
+
       // Take the hold LAST, against the session that now exists. Everything up
       // to here can fail without moving money; from here on, the money is held
       // and the webhook (commit on payment, release on expiry, and the ledger's
@@ -2137,6 +2185,16 @@ export default {
         return json({ error: "Something went wrong." }, 500, origin, env);
       }
     }
+    // The other GET: live stock counts (routes/inventory.js). Public and
+    // read-only, so the origin check below is not needed for it either.
+    if (route === "/inventory" && request.method === "GET") {
+      try {
+        return await handleInventory(request, env, origin, ctx);
+      } catch (err) {
+        console.error("inventory failed:", err && err.stack ? err.stack : err);
+        return json({ error: "Live stock is unavailable." }, 503, origin, env);
+      }
+    }
     if (request.method !== "POST") {
       return json({ error: "Method Not Allowed" }, 405, origin, env);
     }
@@ -2209,6 +2267,13 @@ export default {
             async () => (await import("./state/order-emails.js")).sweepOrderEmails(env.STATE_DB)
           ],
           ["email-queue sweep", () => retention.sweepEmailQueue(env.STATE_DB)],
+          /* Inventory holds whose Stripe session died without the expiry
+             webhook arriving: released after 25h so a lost event cannot keep
+             the last unit off the shelf (workers/state/inventory.js). */
+          [
+            "inventory hold sweep",
+            async () => (await import("./state/inventory.js")).sweepStaleHolds(env.STATE_DB)
+          ],
           /* The ship notice's real trigger: Stripe fires no event for a
              metadata edit on a PaymentIntent, so the hourly tick looks for
              orders marked shipped instead (routes/ship-notice.js). */

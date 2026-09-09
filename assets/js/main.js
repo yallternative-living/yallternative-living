@@ -1817,9 +1817,140 @@
     }
     if (typeof p.stock !== "number") return saleBadge;
     if (p.stock === 0) return '<span class="stock-badge sold-out">Sold out</span>';
-    if (p.stock <= LOW_STOCK_THRESHOLD)
-      return saleBadge + '<span class="stock-badge low-stock">Only ' + p.stock + " left</span>";
+    if (p.stock <= LOW_STOCK_THRESHOLD) return saleBadge + lowStockBadgeHTML(p.stock);
     return saleBadge;
+  }
+
+  function lowStockBadgeHTML(n) {
+    return '<span class="stock-badge low-stock">Only ' + n + " left</span>";
+  }
+
+  /* ---------- Live stock (GET /api/inventory) ----------
+     The CMS "Stock count" is where Savanna SETS a count; the checkout Worker
+     counts it down as orders are paid (workers/state/inventory.js) and
+     answers the live number here, for tracked products only. The static
+     catalog renders first and stays as it is when this fetch fails, is
+     switched off in the CMS (Site settings -> Shop -> Show live stock), or
+     the page is opened off disk -- a live number can only ever replace a
+     count the CMS already tracks, never invent one. */
+  var LIVE_INVENTORY_URL = "/api/inventory";
+
+  /**
+   * Patches the live `available` counts over the static `stock` of every
+   * tracked product in `products` (in place, so every later render reads the
+   * live number). Returns the ids whose count actually changed.
+   */
+  function applyLiveInventory(payload, products) {
+    var live = payload && payload.products;
+    var changed = [];
+    if (!live || typeof live !== "object" || !Array.isArray(products)) return changed;
+    products.forEach(function (p) {
+      if (!p || !p.id || typeof p.stock !== "number") return;
+      var row = live[p.id];
+      if (!row || row.tracked !== true) return;
+      var n = Number(row.available);
+      if (!isFinite(n) || n < 0) return;
+      n = Math.floor(n);
+      if (p.stock === n) return;
+      p.stock = n;
+      changed.push(p.id);
+    });
+    return changed;
+  }
+
+  function liveStockEnabled() {
+    var siteCfg = (window.YL_CONTENT && window.YL_CONTENT.site) || {};
+    if (siteCfg.showLiveStock === false) return false;
+    if (typeof fetch !== "function") return false;
+    if (window.location && window.location.protocol === "file:") return false;
+    return true;
+  }
+
+  /** One fetch per page load; `onChanged(ids)` only when a count moved. */
+  function fetchLiveInventory(products, onChanged) {
+    if (!liveStockEnabled()) return;
+    fetch(LIVE_INVENTORY_URL, { headers: { Accept: "application/json" }, cache: "no-store" })
+      .then(function (res) {
+        return res && res.ok ? res.json() : null;
+      })
+      .then(function (payload) {
+        if (!payload) return;
+        var changed = applyLiveInventory(payload, products);
+        if (changed.length && typeof onChanged === "function") onChanged(changed);
+      })
+      .catch(function () {
+        /* The static catalog stands. */
+      });
+  }
+
+  /* Re-renders just the cards whose count moved, in place, so filters,
+     sort and scroll position are untouched. A card already revealed keeps
+     its `in` class, so nothing painted is hidden again (the reveal gate's
+     one rule). */
+  function refreshLiveCards(ids) {
+    var map = getProductMap();
+    ids.forEach(function (id) {
+      var p = map.get(id);
+      if (!p) return;
+      var cards = document.querySelectorAll('article.card[data-id="' + attrEsc(id) + '"]');
+      Array.prototype.forEach.call(cards, function (old) {
+        var holder = document.createElement("div");
+        holder.innerHTML = cardHTML(p, { eager: true });
+        var fresh = holder.firstElementChild;
+        if (!fresh || !old.parentNode) return;
+        if (old.classList.contains("in")) fresh.classList.add("in");
+        old.parentNode.replaceChild(fresh, old);
+      });
+    });
+  }
+
+  /* The PDP is static markup: patch its two Add to Cart buttons and the
+     quantity cap from the live count. Sold out swaps the buttons for the
+     same inert button build-site-data.js renders when the CMS says 0. */
+  function applyLiveStockToPdp(p) {
+    if (!p || typeof p.stock !== "number") return;
+    var buttons = document.querySelectorAll("#pdpAddToCart, .pdp-sticky-add-btn.yl-add-item");
+    var qtyInput = document.getElementById("pdpQty");
+    var actions = document.querySelector(".pdp-actions");
+    if (p.stock <= 0) {
+      Array.prototype.forEach.call(buttons, function (btn) {
+        var inert = document.createElement("button");
+        inert.type = "button";
+        inert.className = btn.className
+          .replace(/\byl-add-item\b/, "")
+          .replace(/\s+/g, " ")
+          .trim();
+        inert.disabled = true;
+        inert.setAttribute("aria-disabled", "true");
+        inert.textContent = "Sold Out";
+        btn.parentNode.replaceChild(inert, btn);
+      });
+      if (qtyInput) qtyInput.disabled = true;
+    } else {
+      var cap = Math.min(p.stock, 10);
+      Array.prototype.forEach.call(buttons, function (btn) {
+        btn.setAttribute("data-item-max-quantity", String(cap));
+      });
+      if (qtyInput) {
+        qtyInput.setAttribute("max", String(cap));
+        if (parseInt(qtyInput.value, 10) > cap) qtyInput.value = String(cap);
+      }
+    }
+    if (actions) {
+      var badge = actions.querySelector(".pdp-live-stock");
+      var html =
+        p.stock <= 0
+          ? '<span class="stock-badge sold-out">Sold out</span>'
+          : p.stock <= LOW_STOCK_THRESHOLD
+            ? lowStockBadgeHTML(p.stock)
+            : "";
+      if (!badge && html) {
+        badge = document.createElement("div");
+        badge.className = "pdp-live-stock";
+        actions.parentNode.insertBefore(badge, actions);
+      }
+      if (badge) badge.innerHTML = html;
+    }
   }
 
   /* Price with an honest markdown: when a category sale is active
@@ -3537,12 +3668,9 @@
       renderBundles(data);
       handlePickupMarketDeepLink();
 
-      // A live-inventory overlay used to fetch real-time stock levels from
-      // Snipcart's product API here (/.netlify/functions/inventory) and
-      // patch them over the static products.json numbers. That endpoint
-      // went away with Snipcart -- stock is now whatever's set on each
-      // product in assets/data/products.json (editable via the Sveltia CMS
-      // at /admin), refreshed on every deploy like the rest of the catalog.
+      // The static cards are painted; now the live count, once. Only the
+      // cards whose number moved are re-rendered (see fetchLiveInventory).
+      fetchLiveInventory(data.products, refreshLiveCards);
     } else {
       console.warn("Product data (assets/js/products-data.js) did not load.");
     }
@@ -11729,6 +11857,18 @@
   }
   initPdpPage();
 
+  /* The PDP's live count: the page's own product, found by its add button. */
+  (function () {
+    if (typeof document === "undefined" || !document.querySelector(".pdp-layout")) return;
+    var addBtn = document.getElementById("pdpAddToCart");
+    var pdpId = addBtn && addBtn.getAttribute("data-item-id");
+    var products = (window.YL_PRODUCTS && window.YL_PRODUCTS.products) || [];
+    if (!pdpId || !products.length) return;
+    fetchLiveInventory(products, function () {
+      applyLiveStockToPdp(getProductMap().get(pdpId));
+    });
+  })();
+
   initRecentlyViewed();
   initPdpRitualSection();
   initPdpStickyBar();
@@ -11813,6 +11953,9 @@
       addToCartHTML: addToCartHTML,
       variantSelectHTML: variantSelectHTML,
       stockBadgeHTML: stockBadgeHTML,
+      lowStockBadgeHTML: lowStockBadgeHTML,
+      applyLiveInventory: applyLiveInventory,
+      LIVE_INVENTORY_URL: LIVE_INVENTORY_URL,
       getMatchingVolumeRule: getMatchingVolumeRule,
       priceHTML: priceHTML,
       applyTheme: applyTheme,

@@ -1568,6 +1568,12 @@ section {
 
 /* Only ever rendered when Savanna has set a real p.stock number -- see
    stockBadgeHTML() in main.js. Never a fabricated urgency claim. */
+/* The product page's live-stock line (main.js applyLiveStockToPdp), inserted
+   above the Add to Cart row only when the live count is low or gone. */
+.pdp-live-stock {
+  margin-bottom: 0.75rem;
+}
+
 .stock-badge {
   display: inline-block;
   font-size: 0.72rem;

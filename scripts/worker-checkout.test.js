@@ -2290,6 +2290,81 @@ async function runWorkerCheckoutTests() {
     eq(open.status, 200, "with no limiter backend, checkout fails open");
   }
 
+  /* ---- The inventory ledger sits between the catalog and the cart ---------
+     With STATE_DB bound, the tracked `stock` in products.json is only the
+     SEED: what the ledger has left after earlier sessions' holds is what
+     caps this cart, and the session that goes through holds its units. The
+     full state machine is scripts/worker-inventory.test.js; this is the
+     seam in the checkout flow. Every test above ran WITHOUT STATE_DB and
+     is the fail-open behaviour the ledger must leave intact. */
+  {
+    const { DatabaseSync } = require("node:sqlite");
+    const { makeD1 } = require("./lib/d1-emulator.js");
+    const { applyMigrations, resetSchemaMemo } = await import("../workers/state/migrations.js");
+    const { holdRows, resetInventoryMemo } = await import("../workers/state/inventory.js");
+    resetSchemaMemo();
+    resetInventoryMemo();
+    const db = makeD1(new DatabaseSync(":memory:"));
+    await applyMigrations(db);
+    const first = await executeCheckout(
+      { items: [{ id: "last-three-balm", qty: 2 }] },
+      {
+        env: { STATE_DB: db }
+      }
+    );
+    eq(first.status, 200, "ledger bound: a cart within the count checks out");
+    eq(
+      (await holdRows(db, "cs_test_mock_session")).map((r) => [r.product_id, r.qty, r.state]),
+      [["last-three-balm", 2, "active"]],
+      "...and the session holds the 2 units it will sell"
+    );
+    // The same mock session id is what Stripe answers every time here, so
+    // release it as the expiry webhook would before the next cart.
+    const { releaseInventory } = await import("../workers/state/inventory.js");
+    await releaseInventory(db, "cs_test_mock_session");
+    await db.prepare("DELETE FROM inventory_holds").run();
+    await db
+      .prepare(
+        "UPDATE inventory SET on_hand = 1, reserved = 0 WHERE product_id = 'last-three-balm'"
+      )
+      .run();
+    const capped = await executeCheckout(
+      { items: [{ id: "last-three-balm", qty: 3 }] },
+      {
+        env: { STATE_DB: db }
+      }
+    );
+    eq(
+      capped.status,
+      200,
+      "with 1 left on the ledger (3 in products.json) the cart still goes through"
+    );
+    eq(
+      capped.sessionParams.get("line_items[0][quantity]"),
+      "1",
+      "...for the 1 unit the ledger has, not the 3 the static catalog claims"
+    );
+    await db.prepare("DELETE FROM inventory_holds").run();
+    await db
+      .prepare(
+        "UPDATE inventory SET on_hand = 0, reserved = 0 WHERE product_id = 'last-three-balm'"
+      )
+      .run();
+    const gone = await executeCheckout(
+      { items: [{ id: "last-three-balm", qty: 1 }] },
+      {
+        env: { STATE_DB: db }
+      }
+    );
+    eq(gone.status, 400, "sold out on the ledger while products.json still says 3: refused");
+    eq(
+      gone.data.unavailable,
+      [{ id: "last-three-balm", reason: "sold_out" }],
+      "...with the line named so the drawer drops it"
+    );
+    eq(gone.sessionParams, null, "...before any Stripe session is created");
+  }
+
   console.log(`\nworker-checkout.test.js: ${passed} passed, ${failed} failed`);
   if (require.main === module) {
     process.exit(failed ? 1 : 0);

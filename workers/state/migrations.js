@@ -18,7 +18,7 @@
  * bypassed (two isolates racing on a cold deploy) the result is identical.
  *
  * BUDGET
- * Cold start costs 1 read + up to 21 writes, once per deploy per isolate,
+ * Cold start costs 1 read + up to 24 writes, once per deploy per isolate,
  * against a free-plan allowance of 100k row writes a day. The steady state is
  * zero queries.
  */
@@ -38,8 +38,11 @@
  * v6 (2026-09-04) added order_emails -- the record of transactional order mail
  * already delivered, so the ship notice goes out once per parcel however many
  * times the shop edits the fulfilment metadata behind it.
+ * v7 (2026-09-09) added inventory and inventory_holds -- the live count that
+ * decrements as orders are paid (workers/state/inventory.js), seeded from the
+ * `stock` the owner sets in the CMS.
  */
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 /** Verbatim from workers/schema.sql. Keep the two in sync -- a test enforces it. */
 export const SCHEMA_STATEMENTS = [
@@ -184,7 +187,26 @@ export const SCHEMA_STATEMENTS = [
   send_key    TEXT PRIMARY KEY,
   created_at  INTEGER NOT NULL
 )`,
-  `CREATE INDEX IF NOT EXISTS order_emails_created_at ON order_emails (created_at)`
+  `CREATE INDEX IF NOT EXISTS order_emails_created_at ON order_emails (created_at)`,
+  // v7: the inventory ledger (see workers/schema.sql and workers/state/inventory.js
+  // for the state machine and the seed / owner-correction rule)
+  `CREATE TABLE IF NOT EXISTS inventory (
+  product_id  TEXT PRIMARY KEY,
+  on_hand     INTEGER NOT NULL CHECK (on_hand >= 0),
+  reserved    INTEGER NOT NULL DEFAULT 0 CHECK (reserved >= 0 AND reserved <= on_hand),
+  seed_stock  INTEGER NOT NULL,
+  updated_at  INTEGER NOT NULL
+)`,
+  `CREATE TABLE IF NOT EXISTS inventory_holds (
+  session_id  TEXT NOT NULL,
+  product_id  TEXT NOT NULL,
+  qty         INTEGER NOT NULL CHECK (qty > 0),
+  state       TEXT NOT NULL CHECK (state IN ('active','committed','released','restocked')),
+  created_at  INTEGER NOT NULL,
+  updated_at  INTEGER NOT NULL,
+  PRIMARY KEY (session_id, product_id)
+)`,
+  `CREATE INDEX IF NOT EXISTS inventory_holds_state ON inventory_holds (state, created_at)`
 ];
 
 /** Per-isolate memo of the in-flight or completed migration. */

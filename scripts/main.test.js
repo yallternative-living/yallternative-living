@@ -614,6 +614,60 @@ assert(
     main.stockBadgeHTML({ ...onSale, stock: 3 }).includes("Only 3 left"),
   "stockBadgeHTML shows sale badge alongside a low-stock badge"
 );
+
+/* Live stock (GET /api/inventory): the Worker's live count replaces the
+   static `stock` of tracked products only, in place, and never invents a
+   count for a product the CMS does not track. */
+{
+  const liveProducts = [
+    { id: "tee", stock: 10 },
+    { id: "balm", stock: 3 },
+    { id: "soak", stock: null },
+    { id: "made-to-order" },
+    { id: "same", stock: 4 }
+  ];
+  const changed = main.applyLiveInventory(
+    {
+      products: {
+        tee: { available: 7, tracked: true },
+        balm: { available: 0, tracked: true },
+        soak: { available: 5, tracked: true },
+        "made-to-order": { available: 2, tracked: true },
+        same: { available: 4, tracked: true },
+        unknown: { available: 1, tracked: true }
+      }
+    },
+    liveProducts
+  );
+  eq(changed, ["tee", "balm"], "applyLiveInventory returns only the ids whose count moved");
+  eq(liveProducts[0].stock, 7, "a live count replaces the static one in place");
+  eq(liveProducts[1].stock, 0, "...down to zero, which stockBadgeHTML renders as Sold out");
+  eq(
+    main.stockBadgeHTML(liveProducts[1]),
+    '<span class="stock-badge sold-out">Sold out</span>',
+    "..."
+  );
+  eq(liveProducts[2].stock, null, "an untracked product (stock null) is never given a count");
+  assert(!("stock" in liveProducts[3]), "...nor one with no stock field at all");
+  eq(
+    main.applyLiveInventory({ products: { tee: { available: -2, tracked: true } } }, liveProducts),
+    [],
+    "a negative or non-numeric answer is ignored"
+  );
+  eq(
+    main.applyLiveInventory({ products: { tee: { available: 1, tracked: false } } }, liveProducts),
+    [],
+    "...and so is a row the Worker does not mark tracked"
+  );
+  eq(main.applyLiveInventory(null, liveProducts), [], "no payload, no change");
+  eq(main.applyLiveInventory({ products: [] }, undefined), [], "no products, no change");
+  eq(main.LIVE_INVENTORY_URL, "/api/inventory", "the shop reads the Worker's /api/inventory");
+  eq(
+    main.lowStockBadgeHTML(2),
+    '<span class="stock-badge low-stock">Only 2 left</span>',
+    "one badge string for cards and the PDP"
+  );
+}
 eq(
   main.priceHTML(onSale),
   '<span class="price">$19 <s class="original-price">$20</s></span>',

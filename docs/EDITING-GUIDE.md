@@ -154,13 +154,21 @@ For products available in different sizes (e.g. 1 oz vs 2 oz salve, 4 oz vs 8 oz
    - **⚠️ Character Trap**: Never use the characters `[`, `]`, or `|` inside option names (e.g. write `2 oz Glass Jar`, **not** `2 oz [Jar]`), as those symbols are used internally by the shopping cart.
 
 #### C. The 5 Inventory & Availability States
-Manage stock with complete transparency and urgency without artificial hype:
+Manage stock with complete transparency and urgency without artificial hype.
+
+**The count runs itself.** **Stock count** is where you *set* a number; the shop then counts it down on its own as orders are paid (and puts units back when a checkout is abandoned or an order is fully refunded). A product you set to `10` that sells 3 shows "Only 7 left" — and, at 0, "Sold Out" — with no edit from you and no publish. Two things follow from that:
+
+- **Saving a new Stock count resets the live count to that number.** Only retype it when you have actually recounted the shelf; re-saving the product with the *same* number leaves the live count alone.
+- **Site settings → Shop → Show live stock counts** (on by default) is the switch for the shop showing the live number. Off, product cards show the count as it was at the last publish; checkout still uses the live one so it can never sell what has already gone.
+
+The "Stock count" field is the only place a count is entered — there is nothing to update elsewhere.
+
 
 | Desired Storefront Experience | What Customers See | How to Configure in `/admin` |
 |---|---|---|
 | **1. Made-to-Order / Unlimited** | Standard active "Add to Cart" button | Leave **Stock count** blank (empty) and ensure **In stock** is checked. |
-| **2. Low-Stock Urgency Badge** | "Only 3 left! — order soon" warning badge on card | Enter a number from `1` to `5` in **Stock count**. |
-| **3. Entire Product Sold Out** | "Sold Out" badge; buy button replaced with "Email Me When Restocked" signup | Enter `0` in **Stock count** OR uncheck **In stock**. |
+| **2. Low-Stock Urgency Badge** | "Only 3 left! — order soon" warning badge on card | Enter a number from `1` to `5` in **Stock count** — or set any number and let sales bring it down to 5. |
+| **3. Entire Product Sold Out** | "Sold Out" badge; buy button replaced with "Email Me When Restocked" signup | Enter `0` in **Stock count** OR uncheck **In stock** — or let the last unit sell; the live count reaching 0 does the same. |
 | **4. Single Variant Sold Out** | Size dropdown displays option greyed out (e.g. "1 oz — sold out"; unclickable) | Expand **Variants → Options**, find that option, and switch **Sold out?** to `ON`. *Never delete the option, so customers know you make it and it will return!* |
 | **5. Coming Soon / Launch Signup** | "Coming Soon" badge; buy button replaced with "Email Me When It Launches" signup | Switch **Coming soon** to `ON` (checked). |
 
@@ -406,6 +414,8 @@ The dashboard gives you control over your entire catalog, promotions, pricing, m
 | **Mark one size sold out** | `1. Products` → `Variants` → Switch `Sold out?` to ON | Size shows as greyed-out "(Sold out)" in picker |
 | **Mark whole item sold out** | `1. Products` → Set `Stock count` to 0 or uncheck `In stock` | Shows "Sold Out" badge & Restock Email signup |
 | **Show low stock urgency** | `1. Products` → Set `Stock count` to 1, 2, 3, 4, or 5 | Shows "Only X left! — order soon" badge |
+| **Restock a sold-out item** | `1. Products` → Set `Stock count` to the new number | The live count resets to it; badge and buy button follow at once |
+| **Hide live counts on the shop** | `Site settings` → `Shop` → untick `Show live stock counts` | Cards show the last-published count; checkout still uses the live one |
 | **Set up 2+ Multi-Buy Deal** | `1. Products` → `Multi-buy deals` | Shoppers mixing qualifying items get auto unit discounts |
 | **Run category % off sale** | `1. Products` → `Category sales` | Sale banner, strikethrough prices & cart discounts |
 | **Create gift bundle** | `1. Products` → `Bundles` → Pick products & discount % | Pre-made set with auto-calculated price |

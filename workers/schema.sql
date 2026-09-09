@@ -355,3 +355,48 @@ CREATE TABLE IF NOT EXISTS order_emails (
   created_at  INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS order_emails_created_at ON order_emails (created_at);
+
+-- ---------------------------------------------------------------------------
+-- v7 (2026-09-09): the inventory ledger -- the live count behind `stock`.
+--
+-- `stock` in assets/data/products.json is where the owner SETS a count (the
+-- Sveltia CMS "Stock count" field). Until now it was also the only count:
+-- checkout capped quantities against it but nothing wrote it back on a sale,
+-- so a sell-out took effect only after a CMS save -> build -> CDN -> the
+-- Worker's 300s catalog cache. These two tables are what counts DOWN.
+--
+-- inventory: one row per tracked product (a finite numeric `stock` in
+-- products.json). Seeded lazily from the catalog the first time a tracked
+-- product is seen: on_hand = stock, seed_stock = stock. `seed_stock` is the
+-- catalog value the row was last seeded from; when products.json's stock
+-- differs from it, the owner corrected the count and the row is re-seeded
+-- (on_hand = new stock, seed_stock = new stock; active holds keep counting).
+-- available = on_hand - reserved. CHECK (reserved <= on_hand) is the
+-- oversell guard: a reserve that would exceed on-hand fails the statement,
+-- and D1 rolls the whole batch back.
+--
+-- inventory_holds: one row per (session, product), the reserve -> commit ->
+-- release state machine mirrored from the gift-card ledger.
+--   active     reserved at checkout, waiting on the Stripe session
+--   committed  checkout.session.completed (paid): on_hand -= qty, reserved -= qty
+--   released   checkout.session.expired / async_payment_failed / a hold that
+--              outlived its 24h session: reserved -= qty
+--   restocked  charge.refunded in full: on_hand += qty
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS inventory (
+  product_id  TEXT PRIMARY KEY,
+  on_hand     INTEGER NOT NULL CHECK (on_hand >= 0),
+  reserved    INTEGER NOT NULL DEFAULT 0 CHECK (reserved >= 0 AND reserved <= on_hand),
+  seed_stock  INTEGER NOT NULL,
+  updated_at  INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS inventory_holds (
+  session_id  TEXT NOT NULL,
+  product_id  TEXT NOT NULL,
+  qty         INTEGER NOT NULL CHECK (qty > 0),
+  state       TEXT NOT NULL CHECK (state IN ('active','committed','released','restocked')),
+  created_at  INTEGER NOT NULL,
+  updated_at  INTEGER NOT NULL,
+  PRIMARY KEY (session_id, product_id)
+);
+CREATE INDEX IF NOT EXISTS inventory_holds_state ON inventory_holds (state, created_at);

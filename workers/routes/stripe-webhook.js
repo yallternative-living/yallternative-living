@@ -64,6 +64,11 @@ import { loadSiteSettings } from "../state/site-data.js";
 import { claimEvent, markEventDone, releaseEvent } from "../state/webhook-events.js";
 import { alertOwner } from "./alerts.js";
 import { ensureSchema } from "../state/migrations.js";
+import {
+  commitInventoryForSession,
+  releaseInventoryForSession,
+  restockInventoryForRefund
+} from "./inventory.js";
 import { buildOrderPaidPayload, sendToUmami } from "./analytics.js";
 import { claimAnalyticsSend, ORDER_PAID, releaseAnalyticsSend } from "../state/analytics-sends.js";
 
@@ -1161,6 +1166,15 @@ export async function processStripeEvent(event, env, ctx) {
     } catch (err) {
       failures.push(`redemption: ${err && err.message}`);
     }
+    /* The units this order held leave the shelf (routes/inventory.js).
+       Pushed to `failures` on purpose: the commit is idempotent, so a D1
+       blip is worth a Stripe redelivery -- an order that never decrements
+       is exactly the oversell the ledger exists to stop. */
+    try {
+      outcome.inventory = await commitInventoryForSession(session, env, ctx);
+    } catch (err) {
+      failures.push(`inventory: ${err && err.message}`);
+    }
     try {
       outcome.issued = await issuePurchasedCards(session, env);
     } catch (err) {
@@ -1236,12 +1250,27 @@ export async function processStripeEvent(event, env, ctx) {
     } catch (err) {
       failures.push(`async-payment-failed: ${err && err.message}`);
     }
+    try {
+      outcome.inventory = await releaseInventoryForSession(
+        event.data.object || {},
+        env,
+        "async_payment_failed"
+      );
+    } catch (err) {
+      failures.push(`inventory: ${err && err.message}`);
+    }
   } else if (event.type === "checkout.session.expired") {
     const session = event.data.object || {};
     try {
       outcome.expired = await handleSessionExpired(session, env);
     } catch (err) {
       failures.push(`expiry: ${err && err.message}`);
+    }
+    /* The units the session held go back on sale (routes/inventory.js). */
+    try {
+      outcome.inventory = await releaseInventoryForSession(session, env, "session_expired");
+    } catch (err) {
+      failures.push(`inventory: ${err && err.message}`);
     }
     try {
       // Only when Stripe issued a recovery URL, the shopper left an address,
@@ -1255,6 +1284,13 @@ export async function processStripeEvent(event, env, ctx) {
       outcome.refund = await handleChargeRefunded(event.data.object || {}, env);
     } catch (err) {
       failures.push(`refund: ${err && err.message}`);
+    }
+    /* A FULL refund puts the order's units back on the shelf; a partial one
+       moves nothing (routes/inventory.js, same reading as the card share). */
+    try {
+      outcome.inventory = await restockInventoryForRefund(event.data.object || {}, env);
+    } catch (err) {
+      failures.push(`inventory: ${err && err.message}`);
     }
   } else {
     outcome.ignored = true;
