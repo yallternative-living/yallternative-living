@@ -865,10 +865,17 @@ not just when a human remembers to run
 command is
 
 ```
-node scripts/optimize-images.js && node scripts/build-site-data.js && node scripts/build-security-headers.js
+node scripts/optimize-images.js && node scripts/build-site-data.js && node scripts/build-security-headers.js && node scripts/minify-assets.js
 ```
 
-and `optimize-images.js` requires **sharp**, a devDependency. Netlify installs
+and `optimize-images.js` requires **sharp**, a devDependency, while
+`minify-assets.js` requires **esbuild**, another. The minifier is the last
+step on purpose: it shrinks `assets/js/*.js`, `assets/js/locales/*.js` and
+`assets/css/*.css` in place inside Netlify's publish directory and nothing it
+writes is ever committed -- the repository stays readable source, which is
+what every test runs against. It never touches `sw.js` or any HTML, and file
+names do not change. `scripts/minified-build.browser.test.js` is the proof
+that the minified tree still runs the shop. Netlify installs
 devDependencies by default, which is why this works — but a host or CI job
 configured with `--omit=dev` (or `NODE_ENV=production`) makes the optimizer
 degrade silently and ship full-size photos. `scripts/qa-check.js` asserts that

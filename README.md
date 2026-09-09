@@ -47,6 +47,19 @@ Here is a quick checklist of the external accounts you'll need to set up for lau
 
 - **Architecture**: 100% static HTML/CSS/JS frontend with zero runtime framework dependencies. Fast, mobile-first, and offline-capable via `sw.js`.
 - **Checkout & Cart**: On-site drawer cart (`assets/js/cart.js`) backed by server-side Cloudflare Workers (`workers/checkout.js`) for price-tampering security.
+- **Build-time minification, readable source**: the repository is the deploy
+  artifact (Netlify publishes `.`), and what is committed is prettier-formatted
+  source -- `main.js` alone is 483 KB. The last step of the Netlify build
+  command, `node scripts/minify-assets.js` (`npm run minify`), minifies
+  `assets/js/*.js`, `assets/js/locales/*.js` and `assets/css/*.css` in place
+  with esbuild inside the publish directory: roughly half the bytes over the
+  wire on every page (the home page's JS+CSS goes from 284 KB to 139 KB
+  gzipped), and none of it is ever committed. File names do not change, so
+  `sw.js`'s precache list and every `?v=2.0` reference stay valid; `sw.js`
+  itself and every HTML page (whose inline scripts are CSP-hashed) are left
+  byte-identical. `scripts/minified-build.browser.test.js` minifies a scratch
+  copy of the tree and drives the shop through it, so a minifier that broke
+  the site would fail CI rather than the next deploy.
 - **Two services deploy this site, and they bill separately**: **Netlify**
   builds and publishes the pages shoppers see; **Cloudflare** builds and
   deploys the checkout Worker. They are configured in two different
@@ -68,9 +81,10 @@ Here is a quick checklist of the external accounts you'll need to set up for lau
     pricing, CSP byte-parity across `_headers` and `netlify.toml`,
     and lockfile hygiene. Both halves always run, and the exit code reflects
     either failing.
-  - `npm run test:integration` runs the browser pool: 20
-    `scripts/*.browser.test.js` challenger suites plus the Puppeteer
-    integration harnesses (26 total integration suites), an XSS/CSP stress harness that first proves the
+  - `npm run test:integration` runs the browser pool: 21
+    `scripts/*.browser.test.js` suites (the challengers plus the minified-build
+    proof) and the Puppeteer
+    integration harnesses (27 total integration suites), an XSS/CSP stress harness that first proves the
     policy is being enforced, and an axe-core accessibility gate that allows
     zero WCAG 2.2 AA violations across all 37 pages (17 top-level plus 20
     product pages; 74 scans total).

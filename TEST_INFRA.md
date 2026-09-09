@@ -45,9 +45,26 @@ Node-only. The naming is the contract the runners glob on, and it is why the CI
 
 - **Integration pool** -- `npm run test:integration` ->
   `scripts/run-integration-tests.js`: a fixed list of browser gates plus every
-  `scripts/*.browser.test.js` (20 suites, 26 total integration suites), each on its own port or an ephemeral
+  `scripts/*.browser.test.js` (21 suites, 27 total integration suites), each on its own port or an ephemeral
   one, in a worker pool. A suite on the fixed list that has gone missing is a
   hard failure, not a silent skip.
+  - `scripts/minified-build.browser.test.js` (ephemeral port): the only suite
+    that runs the bytes Netlify actually serves. The build command's last
+    step, `scripts/minify-assets.js`, minifies `assets/js`, `assets/js/locales`
+    and `assets/css` in place inside the publish directory and nothing it
+    writes is committed, so every other suite exercises the readable source.
+    This one copies the tree to a scratch directory, runs the real minifier
+    there (`--root`), pins its contract (every owned file smaller and carrying
+    the marker, `sw.js` and all 37 HTML pages byte-identical, a second run a
+    no-op), then serves the copy and drives it: home loads with zero page
+    errors and no failed asset request -- with a positive control that throws
+    a page error and asserts the listener saw it -- the shop renders one card
+    per product, Add to Cart opens the drawer, global search returns results,
+    a PDP thumbnail switches the main photo, and the language picker switches
+    the nav to Spanish through the minified dictionaries. It ends by hashing
+    the repository's own assets and pages against the values it read at the
+    start, so a minifier that ever wrote into the working tree fails here
+    before `git status` shows it.
   - `scripts/puppeteer_tests.js` (8082): multi-viewport nav, link integrity,
     cart drawer, reviews filter, quiz, order status, global search.
   - `scripts/extended_qa_test.js` (8083): wishlist state, cart money math,
