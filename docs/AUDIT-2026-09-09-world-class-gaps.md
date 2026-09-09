@@ -68,6 +68,17 @@ already did per button).
 
 ## 3. Still missing, in order of impact
 
+> **Progress, same day (later session).** Items 1 and 10 below are now done on
+> this branch: owner alerts (`workers/routes/alerts.js`, recipient is the CMS
+> field "Where shop alerts go", staging Worker env in `wrangler.toml`) and
+> build-time minification (`scripts/minify-assets.js`, homepage JS+CSS
+> transfer 284 KB -> 139 KB gzip, proven by
+> `scripts/minified-build.browser.test.js`). Items 2, 4 and 8 were started by
+> parallel agents and are carried as patch files plus notes in
+> `docs/handoff/2026-09-09/` -- see `docs/HANDOFF-2026-09-09.md` for how to
+> resume them. Items 9 and 11 were briefed but not started; the briefs are in
+> the same handoff file.
+
 These are the real distance to world class. None is a bug; each is a
 capability the shop does not have. Effort is a guess; impact is not.
 
