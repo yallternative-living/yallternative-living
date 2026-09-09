@@ -2365,6 +2365,67 @@ async function runWorkerCheckoutTests() {
     eq(gone.sessionParams, null, "...before any Stripe session is created");
   }
 
+  /* ======================================================================
+     Red team, 2026-09-09: sessions expire in 31 minutes; a limiter that
+     throws fails open; the gift-card unwind releases the inventory hold.
+     ====================================================================== */
+  {
+    const plain = await executeCheckout({ items: [{ id: "lavender-soak", qty: 1 }] });
+    const exp = Number(plain.sessionParams.get("expires_at"));
+    const ahead = exp - Math.floor(Date.now() / 1000);
+    assert(
+      ahead >= workerModule.SESSION_EXPIRES_SECONDS - 5 &&
+        ahead <= workerModule.SESSION_EXPIRES_SECONDS + 5,
+      `the session expires ${workerModule.SESSION_EXPIRES_SECONDS}s out (got ${ahead}s)`
+    );
+    assert(ahead >= 30 * 60, "...never under Stripe's 30-minute floor");
+
+    const throwing = makeNamespace(
+      class {
+        async fetch() {
+          throw new Error("Durable Object reset");
+        }
+      }
+    );
+    const survived = await executeCheckout(
+      { items: [{ id: "lavender-soak", qty: 1 }] },
+      { env: { RATE_LIMIT_COUNTER: throwing } }
+    );
+    eq(survived.status, 200, "a rate-limit backend that throws fails OPEN; checkout still works");
+
+    const { DatabaseSync } = require("node:sqlite");
+    const { makeD1 } = require("./lib/d1-emulator.js");
+    const { applyMigrations, resetSchemaMemo } = await import("../workers/state/migrations.js");
+    const { holdRows, resetInventoryMemo } = await import("../workers/state/inventory.js");
+    resetSchemaMemo();
+    resetInventoryMemo();
+    const db = makeD1(new DatabaseSync(":memory:"));
+    await applyMigrations(db);
+    const raced = await executeCheckout(
+      {
+        items: [{ id: "last-three-balm", qty: 2 }],
+        gift_card_code: "YALL-HOLD-HOLD-HOLD"
+      },
+      {
+        cards: { "YALL-HOLD-HOLD-HOLD": 500 },
+        env: { STATE_DB: db },
+        beforeReserve: async (env) => {
+          const { giftCardLedger } = await import("../workers/state/gift-card-ledger.js");
+          await giftCardLedger(env, "YALL-HOLD-HOLD-HOLD").reserve({
+            sessionId: "cs_other_tab",
+            cents: 500
+          });
+        }
+      }
+    );
+    eq(raced.status, 409, "the gift-card race still answers 409");
+    eq(
+      (await holdRows(db, "cs_test_mock_session")).map((r) => [r.product_id, r.qty, r.state]),
+      [["last-three-balm", 2, "released"]],
+      "...and the inventory hold taken for that session is released at once, not in 31 minutes"
+    );
+  }
+
   console.log(`\nworker-checkout.test.js: ${passed} passed, ${failed} failed`);
   if (require.main === module) {
     process.exit(failed ? 1 : 0);

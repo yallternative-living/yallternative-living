@@ -58,10 +58,25 @@
  * thrown as InventoryError so callers can tell the two apart.
  */
 
-/** Stripe Checkout Sessions live at most 24h; a hold outliving one by an hour is stale. */
-export const HOLD_TTL_MS = 25 * 60 * 60 * 1000;
+/**
+ * Checkout Sessions are created with `expires_at` 31 minutes out
+ * (workers/checkout.js), so Stripe's `checkout.session.expired` releases an
+ * unpaid hold at 31 minutes; this is the cron backstop for a lost webhook.
+ * It was 25 hours against Stripe's 24-hour default, which let ONE unpaid
+ * checkout hold a product's whole count for a day (red team, 2026-09-09).
+ */
+export const HOLD_TTL_MS = 35 * 60 * 1000;
+
+/** Ceiling on a seeded count; anything larger is a typo, not a shelf. */
+export const MAX_SEED_STOCK = 1000000;
+
+/** seed_stock marker for a row whose product the owner stopped tracking. */
+export const UNTRACKED_SEED = -1;
 
 export const HOLD_STATES = ["active", "committed", "released", "restocked"];
+
+/** Below D1's 100-parameter limit per statement, with room for the fixed binds. */
+const BIND_CHUNK = 90;
 
 /** A refusal the caller is expected to handle; never a bug, never a 500. */
 export class InventoryError extends Error {
@@ -87,7 +102,10 @@ export function trackedProductsOf(entries) {
   const out = [];
   for (const entry of entries || []) {
     if (!entry || typeof entry.id !== "string" || !isTracked(entry)) continue;
-    out.push({ id: entry.id, stock: Math.max(0, Math.floor(entry.stock)) });
+    out.push({
+      id: entry.id,
+      stock: Math.min(MAX_SEED_STOCK, Math.max(0, Math.floor(entry.stock)))
+    });
   }
   return out;
 }
@@ -130,29 +148,59 @@ export function resetInventoryMemo() {
  * @param {Array<{id: string, stock: number}>} tracked from trackedProductsOf()
  * @returns {Promise<{changed: number, tracked: number}>} rows written
  */
-export async function syncInventory(db, tracked, now = Date.now()) {
+export async function syncInventory(db, tracked, now = Date.now(), catalogFetchedAt = null) {
   const list = Array.isArray(tracked) ? tracked : [];
   const signature = list.map((p) => `${p.id}:${p.stock}`).join("|");
   if (syncedSignature === signature) return { changed: 0, tracked: list.length };
-  if (!list.length) {
-    syncedSignature = signature;
-    return { changed: 0, tracked: 0 };
+  /* When this catalog was fetched from the site, in the site's clock. A
+     reseed records it as seed_at, and a later sync only reseeds when ITS
+     catalog is newer than that: an isolate still holding the catalog from
+     before an owner correction (the Worker caches products.json for 300s per
+     colo) used to flip the row back to the old count and erase the sales in
+     between (red team, 2026-09-09). Without a fetch time the sync stamps
+     `now`, which keeps the guard strictly forward-moving. */
+  const seenAt = Number.isFinite(catalogFetchedAt) ? Math.floor(catalogFetchedAt) : now;
+  const statements = [];
+  for (const p of list) {
+    statements.push(
+      db
+        .prepare(
+          `INSERT INTO inventory (product_id, on_hand, reserved, seed_stock, seed_at, synced_at, updated_at)
+           VALUES (?, ?, 0, ?, ?, ?, ?)
+           ON CONFLICT(product_id) DO UPDATE SET
+             on_hand    = MAX(excluded.on_hand, inventory.reserved),
+             seed_stock = excluded.seed_stock,
+             seed_at    = excluded.seed_at,
+             updated_at = excluded.updated_at
+           WHERE inventory.seed_stock <> excluded.seed_stock
+             AND inventory.seed_at < excluded.seed_at`
+        )
+        .bind(p.id, p.stock, p.stock, seenAt, now, now)
+    );
+    statements.push(
+      db.prepare(`UPDATE inventory SET synced_at = ? WHERE product_id = ?`).bind(now, p.id)
+    );
   }
-  const statements = list.map((p) =>
+  /* Rows this sync did not touch belong to products the catalog no longer
+     tracks. Mark them so that tracking the product again -- even at the
+     very number it had before -- seeds fresh instead of silently resuming
+     a count that went on changing while untracked (red team, 2026-09-09).
+     seed_at goes to 0 so the guard above cannot block that reseed. */
+  statements.push(
     db
       .prepare(
-        `INSERT INTO inventory (product_id, on_hand, reserved, seed_stock, updated_at)
-         VALUES (?, ?, 0, ?, ?)
-         ON CONFLICT(product_id) DO UPDATE SET
-           on_hand    = MAX(excluded.on_hand, inventory.reserved),
-           seed_stock = excluded.seed_stock,
-           updated_at = excluded.updated_at
-         WHERE inventory.seed_stock <> excluded.seed_stock`
+        `UPDATE inventory SET seed_stock = ?, seed_at = 0, updated_at = ?
+         WHERE synced_at < ? AND seed_stock <> ?`
       )
-      .bind(p.id, p.stock, p.stock, now)
+      .bind(UNTRACKED_SEED, now, now, UNTRACKED_SEED)
   );
   const results = await db.batch(statements);
-  const changed = results.reduce((sum, r) => sum + ((r && r.meta && r.meta.changes) || 0), 0);
+  // Count seeds/reseeds only (every other statement in the batch is a stamp).
+  let changed = 0;
+  for (let i = 0; i < list.length; i++) {
+    const r = results[i * 2];
+    changed += (r && r.meta && r.meta.changes) || 0;
+  }
   syncedSignature = signature;
   return { changed, tracked: list.length };
 }
@@ -165,15 +213,19 @@ export async function readAvailability(db, productIds) {
   const ids = [...new Set((productIds || []).filter((id) => typeof id === "string"))];
   const out = new Map();
   if (!ids.length) return out;
-  const marks = ids.map(() => "?").join(", ");
-  const res = await db
-    .prepare(`SELECT product_id, on_hand, reserved FROM inventory WHERE product_id IN (${marks})`)
-    .bind(...ids)
-    .all();
-  for (const row of (res && res.results) || []) {
-    const onHand = Number(row.on_hand);
-    const reserved = Number(row.reserved);
-    out.set(row.product_id, { available: Math.max(0, onHand - reserved), onHand, reserved });
+  // D1 binds at most 100 parameters per statement; read in chunks.
+  for (let i = 0; i < ids.length; i += BIND_CHUNK) {
+    const chunk = ids.slice(i, i + BIND_CHUNK);
+    const marks = chunk.map(() => "?").join(", ");
+    const res = await db
+      .prepare(`SELECT product_id, on_hand, reserved FROM inventory WHERE product_id IN (${marks})`)
+      .bind(...chunk)
+      .all();
+    for (const row of (res && res.results) || []) {
+      const onHand = Number(row.on_hand);
+      const reserved = Number(row.reserved);
+      out.set(row.product_id, { available: Math.max(0, onHand - reserved), onHand, reserved });
+    }
   }
   return out;
 }

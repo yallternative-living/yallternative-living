@@ -211,6 +211,7 @@ import {
   availabilityForCheckout,
   handleInventory,
   holdsFromAllocation,
+  releaseInventoryForSession,
   reserveForCheckout,
   unwindRefusedSession
 } from "./routes/inventory.js";
@@ -303,7 +304,22 @@ async function loadCatalog(env, ctx) {
     }
   }
   if (!res.ok) throw new Error("Could not load product catalog");
-  return applySales(await res.json());
+  const catalog = applySales(await res.json());
+  /* When the site served this copy, in the site's own clock (Netlify's Date
+     header survives the edge cache, so a cache hit still reports the ORIGIN
+     fetch). The inventory ledger uses it to refuse a reseed from a catalog
+     older than the last owner correction. Non-enumerable: nothing that
+     serialises or fingerprints the catalog should see it. */
+  const dateHeader =
+    res.headers && typeof res.headers.get === "function" ? res.headers.get("date") : null;
+  const served = Date.parse(dateHeader || "");
+  Object.defineProperty(catalog, "fetchedAt", {
+    value: Number.isFinite(served) ? served : Date.now(),
+    enumerable: false,
+    configurable: true,
+    writable: true
+  });
+  return catalog;
 }
 
 // Same fetch+cache treatment for the market calendar. Only needed when a
@@ -1273,12 +1289,23 @@ const ROUTES = {
  */
 export const CHECKOUT_RATE_LIMIT = { limit: 12, period: 60 };
 
+/** How long an unpaid Checkout Session stays payable. Stripe's minimum is 30 minutes. */
+export const SESSION_EXPIRES_SECONDS = 31 * 60;
+
 async function handleCheckout(request, env, ctx, origin) {
   {
-    const limit = await checkRateLimit(env, `checkout:${clientIp(request)}`, {
-      ...CHECKOUT_RATE_LIMIT,
-      failOpen: true
-    });
+    // `failOpen` covers a missing backend; a backend that THROWS (a Durable
+    // Object reset mid-request) must fail open too, or the limiter takes
+    // checkout down -- the one thing the comment above promises it never does.
+    let limit = { success: true, source: "none" };
+    try {
+      limit = await checkRateLimit(env, `checkout:${clientIp(request)}`, {
+        ...CHECKOUT_RATE_LIMIT,
+        failOpen: true
+      });
+    } catch (err) {
+      console.error("checkout rate limit unavailable, failing open:", err);
+    }
     if (!limit.success) {
       return json(
         { error: "Too many checkout attempts. Please wait a minute and try again." },
@@ -2000,6 +2027,14 @@ async function handleCheckout(request, env, ctx, origin) {
         params.append(`line_items[${i}][quantity]`, String(li.qty));
       });
 
+      /* Unpaid sessions expire 31 minutes after creation (Stripe's floor is
+         30). The inventory hold and the gift-card hold both wait on
+         `checkout.session.expired`; at Stripe's 24-hour default one abandoned
+         tab -- or one deliberate POST -- kept a product's whole count off the
+         shelf for a day (red team, 2026-09-09). The cart survives client-side,
+         so a shopper who comes back later simply starts a fresh session. */
+      params.append("expires_at", String(Math.floor(Date.now() / 1000) + SESSION_EXPIRES_SECONDS));
+
       const createSession = async (body) => {
         const res = await fetch("https://api.stripe.com/v1/checkout/sessions", {
           method: "POST",
@@ -2104,6 +2139,17 @@ async function handleCheckout(request, env, ctx, origin) {
                 unwindErr
               );
             }
+          }
+          /* The inventory hold was taken just above, against this same
+             session; it must not wait 31 minutes for the expiry webhook (or
+             35 for the sweep) when the session is being killed right here. */
+          try {
+            await releaseInventoryForSession({ id: session.id }, env, "gift-card-unwind");
+          } catch (unwindErr) {
+            console.error(
+              `Gift card unwind: releasing inventory for ${session.id} threw:`,
+              unwindErr
+            );
           }
           if (!expired || !couponDeleted) {
             console.error(

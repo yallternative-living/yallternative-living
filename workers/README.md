@@ -184,6 +184,7 @@ as "try this," not a guarantee.
    `scripts/build-security-headers.js` and the Worker's allowed origins.
    Audits: this is a known, accepted item -- do not re-raise it unless DNS
    has moved.
+
 5. Every future push to `checkout.js` redeploys automatically -- no
    step 4 of Option B (`wrangler deploy`) ever needs to run by hand
    again.
@@ -656,13 +657,13 @@ emails the shop instead, through the same Resend helper as everything else.
 Nothing to set up beyond `RESEND_API_KEY`: with the key missing the alert is
 logged only.
 
-| Site                                 | Key                             | When                                                                                    |
-| ------------------------------------ | ------------------------------- | --------------------------------------------------------------------------------------- |
+| Site                                 | Key                             | When                                                                                     |
+| ------------------------------------ | ------------------------------- | ---------------------------------------------------------------------------------------- |
 | `checkout.js` `isTaxEnabled`         | `tax-probe`                     | The Stripe Tax probe failed (non-2xx or network) and checkout is failing open to no tax. |
 | `checkout.js` gift-card unwind       | `gift-card-unwind:<session id>` | A session could not be expired or its coupon deleted after a ledger race; needs a hand.  |
-| `routes/stripe-webhook.js` top-level | `webhook:<event type>`          | A handler threw after the D1 claim; the claim was released and Stripe will retry.       |
-| `checkout.js` `scheduled`            | `cron:<step label>`             | One hourly step threw; the rest still ran.                                              |
-| `routes/retention-emails.js` drain   | `retention:<kind>`              | A queued customer email hit `MAX_SEND_ATTEMPTS` and was given up on.                    |
+| `routes/stripe-webhook.js` top-level | `webhook:<event type>`          | A handler threw after the D1 claim; the claim was released and Stripe will retry.        |
+| `checkout.js` `scheduled`            | `cron:<step label>`             | One hourly step threw; the rest still ran.                                               |
+| `routes/retention-emails.js` drain   | `retention:<kind>`              | A queued customer email hit `MAX_SEND_ATTEMPTS` and was given up on.                     |
 
 Design points, all enforced by `scripts/worker-alerts.test.js`:
 

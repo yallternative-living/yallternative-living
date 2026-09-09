@@ -94,7 +94,7 @@ export async function availabilityForCheckout(env, catalog) {
     const tracked = trackedProductsOf(catalog && catalog.products);
     if (!tracked.length) return new Map();
     await ensureSchema(env.STATE_DB);
-    await syncInventory(env.STATE_DB, tracked);
+    await syncInventory(env.STATE_DB, tracked, Date.now(), catalog && catalog.fetchedAt);
     return await availableCounts(
       env.STATE_DB,
       tracked.map((p) => p.id)

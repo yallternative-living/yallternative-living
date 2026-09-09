@@ -42,7 +42,7 @@
  * decrements as orders are paid (workers/state/inventory.js), seeded from the
  * `stock` the owner sets in the CMS.
  */
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 
 /** Verbatim from workers/schema.sql. Keep the two in sync -- a test enforces it. */
 export const SCHEMA_STATEMENTS = [
@@ -195,6 +195,8 @@ export const SCHEMA_STATEMENTS = [
   on_hand     INTEGER NOT NULL CHECK (on_hand >= 0),
   reserved    INTEGER NOT NULL DEFAULT 0 CHECK (reserved >= 0 AND reserved <= on_hand),
   seed_stock  INTEGER NOT NULL,
+  seed_at     INTEGER NOT NULL DEFAULT 0,
+  synced_at   INTEGER NOT NULL DEFAULT 0,
   updated_at  INTEGER NOT NULL
 )`,
   `CREATE TABLE IF NOT EXISTS inventory_holds (
@@ -208,6 +210,27 @@ export const SCHEMA_STATEMENTS = [
 )`,
   `CREATE INDEX IF NOT EXISTS inventory_holds_state ON inventory_holds (state, created_at)`
 ];
+
+/**
+ * v8 (2026-09-09): columns added to a table that already exists on the live
+ * database. CREATE TABLE IF NOT EXISTS cannot add them, so these run after
+ * the CREATEs; SQLite has no ADD COLUMN IF NOT EXISTS, so a "duplicate
+ * column" refusal (a fresh database, whose CREATE already carried them) is
+ * the expected no-op and is swallowed. Anything else is a real failure.
+ *   seed_at   -- when (catalog fetch time) the row was last seeded, so an
+ *                isolate holding an OLDER catalog than the last owner
+ *                correction cannot reseed the row backwards.
+ *   synced_at -- last sync that saw the product as tracked, so a product
+ *                the owner un-tracks is marked and re-tracking seeds fresh.
+ */
+const SCHEMA_ALTERS = [
+  `ALTER TABLE inventory ADD COLUMN seed_at INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE inventory ADD COLUMN synced_at INTEGER NOT NULL DEFAULT 0`
+];
+
+function isDuplicateColumn(err) {
+  return /duplicate column/i.test(String((err && err.message) || err));
+}
 
 /** Per-isolate memo of the in-flight or completed migration. */
 let pending = null;
@@ -229,6 +252,13 @@ export async function applyMigrations(db, now = Date.now()) {
 
   for (const statement of SCHEMA_STATEMENTS.slice(1)) {
     await db.prepare(statement).run();
+  }
+  for (const statement of SCHEMA_ALTERS) {
+    try {
+      await db.prepare(statement).run();
+    } catch (err) {
+      if (!isDuplicateColumn(err)) throw err;
+    }
   }
   await db
     .prepare(

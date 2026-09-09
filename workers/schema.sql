@@ -388,6 +388,8 @@ CREATE TABLE IF NOT EXISTS inventory (
   on_hand     INTEGER NOT NULL CHECK (on_hand >= 0),
   reserved    INTEGER NOT NULL DEFAULT 0 CHECK (reserved >= 0 AND reserved <= on_hand),
   seed_stock  INTEGER NOT NULL,
+  seed_at     INTEGER NOT NULL DEFAULT 0,
+  synced_at   INTEGER NOT NULL DEFAULT 0,
   updated_at  INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS inventory_holds (

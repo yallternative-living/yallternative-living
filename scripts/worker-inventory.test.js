@@ -911,6 +911,134 @@ async function run() {
     }
   }
 
+  /* ======================================================================
+     Red team, 2026-09-09: reseed monotonicity, untrack/retrack, bind
+     chunking, seed clamp, and the v7 -> v8 column migration on a live DB.
+     ====================================================================== */
+  {
+    const db = await freshDb();
+    const at = (stock) => [{ id: "guarded", stock }];
+    // Seeded from a catalog served at t=100.
+    await inv.syncInventory(db, at(12), 1000, 100);
+    await inv.reserveInventory(db, "cs_g1", [{ productId: "guarded", qty: 3 }]);
+    await inv.commitInventory(db, "cs_g1");
+    // The owner corrects to 10; that catalog was served at t=300.
+    inv.resetInventoryMemo();
+    const corrected = await inv.syncInventory(db, at(10), 2000, 300);
+    eq(corrected.changed, 1, "a newer catalog with a new count reseeds");
+    // A colo still holding the pre-correction catalog (served at t=200)
+    // syncs next. It used to flip the row back to 12 and erase the sale.
+    inv.resetInventoryMemo();
+    const stale = await inv.syncInventory(db, at(12), 3000, 200);
+    eq(stale.changed, 0, "an OLDER catalog than the last reseed changes nothing");
+    let row = (await inv.inventoryRows(db)).find((r) => r.product_id === "guarded");
+    eq([row.on_hand, row.seed_stock, row.seed_at], [10, 10, 300], "...the correction stands");
+    // The stale colo refreshes its cache (served at t=400): same 10, no-op.
+    inv.resetInventoryMemo();
+    eq(
+      (await inv.syncInventory(db, at(10), 4000, 400)).changed,
+      0,
+      "a fresh copy of the same count is a no-op"
+    );
+    // A genuinely newer correction back to 12 (served at t=500) applies.
+    inv.resetInventoryMemo();
+    eq(
+      (await inv.syncInventory(db, at(12), 5000, 500)).changed,
+      1,
+      "a newer correction, even to an old number, applies"
+    );
+    // No fetch time at all: the sync stamps `now`, still strictly forward.
+    inv.resetInventoryMemo();
+    eq(
+      (await inv.syncInventory(db, at(9), 6000)).changed,
+      1,
+      "without a fetch time the sync uses now and still reseeds"
+    );
+    row = (await inv.inventoryRows(db)).find((r) => r.product_id === "guarded");
+    eq(row.seed_at, 6000, "...recording now as seed_at");
+
+    // Untrack, then re-track at the very same number: the count seeds fresh.
+    const db2 = await freshDb();
+    await inv.syncInventory(db2, at(12), 1000, 100);
+    await inv.reserveInventory(db2, "cs_u1", [{ productId: "guarded", qty: 5 }]);
+    await inv.commitInventory(db2, "cs_u1");
+    inv.resetInventoryMemo();
+    await inv.syncInventory(db2, [], 2000, 200);
+    row = (await inv.inventoryRows(db2)).find((r) => r.product_id === "guarded");
+    eq(
+      row.seed_stock,
+      inv.UNTRACKED_SEED,
+      "a product the catalog stopped tracking is marked untracked"
+    );
+    eq(row.on_hand, 7, "...its count is left alone while untracked");
+    inv.resetInventoryMemo();
+    const retracked = await inv.syncInventory(db2, at(12), 3000, 300);
+    eq(retracked.changed, 1, "tracking it again at the old number seeds fresh");
+    row = (await inv.inventoryRows(db2)).find((r) => r.product_id === "guarded");
+    eq([row.on_hand, row.seed_stock], [12, 12], "...to exactly what the owner typed");
+
+    // D1 binds at most 100 parameters per statement.
+    const db3 = await freshDb();
+    const many = Array.from({ length: 150 }, (_, i) => ({ id: `p${i}`, stock: i + 1 }));
+    const bulk = await inv.syncInventory(db3, many, 1000, 100);
+    eq(bulk.changed, 150, "150 tracked products seed in one sync");
+    const avail = await inv.readAvailability(
+      db3,
+      many.map((p) => p.id)
+    );
+    eq(avail.size, 150, "...and are read back across chunks");
+    eq(avail.get("p149").available, 150, "...with the right counts");
+
+    // A typo of a count is not a shelf.
+    eq(
+      inv.trackedProductsOf([{ id: "big", stock: 1e300 }])[0].stock,
+      inv.MAX_SEED_STOCK,
+      "an absurd stock is clamped to the ceiling"
+    );
+
+    // The live database is at v7 (no seed_at / synced_at); v8 must add them.
+    const { applyMigrations, resetSchemaMemo, SCHEMA_VERSION } =
+      await import("../workers/state/migrations.js");
+    const raw = new DatabaseSync(":memory:");
+    raw.exec(`CREATE TABLE schema_version (id INTEGER PRIMARY KEY CHECK (id = 1), version INTEGER NOT NULL, applied_at INTEGER NOT NULL);
+      INSERT INTO schema_version VALUES (1, 7, 0);
+      CREATE TABLE inventory (product_id TEXT PRIMARY KEY, on_hand INTEGER NOT NULL CHECK (on_hand >= 0),
+        reserved INTEGER NOT NULL DEFAULT 0 CHECK (reserved >= 0 AND reserved <= on_hand),
+        seed_stock INTEGER NOT NULL, updated_at INTEGER NOT NULL);
+      INSERT INTO inventory VALUES ('legacy', 5, 0, 5, 0);`);
+    const db4 = makeD1(raw);
+    resetSchemaMemo();
+    const migrated = await applyMigrations(db4, 7777);
+    eq(
+      [migrated.applied, migrated.version],
+      [true, SCHEMA_VERSION],
+      "a v7 database migrates to the current version"
+    );
+    const cols = raw
+      .prepare("PRAGMA table_info(inventory)")
+      .all()
+      .map((c) => c.name);
+    assert(
+      cols.includes("seed_at") && cols.includes("synced_at"),
+      "...gaining seed_at and synced_at"
+    );
+    resetSchemaMemo();
+    const twice = await applyMigrations(db4, 7778);
+    eq(twice.applied, false, "...and a second run is a no-op (no duplicate-column failure)");
+    inv.resetInventoryMemo();
+    eq(
+      (await inv.syncInventory(db4, [{ id: "legacy", stock: 5 }], 8000, 100)).changed,
+      0,
+      "a migrated row with the same count is untouched"
+    );
+    inv.resetInventoryMemo();
+    eq(
+      (await inv.syncInventory(db4, [{ id: "legacy", stock: 7 }], 9000, 200)).changed,
+      1,
+      "...and a correction after migration reseeds (seed_at started at 0)"
+    );
+  }
+
   console.log(`\nworker-inventory.test.js: ${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
 }
