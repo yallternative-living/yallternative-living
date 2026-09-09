@@ -161,16 +161,23 @@ const MIME = {
    the SWITCH is honoured (no posts, no feed items) when it is off.
 
    Dimension 4 Test 1 asserts the switched-OFF page, so it flips
-   `serveJournalEnabled` to false for the duration and gets the real files. */
+   `serveJournalEnabled` to false for the duration. Both positions are
+   fixtures now: the OFF fixture used to be "the real files", which was only
+   true while the Journal was switched off in content.json -- the day it was
+   switched on (2026-09-09) that test started asserting Coming Soon against a
+   page full of posts. The switch position under test is never read off the
+   repository's current setting. */
 let serveJournalEnabled = true;
 
-function journalEnabledFixture(reqPath) {
-  if (!serveJournalEnabled) return null;
+function journalFixture(reqPath) {
   if (reqPath === "/assets/js/journal-data.js") {
+    const loaded = require(path.join(ROOT, "scripts/build-site-data.js")).loadJournal(
+      JSON.parse(fs.readFileSync(path.join(ROOT, "assets/data/content.json"), "utf8"))
+    );
+    // Off = the wrapper without its posts, exactly what build-site-data.js
+    // emits while site.enableJournal is false.
     const journal = JSON.stringify(
-      require(path.join(ROOT, "scripts/build-site-data.js")).loadJournal(
-        JSON.parse(fs.readFileSync(path.join(ROOT, "assets/data/content.json"), "utf8"))
-      )
+      serveJournalEnabled ? loaded : Object.assign({}, loaded, { posts: [] })
     );
     return `window.YL_JOURNAL = ${journal};`;
   }
@@ -178,7 +185,7 @@ function journalEnabledFixture(reqPath) {
     const content = JSON.parse(
       fs.readFileSync(path.join(ROOT, "assets/data/content.json"), "utf8")
     );
-    content.site.enableJournal = true;
+    content.site.enableJournal = serveJournalEnabled;
     return `window.YL_CONTENT = ${JSON.stringify(content)};`;
   }
   return null;
@@ -189,7 +196,7 @@ function createStaticServer(port) {
     let reqPath = decodeURIComponent(req.url.split("?")[0]);
     if (reqPath === "/") reqPath = "/index.html";
 
-    const fixture = journalEnabledFixture(reqPath);
+    const fixture = journalFixture(reqPath);
     if (fixture !== null) {
       res.writeHead(200, {
         "Content-Type": "text/javascript",
@@ -683,9 +690,9 @@ async function runAdversarialStressSuite() {
     // =========================================================================
     console.log("\n>>> DIMENSION 4: Tag Filter Interactivity & SPA Hash Navigation");
 
-    // Test 1: switched-OFF state -> Coming Soon. Served the real generated
-    // files, not the journal-enabled fixture, so this exercises the actual
-    // gate rather than the harness.
+    // Test 1: switched-OFF state -> Coming Soon, served from the OFF fixture
+    // (content-data.js with enableJournal false, journal-data.js with no
+    // posts) so the assertion holds whichever way the real switch is set.
     {
       const page = await browser.newPage();
       serveJournalEnabled = false;
