@@ -2135,15 +2135,34 @@ async function testShipNotice() {
 
   /* --- a refused send has to be retried, not swallowed -------------------- */
   const retryEnv = await makeEnv();
+  // The refusal also raises an owner alert (routes/alerts.js) behind
+  // ctx.waitUntil; collect it and let it settle inside the mocks, then count
+  // only the customer-facing send.
+  const alertCtx = {
+    promises: [],
+    waitUntil(p) {
+      this.promises.push(p);
+    }
+  };
   await withMocks(
     async (calls) => {
       const res = await worker.fetch(
         webhookRequest(shipped("evt_ship_5", { fulfillment_status: "shipped" }, "pi_test_refused")),
         retryEnv,
-        noCtx
+        alertCtx
       );
-      eq(calls.resend.length, 1, "the send was attempted");
+      eq(
+        calls.resend.filter((c) => !/^\[Shop alert\]/.test(c.message.subject)).length,
+        1,
+        "the send was attempted"
+      );
       eq(res.status, 500, "a refusal answers non-2xx so Stripe redelivers");
+      await Promise.all(alertCtx.promises);
+      eq(
+        calls.resend.filter((c) => /^\[Shop alert\]/.test(c.message.subject)).length,
+        1,
+        "and the shop was alerted that the webhook failed"
+      );
     },
     { resendFails: true }
   );

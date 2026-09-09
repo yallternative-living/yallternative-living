@@ -1540,6 +1540,15 @@ singletons:
               required: false,
               hint: "On the 1st, a spreadsheet of last month's Report a Reaction submissions, for the MoCRA file."
             }
+          - {
+              name: alertEmail,
+              label: "Emails to me · Where shop alerts go",
+              widget: string,
+              required: false,
+              default: "",
+              pattern: ["^$|^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$", "Enter one email address, or leave blank."],
+              hint: "If something breaks behind the scenes (a payment webhook failing, sales tax not switching on, an email that could not be sent), a short plain-English alert is emailed here so it is not missed. Leave blank and alerts go to the shop's order mailbox. At most one email per problem every six hours."
+            }
           # Hidden on purpose: thresholds and opening lines for the automation emails
           # above are set once by Steven, not tuned here day to day. Converting the
           # object's widget from object to hidden drops its six subfields from the

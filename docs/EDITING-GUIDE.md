@@ -332,6 +332,16 @@ so it always sends.
    - Apothecary Journal Blog (currently **off**: the nav link, the page, the
      RSS feed and the search index all stay empty until you switch it on)
    - UGC Social Feed
+4. Also under **Site Settings**, in the **Emails to me** group, is
+   **Where shop alerts go**. The checkout system watches itself: if a payment
+   webhook keeps failing, if sales tax could not be switched on for an order,
+   if an hourly job died, or if an email to a customer could not be sent after
+   several tries, it emails a short plain-English alert saying what broke, the
+   order or session it concerns, and what to check. Type the address those
+   alerts should go to, or leave it blank and they go to the shop's order
+   mailbox. You will never get more than one email about the same problem in
+   any six-hour stretch, so a bad night is one message, not fifty. If an alert
+   arrives and you are not sure what it means, forward it to Steven.
 
    **Two switches in that panel no longer switch anything.** They are still
    drawn by the dashboard, but the features behind them have been withdrawn,
@@ -408,6 +418,7 @@ The dashboard gives you control over your entire catalog, promotions, pricing, m
 | **Edit the "how to use it" email** | `1. Products` → Click product → `Usage & care` | Same copy the product page shows and the after-delivery email sends |
 | **Turn that email off, or move it** | `Site Settings` → `⚙️ Site Settings` → `Emails to customers · …` | Switch it off entirely, or change how many days after shipping it goes |
 | **Tell a customer it shipped** | Stripe → the payment → `Metadata` | Sends the tracking email and updates their order status page (see below) |
+| **Choose where "something broke" alerts go** | `Site Settings` → `⚙️ Site Settings` → `Emails to me · Where shop alerts go` | Failures behind the scenes are emailed there (blank = the order mailbox), at most one per problem every six hours |
 
 ---
 

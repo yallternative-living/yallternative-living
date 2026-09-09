@@ -206,6 +206,17 @@ silently never arrives.
    address Resend has verified for your domain. The full list of every
    variable, and which Worker route reads it, is in
    `docs/DEVELOPMENT.md` section 8a.
+4. **Shop alerts use this same key** -- nothing extra to set up. Once
+   `RESEND_API_KEY` is in place, the checkout Worker emails you when
+   something behind the scenes fails (a payment webhook that keeps erroring,
+   sales tax that could not be switched on, an hourly job that died, a
+   customer email given up on). They go to the address in your dashboard
+   under **Site Settings → Emails to me → Where shop alerts go**, or to the
+   shop's order mailbox (`ORDER_NOTIFY_EMAIL`, set in Cloudflare) when that
+   is blank. One email per problem every six hours at most. If the Resend
+   key is missing, the alert is written to the Worker's log instead
+   (Cloudflare → the Worker → **Logs**, search `owner-alert`) -- which is
+   the one place nobody looks, so set the key.
 
 ---
 

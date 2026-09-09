@@ -191,6 +191,7 @@ import { checkRateLimit } from "./state/rate-limit.js";
 // version is pinned once, in routes/stripe.js.
 import { STRIPE_API_VERSION, deleteCoupon, expireSession, stripePost } from "./routes/stripe.js";
 import { isGiftCardCode } from "./routes/gift-cards.js";
+import { alertOwner } from "./routes/alerts.js";
 import { handleGiftCardBalance } from "./routes/gift-card-balance.js";
 import { handleStripeWebhook } from "./routes/stripe-webhook.js";
 import { handleOrderStatus } from "./routes/order-status.js";
@@ -378,6 +379,7 @@ async function isTaxEnabled(env, ctx) {
   // genuine "tax is off" result. Otherwise one transient Stripe blip would
   // pin every SC order to untaxed for the full hour-long cache window.
   let probeSucceeded = false;
+  let probeFailure = "";
   try {
     const res = await fetch("https://api.stripe.com/v1/tax/settings", {
       headers: {
@@ -389,9 +391,30 @@ async function isTaxEnabled(env, ctx) {
       const settings = await res.json();
       active = settings && settings.status === "active";
       probeSucceeded = true;
+    } else {
+      probeFailure = `Stripe answered HTTP ${res.status || "?"}`;
     }
   } catch (e) {
     active = false;
+    probeFailure = (e && e.message) || "network error";
+  }
+
+  if (!probeSucceeded) {
+    // Failing open is the right call for the shopper, but it is invisible to
+    // the shop: every order created while the probe is down is untaxed and
+    // nothing else says so. One alert per six hours, not per checkout.
+    alertOwner(env, ctx, {
+      key: "tax-probe",
+      subject: "Sales-tax check failed -- orders are being created WITHOUT tax",
+      details: {
+        cause: probeFailure,
+        mode,
+        "what happens":
+          "checkout keeps working; Stripe Tax is left off until the check succeeds again",
+        "what to check":
+          "Stripe Dashboard -> Tax -> Settings, and that STRIPE_SECRET_KEY has Tax Settings read"
+      }
+    });
   }
 
   if (cache && ctx) {
@@ -2041,6 +2064,22 @@ async function handleCheckout(request, env, ctx, origin) {
                 `session ${expired ? "expired" : "NOT expired after 2 attempts"}. ` +
                 `Expire the session in the Stripe Dashboard so it cannot be paid.`
             );
+            // Keyed on the session: each of these is a separate tab that can
+            // still be paid at the discounted total, and each needs a hand.
+            alertOwner(env, ctx, {
+              key: `gift-card-unwind:${session.id}`,
+              subject: "A gift-card checkout could not be cancelled -- expire it by hand",
+              details: {
+                "checkout session": session.id,
+                "session expired": expired ? "yes" : "NO -- still payable at the discounted total",
+                coupon: couponId,
+                "coupon deleted": couponDeleted ? "yes" : "NO",
+                "gift card": appliedGiftCardCode,
+                "what to do":
+                  "Stripe Dashboard -> Payments -> Checkout Sessions -> open the session -> Expire; " +
+                  "then Products -> Coupons -> delete the coupon if it is still there"
+              }
+            });
           }
           console.warn(
             `Gift card ${appliedGiftCardCode} could not be held for ${session.id}: ${err.code}`
@@ -2205,6 +2244,15 @@ export default {
             await run();
           } catch (err) {
             console.error(`cron: ${label} failed:`, err && (err.stack || err.message));
+            alertOwner(env, ctx, {
+              key: `cron:${label}`,
+              subject: `The hourly "${label}" job failed`,
+              details: {
+                job: label,
+                error: err && err.message,
+                "what happens": "the other hourly jobs still ran; this one is retried next hour"
+              }
+            });
           }
         }
       })()

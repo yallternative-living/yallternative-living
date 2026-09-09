@@ -73,6 +73,7 @@ window.YL_CONTENT = {
     "enableOrderDigest": true,
     "enableMarketReminders": true,
     "enableReactionExport": true,
+    "alertEmail": "",
     "automations": {
       "lowStockThreshold": 3,
       "orderDigestHour": 7,
