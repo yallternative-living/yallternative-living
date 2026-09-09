@@ -189,3 +189,28 @@ cap expectations in `cart.test.js`, `backend-functions.test.js`,
 Still the owner's, in order: the four Stripe test-mode orders in §6 step 1
 (now also proving the five-event webhook subscription), then the dashboard
 confirmations in §3 written into `AGENTS.md` with a date.
+
+### Follow-up batch (2026-09-09), same PR
+
+Everything below the High findings that was still in-repo, done by four
+parallel agents and integrated onto the same branch.
+
+| Finding | Status | What changed |
+| --- | --- | --- |
+| DI-15 size labels | **Fixed** | `products.json` uses `"N oz"` throughout; every fixture, locale entry, hint and hard-coded volume-pricing fallback follows; `qa-check.js` asserts the form. The Worker's variant matcher now ignores whitespace entirely, so a cart saved with the old `"2oz"` still checks out. |
+| DI-16 llms.txt availability | **Fixed** | Coming-soon products carry `(coming soon)` and no price; asserted. |
+| DI-14 orphaned images | **Fixed** | The two unreferenced keychain variants are deleted. |
+| L-crawl `noreferrer` | **Fixed** | Every external `target="_blank"` link in sources and generators carries `noopener noreferrer`; asserted on all pages. |
+| Medium: bundle/box member availability | **Fixed, with auto-fix** | The Worker refuses a set or box whose member is sold out or coming soon, and returns a structured `unavailable` list; the cart drawer removes exactly those lines, tells the shopper what went and why, and lets them retry. Sets with an unavailable member are hidden on the shop page. |
+| Medium: loyalty points on raw subtotal | **Fixed** | Points accrue on subtotal minus `total_details.amount_discount`, never below zero. |
+| Low: volume tiers vs stock cap | **Fixed** | Tier counts use the capped quantity. |
+| Low: expireSession failure window | **Fixed** | Coupon delete first, expiry retried once, then an error log naming session and coupon. |
+| Low: gift-note HMAC secret length | **Fixed** | Same >=16-character guard as the magic-link signer; a short secret answers 503. |
+| M-cms editorial workflow | **Enabled** | `publish_mode: editorial_workflow` in `admin/config.yml` (Sveltia supports it). A CMS Save now opens a `cms/…` branch and PR; Publish merges. Reversible by deleting one line. Note that until Cloudflare Workers Builds is set to the production branch only, each CMS branch push also triggers a Worker build. |
+| M-cms custom `/api` route | **Documented, owner's** | Needs the zone on Cloudflare DNS; `workers/README.md` says what would be required. |
+| SW caches `/admin` | **Fixed** | `sw.js` bypasses `/admin` and `/admin/*`; asserted. |
+| CI `npm install`, floating tags | **Fixed** | `npm ci`; `actions/checkout`, `setup-node`, `cache` pinned to the commit SHAs their tags resolved to, verified with `git ls-remote`. |
+| Browser pool flakiness | **In progress** | Being root-caused suite by suite; see the commit that lands it. A fifth instance was captured in CI on this branch: `reveal-check.js` reported `paint entries = 2` and an unarmed first `.reveal` on `index.html` under the 4-worker pool, then passed on the next run with no relevant change. |
+
+Left for the owner: the loyalty fields in `admin/config.yml` (a product
+decision now that loyalty is wired), and the dashboard items above.
