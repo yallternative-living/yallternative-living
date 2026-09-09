@@ -71,8 +71,8 @@ Here is a quick checklist of the external accounts you'll need to set up for lau
   ("Option A", step 6) has the two dashboard settings that stop that, and
   neither can be set from a file in this repo.
 - **Automated Verification**:
-  - `npm test` runs the Node-only unit pool -- 51 non-browser `scripts/*.test.js` suites
-    (53 with verification gates) covering cart and checkout pricing, tax, gift cards,
+  - `npm test` runs the Node-only unit pool -- 50 non-browser `scripts/*.test.js` suites
+    (52 with verification gates) covering cart and checkout pricing, tax, gift cards,
     the build-data compiler, the journal Markdown renderer, the search engine and the
     CMS auth Worker -- then two further
     gates: `verify-pdp-metadata.js` (797 assertions on every product page's
