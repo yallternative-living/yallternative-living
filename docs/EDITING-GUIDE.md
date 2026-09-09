@@ -250,6 +250,35 @@ At the top of **Shop & Products**:
 | **Product categories** | `Product categories` | Add or rename category buttons across the top of `/shop.html`. |
 | **Shop FAQ** | `FAQ` | Add or edit question & answer pairs displayed in the FAQ accordion on the Shop and Contact pages. |
 
+#### The phone filter bar
+
+On a phone the shop no longer shows every category and concern button above
+the products. Shoppers get one row -- the search box, a **Filter** button
+(with a little count of how many filters are on) and a **Sort** button -- and
+tapping either slides up a panel holding the same category, concern, scent
+and sort choices. Filters they pick show as small removable chips above the
+products, with a **Clear all** next to them. Tablets and computers still show
+the full row of buttons exactly as before.
+
+The categories, concerns and scents in that panel are the ones you already
+manage (**Product categories**, **Shop concerns**, each product's **Scent**);
+nothing about editing them changes. The words on the row and the panel are
+yours too: **Site Settings → Shop page → Phone filter bar wording**.
+
+| Field | What it is | Standard wording |
+|---|---|---|
+| **Filter button** | Opens the panel. The count of active filters is added for you. | `Filter` |
+| **Sort button** | Opens the panel at the sort choices. | `Sort` |
+| **Panel heading** | The title at the top of the slide-up panel. | `Filter & sort` |
+| **Category group heading** / **Concern group heading** | The small headings above each group of buttons inside the panel. | `Category` / `Concern` |
+| **Apply button** | Closes the panel and shows the results. | `Apply` |
+| **Clear-all button** | Resets every filter and the search box. Shown in the panel and next to the chips. | `Clear all` |
+| **Active filters label** / **Remove-chip word** | Read aloud by screen readers only (the chip row's name, and the word before a chip's name, e.g. "Remove Salves & Balms"). Never shown on screen. | `Active filters` / `Remove` |
+
+Leave any field blank to keep the standard wording. Like the rest of the
+site's copy, new wording is picked up by the translation run described in
+"A note on the other five languages" above -- write it in English only.
+
 ---
 
 ### Walkthrough 5b: Marking an order shipped

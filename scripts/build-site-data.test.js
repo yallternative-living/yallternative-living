@@ -1411,6 +1411,25 @@ assert(
     "resolveSafetyNotes: null overrides give the defaults"
   );
 
+  /* The phone filter bar's wording: every CMS field optional, blank keeps
+     the standard word, and every default has a marker on shop.html to land
+     in -- a key here with no marker would be a CMS field that edits nothing. */
+  const filterUi = buildScript.resolveShopFilterUi({ filterButton: "  Refine ", clearAll: "" });
+  eq(filterUi.filterButton, "Refine", "resolveShopFilterUi: CMS text overrides a word (trimmed)");
+  eq(filterUi.clearAll, "Clear all", "resolveShopFilterUi: a blank override keeps the default");
+  eq(
+    buildScript.resolveShopFilterUi(undefined).sheetTitle,
+    "Filter & sort",
+    "resolveShopFilterUi: no overrides give the defaults"
+  );
+  const shopHtmlSrc = fs.readFileSync(path.join(__dirname, "..", "shop.html"), "utf8");
+  Object.keys(buildScript.DEFAULT_SHOP_FILTER_UI).forEach(function (k) {
+    assert(
+      shopHtmlSrc.indexOf("<!--YL:shop.filterUi." + k + "-->") !== -1,
+      "shop.html carries a <!--YL:shop.filterUi." + k + "--> marker"
+    );
+  });
+
   const cfg = buildScript.getSearchConfig({
     search: {
       chipsTitle: "  Try these ",

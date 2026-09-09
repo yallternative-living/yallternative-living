@@ -2024,6 +2024,22 @@ singletons:
               accept: "image/jpeg,image/png",
               hint: "Background photo for the Digital Gift Card banner."
             }
+          - name: filterUi
+            label: "Phone filter bar wording"
+            widget: object
+            collapsed: true
+            required: false
+            hint: "On phones the shop's category, concern, scent and sort controls fold into one 'Filter · Sort' row that opens a slide-up panel. These are the words on that row and panel. Tablets and computers show the full filter row as before. Leave any field blank to keep the standard wording."
+            fields:
+              - { name: filterButton, label: "Filter button", widget: string, required: false, hint: "The button that opens the panel. Standard: Filter. A count of active filters is added automatically." }
+              - { name: sortButton, label: "Sort button", widget: string, required: false, hint: "Opens the panel at the sort choices. Standard: Sort." }
+              - { name: sheetTitle, label: "Panel heading", widget: string, required: false, hint: "Title at the top of the slide-up panel. Standard: Filter & sort." }
+              - { name: categoryHeading, label: "Category group heading", widget: string, required: false, hint: "Sits above the category buttons inside the panel. Standard: Category." }
+              - { name: concernHeading, label: "Concern group heading", widget: string, required: false, hint: "Sits above the concern buttons inside the panel. Standard: Concern." }
+              - { name: applyButton, label: "Apply button", widget: string, required: false, hint: "Closes the panel and shows the results. Standard: Apply." }
+              - { name: clearAll, label: "Clear-all button", widget: string, required: false, hint: "Resets every filter and the search box; shown in the panel and next to the active-filter chips above the products. Standard: Clear all." }
+              - { name: activeFilters, label: "Active filters label (screen readers)", widget: string, required: false, hint: "Read aloud by screen readers to name the row of active-filter chips; never shown on screen. Standard: Active filters." }
+              - { name: removeFilter, label: "Remove-chip word (screen readers)", widget: string, required: false, hint: "Read aloud before a chip's name, e.g. 'Remove Salves & Balms'; never shown on screen. Standard: Remove." }
           - name: sections
             label: "Section headings & bands"
             widget: object

@@ -143,6 +143,17 @@
     "heroTitle": "The Full Collection, Y'all",
     "heroIntro": "All the goods, all the moods. Soft apparel for showing up exactly as yourself, salves & balms for cracked heels and rougher days, body & skin stuff that smells like a good decision, soaks that turn a bathtub into a religious experience, and a potions & spellwork corner for the witchy little accessories you didn't know you needed. The apparel is our own original artwork; every salve, soak, and scrub is mixed, poured, and stirred by hand in small batches right here in Landrum, SC.",
     "giftCardImage": "assets/img/gift-card.png",
+    "filterUi": {
+      "filterButton": "Filter",
+      "sortButton": "Sort",
+      "sheetTitle": "Filter & sort",
+      "categoryHeading": "Category",
+      "concernHeading": "Concern",
+      "applyButton": "Apply",
+      "clearAll": "Clear all",
+      "activeFilters": "Active filters",
+      "removeFilter": "Remove"
+    },
     "sections": {
       "giftSetsTitle": "Gift Sets",
       "faqBannerTitle": "Got Questions?",

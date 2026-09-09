@@ -7344,6 +7344,107 @@
         }).length;
         eyebrowProductCount.textContent = activeHandmade;
       }
+      renderActiveFilters();
+    }
+
+    /* ---------- Active-filter chips + phone Filter badge ----------
+       One chip per non-default control (category, concern, scent, search),
+       each removable on its own, plus "Clear all". Rendered on every
+       render() so the chips, the badge on the phone Filter button and the
+       URL (syncShopUrl) can never disagree about what is applied. Removing
+       a chip goes through the control it mirrors -- a click on the "All"
+       pill, a change on the select -- so the pills' own aria-pressed state
+       and every listener attached to them stay the single source of truth.
+       The markup is static in shop.html (hidden on desktop, where the full
+       toolbar is always visible), so this is a no-op off the shop page. */
+    var activeFiltersWrap = document.getElementById("shopActiveFilters");
+    var activeFiltersList = document.getElementById("shopActiveFiltersList");
+    var filterCountBadge = document.getElementById("shopFilterCount");
+    var filterOpenBtn = document.getElementById("shopFilterOpenBtn");
+
+    function activeChips() {
+      var chips = [];
+      if (state.filter !== "all") {
+        chips.push({ kind: "category", label: catLabel[state.filter] || state.filter });
+      }
+      if (state.concern !== "all") {
+        chips.push({ kind: "concern", label: concernLabel[state.concern] || state.concern });
+      }
+      if (state.scent !== "all") chips.push({ kind: "scent", label: state.scent });
+      var q = String(state.query || "").trim();
+      if (q) chips.push({ kind: "q", label: "“" + q + "”" });
+      return chips;
+    }
+
+    function renderActiveFilters() {
+      var chips = activeChips();
+      /* The badge counts filters, not the search: the search box is always
+         on screen next to the button, so its own text is its indicator. */
+      var filterCount = chips.filter(function (c) {
+        return c.kind !== "q";
+      }).length;
+      if (filterCountBadge) {
+        filterCountBadge.textContent = String(filterCount);
+        filterCountBadge.hidden = filterCount === 0;
+      }
+      if (filterOpenBtn) {
+        if (filterCount > 0) {
+          filterOpenBtn.setAttribute("aria-describedby", "shopActiveFiltersLabel shopFilterCount");
+        } else {
+          filterOpenBtn.removeAttribute("aria-describedby");
+        }
+      }
+      if (!activeFiltersWrap || !activeFiltersList) return;
+      activeFiltersWrap.hidden = chips.length === 0;
+      activeFiltersList.innerHTML = chips
+        .map(function (c) {
+          var id = "shopChipLabel-" + c.kind;
+          /* aria-labelledby: the hidden shared "Remove" span first, then the
+             chip's own label -- "Remove Salves & Balms" -- with no string
+             assembled in JS, so both halves stay translatable text nodes. */
+          return (
+            '<button type="button" class="shop-chip" data-chip="' +
+            c.kind +
+            '" aria-labelledby="shopChipRemoveLabel ' +
+            id +
+            '"><span id="' +
+            id +
+            '">' +
+            attrEsc(c.label) +
+            '</span><span class="shop-chip-x" aria-hidden="true">×</span></button>'
+          );
+        })
+        .join("");
+    }
+
+    function clearOneFilter(kind) {
+      var allPill;
+      if (kind === "category") {
+        allPill = row.querySelector('.filter-pill[data-filter="all"]');
+        if (allPill) allPill.click();
+      } else if (kind === "concern" && concernRow) {
+        allPill = concernRow.querySelector('.concern-pill[data-concern="all"]');
+        if (allPill) allPill.click();
+      } else if (kind === "scent" && scentSelect) {
+        scentSelect.value = "all";
+        scentSelect.dispatchEvent(new Event("change"));
+      } else if (kind === "q") {
+        if (searchInput) searchInput.value = "";
+        state.query = "";
+        render();
+      }
+    }
+
+    if (activeFiltersList) {
+      activeFiltersList.addEventListener("click", function (e) {
+        var chip = e.target.closest(".shop-chip[data-chip]");
+        if (!chip) return;
+        var kind = chip.getAttribute("data-chip");
+        clearOneFilter(kind);
+        /* The chip just clicked is gone; keep the keyboard somewhere useful. */
+        var next = activeFiltersList.querySelector(".shop-chip");
+        (next || filterOpenBtn || searchInput || row).focus();
+      });
     }
 
     row.addEventListener("click", function (e) {
@@ -7607,6 +7708,187 @@
         }
       });
     }
+
+    /* ---------- Phone bottom sheet (<=767px) ----------
+       The toolbar above the grid was a 520px wall of pills at 375px wide,
+       with the first product 1535px down the page. On phones the SAME
+       nodes -- #filterRow, #concernFilterWrap, .shop-sort (scent + sort) and
+       the Track Order button -- are moved into #shopFilterSheet and a slot
+       below the policy note, and moved back to their original places when
+       the viewport grows. Moving rather than cloning keeps every id, class,
+       data-attribute and listener (the delegated click handlers above are
+       on `row` and `concernRow` themselves), so a script or a test that
+       calls .click() on a hidden pill still filters the grid exactly as
+       before; only what a shopper SEES changes. */
+    function initShopFilterSheet() {
+      var sheet = document.getElementById("shopFilterSheet");
+      var controls = document.getElementById("shopControls");
+      var sortOpenBtn = document.getElementById("shopSortOpenBtn");
+      var closeBtn = document.getElementById("shopFilterSheetClose");
+      var applyBtn = document.getElementById("shopSheetApplyBtn");
+      var sheetClearBtn = document.getElementById("shopSheetClearBtn");
+      var chipsClearBtn = document.getElementById("shopClearFiltersBtn");
+      if (!sheet || !controls || !filterOpenBtn) return;
+
+      /* Both Clear buttons say the same CMS word; the chips-row one carries
+         the marker (build-data fills a marker once per page). */
+      if (sheetClearBtn && chipsClearBtn && chipsClearBtn.textContent.trim()) {
+        sheetClearBtn.textContent = chipsClearBtn.textContent.trim();
+      }
+      if (chipsClearBtn) chipsClearBtn.addEventListener("click", handleResetFilters);
+      if (sheetClearBtn) sheetClearBtn.addEventListener("click", handleResetFilters);
+
+      var moves = [
+        { node: document.getElementById("filterRow"), slot: "shopSheetCategorySlot" },
+        { node: document.getElementById("concernFilterWrap"), slot: "shopSheetConcernSlot" },
+        { node: document.querySelector(".shop-toolbar .shop-sort"), slot: "shopSheetSortSlot" },
+        { node: document.getElementById("openOrderStatusBtn"), slot: "shopOrderStatusSlot" }
+      ].filter(function (m) {
+        return m.node && document.getElementById(m.slot);
+      });
+      moves.forEach(function (m) {
+        m.home = m.node.parentNode;
+        m.next = m.node.nextSibling;
+      });
+      var phoneMQ = window.matchMedia("(max-width: 767px)");
+      var onPhone = false;
+
+      function moveIn() {
+        if (onPhone) return;
+        onPhone = true;
+        moves.forEach(function (m) {
+          document.getElementById(m.slot).appendChild(m.node);
+        });
+      }
+      function moveOut() {
+        if (!onPhone) return;
+        onPhone = false;
+        if (sheet.open) closeSheet();
+        moves.forEach(function (m) {
+          if (m.next && m.next.parentNode === m.home) m.home.insertBefore(m.node, m.next);
+          else m.home.appendChild(m.node);
+        });
+      }
+
+      /* The row sticks just under the site header; the header's height is
+         measured, not assumed, because it changes with the announcement bar
+         and with the language a shopper picks. */
+      function syncBarTop() {
+        var header = document.querySelector(".site-header");
+        if (!header) return;
+        var rect = header.getBoundingClientRect();
+        var bottom = Math.max(0, Math.round(rect.bottom));
+        if (bottom > 0 && bottom < 200) controls.style.setProperty("--shop-bar-top", bottom + "px");
+      }
+
+      function applyViewport() {
+        if (phoneMQ.matches) {
+          moveIn();
+          syncBarTop();
+        } else {
+          moveOut();
+        }
+      }
+
+      var lastTrigger = null;
+      var isOpen = false;
+
+      function setExpanded(open) {
+        [filterOpenBtn, sortOpenBtn].forEach(function (b) {
+          if (b) b.setAttribute("aria-expanded", open ? "true" : "false");
+        });
+      }
+
+      function openSheet(trigger, focusTarget) {
+        if (!phoneMQ.matches) return;
+        lastTrigger = trigger || document.activeElement;
+        if (typeof sheet.showModal === "function") {
+          if (!sheet.open) sheet.showModal();
+        } else {
+          sheet.setAttribute("open", "");
+        }
+        isOpen = true;
+        document.body.classList.add("shop-sheet-open");
+        setExpanded(true);
+        var target = focusTarget && !focusTarget.hidden ? focusTarget : closeBtn;
+        if (target && typeof target.focus === "function") {
+          try {
+            target.focus({ preventScroll: true });
+          } catch {
+            target.focus();
+          }
+        }
+      }
+
+      function afterClose() {
+        if (!isOpen) return;
+        isOpen = false;
+        document.body.classList.remove("shop-sheet-open");
+        setExpanded(false);
+        var back = lastTrigger;
+        lastTrigger = null;
+        if (back && typeof back.focus === "function" && document.contains(back)) {
+          back.focus();
+        }
+      }
+
+      function closeSheet() {
+        if (typeof sheet.close === "function" && sheet.open) {
+          sheet.close();
+        } else {
+          sheet.removeAttribute("open");
+          afterClose();
+        }
+      }
+
+      /* Escape fires `cancel` then `close`; close() fires `close`; either
+         way the one `close` handler restores scroll and focus. */
+      sheet.addEventListener("close", afterClose);
+      sheet.addEventListener("click", function (e) {
+        /* A click on the dialog element itself is a click on the backdrop:
+           every real control is inside the header/body/footer wrappers. */
+        if (e.target === sheet) closeSheet();
+      });
+      if (closeBtn) closeBtn.addEventListener("click", closeSheet);
+      if (applyBtn) applyBtn.addEventListener("click", closeSheet);
+
+      filterOpenBtn.addEventListener("click", function () {
+        if (sheet.open) {
+          closeSheet();
+          return;
+        }
+        openSheet(filterOpenBtn, closeBtn);
+      });
+      if (sortOpenBtn) {
+        sortOpenBtn.addEventListener("click", function () {
+          if (sheet.open) {
+            closeSheet();
+            return;
+          }
+          openSheet(sortOpenBtn, sortSelect);
+        });
+      }
+
+      applyViewport();
+      phoneMQ.addEventListener("change", applyViewport);
+      var barTopTimer;
+      window.addEventListener(
+        "resize",
+        function () {
+          clearTimeout(barTopTimer);
+          barTopTimer = setTimeout(function () {
+            if (phoneMQ.matches) syncBarTop();
+          }, 120);
+        },
+        { passive: true }
+      );
+      /* The announcement bar is measured by main.js after fonts settle and
+         the header can grow with it; re-read once everything has loaded. */
+      window.addEventListener("load", function () {
+        if (phoneMQ.matches) syncBarTop();
+      });
+    }
+    initShopFilterSheet();
 
     render();
     /* Armed only now: the first render must not rewrite the URL the shopper

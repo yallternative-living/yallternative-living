@@ -1822,6 +1822,13 @@ function buildSiteData() {
   /* The quiz has its own file so /admin can offer it as its own section;
      main.js still reads it as YL_CONTENT.quiz, so it is merged back here. */
   CONTENT.quiz = readJson("assets/data/quiz.json");
+  /* Phone filter-bar wording (shop.html's Filter / Sort row, its slide-up
+     panel and the active-filter chips). Every field is optional in /admin and
+     a blank one keeps the standard word, so an owner who clears a box by
+     accident does not ship a button with no label. Same shape as
+     resolveSafetyNotes() below. */
+  CONTENT.shop = CONTENT.shop || {};
+  CONTENT.shop.filterUi = resolveShopFilterUi(CONTENT.shop.filterUi);
   const JOURNAL = loadJournal(CONTENT);
   const BRAND_GLOSSARY = readJson("assets/data/brand-glossary.json");
   const LOCALES = {};
@@ -7069,6 +7076,31 @@ const DEFAULT_SAFETY_NOTES = {
   reactionPrompt: "Had a reaction? Tell us and we will log it and make it right."
 };
 
+/* The words on shop.html's phone-only filter bar and bottom sheet (see
+   initShopFilterSheet() in main.js). Editable under Site Settings -> Shop page ->
+   "Phone filter bar wording" in /admin; each lands in one
+   <!--YL:shop.filterUi.*--> marker. Keep this list and the markers in step. */
+const DEFAULT_SHOP_FILTER_UI = {
+  filterButton: "Filter",
+  sortButton: "Sort",
+  sheetTitle: "Filter & sort",
+  categoryHeading: "Category",
+  concernHeading: "Concern",
+  applyButton: "Apply",
+  clearAll: "Clear all",
+  activeFilters: "Active filters",
+  removeFilter: "Remove"
+};
+
+function resolveShopFilterUi(overrides) {
+  const out = {};
+  Object.keys(DEFAULT_SHOP_FILTER_UI).forEach(function (k) {
+    const v = overrides && typeof overrides[k] === "string" ? overrides[k].trim() : "";
+    out[k] = v || DEFAULT_SHOP_FILTER_UI[k];
+  });
+  return out;
+}
+
 function resolveSafetyNotes(overrides) {
   const out = {};
   Object.keys(DEFAULT_SAFETY_NOTES).forEach(function (k) {
@@ -7908,6 +7940,8 @@ if (typeof module !== "undefined" && module.exports) {
     enrichedQuerySynonyms: enrichedQuerySynonyms,
     /* ==== END search-enrichment merge ==== */
     resolveSafetyNotes: resolveSafetyNotes,
+    resolveShopFilterUi: resolveShopFilterUi,
+    DEFAULT_SHOP_FILTER_UI: DEFAULT_SHOP_FILTER_UI,
     readJson: readJson,
     readText: readText,
     writeFile: writeFile,
