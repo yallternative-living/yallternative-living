@@ -107,7 +107,8 @@ function randomId() {
  * @param {{email?: string, subject?: string, purpose: string, ttlSeconds?: number,
  *   maxTtlSeconds?: number, now?: number}} claims `maxTtlSeconds` raises this
  *   call's own ceiling above the 24h default, up to 180 days. Exactly one of
- *   `email` or `subject` (an opaque hex id, 16..64 chars) is required.
+ *   `email` or `subject` (an opaque hex id, 16..160 chars; see sealSubject)
+ *   is required.
  * @returns {Promise<{token: string, tokenId: string, expiresAt: number,
  *   email?: string, subject?: string}>}
  *   `expiresAt` is epoch SECONDS, matching the `exp` claim.
@@ -119,8 +120,8 @@ export async function signToken(secret, claims) {
     if (params.email !== undefined) {
       throw new TypeError("magic-link: pass email or subject, not both.");
     }
-    if (!/^[a-f0-9]{16,64}$/.test(params.subject)) {
-      throw new TypeError("magic-link: subject must be a hex id of 16 to 64 characters.");
+    if (!/^[a-f0-9]{16,160}$/.test(params.subject)) {
+      throw new TypeError("magic-link: subject must be a hex id of 16 to 160 characters.");
     }
   } else if (typeof params.email !== "string" || !params.email.includes("@")) {
     throw new TypeError("magic-link: email is required.");
@@ -190,7 +191,7 @@ export async function verifyToken(secret, token, options = {}) {
   }
   if (!payload || typeof payload.exp !== "number") return { valid: false, reason: "malformed" };
   const hasEmail = typeof payload.e === "string";
-  const hasSubject = typeof payload.s === "string" && /^[a-f0-9]{16,64}$/.test(payload.s);
+  const hasSubject = typeof payload.s === "string" && /^[a-f0-9]{16,160}$/.test(payload.s);
   if (hasEmail === hasSubject) return { valid: false, reason: "malformed" };
 
   const nowSeconds = Math.floor((options.now || Date.now()) / 1000);
@@ -205,6 +206,81 @@ export async function verifyToken(secret, token, options = {}) {
     tokenId: payload.jti,
     expiresAt: payload.exp
   };
+}
+
+/* ---------------------------------------------------------------- sealing */
+
+/**
+ * A subject the token can carry without giving anything away. A bare
+ * SHA-256 of an address is still that address to anyone with a list of
+ * likely addresses to hash (mail-provider logs, a proxy, a shared screenshot
+ * of the URL), so the order-history link carries the hash ENCRYPTED instead:
+ * AES-256-GCM under a key derived from the signing secret, a fresh IV per
+ * call, hex-encoded so it satisfies the subject rule above. Only this Worker
+ * can open it, and two links for one address never look alike.
+ *
+ * @param {string} secret env.MAGIC_LINK_SECRET
+ * @param {string} hexId the value to hide -- a 16..64 char hex id
+ * @returns {Promise<string>} hex: 12-byte IV, then ciphertext + tag (120
+ *   characters for a SHA-256)
+ */
+export async function sealSubject(secret, hexId) {
+  if (typeof hexId !== "string" || !/^([a-f0-9]{2}){8,32}$/.test(hexId)) {
+    throw new TypeError("magic-link: sealSubject needs a hex id of 16 to 64 characters.");
+  }
+  const key = await sealingKey(secret);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  // The id's BYTES are sealed, not its hex text: a 64-char hash is 32 bytes,
+  // so the result is 12 + 32 + 16 = 60 bytes -- 120 hex characters.
+  const sealed = new Uint8Array(
+    await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, hexToBytes(hexId))
+  );
+  return bytesToHex(iv) + bytesToHex(sealed);
+}
+
+/**
+ * The inverse of sealSubject. Never throws on bad input: a tampered, truncated
+ * or foreign-secret subject opens to null, and the caller answers exactly as
+ * it would for a bad signature.
+ *
+ * @returns {Promise<string|null>}
+ */
+export async function openSubject(secret, sealed) {
+  // 12-byte IV + 8..32 id bytes + 16-byte tag, as hex: 72..120 characters.
+  if (typeof sealed !== "string" || !/^[a-f0-9]{72,120}$/.test(sealed)) return null;
+  try {
+    const key = await sealingKey(secret);
+    const bytes = hexToBytes(sealed);
+    const plain = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: bytes.slice(0, 12) },
+      key,
+      bytes.slice(12)
+    );
+    const hexId = bytesToHex(new Uint8Array(plain));
+    return /^[a-f0-9]{16,64}$/.test(hexId) ? hexId : null;
+  } catch {
+    return null;
+  }
+}
+
+async function sealingKey(secret) {
+  if (typeof secret !== "string" || secret.length < 16) {
+    throw new TypeError("magic-link: secret must be at least 16 characters.");
+  }
+  // A key of its own, derived from the signing secret: the same secret never
+  // does two jobs directly, and rotating it rotates both.
+  const raw = await crypto.subtle.digest("SHA-256", encoder.encode(`${secret}\u0000subject-seal`));
+  return crypto.subtle.importKey("raw", raw, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
+}
+
+function bytesToHex(bytes) {
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function hexToBytes(hex) {
+  const out = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  return out;
 }
 
 /**

@@ -31,8 +31,10 @@
  *
  * FAILURE MODE
  * With no backend configured, `checkRateLimit` fails OPEN by default and says so
- * in `source: "none"`. A misconfigured binding must not take checkout offline.
- * Pass `failOpen: false` on endpoints where refusing is safer than serving.
+ * in `source: "none"`; a Durable Object that throws mid-check is treated the
+ * same way (`source: "error"`). A misconfigured binding must not take checkout
+ * offline. Pass `failOpen: false` on endpoints where refusing is safer than
+ * serving.
  */
 
 /** Fixed-window counters older than this many windows are dropped by the alarm. */
@@ -49,7 +51,7 @@ const COUNTER_SCHEMA = `CREATE TABLE IF NOT EXISTS windows (
  * @param {{limit: number, period: number, failOpen?: boolean, binding?: string,
  *          namespace?: string, now?: number}} options
  *   `period` is in seconds and applies to the Durable Object path only.
- * @returns {Promise<{success: boolean, source: 'binding'|'durable-object'|'none',
+ * @returns {Promise<{success: boolean, source: 'binding'|'durable-object'|'none'|'error',
  *   remaining?: number, resetAt?: number}>}
  */
 export async function checkRateLimit(env, key, options = {}) {
@@ -75,13 +77,22 @@ export async function checkRateLimit(env, key, options = {}) {
   const ns = env && env[namespaceName];
   if (ns && typeof ns.idFromName === "function") {
     const stub = ns.get(ns.idFromName(`${period}:${limit}:${cleanKey}`));
-    const res = await stub.fetch("https://rate-limit/check", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ limit, period })
-    });
-    const body = await res.json();
-    return { ...body, source: "durable-object" };
+    try {
+      const res = await stub.fetch("https://rate-limit/check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ limit, period })
+      });
+      const body = await res.json();
+      return { ...body, source: "durable-object" };
+    } catch (err) {
+      // A counter that cannot answer (an object reset mid-request, a storage
+      // error) is the "no backend" case for this one check: `failOpen`
+      // decides, exactly as it does below, instead of a thrown error turning
+      // into a 500 on a route that promised to fail open.
+      console.error("rate-limit: counter unavailable:", err && err.message ? err.message : err);
+      return { success: options.failOpen === false ? false : true, source: "error" };
+    }
   }
 
   return { success: options.failOpen === false ? false : true, source: "none" };

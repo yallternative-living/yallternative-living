@@ -1727,7 +1727,7 @@ singletons:
               widget: boolean,
               default: true,
               required: false,
-              hint: "Adds a 'Have a code?' box to the cart that checks the code and shows the discount before checkout. Codes are made in Stripe, not here: Products -> Coupons -> New (a percentage or a dollar amount off), then on that coupon Promotion codes -> New, and type the code customers will enter (letters, numbers and dashes, e.g. YALL10). Coupons limited to specific Stripe products won't work here, and a code can't be combined with a gift card. Off, the box disappears; Stripe's own code box at checkout still works. Step-by-step in the Setup Guide, Step 3E."
+              hint: "Adds a 'Have a code?' box to the cart that checks the code and shows the discount before checkout. Codes are made in Stripe, not here: Products -> Coupons -> New (a percentage or a dollar amount off), then on that coupon Promotion codes -> New, and type the code customers will enter (letters, numbers and dashes, e.g. YALL10). Coupons limited to specific Stripe products won't work here. A code can't be combined with a gift card, and can't be used to buy one. Off, the box disappears; Stripe's own code box at checkout still works. Step-by-step in the Setup Guide, Step 3E."
             }
           - {
               name: promoCodePrompt,

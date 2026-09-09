@@ -756,7 +756,31 @@
     "tpl.promoDiscountLine": "프로모션 코드 ({code})",
     "tpl.promoApplied": "프로모션 코드 {code} 적용됨 ({amount} 할인)",
     "tpl.promoPercentOff": "{percent}% 할인",
-    "tpl.promoAmountOff": "{amount} 할인"
+    "tpl.promoAmountOff": "{amount} 할인",
+    "auto.noReferenceNeededJust.1b12ea": "— 참조 번호는 필요 없어요. 주문할 때 쓰신 이메일만 있으면 돼요.",
+    "auto.activeFilters.15363e": "적용된 필터",
+    "auto.allYourOrders.57869d": "전체 주문 내역",
+    "auto.articleTopics.3b8e87": "아티클 주제",
+    "auto.behindTheScenes.a2bcd4": "비하인드 스토리",
+    "auto.botanicalCare.802c85": "보태니컬 케어",
+    "auto.category.a3c686": "카테고리",
+    "auto.clearAll.c04316": "모두 지우기",
+    "auto.concern.c79f25": "고민",
+    "auto.emailMeLink.618fa7": "이메일로 링크 받기",
+    "auto.filterSort.6ea2ee": "필터 및 정렬",
+    "auto.getLinkToYour.3d57ac": "주문 내역 링크 받기",
+    "auto.isSmallBatchJust.4fea3e": "'스몰 배치(소량 생산)'는 그저 유행하는 말일 뿐일까요, 아니면 실제로 피부에 차이가 있을까요? 사용 기한과 진짜 원료에 대해 이야기해 봐요.",
+    "auto.justTheOneOrder.51ea39": "확인할 주문이 딱 한 건인가요?",
+    "auto.noAccountNoPassword.edab58": "계정도, 비밀번호도 필요 없어요. 주문할 때 쓰신 이메일을 입력하시면 그 이메일로 진행된 모든 주문 내역을 확인할 수 있는 링크를 보내드려요 — 무엇을 샀는지, 지금 어디에 있는지, 그리고 한 번 더 주문할 수 있는 버튼까지 모두 확인하실 수 있어요.",
+    "auto.orderStatus.22edd6": "주문 상태",
+    "auto.orderedHereBefore.f04759": "전에 주문해 보셨나요?",
+    "auto.seeAllYourOrders.bc4480": "주문 내역 전체 보기",
+    "auto.strugglingToTurnYour.c02e86": "머릿속 스위치를 끄기 힘들거나 뻐근한 근육 때문에 씨름하고 계신가요? 이 듀오가 제 몫을 하는 이유, 그 뒤에 숨은 과학(그리고 전해 내려오는 이야기)을 전해드려요.",
+    "auto.takesTheReferenceFrom.297a53": "영수증에 적힌 참조 번호를 사용합니다.",
+    "auto.whatsTheDealWith.f1cb52": "스몰 배치 아포테케리가 대체 뭐길래요?",
+    "auto.whyMagnesiumArnicaBelong.8b9520": "잠자리에 들기 전 루틴에 마그네슘과 아르니카가 빠질 수 없는 이유",
+    "auto.yourOrders.caeec2": "주문 내역",
+    "auto.yourOrdersYallternativeLiving.f3d995": "주문 내역 | Y'allternative Living"
   }
 };
 

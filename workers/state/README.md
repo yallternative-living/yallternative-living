@@ -159,10 +159,12 @@ stateful step and returns `true` exactly once. `sweepBurnedTokens` is cron
 housekeeping. The secret is a Worker Secret; rotating it invalidates every
 outstanding link, which is the intended emergency behaviour.
 
-A token may carry an opaque `subject` (a hex id such as a SHA-256 of the
-address) instead of `email` — `signToken({ subject, purpose })` — and
-`verifyToken` hands back whichever one it carried, never both. The order
-history uses this so the emailed URL holds no PII.
+A token may carry an opaque `subject` (a hex id) instead of `email` —
+`signToken({ subject, purpose })` — and `verifyToken` hands back whichever
+one it carried, never both. `sealSubject(secret, hexId)` / `openSubject`
+encrypt such an id (AES-GCM, a key derived from the secret, a fresh IV per
+call) so the order history's link carries the address hash without exposing
+it: a bare SHA-256 is reversible for anyone with a list of likely addresses.
 
 ## `orders.js` — D1, the customer's order history
 

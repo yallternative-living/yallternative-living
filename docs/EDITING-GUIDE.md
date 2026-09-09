@@ -290,7 +290,7 @@ shop *presents* them:
 
 | Setting | Where to Find It | What It Controls |
 |---|---|---|
-| **Accept promo codes in the cart** | `Site Settings` -> `⚙️ Site Settings` -> `Shop · Accept promo codes in the cart` | ON (the default) adds a "Have a code?" box to the cart, beside the gift card one. The shop checks the code with Stripe the moment it is typed and shows the discount and the new total *before* checkout, so nobody finds out on the payment page. OFF hides the box; Stripe's own code field on the payment page still works. |
+| **Accept promo codes in the cart** | `Site Settings` -> `⚙️ Site Settings` -> `Shop · Accept promo codes in the cart` | ON (the default) adds a "Have a code?" box to the cart, beside the gift card one. The shop checks the code with Stripe the moment it is typed and shows the discount and the new total *before* checkout, so nobody finds out on the payment page. OFF hides the box; Stripe's own code field on the payment page still works. Codes never apply to a gift card purchase, and can't be combined with a gift card. |
 | **Promo code prompt** | same screen -> `Shop · Promo code prompt` | The words on that box ("Have a code?"). Keep it short -- it shares a row with the gift card prompt. |
 | **Promo code + gift card notice** | same screen -> `Shop · Promo code + gift card notice` | The sentence shown when someone has a gift card applied and enters a promo code too. Stripe allows **one** discount per order, so the code waits (it is kept, greyed out) until the gift card is removed. |
 

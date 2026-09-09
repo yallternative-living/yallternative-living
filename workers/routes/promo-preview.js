@@ -30,6 +30,16 @@
  * coupon, see checkout.js). A promo code and a gift card are therefore one
  * or the other; the drawer says so, and checkout.js answers a structured
  * `promo.reason: "gift_card_conflict"` if a client sends both anyway.
+ *
+ * NEVER ON A GIFT CARD. A code is refused (`gift_card_purchase`) when the
+ * cart holds the shop's own gift card: Stripe would discount that line too,
+ * and the card is minted at face value, so a reusable percentage code would
+ * sell stored value below par. Checkout refuses the same cart and leaves
+ * Stripe's own code box off for it (checkout.js).
+ *
+ * The estimate is priced over the live counts (routes/inventory.js), the same
+ * numbers checkout allocates from, so a line the ledger has run out of is
+ * refused here rather than previewed and then refused at checkout.
  */
 
 import { json, readJson, clientIp, ClientError, clientErrorBody } from "./http.js";
@@ -62,6 +72,8 @@ export const PROMO_COPY = {
   minimum_not_met: "This code needs a subtotal of at least {amount}.",
   not_applicable: "That code doesn't apply to anything in this cart.",
   gift_card_conflict: "Promo codes and gift cards can't be combined. Remove one to continue.",
+  gift_card_purchase:
+    "Codes can't be used to buy gift cards. Take the gift card out of the cart to use one.",
   rejected: "That code couldn't be applied to this order."
 };
 
@@ -166,6 +178,9 @@ export function evaluatePromotion(promotionCode, subtotalCents, now) {
   const subtotal = Math.max(0, Math.round(Number(subtotalCents) || 0));
 
   if (!coupon || pc.active === false || coupon.valid === false) return miss("expired");
+  // A code tied to one Stripe customer: Checkout would refuse it for anyone
+  // else at session creation, so the drawer must not promise it first.
+  if (pc.customer) return miss("not_applicable");
   if (Number(pc.expires_at) > 0 && Number(pc.expires_at) * 1000 <= at) return miss("expired");
   if (Number(coupon.redeem_by) > 0 && Number(coupon.redeem_by) * 1000 <= at) {
     return miss("expired");
@@ -223,8 +238,9 @@ export function evaluatePromotion(promotionCode, subtotalCents, now) {
  * @param {object} env
  * @param {string} origin
  * @param {object} ctx
- * @param {{loadCatalog: Function, priceCart: Function}} deps checkout.js's own
- *   catalog loader and pricer, handed in by the router (see the file header).
+ * @param {{loadCatalog: Function, priceCart: Function, availabilityForCheckout?: Function}} deps
+ *   checkout.js's own catalog loader and pricer (and the live-count reader),
+ *   handed in by the router (see the file header).
  */
 export async function handlePromoPreview(request, env, origin, ctx, deps) {
   let body;
@@ -261,13 +277,27 @@ export async function handlePromoPreview(request, env, origin, ctx, deps) {
   let priced;
   try {
     const catalog = await deps.loadCatalog(env, ctx);
-    priced = deps.priceCart(catalog, Array.isArray(body.items) ? body.items : []);
+    const availability =
+      typeof deps.availabilityForCheckout === "function"
+        ? await deps.availabilityForCheckout(env, catalog)
+        : null;
+    priced = deps.priceCart(catalog, Array.isArray(body.items) ? body.items : [], availability);
   } catch (err) {
     if (err instanceof ClientError) {
       return json({ valid: false, reason: "cart_invalid", error: err.message }, 200, origin, env);
     }
     console.error("promo-preview: pricing the cart failed:", err && err.stack ? err.stack : err);
     return json(miss("unavailable"), 200, origin, env);
+  }
+
+  // A code never discounts the shop's own gift cards. Stripe applies a
+  // session discount to every line, the card is minted at face value
+  // (routes/gift-cards.js), so a 10% code on a $25 card would sell $25 of
+  // stored value for $22.50 -- an arbitrage loop with a reusable code.
+  // Checkout refuses the same cart; this answer comes before the lookup so a
+  // guess costs no Stripe call.
+  if (priced.lineItems.some((li) => li && li.isGiftCard)) {
+    return json(miss("gift_card_purchase"), 200, origin, env);
   }
 
   const found = await findPromotionCode(env, code);

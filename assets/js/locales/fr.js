@@ -756,7 +756,31 @@
     "tpl.promoDiscountLine": "Code promo ({code})",
     "tpl.promoApplied": "Code promo {code} appliqué ({amount} de réduction)",
     "tpl.promoPercentOff": "{percent}% de réduction",
-    "tpl.promoAmountOff": "{amount} de réduction"
+    "tpl.promoAmountOff": "{amount} de réduction",
+    "auto.noReferenceNeededJust.1b12ea": "— pas besoin de référence, juste l'e-mail que tu as utilisé.",
+    "auto.activeFilters.15363e": "Filtres actifs",
+    "auto.allYourOrders.57869d": "Toutes tes commandes",
+    "auto.articleTopics.3b8e87": "Sujets des articles",
+    "auto.behindTheScenes.a2bcd4": "En coulisses",
+    "auto.botanicalCare.802c85": "Soins botaniques",
+    "auto.category.a3c686": "Catégorie",
+    "auto.clearAll.c04316": "Tout effacer",
+    "auto.concern.c79f25": "Besoin",
+    "auto.emailMeLink.618fa7": "M'envoyer un lien par e-mail",
+    "auto.filterSort.6ea2ee": "Filtrer et trier",
+    "auto.getLinkToYour.3d57ac": "Recevoir un lien vers tes commandes",
+    "auto.isSmallBatchJust.4fea3e": "Est-ce que le « small batch » n'est qu'un terme à la mode, ou fait-il vraiment une différence pour ta peau ? Parlons durée de conservation et vrais ingrédients.",
+    "auto.justTheOneOrder.51ea39": "Une seule commande à vérifier ?",
+    "auto.noAccountNoPassword.edab58": "Pas de compte, pas de mot de passe. Renseigne l'e-mail avec lequel tu as commandé et nous t'enverrons un lien qui ouvre chaque commande passée avec celui-ci — ce que tu as acheté, où ça se trouve, et un bouton pour tout commander à nouveau.",
+    "auto.orderStatus.22edd6": "Statut de la commande",
+    "auto.orderedHereBefore.f04759": "Déjà commandé ici ?",
+    "auto.seeAllYourOrders.bc4480": "Voir toutes tes commandes",
+    "auto.strugglingToTurnYour.c02e86": "Tu as du mal à débrancher ton cerveau ou tu composes avec des muscles courbaturés ? Voici la science (et le folklore) qui explique pourquoi ce duo fonctionne.",
+    "auto.takesTheReferenceFrom.297a53": "reprend la référence de ton reçu.",
+    "auto.whatsTheDealWith.f1cb52": "C'est quoi le truc avec l'apothicairerie en petite série ?",
+    "auto.whyMagnesiumArnicaBelong.8b9520": "Pourquoi le magnésium et l'arnica ont toute leur place dans ta routine du coucher",
+    "auto.yourOrders.caeec2": "Tes commandes",
+    "auto.yourOrdersYallternativeLiving.f3d995": "Tes commandes | Y'allternative Living"
   }
 };
 

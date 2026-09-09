@@ -310,6 +310,29 @@ export async function suppressEmail(db, email, reason = "unsubscribe", now = Dat
  * never at enqueue time, because someone who unsubscribes on day 3 must not get
  * the review request that was queued on day 0.
  */
+/**
+ * Why an address is on the suppression list, or null when it is not. A
+ * transactional message the person just asked for (the order-history link)
+ * still goes to someone who unsubscribed from marketing, but never to an
+ * address that bounced -- there is nobody there to read it.
+ *
+ * @returns {Promise<string|null>} 'unsubscribe' | 'bounce' | 'manual' | null
+ */
+export async function suppressionReason(db, email) {
+  let key;
+  try {
+    key = normalizeEmail(email);
+  } catch {
+    return "invalid";
+  }
+  const row = await db
+    .prepare("SELECT reason FROM email_suppression WHERE email = ?")
+    .bind(key)
+    .first();
+  if (!row) return null;
+  return typeof row.reason === "string" && row.reason ? row.reason : "manual";
+}
+
 export async function isSuppressed(db, email) {
   let key;
   try {

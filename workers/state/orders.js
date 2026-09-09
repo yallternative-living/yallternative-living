@@ -65,7 +65,8 @@ export function normalizeLineItems(items) {
     const raw = item || {};
     const price = raw.price && typeof raw.price === "object" ? raw.price : {};
     const product = price.product && typeof price.product === "object" ? price.product : {};
-    const meta = (product.metadata && typeof product.metadata === "object" && product.metadata) || {};
+    const meta =
+      (product.metadata && typeof product.metadata === "object" && product.metadata) || {};
     const qty = whole(raw.quantity, 1);
     const unit = Number.isFinite(Number(raw.unitCents))
       ? whole(raw.unitCents)
@@ -122,7 +123,43 @@ export async function recordOrderRow(db, args, now = Date.now()) {
       now
     )
     .run();
-  return { recorded: (res && res.meta && res.meta.changes) === 1, emailHash };
+  const recorded = (res && res.meta && res.meta.changes) === 1;
+  // A row written while Stripe could not be read carries "[]" for its lines
+  // (routes/stripe-webhook.js persistOrder). The redelivery that follows
+  // brings the real list: fill it in, and only then -- a row that already
+  // has lines is never rewritten from a later, possibly different, read.
+  let repaired = false;
+  if (!recorded && lines.length > 0) {
+    const fix = await db
+      .prepare(
+        `UPDATE orders SET line_items_json = ?, updated_at = ?
+          WHERE session_id = ? AND line_items_json = '[]'`
+      )
+      .bind(JSON.stringify(lines), now, sessionId)
+      .run();
+    repaired = (fix && fix.meta && fix.meta.changes) === 1;
+  }
+  return { recorded, repaired, emailHash };
+}
+
+/**
+ * A full refund, as the customer's page should show it. Keyed on the
+ * PaymentIntent the charge carries, like the ship-notice merge; a partial
+ * refund changes nothing here (the amount on the row is what was paid).
+ *
+ * @returns {Promise<boolean>} true when a row changed
+ */
+export async function markRefunded(db, paymentIntent, now = Date.now()) {
+  const intent = text(paymentIntent, 255);
+  if (!intent) return false;
+  const res = await db
+    .prepare(
+      `UPDATE orders SET status = 'refunded', updated_at = ?
+        WHERE payment_intent = ? AND status IS NOT 'refunded'`
+    )
+    .bind(now, intent)
+    .run();
+  return (res && res.meta && res.meta.changes) >= 1;
 }
 
 /**

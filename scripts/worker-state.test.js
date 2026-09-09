@@ -800,7 +800,14 @@ async function testStripeOrders() {
 async function testMigrations() {
   console.log("\n7. migrations (idempotent schema application)");
   const mod = await import("../workers/state/migrations.js");
-  const { applyMigrations, ensureSchema, resetSchemaMemo, SCHEMA_STATEMENTS, SCHEMA_VERSION } = mod;
+  const {
+    applyMigrations,
+    ensureSchema,
+    resetSchemaMemo,
+    SCHEMA_ALTERS,
+    SCHEMA_STATEMENTS,
+    SCHEMA_VERSION
+  } = mod;
 
   const db = makeD1(new DatabaseSync(":memory:"));
   const first = await applyMigrations(db);
@@ -844,6 +851,45 @@ async function testMigrations() {
     objectsIn(sqlFile),
     "migrations.js and workers/schema.sql declare exactly the same tables and indexes"
   );
+  // ...and the same COLUMNS: a name-only check let a column added on one side
+  // pass, which is exactly the fresh-vs-migrated drift the ALTERs can hide.
+  const normalizeSql = (text) =>
+    text
+      .replace(/--[^\n]*/g, "")
+      .replace(/\s+/g, " ")
+      .replace(/\s*([(),])\s*/g, "$1")
+      .trim()
+      .toLowerCase();
+  const statementsIn = (text) =>
+    text
+      .replace(/--[^\n]*/g, "")
+      .split(";")
+      .map(normalizeSql)
+      .filter((stmt) => stmt.startsWith("create "))
+      .sort();
+  eq(
+    statementsIn(SCHEMA_STATEMENTS.join(";\n")),
+    statementsIn(sqlFile),
+    "every CREATE statement is byte-for-byte the same in both, comments and spacing aside"
+  );
+  // Every column an ALTER adds must also be in the CREATE (both files), so a
+  // fresh database and a migrated one end up with the same table.
+  for (const alter of SCHEMA_ALTERS) {
+    const m = /ALTER TABLE (\w+) ADD COLUMN (\w+)/i.exec(alter);
+    assert(m, `ALTER statement is an ADD COLUMN: ${alter}`);
+    const [, table, column] = m;
+    const prefix = `create table if not exists ${table.toLowerCase()}(`;
+    for (const [label, text] of [
+      ["migrations.js", SCHEMA_STATEMENTS.join(";\n")],
+      ["schema.sql", sqlFile]
+    ]) {
+      const create = statementsIn(text).find((stmt) => stmt.startsWith(prefix));
+      assert(
+        create && new RegExp(`[(,]${column.toLowerCase()} `).test(create),
+        `${label}: ${table}.${column} (added by ALTER on a live database) is in the CREATE too`
+      );
+    }
+  }
   assert(
     SCHEMA_STATEMENTS.every((s) => /IF NOT EXISTS/i.test(s)),
     "every migration statement is IF NOT EXISTS, so re-running is always safe"
