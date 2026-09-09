@@ -112,6 +112,35 @@ function checkTagBalance(html, filename) {
   return { valid: true };
 }
 
+/**
+ * Every PDP carries the Tawk.to chat loader, armed on the first pointerdown,
+ * keydown, scroll or touchstart -- and the accordion clicks and Space/Enter
+ * presses below are exactly those. It then inserts
+ * `<script async src="https://embed.tawk.to/...">`, a request to a host this
+ * suite asserts nothing about. Chromium reports `networkIdle` (Puppeteer's
+ * `networkidle0`) only after the page has had zero requests in flight for
+ * 500ms, so from that first interaction on, every navigation in this file
+ * was waiting on tawk.to, not on the page under test. In a sandbox without
+ * egress the request sits ~12.5s before `net::ERR_CONNECTION_RESET`; each
+ * PDP's interactions leave another one outstanding, and by the third PDP
+ * (the gift card) the wait passed the 30s navigation budget on every run --
+ * while the same page opened in under a second when nothing had been
+ * clicked first. On a CI runner with egress the SDK loads instead and its
+ * own follow-up traffic decides when idle fires, which is why the suite was
+ * green there and flaky elsewhere. Aborting everything that is not this
+ * suite's own server makes the loader fail synchronously, so idle depends
+ * only on the local server again. Nothing here asserts on analytics or
+ * chat, so no coverage is lost.
+ */
+async function blockThirdPartyRequests(page, origin) {
+  await page.setRequestInterception(true);
+  page.on("request", (req) => {
+    const url = req.url();
+    const local = url.startsWith(origin) || url.startsWith("data:");
+    (local ? req.continue() : req.abort("blockedbyclient")).catch(() => {});
+  });
+}
+
 // Static server for Puppeteer tests
 function createServer(port = 0) {
   const MIME_TYPES = {
@@ -467,6 +496,7 @@ async function runAdversarialStressTests() {
 
   try {
     const page = await browser.newPage();
+    await blockThirdPartyRequests(page, `http://127.0.0.1:${serverPort}`);
 
     // Test products representation: 1 salve (apothecary), 1 shirt (apparel), 1 gift card, 1 unscented
     const testProducts = [
