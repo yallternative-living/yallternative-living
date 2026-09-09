@@ -31,11 +31,11 @@ Node-only. The naming is the contract the runners glob on, and it is why the CI
 
 - **Unit pool** -- `npm test` -> `scripts/run-test.js`, which runs BOTH of:
   - `scripts/run-unit-tests.js`: every `scripts/*.test.js` that is not
-    `*.browser.test.js` (50 suites), in a parallel worker pool, then two
+    `*.browser.test.js` (52 suites), in a parallel worker pool, then two
     Node-only gates sequentially: `verify-pdp-metadata.js` (797 assertions on
     PDP OpenGraph/microdata) and `verify-build-reproducibility.js` (rebuilds
     the site five times and diffs every generated file).
-  - `scripts/qa-check.js`: 1162 static assertions -- links, images, JSON-LD,
+  - `scripts/qa-check.js`: 1208 static assertions -- links, images, JSON-LD,
     pricing, CSP parity across `_headers` and `netlify.toml`,
     lockfile hygiene, markup contracts.
 
@@ -45,7 +45,7 @@ Node-only. The naming is the contract the runners glob on, and it is why the CI
 
 - **Integration pool** -- `npm run test:integration` ->
   `scripts/run-integration-tests.js`: a fixed list of browser gates plus every
-  `scripts/*.browser.test.js` (22 suites, 28 total integration suites), each on its own port or an ephemeral
+  `scripts/*.browser.test.js` (23 suites, 29 total integration suites), each on its own port or an ephemeral
   one, in a worker pool. A suite on the fixed list that has gone missing is a
   hard failure, not a silent skip.
   - `scripts/minified-build.browser.test.js` (ephemeral port): the only suite
@@ -208,7 +208,7 @@ section is held to.
   contract including `aria-controls` and the language-carrying accessible
   name, click-to-open, switch to Spanish, and clean restoration.
 
-- **`scripts/qa-check.js`** (1162 static assertions total). For this feature:
+- **`scripts/qa-check.js`** (1208 static assertions total). For this feature:
   CSP byte parity across `_headers` and `netlify.toml` with the Google Translate origins gone, zero
   legacy Google Translate CSS, nine valid dictionaries at 703 phrases each, 58
   glossary terms, one `assets/js/locales/<code>.js` per locale, a size ceiling

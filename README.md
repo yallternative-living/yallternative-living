@@ -70,14 +70,14 @@ Here is a quick checklist of the external accounts you'll need to set up for lau
   ("Option A", step 6) has the two dashboard settings that stop that, and
   neither can be set from a file in this repo.
 - **Automated Verification**:
-  - `npm test` runs the Node-only unit pool -- 50 non-browser `scripts/*.test.js` suites
-    (52 with verification gates) covering cart and checkout pricing, tax, gift cards, promo codes,
+  - `npm test` runs the Node-only unit pool -- 52 non-browser `scripts/*.test.js` suites
+    (54 with verification gates) covering cart and checkout pricing, tax, gift cards, promo codes,
     the order history, the build-data compiler, the journal Markdown renderer, the search engine and the
     CMS auth Worker -- then two further
     gates: `verify-pdp-metadata.js` (797 assertions on every product page's
     OpenGraph and microdata) and `verify-build-reproducibility.js` (five
     rebuilds, zero diffs). It then runs the static QA gate,
-    `scripts/qa-check.js`, and its 1162 assertions: links, images, JSON-LD,
+    `scripts/qa-check.js`, and its 1208 assertions: links, images, JSON-LD,
     the per-post journal pages (`journal/<slug>.html`),
     pricing, CSP byte-parity across `_headers` and `netlify.toml`,
     and lockfile hygiene. Both halves always run, and the exit code reflects
@@ -85,7 +85,7 @@ Here is a quick checklist of the external accounts you'll need to set up for lau
   - `npm run test:integration` runs the browser pool: 22
     `scripts/*.browser.test.js` suites (the challengers, the minified-build
     proof, the promo-code drawer and the order-history page) and the Puppeteer
-    integration harnesses (28 total integration suites), an XSS/CSP stress harness that first proves the
+    integration harnesses (29 total integration suites), an XSS/CSP stress harness that first proves the
     policy is being enforced, and an axe-core accessibility gate that allows
     zero WCAG 2.2 AA violations across all 40 pages (18 top-level, 20
     product pages and one page per journal post -- 2 today; 80 scans total).
