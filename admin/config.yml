@@ -277,7 +277,7 @@ singletons:
         collapsed: true
         hint: "Etsy counters, free shipping, cart rewards and the Build-Your-Own Box. You rarely need this."
         # Was `description:` on the section, where Sveltia renders it nowhere.
-        comment: "Your whole shop: products and prices, multi-buy deals, category sales, gift bundles and the FAQ. Click an item to edit it or 'Add' to create one; Save publishes in a few minutes."
+        comment: "Everything in your shop: products and prices, multi-buy deals, category sales, gift bundles and the FAQ. Click an item to edit it, or 'Add' to create one. Saving publishes in a few minutes."
         fields:
           - { name: name, label: "Shop name", widget: string }
           - { name: etsyShopUrl, label: "Etsy shop link", widget: string, type: url }
@@ -402,7 +402,7 @@ singletons:
           - name: name
             label: "Product name"
             widget: string
-            comment: "Names read as claims — avoid heal, cure, relief, recovery, sleep, treat, repel or a condition name; 'Comfort Salve' or 'Reset Soak' say it without the legal risk."
+            comment: "A product name counts as a health claim. Avoid words like heal, cure, relief, recovery, sleep, treat or repel, and any condition name. 'Comfort Salve' or 'Reset Soak' get the idea across without the legal risk."
             hint: "Shown on the card, the product page, the cart and search."
           - name: category
             label: Category
@@ -443,7 +443,7 @@ singletons:
           - name: blurb
             label: "Product description"
             widget: text
-            comment: "No health or medical claims."
+            comment: "No health or medical claims: describe what it is, not what it treats."
             hint: "The main text customers read. Describe what it is and how it's made."
           # `description` exists in products.json and is declared here so a
           # CMS save preserves it (it feeds the meta description / share text).
@@ -1009,7 +1009,7 @@ singletons:
         summary: "{{fields.dateLabel}} — {{fields.name}} ({{fields.location}})"
         hint: "Confirmed dates only — customers may show up in person."
         # Was `description:` on the section, where Sveltia renders it nowhere.
-        comment: "Your pop-up schedule: markets, fairs and Pride dates. Once a date passes the event moves itself to 'Where We've Been'. Save publishes in a few minutes."
+        comment: "Your pop-up schedule: markets, fairs and Pride dates. Once a date passes, the event moves itself to 'Where We've Been'. Saving publishes in a few minutes."
         fields:
           - { name: name, label: "Event name", widget: string, hint: "e.g. Landrum Farmers Market" }
           - {
@@ -1134,7 +1134,7 @@ singletons:
         summary: "{{fields.name}} — {{fields.rating}}★"
         hint: "Real, approved reviews only. These never merge into your Etsy star rating."
         # Was `description:` on the section, where Sveltia renders it nowhere.
-        comment: "Reviews shown on your site. Only add real ones you've approved, and tick 'Feature on homepage?' for the few you want front and center. Kept separate from your Etsy star rating."
+        comment: "Reviews shown on your site. Only add real ones you've approved. Tick 'Feature on homepage?' for the few you want front and center. This is separate from your Etsy star rating."
         fields:
           - {
               name: name,
@@ -1243,7 +1243,7 @@ singletons:
         thumbnail: image
         add_to_top: true
         # Was `description:` on the section, where Sveltia renders it nowhere.
-        comment: "The photo strip on your homepage: a picture and caption for each Instagram or TikTok post you want to show off. Its on/off switch is under Site Settings."
+        comment: "The photo strip on your homepage: a picture and caption for each Instagram or TikTok post you want to show off. Turn the strip on or off under Site Settings."
         fields:
           - { name: image, label: "Photo", widget: image, choose_url: false, accept: "image/jpeg,image/png" }
           - { name: caption, label: "Caption", widget: text }
@@ -1323,7 +1323,7 @@ singletons:
         summary: "on/off switches first, then banners, logos and connection codes"
         hint: "The on/off switches for site features come first. Below them: banners, logos, newsletter wording, social links, and the connection codes for your newsletter, forms, chat and stats -- those are set once and rarely touched."
         # Was `description:` on the section, where Sveltia renders it nowhere.
-        comment: "Wording and photos across your pages (homepage, About, Contact, logos) plus the on/off switches for site features. Open a section, edit, Save. Start with 'Site Settings'."
+        comment: "Wording and photos across your pages (homepage, About, Contact, logos), plus the on/off switches for site features. Open a section, edit, then Save. Start with 'Site Settings'."
         fields:
           # Switches first: this is the part of the form Savanna opens most
           # often and used to be ~200 lines down, under the logos, banners,
@@ -1727,7 +1727,7 @@ singletons:
               widget: boolean,
               default: true,
               required: false,
-              hint: "Adds a 'Have a code?' box to the cart that checks the code and shows the discount before checkout. Codes are created in Stripe, not here: Stripe Dashboard -> Products -> Coupons -> New (a percentage off or a fixed dollar amount off, in USD) -> then on that coupon, Promotion codes -> New, and type the code shoppers will enter (letters, numbers and dashes, e.g. YALL10). Coupons limited to specific Stripe products do not work here, and a promo code cannot be combined with a gift card (one or the other per order). Off, the box disappears; Stripe's own code box at checkout still works. Step-by-step in docs/SETUP-GUIDE.md."
+              hint: "Adds a 'Have a code?' box to the cart that checks the code and shows the discount before checkout. Codes are made in Stripe, not here: Products -> Coupons -> New (a percentage or a dollar amount off), then on that coupon Promotion codes -> New, and type the code customers will enter (letters, numbers and dashes, e.g. YALL10). Coupons limited to specific Stripe products won't work here, and a code can't be combined with a gift card. Off, the box disappears; Stripe's own code box at checkout still works. Step-by-step in the Setup Guide, Step 3E."
             }
           - {
               name: promoCodePrompt,
@@ -1735,7 +1735,7 @@ singletons:
               widget: string,
               required: false,
               default: "Have a code?",
-              hint: "The short link in the cart that opens the promo code box. Keep it a question and keep it short -- it sits beside the gift card one."
+              hint: "The short link in the cart that opens the promo code box. Keep it short; it sits beside the gift card link."
             }
           - {
               name: promoCodeGiftCardNotice,
@@ -1743,7 +1743,7 @@ singletons:
               widget: string,
               required: false,
               default: "Promo codes and gift cards can't be combined. Remove the gift card to use a code.",
-              hint: "Shown in the cart when a shopper has a gift card applied and tries to use a promo code too. Stripe allows one discount per order, so this explains why the code waits until the gift card is removed."
+              hint: "Shown in the cart when a customer with a gift card applied also enters a promo code. Stripe allows one discount per order, so this explains why the code waits until the gift card is removed."
             }
           - {
               name: birthdayTitle,
@@ -2316,7 +2316,7 @@ singletons:
             collapsed: true
             minimize_collapsed: true
             summary: "{{fields.label}} → {{fields.query}}"
-            comment: "Keep condition names (eczema, insomnia, arthritis) out of the chip text — it's visible wording."
+            comment: "Keep condition names (eczema, insomnia, arthritis) out of the chip text. Customers see it, so it counts as a claim."
             hint: "Shown in the search box and on the no-results screen. The search it runs can be anything the search understands."
             fields:
               - { name: label, label: "Chip text", widget: string }
@@ -2400,7 +2400,7 @@ singletons:
         widget: string
         hint: "The small line above the banner title."
         # Was `description:` on the section, where Sveltia renders it nowhere.
-        comment: "The recommendation quiz on the shop page: its banner wording, the questions shoppers answer, and which products each answer recommends. Its on/off switch is under Site Settings."
+        comment: "The recommendation quiz on the shop page: its banner wording, the questions customers answer, and which products each answer recommends. Turn the quiz on or off under Site Settings."
       - { name: title, label: "Banner title", widget: string }
       - { name: subtitle, label: "Banner subtitle", widget: text }
       - { name: buttonText, label: "Button text", widget: string, hint: "The button that opens the quiz." }

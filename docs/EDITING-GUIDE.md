@@ -303,8 +303,8 @@ Things worth knowing:
   full price.
 - The cart re-checks a code on its own when the cart changes, so a
   "$50 minimum" code that was applied at $60 comes off (and says why) if the
-  shopper removes something.
-- What shoppers see when a code does not work is written in the site, not by
+  customer removes something.
+- What customers see when a code does not work is written in the site, not by
   Stripe: "That code isn't valid", "This code needs a subtotal of at least
   $50", "That code has expired or has already been used". No Stripe wording,
   and never the code's internal ids.
@@ -515,7 +515,7 @@ The dashboard gives you control over your entire catalog, promotions, pricing, m
 | **Publish blog post** | `4. Apothecary Journal` → Add post with visual editor | Live blog article with calculated read time |
 | **Update hero / About story** | `Site Settings` | Text and photos update across homepage & About |
 | **Toggle site features** | `Site Settings` → `⚙️ Site Settings` | Turn quiz, rewards, ticker, or pickup on/off |
-| **Make a promo code** | Stripe → `Products` → `Coupons` → `New` → then `Promotion codes` → `New` (see SETUP-GUIDE Step 3E) | Shoppers can type it in the cart's "Have a code?" box and see the discount before checkout |
+| **Make a promo code** | Stripe → `Products` → `Coupons` → `New` → then `Promotion codes` → `New` (see SETUP-GUIDE Step 3E) | Customers can type it in the cart's "Have a code?" box and see the discount before checkout |
 | **Turn the cart's code box off** | `Site Settings` → `⚙️ Site Settings` → untick `Shop · Accept promo codes in the cart` | The box disappears; Stripe's own code field at checkout still works |
 | **Edit the "how to use it" email** | `1. Products` → Click product → `Usage & care` | Same copy the product page shows and the after-delivery email sends |
 | **Turn that email off, or move it** | `Site Settings` → `⚙️ Site Settings` → `Emails to customers · …` | Switch it off entirely, or change how many days after shipping it goes |

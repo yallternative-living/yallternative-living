@@ -68,16 +68,23 @@ already did per button).
 
 ## 3. Still missing, in order of impact
 
-> **Progress, same day (later session).** Items 1 and 10 below are now done on
-> this branch: owner alerts (`workers/routes/alerts.js`, recipient is the CMS
-> field "Where shop alerts go", staging Worker env in `wrangler.toml`) and
-> build-time minification (`scripts/minify-assets.js`, homepage JS+CSS
-> transfer 284 KB -> 139 KB gzip, proven by
-> `scripts/minified-build.browser.test.js`). Items 2, 4 and 8 were started by
-> parallel agents and are carried as patch files plus notes in
-> `docs/handoff/2026-09-09/` -- see `docs/HANDOFF-2026-09-09.md` for how to
-> resume them. Items 9 and 11 were briefed but not started; the briefs are in
-> the same handoff file.
+> **Progress, same day (later sessions).** Of the twelve items below, nine
+> are now done on this branch: 1 owner alerts (`workers/routes/alerts.js`,
+> recipient is the CMS field "Where shop alerts go"); 2 the inventory ledger
+> (`workers/state/inventory.js`, holds that expire with the 31-minute
+> session, owner corrections that cannot be reseeded backwards); 3 a staging
+> Worker env in `wrangler.toml`; 4 the phone shop's sticky Filter/Sort row
+> and bottom sheet; 8 one static page per journal post
+> (`journal/<slug>.html`, BlogPosting JSON-LD, feed and sitemap entries);
+> 9 a passwordless Your Orders page behind a one-time emailed link
+> (`workers/routes/orders.js`); 10 build-time minification
+> (`scripts/minify-assets.js`, homepage JS+CSS 284 KB -> 139 KB gzip);
+> 11 promo codes previewed in the cart with the adjusted total
+> (`workers/routes/promo-preview.js`); and, from the review of all of it,
+> the Worker and front-end red-team fixes. Every owner-facing knob each
+> one added is a CMS field with a plain hint, and the whole admin copy had a
+> plain-language pass. Still open: 5 express checkout, 6 product
+> photography, 7 first-party reviews, 12 the design system.
 
 These are the real distance to world class. None is a bug; each is a
 capability the shop does not have. Effort is a guess; impact is not.
