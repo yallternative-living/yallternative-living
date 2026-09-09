@@ -56,7 +56,7 @@ English, and you do not have to do anything about it. When you save a change to
 a product name, blurb, description or any other wording in `/admin`, a helper
 runs on its own and writes the five translations within about ten minutes.
 Until it finishes, that one piece of wording simply shows in English to a
-shopper who has picked another language — nothing looks broken and nothing
+customer who has picked another language — nothing looks broken and nothing
 needs fixing. If a sentence ever cannot be translated safely (for example, it
 would turn a nice description into a health claim, which the law is strict
 about for skincare), it is left in English on purpose and Steven gets a note
@@ -87,7 +87,7 @@ genuinely something to look at.
 
 ### A note on search words
 
-You do not have to guess what a shopper will type. Fill in **Search keywords**
+You do not have to guess what a customer will type. Fill in **Search keywords**
 on a product with whatever comes to mind and leave the rest alone — after you
 save, the site adds more search words for you, on its own, within a few minutes.
 It adds the plain-language ones people actually use ("that bug stuff"), the
@@ -101,19 +101,19 @@ your product — they exist only so the search box can find the right thing.
 
 Symptoms and conditions still stay out of Search keywords, exactly as the hint
 under the field says: those go under **Site Settings → Search settings → Extra
-search words**, which only translate what a shopper typed and are never shown
+search words**, which only translate what a customer typed and are never shown
 anywhere. The site follows the same rule when it adds words for you, and Steven
 gets a list of anything it decided not to add.
 
 ### When somebody searches a medical word
 
-Some shoppers will type a condition or a medicine word into the search box —
+Some customers will type a condition or a medicine word into the search box —
 "psoriasis", "cure", "pain", "wound salve" — and some will type a bug word,
 "mosquito bites" or "ticks". You do not have to write anything for that, and you
 should not try to. The site already recognises those words. It shows a short
 note above the results that says we make comfort products, not medicines, and
 that nothing here is meant to diagnose, treat, cure or prevent anything, and it
-points the shopper at the right shelf — dry, rough skin, or wind-down, or after
+points the customer at the right shelf — dry, rough skin, or wind-down, or after
 a long day, or porch nights and trail days — by name, not by condition and not
 by bug. Their ordinary words still work while it does: "wound salve" still
 brings back the salves and "bug spray" still brings back the bug spray, because
@@ -209,14 +209,14 @@ Put an entire category on sale at once (e.g. 15% off all *Body & Skin*):
 2. Click **Add Sale**.
 3. **Which category is on sale**: Pick the category from the dropdown (e.g. `Body & Skin`).
 4. **Percent off**: Type the percentage discount (e.g. `15` for 15% off).
-5. **Sale name shoppers see**: Enter the badge headline (e.g. `Spring Body Care Sale`).
+5. **Sale name customers see**: Enter the badge headline (e.g. `Spring Body Care Sale`).
 6. Click **Save**. Every item in that category automatically shows a sale badge, calculated discount price, and crossed-out regular price.
 
 #### B. Single-Product Sale
 Put just one item on flash sale:
 1. In **Products**, open the item.
 2. Expand the **Sale** box.
-3. Enter the **Sale price ($)** (e.g. `15.00`) and the **Sale name shoppers see** (e.g. `Flash Sale`).
+3. Enter the **Sale price ($)** (e.g. `15.00`) and the **Sale name customers see** (e.g. `Flash Sale`).
 4. In **Original price**, enter the regular price (e.g. `20`) so the crossed-out comparison price appears.
 5. Click **Save**.
 
@@ -253,7 +253,7 @@ At the top of **Shop & Products**:
 #### The phone filter bar
 
 On a phone the shop no longer shows every category and concern button above
-the products. Shoppers get one row -- the search box, a **Filter** button
+the products. Customers get one row -- the search box, a **Filter** button
 (with a little count of how many filters are on) and a **Sort** button -- and
 tapping either slides up a panel holding the same category, concern, scent
 and sort choices. Filters they pick show as small removable chips above the
@@ -416,7 +416,7 @@ customer's Alt-Points balance and how far they are from the next reward code.
 3. Enter the title, date, and a **Short teaser** (1–2 sentences for card previews; it is also the description search engines and social cards show for the post).
 4. Write your story in the main content box using the formatting toolbar (bold, italics, headings, bullet lists).
 5. Estimated reading time calculates automatically when published!
-6. **Every post gets its own web page** at `yallternativeliving.com/journal/<slug>.html` -- that is the address the Journal list, the RSS feed, search engines and social cards all use, so it is the one to share. The `<slug>` is made from the title the **first** time you save (lowercase, words joined with dashes, accents dropped: "Why Magnesium & Arnica?" becomes `why-magnesium-arnica`) and it never changes afterwards, even if you retitle the post, so a link you have already shared keeps working. You never type the address yourself. The featured product you pick shows as a card on the post page with a link to that product's own page and a one-click **Add to Cart**.
+6. **Every post gets its own web page**, built from the title the **first** time you save (so "Why Magnesium & Arnica?" becomes `yallternativeliving.com/journal/why-magnesium-arnica.html`) -- that is the address the Journal list, the RSS feed, search engines and social cards all use, so it is the one to share. It never changes afterwards, even if you retitle the post, so a link you have already shared keeps working. You never type the address yourself. The featured product you pick shows as a card on the post page with a link to that product's own page and a one-click **Add to Cart**.
 
 #### D. Social Media Feed (Social Media Feed)
 1. Click **Social Media Feed**.
@@ -436,8 +436,8 @@ customer's Alt-Points balance and how far they are from the next reward code.
      RSS feed and the search index all stay empty until you switch it on)
    - UGC Social Feed
 4. Also under **Site Settings**, in the **Emails to me** group, is
-   **Where shop alerts go**. The checkout system watches itself: if a payment
-   webhook keeps failing, if sales tax could not be switched on for an order,
+   **Where shop alerts go**. The checkout system watches itself: if an order
+   doesn't register after a payment goes through, if sales tax could not be switched on for an order,
    if an hourly job died, or if an email to a customer could not be sent after
    several tries, it emails a short plain-English alert saying what broke, the
    order or session it concerns, and what to check. Type the address those
@@ -506,7 +506,7 @@ The dashboard gives you control over your entire catalog, promotions, pricing, m
 | **Show low stock urgency** | `1. Products` → Set `Stock count` to 1, 2, 3, 4, or 5 | Shows "Only X left! — order soon" badge |
 | **Restock a sold-out item** | `1. Products` → Set `Stock count` to the new number | The live count resets to it; badge and buy button follow at once |
 | **Hide live counts on the shop** | `Site settings` → `Shop` → untick `Show live stock counts` | Cards show the last-published count; checkout still uses the live one |
-| **Set up 2+ Multi-Buy Deal** | `1. Products` → `Multi-buy deals` | Shoppers mixing qualifying items get auto unit discounts |
+| **Set up 2+ Multi-Buy Deal** | `1. Products` → `Multi-buy deals` | Customers mixing qualifying items get auto unit discounts |
 | **Run category % off sale** | `1. Products` → `Category sales` | Sale banner, strikethrough prices & cart discounts |
 | **Create gift bundle** | `1. Products` → `Bundles` → Pick products & discount % | Pre-made set with auto-calculated price |
 | **Change free shipping minimum** | `1. Products` → `Shop details & shipping` → `Free shipping threshold` | Progress bar & checkout threshold update |

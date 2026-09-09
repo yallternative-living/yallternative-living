@@ -164,7 +164,7 @@ collections:
     label: "Journal"
     label_singular: Post
     icon: article
-    description: "Your blog. Click a post to edit it or 'New Post' to write one; Save publishes to the live site in a few minutes. Every post gets its own page at yallternativeliving.com/journal/<slug>.html -- the slug is made from the title the first time you save (lowercase, words joined with dashes, accents dropped, so 'Why Magnesium & Arnica?' becomes why-magnesium-arnica) and it never changes afterwards, so a shared link keeps working even if you retitle the post later. The blog's on/off switch, page heading and the Back / Newer / Older labels live under Site Settings."
+    description: "Your blog. Click a post to edit it, or 'New Post' to start one — Save publishes it within a few minutes. Each post gets its own web address, built from its title the first time you save (so 'Why Magnesium & Arnica?' becomes yallternativeliving.com/journal/why-magnesium-arnica.html). That address never changes afterward, even if you retitle the post later, so a shared link keeps working. The blog's on/off switch, page heading and Back/Newer/Older wording live under Site Settings."
     folder: assets/data/journal
     extension: json
     format: json
@@ -226,7 +226,7 @@ collections:
         buttons:
           [bold, italic, link, heading-two, heading-three, bulleted-list, numbered-list]
         editor_components: []
-        hint: "The toolbar gives you bold, italic, links, headings and lists, and it looks on the site the way it looks here. Leave a blank line between paragraphs."
+        hint: "The toolbar gives you bold, italic, links, headings and lists — what you see here is how it looks on the site. Leave a blank line between paragraphs."
       - { name: image, label: "Featured photo", widget: image, choose_url: false, required: false, accept: "image/jpeg,image/png" }
       - name: tags
         label: Topics
@@ -353,7 +353,7 @@ singletons:
             widget: object
             required: false
             collapsed: true
-            hint: "The pick-your-own bundle on the shop page. Its price is always worked out from the real prices of what the shopper picks, minus the discount below."
+            hint: "The pick-your-own bundle on the shop page. Its price is always worked out from the real prices of what the customer picks, minus the discount below."
             fields:
               - {
                   name: minItems,
@@ -378,7 +378,7 @@ singletons:
                   hint: "Percent off the combined price of the chosen items."
                 }
               - name: eligibleCategories
-                label: "Categories shoppers can pick from"
+                label: "Categories customers can pick from"
                 widget: relation
                 multiple: true
                 collection: _singletons
@@ -444,7 +444,7 @@ singletons:
             label: "Product description"
             widget: text
             comment: "No health or medical claims."
-            hint: "The main text shoppers read. Describe what it is and how it's made."
+            hint: "The main text customers read. Describe what it is and how it's made."
           # `description` exists in products.json and is declared here so a
           # CMS save preserves it (it feeds the meta description / share text).
           - name: description
@@ -459,14 +459,14 @@ singletons:
             min: 0
             required: false
             hint: >-
-              Blank = unlimited or made to order. This is where you SET the
-              count — the site counts it down by itself as orders are paid,
-              so 10 here that sells 3 shows 7 on the shop with no edit from
-              you. Saving a new number here resets the live count to that
-              number, so only retype it when you've actually recounted the
-              shelf. 0 shows 'Sold Out' and blocks checkout; 1–5 shows an
-              'Only 3 left' badge. This doesn't sync with Etsy — update it
-              by hand.
+              Blank means unlimited or made to order. This is where you SET
+              the count — the site quietly counts it down as orders are
+              paid, so entering 10 today that sells 3 tomorrow shows 7
+              without you touching it. Because of that, only retype this
+              number after an actual recount: saving resets the live count
+              to whatever you enter. 0 shows 'Sold Out' and blocks
+              checkout; 1–5 shows an 'Only 3 left' badge. This doesn't sync
+              with Etsy — update both by hand.
           - name: inStock
             label: "In stock"
             widget: boolean
@@ -506,7 +506,7 @@ singletons:
               - { name: price, label: "Sale price", widget: number, value_type: float, before_input: "$" }
               - {
                   name: label,
-                  label: "Sale name shoppers see",
+                  label: "Sale name customers see",
                   widget: string,
                   hint: "e.g. Spring Sale"
                 }
@@ -560,7 +560,7 @@ singletons:
                       widget: boolean,
                       required: false,
                       default: false,
-                      hint: "Shows the option greyed out and unorderable. Flip it back off when you restock — don't delete the option, or shoppers won't know it exists."
+                      hint: "Shows the option greyed out and unorderable. Flip it back off when you restock — don't delete the option, or customers won't know it exists."
                     }
           - name: ingredients
             label: "Ingredients / materials"
@@ -638,10 +638,10 @@ singletons:
             required: false
             collapsed: true
             hint:
-              "Shown on the product page AND emailed to the buyer a few days
-              after their order ships, as the 'how to get the most out of your
+              "Shown on the product page and emailed to the customer a few days
+              after their order ships — the 'how to get the most out of your
               …' note. Write it the way you'd say it to someone holding the jar.
-              Leave all three blank and that product gets no email."
+              Leave all three blank and that product's email is skipped."
             fields:
               - {
                   name: howToApply,
@@ -683,7 +683,7 @@ singletons:
             label: "Search keywords"
             widget: list
             required: false
-            hint: "Extra words shoppers might type: occasions, uses, ingredient names, misspellings (e.g. post-hike, cane sugar, stocking stuffer). These are published with the product, so keep symptoms and conditions like eczema or insomnia OUT — put those under Site Settings → Search settings → Extra search words, which only translate what a shopper typed."
+            hint: "Extra words customers might type: occasions, uses, ingredient names, misspellings (e.g. post-hike, cane sugar, stocking stuffer). These are published with the product, so keep symptoms and conditions like eczema or insomnia OUT — put those under Site Settings → Search settings → Extra search words, which only translate what a customer typed."
           - name: concerns
             label: "Shop concerns"
             widget: relation
@@ -844,7 +844,7 @@ singletons:
             }
           - {
               name: label,
-              label: "Sale name shoppers see",
+              label: "Sale name customers see",
               widget: string,
               hint: "e.g. Body Care Sale"
             }
@@ -885,7 +885,7 @@ singletons:
               min: 1,
               required: false,
               before_input: "$",
-              hint: "What the whole set costs, e.g. 34. Keep it a few dollars under the products' own prices added up, or the set is no saving."
+              hint: "What the whole set costs, e.g. 34. Keep it a few dollars under the products' own prices added up, or the set isn't actually a saving."
             }
           - {
               name: discountPercent,
@@ -967,7 +967,7 @@ singletons:
         summary: "{{fields.label}}"
         hint: >-
           The filter buttons across the top of the shop page. Just type
-          the name — the behind-the-scenes code is created for you.
+          the name — everything else is filled in for you.
         fields:
           - {
               name: label,
@@ -1058,7 +1058,7 @@ singletons:
               widget: string,
               required: false,
               pattern: ["^$|^.{1,16}$", "One emoji only (or leave blank)."],
-              hint: "One emoji, e.g. 🦇 or 🏳️‍🌈. Shown next to the NEXT upcoming event in the countdown ticker and banner."
+              hint: "One emoji, e.g. 🦇 or 🏳️‍🌈. Shown next to the next upcoming event, in the countdown ticker and banner."
             }
           - {
               name: url,
@@ -1349,7 +1349,7 @@ singletons:
               widget: boolean,
               default: true,
               required: false,
-              hint: "Shoppers pick their own mix for a discounted bundle. Sizes and discount are under Shop & Products → Shop details & shipping."
+              hint: "Customers pick their own mix for a discounted bundle. Sizes and discount are under Shop & Products → Shop details & shipping."
             }
           - {
               name: enableScentFilter,
@@ -1483,7 +1483,7 @@ singletons:
               widget: boolean,
               default: false,
               required: false,
-              hint: "Shows 'Order within 2h 10m to ship today' on cards, product pages and the cart, counting down to the cutoff below. Turn it on only if you can keep that promise every business day."
+              hint: "Shows 'Order within 2h 10m to ship today' on cards, product pages and the cart, counting down to your shipping cutoff time. Turn it on only if you can keep that promise every business day."
             }
           # Hidden on purpose: a set-once pair Steven configures, not something Savanna
           # tunes day to day (the "order by" countdown switch above is her control).
@@ -1561,7 +1561,7 @@ singletons:
               widget: boolean,
               default: true,
               required: false,
-              hint: "On the 1st, a spreadsheet of last month's Report a Reaction submissions, for the MoCRA file."
+              hint: "On the 1st, a spreadsheet of last month's Report a Reaction submissions, for your safety compliance records."
             }
           - {
               name: alertEmail,
@@ -1570,7 +1570,7 @@ singletons:
               required: false,
               default: "",
               pattern: ["^$|^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$", "Enter one email address, or leave blank."],
-              hint: "If something breaks behind the scenes (a payment webhook failing, sales tax not switching on, an email that could not be sent), a short plain-English alert is emailed here so it is not missed. Leave blank and alerts go to the shop's order mailbox. At most one email per problem every six hours."
+              hint: "If something breaks behind the scenes (an order not registering after a payment goes through, sales tax not switching on, an email that couldn't be sent), a short plain-English alert is emailed here so it's not missed. Leave blank and alerts go to the shop's order mailbox. At most one email per problem every six hours."
             }
           # Hidden on purpose: thresholds and opening lines for the automation emails
           # above are set once by Steven, not tuned here day to day. Converting the
@@ -2320,7 +2320,7 @@ singletons:
         collapsed: true
         summary: "search suggestions and synonyms"
         required: false
-        hint: "The chips under the site search box and the words the search understands. Nothing here is shown on a product, so this is the right place for the words shoppers actually type."
+        hint: "The chips under the site search box and the words the search understands. Nothing here is shown on a product, so this is the right place for the words customers actually type."
         fields:
           - { name: chipsTitle, label: "Chips heading", widget: string, required: false, default: "Popular Searches" }
           - name: popularChips
@@ -2352,17 +2352,17 @@ singletons:
             collapsed: true
             minimize_collapsed: true
             summary: "{{fields.key}}: {{fields.terms}}"
-            hint: "When a shopper types any word in a group, the search also looks for the group's key word — e.g. key 'bath_tea', words 'tub tea, bath sachet'. Use underscores for two-word keys (dry_skin, bug_spray). These only translate what a shopper typed and never appear on a product, so symptom words are fine here; wound, infection, cure and treat are still rejected when the site publishes."
+            hint: "When a customer types any word in a group, the search also looks for the group's key word — e.g. key 'bath_tea', words 'tub tea, bath sachet'. Use underscores for two-word keys (dry_skin, bug_spray). These only translate what a customer typed and never appear on a product, so symptom words are fine here; wound, infection, cure and treat are still rejected when the site publishes."
             fields:
               - { name: key, label: "Key word the search should look for", widget: string }
-              - { name: terms, label: "Words shoppers type", widget: list }
+              - { name: terms, label: "Words customers type", widget: list }
 
       - name: legal
         label: "Legal pages"
         widget: object
         collapsed: true
         summary: "privacy, terms, shipping & returns"
-        hint: "The intro line and \"last updated\" date on each legal page. The clauses themselves are managed in code."
+        hint: "The intro line and \"last updated\" date on each legal page. The legal wording itself is written by your developer, not edited here."
         fields:
           - name: privacy
             label: "Privacy Policy"
@@ -2373,7 +2373,7 @@ singletons:
                   name: lastUpdated,
                   label: "“Last updated” date",
                   widget: string,
-                  hint: "Shown at the bottom, e.g. July 16, 2026. Update it whenever you change the wording (the detailed clauses are managed in code — ask your developer)."
+                  hint: "Shown at the bottom, e.g. July 16, 2026. Update it whenever the policy wording changes."
                 }
           - name: terms
             label: "Terms of Service"
@@ -2384,7 +2384,7 @@ singletons:
                   name: lastUpdated,
                   label: "“Last updated” date",
                   widget: string,
-                  hint: "Shown at the bottom, e.g. July 18, 2026. Update it whenever you change the wording (the detailed clauses are managed in code — ask your developer)."
+                  hint: "Shown at the bottom, e.g. July 18, 2026. Update it whenever the policy wording changes."
                 }
           - name: policies
             label: "Shipping & Returns"
@@ -2449,7 +2449,7 @@ singletons:
                 label: "Recommended products"
                 widget: list
                 required: false
-                hint: "The products this answer points shoppers to."
+                hint: "The products this answer points customers to."
                 field:
                   {
                     name: productId,
