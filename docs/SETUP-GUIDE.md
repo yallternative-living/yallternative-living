@@ -70,12 +70,18 @@ per-transaction fee.
    the restricted one later.
 4. **Developers → Webhooks → Add endpoint** → paste
    `https://yallternativeliving.com/api/stripe-webhook`
-   → choose **three** events, not one:
-   - `checkout.session.completed` (delivers the gift card)
+   → choose **five** events, not one:
+   - `checkout.session.completed` (delivers the gift card once the payment
+     has actually gone through)
+   - `checkout.session.async_payment_succeeded` and
+     `checkout.session.async_payment_failed` (only matter if you ever turn on
+     a bank-transfer style payment method that settles days later; harmless
+     to tick now, and the site is ready for them)
    - `checkout.session.expired` (cleans up the temporary coupon behind an
      abandoned gift-card checkout — without it they pile up in your Stripe
      account forever)
-   - `charge.refunded` (puts a refunded order's gift-card balance back)
+   - `charge.refunded` (puts a fully refunded order's gift-card balance back;
+     a partial refund of the card payment leaves the gift card alone)
 
    (You will not find a `payment_intent.updated` event: Stripe has none. The
    "your order is on its way" email is sent by the Worker's hourly check when

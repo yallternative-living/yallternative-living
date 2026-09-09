@@ -420,13 +420,14 @@ async function runTests() {
   const postLinks = await page.$$eval(".ugc-post-link", (links) => ({
     count: links.length,
     allValid: links.every(
-      (l) => l.getAttribute("target") === "_blank" && l.getAttribute("rel") === "noopener"
+      (l) =>
+        l.getAttribute("target") === "_blank" && l.getAttribute("rel") === "noopener noreferrer"
     )
   }));
   assert(postLinks.count > 0, "UGC post links present to check (found " + postLinks.count + ")");
   assert(
     postLinks.count > 0 && postLinks.allValid,
-    "All external post links have target='_blank' and rel='noopener'"
+    "All external post links have target='_blank' and rel='noopener noreferrer'"
   );
 
   // ----------------------------------------------------

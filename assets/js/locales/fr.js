@@ -644,7 +644,7 @@
     "auto.siteNavigation.72d9c4": "Navigation du site",
     "auto.sizesOzOz.47ada8": "Tailles : 10 oz · 24 oz",
     "auto.sizesOzOz.c78cad": "Tailles : 2 oz · 4 oz",
-    "auto.sizesOzOz.cc4d90": "Tailles : 2oz · 1oz",
+    "auto.sizesOzOz.dc7b47": "Tailles : 2 oz · 1 oz",
     "auto.sizesOzOz.e7fda7": "Tailles : 4 oz · 8 oz",
     "auto.sizesXl.488474": "Tailles : S · M · L · XL",
     "auto.smoothDollopOverClean.a18e1d": "Applique une noisette sur une peau propre et séchée à la serviette, du cou jusqu'aux orteils. Pénètre rapidement sans résidu gras.",

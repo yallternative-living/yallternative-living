@@ -644,7 +644,7 @@
     "auto.siteNavigation.72d9c4": "Site Navigation",
     "auto.sizesOzOz.47ada8": "Sizes: 10 oz · 24 oz",
     "auto.sizesOzOz.c78cad": "Sizes: 2 oz · 4 oz",
-    "auto.sizesOzOz.cc4d90": "Sizes: 2oz · 1oz",
+    "auto.sizesOzOz.dc7b47": "Sizes: 2 oz · 1 oz",
     "auto.sizesOzOz.e7fda7": "Sizes: 4 oz · 8 oz",
     "auto.sizesXl.488474": "Sizes: S · M · L · XL",
     "auto.smoothDollopOverClean.a18e1d": "Smooth a dollop over clean, towel-dry skin from neck to toes. Absorbs quickly without greasy residue.",

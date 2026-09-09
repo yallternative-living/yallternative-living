@@ -360,6 +360,51 @@ it("the precache list does not include the site's 404 page", async () => {
   });
 });
 
+/* The CMS lives at /admin/ and must never be served from, or written into,
+   this cache: before the bypass, the network-first branch cached the editor
+   and its config.yml on every visit, so a flaky connection could hand the
+   owner a stale editor with a stale schema. These are navigations and a
+   YAML fetch, not JSON API calls, so they are built the way a browser
+   would build them (mode: navigate / accept: text/html) -- the same shape
+   the network-first branch below matches on. The positive control at the
+   end proves the harness can see respondWith() at all: without it the
+   three zero-assertions would also pass against a fetch handler that did
+   nothing. */
+[
+  ["/admin/", { mode: "navigate", accept: "text/html" }],
+  ["/admin", { mode: "navigate", accept: "text/html" }],
+  ["/admin/index.html", { accept: "text/html" }],
+  ["/admin/config.yml", { accept: "*/*" }],
+  ["/admin/cms-labels.js", { accept: "*/*" }]
+].forEach(([p, opts]) => {
+  it(`fetch handler never intercepts the CMS at ${p}`, () => {
+    const sw = loadServiceWorker();
+    const ev = makeFetchEvent(sw, ORIGIN + p, opts);
+    sw.listeners.fetch(ev.event);
+    assert.strictEqual(
+      ev.responses.length,
+      0,
+      "respondWith() was called for the CMS -- /admin/ must be left to the network"
+    );
+    assert.strictEqual(sw.fetchCalls.length, 0, "the worker started a fetch for the CMS");
+    assert.strictEqual(sw.cachePuts.length, 0, "the worker wrote a CMS file into the cache");
+  });
+});
+
+it("the /admin bypass is narrow: an ordinary navigation is still intercepted", () => {
+  const sw = loadServiceWorker();
+  const ev = makeFetchEvent(sw, ORIGIN + "/shop.html", {
+    mode: "navigate",
+    accept: "text/html"
+  });
+  sw.listeners.fetch(ev.event);
+  assert.strictEqual(
+    ev.responses.length,
+    1,
+    "a plain page navigation was not handled -- the bypass above is too wide"
+  );
+});
+
 it("non-GET requests are ignored outright", () => {
   const sw = loadServiceWorker();
   const ev = makeFetchEvent(sw, ORIGIN + "/shop.html", { method: "POST" });

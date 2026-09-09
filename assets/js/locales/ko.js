@@ -644,7 +644,7 @@
     "auto.siteNavigation.72d9c4": "사이트 내비게이션",
     "auto.sizesOzOz.47ada8": "사이즈: 10 oz · 24 oz",
     "auto.sizesOzOz.c78cad": "사이즈: 2 oz · 4 oz",
-    "auto.sizesOzOz.cc4d90": "사이즈: 2oz · 1oz",
+    "auto.sizesOzOz.dc7b47": "사이즈: 2 oz · 1 oz",
     "auto.sizesOzOz.e7fda7": "사이즈: 4 oz · 8 oz",
     "auto.sizesXl.488474": "사이즈: S · M · L · XL",
     "auto.smoothDollopOverClean.a18e1d": "깨끗이 씻고 물기를 닦아낸 피부에 목부터 발끝까지 듬뿍 덜어 부드럽게 펴 발라주세요. 번들거리는 잔여감 없이 빠르게 흡수돼요.",

@@ -104,6 +104,25 @@ function stripeStub(body, status) {
     await assert.rejects(() => giftNoteLink("", SESSION_ID, ORIGIN), /MAGIC_LINK_SECRET/);
     await assert.rejects(() => giftNoteLink(SECRET, "order-123", ORIGIN), /Checkout Session/);
   });
+  await it("enforces the same 16-character floor as every other HMAC secret on the Worker", async () => {
+    /* state/magic-link.js and state/retention.js refuse to sign with fewer
+       than 16 characters; this route signs with the same MAGIC_LINK_SECRET
+       and used to accept anything non-empty (audit 2026-09-08 §4). */
+    const fifteen = "abcdefghijklmno";
+    assert.strictEqual(fifteen.length, 15);
+    await assert.rejects(
+      () => giftNoteLink(fifteen, SESSION_ID, ORIGIN),
+      /MAGIC_LINK_SECRET must be a string of at least 16 characters/
+    );
+    await assert.rejects(
+      () => giftNoteLink(1234567890123456, SESSION_ID, ORIGIN),
+      /at least 16 characters/
+    );
+    const sixteen = "abcdefghijklmnop";
+    assert.strictEqual(sixteen.length, 16);
+    const minted = await giftNoteLink(sixteen, SESSION_ID, ORIGIN);
+    assert.ok(minted.includes("/api/gift-note?session_id="), "exactly 16 characters is enough");
+  });
 
   console.log("\n--- handleGiftNote ---");
   const goodLink = await giftNoteLink(SECRET, SESSION_ID, ORIGIN);
@@ -133,6 +152,16 @@ function stripeStub(body, status) {
     const res = await handleGiftNote(new Request(goodLink), env({ MAGIC_LINK_SECRET: "" }));
     assert.strictEqual(res.status, 503);
     assert.ok(/not set up yet/i.test(await res.text()));
+  });
+  await it("answers the same 503, not a 500, when the secret is too short to sign with", async () => {
+    const res = await handleGiftNote(
+      new Request(goodLink),
+      env({ MAGIC_LINK_SECRET: "short-secret-15" })
+    );
+    assert.strictEqual(res.status, 503);
+    const text = await res.text();
+    assert.ok(/not set up yet/i.test(text));
+    assert.ok(/16 characters/.test(text), "the page says what the floor is");
   });
   await it("rejects a missing, malformed, wrong-session or expired token with 403", async () => {
     for (const url of [

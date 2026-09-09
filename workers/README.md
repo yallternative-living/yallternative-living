@@ -167,6 +167,23 @@ as "try this," not a guarantee.
 4. **Settings -> Domains & Routes.** Optional -- see Option B step 5. If you do
    add a route, it is `yallternativeliving.com/api/*`, not just
    `/api/checkout`: the Worker answers five paths now.
+
+   _Checked 2026-09-08, and not doable from this repository._ A route (or a
+   custom domain) on a Worker requires the hostname to be a zone on
+   Cloudflare DNS, and `yallternativeliving.com` is not one: its nameservers
+   are Netlify's (`dig NS yallternativeliving.com`), so Cloudflare cannot
+   answer for any name under it and the dashboard will refuse the route.
+   `netlify.toml`'s `/api/*` -> `workers.dev` proxy is therefore the
+   configured and correct path, not a shortcut. Getting rid of the extra hop
+   would take one of two owner-side DNS changes, neither of which is a file
+   in this repo: move the whole domain's nameservers to Cloudflare (then
+   Netlify is reached through Cloudflare's proxy, and the route above just
+   works), or delegate a single subdomain (`api.yallternativeliving.com`)
+   to Cloudflare with an NS record at Netlify and put the route on that,
+   which also means changing the `/api/*` proxy target in
+   `scripts/build-security-headers.js` and the Worker's allowed origins.
+   Audits: this is a known, accepted item -- do not re-raise it unless DNS
+   has moved.
 5. Every future push to `checkout.js` redeploys automatically -- no
    step 4 of Option B (`wrangler deploy`) ever needs to run by hand
    again.
@@ -670,16 +687,24 @@ Stripe Dashboard -> Developers -> Webhooks -> Add endpoint:
 https://yallternativeliving.com/api/stripe-webhook
 ```
 
-Subscribe to exactly these three:
+Subscribe to exactly these five:
 
-- `checkout.session.completed` -- issues the cards an order bought and commits
-  the hold on a card an order spent,
+- `checkout.session.completed` -- issues the cards an order bought and settles
+  the hold on a card an order spent, but only once `payment_status` is `paid`;
+  an unpaid completion (a delayed-notification method such as ACH) is recorded
+  as deferred and nothing is minted or debited,
+- `checkout.session.async_payment_succeeded` -- the delayed payment cleared;
+  runs the same steps `completed` would have. Never fires while only card
+  payment is enabled, and costs nothing to subscribe,
+- `checkout.session.async_payment_failed` -- the delayed payment did not clear;
+  handled exactly like an expired session,
 - `checkout.session.expired` -- releases the hold and deletes the ephemeral
   coupon an abandoned checkout leaves behind,
-- `charge.refunded` -- puts a refunded order's gift-card share back on the card.
-  Do NOT also select `refund.created`: it fires for the same money.
+- `charge.refunded` -- puts the gift-card share of an order refunded IN FULL
+  back on the card. A partial refund of the cash half restores nothing to the
+  card. Do NOT also select `refund.created`: it fires for the same money.
 
-There is no fourth. The "your order is on its way" email is NOT webhook-driven:
+There is no sixth. The "your order is on its way" email is NOT webhook-driven:
 Stripe has no `payment_intent.updated` event and fires nothing when
 PaymentIntent metadata is edited, so it is sent by the Worker's hourly cron
 instead (see **Marking an order shipped** below). `routes/stripe-webhook.js`

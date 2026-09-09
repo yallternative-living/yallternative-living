@@ -5,6 +5,7 @@
  */
 
 const fs = require("fs");
+const path = require("path");
 const puppeteer = require("puppeteer");
 
 const BASE_URL = "https://yallternativeliving.com";
@@ -674,20 +675,29 @@ async function runLiveAudit() {
     await browser.close();
   }
 
-  // Persist output
+  // Persist output. `LIVE_AUDIT_RESULTS` names the file; the default is a
+  // gitignored path in this checkout so the sweep runs on any machine and in
+  // CI. (It used to be an absolute path under one developer's home directory,
+  // so the run threw at the final write everywhere else.)
   const outputPath =
-    "/Users/steven/.gemini/antigravity/brain/479d9f7f-8577-4e71-8950-fbccf302c62e/scratch/live-audit-results.json";
+    process.env.LIVE_AUDIT_RESULTS || path.join(__dirname, "..", "tmp", "live-audit-results.json");
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, JSON.stringify(auditLog, null, 2));
 
-  console.log(`\n=======================================================`);
-  console.log(` COMPREHENSIVE LIVE AUDIT COMPLETED`);
-  console.log(` Results written to: ${outputPath}`);
   const total = auditLog.length;
   const passed = auditLog.filter((e) => e.status === "PASS").length;
   const warned = auditLog.filter((e) => e.status === "WARN").length;
   const failed = auditLog.filter((e) => e.status === "FAIL").length;
+  console.log(`\n=======================================================`);
+  console.log(` COMPREHENSIVE LIVE AUDIT ${failed === 0 && total > 0 ? "PASSED" : "FAILED"}`);
+  console.log(` Results written to: ${outputPath}`);
   console.log(` SUMMARY: TOTAL: ${total} | PASS: ${passed} | WARN: ${warned} | FAIL: ${failed}`);
   console.log(`=======================================================`);
+  // A sweep that could not reach the site, or that found nothing to check, is
+  // a failure, not a pass -- the "COMPLETED" banner used to print over 20/20
+  // FAIL and exit 0, which is the checks-that-stop-checking shape AGENTS.md
+  // warns about.
+  if (failed > 0 || total === 0) process.exitCode = 1;
 }
 
 runLiveAudit();

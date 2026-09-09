@@ -148,3 +148,69 @@ Verified clean: `netlify.toml`, `_headers` and `vercel.json` security headers ar
 7. Optional, after launch: the still-open list in §3, the `core` filter additions, `npm ci`, and either fixing or deleting `live-production-audit.js`.
 
 Items 3 to 5 are doc-only or generated-file changes and cost no Netlify build under the `[build] ignore` rule, except `a11y-check.js:23` which is a comment.
+
+---
+
+## Remediation status (2026-09-08, same day)
+
+Landed on the follow-up branch after the report merged, merged over the
+owner's own same-day remediation on `main` (`edd8baf`), which covered the
+same ground and retired `vercel.json`. One difference between the two is
+worth recording: `edd8baf` restored the card share as
+`min(applied, max(0, refunded − charge.amount))`, and Stripe never refunds
+more than the charge, so that formula returns nothing on any real refund
+and its tests only passed by refunding more than was charged. The rule that
+survives is the one below: the whole card share on a full refund of the
+charge, nothing on a partial one. Steps 1 and 6 of §6 need the Stripe and
+Cloudflare dashboards and are still the owner's.
+
+| Finding | Status | What changed |
+| --- | --- | --- |
+| High: hold includes shipping | **Fixed** | `workers/checkout.js` caps the gift-card coupon at the goods subtotal (`totalCents`), never goods + shipping. `assets/js/cart.js` estimates the same way, so the drawer no longer promises a discount checkout cannot honour. |
+| High: hold not reconciled to the real discount | **Fixed** | `GiftCardLedger.commit()` accepts `cents`: a settlement below the hold commits that much and returns the rest to the card in the same transaction; zero releases the hold. `settleRedemption()` passes `total_details.amount_discount` when the session carries it. |
+| High: partial cash refund also refunds the card | **Fixed** | `handleChargeRefunded()` restores the card share only when the charge is refunded in full (`charge.refunded`, or `amount_refunded >= amount`). A partial cash refund restores nothing to the card. |
+| High (conditional): cards minted before payment clears | **Fixed** | `processStripeEvent()` defers the whole fulfilment when `payment_status` is not `paid`/`no_payment_required`, and handles `checkout.session.async_payment_succeeded` (same steps) and `checkout.session.async_payment_failed` (as an expiry). The Stripe webhook must now be subscribed to five events; `workers/README.md` and `docs/DEVELOPMENT.md` list them. |
+| High: owner docs send secrets to Netlify | **Fixed** | `docs/SETUP-GUIDE.md` steps 3 and 6 and `docs/DEVELOPMENT.md` §8 now put every secret on the Cloudflare Worker and point the webhook at `/api/stripe-webhook`. All remaining `netlify/functions` references in the guides are retired. |
+| Medium: `vercel.json` not a functional fallback | **Fixed on `main`** | Deleted outright in `edd8baf` (the owner's own same-day remediation), with the generator, the QA gate and the docs reduced to `_headers` + `netlify.toml`. |
+| Low: `live-production-audit.js` exits 0 on total failure | **Fixed** | Results go to `tmp/live-audit-results.json` (or `LIVE_AUDIT_RESULTS`); the process exits 1 when any page fails or nothing was checked. |
+| Low: `core` paths filter gaps | **Fixed** | `assets/fonts/**`, `robots.txt`, `site.webmanifest`, `.well-known/**` and `.github/actions/**` added to `.github/workflows/test.yml`. |
+| Low: i18n-bot says "six" | **Fixed** | Commit and issue strings now say nine. |
+| M-deps: README tells you to overwrite `wrangler.toml` | **Fixed** | `workers/README.md` Option B step 2. |
+| Docs drift (counts) | **Fixed** | `README.md`, `AGENTS.md`, `TEST_INFRA.md`, `scripts/a11y-check.js` carry 46 / 20 / 797 / 1121 / 37, the a11y gate is described as green, and the lint scope no longer names `netlify`. |
+
+Tests added or changed: `scripts/worker-state.test.js` (partial and zero
+settlement on the ledger; settle-below-hold through the webhook; unpaid
+completion deferred, `async_payment_succeeded` fulfils, `async_payment_failed`
+releases; refund restores on full refund only), `scripts/worker-checkout.test.js`
+(cap at goods with shipping still charged; small card applied in full), and the
+cap expectations in `cart.test.js`, `backend-functions.test.js`,
+`m1-adversarial-challenger.test.js` and `adversarial-stress.test.js`.
+
+Still the owner's, in order: the four Stripe test-mode orders in §6 step 1
+(now also proving the five-event webhook subscription), then the dashboard
+confirmations in §3 written into `AGENTS.md` with a date.
+
+### Follow-up batch (2026-09-09), same PR
+
+Everything below the High findings that was still in-repo, done by four
+parallel agents and integrated onto the same branch.
+
+| Finding | Status | What changed |
+| --- | --- | --- |
+| DI-15 size labels | **Fixed** | `products.json` uses `"N oz"` throughout; every fixture, locale entry, hint and hard-coded volume-pricing fallback follows; `qa-check.js` asserts the form. The Worker's variant matcher now ignores whitespace entirely, so a cart saved with the old `"2oz"` still checks out. |
+| DI-16 llms.txt availability | **Fixed** | Coming-soon products carry `(coming soon)` and no price; asserted. |
+| DI-14 orphaned images | **Fixed** | The two unreferenced keychain variants are deleted. |
+| L-crawl `noreferrer` | **Fixed** | Every external `target="_blank"` link in sources and generators carries `noopener noreferrer`; asserted on all pages. |
+| Medium: bundle/box member availability | **Fixed, with auto-fix** | The Worker refuses a set or box whose member is sold out or coming soon, and returns a structured `unavailable` list; the cart drawer removes exactly those lines, tells the shopper what went and why, and lets them retry. Sets with an unavailable member are hidden on the shop page. |
+| Medium: loyalty points on raw subtotal | **Fixed** | Points accrue on subtotal minus `total_details.amount_discount`, never below zero. |
+| Low: volume tiers vs stock cap | **Fixed** | Tier counts use the capped quantity. |
+| Low: expireSession failure window | **Fixed** | Coupon delete first, expiry retried once, then an error log naming session and coupon. |
+| Low: gift-note HMAC secret length | **Fixed** | Same >=16-character guard as the magic-link signer; a short secret answers 503. |
+| M-cms editorial workflow | **Enabled** | `publish_mode: editorial_workflow` in `admin/config.yml` (Sveltia supports it). A CMS Save now opens a `cms/…` branch and PR; Publish merges. Reversible by deleting one line. Note that until Cloudflare Workers Builds is set to the production branch only, each CMS branch push also triggers a Worker build. |
+| M-cms custom `/api` route | **Documented, owner's** | Needs the zone on Cloudflare DNS; `workers/README.md` says what would be required. |
+| SW caches `/admin` | **Fixed** | `sw.js` bypasses `/admin` and `/admin/*`; asserted. |
+| CI `npm install`, floating tags | **Fixed** | `npm ci`; `actions/checkout`, `setup-node`, `cache` pinned to the commit SHAs their tags resolved to, verified with `git ls-remote`. |
+| Browser pool flakiness | **In progress** | Being root-caused suite by suite; see the commit that lands it. A fifth instance was captured in CI on this branch: `reveal-check.js` reported `paint entries = 2` and an unarmed first `.reveal` on `index.html` under the 4-worker pool, then passed on the next run with no relevant change. |
+
+Left for the owner: the loyalty fields in `admin/config.yml` (a product
+decision now that loyalty is wired), and the dashboard items above.

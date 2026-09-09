@@ -254,9 +254,9 @@
   var DEFAULT_VOLUME_PRICING = [
     {
       id: "salves-2oz",
-      name: "2oz Salve Multi-Buy",
+      name: "2 oz Salve Multi-Buy",
       category: "salves",
-      qualifyingVariant: "2oz",
+      qualifyingVariant: "2 oz",
       minQuantity: 2,
       unitPrice: QUALIFYING_2OZ_SALVE_PRICE,
       label: "2+ for $15 each",
@@ -1422,6 +1422,22 @@
     return null;
   }
 
+  /* The three catalog fields that take a product off sale -- the same three
+     the Worker's unavailableReasonOf() reads, so the drawer and the charge
+     agree on what can be bought. */
+  function isUnavailableProduct(p) {
+    return !!p && (p.comingSoon === true || p.stock === 0 || p.inStock === false);
+  }
+
+  /* A gift set is only as available as its members. */
+  function bundleMembersAvailable(bundle) {
+    if (!bundle || !Array.isArray(bundle.productIds)) return true;
+    for (var i = 0; i < bundle.productIds.length; i++) {
+      if (isUnavailableProduct(catalogProduct(bundle.productIds[i]))) return false;
+    }
+    return true;
+  }
+
   function sanitizeStoredItems(rawItems) {
     var known = knownItemIds();
     var kept = [];
@@ -1447,7 +1463,7 @@
       /* A share link or an old cart can carry a product that is not on sale:
          coming soon, or a variant that has since sold out (verify-B H-3). */
       var live = catalogProduct(it.id);
-      if (live && (live.comingSoon || live.stock === 0)) {
+      if (isUnavailableProduct(live)) {
         dropped++;
         return;
       }
@@ -1466,6 +1482,13 @@
          (worse) shipped with fulfilment guessing the size. */
       var liveBundle = catalogBundle(it.id);
       if (liveBundle) {
+        /* A set whose member has sold out (or is not yet released) is not on
+           sale either: the Worker refuses it, so the shop stops offering it
+           (main.js bundleMembersAvailable) and a saved one is dropped here. */
+        if (!bundleMembersAvailable(liveBundle)) {
+          dropped++;
+          return;
+        }
         var members = bundleVariantMembersFor(liveBundle);
         var picked = normalizeBundleVariants(it.bundleVariants) || {};
         var bundleOk = true;
@@ -2373,15 +2396,15 @@
         ? FLAT_SHIPPING
         : 0;
 
-    /* The Worker caps the gift-card coupon at totalCents + shippingCents, so
-       cap it against the same number here -- capping on the subtotal alone
-       under-applied the card by up to $10 in the drawer and then "found" the
-       difference at checkout. */
+    /* The Worker caps the gift-card coupon at the goods subtotal, so cap it
+       against the same number here. Stripe applies the coupon to line items
+       only -- shipping is never discounted -- so a card can cover the goods
+       in full and the shopper still pays postage; the drawer says so rather
+       than promising a total checkout cannot honour. */
     var gcDiscount = 0;
     if (state.appliedGiftCard && state.appliedGiftCard.balance) {
       gcDiscount =
-        Math.round(Math.min(sub + shippingCost, Number(state.appliedGiftCard.balance) || 0) * 100) /
-        100;
+        Math.round(Math.min(sub, Number(state.appliedGiftCard.balance) || 0) * 100) / 100;
     }
     var estimatedTotal = Math.max(0, Math.round((sub + shippingCost - gcDiscount) * 100) / 100);
 
@@ -2986,6 +3009,13 @@
           err.clearGiftCard = true;
           if (!err.shopperMessage) err.shopperMessage = GIFT_CARD_CONFLICT;
         }
+        /* An availability refusal also says WHICH line, structurally
+           (workers/checkout.js unavailableDetails). The .catch below removes
+           that line rather than leaving the shopper to work out, from the
+           message alone, what to take out before Checkout can succeed. */
+        if (status === 400 && data && Array.isArray(data.unavailable) && data.unavailable.length) {
+          err.unavailable = data.unavailable;
+        }
         /* Carried so the single .catch below can tell an infrastructure
            failure from a refusal the shopper caused. The server's own message
            is NOT reported: it can quote what the shopper typed (a gift card
@@ -3003,11 +3033,17 @@
           state.giftCardError = "";
           save();
         }
+        /* A line the Worker named as unsellable is removed here, persisted,
+           and reported by name; the shopper then clicks Checkout again
+           themselves. Never auto-retried: a checkout that ends on Stripe's
+           page must be the click the shopper made, not one the drawer made
+           for them after changing what is in the cart. */
+        var removedNotice = err && err.unavailable ? dropUnavailableLines(err.unavailable) : "";
         /* render() re-enables the button from checkoutInFlight, so the drawer
            recovers even if this render replaced the node the click came
            from. */
         render();
-        var msg = (err && err.shopperMessage) || genericCheckoutError();
+        var msg = removedNotice || (err && err.shopperMessage) || genericCheckoutError();
         announce(tr("tpl.checkoutErrorAnnounce", { message: msg }, "Checkout error: " + msg));
         showCheckoutError(msg);
         /* Checkout Failed closes the funnel's worst blind spot: Checkout Start
@@ -3020,11 +3056,88 @@
       });
   }
 
+  /* Same cart line, whichever spelling of a gift-set id was used
+     ("bundle-pride-set" on the line, "pride-set" in the catalog, or the other
+     way round). */
+  function sameLineId(a, b) {
+    var x = String(a || "");
+    var y = String(b || "");
+    return x === y || "bundle-" + x === y || x === "bundle-" + y;
+  }
+
+  /* What the drawer says about a line it removed on the Worker's word. Plain
+     text only: it is written with textContent, never innerHTML. */
+  function removalNotice(item, refusal) {
+    var name = item.name || item.id;
+    if (item.variantLabel) name += " (" + item.variantLabel + ")";
+    if (refusal.reason === "coming_soon") {
+      return "Not available yet: " + name + " was removed from your cart.";
+    }
+    if (refusal.reason === "member_unavailable") {
+      var member = typeof refusal.member === "string" ? catalogProduct(refusal.member) : null;
+      var memberName = (member && member.name) || refusal.member || "one of its items";
+      return name + " was removed from your cart: " + memberName + " is unavailable.";
+    }
+    return "Sold out: " + name + " was removed from your cart.";
+  }
+
+  /**
+   * Remove the lines an availability refusal names (see unavailableDetails in
+   * workers/checkout.js), persist, and return the notice to show -- or "" when
+   * nothing in the cart matched, in which case the caller falls back to the
+   * Worker's own message. Each entry matches by line id; a `variant` narrows it
+   * to the line holding that option (a sold-out 4oz does not remove the 2oz),
+   * and for a build-your-own box a `member` narrows it to the boxes holding
+   * that product. There is no Undo for these: the line cannot be bought.
+   */
+  function dropUnavailableLines(list) {
+    var removedKeys = {};
+    var notices = [];
+    (Array.isArray(list) ? list : []).forEach(function (refusal) {
+      if (!refusal || typeof refusal !== "object" || typeof refusal.id !== "string") return;
+      var wantVariant =
+        typeof refusal.variant === "string" ? refusal.variant.trim().toLowerCase() : "";
+      var member = typeof refusal.member === "string" ? refusal.member : "";
+      state.items.forEach(function (it) {
+        if (!it || !sameLineId(it.id, refusal.id)) return;
+        if (
+          wantVariant &&
+          String(it.variantLabel || "")
+            .trim()
+            .toLowerCase() !== wantVariant
+        ) {
+          return;
+        }
+        if (
+          it.id === "custom-box" &&
+          member &&
+          Array.isArray(it.boxProductIds) &&
+          it.boxProductIds.indexOf(member) === -1
+        ) {
+          return;
+        }
+        var key = lineKey(it);
+        if (removedKeys[key]) return;
+        removedKeys[key] = true;
+        notices.push(removalNotice(it, refusal));
+      });
+    });
+    if (!notices.length) return "";
+    state.items = state.items.filter(function (it) {
+      return !removedKeys[lineKey(it)];
+    });
+    state.undoItem = null;
+    if (state.undoTimer) clearTimeout(state.undoTimer);
+    save();
+    return notices.join(" ");
+  }
+
   /** Maps a checkout rejection onto a small, fixed set of reason labels. */
   function checkoutFailureReason(err) {
     if (!err) return "unknown";
     if (err.name === "AbortError") return "timeout";
     if (err.clearGiftCard) return "gift-card";
+    if (err.unavailable) return "unavailable";
     var status = err.checkoutStatus;
     if (typeof status !== "number" || status === 0) return "network";
     if (status === 200) return "no-session-url";

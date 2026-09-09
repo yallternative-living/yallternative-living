@@ -52,6 +52,75 @@ const MIME = {
   ".webmanifest": "application/manifest+json"
 };
 
+/* Every PDP and shop.html carry the Tawk.to chat loader, armed on the first
+   pointerdown, keydown, scroll or touchstart -- the checkbox and button
+   clicks below are exactly those. It inserts
+   `<script async src="https://embed.tawk.to/...">`, and Chromium reports
+   networkIdle (`networkidle0`) only once nothing has been in flight for
+   500ms, so the navigations to shop.html and frankincense-salve.html after
+   the ritual clicks were timed by tawk.to, not by the page: ~12.5s to
+   net::ERR_CONNECTION_RESET without egress, the SDK's own widget traffic
+   with it. This suite asserts nothing about chat or analytics, so abort
+   whatever is not its own server and let idle depend on that alone. */
+async function blockThirdPartyRequests(page) {
+  await page.setRequestInterception(true);
+  page.on("request", (req) => {
+    const url = req.url();
+    const local = url.startsWith(BASE) || url.startsWith("data:");
+    (local ? req.continue() : req.abort("blockedbyclient")).catch(() => {});
+  });
+}
+
+/* The cart drawer enters and leaves with a 320ms `translate` transition
+   (cart.css). `:popover-open` flips at showPopover()/hidePopover(), i.e. at
+   the START of each slide, so the DOM says "open" while the drawer is still
+   entirely off the right edge and "closed" while it still covers the right
+   420px of the page. Both bit this suite:
+
+   - Clicking inside the drawer before it has slid on screen: Puppeteer clips
+     the target's client rects to the viewport and throws "Node is either not
+     clickable or not an Element" when nothing is left. Reproduced on demand
+     with the transition slowed 5x, on the .yl-cart-close click.
+   - Clicking the page behind the drawer before it has slid off: the click
+     lands on the drawer. At 1280px the third ritual checkbox sits at x~864
+     and the open drawer starts at x=860, so a fixed 200ms pause after
+     .yl-cart-close (a 320ms transition) needed the runner to have started the
+     transition promptly. CI run 353 (34069373060) lost that: the uncheck did
+     not register, "Add Selected" added all three items, and the four cart
+     assertions that followed failed on $48 instead of $29.99 -- with no
+     relevant change in the tree, and green on the next push.
+
+   Wait for the drawer to be where it will stay instead of for a clock. */
+async function waitForDrawerOpen(page) {
+  await page.waitForFunction(
+    () => {
+      const d = document.getElementById("yl-cart-drawer");
+      if (!d) return false;
+      const open = d.matches(":popover-open") || d.getAttribute("data-open") === "true";
+      const r = d.getBoundingClientRect();
+      return open && r.width > 0 && r.right <= document.documentElement.clientWidth + 0.5;
+    },
+    { timeout: 3000, polling: "raf" }
+  );
+}
+
+async function waitForDrawerClosed(page) {
+  await page.waitForFunction(
+    () => {
+      const d = document.getElementById("yl-cart-drawer");
+      if (!d) return true;
+      if (d.matches(":popover-open") || d.getAttribute("data-open") === "true") return false;
+      const r = d.getBoundingClientRect();
+      return (
+        window.getComputedStyle(d).display === "none" ||
+        r.width === 0 ||
+        r.left >= document.documentElement.clientWidth - 0.5
+      );
+    },
+    { timeout: 3000, polling: "raf" }
+  );
+}
+
 function startServer() {
   return new Promise((resolve, reject) => {
     server = http.createServer((req, res) => {
@@ -285,6 +354,7 @@ async function testRitualInteractivity() {
   console.log("================================================================================");
 
   const page = await browser.newPage();
+  await blockThirdPartyRequests(page);
   await page.setViewport({ width: 1280, height: 800 });
 
   page.on("pageerror", (err) => console.error("  [Page Error]", err.message));
@@ -481,9 +551,11 @@ async function testRitualInteractivity() {
     "Milestone 2 ($60 Free Salve) pin is not reached in cart drawer ($47.99 < $60)"
   );
 
-  // Close drawer
+  // Close drawer -- once it has finished opening, and only move on once it
+  // has finished closing (see waitForDrawerOpen/Closed above).
+  await waitForDrawerOpen(page);
   await page.click(".yl-cart-close");
-  await new Promise((r) => setTimeout(r, 200));
+  await waitForDrawerClosed(page);
 
   // Test Adding 2-Item Selection
   await page.evaluate(() => {

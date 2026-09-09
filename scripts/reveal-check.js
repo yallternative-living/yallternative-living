@@ -293,20 +293,82 @@ async function assertReal(page, label) {
       }
     }
 
-    /* ---- 3. Fast load: the entrance animation still plays ----
+    /* ---- 3. Normal load: the entrance animation still plays ----
        Guarding only against hidden content would be satisfied by deleting the
-       animation, so assert it survives: nothing painted yet at wire-up time
-       means every element is armed first and transitions in. */
+       animation, so assert it survives.
+
+       This pass used to assert that main.js ran BEFORE the browser's first
+       paint ("paint entries = 0" at DOMContentLoaded) and that the first
+       .reveal was therefore armed. Neither is a property of the page. main.js
+       is a deferred script behind ~150KB of catalogue data, and whether
+       Chromium paints the parsed markup before a deferred script executes is
+       decided by the machine: on a loaded runner (the 4-worker integration
+       pool, CI run 34282736447, on a tree that had not touched main.js,
+       index.html or the reveal CSS) index.html had 2 paint entries by DCL,
+       and wireReveal then did exactly what it is built to do with content
+       that is already on screen -- left it visible instead of arming it --
+       and both checks failed. main.js's own PAINT_PROTECTION_MS note records
+       the same coin flip. A check that fails when the runner is slow is
+       measuring the runner.
+
+       What the file's rule actually requires is asserted on whichever path
+       this run takes: every above-fold reveal is wired by DCL (armed to
+       animate, or left visible -- never in limbo); nothing a reader has been
+       looking at is hidden afterwards; and the animation itself is still
+       wired and completes. The path taken is reported so a log reader can
+       see which one a given run exercised. */
     {
       console.log("\nNormal load (entrance animation preserved):");
       const page = await newPage(browser);
       await page.evaluateOnNewDocument(() => {
         window.__atDCL = null;
+        /* Per-element sampler, every frame: an element seen at full opacity
+           while on screen, and later seen at less than that, was hidden after
+           it had been painted. The one tolerance is main.js's own: a paint
+           younger than PAINT_PROTECTION_MS (200ms) is the fast path where
+           arming is correct, so an element visible for less than that before
+           it was armed is the animation starting, not a blink -- the gate
+           holds the same line main.js does, no looser. An element armed before
+           it was ever painted climbs from 0 and is never flagged. */
+        window.__hiddenAfterPaint = [];
+        const PAINT_PROTECTION_MS = 200;
+        const firstVisibleAt = new WeakMap();
+        const flagged = new WeakSet();
+        const tick = () => {
+          const now = performance.now();
+          document.querySelectorAll(".reveal").forEach((el) => {
+            const r = el.getBoundingClientRect();
+            if (!r.height) return;
+            const shown = Math.max(0, Math.min(r.bottom, window.innerHeight) - Math.max(r.top, 0));
+            if (shown / r.height <= 0.25) return;
+            const o = parseFloat(getComputedStyle(el).opacity);
+            if (o >= 1) {
+              if (!firstVisibleAt.has(el)) firstVisibleAt.set(el, now);
+            } else if (
+              firstVisibleAt.has(el) &&
+              now - firstVisibleAt.get(el) > PAINT_PROTECTION_MS &&
+              !flagged.has(el)
+            ) {
+              flagged.add(el);
+              window.__hiddenAfterPaint.push(
+                el.className + " (visible " + Math.round(now - firstVisibleAt.get(el)) + "ms)"
+              );
+            }
+          });
+          window.requestAnimationFrame(tick);
+        };
+        window.requestAnimationFrame(tick);
         document.addEventListener("DOMContentLoaded", () => {
-          const el = document.querySelector(".reveal");
+          const els = [...document.querySelectorAll(".reveal")];
+          const fold = window.innerHeight;
+          const aboveFold = els.filter((el) => el.getBoundingClientRect().top < fold);
           window.__atDCL = {
             paintEntries: performance.getEntriesByType("paint").length,
-            armed: el ? el.className.indexOf("reveal-armed") !== -1 : null
+            reveals: els.length,
+            aboveFold: aboveFold.length,
+            aboveFoldArmed: aboveFold.filter((el) => el.classList.contains("reveal-armed")).length,
+            aboveFoldIn: aboveFold.filter((el) => el.classList.contains("in")).length,
+            armedAnywhere: els.filter((el) => el.classList.contains("reveal-armed")).length
           };
         });
       });
@@ -315,14 +377,32 @@ async function assertReal(page, label) {
       if (await assertReal(page, "index.html")) {
         const dcl = await page.evaluate(() => window.__atDCL);
         check(
-          "index.html: main.js wires reveals before first paint",
-          dcl && dcl.paintEntries === 0,
-          `paint entries = ${dcl && dcl.paintEntries}`
+          "index.html: has above-fold reveal content to test",
+          !!dcl && dcl.aboveFold > 0,
+          dcl ? `${dcl.aboveFold} above-fold .reveal elements` : "DOMContentLoaded hook never ran"
         );
+        if (dcl && dcl.aboveFold > 0) {
+          const wired = dcl.aboveFoldArmed + dcl.aboveFoldIn;
+          const path =
+            dcl.aboveFoldArmed > 0
+              ? `main.js beat first paint: ${dcl.aboveFoldArmed} armed to animate in`
+              : `the browser painted first (${dcl.paintEntries} paint entries by DCL): ${dcl.aboveFoldIn} left visible, not re-hidden`;
+          check(
+            `index.html: every above-fold reveal is wired by DOMContentLoaded -- ${path}`,
+            wired === dcl.aboveFold && (dcl.aboveFoldArmed === 0 || dcl.aboveFoldIn === 0),
+            `${dcl.aboveFold} above the fold, ${dcl.aboveFoldArmed} armed, ${dcl.aboveFoldIn} shown -- a mix or a remainder means wireReveal skipped some`
+          );
+        }
         check(
-          "index.html: above-fold elements are armed, so they animate in",
-          dcl && dcl.armed === true,
-          "first .reveal was not armed"
+          "index.html: the entrance animation is still wired (reveals armed at DCL)",
+          !!dcl && dcl.armedAnywhere > 0,
+          "no .reveal was armed -- the animation has been removed, not just deferred"
+        );
+        const hiddenAfterPaint = await page.evaluate(() => window.__hiddenAfterPaint);
+        check(
+          "index.html: nothing the reader had been looking at was hidden afterwards",
+          hiddenAfterPaint.length === 0,
+          hiddenAfterPaint.join(", ")
         );
         const settled = await hiddenButVisible(page);
         check(

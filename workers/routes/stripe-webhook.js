@@ -720,16 +720,32 @@ export async function emailOwnerOrderNotice(session, env, ctx) {
  * forever would only bury the anomaly under three days of 500s.
  */
 async function settleRedemption(session, env) {
+  // The router already defers an unpaid session; this is belt to that brace.
   if (!isFulfillable(session)) return null;
   const metadata = session.metadata || {};
   const code = metadata.gift_card_redeemed_code;
   const appliedCents = Number(metadata.gift_card_amount_applied_cents || 0);
   if (!code || !(appliedCents > 0)) return null;
 
+  // Settle the hold against what Stripe ACTUALLY discounted, not against
+  // what checkout asked for. With a card applied `allow_promotion_codes` is
+  // off, so the session's only discount is the gift-card coupon and
+  // `total_details.amount_discount` is exactly the card's share. A session
+  // that does not carry the figure settles the full hold, as before.
+  const totals = session.total_details || {};
+  const discounted = Number(totals.amount_discount);
+  const settleCents =
+    Number.isFinite(discounted) && discounted >= 0 && discounted < appliedCents
+      ? Math.round(discounted)
+      : undefined;
+
   const ledger = giftCardLedger(env, code);
   let committed;
   try {
-    committed = await ledger.commit({ sessionId: session.id });
+    committed =
+      settleCents === undefined
+        ? await ledger.commit({ sessionId: session.id })
+        : await ledger.commit({ sessionId: session.id, cents: settleCents });
   } catch (err) {
     if (err instanceof LedgerError && err.code === "reservation_not_found") {
       console.error(
@@ -740,6 +756,13 @@ async function settleRedemption(session, env) {
     throw err;
   }
   if (committed.alreadyCommitted) return committed;
+  if (settleCents !== undefined && committed.releasedCents > 0) {
+    console.warn(
+      `Gift card ${ledger.code}: held ${appliedCents}c for ${session.id}, Stripe applied ` +
+        `${committed.cents}c; ${committed.releasedCents}c returned to the card`
+    );
+  }
+  if (!(committed.cents > 0)) return committed;
 
   const snapshot = await ledger.getBalance();
   const to = snapshot.recipientEmail || buyerEmailOf(session);
@@ -857,12 +880,19 @@ async function handleSessionExpired(session, env) {
 }
 
 /**
- * A refunded order puts its gift-card share back on the card.
+ * A FULLY refunded order puts its gift-card share back on the card.
  *
- * Never more than the card paid, never more than has actually been refunded,
- * and never twice for the same money. Stripe re-sends `charge.refunded` for
- * each partial refund as well as on retry, so the amount already restored for
- * THIS charge is read back off the ledger and only the difference is credited.
+ * The charge is the cash half of the order; the card half never touched
+ * Stripe. A partial refund is therefore an instruction about the cash --
+ * "give $10 of the $30 back" -- and restoring $10 to the card as well handed
+ * the shopper $20 for a $10 refund (readiness audit 2026-09-08). Only a full
+ * refund of the charge reads as "undo the order", and only then does the
+ * whole card share go back. To return card money on a partial refund the
+ * owner issues a replacement card; nothing here guesses.
+ *
+ * Never more than the card paid, and never twice for the same money: Stripe
+ * re-sends `charge.refunded` on retry, so the amount already restored for THIS
+ * charge is read back off the ledger and only the difference is credited.
  */
 async function handleChargeRefunded(charge, env) {
   const paymentIntentId =
@@ -881,8 +911,13 @@ async function handleChargeRefunded(charge, env) {
 
   const refundedCents = Number(charge.amount_refunded || 0);
   if (!(refundedCents > 0)) return null;
-  const cashPaidCents = Number(charge.amount || session.amount_total || 0);
-  const restorableCents = Math.min(appliedCents, Math.max(0, refundedCents - cashPaidCents));
+  const chargedCents = Number(charge.amount);
+  const fullyRefunded =
+    charge.refunded === true || (Number.isFinite(chargedCents) && refundedCents >= chargedCents);
+  if (!fullyRefunded) {
+    return { code, restoredCents: 0, partialRefund: true, refundedCents };
+  }
+  const restorableCents = appliedCents;
 
   const ledger = giftCardLedger(env, code);
   const history = await ledger.history();
@@ -989,12 +1024,17 @@ async function creditPoints(session, env, ctx, now = Date.now()) {
   const email = buyerEmailOf(session);
   if (!email) return null;
   // `amount_subtotal` is the goods before shipping and tax -- points are earned
-  // on what was bought, not on the postage.
-  const cents = Number(
-    session.amount_subtotal !== undefined && session.amount_subtotal !== null
-      ? session.amount_subtotal
-      : session.amount_total
-  );
+  // on what was bought, not on the postage. Minus `total_details.amount_discount`,
+  // which is where Stripe reports both a promo code and a gift card applied at
+  // checkout (the card is an amount_off coupon): points are earned on the money
+  // actually paid for goods, never on a discount, and a card paid for by points
+  // must not earn points back. Shipping and tax stay excluded either way.
+  const hasSubtotal = session.amount_subtotal !== undefined && session.amount_subtotal !== null;
+  let cents = Number(hasSubtotal ? session.amount_subtotal : session.amount_total);
+  if (hasSubtotal) {
+    const discount = Number(session.total_details && session.total_details.amount_discount);
+    if (Number.isFinite(discount) && discount > 0) cents = Math.max(0, cents - discount);
+  }
   if (!Number.isFinite(cents) || cents <= 0) return null;
   return creditLoyaltyForOrder(env, ctx, { orderId: session.id, email, amountCents: cents }, now);
 }
@@ -1087,8 +1127,34 @@ export async function processStripeEvent(event, env, ctx) {
   const failures = [];
   const outcome = { type: event.type };
 
-  if (event.type === "checkout.session.completed") {
+  if (
+    event.type === "checkout.session.completed" ||
+    event.type === "checkout.session.async_payment_succeeded"
+  ) {
     const session = event.data.object || {};
+    /* Fulfil on PAYMENT, not on completion. `payment_method_types` is left to
+       the Dashboard (checkout.js), so a delayed-notification method there
+       (ACH, SEPA) completes the session with `payment_status: "unpaid"` and
+       the money arrives -- or does not -- days later as
+       `async_payment_succeeded` / `async_payment_failed`. Minting a gift card
+       or debiting a redeemed one on "completed" alone would hand out stored
+       value before the cash cleared, with nothing to claw it back. So an
+       unpaid completion is recorded and skipped in full; the success event
+       carries the same session, now paid, and runs the same steps. Every
+       step below is idempotent, so a card payment (paid at completion, no
+       async event ever sent) and an async one land in the same place. */
+    if (!isFulfillable(session)) {
+      outcome.deferred = `payment-status-${session.payment_status || "unknown"}`;
+      console.warn(`Session ${session.id} completed ${outcome.deferred}; fulfilment deferred`);
+      // The same shape the steps below would have reported had they run and
+      // declined, so callers reading `revenue.sent` or `ownerNotice.skipped`
+      // see one answer for "not paid" whichever guard said so.
+      outcome.redemption = null;
+      outcome.issued = [];
+      outcome.ownerNotice = { skipped: outcome.deferred };
+      outcome.revenue = { sent: false, reason: outcome.deferred };
+      return outcome;
+    }
     try {
       outcome.redemption = await settleRedemption(session, env);
     } catch (err) {
@@ -1160,6 +1226,14 @@ export async function processStripeEvent(event, env, ctx) {
       outcome.shipNotice = await emailShipNotice(event.data.object || {}, env, ctx);
     } catch (err) {
       failures.push(`ship-notice: ${err && err.message}`);
+    }
+  } else if (event.type === "checkout.session.async_payment_failed") {
+    /* The delayed payment never cleared. The session is dead the same way an
+       abandoned one is: the hold goes back on the card and the coupon goes. */
+    try {
+      outcome.expired = await handleSessionExpired(event.data.object || {}, env);
+    } catch (err) {
+      failures.push(`async-payment-failed: ${err && err.message}`);
     }
   } else if (event.type === "checkout.session.expired") {
     const session = event.data.object || {};

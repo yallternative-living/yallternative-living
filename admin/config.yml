@@ -44,11 +44,33 @@
 #
 # Every field below maps 1:1 to a real field already used in
 # assets/data/products.json -- nothing here was invented; if a field
-# isn't listed, it isn't part of the real catalog schema. After saving
-# a change here, Sveltia commits straight to the repo, and the site's
-# own deploy step re-runs `node scripts/build-site-data.js` to
+# isn't listed, it isn't part of the real catalog schema. Saving a change
+# here commits it to a `cms/...` branch and opens a pull request (see
+# publish_mode below); **Publish** merges that PR into main, and the
+# site's own deploy step re-runs `node scripts/build-site-data.js` to
 # regenerate everything derived from it (see netlify.toml) --
 # Savanna does NOT need to run that script by hand.
+
+# Editorial workflow (enabled 2026-09-08). Every commit that reaches main
+# is a Netlify production build, and builds spend the credits that ran out
+# on 4 September 2026 (AGENTS.md section 2, invariant 7). Without this line
+# every Save in /admin committed straight to main, so ten small edits to a
+# product were ten builds. With it, Save commits to a branch named
+# `cms/<collection>/<slug>` and opens a pull request; further saves add
+# commits to that same branch and nothing builds (Netlify's branch deploys
+# are off). The entry moves through Draft -> In Review -> Ready on the
+# board in the sidebar, and **Publish** merges the PR and deletes the
+# branch -- one build per body of work, which is the "Batch" rule from
+# AGENTS.md applied to the CMS. Checked against the pinned bundle
+# (@sveltia/cms 0.205.3 ships the Editorial Workflow board and only warns
+# for backends other than GitHub/GitLab) and sveltiacms.app/en/docs/
+# workflows/editorial. Two side effects worth knowing: each CMS pull
+# request runs .github/workflows/test.yml like any other PR (free on a
+# public repo), and if main ever gets required status checks, Publish
+# waits on them the way any merge does. The PR labels Sveltia uses are
+# prefixed `sveltia-cms/` by default; leave them alone, that is how it
+# tracks the entry's state.
+publish_mode: editorial_workflow
 
 backend:
   name: github
@@ -737,7 +759,7 @@ singletons:
         summary: "{{fields.label}} — {{fields.name}}"
         hint: "Category volume discounts, e.g. any 2+ 2 oz salves for $15 each. Several deals can run at once."
         fields:
-          - { name: name, label: "Deal name", widget: string, hint: "For your reference, e.g. 2oz Salve Multi-Buy" }
+          - { name: name, label: "Deal name", widget: string, hint: "For your reference, e.g. 2 oz Salve Multi-Buy" }
           - name: category
             label: "Category"
             widget: relation
@@ -751,7 +773,7 @@ singletons:
               label: "Qualifying variant",
               widget: string,
               required: false,
-              hint: "e.g. 2oz. Leave blank to count every size in the category."
+              hint: "e.g. 2 oz. Leave blank to count every size in the category."
             }
           - {
               name: minQuantity,

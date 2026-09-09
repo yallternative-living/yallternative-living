@@ -642,16 +642,26 @@ _(Note: The legacy `/.netlify/functions/` routes have been completely retired an
 ### Stripe webhook events to subscribe
 
 In the Stripe dashboard, the webhook pointing at
-`https://yallternativeliving.com/api/stripe-webhook` must be subscribed to **all three**:
+`https://yallternativeliving.com/api/stripe-webhook` must be subscribed to **all five**:
 
-- `checkout.session.completed` — delivers the gift card and processes a
-  redemption. This is the only one older versions of this doc mentioned.
+- `checkout.session.completed` — delivers the gift card and settles a
+  redemption, **only when `payment_status` is already `paid`**. A card
+  payment is; a delayed-notification method (ACH, SEPA) is not, and the
+  handler records the session as deferred and does nothing else.
+- `checkout.session.async_payment_succeeded` — the delayed payment cleared;
+  runs exactly the steps `completed` would have. Harmless to subscribe when
+  no such method is enabled: it never fires.
+- `checkout.session.async_payment_failed` — the delayed payment did not
+  clear; treated like an expired session (hold released, coupon deleted).
 - `checkout.session.expired` — deletes the ephemeral coupon minted when a gift
-  card was pre-applied to an abandoned checkout. Without it, every abandoned
-  gift-card checkout leaves a permanent coupon in the Stripe account.
-- `charge.refunded` — restores the gift-card balance a refunded order had
-  consumed. Do **not** also subscribe `refund.created`: it fires for the same
-  money, and the handler deliberately ignores it.
+  card was pre-applied to an abandoned checkout and releases the hold. Without
+  it, every abandoned gift-card checkout leaves a permanent coupon in the
+  Stripe account.
+- `charge.refunded` — restores the gift-card share of an order **refunded in
+  full**. A partial refund of the cash half restores nothing to the card: the
+  charge is the cash, and "give $10 back" is not "give $10 back twice". Do
+  **not** also subscribe `refund.created`: it fires for the same money, and
+  the handler deliberately ignores it.
 
 The ship notice ("your order is on its way") is deliberately **not** on this
 list. Stripe fires no event when PaymentIntent metadata is edited — there is no
@@ -1410,8 +1420,13 @@ Everything in sections 7/9/17/18 above that says "edit `products.json`
 by hand" now has a friendlier alternative: a real, no-code editing UI at
 `/admin` on the deployed site, built on **[Sveltia CMS](https://sveltiacms.app)**
 — a form for editing products, bundles, the FAQ, and shop info that
-commits straight to the real `assets/data/products.json` file in the
-GitHub repo, no text editor or JSON syntax required.
+edits the real `assets/data/products.json` file in the GitHub repo, no
+text editor or JSON syntax required. Since 2026-09-08 it runs Sveltia's
+editorial workflow (`publish_mode: editorial_workflow` in
+`admin/config.yml`): **Save** commits to a `cms/...` branch and opens a
+pull request, further saves pile onto that branch, and **Publish** merges
+it into `main` -- so one Netlify build per finished edit rather than one
+per keystroke-and-save. The comment above that line in the config says why.
 
 **Why Sveltia over Decap CMS** (the older, much more widely-known
 option this space defaults to): Decap is still functional but is now in

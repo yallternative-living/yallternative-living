@@ -1046,7 +1046,7 @@ function recordFail(msg) {
     }
 
     const has1ozChip = chipDetails.some(
-      (c) => c.variantLabel === "1oz" && c.variantDelta === "-6" && c.price === "14.00"
+      (c) => c.variantLabel === "1 oz" && c.variantDelta === "-6" && c.price === "14.00"
     );
     if (has1ozChip) {
       recordPass("1oz variant chip carries delta -6 and price $14");
@@ -1076,7 +1076,7 @@ function recordFail(msg) {
     if (
       cartStateAfter1oz &&
       cartStateAfter1oz.id === "frankincense-salve" &&
-      cartStateAfter1oz.variantLabel === "1oz" &&
+      cartStateAfter1oz.variantLabel === "1 oz" &&
       cartStateAfter1oz.variantDelta === -6
     ) {
       recordPass("Cart state successfully populated with 1oz variant (delta -6)");

@@ -173,11 +173,11 @@ window.YL_PRODUCTS = {
         "name": "Size",
         "options": [
           {
-            "label": "2oz",
+            "label": "2 oz",
             "priceDelta": 0
           },
           {
-            "label": "1oz",
+            "label": "1 oz",
             "priceDelta": -6
           }
         ]
@@ -1332,9 +1332,9 @@ window.YL_PRODUCTS = {
   "volumePricing": [
     {
       "id": "salves-2oz",
-      "name": "2oz Salve Multi-Buy",
+      "name": "2 oz Salve Multi-Buy",
       "category": "salves",
-      "qualifyingVariant": "2oz",
+      "qualifyingVariant": "2 oz",
       "minQuantity": 2,
       "unitPrice": 15,
       "label": "2+ for $15 each",

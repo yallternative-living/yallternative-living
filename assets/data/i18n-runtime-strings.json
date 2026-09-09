@@ -1016,7 +1016,7 @@
       "verify": [
         "tpl.mixMatchNeed"
       ],
-      "note": "the nudge before the tier is reached; {item} is '2oz salve'-style CMS text, {all} is cart.both or tpl.allN, {price} is money"
+      "note": "the nudge before the tier is reached; {item} is '2 oz salve'-style CMS text, {all} is cart.both or tpl.allN, {price} is money"
     },
     {
       "key": "tpl.mixMatchApplied",

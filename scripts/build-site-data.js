@@ -1423,7 +1423,7 @@ function renderSocialRowHtml(social) {
         links.push(
           '          <a href="' +
             escapeHtml(sanitized) +
-            '" target="_blank" rel="noopener" aria-label="' +
+            '" target="_blank" rel="noopener noreferrer" aria-label="' +
             item.label +
             '">\n            ' +
             item.svg +
@@ -3757,7 +3757,7 @@ function buildSiteData() {
             ? '              <div class="event-cta">\n' +
               '                <a class="btn btn-primary btn-sm btn-block" href="' +
               escapeHtml(evUrl) +
-              '" target="_blank" rel="noopener">More Info / RSVP<span class="sr-only"> (opens in new tab)</span></a>\n' +
+              '" target="_blank" rel="noopener noreferrer">More Info / RSVP<span class="sr-only"> (opens in new tab)</span></a>\n' +
               "              </div>\n"
             : "";
           return (
@@ -4669,12 +4669,17 @@ function buildSiteData() {
    list below is generated from products-data.js, same as everything
    else in this script -- never hand-edit it directly, it'll just get
    overwritten. */
+  /* A coming-soon product is not for sale yet, so it is listed without a price:
+     an agent that quoted the number would be quoting something nobody can pay
+     today, and llms-full.txt already marks the same products "Pre-order /
+     coming soon". qa-check.js asserts every comingSoon line carries the marker
+     and no price. */
   const productLines = PRODUCTS.map(function (p) {
     return (
       "- **" +
       p.name +
       "** -- " +
-      formatMoney(p.price) +
+      (p.comingSoon ? "(coming soon)" : formatMoney(p.price)) +
       " -- " +
       (CATEGORY_LABEL[p.category] || p.category) +
       " -- " +
@@ -6746,7 +6751,7 @@ function renderEtsyProofHtml(shop) {
     shop.reviewCount +
     ' reviews on <a href="' +
     escapeHtml(url) +
-    '" target="_blank" rel="noopener">our Etsy shop<span class="sr-only"> (opens in new tab)</span></a>' +
+    '" target="_blank" rel="noopener noreferrer">our Etsy shop<span class="sr-only"> (opens in new tab)</span></a>' +
     (shop.sales ? " &middot; " + shop.sales + "+ orders" : "") +
     "</p>\n"
   );

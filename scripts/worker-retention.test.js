@@ -1463,6 +1463,7 @@ async function testWebhookWiring() {
     data: {
       object: {
         id: "cs_test_hooked",
+        payment_status: "paid",
         amount_subtotal: 5000,
         amount_total: 5000,
         customer_details: { email: "Hooked@Example.com" },
@@ -1542,6 +1543,104 @@ async function testWebhookWiring() {
     ).n,
     2,
     "and pays out no second reward -- the debit refId is keyed on the order"
+  );
+
+  // --- points on money actually paid (audit 2026-09-08 §4) ----------------
+  // `amount_subtotal` is the goods BEFORE a promo code or a gift card is
+  // taken off; Stripe reports both under total_details.amount_discount. A $50
+  // basket with $20 covered by a card is $30 of goods paid for: 60 points at
+  // 2/dollar, not 100 -- and, below the 100 threshold, no payout.
+  const discounted = {
+    id: "evt_completed_discounted",
+    type: "checkout.session.completed",
+    data: {
+      object: {
+        id: "cs_test_discounted",
+        payment_status: "paid",
+        amount_subtotal: 5000,
+        amount_total: 3000,
+        total_details: { amount_discount: 2000, amount_shipping: 0, amount_tax: 0 },
+        customer_details: { email: "discounted@example.com" },
+        metadata: { retention_product_ids: "sleep-salve", retention_categories: "salves" }
+      }
+    }
+  };
+  await withMocks(async () => {
+    const res = await worker.fetch(webhookRequest(discounted), env, noCtx);
+    eq(res.status, 200, "a discounted session is accepted");
+  });
+  eq(
+    await balance(db, "discounted@example.com"),
+    60,
+    "points accrue on subtotal minus the discount ($50 - $20 = $30 x 2), not on the $50 subtotal"
+  );
+  eq(
+    (
+      await db
+        .prepare("SELECT COUNT(*) AS n FROM loyalty_ledger WHERE email = ?")
+        .bind("discounted@example.com")
+        .first()
+    ).n,
+    1,
+    "one credit row and no payout: 60 points is below the 100-point threshold"
+  );
+
+  // Shipping and tax stay out of it: they sit in amount_total, never in the
+  // subtotal, so a $30 basket shipped for $10 with $2 tax is still 60 points.
+  const shipped = {
+    id: "evt_completed_shipped",
+    type: "checkout.session.completed",
+    data: {
+      object: {
+        id: "cs_test_shipped_pts",
+        payment_status: "paid",
+        amount_subtotal: 3000,
+        amount_total: 4200,
+        total_details: { amount_discount: 0, amount_shipping: 1000, amount_tax: 200 },
+        customer_details: { email: "shipped@example.com" },
+        metadata: {}
+      }
+    }
+  };
+  await withMocks(async () => {
+    await worker.fetch(webhookRequest(shipped), env, noCtx);
+  });
+  eq(
+    await balance(db, "shipped@example.com"),
+    60,
+    "shipping and tax earn nothing: points come from the goods subtotal alone"
+  );
+
+  // A card that covers the whole basket paid for nothing new: no points at
+  // all, and no ledger row either -- the credit is skipped, not zeroed.
+  const covered = {
+    id: "evt_completed_covered",
+    type: "checkout.session.completed",
+    data: {
+      object: {
+        id: "cs_test_covered",
+        payment_status: "paid",
+        amount_subtotal: 2500,
+        amount_total: 0,
+        total_details: { amount_discount: 2500, amount_shipping: 0, amount_tax: 0 },
+        customer_details: { email: "covered@example.com" },
+        metadata: { gift_card_redeemed_code: "YALL-TEST-TEST-TEST" }
+      }
+    }
+  };
+  await withMocks(async () => {
+    await worker.fetch(webhookRequest(covered), env, noCtx);
+  });
+  eq(await balance(db, "covered@example.com"), 0, "a fully gift-carded order earns no points");
+  eq(
+    (
+      await db
+        .prepare("SELECT COUNT(*) AS n FROM loyalty_ledger WHERE email = ?")
+        .bind("covered@example.com")
+        .first()
+    ).n,
+    0,
+    "...and writes no ledger row"
   );
 
   // --- expired sessions --------------------------------------------------

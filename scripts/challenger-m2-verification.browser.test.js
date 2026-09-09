@@ -78,6 +78,63 @@ function check(desc, ok, extra = "") {
   }
 }
 
+/* ---- Hermetic pages ----
+   events.html and shop.html carry the Tawk.to chat loader, armed on the first
+   pointerdown, keydown, scroll or touchstart. This suite fires it on every
+   page: the menu, calendar and cart clicks in categories 1-3, and -- with no
+   interaction at all -- main.js's own landing scroll on a ?pickup_market=
+   deep link, which is a `scroll` event. The loader then inserts
+   `<script async src="https://embed.tawk.to/...">`. An async script holds the
+   window's `load` event, and Chromium reports networkIdle (`networkidle0`)
+   only once nothing has been in flight for 500ms, so every navigation in
+   categories 1-3 was timed by tawk.to rather than by the page under test. In
+   a sandbox without egress each one waited ~12.5s for net::ERR_CONNECTION_RESET
+   (measured: 12-14s per shop.html?pickup_market= navigation, 118s for the
+   suite; 1.1-1.4s and 8s with the host blocked). On a CI runner with egress
+   the SDK loads and its widget's follow-up traffic decides when idle fires
+   instead. Nothing in this file asserts on chat or analytics, so every page
+   aborts whatever is not the suite's own server: the loader fails
+   synchronously and idle depends on the local server alone. */
+async function hermeticPage(owner, baseUrl) {
+  const page = await owner.newPage();
+  await page.setRequestInterception(true);
+  page.on("request", (req) => {
+    const url = req.url();
+    const local = url.startsWith(baseUrl) || url.startsWith("data:");
+    (local ? req.continue() : req.abort("blockedbyclient")).catch(() => {});
+  });
+  return page;
+}
+
+/* ---- The drawer's slide-in ----
+   `:popover-open` matches the instant showPopover() runs, but the drawer
+   enters with a 320ms `translate` transition from fully off the right edge
+   (cart.css @starting-style). Puppeteer's click() takes the target's client
+   rects, clips them to the viewport, and throws "Node is either not clickable
+   or not an Element" when nothing is left -- which is the state of every
+   control inside the drawer until the first composited frames have carried it
+   on screen (#yl-cart-pickup-checkbox measured at x=1238-1254 in a 1200px
+   viewport the moment the selector matched). On an idle machine that window
+   is a frame or two and the click's own round trips outlast it; under the
+   4-worker pool it does not (CI, the click on the pickup checkbox). With the
+   transition slowed 5x the click fails every time. So wait for the drawer to
+   be where it will stay -- the selector assertion is unchanged, the wait only
+   adds the settled position on top of it -- before clicking anything inside. */
+async function waitForDrawerOpen(page) {
+  await page.waitForSelector(".yl-cart-drawer:popover-open, .yl-cart-drawer[data-open='true']", {
+    timeout: 3000
+  });
+  await page.waitForFunction(
+    () => {
+      const d = document.getElementById("yl-cart-drawer");
+      if (!d) return false;
+      const r = d.getBoundingClientRect();
+      return r.width > 0 && r.left >= -0.5 && r.right <= document.documentElement.clientWidth + 0.5;
+    },
+    { timeout: 3000, polling: "raf" }
+  );
+}
+
 // Setup Node mock environment before requiring main.js
 const storage = new Map();
 const mockLocalStorage = {
@@ -192,7 +249,7 @@ async function runAdversarialSuite() {
 
     for (const vp of viewports) {
       console.log(`\n  [Viewport: ${vp.name} (${vp.width}x${vp.height})]`);
-      const page = await browser.newPage();
+      const page = await hermeticPage(browser, baseUrl);
       await page.setViewport(vp);
 
       // 1.1 events.html
@@ -502,7 +559,7 @@ async function runAdversarialSuite() {
     console.log("\n--- CATEGORY 3: PICKUP SELECTION SYNCHRONIZATION ACROSS PAGES ---");
 
     // Fetch available upcoming events directly from the page
-    const probePage = await browser.newPage();
+    const probePage = await hermeticPage(browser, baseUrl);
     await probePage.goto(`${baseUrl}/shop.html`, { waitUntil: "networkidle0" });
     const availableUpcomingEvents = await probePage.evaluate(() => {
       return (window.YL_EVENTS && window.YL_EVENTS.upcoming) || [];
@@ -514,7 +571,7 @@ async function runAdversarialSuite() {
     );
 
     for (const targetEvent of availableUpcomingEvents) {
-      const testPage = await browser.newPage();
+      const testPage = await hermeticPage(browser, baseUrl);
       await testPage.setViewport({ width: 1200, height: 800 });
 
       // Navigate with pickup_market query param
@@ -632,10 +689,7 @@ async function runAdversarialSuite() {
 
       // 3.2 Add product to cart to populate cart drawer footer and verify state
       await testPage.click(".yl-add-item");
-      await testPage.waitForSelector(
-        ".yl-cart-drawer:popover-open, .yl-cart-drawer[data-open='true']",
-        { timeout: 3000 }
-      );
+      await waitForDrawerOpen(testPage);
 
       const isCheckboxChecked = await testPage.$eval(
         "#yl-cart-pickup-checkbox",
@@ -690,10 +744,7 @@ async function runAdversarialSuite() {
         if (window.YLCart && window.YLCart.open) window.YLCart.open();
         else document.querySelector(".cart-toggle").click();
       });
-      await testPage.waitForSelector(
-        ".yl-cart-drawer:popover-open, .yl-cart-drawer[data-open='true']",
-        { timeout: 3000 }
-      );
+      await waitForDrawerOpen(testPage);
 
       const aboutItemCount = await testPage.$$eval(".yl-cart-item", (items) => items.length);
       check(`Navigating to about.html retains cart items`, aboutItemCount >= 1);
@@ -706,7 +757,7 @@ async function runAdversarialSuite() {
     // A fresh context: the cart persists in localStorage, and the valid
     // deep-link test above legitimately left pickup switched on.
     const fallbackContext = await browser.createBrowserContext();
-    const fallbackPage = await fallbackContext.newPage();
+    const fallbackPage = await hermeticPage(fallbackContext, baseUrl);
     await fallbackPage.goto(
       `${baseUrl}/shop.html?pickup_market=custom-pop-up-market#shop-catalog`,
       { waitUntil: "networkidle0" }
@@ -734,17 +785,14 @@ async function runAdversarialSuite() {
 
     // 3.5 Uncheck Pickup & Re-Navigation Flow
     console.log("\n  [Adversarial Pickup Toggle & Navigation Flow]");
-    const navPage = await browser.newPage();
+    const navPage = await hermeticPage(browser, baseUrl);
     await navPage.goto(`${baseUrl}/shop.html?pickup_market=autumn-apothecary-faire`, {
       waitUntil: "networkidle0"
     });
 
     // Add item so footer exists
     await navPage.click(".yl-add-item");
-    await navPage.waitForSelector(
-      ".yl-cart-drawer:popover-open, .yl-cart-drawer[data-open='true']",
-      { timeout: 3000 }
-    );
+    await waitForDrawerOpen(navPage);
 
     // Uncheck pickup checkbox
     await navPage.click("#yl-cart-pickup-checkbox");
