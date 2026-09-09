@@ -58,17 +58,6 @@ const esbuild = require("esbuild");
 const args = process.argv.slice(2);
 const rootFlag = args.indexOf("--root");
 const ROOT = rootFlag !== -1 ? path.resolve(args[rootFlag + 1]) : path.resolve(__dirname, "..");
-/* In place, the repository is the deploy artifact and the tests read source:
-   minified files must never land in a commit. Without `--root` this only runs
-   where Netlify sets NETLIFY=true (its build image), so `npm run minify` on a
-   developer machine stops here instead of rewriting the tree. */
-if (rootFlag === -1 && process.env.NETLIFY !== "true") {
-  console.error(
-    "minify-assets: refusing to minify the repository in place. Pass --root <copy> " +
-      "to minify a scratch copy; Netlify's build runs it with NETLIFY=true."
-  );
-  process.exit(2);
-}
 
 const JS_TARGET = "es2020";
 const JS_DIRS = ["assets/js", "assets/js/locales"];
@@ -212,8 +201,21 @@ function fingerprint(relPaths) {
 }
 
 /* Runs only as a CLI. Requiring the module (the browser suite does, for
-   MARKER) must not minify anything. */
+   MARKER) must not minify anything -- nor refuse to: the in-place guard
+   below lives here, not at load time, for the same reason. */
 if (require.main === module) {
+  /* In place, the repository is the deploy artifact and the tests read
+     source: minified files must never land in a commit. Without `--root`
+     this only runs where Netlify sets NETLIFY=true (its build image), so
+     `npm run minify` on a developer machine stops here instead of
+     rewriting the tree. */
+  if (rootFlag === -1 && process.env.NETLIFY !== "true") {
+    console.error(
+      "minify-assets: refusing to minify the repository in place. Pass --root <copy> " +
+        "to minify a scratch copy; Netlify's build runs it with NETLIFY=true."
+    );
+    process.exit(2);
+  }
   main().catch((err) => {
     console.error(err && err.stack ? err.stack : String(err));
     process.exit(1);
