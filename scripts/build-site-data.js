@@ -1138,12 +1138,6 @@ const SITE_ID_RULES = [
     describe: "letters, digits and hyphens only, up to 64 characters"
   },
   {
-    key: "giftUpId",
-    re: /^[A-Za-z0-9-]{0,64}$/,
-    placeholders: ["YOUR_GIFTUP_ID"],
-    describe: "letters, digits and hyphens only, up to 64 characters"
-  },
-  {
     key: "formspreeContactId",
     re: /^[A-Za-z0-9_-]{1,64}$/,
     placeholders: ["YOUR_FORM_ID"],
@@ -5187,7 +5181,6 @@ function buildSiteData() {
       updated = updated.replace(
         /<!--YL:site\.([a-zA-Z0-9]+)-->([\s\S]*?)<!--\/YL:site\.\1-->/g,
         function (match, key) {
-          if (key === "giftUpId") return match; // Handled separately below
           if (key === "umamiWebsiteId") return match; // Handled separately below
           if (key === "umamiPreconnect") return match; // Handled separately below
           if (key === "logoDesktop" && site[key]) {
@@ -5277,34 +5270,6 @@ function buildSiteData() {
         updated,
         "review-form",
         formspreeAction(site.formspreeReviewId, "YOUR_FORMSPREE_FORM_ID")
-      );
-
-      // Special handling for Gift Up! ID to generate full HTML script embed
-      updated = updated.replace(
-        /<!--YL:site\.giftUpId-->([\s\S]*?)<!--\/YL:site\.giftUpId-->/g,
-        function (match) {
-          if (site.giftUpId !== undefined) {
-            const val = site.giftUpId.trim();
-            if (val && val !== "YOUR_GIFTUP_ID") {
-              const embed =
-                '\n<div class="gift-up-target" data-site-id="' +
-                escapeHtml(val) +
-                '"></div>\n' +
-                "<script>\n" +
-                "  (function (g, i, f, t, u, p) {\n" +
-                "    t = g.createElement(i);\n" +
-                "    t.async = 1;\n" +
-                '    t.src = "https://giftup.app/dist/commerce-v1.js";\n' +
-                "    u = g.getElementsByTagName(i)[0];\n" +
-                "    u.parentNode.insertBefore(t, u);\n" +
-                '  })(document, "script");\n' +
-                "</script>\n";
-              return "<!--YL:site.giftUpId-->" + embed + "<!--/YL:site.giftUpId-->";
-            }
-            return "<!--YL:site.giftUpId-->YOUR_GIFTUP_ID<!--/YL:site.giftUpId-->";
-          }
-          return match;
-        }
       );
 
       // Replace JS comment templates: /*YL:site.KEY*/.../*/YL:site.KEY*/

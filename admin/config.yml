@@ -1817,8 +1817,8 @@ singletons:
           # source, which explicitly skips 'hidden' fields) -- so the real safety net is
           # now build time only: validateSiteIds in scripts/build-site-data.js still
           # stops the deploy on an implausible value. Left declared (not deleted) so the
-          # CMS keeps writing back whatever is already saved instead of dropping it --
-          # same reasoning as giftUpId below. If Savanna ever needs to change one of
+          # CMS keeps writing back whatever is already saved instead of dropping it.
+          # If Savanna ever needs to change one of
           # these herself, unhide it (widget: string) first; until then, only a
           # developer editing content.json (or temporarily unhiding the field) can
           # change it.
@@ -1862,20 +1862,6 @@ singletons:
           # scripts/build-site-data.js.
           - {
               name: umamiWebsiteId,
-              widget: hidden
-            }
-          # Hidden on purpose (widget: hidden = stored, but no UI control).
-          # Gift Up! is only half-built: setting a real ID generates a
-          # working Gift Up! widget, but nothing hides the built-in
-          # gift-card button, so both would render at once. The field
-          # stays declared so the CMS round-trips the value instead of
-          # dropping it on save -- unhide it (widget: string) only after
-          # the bypass in main.js exists. See DEVELOPMENT.md section 18.
-          # Gift Up! account code -- letters, numbers and hyphens only (or the
-          # placeholder YOUR_GIFTUP_ID). Enforced by SITE_ID_RULES in
-          # scripts/build-site-data.js.
-          - {
-              name: giftUpId,
               widget: hidden
             }
 

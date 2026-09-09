@@ -125,7 +125,7 @@ function changesBetween(baseDoc, headDoc, fields) {
   assert(!tool.looksLikeCopy("shop.html"), "a page filename is not copy");
   assert(!tool.looksLikeCopy("a134e5d8e8e54a8e90e9c21e9dba5acb"), "an analytics id is not copy");
   assert(!tool.looksLikeCopy("y.allternative.living@gmail.com"), "an email address is not copy");
-  assert(!tool.looksLikeCopy("YOUR_GIFTUP_ID"), "a config placeholder is not copy");
+  assert(!tool.looksLikeCopy("YOUR_UMAMI_WEBSITE_ID"), "a config placeholder is not copy");
   assert(!tool.looksLikeCopy("2026-06-16"), "a date is not copy");
   assert(!tool.looksLikeCopy(""), "an empty string is not copy");
   assert(!tool.looksLikeCopy("$40"), "a bare price is not copy");

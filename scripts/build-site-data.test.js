@@ -1005,14 +1005,13 @@ assert(
     tawkToPropertyId: "6a9687f6adddbc3447585d73",
     tawkToWidgetId: "1k1e066pc",
     umamiWebsiteId: "YOUR_UMAMI_WEBSITE_ID",
-    giftUpId: "YOUR_GIFTUP_ID",
     formspreeContactId: "xoeqevqv",
     formspreeReviewId: "xzebezbl",
     formspreeRestockId: "xwlklppo"
   }),
   "the real content.json values pass validation"
 );
-assert(!siteIdsRejected({ umamiWebsiteId: "", giftUpId: "" }), "empty ids mean 'not configured'");
+assert(!siteIdsRejected({ umamiWebsiteId: "" }), "empty ids mean 'not configured'");
 
 /* ---------- ratings, availability, meta truncation ---------- */
 eq(buildScript.clampRating(500, 5), 5, "clampRating caps a rating at 5");

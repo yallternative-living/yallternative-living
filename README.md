@@ -37,9 +37,8 @@ Here is a quick checklist of the external accounts you'll need to set up for lau
 3. **[ ] Email Newsletters (Kit / ConvertKit)** (To capture emails)
 4. **[ ] Contact Form, Customer Reviews & Restock Alerts (Formspree)** — three separate forms, not two
 5. **[ ] Gift Card Emails (Resend)** — required for the built-in gift-card system to actually send the redeemable code
-6. ~~Digital Gift Cards — optional upgrade (Gift Up!)~~ — not usable yet (needs a code change first) and hidden from the dashboard, so there's nothing to set up here today; see `docs/DEVELOPMENT.md` section 18
-7. **[ ] Customer Live Chat (Tawk.to - Optional)**
-8. **[ ] Store Management (Sveltia CMS)** — log in at `/admin` with GitHub. Log in **today** by pasting a GitHub token ("Sign in with Token"), or set up the permanent one-click "Sign in with GitHub" button. **Not** via Netlify (its old Git Gateway login is deprecated). See SETUP-GUIDE.md Step 9 / DEVELOPMENT.md section 20
+6. **[ ] Customer Live Chat (Tawk.to - Optional)**
+7. **[ ] Store Management (Sveltia CMS)** — log in at `/admin` with GitHub. Log in **today** by pasting a GitHub token ("Sign in with Token"), or set up the permanent one-click "Sign in with GitHub" button. **Not** via Netlify (its old Git Gateway login is deprecated). See SETUP-GUIDE.md Step 9 / DEVELOPMENT.md section 20
 
 ---
 

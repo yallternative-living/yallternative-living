@@ -557,7 +557,7 @@ function run() {
   // from GitHub's own documented API/asset domains, NOT independently
   // re-verified against that same interactive CSP-builder tool (it's a
   // client-side widget with no way to fetch its per-backend output
-  // statically) -- so treat this the same as the Gift Up! caveat
+  // statically) -- so treat this the same as the Tawk.to caveat
   // elsewhere in this project: once a real GitHub
   // repo + OAuth setup exists (see DEVELOPMENT.md section 20), open the browser
   // console while using /admin and watch for "Refused to connect/load..."
@@ -614,7 +614,7 @@ function run() {
     // https://hstspreload.org once the domain is live and stable.
     ["Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload"],
     // same-origin-allow-popups (not the stricter same-origin) so third-party
-    // embeds (Gift Up!, Tawk.to chat) that might open a popup keep a working
+    // embeds (the Tawk.to chat widget) that might open a popup keep a working
     // window.opener back to this page -- still isolates this page's
     // browsing context group from unrelated cross-origin openers. Stripe
     // Checkout itself is a plain top-level redirect, not a popup, so it

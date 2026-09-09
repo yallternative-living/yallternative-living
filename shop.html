@@ -1243,12 +1243,11 @@
        itself: the codes, balances and redemption all live in the Cloudflare
        Worker (workers/checkout.js, /api/gift-card-balance).
 
-       This modal used to also carry a hidden #giftUpContainer holding the
-       string YOUR_GIFTUP_ID -- an unshipped Gift Up! (giftup.com)
-       integration that the Worker replaced. It shipped to production in the
-       live DOM on every visit to this page, invisible to sighted users and
-       dating a service the shop no longer uses, so it is deleted (audit C,
-       nit N2). scripts/qa-check.js asserts it stays deleted. -->
+       This modal used to also carry a hidden placeholder for a third-party
+       gift-card widget the shop never adopted. It shipped in the live DOM on
+       every visit to this page, so it was deleted (audit C, nit N2) and the
+       integration has since been removed from the project entirely.
+       scripts/qa-check.js asserts the placeholder stays gone. -->
   <dialog id="giftCardModal" class="gift-modal" closedby="any" aria-labelledby="giftCardModalTitle">
     <button type="button" class="gift-modal-close" id="closeGiftModalBtn" aria-label="Close dialog">&times;</button>
 

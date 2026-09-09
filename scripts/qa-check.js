@@ -1813,16 +1813,18 @@ if (Object.keys(tawkTexts).length === PAGES.length && tawkUnique.length === 1) {
   );
 }
 
-/* ---------- 16) The retired Gift Up! placeholder stays deleted ----------
+/* ---------- 16) The retired third-party gift-card placeholder stays deleted ----------
    This section used to assert the OPPOSITE: that shop.html still carried a
    hidden #giftUpContainer holding the literal string YOUR_GIFTUP_ID. That
-   was an unshipped integration for a service the shop replaced with its own
-   Cloudflare Worker gift-card system, and it was live in production's DOM
-   on every visit to /shop.html (audit C, nit N2). The gift-card feature it
-   was supposedly guarding is asserted for real below -- the modal, the
-   balance lookup and the Worker route -- so nothing stopped being checked
-   when the dead node went. */
-section("Retired Gift Up! placeholder is gone; the real gift-card path is wired");
+   was an unshipped integration for a third-party gift-card service the shop
+   replaced with its own Cloudflare Worker gift-card system, and it was live
+   in production's DOM on every visit to /shop.html (audit C, nit N2). The
+   integration itself (CMS field, build-time embed, docs) was removed from
+   the project on 2026-09-09; this sweep keeps its DOM footprint from coming
+   back. The gift-card feature it was supposedly guarding is asserted for
+   real below -- the modal, the balance lookup and the Worker route -- so
+   nothing stopped being checked when the dead node went. */
+section("Retired third-party gift-card placeholder is gone; the real gift-card path is wired");
 (function () {
   var giftUpLeftovers = [];
   var allPagesForGiftUp = PAGES.slice();

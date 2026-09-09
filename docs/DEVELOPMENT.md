@@ -29,10 +29,9 @@ To start taking payments, sending newsletters, or moderating reviews directly on
 2. **[ ] Customer Checkout & Credit Cards (Stripe + Cloudflare):** Two accounts, not one — but you create both yourself, same as everything else on this list. **(a)** Sign up for Stripe and grab a secret key — same as any account here. **(b)** Sign up for Cloudflare too, then invite me in as a Member. That key doesn't do anything by itself: it has to be installed on a small piece of backend code (`workers/checkout.js`) that also has to be _deployed_ inside your Cloudflare account using a command-line tool called Wrangler — that part is genuinely my job, not a form to fill out. Ask me to run it once you've invited me in. (Full steps in [Section 8](#8-the-shopping-system-explained) and `workers/README.md`.)
 3. **[ ] Email Newsletters (Kit):** Collects customer email addresses from the signup box in the footer so you can send them updates. (Setup steps in [Section 13](#13-newsletter-signup-explained)).
 4. **[ ] Contact Form, Customer Reviews & Restock Alerts (Formspree):** Create three separate forms — contact messages, new customer reviews, and "email me when it's back" signups from sold-out products — each sent directly to your email inbox. (Setup steps in [Section 16](#16-on-site-review-submissions-explained)).
-5. **[ ] Gift Card Emails (Resend):** Required for the built-in gift-card system (item 2's checkout Worker uses it) to actually email a redeemable code once someone buys one — not optional unless you replace gift cards entirely with item 6. (Setup steps in `workers/README.md`.)
-6. ~~Digital Gift Cards — optional upgrade (Gift Up!)~~ **Not usable yet — nothing to do here.** A possible future paid alternative to item 5's built-in system, but the code that would actually switch to it was never finished, so its CMS field is hidden (`widget: hidden` in `admin/config.yml`) rather than shown-but-unusable. See [Section 18](#18-digital-gift-cards-explained) for the honest status check.
-7. **[ ] Customer Live Chat (Tawk.to - Optional):** Adds a small chat bubble to the bottom of the pages so customers can ask you questions. (Setup steps in [Section 19](#19-live-chat-explained)).
-8. **[ ] Store Management (Sveltia CMS):** Log in to your secure admin panel with GitHub to manage products and content. Log in **today** with a GitHub token ("Sign in with Token"), or set up the permanent one-click "Sign in with GitHub" button. **Netlify is not involved** (its old Git Gateway login is deprecated). See [Section 20](#20-product-editor-sveltia-cms-at-admin-explained).
+5. **[ ] Gift Card Emails (Resend):** Required for the built-in gift-card system (item 2's checkout Worker uses it) to actually email a redeemable code once someone buys one — not optional. (Setup steps in `workers/README.md`.)
+6. **[ ] Customer Live Chat (Tawk.to - Optional):** Adds a small chat bubble to the bottom of the pages so customers can ask you questions. (Setup steps in [Section 19](#19-live-chat-explained)).
+7. **[ ] Store Management (Sveltia CMS):** Log in to your secure admin panel with GitHub to manage products and content. Log in **today** with a GitHub token ("Sign in with Token"), or set up the permanent one-click "Sign in with GitHub" button. **Netlify is not involved** (its old Git Gateway login is deprecated). See [Section 20](#20-product-editor-sveltia-cms-at-admin-explained).
 
 ### 3. Setting Up Your Website Name (Domain Name)
 
@@ -1353,47 +1352,8 @@ cheapest first:
    check before choosing this.
 3. **Replace coupons with real stored-value balances**, so a redemption is
    applied after tax rather than before. Correct, and much more work — it
-   means either a balance-tracking backend or a platform that provides one
-   (which is exactly what the Gift Up! note below is about).
-
-**Optional third-party alternative (Gift Up!) — half-built, not usable yet.** The idea: hand off entirely to **[Gift Up!](https://www.giftup.com)** (a purpose-built gift card platform with its own balance tracking, printable cards, and in-person redemption app -- relevant since this business also sells at farmers markets and Pride events, where the built-in Stripe flow has no in-person path at all) if that's ever preferred over the built-in flow.
-
-**Honest status check:** only half of this actually works, and the hidden placeholder that used to sit in `shop.html` is now gone. The 2026-09-02 live audit (finding N2) found `<div id="giftUpContainer">YOUR_GIFTUP_ID</div>` shipping in production's DOM on every visit to `/shop.html` -- invisible to sighted users, but an unshipped-integration placeholder for a service this shop replaced with its own Cloudflare Worker gift-card system. That element is deleted and `scripts/qa-check.js` asserts it stays deleted, so **step 3 below now also needs the container put back** (a `<!--YL:site.giftUpId-->...<!--/YL:site.giftUpId-->` marker somewhere inside `#giftCardModal`) before a real ID can render anything. The generator side is untouched: `scripts/build-site-data.js` _does_ still turn that marker into a real, functional Gift Up! widget embed when a real `giftUpId` is set (verified in the code), and `site.giftUpId` is still declared in `admin/config.yml` so the CMS round-trips it. But nothing checks `giftUpId` anywhere in `main.js` or `cart.js` -- the built-in "Configure Card" button and `#giftCardModal` are generated unconditionally (`addToCartHTML()`), with no bypass logic at all. So pasting a real Gift Up! ID today would show **both** gift-card systems live on the same page, not a clean swap. Because of that, the `giftUpId` field is **hidden in the CMS** (`widget: hidden` in `admin/config.yml`) rather than shown-but-unusable -- the key is still declared so the CMS round-trips its value instead of dropping it on save, but Savanna can't set it by accident. Unhide it (`widget: string`) only after the bypass below exists.
-
-### Built-in (Stripe) vs. Gift Up! comparison
-
-This table describes the _intended_ end state once the bypass logic
-above gets built — not what happens if you paste a Gift Up! ID today
-(see the honest status check above: right now, both would run at once).
-
-| Feature              | Built-in (Stripe, Default)                                                                                                                                            | Gift Up! Checkout (Not yet wired)                                                                                                                                  |
-| :------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **How it Works**     | Bought as a digital product directly in the main store grid and checkout.                                                                                             | _(Once built)_ would bypass the built-in checkout and load a widget from Gift Up!.                                                                                 |
-| **Fulfillment**      | **Automatic**: `workers/routes/stripe-webhook.js` generates the code and emails it the moment payment completes — no manual step.                                     | **Automatic**: Gift Up! automatically generates the code, tracks the balance, and emails a beautiful, ready-to-print digital gift card to the recipient instantly. |
-| **Redemption**       | Customers enter the emailed Stripe Promotion Code at checkout, same cart as everything else.                                                                          | Gift Up! codes are scanned/validated through Gift Up!'s own system, or inputted at in-person events via the Gift Up! mobile app.                                   |
-| **Cart Integration** | **Unified**: Customers can add a gift card and physical products (like a beard salve) to the same cart and check out once.                                            | **Separated**: Gift cards must be purchased in a separate transaction from physical items.                                                                         |
-| **Balance tracking** | **None** — a code is single-use and fixed-amount (Stripe Coupon with `max_redemptions: 1`), not a running balance that can be partially spent across multiple orders. | Gift Up! tracks a real running balance, redeemable across multiple partial purchases.                                                                              |
-| **Fees**             | Stripe's standard per-transaction fee only — no separate gift-card platform fee.                                                                                      | Gift Up!'s own transaction fees (usually around 3.49% on free accounts) _on top_ of standard payment processing.                                                   |
-| **Setup Overhead**   | None beyond the checkout Worker + webhook deploy already needed for the rest of the store (section 8).                                                                | Requires setting up a Gift Up! account, configuring branding templates, and copying the embed snippet into `shop.html`.                                            |
-
-**If Gift Up! is ever wanted, in this order:**
-
-0. **Steven builds the bypass first** — teach `addToCartHTML()` /
-   `giftCardModal` in `main.js` to check `window.YL_CONTENT.site.giftUpId`
-   and skip rendering the built-in "Configure Card" button when it's set
-   to a real value. Nothing below matters until this exists; skip
-   straight to it, this isn't a Savanna step.
-1. [Sign up for a free Gift Up! account](https://giftup.app/account/register)
-   and set up your branded gift card design.
-2. Check [Gift Up!'s current pricing](https://www.giftup.com/pricing)
-   for their per-transaction fee before going live.
-3. Unhide the field (`admin/config.yml`, `giftUpId`: `widget: hidden` →
-   `widget: string`), then grab the real embed snippet from your Gift
-   Up! dashboard and enter the account code in `/admin` — copy it
-   exactly, don't hand-type it.
-4. Check the browser console for any CSP "Refused to ..." errors and
-   add whatever domain it names to `scripts/build-security-headers.js`,
-   then re-run that script.
+   means a balance-tracking backend (the gift-card ledger Durable Object in
+   `workers/state/` is the natural home for it).
 
 ## 19. Live chat, explained
 
