@@ -577,6 +577,11 @@ async function run() {
       null,
       "...and Stripe's own code box is off for that session too"
     );
+    eq(
+      r.sessionParams.get("after_expiration[recovery][allow_promotion_codes]"),
+      "false",
+      "...and off on the abandoned-cart recovery session, which recreates the same lines"
+    );
   }
   {
     // The owner switched codes off after this tab loaded its drawer: a

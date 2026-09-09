@@ -1870,8 +1870,15 @@ async function handleCheckout(request, env, ctx, origin) {
       params.append("after_expiration[recovery][enabled]", "true");
       // The recovery page is a fresh session, so it needs its own permission to
       // accept a marketing code. It never carries the gift-card discount --
-      // that reservation is released when the original session expires.
-      params.append("after_expiration[recovery][allow_promotion_codes]", "true");
+      // that reservation is released when the original session expires. OFF
+      // when the cart holds a gift card: the recovery session recreates the
+      // same lines, and a code typed there would discount the card exactly as
+      // the promo block below refuses (red team, 2026-09-09).
+      const cartHasGiftCardLine = lineItems.some((li) => li.isGiftCard);
+      params.append(
+        "after_expiration[recovery][allow_promotion_codes]",
+        cartHasGiftCardLine ? "false" : "true"
+      );
 
       // ---- Consent -------------------------------------------------------
       // "auto" shows the marketing opt-in checkbox when Stripe has an address
@@ -2105,8 +2112,8 @@ async function handleCheckout(request, env, ctx, origin) {
       // session discount to every line and the card is minted at face value
       // (routes/gift-cards.js), so a 10% code on a $25 card would sell $25 of
       // stored value for $22.50 -- and a reusable code makes that a loop.
-      // Refused here, and Stripe's own code box stays off for such a cart.
-      const cartHasGiftCardLine = lineItems.some((li) => li.isGiftCard);
+      // Refused here, and Stripe's own code box stays off for such a cart
+      // (`cartHasGiftCardLine`, computed with the recovery flag above).
       let appliedPromotionCodeId = null;
       let promoOutcome = null;
       if (metadata.discount_code) {

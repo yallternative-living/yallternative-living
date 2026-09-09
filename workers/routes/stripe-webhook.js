@@ -1057,7 +1057,10 @@ async function recordAndSchedule(session, env, ctx, now = Date.now()) {
  * `failures` and Stripe redelivers it: the redelivery reads the lines again
  * and recordOrderRow fills in a row whose list is still "[]". Without the
  * throw a five-second Stripe blip would freeze that customer's order with
- * no lines for good. A missing order is the failure the page exists to stop.
+ * no lines for good. (A list cut short between pages -- an order of more than
+ * a hundred lines whose second page failed -- is stored as read; the repair
+ * only fills an EMPTY list.) A missing order is the failure the page exists
+ * to stop.
  */
 async function persistOrder(session, env) {
   if (!env.STATE_DB) return null;

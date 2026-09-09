@@ -1301,7 +1301,11 @@
     if (!kind) return null;
     var minimum = Number(raw.minimumAmountCents);
     var estimated = Number(raw.estimatedDiscountCents);
+    var checkedAt = Number(raw.checkedAt);
     return {
+      /* When the Worker last confirmed this code, so a page load does not
+         re-ask Stripe for a code confirmed a minute ago. */
+      checkedAt: checkedAt > 0 ? checkedAt : Date.now(),
       code: code,
       kind: kind,
       percentOff: kind === "percent" ? Math.min(percentOff, 100) : null,
@@ -1490,6 +1494,8 @@
 
   var GC_STORAGE_KEY = "yl_applied_gift_card";
   var PROMO_STORAGE_KEY = "yl_applied_promo";
+  /* A stored code confirmed within this long is trusted on page load. */
+  var PROMO_RECHECK_MS = 15 * 60 * 1000;
   var GIFT_ORDER_KEY = "yl_is_gift_order";
   var GIFT_MESSAGE_KEY = "yl_gift_message";
   var PICKUP_KEY = "yl_cart_is_pickup";
@@ -4050,10 +4056,16 @@
     load();
     ensureDrawer();
     updateBadges();
-    /* A code restored from storage is re-checked once: it may have expired
-       or been used up overnight, and until the cart changes nothing else
-       would ask. The Worker has the final word at checkout either way. */
-    if (state.appliedPromo && state.items.length) {
+    /* A code restored from storage is re-checked once when its last check
+       is older than PROMO_RECHECK_MS: it may have expired or been used up
+       overnight, and until the cart changes nothing else would ask. Not on
+       every page load -- each check is a Stripe lookup and a slot of the
+       5-a-minute limiter. The Worker has the final word at checkout. */
+    if (
+      state.appliedPromo &&
+      state.items.length &&
+      Date.now() - Number(state.appliedPromo.checkedAt || 0) > PROMO_RECHECK_MS
+    ) {
       promoCartSig = cartSignature(state.items);
       setTimeout(revalidatePromo, 0);
     }

@@ -139,6 +139,7 @@ async function withMocks(fn, options = {}) {
     if (/checkout\/sessions\/[^/]+\/line_items/.test(u)) {
       calls.lineItemUrls.push(u);
       if (options.lineItemsDown) return jsonRes({}, 503);
+      if (options.lineItemsGone) return jsonRes({ error: { message: "no such session" } }, 404);
       return jsonRes({ data: options.lineItems || [], has_more: false });
     }
     if (u.includes("api.stripe.com/v1/checkout/sessions")) {
@@ -481,6 +482,32 @@ async function testOrdersState() {
     false,
     "and spends no write when nothing changed"
   );
+  // A refund outranks the sweep: the hourly ship-notice pass revisits every
+  // shipped intent for 45 days and must not flip "refunded" back.
+  await mod.recordOrderRow(db, {
+    sessionId: "cs_test_refunded",
+    email: "refund@example.com",
+    paymentIntent: "pi_refund",
+    amountTotal: 1800,
+    items: []
+  });
+  eq(await mod.markRefunded(db, "pi_refund"), true, "markRefunded marks the order");
+  eq(
+    await mod.mergeShipment(db, {
+      paymentIntent: "pi_refund",
+      status: "shipped",
+      trackingUrl: "https://tools.usps.com/go/9"
+    }),
+    false,
+    "a later sweep does not overwrite Refunded"
+  );
+  eq(
+    (await db.prepare("SELECT status FROM orders WHERE payment_intent = 'pi_refund'").first())
+      .status,
+    "refunded",
+    "...it stays Refunded"
+  );
+  eq(await mod.markRefunded(db, "pi_refund"), false, "and marking it again is a no-op");
   eq(
     await mod.mergeShipment(db, {
       paymentIntent: "pi_one",
@@ -661,6 +688,28 @@ async function testCheckoutAndWebhook() {
     .prepare("SELECT line_items_json FROM orders WHERE session_id = 'cs_test_blip'")
     .first();
   eq(JSON.parse(healed.line_items_json).length, items.length, "...and fills the lines in");
+  // Stripe ANSWERING that there is nothing to read (a 4xx) is not transient:
+  // failing the event would fail it identically for three days of retries.
+  await withMocks(
+    async () => {
+      const res = await worker.fetch(
+        webhookRequest(completedEvent("evt_o5", "cs_test_gone", "gone@example.com")),
+        env,
+        noCtx
+      );
+      eq(res.status, 200, "line items answered 404: the event IS acknowledged");
+    },
+    { lineItemsGone: true }
+  );
+  eq(
+    (
+      await db
+        .prepare("SELECT line_items_json FROM orders WHERE session_id = 'cs_test_gone'")
+        .first()
+    ).line_items_json,
+    "[]",
+    "...with the row written and no lines"
+  );
 
   // A full refund reaches the page as "Refunded"; a partial one changes nothing.
   const refundEvent = (id, extra) => ({
@@ -668,18 +717,18 @@ async function testCheckoutAndWebhook() {
     type: "charge.refunded",
     data: {
       object: {
-        id: "ch_persist",
+        id: "ch_blip",
         amount: 5100,
-        payment_intent: "pi_cs_test_persist",
+        payment_intent: "pi_cs_test_blip",
         ...extra
       }
     }
   });
   const stripeSession = {
     session: {
-      id: "cs_test_persist",
+      id: "cs_test_blip",
       metadata: {},
-      customer_details: { email: "hooked@example.com" }
+      customer_details: { email: "blip@example.com" }
     }
   };
   await withMocks(async () => {
@@ -691,7 +740,7 @@ async function testCheckoutAndWebhook() {
     eq(res.status, 200, "a partial refund is acknowledged");
   }, stripeSession);
   eq(
-    (await db.prepare("SELECT status FROM orders WHERE session_id = 'cs_test_persist'").first())
+    (await db.prepare("SELECT status FROM orders WHERE session_id = 'cs_test_blip'").first())
       .status,
     "processing",
     "...and leaves the status alone"
@@ -705,7 +754,7 @@ async function testCheckoutAndWebhook() {
     eq(res.status, 200, "a full refund is acknowledged");
   }, stripeSession);
   eq(
-    (await db.prepare("SELECT status FROM orders WHERE session_id = 'cs_test_persist'").first())
+    (await db.prepare("SELECT status FROM orders WHERE session_id = 'cs_test_blip'").first())
       .status,
     "refunded",
     "...and the order reads Refunded on the customer's page"

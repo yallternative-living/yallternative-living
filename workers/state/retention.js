@@ -297,12 +297,22 @@ export async function sweepEmailQueue(db, days = 90, now = Date.now()) {
  */
 export async function suppressEmail(db, email, reason = "unsubscribe", now = Date.now()) {
   const key = normalizeEmail(email);
+  const why = String(reason || "unsubscribe").slice(0, 64);
+  // A bounce outranks an unsubscribe: the first says nobody is there, which
+  // also stops the transactional sends an unsubscribe leaves alone
+  // (routes/orders.js), so a later bounce upgrades the row in place.
   const res = await db
-    .prepare("INSERT OR IGNORE INTO email_suppression (email, reason, created_at) VALUES (?, ?, ?)")
-    .bind(key, String(reason || "unsubscribe").slice(0, 64), now)
+    .prepare(
+      `INSERT INTO email_suppression (email, reason, created_at) VALUES (?, ?, ?)
+         ON CONFLICT(email) DO UPDATE SET reason = 'bounce'
+         WHERE excluded.reason = 'bounce' AND email_suppression.reason IS NOT 'bounce'`
+    )
+    .bind(key, why, now)
     .run();
-  const first = (res && res.meta && res.meta.changes) === 1;
-  return { suppressed: true, alreadySuppressed: !first };
+  // One change for a new row, one for an unsubscribe upgraded to a bounce,
+  // none for a repeat -- so `alreadySuppressed` reads "nothing new here".
+  const changed = (res && res.meta && res.meta.changes) === 1;
+  return { suppressed: true, alreadySuppressed: !changed };
 }
 
 /**

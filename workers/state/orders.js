@@ -165,7 +165,9 @@ export async function markRefunded(db, paymentIntent, now = Date.now()) {
 /**
  * Folds the owner's fulfilment edit into the row, keyed on the PaymentIntent
  * the edit was made on. Costs a write only when something changed, so the
- * hourly sweep's repeat visits to the same parcel are free.
+ * hourly sweep's repeat visits to the same parcel are free. A refunded order
+ * stays refunded: the sweep revisits every shipped intent for 45 days and
+ * would otherwise flip it back to "shipped" within the hour.
  *
  * @returns {Promise<boolean>} true when a row was updated
  */
@@ -178,7 +180,9 @@ export async function mergeShipment(db, args, now = Date.now()) {
   const res = await db
     .prepare(
       `UPDATE orders SET status = ?, tracking_url = ?, updated_at = ?
-        WHERE payment_intent = ? AND (status IS NOT ? OR tracking_url IS NOT ?)`
+        WHERE payment_intent = ?
+          AND status IS NOT 'refunded'
+          AND (status IS NOT ? OR tracking_url IS NOT ?)`
     )
     .bind(status, trackingUrl, now, intent, status, trackingUrl)
     .run();
