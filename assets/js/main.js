@@ -1728,9 +1728,11 @@
       if (!p || !p.id || typeof p.stock !== "number") return;
       var row = live[p.id];
       if (!row || row.tracked !== true) return;
-      var n = Number(row.available);
-      if (!isFinite(n) || n < 0) return;
-      n = Math.floor(n);
+      /* Only a NUMBER is a count. Number(null) is 0, and 0 means "Sold out":
+         a broken answer must leave the static stock alone, never stop sales. */
+      if (typeof row.available !== "number" || !isFinite(row.available) || row.available < 0)
+        return;
+      var n = Math.floor(row.available);
       if (p.stock === n) return;
       p.stock = n;
       changed.push(p.id);
@@ -1779,7 +1781,28 @@
         var fresh = holder.firstElementChild;
         if (!fresh || !old.parentNode) return;
         if (old.classList.contains("in")) fresh.classList.add("in");
+        /* A keyboard user may be ON this card when the live count lands;
+           replacing the node dropped focus to <body>. Re-find the same
+           control in the fresh card by its classes and put focus back. */
+        var active = document.activeElement;
+        var refocus = null;
+        if (active && old.contains(active)) {
+          var classes = String(active.className || "")
+            .trim()
+            .split(/\s+/)
+            .filter(Boolean);
+          refocus = active.tagName.toLowerCase() + (classes.length ? "." + classes.join(".") : "");
+        }
         old.parentNode.replaceChild(fresh, old);
+        if (refocus) {
+          var again = null;
+          try {
+            again = fresh.querySelector(refocus);
+          } catch {
+            again = null;
+          }
+          if (again && typeof again.focus === "function") again.focus({ preventScroll: true });
+        }
       });
     });
   }
@@ -1806,10 +1829,17 @@
         btn.parentNode.replaceChild(inert, btn);
       });
       if (qtyInput) qtyInput.disabled = true;
+      Array.prototype.forEach.call(document.querySelectorAll(".pdp-qty-btn"), function (b) {
+        b.disabled = true;
+      });
     } else {
       var cap = Math.min(p.stock, 10);
       Array.prototype.forEach.call(buttons, function (btn) {
         btn.setAttribute("data-item-max-quantity", String(cap));
+        // The button carries its own quantity too; a stale 5 over a cap of 2
+        // only worked because cart.js re-clamps -- keep them in step anyway.
+        var want = parseInt(btn.getAttribute("data-item-quantity"), 10);
+        if (want > cap) btn.setAttribute("data-item-quantity", String(cap));
       });
       if (qtyInput) {
         qtyInput.setAttribute("max", String(cap));
@@ -2365,14 +2395,25 @@
         imgEl = stageEl.querySelector("img") || imgEl;
         imgEl.id = "lightboxImage";
       } else {
-        if (stageEl && !stageEl.contains(imgEl)) {
-          stageEl.innerHTML = "";
-          stageEl.appendChild(imgEl);
+        /* No manifest entry for this photo: a bare <img>, and a FRESH one --
+           setting src on the <img> inside the previous <picture> left its
+           AVIF/WebP <source>s in charge, so the old photo kept showing under
+           the new alt text. */
+        if (stageEl) {
+          stageEl.innerHTML = '<img id="lightboxImage" alt="">';
+          imgEl = stageEl.querySelector("img");
         }
         imgEl.src = currentImages[currentIndex];
         imgEl.alt = alt;
       }
-      if (statusEl) statusEl.textContent = photoLabel;
+      if (statusEl) {
+        statusEl.textContent = photoLabel;
+        statusEl.setAttribute("data-i18n-tpl", total > 1 ? "tpl.photoNofM" : "tpl.photo");
+        statusEl.setAttribute(
+          "data-i18n-vars",
+          JSON.stringify({ n: currentIndex + 1, total: total })
+        );
+      }
 
       // Update dots
       var dots = dotsContainer.querySelectorAll(".lightbox-dot");
@@ -4280,7 +4321,7 @@
       if (resetBtn) {
         resetBtn.addEventListener("click", function () {
           var searchInput =
-            document.getElementById("shopSearch") || document.getElementById("shopSearchInput");
+            document.getElementById("shopSearch") || document.getElementById("shopSearch");
           if (searchInput) {
             searchInput.value = "";
             searchInput.dispatchEvent(new Event("input"));
@@ -7404,7 +7445,7 @@
       state.query = "";
       if (searchInput) searchInput.value = "";
       var shopSearchEl =
-        document.getElementById("shopSearchInput") || document.getElementById("shopSearch");
+        document.getElementById("shopSearch") || document.getElementById("shopSearch");
       if (shopSearchEl) shopSearchEl.value = "";
       if (scentSelect) scentSelect.value = "all";
       var scentSelectEl = document.getElementById("scentSelect");
@@ -7490,7 +7531,7 @@
         state.query = searchInput.value;
         render();
       });
-      var searchForm = document.getElementById("shopSearchForm");
+      var searchForm = document.getElementById("shopSearch");
       if (searchForm) {
         searchForm.addEventListener("submit", function (e) {
           e.preventDefault();
@@ -7697,6 +7738,15 @@
           } catch {
             target.focus();
           }
+          /* The sheet body scrolls; a control below the fold (Sort sits under
+             the category and concern groups) would be focused but unseen. */
+          if (target !== closeBtn && typeof target.scrollIntoView === "function") {
+            try {
+              target.scrollIntoView({ block: "center" });
+            } catch {
+              /* older engines: the focus alone is still correct */
+            }
+          }
         }
       }
 
@@ -7707,8 +7757,20 @@
         setExpanded(false);
         var back = lastTrigger;
         lastTrigger = null;
-        if (back && typeof back.focus === "function" && document.contains(back)) {
+        /* The phone triggers are display:none at desktop widths, so after a
+           rotate-with-sheet-open the trigger cannot take focus; the search
+           box (always visible) is the nearest sensible landing. */
+        if (
+          back &&
+          typeof back.focus === "function" &&
+          document.contains(back) &&
+          back.offsetParent !== null
+        ) {
           back.focus();
+        } else {
+          var landing = document.getElementById("shopSearch");
+          if (landing && typeof landing.focus === "function")
+            landing.focus({ preventScroll: true });
         }
       }
 

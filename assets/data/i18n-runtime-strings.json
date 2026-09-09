@@ -5,326 +5,247 @@
       "key": "announcement.shipping",
       "text": "Free shipping on orders of $40 or more",
       "source": "assets/data/content.json",
-      "verify": [
-        "Free shipping on orders of $40 or more"
-      ],
+      "verify": ["Free shipping on orders of $40 or more"],
       "note": "site.announcement.text, rendered into the announcement bar by main.js"
     },
     {
       "key": "box.addToCart",
       "text": "Add Box to Cart",
       "source": "assets/js/main.js",
-      "verify": [
-        "Add Box to Cart"
-      ]
+      "verify": ["Add Box to Cart"]
     },
     {
       "key": "box.catBody",
       "text": "BODY",
       "source": "assets/data/products.json",
-      "verify": [
-        "\"category\": \"body\""
-      ],
+      "verify": ["\"category\": \"body\""],
       "note": "product category, upper-cased by main.js for the box picker"
     },
     {
       "key": "box.catPotions",
       "text": "POTIONS",
       "source": "assets/data/products.json",
-      "verify": [
-        "\"category\": \"potions\""
-      ],
+      "verify": ["\"category\": \"potions\""],
       "note": "product category, upper-cased by main.js for the box picker"
     },
     {
       "key": "box.catSalves",
       "text": "SALVES",
       "source": "assets/data/products.json",
-      "verify": [
-        "\"category\": \"salves\""
-      ],
+      "verify": ["\"category\": \"salves\""],
       "note": "product category, upper-cased by main.js for the box picker"
     },
     {
       "key": "box.catSoaks",
       "text": "SOAKS",
       "source": "assets/data/products.json",
-      "verify": [
-        "\"category\": \"soaks\""
-      ],
+      "verify": ["\"category\": \"soaks\""],
       "note": "product category, upper-cased by main.js for the box picker"
     },
     {
       "key": "box.eyebrow",
       "text": "✦ BUILD YOUR OWN BOX ✦",
       "source": "assets/js/main.js",
-      "verify": [
-        "✦ BUILD YOUR OWN BOX ✦"
-      ]
+      "verify": ["✦ BUILD YOUR OWN BOX ✦"]
     },
     {
       "key": "box.item1",
       "text": "+ Item 1",
       "source": "assets/js/main.js",
-      "verify": [
-        "\"+ Item \""
-      ],
+      "verify": ["\"+ Item \""],
       "note": "template plus slot index"
     },
     {
       "key": "box.item2",
       "text": "+ Item 2",
       "source": "assets/js/main.js",
-      "verify": [
-        "\"+ Item \""
-      ],
+      "verify": ["\"+ Item \""],
       "note": "template plus slot index"
     },
     {
       "key": "box.item3",
       "text": "+ Item 3",
       "source": "assets/js/main.js",
-      "verify": [
-        "\"+ Item \""
-      ],
+      "verify": ["\"+ Item \""],
       "note": "template plus slot index"
     },
     {
       "key": "box.needsChoice",
       "text": "This set needs a choice before it can go in the cart.",
       "source": "assets/js/main.js",
-      "verify": [
-        "This set needs a choice before it can go in the cart."
-      ]
+      "verify": ["This set needs a choice before it can go in the cart."]
     },
     {
       "key": "box.needsChoiceEach",
       "text": "This set needs a choice for each of these before it can go in the cart.",
       "source": "assets/js/main.js",
-      "verify": [
-        "This set needs a choice for each of these before it can go in the cart."
-      ]
+      "verify": ["This set needs a choice for each of these before it can go in the cart."]
     },
     {
       "key": "box.nothingPicked",
       "text": "Nothing picked yet — select at least 3 items to unlock discount.",
       "source": "assets/js/main.js",
-      "verify": [
-        "Nothing picked yet &mdash; select at least "
-      ],
+      "verify": ["Nothing picked yet &mdash; select at least "],
       "note": "template plus the minimum item count"
     },
     {
       "key": "box.optional",
       "text": "+ Optional",
       "source": "assets/js/main.js",
-      "verify": [
-        "+ Optional"
-      ]
+      "verify": ["+ Optional"]
     },
     {
       "key": "box.progress",
       "text": "Box progress",
       "source": "assets/js/main.js",
-      "verify": [
-        "Box progress"
-      ]
+      "verify": ["Box progress"]
     },
     {
       "key": "box.text",
       "text": "Choose any 3–5 handcrafted goods and unlock 10% off your entire custom bundle.",
       "source": "assets/js/main.js",
-      "verify": [
-        "<p class=\"muted\">Choose any ",
-        " handcrafted goods and unlock "
-      ],
+      "verify": ["<p class=\"muted\">Choose any ", " handcrafted goods and unlock "],
       "note": "template plus the min/max item count and discount percentage"
     },
     {
       "key": "box.title",
       "text": "Pick & Mix Your Box",
       "source": "assets/js/main.js",
-      "verify": [
-        "Pick & Mix Your Box"
-      ]
+      "verify": ["Pick & Mix Your Box"]
     },
     {
       "key": "cart.chooseMarket",
       "text": "Choose Upcoming Market Location:",
       "source": "assets/js/cart.js",
-      "verify": [
-        "Choose Upcoming Market Location:"
-      ]
+      "verify": ["Choose Upcoming Market Location:"]
     },
     {
       "key": "cart.close",
       "text": "Close cart",
       "source": "assets/js/cart.js",
-      "verify": [
-        "Close cart"
-      ]
+      "verify": ["Close cart"]
     },
     {
       "key": "cart.empty",
       "text": "Your cart is empty.",
       "source": "assets/js/cart.js",
-      "verify": [
-        "Your cart is empty."
-      ]
+      "verify": ["Your cart is empty."]
     },
     {
       "key": "cart.estimatedTotal",
       "text": "Estimated total (before tax)",
       "source": "assets/js/cart.js",
-      "verify": [
-        "Estimated total (before tax)"
-      ]
+      "verify": ["Estimated total (before tax)"]
     },
     {
       "key": "cart.freePocketSalve",
       "text": "Free Handcrafted Pocket Salve",
       "source": "assets/data/products.json",
-      "verify": [
-        "\"Free Handcrafted Pocket Salve\""
-      ],
+      "verify": ["\"Free Handcrafted Pocket Salve\""],
       "note": "the reward label on the cart's gift milestone"
     },
     {
       "key": "cart.giftCardCode",
       "text": "Gift card code",
       "source": "assets/js/cart.js",
-      "verify": [
-        "Gift card code"
-      ]
+      "verify": ["Gift card code"]
     },
     {
       "key": "cart.giftNoteLabel",
       "text": "Gift note message",
       "source": "assets/js/cart.js",
-      "verify": [
-        "Gift note message"
-      ]
+      "verify": ["Gift note message"]
     },
     {
       "key": "cart.giftNotePlaceholder",
       "text": "Add a free gift note for the packing slip (Max 500 characters)...",
       "source": "assets/js/cart.js",
-      "verify": [
-        "Add a free gift note for the packing slip (Max 500 characters)..."
-      ]
+      "verify": ["Add a free gift note for the packing slip (Max 500 characters)..."]
     },
     {
       "key": "cart.haveGiftCard",
       "text": "Have a gift card or voucher code?",
       "source": "assets/js/cart.js",
-      "verify": [
-        "Have a gift card or voucher code?"
-      ]
+      "verify": ["Have a gift card or voucher code?"]
     },
     {
       "key": "cart.isGift",
       "text": "This order is a gift",
       "source": "assets/js/cart.js",
-      "verify": [
-        "This order is a gift"
-      ]
+      "verify": ["This order is a gift"]
     },
     {
       "key": "cart.keepBrowsing",
       "text": "Keep browsing",
       "source": "assets/js/cart.js",
-      "verify": [
-        "Keep browsing"
-      ],
+      "verify": ["Keep browsing"],
       "note": "Empty-cart CTA: a close button on shop.html, a link to /shop.html everywhere else"
     },
     {
       "key": "cart.marketPickup",
       "text": "Local Market Pick-up (Free)",
       "source": "assets/js/cart.js",
-      "verify": [
-        "Local Market Pick-up (Free)"
-      ]
+      "verify": ["Local Market Pick-up (Free)"]
     },
     {
       "key": "cart.milestones",
       "text": "Shipping and reward milestones",
       "source": "assets/js/cart.js",
-      "verify": [
-        "Shipping and reward milestones"
-      ]
+      "verify": ["Shipping and reward milestones"]
     },
     {
       "key": "cart.removeItem",
       "text": "Remove item",
       "source": "assets/js/cart.js",
-      "verify": [
-        "Remove item"
-      ]
+      "verify": ["Remove item"]
     },
     {
       "key": "cart.seasonalNotice",
       "text": "Seasonal announcement",
       "source": "assets/js/cart.js",
-      "verify": [
-        "Seasonal announcement"
-      ]
+      "verify": ["Seasonal announcement"]
     },
     {
       "key": "cart.shareCart",
       "text": "Share Cart with Friend",
       "source": "assets/js/cart.js",
-      "verify": [
-        "Share Cart with Friend"
-      ]
+      "verify": ["Share Cart with Friend"]
     },
     {
       "key": "cart.shareCartLink",
       "text": "Share cart link",
       "source": "assets/js/cart.js",
-      "verify": [
-        "Share cart link"
-      ]
+      "verify": ["Share cart link"]
     },
     {
       "key": "cart.skipShipping",
       "text": "Skip shipping & collect at our next market booth",
       "source": "assets/js/cart.js",
-      "verify": [
-        "Skip shipping & collect at our next market booth"
-      ]
+      "verify": ["Skip shipping & collect at our next market booth"]
     },
     {
       "key": "cart.subtotal",
       "text": "Subtotal",
       "source": "assets/js/cart.js",
-      "verify": [
-        "Subtotal"
-      ]
+      "verify": ["Subtotal"]
     },
     {
       "key": "cart.taxesNote",
       "text": "Promo codes, gift cards & taxes applied at checkout.",
       "source": "assets/js/cart.js",
-      "verify": [
-        "Promo codes, gift cards & taxes applied at checkout."
-      ]
+      "verify": ["Promo codes, gift cards & taxes applied at checkout."]
     },
     {
       "key": "cart.title",
       "text": "Your Cart",
       "source": "assets/js/cart.js",
-      "verify": [
-        "Your Cart"
-      ]
+      "verify": ["Your Cart"]
     },
     {
       "key": "nav.savedItems",
       "text": "Open your saved items",
       "source": "assets/js/main.js",
-      "verify": [
-        "Open your saved items"
-      ]
+      "verify": ["Open your saved items"]
     },
     {
       "key": "pdp.allergyNote",
@@ -338,73 +259,55 @@
       "key": "pdp.closeLightbox",
       "text": "Close lightbox",
       "source": "assets/js/main.js",
-      "verify": [
-        "Close lightbox"
-      ]
+      "verify": ["Close lightbox"]
     },
     {
       "key": "pdp.nextImage",
       "text": "Next image",
       "source": "assets/js/main.js",
-      "verify": [
-        "Next image"
-      ]
+      "verify": ["Next image"]
     },
     {
       "key": "pdp.photoViewer",
       "text": "Product photo viewer",
       "source": "assets/js/main.js",
-      "verify": [
-        "Product photo viewer"
-      ]
+      "verify": ["Product photo viewer"]
     },
     {
       "key": "pdp.previousImage",
       "text": "Previous image",
       "source": "assets/js/main.js",
-      "verify": [
-        "Previous image"
-      ]
+      "verify": ["Previous image"]
     },
     {
       "key": "pdp.youMightAlsoLike",
       "text": "You Might Also Like",
       "source": "assets/js/cart.js",
-      "verify": [
-        "You Might Also Like"
-      ]
+      "verify": ["You Might Also Like"]
     },
     {
       "key": "quiz.resultsTitle",
       "text": "Your Apothecary Match",
       "source": "assets/js/main.js",
-      "verify": [
-        "Your Apothecary Match"
-      ]
+      "verify": ["Your Apothecary Match"]
     },
     {
       "key": "quiz.retake",
       "text": "Take Quiz Again",
       "source": "assets/js/main.js",
-      "verify": [
-        "Take Quiz Again"
-      ]
+      "verify": ["Take Quiz Again"]
     },
     {
       "key": "search.askUs",
       "text": "Can’t find it? Ask us directly →",
       "source": "assets/js/main.js",
-      "verify": [
-        "Can’t find it? Ask us directly →"
-      ]
+      "verify": ["Can’t find it? Ask us directly →"]
     },
     {
       "key": "search.browseShop",
       "text": "Browse the full shop →",
       "source": "assets/js/main.js",
-      "verify": [
-        "Browse the full shop →"
-      ]
+      "verify": ["Browse the full shop →"]
     },
     {
       "key": "search.emptyText",
@@ -418,17 +321,13 @@
       "key": "search.faqHelp",
       "text": "FAQ & Help",
       "source": "assets/js/main.js",
-      "verify": [
-        "FAQ & Help"
-      ]
+      "verify": ["FAQ & Help"]
     },
     {
       "key": "search.marketsEvents",
       "text": "Markets & Events",
       "source": "assets/js/main.js",
-      "verify": [
-        "Markets & Events"
-      ]
+      "verify": ["Markets & Events"]
     },
     {
       "key": "search.medicalQueryNote",
@@ -449,175 +348,134 @@
       "key": "search.results",
       "text": "Search results",
       "source": "assets/js/main.js",
-      "verify": [
-        "Search results"
-      ]
+      "verify": ["Search results"]
     },
     {
       "key": "shop.addSetToCart",
       "text": "Add Set to Cart",
       "source": "assets/js/main.js",
-      "verify": [
-        "Add Set to Cart"
-      ]
+      "verify": ["Add Set to Cart"]
     },
     {
       "key": "shop.addShort",
       "text": "+ Add",
       "source": "assets/js/main.js",
-      "verify": [
-        "+ Add"
-      ]
+      "verify": ["+ Add"]
     },
     {
       "key": "shop.bestseller",
       "text": "bestseller",
       "source": "assets/data/products.json",
-      "verify": [
-        "\"bestseller\""
-      ],
+      "verify": ["\"bestseller\""],
       "note": "a product tag, rendered as a card badge"
     },
     {
       "key": "shop.chooseBlend",
       "text": "Choose blend…",
       "source": "assets/js/main.js",
-      "verify": [
-        "<option value=\"\">Choose "
-      ],
+      "verify": ["<option value=\"\">Choose "],
       "note": "template plus the lower-cased variant name (Blend)"
     },
     {
       "key": "shop.chooseScent",
       "text": "Choose scent…",
       "source": "assets/js/main.js",
-      "verify": [
-        "<option value=\"\">Choose "
-      ],
+      "verify": ["<option value=\"\">Choose "],
       "note": "template plus the lower-cased variant name (Scent)"
     },
     {
       "key": "shop.chooseSize",
       "text": "Choose size…",
       "source": "assets/js/main.js",
-      "verify": [
-        "<option value=\"\">Choose "
-      ],
+      "verify": ["<option value=\"\">Choose "],
       "note": "template plus the lower-cased variant name (Size)"
     },
     {
       "key": "shop.eoFree",
       "text": "EO-Free",
       "source": "assets/js/main.js",
-      "verify": [
-        "EO-Free"
-      ]
+      "verify": ["EO-Free"]
     },
     {
       "key": "shop.freeShippingAt40",
       "text": "Free shipping at $40",
       "source": "assets/js/main.js",
-      "verify": [
-        "Free shipping at "
-      ],
+      "verify": ["Free shipping at "],
       "note": "template plus shop.freeShippingThreshold from products.json, formatted by formatMoney()"
     },
     {
       "key": "shop.inStock",
       "text": "In Stock",
       "source": "assets/js/main.js",
-      "verify": [
-        "In Stock"
-      ]
+      "verify": ["In Stock"]
     },
     {
       "key": "shop.sensitiveSafe",
       "text": "Sensitive Safe",
       "source": "assets/js/main.js",
-      "verify": [
-        "Sensitive Safe"
-      ]
+      "verify": ["Sensitive Safe"]
     },
     {
       "key": "events.reserveBooth",
       "text": "Reserve / Pick Up at This Booth",
       "source": "assets/js/main.js",
-      "verify": [
-        "Reserve / Pick Up at This Booth"
-      ],
+      "verify": ["Reserve / Pick Up at This Booth"],
       "note": "eventCardHTML()'s per-event actions row, built as an HTML string"
     },
     {
       "key": "events.addToGoogleCalendar",
       "text": "Add to Google Calendar",
       "source": "assets/js/main.js",
-      "verify": [
-        "Add to Google Calendar<span class=\"sr-only\">"
-      ],
+      "verify": ["Add to Google Calendar<span class=\"sr-only\">"],
       "note": "eventCardHTML()'s per-event actions row"
     },
     {
       "key": "events.icalAppleCalendar",
       "text": "iCal / Apple Calendar (.ics)",
       "source": "assets/js/main.js",
-      "verify": [
-        "iCal / Apple Calendar (.ics)"
-      ],
+      "verify": ["iCal / Apple Calendar (.ics)"],
       "note": "eventCardHTML()'s per-event actions row"
     },
     {
       "key": "events.directionsLabel",
       "text": "directions (opens in new tab)",
       "source": "assets/js/main.js",
-      "verify": [
-        "directions (opens in new tab)"
-      ],
+      "verify": ["directions (opens in new tab)"],
       "note": "sr-only suffix on the Google/Apple Maps links in eventCardHTML()"
     },
     {
       "key": "events.hostEventCta",
       "text": "Run a market, fair, or Pride event and want us at your table?",
       "source": "assets/js/main.js",
-      "verify": [
-        "Run a market, fair, or Pride event and want us at ",
-        "your table? <a href="
-      ],
+      "verify": ["Run a market, fair, or Pride event and want us at ", "your table? <a href="],
       "note": "eventInviteOrganizerHTML(), rendered under the upcoming events list"
     },
     {
       "key": "events.wantNextMarketDate",
       "text": "Want the next market date in your inbox?",
       "source": "assets/js/main.js",
-      "verify": [
-        "Want the next market date in your inbox?"
-      ],
+      "verify": ["Want the next market date in your inbox?"],
       "note": "eventEmailCaptureHTML()'s market-alert form title"
     },
     {
       "key": "events.emailForMarketDates",
       "text": "Email address for market dates",
       "source": "assets/js/main.js",
-      "verify": [
-        "Email address for market dates"
-      ],
+      "verify": ["Email address for market dates"],
       "note": "eventEmailCaptureHTML()'s sr-only label for the market-alert email field"
     },
     {
       "key": "events.emailMeNextMarketDate",
       "text": "Email Me the Next Market Date",
       "source": "assets/js/main.js",
-      "verify": [
-        "Email Me the Next Market Date"
-      ],
+      "verify": ["Email Me the Next Market Date"],
       "note": "eventEmailCaptureHTML()'s market-alert submit button"
     },
     {
       "key": "thankYou.noOrder",
       "text": "No order to show here",
       "source": "assets/js/thank-you.js",
-      "verify": [
-        "No order to show here"
-      ],
+      "verify": ["No order to show here"],
       "note": "shown when the page loads without a valid checkout session id"
     },
     {
@@ -634,27 +492,21 @@
       "key": "thankYou.orderConfirmationEyebrow",
       "text": "Order Confirmation",
       "source": "assets/js/thank-you.js",
-      "verify": [
-        "eyebrowEl.textContent = \"Order Confirmation\""
-      ],
+      "verify": ["eyebrowEl.textContent = \"Order Confirmation\""],
       "note": "eyebrow text for both the no-session case and showUnconfirmed()"
     },
     {
       "key": "thankYou.notConfirmedYet",
       "text": "Not confirmed yet",
       "source": "assets/js/thank-you.js",
-      "verify": [
-        "Not confirmed yet"
-      ],
+      "verify": ["Not confirmed yet"],
       "note": "showUnconfirmed()'s status-badge text"
     },
     {
       "key": "thankYou.confirmingPayment",
       "text": "Confirming payment…",
       "source": "assets/js/thank-you.js",
-      "verify": [
-        "Confirming payment\\u2026"
-      ],
+      "verify": ["Confirming payment\\u2026"],
       "note": "status-badge text shown while /api/order-summary is in flight"
     },
     {
@@ -680,361 +532,295 @@
       "key": "tpl.addGiftCard",
       "text": "Add {amount} Gift Card to Cart",
       "source": "assets/js/gift-card.js",
-      "verify": [
-        "tpl.addGiftCard"
-      ],
+      "verify": ["tpl.addGiftCard"],
       "note": "gift dialog's primary button; amount comes from the preset/custom picker (live audit LOW-1)"
     },
     {
       "key": "tpl.writeReviewOf",
       "text": "Write a review of {product}",
       "source": "scripts/build-site-data.js",
-      "verify": [
-        "tpl.writeReviewOf"
-      ],
+      "verify": ["tpl.writeReviewOf"],
       "note": "PDP review-form heading, one per product page"
     },
     {
       "key": "tpl.enlargePhoto",
       "text": "Enlarge photo of {product}",
       "source": "assets/js/main.js",
-      "verify": [
-        "tpl.enlargePhoto"
-      ],
+      "verify": ["tpl.enlargePhoto"],
       "note": "shop-card photo gallery's active-slide button (cardGalleryHTML)"
     },
     {
       "key": "tpl.viewPhotoOf",
       "text": "View photo {n} of {total} for {product}",
       "source": "assets/js/main.js",
-      "verify": [
-        "tpl.viewPhotoOf"
-      ],
+      "verify": ["tpl.viewPhotoOf"],
       "note": "shop-card photo gallery's dot buttons (cardGalleryHTML)"
     },
     {
       "key": "tpl.variantFor",
       "text": "{variant} for {product}",
       "source": "assets/js/main.js",
-      "verify": [
-        "tpl.variantFor"
-      ],
+      "verify": ["tpl.variantFor"],
       "note": "size/scent/blend <select> aria-label; {variant} is itself an ordinary dictionary phrase (tpl.variantSize etc.)"
     },
     {
       "key": "tpl.saveForLater",
       "text": "Save {product} for later",
       "source": "assets/js/main.js",
-      "verify": [
-        "tpl.saveForLater"
-      ],
+      "verify": ["tpl.saveForLater"],
       "note": "wish-btn aria-label, not-yet-saved state; kept in sync by syncWishButtons()"
     },
     {
       "key": "tpl.removeFromSaved",
       "text": "Remove {product} from saved items",
       "source": "assets/js/main.js",
-      "verify": [
-        "tpl.removeFromSaved"
-      ],
+      "verify": ["tpl.removeFromSaved"],
       "note": "wish-btn aria-label, saved state; kept in sync by syncWishButtons()"
     },
     {
       "key": "tpl.cardRatingSrOne",
       "text": "Rated {value} out of 5 stars, {count} review",
       "source": "assets/js/main.js",
-      "verify": [
-        "tpl.cardRatingSr"
-      ],
+      "verify": ["tpl.cardRatingSr"],
       "note": "ratingHTML()'s sr-only span, 1-review case; key suffix (One/Other) is built with string concatenation"
     },
     {
       "key": "tpl.cardRatingSrOther",
       "text": "Rated {value} out of 5 stars, {count} reviews",
       "source": "assets/js/main.js",
-      "verify": [
-        "tpl.cardRatingSr"
-      ],
+      "verify": ["tpl.cardRatingSr"],
       "note": "ratingHTML()'s sr-only span, multi-review case"
     },
     {
       "key": "tpl.cardRatingVisibleOne",
       "text": "{value} · {count} review",
       "source": "assets/js/main.js",
-      "verify": [
-        "tpl.cardRatingVisible"
-      ],
+      "verify": ["tpl.cardRatingVisible"],
       "note": "ratingHTML()'s visible (aria-hidden) count span, 1-review case"
     },
     {
       "key": "tpl.cardRatingVisibleOther",
       "text": "{value} · {count} reviews",
       "source": "assets/js/main.js",
-      "verify": [
-        "tpl.cardRatingVisible"
-      ],
+      "verify": ["tpl.cardRatingVisible"],
       "note": "ratingHTML()'s visible (aria-hidden) count span, multi-review case"
     },
     {
       "key": "tpl.avgOutOf5",
       "text": "{avg} out of 5",
       "source": "scripts/build-site-data.js",
-      "verify": [
-        "tpl.avgOutOf5"
-      ],
+      "verify": ["tpl.avgOutOf5"],
       "note": "the <strong> average inside the PDP reviews summary paragraph"
     },
     {
       "key": "tpl.pdpReviewsSummaryOne",
       "text": "from {count} review of this product",
       "source": "scripts/build-site-data.js",
-      "verify": [
-        "tpl.pdpReviewsSummary"
-      ],
+      "verify": ["tpl.pdpReviewsSummary"],
       "note": "PDP reviews summary trailing span, 1-review case"
     },
     {
       "key": "tpl.pdpReviewsSummaryOther",
       "text": "from {count} reviews of this product",
       "source": "scripts/build-site-data.js",
-      "verify": [
-        "tpl.pdpReviewsSummary"
-      ],
+      "verify": ["tpl.pdpReviewsSummary"],
       "note": "PDP reviews summary trailing span, multi-review case"
     },
     {
       "key": "tpl.bundleVariantLabel",
       "text": "{product} — {variant}",
       "source": "assets/js/main.js",
-      "verify": [
-        "tpl.bundleVariantLabel"
-      ],
+      "verify": ["tpl.bundleVariantLabel"],
       "note": "gift-set bundle variant picker's field label"
     },
     {
       "key": "tpl.notForSaleBatchDate",
       "text": "Not for sale yet · estimated batch date {date}",
       "source": "scripts/build-site-data.js",
-      "verify": [
-        "tpl.notForSaleBatchDate"
-      ],
+      "verify": ["tpl.notForSaleBatchDate"],
       "note": "coming-soon PDP trust strip; only the dated branch needs a template"
     },
     {
       "key": "tpl.completeTheRitual",
       "text": "✦ Complete the Ritual: {ritual} ✦",
       "source": "scripts/build-site-data.js",
-      "verify": [
-        "tpl.completeTheRitual"
-      ],
+      "verify": ["tpl.completeTheRitual"],
       "note": "PDP ritual-pairing section heading; also used verbatim by the quiz-result modal's compact ritual card in assets/js/main.js"
     },
     {
       "key": "tpl.ritualStepTag",
       "text": "Step {n}: {category}",
       "source": "scripts/build-site-data.js",
-      "verify": [
-        "tpl.ritualStepTag"
-      ],
+      "verify": ["tpl.ritualStepTag"],
       "note": "\"Step 2: Body & Skin\" tag on each paired product in the PDP ritual section; {category} is itself an ordinary dictionary phrase"
     },
     {
       "key": "tpl.searchResultsFound",
       "text": "Found {products} products, {events} events, and {faqs} FAQs for {query}",
       "source": "assets/js/main.js",
-      "verify": [
-        "tpl.searchResultsFound"
-      ],
+      "verify": ["tpl.searchResultsFound"],
       "note": "global search's live-region result count, no journal posts indexed"
     },
     {
       "key": "tpl.searchResultsFoundWithJournal",
       "text": "Found {products} products, {journal} articles, {events} events, and {faqs} FAQs for {query}",
       "source": "assets/js/main.js",
-      "verify": [
-        "tpl.searchResultsFoundWithJournal"
-      ],
+      "verify": ["tpl.searchResultsFoundWithJournal"],
       "note": "global search's live-region result count, journal posts indexed"
     },
     {
       "key": "tpl.searchNoResults",
       "text": "No results found for {query}",
       "source": "assets/js/main.js",
-      "verify": [
-        "tpl.searchNoResults"
-      ],
+      "verify": ["tpl.searchNoResults"],
       "note": "global search's live-region result count, zero results"
     },
     {
       "key": "tpl.addRecommendation",
       "text": "Add Recommendation to Cart ({price})",
       "source": "assets/js/main.js",
-      "verify": [
-        "tpl.addRecommendation"
-      ],
+      "verify": ["tpl.addRecommendation"],
       "note": "apothecary quiz result's primary button"
     },
     {
       "key": "tpl.itemAddedToCart",
       "text": "{item} added to cart",
       "source": "assets/js/cart.js",
-      "verify": [
-        "tpl.itemAddedToCart"
-      ],
+      "verify": ["tpl.itemAddedToCart"],
       "note": "announceAdded()'s live-region text, used by every add-to-cart path"
     },
     {
       "key": "tpl.milestoneFirst",
       "text": "Add {amount} for {reward}!",
       "source": "assets/js/cart.js",
-      "verify": [
-        "tpl.milestoneFirst"
-      ],
+      "verify": ["tpl.milestoneFirst"],
       "note": "calculateMilestoneStatus()'s shipping-progress message, first (only) milestone; {reward} is CMS copy (shop.shippingMilestones), substituted verbatim like a product name"
     },
     {
       "key": "tpl.milestoneNext",
       "text": "Add {amount} more to unlock a {reward}!",
       "source": "assets/js/cart.js",
-      "verify": [
-        "tpl.milestoneNext"
-      ],
+      "verify": ["tpl.milestoneNext"],
       "note": "calculateMilestoneStatus()'s shipping-progress message, a later milestone"
     },
     {
       "key": "tpl.milestoneAllUnlocked",
       "text": "🎉 All perks unlocked! Free Shipping + {rewards}!",
       "source": "assets/js/cart.js",
-      "verify": [
-        "tpl.milestoneAllUnlocked"
-      ],
+      "verify": ["tpl.milestoneAllUnlocked"],
       "note": "calculateMilestoneStatus() at the top tier, two or more milestones; {rewards} is the CMS reward names joined with ' + ', substituted verbatim"
     },
     {
       "key": "cart.milestoneAllUnlockedShipping",
       "text": "🎉 All perks unlocked! Free Shipping!",
       "source": "assets/js/cart.js",
-      "verify": [
-        "cart.milestoneAllUnlockedShipping"
-      ],
+      "verify": ["cart.milestoneAllUnlockedShipping"],
       "note": "calculateMilestoneStatus() at the top tier when shipping is the only perk"
     },
     {
       "key": "tpl.milestoneSingleUnlocked",
       "text": "🎉 You've unlocked {reward}!",
       "source": "assets/js/cart.js",
-      "verify": [
-        "tpl.milestoneSingleUnlocked"
-      ],
+      "verify": ["tpl.milestoneSingleUnlocked"],
       "note": "calculateMilestoneStatus() when there is exactly one milestone; {reward} is CMS copy"
     },
     {
       "key": "cart.checkoutUnavailable",
       "text": "Sorry -- checkout isn't available right now. Please try again in a moment.",
       "source": "assets/js/cart.js",
-      "verify": [
-        "cart.checkoutUnavailable"
-      ],
+      "verify": ["cart.checkoutUnavailable"],
       "note": "the checkout() failure message when the Worker gives no shopperMessage; rendered in a role=alert"
     },
     {
       "key": "tpl.checkoutErrorAnnounce",
       "text": "Checkout error: {message}",
       "source": "assets/js/cart.js",
-      "verify": [
-        "tpl.checkoutErrorAnnounce"
-      ],
+      "verify": ["tpl.checkoutErrorAnnounce"],
       "note": "the live-region announcement wrapping that message"
     },
     {
       "key": "tpl.upsellAdd",
       "text": "+ Add {price}",
       "source": "assets/js/cart.js",
-      "verify": [
-        "tpl.upsellAdd"
-      ],
+      "verify": ["tpl.upsellAdd"],
       "note": "the 'you might also like' add button; {price} is formatted money"
     },
     {
       "key": "tpl.cartVariant",
       "text": "Variant: {variant}",
       "source": "assets/js/cart.js",
-      "verify": [
-        "tpl.cartVariant"
-      ],
+      "verify": ["tpl.cartVariant"],
       "note": "a line item's variant label; {variant} is the CMS option label"
     },
     {
       "key": "tpl.cartRecipient",
       "text": "For: {email}",
       "source": "assets/js/cart.js",
-      "verify": [
-        "tpl.cartRecipient"
-      ],
+      "verify": ["tpl.cartRecipient"],
       "note": "a gift-card line's recipient; {email} is what the shopper typed"
     },
     {
       "key": "cart.shippingFree",
       "text": "Free",
       "source": "assets/js/cart.js",
-      "verify": [
-        "cart.shippingFree"
-      ],
+      "verify": ["cart.shippingFree"],
       "note": "the shipping value in the totals row when shipping is free"
     },
     {
       "key": "cart.mixMatchLabel",
       "text": "Mix & Match:",
       "source": "assets/js/cart.js",
-      "verify": [
-        "cart.mixMatchLabel"
-      ],
+      "verify": ["cart.mixMatchLabel"],
       "note": "the bold label on the volume-tier nudge"
     },
     {
       "key": "cart.both",
       "text": "both",
       "source": "assets/js/cart.js",
-      "verify": [
-        "cart.both"
-      ],
+      "verify": ["cart.both"],
       "note": "the count word in the nudge when the tier is 2"
     },
     {
       "key": "tpl.allN",
       "text": "all {n}",
       "source": "assets/js/cart.js",
-      "verify": [
-        "tpl.allN"
-      ],
+      "verify": ["tpl.allN"],
       "note": "the count phrase in the nudge when the tier is more than 2"
     },
     {
       "key": "tpl.mixMatchNeed",
       "text": "Add {needed} more {item} to get {all} for {price} each!",
       "source": "assets/js/cart.js",
-      "verify": [
-        "tpl.mixMatchNeed"
-      ],
+      "verify": ["tpl.mixMatchNeed"],
       "note": "the nudge before the tier is reached; {item} is '2 oz salve'-style CMS text, {all} is cart.both or tpl.allN, {price} is money"
     },
     {
       "key": "tpl.mixMatchApplied",
       "text": "{price}/ea {item} volume tier applied!",
       "source": "assets/js/cart.js",
-      "verify": [
-        "tpl.mixMatchApplied"
-      ],
+      "verify": ["tpl.mixMatchApplied"],
       "note": "the nudge once the tier is reached"
     },
     {
       "key": "tpl.mixMatchNext",
       "text": "Add {amount} for {perk}!",
       "source": "assets/js/cart.js",
-      "verify": [
-        "tpl.mixMatchNext"
-      ],
+      "verify": ["tpl.mixMatchNext"],
       "note": "appended to the applied nudge when a further milestone is still ahead; {perk} is CMS copy"
+    },
+    {
+      "key": "tpl.photoNofM",
+      "text": "Photo {n} of {total}",
+      "source": "assets/js/main.js",
+      "verify": ["tpl.photoNofM"],
+      "note": "lightbox live region announcing the current photo (showImage)"
+    },
+    {
+      "key": "tpl.photo",
+      "text": "Photo",
+      "source": "assets/js/main.js",
+      "verify": ["tpl.photo"],
+      "note": "lightbox live region when a product has a single photo"
     }
   ]
 }
