@@ -18,6 +18,8 @@
  *   POST /api/welcome-code       mint a single-use welcome code
  *   POST /api/birthday-club      store an MM/DD birthday
  *   POST /api/loyalty-balance    read a points balance (token required)
+ *   POST /api/orders/request-link email a one-time order-history link (routes/orders.js)
+ *   GET  /api/orders?token=      the orders behind that link, once
  *
  * WHY ONE WORKER. The state those endpoints need -- the gift-card ledger, the
  * exactly-once webhook claim, the rate-limit counters -- lives in Cloudflare
@@ -200,6 +202,7 @@ import { handleRestock } from "./routes/restock.js";
 import { handleSafetyReport } from "./routes/safety-report.js";
 import { handleGiftNote } from "./routes/gift-note.js";
 import { handleMarketAlerts } from "./routes/market-alerts.js";
+import { handleOrdersList, handleOrdersRequestLink } from "./routes/orders.js";
 import {
   handleBirthdayClub,
   handleLoyaltyBalance,
@@ -1275,7 +1278,11 @@ const ROUTES = {
   "/unsubscribe": handleUnsubscribe,
   "/welcome-code": handleWelcomeCode,
   "/birthday-club": handleBirthdayClub,
-  "/loyalty-balance": handleLoyaltyBalance
+  "/loyalty-balance": handleLoyaltyBalance,
+  // The passwordless order history (routes/orders.js). Same STATE_DB +
+  // MAGIC_LINK_SECRET requirement as the retention routes, same 503 without.
+  "/orders/request-link": handleOrdersRequestLink,
+  "/orders": handleOrdersList
 };
 
 /**
@@ -1468,6 +1475,9 @@ async function handleCheckout(request, env, ctx, origin) {
             unitAmount,
             qty: boxQty,
             isGiftCard: false,
+            productId: CUSTOM_BOX_ID,
+            variant: "",
+            kind: "custom-box",
             // A box only ever holds physical apothecary goods (the builder
             // excludes apparel and gift cards), so the general goods code is
             // always right here -- no need to inspect its contents.
@@ -1664,7 +1674,30 @@ async function handleCheckout(request, env, ctx, origin) {
         retentionProductIds.push(entry.id);
         if (entry.category) retentionCategories.push(entry.category);
 
-        return { name, image, description, unitAmount, qty, isGiftCard, taxCode };
+        /* What the order history needs to put this line back in the cart
+           (routes/orders.js, assets/js/orders.js): the catalog id, the
+           option that was matched server-side, and what kind of line it is.
+           A gift set with per-member choices and a gift card are recorded
+           but not reorderable -- their choices live in session metadata. */
+        const kind = isGiftCard
+          ? "gift-card"
+          : isBundle
+            ? bundleChoices.length
+              ? "gift-set"
+              : "bundle"
+            : "product";
+        return {
+          name,
+          image,
+          description,
+          unitAmount,
+          qty,
+          isGiftCard,
+          taxCode,
+          productId: String(entry.id),
+          variant: variantOption ? variantOption.label : "",
+          kind
+        };
       });
 
       // Stripe caps a metadata VALUE at 500 characters, so these are truncated
@@ -2017,6 +2050,21 @@ async function handleCheckout(request, env, ctx, origin) {
         if (li.image) {
           params.append(`line_items[${i}][price_data][product_data][images][0]`, li.image);
         }
+        // Read back by the webhook (expand[]=data.price.product) for the
+        // customer's order history; never by the money path.
+        if (li.productId) {
+          params.append(
+            `line_items[${i}][price_data][product_data][metadata][yl_product_id]`,
+            truncate(li.productId, 80)
+          );
+          params.append(`line_items[${i}][price_data][product_data][metadata][yl_kind]`, li.kind);
+          if (li.variant) {
+            params.append(
+              `line_items[${i}][price_data][product_data][metadata][yl_variant]`,
+              truncate(li.variant, 80)
+            );
+          }
+        }
         params.append(`line_items[${i}][price_data][unit_amount]`, String(li.unitAmount));
         if (taxEnabled && !li.noTax) {
           // "exclusive" = the price above is pre-tax and Stripe adds tax on
@@ -2239,6 +2287,17 @@ export default {
       } catch (err) {
         console.error("inventory failed:", err && err.stack ? err.stack : err);
         return json({ error: "Live stock is unavailable." }, 503, origin, env);
+      }
+    }
+    // The third GET: the order history behind a one-time link
+    // (routes/orders.js). The token is the credential; the origin check
+    // below is for POSTs from a browser, which this is not.
+    if (route === "/orders" && request.method === "GET") {
+      try {
+        return await handleOrdersList(request, env, origin, ctx);
+      } catch (err) {
+        console.error("orders failed:", err && err.stack ? err.stack : err);
+        return json({ error: "Something went wrong. Please try again." }, 500, origin, env);
       }
     }
     if (request.method !== "POST") {

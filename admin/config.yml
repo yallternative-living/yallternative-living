@@ -1438,6 +1438,14 @@ singletons:
               hint: "Lets customers check order progress and shipping status."
             }
           - {
+              name: enableOrderHistory,
+              label: "Shop · Show the Your Orders page",
+              widget: boolean,
+              default: true,
+              required: false,
+              hint: "Lets a repeat customer see their past orders, reorder and follow a parcel by emailing themselves a one-time link -- no account or password. Off hides the links to it and the page shows an 'email us' note instead."
+            }
+          - {
               name: enableLiveChat,
               label: "Site · Show live chat (Tawk.to)",
               widget: boolean,
@@ -2113,6 +2121,62 @@ singletons:
                   widget: text,
                   required: false
                 }
+
+      - name: orders
+        label: Your Orders page
+        widget: object
+        collapsed: true
+        summary: "your-orders page wording"
+        fields:
+          - {
+              name: eyebrow,
+              label: "Small line above the headline",
+              widget: string,
+              required: false,
+              hint: "The little caps line at the top of the page."
+            }
+          - {
+              name: headline,
+              label: "Headline",
+              widget: string,
+              required: false,
+              hint: "The big title. Keep it short -- it is also read out by screen readers as the page name."
+            }
+          - {
+              name: lede,
+              label: "Intro paragraph",
+              widget: text,
+              required: false,
+              hint: "One or two sentences under the headline explaining the page: no account, just a link by email."
+            }
+          - {
+              name: emailLabel,
+              label: "Email box label",
+              widget: string,
+              required: false,
+              hint: "Sits above the email box."
+            }
+          - {
+              name: emailHint,
+              label: "Email box — small note underneath",
+              widget: string,
+              required: false,
+              hint: "Say what happens next: a one-time link, opens once, expires in 24 hours."
+            }
+          - {
+              name: buttonText,
+              label: "Button text",
+              widget: string,
+              required: false,
+              hint: "The button that sends the link, e.g. 'Email me a link'."
+            }
+          - {
+              name: confirmation,
+              label: "Confirmation shown after the button is pressed",
+              widget: text,
+              required: false,
+              hint: "Shown for EVERY address, whether or not it has orders -- keep it neutral ('if we have orders for that address...'). Saying 'we found your orders' would let anyone check whether an email has shopped here."
+            }
 
       - name: contact
         label: Contact page

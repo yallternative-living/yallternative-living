@@ -604,7 +604,8 @@ function section(title) {
       "welcome.html",
       "journal.html",
       "reviews.html",
-      "order-status.html"
+      "order-status.html",
+      "orders.html"
     ];
     let jsonLdBlockCount = 0;
     const allHtmlPages = [...TOP_PAGES];

@@ -5,7 +5,7 @@
  */
 
 /** @const {string} Cache name key, updated on assets release. */
-const CACHE_NAME = "yallternative-cache-vf252c1b2eb88";
+const CACHE_NAME = "yallternative-cache-vc69dbf957bde";
 
 /**
  * The site not-found page is deliberately NOT on this list. A host answers a
@@ -43,18 +43,16 @@ const ASSETS_TO_CACHE = [
   /* The not-found page is deliberately absent -- see the note above. */
   '/reviews.html',
   '/order-status.html',
+  '/orders.html',
   '/thank-you.html',
   '/welcome.html',
   '/assets/css/styles.css',
   '/assets/css/cart.css',
   '/assets/js/main.js',
-  // The journal post renderer (see assets/js/markdown.js); journal.html loads
-  // it before main.js. The static /journal/<slug>.html pages are deliberately
-  // NOT precached -- see the note on the runtime handler below.
-  '/assets/js/markdown.js',
   '/assets/js/porch-light.js',
   '/assets/js/cart.js',
   '/assets/js/thank-you.js',
+  '/assets/js/orders.js',
   '/assets/js/content-data.js',
   '/assets/js/products-data.js',
   '/assets/js/events-data.js',
@@ -306,13 +304,6 @@ self.addEventListener('fetch', event => {
     if (isNavigation || isCodeAsset) {
       // Network-First strategy for HTML and code assets: prefer live server data when online,
       // fall back to cache only when offline or connection is lost.
-      //
-      // This branch is also what serves the generated journal post pages
-      // (/journal/<slug>.html) and product pages (/products/<id>.html):
-      // neither set is in ASSETS_TO_CACHE -- one page per post would grow the
-      // install budget with every article written -- so a post a shopper has
-      // opened is cached here on the way through, and one they have not opened
-      // gets /offline.html below, exactly as a product page does.
       event.respondWith(
         (async () => {
           try {

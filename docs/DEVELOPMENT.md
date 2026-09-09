@@ -635,7 +635,9 @@ request.
 | `/api/stripe-webhook` -> `workers/routes/stripe-webhook.js`       | Cloudflare Worker                            | `POST` (Stripe webhook only) | Mints the redemption code, emails recipient, settles redemptions, restores balance on refund, cleans up ephemeral coupon on expired session.     | Verifies HMAC-SHA-256 signature against `STRIPE_WEBHOOK_SECRET`. Exactly-once claims in D1. |
 | `/api/gift-card-balance` -> `workers/routes/gift-card-balance.js` | Cloudflare Worker                            | `POST` (preferred) and `GET` | Looks a gift-card code up and returns its current and original amount from the Durable Object ledger.                                            | Origin-allowlisted, `Cache-Control: no-store`.                                              |
 | `/api/restock` -> `workers/routes/restock.js`                     | Cloudflare Worker                            | `POST`                       | Records restock notification interest and dispatches notifications via Resend.                                                                   | Origin-allowlisted, sanitized inputs.                                                       |
-| `order-status.html`                                               | Static page                                  | —                            | **Not an endpoint.** It makes no request to anything. It is a contact hand-off: it collects the order reference and points the shopper at email. | Nothing to secure; nothing to trust.                                                        |
+| `/api/order-status` -> `workers/routes/order-status.js`           | Cloudflare Worker                            | `POST`                       | `{sessionId, email}` -> one real order from Stripe, for `order-status.html`. A wrong email and an unknown id answer the same 404.                    | Origin-allowlisted, 5/min per IP, never returns the street address or the email.            |
+| `/api/orders/request-link` -> `workers/routes/orders.js`          | Cloudflare Worker                            | `POST`                       | `{email}` -> emails a one-time link to `orders.html`. The same neutral 200 for every address (see section 22).                                   | 3 per 10 min per client and per address hash; suppression list honoured; no PII in the link. |
+| `/api/orders?token=` -> `workers/routes/orders.js`                | Cloudflare Worker                            | `GET`                        | The orders behind that link (newest 25) and the points balance. Burns the token.                                                                 | Token bound to the address hash, single-use, 24h; every refusal one 403; `no-store`.        |
 
 _(Note: The legacy `/.netlify/functions/` routes have been completely retired and deleted from the repository. Netlify hosts static assets only.)_
 
@@ -687,7 +689,8 @@ Set on the **Cloudflare Worker** (Settings -> Variables and Secrets) — the Wor
 | ----------------------- | ----------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------ |
 | `STRIPE_SECRET_KEY`     | checkout, balance                               | yes      | Secret. Restrict to Checkout Sessions, Coupons, Promotion Codes, Customers (write), and Tax Settings (read). |
 | `STRIPE_WEBHOOK_SECRET` | `routes/stripe-webhook.js`                      | yes      | Secret. Signing secret for `/api/stripe-webhook`. Verifies Stripe webhook HMAC signature.                    |
-| `RESEND_API_KEY`        | `routes/stripe-webhook.js`, `routes/restock.js` | yes      | Secret. Sends transactional gift card and restock emails.                                                    |
+| `RESEND_API_KEY`        | `routes/stripe-webhook.js`, `routes/restock.js`, `routes/orders.js` | yes      | Secret. Sends transactional gift card, restock and order-history-link emails.                     |
+| `MAGIC_LINK_SECRET`     | `routes/retention.js`, `routes/orders.js`       | yes      | Secret, 32+ random characters. Signs the points, unsubscribe and order-history links. Already set for the retention layer; the orders page needs nothing extra. |
 | `FROM_EMAIL`            | `routes/stripe-webhook.js`                      | no       | Verified Resend sender address. Defaults to `orders@yallternativeliving.com`.                                |
 | `GIFT_CARD_FROM_EMAIL`  | `routes/stripe-webhook.js`                      | no       | Sender for gift-card emails. Falls back to `FROM_EMAIL`.                                                     |
 | `RESTOCK_NOTIFY_EMAIL`  | `routes/restock.js`                             | no       | Where restock alert summaries are delivered.                                                                 |
@@ -1611,3 +1614,60 @@ The site includes optional birthday capture on the footer newsletter form (`asse
 > Do not offer points as a birthday reward until a server-side ledger exists
 > that can verify a balance and record a spend atomically. A voucher code is a
 > real reward today; points are not.
+
+## 22. Your Orders (`orders.html`): order history without accounts
+
+**The gap it fills.** `order-status.html` needs the `cs_…` reference AND the
+email for every lookup — the right privacy posture for one order, and useless
+to a repeat buyer who wants to see what they bought last time, order it again,
+or check where a parcel is without digging out a receipt. Accounts and
+passwords would fix that at the cost of a password database to lose. A magic
+link fixes it for free: the shop already has `MAGIC_LINK_SECRET` (points and
+unsubscribe links) and `RESEND_API_KEY`.
+
+**The flow.**
+
+1. The shopper types the email they ordered with on `orders.html`. The page
+   POSTs `{email}` to `/api/orders/request-link` and shows the confirmation
+   from `content.json` (`orders.confirmation`) — the same wording for every
+   address, because the Worker's answer is the same for every address.
+2. If the shop has orders for that address (and it is not on the suppression
+   list), the Worker mints a 24-hour, single-use token whose subject is the
+   SHA-256 of the address — never the address — and emails
+   `orders.html?token=…` through Resend.
+3. Clicking it, `assets/js/orders.js` reads the token, removes it from the
+   address bar (`history.replaceState`), and GETs `/api/orders?token=…`. The
+   Worker verifies, burns, and returns the newest 25 orders (date, lines with
+   quantity and unit price, total, status, tracking link) plus the points
+   balance when the loyalty switch is on. A second click is a 403 and the
+   form comes back with a note.
+4. **Reorder** resolves each line's `productId` and `variant` against the live
+   catalog (`window.YL_PRODUCTS`) and calls `window.YLCart.addItems` — the
+   same door the shop's own buttons use, so pricing stays server-side at
+   checkout. Gift cards, build-your-own boxes and gift sets with per-member
+   choices are listed but not re-added; sold-out options are skipped and the
+   page says so.
+
+**Where the data lives.** `orders` in D1 (schema v8; `workers/state/orders.js`),
+written by the webhook once per paid session and updated with tracking by the
+hourly ship-notice sweep. `docs/STATE-LAYER.md` §4.10 has the design and the
+reasons; `workers/README.md` §2b-ii has the routes and limits.
+
+**What the owner controls.** Everything the page says — small line, headline,
+intro, email label and hint, button text, confirmation — is under **Site
+Settings → Your Orders page** in `/admin` (`content.json` `orders.*`), and the
+whole feature is one switch, **Shop · Show the Your Orders page**
+(`site.enableOrderHistory`, default on). Off hides every link to the page
+(footer, thank-you page, order-status page — the `.orders-history-link`
+selector in `FEATURE_SELECTORS`), the page shows an "email us" note, and both
+routes answer 404.
+
+**Rules that keep it honest.** `assets/js/orders.js` never assigns
+`innerHTML` from a server string, only renders `http(s)` tracking links, and
+sends no analytics event (`docs/ANALYTICS.md`). The page is `noindex` and
+absent from `sitemap.xml`. `scripts/worker-orders.test.js` pins neutrality,
+both rate limits, mint/verify/burn, cross-address isolation, the list shape,
+the tracking merge and the webhook write; `scripts/orders-page.browser.test.js`
+drives the page with the Worker mocked — form, neutral confirmation (the DOM
+after a known and an unknown address is byte-identical), list rendering,
+token scrubbing, and a Reorder into the real cart.

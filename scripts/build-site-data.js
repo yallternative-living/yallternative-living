@@ -4195,6 +4195,7 @@ function buildSiteData() {
   injectPageCopy("privacy.html", "privacy");
   injectPageCopy("terms.html", "terms");
   injectPageCopy("policies.html", "policies");
+  injectPageCopy("orders.html", "orders");
 
   // Inject the Journal title/subheading (content.json's `journal` key)
   function injectJournalCopy() {
@@ -4342,6 +4343,7 @@ function buildSiteData() {
     "journal.html",
     "reviews.html",
     "order-status.html",
+    "orders.html",
     "safety.html"
   ].forEach(function (page) {
     const filePath = path.join(ROOT, page);
@@ -4989,6 +4991,9 @@ function buildSiteData() {
       "thank-you.html",
       "welcome.html",
       "journal.html",
+      // The order-history page is noindexed (its URL carries a one-time
+      // token) and so not in PAGES/sitemap.xml, but it ships the same chrome.
+      "orders.html",
       "assets/data/footer.html"
     ]);
 
@@ -5062,7 +5067,11 @@ function buildSiteData() {
       const FEATURE_SELECTORS = {
         enableApothecaryQuiz: "#apothecary-quiz-section",
         enableCountdownTicker: "#yl-countdown-ticker",
-        enableOrderStatusLookup: "#order-status-modal, #openOrderStatusBtn"
+        enableOrderStatusLookup: "#order-status-modal, #openOrderStatusBtn",
+        // The links TO orders.html (footer, thank-you, order-status). The
+        // page itself reads the same switch at runtime (assets/js/orders.js)
+        // and shows the contact hand-off; the Worker refuses both endpoints.
+        enableOrderHistory: ".orders-history-link"
       };
       updated = updated.replace(
         /<!--YL:featureStyles-->([\s\S]*?)<!--\/YL:featureStyles-->/g,
@@ -5440,7 +5449,7 @@ function buildSiteData() {
   (function cleanAttributeMarkers() {
     const htmlPages = PAGES.map(function (p) {
       return p.loc;
-    }).concat(["404.html", "thank-you.html", "welcome.html", "journal.html"]);
+    }).concat(["404.html", "thank-you.html", "welcome.html", "journal.html", "orders.html"]);
     PRODUCTS.forEach(function (product) {
       htmlPages.push("products/" + product.id + ".html");
     });

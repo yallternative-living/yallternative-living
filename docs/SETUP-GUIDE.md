@@ -218,6 +218,16 @@ silently never arrives.
    (Cloudflare → the Worker → **Logs**, search `owner-alert`) -- which is
    the one place nobody looks, so set the key.
 
+5. **The "Your Orders" page needs nothing extra.** `/orders.html` lets a
+   returning customer email themselves a one-time link to their order
+   history (no account, no password). It runs on this same `RESEND_API_KEY`
+   and on `MAGIC_LINK_SECRET`, the signing secret the points and unsubscribe
+   links already use (`workers/README.md` step 3). If both are set in
+   Cloudflare, the page already works; if either is missing, the page says
+   "temporarily unavailable" rather than pretending. The wording and the
+   on/off switch are in your dashboard (`docs/EDITING-GUIDE.md`,
+   Walkthrough 5c).
+
 ---
 
 ## Step 7: Live Chat (Tawk.to) — optional

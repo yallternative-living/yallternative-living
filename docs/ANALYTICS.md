@@ -137,6 +137,14 @@ would be counted twice.
 
 ### Page views
 
+**`orders.html` sends nothing of its own.** The order-history page
+(`assets/js/orders.js`) fires no event: not on the link request, not on the
+list, not on Reorder. Its pageview is recorded like any other, and the
+one-time `?token=` it opens with never reaches the tracker twice over — the
+tracker drops the query string before sending (`data-exclude-search`, below),
+and the page removes the token from the address bar before it settles. The
+token itself carries a hash of the address, never the address.
+
 One per page load, automatically, plus one **performance** event per page load
 (`data-performance="true"`) carrying Core Web Vitals — LCP, INP, CLS, FCP, TTFB
 and the page's duration — measured on the visitor's real device. Each pageview

@@ -15,6 +15,10 @@
  *
  *   token := "v1." + base64url(JSON payload) + "." + base64url(HMAC-SHA-256)
  *   payload := { e: email, p: purpose, iat: seconds, exp: seconds, jti: id }
+ *   -- or, for a link that must carry no PII at all (the order-history link),
+ *   payload := { s: subject, p: purpose, iat, exp, jti } where `subject` is an
+ *   opaque id the caller derives (a SHA-256 of the address). verifyToken
+ *   hands back whichever claim the token carries.
  *
  * The signature covers "v1.<payload>", so neither the version nor any claim can
  * be edited without invalidating it. Comparison is constant-time: a byte-by-byte
@@ -100,15 +104,25 @@ function randomId() {
  * minting is free and an unused token simply expires.
  *
  * @param {string} secret env.MAGIC_LINK_SECRET
- * @param {{email: string, purpose: string, ttlSeconds?: number,
+ * @param {{email?: string, subject?: string, purpose: string, ttlSeconds?: number,
  *   maxTtlSeconds?: number, now?: number}} claims `maxTtlSeconds` raises this
- *   call's own ceiling above the 24h default, up to 180 days.
- * @returns {Promise<{token: string, tokenId: string, expiresAt: number, email: string}>}
+ *   call's own ceiling above the 24h default, up to 180 days. Exactly one of
+ *   `email` or `subject` (an opaque hex id, 16..64 chars) is required.
+ * @returns {Promise<{token: string, tokenId: string, expiresAt: number,
+ *   email?: string, subject?: string}>}
  *   `expiresAt` is epoch SECONDS, matching the `exp` claim.
  */
 export async function signToken(secret, claims) {
   const params = claims || {};
-  if (typeof params.email !== "string" || !params.email.includes("@")) {
+  const hasSubject = typeof params.subject === "string" && params.subject.length > 0;
+  if (hasSubject) {
+    if (params.email !== undefined) {
+      throw new TypeError("magic-link: pass email or subject, not both.");
+    }
+    if (!/^[a-f0-9]{16,64}$/.test(params.subject)) {
+      throw new TypeError("magic-link: subject must be a hex id of 16 to 64 characters.");
+    }
+  } else if (typeof params.email !== "string" || !params.email.includes("@")) {
     throw new TypeError("magic-link: email is required.");
   }
   if (typeof params.purpose !== "string" || !/^[a-z0-9-]{3,32}$/.test(params.purpose)) {
@@ -120,9 +134,9 @@ export async function signToken(secret, claims) {
   );
   const ttl = Math.min(Math.max(Number(params.ttlSeconds) || DEFAULT_TTL_SECONDS, 60), ceiling);
   const nowSeconds = Math.floor((params.now || Date.now()) / 1000);
-  const email = params.email.trim().toLowerCase();
+  const email = hasSubject ? undefined : params.email.trim().toLowerCase();
   const payload = {
-    e: email,
+    ...(hasSubject ? { s: params.subject } : { e: email }),
     p: params.purpose,
     iat: nowSeconds,
     exp: nowSeconds + ttl,
@@ -134,7 +148,7 @@ export async function signToken(secret, claims) {
     token: `${body}.${bytesToBase64Url(signature)}`,
     tokenId: payload.jti,
     expiresAt: payload.exp,
-    email
+    ...(hasSubject ? { subject: params.subject } : { email })
   };
 }
 
@@ -147,7 +161,9 @@ export async function signToken(secret, claims) {
  * @param {{purpose?: string, now?: number}} [options] `purpose` additionally
  *   requires the token to have been minted for that purpose.
  * @returns {Promise<{valid: boolean, reason?: string, email?: string,
- *   purpose?: string, tokenId?: string, expiresAt?: number}>}
+ *   subject?: string, purpose?: string, tokenId?: string, expiresAt?: number}>}
+ *   `email` is set for a token minted with one, `subject` for a token minted
+ *   with an opaque subject; never both.
  */
 export async function verifyToken(secret, token, options = {}) {
   if (typeof token !== "string" || token.length === 0 || token.length > MAX_TOKEN_LENGTH) {
@@ -172,9 +188,10 @@ export async function verifyToken(secret, token, options = {}) {
   } catch {
     return { valid: false, reason: "malformed" };
   }
-  if (!payload || typeof payload.e !== "string" || typeof payload.exp !== "number") {
-    return { valid: false, reason: "malformed" };
-  }
+  if (!payload || typeof payload.exp !== "number") return { valid: false, reason: "malformed" };
+  const hasEmail = typeof payload.e === "string";
+  const hasSubject = typeof payload.s === "string" && /^[a-f0-9]{16,64}$/.test(payload.s);
+  if (hasEmail === hasSubject) return { valid: false, reason: "malformed" };
 
   const nowSeconds = Math.floor((options.now || Date.now()) / 1000);
   if (payload.exp <= nowSeconds) return { valid: false, reason: "expired" };
@@ -183,7 +200,7 @@ export async function verifyToken(secret, token, options = {}) {
   }
   return {
     valid: true,
-    email: payload.e,
+    ...(hasEmail ? { email: payload.e } : { subject: payload.s }),
     purpose: payload.p,
     tokenId: payload.jti,
     expiresAt: payload.exp

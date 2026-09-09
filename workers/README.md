@@ -19,6 +19,8 @@ router:
 | `POST /api/welcome-code`      | `{email}` -> a single-use Stripe Promotion Code for a new subscriber                |
 | `POST /api/birthday-club`     | `{email, birthday}` (MM/DD, never a year) -> stored with consent time               |
 | `POST /api/loyalty-balance`   | `{email, token}` -> Alt-Points balance; the token is REQUIRED                       |
+| `POST /api/orders/request-link` | `{email}` -> emails a one-time order-history link; the SAME 200 for every address  |
+| `GET /api/orders?token=`      | the orders behind that link (newest 25) + points balance; burns the token           |
 
 Everything else 404s as JSON. Every response is `Cache-Control: no-store`, and
 CORS is the apex + www allowlist with `Vary: Origin`. Snipcart is fully removed
@@ -385,6 +387,35 @@ rate-limited by IP, all 503 without `STATE_DB`):
 | `POST /api/welcome-code`    | `{email}`           | Mints one Promotion Code per address (`max_redemptions: 1`, first-order only, 45-day expiry).                  |
 | `POST /api/birthday-club`   | `{email, birthday}` | `MM/DD` only. Accepts a plain form post too and answers it with a 303 back to `thank-you.html`.                |
 | `POST /api/loyalty-balance` | `{email, token}`    | The signed `points` token from a post-purchase email. A balance is never readable by email alone.              |
+
+### 2b-ii. The order history (`/orders.html`)
+
+**Nothing new to set up.** It runs on the two secrets the retention layer
+already needs -- `MAGIC_LINK_SECRET` signs the link, `RESEND_API_KEY` sends it
+-- plus `STATE_DB`. Both routes answer 503 when either is missing, and 404
+when the owner switches the page off in /admin (`site.enableOrderHistory`).
+
+| Route                           | Body / query | Notes                                                                                                                                                                                                                                                                                                              |
+| ------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `POST /api/orders/request-link` | `{email}`    | Rate-limited 3 per 10 minutes per client AND per address hash. Answers the same neutral `200` whether the address has orders, has none, is unsubscribed, or the send failed -- the email goes out behind `waitUntil`, so even the timing matches. Transactional (no unsubscribe footer) but the suppression list is honoured. |
+| `GET /api/orders?token=`        | `?token=`    | Verifies the `orders`-purpose token, burns it (`burned_tokens`), lists that hash's orders newest-first (25 at most) and the points balance when `enableLoyaltyPoints` is on. Every refusal -- expired, replayed, tampered, wrong purpose -- is the same `403`. `Cache-Control: no-store`.                             |
+
+**The token carries a SHA-256 of the address, never the address**
+(`workers/state/magic-link.js`, the `subject` claim), so the emailed URL, the
+browser history it lands in and any proxy log hold no PII. The page scrubs it
+from the address bar on load (`assets/js/orders.js`). 24 hours, one use.
+
+**Storage** is one additive table, `orders` (schema v9, `workers/state/orders.js`):
+`session_id`, `email_hash`, `payment_intent`, `created`, `amount_total`,
+`currency`, `status`, `line_items_json`, `tracking_url`. Written once per paid
+session by the webhook's `persistOrder` step -- `INSERT OR IGNORE`, so a
+redelivery writes nothing -- and updated by the hourly ship-notice sweep, which
+merges `fulfillment_status` and `tracking_url` in by PaymentIntent (a write only
+when something changed). The lines come from Stripe's line-item list with
+`price.product` expanded: `workers/checkout.js` stamps `yl_product_id`,
+`yl_variant` and `yl_kind` on every line's `product_data.metadata`, which is
+what lets the page's Reorder button put the right size back in the cart. No
+sweeper: an order history that forgets is not one.
 
 ### 2c. The MoCRA adverse-event route
 

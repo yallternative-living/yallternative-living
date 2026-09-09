@@ -72,6 +72,9 @@ var PAGES = [
   "journal.html",
   "reviews.html",
   "order-status.html",
+  // The passwordless order history. Noindexed and absent from sitemap.xml,
+  // but it ships every piece of chrome the other pages do.
+  "orders.html",
   // The MoCRA adverse-event page. It ships the same chrome as every other
   // top-level page (Tawk block, search modal, footer, Umami marker), so it
   // belongs in this list or none of those assertions would ever see it.

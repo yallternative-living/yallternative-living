@@ -159,6 +159,31 @@ stateful step and returns `true` exactly once. `sweepBurnedTokens` is cron
 housekeeping. The secret is a Worker Secret; rotating it invalidates every
 outstanding link, which is the intended emergency behaviour.
 
+A token may carry an opaque `subject` (a hex id such as a SHA-256 of the
+address) instead of `email` — `signToken({ subject, purpose })` — and
+`verifyToken` hands back whichever one it carried, never both. The order
+history uses this so the emailed URL holds no PII.
+
+## `orders.js` — D1, the customer's order history
+
+```js
+await recordOrderRow(db, { sessionId, email, paymentIntent, created, amountTotal, currency, items });
+await mergeShipment(db, { paymentIntent, status, trackingUrl });
+const orders = await listOrders(db, await hashEmail(email)); // newest 25
+```
+
+One row per paid Checkout Session, keyed by the SHA-256 of the address
+(`retention.js` `hashEmail`) — the address itself is never written. Lines
+are stored as JSON `{name, quantity, unitCents, productId, variant, kind}`,
+read off Stripe's line items with `price.product` expanded (the checkout
+stamps `yl_product_id` / `yl_variant` / `yl_kind` on every line).
+`recordOrderRow` is `INSERT OR IGNORE`; `mergeShipment` is a conditional
+`UPDATE` by PaymentIntent that costs a write only when the status or link
+changed, because the hourly ship-notice sweep calls it for the same parcel
+every pass. `emailForHash` reads the address back from `order_signals` for
+the one caller that needs it (the points balance). **No sweeper**: this is
+the customer's history, not operational state.
+
 ## `stripe-orders.js` — real, sanitised order lookup
 
 ```js

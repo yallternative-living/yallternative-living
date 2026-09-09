@@ -41,8 +41,18 @@
  * v7 (2026-09-09) added inventory and inventory_holds -- the live count that
  * decrements as orders are paid (workers/state/inventory.js), seeded from the
  * `stock` the owner sets in the CMS.
+ * v8 (2026-09-09) added seed_at / synced_at to inventory (SCHEMA_ALTERS below)
+ * so a stale catalog cannot reseed a row backwards and an un-tracked product
+ * is marked instead of frozen.
+ * v9 (2026-09-09) added orders -- the customer's own order history behind
+ * /orders.html (workers/state/orders.js), written from
+ * checkout.session.completed and keyed by a SHA-256 of the address, never
+ * the address itself. v8 and v9 landed on parallel branches, each bumping
+ * from v7; a database that reached "8" through either one is brought to 9
+ * here, which is safe because every statement is idempotent (CREATE IF NOT
+ * EXISTS, and the ALTERs swallow "duplicate column").
  */
-export const SCHEMA_VERSION = 8;
+export const SCHEMA_VERSION = 9;
 
 /** Verbatim from workers/schema.sql. Keep the two in sync -- a test enforces it. */
 export const SCHEMA_STATEMENTS = [
@@ -208,7 +218,23 @@ export const SCHEMA_STATEMENTS = [
   updated_at  INTEGER NOT NULL,
   PRIMARY KEY (session_id, product_id)
 )`,
-  `CREATE INDEX IF NOT EXISTS inventory_holds_state ON inventory_holds (state, created_at)`
+  `CREATE INDEX IF NOT EXISTS inventory_holds_state ON inventory_holds (state, created_at)`,
+  // v9: the order history (see workers/schema.sql and workers/state/orders.js
+  // for why the address is stored only as a hash, and why nothing sweeps it)
+  `CREATE TABLE IF NOT EXISTS orders (
+  session_id      TEXT PRIMARY KEY,
+  email_hash      TEXT NOT NULL,
+  payment_intent  TEXT,
+  created         INTEGER NOT NULL,
+  amount_total    INTEGER NOT NULL,
+  currency        TEXT NOT NULL,
+  status          TEXT NOT NULL,
+  line_items_json TEXT NOT NULL,
+  tracking_url    TEXT,
+  updated_at      INTEGER NOT NULL
+)`,
+  `CREATE INDEX IF NOT EXISTS orders_email_hash ON orders (email_hash, created)`,
+  `CREATE INDEX IF NOT EXISTS orders_payment_intent ON orders (payment_intent)`
 ];
 
 /**

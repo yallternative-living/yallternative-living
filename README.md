@@ -73,7 +73,7 @@ Here is a quick checklist of the external accounts you'll need to set up for lau
 - **Automated Verification**:
   - `npm test` runs the Node-only unit pool -- 50 non-browser `scripts/*.test.js` suites
     (52 with verification gates) covering cart and checkout pricing, tax, gift cards,
-    the build-data compiler, the journal Markdown renderer, the search engine and the
+    the order history, the build-data compiler, the journal Markdown renderer, the search engine and the
     CMS auth Worker -- then two further
     gates: `verify-pdp-metadata.js` (797 assertions on every product page's
     OpenGraph and microdata) and `verify-build-reproducibility.js` (five
@@ -83,13 +83,13 @@ Here is a quick checklist of the external accounts you'll need to set up for lau
     pricing, CSP byte-parity across `_headers` and `netlify.toml`,
     and lockfile hygiene. Both halves always run, and the exit code reflects
     either failing.
-  - `npm run test:integration` runs the browser pool: 21
-    `scripts/*.browser.test.js` suites (the challengers plus the minified-build
-    proof) and the Puppeteer
-    integration harnesses (27 total integration suites), an XSS/CSP stress harness that first proves the
+  - `npm run test:integration` runs the browser pool: 22
+    `scripts/*.browser.test.js` suites (the challengers, the minified-build
+    proof and the order-history page) and the Puppeteer
+    integration harnesses (28 total integration suites), an XSS/CSP stress harness that first proves the
     policy is being enforced, and an axe-core accessibility gate that allows
-    zero WCAG 2.2 AA violations across all 39 pages (17 top-level, 20
-    product pages and one page per journal post -- 2 today; 78 scans total).
+    zero WCAG 2.2 AA violations across all 40 pages (18 top-level, 20
+    product pages and one page per journal post -- 2 today; 80 scans total).
   - `npm run test:smoke` is the sub-three-second version that runs on every
     push; `npm run test:cross-browser` adds Firefox and WebKit.
 

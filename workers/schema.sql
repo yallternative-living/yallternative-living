@@ -402,3 +402,44 @@ CREATE TABLE IF NOT EXISTS inventory_holds (
   PRIMARY KEY (session_id, product_id)
 );
 CREATE INDEX IF NOT EXISTS inventory_holds_state ON inventory_holds (state, created_at);
+
+-- ---------------------------------------------------------------------------
+-- v9 (2026-09-09): orders -- the customer's own order history (v8 added
+-- seed_at / synced_at to inventory; see workers/state/migrations.js).
+--
+-- Stripe stays the system of record for an order; this is the customer-facing
+-- COPY that /orders.html lists, written once per paid Checkout Session by the
+-- webhook (workers/routes/stripe-webhook.js, persistOrder) so a repeat buyer
+-- can see what they bought, reorder it, and follow a parcel without a
+-- `cs_...` reference in hand. order_signals could not do this job: it holds
+-- product ids and categories for the email sequence, not quantities, unit
+-- prices, totals, status or tracking.
+--
+-- email_hash is SHA-256 of the normalised address (workers/state/retention.js
+-- hashEmail, the same digest order_signals carries) -- the address itself is
+-- never written here. The magic link a customer clicks carries that hash as
+-- its subject, so neither the URL nor this table holds an email; the one
+-- thing that needs the address (the points balance) reads it back from
+-- order_signals, which already stores it for the email sequence.
+--
+-- payment_intent lets the hourly ship-notice sweep (routes/ship-notice.js)
+-- merge fulfillment_status and tracking_url in by the id the owner's Stripe
+-- edit is keyed on, without a session lookup.
+--
+-- Nothing sweeps this table, on purpose: an order history that forgets is
+-- not one. Rows are small (a JSON list of name/qty/unit price per line).
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS orders (
+  session_id      TEXT PRIMARY KEY,
+  email_hash      TEXT NOT NULL,
+  payment_intent  TEXT,
+  created         INTEGER NOT NULL,
+  amount_total    INTEGER NOT NULL,
+  currency        TEXT NOT NULL,
+  status          TEXT NOT NULL,
+  line_items_json TEXT NOT NULL,
+  tracking_url    TEXT,
+  updated_at      INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS orders_email_hash ON orders (email_hash, created);
+CREATE INDEX IF NOT EXISTS orders_payment_intent ON orders (payment_intent);

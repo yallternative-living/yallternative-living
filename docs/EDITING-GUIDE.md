@@ -331,6 +331,38 @@ so it always sends.
 
 ---
 
+### Walkthrough 5c: The "Your Orders" page
+
+`/orders.html` lets a customer who has bought here before see every order
+placed with their email — what they bought, the total, whether it has shipped,
+the tracking link — and put the same things back in their cart with one
+button. **There are no accounts and no passwords.** They type the email they
+ordered with, the shop emails them a link, and the link opens their orders.
+The link works once and dies after 24 hours; if they want to look again they
+ask for a fresh one.
+
+Nothing to set up: it uses the same Resend key that sends gift cards and the
+same signing secret the points links use.
+
+**What you can change (Site Settings → Your Orders page):** the small line
+above the headline, the headline, the intro paragraph, the email box label
+and the note under it, the button text, and the confirmation shown after the
+button is pressed. One rule for the confirmation: keep it neutral — "if we
+have orders for that address, a link is on its way". The page shows exactly
+the same words whether or not that email has ever ordered, so nobody can type
+someone else's address into it to find out if they shop here.
+
+**One switch (Site Settings → ⚙️ Site Settings → Shop · Show the Your Orders
+page):** off hides the links to it in the footer, on the thank-you page and on
+the order-status page, and the page itself shows an "email us" note instead of
+the form. Orders keep being recorded either way, so switching it back on shows
+everything.
+
+**Points:** if **Show Customer Rewards Points** is on, the page also shows the
+customer's Alt-Points balance and how far they are from the next reward code.
+
+---
+
 ### Walkthrough 6: Pop-Ups, Reviews, Blog, Social Feed & Site Settings
 
 #### A. Pop-Up Markets & Pride Events (Markets & Pop-Ups)
@@ -381,23 +413,18 @@ so it always sends.
    any six-hour stretch, so a bad night is one message, not fifty. If an alert
    arrives and you are not sure what it means, forward it to Steven.
 
-   **Two switches in that panel no longer switch anything.** They are still
-   drawn by the dashboard, but the features behind them have been withdrawn,
-   so ticking or unticking them changes nothing on the live site. They should
-   be removed from the dashboard next time `admin/config.yml` is touched:
+   **Two switches in that panel do less than their labels suggest.**
 
    - **Show Customer Rewards Points** (`enableLoyaltyPoints`, and the four
-     related "Rewards Currency" fields). Nothing ever credited points -- the
-     only balance was in the shopper's own browser -- and the redeem button
-     called an endpoint that minted real store credit for anyone who asked.
-     The earn message, the cart counter and the redeem button are all removed
-     until there is a real, server-side points ledger. Offer a discount code
-     instead; that is a reward the shop can actually honour.
-   - **Show Order Lookup Tool** (`enableOrderStatusLookup`). The lookup
-     answered every enquiry with the same invented "Order Confirmed" order,
-     whatever was typed into it, and the toggle was read by nothing even then.
-     `/order-status` is now an honest contact hand-off: it takes the order
-     reference and points the customer at email.
+     related "Rewards Currency" fields). Points are credited server-side from
+     every paid order and paid out automatically as a discount code at the
+     threshold, whatever this switch says; the earn message, the cart counter
+     and the redeem button stay removed. What the switch DOES control is
+     whether the customer's balance is shown on the **Your Orders** page
+     (Walkthrough 5c) -- off hides it there.
+   - **Show Order Lookup Tool** (`enableOrderStatusLookup`). `/order-status`
+     now does a real lookup against Stripe (reference + email); off hides the
+     lookup form and shows the contact route instead.
 
 ---
 
@@ -457,7 +484,9 @@ The dashboard gives you control over your entire catalog, promotions, pricing, m
 | **Toggle site features** | `Site Settings` → `⚙️ Site Settings` | Turn quiz, rewards, ticker, or pickup on/off |
 | **Edit the "how to use it" email** | `1. Products` → Click product → `Usage & care` | Same copy the product page shows and the after-delivery email sends |
 | **Turn that email off, or move it** | `Site Settings` → `⚙️ Site Settings` → `Emails to customers · …` | Switch it off entirely, or change how many days after shipping it goes |
-| **Tell a customer it shipped** | Stripe → the payment → `Metadata` | Sends the tracking email and updates their order status page (see below) |
+| **Tell a customer it shipped** | Stripe → the payment → `Metadata` | Sends the tracking email and updates their order status page and their Your Orders page (see below) |
+| **Change the wording on the Your Orders page** | `Site Settings` → `Your Orders page` | Headline, intro, labels, button, confirmation (Walkthrough 5c) |
+| **Hide the Your Orders page** | `Site Settings` → `⚙️ Site Settings` → `Shop · Show the Your Orders page` | Off hides its links and shows an "email us" note on the page |
 | **Choose where "something broke" alerts go** | `Site Settings` → `⚙️ Site Settings` → `Emails to me · Where shop alerts go` | Failures behind the scenes are emailed there (blank = the order mailbox), at most one per problem every six hours |
 
 ---

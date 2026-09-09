@@ -187,6 +187,11 @@ const INCOMPLETE_BASELINE = {
   "offline.html [light]": 2,
   "order-status.html [dark]": 7,
   "order-status.html [light]": 7,
+  /* orders.html: the passwordless order history. Same chrome as
+     order-status.html and the same seven undecidable nodes (the header
+     controls and the form button over the card gradient); measured 2026-09-09. */
+  "orders.html [dark]": 7,
+  "orders.html [light]": 7,
   "policies.html [dark]": 19,
   "policies.html [light]": 19,
   "privacy.html [dark]": 19,
@@ -239,8 +244,11 @@ const INCOMPLETE_BASELINE = {
   "shop.html [light]": 105,
   "terms.html [dark]": 19,
   "terms.html [light]": 19,
-  "thank-you.html [dark]": 15,
-  "thank-you.html [light]": 15,
+  /* +1 on 2026-09-09: the "All Your Orders" outline button beside "Keep
+     Shopping", whose contrast axe cannot decide over the gradient exactly as
+     it cannot for the button next to it. */
+  "thank-you.html [dark]": 16,
+  "thank-you.html [light]": 16,
   "welcome.html [dark]": 14,
   "welcome.html [light]": 14
 };

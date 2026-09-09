@@ -54,6 +54,7 @@
     "enableLocalPickup": true,
     "enableCountdownTicker": true,
     "enableOrderStatusLookup": true,
+    "enableOrderHistory": true,
     "enableLoyaltyPoints": false,
     "enableEventJsonLd": true,
     "loyaltyPointsName": "Alt-Points",
@@ -204,6 +205,15 @@
       "closingTitle": "Can't Wait To Hear From You",
       "closingText": "While you wait on us to write back, go on and treat yourself: salves, soaks, and scents for the black sheep & bold hearts are just a click away."
     }
+  },
+  "orders": {
+    "eyebrow": "Apothecary Dispatch · Landrum, SC",
+    "headline": "Your Orders",
+    "lede": "No account, no password. Type the email you ordered with and we'll send a link that opens every order placed with it — what you bought, where it is, and a button to order it all again.",
+    "emailLabel": "Email used at checkout:",
+    "emailHint": "We'll email a one-time link to that address. It opens once and expires in 24 hours.",
+    "buttonText": "Email me a link",
+    "confirmation": "If we have orders for that address, a link is on its way. It works once and expires in 24 hours. Nothing in your inbox? Check spam, then try again in ten minutes."
   },
   "faq": {
     "heroTitle": "Frequently Asked Questions",

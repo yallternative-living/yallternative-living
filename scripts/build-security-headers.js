@@ -238,6 +238,7 @@ var PAGES = [
   "journal.html",
   "reviews.html",
   "order-status.html",
+  "orders.html",
   "policies.html",
   "terms.html",
   "welcome.html",

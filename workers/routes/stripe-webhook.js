@@ -57,6 +57,7 @@ import {
   scheduleRecoveryEmail
 } from "./retention-emails.js";
 import { recordOrder } from "../state/retention.js";
+import { recordOrderRow } from "../state/orders.js";
 import { giftNoteLink, giftNotesOf } from "./gift-note.js";
 import { loadOrderCatalog, productsNeedingChoice, sizeConfirmationEmail } from "./order-digest.js";
 import { emailShipNotice } from "./ship-notice.js";
@@ -278,12 +279,23 @@ function quoted(value) {
  * @returns {Promise<{items: Array|null, truncated: boolean}>} null items when
  *   nothing could be read; the caller still sends, and says so.
  */
+const lineItemsMemo = new WeakMap();
+
 async function lineItemsFor(session, env) {
   const own = session.line_items;
   if (own && Array.isArray(own.data)) return { items: own.data, truncated: own.has_more === true };
   if (!env.STRIPE_SECRET_KEY || typeof session.id !== "string") {
     return { items: null, truncated: false };
   }
+  // Two steps read the lines of one session (the owner's copy and the order
+  // history); one Stripe call serves both.
+  if (lineItemsMemo.has(session)) return lineItemsMemo.get(session);
+  const result = await fetchLineItems(session, env);
+  if (result.items) lineItemsMemo.set(session, result);
+  return result;
+}
+
+async function fetchLineItems(session, env) {
   const controller = typeof AbortController === "function" ? new AbortController() : null;
   const timer = controller
     ? setTimeout(() => controller.abort(), OWNER_EMAIL_STRIPE_TIMEOUT_MS)
@@ -293,7 +305,9 @@ async function lineItemsFor(session, env) {
   try {
     let startingAfter = null;
     for (let page = 0; page < OWNER_EMAIL_LINE_ITEM_PAGES; page++) {
-      const params = new URLSearchParams({ limit: "100" });
+      // `data.price.product` carries the yl_* metadata checkout.js writes per
+      // line, which is how the order history knows what to put back in the cart.
+      const params = new URLSearchParams({ limit: "100", "expand[]": "data.price.product" });
       if (startingAfter) params.set("starting_after", startingAfter);
       const res = await fetch(
         `${STRIPE_API_BASE}/checkout/sessions/${encodeURIComponent(session.id)}/line_items?${params}`,
@@ -1019,6 +1033,41 @@ async function recordAndSchedule(session, env, ctx, now = Date.now()) {
 }
 
 /**
+ * The customer's copy of the order, for /orders.html (state/orders.js).
+ *
+ * Keyed by a hash of the address, never the address. INSERT OR IGNORE on the
+ * session id, so a redelivery writes nothing. The line items come from the
+ * same read the owner's email uses (lineItemsFor memoises per session); when
+ * Stripe cannot be read the row is still written with an empty list rather
+ * than not at all, because a total and a date are worth more to the customer
+ * than nothing, and an order missing its lines still links to /order-status
+ * for them. A missing order is the failure the page exists to stop.
+ */
+async function persistOrder(session, env) {
+  if (!env.STATE_DB) return null;
+  // A session id that is not one is nothing a Stripe retry can fix: skip,
+  // loudly, rather than fail the webhook over it.
+  if (typeof session.id !== "string" || !/^cs_[A-Za-z0-9_]+$/.test(session.id)) {
+    console.warn("order-history: no usable session id; nothing recorded");
+    return { recorded: false, reason: "no-session-id" };
+  }
+  const email = buyerEmailOf(session);
+  if (!email) return null;
+  const { items } = await lineItemsFor(session, env);
+  const created = Number(session.created);
+  return recordOrderRow(env.STATE_DB, {
+    sessionId: session.id,
+    email,
+    paymentIntent: paymentIntentIdOf(session),
+    created: Number.isFinite(created) && created > 0 ? created * 1000 : Date.now(),
+    amountTotal: Number(session.amount_total) || 0,
+    currency: typeof session.currency === "string" ? session.currency : "usd",
+    status: "processing",
+    items: items || []
+  });
+}
+
+/**
  * Points for this order, and a payout if the balance has reached the threshold.
  *
  * Runs off the webhook and nowhere else: a credit on the strength of a request
@@ -1189,6 +1238,14 @@ export async function processStripeEvent(event, env, ctx) {
       outcome.loyalty = await creditPoints(session, env, ctx);
     } catch (err) {
       failures.push(`loyalty: ${err && err.message}`);
+    }
+    /* Pushed to `failures` on purpose: the write is idempotent, so a D1 blip
+       is worth a redelivery -- an order missing from the customer's history
+       is exactly what the orders page exists to stop. */
+    try {
+      outcome.orderHistory = await persistOrder(session, env);
+    } catch (err) {
+      failures.push(`order-history: ${err && err.message}`);
     }
     try {
       outcome.giftNote = await emailGiftNoteLink(session, env);
