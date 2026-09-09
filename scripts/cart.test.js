@@ -1391,6 +1391,234 @@ assert(
       "A non-JSON 500 falls back to the generic message instead of a parser error"
     );
 
+    /* ==========================================================
+       Availability auto-fix: a 400 that carries `unavailable` removes the
+       named line(s), persists, says what went and why, and leaves the
+       shopper to click Checkout again -- no auto-retry, no redirect.
+       ========================================================== */
+    const savedProductsForAutofix = mockWindow.YL_PRODUCTS;
+    mockWindow.YL_PRODUCTS = {
+      products: [
+        { id: "keep-soak", name: "Keep Soak", price: 18, category: "soaks" },
+        { id: "backroad-soak", name: "Backroad Soak", price: 12, category: "soaks" },
+        {
+          id: "frankincense-salve",
+          name: "Frankincense Salve",
+          price: 19.99,
+          category: "salves",
+          variants: {
+            name: "Size",
+            options: [
+              { label: "2oz", priceDelta: 0 },
+              { label: "4oz", priceDelta: 15, soldOut: true }
+            ]
+          }
+        },
+        { id: "shimmer-oil", name: "Shimmer Oil", price: 20, category: "body" }
+      ],
+      bundles: [
+        {
+          id: "pride-set",
+          name: "Pride Set",
+          productIds: ["keep-soak", "shimmer-oil"],
+          discountPercent: 10
+        }
+      ],
+      shop: { freeShippingThreshold: 40 }
+    };
+    function seedAutofixCart() {
+      storage.clear();
+      storage.set(
+        "yl-cart-v1",
+        JSON.stringify({
+          version: 1,
+          items: [
+            { id: "keep-soak", qty: 1, price: 18, name: "Keep Soak" },
+            { id: "backroad-soak", qty: 2, price: 12, name: "Backroad Soak" },
+            {
+              id: "frankincense-salve",
+              qty: 1,
+              price: 19.99,
+              name: "Frankincense Salve",
+              variantLabel: "2oz"
+            },
+            { id: "bundle-pride-set", qty: 1, price: 34.2, name: "Pride Set" }
+          ]
+        })
+      );
+      YLCart.init({ force: true });
+    }
+    function autofixLiveText() {
+      const el = mockDocument.body.children.find(
+        (c) => c.getAttribute && c.getAttribute("aria-live") === "polite"
+      );
+      return el ? el.textContent : "";
+    }
+    function storedIds() {
+      const raw = JSON.parse(mockLocalStorage.getItem("yl-cart-v1") || "{}");
+      return (raw.items || []).map((i) => i.id);
+    }
+
+    seedAutofixCart();
+    eq(
+      YLCart.items().map((i) => i.id),
+      ["keep-soak", "backroad-soak", "frankincense-salve", "bundle-pride-set"],
+      "autofix setup: four sellable lines load"
+    );
+
+    let autofixCalls = 0;
+    const locationBefore = mockWindow.location;
+    global.fetch = async () => {
+      autofixCalls++;
+      return {
+        ok: false,
+        status: 400,
+        json: async () => ({
+          error: "Sold out: Backroad Soak",
+          unavailable: [
+            { id: "backroad-soak", reason: "sold_out" },
+            { id: "bundle-pride-set", reason: "member_unavailable", member: "shimmer-oil" }
+          ]
+        })
+      };
+    };
+    checkoutButton()._listeners = {};
+    YLCart.open();
+    checkoutButton()._fire("click");
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    eq(
+      YLCart.items().map((i) => i.id),
+      ["keep-soak", "frankincense-salve"],
+      "the two lines the Worker named are removed; the other two stay"
+    );
+    eq(
+      storedIds(),
+      ["keep-soak", "frankincense-salve"],
+      "...and the removal is persisted, so a reload does not bring them back"
+    );
+    eq(
+      errorText(),
+      "Sold out: Backroad Soak was removed from your cart. " +
+        "Pride Set was removed from your cart: Shimmer Oil is unavailable.",
+      "the drawer names each removed line and why, in plain text"
+    );
+    assert(
+      /Backroad Soak was removed from your cart/.test(autofixLiveText()),
+      "the aria-live region announces the removal"
+    );
+    eq(autofixCalls, 1, "checkout is NOT retried on the shopper's behalf");
+    eq(mockWindow.location, locationBefore, "...and nothing navigates to Stripe");
+    eq(
+      checkoutButton().disabled,
+      false,
+      "the Checkout button is ready for the shopper's next click"
+    );
+
+    /* A refusal that names an option only removes the line holding THAT
+       option: the sold-out 4oz must not take the 2oz out of the cart. With
+       nothing matching, the Worker's own message is shown as before. */
+    global.fetch = async () => ({
+      ok: false,
+      status: 400,
+      json: async () => ({
+        error: "Product not purchasable: frankincense-salve",
+        unavailable: [{ id: "frankincense-salve", variant: "4oz", reason: "sold_out" }]
+      })
+    });
+    checkoutButton()._listeners = {};
+    YLCart.open();
+    checkoutButton()._fire("click");
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    eq(
+      YLCart.items().map((i) => i.id),
+      ["keep-soak", "frankincense-salve"],
+      "a sold-out 4oz does not remove the 2oz line"
+    );
+    eq(
+      errorText(),
+      "Product not purchasable: frankincense-salve",
+      "...and with nothing removed the Worker's message is shown verbatim"
+    );
+
+    /* The option match is forgiving the way the Worker's is (case, space). */
+    global.fetch = async () => ({
+      ok: false,
+      status: 400,
+      json: async () => ({
+        error: "Sold out: Frankincense Salve (2oz)",
+        unavailable: [{ id: "frankincense-salve", variant: " 2OZ ", reason: "sold_out" }]
+      })
+    });
+    checkoutButton()._listeners = {};
+    YLCart.open();
+    checkoutButton()._fire("click");
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    eq(
+      YLCart.items().map((i) => i.id),
+      ["keep-soak"],
+      "the matching 2oz line is removed"
+    );
+    eq(
+      errorText(),
+      "Sold out: Frankincense Salve (2oz) was removed from your cart.",
+      "...and the notice carries the option label"
+    );
+
+    /* A hostile body is data, never markup or a crash: an entry with no id,
+       a non-object entry, and an id that is not in the cart all do nothing. */
+    global.fetch = async () => ({
+      ok: false,
+      status: 400,
+      json: async () => ({
+        error: "Sold out: <b>x</b>",
+        unavailable: [null, 42, { reason: "sold_out" }, { id: "not-in-cart", reason: "sold_out" }]
+      })
+    });
+    checkoutButton()._listeners = {};
+    YLCart.open();
+    checkoutButton()._fire("click");
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    eq(
+      YLCart.items().map((i) => i.id),
+      ["keep-soak"],
+      "junk entries remove nothing"
+    );
+    eq(errorText(), "Sold out: <b>x</b>", "...and the message is shown as text, not markup");
+
+    /* The normal path: a set whose member is unavailable never reaches the
+       Worker at all -- load() drops it, as it drops a sold-out product. */
+    mockWindow.YL_PRODUCTS.products[3].stock = 0; // shimmer-oil, the Pride Set's member
+    seedAutofixCart();
+    eq(
+      YLCart.items().map((i) => i.id),
+      ["keep-soak", "backroad-soak", "frankincense-salve"],
+      "load() drops a saved gift set whose member has sold out"
+    );
+    eq(storedIds().indexOf("bundle-pride-set"), -1, "...and persists the drop");
+    delete mockWindow.YL_PRODUCTS.products[3].stock;
+    mockWindow.YL_PRODUCTS.products[1].inStock = false; // backroad-soak
+    seedAutofixCart();
+    eq(
+      YLCart.items().map((i) => i.id),
+      ["keep-soak", "frankincense-salve", "bundle-pride-set"],
+      "load() drops a saved product whose catalog entry says inStock: false"
+    );
+
+    mockWindow.YL_PRODUCTS = savedProductsForAutofix;
+    storage.clear();
+    storage.set(
+      "yl-cart-v1",
+      JSON.stringify({
+        version: 1,
+        items: [{ id: "physical-item", qty: 1, price: 20, name: "Physical Item" }]
+      })
+    );
+    YLCart.init({ force: true });
+
     global.fetch = originalFetch;
 
     /* ==========================================================

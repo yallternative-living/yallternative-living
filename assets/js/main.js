@@ -3653,6 +3653,18 @@
     );
   }
 
+  /* A gift set whose member is sold out, out of tracked stock or not yet
+     released is not on sale: the Worker refuses it (assertBundleMembersAvailable
+     in workers/checkout.js), so the shop must not offer it. Same three fields
+     the product cards read, and the same rule cart.js applies to a saved set. */
+  function bundleMembersAvailable(b, pMap) {
+    if (!b || !Array.isArray(b.productIds)) return true;
+    return b.productIds.every(function (id) {
+      var p = pMap && typeof pMap.get === "function" ? pMap.get(id) : null;
+      return !p || !(p.comingSoon === true || p.stock === 0 || p.inStock === false);
+    });
+  }
+
   function bundlesHTML(bundles, productsById) {
     var pMap = getProductMap();
     var isMap = productsById && typeof productsById.get === "function";
@@ -3853,6 +3865,7 @@
     var q = (query || "").trim().toLowerCase();
     var c = (concern || "all").trim();
     var filteredBundles = data.bundles.filter(function (b) {
+      if (!bundleMembersAvailable(b, pMap)) return false;
       if (c !== "all") {
         if (!Array.isArray(b.concerns) || !b.concerns.includes(c)) return false;
       }
@@ -6971,6 +6984,7 @@
 
       if (state.filter === "gift-sets") {
         var filteredBundles = (window.YL_PRODUCTS.bundles || []).filter(function (b) {
+          if (!bundleMembersAvailable(b, pMap)) return false;
           if (state.concern !== "all") {
             if (!Array.isArray(b.concerns) || !b.concerns.includes(state.concern)) return false;
           }
@@ -11610,6 +11624,7 @@
   if (typeof module !== "undefined" && module.exports) {
     module.exports = {
       bundlePriceFor,
+      bundleMembersAvailable,
       getWishlist: getWishlist,
       saveWishlist: saveWishlist,
       attrEsc: attrEsc,

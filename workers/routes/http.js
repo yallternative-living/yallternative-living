@@ -36,11 +36,25 @@ export const ALLOWED_ORIGINS = [
  * distinguishes the two.
  */
 export class ClientError extends Error {
-  constructor(message, status = 400) {
+  /**
+   * @param {string} message  shopper-safe text; becomes the JSON `error`
+   * @param {number} [status]
+   * @param {object} [details] extra top-level JSON fields for the client to
+   *   act on -- e.g. `{ unavailable: [{ id, reason }] }` so the cart drawer
+   *   can drop a sold-out line instead of just quoting the refusal. Never
+   *   allowed to override `error` (see clientErrorBody).
+   */
+  constructor(message, status = 400, details) {
     super(message);
     this.name = "ClientError";
     this.status = status;
+    this.details = details && typeof details === "object" ? details : null;
   }
+}
+
+/** The JSON body a ClientError answers with: its details, then its message. */
+export function clientErrorBody(err) {
+  return { ...(err && err.details ? err.details : {}), error: err.message };
 }
 
 export function isAllowedOrigin(origin, env) {

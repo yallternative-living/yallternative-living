@@ -175,7 +175,14 @@
  * routes that cannot are guarded and return 503 rather than pretending.
  */
 
-import { ClientError, isAllowedOrigin, json, preflight, stripControlChars } from "./routes/http.js";
+import {
+  ClientError,
+  clientErrorBody,
+  isAllowedOrigin,
+  json,
+  preflight,
+  stripControlChars
+} from "./routes/http.js";
 // The Stripe API version used to be "ONE VALUE, FOUR FILES" -- this file plus
 // three Netlify functions, all reading and writing the same Stripe objects,
 // each with its own copy of the string. The functions are retired and the
@@ -614,7 +621,7 @@ function bundleVariantMembers(catalog, bundle) {
  * Returns [{productId, productName, variantName, label, priceDelta}] using
  * the CATALOG's spelling of every label, which is what reaches Stripe.
  */
-function resolveBundleVariantChoices(catalog, bundle, rawChoices) {
+function resolveBundleVariantChoices(catalog, bundle, rawChoices, lineId) {
   const members = bundleVariantMembers(catalog, bundle);
   if (!members.length) return [];
   const choices =
@@ -647,7 +654,14 @@ function resolveBundleVariantChoices(catalog, bundle, rawChoices) {
     }
     if (opt.soldOut) {
       throw new ClientError(
-        `${m.product.name} (${opt.label}) is sold out, so the ${setName} can't be made up that way.`
+        `${m.product.name} (${opt.label}) is sold out, so the ${setName} can't be made up that way.`,
+        400,
+        unavailableDetails({
+          id: lineId || bundle.id,
+          variant: opt.label,
+          reason: "sold_out",
+          member: m.productId
+        })
       );
     }
     resolved.push({
@@ -711,6 +725,20 @@ function resolveBundlePriceDollars(catalog, bundle, variantChoices) {
  * false` is not offered, and a tracked `stock` of 0 means nothing is on hand.
  * Returns the reason a product cannot be sold, or null when it can.
  */
+/**
+ * The structured half of an availability refusal. It rides on the ClientError
+ * as `details` and reaches the browser as a top-level `unavailable` array next
+ * to the human `error`, so the cart drawer can drop the line it names instead
+ * of just quoting the refusal (assets/js/cart.js dropUnavailableLines()).
+ *   id      the cart line id exactly as the client sent it
+ *   variant the chosen option label, when the refusal is about one option
+ *   reason  "sold_out" | "coming_soon" | "member_unavailable"
+ *   member  for a set or box, the member product id that is unavailable
+ */
+function unavailableDetails(entry) {
+  return { unavailable: [entry] };
+}
+
 function unavailableReasonOf(product) {
   if (!product) return "Product not found";
   if (product.comingSoon) return "Not available yet";
@@ -730,7 +758,7 @@ function unavailableReasonOf(product) {
  * the set, so the drawer can show it -- fail closed, never take money for a
  * set that cannot be made up.
  */
-function assertBundleMembersAvailable(catalog, bundle) {
+function assertBundleMembersAvailable(catalog, bundle, lineId) {
   if (!bundle || !Array.isArray(bundle.productIds)) return;
   const productMap = productMapOf(catalog);
   const setName = bundle.name || bundle.id;
@@ -740,7 +768,9 @@ function assertBundleMembersAvailable(catalog, bundle) {
     if (!reason) continue;
     const memberName = (p && p.name) || id;
     throw new ClientError(
-      `${reason}: ${memberName}, so the ${setName} can't be made up right now.`
+      `${reason}: ${memberName}, so the ${setName} can't be made up right now.`,
+      400,
+      unavailableDetails({ id: lineId || bundle.id, reason: "member_unavailable", member: id })
     );
   }
 }
@@ -1031,7 +1061,17 @@ function resolveCustomBoxCents(catalog, productIds) {
     // three fields the shop hides a product behind, so a stale builder or an
     // edited payload cannot put an unsellable product in a box.
     const unavailable = unavailableReasonOf(p);
-    if (unavailable) throw new ClientError(`${unavailable}: ${p.name || rawId}`);
+    if (unavailable) {
+      throw new ClientError(
+        `${unavailable}: ${p.name || rawId}`,
+        400,
+        unavailableDetails({
+          id: CUSTOM_BOX_ID,
+          reason: "member_unavailable",
+          member: String(rawId)
+        })
+      );
+    }
     if (eligible && eligible.indexOf(p.category) === -1) {
       throw new ClientError(`Not eligible for a custom box: ${rawId}`);
     }
@@ -1256,10 +1296,18 @@ async function handleCheckout(request, env, ctx, origin) {
         // from a stale cart or an edited payload -- and taking the money for
         // something that cannot ship is worse than losing the sale.
         if (entry.comingSoon) {
-          throw new ClientError(`Not available yet: ${entry.name || item.id}`);
+          throw new ClientError(
+            `Not available yet: ${entry.name || item.id}`,
+            400,
+            unavailableDetails({ id: String(item.id), reason: "coming_soon" })
+          );
         }
         if (entry.inStock === false) {
-          throw new ClientError(`Sold out: ${entry.name || item.id}`);
+          throw new ClientError(
+            `Sold out: ${entry.name || item.id}`,
+            400,
+            unavailableDetails({ id: String(item.id), reason: "sold_out" })
+          );
         }
 
         const isGiftCard = item.id === GIFT_CARD_ID;
@@ -1267,11 +1315,30 @@ async function handleCheckout(request, env, ctx, origin) {
         // A set is only as available as its members: a sold-out or
         // coming-soon member refuses the whole set, exactly as it would be
         // refused on its own line.
-        if (isBundle) assertBundleMembersAvailable(catalog, entry);
+        if (isBundle) assertBundleMembersAvailable(catalog, entry, String(item.id));
+        // A chosen option that exists but is sold out. resolveUnitAmountCents
+        // refuses it too, with the same "not purchasable" answer an unknown
+        // label gets -- that text is kept (cart.js and the challenger suites
+        // quote it); the structured field is what names the option, so the
+        // drawer can drop exactly that line and say why.
+        if (!isGiftCard && !isBundle) {
+          const chosen = findVariantOption(entry, item.variant);
+          if (chosen && chosen.soldOut) {
+            throw new ClientError(
+              `Product not purchasable: ${item.id}`,
+              400,
+              unavailableDetails({
+                id: String(item.id),
+                variant: chosen.label,
+                reason: "sold_out"
+              })
+            );
+          }
+        }
         // Throws a ClientError (-> 400 with the message) when a gift set
         // arrives with a missing, unknown or sold-out member choice.
         const bundleChoices = isBundle
-          ? resolveBundleVariantChoices(catalog, entry, item.bundleVariants)
+          ? resolveBundleVariantChoices(catalog, entry, item.bundleVariants, String(item.id))
           : [];
         const unitAmount = isGiftCard
           ? resolveGiftCardAmountCents(item.variant)
@@ -1293,7 +1360,11 @@ async function handleCheckout(request, env, ctx, origin) {
         // sellableQty() is the same cap the volume-price tiers counted with
         // above, so a tier can never be unlocked by units that will not ship.
         if (typeof entry.stock === "number" && Number.isFinite(entry.stock) && entry.stock <= 0) {
-          throw new ClientError(`Sold out: ${entry.name || item.id}`);
+          throw new ClientError(
+            `Sold out: ${entry.name || item.id}`,
+            400,
+            unavailableDetails({ id: String(item.id), reason: "sold_out" })
+          );
         }
         const qty = sellableQty(item.qty, entry);
 
@@ -1860,7 +1931,7 @@ async function handleCheckout(request, env, ctx, origin) {
       // balance that moved under a live checkout is a 409, and the cart tells
       // the two apart.
       if (err instanceof ClientError) {
-        return json({ error: err.message }, err.status || 400, origin, env);
+        return json(clientErrorBody(err), err.status || 400, origin, env);
       }
       console.error("Checkout failed:", err && err.stack ? err.stack : err);
       return json({ error: "Checkout failed. Please try again." }, 400, origin, env);
@@ -1916,7 +1987,7 @@ export default {
       return await ROUTES[route](request, env, origin, ctx);
     } catch (err) {
       if (err instanceof ClientError) {
-        return json({ error: err.message }, err.status || 400, origin, env);
+        return json(clientErrorBody(err), err.status || 400, origin, env);
       }
       console.error(`Route ${route} failed:`, err && err.stack ? err.stack : err);
       return json({ error: "Something went wrong. Please try again." }, 500, origin, env);

@@ -1826,6 +1826,142 @@ async function runWorkerCheckoutTests() {
     );
   }
 
+  /* ---- 1b. Every availability refusal also says WHICH line, structurally ---
+     The human `error` stays exactly as it was; `unavailable` rides beside it
+     so the cart drawer can remove the line it names and let the shopper
+     click Checkout again (assets/js/cart.js dropUnavailableLines). */
+  {
+    const soon = await executeCheckout({ items: [{ id: "coming-soon-oil", qty: 1 }] });
+    eq(
+      soon.data.unavailable,
+      [{ id: "coming-soon-oil", reason: "coming_soon" }],
+      "a comingSoon product names itself with reason coming_soon"
+    );
+    eq(
+      soon.data.error,
+      "Not available yet: Coming Soon Botanical Oil",
+      "...and the human message is unchanged beside it"
+    );
+
+    const gone = await executeCheckout({ items: [{ id: "sold-out-soak", qty: 1 }] });
+    eq(
+      gone.data.unavailable,
+      [{ id: "sold-out-soak", reason: "sold_out" }],
+      "an inStock === false product names itself with reason sold_out"
+    );
+    eq(gone.data.error, "Sold out: Sold Out Soak", "...message unchanged");
+
+    const zero = await executeCheckout({ items: [{ id: "stock-zero-salve", qty: 1 }] });
+    eq(
+      zero.data.unavailable,
+      [{ id: "stock-zero-salve", reason: "sold_out" }],
+      "a product whose tracked stock is 0 names itself with reason sold_out"
+    );
+
+    const variant = await executeCheckout({
+      items: [{ id: "frankincense-salve", qty: 1, variant: " 4OZ " }]
+    });
+    eq(variant.status, 400, "a sold-out option is still refused");
+    eq(
+      variant.data.unavailable,
+      [{ id: "frankincense-salve", variant: "4oz", reason: "sold_out" }],
+      "a sold-out option names the line AND the option, in the catalog's spelling"
+    );
+    eq(
+      variant.data.error,
+      "Product not purchasable: frankincense-salve",
+      "...while the human message stays the one the challenger suite pins"
+    );
+
+    const unknownVariant = await executeCheckout({
+      items: [{ id: "frankincense-salve", qty: 1, variant: "24 oz " }]
+    });
+    eq(unknownVariant.status, 400, "an unknown option is still refused");
+    eq(
+      unknownVariant.data.unavailable,
+      undefined,
+      "...but an unknown option is not an availability refusal: no line is named for removal"
+    );
+
+    const setChoice = await executeCheckout({
+      items: [{ id: "bundle-variant-set", qty: 1, bundleVariants: { "frankincense-salve": "4oz" } }]
+    });
+    eq(
+      setChoice.data.unavailable,
+      [
+        {
+          id: "bundle-variant-set",
+          variant: "4oz",
+          reason: "sold_out",
+          member: "frankincense-salve"
+        }
+      ],
+      "a sold-out member option names the set line as sent, the option, and the member"
+    );
+
+    const setMember = await executeCheckout({
+      items: [{ id: "bundle-sold-out-member-set", qty: 1 }]
+    });
+    eq(
+      setMember.data.unavailable,
+      [{ id: "bundle-sold-out-member-set", reason: "member_unavailable", member: "sold-out-soak" }],
+      "an unavailable member names the set line as sent and the member"
+    );
+    eq(
+      setMember.data.error,
+      "Sold out: Sold Out Soak, so the Sold Out Member Set can't be made up right now.",
+      "...message unchanged"
+    );
+
+    const setSoon = await executeCheckout({
+      items: [{ id: "bundle-coming-soon-member-set", qty: 1 }]
+    });
+    eq(
+      setSoon.data.unavailable,
+      [
+        {
+          id: "bundle-coming-soon-member-set",
+          reason: "member_unavailable",
+          member: "coming-soon-oil"
+        }
+      ],
+      "a coming-soon member is member_unavailable too"
+    );
+
+    const box = await executeCheckout({
+      items: [
+        {
+          id: "custom-box",
+          qty: 1,
+          boxProductIds: ["lavender-soak", "frankincense-salve", "stock-zero-salve"]
+        }
+      ]
+    });
+    eq(
+      box.data.unavailable,
+      [{ id: "custom-box", reason: "member_unavailable", member: "stock-zero-salve" }],
+      "a box names the box line and the member that cannot go in it"
+    );
+
+    const missingChoice = await executeCheckout({ items: [{ id: "bundle-variant-set", qty: 1 }] });
+    eq(
+      missingChoice.data.unavailable,
+      undefined,
+      "a set refused for a MISSING choice names nothing: the shopper picks, not removes"
+    );
+    const unknownProduct = await executeCheckout({ items: [{ id: "no-such-thing", qty: 1 }] });
+    eq(
+      unknownProduct.data.unavailable,
+      undefined,
+      "an unknown product id is not an availability refusal either"
+    );
+    eq(
+      Object.keys(gone.data).sort(),
+      ["error", "unavailable"],
+      "the refusal body is exactly error + unavailable, nothing else leaks"
+    );
+  }
+
   /* ---- 3. Volume tiers count what will ship, not what was asked for -------
      The multi-buy count used the client qty; the line's qty was capped to
      tracked stock afterwards. qty 2 of a stock-1 salve therefore unlocked the

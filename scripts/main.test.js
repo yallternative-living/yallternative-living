@@ -2326,5 +2326,44 @@ eq(
   "shop card and the Worker that charges agree on the set price"
 );
 
+/* A gift set whose member is sold out, out of tracked stock or not yet
+   released is filtered out of the shop's set listings before bundlesHTML()
+   draws anything -- the Worker refuses such a set, so the auto-fix in the
+   cart drawer is the backstop, not the normal path. */
+{
+  const members = new Map([
+    ["salve-1", { id: "salve-1", price: 20 }],
+    ["shea-1", { id: "shea-1", price: 18 }]
+  ]);
+  eq(
+    main.bundleMembersAvailable(bundleWithPrice, members),
+    true,
+    "bundleMembersAvailable: a set whose members are all on sale is offered"
+  );
+  for (const [label, patch] of [
+    ["stock: 0", { stock: 0 }],
+    ["inStock: false", { inStock: false }],
+    ["comingSoon: true", { comingSoon: true }]
+  ]) {
+    const hidden = new Map(members);
+    hidden.set("shea-1", Object.assign({ id: "shea-1", price: 18 }, patch));
+    eq(
+      main.bundleMembersAvailable(bundleWithPrice, hidden),
+      false,
+      `bundleMembersAvailable: a member with ${label} hides the set`
+    );
+  }
+  eq(
+    main.bundleMembersAvailable(bundleWithPrice, new Map([["salve-1", { id: "salve-1" }]])),
+    true,
+    "bundleMembersAvailable: a member missing from the map is left to bundlesHTML's own skip"
+  );
+  eq(
+    main.bundleMembersAvailable({ id: "no-members" }, members),
+    true,
+    "bundleMembersAvailable: a set with no productIds is not hidden by this rule"
+  );
+}
+
 console.log(`\nmain.test.js: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
