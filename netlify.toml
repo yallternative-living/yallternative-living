@@ -177,18 +177,6 @@
   status = 404
   force = true
 
-[[redirects]]
-  from = "/journal.html"
-  to = "/404.html"
-  status = 404
-  force = true
-
-[[redirects]]
-  from = "/feed.xml"
-  to = "/404.html"
-  status = 404
-  force = true
-
 # Clean URL for the safety page. This path is PRINTED ON THE PACKAGING
 # (MoCRA adverse-event contact), so it must resolve forever. status=200 is
 # a rewrite: /safety and /safety.html both serve safety.html.

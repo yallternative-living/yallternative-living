@@ -178,11 +178,13 @@
 import {
   ClientError,
   clientErrorBody,
+  clientIp,
   isAllowedOrigin,
   json,
   preflight,
   stripControlChars
 } from "./routes/http.js";
+import { checkRateLimit } from "./state/rate-limit.js";
 // The Stripe API version used to be "ONE VALUE, FOUR FILES" -- this file plus
 // three Netlify functions, all reading and writing the same Stripe objects,
 // each with its own copy of the string. The functions are retired and the
@@ -799,6 +801,72 @@ function sellableQty(rawQty, entry) {
   return qty;
 }
 
+function hasTrackedStock(entry) {
+  return Boolean(entry) && typeof entry.stock === "number" && Number.isFinite(entry.stock);
+}
+
+/**
+ * Sellable quantity of EVERY line, allocated against tracked stock across the
+ * whole cart -- one pass, in cart order, so the volume-tier count and the
+ * line items below agree with each other AND with the shelf.
+ *
+ * sellableQty() caps one line. Stock is tracked per PRODUCT, while lines are
+ * per product-and-option and a custom box is a line that holds several
+ * products at once, so a per-line cap alone oversold (2026-09-09 audit): a
+ * tee with `stock: 3` sold as a Small line and a Medium line was capped at 3
+ * twice and sold 6, and five boxes each holding a stock-1 salve went through
+ * with no stock check on the contents at all. Here each line takes what is
+ * left of its product's count after the lines before it, a box takes one
+ * unit of each of its contents per box, and a line that finds nothing left
+ * gets 0 -- which the line-item mapping refuses by name, so the drawer drops
+ * exactly that line.
+ *
+ * @returns {Array<{qty: number, exhausted: (string|null)}>} one entry per
+ *   cart line; `exhausted` names the product that ran out when qty is 0.
+ */
+function allocateStock(items, catalog) {
+  const remaining = new Map();
+  const productMap = productMapOf(catalog);
+  const left = (entry) =>
+    remaining.has(entry.id) ? remaining.get(entry.id) : Math.max(0, Math.floor(entry.stock));
+  const take = (entry, wanted) => {
+    if (!hasTrackedStock(entry)) return wanted;
+    const got = Math.min(wanted, left(entry));
+    remaining.set(entry.id, left(entry) - got);
+    return got;
+  };
+
+  return items.map((item) => {
+    const wanted = sellableQty(item && item.qty, null);
+    if (String(item && item.id) === CUSTOM_BOX_ID) {
+      const ids = Array.isArray(item.boxProductIds) ? item.boxProductIds : [];
+      // A product listed twice in one box needs two units per box.
+      const perBox = new Map();
+      for (const rawId of ids) {
+        const member = productMap.get(String(rawId));
+        if (!member || !hasTrackedStock(member)) continue;
+        perBox.set(member.id, { member, units: (perBox.get(member.id) || { units: 0 }).units + 1 });
+      }
+      let qty = wanted;
+      let exhausted = null;
+      for (const { member, units } of perBox.values()) {
+        const boxes = Math.floor(left(member) / units);
+        if (boxes < qty) {
+          qty = boxes;
+          if (qty <= 0) exhausted = member.id;
+        }
+      }
+      qty = Math.max(0, qty);
+      for (const { member, units } of perBox.values()) take(member, qty * units);
+      return { qty, exhausted };
+    }
+    const entry = findEntry(catalog, String(item && item.id));
+    if (!entry) return { qty: wanted, exhausted: null };
+    const qty = take(entry, wanted);
+    return { qty, exhausted: qty <= 0 && hasTrackedStock(entry) ? entry.id : null };
+  });
+}
+
 const QUALIFYING_2OZ_SALVE_PRICE_CENTS = 1500;
 
 const DEFAULT_VOLUME_PRICING = [
@@ -950,16 +1018,18 @@ function resolveUnitAmountCents(
   return baseCents;
 }
 
-// Gift card: parse "Preset $NN" and clamp to the allowed range -- see the
-// file-level comment above for why this doesn't go through the normal
-// variants.options lookup.
+// Gift card: parse "Preset $NN" -- see the file-level comment above for why
+// this doesn't go through the normal variants.options lookup. Anything that
+// is not a well-formed preset inside the allowed range is NOT purchasable
+// (null, the same answer an unknown variant gets), never clamped: until the
+// 2026-09-09 audit an unparseable label sold a $10 card and a "$999" label
+// sold a $500 one, the only fallback-to-a-price left in a file whose rule is
+// to fail closed -- and a card issued for an amount nobody chose is a refund.
 function resolveGiftCardAmountCents(variantLabel) {
   const m = /^Preset \$(\d+(?:\.\d{1,2})?)$/.exec(String(variantLabel || "").trim());
   const raw = m ? parseFloat(m[1]) : NaN;
-  const dollars = Number.isFinite(raw)
-    ? Math.min(GIFT_CARD_MAX, Math.max(GIFT_CARD_MIN, raw))
-    : GIFT_CARD_MIN;
-  return Math.round(dollars * 100);
+  if (!Number.isFinite(raw) || raw < GIFT_CARD_MIN || raw > GIFT_CARD_MAX) return null;
+  return Math.round(raw * 100);
 }
 
 function truncate(s, max) {
@@ -1144,8 +1214,31 @@ const ROUTES = {
   "/loyalty-balance": handleLoyaltyBalance
 };
 
+/**
+ * Session creation per client per minute. Every other public route already
+ * runs through checkRateLimit; this one -- the only route that creates
+ * Stripe objects (a Customer, a Coupon, a Session) on every call -- did not
+ * (2026-09-09 audit). An honest shopper clicks Checkout a handful of times in
+ * a minute at the very most; a loop hitting it costs Stripe API quota and
+ * clutters the account for free. Fails OPEN like order-status: a limiter
+ * that cannot count must not take checkout offline.
+ */
+export const CHECKOUT_RATE_LIMIT = { limit: 12, period: 60 };
+
 async function handleCheckout(request, env, ctx, origin) {
   {
+    const limit = await checkRateLimit(env, `checkout:${clientIp(request)}`, {
+      ...CHECKOUT_RATE_LIMIT,
+      failOpen: true
+    });
+    if (!limit.success) {
+      return json(
+        { error: "Too many checkout attempts. Please wait a minute and try again." },
+        429,
+        origin,
+        env
+      );
+    }
     try {
       const body = await request.json();
       const items = body && body.items;
@@ -1224,15 +1317,19 @@ async function handleCheckout(request, env, ctx, origin) {
       let bundleLineIndex = 0;
       const boxProductMap = productMapOf(catalog);
 
+      // What each line can actually ship, allocated across the cart in
+      // order -- the ONE count both the volume tiers and the line items use.
+      const allocation = allocateStock(items, catalog);
+
       const volumeRules = getVolumePricingRules(catalog);
       const ruleCounts = new Map();
       for (const rule of volumeRules) {
         // Count the units that will actually be sold, not the units asked
-        // for: a tracked `stock` caps each line below (sellableQty), and a
-        // tier unlocked by units that never ship is a discount on nothing.
-        const count = items.reduce((sum, item) => {
+        // for: tracked `stock` caps each line (allocateStock), and a tier
+        // unlocked by units that never ship is a discount on nothing.
+        const count = items.reduce((sum, item, idx) => {
           if (itemMatchesVolumeRule(item, rule, catalog)) {
-            return sum + sellableQty(item.qty, findEntry(catalog, String(item.id)));
+            return sum + allocation[idx].qty;
           }
           return sum;
         }, 0);
@@ -1248,18 +1345,30 @@ async function handleCheckout(request, env, ctx, origin) {
       const retentionProductIds = [];
       const retentionCategories = [];
 
-      const lineItems = items.map((item) => {
+      const lineItems = items.map((item, lineIndex) => {
+        const allocated = allocation[lineIndex];
         // Custom boxes have no catalog entry of their own -- priced and
         // validated entirely from their contents. Handled before findEntry(),
         // which would (correctly) fail to find "custom-box" in the catalog.
         if (String(item.id) === CUSTOM_BOX_ID) {
           const ids = Array.isArray(item.boxProductIds) ? item.boxProductIds : [];
           const unitAmount = resolveCustomBoxCents(catalog, ids);
-          const parsedBoxQty = parseInt(item.qty, 10);
-          const boxQty =
-            Number.isNaN(parsedBoxQty) || parsedBoxQty < 1
-              ? 1
-              : Math.min(parsedBoxQty, MAX_QTY_PER_ITEM);
+          // Boxes are capped by their scarcest tracked content, after the
+          // lines before this one took their share (allocateStock). Nothing
+          // left for even one box is refused by the member that ran out.
+          const boxQty = allocated.qty;
+          if (boxQty <= 0) {
+            const ran = boxProductMap.get(String(allocated.exhausted)) || {};
+            throw new ClientError(
+              `Sold out: ${ran.name || allocated.exhausted}`,
+              400,
+              unavailableDetails({
+                id: CUSTOM_BOX_ID,
+                reason: "member_unavailable",
+                member: String(allocated.exhausted)
+              })
+            );
+          }
           const contents = ids
             .map((id) => (boxProductMap.get(String(id)) || {}).name || id)
             .join(", ");
@@ -1366,7 +1475,25 @@ async function handleCheckout(request, env, ctx, origin) {
             unavailableDetails({ id: String(item.id), reason: "sold_out" })
           );
         }
-        const qty = sellableQty(item.qty, entry);
+        // What is left of a tracked count after the lines before this one:
+        // a second line of the same product (another size, say) that finds
+        // nothing left is refused like any other sold-out line, so the
+        // drawer drops that line and the rest of the order still goes through.
+        const qty = allocated.qty;
+        if (qty <= 0) {
+          const chosenOpt =
+            !isGiftCard && !isBundle ? findVariantOption(entry, item.variant) : null;
+          throw new ClientError(
+            `Sold out: ${entry.name || item.id}`,
+            400,
+            unavailableDetails(
+              Object.assign(
+                { id: String(item.id), reason: "sold_out" },
+                chosenOpt ? { variant: chosenOpt.label } : {}
+              )
+            )
+          );
+        }
 
         // The variant in the line name comes from the catalog option that was
         // matched server-side, never from item.variant -- otherwise a client

@@ -144,8 +144,18 @@ const INCOMPLETE_BASELINE = {
   "faq.html [light]": 11,
   "index.html [dark]": 39,
   "index.html [light]": 39,
-  "journal.html [dark]": 11,
-  "journal.html [light]": 11,
+  /* journal.html scales with the posts, the same way events.html scales with
+     its cards: each post card renders a "Read Post" outline button whose
+     contrast axe cannot decide over its pseudo-element (measured 2026-09-09
+     when the Journal was switched on: 11 chrome nodes + 1 per post). */
+  "journal.html [dark]": {
+    base: 11,
+    perElement: [{ selector: "#journalApp .btn", allowance: 1 }]
+  },
+  "journal.html [light]": {
+    base: 11,
+    perElement: [{ selector: "#journalApp .btn", allowance: 1 }]
+  },
   "offline.html [dark]": 2,
   "offline.html [light]": 2,
   "order-status.html [dark]": 7,

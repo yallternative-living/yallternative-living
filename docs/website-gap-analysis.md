@@ -1,5 +1,9 @@
 # Y'allternative Living — website gap analysis (2026-07-17)
 
+> **Superseded** by [AUDIT-2026-09-09-world-class-gaps.md](AUDIT-2026-09-09-world-class-gaps.md).
+> This file predates the Stripe migration and still describes Snipcart features
+> that no longer exist; it is kept for the history of what was decided when.
+
 A study of the current site against 2026 small-business e-commerce
 practice, to figure out what's actually missing versus what's already
 solid. Sources for the research claims are linked at the bottom.

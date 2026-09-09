@@ -111,21 +111,41 @@ export async function readJson(request, message = "Invalid request payload.") {
  * `/api/*` rule), so `CF-Connecting-IP` is NETLIFY's edge address, not the
  * shopper's -- keying on it alone would put every visitor in one bucket and
  * make the limiter useless. Netlify records the real client in
- * `X-Forwarded-For`, so the first entry is preferred and CF-Connecting-IP is
- * the fallback for direct (Cloudflare route) traffic.
+ * `X-Forwarded-For`, and Cloudflare then appends the address it saw the
+ * request come from (Netlify's) as the LAST entry.
  *
- * The first XFF entry is client-influenced and therefore spoofable. That is
- * acceptable HERE and nowhere else: this value only ever picks a counter
- * bucket. Nothing is authorised by it, and the endpoints behind it are safe
- * (if slower) when a determined caller rotates buckets -- see
- * workers/state/rate-limit.js on why a limiter is not the security boundary.
+ * Which entry to trust matters. Proxies APPEND to X-Forwarded-For, so the
+ * FIRST entry is whatever the caller put there -- a header any client can
+ * set, which made every "5 per minute per IP" limit a limit per string the
+ * caller chose (2026-09-09 audit). The entry Netlify appended is the last one
+ * BEFORE Cloudflare's own append, so that is the one used: Cloudflare's
+ * append is recognised by being equal to CF-Connecting-IP and stripped, then
+ * the last remaining entry wins. A direct hit on the Cloudflare route (no
+ * Netlify hop) has nothing left after the strip and keys on CF-Connecting-IP,
+ * which Cloudflare sets and a caller cannot forge.
+ *
+ * What a direct caller CAN still do is prepend junk entries and rotate them.
+ * Those land before the stripped Cloudflare entry, so they are picked as the
+ * key exactly as the first entry used to be -- for direct traffic this is no
+ * better than before, and no worse. That is acceptable HERE and nowhere
+ * else: this value only ever picks a counter bucket. Nothing is authorised
+ * by it, and the endpoints behind it are safe (if slower) when a determined
+ * caller rotates buckets -- see workers/state/rate-limit.js on why a limiter
+ * is not the security boundary.
  */
 export function clientIp(request) {
-  const forwarded = request.headers.get("X-Forwarded-For") || "";
-  const first = forwarded.split(",")[0].trim();
-  if (first && first.length <= 45) return first;
-  const direct = request.headers.get("CF-Connecting-IP");
-  return direct ? String(direct).slice(0, 45) : "unknown";
+  const direct = String(request.headers.get("CF-Connecting-IP") || "")
+    .trim()
+    .slice(0, 45);
+  const hops = String(request.headers.get("X-Forwarded-For") || "")
+    .split(",")
+    .map((h) => h.trim())
+    .filter((h) => h && h.length <= 45);
+  // Drop Cloudflare's own append (it repeats CF-Connecting-IP) from the tail,
+  // so the last entry left is the one the previous hop -- Netlify -- added.
+  while (hops.length && direct && hops[hops.length - 1] === direct) hops.pop();
+  if (hops.length) return hops[hops.length - 1];
+  return direct || "unknown";
 }
 
 /** Escape user-supplied text before it is interpolated into email HTML. */

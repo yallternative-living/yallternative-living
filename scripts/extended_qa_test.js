@@ -558,8 +558,15 @@ function createStaticServer(port = 8083) {
       const readLightbox = () => ({
         open: !!document.querySelector(".lightbox-modal[open]"),
         dots: document.querySelectorAll("#lightboxDots .lightbox-dot").length,
+        /* Root-absolute since the lightbox renders through pictureHTML()
+           (AVIF/WebP via the manifest, 2026-09-09) -- the same form every
+           other <img> on the site uses, so /products/ pages resolve it too.
+           Compared against the catalog path, which has no leading slash. */
         src: (document.getElementById("lightboxImage") || {}).getAttribute
-          ? document.getElementById("lightboxImage").getAttribute("src")
+          ? String(document.getElementById("lightboxImage").getAttribute("src") || "").replace(
+              /^\/+/,
+              ""
+            )
           : null
       });
 

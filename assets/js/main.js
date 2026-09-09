@@ -2304,15 +2304,19 @@
       '<button type="button" class="lightbox-close" aria-label="Close lightbox">&times;</button>' +
       '<div class="lightbox-content">' +
       '  <button type="button" class="lightbox-prev" aria-label="Previous image">&#10094;</button>' +
-      '  <img id="lightboxImage" alt="Enlarged product image">' +
+      '  <div class="lightbox-stage" id="lightboxStage"><img id="lightboxImage" alt="Enlarged product image"></div>' +
       '  <button type="button" class="lightbox-next" aria-label="Next image">&#10095;</button>' +
       "</div>" +
       '<div class="lightbox-dots" id="lightboxDots"></div>' +
-      '<div class="lightbox-ritual-wrap" id="lightboxRitualWrap"></div>';
+      '<div class="lightbox-ritual-wrap" id="lightboxRitualWrap"></div>' +
+      '<div class="sr-only" id="lightboxStatus" aria-live="polite" aria-atomic="true"></div>';
     document.body.appendChild(dialog);
 
     var currentImages = [];
     var currentIndex = 0;
+    var currentProduct = null;
+    var stageEl = dialog.querySelector("#lightboxStage");
+    var statusEl = dialog.querySelector("#lightboxStatus");
     var imgEl = dialog.querySelector("#lightboxImage");
     var dotsContainer = dialog.querySelector("#lightboxDots");
     var ritualWrap = dialog.querySelector("#lightboxRitualWrap");
@@ -2325,7 +2329,39 @@
       if (idx < 0) idx = currentImages.length - 1;
       if (idx >= currentImages.length) idx = 0;
       currentIndex = idx;
-      imgEl.src = currentImages[currentIndex];
+      var total = currentImages.length;
+      var photoLabel = total > 1 ? "Photo " + (currentIndex + 1) + " of " + total : "Photo";
+      var alt = currentProduct
+        ? currentProduct.name + (total > 1 ? ", photo " + (currentIndex + 1) + " of " + total : "")
+        : "Enlarged product image";
+      /* The image list is the JPEG originals (data-images / p.images), but
+         every one of them has AVIF and WebP renditions in the manifest;
+         loading the JPEG here was ~2x the bytes on the most-used
+         interaction on the page. Same <picture> the cards and PDP use. */
+      var manifest =
+        window.YL_IMAGES &&
+        window.YL_IMAGES[String(currentImages[currentIndex]).replace(/^\/+/, "")];
+      if (stageEl && manifest && typeof pictureHTML === "function") {
+        stageEl.innerHTML = pictureHTML(currentProduct || { name: alt }, {
+          imagePath: currentImages[currentIndex],
+          width: manifest.width || 900,
+          height: manifest.height || 900,
+          loading: "eager",
+          decoding: "async",
+          sizes: "(max-width: 900px) 100vw, 900px",
+          alt: alt
+        });
+        imgEl = stageEl.querySelector("img") || imgEl;
+        imgEl.id = "lightboxImage";
+      } else {
+        if (stageEl && !stageEl.contains(imgEl)) {
+          stageEl.innerHTML = "";
+          stageEl.appendChild(imgEl);
+        }
+        imgEl.src = currentImages[currentIndex];
+        imgEl.alt = alt;
+      }
+      if (statusEl) statusEl.textContent = photoLabel;
 
       // Update dots
       var dots = dotsContainer.querySelectorAll(".lightbox-dot");
@@ -2385,6 +2421,21 @@
 
     window.openLightbox = function (images, startSrc, productId) {
       currentImages = images || [];
+      currentProduct = null;
+      if (productId) {
+        var lbMap = getProductMap();
+        currentProduct = (lbMap && lbMap.get(productId)) || null;
+        if (
+          !currentProduct &&
+          window.YL_SEARCH_INDEX &&
+          Array.isArray(window.YL_SEARCH_INDEX.products)
+        ) {
+          currentProduct =
+            window.YL_SEARCH_INDEX.products.find(function (p) {
+              return p && p.id === productId;
+            }) || null;
+        }
+      }
       // Nothing to enlarge: opening an empty viewer shows the reader a blank
       // modal they then have to dismiss.
       if (!currentImages.length) return;
@@ -6962,6 +7013,7 @@
     }
 
     function render() {
+      syncShopUrl();
       var pMap = getProductMap();
       /* expandQuery() routes the query itself and hands back what it found, so
          this reads the answer rather than working it out a second time. "wound
@@ -7192,6 +7244,50 @@
       });
     }
 
+    function selectHasOption(select, value) {
+      return Array.prototype.some.call(select.options || [], function (o) {
+        return o.value === value;
+      });
+    }
+
+    /* Mirror the toolbar into the address bar (replaceState: no history
+       spam) so "Soaks + Dry Skin + Price: Low to High" can be shared, saved
+       and returned to with Back -- until 2026-09-09 every click here left
+       the URL at plain /shop.html. Only this toolbar's own keys are touched;
+       anything else on the query string (?lang=, ?market-alerts=) is kept.
+       A category hash (#soaks) is dropped once a category is chosen here,
+       because the hash would win over ?category= on the next load. */
+    var urlSyncReady = false;
+    function syncShopUrl() {
+      if (!urlSyncReady || typeof history === "undefined" || !history.replaceState) return;
+      try {
+        var params = new URLSearchParams(window.location.search);
+        params.delete("filter");
+        var setOrDrop = function (key, value, isDefault) {
+          if (value && !isDefault) params.set(key, value);
+          else params.delete(key);
+        };
+        setOrDrop("category", state.filter, state.filter === "all");
+        setOrDrop("concern", state.concern, state.concern === "all");
+        setOrDrop("scent", state.scent, state.scent === "all");
+        setOrDrop("sort", state.sort, !sortSelect || state.sort === sortSelect.options[0].value);
+        setOrDrop("q", String(state.query || "").trim(), !String(state.query || "").trim());
+        var hash = window.location.hash.replace("#", "");
+        var hashIsCategory = categories.some(function (c) {
+          return c.id === hash;
+        });
+        var query = params.toString();
+        var next =
+          window.location.pathname +
+          (query ? "?" + query : "") +
+          (hash && !hashIsCategory ? "#" + hash : "");
+        var current = window.location.pathname + window.location.search + window.location.hash;
+        if (next !== current) history.replaceState(history.state, "", next);
+      } catch {
+        /* a URL that cannot be written is not worth breaking the shop for */
+      }
+    }
+
     function handleResetFilters() {
       state.filter = "all";
       state.concern = "all";
@@ -7335,6 +7431,26 @@
           b.setAttribute("aria-pressed", isActive ? "true" : "false");
         });
       }
+      /* The rest of the toolbar state, so a filtered view survives a share,
+         a bookmark and the back button (syncShopUrl below writes these).
+         Each value is validated against the control's own options. */
+      var urlSort = searchParams.get("sort");
+      if (urlSort && sortSelect && selectHasOption(sortSelect, urlSort)) {
+        sortSelect.value = urlSort;
+        state.sort = urlSort;
+      }
+      var urlScent = searchParams.get("scent");
+      if (urlScent && scentSelect && selectHasOption(scentSelect, urlScent)) {
+        scentSelect.value = urlScent;
+        state.scent = urlScent;
+      }
+      /* ?q= is also the SearchAction target index.html's WebSite JSON-LD
+         advertises to search engines. */
+      var urlQuery = searchParams.get("q");
+      if (urlQuery && searchInput) {
+        searchInput.value = String(urlQuery).slice(0, 120);
+        state.query = searchInput.value;
+      }
     } catch {
       /* Ignore search param parsing failure */
     }
@@ -7365,6 +7481,10 @@
     }
 
     render();
+    /* Armed only now: the first render must not rewrite the URL the shopper
+       arrived on (a #category link, a shared ?concern= link) -- from here on
+       every toolbar change is mirrored. */
+    urlSyncReady = true;
   }
 
   /* A Snipcart-specific "checkout script failed to load" fallback used to
@@ -11331,7 +11451,15 @@
        footer line for good. Measure it instead. */
     function syncStickyReserve() {
       var h = stickyBar.offsetHeight || 0;
-      if (!h) return;
+      /* At >=768px the bar is display:none, so its height is 0 -- and the
+         reserve measured on a phone stayed on the body after a rotate or a
+         window resize, leaving ~100px of dead space under every PDP footer.
+         Zero height means no bar, so no reserve. */
+      if (!h) {
+        document.body.style.paddingBottom = "";
+        document.documentElement.style.scrollPaddingBottom = "";
+        return;
+      }
       document.body.style.paddingBottom = h + 12 + "px";
       document.documentElement.style.scrollPaddingBottom = h + 24 + "px";
     }
@@ -11528,7 +11656,53 @@
           });
         });
       });
+      /* Step to the next/previous photo by activating its thumbnail, so the
+         main image, the pressed state and the lightbox's "chosen" photo all
+         move together. Until 2026-09-09 the only way to change the photo
+         on a phone was to hit the 120px thumbnails. */
+      function stepGallery(delta, focus) {
+        if (!thumbs.length) return;
+        var activeIdx = 0;
+        thumbs.forEach(function (t, i) {
+          if (t.classList.contains("is-active")) activeIdx = i;
+        });
+        var next = (activeIdx + delta + thumbs.length) % thumbs.length;
+        thumbs[next].click();
+        if (focus) thumbs[next].focus();
+      }
+      var thumbStrip = gallery.querySelector(".pdp-thumbs");
+      if (thumbStrip && thumbs.length > 1) {
+        thumbStrip.addEventListener("keydown", function (e) {
+          if (!e.target.closest(".pdp-thumb")) return;
+          if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+            e.preventDefault();
+            stepGallery(1, true);
+          } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+            e.preventDefault();
+            stepGallery(-1, true);
+          } else if (e.key === "Home") {
+            e.preventDefault();
+            thumbs[0].click();
+            thumbs[0].focus();
+          } else if (e.key === "End") {
+            e.preventDefault();
+            thumbs[thumbs.length - 1].click();
+            thumbs[thumbs.length - 1].focus();
+          }
+        });
+      }
       var openBtn = document.getElementById("pdpGalleryOpen");
+      if (openBtn && thumbs.length > 1) {
+        attachSwipe(
+          openBtn,
+          function () {
+            stepGallery(1, false);
+          },
+          function () {
+            stepGallery(-1, false);
+          }
+        );
+      }
       if (openBtn) {
         openBtn.addEventListener("click", function () {
           var all = (gallery.getAttribute("data-images") || "").split("|").filter(Boolean);

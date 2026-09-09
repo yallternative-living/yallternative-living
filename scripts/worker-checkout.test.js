@@ -303,7 +303,8 @@ async function executeCheckout(body, options = {}) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Origin: "https://yallternativeliving.com"
+        Origin: "https://yallternativeliving.com",
+        ...(options.headers || {})
       },
       body: JSON.stringify(body)
     });
@@ -2095,6 +2096,198 @@ async function runWorkerCheckoutTests() {
     const after = await giftCardLedger(stuck.result.env, "YALL-RACE-RACE-RACE").getBalance();
     eq(after.pendingCents, 500, "only the winning session holds the money");
     eq(after.balanceCents, 0, "the card was not debited twice");
+  }
+
+  /* ==========================================================================
+     2026-09-09 audit: tracked stock is per PRODUCT, lines are per option and a
+     box holds several products, so a per-line cap oversold. One allocation
+     across the whole cart, in cart order.
+     ========================================================================== */
+  {
+    // frankincense-salve has stock 8. Two size lines asking 6 each used to
+    // ship 12; the second line now gets what is left.
+    const twoSizes = await executeCheckout({
+      items: [
+        { id: "frankincense-salve", qty: 6, variant: "2oz" },
+        { id: "frankincense-salve", qty: 6, variant: "1oz" }
+      ]
+    });
+    eq(twoSizes.status, 200, "two option lines of one stocked product check out");
+    eq(twoSizes.sessionParams.get("line_items[0][quantity]"), "6", "first line takes 6 of 8");
+    eq(twoSizes.sessionParams.get("line_items[1][quantity]"), "2", "second line gets the 2 left");
+
+    // A second line that finds nothing left is refused BY NAME, structurally,
+    // so the drawer drops that line rather than the whole cart.
+    const nothingLeft = await executeCheckout({
+      items: [
+        { id: "last-three-balm", qty: 3 },
+        { id: "lavender-soak", qty: 1 },
+        { id: "last-three-balm", qty: 1 }
+      ]
+    });
+    eq(nothingLeft.status, 400, "a duplicate line with no stock left is refused");
+    eq(nothingLeft.data.error, "Sold out: Last Three Balm", "...naming the product");
+    eq(
+      nothingLeft.data.unavailable,
+      [{ id: "last-three-balm", reason: "sold_out" }],
+      "...and identifying the line structurally"
+    );
+    eq(nothingLeft.sessionParams, null, "...before anything reaches Stripe");
+
+    // The volume tier counts the ALLOCATED units, same as the lines.
+    const tier = await executeCheckout({
+      items: [
+        { id: "last-one-salve", qty: 1 },
+        { id: "last-one-salve", qty: 1 }
+      ]
+    });
+    eq(tier.status, 400, "the second unit of a stock-1 salve is refused");
+    eq(tier.data.unavailable, [{ id: "last-one-salve", reason: "sold_out" }], "...by name");
+
+    // Boxes: capped by the scarcest tracked content, and they consume it.
+    const fiveBoxes = await executeCheckout({
+      items: [
+        {
+          id: "custom-box",
+          qty: 5,
+          boxProductIds: ["lavender-soak", "frankincense-salve", "last-one-salve"]
+        }
+      ]
+    });
+    eq(fiveBoxes.status, 200, "five boxes holding a stock-1 product still check out");
+    eq(fiveBoxes.sessionParams.get("line_items[0][quantity]"), "1", "...as ONE box");
+
+    const boxAfterLine = await executeCheckout({
+      items: [
+        { id: "last-three-balm", qty: 2 },
+        {
+          id: "custom-box",
+          qty: 3,
+          boxProductIds: ["lavender-soak", "frankincense-salve", "last-three-balm"]
+        }
+      ]
+    });
+    eq(boxAfterLine.status, 200, "a box after a line of the same product checks out");
+    eq(boxAfterLine.sessionParams.get("line_items[0][quantity]"), "2", "the line keeps its 2");
+    eq(boxAfterLine.sessionParams.get("line_items[1][quantity]"), "1", "the box gets the 1 left");
+
+    const boxNothingLeft = await executeCheckout({
+      items: [
+        { id: "last-one-salve", qty: 1 },
+        {
+          id: "custom-box",
+          qty: 1,
+          boxProductIds: ["lavender-soak", "frankincense-salve", "last-one-salve"]
+        }
+      ]
+    });
+    eq(boxNothingLeft.status, 400, "a box whose content was taken by an earlier line is refused");
+    eq(boxNothingLeft.data.error, "Sold out: Last One 2oz Salve", "...naming the content");
+    eq(
+      boxNothingLeft.data.unavailable,
+      [{ id: "custom-box", reason: "member_unavailable", member: "last-one-salve" }],
+      "...and the box line, structurally"
+    );
+
+    // Twice in one box = two units per box.
+    const doubled = await executeCheckout({
+      items: [
+        {
+          id: "custom-box",
+          qty: 4,
+          boxProductIds: ["lavender-soak", "last-three-balm", "last-three-balm"]
+        }
+      ]
+    });
+    eq(doubled.status, 200, "a box listing a product twice checks out");
+    eq(
+      doubled.sessionParams.get("line_items[0][quantity]"),
+      "1",
+      "...capped at floor(3 / 2) boxes"
+    );
+
+    // Untracked stock is unchanged: no cap at all.
+    const untracked = await executeCheckout({
+      items: [
+        { id: "lavender-soak", qty: 40 },
+        { id: "lavender-soak", qty: 40 }
+      ]
+    });
+    eq(untracked.status, 200, "untracked products are not capped");
+    eq(untracked.sessionParams.get("line_items[1][quantity]"), "40", "...on any line");
+  }
+
+  /* ==========================================================================
+     2026-09-09 audit: a gift card amount is parsed, never clamped.
+     ========================================================================== */
+  {
+    const okCard = await executeCheckout({
+      items: [{ id: "yallternative-gift-card", qty: 1, variant: "Preset $25" }]
+    });
+    eq(okCard.status, 200, "a well-formed preset inside the range sells");
+    eq(
+      okCard.sessionParams.get("line_items[0][price_data][unit_amount]"),
+      "2500",
+      "...at its amount"
+    );
+
+    for (const label of ["Preset $999", "Preset $5", "Preset $abc", "", "25", "Preset $25.001"]) {
+      const bad = await executeCheckout({
+        items: [{ id: "yallternative-gift-card", qty: 1, variant: label }]
+      });
+      eq(bad.status, 400, `gift card label ${JSON.stringify(label)} is refused, not clamped`);
+      eq(
+        bad.data.error,
+        "Product not purchasable: yallternative-gift-card",
+        "...as not purchasable"
+      );
+      eq(bad.sessionParams, null, "...before Stripe");
+    }
+  }
+
+  /* ==========================================================================
+     2026-09-09 audit: /checkout is rate limited per client like every other
+     public route, and fails open without a limiter backend.
+     ========================================================================== */
+  {
+    const { RateLimitCounter } = await import("../workers/state/rate-limit.js");
+    const limiterEnv = { RATE_LIMIT_COUNTER: makeNamespace(RateLimitCounter) };
+    const ip = "203.0.113.77";
+    const cart = { items: [{ id: "lavender-soak", qty: 1 }] };
+    let lastStatus = null;
+    for (let i = 0; i < workerModule.CHECKOUT_RATE_LIMIT.limit; i++) {
+      const r = await executeCheckout(cart, {
+        env: limiterEnv,
+        headers: { "X-Forwarded-For": ip }
+      });
+      lastStatus = r.status;
+    }
+    eq(lastStatus, 200, "checkouts up to the limit succeed");
+    const over = await executeCheckout(cart, {
+      env: limiterEnv,
+      headers: { "X-Forwarded-For": ip }
+    });
+    eq(over.status, 429, "one more in the same minute is rate limited");
+    eq(
+      over.data.error,
+      "Too many checkout attempts. Please wait a minute and try again.",
+      "...with shopper-safe copy"
+    );
+    eq(over.sessionParams, null, "...and never reaches Stripe");
+    const other = await executeCheckout(cart, {
+      env: limiterEnv,
+      headers: { "X-Forwarded-For": "198.51.100.9" }
+    });
+    eq(other.status, 200, "another client is not affected");
+    // Spoof attempt: junk prepended to XFF does not pick a new bucket when the
+    // Netlify hop appended the real client after it.
+    const spoof = await executeCheckout(cart, {
+      env: limiterEnv,
+      headers: { "X-Forwarded-For": `10.0.0.${Math.floor(Math.random() * 250)}, ${ip}` }
+    });
+    eq(spoof.status, 429, "a prepended X-Forwarded-For entry does not escape the bucket");
+    const open = await executeCheckout(cart, { headers: { "X-Forwarded-For": ip } });
+    eq(open.status, 200, "with no limiter backend, checkout fails open");
   }
 
   console.log(`\nworker-checkout.test.js: ${passed} passed, ${failed} failed`);

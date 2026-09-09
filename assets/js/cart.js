@@ -2998,7 +2998,7 @@
         var status = res ? res.status : 0;
         var err = new Error("Checkout unavailable");
         if (
-          (status === 400 || status === 409) &&
+          (status === 400 || status === 409 || status === 429) &&
           data &&
           typeof data.error === "string" &&
           data.error.trim()

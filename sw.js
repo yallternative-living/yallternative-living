@@ -5,7 +5,7 @@
  */
 
 /** @const {string} Cache name key, updated on assets release. */
-const CACHE_NAME = "yallternative-cache-v61a64bb5d8fc";
+const CACHE_NAME = "yallternative-cache-v1bc6fae93747";
 
 /**
  * The site not-found page is deliberately NOT on this list. A host answers a
@@ -30,6 +30,7 @@ const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/offline.html',
+  '/journal.html',
   '/shop.html',
   '/about.html',
   '/contact.html',

@@ -1360,8 +1360,17 @@ assert(
 assert(
   notFoundSrc.indexOf("<!--YL:site.umamiWebsiteId-->") !== -1 &&
     notFoundSrc.indexOf("<!--/YL:site.umamiWebsiteId-->") !== -1 &&
-    notFoundSrc.indexOf("<!--YL:nav.journal--><!--/YL:nav.journal-->") !== -1,
+    notFoundSrc.indexOf("<!--YL:nav.journal-->") !== -1 &&
+    notFoundSrc.indexOf("<!--/YL:nav.journal-->") !== -1,
   "404.html keeps its build markers intact"
+);
+/* Same lesson as above, caught the same way: this used to assert the journal
+   marker was EMPTY, which held only while the Journal was switched off. When
+   it is on, the injected link must be root-absolute like every other link on
+   this page (the relativeRefs assertion above catches a relative one). */
+assert(
+  !/<!--YL:nav\.journal-->\s*<li><a[^>]*href="journal\.html"/.test(notFoundSrc),
+  "404.html's Journal nav link, when present, is root-absolute"
 );
 
 const mainSrc = fs404.readFileSync(path404.join(repoRoot, "assets/js/main.js"), "utf8");

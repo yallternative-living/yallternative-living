@@ -3385,8 +3385,8 @@ function buildSiteData() {
    emitted now. The custom-amount path does not need them: gift-card.js
    builds the label itself ("Preset $" + clamped amount, see
    assets/js/gift-card.js:156,190) and workers/checkout.js re-derives the
-   charge from that label alone via resolveGiftCardAmountCents(), clamped
-   server-side to $10-$500. The labels live in products.json's variants so
+   charge from that label alone via resolveGiftCardAmountCents(), which
+   refuses anything outside $10-$500 rather than clamping it. The labels live in products.json's variants so
    the published catalogue, the button and the Worker's parser all agree --
    they used to read "$200", which the Worker's /^Preset \$(\d+)$/ does not
    match, so it fell back to the $10 floor. */
@@ -4220,6 +4220,25 @@ function buildSiteData() {
       }
     );
 
+    /* Blog + BlogPosting JSON-LD, generated from the same posts the page
+       renders. The Journal had no structured data at all (2026-09-09
+       audit); a post lives at journal.html#post-<id>, so the page carries
+       one Blog node listing every published post rather than pretending
+       each fragment is its own page. Empty while the Journal is off, so
+       the noindexed page does not advertise posts it does not show. */
+    const reLd = /(<!--YL:journal\.jsonLd-->)[\s\S]*?(<!--\/YL:journal\.jsonLd-->)/;
+    if (reLd.test(updated)) {
+      const ld = journalPublished ? generateJournalJsonLd(journal, DOMAIN) : null;
+      const ldTag = ld
+        ? '<script type="application/ld+json">\n' +
+          JSON.stringify(ld, null, 2).replace(/<\//g, "<\\/") +
+          "\n</script>"
+        : "";
+      updated = updated.replace(reLd, function (m, p1, p2) {
+        return p1 + ldTag + p2;
+      });
+    }
+
     if (updated !== html) {
       writeFile("journal.html", updated);
       console.log("[build] Injected configurations into journal.html");
@@ -5037,10 +5056,17 @@ function buildSiteData() {
           function () {
             const isActive = page === "journal.html";
             const activeClass = isActive ? ' class="active" aria-current="page"' : "";
+            /* 404.html is served at whatever URL was missed, so every one of
+               its links is root-absolute (C-5); a relative link injected here
+               would point at /products/journal.html from a missed product
+               URL. Surfaced the day the Journal was switched on. */
+            const href = page === "404.html" ? "/journal.html" : "journal.html";
             return (
               "<!--YL:nav.journal--><li><a" +
               activeClass +
-              ' href="journal.html">Journal</a></li><!--/YL:nav.journal-->'
+              ' href="' +
+              href +
+              '">Journal</a></li><!--/YL:nav.journal-->'
             );
           }
         );
@@ -5288,6 +5314,7 @@ function buildSiteData() {
         CONTENT.site && CONTENT.site.ritualDefaults,
         {
           manifest: pdpManifest,
+          enableJournal: !!SITE_CONFIG.enableJournal,
           footerInner: pdpFooterInner,
           reviews: SITE_REVIEWS,
           products: PRODUCTS,
@@ -5428,7 +5455,50 @@ function buildSiteData() {
 }
 
 /* ---------- Export Internal Helpers & Build Function ---------- */
-function generateProductJsonLd(product, domain, categoryLabel) {
+/**
+ * schema.org Review nodes for the reviews this product actually has in
+ * assets/data/site-reviews.json -- the same ones the page prints. Ten newest,
+ * the site's own display name for the reviewer with the "(Etsy)" source tag
+ * dropped (it is provenance, not part of the name), and the rating on the
+ * 1-5 scale the page uses. None of these existed anywhere on the site
+ * (2026-09-09 audit), which is the review rich-result thrown away on the
+ * one kind of content the shop already owns.
+ */
+function generateProductReviewNodes(productReviews) {
+  return (Array.isArray(productReviews) ? productReviews : [])
+    .filter(function (r) {
+      return r && r.text && Number.isFinite(Number(r.rating));
+    })
+    .slice()
+    .sort(function (a, b) {
+      return String(b.date || "").localeCompare(String(a.date || ""));
+    })
+    .slice(0, 10)
+    .map(function (r) {
+      const node = {
+        "@type": "Review",
+        author: {
+          "@type": "Person",
+          name:
+            String(r.name || "Verified buyer")
+              .replace(/\s*\((?:etsy|site|website)\)\s*$/i, "")
+              .trim() || "Verified buyer"
+        },
+        reviewBody: String(r.text),
+        reviewRating: {
+          "@type": "Rating",
+          ratingValue: clampRating(Number(r.rating), 5),
+          bestRating: "5",
+          worstRating: "1"
+        }
+      };
+      if (r.date && /^\d{4}-\d{2}-\d{2}/.test(String(r.date)))
+        node.datePublished = String(r.date).slice(0, 10);
+      return node;
+    });
+}
+
+function generateProductJsonLd(product, domain, categoryLabel, productReviews) {
   const dom = (domain || "https://yallternativeliving.com").replace(/\/+$/, "");
   const prodId = (product && product.id) || "product";
   const prodName = (product && product.name) || "";
@@ -5658,6 +5728,9 @@ function generateProductJsonLd(product, domain, categoryLabel) {
       worstRating: "1"
     };
   }
+
+  const reviewNodes = generateProductReviewNodes(productReviews);
+  if (reviewNodes.length) jsonLd.review = reviewNodes;
 
   return jsonLd;
 }
@@ -7173,8 +7246,9 @@ function renderTawkChatHtml(site) {
   );
 }
 
-function renderSiteHeaderHtml(manifest) {
+function renderSiteHeaderHtml(manifest, opts) {
   const m = manifest || {};
+  const o = opts || {};
   return (
     '  <header class="site-header">\n' +
     '    <nav class="nav" aria-label="Main Navigation">\n' +
@@ -7203,6 +7277,11 @@ function renderSiteHeaderHtml(manifest) {
     '        <li><a href="/events.html">Events</a></li>\n' +
     '        <li><a href="/about.html">Our Story</a></li>\n' +
     '        <li><a href="/contact.html">Contact</a></li>\n' +
+    /* The same Journal link the top-level pages get from their nav.journal
+       marker; product pages had no slot for it, so the Journal was one click
+       further away from every PDP (2026-09-09). Root-absolute like the rest
+       of this header. */
+    (o.enableJournal ? '        <li><a href="/journal.html">Journal</a></li>\n' : "") +
     "      </ul>\n" +
     '      <div class="nav-cta">\n' +
     '        <button class="nav-search-btn" id="globalSearchTrigger" type="button" aria-label="Search catalog, articles &amp; FAQ" title="Search (Cmd+K)" aria-haspopup="dialog" aria-expanded="false" aria-controls="global-search-modal">\n' +
@@ -7384,7 +7463,7 @@ function renderProductPdpHtml(
       }, 0) / reviewCount
     : 0;
 
-  const productJsonLd = generateProductJsonLd(product, domain, categoryLabel);
+  const productJsonLd = generateProductJsonLd(product, domain, categoryLabel, productReviews);
   const breadcrumbJsonLd = generateProductBreadcrumbJsonLd(product, domain, categoryLabel);
   const jsonLdBlock =
     '  <script type="application/ld+json">\n' +
@@ -7551,7 +7630,7 @@ function renderProductPdpHtml(
     "</head>\n" +
     '<body class="pdp-page">\n' +
     '  <a href="#main-content" class="skip-link">Skip to main content</a>\n' +
-    renderSiteHeaderHtml(manifest) +
+    renderSiteHeaderHtml(manifest, { enableJournal: !!c.enableJournal }) +
     '  <main id="main-content" class="container pdp-container">\n' +
     '    <nav class="breadcrumb-nav" aria-label="Breadcrumb">\n' +
     '      <p class="breadcrumb"><a href="../index.html">Home</a> / <a href="../shop.html">Shop</a> / <a href="../shop.html#' +
@@ -7669,6 +7748,63 @@ function xmlText(value) {
 /* options.includeItems -- false while the Journal is switched off in /admin,
    so unpublished posts are not syndicated from a page that is noindexed and
    unlinked. The channel itself keeps existing so subscribers do not 404. */
+/**
+ * Blog JSON-LD for journal.html: one Blog node whose blogPost list carries a
+ * BlogPosting per published post, newest first (the order JOURNAL already
+ * holds). Author and publisher are the shop itself: posts are written in the
+ * shop's voice and no post carries a byline field.
+ */
+function generateJournalJsonLd(journalData, domainUrl) {
+  const dom = (domainUrl || "https://yallternativeliving.com").replace(/\/+$/, "");
+  const posts = ((journalData && journalData.posts) || []).filter(Boolean);
+  const org = {
+    "@type": "Organization",
+    name: "Y'allternative Living",
+    url: dom + "/",
+    logo: { "@type": "ImageObject", url: dom + "/assets/img/logo.png" }
+  };
+  const pageUrl = dom + "/journal.html";
+  return {
+    "@context": "https://schema.org",
+    "@type": "Blog",
+    "@id": pageUrl + "#blog",
+    url: pageUrl,
+    name: journalData.title || "Apothecary Journal",
+    description:
+      journalData.lede || "Stories, science, and small-batch updates straight from the kitchen.",
+    inLanguage: "en-US",
+    publisher: org,
+    blogPost: posts.map(function (post) {
+      const slug = post.id || post.slug || "";
+      const url = pageUrl + "#post-" + encodeURIComponent(slug);
+      const text = String(post.content || "");
+      const node = {
+        "@type": "BlogPosting",
+        "@id": url,
+        url: url,
+        mainEntityOfPage: url,
+        headline: post.title || "Journal Entry",
+        description: post.excerpt || post.summary || "",
+        datePublished: post.date || undefined,
+        dateModified: post.updated || post.date || undefined,
+        inLanguage: "en-US",
+        author: org,
+        publisher: org
+      };
+      if (post.image) node.image = dom + "/" + String(post.image).replace(/^\/+/, "");
+      if (Array.isArray(post.tags) && post.tags.length) node.keywords = post.tags.join(", ");
+      if (text) node.wordCount = text.split(/\s+/).filter(Boolean).length;
+      if (post.featuredProductId) {
+        node.about = {
+          "@type": "Product",
+          url: dom + "/products/" + post.featuredProductId + ".html"
+        };
+      }
+      return node;
+    })
+  };
+}
+
 function generateRssFeed(journalData, domainUrl, options) {
   const DOMAIN_URL = domainUrl || "https://yallternativeliving.com";
   const opts = options || {};

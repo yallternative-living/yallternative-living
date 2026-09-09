@@ -7,7 +7,7 @@
  */
 window.YL_CONTENT = {
   "site": {
-    "logoDesktop": "/assets/img/logo.png",
+    "logoDesktop": "assets/img/logo.png",
     "logoMobile": "assets/img/logo.png",
     "ogImage": "assets/img/og-image.jpg",
     "footerTagline": "Southern-raised, alt-inspired self-care, salves, soaks, body care, and apparel. Queer-owned and small-batch brewed in Landrum, SC.",
@@ -19,7 +19,7 @@ window.YL_CONTENT = {
     },
     "seasonalNotice": {
       "enabled": false,
-      "text": "🌿 Spring Foraging Hiatus: Orders placed after Oct 15 will ship Nov 1.",
+      "text": "🌿 Autumn Foraging Hiatus: Orders placed after Oct 15 will ship Nov 1.",
       "link": "events.html",
       "showInCart": true,
       "showInHeader": false
@@ -51,7 +51,7 @@ window.YL_CONTENT = {
     "enableOrderEmails": true,
     "enableUsageGuideEmails": true,
     "usageGuideDelayDays": 4,
-    "enableJournal": false,
+    "enableJournal": true,
     "enableSocialFeed": false,
     "enableRestockAlerts": true,
     "enableCustomBoxBuilder": true,
