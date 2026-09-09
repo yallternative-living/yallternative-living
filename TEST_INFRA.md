@@ -289,7 +289,7 @@ only the missing locales are asked for, so a hand-tuned translation is never
 overwritten), and CHANGED (a key whose English drifted from its basis digest; all
 five are re-translated, which does discard hand-tuning of the superseded
 English, and the commit message says so). ORPHANED `auto.*` keys are removed
-from all six locales and the basis; a hand-authored orphan is reported and never
+from all nine locales and the basis; a hand-authored orphan is reported and never
 deleted.
 
 **Every string is checked before it is written**, deterministically, in
@@ -415,12 +415,12 @@ the report's 198 writable NEW entries went through the mock in 50 calls, the
 dictionary went from 515 to 713 keys x 6 locales (a mock run, reverted; the real expansion above landed at 703 x 9), `node
 scripts/build-site-data.js` reported the gate GREEN, and `npm test` passed. The
 diff was an append at the end of each of the seven files with all 515 existing
-keys, values, digests and their order untouched, and all six locale files
+keys, values, digests and their order untouched, and all nine locale files
 sharing one key order. Then, with `LLM_MOCK_CORRUPT` set to a fragment of the
 About-page paragraph so the mock would drop `Y'allternative Living` and
 `Landrum, SC` from it, the same run wrote 197 keys and listed 5 failures (one
 key x five locales, reason "protected term(s) not preserved verbatim"); that key
-was absent from all six locales AND from the basis -- 712 keys, not 713 -- and
+was absent from all nine locales AND from the basis -- 712 keys, not 713 -- and
 the gate was still green. Both trees were reverted afterwards.
 
 That run also found a real defect and it is worth recording why: the fixture in
@@ -1150,7 +1150,7 @@ horizontal overflow, no clipping.
 
 ### What this does NOT do
 
-- **The note is English in all six locales.** It is declared in
+- **The note is English in all nine locales.** It is declared in
   `assets/data/i18n-runtime-strings.json` (so the coverage gate re-checks its
   wording against `main.js` on every build, with every routed variant in
   `verify`) but it has **no dictionary key**, so `translator.js` falls back to
