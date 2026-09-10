@@ -4077,6 +4077,81 @@ try {
 }
 
 /* ---------- Mobile Sticky Add-to-Cart Bottom Bar (R1) ---------- */
+/* ---------- Square SKUs: every register SKU means exactly one thing ----------
+   The market register (workers/routes/square-webhook.js) turns a Square
+   item's SKU into a product through resolveSku: the product's id, `id/size`,
+   or any string under the product's `squareSkus`. That rule is only sound if
+   no SKU can mean two products -- an alias that equals another product's id,
+   or the same alias on two products, would silently count the wrong shelf
+   down at a market with no error anywhere. The Worker resolves case- and
+   whitespace-insensitively, so the check compares the same way. */
+section("Square SKUs (register) each map to exactly one product");
+(function () {
+  var squareCatalog = JSON.parse(fs.readFileSync(productsJsonPath, "utf8"));
+  var squareEntries = []
+    .concat(Array.isArray(squareCatalog.products) ? squareCatalog.products : [])
+    .concat(Array.isArray(squareCatalog.bundles) ? squareCatalog.bundles : []);
+  var normSku = function (v) {
+    return String(v == null ? "" : v)
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ");
+  };
+  var idsNorm = {};
+  squareEntries.forEach(function (e) {
+    if (e && typeof e.id === "string") idsNorm[normSku(e.id)] = e.id;
+  });
+  var aliasOwner = {};
+  var aliasCount = 0;
+  var problems = 0;
+  squareEntries.forEach(function (e) {
+    if (!e || !Object.prototype.hasOwnProperty.call(e, "squareSkus")) return;
+    if (!Array.isArray(e.squareSkus)) {
+      fail(e.id + ": squareSkus must be a list of strings", JSON.stringify(e.squareSkus));
+      problems++;
+      return;
+    }
+    e.squareSkus.forEach(function (raw) {
+      if (typeof raw !== "string" || !raw.trim()) {
+        fail(e.id + ": squareSkus has a blank or non-string entry", JSON.stringify(raw));
+        problems++;
+        return;
+      }
+      var sku = normSku(raw);
+      aliasCount++;
+      var head = sku.split(/[/:|\s]/)[0];
+      if (idsNorm[sku] && idsNorm[sku] !== e.id) {
+        fail(e.id + ": Square SKU '" + raw + "' is another product's id (" + idsNorm[sku] + ")");
+        problems++;
+      } else if (head && head !== sku && idsNorm[head] && idsNorm[head] !== e.id) {
+        fail(
+          e.id +
+            ": Square SKU '" +
+            raw +
+            "' starts with another product's id (" +
+            idsNorm[head] +
+            ")"
+        );
+        problems++;
+      } else if (aliasOwner[sku] && aliasOwner[sku] !== e.id) {
+        fail(e.id + ": Square SKU '" + raw + "' is also listed on " + aliasOwner[sku]);
+        problems++;
+      } else {
+        aliasOwner[sku] = e.id;
+      }
+    });
+  });
+  if (!problems) {
+    ok(
+      "products.json: " +
+        aliasCount +
+        " Square SKU alias(es) across " +
+        squareEntries.length +
+        " products and bundles, none ambiguous"
+    );
+  }
+})();
+
 section("Mobile Sticky Add-to-Cart Bottom Bar (R1)");
 try {
   var pdpProducts = PRODUCTS.filter(function (p) {

@@ -32,12 +32,28 @@
  * is deducted once. lines_json records what was deducted so a full refund
  * restores exactly that.
  *
+ * THE STATE MACHINE (square_sales.state)
+ *   pending   --apply-->    applied     (the shelf moved: on_hand -= qty)
+ *   applied   --restock-->  restocked   (the whole order refunded: on_hand += qty)
+ * The claim is the INSERT of the `pending` row; the deduction and the move
+ * to `applied` are ONE batch, every inventory UPDATE guarded by the row still
+ * being `pending` (inventory.js deductOnHand's guard/trailing contract). So a
+ * crash between claim and deduction leaves a `pending` row that the next
+ * delivery resumes, and two deliveries racing on it both run the batch but
+ * only one finds the row `pending` -- the other's UPDATEs match nothing. The
+ * first version wrote the claim and the deduction separately, which a dying
+ * isolate could turn into a sale the shelf never heard about while every
+ * retry was told "duplicate" (red team, 2026-09-10). Restock is the same
+ * shape, keyed on `applied`.
+ *
  * FAIL OPEN, LIKE THE LEDGER
  * Nothing here is on the money path -- a Square sale has already been paid --
  * but the callers still catch and log rather than let a mapping problem take
  * the Worker's webhook handler down: an unmapped item is an owner alert, not
  * an error.
  */
+
+import { addOnHand, deductOnHand } from "./inventory.js";
 
 /** square_sales rows older than this are swept; a refund later than that is a hand adjustment. */
 export const SALES_RETENTION_DAYS = 90;
@@ -133,22 +149,24 @@ function assertOrderId(orderId) {
 /* ------------------------------------------------------------- square_sales */
 
 /**
- * Atomically claims a Square order as counted. True for the first caller,
- * false for every later payment on the same order and every redelivery. The
- * caller deducts AFTER a true claim and calls releaseSquareSale if that
- * deduction throws, so a transient failure is retried rather than lost.
+ * Claims a Square order: one `pending` row, INSERT OR IGNORE. `claimed` is
+ * true for the first caller; every later payment on the same order and every
+ * redelivery gets false plus the row's current `state`, so a caller that
+ * finds it still `pending` knows a previous attempt died before applying and
+ * resumes with applySquareSale (which reads the lines this row recorded).
  *
  * @param {object} db D1 binding
  * @param {string} orderId Square order id
  * @param {Array<{productId: string, qty: number}>} lines what will be deducted
  * @param {string|null} locationId Square location the sale happened at
+ * @returns {Promise<{claimed: boolean, state: string}>}
  */
 export async function claimSquareSale(db, orderId, lines, locationId, now = Date.now()) {
   const id = assertOrderId(orderId);
   const res = await db
     .prepare(
       `INSERT OR IGNORE INTO square_sales (order_id, state, lines_json, location_id, sold_at, updated_at)
-       VALUES (?, 'applied', ?, ?, ?, ?)`
+       VALUES (?, 'pending', ?, ?, ?, ?)`
     )
     .bind(
       id,
@@ -158,24 +176,71 @@ export async function claimSquareSale(db, orderId, lines, locationId, now = Date
       now
     )
     .run();
-  return (res && res.meta && res.meta.changes) === 1;
+  if ((res && res.meta && res.meta.changes) === 1) return { claimed: true, state: "pending" };
+  const row = await db
+    .prepare("SELECT state FROM square_sales WHERE order_id = ?")
+    .bind(id)
+    .first();
+  return { claimed: false, state: row ? String(row.state) : "unknown" };
 }
 
-/** Gives a claim back after a failed deduction so the next delivery retries. */
-export async function releaseSquareSale(db, orderId) {
-  const res = await db
-    .prepare("DELETE FROM square_sales WHERE order_id = ? AND state = 'applied'")
-    .bind(assertOrderId(orderId))
-    .run();
-  return (res && res.meta && res.meta.changes) > 0;
+function parseLines(row) {
+  try {
+    return mergeLines(JSON.parse(String(row.lines_json)));
+  } catch {
+    return [];
+  }
 }
 
 /**
- * Moves a counted sale to `restocked` and returns the lines to put back --
- * once. A second call (a redelivered refund event, or a second refund on the
- * same order) finds no 'applied' row and returns an empty list.
+ * Counts a `pending` sale off the shelf and marks it `applied`, in one
+ * batch (see the file header). Returns null when the order has no `pending`
+ * row (never claimed, or already applied), and `raced: true` when another
+ * delivery moved it first -- in which case `applied` is empty and nothing
+ * should be alerted on.
  *
- * @returns {Promise<Array<{productId: string, qty: number}>>}
+ * @returns {Promise<{raced: boolean, lines: Array, applied: Array, soldOut: string[], untracked: string[]}|null>}
+ */
+export async function applySquareSale(db, orderId, now = Date.now()) {
+  const id = assertOrderId(orderId);
+  const row = await db
+    .prepare("SELECT lines_json FROM square_sales WHERE order_id = ? AND state = 'pending'")
+    .bind(id)
+    .first();
+  if (!row) return null;
+  const lines = parseLines(row);
+  const out = await deductOnHand(db, lines, now, {
+    guard: {
+      sql: "EXISTS (SELECT 1 FROM square_sales WHERE order_id = ? AND state = 'pending')",
+      binds: [id]
+    },
+    trailing: [
+      db
+        .prepare(
+          "UPDATE square_sales SET state = 'applied', updated_at = ? WHERE order_id = ? AND state = 'pending'"
+        )
+        .bind(now, id)
+    ]
+  });
+  const flip = out.trailing[out.trailing.length - 1];
+  const moved = Boolean(flip && flip.meta && Number(flip.meta.changes) > 0);
+  if (!moved) return { raced: true, lines, applied: [], soldOut: [], untracked: out.untracked };
+  return {
+    raced: false,
+    lines,
+    applied: out.applied,
+    soldOut: out.soldOut,
+    untracked: out.untracked
+  };
+}
+
+/**
+ * Puts an `applied` sale's units back and marks it `restocked`, in one batch
+ * guarded the same way. null when there is no `applied` row (a second refund
+ * event on the same order, or an order this ledger never counted); `raced`
+ * when another delivery restocked it first.
+ *
+ * @returns {Promise<{raced: boolean, lines: Array, returned: Array, untracked: string[]}|null>}
  */
 export async function restockSquareSale(db, orderId, now = Date.now()) {
   const id = assertOrderId(orderId);
@@ -183,19 +248,25 @@ export async function restockSquareSale(db, orderId, now = Date.now()) {
     .prepare("SELECT lines_json FROM square_sales WHERE order_id = ? AND state = 'applied'")
     .bind(id)
     .first();
-  if (!row) return [];
-  const res = await db
-    .prepare(
-      "UPDATE square_sales SET state = 'restocked', updated_at = ? WHERE order_id = ? AND state = 'applied'"
-    )
-    .bind(now, id)
-    .run();
-  if (!((res && res.meta && res.meta.changes) > 0)) return [];
-  try {
-    return mergeLines(JSON.parse(String(row.lines_json)));
-  } catch {
-    return [];
-  }
+  if (!row) return null;
+  const lines = parseLines(row);
+  const out = await addOnHand(db, lines, now, {
+    guard: {
+      sql: "EXISTS (SELECT 1 FROM square_sales WHERE order_id = ? AND state = 'applied')",
+      binds: [id]
+    },
+    trailing: [
+      db
+        .prepare(
+          "UPDATE square_sales SET state = 'restocked', updated_at = ? WHERE order_id = ? AND state = 'applied'"
+        )
+        .bind(now, id)
+    ]
+  });
+  const flip = out.trailing[out.trailing.length - 1];
+  const moved = Boolean(flip && flip.meta && Number(flip.meta.changes) > 0);
+  if (!moved) return { raced: true, lines, returned: [], untracked: out.untracked };
+  return { raced: false, lines, returned: out.returned, untracked: out.untracked };
 }
 
 /** The raw row, for tests and hand audits. */
@@ -326,6 +397,26 @@ export async function mappedRows(db, productIds = null) {
     for (const row of (res && res.results) || []) out.push(rowOut(row));
   }
   return out;
+}
+
+/**
+ * After a COMPLETE listing of the register's catalogue, every mapped row the
+ * listing did not touch (resolved_at older than the listing's stamp) belongs
+ * to a variation Square no longer has. Left mapped, it would be written to on
+ * the next push and Square would refuse the whole batch -- so it is unmapped,
+ * and its push memo cleared. Never called after a truncated listing.
+ *
+ * @returns {Promise<number>} rows unmapped
+ */
+export async function unmapStale(db, listedAt) {
+  const res = await db
+    .prepare(
+      `UPDATE square_catalog SET product_id = NULL, last_pushed_count = NULL, last_pushed_at = NULL
+        WHERE product_id IS NOT NULL AND resolved_at < ?`
+    )
+    .bind(Number(listedAt) || 0)
+    .run();
+  return (res && res.meta && res.meta.changes) || 0;
 }
 
 /** Records the count just written to Square for each variation. */

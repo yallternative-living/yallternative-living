@@ -77,7 +77,15 @@ export async function handleInventory(request, env, origin, ctx) {
     return json({ error: "Live stock is unavailable." }, 503, origin, env);
   }
   await ensureSchema(env.STATE_DB);
-  const snapshot = await inventorySnapshot(env.STATE_DB, trackedProductsOf(index.values()));
+  // The catalogue's own age goes with it, so an isolate holding a copy older
+  // than the last owner correction cannot reseed a row backwards -- the same
+  // guard availabilityForCheckout gets from catalog.fetchedAt.
+  const snapshot = await inventorySnapshot(
+    env.STATE_DB,
+    trackedProductsOf(index.values()),
+    Date.now(),
+    index.fetchedAt
+  );
   return json(snapshot, 200, origin, env);
 }
 

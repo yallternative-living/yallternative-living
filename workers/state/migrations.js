@@ -244,7 +244,7 @@ export const SCHEMA_STATEMENTS = [
   // for why a sale is keyed on the Square ORDER, not the payment or the event)
   `CREATE TABLE IF NOT EXISTS square_sales (
   order_id     TEXT PRIMARY KEY,
-  state        TEXT NOT NULL CHECK (state IN ('applied','restocked')),
+  state        TEXT NOT NULL CHECK (state IN ('pending','applied','restocked')),
   lines_json   TEXT NOT NULL,
   location_id  TEXT,
   sold_at      INTEGER NOT NULL,

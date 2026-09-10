@@ -15,6 +15,9 @@
  *   7. the other direction: counts pushed to Square, only when they moved
  *   8. the hourly reconcile, the sweep, the kill switch
  *   9. schema.sql, the CMS, the docs keep up
+ *  10. red team: a crash between claim and deduction, two deliveries racing,
+ *      a split-tender refund, a return order, register drift, a deleted
+ *      variation, control characters in item names, a stale catalogue
  *
  * Run: node scripts/worker-square.test.js
  */
@@ -23,7 +26,7 @@ const fs = require("fs");
 const path = require("path");
 const nodeCrypto = require("crypto");
 const { DatabaseSync } = require("node:sqlite");
-const { makeD1 } = require("./lib/d1-emulator.js");
+const { makeD1, makeNamespace } = require("./lib/d1-emulator.js");
 
 const ROOT = path.resolve(__dirname, "..");
 const workerModule = require("../workers/checkout.js");
@@ -147,12 +150,23 @@ function itemObject(id) {
   return { type: "ITEM", id, item_data: { name: squareItems[id] } };
 }
 
-/** A Square order: `lines` is `[[variationId, quantity], ...]`. */
+/**
+ * A Square order: `lines` is `[[variationId, quantity], ...]`. `extra` can
+ * carry total_money / tenders / refunds / returns for the refund tests; by
+ * default the order collected $10 per unit in one card tender.
+ */
 function order(id, lines, extra = {}) {
+  const units = lines.reduce((n, [, qty]) => n + Number(qty), 0);
+  const total = units * 1000;
   return {
     id,
     location_id: LOCATION,
     state: "COMPLETED",
+    total_money: { amount: total, currency: "USD" },
+    tenders: [
+      { id: `T-${id}`, payment_id: `P-${id}`, amount_money: { amount: total, currency: "USD" } }
+    ],
+    refunds: [],
     line_items: lines.map(([vid, qty], i) => ({
       uid: `${id}-L${i}`,
       catalog_object_id: vid,
@@ -183,7 +197,19 @@ function makeSquare({
   variationIds = Object.keys(squareVariations)
 } = {}) {
   const calls = [];
-  const state = { orders, payments, variationIds, siteDown: false, catalogDown: false };
+  const state = {
+    orders,
+    payments,
+    variationIds,
+    siteDown: false,
+    catalogDown: false,
+    // Red-team knobs: Square's own IN_STOCK counts by variation id, the
+    // balm's Stock count as the site currently publishes it, and the Date
+    // header the site serves products.json with (its "age").
+    squareCounts: {},
+    balmStock: null,
+    siteDate: null
+  };
   const originalFetch = global.fetch;
   global.fetch = async (url, opts = {}) => {
     const u = String(url);
@@ -191,7 +217,17 @@ function makeSquare({
     if (u.startsWith(SITE)) {
       if (state.siteDown) return new Response("nope", { status: 503 });
       if (u.endsWith("/assets/data/products.json")) {
-        return new Response(JSON.stringify(siteCatalog), { status: 200 });
+        const catalog =
+          state.balmStock === null
+            ? siteCatalog
+            : {
+                ...siteCatalog,
+                products: siteCatalog.products.map((p) =>
+                  p.id === "last-three-balm" ? { ...p, stock: state.balmStock } : p
+                )
+              };
+        const headers = state.siteDate ? { date: new Date(state.siteDate).toUTCString() } : {};
+        return new Response(JSON.stringify(catalog), { status: 200, headers });
       }
       if (u.endsWith("/assets/data/content.json")) {
         return new Response(
@@ -239,6 +275,19 @@ function makeSquare({
       ];
       return new Response(JSON.stringify({ objects }));
     }
+    if (pathname === "/v2/inventory/counts/batch-retrieve" && method === "POST") {
+      const counts = (body.catalog_object_ids || [])
+        .filter((id) => Object.prototype.hasOwnProperty.call(state.squareCounts, id))
+        .map((id) => ({
+          catalog_object_id: id,
+          catalog_object_type: "ITEM_VARIATION",
+          state: "IN_STOCK",
+          location_id: LOCATION,
+          quantity: String(state.squareCounts[id]),
+          calculated_at: "2026-09-10T00:00:00Z"
+        }));
+      return new Response(JSON.stringify({ counts }));
+    }
     if (pathname === "/v2/inventory/changes/batch-create" && method === "POST") {
       if (state.pushDown) return squareError(500, "INTERNAL_SERVER_ERROR", "push down");
       return new Response(JSON.stringify({ counts: [] }));
@@ -268,9 +317,11 @@ async function freshDb() {
 }
 
 async function makeEnv(overrides = {}) {
+  const { RateLimitCounter } = await import("../workers/state/rate-limit.js");
   return {
     SITE_ORIGIN: SITE,
     STATE_DB: await freshDb(),
+    RATE_LIMIT_COUNTER: makeNamespace(RateLimitCounter),
     SQUARE_WEBHOOK_SIGNATURE_KEY: SIGNATURE_KEY,
     SQUARE_ACCESS_TOKEN: "EAAA-test-token",
     SQUARE_LOCATION_ID: LOCATION,
@@ -817,37 +868,60 @@ async function run() {
   }
 
   /* ------------------------------------------------------------------ 6 */
-  console.log("\n6. refunds");
+  console.log("\n6. refunds: judged on the ORDER, never on one payment");
   {
+    // O1: two balms for $18, paid $10 card (P1) + $8 cash (P1b) -- a split tender.
     const square = makeSquare({
-      orders: { O1: order("O1", [["V_BALM", 2]]) },
-      payments: { P1: payment("P1", "O1", 1800) }
+      orders: {
+        O1: order("O1", [["V_BALM", 2]], {
+          total_money: { amount: 1800, currency: "USD" },
+          tenders: [
+            { id: "T1", payment_id: "P1", amount_money: { amount: 1000, currency: "USD" } },
+            { id: "T1b", payment_id: "P1b", amount_money: { amount: 800, currency: "USD" } }
+          ]
+        }),
+        O2: order("O2", [["V_TEE_L", 1]], { total_money: { amount: 2000, currency: "USD" } })
+      },
+      payments: {
+        P1: payment("P1", "O1", 1000),
+        P1b: payment("P1b", "O1", 800, { source_type: "CASH" }),
+        P2: payment("P2", "O2", 2000)
+      }
     });
     const ctx = makeCtx();
     const env = await makeEnv();
     await post(env, ctx, squareEvent("payment.updated", { payment: square.state.payments.P1 }));
+    await post(env, ctx, squareEvent("payment.updated", { payment: square.state.payments.P2 }));
     eq(
       (await available(env.STATE_DB, ["last-three-balm"]))["last-three-balm"],
       1,
-      "sold two of three"
+      "sold two of three balms"
     );
 
-    const refund = (id, amount, status = "COMPLETED") => ({
+    const refund = (id, paymentId, orderId, amount, status = "COMPLETED") => ({
       id,
-      payment_id: "P1",
-      order_id: "O1",
+      payment_id: paymentId,
+      order_id: orderId,
       status,
       amount_money: { amount, currency: "USD" }
     });
-    square.state.payments.P1 = {
-      ...square.state.payments.P1,
-      refunded_money: { amount: 500, currency: "USD" }
-    };
-    let res = await post(env, ctx, squareEvent("refund.updated", { refund: refund("R1", 500) }));
+    const orderRefund = (id, amount, status = "COMPLETED") => ({
+      id,
+      status,
+      amount_money: { amount, currency: "USD" }
+    });
+
+    // The card half is refunded IN FULL. That is a partial refund of the SALE.
+    square.state.orders.O1.refunds = [orderRefund("R1", 1000)];
+    let res = await post(
+      env,
+      ctx,
+      squareEvent("refund.updated", { refund: refund("R1", "P1", "O1", 1000) })
+    );
     eq(
       res.json.outcome,
       { orderId: "O1", partialRefund: true, returned: [] },
-      "a partial refund is about the money, not the goods"
+      "refunding one tender of a split sale in full is NOT a full refund of the sale"
     );
     eq(
       (await available(env.STATE_DB, ["last-three-balm"]))["last-three-balm"],
@@ -858,20 +932,18 @@ async function run() {
     res = await post(
       env,
       ctx,
-      squareEvent("refund.updated", { refund: refund("R2", 1300, "PENDING") })
+      squareEvent("refund.updated", { refund: refund("R2", "P1b", "O1", 800, "PENDING") })
     );
     eq(res.json.outcome, { skipped: "refund PENDING" }, "a pending refund waits");
 
-    square.state.payments.P1 = {
-      ...square.state.payments.P1,
-      refunded_money: { amount: 1800, currency: "USD" }
-    };
-    const ev = squareEvent("refund.updated", { refund: refund("R2", 1300) });
+    // The cash half comes back too -- Square has not listed it on the order
+    // yet (the webhook can beat the order), so the triggering refund counts.
+    const ev = squareEvent("refund.updated", { refund: refund("R2", "P1b", "O1", 800) });
     res = await post(env, ctx, ev);
     eq(
       res.json.outcome.returned,
       [{ productId: "last-three-balm", qty: 2 }],
-      "two partials that add up to the whole are a full refund: the units come back"
+      "both tenders refunded is a full refund of the order: the units come back"
     );
     eq((await available(env.STATE_DB, ["last-three-balm"]))["last-three-balm"], 3, "1 + 2 = 3");
     eq(
@@ -886,10 +958,11 @@ async function run() {
       { received: true, duplicate: true },
       "the redelivered refund event is a duplicate"
     );
+    square.state.orders.O1.refunds.push(orderRefund("R2", 800), orderRefund("R3", 1));
     res = await post(
       env,
       ctx,
-      squareEvent("refund.updated", { refund: refund("R3", 1, "COMPLETED") })
+      squareEvent("refund.updated", { refund: refund("R3", "P1", "O1", 1) })
     );
     eq(
       res.json.outcome,
@@ -898,23 +971,94 @@ async function run() {
     );
     eq((await available(env.STATE_DB, ["last-three-balm"]))["last-three-balm"], 3, "...still 3");
 
+    // An itemised return rung up at the register is its OWN order that points
+    // at the sale; the refund event carries the return order's id.
+    square.state.orders.RET2 = {
+      id: "RET2",
+      location_id: LOCATION,
+      state: "COMPLETED",
+      total_money: { amount: 0, currency: "USD" },
+      returns: [{ uid: "ret", source_order_id: "O2", return_line_items: [] }],
+      refunds: [orderRefund("R9", 2000)]
+    };
     eq(
-      route.isFullRefund({ amount_money: { amount: 100 } }, { amount_money: { amount: 100 } }),
-      true,
-      "isFullRefund: the refund alone can be the whole"
+      (await available(env.STATE_DB, ["single-tee"]))["single-tee"],
+      0,
+      "the tee sold out at the register"
+    );
+    res = await post(
+      env,
+      ctx,
+      squareEvent("refund.updated", { refund: refund("R9", "P2", "RET2", 2000) })
     );
     eq(
-      route.isFullRefund(
-        { amount_money: { amount: 100 }, refunded_money: { amount: 40 } },
-        { amount_money: { amount: 40 } }
+      res.json.outcome,
+      { orderId: "O2", returned: [{ productId: "single-tee", qty: 1 }], untracked: [] },
+      "a return order is followed to the sale it returns, and that sale is restocked"
+    );
+    eq((await available(env.STATE_DB, ["single-tee"]))["single-tee"], 1, "...the tee is back");
+
+    // A refund for a sale this ledger never counted moves nothing.
+    square.state.orders.O0 = order("O0", [["V_BALM", 1]], {
+      refunds: [orderRefund("R0", 1000)]
+    });
+    res = await post(
+      env,
+      ctx,
+      squareEvent("refund.updated", { refund: refund("R0", "P0", "O0", 1000) })
+    );
+    eq(
+      res.json.outcome,
+      { orderId: "O0", alreadyRestocked: true, returned: [] },
+      "a refund for a sale from before the integration moves nothing"
+    );
+
+    // The rule itself.
+    const sale = (total, refunds = [], tenders) => ({
+      id: "S",
+      total_money: total === null ? undefined : { amount: total, currency: "USD" },
+      tenders,
+      refunds
+    });
+    eq(
+      route.isOrderFullyRefunded(sale(100, [orderRefund("a", 100)])),
+      true,
+      "refunds on the order equal to its total: full"
+    );
+    eq(route.isOrderFullyRefunded(sale(100, [orderRefund("a", 60)])), false, "...short of it: not");
+    eq(
+      route.isOrderFullyRefunded(sale(100, [orderRefund("a", 60)]), [], refund("b", "P", "S", 40)),
+      true,
+      "the triggering refund is counted when the order does not list it yet"
+    );
+    eq(
+      route.isOrderFullyRefunded(sale(100, [orderRefund("a", 60)]), [], refund("a", "P", "S", 60)),
+      false,
+      "...but not twice when it does"
+    );
+    eq(
+      route.isOrderFullyRefunded(
+        sale(100, [orderRefund("a", 60, "PENDING"), orderRefund("b", 40)])
       ),
       false,
-      "...a running total short of it is not"
+      "a pending refund on the order does not count"
     );
     eq(
-      route.isFullRefund({ amount_money: { amount: 0 } }, { amount_money: { amount: 0 } }),
+      route.isOrderFullyRefunded(sale(100, []), [{ refunds: [orderRefund("z", 100)] }]),
+      true,
+      "refunds recorded on the return order count toward the sale"
+    );
+    eq(
+      route.isOrderFullyRefunded(
+        sale(null, [orderRefund("a", 50)], [{ amount_money: { amount: 50 } }])
+      ),
+      true,
+      "with no total_money the tenders are summed"
+    );
+    eq(
+      route.isOrderFullyRefunded(sale(0, [orderRefund("a", 0)])),
       false,
-      "...and a zero-money payment is never 'refunded'"
+      "a $0 comp is never 'refunded'"
     );
     await ctx.settle();
     square.restore();
@@ -1179,13 +1323,17 @@ async function run() {
       /olderThanDays/,
       "a nonsense retention is refused"
     );
-    eq(await sync.releaseSquareSale(env.STATE_DB, "new"), true, "a claim can be given back");
-    eq(await sync.claimSquareSale(env.STATE_DB, "new", [], null), true, "...and taken again");
+    eq(
+      await sync.claimSquareSale(env.STATE_DB, "new", [], null),
+      { claimed: false, state: "pending" },
+      "a second claim on a pending order reports it pending, for the caller to resume"
+    );
     eq(
       await sync.restockSquareSale(env.STATE_DB, "never"),
-      [],
-      "restocking an unknown order returns nothing"
+      null,
+      "restocking an unknown order is null"
     );
+    eq(await sync.applySquareSale(env.STATE_DB, "never"), null, "...and so is applying one");
 
     // The cron wiring in checkout.js.
     const source = fs.readFileSync(path.join(ROOT, "workers", "checkout.js"), "utf8");
@@ -1262,6 +1410,233 @@ async function run() {
     );
     const rootReadme = fs.readFileSync(path.join(ROOT, "README.md"), "utf8");
     assert(/Square/.test(rootReadme), "README.md's launch checklist has the register");
+  }
+
+  /* ----------------------------------------------------------------- 10 */
+  console.log("\n10. red team: crashes, races, drift, junk names, stale catalogues");
+  {
+    const square = makeSquare({
+      orders: {
+        OX: order("OX", [["V_BALM", 1]]),
+        OJ: order("OJ", [["V_CANDLE", 1]]),
+        OC: order("OC", [["V_BALM", 1]])
+      }
+    });
+    square.state.orders.OC.line_items[0].name = "Bad\r\nName with   spaces";
+    const ctx = makeCtx();
+    const env = await makeEnv();
+    const inv = await import("../workers/state/inventory.js");
+
+    // 10a. A claim an earlier attempt left `pending` (the isolate died between
+    // claim and deduction) is resumed by the next delivery, not refused.
+    eq(
+      await sync.claimSquareSale(
+        env.STATE_DB,
+        "OX",
+        [{ productId: "last-three-balm", qty: 1 }],
+        LOCATION
+      ),
+      { claimed: true, state: "pending" },
+      "a fresh claim is pending"
+    );
+    let res = await post(
+      env,
+      ctx,
+      squareEvent("payment.updated", { payment: payment("PX", "OX", 1000) })
+    );
+    eq(
+      [res.json.outcome.resumed, res.json.outcome.applied],
+      [true, [{ productId: "last-three-balm", qty: 1, deducted: 1, short: 0 }]],
+      "a pending claim is resumed and applied once"
+    );
+    eq((await sync.getSquareSale(env.STATE_DB, "OX")).state, "applied", "...and is now applied");
+    eq((await available(env.STATE_DB, ["last-three-balm"]))["last-three-balm"], 2, "3 - 1 = 2");
+
+    // 10b. Two deliveries racing on one pending claim. The emulator runs one
+    // SQLite connection, so the race is staged rather than parallel: a
+    // competing delivery lands BETWEEN this one's read of the pending row and
+    // its guarded batch -- the exact interleaving the guard exists for.
+    const interleave = (db, competitor) => ({
+      prepare: (sql) => db.prepare(sql),
+      batch: async (statements) => {
+        for (const sql of competitor) db._raw.prepare(sql).run();
+        return db.batch(statements);
+      }
+    });
+    await sync.claimSquareSale(
+      env.STATE_DB,
+      "OY",
+      [{ productId: "last-three-balm", qty: 1 }],
+      LOCATION
+    );
+    const lost = await sync.applySquareSale(
+      interleave(env.STATE_DB, [
+        "UPDATE inventory SET on_hand = on_hand - 1 WHERE product_id = 'last-three-balm'",
+        "UPDATE square_sales SET state = 'applied' WHERE order_id = 'OY' AND state = 'pending'"
+      ]),
+      "OY"
+    );
+    eq(lost.raced, true, "the delivery that read `pending` but lost the write knows it lost");
+    eq(lost.applied, [], "...and reports nothing -- so no false shortfall alert");
+    eq(
+      (await available(env.STATE_DB, ["last-three-balm"]))["last-three-balm"],
+      1,
+      "...and the shelf moved exactly once, by the winner"
+    );
+    eq(
+      await sync.applySquareSale(env.STATE_DB, "OY"),
+      null,
+      "a later delivery finds nothing pending"
+    );
+
+    // 10c. The same race on the restock.
+    const lostRestock = await sync.restockSquareSale(
+      interleave(env.STATE_DB, [
+        "UPDATE inventory SET on_hand = on_hand + 1 WHERE product_id = 'last-three-balm'",
+        "UPDATE square_sales SET state = 'restocked' WHERE order_id = 'OY' AND state = 'applied'"
+      ]),
+      "OY"
+    );
+    eq(lostRestock.raced, true, "a restock that lost the write knows it lost");
+    eq(lostRestock.returned, [], "...and returns nothing");
+    eq(
+      (await available(env.STATE_DB, ["last-three-balm"]))["last-three-balm"],
+      2,
+      "...and the unit came back exactly once"
+    );
+    eq(await sync.restockSquareSale(env.STATE_DB, "OY"), null, "nothing left to restock");
+
+    // 10d. A sale of only unmapped items still reaches `applied`, so it is not
+    // re-resolved on every retry and a refund of it has a row to find.
+    res = await post(
+      env,
+      ctx,
+      squareEvent("payment.updated", { payment: payment("PJ", "OJ", 1000) })
+    );
+    eq(res.json.outcome.applied, [], "nothing to deduct");
+    eq(
+      (await sync.getSquareSale(env.STATE_DB, "OJ")).state,
+      "applied",
+      "...but the claim still advanced"
+    );
+
+    // 10e. Item names from Square are data, not header material.
+    const lines = await capture(async () => {
+      await sync.upsertCatalogRows(env.STATE_DB, [
+        { variationId: "V_BALM", sku: "nope", itemName: "x", variationName: "x", productId: null }
+      ]);
+      res = await post(
+        env,
+        ctx,
+        squareEvent("payment.updated", { payment: payment("PC", "OC", 1000) })
+      );
+    });
+    eq(
+      res.json.outcome.unmapped.map((u) => u.name),
+      ["Bad Name with spaces -- Regular"],
+      "control characters and runs of whitespace are stripped from the name"
+    );
+    assert(
+      lines.some((l) => /square-unmapped:V_BALM/.test(l) && /Bad Name with spaces/.test(l)),
+      "...and the alert carries the clean name"
+    );
+    assert(
+      !lines.some((l) => /square-unmapped:V_BALM/.test(l) && /[\r]/.test(l)),
+      "...with no carriage return anywhere in it"
+    );
+    await ctx.settle();
+
+    // 10f. The register drifted (a webhook failed for a day; a number typed
+    // into the Square Dashboard): the hourly tick reads Square's counts and
+    // rewrites the ones that disagree, even though the ledger has not moved.
+    let out = await route.runSquareReconcile(env, ctx);
+    assert(out.pushed >= 1, "the first tick pushes the mapped counts");
+    out = await route.runSquareReconcile(env, ctx);
+    eq(out.skipped, "unchanged", "the next tick, with Square agreeing, writes nothing");
+    square.state.squareCounts = { V_SOAK10: 7 }; // the ledger says 10
+    out = await route.runSquareReconcile(env, ctx);
+    eq(out.pushed, 1, "a Square count that disagrees with the ledger is rewritten");
+    const last = square.pushes()[square.pushes().length - 1].body.changes;
+    eq(
+      last.map((c) => [c.physical_count.catalog_object_id, c.physical_count.quantity]),
+      [["V_SOAK10", "10"]],
+      "...to the ledger's number, and only that variation"
+    );
+    square.state.squareCounts = {};
+
+    // 10g. A variation deleted from Square is unmapped after a complete listing,
+    // so it cannot poison the next push batch.
+    square.state.variationIds = Object.keys(squareVariations).filter((id) => id !== "V_MB");
+    out = await route.runSquareReconcile(env, ctx);
+    eq(out.unmapped, 1, "one variation the listing no longer has is unmapped");
+    const gone = (await sync.catalogRows(env.STATE_DB, ["V_MB"])).get("V_MB");
+    eq(
+      [gone.productId, gone.lastPushedCount],
+      [null, null],
+      "...its mapping and push memo are cleared"
+    );
+    assert(
+      !(await sync.mappedRows(env.STATE_DB)).some((r) => r.variationId === "V_MB"),
+      "...and it is no longer pushed"
+    );
+    square.state.variationIds = Object.keys(squareVariations);
+
+    // 10h. A stale catalogue cannot reseed a row backwards. The site says the
+    // balm has 3 (served at T0); the owner corrects it to 5 (served at T1);
+    // an isolate still holding the T0 copy must not put it back to 3 -- from
+    // either seeder: the Square push, or GET /api/inventory.
+    const fresh = await makeEnv();
+    const T0 = "2026-09-10T01:00:00Z";
+    const T1 = "2026-09-10T02:00:00Z";
+    square.state.balmStock = 3;
+    square.state.siteDate = T0;
+    await sync.upsertCatalogRows(fresh.STATE_DB, [
+      {
+        variationId: "V_BALM",
+        sku: "last-three-balm",
+        itemName: "Balm",
+        variationName: "R",
+        productId: "last-three-balm"
+      }
+    ]);
+    await route.pushCountsForProducts(fresh, null, ["last-three-balm"]);
+    eq(
+      (await available(fresh.STATE_DB, ["last-three-balm"]))["last-three-balm"],
+      3,
+      "seeded at 3 from the T0 catalogue"
+    );
+    square.state.balmStock = 5;
+    square.state.siteDate = T1;
+    inv.resetInventoryMemo();
+    await route.pushCountsForProducts(fresh, null, ["last-three-balm"]);
+    eq(
+      (await available(fresh.STATE_DB, ["last-three-balm"]))["last-three-balm"],
+      5,
+      "the owner's correction (T1) reseeds to 5"
+    );
+    square.state.balmStock = 3;
+    square.state.siteDate = T0;
+    inv.resetInventoryMemo();
+    await route.pushCountsForProducts(fresh, null, ["last-three-balm"]);
+    eq(
+      (await available(fresh.STATE_DB, ["last-three-balm"]))["last-three-balm"],
+      5,
+      "a stale T0 copy seen by the Square push does NOT reseed back to 3"
+    );
+    inv.resetInventoryMemo();
+    const getReq = new Request("https://yallternative-checkout.workers.dev/inventory", {
+      method: "GET"
+    });
+    const snap = await (await worker.fetch(getReq, fresh, ctx)).json();
+    eq(
+      snap.products["last-three-balm"].available,
+      5,
+      "...nor does GET /api/inventory reading the same stale copy"
+    );
+    square.state.balmStock = null;
+    square.state.siteDate = null;
+    await ctx.settle();
+    square.restore();
   }
 
   console.log(`\nworker-square.test.js: ${passed} passed, ${failed} failed`);

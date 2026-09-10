@@ -453,9 +453,12 @@ CREATE INDEX IF NOT EXISTS orders_payment_intent ON orders (payment_intent);
 -- because a split tender is two `payment.updated` events for one sale, and
 -- Square redelivers an event until it gets a 2xx; the webhook_events claim
 -- stops the redelivery and this row stops the second payment. lines_json is
--- the `[{productId, qty}]` that was deducted, kept so a full refund can put
--- back exactly what was taken. state: applied -> restocked, once each way.
--- Swept after 90 days (a refund later than that is adjusted by hand).
+-- the `[{productId, qty}]` to deduct, recorded at claim time so a retry that
+-- resumes a crashed attempt deducts the same lines, and so a full refund can
+-- put back exactly what was taken. state: pending (claimed) -> applied (the
+-- shelf moved, in the same batch that flipped it) -> restocked (the whole
+-- ORDER refunded), once each way; see workers/state/square-sync.js. Swept
+-- after 90 days (a refund later than that is adjusted by hand).
 --
 -- square_catalog: the register's items, one row per Square ITEM_VARIATION,
 -- with the product id its SKU resolved to (NULL when it did not -- the owner
@@ -465,7 +468,7 @@ CREATE INDEX IF NOT EXISTS orders_payment_intent ON orders (payment_intent);
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS square_sales (
   order_id     TEXT PRIMARY KEY,
-  state        TEXT NOT NULL CHECK (state IN ('applied','restocked')),
+  state        TEXT NOT NULL CHECK (state IN ('pending','applied','restocked')),
   lines_json   TEXT NOT NULL,
   location_id  TEXT,
   sold_at      INTEGER NOT NULL,

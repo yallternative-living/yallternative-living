@@ -16,16 +16,23 @@
  *   -> each item's SKU -> a product id (workers/state/square-sync.js
  *   resolveSku) -> deductOnHand. Keyed on the Square ORDER, so a split
  *   tender's two payments and any redelivery move the shelf once. A full
- *   refund (`refund.updated`, COMPLETED, for the whole payment) puts exactly
- *   what was taken back; a partial refund is about the money, not the goods,
- *   and moves nothing -- the same reading routes/inventory.js gives Stripe.
+ *   refund (`refund.updated`, COMPLETED, and the ORDER now refunded for all
+ *   it collected -- not the payment: refunding the card half of a card-and-
+ *   cash sale is a partial refund of the sale) puts exactly what was taken
+ *   back; a partial refund is about the money, not the goods, and moves
+ *   nothing -- the same reading routes/inventory.js gives Stripe. A return
+ *   the register rings up as its own order is followed to the sale it
+ *   returns (`returns[].source_order_id`).
  *
  * OUTBOUND -- what the register is allowed to sell
  *   After any move of the shelf (an online order paid, expired or refunded; a
  *   register sale applied; the owner's hourly correction), the live
  *   `available` count of every mapped product is written to Square as a
  *   PHYSICAL_COUNT for each of its variations, so the register shows the
- *   same "3 left" the site does. Only rows whose count moved are written.
+ *   same "3 left" the site does. Only rows whose count moved are written --
+ *   except on the hourly tick, which also reads Square's own counts and
+ *   rewrites any that drifted from the ledger, so a webhook that failed for
+ *   a day or a count typed into the Square Dashboard heals within the hour.
  *
  * WHAT IS NOT DONE
  *   Square's own `inventory.count.updated` is NOT subscribed to. Two systems
@@ -72,28 +79,23 @@
  *   ignored, and nothing is pushed.
  */
 
-import { json } from "./http.js";
+import { json, stripControlChars } from "./http.js";
 import { ensureSchema } from "../state/migrations.js";
 import { loadProductIndex, loadSiteSettings } from "../state/site-data.js";
 import { claimEvent, markEventDone, releaseEvent } from "../state/webhook-events.js";
 import { alertOwner } from "./alerts.js";
+import { readAvailability, syncInventory, trackedProductsOf } from "../state/inventory.js";
 import {
-  addOnHand,
-  deductOnHand,
-  readAvailability,
-  syncInventory,
-  trackedProductsOf
-} from "../state/inventory.js";
-import {
+  applySquareSale,
   catalogRows,
   claimSquareSale,
   expandLine,
   mappedRows,
   markPushed,
   mergeLines,
-  releaseSquareSale,
   resolveSku,
   restockSquareSale,
+  unmapStale,
   upsertCatalogRows
 } from "../state/square-sync.js";
 
@@ -110,6 +112,23 @@ const PUSH_CHUNK = 100;
 
 /** Catalogue listing pages read per reconcile before giving up (2000 objects). */
 const MAX_CATALOG_PAGES = 20;
+
+/** Variation ids per BatchRetrieveInventoryCounts call (Square allows 1000). */
+const COUNTS_CHUNK = 500;
+
+/** Longest a Square item or variation name is carried into a log line or an alert. */
+const NAME_MAX = 120;
+
+/**
+ * A string from Square's side -- an item name typed at the register -- on
+ * its way into an alert subject or a log line: control characters gone (the
+ * same rule stripControlChars applies to a buyer's name before an email
+ * header), whitespace collapsed, capped. Square is trusted with the shop's
+ * catalogue, not with the shape of an email header.
+ */
+function oneLine(value) {
+  return stripControlChars(value).replace(/\s+/g, " ").slice(0, NAME_MAX);
+}
 
 /**
  * The event types the handler acts on; everything else is acknowledged and
@@ -290,11 +309,18 @@ export async function retrieveVariations(env, variationIds) {
   return variationRows((data && data.objects) || [], itemNames);
 }
 
-/** Every ITEM_VARIATION in the register's catalogue, paged. */
+/**
+ * Every ITEM_VARIATION in the register's catalogue, paged. `complete` is
+ * false when the page budget ran out first -- the caller must then treat
+ * variations it did not see as unknown, not as gone.
+ *
+ * @returns {Promise<{rows: Array, complete: boolean}>}
+ */
 export async function listVariations(env) {
   const items = new Map();
   const variations = [];
   let cursor = null;
+  let complete = false;
   for (let page = 0; page < MAX_CATALOG_PAGES; page++) {
     const query = cursor ? `&cursor=${encodeURIComponent(cursor)}` : "";
     const data = await squareFetch(env, `/v2/catalog/list?types=ITEM,ITEM_VARIATION${query}`);
@@ -304,9 +330,55 @@ export async function listVariations(env) {
       else if (obj.type === "ITEM_VARIATION") variations.push(obj);
     }
     cursor = data && typeof data.cursor === "string" && data.cursor ? data.cursor : null;
-    if (!cursor) break;
+    if (!cursor) {
+      complete = true;
+      break;
+    }
   }
-  return variationRows(variations, items);
+  if (!complete) {
+    console.warn(
+      `${LOG_MARKER} the catalogue listing stopped after ${MAX_CATALOG_PAGES} pages; ` +
+        "items past that are not mapped this hour"
+    );
+  }
+  return { rows: variationRows(variations, items), complete };
+}
+
+/**
+ * Square's own IN_STOCK count per variation at the shop's location, as
+ * `Map<variationId, number>` (absent when Square reports none). Read by the
+ * hourly reconcile so a count that drifted -- a webhook that failed for a
+ * day, a number typed into the Square Dashboard -- is rewritten, where the
+ * push memo alone would have said "unchanged".
+ */
+export async function retrieveCounts(env, variationIds) {
+  const ids = [...new Set((variationIds || []).filter((id) => typeof id === "string" && id))];
+  const out = new Map();
+  for (let i = 0; i < ids.length; i += COUNTS_CHUNK) {
+    const chunk = ids.slice(i, i + COUNTS_CHUNK);
+    let cursor = null;
+    for (let page = 0; page < MAX_CATALOG_PAGES; page++) {
+      const body = {
+        catalog_object_ids: chunk,
+        location_ids: [env.SQUARE_LOCATION_ID],
+        states: ["IN_STOCK"]
+      };
+      if (cursor) body.cursor = cursor;
+      const data = await squareFetch(env, "/v2/inventory/counts/batch-retrieve", {
+        method: "POST",
+        body
+      });
+      for (const c of (data && data.counts) || []) {
+        if (!c || typeof c.catalog_object_id !== "string") continue;
+        if (c.state && c.state !== "IN_STOCK") continue;
+        const n = Math.floor(Number(c.quantity));
+        if (Number.isFinite(n)) out.set(c.catalog_object_id, n);
+      }
+      cursor = data && typeof data.cursor === "string" && data.cursor ? data.cursor : null;
+      if (!cursor) break;
+    }
+  }
+  return out;
 }
 
 function variationRows(objects, itemNames) {
@@ -332,7 +404,11 @@ function variationRows(objects, itemNames) {
  */
 async function seedLedger(env, ctx, now, index = null) {
   const idx = index || (await loadProductIndex(env, ctx));
-  if (idx.size) await syncInventory(env.STATE_DB, trackedProductsOf(idx.values()), now);
+  // idx.fetchedAt is when the site served this catalogue, so a copy older
+  // than the last owner correction cannot reseed a row backwards.
+  if (idx.size) {
+    await syncInventory(env.STATE_DB, trackedProductsOf(idx.values()), now, idx.fetchedAt);
+  }
   return idx;
 }
 
@@ -354,8 +430,8 @@ export function linesFromOrder(order) {
     out.push({
       variationId: li.catalog_object_id,
       qty,
-      name: typeof li.name === "string" ? li.name : "",
-      variationName: typeof li.variation_name === "string" ? li.variation_name : ""
+      name: typeof li.name === "string" ? oneLine(li.name) : "",
+      variationName: typeof li.variation_name === "string" ? oneLine(li.variation_name) : ""
     });
   }
   return out;
@@ -481,18 +557,19 @@ export async function applySquareOrder(env, ctx, order, now = Date.now()) {
   await seedLedger(env, ctx, now, index);
   const { mapped, unmapped } = await resolveLines(env, db, index, lines);
 
-  const claimed = await claimSquareSale(db, order.id, mapped, order.location_id || null, now);
-  if (!claimed) return { orderId: order.id, duplicate: true };
+  // The claim is a `pending` row; applying it and marking it `applied` is
+  // one guarded batch (square-sync.js). A row already `pending` is an earlier
+  // attempt that died between the two, and is resumed rather than refused.
+  const claim = await claimSquareSale(db, order.id, mapped, order.location_id || null, now);
+  if (!claim.claimed && claim.state !== "pending") return { orderId: order.id, duplicate: true };
+  const resumed = !claim.claimed;
+  const out = await applySquareSale(db, order.id, now);
+  if (!out) return { orderId: order.id, duplicate: true };
+  if (out.raced) return { orderId: order.id, duplicate: true, raced: true };
 
-  let out;
-  try {
-    out = await deductOnHand(db, mapped, now);
-  } catch (err) {
-    await releaseSquareSale(db, order.id).catch(() => {});
-    throw err;
-  }
   console.log(
     `${LOG_MARKER} order ${order.id}: deducted ${JSON.stringify(out.applied)}` +
+      (resumed ? " (resumed a claim an earlier attempt left pending)" : "") +
       (unmapped.length ? `; unmapped ${unmapped.map((u) => u.name).join(", ")}` : "")
   );
   if (unmapped.length) alertUnmapped(env, ctx, unmapped, order.id);
@@ -506,7 +583,14 @@ export async function applySquareOrder(env, ctx, order, now = Date.now()) {
     ctx,
     out.applied.map((a) => a.productId)
   );
-  return { orderId: order.id, ...out, unmapped };
+  return {
+    orderId: order.id,
+    applied: out.applied,
+    soldOut: out.soldOut,
+    untracked: out.untracked,
+    unmapped,
+    ...(resumed ? { resumed: true } : {})
+  };
 }
 
 async function handlePaymentEvent(event, env, ctx) {
@@ -552,20 +636,87 @@ async function handleOrderEvent(event, env, ctx) {
 
 /* -------------------------------------------------------- inbound: refunds */
 
+function money(m) {
+  const n = Number(m && m.amount);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** A refund entry on an order that has not (yet) gone through. */
+function refundNotSettled(r) {
+  return Boolean(r && r.status && ["PENDING", "REJECTED", "FAILED"].includes(r.status));
+}
+
 /**
- * A refund is "full" when the payment has now been refunded for at least
- * what it was charged. The payment is re-read rather than trusting the
- * refund's own amount alone, because two partial refunds that add up to the
- * whole are a full refund too -- and `refunded_money` on the payment is the
- * running total.
+ * A sale is refunded in full when the ORDER has been refunded for at least
+ * what it collected -- the order, not the payment. A split tender is two
+ * payments for one sale, and refunding one of them in full is a partial
+ * refund of the sale; the first version of this file judged fullness per
+ * payment and would have restocked a whole card-and-cash order when only
+ * the card half came back (red team, 2026-09-10).
+ *
+ * Refunds are summed across the sale order and any related order (the
+ * return the register rang up as its own order), de-duplicated by id, and
+ * the refund that triggered this call is counted once even when Square has
+ * not yet listed it on either -- a webhook can arrive before the order
+ * reflects it. `charged` is the order's total; when an older API version
+ * leaves that blank, the tenders are summed instead. A zero-money order (a
+ * comp) is never "refunded": there is nothing to give back.
  */
-export function isFullRefund(payment, refund) {
-  const charged = Number(payment && payment.amount_money && payment.amount_money.amount);
-  if (!Number.isFinite(charged) || charged <= 0) return false;
-  const running = Number(payment && payment.refunded_money && payment.refunded_money.amount);
-  const thisOne = Number(refund && refund.amount_money && refund.amount_money.amount);
-  const refunded = Number.isFinite(running) ? running : Number.isFinite(thisOne) ? thisOne : 0;
+export function isOrderFullyRefunded(saleOrder, relatedOrders = [], refund = null) {
+  let charged = money(saleOrder && saleOrder.total_money);
+  if (charged <= 0) {
+    charged = ((saleOrder && saleOrder.tenders) || []).reduce(
+      (sum, t) => sum + money(t && t.amount_money),
+      0
+    );
+  }
+  if (charged <= 0) return false;
+  const seen = new Set();
+  let refunded = 0;
+  for (const order of [saleOrder, ...(Array.isArray(relatedOrders) ? relatedOrders : [])]) {
+    for (const r of (order && order.refunds) || []) {
+      if (!r || refundNotSettled(r)) continue;
+      if (typeof r.id === "string") {
+        if (seen.has(r.id)) continue;
+        seen.add(r.id);
+      }
+      refunded += money(r.amount_money);
+    }
+  }
+  if (
+    refund &&
+    refund.status === "COMPLETED" &&
+    !(typeof refund.id === "string" && seen.has(refund.id))
+  ) {
+    refunded += money(refund.amount_money);
+  }
   return refunded >= charged;
+}
+
+/**
+ * The order a refund is about, and the SALE it returns. A refund made from
+ * the original sale carries that order's id; an itemised return rung up at
+ * the register is its own order whose `returns[].source_order_id` names the
+ * sale. Either way the sale order is what the ledger keyed the deduction on.
+ */
+async function resolveRefundedSale(env, refund) {
+  let orderId = typeof refund.order_id === "string" && refund.order_id ? refund.order_id : null;
+  if (!orderId) {
+    const payment = await fetchPayment(env, refund.payment_id);
+    if (!payment) return { skipped: "payment-not-found" };
+    orderId = typeof payment.order_id === "string" && payment.order_id ? payment.order_id : null;
+  }
+  if (!orderId) return { skipped: "no-order-id" };
+  const order = await fetchOrder(env, orderId);
+  if (!order) return { skipped: "order-not-found", orderId };
+  const sourceId =
+    (order.returns || [])
+      .map((r) => r && r.source_order_id)
+      .find((id) => typeof id === "string" && id) || null;
+  if (!sourceId || sourceId === order.id) return { saleOrder: order, related: [] };
+  const saleOrder = await fetchOrder(env, sourceId);
+  if (!saleOrder) return { skipped: "sale-order-not-found", orderId: sourceId };
+  return { saleOrder, related: [order] };
 }
 
 async function handleRefundEvent(event, env, ctx) {
@@ -576,23 +727,28 @@ async function handleRefundEvent(event, env, ctx) {
     return { skipped: "no-payment-id" };
   }
   if (!canCallSquare(env)) return { skipped: "no-access-token" };
-  const payment = await fetchPayment(env, refund.payment_id);
-  if (!payment) return { skipped: "payment-not-found" };
-  const orderId = typeof refund.order_id === "string" ? refund.order_id : payment.order_id;
-  if (typeof orderId !== "string" || !orderId) return { skipped: "no-order-id" };
-  if (!isFullRefund(payment, refund)) return { orderId, partialRefund: true, returned: [] };
+  const resolved = await resolveRefundedSale(env, refund);
+  if (resolved.skipped) return resolved;
+  const { saleOrder, related } = resolved;
+  const orderId = saleOrder.id;
+  if (!isOrderFullyRefunded(saleOrder, related, refund)) {
+    return { orderId, partialRefund: true, returned: [] };
+  }
 
-  const lines = await restockSquareSale(env.STATE_DB, orderId);
-  if (!lines.length) return { orderId, alreadyRestocked: true, returned: [] };
-  await seedLedger(env, ctx, Date.now());
-  const out = await addOnHand(env.STATE_DB, lines);
-  console.log(`${LOG_MARKER} order ${orderId} refunded in full: returned ${JSON.stringify(lines)}`);
+  const now = Date.now();
+  await seedLedger(env, ctx, now);
+  const out = await restockSquareSale(env.STATE_DB, orderId, now);
+  if (!out) return { orderId, alreadyRestocked: true, returned: [] };
+  if (out.raced) return { orderId, alreadyRestocked: true, raced: true, returned: [] };
+  console.log(
+    `${LOG_MARKER} order ${orderId} refunded in full: returned ${JSON.stringify(out.returned)}`
+  );
   pushCountsForProducts(
     env,
     ctx,
     out.returned.map((l) => l.productId)
   );
-  return { orderId, ...out };
+  return { orderId, returned: out.returned, untracked: out.untracked };
 }
 
 /* --------------------------------------------------------------- dispatch */
@@ -721,7 +877,13 @@ export function pushCountsForProducts(env, ctx, productIds, now = Date.now()) {
   return work;
 }
 
-async function pushCounts(env, ctx, productIds, now) {
+/**
+ * @param {Map<string, number>|null} squareCounts Square's own counts, when
+ *   the caller read them (the hourly reconcile does): a variation whose
+ *   Square count differs from the ledger is rewritten even if the ledger
+ *   has not moved since the last push.
+ */
+async function pushCounts(env, ctx, productIds, now, squareCounts = null) {
   if (!canPushCounts(env)) return { pushed: 0, skipped: "not-configured" };
   if (!env.STATE_DB) return { pushed: 0, skipped: "no-state-db" };
   if (Array.isArray(productIds) && !productIds.length) return { pushed: 0, skipped: "nothing" };
@@ -737,7 +899,11 @@ async function pushCounts(env, ctx, productIds, now) {
   for (const row of rows) {
     const avail = availability.get(row.productId);
     if (!avail) continue; // untracked on the site: the register keeps its own count
-    if (row.lastPushedCount === avail.available) continue;
+    const drifted =
+      squareCounts instanceof Map &&
+      squareCounts.has(row.variationId) &&
+      squareCounts.get(row.variationId) !== avail.available;
+    if (row.lastPushedCount === avail.available && !drifted) continue;
     changes.push({ variationId: row.variationId, count: avail.available });
   }
   if (!changes.length) return { pushed: 0, skipped: "unchanged" };
@@ -769,10 +935,18 @@ async function pushCounts(env, ctx, productIds, now) {
 /* ------------------------------------------------------------------- cron */
 
 /**
- * The hourly step (checkout.js `scheduled`): re-read the register's
- * catalogue so a SKU the owner fixes in Square takes effect within the hour,
- * then push every mapped product whose count moved. A no-op without
- * SQUARE_ACCESS_TOKEN; the catalogue refresh alone without a location.
+ * The hourly step (checkout.js `scheduled`), in three moves:
+ *
+ *   1. re-read the register's catalogue, so a SKU the owner fixes in Square
+ *      maps within the hour -- and, when the listing was complete, unmap
+ *      every variation Square no longer has, so a deleted item cannot make
+ *      Square refuse the next push batch;
+ *   2. read Square's own counts for every mapped variation;
+ *   3. push every mapped product whose ledger count moved OR whose Square
+ *      count disagrees with the ledger -- the self-heal for a webhook that
+ *      failed for a day, or a number typed into the Square Dashboard.
+ *
+ * A no-op without SQUARE_ACCESS_TOKEN; steps 2-3 need SQUARE_LOCATION_ID.
  */
 export async function runSquareReconcile(env, ctx, now = Date.now()) {
   if (!canCallSquare(env) || !env.STATE_DB) return { skipped: "not-configured" };
@@ -780,14 +954,26 @@ export async function runSquareReconcile(env, ctx, now = Date.now()) {
   await ensureSchema(env.STATE_DB);
   const index = await loadProductIndex(env, ctx);
   let refreshed = 0;
+  let unmapped = 0;
   if (index.size) {
-    const variations = await listVariations(env);
-    const rows = variations.map((v) => {
+    const listing = await listVariations(env);
+    const rows = listing.rows.map((v) => {
       const resolved = resolveSku(v.sku, index);
       return { ...v, productId: resolved ? resolved.id : null };
     });
     refreshed = await upsertCatalogRows(env.STATE_DB, rows, now);
+    if (listing.complete) unmapped = await unmapStale(env.STATE_DB, now);
   }
-  const push = await pushCounts(env, ctx, null, now);
-  return { refreshed, ...push };
+  let squareCounts = null;
+  if (canPushCounts(env)) {
+    const mapped = await mappedRows(env.STATE_DB);
+    if (mapped.length) {
+      squareCounts = await retrieveCounts(
+        env,
+        mapped.map((r) => r.variationId)
+      );
+    }
+  }
+  const push = await pushCounts(env, ctx, null, now, squareCounts);
+  return { refreshed, unmapped, ...push };
 }

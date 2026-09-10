@@ -41,22 +41,74 @@ async function loadSiteJson(env, ctx, pathname) {
 }
 
 /**
+ * When the site served this copy, in the site's own clock -- Netlify's Date
+ * header survives the edge cache, so a cache hit still reports the ORIGIN
+ * fetch. The inventory ledger refuses a reseed from a catalogue older than
+ * the last owner correction (workers/state/inventory.js syncInventory), and
+ * that refusal only works if every caller reports the catalogue's real age:
+ * stamping "now" on a 300-second-old cached copy is how a sale got erased
+ * once already (red team, 2026-09-09) and how this module's readers could
+ * have erased one again (red team, 2026-09-10). Falls back to `now` when
+ * there is no usable header, which keeps the guard strictly forward-moving.
+ */
+function servedAt(res, now = Date.now()) {
+  const header =
+    res && res.headers && typeof res.headers.get === "function" ? res.headers.get("date") : null;
+  const served = Date.parse(header || "");
+  return Number.isFinite(served) ? served : now;
+}
+
+/** loadSiteJson, plus when the site served the copy (see servedAt). */
+async function loadSiteJsonWithAge(env, ctx, pathname) {
+  const origin = (env && env.SITE_ORIGIN) || "https://yallternativeliving.com";
+  const url = `${origin}${pathname}`;
+  const cache = typeof caches !== "undefined" ? caches.default : null;
+  const cacheKey = typeof Request === "function" ? new Request(url) : url;
+  let res = cache ? await cache.match(cacheKey) : null;
+  if (!res) {
+    res = await fetch(url, { cf: { cacheTtl: 300, cacheEverything: true } });
+    if (res && res.ok && ctx && cache) {
+      const toCache = new Response(res.clone().body, res);
+      toCache.headers.set("Cache-Control", "max-age=300");
+      ctx.waitUntil(cache.put(cacheKey, toCache));
+    }
+  }
+  if (!res || !res.ok) return { data: null, fetchedAt: null };
+  return { data: await res.json(), fetchedAt: servedAt(res) };
+}
+
+/**
  * `{ id -> { id, name, category, usageGuide } }` for every product AND bundle.
  * Bundles are included because a bundle line item is what a shopper actually
  * bought; it just has no usage guide of its own.
+ *
+ * The Map carries a non-enumerable `fetchedAt` -- when the site served this
+ * catalogue (see servedAt) -- for callers that seed the inventory ledger from
+ * it. Non-enumerable so nothing that iterates or serialises the index sees it.
  *
  * @returns {Promise<Map<string, object>>} empty when the catalogue is unreachable
  */
 export async function loadProductIndex(env, ctx) {
   const index = new Map();
   let catalog = null;
+  let fetchedAt = null;
   try {
-    catalog = await loadSiteJson(env, ctx, "/assets/data/products.json");
+    ({ data: catalog, fetchedAt } = await loadSiteJsonWithAge(
+      env,
+      ctx,
+      "/assets/data/products.json"
+    ));
   } catch (err) {
     console.warn("site-data: products.json is unreachable:", err && err.message);
     return index;
   }
   if (!catalog) return index;
+  Object.defineProperty(index, "fetchedAt", {
+    value: fetchedAt,
+    enumerable: false,
+    configurable: true,
+    writable: true
+  });
   for (const list of [catalog.products, catalog.bundles]) {
     for (const entry of Array.isArray(list) ? list : []) {
       if (!entry || typeof entry.id !== "string") continue;

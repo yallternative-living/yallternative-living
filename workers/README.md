@@ -747,17 +747,31 @@ same ledger, and makes the ledger the register's source of truth:
   takes the units off the shelf (`deductOnHand`). One deduction per Square
   ORDER however many payments (a split tender) or redeliveries it produces:
   `webhook_events` claims the event id, `square_sales` claims the order id.
-- **Refunds.** `refund.updated` (COMPLETED) for the WHOLE payment -- the
-  payment's running `refunded_money` reaching what was charged -- puts back
-  exactly the lines the sale took, once. A partial refund is about the money,
-  not the goods, and moves nothing: the same reading the Stripe route gives
+- **Refunds.** `refund.updated` (COMPLETED) puts back exactly the lines the
+  sale took, once, when the ORDER has now been refunded for all it collected
+  -- the order, not the payment. A split tender is two payments for one
+  sale; refunding the card half in full is a partial refund of the sale and
+  moves nothing (the first version judged this per payment and would have
+  restocked the whole order -- red team, 2026-09-10). A return the register
+  rings up as its own order is followed to the sale it returns
+  (`returns[].source_order_id`). A partial refund is about the money, not the
+  goods, and moves nothing: the same reading the Stripe route gives
   `charge.refunded`.
+- **Crash-safe.** The claim is a `pending` row; the deduction and the move to
+  `applied` are one guarded batch, so an isolate that dies between the two
+  leaves a `pending` row the next delivery resumes, and two deliveries racing
+  on it move the shelf once. Restock is the same shape.
 - **Site -> register.** After any move of the shelf -- an online order paid,
   expired or refunded, a register sale applied, the hourly reconcile -- the
   live `available` count of every mapped product is written to Square as a
   `PHYSICAL_COUNT` for each of its item variations (Inventory API
   `BatchChangeInventory`), so the register shows the same "3 left" the site
-  does. Only counts that moved since the last push are written.
+  does. Only counts that moved since the last push are written -- except on
+  the hourly tick, which also reads Square's own counts and rewrites any that
+  drifted from the ledger, so a webhook that failed for a day or a number
+  typed into the Square Dashboard heals within the hour. The same tick
+  unmaps any variation Square no longer lists, so a deleted item cannot make
+  Square refuse the next push batch.
 - **The map is the SKU.** In the Square Dashboard, an item variation's SKU
   set to a product id (`lavender-soak`) maps it; `lavender-soak/24-oz` maps
   too (the site counts stock per product, not per size, so every size of an
@@ -897,8 +911,9 @@ Subscribe to exactly these three:
   which is why the Worker reads the order itself. If a $0 comp at the register
   does not turn out to fire it, adjust the Stock count by hand for comps --
   paid sales never depend on it,
-- `refund.updated` -- a refund completed; a refund of the WHOLE payment puts
-  the order's items back, a partial refund moves nothing.
+- `refund.updated` -- a refund completed; once the WHOLE order has been
+  refunded (every tender of a split sale) its items go back, a partial refund
+  moves nothing. A return rung up as its own order is followed to the sale.
 
 Do NOT subscribe to `inventory.count.updated`: the Worker writes counts TO
 Square, and reacting to its own writes would loop. `payment.created` and
