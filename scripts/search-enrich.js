@@ -463,6 +463,10 @@ function screenBatch(input) {
          a red deploy an hour later. */
       try {
         build.buildSearchSynonyms({}, [screened.value]);
+        /* ...and the gate that reads the MERGED table, which is a second set
+           of words and used to be reachable only by writing the file and
+           losing the run to it. */
+        rules.assertQuerySideClean(screened.value.key, screened.value.terms);
       } catch (e) {
         dropped.push({
           id: work.id,
@@ -625,15 +629,106 @@ function summarize(result, client, dryRun) {
   };
 }
 
+/** Votes a build spends isolating the entries a veto is about. */
+const MAX_NARROW_VOTES = 16;
+
 /**
- * Write, then let the build vote. On a veto the previous bytes go back and the
- * build is run again so the generated files match the restored source; the run
- * then fails, having changed nothing.
+ * The build refused the file. Find the ENTRIES it is refusing and drop only
+ * those, by binary search over product ids: a refused half is searched, a
+ * clean half is not, so isolating one offender costs about log2(n) builds
+ * rather than n.
+ *
+ * Why this exists: a veto used to restore the whole file, so one bad word in
+ * one product cost every other product its enrichment and the run exited 2 --
+ * which is what happened on every run this bot ever made (2026-09-10). The
+ * per-entry screen now runs both of the build's gates, so reaching here at all
+ * means a rule the screen cannot see; even then, one word should cost one
+ * entry.
+ *
+ * Gives up -- and the caller restores, exactly as before -- when the offender
+ * cannot be isolated (neither half fails alone, so the entries interact),
+ * when more than half the file would have to go, or when the vote budget runs
+ * out. All three say "a human should look at this", which is what exit 2 is
+ * for.
+ *
+ * @param {{document: !Object, write: !Function, runBuild: !Function,
+ *          maxVotes: (number|undefined)}} input
+ * @return {{ok: boolean, document: (!Object|undefined),
+ *           dropped: !Array<string>, votes: number, error: (string|undefined)}}
+ */
+function narrowToAcceptable(input) {
+  const ids = Object.keys(input.document).sort();
+  const maxVotes = input.maxVotes || MAX_NARROW_VOTES;
+  const maxDropped = Math.max(1, Math.floor(ids.length / 2));
+  const dropped = [];
+  let votes = 0;
+  let lastError;
+
+  const test = function (subset) {
+    const doc = {};
+    subset.forEach(function (id) {
+      doc[id] = input.document[id];
+    });
+    input.write(doc);
+    votes += 1;
+    const res = input.runBuild();
+    if (!res.ok) lastError = res.error;
+    return res;
+  };
+
+  /* One offender out of a set the build already refused. Returns null when it
+     cannot be pinned to a single entry. */
+  const findOne = function (failing) {
+    let live = failing;
+    while (live.length > 1) {
+      if (votes + 2 > maxVotes) return null;
+      const mid = Math.floor(live.length / 2);
+      const a = live.slice(0, mid);
+      const b = live.slice(mid);
+      if (!test(a).ok) {
+        live = a;
+        continue;
+      }
+      if (!test(b).ok) {
+        live = b;
+        continue;
+      }
+      return null;
+    }
+    return live.length === 1 ? live[0] : null;
+  };
+
+  let live = ids.slice();
+  while (votes < maxVotes && dropped.length < maxDropped) {
+    const bad = findOne(live);
+    if (!bad) break;
+    dropped.push(bad);
+    live = live.filter(function (id) {
+      return id !== bad;
+    });
+    if (test(live).ok) {
+      const doc = {};
+      live.forEach(function (id) {
+        doc[id] = input.document[id];
+      });
+      return { ok: true, document: doc, dropped: dropped, votes: votes };
+    }
+  }
+  return { ok: false, dropped: dropped, votes: votes, error: lastError };
+}
+
+/**
+ * Write, then let the build vote. On a veto the offending entries are dropped
+ * and the rest is kept (narrowToAcceptable); only when that fails do the
+ * previous bytes go back, the build run again so the generated files match the
+ * restored source, and the run fail having changed nothing.
  *
  * @param {{text: string, previous: (string|null), runBuild: (!Function|undefined),
- *          enrichmentPath: (string|undefined)}} input
+ *          enrichmentPath: (string|undefined), document: (!Object|undefined),
+ *          maxVotes: (number|undefined)}} input `document` enables the
+ *     narrowing; without it a veto restores, as it always did.
  * @return {{ok: boolean, restored: boolean, error: (string|undefined),
- *           restoreFailed: (string|undefined)}}
+ *           restoreFailed: (string|undefined), narrowed: (!Object|undefined)}}
  */
 function writeAndVerify(input) {
   const rel = input.enrichmentPath || ENRICHMENT_PATH;
@@ -643,6 +738,29 @@ function writeAndVerify(input) {
   writeAtomic(full, input.text);
   const first = runBuild();
   if (first.ok) return { ok: true, restored: false };
+
+  if (input.document) {
+    const narrowed = narrowToAcceptable({
+      document: input.document,
+      write: function (doc) {
+        writeAtomic(full, serializeDocument(doc));
+      },
+      runBuild: runBuild,
+      maxVotes: input.maxVotes
+    });
+    if (narrowed.ok) {
+      return {
+        ok: true,
+        restored: false,
+        narrowed: {
+          dropped: narrowed.dropped,
+          votes: narrowed.votes,
+          error: first.error,
+          document: narrowed.document
+        }
+      };
+    }
+  }
 
   if (input.previous === null || input.previous === undefined) {
     try {
@@ -805,7 +923,41 @@ async function runCli(argv) {
   } else if (unchangedFile) {
     console.error("  the enrichment file is already correct -- nothing written.");
   } else {
-    const verdict = writeAndVerify({ text: text, previous: existing.raw });
+    const verdict = writeAndVerify({
+      text: text,
+      previous: existing.raw,
+      document: result.document
+    });
+    if (verdict.ok && verdict.narrowed) {
+      /* The build refused something the per-entry screen could not see. The
+         entries it was refusing are out, the rest shipped, and this says which
+         and why -- loudly, because a screen that has to be narrowed after the
+         fact is a policy gap, not a normal drop. */
+      summary.narrowed = {
+        dropped: verdict.narrowed.dropped,
+        builds: verdict.narrowed.votes,
+        buildVeto: verdict.narrowed.error
+      };
+      verdict.narrowed.dropped.forEach(function (id) {
+        summary.dropped.push({
+          id: id,
+          item: "(whole product)",
+          reason: "the build refused this entry and the screen did not: " + verdict.narrowed.error
+        });
+      });
+      console.error(
+        "\n!! the build refused " +
+          verdict.narrowed.dropped.length +
+          " entr" +
+          (verdict.narrowed.dropped.length === 1 ? "y" : "ies") +
+          " (" +
+          verdict.narrowed.dropped.join(", ") +
+          "); the rest was kept.\n" +
+          "   Every word the build refuses should already be a screen drop, so this is a gap in\n" +
+          "   scripts/lib/search-enrichment-rules.js. The veto said:\n" +
+          verdict.narrowed.error
+      );
+    }
     if (!verdict.ok) {
       summary.buildVeto = verdict.error;
       summary.restored = true;

@@ -681,6 +681,62 @@ function medicalQueryHit(term) {
   };
 }
 
+/**
+ * The check build-site-data.js runs on the MERGED synonym table, as a function
+ * both it and the enrichment bot call, on one entry at a time. It is a
+ * function and not a second copy of the word loops for the reason
+ * SEARCH_SYNONYM_BANNED is imported rather than typed: the screen the bot
+ * drops a term with and the gate that vetoes the file have to be one thing, or
+ * the bot proposes words it cannot know are refused and loses a whole run to
+ * them. Messages are the build's, unchanged, because they are what a
+ * maintainer reads out of a failed deploy.
+ *
+ * @param {string} key the synonym key, in its `snake_case` emitted form
+ * @param {!Array<string>} terms the key's terms
+ * @throws {Error} on the first refused subject
+ */
+function assertQuerySideClean(key, terms) {
+  const subjects = [{ label: "key", text: String(key).replace(/_/g, " ") }].concat(
+    (terms || []).map(function (t) {
+      return { label: 'term "' + t + '"', text: t };
+    })
+  );
+  const routerWords = medicalQueryTermList();
+  subjects.forEach(function (subject) {
+    routerWords.forEach(function (word) {
+      if (!containsPhrase(subject.text, word)) return;
+      throw new Error(
+        "search synonyms: " +
+          key +
+          " " +
+          subject.label +
+          ' carries the router word "' +
+          word +
+          '".\n        A medicalQueryTerms word maps to NO product (brief 7(b), 7(c)); a synonym' +
+          "\n        entry maps it to one. Drop the word, or move it out of MEDICAL_QUERY_TERMS" +
+          "\n        in scripts/lib/search-enrichment-rules.js -- not both."
+      );
+    });
+    /* Substantiation claims are not router words (they name no disease, so a
+       shopper typing one gets ordinary results), but the brief's word matrix
+       (7(g)) marks every one of them NEVER on the query side: a synonym entry
+       would assert "hypoallergenic" or "non-toxic" ABOUT the products it maps
+       to, in a shipped file, with nothing behind it. */
+    QUERY_SIDE_SUBSTANTIATION_WORDS.forEach(function (word) {
+      if (!containsPhrase(subject.text, word)) return;
+      throw new Error(
+        "search synonyms: " +
+          key +
+          " " +
+          subject.label +
+          ' carries the substantiation claim "' +
+          word +
+          '" (brief 7(g): never on the query side). Drop the word.'
+      );
+    });
+  });
+}
+
 /** Query-side rejection = policy list + the router + whatever the build enforces. */
 function querySideHit(term) {
   const policy = firstHit(term, QUERY_SIDE_BANNED);
@@ -921,5 +977,6 @@ module.exports = {
   competitorHit: competitorHit,
   screenKeyword: screenKeyword,
   screenSynonymEntry: screenSynonymEntry,
+  assertQuerySideClean: assertQuerySideClean,
   promptFragment: promptFragment
 };

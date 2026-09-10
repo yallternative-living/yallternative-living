@@ -424,11 +424,33 @@ function product(over) {
     );
   });
   assert(
-    /searchRules\.QUERY_SIDE_SUBSTANTIATION_WORDS/.test(
+    /searchRules\.assertQuerySideClean\(/.test(
       fs.readFileSync(path.join(ROOT, "scripts/build-site-data.js"), "utf8")
     ),
-    "the build's synonym gate reads that list from the rules module rather than typing its own"
+    "the build's synonym gate IS the rules module's check, not a second copy of the word loops"
   );
+  {
+    /* The bot screens with the same function the gate vetoes with, so the two
+       cannot disagree about a word again. Both directions, on the real lists. */
+    let threw = "";
+    try {
+      rules.assertQuerySideClean("sensitive_skin", ["baby safe balm"]);
+    } catch (e) {
+      threw = e.message;
+    }
+    assert(
+      /substantiation claim "safe"/.test(threw),
+      "the shared check refuses a query-side claim"
+    );
+    threw = "";
+    try {
+      rules.assertQuerySideClean("dry_skin", ["eczema"]);
+    } catch (e) {
+      threw = e.message;
+    }
+    assert(/router word "eczema"/.test(threw), "...and a router word, with the build's message");
+    rules.assertQuerySideClean("gift", ["secret santa", "white elephant gift"]);
+  }
   {
     /* The exact entry that failed the 2026-09-10 run: the bad term is a logged
        drop costing one word, the good one survives, and the entry still ships.
@@ -807,6 +829,70 @@ function product(over) {
       });
       assert(good.ok && !good.restored, "a build that passes keeps the new file");
       assertEqual(fs.readFileSync(target, "utf8"), "GOOD\n", "with the new bytes");
+
+      /* ONE BAD ENTRY COSTS ONE ENTRY. The bot used to restore the whole file
+         on a veto, so a single refused word cost every other product its
+         enrichment -- which is what happened on every run it ever made. The
+         build here refuses exactly one product; the rest must ship. */
+      const entry = function (word) {
+        return {
+          keywords: [word],
+          querySynonyms: [],
+          source: { model: "m", digest: "d", policy: "p", date: "2026-09-10" }
+        };
+      };
+      const doc = {};
+      ["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta"].forEach(function (id) {
+        doc[id] = entry(id === "delta" ? "baby safe balm" : "fine");
+      });
+      let builds = 0;
+      const narrowed = tool.writeAndVerify({
+        enrichmentPath: target,
+        text: tool.serializeDocument(doc),
+        previous: "OLD\n",
+        document: doc,
+        runBuild: function () {
+          builds++;
+          const onDisk = JSON.parse(fs.readFileSync(target, "utf8"));
+          return Object.prototype.hasOwnProperty.call(onDisk, "delta")
+            ? { ok: false, error: 'search synonyms: term "baby safe balm" carries "safe"' }
+            : { ok: true };
+        }
+      });
+      assert(narrowed.ok && !narrowed.restored, "a veto it can narrow is not a failed run");
+      assertDeep(
+        narrowed.narrowed.dropped,
+        ["delta"],
+        "only the entry the build refused is dropped"
+      );
+      assertDeep(
+        Object.keys(JSON.parse(fs.readFileSync(target, "utf8"))).sort(),
+        ["alpha", "beta", "epsilon", "eta", "gamma", "zeta"],
+        "...and the other six ship"
+      );
+      assert(
+        builds <= 8,
+        "isolating one of seven costs a handful of builds, not one per entry",
+        "builds: " + builds
+      );
+      assert(
+        /baby safe balm/.test(narrowed.narrowed.error),
+        "the build's own words are carried, so the policy gap can be closed"
+      );
+
+      /* When it CANNOT be narrowed -- here every subset is refused -- the old
+         behaviour stands: restore, change nothing, fail. */
+      const hopeless = tool.writeAndVerify({
+        enrichmentPath: target,
+        text: tool.serializeDocument(doc),
+        previous: "OLD\n",
+        document: doc,
+        runBuild: function () {
+          return { ok: false, error: "refuses everything" };
+        }
+      });
+      assert(!hopeless.ok && hopeless.restored, "an unnarrowable veto still restores and fails");
+      assertEqual(fs.readFileSync(target, "utf8"), "OLD\n", "...byte for byte, exactly as before");
       fs.rmSync(dir, { recursive: true, force: true });
 
       // -----------------------------------------------------------------

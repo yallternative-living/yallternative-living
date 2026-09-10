@@ -3195,13 +3195,6 @@ function buildSiteData() {
      resolves cleanly. */
   const searchRules = require("./lib/search-enrichment-rules.js");
   const medicalQueryTerms = searchRules.medicalQueryTermList();
-  /* SUBSTANTIATION_WORDS plus "clean" and the "safe" family, which the brief's
-     matrix marks NEVER on the query side just the same. It comes from the
-     rules module rather than being typed here, so the enrichment bot screens
-     for exactly the words this gate vetoes: when the two lists were separate,
-     a term the bot could not know about failed the whole run at this line and
-     cost twenty products their enrichment (2026-09-10, "baby safe balm"). */
-  const substantiationWords = searchRules.QUERY_SIDE_SUBSTANTIATION_WORDS || [];
   if (
     !Array.isArray(medicalQueryTerms) ||
     !medicalQueryTerms.length ||
@@ -3228,48 +3221,16 @@ function buildSiteData() {
      It runs on the MERGED table rather than on searchSynonymDefaults alone,
      because the CMS's search.extraSynonyms and the enrichment bot both land in
      the same object: SEARCH_SYNONYM_BANNED is eleven words and stops the worst
-     of them, and this is the other twenty-two. Matching is by whole word
-     through the rules module's own containsPhrase(), so "joint pain" is caught
-     by "pain" and "manicure" is not caught by "cure". */
+     of them, and assertQuerySideClean is the other twenty-two plus the
+     substantiation list. Matching is by whole word through the rules module's
+     own containsPhrase(), so "joint pain" is caught by "pain" and "manicure"
+     is not caught by "cure".
+
+     The check lives in the rules module so the enrichment bot can run the
+     SAME function per entry before it ever writes a file. This stayed the
+     last line of defence and became one nobody trips over. */
   Object.keys(searchSynonyms).forEach(function (key) {
-    const subjects = [{ label: "key", text: key.replace(/_/g, " ") }].concat(
-      searchSynonyms[key].map(function (t) {
-        return { label: 'term "' + t + '"', text: t };
-      })
-    );
-    subjects.forEach(function (subject) {
-      medicalQueryTerms.forEach(function (word) {
-        if (!searchRules.containsPhrase(subject.text, word)) return;
-        throw new Error(
-          "search synonyms: " +
-            key +
-            " " +
-            subject.label +
-            ' carries the router word "' +
-            word +
-            '".\n        A medicalQueryTerms word maps to NO product (brief 7(b), 7(c)); a synonym' +
-            "\n        entry maps it to one. Drop the word, or move it out of MEDICAL_QUERY_TERMS" +
-            "\n        in scripts/lib/search-enrichment-rules.js -- not both."
-        );
-      });
-      /* Substantiation claims are not router words (they name no disease, so
-         a shopper typing one gets ordinary results), but the brief's word
-         matrix (7(g)) marks every one of them NEVER on the query side: a
-         synonym entry would assert "hypoallergenic" or "non-toxic" ABOUT the
-         products it maps to, in a shipped file, with nothing behind it. */
-      substantiationWords.forEach(function (word) {
-        if (!searchRules.containsPhrase(subject.text, word)) return;
-        throw new Error(
-          "search synonyms: " +
-            key +
-            " " +
-            subject.label +
-            ' carries the substantiation claim "' +
-            word +
-            '" (brief 7(g): never on the query side). Drop the word.'
-        );
-      });
-    });
+    searchRules.assertQuerySideClean(key, searchSynonyms[key]);
   });
   /* ==== END medical-query router ==== */
 
