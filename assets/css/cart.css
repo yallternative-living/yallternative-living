@@ -31,7 +31,6 @@
   border-left: 1px solid var(--hide);
   background: var(--ink-2);
   color: var(--paper);
-  box-shadow: -8px 0 40px rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -40,11 +39,31 @@
   translate: 100% 0;
   transition:
     translate 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0.32s,
     overlay 0.32s allow-discrete,
     display 0.32s allow-discrete;
+
+  /* CLOSED STATE. The `display: flex` above is what the data-open fallback
+     needs to slide the panel in on a browser without the Popover API -- and an
+     author `display` beats the UA's `[popover]:not(:popover-open) { display:
+     none }`, so the closed drawer stays laid out just past the right edge
+     rather than being taken out of the box tree. Two things follow, and both
+     are fixed here rather than by giving up the fallback:
+
+     - the shadow. `-8px 0 40px` on a panel sitting at `left: 100vw` points
+       back at the page, so a closed drawer painted a dark band ~44px wide down
+       the right edge of every page, at every width (measured: luminance 232
+       falling to 160 at the last column). It is drawn on the open states only.
+     - the announcement. `role="dialog"` that is visible to the a11y tree on
+       every page is an empty dialog a screen reader can wander into.
+       `visibility: hidden` takes it out; the transition above holds it visible
+       for the length of the slide, so the close animation still plays. */
+  visibility: hidden;
 }
 .yl-cart-drawer:popover-open {
   translate: 0 0;
+  visibility: visible;
+  box-shadow: -8px 0 40px rgba(0, 0, 0, 0.5);
 }
 @starting-style {
   .yl-cart-drawer:popover-open {
@@ -73,6 +92,8 @@
 .yl-cart-drawer[data-open="true"] {
   translate: 0 0;
   z-index: 9999;
+  visibility: visible;
+  box-shadow: -8px 0 40px rgba(0, 0, 0, 0.5);
 }
 
 @media (prefers-reduced-motion: reduce) {

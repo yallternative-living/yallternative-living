@@ -752,6 +752,66 @@ function claimPromptFragment(code) {
     .join("\n");
 }
 
+/* ---------------------------------------------------------------------------
+ * Brand and product names a translation invented.
+ *
+ * The mirror image of the "protected terms are reproduced verbatim" rule that
+ * scripts/i18n-translate.js already gates each key on: a model that is told to
+ * keep "Y'allternative Living" untranslated will sometimes reach for a brand
+ * string the English never used, most often a capitalised collection name it
+ * saw in the glossary. On 2026-09-10 four locales opened a gift blurb with
+ * "Black Sheep & Bold Hearts" against English that says no such thing.
+ *
+ * This lived only inside scripts/i18n-claims.test.js, which runs over the
+ * whole dictionary after the bot has already written it -- so the offending
+ * key passed the per-key gate, was promoted with the rest of the batch, and
+ * then took all forty-odd good keys down with it when the repo-wide test
+ * failed. Same shape as the search-enrichment gate the build kept to itself.
+ * The rule lives here so the gate and the test are one thing: the gate drops
+ * the one key, the batch survives, and the test stays the backstop.
+ * ------------------------------------------------------------------------ */
+
+/* By KEY and TERM, never class-wide. The footer tagline says "for the black
+   sheep & bold hearts" in lower case -- the collection's words used as a
+   description -- and models reach for the capitalised form because the
+   glossary protects that string. A copy nit, not a fabricated name. Listing it
+   this way keeps "Unbothered" from being invented into eight languages the day
+   some other line says "an unbothered kind of calm". */
+const BRAND_CASE_ALLOWLIST = {
+  "footer.tagline": ["Black Sheep & Bold Hearts"],
+  "auto.whileYouWaitOn.8fe280": ["Black Sheep & Bold Hearts"]
+};
+
+/** Everything the glossary calls a name: protected terms plus the brand category. */
+function brandTerms(glossary) {
+  const g = glossary || {};
+  return (g.protectedTerms || []).concat((g.categories && g.categories.brand) || []);
+}
+
+/**
+ * The brand/product names `value` uses that `en` does not, for one key.
+ * Returns [] on a pass, so a caller can report the terms it found.
+ */
+function insertedBrandTerms(key, en, value, glossary) {
+  const english = String(en === undefined || en === null ? "" : en);
+  const translated = String(value === undefined || value === null ? "" : value);
+  const allowed = BRAND_CASE_ALLOWLIST[key] || [];
+  const found = [];
+  brandTerms(glossary).forEach(function (term) {
+    if (!term || english.indexOf(term) !== -1) return;
+    /* Allowlisted only where the English carries the same words in another
+       case -- not as a blanket pass for the key. */
+    if (
+      allowed.indexOf(term) !== -1 &&
+      english.toLowerCase().indexOf(String(term).toLowerCase()) !== -1
+    ) {
+      return;
+    }
+    if (translated.indexOf(term) !== -1 && found.indexOf(term) === -1) found.push(term);
+  });
+  return found;
+}
+
 module.exports = {
   CLAIM_WORDS: CLAIM_WORDS,
   CLAIM_EXEMPT: CLAIM_EXEMPT,
@@ -763,5 +823,8 @@ module.exports = {
   englishLicenses: englishLicenses,
   keyIsExempt: keyIsExempt,
   claimOffenses: claimOffenses,
-  claimPromptFragment: claimPromptFragment
+  claimPromptFragment: claimPromptFragment,
+  BRAND_CASE_ALLOWLIST: BRAND_CASE_ALLOWLIST,
+  brandTerms: brandTerms,
+  insertedBrandTerms: insertedBrandTerms
 };

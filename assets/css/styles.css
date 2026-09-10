@@ -2384,6 +2384,23 @@ section {
       }
     }
 
+    /* The birthday hint has to carry two things -- the MM/DD format and the
+       fact that the field is optional -- and it is the only visible label the
+       field has (the <label> is sr-only). At the shared 220px it was cut
+       mid-word in English ("Birthday: MM/DD (Optione") and in every other
+       locale, which reads as a broken input rather than a hint. Give this one
+       field the room the sentence needs, and let a locale that still runs long
+       (French spells it "Anniversaire : MM/JJ (Facultatif)") end in an ellipsis
+       instead of a severed word. Below 700px the form is a single column and
+       the min-width is dropped, so this only applies to the desktop row. */
+    & .footer-birthday-field {
+      min-width: 264px;
+
+      & input {
+        text-overflow: ellipsis;
+      }
+    }
+
     & .btn {
       @media (max-width: 700px) {
         width: 100%;
