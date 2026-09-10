@@ -66,7 +66,7 @@
 const { SEARCH_SYNONYM_BANNED } = require("../build-site-data.js");
 
 /** Bumped when a list below changes, so a regenerated entry is explainable. */
-const POLICY_VERSION = "2026-09-04";
+const POLICY_VERSION = "2026-09-10";
 
 /* ---------------------------------------------------------------------------
    QUERY SIDE. Small by design. Each of these would read as us calling a
@@ -460,6 +460,31 @@ const SUBSTANTIATION_WORDS = [
 ];
 
 /**
+ * The substantiation words the BUILD refuses on the QUERY side, which is a
+ * superset of SUBSTANTIATION_WORDS: "clean" and the "safe" family are not
+ * enrichment vocabulary (nobody writes "natural" as a search word by mistake
+ * the way they write "baby safe"), but the brief's matrix at 7(g) marks them
+ * NEVER on the query side just the same, so a synonym entry carrying one is
+ * refused. Defined HERE and imported by build-site-data.js's synonym gate, so
+ * the policy the bot screens with and the gate that vetoes it are one list --
+ * the same reason SEARCH_SYNONYM_BANNED is imported rather than copied.
+ *
+ * The gap this closes: these four words lived inline in the gate and in no
+ * list the policy knew about, so the bot could not screen for them. On
+ * 2026-09-10 the model proposed "baby safe balm", every other word in the
+ * batch was fine, and the gate failed the whole run and restored the file --
+ * twenty products' enrichment lost to one word. Now the bot drops the term
+ * (one word costs one word, per screenSynonymEntry) and the gate stays the
+ * last line of defence it was.
+ */
+const QUERY_SIDE_SUBSTANTIATION_WORDS = SUBSTANTIATION_WORDS.concat([
+  "clean",
+  "safe",
+  "baby safe",
+  "baby-safe"
+]);
+
+/**
  * The whole product-side list, flattened with the reason each group is on it.
  * Order is stable so a drop reason reads the same run to run.
  */
@@ -480,7 +505,11 @@ const PRODUCT_SIDE_BANNED = []
     })
   )
   .concat(
-    SUBSTANTIATION_WORDS.map(function (t) {
+    /* The QUERY-side substantiation list, not the shorter SUBSTANTIATION_WORDS:
+       "clean" and the "safe" family are as unsubstantiated printed on a product
+       as they are typed into a search, and a keyword drop must give a
+       product-side reason, not the synonym one querySideHit would. */
+    QUERY_SIDE_SUBSTANTIATION_WORDS.map(function (t) {
       return { term: t, why: "is an unsubstantiated marketing claim" };
     })
   );
@@ -656,12 +685,77 @@ function medicalQueryHit(term) {
   };
 }
 
+/**
+ * The check build-site-data.js runs on the MERGED synonym table, as a function
+ * both it and the enrichment bot call, on one entry at a time. It is a
+ * function and not a second copy of the word loops for the reason
+ * SEARCH_SYNONYM_BANNED is imported rather than typed: the screen the bot
+ * drops a term with and the gate that vetoes the file have to be one thing, or
+ * the bot proposes words it cannot know are refused and loses a whole run to
+ * them. Messages are the build's, unchanged, because they are what a
+ * maintainer reads out of a failed deploy.
+ *
+ * @param {string} key the synonym key, in its `snake_case` emitted form
+ * @param {!Array<string>} terms the key's terms
+ * @throws {Error} on the first refused subject
+ */
+function assertQuerySideClean(key, terms) {
+  const subjects = [{ label: "key", text: String(key).replace(/_/g, " ") }].concat(
+    (terms || []).map(function (t) {
+      return { label: 'term "' + t + '"', text: t };
+    })
+  );
+  const routerWords = medicalQueryTermList();
+  subjects.forEach(function (subject) {
+    routerWords.forEach(function (word) {
+      if (!containsPhrase(subject.text, word)) return;
+      throw new Error(
+        "search synonyms: " +
+          key +
+          " " +
+          subject.label +
+          ' carries the router word "' +
+          word +
+          '".\n        A medicalQueryTerms word maps to NO product (brief 7(b), 7(c)); a synonym' +
+          "\n        entry maps it to one. Drop the word, or move it out of MEDICAL_QUERY_TERMS" +
+          "\n        in scripts/lib/search-enrichment-rules.js -- not both."
+      );
+    });
+    /* Substantiation claims are not router words (they name no disease, so a
+       shopper typing one gets ordinary results), but the brief's word matrix
+       (7(g)) marks every one of them NEVER on the query side: a synonym entry
+       would assert "hypoallergenic" or "non-toxic" ABOUT the products it maps
+       to, in a shipped file, with nothing behind it. */
+    QUERY_SIDE_SUBSTANTIATION_WORDS.forEach(function (word) {
+      if (!containsPhrase(subject.text, word)) return;
+      throw new Error(
+        "search synonyms: " +
+          key +
+          " " +
+          subject.label +
+          ' carries the substantiation claim "' +
+          word +
+          '" (brief 7(g): never on the query side). Drop the word.'
+      );
+    });
+  });
+}
+
 /** Query-side rejection = policy list + the router + whatever the build enforces. */
 function querySideHit(term) {
   const policy = firstHit(term, QUERY_SIDE_BANNED);
   if (policy) return policy;
   const routed = medicalQueryHit(term);
   if (routed) return routed;
+  const substantiation = firstHit(term, QUERY_SIDE_SUBSTANTIATION_WORDS);
+  if (substantiation) {
+    return {
+      term: substantiation.term,
+      why:
+        "is a substantiation claim, which the brief's matrix (7(g)) marks never on the query " +
+        "side: a synonym entry would assert it ABOUT the products it maps to"
+    };
+  }
   const build = firstHit(term, QUERY_SIDE_BLOCKED_BY_BUILD_ONLY);
   if (build) {
     return {
@@ -826,9 +920,17 @@ function promptFragment() {
   const productWords = PRODUCT_SIDE_BANNED.map(function (e) {
     return e.term;
   });
+  const seen = new Set();
   const queryWords = QUERY_SIDE_BANNED.map(function (e) {
     return e.term;
-  }).concat(QUERY_SIDE_BLOCKED_BY_BUILD_ONLY);
+  })
+    .concat(QUERY_SIDE_BLOCKED_BY_BUILD_ONLY)
+    .concat(QUERY_SIDE_SUBSTANTIATION_WORDS)
+    .filter(function (w) {
+      if (seen.has(w)) return false;
+      seen.add(w);
+      return true;
+    });
   const routerWords = MEDICAL_QUERY_TERMS.map(function (e) {
     return e.term;
   });
@@ -871,6 +973,7 @@ module.exports = {
   CONDITION_WORDS: CONDITION_WORDS,
   PESTICIDE_WORDS: PESTICIDE_WORDS,
   SUBSTANTIATION_WORDS: SUBSTANTIATION_WORDS,
+  QUERY_SIDE_SUBSTANTIATION_WORDS: QUERY_SIDE_SUBSTANTIATION_WORDS,
   COMPETITOR_BRANDS: COMPETITOR_BRANDS,
   PREFERRED_VOCABULARY: PREFERRED_VOCABULARY,
   LIMITS: LIMITS,
@@ -884,5 +987,6 @@ module.exports = {
   competitorHit: competitorHit,
   screenKeyword: screenKeyword,
   screenSynonymEntry: screenSynonymEntry,
+  assertQuerySideClean: assertQuerySideClean,
   promptFragment: promptFragment
 };
