@@ -411,35 +411,23 @@ assert(botanicals.length > 0, "the glossary lists INCI botanicals to check again
 // 3. No locale invents a brand or product name the English does not use.
 // ---------------------------------------------------------------------------
 {
-  const BRAND_CASE_ALLOWLIST = {
-    "footer.tagline": ["Black Sheep & Bold Hearts"],
-    "auto.whileYouWaitOn.8fe280": ["Black Sheep & Bold Hearts"]
-  };
-  const brandish = (glossary.protectedTerms || []).concat(
-    (glossary.categories && glossary.categories.brand) || []
-  );
+  /* The rule itself lives in scripts/lib/i18n-claims-rules.js, and the
+     per-key gate in scripts/i18n-translate.js calls the same function before
+     anything is written. That is the point of it being there rather than
+     here: this pin used to be the only place the rule existed, so a key that
+     broke it was promoted with the batch and only failed the post-write
+     `npm test`, taking every good key in the run down with it. Now the gate
+     drops the one key and this stays the backstop over the whole
+     dictionary. */
+  const brandish = claimRules.brandTerms(glossary);
   assert(brandish.length > 0, "the glossary lists brand terms to check against");
   const offenders = [];
   keys.forEach((key) => {
     const en = enPhrases[key];
-    brandish.forEach((term) => {
-      if (en.indexOf(term) !== -1) return;
-      /* One named exception, not a class-wide one. The footer tagline says
-         "for the black sheep & bold hearts" in lower case -- the collection's
-         words used as a description -- and models reach for the capitalised
-         form because the glossary protects that string. A copy nit, not a
-         fabricated name. It is listed by KEY and TERM so that the day some
-         other copy says "an unbothered kind of calm", the check that
-         "Unbothered" is not invented into eight languages stays on. */
-      const allowed = BRAND_CASE_ALLOWLIST[key] || [];
-      if (allowed.indexOf(term) !== -1 && en.toLowerCase().indexOf(term.toLowerCase()) !== -1) {
-        return;
-      }
-      CODES.slice(1).forEach((code) => {
-        const value = locales[code].phrases[key] || "";
-        if (value.indexOf(term) !== -1) {
-          offenders.push(code + "." + key + " inserts " + JSON.stringify(term));
-        }
+    CODES.slice(1).forEach((code) => {
+      const value = locales[code].phrases[key] || "";
+      claimRules.insertedBrandTerms(key, en, value, glossary).forEach((term) => {
+        offenders.push(code + "." + key + " inserts " + JSON.stringify(term));
       });
     });
   });
