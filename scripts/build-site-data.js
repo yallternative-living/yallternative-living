@@ -4769,7 +4769,7 @@ function buildSiteData() {
   const llmsTxt =
     "# Y'allternative Living\n\n" +
     "> Queer-owned, Southern-raised handmade self-care -- small-batch salves, soaks, body care and apparel out of Landrum, SC. Sold directly on this site and on Etsy, plus in person at farmers markets and Pride events around Upstate SC and beyond.\n\n" +
-    "Y'allternative Living is a small, queer-owned business run by founder Savanna out of Landrum, South Carolina (the Upstate SC / Blue Ridge foothills region). Everything is handmade in small batches. As of mid-2026 the shop has a 4.9-star average across 32 reviews and 105+ sales on its Etsy shop (a separate, longer-running sales channel from this site).\n\n" +
+    "Y'allternative Living is a small, queer-owned business run by founder Savanna out of Landrum, South Carolina (the Upstate SC / Blue Ridge foothills region). Everything is handmade in small batches. As of mid-2026 the shop has a 4.9-star average across 33 ratings and 108+ sales on its Etsy shop (a separate, longer-running sales channel from this site).\n\n" +
     "## Pages\n\n" +
     "- [Shop](" +
     DOMAIN +
@@ -6899,7 +6899,7 @@ function renderEtsyProofHtml(shop) {
     Number(shop.rating).toFixed(1) +
     " out of 5</strong> across " +
     shop.reviewCount +
-    ' reviews on <a href="' +
+    ' ratings on <a href="' +
     escapeHtml(url) +
     '" target="_blank" rel="noopener noreferrer">our Etsy shop<span class="sr-only"> (opens in new tab)</span></a>' +
     (shop.sales ? " &middot; " + shop.sales + "+ orders" : "") +

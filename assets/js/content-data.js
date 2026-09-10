@@ -123,7 +123,7 @@ window.YL_CONTENT = {
       "title": "What Y'all Are Saying"
     },
     "community": {
-      "eyebrow": "Customer Community & Social Proof",
+      "eyebrow": "Customer Community",
       "title": "Spotted In The Wild",
       "text": "Real folks, real photos, and handmade self-care. Tag @yallternativeliving on Instagram or TikTok to be featured!"
     },

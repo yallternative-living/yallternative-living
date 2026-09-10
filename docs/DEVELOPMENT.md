@@ -55,7 +55,7 @@ keep it in sync if you change the design system.
   farmers markets and Pride events (e.g. Upstate Pride).
 - **Founder:** Savanna
 - **Email:** y.allternative.living@gmail.com
-- **Etsy shop:** https://www.etsy.com/shop/YallternativeLivinCO — 4.9★ (32 reviews), 105+ sales
+- **Etsy shop:** https://www.etsy.com/shop/YallternativeLivinCO — 4.9★ (33 ratings), 108+ sales
 - **Facebook:** https://www.facebook.com/p/Yallternative-Living-61577943406316/ (308 followers)
 - **Instagram:** https://www.instagram.com/yallternativeliving
 - **TikTok:** https://www.tiktok.com/@yallternativeliving
@@ -404,7 +404,7 @@ snippets worth quoting on the homepage:
 > "second purchase, works well. good scent." — Eric, Etsy review
 > "Smells GREAT! Haven't tried it yet, but look forward to using it :)" — Leese, Etsy review
 
-Shop stats: **4.9★ average, 32 reviews, 105+ sales, 1 year on Etsy.**
+Shop stats: **4.9★ average, 33 ratings (22 of them with written text, republished on /reviews.html), 108+ sales, 1 year on Etsy.**
 
 ## 8. The shopping system, explained
 

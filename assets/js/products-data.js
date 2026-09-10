@@ -1622,8 +1622,8 @@ window.YL_PRODUCTS = {
     "name": "Y'allternative Living",
     "etsyShopUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
     "rating": 4.9,
-    "reviewCount": 32,
-    "sales": 105,
+    "reviewCount": 33,
+    "sales": 108,
     "freeShippingThreshold": 40,
     "shippingMilestones": [
       {

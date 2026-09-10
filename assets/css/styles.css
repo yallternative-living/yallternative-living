@@ -848,14 +848,6 @@ section {
   }
 }
 
-/* The 4.9-across-32 line is our whole Etsy shop; the list below it is the
-   subset for goods still sold here (live audit M7). */
-.reviews-scope-note {
-  max-width: 62ch;
-  margin: 12px auto 0;
-  font-size: 0.86rem;
-}
-
 /* FAQ, Reviews and Policies live only in the footer, which is a long scroll
    away on a phone -- and the drawer was five links followed by ~900px of
    nothing (live audit L5). main.js appends them to the same <ul>, so they
@@ -1932,7 +1924,7 @@ section {
 
 /* =============== CUSTOMER REVIEWS (site-submitted, shop.html) ===============
    Site-submitted reviews, kept visually + structurally separate from the
-   Etsy-sourced "4.9 average / 32 Etsy reviews" line up in .shop-trust --
+   Etsy-sourced "4.9 average / 33 Etsy ratings" line up in .shop-trust --
    see assets/js/site-reviews-data.js for why they're never merged into
    one number. Cards reuse .quote-card (same component as the homepage
    testimonials) rather than a near-duplicate style, since visually
@@ -2972,25 +2964,64 @@ section {
 }
 
 /* =============== FILTER PILLS + SORT (shop page) =============== */
-.shop-toolbar {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  align-items: stretch;
+.shop-controls {
   margin-bottom: 20px;
 }
 
 @media (min-width: 900px) {
-  .shop-toolbar {
-    flex-direction: row;
+  .shop-controls {
+    display: grid;
+    /* The search column must keep a floor: the sort column is max-content
+       (Scent + Sort + Track Order is ~612px in English, ~709px in German)
+       and a bare 1fr let it squeeze the search to 56px at 900px in French.
+       Past the floor .shop-sort wraps its own items instead. */
+    grid-template-columns: minmax(260px, 1fr) auto;
+    grid-template-areas:
+      "search sort"
+      "categories categories"
+      "concerns concerns";
+    gap: 12px 16px;
     align-items: center;
-    justify-content: space-between;
   }
+
+  .shop-controls .shop-search {
+    grid-area: search;
+    min-width: 0;
+    margin: 0;
+  }
+
+  .shop-controls .shop-toolbar {
+    display: contents;
+  }
+
+  .shop-controls #filterRow {
+    grid-area: categories;
+  }
+
+  .shop-controls #concernFilterWrap {
+    grid-area: concerns;
+    margin-top: 0;
+  }
+
+  .shop-controls .shop-sort {
+    grid-area: sort;
+    justify-self: end;
+    justify-content: flex-end;
+  }
+}
+
+/* Only a box at 768-899px: display:contents above, display:none on phones.
+   Its bottom margin would collapse into .shop-controls' own, so none here. */
+.shop-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: stretch;
 }
 
 .filter-row {
   display: flex;
-  gap: 8px 10px;
+  gap: 6px 8px;
   flex-wrap: wrap;
   justify-content: flex-start;
   margin-bottom: 0;
@@ -3002,10 +3033,10 @@ section {
   border: 1px solid var(--hide);
   background: transparent;
   color: var(--paper-dim);
-  padding: 8px 18px;
-  border-radius: 30px;
-  font-size: 0.8rem;
-  letter-spacing: 0.05em;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   font-weight: 600;
   cursor: pointer;
@@ -3043,13 +3074,13 @@ section {
 
 .concern-filter-wrap {
   width: 100%;
-  margin-top: 10px;
-  min-height: 38px;
+  margin-top: 0;
+  min-height: 28px;
 }
 
 .concern-filter-row {
   display: flex;
-  gap: 8px 10px;
+  gap: 6px 8px;
   flex-wrap: wrap;
   justify-content: flex-start;
   margin-bottom: 0;
@@ -3061,15 +3092,15 @@ section {
   border: 1px solid var(--hide);
   background: var(--ink-2);
   color: var(--paper-dim);
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 0.78rem;
-  letter-spacing: 0.03em;
+  padding: 4px 11px;
+  border-radius: 16px;
+  font-size: 0.74rem;
+  letter-spacing: 0.02em;
   font-weight: 500;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   justify-content: center;
   white-space: nowrap;
   flex-shrink: 0;
@@ -3464,6 +3495,17 @@ dialog.shop-filter-sheet[open]::backdrop {
    full-width Track Order button no longer apply. */
 .shop-sheet-group .concern-filter-wrap {
   margin-top: 0;
+}
+/* The compact pill sizes above are pointer sizes for the desktop toolbar.
+   In the phone sheet a thumb gets the pre-grid heights back (~33px and
+   ~35px visual); the 44px hit area comes from the ::after rule below. */
+.shop-sheet-group .filter-pill {
+  padding: 8px 18px;
+  font-size: 0.8rem;
+}
+.shop-sheet-group .concern-pill {
+  padding: 6px 14px;
+  font-size: 0.78rem;
 }
 .shop-sheet-group-sort .shop-sort {
   gap: 12px;
@@ -4229,6 +4271,14 @@ body.shop-sheet-open {
     max-width: 1040px;
     margin: 14px 0 0;
     font-size: 1.05rem;
+  }
+
+  /* h1 carries a bottom margin to clear the lede paragraph under it. On a
+     hero that has no copy below the title (reviews.html) that margin lands
+     on top of the hero's own 48px padding and the banner reads 26px
+     looser than every other page. */
+  & .container > h1:last-child {
+    margin-bottom: 0;
   }
 }
 
@@ -5478,6 +5528,7 @@ dialog.gift-modal[open]::backdrop {
 .wish-toggle::after,
 .cart-toggle::after,
 .filter-pill::after,
+.concern-pill::after,
 .social-row a::after {
   content: "";
   position: absolute;
@@ -9004,8 +9055,26 @@ a.pdp-ritual-item-name:focus-visible {
     --announcement-h: 38px;
   }
 }
-body:not(:has(.announcement-bar)) .site-header {
-  margin-top: var(--announcement-h);
+/* Reserved as body PADDING, not a header margin: a margin collapses
+   through body, so body's own box started 38px down and jumped to 0 the
+   instant the bar arrived -- Chrome scores that body move as a layout
+   shift (0.05 on the old shop toolbar, 0.18 once the grid sat higher in
+   the viewport) even though nothing visible moves. Padding keeps body at
+   0 before and after.
+
+   Sized to the bar main.js INJECTS, which is the only bar this :not(:has())
+   rule can ever stand in for, and that bar renders 38px at every width for
+   the current copy (measured 320-1280 on shop and reviews, 2026-09-09).
+   --announcement-h keeps its 61/46/38 ladder for index.html's static bar
+   (sticky-header offset, no-JS). Reserving that 61px here for a 38px bar
+   moved every phone page up 23px the instant the bar arrived: 0.05-0.07
+   CLS on every content page. If the announcement copy ever wraps to two
+   lines at 320px, raise this to 61px. */
+:root {
+  --injected-bar-h: 38px;
+}
+body:not(:has(.announcement-bar)) {
+  padding-top: var(--injected-bar-h);
 }
 
 /* Now that the chrome really sticks, an in-page jump (#pdpReviews from the
@@ -9082,6 +9151,21 @@ html:has(.announcement-bar) {
   }
 }
 
+/* --- 3b. reviews.html list --------------------------------------------
+   #reviewsGrid ships empty and main.js renders the 22 review cards into
+   it, so the review form that sat at y=618 (desktop) / 642 (phone) before
+   JS was shoved several thousand px down the page: a 1.0 CLS on every
+   desktop load, and on phones whenever the render landed after first
+   paint (measured at HEAD, 2026-09-09). Reserve a viewport's worth while
+   the list is still empty AND the empty-state is hidden. A zero-result
+   search also empties the grid, but it un-hides #reviewsEmptyState first,
+   so the guard drops the reservation there instead of leaving a tall
+   hole under "No reviews found". 22 cards always exceed 100vh, so nothing
+   is ever pulled back up. */
+#reviewsEmptyState[hidden] ~ #reviewsGrid:empty {
+  min-height: 100vh;
+}
+
 /* --- 4. events.html countdown banner + upcoming grid -----------------
    #eventsCountdownBanner carried a hand-set inline min-height of 76px that
    was less than half the 162-191px it actually renders at. #upcomingEvents
@@ -9134,7 +9218,8 @@ html:has(.announcement-bar) {
    being :empty. Respects prefers-reduced-motion. */
 #shopGrid:empty::before,
 #featuredGrid:empty::before,
-#upcomingEvents:empty::before {
+#upcomingEvents:empty::before,
+#reviewsEmptyState[hidden] ~ #reviewsGrid:empty::before {
   content: "";
   display: block;
   grid-column: 1 / -1;
@@ -9161,7 +9246,8 @@ html:has(.announcement-bar) {
 @media (prefers-reduced-motion: reduce) {
   #shopGrid:empty::before,
   #featuredGrid:empty::before,
-  #upcomingEvents:empty::before {
+  #upcomingEvents:empty::before,
+  #reviewsEmptyState[hidden] ~ #reviewsGrid:empty::before {
     animation: none;
   }
 }
