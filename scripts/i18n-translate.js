@@ -200,6 +200,17 @@ function checkTranslation(input) {
     return "protected term(s) not preserved verbatim: " + droppedTerms.join(", ");
   }
 
+  /* ...and the mirror of it: a name the English never used. The whole-
+     dictionary pin (scripts/i18n-claims.test.js rule 3) has always caught
+     this, but it runs after the bot has written the file, so one invented
+     brand failed `npm test` and threw the whole batch away instead of one
+     key. Same rule object, checked here, so the key is dropped and the rest
+     of the run still ships. */
+  const insertedTerms = claimRules.insertedBrandTerms(input.key, en, value, input.glossary);
+  if (insertedTerms.length) {
+    return "brand or product name(s) the English does not use: " + insertedTerms.join(", ");
+  }
+
   /* Identical to English is a passthrough, and gate rule 3 rejects it. Two
      exceptions, and both are somebody else's decision rather than this file's:
 
@@ -982,7 +993,8 @@ async function translateAll(input) {
           en: item.en,
           translated: translated,
           locale: code,
-          protectedTerms: protectedTerms
+          protectedTerms: protectedTerms,
+          glossary: ctx.glossary
         });
         if (reason) {
           failed.push({ key: item.key, en: item.en, locale: code, reason: reason });

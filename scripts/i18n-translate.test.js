@@ -1269,6 +1269,65 @@ async function runPins() {
       reasons[0]
     );
   }
+
+  /* The mirror of it, which is the 2026-09-10 failure end to end: one key
+     comes back carrying a brand name the English never used, in one locale,
+     and every other key in the batch is fine. Before the gate read the same
+     rule as the whole-dictionary pin, this shape passed here, was written,
+     failed `npm test` afterwards, and the bot restored the file -- forty-odd
+     good keys lost to one word. It now costs exactly that one key. */
+  {
+    const ctx = fixture();
+    const invented = {
+      new: [
+        {
+          key: "auto.giftFor.eeeeee",
+          en: "The perfect gift for the person who has everything.",
+          defer: null,
+          kind: "text"
+        },
+        {
+          key: "auto.pouredWeekly.ff1111",
+          en: "Poured in small batches every week.",
+          defer: null,
+          kind: "text"
+        }
+      ],
+      changed: [],
+      orphaned: []
+    };
+    const client = stubClient(function (payload, item) {
+      if (item.id === "auto.giftFor.eeeeee" && payload.locale === "es") {
+        return "El regalo perfecto de Black Sheep & Bold Hearts.";
+      }
+      return "[" + payload.locale + "] " + item.text;
+    });
+    const result = await tool.translateAll({ ctx: ctx, report: invented, client: client });
+
+    assert(
+      !("auto.giftFor.eeeeee" in result.accepted),
+      "the key that invented a brand name is dropped"
+    );
+    assert(!("auto.giftFor.eeeeee" in result.docs.en.phrases), "and does not reach en.json either");
+    assert("auto.pouredWeekly.ff1111" in result.accepted, "and the rest of the batch still ships");
+    tool.TARGET_LOCALES.forEach(function (code) {
+      assertEqual(
+        result.docs.locales[code].phrases["auto.pouredWeekly.ff1111"],
+        "[" + code + "] Poured in small batches every week.",
+        "with its translation written for " + code
+      );
+    });
+    const listed = result.failed.filter(function (f) {
+      return f.key === "auto.giftFor.eeeeee";
+    });
+    assertEqual(listed.length, 1, "the drop is reported once, for the locale that did it");
+    assertEqual(listed[0].locale, "es", "and names that locale");
+    assert(
+      listed[0].reason.indexOf("Black Sheep & Bold Hearts") !== -1,
+      "and quotes the name it invented",
+      listed[0].reason
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1318,6 +1377,110 @@ async function runPins() {
   assert(
     fragment.indexOf("安心") !== -1 && fragment.indexOf("not permitted") !== -1,
     "and marks the never-licensed terms as such"
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 2f. A brand or product name the English never used.
+//
+// The failure this closes: on 2026-09-10 the model opened a gift blurb with
+// "Black Sheep & Bold Hearts" in four locales against English that says no
+// such thing. The gate below only checked that protected terms were not
+// DROPPED, so the key was promoted; the whole-dictionary pin in
+// i18n-claims.test.js caught it after the write and the bot restored the file,
+// losing all forty-odd good keys in the batch. The rule now runs per key,
+// out of the same module the pin uses.
+// ---------------------------------------------------------------------------
+{
+  const glossary = {
+    protectedTerms: ["Y'allternative Living", "Black Sheep & Bold Hearts"],
+    categories: { brand: ["Unbothered"] }
+  };
+  const check = function (key, en, translated) {
+    return tool.checkTranslation({
+      key: key,
+      en: en,
+      translated: translated,
+      locale: "de",
+      protectedTerms: glossary.protectedTerms,
+      glossary: glossary
+    });
+  };
+
+  const invented = check(
+    "auto.thePerfectGiftFor.057d2a",
+    "The perfect gift for the person who has everything.",
+    "Das perfekte Geschenk von Black Sheep & Bold Hearts für alle."
+  );
+  assert(
+    invented !== null && invented.indexOf("Black Sheep & Bold Hearts") !== -1,
+    "a brand name the English does not use is refused",
+    String(invented)
+  );
+
+  /* The brand CATEGORY counts too, not just protectedTerms -- the pin has
+     always checked both, and a gate that read one list would let the other
+     half through to the same batch-losing failure. */
+  const category = check(
+    "auto.aCalm.111111",
+    "A calm little ritual for the end of the day.",
+    "Ein Unbothered Ritual für das Ende des Tages."
+  );
+  assert(
+    category !== null && category.indexOf("Unbothered") !== -1,
+    "a name from the glossary's brand category is refused too",
+    String(category)
+  );
+
+  /* Preserved, not invented: the English uses it, so the translation must. */
+  assert(
+    check(
+      "auto.aGiftFrom.222222",
+      "A gift from Y'allternative Living, made by hand.",
+      "Ein handgemachtes Geschenk von Y'allternative Living."
+    ) === null,
+    "a protected term the English uses is not mistaken for an insertion"
+  );
+
+  /* The one named exception, by key AND term: the footer tagline says the
+     words in lower case, so the capitalised form is a copy nit rather than a
+     fabricated name. */
+  assert(
+    check(
+      "footer.tagline",
+      "Handmade self-care for the black sheep & bold hearts.",
+      "Handgemachte Selbstpflege für Black Sheep & Bold Hearts."
+    ) === null,
+    "the allowlisted footer tagline case still passes"
+  );
+
+  /* ...and the allowlist is not a blanket pass for the key. Same key, English
+     that does not carry the words in any case, still refused. */
+  assert(
+    check("footer.tagline", "Handmade self-care, small batch.", "Black Sheep & Bold Hearts.") !==
+      null,
+    "the allowlist does not exempt the key when the English lacks the words"
+  );
+
+  /* The gate reads the shared module rather than a copy of the list: a term
+     that exists only in the glossary passed in has to be caught. */
+  assert(
+    check("auto.k.333333", "A little something extra.", "Ein bisschen Moonshine Hollow extra.") ===
+      null,
+    "a name that is in no glossary list is not invented into a failure"
+  );
+  const widened = tool.checkTranslation({
+    key: "auto.k.333333",
+    en: "A little something extra.",
+    translated: "Ein bisschen Moonshine Hollow extra.",
+    locale: "de",
+    protectedTerms: [],
+    glossary: { protectedTerms: ["Moonshine Hollow"] }
+  });
+  assert(
+    widened !== null && widened.indexOf("Moonshine Hollow") !== -1,
+    "and adding it to the glossary is all it takes for the gate to refuse it",
+    String(widened)
   );
 }
 
