@@ -3512,10 +3512,13 @@ function buildSiteData() {
     return newBlock;
   });
 
+  /* Only the questions the shop page actually SHOWS (the first five, below):
+     FAQ rich-result rules want the marked-up Q&A visible on the page, and
+     faq.html carries the full FAQPage for the rest. */
   const shopFaqLd = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
-    mainEntity: FAQ.map(function (item) {
+    mainEntity: FAQ.slice(0, 5).map(function (item) {
       return {
         "@type": "Question",
         name: item.question,
@@ -3608,8 +3611,13 @@ function buildSiteData() {
 
   const faqVisibleHtml = FAQ.map(function (item, i) {
     const renderedAnswer = renderFaqAnswerHtml(item.answer);
+    /* id="faq-N" is the anchor the search index links to (faq.html#faq-N,
+       see the searchFaq entries above); without it every FAQ search result
+       landed at the top of the page. */
     const block =
-      '        <div class="reveal">\n' +
+      '        <div class="reveal" id="faq-' +
+      i +
+      '">\n' +
       "          <h2>" +
       escapeHtml(item.question) +
       "</h2>\n" +

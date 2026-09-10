@@ -223,13 +223,22 @@ const volatileCases = [
   ["Showing 20 of 20 goods", true],
   ["Batch: Late October 2026", true],
   ["2 reviews of this one, all from earlier batches.", true],
-  ["Free shipping on orders of $40 or more", true],
+  ["only 3 left", true],
   ["A 2 oz tin that softens coarse facial hair.", false],
   ["100% ring-spun cotton, cut to fit everybody.", false],
   ["Most orders ship in 1-3 business days.", false],
-  ["Straight from the workbench.", false]
+  ["Straight from the workbench.", false],
+  /* Prices, durations and apparel sizes written into the copy are the
+     author's numbers, not the build's: a changed sentence is a new key, so
+     they translate. Deferring them left ten FAQ answers English-only in eight
+     locales (2026-09-10). */
+  ["Free shipping on orders of $40 or more", false],
+  ["Unworn apparel can be exchanged within 14 days of delivery.", false],
+  ["a one-time link that expires in 24 hours", false],
+  ["set aside for about 30 minutes while you pay", false],
+  ["The Tank Top is a soft triblend racerback in S through 1X.", false]
 ];
-assertEqual(volatileCases.length, 8, "the volatile-number table has every case wired");
+assertEqual(volatileCases.length, 13, "the volatile-number table has every case wired");
 volatileCases.forEach(function (row) {
   assertEqual(
     tool.hasVolatileNumber(row[0]),
