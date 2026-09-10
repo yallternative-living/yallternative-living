@@ -403,6 +403,60 @@ function product(over) {
      shortening SEARCH_SYNONYM_BANNED. If it ever fills up again, somebody added
      a word to the build's list and to no list in the rules module, and the bot
      is now refusing a word for a reason it cannot explain. */
+
+  /* The SECOND synonym gate, the one that reads the merged table, had the same
+     divergence and it was not computed anywhere: SUBSTANTIATION_WORDS plus
+     "clean" and the "safe" family lived inline in build-site-data.js, so the
+     bot screened for none of them. On 2026-09-10 the model proposed "baby safe
+     balm" for sensitive_skin, the gate refused the whole file at that one term,
+     and twenty products' enrichment was restored away. The list is now the
+     rules module's, the bot screens with it, and these hold it there. */
+  ["natural", "hypoallergenic", "clean", "safe", "baby safe", "baby-safe"].forEach(function (word) {
+    assert(
+      rules.QUERY_SIDE_SUBSTANTIATION_WORDS.indexOf(word) !== -1,
+      'QUERY_SIDE_SUBSTANTIATION_WORDS carries "' + word + '"'
+    );
+  });
+  rules.SUBSTANTIATION_WORDS.forEach(function (word) {
+    assert(
+      rules.QUERY_SIDE_SUBSTANTIATION_WORDS.indexOf(word) !== -1,
+      'the query-side list is a superset of SUBSTANTIATION_WORDS ("' + word + '")'
+    );
+  });
+  assert(
+    /searchRules\.QUERY_SIDE_SUBSTANTIATION_WORDS/.test(
+      fs.readFileSync(path.join(ROOT, "scripts/build-site-data.js"), "utf8")
+    ),
+    "the build's synonym gate reads that list from the rules module rather than typing its own"
+  );
+  {
+    /* The exact entry that failed the 2026-09-10 run: the bad term is a logged
+       drop costing one word, the good one survives, and the entry still ships.
+       Before the fix this passed the bot's screen and failed the build. */
+    const screened = rules.screenSynonymEntry({
+      entry: { key: "sensitive_skin", terms: ["baby safe balm", "gentle balm"] }
+    });
+    assert(screened.ok, "an entry whose other terms are fine still survives");
+    assertDeep(
+      screened.value.terms,
+      ["gentle balm"],
+      "...with the substantiation term dropped and the rest kept"
+    );
+    assert(
+      screened.dropped.length === 1 && /substantiation claim/.test(screened.dropped[0].reason),
+      "...and the drop says why, in the bot's own words"
+    );
+    const keyed = rules.screenSynonymEntry({ entry: { key: "baby_safe", terms: ["gentle"] } });
+    assert(!keyed.ok, "a substantiation word in the KEY refuses the entry");
+  }
+  assert(
+    rules.querySideHit("cleansing spray") === null,
+    'whole-word matching: "clean" does not catch the Cleansing Spray'
+  );
+  assert(
+    rules.promptFragment().indexOf("baby safe") !== -1,
+    "the model is told not to write these words, so a run rarely has to drop one"
+  );
   /* The router list has to reach the client, and it has to reach ONLY the
      client. Held against the shipped artefacts rather than a fixture, because a
      fixture would only prove the fixture. */

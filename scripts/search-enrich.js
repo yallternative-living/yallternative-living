@@ -315,11 +315,11 @@ function buildUserPayload(group, concerns, categories) {
 
 /**
  * The offline responder. Deliberately crude AND deliberately dirty: it emits
- * plausible items alongside five violations -- a condition word as a keyword, a
+ * plausible items alongside six violations -- a condition word as a keyword, a
  * "cures ..." synonym term, a named disease proposed as a synonym, a string over
- * the character cap, and a duplicate of one of the owner's own keywords -- so a
- * proof run with no key exercises the drop paths for real instead of asserting
- * they exist.
+ * the character cap, a duplicate of one of the owner's own keywords, and a
+ * substantiation claim on the query side -- so a proof run with no key
+ * exercises the drop paths for real instead of asserting they exist.
  */
 function mockResponder(spec) {
   const payload = JSON.parse(spec.user);
@@ -358,6 +358,14 @@ function mockResponder(spec) {
              the thing being proved, and since the 2026-09-04 brief the diseases
              fall on the router's side of it, not the synonym table's. */
           { key: "dry_skin", terms: ["itchy skin", "eczema", "cures itch", "psoriasis flare"] },
+          /* VIOLATION 6: a substantiation claim on the query side. This is the
+             word class that failed the 2026-09-10 run for real -- the model
+             wrote "baby safe balm" and the build's second synonym gate, whose
+             list the policy did not share, refused the whole file. The bot
+             screens for it now (search-enrichment-rules QUERY_SIDE_
+             SUBSTANTIATION_WORDS), so here it costs one term and the entry
+             still ships. */
+          { key: "sensitive_skin", terms: ["fragrance free", "baby safe balm"] },
           {
             key: "mock_" + (p.category || "shop").replace(/[^a-z0-9]+/g, "_"),
             terms: ["mock " + stem]

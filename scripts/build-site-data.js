@@ -3195,15 +3195,13 @@ function buildSiteData() {
      resolves cleanly. */
   const searchRules = require("./lib/search-enrichment-rules.js");
   const medicalQueryTerms = searchRules.medicalQueryTermList();
-  // "clean" and the "safe" family are not in the rules module list (they are
-  // not enrichment vocabulary), but the brief's matrix marks both NEVER on the
-  // query side, so the merged table refuses them here too.
-  const substantiationWords = (searchRules.SUBSTANTIATION_WORDS || []).concat([
-    "clean",
-    "safe",
-    "baby safe",
-    "baby-safe"
-  ]);
+  /* SUBSTANTIATION_WORDS plus "clean" and the "safe" family, which the brief's
+     matrix marks NEVER on the query side just the same. It comes from the
+     rules module rather than being typed here, so the enrichment bot screens
+     for exactly the words this gate vetoes: when the two lists were separate,
+     a term the bot could not know about failed the whole run at this line and
+     cost twenty products their enrichment (2026-09-10, "baby safe balm"). */
+  const substantiationWords = searchRules.QUERY_SIDE_SUBSTANTIATION_WORDS || [];
   if (
     !Array.isArray(medicalQueryTerms) ||
     !medicalQueryTerms.length ||
