@@ -96,6 +96,7 @@ import {
   resolveSku,
   restockSquareSale,
   unmapStale,
+  listingStamp,
   upsertCatalogRows
 } from "../state/square-sync.js";
 
@@ -961,8 +962,13 @@ export async function runSquareReconcile(env, ctx, now = Date.now()) {
       const resolved = resolveSku(v.sku, index);
       return { ...v, productId: resolved ? resolved.id : null };
     });
-    refreshed = await upsertCatalogRows(env.STATE_DB, rows, now);
-    if (listing.complete) unmapped = await unmapStale(env.STATE_DB, now);
+    /* One stamp for the listing, strictly newer than anything already in the
+       table, so unmapStale's "resolved_at older than this" means "not in
+       this listing" even when the previous write landed in the same
+       millisecond. `now` alone did not: see listingStamp(). */
+    const stamp = await listingStamp(env.STATE_DB, now);
+    refreshed = await upsertCatalogRows(env.STATE_DB, rows, stamp);
+    if (listing.complete) unmapped = await unmapStale(env.STATE_DB, stamp);
   }
   let squareCounts = null;
   if (canPushCounts(env)) {

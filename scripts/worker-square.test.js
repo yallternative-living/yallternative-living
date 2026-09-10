@@ -1581,6 +1581,57 @@ async function run() {
     );
     square.state.variationIds = Object.keys(squareVariations);
 
+    // 10g, again, with the clock held still. On 2026-09-10 the CI runner
+    // (Node 24, QA run #394) went red on 10g alone: the tick captured the same
+    // Date.now() as the tick before it, so V_MB's resolved_at was not < now,
+    // it stayed mapped, and three pins failed -- with nothing in the commit
+    // near this code. `now` is a parameter precisely so that case is a test
+    // and not a coin toss: two listings stamped in the same millisecond must
+    // still unmap what the second one lacks.
+    const T = Date.now();
+    out = await route.runSquareReconcile(env, ctx, T);
+    assert(out.refreshed > 0, "a tick with an explicit stamp still lists the register");
+    square.state.variationIds = Object.keys(squareVariations).filter((id) => id !== "V_MB");
+    out = await route.runSquareReconcile(env, ctx, T);
+    eq(
+      out.unmapped,
+      1,
+      "a listing in the same millisecond as the last one still unmaps what it lacks"
+    );
+    eq(
+      (await sync.catalogRows(env.STATE_DB, ["V_MB"])).get("V_MB").productId,
+      null,
+      "...and the vanished variation is unmapped, not kept on a tied clock"
+    );
+    square.state.variationIds = Object.keys(squareVariations);
+
+    // The stamp that makes the above hold: never the newest resolved_at, the
+    // clock only when the clock is already ahead of it.
+    const newest = Number(
+      (await env.STATE_DB.prepare("SELECT MAX(resolved_at) AS latest FROM square_catalog").first())
+        .latest
+    );
+    eq(
+      await sync.listingStamp(env.STATE_DB, newest),
+      newest + 1,
+      "a listing stamp never repeats the newest resolved_at"
+    );
+    eq(
+      await sync.listingStamp(env.STATE_DB, newest - 5),
+      newest + 1,
+      "...even when the clock has gone backwards"
+    );
+    eq(
+      await sync.listingStamp(env.STATE_DB, newest + 5000),
+      newest + 5000,
+      "...and it is the clock when the clock is already newer"
+    );
+    eq(
+      await sync.listingStamp((await makeEnv()).STATE_DB, 12345),
+      12345,
+      "...and on an empty table it is simply the clock"
+    );
+
     // 10h. A stale catalogue cannot reseed a row backwards. The site says the
     // balm has 3 (served at T0); the owner corrects it to 5 (served at T1);
     // an isolate still holding the T0 copy must not put it back to 3 -- from
