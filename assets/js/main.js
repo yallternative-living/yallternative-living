@@ -7003,7 +7003,11 @@
             })
             .join(" ")
         : "";
-      var keywordList = Array.isArray(p.keywords) ? p.keywords.join(" ") : "";
+      /* Boolean substring filter, not a ranking, so the bot's keywords widen
+         what the shop box finds without being able to reorder anything. */
+      var keywordList = (Array.isArray(p.keywords) ? p.keywords : [])
+        .concat(Array.isArray(p.autoKeywords) ? p.autoKeywords : [])
+        .join(" ");
       var ingredientList = Array.isArray(p.ingredients) ? p.ingredients.join(" ") : "";
       var haystack = (
         p.name +
@@ -9655,6 +9659,22 @@
           direct: 6,
           synonym: 3
         });
+        /* The enrichment bot's keywords, and nothing else, scored beneath
+           every field a human filled in -- name, keywords, concerns, tags,
+           scent, ingredients, blurb, category. They used to be appended into
+           `keywords` and scored 20, the same as a word the owner typed, and
+           the bot's first successful run re-ranked eleven curated searches
+           with them: "woodsy" put the deodorant above the frankincense salve,
+           "pride gift" put a body butter above the Pride bundle. The job of
+           this field is recall -- a product the bot alone can match still
+           surfaces -- not ranking, so it sits below the lowest owner signal
+           and can only ever order products the owner's own fields tied. */
+        if (Array.isArray(prod.autoKeywords)) {
+          score += scoreTextMatch(prod.autoKeywords.join(" "), queryTokens, expandedTokens, {
+            direct: 2,
+            synonym: 1
+          });
+        }
         if (prod.categoryLabel) {
           score += scoreTextMatch(prod.categoryLabel, queryTokens, expandedTokens, {
             direct: 6,

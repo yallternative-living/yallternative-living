@@ -557,6 +557,43 @@ function mergeEnrichedKeywords(ownKeywords, botKeywords) {
   return out;
 }
 
+/**
+ * The bot's keywords ALONE, in a field of their own, deduped against the
+ * owner's.
+ *
+ * They used to be appended straight into `keywords`, which scores 20 for a
+ * direct hit -- the same as a word the owner typed. The bot's first successful
+ * run (2026-09-10) showed what that costs: "woodsy" landed on the deodorant
+ * and knocked the frankincense salve out of the top three, "vegan" pushed the
+ * hand scrub out, "pride gift" put a body butter above the Pride bundle.
+ * Eleven curated rankings overturned by a machine that was asked to widen
+ * recall, not to re-rank the shop. Search scores this field below every field
+ * the owner authored, so a product the bot alone can match still surfaces --
+ * just underneath anything a human said matched.
+ */
+function enrichedKeywordsOnly(ownKeywords, botKeywords) {
+  const owned = new Set(
+    (Array.isArray(ownKeywords) ? ownKeywords : [])
+      .filter(function (k) {
+        return typeof k === "string";
+      })
+      .map(function (k) {
+        return k.trim().toLowerCase();
+      })
+  );
+  const out = [];
+  const seen = new Set();
+  (Array.isArray(botKeywords) ? botKeywords : []).forEach(function (k) {
+    if (typeof k !== "string") return;
+    const trimmed = k.trim();
+    const key = trimmed.toLowerCase();
+    if (!trimmed || owned.has(key) || seen.has(key)) return;
+    seen.add(key);
+    out.push(trimmed);
+  });
+  return out;
+}
+
 /** Every product's querySynonyms, flattened into the extraSynonyms shape. */
 function enrichedQuerySynonyms(enrichment, productIds) {
   const live = productIds ? new Set(productIds) : null;
@@ -2489,8 +2526,9 @@ function buildSiteData() {
       scent: p.scent || "",
       tags: Array.isArray(p.tags) ? p.tags : [],
       concerns: Array.isArray(p.concerns) ? p.concerns : [],
-      /* ==== BEGIN search-enrichment merge: owner first, bot appended ==== */
-      keywords: mergeEnrichedKeywords(p.keywords, (SEARCH_ENRICHMENT[p.id] || {}).keywords),
+      /* ==== BEGIN search-enrichment merge: owner's own, bot's kept apart ==== */
+      keywords: mergeEnrichedKeywords(p.keywords, []),
+      autoKeywords: enrichedKeywordsOnly(p.keywords, (SEARCH_ENRICHMENT[p.id] || {}).keywords),
       /* ==== END search-enrichment merge ==== */
       variants: p.variants || null,
       pairsWith: Array.isArray(p.pairsWith) ? p.pairsWith : [],
@@ -8468,6 +8506,7 @@ if (typeof module !== "undefined" && module.exports) {
     SEARCH_ENRICHMENT_PATH: SEARCH_ENRICHMENT_PATH,
     readSearchEnrichment: readSearchEnrichment,
     mergeEnrichedKeywords: mergeEnrichedKeywords,
+    enrichedKeywordsOnly: enrichedKeywordsOnly,
     enrichedQuerySynonyms: enrichedQuerySynonyms,
     /* ==== END search-enrichment merge ==== */
     resolveSafetyNotes: resolveSafetyNotes,
