@@ -845,7 +845,8 @@
     "auto.theUnisexShirtIs.bab295": "Áo thun Unisex T-Shirt làm từ cotton ring-spun mềm mại với hình chú hươu cầu vồng in lụa bằng mực gốc nước, phom dáng vừa vặn cho mọi người, từ size S đến XL. Áo Tank Top là kiểu áo racerback vải triblend mềm mại từ size S đến 1X. Cỡ nào còn hàng sẽ hiện trong phần chọn kích cỡ trên từng trang sản phẩm (kích cỡ bị làm mờ nghĩa là tạm hết hàng). Giặt nước lạnh, lộn trái áo, sấy ở nhiệt độ thấp hoặc phơi khô, và không ủi trực tiếp lên hình in. Trang phục chưa qua sử dụng có thể đổi trong vòng 14 ngày kể từ khi nhận hàng; chỉ cần gửi email cho tụi này kèm mã số đơn hàng của bạn.",
     "auto.wellEmailOneTime.584e36": "Tụi này sẽ gửi một liên kết dùng một lần đến địa chỉ đó. Liên kết chỉ mở được một lần và hết hạn sau 24 giờ.",
     "auto.whenYouClickCheckout.77c899": "Khi bạn bấm Checkout, giỏ hàng của bạn sẽ được giữ riêng trong khoảng 30 phút trong lúc bạn thanh toán. Nếu hết thời gian, phiên mua sắm sẽ đóng lại và các món có giới hạn số lượng sẽ được trả về kệ cho người tiếp theo. Không sao cả, bạn chỉ cần quay lại cửa hàng và thử lại.",
-    "auto.yesOrdersOfOr.2a65db": "Có chứ! Đơn hàng từ $40 trở lên (tính trên tiền hàng, trước thuế) được giao miễn phí đến mọi nơi ở Mỹ. Dưới mức đó thì phí đồng giá $10, và thanh đo trong giỏ hàng sẽ cho bạn thấy bạn còn cách bao nhiêu. Tất cả đều tự động áp dụng khi thanh toán. Hiện tụi này chỉ giao đến các địa chỉ ở Mỹ, còn thẻ quà tặng được gửi qua email nên chẳng bao giờ tốn tiền bưu điện."
+    "auto.yesOrdersOfOr.2a65db": "Có chứ! Đơn hàng từ $40 trở lên (tính trên tiền hàng, trước thuế) được giao miễn phí đến mọi nơi ở Mỹ. Dưới mức đó thì phí đồng giá $10, và thanh đo trong giỏ hàng sẽ cho bạn thấy bạn còn cách bao nhiêu. Tất cả đều tự động áp dụng khi thanh toán. Hiện tụi này chỉ giao đến các địa chỉ ở Mỹ, còn thẻ quà tặng được gửi qua email nên chẳng bao giờ tốn tiền bưu điện.",
+    "auto.apothecary.3edecd": "Tiệm thảo mộc"
   }
 };
 

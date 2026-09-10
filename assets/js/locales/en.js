@@ -845,7 +845,8 @@
     "auto.theUnisexShirtIs.bab295": "The Unisex T-Shirt is soft ring-spun cotton with our rainbow stag screen-printed in water-based ink, cut to fit everybody, in S through XL. The Tank Top is a soft triblend racerback in S through 1X. Whatever's in stock is on the size picker on each product page (a greyed-out size means we're out of it for now). Wash cold, inside-out, tumble dry low or hang it, and don't iron straight over the print. Unworn apparel can be exchanged within 14 days of delivery; just email us your order number.",
     "auto.wellEmailOneTime.584e36": "We'll email a one-time link to that address. It opens once and expires in 24 hours.",
     "auto.whenYouClickCheckout.77c899": "When you click Checkout, your cart is set aside for about 30 minutes while you pay. If the timer runs out, the session closes and anything with a stock count goes back on the shelf for the next person. No harm done, just head back to the shop and try again.",
-    "auto.yesOrdersOfOr.2a65db": "Yes! Orders of $40 or more (on the goods, before tax) ship free anywhere in the US. Under that it's a flat $10, and the meter in your cart shows how close you are. It all applies automatically at checkout. We ship to US addresses only for now, and gift cards are emailed, so they never need postage."
+    "auto.yesOrdersOfOr.2a65db": "Yes! Orders of $40 or more (on the goods, before tax) ship free anywhere in the US. Under that it's a flat $10, and the meter in your cart shows how close you are. It all applies automatically at checkout. We ship to US addresses only for now, and gift cards are emailed, so they never need postage.",
+    "auto.apothecary.3edecd": "Apothecary"
   }
 };
 
