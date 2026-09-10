@@ -120,8 +120,10 @@ jobs:
       # NOT on the auto-redaction list, so never `curl -v`, never `set -x`.
       #
       # This step writes the enrichment file and then runs the build itself. If
-      # the build refuses the file the script restores it, re-runs the build and
-      # exits 2 -- so a non-zero here means nothing was changed, by design.
+      # the build refuses the file the script isolates the entries it refuses
+      # and ships them without synonyms (the rest is kept); only when that is
+      # not possible does it restore the file, re-run the build and exit 2 --
+      # so a non-zero here means nothing was changed, by design.
       - name: Generate the search vocabulary, screen it, let the build vote
         env:
           # The paid Google Cloud key (Vertex AI express mode) is the provider;
@@ -162,7 +164,12 @@ jobs:
               console.log("- " + s.dropped.length + " item(s) declined by the word policy");
               console.log("- provider " + s.provider + ", model " + s.modelUsed + ", " +
                 s.calls + " call(s)");
-              if (s.buildVeto) console.log("- **the build refused the file; it was restored**");
+              if (s.narrowed && !s.buildVeto) console.log("- **the build refused the synonyms of " +
+                s.narrowed.dropped.join(", ") + "; those shipped without synonyms (" +
+                s.narrowed.builds + " build(s) to isolate them). A word the build refuses " +
+                "should be a screen drop: close the gap in scripts/lib/search-enrichment-rules.js**");
+              if (s.buildVeto) console.log("- **the build refused the file; it was restored**" +
+                (s.narrowed ? " (isolated first: " + s.narrowed.dropped.join(", ") + ")" : ""));
               if (s.fallbackWarning) console.log("- **" + s.fallbackWarning + "**");
             '
           } >> "$GITHUB_STEP_SUMMARY"

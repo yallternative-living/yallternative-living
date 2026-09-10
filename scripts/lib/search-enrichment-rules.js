@@ -66,7 +66,7 @@
 const { SEARCH_SYNONYM_BANNED } = require("../build-site-data.js");
 
 /** Bumped when a list below changes, so a regenerated entry is explainable. */
-const POLICY_VERSION = "2026-09-04";
+const POLICY_VERSION = "2026-09-10";
 
 /* ---------------------------------------------------------------------------
    QUERY SIDE. Small by design. Each of these would read as us calling a
@@ -505,7 +505,11 @@ const PRODUCT_SIDE_BANNED = []
     })
   )
   .concat(
-    SUBSTANTIATION_WORDS.map(function (t) {
+    /* The QUERY-side substantiation list, not the shorter SUBSTANTIATION_WORDS:
+       "clean" and the "safe" family are as unsubstantiated printed on a product
+       as they are typed into a search, and a keyword drop must give a
+       product-side reason, not the synonym one querySideHit would. */
+    QUERY_SIDE_SUBSTANTIATION_WORDS.map(function (t) {
       return { term: t, why: "is an unsubstantiated marketing claim" };
     })
   );
@@ -916,11 +920,17 @@ function promptFragment() {
   const productWords = PRODUCT_SIDE_BANNED.map(function (e) {
     return e.term;
   });
+  const seen = new Set();
   const queryWords = QUERY_SIDE_BANNED.map(function (e) {
     return e.term;
   })
     .concat(QUERY_SIDE_BLOCKED_BY_BUILD_ONLY)
-    .concat(QUERY_SIDE_SUBSTANTIATION_WORDS);
+    .concat(QUERY_SIDE_SUBSTANTIATION_WORDS)
+    .filter(function (w) {
+      if (seen.has(w)) return false;
+      seen.add(w);
+      return true;
+    });
   const routerWords = MEDICAL_QUERY_TERMS.map(function (e) {
     return e.term;
   });
