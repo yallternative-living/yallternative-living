@@ -50,12 +50,16 @@
  * produce no diff. A product deleted from products.json drops out of the file
  * on the next run.
  *
- * THE BUILD HAS THE LAST WORD. After writing, this script runs
- * scripts/build-site-data.js. If the build refuses the file -- and it will, on
- * any query-side term SEARCH_SYNONYM_BANNED names -- the previous file is
- * restored, the build is re-run to put the generated files back, and the run
- * exits non-zero having changed nothing. The guard in the build is meant to be
- * able to veto the bot, so the bot is written to lose that argument.
+ * THE BUILD HAS THE LAST WORD. Both of the build's synonym gates run on every
+ * candidate entry before anything is written (screenBatch), so a refused word
+ * is a logged drop. After writing, this script runs scripts/build-site-data.js
+ * anyway. If the build still refuses the file, the entries it is refusing are
+ * found by binary search and shipped without their synonyms (narrowToAcceptable)
+ * -- one word costs one entry's synonyms, never the batch. Only when that
+ * cannot be done is the previous file restored, the build re-run to put the
+ * generated files back, and the run exited non-zero having changed nothing.
+ * The guard in the build is meant to be able to veto the bot, so the bot is
+ * written to lose that argument.
  *
  * Run:
  *   node scripts/search-enrich.js                       # needs GEMINI_API_KEY
@@ -315,11 +319,11 @@ function buildUserPayload(group, concerns, categories) {
 
 /**
  * The offline responder. Deliberately crude AND deliberately dirty: it emits
- * plausible items alongside five violations -- a condition word as a keyword, a
+ * plausible items alongside six violations -- a condition word as a keyword, a
  * "cures ..." synonym term, a named disease proposed as a synonym, a string over
- * the character cap, and a duplicate of one of the owner's own keywords -- so a
- * proof run with no key exercises the drop paths for real instead of asserting
- * they exist.
+ * the character cap, a duplicate of one of the owner's own keywords, and a
+ * substantiation claim on the query side -- so a proof run with no key
+ * exercises the drop paths for real instead of asserting they exist.
  */
 function mockResponder(spec) {
   const payload = JSON.parse(spec.user);
@@ -358,6 +362,14 @@ function mockResponder(spec) {
              the thing being proved, and since the 2026-09-04 brief the diseases
              fall on the router's side of it, not the synonym table's. */
           { key: "dry_skin", terms: ["itchy skin", "eczema", "cures itch", "psoriasis flare"] },
+          /* VIOLATION 6: a substantiation claim on the query side. This is the
+             word class that failed the 2026-09-10 run for real -- the model
+             wrote "baby safe balm" and the build's second synonym gate, whose
+             list the policy did not share, refused the whole file. The bot
+             screens for it now (search-enrichment-rules QUERY_SIDE_
+             SUBSTANTIATION_WORDS), so here it costs one term and the entry
+             still ships. */
+          { key: "sensitive_skin", terms: ["fragrance free", "baby safe balm"] },
           {
             key: "mock_" + (p.category || "shop").replace(/[^a-z0-9]+/g, "_"),
             terms: ["mock " + stem]
@@ -455,6 +467,10 @@ function screenBatch(input) {
          a red deploy an hour later. */
       try {
         build.buildSearchSynonyms({}, [screened.value]);
+        /* ...and the gate that reads the MERGED table, which is a second set
+           of words and used to be reachable only by writing the file and
+           losing the run to it. */
+        rules.assertQuerySideClean(screened.value.key, screened.value.terms);
       } catch (e) {
         dropped.push({
           id: work.id,
@@ -617,15 +633,142 @@ function summarize(result, client, dryRun) {
   };
 }
 
+/** Votes a build spends isolating the entries a veto is about. */
+const MAX_NARROW_VOTES = 16;
+
 /**
- * Write, then let the build vote. On a veto the previous bytes go back and the
- * build is run again so the generated files match the restored source; the run
- * then fails, having changed nothing.
+ * Does this build failure look like the build refusing the ENRICHMENT FILE, as
+ * opposed to a broken tree or a flaky check? Only the first is worth narrowing
+ * over: bisecting a failure that has nothing to do with the document would
+ * pin it on whichever half happened to be tested first and drop an innocent
+ * entry. The patterns are the build's own messages for a refused synonym
+ * (assertQuerySideClean, buildSearchSynonyms) and for the file itself.
+ */
+function looksLikeEnrichmentVeto(error) {
+  return /search synonyms:|search\.extraSynonyms|search-enrichment\.json/.test(String(error || ""));
+}
+
+/**
+ * The build refused the file. Find the ENTRIES it is refusing and empty only
+ * their querySynonyms, by binary search over product ids: a refused half is
+ * searched, a clean half is not, so isolating one offender costs about
+ * log2(n) builds rather than n.
+ *
+ * Why this exists: a veto used to restore the whole file, so one bad word in
+ * one product cost every other product its enrichment and the run exited 2 --
+ * which is what happened on every run this bot ever made (2026-09-10). The
+ * per-entry screen now runs both of the build's gates, so reaching here at all
+ * means a rule the screen cannot see; even then, one word should cost one
+ * entry's synonyms.
+ *
+ * Why synonyms are EMPTIED rather than the product deleted: the build never
+ * vetoes keywords (mergeEnrichedKeywords does not throw), so every veto is
+ * about querySynonyms; keeping the keywords keeps what the run paid for, and
+ * keeping the entry's digest keeps planWork from asking the model about the
+ * same copy again next run, which would reproduce the same veto for ever.
+ * When the policy that could not see the word is fixed, POLICY_VERSION moves
+ * and the entry is regenerated -- that is the designed path back.
+ *
+ * Gives up -- and the caller restores, exactly as before -- when the offender
+ * cannot be isolated (neither half fails alone, so the entries interact),
+ * when a failure stops looking like a veto of the file, when more than half
+ * the file would have to go, or when the vote budget runs out. All say "a
+ * human should look at this", which is what exit 2 is for. The offenders it
+ * did isolate before giving up are reported so that human starts with them.
+ *
+ * @param {{document: !Object, write: !Function, runBuild: !Function,
+ *          maxVotes: (number|undefined)}} input
+ * @return {{ok: boolean, document: (!Object|undefined),
+ *           dropped: !Array<string>, votes: number, error: (string|undefined)}}
+ */
+function narrowToAcceptable(input) {
+  const ids = Object.keys(input.document).sort();
+  const maxVotes = input.maxVotes || MAX_NARROW_VOTES;
+  const maxDropped = Math.floor(ids.length / 2);
+  const dropped = [];
+  let votes = 0;
+  let lastError;
+
+  /* The document with every id in `full` carried whole and every other id
+     carried with its synonyms emptied. */
+  const shape = function (full) {
+    const keep = new Set(full);
+    const doc = {};
+    ids.forEach(function (id) {
+      const entry = input.document[id];
+      doc[id] = keep.has(id) ? entry : Object.assign({}, entry, { querySynonyms: [] });
+    });
+    return doc;
+  };
+  /* Vote on `full` carried whole. Returns ok, or the failure with `veto` set
+     when the failure is the build refusing the document (and so worth
+     searching) rather than something else. */
+  const test = function (full) {
+    input.write(shape(full));
+    votes += 1;
+    const res = input.runBuild();
+    if (res.ok) return { ok: true };
+    lastError = res.error;
+    return { ok: false, veto: looksLikeEnrichmentVeto(res.error) };
+  };
+
+  /* One offender out of a set the build already refused with its synonyms
+     carried whole. Null when it cannot be pinned to a single entry. */
+  const findOne = function (failing) {
+    let live = failing;
+    while (live.length > 1) {
+      if (votes + 2 > maxVotes) return null;
+      const mid = Math.floor(live.length / 2);
+      const a = live.slice(0, mid);
+      const b = live.slice(mid);
+      const ra = test(a);
+      if (!ra.ok) {
+        if (!ra.veto) return null;
+        live = a;
+        continue;
+      }
+      const rb = test(b);
+      if (!rb.ok) {
+        if (!rb.veto) return null;
+        live = b;
+        continue;
+      }
+      return null;
+    }
+    return live.length === 1 ? live[0] : null;
+  };
+
+  let live = ids.slice();
+  while (dropped.length < maxDropped && votes < maxVotes) {
+    const bad = findOne(live);
+    if (!bad) break;
+    dropped.push(bad);
+    live = live.filter(function (id) {
+      return id !== bad;
+    });
+    if (votes >= maxVotes) break;
+    const confirm = test(live);
+    if (confirm.ok) return { ok: true, document: shape(live), dropped: dropped, votes: votes };
+    if (!confirm.veto) break;
+  }
+  return { ok: false, dropped: dropped, votes: votes, error: lastError };
+}
+
+/**
+ * Write, then let the build vote. On a veto of the FILE the offending entries
+ * lose their synonyms and the rest is kept (narrowToAcceptable); on any other
+ * failure, or when that cannot be done, the previous bytes go back, the build
+ * is run again so the generated files match the restored source, and the run
+ * fails having changed nothing.
  *
  * @param {{text: string, previous: (string|null), runBuild: (!Function|undefined),
- *          enrichmentPath: (string|undefined)}} input
+ *          enrichmentPath: (string|undefined), document: (!Object|undefined),
+ *          maxVotes: (number|undefined)}} input `document` enables the
+ *     narrowing; without it a veto restores, as it always did.
  * @return {{ok: boolean, restored: boolean, error: (string|undefined),
- *           restoreFailed: (string|undefined)}}
+ *           restoreFailed: (string|undefined), narrowed: (!Object|undefined)}}
+ *     `narrowed` on success names what was emptied; on a failed narrowing it
+ *     names what was isolated before giving up.
  */
 function writeAndVerify(input) {
   const rel = input.enrichmentPath || ENRICHMENT_PATH;
@@ -635,6 +778,30 @@ function writeAndVerify(input) {
   writeAtomic(full, input.text);
   const first = runBuild();
   if (first.ok) return { ok: true, restored: false };
+
+  let narrowed = null;
+  if (input.document && looksLikeEnrichmentVeto(first.error)) {
+    narrowed = narrowToAcceptable({
+      document: input.document,
+      write: function (doc) {
+        writeAtomic(full, serializeDocument(doc));
+      },
+      runBuild: runBuild,
+      maxVotes: input.maxVotes
+    });
+    if (narrowed.ok) {
+      return {
+        ok: true,
+        restored: false,
+        narrowed: {
+          dropped: narrowed.dropped,
+          votes: narrowed.votes,
+          error: first.error,
+          document: narrowed.document
+        }
+      };
+    }
+  }
 
   if (input.previous === null || input.previous === undefined) {
     try {
@@ -650,7 +817,8 @@ function writeAndVerify(input) {
     ok: false,
     restored: true,
     error: first.error,
-    restoreFailed: second.ok ? undefined : second.error
+    restoreFailed: second.ok ? undefined : second.error,
+    narrowed: narrowed ? { dropped: narrowed.dropped, votes: narrowed.votes } : undefined
   };
 }
 
@@ -797,7 +965,43 @@ async function runCli(argv) {
   } else if (unchangedFile) {
     console.error("  the enrichment file is already correct -- nothing written.");
   } else {
-    const verdict = writeAndVerify({ text: text, previous: existing.raw });
+    const verdict = writeAndVerify({
+      text: text,
+      previous: existing.raw,
+      document: result.document
+    });
+    if (verdict.ok && verdict.narrowed) {
+      /* The build refused something the per-entry screen could not see. The
+         entries it was refusing are out, the rest shipped, and this says which
+         and why -- loudly, because a screen that has to be narrowed after the
+         fact is a policy gap, not a normal drop. */
+      summary.narrowed = {
+        dropped: verdict.narrowed.dropped,
+        builds: verdict.narrowed.votes,
+        buildVeto: verdict.narrowed.error
+      };
+      verdict.narrowed.dropped.forEach(function (id) {
+        summary.dropped.push({
+          id: id,
+          item: "(querySynonyms)",
+          reason:
+            "the build refused this entry's synonyms and the screen did not: " +
+            verdict.narrowed.error
+        });
+      });
+      console.error(
+        "\n!! the build refused the synonyms of " +
+          verdict.narrowed.dropped.length +
+          " entr" +
+          (verdict.narrowed.dropped.length === 1 ? "y" : "ies") +
+          " (" +
+          verdict.narrowed.dropped.join(", ") +
+          "); those shipped without synonyms and everything else was kept.\n" +
+          "   Every word the build refuses should already be a screen drop, so this is a gap in\n" +
+          "   scripts/lib/search-enrichment-rules.js. The veto said:\n" +
+          verdict.narrowed.error
+      );
+    }
     if (!verdict.ok) {
       summary.buildVeto = verdict.error;
       summary.restored = true;
@@ -805,6 +1009,16 @@ async function runCli(argv) {
       console.error(
         "\n!! the build refused this enrichment file, so it has been restored:\n" + verdict.error
       );
+      if (verdict.narrowed && verdict.narrowed.dropped.length) {
+        summary.narrowed = { dropped: verdict.narrowed.dropped, builds: verdict.narrowed.votes };
+        console.error(
+          "   Before giving up, " +
+            verdict.narrowed.votes +
+            " build(s) isolated these entries as refused: " +
+            verdict.narrowed.dropped.join(", ") +
+            ". Start there."
+        );
+      }
       if (verdict.restoreFailed) {
         console.error(
           "\n!! AND the restoring build also failed -- the tree may hold generated files from\n" +

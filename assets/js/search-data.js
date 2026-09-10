@@ -1648,31 +1648,31 @@ window.YL_SEARCH_INDEX = {
     {
       "id": "faq-0",
       "question": "Where do you ship from?",
-      "answer": "Straight out of Landrum, SC. Most orders ship in 1–3 business days. Anything still waiting on a batch is marked Coming Soon on its product page, with the batch date right there.",
+      "answer": "Straight out of Landrum, SC. Most orders ship in 1–3 business days. Anything still waiting on a batch is marked Coming Soon on its product page, with the batch date right there. If we ever can't ship inside that window, we'll email you a new date, and you can take it or cancel for a full refund.",
       "category": "General",
       "keywords": [],
       "url": "faq.html#faq-0"
     },
     {
       "id": "faq-1",
-      "question": "What's your return policy?",
-      "answer": "Opened salves, scrubs, and soaks are final sale for hygiene reasons. Unworn apparel and sealed items can be exchanged. Anything arrive wrong or damaged? Email us and we'll make it right.",
+      "question": "Do you offer free shipping?",
+      "answer": "Yes! Orders of $40 or more (on the goods, before tax) ship free anywhere in the US. Under that it's a flat $10, and the meter in your cart shows how close you are. It all applies automatically at checkout. We ship to US addresses only for now, and gift cards are emailed, so they never need postage.",
       "category": "General",
       "keywords": [],
       "url": "faq.html#faq-1"
     },
     {
       "id": "faq-2",
-      "question": "Do you have unscented or sensitive-skin options?",
-      "answer": "We do. The Y'allternative Miracle Balm is unscented and essential-oil-free, made for skin that side-eyes fragrance.",
+      "question": "How will I know when my order ships, and how do I check on it?",
+      "answer": "Stripe emails your receipt right after you pay, and your thank-you page shows your order reference. When we mark your box shipped you'll get an \"on its way\" email, with a tracking link when the carrier gives us one. No account needed: check a single order on our [order status page](order-status.html) with that reference and your email, or see everything you've ever ordered on [Your Orders](orders.html), where we email you a one-time link that expires in 24 hours.",
       "category": "General",
       "keywords": [],
       "url": "faq.html#faq-2"
     },
     {
       "id": "faq-3",
-      "question": "Can I get something custom or in bulk?",
-      "answer": "Yep. Email us or send an Instagram DM with what you're picturing (gifts, market swag, wedding favors, whatever) and we'll figure it out together.",
+      "question": "Can I pick up my order at a market instead?",
+      "answer": "Sure can. In your cart, check Local Market Pick-up (Free) and choose one of our upcoming markets. Shipping drops to nothing, we skip the address form, and your order will be waiting at the booth. The list comes straight from our [events page](events.html), so if a market isn't on it yet, we can't do pickup there.",
       "category": "General",
       "keywords": [],
       "url": "faq.html#faq-3"
@@ -1687,19 +1687,155 @@ window.YL_SEARCH_INDEX = {
     },
     {
       "id": "faq-5",
-      "question": "Do you offer free shipping?",
-      "answer": "Yes! Free shipping on any order of $40 or more. It applies automatically at checkout.",
+      "question": "What's your return policy?",
+      "answer": "Opened or used salves, scrubs, balms, and soaks are final sale for hygiene reasons; once the seal's broken, it's yours. Unworn apparel and still-sealed items can be exchanged within 14 days of delivery: email us your order number and we'll get it started (you cover the exchange postage unless we goofed). Arrived broken or wrong? That's on us: email us within 7 days with a photo of the item and the packaging and we'll make it right with a replacement or a refund. The full wording is on our [shipping & returns page](policies.html).",
       "category": "General",
       "keywords": [],
       "url": "faq.html#faq-5"
     },
     {
       "id": "faq-6",
-      "question": "What is the shelf life of your salves and soaks?",
-      "answer": "Our products are made in small batches with simple, mostly plant-based ingredients, and only the water-based ones carry a gentle preservative so they stay safe on your shelf (every ingredient is listed on each product page). We recommend using them within 6 to 12 months for the best potency and freshness. Keep them in a cool, dry place away from direct sunlight.",
+      "question": "How do refunds work?",
+      "answer": "Refunds go back to the way you paid, usually within 5–10 business days after we confirm the issue. If part of the order was paid with one of our gift cards and the whole order is refunded, that share lands right back on the card and we email you the new balance. On a partial refund only the card or bank portion comes back automatically, so if gift-card money is involved, email us and we'll square it up by hand.",
       "category": "General",
       "keywords": [],
       "url": "faq.html#faq-6"
+    },
+    {
+      "id": "faq-7",
+      "question": "How do I pay, and is sales tax added?",
+      "answer": "Checkout happens on Stripe's secure page, so your card number never touches our site. Cards work, and wallets like Apple Pay or Google Pay show up when your device offers them. If sales tax applies to your address, Stripe adds it right there, so the total on Stripe's page is the real total. Everything is in US dollars, and there's no account to make.",
+      "category": "General",
+      "keywords": [],
+      "url": "faq.html#faq-7"
+    },
+    {
+      "id": "faq-8",
+      "question": "How do I use a promo code?",
+      "answer": "Open your cart, tap \"Have a code?\" and type it in. Your cart shows the discount, and Stripe applies it at checkout. One code per order, it never discounts shipping, and it can't be combined with a gift card or used to buy one. Joining our newsletter gets you a 10% welcome code for your first order, and the Birthday Club sends a $5 code on your day.",
+      "category": "General",
+      "keywords": [],
+      "url": "faq.html#faq-8"
+    },
+    {
+      "id": "faq-9",
+      "question": "How do I send someone a gift card?",
+      "answer": "Pick any whole-dollar amount from $10 to $500 on the [shop page](shop.html#gift-cards), add their email, your name and a note if you like, then check out like normal. Once the payment clears, the code lands in their inbox within minutes and you get a copy for safekeeping. Gift cards are emailed, not shipped, and they don't expire.",
+      "category": "General",
+      "keywords": [],
+      "url": "faq.html#faq-9"
+    },
+    {
+      "id": "faq-10",
+      "question": "How do I use a gift card, or check what's left on it?",
+      "answer": "In your cart, tap \"Have a gift card or voucher code?\" and enter the code (it looks like YALL-XXXX-XXXX-XXXX). It covers as much of the order as it can, and whatever's left stays on the code for next time; the card's owner gets an email with the remaining balance after each order. Check a balance any time with the Check Balance tab on the [shop page](shop.html#gift-cards). A gift card takes the order's one discount slot, so a promo code can't stack on top, and a gift card can't buy another gift card.",
+      "category": "General",
+      "keywords": [],
+      "url": "faq.html#faq-10"
+    },
+    {
+      "id": "faq-11",
+      "question": "How long does checkout hold my items?",
+      "answer": "When you click Checkout, your cart is set aside for about 30 minutes while you pay. If the timer runs out, the session closes and anything with a stock count goes back on the shelf for the next person. No harm done, just head back to the shop and try again.",
+      "category": "General",
+      "keywords": [],
+      "url": "faq.html#faq-11"
+    },
+    {
+      "id": "faq-12",
+      "question": "What do Coming Soon and Sold Out mean?",
+      "answer": "Coming Soon means that batch hasn't been poured yet; the estimated batch date is right on the product page. Sold Out means the last jar walked out the door and a fresh batch is on the list. Either way, hit Notify Me When Back in Stock and leave your email. Once it's back on the shelf we'll send you a heads-up, and you can unsubscribe any time.",
+      "category": "General",
+      "keywords": [],
+      "url": "faq.html#faq-12"
+    },
+    {
+      "id": "faq-13",
+      "question": "Where are the ingredients listed, and what should I know if I have allergies?",
+      "answer": "Every ingredient is on each product page under Ingredients, and on the shop page you can open the ingredients list on any card. Worth knowing: most of the balms, butters and scrubs are made with sweet almond oil, which is a tree nut. Most are scented with essential oils (the Miracle Balm is the exception). Anything with beeswax or lanolin isn't vegan, so look for the Vegan badge. New to something? Dab a little on your inner forearm and wait a day before using it properly.",
+      "category": "General",
+      "keywords": [],
+      "url": "faq.html#faq-13"
+    },
+    {
+      "id": "faq-14",
+      "question": "Something didn't agree with my skin. What do I do?",
+      "answer": "Stop using it, and tell us on the [Report a Reaction](safety.html) page. Only your email and what happened are required, a real person reads every one, and you get a reference number by email so you can follow up.",
+      "category": "General",
+      "keywords": [],
+      "url": "faq.html#faq-14"
+    },
+    {
+      "id": "faq-15",
+      "question": "Do you have unscented or sensitive-skin options?",
+      "answer": "Every product page has its own number under Storage & Shelf Life: 6–12 months for most salves, scrubs and body butters, and 12 months for the soaks, deodorant, shimmer oil and sprays. Everything's made in small batches from short ingredient lists, and a few things (the body butters, the hand scrub, the outdoor spray and the room mists) carry a preservative so they keep; it's right there in the ingredient list. Store them somewhere cool and dry, out of direct sun, with the lid on tight.",
+      "category": "General",
+      "keywords": [],
+      "url": "faq.html#faq-15"
+    },
+    {
+      "id": "faq-16",
+      "question": "What is the shelf life of your salves and soaks?",
+      "answer": "Gift sets are fixed pairings we put together on purpose, priced a few dollars under what the pieces cost on their own. If a set includes something that comes in more than one size or scent, you pick those right on the set's card before it goes in the cart. Want to choose your own mix? Scroll to Pick & Mix Your Box on the [shop page](shop.html): pick any 3–5 items and the whole box is 10% off. And any two or more 2 oz salves ring up at $15 each.",
+      "category": "General",
+      "keywords": [],
+      "url": "faq.html#faq-16"
+    },
+    {
+      "id": "faq-17",
+      "question": "How do gift sets and the Build-Your-Own Box work?",
+      "answer": "Gift sets are fixed pairings we put together on purpose, priced a few dollars under what the pieces cost on their own. If a set includes something that comes in more than one size or scent, you pick those right on the set's card before it goes in the cart. Want to choose your own mix? Scroll to Pick & Mix Your Box on the [shop page](shop.html): pick any 3 to 5 items and the whole box is 10% off. And any two or more 2 oz salves ring up at $15 each.",
+      "category": "General",
+      "keywords": [],
+      "url": "faq.html#faq-17"
+    },
+    {
+      "id": "faq-18",
+      "question": "What are the shirts made of, what sizes do they come in, and how do I wash them?",
+      "answer": "The Unisex T-Shirt is soft ring-spun cotton with our rainbow stag screen-printed in water-based ink, cut to fit everybody, in S through XL. The Tank Top is a soft triblend racerback in S through 1X. Whatever's in stock is on the size picker on each product page (a greyed-out size means we're out of it for now). Wash cold, inside-out, tumble dry low or hang it, and don't iron straight over the print. Unworn apparel can be exchanged within 14 days of delivery; just email us your order number.",
+      "category": "General",
+      "keywords": [],
+      "url": "faq.html#faq-18"
+    },
+    {
+      "id": "faq-19",
+      "question": "Who writes the reviews, and how do I leave one?",
+      "answer": "Drop your email in the newsletter box at the bottom of any page and confirm it from the email we send; you'll land on a welcome page with 10% off your first order, plus market dates and new-batch news (no spam, unsubscribe whenever). The Birthday Club is separate: the box on your order confirmation page is the one that signs you up. Give us the month and day and we'll email you a $5 code on your birthday, good for one order within 30 days.",
+      "category": "General",
+      "keywords": [],
+      "url": "faq.html#faq-19"
+    },
+    {
+      "id": "faq-20",
+      "question": "How do I get the welcome code, and what's the Birthday Club?",
+      "answer": "Drop your email in the Join The List box at the bottom of any page and confirm it from the email we send; you'll land on a welcome page with 10% off your first order, plus market dates and new-batch news (no spam, unsubscribe whenever). The Birthday Club is separate: after you place an order, the confirmation page has a Join The Birthday Club box. Give us the month and day and we'll email you a $5 code on your birthday.",
+      "category": "General",
+      "keywords": [],
+      "url": "faq.html#faq-20"
+    },
+    {
+      "id": "faq-21",
+      "question": "How do I find the right thing for me?",
+      "answer": "A few ways. On the [shop page](shop.html), take the three-question quiz and it'll hand you a match. Or use the filters: by category, by what you're after (the concern buttons), or by scent. The search box in the header looks through products, the journal, events and this FAQ.",
+      "category": "General",
+      "keywords": [],
+      "url": "faq.html#faq-21"
+    },
+    {
+      "id": "faq-22",
+      "question": "Can I shop in another language or currency?",
+      "answer": "The site reads in nine languages: English, Spanish, German, French, Japanese, Chinese, Vietnamese, Korean and Portuguese. Use the globe in the top bar to switch; product names stay as they are. Prices, checkout and gift cards are all in US dollars, and for now we only ship within the US.",
+      "category": "General",
+      "keywords": [],
+      "url": "faq.html#faq-22"
+    },
+    {
+      "id": "faq-23",
+      "question": "Can I get something custom or in bulk?",
+      "answer": "Yep. Gifts, market swag, wedding favors, a wholesale order for your shop, whatever you're picturing. Send it through the [contact page](contact.html), email us, slide into our Instagram DMs, or hit the chat bubble in the corner of the page, and we'll figure it out together. We usually write back within two business days.",
+      "category": "General",
+      "keywords": [],
+      "url": "faq.html#faq-23"
     }
   ],
   "synonyms": {

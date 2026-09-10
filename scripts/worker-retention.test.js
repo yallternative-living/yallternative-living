@@ -436,6 +436,22 @@ async function testRetentionState() {
     true,
     "a second unsubscribe is idempotent"
   );
+  // A bounce outranks an unsubscribe (nobody is there to read even a
+  // transactional send); an unsubscribe never downgrades a bounce.
+  await mod.suppressEmail(db, "flip@example.com", "unsubscribe");
+  eq(
+    (await mod.suppressEmail(db, "flip@example.com", "bounce")).alreadySuppressed,
+    false,
+    "a bounce after an unsubscribe is a new fact"
+  );
+  eq(await mod.suppressionReason(db, "flip@example.com"), "bounce", "and the row now reads bounce");
+  await mod.suppressEmail(db, "flip@example.com", "unsubscribe");
+  eq(
+    await mod.suppressionReason(db, "flip@example.com"),
+    "bounce",
+    "a later unsubscribe leaves the bounce in place"
+  );
+  eq(await mod.suppressionReason(db, "nobody@example.com"), null, "an unlisted address reads null");
   eq(await mod.isSuppressed(db, "BUYER@example.com"), true, "suppression is case-insensitive");
   eq(
     await mod.isSuppressed(db, "not an address"),

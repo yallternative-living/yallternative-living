@@ -57,7 +57,7 @@ import {
   scheduleRecoveryEmail
 } from "./retention-emails.js";
 import { recordOrder } from "../state/retention.js";
-import { recordOrderRow } from "../state/orders.js";
+import { markRefunded, recordOrderRow } from "../state/orders.js";
 import { giftNoteLink, giftNotesOf } from "./gift-note.js";
 import { loadOrderCatalog, productsNeedingChoice, sizeConfirmationEmail } from "./order-digest.js";
 import { emailShipNotice } from "./ship-notice.js";
@@ -276,8 +276,9 @@ function quoted(value) {
  * The webhook is not waiting on this -- it runs behind ctx.waitUntil -- but a
  * Stripe that never answers must not hold the isolate open either.
  *
- * @returns {Promise<{items: Array|null, truncated: boolean}>} null items when
- *   nothing could be read; the caller still sends, and says so.
+ * @returns {Promise<{items: Array|null, truncated: boolean, transient?: boolean}>}
+ *   null items when nothing could be read (`transient` when Stripe could not
+ *   be reached rather than answered); the caller still sends, and says so.
  */
 const lineItemsMemo = new WeakMap();
 
@@ -301,7 +302,15 @@ async function fetchLineItems(session, env) {
     ? setTimeout(() => controller.abort(), OWNER_EMAIL_STRIPE_TIMEOUT_MS)
     : null;
   const items = [];
-  const partial = () => ({ items: items.length ? items : null, truncated: items.length > 0 });
+  // `transient`: Stripe could not be asked (network, timeout, 5xx, 429) as
+  // opposed to Stripe answering that there is nothing to read (a 4xx). Only
+  // the first is worth a redelivery (persistOrder).
+  let transient = false;
+  const partial = () => ({
+    items: items.length ? items : null,
+    truncated: items.length > 0,
+    transient
+  });
   try {
     let startingAfter = null;
     for (let page = 0; page < OWNER_EMAIL_LINE_ITEM_PAGES; page++) {
@@ -319,7 +328,10 @@ async function fetchLineItems(session, env) {
           signal: controller ? controller.signal : undefined
         }
       );
-      if (!res || !res.ok) return partial();
+      if (!res || !res.ok) {
+        transient = !res || res.status === 429 || Number(res.status) >= 500;
+        return partial();
+      }
       const list = await res.json();
       const data = list && Array.isArray(list.data) ? list.data : [];
       items.push(...data);
@@ -333,6 +345,7 @@ async function fetchLineItems(session, env) {
       session.id,
       err && err.name === "AbortError" ? "(timed out)" : err && err.message
     );
+    transient = true;
     return partial();
   } finally {
     if (timer) clearTimeout(timer);
@@ -1040,8 +1053,14 @@ async function recordAndSchedule(session, env, ctx, now = Date.now()) {
  * same read the owner's email uses (lineItemsFor memoises per session); when
  * Stripe cannot be read the row is still written with an empty list rather
  * than not at all, because a total and a date are worth more to the customer
- * than nothing, and an order missing its lines still links to /order-status
- * for them. A missing order is the failure the page exists to stop.
+ * than nothing -- and then this step THROWS, so the event lands in
+ * `failures` and Stripe redelivers it: the redelivery reads the lines again
+ * and recordOrderRow fills in a row whose list is still "[]". Without the
+ * throw a five-second Stripe blip would freeze that customer's order with
+ * no lines for good. (A list cut short between pages -- an order of more than
+ * a hundred lines whose second page failed -- is stored as read; the repair
+ * only fills an EMPTY list.) A missing order is the failure the page exists
+ * to stop.
  */
 async function persistOrder(session, env) {
   if (!env.STATE_DB) return null;
@@ -1053,9 +1072,9 @@ async function persistOrder(session, env) {
   }
   const email = buyerEmailOf(session);
   if (!email) return null;
-  const { items } = await lineItemsFor(session, env);
+  const { items, transient } = await lineItemsFor(session, env);
   const created = Number(session.created);
-  return recordOrderRow(env.STATE_DB, {
+  const row = await recordOrderRow(env.STATE_DB, {
     sessionId: session.id,
     email,
     paymentIntent: paymentIntentIdOf(session),
@@ -1065,6 +1084,35 @@ async function persistOrder(session, env) {
     status: "processing",
     items: items || []
   });
+  // Only a TRANSIENT failure is worth a redelivery: Stripe answering 4xx
+  // (nothing to read) would fail the same way for three days of retries.
+  if (items === null && transient) {
+    throw new Error(
+      `line items for ${session.id} could not be read; row written without them, redelivery fills them in`
+    );
+  }
+  return row;
+}
+
+/**
+ * A full refund reaches the customer's page as "Refunded". Runs off the
+ * charge.refunded event whether or not a gift card was involved -- the
+ * gift-card restore above has its own, earlier return for orders without
+ * one. A partial refund leaves the status alone.
+ */
+async function markOrderRefunded(charge, env) {
+  if (!env.STATE_DB) return null;
+  const intent =
+    charge.payment_intent && typeof charge.payment_intent === "object"
+      ? charge.payment_intent.id
+      : charge.payment_intent;
+  if (!intent) return null;
+  const refundedCents = Number(charge.amount_refunded || 0);
+  const chargedCents = Number(charge.amount);
+  const fullyRefunded =
+    charge.refunded === true || (Number.isFinite(chargedCents) && refundedCents >= chargedCents);
+  if (!fullyRefunded) return { marked: false, partialRefund: true };
+  return { marked: await markRefunded(env.STATE_DB, intent) };
 }
 
 /**
@@ -1349,6 +1397,12 @@ export async function processStripeEvent(event, env, ctx) {
       outcome.inventory = await restockInventoryForRefund(event.data.object || {}, env, ctx);
     } catch (err) {
       failures.push(`inventory: ${err && err.message}`);
+    }
+    /* ...and reaches the customer's order history as "Refunded". */
+    try {
+      outcome.orderHistory = await markOrderRefunded(event.data.object || {}, env);
+    } catch (err) {
+      failures.push(`order-history: ${err && err.message}`);
     }
   } else {
     outcome.ignored = true;

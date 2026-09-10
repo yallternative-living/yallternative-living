@@ -522,7 +522,17 @@ function hasVolatileNumber(text) {
   while ((m = re.exec(t)) !== null) {
     const after = t.slice(m.index + m[0].length);
     const before = t.slice(0, m.index);
-    const gluedToUnit = /^\s?(%|oz|ml|mL|g|kg|lb|in\b|cm|mm|pt|px)/.test(after);
+    /* A price or a duration written INTO the copy ("free over $40", "within
+       14 days", "size 1X") is unit-glued for the same reason "2 oz" is: it is
+       the author's sentence, not a figure the build computed. When the owner
+       changes it the sentence changes, the bot mints a new key and prunes the
+       old one, so the dead-key failure this rule guards against cannot happen
+       to it. Before 2026-09-10 those were deferred too, which left ten FAQ
+       answers English-only in eight locales with nothing saying so. */
+    const gluedToUnit =
+      /^\s?(%|oz|ml|mL|g|kg|lb|in\b|cm|mm|pt|px|X\b|XL\b)/.test(after) ||
+      /^\s?(business\s)?(second|minute|hour|day|week|month|year)s?\b/.test(after) ||
+      /[$\u20ac\u00a3]\s?$/.test(before);
     const inRange = /[\u2013\u2014-]\s?$/.test(before) || /^\s?[\u2013\u2014-]\s?\d/.test(after);
     if (!gluedToUnit && !inRange) return true;
   }

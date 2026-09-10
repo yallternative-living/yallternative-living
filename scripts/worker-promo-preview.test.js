@@ -452,23 +452,14 @@ async function run() {
       { items: CART, discount_code: "WELCOME10", gift_card_code: "YALL-AAAA-BBBB-CCCC" },
       { promoCodes: codes, cards: { "YALL-AAAA-BBBB-CCCC": 500 } }
     );
-    eq(r.status, 200, "gift card + code: the checkout goes through");
-    eq(
-      r.sessionParams.get("discounts[0][coupon]"),
-      "ephemeral_coupon_123",
-      "...with the gift card as the session's one discount"
-    );
-    eq(r.sessionParams.get("discounts[0][promotion_code]"), null, "...and no promotion code");
-    eq(r.sessionParams.get("allow_promotion_codes"), null, "...and no code box either");
+    // The drawer never sends both; a client that does is told which to drop
+    // rather than sent to a full-price page with the code silently dropped.
+    eq(r.status, 400, "gift card + code: refused, not silently checked out without the code");
+    eq(r.sessionParams, null, "...no session was created");
     eq(
       r.data.promo,
       { code: "WELCOME10", applied: false, reason: "gift_card_conflict" },
       "...and the answer explains one-or-the-other structurally"
-    );
-    eq(
-      r.sessionParams.get("metadata[discount_code_skipped]"),
-      "gift_card",
-      "...for the dashboard too"
     );
     eq(r.promoLookups.length, 0, "...without asking Stripe for the code");
   }
@@ -528,6 +519,87 @@ async function run() {
     eq(r.status, 503, "Stripe unreachable for the lookup: 503");
     eq(r.data.promo, { code: "WELCOME10", applied: false, reason: "unavailable" }, "...retryable");
     eq(r.sessionParams, null, "...and no full-price session was created behind the shopper");
+  }
+
+  /* ------------------------------------- 4. never on a gift card (red team) */
+  {
+    // A percentage code on the shop's own gift card would sell stored value
+    // below par: the card is minted at face value whatever was paid.
+    const r = await executePreview(
+      {
+        code: "WELCOME10",
+        items: [{ id: "yallternative-gift-card", qty: 1, variant: "Preset $25" }, ...CART]
+      },
+      { promoCodes: { WELCOME10: mockPromo("WELCOME10", { percent: 10 }) } }
+    );
+    eq(r.status, 200, "gift card in the cart: HTTP 200");
+    eq(r.data.valid, false, "gift card in the cart: the code is refused");
+    eq(r.data.reason, "gift_card_purchase", "...with its own reason");
+    eq(r.calls.promo.length, 0, "...before Stripe is asked anything");
+  }
+  {
+    // A code Stripe minted for ONE customer: Checkout refuses it for anyone
+    // else, so the drawer must not show a discount first.
+    const bound = mockPromo("MINE10", { percent: 10 });
+    bound.customer = "cus_someone_else";
+    const r = await executePreview(
+      { code: "MINE10", items: CART },
+      { promoCodes: { MINE10: bound } }
+    );
+    eq(r.data.valid, false, "a customer-bound code is refused at preview");
+    eq(r.data.reason, "not_applicable", "...as not applicable");
+  }
+  {
+    const r = await executeCheckout(
+      {
+        items: [{ id: "yallternative-gift-card", qty: 1, variant: "Preset $25" }, ...CART],
+        discount_code: "WELCOME10"
+      },
+      { promoCodes: { WELCOME10: mockPromo("WELCOME10", { percent: 10 }) } }
+    );
+    eq(r.status, 400, "checkout: a code on a cart holding a gift card is refused");
+    eq(r.sessionParams, null, "...and no session is created");
+    eq(
+      r.data.promo,
+      { code: "WELCOME10", applied: false, reason: "gift_card_purchase" },
+      "...saying why, structurally"
+    );
+    eq(r.promoLookups.length, 0, "...without asking Stripe for the code");
+  }
+  {
+    const r = await executeCheckout(
+      { items: [{ id: "yallternative-gift-card", qty: 1, variant: "Preset $25" }] },
+      {}
+    );
+    eq(r.status, 200, "buying a gift card with no code: HTTP 200");
+    eq(
+      r.sessionParams.get("allow_promotion_codes"),
+      null,
+      "...and Stripe's own code box is off for that session too"
+    );
+    eq(
+      r.sessionParams.get("after_expiration[recovery][allow_promotion_codes]"),
+      "false",
+      "...and off on the abandoned-cart recovery session, which recreates the same lines"
+    );
+  }
+  {
+    // The owner switched codes off after this tab loaded its drawer: a
+    // refusal the drawer clears, never a 200 that lands on a full-price page.
+    const r = await executeCheckout(
+      { items: CART, discount_code: "WELCOME10" },
+      {
+        promoCodes: { WELCOME10: mockPromo("WELCOME10", { percent: 10 }) },
+        site: { enablePromoCodes: false }
+      }
+    );
+    eq(r.status, 400, "codes switched off + a code: refused");
+    eq(r.sessionParams, null, "...no session");
+    eq(
+      r.data.promo,
+      { code: "WELCOME10", applied: false, reason: "disabled" },
+      "...with the reason the drawer maps to its own sentence"
+    );
   }
 
   console.log(`\nworker-promo-preview.test.js: ${passed} passed, ${failed} failed`);

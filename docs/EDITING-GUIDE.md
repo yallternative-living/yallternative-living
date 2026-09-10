@@ -17,7 +17,7 @@ Your dashboard is organized into 7 focused sections in the left sidebar. The **J
    - **Multi-buy deals**: Set up mix-and-match multi-buy category tiers (like *Any 2+ 2 oz Salves for $15 each*).
    - **Category sales**: Put whole categories on sale at once with percentage discounts (e.g. *15% off Body & Skin*).
    - **Gift bundles**: Create curated gift sets (*Discovery Flight*, *Everyday Armor Kit*) with auto-calculated bundle pricing.
-   - **FAQ**: Update questions and answers on shipping, returns, shelf life, and custom orders.
+   - **FAQ**: Update questions and answers on shipping, returns, paying, gift cards, promo codes, ingredients, shelf life, and custom orders.
    - **Shop details & shipping** (first thing in the form): Etsy sync counters, free shipping threshold, cart reward tiers and Build-Your-Own Box settings — then the products, deals, bundles, FAQ and category filters.
 2. **Markets & Pop-Ups** — Add upcoming pop-up markets, craft fairs, and Pride events. Upcoming dates display chronologically, and past appearances automatically archive themselves under "Where We've Been."
 3. **Customer Reviews** — Publish customer reviews and choose which glowing testimonials feature on the homepage carousel.
@@ -250,7 +250,7 @@ At the top of **Shop & Products**:
 | **Etsy Live Counters** | `Shop details & shipping` | Update your live Etsy star rating (e.g. `4.9`), review count (e.g. `32`), and total sales (e.g. `105`) to keep your site trust badges synced. |
 | **Build-Your-Own Box** | `Shop details & shipping` | Set minimum items (e.g. `3`), maximum items (e.g. `5`), discount percent (e.g. `10%`), and select eligible categories for custom boxes. |
 | **Product categories** | `Product categories` | Add or rename category buttons across the top of `/shop.html`. |
-| **Shop FAQ** | `FAQ` | Add or edit question & answer pairs displayed in the FAQ accordion on the Shop and Contact pages. |
+| **Shop FAQ** | `FAQ` | Add or edit question & answer pairs shown on the FAQ page (the shop page links to it). An answer can carry a link, written like `[events page](events.html)`. New or changed answers are translated into the other eight languages automatically after they publish. |
 
 #### The phone filter bar
 
@@ -292,7 +292,7 @@ shop *presents* them:
 
 | Setting | Where to Find It | What It Controls |
 |---|---|---|
-| **Accept promo codes in the cart** | `Site Settings` -> `⚙️ Site Settings` -> `Shop · Accept promo codes in the cart` | ON (the default) adds a "Have a code?" box to the cart, beside the gift card one. The shop checks the code with Stripe the moment it is typed and shows the discount and the new total *before* checkout, so nobody finds out on the payment page. OFF hides the box; Stripe's own code field on the payment page still works. |
+| **Accept promo codes in the cart** | `Site Settings` -> `⚙️ Site Settings` -> `Shop · Accept promo codes in the cart` | ON (the default) adds a "Have a code?" box to the cart, beside the gift card one. The shop checks the code with Stripe the moment it is typed and shows the discount and the new total *before* checkout, so nobody finds out on the payment page. OFF hides the box; Stripe's own code field on the payment page still works. Codes never apply to a gift card purchase, and can't be combined with a gift card. |
 | **Promo code prompt** | same screen -> `Shop · Promo code prompt` | The words on that box ("Have a code?"). Keep it short -- it shares a row with the gift card prompt. |
 | **Promo code + gift card notice** | same screen -> `Shop · Promo code + gift card notice` | The sentence shown when someone has a gift card applied and enters a promo code too. Stripe allows **one** discount per order, so the code waits (it is kept, greyed out) until the gift card is removed. |
 

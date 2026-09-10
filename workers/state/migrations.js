@@ -59,7 +59,7 @@
  */
 export const SCHEMA_VERSION = 10;
 
-/** Verbatim from workers/schema.sql. Keep the two in sync -- a test enforces it. */
+/** Verbatim from workers/schema.sql. Keep the two in sync -- worker-state.test.js compares every statement. */
 export const SCHEMA_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS schema_version (
      id         INTEGER PRIMARY KEY CHECK (id = 1),
@@ -276,7 +276,7 @@ export const SCHEMA_STATEMENTS = [
  *   synced_at -- last sync that saw the product as tracked, so a product
  *                the owner un-tracks is marked and re-tracking seeds fresh.
  */
-const SCHEMA_ALTERS = [
+export const SCHEMA_ALTERS = [
   `ALTER TABLE inventory ADD COLUMN seed_at INTEGER NOT NULL DEFAULT 0`,
   `ALTER TABLE inventory ADD COLUMN synced_at INTEGER NOT NULL DEFAULT 0`
 ];

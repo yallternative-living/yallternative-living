@@ -590,13 +590,22 @@ product. Every drop is reported as `{id, item, reason}` and goes on one issue.
 
 ### The build has the last word
 
-Two checks, not one. Each candidate synonym is first run through the build's own
-`buildSearchSynonyms()`, one entry at a time, so a word the policy missed becomes
-a logged drop rather than a red deploy an hour later. Then the written file faces
-a full `node scripts/build-site-data.js`: on a non-zero exit the previous bytes
-are restored, the build is re-run so the generated files match what is on disk,
-and the run exits 2 having changed nothing. That guard is meant to be able to
-veto the bot, so the bot is written to lose the argument.
+Three checks, not one. Each candidate synonym is first run through BOTH of the
+build's synonym gates, one entry at a time -- `buildSearchSynonyms()` and
+`assertQuerySideClean()`, the second being the merged-table gate moved into the
+rules module so the two cannot diverge -- so a word the policy missed becomes a
+logged drop rather than a red deploy an hour later. Then the written file faces
+a full `node scripts/build-site-data.js`. If that still refuses the file, the
+entries it is refusing are found by binary search over product ids and shipped
+without their synonyms (`narrowToAcceptable`): one word costs one entry's
+synonyms, never the batch, and the run says so loudly because a word the build
+refuses should already have been a screen drop. Only when the offender cannot be
+isolated, when the failure does not look like a veto of the file, when more than
+half the file would go, or when the build budget (16) runs out are the previous
+bytes restored, the build re-run so the generated files match what is on disk,
+and the run exited 2 having changed nothing -- with the entries it did isolate
+named. That guard is meant to be able to veto the bot, so the bot is written to
+lose the argument.
 
 ### The recorded proof run
 

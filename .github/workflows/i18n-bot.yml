@@ -227,14 +227,18 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           # The nine dictionaries and the basis are the sources. assets/js/
-          # locales-data.js is their 1:1 compilation and sw.js carries the
-          # precache digest that covers it, so both move with them and the tree
-          # stays self-consistent. Nothing else the build regenerates is added:
-          # Netlify runs the same build on deploy, and a wider `git add` would
-          # fold unrelated page churn into a commit that should read as a
+          # locales/<code>.js are their 1:1 compilation (one file per locale,
+          # loaded on demand), assets/js/locales-data.js is the glossary and
+          # manifest, and sw.js carries the precache digest that covers them,
+          # so all of them move with the sources and the tree stays
+          # self-consistent -- a committed dictionary that is missing keys its
+          # JSON source has is what every local test would otherwise run
+          # against. Nothing else the build regenerates is added: Netlify runs
+          # the same build on deploy, and a wider `git add` would fold
+          # unrelated page churn into a commit that should read as a
           # dictionary diff.
           git add assets/data/locales assets/data/i18n-translation-basis.json \
-            assets/js/locales-data.js sw.js
+            assets/js/locales assets/js/locales-data.js sw.js
           if git diff --staged --quiet; then
             echo "Nothing to commit -- no key completed this run."
             exit 0

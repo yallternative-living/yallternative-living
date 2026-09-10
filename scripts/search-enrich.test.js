@@ -403,6 +403,100 @@ function product(over) {
      shortening SEARCH_SYNONYM_BANNED. If it ever fills up again, somebody added
      a word to the build's list and to no list in the rules module, and the bot
      is now refusing a word for a reason it cannot explain. */
+
+  /* The SECOND synonym gate, the one that reads the merged table, had the same
+     divergence and it was not computed anywhere: SUBSTANTIATION_WORDS plus
+     "clean" and the "safe" family lived inline in build-site-data.js, so the
+     bot screened for none of them. On 2026-09-10 the model proposed "baby safe
+     balm" for sensitive_skin, the gate refused the whole file at that one term,
+     and twenty products' enrichment was restored away. The list is now the
+     rules module's, the bot screens with it, and these hold it there. */
+  ["natural", "hypoallergenic", "clean", "safe", "baby safe", "baby-safe"].forEach(function (word) {
+    assert(
+      rules.QUERY_SIDE_SUBSTANTIATION_WORDS.indexOf(word) !== -1,
+      'QUERY_SIDE_SUBSTANTIATION_WORDS carries "' + word + '"'
+    );
+  });
+  rules.SUBSTANTIATION_WORDS.forEach(function (word) {
+    assert(
+      rules.QUERY_SIDE_SUBSTANTIATION_WORDS.indexOf(word) !== -1,
+      'the query-side list is a superset of SUBSTANTIATION_WORDS ("' + word + '")'
+    );
+  });
+  assert(
+    /searchRules\.assertQuerySideClean\(/.test(
+      fs.readFileSync(path.join(ROOT, "scripts/build-site-data.js"), "utf8")
+    ),
+    "the build's synonym gate IS the rules module's check, not a second copy of the word loops"
+  );
+  {
+    /* The bot screens with the same function the gate vetoes with, so the two
+       cannot disagree about a word again. Both directions, on the real lists. */
+    let threw = "";
+    try {
+      rules.assertQuerySideClean("sensitive_skin", ["baby safe balm"]);
+    } catch (e) {
+      threw = e.message;
+    }
+    assert(
+      /substantiation claim "safe"/.test(threw),
+      "the shared check refuses a query-side claim"
+    );
+    threw = "";
+    try {
+      rules.assertQuerySideClean("dry_skin", ["eczema"]);
+    } catch (e) {
+      threw = e.message;
+    }
+    assert(/router word "eczema"/.test(threw), "...and a router word, with the build's message");
+    rules.assertQuerySideClean("gift", ["secret santa", "white elephant gift"]);
+  }
+  {
+    /* The exact entry that failed the 2026-09-10 run: the bad term is a logged
+       drop costing one word, the good one survives, and the entry still ships.
+       Before the fix this passed the bot's screen and failed the build. */
+    const screened = rules.screenSynonymEntry({
+      entry: { key: "sensitive_skin", terms: ["baby safe balm", "gentle balm"] }
+    });
+    assert(screened.ok, "an entry whose other terms are fine still survives");
+    assertDeep(
+      screened.value.terms,
+      ["gentle balm"],
+      "...with the substantiation term dropped and the rest kept"
+    );
+    assert(
+      screened.dropped.length === 1 && /substantiation claim/.test(screened.dropped[0].reason),
+      "...and the drop says why, in the bot's own words"
+    );
+    const keyed = rules.screenSynonymEntry({ entry: { key: "baby_safe", terms: ["gentle"] } });
+    assert(!keyed.ok, "a substantiation word in the KEY refuses the entry");
+  }
+  assert(
+    rules.querySideHit("cleansing spray") === null,
+    'whole-word matching: "clean" does not catch the Cleansing Spray'
+  );
+  {
+    const kw = rules.screenKeyword({ term: "clean hands" });
+    assert(
+      !kw.ok && /marketing claim/.test(kw.reason),
+      'a keyword drop for "clean" gives a PRODUCT-side reason'
+    );
+    assert(!/query side/.test(kw.reason), "...not the synonym-entry one");
+  }
+  assertEqual(rules.POLICY_VERSION, "2026-09-10", "the policy version moved with the lists");
+  {
+    const fragment = rules.promptFragment();
+    const rule2 = fragment.slice(fragment.indexOf("2."));
+    assertEqual(
+      (rule2.match(/fda approved/g) || []).length,
+      1,
+      "the prompt lists a query-side word once"
+    );
+  }
+  assert(
+    rules.promptFragment().indexOf("baby safe") !== -1,
+    "the model is told not to write these words, so a run rarely has to drop one"
+  );
   /* The router list has to reach the client, and it has to reach ONLY the
      client. Held against the shipped artefacts rather than a fixture, because a
      fixture would only prove the fixture. */
@@ -753,6 +847,147 @@ function product(over) {
       });
       assert(good.ok && !good.restored, "a build that passes keeps the new file");
       assertEqual(fs.readFileSync(target, "utf8"), "GOOD\n", "with the new bytes");
+
+      /* ONE BAD WORD COSTS ONE ENTRY'S SYNONYMS. The bot used to restore the
+         whole file on a veto, so a single refused word cost every other product
+         its enrichment -- which is what happened on every run it ever made. The
+         build here refuses exactly one product's synonyms; that product keeps
+         its keywords and its digest, and the other six ship untouched. */
+      const entry = function (synonymTerm) {
+        return {
+          keywords: ["stocking stuffer"],
+          querySynonyms: [{ key: "sensitive_skin", terms: [synonymTerm] }],
+          source: { model: "m", digest: "d", policy: "p", date: "2026-09-10" }
+        };
+      };
+      const doc = {};
+      ["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta"].forEach(function (id) {
+        doc[id] = entry(id === "delta" ? "baby safe balm" : "fragrance free");
+      });
+      const refusesSafe = function () {
+        let onDisk;
+        try {
+          onDisk = JSON.parse(fs.readFileSync(target, "utf8"));
+        } catch {
+          return { ok: true }; /* the restored "OLD" bytes: the build accepts them */
+        }
+        const bad = Object.keys(onDisk).some(function (id) {
+          return onDisk[id].querySynonyms.some(function (e) {
+            return e.terms.some(function (t) {
+              return /safe/.test(t);
+            });
+          });
+        });
+        return bad
+          ? {
+              ok: false,
+              error: 'search synonyms: sensitive_skin term "baby safe balm" carries "safe"'
+            }
+          : { ok: true };
+      };
+      let builds = 0;
+      const narrowed = tool.writeAndVerify({
+        enrichmentPath: target,
+        text: tool.serializeDocument(doc),
+        previous: "OLD\n",
+        document: doc,
+        runBuild: function () {
+          builds++;
+          return refusesSafe();
+        }
+      });
+      assert(narrowed.ok && !narrowed.restored, "a veto it can narrow is not a failed run");
+      assertDeep(narrowed.narrowed.dropped, ["delta"], "only the refused entry is named");
+      const shipped = JSON.parse(fs.readFileSync(target, "utf8"));
+      assertDeep(
+        Object.keys(shipped).sort(),
+        ["alpha", "beta", "delta", "epsilon", "eta", "gamma", "zeta"],
+        "every product is still in the file"
+      );
+      assertDeep(shipped.delta.querySynonyms, [], "...the refused one without its synonyms");
+      assertDeep(shipped.delta.keywords, ["stocking stuffer"], "...but with its keywords");
+      assertEqual(shipped.delta.source.digest, "d", "...and its digest, so it is not re-asked");
+      assertDeep(shipped.alpha.querySynonyms, doc.alpha.querySynonyms, "the others are whole");
+      assertEqual(
+        fs.readFileSync(target, "utf8"),
+        tool.serializeDocument(narrowed.narrowed.document),
+        "the file on disk is the document the verdict returns, byte for byte"
+      );
+      assert(
+        builds <= 8,
+        "isolating one of seven costs a handful of builds, not one per entry",
+        "builds: " + builds
+      );
+      assert(
+        /baby safe balm/.test(narrowed.narrowed.error),
+        "the build's own words are carried, so the policy gap can be closed"
+      );
+
+      /* When it CANNOT be narrowed -- here every subset is refused -- the old
+         behaviour stands: restore, change nothing, fail. */
+      const hopeless = tool.writeAndVerify({
+        enrichmentPath: target,
+        text: tool.serializeDocument(doc),
+        previous: "OLD\n",
+        document: doc,
+        runBuild: function () {
+          return { ok: false, error: "search synonyms: refuses everything" };
+        }
+      });
+      assert(!hopeless.ok && hopeless.restored, "an unnarrowable veto still restores and fails");
+      assertEqual(fs.readFileSync(target, "utf8"), "OLD\n", "...byte for byte, exactly as before");
+
+      /* A failure that is not the build refusing the FILE -- a broken tree, a
+         flaky check -- is never bisected: it would pin the blame on whichever
+         half was tested first and drop an innocent entry. */
+      let votes = 0;
+      const unrelated = tool.writeAndVerify({
+        enrichmentPath: target,
+        text: tool.serializeDocument(doc),
+        previous: "OLD\n",
+        document: doc,
+        runBuild: function () {
+          votes++;
+          return { ok: false, error: "ENOSPC: no space left on device" };
+        }
+      });
+      assert(!unrelated.ok && unrelated.restored, "an unrelated build failure restores");
+      assertEqual(votes, 2, "...without a single narrowing build (write + restore only)");
+
+      /* Isolated-then-stuck: two of seven refused, budget for one. The run
+         fails, but the verdict names the offender it found. */
+      const two = {};
+      Object.keys(doc).forEach(function (id) {
+        two[id] = entry(id === "beta" || id === "zeta" ? "baby safe balm" : "fragrance free");
+      });
+      const partial = tool.writeAndVerify({
+        enrichmentPath: target,
+        text: tool.serializeDocument(two),
+        previous: "OLD\n",
+        document: two,
+        maxVotes: 5,
+        runBuild: refusesSafe
+      });
+      assert(!partial.ok && partial.restored, "out of budget with an offender left: restored");
+      assert(
+        partial.narrowed && partial.narrowed.dropped.length >= 1,
+        "...and the verdict names what it isolated before giving up",
+        JSON.stringify(partial.narrowed)
+      );
+
+      /* A one-entry file cannot lose "more than half", so it is never narrowed. */
+      const lone = { only: entry("baby safe balm") };
+      const single = tool.writeAndVerify({
+        enrichmentPath: target,
+        text: tool.serializeDocument(lone),
+        previous: "OLD\n",
+        document: lone,
+        runBuild: refusesSafe
+      });
+      assert(
+        !single.ok && single.restored,
+        "a single refused entry restores rather than shipping {}"
+      );
       fs.rmSync(dir, { recursive: true, force: true });
 
       // -----------------------------------------------------------------

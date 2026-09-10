@@ -138,6 +138,15 @@ function eq(actual, expected, label) {
   }
 }
 
+/* `checkedAt` is the wall clock at normalization (when the Worker last confirmed
+   the code); the shape assertions below compare the code's terms, not the time. */
+function stripCheckedAt(obj) {
+  if (!obj || typeof obj !== "object") return obj;
+  const copy = { ...obj };
+  delete copy.checkedAt;
+  return copy;
+}
+
 function assert(condition, label) {
   if (condition) {
     passed++;
@@ -1842,17 +1851,19 @@ assert(
         "normalizeAppliedPromo: a refused verdict is not stored"
       );
       eq(
-        internals.normalizeAppliedPromo({
-          valid: true,
-          code: "welcome10",
-          kind: "percent",
-          percentOff: 10,
-          amountOffCents: null,
-          minimumAmountCents: 0,
-          restrictions: { firstTimeOnly: true },
-          estimatedDiscountCents: 180,
-          subtotalCents: 1800
-        }),
+        stripCheckedAt(
+          internals.normalizeAppliedPromo({
+            valid: true,
+            code: "welcome10",
+            kind: "percent",
+            percentOff: 10,
+            amountOffCents: null,
+            minimumAmountCents: 0,
+            restrictions: { firstTimeOnly: true },
+            estimatedDiscountCents: 180,
+            subtotalCents: 1800
+          })
+        ),
         {
           code: "WELCOME10",
           kind: "percent",
@@ -1981,7 +1992,7 @@ assert(
         "applyPromoCode accepts a valid verdict"
       );
       eq(
-        JSON.parse(mockLocalStorage.getItem("yl_applied_promo")),
+        stripCheckedAt(JSON.parse(mockLocalStorage.getItem("yl_applied_promo"))),
         {
           code: "WELCOME10",
           kind: "percent",

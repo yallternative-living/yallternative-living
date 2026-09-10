@@ -202,6 +202,10 @@ Two rules the cart explains to shoppers so you do not have to:
   wording is yours to change in `/admin` → Site Settings.
 - **Codes discount goods, not shipping.** Stripe never applies a coupon to
   the shipping rate. For free shipping use the free-shipping threshold.
+- **Codes never discount a gift card.** A shopper buying a gift card sees
+  "Codes can't be used to buy gift cards", and Stripe's own code field is off
+  for that checkout too. Otherwise a 10% code would sell $25 of store credit
+  for $22.50, and the card would still redeem at $25.
 
 To pause the whole thing, `/admin` → **Site Settings** → **⚙️ Site Settings**
 → untick **Shop · Accept promo codes in the cart**. The box disappears from

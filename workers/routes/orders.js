@@ -18,17 +18,28 @@
  * malformed address (400 -- the caller typed it and can see it), a rate
  * limit (429, the same for every address) and a missing binding (503).
  *
- * RATE LIMITS. 3 requests per 10 minutes per client AND per address hash, so
- * neither one caller cycling addresses nor many callers hammering one address
- * can spend the Resend budget or flood a mailbox. The list endpoint is
- * limited per client too; a token is single-use so a second call with the
- * same one is refused before the limiter matters.
+ * RATE LIMITS. 3 requests per 10 minutes per client AND per address hash,
+ * plus 10 per day per address, so neither one caller cycling addresses nor
+ * many callers hammering one address can spend the Resend budget or flood a
+ * mailbox. The list endpoint is limited per client too; a token is
+ * single-use so a second call with the same one is refused before the
+ * limiter matters.
  *
  * THE TOKEN carries the SHA-256 of the address as its subject, never the
- * address (state/magic-link.js), so the URL a mail client logs, a browser
- * keeps in history and a proxy writes down holds no PII. Purpose `orders`
- * only: a points token or an unsubscribe token cannot be replayed here.
- * 24 hours, then it expires; one use, then it is burned (`burned_tokens`).
+ * address -- and that hash is SEALED (state/magic-link.js sealSubject:
+ * AES-GCM under a key derived from the signing secret, a fresh IV per link)
+ * because a bare hash is still the address to anyone holding a list of
+ * likely addresses. So the URL a mail client logs, a browser keeps in
+ * history and a proxy writes down holds nothing that names the customer,
+ * and two links for one address never look alike. Purpose `orders` only: a
+ * points token or an unsubscribe token cannot be replayed here. 24 hours,
+ * then it expires; one use, then it is burned (`burned_tokens`) -- burned
+ * LAST, after the list is read, so a D1 hiccup mid-request does not spend
+ * the link on an error page.
+ *
+ * SUPPRESSION. This is a transactional message the person asked for a moment
+ * ago, so someone who unsubscribed from marketing still gets it; only an
+ * address that BOUNCED is skipped, because nobody is there to read it.
  *
  * WHAT COMES BACK. The orders for that hash and nothing else (state/orders.js
  * -- no address, no name, no street, no gift text), plus the points balance
@@ -43,15 +54,24 @@
 import { ClientError, clientIp, escapeHtml, json, readJson } from "./http.js";
 import { checkRateLimit } from "../state/rate-limit.js";
 import { ensureSchema } from "../state/migrations.js";
-import { burnToken, signToken, verifyToken } from "../state/magic-link.js";
+import {
+  burnToken,
+  openSubject,
+  sealSubject,
+  signToken,
+  verifyToken
+} from "../state/magic-link.js";
 import { balance } from "../state/loyalty.js";
-import { hashEmail, isSuppressed, normalizeEmail } from "../state/retention.js";
+import { hashEmail, normalizeEmail, suppressionReason } from "../state/retention.js";
 import { emailForHash, hasOrders, listOrders, MAX_ORDERS_LISTED } from "../state/orders.js";
 import { loadSiteSettings } from "../state/site-data.js";
 import { fromAddress, sendEmail } from "./gift-cards.js";
 import { retentionConfig } from "./retention-emails.js";
 
 export const ORDERS_LINK_RATE_LIMIT = { limit: 3, period: 600 };
+/** Per address, per day: 3 per 10 minutes alone still allows 432 unasked-for
+ *  emails a day to one inbox from callers rotating addresses of their own. */
+export const ORDERS_LINK_DAILY_LIMIT = { limit: 10, period: 86400 };
 export const ORDERS_LIST_RATE_LIMIT = { limit: 10, period: 60 };
 export const ORDERS_TOKEN_PURPOSE = "orders";
 export const ORDERS_TOKEN_TTL_SECONDS = 24 * 60 * 60;
@@ -119,9 +139,12 @@ export async function sendOrderLink(env, email, emailHash, now = Date.now()) {
   const db = env.STATE_DB;
   const config = retentionConfig(env);
   if (!(await hasOrders(db, emailHash))) return { sent: false, reason: "no-orders" };
-  if (await isSuppressed(db, email)) return { sent: false, reason: "suppressed" };
+  const suppressed = await suppressionReason(db, email);
+  if (suppressed === "bounce" || suppressed === "invalid") {
+    return { sent: false, reason: "suppressed" };
+  }
   const minted = await signToken(config.signingSecret, {
-    subject: emailHash,
+    subject: await sealSubject(config.signingSecret, emailHash),
     purpose: ORDERS_TOKEN_PURPOSE,
     ttlSeconds: ORDERS_TOKEN_TTL_SECONDS,
     now
@@ -166,13 +189,12 @@ export async function handleOrdersRequestLink(request, env, origin, ctx) {
     ...ORDERS_LINK_RATE_LIMIT,
     failOpen: true
   });
-  if (!perClient.success || !perAddress.success) {
-    return json(
-      { error: "Too many requests. Please try again in ten minutes." },
-      429,
-      origin,
-      env
-    );
+  const perAddressDaily = await checkRateLimit(env, `orders-link:d:${emailHash}`, {
+    ...ORDERS_LINK_DAILY_LIMIT,
+    failOpen: true
+  });
+  if (!perClient.success || !perAddress.success || !perAddressDaily.success) {
+    return json({ error: "Too many requests. Please try again in ten minutes." }, 429, origin, env);
   }
 
   await ensureSchema(env.STATE_DB);
@@ -212,17 +234,19 @@ export async function handleOrdersList(request, env, origin, ctx) {
   if (!check.valid || !check.subject) {
     return json({ error: BAD_LINK_MESSAGE }, 403, origin, env);
   }
+  const emailHash = await openSubject(config.signingSecret, check.subject);
+  if (!emailHash) return json({ error: BAD_LINK_MESSAGE }, 403, origin, env);
 
   await ensureSchema(env.STATE_DB);
-  const first = await burnToken(env.STATE_DB, check.tokenId, check.expiresAt);
-  if (!first) return json({ error: BAD_LINK_MESSAGE }, 403, origin, env);
-
-  const orders = await listOrders(env.STATE_DB, check.subject, MAX_ORDERS_LISTED);
+  // Read first, burn last: nothing here moves money, so the moment between
+  // two concurrent reads is harmless, while a D1 error AFTER the burn would
+  // spend the link on the page's "try again" -- which would then be a 403.
+  const orders = await listOrders(env.STATE_DB, emailHash, MAX_ORDERS_LISTED);
 
   let loyalty = null;
   const site = await loadSiteSettings(env, ctx);
   if (site.enableLoyaltyPoints !== false) {
-    const email = await emailForHash(env.STATE_DB, check.subject);
+    const email = await emailForHash(env.STATE_DB, emailHash);
     if (email) {
       const points = await balance(env.STATE_DB, email);
       loyalty = {
@@ -233,6 +257,9 @@ export async function handleOrdersList(request, env, origin, ctx) {
       };
     }
   }
+
+  const first = await burnToken(env.STATE_DB, check.tokenId, check.expiresAt);
+  if (!first) return json({ error: BAD_LINK_MESSAGE }, 403, origin, env);
 
   return json({ orders, loyalty }, 200, origin, env);
 }
