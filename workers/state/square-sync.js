@@ -400,11 +400,36 @@ export async function mappedRows(db, productIds = null) {
 }
 
 /**
+ * The stamp for one listing of the register: the wall clock, unless a row in
+ * the table already carries that instant or a later one, in which case one
+ * millisecond past the newest. Strictly newer than every resolved_at already
+ * written, always.
+ *
+ * unmapStale() below decides "the listing did not touch this row" by
+ * resolved_at < stamp. Stamping with the bare clock made that a race: two
+ * ticks in the same millisecond -- the hourly reconcile and a webhook's
+ * resolve, or two ticks back to back in a test -- wrote the same resolved_at,
+ * and a variation the second listing lacked looked freshly listed and stayed
+ * mapped. The CI runner hit exactly that on 2026-09-10 (Node 24, QA run
+ * #394) on a commit that had not touched this code. One SELECT MAX makes the
+ * stamp a monotonic edge instead of a clock reading.
+ */
+export async function listingStamp(db, now = Date.now()) {
+  const row = await db.prepare("SELECT MAX(resolved_at) AS latest FROM square_catalog").first();
+  const latest = row && row.latest !== null && row.latest !== undefined ? Number(row.latest) : 0;
+  const clock = Number(now);
+  return Math.max(Number.isFinite(clock) ? clock : 0, Number.isFinite(latest) ? latest + 1 : 0);
+}
+
+/**
  * After a COMPLETE listing of the register's catalogue, every mapped row the
  * listing did not touch (resolved_at older than the listing's stamp) belongs
  * to a variation Square no longer has. Left mapped, it would be written to on
  * the next push and Square would refuse the whole batch -- so it is unmapped,
- * and its push memo cleared. Never called after a truncated listing.
+ * and its push memo cleared. Never called after a truncated listing, and
+ * `listedAt` must be the listingStamp() the same listing was upserted with:
+ * that is what makes "older than" mean "not in this listing" rather than
+ * "earlier on a clock that can tie".
  *
  * @returns {Promise<number>} rows unmapped
  */
