@@ -929,7 +929,7 @@ singletons:
         collapsed: true
         minimize_collapsed: true
         summary: "{{fields.question}}"
-        hint: "Questions and answers on the FAQ page (the shop page links to it). An answer can carry a link, written like [events page](events.html)."
+        hint: "Questions and answers on the FAQ page (the shop page shows the first five and links to the rest). An answer can carry a link, written like [events page](events.html). Some answers describe a feature with an on/off switch under Site Settings (promo codes, market pickup, the order pages, back-in-stock alerts, the quiz, live chat): if you turn one off, edit its answer. Numbers quoted in answers (the free-shipping threshold, the flat rate, the return windows, gift-card amounts, the box deal) live elsewhere on this site, so change the answer when you change the number."
         fields:
           - { name: question, label: Question, widget: string }
           - { name: answer, label: Answer, widget: text }
