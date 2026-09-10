@@ -700,6 +700,10 @@ logged only.
 | `routes/stripe-webhook.js` top-level | `webhook:<event type>`          | A handler threw after the D1 claim; the claim was released and Stripe will retry.        |
 | `checkout.js` `scheduled`            | `cron:<step label>`             | One hourly step threw; the rest still ran.                                               |
 | `routes/retention-emails.js` drain   | `retention:<kind>`              | A queued customer email hit `MAX_SEND_ATTEMPTS` and was given up on.                     |
+| `routes/square-webhook.js` top-level | `square-webhook:<event type>`   | A Square handler threw after the D1 claim; the claim was released and Square will retry. |
+| `routes/square-webhook.js` sale      | `square-unmapped:<variation id>` | An item sold at the register has no SKU the site recognises; that line was not counted.  |
+| `routes/square-webhook.js` sale      | `square-short:<product id>`     | The register sold more of a product than the site had; the count stopped at zero.        |
+| `routes/square-webhook.js` push      | `square-push`                   | Writing live counts to Square failed; the site's count is right, the register's is stale. |
 
 Design points, all enforced by `scripts/worker-alerts.test.js`:
 
@@ -726,6 +730,101 @@ Add a site: `alertOwner(env, ctx, { key, subject, details })` with a `key` that
 names the PROBLEM, not the occurrence (that is the dedupe unit), and a flat
 `details` object of ids. Do not await it on the money path.
 
+### 2g. The market register (Square) -- one shelf, two tills
+
+The shop sells at markets and pop-ups through a Square register as well as
+online. Until this existed the inventory ledger (`workers/state/inventory.js`)
+heard only about online orders, so a Saturday's sales at a table left the site
+still offering stock that was gone until somebody recounted by hand.
+`workers/routes/square-webhook.js` makes the register a second writer to the
+same ledger, and makes the ledger the register's source of truth:
+
+- **Register -> site.** Square posts `payment.updated` when a payment
+  completes -- cash, card and tap alike; `source_type` is never consulted --
+  and `order.updated` when an order completes, which also catches a giveaway
+  or a 100% comp, which has no payment at all. The Worker reads the order's
+  line items, turns each Square item into a product through its **SKU**, and
+  takes the units off the shelf (`deductOnHand`). One deduction per Square
+  ORDER however many payments (a split tender) or redeliveries it produces:
+  `webhook_events` claims the event id, `square_sales` claims the order id.
+- **Refunds.** `refund.updated` (COMPLETED) puts back exactly the lines the
+  sale took, once, when the ORDER has now been refunded for all it collected
+  -- the order, not the payment. A split tender is two payments for one
+  sale; refunding the card half in full is a partial refund of the sale and
+  moves nothing (the first version judged this per payment and would have
+  restocked the whole order -- red team, 2026-09-10). A return the register
+  rings up as its own order is followed to the sale it returns
+  (`returns[].source_order_id`). A partial refund is about the money, not the
+  goods, and moves nothing: the same reading the Stripe route gives
+  `charge.refunded`.
+- **Crash-safe.** The claim is a `pending` row; the deduction and the move to
+  `applied` are one guarded batch, so an isolate that dies between the two
+  leaves a `pending` row the next delivery resumes, and two deliveries racing
+  on it move the shelf once. Restock is the same shape.
+- **Site -> register.** After any move of the shelf -- an online order paid,
+  expired or refunded, a register sale applied, the hourly reconcile -- the
+  live `available` count of every mapped product is written to Square as a
+  `PHYSICAL_COUNT` for each of its item variations (Inventory API
+  `BatchChangeInventory`), so the register shows the same "3 left" the site
+  does. Only counts that moved since the last push are written -- except on
+  the hourly tick, which also reads Square's own counts and rewrites any that
+  drifted from the ledger, so a webhook that failed for a day or a number
+  typed into the Square Dashboard heals within the hour. The same tick
+  unmaps any variation Square no longer lists, so a deleted item cannot make
+  Square refuse the next push batch.
+- **The map is the SKU.** In the Square Dashboard, an item variation's SKU
+  set to a product id (`lavender-soak`) maps it; `lavender-soak/24-oz` maps
+  too (the site counts stock per product, not per size, so every size of an
+  item shares one count and is pushed the same number); any string listed
+  under the product's **Square SKUs** field in the CMS maps as an alias; and
+  a bundle id maps to the bundle and counts its members. The first time an
+  item that does not map sells, the owner is emailed which one
+  (`square-unmapped:<variation id>`) and that line is otherwise ignored. The
+  map (`square_catalog`) is re-read from Square's catalogue every hour by the
+  cron, so a SKU fixed in the Dashboard takes effect within the hour.
+- **Shortfall.** A register sale of more than the site had (a miscount, or a
+  wrongly mapped item) takes what there is, stops at zero -- and never below
+  the units an open online checkout is holding, which were promised first --
+  and emails the owner the difference (`square-short:<product id>`).
+- **What is deliberately NOT done.** Square's own `inventory.count.updated`
+  is not subscribed to: two systems each correcting the other on every change
+  is a loop. The site's ledger is authoritative and Square is written TO; a
+  count edited in the Square Dashboard is overwritten within the hour.
+  Correct a count in the CMS ("Stock count"), never in Square.
+- **Switch:** `site.enableSquareSync` in content.json (Site settings -> Shop
+  -> "Sync stock with Square"). Off, verified events are acknowledged and
+  ignored and nothing is pushed. Fails open to on if content.json cannot be
+  read -- a site outage must not stop market sales from counting.
+
+Setup, in the OWNER's Square account (like Cloudflare: she creates, you
+configure):
+
+1. **developer.squareup.com -> Applications -> +**, signed in with the Square
+   account the register uses. Name it "Y'allternative site".
+2. **Credentials -> Production -> Access token** -> `SQUARE_ACCESS_TOKEN`
+   (step 3). The calls need `ORDERS_READ`, `PAYMENTS_READ`, `ITEMS_READ`,
+   `INVENTORY_READ` and `INVENTORY_WRITE`; the application's own access token
+   from that page carries them all.
+3. **Webhooks -> Subscriptions -> Add** -- step 4b below. Copy the
+   subscription's **Signature key** -> `SQUARE_WEBHOOK_SIGNATURE_KEY`.
+4. The register's **location id** (Square Dashboard -> Account & Settings ->
+   Business information -> Locations, or `GET /v2/locations`) ->
+   `SQUARE_LOCATION_ID`, a `[vars]` entry in wrangler.toml -- an id, not a
+   secret. Without it sales still count down; the register just is not told
+   what is left.
+5. **In the Square item library**, give each item variation a SKU per the
+   rule above and turn **Track inventory** on for it, so the pushed counts
+   have somewhere to land. The next hourly tick maps the catalogue.
+
+Verify: ring up one item at the register (a $0 comp is fine), watch
+`GET /api/inventory` drop by one within a few seconds, and see the count
+appear on the item in the Square Dashboard.
+
+Schema v10 adds `square_sales` and `square_catalog` (workers/schema.sql).
+Tests: `scripts/worker-square.test.js`. No `Square-Version` header is sent,
+on purpose: Square applies the application's default version from the
+Developer Dashboard, and the fields read are the stable ones.
+
 ### 3. Set the secrets
 
 In the Cloudflare dashboard (the Worker -> Settings -> Variables and Secrets), or
@@ -736,6 +835,8 @@ npx wrangler secret put STRIPE_SECRET_KEY      # Checkout Sessions, Coupons, Cus
 npx wrangler secret put STRIPE_WEBHOOK_SECRET  # from step 4 -- also keys the gift-card code derivation
 npx wrangler secret put RESEND_API_KEY         # from the verified Resend account
 npx wrangler secret put MAGIC_LINK_SECRET      # 32+ random chars; signs unsubscribe and points links
+npx wrangler secret put SQUARE_WEBHOOK_SIGNATURE_KEY  # from step 4b -- verifies Square's signature; without it /api/square-webhook is a 404
+npx wrangler secret put SQUARE_ACCESS_TOKEN           # from 2g -- reads orders, payments and the catalogue, writes stock counts
 ```
 
 Optional vars: `RESTOCK_NOTIFY_EMAIL` (where restock alerts go; defaults to
@@ -788,6 +889,52 @@ PaymentIntent metadata is edited, so it is sent by the Worker's hourly cron
 instead (see **Marking an order shipped** below). `routes/stripe-webhook.js`
 keeps a dormant branch for that event name in case Stripe ever adds it; there
 is nothing to select for it in the Dashboard.
+
+### 4b. Register the Square webhook
+
+Square Developer Dashboard -> your application -> Webhooks -> Subscriptions
+-> Add subscription, with the SITE's URL (Netlify proxies `/api/*` to the
+Worker):
+
+```
+https://yallternativeliving.com/api/square-webhook
+```
+
+Subscribe to exactly these three:
+
+- `payment.updated` -- a payment at the register completed (cash, card and
+  tap alike); the order's items come off the shelf,
+- `order.updated` -- an order completed; catches the sale with no payment at
+  all (a giveaway or a 100% comp). A paid sale fires both, and the second is
+  a no-op because the sale is claimed per order. Square documents this event
+  as Beta and its payload is a summary (`order_updated.{order_id, state}`),
+  which is why the Worker reads the order itself. If a $0 comp at the register
+  does not turn out to fire it, adjust the Stock count by hand for comps --
+  paid sales never depend on it,
+- `refund.updated` -- a refund completed; once the WHOLE order has been
+  refunded (every tender of a split sale) its items go back, a partial refund
+  moves nothing. A return rung up as its own order is followed to the sale.
+
+Do NOT subscribe to `inventory.count.updated`: the Worker writes counts TO
+Square, and reacting to its own writes would loop. `payment.created` and
+`refund.created` are accepted if ticked -- they carry the same objects and
+hit the same per-order claim -- but are not needed.
+
+Copy the subscription's **Signature key** into `SQUARE_WEBHOOK_SIGNATURE_KEY`.
+Square signs the exact notification URL above plus the raw body (HMAC-SHA256,
+base64, in `x-square-hmacsha256-signature`), and the Worker verifies against
+`SITE_ORIGIN` + `/api/square-webhook` -- never against its own `request.url`,
+which is the workers.dev hostname behind the proxy. If the subscription was
+registered under any other string, set `SQUARE_WEBHOOK_NOTIFICATION_URL` to
+it. There is no timestamp check, on purpose: unlike Stripe, Square retries
+with the ORIGINAL body and `created_at` (with exponential backoff, for up to
+24 hours, carrying `square-retry-number` and `square-retry-reason` headers),
+so a five-minute window would refuse every legitimate retry. Replay is
+defeated by the event-id claim instead -- a replayed event finds its id
+already claimed and does nothing. The 24-hour horizon is also why a 5xx from
+this route matters more than one from the Stripe route: a cause not fixed
+within a day is a sale the shelf never hears about, and the owner alert says
+which order.
 
 ### Marking an order shipped
 

@@ -443,3 +443,46 @@ CREATE TABLE IF NOT EXISTS orders (
 );
 CREATE INDEX IF NOT EXISTS orders_email_hash ON orders (email_hash, created);
 CREATE INDEX IF NOT EXISTS orders_payment_intent ON orders (payment_intent);
+
+-- ---------------------------------------------------------------------------
+-- v10 (2026-09-10): the register -- Square sales count down the same shelf
+-- (workers/state/square-sync.js, workers/routes/square-webhook.js).
+--
+-- square_sales: one row per Square ORDER that has been counted off the
+-- inventory ledger. Keyed on the order, not the payment or the webhook event,
+-- because a split tender is two `payment.updated` events for one sale, and
+-- Square redelivers an event until it gets a 2xx; the webhook_events claim
+-- stops the redelivery and this row stops the second payment. lines_json is
+-- the `[{productId, qty}]` to deduct, recorded at claim time so a retry that
+-- resumes a crashed attempt deducts the same lines, and so a full refund can
+-- put back exactly what was taken. state: pending (claimed) -> applied (the
+-- shelf moved, in the same batch that flipped it) -> restocked (the whole
+-- ORDER refunded), once each way; see workers/state/square-sync.js. Swept
+-- after 90 days (a refund later than that is adjusted by hand).
+--
+-- square_catalog: the register's items, one row per Square ITEM_VARIATION,
+-- with the product id its SKU resolved to (NULL when it did not -- the owner
+-- is emailed the first time such an item sells). last_pushed_count is the
+-- available count last written to Square for the variation, so the hourly
+-- push only writes rows whose count moved.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS square_sales (
+  order_id     TEXT PRIMARY KEY,
+  state        TEXT NOT NULL CHECK (state IN ('pending','applied','restocked')),
+  lines_json   TEXT NOT NULL,
+  location_id  TEXT,
+  sold_at      INTEGER NOT NULL,
+  updated_at   INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS square_sales_sold_at ON square_sales (sold_at);
+CREATE TABLE IF NOT EXISTS square_catalog (
+  variation_id       TEXT PRIMARY KEY,
+  sku                TEXT,
+  item_name          TEXT,
+  variation_name     TEXT,
+  product_id         TEXT,
+  resolved_at        INTEGER NOT NULL,
+  last_pushed_count  INTEGER,
+  last_pushed_at     INTEGER
+);
+CREATE INDEX IF NOT EXISTS square_catalog_product ON square_catalog (product_id);

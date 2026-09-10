@@ -31,7 +31,7 @@ Node-only. The naming is the contract the runners glob on, and it is why the CI
 
 - **Unit pool** -- `npm test` -> `scripts/run-test.js`, which runs BOTH of:
   - `scripts/run-unit-tests.js`: every `scripts/*.test.js` that is not
-    `*.browser.test.js` (52 suites), in a parallel worker pool, then two
+    `*.browser.test.js` (53 suites), in a parallel worker pool, then two
     Node-only gates sequentially: `verify-pdp-metadata.js` (797 assertions on
     PDP OpenGraph/microdata) and `verify-build-reproducibility.js` (rebuilds
     the site five times and diffs every generated file).

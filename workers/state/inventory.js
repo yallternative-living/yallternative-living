@@ -477,6 +477,124 @@ export async function sweepStaleHolds(db, now = Date.now(), ttlMs = HOLD_TTL_MS)
   return released;
 }
 
+/* ------------------------------------------------- off-site sales (Square) */
+
+/**
+ * A sale that happened OFF the site -- at the market register, through
+ * Square (workers/routes/square-webhook.js) -- takes units straight off the
+ * shelf. There is no hold to commit: the money is already taken, so this IS
+ * the commit. Two guards, both inside the one UPDATE so a racing online
+ * reserve cannot slip between a read and a write:
+ *
+ *   - on_hand never drops below `reserved`. Units an open online checkout is
+ *     holding were promised to that shopper first; the register sale takes
+ *     what is left and reports the rest as `short`.
+ *   - on_hand never drops below zero. A register sale of something the site
+ *     already counts as gone means the two shelves disagreed (a miscount, or
+ *     a Square item mapped to the wrong product), and `short` says by how
+ *     much so the owner can be told.
+ *
+ * Products with no inventory row are untracked here and are skipped, not
+ * counted.
+ *
+ * ATOMIC WITH THE CALLER'S OWN CLAIM. Idempotency is the caller's -- the
+ * register keeps one row per Square order (workers/state/square-sync.js) --
+ * and a claim that is written in one statement and acted on in another is a
+ * claim a crash can strand (red team, 2026-09-10: an isolate dying between
+ * the two left the order "counted" and the shelf untouched, and every retry
+ * saw a duplicate). So the caller may pass `options.guard`, a WHERE fragment
+ * (with its binds) appended to every inventory UPDATE, and
+ * `options.trailing`, prepared statements run in the SAME batch after them:
+ * the guard makes the deduction conditional on the claim still being in the
+ * state the caller expects, and the trailing statement moves the claim on.
+ * Both happen or neither does, exactly as transitionHolds() does for online
+ * holds. The trailing statements' results come back as `trailing` so the
+ * caller can see whether its transition happened (a lost race shows zero
+ * rows moved, and the `applied` numbers then mean nothing).
+ *
+ * @param {object} db D1 binding
+ * @param {Array<{productId: string, qty: number}>} lines
+ * @param {number} [now]
+ * @param {{guard?: {sql: string, binds: Array}, trailing?: Array}} [options]
+ * @returns {Promise<{applied: Array<{productId: string, qty: number, deducted: number, short: number}>,
+ *   soldOut: string[], untracked: string[], trailing: Array}>}
+ */
+export async function deductOnHand(db, lines, now = Date.now(), options = {}) {
+  const wanted = normalizeHolds(lines);
+  const guard = options.guard && options.guard.sql ? ` AND ${options.guard.sql}` : "";
+  const guardBinds = options.guard && Array.isArray(options.guard.binds) ? options.guard.binds : [];
+  const trailing = Array.isArray(options.trailing) ? options.trailing : [];
+  const before = await readAvailability(
+    db,
+    wanted.map((l) => l.productId)
+  );
+  const tracked = wanted.filter((l) => before.has(l.productId));
+  const untracked = wanted.filter((l) => !before.has(l.productId)).map((l) => l.productId);
+  if (!tracked.length) {
+    // Nothing on the shelf to move, but the caller's claim still has to
+    // advance or a sale of only unmapped items sits "pending" forever.
+    const trailed = trailing.length ? await db.batch(trailing) : [];
+    return { applied: [], soldOut: [], untracked, trailing: trailed };
+  }
+  const results = await db.batch([
+    ...tracked.map((l) =>
+      db
+        .prepare(
+          `UPDATE inventory SET on_hand = MAX(reserved, on_hand - ?), updated_at = ?
+            WHERE product_id = ?${guard}`
+        )
+        .bind(l.qty, now, l.productId, ...guardBinds)
+    ),
+    ...trailing
+  ]);
+  const after = await readAvailability(
+    db,
+    tracked.map((l) => l.productId)
+  );
+  const applied = tracked.map((l) => {
+    const was = before.get(l.productId).onHand;
+    const is = (after.get(l.productId) || { onHand: was }).onHand;
+    const deducted = Math.min(l.qty, Math.max(0, was - is));
+    return { productId: l.productId, qty: l.qty, deducted, short: l.qty - deducted };
+  });
+  const soldOut = applied
+    .map((a) => a.productId)
+    .filter((id) => (after.get(id) || { available: 0 }).available <= 0);
+  return { applied, soldOut, untracked, trailing: results.slice(tracked.length) };
+}
+
+/**
+ * The off-site sale was refunded in full: its units go back on the shelf.
+ * No ceiling -- the owner's Stock count is the ceiling, and a correction
+ * there reseeds the row. Untracked products are skipped, and `options` is
+ * the same guard/trailing contract as deductOnHand, for the same reason.
+ *
+ * @returns {Promise<{returned: Array<{productId: string, qty: number}>, untracked: string[], trailing: Array}>}
+ */
+export async function addOnHand(db, lines, now = Date.now(), options = {}) {
+  const wanted = normalizeHolds(lines);
+  const guard = options.guard && options.guard.sql ? ` AND ${options.guard.sql}` : "";
+  const guardBinds = options.guard && Array.isArray(options.guard.binds) ? options.guard.binds : [];
+  const trailing = Array.isArray(options.trailing) ? options.trailing : [];
+  const rows = await readAvailability(
+    db,
+    wanted.map((l) => l.productId)
+  );
+  const tracked = wanted.filter((l) => rows.has(l.productId));
+  const untracked = wanted.filter((l) => !rows.has(l.productId)).map((l) => l.productId);
+  const results = await db.batch([
+    ...tracked.map((l) =>
+      db
+        .prepare(
+          `UPDATE inventory SET on_hand = on_hand + ?, updated_at = ? WHERE product_id = ?${guard}`
+        )
+        .bind(l.qty, now, l.productId, ...guardBinds)
+    ),
+    ...trailing
+  ]);
+  return { returned: tracked, untracked, trailing: results.slice(tracked.length) };
+}
+
 /** The raw rows, for tests and hand audits. */
 export async function inventoryRows(db) {
   const res = await db.prepare("SELECT * FROM inventory ORDER BY product_id").all();
@@ -498,8 +616,8 @@ export async function holdRows(db, sessionId) {
  * for tracked products only. Syncs first so a product tracked since the last
  * build has a row to read.
  */
-export async function inventorySnapshot(db, tracked, now = Date.now()) {
-  await syncInventory(db, tracked, now);
+export async function inventorySnapshot(db, tracked, now = Date.now(), catalogFetchedAt = null) {
+  await syncInventory(db, tracked, now, catalogFetchedAt);
   const rows = await readAvailability(
     db,
     tracked.map((p) => p.id)

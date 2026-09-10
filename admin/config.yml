@@ -465,8 +465,24 @@ singletons:
               without you touching it. Because of that, only retype this
               number after an actual recount: saving resets the live count
               to whatever you enter. 0 shows 'Sold Out' and blocks
-              checkout; 1–5 shows an 'Only 3 left' badge. This doesn't sync
-              with Etsy — update both by hand.
+              checkout; 1–5 shows an 'Only 3 left' badge. Sales rung up on
+              your Square register count this same number down (see Square
+              SKUs below). It doesn't sync with Etsy — update Etsy by hand.
+          - name: squareSkus
+            label: "Square SKUs (register)"
+            widget: list
+            required: false
+            collapsed: true
+            summary: "{{fields.sku}}"
+            hint: >-
+              Usually leave this empty: in the Square Dashboard, set the
+              item's SKU to this product's ID (shown as the page address,
+              e.g. lavender-soak) and it is matched automatically — one SKU
+              per size is fine, written as lavender-soak/24-oz. Only list
+              SKUs here if your Square items already have SKUs you'd rather
+              not retype. When a sale at the register can't be matched, you
+              get an email saying which item.
+            field: { name: sku, label: "Square SKU", widget: string }
           - name: inStock
             label: "In stock"
             widget: boolean
@@ -1390,6 +1406,14 @@ singletons:
               default: true,
               required: false,
               hint: "For products with a Stock count, the shop asks the checkout for the live number (what's left after paid orders) and shows 'Only 3 left' and 'Sold Out' from it. Off, the shop only shows the count as it was at the last publish."
+            }
+          - {
+              name: enableSquareSync,
+              label: "Shop · Sync stock with Square",
+              widget: boolean,
+              default: true,
+              required: false,
+              hint: "Sales rung up on your Square register (cash, card, comps — all of them) count the Stock count down, and the live count is written back to Square so the register shows what's left. Off pauses both directions; nothing is lost, and sales made while it's off are NOT counted later — recount when you turn it back on. Only does anything once Steven has connected Square."
             }
           - {
               name: enableLoyaltyPoints,

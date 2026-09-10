@@ -154,6 +154,8 @@ both spellings so the same build works behind the proxy or on a Cloudflare route
 | `/api/orders/request-link` | `{email}`                                 | `200 {ok:true, message}` — the SAME body for a known, unknown, unsubscribed or undeliverable address; `400 {error}` for an unusable address; `429` (3 per 10 min per client and per address hash); `404` when `site.enableOrderHistory` is off; `503` without `STATE_DB`/`MAGIC_LINK_SECRET` |
 | `GET /api/orders?token=` | `?token=` (the emailed one-time link)       | `200 {orders:[{sessionId, placedAt, amountTotalCents, currency, status, trackingUrl, items:[{name, quantity, unitCents, productId, variant, kind, reorderable}]}], loyalty:{balance, threshold, rewardCents, pointsToReward}|null}` newest first, 25 at most, the token burned on the way; `403 {error}` for every bad token, one message; `429`; `404`; `503` |
 
+| `/api/square-webhook`    | Square event + `x-square-hmacsha256-signature` | `200 {received:true, outcome}` (`{received:true, duplicate:true}` on a redelivery; `{received:true, disabled:true}` with the CMS switch off); `400 {error:"Invalid signature"}`, one fixed string; `404` until `SQUARE_WEBHOOK_SIGNATURE_KEY` is set; `500` only when a retry would help; `503` with no `STATE_DB` |
+
 Notes that are contract, not detail:
 
 - **`amountTotal` is cents**, as Stripe reports it. `amountTotalCents` carries the
@@ -475,6 +477,66 @@ a read and no write.
 
 **No sweeper**, deliberately: every other table here is operational state
 and is swept; this one is the customer's history.
+
+### 4.11 The register (schema version 10)
+
+The shop's other till is a Square POS at markets. `workers/routes/square-webhook.js`
+makes it a second writer to the inventory ledger of §4.10's neighbour,
+`workers/state/inventory.js`, and makes that ledger the register's source of
+truth, so both tills sell off one shelf:
+
+- **Inbound.** `payment.updated` (COMPLETED) and `order.updated` (COMPLETED)
+  -> `GET /v2/orders/{id}` -> line items -> each `catalog_object_id`'s SKU ->
+  a product id (`workers/state/square-sync.js` `resolveSku`: the id, `id/size`,
+  a `squareSkus` alias, or a bundle id) -> `deductOnHand`, straight off
+  `on_hand` with no hold, never below `reserved` and never below zero, the
+  shortfall reported. `refund.updated` (COMPLETED) -> the ORDER's refunds
+  (plus those on a return order that names it via `returns[].source_order_id`)
+  summed against its `total_money`; only when the whole order has been
+  refunded -> `addOnHand` of exactly the recorded lines. Per-payment judgement
+  would have restocked a whole split-tender sale when one tender came back
+  (red team, 2026-09-10).
+- **Exactly once, twice over -- and crash-safe.** `webhook_events` claims the
+  event id (with `sq_` and the UUID's hyphens stripped); `square_sales` claims
+  the ORDER id, because a split tender is two payments for one sale and a paid
+  sale fires both `payment.updated` and `order.updated`. The claim is a
+  `pending` row; the deduction and the flip to `applied` are one batch, every
+  inventory UPDATE guarded by `EXISTS (... state = 'pending')` and the flip
+  last (inventory.js `deductOnHand`'s guard/trailing contract, the shape of
+  `transitionHolds`), so a crash between claim and deduction leaves a
+  `pending` row the next delivery resumes, and two racing deliveries both run
+  the batch but only one finds the row `pending`. `applied -> restocked` is
+  the same shape. `lines_json` on that row is what a refund restores. Rows are
+  swept after 90 days.
+- **Outbound.** `pushCountsForProducts` writes `available` as a `PHYSICAL_COUNT`
+  per mapped variation to `POST /v2/inventory/changes/batch-create`, from the
+  Stripe webhook's inventory hooks (`tellRegister` in `routes/inventory.js`),
+  from a register sale, and from the hourly cron, which also re-reads the
+  catalogue (`GET /v2/catalog/list?types=ITEM,ITEM_VARIATION`) into
+  `square_catalog`, unmaps variations a complete listing no longer has, reads
+  Square's own counts (`POST /v2/inventory/counts/batch-retrieve`) and
+  rewrites any that disagree with the ledger. `last_pushed_count` on that row
+  is why an unchanged hour with Square agreeing costs no write; the count
+  read is why a day of failed webhooks or a number typed into the Square
+  Dashboard heals within the hour. Square's `inventory.count.updated` is not
+  subscribed to -- the ledger is authoritative, Square is written to, a loop
+  is not built.
+- **Catalogue age.** `site-data.js`'s product index carries `fetchedAt` from
+  the origin `Date` header, and every seeder of the ledger passes it to
+  `syncInventory` -- the Square route and `GET /api/inventory` alike -- so an
+  isolate holding a 300-second-old cached `products.json` cannot reseed a row
+  back past an owner correction (the guard the 2026-09-09 red team added for
+  checkout, extended to the other readers on 2026-09-10).
+- **Signature.** HMAC-SHA256 over the registered notification URL + raw body,
+  base64 -- verified against `SITE_ORIGIN` + `/api/square-webhook` (the URL
+  Square was given; the proxy means `request.url` is the wrong string). No
+  timestamp tolerance, because Square's retries carry the original body;
+  replay is defeated by the event-id claim.
+- **Budget.** A register sale is one D1 read for the event claim, one for the
+  order claim, one batch for the deduction, one read for the sold-out check,
+  and a Square order read (plus one catalogue read the first time an item is
+  seen). The hourly tick is one catalogue listing and one inventory write
+  when something moved, nothing when not.
 
 ## 5. Dashboard setup (one-time, by hand)
 
