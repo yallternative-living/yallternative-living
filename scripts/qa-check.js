@@ -5759,6 +5759,76 @@ section("Localization: dictionary coverage");
   });
 })();
 
+/* ---------- The closed cart drawer paints nothing ---------- */
+/* The drawer keeps `display: flex` so the data-open fallback can slide it in
+   without the Popover API, which means the UA's
+   `[popover]:not(:popover-open) { display: none }` never applies and the closed
+   panel stays laid out just past the right edge. While it also carried the
+   open state's box-shadow, that `-8px` blur pointed back at the page: a dark
+   band ~44px wide down the right edge of all 40 pages, at every width
+   (measured 2026-09-10: luminance 232 falling to 160 at the last column). The
+   same `display` left a `role="dialog"` visible to the a11y tree on every
+   page. Both are properties of the CLOSED rule, so both are pinned here. */
+section("Cart drawer: the closed state is invisible and silent");
+(function () {
+  try {
+    var cartCss = fs.readFileSync(path.join(ROOT, "assets/css/cart.css"), "utf8");
+    /* Comments first -- the closed-state note quotes a CSS rule, braces and
+       all, and a naive brace count would end the block inside it. */
+    var bare = cartCss.replace(/\/\*[\s\S]*?\*\//g, "");
+    var start = bare.indexOf(".yl-cart-drawer {");
+    if (start === -1) {
+      fail("cart.css", "no .yl-cart-drawer base rule");
+      return;
+    }
+    var open = bare.indexOf("{", start);
+    var depth = 0;
+    var end = -1;
+    for (var i = open; i < bare.length; i++) {
+      if (bare[i] === "{") depth++;
+      else if (bare[i] === "}") {
+        depth--;
+        if (depth === 0) {
+          end = i;
+          break;
+        }
+      }
+    }
+    var base = end === -1 ? "" : bare.slice(open, end);
+
+    if (base.indexOf("box-shadow") === -1) {
+      ok("the closed .yl-cart-drawer sets no box-shadow");
+    } else {
+      fail(
+        "assets/css/cart.css",
+        "the closed .yl-cart-drawer sets a box-shadow again -- it bleeds onto every page"
+      );
+    }
+    if (/visibility:\s*hidden/.test(base)) {
+      ok("the closed .yl-cart-drawer is visibility:hidden (out of the a11y tree)");
+    } else {
+      fail(
+        "assets/css/cart.css",
+        "the closed .yl-cart-drawer is not visibility:hidden -- an empty role=dialog on every page"
+      );
+    }
+
+    /* ...and the open states put both back, on the popover path and the
+       data-open fallback alike. */
+    [".yl-cart-drawer:popover-open", '.yl-cart-drawer[data-open="true"]'].forEach(function (sel) {
+      var at = bare.indexOf(sel + " {");
+      var rule = at === -1 ? "" : bare.slice(at, bare.indexOf("}", at));
+      if (rule.indexOf("box-shadow") !== -1 && /visibility:\s*visible/.test(rule)) {
+        ok(sel + " restores the shadow and visibility");
+      } else {
+        fail("assets/css/cart.css", sel + " must set box-shadow and visibility: visible");
+      }
+    });
+  } catch (e) {
+    fail("cart drawer closed-state check", e.message);
+  }
+})();
+
 /* ---------- Summary ---------- */
 console.log("\n" + "=".repeat(50));
 console.log(passCount + " checks passed, " + failures.length + " failed.");
