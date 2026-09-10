@@ -9659,26 +9659,33 @@
           direct: 6,
           synonym: 3
         });
-        /* The enrichment bot's keywords, and nothing else, scored beneath
-           every field a human filled in -- name, keywords, concerns, tags,
-           scent, ingredients, blurb, category. They used to be appended into
-           `keywords` and scored 20, the same as a word the owner typed, and
-           the bot's first successful run re-ranked eleven curated searches
-           with them: "woodsy" put the deodorant above the frankincense salve,
-           "pride gift" put a body butter above the Pride bundle. The job of
-           this field is recall -- a product the bot alone can match still
-           surfaces -- not ranking, so it sits below the lowest owner signal
-           and can only ever order products the owner's own fields tied. */
-        if (Array.isArray(prod.autoKeywords)) {
-          score += scoreTextMatch(prod.autoKeywords.join(" "), queryTokens, expandedTokens, {
-            direct: 2,
-            synonym: 1
-          });
-        }
         if (prod.categoryLabel) {
           score += scoreTextMatch(prod.categoryLabel, queryTokens, expandedTokens, {
             direct: 6,
             synonym: 3
+          });
+        }
+
+        /* RECALL ONLY, AND ONLY WHEN NOTHING THE OWNER WROTE MATCHED.
+           The enrichment bot's keywords used to be appended into `keywords`
+           and scored 20 -- the same as a word the owner typed -- and its first
+           successful run re-ranked eleven curated searches: "woodsy" put the
+           deodorant above the frankincense salve, "pride gift" put a body
+           butter above the Pride bundle. Scoring them low was not enough on
+           its own; at any weight above zero they still decide the ties, and
+           "goth" tipped from the tank top to the keychain on 2 points.
+           So they are not a ranking signal at all. Everything above this line
+           is the owner's: name, keywords, concerns, tags, scent, ingredients,
+           blurb, category. If any of it matched, this product is already
+           ranked by her words and the bot has no vote. Only when none of it
+           matched -- the product would score 0 and never be seen -- do the
+           bot's words put it on the page, below everything that matched
+           honestly. That is the job it was given: find the shopper who typed
+           "that bug stuff", never re-order the shop. */
+        if (score === 0 && Array.isArray(prod.autoKeywords)) {
+          score += scoreTextMatch(prod.autoKeywords.join(" "), queryTokens, expandedTokens, {
+            direct: 2,
+            synonym: 1
           });
         }
 
