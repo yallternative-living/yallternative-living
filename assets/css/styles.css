@@ -9161,9 +9161,19 @@ html:has(.announcement-bar) {
    search also empties the grid, but it un-hides #reviewsEmptyState first,
    so the guard drops the reservation there instead of leaving a tall
    hole under "No reviews found". 22 cards always exceed 100vh, so nothing
-   is ever pulled back up. */
+   is ever pulled back up.
+   #reviewsDistribution is the star-breakdown host main.js fills from the
+   full pool: five fixed rows, 112px tall, with .review-distribution's 28px
+   bottom margin collapsing through -- 140px at every width. On the live
+   site the data lands ~800ms in, after first paint, and the grid dropped
+   exactly that 140px (0.04-0.05 CLS). Same guard: zero reviews at all shows
+   the empty state, which releases both reservations. */
 #reviewsEmptyState[hidden] ~ #reviewsGrid:empty {
   min-height: 100vh;
+}
+#reviewsEmptyState[hidden] ~ #reviewsDistribution:empty {
+  min-height: 112px;
+  margin-bottom: 28px;
 }
 
 /* --- 4. events.html countdown banner + upcoming grid -----------------
@@ -9219,7 +9229,8 @@ html:has(.announcement-bar) {
 #shopGrid:empty::before,
 #featuredGrid:empty::before,
 #upcomingEvents:empty::before,
-#reviewsEmptyState[hidden] ~ #reviewsGrid:empty::before {
+#reviewsEmptyState[hidden] ~ #reviewsGrid:empty::before,
+#reviewsEmptyState[hidden] ~ #reviewsDistribution:empty::before {
   content: "";
   display: block;
   grid-column: 1 / -1;
@@ -9247,7 +9258,8 @@ html:has(.announcement-bar) {
   #shopGrid:empty::before,
   #featuredGrid:empty::before,
   #upcomingEvents:empty::before,
-  #reviewsEmptyState[hidden] ~ #reviewsGrid:empty::before {
+  #reviewsEmptyState[hidden] ~ #reviewsGrid:empty::before,
+  #reviewsEmptyState[hidden] ~ #reviewsDistribution:empty::before {
     animation: none;
   }
 }

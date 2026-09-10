@@ -152,6 +152,12 @@
         <button type="button" class="btn btn-sm btn-outline" id="reviewsResetBtn">Clear Filters</button>
       </div>
 
+      <!-- Star-distribution host. main.js fills it (and would create it if
+           absent); shipping it empty lets CSS reserve its 112px + 28px
+           footprint so the grid does not drop 140px when the bars arrive
+           after first paint. -->
+      <div id="reviewsDistribution"></div>
+
       <!-- Reviews Grid -->
       <div id="reviewsGrid" class="grid grid-3 reviews-list"></div>
 
