@@ -1134,6 +1134,97 @@ it("main.js no-results chips follow window.YL_CONTENT.search and fall back to th
   mockWindow.YL_CONTENT = saved;
 });
 
+// ---------------------------------------------------------------------------
+// The enrichment bot cannot re-rank the shop.
+//
+// assets/data/search-enrichment.json is empty in the repo -- the bot owns it
+// and writes it on main -- so nothing above this line exercises the merge. The
+// fixture is a real enrichment run: authored against the live catalogue, put
+// through the bot's own screening (which dropped a FIFRA pest name and two
+// duplicates of the owner's keywords) and accepted by the build vote entry by
+// entry.
+//
+// Loaded into the index at the old weight, it broke six of the pins above --
+// 'balm', 'goth', 'gift for him', 'itchy skin', 'vegan', 'chapped lips' --
+// which is exactly what happened to the bot's first successful run on main.
+// Bot words are recall only now: they score nothing at all for a product any
+// of the owner's own fields already matched.
+// ---------------------------------------------------------------------------
+{
+  const fixture = JSON.parse(
+    fs.readFileSync(path.join(ROOT, "scripts", "fixtures", "search-enrichment-sample.json"), "utf8")
+  );
+  const index = mainJs.getSearchIndex();
+  const products = index.products || [];
+  const saved = new Map();
+  products.forEach(function (p) {
+    saved.set(p.id, p.autoKeywords);
+    const entry = fixture[p.id];
+    if (entry) p.autoKeywords = entry.keywords.slice();
+  });
+
+  const applied = products.filter(function (p) {
+    return Array.isArray(p.autoKeywords) && p.autoKeywords.length;
+  }).length;
+  it("the enrichment fixture reaches the index", () => {
+    assert.ok(applied >= 19, `expected >= 19 enriched products, got ${applied}`);
+  });
+
+  /* The curated rankings the bot's first run overturned. Each one is a query
+     whose winner the owner's own words decide. */
+  [
+    ["balm", "frankincense-salve"],
+    ["goth", "tank-top"],
+    ["gift for him", "yallternative-gift-card"],
+    ["itchy skin", "shea-butter"],
+    ["sore muscles", "backroad-soak"],
+    ["sleep", "sleep-salve"]
+  ].forEach(function (row) {
+    const query = row[0];
+    const expected = row[1];
+    it(`enrichment does not move '${query}' off ${expected}`, () => {
+      const ids = (mainJs.searchGlobal(query).products || []).map((prod) => prod.id);
+      assert.strictEqual(
+        ids[0],
+        expected,
+        `'${query}' should still rank ${expected} first, got [${ids.slice(0, 4).join(", ")}]`
+      );
+    });
+  });
+
+  /* ...and the other half of the bargain: a shopper who types the words only
+     the bot thought of still finds the product. Every phrase below was checked
+     against the whole catalogue -- name, keywords, tags, concerns, blurb,
+     scent, ingredients, category, for all twenty products -- and appears in
+     none of it, and each was checked to FAIL with the fixture withheld -- the
+     engine's own typo tolerance already rescues near-misses like "frankinsense"
+     and "deoderant", so those would have passed either way and prove nothing.
+     These three do not. That is the recall this field exists for, and it is
+     why the answer to the re-ranking was to move the bot's words rather than
+     throw them away. */
+  [
+    ["misquito", "bug-spray"],
+    ["tanktop", "tank-top"],
+    ["giftcard", "yallternative-gift-card"]
+  ].forEach(function (row) {
+    const query = row[0];
+    const expected = row[1];
+    it(`enrichment makes '${query}' find ${expected}`, () => {
+      const hits = (mainJs.searchGlobal(query).products || []).map(function (prod) {
+        return prod.id;
+      });
+      assert.ok(
+        hits.indexOf(expected) !== -1,
+        `'${query}' should surface ${expected}, got [${hits.slice(0, 5).join(", ")}]`
+      );
+    });
+  });
+
+  products.forEach(function (p) {
+    p.autoKeywords = saved.get(p.id);
+  });
+}
+
 console.log(`\n==================================================`);
 console.log(`Global Search Tests: ${passed} passed, ${failed} failed.`);
 console.log(`==================================================\n`);

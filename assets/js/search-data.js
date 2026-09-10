@@ -38,6 +38,7 @@ window.YL_SEARCH_INDEX = {
         "stag",
         "summer"
       ],
+      "autoKeywords": [],
       "variants": {
         "name": "Size",
         "options": [
@@ -98,6 +99,7 @@ window.YL_SEARCH_INDEX = {
         "stag",
         "wear"
       ],
+      "autoKeywords": [],
       "variants": {
         "name": "Size",
         "options": [
@@ -165,6 +167,7 @@ window.YL_SEARCH_INDEX = {
         "frankincense",
         "rosemary"
       ],
+      "autoKeywords": [],
       "variants": {
         "name": "Size",
         "options": [
@@ -231,6 +234,7 @@ window.YL_SEARCH_INDEX = {
         "calendula",
         "lanolin"
       ],
+      "autoKeywords": [],
       "variants": null,
       "pairsWith": [
         "shea-butter",
@@ -280,6 +284,7 @@ window.YL_SEARCH_INDEX = {
         "lavender",
         "cedarwood"
       ],
+      "autoKeywords": [],
       "variants": null,
       "pairsWith": [
         "lavender-soak",
@@ -331,6 +336,7 @@ window.YL_SEARCH_INDEX = {
         "coarse hair",
         "softening"
       ],
+      "autoKeywords": [],
       "variants": null,
       "pairsWith": [
         "hand-scrub",
@@ -384,6 +390,7 @@ window.YL_SEARCH_INDEX = {
         "lavender cedarwood",
         "fresh"
       ],
+      "autoKeywords": [],
       "variants": null,
       "pairsWith": [
         "hand-scrub",
@@ -439,6 +446,7 @@ window.YL_SEARCH_INDEX = {
         "highlighter",
         "golden hour"
       ],
+      "autoKeywords": [],
       "variants": {
         "name": "Scent",
         "options": [
@@ -506,6 +514,7 @@ window.YL_SEARCH_INDEX = {
         "hydration",
         "soothing"
       ],
+      "autoKeywords": [],
       "variants": {
         "name": "Size",
         "options": [
@@ -575,6 +584,7 @@ window.YL_SEARCH_INDEX = {
         "cane sugar",
         "smoothing"
       ],
+      "autoKeywords": [],
       "variants": {
         "name": "Size",
         "options": [
@@ -635,6 +645,7 @@ window.YL_SEARCH_INDEX = {
         "mineral soak",
         "evening unwind"
       ],
+      "autoKeywords": [],
       "variants": {
         "name": "Size",
         "options": [
@@ -695,6 +706,7 @@ window.YL_SEARCH_INDEX = {
         "peppermint",
         "tension bath"
       ],
+      "autoKeywords": [],
       "variants": {
         "name": "Size",
         "options": [
@@ -753,6 +765,7 @@ window.YL_SEARCH_INDEX = {
         "keychain",
         "good vibes"
       ],
+      "autoKeywords": [],
       "variants": {
         "name": "Blend",
         "options": [
@@ -820,6 +833,7 @@ window.YL_SEARCH_INDEX = {
         "trail",
         "bites"
       ],
+      "autoKeywords": [],
       "variants": null,
       "pairsWith": [
         "protection-keychain",
@@ -872,6 +886,7 @@ window.YL_SEARCH_INDEX = {
         "polishing",
         "softening"
       ],
+      "autoKeywords": [],
       "variants": null,
       "pairsWith": [
         "whipped-body-butter",
@@ -925,6 +940,7 @@ window.YL_SEARCH_INDEX = {
         "fluffy moisturizer",
         "soft skin"
       ],
+      "autoKeywords": [],
       "variants": null,
       "pairsWith": [
         "sugar-scrub",
@@ -974,6 +990,7 @@ window.YL_SEARCH_INDEX = {
         "sacred space",
         "negative energy"
       ],
+      "autoKeywords": [],
       "variants": {
         "name": "Size",
         "options": [
@@ -1038,6 +1055,7 @@ window.YL_SEARCH_INDEX = {
         "spa bath",
         "relaxation"
       ],
+      "autoKeywords": [],
       "variants": {
         "name": "Size",
         "options": [
@@ -1099,6 +1117,7 @@ window.YL_SEARCH_INDEX = {
         "herbal mist",
         "house blessing"
       ],
+      "autoKeywords": [],
       "variants": null,
       "pairsWith": [
         "cleansing-spray",
@@ -1139,6 +1158,7 @@ window.YL_SEARCH_INDEX = {
         "gift certificate",
         "discount voucher"
       ],
+      "autoKeywords": [],
       "variants": {
         "name": "Amount",
         "options": [

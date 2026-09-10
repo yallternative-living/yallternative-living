@@ -1,0 +1,439 @@
+{
+  "backroad-soak": {
+    "keywords": [
+      "after the trail",
+      "long shift",
+      "leg day",
+      "peppermint bath",
+      "trail day",
+      "bath salt",
+      "tub soak",
+      "epson salt",
+      "gym bath",
+      "ylang ylang",
+      "big walk",
+      "boot day"
+    ],
+    "querySynonyms": [
+      {
+        "key": "peppermint",
+        "terms": ["pepermint", "peppermint oil"]
+      }
+    ]
+  },
+  "bath-tea": {
+    "keywords": [
+      "tub tea bag",
+      "muslin bag",
+      "flower bath",
+      "herbal soak",
+      "rose petals",
+      "oat straw",
+      "chamomile bath",
+      "steep bath",
+      "bath tee",
+      "spa night",
+      "tea bath",
+      "gift for her"
+    ],
+    "querySynonyms": [
+      {
+        "key": "bath_tea",
+        "terms": ["tub tea", "bath tee", "tea bath", "muslin bath bag"]
+      }
+    ]
+  },
+  "beard-salve": {
+    "keywords": [
+      "beard balm",
+      "beard butter",
+      "whiskers",
+      "scruff",
+      "gift for him",
+      "fathers day",
+      "bourbon scent",
+      "cedarwood",
+      "beard conditioner",
+      "beard slave",
+      "face hair",
+      "dad gift"
+    ],
+    "querySynonyms": [
+      {
+        "key": "beard",
+        "terms": ["beard balm", "beard butter", "whiskers", "scruff", "beard slave"]
+      }
+    ]
+  },
+  "bug-spray": {
+    "keywords": [
+      "that bug stuff",
+      "skeeter spray",
+      "citronella",
+      "lemongrass",
+      "porch spray",
+      "yard spray",
+      "cookout",
+      "bugspray",
+      "misquito",
+      "campfire",
+      "picnic"
+    ],
+    "querySynonyms": [
+      {
+        "key": "citronella",
+        "terms": ["citronela", "lemongrass spray"]
+      }
+    ]
+  },
+  "cleansing-spray": {
+    "keywords": [
+      "smokeless smudge",
+      "sage spray",
+      "room spray",
+      "doorway mist",
+      "white sage",
+      "sweetgrass",
+      "house mist",
+      "apartment friendly",
+      "cleansing mist",
+      "sage sprey",
+      "new home",
+      "reset spray"
+    ],
+    "querySynonyms": [
+      {
+        "key": "sage_spray",
+        "terms": ["sage sprey", "smudge spray", "smokeless smudge", "white sage spray"]
+      }
+    ]
+  },
+  "cream-deodorant": {
+    "keywords": [
+      "pit paste",
+      "armpit cream",
+      "no aluminum",
+      "baking soda free",
+      "scoopable",
+      "jar deodorant",
+      "deoderant",
+      "deodorent",
+      "gym bag",
+      "daily wear",
+      "underarm cream",
+      "feral fresh"
+    ],
+    "querySynonyms": [
+      {
+        "key": "deodorant",
+        "terms": ["deoderant", "deodorent", "pit paste", "armpit cream"]
+      }
+    ]
+  },
+  "frankincense-salve": {
+    "keywords": [
+      "cracked heels",
+      "rough elbows",
+      "gardener hands",
+      "cuticle balm",
+      "hand salve",
+      "winter skin",
+      "windburn",
+      "frankinsense",
+      "frankincence",
+      "tin balm",
+      "work hands",
+      "dry patches"
+    ],
+    "querySynonyms": [
+      {
+        "key": "frankincense",
+        "terms": ["frankinsense", "frankincence", "boswellia"]
+      }
+    ]
+  },
+  "hand-scrub": {
+    "keywords": [
+      "mechanic hands",
+      "garden dirt",
+      "grease hands",
+      "pumice scrub",
+      "kitchen sink",
+      "sugar hand",
+      "vanilla scent",
+      "hand polish",
+      "sink side",
+      "bourbon vanila",
+      "dish hands",
+      "work hands"
+    ],
+    "querySynonyms": [
+      {
+        "key": "hand_scrub",
+        "terms": ["hand scub", "hand polish", "pumice scrub"]
+      }
+    ]
+  },
+  "lavender-soak": {
+    "keywords": [
+      "bath salt",
+      "tub soak",
+      "epsom bag",
+      "lavender bath",
+      "bedtime bath",
+      "bath salts",
+      "soaking salts",
+      "epson salt",
+      "lavendar bath",
+      "10 oz bag",
+      "evening bath",
+      "bath fizz"
+    ],
+    "querySynonyms": [
+      {
+        "key": "epsom",
+        "terms": ["epson", "epsom salt", "epsom salts", "epson salt"]
+      }
+    ]
+  },
+  "miracle-balm": {
+    "keywords": [
+      "fragrance free",
+      "no essential oils",
+      "lip balm",
+      "cuticle balm",
+      "pocket balm",
+      "kid friendly",
+      "tiny tin",
+      "travel balm",
+      "miracle bam",
+      "unscented balm",
+      "everyday balm",
+      "nose balm"
+    ],
+    "querySynonyms": [
+      {
+        "key": "unscented",
+        "terms": ["fragrance free", "no scent", "scent free", "no fragrance"]
+      }
+    ]
+  },
+  "porch-sweep-spray": {
+    "keywords": [
+      "room spray",
+      "house mist",
+      "doorway mist",
+      "palo santo",
+      "lemongrass mist",
+      "tourmaline",
+      "front porch",
+      "new home",
+      "housewarming",
+      "porch sweap",
+      "reset spray",
+      "dusk ritual"
+    ],
+    "querySynonyms": [
+      {
+        "key": "clearing_mist",
+        "terms": ["clearing spray", "porch sweap", "room mist"]
+      }
+    ]
+  },
+  "protection-keychain": {
+    "keywords": [
+      "spell jar",
+      "witchy gift",
+      "goth gift",
+      "car charm",
+      "bag charm",
+      "keyring",
+      "crystal jar",
+      "backpack clip",
+      "pocket charm",
+      "spell bottle",
+      "tiny bottle",
+      "stocking stuffer"
+    ],
+    "querySynonyms": [
+      {
+        "key": "spell_jar",
+        "terms": ["spell bottle", "potion bottle", "witch jar", "mini spell jar"]
+      }
+    ]
+  },
+  "shea-butter": {
+    "keywords": [
+      "thick cream",
+      "after shower",
+      "whipped shea",
+      "raw shea",
+      "body cream",
+      "lavender butter",
+      "jar butter",
+      "shea buter",
+      "night cream",
+      "elbows and knees",
+      "damp skin",
+      "rich lotion"
+    ],
+    "querySynonyms": [
+      {
+        "key": "shea",
+        "terms": ["shea buter", "african shea", "raw shea"]
+      }
+    ]
+  },
+  "shimmer-oil": {
+    "keywords": [
+      "glitter oil",
+      "sparkly oil",
+      "body glow",
+      "festival glitter",
+      "photo ready",
+      "dry oil",
+      "patchouli",
+      "sweet orange",
+      "shimmer body",
+      "shimer oil",
+      "seduction blend",
+      "night out"
+    ],
+    "querySynonyms": [
+      {
+        "key": "shimmer",
+        "terms": ["shimer", "shimmery", "glitter oil", "sparkly oil"]
+      }
+    ]
+  },
+  "sleep-salve": {
+    "keywords": [
+      "bedtime ritual",
+      "night owl",
+      "before bed",
+      "foot rub",
+      "wind down",
+      "chamomile",
+      "magnesium tin",
+      "lavender balm",
+      "sleep bam",
+      "evening balm",
+      "tuck in"
+    ],
+    "querySynonyms": [
+      {
+        "key": "magnesium",
+        "terms": ["magnesiym", "magnesium balm"]
+      }
+    ]
+  },
+  "sugar-scrub": {
+    "keywords": [
+      "pride gift",
+      "shower scrub",
+      "sugar polish",
+      "glitter scrub",
+      "body polish",
+      "june gift",
+      "parade jar",
+      "sugar scub",
+      "colorful scrub",
+      "exfoliating sugar",
+      "shower shelf"
+    ],
+    "querySynonyms": [
+      {
+        "key": "sugar_scrub",
+        "terms": ["sugar scub", "body polish", "shower scrub"]
+      }
+    ]
+  },
+  "tank-top": {
+    "keywords": [
+      "sleeveless",
+      "muscle tank",
+      "pride outfit",
+      "festival top",
+      "concert shirt",
+      "deer shirt",
+      "rainbow deer",
+      "tanktop",
+      "raceback",
+      "triblend",
+      "gay shirt",
+      "summer top"
+    ],
+    "querySynonyms": [
+      {
+        "key": "tank_top",
+        "terms": ["tanktop", "tank", "sleeveless", "racerback", "raceback"]
+      }
+    ]
+  },
+  "unisex-tshirt": {
+    "keywords": [
+      "graphic tee",
+      "deer shirt",
+      "rainbow deer",
+      "moon shirt",
+      "band tee look",
+      "pride outfit",
+      "unisex tee",
+      "tshrit",
+      "t shirt",
+      "crewneck",
+      "everyday tee",
+      "gay shirt"
+    ],
+    "querySynonyms": [
+      {
+        "key": "tshirt",
+        "terms": ["t shirt", "tee", "tshrit", "tee shirt", "graphic tee"]
+      }
+    ]
+  },
+  "whipped-body-butter": {
+    "keywords": [
+      "rainbow butter",
+      "fluffy cream",
+      "peach citrus",
+      "whipped cream jar",
+      "pride gift",
+      "body cream",
+      "jar butter",
+      "june gift",
+      "body buter",
+      "light lotion",
+      "swirl jar",
+      "after shower"
+    ],
+    "querySynonyms": [
+      {
+        "key": "body_butter",
+        "terms": ["body buter", "whipped butter", "whipped cream jar"]
+      }
+    ]
+  },
+  "yallternative-gift-card": {
+    "keywords": [
+      "last minute gift",
+      "email gift",
+      "instant gift",
+      "let them pick",
+      "e gift",
+      "giftcard",
+      "holiday gift",
+      "teacher gift",
+      "coworker gift",
+      "any amount",
+      "print at home",
+      "gift certifcate"
+    ],
+    "querySynonyms": [
+      {
+        "key": "gift_card",
+        "terms": ["giftcard", "gift certifcate", "e gift", "egift", "gift voucher"]
+      }
+    ]
+  }
+}
