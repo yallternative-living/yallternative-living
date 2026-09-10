@@ -163,6 +163,8 @@ Manage stock with complete transparency and urgency without artificial hype.
 
 The "Stock count" field is the only place a count is entered — there is nothing to update elsewhere.
 
+**Your Square register counts the same number.** Once Square is connected (SETUP-GUIDE Step 10), every sale rung up at a market — cash, card, tap, or a freebie rung as a 100% discount — comes off the Stock count within seconds, and the live count is sent back to Square so the register shows what's left. The match is the item's **SKU in Square**: set it to the product's ID (`lavender-soak`), or the ID plus a size (`lavender-soak/24-oz` — every size shares one count), or list your existing SKUs under the product's **Square SKUs** field here. If a register sale can't be matched you get an email naming the item; fix its SKU, then adjust the Stock count for the ones already sold. **Site settings → Shop → Sync stock with Square** pauses it. Correct counts here, never in Square — the site is the boss of the number and overwrites Square's within the hour.
+
 
 | Desired Storefront Experience | What Customers See | How to Configure in `/admin` |
 |---|---|---|
@@ -506,6 +508,8 @@ The dashboard gives you control over your entire catalog, promotions, pricing, m
 | **Show low stock urgency** | `1. Products` → Set `Stock count` to 1, 2, 3, 4, or 5 | Shows "Only X left! — order soon" badge |
 | **Restock a sold-out item** | `1. Products` → Set `Stock count` to the new number | The live count resets to it; badge and buy button follow at once |
 | **Hide live counts on the shop** | `Site settings` → `Shop` → untick `Show live stock counts` | Cards show the last-published count; checkout still uses the live one |
+| **Match a Square register item to a product** | Square Dashboard → the item → `SKU` = the product's ID (or list it under `1. Products` → `Square SKUs`) | Register sales count the Stock count down; the register shows the site's live count |
+| **Pause the Square sync** | `Site settings` → `Shop` → untick `Sync stock with Square` | Register sales stop counting down and nothing is sent to Square until it's back on |
 | **Set up 2+ Multi-Buy Deal** | `1. Products` → `Multi-buy deals` | Customers mixing qualifying items get auto unit discounts |
 | **Run category % off sale** | `1. Products` → `Category sales` | Sale banner, strikethrough prices & cart discounts |
 | **Create gift bundle** | `1. Products` → `Bundles` → Pick products & discount % | Pre-made set with auto-calculated price |

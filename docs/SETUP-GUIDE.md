@@ -346,6 +346,54 @@ Once you're in:
 
 ---
 
+## Step 10: Your Square Register (recommended — you already pay for it)
+
+Your Square register and your website sell off the **same shelf**. Once this
+is connected, every sale you ring up at a market — cash, card, tap, even a
+freebie you ring as a 100% discount — comes off the site's Stock count within
+seconds, and the register shows the same "3 left" the site does. No more
+recounting on Sunday night.
+
+**A. Give every item a SKU in Square (this is the whole trick)**
+
+1. Square Dashboard → **Items & Orders → Items** → open an item. Each size or
+   variation has a **SKU** field.
+2. Type the product's **ID from the website** — the last part of the product
+   page's address: `yallternativeliving.com/products/lavender-soak.html` →
+   `lavender-soak`.
+3. If an item has sizes, give each size the ID plus the size:
+   `lavender-soak/10-oz`, `lavender-soak/24-oz`. They all count the same shelf.
+4. Gift sets: use the set's ID (e.g. `starter-self-care-set`). Ringing one up
+   counts each product inside it.
+5. Turn **Track inventory** on for the item, so the count the site sends has
+   somewhere to show up.
+
+Already have SKUs you don't want to retype? Fine — in `/admin`, open the
+product and list them under **Square SKUs**.
+
+**B. Connect it — you create, I set up** (same idea as Cloudflare)
+
+1. Sign in at [developer.squareup.com](https://developer.squareup.com) with
+   the Square account your register uses → **+ Create application** → name it
+   "Y'allternative site".
+2. Invite me to it (or share your screen) and I'll copy two things into the
+   Cloudflare Worker: the **Production Access Token** and the webhook
+   **Signature Key**. **Don't email them.**
+3. Ring up a $0 test item at the register and watch the site's count drop.
+
+**C. Two rules once it's live**
+
+- **Ring everything through Square.** A cash sale that only lives in your
+  head is a sale the site never hears about.
+- **Fix counts in `/admin`, not in Square.** The website is the boss of the
+  number; anything typed into Square's stock field is overwritten within the
+  hour. If an item you sell at the table isn't matched to the site, you get an
+  email naming it — fix its SKU, then adjust the Stock count for the ones
+  already sold.
+
+**Site settings → Shop → Sync stock with Square** pauses the whole thing if
+you ever need to.
+
 ## Complete Handoff Checklist
 
 **Required**
@@ -365,5 +413,8 @@ Once you're in:
 10. Tawk.to Property ID: `_____________________`
 11. Tawk.to Widget ID: `_____________________`
 12. Umami Website ID: `_____________________`
+13. Square application created and Steven invited (Step 10B)? ☐ Yes ☐ Not yet
+14. Square Location ID: `_____________________`
+15. Every Square item has a SKU matching its product ID (Step 10A)? ☐ Yes ☐ Not yet
 
 _No Stripe Publishable Key is needed anywhere on this site._

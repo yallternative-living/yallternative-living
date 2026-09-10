@@ -72,7 +72,18 @@ export async function loadProductIndex(env, ctx) {
         // product card does. See isInStock() in routes/restock.js.
         stock: entry.stock,
         inStock: entry.inStock,
-        comingSoon: entry.comingSoon
+        comingSoon: entry.comingSoon,
+        // The register's names for this entry (workers/state/square-sync.js
+        // resolveSku): Square SKUs that mean this product when they are not
+        // simply its id. The CMS field "Square SKUs"; empty for most products.
+        squareSkus: Array.isArray(entry.squareSkus)
+          ? entry.squareSkus.filter((s) => typeof s === "string" && s.trim()).map((s) => s.trim())
+          : [],
+        // A bundle's members, so a bundle rung up at the register counts its
+        // parts down the way allocateStock does online. Empty for a product.
+        productIds: Array.isArray(entry.productIds)
+          ? entry.productIds.filter((id) => typeof id === "string")
+          : []
       });
     }
   }

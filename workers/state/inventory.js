@@ -477,6 +477,98 @@ export async function sweepStaleHolds(db, now = Date.now(), ttlMs = HOLD_TTL_MS)
   return released;
 }
 
+/* ------------------------------------------------- off-site sales (Square) */
+
+/**
+ * A sale that happened OFF the site -- at the market register, through
+ * Square (workers/routes/square-webhook.js) -- takes units straight off the
+ * shelf. There is no hold to commit: the money is already taken, so this IS
+ * the commit. Two guards, both inside the one UPDATE so a racing online
+ * reserve cannot slip between a read and a write:
+ *
+ *   - on_hand never drops below `reserved`. Units an open online checkout is
+ *     holding were promised to that shopper first; the register sale takes
+ *     what is left and reports the rest as `short`.
+ *   - on_hand never drops below zero. A register sale of something the site
+ *     already counts as gone means the two shelves disagreed (a miscount, or
+ *     a Square item mapped to the wrong product), and `short` says by how
+ *     much so the owner can be told.
+ *
+ * Products with no inventory row are untracked here and are skipped, not
+ * counted. Idempotency is the caller's: square-sync.js claims each Square
+ * order once before calling this.
+ *
+ * @param {object} db D1 binding
+ * @param {Array<{productId: string, qty: number}>} lines
+ * @returns {Promise<{applied: Array<{productId: string, qty: number, deducted: number, short: number}>,
+ *   soldOut: string[], untracked: string[]}>}
+ */
+export async function deductOnHand(db, lines, now = Date.now()) {
+  const wanted = normalizeHolds(lines);
+  if (!wanted.length) return { applied: [], soldOut: [], untracked: [] };
+  const before = await readAvailability(
+    db,
+    wanted.map((l) => l.productId)
+  );
+  const tracked = wanted.filter((l) => before.has(l.productId));
+  const untracked = wanted.filter((l) => !before.has(l.productId)).map((l) => l.productId);
+  if (!tracked.length) return { applied: [], soldOut: [], untracked };
+  await db.batch(
+    tracked.map((l) =>
+      db
+        .prepare(
+          `UPDATE inventory SET on_hand = MAX(reserved, on_hand - ?), updated_at = ?
+            WHERE product_id = ?`
+        )
+        .bind(l.qty, now, l.productId)
+    )
+  );
+  const after = await readAvailability(
+    db,
+    tracked.map((l) => l.productId)
+  );
+  const applied = tracked.map((l) => {
+    const was = before.get(l.productId).onHand;
+    const is = (after.get(l.productId) || { onHand: was }).onHand;
+    const deducted = Math.min(l.qty, Math.max(0, was - is));
+    return { productId: l.productId, qty: l.qty, deducted, short: l.qty - deducted };
+  });
+  const soldOut = applied
+    .map((a) => a.productId)
+    .filter((id) => (after.get(id) || { available: 0 }).available <= 0);
+  return { applied, soldOut, untracked };
+}
+
+/**
+ * The off-site sale was refunded in full: its units go back on the shelf.
+ * No ceiling -- the owner's Stock count is the ceiling, and a correction
+ * there reseeds the row. Untracked products are skipped as above.
+ *
+ * @returns {Promise<{returned: Array<{productId: string, qty: number}>, untracked: string[]}>}
+ */
+export async function addOnHand(db, lines, now = Date.now()) {
+  const wanted = normalizeHolds(lines);
+  if (!wanted.length) return { returned: [], untracked: [] };
+  const rows = await readAvailability(
+    db,
+    wanted.map((l) => l.productId)
+  );
+  const tracked = wanted.filter((l) => rows.has(l.productId));
+  const untracked = wanted.filter((l) => !rows.has(l.productId)).map((l) => l.productId);
+  if (tracked.length) {
+    await db.batch(
+      tracked.map((l) =>
+        db
+          .prepare(
+            "UPDATE inventory SET on_hand = on_hand + ?, updated_at = ? WHERE product_id = ?"
+          )
+          .bind(l.qty, now, l.productId)
+      )
+    );
+  }
+  return { returned: tracked, untracked };
+}
+
 /** The raw rows, for tests and hand audits. */
 export async function inventoryRows(db) {
   const res = await db.prepare("SELECT * FROM inventory ORDER BY product_id").all();

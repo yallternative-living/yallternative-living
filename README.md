@@ -23,6 +23,7 @@ I've set up a simple **Website Dashboard** where you can edit the site's content
   - **Social Media Feed:** Toggle and manage Instagram/TikTok post previews on the homepage.
   - **Site Settings:** Edit page section headlines, hero paragraphs, contact form input placeholders, direct email address, and global site settings.
   - **Etsy Sync:** _Note: Your Etsy star ratings and review counts are automatically fetched and synced from Etsy every night at 4:00 AM Eastern!_
+  - **Square Register:** Once connected (SETUP-GUIDE Step 10), every sale rung up at a market -- cash, card, or a freebie -- comes off the site's Stock count within seconds, and the register shows the site's live count. The match is the item's SKU in Square = the product's ID.
 
 - **How it works:** Whenever you make changes and click **Save**, the system automatically sends the updates to the website. The live site will rebuild and reflect your changes in about 1-2 minutes.
 
@@ -39,6 +40,7 @@ Here is a quick checklist of the external accounts you'll need to set up for lau
 5. **[ ] Gift Card Emails (Resend)** — required for the built-in gift-card system to actually send the redeemable code
 6. **[ ] Customer Live Chat (Tawk.to - Optional)**
 7. **[ ] Store Management (Sveltia CMS)** — log in at `/admin` with GitHub. Log in **today** by pasting a GitHub token ("Sign in with Token"), or set up the permanent one-click "Sign in with GitHub" button. **Not** via Netlify (its old Git Gateway login is deprecated). See SETUP-GUIDE.md Step 9 / DEVELOPMENT.md section 20
+8. **[ ] Market Register (Square)** — you already have the account. Create a developer application in it and give every item a SKU equal to its product ID; then market sales and online sales count down the same shelf. See SETUP-GUIDE.md Step 10 / `workers/README.md` 2g
 
 ---
 
@@ -70,7 +72,7 @@ Here is a quick checklist of the external accounts you'll need to set up for lau
   ("Option A", step 6) has the two dashboard settings that stop that, and
   neither can be set from a file in this repo.
 - **Automated Verification**:
-  - `npm test` runs the Node-only unit pool -- 52 non-browser `scripts/*.test.js` suites
+  - `npm test` runs the Node-only unit pool -- 53 non-browser `scripts/*.test.js` suites
     (54 with verification gates) covering cart and checkout pricing, tax, gift cards, promo codes,
     the order history, the build-data compiler, the journal Markdown renderer, the search engine and the
     CMS auth Worker -- then two further

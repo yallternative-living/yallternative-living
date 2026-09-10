@@ -209,6 +209,7 @@ import { handleRestock } from "./routes/restock.js";
 import { handleSafetyReport } from "./routes/safety-report.js";
 import { handleGiftNote } from "./routes/gift-note.js";
 import { handleMarketAlerts } from "./routes/market-alerts.js";
+import { handleSquareWebhook } from "./routes/square-webhook.js";
 import { handleOrdersList, handleOrdersRequestLink } from "./routes/orders.js";
 import {
   handleBirthdayClub,
@@ -1622,6 +1623,11 @@ const ROUTES = {
   "/promo-preview": (request, env, origin, ctx) =>
     handlePromoPreview(request, env, origin, ctx, { loadCatalog, priceCart }),
   "/stripe-webhook": handleStripeWebhook,
+  // The market register (routes/square-webhook.js): a Square sale counts the
+  // same inventory ledger down, a full refund puts it back. Server-to-server,
+  // authenticated by Square's signature like the Stripe route above; answers
+  // 404 until SQUARE_WEBHOOK_SIGNATURE_KEY is set.
+  "/square-webhook": handleSquareWebhook,
   "/order-status": handleOrderStatus,
   "/order-summary": handleOrderSummary,
   "/restock": handleRestock,
@@ -2526,6 +2532,21 @@ export default {
           [
             "inventory hold sweep",
             async () => (await import("./state/inventory.js")).sweepStaleHolds(env.STATE_DB)
+          ],
+          /* The market register (routes/square-webhook.js): re-read Square's
+             item list so a SKU fixed in the Square Dashboard maps within the
+             hour, then write the live count of every mapped product back to
+             the register. A no-op until SQUARE_ACCESS_TOKEN is set. */
+          [
+            "square sync",
+            async () => (await import("./routes/square-webhook.js")).runSquareReconcile(env, ctx)
+          ],
+          /* One row per Square order counted off the shelf, kept 90 days so a
+             late full refund can put back what was taken. Swept for the same
+             reason as the rows above: without it the table grows forever. */
+          [
+            "square-sales sweep",
+            async () => (await import("./state/square-sync.js")).sweepSquareSales(env.STATE_DB)
           ],
           /* The ship notice's real trigger: Stripe fires no event for a
              metadata edit on a PaymentIntent, so the hourly tick looks for

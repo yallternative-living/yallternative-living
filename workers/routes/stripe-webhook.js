@@ -1311,7 +1311,8 @@ export async function processStripeEvent(event, env, ctx) {
       outcome.inventory = await releaseInventoryForSession(
         event.data.object || {},
         env,
-        "async_payment_failed"
+        "async_payment_failed",
+        ctx
       );
     } catch (err) {
       failures.push(`inventory: ${err && err.message}`);
@@ -1325,7 +1326,7 @@ export async function processStripeEvent(event, env, ctx) {
     }
     /* The units the session held go back on sale (routes/inventory.js). */
     try {
-      outcome.inventory = await releaseInventoryForSession(session, env, "session_expired");
+      outcome.inventory = await releaseInventoryForSession(session, env, "session_expired", ctx);
     } catch (err) {
       failures.push(`inventory: ${err && err.message}`);
     }
@@ -1345,7 +1346,7 @@ export async function processStripeEvent(event, env, ctx) {
     /* A FULL refund puts the order's units back on the shelf; a partial one
        moves nothing (routes/inventory.js, same reading as the card share). */
     try {
-      outcome.inventory = await restockInventoryForRefund(event.data.object || {}, env);
+      outcome.inventory = await restockInventoryForRefund(event.data.object || {}, env, ctx);
     } catch (err) {
       failures.push(`inventory: ${err && err.message}`);
     }

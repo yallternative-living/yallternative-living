@@ -83,6 +83,34 @@ SITE_ORIGIN = "https://yallternativeliving.com"
 # the build when the two disagree.
 UMAMI_WEBSITE_ID = "a134e5d8-e8e5-4a8e-90e9-c21e9dba5acb"
 
+# --- The market register (Square) --------------------------------------------
+# workers/routes/square-webhook.js makes the Square POS a second writer to the
+# inventory ledger: a sale rung up at a market counts the same shelf down that
+# an online order does, and the live count is written back to Square. All of
+# it is off until the SECRETS below are set (never here): the route answers
+# 404 without SQUARE_WEBHOOK_SIGNATURE_KEY, and nothing is read from or
+# written to Square without SQUARE_ACCESS_TOKEN.
+#
+#   npx wrangler secret put SQUARE_WEBHOOK_SIGNATURE_KEY   # Developer Dashboard -> Webhooks -> the subscription's Signature key
+#   npx wrangler secret put SQUARE_ACCESS_TOKEN            # Developer Dashboard -> Credentials -> production Access token
+#
+# SQUARE_LOCATION_ID is an id, not a secret (Square Dashboard -> Account &
+# Settings -> Business information -> Locations, or GET /v2/locations). It is
+# the location counts are pushed to; without it the register's sales still
+# count down, the register just is not told what is left. Unset until the
+# owner's Square account is connected -- see workers/README.md "2g".
+# SQUARE_LOCATION_ID = "L..."
+#
+# "sandbox" points every call at connect.squareupsandbox.com (the staging
+# Worker below sets it); production is the default and needs no entry.
+# SQUARE_ENVIRONMENT = "production"
+#
+# The URL registered in Square's Developer Dashboard, which Square SIGNS. It
+# defaults to `${SITE_ORIGIN}/api/square-webhook` -- the site's URL behind the
+# Netlify /api/* proxy -- and only needs setting if the subscription was
+# registered against a different address.
+# SQUARE_WEBHOOK_NOTIFICATION_URL = "https://yallternativeliving.com/api/square-webhook"
+
 # Sales tax needs no config here: the Worker asks Stripe hourly and turns
 # automatic_tax on by itself once Tax -> Settings/Registrations are filled in
 # on the Stripe Dashboard. This var is only an override -- "true" forces it on

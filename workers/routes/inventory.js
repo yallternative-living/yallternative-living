@@ -230,20 +230,50 @@ export function announceSoldOut(env, ctx, productIds, sessionId) {
   }
 }
 
+/**
+ * The shelf moved online; tell the market register (routes/square-webhook.js
+ * writes the live count to Square). Fire-and-forget behind ctx.waitUntil, a
+ * dynamic import so this file and the Square route never import each other
+ * at load, and a no-op until SQUARE_ACCESS_TOKEN is set. Never on the money
+ * path: a register that did not hear costs a stale number at the table, not
+ * an order.
+ */
+export function tellRegister(env, ctx, productIds) {
+  if (!env || !env.SQUARE_ACCESS_TOKEN || !Array.isArray(productIds) || !productIds.length) return;
+  const work = import("./square-webhook.js")
+    .then((square) => square.pushCountsForProducts(env, ctx || null, productIds))
+    .catch((err) => console.error(`${LOG_MARKER} Square push failed:`, err && err.message));
+  try {
+    if (ctx && typeof ctx.waitUntil === "function") ctx.waitUntil(work);
+  } catch {
+    // A ctx that refuses the promise still gets the detached work above.
+  }
+}
+
 /** checkout.session.completed (paid): the held units leave the shelf. */
 export async function commitInventoryForSession(session, env, ctx) {
   if (!env.STATE_DB || !session || !session.id) return { skipped: "no-state-db" };
   await ensureSchema(env.STATE_DB);
   const out = await commitInventory(env.STATE_DB, session.id);
   if (out.soldOut.length) announceSoldOut(env, ctx || null, out.soldOut, session.id);
+  tellRegister(
+    env,
+    ctx,
+    out.committed.map((h) => h.productId)
+  );
   return out;
 }
 
 /** checkout.session.expired / async_payment_failed: the held units go back on sale. */
-export async function releaseInventoryForSession(session, env, reason) {
+export async function releaseInventoryForSession(session, env, reason, ctx) {
   if (!env.STATE_DB || !session || !session.id) return { skipped: "no-state-db" };
   await ensureSchema(env.STATE_DB);
   const out = await releaseInventory(env.STATE_DB, session.id);
+  tellRegister(
+    env,
+    ctx,
+    out.released.map((h) => h.productId)
+  );
   return { ...out, reason: reason || "session_expired" };
 }
 
@@ -252,7 +282,7 @@ export async function releaseInventoryForSession(session, env, reason) {
  * refund is an instruction about the cash, not the goods (the same reading
  * the gift-card restore takes), so it moves nothing.
  */
-export async function restockInventoryForRefund(charge, env) {
+export async function restockInventoryForRefund(charge, env, ctx) {
   if (!env.STATE_DB) return { skipped: "no-state-db" };
   const refundedCents = Number(charge && charge.amount_refunded) || 0;
   const chargedCents = Number(charge && charge.amount);
@@ -268,5 +298,11 @@ export async function restockInventoryForRefund(charge, env) {
   const session = await findSessionByPaymentIntent(env, paymentIntentId);
   if (!session || !session.id) return { restocked: [], reason: "no-session" };
   await ensureSchema(env.STATE_DB);
-  return restockInventory(env.STATE_DB, session.id);
+  const out = await restockInventory(env.STATE_DB, session.id);
+  tellRegister(
+    env,
+    ctx,
+    out.restocked.map((h) => h.productId)
+  );
+  return out;
 }

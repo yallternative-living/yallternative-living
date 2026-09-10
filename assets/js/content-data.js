@@ -57,6 +57,7 @@ window.YL_CONTENT = {
     "enableSocialFeed": false,
     "enableRestockAlerts": true,
     "showLiveStock": true,
+    "enableSquareSync": true,
     "enableCustomBoxBuilder": true,
     "enableScentFilter": true,
     "enableIngredientsModal": true,

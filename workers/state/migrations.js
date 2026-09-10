@@ -51,8 +51,13 @@
  * from v7; a database that reached "8" through either one is brought to 9
  * here, which is safe because every statement is idempotent (CREATE IF NOT
  * EXISTS, and the ALTERs swallow "duplicate column").
+ * v10 (2026-09-10) added square_sales and square_catalog -- the register
+ * (workers/state/square-sync.js): one row per Square order already counted
+ * off the shelf, so a second payment on the same order or a redelivered
+ * webhook moves nothing, and the SKU -> product map the register's items
+ * resolve through.
  */
-export const SCHEMA_VERSION = 9;
+export const SCHEMA_VERSION = 10;
 
 /** Verbatim from workers/schema.sql. Keep the two in sync -- a test enforces it. */
 export const SCHEMA_STATEMENTS = [
@@ -234,7 +239,29 @@ export const SCHEMA_STATEMENTS = [
   updated_at      INTEGER NOT NULL
 )`,
   `CREATE INDEX IF NOT EXISTS orders_email_hash ON orders (email_hash, created)`,
-  `CREATE INDEX IF NOT EXISTS orders_payment_intent ON orders (payment_intent)`
+  `CREATE INDEX IF NOT EXISTS orders_payment_intent ON orders (payment_intent)`,
+  // v10: the register (see workers/schema.sql and workers/state/square-sync.js
+  // for why a sale is keyed on the Square ORDER, not the payment or the event)
+  `CREATE TABLE IF NOT EXISTS square_sales (
+  order_id     TEXT PRIMARY KEY,
+  state        TEXT NOT NULL CHECK (state IN ('applied','restocked')),
+  lines_json   TEXT NOT NULL,
+  location_id  TEXT,
+  sold_at      INTEGER NOT NULL,
+  updated_at   INTEGER NOT NULL
+)`,
+  `CREATE INDEX IF NOT EXISTS square_sales_sold_at ON square_sales (sold_at)`,
+  `CREATE TABLE IF NOT EXISTS square_catalog (
+  variation_id       TEXT PRIMARY KEY,
+  sku                TEXT,
+  item_name          TEXT,
+  variation_name     TEXT,
+  product_id         TEXT,
+  resolved_at        INTEGER NOT NULL,
+  last_pushed_count  INTEGER,
+  last_pushed_at     INTEGER
+)`,
+  `CREATE INDEX IF NOT EXISTS square_catalog_product ON square_catalog (product_id)`
 ];
 
 /**
