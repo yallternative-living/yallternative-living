@@ -4394,9 +4394,11 @@ hr.rule {
      read as two distinct concepts rather than one run-on sentence.
      The element itself is aria-hidden, so this is purely decorative. */
   & .announcement-sep {
+    display: inline-block;
     width: 1px;
-    align-self: stretch;
-    margin: 0.15rem 0.35rem;
+    height: 14px;
+    vertical-align: middle;
+    margin: 0 0.75rem;
     background: currentColor;
     opacity: 0.35;
   }
@@ -5726,7 +5728,11 @@ dialog.gift-modal[open]::backdrop {
   line-height: 1.5;
   color: var(--paper);
   margin: 0;
-  flex-grow: 1;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .ugc-post-link {
@@ -5738,7 +5744,8 @@ dialog.gift-modal[open]::backdrop {
   font-weight: 600;
   color: var(--whiskey);
   text-decoration: none;
-  margin-top: 4px;
+  margin-top: auto;
+  padding-top: 4px;
   transition:
     color 0.2s ease,
     transform 0.2s ease;

@@ -1652,7 +1652,8 @@ if (!cspText) {
   var REQUIRED_CSP_SUBSTRINGS = [
     ["formspree.io", "Formspree (review submission form)"],
     ["embed.tawk.to", "Tawk.to (live chat script-src)"],
-    ["*.tawk.to", "Tawk.to (connect/frame/img-src)"]
+    ["*.tawk.to", "Tawk.to (connect/frame/img-src)"],
+    ["feeds.behold.so", "Behold.so (Instagram JSON feed connect-src)"]
   ];
   /* The newsletter endpoint is derived, not pinned. This list used to require
      BOTH app.kit.com and app.convertkit.com -- the second was dead (nothing in

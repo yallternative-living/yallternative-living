@@ -497,7 +497,7 @@ function run() {
     // font files from that origin; without it the widget renders unstyled
     // (every page logged a style-src violation for min-widget.css).
     "style-src 'self' https://embed.tawk.to 'unsafe-inline'", // main.js/cart.js/gift-card.js/translator.js all set element.style.* directly (display toggles, carousel transforms, etc.); can't pre-hash those, so this directive stays looser on purpose
-    "img-src 'self' data: https://*.tawk.to https://cdn.jsdelivr.net/emojione/",
+    "img-src 'self' data: https://*.tawk.to https://cdn.jsdelivr.net/emojione/ https://*.behold.so https://*.behold.pictures https://behold.pictures https://*.cdninstagram.com",
     "font-src 'self' https://embed.tawk.to",
     // Checkout itself never needs an entry here: cart.js POSTs to the
     // same-origin /api/checkout Worker route (covered by 'self'), then
@@ -529,7 +529,7 @@ function run() {
        UMAMI_SEND_URL in scripts/lib/analytics-proxy.js together. */
     "connect-src 'self' " +
       analyticsProxy.UMAMI_SEND_ORIGIN +
-      " https://*.tawk.to wss://*.tawk.to https://formspree.io https://app.kit.com",
+      " https://*.tawk.to wss://*.tawk.to https://formspree.io https://app.kit.com https://feeds.behold.so",
     "frame-src https://*.tawk.to",
     "frame-ancestors 'none'",
     "base-uri 'self'",

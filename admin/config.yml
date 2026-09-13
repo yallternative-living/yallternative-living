@@ -1027,7 +1027,7 @@ singletons:
         # Was `description:` on the section, where Sveltia renders it nowhere.
         comment: "Your pop-up schedule: markets, fairs and Pride dates. Once a date passes, the event moves itself to 'Where We've Been'. Saving publishes in a few minutes."
         fields:
-          - { name: name, label: "Event name", widget: string, hint: "e.g. Landrum Farmers Market" }
+          - { name: name, label: "Event name", widget: string, hint: "e.g. Saturday Night Lights" }
           - {
               name: date,
               label: "Start date",
@@ -1259,7 +1259,7 @@ singletons:
         thumbnail: image
         add_to_top: true
         # Was `description:` on the section, where Sveltia renders it nowhere.
-        comment: "The photo strip on your homepage: a picture and caption for each Instagram or TikTok post you want to show off. Turn the strip on or off under Site Settings."
+        comment: "The photo strip on your homepage and shop pages. If you configure an Instagram Feed ID under Site Settings, posts will automatically sync live from your Instagram account; otherwise, this manual list is used. Turn the strip on or off under Site Settings."
         fields:
           - { name: image, label: "Photo", widget: image, choose_url: false, accept: "image/jpeg,image/png" }
           - { name: caption, label: "Caption", widget: text }
@@ -1491,7 +1491,14 @@ singletons:
               widget: boolean,
               default: false,
               required: false,
-              hint: "The Instagram/TikTok strip on the homepage (the Social Media Feed section)."
+              hint: "The Instagram photo strip on the homepage and shop pages."
+            }
+          - {
+              name: instagramFeedId,
+              label: "Instagram Feed ID (Behold.so)",
+              widget: string,
+              required: false,
+              hint: "To display live posts directly from your Instagram, create a free feed at behold.so and paste your Feed ID here (e.g. zFgp2Jbbk23Ovf1ZUOhq). If blank, uses the manual posts in Social Media Feed."
             }
           - {
               name: enableCountdownTicker,
@@ -1671,9 +1678,16 @@ singletons:
                   name: text,
                   label: "Banner wording",
                   widget: string,
-                  default: "🌙 Free local pick-up at Landrum Farmers Market every Saturday · Free shipping on orders of $40 or more"
+                  default: "Free shipping on orders of $40 or more",
+                  hint: "Storewide announcement (e.g. Free shipping on orders of $40 or more)."
                 }
-              - { name: link, label: "Banner link", widget: string, required: false }
+              - {
+                  name: link,
+                  label: "Banner link",
+                  widget: string,
+                  required: false,
+                  hint: "Optional link URL (e.g. shop.html)."
+                }
               - name: accent
                 label: "Banner color"
                 widget: select

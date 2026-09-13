@@ -2464,5 +2464,176 @@ eq(
   );
 }
 
-console.log(`\nmain.test.js: ${passed} passed, ${failed} failed`);
-process.exit(failed ? 1 : 0);
+/* ---------- renderUgcFeed & Behold.so Integration ---------- */
+(async function testUgcFeed() {
+  const grid = createMockElement("div");
+  const section = createMockElement("section");
+  section.style = { display: "none" };
+
+  // 1. With enableSocialFeed = false, nothing is rendered
+  window.YL_CONTENT = { site: { enableSocialFeed: false } };
+  main.renderUgcFeed(grid, section);
+  eq(section.style.display, "none", "renderUgcFeed: remains hidden when enableSocialFeed is false");
+  eq(grid.innerHTML, "", "renderUgcFeed: grid empty when enableSocialFeed is false");
+
+  // 2. Fallback to static posts when enableSocialFeed = true and no instagramFeedId
+  window.YL_CONTENT = { site: { enableSocialFeed: true, instagramFeedId: "" } };
+  window.YL_SOCIAL_FEED = {
+    posts: [
+      {
+        id: "post-1",
+        image: "assets/img/shea-butter.jpg",
+        caption: "Test shea butter",
+        author: "Savanna",
+        handle: "@yallternativeliving",
+        url: "https://www.instagram.com/p/test1"
+      }
+    ]
+  };
+  main.renderUgcFeed(grid, section);
+  eq(
+    section.style.display,
+    "block",
+    "renderUgcFeed: displays section when enabled with static posts"
+  );
+  eq(
+    grid.innerHTML.includes("Test shea butter"),
+    true,
+    "renderUgcFeed: renders static post caption"
+  );
+  eq(
+    grid.innerHTML.includes("assets/img/shea-butter.jpg"),
+    true,
+    "renderUgcFeed: renders static post image"
+  );
+  eq(
+    grid.innerHTML.includes('rel="noopener noreferrer"'),
+    true,
+    "renderUgcFeed: includes secure rel attribute"
+  );
+
+  // 3. Behold.so live feed fetching with normalized card rendering
+  const beholdGrid = createMockElement("div");
+  const beholdSection = createMockElement("section");
+  beholdSection.style = { display: "none" };
+  window.YL_CONTENT = {
+    site: { enableSocialFeed: true, instagramFeedId: "test-behold-id" }
+  };
+  const origFetch = global.fetch;
+  let fetchCalledUrl = "";
+  global.fetch = function (url) {
+    fetchCalledUrl = url;
+    return Promise.resolve({
+      ok: true,
+      json: function () {
+        return Promise.resolve({
+          username: "yallternativeliving",
+          posts: [
+            {
+              id: "behold-1",
+              permalink: "https://www.instagram.com/p/DF12345",
+              sizes: {
+                medium: {
+                  mediaUrl: "https://behold.pictures/test.webp",
+                  width: 400,
+                  height: 400
+                }
+              },
+              caption: "Handmade botanical soaps fresh from the workshop",
+              altText: "Handmade botanical soaps on curing rack"
+            },
+            {
+              id: "behold-reel",
+              permalink: "https://www.instagram.com/reel/DF99999",
+              mediaType: "VIDEO",
+              isReel: true,
+              thumbnailUrl: "https://behold.pictures/reel-thumb.webp",
+              caption: "Watch us whip pure unrefined shea butter",
+              altText: "Whipped shea butter video"
+            },
+            {
+              id: "behold-empty",
+              mediaType: "VIDEO",
+              mediaUrl: "https://example.com/video.mp4"
+              // No sizes, no thumbnailUrl, VIDEO -> should be filtered out
+            }
+          ]
+        });
+      }
+    });
+  };
+
+  main.renderUgcFeed(beholdGrid, beholdSection);
+  await new Promise((r) => setTimeout(r, 20));
+
+  eq(
+    fetchCalledUrl,
+    "https://feeds.behold.so/test-behold-id",
+    "renderUgcFeed: fetches from Behold.so endpoint"
+  );
+  eq(beholdSection.style.display, "block", "renderUgcFeed: Behold displays section");
+  eq(
+    beholdGrid.innerHTML.includes("https://behold.pictures/test.webp"),
+    true,
+    "renderUgcFeed: Behold renders medium CDN image"
+  );
+  eq(
+    beholdGrid.innerHTML.includes("Handmade botanical soaps"),
+    true,
+    "renderUgcFeed: Behold renders caption"
+  );
+  eq(
+    beholdGrid.innerHTML.includes("https://www.instagram.com/p/DF12345"),
+    true,
+    "renderUgcFeed: Behold renders instagram link"
+  );
+  eq(
+    beholdGrid.innerHTML.includes("<span>Instagram</span>"),
+    true,
+    "renderUgcFeed: standard image post displays 'Instagram' badge"
+  );
+  eq(
+    beholdGrid.innerHTML.includes("<span>Reel</span>"),
+    true,
+    "renderUgcFeed: video/reel post displays 'Reel' badge"
+  );
+  eq(
+    beholdGrid.innerHTML.includes("https://behold.pictures/reel-thumb.webp"),
+    true,
+    "renderUgcFeed: video post resolves thumbnailUrl correctly"
+  );
+  eq(
+    beholdGrid.innerHTML.includes("https://example.com/video.mp4"),
+    false,
+    "renderUgcFeed: raw mp4 video with no thumbnail is safely excluded"
+  );
+
+  // 4. Behold fetch failure falls back to static posts
+  const failGrid = createMockElement("div");
+  const failSection = createMockElement("section");
+  failSection.style = { display: "none" };
+  global.fetch = function () {
+    return Promise.reject(new Error("Network error"));
+  };
+  main.renderUgcFeed(failGrid, failSection);
+  await new Promise((r) => setTimeout(r, 20));
+
+  eq(
+    failSection.style.display,
+    "block",
+    "renderUgcFeed: falls back to static posts on Behold network error"
+  );
+  eq(
+    failGrid.innerHTML.includes("Test shea butter"),
+    true,
+    "renderUgcFeed: renders fallback post caption on error"
+  );
+
+  global.fetch = origFetch;
+
+  // Reset mock state
+  window.YL_CONTENT = { site: { enableSocialFeed: false } };
+
+  console.log(`\nmain.test.js: ${passed} passed, ${failed} failed`);
+  process.exit(failed ? 1 : 0);
+})();

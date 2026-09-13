@@ -8286,7 +8286,11 @@
     window.YL_CONTENT.site &&
     window.YL_CONTENT.site.enableSocialFeed !== undefined
       ? window.YL_CONTENT.site.enableSocialFeed
-      : /*YL:site.enableSocialFeed*/ true; /*/YL:site.enableSocialFeed*/
+      : /*YL:site.enableSocialFeed*/ false; /*/YL:site.enableSocialFeed*/
+  var instagramFeedId =
+    window.YL_CONTENT && window.YL_CONTENT.site && window.YL_CONTENT.site.instagramFeedId
+      ? String(window.YL_CONTENT.site.instagramFeedId).trim()
+      : "";
   /* Read the live flag the same way enableSocialFeed above does. The
      build injects the `YL:site` markers into HTML pages only -- never into
      this file -- so the baked-in literal is a stale second source of truth
@@ -8303,74 +8307,158 @@
       : /*YL:site.enableJournal*/ false; /*/YL:site.enableJournal*/
 
   function renderUgcFeed(gridElem, sectionElem) {
-    if (!enableSocialFeed || !gridElem || !sectionElem || !window.YL_SOCIAL_FEED) return;
-    var socialPosts = window.YL_SOCIAL_FEED.posts || [];
-    if (socialPosts.length === 0) return;
+    var isEnabled =
+      window.YL_CONTENT &&
+      window.YL_CONTENT.site &&
+      window.YL_CONTENT.site.enableSocialFeed !== undefined
+        ? window.YL_CONTENT.site.enableSocialFeed
+        : enableSocialFeed;
+    if (!isEnabled || !gridElem || !sectionElem) return;
 
-    sectionElem.style.display = "block";
-    gridElem.innerHTML = socialPosts
-      .map(function (post) {
-        var altText = post.caption
-          ? "Customer community photo: " + post.caption.slice(0, 80)
-          : "Y'allternative Living customer post";
-        var productTagHtml = "";
-        if (post.productId && post.productName) {
-          productTagHtml =
-            '<a href="shop.html#' +
-            attrEsc(post.productId) +
-            '" class="ugc-product-tag" aria-label="View ' +
-            attrEsc(post.productName) +
-            ' in shop">' +
-            '  <svg class="yl-icon" aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg> ' +
-            attrEsc(post.productName) +
-            "</a>";
-        }
-        var postLink = safeUrl(post.url);
-        var linkHtml = postLink
-          ? '<a href="' +
-            attrEsc(postLink) +
-            '" target="_blank" rel="noopener noreferrer" class="ugc-post-link" aria-label="View original post by ' +
+    var feedId =
+      window.YL_CONTENT &&
+      window.YL_CONTENT.site &&
+      window.YL_CONTENT.site.instagramFeedId !== undefined
+        ? String(window.YL_CONTENT.site.instagramFeedId).trim()
+        : instagramFeedId;
+
+    function renderCards(posts) {
+      if (!posts || posts.length === 0) return;
+      sectionElem.style.display = "block";
+      gridElem.innerHTML = posts
+        .map(function (post) {
+          var altText =
+            post.altText ||
+            (post.caption
+              ? "Customer community photo: " + post.caption.slice(0, 80)
+              : "Y'allternative Living customer post");
+          var productTagHtml = "";
+          if (post.productId && post.productName) {
+            productTagHtml =
+              '<a href="shop.html#' +
+              attrEsc(post.productId) +
+              '" class="ugc-product-tag" aria-label="View ' +
+              attrEsc(post.productName) +
+              ' in shop">' +
+              '  <svg class="yl-icon" aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg> ' +
+              attrEsc(post.productName) +
+              "</a>";
+          }
+          var postLink = safeUrl(post.url);
+          var linkHtml = postLink
+            ? '<a href="' +
+              attrEsc(postLink) +
+              '" target="_blank" rel="noopener noreferrer" class="ugc-post-link" aria-label="View original post by ' +
+              attrEsc(post.handle || "@yallternativeliving") +
+              ' (opens in new tab)">View Post &#8599;<span class="sr-only"> (opens in new tab)</span></a>'
+            : "";
+
+          var isReel = Boolean(post.isReel || post.mediaType === "VIDEO");
+          var badgeLabel = isReel ? "Reel" : post.badge || "Instagram";
+          var badgeIcon = isReel
+            ? '<svg class="yl-icon" aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21 6 3"/></svg>'
+            : '<svg class="yl-icon" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1"/></svg>';
+
+          return (
+            /* A <div>, not an <article>: role="listitem" is not a valid role
+               override for <article>, so each card announced itself as a
+               stray article instead of as item N of the surrounding
+               role="list" feed (axe aria-allowed-role). */
+            '<div class="ugc-card reveal" role="listitem">' +
+            '  <div class="ugc-card-media">' +
+            '    <img src="' +
+            attrEsc(safeImageSrc(post.image)) +
+            '" alt="' +
+            attrEsc(altText) +
+            '" loading="lazy" decoding="async" width="400" height="400">' +
+            '    <div class="ugc-media-badge">' +
+            badgeIcon +
+            "      <span>" +
+            attrEsc(badgeLabel) +
+            "</span>" +
+            "    </div>" +
+            productTagHtml +
+            "  </div>" +
+            '  <div class="ugc-card-body">' +
+            '    <div class="ugc-author-row">' +
+            '      <span class="ugc-author-name">' +
+            attrEsc(post.author || "Community Member") +
+            "</span>" +
+            '      <span class="ugc-author-handle">' +
             attrEsc(post.handle || "@yallternativeliving") +
-            ' (opens in new tab)">View Post &#8599;<span class="sr-only"> (opens in new tab)</span></a>'
-          : "";
+            "</span>" +
+            "    </div>" +
+            '    <p class="ugc-caption">' +
+            attrEsc(post.caption) +
+            "</p>" +
+            linkHtml +
+            "  </div>" +
+            "</div>"
+          );
+        })
+        .join("");
+      wireReveal(sectionElem);
+    }
 
-        return (
-          /* A <div>, not an <article>: role="listitem" is not a valid role
-             override for <article>, so each card announced itself as a
-             stray article instead of as item N of the surrounding
-             role="list" feed (axe aria-allowed-role). */
-          '<div class="ugc-card reveal" role="listitem">' +
-          '  <div class="ugc-card-media">' +
-          '    <img src="' +
-          attrEsc(safeImageSrc(post.image)) +
-          '" alt="' +
-          attrEsc(altText) +
-          '" loading="lazy" decoding="async" width="400" height="400">' +
-          '    <div class="ugc-media-badge">' +
-          '      <svg class="yl-icon" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1"/></svg>' +
-          "      <span>UGC</span>" +
-          "    </div>" +
-          productTagHtml +
-          "  </div>" +
-          '  <div class="ugc-card-body">' +
-          '    <div class="ugc-author-row">' +
-          '      <span class="ugc-author-name">' +
-          attrEsc(post.author || "Community Member") +
-          "</span>" +
-          '      <span class="ugc-author-handle">' +
-          attrEsc(post.handle || "@yallternativeliving") +
-          "</span>" +
-          "    </div>" +
-          '    <p class="ugc-caption">' +
-          attrEsc(post.caption) +
-          "</p>" +
-          linkHtml +
-          "  </div>" +
-          "</div>"
-        );
-      })
-      .join("");
-    wireReveal(sectionElem);
+    function fallbackToStaticFeed() {
+      if (!window.YL_SOCIAL_FEED) return;
+      var socialPosts = window.YL_SOCIAL_FEED.posts || [];
+      if (socialPosts.length === 0) return;
+      renderCards(socialPosts);
+    }
+
+    if (feedId && typeof fetch === "function") {
+      fetch("https://feeds.behold.so/" + encodeURIComponent(feedId))
+        .then(function (res) {
+          if (!res.ok) throw new Error("Behold fetch failed: " + res.status);
+          return res.json();
+        })
+        .then(function (data) {
+          var rawPosts = Array.isArray(data) ? data : (data && data.posts) || [];
+          if (rawPosts.length === 0) {
+            fallbackToStaticFeed();
+            return;
+          }
+          var defaultUsername = (data && data.username) || "yallternativeliving";
+          var normalized = rawPosts
+            .map(function (p) {
+              var isReel = Boolean(p.isReel || p.mediaType === "VIDEO");
+              var img =
+                (p.sizes && p.sizes.medium && p.sizes.medium.mediaUrl) ||
+                (p.sizes && p.sizes.small && p.sizes.small.mediaUrl) ||
+                (p.sizes && p.sizes.large && p.sizes.large.mediaUrl) ||
+                p.thumbnailUrl ||
+                (!isReel ? p.mediaUrl : "") ||
+                "";
+              var cap = p.prunedCaption || p.caption || "";
+              var handle = p.username ? "@" + p.username : "@" + defaultUsername;
+              return {
+                image: img,
+                caption: cap,
+                altText:
+                  p.altText ||
+                  p.accessibilityCaption ||
+                  (cap
+                    ? "Customer community photo: " + cap.slice(0, 80)
+                    : "Y'allternative Living customer post"),
+                author: "Savanna",
+                handle: handle,
+                url: p.permalink || (p.id ? "https://www.instagram.com/p/" + p.id : ""),
+                isReel: isReel,
+                mediaType: p.mediaType
+              };
+            })
+            .filter(function (post) {
+              return Boolean(post.image);
+            });
+          renderCards(normalized);
+        })
+        .catch(function () {
+          fallbackToStaticFeed();
+        });
+    } else {
+      fallbackToStaticFeed();
+    }
   }
 
   renderUgcFeed(socialFeedGrid, homeSocialFeedSection);
@@ -12451,6 +12539,7 @@
       initPdpRitualSection: initPdpRitualSection,
       initPdpStickyBar: initPdpStickyBar,
       announcementBar: announcementBar,
+      renderUgcFeed: renderUgcFeed,
       initApothecaryQuiz: initApothecaryQuiz,
       analyticsBeforeSend: analyticsBeforeSend,
       analyticsAllowedQuery: analyticsAllowedQuery,
