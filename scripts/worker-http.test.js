@@ -28,7 +28,34 @@ function req(headers) {
 }
 
 async function runWorkerHttpTests() {
-  const { clientIp } = await import("../workers/routes/http.js");
+  const { clientIp, clientErrorBody, ClientError } = await import("../workers/routes/http.js");
+
+  // clientErrorBody: merges error message and optional details
+  eq(
+    clientErrorBody(new Error("Standard error")),
+    { error: "Standard error" },
+    "standard Error object yields only the message"
+  );
+  eq(
+    clientErrorBody(new ClientError("No details")),
+    { error: "No details" },
+    "ClientError without details yields only the message"
+  );
+  eq(
+    clientErrorBody(new ClientError("Sold out", 409, { unavailable: true })),
+    { unavailable: true, error: "Sold out" },
+    "ClientError details are included in the output"
+  );
+  eq(
+    clientErrorBody(new ClientError("Not overwritten", 400, { error: "I tried" })),
+    { error: "Not overwritten" },
+    "ClientError details cannot overwrite the main error message"
+  );
+  eq(
+    clientErrorBody({ message: "Fake error", details: null }),
+    { error: "Fake error" },
+    "handles null details correctly"
+  );
 
   // Through Netlify: Netlify appends the shopper, Cloudflare appends Netlify.
   eq(
