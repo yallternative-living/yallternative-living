@@ -53,6 +53,7 @@ import {
   markRestockNotified,
   pendingRestockCount,
   pendingRestockCounts,
+  pendingRestockCountsFor,
   pendingRestockSignups
 } from "../state/restock-signups.js";
 
@@ -554,8 +555,11 @@ export async function runLowStockCheck(env, ctx, now = Date.now()) {
     return { sent: 0, low: 0 };
   }
   low.sort((a, b) => a.stock - b.stock || a.id.localeCompare(b.id));
+
+  const pending = await pendingRestockCountsFor(db, low.map((r) => r.id));
+  const pendingMap = new Map(pending.map((p) => [p.productId, p.waiting]));
   for (const row of low) {
-    row.waiting = await pendingRestockCount(db, row.id);
+    row.waiting = pendingMap.get(row.id) || 0;
   }
 
   const message = lowStockEmail(low, threshold, siteOriginOf(env));
