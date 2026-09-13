@@ -1153,7 +1153,50 @@ async function testRoutes() {
   console.log("\n7. Routes: /unsubscribe, /welcome-code, /birthday-club, /loyalty-balance");
   const worker = (await import("../workers/checkout.js")).default;
   const state = await import("../workers/state/retention.js");
+  const { handleBirthdayClub } = await import("../workers/routes/retention.js");
   const { signToken } = await import("../workers/state/magic-link.js");
+
+  // --- Direct handleBirthdayClub mock tests ------------------------------
+  const directEnv = await makeEnv();
+  const origin = "https://yallternativeliving.com";
+
+  // JSON Request
+  const jsonReq = new Request("https://example.com/api/birthday-club", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: "direct.json@example.com", birthday: "10/31" })
+  });
+  const jsonRes = await handleBirthdayClub(jsonReq, directEnv, origin);
+  const jsonBody = await jsonRes.json();
+  eq(jsonRes.status, 200, "handleBirthdayClub directly handles JSON body");
+  eq(jsonBody.success, true, "and says it succeeded");
+
+  // Form Request
+  const formReq = new Request("https://example.com/api/birthday-club", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: "email=direct.form%40example.com&birthday=11%2F01"
+  });
+  const formRes = await handleBirthdayClub(formReq, directEnv, origin);
+  eq(formRes.status, 303, "handleBirthdayClub directly handles FormData with a redirect");
+  assert(
+    formRes.headers.get("Location").includes("thank-you.html?birthday=saved"),
+    "redirects to the thank-you page"
+  );
+
+  // Missing DB (Form)
+  const noDbEnv = await makeEnv({ STATE_DB: undefined });
+  const noDbFormReq = new Request("https://example.com/api/birthday-club", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: "email=direct.nodb%40example.com&birthday=12%2F01"
+  });
+  const noDbFormRes = await handleBirthdayClub(noDbFormReq, noDbEnv, origin);
+  eq(noDbFormRes.status, 303, "handleBirthdayClub redirects error if STATE_DB missing on form");
+  assert(
+    noDbFormRes.headers.get("Location").includes("thank-you.html?birthday=error"),
+    "redirects to the thank-you page with error state"
+  );
 
   // --- /api/welcome-code -------------------------------------------------
   const env = await makeEnv();
