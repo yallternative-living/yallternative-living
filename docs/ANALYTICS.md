@@ -34,7 +34,7 @@ tracker's `data-*` attributes. That loader injects **exactly one** of two copies
    so it posts straight to `gateway.umami.is` from the visitor's own browser.
 2. **First-party**, only if the direct copy fires an `error` event —
    `/porch-light/script.js` with `data-host-url="/porch-light"`, proxied to Umami
-   by `status = 200` rewrites in `netlify.toml` and `vercel.json`, and marked
+   by `status = 200` rewrites in `netlify.toml`, and marked
    `data-tag="fallback"`.
 
 **Why the fallback exists.** List-based blockers match **hostnames**. Both Umami

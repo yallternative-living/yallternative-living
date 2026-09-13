@@ -1484,21 +1484,6 @@ window.YL_SEARCH_INDEX = {
   ],
   "events": [
     {
-      "id": "mrb-renaissance-festival-2026-09-12",
-      "name": "MRB Renaissance Festival",
-      "title": "MRB Renaissance Festival",
-      "date": "2026-09-12",
-      "dateLabel": "September 12, 2026 · Saturday, 11:30am–11pm",
-      "endDate": null,
-      "type": "Festival",
-      "location": "Mills River, NC",
-      "zip": "28759",
-      "note": "Mills River Brewing Co, 336 Banner Farm Rd, Mills River, NC 28759. Free family-friendly renaissance festival with medieval combat, live music & 40+ vendors.",
-      "description": "Mills River Brewing Co, 336 Banner Farm Rd, Mills River, NC 28759. Free family-friendly renaissance festival with medieval combat, live music & 40+ vendors.",
-      "isUpcoming": true,
-      "url": "events.html#mrb-renaissance-festival-2026-09-12"
-    },
-    {
       "id": "saturday-night-lights-2026-09-19",
       "name": "Saturday Night Lights",
       "title": "Saturday Night Lights",
@@ -1542,6 +1527,21 @@ window.YL_SEARCH_INDEX = {
       "description": "Pop-up market table with handmade salves, soaks & soaps.",
       "isUpcoming": true,
       "url": "events.html#autumn-apothecary-faire"
+    },
+    {
+      "id": "mrb-renaissance-festival-2026-09-12",
+      "name": "MRB Renaissance Festival",
+      "title": "MRB Renaissance Festival",
+      "date": "2026-09-12",
+      "dateLabel": "September 12, 2026 · Saturday, 11:30am–11pm",
+      "endDate": null,
+      "type": "Festival",
+      "location": "Mills River, NC",
+      "zip": "28759",
+      "note": "Mills River Brewing Co, 336 Banner Farm Rd, Mills River, NC 28759. Free family-friendly renaissance festival with medieval combat, live music & 40+ vendors.",
+      "description": "Mills River Brewing Co, 336 Banner Farm Rd, Mills River, NC 28759. Free family-friendly renaissance festival with medieval combat, live music & 40+ vendors.",
+      "isUpcoming": false,
+      "url": "events.html#mrb-renaissance-festival-2026-09-12"
     },
     {
       "id": "boomtown-arts-heritage-avl-fest-2026-09-05",

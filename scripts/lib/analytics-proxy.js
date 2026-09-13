@@ -12,7 +12,7 @@
  *      their session id and their country are their own.
  *   2. FIRST-PARTY only on the direct copy's `error` event: ANALYTICS_SCRIPT_PATH
  *      with data-host-url = ANALYTICS_HOST_URL, which the status=200 rewrite
- *      rules in netlify.toml / vercel.json proxy through to Umami.
+ *      rules in netlify.toml proxy through to Umami.
  *
  * WHY BOTH
  * List-based blockers match HOSTNAMES, and both Umami hosts are on those lists

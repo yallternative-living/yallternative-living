@@ -1,8 +1,10 @@
-/* ==========================================================
-   Y'ALLTERNATIVE LIVING | shared site behavior
-   Zero dependencies, zero build step. Vanilla JS only so the
-   whole site stays instant on any connection.
-   ========================================================== */
+/**
+ * @fileoverview Shared site behavior for Y'allternative Living.
+ *
+ * Provides zero-dependency vanilla JS client behaviors across the site,
+ * including analytics scrubbing and dispatch, theme toggling, mobile nav,
+ * scroll reveal, catalog filtering, search, reviews, and event rendering.
+ */
 /* global module, require */
 (function () {
   "use strict";
@@ -99,7 +101,11 @@
     analyticsInitialSearch = "";
   }
 
-  /** Rebuilds a query string holding only the allow-listed campaign params. */
+  /**
+   * Rebuilds a query string holding only the allow-listed campaign params.
+   * @param {?string} search Raw window.location.search query string.
+   * @return {string} Reconstructed query string with only permitted parameters.
+   */
   function analyticsAllowedQuery(search) {
     var kept = [];
     try {
@@ -114,7 +120,11 @@
     return kept.length ? "?" + kept.join("&") : "";
   }
 
-  /** True when this value is personal enough that it must not be reported. */
+  /**
+   * Checks whether a value is personal enough that it must not be reported.
+   * @param {*} value Target property value.
+   * @return {boolean} True if value looks like an email, token, or Stripe ID.
+   */
   function analyticsValueIsPersonal(value) {
     if (typeof value !== "string") return false;
     return (
@@ -128,6 +138,9 @@
    * Umami's data-before-send hook. Returns the payload to send, or null to
    * drop it. Every exit path is either a scrubbed payload or nothing at all --
    * a throw in here must never turn into an unscrubbed send.
+   * @param {string} type Event type ('pageview' or 'custom').
+   * @param {?Object} payload Umami tracking payload.
+   * @return {?Object} Scrubbed payload, or null to drop the event.
    */
   function analyticsBeforeSend(type, payload) {
     try {
@@ -295,6 +308,10 @@
   var toggle = document.getElementById("themeToggle");
   var cachedTheme = null;
 
+  /**
+   * Resolves the active theme preference (cached, stored, or system default).
+   * @return {string} 'light' or 'dark'.
+   */
   function currentTheme() {
     if (cachedTheme !== null) return cachedTheme;
     // Storage access can throw (Safari private browsing, "block all
@@ -316,6 +333,10 @@
     return cachedTheme;
   }
 
+  /**
+   * Applies the theme attribute to the root element and updates toggle state.
+   * @param {string} theme 'light' or 'dark'.
+   */
   function applyTheme(theme) {
     cachedTheme = theme;
     root.setAttribute("data-theme", theme);
@@ -493,6 +514,10 @@
      to eliminate observer allocation churn on every re-render or search pass. */
   var sharedRevealIO = null;
 
+  /**
+   * Resolves the shared IntersectionObserver singleton for scroll reveals.
+   * @return {?IntersectionObserver} Observer instance, or null if unsupported.
+   */
   function getRevealObserver() {
     if (!sharedRevealIO && "IntersectionObserver" in window && !window.navigator.webdriver) {
       sharedRevealIO = new IntersectionObserver(
@@ -597,6 +622,11 @@
      from under the reader. Dynamically injected nodes (shop grid, journal,
      filters) pass nothing: they are armed in the same task that inserts
      them, before any paint of those nodes, so they animate in as designed. */
+  /**
+   * Sets up scroll reveal animations for unrevealed elements within a root.
+   * @param {(!Element|!Document)=} root Container to search for .reveal elements.
+   * @param {boolean=} serverRendered True if inspecting server-rendered document markup.
+   */
   function wireReveal(root, serverRendered) {
     root = root || document;
     var els = root.querySelectorAll(".reveal:not(.in)");
@@ -978,6 +1008,11 @@
      already believed it was tomorrow: today's market moved itself to "Past
      Events" while the countdown -- which reads local time -- still had it
      running. Same technique the dispatch badge already uses. */
+
+  /**
+   * Returns today's calendar date in America/New_York as YYYY-MM-DD.
+   * @return {string} ISO date string (YYYY-MM-DD).
+   */
   function todayInEastern() {
     try {
       var parts = new Intl.DateTimeFormat("en-CA", {
@@ -1008,12 +1043,25 @@
      meant flipping one in the dashboard changed nothing in the browser.
      Absent means on: that is how each of these features shipped, and a page
      that loads without content-data.js must not silently lose them. */
+
+  /**
+   * Evaluates whether a CMS feature switch in content.json is enabled.
+   * Defaults to true if the switch is absent.
+   * @param {string} name Feature switch identifier.
+   * @return {boolean} True if enabled or omitted.
+   */
   function siteFlagEnabled(name) {
     var site = (window.YL_CONTENT && window.YL_CONTENT.site) || {};
     return site[name] !== false;
   }
 
   /* ---------- shared: escape a value for safe use inside an HTML attribute ---------- */
+
+  /**
+   * Escapes characters for safe inclusion inside HTML attributes.
+   * @param {*} str Raw input value.
+   * @return {string} HTML-escaped string representation.
+   */
   function attrEsc(str) {
     if (str == null) return "";
     return String(str)
@@ -1029,6 +1077,12 @@
      section of translator.js's file header): JSON.stringify, then attrEsc so
      the quotes JSON needs -- and anything in a product name, like the
      apostrophe in "Y'all Means All" -- can't break out of the attribute. */
+
+  /**
+   * Serializes variables for a data-i18n-vars attribute as escaped JSON.
+   * @param {!Object} vars Key-value substitutions for the translation template.
+   * @return {string} HTML-escaped JSON string.
+   */
   function i18nVarsAttr(vars) {
     return attrEsc(JSON.stringify(vars));
   }
@@ -1039,6 +1093,12 @@
      them. cart.js money(), gift-card.js and thank-you.js apply the same rule.
      Machine-facing values (data-item-price, the [+6.00] option tokens, JSON-LD)
      keep toFixed(2). */
+
+  /**
+   * Formats a monetary number into whole dollars or dollar and cents string.
+   * @param {number|string} n Amount in dollars.
+   * @return {string} Formatted string like "$20" or "$21.60".
+   */
   function formatMoney(n) {
     var v = Number(n);
     if (!isFinite(v)) return "$0";
@@ -1050,6 +1110,12 @@
      attrEsc() alone stops attribute-breakout but not a same-quote-safe
      `javascript:` URL, which still executes on click. Used for event/social
      post URLs that come from CMS-editable JSON (events.json, social feed). */
+
+  /**
+   * Sanitizes a URL, allowing only absolute HTTP/HTTPS or root-relative paths.
+   * @param {?string} url Target URL.
+   * @return {string} Sanitized URL or empty string if unsafe.
+   */
   function safeUrl(url) {
     if (!url) return "";
     var trimmed = String(url).trim();
@@ -1065,6 +1131,12 @@
      path characters, which cannot carry a scheme, a host, whitespace or a
      control character. Everything else -- javascript:, data:, vbscript:, a
      tab-obfuscated scheme -- comes back empty. */
+
+  /**
+   * Validates and sanitizes an image src path.
+   * @param {?string} url Target image URL or document-relative path.
+   * @return {string} Clean path or empty string if rejected.
+   */
   function safeImageSrc(url) {
     var vetted = safeUrl(url);
     if (vetted) return vetted;
@@ -1087,6 +1159,12 @@
   /* Search results render on every page, including /products/<id>.html, so a
      site-relative path like "products/x.html" or "faq.html#q" must be made
      root-absolute or it resolves to /products/products/x.html from a PDP. */
+
+  /**
+   * Sanitizes a URL and ensures relative paths are root-absolute.
+   * @param {string} url Raw URL.
+   * @return {string} Root-absolute or safe protocol URL.
+   */
   function rootAbsLink(url) {
     var s = safeLinkUrl(url);
     if (!s) return "";
@@ -1094,6 +1172,11 @@
     return "/" + s.replace(/^(?:\.\.\/)+/, "").replace(/^\.\//, "");
   }
 
+  /**
+   * Refuses unsafe schemes (e.g. javascript:) and control characters from links.
+   * @param {?string} url Raw URL.
+   * @return {string} Clean URL or empty string.
+   */
   function safeLinkUrl(url) {
     if (!url) return "";
     var raw = String(url);
@@ -1124,6 +1207,11 @@
      publishes window.YL_MARKDOWN); in Node (the unit tests) it is
      require()d. See that file for what the renderer does and does not
      support, and why it is not a vendored library. */
+
+  /**
+   * Resolves the singleton Markdown parsing module from window or CommonJS.
+   * @return {?Object} Markdown module exporting renderMarkdown, or null.
+   */
   function markdownModule() {
     if (window.YL_MARKDOWN) return window.YL_MARKDOWN;
     if (typeof module !== "undefined" && module.exports && typeof require === "function") {
@@ -1132,6 +1220,11 @@
     return null;
   }
 
+  /**
+   * Renders Markdown text to HTML safely via markdown.js or paragraph fallback.
+   * @param {?string} text Raw markdown input.
+   * @return {string} HTML output.
+   */
   function renderMarkdown(text) {
     var md = markdownModule();
     if (md) return md.renderMarkdown(text);
@@ -1190,6 +1283,11 @@
      "assets/img/x.jpg" resolves to /products/assets/... there and 404s.
      Every image path this file renders goes through this: root-absolute is
      correct from any page of the site. */
+  /**
+   * Converts an image path to a root-absolute path for consistency across nested routes.
+   * @param {?string} src Raw image path.
+   * @return {string} Root-absolute or unmodified URL.
+   */
   function rootAbsImage(src) {
     var s = String(src || "").trim();
     if (!s) return "";
@@ -1197,6 +1295,12 @@
     return "/" + s.replace(/^(?:\.\.\/)+/, "").replace(/^\.\//, "");
   }
 
+  /**
+   * Generates responsive <picture> HTML using AVIF/WebP variants from image manifest.
+   * @param {!Object} p Product catalog item.
+   * @param {Object=} opts Options for sizing, loading, alt text, or alternate imagePath.
+   * @return {string} HTML markup string for <picture> or <img>.
+   */
   function pictureHTML(p, opts) {
     opts = opts || {};
     // imagePath lets a caller render a photo OTHER than the product's
@@ -1306,6 +1410,12 @@
      silently download 3-4x the bytes for every featured card the
      moment the homepage loads, even though most visitors never click
      a dot. */
+  /**
+   * Generates the multi-image gallery HTML markup for a product card.
+   * @param {!Object} p Product data object.
+   * @param {Object=} opts Display options such as eager loading.
+   * @return {string} HTML markup string for the card photo gallery.
+   */
   function cardGalleryHTML(p, opts) {
     opts = opts || {};
     // eager: true is only ever passed for the first handful of cards on
@@ -1410,6 +1520,12 @@
      re-validates every price server-side against products.json before
      Stripe Checkout is ever created (see workers/checkout.js), so nothing
      here needs to be trusted, just read. */
+  /**
+   * Generates the "Add to Cart" button markup with data-item-* attributes.
+   * @param {!Object} p Product catalog item object.
+   * @param {string=} extraClass Optional additional CSS class names for the button.
+   * @return {string} HTML markup string for the button or link.
+   */
   function addToCartHTML(p, extraClass) {
     if (p.id === "yallternative-gift-card") {
       return (

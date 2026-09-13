@@ -60,11 +60,9 @@ const FIXED_GATES = [
   // spawns it or requires it.
   "m1-compilation-challenger.test.js",
   "verify-pdp-metadata.js",
-  // Red until the build stops stamping wall-clock time into feed.xml's
-  // <lastBuildDate> and sw.js's CACHE_NAME (audit H-20, owned by the build
-  // agent). Wired in anyway: a gate that is red for a known reason is worth
-  // more than one nobody runs. It also rewrites the generated files as a side
-  // effect, so the tree is dirty after a run until that fix lands.
+  // Asserts determinism: verifies that five successive rebuilds produce zero
+  // diffs across all generated files (products, journal pages, sitemap, feed,
+  // assets, etc.). Runs sequentially after the parallel pool to avoid filesystem races.
   "verify-build-reproducibility.js"
 ];
 

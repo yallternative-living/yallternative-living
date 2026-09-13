@@ -1,16 +1,15 @@
-/* ==========================================================
-   Y'ALLTERNATIVE LIVING | on-site cart -> Stripe Checkout
-   Zero dependencies, vanilla JS. Self-contained on-site cart +
-   drawer that hands off to Stripe Checkout via the Cloudflare
-   Worker in workers/checkout.js. Self-initializes on load (see
-   the bottom of this file) -- just include this script on a page,
-   nothing else to wire up.
-
-   The cart reads the same data-item-* attributes the Add to Cart
-   buttons already carry (a holdover naming convention from the
-   Snipcart era this replaced -- see docs/STRIPE-MIGRATION.md),
-   so the button markup didn't have to change for the cart to work.
-   ========================================================== */
+/**
+ * @fileoverview On-site shopping cart engine and slide-out drawer backed by Stripe Checkout.
+ *
+ * Provides a self-contained, vanilla JavaScript cart implementation with zero runtime
+ * dependencies. Handles local persistence in localStorage, cross-tab synchronization,
+ * promotional code previews, volume discount pricing, gift card balances, and checkout
+ * session handoff to the Cloudflare Worker at `workers/checkout.js`.
+ *
+ * Backward Compatibility:
+ * Reads existing `data-item-*` button attributes (the legacy Snipcart attribute schema;
+ * see `docs/STRIPE-MIGRATION.md`), so static HTML markup requires no modifications.
+ */
 /* global module */
 (function (root) {
   "use strict";
@@ -50,14 +49,16 @@
 
   /* ---------------- Pure cart math (unit-testable in Node) ---------------- */
 
-  // A line's identity = product id + chosen variant label, so "Tank Top / M"
-  // and "Tank Top / L" are separate lines that merge/add independently.
-  //
-  // Gift cards are the one exception: two gift cards at the same dollar
-  // amount must NOT merge into one qty-2 line, because each one can carry a
-  // different recipient email/sender/message. item.lineId (assigned once,
-  // at add-time, see newLineId() below) keeps every gift card its own line
-  // regardless of amount.
+  /**
+   * Computes a unique compound key identifying a cart line item.
+   *
+   * A line's identity equals product ID plus chosen variant label (e.g. "Tank Top / M").
+   * Gift cards use unique `lineId` to preserve distinct recipient emails and messages.
+   * Custom boxes key on constituent product IDs (`boxProductIds`).
+   *
+   * @param {!Object} item The cart line item.
+   * @return {string} Composite line identifier.
+   */
   function lineKey(item) {
     if (item.id === GIFT_CARD_ID) {
       return item.id + "|" + (item.lineId || item.variantLabel || "");
@@ -416,6 +417,14 @@
     return matchedRule;
   }
 
+  /**
+   * Calculates the effective unit price for an item, factoring in variant deltas
+   * and any active volume pricing tiers.
+   *
+   * @param {!Object} item The item to evaluate.
+   * @param {!Array<!Object>} items The full array of items currently in the cart.
+   * @return {number} Unit price in dollars rounded to two decimal places.
+   */
   function unitPrice(item, items) {
     var base =
       Math.round(Math.max(0, (Number(item.price) || 0) + (Number(item.variantDelta) || 0)) * 100) /
@@ -427,6 +436,12 @@
     return base;
   }
 
+  /**
+   * Calculates the subtotal in dollars across all cart items.
+   *
+   * @param {!Array<!Object>} items Array of cart line items.
+   * @return {number} Subtotal in dollars rounded to two decimal places.
+   */
   function subtotal(items) {
     var raw = (items || []).reduce(function (sum, it) {
       return sum + unitPrice(it, items) * it.qty;
@@ -434,13 +449,25 @@
     return Math.round(raw * 100) / 100;
   }
 
+  /**
+   * Returns the aggregate count of all physical items in the cart.
+   *
+   * @param {!Array<!Object>} items Array of cart line items.
+   * @return {number} Total unit count across all lines.
+   */
   function totalCount(items) {
     return (items || []).reduce(function (n, it) {
       return n + it.qty;
     }, 0);
   }
 
-  // Merge a new item into the list (same line -> bump qty, capped).
+  /**
+   * Merges a new item into an items array, combining quantities if the line key matches.
+   *
+   * @param {!Array<!Object>} items Current cart items list.
+   * @param {!Object} item The item to add.
+   * @return {!Array<!Object>} New items array containing the merged item.
+   */
   function addToList(items, item) {
     var list = items.slice();
     var key = lineKey(item);

@@ -80,7 +80,7 @@ time the build script runs.
 ```
 site/
   index.html          Home
-  shop.html            Full 15-product catalog with category filters + sort
+  shop.html            Full catalog (20 products, 7 bundles) with category filters + sort
   events.html          Markets, fairs & Pride pop-ups (upcoming + past)
   about.html           Brand story / founder note
   contact.html         Contact, socials, where to find us in person
@@ -163,12 +163,12 @@ that introduces a real lint error or an unformatted file will show a
 failing check.
 
 ```
-npm run lint            # ESLint, scripts/ + assets/js/
-npm run format           # Prettier, writes fixes in place
+npm run lint            # ESLint: scripts/, assets/js/, workers/, cms-auth/
+npm run format           # Prettier, writes fixes in place (scripts/ + assets/js/)
 npm run format:check     # Prettier, fails without writing (what CI runs)
 ```
 
-Both are scoped to `scripts/**/*.js` and `assets/js/*.js` only --
+`format` is scoped to `scripts/**/*.js` and `assets/js/*.js` only --
 HTML, CSS, JSON, and markdown in this project are intentionally left to
 hand-formatting, not Prettier's opinions.
 

@@ -5,7 +5,7 @@
 - **Data Pipeline**:
   - Single Source of Truth in `assets/data/`: `content.json`, `products.json`, `events.json`, `site-reviews.json`, `journal/*.json` (one post per file), `quiz.json`, `social-feed.json`.
   - Sveltia CMS configuration in `admin/config.yml`.
-  - Compiler `scripts/build-site-data.js` transforms JSON files into derived JS data objects (`assets/js/*-data.js`), replaces HTML comment markers (`<!--YL:...-->`), compiles `assets/data/footer.html` into all 15 HTML pages, compiles `products/*.html`, and updates SEO/discovery files (`sitemap.xml`, `llms.txt`).
+  - Compiler `scripts/build-site-data.js` transforms JSON files into derived JS data objects (`assets/js/*-data.js`), replaces HTML comment markers (`<!--YL:...-->`), compiles `assets/data/footer.html` into all static HTML pages (17 built footers), compiles `products/*.html`, and updates SEO/discovery files (`sitemap.xml`, `llms.txt`).
   - Client-side runtime in `assets/js/main.js` and `assets/js/cart.js`.
 
 ## Feature Inventory
@@ -13,7 +13,7 @@
 |---|---------|-------------|-----------|--------|--------|
 | 1 | Sitewide Announcement Banner CMS & Compilation | Configurable banner text, link URL, background accent theme in `content.json.site.announcement` and `admin/config.yml`, compiled into client data and rendered in header with WCAG 2.2 AA contrast. | M1, M2 | R1 | DONE |
 | 2 | Seasonal Workshop / Shipping Notices | Owner-controlled notice message, link, and toggles in `content.json.site.seasonalNotice` and `admin/config.yml`, rendered in cart drawer (`assets/js/cart.js`) and header. | M1, M2 | R1 | DONE |
-| 3 | Social Media Profile URLs in CMS & Footer | Owner-controlled profile URLs (Instagram, TikTok, Facebook, Etsy, Pinterest, YouTube) in `content.json.site.social` and `admin/config.yml`, dynamically compiled into `footer.html`, all 15 static HTML pages, Schema.org `sameAs` JSON-LD, and `llms.txt`. | M1 | R2 | DONE |
+| 3 | Social Media Profile URLs in CMS & Footer | Owner-controlled profile URLs (Instagram, TikTok, Facebook, Etsy, Pinterest, YouTube) in `content.json.site.social` and `admin/config.yml`, dynamically compiled into `footer.html`, all static HTML pages, Schema.org `sameAs` JSON-LD, and `llms.txt`. | M1 | R2 | DONE |
 | 4 | Global Ritual Defaults | Fallback title and subtitle in `content.json.site.ritualDefaults` and `admin/config.yml`, consumed by `build-site-data.js` and `main.js` when product `ritualTitle` is omitted. | M1, M2 | R3 | DONE |
 | 5 | Pre-Order Batch Dates Merchandising | Optional `estimatedBatchDate` field in `products.json` and `admin/config.yml`, rendered on PDPs, catalog cards, and reflected in Schema.org `PreOrder` availability. | M1, M2 | R3 | DONE |
 | 6 | Apothecary Product Quiz Schema & Dynamic Engine | Decouple questions, symptom options, recommendation maps, and scoring weights into `content.json.quiz` (and `admin/config.yml`), dynamically rendered by `main.js` with full backward compatibility and 100% test contract preservation. | M1, M2 | R4 | DONE |
@@ -92,7 +92,7 @@ build-compiled dictionary engine.
 
 1. **Build-time compilation (`scripts/build-site-data.js`)**
    - Canonical dictionaries `assets/data/locales/{en,es,de,fr,ja,zh,vi,ko,pt}.json`
-     (703 phrases each) plus `assets/data/brand-glossary.json`.
+     (834 phrases each) plus `assets/data/brand-glossary.json`.
    - **Nine locales, chosen for who can actually buy.** `workers/checkout.js`
      allows US shipping only and there is no `hreflang` layer, so a locale is
      worth what it is worth to a US resident who does not read English
@@ -165,9 +165,9 @@ build-compiled dictionary engine.
 3. **Security and privacy**
    - `translate.google.com`, `translate.googleapis.com` and
      `translate-pa.googleapis.com` removed from `script-src`, `img-src`,
-     `style-src` and `connect-src` across `_headers`, `netlify.toml` and
-     `vercel.json` via `scripts/build-security-headers.js`. No other token
-     changed; three-way byte parity holds; no new inline-script hash.
+     `style-src` and `connect-src` across `_headers` and `netlify.toml`
+     via `scripts/build-security-headers.js`. No other token
+     changed; CSP byte parity holds; no new inline-script hash.
    - No dictionary or glossary string ever reaches `innerHTML`. Text goes
      through `node.nodeValue` / `node.textContent`; attributes through
      `setAttribute`, and only `placeholder`, `aria-label` and `title` -- never

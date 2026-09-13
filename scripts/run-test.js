@@ -3,9 +3,9 @@
  *
  * Runs the unit pool and the static QA gate and exits non-zero if EITHER
  * failed. The npm script used to be `run-unit-tests.js && qa-check.js`, so a
- * single broken unit suite meant the 700-assertion QA gate never ran at all --
- * during the 2026-09-01 audit `npm test` was red and nobody could tell whether
- * the static gate was green, because it had not executed (audit H-16).
+ * single broken unit suite meant the static QA gate (1242 assertions) never
+ * ran at all -- during the 2026-09-01 audit `npm test` was red and nobody could
+ * tell whether the static gate was green, because it had not executed (audit H-16).
  *
  * Written in Node rather than shell so it behaves the same on cmd.exe,
  * PowerShell and POSIX shells.
