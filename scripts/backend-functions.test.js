@@ -102,21 +102,9 @@ async function testWorkerModules() {
     "&lt;a href=&quot;x&quot;&gt;Test &amp; &quot;More&quot;&lt;/a&gt;",
     "httpRoute.escapeHtml escapes basic HTML chars"
   );
-  eq(
-    httpRoute.escapeHtml("Bob's"),
-    "Bob&#39;s",
-    "httpRoute.escapeHtml escapes single quotes"
-  );
-  eq(
-    httpRoute.escapeHtml(null),
-    "",
-    "httpRoute.escapeHtml handles null"
-  );
-  eq(
-    httpRoute.escapeHtml(undefined),
-    "",
-    "httpRoute.escapeHtml handles undefined"
-  );
+  eq(httpRoute.escapeHtml("Bob's"), "Bob&#39;s", "httpRoute.escapeHtml escapes single quotes");
+  eq(httpRoute.escapeHtml(null), "", "httpRoute.escapeHtml handles null");
+  eq(httpRoute.escapeHtml(undefined), "", "httpRoute.escapeHtml handles undefined");
 
   // submit-form: escapeHtml
   eq(
