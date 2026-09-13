@@ -1,27 +1,27 @@
-/* ==========================================================
-   Y'ALLTERNATIVE LIVING | welcome.html -- the single-use welcome code
-
-   WHY THIS FILE EXISTS
-   The welcome discount used to be one string in the CMS (site.welcomeCode),
-   printed on this page for every visitor, forever, with no expiry and no usage
-   cap -- a public 10%-off code behind a signup wall that checked nothing. This
-   asks the Worker for a real Stripe Promotion Code instead: minted per address,
-   `max_redemptions: 1`, `restrictions[first_time_transaction]: true`, expiring
-   in 45 days. See POST /api/welcome-code in workers/routes/retention.js.
-
-   WHY IT LOADS BEFORE main.js
-   main.js has its own block that writes site.welcomeCode into #welcomeCode and
-   unhides the card (assets/js/main.js, "Welcome page: show the subscriber
-   discount code"). Two writers for one card means a race and a flash of the
-   shared code. Deferred scripts run in document order, so this file runs first
-   and RENAMES that element's id -- main.js then finds nothing, does nothing,
-   and this file owns every state the card can be in, including falling back to
-   the CMS string when the route reports it is not configured.
-
-   That rename is the one piece of coupling here: if main.js's block is ever
-   removed, delete the rename with it (the element keeps working either way,
-   because everything below addresses it by the reference taken here).
-   ========================================================== */
+/**
+ * @fileoverview Single-use welcome promo code generator for welcome.html.
+ *
+ * WHY THIS FILE EXISTS
+ * The welcome discount used to be one string in the CMS (site.welcomeCode),
+ * printed on this page for every visitor, forever, with no expiry and no usage
+ * cap -- a public 10%-off code behind a signup wall that checked nothing. This
+ * asks the Worker for a real Stripe Promotion Code instead: minted per address,
+ * `max_redemptions: 1`, `restrictions[first_time_transaction]: true`, expiring
+ * in 45 days. See POST /api/welcome-code in workers/routes/retention.js.
+ *
+ * WHY IT LOADS BEFORE main.js
+ * main.js has its own block that writes site.welcomeCode into #welcomeCode and
+ * unhides the card (assets/js/main.js, "Welcome page: show the subscriber
+ * discount code"). Two writers for one card means a race and a flash of the
+ * shared code. Deferred scripts run in document order, so this file runs first
+ * and RENAMES that element's id -- main.js then finds nothing, does nothing,
+ * and this file owns every state the card can be in, including falling back to
+ * the CMS string when the route reports it is not configured.
+ *
+ * That rename is the one piece of coupling here: if main.js's block is ever
+ * removed, delete the rename with it (the element keeps working either way,
+ * because everything below addresses it by the reference taken here).
+ */
 (function () {
   "use strict";
 
@@ -39,6 +39,13 @@
   var ENDPOINT = "/api/welcome-code";
   var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+  /**
+   * Updates the visual and accessible status message region.
+   *
+   * @param {string} message Text message to announce to the user.
+   * @param {boolean} isError Whether the message represents an error condition.
+   * @return {void}
+   */
   function say(message, isError) {
     if (!status) return;
     status.textContent = message;
@@ -46,12 +53,23 @@
     status.setAttribute("role", isError ? "alert" : "status");
   }
 
+  /**
+   * Clears and hides the status message region.
+   *
+   * @return {void}
+   */
   function clearStatus() {
     if (!status) return;
     status.textContent = "";
     status.hidden = true;
   }
 
+  /**
+   * Displays the minted welcome promotion code and reveals the code card.
+   *
+   * @param {string} code Promotion discount code string to display.
+   * @return {void}
+   */
   function showCode(code) {
     codeEl.textContent = code;
     card.hidden = false;
@@ -62,6 +80,14 @@
     clearStatus();
   }
 
+  /**
+   * Reveals the email submission form with an optional guidance message.
+   *
+   * Falls back to static code display if the form element is absent in the DOM.
+   *
+   * @param {?string=} message Optional message to announce in the status region.
+   * @return {void}
+   */
   function showForm(message) {
     if (!form) {
       /* No form in the markup to fall back to: say where the code is coming
@@ -74,11 +100,14 @@
     if (message) say(message, false);
   }
 
-  /* The last resort, and the ONLY place the static CMS code is still used: the
-     Worker told us it has no coupon configured, so a per-person code cannot
-     exist yet. Showing the shared code here is honest -- it is the code that
-     actually works today. With no code configured either, this reveals the
-     "it's coming by email" copy, exactly as main.js used to. */
+  /**
+   * Displays the static fallback discount code or the email arrival notice.
+   *
+   * Used as a last resort when the backend worker has no welcome coupon configured
+   * or when fetch is unavailable in older browsers.
+   *
+   * @return {void}
+   */
   function showFallbackOrNothing() {
     var site = (window.YL_CONTENT && window.YL_CONTENT.site) || {};
     var fallback = site.welcomeCode;
@@ -94,6 +123,12 @@
     if (noCode) noCode.hidden = false;
   }
 
+  /**
+   * Requests the backend endpoint to mint a single-use promotion code for an email.
+   *
+   * @param {string} email Subscriber email address.
+   * @return {!Promise<{ok: boolean, body: !Object}>} Network response promise with payload.
+   */
   function request(email) {
     return fetch(ENDPOINT, {
       method: "POST",
@@ -111,6 +146,16 @@
     });
   }
 
+  /**
+   * Claims a single-use welcome code for the given email address.
+   *
+   * Updates button state, submits the mint request, renders the code on success,
+   * or displays an actionable error message on failure.
+   *
+   * @param {string} email Subscriber email address.
+   * @param {boolean} fromForm Whether the claim originated from manual form submission.
+   * @return {!Promise<void>} Async task completion promise.
+   */
   function claim(email, fromForm) {
     var button = form ? form.querySelector('button[type="submit"]') : null;
     var label = button ? button.textContent : "";
@@ -196,7 +241,7 @@
     try {
       window.history.replaceState(null, "", window.location.pathname + window.location.hash);
     } catch {
-      /* ignore */
+      /* Ignore URL manipulation failures. */
     }
   }
 

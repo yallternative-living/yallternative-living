@@ -2,8 +2,8 @@
 
 `checkout.js` is the live backend for **the entire money path**. The on-site
 cart (`assets/js/cart.js`) POSTs to it and gets back a Stripe Checkout URL, and
-four more endpoints that used to be Netlify Functions now live behind the same
-router:
+the full suite of backend endpoints (including the four that originally migrated from
+Netlify Functions) now live behind the same router:
 
 | Route                         | What it does                                                                        |
 | ----------------------------- | ----------------------------------------------------------------------------------- |
@@ -43,7 +43,7 @@ audit C-1 found it minted real, cash-like store credit for anyone who could POST
 to it, and there is no server-side points ledger for a rebuilt version to spend
 from.
 
-`auth/sveltia-auth.js` is the **CMS sign-in service** -- the permanent "Sign in
+`cms-auth/sveltia-auth.js` is the **CMS sign-in service** -- the permanent "Sign in
 with GitHub" button for the Sveltia CMS product editor at `/admin`. It replaces
 Netlify's deprecated "Git Gateway / OAuth" login, so `/admin` depends on nothing
 from Netlify. It's its own separate Worker in the top-level `cms-auth/` folder

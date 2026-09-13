@@ -1,47 +1,43 @@
-/* ==========================================================
-   Y'ALLTERNATIVE LIVING | Self-Hosted Client-Side Localization Engine
-   ----------------------------------------------------------
-   Lightweight, zero-external-dependency, cookieless translation engine.
-   Translates text nodes, data-i18n elements, placeholders, and aria-labels
-   in-place using compiled locale dictionaries and brand glossary rules.
-
-   TEMPLATES ("tpl.*" keys) -- for strings JS or the build composes with a
-   variable in the MIDDLE ("Add $25 Gift Card to Cart", "Write a review of
-   Sleep Salve"). The whole-node matcher above only ever sees the FINISHED
-   string, and no single English phrase equals every amount's or product's
-   version of it, so those strings need two extra pieces instead of one
-   dictionary entry:
-     - A "tpl.*" dictionary phrase with {name} placeholders, e.g.
-       "tpl.addGiftCard": "Add {amount} Gift Card to Cart", translated per
-       locale the same as any other phrase.
-     - Two ways to apply it, picked per call site by whether the string can
-       change again after it is first rendered:
-         (a) COMPOSITION TIME -- call the exported t(key, vars) (also
-             window.YL_T) instead of concatenating, wherever the string is
-             built. Required for anything that can be re-rendered by an
-             event handler while already on screen (the gift-card button's
-             amount changes on every keystroke) -- those sites also need to
-             re-run their own render function on the "yl-language-changed"
-             event so a language switch updates already-visible text.
-         (b) TRANSLATION TIME -- mark up the element with
-             data-i18n-tpl="tpl.someKey" (textContent) or
-             data-i18n-tpl-placeholder / -aria-label / -title (that
-             attribute), plus data-i18n-vars='{"product":"...","n":2}' (a
-             JSON object). translateNode() below fills it in with t() on
-             every pass, so it "just works" for anything rendered once and
-             left alone -- an aria-label built in a loop, a heading the
-             build wrote into static HTML -- with no JS-side language
-             awareness needed at all, including for elements the
-             MutationObserver discovers after the fact.
-   Either way the value substituted for each {name} is run back through the
-   normal phrase dictionary first (see renderTemplate()): a var that is ALSO
-   a dictionary phrase (a category name) comes back translated, one that
-   isn't (a product name, protected by the brand glossary; a dollar amount;
-   a bare count) comes back verbatim. Restoring English still restores the
-   exact original text/attribute from the same __ylOriginal* cache every
-   other path here uses, so a template key can never leave a page unable to
-   get back to its authored copy.
-   ========================================================== */
+/**
+ * @fileoverview Lightweight, zero-external-dependency, cookieless client-side localization engine.
+ *
+ * Translates text nodes, data-i18n elements, placeholders, and aria-labels in-place
+ * using compiled locale dictionaries and brand glossary rules.
+ *
+ * TEMPLATES ("tpl.*" keys):
+ * For strings JavaScript or the build composes with a variable in the middle
+ * ("Add $25 Gift Card to Cart", "Write a review of Sleep Salve"). The whole-node matcher
+ * only ever sees the finished string, and no single English phrase equals every amount's
+ * or product's version of it, so those strings need two extra pieces instead of one
+ * dictionary entry:
+ *   - A "tpl.*" dictionary phrase with {name} placeholders, e.g.
+ *     "tpl.addGiftCard": "Add {amount} Gift Card to Cart", translated per locale the
+ *     same as any other phrase.
+ *   - Two ways to apply it, picked per call site by whether the string can change again
+ *     after it is first rendered:
+ *       (a) COMPOSITION TIME -- call the exported t(key, vars) (also window.YL_T) instead
+ *           of concatenating, wherever the string is built. Required for anything that
+ *           can be re-rendered by an event handler while already on screen (the gift-card
+ *           button's amount changes on every keystroke) -- those sites also need to
+ *           re-run their own render function on the "yl-language-changed" event so a
+ *           language switch updates already-visible text.
+ *       (b) TRANSLATION TIME -- mark up the element with data-i18n-tpl="tpl.someKey"
+ *           (textContent) or data-i18n-tpl-placeholder / -aria-label / -title (that
+ *           attribute), plus data-i18n-vars='{"product":"...","n":2}' (a JSON object).
+ *           translateNode() below fills it in with t() on every pass, so it "just works"
+ *           for anything rendered once and left alone -- an aria-label built in a loop,
+ *           a heading the build wrote into static HTML -- with no JS-side language
+ *           awareness needed at all, including for elements the MutationObserver
+ *           discovers after the fact.
+ *
+ * Either way the value substituted for each {name} is run back through the normal phrase
+ * dictionary first (see renderTemplate()): a var that is ALSO a dictionary phrase (a
+ * category name) comes back translated, one that isn't (a product name, protected by the
+ * brand glossary; a dollar amount; a bare count) comes back verbatim. Restoring English
+ * still restores the exact original text/attribute from the same __ylOriginal* cache every
+ * other path here uses, so a template key can never leave a page unable to get back to its
+ * authored copy.
+ */
 /* global module, global, require */
 (function () {
   "use strict";
@@ -81,12 +77,12 @@
      language was requested -- see waitForLocales(). */
   var pendingLocalesWatch = null;
 
-  // Cached inverted dictionaries for fast O(1) text-to-key lookup
+  // Cached inverted dictionaries for fast O(1) text-to-key lookup.
   var englishPhraseToKey = null;
   var normalizedPhraseToKey = null;
   var glossaryTermsSet = null;
 
-  // Built-in hardcoded fallback list of core protected terms in case glossary is not yet loaded
+  // Built-in hardcoded fallback list of core protected terms in case glossary is not yet loaded.
   var FALLBACK_PROTECTED_TERMS = [
     "Y'allternative Living",
     "Y'allternative",
@@ -170,7 +166,9 @@
   var localeLoads = {};
 
   /**
-   * Retrieve the dictionary registry from global or the Node fallback.
+   * Retrieves the dictionary registry from window, global, or Node fallback.
+   *
+   * @return {!Object} The locales registry containing loaded language dictionaries.
    */
   function getLocales() {
     if (typeof window !== "undefined" && window.YL_LOCALES) return window.YL_LOCALES;
@@ -178,7 +176,12 @@
     return nodeRegistry;
   }
 
-  /** True when this code's phrases are in hand. */
+  /**
+   * Checks whether a specific language dictionary is loaded and populated.
+   *
+   * @param {string} code The ISO language code to check.
+   * @return {boolean} True if the dictionary phrases exist; false otherwise.
+   */
   function hasLocale(code) {
     var locales = getLocales();
     return !!(locales && locales[code] && locales[code].phrases);
@@ -190,9 +193,13 @@
   var LOCALE_FETCH_TIMEOUT_MS = 10000;
 
   /**
-   * Make sure one language's dictionary is loaded. Resolves true/false; never
-   * rejects, because every caller's answer to a failure is the same: stay in
-   * English.
+   * Ensures a language's dictionary script is loaded and registered.
+   *
+   * Resolves true/false and never rejects, because callers fall back to English on failure.
+   * Under Node.js, loads via require(); in browsers, appends a script tag.
+   *
+   * @param {string} code The ISO language code to fetch.
+   * @return {!Promise<boolean>} Promise resolving to true if loaded; false otherwise.
    */
   function ensureLocale(code) {
     if (!code || hasLocale(code)) return Promise.resolve(true);
@@ -211,7 +218,7 @@
           return Promise.resolve(true);
         }
       } catch {
-        // fall through to false
+        // Fall through to false.
       }
       return Promise.resolve(false);
     }
@@ -265,8 +272,13 @@
   }
 
   /**
-   * The English index AND the target dictionary, in parallel. English is not
-   * optional: every lookup starts by matching a node's text against en.
+   * Loads both the English index and the target language dictionary in parallel.
+   *
+   * Every translation pass starts by matching a node's text against English, so
+   * both dictionaries must be loaded before translation begins.
+   *
+   * @param {string} code The target ISO language code.
+   * @return {!Promise<boolean>} Promise resolving to true if both dictionaries loaded.
    */
   /* The unit suite substitutes a loader it can hold back, to prove the
      switch race below is handled. Null means "use the real one". */
@@ -280,7 +292,9 @@
   }
 
   /**
-   * Retrieve compiled brand glossary from global or require.
+   * Retrieves compiled brand glossary from window, global, or required module.
+   *
+   * @return {!Object} Brand glossary data containing protected terms and categories.
    */
   function getGlossary() {
     if (typeof window !== "undefined" && window.YL_BRAND_GLOSSARY) return window.YL_BRAND_GLOSSARY;
@@ -295,7 +309,12 @@
   }
 
   /**
-   * Normalize whitespace for robust string matching.
+   * Normalizes whitespace sequences in a string for resilient dictionary matching.
+   *
+   * Collapses multiple consecutive whitespace characters into a single space and trims edges.
+   *
+   * @param {?string} str The input text to normalize.
+   * @return {string} Normalized string with collapsed whitespace and trimmed edges.
    */
   function normalizeText(str) {
     if (!str || typeof str !== "string") return "";
@@ -303,7 +322,10 @@
   }
 
   /**
-   * Build lookup index mapping English text and phrases to i18n keys.
+   * Builds lookup indices mapping English text and phrases to i18n keys.
+   *
+   * Populates englishPhraseToKey, normalizedPhraseToKey, and glossaryTermsSet
+   * for fast O(1) text-to-key resolution during DOM traversal.
    */
   function buildLookupIndices() {
     englishPhraseToKey = {};
@@ -343,7 +365,12 @@
   }
 
   /**
-   * Check if a given string is a protected brand or botanical term.
+   * Checks if a given string is a protected brand or botanical term.
+   *
+   * Builds lookup indices if not already initialized and checks against the glossary term set.
+   *
+   * @param {?string} term The candidate term to check.
+   * @return {boolean} True if the term is protected; false otherwise.
    */
   function isProtectedTerm(term) {
     if (!term || typeof term !== "string") return false;
@@ -357,7 +384,14 @@
   }
 
   /**
-   * Look up translation for a specific i18n key.
+   * Looks up the translated string for a specific i18n dictionary key.
+   *
+   * Checks the target language dictionary first, falling back to English if the
+   * translation is missing or unpopulated.
+   *
+   * @param {string} key The translation dictionary key (e.g. "nav.shop").
+   * @param {string} targetLang The target ISO language code (e.g. "es", "de").
+   * @return {?string} The translated string, or null if the key is invalid or not found.
    */
   function lookupByKey(key, targetLang) {
     if (!key || typeof key !== "string") return null;
@@ -374,7 +408,15 @@
   }
 
   /**
-   * Look up translation for an English phrase string.
+   * Looks up the translated string for an authored English phrase.
+   *
+   * Verifies against protected brand and botanical glossary terms before resolving
+   * via direct dictionary key matching, inverted English phrase mapping, or target
+   * dictionary lookup.
+   *
+   * @param {string} phrase The authored English text or phrase to translate.
+   * @param {string} targetLang The target ISO language code.
+   * @return {string} The translated phrase, or the original phrase if untranslated.
    */
   function lookupPhrase(phrase, targetLang) {
     if (!phrase || typeof phrase !== "string") return phrase;
@@ -392,7 +434,7 @@
     var locales = getLocales();
     if (!locales) return phrase;
 
-    // 1. Direct dictionary key match
+    // 1. Direct dictionary key match.
     if (
       locales[targetLang] &&
       locales[targetLang].phrases &&
@@ -401,14 +443,14 @@
       return locales[targetLang].phrases[trimmed];
     }
 
-    // 2. Inverted English phrase lookup
+    // 2. Inverted English phrase lookup.
     var key = englishPhraseToKey[trimmed] || normalizedPhraseToKey[normalizeText(trimmed)];
     if (key) {
       var translated = lookupByKey(key, targetLang);
       if (translated) return translated;
     }
 
-    // 3. Fallback: check if target phrases has direct match for original phrase
+    // 3. Fallback: check if target phrases has direct match for original phrase.
     if (locales[targetLang] && locales[targetLang].phrases && locales[targetLang].phrases[phrase]) {
       return locales[targetLang].phrases[phrase];
     }
@@ -417,21 +459,18 @@
   }
 
   /**
-   * Fill {name} placeholders in a template string with `vars[name]`.
+   * Fills placeholder tokens in a template string with provided variable values.
    *
-   * Every substituted value is run back through lookupPhrase() at the same
-   * target language before it lands in the string. That is what lets one
-   * template mechanism serve both kinds of variable this dictionary needs
-   * to carry: a value that is ALSO a dictionary phrase (a category name
-   * like "Body & Skin") comes back translated, while a value that is not --
-   * a product name (protected by the brand glossary), a dollar amount, a
-   * bare count -- comes back unchanged, because lookupPhrase() has nothing
-   * to match it against. No separate "translate this var / don't translate
-   * that one" flag is needed; the dictionary already knows which is which.
+   * Replaces each `{name}` placeholder with the corresponding property from `vars`.
+   * Substituted values are passed through lookupPhrase() at the same target language
+   * before insertion. This allows values that are dictionary phrases (e.g. category
+   * names) to be localized, while protected brand terms, numbers, and counts remain
+   * verbatim. Unmatched tokens remain literal.
    *
-   * A placeholder with no matching var is left as the literal "{name}"
-   * rather than silently disappearing, so a wiring mistake is visible on
-   * the page instead of vanishing into an empty string.
+   * @param {string} str Template string containing `{name}` placeholders.
+   * @param {?Object<string, *>} vars Object mapping variable names to replacement values.
+   * @param {?string=} targetLang Optional target language code for nested phrase translation.
+   * @return {string} The interpolated and localized string.
    */
   function renderTemplate(str, vars, targetLang) {
     if (typeof str !== "string" || !str) return str;
@@ -446,17 +485,19 @@
   }
 
   /**
-   * Translate-and-fill a template dictionary key ("tpl.*") -- the
-   * composition-time half of the template mechanism described at the top of
-   * this file. Falls back to the English template when the target locale
-   * has none (including when no locale is loaded at all yet), and to the
-   * bare key when English has none either, so a bad key fails loud -- an
-   * odd "tpl.foo" showing up on the page -- rather than throwing or
-   * quietly returning nothing.
+   * Translates a template dictionary key and interpolates variables at composition time.
    *
-   * Exposed on window as YL_T so composition sites (gift-card.js, main.js)
-   * can call it directly instead of concatenating a string the whole-node
-   * matcher in translateNode() could never reach.
+   * Resolves the template phrase for `targetLang` (falling back to English), and populates
+   * `{name}` placeholders using `vars`. Falls back to the raw key if no matching template
+   * is found in the target or English dictionaries.
+   *
+   * Exposed on window as YL_T so composition sites can call it directly instead of
+   * concatenating a string that translation traversal cannot resolve.
+   *
+   * @param {string} key Template dictionary key starting with "tpl.".
+   * @param {?Object<string, *>} vars Object mapping variable names to replacement values.
+   * @param {?string=} targetLang Optional target language code (defaults to current language).
+   * @return {string} The formatted and translated string, or the key on failure.
    */
   function t(key, vars, targetLang) {
     var lang = targetLang || currentLang;
@@ -466,9 +507,13 @@
   }
 
   /**
-   * Parse an element's data-i18n-vars attribute (a JSON object literal) for
-   * use with t()/renderTemplate(). Malformed or absent JSON is treated the
-   * same as "no vars" rather than thrown.
+   * Parses the JSON variable map from an element's data-i18n-vars attribute.
+   *
+   * Handles JSON deserialization safely, returning null when the attribute is absent,
+   * empty, or contains malformed JSON syntax.
+   *
+   * @param {?Node} node The DOM node to inspect for the data-i18n-vars attribute.
+   * @return {?Object<string, *>} Parsed dictionary of variable substitutions, or null.
    */
   function parseI18nVars(node) {
     if (!node || typeof node.getAttribute !== "function") return null;
@@ -483,7 +528,13 @@
   }
 
   /**
-   * Check if an element should be skipped during translation traversal.
+   * Determines whether an element and its subtree should be skipped during translation.
+   *
+   * Skips non-element nodes, script/style/code elements, language selectors, chat widgets,
+   * elements with `translate="no"`, and elements carrying skip or brand CSS classes.
+   *
+   * @param {?Node} el The DOM node or element to inspect.
+   * @return {boolean} True if the element should be skipped; false otherwise.
    */
   function shouldSkipElement(el) {
     if (!el || el.nodeType !== 1) return false;
@@ -521,7 +572,13 @@
   }
 
   /**
-   * Check if any ancestor of a node is marked to be skipped.
+   * Checks whether a given node or any of its ancestors are marked to be skipped.
+   *
+   * Climbs the parent hierarchy up to document.body, returning true if any ancestor
+   * satisfies `shouldSkipElement()`.
+   *
+   * @param {!Node} node The DOM node to inspect.
+   * @return {boolean} True if the node or an ancestor is skipped; false otherwise.
    */
   function isInsideSkippedElement(node) {
     var curr = node.nodeType === 1 ? node : node.parentNode;
@@ -533,13 +590,13 @@
   }
 
   /**
-   * Note that one of an element's own text nodes was, or was not, replaced.
+   * Records whether a text node child of an element was translated or untranslated.
    *
-   * Language marking is per-element and not per-text-node because `lang` is an
-   * HTML attribute and text nodes cannot carry one. Protected terms (brand
-   * names, INCI botanicals) are counted as NEITHER: they are proper nouns that
-   * read the same in every locale, so letting them count as a miss would stop
-   * a fully translated heading from being marked.
+   * Language marking is per-element because `lang` is an HTML attribute and text nodes
+   * cannot carry one. Protected terms are ignored to prevent false misses on proper nouns.
+   *
+   * @param {?Node} el The parent DOM element.
+   * @param {boolean} wasTranslated True if the child text node was translated.
    */
   function noteLang(el, wasTranslated) {
     if (!el || el.nodeType !== 1 || !langHits || !langMisses) return;
@@ -548,7 +605,10 @@
   }
 
   /**
-   * Stamp a lang attribute on an element, remembering what was there before.
+   * Stamps a lang attribute on an element, remembering previous state for restoration.
+   *
+   * @param {!Element} el The target DOM element.
+   * @param {string} langCode The ISO language code to stamp.
    */
   function markLang(el, langCode) {
     if (!el || typeof el.setAttribute !== "function") return;
@@ -563,7 +623,7 @@
   }
 
   /**
-   * Undo every lang attribute this engine has stamped.
+   * Restores original lang attributes and clears engine stamps from all marked elements.
    */
   function clearLangMarks() {
     for (var i = 0; i < langMarkedElements.length; i++) {
@@ -581,31 +641,14 @@
   }
 
   /**
-   * Mark the elements this pass actually translated -- and only those.
+   * Stamps lang attributes on elements whose text nodes were completely translated.
    *
-   * WHY THIS IS NOT `<html lang="es">`. The obvious implementation sets the
-   * language on the document element. That is only honest when the document is
-   * in that language. Dictionary coverage here is 10-20% of the text nodes on
-   * a page (audit 2026-09-02 S3), so `<html lang="es">` told every screen
-   * reader to apply Spanish phonetics to the 80-90% of the page that is still
-   * English -- WCAG 2.1 SC 3.1.1 Language of Page, Level A, and strictly worse
-   * for a blind visitor than leaving the document in English. So the document
-   * stays `lang="en"` and the mark goes on the elements whose text was
-   * genuinely replaced. Raise coverage and this scales with it for free; if it
-   * ever reaches the whole page, revisit the document-level attribute then.
+   * Avoids stamping `lang` on documentElement when dictionary coverage is partial,
+   * preventing screen readers from mispronouncing English text in a foreign voice.
+   * Stamps `lang="en"` on untranslated descendants of marked elements to prevent
+   * incorrect inheritance.
    *
-   * Two rules:
-   *   - An element is marked only when EVERY one of its own text nodes was
-   *     replaced. Mixed English/Spanish inside one element cannot be described
-   *     by a single attribute, so it is left alone rather than described
-   *     wrongly.
-   *   - An element still holding English text underneath something we just
-   *     marked is stamped `lang="en"`, because it would otherwise inherit the
-   *     new language from that ancestor.
-   *
-   * Attributes are deliberately out of scope: a translated aria-label on an
-   * element whose text is English has no per-attribute language in HTML, and
-   * marking the element for it would mispronounce the text.
+   * @param {string} targetLang The target ISO language code in effect.
    */
   function applyLangMarks(targetLang) {
     if (!langHits || !langMisses || targetLang === "en") return;
@@ -626,12 +669,20 @@
   }
 
   /**
-   * Translate a single node (text node or element attributes/data-i18n).
+   * Translates a single DOM node (text node or element attributes/data-i18n) in-place.
+   *
+   * For text nodes, preserves leading/trailing whitespace, checks protected glossary
+   * terms, restores English or applies translated phrase, and records hit/miss stats.
+   * For element nodes, handles `data-i18n`, `data-i18n-tpl` templates, and translatable
+   * attributes (`placeholder`, `aria-label`, `title`).
+   *
+   * @param {!Node} node The DOM text node or element node to translate.
+   * @param {string} targetLang The target ISO language code (e.g. "en", "es").
    */
   function translateNode(node, targetLang) {
     if (!node) return;
 
-    // Handle Text Nodes
+    // Handle text nodes.
     if (
       node.nodeType === 3 ||
       node.nodeType === (typeof Node !== "undefined" ? Node.TEXT_NODE : 3)
@@ -684,14 +735,14 @@
       return;
     }
 
-    // Handle Element Nodes
+    // Handle element nodes.
     if (
       node.nodeType === 1 ||
       node.nodeType === (typeof Node !== "undefined" ? Node.ELEMENT_NODE : 1)
     ) {
       if (shouldSkipElement(node)) return;
 
-      // 1. data-i18n explicit key translation
+      // 1. Explicit data-i18n key translation.
       if (typeof node.hasAttribute === "function" && node.hasAttribute("data-i18n")) {
         var key = node.getAttribute("data-i18n");
         if (node.__ylOriginalText === undefined) {
@@ -758,7 +809,7 @@
         }
       }
 
-      // 2. Placeholder attribute
+      // 2. Placeholder attribute.
       var hasPlaceholder =
         typeof node.hasAttribute === "function"
           ? node.hasAttribute("placeholder")
@@ -801,7 +852,7 @@
         }
       }
 
-      // 3. Aria-label attribute
+      // 3. Aria-label attribute.
       if (typeof node.hasAttribute === "function" && node.hasAttribute("aria-label")) {
         if (node.__ylOriginalAriaLabel === undefined) {
           node.__ylOriginalAriaLabel = node.getAttribute("aria-label") || "";
@@ -824,7 +875,7 @@
         }
       }
 
-      // 4. Title attribute
+      // 4. Title attribute.
       if (typeof node.hasAttribute === "function" && node.hasAttribute("title")) {
         if (node.__ylOriginalTitle === undefined) {
           node.__ylOriginalTitle = node.getAttribute("title") || "";
@@ -850,7 +901,13 @@
   }
 
   /**
-   * Recursively walk and translate all child nodes of an element.
+   * Recursively walks and translates all child nodes of a DOM element.
+   *
+   * Evaluates each node with `translateNode()` and recursively steps through child nodes,
+   * bypassing subtrees marked to be skipped.
+   *
+   * @param {!Node} node The root DOM node whose children should be traversed.
+   * @param {string} targetLang The target ISO language code.
    */
   function walkChildren(node, targetLang) {
     if (!node) return;
@@ -870,7 +927,14 @@
   }
 
   /**
-   * Translate an entire DOM subtree rooted at rootEl.
+   * Translates an entire DOM subtree rooted at the specified element.
+   *
+   * Resets language hit/miss bookkeeping maps, updates the document title when translating
+   * the root document, traverses child nodes using `TreeWalker` where available (falling
+   * back to `walkChildren()`), and applies localized language attributes via `applyLangMarks()`.
+   *
+   * @param {!Node} rootEl The root DOM element or document to translate.
+   * @param {string} targetLang The target ISO language code.
    */
   function translateTree(rootEl, targetLang) {
     if (!rootEl) return;
@@ -881,7 +945,7 @@
     langHits = typeof Map === "function" ? new Map() : null;
     langMisses = typeof Map === "function" ? new Map() : null;
 
-    // Check if translating root document
+    // Check if translating root document.
     if (
       typeof document !== "undefined" &&
       (rootEl === document || rootEl === document.body || rootEl === document.documentElement)
@@ -901,7 +965,7 @@
       }
     }
 
-    // Fast TreeWalker traversal where available
+    // Fast TreeWalker traversal where available.
     if (
       typeof document !== "undefined" &&
       typeof document.createTreeWalker === "function" &&
@@ -936,7 +1000,10 @@
   }
 
   /**
-   * Set up MutationObserver to automatically translate dynamically added elements.
+   * Sets up a MutationObserver to automatically translate dynamically added elements.
+   *
+   * Observes childList and subtree mutations on document.body, translating newly added
+   * elements whenever the active language is not English.
    */
   function initMutationObserver() {
     if (
@@ -983,7 +1050,10 @@
   }
 
   /**
-   * Human-readable name for a language code, for accessible names.
+   * Returns the human-readable display name for an ISO language code.
+   *
+   * @param {string} code The ISO language code (e.g. "en", "es").
+   * @return {string} Human-readable language name (e.g. "English", "Español").
    */
   function languageName(code) {
     for (var i = 0; i < LANGUAGES.length; i++) {
@@ -993,20 +1063,19 @@
   }
 
   /**
-   * The toggle button's accessible name.
+   * Generates the accessible ARIA label for the language toggle button.
    *
-   * It used to be the bare "Select language", which OVERRODE the visible "EN"
-   * badge -- so a screen-reader user could operate the control but could not
-   * tell which language was active, the one piece of state the button exists
-   * to show (audit 2026-09-02 S4). Naming the current language fixes that
-   * without changing the visible chrome.
+   * @param {string} code The active ISO language code.
+   * @return {string} Accessible label describing the button and current language.
    */
   function toggleLabelFor(code) {
     return "Select language, current language " + languageName(code);
   }
 
   /**
-   * Update active CSS class and ARIA states in language dropdown.
+   * Updates active CSS class and ARIA states in the language dropdown selector.
+   *
+   * @param {string} langCode The active ISO language code.
    */
   function updateUIState(langCode) {
     if (typeof document === "undefined") return;
@@ -1037,7 +1106,15 @@
   }
 
   /**
-   * Master language switcher function.
+   * Switches the active language across the page and translates DOM content in-place.
+   *
+   * Validates the requested language, ensures dictionary scripts are loaded, guards
+   * against concurrent switch races, updates navigation UI states, re-translates the
+   * document tree, and dispatches the "yl-language-changed" custom event.
+   *
+   * @param {string} langCode The target ISO language code (e.g. "es", "de").
+   * @param {?Object=} options Optional configuration options (e.g. `{persist: false}`).
+   * @return {!Promise<string>} Promise resolving to the active language code in effect.
    */
   async function setLanguage(langCode, options) {
     var valid = LANGUAGES.some(function (l) {
@@ -1102,14 +1179,14 @@
           localStorage.setItem("yl-lang", target);
         }
       } catch {
-        // ignore storage quota / security errors
+        // Ignore storage quota or security errors.
       }
     }
 
-    // Update UI controls
+    // Update UI controls.
     updateUIState(target);
 
-    // Perform DOM in-place translation
+    // Perform DOM in-place translation.
     isTranslating = true;
     try {
       /* Marks from the previous language are meaningless under the new one:
@@ -1123,7 +1200,7 @@
       isTranslating = false;
     }
 
-    // Dispatch custom event for external subscribers
+    // Dispatch custom event for external subscribers.
     if (typeof document !== "undefined" && typeof document.dispatchEvent === "function") {
       var event;
       if (typeof CustomEvent === "function") {
@@ -1144,7 +1221,7 @@
       }
     }
 
-    // Analytics event
+    // Analytics event.
     if (
       typeof window !== "undefined" &&
       typeof window.plausible === "function" &&
@@ -1157,7 +1234,10 @@
   }
 
   /**
-   * Inject accessible language switcher into header navigation.
+   * Injects the accessible language switcher into the header navigation.
+   *
+   * Constructs the toggle button, options dropdown listbox, and wires full keyboard
+   * navigation (ArrowDown, ArrowUp, Home, End, Escape, Enter, Space).
    */
   function initUI() {
     if (typeof document === "undefined") return;
@@ -1168,7 +1248,7 @@
     wrap.className = "lang-selector-wrap notranslate";
     wrap.id = "langSelectorWrap";
 
-    // Toggle button
+    // Toggle button.
     var toggleBtn = document.createElement("button");
     toggleBtn.className = "lang-toggle";
     toggleBtn.type = "button";
@@ -1181,7 +1261,7 @@
     toggleBtn.innerHTML =
       globeSVG + '<span class="lang-current-code">' + currentLang.toUpperCase() + "</span>";
 
-    // Dropdown list
+    // Dropdown list.
     var dropdown = document.createElement("div");
     dropdown.className = "lang-dropdown";
     dropdown.id = "langDropdown";
@@ -1214,7 +1294,7 @@
     wrap.appendChild(toggleBtn);
     wrap.appendChild(dropdown);
 
-    // Insert before theme toggle if present, otherwise append
+    // Insert before theme toggle if present, otherwise append.
     var themeToggle = document.getElementById("themeToggle");
     if (themeToggle && themeToggle.parentNode === navCta) {
       navCta.insertBefore(wrap, themeToggle);
@@ -1222,7 +1302,7 @@
       navCta.appendChild(wrap);
     }
 
-    // Toggle dropdown open/close on click
+    // Toggle dropdown open/close on click.
     toggleBtn.addEventListener("click", function (e) {
       e.stopPropagation();
       var open = dropdown.classList.toggle("open");
@@ -1235,7 +1315,7 @@
       }
     });
 
-    // Toggle button keyboard navigation (Enter, Space, ArrowDown, ArrowUp)
+    // Toggle button keyboard navigation (Enter, Space, ArrowDown, ArrowUp).
     toggleBtn.addEventListener("keydown", function (e) {
       if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
         e.preventDefault();
@@ -1256,7 +1336,7 @@
       }
     });
 
-    // Dropdown list keyboard navigation
+    // Dropdown list keyboard navigation.
     dropdown.addEventListener("keydown", function (e) {
       var currentFocus = document.activeElement;
       var currentIndex = optionButtons.indexOf(currentFocus);
@@ -1286,7 +1366,7 @@
       }
     });
 
-    // Close dropdown on outside click
+    // Close dropdown on outside click.
     document.addEventListener("click", function (e) {
       if (!wrap.contains(e.target)) {
         dropdown.classList.remove("open");
@@ -1296,11 +1376,7 @@
   }
 
   /**
-   * Determine initial language preference from URL param or localStorage.
-   */
-  /**
-   * The best dictionary we have for the browser's own language preference,
-   * or null.
+   * Detects the best matching language dictionary from the browser's language preferences.
    *
    * `navigator.languages` is an ORDERED list -- ["es-MX", "en-US"] means this
    * reader prefers Spanish and will accept English -- so the first entry with
@@ -1313,6 +1389,8 @@
    * The one imperfect case is zh-TW / zh-HK, whose readers get the Simplified
    * dictionary -- closer to their language than English is, and the shop has
    * no Traditional dictionary to offer them.
+   *
+   * @return {?string} The matched ISO language code, or null if none matched.
    */
   function detectBrowserLanguage() {
     var tags = [];
@@ -1341,14 +1419,25 @@
     return null;
   }
 
+  /**
+   * Determines the initial language code for the page session.
+   *
+   * Resolves language via `getInitialLanguageSource()`, returning the resolved code.
+   *
+   * @return {string} The resolved ISO language code.
+   */
   function getInitialLanguage() {
     return getInitialLanguageSource().lang;
   }
 
   /**
-   * The initial language AND where it came from: "url", "stored", "browser"
-   * or "default". init() needs the source, because a detected language must
-   * not be written to storage the way a chosen one is.
+   * Resolves the initial language code along with its origin source.
+   *
+   * Determines the language and whether it was specified via "url", "stored",
+   * "browser", or "default". A detected language must not be written to storage
+   * the way an explicitly chosen one is.
+   *
+   * @return {{lang: string, source: string}} Object containing resolved language and source.
    */
   function getInitialLanguageSource() {
     var langFromUrl = null;
@@ -1357,7 +1446,7 @@
         var params = new URLSearchParams(window.location.search);
         langFromUrl = params.get("lang");
       } catch {
-        // ignore malformed query params
+        // Ignore malformed query params.
       }
     }
 
@@ -1376,7 +1465,7 @@
         saved = localStorage.getItem("yl-lang");
       }
     } catch {
-      // ignore
+      // Ignore storage read errors.
     }
 
     if (
@@ -1409,7 +1498,7 @@
   }
 
   /**
-   * Are the compiled dictionaries actually here?
+   * Checks whether the compiled dictionaries are loaded and ready for translation.
    *
    * getLocales() answers {} rather than throwing when locales-data.js has not
    * executed yet, so "we have a locales object" is not the same question as
@@ -1418,7 +1507,7 @@
    * translate them into. buildLookupIndices() over an empty object produces
    * empty indices and every lookup then silently returns its input.
    *
-   * @return {boolean}
+   * @return {boolean} True if dictionaries are loaded and ready; false otherwise.
    */
   function localesReady() {
     var locales = getLocales();
@@ -1471,9 +1560,11 @@
   }
 
   /**
-   * Initialize localization engine and UI.
+   * Initializes the localization engine, UI selector, and DOM observers.
    *
    * Safe to call more than once -- see waitForLocales().
+   *
+   * @return {!Promise<void>} Promise resolving when initial translation pass completes.
    */
   async function init() {
     buildLookupIndices();
@@ -1520,7 +1611,7 @@
     }
   }
 
-  // Public Translation API
+  // Public Translation API.
   var YL_TRANSLATOR = {
     LANGUAGES: LANGUAGES,
     getCurrentLanguage: function () {
@@ -1558,7 +1649,7 @@
         try {
           clearTimeout(pendingLocalesWatch);
         } catch {
-          // ignore
+          // Ignore timer clear errors.
         }
         pendingLocalesWatch = null;
       }
@@ -1569,14 +1660,14 @@
         try {
           observer.disconnect();
         } catch {
-          // ignore
+          // Ignore observer disconnect errors.
         }
         observer = null;
       }
     }
   };
 
-  // Attach to window object
+  // Attach to window object.
   if (typeof window !== "undefined") {
     window.YL_TRANSLATOR = YL_TRANSLATOR;
     /* Composition-time half of the template mechanism (see file header):
@@ -1587,7 +1678,7 @@
     window.YL_T = t;
   }
 
-  // Support CommonJS exports for unit testing
+  // Support CommonJS exports for unit testing.
   if (typeof module !== "undefined" && module.exports) {
     module.exports = YL_TRANSLATOR;
   }

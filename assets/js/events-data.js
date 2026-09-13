@@ -7,17 +7,6 @@
 window.YL_EVENTS = {
   "upcoming": [
     {
-      "id": "mrb-renaissance-festival-2026-09-12",
-      "date": "2026-09-12",
-      "dateLabel": "September 12, 2026 · Saturday, 11:30am–11pm",
-      "name": "MRB Renaissance Festival",
-      "type": "Festival",
-      "location": "Mills River, NC",
-      "zip": "28759",
-      "url": "https://www.millsriverbrewingco.com/events/mountain-mayhem-renaissance-festival",
-      "note": "Mills River Brewing Co, 336 Banner Farm Rd, Mills River, NC 28759. Free family-friendly renaissance festival with medieval combat, live music & 40+ vendors."
-    },
-    {
       "id": "saturday-night-lights-2026-09-19",
       "date": "2026-09-19",
       "dateLabel": "September 19, 2026 · Saturday, 4pm–9pm",
@@ -52,6 +41,17 @@ window.YL_EVENTS = {
     }
   ],
   "past": [
+    {
+      "id": "mrb-renaissance-festival-2026-09-12",
+      "date": "2026-09-12",
+      "dateLabel": "September 12, 2026 · Saturday, 11:30am–11pm",
+      "name": "MRB Renaissance Festival",
+      "type": "Festival",
+      "location": "Mills River, NC",
+      "zip": "28759",
+      "url": "https://www.millsriverbrewingco.com/events/mountain-mayhem-renaissance-festival",
+      "note": "Mills River Brewing Co, 336 Banner Farm Rd, Mills River, NC 28759. Free family-friendly renaissance festival with medieval combat, live music & 40+ vendors."
+    },
     {
       "id": "boomtown-arts-heritage-avl-fest-2026-09-05",
       "date": "2026-09-05",

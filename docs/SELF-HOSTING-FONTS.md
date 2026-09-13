@@ -1,14 +1,6 @@
-# Self-hosting the fonts (Gloock + DM Sans)
+# Self-hosting the fonts (Reference Guide)
 
-Right now the site loads Gloock and DM Sans from Google Fonts. That works and is
-already loaded non-render-blocking, but self-hosting is a small upgrade: no
-third-party origin on the critical path, one fewer DNS+TLS handshake, tighter
-CSP, and — with font-metric overrides — near-zero layout shift when the font
-swaps in.
-
-This is **not applied yet** because the WOFF2 binaries have to be fetched from
-your machine (they can't be pulled into this workspace). It's one command plus a
-few edits.
+> **Note**: Self-hosting is fully active sitewide using **Fraunces** (display serif) and **Figtree** (humanist sans) vendored in `assets/fonts/` (see `docs/DEVELOPMENT.md` §3 and §15). Google Fonts is completely removed from the runtime path. This document is preserved as the reference guide on font self-hosting principles, metric-matched fallback overrides, and layout stability.
 
 ## 1. Download the fonts
 

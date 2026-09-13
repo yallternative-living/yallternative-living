@@ -263,6 +263,7 @@ async function executeCheckout(body, options = {}) {
      Anything past the end of the list, and the default, is true. */
   const expireResults = Array.isArray(options.expireResults) ? options.expireResults.slice() : [];
   const promoLookups = [];
+  const taxSettingsProbes = [];
 
   const env = options.env
     ? { ...(await makeLedgerEnv(options.cards)), ...options.env }
@@ -288,6 +289,10 @@ async function executeCheckout(body, options = {}) {
         clone: () => ({ body: null }),
         json: async () => ({ site: options.site })
       };
+    }
+    if (u.includes("api.stripe.com/v1/tax/settings")) {
+      taxSettingsProbes.push(u);
+      return { ok: true, status: 200, json: async () => ({ status: "active" }) };
     }
     if (u.includes("api.stripe.com/v1/promotion_codes")) {
       /* Recorded, and answered ONLY from `options.promoCodes` -- the promo
@@ -400,6 +405,7 @@ async function executeCheckout(body, options = {}) {
       couponMints,
       expiredSessions,
       promoLookups,
+      taxSettingsProbes,
       env
     };
   } finally {
@@ -2547,6 +2553,39 @@ async function runWorkerCheckoutTests() {
       [["last-three-balm", 2, "released"]],
       "...and the inventory hold taken for that session is released at once, not in 31 minutes"
     );
+  }
+
+  /* ======================================================================
+     Test 22: Cache read error fall-through
+     If hit.json() throws, it should fall through and query Stripe.
+     ====================================================================== */
+  {
+    const originalCaches = global.caches;
+    global.caches = {
+      default: {
+        match: async (req) => {
+          if (req.url && req.url.includes("tax-status")) {
+            return {
+              json: async () => {
+                throw new Error("cache unreadable");
+              }
+            };
+          }
+          return null; // For loadCatalog / loadEvents, let it fetch normally
+        },
+        put: async () => {} // the Worker caches the result of the new probe
+      }
+    };
+    try {
+      const result = await executeCheckout(
+        { items: [{ id: "lavender-soak", qty: 1 }] },
+        { env: { STRIPE_TAX_ENABLED: "auto" } }
+      );
+      eq(result.status, 200, "checkout succeeds even if cache.match result throws on .json()");
+      eq(result.taxSettingsProbes.length, 1, "cache read error falls through to probe Stripe");
+    } finally {
+      global.caches = originalCaches;
+    }
   }
 
   console.log(`\nworker-checkout.test.js: ${passed} passed, ${failed} failed`);

@@ -79,12 +79,12 @@ Here is a quick checklist of the external accounts you'll need to set up for lau
     gates: `verify-pdp-metadata.js` (797 assertions on every product page's
     OpenGraph and microdata) and `verify-build-reproducibility.js` (five
     rebuilds, zero diffs). It then runs the static QA gate,
-    `scripts/qa-check.js`, and its 1208 assertions: links, images, JSON-LD,
+    `scripts/qa-check.js`, and its 1242 assertions: links, images, JSON-LD,
     the per-post journal pages (`journal/<slug>.html`),
     pricing, CSP byte-parity across `_headers` and `netlify.toml`,
     and lockfile hygiene. Both halves always run, and the exit code reflects
     either failing.
-  - `npm run test:integration` runs the browser pool: 22
+  - `npm run test:integration` runs the browser pool: 23
     `scripts/*.browser.test.js` suites (the challengers, the minified-build
     proof, the promo-code drawer and the order-history page) and the Puppeteer
     integration harnesses (29 total integration suites), an XSS/CSP stress harness that first proves the

@@ -1,3 +1,11 @@
+/**
+ * @fileoverview Digital gift card purchase and live balance lookup widget.
+ *
+ * Handles preset and custom gift card amount selection, recipient/sender details,
+ * translation synchronization for button labels, and live balance inquiries against
+ * the Cloudflare Worker endpoint (/api/gift-card-balance). Allows immediate application
+ * of checked balances directly into the active cart drawer.
+ */
 (function () {
   "use strict";
 
@@ -5,27 +13,33 @@
      Netlify function that used to serve this answers 410 now. */
   var BALANCE_URL = "/api/gift-card-balance";
 
-  /* "$25" for whole dollars, "$12.34" only when there are cents -- the same
-     rule as YLCart.money() and main.js formatMoney(). Kept local because
-     the unit harness runs this file without the cart. */
+  /**
+   * Formats a numeric dollar amount into a standard currency string.
+   *
+   * Produces "$25" for whole dollar amounts and "$12.34" when cents are present,
+   * mirroring YLCart.money() and main.js formatMoney(). Kept local because
+   * the unit harness runs this file without the cart.
+   *
+   * @param {number|string} n Amount in dollars or convertible numeric value.
+   * @return {string} Formatted monetary string.
+   */
   function money(n) {
     var cents = Math.round((Number(n) || 0) * 100);
     return cents % 100 === 0 ? "$" + cents / 100 : "$" + (cents / 100).toFixed(2);
   }
 
-  /* Cards are issued as YALL-XXXX-XXXX-XXXX -- twelve characters over an
-     A-Z2-9 alphabet with the ambiguous letters dropped. Shoppers type them in
-     lowercase and paste them with the dashes eaten by their mail client, and
-     an unnormalised code turns a valid card into a 404 nobody can explain.
-
-     A body of any other length keeps its single dash instead of being
-     regrouped into fours: the legacy 8-character cards (YALL-XXXXXXXX) still
-     spend, and inventing dash positions for them would break a real code.
-
-     cart.js owns the canonical copy of this (YLCart.normalizeGiftCardCode)
-     and scripts/cart-engine.test.js asserts the two agree character for
-     character; it is duplicated rather than borrowed so the balance checker
-     still works on a page that does not load the cart. */
+  /**
+   * Normalizes a gift card code into standard hyphenated uppercase format.
+   *
+   * Cards are issued as YALL-XXXX-XXXX-XXXX -- twelve characters over an
+   * A-Z2-9 alphabet with the ambiguous letters dropped. Shoppers type them in
+   * lowercase and paste them with the dashes eaten by their mail client, and
+   * an unnormalised code turns a valid card into a 404 nobody can explain.
+   * Legacy 8-character cards (YALL-XXXXXXXX) keep their single dash.
+   *
+   * @param {?string} code Raw user-entered gift card code string.
+   * @return {string} Normalized uppercase gift card code.
+   */
   function normalizeGiftCardCode(code) {
     var raw = String(code == null ? "" : code)
       .toUpperCase()
@@ -222,9 +236,16 @@
     });
   }
 
-  /* The endpoint answers with an HTML error page or an empty body at least as
-     often as it answers JSON, and res.json() rejects on both. Never let that
-     rejection stand in for the real failure. */
+  /**
+   * Safely parses a Fetch Response body as JSON without throwing.
+   *
+   * The endpoint answers with an HTML error page or an empty body at least as
+   * often as it answers JSON, and res.json() rejects on both. Never let that
+   * rejection stand in for the real failure.
+   *
+   * @param {?Response} res Fetch response object to parse.
+   * @return {!Promise<?Object>} Promise resolving to parsed JSON data or null.
+   */
   function readJson(res) {
     if (!res || typeof res.json !== "function") return Promise.resolve(null);
     var parsed;
@@ -243,8 +264,15 @@
     );
   }
 
-  /* Every message that reaches this box is server-supplied or shopper-typed:
-     escape it on the way in, once, here. */
+  /**
+   * Constructs an HTML markup string for an error alert box.
+   *
+   * Every message that reaches this box is server-supplied or shopper-typed:
+   * escape it on the way in, once, here.
+   *
+   * @param {string} msg Raw error message text to escape and display.
+   * @return {string} HTML markup string representing the error box.
+   */
   function errorBox(msg) {
     return (
       '<div style="background: rgba(230, 101, 80, 0.1); border: 1px solid rgba(230, 101, 80, 0.3); border-radius: var(--radius); padding: 14px; margin-top: 12px; text-align: center;">' +
@@ -255,6 +283,12 @@
     );
   }
 
+  /**
+   * Escapes unsafe HTML characters in a string to prevent XSS.
+   *
+   * @param {?string} str String containing potential markup characters.
+   * @return {string} HTML-escaped safe string.
+   */
   function escapeHtml(str) {
     return String(str || "")
       .replace(/&/g, "&amp;")
@@ -279,6 +313,12 @@
      newly selected language without needing the amount passed back in. */
   var lastGiftAmount = 25;
 
+  /**
+   * Computes localized label text for the gift card add-to-cart button.
+   *
+   * @param {number} amount Dollar amount selected for the gift card.
+   * @return {string} Localized button label text.
+   */
   function giftButtonText(amount) {
     if (typeof window !== "undefined" && typeof window.YL_T === "function") {
       return window.YL_T("tpl.addGiftCard", { amount: "$" + amount });
@@ -286,6 +326,12 @@
     return "Add $" + amount + " Gift Card to Cart";
   }
 
+  /**
+   * Updates the button label text for the add-to-cart gift card button.
+   *
+   * @param {number} amount Dollar amount selected for the gift card.
+   * @return {void}
+   */
   function renderGiftButtonText(amount) {
     lastGiftAmount = amount;
     var btnTextEl = document.getElementById("addGiftCardBtnText");
@@ -327,6 +373,15 @@
     renderGiftButtonText(isNaN(initialAmount) ? 25 : initialAmount);
   })();
 
+  /**
+   * Clamps and updates the selected gift card denomination across UI elements.
+   *
+   * Constrains the amount between $10 and $500, updates display elements,
+   * sets the custom cart attribute, and updates button text.
+   *
+   * @param {number} amount Requested gift card dollar amount.
+   * @return {void}
+   */
   function updateGiftCardAmount(amount) {
     var finalAmount = amount;
     if (finalAmount < 10) finalAmount = 10;
@@ -363,6 +418,14 @@
 
   if (customGiftAmount) {
     var amountNote = document.getElementById("customGiftAmountNote");
+
+    /**
+     * Updates helper text describing custom gift card denomination constraints.
+     *
+     * @param {string} raw Raw value typed into input.
+     * @param {number} clamped Value clamped to allowed limits ($10 to $500).
+     * @return {void}
+     */
     function noteAmount(raw, clamped) {
       if (!amountNote) return;
       var typed = Number(raw);

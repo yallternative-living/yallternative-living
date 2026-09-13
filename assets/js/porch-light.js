@@ -1,54 +1,53 @@
-/* ==========================================================
-   Y'ALLTERNATIVE LIVING | analytics loader
-   ==========================================================
-
-   WHAT THIS IS
-   The page no longer carries the analytics tracker tag directly. It carries a
-   tag pointing HERE, with the same data-* attributes, and this file decides
-   which of two copies of the tracker to inject. Exactly one is ever loaded.
-
-     1. DIRECT, first:  https://cloud.umami.is/script.js, with NO
-        data-host-url, so it posts straight to gateway.umami.is.
-     2. FIRST-PARTY, only if the direct copy fails:
-        /porch-light/script.js with data-host-url="/porch-light", proxied to
-        Umami by the status=200 rules in netlify.toml / vercel.json.
-
-   WHY BOTH, INSTEAD OF JUST THE PROXY
-   The proxy defeats hostname-matching blockers, which is worth having: without
-   it, a blocked visitor produces no rows at all. But it is not free. Umami
-   builds its session id from the IP of whatever opened the connection, and
-   geolocates the same address -- which through a Netlify proxy is Netlify's
-   edge, not the shopper (src/lib/ip.ts ranks cf-connecting-ip above
-   x-nf-client-connection-ip, and Cloudflare sets cf-connecting-ip to its own
-   peer; confirmed empirically on 2026-09-02, when a send carrying
-   payload.ip=1.1.1.1 was still recorded against the CONNECTING request's
-   country). So proxying everybody would have traded correct visitor counts and
-   correct geography, for everybody, to recover the blocked minority.
-
-   Direct-first pays that cost only for the visitors who would otherwise not be
-   counted at all. Everyone else is measured exactly as before this file
-   existed. See docs/ANALYTICS.md §0 and §7.
-
-   HOW THE FALLBACK IS DETECTED
-   A <script> element fires `error` when the request is refused OR fails to
-   resolve. Both of the cases that matter here do that: a content blocker
-   cancels the request, and a filtering DNS resolver fails it. Neither produces
-   a `load`, so one `error` handler covers both without a timer.
-
-   WHY IT IS AN EXTERNAL FILE
-   Every inline script on this site is pinned by a CSP hash
-   (scripts/inline-script-hashes.json). An inline loader would mean a hash
-   baseline update on every page for every edit to this logic. External costs
-   one cached request and keeps the baseline untouched.
-
-   WHAT IT DOES NOT DO
-   It does not implement any tracking of its own, it never sends anything, and
-   it does not touch the payload. Scrubbing, the prerender rule and the event
-   buffer all live in assets/js/main.js (window.ylAnalyticsBeforeSend), named
-   by data-before-send, and work identically for whichever copy lands --
-   Umami resolves that name on window at send time, and main.js's buffer polls
-   for window.umami rather than assuming it is already there.
-   ========================================================== */
+/**
+ * @fileoverview Resilient analytics script loader with automatic fallback proxying.
+ *
+ * WHAT THIS IS:
+ * The page no longer carries the analytics tracker tag directly. It carries a
+ * tag pointing HERE, with the same data-* attributes, and this file decides
+ * which of two copies of the tracker to inject. Exactly one is ever loaded.
+ *
+ *   1. DIRECT, first: https://cloud.umami.is/script.js, with NO data-host-url,
+ *      so it posts straight to gateway.umami.is.
+ *   2. FIRST-PARTY, only if the direct copy fails: /porch-light/script.js with
+ *      data-host-url="/porch-light", proxied to Umami by the status=200 rules
+ *      in netlify.toml.
+ *
+ * WHY BOTH, INSTEAD OF JUST THE PROXY:
+ * The proxy defeats hostname-matching blockers, which is worth having: without
+ * it, a blocked visitor produces no rows at all. But it is not free. Umami
+ * builds its session id from the IP of whatever opened the connection, and
+ * geolocates the same address -- which through a Netlify proxy is Netlify's
+ * edge, not the shopper (src/lib/ip.ts ranks cf-connecting-ip above
+ * x-nf-client-connection-ip, and Cloudflare sets cf-connecting-ip to its own
+ * peer; confirmed empirically on 2026-09-02, when a send carrying
+ * payload.ip=1.1.1.1 was still recorded against the CONNECTING request's
+ * country). So proxying everybody would have traded correct visitor counts and
+ * correct geography, for everybody, to recover the blocked minority.
+ *
+ * Direct-first pays that cost only for the visitors who would otherwise not be
+ * counted at all. Everyone else is measured exactly as before this file
+ * existed. See docs/ANALYTICS.md §0 and §7.
+ *
+ * HOW THE FALLBACK IS DETECTED:
+ * A <script> element fires `error` when the request is refused OR fails to
+ * resolve. Both of the cases that matter here do that: a content blocker
+ * cancels the request, and a filtering DNS resolver fails it. Neither produces
+ * a `load`, so one `error` handler covers both without a timer.
+ *
+ * WHY IT IS AN EXTERNAL FILE:
+ * Every inline script on this site is pinned by a CSP hash
+ * (scripts/inline-script-hashes.json). An inline loader would mean a hash
+ * baseline update on every page for every edit to this logic. External costs
+ * one cached request and keeps the baseline untouched.
+ *
+ * WHAT IT DOES NOT DO:
+ * It does not implement any tracking of its own, it never sends anything, and
+ * it does not touch the payload. Scrubbing, the prerender rule and the event
+ * buffer all live in assets/js/main.js (window.ylAnalyticsBeforeSend), named
+ * by data-before-send, and work identically for whichever copy lands --
+ * Umami resolves that name on window at send time, and main.js's buffer polls
+ * for window.umami rather than assuming it is already there.
+ */
 (function () {
   "use strict";
 
@@ -92,10 +91,14 @@
     if (domains.indexOf(host) === -1) return;
   }
 
-  /* Every data-* attribute from the loader tag, copied verbatim. Copying
-     rather than listing means a new attribute added in build-site-data.js
-     reaches the tracker without an edit here -- and cannot be silently
-     dropped by this file. */
+  /**
+   * Copies all data-* attributes from the loader script tag onto a target script element.
+   *
+   * Copying rather than listing means a new attribute added in build-site-data.js
+   * reaches the tracker without requiring code edits here.
+   *
+   * @param {!HTMLScriptElement} target Target script element receiving the copied attributes.
+   */
   function copyDataAttributes(target) {
     var attrs = loaderTag.attributes;
     for (var i = 0; i < attrs.length; i++) {
@@ -108,6 +111,12 @@
      so even a synchronous error cannot start a third attempt. */
   var settled = false;
 
+  /**
+   * Injects the first-party proxied analytics tracker script into the document.
+   *
+   * Executed only if the direct tracker copy fails or is blocked. Configures
+   * the proxy host URL and marks the session with the fallback tag.
+   */
   function injectFallback() {
     if (settled) return;
     settled = true;
@@ -124,6 +133,12 @@
     (document.head || document.documentElement).appendChild(tag);
   }
 
+  /**
+   * Injects the direct Cloudflare/Umami analytics tracker script into the document.
+   *
+   * Attempts direct injection first to preserve original client IP and geolocation.
+   * Attaches an error handler to trigger `injectFallback()` if blocked or unresolvable.
+   */
   function injectDirect() {
     var tag = document.createElement("script");
     copyDataAttributes(tag);

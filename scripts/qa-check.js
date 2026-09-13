@@ -1,36 +1,23 @@
 #!/usr/bin/env node
 "use strict";
 
-/* ==========================================================
-   Y'ALLTERNATIVE LIVING -- automated QA suite ("npm test")
-   ----------------------------------------------------------
-   Turns the manual, one-off checks that used to get re-typed by hand
-   after every content/code change into a permanent, repeatable script:
-
-     - Every .js file in the project actually parses (node --check)
-     - CSS braces balance (a real, if blunt, signal something got
-       mismatched)
-     - Every <script type="application/ld+json"> block on every page
-       is valid JSON
-     - Every internal href/src the pages reference points at a real
-       file (no dead links, no 404'ing local assets)
-     - Every image referenced anywhere (HTML/JS/CSS/JSON) exists on
-       disk
-     - image-manifest.js has both AVIF and WebP variants for every
-       entry (nothing silently reverted to JPG-only)
-     - products-data.js: every product has the required fields, and
-       any variants block is well-formed (options array, numeric
-       priceDelta, matches what build-site-data.js expects)
-     - Gift card custom-field option string round-trips parse correctly
-       (catches a malformed "Preset $NN[+X.XX]" before it ships)
-     - WCAG contrast math for the site's actual current color tokens,
-       parsed live out of styles.css -- not hardcoded historical
-       values, so a future palette edit gets re-checked automatically
-       instead of silently drifting out of compliance
-
-   Run: node scripts/qa-check.js   (or: npm test)
-   Exits non-zero if anything fails, so this is CI-friendly.
-   ========================================================== */
+/**
+ * @fileoverview Automated static quality assurance test suite ("npm test").
+ *
+ * Turns manual, one-off checks into a permanent, repeatable verification suite:
+ *   - Every .js file in the project actually parses (node --check)
+ *   - CSS braces balance (a real, if blunt, signal something got mismatched)
+ *   - Every <script type="application/ld+json"> block on every page is valid JSON
+ *   - Every internal href/src the pages reference points at a real file (no dead links, no 404'ing local assets)
+ *   - Every image referenced anywhere (HTML/JS/CSS/JSON) exists on disk
+ *   - image-manifest.js has both AVIF and WebP variants for every entry (nothing silently reverted to JPG-only)
+ *   - products-data.js: every product has the required fields, and any variants block is well-formed (options array, numeric priceDelta, matches what build-site-data.js expects)
+ *   - Gift card custom-field option string round-trips parse correctly (catches a malformed "Preset $NN[+X.XX]" before it ships)
+ *   - WCAG contrast math for the site's actual current color tokens, parsed live out of styles.css -- not hardcoded historical values, so a future palette edit gets re-checked automatically instead of silently drifting out of compliance
+ *
+ * Run: node scripts/qa-check.js (or: npm test)
+ * Exits non-zero if anything fails, so this is CI-friendly.
+ */
 
 var fs = require("fs");
 var path = require("path");
@@ -1592,12 +1579,14 @@ if (!SITE_REVIEWS.length) {
     else seenReviewIds[r.id] = true;
     if (!r.name || typeof r.name !== "string") problems.push("missing/invalid name");
     if (!r.text || typeof r.text !== "string") problems.push("missing/invalid text");
-    if (!(
-      typeof r.rating === "number" &&
-      Number.isInteger(r.rating) &&
-      r.rating >= 1 &&
-      r.rating <= 5
-    )) {
+    if (
+      !(
+        typeof r.rating === "number" &&
+        Number.isInteger(r.rating) &&
+        r.rating >= 1 &&
+        r.rating <= 5
+      )
+    ) {
       problems.push("rating must be an integer 1-5");
     }
     if (

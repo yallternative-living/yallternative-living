@@ -13,7 +13,7 @@ Whenever you want to make changes to the live site, open **yourdomain.com/admin*
 Your dashboard is organized into 7 focused sections in the left sidebar. The **Journal** sits under the **Collections** heading at the top and shows your list of posts; every other section sits under **Sections** below it and opens straight into its editor when you click it. The numbers match the walkthroughs in this guide, not the order on screen:
 
 1. **Shop & Products** — Your daily workspace:
-   - **Products (Top Priority)**: Manage your 19 catalog items, edit prices, set size/scent variants, upload photos, add ingredients, and update stock levels.
+   - **Products (Top Priority)**: Manage your catalog items (20 products), edit prices, set size/scent variants, upload photos, add ingredients, and update stock levels.
    - **Multi-buy deals**: Set up mix-and-match multi-buy category tiers (like *Any 2+ 2 oz Salves for $15 each*).
    - **Category sales**: Put whole categories on sale at once with percentage discounts (e.g. *15% off Body & Skin*).
    - **Gift bundles**: Create curated gift sets (*Discovery Flight*, *Everyday Armor Kit*) with auto-calculated bundle pricing.
@@ -49,12 +49,13 @@ Once Steven completes the one-time OAuth app setup (`docs/DEVELOPMENT.md` Sectio
 
 ---
 
-### A note on the other five languages
+### A note on the other eight languages
 
-Your shop shows up in Spanish, German, French, Japanese and Chinese as well as
-English, and you do not have to do anything about it. When you save a change to
-a product name, blurb, description or any other wording in `/admin`, a helper
-runs on its own and writes the five translations within about ten minutes.
+Your shop shows up in Spanish, German, French, Japanese, Chinese, Vietnamese,
+Korean, and Portuguese as well as English, and you do not have to do anything
+about it. When you save a change to a product name, blurb, description or any
+other wording in `/admin`, a helper runs on its own and writes the eight
+translations within about ten minutes.
 Until it finishes, that one piece of wording simply shows in English to a
 customer who has picked another language — nothing looks broken and nothing
 needs fixing. If a sentence ever cannot be translated safely (for example, it

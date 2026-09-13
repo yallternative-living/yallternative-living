@@ -1,3 +1,11 @@
+/**
+ * @fileoverview Product detail page (PDP) metadata and structured data verification suite.
+ *
+ * Validates that every generated product page carries valid OpenGraph tags,
+ * Twitter card metadata, canonical URLs, and schema.org JSON-LD blocks
+ * (Product and BreadcrumbList) consistent with products.json and merchant policies.
+ */
+
 const fs = require("fs");
 const path = require("path");
 
@@ -14,6 +22,13 @@ let passed = 0;
 let failed = 0;
 const errors = [];
 
+/**
+ * Asserts that a condition is true, recording success or failure with descriptive logs.
+ * @param {*} condition Condition expression to evaluate.
+ * @param {string} label Descriptive label for the test assertion.
+ * @param {string=} detail Optional supplementary detail or error context.
+ * @return {void}
+ */
 function assert(condition, label, detail = "") {
   if (condition) {
     passed++;
@@ -26,9 +41,15 @@ function assert(condition, label, detail = "") {
   }
 }
 
-/* Mirrors pdpPageTitle() in scripts/build-site-data.js. Long product names
-   pushed the title past the ~60 characters Google renders, and the brand at
-   the end was what got truncated (live audit 2026-09-02, L-7). */
+/**
+ * Formats a product detail page title within search engine length constraints (~60 characters).
+ *
+ * Long product names pushed the title past the ~60 characters Google renders,
+ * and the brand at the end was what got truncated (live audit 2026-09-02, L-7).
+ *
+ * @param {?string} name Product name to format.
+ * @return {string} Formatted title string with appropriate branding suffix.
+ */
 const PDP_TITLE_MAX = 60;
 function pdpPageTitle(name) {
   const clean = String(name == null ? "" : name).trim();
@@ -39,10 +60,17 @@ function pdpPageTitle(name) {
   return short.length <= PDP_TITLE_MAX ? short : clean;
 }
 
-/* Mirrors truncateForMeta() in scripts/build-site-data.js. Product blurbs
-   run to 304 characters and Google cuts descriptions around 155-160, so the
-   PDP meta/og/twitter description is trimmed at a word boundary while the
-   visible on-page copy keeps the full text. */
+/**
+ * Truncates text at a word boundary to fit within search engine meta description limits.
+ *
+ * Product blurbs run to 304 characters and Google cuts descriptions around
+ * 155-160, so the PDP meta/og/twitter description is trimmed at a word
+ * boundary while the visible on-page copy keeps the full text.
+ *
+ * @param {?string} text Raw descriptive text to truncate.
+ * @param {number=} maxLen Maximum allowable character length (defaults to 155).
+ * @return {string} Cleanly truncated text ending with an ellipsis if shortened.
+ */
 function truncateForMeta(text, maxLen) {
   const limit = maxLen || 155;
   const clean = String(text == null ? "" : text)
@@ -55,9 +83,15 @@ function truncateForMeta(text, maxLen) {
   return base.replace(/[\s,;:.!?-]+$/, "") + "\u2026";
 }
 
-/* Mirrors variantPriceRange(): the advertised price is the cheapest buyable
-   variant, which is not the base price when a variant has a negative delta
-   (frankincense-salve's 1oz option is -$6). */
+/**
+ * Computes the lowest buyable variant price for a product.
+ *
+ * The advertised price is the cheapest buyable variant, which is not the base
+ * price when a variant has a negative delta (frankincense-salve's 1oz option is -$6).
+ *
+ * @param {!Object} product Product definition from products.json.
+ * @return {number} Lowest available variant price in dollars.
+ */
 function advertisedLowPrice(product) {
   const options =
     product.variants && Array.isArray(product.variants.options) ? product.variants.options : [];
@@ -70,6 +104,11 @@ function advertisedLowPrice(product) {
   );
 }
 
+/**
+ * Escapes special HTML characters in a string to prevent XSS and markup corruption.
+ * @param {?string} s Raw input string to escape.
+ * @return {string} Escaped HTML string safe for interpolation.
+ */
 function escapeHtml(s) {
   return String(s == null ? "" : s)
     .replace(/&/g, "&amp;")
