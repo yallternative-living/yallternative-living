@@ -159,9 +159,12 @@ export function escapeHtml(str) {
 }
 
 /**
- * Strip the control characters that have no business in an email header, a
- * subject line or Stripe metadata. CR and LF included: this is what stands
- * between a client-supplied string and header injection on the way out.
+ * Strip unprintable control characters (NULL, BEL, BS, VT, FF, SO-US, DEL)
+ * from text. CR (\x0D), LF (\x0A), and Tab (\x09) are preserved on purpose so
+ * multi-line text blocks (such as gift notes) maintain their formatting.
+ *
+ * NOTE: Because CR and LF are kept, single-line email headers (Subject, From)
+ * must use oneLine() or clean() to protect against header injection.
  */
 export function stripControlChars(s) {
   return (

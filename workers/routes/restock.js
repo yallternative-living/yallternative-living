@@ -51,7 +51,6 @@ import {
   RESTOCK_BATCH_LIMIT,
   addRestockSignup,
   markRestockNotified,
-  pendingRestockCount,
   pendingRestockCounts,
   pendingRestockCountsFor,
   pendingRestockSignups

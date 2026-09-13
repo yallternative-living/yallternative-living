@@ -1633,3 +1633,21 @@ the tracking merge and the webhook write; `scripts/orders-page.browser.test.js`
 drives the page with the Worker mocked — form, neutral confirmation (the DOM
 after a known and an unknown address is byte-identical), list rendering,
 token scrubbing, and a Reorder into the real cart.
+
+## 23. Automated Event Rollover & Netlify Build Hook (TODO for Steven)
+
+**The challenge.** In `assets/data/events.json`, markets carry `date` and `endDate`. While visitor browsers running `assets/js/main.js` automatically roll over past events on page load (`todayInEastern()`), the pre-rendered static HTML (`events.html`, `assets/js/events-data.js`, `assets/js/search-data.js`) only updates when `node scripts/build-site-data.js` executes during a build.
+
+**The Netlify credit reality:**
+- Netlify meters production builds in **credits** (1 production deploy = **15 credits** / $0.10).
+- The Free plan includes **300 credits/month** (a hard ceiling of 20 production deploys total).
+- Netlify explicitly ignores the `[build] ignore` command for builds triggered by build hooks (`https://docs.netlify.com/build/configure-builds/ignore-builds/`).
+- A blind daily cron calling a Netlify build hook would execute 30 builds and burn **450 credits/month**, exhausting Savanna's monthly quota and locking out site deploys.
+
+**The credit-safe design:**
+1. `scripts/check-events-rollover.js` evaluates whether any compiled upcoming event in `assets/js/events-data.js` has expired against today's date in Eastern Time.
+2. `.github/workflows/daily-build-hook.yml` runs this check in GitHub Actions for free. On ~27 days of every month, it exits in 2 seconds with zero Netlify builds and **0 credits spent**. Only on the ~2–3 days a month after a real weekend market does it trigger a build (**15 credits**), costing ~30–45 credits/month total.
+3. The workflow is **DORMANT** by default (cron schedule commented out) until Steven is ready to activate it.
+
+See [`docs/TODO.md`](TODO.md) for the step-by-step activation checklist.
+

@@ -2326,7 +2326,15 @@ const eventsHtmlSrc = fs404.readFileSync(path404.join(repoRoot, "events.html"), 
 const staticEventLdMatch = eventsHtmlSrc.match(
   /<script type="application\/ld\+json" id="yl-event-jsonld">\s*([\s\S]*?)\s*<\/script>/
 );
-const buildTodayForLd = new Date().toISOString().slice(0, 10);
+const buildTodayForLd =
+  typeof main.todayInEastern === "function"
+    ? main.todayInEastern()
+    : new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/New_York",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+      }).format(new Date());
 const upcomingForLd = (eventsJsonSrc.upcoming || [])
   .filter((ev) => {
     const cutoff = ev.endDate || ev.date;

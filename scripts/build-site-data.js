@@ -2235,7 +2235,12 @@ function buildSiteData() {
   });
 
   /* 7. Auto-Archive Past Events & Sort Upcoming Events Chronologically */
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(new Date());
   if (EVENTS && Array.isArray(EVENTS.upcoming)) {
     const stillUpcoming = [];
     EVENTS.upcoming.forEach(function (evt) {
@@ -3745,7 +3750,7 @@ function buildSiteData() {
 
   const rawUpcoming = eventsJson.upcoming || [];
   const rawPast = eventsJson.past || [];
-  const buildTodayStr = new Date().toISOString().slice(0, 10);
+  const buildTodayStr = todayStr;
 
   const upcoming = [];
   const past = [];

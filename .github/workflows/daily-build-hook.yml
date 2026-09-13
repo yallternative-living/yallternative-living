@@ -1,0 +1,92 @@
+name: Event Rollover Build Hook (Dormant)
+
+# Triggers a Netlify build hook to rebuild the static site and refresh
+# time-sensitive static content (e.g. archiving past events in events.html)
+# ONLY when an upcoming event has actually expired.
+#
+# CREDIT SAFETY:
+# Netlify meters this site in credits, charging 15 credits per production deploy.
+# Netlify's Free plan provides 300 credits/month (max 20 deploys).
+# A blind daily build would cost 450 credits/month and exhaust the account.
+# Furthermore, Netlify ignores the `[build] ignore` command for build hooks.
+#
+# To protect Savanna's credits:
+# 1. This workflow evaluates whether an event actually expired before calling Netlify.
+# 2. It is DORMANT by default (the `schedule:` cron is commented out) so zero credits
+#    are spent until explicitly activated by the owner.
+#
+# When ready to enable automated rollover builds:
+# 1. Create a build hook in Netlify:
+#    Netlify Dashboard -> Sites -> yallternative-living -> Site configuration
+#    -> Build & deploy -> Continuous integration -> Build hooks
+#    -> Add build hook (Name: "Daily Event Rollover", Branch: "main").
+# 2. Add the URL as a GitHub repository secret named `NETLIFY_BUILD_HOOK_URL`:
+#    GitHub -> Repository Settings -> Secrets and variables -> Actions -> New repository secret.
+# 3. Uncomment the `schedule:` cron block below.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (simulate check without sending POST to Netlify)"
+        required: false
+        default: false
+        type: boolean
+      force_build:
+        description: "Force build hook trigger even if no events expired"
+        required: false
+        default: false
+        type: boolean
+  # To enable automated daily checks (e.g. 5:00 AM EDT / 09:00 UTC),
+  # uncomment the following schedule lines once credit allowance is confirmed:
+  # schedule:
+  #   - cron: "0 9 * * *"
+
+jobs:
+  check-and-trigger:
+    name: Check Rollover & Trigger Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set Up Node.js
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: 24
+
+      - name: Check If Event Rollover Is Needed
+        id: check-events
+        run: |
+          if node scripts/check-events-rollover.js; then
+            echo "rollover_needed=true" >> $GITHUB_OUTPUT
+          else
+            echo "rollover_needed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check Build Hook Secret
+        id: check-secret
+        run: |
+          if [ -z "${{ secrets.NETLIFY_BUILD_HOOK_URL }}" ]; then
+            echo "NETLIFY_BUILD_HOOK_URL secret is not configured."
+            echo "configured=false" >> $GITHUB_OUTPUT
+          else
+            echo "configured=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Trigger Netlify Build Hook
+        if: (steps.check-events.outputs.rollover_needed == 'true' || inputs.force_build == true) && steps.check-secret.outputs.configured == 'true' && inputs.dry_run != true
+        run: |
+          echo "Triggering Netlify build hook to rebuild site with updated events..."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST -d '{}' "${{ secrets.NETLIFY_BUILD_HOOK_URL }}")
+          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 300 ]; then
+            echo "Successfully triggered Netlify build (HTTP $STATUS)."
+          else
+            echo "Error: Netlify build hook returned HTTP $STATUS"
+            exit 1
+          fi
+
+      - name: Log Skipping Notice
+        if: steps.check-events.outputs.rollover_needed != 'true' && inputs.force_build != true
+        run: |
+          echo "Skipping build hook: all upcoming events are current. Zero Netlify credits spent."

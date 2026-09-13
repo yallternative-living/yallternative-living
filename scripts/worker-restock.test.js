@@ -234,6 +234,26 @@ async function testSignupStore() {
     "pendingRestockCounts groups the un-notified rows by product"
   );
   eq(await mod.pendingRestockCount(db, "sleep-salve"), 2, "pendingRestockCount counts one product");
+  eq(
+    await mod.pendingRestockCountsFor(db, ["sleep-salve"]),
+    [{ productId: "sleep-salve", waiting: 2 }],
+    "pendingRestockCountsFor filters to requested productIds"
+  );
+  eq(
+    await mod.pendingRestockCountsFor(db, ["tank-top", "non-existent"]),
+    [{ productId: "tank-top", waiting: 1 }],
+    "pendingRestockCountsFor returns only matching un-notified products"
+  );
+  eq(
+    await mod.pendingRestockCountsFor(db, []),
+    [],
+    "pendingRestockCountsFor returns empty array for empty productIds"
+  );
+  eq(
+    await mod.pendingRestockCountsFor(null, ["sleep-salve"]),
+    [],
+    "pendingRestockCountsFor returns empty array when db is missing"
+  );
 
   const pending = await mod.pendingRestockSignups(db, "sleep-salve", 1);
   eq(pending.length, 1, "pendingRestockSignups honours its limit");
