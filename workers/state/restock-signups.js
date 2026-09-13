@@ -99,6 +99,25 @@ export async function pendingRestockCounts(db) {
   }));
 }
 
+export async function pendingRestockCountsFor(db, productIds) {
+  if (!db || !productIds || !productIds.length) return [];
+  const cleanIds = productIds.map((id) => assertProductId(id));
+  const placeholders = cleanIds.map(() => "?").join(", ");
+  const res = await db
+    .prepare(
+      `SELECT product_id AS productId, COUNT(*) AS waiting
+         FROM restock_signups
+        WHERE notified_at IS NULL AND product_id IN (${placeholders})
+        GROUP BY product_id`
+    )
+    .bind(...cleanIds)
+    .all();
+  return ((res && res.results) || []).map((row) => ({
+    productId: String(row.productId),
+    waiting: Number(row.waiting) || 0
+  }));
+}
+
 /** How many shoppers are waiting on one product. Used by the low-stock note. */
 export async function pendingRestockCount(db, productId) {
   if (!db) return 0;
