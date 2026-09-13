@@ -94,6 +94,29 @@ console.log("Running backend-functions unit tests...\n");
 async function testWorkerModules() {
   const checkout = await import("../workers/checkout.js");
   const submitForm = await import("../workers/submit-form.js");
+  const httpRoute = await import("../workers/routes/http.js");
+
+  // http route: escapeHtml
+  eq(
+    httpRoute.escapeHtml('<a href="x">Test & "More"</a>'),
+    "&lt;a href=&quot;x&quot;&gt;Test &amp; &quot;More&quot;&lt;/a&gt;",
+    "httpRoute.escapeHtml escapes basic HTML chars"
+  );
+  eq(
+    httpRoute.escapeHtml("Bob's"),
+    "Bob&#39;s",
+    "httpRoute.escapeHtml escapes single quotes"
+  );
+  eq(
+    httpRoute.escapeHtml(null),
+    "",
+    "httpRoute.escapeHtml handles null"
+  );
+  eq(
+    httpRoute.escapeHtml(undefined),
+    "",
+    "httpRoute.escapeHtml handles undefined"
+  );
 
   // submit-form: escapeHtml
   eq(
