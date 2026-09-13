@@ -28,7 +28,21 @@ function req(headers) {
 }
 
 async function runWorkerHttpTests() {
-  const { clientIp } = await import("../workers/routes/http.js");
+  const { clientIp, stripControlChars } = await import("../workers/routes/http.js");
+
+  // stripControlChars
+  eq(stripControlChars("hello world"), "hello world", "stripControlChars leaves normal string alone");
+  eq(stripControlChars("  hello world  "), "hello world", "stripControlChars trims whitespace");
+  eq(stripControlChars(null), "", "stripControlChars handles null");
+  eq(stripControlChars(undefined), "", "stripControlChars handles undefined");
+  eq(stripControlChars(""), "", "stripControlChars handles empty string");
+  eq(stripControlChars("hello\x00world"), "helloworld", "stripControlChars strips null byte (x00)");
+  eq(stripControlChars("hello\x08world"), "helloworld", "stripControlChars strips backspace (x08)");
+  eq(stripControlChars("hello\x0Bworld"), "helloworld", "stripControlChars strips vertical tab (x0B)");
+  eq(stripControlChars("hello\x1Fworld"), "helloworld", "stripControlChars strips unit separator (x1F)");
+  eq(stripControlChars("hello\x7Fworld"), "helloworld", "stripControlChars strips DEL (x7F)");
+  eq(stripControlChars("a\rb\nc\td"), "a\rb\nc\td", "stripControlChars leaves CR, LF, and tab intact");
+  eq(stripControlChars("\r\n\t  a  \r\n\t"), "a", "stripControlChars trims leading/trailing whitespace including CR, LF, and tab");
 
   // Through Netlify: Netlify appends the shopper, Cloudflare appends Netlify.
   eq(
