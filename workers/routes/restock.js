@@ -554,8 +554,10 @@ export async function runLowStockCheck(env, ctx, now = Date.now()) {
     return { sent: 0, low: 0 };
   }
   low.sort((a, b) => a.stock - b.stock || a.id.localeCompare(b.id));
+  const pending = await pendingRestockCounts(db);
+  const waitingMap = new Map(pending.map(p => [p.productId, p.waiting]));
   for (const row of low) {
-    row.waiting = await pendingRestockCount(db, row.id);
+    row.waiting = waitingMap.get(row.id) || 0;
   }
 
   const message = lowStockEmail(low, threshold, siteOriginOf(env));
