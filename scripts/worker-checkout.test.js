@@ -2566,7 +2566,9 @@ async function runWorkerCheckoutTests() {
         match: async (req) => {
           if (req.url && req.url.includes("tax-status")) {
             return {
-              json: async () => { throw new Error("cache unreadable"); }
+              json: async () => {
+                throw new Error("cache unreadable");
+              }
             };
           }
           return null; // For loadCatalog / loadEvents, let it fetch normally
