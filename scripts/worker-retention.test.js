@@ -1267,6 +1267,55 @@ async function testRoutes() {
       noCtx
     );
     eq(none.status, 400, "a request with no token at all is refused");
+
+    const jsonToken = await state.unsubscribeToken(SIGNING_SECRET, "json@example.com");
+    await state.rememberContact(
+      unsubEnv.STATE_DB,
+      await state.unsubscribeId(SIGNING_SECRET, "json@example.com"),
+      "json@example.com"
+    );
+    const jsonReq = new Request(`${SITE}/api/unsubscribe`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Forwarded-For": freshIp()
+      },
+      body: JSON.stringify({ token: jsonToken })
+    });
+    const jsonRes = await worker.fetch(jsonReq, unsubEnv, noCtx);
+    eq(jsonRes.status, 200, "a JSON request with the token in the body succeeds");
+    eq(
+      await state.isSuppressed(unsubEnv.STATE_DB, "json@example.com"),
+      true,
+      "the address is suppressed via JSON"
+    );
+
+    let ratelimitRes;
+    for (let i = 0; i < 25; i++) {
+      ratelimitRes = await worker.fetch(
+        new Request(`${SITE}/api/unsubscribe?t=${token}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "X-Forwarded-For": "203.0.113.99"
+          },
+          body: "List-Unsubscribe=One-Click"
+        }),
+        unsubEnv,
+        noCtx
+      );
+    }
+    eq(ratelimitRes.status, 429, "spamming the route trips the rate limit");
+  });
+
+  const unconfiguredUnsub = await makeEnv({ MAGIC_LINK_SECRET: undefined });
+  await withMocks(async () => {
+    const res = await worker.fetch(
+      post("/api/unsubscribe", { token: "anything" }),
+      unconfiguredUnsub,
+      noCtx
+    );
+    eq(res.status, 503, "unsubscribe answers 503 when MAGIC_LINK_SECRET is missing");
   });
 
   // --- /api/birthday-club ------------------------------------------------
