@@ -25,7 +25,7 @@ Your dashboard is organized into clean, partitioned sections in the left sidebar
    - **FAQ**: Update questions and answers on shipping, returns, paying, gift cards, promo codes, ingredients, shelf life, and custom orders.
 2. **Markets & Pop-Ups** — Add upcoming pop-up markets, craft fairs, and Pride events. Upcoming dates display chronologically, and past appearances automatically archive themselves under "Where We've Been."
 3. **Customer Reviews** — Publish customer reviews and choose which glowing testimonials feature on the homepage carousel.
-4. **Social Media Feed** — Feature your favorite Instagram and TikTok posts directly on the homepage.
+4. **Live Instagram Feed** — Automatically pulls your latest photos and reels from `@yallternativeliving` onto the homepage via Behold (no manual posting required).
 
 ### Global Configuration (Sections)
 5. **Site Settings** — Update homepage hero copy, About page story, bio photos, logos, social share images, and toggle site features on or off.
@@ -260,16 +260,16 @@ At the top of **Shop & Catalog Settings**:
 
 #### The phone filter bar
 
-On a phone the shop no longer shows every category and concern button above
+On a phone the shop no longer shows every category and vibe button above
 the products. Customers get one row -- the search box, a **Filter** button
 (with a little count of how many filters are on) and a **Sort** button -- and
-tapping either slides up a panel holding the same category, concern, scent
+tapping either slides up a panel holding the same category, vibe, scent
 and sort choices. Filters they pick show as small removable chips above the
 products, with a **Clear all** next to them. Tablets and computers still show
 the full row of buttons exactly as before.
 
-The categories, concerns and scents in that panel are the ones you already
-manage (**Product categories**, **Shop concerns**, each product's **Scent**);
+The categories, vibes and scents in that panel are the ones you already
+manage (**Product categories**, **Product vibes**, each product's **Scent**);
 nothing about editing them changes. The words on the row and the panel are
 yours too: **Site Settings → Shop page → Phone filter bar wording**.
 
@@ -278,7 +278,7 @@ yours too: **Site Settings → Shop page → Phone filter bar wording**.
 | **Filter button** | Opens the panel. The count of active filters is added for you. | `Filter` |
 | **Sort button** | Opens the panel at the sort choices. | `Sort` |
 | **Panel heading** | The title at the top of the slide-up panel. | `Filter & sort` |
-| **Category group heading** / **Concern group heading** | The small headings above each group of buttons inside the panel. | `Category` / `Concern` |
+| **Category group heading** / **Vibe group heading** | The small headings above each group of buttons inside the panel. | `Category` / `Vibe` |
 | **Apply button** | Closes the panel and shows the results. | `Apply` |
 | **Clear-all button** | Resets every filter and the search box. Shown in the panel and next to the chips. | `Clear all` |
 | **Active filters label** / **Remove-chip word** | Read aloud by screen readers only (the chip row's name, and the word before a chip's name, e.g. "Remove Salves & Balms"). Never shown on screen. | `Active filters` / `Remove` |
@@ -426,9 +426,9 @@ customer's Alt-Points balance and how far they are from the next reward code.
 5. Estimated reading time calculates automatically when published!
 6. **Every post gets its own web page**, built from the title the **first** time you save (so "Why Magnesium & Arnica?" becomes `yallternativeliving.com/journal/why-magnesium-arnica.html`) -- that is the address the Journal list, the RSS feed, search engines and social cards all use, so it is the one to share. It never changes afterwards, even if you retitle the post, so a link you have already shared keeps working. You never type the address yourself. The featured product you pick shows as a card on the post page with a link to that product's own page and a one-click **Add to Cart**.
 
-#### D. Social Media Feed (Social Media Feed)
-1. Click **Social Media Feed**.
-2. Add new Instagram or TikTok post snapshots with photos, captions, and tagged products.
+#### D. Live Instagram Community Feed
+Your Instagram feed is connected directly to your `@yallternativeliving` account via Behold.
+Whenever you post photos or reels on Instagram, they automatically appear on the homepage community grid with zero manual data entry in the CMS! (You can toggle the whole feed on/off under **Site Settings → Switches & branding → UGC Social Feed**).
 
 #### E. Site Settings (Site Settings)
 1. Click **Site Settings**.
@@ -466,6 +466,31 @@ customer's Alt-Points balance and how far they are from the next reward code.
    - **Show Order Lookup Tool** (`enableOrderStatusLookup`). `/order-status`
      now does a real lookup against Stripe (reference + email); off hides the
      lookup form and shows the contact route instead.
+
+#### F. Seasonal Hiatus & Shipping Delay Notice
+When traveling between pop-up markets, taking time off for the holidays, or experiencing weather shipping delays, you can display an announcement banner across the site and inside the shopping cart:
+1. Open **Site Settings** (`⚙️ Site Settings`).
+2. Scroll down to **Seasonal Hiatus & Shipping Delay Notice (Turn on/off)**.
+3. Check **Turn on notice** to make it visible.
+4. Configure where it appears:
+   - **Show in top header bar**: Puts the announcement directly in the top bar on every page (on the homepage it loops with the countdown ticker; on other pages it forms a prominent top banner).
+   - **Show in shopping cart drawer**: Displays an amber warning banner at the top of the slide-out cart so shoppers see it before checking out.
+5. Customize the wording:
+   - **Headline** (e.g. *Holiday Break & Shipping Notice*)
+   - **Message** (e.g. *Orders placed after Dec 18 will ship Jan 5...*)
+6. **When you return:** Simply uncheck **Turn on notice** and click **Save**. The notice disappears completely from both the header and cart drawer, while your message stays saved in the form so you don't have to retype it next time!
+
+#### G. Interactive Apothecary Product Quiz
+Shoppers on the Shop page can take a 3-step quiz to find their personalized product match.
+1. Open **Interactive Apothecary Quiz** in the CMS sidebar.
+2. Edit quiz headers:
+   - **Quiz eyebrow**, **Quiz headline**, and **Quiz subtitle**.
+3. Edit questions & options:
+   - For each option, you can easily select:
+     - **Hero Products (multi-select chips)**: Specific products to recommend when chosen.
+     - **Store Vibes (multi-select chips)**: Which vibe filters this choice boosts (e.g., Wind-Down & Relaxation, Sore Muscles).
+     - **Target Categories (multi-select chips)**: Boosts specific categories (e.g., salves, soaks).
+4. All technical plumbing (DOM IDs, input names, scoring weights) is managed automatically behind the scenes!
 
 ---
 

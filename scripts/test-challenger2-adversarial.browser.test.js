@@ -131,7 +131,7 @@ function assert(condition, message) {
       );
       assert(
         allConcernActive,
-        "Concern 'All Concerns' pill is initially active with aria-pressed='true'"
+        "Vibe 'All Vibes' pill is initially active with aria-pressed='true'"
       );
 
       // Test Category Pill Click (e.g. 'salves')
@@ -223,7 +223,7 @@ function assert(condition, message) {
       );
       assert(restoredSearchVal === "", "Reset button cleared the search input text");
       assert(restoredCategoryPill, "Reset button reactivated 'All' category pill");
-      assert(restoredConcernPill, "Reset button reactivated 'All Concerns' pill");
+      assert(restoredConcernPill, "Reset button reactivated 'All Vibes' pill");
 
       // Deep-Linking via URL Search Params (?concern=... and ?category=...)
       await page.goto(`${baseUrl}/shop.html?concern=dry-skin`, { waitUntil: "networkidle2" });

@@ -291,7 +291,7 @@ window.YL_CONTENT = {
     "title": "Find Your Custom Self-Care Match",
     "subtitle": "Answer 3 quick questions in our popup quiz to discover your personalized salve, soak, or potion match.",
     "buttonText": "Take the Quiz",
-    "modalTitle": "Find Your Custom Self-Care Match",
+    "modalTitle": "Your Three Questions",
     "modalSubtitle": "Answer 3 quick questions to discover your personalized salve, soak, or potion match.",
     "questions": [
       {

@@ -6646,7 +6646,7 @@
 
     if (concernRow && concerns.length) {
       var concernPills = [
-        '<button class="concern-pill active" type="button" data-concern="all" aria-pressed="true">All Concerns</button>'
+        '<button class="concern-pill active" type="button" data-concern="all" aria-pressed="true">All Vibes</button>'
       ].concat(
         concerns.map(function (c) {
           return (
@@ -8188,19 +8188,33 @@
   function announcementBar() {
     var siteCfg = (window.YL_CONTENT && window.YL_CONTENT.site) || {};
     var announcement = siteCfg.announcement;
+    var seasonal = siteCfg.seasonalNotice;
+
+    var seasonalActive = Boolean(
+      seasonal &&
+      seasonal.enabled &&
+      seasonal.showInHeader &&
+      seasonal.text &&
+      String(seasonal.text).trim()
+    );
+    var seasonalMessage = seasonalActive ? String(seasonal.text).trim() : "";
+    var seasonalLink = seasonalActive && seasonal.link ? String(seasonal.link).trim() : "";
 
     var message = "";
     var accent = "default";
     var link = "";
 
     if (announcement && typeof announcement === "object") {
-      if (announcement.enabled === false) return;
-      message = (announcement.text && String(announcement.text).trim()) || "";
-      accent = (announcement.accent && String(announcement.accent).trim()) || "default";
-      link = (announcement.link && String(announcement.link).trim()) || "";
+      if (announcement.enabled === false) {
+        if (!seasonalActive) return;
+      } else {
+        message = (announcement.text && String(announcement.text).trim()) || "";
+        accent = (announcement.accent && String(announcement.accent).trim()) || "default";
+        link = (announcement.link && String(announcement.link).trim()) || "";
+      }
     }
 
-    if (!message) {
+    if (!message && !seasonalActive) {
       var data = window.YL_PRODUCTS;
       var threshold = data && data.shop && data.shop.freeShippingThreshold;
       if (!threshold || threshold <= 0) return;
@@ -8210,34 +8224,56 @@
       message = "✦ Free shipping on orders of " + formatMoney(threshold) + " or more ✦";
     }
 
+    if (!message && !seasonalActive) return;
+
     var accentClass = accent && accent !== "default" ? " announcement-accent-" + accent : "";
 
     /* index.html already ships a sticky announcement bar (the #yl-countdown-
        ticker pop-up countdown). When that bar is present, fold this message into
-       it as a second segment instead of creating a rival bar. */
+       it as an extra segment instead of creating a rival bar. */
     var existing = document.getElementById("yl-countdown-ticker");
     if (existing) {
       if (accent && accent !== "default") {
         existing.classList.add("announcement-accent-" + accent);
       }
-      var sep = document.createElement("span");
-      sep.className = "announcement-sep";
-      sep.setAttribute("aria-hidden", "true");
-      var seg = document.createElement("span");
-      seg.className = "announcement-segment";
-      if (link) {
-        var linkEl = document.createElement("a");
-        linkEl.href = link;
-        linkEl.textContent = message;
-        seg.appendChild(linkEl);
-      } else {
-        seg.textContent = message;
+      if (seasonalActive) {
+        var sSep = document.createElement("span");
+        sSep.className = "announcement-sep";
+        sSep.setAttribute("aria-hidden", "true");
+        var sSeg = document.createElement("span");
+        sSeg.className = "announcement-segment announcement-segment-seasonal";
+        if (seasonalLink) {
+          var sLinkEl = document.createElement("a");
+          sLinkEl.href = seasonalLink;
+          sLinkEl.textContent = seasonalMessage;
+          sSeg.appendChild(sLinkEl);
+        } else {
+          sSeg.textContent = seasonalMessage;
+        }
+        if (typeof sSeg.insertBefore === "function") sSeg.insertBefore(sSep, sSeg.firstChild);
+        else existing.appendChild(sSep);
+        existing.appendChild(sSeg);
       }
-      /* The separator travels with its segment so a wrap never strands it; a
-         minimal test DOM may lack insertBefore, so fall back to the old order. */
-      if (typeof seg.insertBefore === "function") seg.insertBefore(sep, seg.firstChild);
-      else existing.appendChild(sep);
-      existing.appendChild(seg);
+      if (message) {
+        var sep = document.createElement("span");
+        sep.className = "announcement-sep";
+        sep.setAttribute("aria-hidden", "true");
+        var seg = document.createElement("span");
+        seg.className = "announcement-segment";
+        if (link) {
+          var linkEl = document.createElement("a");
+          linkEl.href = link;
+          linkEl.textContent = message;
+          seg.appendChild(linkEl);
+        } else {
+          seg.textContent = message;
+        }
+        /* The separator travels with its segment so a wrap never strands it; a
+           minimal test DOM may lack insertBefore, so fall back to the old order. */
+        if (typeof seg.insertBefore === "function") seg.insertBefore(sep, seg.firstChild);
+        else existing.appendChild(sep);
+        existing.appendChild(seg);
+      }
       updateAnnouncementCrowding();
       return;
     }
@@ -8246,7 +8282,45 @@
     bar.className = "announcement-bar" + accentClass;
     bar.setAttribute("role", "region");
     bar.setAttribute("aria-label", "Site announcement");
-    if (link) {
+
+    if (seasonalActive && message) {
+      var sSpan = document.createElement("span");
+      sSpan.className = "announcement-segment announcement-segment-seasonal";
+      if (seasonalLink) {
+        var sA = document.createElement("a");
+        sA.href = rootAbsLink(seasonalLink) || seasonalLink;
+        sA.textContent = seasonalMessage;
+        sSpan.appendChild(sA);
+      } else {
+        sSpan.textContent = seasonalMessage;
+      }
+      var sepSpan = document.createElement("span");
+      sepSpan.className = "announcement-sep";
+      sepSpan.setAttribute("aria-hidden", "true");
+      var mSpan = document.createElement("span");
+      mSpan.className = "announcement-segment";
+      if (link) {
+        var mA = document.createElement("a");
+        mA.href = rootAbsLink(link) || link;
+        mA.textContent = message;
+        mSpan.appendChild(mA);
+      } else {
+        mSpan.textContent = message;
+      }
+      bar.appendChild(sSpan);
+      bar.appendChild(sepSpan);
+      bar.appendChild(mSpan);
+    } else if (seasonalActive) {
+      bar.classList.add("announcement-seasonal");
+      if (seasonalLink) {
+        var sLink = document.createElement("a");
+        sLink.href = rootAbsLink(seasonalLink) || seasonalLink;
+        sLink.textContent = seasonalMessage;
+        bar.appendChild(sLink);
+      } else {
+        bar.textContent = seasonalMessage;
+      }
+    } else if (link) {
       var barLink = document.createElement("a");
       barLink.href = rootAbsLink(link) || link;
       barLink.textContent = message;
@@ -8254,6 +8328,7 @@
     } else {
       bar.textContent = message;
     }
+
     var header = document.querySelector(".site-header");
     var skip = document.querySelector(".skip-link");
     if (header) {
@@ -8527,6 +8602,11 @@
       if (socialPosts.length === 0) return;
       renderCards(socialPosts);
     }
+
+    // Zero CLS: render static fallback feed synchronously on initial paint
+    // so the section height and card grid layout are established before the
+    // asynchronous Behold network request completes.
+    fallbackToStaticFeed();
 
     if (feedId && typeof fetch === "function") {
       fetch("https://feeds.behold.so/" + encodeURIComponent(feedId))
@@ -9613,21 +9693,54 @@
       var match = scored[0] ? scored[0].item : allItems[0];
 
       // Formulate Rationale
-      var vibeVal =
-        (quizSection.querySelector('input[name="quiz-vibe"]:checked') || {}).value || "gothic-calm";
-      var needVal =
-        (quizSection.querySelector('input[name="quiz-need"]:checked') || {}).value || "hydration";
-      var intentVal =
-        (quizSection.querySelector('input[name="quiz-intent"]:checked') || {}).value ||
-        "treat-myself";
-      var rationale =
-        "Prescribed based on your choice of " +
-        vibeVal.replace(/-/g, " ") +
-        " vibes, " +
-        needVal.replace(/-/g, " ") +
-        " focus, and " +
-        intentVal.replace(/-/g, " ") +
-        " intent.";
+      var vibeVal = (quizSection.querySelector('input[name="quiz-vibe"]:checked') || {}).value;
+      var needVal = (quizSection.querySelector('input[name="quiz-need"]:checked') || {}).value;
+      var intentVal = (quizSection.querySelector('input[name="quiz-intent"]:checked') || {}).value;
+
+      var rationale = "";
+      if (vibeVal && needVal && intentVal) {
+        rationale =
+          "Prescribed based on your choice of " +
+          vibeVal.replace(/-/g, " ") +
+          " vibes, " +
+          needVal.replace(/-/g, " ") +
+          " focus, and " +
+          intentVal.replace(/-/g, " ") +
+          " intent.";
+      } else {
+        var selectedLabels = [];
+        if (Array.isArray(quizQuestions) && quizQuestions.length > 0) {
+          quizQuestions.forEach(function (q) {
+            var param = q.name || "quiz-" + q.id;
+            var checked = quizSection.querySelector('input[name="' + param + '"]:checked');
+            var val = checked
+              ? checked.value
+              : q.options && q.options[0]
+                ? q.options[0].value
+                : null;
+            var opt =
+              q.options &&
+              q.options.find(function (o) {
+                return o.value === val;
+              });
+            if (opt && opt.label) {
+              selectedLabels.push(opt.label);
+            }
+          });
+        }
+        if (selectedLabels.length > 0) {
+          rationale = "Prescribed based on your selection: " + selectedLabels.join(", ") + ".";
+        } else {
+          rationale =
+            "Prescribed based on your choice of " +
+            (vibeVal || "gothic-calm").replace(/-/g, " ") +
+            " vibes, " +
+            (needVal || "hydration").replace(/-/g, " ") +
+            " focus, and " +
+            (intentVal || "treat-myself").replace(/-/g, " ") +
+            " intent.";
+        }
+      }
 
       var pMap = getProductMap();
       var firstBundleProduct =

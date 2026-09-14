@@ -2105,6 +2105,52 @@ assert(
   "announcementBar fallback includes threshold amount"
 );
 
+// Test seasonalNotice showInHeader support
+mockWindow.YL_CONTENT = {
+  site: {
+    announcement: { enabled: false },
+    seasonalNotice: {
+      enabled: true,
+      showInHeader: true,
+      text: "🌿 Autumn Foraging Hiatus",
+      link: "events.html"
+    }
+  }
+};
+mockDocument.body.children.length = 0;
+main.announcementBar();
+renderedBar = mockDocument.body.children[0];
+assert(renderedBar != null, "announcementBar renders when seasonalNotice.showInHeader is enabled");
+assert(
+  renderedBar &&
+    (renderedBar.textContent.includes("Autumn Foraging Hiatus") ||
+      renderedBar.innerHTML.includes("Autumn Foraging Hiatus")),
+  "announcementBar contains seasonalNotice text"
+);
+assert(
+  renderedBar && renderedBar.classList.contains("announcement-seasonal"),
+  "announcementBar carries announcement-seasonal class"
+);
+
+// Test seasonalNotice showInHeader disabled
+mockWindow.YL_CONTENT = {
+  site: {
+    announcement: { enabled: false },
+    seasonalNotice: {
+      enabled: true,
+      showInHeader: false,
+      text: "🌿 Autumn Foraging Hiatus"
+    }
+  }
+};
+mockDocument.body.children.length = 0;
+main.announcementBar();
+eq(
+  mockDocument.body.children.length,
+  0,
+  "announcementBar renders nothing when showInHeader is false"
+);
+
 /* 2. Stock Badge Batch Date */
 console.log("\n--- Milestone 2: Stock Badge Batch Date Tests ---");
 const comingSoonWithBatch = {

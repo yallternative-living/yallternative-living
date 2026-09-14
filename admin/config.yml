@@ -498,7 +498,7 @@ collections:
         required: false
         hint: "Extra words customers might type: occasions, uses, ingredient names, misspellings (e.g. post-hike, cane sugar, stocking stuffer). These are published with the product, so keep symptoms and conditions like eczema or insomnia OUT — put those under Site Settings → Search settings → Extra search words, which only translate what a customer typed."
       - name: concerns
-        label: "Shop concerns"
+        label: "Product vibes"
         widget: relation
         multiple: true
         required: false
@@ -507,7 +507,7 @@ collections:
         value_field: concerns.*.id
         display_fields: ["concerns.*.icon", "concerns.*.name"]
         search_fields: ["concerns.*.name"]
-        hint: "Which concern filters list this product, e.g. Sore Muscles or Dry Skin."
+        hint: "Which vibe filters list this product, e.g. After a Long Day or Dry, Rough Skin."
       - name: pairsWith
         label: "Pairs well with"
         widget: relation
@@ -922,7 +922,7 @@ singletons:
             }
           - { name: blurb, label: "Bundle description", widget: text }
           - name: concerns
-            label: "Bundle concerns"
+            label: "Bundle vibes"
             widget: relation
             multiple: true
             required: false
@@ -931,7 +931,7 @@ singletons:
             value_field: concerns.*.id
             display_fields: ["concerns.*.icon", "concerns.*.name"]
             search_fields: ["concerns.*.name"]
-            hint: "Which concern filters list this gift set."
+            hint: "Which vibe filters list this gift set."
           - {
               name: id,
               label: "Bundle ID",
@@ -954,19 +954,19 @@ singletons:
           - { name: answer, label: Answer, widget: text }
 
       - name: concerns
-        label: "Concern filters"
+        label: "Vibe filters"
         widget: list
-        label_singular: Concern
+        label_singular: Vibe
         collapsed: true
         minimize_collapsed: true
         summary: "{{fields.icon}} {{fields.name}}"
-        hint: "The shop's concern filters, e.g. Sleep & Relaxation, Sore Muscles. You rarely need to change these."
+        hint: "The shop's vibe filters, e.g. Wind-Down & Relaxation, After a Long Day. You rarely need to change these."
         fields:
-          - { name: name, label: "Concern name", widget: string }
+          - { name: name, label: "Vibe name", widget: string }
           - { name: icon, label: "Emoji", widget: string, required: false }
           - {
               name: id,
-              label: "Concern ID",
+              label: "Vibe ID",
               widget: string,
               required: false,
               readonly: true,
@@ -1655,41 +1655,47 @@ singletons:
                 default: "default"
 
           - name: seasonalNotice
-            label: "Seasonal notice"
+            label: "Seasonal Hiatus & Shipping Delay Notice (Turn on/off)"
             widget: object
             collapsed: true
-            hint: "A hiatus or shipping-delay alert, e.g. during a foraging break."
+            hint: "Off and hidden by default. Turn on only when announcing a foraging break, holiday hiatus, or shipping delay. When off, the notice is completely removed from both the header banner and the cart drawer."
             fields:
               - {
                   name: enabled,
-                  label: "Show the notice",
+                  label: "Turn on seasonal notice",
                   widget: boolean,
-                  default: false
+                  default: false,
+                  hint: "Off by default. When off, the notice is completely removed from both the top banner and the cart — you do not need to delete your wording below."
                 }
               - {
                   name: text,
-                  label: "Notice wording",
+                  label: "Notice message",
                   widget: string,
-                  default: "🌿 Spring Foraging Hiatus: Orders placed after Oct 15 will ship Nov 1."
+                  required: false,
+                  default: "🌿 Autumn Foraging Hiatus: Orders placed after Oct 15 will ship Nov 1.",
+                  hint: "What the notice says (e.g. Orders placed after Oct 15 will ship Nov 1)."
                 }
               - {
                   name: link,
-                  label: "Notice link",
+                  label: "Notice link (optional)",
                   widget: string,
                   required: false,
-                  default: "events.html"
+                  default: "events.html",
+                  hint: "Optional page to link to (e.g. events.html)."
                 }
               - {
                   name: showInCart,
-                  label: "Show in the cart",
+                  label: "Show in cart drawer",
                   widget: boolean,
-                  default: true
+                  default: true,
+                  hint: "Displays an alert banner inside the cart drawer when enabled."
                 }
               - {
                   name: showInHeader,
-                  label: "Show under the header",
+                  label: "Show banner at top of site",
                   widget: boolean,
-                  default: false
+                  default: false,
+                  hint: "Displays an alert banner across the header of every page when enabled."
                 }
 
           # --- Footer, newsletter & birthday club wording ---------------
@@ -2041,7 +2047,7 @@ singletons:
             widget: object
             collapsed: true
             required: false
-            hint: "On phones the shop's category, concern, scent and sort controls fold into one 'Filter · Sort' row that opens a slide-up panel. These are the words on that row and panel. Tablets and computers show the full filter row as before. Leave any field blank to keep the standard wording."
+            hint: "On phones the shop's category, vibe, scent and sort controls fold into one 'Filter · Sort' row that opens a slide-up panel. These are the words on that row and panel. Tablets and computers show the full filter row as before. Leave any field blank to keep the standard wording."
             fields:
               - { name: filterButton, label: "Filter button", widget: string, required: false, hint: "The button that opens the panel. Standard: Filter. A count of active filters is added automatically." }
               - { name: sortButton, label: "Sort button", widget: string, required: false, hint: "Opens the panel at the sort choices. Standard: Sort." }

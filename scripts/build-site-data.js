@@ -1633,7 +1633,7 @@ function getActiveSocialUrls(social) {
   return urls;
 }
 
-function validateQuizData(quiz, productsMap, categoriesMap, bundlesMap) {
+function validateQuizData(quiz, productsMap, categoriesMap, bundlesMap, concernsMap) {
   if (!quiz) return true;
   const questions = quiz.questions || quiz.steps || [];
   if (!Array.isArray(questions)) {
@@ -1643,6 +1643,7 @@ function validateQuizData(quiz, productsMap, categoriesMap, bundlesMap) {
   const pMap = productsMap || {};
   const cMap = categoriesMap || {};
   const bMap = bundlesMap || {};
+  const vMap = concernsMap || {};
 
   questions.forEach(function (q, qIdx) {
     if (!q || typeof q !== "object") {
@@ -1688,9 +1689,102 @@ function validateQuizData(quiz, productsMap, categoriesMap, bundlesMap) {
           }
         });
       }
+      if (Array.isArray(opt.concerns)) {
+        opt.concerns.forEach(function (con) {
+          if (vMap && Object.keys(vMap).length && !vMap[con]) {
+            throw new Error(
+              "Quiz option '" +
+                (opt.value || optIdx) +
+                "' in question '" +
+                (q.id || qIdx) +
+                "' references unknown concern/vibe ID: '" +
+                con +
+                "'"
+            );
+          }
+        });
+      }
     });
   });
   return true;
+}
+
+function buildQuizFlowHtml(quiz) {
+  if (!quiz || !Array.isArray(quiz.questions) || !quiz.questions.length) return "";
+  const questions = quiz.questions;
+  const total = questions.length;
+  let out = "";
+  questions.forEach(function (q, qIdx) {
+    const stepNum = qIdx + 1;
+    const paramName = q.name || "quiz-" + (q.id || "step" + stepNum);
+    const rawTitle = (q.title || "").replace(/^Step\s+\d+\s+of\s+\d+:\s*/i, "");
+    const cleanTitle = "Step " + stepNum + " of " + total + ": " + rawTitle;
+    const stepDisplay = qIdx === 0 ? "" : ' style="display: none;"';
+    out += "            <!-- Step " + stepNum + " -->\n";
+    out +=
+      '            <div id="quiz-step-' + stepNum + '" class="quiz-step"' + stepDisplay + ">\n";
+    out +=
+      '              <h3 style="font-size: 1.05rem; margin-bottom: 1rem; color: var(--whiskey);">' +
+      escapeHtml(cleanTitle) +
+      "</h3>\n";
+    if (q.subtitle) {
+      out +=
+        '              <p style="font-size: 0.85rem; color: var(--paper-muted); margin: -0.5rem 0 1rem;">' +
+        escapeHtml(q.subtitle) +
+        "</p>\n";
+    }
+    out +=
+      '              <div class="grid grid-2 gap-sm" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem;">\n';
+    (q.options || []).forEach(function (opt, optIdx) {
+      const val = opt.value || slugify(opt.label) || "opt-" + optIdx;
+      const checked = optIdx === 0 ? " checked" : "";
+      out +=
+        '                <label class="quiz-option-card" style="display: block; padding: 0.85rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--ink-3); color: var(--paper); transition: border-color 0.2s;">\n';
+      out +=
+        '                  <input type="radio" name="' +
+        escapeHtml(paramName) +
+        '" value="' +
+        escapeHtml(val) +
+        '"' +
+        checked +
+        ' style="margin-right: 0.5rem; accent-color: var(--whiskey);">\n';
+      out += "                  <strong>" + escapeHtml(opt.label || "") + "</strong>\n";
+      if (opt.description) {
+        out +=
+          '                  <p style="font-size: 0.8rem; color: var(--paper-muted); margin: 0.25rem 0 0;">' +
+          escapeHtml(opt.description) +
+          "</p>\n";
+      }
+      out += "                </label>\n";
+    });
+    out += "              </div>\n";
+    if (qIdx === 0) {
+      out +=
+        '              <button type="button" id="quiz-next-btn-1" class="btn btn-primary quiz-next-step" data-next="2">Next Step &rarr;</button>\n';
+    } else if (qIdx < total - 1) {
+      out += '              <div style="display: flex; gap: 0.5rem;">\n';
+      out +=
+        '                <button type="button" class="btn btn-outline quiz-prev-step" data-prev="' +
+        (stepNum - 1) +
+        '">&larr; Back</button>\n';
+      out +=
+        '                <button type="button" id="quiz-next-btn" class="btn btn-primary quiz-next-step" data-next="' +
+        (stepNum + 1) +
+        '">Next Step &rarr;</button>\n';
+      out += "              </div>\n";
+    } else {
+      out += '              <div style="display: flex; gap: 0.5rem;">\n';
+      out +=
+        '                <button type="button" class="btn btn-outline quiz-prev-step" data-prev="' +
+        (stepNum - 1) +
+        '">&larr; Back</button>\n';
+      out +=
+        '                <button type="button" id="quiz-submit-btn" class="btn btn-primary">Find My Match &rarr;</button>\n';
+      out += "              </div>\n";
+    }
+    out += "            </div>\n";
+  });
+  return out;
 }
 
 function readText(relPath, label) {
@@ -2285,11 +2379,15 @@ function buildSiteData() {
   (CATALOG.categories || []).forEach(function (c) {
     if (c.id) CATEGORIES_BY_ID[c.id] = c;
   });
+  const CONCERNS_BY_ID = {};
+  (CATALOG.concerns || []).forEach(function (con) {
+    if (con.id) CONCERNS_BY_ID[con.id] = con;
+  });
   /* Before any derived file is written: a bad bundle price must not leave
      products-data.js rewritten while the HTML, sitemap and feed are stale. */
   assertBundlePricesSane(BUNDLES, PRODUCTS_BY_ID);
   try {
-    validateQuizData(CONTENT.quiz, PRODUCTS_BY_ID, CATEGORIES_BY_ID, BUNDLES_BY_ID);
+    validateQuizData(CONTENT.quiz, PRODUCTS_BY_ID, CATEGORIES_BY_ID, BUNDLES_BY_ID, CONCERNS_BY_ID);
   } catch (e) {
     console.error("\n[build] Quiz data validation failed: " + e.message);
     process.exit(1);
@@ -4148,7 +4246,7 @@ function buildSiteData() {
           .join("")
       : "";
     const concernPills = concerns.length
-      ? '<button class="concern-pill active" type="button" data-concern="all" aria-pressed="true">All Concerns</button>' +
+      ? '<button class="concern-pill active" type="button" data-concern="all" aria-pressed="true">All Vibes</button>' +
         concerns
           .map(function (c) {
             return (
@@ -4499,6 +4597,63 @@ function buildSiteData() {
     }
   }
   injectJournalCopy();
+
+  function injectQuizShopCopy() {
+    const quiz = CONTENT.quiz || {};
+    const pagePath = path.join(ROOT, "shop.html");
+    if (!fs.existsSync(pagePath)) return;
+    let html = fs.readFileSync(pagePath, "utf8");
+
+    const fields = [
+      { key: "quiz.eyebrow", val: quiz.eyebrow || "✦ INTERACTIVE APOTHECARY ✦" },
+      { key: "quiz.title", val: quiz.title || "Find Your Custom Self-Care Match" },
+      {
+        key: "quiz.subtitle",
+        val:
+          quiz.subtitle ||
+          "Answer 3 quick questions in our popup quiz to discover your personalized salve, soak, or potion match."
+      },
+      { key: "quiz.buttonText", val: quiz.buttonText || "Take the Quiz" },
+      { key: "quiz.modalEyebrow", val: "Interactive Apothecary" },
+      { key: "quiz.modalTitle", val: quiz.modalTitle || "Your Three Questions" },
+      {
+        key: "quiz.modalSubtitle",
+        val:
+          quiz.modalSubtitle ||
+          quiz.subtitle ||
+          "Answer 3 quick questions to discover your personalized salve, soak, or potion match."
+      }
+    ];
+
+    fields.forEach(function (f) {
+      const re = new RegExp(
+        "(<!--YL:" +
+          f.key.replace(/\./g, "\\.") +
+          "-->)[\\s\\S]*?(<!--/YL:" +
+          f.key.replace(/\./g, "\\.") +
+          "-->)",
+        "g"
+      );
+      if (re.test(html)) {
+        html = html.replace(re, function (m, p1, p2) {
+          return p1 + escapeHtml(f.val) + p2;
+        });
+      }
+    });
+
+    const reFlow = /(<!--YL:quiz\.flow-->)[\s\S]*?(<!--\/YL:quiz\.flow-->)/;
+    if (reFlow.test(html)) {
+      const flowHtml = buildQuizFlowHtml(quiz);
+      if (flowHtml) {
+        html = html.replace(reFlow, function (m, p1, p2) {
+          return p1 + "\n" + flowHtml + "            " + p2;
+        });
+      }
+    }
+
+    writeFile("shop.html", html);
+  }
+  injectQuizShopCopy();
 
   /* ---------- 4b) shared footer (single source -> all pages) ----------
    The <footer class="site-footer"> block is byte-identical on every
@@ -7379,7 +7534,7 @@ const DEFAULT_SHOP_FILTER_UI = {
   sortButton: "Sort",
   sheetTitle: "Filter & sort",
   categoryHeading: "Category",
-  concernHeading: "Concern",
+  concernHeading: "Vibe",
   applyButton: "Apply",
   clearAll: "Clear all",
   activeFilters: "Active filters",
@@ -8785,6 +8940,7 @@ if (typeof module !== "undefined" && module.exports) {
     renderUsageAccordionsHtml: renderUsageAccordionsHtml,
     validatePairsWith: validatePairsWith,
     validateQuizData: validateQuizData,
+    buildQuizFlowHtml: buildQuizFlowHtml,
     renderSocialRowHtml: renderSocialRowHtml,
     getActiveSocialUrls: getActiveSocialUrls,
     renderRitualSectionHtml: renderRitualSectionHtml,
