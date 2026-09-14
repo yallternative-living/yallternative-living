@@ -160,8 +160,9 @@ const INCOMPLETE_BASELINE = {
   },
   "faq.html [dark]": 11,
   "faq.html [light]": 11,
-  "index.html [dark]": 39,
-  "index.html [light]": 39,
+  /* index.html: 39 baseline + 4 when UGC social feed is enabled (UGC cards have color-contrast and aria-haspopup undecidable nodes). */
+  "index.html [dark]": 43,
+  "index.html [light]": 43,
   /* journal.html scales with the posts, the same way events.html scales with
      its cards: each post card renders a "Read Post" outline button whose
      contrast axe cannot decide over its pseudo-element (measured 2026-09-09
@@ -240,8 +241,9 @@ const INCOMPLETE_BASELINE = {
   "reviews.html [light]": 40,
   "safety.html [dark]": 13,
   "safety.html [light]": 13,
-  "shop.html [dark]": 107,
-  "shop.html [light]": 107,
+  /* shop.html: 107 baseline + 3 when UGC social feed is enabled */
+  "shop.html [dark]": 110,
+  "shop.html [light]": 110,
   "terms.html [dark]": 19,
   "terms.html [light]": 19,
   /* +1 on 2026-09-09: the "All Your Orders" outline button beside "Keep

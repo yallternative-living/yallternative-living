@@ -1059,6 +1059,20 @@ singletons:
             }
           - { name: location, label: "Location", widget: string, hint: "e.g. Landrum, SC" }
           - {
+              name: venue,
+              label: "Venue / Place name",
+              widget: string,
+              required: false,
+              hint: "e.g. Tryon International or Mills River Brewing Co"
+            }
+          - {
+              name: address,
+              label: "Street address",
+              widget: string,
+              required: false,
+              hint: "e.g. 25 International Blvd (without city, state, or ZIP)"
+            }
+          - {
               name: zip,
               label: "ZIP code",
               widget: string,
@@ -1124,6 +1138,26 @@ singletons:
             }
           - { name: dateLabel, label: "Date as shown", widget: string, hint: "e.g. June 2026" }
           - { name: location, label: "Location", widget: string, required: false }
+          - {
+              name: venue,
+              label: "Venue / Place name",
+              widget: string,
+              required: false,
+              hint: "e.g. NoDa Brewing Company"
+            }
+          - {
+              name: address,
+              label: "Street address",
+              widget: string,
+              required: false,
+              hint: "e.g. 575 Fairgrounds Rd"
+            }
+          - {
+              name: zip,
+              label: "ZIP code",
+              widget: string,
+              required: false
+            }
           - { name: type, label: "Type", widget: string, required: false }
           - { name: url, label: "Link", widget: string, type: url, required: false }
           - { name: note, label: "Note", widget: text, required: false }
@@ -1986,7 +2020,7 @@ singletons:
                 }
               - { name: title, label: "Heading", widget: string }
           - name: community
-            label: "“Spotted In The Wild” social section"
+            label: "Social Media Feed section"
             widget: object
             collapsed: true
             fields:

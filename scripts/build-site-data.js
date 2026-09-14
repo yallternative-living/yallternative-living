@@ -2404,6 +2404,8 @@ function buildSiteData() {
           name: evt.name,
           type: evt.type,
           location: evt.location,
+          venue: evt.venue,
+          address: evt.address,
           zip: evt.zip,
           emoji: evt.emoji,
           url: evt.url,
@@ -3799,6 +3801,7 @@ function buildSiteData() {
     pulling that into the build to reach two pure functions would be a far
     bigger liability than a mirrored pair the test pins together. */
   function getEventStreetAddress(ev) {
+    if (ev && ev.address) return String(ev.address).trim();
     if (!ev || !ev.note || !ev.zip) return "";
     const note = String(ev.note);
     if (!/^\d/.test(note.trim())) return "";
@@ -3905,6 +3908,65 @@ function buildSiteData() {
     past.push(ev);
   });
 
+  function resolveEventDetails(ev) {
+    let venue = ev && ev.venue ? String(ev.venue).trim() : "";
+    let street = ev && ev.address ? String(ev.address).trim() : "";
+    const rawNote = ev && ev.note ? String(ev.note).trim() : "";
+    let note = rawNote;
+
+    if ((!venue || !street) && rawNote) {
+      const m = rawNote.match(/^([^.]+?\b(?:[A-Z]{2}\s+\d{5}|\d{5})\b)\.?\s*(.*)$/);
+      if (m) {
+        const addrPart = m[1].trim();
+        const rest = m[2] ? m[2].trim() : "";
+        const chunks = addrPart.split(/\s*,\s*/);
+        const locStr = ev && ev.location ? ev.location.toLowerCase() : "";
+        const zipStr = ev && ev.zip ? String(ev.zip).trim() : "";
+        const remaining = [];
+        for (let i = 0; i < chunks.length; i++) {
+          const c = chunks[i].trim();
+          const cLower = c.toLowerCase();
+          if (zipStr && c === zipStr) continue;
+          if (/^[A-Z]{2}\s+\d{5}$/i.test(c)) continue;
+          if (locStr && (locStr.indexOf(cLower) !== -1 || cLower.indexOf(locStr) !== -1)) continue;
+          if (/^(?:NC|SC|GA|TN|VA)\b/i.test(c) && /\d{5}/.test(c)) continue;
+          remaining.push(c);
+        }
+        if (!venue && !street) {
+          if (remaining.length >= 2) {
+            venue = remaining[0];
+            street = remaining.slice(1).join(", ");
+          } else if (remaining.length === 1) {
+            if (/\d/.test(remaining[0])) {
+              street = remaining[0];
+            } else {
+              venue = remaining[0];
+            }
+          }
+        } else if (!street && remaining.length) {
+          street = remaining.join(", ");
+        }
+        note = rest;
+      }
+    }
+
+    if (street && ev && ev.location) {
+      const locParts = ev.location.split(/\s*,\s*/);
+      for (let j = 0; j < locParts.length; j++) {
+        const lp = locParts[j].trim();
+        if (lp && street.indexOf(lp) !== -1) {
+          street = street.replace(new RegExp(",?\\s*" + lp + "\\b", "gi"), "").trim();
+        }
+      }
+    }
+
+    return {
+      venue: venue,
+      street: street,
+      note: note
+    };
+  }
+
   const sortedPast = past.slice().sort(function (a, b) {
     const dateA = a.date || "1970-01-01";
     const dateB = b.date || "1970-01-01";
@@ -3923,16 +3985,35 @@ function buildSiteData() {
           const cardCat = ev.type
             ? '              <span class="card-cat">' + escapeHtml(ev.type) + "</span>\n"
             : "";
-          const cardNote = ev.note
-            ? '              <p class="event-desc">' + escapeHtml(ev.note) + "</p>\n"
-            : "";
-          const evUrl = safeUrl(ev.url);
-          const cardUrl = evUrl
-            ? '              <div class="event-cta">\n' +
-              '                <a class="btn btn-primary btn-sm btn-block" href="' +
-              escapeHtml(evUrl) +
-              '" target="_blank" rel="noopener noreferrer">More Info / RSVP<span class="sr-only"> (opens in new tab)</span></a>\n' +
-              "              </div>\n"
+          const details = resolveEventDetails(ev);
+          const venue = details.venue;
+          const street = details.street;
+          const note = details.note;
+
+          let venueAddressHtml = "";
+          if (venue && street) {
+            venueAddressHtml =
+              '              <p class="event-venue-address">' +
+              '<span class="event-place">' +
+              escapeHtml(venue) +
+              '</span> <span class="event-addr-divider" aria-hidden="true">·</span> <span class="event-street">' +
+              escapeHtml(street) +
+              "</span>" +
+              "</p>\n";
+          } else if (venue) {
+            venueAddressHtml =
+              '              <p class="event-venue-address"><span class="event-place">' +
+              escapeHtml(venue) +
+              "</span></p>\n";
+          } else if (street) {
+            venueAddressHtml =
+              '              <p class="event-venue-address"><span class="event-street">' +
+              escapeHtml(street) +
+              "</span></p>\n";
+          }
+
+          const cardNote = note
+            ? '              <p class="event-desc">' + escapeHtml(note) + "</p>\n"
             : "";
           return (
             '          <article class="card event-card ' +
@@ -3948,14 +4029,13 @@ function buildSiteData() {
             '"><svg class="yl-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> ' +
             escapeHtml(ev.dateLabel) +
             "</time></p>\n" +
-            '              <p class="event-location">' +
             (ev.location
-              ? '<svg class="yl-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg> ' +
-                escapeHtml(ev.location)
+              ? '              <p class="event-location"><span class="event-venue-name"><svg class="yl-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg> ' +
+                escapeHtml(ev.location) +
+                "</span></p>\n"
               : "") +
-            "</p>\n" +
+            venueAddressHtml +
             cardNote +
-            cardUrl +
             "            </div>\n" +
             "          </article>"
           );

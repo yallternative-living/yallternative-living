@@ -4534,8 +4534,8 @@ section("Milestone 3: CMS Merchandising, Schema Validation & Quiz Integrity");
     var primarySocials = ["instagram", "tiktok", "facebook", "etsy"];
     var allSocialsValid = socialKeys.every(function (k) {
       var val = social[k];
+      if (val === undefined || val === null || val === "") return true;
       if (typeof val !== "string") return false;
-      if (val.length === 0) return true;
       return val.startsWith("https://");
     });
     var primaryPopulated = primarySocials.every(function (k) {

@@ -54,7 +54,7 @@ window.YL_CONTENT = {
     "enableUsageGuideEmails": true,
     "usageGuideDelayDays": 4,
     "enableJournal": true,
-    "enableSocialFeed": false,
+    "enableSocialFeed": true,
     "enableRestockAlerts": true,
     "showLiveStock": true,
     "enableSquareSync": true,

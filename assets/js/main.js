@@ -5383,25 +5383,6 @@
       markReveal(upcomingEl);
 
       injectEventJsonLd(sortedUpcoming);
-
-      /* "Invite us to your market" + the event-specific email capture,
-         rendered once just after the upcoming list. Re-checks for an
-         existing panel so a second call (there isn't one today, but this
-         mirrors the id-check pattern injectEventJsonLd and the reviews
-         distribution bar both use) updates in place instead of duplicating. */
-      var followupPanel = document.getElementById("eventsFollowupPanel");
-      if (!followupPanel) {
-        followupPanel = document.createElement("div");
-        followupPanel.id = "eventsFollowupPanel";
-        followupPanel.className = "events-followup-panel";
-        if (upcomingEl.parentNode) {
-          upcomingEl.parentNode.insertBefore(followupPanel, upcomingEl.nextSibling);
-        }
-      }
-      followupPanel.innerHTML = eventInviteOrganizerHTML() + eventEmailCaptureHTML();
-      /* The markup above is a working plain form on its own. This upgrades it
-         to a fetch, and reads the no-JS round trip's ?market-alerts= result. */
-      initMarketAlertForm(followupPanel);
     }
 
     if (pastEl) {
@@ -5923,6 +5904,7 @@
      the note doesn't start with a street address, so JSON-LD (below) omits
      streetAddress entirely instead of guessing. */
   function getEventStreetAddress(ev) {
+    if (ev && ev.address) return String(ev.address).trim();
     if (!ev || !ev.note || !ev.zip) return "";
     var note = String(ev.note);
     if (!/^\d/.test(note.trim())) return "";
@@ -6457,6 +6439,65 @@
     return label + " \u00b7 from " + start;
   }
 
+  function resolveEventDetails(ev) {
+    var venue = ev && ev.venue ? String(ev.venue).trim() : "";
+    var street = ev && ev.address ? String(ev.address).trim() : "";
+    var rawNote = ev && ev.note ? String(ev.note).trim() : "";
+    var note = rawNote;
+
+    if ((!venue || !street) && rawNote) {
+      var m = rawNote.match(/^([^.]+?\b(?:[A-Z]{2}\s+\d{5}|\d{5})\b)\.?\s*(.*)$/);
+      if (m) {
+        var addrPart = m[1].trim();
+        var rest = m[2] ? m[2].trim() : "";
+        var chunks = addrPart.split(/\s*,\s*/);
+        var locStr = ev && ev.location ? ev.location.toLowerCase() : "";
+        var zipStr = ev && ev.zip ? String(ev.zip).trim() : "";
+        var remaining = [];
+        for (var i = 0; i < chunks.length; i++) {
+          var c = chunks[i].trim();
+          var cLower = c.toLowerCase();
+          if (zipStr && c === zipStr) continue;
+          if (/^[A-Z]{2}\s+\d{5}$/i.test(c)) continue;
+          if (locStr && (locStr.indexOf(cLower) !== -1 || cLower.indexOf(locStr) !== -1)) continue;
+          if (/^(?:NC|SC|GA|TN|VA)\b/i.test(c) && /\d{5}/.test(c)) continue;
+          remaining.push(c);
+        }
+        if (!venue && !street) {
+          if (remaining.length >= 2) {
+            venue = remaining[0];
+            street = remaining.slice(1).join(", ");
+          } else if (remaining.length === 1) {
+            if (/\d/.test(remaining[0])) {
+              street = remaining[0];
+            } else {
+              venue = remaining[0];
+            }
+          }
+        } else if (!street && remaining.length) {
+          street = remaining.join(", ");
+        }
+        note = rest;
+      }
+    }
+
+    if (street && ev && ev.location) {
+      var locParts = ev.location.split(/\s*,\s*/);
+      for (var j = 0; j < locParts.length; j++) {
+        var lp = locParts[j].trim();
+        if (lp && street.indexOf(lp) !== -1) {
+          street = street.replace(new RegExp(",?\\s*" + lp + "\\b", "gi"), "").trim();
+        }
+      }
+    }
+
+    return {
+      venue: venue,
+      street: street,
+      note: note
+    };
+  }
+
   function eventCardHTML(ev, opts) {
     var isPast = Boolean(opts && opts.past);
     var gCalUrl = generateGoogleCalendarUrl(ev);
@@ -6469,35 +6510,74 @@
     /* Search results deep-link to events.html#<id>, so the card carries it. */
     var idAttr = ev.id ? ' id="' + attrEsc(ev.id) + '"' : "";
 
+    var details = resolveEventDetails(ev);
+    var venue = details.venue;
+    var street = details.street;
+    var note = details.note;
+
+    var venueAddressHtml = "";
+    if (venue && street) {
+      venueAddressHtml =
+        '<p class="event-venue-address">' +
+        '<span class="event-place">' +
+        attrEsc(venue) +
+        '</span> <span class="event-addr-divider" aria-hidden="true">·</span> <span class="event-street">' +
+        attrEsc(street) +
+        "</span>" +
+        "</p>";
+    } else if (venue) {
+      venueAddressHtml =
+        '<p class="event-venue-address"><span class="event-place">' +
+        attrEsc(venue) +
+        "</span></p>";
+    } else if (street) {
+      venueAddressHtml =
+        '<p class="event-venue-address"><span class="event-street">' +
+        attrEsc(street) +
+        "</span></p>";
+    }
+
     /* A past market is a record of where the table has been. It gets no
        "Reserve / Pick Up", calendar or RSVP buttons and no directions --
        every one of those used to be rendered for past dates too, offering
        pickup at a booth that had already been packed up. */
     var actionsHtml = isPast
       ? ""
-      : '<div class="event-actions-row" style="display:flex; flex-direction:column; gap:6px; margin-top:12px;">' +
+      : '<div class="event-actions-row">' +
+        '<div class="event-cta-main">' +
         (safeUrl(ev.url)
           ? '<a class="btn btn-primary btn-sm btn-block" href="' +
             attrEsc(safeUrl(ev.url)) +
             '" target="_blank" rel="noopener noreferrer">More Info / RSVP<span class="sr-only"> (opens in new tab)</span></a>'
           : "") +
-        '<a class="btn btn-outline btn-sm btn-block" href="shop.html?pickup_market=' +
+        '<a class="btn ' +
+        (safeUrl(ev.url) ? "btn-outline" : "btn-primary") +
+        ' btn-sm btn-block" href="shop.html?pickup_market=' +
         pickupParam +
         '#shop-catalog">' +
         '<svg class="yl-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg> Reserve / Pick Up at This Booth' +
         "</a>" +
-        '<a class="btn btn-outline btn-sm btn-block" href="' +
+        "</div>" +
+        '<div class="event-calendar-row">' +
+        '<div class="event-calendar-pills">' +
+        '<a class="event-cal-btn" href="' +
         attrEsc(gCalUrl) +
-        '" target="_blank" rel="noopener noreferrer">' +
-        '<svg class="yl-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> Add to Google Calendar<span class="sr-only"> (opens in new tab)</span>' +
+        '" target="_blank" rel="noopener noreferrer" title="Add to Google Calendar">' +
+        '<svg class="yl-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> ' +
+        '<span class="cal-btn-visible" aria-hidden="true">Google Calendar</span>' +
+        '<span class="sr-only">Add to Google Calendar<span class="sr-only"> (opens in new tab)</span></span>' +
         "</a>" +
-        '<a class="btn btn-outline btn-sm btn-block" href="' +
+        '<a class="event-cal-btn" href="' +
         attrEsc(icsUri) +
         '" download="' +
         attrEsc(icsFilename) +
-        '">' +
-        '<svg class="yl-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> iCal / Apple Calendar (.ics)' +
+        '" title="iCal / Apple Calendar (.ics)">' +
+        '<svg class="yl-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> ' +
+        '<span class="cal-btn-visible" aria-hidden="true">Apple / iCal</span>' +
+        '<span class="sr-only">iCal / Apple Calendar (.ics)</span>' +
         "</a>" +
+        "</div>" +
+        "</div>" +
         "</div>";
 
     return (
@@ -6517,26 +6597,24 @@
       '<svg class="yl-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> ' +
       attrEsc(eventDateLabelWithTime(ev)) +
       "</time></p>" +
-      '<p class="event-location">' +
       (ev.location
-        ? '<svg class="yl-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg> ' +
-          "<span>" +
+        ? '<p class="event-location"><span class="event-venue-name"><svg class="yl-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg> ' +
           attrEsc(ev.location) +
-          "</span>" +
-          (isPast
-            ? ""
-            : '<span class="event-directions-links"> · <a class="event-map-link" href="' +
-              attrEsc(gMapsUrl) +
-              '" target="_blank" rel="noopener noreferrer" aria-label="Get directions to ' +
-              attrEsc(ev.name) +
-              ' on Google Maps">Google Maps<span class="sr-only"> directions (opens in new tab)</span></a> · <a class="event-map-link" href="' +
-              attrEsc(appleMapsUrl) +
-              '" target="_blank" rel="noopener noreferrer" aria-label="Get directions to ' +
-              attrEsc(ev.name) +
-              ' on Apple Maps">Apple Maps<span class="sr-only"> directions (opens in new tab)</span></a></span>')
+          "</span></p>"
         : "") +
-      "</p>" +
-      (ev.note ? '<p class="event-desc">' + attrEsc(ev.note) + "</p>" : "") +
+      venueAddressHtml +
+      (isPast || !ev.location
+        ? ""
+        : '<p class="event-directions-links"><a class="event-map-link" href="' +
+          attrEsc(gMapsUrl) +
+          '" target="_blank" rel="noopener noreferrer" aria-label="Get directions to ' +
+          attrEsc(ev.name) +
+          ' on Google Maps">Google Maps<span class="sr-only"> directions (opens in new tab)</span></a> · <a class="event-map-link" href="' +
+          attrEsc(appleMapsUrl) +
+          '" target="_blank" rel="noopener noreferrer" aria-label="Get directions to ' +
+          attrEsc(ev.name) +
+          ' on Apple Maps">Apple Maps<span class="sr-only"> directions (opens in new tab)</span></a></p>') +
+      (note ? '<p class="event-desc">' + attrEsc(note) + "</p>" : "") +
       actionsHtml +
       "</div>" +
       "</article>"

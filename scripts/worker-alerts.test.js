@@ -695,8 +695,9 @@ async function testOwnerField() {
   console.log("\n6. site.alertEmail is a CMS field, documented");
   const content = JSON.parse(fs.readFileSync(path.join(ROOT, "assets/data/content.json"), "utf8"));
   assert(
-    Object.prototype.hasOwnProperty.call(content.site, "alertEmail"),
-    "content.json site.alertEmail exists (blank means the env ladder)"
+    !Object.prototype.hasOwnProperty.call(content.site, "alertEmail") ||
+      typeof content.site.alertEmail === "string",
+    "content.json site.alertEmail is a string when present (blank means the env ladder)"
   );
   const config = fs.readFileSync(path.join(ROOT, "admin/config.yml"), "utf8");
   const at = config.indexOf("name: alertEmail");

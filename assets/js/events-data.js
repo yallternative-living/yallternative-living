@@ -14,8 +14,10 @@ window.YL_EVENTS = {
       "type": "Festival",
       "location": "Mill Spring, NC",
       "zip": "28756",
+      "venue": "Tryon International",
+      "address": "25 International Blvd",
       "url": "https://resort.tryon.com/events/saturday-night-lights-september19-thwdz",
-      "note": "Tryon International, 25 International Blvd, Mill Spring, NC 28756. Free family fun & live entertainment, followed by Grand Prix show jumping."
+      "note": "Free family fun & live entertainment, followed by Grand Prix show jumping."
     },
     {
       "id": "fall-family-festival-market-2026-09-26",
@@ -25,8 +27,10 @@ window.YL_EVENTS = {
       "type": "Craft Show",
       "location": "Moore, SC",
       "zip": "29369",
+      "venue": "The Gathering Farm",
+      "address": "140 Waldon Road",
       "url": "https://www.facebook.com/events/1701695287526740/",
-      "note": "The Gathering Farm, 140 Waldon Road, Moore, SC 29369. First-ever fall festival with 40+ craft vendors."
+      "note": "First-ever fall festival with 40+ craft vendors."
     },
     {
       "id": "autumn-apothecary-faire",
@@ -48,9 +52,11 @@ window.YL_EVENTS = {
       "name": "MRB Renaissance Festival",
       "type": "Festival",
       "location": "Mills River, NC",
+      "venue": "Mills River Brewing Co",
+      "address": "336 Banner Farm Rd",
       "zip": "28759",
       "url": "https://www.millsriverbrewingco.com/events/mountain-mayhem-renaissance-festival",
-      "note": "Mills River Brewing Co, 336 Banner Farm Rd, Mills River, NC 28759. Free family-friendly renaissance festival with medieval combat, live music & 40+ vendors."
+      "note": "Free family-friendly renaissance festival with medieval combat, live music & 40+ vendors."
     },
     {
       "id": "boomtown-arts-heritage-avl-fest-2026-09-05",
@@ -59,10 +65,12 @@ window.YL_EVENTS = {
       "name": "Boomtown Arts & Heritage FestAVL",
       "type": "Arts Festival",
       "location": "Asheville, NC",
+      "venue": "Pack Square Park",
+      "address": "121 College St",
       "zip": "28801",
       "emoji": "🎨",
       "url": "https://www.boomtownfestavl.com/",
-      "note": "Pack Square Park, 121 College St, Asheville, NC 28801. Free downtown arts & music festival — come find our table."
+      "note": "Free downtown arts & music festival — come find our table."
     },
     {
       "id": "spartanburg-punk-flea-market",
@@ -73,7 +81,8 @@ window.YL_EVENTS = {
       "type": "Flea Market",
       "location": "Spartanburg, SC",
       "zip": "29303",
-      "note": "575 Fairgrounds Rd, Spartanburg, SC 29303. Two-day punk flea market."
+      "address": "575 Fairgrounds Rd",
+      "note": "Two-day punk flea market."
     },
     {
       "id": "gothic-punk-night-market",
@@ -83,7 +92,9 @@ window.YL_EVENTS = {
       "type": "Night Market",
       "location": "Charlotte, NC",
       "zip": "28206",
-      "note": "NoDa Brewing Company, 150 W 32nd St, Charlotte, NC 28206."
+      "venue": "NoDa Brewing Company",
+      "address": "150 W 32nd St",
+      "note": ""
     },
     {
       "id": "summerville-punk-flea-market",
@@ -94,7 +105,8 @@ window.YL_EVENTS = {
       "type": "Flea Market",
       "location": "Ladson, SC",
       "zip": "29456",
-      "note": "9850 Highway 78, Ladson, SC 29456. Two-day punk flea market — come find our table."
+      "address": "9850 Highway 78",
+      "note": "Two-day punk flea market — come find our table."
     },
     {
       "id": "upstate-pride-colors-of-pride",
