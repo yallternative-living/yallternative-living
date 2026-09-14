@@ -76,9 +76,8 @@ backend:
   # doesn't exist anymore, which would make every /admin login fail).
   repo: yallternative-living/yallternative-living
   branch: main
-  # Only the token sign-in is offered. "Sign In with GitHub" needs the
-  # OAuth service in cms-auth/ (base_url below, still commented out), so
-  # today it is a button on her login screen that cannot succeed.
+  # Both 1-click GitHub OAuth and Personal Access Token sign-in are enabled.
+  # "Sign In with GitHub" uses the Cloudflare OAuth worker in cms-auth/ (base_url below).
   auth_methods: [oauth, token]
   # base_url = the "Sign in with GitHub" login service for /admin.
   # Deployed on Cloudflare Workers (cms-auth/ directory).
@@ -156,6 +155,7 @@ collections:
     identifier_field: name
     summary: "{{name}} — ${{price}} ({{category}})"
     preview_path: "products/{{fields.id}}.html"
+    aliases_field: false
     search_fields: [name, blurb, category, id]
     sortable_fields:
       fields: [name, price, category]
@@ -551,6 +551,7 @@ collections:
     identifier_field: title
     summary: "{{title}} ({{date}})"
     preview_path: "journal/{{slug}}.html"
+    aliases_field: false
     sortable_fields:
       fields: [date, title]
       default:
@@ -1310,7 +1311,7 @@ singletons:
               widget: boolean,
               default: true,
               required: false,
-              hint: "Customers pick their own mix for a discounted bundle. Sizes and discount are under Shop & Products → Shop details & shipping."
+              hint: "Customers pick their own mix for a discounted bundle. Sizes and discount are under Shop & Catalog Settings → Shop details & shipping."
             }
           - {
               name: enableScentFilter,
