@@ -74,6 +74,7 @@
     "home.nextPopUp": "下一场快闪：",
     "home.days": "天，",
     "home.hours": "小时，",
+    "home.hoursUntil": "小时，距离",
     "home.minsUntil": "分钟，距离",
     "footer.tagline": "专为 Black Sheep & Bold Hearts 打造的手工自我护理。小批量混合、浇注与搅拌。",
     "footer.disclaimer": "手工自我护理，不是药。此处售卖的任何产品均不用于诊断、治疗、治愈或预防任何病症。皮肤或健康真有困扰？去看正经医生，看完了再给自己买点好闻的东西犒劳一下。",

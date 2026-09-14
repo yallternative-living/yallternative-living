@@ -74,6 +74,7 @@
     "home.nextPopUp": "NEXT POP-UP:",
     "home.days": "Days,",
     "home.hours": "Hours,",
+    "home.hoursUntil": "Hours until",
     "home.minsUntil": "Mins until",
     "footer.tagline": "Handmade self-care for the black sheep & bold hearts. Mixed, poured, and stirred in small batches.",
     "footer.disclaimer": "Handmade self-care, not medicine. Nothing sold here is intended to diagnose, treat, cure, or prevent any condition. Got a real skin or health concern? See an actual doctor, then treat yourself to something that smells nice after.",

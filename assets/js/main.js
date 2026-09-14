@@ -9206,11 +9206,6 @@
       return;
     }
 
-    var daysSpan = document.getElementById("yl-countdown-days");
-    var hoursSpan = document.getElementById("yl-countdown-hours");
-    var minsSpan = document.getElementById("yl-countdown-minutes");
-    var eventDetailsSpan = document.getElementById("heroEventDetails");
-
     /* .countdown-card has no rule in styles.css -- the card is drawn entirely
        by these inline styles. The "in progress today" branch below used to
        emit the bare class with nothing on it, so from 9am on a market day the
@@ -9227,6 +9222,7 @@
 
     function update() {
       var rem = targetTime - Date.now();
+      var timerEl = tickerContainer ? document.getElementById("heroCountdownTimer") : null;
       var iconHtml = nextEvt.emoji
         ? '<span class="ticker-emoji" aria-hidden="true" style="margin-right: 4px;">' +
           attrEsc(nextEvt.emoji) +
@@ -9235,7 +9231,6 @@
 
       if (rem <= 0) {
         if (tickerContainer) {
-          var timerEl = document.getElementById("heroCountdownTimer");
           if (timerEl) timerEl.textContent = nextEvt.name + " is in progress today!";
           /* The badge next to it is baked into the HTML as "NEXT POP-UP:",
              which reads wrong once the pop-up is the one happening right now.
@@ -9280,28 +9275,54 @@
       totalSec %= 3600;
       var m = Math.floor(totalSec / 60);
 
-      /* Days, hours and minutes only -- a market weeks away does not need a
-         seconds hand ticking in the header. The markup ships "00"; keep the
-         width stable instead of letting the numbers jitter between one and
-         two digits. */
+      /* Adaptive precision: when an event is >=24 hours away, minutes are omitted
+         to reduce mobile banner crowding and eliminate artificial tick urgency.
+         When <24 hours away, hours and minutes provide relevant countdown
+         precision, dropping to minutes only under 1 hour. */
       var hStr = (h < 10 ? "0" : "") + h;
       var mStr = (m < 10 ? "0" : "") + m;
 
-      if (daysSpan) daysSpan.textContent = String(d);
-      if (hoursSpan) hoursSpan.textContent = hStr;
-      if (minsSpan) minsSpan.textContent = mStr;
-      if (eventDetailsSpan)
-        eventDetailsSpan.textContent =
-          nextEvt.name + (nextEvt.location ? " (" + nextEvt.location + ")" : "");
+      if (tickerContainer && timerEl) {
+        var detailsText = nextEvt.name + (nextEvt.location ? " (" + nextEvt.location + ")" : "");
+        if (d >= 1) {
+          timerEl.innerHTML =
+            '<span id="yl-countdown-days">' +
+            d +
+            "</span> Days, " +
+            '<span id="yl-countdown-hours">' +
+            hStr +
+            '</span> Hours until <span id="heroEventDetails">' +
+            attrEsc(detailsText) +
+            "</span>";
+        } else if (h > 0) {
+          timerEl.innerHTML =
+            '<span id="yl-countdown-hours">' +
+            hStr +
+            "</span> Hours, " +
+            '<span id="yl-countdown-minutes">' +
+            mStr +
+            '</span> Mins until <span id="heroEventDetails">' +
+            attrEsc(detailsText) +
+            "</span>";
+        } else {
+          timerEl.innerHTML =
+            '<span id="yl-countdown-minutes">' +
+            mStr +
+            '</span> Mins until <span id="heroEventDetails">' +
+            attrEsc(detailsText) +
+            "</span>";
+        }
+      }
 
       if (bannerContainer) {
-        var timeStr =
-          d +
-          (d === 1 ? " Day, " : " Days, ") +
-          hStr +
-          (h === 1 ? " Hour, " : " Hours, ") +
-          mStr +
-          (m === 1 ? " Min" : " Mins");
+        var timeStr = "";
+        if (d >= 1) {
+          timeStr = d + (d === 1 ? " Day, " : " Days, ") + hStr + (h === 1 ? " Hour" : " Hours");
+        } else if (h > 0) {
+          timeStr = h + (h === 1 ? " Hour, " : " Hours, ") + mStr + (m === 1 ? " Min" : " Mins");
+        } else {
+          timeStr = m + (m === 1 ? " Min" : " Mins");
+        }
         var nextAppCatHtml = nextEvt.emoji
           ? '<span aria-hidden="true" style="margin-right: 4px;">' +
             attrEsc(nextEvt.emoji) +
