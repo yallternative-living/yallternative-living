@@ -1007,13 +1007,18 @@ function validateDictionaryCoverage(locales, runtimeManifest, basisDoc) {
   function readSource(rel) {
     if (!Object.prototype.hasOwnProperty.call(sourceCache, rel)) {
       const p = path.join(ROOT, rel);
-      sourceCache[rel] = fs.existsSync(p) ? fs.readFileSync(p, "utf8") : null;
+      if (fs.existsSync(p)) {
+        const raw = fs.readFileSync(p, "utf8");
+        sourceCache[rel] = { raw: raw, decoded: decodeHtmlEntities(raw) };
+      } else {
+        sourceCache[rel] = null;
+      }
     }
     return sourceCache[rel];
   }
   manifestStrings.forEach(function (entry) {
-    const src = entry.source ? readSource(entry.source) : null;
-    if (src === null) {
+    const cached = entry.source ? readSource(entry.source) : null;
+    if (cached === null) {
       problems.push(
         "runtime manifest entry '" +
           entry.key +
@@ -1022,7 +1027,8 @@ function validateDictionaryCoverage(locales, runtimeManifest, basisDoc) {
       );
       return;
     }
-    const decoded = decodeHtmlEntities(src);
+    const src = cached.raw;
+    const decoded = cached.decoded;
     const fragments =
       Array.isArray(entry.verify) && entry.verify.length ? entry.verify : [entry.text];
     const missing = fragments.filter(function (frag) {
