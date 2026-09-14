@@ -2280,8 +2280,7 @@ if (!fs.existsSync(configYmlPath)) {
     "assets/data/events.json",
     "assets/data/site-reviews.json",
     "assets/data/content.json",
-    "assets/data/quiz.json",
-    "assets/data/social-feed.json"
+    "assets/data/quiz.json"
   ]
     .concat(journalPostFiles)
     .concat(productPostFiles)

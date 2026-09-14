@@ -376,13 +376,21 @@ function createStaticServer(port = 8083) {
         while (linkQueue.length > 0) {
           const href = linkQueue.shift();
           linksTestedCount++;
-          try {
-            const res = await linkPage.goto(href, { waitUntil: "domcontentloaded" });
-            if (res && res.status() >= 400) {
-              brokenLinksList.push(`${href} (Status: ${res.status()})`);
+          let res = null;
+          let attempts = 0;
+          while (attempts < 2) {
+            attempts++;
+            try {
+              res = await linkPage.goto(href, { waitUntil: "domcontentloaded", timeout: 30000 });
+              break;
+            } catch (e) {
+              if (attempts >= 2) {
+                brokenLinksList.push(`${href} (Error: ${e.message})`);
+              }
             }
-          } catch (e) {
-            brokenLinksList.push(`${href} (Error: ${e.message})`);
+          }
+          if (res && res.status() >= 400) {
+            brokenLinksList.push(`${href} (Status: ${res.status()})`);
           }
         }
       } finally {

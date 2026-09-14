@@ -13,7 +13,6 @@
 #   - Shop & Catalog Settings      -- assets/data/catalog-config.json
 #   - Markets & Pop-Ups            -- assets/data/events.json
 #   - Customer Reviews             -- assets/data/site-reviews.json
-#   - Social Media Feed            -- assets/data/social-feed.json
 #   - Site Settings                -- assets/data/content.json
 #   - Quiz                         -- assets/data/quiz.json
 #
@@ -1266,81 +1265,6 @@ singletons:
           - {
               name: id,
               label: "Review ID",
-              widget: string,
-              required: false,
-              readonly: true,
-              hint: "Leave blank — it's made for you."
-            }
-
-  - name: social_feed
-    label: "Social Media Feed"
-    # Adds a "View on Live Site" button to this section's editor.
-    preview_path: "index.html"
-    icon: photo_camera
-    file: assets/data/social-feed.json
-    format: json
-    # No side-by-side preview: on a settings/catalogue form it only re-lists
-    # every field as label + value beside the field itself. Verified safe in
-    # Sveltia 0.172.4 (draft/create/index.js reads collection.editor.preview
-    # for singletons); the Journal keeps its preview for rendered post text.
-    editor:
-      preview: false
-    fields:
-      - name: posts
-        label: Posts
-        widget: list
-        label_singular: Post
-        required: false
-        collapsed: true
-        summary: "{{fields.caption}}"
-        thumbnail: image
-        add_to_top: true
-        # Was `description:` on the section, where Sveltia renders it nowhere.
-        comment: "The photo strip on your homepage and shop pages. Manage your curated Instagram and TikTok photos, captions, and tagged products here. Turn the strip on or off under Site Settings."
-        fields:
-          - { name: image, label: "Photo", widget: image, choose_url: false, accept: "image/jpeg,image/png" }
-          - { name: caption, label: "Caption", widget: text }
-          - {
-              name: author,
-              label: "Author name",
-              widget: string,
-              required: false
-            }
-          - {
-              name: handle,
-              label: "Social handle",
-              widget: string,
-              required: false,
-              hint: "e.g. @user"
-            }
-          # relation -> pick the tagged product by name, not by typing its id.
-          - name: productId
-            label: "Tagged product"
-            widget: relation
-            required: false
-            collection: products
-            value_field: id
-            display_fields: ["name"]
-            search_fields: ["name"]
-          - {
-              name: productName,
-              label: "Tag wording",
-              widget: string,
-              required: false,
-              hint: "Leave blank to use the product's own name."
-            }
-          - {
-              name: url,
-              label: "Original post link",
-              widget: string,
-              type: url,
-              required: false
-            }
-          # readonly: this id is the post's stable reference key; the build
-          # fills in a blank one, so a new post still saves fine.
-          - {
-              name: id,
-              label: "Post ID",
               widget: string,
               required: false,
               readonly: true,

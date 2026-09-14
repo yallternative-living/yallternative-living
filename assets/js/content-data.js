@@ -55,6 +55,7 @@ window.YL_CONTENT = {
     "usageGuideDelayDays": 4,
     "enableJournal": true,
     "enableSocialFeed": true,
+    "instagramFeedId": "wLcvOTDHfwF50KITgjht",
     "enableRestockAlerts": true,
     "showLiveStock": true,
     "enableSquareSync": true,
