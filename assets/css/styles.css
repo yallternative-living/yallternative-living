@@ -2511,6 +2511,7 @@ section {
     padding: 0.3rem 0.8rem;
     border-radius: 999px;
     margin-bottom: 0.5rem;
+    white-space: nowrap;
   }
 
   & h2 {
