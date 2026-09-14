@@ -162,11 +162,12 @@ collections:
     aliases_field: false
     search_fields: [name, blurb, category, id]
     sortable_fields:
-      fields: [name, price, category]
+      fields: [name, price, stock, category]
       default:
         field: name
         direction: ascending
     view_filters:
+      # Stock & availability
       - label: "In Stock"
         field: inStock
         pattern: true
@@ -176,6 +177,7 @@ collections:
       - label: "Coming Soon"
         field: comingSoon
         pattern: true
+      # Categories
       - label: "Salves & Balms"
         field: category
         pattern: salves
@@ -194,15 +196,20 @@ collections:
       - label: "Apparel"
         field: category
         pattern: apparel
+      - label: "Gift Sets"
+        field: category
+        pattern: gift-sets
       - label: "Gift Cards"
         field: category
         pattern: gift-cards
+      # Merchandising & badges
       - label: "Featured on Homepage"
         field: featured
         pattern: true
       - label: "Bestsellers"
         field: bestseller
         pattern: true
+      # Sensitivity & formula tags
       - label: "Vegan"
         field: tags
         pattern: vegan
@@ -215,9 +222,14 @@ collections:
       - label: "Essential Oil Free"
         field: tags
         pattern: essential-oil-free
+      - label: "Cruelty-Free"
+        field: tags
+        pattern: cruelty-free
     view_groups:
       - label: "Category"
         field: category
+      - label: "In Stock"
+        field: inStock
     fields:
       - name: name
         label: "Product name"
@@ -589,6 +601,7 @@ collections:
     summary: "{{title}} ({{date}})"
     preview_path: "journal/{{slug}}.html"
     aliases_field: false
+    search_fields: [title, excerpt, tags]
     sortable_fields:
       fields: [date, title]
       default:
@@ -604,6 +617,12 @@ collections:
       - label: "Self-Care"
         field: tags
         pattern: Self-Care
+      - label: "Small Batch"
+        field: tags
+        pattern: Small Batch
+      - label: "Behind the Scenes"
+        field: tags
+        pattern: Behind the Scenes
     fields:
       - { name: title, label: "Title", widget: string }
       - {
@@ -2299,7 +2318,7 @@ singletons:
         summary: "journal page heading and intro"
         hint: "The heading and intro line above the list of posts, plus the small links on each post's own page."
         fields:
-          - { name: title, label: "Page title", widget: string, hint: "e.g. Apothecary Journal" }
+          - { name: title, label: "Page title", widget: string, hint: "e.g. Root & Ritual" }
           - {
               name: lede,
               label: "Intro line",

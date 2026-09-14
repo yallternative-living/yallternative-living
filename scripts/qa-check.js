@@ -2169,7 +2169,7 @@ if (!fs.existsSync(configYmlPath)) {
   }
 
   if (
-    /name:\s*products\b[\s\S]*?view_filters:\s*[\r\n]+[\s\S]*?In Stock[\s\S]*?Out of Stock[\s\S]*?Coming Soon[\s\S]*?Salves & Balms[\s\S]*?Bath Soaks[\s\S]*?Body & Skin[\s\S]*?Potions & Spellwork[\s\S]*?Ritual & Home[\s\S]*?Apparel[\s\S]*?Gift Cards[\s\S]*?Featured on Homepage[\s\S]*?Bestsellers[\s\S]*?Vegan[\s\S]*?Sensitive Skin Safe/.test(
+    /name:\s*products\b[\s\S]*?view_filters:\s*[\r\n]+[\s\S]*?In Stock[\s\S]*?Out of Stock[\s\S]*?Coming Soon[\s\S]*?Salves & Balms[\s\S]*?Bath Soaks[\s\S]*?Body & Skin[\s\S]*?Potions & Spellwork[\s\S]*?Ritual & Home[\s\S]*?Apparel[\s\S]*?Gift Sets[\s\S]*?Gift Cards[\s\S]*?Featured on Homepage[\s\S]*?Bestsellers[\s\S]*?Vegan[\s\S]*?Sensitive Skin Safe[\s\S]*?Cruelty-Free/.test(
       configYml
     )
   ) {
@@ -2181,23 +2181,39 @@ if (!fs.existsSync(configYmlPath)) {
   }
 
   if (
-    /name:\s*journal\b[\s\S]*?view_filters:\s*[\r\n]+[\s\S]*?Apothecary[\s\S]*?Botanical Care[\s\S]*?Self-Care/.test(
+    /name:\s*journal\b[\s\S]*?view_filters:\s*[\r\n]+[\s\S]*?Apothecary[\s\S]*?Botanical Care[\s\S]*?Self-Care[\s\S]*?Small Batch[\s\S]*?Behind the Scenes/.test(
       configYml
     )
   ) {
-    ok("CMS journal collection declares topic view_filters");
+    ok("CMS journal collection declares topic view_filters covering all published topics");
   } else {
     fail("admin/config.yml", "journal collection missing topic view_filters");
   }
 
   if (
-    /name:\s*products\b[\s\S]*?view_groups:\s*[\r\n]+\s*-\s*label:\s*["']?Category["']?[\s\S]*?field:\s*category\b/.test(
+    /name:\s*journal\b[\s\S]*?search_fields:\s*\[[\s\S]*?title[\s\S]*?excerpt[\s\S]*?tags[\s\S]*?\]/.test(
       configYml
     )
   ) {
-    ok("CMS products collection declares category view_groups");
+    ok("CMS journal collection declares search_fields covering title, excerpt, and tags");
   } else {
-    fail("admin/config.yml", "products collection missing view_groups");
+    fail("admin/config.yml", "journal collection missing search_fields");
+  }
+
+  if (/name:\s*products\b[\s\S]*?sortable_fields:\s*[\r\n]+[\s\S]*?stock/.test(configYml)) {
+    ok("CMS products collection allows sorting by live stock inventory count");
+  } else {
+    fail("admin/config.yml", "products collection missing sortable stock count");
+  }
+
+  if (
+    /name:\s*products\b[\s\S]*?view_groups:\s*[\r\n]+\s*-\s*label:\s*["']?Category["']?[\s\S]*?field:\s*category\b[\s\S]*?-\s*label:\s*["']?In Stock["']?[\s\S]*?field:\s*inStock\b/.test(
+      configYml
+    )
+  ) {
+    ok("CMS products collection declares category and stock status view_groups");
+  } else {
+    fail("admin/config.yml", "products collection missing category and inStock view_groups");
   }
 
   if (

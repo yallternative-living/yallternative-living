@@ -332,7 +332,8 @@ assert(
 );
 assert(rssFeed.includes("<channel>"), "RSS feed contains <channel> element");
 assert(
-  rssFeed.includes("<title>Apothecary Journal | Y'allternative Living</title>") ||
+  rssFeed.includes("<title>Root &amp; Ritual | Y'allternative Living</title>") ||
+    rssFeed.includes("<title>Apothecary Journal | Y'allternative Living</title>") ||
     rssFeed.includes("<title>Y'allternative Living Journal RSS Feed</title>"),
   "RSS feed contains valid channel title"
 );
@@ -396,8 +397,16 @@ assert(
 assert(
   configYml.includes("Apothecary") &&
     configYml.includes("Botanical Care") &&
-    configYml.includes("Self-Care"),
-  "admin/config.yml defines topic view_filters under journal collection"
+    configYml.includes("Self-Care") &&
+    configYml.includes("Small Batch") &&
+    configYml.includes("Behind the Scenes"),
+  "admin/config.yml defines topic view_filters covering all published topics under journal collection"
+);
+assert(
+  /name:\s*journal\b[\s\S]*?search_fields:\s*\[[\s\S]*?title[\s\S]*?excerpt[\s\S]*?tags[\s\S]*?\]/.test(
+    configYml
+  ),
+  "admin/config.yml defines search_fields under journal collection"
 );
 
 const journalHtml = fs.readFileSync(path.join(__dirname, "../journal.html"), "utf8");

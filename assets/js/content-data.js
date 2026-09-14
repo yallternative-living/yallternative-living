@@ -243,7 +243,7 @@ window.YL_CONTENT = {
     }
   },
   "journal": {
-    "title": "Apothecary Journal",
+    "title": "Root & Ritual",
     "lede": "Stories, science, and small-batch updates straight from the kitchen.",
     "backLabel": "← Back to Journal",
     "newerLabel": "Newer post",
