@@ -1,0 +1,75 @@
+/* =========================================================
+   Y'ALLTERNATIVE LIVING — Sveltia CMS Live Preview Styles
+   Provides styling for entry previews rendered in the iframe.
+   ========================================================= */
+
+body {
+  background-color: var(--ink, #17130f) !important;
+  color: var(--paper, #f3ead9) !important;
+  font-family: var(--font-body, "DM Sans", sans-serif) !important;
+  padding: 24px 16px !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.cms-preview-wrapper {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.cms-preview-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 18px;
+  padding: 5px 14px;
+  border-radius: 20px;
+  background: rgba(214, 155, 92, 0.12);
+  border: 1px solid rgba(214, 155, 92, 0.3);
+  color: var(--whiskey, #d69b5c);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cms-preview-card-wrap {
+  width: 100%;
+  max-width: 360px;
+  margin: 0 auto;
+}
+
+/* Ensure the preview card renders immediately without waiting for scroll-reveal */
+.cms-preview-card-wrap .card,
+.cms-preview-card-wrap .card.reveal {
+  opacity: 1 !important;
+  transform: none !important;
+  visibility: visible !important;
+}
+
+/* Treat links in the preview card as inert preview elements */
+.cms-preview-card-wrap a {
+  cursor: default;
+  pointer-events: none;
+}
+
+/* Style for bestseller badge if present */
+.stock-badge.bestseller-badge {
+  background: rgba(214, 155, 92, 0.18);
+  color: var(--whiskey, #d69b5c);
+}
+
+.card-badges-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
