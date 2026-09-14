@@ -835,6 +835,8 @@
     "auto.whenYouClickCheckout.77c899": "Quando você clica em Checkout, seu carrinho fica reservado por cerca de 30 minutos enquanto você realiza o pagamento. Se o tempo acabar, a sessão se encerra e qualquer item com controle de estoque volta para a prateleira para a próxima pessoa. Sem problemas: basta voltar à loja e tentar novamente.",
     "auto.yesOrdersOfOr.2a65db": "Sim! Pedidos de $40 ou mais (em produtos, antes dos impostos) têm frete grátis para qualquer lugar nos US. Abaixo disso, é um valor fixo de $10, e o medidor no seu carrinho mostra o quanto falta. Tudo é aplicado automaticamente no checkout. Por enquanto, enviamos apenas para endereços nos US, e os cartões-presente são enviados por e-mail, então nunca precisam de frete.",
     "auto.apothecary.3edecd": "Botica",
-    "auto.copyCode.1589b6": "Copiar código"
+    "auto.copyCode.1589b6": "Copiar código",
+    "auto.materials.2402ea": "Materiais",
+    "auto.yallternativeLivingOnSocial.e86ad9": "Y'allternative Living nas redes sociais"
   }
 }

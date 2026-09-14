@@ -843,7 +843,9 @@
     "auto.whenYouClickCheckout.77c899": "When you click Checkout, your cart is set aside for about 30 minutes while you pay. If the timer runs out, the session closes and anything with a stock count goes back on the shelf for the next person. No harm done, just head back to the shop and try again.",
     "auto.yesOrdersOfOr.2a65db": "Yes! Orders of $40 or more (on the goods, before tax) ship free anywhere in the US. Under that it's a flat $10, and the meter in your cart shows how close you are. It all applies automatically at checkout. We ship to US addresses only for now, and gift cards are emailed, so they never need postage.",
     "auto.apothecary.3edecd": "Apothecary",
-    "auto.copyCode.1589b6": "Copy Code"
+    "auto.copyCode.1589b6": "Copy Code",
+    "auto.materials.2402ea": "Materials",
+    "auto.yallternativeLivingOnSocial.e86ad9": "Y'allternative Living On Social"
   }
 };
 

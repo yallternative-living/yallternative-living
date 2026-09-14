@@ -843,7 +843,9 @@
     "auto.whenYouClickCheckout.77c899": "当您点击结算时，您的购物车会保留约 30 分钟供您付款。如果倒计时结束，会话将关闭，任何有库存计数的商品都会重新放回货架供下一位客人选购。不要紧，只需返回商店重新加购即可。",
     "auto.yesOrdersOfOr.2a65db": "没错！商品满 $40 或以上（仅限商品本身，税前）全美免运费。低于该金额则统一收取 $10，购物车里的进度条会显示你还差多少。结账时会自动应用。我们目前仅寄送至美国地址，礼品卡通过电子邮件发送，因此永远不需要邮费。",
     "auto.apothecary.3edecd": "草本铺",
-    "auto.copyCode.1589b6": "复制代码"
+    "auto.copyCode.1589b6": "复制代码",
+    "auto.materials.2402ea": "材质",
+    "auto.yallternativeLivingOnSocial.e86ad9": "社交媒体上的 Y'allternative Living"
   }
 };
 

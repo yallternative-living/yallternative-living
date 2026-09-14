@@ -843,7 +843,9 @@
     "auto.whenYouClickCheckout.77c899": "Lorsque tu cliques sur Checkout, ton panier est mis de côté pendant environ 30 minutes pendant que tu paies. Si le délai expire, la session se ferme et tout article avec un suivi de stock retourne sur l'étagère pour la personne suivante. Rien de grave, retourne simplement sur la boutique et réessaie.",
     "auto.yesOrdersOfOr.2a65db": "Oui ! Les commandes de $40 ou plus (sur les articles, avant taxes) sont livrées gratuitement partout aux États-Unis. En dessous, c'est un forfait fixe de $10, et la jauge dans ton panier te montre à quel point tu en es proche. Tout s'applique automatiquement lors du paiement. Pour l'instant, nous livrons uniquement à des adresses aux États-Unis, et les cartes-cadeaux sont envoyées par e-mail, elles n'ont donc jamais besoin d'affranchissement.",
     "auto.apothecary.3edecd": "Apothicaire",
-    "auto.copyCode.1589b6": "Copier le code"
+    "auto.copyCode.1589b6": "Copier le code",
+    "auto.materials.2402ea": "Matériaux",
+    "auto.yallternativeLivingOnSocial.e86ad9": "Y'allternative Living sur les réseaux"
   }
 };
 
