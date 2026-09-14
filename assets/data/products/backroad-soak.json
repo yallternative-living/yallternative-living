@@ -1,0 +1,73 @@
+{
+  "id": "backroad-soak",
+  "name": "Backroad Recovery Epsom Salt Soak",
+  "featured": true,
+  "category": "soaks",
+  "price": 10,
+  "image": "assets/img/backroad-soak.jpg",
+  "images": [
+    "assets/img/backroad-soak-alt1.jpg",
+    "assets/img/backroad-soak-alt2.jpg",
+    "assets/img/backroad-soak-alt3.jpg"
+  ],
+  "blurb": "Peppermint, lavender, black pepper, and ylang ylang for whatever the backroads (or the day) put you through. Stir a scoop into a warm bath, soak 20 to 30 minutes, come out looser than you went in.",
+  "etsyUrl": "https://www.etsy.com/listing/4333988264/backroad-recovery-epsom-salt-soak",
+  "rating": {
+    "value": 5,
+    "count": 3
+  },
+  "ingredients": [
+    "Epsom Salt",
+    "Baking Soda",
+    "Fractionated Coconut Oil",
+    "Essential Oils (Peppermint, Lavender, Black Pepper, Ylang Ylang)"
+  ],
+  "scent": "Herbal & Woodsy",
+  "variants": {
+    "name": "Size",
+    "options": [
+      {
+        "label": "10 oz",
+        "priceDelta": 0
+      },
+      {
+        "label": "24 oz",
+        "priceDelta": 8
+      }
+    ]
+  },
+  "tags": [
+    "vegan"
+  ],
+  "concerns": [
+    "sore-muscles",
+    "sleep-relaxation"
+  ],
+  "scentProfile": {
+    "top": "Blue Ridge Pine Needle, Eucalyptus",
+    "heart": "Crushed Peppermint Leaves",
+    "base": "Forest Moss, Himalayan Pink Salt",
+    "intensity": "Strong",
+    "intensityScore": 4
+  },
+  "usageGuide": {
+    "howToApply": "Add 1/2 cup into hot bathwater, breathe in the clearing herbal steam, and soak for 20–30 minutes while the day's work washes off.",
+    "storage": "Store in a cool, dry location with bag sealed tight. Shelf life is 12 months.",
+    "patchTest": "Contains potent peppermint and eucalyptus essential oils. Test on forearm before first full soak; avoid eye contact."
+  },
+  "keywords": [
+    "post-hike",
+    "tired legs",
+    "post workout",
+    "after the gym",
+    "epsom salts",
+    "eucalyptus",
+    "peppermint",
+    "tension bath"
+  ],
+  "ritualTitle": "The Trailhead Wind-Down Ritual",
+  "pairsWith": [
+    "frankincense-salve",
+    "hand-scrub"
+  ]
+}

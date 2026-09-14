@@ -8,26 +8,22 @@
 # sections in the /admin sidebar (in this order), on purpose, so Savanna sees exactly
 # what she can do at a glance instead of hunting through one generic
 # "catalog" menu:
-#   - Shop & Products              -- assets/data/products.json
+#   - Products                     -- assets/data/products/*.json (one file per product)
+#   - Journal                      -- assets/data/journal/*.json (one post per file)
+#   - Shop & Catalog Settings      -- assets/data/catalog-config.json
 #   - Markets & Pop-Ups            -- assets/data/events.json
 #   - Customer Reviews             -- assets/data/site-reviews.json
-#   - Journal                      -- assets/data/journal/*.json (one post per file)
 #   - Social Media Feed            -- assets/data/social-feed.json
 #   - Site Settings                -- assets/data/content.json
 #   - Quiz                         -- assets/data/quiz.json
 #
-# Every section except the Journal is a Sveltia `singleton` (one data file
-# each) rather than a one-file `collection`: a file collection always shows
-# a middle "list of files" page with a single row in it, so every section
-# took two clicks and looked like a duplicate. A singleton opens its editor
-# straight from the sidebar. Sveltia only lists singletons directly when at
-# least one regular collection exists (with none it folds them back into a
-# single "Files" collection -- the very thing this avoids); the Journal is
-# that collection, and it is the one section that genuinely is a list.
-# Relation widgets that point at the products file therefore use
-# `collection: _singletons`. Sveltia labels the singleton group and every
-# singleton editor header "Files" with no config option to change it;
-# admin/cms-labels.js renames those to "Sections" / the section's own label.
+# Products and the Journal are Sveltia `folder collections` (one JSON file per item):
+# they show full table/grid lists with search, sorting, and 'New Item' buttons.
+# The remaining sections are Sveltia `singletons` (one data file each) that open
+# their editors straight from the sidebar. Sveltia labels the singleton group and
+# editor headers "Files" by default; admin/cms-labels.js renames those to "Sections" /
+# the section's own label. Full setup instructions (GitHub repo, first login) are in
+# DEVELOPMENT.md section 20.
 # Full setup instructions (GitHub repo, first login) are in DEVELOPMENT.md
 # section 20 -- read that before changing anything here. For the
 # click-by-click version, see docs/SETUP-GUIDE.md Step 9.
@@ -83,31 +79,10 @@ backend:
   # Only the token sign-in is offered. "Sign In with GitHub" needs the
   # OAuth service in cms-auth/ (base_url below, still commented out), so
   # today it is a button on her login screen that cannot succeed.
-  # Add `oauth` back in the same commit that uncomments base_url.
-  auth_methods: [token]
+  auth_methods: [oauth, token]
   # base_url = the "Sign in with GitHub" login service for /admin.
-  #
-  # This used to be left unset so Netlify could act as the default OAuth
-  # provider -- but Netlify DEPRECATED that (its "Git Gateway / OAuth"),
-  # which is the dead end the /admin login kept hitting. We now run our own
-  # tiny login Worker on Cloudflare (the top-level cms-auth/ folder,
-  # alongside the checkout Worker this site already uses), so /admin no longer
-  # depends on Netlify for anything. See DEVELOPMENT.md section 20.
-  #
-  # >>> ONE VALUE TO FILL IN (Steven, once, after deploying cms-auth) <<<
-  # Uncomment the base_url line below and replace YOUR-SUBDOMAIN with the real
-  # Worker URL Cloudflare shows after deploy (it looks like
-  # https://yallternative-cms-auth.<your-subdomain>.workers.dev), then set that
-  # same URL's /callback as the GitHub OAuth App's callback.
-  #
-  # SECURITY -- keep base_url COMMENTED OUT until the real Worker exists.
-  # Shipping a placeholder URL live would point the "Sign in with GitHub"
-  # button at a workers.dev hostname nobody owns yet; someone could register
-  # that exact name and use it to intercept a login and phish a repo-scoped
-  # token. While it's commented out, /admin just uses the "Sign in with Token"
-  # option (works today, zero setup -- DEVELOPMENT.md section 20), which is what
-  # we tell Savanna to use anyway.
-  # base_url: https://yallternative-cms-auth.YOUR-SUBDOMAIN.workers.dev
+  # Deployed on Cloudflare Workers (cms-auth/ directory).
+  base_url: https://yallternative-cms-auth.y-allternative-living.workers.dev
 
 site_url: https://yallternativeliving.com
 
@@ -154,12 +129,380 @@ media_libraries:
       max_file_size: 26214400 # 25 MB (25 * 1024 * 1024)
 
 collections:
+  - name: products
+    label: "Products"
+    label_singular: Product
+    icon: inventory_2
+    description: "Your product catalog. Click any product to edit its details, price, inventory or photos, or click 'New Product' to add one. Saving publishes in a few minutes."
+    folder: assets/data/products
+    extension: json
+    format: json
+    create: true
+    delete: true
+    slug: "{{id}}"
+    identifier_field: name
+    summary: "{{name}} — ${{price}} ({{category}})"
+    sortable_fields:
+      fields: [name, price, category]
+      default:
+        field: name
+        direction: ascending
+    fields:
+      - name: name
+        label: "Product name"
+        widget: string
+        comment: "A product name counts as a health claim. Avoid words like heal, cure, relief, recovery, sleep, treat or repel, and any condition name. 'Comfort Salve' or 'Reset Soak' get the idea across without the legal risk."
+        hint: "Shown on the card, the product page, the cart and search."
+      - name: category
+        label: Category
+        widget: relation
+        collection: _singletons
+        file: storeConfig
+        value_field: categories.*.id
+        display_fields: ["categories.*.label"]
+        search_fields: ["categories.*.label"]
+        hint: "Add or rename categories under 'Shop & Catalog Settings' in the sidebar."
+      - {
+          name: price,
+          label: "Price",
+          widget: number,
+          value_type: float,
+          min: 0,
+          step: 0.01,
+          before_input: "$",
+          hint: "e.g. 16 or 16.50"
+        }
+      - name: image
+        label: "Main photo"
+        widget: image
+        choose_url: false
+        accept: "image/jpeg,image/png"
+        hint: "Shown on the product card and first in the gallery."
+      - name: images
+        label: "Extra gallery photos"
+        widget: list
+        label_singular: Photo
+        required: false
+        field: { name: photo, label: Photo, widget: image, choose_url: false, accept: "image/jpeg,image/png" }
+      - name: blurb
+        label: "Product description"
+        widget: text
+        comment: "No health or medical claims: describe what it is, not what it treats."
+        hint: "The main text customers read. Describe what it is and how it's made."
+      - name: description
+        label: "Search & share blurb"
+        widget: text
+        required: false
+        hint: "Shown in Google results and link previews. Leave blank to use the product description instead."
+      - name: stock
+        label: "Stock count"
+        widget: number
+        value_type: int
+        min: 0
+        required: false
+        hint: >-
+          Blank means unlimited or made to order. This is where you SET
+          the count — the site quietly counts it down as orders are
+          paid, so entering 10 today that sells 3 tomorrow shows 7
+          without you touching it. Because of that, only retype this
+          number after an actual recount: saving resets the live count
+          to whatever you enter. 0 shows 'Sold Out' and blocks
+          checkout; 1–5 shows an 'Only 3 left' badge. Sales rung up on
+          your Square register count this same number down (see Square
+          SKUs below). It doesn't sync with Etsy — update Etsy by hand.
+      - name: inStock
+        label: "In stock"
+        widget: boolean
+        default: true
+        required: false
+        hint: "Untick to show 'Sold Out' and a restock sign-up instead of Add to Cart."
+      - name: comingSoon
+        label: "Coming soon"
+        widget: boolean
+        default: false
+        required: false
+        hint: "Shows a 'Coming Soon' badge and replaces the buy button with a launch-alert sign-up."
+      - name: estimatedBatchDate
+        label: "Expected launch or restock"
+        widget: string
+        required: false
+        hint: "Shown on Coming Soon items, e.g. Early Autumn 2026 or Oct 15."
+      - name: featured
+        label: "Feature on homepage"
+        widget: boolean
+        default: false
+        required: false
+        hint: "Shows this product in the homepage grid."
+      - name: bestseller
+        label: "Bestseller badge"
+        widget: boolean
+        default: false
+        required: false
+        hint: "Adds a 'Bestseller' badge on the card."
+      - name: sale
+        label: "Sale"
+        widget: object
+        required: false
+        collapsed: true
+        hint: "Puts just this product on sale. To discount a whole category, use 'Category sales' in Shop & Catalog Settings."
+        fields:
+          - { name: price, label: "Sale price", widget: number, value_type: float, before_input: "$" }
+          - {
+              name: label,
+              label: "Sale name customers see",
+              widget: string,
+              hint: "e.g. Spring Sale"
+            }
+      - {
+          name: originalPrice,
+          label: "Original price",
+          widget: number,
+          value_type: float,
+          required: false,
+          before_input: "$",
+          hint: "The crossed-out 'was' price. Usually filled in for you when the product goes on sale."
+        }
+      - name: variants
+        label: "Variants (Sizes / Scents)"
+        widget: object
+        required: false
+        collapsed: true
+        hint: "Sizes, scents or blends of this one product. Leave empty for a single-option product."
+        fields:
+          - {
+              name: name,
+              label: "Variant type",
+              widget: string,
+              hint: "e.g. Size, Scent or Blend"
+            }
+          - name: options
+            label: Options
+            widget: list
+            label_singular: Option
+            summary: "{{fields.label}} ({{fields.priceDelta}})"
+            hint: >-
+              One option must have a price difference of 0 — that's the
+              base price above. For the others, enter how much more or
+              less they cost, using your real Etsy prices.
+            fields:
+              - name: label
+                label: "Option name"
+                widget: string
+                hint: "e.g. 8 oz or Lavender. Don't use [ ] or | — they break the cart."
+              - {
+                  name: priceDelta,
+                  label: "Price difference",
+                  widget: number,
+                  value_type: float,
+                  default: 0,
+                  hint: "0 = same as the base price; use a negative number to charge less."
+                }
+              - {
+                  name: soldOut,
+                  label: "Sold out?",
+                  widget: boolean,
+                  required: false,
+                  default: false,
+                  hint: "Shows the option greyed out and unorderable. Flip it back off when you restock — don't delete the option, or customers won't know it exists."
+                }
+      - name: ingredients
+        label: "Ingredients / materials"
+        widget: list
+        required: false
+        hint: >-
+          Copy these from this product's own Etsy listing description,
+          not Etsy's generic 'Materials' tag (often the same boilerplate
+          across unrelated items).
+      - name: ingredientsLabel
+        label: "Ingredients heading"
+        widget: string
+        required: false
+        hint: "Defaults to 'Ingredients'. Use 'Materials' for non-body-care items like the keychain."
+      - name: ingredientsNote
+        label: "Ingredients note"
+        widget: string
+        required: false
+        hint: "e.g. No essential oils, no added fragrance."
+      - name: scent
+        label: "Scent"
+        widget: string
+        required: false
+        hint: "One short name, e.g. Lavender, Bourbon Vanilla or Unscented. Products sharing a scent are grouped in the shop's scent filter."
+      - name: scentProfile
+        label: "Scent notes & intensity"
+        widget: object
+        required: false
+        collapsed: true
+        fields:
+          - {
+              name: top,
+              label: "Top notes",
+              widget: string,
+              required: false,
+              hint: "e.g. Lavender, Rosemary"
+            }
+          - {
+              name: heart,
+              label: "Heart notes",
+              widget: string,
+              required: false,
+              hint: "e.g. Chamomile, Tea Tree"
+            }
+          - {
+              name: base,
+              label: "Base notes",
+              widget: string,
+              required: false,
+              hint: "e.g. Frankincense, Earthy Beeswax"
+            }
+          - name: intensity
+            label: "Scent intensity"
+            widget: select
+            required: false
+            hint: "How strong the scent is, shown as a badge on the product page."
+            options:
+              - { label: "Unscented", value: "Unscented" }
+              - { label: "Subtle", value: "Subtle" }
+              - { label: "Medium", value: "Medium" }
+              - { label: "Strong", value: "Strong" }
+              - { label: "Bold", value: "Bold" }
+          - {
+              name: intensityScore,
+              label: "Intensity score (0–5)",
+              widget: number,
+              value_type: int,
+              min: 0,
+              max: 5,
+              required: false
+            }
+      - name: usageGuide
+        label: "Usage & care"
+        widget: object
+        required: false
+        collapsed: true
+        hint:
+          "Shown on the product page and emailed to the customer a few days
+          after their order ships — the 'how to get the most out of your
+          …' note. Write it the way you'd say it to someone holding the jar.
+          Leave all three blank and that product's email is skipped."
+        fields:
+          - {
+              name: howToApply,
+              label: "How to apply or wear",
+              widget: text,
+              required: false
+            }
+          - {
+              name: storage,
+              label: "Storage, shelf life or garment care",
+              widget: text,
+              required: false
+            }
+          - {
+              name: patchTest,
+              label: "Patch test & allergen info",
+              widget: text,
+              required: false
+            }
+      - name: tags
+        label: "Sensitivity & allergen tags"
+        widget: select
+        multiple: true
+        dropdown_threshold: 12
+        required: false
+        hint: "Shown as badges on the product page and usable as shop filters."
+        options:
+          - { label: "Vegan", value: "vegan" }
+          - { label: "Unscented", value: "unscented" }
+          - { label: "Essential Oil Free", value: "essential-oil-free" }
+          - { label: "Sensitive Skin Safe", value: "sensitive-safe" }
+          - { label: "Cruelty-Free", value: "cruelty-free" }
+          - { label: "Organic Ingredients", value: "organic" }
+          - { label: "Locally Sourced / Foraged", value: "locally-sourced" }
+      - name: keywords
+        label: "Search keywords"
+        widget: list
+        required: false
+        hint: "Extra words customers might type: occasions, uses, ingredient names, misspellings (e.g. post-hike, cane sugar, stocking stuffer). These are published with the product, so keep symptoms and conditions like eczema or insomnia OUT — put those under Site Settings → Search settings → Extra search words, which only translate what a customer typed."
+      - name: concerns
+        label: "Shop concerns"
+        widget: relation
+        multiple: true
+        required: false
+        collection: _singletons
+        file: storeConfig
+        value_field: concerns.*.id
+        display_fields: ["concerns.*.icon", "concerns.*.name"]
+        search_fields: ["concerns.*.name"]
+        hint: "Which concern filters list this product, e.g. Sore Muscles or Dry Skin."
+      - name: pairsWith
+        label: "Pairs well with"
+        widget: relation
+        multiple: true
+        required: false
+        collection: products
+        value_field: id
+        display_fields: ["name"]
+        search_fields: ["name"]
+        hint: "Products shown in this item's 'Complete the Ritual' section."
+      - name: ritualTitle
+        label: "Ritual section headline"
+        widget: string
+        required: false
+        hint: "e.g. The Deep Rest & Nighttime Ritual. Leave blank to use the default under Site Settings."
+      - name: squareSkus
+        label: "Square SKUs (register)"
+        widget: list
+        required: false
+        collapsed: true
+        summary: "{{fields.sku}}"
+        hint: >-
+          Usually leave this empty: in the Square Dashboard, set the
+          item's SKU to this product's ID (shown as the page address,
+          e.g. lavender-soak) and it is matched automatically — one SKU
+          per size is fine, written as lavender-soak/24-oz. Only list
+          SKUs here if your Square items already have SKUs you'd rather
+          not retype. When a sale at the register can't be matched, you
+          get an email saying which item.
+        field: { name: sku, label: "Square SKU", widget: string }
+      - name: etsyUrl
+        label: "Etsy listing link"
+        widget: string
+        type: url
+        required: false
+        hint: "Leave blank for gift cards or site-only items."
+      - name: rating
+        label: "This item's own Etsy rating"
+        widget: object
+        required: false
+        collapsed: true
+        hint: "Only if this exact item has its own reviews on Etsy."
+        fields:
+          - {
+              name: value,
+              label: "Star rating (0–5)",
+              widget: number,
+              value_type: float
+            }
+          - {
+              name: count,
+              label: "Number of reviews",
+              widget: number,
+              value_type: int
+            }
+      - name: id
+        label: "Product ID"
+        widget: string
+        required: false
+        readonly: true
+        hint: >-
+          Leave blank on a new product and it's made from the name.
+          Bundles and reviews use it to find this product, so never
+          change it once the product is live — that breaks those links.
+
   # The Journal is a FOLDER collection (one JSON file per post) rather than a
   # singleton: it is the one section that really is a list of things, so
-  # /admin shows a proper post list with a "New Post" button. It also keeps
-  # sections 1-3 and 5-7 listed directly in the sidebar (see the note at the
-  # top of this file). The file name becomes the post's id/URL slug -- the
-  # build reads it from the name, never from inside the file.
+  # /admin shows a proper post list with a "New Post" button.
   - name: journal
     label: "Journal"
     label_singular: Post
@@ -189,39 +532,15 @@ collections:
           date_format: "MM/DD/YYYY",
           time_format: false
         }
-      # Left as a plain box on purpose: this teaser is printed inside a
-      # small card on journal.html (and into llms.txt as a one-line
-      # summary), so headings/bullets there would break the layout and
-      # bold/link marks would just show up as literal ** and [ ].
       - {
           name: excerpt,
           label: "Short teaser",
           widget: text,
           hint: "One or two plain sentences shown on the Journal list. Formatting isn't used here."
         }
-      # widget: markdown = Sveltia's rich-text editor: a real toolbar
-      # (bold, italic, links, headings, bullet + numbered lists) with a
-      # "raw" tab for anyone who'd rather type. It saves MARKDOWN TEXT
-      # into the post's own JSON file, not HTML, which is exactly what the site's
-      # assets/js/markdown.js renders (the build writes each post's own page
-      # at journal/<slug>.html through it, and journal.html loads the same
-      # file) -- and because the site escapes everything before formatting
-      # it, nothing typed here can turn into live code on the page.
-      #   - "markdown" and "richtext" are the same editor in the pinned
-      #     Sveltia 0.172.4 (admin/index.html); "markdown" is used here
-      #     because it names the format actually stored in the file, and
-      #     it's the spelling Netlify/Decap CMS understands too.
-      #   - buttons/editor_components are trimmed to exactly what the
-      #     site can draw, so nothing Savanna can click comes out broken
-      #     on the page: no strikethrough, inline code, block quotes,
-      #     code blocks or in-post images. (Heading 2/3 here render as
-      #     the post's section/sub-section headings; Heading 1 is left
-      #     out because the post title already fills that slot.)
       - name: content
         label: "Post text"
         widget: markdown
-        # Rich text only: the "Raw" Markdown tab is one more thing to wonder
-        # about, and nothing it can do is missing from the toolbar below.
         modes: [rich_text]
         buttons:
           [bold, italic, link, heading-two, heading-three, bulleted-list, numbered-list]
@@ -238,11 +557,10 @@ collections:
         label: "Featured product"
         widget: relation
         required: false
-        collection: _singletons
-        file: products
-        value_field: products.*.id
-        display_fields: ["products.*.name"]
-        search_fields: ["products.*.name"]
+        collection: products
+        value_field: id
+        display_fields: ["name"]
+        search_fields: ["name"]
         hint: "Pick a product and the post shows a one-click add-to-cart card for it."
       - name: readingTime
         label: "Reading time"
@@ -251,33 +569,21 @@ collections:
         hint: "e.g. 4 min read. Leave blank and it's worked out from the word count."
 
 singletons:
-  - name: products
-    label: "Shop & Products"
-    # Adds a "View on Live Site" button to this section's editor.
+  - name: storeConfig
+    label: "Shop & Catalog Settings"
     preview_path: "shop.html"
     icon: storefront
-    file: assets/data/products.json
+    file: assets/data/catalog-config.json
     format: json
-    # No side-by-side preview: on a settings/catalogue form it only re-lists
-    # every field as label + value beside the field itself. Verified safe in
-    # Sveltia 0.172.4 (draft/create/index.js reads collection.editor.preview
-    # for singletons); the Journal keeps its preview for rendered post text.
     editor:
       preview: false
     fields:
-      # ==================================================================
-      # 1. PRODUCTS (Top Priority - Daily Catalog Management)
-      # Everyday fields first (name, category, price, photos, text, stock),
-      # then merchandising, then the rarely-touched ones; `id` is last on
-      # purpose. Order here only affects the editor, not the site.
-      # ==================================================================
       - name: shop
         label: "Shop details & shipping"
         widget: object
-        collapsed: true
-        hint: "Etsy counters, free shipping, cart rewards and the Build-Your-Own Box. You rarely need this."
-        # Was `description:` on the section, where Sveltia renders it nowhere.
-        comment: "Everything in your shop: products and prices, multi-buy deals, category sales, gift bundles and the FAQ. Click an item to edit it, or 'Add' to create one. Saving publishes in a few minutes."
+        collapsed: false
+        summary: "Etsy counters, free shipping, cart rewards, Build-Your-Own Box"
+        hint: "Etsy shop link, star rating, free shipping thresholds, cart rewards, and Build-Your-Own Box configuration."
         fields:
           - { name: name, label: "Shop name", widget: string }
           - { name: etsyShopUrl, label: "Etsy shop link", widget: string, type: url }
@@ -294,14 +600,15 @@ singletons:
               label: "Etsy review count",
               widget: number,
               value_type: int,
-              hint: "Your real Etsy review count, e.g. 320."
+              hint: "Your real Etsy review count, e.g. 33."
             }
           - {
               name: sales,
-              label: "Etsy sales count",
+              label: "Etsy sales count (optional)",
               widget: number,
               value_type: int,
-              hint: "Your real Etsy sales count, e.g. 1200."
+              required: false,
+              hint: "Optional. Leave blank to hide order count on product pages (recommended since most sales happen in person at markets)."
             }
           - {
               name: freeShippingThreshold,
@@ -309,7 +616,7 @@ singletons:
               widget: number,
               value_type: int,
               before_input: "$",
-              hint: "Orders at or above this amount ship free, e.g. 45. Set to 0 to turn free shipping off."
+              hint: "Orders at or above this amount ship free, e.g. 40. Set to 0 to turn free shipping off."
             }
           - name: shippingMilestones
             label: "Cart reward tiers"
@@ -318,7 +625,7 @@ singletons:
             required: false
             collapsed: true
             summary: "${{fields.threshold}} — {{fields.reward}}"
-            hint: "Perks unlocked as the cart grows, e.g. $40 free shipping, $60 free pocket salve, $80 10% off."
+            hint: "Perks unlocked as the cart grows, e.g. $40 free shipping, $60 free pocket salve."
             fields:
               - {
                   name: threshold,
@@ -332,7 +639,7 @@ singletons:
                   name: reward,
                   label: "Perk name",
                   widget: string,
-                  hint: "e.g. Free Tracked Shipping, Free Pocket Salve, Free Vinyl Sticker"
+                  hint: "e.g. Free Tracked Shipping, Free Pocket Salve"
                 }
               - {
                   name: icon,
@@ -353,7 +660,7 @@ singletons:
             widget: object
             required: false
             collapsed: true
-            hint: "The pick-your-own bundle on the shop page. Its price is always worked out from the real prices of what the customer picks, minus the discount below."
+            hint: "The pick-your-own bundle on the shop page."
             fields:
               - {
                   name: minItems,
@@ -382,396 +689,13 @@ singletons:
                 widget: relation
                 multiple: true
                 collection: _singletons
-                file: products
+                file: storeConfig
                 value_field: categories.*.id
                 display_fields: ["categories.*.label"]
                 search_fields: ["categories.*.label"]
                 default: ["salves", "body", "soaks", "potions", "ritual"]
                 hint: "Apparel and gift cards are usually left out."
 
-      - name: products
-        label: Products
-        widget: list
-        label_singular: Product
-        collapsed: true
-        summary: "{{fields.name}} — ${{fields.price}} ({{fields.category}})"
-        # Photo beside each collapsed row; new items land on top.
-        thumbnail: image
-        add_to_top: true
-        fields:
-          - name: name
-            label: "Product name"
-            widget: string
-            comment: "A product name counts as a health claim. Avoid words like heal, cure, relief, recovery, sleep, treat or repel, and any condition name. 'Comfort Salve' or 'Reset Soak' get the idea across without the legal risk."
-            hint: "Shown on the card, the product page, the cart and search."
-          - name: category
-            label: Category
-            widget: relation
-            collection: _singletons
-            file: products
-            value_field: categories.*.id
-            display_fields: ["categories.*.label"]
-            search_fields: ["categories.*.label"]
-            hint: "Add or rename categories under 'Product categories', further down this page."
-          - {
-              name: price,
-              label: "Price",
-              widget: number,
-              value_type: float,
-              min: 0,
-              step: 0.01,
-              before_input: "$",
-              hint: "e.g. 16 or 16.50"
-            }
-          - name: image
-            label: "Main photo"
-            widget: image
-            choose_url: false
-            # scripts/optimize-images.js only generates the responsive
-            # AVIF/WebP variants from .jpg/.png originals -- anything else
-            # ships unoptimized. The one legitimate exception is the shared
-            # "coming soon" placeholder, which is an .svg she never re-uploads
-            # through this field.
-            accept: "image/jpeg,image/png"
-            hint: "Shown on the product card and first in the gallery."
-          - name: images
-            label: "Extra gallery photos"
-            widget: list
-            label_singular: Photo
-            required: false
-            field: { name: photo, label: Photo, widget: image, choose_url: false, accept: "image/jpeg,image/png" }
-          - name: blurb
-            label: "Product description"
-            widget: text
-            comment: "No health or medical claims: describe what it is, not what it treats."
-            hint: "The main text customers read. Describe what it is and how it's made."
-          # `description` exists in products.json and is declared here so a
-          # CMS save preserves it (it feeds the meta description / share text).
-          - name: description
-            label: "Search & share blurb"
-            widget: text
-            required: false
-            hint: "Shown in Google results and link previews. Leave blank to use the product description instead."
-          - name: stock
-            label: "Stock count"
-            widget: number
-            value_type: int
-            min: 0
-            required: false
-            hint: >-
-              Blank means unlimited or made to order. This is where you SET
-              the count — the site quietly counts it down as orders are
-              paid, so entering 10 today that sells 3 tomorrow shows 7
-              without you touching it. Because of that, only retype this
-              number after an actual recount: saving resets the live count
-              to whatever you enter. 0 shows 'Sold Out' and blocks
-              checkout; 1–5 shows an 'Only 3 left' badge. Sales rung up on
-              your Square register count this same number down (see Square
-              SKUs below). It doesn't sync with Etsy — update Etsy by hand.
-          - name: squareSkus
-            label: "Square SKUs (register)"
-            widget: list
-            required: false
-            collapsed: true
-            summary: "{{fields.sku}}"
-            hint: >-
-              Usually leave this empty: in the Square Dashboard, set the
-              item's SKU to this product's ID (shown as the page address,
-              e.g. lavender-soak) and it is matched automatically — one SKU
-              per size is fine, written as lavender-soak/24-oz. Only list
-              SKUs here if your Square items already have SKUs you'd rather
-              not retype. When a sale at the register can't be matched, you
-              get an email saying which item.
-            field: { name: sku, label: "Square SKU", widget: string }
-          - name: inStock
-            label: "In stock"
-            widget: boolean
-            default: true
-            required: false
-            hint: "Untick to show 'Sold Out' and a restock sign-up instead of Add to Cart."
-          - name: comingSoon
-            label: "Coming soon"
-            widget: boolean
-            default: false
-            required: false
-            hint: "Shows a 'Coming Soon' badge and replaces the buy button with a launch-alert sign-up."
-          - name: estimatedBatchDate
-            label: "Expected launch or restock"
-            widget: string
-            required: false
-            hint: "Shown on Coming Soon items, e.g. Early Autumn 2026 or Oct 15."
-          - name: featured
-            label: "Feature on homepage"
-            widget: boolean
-            default: false
-            required: false
-            hint: "Shows this product in the homepage grid."
-          - name: bestseller
-            label: "Bestseller badge"
-            widget: boolean
-            default: false
-            required: false
-            hint: "Adds a 'Bestseller' badge on the card."
-          - name: sale
-            label: "Sale"
-            widget: object
-            required: false
-            collapsed: true
-            hint: "Puts just this product on sale. To discount a whole category, use 'Category sales' further down this page."
-            fields:
-              - { name: price, label: "Sale price", widget: number, value_type: float, before_input: "$" }
-              - {
-                  name: label,
-                  label: "Sale name customers see",
-                  widget: string,
-                  hint: "e.g. Spring Sale"
-                }
-          - {
-              name: originalPrice,
-              label: "Original price",
-              widget: number,
-              value_type: float,
-              required: false,
-              before_input: "$",
-              hint: "The crossed-out 'was' price. Usually filled in for you when the product goes on sale."
-            }
-          - name: variants
-            label: "Variants"
-            widget: object
-            required: false
-            collapsed: true
-            hint: "Sizes, scents or blends of this one product. Leave empty for a single-option product."
-            fields:
-              - {
-                  name: name,
-                  label: "Variant type",
-                  widget: string,
-                  hint: "e.g. Size, Scent or Blend"
-                }
-              - name: options
-                label: Options
-                widget: list
-                label_singular: Option
-                summary: "{{fields.label}} ({{fields.priceDelta}})"
-                hint: >-
-                  One option must have a price difference of 0 — that's the
-                  base price above. For the others, enter how much more or
-                  less they cost, using your real Etsy prices.
-                fields:
-                  - name: label
-                    label: "Option name"
-                    widget: string
-                    hint: "e.g. 8 oz or Lavender. Don't use [ ] or | — they break the cart."
-                  - {
-                      name: priceDelta,
-                      label: "Price difference",
-                      widget: number,
-                      value_type: float,
-                      default: 0,
-                      hint: "0 = same as the base price; use a negative number to charge less."
-                    }
-                  - {
-                      name: soldOut,
-                      label: "Sold out?",
-                      widget: boolean,
-                      required: false,
-                      default: false,
-                      hint: "Shows the option greyed out and unorderable. Flip it back off when you restock — don't delete the option, or customers won't know it exists."
-                    }
-          - name: ingredients
-            label: "Ingredients / materials"
-            widget: list
-            required: false
-            hint: >-
-              Copy these from this product's own Etsy listing description,
-              not Etsy's generic 'Materials' tag (often the same boilerplate
-              across unrelated items).
-          - name: ingredientsLabel
-            label: "Ingredients heading"
-            widget: string
-            required: false
-            hint: "Defaults to 'Ingredients'. Use 'Materials' for non-body-care items like the keychain."
-          - name: ingredientsNote
-            label: "Ingredients note"
-            widget: string
-            required: false
-            hint: "e.g. No essential oils, no added fragrance."
-          - name: scent
-            label: "Scent"
-            widget: string
-            required: false
-            hint: "One short name, e.g. Lavender, Bourbon Vanilla or Unscented. Products sharing a scent are grouped in the shop's scent filter."
-          - name: scentProfile
-            label: "Scent notes & intensity"
-            widget: object
-            required: false
-            collapsed: true
-            fields:
-              - {
-                  name: top,
-                  label: "Top notes",
-                  widget: string,
-                  required: false,
-                  hint: "e.g. Lavender, Rosemary"
-                }
-              - {
-                  name: heart,
-                  label: "Heart notes",
-                  widget: string,
-                  required: false,
-                  hint: "e.g. Chamomile, Tea Tree"
-                }
-              - {
-                  name: base,
-                  label: "Base notes",
-                  widget: string,
-                  required: false,
-                  hint: "e.g. Frankincense, Earthy Beeswax"
-                }
-              - name: intensity
-                label: "Scent intensity"
-                widget: select
-                required: false
-                hint: "How strong the scent is, shown as a badge on the product page."
-                options:
-                  - { label: "Unscented", value: "Unscented" }
-                  - { label: "Subtle", value: "Subtle" }
-                  - { label: "Medium", value: "Medium" }
-                  - { label: "Strong", value: "Strong" }
-                  - { label: "Bold", value: "Bold" }
-              - {
-                  name: intensityScore,
-                  label: "Intensity score (0–5)",
-                  widget: number,
-                  value_type: int,
-                  min: 0,
-                  max: 5,
-                  required: false
-                }
-          - name: usageGuide
-            label: "Usage & care"
-            widget: object
-            required: false
-            collapsed: true
-            hint:
-              "Shown on the product page and emailed to the customer a few days
-              after their order ships — the 'how to get the most out of your
-              …' note. Write it the way you'd say it to someone holding the jar.
-              Leave all three blank and that product's email is skipped."
-            fields:
-              - {
-                  name: howToApply,
-                  label: "How to apply or wear",
-                  widget: text,
-                  required: false
-                }
-              - {
-                  name: storage,
-                  label: "Storage, shelf life or garment care",
-                  widget: text,
-                  required: false
-                }
-              - {
-                  name: patchTest,
-                  label: "Patch test & allergen info",
-                  widget: text,
-                  required: false
-                }
-          - name: tags
-            label: "Sensitivity & allergen tags"
-            widget: select
-            multiple: true
-            # Seven options: above Sveltia's default threshold of 5 they
-            # collapse into a multi-select dropdown, which hides what is
-            # ticked. Raised so they stay checkboxes.
-            dropdown_threshold: 12
-            required: false
-            hint: "Shown as badges on the product page and usable as shop filters."
-            options:
-              - { label: "Vegan", value: "vegan" }
-              - { label: "Unscented", value: "unscented" }
-              - { label: "Essential Oil Free", value: "essential-oil-free" }
-              - { label: "Sensitive Skin Safe", value: "sensitive-safe" }
-              - { label: "Cruelty-Free", value: "cruelty-free" }
-              - { label: "Organic Ingredients", value: "organic" }
-              - { label: "Locally Sourced / Foraged", value: "locally-sourced" }
-          - name: keywords
-            label: "Search keywords"
-            widget: list
-            required: false
-            hint: "Extra words customers might type: occasions, uses, ingredient names, misspellings (e.g. post-hike, cane sugar, stocking stuffer). These are published with the product, so keep symptoms and conditions like eczema or insomnia OUT — put those under Site Settings → Search settings → Extra search words, which only translate what a customer typed."
-          - name: concerns
-            label: "Shop concerns"
-            widget: relation
-            multiple: true
-            required: false
-            collection: _singletons
-            file: products
-            value_field: concerns.*.id
-            display_fields: ["concerns.*.icon", "concerns.*.name"]
-            search_fields: ["concerns.*.name"]
-            hint: "Which concern filters list this product, e.g. Sore Muscles or Dry Skin."
-          - name: pairsWith
-            label: "Pairs well with"
-            widget: relation
-            multiple: true
-            required: false
-            collection: _singletons
-            file: products
-            value_field: products.*.id
-            display_fields: ["products.*.name"]
-            search_fields: ["products.*.name"]
-            hint: "Products shown in this item's 'Complete the Ritual' section."
-          - name: ritualTitle
-            label: "Ritual section headline"
-            widget: string
-            required: false
-            hint: "e.g. The Deep Rest & Nighttime Ritual. Leave blank to use the default under Site Settings."
-          - name: etsyUrl
-            label: "Etsy listing link"
-            widget: string
-            # The build reads the /listing/<id> out of this to match the Etsy
-            # rating snapshot, so a mistyped link fails the deploy. Catch it here.
-            type: url
-            required: false
-            hint: "Leave blank for gift cards or site-only items."
-          - name: rating
-            label: "This item's own Etsy rating"
-            widget: object
-            required: false
-            collapsed: true
-            hint: "Only if this exact item has its own reviews on Etsy."
-            fields:
-              - {
-                  name: value,
-                  label: "Star rating (0–5)",
-                  widget: number,
-                  value_type: float
-                }
-              - {
-                  name: count,
-                  label: "Number of reviews",
-                  widget: number,
-                  value_type: int
-                }
-          # `id` exists in products.json and is declared here so a CMS save
-          # preserves it. It is the cart line-item key and the
-          # wishlist/review/bundle reference key.
-          - name: id
-            label: "Product ID"
-            widget: string
-            required: false
-            # readonly: changing it breaks bundle/review/wishlist/cart links that
-            # key off it. A blank id still saves -- the build fills it in.
-            readonly: true
-            hint: >-
-              Leave blank on a new product and it's made from the name.
-              Bundles and reviews use it to find this product, so never
-              change it once the product is live — that breaks those links.
-
-      # ==================================================================
-      # 2. PROMOTIONS & DEALS (Volume Pricing Rules & Category Sales)
-      # ==================================================================
       - name: volumePricing
         label: "Multi-buy deals"
         widget: list
@@ -787,7 +711,7 @@ singletons:
             label: "Category"
             widget: relation
             collection: _singletons
-            file: products
+            file: storeConfig
             value_field: categories.*.id
             display_fields: ["categories.*.label"]
             search_fields: ["categories.*.label"]
@@ -822,11 +746,6 @@ singletons:
               hint: "Shown on product cards and in the cart, e.g. 2+ for $15 each"
             }
           - { name: enabled, label: "Deal enabled", widget: boolean, default: true, hint: "Switch off to pause the deal without deleting it." }
-          # NOT made readonly: unlike products/bundles/categories/reviews/
-          # social posts/events, this id is required with no build-time
-          # auto-generation (scripts/build-site-data.js never assigns one) --
-          # readonly would block creating any new deal. Flagged for a
-          # follow-up fix rather than silently left mutable-but-undocumented.
           - {
               name: id,
               label: "Deal ID",
@@ -847,7 +766,7 @@ singletons:
             label: "Which category is on sale"
             widget: relation
             collection: _singletons
-            file: products
+            file: storeConfig
             value_field: categories.*.id
             display_fields: ["categories.*.label"]
             search_fields: ["categories.*.label"]
@@ -865,9 +784,6 @@ singletons:
               hint: "e.g. Body Care Sale"
             }
 
-      # ==================================================================
-      # 3. CURATED GIFT SETS (Pre-made Bundles)
-      # ==================================================================
       - name: bundles
         label: "Gift bundles"
         widget: list
@@ -887,11 +803,10 @@ singletons:
             widget: relation
             multiple: true
             min: 2
-            collection: _singletons
-            file: products
-            value_field: products.*.id
-            display_fields: ["products.*.name"]
-            search_fields: ["products.*.name"]
+            collection: products
+            value_field: id
+            display_fields: ["name"]
+            search_fields: ["name"]
             hint: "Pick 2 or more — start typing a product name."
           - {
               name: price,
@@ -919,13 +834,11 @@ singletons:
             multiple: true
             required: false
             collection: _singletons
-            file: products
+            file: storeConfig
             value_field: concerns.*.id
             display_fields: ["concerns.*.icon", "concerns.*.name"]
             search_fields: ["concerns.*.name"]
             hint: "Which concern filters list this gift set."
-          # readonly: changes here would break bundle links; the build fills
-          # in a blank id from the name, so a new bundle still saves fine.
           - {
               name: id,
               label: "Bundle ID",
@@ -935,9 +848,6 @@ singletons:
               hint: "Leave blank on a new bundle. Never change it once the bundle is live."
             }
 
-      # ==================================================================
-      # 4. SHOP FAQ (Accordion Items)
-      # ==================================================================
       - name: faq
         label: "FAQ"
         widget: list
@@ -945,14 +855,11 @@ singletons:
         collapsed: true
         minimize_collapsed: true
         summary: "{{fields.question}}"
-        hint: "Questions and answers on the FAQ page (the shop page shows the first five and links to the rest). An answer can carry a link, written like [events page](events.html). Some answers describe a feature with an on/off switch under Site Settings (promo codes, market pickup, the order pages, back-in-stock alerts, the quiz, live chat): if you turn one off, edit its answer. Numbers quoted in answers (the free-shipping threshold, the flat rate, the return windows, gift-card amounts, the box deal) live elsewhere on this site, so change the answer when you change the number."
+        hint: "Questions and answers on the FAQ page (the shop page shows the first five and links to the rest)."
         fields:
           - { name: question, label: Question, widget: string }
           - { name: answer, label: Answer, widget: text }
 
-      # ==================================================================
-      # 5. TECHNICAL & SHOP SETTINGS (Rare / Setup Items - Collapsed by Default)
-      # ==================================================================
       - name: concerns
         label: "Concern filters"
         widget: list
@@ -960,7 +867,7 @@ singletons:
         collapsed: true
         minimize_collapsed: true
         summary: "{{fields.icon}} {{fields.name}}"
-        hint: "The shop's 'shop by concern' filters, e.g. Sleep & Relaxation, Sore Muscles. You rarely need to change these."
+        hint: "The shop's concern filters, e.g. Sleep & Relaxation, Sore Muscles. You rarely need to change these."
         fields:
           - { name: name, label: "Concern name", widget: string }
           - { name: icon, label: "Emoji", widget: string, required: false }
@@ -969,7 +876,6 @@ singletons:
               label: "Concern ID",
               widget: string,
               required: false,
-              # Safe to lock now that the build fills a blank one in.
               readonly: true,
               hint: "Made for you from the name. Products use it to find this filter."
             }
@@ -981,9 +887,7 @@ singletons:
         collapsed: true
         minimize_collapsed: true
         summary: "{{fields.label}}"
-        hint: >-
-          The filter buttons across the top of the shop page. Just type
-          the name — everything else is filled in for you.
+        hint: "The filter buttons across the top of the shop page. Just type the name — everything else is filled in for you."
         fields:
           - {
               name: label,
@@ -991,8 +895,6 @@ singletons:
               widget: string,
               hint: "The filter button on the shop page."
             }
-          # readonly: products reference categories by this id; the build
-          # fills in a blank id from the name, so a new category still saves.
           - {
               name: id,
               label: "Category ID",
@@ -1001,6 +903,14 @@ singletons:
               readonly: true,
               hint: "Leave blank on a new category. Never change it once products use it."
             }
+
+      - name: productOrder
+        label: "Product display order"
+        widget: list
+        required: false
+        collapsed: true
+        hint: "List of product IDs in the order they appear on the site. Products not listed appear alphabetically after."
+        field: { name: id, label: "Product ID", widget: string }
 
   - name: events
     label: "Markets & Pop-Ups"
@@ -1177,11 +1087,10 @@ singletons:
             label: "Product"
             widget: relation
             required: false
-            collection: _singletons
-            file: products
-            value_field: products.*.id
-            display_fields: ["products.*.name"]
-            search_fields: ["products.*.name"]
+            collection: products
+            value_field: id
+            display_fields: ["name"]
+            search_fields: ["name"]
             hint: "Leave blank for a whole-shop review."
           - {
               name: date,
@@ -1281,11 +1190,10 @@ singletons:
             label: "Tagged product"
             widget: relation
             required: false
-            collection: _singletons
-            file: products
-            value_field: products.*.id
-            display_fields: ["products.*.name"]
-            search_fields: ["products.*.name"]
+            collection: products
+            value_field: id
+            display_fields: ["name"]
+            search_fields: ["name"]
           - {
               name: productName,
               label: "Tag wording",
@@ -2093,7 +2001,13 @@ singletons:
               - { name: sortButton, label: "Sort button", widget: string, required: false, hint: "Opens the panel at the sort choices. Standard: Sort." }
               - { name: sheetTitle, label: "Panel heading", widget: string, required: false, hint: "Title at the top of the slide-up panel. Standard: Filter & sort." }
               - { name: categoryHeading, label: "Category group heading", widget: string, required: false, hint: "Sits above the category buttons inside the panel. Standard: Category." }
-              - { name: concernHeading, label: "Concern group heading", widget: string, required: false, hint: "Sits above the concern buttons inside the panel. Standard: Concern." }
+              - {
+                  name: concernHeading,
+                  label: "Vibe filter label",
+                  widget: string,
+                  required: false,
+                  hint: "What to call the secondary filter row across the shop (e.g. Vibe). Updates the mobile filter panel heading."
+                }
               - { name: applyButton, label: "Apply button", widget: string, required: false, hint: "Closes the panel and shows the results. Standard: Apply." }
               - { name: clearAll, label: "Clear-all button", widget: string, required: false, hint: "Resets every filter and the search box; shown in the panel and next to the active-filter chips above the products. Standard: Clear all." }
               - { name: activeFilters, label: "Active filters label (screen readers)", widget: string, required: false, hint: "Read aloud by screen readers to name the row of active-filter chips; never shown on screen. Standard: Active filters." }
@@ -2479,11 +2393,10 @@ singletons:
                     name: productId,
                     label: Product,
                     widget: relation,
-                    collection: _singletons,
-                    file: products,
-                    search_fields: ["products.*.id", "products.*.name"],
-                    value_field: "products.*.id",
-                    display_fields: ["products.*.name"]
+                    collection: products,
+                    search_fields: ["name"],
+                    value_field: "id",
+                    display_fields: ["name"]
                   }
               - name: categories
                 label: "Recommended categories"

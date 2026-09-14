@@ -1640,7 +1640,6 @@ window.YL_PRODUCTS = {
     "etsyShopUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
     "rating": 4.9,
     "reviewCount": 33,
-    "sales": 108,
     "freeShippingThreshold": 40,
     "shippingMilestones": [
       {

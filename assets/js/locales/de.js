@@ -845,8 +845,7 @@
     "auto.whenYouClickCheckout.77c899": "Wenn du auf Zur Kasse klickst, wird dein Warenkorb für etwa 30 Minuten reserviert, während du bezahlst. Wenn der Timer abläuft, schließt sich die Sitzung und alles mit begrenztem Lagerbestand wandert zurück ins Regal für die nächste Person. Kein Beinbruch – geh einfach zurück zum Shop und versuch es noch einmal.",
     "auto.yesOrdersOfOr.2a65db": "Ja! Bestellungen ab $40 (Warenwert, vor Steuern) werden überall in den USA kostenlos versendet. Darunter sind es pauschal $10, und die Anzeige in deinem Warenkorb zeigt dir, wie nah du dran bist. Das wird beim Checkout alles automatisch angerechnet. Wir versenden vorerst nur an US-Adressen, und Geschenkgutscheine kommen per E-Mail, brauchen also nie Porto.",
     "auto.apothecary.3edecd": "Apotheke",
-    "auto.copyCode.1589b6": "Code kopieren",
-    "auto.yourWelcomeCodeIs.34555c": "Dein Willkommenscode ist bereit:"
+    "auto.copyCode.1589b6": "Code kopieren"
   }
 };
 

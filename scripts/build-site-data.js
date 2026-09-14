@@ -181,6 +181,66 @@ function listJournalFiles() {
       return JOURNAL_DIR + "/" + f;
     });
 }
+const PRODUCTS_DATA_DIR = "assets/data/products";
+function listProductFiles() {
+  const dir = path.join(ROOT, PRODUCTS_DATA_DIR);
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter(function (f) {
+      return f.endsWith(".json");
+    })
+    .sort()
+    .map(function (f) {
+      return PRODUCTS_DATA_DIR + "/" + f;
+    });
+}
+function loadCatalog() {
+  const productFiles = listProductFiles();
+  const catalogConfigPath = path.join(ROOT, "assets/data/catalog-config.json");
+  if (!productFiles.length || !fs.existsSync(catalogConfigPath)) {
+    return readJson("assets/data/products.json");
+  }
+  const config = readJson("assets/data/catalog-config.json");
+  const products = productFiles.map(function (rel) {
+    const p = readJson(rel);
+    if (!p.id) p.id = path.basename(rel, ".json");
+    return p;
+  });
+  const order = Array.isArray(config.productOrder) ? config.productOrder : [];
+  if (order.length) {
+    products.sort(function (a, b) {
+      const idxA = order.indexOf(a.id);
+      const idxB = order.indexOf(b.id);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.id.localeCompare(b.id);
+    });
+  }
+  const catalog = {
+    products: products,
+    volumePricing: config.volumePricing || [],
+    sales: config.sales || [],
+    bundles: config.bundles || [],
+    faq: config.faq || [],
+    concerns: config.concerns || [],
+    categories: config.categories || [],
+    shop: config.shop || {}
+  };
+  const compiledJson = JSON.stringify(catalog, null, 2) + "\n";
+  const existing = fs.existsSync(path.join(ROOT, "assets/data/products.json"))
+    ? fs.readFileSync(path.join(ROOT, "assets/data/products.json"), "utf8")
+    : "";
+  if (compiledJson !== existing) {
+    fs.writeFileSync(path.join(ROOT, "assets/data/products.json"), compiledJson, "utf8");
+    console.log(
+      "[build] compiled assets/data/products.json from " + products.length + " product files"
+    );
+  }
+  return catalog;
+}
+
 function loadJournal(content) {
   const wording = (content && content.journal) || {};
   const posts = listJournalFiles().map(function (rel) {
@@ -1901,7 +1961,7 @@ function umamiPreconnectHtml() {
 
 function buildSiteData() {
   PRODUCTS_BY_ID = {};
-  const CATALOG = readJson("assets/data/products.json");
+  const CATALOG = loadCatalog();
   const PRODUCTS = CATALOG.products;
   const BUNDLES = CATALOG.bundles || [];
   const FAQ = CATALOG.faq || [];
@@ -4837,7 +4897,7 @@ function buildSiteData() {
   const llmsTxt =
     "# Y'allternative Living\n\n" +
     "> Queer-owned, Southern-raised handmade self-care -- small-batch salves, soaks, body care and apparel out of Landrum, SC. Sold directly on this site and on Etsy, plus in person at farmers markets and Pride events around Upstate SC and beyond.\n\n" +
-    "Y'allternative Living is a small, queer-owned business run by founder Savanna out of Landrum, South Carolina (the Upstate SC / Blue Ridge foothills region). Everything is handmade in small batches. As of mid-2026 the shop has a 4.9-star average across 33 ratings and 108+ sales on its Etsy shop (a separate, longer-running sales channel from this site).\n\n" +
+    "Y'allternative Living is a small, queer-owned business run by founder Savanna out of Landrum, South Carolina (the Upstate SC / Blue Ridge foothills region). Everything is handmade in small batches. As of mid-2026 the shop has a 4.9-star average across 33 ratings on its Etsy shop (a separate sales channel from this site).\n\n" +
     "## Pages\n\n" +
     "- [Shop](" +
     DOMAIN +
@@ -8648,6 +8708,7 @@ if (typeof module !== "undefined" && module.exports) {
     formatEventMapDestination: formatEventMapDestination,
     generateGoogleMapsDirUrl: generateGoogleMapsDirUrl,
     generateAppleMapsDirUrl: generateAppleMapsDirUrl,
+    loadCatalog: loadCatalog,
     buildSiteData: buildSiteData
   };
 }

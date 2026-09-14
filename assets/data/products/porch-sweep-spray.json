@@ -1,0 +1,53 @@
+{
+  "id": "porch-sweep-spray",
+  "name": "Porch Sweep Clearing Mist",
+  "comingSoon": true,
+  "category": "ritual",
+  "price": 16,
+  "image": "assets/img/placeholder-coming-soon.svg",
+  "blurb": "Named for the old Southern habit of sweeping the porch at dusk to clear out the day's trouble. Lemongrass, palo santo, and black tourmaline-infused water in a 4 oz amber bottle. Mist your space after an argument, a bad day, or just because the vibes are off.",
+  "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
+  "ingredients": [
+    "Moon Water (Distilled)",
+    "Witch Hazel",
+    "Essential Oils (Lemongrass, Palo Santo, Cedarwood)",
+    "Black Tourmaline Crystal Chips",
+    "Vegetable Glycerin",
+    "Preservative"
+  ],
+  "scent": "Fresh & Clean",
+  "tags": [
+    "vegan"
+  ],
+  "concerns": [
+    "sleep-relaxation"
+  ],
+  "scentProfile": {
+    "top": "Crisp Lemongrass, Wild Mint",
+    "heart": "Holy Palo Santo, Distilled Moon Water",
+    "base": "Grounding Tourmaline, Cedarwood",
+    "intensity": "Medium",
+    "intensityScore": 3
+  },
+  "usageGuide": {
+    "howToApply": "Mist across front entryways, thresholds, patio spaces, and work areas whenever energy feels cluttered or heavy.",
+    "storage": "Store at room temperature out of direct sunlight. Shelf life is 12 months.",
+    "patchTest": "Aromatherapy and space-clearing mist. For room and threshold use; avoid spraying directly into eyes."
+  },
+  "keywords": [
+    "porch sweep",
+    "banishing mist",
+    "home protection",
+    "clearing spray",
+    "negative vibes",
+    "room freshener",
+    "herbal mist",
+    "house blessing"
+  ],
+  "ritualTitle": "The Southern Threshold Protection Ritual",
+  "pairsWith": [
+    "cleansing-spray",
+    "bug-spray"
+  ],
+  "estimatedBatchDate": "Late October 2026"
+}

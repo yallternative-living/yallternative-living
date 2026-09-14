@@ -2110,13 +2110,19 @@ if (!fs.existsSync(configYmlPath)) {
     fail("admin/config.yml", "backend.repo doesn't look like a valid owner/repo value");
   }
 
-  if (/file:\s*assets\/data\/products\.json/.test(configYml))
+  if (
+    /folder:\s*assets\/data\/products\b/.test(configYml) &&
+    /file:\s*assets\/data\/catalog-config\.json\b/.test(configYml)
+  ) {
+    ok("CMS config points at assets/data/products folder and assets/data/catalog-config.json");
+  } else if (/file:\s*assets\/data\/products\.json/.test(configYml)) {
     ok("file collection points at assets/data/products.json");
-  else
+  } else {
     fail(
       "admin/config.yml",
-      "doesn't reference assets/data/products.json -- the CMS wouldn't be editing the real catalog file"
+      "doesn't reference assets/data/products or catalog-config.json -- the CMS wouldn't be editing the real catalog files"
     );
+  }
 
   if (
     /media_folder:\s*\/assets\/img/.test(configYml) &&
@@ -2130,10 +2136,7 @@ if (!fs.existsSync(configYmlPath)) {
   // Every real top-level key in each CMS-editable JSON file needs a
   // corresponding field defined in config.yml, or the CMS would silently
   // drop/hide that data the next time someone saves through the editor.
-  // Originally only checked products.json -- widened to cover all 4 file
-  // collections config.yml actually defines (see the "2. Markets... 3.
-  // Customer Reviews... 4. Page Wording" comment near the top of that
-  // file) after a swarm audit flagged events/reviews/content as unchecked.
+  // Covers all folder collections and singletons config.yml actually defines.
   var journalPostFiles = fs.existsSync(path.join(ROOT, "assets/data/journal"))
     ? fs
         .readdirSync(path.join(ROOT, "assets/data/journal"))
@@ -2145,7 +2148,21 @@ if (!fs.existsSync(configYmlPath)) {
         })
     : [];
   if (!journalPostFiles.length) fail("assets/data/journal", "no journal post files found");
+
+  var productPostFiles = fs.existsSync(path.join(ROOT, "assets/data/products"))
+    ? fs
+        .readdirSync(path.join(ROOT, "assets/data/products"))
+        .filter(function (f) {
+          return f.endsWith(".json");
+        })
+        .map(function (f) {
+          return "assets/data/products/" + f;
+        })
+    : [];
+  if (!productPostFiles.length) fail("assets/data/products", "no individual product files found");
+
   [
+    "assets/data/catalog-config.json",
     "assets/data/products.json",
     "assets/data/events.json",
     "assets/data/site-reviews.json",
@@ -2154,6 +2171,7 @@ if (!fs.existsSync(configYmlPath)) {
     "assets/data/social-feed.json"
   ]
     .concat(journalPostFiles)
+    .concat(productPostFiles)
     .forEach(function (relPath) {
       var full = path.join(ROOT, relPath);
       if (!fs.existsSync(full)) return; // already reported missing in section 1 above

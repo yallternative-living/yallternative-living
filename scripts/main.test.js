@@ -1418,9 +1418,10 @@ const notFoundSrc = fs404.readFileSync(path404.join(repoRoot, "404.html"), "utf8
 const relativeRefs = [];
 notFoundSrc.replace(/\s(?:href|src)="([^"]*)"/g, function (_m, url) {
   if (!url) return _m;
-  if (/^(https?:)?\/\//i.test(url)) return _m;
-  if (url.charAt(0) === "/" || url.charAt(0) === "#") return _m;
-  if (/^(mailto|tel):/i.test(url)) return _m;
+  var target = url.replace(/<!--[\s\S]*?-->/g, "");
+  if (/^(https?:)?\/\//i.test(target)) return _m;
+  if (target.charAt(0) === "/" || target.charAt(0) === "#") return _m;
+  if (/^(mailto|tel):/i.test(target)) return _m;
   relativeRefs.push(url);
   return _m;
 });
@@ -2657,19 +2658,19 @@ eq(
     "Autumn bundle has valid concerns"
   );
 
-  // R4: Footer instant coupon markup in built pages
+  // Footer signup confirmation & coupon security (protects single-use welcome code from scrapers)
   const indexHtml = fsTest.readFileSync(pathTest.join(projectRoot, "index.html"), "utf8");
   assert(
-    indexHtml.includes('id="footerCouponCode"'),
-    "index.html footer contains #footerCouponCode"
+    indexHtml.includes('class="footer-signup-confirm"'),
+    "index.html footer contains .footer-signup-confirm"
   );
   assert(
-    indexHtml.includes('id="footerCouponCopyBtn"'),
-    "index.html footer contains #footerCouponCopyBtn"
+    !indexHtml.includes('id="footerCouponCode"'),
+    "index.html footer does not expose #footerCouponCode statically"
   );
   assert(
-    indexHtml.includes('id="footerCouponCopyStatus"'),
-    "index.html footer contains #footerCouponCopyStatus"
+    !indexHtml.includes('id="footerCouponCopyBtn"'),
+    "index.html footer does not expose #footerCouponCopyBtn"
   );
 
   // R4: Welcome page copy button

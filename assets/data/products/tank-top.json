@@ -1,0 +1,64 @@
+{
+  "id": "tank-top",
+  "name": "Y'allternative Living Tank Top",
+  "description": "",
+  "category": "apparel",
+  "price": 30,
+  "originalPrice": null,
+  "image": "assets/img/tank-top.jpg",
+  "images": [
+    "assets/img/tank-top-alt1.jpg",
+    "assets/img/tank-top-alt2.jpg",
+    "assets/img/tank-top-alt3.jpg"
+  ],
+  "blurb": "Same rainbow stag, same crescent moon, cut for the hottest days of the year. Soft triblend racerback built to be worn hard and washed easy. Original artwork, not something pulled off a mass-print catalog.",
+  "etsyUrl": "https://www.etsy.com/listing/4341507933/yallternative-living-tank-top",
+  "stock": 10,
+  "ingredientsLabel": "",
+  "ingredientsNote": "",
+  "scent": "",
+  "variants": {
+    "name": "Size",
+    "options": [
+      {
+        "label": "S",
+        "priceDelta": 0,
+        "soldOut": true
+      },
+      {
+        "label": "M",
+        "priceDelta": 0
+      },
+      {
+        "label": "L",
+        "priceDelta": 0
+      },
+      {
+        "label": "1X",
+        "priceDelta": 0
+      }
+    ]
+  },
+  "tags": [],
+  "concerns": [],
+  "inStock": true,
+  "scentProfile": null,
+  "usageGuide": {
+    "howToApply": "Wear proudly to markets, Pride, and sunny days. Soft triblend racerback cut for comfort and durability.",
+    "storage": "Machine wash cold with like colors. Tumble dry low or hang dry for longevity.",
+    "patchTest": "100% skin-safe triblend fabric. Non-irritating and breathable."
+  },
+  "keywords": [
+    "apparel",
+    "shirt",
+    "tank",
+    "racerback",
+    "cotton",
+    "clothing",
+    "queer",
+    "goth",
+    "rainbow",
+    "stag",
+    "summer"
+  ]
+}

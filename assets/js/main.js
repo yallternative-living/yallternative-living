@@ -730,17 +730,7 @@
         .then(function (res) {
           if (!res.ok) throw new Error("Signup rejected: " + res.status);
           var box = form.closest(".footer-signup");
-          if (box) {
-            box.classList.add("is-subscribed");
-            var couponBtn = box.querySelector("#footerCouponCopyBtn");
-            if (couponBtn) {
-              try {
-                couponBtn.focus();
-              } catch (err) {
-                /* Ignore focus errors. */
-              }
-            }
-          }
+          if (box) box.classList.add("is-subscribed");
         })
         .catch(function () {
           /* Deliberately not falling back to form.submit() here. That fired a
@@ -756,58 +746,6 @@
         });
     });
   });
-
-  /* ---------- Footer coupon copy button ---------- */
-  var footerCouponBtn = document.getElementById("footerCouponCopyBtn");
-  if (footerCouponBtn) {
-    var footerCouponCode = document.getElementById("footerCouponCode");
-    var footerCouponStatus = document.getElementById("footerCouponCopyStatus");
-
-    var footerSite = (window.YL_CONTENT && window.YL_CONTENT.site) || {};
-    if (footerSite.welcomeCode && footerSite.welcomeCode !== "YOUR_WELCOME_CODE") {
-      if (footerCouponCode) footerCouponCode.textContent = footerSite.welcomeCode;
-    }
-
-    footerCouponBtn.addEventListener("click", function () {
-      var code = footerCouponCode ? footerCouponCode.textContent.trim() : "YALL10";
-
-      function onCopied() {
-        footerCouponBtn.textContent = "Copied!";
-        if (footerCouponStatus) {
-          footerCouponStatus.textContent = "Discount code " + code + " copied to clipboard";
-        }
-        setTimeout(function () {
-          footerCouponBtn.textContent = "Copy Code";
-          if (footerCouponStatus) {
-            footerCouponStatus.textContent = "";
-          }
-        }, 2500);
-      }
-
-      function fallbackCopy() {
-        try {
-          if (footerCouponCode) {
-            var range = document.createRange();
-            range.selectNodeContents(footerCouponCode);
-            var sel = window.getSelection();
-            if (sel) {
-              sel.removeAllRanges();
-              sel.addRange(range);
-            }
-          }
-        } catch (err) {
-          /* Ignore clipboard selection fallback errors. */
-        }
-        onCopied();
-      }
-
-      if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
-        navigator.clipboard.writeText(code).then(onCopied).catch(fallbackCopy);
-      } else {
-        fallbackCopy();
-      }
-    });
-  }
 
   /* ---------- Welcome page: show the subscriber discount code ----------
      welcome.html is where Kit's "after confirming redirect to" sends people
@@ -8488,7 +8426,7 @@
             '  <div class="ugc-card-body">' +
             '    <div class="ugc-author-row">' +
             '      <span class="ugc-author-name">' +
-            attrEsc(post.author || "Savanna") +
+            attrEsc(post.author || "Community Member") +
             "</span>" +
             '      <span class="ugc-author-handle">' +
             attrEsc(post.handle || "@yallternativeliving") +

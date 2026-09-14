@@ -1,0 +1,74 @@
+{
+  "id": "shea-butter",
+  "name": "Lavender Shea Body Butter",
+  "category": "body",
+  "price": 18,
+  "image": "assets/img/shea-butter.jpg",
+  "images": [
+    "assets/img/shea-butter-alt1.jpg",
+    "assets/img/shea-butter-alt2.jpg"
+  ],
+  "blurb": "Deep Shea Rest, whipped thick with raw African shea and a lavender-forward blend underneath. Massage it into damp skin after your shower and let it work on cracked heels and winter-dry patches while you sleep. Built as a night ritual, not just a lotion.",
+  "etsyUrl": "https://www.etsy.com/listing/4460110222/lavender-shea-body-butter-raw-african",
+  "rating": {
+    "value": 4,
+    "count": 1
+  },
+  "ingredients": [
+    "Shea Butter (Raw African + Refined)",
+    "Mango Butter",
+    "Coconut Oil",
+    "Sweet Almond Oil",
+    "Beeswax",
+    "Cornstarch",
+    "Optiphen (Preservative)",
+    "Essential Oils"
+  ],
+  "scent": "Lavender",
+  "variants": {
+    "name": "Size",
+    "options": [
+      {
+        "label": "4 oz",
+        "priceDelta": 0
+      },
+      {
+        "label": "8 oz",
+        "priceDelta": 5
+      }
+    ]
+  },
+  "tags": [],
+  "concerns": [
+    "sleep-relaxation",
+    "dry-skin"
+  ],
+  "scentProfile": {
+    "top": "French Lavender Bud",
+    "heart": "Velvet Cream, Herbal Warmth",
+    "base": "Raw Nutty African Shea",
+    "intensity": "Medium",
+    "intensityScore": 3
+  },
+  "usageGuide": {
+    "howToApply": "Scoop a generous amount and massage directly into towel-damp skin immediately after bathing or showering to lock in deep hydration.",
+    "storage": "Store at room temperature (below 80°F/27°C) to prevent melting. Shelf life is 6–12 months.",
+    "patchTest": "Test a small amount on inner forearm before first use. Discontinue if irritation develops."
+  },
+  "keywords": [
+    "dry skin",
+    "intense moisture",
+    "body butter",
+    "shea",
+    "lavender",
+    "rough heels",
+    "chapped",
+    "hydration",
+    "soothing"
+  ],
+  "ritualTitle": "The Ultra-Nourishing Body Ritual",
+  "pairsWith": [
+    "sugar-scrub",
+    "sleep-salve"
+  ]
+}

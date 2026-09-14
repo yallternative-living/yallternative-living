@@ -23,6 +23,11 @@ const server = http.createServer((req, res) => {
   if (reqPath === "/") reqPath = "/index.html";
   let filePath = path.join(root, reqPath);
 
+  if (fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()) {
+    const indexPath = path.join(filePath, "index.html");
+    if (fs.existsSync(indexPath)) filePath = indexPath;
+  }
+
   if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
     filePath = path.join(root, "404.html");
   }

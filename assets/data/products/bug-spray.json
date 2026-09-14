@@ -1,0 +1,62 @@
+{
+  "id": "bug-spray",
+  "name": "Bug Off B*tch Natural Bug Spray",
+  "category": "body",
+  "price": 10,
+  "image": "assets/img/bug-spray.jpg",
+  "images": [
+    "assets/img/bug-spray-alt1.jpg",
+    "assets/img/bug-spray-alt2.jpg",
+    "assets/img/bug-spray-alt3.jpg"
+  ],
+  "blurb": "Tell the mosquitoes to buzz off, naturally. Citronella, lemongrass, and five other essential oils in a 2 oz amber spray, no DEET, no sticky residue, just Southern summer survival.",
+  "etsyUrl": "https://www.etsy.com/listing/4335217388/bug-off-btch-natural-bug-spray",
+  "rating": {
+    "value": 5,
+    "count": 4
+  },
+  "ingredients": [
+    "Alcohol",
+    "Glycerin",
+    "Germall Plus (Preservative)",
+    "Essential Oils (Citronella, Lemongrass, Peppermint, Tea Tree, Lavender, Rosemary)"
+  ],
+  "scent": "Herbal & Woodsy",
+  "tags": [
+    "vegan"
+  ],
+  "concerns": [
+    "outdoor-defense"
+  ],
+  "scentProfile": {
+    "top": "Bright Lemongrass, Citronella",
+    "heart": "Wild Rosemary, Peppermint",
+    "base": "Virginia Cedarwood, Witch Hazel",
+    "intensity": "Strong",
+    "intensityScore": 4
+  },
+  "usageGuide": {
+    "howToApply": "Shake vigorously before each use. Mist evenly across exposed skin and outer clothing before heading outdoors. Reapply every 2 hours as needed.",
+    "storage": "Store in a cool spot out of direct car heat and direct sun. Shelf life is 12 months.",
+    "patchTest": "DEET-free: essential oils in an alcohol base with a preservative to keep it shelf-stable. Spray a small test patch on forearm 24 hours before first full outdoor use."
+  },
+  "keywords": [
+    "bug spray",
+    "mosquito repellent",
+    "ticks",
+    "gnats",
+    "flies",
+    "insect defense",
+    "plant based",
+    "camping",
+    "hiking",
+    "outdoors",
+    "trail",
+    "bites"
+  ],
+  "ritualTitle": "The Backwoods Defense Ritual",
+  "pairsWith": [
+    "protection-keychain",
+    "backroad-soak"
+  ]
+}

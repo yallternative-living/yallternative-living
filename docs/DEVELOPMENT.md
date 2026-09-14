@@ -55,7 +55,7 @@ keep it in sync if you change the design system.
   farmers markets and Pride events (e.g. Upstate Pride).
 - **Founder:** Savanna
 - **Email:** y.allternative.living@gmail.com
-- **Etsy shop:** https://www.etsy.com/shop/YallternativeLivinCO — 4.9★ (33 ratings), 108+ sales
+- **Etsy shop:** https://www.etsy.com/shop/YallternativeLivinCO — 4.9★ (33 ratings)
 - **Facebook:** https://www.facebook.com/p/Yallternative-Living-61577943406316/ (308 followers)
 - **Instagram:** https://www.instagram.com/yallternativeliving
 - **TikTok:** https://www.tiktok.com/@yallternativeliving
@@ -404,7 +404,7 @@ snippets worth quoting on the homepage:
 > "second purchase, works well. good scent." — Eric, Etsy review
 > "Smells GREAT! Haven't tried it yet, but look forward to using it :)" — Leese, Etsy review
 
-Shop stats: **4.9★ average, 33 ratings (22 of them with written text, republished on /reviews.html), 108+ sales, 1 year on Etsy.**
+Shop stats: **4.9★ average, 33 ratings (22 of them with written text, republished on /reviews.html), 1 year on Etsy.**
 
 ## 8. The shopping system, explained
 
@@ -1501,33 +1501,34 @@ current docs at that time.
         copy the **Client ID**, then **Generate a new client secret** and
         copy that. You'll set the **Authorization callback URL** in step 4,
         once step 2 gives you the Worker URL.
-     2. **Deploy `cms-auth/`** to Cloudflare — same two ways as the
-        checkout Worker (Workers Builds with the project root set to
-        `cms-auth`, or `wrangler deploy` from that folder). See
-        `workers/README.md` → "Sign-in Worker". Cloudflare then shows the
-        Worker's URL, e.g.
-        `https://yallternative-cms-auth.<your-subdomain>.workers.dev`.
-     3. **Add the two secrets** — in that Worker's Cloudflare dashboard,
-        **Settings → Variables and Secrets**, add `GITHUB_CLIENT_ID` and
-        `GITHUB_CLIENT_SECRET` as **Secrets** (from step 1). `ALLOWED_DOMAINS`
-        is already set in `wrangler.toml` (not secret) and restricts token
-        issuance to this site.
-     4. **Connect the three URLs.** Put the Worker URL from step 2 into
-        `admin/config.yml` as `backend.base_url` (replacing the
-        `YOUR-SUBDOMAIN` placeholder already there), commit it, and set the
-        GitHub OAuth App's **Authorization callback URL** (step 1) to
-        `<that-same-Worker-URL>/callback`. These must match exactly.
-        After that, `/admin` shows a real **Sign in with GitHub** button and
-        nobody manages a token. The Worker never sees your data — it only
-        performs the OAuth handshake and hands the browser a token; the client
-        secret lives only as a Cloudflare Secret, never in the repo.
+     2. **Deploy `cms-auth/`** to Cloudflare — already deployed to
+        `https://yallternative-cms-auth.y-allternative-living.workers.dev`
+        (in the `y-allternative-living` Cloudflare account).
+     3. **Add the two secrets** — in that Worker's Cloudflare dashboard
+        (or via `wrangler secret put GITHUB_CLIENT_ID` and
+        `wrangler secret put GITHUB_CLIENT_SECRET` in `cms-auth/`), add
+        `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` as **Secrets** (from step 1).
+        `ALLOWED_DOMAINS` is already set in `wrangler.toml` (`yallternativeliving.com,localhost`)
+        and restricts token issuance to this site.
+     4. **Connect the URLs.** The Worker URL is already configured in
+        `admin/config.yml` as `backend.base_url: https://yallternative-cms-auth.y-allternative-living.workers.dev`.
+        Set the GitHub OAuth App's **Authorization callback URL** (step 1) to:
+        `https://yallternative-cms-auth.y-allternative-living.workers.dev/callback`.
+        These must match exactly.
+        After that, `/admin` provides a 1-click **Sign in with GitHub** button and
+        nobody has to manually paste tokens. The Worker never touches catalog data — it only
+        performs the OAuth handshake and hands the browser an authentication token; the client
+        secret lives securely as a Cloudflare Secret, never in the repository.
 
 3. **Visit `https://<your-real-domain>/admin` and sign in** using
-   whichever method you set up. You should see forms for Shop Info,
-   Categories, Products, Bundles, and FAQ — editing any of them and
-   clicking "Save" commits directly to `assets/data/products.json` in
-   the GitHub repo, which triggers a normal deploy (section 12) that
-   regenerates everything else automatically.
+   whichever method you prefer (1-click GitHub OAuth or Token). You will see:
+   - **Products** (folder collection with dedicated per-product editors, search, and sorting)
+   - **Shop & Catalog Settings** (bundles, multi-buy deals, category sales, FAQ, shop details)
+   - **Markets & Pop-Ups**, **Customer Reviews**, **Journal**, **Social Media Feed**, **Site Settings**, and **Quiz**.
+   Editing any product writes directly to `assets/data/products/<slug>.json`, and
+   saving publishes via the editorial workflow pull request. On deploy,
+   `node scripts/build-site-data.js` compiles the catalog into `assets/data/products.json`
+   and regenerates the static site.
 4. **Test with something low-stakes first** — e.g. edit one product's
    `blurb` by a word, save, confirm the live site updates after the
    deploy finishes, then move on to real catalog changes.

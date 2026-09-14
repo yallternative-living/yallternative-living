@@ -1,0 +1,70 @@
+{
+  "id": "bath-tea",
+  "name": "Moonlit Meadow Bath Tea",
+  "comingSoon": true,
+  "category": "ritual",
+  "price": 12,
+  "image": "assets/img/placeholder-coming-soon.svg",
+  "blurb": "Dried lavender, chamomile, rose petals, and oat straw in a reusable muslin bag. Drop it in a warm bath, let it steep five minutes, soak until the day stops mattering. Gentler on your tub than loose herbs, and the bag's good for two or three rounds before you compost the whole thing.",
+  "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
+  "ingredients": [
+    "Dried Lavender Buds",
+    "Chamomile Flowers",
+    "Oat Straw",
+    "Rose Petals",
+    "Epsom Salt",
+    "Baking Soda"
+  ],
+  "ingredientsNote": "Comes with a reusable organic cotton muslin bag. Each bag is good for 2–3 soaks. Compost when spent.",
+  "scent": "Fresh & Clean",
+  "variants": {
+    "name": "Size",
+    "options": [
+      {
+        "label": "Single Soak",
+        "priceDelta": 0
+      },
+      {
+        "label": "3-Pack",
+        "priceDelta": 12
+      }
+    ]
+  },
+  "tags": [
+    "vegan",
+    "essential-oil-free"
+  ],
+  "concerns": [
+    "sleep-relaxation",
+    "dry-skin"
+  ],
+  "scentProfile": {
+    "top": "Wild Meadow Flora, English Rose",
+    "heart": "Sweet German Chamomile, Oat Straw",
+    "base": "Botanical Lavender Bud",
+    "intensity": "Subtle",
+    "intensityScore": 2
+  },
+  "usageGuide": {
+    "howToApply": "Place 1 filled organic muslin tea bag into hot running bathwater. Steep for 5 minutes, then squeeze bag gently while soaking for 20 minutes.",
+    "storage": "Keep unused tea bags in a dry, airtight jar or pouch. Compost spent botanicals after 2–3 uses.",
+    "patchTest": "Pure dried botanicals and mineral salts. Test steeped herbal water on wrist if prone to botanical pollen sensitivities."
+  },
+  "keywords": [
+    "bath tea",
+    "tub tea",
+    "botanical steep",
+    "herbal bath",
+    "moonlit meadow",
+    "flower petals",
+    "soothing soak",
+    "spa bath",
+    "relaxation"
+  ],
+  "ritualTitle": "The Whole Botanical Soak Infusion",
+  "pairsWith": [
+    "lavender-soak",
+    "miracle-balm"
+  ],
+  "estimatedBatchDate": "Mid-October 2026"
+}

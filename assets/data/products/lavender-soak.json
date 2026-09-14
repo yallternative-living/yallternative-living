@@ -1,0 +1,67 @@
+{
+  "id": "lavender-soak",
+  "name": "Lavender Epsom Salt Soak",
+  "category": "soaks",
+  "price": 10,
+  "image": "assets/img/lavender-soak.jpg",
+  "images": [
+    "assets/img/lavender-soak-alt1.jpg",
+    "assets/img/lavender-soak-alt2.jpg"
+  ],
+  "blurb": "Relaxation with a side of rebellion: lavender, black pepper, and rosemary dissolved into a 10 oz bag of Epsom salt and baking soda. Run the bath, toss in a scoop, take up all the space you want.",
+  "etsyUrl": "https://www.etsy.com/listing/4345557444/lavender-epsom-salt-soak-muscle-relief",
+  "ingredients": [
+    "Epsom Salt",
+    "Baking Soda",
+    "Cornstarch",
+    "Essential Oils (Lavender, Black Pepper, Rosemary)"
+  ],
+  "scent": "Lavender",
+  "variants": {
+    "name": "Size",
+    "options": [
+      {
+        "label": "10 oz",
+        "priceDelta": 0
+      },
+      {
+        "label": "24 oz",
+        "priceDelta": 8
+      }
+    ]
+  },
+  "tags": [
+    "vegan"
+  ],
+  "concerns": [
+    "sleep-relaxation",
+    "sore-muscles"
+  ],
+  "scentProfile": {
+    "top": "Crushed Lavender Blossoms, Bergamot",
+    "heart": "Epsom Mineral Salts, Herbal Floral",
+    "base": "Mountain Honey, Dried Botanicals",
+    "intensity": "Medium",
+    "intensityScore": 3
+  },
+  "usageGuide": {
+    "howToApply": "Pour 1/2 to 1 cup into warm running bathwater. Swirl with hands until mineral salts dissolve completely. Soak for at least 20 minutes.",
+    "storage": "Keep pouch tightly sealed in a dry environment to prevent clumping. Shelf life is 12 months.",
+    "patchTest": "Contains lavender and black pepper essential oils. For sensitive skin, test a dilute pinch in warm water on inner wrist."
+  },
+  "keywords": [
+    "bath soak",
+    "epsom salts",
+    "relaxation",
+    "sleep",
+    "calming bath",
+    "lavender",
+    "mineral soak",
+    "evening unwind"
+  ],
+  "ritualTitle": "The Evening Bath & Unwind Ritual",
+  "pairsWith": [
+    "sleep-salve",
+    "bath-tea"
+  ]
+}

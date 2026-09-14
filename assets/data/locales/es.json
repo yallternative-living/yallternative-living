@@ -837,7 +837,6 @@
     "auto.whenYouClickCheckout.77c899": "Cuando haces clic en Checkout, tu carrito se reserva durante unos 30 minutos mientras pagas. Si el tiempo se agota, la sesión se cierra y cualquier producto con inventario limitado vuelve al estante para la siguiente persona. No pasa nada, solo regresa a la tienda e inténtalo de nuevo.",
     "auto.yesOrdersOfOr.2a65db": "¡Sí! Las órdenes de $40 o más (en productos, antes de impuestos) tienen envío gratis a cualquier parte de EE. UU. Por debajo de eso son $10 fijos, y el medidor en tu carrito te muestra qué tan cerca estás. Todo se aplica automáticamente al pagar. Por ahora solo hacemos envíos a direcciones en EE. UU., y las tarjetas de regalo se envían por correo electrónico, así que nunca necesitan estampilla.",
     "auto.apothecary.3edecd": "Botica",
-    "auto.copyCode.1589b6": "Copiar código",
-    "auto.yourWelcomeCodeIs.34555c": "Tu código de bienvenida está listo:"
+    "auto.copyCode.1589b6": "Copiar código"
   }
 }

@@ -1,0 +1,81 @@
+{
+  "id": "frankincense-salve",
+  "name": "Y'all Heal Now Miracle Frankincense Salve",
+  "description": "",
+  "featured": true,
+  "category": "salves",
+  "price": 20,
+  "originalPrice": null,
+  "image": "assets/img/frankincense-salve.jpg",
+  "images": [
+    "assets/img/frankincense-salve-alt1.jpg",
+    "assets/img/frankincense-salve-alt2.jpg",
+    "assets/img/frankincense-salve-alt3.jpg"
+  ],
+  "blurb": "One little tin, a whole lot of jobs: dry cuticles, cracked heels, windburn, razor bumps. Whatever's rough, this goes on it. Calendula, arnica, and five essential oils in a beeswax-shea base, mixed by hand in a 2 oz tin in Landrum, SC.",
+  "etsyUrl": "https://www.etsy.com/listing/4398130795/yall-heal-now-miracle-frankincense-salve",
+  "rating": {
+    "value": 5,
+    "count": 5
+  },
+  "stock": null,
+  "ingredients": [
+    "Beeswax",
+    "Shea Butter",
+    "Coconut Oil",
+    "Almond Oil",
+    "Arnica",
+    "Calendula",
+    "Vitamin E",
+    "Essential Oils (Lavender, Tea Tree, Frankincense, Rosemary, Chamomile)"
+  ],
+  "ingredientsLabel": "",
+  "ingredientsNote": "Now made with almond oil (a tree nut). Not recommended if you have a nut allergy.",
+  "scent": "Herbal & Woodsy",
+  "variants": {
+    "name": "Size",
+    "options": [
+      {
+        "label": "2 oz",
+        "priceDelta": 0
+      },
+      {
+        "label": "1 oz",
+        "priceDelta": -6
+      }
+    ]
+  },
+  "tags": [
+    "bestseller"
+  ],
+  "concerns": [
+    "dry-skin",
+    "sore-muscles"
+  ],
+  "inStock": true,
+  "scentProfile": {
+    "top": "Lavender, Rosemary",
+    "heart": "Chamomile, Tea Tree",
+    "base": "Frankincense, Earthy Beeswax",
+    "intensity": "Medium",
+    "intensityScore": 3
+  },
+  "usageGuide": {
+    "howToApply": "Warm a pea-sized amount between clean fingertips and gently massage into cuticles, rough heels, elbows, windburned cheeks, or irritated skin as needed.",
+    "storage": "Store in a cool, dry place away from direct sunlight and heat. Shelf life is 6–12 months.",
+    "patchTest": "Contains sweet almond oil (tree nut). Apply a dime-sized amount to the inner forearm and wait 24 hours. Discontinue use if redness or irritation occurs."
+  },
+  "keywords": [
+    "dry skin",
+    "chapped hands",
+    "herbal balm",
+    "cuticles",
+    "frankincense",
+    "rosemary"
+  ],
+  "ritualTitle": "The Heavy Working Hands & Skin Revival",
+  "pairsWith": [
+    "hand-scrub",
+    "miracle-balm"
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "id": "shimmer-oil",
+  "name": "Shimmer Body Oil",
+  "featured": true,
+  "category": "body",
+  "price": 19,
+  "image": "assets/img/shimmer-oil.jpg",
+  "images": [
+    "assets/img/shimmer-oil-alt1.jpg",
+    "assets/img/shimmer-oil-alt2.jpg",
+    "assets/img/shimmer-oil-alt3.jpg"
+  ],
+  "blurb": "Cedarwood, sweet orange, and patchouli under a black-gold shimmer that photographs as good as it feels. That's the Seduction blend, one of three scents this comes in. Lightweight, fast-absorbing, and built for festivals, Pride, and anywhere else you plan on shining harder than everyone around you.",
+  "etsyUrl": "https://www.etsy.com/listing/4502740269/shimmer-body-oil-glitter-body-oil-non",
+  "ingredients": [
+    "Fractionated Coconut Oil",
+    "Sweet Almond Oil",
+    "Squalane",
+    "Mica",
+    "Cosmetic Glitter",
+    "Silica Dimethyl Silylate",
+    "Fragrance",
+    "Essential Oils",
+    "Vitamin E"
+  ],
+  "scent": "Citrus & Bright",
+  "variants": {
+    "name": "Scent",
+    "options": [
+      {
+        "label": "Seduction",
+        "priceDelta": 0
+      },
+      {
+        "label": "Y'all Means All",
+        "priceDelta": 0
+      },
+      {
+        "label": "Coconut Barefoot & Dangerous",
+        "priceDelta": 0
+      }
+    ]
+  },
+  "tags": [
+    "vegan"
+  ],
+  "concerns": [
+    "daily-glow"
+  ],
+  "scentProfile": {
+    "top": "Sweet Orange, Sparkling Citrus",
+    "heart": "Warm Amber, Golden Mica Shimmer",
+    "base": "Earthy Patchouli, Atlas Cedar",
+    "intensity": "Medium",
+    "intensityScore": 3
+  },
+  "usageGuide": {
+    "howToApply": "Shake bottle vigorously before each use. Dispense 3–5 drops into palms and smooth over collarbones, shoulders, arms, and legs for instant hydration and radiant glow.",
+    "storage": "Store upright at room temperature away from direct sunlight. Shelf life is 12 months.",
+    "patchTest": "Contains cosmetic mica and fragrance. Apply 1 drop to inner wrist and wait 24 hours before full body application."
+  },
+  "keywords": [
+    "glow",
+    "shimmer",
+    "glitter",
+    "sparkle",
+    "radiance",
+    "body oil",
+    "bronze",
+    "festival",
+    "summer glow",
+    "highlighter",
+    "golden hour"
+  ],
+  "ritualTitle": "The Golden Hour Radiance Ritual",
+  "pairsWith": [
+    "whipped-body-butter",
+    "sugar-scrub"
+  ]
+}

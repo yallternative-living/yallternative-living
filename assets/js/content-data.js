@@ -160,7 +160,7 @@ window.YL_CONTENT = {
       "sortButton": "Sort",
       "sheetTitle": "Filter & sort",
       "categoryHeading": "Category",
-      "concernHeading": "Concern",
+      "concernHeading": "Vibe",
       "applyButton": "Apply",
       "clearAll": "Clear all",
       "activeFilters": "Active filters",
