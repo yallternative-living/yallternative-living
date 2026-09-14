@@ -31,7 +31,7 @@ Your dashboard is organized into clean, partitioned sections in the left sidebar
 5. **Site Settings** — Update homepage hero copy, About page story, bio photos, logos, social share images, and toggle site features on or off.
 6. **Quiz** — The questions, answer options, and product recommendations behind the Apothecary Recommendation Quiz.
 
-> **💡 The "Hit Save and Done" Rule:** When you click **Save** in `/admin`, the site automatically rebuilds, optimizes your photos, updates search engines, and publishes your changes live to the web within 2 to 3 minutes. You never need to run commands or touch server settings.
+> **💡 The "Hit Save and Done" Rule:** Whenever you edit products, prices, or settings in `/admin`, simply click **Save**. You never have to worry about git branches, pull requests, or finding a "Publish" button. The system automatically batches your consecutive edits together and publishes them live to the web within ~5 minutes of your last save. You never need to run commands or touch server settings.
 
 ---
 

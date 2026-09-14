@@ -1,0 +1,141 @@
+name: CMS Auto-Publisher
+
+# Automatically batches and publishes content changes made in Sveltia CMS (/admin).
+#
+# HOW IT WORKS:
+# 1. When Savanna saves an entry in /admin, Sveltia commits to a branch matching `cms/**`.
+# 2. This workflow starts and waits for a 3-minute quiet window (debounce).
+# 3. If Savanna saves more edits during that window, GitHub cancels the previous run
+#    and restarts the 3-minute timer (via `cancel-in-progress: true`).
+# 4. Once 3 minutes elapse with no further saves, all active `cms/**` branches are
+#    batched together and merged into `main` in a SINGLE push.
+# 5. Full data compilation and static QA gates run before pushing to guarantee zero breakage.
+# 6. Netlify detects the single push to `main` and runs EXACTLY ONE production build.
+# 7. Temporary CMS branches are deleted and PRs closed, marking entries published in Sveltia.
+
+on:
+  push:
+    branches:
+      - 'cms/**'
+  workflow_dispatch:
+    inputs:
+      immediate:
+        description: "Skip 3-minute debounce window and publish immediately"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: cms-auto-publisher
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  batch-and-publish:
+    name: Batch & Publish CMS Edits
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PUPPETEER_SKIP_DOWNLOAD: "true"
+      PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: "true"
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Debounce Window (Batching Consecutive Saves)
+        if: ${{ !inputs.immediate }}
+        run: |
+          echo "CMS edit detected from Sveltia (/admin)."
+          echo "Waiting 180 seconds (3 minutes) to batch consecutive saves into a single production build..."
+          sleep 180
+          echo "Quiet window elapsed. Proceeding to batch and publish."
+
+      - name: Check Out Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set Up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install Dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Batch Merge CMS Branches
+        id: merge-cms
+        run: |
+          git config user.name "Y'allternative CMS Publisher"
+          git config user.email "bot@yallternativeliving.com"
+
+          git fetch origin --prune
+
+          # Find all remote branches matching origin/cms/*
+          CMS_BRANCHES=$(git for-each-ref --format='%(refname:short)' refs/remotes/origin/cms/ || true)
+
+          if [ -z "$CMS_BRANCHES" ]; then
+            echo "No CMS branches pending publication."
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Found pending CMS branches:"
+          echo "$CMS_BRANCHES"
+          echo "has_changes=true" >> $GITHUB_OUTPUT
+
+          for branch in $CMS_BRANCHES; do
+            branch_clean=$(echo "$branch" | tr -d '\r\n ')
+            [ -z "$branch_clean" ] && continue
+            echo "Merging $branch_clean into main..."
+            git merge --no-ff "$branch_clean" -m "content(cms): batch merge $branch_clean into main"
+          done
+
+      - name: Compile Data & Run Sanity Gates
+        if: steps.merge-cms.outputs.has_changes == 'true'
+        run: |
+          echo "Rebuilding site data and product pages..."
+          node scripts/build-site-data.js
+
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Adding regenerated data files to commit..."
+            git add -A
+            git commit -m "build(data): compile catalog, pages, and sitemap from batched CMS edits"
+          fi
+
+          echo "Running fast smoke gate..."
+          node scripts/smoke-test.js
+
+          echo "Running static QA assertion gate..."
+          node scripts/qa-check.js
+
+      - name: Push to Main & Clean Up CMS Branches
+        if: steps.merge-cms.outputs.has_changes == 'true'
+        run: |
+          echo "Pushing batched publication to origin/main..."
+          git push origin main
+
+          echo "Cleaning up merged CMS remote branches..."
+          CMS_BRANCHES=$(git for-each-ref --format='%(refname:short)' refs/remotes/origin/cms/ || true)
+          for branch in $CMS_BRANCHES; do
+            branch_clean=$(echo "$branch" | tr -d '\r\n ')
+            [ -z "$branch_clean" ] && continue
+            remote_name="${branch_clean#origin/}"
+            echo "Deleting remote branch: $remote_name"
+            git push origin --delete "$remote_name" || true
+          done
+
+          echo "Closing open CMS pull requests..."
+          OPEN_PRS=$(gh pr list --base main --state open --json number,headRefName -q '.[] | select(.headRefName | startswith("cms/")) | .number' || true)
+          for pr in $OPEN_PRS; do
+            [ -z "$pr" ] && continue
+            echo "Closing PR #$pr..."
+            gh pr close "$pr" --comment "Automatically batched and published to main by CMS Auto-Publisher." || true
+          done
+
+          echo "Publication complete. Netlify will now build once for this entire editing session."
