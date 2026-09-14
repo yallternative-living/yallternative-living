@@ -2133,6 +2133,78 @@ if (!fs.existsSync(configYmlPath)) {
     fail("admin/config.yml", "media_folder/public_folder aren't both /assets/img");
   }
 
+  if (
+    /logo:\s*\n\s*src:\s*\/assets\/img\/logo\.png\b/.test(configYml) &&
+    /show_in_header:\s*true\b/.test(configYml)
+  ) {
+    ok("CMS config declares structured logo with show_in_header: true");
+  } else {
+    fail("admin/config.yml", "missing structured logo object or show_in_header: true");
+  }
+
+  if (/logout_redirect_url:\s*https:\/\/yallternativeliving\.com\b/.test(configYml)) {
+    ok("CMS config declares logout_redirect_url to public homepage");
+  } else {
+    fail("admin/config.yml", "missing logout_redirect_url to https://yallternativeliving.com");
+  }
+
+  if (
+    /name:\s*products\b[\s\S]*?preview_path:\s*["']?products\/\{\{fields\.id\}\}\.html["']?/.test(
+      configYml
+    )
+  ) {
+    ok("CMS products collection declares live preview_path");
+  } else {
+    fail("admin/config.yml", "products collection missing preview_path");
+  }
+
+  if (
+    /name:\s*products\b[\s\S]*?search_fields:\s*\[[\s\S]*?name[\s\S]*?blurb[\s\S]*?category[\s\S]*?id[\s\S]*?\]/.test(
+      configYml
+    )
+  ) {
+    ok("CMS products collection declares search_fields covering name, blurb, category, and id");
+  } else {
+    fail("admin/config.yml", "products collection missing search_fields");
+  }
+
+  if (
+    /name:\s*products\b[\s\S]*?view_filters:\s*[\r\n]+[\s\S]*?In Stock[\s\S]*?Out of Stock[\s\S]*?Coming Soon[\s\S]*?Salves & Balms[\s\S]*?Bath Soaks/.test(
+      configYml
+    )
+  ) {
+    ok("CMS products collection declares view_filters for stock status and product categories");
+  } else {
+    fail("admin/config.yml", "products collection missing view_filters");
+  }
+
+  if (
+    /name:\s*products\b[\s\S]*?view_groups:\s*[\r\n]+\s*-\s*label:\s*["']?Category["']?[\s\S]*?field:\s*category\b/.test(
+      configYml
+    )
+  ) {
+    ok("CMS products collection declares category view_groups");
+  } else {
+    fail("admin/config.yml", "products collection missing view_groups");
+  }
+
+  if (
+    /name:\s*journal\b[\s\S]*?preview_path:\s*["']?journal\/\{\{slug\}\}\.html["']?/.test(configYml)
+  ) {
+    ok("CMS journal collection declares live preview_path");
+  } else {
+    fail("admin/config.yml", "journal collection missing preview_path");
+  }
+
+  if (
+    /name:\s*storeConfig\b[\s\S]*?divider:\s*true\b/.test(configYml) &&
+    /name:\s*content\b[\s\S]*?divider:\s*true\b/.test(configYml)
+  ) {
+    ok("CMS sidebar sections declare divider: true partitions");
+  } else {
+    fail("admin/config.yml", "sidebar sections missing divider: true partitions");
+  }
+
   // Every real top-level key in each CMS-editable JSON file needs a
   // corresponding field defined in config.yml, or the CMS would silently
   // drop/hide that data the next time someone saves through the editor.

@@ -83,13 +83,23 @@ backend:
   # base_url = the "Sign in with GitHub" login service for /admin.
   # Deployed on Cloudflare Workers (cms-auth/ directory).
   base_url: https://yallternative-cms-auth.y-allternative-living.workers.dev
+  auth_endpoint: auth
+  commit_messages:
+    create: 'content({{collection}}): create {{slug}}'
+    update: 'content({{collection}}): update {{slug}}'
+    delete: 'content({{collection}}): delete {{slug}}'
+    uploadMedia: 'media: upload {{path}}'
+    deleteMedia: 'media: delete {{path}}'
 
 site_url: https://yallternativeliving.com
+display_url: https://yallternativeliving.com
+logout_redirect_url: https://yallternativeliving.com
 
 # Shown on the login screen and in the browser tab, instead of "Sveltia CMS".
 app_title: "Y'allternative Living"
-display_url: https://yallternativeliving.com
-logo_url: /assets/img/logo.png
+logo:
+  src: /assets/img/logo.png
+  show_in_header: true
 
 # media_folder = where uploads are stored in the repo; public_folder = the path
 # written into products.json for each uploaded image. Both are /assets/img.
@@ -128,6 +138,9 @@ media_libraries:
       slugify_filename: true
       max_file_size: 26214400 # 25 MB (25 * 1024 * 1024)
 
+output:
+  omit_empty_optional_fields: true
+
 collections:
   - name: products
     label: "Products"
@@ -142,11 +155,32 @@ collections:
     slug: "{{id}}"
     identifier_field: name
     summary: "{{name}} — ${{price}} ({{category}})"
+    preview_path: "products/{{fields.id}}.html"
+    search_fields: [name, blurb, category, id]
     sortable_fields:
       fields: [name, price, category]
       default:
         field: name
         direction: ascending
+    view_filters:
+      - label: "In Stock"
+        field: inStock
+        pattern: true
+      - label: "Out of Stock"
+        field: inStock
+        pattern: false
+      - label: "Coming Soon"
+        field: comingSoon
+        pattern: true
+      - label: "Salves & Balms"
+        field: category
+        pattern: salves
+      - label: "Bath Soaks"
+        field: category
+        pattern: soaks
+    view_groups:
+      - label: "Category"
+        field: category
     fields:
       - name: name
         label: "Product name"
@@ -516,6 +550,7 @@ collections:
     slug: "{{slug}}"
     identifier_field: title
     summary: "{{title}} ({{date}})"
+    preview_path: "journal/{{slug}}.html"
     sortable_fields:
       fields: [date, title]
       default:
@@ -571,6 +606,7 @@ collections:
 singletons:
   - name: storeConfig
     label: "Shop & Catalog Settings"
+    divider: true
     preview_path: "shop.html"
     icon: storefront
     file: assets/data/catalog-config.json
@@ -1221,6 +1257,7 @@ singletons:
 
   - name: content
     label: "Site Settings"
+    divider: true
     # Adds a "View on Live Site" button to this section's editor.
     preview_path: "index.html"
     icon: tune
