@@ -404,7 +404,9 @@
               "summary",
               null,
               (typeof data.ingredientsLabel === "string" && data.ingredientsLabel.trim()) ||
-                "Ingredients"
+              (data.category === "apparel" || data.category === "potions"
+                ? "Materials"
+                : "Ingredients")
             ),
             h("ul", null, ingredientItems)
           );

@@ -4186,7 +4186,9 @@
        the flag is absent, matching the CMS default. */
     var site = (window.YL_CONTENT && window.YL_CONTENT.site) || {};
     if (site.enableIngredientsModal === false) return "";
-    var label = p.ingredientsLabel || "Ingredients";
+    var label =
+      (p.ingredientsLabel && p.ingredientsLabel.trim()) ||
+      (p.category === "apparel" || p.category === "potions" ? "Materials" : "Ingredients");
     var items = p.ingredients
       .map(function (i) {
         return "<li>" + attrEsc(i) + "</li>";
@@ -8425,9 +8427,6 @@
             "  </div>" +
             '  <div class="ugc-card-body">' +
             '    <div class="ugc-author-row">' +
-            '      <span class="ugc-author-name">' +
-            attrEsc(post.author || "Community Member") +
-            "</span>" +
             '      <span class="ugc-author-handle">' +
             attrEsc(post.handle || "@yallternativeliving") +
             "</span>" +
@@ -8485,7 +8484,11 @@
                   (cap
                     ? "Y'allternative Living post: " + cap.slice(0, 80)
                     : "Y'allternative Living Instagram post"),
-                author: "Savanna",
+                author:
+                  p.author ||
+                  (p.username && p.username !== defaultUsername
+                    ? p.username
+                    : "Y'allternative Living"),
                 handle: handle,
                 url: p.permalink || (p.id ? "https://www.instagram.com/p/" + p.id : ""),
                 isReel: isReel,

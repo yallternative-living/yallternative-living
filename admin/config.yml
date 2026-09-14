@@ -392,15 +392,6 @@ collections:
         label: "Ingredients / materials"
         widget: list
         required: false
-        hint: >-
-          Copy these from this product's own Etsy listing description,
-          not Etsy's generic 'Materials' tag (often the same boilerplate
-          across unrelated items).
-      - name: ingredientsLabel
-        label: "Ingredients heading"
-        widget: string
-        required: false
-        hint: "Defaults to 'Ingredients'. Use 'Materials' for non-body-care items like the keychain."
       - name: ingredientsNote
         label: "Ingredients note"
         widget: string

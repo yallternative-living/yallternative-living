@@ -1,6 +1,6 @@
-/* eslint-env browser */
+/* eslint-env browser, node */
 /**
- * @fileoverview Friendlier section names inside Sveltia CMS.
+ * @fileoverview Friendlier section names and UI labels inside Sveltia CMS.
  *
  * Every section except the Journal is a Sveltia "singleton" (see the note at
  * the top of config.yml). Sveltia has no config option for how it names that
@@ -47,6 +47,81 @@
      switch back on brings the entry back on the next load. `null` until the
      file has been read, which leaves the entry visible. */
   var journalEnabled = null;
+
+  function replaceJargonInText(rawText) {
+    if (!rawText || typeof rawText !== "string") return rawText;
+    var clean = rawText.replace(ISOLATE, "").trim();
+    if (!clean) return rawText;
+
+    if (clean === "Edit Slug") {
+      return rawText.replace("Edit Slug", "Edit Web Address");
+    }
+    if (clean === "Edit slug") {
+      return rawText.replace("Edit slug", "Edit web address");
+    }
+    if (clean === "Slug") {
+      return rawText.replace("Slug", "Web Address");
+    }
+    if (clean === "The slug cannot be empty.") {
+      return rawText.replace("The slug cannot be empty.", "The web address cannot be empty.");
+    }
+    if (
+      clean === "The slug cannot contain special characters, including slashes and spaces."
+    ) {
+      return rawText.replace(
+        "The slug cannot contain special characters, including slashes and spaces.",
+        "The web address cannot contain special characters, including slashes and spaces."
+      );
+    }
+    if (clean === "This slug is used for another entry.") {
+      return rawText.replace(
+        "This slug is used for another entry.",
+        "This web address is already used for another entry."
+      );
+    }
+    if (clean === "Revert All Changes") {
+      return rawText.replace("Revert All Changes", "Discard All Changes");
+    }
+    if (clean === "Revert Changes") {
+      return rawText.replace("Revert Changes", "Discard Changes");
+    }
+    if (clean === "View in Repository") {
+      return rawText.replace("View in Repository", "View on GitHub");
+    }
+    if (clean === "Show Second Pane") {
+      return rawText.replace("Show Second Pane", "Show Side-by-Side Preview");
+    }
+    if (clean === "Swap Panes") {
+      return rawText.replace("Swap Panes", "Swap Preview Sides");
+    }
+    return rawText;
+  }
+
+  function renameJargon() {
+    if (typeof document === "undefined") return;
+    var targets = document.querySelectorAll(
+      'button, [role="menuitem"], [role="button"], dialog, label, header, h2, h3, [id$="-error"], [role="alert"], span.label, span.truncated-text'
+    );
+    for (var i = 0; i < targets.length; i++) {
+      var el = targets[i];
+      for (var n = el.firstChild; n; n = n.nextSibling) {
+        if (n.nodeType === 3 && n.textContent) {
+          var updated = replaceJargonInText(n.textContent);
+          if (updated !== n.textContent) n.textContent = updated;
+        }
+      }
+      var aria = el.getAttribute("aria-label");
+      if (aria) {
+        var updatedAria = replaceJargonInText(aria);
+        if (updatedAria !== aria) el.setAttribute("aria-label", updatedAria);
+      }
+      var title = el.getAttribute("title");
+      if (title) {
+        var updatedTitle = replaceJargonInText(title);
+        if (updatedTitle !== title) el.setAttribute("title", updatedTitle);
+      }
+    }
+  }
 
   /* Top-level section labels (2-space "- name:" items under singletons: /
      collections:). Deeper fields are indented further, so they never match. */
@@ -109,6 +184,8 @@
 
   function rename() {
     hideJournalWhenOff();
+    renameJargon();
+    if (typeof document === "undefined") return;
     var spans = document.querySelectorAll("span.truncated-text");
     for (var i = 0; i < spans.length; i++) {
       var span = spans[i];
@@ -157,13 +234,23 @@
     });
   }
 
-  Promise.all([loadLabels(), loadJournalSwitch()]).then(function () {
-    rename();
-    new MutationObserver(schedule).observe(document.body, {
-      childList: true,
-      subtree: true,
-      characterData: true
+  if (typeof document !== "undefined") {
+    Promise.all([loadLabels(), loadJournalSwitch()]).then(function () {
+      rename();
+      new MutationObserver(schedule).observe(document.body, {
+        childList: true,
+        subtree: true,
+        characterData: true
+      });
+      window.addEventListener("hashchange", schedule);
     });
-    window.addEventListener("hashchange", schedule);
-  });
+  }
+
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = {
+      replaceJargonInText: replaceJargonInText,
+      renameJargon: renameJargon,
+      GROUP_LABEL: GROUP_LABEL
+    };
+  }
 })();

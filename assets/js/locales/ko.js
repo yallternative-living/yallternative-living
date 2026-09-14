@@ -60,7 +60,7 @@
     "home.meetTheMaker": "제작자 만나보기 →",
     "home.whatYallAreSaying": "여러분이 들려주신 이야기",
     "home.communityTitle": "고객 커뮤니티",
-    "home.communityText": "진짜 사람들의 진짜 사진, 그리고 직접 손으로 만든 셀프케어. 인스타그램이나 TikTok에서 @yallternativeliving 을 태그하고 피드에 소개되어 보세요!",
+    "home.communityText": "제작 비하인드, 신선한 배치, 마켓 업데이트.",
     "home.followHandle": "@yallternativeliving 팔로우하기",
     "home.popUpInTheWild": "저희는 Pop Up In The Wild 로 찾아가요",
     "home.followAlong": "팔로우하고 함께해요",

@@ -124,8 +124,8 @@ window.YL_CONTENT = {
     },
     "community": {
       "eyebrow": "Customer Community",
-      "title": "Spotted In The Wild",
-      "text": "Real folks, real photos, and handmade self-care. Tag @yallternativeliving on Instagram or TikTok to be featured!"
+      "title": "Y'allternative Living On Social",
+      "text": "Behind the scenes, fresh batches, and market updates."
     },
     "findUs": {
       "eyebrow": "Find Us In Person",

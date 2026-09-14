@@ -84,9 +84,6 @@
       '  </div>' +
       '  <div class="ugc-card-body">' +
       '    <div class="ugc-author-row">' +
-      '      <span class="ugc-author-name">' +
-      attrEsc(post.author || 'Community Member') +
-      '</span>' +
       '      <span class="ugc-author-handle">' +
       attrEsc(post.handle || '@yallternativeliving') +
       '</span>' +

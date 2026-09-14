@@ -60,7 +60,7 @@
     "home.meetTheMaker": "Gặp Người Làm →",
     "home.whatYallAreSaying": "Bà Con Nói Gì",
     "home.communityTitle": "Cộng Đồng Khách Hàng",
-    "home.communityText": "Người thật, hình thật, và đồ tự chăm sóc làm bằng tay. Gắn thẻ @yallternativeliving trên Instagram hoặc TikTok để được lên sóng nha!",
+    "home.communityText": "Hậu trường, các mẻ làm mới và thông tin chợ phiên.",
     "home.followHandle": "Theo dõi @yallternativeliving",
     "home.popUpInTheWild": "Tụi này Pop Up In The Wild",
     "home.followAlong": "Theo Chân Tụi Này",

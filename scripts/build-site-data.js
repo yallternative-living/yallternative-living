@@ -306,6 +306,14 @@ function formatMoney(n) {
   return cents % 100 === 0 ? "$" + cents / 100 : "$" + (cents / 100).toFixed(2);
 }
 
+function resolveIngredientsLabel(p) {
+  if (p && typeof p.ingredientsLabel === "string" && p.ingredientsLabel.trim()) {
+    return p.ingredientsLabel.trim();
+  }
+  const cat = (p && p.category) || "";
+  return cat === "apparel" || cat === "potions" ? "Materials" : "Ingredients";
+}
+
 /* ---------- JSON embedded in HTML ----------
    The contents of a <script> element are RAW TEXT: the HTML parser never
    decodes entities inside them, but it DOES end the element at the first
@@ -2656,7 +2664,7 @@ function buildSiteData() {
       featured: !!p.featured,
       blurb: p.blurb || p.description || "",
       ingredients: Array.isArray(p.ingredients) ? p.ingredients : [],
-      ingredientsLabel: p.ingredientsLabel || "Ingredients",
+      ingredientsLabel: resolveIngredientsLabel(p),
       scent: p.scent || "",
       tags: Array.isArray(p.tags) ? p.tags : [],
       concerns: Array.isArray(p.concerns) ? p.concerns : [],
@@ -7325,7 +7333,7 @@ function renderPdpSafetyHtml(p, safetyOverrides) {
   const isTopical =
     /salve|balm|butter|scrub|oil|soak|tea|spray|salt/i.test(nameAndCat) &&
     !/keychain|talisman|apparel|shirt|tank|gift/i.test(nameAndCat) &&
-    p.ingredientsLabel !== "Materials";
+    resolveIngredientsLabel(p) !== "Materials";
   if (!isTopical) return "";
   // "No essential oils" must not trip the essential-oil caution: test the
   // ingredient list only, and let an explicit "free" statement win.
@@ -7762,7 +7770,7 @@ function renderProductPdpHtml(
 
   let ingredientsHtml = "";
   if (Array.isArray(product.ingredients) && product.ingredients.length) {
-    const ingLabel = escapeHtml(product.ingredientsLabel || "Ingredients");
+    const ingLabel = escapeHtml(resolveIngredientsLabel(product));
     ingredientsHtml =
       '      <div class="pdp-ingredients-block">\n' +
       '        <h2 class="pdp-section-title">' +
@@ -8715,6 +8723,7 @@ if (typeof module !== "undefined" && module.exports) {
     generateGoogleMapsDirUrl: generateGoogleMapsDirUrl,
     generateAppleMapsDirUrl: generateAppleMapsDirUrl,
     loadCatalog: loadCatalog,
+    resolveIngredientsLabel: resolveIngredientsLabel,
     buildSiteData: buildSiteData
   };
 }
