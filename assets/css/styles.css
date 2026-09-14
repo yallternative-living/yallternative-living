@@ -5720,6 +5720,27 @@ dialog.gift-modal[open]::backdrop {
 }
 
 /* ── Apothecary Quiz Section Styles ───────────────────── */
+@keyframes quizStepFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.quiz-step {
+  animation: quizStepFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quiz-step {
+    animation: none;
+  }
+}
+
 .quiz-option-card {
   transition:
     border-color 0.2s,

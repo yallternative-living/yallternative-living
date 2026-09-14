@@ -7657,6 +7657,7 @@
       try {
         var params = new URLSearchParams(window.location.search);
         params.delete("filter");
+        params.delete("vibe");
         var setOrDrop = function (key, value, isDefault) {
           if (value && !isDefault) params.set(key, value);
           else params.delete(key);
@@ -7670,11 +7671,14 @@
         var hashIsCategory = categories.some(function (c) {
           return c.id === hash;
         });
+        var hashIsConcern = concerns.some(function (c) {
+          return c.id === hash;
+        });
         var query = params.toString();
         var next =
           window.location.pathname +
           (query ? "?" + query : "") +
-          (hash && !hashIsCategory ? "#" + hash : "");
+          (hash && !hashIsCategory && !hashIsConcern ? "#" + hash : "");
         var current = window.location.pathname + window.location.search + window.location.hash;
         if (next !== current) history.replaceState(history.state, "", next);
       } catch {
@@ -7791,10 +7795,10 @@
       }
     }
 
-    // Deep-linking: URL search params (?concern=... / ?category=...) and hash #apparel
+    // Deep-linking: URL search params (?vibe=... / ?concern=... / ?category=...) and hash #apparel / #sore-muscles
     try {
       var searchParams = new URLSearchParams(window.location.search);
-      var urlConcern = searchParams.get("concern");
+      var urlConcern = searchParams.get("vibe") || searchParams.get("concern");
       if (
         urlConcern &&
         concerns.some(function (c) {
@@ -7850,19 +7854,37 @@
     }
 
     var hash = window.location.hash.replace("#", "");
-    if (
+    var hashIsCategory =
       hash &&
       categories.some(function (c) {
         return c.id === hash;
-      })
-    ) {
+      });
+    var hashIsConcern =
+      hash &&
+      concerns.some(function (c) {
+        return c.id === hash;
+      });
+
+    if (hashIsCategory) {
       state.filter = hash;
       row.querySelectorAll(".filter-pill").forEach(function (b) {
         var isActive = b.getAttribute("data-filter") === hash;
         b.classList.toggle("active", isActive);
         b.setAttribute("aria-pressed", isActive ? "true" : "false");
       });
-      /* No element carries the category id, so the browser cannot scroll to
+    } else if (hashIsConcern) {
+      state.concern = hash;
+      if (concernRow) {
+        concernRow.querySelectorAll(".concern-pill").forEach(function (b) {
+          var isActive = b.getAttribute("data-concern") === hash;
+          b.classList.toggle("active", isActive);
+          b.setAttribute("aria-pressed", isActive ? "true" : "false");
+        });
+      }
+    }
+
+    if (hashIsCategory || hashIsConcern) {
+      /* No element carries the category or vibe id, so the browser cannot scroll to
          it; bring the filtered grid into view ourselves. */
       var catalogAnchor = document.getElementById("shop-catalog") || row;
       window.requestAnimationFrame(function () {
@@ -9511,6 +9533,17 @@
     var results = document.getElementById("quiz-results-container");
     var resetBtn = document.getElementById("start-apothecary-quiz-btn");
 
+    if (results) {
+      results.addEventListener("click", function (e) {
+        if (e.target.closest(".yl-add-item")) {
+          if (modal) {
+            if (typeof modal.close === "function") modal.close();
+            else modal.removeAttribute("open");
+          }
+        }
+      });
+    }
+
     function resetQuiz() {
       var allSteps = quizSection.querySelectorAll(".quiz-step");
       for (var s = 0; s < allSteps.length; s++) {
@@ -9519,6 +9552,14 @@
       if (results) {
         results.style.display = "none";
         results.innerHTML = "";
+      }
+      var firstInput = quizSection.querySelector(".quiz-step input[type='radio']");
+      if (firstInput) {
+        try {
+          firstInput.focus();
+        } catch {
+          /* focus fallback */
+        }
       }
     }
 
@@ -9537,7 +9578,18 @@
           allSteps[i].style.display = "none";
         }
         var nextStepEl = document.getElementById("quiz-step-" + targetStep);
-        if (nextStepEl) nextStepEl.style.display = "block";
+        if (nextStepEl) {
+          nextStepEl.style.display = "block";
+          var targetFocus = nextStepEl.querySelector("h3, legend, input[type='radio']");
+          if (targetFocus) {
+            if (targetFocus.tagName !== "INPUT") targetFocus.setAttribute("tabindex", "-1");
+            try {
+              targetFocus.focus();
+            } catch {
+              /* focus fallback */
+            }
+          }
+        }
         return;
       }
 
@@ -9549,7 +9601,18 @@
           allSteps[j].style.display = "none";
         }
         var prevStepEl = document.getElementById("quiz-step-" + prevStep);
-        if (prevStepEl) prevStepEl.style.display = "block";
+        if (prevStepEl) {
+          prevStepEl.style.display = "block";
+          var prevFocus = prevStepEl.querySelector("h3, legend, input[type='radio']");
+          if (prevFocus) {
+            if (prevFocus.tagName !== "INPUT") prevFocus.setAttribute("tabindex", "-1");
+            try {
+              prevFocus.focus();
+            } catch {
+              /* focus fallback */
+            }
+          }
+        }
         return;
       }
     });
@@ -9844,6 +9907,15 @@
 
         results.style.display = "block";
         wireReveal(results);
+        var resHeading = results.querySelector("h3, .card-cat");
+        if (resHeading) {
+          resHeading.setAttribute("tabindex", "-1");
+          try {
+            resHeading.focus();
+          } catch {
+            /* focus fallback */
+          }
+        }
         /* Fires where the recommendation is actually painted, not where it is
            scored, so an abandoned quiz never counts. The catalogue id of what
            it recommended is the whole point -- it says which answers the quiz

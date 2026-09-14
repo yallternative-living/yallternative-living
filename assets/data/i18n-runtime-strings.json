@@ -978,6 +978,13 @@
       "source": "assets/js/cart.js",
       "verify": ["tpl.promoAmountOff"],
       "note": "the terms line under an applied amount-off code; {amount} is formatted money"
+    },
+    {
+      "key": "auto.moreInfoRsvp.b097db",
+      "text": "More Info / RSVP",
+      "source": "assets/js/main.js",
+      "verify": ["More Info / RSVP"],
+      "note": "upcoming event card RSVP link text rendered by main.js"
     }
   ]
 }
