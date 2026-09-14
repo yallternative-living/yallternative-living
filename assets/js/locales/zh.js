@@ -845,7 +845,9 @@
     "auto.apothecary.3edecd": "草本铺",
     "auto.copyCode.1589b6": "复制代码",
     "auto.materials.2402ea": "材质",
-    "auto.yallternativeLivingOnSocial.e86ad9": "社交媒体上的 Y'allternative Living"
+    "auto.yallternativeLivingOnSocial.e86ad9": "社交媒体上的 Y'allternative Living",
+    "auto.freeDowntownArtsMusic.3f38cd": "市中心免费艺术音乐节——欢迎来找我们的摊位。",
+    "auto.twoDayPunkFlea.cd4ed3": "为期两天的朋克跳蚤市场。"
   }
 };
 

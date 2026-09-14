@@ -845,7 +845,9 @@
     "auto.apothecary.3edecd": "Botica",
     "auto.copyCode.1589b6": "Copiar código",
     "auto.materials.2402ea": "Materiais",
-    "auto.yallternativeLivingOnSocial.e86ad9": "Y'allternative Living nas redes sociais"
+    "auto.yallternativeLivingOnSocial.e86ad9": "Y'allternative Living nas redes sociais",
+    "auto.freeDowntownArtsMusic.3f38cd": "Festival gratuito de arte e música no centro — venha encontrar a nossa mesa.",
+    "auto.twoDayPunkFlea.cd4ed3": "Feira de pulgas punk de dois dias."
   }
 };
 

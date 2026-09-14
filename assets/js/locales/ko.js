@@ -845,7 +845,9 @@
     "auto.apothecary.3edecd": "아포테카리",
     "auto.copyCode.1589b6": "코드 복사",
     "auto.materials.2402ea": "소재",
-    "auto.yallternativeLivingOnSocial.e86ad9": "소셜 미디어 속 Y'allternative Living"
+    "auto.yallternativeLivingOnSocial.e86ad9": "소셜 미디어 속 Y'allternative Living",
+    "auto.freeDowntownArtsMusic.3f38cd": "무료 다운타운 예술 & 음악 페스티벌 — 저희 부스를 찾아와 주세요.",
+    "auto.twoDayPunkFlea.cd4ed3": "이틀 동안 열리는 펑크 플리마켓."
   }
 };
 

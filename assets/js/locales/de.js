@@ -845,7 +845,9 @@
     "auto.apothecary.3edecd": "Apotheke",
     "auto.copyCode.1589b6": "Code kopieren",
     "auto.materials.2402ea": "Materialien",
-    "auto.yallternativeLivingOnSocial.e86ad9": "Y'allternative Living auf Social Media"
+    "auto.yallternativeLivingOnSocial.e86ad9": "Y'allternative Living auf Social Media",
+    "auto.freeDowntownArtsMusic.3f38cd": "Kostenloses Kunst- & Musikfestival in der Innenstadt — komm an unserem Tisch vorbei.",
+    "auto.twoDayPunkFlea.cd4ed3": "Zweitägiger Punk-Flohmarkt."
   }
 };
 

@@ -845,7 +845,9 @@
     "auto.apothecary.3edecd": "Apothecary",
     "auto.copyCode.1589b6": "Copy Code",
     "auto.materials.2402ea": "Materials",
-    "auto.yallternativeLivingOnSocial.e86ad9": "Y'allternative Living On Social"
+    "auto.yallternativeLivingOnSocial.e86ad9": "Y'allternative Living On Social",
+    "auto.freeDowntownArtsMusic.3f38cd": "Free downtown arts & music festival — come find our table.",
+    "auto.twoDayPunkFlea.cd4ed3": "Two-day punk flea market."
   }
 };
 
