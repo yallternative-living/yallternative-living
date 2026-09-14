@@ -195,7 +195,7 @@ function loadJournal(content) {
     );
   });
   return {
-    title: wording.title || "Apothecary Journal",
+    title: wording.title || "Root & Ritual",
     lede: wording.lede || "Stories, science, and small-batch updates straight from the kitchen.",
     /* The static post pages' owner-facing labels (Back link, newer/older
        pager); content.json's `journal` key, edited under "Site Images & Page
@@ -1398,6 +1398,69 @@ function assertBundlePricesSane(bundles, productsMap) {
       );
     }
   });
+}
+
+function formatEventMapDestination(ev) {
+  if (!ev) return "Landrum, SC";
+  if (ev.coordinates) {
+    if (typeof ev.coordinates === "string" && ev.coordinates.trim()) {
+      return ev.coordinates.trim();
+    }
+    if (typeof ev.coordinates === "object" && ev.coordinates !== null) {
+      var lat = ev.coordinates.lat != null ? ev.coordinates.lat : ev.coordinates.latitude;
+      var lng =
+        ev.coordinates.lng != null
+          ? ev.coordinates.lng
+          : ev.coordinates.lon != null
+            ? ev.coordinates.lon
+            : ev.coordinates.longitude;
+      if (lat != null && lng != null) {
+        return lat + "," + lng;
+      }
+    }
+  }
+  if (ev.address) {
+    var addr = String(ev.address).trim();
+    var addrParts = [];
+    if (ev.venue && addr.indexOf(ev.venue) === -1) {
+      addrParts.push(String(ev.venue).trim());
+    }
+    addrParts.push(addr);
+    if (ev.location && addr.indexOf(ev.location) === -1) {
+      addrParts.push(ev.location);
+    }
+    if (
+      ev.zip &&
+      addr.indexOf(ev.zip) === -1 &&
+      (!ev.location || ev.location.indexOf(ev.zip) === -1)
+    ) {
+      addrParts.push(ev.zip);
+    }
+    return addrParts.join(", ");
+  }
+  if (ev.note && ev.zip && ev.note.indexOf(ev.zip) !== -1) {
+    var match = ev.note.match(/^([^.]+?\b\d{5}\b)/);
+    if (match) return match[1].trim();
+  }
+  var parts = [];
+  if (ev.venue) {
+    parts.push(ev.venue);
+  } else if (ev.name) {
+    parts.push(ev.name);
+  }
+  if (ev.location) parts.push(ev.location);
+  if (ev.zip && (!ev.location || ev.location.indexOf(ev.zip) === -1)) parts.push(ev.zip);
+  return parts.length ? parts.join(", ") : "Landrum, SC";
+}
+
+function generateGoogleMapsDirUrl(ev) {
+  var dest = formatEventMapDestination(ev);
+  return "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(dest);
+}
+
+function generateAppleMapsDirUrl(ev) {
+  var dest = formatEventMapDestination(ev);
+  return "https://maps.apple.com/?daddr=" + encodeURIComponent(dest);
 }
 
 function validatePairsWith(products, productsMap) {
@@ -3659,8 +3722,8 @@ function buildSiteData() {
 
    Why a copy and not a require(): main.js is a browser IIFE that needs a full
    DOM mock before Node will even load it (see the top of scripts/main.test.js);
-   pulling that into the build to reach two pure functions would be a far
-   bigger liability than a mirrored pair the test pins together. */
+    pulling that into the build to reach two pure functions would be a far
+    bigger liability than a mirrored pair the test pins together. */
   function getEventStreetAddress(ev) {
     if (!ev || !ev.note || !ev.zip) return "";
     const note = String(ev.note);
@@ -4210,7 +4273,7 @@ function buildSiteData() {
     const html = fs.readFileSync(pagePath, "utf8");
     let updated = html;
 
-    const title = escapeHtml(journal.title || "Apothecary Journal");
+    const title = escapeHtml(journal.title || "Root & Ritual");
     const lede = escapeHtml(
       journal.lede || "Stories, science, and small-batch updates straight from the kitchen."
     );
@@ -4793,7 +4856,9 @@ function buildSiteData() {
     DOMAIN +
     "/events.html): upcoming and past farmers markets, fairs, and Pride pop-ups where the shop appears in person. Only real, confirmed dates are listed -- if it's empty, no dates are confirmed yet.\n" +
     (SITE_CONFIG.enableJournal
-      ? "- [Apothecary Journal](" +
+      ? "- [" +
+        escapeHtml((JOURNAL && JOURNAL.title) || "Root & Ritual") +
+        "](" +
         DOMAIN +
         "/journal.html): stories, herbal science, and small-batch updates straight from the kitchen.\n"
       : "") +
@@ -8185,7 +8250,7 @@ function renderJournalPostHtml(post, journalData, domain, ctx) {
   const manifest = c.manifest || {};
   const dom = (domain || SITE_ORIGIN).replace(/\/+$/, "");
   const wording = journalWording(journalData);
-  const journalTitle = (journalData && journalData.title) || "Apothecary Journal";
+  const journalTitle = (journalData && journalData.title) || "Root & Ritual";
   const rawTitle = String(post.title || "Journal Entry");
   const pTitle = escapeHtml(pdpPageTitle(rawTitle));
   const rawDesc = post.excerpt || post.summary || "";
@@ -8397,7 +8462,7 @@ function generateJournalJsonLd(journalData, domainUrl) {
     "@type": "Blog",
     "@id": pageUrl + "#blog",
     url: pageUrl,
-    name: journalData.title || "Apothecary Journal",
+    name: journalData.title || "Root & Ritual",
     description:
       journalData.lede || "Stories, science, and small-batch updates straight from the kitchen.",
     inLanguage: "en-US",
@@ -8413,6 +8478,7 @@ function generateJournalJsonLd(journalData, domainUrl) {
 function generateRssFeed(journalData, domainUrl, options) {
   const DOMAIN_URL = domainUrl || "https://yallternativeliving.com";
   const opts = options || {};
+  const journalTitle = xmlText((journalData && journalData.title) || "Root & Ritual");
   const allPosts = Array.isArray(journalData)
     ? journalData
     : (journalData && journalData.posts) || [];
@@ -8477,7 +8543,9 @@ function generateRssFeed(journalData, domainUrl, options) {
     '<?xml version="1.0" encoding="UTF-8"?>\n' +
     '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">\n' +
     "  <channel>\n" +
-    "    <title>Apothecary Journal | Y'allternative Living</title>\n" +
+    "    <title>" +
+    journalTitle +
+    " | Y'allternative Living</title>\n" +
     "    <link>" +
     DOMAIN_URL +
     "/journal.html</link>\n" +
@@ -8577,6 +8645,9 @@ if (typeof module !== "undefined" && module.exports) {
     collectBuiltHtml: collectBuiltHtml,
     digestEnglish: digestEnglish,
     gitHistoryIsComplete: gitHistoryIsComplete,
+    formatEventMapDestination: formatEventMapDestination,
+    generateGoogleMapsDirUrl: generateGoogleMapsDirUrl,
+    generateAppleMapsDirUrl: generateAppleMapsDirUrl,
     buildSiteData: buildSiteData
   };
 }

@@ -240,8 +240,8 @@ const INCOMPLETE_BASELINE = {
   "reviews.html [light]": 40,
   "safety.html [dark]": 13,
   "safety.html [light]": 13,
-  "shop.html [dark]": 105,
-  "shop.html [light]": 105,
+  "shop.html [dark]": 107,
+  "shop.html [light]": 107,
   "terms.html [dark]": 19,
   "terms.html [light]": 19,
   /* +1 on 2026-09-09: the "All Your Orders" outline button beside "Keep

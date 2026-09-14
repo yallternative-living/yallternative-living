@@ -356,6 +356,39 @@ eq(
   "formatEventMapDestination combines name, location, and zip when no street address in note"
 );
 
+const eventWithCoords = {
+  name: "Coords Market",
+  coordinates: "35.1764,-82.1884"
+};
+eq(
+  main.formatEventMapDestination(eventWithCoords),
+  "35.1764,-82.1884",
+  "formatEventMapDestination returns string coordinates directly"
+);
+
+const eventWithCoordObj = {
+  name: "Coord Obj Market",
+  coordinates: { lat: 35.1764, lng: -82.1884 }
+};
+eq(
+  main.formatEventMapDestination(eventWithCoordObj),
+  "35.1764,-82.1884",
+  "formatEventMapDestination formats coordinate object"
+);
+
+const eventWithAddressVenue = {
+  name: "Venue Market",
+  venue: "Tryon International",
+  address: "25 International Blvd",
+  location: "Mill Spring, NC",
+  zip: "28756"
+};
+eq(
+  main.formatEventMapDestination(eventWithAddressVenue),
+  "Tryon International, 25 International Blvd, Mill Spring, NC, 28756",
+  "formatEventMapDestination builds destination from venue, address, location, and zip"
+);
+
 /* -------------------------------------------------------------------------- */
 /* 5. Pickup Booth Deep-Linking Parameter Resolution */
 /* -------------------------------------------------------------------------- */
@@ -435,6 +468,18 @@ assert(
 );
 assert(cardHtml.includes("Google Maps"), "Card contains Google Maps directions link");
 assert(cardHtml.includes("Apple Maps"), "Card contains Apple Maps directions link");
+assert(
+  cardHtml.includes(
+    'aria-label="Get directions to ' + main.attrEsc(sampleEvent.name) + ' on Google Maps"'
+  ),
+  "Card contains accessible aria-label on Google Maps link"
+);
+assert(
+  cardHtml.includes(
+    'aria-label="Get directions to ' + main.attrEsc(sampleEvent.name) + ' on Apple Maps"'
+  ),
+  "Card contains accessible aria-label on Apple Maps link"
+);
 assert(
   cardHtml.includes("https://www.google.com/maps/dir/?api=1"),
   "Card contains Google Maps directions URL"

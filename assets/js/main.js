@@ -730,7 +730,17 @@
         .then(function (res) {
           if (!res.ok) throw new Error("Signup rejected: " + res.status);
           var box = form.closest(".footer-signup");
-          if (box) box.classList.add("is-subscribed");
+          if (box) {
+            box.classList.add("is-subscribed");
+            var couponBtn = box.querySelector("#footerCouponCopyBtn");
+            if (couponBtn) {
+              try {
+                couponBtn.focus();
+              } catch (err) {
+                /* Ignore focus errors. */
+              }
+            }
+          }
         })
         .catch(function () {
           /* Deliberately not falling back to form.submit() here. That fired a
@@ -746,6 +756,58 @@
         });
     });
   });
+
+  /* ---------- Footer coupon copy button ---------- */
+  var footerCouponBtn = document.getElementById("footerCouponCopyBtn");
+  if (footerCouponBtn) {
+    var footerCouponCode = document.getElementById("footerCouponCode");
+    var footerCouponStatus = document.getElementById("footerCouponCopyStatus");
+
+    var footerSite = (window.YL_CONTENT && window.YL_CONTENT.site) || {};
+    if (footerSite.welcomeCode && footerSite.welcomeCode !== "YOUR_WELCOME_CODE") {
+      if (footerCouponCode) footerCouponCode.textContent = footerSite.welcomeCode;
+    }
+
+    footerCouponBtn.addEventListener("click", function () {
+      var code = footerCouponCode ? footerCouponCode.textContent.trim() : "YALL10";
+
+      function onCopied() {
+        footerCouponBtn.textContent = "Copied!";
+        if (footerCouponStatus) {
+          footerCouponStatus.textContent = "Discount code " + code + " copied to clipboard";
+        }
+        setTimeout(function () {
+          footerCouponBtn.textContent = "Copy Code";
+          if (footerCouponStatus) {
+            footerCouponStatus.textContent = "";
+          }
+        }, 2500);
+      }
+
+      function fallbackCopy() {
+        try {
+          if (footerCouponCode) {
+            var range = document.createRange();
+            range.selectNodeContents(footerCouponCode);
+            var sel = window.getSelection();
+            if (sel) {
+              sel.removeAllRanges();
+              sel.addRange(range);
+            }
+          }
+        } catch (err) {
+          /* Ignore clipboard selection fallback errors. */
+        }
+        onCopied();
+      }
+
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+        navigator.clipboard.writeText(code).then(onCopied).catch(fallbackCopy);
+      } else {
+        fallbackCopy();
+      }
+    });
+  }
 
   /* ---------- Welcome page: show the subscriber discount code ----------
      welcome.html is where Kit's "after confirming redirect to" sends people
@@ -5850,12 +5912,52 @@
 
   function formatEventMapDestination(ev) {
     if (!ev) return "Landrum, SC";
+    if (ev.coordinates) {
+      if (typeof ev.coordinates === "string" && ev.coordinates.trim()) {
+        return ev.coordinates.trim();
+      }
+      if (typeof ev.coordinates === "object" && ev.coordinates !== null) {
+        var lat = ev.coordinates.lat != null ? ev.coordinates.lat : ev.coordinates.latitude;
+        var lng =
+          ev.coordinates.lng != null
+            ? ev.coordinates.lng
+            : ev.coordinates.lon != null
+              ? ev.coordinates.lon
+              : ev.coordinates.longitude;
+        if (lat != null && lng != null) {
+          return lat + "," + lng;
+        }
+      }
+    }
+    if (ev.address) {
+      var addr = String(ev.address).trim();
+      var addrParts = [];
+      if (ev.venue && addr.indexOf(ev.venue) === -1) {
+        addrParts.push(String(ev.venue).trim());
+      }
+      addrParts.push(addr);
+      if (ev.location && addr.indexOf(ev.location) === -1) {
+        addrParts.push(ev.location);
+      }
+      if (
+        ev.zip &&
+        addr.indexOf(ev.zip) === -1 &&
+        (!ev.location || ev.location.indexOf(ev.zip) === -1)
+      ) {
+        addrParts.push(ev.zip);
+      }
+      return addrParts.join(", ");
+    }
     if (ev.note && ev.zip && ev.note.indexOf(ev.zip) !== -1) {
       var match = ev.note.match(/^([^.]+?\b\d{5}\b)/);
       if (match) return match[1].trim();
     }
     var parts = [];
-    if (ev.name) parts.push(ev.name);
+    if (ev.venue) {
+      parts.push(ev.venue);
+    } else if (ev.name) {
+      parts.push(ev.name);
+    }
     if (ev.location) parts.push(ev.location);
     if (ev.zip && (!ev.location || ev.location.indexOf(ev.zip) === -1)) parts.push(ev.zip);
     return parts.length ? parts.join(", ") : "Landrum, SC";
@@ -6485,9 +6587,13 @@
             ? ""
             : '<span class="event-directions-links"> · <a class="event-map-link" href="' +
               attrEsc(gMapsUrl) +
-              '" target="_blank" rel="noopener noreferrer">Google Maps<span class="sr-only"> directions (opens in new tab)</span></a> · <a class="event-map-link" href="' +
+              '" target="_blank" rel="noopener noreferrer" aria-label="Get directions to ' +
+              attrEsc(ev.name) +
+              ' on Google Maps">Google Maps<span class="sr-only"> directions (opens in new tab)</span></a> · <a class="event-map-link" href="' +
               attrEsc(appleMapsUrl) +
-              '" target="_blank" rel="noopener noreferrer">Apple Maps<span class="sr-only"> directions (opens in new tab)</span></a></span>')
+              '" target="_blank" rel="noopener noreferrer" aria-label="Get directions to ' +
+              attrEsc(ev.name) +
+              ' on Apple Maps">Apple Maps<span class="sr-only"> directions (opens in new tab)</span></a></span>')
         : "") +
       "</p>" +
       (ev.note ? '<p class="event-desc">' + attrEsc(ev.note) + "</p>" : "") +
@@ -8382,7 +8488,7 @@
             '  <div class="ugc-card-body">' +
             '    <div class="ugc-author-row">' +
             '      <span class="ugc-author-name">' +
-            attrEsc(post.author || "Community Member") +
+            attrEsc(post.author || "Savanna") +
             "</span>" +
             '      <span class="ugc-author-handle">' +
             attrEsc(post.handle || "@yallternativeliving") +
@@ -8439,8 +8545,8 @@
                   p.altText ||
                   p.accessibilityCaption ||
                   (cap
-                    ? "Customer community photo: " + cap.slice(0, 80)
-                    : "Y'allternative Living customer post"),
+                    ? "Y'allternative Living post: " + cap.slice(0, 80)
+                    : "Y'allternative Living Instagram post"),
                 author: "Savanna",
                 handle: handle,
                 url: p.permalink || (p.id ? "https://www.instagram.com/p/" + p.id : ""),
@@ -8451,7 +8557,7 @@
             .filter(function (post) {
               return Boolean(post.image);
             });
-          renderCards(normalized);
+          renderCards(normalized.slice(0, 6));
         })
         .catch(function () {
           fallbackToStaticFeed();
@@ -9662,13 +9768,20 @@
     };
   }
 
+  var tokenQueryCache = new Map();
+
   function tokenizeQuery(rawQuery) {
     if (!rawQuery || typeof rawQuery !== "string") return [];
+    var hit = tokenQueryCache.get(rawQuery);
+    if (hit !== undefined) return hit;
     var cleaned = rawQuery
       .toLowerCase()
       .replace(/[^a-z0-9\s]/g, " ")
       .trim();
-    if (!cleaned) return [];
+    if (!cleaned) {
+      if (tokenQueryCache.size < 2000) tokenQueryCache.set(rawQuery, []);
+      return [];
+    }
     var rawTokens = cleaned.split(/\s+/).filter(Boolean);
     var seen = new Set();
     var result = [];
@@ -9677,6 +9790,9 @@
         seen.add(rawTokens[i]);
         result.push(rawTokens[i]);
       }
+    }
+    if (tokenQueryCache.size < 2000) {
+      tokenQueryCache.set(rawQuery, result);
     }
     return result;
   }
@@ -9693,9 +9809,17 @@
      tokenisation here is deliberate and load-bearing for the ingredient and
      intent groups, where "body butter" genuinely has to contribute "body"
      and "butter" for shea-butter to rank first. */
+  var expandCache = new Map();
+
   function expandTokensWithSynonyms(tokens, synonymsMap) {
     if (!tokens || !tokens.length) return [];
     var synMap = synonymsMap || getSearchIndex().synonyms || {};
+    var canCache = !synonymsMap;
+    var cacheKey = canCache ? tokens.join("\0") : null;
+    if (canCache) {
+      var hit = expandCache.get(cacheKey);
+      if (hit !== undefined) return hit;
+    }
     var expanded = new Set();
 
     tokens.forEach(function (token) {
@@ -9745,7 +9869,11 @@
       });
     });
 
-    return Array.from(expanded);
+    var result = Array.from(expanded);
+    if (canCache && expandCache.size < 2000) {
+      expandCache.set(cacheKey, result);
+    }
+    return result;
   }
 
   function scoreTextMatch(targetText, queryTokens, expandedTokens, weights) {
@@ -9796,6 +9924,8 @@
    * @return {{query: string, totalCount: number, products: !Array,
    *           journal: !Array, events: !Array, faq: !Array, medical: ?Object}}
    */
+  var searchResultCache = new Map();
+
   function searchGlobal(rawQuery) {
     function emptyResult(medical) {
       return {
@@ -9809,6 +9939,18 @@
       };
     }
     if (!rawQuery || typeof rawQuery !== "string") return emptyResult(null);
+    if (searchResultCache.has(rawQuery)) {
+      var cached = searchResultCache.get(rawQuery);
+      return {
+        query: cached.query,
+        totalCount: cached.totalCount,
+        products: cached.products.slice(),
+        journal: cached.journal.slice(),
+        events: cached.events.slice(),
+        faq: cached.faq.slice(),
+        medical: cached.medical
+      };
+    }
     var medical = medicalQueryRoute(rawQuery);
     var query = (medical ? medical.strippedQuery : rawQuery).trim();
     if (!query) return emptyResult(medical);
@@ -10029,7 +10171,7 @@
     var totalCount =
       scoredProducts.length + scoredJournal.length + scoredEvents.length + scoredFaq.length;
 
-    return {
+    var result = {
       query: query,
       totalCount: totalCount,
       products: scoredProducts,
@@ -10038,6 +10180,10 @@
       faq: scoredFaq,
       medical: medical
     };
+    if (searchResultCache.size < 500) {
+      searchResultCache.set(rawQuery, result);
+    }
+    return result;
   }
 
   function formatVariantChipLabel(prod, opt) {
@@ -10655,10 +10801,15 @@
       // 2. Journal Section
       if (results.journal.length > 0) {
         html += '<div class="search-results-section" role="rowgroup">';
+        var jTitle =
+          (window.YL_CONTENT && window.YL_CONTENT.journal && window.YL_CONTENT.journal.title) ||
+          "Root & Ritual";
         html +=
           '  <div class="search-section-header" role="row" id="search-section-journal-title">';
         html +=
-          '    <span role="gridcell"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg> Apothecary Journal</span>';
+          '    <span role="gridcell"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg> ' +
+          escapeSearchHtml(jTitle) +
+          "</span>";
         html +=
           '    <span class="search-section-count" role="gridcell">' +
           results.journal.length +
@@ -12550,6 +12701,9 @@
         productMapCache = null;
         searchIndexCache = null;
         recentlyViewedCache = null;
+        if (tokenQueryCache) tokenQueryCache.clear();
+        if (expandCache) expandCache.clear();
+        if (searchResultCache) searchResultCache.clear();
       }
     };
   }

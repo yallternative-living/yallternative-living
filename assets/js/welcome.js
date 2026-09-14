@@ -263,4 +263,47 @@
         "more and we'll make your code."
     );
   }
+
+  var copyBtn = document.getElementById("welcomeCodeCopyBtn");
+  var copyStatus = document.getElementById("welcomeCodeCopyStatus");
+  if (copyBtn) {
+    copyBtn.addEventListener("click", function () {
+      var code = codeEl ? codeEl.textContent.trim() : "";
+      if (!code) return;
+
+      function onCopied() {
+        copyBtn.textContent = "Copied!";
+        if (copyStatus) {
+          copyStatus.textContent = "Discount code " + code + " copied to clipboard";
+        }
+        setTimeout(function () {
+          copyBtn.textContent = "Copy Code";
+          if (copyStatus) {
+            copyStatus.textContent = "";
+          }
+        }, 2500);
+      }
+
+      function fallbackSelect() {
+        try {
+          var range = document.createRange();
+          range.selectNodeContents(codeEl);
+          var sel = window.getSelection();
+          if (sel) {
+            sel.removeAllRanges();
+            sel.addRange(range);
+          }
+        } catch {
+          /* Ignore selection failures. */
+        }
+        onCopied();
+      }
+
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+        navigator.clipboard.writeText(code).then(onCopied).catch(fallbackSelect);
+      } else {
+        fallbackSelect();
+      }
+    });
+  }
 })();

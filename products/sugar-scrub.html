@@ -653,6 +653,14 @@
         <p>Drop your email for a welcome code, plus new batch alerts, market dates, and the occasional bad pun. No spam, unsubscribe whenever.</p>
       </div>
       <p class="footer-signup-confirm"><span class="glyph" aria-hidden="true">&#10003;</span> You're on the list, y'all! Keep an eye on your inbox.</p>
+      <div class="footer-coupon-reveal" id="footerCouponReveal">
+        <p class="footer-coupon-heading">Your welcome code is ready:</p>
+        <div class="footer-coupon-box">
+          <code id="footerCouponCode">YALL10</code>
+          <button type="button" id="footerCouponCopyBtn" class="btn btn-sm btn-outline">Copy Code</button>
+        </div>
+        <span id="footerCouponCopyStatus" role="status" aria-live="polite" class="sr-only"></span>
+      </div>
       <form class="footer-signup-form" action="https://app.kit.com/forms/9867317/subscriptions" method="post" toolname="subscribe-newsletter" tooldescription="Subscribe to the Y'allternative Living newsletter for updates and discounts.">
         <div class="form-hp" aria-hidden="true">
           <label for="footer_website">Leave this field blank</label>

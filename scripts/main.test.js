@@ -2634,6 +2634,69 @@ eq(
   // Reset mock state
   window.YL_CONTENT = { site: { enableSocialFeed: false } };
 
+  /* Customer-Facing Enhancements: R1, R2, R3, R4 Verification */
+  const fsTest = require("fs");
+  const pathTest = require("path");
+  const projectRoot = pathTest.resolve(__dirname, "..");
+
+  const productsData = JSON.parse(
+    fsTest.readFileSync(pathTest.join(projectRoot, "assets/data/products.json"), "utf8")
+  );
+  const autumnBundle = (productsData.bundles || []).find((b) => b.id === "frost-flannel-reset");
+  assert(!!autumnBundle, "Frost & Flannel Reset bundle exists in products.json");
+  eq(autumnBundle.name, "Frost & Flannel Reset", "Bundle name is Frost & Flannel Reset");
+  eq(autumnBundle.price, 43, "Autumn bundle price is $43 (exceeding $40 free shipping)");
+  eq(autumnBundle.discountPercent, 10, "Autumn bundle discountPercent is 10");
+  assert(
+    Array.isArray(autumnBundle.productIds) && autumnBundle.productIds.length === 3,
+    "Autumn bundle combines 3 items"
+  );
+  assert(autumnBundle.blurb && autumnBundle.blurb.length > 50, "Autumn bundle has authentic copy");
+  assert(
+    Array.isArray(autumnBundle.concerns) && autumnBundle.concerns.length >= 3,
+    "Autumn bundle has valid concerns"
+  );
+
+  // R4: Footer instant coupon markup in built pages
+  const indexHtml = fsTest.readFileSync(pathTest.join(projectRoot, "index.html"), "utf8");
+  assert(
+    indexHtml.includes('id="footerCouponCode"'),
+    "index.html footer contains #footerCouponCode"
+  );
+  assert(
+    indexHtml.includes('id="footerCouponCopyBtn"'),
+    "index.html footer contains #footerCouponCopyBtn"
+  );
+  assert(
+    indexHtml.includes('id="footerCouponCopyStatus"'),
+    "index.html footer contains #footerCouponCopyStatus"
+  );
+
+  // R4: Welcome page copy button
+  const welcomeHtml = fsTest.readFileSync(pathTest.join(projectRoot, "welcome.html"), "utf8");
+  assert(
+    welcomeHtml.includes('id="welcomeCodeCopyBtn"'),
+    "welcome.html contains #welcomeCodeCopyBtn"
+  );
+  assert(
+    welcomeHtml.includes('id="welcomeCodeCopyStatus"'),
+    "welcome.html contains #welcomeCodeCopyStatus"
+  );
+
+  // R3: Botanical coming soon image presence
+  const svgComingSoon = fsTest.readFileSync(
+    pathTest.join(projectRoot, "assets/img/placeholder-coming-soon.svg"),
+    "utf8"
+  );
+  assert(
+    !svgComingSoon.includes('<circle cx="34" cy="-30"'),
+    "placeholder-coming-soon.svg no longer contains wireframe camera icon"
+  );
+  assert(
+    svgComingSoon.includes("botanical-bouquet") || svgComingSoon.includes("Lavender"),
+    "placeholder-coming-soon.svg contains botanical artwork"
+  );
+
   console.log(`\nmain.test.js: ${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
 })();

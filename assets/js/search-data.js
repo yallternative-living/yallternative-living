@@ -1444,6 +1444,42 @@ window.YL_SEARCH_INDEX = {
       "variants": null,
       "url": "shop.html#bundle-discovery-flight",
       "shopUrl": "shop.html#bundle-discovery-flight"
+    },
+    {
+      "id": "bundle-frost-flannel-reset",
+      "name": "Frost & Flannel Reset",
+      "category": "gift-sets",
+      "categoryLabel": "Gift Sets & Bundles",
+      "price": 43,
+      "originalPrice": 48,
+      "formattedPrice": "$43",
+      "image": "assets/img/backroad-soak.jpg",
+      "inStock": true,
+      "comingSoon": false,
+      "estimatedBatchDate": null,
+      "featured": false,
+      "blurb": "Built for when the Blue Ridge air turns crisp and your bones start feeling every mile: soak the trail stiffness out with peppermint and black pepper backroad salts, seal windburned cheeks and cracked hands with our miracle frankincense tin, and wrap it all up in thick whipped lavender shea before bed. Autumn recovery in three easy steps.",
+      "ingredients": [],
+      "scent": "",
+      "tags": [
+        "bundle",
+        "gift-set",
+        "bestseller"
+      ],
+      "concerns": [],
+      "keywords": [
+        "bundle",
+        "set",
+        "gift set",
+        "package",
+        "gift",
+        "deal",
+        "discount",
+        "gift box"
+      ],
+      "variants": null,
+      "url": "shop.html#bundle-frost-flannel-reset",
+      "shopUrl": "shop.html#bundle-frost-flannel-reset"
     }
   ],
   "journal": [

@@ -1451,6 +1451,23 @@
         "sleep-relaxation",
         "outdoor-defense"
       ]
+    },
+    {
+      "id": "frost-flannel-reset",
+      "name": "Frost & Flannel Reset",
+      "productIds": [
+        "backroad-soak",
+        "frankincense-salve",
+        "shea-butter"
+      ],
+      "discountPercent": 10,
+      "price": 43,
+      "blurb": "Built for when the Blue Ridge air turns crisp and your bones start feeling every mile: soak the trail stiffness out with peppermint and black pepper backroad salts, seal windburned cheeks and cracked hands with our miracle frankincense tin, and wrap it all up in thick whipped lavender shea before bed. Autumn recovery in three easy steps.",
+      "concerns": [
+        "sore-muscles",
+        "dry-skin",
+        "sleep-relaxation"
+      ]
     }
   ],
   "faq": [
