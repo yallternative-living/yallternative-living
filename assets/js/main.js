@@ -9537,8 +9537,10 @@
       results.addEventListener("click", function (e) {
         if (e.target.closest(".yl-add-item")) {
           if (modal) {
-            if (typeof modal.close === "function") modal.close();
-            else modal.removeAttribute("open");
+            setTimeout(function () {
+              if (typeof modal.close === "function") modal.close();
+              else modal.removeAttribute("open");
+            }, 50);
           }
         }
       });
