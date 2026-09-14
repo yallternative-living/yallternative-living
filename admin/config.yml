@@ -182,6 +182,39 @@ collections:
       - label: "Bath Soaks"
         field: category
         pattern: soaks
+      - label: "Body & Skin"
+        field: category
+        pattern: body
+      - label: "Potions & Spellwork"
+        field: category
+        pattern: potions
+      - label: "Ritual & Home"
+        field: category
+        pattern: ritual
+      - label: "Apparel"
+        field: category
+        pattern: apparel
+      - label: "Gift Cards"
+        field: category
+        pattern: gift-cards
+      - label: "Featured on Homepage"
+        field: featured
+        pattern: true
+      - label: "Bestsellers"
+        field: bestseller
+        pattern: true
+      - label: "Vegan"
+        field: tags
+        pattern: vegan
+      - label: "Sensitive Skin Safe"
+        field: tags
+        pattern: sensitive-safe
+      - label: "Unscented"
+        field: tags
+        pattern: unscented
+      - label: "Essential Oil Free"
+        field: tags
+        pattern: essential-oil-free
     view_groups:
       - label: "Category"
         field: category
@@ -561,6 +594,16 @@ collections:
       default:
         field: date
         direction: descending
+    view_filters:
+      - label: "Apothecary"
+        field: tags
+        pattern: Apothecary
+      - label: "Botanical Care"
+        field: tags
+        pattern: Botanical Care
+      - label: "Self-Care"
+        field: tags
+        pattern: Self-Care
     fields:
       - { name: title, label: "Title", widget: string }
       - {
@@ -1209,7 +1252,7 @@ singletons:
         thumbnail: image
         add_to_top: true
         # Was `description:` on the section, where Sveltia renders it nowhere.
-        comment: "The photo strip on your homepage and shop pages. If you configure an Instagram Feed ID under Site Settings, posts will automatically sync live from your Instagram account; otherwise, this manual list is used. Turn the strip on or off under Site Settings."
+        comment: "The photo strip on your homepage and shop pages. Manage your curated Instagram and TikTok photos, captions, and tagged products here. Turn the strip on or off under Site Settings."
         fields:
           - { name: image, label: "Photo", widget: image, choose_url: false, accept: "image/jpeg,image/png" }
           - { name: caption, label: "Caption", widget: text }
@@ -1442,13 +1485,6 @@ singletons:
               default: false,
               required: false,
               hint: "The Instagram photo strip on the homepage and shop pages."
-            }
-          - {
-              name: instagramFeedId,
-              label: "Instagram Feed ID (Behold.so)",
-              widget: string,
-              required: false,
-              hint: "To display live posts directly from your Instagram, create a free feed at behold.so and paste your Feed ID here (e.g. zFgp2Jbbk23Ovf1ZUOhq). If blank, uses the manual posts in Social Media Feed."
             }
           - {
               name: enableCountdownTicker,

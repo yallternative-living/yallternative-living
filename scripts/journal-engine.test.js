@@ -393,6 +393,12 @@ assert(
   configYml.includes("name: featuredProductId"),
   "admin/config.yml defines featuredProductId relation under journal collection"
 );
+assert(
+  configYml.includes("Apothecary") &&
+    configYml.includes("Botanical Care") &&
+    configYml.includes("Self-Care"),
+  "admin/config.yml defines topic view_filters under journal collection"
+);
 
 const journalHtml = fs.readFileSync(path.join(__dirname, "../journal.html"), "utf8");
 assert(

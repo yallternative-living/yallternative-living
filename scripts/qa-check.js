@@ -2169,13 +2169,25 @@ if (!fs.existsSync(configYmlPath)) {
   }
 
   if (
-    /name:\s*products\b[\s\S]*?view_filters:\s*[\r\n]+[\s\S]*?In Stock[\s\S]*?Out of Stock[\s\S]*?Coming Soon[\s\S]*?Salves & Balms[\s\S]*?Bath Soaks/.test(
+    /name:\s*products\b[\s\S]*?view_filters:\s*[\r\n]+[\s\S]*?In Stock[\s\S]*?Out of Stock[\s\S]*?Coming Soon[\s\S]*?Salves & Balms[\s\S]*?Bath Soaks[\s\S]*?Body & Skin[\s\S]*?Potions & Spellwork[\s\S]*?Ritual & Home[\s\S]*?Apparel[\s\S]*?Gift Cards[\s\S]*?Featured on Homepage[\s\S]*?Bestsellers[\s\S]*?Vegan[\s\S]*?Sensitive Skin Safe/.test(
       configYml
     )
   ) {
-    ok("CMS products collection declares view_filters for stock status and product categories");
+    ok(
+      "CMS products collection declares comprehensive view_filters for stock, catalog categories, merchandising badges, and tags"
+    );
   } else {
-    fail("admin/config.yml", "products collection missing view_filters");
+    fail("admin/config.yml", "products collection missing comprehensive view_filters");
+  }
+
+  if (
+    /name:\s*journal\b[\s\S]*?view_filters:\s*[\r\n]+[\s\S]*?Apothecary[\s\S]*?Botanical Care[\s\S]*?Self-Care/.test(
+      configYml
+    )
+  ) {
+    ok("CMS journal collection declares topic view_filters");
+  } else {
+    fail("admin/config.yml", "journal collection missing topic view_filters");
   }
 
   if (
