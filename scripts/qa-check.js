@@ -2196,13 +2196,26 @@ if (!fs.existsSync(configYmlPath)) {
     fail("admin/config.yml", "journal collection missing preview_path");
   }
 
-  if (
-    /name:\s*storeConfig\b[\s\S]*?divider:\s*true\b/.test(configYml) &&
-    /name:\s*content\b[\s\S]*?divider:\s*true\b/.test(configYml)
-  ) {
-    ok("CMS sidebar sections declare divider: true partitions");
+  var storeConfigSeparated = /divider:\s*true[\s\S]*?name:\s*storeConfig\b/.test(configYml);
+  var contentSeparated = /divider:\s*true[\s\S]*?name:\s*content\b/.test(configYml);
+  var storeConfigBlock = (configYml.match(
+    /-\s*name:\s*storeConfig\b[\s\S]*?(?=\r?\n\s*-\s*name:|\r?\n\s*-\s*divider:|$)/
+  ) || [""])[0];
+  var contentBlock = (configYml.match(
+    /-\s*name:\s*content\b[\s\S]*?(?=\r?\n\s*-\s*name:|\r?\n\s*-\s*divider:|$)/
+  ) || [""])[0];
+  var singletonsPreserved =
+    !/divider:\s*true/.test(storeConfigBlock) && !/divider:\s*true/.test(contentBlock);
+
+  if (storeConfigSeparated && contentSeparated && singletonsPreserved) {
+    ok(
+      "CMS sidebar sections declare standalone divider: true partitions without collapsing singletons"
+    );
   } else {
-    fail("admin/config.yml", "sidebar sections missing divider: true partitions");
+    fail(
+      "admin/config.yml",
+      "sidebar sections missing divider: true partitions or corrupting singletons"
+    );
   }
 
   // Every real top-level key in each CMS-editable JSON file needs a

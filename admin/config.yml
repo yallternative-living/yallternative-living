@@ -604,9 +604,9 @@ collections:
         hint: "e.g. 4 min read. Leave blank and it's worked out from the word count."
 
 singletons:
+  - divider: true
   - name: storeConfig
     label: "Shop & Catalog Settings"
-    divider: true
     preview_path: "shop.html"
     icon: storefront
     file: assets/data/catalog-config.json
@@ -1255,9 +1255,9 @@ singletons:
               hint: "Leave blank — it's made for you."
             }
 
+  - divider: true
   - name: content
     label: "Site Settings"
-    divider: true
     # Adds a "View on Live Site" button to this section's editor.
     preview_path: "index.html"
     icon: tune
