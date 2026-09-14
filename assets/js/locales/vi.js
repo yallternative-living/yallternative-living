@@ -696,8 +696,6 @@
     "auto.contact.8508af": "/ Liên hệ",
     "auto.events.a26238": "/ Sự kiện",
     "auto.journal.2ce617": "/ Nhật ký",
-    "auto.apothecaryJournal.04917a": "Nhật ký tiệm thảo mộc",
-    "auto.apothecaryJournalYallternativeLiving.a3343f": "Nhật ký tiệm thảo mộc | Y'allternative Living",
     "auto.bestseller.df042d": "Bán chạy nhất",
     "auto.contactYallternativeLiving.2072b3": "Liên hệ | Y'allternative Living",
     "auto.festival.9f8f3e": "Lễ hội",

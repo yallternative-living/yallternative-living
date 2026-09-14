@@ -696,8 +696,6 @@
     "auto.contact.8508af": "/ Contacto",
     "auto.events.a26238": "/ Eventos",
     "auto.journal.2ce617": "/ Diario",
-    "auto.apothecaryJournal.04917a": "Diario de botica",
-    "auto.apothecaryJournalYallternativeLiving.a3343f": "Diario de botica | Y'allternative Living",
     "auto.bestseller.df042d": "Más vendido",
     "auto.contactYallternativeLiving.2072b3": "Contacto | Y'allternative Living",
     "auto.festival.9f8f3e": "Festival",

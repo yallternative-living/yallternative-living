@@ -696,8 +696,6 @@
     "auto.contact.8508af": "/ お問い合わせ",
     "auto.events.a26238": "/ イベント",
     "auto.journal.2ce617": "/ ジャーナル",
-    "auto.apothecaryJournal.04917a": "アポセカリージャーナル",
-    "auto.apothecaryJournalYallternativeLiving.a3343f": "アポセカリージャーナル | Y'allternative Living",
     "auto.bestseller.df042d": "ベストセラー",
     "auto.contactYallternativeLiving.2072b3": "お問い合わせ | Y'allternative Living",
     "auto.festival.9f8f3e": "フェスティバル",

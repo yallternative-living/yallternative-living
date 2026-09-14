@@ -696,8 +696,6 @@
     "auto.contact.8508af": "/ Kontakt",
     "auto.events.a26238": "/ Events",
     "auto.journal.2ce617": "/ Journal",
-    "auto.apothecaryJournal.04917a": "Apothecary Journal",
-    "auto.apothecaryJournalYallternativeLiving.a3343f": "Apothecary Journal | Y'allternative Living",
     "auto.bestseller.df042d": "Bestseller",
     "auto.contactYallternativeLiving.2072b3": "Kontakt | Y'allternative Living",
     "auto.festival.9f8f3e": "Festival",
